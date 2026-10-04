@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterList } from './character-list'
@@ -8,12 +9,16 @@ const characters = [
     name: 'Thorin',
     gameUrl: 'https://my-game.forge-vtt.com',
     campaignTitle: 'The Lonely Mountain',
+    campaignId: 'c1',
+    actorId: 'actor-thorin',
   },
   {
     id: 'char-2',
     name: 'Vex',
     gameUrl: 'https://other.forge-vtt.com',
     campaignTitle: '',
+    campaignId: null,
+    actorId: null,
   },
 ]
 

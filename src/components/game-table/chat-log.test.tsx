@@ -61,7 +61,7 @@ describe('components/game-table/chat-log', () => {
             id: 'c',
             side: 'me',
             speaker: 'Thorin',
-            targets: ['Goblin'],
+            targets: [{ name: 'Goblin' }],
           }),
         ]}
       />,
@@ -73,7 +73,9 @@ describe('components/game-table/chat-log', () => {
     expect(ally).not.toHaveClass('flex-row-reverse')
     expect(mine).toHaveAttribute('data-side', 'me')
     expect(mine).toHaveClass('flex-row-reverse')
-    expect(within(mine).getByText('Target: Goblin')).toHaveClass('text-right')
+    expect(within(mine).getByText('Goblin').closest('div')).toHaveClass(
+      'self-end',
+    )
   })
 
   it('marks a whisper', () => {
@@ -123,7 +125,7 @@ describe('components/game-table/chat-log', () => {
             label: 'Longbow · Attack',
             text: undefined,
             rolls: [roll({ advantage: true, critical: true })],
-            targets: ['Goblin'],
+            targets: [{ name: 'Goblin' }],
           }),
         ]}
       />,
@@ -143,7 +145,9 @@ describe('components/game-table/chat-log', () => {
     expect(dice).toEqual(['17', '4 (dropped)'])
     expect(screen.getByText('Total')).toHaveTextContent('Total')
     expect(screen.getByText('24')).toBeInTheDocument()
-    expect(screen.getByText('Target: Goblin')).toBeInTheDocument()
+    expect(screen.getByText('Goblin').closest('p')).toHaveTextContent(
+      'Target: Goblin',
+    )
   })
 
   it('shows a fumble, disadvantage, damage type and several targets', () => {
@@ -163,7 +167,7 @@ describe('components/game-table/chat-log', () => {
                 damageType: 'fire',
               }),
             ],
-            targets: ['Goblin', 'Orc'],
+            targets: [{ name: 'Goblin' }, { name: 'Orc' }],
           }),
         ]}
       />,
@@ -178,7 +182,112 @@ describe('components/game-table/chat-log', () => {
     expect(screen.getByText('fire damage')).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Dice' })).toBeNull()
     expect(screen.getByText('–')).toBeInTheDocument()
-    expect(screen.getByText('Targets: Goblin, Orc')).toBeInTheDocument()
+    expect(screen.getByText('Goblin').closest('p')).toHaveTextContent(
+      'Targets: Goblin,Orc',
+    )
+  })
+
+  it.each([
+    ['attack', 'Attack', 'border-l-attack'],
+    ['spell-attack', 'Spell attack', 'border-l-spell'],
+    ['damage', 'Damage', 'border-l-damage'],
+    ['healing', 'Healing', 'border-l-primary'],
+  ] as const)('marks %s rolls', (action, chip, accent) => {
+    render(
+      <ChatLog
+        messages={[
+          message({
+            kind: 'roll',
+            label: 'Orcrist',
+            action,
+            text: undefined,
+            rolls: [roll()],
+          }),
+        ]}
+      />,
+    )
+
+    expect(screen.getByText(chip)).toBeInTheDocument()
+    expect(screen.getByText('Orcrist')).toBeInTheDocument()
+    expect(screen.getByText('2d20kh + 7').closest('.border-l-4')).toHaveClass(
+      accent,
+    )
+    expect(screen.queryByText('Roll')).toBeNull()
+  })
+
+  it('calls out who an attack was against, and whether it hit when their armor class is known', () => {
+    render(
+      <ChatLog
+        messages={[
+          message({
+            kind: 'roll',
+            action: 'attack',
+            label: undefined,
+            text: undefined,
+            rolls: [roll(), roll({ formula: '1d4' })],
+            targets: [
+              { name: 'Goblin Boss', ac: 15, outcome: 'hit' },
+              { name: 'Goblin', ac: 25, outcome: 'miss' },
+              { name: 'Smaug' },
+            ],
+          }),
+        ]}
+      />,
+    )
+
+    // Each roll is marked, but who it was against is called out once, on the first.
+    expect(screen.getAllByText('Attack')).toHaveLength(2)
+    expect(screen.queryByText('Roll')).toBeNull()
+    expect(screen.getAllByText('Goblin Boss')).toHaveLength(1)
+    expect(screen.getByText('AC 15')).toBeInTheDocument()
+    expect(screen.getByText('Hit')).toHaveClass('text-primary')
+    expect(screen.getByText('Miss')).toBeInTheDocument()
+    expect(screen.getByText('Smaug').parentElement).toHaveTextContent(/^Smaug$/)
+  })
+
+  it("doesn't call healing damage, and names temporary hit points", () => {
+    render(
+      <ChatLog
+        messages={[
+          message({
+            kind: 'roll',
+            action: 'healing',
+            label: 'Cure Wounds',
+            text: undefined,
+            rolls: [
+              roll({ damageType: 'healing' }),
+              roll({ damageType: 'temphp' }),
+            ],
+          }),
+        ]}
+      />,
+    )
+
+    expect(screen.queryByText(/healing damage/i)).toBeNull()
+    expect(screen.getByText('Temporary hit points')).toBeInTheDocument()
+  })
+
+  it('marks a spell cast as a card, with its targets', () => {
+    render(
+      <ChatLog
+        messages={[
+          message({
+            kind: 'card',
+            action: 'spell',
+            label: 'Fireball',
+            text: undefined,
+            targets: [{ name: 'Goblin' }],
+          }),
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('Spell')).toBeInTheDocument()
+    expect(screen.queryByText('Used')).toBeNull()
+    expect(screen.getByText('Fireball').parentElement).toHaveClass(
+      'border-l-spell',
+    )
+    expect(screen.getByText('Goblin')).toBeInTheDocument()
   })
 
   describe('initials', () => {

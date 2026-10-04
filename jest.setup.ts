@@ -9,11 +9,13 @@ export const prismaMock = mockDeep<PrismaClient>()
 // `import prisma from '@/clients/prisma'` is prismaMock
 prismaMock.$extends.mockReturnValue(prismaMock as any)
 
-// jest will replace any import of { PrismaClient } with this mock
+// jest will replace any import of { PrismaClient } with this mock. The Prisma namespace stays
+// real, for its error classes.
 jest.mock('@prisma/client', () => {
   return {
     __esModule: true,
     PrismaClient: jest.fn(() => prismaMock),
+    Prisma: jest.requireActual('@prisma/client').Prisma,
   }
 })
 

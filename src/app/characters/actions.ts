@@ -1,61 +1,75 @@
 'use server'
 
 import { refresh } from 'next/cache'
-import { z } from 'zod'
+import { redirect } from 'next/navigation'
+import { JOIN_PATH } from '@/constants/campaign'
 import {
-  createCharacter,
+  chooseCharacter,
   deleteCharacter,
-  setCampaignTitle,
+  joinCampaign,
+  type ChoiceProblem,
 } from '@/db/characters'
 import { requireUser } from '@/lib/session'
-import { campaignTitleSchema, characterSchema } from '@/schemas/character'
+import { toInviteCode } from '@/schemas/campaign'
 import type {
-  CampaignTitleFormState,
-  CharacterFormState,
-} from '@/types/character'
+  ChooseCharacterFormState,
+  InviteFormState,
+} from '@/types/campaign'
 
-export async function addCharacter(
-  _state: CharacterFormState,
+const PROBLEMS: Record<ChoiceProblem, string> = {
+  'invalid-invite':
+    'This invite link no longer works. Ask your Gamemaster for a new one.',
+  'unknown-character':
+    'That character is no longer in the campaign. Choose another.',
+  taken: 'Another player has just chosen that character. Choose another.',
+}
+
+/** Join the campaign an invite link is for, as the character chosen. */
+export async function joinAsCharacter(
+  inviteCode: string,
+  _state: ChooseCharacterFormState,
   formData: FormData,
-): Promise<CharacterFormState> {
+): Promise<ChooseCharacterFormState> {
+  const user = await requireUser(`${JOIN_PATH}/${inviteCode}`)
+  const actorId = String(formData.get('actorId') ?? '')
+  if (!actorId) return { message: 'Choose a character.' }
+
+  const joined = await joinCampaign(user.id, inviteCode, actorId)
+  if (typeof joined === 'string') return { message: PROBLEMS[joined] }
+  redirect(`/characters/${joined.id}`)
+}
+
+/** Choose which of its campaign's characters one of the player's characters is. */
+export async function chooseActor(
+  characterId: string,
+  _state: ChooseCharacterFormState,
+  formData: FormData,
+): Promise<ChooseCharacterFormState> {
   const user = await requireUser()
-  const values = {
-    name: String(formData.get('name') ?? ''),
-    campaignTitle: String(formData.get('campaignTitle') ?? ''),
-    gameUrl: String(formData.get('gameUrl') ?? ''),
-  }
+  const actorId = String(formData.get('actorId') ?? '')
+  if (!actorId) return { message: 'Choose a character.' }
 
-  const parsed = characterSchema.safeParse(values)
-  if (!parsed.success) {
-    return { values, errors: z.flattenError(parsed.error).fieldErrors }
+  const chosen = await chooseCharacter(user.id, characterId, actorId)
+  if (chosen === 'missing') {
+    return { message: 'This character is no longer in a campaign.' }
   }
-
-  try {
-    await createCharacter(user.id, parsed.data)
-  } catch (error) {
-    console.error('Failed to save a character', error)
-    return { values, message: 'Your character could not be saved. Try again.' }
-  }
-
+  if (chosen !== true) return { message: PROBLEMS[chosen] }
   refresh()
   return {}
 }
 
-/** Give a character made before campaigns the title of its campaign. */
-export async function updateCampaignTitle(
-  characterId: string,
-  _state: CampaignTitleFormState,
+/** Follow an invite link the player pasted. */
+export async function openInvite(
+  _state: InviteFormState,
   formData: FormData,
-): Promise<CampaignTitleFormState> {
-  const user = await requireUser()
-  const value = String(formData.get('campaignTitle') ?? '')
-  const parsed = campaignTitleSchema.safeParse(value)
-  if (!parsed.success) {
-    return { value, error: parsed.error.issues[0].message }
+): Promise<InviteFormState> {
+  await requireUser()
+  const value = String(formData.get('invite') ?? '')
+  const inviteCode = toInviteCode(value)
+  if (!inviteCode) {
+    return { value, error: 'Paste the invite link your Gamemaster shared.' }
   }
-  await setCampaignTitle(user.id, characterId, parsed.data)
-  refresh()
-  return {}
+  redirect(`${JOIN_PATH}/${inviteCode}`)
 }
 
 export async function removeCharacter(characterId: string): Promise<void> {

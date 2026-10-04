@@ -1,17 +1,24 @@
 import { refresh } from 'next/cache'
-import { addCharacter, removeCharacter, updateCampaignTitle } from './actions'
+import { redirect } from 'next/navigation'
 import {
-  createCharacter,
-  deleteCharacter,
-  setCampaignTitle,
-} from '@/db/characters'
+  chooseActor,
+  joinAsCharacter,
+  openInvite,
+  removeCharacter,
+} from './actions'
+import { chooseCharacter, deleteCharacter, joinCampaign } from '@/db/characters'
 import { requireUser } from '@/lib/session'
 
 jest.mock('next/cache', () => ({ refresh: jest.fn() }))
+jest.mock('next/navigation', () => ({
+  redirect: jest.fn(() => {
+    throw new Error('NEXT_REDIRECT')
+  }),
+}))
 jest.mock('@/db/characters', () => ({
-  createCharacter: jest.fn(),
+  chooseCharacter: jest.fn(),
   deleteCharacter: jest.fn(),
-  setCampaignTitle: jest.fn(),
+  joinCampaign: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 
@@ -26,120 +33,107 @@ describe('app/characters/actions', () => {
     jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
   })
 
-  describe('addCharacter', () => {
-    it('saves a valid character for the signed-in user', async () => {
-      const state = await addCharacter(
-        {},
-        formData({
-          name: ' Thorin ',
-          campaignTitle: ' The Lonely Mountain ',
-          gameUrl: 'my-game.forge-vtt.com/game',
-        }),
-      )
-
-      expect(state).toEqual({})
-      expect(createCharacter).toHaveBeenCalledWith('user-1', {
-        name: 'Thorin',
-        campaignTitle: 'The Lonely Mountain',
-        gameUrl: 'https://my-game.forge-vtt.com',
-      })
-      expect(refresh).toHaveBeenCalled()
-    })
-
-    it('returns field errors and the submitted values when invalid', async () => {
-      const state = await addCharacter(
-        {},
-        formData({
-          name: '',
-          campaignTitle: '',
-          gameUrl: 'https://example.com',
-        }),
-      )
-
-      expect(state).toEqual({
-        values: { name: '', campaignTitle: '', gameUrl: 'https://example.com' },
-        errors: {
-          name: ['Give your character a name.'],
-          campaignTitle: ["Enter the campaign's title."],
-          gameUrl: [
-            "Use your game's Forge address, like https://my-game.forge-vtt.com.",
-          ],
-        },
-      })
-      expect(createCharacter).not.toHaveBeenCalled()
-      expect(refresh).not.toHaveBeenCalled()
-    })
-
-    it('treats missing fields as blank', async () => {
-      const state = await addCharacter({}, new FormData())
-
-      expect(state.values).toEqual({ name: '', campaignTitle: '', gameUrl: '' })
-      expect(state.errors?.name).toEqual(['Give your character a name.'])
-    })
-
-    it('reports a failure to save', async () => {
-      const consoleError = jest
-        .spyOn(console, 'error')
-        .mockImplementation(() => {})
-      jest.mocked(createCharacter).mockRejectedValue(new Error('db down'))
-
-      const values = {
-        name: 'Thorin',
-        campaignTitle: 'The Lonely Mountain',
-        gameUrl: 'https://my-game.forge-vtt.com',
-      }
-      const state = await addCharacter({}, formData(values))
-
-      expect(state).toEqual({
-        values,
-        message: 'Your character could not be saved. Try again.',
-      })
-      expect(refresh).not.toHaveBeenCalled()
-      consoleError.mockRestore()
-    })
-
-    it('does nothing for someone not signed in', async () => {
-      jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+  describe('joinAsCharacter', () => {
+    it('makes the chosen character and opens its table', async () => {
+      jest.mocked(joinCampaign).mockResolvedValue({ id: 'char-9' })
 
       await expect(
-        addCharacter({}, formData({ name: 'Thorin', gameUrl: 'x' })),
+        joinAsCharacter('code-1', {}, formData({ actorId: 'actor-vex' })),
       ).rejects.toThrow('NEXT_REDIRECT')
-      expect(createCharacter).not.toHaveBeenCalled()
+      expect(requireUser).toHaveBeenCalledWith('/join/code-1')
+      expect(joinCampaign).toHaveBeenCalledWith('user-1', 'code-1', 'actor-vex')
+      expect(redirect).toHaveBeenCalledWith('/characters/char-9')
+    })
+
+    it.each([
+      [
+        'invalid-invite',
+        'This invite link no longer works. Ask your Gamemaster for a new one.',
+      ],
+      [
+        'unknown-character',
+        'That character is no longer in the campaign. Choose another.',
+      ],
+      [
+        'taken',
+        'Another player has just chosen that character. Choose another.',
+      ],
+    ] as const)('explains a %s choice', async (problem, message) => {
+      jest.mocked(joinCampaign).mockResolvedValue(problem)
+
+      await expect(
+        joinAsCharacter('code-1', {}, formData({ actorId: 'actor-vex' })),
+      ).resolves.toEqual({ message })
+      expect(redirect).not.toHaveBeenCalled()
+    })
+
+    it('asks for a choice', async () => {
+      await expect(
+        joinAsCharacter('code-1', {}, new FormData()),
+      ).resolves.toEqual({ message: 'Choose a character.' })
+      expect(joinCampaign).not.toHaveBeenCalled()
     })
   })
 
-  describe('updateCampaignTitle', () => {
-    it("sets the title of the signed-in user's character", async () => {
-      const state = await updateCampaignTitle(
-        'char-1',
-        {},
-        formData({ campaignTitle: ' The Lonely Mountain ' }),
-      )
+  describe('chooseActor', () => {
+    it("saves which of its campaign's characters it is", async () => {
+      jest.mocked(chooseCharacter).mockResolvedValue(true)
 
-      expect(state).toEqual({})
-      expect(setCampaignTitle).toHaveBeenCalledWith(
+      await expect(
+        chooseActor('char-1', {}, formData({ actorId: 'actor-vex' })),
+      ).resolves.toEqual({})
+      expect(chooseCharacter).toHaveBeenCalledWith(
         'user-1',
         'char-1',
-        'The Lonely Mountain',
+        'actor-vex',
       )
       expect(refresh).toHaveBeenCalled()
     })
 
-    it('returns the problem and the submitted title when invalid', async () => {
-      const state = await updateCampaignTitle('char-1', {}, new FormData())
+    it('says why it could not', async () => {
+      jest.mocked(chooseCharacter).mockResolvedValueOnce('missing')
+      await expect(
+        chooseActor('char-1', {}, formData({ actorId: 'actor-vex' })),
+      ).resolves.toEqual({
+        message: 'This character is no longer in a campaign.',
+      })
 
-      expect(state).toEqual({ value: '', error: "Enter the campaign's title." })
-      expect(setCampaignTitle).not.toHaveBeenCalled()
+      jest.mocked(chooseCharacter).mockResolvedValueOnce('taken')
+      await expect(
+        chooseActor('char-1', {}, formData({ actorId: 'actor-vex' })),
+      ).resolves.toEqual({
+        message:
+          'Another player has just chosen that character. Choose another.',
+      })
+
+      await expect(chooseActor('char-1', {}, new FormData())).resolves.toEqual({
+        message: 'Choose a character.',
+      })
       expect(refresh).not.toHaveBeenCalled()
     })
+  })
 
-    it('does nothing for someone not signed in', async () => {
-      jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
-
+  describe('openInvite', () => {
+    it('follows a pasted invite link', async () => {
       await expect(
-        updateCampaignTitle('char-1', {}, formData({ campaignTitle: 'X' })),
+        openInvite(
+          {},
+          formData({ invite: 'https://stone.example/join/AbCdEfGh_-123456' }),
+        ),
       ).rejects.toThrow('NEXT_REDIRECT')
-      expect(setCampaignTitle).not.toHaveBeenCalled()
+      expect(redirect).toHaveBeenCalledWith('/join/AbCdEfGh_-123456')
+    })
+
+    it('asks again for something that is not an invite link', async () => {
+      await expect(
+        openInvite({}, formData({ invite: 'https://example.com' })),
+      ).resolves.toEqual({
+        value: 'https://example.com',
+        error: 'Paste the invite link your Gamemaster shared.',
+      })
+      await expect(openInvite({}, new FormData())).resolves.toMatchObject({
+        value: '',
+      })
     })
   })
 

@@ -1,88 +1,83 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
-import { getCampaignVersion, getTableView, MESSAGE_LIMIT } from './table'
+import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
 import { chatMessage, combat, roster } from '@/mocks/sending-stone'
 
 const character = {
   id: 'char-1',
   name: 'Thorin Oakenshield',
   gameUrl: 'https://my-game.forge-vtt.com',
-  campaignTitle: ' the lonely mountain ',
+  campaignTitle: 'The Lonely Mountain',
+  campaignId: 'c1',
+  actorId: 'actor-thorin',
 }
+const recently = () => new Date(Date.now() - 30_000)
 const campaign = {
   id: 'c1',
   title: 'The Lonely Mountain',
   version: 7,
   worldTitle: 'Return to Erebor',
-  lastEventAt: new Date('2026-10-04T19:10:00Z'),
+  lastSeenAt: recently(),
   characters: roster,
 }
 
-/** How a character's campaign is looked up: by game and title, ignoring case. */
-const lookup = (select: object) => ({
-  where: {
-    origin: character.gameUrl,
-    title: { equals: 'the lonely mountain', mode: 'insensitive' },
-  },
-  orderBy: { lastEventAt: { sort: 'desc', nulls: 'last' } },
-  select,
-})
-
 describe('db/table', () => {
-  describe('getCampaignVersion', () => {
-    it("reads the version of the character's campaign", async () => {
-      prismaMock.campaign.findFirst.mockResolvedValue({ version: 7 } as any)
+  describe('getCampaignStatus', () => {
+    it("reads the version of the character's campaign and whether it is live", async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        version: 7,
+        lastSeenAt: recently(),
+      } as any)
 
-      await expect(getCampaignVersion(character)).resolves.toBe(7)
-      expect(prismaMock.campaign.findFirst).toHaveBeenCalledWith(
-        lookup({ version: true }),
-      )
-    })
-
-    it('is 0 for a campaign that has been sent nothing', async () => {
-      prismaMock.campaign.findFirst.mockResolvedValue(null)
-
-      await expect(getCampaignVersion(character)).resolves.toBe(0)
-    })
-
-    it('matches the title literally, not as a pattern', async () => {
-      prismaMock.campaign.findFirst.mockResolvedValue(null)
-
-      await getCampaignVersion({
-        ...character,
-        campaignTitle: String.raw`100% \_`,
+      await expect(getCampaignStatus(character)).resolves.toEqual({
+        version: 7,
+        live: true,
       })
-
-      expect(prismaMock.campaign.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            title: { equals: String.raw`100\% \\\_`, mode: 'insensitive' },
-          }),
-        }),
-      )
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        select: { version: true, lastSeenAt: true },
+      })
     })
 
-    it('is 0, without looking, for a character with no campaign title', async () => {
+    it('is offline once the game has been quiet for two minutes', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        version: 7,
+        lastSeenAt: new Date(Date.now() - 121_000),
+      } as any)
+
+      await expect(getCampaignStatus(character)).resolves.toEqual({
+        version: 7,
+        live: false,
+      })
+    })
+
+    it('is version 0, without looking, for a character in no campaign', async () => {
       await expect(
-        getCampaignVersion({ ...character, campaignTitle: '' }),
-      ).resolves.toBe(0)
-      expect(prismaMock.campaign.findFirst).not.toHaveBeenCalled()
+        getCampaignStatus({ ...character, campaignId: null }),
+      ).resolves.toEqual({ version: 0, live: false })
+      expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
+
+      prismaMock.campaign.findUnique.mockResolvedValue(null)
+      await expect(getCampaignStatus(character)).resolves.toEqual({
+        version: 0,
+        live: false,
+      })
     })
   })
 
   describe('getTableView', () => {
-    it('is empty until the campaign has been sent anything', async () => {
-      prismaMock.campaign.findFirst.mockResolvedValue(null)
+    it('is empty for a character in no campaign', async () => {
+      const empty = { version: 0, live: false, connected: false, messages: [] }
+      await expect(
+        getTableView({ ...character, campaignId: null }),
+      ).resolves.toEqual(empty)
 
-      await expect(getTableView(character)).resolves.toEqual({
-        version: 0,
-        connected: false,
-        messages: [],
-      })
+      prismaMock.campaign.findUnique.mockResolvedValue(null)
+      await expect(getTableView(character)).resolves.toEqual(empty)
     })
 
     it('shows the chat the player may read, oldest first, and the encounter', async () => {
-      prismaMock.campaign.findFirst.mockResolvedValue(campaign as any)
+      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
       prismaMock.chatMessage.findMany.mockResolvedValue([
         { data: chatMessage({ id: 'm2', text: 'second' }) },
         { data: chatMessage({ id: 'm1', text: 'first' }) },
@@ -94,16 +89,17 @@ describe('db/table', () => {
 
       const view = await getTableView(character)
 
-      expect(prismaMock.campaign.findFirst).toHaveBeenCalledWith(
-        lookup({
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        select: {
           id: true,
           title: true,
           version: true,
           worldTitle: true,
-          lastEventAt: true,
+          lastSeenAt: true,
           characters: true,
-        }),
-      )
+        },
+      })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
         where: {
           campaignId: 'c1',
@@ -120,10 +116,11 @@ describe('db/table', () => {
       })
       expect(view).toMatchObject({
         version: 7,
+        live: true,
         campaign: {
           title: 'The Lonely Mountain',
           worldTitle: 'Return to Erebor',
-          lastEventAt: '2026-10-04T19:10:00.000Z',
+          lastSeenAt: campaign.lastSeenAt.toISOString(),
         },
         connected: true,
         messages: [{ id: 'm1' }, { id: 'm2' }],
@@ -131,15 +128,57 @@ describe('db/table', () => {
       })
     })
 
-    it("shows only public chat to a character that isn't one of the campaign's", async () => {
-      prismaMock.campaign.findFirst.mockResolvedValue({
+    it('shows damage against the targets of the attack it was rolled from', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+      const dnd5e = {
+        messageType: 'roll',
+        item: { name: 'Orcrist', type: 'weapon' },
+        activity: null,
+        originatingMessage: null,
+      }
+      prismaMock.chatMessage.findMany.mockResolvedValue([
+        {
+          data: chatMessage({
+            id: 'damage',
+            dnd5e: {
+              ...dnd5e,
+              roll: { type: 'damage' },
+              targets: [],
+              originatingMessage: 'attack',
+            },
+          }),
+        },
+        {
+          data: chatMessage({
+            id: 'attack',
+            dnd5e: {
+              ...dnd5e,
+              roll: { type: 'attack' },
+              targets: [{ name: 'Goblin Boss' }],
+            },
+          }),
+        },
+      ] as any)
+      prismaMock.combat.findMany.mockResolvedValue([])
+
+      const view = await getTableView(character)
+
+      expect(view.messages.map(({ targets }) => targets)).toEqual([
+        [{ name: 'Goblin Boss' }],
+        [{ name: 'Goblin Boss' }],
+      ])
+    })
+
+    it("shows only public chat to a character no longer one of the campaign's", async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
         ...campaign,
-        lastEventAt: null,
+        worldTitle: null,
+        lastSeenAt: null,
       } as any)
       prismaMock.chatMessage.findMany.mockResolvedValue([])
       prismaMock.combat.findMany.mockResolvedValue([])
 
-      const view = await getTableView({ ...character, name: 'Bilbo' })
+      const view = await getTableView({ ...character, actorId: null })
 
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -148,15 +187,22 @@ describe('db/table', () => {
       )
       expect(view).toEqual({
         version: 7,
+        live: false,
         campaign: {
           title: 'The Lonely Mountain',
-          worldTitle: 'Return to Erebor',
-          lastEventAt: undefined,
+          worldTitle: undefined,
+          lastSeenAt: undefined,
         },
         connected: false,
         messages: [],
         combat: undefined,
       })
+
+      const removed = await getTableView({
+        ...character,
+        actorId: 'actor-gone',
+      })
+      expect(removed.connected).toBe(false)
     })
   })
 })

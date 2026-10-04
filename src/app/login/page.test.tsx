@@ -12,8 +12,10 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/auth-providers', () => ({ enabledSocialProviders: jest.fn() }))
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/components/sign-in-buttons', () => ({
-  SignInButtons: ({ providers }: { providers: string[] }) => (
-    <p>providers: {providers.join(', ')}</p>
+  SignInButtons: ({ providers, callbackURL, errorCallbackURL }: any) => (
+    <p>
+      providers: {providers.join(', ')}; to {callbackURL}, or {errorCallbackURL}
+    </p>
   ),
 }))
 
@@ -33,7 +35,9 @@ describe('app/login/page', () => {
     render(await LoginPage(props()))
 
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-    expect(screen.getByText('providers: google, discord')).toBeInTheDocument()
+    expect(
+      screen.getByText('providers: google, discord; to /characters, or /login'),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -59,5 +63,32 @@ describe('app/login/page', () => {
 
     await expect(LoginPage(props())).rejects.toThrow('NEXT_REDIRECT')
     expect(redirect).toHaveBeenCalledWith('/characters')
+  })
+
+  it('returns a player to the invite link they followed', async () => {
+    render(await LoginPage(props({ next: '/join/abc' })))
+
+    expect(
+      screen.getByText(
+        'Sign in to join the campaign and choose your character.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'providers: google, discord; to /join/abc, or /login?next=%2Fjoin%2Fabc',
+      ),
+    ).toBeInTheDocument()
+
+    jest.mocked(getCurrentUser).mockResolvedValue({ id: 'user-1' } as any)
+    await expect(LoginPage(props({ next: '/join/abc' }))).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+    expect(redirect).toHaveBeenCalledWith('/join/abc')
+  })
+
+  it('never sends anyone off the site after signing in', async () => {
+    render(await LoginPage(props({ next: '//evil.example' })))
+
+    expect(screen.getByText(/to \/characters, or \/login$/)).toBeInTheDocument()
   })
 })

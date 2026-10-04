@@ -12,8 +12,6 @@ datasource db {
 // Enums
 // -----------------------
 
-
-
 // -----------------------
 // User model
 // -----------------------
@@ -29,6 +27,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
   characters    Character[]
+  // The campaigns this user runs as Gamemaster.
+  campaigns     Campaign[]
 
   @@unique([email])
   @@map("user")
@@ -89,48 +89,70 @@ model Verification {
 // Application models
 // -------------------------
 
-// A character a user plays, and the campaign in a Forge game whose Sending Stone events it follows.
+// A character a user plays: one of a campaign's characters, chosen from its list after following
+// the Gamemaster's invite link.
 model Character {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
+  // The character's name in Foundry when it was chosen.
   name          String
-  // The game's origin, such as https://my-game.forge-vtt.com. The Sending Stone module posts
-  // from the Gamemaster's browser, so this is the Origin its events arrive with.
+  // The game's origin, such as https://my-game.forge-vtt.com, and the campaign's title, when the
+  // character was chosen.
   gameUrl       String
-  // The title the Gamemaster gave the campaign in Sending Stone. Empty only for characters made
-  // before campaigns.
   campaignTitle String
+  // The campaign, and the Foundry actor in it, that this character is. Unset for a character made
+  // before players chose from a campaign's characters, until its player chooses, and for one whose
+  // campaign was removed.
+  campaignId    String?
+  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  actorId       String?
   userId        String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
+  // One player per character.
+  @@unique([campaignId, actorId], name: "campaignActor")
   @@index([userId])
   @@map("character")
 }
 
-// A campaign in a Foundry game: a group of player characters the Gamemaster set up in the Sending
-// Stone module, which sends each event to the campaigns it involves. Keyed by the origin the game
-// is served from, which is the Origin its events arrive with, and the id the module gave it.
+// A campaign in a Foundry game, set up here by its Gamemaster with the secret their Sending Stone
+// module sends. The module's campaign with the same title is bound to it by its first event.
+// Players join it through the Gamemaster's invite link.
 model Campaign {
   id          String        @id @default(cuid())
+  // The origin the game is served from, which its events arrive with.
   origin      String
-  // The module's id for the campaign. Unlike its title, it never changes.
-  foundryId   String
-  // How players find the campaign: a character's campaignTitle matches it.
+  // The module's id for the campaign, which never changes. Unset until its first event.
+  foundryId   String?
+  // The module's campaign with this title is the one bound to it. Renaming it in the module renames
+  // it here.
   title       String
-  worldId     String
-  worldTitle  String
+  worldId     String?
+  worldTitle  String?
+  // The Gamemaster who set the campaign up. Unset only for a campaign from before Gamemasters set
+  // campaigns up here, which accepts no events until one sets it up.
+  ownerId     String?
+  owner       User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  // A hash of the secret the module sends with each event.
+  secretHash  String?
+  // The code in the link the Gamemaster shares to invite players. Resetting it retires the old link.
+  inviteCode  String?       @unique
   // The campaign's characters, from its latest bridge.hello.
   characters  Json          @default("[]")
   // Bumped on every change, so a viewer can tell cheaply whether anything is new.
   version     Int           @default(0)
   lastEventAt DateTime?
+  // When anything, an event or a heartbeat, last arrived: whether the Gamemaster is connected.
+  lastSeenAt  DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   messages    ChatMessage[]
   combats     Combat[]
+  players     Character[]
 
   @@unique([origin, foundryId], name: "originCampaign")
+  @@index([ownerId])
   @@map("campaign")
 }
 

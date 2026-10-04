@@ -11,7 +11,8 @@ export const POLL_INTERVAL = 3000
 const MAX_DELAY = 30_000
 
 /**
- * Keep a character's view of its game current by polling for changes. Polling pauses while the
+ * Keep a character's view of its campaign current by polling for changes, including the
+ * Gamemaster's game going offline or coming back. Polling pauses while the
  * page is in the background and catches up as soon as it is back.
  * @param characterId - The character being viewed.
  * @param initial - The view the page was rendered with.
@@ -20,7 +21,7 @@ export function useTableView(characterId: string, initial: TableView) {
   const router = useRouter()
   const [view, setView] = useState(initial)
   const [connection, setConnection] = useState<Connection>('live')
-  const version = useRef(initial.version)
+  const seen = useRef({ version: initial.version, live: initial.live })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -30,8 +31,9 @@ export function useTableView(characterId: string, initial: TableView) {
 
     const poll = async () => {
       try {
+        const { version, live } = seen.current
         const response = await fetch(
-          `/api/characters/${characterId}/table?version=${version.current}`,
+          `/api/characters/${characterId}/table?version=${version}&live=${live ? 1 : 0}`,
           { cache: 'no-store', signal: controller.signal },
         )
         if (response.status === 401 || response.status === 404) {
@@ -43,7 +45,7 @@ export function useTableView(characterId: string, initial: TableView) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         if (response.status === 200) {
           const next = (await response.json()) as TableView
-          version.current = next.version
+          seen.current = { version: next.version, live: next.live }
           setView(next)
         }
         failures = 0

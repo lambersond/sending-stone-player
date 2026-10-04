@@ -37,6 +37,11 @@
   --color-gold-text: #a87b00;
   --color-ruby: #a50e2d;
   --color-on-ruby: #ffffff;
+
+  /* What a combat roll is: an attack, damage, or a spell. Healing uses the accent. */
+  --color-attack: #c2410c;
+  --color-damage: #b91c1c;
+  --color-spell: #a21caf;
 }
 
 .dark {
@@ -63,6 +68,10 @@
   --color-gold-text: #e8b84a;
   --color-ruby: #f0708a;
   --color-on-ruby: #1a0509;
+
+  --color-attack: #fb923c;
+  --color-damage: #f87171;
+  --color-spell: #e879f9;
 }
 
 body {

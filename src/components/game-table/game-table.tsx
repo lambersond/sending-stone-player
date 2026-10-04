@@ -2,16 +2,22 @@
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { ArrowLeft, MessageSquare, Swords, type LucideIcon } from 'lucide-react'
+import {
+  ArrowLeft,
+  MessageSquare,
+  Swords,
+  Ticket,
+  type LucideIcon,
+} from 'lucide-react'
 import Link from 'next/link'
-import { CampaignTitlePrompt } from './campaign-title-prompt'
 import { ChatLog } from './chat-log'
 import { CombatTracker } from './combat-tracker'
-import { LiveStatus } from './live-status'
-import { WaitingForTable } from './waiting-for-table'
+import { LiveStatus, type LiveState } from './live-status'
+import { CharacterChooser } from '@/components/character-chooser'
 import { useTableView } from '@/hooks/use-table-view'
 import { gameHost } from '@/utils/game-host'
-import type { CampaignTitleFormState, Character } from '@/types/character'
+import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
+import type { Character } from '@/types/character'
 import type { TableCombat, TableView } from '@/types/table'
 
 type Tab = 'combat' | 'chat'
@@ -19,21 +25,21 @@ type Tab = 'combat' | 'chat'
 type Props = {
   character: Character
   initialView: TableView
-  /** This app's address, the module's destination, for the setup instructions. */
-  destination: string
-  /** Saves the campaign title of a character made before campaigns. */
-  setCampaignTitle: (
-    state: CampaignTitleFormState,
+  /** The campaign's characters, for a character in it that has yet to choose which it is. */
+  choice?: CampaignChoice
+  /** Saves which of its campaign's characters this character is. */
+  chooseActor: (
+    state: ChooseCharacterFormState,
     formData: FormData,
-  ) => Promise<CampaignTitleFormState>
+  ) => Promise<ChooseCharacterFormState>
 }
 
 /** A character's live view of its campaign: the combat tracker and the chat log. */
 export function GameTable({
   character,
   initialView,
-  destination,
-  setCampaignTitle,
+  choice,
+  chooseActor,
 }: Readonly<Props>) {
   const { view, connection } = useTableView(character.id, initialView)
   const [tab, setTab] = useState<Tab>(() =>
@@ -73,15 +79,12 @@ export function GameTable({
     setTab(next)
   }
 
+  const playing = view.campaign !== undefined && character.actorId !== null
   let content: ReactNode
-  if (!character.campaignTitle) {
-    content = (
-      <CampaignTitlePrompt character={character} action={setCampaignTitle} />
-    )
-  } else if (!view.campaign) {
-    content = (
-      <WaitingForTable character={character} destination={destination} />
-    )
+  if (!view.campaign || (!character.actorId && !choice)) {
+    content = <NoCampaign name={character.name} />
+  } else if (!character.actorId && choice) {
+    content = <ChooseActor choice={choice} action={chooseActor} />
   } else if (tab === 'combat') {
     content = <CombatTracker combat={view.combat} />
   } else {
@@ -109,14 +112,14 @@ export function GameTable({
               </p>
             </div>
           </div>
-          <LiveStatus state={view.campaign ? connection : 'waiting'} />
+          <LiveStatus state={liveState(playing, view, connection)} />
         </header>
         <div
           ref={scroller}
           onScroll={onScroll}
           className='min-h-0 flex-1 overflow-y-auto'
         >
-          {view.campaign && !view.connected && (
+          {playing && view.campaign && !view.connected && (
             <NotConnected
               name={character.name}
               campaign={view.campaign.title}
@@ -197,11 +200,63 @@ function NotConnected({
 }: Readonly<{ name: string; campaign: string }>) {
   return (
     <p className='mx-4 mt-4 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm md:mx-auto md:mt-6 md:max-w-3xl'>
-      {name} is not one of {campaign}&apos;s characters, so only public messages
-      show here. Ask your Gamemaster to add them to the campaign in Sending
-      Stone; the name must match the one in Foundry.
+      {name} is no longer one of {campaign}&apos;s characters, so only public
+      messages show here. Ask your Gamemaster to add them back to the campaign
+      in Sending Stone.
     </p>
   )
+}
+
+/** For a character from before invite links, or whose campaign was removed. */
+function NoCampaign({ name }: Readonly<{ name: string }>) {
+  return (
+    <div className='mx-auto flex max-w-md flex-col items-center px-4 py-12 text-center md:py-16'>
+      <Ticket aria-hidden className='size-8 text-primary' />
+      <h2 className='mt-4 text-lg font-semibold'>
+        {name} isn&apos;t in a campaign
+      </h2>
+      <p className='mt-1 text-sm text-text-secondary'>
+        Ask your Gamemaster for their campaign&apos;s invite link and open it to
+        choose your character there. You can then remove this one from your
+        characters.
+      </p>
+      <Link
+        href='/characters'
+        className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10'
+      >
+        Your characters
+      </Link>
+    </div>
+  )
+}
+
+/** For a character in a campaign that has yet to choose which of its characters it is. */
+function ChooseActor({
+  choice,
+  action,
+}: Readonly<{ choice: CampaignChoice; action: Props['chooseActor'] }>) {
+  return (
+    <div className='mx-auto w-full max-w-xl px-4 py-10'>
+      <h2 className='text-lg font-semibold'>
+        Choose your character in {choice.title}
+      </h2>
+      <p className='mt-1 mb-6 text-sm text-text-secondary'>
+        Each character is played by one player. Choose yours to see its whispers
+        and turns.
+      </p>
+      <CharacterChooser choice={choice} action={action} />
+    </div>
+  )
+}
+
+function liveState(
+  playing: boolean,
+  view: TableView,
+  connection: 'live' | 'reconnecting',
+): LiveState {
+  if (!playing) return 'waiting'
+  if (connection === 'reconnecting') return 'reconnecting'
+  return view.live ? 'live' : 'offline'
 }
 
 function isMyTurn(combat?: TableCombat): boolean {

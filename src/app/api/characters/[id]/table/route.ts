@@ -1,13 +1,13 @@
 import { getCharacter } from '@/db/characters'
-import { getCampaignVersion, getTableView } from '@/db/table'
+import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 
 const headers = { 'Cache-Control': 'no-store' }
 
 /**
- * A character's view of its campaign, for the player's page to poll. Pass the version last seen
- * as `?version=` to get 204 No Content while nothing has changed.
+ * A character's view of its campaign, for the player's page to poll. Pass the version and the
+ * liveness last seen as `?version=7&live=1` to get 204 No Content while neither has changed.
  */
 export async function GET(
   request: NextRequest,
@@ -20,9 +20,15 @@ export async function GET(
   const character = await getCharacter(user.id, id)
   if (!character) return new Response(undefined, { status: 404, headers })
 
-  const known = request.nextUrl.searchParams.get('version')
-  if (known && Number(known) === (await getCampaignVersion(character))) {
-    return new Response(undefined, { status: 204, headers })
+  const known = request.nextUrl.searchParams
+  if (known.has('version')) {
+    const { version, live } = await getCampaignStatus(character)
+    if (
+      Number(known.get('version')) === version &&
+      (known.get('live') === '1') === live
+    ) {
+      return new Response(undefined, { status: 204, headers })
+    }
   }
   return Response.json(await getTableView(character), { headers })
 }

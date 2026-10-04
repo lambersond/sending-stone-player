@@ -19,10 +19,15 @@ export const getCurrentUser = cache(
 /**
  * The signed-in user. Sends anyone not signed in to the login page.
  * Call this in every page and Server Action that reads or changes a user's data.
+ * @param returnTo - The page to come back to once signed in, such as an invite link.
  * @returns The user.
  */
-export async function requireUser(): Promise<SessionUser> {
+export async function requireUser(returnTo?: string): Promise<SessionUser> {
   const user = await getCurrentUser()
-  if (!user) redirect('/login')
+  if (!user) {
+    redirect(
+      returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : '/login',
+    )
+  }
   return user
 }

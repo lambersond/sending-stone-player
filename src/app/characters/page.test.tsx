@@ -6,7 +6,7 @@ import { requireUser } from '@/lib/session'
 jest.mock('@/db/characters', () => ({ listCharacters: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 jest.mock('./actions', () => ({
-  addCharacter: jest.fn(),
+  openInvite: jest.fn(),
   removeCharacter: jest.fn(),
 }))
 
@@ -24,6 +24,8 @@ describe('app/characters/page', () => {
         name: 'Thorin',
         gameUrl: 'https://my-game.forge-vtt.com',
         campaignTitle: 'The Lonely Mountain',
+        campaignId: 'c1',
+        actorId: 'actor-thorin',
       },
     ])
     render(await CharactersPage())
@@ -36,14 +38,19 @@ describe('app/characters/page', () => {
     ).toHaveAttribute('href', '/characters/char-1')
   })
 
-  it('suggests adding a character when there are none', async () => {
+  it('suggests joining a campaign when there are none', async () => {
     jest.mocked(listCharacters).mockResolvedValue([])
     render(await CharactersPage())
 
     expect(
-      screen.getByText('You have no characters yet. Add one below.'),
+      screen.getByText(
+        'You have no characters yet. Join a campaign below to choose one.',
+      ),
     ).toBeInTheDocument()
-    const add = screen.getByRole('region', { name: 'Add a character' })
-    expect(within(add).getByLabelText('Character name')).toBeInTheDocument()
+    const join = screen.getByRole('region', { name: 'Join a campaign' })
+    expect(within(join).getByLabelText('Invite link')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Set up your campaign' }),
+    ).toHaveAttribute('href', '/campaigns')
   })
 })

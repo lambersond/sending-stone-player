@@ -82,12 +82,13 @@ function CombatantRow({
     >
       <span
         className={clsx(
-          'flex size-10 shrink-0 items-center justify-center rounded-[10px] font-bold tabular-nums',
+          // Wide enough for a tiebreaker such as 18.25, so every row's box lines up.
+          'flex h-10 w-15 shrink-0 items-center justify-center rounded-[10px] font-bold tabular-nums',
           INITIATIVE[side],
         )}
       >
         <span className='sr-only'>Initiative </span>
-        {initiative ?? '–'}
+        {formatInitiative(initiative)}
       </span>
       <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
         <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
@@ -202,6 +203,15 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
       )}
     </section>
   )
+}
+
+/**
+ * An initiative as Foundry shows it. Systems break ties with decimals, such as D&D's dexterity
+ * tiebreaker giving 18.14, which are rounded to two places to hide floating-point noise.
+ */
+export function formatInitiative(initiative: number | null): string {
+  if (initiative === null) return '–'
+  return String(Math.round(initiative * 100) / 100)
 }
 
 /** Who acts after the current combatant, skipping the defeated. */

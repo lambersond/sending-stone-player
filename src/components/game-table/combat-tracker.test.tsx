@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { render, screen, within } from '@testing-library/react'
-import { CombatTracker } from './combat-tracker'
+import { CombatTracker, formatInitiative } from './combat-tracker'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
 const fighter = (
@@ -64,6 +64,36 @@ describe('components/game-table/combat-tracker', () => {
     ])
     expect(rows[0]).toHaveAttribute('aria-current', 'step')
     expect(screen.getByText('Ambush')).toBeInTheDocument()
+  })
+
+  it('fits a tiebreaker such as 18.14 in a box as wide as every other', () => {
+    render(
+      <CombatTracker
+        combat={encounter({
+          combatants: [
+            fighter({ id: 'boss', initiative: 18.14 }),
+            fighter({ id: 'imp', initiative: 7 }),
+          ],
+        })}
+      />,
+    )
+
+    const [boss, imp] = screen
+      .getAllByText('Initiative', { selector: '.sr-only' })
+      .map(label => label.parentElement)
+    expect(boss).toHaveTextContent('Initiative 18.14')
+    expect(boss).toHaveClass('w-15')
+    expect(imp).toHaveClass('w-15')
+  })
+
+  it.each([
+    [18.140000000000001, '18.14'],
+    [15.1, '15.1'],
+    [12, '12'],
+    [-1.005, '-1'],
+    [null, '–'],
+  ])('shows initiative %p as %s', (initiative, shown) => {
+    expect(formatInitiative(initiative)).toBe(shown)
   })
 
   it("shows who is acting and who's next, skipping the defeated", () => {

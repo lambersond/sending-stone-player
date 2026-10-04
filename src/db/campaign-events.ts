@@ -16,50 +16,33 @@ type World = { id: string; title: string }
 
 /**
  * Apply an event from a game's Gamemaster to what is held for one of its campaigns.
- * @param origin - The game's origin, from the request's Origin header.
+ * @param campaignId - The campaign, already found and its secret checked.
  * @param world - The Foundry world the event came from.
- * @param campaign - The campaign the module sent the event to.
+ * @param campaign - The campaign as the module named it, whose title may have changed.
  * @param event - The event, its payload already checked.
  */
 export async function applyCampaignEvent(
-  origin: string,
+  campaignId: string,
   world: World,
   campaign: CampaignRef,
   event: GameEvent,
 ): Promise<void> {
   await prisma.$transaction(async tx => {
-    const campaignId = await enterCampaign(tx, origin, world, campaign)
     await apply(tx, campaignId, event)
+    const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
-      data: { version: { increment: 1 }, lastEventAt: new Date() },
+      data: {
+        // The Gamemaster can rename the campaign, and a game can switch worlds.
+        title: campaign.title,
+        worldId: world.id,
+        worldTitle: world.title,
+        version: { increment: 1 },
+        lastEventAt: now,
+        lastSeenAt: now,
+      },
     })
   })
-}
-
-/**
- * Find or create the campaign. Its title and world are refreshed from every event, since the
- * Gamemaster can rename the campaign; the module's id for it never changes.
- * @returns The campaign's id.
- */
-async function enterCampaign(
-  tx: Tx,
-  origin: string,
-  world: World,
-  campaign: CampaignRef,
-) {
-  const details = {
-    title: campaign.title,
-    worldId: world.id,
-    worldTitle: world.title,
-  }
-  const { id } = await tx.campaign.upsert({
-    where: { originCampaign: { origin, foundryId: campaign.id } },
-    create: { origin, foundryId: campaign.id, ...details },
-    update: details,
-    select: { id: true },
-  })
-  return id
 }
 
 async function apply(tx: Tx, campaignId: string, event: GameEvent) {

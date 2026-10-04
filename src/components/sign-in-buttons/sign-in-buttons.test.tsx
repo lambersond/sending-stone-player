@@ -27,7 +27,8 @@ describe('components/sign-in-buttons', () => {
     render(
       <SignInButtons
         providers={['google', 'discord']}
-        callbackURL='/characters'
+        callbackURL='/join/abc'
+        errorCallbackURL='/login?next=%2Fjoin%2Fabc'
       />,
     )
 
@@ -37,8 +38,8 @@ describe('components/sign-in-buttons', () => {
 
     expect(social).toHaveBeenCalledWith({
       provider: 'google',
-      callbackURL: '/characters',
-      errorCallbackURL: '/login',
+      callbackURL: '/join/abc',
+      errorCallbackURL: '/login?next=%2Fjoin%2Fabc',
     })
     for (const button of screen.getAllByRole('button')) {
       expect(button).toBeDisabled()

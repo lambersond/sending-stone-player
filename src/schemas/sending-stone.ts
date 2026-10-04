@@ -43,12 +43,23 @@ const dnd5eSchema = z
   .looseObject({
     messageType: nullableString,
     roll: z.looseObject({}).nullable().catch(null),
-    item: z.looseObject({ name: nullableString }).nullable().catch(null),
+    item: z
+      .looseObject({ name: nullableString, type: nullableString.optional() })
+      .nullable()
+      .catch(null),
     activity: z
       .looseObject({ name: nullableString, type: nullableString })
       .nullable()
       .catch(null),
-    targets: z.array(z.looseObject({ name: z.string() })).catch([]),
+    targets: z
+      .array(
+        z.looseObject({
+          name: z.string(),
+          ac: z.number().nullable().optional().catch(null),
+        }),
+      )
+      .catch([]),
+    originatingMessage: nullableString.optional(),
   })
   .nullable()
   .catch(null)

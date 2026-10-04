@@ -4,40 +4,33 @@ import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
 import { chatMessage, combat, combatant, roster } from '@/mocks/sending-stone'
 import type { GameEvent } from '@/types/sending-stone'
 
-const ORIGIN = 'https://my-game.forge-vtt.com'
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 
 /** The combat as last saved. */
 const saved = () => prismaMock.combat.upsert.mock.calls[0][0].update.data as any
 
-const apply = (event: GameEvent) => {
-  prismaMock.campaign.upsert.mockResolvedValue({ id: 'c1' } as any)
-  return applyCampaignEvent(ORIGIN, world, campaign, event)
-}
+const apply = (event: GameEvent) =>
+  applyCampaignEvent('c1', world, campaign, event)
 
 describe('db/campaign-events', () => {
   beforeEach(() => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
   })
 
-  it('files the event under its campaign, keeping its title current, and bumps its version', async () => {
+  it('applies the event to its campaign, keeping its title current, and bumps its version', async () => {
     await apply({ type: 'chat.cleared', data: {} })
 
-    const details = {
-      title: 'The Lonely Mountain',
-      worldId: 'erebor',
-      worldTitle: 'Return to Erebor',
-    }
-    expect(prismaMock.campaign.upsert).toHaveBeenCalledWith({
-      where: { originCampaign: { origin: ORIGIN, foundryId: 'camp-a' } },
-      create: { origin: ORIGIN, foundryId: 'camp-a', ...details },
-      update: details,
-      select: { id: true },
-    })
     expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
       where: { id: 'c1' },
-      data: { version: { increment: 1 }, lastEventAt: expect.any(Date) },
+      data: {
+        title: 'The Lonely Mountain',
+        worldId: 'erebor',
+        worldTitle: 'Return to Erebor',
+        version: { increment: 1 },
+        lastEventAt: expect.any(Date),
+        lastSeenAt: expect.any(Date),
+      },
     })
   })
 
