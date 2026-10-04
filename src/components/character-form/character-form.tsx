@@ -2,7 +2,12 @@
 
 import { useActionState, useId, type InputHTMLAttributes } from 'react'
 import { LoaderCircle, Plus } from 'lucide-react'
-import { GAME_URL_EXAMPLE, NAME_MAX_LENGTH } from '@/constants/character'
+import {
+  CAMPAIGN_TITLE_EXAMPLE,
+  CAMPAIGN_TITLE_MAX_LENGTH,
+  GAME_URL_EXAMPLE,
+  NAME_MAX_LENGTH,
+} from '@/constants/character'
 import type { CharacterFormState } from '@/types/character'
 
 type Props = {
@@ -26,6 +31,17 @@ export function CharacterForm({ action }: Readonly<Props>) {
         defaultValue={state.values?.name}
         errors={state.errors?.name}
         maxLength={NAME_MAX_LENGTH}
+        autoComplete='off'
+        required
+      />
+      <Field
+        label='Campaign title'
+        name='campaignTitle'
+        hint='The title your Gamemaster gave the campaign in Sending Stone.'
+        defaultValue={state.values?.campaignTitle}
+        errors={state.errors?.campaignTitle}
+        placeholder={CAMPAIGN_TITLE_EXAMPLE}
+        maxLength={CAMPAIGN_TITLE_MAX_LENGTH}
         autoComplete='off'
         required
       />

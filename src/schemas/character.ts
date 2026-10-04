@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import { GAME_URL_EXAMPLE, NAME_MAX_LENGTH } from '@/constants/character'
+import {
+  CAMPAIGN_TITLE_MAX_LENGTH,
+  GAME_URL_EXAMPLE,
+  NAME_MAX_LENGTH,
+} from '@/constants/character'
 
 // A Forge game is served from its own subdomain, such as my-game.forge-vtt.com.
 const FORGE_GAME_HOST = /^(?!www\.)[a-z\d-]+\.forge-vtt\.com$/
@@ -27,6 +31,16 @@ export function toForgeGameUrl(value: string): string | undefined {
   return `https://${url.hostname}`
 }
 
+/** The title the Gamemaster gave the campaign in Sending Stone, which links a character to it. */
+export const campaignTitleSchema = z
+  .string({ error: "Enter the campaign's title." })
+  .trim()
+  .min(1, "Enter the campaign's title.")
+  .max(
+    CAMPAIGN_TITLE_MAX_LENGTH,
+    `Keep the title to ${CAMPAIGN_TITLE_MAX_LENGTH} characters or fewer.`,
+  )
+
 export const characterSchema = z.object({
   name: z
     .string({ error: 'Give your character a name.' })
@@ -36,6 +50,7 @@ export const characterSchema = z.object({
       NAME_MAX_LENGTH,
       `Keep the name to ${NAME_MAX_LENGTH} characters or fewer.`,
     ),
+  campaignTitle: campaignTitleSchema,
   gameUrl: z
     .string({ error: "Enter your game's Forge address." })
     .trim()

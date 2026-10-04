@@ -89,18 +89,82 @@ model Verification {
 // Application models
 // -------------------------
 
-// A character a user plays, and the Forge game whose Sending Stone events it follows.
+// A character a user plays, and the campaign in a Forge game whose Sending Stone events it follows.
 model Character {
-  id        String   @id @default(cuid())
-  name      String
+  id            String   @id @default(cuid())
+  name          String
   // The game's origin, such as https://my-game.forge-vtt.com. The Sending Stone module posts
   // from the Gamemaster's browser, so this is the Origin its events arrive with.
-  gameUrl   String
-  userId    String
+  gameUrl       String
+  // The title the Gamemaster gave the campaign in Sending Stone. Empty only for characters made
+  // before campaigns.
+  campaignTitle String
+  userId        String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@map("character")
+}
+
+// A campaign in a Foundry game: a group of player characters the Gamemaster set up in the Sending
+// Stone module, which sends each event to the campaigns it involves. Keyed by the origin the game
+// is served from, which is the Origin its events arrive with, and the id the module gave it.
+model Campaign {
+  id          String        @id @default(cuid())
+  origin      String
+  // The module's id for the campaign. Unlike its title, it never changes.
+  foundryId   String
+  // How players find the campaign: a character's campaignTitle matches it.
+  title       String
+  worldId     String
+  worldTitle  String
+  // The campaign's characters, from its latest bridge.hello.
+  characters  Json          @default("[]")
+  // Bumped on every change, so a viewer can tell cheaply whether anything is new.
+  version     Int           @default(0)
+  lastEventAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  messages    ChatMessage[]
+  combats     Combat[]
+
+  @@unique([origin, foundryId], name: "originCampaign")
+  @@map("campaign")
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // Foundry's id for the message.
+  messageId  String
+  sentAt     DateTime
+  public     Boolean
+  // Actor ids of the campaign's characters whose players can read the message.
+  readers    String[]
+  // The message as the module serialized it for this campaign.
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([campaignId, messageId], name: "campaignMessage")
+  @@index([campaignId, sentAt])
+  @@map("chat_message")
+}
+
+model Combat {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // Foundry's id for the combat.
+  combatId   String
+  // The latest snapshot of the combat for this campaign, combatants in turn order.
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([campaignId, combatId], name: "campaignCombat")
+  @@map("combat")
 }

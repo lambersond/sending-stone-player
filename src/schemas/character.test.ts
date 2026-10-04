@@ -1,4 +1,8 @@
-import { characterSchema, toForgeGameUrl } from './character'
+import {
+  campaignTitleSchema,
+  characterSchema,
+  toForgeGameUrl,
+} from './character'
 
 describe('schemas/character', () => {
   describe('toForgeGameUrl', () => {
@@ -34,30 +38,64 @@ describe('schemas/character', () => {
     })
   })
 
+  describe('campaignTitleSchema', () => {
+    it('trims the title', () => {
+      expect(campaignTitleSchema.parse('  Curse of Strahd ')).toBe(
+        'Curse of Strahd',
+      )
+    })
+
+    it.each([
+      ['blank', ' ', "Enter the campaign's title."],
+      ['missing', undefined, "Enter the campaign's title."],
+      [
+        'too long',
+        'a'.repeat(101),
+        'Keep the title to 100 characters or fewer.',
+      ],
+    ])('rejects a title that is %s', (_, value, message) => {
+      expect(
+        campaignTitleSchema.safeParse(value).error?.issues[0].message,
+      ).toBe(message)
+    })
+  })
+
   describe('characterSchema', () => {
-    it('trims the name and normalizes the game URL', () => {
+    const valid = {
+      name: 'Thorin',
+      campaignTitle: 'The Lonely Mountain',
+      gameUrl: 'https://my-game.forge-vtt.com',
+    }
+
+    it('trims the name and title and normalizes the game URL', () => {
       expect(
         characterSchema.parse({
           name: '  Thorin  ',
+          campaignTitle: ' The Lonely Mountain ',
           gameUrl: ' https://my-game.forge-vtt.com/game ',
         }),
-      ).toEqual({ name: 'Thorin', gameUrl: 'https://my-game.forge-vtt.com' })
+      ).toEqual(valid)
     })
 
-    it('asks for a name and an address when they are blank', () => {
-      const result = characterSchema.safeParse({ name: ' ', gameUrl: '' })
+    it('asks for a name, a campaign and an address when they are blank', () => {
+      const result = characterSchema.safeParse({
+        name: ' ',
+        campaignTitle: '',
+        gameUrl: '',
+      })
 
       expect(result.success).toBe(false)
       expect(result.error?.issues.map(issue => issue.message)).toEqual([
         'Give your character a name.',
+        "Enter the campaign's title.",
         "Enter your game's Forge address.",
       ])
     })
 
     it('limits the length of the name', () => {
       const result = characterSchema.safeParse({
+        ...valid,
         name: 'a'.repeat(101),
-        gameUrl: 'https://my-game.forge-vtt.com',
       })
 
       expect(result.error?.issues[0].message).toBe(
@@ -67,7 +105,7 @@ describe('schemas/character', () => {
 
     it('explains what a Forge game address looks like', () => {
       const result = characterSchema.safeParse({
-        name: 'Thorin',
+        ...valid,
         gameUrl: 'https://example.com',
       })
 

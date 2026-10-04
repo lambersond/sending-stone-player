@@ -1,9 +1,9 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
 import clsx from 'clsx'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useHydrated } from '@/hooks/use-hydrated'
 
 const THEMES = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -11,19 +11,11 @@ const THEMES = [
   { value: 'system', label: 'System', Icon: Monitor },
 ] as const
 
-// Nothing to listen to: whether the page has hydrated never changes afterwards.
-const noop = () => {}
-const subscribe = () => noop
-
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   // The saved theme is only known in the browser, so the server and the first render in the
   // browser show no choice; it is filled in once hydrated.
-  const hydrated = useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false,
-  )
+  const hydrated = useHydrated()
   const current = hydrated ? theme : undefined
 
   return (

@@ -23,6 +23,7 @@ describe('app/characters/page', () => {
         id: 'char-1',
         name: 'Thorin',
         gameUrl: 'https://my-game.forge-vtt.com',
+        campaignTitle: 'The Lonely Mountain',
       },
     ])
     render(await CharactersPage())

@@ -28,6 +28,7 @@ export function CharacterList({ characters, onRemove }: Readonly<Props>) {
                 {character.name}
               </span>
               <span className='block truncate text-sm text-text-secondary'>
+                {character.campaignTitle || 'No campaign'} ·{' '}
                 {gameHost(character.gameUrl)}
               </span>
             </span>
