@@ -5,14 +5,18 @@ import {
   EVENTS,
 } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
-import { hasSecret } from '@/lib/listener-auth'
-import { toForgeGameUrl } from '@/schemas/character'
+import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
+import { bearerSecret } from '@/lib/campaign-secret'
+import { toForgeGameUrl } from '@/schemas/campaign'
 import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
 
 // The listener the fvtt-sending-stone module posts to: the Gamemaster sets this app's address as
 // the module's destination, and the module posts to its /api/events. Posts come from the
 // Gamemaster's browser, not the Foundry server, so this answers CORS like any cross-origin API.
 // See the module's PROTOCOL.md for what it sends and how it treats each response status.
+//
+// Each campaign is set up here by its Gamemaster with a secret, and only events carrying that
+// secret are accepted for it. The module drops a post refused with a 4xx and tells the Gamemaster.
 
 export function OPTIONS(request: Request) {
   return new Response(undefined, { status: 204, headers: cors(request) })
@@ -22,18 +26,10 @@ export async function POST(request: Request) {
   const respond = (status: number, message?: string) =>
     new Response(message, { status, headers: cors(request) })
 
-  const secret = process.env.SENDING_STONE_SECRET
-  if (!secret) {
-    console.error(
-      'SENDING_STONE_SECRET is not set; refusing Sending Stone events.',
-    )
-    return respond(503, 'Listener not configured')
-  }
-  if (!hasSecret(request.headers.get('authorization'), secret)) {
-    return respond(401)
-  }
+  const secret = bearerSecret(request.headers.get('authorization'))
+  if (!secret) return respond(401, 'Send the campaign’s secret')
 
-  // Events are filed under the game they come from, which is the page that sent them.
+  // Campaigns are set up for the game they come from, which is the page that sent them.
   const origin = request.headers.get('origin')
   if (!origin || toForgeGameUrl(origin) !== origin) {
     return respond(403, 'Only games on The Forge are accepted')
@@ -54,8 +50,24 @@ export async function POST(request: Request) {
   if (envelope.protocol !== PROTOCOL_VERSION) {
     return respond(400, `Unsupported protocol ${envelope.protocol}`)
   }
-  // A connection test: answer, and otherwise ignore it.
-  if (envelope.type === EVENTS.PING) return respond(204)
+  // A connection test, which names no campaign: is the secret one of this game's campaigns'?
+  if (envelope.type === EVENTS.PING) {
+    const checked = await attempt(() => checkGameSecret(origin, secret))
+    if (!checked) return respond(500)
+    if (checked === 'unknown') return respond(404, notSetUp(origin))
+    return respond(checked === 'ok' ? 204 : 401)
+  }
+  if (!envelope.campaign) {
+    return respond(400, `No campaign for ${envelope.type}`)
+  }
+
+  const { campaign } = envelope
+  const found = await attempt(() => findEventCampaign(origin, campaign, secret))
+  if (!found) return respond(500)
+  if (found === 'unknown') {
+    return respond(404, notSetUp(origin, envelope.campaign.title))
+  }
+  if (found === 'refused') return respond(401)
 
   let event
   try {
@@ -64,20 +76,33 @@ export async function POST(request: Request) {
     const reason = error instanceof z.ZodError ? z.prettifyError(error) : ''
     return respond(400, `Malformed ${envelope.type}\n${reason}`)
   }
-  // An event this app does not use yet.
-  if (!event) return respond(204)
-  // Everything but a connection test is sent to a campaign.
-  if (!envelope.campaign)
-    return respond(400, `No campaign for ${envelope.type}`)
 
   try {
-    await applyCampaignEvent(origin, envelope.world, envelope.campaign, event)
+    // A heartbeat, or an event this app does not use yet, still says the game is connected.
+    await (event
+      ? applyCampaignEvent(found.id, envelope.world, envelope.campaign, event)
+      : markSeen(found.id))
   } catch (error) {
     console.error(`Failed to apply ${envelope.type} from ${origin}`, error)
     return respond(500)
   }
   return respond(204)
 }
+
+/** Run a database step, logging a failure for a retryable 500 answer, with CORS headers. */
+async function attempt<T>(step: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await step()
+  } catch (error) {
+    console.error('Failed to check a Sending Stone event', error)
+    return undefined
+  }
+}
+
+const notSetUp = (origin: string, title?: string) =>
+  title
+    ? `No campaign titled “${title}” is set up for ${origin} in Sending Stone`
+    : `No campaign is set up for ${origin} in Sending Stone`
 
 function cors(request: Request): Headers {
   const headers = new Headers({

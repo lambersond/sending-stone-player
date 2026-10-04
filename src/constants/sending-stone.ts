@@ -14,9 +14,17 @@ export const MAX_ENVELOPE_BYTES = 1_000_000
  */
 export const EVENTS_PATH = '/api/events'
 
+/**
+ * How long a campaign can go without hearing anything, an event or a heartbeat, before its
+ * Gamemaster's game counts as offline. The module sends something at least every 30 to 40
+ * seconds, but a background tab's timers may run only once a minute.
+ */
+export const BRIDGE_TIMEOUT = 120_000
+
 export const EVENTS = {
   HELLO: 'bridge.hello',
   PING: 'bridge.ping',
+  HEARTBEAT: 'bridge.heartbeat',
   CHAT_CREATED: 'chat.message.created',
   CHAT_UPDATED: 'chat.message.updated',
   CHAT_DELETED: 'chat.message.deleted',

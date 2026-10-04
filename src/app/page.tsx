@@ -6,12 +6,12 @@ const STEPS = [
   {
     Icon: Gem,
     title: 'Your Gamemaster connects',
-    text: 'They add the Sending Stone module to your game on The Forge.',
+    text: 'They set up the campaign here, connect Foundry, and share an invite link.',
   },
   {
     Icon: UserRound,
-    title: 'You add your character',
-    text: "Give it a name and the game's Forge address.",
+    title: 'You choose your character',
+    text: "Open the invite link, sign in and pick who you're playing.",
   },
   {
     Icon: Swords,

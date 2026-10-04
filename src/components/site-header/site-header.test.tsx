@@ -40,6 +40,10 @@ describe('components/site-header', () => {
       'href',
       '/characters',
     )
+    expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+      'href',
+      '/campaigns',
+    )
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
   })
 })

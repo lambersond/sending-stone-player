@@ -17,6 +17,18 @@ export type TableRoll = {
   damageType?: string
 }
 
+/** What a combat roll or card is, for highlighting it. */
+export type TableAction =
+  'attack' | 'spell-attack' | 'damage' | 'healing' | 'spell'
+
+export type TableTarget = {
+  name: string
+  /** Only when the Gamemaster shares Gamemaster-only information. */
+  ac?: number
+  /** For an attack, when the target's armor class is known. */
+  outcome?: 'hit' | 'miss'
+}
+
 export type TableMessage = {
   id: string
   sentAt: string
@@ -25,11 +37,13 @@ export type TableMessage = {
   whisper: boolean
   /** text: something said; roll: one or more rolls; card: an item or ability used. */
   kind: 'text' | 'roll' | 'card'
-  /** What the message is about, such as "Longsword · Attack" or "Perception check". */
+  /** What the message is about, such as "Longsword" or "Perception check". */
   label?: string
+  /** Set for an attack, damage, healing or a spell. */
+  action?: TableAction
   text?: string
   rolls: TableRoll[]
-  targets: string[]
+  targets: TableTarget[]
 }
 
 export type TableCombatant = {
@@ -55,9 +69,11 @@ export type TableCombat = {
 export type TableView = {
   /** The campaign's version when this was built. Unchanged means nothing new. */
   version: number
-  /** Unset until the character's campaign has been sent anything. */
-  campaign?: { title: string; worldTitle?: string; lastEventAt?: string }
-  /** Is this character one of its campaign's characters? */
+  /** Is the Gamemaster's game sending? */
+  live: boolean
+  /** Unset while the character is in no campaign. */
+  campaign?: { title: string; worldTitle?: string; lastSeenAt?: string }
+  /** Is this character still one of its campaign's characters? */
   connected: boolean
   messages: TableMessage[]
   combat?: TableCombat

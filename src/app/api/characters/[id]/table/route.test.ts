@@ -4,12 +4,12 @@
 import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
-import { getCampaignVersion, getTableView } from '@/db/table'
+import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/table', () => ({
-  getCampaignVersion: jest.fn(),
+  getCampaignStatus: jest.fn(),
   getTableView: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
@@ -19,8 +19,10 @@ const character = {
   name: 'Thorin',
   gameUrl: 'https://my-game.forge-vtt.com',
   campaignTitle: 'The Lonely Mountain',
+  campaignId: 'c1',
+  actorId: 'actor-thorin',
 }
-const view = { version: 7, connected: true, messages: [] }
+const view = { version: 7, live: true, connected: true, messages: [] }
 
 const get = (query = '') =>
   GET(
@@ -36,7 +38,7 @@ describe('app/api/characters/[id]/table', () => {
   beforeEach(() => {
     jest.mocked(getCurrentUser).mockResolvedValue({ id: 'user-1' } as any)
     jest.mocked(getCharacter).mockResolvedValue(character)
-    jest.mocked(getCampaignVersion).mockResolvedValue(7)
+    jest.mocked(getCampaignStatus).mockResolvedValue({ version: 7, live: true })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
 
@@ -51,15 +53,20 @@ describe('app/api/characters/[id]/table', () => {
   })
 
   it('has nothing new for a viewer already up to date', async () => {
-    const response = await get('?version=7')
+    const response = await get('?version=7&live=1')
 
     expect(response.status).toBe(204)
-    expect(getCampaignVersion).toHaveBeenCalledWith(character)
+    expect(getCampaignStatus).toHaveBeenCalledWith(character)
     expect(getTableView).not.toHaveBeenCalled()
   })
 
-  it('sends the view to a viewer behind', async () => {
-    const response = await get('?version=6')
+  it.each([
+    ['behind', '?version=6&live=1'],
+    ['who thinks the game is offline', '?version=7&live=0'],
+    ['who missed it going offline', '?version=7&live=1', false],
+  ])('sends the view to a viewer %s', async (_, query, live = true) => {
+    jest.mocked(getCampaignStatus).mockResolvedValue({ version: 7, live })
+    const response = await get(query)
 
     expect(response.status).toBe(200)
   })
@@ -75,8 +82,8 @@ describe('app/api/characters/[id]/table', () => {
   })
 
   it("is not found for a character that isn't the user's", async () => {
-    // eslint-disable-next-line unicorn/no-null -- what Prisma returns
-    jest.mocked(getCharacter).mockResolvedValue(null)
+    // eslint-disable-next-line unicorn/no-useless-undefined
+    jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     const response = await get()
 

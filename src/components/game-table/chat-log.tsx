@@ -1,13 +1,65 @@
 import clsx from 'clsx'
-import { Lock, MessageSquare } from 'lucide-react'
+import {
+  Crosshair,
+  Droplet,
+  HeartPulse,
+  Lock,
+  MessageSquare,
+  Sparkles,
+  Swords,
+  type LucideIcon,
+} from 'lucide-react'
 import { EmptyState } from './empty-state'
 import { LocalTime } from './local-time'
-import type { Side, TableMessage, TableRoll } from '@/types/table'
+import type {
+  Side,
+  TableAction,
+  TableMessage,
+  TableRoll,
+  TableTarget,
+} from '@/types/table'
 
 const AVATAR: Record<Side, string> = {
   me: 'bg-primary text-on-primary',
   party: 'bg-party/15 text-party',
   other: 'bg-whisper/15 text-whisper',
+}
+
+/** How each kind of combat roll is marked: a chip naming it, and an accent down the card's edge. */
+const ACTIONS: Record<
+  TableAction,
+  { label: string; icon: LucideIcon; chip: string; accent: string }
+> = {
+  attack: {
+    label: 'Attack',
+    icon: Swords,
+    chip: 'bg-attack/15 text-attack',
+    accent: 'border-l-attack',
+  },
+  'spell-attack': {
+    label: 'Spell attack',
+    icon: Sparkles,
+    chip: 'bg-spell/15 text-spell',
+    accent: 'border-l-spell',
+  },
+  damage: {
+    label: 'Damage',
+    icon: Droplet,
+    chip: 'bg-damage/15 text-damage',
+    accent: 'border-l-damage',
+  },
+  healing: {
+    label: 'Healing',
+    icon: HeartPulse,
+    chip: 'bg-primary/15 text-primary',
+    accent: 'border-l-primary',
+  },
+  spell: {
+    label: 'Spell',
+    icon: Sparkles,
+    chip: 'bg-spell/15 text-spell',
+    accent: 'border-l-spell',
+  },
 }
 
 /** A message's bubble, its pointed corner toward the speaker's avatar. */
@@ -43,7 +95,8 @@ export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
 }
 
 function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
-  const { speaker, side, whisper, kind, label, text, rolls, targets } = message
+  const { speaker, side, whisper, kind, label, action, text, rolls, targets } =
+    message
   // The player's own messages sit on the other side, as in a messaging app.
   const mine = side === 'me'
   return (
@@ -104,14 +157,25 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
           </>
         )}
         {kind === 'card' && (
-          <p className={clsx(bubble(whisper, mine), 'flex flex-col')}>
-            <span className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
-              Used
-            </span>
+          <div
+            className={clsx(
+              bubble(whisper, mine),
+              'flex flex-col gap-1.5',
+              action && ['border-l-4', ACTIONS[action].accent],
+            )}
+          >
+            {action ? (
+              <ActionChip action={action} />
+            ) : (
+              <span className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
+                Used
+              </span>
+            )}
             <span className='font-semibold'>
               {label ?? 'An item or ability'}
             </span>
-          </p>
+            <Targets targets={targets} />
+          </div>
         )}
         {kind === 'roll' &&
           rolls.map((roll, index) => (
@@ -119,19 +183,17 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
               key={index}
               roll={roll}
               label={label}
+              action={action}
+              // Who it was aimed at, called out once, on the first roll.
+              targets={index === 0 ? targets : []}
               whisper={whisper}
               mine={mine}
             />
           ))}
-        {targets.length > 0 && (
-          <p
-            className={clsx(
-              'text-xs text-text-secondary',
-              mine && 'text-right',
-            )}
-          >
-            {targets.length === 1 ? 'Target' : 'Targets'}: {targets.join(', ')}
-          </p>
+        {kind === 'text' && targets.length > 0 && (
+          <div className={clsx(mine && 'self-end')}>
+            <Targets targets={targets} />
+          </div>
         )}
       </div>
     </article>
@@ -141,11 +203,15 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
 function RollCard({
   roll,
   label,
+  action,
+  targets,
   whisper,
   mine,
 }: Readonly<{
   roll: TableRoll
   label?: string
+  action?: TableAction
+  targets: TableTarget[]
   whisper: boolean
   mine: boolean
 }>) {
@@ -155,10 +221,16 @@ function RollCard({
         bubble(whisper, mine),
         'flex w-full max-w-sm flex-col gap-2 p-3',
         roll.critical && 'border-solid border-gold',
+        action && ['border-l-4', ACTIONS[action].accent],
       )}
     >
       <div className='flex items-start justify-between gap-2'>
-        <span className='text-sm font-semibold'>{label ?? 'Roll'}</span>
+        <span className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+          {action && <ActionChip action={action} />}
+          {(label ?? !action) && (
+            <span className='text-sm font-semibold'>{label ?? 'Roll'}</span>
+          )}
+        </span>
         <div className='flex shrink-0 flex-wrap justify-end gap-1'>
           {roll.critical && (
             <Badge className='bg-gold text-on-gold'>Critical</Badge>
@@ -174,6 +246,7 @@ function RollCard({
           )}
         </div>
       </div>
+      <Targets targets={targets} />
       <div className='flex items-end justify-between gap-3'>
         <div className='flex min-w-0 flex-col gap-1.5'>
           <span className='font-mono text-sm break-all text-text-secondary'>
@@ -207,12 +280,72 @@ function RollCard({
           {roll.total ?? '–'}
         </span>
       </div>
-      {roll.damageType && (
+      {damageLabel(roll.damageType) && (
         <span className='text-xs text-text-secondary capitalize'>
-          {roll.damageType} damage
+          {damageLabel(roll.damageType)}
         </span>
       )}
     </div>
+  )
+}
+
+/** What a damage roll dealt. Healing is already marked as such, so says nothing more. */
+function damageLabel(damageType: string | undefined): string | undefined {
+  if (!damageType || damageType === 'healing') return undefined
+  if (damageType === 'temphp') return 'Temporary hit points'
+  return `${damageType} damage`
+}
+
+function ActionChip({ action }: Readonly<{ action: TableAction }>) {
+  const { label, icon: Icon, chip } = ACTIONS[action]
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase',
+        chip,
+      )}
+    >
+      <Icon aria-hidden className='size-3' />
+      {label}
+    </span>
+  )
+}
+
+/** Who a roll or card was aimed at, and whether an attack hit when their armor class is known. */
+function Targets({ targets }: Readonly<{ targets: TableTarget[] }>) {
+  if (targets.length === 0) return
+  return (
+    <p className='flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
+      <Crosshair aria-hidden className='size-4 shrink-0 text-text-secondary' />
+      <span className='sr-only'>
+        {targets.length === 1 ? 'Target: ' : 'Targets: '}
+      </span>
+      {targets.map((target, index) => (
+        <span key={index} className='inline-flex items-center gap-1.5'>
+          <span className='font-semibold'>{target.name}</span>
+          {target.ac !== undefined && (
+            <span className='text-xs text-text-secondary'>AC {target.ac}</span>
+          )}
+          {target.outcome && (
+            <span
+              className={clsx(
+                'rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
+                target.outcome === 'hit'
+                  ? 'bg-primary/15 text-primary'
+                  : 'bg-text-secondary/15 text-text-secondary',
+              )}
+            >
+              {target.outcome === 'hit' ? 'Hit' : 'Miss'}
+            </span>
+          )}
+          {index < targets.length - 1 && (
+            <span aria-hidden className='text-text-secondary'>
+              ,
+            </span>
+          )}
+        </span>
+      ))}
+    </p>
   )
 }
 

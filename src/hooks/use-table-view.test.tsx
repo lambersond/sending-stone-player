@@ -6,10 +6,16 @@ import type { TableView } from '@/types/table'
 jest.mock('next/navigation', () => ({ useRouter: jest.fn() }))
 
 const refresh = jest.fn()
-const initial: TableView = { version: 3, connected: true, messages: [] }
+const initial: TableView = {
+  version: 3,
+  live: true,
+  connected: true,
+  messages: [],
+}
 const newer: TableView = {
   ...initial,
   version: 4,
+  live: false,
   campaign: { title: 'The Lonely Mountain' },
 }
 
@@ -43,7 +49,7 @@ describe('hooks/use-table-view', () => {
     jest.restoreAllMocks()
   })
 
-  it('asks for news with the version it has, and takes a newer view', async () => {
+  it('asks for news with the version and liveness it has, and takes a newer view', async () => {
     jest.mocked(fetch).mockResolvedValueOnce(respond(200, newer))
     const { result } = renderHook(() => useTableView('char-1', initial))
 
@@ -51,7 +57,7 @@ describe('hooks/use-table-view', () => {
     await advance(POLL_INTERVAL)
 
     expect(fetch).toHaveBeenCalledWith(
-      '/api/characters/char-1/table?version=3',
+      '/api/characters/char-1/table?version=3&live=1',
       {
         cache: 'no-store',
         signal: expect.any(AbortSignal),
@@ -63,7 +69,7 @@ describe('hooks/use-table-view', () => {
     await advance(POLL_INTERVAL)
 
     expect(fetch).toHaveBeenLastCalledWith(
-      '/api/characters/char-1/table?version=4',
+      '/api/characters/char-1/table?version=4&live=0',
       expect.anything(),
     )
     expect(result.current.view).toBe(newer)

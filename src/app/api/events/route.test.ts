@@ -4,9 +4,15 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { OPTIONS, POST } from './route'
 import { applyCampaignEvent } from '@/db/campaign-events'
+import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
 import { chatMessage } from '@/mocks/sending-stone'
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
+jest.mock('@/db/campaigns', () => ({
+  checkGameSecret: jest.fn(),
+  findEventCampaign: jest.fn(),
+  markSeen: jest.fn(),
+}))
 
 const URL = 'https://player.example/api/events'
 const GAME = 'https://my-game.forge-vtt.com'
@@ -43,15 +49,17 @@ const post = (
     }),
   )
 
+const ping = () =>
+  envelope(
+    'bridge.ping',
+    { userId: 'u-gm', name: 'Gamemaster' },
+    { sequence: null, campaign: null },
+  )
+
 describe('app/api/events', () => {
-  const env = process.env
-
   beforeEach(() => {
-    process.env = { ...env, SENDING_STONE_SECRET: 'hunter2' }
-  })
-
-  afterAll(() => {
-    process.env = env
+    jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+    jest.mocked(checkGameSecret).mockResolvedValue('ok')
   })
 
   describe('OPTIONS', () => {
@@ -97,16 +105,49 @@ describe('app/api/events', () => {
   })
 
   describe('POST', () => {
-    it('applies an event to its campaign in a Forge game', async () => {
+    it("applies an event to its campaign, once the secret is checked as that campaign's", async () => {
       const message = chatMessage()
       const response = await post(envelope('chat.message.created', { message }))
 
       expect(response.status).toBe(204)
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
-      expect(applyCampaignEvent).toHaveBeenCalledWith(GAME, world, campaign, {
+      expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
+      expect(applyCampaignEvent).toHaveBeenCalledWith('c1', world, campaign, {
         type: 'chat.message.created',
         data: { message },
       })
+    })
+
+    it('refuses an event for a campaign not set up, saying so', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue('unknown')
+
+      const response = await post(envelope('chat.cleared', {}))
+
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe(
+        `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
+      )
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
+    })
+
+    it("refuses an event without the campaign's secret", async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue('refused')
+
+      const response = await post(envelope('chat.cleared', {}))
+
+      expect(response.status).toBe(401)
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['a heartbeat', 'bridge.heartbeat'],
+      ['an event type it does not use', 'actor.updated'],
+    ])('notes %s as the game being connected', async (_, type) => {
+      const response = await post(envelope(type, {}, { sequence: null }))
+
+      expect(response.status).toBe(204)
+      expect(markSeen).toHaveBeenCalledWith('c1')
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it('refuses an event sent to no campaign', async () => {
@@ -132,22 +173,8 @@ describe('app/api/events', () => {
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
-    it('refuses everything until a secret is configured', async () => {
-      const consoleError = jest
-        .spyOn(console, 'error')
-        .mockImplementation(() => {})
-      delete process.env.SENDING_STONE_SECRET
-
-      const response = await post(envelope('chat.cleared', {}))
-
-      expect(response.status).toBe(503)
-      expect(applyCampaignEvent).not.toHaveBeenCalled()
-      consoleError.mockRestore()
-    })
-
     it.each([
       ['no secret', {}],
-      ['the wrong secret', { Authorization: 'Bearer nope' }],
       ['a malformed header', { Authorization: 'hunter2' }],
     ])('refuses %s', async (_, headers) => {
       const request = new Request(URL, {
@@ -159,7 +186,7 @@ describe('app/api/events', () => {
       const response = await POST(request)
 
       expect(response.status).toBe(401)
-      expect(applyCampaignEvent).not.toHaveBeenCalled()
+      expect(findEventCampaign).not.toHaveBeenCalled()
     })
 
     it.each([
@@ -215,24 +242,46 @@ describe('app/api/events', () => {
       expect(await response.text()).toBe(`Unsupported protocol ${protocol}`)
     })
 
-    it('answers a connection test without storing anything', async () => {
-      const response = await post(
-        envelope(
-          'bridge.ping',
-          { userId: 'u-gm', name: 'Gamemaster' },
-          { sequence: null, campaign: null },
-        ),
-      )
+    it("answers a connection test with the secret of one of the game's campaigns", async () => {
+      const response = await post(ping())
 
       expect(response.status).toBe(204)
+      expect(checkGameSecret).toHaveBeenCalledWith(GAME, 'hunter2')
+      expect(findEventCampaign).not.toHaveBeenCalled()
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
-    it('accepts and ignores an event type it does not use', async () => {
-      const response = await post(envelope('actor.updated', {}))
+    it('tells a connection test when no campaign is set up, or the secret is wrong', async () => {
+      jest.mocked(checkGameSecret).mockResolvedValue('unknown')
+      let response = await post(ping())
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe(
+        `No campaign is set up for ${GAME} in Sending Stone`,
+      )
 
-      expect(response.status).toBe(204)
-      expect(applyCampaignEvent).not.toHaveBeenCalled()
+      jest.mocked(checkGameSecret).mockResolvedValue('refused')
+      response = await post(ping())
+      expect(response.status).toBe(401)
+    })
+
+    it('asks for a retry when the campaign cannot be looked up', async () => {
+      const consoleError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      jest.mocked(findEventCampaign).mockRejectedValue(new Error('db down'))
+      jest.mocked(checkGameSecret).mockRejectedValue(new Error('db down'))
+
+      const event = await post(envelope('chat.cleared', {}))
+      const test = await post(ping())
+
+      expect(event.status).toBe(500)
+      expect(event.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+      expect(test.status).toBe(500)
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to check a Sending Stone event',
+        expect.any(Error),
+      )
+      consoleError.mockRestore()
     })
 
     it('refuses an event missing what the app relies on, saying what', async () => {

@@ -1,13 +1,13 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import {
-  findActorId,
   htmlToText,
   pickCombat,
   toTableCombat,
   toTableMessage,
+  toTableMessages,
   type Viewer,
 } from './table-view'
-import { chatMessage, combat, combatant, roster } from '@/mocks/sending-stone'
+import { chatMessage, combat, combatant } from '@/mocks/sending-stone'
 import type { SerializedMessage } from '@/types/sending-stone'
 
 const viewer: Viewer = {
@@ -25,20 +25,14 @@ const dnd5e = (
   ...fields,
 })
 const d20 = { formula: '1d20 + 7', total: 24, dice: [] }
-
-describe('utils/table-view', () => {
-  describe('findActorId', () => {
-    it('matches a name however it is spaced or capitalized', () => {
-      expect(findActorId(roster, '  thorin   OAKENSHIELD ')).toBe(
-        'actor-thorin',
-      )
-    })
-
-    it('finds nothing for a name not connected', () => {
-      expect(findActorId(roster, 'Bilbo')).toBeUndefined()
-    })
+const roll = (fields: object = {}) => ({ ...d20, ...fields })
+/** A message using an item of this type. */
+const cast = (type: string) =>
+  chatMessage({
+    dnd5e: dnd5e({ messageType: 'usage', item: { name: 'Fireball', type } }),
   })
 
+describe('utils/table-view', () => {
   describe('toTableMessage', () => {
     it('shows something said', () => {
       expect(toTableMessage(chatMessage(), viewer)).toEqual({
@@ -115,7 +109,8 @@ describe('utils/table-view', () => {
       expect(toTableMessage(message, viewer)).toMatchObject({
         kind: 'roll',
         text: undefined,
-        targets: ['Goblin'],
+        action: undefined,
+        targets: [{ name: 'Goblin' }],
         rolls: [
           {
             formula: '2d20kh + 7',
@@ -168,10 +163,9 @@ describe('utils/table-view', () => {
       [{ type: 'skill', skillId: 'prc' }, undefined, 'Perception check'],
       [{ type: 'ability', ability: 'str' }, undefined, 'Strength check'],
       [{ type: 'save', ability: 'dex' }, undefined, 'Dexterity save'],
-      [{ type: 'attack' }, 'Longbow', 'Longbow · Attack'],
-      [{ type: 'attack' }, undefined, 'Attack'],
-      [{ type: 'damage' }, 'Longbow', 'Longbow · Damage'],
-      [{ type: 'damage' }, undefined, 'Damage'],
+      [{ type: 'attack' }, 'Longbow', 'Longbow'],
+      [{ type: 'damage' }, 'Longbow', 'Longbow'],
+      [{ type: 'healing' }, 'Cure Wounds', 'Cure Wounds'],
       [{ type: 'death' }, undefined, 'Death save'],
       [{ type: 'hitDie' }, undefined, 'Hit Die'],
       [{ type: 'concentration' }, undefined, 'Concentration'],
@@ -189,6 +183,8 @@ describe('utils/table-view', () => {
       { type: 'ability', ability: 'nope' },
       { type: 'save' },
       { type: 'generic' },
+      { type: 'attack' },
+      { type: 'damage' },
     ])('falls back to the flavor for %o', roll => {
       const message = chatMessage({
         rolls: [d20],
@@ -203,6 +199,129 @@ describe('utils/table-view', () => {
       const message = chatMessage({ title: ' Ancient Lore ' })
 
       expect(toTableMessage(message, viewer).label).toBe('Ancient Lore')
+    })
+  })
+
+  describe('combat messages', () => {
+    it.each([
+      ['an attack', { type: 'attack' }, 'weapon', [roll()], 'attack'],
+      ['a spell attack', { type: 'attack' }, 'spell', [roll()], 'spell-attack'],
+      [
+        'damage',
+        { type: 'damage' },
+        'spell',
+        [roll({ damageType: 'fire' })],
+        'damage',
+      ],
+      [
+        'damage that only heals',
+        { type: 'damage' },
+        'spell',
+        [roll({ damageType: 'healing' }), roll({ damageType: 'temphp' })],
+        'healing',
+      ],
+      [
+        'damage with some harm',
+        { type: 'damage' },
+        'weapon',
+        [roll({ damageType: 'healing' }), roll({ damageType: 'necrotic' })],
+        'damage',
+      ],
+      ['healing', { type: 'healing' }, 'spell', [roll()], 'healing'],
+      ['a check', { type: 'skill', skillId: 'prc' }, null, [roll()], undefined],
+    ])('marks %s', (_, rollData, itemType, rolls, action) => {
+      const message = chatMessage({
+        rolls,
+        dnd5e: dnd5e({
+          roll: rollData,
+          item: itemType ? { name: 'Thing', type: itemType } : null,
+        }),
+      })
+
+      expect(toTableMessage(message, viewer).action).toBe(action)
+    })
+
+    it('marks a spell cast as a card, but not another item used', () => {
+      expect(toTableMessage(cast('spell'), viewer).action).toBe('spell')
+      expect(toTableMessage(cast('feat'), viewer).action).toBeUndefined()
+    })
+
+    it.each([
+      ['meets', 15, {}, 'hit'],
+      ['falls short of', 16, { total: 15 }, 'miss'],
+      ['crits against', 30, { critical: true }, 'hit'],
+      ['rolls a 1 against', 5, { fumble: true }, 'miss'],
+    ])(
+      'says whether an attack that %s the armor class hit',
+      (_, ac, fields, outcome) => {
+        const message = chatMessage({
+          rolls: [{ ...d20, total: 15, ...fields }],
+          dnd5e: dnd5e({
+            roll: { type: 'attack' },
+            targets: [{ name: 'Goblin', ac }, { name: 'Smaug' }],
+          }),
+        })
+
+        expect(toTableMessage(message, viewer).targets).toEqual([
+          { name: 'Goblin', ac, outcome },
+          { name: 'Smaug' },
+        ])
+      },
+    )
+
+    it("doesn't judge damage, or an attack with no total, against armor class", () => {
+      const targets = [{ name: 'Goblin', ac: 12 }]
+      const damage = chatMessage({
+        rolls: [d20],
+        dnd5e: dnd5e({ roll: { type: 'damage' }, targets }),
+      })
+      const blank = chatMessage({
+        rolls: [{ ...d20, total: null }],
+        dnd5e: dnd5e({ roll: { type: 'attack' }, targets }),
+      })
+
+      expect(toTableMessage(damage, viewer).targets).toEqual(targets)
+      expect(toTableMessage(blank, viewer).targets).toEqual(targets)
+    })
+
+    it('shows damage against the targets of the attack it came from, if it has none', () => {
+      const attack = chatMessage({
+        id: 'attack',
+        rolls: [d20],
+        dnd5e: dnd5e({
+          roll: { type: 'attack' },
+          targets: [{ name: 'Goblin Boss' }],
+        }),
+      })
+      const damage = (id: string, fields: object = {}) =>
+        chatMessage({
+          id,
+          rolls: [d20],
+          dnd5e: dnd5e({
+            roll: { type: 'damage' },
+            originatingMessage: 'attack',
+            ...fields,
+          }),
+        })
+
+      const messages = toTableMessages(
+        [
+          attack,
+          damage('inherits'),
+          damage('own', { targets: [{ name: 'Goblin' }] }),
+          damage('orphan', { originatingMessage: 'gone' }),
+          damage('alone', { originatingMessage: null }),
+        ],
+        viewer,
+      )
+
+      expect(messages.map(({ id, targets }) => [id, targets])).toEqual([
+        ['attack', [{ name: 'Goblin Boss' }]],
+        ['inherits', [{ name: 'Goblin Boss' }]],
+        ['own', [{ name: 'Goblin' }]],
+        ['orphan', []],
+        ['alone', []],
+      ])
     })
   })
 

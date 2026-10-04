@@ -1,10 +1,10 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
-import { updateCampaignTitle } from '../actions'
+import { chooseActor } from '../actions'
 import { GameTable } from '@/components/game-table'
+import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
 import { getTableView } from '@/db/table'
-import { appOrigin } from '@/lib/app-origin'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 
@@ -26,16 +26,21 @@ export default async function CharacterPage({ params }: Props) {
   const character = await findCharacter(id)
   if (!character) notFound()
 
-  const [view, origin] = await Promise.all([
+  const user = await requireUser()
+  // A character in a campaign but not yet one of its characters chooses which it is.
+  const { campaignId, actorId } = character
+  const [view, choice] = await Promise.all([
     getTableView(character),
-    appOrigin(),
+    campaignId && !actorId
+      ? getCampaignChoice(campaignId, user.id, character.id)
+      : undefined,
   ])
   return (
     <GameTable
       character={character}
       initialView={view}
-      destination={origin}
-      setCampaignTitle={updateCampaignTitle.bind(undefined, character.id)}
+      choice={choice}
+      chooseActor={chooseActor.bind(undefined, character.id)}
     />
   )
 }

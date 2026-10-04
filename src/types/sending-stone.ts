@@ -51,9 +51,12 @@ export type Dnd5eMessageData = {
     toolId?: string
     ability?: string
   } | null
-  item: { name: string | null } | null
+  item: { name: string | null; type?: string | null } | null
   activity: { name: string | null; type: string | null } | null
-  targets: { name: string }[]
+  /** Armor class is sent only when the Gamemaster shares Gamemaster-only information. */
+  targets: { name: string; ac?: number | null }[]
+  /** For damage rolled from an attack's card: that attack's message. */
+  originatingMessage?: string | null
 }
 
 export type SerializedMessage = {

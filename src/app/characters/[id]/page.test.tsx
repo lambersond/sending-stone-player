@@ -1,11 +1,12 @@
+/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { notFound } from 'next/navigation'
-import { updateCampaignTitle } from '../actions'
+import { chooseActor } from '../actions'
 import CharacterPage, { generateMetadata } from './page'
+import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
 import { getTableView } from '@/db/table'
-import { appOrigin } from '@/lib/app-origin'
 import { requireUser } from '@/lib/session'
 
 jest.mock('next/navigation', () => ({
@@ -13,25 +14,20 @@ jest.mock('next/navigation', () => ({
     throw new Error('NEXT_NOT_FOUND')
   }),
 }))
+jest.mock('../actions', () => ({ chooseActor: jest.fn() }))
+jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/table', () => ({ getTableView: jest.fn() }))
-jest.mock('@/lib/app-origin', () => ({ appOrigin: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
-jest.mock('../actions', () => ({ updateCampaignTitle: jest.fn() }))
 jest.mock('@/components/game-table', () => ({
-  GameTable: ({
-    character,
-    initialView,
-    destination,
-    setCampaignTitle,
-  }: any) => (
+  GameTable: ({ character, initialView, choice, chooseActor }: any) => (
     <>
       <p>
-        table for {character.name} at version {initialView.version}, destination{' '}
-        {destination}
+        table for {character.name} at version {initialView.version}
+        {choice && `, choosing in ${choice.title}`}
       </p>
-      <button type='button' onClick={() => setCampaignTitle({}, 'form')}>
-        Save campaign
+      <button type='button' onClick={() => chooseActor({}, 'form')}>
+        Choose
       </button>
     </>
   ),
@@ -42,6 +38,8 @@ const thorin = {
   name: 'Thorin Oakenshield',
   gameUrl: 'https://my-game.forge-vtt.com',
   campaignTitle: 'The Lonely Mountain',
+  campaignId: 'c1',
+  actorId: 'actor-thorin',
 }
 
 const props = (id: string) => ({
@@ -52,10 +50,12 @@ const props = (id: string) => ({
 describe('app/characters/[id]/page', () => {
   beforeEach(() => {
     jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
-    jest.mocked(appOrigin).mockResolvedValue('https://stone.example')
-    jest
-      .mocked(getTableView)
-      .mockResolvedValue({ version: 7, connected: true, messages: [] })
+    jest.mocked(getTableView).mockResolvedValue({
+      version: 7,
+      live: true,
+      connected: true,
+      messages: [],
+    })
   })
 
   it("shows the chosen character's table", async () => {
@@ -65,25 +65,33 @@ describe('app/characters/[id]/page', () => {
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
     expect(getTableView).toHaveBeenCalledWith(thorin)
     expect(
-      screen.getByText(
-        'table for Thorin Oakenshield at version 7, destination https://stone.example',
-      ),
+      screen.getByText('table for Thorin Oakenshield at version 7'),
     ).toBeInTheDocument()
+    expect(getCampaignChoice).not.toHaveBeenCalled()
   })
 
-  it('sets the campaign title of this character', async () => {
-    jest.mocked(getCharacter).mockResolvedValue(thorin)
+  it("offers the campaign's characters to one yet to choose which it is", async () => {
+    jest.mocked(getCharacter).mockResolvedValue({ ...thorin, actorId: null })
+    jest.mocked(getCampaignChoice).mockResolvedValue({
+      title: 'The Lonely Mountain',
+    } as any)
     const user = userEvent.setup()
     render(await CharacterPage(props('char-1')))
 
-    await user.click(screen.getByRole('button', { name: 'Save campaign' }))
+    expect(getCampaignChoice).toHaveBeenCalledWith('c1', 'user-1', 'char-1')
+    expect(
+      screen.getByText(
+        'table for Thorin Oakenshield at version 7, choosing in The Lonely Mountain',
+      ),
+    ).toBeInTheDocument()
 
-    expect(updateCampaignTitle).toHaveBeenCalledWith('char-1', {}, 'form')
+    await user.click(screen.getByRole('button', { name: 'Choose' }))
+    expect(chooseActor).toHaveBeenCalledWith('char-1', {}, 'form')
   })
 
   it('is not found when the user has no such character', async () => {
-    // eslint-disable-next-line unicorn/no-null -- what Prisma returns
-    jest.mocked(getCharacter).mockResolvedValue(null)
+    // eslint-disable-next-line unicorn/no-useless-undefined
+    jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     await expect(CharacterPage(props('someone-elses'))).rejects.toThrow(
       'NEXT_NOT_FOUND',
@@ -101,8 +109,8 @@ describe('app/characters/[id]/page', () => {
   })
 
   it('has a plain title when the character is not found', async () => {
-    // eslint-disable-next-line unicorn/no-null -- what Prisma returns
-    jest.mocked(getCharacter).mockResolvedValue(null)
+    // eslint-disable-next-line unicorn/no-useless-undefined
+    jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     await expect(generateMetadata(props('missing'))).resolves.toEqual({
       title: 'Character',

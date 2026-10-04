@@ -1,7 +1,9 @@
-import { addCharacter, removeCharacter } from './actions'
+import { Flag } from 'lucide-react'
+import Link from 'next/link'
+import { openInvite, removeCharacter } from './actions'
 import { Avatar } from '@/components/avatar'
-import { CharacterForm } from '@/components/character-form'
 import { CharacterList } from '@/components/character-list'
+import { InviteForm } from '@/components/invite-form'
 import { listCharacters } from '@/db/characters'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
@@ -39,17 +41,35 @@ export default async function CharactersPage() {
           <CharacterList characters={characters} onRemove={removeCharacter} />
         ) : (
           <p className='rounded-2xl border border-dashed border-border p-6 text-center text-text-secondary'>
-            You have no characters yet. Add one below.
+            You have no characters yet. Join a campaign below to choose one.
           </p>
         )}
       </section>
 
-      <section aria-labelledby='add-heading' className='mt-10'>
-        <h2 id='add-heading' className='mb-4 text-lg font-semibold'>
-          Add a character
+      <section aria-labelledby='join-heading' className='mt-10'>
+        <h2 id='join-heading' className='text-lg font-semibold'>
+          Join a campaign
         </h2>
-        <CharacterForm action={addCharacter} />
+        <p className='mt-1 mb-4 text-text-secondary'>
+          Open your Gamemaster&apos;s invite link, or paste it here, then choose
+          your character.
+        </p>
+        <InviteForm action={openInvite} />
       </section>
+
+      <p className='mt-10 flex items-center gap-2 text-sm text-text-secondary'>
+        <Flag aria-hidden className='size-4 shrink-0 text-primary' />
+        <span>
+          Running a game?{' '}
+          <Link
+            href='/campaigns'
+            className='font-medium text-primary hover:underline'
+          >
+            Set up your campaign
+          </Link>{' '}
+          to invite your players.
+        </span>
+      </p>
     </div>
   )
 }

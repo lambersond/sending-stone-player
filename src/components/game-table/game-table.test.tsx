@@ -3,18 +3,29 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
+import type { Character } from '@/types/character'
 import type { TableCombat, TableMessage, TableView } from '@/types/table'
 
 jest.mock('@/hooks/use-table-view', () => ({ useTableView: jest.fn() }))
 
-const character = {
+const character: Character = {
   id: 'char-1',
   name: 'Thorin',
   gameUrl: 'https://my-game.forge-vtt.com',
   campaignTitle: 'The Lonely Mountain',
+  campaignId: 'c1',
+  actorId: 'actor-thorin',
 }
-const destination = 'https://stone.example'
-const setCampaignTitle = jest.fn().mockResolvedValue({})
+const chooseActor = jest.fn().mockResolvedValue({})
+const choice = {
+  id: 'c1',
+  title: 'The Lonely Mountain',
+  gameUrl: 'https://my-game.forge-vtt.com',
+  characters: [
+    { id: 'actor-thorin', name: 'Thorin Oakenshield' },
+    { id: 'actor-vex', name: 'Vex', claimedBy: 'someone' as const },
+  ],
+}
 
 const message = (id: string, sentAt: string): TableMessage => ({
   id,
@@ -49,6 +60,7 @@ const combat = (fields: Partial<TableCombat> = {}): TableCombat => ({
 
 const view = (fields: Partial<TableView> = {}): TableView => ({
   version: 3,
+  live: true,
   campaign: { title: 'The Lonely Mountain', worldTitle: 'Return to Erebor' },
   connected: true,
   messages: [message('m1', '2026-10-04T19:00:00.000Z')],
@@ -61,19 +73,27 @@ const showing = (next: Partial<typeof current>) => {
   current = { ...current, ...next }
 }
 
-const table = (initial: TableView, who = character) => (
+const table = (
+  initial: TableView,
+  who: Character = character,
+  options: { choice?: typeof choice } = {},
+) => (
   <GameTable
     character={who}
     initialView={initial}
-    destination={destination}
-    setCampaignTitle={setCampaignTitle}
+    choice={options.choice}
+    chooseActor={chooseActor}
   />
 )
 
-const renderTable = (initial = view(), who = character) => {
+const renderTable = (
+  initial = view(),
+  who: Character = character,
+  options: { choice?: typeof choice } = {},
+) => {
   current = { view: initial, connection: 'live' }
   jest.mocked(useTableView).mockImplementation(() => current)
-  return render(table(initial, who))
+  return render(table(initial, who, options))
 }
 
 const subtitle = () => screen.getByRole('heading', { level: 1 }).nextSibling
@@ -165,42 +185,78 @@ describe('components/game-table/game-table', () => {
     expect(subtitle()).toHaveTextContent('The Desolation · 1 message')
   })
 
-  it('waits for the campaign, showing the Gamemaster what to do', () => {
-    renderTable({ version: 0, connected: false, messages: [] })
+  it('shows when the game is connected, and when it has gone quiet', () => {
+    const { rerender } = renderTable()
+    expect(screen.getByRole('status')).toHaveTextContent(/^Live/)
 
-    expect(
-      screen.getByRole('heading', { name: 'Waiting for the table' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText(destination)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Waiting')
-    expect(subtitle()).toHaveTextContent(
-      'The Lonely Mountain · my-game.forge-vtt.com',
+    showing({ view: view({ live: false }) })
+    rerender(table(view()))
+
+    expect(screen.getByRole('status')).toHaveTextContent(/^Offline/)
+    expect(screen.getByRole('status')).toHaveAttribute(
+      'title',
+      "Your Gamemaster's game hasn't been heard from in the last two minutes.",
     )
   })
 
-  it('asks for the campaign of a character made before campaigns', async () => {
+  it("asks a character in a campaign which of the campaign's characters it is", async () => {
     const user = userEvent.setup()
     renderTable(
-      { version: 0, connected: false, messages: [] },
-      { ...character, campaignTitle: '' },
+      view({ connected: false }),
+      { ...character, actorId: null },
+      {
+        choice,
+      },
     )
 
     expect(
-      screen.getByRole('heading', { name: 'Which campaign is Thorin in?' }),
+      screen.getByRole('heading', {
+        name: 'Choose your character in The Lonely Mountain',
+      }),
     ).toBeInTheDocument()
-    expect(subtitle()).toHaveTextContent(/^my-game.forge-vtt.com$/)
+    expect(screen.getByRole('status')).toHaveTextContent(/^Waiting/)
+    expect(screen.queryByText(/is no longer one of/)).toBeNull()
 
-    await user.type(screen.getByLabelText('Campaign title'), 'Erebor')
-    await user.click(screen.getByRole('button', { name: 'Save campaign' }))
-
-    expect(setCampaignTitle).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('radio', { name: 'Thorin Oakenshield' }))
+    await user.click(screen.getByRole('button', { name: 'Choose character' }))
+    expect(chooseActor).toHaveBeenCalledTimes(1)
   })
 
-  it("explains when the character isn't one of the campaign's", () => {
+  it.each([
+    [
+      'in no campaign',
+      { campaignId: null, actorId: null },
+      view({ campaign: undefined }),
+    ],
+    ['whose campaign is gone', { actorId: null }, view()],
+  ])('sends a character %s to an invite link', (_, fields, initial) => {
+    renderTable(initial, { ...character, ...fields })
+
+    expect(
+      screen.getByRole('heading', { name: "Thorin isn't in a campaign" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Your characters' }),
+    ).toHaveAttribute('href', '/characters')
+  })
+
+  it('names the game by its address while there is no campaign', () => {
+    renderTable(view({ campaign: undefined }), {
+      ...character,
+      campaignTitle: '',
+      campaignId: null,
+    })
+
+    expect(subtitle()).toHaveTextContent(/^my-game.forge-vtt.com$/)
+  })
+
+  it("explains when the character is no longer one of the campaign's", () => {
     renderTable(view({ connected: false }))
 
     expect(
-      screen.getByText(/Thorin is not one of The Lonely Mountain's characters/),
+      screen.getByText(
+        /Thorin is no longer one of The Lonely Mountain's characters/,
+      ),
     ).toBeInTheDocument()
   })
 

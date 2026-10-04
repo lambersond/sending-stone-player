@@ -2,6 +2,17 @@
 import { envelopeSchema, parseGameEvent } from './sending-stone'
 import { combat, roster } from '@/mocks/sending-stone'
 
+/** A chat message with these dnd5e details, as read. */
+const messageWith = (dnd5e: object) =>
+  parseGameEvent('chat.message.created', {
+    message: {
+      id: 'm1',
+      timestamp: 1,
+      audience: { public: true, characters: [] },
+      dnd5e: { messageType: 'roll', ...dnd5e },
+    },
+  })?.data as any
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -114,6 +125,31 @@ describe('schemas/sending-stone', () => {
 
     expect(event?.data).toMatchObject({
       message: { rolls: [roll], dnd5e },
+    })
+  })
+
+  it('reads what marks a combat roll, and drops a malformed armor class', () => {
+    expect(
+      messageWith({
+        roll: { type: 'attack' },
+        item: { name: 'Fire Bolt', type: 'spell' },
+        targets: [
+          { name: 'Goblin', ac: 15 },
+          { name: 'Wisp', ac: 'high' },
+        ],
+        originatingMessage: 'm0',
+      }).message.dnd5e,
+    ).toMatchObject({
+      item: { name: 'Fire Bolt', type: 'spell' },
+      targets: [{ name: 'Goblin', ac: 15 }, { name: 'Wisp' }],
+      originatingMessage: 'm0',
+    })
+    expect(
+      messageWith({ item: { name: 'Club', type: 7 }, originatingMessage: 3 })
+        .message.dnd5e,
+    ).toMatchObject({
+      item: { name: 'Club', type: null },
+      originatingMessage: null,
     })
   })
 

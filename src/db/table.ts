@@ -1,9 +1,9 @@
 import prisma from '@/clients/prisma'
+import { isLive } from '@/db/campaigns'
 import {
-  findActorId,
   pickCombat,
   toTableCombat,
-  toTableMessage,
+  toTableMessages,
   type Viewer,
 } from '@/utils/table-view'
 import type { Character } from '@/types/character'
@@ -13,47 +13,29 @@ import type {
   SerializedMessage,
 } from '@/types/sending-stone'
 import type { TableView } from '@/types/table'
-import type { Prisma } from '@prisma/client'
 
 /** The most recent chat messages shown. */
 export const MESSAGE_LIMIT = 100
 
-/**
- * Escape the wildcards in a value compared case-insensitively: Prisma compares with ILIKE on
- * Postgres, where `%` and `_` would otherwise match any title.
- */
-const literal = (value: string) => value.replaceAll(/[\\%_]/g, String.raw`\$&`)
+/** What tells a viewer whether anything is new: the campaign's version, and whether it is live. */
+export type CampaignStatus = { version: number; live: boolean }
 
 /**
- * Find a character's campaign: the one in its game with the title it was given, ignoring case.
- * Titles differ within a world, but a game can switch worlds, so the most recently active wins.
+ * The status of a character's campaign, to tell cheaply whether a viewer is up to date.
+ * @returns Version 0, not live, while the character is in no campaign.
  */
-function findCampaign<Select extends Prisma.CampaignSelect>(
+export async function getCampaignStatus(
   character: Character,
-  select: Select,
-) {
-  const title = character.campaignTitle.trim()
-  if (!title) return Promise.resolve(undefined)
-  return prisma.campaign.findFirst({
-    where: {
-      origin: character.gameUrl,
-      title: { equals: literal(title), mode: 'insensitive' },
-    },
-    orderBy: { lastEventAt: { sort: 'desc', nulls: 'last' } },
-    select,
+): Promise<CampaignStatus> {
+  if (!character.campaignId) return { version: 0, live: false }
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: character.campaignId },
+    select: { version: true, lastSeenAt: true },
   })
-}
-
-/**
- * The version of what is held for a character's campaign, to tell cheaply whether a viewer is up
- * to date.
- * @returns The version, or 0 when the campaign has sent nothing yet.
- */
-export async function getCampaignVersion(
-  character: Character,
-): Promise<number> {
-  const campaign = await findCampaign(character, { version: true })
-  return campaign?.version ?? 0
+  return {
+    version: campaign?.version ?? 0,
+    live: isLive(campaign?.lastSeenAt),
+  }
 }
 
 /**
@@ -61,21 +43,26 @@ export async function getCampaignVersion(
  * The caller must already have checked that the character belongs to the signed-in user.
  */
 export async function getTableView(character: Character): Promise<TableView> {
-  const campaign = await findCampaign(character, {
-    id: true,
-    title: true,
-    version: true,
-    worldTitle: true,
-    lastEventAt: true,
-    characters: true,
-  })
+  const campaign = character.campaignId
+    ? await prisma.campaign.findUnique({
+        where: { id: character.campaignId },
+        select: {
+          id: true,
+          title: true,
+          version: true,
+          worldTitle: true,
+          lastSeenAt: true,
+          characters: true,
+        },
+      })
+    : undefined
   if (!campaign) {
-    return { version: 0, connected: false, messages: [] }
+    return { version: 0, live: false, connected: false, messages: [] }
   }
 
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   const viewer: Viewer = {
-    actorId: findActorId(roster, character.name),
+    actorId: character.actorId ?? undefined,
     party: new Set(roster.map(({ id }) => id)),
   }
 
@@ -105,17 +92,19 @@ export async function getTableView(character: Character): Promise<TableView> {
   )
   return {
     version: campaign.version,
+    live: isLive(campaign.lastSeenAt),
     campaign: {
       title: campaign.title,
-      worldTitle: campaign.worldTitle,
-      lastEventAt: campaign.lastEventAt?.toISOString(),
+      worldTitle: campaign.worldTitle ?? undefined,
+      lastSeenAt: campaign.lastSeenAt?.toISOString(),
     },
-    connected: viewer.actorId !== undefined,
-    messages: messages
-      .toReversed()
-      .map(({ data }) =>
-        toTableMessage(data as unknown as SerializedMessage, viewer),
-      ),
+    connected: roster.some(({ id }) => id === viewer.actorId),
+    messages: toTableMessages(
+      messages
+        .toReversed()
+        .map(({ data }) => data as unknown as SerializedMessage),
+      viewer,
+    ),
     combat: combat ? toTableCombat(combat, viewer) : undefined,
   }
 }

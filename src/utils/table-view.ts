@@ -2,30 +2,21 @@ import { ABILITIES, SKILLS } from '@/constants/dnd5e'
 import type {
   CombatantSummary,
   CombatSnapshot,
-  ConnectedCharacter,
+  Dnd5eMessageData,
   RollSummary,
   SerializedMessage,
 } from '@/types/sending-stone'
-import type { Side, TableCombat, TableMessage, TableRoll } from '@/types/table'
+import type {
+  Side,
+  TableAction,
+  TableCombat,
+  TableMessage,
+  TableRoll,
+  TableTarget,
+} from '@/types/table'
 
-/** Who is looking: their character's actor id, if connected, and the party's actor ids. */
+/** Who is looking: their character's actor id, if chosen, and the party's actor ids. */
 export type Viewer = { actorId: string | undefined; party: Set<string> }
-
-/**
- * Find a character among a game's connected characters. A character here is only a name, so
- * that is what links it to its Foundry actor.
- * @returns The actor id, or undefined if no connected character has that name.
- */
-export function findActorId(
-  roster: ConnectedCharacter[],
-  name: string,
-): string | undefined {
-  const wanted = normalizeName(name)
-  return roster.find(character => normalizeName(character.name) === wanted)?.id
-}
-
-const normalizeName = (name: string) =>
-  name.trim().replaceAll(/\s+/g, ' ').toLocaleLowerCase()
 
 function sideOf(
   viewer: Viewer,
@@ -41,9 +32,29 @@ function sideOf(
 /*  Chat                                        */
 /* -------------------------------------------- */
 
+/**
+ * A player's view of chat messages, oldest first. Damage rolled from an attack's card names no
+ * targets of its own, so it is shown against the attack's.
+ */
+export function toTableMessages(
+  messages: SerializedMessage[],
+  viewer: Viewer,
+): TableMessage[] {
+  const byId = new Map(messages.map(message => [message.id, message]))
+  return messages.map(message => {
+    const attack = message.dnd5e?.originatingMessage
+    const inherited =
+      message.dnd5e?.targets.length || !attack
+        ? undefined
+        : byId.get(attack)?.dnd5e?.targets
+    return toTableMessage(message, viewer, inherited)
+  })
+}
+
 export function toTableMessage(
   message: SerializedMessage,
   viewer: Viewer,
+  inheritedTargets?: Dnd5eMessageData['targets'],
 ): TableMessage {
   const rolls = message.rolls.map(roll => toTableRoll(roll))
   const isCard =
@@ -52,6 +63,7 @@ export function toTableMessage(
   let kind: TableMessage['kind'] = 'text'
   if (rolls.length > 0) kind = 'roll'
   else if (isCard) kind = 'card'
+  const action = combatAction(message, rolls)
 
   return {
     id: message.id,
@@ -61,11 +73,59 @@ export function toTableMessage(
     whisper: !message.audience.public,
     kind,
     label: messageLabel(message),
+    action,
     // A roll's or card's content is its rendering; their details are shown instead.
     text: kind === 'text' ? message.text.trim() || undefined : undefined,
     rolls,
-    targets: (message.dnd5e?.targets ?? []).map(target => target.name),
+    targets: toTargets(
+      message.dnd5e?.targets.length
+        ? message.dnd5e.targets
+        : (inheritedTargets ?? []),
+      action === 'attack' || action === 'spell-attack' ? rolls[0] : undefined,
+    ),
   }
+}
+
+const HEALING = new Set(['healing', 'temphp'])
+
+/** Is this an attack, damage, healing or a spell, from what D&D Fifth Edition recorded? */
+function combatAction(
+  message: SerializedMessage,
+  rolls: TableRoll[],
+): TableAction | undefined {
+  const dnd5e = message.dnd5e
+  const spell = dnd5e?.item?.type === 'spell'
+  switch (dnd5e?.roll?.type) {
+    case 'attack': {
+      return spell ? 'spell-attack' : 'attack'
+    }
+    case 'damage': {
+      const healing =
+        rolls.length > 0 &&
+        rolls.every(({ damageType }) => damageType && HEALING.has(damageType))
+      return healing ? 'healing' : 'damage'
+    }
+    case 'healing': {
+      return 'healing'
+    }
+  }
+  return spell && dnd5e?.messageType === 'usage' ? 'spell' : undefined
+}
+
+/**
+ * Who a roll or card was aimed at. An attack against a target whose armor class is known hit if
+ * it met it: a critical always hits and a natural 1 always misses.
+ */
+function toTargets(
+  targets: Dnd5eMessageData['targets'],
+  attack: TableRoll | undefined,
+): TableTarget[] {
+  return targets.map(({ name, ac }) => {
+    if (typeof ac !== 'number') return { name }
+    if (!attack || attack.total === null) return { name, ac }
+    const hit = attack.critical || (!attack.fumble && attack.total >= ac)
+    return { name, ac, outcome: hit ? 'hit' : 'miss' }
+  })
 }
 
 function toTableRoll(roll: RollSummary): TableRoll {
@@ -111,11 +171,12 @@ function messageLabel(message: SerializedMessage): string | undefined {
         if (ability) return `${ability} save`
         break
       }
-      case 'attack': {
-        return item ? `${item} · Attack` : 'Attack'
-      }
-      case 'damage': {
-        return item ? `${item} · Damage` : 'Damage'
+      // Whether it was an attack, damage or healing is shown beside the item's name.
+      case 'attack':
+      case 'damage':
+      case 'healing': {
+        if (item) return item
+        break
       }
       case 'death': {
         return 'Death save'

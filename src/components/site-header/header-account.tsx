@@ -1,3 +1,4 @@
+import { Flag } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar } from '@/components/avatar'
 import { SignOutButton } from '@/components/sign-out-button'
@@ -19,6 +20,13 @@ export async function HeaderAccount() {
 
   return (
     <nav aria-label='Account' className='flex min-w-0 items-center gap-2'>
+      <Link
+        href='/campaigns'
+        className='inline-flex items-center gap-1.5 rounded-lg p-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary sm:px-2.5'
+      >
+        <Flag aria-hidden className='size-4' />
+        <span className='max-sm:sr-only'>Campaigns</span>
+      </Link>
       <Link
         href='/characters'
         className='inline-flex min-w-0 items-center gap-2 rounded-lg p-1 text-sm font-medium transition-colors hover:bg-primary/10 sm:pr-2.5'

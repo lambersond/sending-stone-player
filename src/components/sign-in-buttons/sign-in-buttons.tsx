@@ -18,9 +18,15 @@ type Props = {
   providers: SocialProviderId[]
   /** Where to land once signed in. */
   callbackURL: string
+  /** Where to land if signing in fails. */
+  errorCallbackURL?: string
 }
 
-export function SignInButtons({ providers, callbackURL }: Readonly<Props>) {
+export function SignInButtons({
+  providers,
+  callbackURL,
+  errorCallbackURL = '/login',
+}: Readonly<Props>) {
   // Stays set after a successful request, while the browser leaves for the provider.
   const [chosen, setChosen] = useState<SocialProviderId>()
   const [failed, setFailed] = useState<SocialProviderId>()
@@ -31,7 +37,7 @@ export function SignInButtons({ providers, callbackURL }: Readonly<Props>) {
     const { error } = await authClient.signIn.social({
       provider,
       callbackURL,
-      errorCallbackURL: '/login',
+      errorCallbackURL,
     })
     if (error) {
       setChosen(undefined)

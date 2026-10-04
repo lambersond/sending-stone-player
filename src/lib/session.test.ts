@@ -49,4 +49,12 @@ describe('lib/session', () => {
     await expect(requireUser()).rejects.toThrow('NEXT_REDIRECT')
     expect(redirect).toHaveBeenCalledWith('/login')
   })
+
+  it('requireUser can bring them back to the page they were on once signed in', async () => {
+    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+    getSession.mockResolvedValue(null)
+
+    await expect(requireUser('/join/abc?x=1')).rejects.toThrow('NEXT_REDIRECT')
+    expect(redirect).toHaveBeenCalledWith('/login?next=%2Fjoin%2Fabc%3Fx%3D1')
+  })
 })
