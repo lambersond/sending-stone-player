@@ -7,6 +7,8 @@ export type OwnedCampaign = {
   inviteCode: string
   /** Has the module's campaign sent anything yet? */
   connected: boolean
+  /** Has it sent its characters? Unset until a bridge.hello is applied. */
+  rosterReceived: boolean
   /** Is the Gamemaster's game sending right now? */
   live: boolean
   lastSeenAt?: string

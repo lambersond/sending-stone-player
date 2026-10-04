@@ -49,6 +49,7 @@ describe('db/campaigns', () => {
           inviteCode: 'code-1',
           foundryId: 'camp-a',
           lastSeenAt: seen,
+          helloSession: 'session-1',
           characters: roster,
           players: [
             { actorId: 'actor-thorin', user: { name: 'Alice' } },
@@ -63,6 +64,7 @@ describe('db/campaigns', () => {
           inviteCode: null,
           foundryId: null,
           lastSeenAt: null,
+          helloSession: null,
           characters: [],
           players: [],
         },
@@ -76,6 +78,7 @@ describe('db/campaigns', () => {
           worldTitle: 'Return to Erebor',
           inviteCode: 'code-1',
           connected: true,
+          rosterReceived: true,
           live: true,
           lastSeenAt: seen.toISOString(),
           characters: [
@@ -90,6 +93,7 @@ describe('db/campaigns', () => {
           worldTitle: undefined,
           inviteCode: '',
           connected: false,
+          rosterReceived: false,
           live: false,
           lastSeenAt: undefined,
           characters: [],
@@ -180,18 +184,19 @@ describe('db/campaigns', () => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         id: 'c1',
         secretHash: 'hash:right',
+        helloSession: 'session-1',
       } as any)
 
       await expect(findEventCampaign(ORIGIN, ref, 'right')).resolves.toEqual({
         id: 'c1',
-        secretHash: 'hash:right',
+        helloSession: 'session-1',
       })
       await expect(findEventCampaign(ORIGIN, ref, 'wrong')).resolves.toBe(
         'refused',
       )
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { originCampaign: { origin: ORIGIN, foundryId: 'camp-a' } },
-        select: { id: true, secretHash: true },
+        select: { id: true, secretHash: true, helloSession: true },
       })
       expect(prismaMock.campaign.findMany).not.toHaveBeenCalled()
     })

@@ -10,6 +10,7 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
   worldTitle: 'Return to Erebor',
   inviteCode: 'code-1',
   connected: true,
+  rosterReceived: true,
   live: true,
   characters: [],
   ...fields,
@@ -56,11 +57,19 @@ describe('components/campaigns/campaign-card', () => {
     expect(screen.getByText(/Last heard/)).toBeInTheDocument()
   })
 
-  it("explains that the campaign's characters arrive with Foundry", () => {
-    renderCard({ connected: false, live: false })
+  it("explains that the campaign's characters arrive from Foundry", () => {
+    renderCard({ connected: false, rosterReceived: false, live: false })
 
     expect(
-      screen.getByText(/characters appear here once Foundry connects/),
+      screen.getByText(/Reloading the game in Foundry sends them at once/),
+    ).toBeInTheDocument()
+  })
+
+  it('says when Foundry sent the campaign no characters', () => {
+    renderCard()
+
+    expect(
+      screen.getByText(/Tick its characters in Manage Campaigns in Foundry/),
     ).toBeInTheDocument()
   })
 

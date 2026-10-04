@@ -58,7 +58,9 @@ const ping = () =>
 
 describe('app/api/events', () => {
   beforeEach(() => {
-    jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+    jest
+      .mocked(findEventCampaign)
+      .mockResolvedValue({ id: 'c1', helloSession: 's1' })
     jest.mocked(checkGameSecret).mockResolvedValue('ok')
   })
 
@@ -112,10 +114,54 @@ describe('app/api/events', () => {
       expect(response.status).toBe(204)
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
       expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
-      expect(applyCampaignEvent).toHaveBeenCalledWith('c1', world, campaign, {
-        type: 'chat.message.created',
-        data: { message },
-      })
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        { type: 'chat.message.created', data: { message } },
+        's1',
+      )
+    })
+
+    it.each([
+      ['a campaign set up after its hello was refused', undefined],
+      ['a new session of the module', 's0'],
+    ])(
+      "asks for the campaign's hello again for %s",
+      async (_, helloSession) => {
+        jest
+          .mocked(findEventCampaign)
+          .mockResolvedValue({ id: 'c1', helloSession })
+
+        const response = await post(
+          envelope('bridge.heartbeat', {}, { sequence: null }),
+        )
+
+        expect(response.status).toBe(200)
+        expect(response.headers.get('Content-Type')).toMatch(
+          /^application\/json/,
+        )
+        expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+        await expect(response.json()).resolves.toEqual({ resend: 'hello' })
+        expect(markSeen).toHaveBeenCalledWith('c1')
+      },
+    )
+
+    it("doesn't ask for a hello in answer to a hello", async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      const response = await post(
+        envelope('bridge.hello', { characters: [], combats: [] }),
+      )
+
+      expect(response.status).toBe(204)
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        { type: 'bridge.hello', data: { characters: [], combats: [] } },
+        's1',
+      )
     })
 
     it('refuses an event for a campaign not set up, saying so', async () => {

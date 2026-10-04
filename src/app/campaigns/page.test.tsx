@@ -24,6 +24,7 @@ const campaign = {
   worldTitle: 'Return to Erebor',
   inviteCode: 'AbCdEfGh_-123456',
   connected: true,
+  rosterReceived: true,
   live: true,
   characters: [
     { id: 'actor-thorin', name: 'Thorin Oakenshield', player: 'Alice' },

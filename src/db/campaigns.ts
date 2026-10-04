@@ -42,6 +42,7 @@ export async function listOwnedCampaigns(
       inviteCode: true,
       foundryId: true,
       lastSeenAt: true,
+      helloSession: true,
       characters: true,
       players: { select: { actorId: true, user: { select: { name: true } } } },
     },
@@ -57,6 +58,7 @@ export async function listOwnedCampaigns(
       worldTitle: campaign.worldTitle ?? undefined,
       inviteCode: campaign.inviteCode ?? '',
       connected: campaign.foundryId !== null,
+      rosterReceived: campaign.helloSession !== null,
       live: isLive(campaign.lastSeenAt),
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
       characters: rosterOf(campaign.characters).map(({ id, name }) => ({
@@ -138,7 +140,9 @@ export async function removeCampaign(
 /*  The module                                  */
 /* -------------------------------------------- */
 
-export type EventCampaign = { id: string } | 'unknown' | 'refused'
+/** The campaign an event is for, with the module session whose state it holds, if any. */
+export type EventCampaign =
+  { id: string; helloSession?: string } | 'unknown' | 'refused'
 
 /**
  * Find the campaign an event is for, and check that the secret it came with is that campaign's.
@@ -156,10 +160,12 @@ export async function findEventCampaign(
 ): Promise<EventCampaign> {
   const bound = await prisma.campaign.findUnique({
     where: { originCampaign: { origin, foundryId: campaign.id } },
-    select: { id: true, secretHash: true },
+    select: { id: true, secretHash: true, helloSession: true },
   })
   if (bound?.secretHash) {
-    return (await verifySecret(secret, bound.secretHash)) ? bound : 'refused'
+    return (await verifySecret(secret, bound.secretHash))
+      ? { id: bound.id, helloSession: bound.helloSession ?? undefined }
+      : 'refused'
   }
 
   const candidates = await prisma.campaign.findMany({
@@ -178,6 +184,7 @@ export async function findEventCampaign(
   if (candidates.length === 0) return 'unknown'
   for (const candidate of candidates) {
     if (await verifySecret(secret, candidate.secretHash ?? '')) {
+      // Bound only now, so it holds no state from the module's session.
       return { id: await bind(candidate.id, campaign.id, bound?.id) }
     }
   }

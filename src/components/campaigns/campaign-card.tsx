@@ -93,7 +93,9 @@ export function CampaignCard({
           </ul>
         ) : (
           <p className='text-sm text-text-secondary'>
-            The campaign&apos;s characters appear here once Foundry connects.
+            {campaign.rosterReceived
+              ? 'Foundry sent no characters for this campaign. Tick its characters in Manage Campaigns in Foundry.'
+              : 'The campaign’s characters appear here once Foundry sends them. Reloading the game in Foundry sends them at once.'}
           </p>
         )}
       </section>

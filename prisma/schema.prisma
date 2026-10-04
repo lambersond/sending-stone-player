@@ -120,36 +120,40 @@ model Character {
 // module sends. The module's campaign with the same title is bound to it by its first event.
 // Players join it through the Gamemaster's invite link.
 model Campaign {
-  id          String        @id @default(cuid())
+  id           String        @id @default(cuid())
   // The origin the game is served from, which its events arrive with.
-  origin      String
+  origin       String
   // The module's id for the campaign, which never changes. Unset until its first event.
-  foundryId   String?
+  foundryId    String?
   // The module's campaign with this title is the one bound to it. Renaming it in the module renames
   // it here.
-  title       String
-  worldId     String?
-  worldTitle  String?
+  title        String
+  worldId      String?
+  worldTitle   String?
   // The Gamemaster who set the campaign up. Unset only for a campaign from before Gamemasters set
   // campaigns up here, which accepts no events until one sets it up.
-  ownerId     String?
-  owner       User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId      String?
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   // A hash of the secret the module sends with each event.
-  secretHash  String?
+  secretHash   String?
   // The code in the link the Gamemaster shares to invite players. Resetting it retires the old link.
-  inviteCode  String?       @unique
+  inviteCode   String?       @unique
   // The campaign's characters, from its latest bridge.hello.
-  characters  Json          @default("[]")
+  characters   Json          @default("[]")
+  // The module session whose bridge.hello was last applied. An event from another session means
+  // this may be missing the campaign's state, such as when its hello was refused before the
+  // campaign was set up here, so the module is asked to send it again.
+  helloSession String?
   // Bumped on every change, so a viewer can tell cheaply whether anything is new.
-  version     Int           @default(0)
-  lastEventAt DateTime?
+  version      Int           @default(0)
+  lastEventAt  DateTime?
   // When anything, an event or a heartbeat, last arrived: whether the Gamemaster is connected.
-  lastSeenAt  DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  messages    ChatMessage[]
-  combats     Combat[]
-  players     Character[]
+  lastSeenAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  messages     ChatMessage[]
+  combats      Combat[]
+  players      Character[]
 
   @@unique([origin, foundryId], name: "originCampaign")
   @@index([ownerId])
