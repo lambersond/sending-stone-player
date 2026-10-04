@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode follows the `dark` class next-themes sets on <html>, not only the device setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -22,21 +25,19 @@
   --color-danger: #c81e1e;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-page: #0d0d14;
-    --color-card: #171722;
-    --color-border: #2b2b3a;
+.dark {
+  --color-page: #0d0d14;
+  --color-card: #171722;
+  --color-border: #2b2b3a;
 
-    --color-primary: #9a8cff;
-    --color-primary-hover: #b2a8ff;
-    --color-on-primary: #0d0d14;
+  --color-primary: #9a8cff;
+  --color-primary-hover: #b2a8ff;
+  --color-on-primary: #0d0d14;
 
-    --color-text-primary: #ececf3;
-    --color-text-secondary: #a3a3b5;
+  --color-text-primary: #ececf3;
+  --color-text-secondary: #a3a3b5;
 
-    --color-danger: #f87171;
-  }
+  --color-danger: #f87171;
 }
 
 body {

@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Gem } from 'lucide-react'
 import Link from 'next/link'
 import { HeaderAccount } from './header-account'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export function SiteHeader() {
   return (
@@ -14,10 +15,13 @@ export function SiteHeader() {
           <Gem aria-hidden className='size-5 text-primary' />
           Sending Stone
         </Link>
-        {/* Reading the session waits on the database; let the rest of the page stream first. */}
-        <Suspense>
-          <HeaderAccount />
-        </Suspense>
+        <div className='flex min-w-0 items-center gap-2'>
+          <ThemeToggle />
+          {/* Reading the session waits on the database; let the rest of the page stream first. */}
+          <Suspense>
+            <HeaderAccount />
+          </Suspense>
+        </div>
       </div>
     </header>
   )
