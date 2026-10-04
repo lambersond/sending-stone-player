@@ -131,8 +131,12 @@ describe('components/game-table/chat-log', () => {
 
     expect(screen.getByText('Longbow · Attack')).toBeInTheDocument()
     expect(screen.getByText('2d20kh + 7')).toBeInTheDocument()
-    expect(screen.getByText('Critical')).toBeInTheDocument()
-    expect(screen.getByText('Advantage')).toBeInTheDocument()
+    expect(screen.getByText('Critical')).toHaveClass('bg-gold', 'text-on-gold')
+    expect(screen.getByText('Advantage')).toHaveClass(
+      'bg-primary',
+      'text-on-primary',
+    )
+    expect(screen.getByText('24')).toHaveClass('text-gold-text')
     const dice = within(screen.getByRole('list', { name: 'Dice' }))
       .getAllByRole('listitem')
       .map(die => die.textContent)
@@ -167,7 +171,10 @@ describe('components/game-table/chat-log', () => {
 
     expect(screen.getByText('Roll')).toBeInTheDocument()
     expect(screen.getByText('Nat 1')).toBeInTheDocument()
-    expect(screen.getByText('Disadvantage')).toBeInTheDocument()
+    expect(screen.getByText('Disadvantage')).toHaveClass(
+      'bg-ruby',
+      'text-on-ruby',
+    )
     expect(screen.getByText('fire damage')).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Dice' })).toBeNull()
     expect(screen.getByText('–')).toBeInTheDocument()

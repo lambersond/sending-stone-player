@@ -29,6 +29,14 @@
   --color-party: #1d5fae;
   --color-foe: #b3261e;
   --color-whisper: #6b3fb8;
+
+  /* Rolls: gold for a critical, ruby for disadvantage. gold-text is gold deep enough to read
+     as text; gold itself is for fills and outlines. */
+  --color-gold: #d4a017;
+  --color-on-gold: #1f1600;
+  --color-gold-text: #a87b00;
+  --color-ruby: #a50e2d;
+  --color-on-ruby: #ffffff;
 }
 
 .dark {
@@ -49,6 +57,12 @@
   --color-party: #8ab8f0;
   --color-foe: #f0948b;
   --color-whisper: #c3aef0;
+
+  --color-gold: #e8b84a;
+  --color-on-gold: #1f1600;
+  --color-gold-text: #e8b84a;
+  --color-ruby: #f0708a;
+  --color-on-ruby: #1a0509;
 }
 
 body {

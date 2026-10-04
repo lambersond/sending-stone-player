@@ -154,21 +154,23 @@ function RollCard({
       className={clsx(
         bubble(whisper, mine),
         'flex w-full max-w-sm flex-col gap-2 p-3',
-        roll.critical && 'border-solid border-primary',
+        roll.critical && 'border-solid border-gold',
       )}
     >
       <div className='flex items-start justify-between gap-2'>
         <span className='text-sm font-semibold'>{label ?? 'Roll'}</span>
         <div className='flex shrink-0 flex-wrap justify-end gap-1'>
           {roll.critical && (
-            <Badge className='bg-primary text-on-primary'>Critical</Badge>
+            <Badge className='bg-gold text-on-gold'>Critical</Badge>
           )}
           {roll.fumble && (
             <Badge className='bg-danger/15 text-danger'>Nat 1</Badge>
           )}
-          {roll.advantage && <Badge className='bg-border'>Advantage</Badge>}
+          {roll.advantage && (
+            <Badge className='bg-primary text-on-primary'>Advantage</Badge>
+          )}
           {roll.disadvantage && (
-            <Badge className='bg-border'>Disadvantage</Badge>
+            <Badge className='bg-ruby text-on-ruby'>Disadvantage</Badge>
           )}
         </div>
       </div>
@@ -197,7 +199,7 @@ function RollCard({
         <span
           className={clsx(
             'text-3xl leading-none font-semibold tabular-nums',
-            roll.critical && 'text-primary',
+            roll.critical && 'text-gold-text',
             roll.fumble && 'text-danger',
           )}
         >
