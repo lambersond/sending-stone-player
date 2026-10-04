@@ -6,8 +6,9 @@ import { ThemeToggle } from '@/components/theme-toggle'
 
 export function SiteHeader() {
   return (
-    <header className='border-b border-border bg-card/80 backdrop-blur'>
-      <div className='mx-auto flex h-14 w-full max-w-3xl items-center justify-between gap-4 px-4'>
+    // h-14, border included: the game table fills the viewport below it
+    <header className='h-14 border-b border-border bg-card/80 backdrop-blur'>
+      <div className='mx-auto flex h-full w-full max-w-3xl items-center justify-between gap-4 px-4'>
         <Link
           href='/'
           className='inline-flex shrink-0 items-center gap-2 font-semibold tracking-tight'

@@ -104,3 +104,59 @@ model Character {
   @@index([userId])
   @@map("character")
 }
+
+// A Foundry game whose Gamemaster sends events through the Sending Stone module. Keyed by the
+// origin the game is served from, which is the Origin its events arrive with and what a
+// character's gameUrl holds.
+model Game {
+  id          String        @id @default(cuid())
+  origin      String        @unique
+  worldId     String?
+  worldTitle  String?
+  // The connected characters from the latest bridge.hello or characters.updated.
+  characters  Json          @default("[]")
+  // Bumped on every change, so a viewer can tell cheaply whether anything is new.
+  version     Int           @default(0)
+  lastEventAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  messages    ChatMessage[]
+  combats     Combat[]
+
+  @@map("game")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  // Foundry's id for the message.
+  messageId String
+  sentAt    DateTime
+  public    Boolean
+  // Actor ids of the connected characters whose players can read the message.
+  readers   String[]
+  // The message as the module serialized it.
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, messageId], name: "gameMessage")
+  @@index([gameId, sentAt])
+  @@map("chat_message")
+}
+
+model Combat {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  // Foundry's id for the combat.
+  combatId  String
+  // The latest snapshot of the combat, combatants in turn order.
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, combatId], name: "gameCombat")
+  @@map("combat")
+}

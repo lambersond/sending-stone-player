@@ -23,6 +23,12 @@
 
   /* Status */
   --color-danger: #c81e1e;
+  --color-warning: #9a5700;
+
+  /* At the table: the player's allies, everyone else, and private messages */
+  --color-party: #1d5fae;
+  --color-foe: #b3261e;
+  --color-whisper: #6b3fb8;
 }
 
 .dark {
@@ -38,6 +44,11 @@
   --color-text-secondary: #a3a3b5;
 
   --color-danger: #f87171;
+  --color-warning: #f0b45a;
+
+  --color-party: #8ab8f0;
+  --color-foe: #f0948b;
+  --color-whisper: #c3aef0;
 }
 
 body {
