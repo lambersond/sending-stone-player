@@ -1,69 +1,66 @@
-import Image from "next/image";
+import { Gem, MessageSquare, Swords, UserRound } from 'lucide-react'
+import Link from 'next/link'
+import { getCurrentUser } from '@/lib/session'
 
-export default function Home() {
+const STEPS = [
+  {
+    Icon: Gem,
+    title: 'Your Gamemaster connects',
+    text: 'They add the Sending Stone module to your game on The Forge.',
+  },
+  {
+    Icon: UserRound,
+    title: 'You add your character',
+    text: "Give it a name and the game's Forge address.",
+  },
+  {
+    Icon: Swords,
+    title: 'Follow the table',
+    text: 'Choose your character to keep up with chat, rolls and combat.',
+  },
+]
+
+export default async function HomePage() {
+  const user = await getCurrentUser()
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className='mx-auto flex w-full max-w-3xl flex-col px-4 py-16 sm:py-24'>
+      <section className='flex flex-col items-center text-center'>
+        <span className='inline-flex rounded-2xl bg-primary/10 p-3 text-primary'>
+          <MessageSquare aria-hidden className='size-7' />
+        </span>
+        <h1 className='mt-6 max-w-xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl'>
+          Your character, wherever you are at the table
+        </h1>
+        <p className='mt-5 max-w-xl text-lg text-pretty text-text-secondary'>
+          Sending Stone follows your Foundry VTT game on The Forge, so you can
+          keep up with your character from a phone or a second screen.
+        </p>
+        <Link
+          href={user ? '/characters' : '/login'}
+          className='mt-8 inline-flex h-12 items-center rounded-xl bg-primary px-6 font-medium text-on-primary transition-colors hover:bg-primary-hover'
+        >
+          {user ? 'Choose your character' : 'Sign in to get started'}
+        </Link>
+      </section>
+
+      <ol className='mt-20 grid gap-4 sm:grid-cols-3'>
+        {STEPS.map(({ Icon, title, text }, index) => (
+          <li
+            key={title}
+            className='rounded-2xl border border-border bg-card p-5'
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <div className='flex items-center gap-3'>
+              <Icon aria-hidden className='size-5 text-primary' />
+              <span className='text-sm font-medium text-text-secondary'>
+                Step {index + 1}
+              </span>
+            </div>
+            <h2 className='mt-3 font-semibold'>{title}</h2>
+            <p className='mt-1 text-sm text-text-secondary'>{text}</p>
+          </li>
+        ))}
+      </ol>
     </div>
-  );
+  )
 }
