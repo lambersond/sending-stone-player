@@ -12,7 +12,13 @@ export type OwnedCampaign = {
   /** Is the Gamemaster's game sending right now? */
   live: boolean
   lastSeenAt?: string
-  characters: { id: string; name: string; player?: string }[]
+  /** Each with who plays it, and their character's id, once a player has chosen it. */
+  characters: {
+    id: string
+    name: string
+    player?: string
+    characterId?: string
+  }[]
 }
 
 /** One of a campaign's characters, as offered to a player choosing theirs. */

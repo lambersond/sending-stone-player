@@ -20,6 +20,7 @@ const renderCard = (fields: Partial<OwnedCampaign> = {}) => {
   const actions = {
     changeSecret: jest.fn().mockResolvedValue({ saved: true }),
     resetInvite: jest.fn(async () => {}),
+    removePlayer: jest.fn<Promise<void>, [string]>(async () => {}),
     remove: jest.fn(async () => {}),
   }
   render(
@@ -73,30 +74,70 @@ describe('components/campaigns/campaign-card', () => {
     ).toBeInTheDocument()
   })
 
-  it('asks before resetting the invite link or removing the campaign', async () => {
+  it('asks before resetting the invite link', async () => {
     const user = userEvent.setup()
-    const { resetInvite, remove } = renderCard()
+    const { resetInvite } = renderCard()
 
     await user.click(screen.getByRole('button', { name: 'Reset link' }))
-    const reset = screen.getByRole('group', { name: 'Reset link' })
-    expect(reset).toHaveTextContent(
-      'Stop this link working and make a new one?',
+    let dialog = screen.getByRole('dialog', { name: 'Reset the invite link?' })
+    expect(dialog).toHaveTextContent(
+      'The current link to The Lonely Mountain stops working',
     )
-    await user.click(within(reset).getByRole('button', { name: 'Cancel' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(resetInvite).not.toHaveBeenCalled()
+    expect(dialog).not.toHaveAttribute('open')
 
     await user.click(screen.getByRole('button', { name: 'Reset link' }))
-    await user.click(
-      within(screen.getByRole('group', { name: 'Reset link' })).getByRole(
-        'button',
-        { name: 'Reset link' },
-      ),
-    )
+    dialog = screen.getByRole('dialog', { name: 'Reset the invite link?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Reset link' }))
     expect(resetInvite).toHaveBeenCalledTimes(1)
+  })
 
-    await user.click(screen.getByRole('button', { name: 'Remove campaign' }))
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+  it('asks before deleting the campaign', async () => {
+    const user = userEvent.setup()
+    const { remove } = renderCard()
+
+    await user.click(screen.getByRole('button', { name: 'Delete campaign' }))
+    const dialog = screen.getByRole('dialog', {
+      name: 'Delete The Lonely Mountain?',
+    })
+    expect(dialog).toHaveTextContent("This can't be undone.")
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Delete campaign' }),
+    )
+
     expect(remove).toHaveBeenCalledTimes(1)
+  })
+
+  it("removes a player's character, after asking", async () => {
+    const user = userEvent.setup()
+    const { removePlayer } = renderCard({
+      characters: [
+        {
+          id: 'actor-thorin',
+          name: 'Thorin',
+          player: 'Alice',
+          characterId: 'char-1',
+        },
+        { id: 'actor-vex', name: 'Vex' },
+      ],
+    })
+
+    expect(
+      screen.queryByRole('button', { name: /Remove .* as Vex/ }),
+    ).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: 'Remove Alice as Thorin' }),
+    )
+    const dialog = screen.getByRole('dialog', {
+      name: 'Remove Alice as Thorin?',
+    })
+    expect(dialog).toHaveTextContent(
+      'Alice stops following The Lonely Mountain as Thorin',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    expect(removePlayer).toHaveBeenCalledWith('char-1')
   })
 
   it('changes the secret', async () => {
@@ -109,7 +150,7 @@ describe('components/campaigns/campaign-card', () => {
 
     expect(changeSecret).toHaveBeenCalledTimes(1)
     expect(await screen.findByRole('status')).toHaveTextContent(
-      "Saved. Enter the same secret in the module's Configure Connection.",
+      'Saved. Enter the same secret beside this campaign in Manage Campaigns in Foundry.',
     )
   })
 

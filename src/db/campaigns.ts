@@ -44,12 +44,14 @@ export async function listOwnedCampaigns(
       lastSeenAt: true,
       helloSession: true,
       characters: true,
-      players: { select: { actorId: true, user: { select: { name: true } } } },
+      players: {
+        select: { id: true, actorId: true, user: { select: { name: true } } },
+      },
     },
   })
   return campaigns.map(campaign => {
     const players = new Map(
-      campaign.players.map(({ actorId, user }) => [actorId, user.name]),
+      campaign.players.map(player => [player.actorId, player]),
     )
     return {
       id: campaign.id,
@@ -61,11 +63,10 @@ export async function listOwnedCampaigns(
       rosterReceived: campaign.helloSession !== null,
       live: isLive(campaign.lastSeenAt),
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
-      characters: rosterOf(campaign.characters).map(({ id, name }) => ({
-        id,
-        name,
-        player: players.get(id),
-      })),
+      characters: rosterOf(campaign.characters).map(({ id, name }) => {
+        const player = players.get(id)
+        return { id, name, player: player?.user.name, characterId: player?.id }
+      }),
     }
   })
 }
@@ -121,6 +122,26 @@ export async function resetInviteCode(
   const { count } = await prisma.campaign.updateMany({
     where: { id: campaignId, ownerId: userId },
     data: { inviteCode: generateInviteCode() },
+  })
+  return count > 0
+}
+
+/**
+ * Remove a player's character from one of the Gamemaster's campaigns, so that another player can
+ * choose it.
+ * @returns Whether the Gamemaster had such a player's character to remove.
+ */
+export async function removePlayer(
+  userId: string,
+  campaignId: string,
+  characterId: string,
+): Promise<boolean> {
+  const { count } = await prisma.character.deleteMany({
+    where: {
+      id: characterId,
+      campaignId,
+      campaign: { is: { ownerId: userId } },
+    },
   })
   return count > 0
 }

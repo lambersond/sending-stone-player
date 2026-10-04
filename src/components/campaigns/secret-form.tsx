@@ -55,8 +55,8 @@ export function SecretForm({ action }: Readonly<Props>) {
       )}
       {state.saved && (
         <p role='status' className='text-sm text-primary'>
-          Saved. Enter the same secret in the module&apos;s Configure
-          Connection.
+          Saved. Enter the same secret beside this campaign in Manage Campaigns
+          in Foundry.
         </p>
       )}
     </form>

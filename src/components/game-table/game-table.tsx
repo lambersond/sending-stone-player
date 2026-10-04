@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Swords,
   Ticket,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -14,6 +15,8 @@ import { ChatLog } from './chat-log'
 import { CombatTracker } from './combat-tracker'
 import { LiveStatus, type LiveState } from './live-status'
 import { CharacterChooser } from '@/components/character-chooser'
+import { DeleteCharacterWarning } from '@/components/character-list'
+import { ConfirmDialog } from '@/components/modal'
 import { useTableView } from '@/hooks/use-table-view'
 import { gameHost } from '@/utils/game-host'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
@@ -32,6 +35,8 @@ type Props = {
     state: ChooseCharacterFormState,
     formData: FormData,
   ) => Promise<ChooseCharacterFormState>
+  /** Deletes this character and leaves its page. */
+  deleteCharacter: () => Promise<void>
 }
 
 /** A character's live view of its campaign: the combat tracker and the chat log. */
@@ -40,6 +45,7 @@ export function GameTable({
   initialView,
   choice,
   chooseActor,
+  deleteCharacter,
 }: Readonly<Props>) {
   const { view, connection } = useTableView(character.id, initialView)
   const [tab, setTab] = useState<Tab>(() =>
@@ -112,7 +118,20 @@ export function GameTable({
               </p>
             </div>
           </div>
-          <LiveStatus state={liveState(playing, view, connection)} />
+          <div className='flex shrink-0 items-center gap-1'>
+            <LiveStatus state={liveState(playing, view, connection)} />
+            <ConfirmDialog
+              trigger={<Trash2 aria-hidden className='size-4' />}
+              triggerLabel={`Delete ${character.name}`}
+              triggerClassName='rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+              title={`Delete ${character.name}?`}
+              confirmLabel='Delete'
+              onConfirm={deleteCharacter}
+              danger
+            >
+              <DeleteCharacterWarning name={character.name} />
+            </ConfirmDialog>
+          </div>
         </header>
         <div
           ref={scroller}

@@ -90,3 +90,19 @@ export function mockManyFetch(
   globalThis.fetch = fetchMock as any
   return fetchMock
 }
+
+// jsdom has <dialog> but not its methods. Suites run in Node have no DOM at all.
+if (typeof HTMLDialogElement !== 'undefined') {
+  class Dialog extends HTMLDialogElement {
+    override showModal() {
+      this.open = true
+    }
+
+    override close() {
+      this.open = false
+      this.dispatchEvent(new Event('close'))
+    }
+  }
+  HTMLDialogElement.prototype.showModal = Dialog.prototype.showModal
+  HTMLDialogElement.prototype.close = Dialog.prototype.close
+}

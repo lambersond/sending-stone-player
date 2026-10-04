@@ -50,11 +50,18 @@ export async function POST(request: Request) {
   if (envelope.protocol !== PROTOCOL_VERSION) {
     return respond(400, `Unsupported protocol ${envelope.protocol}`)
   }
-  // A connection test, which names no campaign: is the secret one of this game's campaigns'?
+  // A connection test. It names the campaign tested; one from a module before 0.4.0 names none,
+  // and passes with the secret of any of this game's campaigns.
   if (envelope.type === EVENTS.PING) {
-    const checked = await attempt(() => checkGameSecret(origin, secret))
+    const { campaign } = envelope
+    const checked = await attempt(async () => {
+      if (!campaign) return checkGameSecret(origin, secret)
+      const found = await findEventCampaign(origin, campaign, secret)
+      return typeof found === 'string' ? found : 'ok'
+    })
     if (!checked) return respond(500)
-    if (checked === 'unknown') return respond(404, notSetUp(origin))
+    if (checked === 'unknown')
+      return respond(404, notSetUp(origin, campaign?.title))
     return respond(checked === 'ok' ? 204 : 401)
   }
   if (!envelope.campaign) {

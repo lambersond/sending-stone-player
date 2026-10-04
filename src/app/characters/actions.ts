@@ -72,6 +72,15 @@ export async function openInvite(
   redirect(`${JOIN_PATH}/${inviteCode}`)
 }
 
+/** Delete one of the player's characters from its own page, and go back to their characters. */
+export async function deleteCharacterAndLeave(
+  characterId: string,
+): Promise<void> {
+  const user = await requireUser()
+  await deleteCharacter(user.id, characterId)
+  redirect('/characters')
+}
+
 export async function removeCharacter(characterId: string): Promise<void> {
   const user = await requireUser()
   await deleteCharacter(user.id, characterId)

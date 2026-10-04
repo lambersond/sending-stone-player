@@ -49,6 +49,16 @@ const post = (
     }),
   )
 
+/** A connection test from a module that names the campaign tested. */
+const testCampaign = () =>
+  post(
+    envelope(
+      'bridge.ping',
+      { userId: 'u-gm', name: 'Gamemaster' },
+      { sequence: null },
+    ),
+  )
+
 const ping = () =>
   envelope(
     'bridge.ping',
@@ -295,6 +305,26 @@ describe('app/api/events', () => {
       expect(checkGameSecret).toHaveBeenCalledWith(GAME, 'hunter2')
       expect(findEventCampaign).not.toHaveBeenCalled()
       expect(applyCampaignEvent).not.toHaveBeenCalled()
+    })
+
+    it('tests the campaign a connection test names', async () => {
+      let response = await testCampaign()
+      expect(response.status).toBe(204)
+      expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
+      expect(checkGameSecret).not.toHaveBeenCalled()
+
+      jest.mocked(findEventCampaign).mockResolvedValue('unknown')
+      response = await testCampaign()
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe(
+        `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
+      )
+
+      jest.mocked(findEventCampaign).mockResolvedValue('refused')
+      response = await testCampaign()
+      expect(response.status).toBe(401)
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
+      expect(markSeen).not.toHaveBeenCalled()
     })
 
     it('tells a connection test when no campaign is set up, or the secret is wrong', async () => {

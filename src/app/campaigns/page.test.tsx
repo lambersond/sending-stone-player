@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import CampaignsPage from './page'
 import { listOwnedCampaigns } from '@/db/campaigns'
 import { appOrigin } from '@/lib/app-origin'
@@ -7,6 +8,7 @@ import { requireUser } from '@/lib/session'
 jest.mock('./actions', () => ({
   changeSecretAction: jest.fn(),
   removeCampaignAction: jest.fn(),
+  removePlayerAction: jest.fn(),
   resetInviteAction: jest.fn(),
   setUpCampaignAction: jest.fn(),
 }))
@@ -55,13 +57,24 @@ describe('app/campaigns/page', () => {
 
   it('helps a Gamemaster set up their first campaign and connect Foundry', async () => {
     jest.mocked(listOwnedCampaigns).mockResolvedValue([])
+    const user = userEvent.setup()
     render(await CampaignsPage())
 
     expect(
-      screen.getByText("You haven't set up a campaign yet."),
+      screen.getByText(/You haven't set up a campaign yet/),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Secret')).toHaveValue('suggested-secret-0001')
-    const connect = screen.getByRole('region', { name: 'Connect Foundry' })
+
+    await user.click(screen.getByRole('button', { name: 'New campaign' }))
+    const setUp = screen.getByRole('dialog', { name: 'New campaign' })
+    expect(within(setUp).getByLabelText('Secret')).toHaveValue(
+      'suggested-secret-0001',
+    )
+    await user.click(within(setUp).getByRole('button', { name: 'Close' }))
+
+    await user.click(screen.getByRole('button', { name: 'Connect Foundry' }))
+    const connect = screen.getByRole('dialog', {
+      name: 'Connect your Foundry game',
+    })
     expect(
       within(connect).getByText('https://stone.example'),
     ).toBeInTheDocument()

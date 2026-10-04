@@ -5,6 +5,7 @@ import { z } from 'zod'
 import {
   changeCampaignSecret,
   removeCampaign,
+  removePlayer,
   resetInviteCode,
   setUpCampaign,
 } from '@/db/campaigns'
@@ -68,6 +69,16 @@ export async function changeSecretAction(
 export async function resetInviteAction(campaignId: string): Promise<void> {
   const user = await requireUser(PAGE)
   await resetInviteCode(user.id, campaignId)
+  refresh()
+}
+
+/** Remove a player's character from the campaign, so that another player can choose it. */
+export async function removePlayerAction(
+  campaignId: string,
+  characterId: string,
+): Promise<void> {
+  const user = await requireUser(PAGE)
+  await removePlayer(user.id, campaignId, characterId)
   refresh()
 }
 

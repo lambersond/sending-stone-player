@@ -27,11 +27,14 @@ type Props = {
   ) => Promise<CampaignSetupFormState>
   /** A random secret to start from. */
   suggestedSecret: string
+  /** Called when the Gamemaster is done with the campaign just set up. */
+  onDone: () => void
 }
 
 export function CampaignSetupForm({
   action,
   suggestedSecret,
+  onDone,
 }: Readonly<Props>) {
   const [state, formAction, pending] = useActionState(action, {})
   const secret = useRef<HTMLInputElement>(null)
@@ -39,25 +42,33 @@ export function CampaignSetupForm({
     if (secret.current) secret.current.value = randomSecret()
   }
 
+  if (state.saved) {
+    return (
+      <div role='status' className='grid gap-4 text-sm'>
+        <p>
+          <strong>{state.saved.title}</strong> is set up. Copy its secret now:
+          Sending Stone keeps only a check of it, so it can&apos;t be shown
+          again.
+        </p>
+        <CopyField value={state.saved.secret} label='secret' />
+        <p className='text-text-secondary'>
+          In Foundry, enter it beside the campaign in Manage Campaigns, under
+          the same title.
+        </p>
+        <button
+          type='button'
+          onClick={onDone}
+          className='inline-flex h-11 items-center justify-center justify-self-end rounded-xl bg-primary px-5 font-medium text-on-primary transition-colors hover:bg-primary-hover'
+        >
+          Done
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className='grid gap-4'>
-      {state.saved && (
-        <div
-          role='status'
-          className='grid gap-2 rounded-2xl border border-primary/40 bg-primary/5 p-4 text-sm'
-        >
-          <p>
-            <strong>{state.saved.title}</strong> is set up. Copy its secret now:
-            Sending Stone keeps only a check of it, so it can&apos;t be shown
-            again.
-          </p>
-          <CopyField value={state.saved.secret} label='secret' />
-        </div>
-      )}
-      <form
-        action={formAction}
-        className='grid gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'
-      >
+      <form action={formAction} className='grid gap-5'>
         <Field
           label='Campaign title'
           name='title'
@@ -86,7 +97,7 @@ export function CampaignSetupForm({
           ref={secret}
           label='Secret'
           name='secret'
-          hint={`Enter the same secret in the module’s Configure Connection. The module sends one secret for every campaign in a world, so give them all the same one. At least ${SECRET_MIN_LENGTH} characters.`}
+          hint={`Enter the same secret beside this campaign in Manage Campaigns in Foundry. At least ${SECRET_MIN_LENGTH} characters.`}
           defaultValue={state.values?.secret ?? suggestedSecret}
           errors={state.errors?.secret}
           minLength={SECRET_MIN_LENGTH}
