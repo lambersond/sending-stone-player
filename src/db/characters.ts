@@ -4,7 +4,12 @@ import type { Character, CharacterInput } from '@/types/character'
 // Every query is scoped to the user who owns the characters, so one user can never read or
 // change another's by guessing an id.
 
-const select = { id: true, name: true, gameUrl: true } as const
+const select = {
+  id: true,
+  name: true,
+  gameUrl: true,
+  campaignTitle: true,
+} as const
 
 export function listCharacters(userId: string): Promise<Character[]> {
   return prisma.character.findMany({
@@ -29,6 +34,19 @@ export function createCharacter(
   input: CharacterInput,
 ): Promise<Character> {
   return prisma.character.create({ data: { ...input, userId }, select })
+}
+
+/** @returns Whether the user had a character with that id to change. */
+export async function setCampaignTitle(
+  userId: string,
+  characterId: string,
+  campaignTitle: string,
+): Promise<boolean> {
+  const { count } = await prisma.character.updateMany({
+    where: { id: characterId, userId },
+    data: { campaignTitle },
+  })
+  return count > 0
 }
 
 /** @returns Whether the user had a character with that id to delete. */

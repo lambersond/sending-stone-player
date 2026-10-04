@@ -3,24 +3,45 @@ import { envelopeSchema, parseGameEvent } from './sending-stone'
 import { combat, roster } from '@/mocks/sending-stone'
 
 describe('schemas/sending-stone', () => {
-  it('reads an envelope', () => {
-    const envelope = {
-      protocol: 1,
-      id: 'ev1',
-      session: 's1',
-      sequence: null,
-      type: 'bridge.ping',
-      time: '2026-10-04T19:02:00Z',
-      world: { id: 'erebor', title: 'Erebor' },
-      data: {},
-    }
+  const envelope = {
+    protocol: 2,
+    id: 'ev1',
+    session: 's1',
+    sequence: 4,
+    type: 'chat.cleared',
+    time: '2026-10-04T19:02:00Z',
+    world: { id: 'erebor', title: 'Erebor' },
+    campaign: { id: 'camp-a', title: 'The Lonely Mountain' },
+    data: {},
+  }
 
+  it('reads an envelope and the campaign it is for', () => {
     expect(envelopeSchema.parse(envelope)).toEqual(envelope)
+  })
+
+  it('reads an envelope for no campaign', () => {
+    const ping = { ...envelope, type: 'bridge.ping', sequence: null }
+
+    expect(envelopeSchema.parse({ ...ping, campaign: null })).toEqual({
+      ...ping,
+      campaign: null,
+    })
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['without an id', { id: '', title: 'The Lonely Mountain' }],
+    ['without a title', { id: 'camp-a', title: ' ' }],
+  ])('rejects an envelope whose campaign is %s', (_, campaign) => {
+    expect(envelopeSchema.safeParse({ ...envelope, campaign }).success).toBe(
+      false,
+    )
   })
 
   it('ignores types it does not act on', () => {
     expect(parseGameEvent('bridge.ping', {})).toBeUndefined()
     expect(parseGameEvent('actor.updated', {})).toBeUndefined()
+    expect(parseGameEvent('characters.updated', {})).toBeUndefined()
   })
 
   it('reads bridge.hello, keeping fields it does not know', () => {
@@ -34,12 +55,6 @@ describe('schemas/sending-stone', () => {
       type: 'bridge.hello',
       data,
     })
-  })
-
-  it('reads characters.updated', () => {
-    expect(
-      parseGameEvent('characters.updated', { characters: roster }),
-    ).toEqual({ type: 'characters.updated', data: { characters: roster } })
   })
 
   it('fills in what a message only displays when it is missing or odd', () => {

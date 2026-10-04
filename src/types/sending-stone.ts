@@ -3,6 +3,14 @@
  * fields than these; they are kept when stored.
  */
 
+/** A campaign as each envelope names it. */
+export type CampaignRef = {
+  /** The module's id for the campaign, which never changes. */
+  id: string
+  /** The title the Gamemaster gave it, which players use to find it. */
+  title: string
+}
+
 export type Envelope = {
   protocol: number
   id: string
@@ -11,6 +19,8 @@ export type Envelope = {
   type: string
   time: string
   world: { id: string; title: string }
+  /** The campaign the event is for. Null only on bridge.ping. */
+  campaign: CampaignRef | null
   data: Record<string, unknown>
 }
 
@@ -91,7 +101,6 @@ export type GameEvent =
       type: 'bridge.hello'
       data: { characters: ConnectedCharacter[]; combats: CombatSnapshot[] }
     }
-  | { type: 'characters.updated'; data: { characters: ConnectedCharacter[] } }
   | {
       type: 'chat.message.created' | 'chat.message.updated'
       data: { message: SerializedMessage }

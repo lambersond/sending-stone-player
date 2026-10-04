@@ -4,14 +4,15 @@ import {
   PROTOCOL_VERSION,
   EVENTS,
 } from '@/constants/sending-stone'
-import { applyGameEvent } from '@/db/game-events'
+import { applyCampaignEvent } from '@/db/campaign-events'
 import { hasSecret } from '@/lib/listener-auth'
 import { toForgeGameUrl } from '@/schemas/character'
 import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
 
-// The listener the fvtt-sending-stone module posts to. Posts come from the Gamemaster's browser,
-// not the Foundry server, so this answers CORS like any cross-origin API. See the module's
-// PROTOCOL.md for what it sends and how it treats each response status.
+// The listener the fvtt-sending-stone module posts to: the Gamemaster sets this app's address as
+// the module's destination, and the module posts to its /api/events. Posts come from the
+// Gamemaster's browser, not the Foundry server, so this answers CORS like any cross-origin API.
+// See the module's PROTOCOL.md for what it sends and how it treats each response status.
 
 export function OPTIONS(request: Request) {
   return new Response(undefined, { status: 204, headers: cors(request) })
@@ -65,9 +66,12 @@ export async function POST(request: Request) {
   }
   // An event this app does not use yet.
   if (!event) return respond(204)
+  // Everything but a connection test is sent to a campaign.
+  if (!envelope.campaign)
+    return respond(400, `No campaign for ${envelope.type}`)
 
   try {
-    await applyGameEvent(origin, envelope.world, event)
+    await applyCampaignEvent(origin, envelope.world, envelope.campaign, event)
   } catch (error) {
     console.error(`Failed to apply ${envelope.type} from ${origin}`, error)
     return respond(500)

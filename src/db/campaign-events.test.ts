@@ -1,56 +1,43 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
-import { applyGameEvent, sortTurnOrder } from './game-events'
+import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
 import { chatMessage, combat, combatant, roster } from '@/mocks/sending-stone'
 import type { GameEvent } from '@/types/sending-stone'
 
 const ORIGIN = 'https://my-game.forge-vtt.com'
 const world = { id: 'erebor', title: 'Return to Erebor' }
+const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 
 /** The combat as last saved. */
 const saved = () => prismaMock.combat.upsert.mock.calls[0][0].update.data as any
 
-const apply = (event: GameEvent, worldId = 'erebor') => {
-  prismaMock.game.upsert.mockResolvedValue({ id: 'g1', worldId } as any)
-  return applyGameEvent(ORIGIN, world, event)
+const apply = (event: GameEvent) => {
+  prismaMock.campaign.upsert.mockResolvedValue({ id: 'c1' } as any)
+  return applyCampaignEvent(ORIGIN, world, campaign, event)
 }
 
-describe('db/game-events', () => {
+describe('db/campaign-events', () => {
   beforeEach(() => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
   })
 
-  it('files the event under the game, creating it, and bumps its version', async () => {
+  it('files the event under its campaign, keeping its title current, and bumps its version', async () => {
     await apply({ type: 'chat.cleared', data: {} })
 
-    expect(prismaMock.game.upsert).toHaveBeenCalledWith({
-      where: { origin: ORIGIN },
-      create: { origin: ORIGIN, worldId: 'erebor', worldTitle: world.title },
-      update: {},
-      select: { id: true, worldId: true },
+    const details = {
+      title: 'The Lonely Mountain',
+      worldId: 'erebor',
+      worldTitle: 'Return to Erebor',
+    }
+    expect(prismaMock.campaign.upsert).toHaveBeenCalledWith({
+      where: { originCampaign: { origin: ORIGIN, foundryId: 'camp-a' } },
+      create: { origin: ORIGIN, foundryId: 'camp-a', ...details },
+      update: details,
+      select: { id: true },
     })
-    expect(prismaMock.game.update).toHaveBeenLastCalledWith({
-      where: { id: 'g1' },
-      data: {
-        version: { increment: 1 },
-        lastEventAt: expect.any(Date),
-        worldTitle: world.title,
-      },
-    })
-  })
-
-  it('starts afresh when a different world runs at the same address', async () => {
-    await apply({ type: 'chat.cleared', data: {} }, 'old-world')
-
-    expect(prismaMock.chatMessage.deleteMany).toHaveBeenCalledWith({
-      where: { gameId: 'g1' },
-    })
-    expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
-      where: { gameId: 'g1' },
-    })
-    expect(prismaMock.game.update).toHaveBeenCalledWith({
-      where: { id: 'g1' },
-      data: { worldId: 'erebor', characters: [] },
+    expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+      where: { id: 'c1' },
+      data: { version: { increment: 1 }, lastEventAt: expect.any(Date) },
     })
   })
 
@@ -61,26 +48,17 @@ describe('db/game-events', () => {
       data: { characters: roster, combats: [snapshot] },
     })
 
-    expect(prismaMock.game.update).toHaveBeenCalledWith({
-      where: { id: 'g1' },
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
       data: { characters: roster },
     })
     expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
-      where: { gameId: 'g1' },
+      where: { campaignId: 'c1' },
     })
     expect(prismaMock.combat.createMany).toHaveBeenCalledWith({
-      data: [{ gameId: 'g1', combatId: 'cmbt1', data: snapshot }],
+      data: [{ campaignId: 'c1', combatId: 'cmbt1', data: snapshot }],
     })
     expect(prismaMock.chatMessage.deleteMany).not.toHaveBeenCalled()
-  })
-
-  it('characters.updated replaces the roster', async () => {
-    await apply({ type: 'characters.updated', data: { characters: roster } })
-
-    expect(prismaMock.game.update).toHaveBeenCalledWith({
-      where: { id: 'g1' },
-      data: { characters: roster },
-    })
   })
 
   it.each(['chat.message.created', 'chat.message.updated'] as const)(
@@ -98,8 +76,8 @@ describe('db/game-events', () => {
         data: message,
       }
       expect(prismaMock.chatMessage.upsert).toHaveBeenCalledWith({
-        where: { gameMessage: { gameId: 'g1', messageId: 'm1' } },
-        create: { gameId: 'g1', messageId: 'm1', ...fields },
+        where: { campaignMessage: { campaignId: 'c1', messageId: 'm1' } },
+        create: { campaignId: 'c1', messageId: 'm1', ...fields },
         update: fields,
       })
     },
@@ -109,7 +87,7 @@ describe('db/game-events', () => {
     await apply({ type: 'chat.message.deleted', data: { id: 'm1' } })
 
     expect(prismaMock.chatMessage.deleteMany).toHaveBeenCalledWith({
-      where: { gameId: 'g1', messageId: 'm1' },
+      where: { campaignId: 'c1', messageId: 'm1' },
     })
   })
 
@@ -117,7 +95,7 @@ describe('db/game-events', () => {
     await apply({ type: 'chat.cleared', data: {} })
 
     expect(prismaMock.chatMessage.deleteMany).toHaveBeenCalledWith({
-      where: { gameId: 'g1' },
+      where: { campaignId: 'c1' },
     })
   })
 
@@ -131,8 +109,8 @@ describe('db/game-events', () => {
     await apply({ type, data: { combat: snapshot } })
 
     expect(prismaMock.combat.upsert).toHaveBeenCalledWith({
-      where: { gameCombat: { gameId: 'g1', combatId: 'cmbt1' } },
-      create: { gameId: 'g1', combatId: 'cmbt1', data: snapshot },
+      where: { campaignCombat: { campaignId: 'c1', combatId: 'cmbt1' } },
+      create: { campaignId: 'c1', combatId: 'cmbt1', data: snapshot },
       update: { data: snapshot },
     })
   })
@@ -141,7 +119,7 @@ describe('db/game-events', () => {
     await apply({ type: 'combat.ended', data: { combat: combat() } })
 
     expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
-      where: { gameId: 'g1', combatId: 'cmbt1' },
+      where: { campaignId: 'c1', combatId: 'cmbt1' },
     })
   })
 

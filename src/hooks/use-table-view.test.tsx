@@ -7,7 +7,11 @@ jest.mock('next/navigation', () => ({ useRouter: jest.fn() }))
 
 const refresh = jest.fn()
 const initial: TableView = { version: 3, connected: true, messages: [] }
-const newer: TableView = { ...initial, version: 4, game: {} }
+const newer: TableView = {
+  ...initial,
+  version: 4,
+  campaign: { title: 'The Lonely Mountain' },
+}
 
 const respond = (status: number, body?: unknown) =>
   ({

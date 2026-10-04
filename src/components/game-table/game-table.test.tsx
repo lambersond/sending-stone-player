@@ -11,8 +11,10 @@ const character = {
   id: 'char-1',
   name: 'Thorin',
   gameUrl: 'https://my-game.forge-vtt.com',
+  campaignTitle: 'The Lonely Mountain',
 }
-const listenerUrl = 'https://stone.example/api/sending-stone'
+const destination = 'https://stone.example'
+const setCampaignTitle = jest.fn().mockResolvedValue({})
 
 const message = (id: string, sentAt: string): TableMessage => ({
   id,
@@ -47,7 +49,7 @@ const combat = (fields: Partial<TableCombat> = {}): TableCombat => ({
 
 const view = (fields: Partial<TableView> = {}): TableView => ({
   version: 3,
-  game: { worldTitle: 'Return to Erebor' },
+  campaign: { title: 'The Lonely Mountain', worldTitle: 'Return to Erebor' },
   connected: true,
   messages: [message('m1', '2026-10-04T19:00:00.000Z')],
   combat: combat(),
@@ -59,16 +61,19 @@ const showing = (next: Partial<typeof current>) => {
   current = { ...current, ...next }
 }
 
-const renderTable = (initial = view()) => {
+const table = (initial: TableView, who = character) => (
+  <GameTable
+    character={who}
+    initialView={initial}
+    destination={destination}
+    setCampaignTitle={setCampaignTitle}
+  />
+)
+
+const renderTable = (initial = view(), who = character) => {
   current = { view: initial, connection: 'live' }
   jest.mocked(useTableView).mockImplementation(() => current)
-  return render(
-    <GameTable
-      character={character}
-      initialView={initial}
-      listenerUrl={listenerUrl}
-    />,
-  )
+  return render(table(initial, who))
 }
 
 const subtitle = () => screen.getByRole('heading', { level: 1 }).nextSibling
@@ -93,7 +98,7 @@ describe('components/game-table/game-table', () => {
     const user = userEvent.setup()
     renderTable(view({ combat: undefined }))
 
-    expect(subtitle()).toHaveTextContent('Return to Erebor · 1 message')
+    expect(subtitle()).toHaveTextContent('The Lonely Mountain · 1 message')
     expect(screen.getByText('message m1')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Combat' }))
@@ -117,13 +122,7 @@ describe('components/game-table/game-table', () => {
         ],
       }),
     })
-    rerender(
-      <GameTable
-        character={character}
-        initialView={view()}
-        listenerUrl={listenerUrl}
-      />,
-    )
+    rerender(table(view()))
 
     expect(
       screen.getByRole('button', { name: 'Chat 2 unread' }),
@@ -158,31 +157,50 @@ describe('components/game-table/game-table', () => {
     expect(subtitle()).toHaveTextContent(new RegExp(`^${text}$`))
   })
 
-  it('names the game by its address when the world has no title yet', async () => {
-    const user = userEvent.setup()
-    renderTable(view({ game: {}, combat: undefined }))
+  it('names the campaign as the Gamemaster now titles it', () => {
+    renderTable(
+      view({ campaign: { title: 'The Desolation' }, combat: undefined }),
+    )
 
-    await user.click(screen.getByRole('button', { name: 'Chat' }))
-
-    expect(subtitle()).toHaveTextContent('my-game.forge-vtt.com · 1 message')
+    expect(subtitle()).toHaveTextContent('The Desolation · 1 message')
   })
 
-  it('waits for the table, showing the Gamemaster what to do', () => {
+  it('waits for the campaign, showing the Gamemaster what to do', () => {
     renderTable({ version: 0, connected: false, messages: [] })
 
     expect(
       screen.getByRole('heading', { name: 'Waiting for the table' }),
     ).toBeInTheDocument()
-    expect(screen.getByText(listenerUrl)).toBeInTheDocument()
+    expect(screen.getByText(destination)).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Waiting')
-    expect(subtitle()).toHaveTextContent('my-game.forge-vtt.com')
+    expect(subtitle()).toHaveTextContent(
+      'The Lonely Mountain · my-game.forge-vtt.com',
+    )
   })
 
-  it("explains when the character isn't connected in the game", () => {
+  it('asks for the campaign of a character made before campaigns', async () => {
+    const user = userEvent.setup()
+    renderTable(
+      { version: 0, connected: false, messages: [] },
+      { ...character, campaignTitle: '' },
+    )
+
+    expect(
+      screen.getByRole('heading', { name: 'Which campaign is Thorin in?' }),
+    ).toBeInTheDocument()
+    expect(subtitle()).toHaveTextContent(/^my-game.forge-vtt.com$/)
+
+    await user.type(screen.getByLabelText('Campaign title'), 'Erebor')
+    await user.click(screen.getByRole('button', { name: 'Save campaign' }))
+
+    expect(setCampaignTitle).toHaveBeenCalledTimes(1)
+  })
+
+  it("explains when the character isn't one of the campaign's", () => {
     renderTable(view({ connected: false }))
 
     expect(
-      screen.getByText(/Thorin is not one of this game's connected characters/),
+      screen.getByText(/Thorin is not one of The Lonely Mountain's characters/),
     ).toBeInTheDocument()
   })
 
@@ -190,13 +208,7 @@ describe('components/game-table/game-table', () => {
     const { rerender } = renderTable()
 
     showing({ connection: 'reconnecting' })
-    rerender(
-      <GameTable
-        character={character}
-        initialView={view()}
-        listenerUrl={listenerUrl}
-      />,
-    )
+    rerender(table(view()))
 
     expect(screen.getByRole('status')).toHaveTextContent('Reconnecting')
   })
@@ -221,13 +233,7 @@ describe('components/game-table/game-table', () => {
           messages: [message(id, `2026-10-04T19:0${id.length}:00.000Z`)],
         }),
       })
-      rerender(
-        <GameTable
-          character={character}
-          initialView={view()}
-          listenerUrl={listenerUrl}
-        />,
-      )
+      rerender(table(view()))
     }
 
     arrive('m2')

@@ -1,5 +1,6 @@
 import prisma from '@/clients/prisma'
 import type {
+  CampaignRef,
   CombatantSummary,
   CombatSnapshot,
   GameEvent,
@@ -14,97 +15,91 @@ type Tx = Prisma.TransactionClient
 type World = { id: string; title: string }
 
 /**
- * Apply an event from a game's Gamemaster to what is held for that game.
+ * Apply an event from a game's Gamemaster to what is held for one of its campaigns.
  * @param origin - The game's origin, from the request's Origin header.
  * @param world - The Foundry world the event came from.
+ * @param campaign - The campaign the module sent the event to.
  * @param event - The event, its payload already checked.
  */
-export async function applyGameEvent(
+export async function applyCampaignEvent(
   origin: string,
   world: World,
+  campaign: CampaignRef,
   event: GameEvent,
 ): Promise<void> {
   await prisma.$transaction(async tx => {
-    const gameId = await enterWorld(tx, origin, world)
-    await apply(tx, gameId, event)
-    await tx.game.update({
-      where: { id: gameId },
-      data: {
-        version: { increment: 1 },
-        lastEventAt: new Date(),
-        worldTitle: world.title,
-      },
+    const campaignId = await enterCampaign(tx, origin, world, campaign)
+    await apply(tx, campaignId, event)
+    await tx.campaign.update({
+      where: { id: campaignId },
+      data: { version: { increment: 1 }, lastEventAt: new Date() },
     })
   })
 }
 
 /**
- * Find or create the game, starting afresh if a different world is now running at its address:
- * what was held belongs to the old world.
- * @returns The game's id.
+ * Find or create the campaign. Its title and world are refreshed from every event, since the
+ * Gamemaster can rename the campaign; the module's id for it never changes.
+ * @returns The campaign's id.
  */
-async function enterWorld(tx: Tx, origin: string, world: World) {
-  const game = await tx.game.upsert({
-    where: { origin },
-    create: { origin, worldId: world.id, worldTitle: world.title },
-    update: {},
-    select: { id: true, worldId: true },
-  })
-  if (game.worldId !== world.id) {
-    await tx.chatMessage.deleteMany({ where: { gameId: game.id } })
-    await tx.combat.deleteMany({ where: { gameId: game.id } })
-    await tx.game.update({
-      where: { id: game.id },
-      data: { worldId: world.id, characters: [] },
-    })
+async function enterCampaign(
+  tx: Tx,
+  origin: string,
+  world: World,
+  campaign: CampaignRef,
+) {
+  const details = {
+    title: campaign.title,
+    worldId: world.id,
+    worldTitle: world.title,
   }
-  return game.id
+  const { id } = await tx.campaign.upsert({
+    where: { originCampaign: { origin, foundryId: campaign.id } },
+    create: { origin, foundryId: campaign.id, ...details },
+    update: details,
+    select: { id: true },
+  })
+  return id
 }
 
-async function apply(tx: Tx, gameId: string, event: GameEvent) {
+async function apply(tx: Tx, campaignId: string, event: GameEvent) {
   switch (event.type) {
     case 'bridge.hello': {
-      // The full current state. It carries no chat, so the chat log is kept.
-      await tx.game.update({
-        where: { id: gameId },
+      // The campaign's full current state. It carries no chat, so the chat log is kept.
+      await tx.campaign.update({
+        where: { id: campaignId },
         data: { characters: event.data.characters },
       })
-      await tx.combat.deleteMany({ where: { gameId } })
+      await tx.combat.deleteMany({ where: { campaignId } })
       await tx.combat.createMany({
         data: event.data.combats.map(combat => ({
-          gameId,
+          campaignId,
           combatId: combat.id,
           data: toJson(combat),
         })),
       })
       return
     }
-    case 'characters.updated': {
-      await tx.game.update({
-        where: { id: gameId },
-        data: { characters: event.data.characters },
-      })
-      return
-    }
     case 'chat.message.created':
     case 'chat.message.updated': {
       // An update is an upsert: a blind roll the Gamemaster reveals arrives as one.
-      await saveMessage(tx, gameId, event.data.message)
+      await saveMessage(tx, campaignId, event.data.message)
       return
     }
     case 'chat.message.deleted': {
       await tx.chatMessage.deleteMany({
-        where: { gameId, messageId: event.data.id },
+        where: { campaignId, messageId: event.data.id },
       })
       return
     }
     case 'chat.cleared': {
-      await tx.chatMessage.deleteMany({ where: { gameId } })
+      await tx.chatMessage.deleteMany({ where: { campaignId } })
       return
     }
     case 'combat.ended': {
+      // The encounter ended, or the campaign's last character left it.
       await tx.combat.deleteMany({
-        where: { gameId, combatId: event.data.combat.id },
+        where: { campaignId, combatId: event.data.combat.id },
       })
       return
     }
@@ -112,13 +107,14 @@ async function apply(tx: Tx, gameId: string, event: GameEvent) {
     case 'combat.started':
     case 'combat.turn':
     case 'combat.updated': {
-      await saveCombat(tx, gameId, event.data.combat)
+      // combat.created also marks the campaign's first character joining a fight under way.
+      await saveCombat(tx, campaignId, event.data.combat)
       return
     }
     case 'combat.combatant.added':
     case 'combat.combatant.updated': {
       const { combatant } = event.data
-      await patchCombat(tx, gameId, event.data.combatId, combatants =>
+      await patchCombat(tx, campaignId, event.data.combatId, combatants =>
         sortTurnOrder([
           ...combatants.filter(({ id }) => id !== combatant.id),
           combatant,
@@ -128,7 +124,7 @@ async function apply(tx: Tx, gameId: string, event: GameEvent) {
     }
     case 'combat.combatant.removed': {
       const { combatantId } = event.data
-      await patchCombat(tx, gameId, event.data.combatId, combatants =>
+      await patchCombat(tx, campaignId, event.data.combatId, combatants =>
         combatants.filter(({ id }) => id !== combatantId),
       )
       return
@@ -136,7 +132,11 @@ async function apply(tx: Tx, gameId: string, event: GameEvent) {
   }
 }
 
-async function saveMessage(tx: Tx, gameId: string, message: SerializedMessage) {
+async function saveMessage(
+  tx: Tx,
+  campaignId: string,
+  message: SerializedMessage,
+) {
   const fields = {
     sentAt: new Date(message.timestamp),
     public: message.audience.public,
@@ -144,16 +144,16 @@ async function saveMessage(tx: Tx, gameId: string, message: SerializedMessage) {
     data: toJson(message),
   }
   await tx.chatMessage.upsert({
-    where: { gameMessage: { gameId, messageId: message.id } },
-    create: { gameId, messageId: message.id, ...fields },
+    where: { campaignMessage: { campaignId, messageId: message.id } },
+    create: { campaignId, messageId: message.id, ...fields },
     update: fields,
   })
 }
 
-async function saveCombat(tx: Tx, gameId: string, combat: CombatSnapshot) {
+async function saveCombat(tx: Tx, campaignId: string, combat: CombatSnapshot) {
   await tx.combat.upsert({
-    where: { gameCombat: { gameId, combatId: combat.id } },
-    create: { gameId, combatId: combat.id, data: toJson(combat) },
+    where: { campaignCombat: { campaignId, combatId: combat.id } },
+    create: { campaignId, combatId: combat.id, data: toJson(combat) },
     update: { data: toJson(combat) },
   })
 }
@@ -164,17 +164,17 @@ async function saveCombat(tx: Tx, gameId: string, combat: CombatSnapshot) {
  */
 async function patchCombat(
   tx: Tx,
-  gameId: string,
+  campaignId: string,
   combatId: string,
   change: (combatants: CombatantSummary[]) => CombatantSummary[],
 ) {
   const held = await tx.combat.findUnique({
-    where: { gameCombat: { gameId, combatId } },
+    where: { campaignCombat: { campaignId, combatId } },
     select: { data: true },
   })
   if (!held) return
   const combat = held.data as unknown as CombatSnapshot
-  await saveCombat(tx, gameId, {
+  await saveCombat(tx, campaignId, {
     ...combat,
     combatants: change(combat.combatants),
   })

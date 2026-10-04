@@ -3,23 +3,25 @@
  */
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { OPTIONS, POST } from './route'
-import { applyGameEvent } from '@/db/game-events'
+import { applyCampaignEvent } from '@/db/campaign-events'
 import { chatMessage } from '@/mocks/sending-stone'
 
-jest.mock('@/db/game-events', () => ({ applyGameEvent: jest.fn() }))
+jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
 
-const URL = 'https://player.example/api/sending-stone'
+const URL = 'https://player.example/api/events'
 const GAME = 'https://my-game.forge-vtt.com'
 const world = { id: 'erebor', title: 'Return to Erebor' }
+const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 
 const envelope = (type: string, data: object, fields: object = {}) => ({
-  protocol: 1,
+  protocol: 2,
   id: 'ev1',
   session: 's1',
   sequence: 1,
   type,
   time: '2026-10-04T19:02:00Z',
   world,
+  campaign,
   data,
   ...fields,
 })
@@ -41,7 +43,7 @@ const post = (
     }),
   )
 
-describe('app/api/sending-stone', () => {
+describe('app/api/events', () => {
   const env = process.env
 
   beforeEach(() => {
@@ -95,16 +97,39 @@ describe('app/api/sending-stone', () => {
   })
 
   describe('POST', () => {
-    it('applies an event from a Forge game', async () => {
+    it('applies an event to its campaign in a Forge game', async () => {
       const message = chatMessage()
       const response = await post(envelope('chat.message.created', { message }))
 
       expect(response.status).toBe(204)
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
-      expect(applyGameEvent).toHaveBeenCalledWith(GAME, world, {
+      expect(applyCampaignEvent).toHaveBeenCalledWith(GAME, world, campaign, {
         type: 'chat.message.created',
         data: { message },
       })
+    })
+
+    it('refuses an event sent to no campaign', async () => {
+      const response = await post(
+        envelope('chat.cleared', {}, { campaign: null }),
+      )
+
+      expect(response.status).toBe(400)
+      expect(await response.text()).toBe('No campaign for chat.cleared')
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
+    })
+
+    it('refuses a campaign without a title', async () => {
+      const response = await post(
+        envelope(
+          'chat.cleared',
+          {},
+          { campaign: { id: 'camp-a', title: ' ' } },
+        ),
+      )
+
+      expect(response.status).toBe(400)
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it('refuses everything until a secret is configured', async () => {
@@ -116,7 +141,7 @@ describe('app/api/sending-stone', () => {
       const response = await post(envelope('chat.cleared', {}))
 
       expect(response.status).toBe(503)
-      expect(applyGameEvent).not.toHaveBeenCalled()
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
       consoleError.mockRestore()
     })
 
@@ -134,7 +159,7 @@ describe('app/api/sending-stone', () => {
       const response = await POST(request)
 
       expect(response.status).toBe(401)
-      expect(applyGameEvent).not.toHaveBeenCalled()
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it.each([
@@ -146,7 +171,7 @@ describe('app/api/sending-stone', () => {
       const response = await post(envelope('chat.cleared', {}), headers)
 
       expect(response.status).toBe(403)
-      expect(applyGameEvent).not.toHaveBeenCalled()
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it('refuses an oversized body', async () => {
@@ -183,11 +208,11 @@ describe('app/api/sending-stone', () => {
       expect(await response.text()).toBe('Not a Sending Stone envelope')
     })
 
-    it('refuses a protocol version it does not understand', async () => {
-      const response = await post(envelope('chat.cleared', {}, { protocol: 2 }))
+    it.each([1, 3])('refuses protocol %i', async protocol => {
+      const response = await post(envelope('chat.cleared', {}, { protocol }))
 
       expect(response.status).toBe(400)
-      expect(await response.text()).toBe('Unsupported protocol 2')
+      expect(await response.text()).toBe(`Unsupported protocol ${protocol}`)
     })
 
     it('answers a connection test without storing anything', async () => {
@@ -195,21 +220,19 @@ describe('app/api/sending-stone', () => {
         envelope(
           'bridge.ping',
           { userId: 'u-gm', name: 'Gamemaster' },
-          {
-            sequence: null,
-          },
+          { sequence: null, campaign: null },
         ),
       )
 
       expect(response.status).toBe(204)
-      expect(applyGameEvent).not.toHaveBeenCalled()
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it('accepts and ignores an event type it does not use', async () => {
       const response = await post(envelope('actor.updated', {}))
 
       expect(response.status).toBe(204)
-      expect(applyGameEvent).not.toHaveBeenCalled()
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it('refuses an event missing what the app relies on, saying what', async () => {
@@ -221,14 +244,14 @@ describe('app/api/sending-stone', () => {
       expect(await response.text()).toMatch(
         /^Malformed chat.message.created\n[\s\S]*timestamp/,
       )
-      expect(applyGameEvent).not.toHaveBeenCalled()
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
     it('asks for a retry when the event cannot be stored', async () => {
       const consoleError = jest
         .spyOn(console, 'error')
         .mockImplementation(() => {})
-      jest.mocked(applyGameEvent).mockRejectedValue(new Error('db down'))
+      jest.mocked(applyCampaignEvent).mockRejectedValue(new Error('db down'))
 
       const response = await post(envelope('chat.cleared', {}))
 

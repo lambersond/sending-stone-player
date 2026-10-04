@@ -3,8 +3,18 @@ import userEvent from '@testing-library/user-event'
 import { CharacterList } from './character-list'
 
 const characters = [
-  { id: 'char-1', name: 'Thorin', gameUrl: 'https://my-game.forge-vtt.com' },
-  { id: 'char-2', name: 'Vex', gameUrl: 'https://other.forge-vtt.com' },
+  {
+    id: 'char-1',
+    name: 'Thorin',
+    gameUrl: 'https://my-game.forge-vtt.com',
+    campaignTitle: 'The Lonely Mountain',
+  },
+  {
+    id: 'char-2',
+    name: 'Vex',
+    gameUrl: 'https://other.forge-vtt.com',
+    campaignTitle: '',
+  },
 ]
 
 describe('components/character-list', () => {
@@ -19,7 +29,12 @@ describe('components/character-list', () => {
       'href',
       '/characters/char-2',
     )
-    expect(screen.getByText('my-game.forge-vtt.com')).toBeInTheDocument()
+    expect(
+      screen.getByText('The Lonely Mountain · my-game.forge-vtt.com'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('No campaign · other.forge-vtt.com'),
+    ).toBeInTheDocument()
   })
 
   it('removes a character', async () => {

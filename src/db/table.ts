@@ -13,42 +13,67 @@ import type {
   SerializedMessage,
 } from '@/types/sending-stone'
 import type { TableView } from '@/types/table'
+import type { Prisma } from '@prisma/client'
 
 /** The most recent chat messages shown. */
 export const MESSAGE_LIMIT = 100
 
 /**
- * The version of what is held for a game, to tell cheaply whether a viewer is up to date.
- * @returns The version, or 0 when the game has sent nothing yet.
+ * Escape the wildcards in a value compared case-insensitively: Prisma compares with ILIKE on
+ * Postgres, where `%` and `_` would otherwise match any title.
  */
-export async function getGameVersion(origin: string): Promise<number> {
-  const game = await prisma.game.findUnique({
-    where: { origin },
-    select: { version: true },
+const literal = (value: string) => value.replaceAll(/[\\%_]/g, String.raw`\$&`)
+
+/**
+ * Find a character's campaign: the one in its game with the title it was given, ignoring case.
+ * Titles differ within a world, but a game can switch worlds, so the most recently active wins.
+ */
+function findCampaign<Select extends Prisma.CampaignSelect>(
+  character: Character,
+  select: Select,
+) {
+  const title = character.campaignTitle.trim()
+  if (!title) return Promise.resolve(undefined)
+  return prisma.campaign.findFirst({
+    where: {
+      origin: character.gameUrl,
+      title: { equals: literal(title), mode: 'insensitive' },
+    },
+    orderBy: { lastEventAt: { sort: 'desc', nulls: 'last' } },
+    select,
   })
-  return game?.version ?? 0
 }
 
 /**
- * A character's view of its game: the chat its player may read and the encounter under way.
+ * The version of what is held for a character's campaign, to tell cheaply whether a viewer is up
+ * to date.
+ * @returns The version, or 0 when the campaign has sent nothing yet.
+ */
+export async function getCampaignVersion(
+  character: Character,
+): Promise<number> {
+  const campaign = await findCampaign(character, { version: true })
+  return campaign?.version ?? 0
+}
+
+/**
+ * A character's view of its campaign: the chat its player may read and the encounter under way.
  * The caller must already have checked that the character belongs to the signed-in user.
  */
 export async function getTableView(character: Character): Promise<TableView> {
-  const game = await prisma.game.findUnique({
-    where: { origin: character.gameUrl },
-    select: {
-      id: true,
-      version: true,
-      worldTitle: true,
-      lastEventAt: true,
-      characters: true,
-    },
+  const campaign = await findCampaign(character, {
+    id: true,
+    title: true,
+    version: true,
+    worldTitle: true,
+    lastEventAt: true,
+    characters: true,
   })
-  if (!game) {
+  if (!campaign) {
     return { version: 0, connected: false, messages: [] }
   }
 
-  const roster = game.characters as unknown as ConnectedCharacter[]
+  const roster = campaign.characters as unknown as ConnectedCharacter[]
   const viewer: Viewer = {
     actorId: findActorId(roster, character.name),
     party: new Set(roster.map(({ id }) => id)),
@@ -57,7 +82,7 @@ export async function getTableView(character: Character): Promise<TableView> {
   const [messages, combats] = await Promise.all([
     prisma.chatMessage.findMany({
       where: {
-        gameId: game.id,
+        campaignId: campaign.id,
         // Whispers reach only the players they were meant for.
         OR: [
           { public: true },
@@ -69,7 +94,7 @@ export async function getTableView(character: Character): Promise<TableView> {
       select: { data: true },
     }),
     prisma.combat.findMany({
-      where: { gameId: game.id },
+      where: { campaignId: campaign.id },
       orderBy: { updatedAt: 'desc' },
       select: { data: true },
     }),
@@ -79,10 +104,11 @@ export async function getTableView(character: Character): Promise<TableView> {
     combats.map(({ data }) => data as unknown as CombatSnapshot),
   )
   return {
-    version: game.version,
-    game: {
-      worldTitle: game.worldTitle ?? undefined,
-      lastEventAt: game.lastEventAt?.toISOString(),
+    version: campaign.version,
+    campaign: {
+      title: campaign.title,
+      worldTitle: campaign.worldTitle,
+      lastEventAt: campaign.lastEventAt?.toISOString(),
     },
     connected: viewer.actorId !== undefined,
     messages: messages

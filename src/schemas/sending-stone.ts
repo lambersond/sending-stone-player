@@ -16,6 +16,9 @@ export const envelopeSchema = z.object({
   type: z.string(),
   time: z.string(),
   world: z.object({ id: z.string(), title: z.string() }),
+  campaign: z
+    .object({ id: z.string().min(1), title: z.string().trim().min(1) })
+    .nullable(),
   data: z.record(z.string(), z.unknown()),
 })
 
@@ -130,14 +133,6 @@ export function parseGameEvent(
             characters: z.array(characterSchema),
             combats: z.array(combatSchema),
           })
-          .parse(data),
-      }
-    }
-    case EVENTS.CHARACTERS_UPDATED: {
-      return {
-        type,
-        data: z
-          .looseObject({ characters: z.array(characterSchema) })
           .parse(data),
       }
     }

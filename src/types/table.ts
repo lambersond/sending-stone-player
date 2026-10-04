@@ -1,6 +1,6 @@
 /**
- * What a player is shown of their game: their view of its chat log and combat tracker. Built on
- * the server from what the Gamemaster's module sent, with what this player may not see left out.
+ * What a player is shown of their campaign: their view of its chat log and combat tracker. Built
+ * on the server from what the Gamemaster's module sent, with what this player may not see left out.
  */
 
 /** Whose side something is on, from this player's point of view. */
@@ -53,11 +53,11 @@ export type TableCombat = {
 }
 
 export type TableView = {
-  /** The game's version when this was built. Unchanged means nothing new. */
+  /** The campaign's version when this was built. Unchanged means nothing new. */
   version: number
-  /** Unset until the game's Gamemaster has sent anything. */
-  game?: { worldTitle?: string; lastEventAt?: string }
-  /** Is this character one of the game's connected characters? */
+  /** Unset until the character's campaign has been sent anything. */
+  campaign?: { title: string; worldTitle?: string; lastEventAt?: string }
+  /** Is this character one of its campaign's characters? */
   connected: boolean
   messages: TableMessage[]
   combat?: TableCombat

@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
+import { updateCampaignTitle } from '../actions'
 import { GameTable } from '@/components/game-table'
-import { LISTENER_PATH } from '@/constants/sending-stone'
 import { getCharacter } from '@/db/characters'
 import { getTableView } from '@/db/table'
 import { appOrigin } from '@/lib/app-origin'
@@ -34,7 +34,8 @@ export default async function CharacterPage({ params }: Props) {
     <GameTable
       character={character}
       initialView={view}
-      listenerUrl={`${origin}${LISTENER_PATH}`}
+      destination={origin}
+      setCampaignTitle={updateCampaignTitle.bind(undefined, character.id)}
     />
   )
 }

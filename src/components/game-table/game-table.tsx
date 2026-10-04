@@ -4,13 +4,14 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { ArrowLeft, MessageSquare, Swords, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
+import { CampaignTitlePrompt } from './campaign-title-prompt'
 import { ChatLog } from './chat-log'
 import { CombatTracker } from './combat-tracker'
 import { LiveStatus } from './live-status'
 import { WaitingForTable } from './waiting-for-table'
 import { useTableView } from '@/hooks/use-table-view'
 import { gameHost } from '@/utils/game-host'
-import type { Character } from '@/types/character'
+import type { CampaignTitleFormState, Character } from '@/types/character'
 import type { TableCombat, TableView } from '@/types/table'
 
 type Tab = 'combat' | 'chat'
@@ -18,15 +19,21 @@ type Tab = 'combat' | 'chat'
 type Props = {
   character: Character
   initialView: TableView
-  /** Where the Gamemaster's module should post, for the setup instructions. */
-  listenerUrl: string
+  /** This app's address, the module's destination, for the setup instructions. */
+  destination: string
+  /** Saves the campaign title of a character made before campaigns. */
+  setCampaignTitle: (
+    state: CampaignTitleFormState,
+    formData: FormData,
+  ) => Promise<CampaignTitleFormState>
 }
 
-/** A character's live view of its game: the combat tracker and the chat log. */
+/** A character's live view of its campaign: the combat tracker and the chat log. */
 export function GameTable({
   character,
   initialView,
-  listenerUrl,
+  destination,
+  setCampaignTitle,
 }: Readonly<Props>) {
   const { view, connection } = useTableView(character.id, initialView)
   const [tab, setTab] = useState<Tab>(() =>
@@ -67,9 +74,13 @@ export function GameTable({
   }
 
   let content: ReactNode
-  if (!view.game) {
+  if (!character.campaignTitle) {
     content = (
-      <WaitingForTable character={character} listenerUrl={listenerUrl} />
+      <CampaignTitlePrompt character={character} action={setCampaignTitle} />
+    )
+  } else if (!view.campaign) {
+    content = (
+      <WaitingForTable character={character} destination={destination} />
     )
   } else if (tab === 'combat') {
     content = <CombatTracker combat={view.combat} />
@@ -98,15 +109,18 @@ export function GameTable({
               </p>
             </div>
           </div>
-          <LiveStatus state={view.game ? connection : 'waiting'} />
+          <LiveStatus state={view.campaign ? connection : 'waiting'} />
         </header>
         <div
           ref={scroller}
           onScroll={onScroll}
           className='min-h-0 flex-1 overflow-y-auto'
         >
-          {view.game && !view.connected && (
-            <NotConnected name={character.name} />
+          {view.campaign && !view.connected && (
+            <NotConnected
+              name={character.name}
+              campaign={view.campaign.title}
+            />
           )}
           {content}
         </div>
@@ -177,12 +191,15 @@ function TabButton({
   )
 }
 
-function NotConnected({ name }: Readonly<{ name: string }>) {
+function NotConnected({
+  name,
+  campaign,
+}: Readonly<{ name: string; campaign: string }>) {
   return (
     <p className='mx-4 mt-4 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm md:mx-auto md:mt-6 md:max-w-3xl'>
-      {name} is not one of this game&apos;s connected characters, so only public
-      messages show here. Ask your Gamemaster to connect them in Sending Stone;
-      the name must match the one in Foundry.
+      {name} is not one of {campaign}&apos;s characters, so only public messages
+      show here. Ask your Gamemaster to add them to the campaign in Sending
+      Stone; the name must match the one in Foundry.
     </p>
   )
 }
@@ -197,10 +214,15 @@ function isMyTurn(combat?: TableCombat): boolean {
 }
 
 function subtitle(tab: Tab, view: TableView, character: Character): string {
-  if (!view.game) return gameHost(character.gameUrl)
+  const host = gameHost(character.gameUrl)
+  if (!view.campaign) {
+    return character.campaignTitle
+      ? `${character.campaignTitle} · ${host}`
+      : host
+  }
   if (tab === 'chat') {
     const count = view.messages.length
-    return `${view.game.worldTitle ?? gameHost(character.gameUrl)} · ${count} ${count === 1 ? 'message' : 'messages'}`
+    return `${view.campaign.title} · ${count} ${count === 1 ? 'message' : 'messages'}`
   }
   const combat = view.combat
   if (!combat) return 'No combat'

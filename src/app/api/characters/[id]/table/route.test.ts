@@ -4,12 +4,12 @@
 import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
-import { getGameVersion, getTableView } from '@/db/table'
+import { getCampaignVersion, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/table', () => ({
-  getGameVersion: jest.fn(),
+  getCampaignVersion: jest.fn(),
   getTableView: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
@@ -18,6 +18,7 @@ const character = {
   id: 'char-1',
   name: 'Thorin',
   gameUrl: 'https://my-game.forge-vtt.com',
+  campaignTitle: 'The Lonely Mountain',
 }
 const view = { version: 7, connected: true, messages: [] }
 
@@ -35,7 +36,7 @@ describe('app/api/characters/[id]/table', () => {
   beforeEach(() => {
     jest.mocked(getCurrentUser).mockResolvedValue({ id: 'user-1' } as any)
     jest.mocked(getCharacter).mockResolvedValue(character)
-    jest.mocked(getGameVersion).mockResolvedValue(7)
+    jest.mocked(getCampaignVersion).mockResolvedValue(7)
     jest.mocked(getTableView).mockResolvedValue(view)
   })
 
@@ -53,7 +54,7 @@ describe('app/api/characters/[id]/table', () => {
     const response = await get('?version=7')
 
     expect(response.status).toBe(204)
-    expect(getGameVersion).toHaveBeenCalledWith(character.gameUrl)
+    expect(getCampaignVersion).toHaveBeenCalledWith(character)
     expect(getTableView).not.toHaveBeenCalled()
   })
 
