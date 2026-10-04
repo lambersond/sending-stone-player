@@ -51,6 +51,31 @@ describe('components/game-table/chat-log', () => {
     )
   })
 
+  it("puts the player's own messages on the other side", () => {
+    render(
+      <ChatLog
+        messages={[
+          message({ id: 'a', side: 'other' }),
+          message({ id: 'b', side: 'party', speaker: 'Vex' }),
+          message({
+            id: 'c',
+            side: 'me',
+            speaker: 'Thorin',
+            targets: ['Goblin'],
+          }),
+        ]}
+      />,
+    )
+
+    const [gm, ally, mine] = screen.getAllByRole('article')
+    expect(gm).toHaveAttribute('data-side', 'other')
+    expect(gm).not.toHaveClass('flex-row-reverse')
+    expect(ally).not.toHaveClass('flex-row-reverse')
+    expect(mine).toHaveAttribute('data-side', 'me')
+    expect(mine).toHaveClass('flex-row-reverse')
+    expect(within(mine).getByText('Target: Goblin')).toHaveClass('text-right')
+  })
+
   it('marks a whisper', () => {
     render(<ChatLog messages={[message({ whisper: true })]} />)
 

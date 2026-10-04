@@ -10,12 +10,14 @@ const AVATAR: Record<Side, string> = {
   other: 'bg-whisper/15 text-whisper',
 }
 
-const bubble = (whisper: boolean) =>
+/** A message's bubble, its pointed corner toward the speaker's avatar. */
+const bubble = (whisper: boolean, mine: boolean) =>
   clsx(
-    'rounded-[4px_14px_14px_14px] border px-3 py-2.5',
-    whisper
-      ? 'border-dashed border-whisper/60 bg-whisper/5'
-      : 'border-border bg-card',
+    'max-w-full border px-3 py-2.5',
+    mine ? 'rounded-[14px_4px_14px_14px]' : 'rounded-[4px_14px_14px_14px]',
+    whisper && 'border-dashed border-whisper/60 bg-whisper/5',
+    !whisper &&
+      (mine ? 'border-primary/30 bg-primary/10' : 'border-border bg-card'),
   )
 
 export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
@@ -42,8 +44,13 @@ export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
 
 function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
   const { speaker, side, whisper, kind, label, text, rolls, targets } = message
+  // The player's own messages sit on the other side, as in a messaging app.
+  const mine = side === 'me'
   return (
-    <article className='flex items-start gap-2.5'>
+    <article
+      data-side={side}
+      className={clsx('flex items-start gap-2.5', mine && 'flex-row-reverse')}
+    >
       <span
         aria-hidden
         className={clsx(
@@ -53,8 +60,18 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
       >
         {initials(speaker)}
       </span>
-      <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
-        <header className='flex flex-wrap items-baseline gap-x-2 gap-y-0.5'>
+      <div
+        className={clsx(
+          'flex max-w-[85%] min-w-0 flex-1 flex-col gap-1.5',
+          mine ? 'items-end' : 'items-start',
+        )}
+      >
+        <header
+          className={clsx(
+            'flex flex-wrap items-baseline gap-x-2 gap-y-0.5',
+            mine && 'flex-row-reverse',
+          )}
+        >
           <span className='font-semibold'>{speaker}</span>
           {whisper && (
             <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-whisper'>
@@ -77,7 +94,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
             {(text ?? label) && (
               <p
                 className={clsx(
-                  bubble(whisper),
+                  bubble(whisper, mine),
                   'break-words whitespace-pre-wrap',
                 )}
               >
@@ -87,7 +104,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
           </>
         )}
         {kind === 'card' && (
-          <p className={clsx(bubble(whisper), 'flex flex-col')}>
+          <p className={clsx(bubble(whisper, mine), 'flex flex-col')}>
             <span className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
               Used
             </span>
@@ -98,10 +115,21 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
         )}
         {kind === 'roll' &&
           rolls.map((roll, index) => (
-            <RollCard key={index} roll={roll} label={label} whisper={whisper} />
+            <RollCard
+              key={index}
+              roll={roll}
+              label={label}
+              whisper={whisper}
+              mine={mine}
+            />
           ))}
         {targets.length > 0 && (
-          <p className='text-xs text-text-secondary'>
+          <p
+            className={clsx(
+              'text-xs text-text-secondary',
+              mine && 'text-right',
+            )}
+          >
             {targets.length === 1 ? 'Target' : 'Targets'}: {targets.join(', ')}
           </p>
         )}
@@ -114,12 +142,18 @@ function RollCard({
   roll,
   label,
   whisper,
-}: Readonly<{ roll: TableRoll; label?: string; whisper: boolean }>) {
+  mine,
+}: Readonly<{
+  roll: TableRoll
+  label?: string
+  whisper: boolean
+  mine: boolean
+}>) {
   return (
     <div
       className={clsx(
-        bubble(whisper),
-        'flex max-w-sm flex-col gap-2 p-3',
+        bubble(whisper, mine),
+        'flex w-full max-w-sm flex-col gap-2 p-3',
         roll.critical && 'border-solid border-primary',
       )}
     >
@@ -149,7 +183,7 @@ function RollCard({
                 <li
                   key={index}
                   className={clsx(
-                    'inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-md border border-border px-1 font-mono text-xs',
+                    'inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-md border border-border bg-card px-1 font-mono text-xs',
                     !die.active && 'text-text-secondary line-through',
                   )}
                 >
