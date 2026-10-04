@@ -7,10 +7,18 @@ export type OwnedCampaign = {
   inviteCode: string
   /** Has the module's campaign sent anything yet? */
   connected: boolean
+  /** Has it sent its characters? Unset until a bridge.hello is applied. */
+  rosterReceived: boolean
   /** Is the Gamemaster's game sending right now? */
   live: boolean
   lastSeenAt?: string
-  characters: { id: string; name: string; player?: string }[]
+  /** Each with who plays it, and their character's id, once a player has chosen it. */
+  characters: {
+    id: string
+    name: string
+    player?: string
+    characterId?: string
+  }[]
 }
 
 /** One of a campaign's characters, as offered to a player choosing theirs. */

@@ -50,11 +50,18 @@ export async function POST(request: Request) {
   if (envelope.protocol !== PROTOCOL_VERSION) {
     return respond(400, `Unsupported protocol ${envelope.protocol}`)
   }
-  // A connection test, which names no campaign: is the secret one of this game's campaigns'?
+  // A connection test. It names the campaign tested; one from a module before 0.4.0 names none,
+  // and passes with the secret of any of this game's campaigns.
   if (envelope.type === EVENTS.PING) {
-    const checked = await attempt(() => checkGameSecret(origin, secret))
+    const { campaign } = envelope
+    const checked = await attempt(async () => {
+      if (!campaign) return checkGameSecret(origin, secret)
+      const found = await findEventCampaign(origin, campaign, secret)
+      return typeof found === 'string' ? found : 'ok'
+    })
     if (!checked) return respond(500)
-    if (checked === 'unknown') return respond(404, notSetUp(origin))
+    if (checked === 'unknown')
+      return respond(404, notSetUp(origin, campaign?.title))
     return respond(checked === 'ok' ? 204 : 401)
   }
   if (!envelope.campaign) {
@@ -80,11 +87,23 @@ export async function POST(request: Request) {
   try {
     // A heartbeat, or an event this app does not use yet, still says the game is connected.
     await (event
-      ? applyCampaignEvent(found.id, envelope.world, envelope.campaign, event)
+      ? applyCampaignEvent(
+          found.id,
+          envelope.world,
+          envelope.campaign,
+          event,
+          envelope.session,
+        )
       : markSeen(found.id))
   } catch (error) {
     console.error(`Failed to apply ${envelope.type} from ${origin}`, error)
     return respond(500)
+  }
+
+  // Without this session's hello, such as when it was refused before the campaign was set up
+  // here, the campaign may lack its characters and combats: ask the module to send them again.
+  if (event?.type !== EVENTS.HELLO && found.helloSession !== envelope.session) {
+    return Response.json({ resend: 'hello' }, { headers: cors(request) })
   }
   return respond(204)
 }

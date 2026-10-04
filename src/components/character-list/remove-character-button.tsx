@@ -1,7 +1,7 @@
 'use client'
 
-import { useTransition } from 'react'
-import { LoaderCircle, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/modal'
 
 type Props = {
   characterId: string
@@ -14,22 +14,27 @@ export function RemoveCharacterButton({
   name,
   onRemove,
 }: Readonly<Props>) {
-  const [pending, startTransition] = useTransition()
-
   return (
-    <button
-      type='button'
-      aria-label={`Remove ${name}`}
-      title='Remove'
-      disabled={pending}
-      onClick={() => startTransition(() => onRemove(characterId))}
-      className='rounded-lg p-2.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-50'
+    <ConfirmDialog
+      trigger={<Trash2 aria-hidden className='size-4' />}
+      triggerLabel={`Delete ${name}`}
+      triggerClassName='rounded-lg p-2.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+      title={`Delete ${name}?`}
+      confirmLabel='Delete'
+      onConfirm={() => onRemove(characterId)}
+      danger
     >
-      {pending ? (
-        <LoaderCircle aria-hidden className='size-4 animate-spin' />
-      ) : (
-        <Trash2 aria-hidden className='size-4' />
-      )}
-    </button>
+      <DeleteCharacterWarning name={name} />
+    </ConfirmDialog>
+  )
+}
+
+/** What deleting a character means for its player. */
+export function DeleteCharacterWarning({ name }: Readonly<{ name: string }>) {
+  return (
+    <p>
+      You stop following your campaign as {name}. Someone else can then choose{' '}
+      {name} from the campaign&apos;s invite link, and so can you.
+    </p>
   )
 }

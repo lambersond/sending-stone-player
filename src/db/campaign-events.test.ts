@@ -11,7 +11,7 @@ const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 const saved = () => prismaMock.combat.upsert.mock.calls[0][0].update.data as any
 
 const apply = (event: GameEvent) =>
-  applyCampaignEvent('c1', world, campaign, event)
+  applyCampaignEvent('c1', world, campaign, event, 'session-1')
 
 describe('db/campaign-events', () => {
   beforeEach(() => {
@@ -52,6 +52,10 @@ describe('db/campaign-events', () => {
       data: [{ campaignId: 'c1', combatId: 'cmbt1', data: snapshot }],
     })
     expect(prismaMock.chatMessage.deleteMany).not.toHaveBeenCalled()
+    expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+      where: { id: 'c1' },
+      data: expect.objectContaining({ helloSession: 'session-1' }),
+    })
   })
 
   it.each(['chat.message.created', 'chat.message.updated'] as const)(

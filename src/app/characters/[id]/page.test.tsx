@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { notFound } from 'next/navigation'
-import { chooseActor } from '../actions'
+import { chooseActor, deleteCharacterAndLeave } from '../actions'
 import CharacterPage, { generateMetadata } from './page'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
@@ -14,14 +14,26 @@ jest.mock('next/navigation', () => ({
     throw new Error('NEXT_NOT_FOUND')
   }),
 }))
-jest.mock('../actions', () => ({ chooseActor: jest.fn() }))
+jest.mock('../actions', () => ({
+  chooseActor: jest.fn(),
+  deleteCharacterAndLeave: jest.fn(),
+}))
 jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/table', () => ({ getTableView: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 jest.mock('@/components/game-table', () => ({
-  GameTable: ({ character, initialView, choice, chooseActor }: any) => (
+  GameTable: ({
+    character,
+    initialView,
+    choice,
+    chooseActor,
+    deleteCharacter,
+  }: any) => (
     <>
+      <button type='button' onClick={() => deleteCharacter()}>
+        Delete
+      </button>
       <p>
         table for {character.name} at version {initialView.version}
         {choice && `, choosing in ${choice.title}`}
@@ -87,6 +99,15 @@ describe('app/characters/[id]/page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Choose' }))
     expect(chooseActor).toHaveBeenCalledWith('char-1', {}, 'form')
+  })
+
+  it('deletes this character from its page', async () => {
+    jest.mocked(getCharacter).mockResolvedValue(thorin)
+    const user = userEvent.setup()
+    render(await CharacterPage(props('char-1')))
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(deleteCharacterAndLeave).toHaveBeenCalledWith('char-1')
   })
 
   it('is not found when the user has no such character', async () => {

@@ -1,13 +1,14 @@
 import {
   changeSecretAction,
   removeCampaignAction,
+  removePlayerAction,
   resetInviteAction,
   setUpCampaignAction,
 } from './actions'
 import {
   CampaignCard,
-  CampaignSetupForm,
-  ConnectSteps,
+  ConnectFoundryButton,
+  NewCampaignButton,
 } from '@/components/campaigns'
 import { JOIN_PATH } from '@/constants/campaign'
 import { listOwnedCampaigns } from '@/db/campaigns'
@@ -28,13 +29,26 @@ export default async function CampaignsPage() {
 
   return (
     <div className='mx-auto w-full max-w-3xl px-4 py-10 sm:py-14'>
-      <h1 className='text-2xl font-semibold tracking-tight'>Your campaigns</h1>
-      <p className='mt-1 text-text-secondary'>
-        Set up each campaign you run as Gamemaster, connect Foundry to it, then
-        share its invite link with your players.
-      </p>
+      <header className='flex flex-wrap items-end justify-between gap-4'>
+        <div className='min-w-0'>
+          <h1 className='text-2xl font-semibold tracking-tight'>
+            Your campaigns
+          </h1>
+          <p className='mt-1 text-text-secondary'>
+            Set up each campaign you run as Gamemaster, then share its invite
+            link with your players.
+          </p>
+        </div>
+        <div className='flex flex-wrap gap-2'>
+          <ConnectFoundryButton destination={origin} />
+          <NewCampaignButton
+            action={setUpCampaignAction}
+            suggestedSecret={generateSecret()}
+          />
+        </div>
+      </header>
 
-      <section aria-labelledby='campaigns-heading' className='mt-10'>
+      <section aria-labelledby='campaigns-heading' className='mt-8'>
         <h2 id='campaigns-heading' className='sr-only'>
           Campaigns
         </h2>
@@ -47,36 +61,17 @@ export default async function CampaignsPage() {
                 inviteUrl={`${origin}${JOIN_PATH}/${campaign.inviteCode}`}
                 changeSecret={changeSecretAction.bind(undefined, campaign.id)}
                 resetInvite={resetInviteAction.bind(undefined, campaign.id)}
+                removePlayer={removePlayerAction.bind(undefined, campaign.id)}
                 remove={removeCampaignAction.bind(undefined, campaign.id)}
               />
             ))}
           </div>
         ) : (
-          <p className='rounded-2xl border border-dashed border-border p-6 text-center text-text-secondary'>
-            You haven&apos;t set up a campaign yet.
+          <p className='rounded-2xl border border-dashed border-border p-8 text-center text-text-secondary'>
+            You haven&apos;t set up a campaign yet. Use <em>New campaign</em> to
+            set one up, then connect Foundry to it.
           </p>
         )}
-      </section>
-
-      <section aria-labelledby='set-up-heading' className='mt-10'>
-        <h2 id='set-up-heading' className='mb-4 text-lg font-semibold'>
-          Set up a campaign
-        </h2>
-        <CampaignSetupForm
-          action={setUpCampaignAction}
-          suggestedSecret={generateSecret()}
-        />
-      </section>
-
-      <section aria-labelledby='connect-heading' className='mt-10'>
-        <h2 id='connect-heading' className='text-lg font-semibold'>
-          Connect Foundry
-        </h2>
-        <p className='mt-1 mb-4 text-text-secondary'>
-          Sending Stone hears from your game through the Sending Stone module,
-          running in your browser while you have the game open.
-        </p>
-        <ConnectSteps destination={origin} />
       </section>
     </div>
   )

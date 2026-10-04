@@ -10,6 +10,7 @@ import {
   listOwnedCampaigns,
   markSeen,
   removeCampaign,
+  removePlayer,
   resetInviteCode,
   setUpCampaign,
 } from './campaigns'
@@ -49,10 +50,11 @@ describe('db/campaigns', () => {
           inviteCode: 'code-1',
           foundryId: 'camp-a',
           lastSeenAt: seen,
+          helloSession: 'session-1',
           characters: roster,
           players: [
-            { actorId: 'actor-thorin', user: { name: 'Alice' } },
-            { actorId: null, user: { name: 'Bob' } },
+            { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
+            { id: 'char-2', actorId: null, user: { name: 'Bob' } },
           ],
         },
         {
@@ -63,6 +65,7 @@ describe('db/campaigns', () => {
           inviteCode: null,
           foundryId: null,
           lastSeenAt: null,
+          helloSession: null,
           characters: [],
           players: [],
         },
@@ -76,11 +79,22 @@ describe('db/campaigns', () => {
           worldTitle: 'Return to Erebor',
           inviteCode: 'code-1',
           connected: true,
+          rosterReceived: true,
           live: true,
           lastSeenAt: seen.toISOString(),
           characters: [
-            { id: 'actor-thorin', name: 'Thorin Oakenshield', player: 'Alice' },
-            { id: 'actor-vex', name: 'Vex', player: undefined },
+            {
+              id: 'actor-thorin',
+              name: 'Thorin Oakenshield',
+              player: 'Alice',
+              characterId: 'char-1',
+            },
+            {
+              id: 'actor-vex',
+              name: 'Vex',
+              player: undefined,
+              characterId: undefined,
+            },
           ],
         },
         {
@@ -90,6 +104,7 @@ describe('db/campaigns', () => {
           worldTitle: undefined,
           inviteCode: '',
           connected: false,
+          rosterReceived: false,
           live: false,
           lastSeenAt: undefined,
           characters: [],
@@ -175,23 +190,41 @@ describe('db/campaigns', () => {
     )
   })
 
+  describe('removePlayer', () => {
+    it("removes a player's character only from the Gamemaster's own campaign", async () => {
+      prismaMock.character.deleteMany.mockResolvedValue({ count: 1 })
+      await expect(removePlayer('gm-1', 'c1', 'char-1')).resolves.toBe(true)
+      expect(prismaMock.character.deleteMany).toHaveBeenCalledWith({
+        where: {
+          id: 'char-1',
+          campaignId: 'c1',
+          campaign: { is: { ownerId: 'gm-1' } },
+        },
+      })
+
+      prismaMock.character.deleteMany.mockResolvedValue({ count: 0 })
+      await expect(removePlayer('gm-2', 'c1', 'char-1')).resolves.toBe(false)
+    })
+  })
+
   describe('for the module', () => {
     it('finds a bound campaign by its id, if the secret is its', async () => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         id: 'c1',
         secretHash: 'hash:right',
+        helloSession: 'session-1',
       } as any)
 
       await expect(findEventCampaign(ORIGIN, ref, 'right')).resolves.toEqual({
         id: 'c1',
-        secretHash: 'hash:right',
+        helloSession: 'session-1',
       })
       await expect(findEventCampaign(ORIGIN, ref, 'wrong')).resolves.toBe(
         'refused',
       )
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { originCampaign: { origin: ORIGIN, foundryId: 'camp-a' } },
-        select: { id: true, secretHash: true },
+        select: { id: true, secretHash: true, helloSession: true },
       })
       expect(prismaMock.campaign.findMany).not.toHaveBeenCalled()
     })

@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- a character with no campaign holds null */
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterList } from './character-list'
 
@@ -42,18 +42,23 @@ describe('components/character-list', () => {
     ).toBeInTheDocument()
   })
 
-  it('removes a character', async () => {
+  it('deletes a character, after asking', async () => {
     const removal = Promise.withResolvers<void>()
     const onRemove = jest.fn(() => removal.promise)
     const user = userEvent.setup()
     render(<CharacterList characters={characters} onRemove={onRemove} />)
 
-    const remove = screen.getByRole('button', { name: 'Remove Vex' })
-    await user.click(remove)
+    await user.click(screen.getByRole('button', { name: 'Delete Vex' }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete Vex?' })
+    expect(dialog).toHaveTextContent('You stop following your campaign as Vex')
+    expect(onRemove).not.toHaveBeenCalled()
 
+    const confirm = within(dialog).getByRole('button', { name: 'Delete' })
+    await user.click(confirm)
     expect(onRemove).toHaveBeenCalledWith('char-2')
-    expect(remove).toBeDisabled()
+    expect(confirm).toBeDisabled()
+
     removal.resolve()
-    await screen.findByRole('button', { name: 'Remove Vex' })
+    await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
   })
 })

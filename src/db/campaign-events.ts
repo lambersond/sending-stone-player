@@ -20,12 +20,14 @@ type World = { id: string; title: string }
  * @param world - The Foundry world the event came from.
  * @param campaign - The campaign as the module named it, whose title may have changed.
  * @param event - The event, its payload already checked.
+ * @param session - The module session that sent it.
  */
 export async function applyCampaignEvent(
   campaignId: string,
   world: World,
   campaign: CampaignRef,
   event: GameEvent,
+  session: string,
 ): Promise<void> {
   await prisma.$transaction(async tx => {
     await apply(tx, campaignId, event)
@@ -40,6 +42,8 @@ export async function applyCampaignEvent(
         version: { increment: 1 },
         lastEventAt: now,
         lastSeenAt: now,
+        // The campaign's state is now this session's.
+        ...(event.type === 'bridge.hello' && { helloSession: session }),
       },
     })
   })

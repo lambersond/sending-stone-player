@@ -2,6 +2,7 @@ import { refresh } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
   chooseActor,
+  deleteCharacterAndLeave,
   joinAsCharacter,
   openInvite,
   removeCharacter,
@@ -134,6 +135,16 @@ describe('app/characters/actions', () => {
       await expect(openInvite({}, new FormData())).resolves.toMatchObject({
         value: '',
       })
+    })
+  })
+
+  describe('deleteCharacterAndLeave', () => {
+    it('deletes the character and goes back to the list', async () => {
+      await expect(deleteCharacterAndLeave('char-1')).rejects.toThrow(
+        'NEXT_REDIRECT',
+      )
+      expect(deleteCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+      expect(redirect).toHaveBeenCalledWith('/characters')
     })
   })
 

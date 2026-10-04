@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
-import { chooseActor } from '../actions'
+import { chooseActor, deleteCharacterAndLeave } from '../actions'
 import { GameTable } from '@/components/game-table'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
@@ -41,6 +41,7 @@ export default async function CharacterPage({ params }: Props) {
       initialView={view}
       choice={choice}
       chooseActor={chooseActor.bind(undefined, character.id)}
+      deleteCharacter={deleteCharacterAndLeave.bind(undefined, character.id)}
     />
   )
 }

@@ -4,6 +4,7 @@ import { CampaignSetupForm } from './campaign-setup-form'
 
 describe('components/campaigns/campaign-setup-form', () => {
   it('submits the title, game and secret, then shows the secret to copy', async () => {
+    const onDone = jest.fn()
     const action = jest.fn().mockResolvedValue({
       saved: { title: 'The Lonely Mountain', secret: 'suggested-secret-1' },
     })
@@ -12,6 +13,7 @@ describe('components/campaigns/campaign-setup-form', () => {
       <CampaignSetupForm
         action={action}
         suggestedSecret='suggested-secret-1'
+        onDone={onDone}
       />,
     )
 
@@ -36,12 +38,20 @@ describe('components/campaigns/campaign-setup-form', () => {
       "The Lonely Mountain is set up. Copy its secret now: Sending Stone keeps only a check of it, so it can't be shown again.",
     )
     expect(screen.getByText('suggested-secret-1')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Campaign title')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(onDone).toHaveBeenCalled()
   })
 
   it('generates another secret', async () => {
     const user = userEvent.setup()
     render(
-      <CampaignSetupForm action={jest.fn()} suggestedSecret='first-secret-1' />,
+      <CampaignSetupForm
+        action={jest.fn()}
+        suggestedSecret='first-secret-1'
+        onDone={jest.fn()}
+      />,
     )
 
     await user.click(screen.getByRole('button', { name: 'Generate' }))
@@ -62,7 +72,13 @@ describe('components/campaigns/campaign-setup-form', () => {
       message: 'Something else went wrong.',
     })
     const user = userEvent.setup()
-    render(<CampaignSetupForm action={action} suggestedSecret='x' />)
+    render(
+      <CampaignSetupForm
+        action={action}
+        suggestedSecret='x'
+        onDone={jest.fn()}
+      />,
+    )
 
     await user.type(screen.getByLabelText('Campaign title'), 'T')
     await user.type(screen.getByLabelText('Forge game address'), 'x')

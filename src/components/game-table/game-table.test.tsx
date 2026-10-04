@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
@@ -17,6 +17,7 @@ const character: Character = {
   actorId: 'actor-thorin',
 }
 const chooseActor = jest.fn().mockResolvedValue({})
+const deleteCharacter = jest.fn(async () => {})
 const choice = {
   id: 'c1',
   title: 'The Lonely Mountain',
@@ -83,6 +84,7 @@ const table = (
     initialView={initial}
     choice={options.choice}
     chooseActor={chooseActor}
+    deleteCharacter={deleteCharacter}
   />
 )
 
@@ -258,6 +260,17 @@ describe('components/game-table/game-table', () => {
         /Thorin is no longer one of The Lonely Mountain's characters/,
       ),
     ).toBeInTheDocument()
+  })
+
+  it('deletes the character from its page, after asking', async () => {
+    const user = userEvent.setup()
+    renderTable()
+
+    await user.click(screen.getByRole('button', { name: 'Delete Thorin' }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete Thorin?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+
+    expect(deleteCharacter).toHaveBeenCalledTimes(1)
   })
 
   it('says when it is reconnecting', () => {

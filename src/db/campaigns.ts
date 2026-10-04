@@ -42,13 +42,16 @@ export async function listOwnedCampaigns(
       inviteCode: true,
       foundryId: true,
       lastSeenAt: true,
+      helloSession: true,
       characters: true,
-      players: { select: { actorId: true, user: { select: { name: true } } } },
+      players: {
+        select: { id: true, actorId: true, user: { select: { name: true } } },
+      },
     },
   })
   return campaigns.map(campaign => {
     const players = new Map(
-      campaign.players.map(({ actorId, user }) => [actorId, user.name]),
+      campaign.players.map(player => [player.actorId, player]),
     )
     return {
       id: campaign.id,
@@ -57,13 +60,13 @@ export async function listOwnedCampaigns(
       worldTitle: campaign.worldTitle ?? undefined,
       inviteCode: campaign.inviteCode ?? '',
       connected: campaign.foundryId !== null,
+      rosterReceived: campaign.helloSession !== null,
       live: isLive(campaign.lastSeenAt),
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
-      characters: rosterOf(campaign.characters).map(({ id, name }) => ({
-        id,
-        name,
-        player: players.get(id),
-      })),
+      characters: rosterOf(campaign.characters).map(({ id, name }) => {
+        const player = players.get(id)
+        return { id, name, player: player?.user.name, characterId: player?.id }
+      }),
     }
   })
 }
@@ -123,6 +126,26 @@ export async function resetInviteCode(
   return count > 0
 }
 
+/**
+ * Remove a player's character from one of the Gamemaster's campaigns, so that another player can
+ * choose it.
+ * @returns Whether the Gamemaster had such a player's character to remove.
+ */
+export async function removePlayer(
+  userId: string,
+  campaignId: string,
+  characterId: string,
+): Promise<boolean> {
+  const { count } = await prisma.character.deleteMany({
+    where: {
+      id: characterId,
+      campaignId,
+      campaign: { is: { ownerId: userId } },
+    },
+  })
+  return count > 0
+}
+
 /** Remove a campaign with its chat and combats. Its players' characters stay, without it. */
 export async function removeCampaign(
   userId: string,
@@ -138,7 +161,9 @@ export async function removeCampaign(
 /*  The module                                  */
 /* -------------------------------------------- */
 
-export type EventCampaign = { id: string } | 'unknown' | 'refused'
+/** The campaign an event is for, with the module session whose state it holds, if any. */
+export type EventCampaign =
+  { id: string; helloSession?: string } | 'unknown' | 'refused'
 
 /**
  * Find the campaign an event is for, and check that the secret it came with is that campaign's.
@@ -156,10 +181,12 @@ export async function findEventCampaign(
 ): Promise<EventCampaign> {
   const bound = await prisma.campaign.findUnique({
     where: { originCampaign: { origin, foundryId: campaign.id } },
-    select: { id: true, secretHash: true },
+    select: { id: true, secretHash: true, helloSession: true },
   })
   if (bound?.secretHash) {
-    return (await verifySecret(secret, bound.secretHash)) ? bound : 'refused'
+    return (await verifySecret(secret, bound.secretHash))
+      ? { id: bound.id, helloSession: bound.helloSession ?? undefined }
+      : 'refused'
   }
 
   const candidates = await prisma.campaign.findMany({
@@ -178,6 +205,7 @@ export async function findEventCampaign(
   if (candidates.length === 0) return 'unknown'
   for (const candidate of candidates) {
     if (await verifySecret(secret, candidate.secretHash ?? '')) {
+      // Bound only now, so it holds no state from the module's session.
       return { id: await bind(candidate.id, campaign.id, bound?.id) }
     }
   }

@@ -2,12 +2,14 @@ import { refresh } from 'next/cache'
 import {
   changeSecretAction,
   removeCampaignAction,
+  removePlayerAction,
   resetInviteAction,
   setUpCampaignAction,
 } from './actions'
 import {
   changeCampaignSecret,
   removeCampaign,
+  removePlayer,
   resetInviteCode,
   setUpCampaign,
 } from '@/db/campaigns'
@@ -17,6 +19,7 @@ jest.mock('next/cache', () => ({ refresh: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({
   changeCampaignSecret: jest.fn(),
   removeCampaign: jest.fn(),
+  removePlayer: jest.fn(),
   resetInviteCode: jest.fn(),
   setUpCampaign: jest.fn(),
 }))
@@ -125,6 +128,13 @@ describe('app/campaigns/actions', () => {
     await action('c1')
 
     expect(change).toHaveBeenCalledWith('gm-1', 'c1')
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it("removes a player's character from the Gamemaster's campaign", async () => {
+    await removePlayerAction('c1', 'char-1')
+
+    expect(removePlayer).toHaveBeenCalledWith('gm-1', 'c1', 'char-1')
     expect(refresh).toHaveBeenCalled()
   })
 })

@@ -1,9 +1,9 @@
 import clsx from 'clsx'
-import { KeyRound, RefreshCw, Trash2 } from 'lucide-react'
-import { ConfirmButton } from './confirm-button'
+import { KeyRound, RefreshCw, Trash2, UserMinus } from 'lucide-react'
 import { SecretForm } from './secret-form'
 import { CopyField } from '@/components/copy-button'
 import { LocalTime } from '@/components/game-table/local-time'
+import { ConfirmDialog } from '@/components/modal'
 import { gameHost } from '@/utils/game-host'
 import type { OwnedCampaign, SecretFormState } from '@/types/campaign'
 
@@ -15,8 +15,15 @@ type Props = {
     formData: FormData,
   ) => Promise<SecretFormState>
   resetInvite: () => Promise<void>
+  /** Remove the player's character with this id from the campaign. */
+  removePlayer: (characterId: string) => Promise<void>
   remove: () => Promise<void>
 }
+
+const QUIET_BUTTON =
+  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+const DANGER_BUTTON =
+  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
 
 /**
  * One of a Gamemaster's campaigns: whether Foundry is connected, its invite link and its players.
@@ -26,6 +33,7 @@ export function CampaignCard({
   inviteUrl,
   changeSecret,
   resetInvite,
+  removePlayer,
   remove,
 }: Readonly<Props>) {
   const details = [campaign.worldTitle, gameHost(campaign.gameUrl)].filter(
@@ -58,13 +66,23 @@ export function CampaignCard({
           <p className='text-sm text-text-secondary'>
             Share it with your players. They sign in and choose their character.
           </p>
-          <ConfirmButton
-            icon={<RefreshCw aria-hidden className='size-4' />}
-            label='Reset link'
-            question='Stop this link working and make a new one?'
+          <ConfirmDialog
+            trigger={
+              <>
+                <RefreshCw aria-hidden className='size-4' />
+                Reset link
+              </>
+            }
+            triggerClassName={QUIET_BUTTON}
+            title='Reset the invite link?'
             confirmLabel='Reset link'
             onConfirm={resetInvite}
-          />
+          >
+            <p>
+              The current link to {campaign.title} stops working and a new one
+              takes its place. Players who already joined keep their characters.
+            </p>
+          </ConfirmDialog>
         </div>
       </section>
 
@@ -75,32 +93,56 @@ export function CampaignCard({
             {campaign.characters.map(character => (
               <li
                 key={character.id}
-                className='flex items-baseline justify-between gap-3 rounded-lg bg-page px-3 py-2'
+                className='flex min-h-10 items-center justify-between gap-3 rounded-lg bg-page py-1 pr-1 pl-3'
               >
                 <span className='truncate font-medium'>{character.name}</span>
-                <span
-                  className={clsx(
-                    'shrink-0 text-xs',
-                    character.player
-                      ? 'font-semibold text-primary'
-                      : 'text-text-secondary',
+                <span className='flex shrink-0 items-center gap-1'>
+                  <span
+                    className={clsx(
+                      'text-xs',
+                      character.player
+                        ? 'font-semibold text-primary'
+                        : 'pr-2 text-text-secondary',
+                    )}
+                  >
+                    {character.player ?? 'Not chosen yet'}
+                  </span>
+                  {character.player && character.characterId && (
+                    <ConfirmDialog
+                      trigger={<UserMinus aria-hidden className='size-4' />}
+                      triggerLabel={`Remove ${character.player} as ${character.name}`}
+                      triggerClassName='rounded-md p-1.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+                      title={`Remove ${character.player} as ${character.name}?`}
+                      confirmLabel='Remove'
+                      onConfirm={removePlayer.bind(
+                        undefined,
+                        character.characterId,
+                      )}
+                      danger
+                    >
+                      <p>
+                        {character.player} stops following {campaign.title} as{' '}
+                        {character.name}, and {character.name} can be chosen
+                        again from the invite link.
+                      </p>
+                    </ConfirmDialog>
                   )}
-                >
-                  {character.player ?? 'Not chosen yet'}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
           <p className='text-sm text-text-secondary'>
-            The campaign&apos;s characters appear here once Foundry connects.
+            {campaign.rosterReceived
+              ? 'Foundry sent no characters for this campaign. Tick its characters in Manage Campaigns in Foundry.'
+              : 'The campaign’s characters appear here once Foundry sends them. Reloading the game in Foundry sends them at once.'}
           </p>
         )}
       </section>
 
       <footer className='flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4'>
         <details className='group min-w-0 flex-1'>
-          <summary className='inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'>
+          <summary className={clsx(QUIET_BUTTON, 'cursor-pointer')}>
             <KeyRound aria-hidden className='size-4' />
             Change secret
           </summary>
@@ -108,14 +150,28 @@ export function CampaignCard({
             <SecretForm action={changeSecret} />
           </div>
         </details>
-        <ConfirmButton
-          icon={<Trash2 aria-hidden className='size-4' />}
-          label='Remove campaign'
-          question='Remove it, with its chat and combats?'
-          confirmLabel='Remove'
+        <ConfirmDialog
+          trigger={
+            <>
+              <Trash2 aria-hidden className='size-4' />
+              Delete campaign
+            </>
+          }
+          triggerClassName={DANGER_BUTTON}
+          title={`Delete ${campaign.title}?`}
+          confirmLabel='Delete campaign'
           onConfirm={remove}
           danger
-        />
+        >
+          <p>
+            Its chat and combats are deleted, and its players&apos; characters
+            stop following it. This can&apos;t be undone.
+          </p>
+          <p>
+            To set it up again, you would need a new invite link for your
+            players.
+          </p>
+        </ConfirmDialog>
       </footer>
     </article>
   )
