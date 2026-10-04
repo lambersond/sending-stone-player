@@ -3,24 +3,96 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
+    "db:setup": "prisma generate --no-engine && prisma migrate deploy && prisma db push",
+    "db:seed": "ts-node prisma/seed.ts",
+    "dev": "TZ=UTC next dev --turbopack",
+    "lint:fix": "eslint --fix",
+    "lint": "eslint",
     "start": "next start",
-    "lint": "eslint"
+    "test:coverage:watch": "jest --coverage --watch",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test": "jest",
+    "vercel-build": "npm run vercel-build:blank",
+    "vercel-build:seed": "prisma generate --no-engine && prisma migrate deploy && prisma db push && npm run db:seed && next build",
+    "vercel-build:blank": "prisma generate --no-engine && prisma migrate deploy && prisma db push && next build"
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.20",
+    "@hookform/resolvers": "^5.9.1",
+    "@prisma/client": "6.19.3",
+    "@prisma/extension-accelerate": "^3.0.1",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "better-auth": "^1.7.7",
+    "clsx": "^2.1.1",
+    "lodash": "^4.18.1",
+    "lucide-react": "^1.51.0",
     "next": "16.3.8",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "next-themes": "^0.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.89.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/jest": "^30.0.0",
+    "@types/js-cookie": "^3.0.6",
+    "@types/lodash": "^4.17.25",
+    "@types/node": "^26.6.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "baseline-browser-mapping": "^2.11.27",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "^16.3.8",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-no-unsanitized": "^4.1.5",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-unicorn": "65.0.1",
+    "globals": "^17.13.0",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-mock-extended": "^4.0.1",
+    "lint-staged": "^17.6.0",
+    "node-mocks-http": "^1.18.1",
+    "prettier": "^3.9.9",
+    "prisma": "^6.19.3",
+    "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "ts-jest": "^29.4.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": "eslint --fix"
+  },
+  "prettier": {
+    "arrowParens": "avoid",
+    "bracketSpacing": true,
+    "endOfLine": "auto",
+    "jsxSingleQuote": true,
+    "printWidth": 80,
+    "semi": false,
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "all"
+  },
+  "overrides": {
+    "@next/eslint-plugin-next": {
+      "fast-glob": "npm:tinyglobby@^0.2.17"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "^8.0.2"
+    }
   }
 }
