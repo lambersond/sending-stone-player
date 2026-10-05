@@ -1,5 +1,6 @@
 import { ABILITIES, SKILLS } from '@/constants/dnd5e'
 import type {
+  CharacterSheet,
   CombatantSummary,
   CombatSnapshot,
   Dnd5eMessageData,
@@ -12,6 +13,7 @@ import type {
   TableCombat,
   TableMessage,
   TableRoll,
+  TableSheet,
   TableTarget,
 } from '@/types/table'
 
@@ -278,5 +280,48 @@ function toTableCombatant(combatant: CombatantSummary, viewer: Viewer) {
     defeated: combatant.defeated,
     side,
     hp: side === 'other' ? undefined : (combatant.hp ?? undefined),
+  }
+}
+
+/* -------------------------------------------- */
+/*  Sheet                                       */
+/* -------------------------------------------- */
+
+/**
+ * A player's view of their character's sheet. Labels the module left blank fall back to dnd5e's
+ * English ones.
+ * @param sheet - As the module sent it.
+ * @param origin - The game's address, which the portrait's path may be relative to.
+ */
+export function toTableSheet(
+  sheet: CharacterSheet,
+  origin: string,
+): TableSheet {
+  const { img, ...rest } = sheet
+  return {
+    ...rest,
+    portrait: portraitUrl(img, origin),
+    abilities: sheet.abilities.map(ability => ({
+      ...ability,
+      label: ability.label || ABILITIES[ability.id] || ability.id,
+      abbreviation: ability.abbreviation || ability.id.toUpperCase(),
+    })),
+    skills: sheet.skills.map(skill => ({
+      ...skill,
+      label: skill.label || SKILLS[skill.id] || skill.id,
+    })),
+  }
+}
+
+/** Foundry's placeholder for an actor with no portrait of its own. */
+const DEFAULT_PORTRAIT = 'icons/svg/mystery-man.svg'
+
+function portraitUrl(img: string | null, origin: string): string | undefined {
+  if (!img || img.endsWith(DEFAULT_PORTRAIT)) return undefined
+  try {
+    const url = new URL(img, `${origin}/`)
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : undefined
+  } catch {
+    return undefined
   }
 }

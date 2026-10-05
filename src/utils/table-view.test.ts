@@ -5,9 +5,15 @@ import {
   toTableCombat,
   toTableMessage,
   toTableMessages,
+  toTableSheet,
   type Viewer,
 } from './table-view'
-import { chatMessage, combat, combatant } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  chatMessage,
+  combat,
+  combatant,
+} from '@/mocks/sending-stone'
 import type { SerializedMessage } from '@/types/sending-stone'
 
 const viewer: Viewer = {
@@ -423,6 +429,53 @@ describe('utils/table-view', () => {
         side: 'party',
         hp: { value: 31, max: 44, temp: 0 },
       })
+    })
+  })
+
+  describe('toTableSheet', () => {
+    const origin = 'https://my-game.forge-vtt.com'
+
+    it.each([
+      [
+        'worlds/erebor/thorin.webp',
+        'https://my-game.forge-vtt.com/worlds/erebor/thorin.webp',
+      ],
+      [
+        'https://assets.forge-vtt.com/u/thorin.webp',
+        'https://assets.forge-vtt.com/u/thorin.webp',
+      ],
+      ['icons/svg/mystery-man.svg', undefined],
+      ['javascript:alert(1)', undefined],
+      ['https://[bad', undefined],
+      [null, undefined],
+    ])('finds the portrait %s at %s', (img, portrait) => {
+      expect(toTableSheet(characterSheet({ img }), origin).portrait).toBe(
+        portrait,
+      )
+    })
+
+    it("names abilities and skills in dnd5e's English when the module left them blank", () => {
+      const sheet = characterSheet()
+      const view = toTableSheet(
+        {
+          ...sheet,
+          abilities: [{ ...sheet.abilities[0], label: '', abbreviation: '' }],
+          skills: [
+            { ...sheet.skills[0], label: '' },
+            { ...sheet.skills[0], id: 'xyz', label: '' },
+          ],
+        },
+        origin,
+      )
+
+      expect(view.abilities[0]).toMatchObject({
+        label: 'Strength',
+        abbreviation: 'STR',
+      })
+      expect(view.skills.map(({ label }) => label)).toEqual([
+        'Athletics',
+        'xyz',
+      ])
     })
   })
 })

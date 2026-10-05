@@ -22,7 +22,77 @@ export const envelopeSchema = z.object({
   data: z.record(z.string(), z.unknown()),
 })
 
-const characterSchema = z.looseObject({ id: z.string(), name: z.string() })
+const nullableNumber = z.number().nullable().catch(null)
+const rollMode = z.union([z.literal(-1), z.literal(0), z.literal(1)]).catch(0)
+
+// A sheet that can't be read is dropped rather than failing the event that carries it.
+const sheetSchema = z
+  .looseObject({
+    img: nullableString,
+    level: nullableNumber,
+    classes: z
+      .array(
+        z.looseObject({
+          name: z.string(),
+          levels: nullableNumber,
+          subclass: nullableString,
+        }),
+      )
+      .catch([]),
+    species: nullableString,
+    background: nullableString,
+    hp: z
+      .object({
+        value: z.number(),
+        max: z.number().nullable(),
+        temp: z.number().catch(0),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
+    ac: nullableNumber,
+    proficiency: nullableNumber,
+    initiative: nullableNumber,
+    speed: z
+      .looseObject({ value: z.number(), units: nullableString })
+      .nullable()
+      .catch(null),
+    inspiration: z.boolean().catch(false),
+    abilities: z.array(
+      z.looseObject({
+        id: z.string(),
+        label: z.string().catch(''),
+        abbreviation: z.string().catch(''),
+        score: nullableNumber,
+        mod: z.number(),
+        check: z.number(),
+        save: z.number(),
+        saveProficient: z.boolean().catch(false),
+        checkMode: rollMode,
+        saveMode: rollMode,
+      }),
+    ),
+    skills: z.array(
+      z.looseObject({
+        id: z.string(),
+        label: z.string().catch(''),
+        ability: z.string().catch(''),
+        total: z.number(),
+        passive: nullableNumber,
+        proficiency: z.number().catch(0),
+        mode: rollMode,
+      }),
+    ),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+
+const characterSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  sheet: sheetSchema,
+})
 
 const rollSchema = z.looseObject({
   formula: z.string().catch(''),
@@ -145,6 +215,12 @@ export function parseGameEvent(
             combats: z.array(combatSchema),
           })
           .parse(data),
+      }
+    }
+    case EVENTS.CHARACTER_UPDATED: {
+      return {
+        type,
+        data: z.looseObject({ character: characterSchema }).parse(data),
       }
     }
     case EVENTS.CHAT_CREATED:

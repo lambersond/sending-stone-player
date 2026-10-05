@@ -3,6 +3,7 @@ import type {
   CampaignRef,
   CombatantSummary,
   CombatSnapshot,
+  ConnectedCharacter,
   GameEvent,
   SerializedMessage,
 } from '@/types/sending-stone'
@@ -53,9 +54,18 @@ async function apply(tx: Tx, campaignId: string, event: GameEvent) {
   switch (event.type) {
     case 'bridge.hello': {
       // The campaign's full current state. It carries no chat, so the chat log is kept.
+      const { characters } = event.data
       await tx.campaign.update({
         where: { id: campaignId },
-        data: { characters: event.data.characters },
+        data: {
+          characters: characters.map(character => rosterEntry(character)),
+        },
+      })
+      await tx.actorSheet.deleteMany({ where: { campaignId } })
+      await tx.actorSheet.createMany({
+        data: characters.flatMap(({ id, sheet }) =>
+          sheet ? [{ campaignId, actorId: id, data: toJson(sheet) }] : [],
+        ),
       })
       await tx.combat.deleteMany({ where: { campaignId } })
       await tx.combat.createMany({
@@ -65,6 +75,10 @@ async function apply(tx: Tx, campaignId: string, event: GameEvent) {
           data: toJson(combat),
         })),
       })
+      return
+    }
+    case 'character.updated': {
+      await saveCharacter(tx, campaignId, event.data.character)
       return
     }
     case 'chat.message.created':
@@ -117,6 +131,50 @@ async function apply(tx: Tx, campaignId: string, event: GameEvent) {
       return
     }
   }
+}
+
+/**
+ * One of the campaign's characters as it now stands: its entry in the roster, replaced or added,
+ * and its sheet.
+ */
+async function saveCharacter(
+  tx: Tx,
+  campaignId: string,
+  character: ConnectedCharacter,
+) {
+  const held = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { characters: true },
+  })
+  const roster = (held?.characters ?? []) as unknown as ConnectedCharacter[]
+  const entry = rosterEntry(character)
+  await tx.campaign.update({
+    where: { id: campaignId },
+    data: {
+      characters: roster.some(({ id }) => id === character.id)
+        ? roster.map(held => (held.id === character.id ? entry : held))
+        : [...roster, entry],
+    },
+  })
+
+  const actorId = character.id
+  if (!character.sheet) {
+    await tx.actorSheet.deleteMany({ where: { campaignId, actorId } })
+    return
+  }
+  const data = toJson(character.sheet)
+  await tx.actorSheet.upsert({
+    where: { campaignActor: { campaignId, actorId } },
+    create: { campaignId, actorId, data },
+    update: { data },
+  })
+}
+
+/** A character as the roster keeps it: everything but its sheet, which is kept on its own. */
+function rosterEntry(character: ConnectedCharacter) {
+  const entry = { ...character }
+  delete entry.sheet
+  return toJson(entry)
 }
 
 async function saveMessage(

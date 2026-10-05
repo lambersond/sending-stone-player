@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { envelopeSchema, parseGameEvent } from './sending-stone'
-import { combat, roster } from '@/mocks/sending-stone'
+import { characterSheet, combat, roster } from '@/mocks/sending-stone'
 
 /** A chat message with these dnd5e details, as read. */
 const messageWith = (dnd5e: object) =>
@@ -66,6 +66,58 @@ describe('schemas/sending-stone', () => {
       type: 'bridge.hello',
       data,
     })
+  })
+
+  it("reads a character's sheet in bridge.hello and character.updated", () => {
+    const character = { ...roster[0], sheet: characterSheet() }
+
+    expect(
+      parseGameEvent('bridge.hello', { characters: [character], combats: [] }),
+    ).toEqual({
+      type: 'bridge.hello',
+      data: { characters: [character], combats: [] },
+    })
+    expect(parseGameEvent('character.updated', { character })).toEqual({
+      type: 'character.updated',
+      data: { character },
+    })
+  })
+
+  it('fills in what a sheet only displays when it is missing or odd', () => {
+    const sheet = characterSheet()
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          level: '5',
+          inspiration: 'yes',
+          speed: 30,
+          classes: 'Fighter',
+          abilities: [{ ...sheet.abilities[0], label: 5, checkMode: 2 }],
+        },
+      },
+    }) as any
+
+    expect(event.data.character.sheet).toMatchObject({
+      level: null,
+      inspiration: false,
+      speed: null,
+      classes: [],
+      abilities: [{ id: 'str', label: '', checkMode: 0, save: 7 }],
+    })
+  })
+
+  it("drops a sheet it can't read, keeping the character", () => {
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: { abilities: 'many' } },
+    }) as any
+
+    expect(event.data.character).toEqual({ ...roster[0], sheet: null })
+  })
+
+  it('refuses character.updated without its character', () => {
+    expect(() => parseGameEvent('character.updated', {})).toThrow()
   })
 
   it('fills in what a message only displays when it is missing or odd', () => {
