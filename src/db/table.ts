@@ -2,6 +2,7 @@ import prisma from '@/clients/prisma'
 import { isLive } from '@/db/campaigns'
 import {
   pickCombat,
+  portraitUrl,
   toTableCombat,
   toTableMessages,
   toTableSheet,
@@ -68,6 +69,12 @@ export async function getTableView(character: Character): Promise<TableView> {
   const viewer: Viewer = {
     actorId: character.actorId ?? undefined,
     party: new Set(roster.map(({ id }) => id)),
+    portraits: new Map(
+      roster.flatMap(({ id, img }) => {
+        const url = portraitUrl(img, campaign.origin)
+        return url ? [[id, url] as const] : []
+      }),
+    ),
   }
 
   const [messages, combats, sheet] = await Promise.all([
@@ -121,5 +128,6 @@ export async function getTableView(character: Character): Promise<TableView> {
     sheet: sheet
       ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
       : undefined,
+    chatReadAt: character.chatReadAt,
   }
 }

@@ -2,7 +2,11 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { notFound } from 'next/navigation'
-import { chooseActor, deleteCharacterAndLeave } from '../actions'
+import {
+  chooseActor,
+  deleteCharacterAndLeave,
+  markChatReadUpTo,
+} from '../actions'
 import CharacterPage, { generateMetadata } from './page'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
@@ -17,6 +21,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('../actions', () => ({
   chooseActor: jest.fn(),
   deleteCharacterAndLeave: jest.fn(),
+  markChatReadUpTo: jest.fn(),
 }))
 jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -29,10 +34,17 @@ jest.mock('@/components/game-table', () => ({
     choice,
     chooseActor,
     deleteCharacter,
+    markChatRead,
   }: any) => (
     <>
       <button type='button' onClick={() => deleteCharacter()}>
         Delete
+      </button>
+      <button
+        type='button'
+        onClick={() => markChatRead('2026-10-04T19:02:00.000Z')}
+      >
+        Read
       </button>
       <p>
         table for {character.name} at version {initialView.version}
@@ -108,6 +120,18 @@ describe('app/characters/[id]/page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(deleteCharacterAndLeave).toHaveBeenCalledWith('char-1')
+  })
+
+  it('notes how far the player has read its chat', async () => {
+    jest.mocked(getCharacter).mockResolvedValue(thorin)
+    const user = userEvent.setup()
+    render(await CharacterPage(props('char-1')))
+
+    await user.click(screen.getByRole('button', { name: 'Read' }))
+    expect(markChatReadUpTo).toHaveBeenCalledWith(
+      'char-1',
+      '2026-10-04T19:02:00.000Z',
+    )
   })
 
   it('is not found when the user has no such character', async () => {

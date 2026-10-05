@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import clsx from 'clsx'
 import {
   Crosshair,
@@ -83,7 +84,7 @@ export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
   return (
     <ol
       aria-label='Chat log'
-      className='mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 md:px-8 md:py-6'
+      className='mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 @xl:px-8 @xl:py-6'
     >
       {messages.map(message => (
         <li key={message.id}>
@@ -104,15 +105,11 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
       data-side={side}
       className={clsx('flex items-start gap-2.5', mine && 'flex-row-reverse')}
     >
-      <span
-        aria-hidden
-        className={clsx(
-          'flex size-9 shrink-0 items-center justify-center rounded-[10px] text-xs font-bold',
-          AVATAR[side],
-        )}
-      >
-        {initials(speaker)}
-      </span>
+      <SpeakerAvatar
+        name={speaker}
+        src={message.avatar}
+        className={AVATAR[side]}
+      />
       <div
         className={clsx(
           'flex max-w-[85%] min-w-0 flex-1 flex-col gap-1.5',
@@ -361,6 +358,40 @@ function Badge({
       )}
     >
       {children}
+    </span>
+  )
+}
+
+/** The speaker's portrait, or their initials when they have none or it won't load. */
+function SpeakerAvatar({
+  name,
+  src,
+  className,
+}: Readonly<{ name: string; src?: string; className: string }>) {
+  const [failed, setFailed] = useState<string>()
+  const box = 'size-9 shrink-0 rounded-[10px]'
+  if (src && failed !== src) {
+    return (
+      // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=''
+        className={clsx(box, 'border border-border object-cover object-top')}
+        onError={() => setFailed(src)}
+      />
+    )
+  }
+  return (
+    <span
+      aria-hidden
+      className={clsx(
+        box,
+        'flex items-center justify-center text-xs font-bold',
+        className,
+      )}
+    >
+      {initials(name)}
     </span>
   )
 }

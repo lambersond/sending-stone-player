@@ -135,6 +135,28 @@ describe('db/table', () => {
       })
     })
 
+    it("shows a campaign character's portrait beside what they say", async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...campaign,
+        characters: [
+          { ...roster[0], img: 'worlds/erebor/thorin.webp' },
+          { ...roster[1], img: 'icons/svg/mystery-man.svg' },
+        ],
+      } as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([
+        { data: chatMessage({ id: 'm2', character: 'actor-vex' }) },
+        { data: chatMessage({ id: 'm1', character: 'actor-thorin' }) },
+      ] as any)
+      prismaMock.combat.findMany.mockResolvedValue([])
+
+      const view = await getTableView(character)
+
+      expect(view.messages.map(({ avatar }) => avatar)).toEqual([
+        'https://my-game.forge-vtt.com/worlds/erebor/thorin.webp',
+        undefined,
+      ])
+    })
+
     it("shows the player their own character's sheet", async () => {
       prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
       prismaMock.chatMessage.findMany.mockResolvedValue([])

@@ -10,6 +10,7 @@ const roll = (fields: Partial<LocalRoll> = {}): LocalRoll => ({
   modifier: 4,
   d20s: [12],
   natural: 12,
+  extras: [],
   at: 0,
   ...fields,
 })
@@ -60,6 +61,28 @@ describe('components/character-sheet/roll-tray', () => {
     },
   )
 
+  it('shows what the player added, each term with its dice', () => {
+    render(
+      <RollTray
+        rolls={[
+          roll({
+            total: 18,
+            extras: [
+              { text: '+1d4', values: [3], value: 3 },
+              { text: '−1d6', values: [2], value: -2 },
+              { text: '+1', values: [], value: 1 },
+            ],
+          }),
+        ]}
+        rolling={false}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'd20 12 +4 +1d4 (3) −1d6 (2) +1',
+    )
+  })
+
   it.each([
     [20, 'Natural 20', 'bg-gold'],
     [1, 'Natural 1', 'bg-ruby'],
@@ -81,6 +104,12 @@ describe('components/character-sheet/roll-tray', () => {
     render(
       <RollTray
         rolls={[
+          roll({
+            id: 'r4',
+            label: 'Athletics check',
+            total: 20,
+            extras: [{ text: '+1d4', values: [4], value: 4 }],
+          }),
           roll({ id: 'r3', label: 'Strength saving throw', total: 9 }),
           roll({
             id: 'r2',
@@ -95,12 +124,14 @@ describe('components/character-sheet/roll-tray', () => {
       />,
     )
 
-    await user.click(screen.getByText('Earlier rolls (2)'))
+    await user.click(screen.getByText('Earlier rolls (3)'))
 
     const earlier = screen.getAllByRole('listitem')
     expect(earlier.map(item => item.textContent)).toEqual([
+      'Strength saving throw12 +4 = 9',
       'Stealth check4 −1 = 3',
       'Perception check12 +4 = 16',
     ])
+    expect(screen.getByRole('status')).toHaveTextContent('+1d4 (4)')
   })
 })

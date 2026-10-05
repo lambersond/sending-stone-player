@@ -25,13 +25,17 @@ export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
     )
   }
 
-  // Two columns once its pane, rather than the window, is wide enough: beside the chat on a wide
-  // screen it has only part of the window.
+  // The turn stays in view above the initiative order as it scrolls, at any width. Its strip has
+  // the page's background, so rows pass out of sight behind it. Padding follows the pane's width,
+  // which beside the sheet on a wide screen is narrow.
   return (
-    <div className='mx-auto grid w-full max-w-5xl gap-4 p-4 md:px-8 md:py-6 @4xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] @4xl:items-start @4xl:gap-6'>
+    <div className='mx-auto flex w-full max-w-3xl flex-col'>
+      <div className='sticky top-0 z-10 bg-page px-4 pt-4 pb-3 @xl:px-8 @xl:pt-6'>
+        <TurnPanel combat={combat} />
+      </div>
       <section
         aria-labelledby='initiative-heading'
-        className='flex min-w-0 flex-col gap-2'
+        className='flex min-w-0 flex-col gap-2 px-4 pb-4 @xl:px-8 @xl:pb-6'
       >
         <div className='flex items-baseline justify-between gap-2 px-0.5'>
           <h2
@@ -62,7 +66,6 @@ export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
           </p>
         )}
       </section>
-      <TurnPanel combat={combat} />
     </div>
   )
 }
@@ -171,7 +174,7 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
     <section
       aria-labelledby='turn-heading'
       className={clsx(
-        'order-first flex flex-col gap-2 rounded-2xl border bg-card p-4 @4xl:order-none',
+        'flex flex-col gap-2 rounded-2xl border bg-card p-4',
         myTurn ? 'border-primary' : 'border-border',
       )}
     >

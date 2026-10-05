@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { ChatLog, initials } from './chat-log'
 import type { TableMessage, TableRoll } from '@/types/table'
 
@@ -49,6 +49,23 @@ describe('components/game-table/chat-log', () => {
       'dateTime',
       '2026-10-04T19:02:00.000Z',
     )
+  })
+
+  it("shows the speaker's portrait, or their initials when it won't load", () => {
+    const { container } = render(
+      <ChatLog
+        messages={[
+          message({ speaker: 'Vex', avatar: 'https://game.example/vex.webp' }),
+        ]}
+      />,
+    )
+
+    const portrait = container.querySelector('img') as HTMLImageElement
+    expect(portrait).toHaveAttribute('src', 'https://game.example/vex.webp')
+    expect(screen.queryByText('V')).toBeNull()
+    fireEvent.error(portrait)
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByText('V')).toBeInTheDocument()
   })
 
   it("puts the player's own messages on the other side", () => {

@@ -29,10 +29,14 @@ describe('components/character-sheet/character-sheet', () => {
     expect(screen.getByText('Dwarf · Soldier')).toBeInTheDocument()
     expect(screen.getByText('Inspired')).toBeInTheDocument()
     const stat = (label: string) =>
-      screen.getByText(label, { selector: 'dt' }).nextSibling
+      screen.getByText(label).closest('dt')?.nextSibling
     expect(stat('Hit points')).toHaveTextContent('31 / 44 +5 temp')
     expect(stat('Armor class')).toHaveTextContent('18')
     expect(stat('Proficiency')).toHaveTextContent('+3')
+    // Short forms, for a narrow box, are there for the narrow box to show.
+    expect(screen.getByTitle('Proficiency')).toHaveTextContent('Prof')
+    expect(screen.getByTitle('Armor class')).toHaveTextContent('AC')
+    expect(screen.getByTitle('Initiative')).toHaveTextContent('Init')
     expect(stat('Initiative')).toHaveTextContent('+1')
     expect(stat('Speed')).toHaveTextContent('25ft')
   })
@@ -164,45 +168,110 @@ describe('components/character-sheet/character-sheet', () => {
     ).toBeInTheDocument()
   })
 
-  it("combines the player's choice for the next roll with the character's, then goes back to normal", async () => {
+  it("rolls with the advantage the character's conditions or features give", async () => {
     const user = userEvent.setup()
     const sheet = characterSheet()
     const onRoll = renderSheet({
       abilities: [{ ...sheet.abilities[0], checkMode: 1 }],
     })
-    const choose = (label: string) =>
-      user.click(screen.getByRole('radio', { name: label }))
 
-    await choose('Advantage')
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Stealth check, +1 (passive 11), with disadvantage',
-      }),
-    )
-    expect(onRoll).toHaveBeenLastCalledWith(
-      expect.objectContaining({ label: 'Stealth check', advantage: undefined }),
-    )
-    expect(screen.getByRole('radio', { name: 'Normal' })).toBeChecked()
-
-    await choose('Advantage')
-    await user.click(screen.getByRole('button', { name: /^Athletics check/ }))
-    expect(onRoll).toHaveBeenLastCalledWith(
-      expect.objectContaining({ advantage: 'adv' }),
-    )
-
-    await choose('Disadvantage')
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.getByText('Adv')).toBeInTheDocument()
     await user.click(
       screen.getByRole('button', {
         name: 'Strength check, +4, with advantage',
       }),
     )
-    expect(onRoll).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        label: 'Strength check',
-        advantage: undefined,
-      }),
+
+    expect(onRoll).toHaveBeenCalledWith({
+      label: 'Strength check',
+      modifier: 4,
+      advantage: 'adv',
+    })
+  })
+
+  it("rolls with advantage or disadvantage from a right-click's menu, whatever the character's mode", async () => {
+    const user = userEvent.setup()
+    const onRoll = renderSheet()
+    const stealth = screen.getByRole('button', { name: /^Stealth check/ })
+
+    fireEvent.contextMenu(stealth)
+    expect(
+      screen.getByRole('menu', { name: 'Stealth check +1' }),
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll with advantage' }),
     )
-    expect(screen.getByText('Adv')).toBeInTheDocument()
+
+    expect(onRoll).toHaveBeenCalledWith({
+      label: 'Stealth check',
+      modifier: 1,
+      advantage: 'adv',
+    })
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Strength check, +4' }),
+    )
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll with disadvantage' }),
+    )
+    expect(onRoll).toHaveBeenLastCalledWith({
+      label: 'Strength check',
+      modifier: 4,
+      advantage: 'dis',
+    })
+  })
+
+  it('modifies a roll in a dialog, starting from how a tap would roll', async () => {
+    const user = userEvent.setup()
+    const onRoll = renderSheet()
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: /^Stealth check/ }),
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Modify roll…' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Modify roll' })
+    // Stealth has disadvantage from the character's conditions; the player rolls it normally.
+    expect(
+      within(dialog).getByRole('radio', { name: 'Disadvantage' }),
+    ).toBeChecked()
+    await user.click(within(dialog).getByRole('radio', { name: 'Normal' }))
+    await user.type(
+      within(dialog).getByRole('textbox', { name: 'Extra dice or modifiers' }),
+      '1d4',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+
+    expect(onRoll).toHaveBeenCalledWith({
+      label: 'Stealth check',
+      modifier: 1,
+      advantage: undefined,
+      extras: [{ sign: 1, count: 1, sides: 4 }],
+    })
+    expect(dialog).not.toHaveAttribute('open')
+  })
+
+  it('closes the dialog without rolling', async () => {
+    const user = userEvent.setup()
+    const onRoll = renderSheet()
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Strength check, +4' }),
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Modify roll…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Modify roll' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    expect(dialog).not.toHaveAttribute('open')
+    expect(onRoll).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Strength check, +4' }),
+    )
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   describe('classLine', () => {

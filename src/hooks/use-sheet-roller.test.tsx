@@ -82,6 +82,37 @@ describe('hooks/use-sheet-roller', () => {
     expect(roll.total).toBe(roll.natural - 1)
   })
 
+  it('throws extra dice with the d20, without advantage, and adds what the player added', async () => {
+    const fake = renderer()
+    const { result } = renderHook(() => useSheetRoller())
+
+    await act(() =>
+      result.current.roll({
+        label: 'Wisdom saving throw',
+        modifier: 3,
+        advantage: 'adv',
+        extras: [
+          { sign: 1, count: 1, sides: 4 },
+          { sign: -1, count: 2, sides: 6 },
+          { sign: 1, flat: 2 },
+        ],
+      }),
+    )
+
+    const [roll] = result.current.rolls
+    expect(roll.d20s).toHaveLength(2)
+    expect(roll.extras.map(({ text }) => text)).toEqual(['+1d4', '−2d6', '+2'])
+    const [bless, bane, flat] = roll.extras
+    expect(bless.values).toHaveLength(1)
+    expect(bane.values).toHaveLength(2)
+    expect(bane.value).toBe(-(bane.values[0] + bane.values[1]))
+    expect(flat).toEqual({ text: '+2', values: [], value: 2 })
+    expect(roll.total).toBe(roll.natural + 3 + bless.values[0] + bane.value + 2)
+    expect(fake.roll.mock.calls[0][0]).toBe(
+      `2d20+1d4+2d6@${[...roll.d20s, ...bless.values, ...bane.values].join(',')}`,
+    )
+  })
+
   it('still rolls, without dice, when the 3D renderer is not ready', async () => {
     const fake = renderer({ isReady: false })
     const { result } = renderHook(() => useSheetRoller())

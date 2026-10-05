@@ -40,6 +40,31 @@ const cast = (type: string) =>
 
 describe('utils/table-view', () => {
   describe('toTableMessage', () => {
+    it("shows a campaign character's portrait as the speaker's avatar", () => {
+      const withPortraits: Viewer = {
+        ...viewer,
+        portraits: new Map([['actor-vex', 'https://game.example/vex.webp']]),
+      }
+
+      expect(
+        toTableMessage(chatMessage({ character: 'actor-vex' }), withPortraits)
+          .avatar,
+      ).toBe('https://game.example/vex.webp')
+      expect(
+        toTableMessage(
+          chatMessage({ speaker: { alias: 'Vex', actorId: 'actor-vex' } }),
+          withPortraits,
+        ).avatar,
+      ).toBe('https://game.example/vex.webp')
+      expect(
+        toTableMessage(
+          chatMessage({ character: 'actor-thorin' }),
+          withPortraits,
+        ).avatar,
+      ).toBeUndefined()
+      expect(toTableMessage(chatMessage(), viewer).avatar).toBeUndefined()
+    })
+
     it('shows something said', () => {
       expect(toTableMessage(chatMessage(), viewer)).toEqual({
         id: 'm1',

@@ -10,6 +10,7 @@ import {
   type RollResult,
 } from '@lambersond/3d-dice-core'
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
+import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -30,6 +31,18 @@ export type SheetRoll = {
   label: string
   modifier: number
   advantage?: Advantage
+  /** What the player adds, such as +1d4 for Bless. */
+  extras?: ExtraTerm[]
+}
+
+/** Something the player added to a roll, and what it came to. */
+export type LocalExtra = {
+  /** As written, with its sign: +1d4, −1d6, +5. */
+  text: string
+  /** Each die's result; empty for a flat number. */
+  values: number[]
+  /** What it adds to the total: negative for a term taken away. */
+  value: number
 }
 
 /** A roll as this page keeps it. */
@@ -43,6 +56,7 @@ export type LocalRoll = {
   d20s: number[]
   /** The d20 that counts. */
   natural: number
+  extras: LocalExtra[]
   at: number
 }
 
@@ -57,18 +71,31 @@ export function useSheetRoller() {
   const [inFlight, setInFlight] = useState(0)
 
   const roll = useCallback(
-    async ({ label, modifier, advantage }: SheetRoll) => {
+    async ({ label, modifier, advantage, extras = [] }: SheetRoll) => {
       const result = executeRoll({
         pools: [{ sides: 20, count: 1 }],
         modifier,
         advantage,
       })
+      // Extra dice are rolled on their own, since advantage applies only to the check's d20,
+      // and thrown with it.
+      const dice = extras.filter(term => 'sides' in term)
+      const extra =
+        dice.length > 0
+          ? executeRoll({
+              pools: dice.map(({ count, sides }) => ({ count, sides })),
+              modifier: 0,
+            })
+          : undefined
+      const thrown = extra
+        ? { ...result, pools: [...result.pools, ...extra.pools] }
+        : result
       setInFlight(count => count + 1)
       try {
         // The animation is only decoration: if it fails or never settles, the result stands.
         if (renderer.isReady) {
           await within(
-            renderer.roll(toDiceBoxNotation(result), { theme: DICE_THEME }),
+            renderer.roll(toDiceBoxNotation(thrown), { theme: DICE_THEME }),
             ANIMATION_TIMEOUT,
           )
         }
@@ -78,7 +105,10 @@ export function useSheetRoller() {
         setInFlight(count => count - 1)
       }
       setRolls(kept =>
-        [toLocalRoll(label, result), ...kept].slice(0, ROLL_HISTORY),
+        [toLocalRoll(label, result, extras, extra), ...kept].slice(
+          0,
+          ROLL_HISTORY,
+        ),
       )
     },
     [renderer],
@@ -87,16 +117,36 @@ export function useSheetRoller() {
   return { roll, rolls, rolling: inFlight > 0 }
 }
 
-function toLocalRoll(label: string, result: RollResult): LocalRoll {
+function toLocalRoll(
+  label: string,
+  result: RollResult,
+  extras: ExtraTerm[],
+  extra: RollResult | undefined,
+): LocalRoll {
   const [d20] = result.pools
+  // The extra dice's pools are in the order their terms were written.
+  const pools = [...(extra?.pools ?? [])]
+  const added = extras.map(term => {
+    const values = 'sides' in term ? (pools.shift()?.kept ?? []) : []
+    const amount =
+      'sides' in term
+        ? values.reduce((sum, value) => sum + value, 0)
+        : term.flat
+    return {
+      text: formatExtraTerm(term),
+      values,
+      value: term.sign * amount,
+    }
+  })
   return {
     id: result.id,
     label,
-    total: result.total,
+    total: added.reduce((total, { value }) => total + value, result.total),
     modifier: result.modifier,
     advantage: result.advantage,
     d20s: d20.rolls[0],
     natural: d20.kept[0],
+    extras: added,
     at: result.at,
   }
 }

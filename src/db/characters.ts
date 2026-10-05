@@ -13,17 +13,19 @@ const select = {
   campaignTitle: true,
   campaignId: true,
   actorId: true,
+  chatReadAt: true,
   campaign: { select: { title: true, origin: true } },
 } as const
 
 type Row = Prisma.CharacterGetPayload<{ select: typeof select }>
 
 /** A character as the app uses it, with its campaign's current title and game. */
-function toCharacter({ campaign, ...character }: Row): Character {
+function toCharacter({ campaign, chatReadAt, ...character }: Row): Character {
   return {
     ...character,
     gameUrl: campaign?.origin ?? character.gameUrl,
     campaignTitle: campaign?.title ?? character.campaignTitle,
+    chatReadAt: chatReadAt?.toISOString(),
   }
 }
 
@@ -136,3 +138,23 @@ const findActor = (characters: unknown, actorId: string) =>
 const isTaken = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2002'
+
+/**
+ * Note that a player has read their character's chat up to a moment. It only ever moves forward,
+ * so a device catching up late can't mark read messages unread again.
+ */
+export async function markChatRead(
+  userId: string,
+  characterId: string,
+  readAt: Date,
+): Promise<void> {
+  await prisma.character.updateMany({
+    where: {
+      id: characterId,
+      userId,
+      // eslint-disable-next-line unicorn/no-null -- Prisma matches an unset column with null
+      OR: [{ chatReadAt: null }, { chatReadAt: { lt: readAt } }],
+    },
+    data: { chatReadAt: readAt },
+  })
+}

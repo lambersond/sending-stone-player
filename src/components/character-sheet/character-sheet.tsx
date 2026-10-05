@@ -3,11 +3,15 @@
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { Footprints, Shield, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { ModifyRoll } from './modify-roll'
+import { RollButton, type RollTarget } from './roll-button'
+import { RollMenu, type RollChoice } from './roll-menu'
+import { Modal } from '@/components/modal'
 import { formatModifier } from '@/utils/format-modifier'
+import { toAdvantage } from '@/utils/roll-mode'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { Advantage } from '@lambersond/3d-dice-core'
 
 type Props = {
   name: string
@@ -16,49 +20,55 @@ type Props = {
 }
 
 /**
- * A player's character sheet: who they are, their vital numbers, and their abilities and skills,
- * each of which rolls when tapped. Laid out after Tidy 5e's character sheet.
+ * A player's character sheet: who they are, their vital numbers, and their abilities and skills.
+ * Each rolls when tapped, and a right-click or long-press offers advantage, disadvantage, or a
+ * roll with extra dice or modifiers. Laid out after Tidy 5e's character sheet.
  */
 export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
-  // The player's choice for the next roll, which then goes back to normal. It combines with any
-  // advantage or disadvantage the character's conditions and features give, as dnd5e does.
-  const [next, setNext] = useState<RollMode>(0)
-  const roll = (label: string, modifier: number, mode: RollMode) => {
-    onRoll({ label, modifier, advantage: toAdvantage(next + mode) })
-    setNext(0)
+  const [menu, setMenu] = useState<{
+    anchor: HTMLElement
+    target: RollTarget
+  }>()
+  const [modifying, setModifying] = useState<RollTarget>()
+
+  // A tap rolls with whatever advantage or disadvantage the character's conditions and features
+  // give.
+  const tap = (target: RollTarget) =>
+    onRoll({
+      label: target.label,
+      modifier: target.modifier,
+      advantage: toAdvantage(target.mode),
+    })
+  const openMenu = (anchor: HTMLElement, target: RollTarget) =>
+    setMenu({ anchor, target })
+  // A choice from the menu is the player's say on this roll, as in dnd5e's roll dialog.
+  const choose = (target: RollTarget, choice: RollChoice) => {
+    setMenu(undefined)
+    if (choice === 'modify') setModifying(target)
+    else
+      onRoll({
+        label: target.label,
+        modifier: target.modifier,
+        advantage: choice,
+      })
   }
+  const actions = { onRoll: tap, onMenu: openMenu }
   const abbreviation = (id: string) =>
     sheet.abilities.find(ability => ability.id === id)?.abbreviation ??
     id.toUpperCase()
 
   return (
-    <div className='mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       <SheetHeader name={name} sheet={sheet} />
 
       <section
         aria-labelledby='abilities-heading'
         className='flex flex-col gap-3'
       >
-        <div className='flex flex-wrap items-center justify-between gap-2'>
-          <Heading id='abilities-heading'>Abilities</Heading>
-          <NextRoll value={next} onChange={setNext} />
-        </div>
+        <Heading id='abilities-heading'>Abilities</Heading>
         <ul className='grid grid-cols-3 gap-2 @xl:grid-cols-6'>
           {sheet.abilities.map(ability => (
-            <AbilityTile
-              key={ability.id}
-              ability={ability}
-              onCheck={() =>
-                roll(`${ability.label} check`, ability.check, ability.checkMode)
-              }
-              onSave={() =>
-                roll(
-                  `${ability.label} saving throw`,
-                  ability.save,
-                  ability.saveMode,
-                )
-              }
-            />
+            <AbilityTile key={ability.id} ability={ability} {...actions} />
           ))}
         </ul>
       </section>
@@ -80,14 +90,38 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
                 key={skill.id}
                 skill={skill}
                 ability={abbreviation(skill.ability)}
-                onRoll={() =>
-                  roll(`${skill.label} check`, skill.total, skill.mode)
-                }
+                {...actions}
               />
             ))}
           </ul>
         </section>
       )}
+
+      {menu && (
+        <RollMenu
+          anchor={menu.anchor}
+          title={`${menu.target.label} ${formatModifier(menu.target.modifier)}`}
+          onChoose={choice => choose(menu.target, choice)}
+          onClose={() => setMenu(undefined)}
+        />
+      )}
+      <Modal
+        open={modifying !== undefined}
+        onClose={() => setModifying(undefined)}
+        title='Modify roll'
+      >
+        {modifying && (
+          <ModifyRoll
+            target={modifying}
+            mode={modifying.mode}
+            onRoll={request => {
+              setModifying(undefined)
+              onRoll(request)
+            }}
+            onCancel={() => setModifying(undefined)}
+          />
+        )}
+      </Modal>
     </div>
   )
 }
@@ -118,14 +152,14 @@ function SheetHeader({
           )}
         </div>
       </div>
-      <dl className='grid grid-cols-2 gap-2 @md:grid-cols-5'>
+      <dl className='grid grid-cols-2 gap-2 @lg:grid-cols-6'>
         {sheet.hp && (
           <Stat label='Hit points' wide>
             <HitPoints hp={sheet.hp} />
           </Stat>
         )}
         {sheet.ac !== null && (
-          <Stat label='Armor class'>
+          <Stat label='Armor class' short='AC'>
             <span className='inline-flex items-center gap-1'>
               <Shield aria-hidden className='size-4 text-text-secondary' />
               {sheet.ac}
@@ -133,10 +167,12 @@ function SheetHeader({
           </Stat>
         )}
         {sheet.proficiency !== null && (
-          <Stat label='Proficiency'>{formatModifier(sheet.proficiency)}</Stat>
+          <Stat label='Proficiency' short='Prof'>
+            {formatModifier(sheet.proficiency)}
+          </Stat>
         )}
         {sheet.initiative !== null && (
-          <Stat label='Initiative'>
+          <Stat label='Initiative' short='Init'>
             <span className='inline-flex items-center gap-1'>
               <Zap aria-hidden className='size-4 text-text-secondary' />
               {formatModifier(sheet.initiative)}
@@ -190,22 +226,45 @@ function Portrait({ name, src }: Readonly<{ name: string; src?: string }>) {
   )
 }
 
+/**
+ * One of the sheet's vital numbers. Each box is a container, so a label with a short form, such as
+ * Prof for Proficiency, can use it when its box is too narrow for the whole word: the longest,
+ * Armor class, needs 114 pixels.
+ */
 function Stat({
   label,
+  short,
   wide = false,
   children,
-}: Readonly<{ label: string; wide?: boolean; children: ReactNode }>) {
+}: Readonly<{
+  label: string
+  short?: string
+  wide?: boolean
+  children: ReactNode
+}>) {
   return (
     <div
       className={clsx(
-        'flex flex-col gap-0.5 rounded-xl bg-page px-3 py-2',
-        wide && 'col-span-2 @md:col-span-1',
+        '@container flex min-w-0 flex-col gap-0.5 rounded-xl bg-page py-2',
+        wide && 'col-span-2',
       )}
     >
-      <dt className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
-        {label}
+      <dt className='truncate px-3 text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
+        {short ? (
+          <>
+            <span className='@max-[116px]:hidden'>{label}</span>
+            <abbr
+              title={label}
+              className='hidden no-underline @max-[116px]:inline'
+            >
+              {short}
+            </abbr>
+          </>
+        ) : (
+          label
+        )}
       </dt>
-      <dd className='text-lg font-bold tabular-nums'>{children}</dd>
+      <dd className='px-3 text-lg font-bold tabular-nums'>{children}</dd>
     </div>
   )
 }
@@ -217,8 +276,8 @@ function HitPoints({ hp }: Readonly<{ hp: NonNullable<TableSheet['hp']> }>) {
   else if (ratio <= 0.5) bar = 'bg-warning'
   return (
     <span className='flex flex-col gap-1'>
-      <span>
-        {hp.value}
+      <span className='flex flex-wrap items-baseline gap-x-1'>
+        <span>{hp.value}</span>
         {hp.max !== null && (
           <span className='font-normal text-text-secondary'> / {hp.max}</span>
         )}
@@ -243,23 +302,29 @@ function HitPoints({ hp }: Readonly<{ hp: NonNullable<TableSheet['hp']> }>) {
 
 /* -------------------------------------------- */
 
+type RollActions = {
+  onRoll: (target: RollTarget) => void
+  onMenu: (anchor: HTMLElement, target: RollTarget) => void
+}
+
 function AbilityTile({
   ability,
-  onCheck,
-  onSave,
-}: Readonly<{
-  ability: SheetAbility
-  onCheck: () => void
-  onSave: () => void
-}>) {
+  onRoll,
+  onMenu,
+}: Readonly<{ ability: SheetAbility } & RollActions>) {
   const { label, abbreviation, score, check, save, saveProficient } = ability
   const SaveIcon = saveProficient ? ShieldCheck : Shield
   return (
     <li className='flex flex-col overflow-hidden rounded-2xl border border-border bg-card'>
-      <button
-        type='button'
-        onClick={onCheck}
-        aria-label={`${label} check, ${formatModifier(check)}${modeText(ability.checkMode)}`}
+      <RollButton
+        target={{
+          label: `${label} check`,
+          modifier: check,
+          mode: ability.checkMode,
+        }}
+        onRoll={onRoll}
+        onMenu={onMenu}
+        label={`${label} check, ${formatModifier(check)}${modeText(ability.checkMode)}`}
         className='flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
       >
         <span className='text-xs font-semibold tracking-wider text-text-secondary uppercase'>
@@ -276,11 +341,16 @@ function AbilityTile({
           )}
           <ModeChip mode={ability.checkMode} />
         </span>
-      </button>
-      <button
-        type='button'
-        onClick={onSave}
-        aria-label={`${label} saving throw, ${formatModifier(save)}${saveProficient ? ', proficient' : ''}${modeText(ability.saveMode)}`}
+      </RollButton>
+      <RollButton
+        target={{
+          label: `${label} saving throw`,
+          modifier: save,
+          mode: ability.saveMode,
+        }}
+        onRoll={onRoll}
+        onMenu={onMenu}
+        label={`${label} saving throw, ${formatModifier(save)}${saveProficient ? ', proficient' : ''}${modeText(ability.saveMode)}`}
         className='flex items-center justify-center gap-1 border-t border-border py-1.5 text-xs transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
       >
         <SaveIcon
@@ -295,7 +365,7 @@ function AbilityTile({
           {formatModifier(save)}
         </span>
         <ModeChip mode={ability.saveMode} />
-      </button>
+      </RollButton>
     </li>
   )
 }
@@ -310,7 +380,8 @@ function SkillRow({
   skill,
   ability,
   onRoll,
-}: Readonly<{ skill: SheetSkill; ability: string; onRoll: () => void }>) {
+  onMenu,
+}: Readonly<{ skill: SheetSkill; ability: string } & RollActions>) {
   const proficiency = PROFICIENCY[String(skill.proficiency)]
   const details = [
     proficiency,
@@ -318,10 +389,15 @@ function SkillRow({
   ].filter(Boolean)
   return (
     <li>
-      <button
-        type='button'
-        onClick={onRoll}
-        aria-label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}`}
+      <RollButton
+        target={{
+          label: `${skill.label} check`,
+          modifier: skill.total,
+          mode: skill.mode,
+        }}
+        onRoll={onRoll}
+        onMenu={onMenu}
+        label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}`}
         className='flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
       >
         <ProficiencyMark value={skill.proficiency} />
@@ -338,7 +414,7 @@ function SkillRow({
         <span className='w-7 text-right text-xs text-text-secondary tabular-nums'>
           {skill.passive}
         </span>
-      </button>
+      </RollButton>
     </li>
   )
 }
@@ -378,50 +454,6 @@ function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
 
 /* -------------------------------------------- */
 
-const NEXT_ROLL: { mode: RollMode; label: string }[] = [
-  { mode: -1, label: 'Disadvantage' },
-  { mode: 0, label: 'Normal' },
-  { mode: 1, label: 'Advantage' },
-]
-
-/** Whether the next roll has advantage or disadvantage, chosen by the player. */
-function NextRoll({
-  value,
-  onChange,
-}: Readonly<{ value: RollMode; onChange: (mode: RollMode) => void }>) {
-  return (
-    <fieldset className='flex items-center gap-2'>
-      <legend className='sr-only'>Next roll</legend>
-      <span aria-hidden className='text-xs text-text-secondary'>
-        Next roll
-      </span>
-      <span className='flex rounded-lg border border-border bg-card p-0.5'>
-        {NEXT_ROLL.map(({ mode, label }) => (
-          <label
-            key={mode}
-            className={clsx(
-              'cursor-pointer rounded-md px-2 py-1 text-xs font-semibold transition-colors has-focus-visible:ring-2 has-focus-visible:ring-primary',
-              value === mode && mode < 0 && 'bg-ruby text-on-ruby',
-              value === mode && mode === 0 && 'bg-page text-text-primary',
-              value === mode && mode > 0 && 'bg-primary text-on-primary',
-              value !== mode && 'text-text-secondary hover:text-text-primary',
-            )}
-          >
-            <input
-              type='radio'
-              name='next-roll'
-              className='sr-only'
-              checked={value === mode}
-              onChange={() => onChange(mode)}
-            />
-            {label}
-          </label>
-        ))}
-      </span>
-    </fieldset>
-  )
-}
-
 function Heading({ id, children }: Readonly<{ id: string; children: string }>) {
   return (
     <h2
@@ -434,13 +466,6 @@ function Heading({ id, children }: Readonly<{ id: string; children: string }>) {
 }
 
 /* -------------------------------------------- */
-
-/** Any advantage and any disadvantage cancel out. */
-function toAdvantage(mode: number): Advantage | undefined {
-  if (mode > 0) return 'adv'
-  if (mode < 0) return 'dis'
-  return undefined
-}
 
 function modeText(mode: RollMode): string {
   if (mode > 0) return ', with advantage'
