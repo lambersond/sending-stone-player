@@ -25,27 +25,19 @@ type Props = {
  * roll with extra dice or modifiers. Laid out after Tidy 5e's character sheet.
  */
 export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
-  // The player's choice for the next roll, which then goes back to normal. It combines with any
-  // advantage or disadvantage the character's conditions and features give, as dnd5e does.
-  const [next, setNext] = useState<RollMode>(0)
   const [menu, setMenu] = useState<{
     anchor: HTMLElement
     target: RollTarget
   }>()
   const [modifying, setModifying] = useState<RollTarget>()
 
-  const roll = (request: SheetRoll) => {
-    onRoll(request)
-    setNext(0)
-  }
-  // A tap rolls with the player's choice for the next roll and the character's mode combined.
-  const tapMode = (target: RollTarget) =>
-    Math.sign(next + target.mode) as RollMode
+  // A tap rolls with whatever advantage or disadvantage the character's conditions and features
+  // give.
   const tap = (target: RollTarget) =>
-    roll({
+    onRoll({
       label: target.label,
       modifier: target.modifier,
-      advantage: toAdvantage(tapMode(target)),
+      advantage: toAdvantage(target.mode),
     })
   const openMenu = (anchor: HTMLElement, target: RollTarget) =>
     setMenu({ anchor, target })
@@ -54,7 +46,7 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
     setMenu(undefined)
     if (choice === 'modify') setModifying(target)
     else
-      roll({
+      onRoll({
         label: target.label,
         modifier: target.modifier,
         advantage: choice,
@@ -73,10 +65,7 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
         aria-labelledby='abilities-heading'
         className='flex flex-col gap-3'
       >
-        <div className='flex flex-wrap items-center justify-between gap-2'>
-          <Heading id='abilities-heading'>Abilities</Heading>
-          <NextRoll value={next} onChange={setNext} />
-        </div>
+        <Heading id='abilities-heading'>Abilities</Heading>
         <ul className='grid grid-cols-3 gap-2 @xl:grid-cols-6'>
           {sheet.abilities.map(ability => (
             <AbilityTile key={ability.id} ability={ability} {...actions} />
@@ -124,10 +113,10 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
         {modifying && (
           <ModifyRoll
             target={modifying}
-            mode={tapMode(modifying)}
+            mode={modifying.mode}
             onRoll={request => {
               setModifying(undefined)
-              roll(request)
+              onRoll(request)
             }}
             onCancel={() => setModifying(undefined)}
           />
@@ -464,50 +453,6 @@ function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
 }
 
 /* -------------------------------------------- */
-
-const NEXT_ROLL: { mode: RollMode; label: string }[] = [
-  { mode: -1, label: 'Disadvantage' },
-  { mode: 0, label: 'Normal' },
-  { mode: 1, label: 'Advantage' },
-]
-
-/** Whether the next roll has advantage or disadvantage, chosen by the player. */
-function NextRoll({
-  value,
-  onChange,
-}: Readonly<{ value: RollMode; onChange: (mode: RollMode) => void }>) {
-  return (
-    <fieldset className='flex items-center gap-2'>
-      <legend className='sr-only'>Next roll</legend>
-      <span aria-hidden className='text-xs text-text-secondary'>
-        Next roll
-      </span>
-      <span className='flex rounded-lg border border-border bg-card p-0.5'>
-        {NEXT_ROLL.map(({ mode, label }) => (
-          <label
-            key={mode}
-            className={clsx(
-              'cursor-pointer rounded-md px-2 py-1 text-xs font-semibold transition-colors has-focus-visible:ring-2 has-focus-visible:ring-primary',
-              value === mode && mode < 0 && 'bg-ruby text-on-ruby',
-              value === mode && mode === 0 && 'bg-page text-text-primary',
-              value === mode && mode > 0 && 'bg-primary text-on-primary',
-              value !== mode && 'text-text-secondary hover:text-text-primary',
-            )}
-          >
-            <input
-              type='radio'
-              name='next-roll'
-              className='sr-only'
-              checked={value === mode}
-              onChange={() => onChange(mode)}
-            />
-            {label}
-          </label>
-        ))}
-      </span>
-    </fieldset>
-  )
-}
 
 function Heading({ id, children }: Readonly<{ id: string; children: string }>) {
   return (

@@ -1,6 +1,12 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import clsx from 'clsx'
 import {
   ArrowLeft,
@@ -33,6 +39,9 @@ type Tab = 'character' | 'combat' | 'chat'
 /** What shares the narrow column beside the sheet on a wide screen: combat, or the chat. */
 type Aside = Exclude<Tab, 'character'>
 
+/** How far a player has read an empty chat: every message after it is unread. */
+const NOTHING_READ = new Date(0).toISOString()
+
 /** From Tailwind's lg width, the sheet and the combat or chat column sit side by side. */
 const SIDE_BY_SIDE = '(min-width: 64rem)'
 
@@ -48,6 +57,8 @@ type Props = {
   ) => Promise<ChooseCharacterFormState>
   /** Deletes this character and leaves its page. */
   deleteCharacter: () => Promise<void>
+  /** Notes that the player has read the chat up to the message sent at this ISO time. */
+  markChatRead: (readAt: string) => Promise<void>
 }
 
 /**
@@ -61,6 +72,7 @@ export function GameTable({
   choice,
   chooseActor,
   deleteCharacter,
+  markChatRead,
 }: Readonly<Props>) {
   const { view, connection } = useTableView(character.id, initialView)
   const fighting = initialView.combat?.started === true
@@ -76,13 +88,28 @@ export function GameTable({
   const sideBySide = useMediaQuery(SIDE_BY_SIDE)
   const chatInView = aside === 'chat' && (sideBySide || tab === 'chat')
 
-  // Messages newer than the newest one seen in the chat are unread.
+  // Messages from others newer than the newest the player has had in view are unread. How far
+  // they have read is kept with the character, so it lasts across visits and devices. On a first
+  // visit, what is already there counts as read, and anything after it as unread.
   const newest = view.messages.at(-1)?.sentAt ?? ''
-  const [seenUpTo, setSeenUpTo] = useState(newest)
-  if (chatInView && seenUpTo !== newest) setSeenUpTo(newest)
+  const [seenUpTo, setSeenUpTo] = useState(
+    () => initialView.chatReadAt ?? (newest || NOTHING_READ),
+  )
+  const readElsewhere = view.chatReadAt ?? ''
+  if (readElsewhere > seenUpTo) setSeenUpTo(readElsewhere)
+  if (chatInView && newest > seenUpTo) setSeenUpTo(newest)
   const unread = chatInView
     ? 0
-    : view.messages.filter(({ sentAt }) => sentAt > seenUpTo).length
+    : view.messages.filter(
+        ({ sentAt, side }) => side !== 'me' && sentAt > seenUpTo,
+      ).length
+  const saved = useRef(initialView.chatReadAt)
+  useEffect(() => {
+    if (seenUpTo === saved.current) return
+    saved.current = seenUpTo
+    // Failing to save only means those messages count as unread again on another visit.
+    markChatRead(seenUpTo).catch(() => {})
+  }, [seenUpTo, markChatRead])
 
   const myTurn = isMyTurn(view.combat)
 
@@ -189,7 +216,7 @@ export function GameTable({
               >
                 {unread > 0 && (
                   <span className='flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary'>
-                    {unread}
+                    {badgeCount(unread)}
                     <span className='sr-only'> unread</span>
                   </span>
                 )}
@@ -305,7 +332,7 @@ export function GameTable({
         >
           {unread > 0 && (
             <span className='absolute top-1 right-[calc(50%-1.75rem)] flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary ring-2 ring-card'>
-              {unread}
+              {badgeCount(unread)}
               <span className='sr-only'> unread</span>
             </span>
           )}
@@ -530,4 +557,9 @@ function combatSummary(combat?: TableCombat): string {
   return current
     ? `Round ${combat.round} · ${current.name}’s turn`
     : `Round ${combat.round}`
+}
+
+/** An unread count as a badge shows it. */
+function badgeCount(count: number): string {
+  return count > 99 ? '99+' : String(count)
 }

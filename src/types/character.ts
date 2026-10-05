@@ -10,4 +10,6 @@ export type Character = {
   campaignId: string | null
   /** The campaign's Foundry actor that this character is. Unset until its player chooses one. */
   actorId: string | null
+  /** When its player last had the chat in view, as an ISO timestamp. Unset until they have. */
+  chatReadAt?: string
 }

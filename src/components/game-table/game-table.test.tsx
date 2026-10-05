@@ -28,6 +28,7 @@ const character: Character = {
 }
 const chooseActor = jest.fn().mockResolvedValue({})
 const deleteCharacter = jest.fn(async () => {})
+const markChatRead = jest.fn<Promise<void>, [string]>(async () => {})
 const choice = {
   id: 'c1',
   title: 'The Lonely Mountain',
@@ -95,6 +96,7 @@ const table = (
     choice={options.choice}
     chooseActor={chooseActor}
     deleteCharacter={deleteCharacter}
+    markChatRead={markChatRead}
   />
 )
 
@@ -180,6 +182,122 @@ describe('components/game-table/game-table', () => {
 
     expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
     expect(subtitle()).toHaveTextContent('3 messages')
+  })
+
+  describe('unread messages', () => {
+    const messages = [
+      message('m1', '2026-10-04T19:00:00.000Z'),
+      message('m2', '2026-10-04T19:01:00.000Z'),
+      message('m3', '2026-10-04T19:02:00.000Z'),
+    ]
+
+    it('counts from where the player last read, on any visit or device', () => {
+      renderTable(view({ messages, chatReadAt: '2026-10-04T19:00:00.000Z' }))
+
+      expect(
+        screen.getByRole('button', { name: 'Chat 2 unread' }),
+      ).toBeInTheDocument()
+      expect(markChatRead).not.toHaveBeenCalled()
+    })
+
+    it("leaves out the player's own messages", () => {
+      renderTable(
+        view({
+          messages: [
+            ...messages,
+            { ...message('m4', '2026-10-04T19:03:00.000Z'), side: 'me' },
+          ],
+          chatReadAt: '2026-10-04T19:01:00.000Z',
+        }),
+      )
+
+      expect(
+        screen.getByRole('button', { name: 'Chat 1 unread' }),
+      ).toBeInTheDocument()
+    })
+
+    it('counts everything already there as read until the player first reads the chat', () => {
+      renderTable(view({ messages }))
+
+      expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
+      expect(markChatRead).toHaveBeenCalledWith('2026-10-04T19:02:00.000Z')
+    })
+
+    it('counts every message as unread that reaches a chat empty on a first visit', () => {
+      const { rerender } = renderTable(view({ messages: [] }))
+      expect(markChatRead).toHaveBeenCalledWith('1970-01-01T00:00:00.000Z')
+
+      showing({ view: view({ messages: messages.slice(0, 1) }) })
+      rerender(table(view()))
+
+      expect(
+        screen.getByRole('button', { name: 'Chat 1 unread' }),
+      ).toBeInTheDocument()
+    })
+
+    it('notes how far the player has read while the chat is in view', async () => {
+      const user = userEvent.setup()
+      const { rerender } = renderTable(
+        view({ messages, chatReadAt: '2026-10-04T19:00:00.000Z' }),
+      )
+
+      await user.click(screen.getByRole('button', { name: /^Chat/ }))
+      expect(markChatRead).toHaveBeenLastCalledWith('2026-10-04T19:02:00.000Z')
+
+      showing({
+        view: view({
+          messages: [...messages, message('m4', '2026-10-04T19:03:00.000Z')],
+        }),
+      })
+      rerender(table(view()))
+      expect(markChatRead).toHaveBeenLastCalledWith('2026-10-04T19:03:00.000Z')
+
+      await user.click(screen.getByRole('button', { name: /^Combat/ }))
+      await user.click(screen.getByRole('button', { name: /^Chat/ }))
+      expect(markChatRead).toHaveBeenCalledTimes(2)
+    })
+
+    it('clears what the player read on another device', () => {
+      const { rerender } = renderTable(
+        view({ messages, chatReadAt: '2026-10-04T19:00:00.000Z' }),
+      )
+      expect(
+        screen.getByRole('button', { name: 'Chat 2 unread' }),
+      ).toBeInTheDocument()
+
+      showing({
+        view: view({ messages, chatReadAt: '2026-10-04T19:02:00.000Z' }),
+      })
+      rerender(table(view()))
+
+      expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
+    })
+
+    it('shows more than 99 as 99+', () => {
+      const many = Array.from({ length: 120 }, (_, index) =>
+        message(
+          `m${index}`,
+          new Date(
+            Date.parse('2026-10-04T19:00:00.000Z') + index * 1000,
+          ).toISOString(),
+        ),
+      )
+      renderTable(
+        view({ messages: many, chatReadAt: '2026-10-04T18:00:00.000Z' }),
+      )
+
+      expect(
+        screen.getByRole('button', { name: 'Chat 99+ unread' }),
+      ).toBeInTheDocument()
+    })
+
+    it('still counts messages as read when saving how far fails', async () => {
+      markChatRead.mockRejectedValueOnce(new Error('offline'))
+      renderTable(view({ messages, combat: undefined }))
+
+      await Promise.resolve()
+      expect(screen.getByText('message m3')).toBeInTheDocument()
+    })
   })
 
   it("flags the player's turn on the combat tab while they read chat", async () => {

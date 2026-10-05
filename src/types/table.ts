@@ -90,4 +90,6 @@ export type TableView = {
   combat?: TableCombat
   /** Unset under a system other than dnd5e, or until the module sends it. */
   sheet?: TableSheet
+  /** How far the player has read the chat, on any device: later messages are unread. */
+  chatReadAt?: string
 }

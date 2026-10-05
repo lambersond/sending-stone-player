@@ -128,5 +128,6 @@ export async function getTableView(character: Character): Promise<TableView> {
     sheet: sheet
       ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
       : undefined,
+    chatReadAt: character.chatReadAt,
   }
 }

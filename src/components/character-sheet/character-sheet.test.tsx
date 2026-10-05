@@ -168,45 +168,26 @@ describe('components/character-sheet/character-sheet', () => {
     ).toBeInTheDocument()
   })
 
-  it("combines the player's choice for the next roll with the character's, then goes back to normal", async () => {
+  it("rolls with the advantage the character's conditions or features give", async () => {
     const user = userEvent.setup()
     const sheet = characterSheet()
     const onRoll = renderSheet({
       abilities: [{ ...sheet.abilities[0], checkMode: 1 }],
     })
-    const choose = (label: string) =>
-      user.click(screen.getByRole('radio', { name: label }))
 
-    await choose('Advantage')
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Stealth check, +1 (passive 11), with disadvantage',
-      }),
-    )
-    expect(onRoll).toHaveBeenLastCalledWith(
-      expect.objectContaining({ label: 'Stealth check', advantage: undefined }),
-    )
-    expect(screen.getByRole('radio', { name: 'Normal' })).toBeChecked()
-
-    await choose('Advantage')
-    await user.click(screen.getByRole('button', { name: /^Athletics check/ }))
-    expect(onRoll).toHaveBeenLastCalledWith(
-      expect.objectContaining({ advantage: 'adv' }),
-    )
-
-    await choose('Disadvantage')
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.getByText('Adv')).toBeInTheDocument()
     await user.click(
       screen.getByRole('button', {
         name: 'Strength check, +4, with advantage',
       }),
     )
-    expect(onRoll).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        label: 'Strength check',
-        advantage: undefined,
-      }),
-    )
-    expect(screen.getByText('Adv')).toBeInTheDocument()
+
+    expect(onRoll).toHaveBeenCalledWith({
+      label: 'Strength check',
+      modifier: 4,
+      advantage: 'adv',
+    })
   })
 
   it("rolls with advantage or disadvantage from a right-click's menu, whatever the character's mode", async () => {
@@ -246,15 +227,17 @@ describe('components/character-sheet/character-sheet', () => {
     const user = userEvent.setup()
     const onRoll = renderSheet()
 
-    // Advantage chosen for the next roll cancels Stealth's disadvantage.
-    await user.click(screen.getByRole('radio', { name: /^Advantage$/ }))
     fireEvent.contextMenu(
       screen.getByRole('button', { name: /^Stealth check/ }),
     )
     await user.click(screen.getByRole('menuitem', { name: 'Modify roll…' }))
 
     const dialog = screen.getByRole('dialog', { name: 'Modify roll' })
-    expect(within(dialog).getByRole('radio', { name: 'Normal' })).toBeChecked()
+    // Stealth has disadvantage from the character's conditions; the player rolls it normally.
+    expect(
+      within(dialog).getByRole('radio', { name: 'Disadvantage' }),
+    ).toBeChecked()
+    await user.click(within(dialog).getByRole('radio', { name: 'Normal' }))
     await user.type(
       within(dialog).getByRole('textbox', { name: 'Extra dice or modifiers' }),
       '1d4',
@@ -268,7 +251,6 @@ describe('components/character-sheet/character-sheet', () => {
       extras: [{ sign: 1, count: 1, sides: 4 }],
     })
     expect(dialog).not.toHaveAttribute('open')
-    expect(screen.getAllByRole('radio', { name: 'Normal' })[0]).toBeChecked()
   })
 
   it('closes the dialog without rolling', async () => {

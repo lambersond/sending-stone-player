@@ -105,6 +105,9 @@ model Character {
   campaignId    String?
   campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   actorId       String?
+  // When its player last had the chat in view, or another device of theirs did: messages sent
+  // after it are unread.
+  chatReadAt    DateTime?
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())

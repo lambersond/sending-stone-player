@@ -4,10 +4,16 @@ import {
   chooseActor,
   deleteCharacterAndLeave,
   joinAsCharacter,
+  markChatReadUpTo,
   openInvite,
   removeCharacter,
 } from './actions'
-import { chooseCharacter, deleteCharacter, joinCampaign } from '@/db/characters'
+import {
+  chooseCharacter,
+  deleteCharacter,
+  joinCampaign,
+  markChatRead,
+} from '@/db/characters'
 import { requireUser } from '@/lib/session'
 
 jest.mock('next/cache', () => ({ refresh: jest.fn() }))
@@ -20,6 +26,7 @@ jest.mock('@/db/characters', () => ({
   chooseCharacter: jest.fn(),
   deleteCharacter: jest.fn(),
   joinCampaign: jest.fn(),
+  markChatRead: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 
@@ -161,6 +168,29 @@ describe('app/characters/actions', () => {
 
       await expect(removeCharacter('char-1')).rejects.toThrow('NEXT_REDIRECT')
       expect(deleteCharacter).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('markChatReadUpTo', () => {
+    it("notes how far the player has read the character's chat", async () => {
+      await markChatReadUpTo('char-1', '2026-10-04T19:02:00.000Z')
+
+      expect(markChatRead).toHaveBeenCalledWith(
+        'user-1',
+        'char-1',
+        new Date('2026-10-04T19:02:00.000Z'),
+      )
+    })
+
+    it('takes a time to come as now, and ignores one it cannot read', async () => {
+      const before = Date.now()
+      await markChatReadUpTo('char-1', '2999-01-01T00:00:00.000Z')
+      const at = jest.mocked(markChatRead).mock.calls[0][2]
+      expect(at.getTime()).toBeGreaterThanOrEqual(before)
+      expect(at.getTime()).toBeLessThanOrEqual(Date.now())
+
+      await markChatReadUpTo('char-1', 'soon')
+      expect(markChatRead).toHaveBeenCalledTimes(1)
     })
   })
 })

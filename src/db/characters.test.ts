@@ -7,6 +7,7 @@ import {
   getCharacter,
   joinCampaign,
   listCharacters,
+  markChatRead,
 } from './characters'
 import { roster } from '@/mocks/sending-stone'
 
@@ -17,6 +18,7 @@ const select = {
   campaignTitle: true,
   campaignId: true,
   actorId: true,
+  chatReadAt: true,
   campaign: { select: { title: true, origin: true } },
 }
 const row = {
@@ -26,6 +28,7 @@ const row = {
   campaignTitle: 'Old title',
   campaignId: 'c1',
   actorId: 'actor-thorin',
+  chatReadAt: new Date('2026-10-04T19:02:00.000Z'),
   campaign: {
     title: 'The Lonely Mountain',
     origin: 'https://my-game.forge-vtt.com',
@@ -39,6 +42,7 @@ const thorin = {
   campaignTitle: 'The Lonely Mountain',
   campaignId: 'c1',
   actorId: 'actor-thorin',
+  chatReadAt: '2026-10-04T19:02:00.000Z',
 }
 
 const taken = () =>
@@ -51,7 +55,14 @@ describe('db/characters', () => {
   it("lists only the user's characters, by name, with their campaign's title", async () => {
     prismaMock.character.findMany.mockResolvedValue([
       row,
-      { ...row, id: 'char-2', campaignId: null, actorId: null, campaign: null },
+      {
+        ...row,
+        id: 'char-2',
+        campaignId: null,
+        actorId: null,
+        chatReadAt: null,
+        campaign: null,
+      },
     ] as any)
 
     await expect(listCharacters('user-1')).resolves.toEqual([
@@ -63,6 +74,7 @@ describe('db/characters', () => {
         campaignTitle: 'Old title',
         campaignId: null,
         actorId: null,
+        chatReadAt: undefined,
       },
     ])
     expect(prismaMock.character.findMany).toHaveBeenCalledWith({
@@ -207,5 +219,19 @@ describe('db/characters', () => {
     await expect(deleteCharacter('user-1', 'someone-elses')).resolves.toBe(
       false,
     )
+  })
+
+  it('moves how far a character has read its chat only forward', async () => {
+    const readAt = new Date('2026-10-04T19:05:00.000Z')
+    await markChatRead('user-1', 'char-1', readAt)
+
+    expect(prismaMock.character.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'char-1',
+        userId: 'user-1',
+        OR: [{ chatReadAt: null }, { chatReadAt: { lt: readAt } }],
+      },
+      data: { chatReadAt: readAt },
+    })
   })
 })

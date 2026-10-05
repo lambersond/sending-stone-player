@@ -7,6 +7,7 @@ import {
   chooseCharacter,
   deleteCharacter,
   joinCampaign,
+  markChatRead,
   type ChoiceProblem,
 } from '@/db/characters'
 import { requireUser } from '@/lib/session'
@@ -85,4 +86,18 @@ export async function removeCharacter(characterId: string): Promise<void> {
   const user = await requireUser()
   await deleteCharacter(user.id, characterId)
   refresh()
+}
+
+/**
+ * Note how far the player has read their character's chat: up to the message sent at `readAt`,
+ * an ISO timestamp. A time to come is taken as now, so later messages still count as unread.
+ */
+export async function markChatReadUpTo(
+  characterId: string,
+  readAt: string,
+): Promise<void> {
+  const user = await requireUser()
+  const at = Date.parse(readAt)
+  if (Number.isNaN(at)) return
+  await markChatRead(user.id, characterId, new Date(Math.min(at, Date.now())))
 }
