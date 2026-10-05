@@ -1,7 +1,13 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
 import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
-import { chatMessage, combat, combatant, roster } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  chatMessage,
+  combat,
+  combatant,
+  roster,
+} from '@/mocks/sending-stone'
 import type { GameEvent } from '@/types/sending-stone'
 
 const world = { id: 'erebor', title: 'Return to Erebor' }
@@ -55,6 +61,86 @@ describe('db/campaign-events', () => {
     expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
       where: { id: 'c1' },
       data: expect.objectContaining({ helloSession: 'session-1' }),
+    })
+  })
+
+  it("bridge.hello keeps each character's sheet apart from the roster", async () => {
+    const sheet = characterSheet()
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: [
+          { ...roster[0], sheet },
+          { ...roster[1], sheet: null },
+        ],
+        combats: [],
+      },
+    })
+
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: roster },
+    })
+    expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1' },
+    })
+    expect(prismaMock.actorSheet.createMany).toHaveBeenCalledWith({
+      data: [{ campaignId: 'c1', actorId: 'actor-thorin', data: sheet }],
+    })
+  })
+
+  it('character.updated replaces the character in the roster and saves its sheet', async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      characters: roster,
+    } as any)
+    const sheet = characterSheet()
+    await apply({
+      type: 'character.updated',
+      data: { character: { id: 'actor-thorin', name: 'Thorin II', sheet } },
+    })
+
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: [{ id: 'actor-thorin', name: 'Thorin II' }, roster[1]],
+      },
+    })
+    const where = {
+      campaignActor: { campaignId: 'c1', actorId: 'actor-thorin' },
+    }
+    expect(prismaMock.actorSheet.upsert).toHaveBeenCalledWith({
+      where,
+      create: { campaignId: 'c1', actorId: 'actor-thorin', data: sheet },
+      update: { data: sheet },
+    })
+  })
+
+  it('character.updated adds a character the roster lacks, and without a sheet drops any held', async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      characters: [roster[0]],
+    } as any)
+    await apply({
+      type: 'character.updated',
+      data: { character: { ...roster[1], sheet: null } },
+    })
+
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: roster },
+    })
+    expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1', actorId: 'actor-vex' },
+    })
+    expect(prismaMock.actorSheet.upsert).not.toHaveBeenCalled()
+  })
+
+  it('character.updated starts a roster for a campaign holding none', async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue(undefined as any)
+    await apply({ type: 'character.updated', data: { character: roster[1] } })
+
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: [roster[1]] },
     })
   })
 

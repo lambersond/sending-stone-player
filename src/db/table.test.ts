@@ -1,7 +1,12 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
 import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
-import { chatMessage, combat, roster } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  chatMessage,
+  combat,
+  roster,
+} from '@/mocks/sending-stone'
 
 const character = {
   id: 'char-1',
@@ -14,6 +19,7 @@ const character = {
 const recently = () => new Date(Date.now() - 30_000)
 const campaign = {
   id: 'c1',
+  origin: 'https://my-game.forge-vtt.com',
   title: 'The Lonely Mountain',
   version: 7,
   worldTitle: 'Return to Erebor',
@@ -93,6 +99,7 @@ describe('db/table', () => {
         where: { id: 'c1' },
         select: {
           id: true,
+          origin: true,
           title: true,
           version: true,
           worldTitle: true,
@@ -126,6 +133,30 @@ describe('db/table', () => {
         messages: [{ id: 'm1' }, { id: 'm2' }],
         combat: { id: 'cmbt1', currentId: 'c-boss' },
       })
+    })
+
+    it("shows the player their own character's sheet", async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([])
+      prismaMock.combat.findMany.mockResolvedValue([])
+      prismaMock.actorSheet.findUnique.mockResolvedValue({
+        data: characterSheet(),
+      } as any)
+
+      const view = await getTableView(character)
+
+      expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
+        where: { campaignActor: { campaignId: 'c1', actorId: 'actor-thorin' } },
+        select: { data: true },
+      })
+      expect(view.sheet).toMatchObject({
+        portrait: 'https://my-game.forge-vtt.com/worlds/erebor/thorin.webp',
+        ac: 18,
+        abilities: expect.arrayContaining([
+          expect.objectContaining({ id: 'str', save: 7 }),
+        ]),
+      })
+      expect(view.sheet).not.toHaveProperty('img')
     })
 
     it('shows damage against the targets of the attack it was rolled from', async () => {
@@ -196,7 +227,9 @@ describe('db/table', () => {
         connected: false,
         messages: [],
         combat: undefined,
+        sheet: undefined,
       })
+      expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
 
       const removed = await getTableView({
         ...character,

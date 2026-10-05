@@ -153,6 +153,7 @@ model Campaign {
   updatedAt    DateTime      @updatedAt
   messages     ChatMessage[]
   combats      Combat[]
+  sheets       ActorSheet[]
   players      Character[]
 
   @@unique([origin, foundryId], name: "originCampaign")
@@ -193,4 +194,20 @@ model Combat {
 
   @@unique([campaignId, combatId], name: "campaignCombat")
   @@map("combat")
+}
+
+// One of a campaign's characters' sheets, as the module last sent it under dnd5e: abilities, saves,
+// skills and the like. Only the character's own player is shown it.
+model ActorSheet {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // The Foundry actor whose sheet it is.
+  actorId    String
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([campaignId, actorId], name: "campaignActor")
+  @@map("actor_sheet")
 }

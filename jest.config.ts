@@ -35,6 +35,9 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   modulePaths: ['<rootDir>/src'],
   moduleNameMapper: {
+    // The dice packages export only for `import`, which Jest's require doesn't match.
+    '^@lambersond/3d-dice-(core|engine|react)$':
+      '<rootDir>/node_modules/@lambersond/3d-dice-$1/dist/index.js',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
 }

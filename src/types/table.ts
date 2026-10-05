@@ -1,6 +1,9 @@
+import type { CharacterSheet } from '@/types/sending-stone'
+
 /**
- * What a player is shown of their campaign: their view of its chat log and combat tracker. Built
- * on the server from what the Gamemaster's module sent, with what this player may not see left out.
+ * What a player is shown of their campaign: their view of its chat log and combat tracker, and
+ * their character's sheet. Built on the server from what the Gamemaster's module sent, with what
+ * this player may not see left out.
  */
 
 /** Whose side something is on, from this player's point of view. */
@@ -66,6 +69,12 @@ export type TableCombat = {
   combatants: TableCombatant[]
 }
 
+/** The player's own character's sheet, to see and roll from. */
+export type TableSheet = Omit<CharacterSheet, 'img'> & {
+  /** The portrait's full address. Unset when it has none, or only Foundry's default. */
+  portrait?: string
+}
+
 export type TableView = {
   /** The campaign's version when this was built. Unchanged means nothing new. */
   version: number
@@ -77,4 +86,6 @@ export type TableView = {
   connected: boolean
   messages: TableMessage[]
   combat?: TableCombat
+  /** Unset under a system other than dnd5e, or until the module sends it. */
+  sheet?: TableSheet
 }

@@ -4,10 +4,12 @@ import {
   pickCombat,
   toTableCombat,
   toTableMessages,
+  toTableSheet,
   type Viewer,
 } from '@/utils/table-view'
 import type { Character } from '@/types/character'
 import type {
+  CharacterSheet,
   CombatSnapshot,
   ConnectedCharacter,
   SerializedMessage,
@@ -39,8 +41,9 @@ export async function getCampaignStatus(
 }
 
 /**
- * A character's view of its campaign: the chat its player may read and the encounter under way.
- * The caller must already have checked that the character belongs to the signed-in user.
+ * A character's view of its campaign: the chat its player may read, the encounter under way, and
+ * its own sheet. The caller must already have checked that the character belongs to the signed-in
+ * user.
  */
 export async function getTableView(character: Character): Promise<TableView> {
   const campaign = character.campaignId
@@ -48,6 +51,7 @@ export async function getTableView(character: Character): Promise<TableView> {
         where: { id: character.campaignId },
         select: {
           id: true,
+          origin: true,
           title: true,
           version: true,
           worldTitle: true,
@@ -66,7 +70,7 @@ export async function getTableView(character: Character): Promise<TableView> {
     party: new Set(roster.map(({ id }) => id)),
   }
 
-  const [messages, combats] = await Promise.all([
+  const [messages, combats, sheet] = await Promise.all([
     prisma.chatMessage.findMany({
       where: {
         campaignId: campaign.id,
@@ -85,6 +89,14 @@ export async function getTableView(character: Character): Promise<TableView> {
       orderBy: { updatedAt: 'desc' },
       select: { data: true },
     }),
+    viewer.actorId
+      ? prisma.actorSheet.findUnique({
+          where: {
+            campaignActor: { campaignId: campaign.id, actorId: viewer.actorId },
+          },
+          select: { data: true },
+        })
+      : undefined,
   ])
 
   const combat = pickCombat(
@@ -106,5 +118,8 @@ export async function getTableView(character: Character): Promise<TableView> {
       viewer,
     ),
     combat: combat ? toTableCombat(combat, viewer) : undefined,
+    sheet: sheet
+      ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
+      : undefined,
   }
 }

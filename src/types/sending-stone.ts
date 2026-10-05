@@ -27,6 +27,55 @@ export type Envelope = {
 export type ConnectedCharacter = {
   id: string
   name: string
+  /** The character's sheet under dnd5e; null under another system, or from modules before 0.5.0. */
+  sheet?: CharacterSheet | null
+}
+
+/** Whether a roll is made with advantage (1), disadvantage (-1), or neither (0). */
+export type RollMode = -1 | 0 | 1
+
+/** An ability, with the modifiers dnd5e shows for its check and its saving throw. */
+export type SheetAbility = {
+  id: string
+  label: string
+  abbreviation: string
+  score: number | null
+  mod: number
+  check: number
+  save: number
+  saveProficient: boolean
+  checkMode: RollMode
+  saveMode: RollMode
+}
+
+export type SheetSkill = {
+  id: string
+  label: string
+  /** The ability it is checked with, such as "wis". */
+  ability: string
+  total: number
+  passive: number | null
+  /** 0, 0.5 (half), 1 (proficient) or 2 (expertise). */
+  proficiency: number
+  mode: RollMode
+}
+
+/** A character's sheet as the module sends it. Every modifier is the one dnd5e shows. */
+export type CharacterSheet = {
+  /** Relative to the game's address, or a full URL. */
+  img: string | null
+  level: number | null
+  classes: { name: string; levels: number | null; subclass: string | null }[]
+  species: string | null
+  background: string | null
+  hp?: { value: number; max: number | null; temp: number } | null
+  ac: number | null
+  proficiency: number | null
+  initiative: number | null
+  speed: { value: number; units: string | null } | null
+  inspiration: boolean
+  abilities: SheetAbility[]
+  skills: SheetSkill[]
 }
 
 export type RollSummary = {
@@ -104,6 +153,7 @@ export type GameEvent =
       type: 'bridge.hello'
       data: { characters: ConnectedCharacter[]; combats: CombatSnapshot[] }
     }
+  | { type: 'character.updated'; data: { character: ConnectedCharacter } }
   | {
       type: 'chat.message.created' | 'chat.message.updated'
       data: { message: SerializedMessage }

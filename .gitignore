@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 3d dice textures and sounds, copied from @lambersond/3d-dice-engine on install
+/public/3d-dice

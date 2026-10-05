@@ -1,12 +1,6 @@
 'use client'
 
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   ArrowLeft,
@@ -14,15 +8,19 @@ import {
   Swords,
   Ticket,
   Trash2,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatLog } from './chat-log'
 import { CombatTracker } from './combat-tracker'
+import { EmptyState } from './empty-state'
 import { LiveStatus, type LiveState } from './live-status'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
+import { CharacterPane, classLine } from '@/components/character-sheet'
 import { ConfirmDialog } from '@/components/modal'
+import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTableView } from '@/hooks/use-table-view'
 import { gameHost } from '@/utils/game-host'
@@ -30,9 +28,12 @@ import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character } from '@/types/character'
 import type { TableCombat, TableView } from '@/types/table'
 
-type Tab = 'combat' | 'chat'
+type Tab = 'character' | 'combat' | 'chat'
 
-/** From Tailwind's lg width, combat and chat sit side by side rather than in tabs. */
+/** What sits beside the chat on a wide screen: the character's sheet, or combat. */
+type Main = Exclude<Tab, 'chat'>
+
+/** From Tailwind's lg width, the chat sits beside the sheet or combat rather than in a tab. */
 const SIDE_BY_SIDE = '(min-width: 64rem)'
 
 type Props = {
@@ -50,8 +51,9 @@ type Props = {
 }
 
 /**
- * A character's live view of its campaign: the combat tracker and the chat log, in tabs on a phone
- * or tablet and side by side on a wider screen.
+ * A character's live view of its campaign: their sheet to roll from, the combat tracker and the
+ * chat log. In tabs on a phone or tablet; on a wider screen, the chat sits beside the sheet or
+ * combat.
  */
 export function GameTable({
   character,
@@ -61,10 +63,13 @@ export function GameTable({
   deleteCharacter,
 }: Readonly<Props>) {
   const { view, connection } = useTableView(character.id, initialView)
-  const [tab, setTab] = useState<Tab>(() =>
-    initialView.combat?.started ? 'combat' : 'chat',
+  const [main, setMain] = useState<Main>(() =>
+    initialView.combat?.started || !initialView.sheet ? 'combat' : 'character',
   )
-  // A wide screen shows the chat beside combat, so it is always in view there.
+  const [tab, setTab] = useState<Tab>(() =>
+    initialView.combat?.started || initialView.sheet ? main : 'chat',
+  )
+  // A wide screen shows the chat beside the rest, so it is always in view there.
   const sideBySide = useMediaQuery(SIDE_BY_SIDE)
   const chatInView = sideBySide || tab === 'chat'
 
@@ -97,6 +102,7 @@ export function GameTable({
   const show = (next: Tab) => {
     // Back on the chat, start from the newest message.
     if (next === 'chat') pinned.current = true
+    else setMain(next)
     setTab(next)
   }
 
@@ -115,27 +121,83 @@ export function GameTable({
       </Scroller>
     )
   } else {
-    // One pane at a time in tabs; side by side on a wide screen.
     table = (
-      <div className='flex min-h-0 flex-1 lg:divide-x lg:divide-border'>
-        <Pane
-          icon={Swords}
-          title='Combat'
-          summary={combatSummary(view.combat)}
-          shown={tab === 'combat'}
+      <div className='flex min-h-0 flex-1'>
+        <div
+          className={clsx(
+            'min-h-0 min-w-0 flex-1 flex-col',
+            tab === 'chat' ? 'hidden lg:flex' : 'flex',
+          )}
         >
-          <CombatTracker combat={view.combat} />
-        </Pane>
-        <Pane
-          icon={MessageSquare}
-          title='Chat'
-          summary={messageCount(view.messages.length)}
-          shown={tab === 'chat'}
-          scroller={chatScroller}
-          onScroll={onChatScroll}
+          <div className='hidden h-11 shrink-0 items-center gap-3 border-b border-border px-6 lg:flex'>
+            <div
+              role='tablist'
+              aria-label='Beside the chat'
+              className='flex gap-1'
+            >
+              <PaneTab
+                icon={UserRound}
+                label='Character'
+                pane='character-pane'
+                selected={main === 'character'}
+                onClick={() => show('character')}
+              />
+              <PaneTab
+                icon={Swords}
+                label='Combat'
+                pane='combat-pane'
+                selected={main === 'combat'}
+                onClick={() => show('combat')}
+                flagged={myTurn && main !== 'combat'}
+              />
+            </div>
+            <span className='truncate text-sm text-text-secondary'>
+              {main === 'combat'
+                ? combatSummary(view.combat)
+                : sheetSummary(view)}
+            </span>
+          </div>
+          <Pane
+            id='character-pane'
+            label='Character'
+            shown={main === 'character'}
+          >
+            {view.sheet ? (
+              <CharacterPane name={character.name} sheet={view.sheet} />
+            ) : (
+              <Scroller>
+                <NoSheet name={character.name} />
+              </Scroller>
+            )}
+          </Pane>
+          <Pane id='combat-pane' label='Combat' shown={main === 'combat'}>
+            <Scroller>
+              <CombatTracker combat={view.combat} />
+            </Scroller>
+          </Pane>
+        </div>
+        <div
+          className={clsx(
+            'min-h-0 min-w-0 flex-1 flex-col lg:border-l lg:border-border',
+            tab === 'chat' ? 'flex' : 'hidden lg:flex',
+          )}
         >
-          <ChatLog messages={view.messages} />
-        </Pane>
+          <div className='hidden h-11 shrink-0 items-center gap-2 border-b border-border px-8 lg:flex'>
+            <MessageSquare
+              aria-hidden
+              className='size-4 shrink-0 text-primary'
+            />
+            <span className='text-sm font-semibold'>Chat</span>
+            <span className='truncate text-sm text-text-secondary'>
+              {messageCount(view.messages.length)}
+            </span>
+          </div>
+          <Pane id='chat-pane' label='Chat' shown>
+            <Scroller ref={chatScroller} onScroll={onChatScroll}>
+              <ChatLog messages={view.messages} />
+            </Scroller>
+          </Pane>
+        </div>
       </div>
     )
   }
@@ -196,6 +258,12 @@ export function GameTable({
         className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'
       >
         <TabButton
+          icon={UserRound}
+          label='Character'
+          active={tab === 'character'}
+          onClick={() => show('character')}
+        />
+        <TabButton
           icon={Swords}
           label='Combat'
           active={tab === 'combat'}
@@ -225,72 +293,74 @@ export function GameTable({
   )
 }
 
-/**
- * A scrolling area of the table. It is positioned so that what is placed absolutely inside it,
- * such as text only for screen readers, scrolls with it rather than stretching the page.
- */
-function Scroller({
-  ref,
-  onScroll,
+/** The character's sheet, combat or chat: a tab on a narrower screen, or a column on a wide one. */
+function Pane({
+  id,
+  label,
+  shown,
   children,
 }: Readonly<{
-  ref?: RefObject<HTMLDivElement | null>
-  onScroll?: () => void
+  id: string
+  label: string
+  shown: boolean
   children: ReactNode
 }>) {
   return (
-    <div
-      ref={ref}
-      onScroll={onScroll}
-      className='@container relative min-h-0 flex-1 overflow-y-auto'
+    <section
+      id={id}
+      aria-label={label}
+      className={clsx(
+        'min-h-0 min-w-0 flex-1 flex-col',
+        shown ? 'flex' : 'hidden',
+      )}
     >
       {children}
-    </div>
+    </section>
   )
 }
 
-/**
- * Combat or chat: shown as a tab on a narrower screen, and as a column, headed with what is
- * happening in it, on a wide one.
- */
-function Pane({
+/** Choosing whether the sheet or combat sits beside the chat on a wide screen. */
+function PaneTab({
   icon: Icon,
-  title,
-  summary,
-  shown,
-  scroller,
-  onScroll,
-  children,
+  label,
+  pane,
+  selected,
+  onClick,
+  flagged = false,
 }: Readonly<{
   icon: LucideIcon
-  title: string
-  summary: string
-  /** Whether it is the tab shown on a narrower screen. */
-  shown: boolean
-  scroller?: RefObject<HTMLDivElement | null>
-  onScroll?: () => void
-  children: ReactNode
+  label: string
+  pane: string
+  selected: boolean
+  onClick: () => void
+  /** Draws the eye, as when it is the player's turn. */
+  flagged?: boolean
 }>) {
-  const heading = `${title.toLowerCase()}-pane`
   return (
-    <section
-      aria-labelledby={heading}
+    <button
+      type='button'
+      role='tab'
+      aria-selected={selected}
+      aria-controls={pane}
+      onClick={onClick}
       className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col',
-        shown ? 'flex' : 'hidden lg:flex',
+        'relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors',
+        selected
+          ? 'bg-primary/10 text-text-primary'
+          : 'text-text-secondary hover:text-text-primary',
       )}
     >
-      <div className='hidden shrink-0 items-center gap-2 border-b border-border px-8 py-2.5 lg:flex'>
-        <Icon aria-hidden className='size-4 shrink-0 text-primary' />
-        <h2 id={heading} className='text-sm font-semibold'>
-          {title}
-        </h2>
-        <span className='truncate text-sm text-text-secondary'>{summary}</span>
-      </div>
-      <Scroller ref={scroller} onScroll={onScroll}>
-        {children}
-      </Scroller>
-    </section>
+      <Icon
+        aria-hidden
+        className={clsx('size-4', selected && 'text-primary')}
+      />
+      {label}
+      {flagged && (
+        <span className='size-2 rounded-full bg-primary'>
+          <span className='sr-only'>, your turn</span>
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -362,6 +432,16 @@ function NoCampaign({ name }: Readonly<{ name: string }>) {
   )
 }
 
+/** For a character whose sheet hasn't arrived, as under a system other than dnd5e. */
+function NoSheet({ name }: Readonly<{ name: string }>) {
+  return (
+    <EmptyState icon={UserRound} title={`${name}'s sheet hasn't arrived`}>
+      Your Gamemaster&apos;s Sending Stone module sends it under D&amp;D Fifth
+      Edition, from version 0.5.0. It arrives the next time their game connects.
+    </EmptyState>
+  )
+}
+
 /** For a character in a campaign that has yet to choose which of its characters it is. */
 function ChooseActor({
   choice,
@@ -403,6 +483,7 @@ function isMyTurn(combat?: TableCombat): boolean {
 /** The header's line under the character's name: what is happening in the tab shown. */
 function subtitle(tab: Tab, view: TableView, character: Character): string {
   if (!view.campaign) return campaignAndGame(view, character)
+  if (tab === 'character') return sheetSummary(view)
   if (tab === 'chat') {
     return `${view.campaign.title} · ${messageCount(view.messages.length)}`
   }
@@ -414,6 +495,12 @@ function campaignAndGame(view: TableView, character: Character): string {
   const host = gameHost(character.gameUrl)
   const title = view.campaign?.title ?? character.campaignTitle
   return title ? `${title} · ${host}` : host
+}
+
+/** Such as "Fighter 5 · Champion", or the campaign's title until the sheet arrives. */
+function sheetSummary(view: TableView): string {
+  if (view.sheet) return classLine(view.sheet)
+  return view.campaign?.title ?? 'No sheet yet'
 }
 
 function messageCount(count: number): string {
