@@ -7,7 +7,8 @@ const headers = { 'Cache-Control': 'no-store' }
 
 /**
  * A character's view of its campaign, for the player's page to poll. Pass the version and the
- * liveness last seen as `?version=7&live=1` to get 204 No Content while neither has changed.
+ * liveness last seen as `?version=7&live=1` to get 204 No Content while neither has changed, and
+ * the sheet's version as `&sheet=` to have an unchanged sheet left out.
  */
 export async function GET(
   request: NextRequest,
@@ -30,5 +31,8 @@ export async function GET(
       return new Response(undefined, { status: 204, headers })
     }
   }
-  return Response.json(await getTableView(character), { headers })
+  const sheetVersion = known.get('sheet') ?? undefined
+  return Response.json(await getTableView(character, { sheetVersion }), {
+    headers,
+  })
 }

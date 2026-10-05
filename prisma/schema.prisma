@@ -157,6 +157,7 @@ model Campaign {
   messages     ChatMessage[]
   combats      Combat[]
   sheets       ActorSheet[]
+  texts        SheetText[]
   players      Character[]
 
   @@unique([origin, foundryId], name: "originCampaign")
@@ -213,4 +214,21 @@ model ActorSheet {
 
   @@unique([campaignId, actorId], name: "campaignActor")
   @@map("actor_sheet")
+}
+
+// A description that a campaign's sheets refer to by hash, such as a feature's. Sent once, apart
+// from the sheets, since descriptions are most of their size.
+model SheetText {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // The module's hash of where the description comes from.
+  hash       String
+  // Sanitised, with images and links pointing at the game.
+  html       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([campaignId, hash], name: "campaignHash")
+  @@map("sheet_text")
 }

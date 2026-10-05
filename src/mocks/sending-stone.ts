@@ -145,6 +145,144 @@ export function characterSheet(
         mode: -1,
       },
     ],
+    conditions: [],
+    features: [],
+    effects: [],
     ...fields,
   }
+}
+
+/** Hashes for descriptions, as the module names them: 14 hexadecimal digits. */
+export const TEXTS = {
+  fighter: '0f1a2b3c4d5e6f',
+  secondWind: '1a2b3c4d5e6f70',
+  actionSurge: '2b3c4d5e6f7081',
+  poisoned: '3c4d5e6f708192',
+  bless: '4d5e6f708192a3',
+} as const
+
+/** Thorin's features, conditions and effects, as the module sends them from 0.6.0. */
+export function fullerSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  return characterSheet({
+    classes: [
+      {
+        id: 'fighter',
+        identifier: 'fighter',
+        name: 'Fighter',
+        levels: 5,
+        subclass: 'Champion',
+        hitDice: { die: 'd10', value: 3, max: 5 },
+      },
+    ],
+    conditions: [
+      {
+        id: 'concentrating',
+        name: 'Concentrating',
+        img: 'systems/dnd5e/icons/svg/statuses/concentrating.svg',
+        level: null,
+        detail: 'Bless',
+        text: null,
+      },
+      {
+        id: 'exhaustion',
+        name: 'Exhaustion',
+        img: 'systems/dnd5e/icons/svg/statuses/exhaustion.svg',
+        level: 2,
+        detail: null,
+        text: null,
+      },
+      {
+        id: 'poisoned',
+        name: 'Poisoned',
+        img: 'systems/dnd5e/icons/svg/statuses/poisoned.svg',
+        level: null,
+        detail: null,
+        text: TEXTS.poisoned,
+      },
+    ],
+    features: [
+      {
+        id: 'fighter',
+        label: 'Fighter Features',
+        text: TEXTS.fighter,
+        features: [
+          {
+            id: 'second-wind',
+            name: 'Second Wind',
+            img: 'icons/magic/life/heart-cross-green.webp',
+            kind: 'Class Feature',
+            requirements: 'Fighter 1',
+            activation: '1 Bonus Action',
+            passive: false,
+            uses: { value: 1, max: 1, recovery: 'Short Rest, Long Rest' },
+            text: TEXTS.secondWind,
+          },
+          {
+            id: 'action-surge',
+            name: 'Action Surge',
+            img: null,
+            kind: 'Class Feature',
+            requirements: 'Fighter 2',
+            activation: 'Special',
+            passive: false,
+            uses: { value: 0, max: 1, recovery: 'Short Rest' },
+            text: TEXTS.actionSurge,
+          },
+        ],
+      },
+      {
+        id: 'species',
+        label: 'Species Features',
+        text: null,
+        features: [
+          {
+            id: 'darkvision',
+            name: 'Darkvision',
+            img: 'https://assets.forge-vtt.com/darkvision.webp',
+            kind: 'Species Feature',
+            requirements: null,
+            activation: null,
+            passive: true,
+            uses: null,
+            text: null,
+          },
+        ],
+      },
+    ],
+    effects: [
+      {
+        id: 'temporary',
+        label: 'Temporary Effects',
+        effects: [
+          {
+            id: 'blessed',
+            name: 'Bless',
+            img: 'icons/magic/control/buff-flight-wings-blue.webp',
+            source: 'Bless',
+            duration: '9 Rounds',
+            disabled: false,
+            text: TEXTS.bless,
+          },
+        ],
+      },
+      {
+        id: 'inactive',
+        label: 'Inactive Effects',
+        effects: [
+          {
+            id: 'rage',
+            name: 'Rage',
+            img: null,
+            source: null,
+            duration: null,
+            disabled: true,
+            text: null,
+          },
+        ],
+      },
+    ],
+    ...fields,
+  })
 }

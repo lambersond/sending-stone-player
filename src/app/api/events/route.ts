@@ -84,25 +84,31 @@ export async function POST(request: Request) {
     return respond(400, `Malformed ${envelope.type}\n${reason}`)
   }
 
+  let applied
   try {
     // A heartbeat, or an event this app does not use yet, still says the game is connected.
-    await (event
-      ? applyCampaignEvent(
+    applied = event
+      ? await applyCampaignEvent(
           found.id,
           envelope.world,
           envelope.campaign,
           event,
           envelope.session,
         )
-      : markSeen(found.id))
+      : await markSeen(found.id)
   } catch (error) {
     console.error(`Failed to apply ${envelope.type} from ${origin}`, error)
     return respond(500)
   }
 
+  // Descriptions come before the hello or sheet that refers to them, so they may arrive first.
+  if (event?.type === EVENTS.CHARACTER_TEXTS) return respond(204)
   // Without this session's hello, such as when it was refused before the campaign was set up
-  // here, the campaign may lack its characters and combats: ask the module to send them again.
-  if (event?.type !== EVENTS.HELLO && found.helloSession !== envelope.session) {
+  // here, the campaign may lack its characters and combats; and a sheet that refers to a
+  // description not held means one went missing. Either way, ask for everything again.
+  const lacksHello =
+    event?.type !== EVENTS.HELLO && found.helloSession !== envelope.session
+  if (lacksHello || applied?.lacksTexts) {
     return Response.json({ resend: 'hello' }, { headers: cors(request) })
   }
   return respond(204)

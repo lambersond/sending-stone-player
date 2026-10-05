@@ -163,13 +163,14 @@ describe('db/table', () => {
       prismaMock.combat.findMany.mockResolvedValue([])
       prismaMock.actorSheet.findUnique.mockResolvedValue({
         data: characterSheet(),
+        updatedAt: new Date('2026-10-05T12:00:00Z'),
       } as any)
 
       const view = await getTableView(character)
 
       expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
         where: { campaignActor: { campaignId: 'c1', actorId: 'actor-thorin' } },
-        select: { data: true },
+        select: { data: true, updatedAt: true },
       })
       expect(view.sheet).toMatchObject({
         portrait: 'https://my-game.forge-vtt.com/worlds/erebor/thorin.webp',
@@ -179,6 +180,28 @@ describe('db/table', () => {
         ]),
       })
       expect(view.sheet).not.toHaveProperty('img')
+      expect(view.sheetVersion).toBe('2026-10-05T12:00:00.000Z')
+    })
+
+    it('leaves out a sheet the viewer already has, saving sending it again', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([])
+      prismaMock.combat.findMany.mockResolvedValue([])
+      prismaMock.actorSheet.findUnique.mockResolvedValue({
+        data: characterSheet(),
+        updatedAt: new Date('2026-10-05T12:00:00Z'),
+      } as any)
+
+      const same = await getTableView(character, {
+        sheetVersion: '2026-10-05T12:00:00.000Z',
+      })
+      const older = await getTableView(character, {
+        sheetVersion: '2026-10-05T11:00:00.000Z',
+      })
+
+      expect(same.sheet).toBeUndefined()
+      expect(same.sheetVersion).toBe('2026-10-05T12:00:00.000Z')
+      expect(older.sheet).toMatchObject({ ac: 18 })
     })
 
     it('shows damage against the targets of the attack it was rolled from', async () => {

@@ -1,4 +1,9 @@
 import prisma from '@/clients/prisma'
+import {
+  keepOnlySheetTexts,
+  lacksSheetTexts,
+  saveSheetTexts,
+} from '@/db/sheet-texts'
 import type {
   CampaignRef,
   CombatantSummary,
@@ -22,6 +27,8 @@ type World = { id: string; title: string }
  * @param campaign - The campaign as the module named it, whose title may have changed.
  * @param event - The event, its payload already checked.
  * @param session - The module session that sent it.
+ * @returns Whether the campaign now lacks a description its sheets refer to, which the module
+ * should send again with a hello.
  */
 export async function applyCampaignEvent(
   campaignId: string,
@@ -29,9 +36,9 @@ export async function applyCampaignEvent(
   campaign: CampaignRef,
   event: GameEvent,
   session: string,
-): Promise<void> {
-  await prisma.$transaction(async tx => {
-    await apply(tx, campaignId, event)
+): Promise<{ lacksTexts: boolean }> {
+  return prisma.$transaction(async tx => {
+    const lacksTexts = await apply(tx, campaignId, event)
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -40,17 +47,24 @@ export async function applyCampaignEvent(
         title: campaign.title,
         worldId: world.id,
         worldTitle: world.title,
-        version: { increment: 1 },
+        // Descriptions change nothing anyone sees until a sheet refers to them.
+        ...(event.type !== 'character.texts' && { version: { increment: 1 } }),
         lastEventAt: now,
         lastSeenAt: now,
         // The campaign's state is now this session's.
         ...(event.type === 'bridge.hello' && { helloSession: session }),
       },
     })
+    return { lacksTexts }
   })
 }
 
-async function apply(tx: Tx, campaignId: string, event: GameEvent) {
+/** Apply an event; true when the campaign then lacks a description its sheets refer to. */
+async function apply(
+  tx: Tx,
+  campaignId: string,
+  event: GameEvent,
+): Promise<boolean> {
   switch (event.type) {
     case 'bridge.hello': {
       // The campaign's full current state. It carries no chat, so the chat log is kept.
@@ -75,34 +89,42 @@ async function apply(tx: Tx, campaignId: string, event: GameEvent) {
           data: toJson(combat),
         })),
       })
-      return
+      // Its descriptions came first; any no sheet refers to any more go.
+      const sheets = characters.flatMap(({ sheet }) => (sheet ? [sheet] : []))
+      await keepOnlySheetTexts(tx, campaignId, sheets)
+      return lacksSheetTexts(tx, campaignId, sheets)
     }
     case 'character.updated': {
+      const { sheet } = event.data.character
       await saveCharacter(tx, campaignId, event.data.character)
-      return
+      return sheet ? lacksSheetTexts(tx, campaignId, [sheet]) : false
+    }
+    case 'character.texts': {
+      await saveSheetTexts(tx, campaignId, event.data.texts)
+      return false
     }
     case 'chat.message.created':
     case 'chat.message.updated': {
       // An update is an upsert: a blind roll the Gamemaster reveals arrives as one.
       await saveMessage(tx, campaignId, event.data.message)
-      return
+      return false
     }
     case 'chat.message.deleted': {
       await tx.chatMessage.deleteMany({
         where: { campaignId, messageId: event.data.id },
       })
-      return
+      return false
     }
     case 'chat.cleared': {
       await tx.chatMessage.deleteMany({ where: { campaignId } })
-      return
+      return false
     }
     case 'combat.ended': {
       // The encounter ended, or the campaign's last character left it.
       await tx.combat.deleteMany({
         where: { campaignId, combatId: event.data.combat.id },
       })
-      return
+      return false
     }
     case 'combat.created':
     case 'combat.started':
@@ -110,7 +132,7 @@ async function apply(tx: Tx, campaignId: string, event: GameEvent) {
     case 'combat.updated': {
       // combat.created also marks the campaign's first character joining a fight under way.
       await saveCombat(tx, campaignId, event.data.combat)
-      return
+      return false
     }
     case 'combat.combatant.added':
     case 'combat.combatant.updated': {
@@ -121,16 +143,17 @@ async function apply(tx: Tx, campaignId: string, event: GameEvent) {
           combatant,
         ]),
       )
-      return
+      return false
     }
     case 'combat.combatant.removed': {
       const { combatantId } = event.data
       await patchCombat(tx, campaignId, event.data.combatId, combatants =>
         combatants.filter(({ id }) => id !== combatantId),
       )
-      return
+      return false
     }
   }
+  return false
 }
 
 /**

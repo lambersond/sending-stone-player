@@ -174,6 +174,50 @@ describe('app/api/events', () => {
       )
     })
 
+    it('takes descriptions sent ahead of their session’s hello, without asking for it', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+      const texts = { '0f1a2b3c4d5e6f': '<p>Second Wind</p>' }
+
+      const response = await post(
+        envelope(
+          'character.texts',
+          { texts: { ...texts, bad: '<p/>' } },
+          { sequence: null },
+        ),
+      )
+
+      expect(response.status).toBe(204)
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        { type: 'character.texts', data: { texts } },
+        's1',
+      )
+    })
+
+    it.each([
+      ['a hello', envelope('bridge.hello', { characters: [], combats: [] })],
+      [
+        'a changed character',
+        envelope('character.updated', {
+          character: { id: 'actor-thorin', name: 'Thorin', sheet: null },
+        }),
+      ],
+    ])(
+      'asks for everything again when %s refers to a description not held',
+      async (_, event) => {
+        jest
+          .mocked(applyCampaignEvent)
+          .mockResolvedValueOnce({ lacksTexts: true })
+
+        const response = await post(event)
+
+        expect(response.status).toBe(200)
+        await expect(response.json()).resolves.toEqual({ resend: 'hello' })
+      },
+    )
+
     it('refuses an event for a campaign not set up, saying so', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue('unknown')
 

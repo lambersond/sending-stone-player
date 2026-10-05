@@ -88,8 +88,13 @@ export type TableView = {
   connected: boolean
   messages: TableMessage[]
   combat?: TableCombat
-  /** Unset under a system other than dnd5e, or until the module sends it. */
+  /**
+   * Unset under a system other than dnd5e, or until the module sends it; and when the viewer
+   * already has the sheet of this `sheetVersion`, which is left out to save sending it again.
+   */
   sheet?: TableSheet
+  /** Changes whenever the sheet does. Unset when there is no sheet. */
+  sheetVersion?: string
   /** How far the player has read the chat, on any device: later messages are unread. */
   chatReadAt?: string
 }

@@ -21,7 +21,11 @@ export function useTableView(characterId: string, initial: TableView) {
   const router = useRouter()
   const [view, setView] = useState(initial)
   const [connection, setConnection] = useState<Connection>('live')
-  const seen = useRef({ version: initial.version, live: initial.live })
+  const seen = useRef({
+    version: initial.version,
+    live: initial.live,
+    sheetVersion: initial.sheetVersion,
+  })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -31,9 +35,14 @@ export function useTableView(characterId: string, initial: TableView) {
 
     const poll = async () => {
       try {
-        const { version, live } = seen.current
+        const { version, live, sheetVersion } = seen.current
+        const query = new URLSearchParams({
+          version: String(version),
+          live: live ? '1' : '0',
+          ...(sheetVersion && { sheet: sheetVersion }),
+        })
         const response = await fetch(
-          `/api/characters/${characterId}/table?version=${version}&live=${live ? 1 : 0}`,
+          `/api/characters/${characterId}/table?${query}`,
           { cache: 'no-store', signal: controller.signal },
         )
         if (response.status === 401 || response.status === 404) {
@@ -45,8 +54,17 @@ export function useTableView(characterId: string, initial: TableView) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         if (response.status === 200) {
           const next = (await response.json()) as TableView
-          seen.current = { version: next.version, live: next.live }
-          setView(next)
+          seen.current = {
+            version: next.version,
+            live: next.live,
+            sheetVersion: next.sheetVersion,
+          }
+          // A sheet left out is the one this page already has.
+          setView(held =>
+            next.sheet === undefined && next.sheetVersion !== undefined
+              ? { ...next, sheet: held.sheet }
+              : next,
+          )
         }
         failures = 0
         setConnection('live')
