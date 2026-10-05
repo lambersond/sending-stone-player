@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
+import type { MenuPoint } from './roll-menu'
 import type { RollMode } from '@/types/sending-stone'
 
 /** Something on the sheet that rolls: a check or save, its modifier, and the character's mode. */
@@ -23,8 +24,8 @@ type Props = {
   target: RollTarget
   /** Rolls it as it stands. */
   onRoll: (target: RollTarget) => void
-  /** Offers other ways to roll it, beside this button. */
-  onMenu: (anchor: HTMLElement, target: RollTarget) => void
+  /** Offers other ways to roll it, where on this button the player clicked or pressed. */
+  onMenu: (anchor: HTMLElement, target: RollTarget, point?: MenuPoint) => void
   label: string
   className: string
   children: ReactNode
@@ -72,7 +73,14 @@ export function RollButton({
         event.preventDefault()
         cancel()
         press.current.opened = true
-        onMenu(event.currentTarget, target)
+        const button = event.currentTarget
+        const { pointerType } = event.nativeEvent as Partial<PointerEvent>
+        // A context menu key has no pointer: Chrome gives its menu no button, and the Pointer
+        // Events spec no pointer type.
+        const fromKey = event.button === -1 || pointerType === ''
+        const touch = pointerType === 'touch' || pointerType === 'pen'
+        const point = fromKey ? undefined : pointWithin(button, event, touch)
+        onMenu(button, target, point)
       }}
       onPointerDown={event => {
         cancel()
@@ -81,9 +89,10 @@ export function RollButton({
         const button = event.currentTarget
         press.current.x = event.clientX
         press.current.y = event.clientY
+        const point = pointWithin(button, event, true)
         press.current.timer = setTimeout(() => {
           press.current.opened = true
-          onMenu(button, target)
+          onMenu(button, target, point)
         }, LONG_PRESS)
       }}
       onPointerMove={event => {
@@ -100,4 +109,18 @@ export function RollButton({
       {children}
     </button>
   )
+}
+
+/** Where a pointer is on the button, or nothing when it's off it. */
+function pointWithin(
+  button: HTMLElement,
+  { clientX, clientY }: { clientX: number; clientY: number },
+  touch: boolean,
+): MenuPoint | undefined {
+  const { left, top, width, height } = button.getBoundingClientRect()
+  const x = clientX - left
+  const y = clientY - top
+  // A pixel's leeway, for browsers that round where the pointer is.
+  if (x < -1 || y < -1 || x > width + 1 || y > height + 1) return undefined
+  return { x, y, touch }
 }
