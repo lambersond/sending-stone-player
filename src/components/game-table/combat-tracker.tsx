@@ -25,8 +25,10 @@ export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
     )
   }
 
+  // Two columns once its pane, rather than the window, is wide enough: beside the chat on a wide
+  // screen it has only part of the window.
   return (
-    <div className='mx-auto grid w-full max-w-5xl gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] md:items-start md:gap-6 md:px-8 md:py-6'>
+    <div className='mx-auto grid w-full max-w-5xl gap-4 p-4 md:px-8 md:py-6 @4xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] @4xl:items-start @4xl:gap-6'>
       <section
         aria-labelledby='initiative-heading'
         className='flex min-w-0 flex-col gap-2'
@@ -169,7 +171,7 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
     <section
       aria-labelledby='turn-heading'
       className={clsx(
-        'order-first flex flex-col gap-2 rounded-2xl border bg-card p-4 md:order-none',
+        'order-first flex flex-col gap-2 rounded-2xl border bg-card p-4 @4xl:order-none',
         myTurn ? 'border-primary' : 'border-border',
       )}
     >
