@@ -118,3 +118,16 @@ if (globalThis.window !== undefined) {
       removeEventListener: () => {},
     }) as unknown as MediaQueryList
 }
+
+// jsdom has no PointerEvent, so a pointer event's type and position would be lost.
+if (globalThis.window !== undefined && globalThis.PointerEvent === undefined) {
+  class PointerEvent extends MouseEvent {
+    readonly pointerType: string
+
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init)
+      this.pointerType = init.pointerType ?? ''
+    }
+  }
+  globalThis.PointerEvent = PointerEvent as typeof globalThis.PointerEvent
+}

@@ -362,12 +362,75 @@ describe('components/game-table/game-table', () => {
     })
     afterEach(() => jest.restoreAllMocks())
 
-    it('keeps the chat beside combat, so nothing in it is unread', () => {
-      const { rerender } = renderTable()
+    it('shares the column beside the sheet between combat and the chat', async () => {
+      const user = userEvent.setup()
+      renderTable(view({ sheet }))
+
+      expect(subtitle()?.nextSibling).toHaveTextContent(
+        'The Lonely Mountain · my-game.forge-vtt.com',
+      )
+      const sheetPane = screen.getByRole('region', { name: 'Character' })
+      expect(sheetPane).toHaveClass('lg:flex')
+      expect(sheetPane).toHaveTextContent(/^CharacterFighter 5 · Champion/)
+      const column = screen.getByRole('region', { name: 'Combat' })
+        .parentElement as HTMLElement
+      expect(column).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
+
+      const combatTab = screen.getByRole('tab', { name: 'Combat' })
+      expect(combatTab).toHaveAttribute('aria-selected', 'true')
+      expect(combatTab.parentElement?.nextSibling).toHaveTextContent(
+        'Round 3 · Goblin Boss’s turn',
+      )
+      expect(screen.getByRole('region', { name: 'Chat' })).toHaveClass('hidden')
+
+      await user.click(screen.getByRole('tab', { name: 'Chat' }))
+      expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(combatTab.parentElement?.nextSibling).toHaveTextContent(
+        '1 message',
+      )
+      expect(screen.getByRole('region', { name: 'Combat' })).toHaveClass(
+        'hidden',
+      )
+      expect(screen.getByRole('region', { name: 'Chat' })).not.toHaveClass(
+        'hidden',
+      )
+    })
+
+    it('counts messages unread while combat sits beside the sheet', async () => {
+      const user = userEvent.setup()
+      const { rerender } = renderTable(view({ sheet }))
       const scroller = chatScroller()
 
       showing({
         view: view({
+          sheet,
+          messages: [
+            message('m1', '2026-10-04T19:00:00.000Z'),
+            message('m2', '2026-10-04T19:01:00.000Z'),
+          ],
+        }),
+      })
+      rerender(table(view()))
+      expect(
+        screen.getByRole('tab', { name: 'Chat 1 unread' }),
+      ).toBeInTheDocument()
+
+      await user.click(screen.getByRole('tab', { name: /^Chat/ }))
+      expect(screen.getByRole('tab', { name: 'Chat' })).toBeInTheDocument()
+      expect(scroller.scrollTop).toBe(1000)
+    })
+
+    it('keeps the chat beside the sheet in view, pinned to the newest message', () => {
+      const { rerender } = renderTable(view({ sheet, combat: undefined }))
+      const scroller = chatScroller()
+
+      showing({
+        view: view({
+          sheet,
+          combat: undefined,
           messages: [
             message('m1', '2026-10-04T19:00:00.000Z'),
             message('m2', '2026-10-04T19:01:00.000Z'),
@@ -376,62 +439,40 @@ describe('components/game-table/game-table', () => {
       })
       rerender(table(view()))
 
-      expect(screen.getByRole('button', { name: 'Combat' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
         'aria-current',
         'page',
       )
-      expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
       expect(scroller.scrollTop).toBe(1000)
     })
 
-    it('heads the chat, and the sheet or combat beside it, with what is happening', async () => {
+    it('flags combat beside the sheet when it is the player’s turn', async () => {
       const user = userEvent.setup()
-      renderTable(view({ sheet }))
-
-      expect(subtitle()?.nextSibling).toHaveTextContent(
-        'The Lonely Mountain · my-game.forge-vtt.com',
-      )
-      const combatTab = screen.getByRole('tab', { name: 'Combat' })
-      expect(combatTab).toHaveAttribute('aria-selected', 'true')
-      expect(combatTab.parentElement?.nextSibling).toHaveTextContent(
-        'Round 3 · Goblin Boss’s turn',
-      )
-      expect(screen.getByText('1 message')).toBeInTheDocument()
-
-      await user.click(screen.getByRole('tab', { name: 'Character' }))
-      expect(screen.getByRole('tab', { name: 'Character' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
-      expect(combatTab.parentElement?.nextSibling).toHaveTextContent(
-        'Fighter 5 · Champion',
-      )
-      expect(screen.getByRole('region', { name: 'Character' })).not.toHaveClass(
-        'hidden',
-      )
-      expect(screen.getByRole('region', { name: 'Combat' })).toHaveClass(
-        'hidden',
-      )
-    })
-
-    it('flags combat beside the chat when it is the player’s turn', () => {
-      const { rerender } = renderTable(
-        view({ sheet, combat: combat({ started: false, currentId: 'me' }) }),
-      )
-      expect(screen.getByRole('tab', { name: 'Character' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
+      renderTable(view({ sheet, combat: combat({ currentId: 'me' }) }))
       expect(
         screen.queryByRole('tab', { name: 'Combat , your turn' }),
       ).toBeNull()
 
-      showing({ view: view({ sheet, combat: combat({ currentId: 'me' }) }) })
-      rerender(table(view()))
+      await user.click(screen.getByRole('tab', { name: 'Chat' }))
 
       expect(
         screen.getByRole('tab', { name: 'Combat , your turn' }),
       ).toBeInTheDocument()
+    })
+
+    it('gives combat and the chat the whole width until a sheet arrives', () => {
+      renderTable()
+
+      expect(screen.getByRole('region', { name: 'Character' })).toHaveClass(
+        'lg:hidden',
+      )
+      const column = screen.getByRole('region', { name: 'Combat' })
+        .parentElement as HTMLElement
+      expect(column).not.toHaveClass('lg:w-[clamp(320px,40%,500px)]')
     })
   })
 
@@ -456,18 +497,16 @@ describe('components/game-table/game-table', () => {
     it('opens on combat during a fight, and switches to the sheet', async () => {
       const user = userEvent.setup()
       renderTable(view({ sheet }))
+      const sheetPane = screen.getByRole('region', { name: 'Character' })
+      const column = screen.getByRole('region', { name: 'Combat' })
+        .parentElement as HTMLElement
 
-      expect(screen.getByRole('region', { name: 'Character' })).toHaveClass(
-        'hidden',
-      )
+      expect(sheetPane).toHaveClass('hidden')
+      expect(column).not.toHaveClass('hidden')
       await user.click(screen.getByRole('button', { name: 'Character' }))
 
-      expect(screen.getByRole('region', { name: 'Character' })).not.toHaveClass(
-        'hidden',
-      )
-      expect(screen.getByRole('region', { name: 'Combat' })).toHaveClass(
-        'hidden',
-      )
+      expect(sheetPane).not.toHaveClass('hidden')
+      expect(column).toHaveClass('hidden')
     })
 
     it("explains a sheet that hasn't arrived", async () => {

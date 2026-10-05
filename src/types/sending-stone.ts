@@ -27,6 +27,8 @@ export type Envelope = {
 export type ConnectedCharacter = {
   id: string
   name: string
+  /** The portrait's path: relative to the game's address, or a full URL. */
+  img?: string | null
   /** The character's sheet under dnd5e; null under another system, or from modules before 0.5.0. */
   sheet?: CharacterSheet | null
 }

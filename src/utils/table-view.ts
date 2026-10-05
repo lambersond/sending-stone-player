@@ -17,8 +17,15 @@ import type {
   TableTarget,
 } from '@/types/table'
 
-/** Who is looking: their character's actor id, if chosen, and the party's actor ids. */
-export type Viewer = { actorId: string | undefined; party: Set<string> }
+/**
+ * Who is looking: their character's actor id, if chosen, and the party's actor ids, with the
+ * party's portraits by actor id.
+ */
+export type Viewer = {
+  actorId: string | undefined
+  party: Set<string>
+  portraits?: Map<string, string>
+}
 
 function sideOf(
   viewer: Viewer,
@@ -72,6 +79,9 @@ export function toTableMessage(
     sentAt: new Date(message.timestamp).toISOString(),
     speaker: message.speaker.alias?.trim() || message.author?.name || 'Unknown',
     side: sideOf(viewer, message.character),
+    avatar: viewer.portraits?.get(
+      message.character ?? message.speaker.actorId ?? '',
+    ),
     whisper: !message.audience.public,
     kind,
     label: messageLabel(message),
@@ -316,7 +326,14 @@ export function toTableSheet(
 /** Foundry's placeholder for an actor with no portrait of its own. */
 const DEFAULT_PORTRAIT = 'icons/svg/mystery-man.svg'
 
-function portraitUrl(img: string | null, origin: string): string | undefined {
+/**
+ * A portrait's full address: relative to the game's, or already full. Unset for none, Foundry's
+ * default, or anything other than http(s).
+ */
+export function portraitUrl(
+  img: string | null | undefined,
+  origin: string,
+): string | undefined {
   if (!img || img.endsWith(DEFAULT_PORTRAIT)) return undefined
   try {
     const url = new URL(img, `${origin}/`)

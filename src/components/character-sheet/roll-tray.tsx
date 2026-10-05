@@ -15,7 +15,10 @@ export function RollTray({
   let status = (
     <p className='flex items-center gap-2 text-sm text-text-secondary'>
       <Dices aria-hidden className='size-5 shrink-0 text-primary' />
-      Tap an ability or skill to roll it.
+      <span>
+        Tap an ability or skill to roll it. Right-click or long-press it for
+        advantage, disadvantage or extra dice.
+      </span>
     </p>
   )
   if (rolling) {
@@ -37,7 +40,7 @@ export function RollTray({
       aria-label='Your rolls'
       className='shrink-0 border-t border-border bg-card px-4 py-3 md:px-8'
     >
-      <div className='mx-auto flex max-w-3xl flex-col gap-2'>
+      <div className='mx-auto flex max-w-5xl flex-col gap-2'>
         <div role='status' aria-live='polite'>
           {status}
         </div>
@@ -95,6 +98,13 @@ function RollResult({ roll }: Readonly<{ roll: LocalRoll }>) {
         <p className='truncate font-semibold'>{roll.label}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
           <Dice roll={roll} /> {formatModifier(roll.modifier)}
+          {roll.extras.map(({ text, values }, index) => (
+            <span key={index}>
+              {' '}
+              {text}
+              {values.length > 0 && ` (${values.join(', ')})`}
+            </span>
+          ))}
           {extra && ` · ${extra}`}
           {critical && ' · Natural 20'}
           {fumble && ' · Natural 1'}
@@ -125,5 +135,9 @@ function Dice({ roll }: Readonly<{ roll: LocalRoll }>) {
 }
 
 function breakdown(roll: LocalRoll): string {
-  return `${roll.natural} ${formatModifier(roll.modifier)}`
+  return [
+    roll.natural,
+    formatModifier(roll.modifier),
+    ...roll.extras.map(({ value }) => formatModifier(value)),
+  ].join(' ')
 }

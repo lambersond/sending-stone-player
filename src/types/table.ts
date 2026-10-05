@@ -36,6 +36,8 @@ export type TableMessage = {
   id: string
   sentAt: string
   speaker: string
+  /** The speaker's portrait, when they are one of the campaign's characters and have one. */
+  avatar?: string
   side: Side
   whisper: boolean
   /** text: something said; roll: one or more rolls; card: an item or ability used. */
