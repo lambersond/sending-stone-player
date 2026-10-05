@@ -49,7 +49,17 @@ describe('app/api/characters/[id]/table', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual(view)
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
-    expect(getTableView).toHaveBeenCalledWith(character)
+    expect(getTableView).toHaveBeenCalledWith(character, {
+      sheetVersion: undefined,
+    })
+  })
+
+  it('passes on the version of the sheet the viewer has, to leave it out if unchanged', async () => {
+    await get('?version=6&live=1&sheet=2026-10-05T12%3A00%3A00.000Z')
+
+    expect(getTableView).toHaveBeenCalledWith(character, {
+      sheetVersion: '2026-10-05T12:00:00.000Z',
+    })
   })
 
   it('has nothing new for a viewer already up to date', async () => {

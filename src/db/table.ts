@@ -45,8 +45,13 @@ export async function getCampaignStatus(
  * A character's view of its campaign: the chat its player may read, the encounter under way, and
  * its own sheet. The caller must already have checked that the character belongs to the signed-in
  * user.
+ * @param character - The character.
+ * @param known - What the viewer already has: the sheet of this version is left out.
  */
-export async function getTableView(character: Character): Promise<TableView> {
+export async function getTableView(
+  character: Character,
+  known: { sheetVersion?: string } = {},
+): Promise<TableView> {
   const campaign = character.campaignId
     ? await prisma.campaign.findUnique({
         where: { id: character.campaignId },
@@ -101,10 +106,11 @@ export async function getTableView(character: Character): Promise<TableView> {
           where: {
             campaignActor: { campaignId: campaign.id, actorId: viewer.actorId },
           },
-          select: { data: true },
+          select: { data: true, updatedAt: true },
         })
       : undefined,
   ])
+  const sheetVersion = sheet?.updatedAt.toISOString()
 
   const combat = pickCombat(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
@@ -125,9 +131,11 @@ export async function getTableView(character: Character): Promise<TableView> {
       viewer,
     ),
     combat: combat ? toTableCombat(combat, viewer) : undefined,
-    sheet: sheet
-      ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
-      : undefined,
+    sheet:
+      sheet && sheetVersion !== known.sheetVersion
+        ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
+        : undefined,
+    sheetVersion,
     chatReadAt: character.chatReadAt,
   }
 }

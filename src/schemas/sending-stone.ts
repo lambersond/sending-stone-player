@@ -25,6 +25,65 @@ export const envelopeSchema = z.object({
 const nullableNumber = z.number().nullable().catch(null)
 const rollMode = z.union([z.literal(-1), z.literal(0), z.literal(1)]).catch(0)
 
+/** How the module names a description: 14 hexadecimal digits. */
+export const TEXT_HASH = /^[0-9a-f]{14}$/
+
+/** The longest description kept. The module cuts them at 100,000 characters. */
+export const LONGEST_TEXT = 200_000
+
+/** A description's hash, or null; anything else is taken as no description. */
+const textRef = z.string().regex(TEXT_HASH).nullable().catch(null)
+
+/** A list whose malformed entries are dropped, rather than failing the whole list. */
+const listOf = <T extends z.ZodType>(entry: T) =>
+  z
+    .array(z.unknown())
+    .catch([])
+    .transform(entries =>
+      entries.flatMap(value => {
+        const parsed = entry.safeParse(value)
+        return parsed.success ? [parsed.data as z.output<T>] : []
+      }),
+    )
+
+const conditionSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  level: nullableNumber,
+  detail: nullableString,
+  text: textRef,
+})
+
+const featureSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  kind: nullableString,
+  requirements: nullableString,
+  activation: nullableString,
+  passive: z.boolean().catch(false),
+  uses: z
+    .looseObject({
+      value: z.number(),
+      max: z.number(),
+      recovery: nullableString,
+    })
+    .nullable()
+    .catch(null),
+  text: textRef,
+})
+
+const effectSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  source: nullableString,
+  duration: nullableString,
+  disabled: z.boolean().catch(false),
+  text: textRef,
+})
+
 // A sheet that can't be read is dropped rather than failing the event that carries it.
 const sheetSchema = z
   .looseObject({
@@ -33,9 +92,20 @@ const sheetSchema = z
     classes: z
       .array(
         z.looseObject({
+          id: nullableString.optional(),
+          identifier: nullableString.optional(),
           name: z.string(),
           levels: nullableNumber,
           subclass: nullableString,
+          hitDice: z
+            .object({
+              die: z.string(),
+              value: nullableNumber,
+              max: nullableNumber,
+            })
+            .nullable()
+            .optional()
+            .catch(null),
         }),
       )
       .catch([]),
@@ -81,6 +151,23 @@ const sheetSchema = z
         passive: nullableNumber,
         proficiency: z.number().catch(0),
         mode: rollMode,
+      }),
+    ),
+    // Sent from module 0.6.0.
+    conditions: listOf(conditionSchema),
+    features: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string(),
+        text: textRef,
+        features: listOf(featureSchema),
+      }),
+    ),
+    effects: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string(),
+        effects: listOf(effectSchema),
       }),
     ),
   })
@@ -221,6 +308,25 @@ export function parseGameEvent(
       return {
         type,
         data: z.looseObject({ character: characterSchema }).parse(data),
+      }
+    }
+    case EVENTS.CHARACTER_TEXTS: {
+      const { texts } = z
+        .looseObject({ texts: z.record(z.string(), z.unknown()) })
+        .parse(data)
+      // A malformed description is dropped. If a sheet needs it, the app asks for it again.
+      return {
+        type,
+        data: {
+          texts: Object.fromEntries(
+            Object.entries(texts).filter(
+              (entry): entry is [string, string] =>
+                TEXT_HASH.test(entry[0]) &&
+                typeof entry[1] === 'string' &&
+                entry[1].length <= LONGEST_TEXT,
+            ),
+          ),
+        },
       }
     }
     case EVENTS.CHAT_CREATED:

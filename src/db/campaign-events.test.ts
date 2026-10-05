@@ -6,7 +6,9 @@ import {
   chatMessage,
   combat,
   combatant,
+  fullerSheet,
   roster,
+  TEXTS,
 } from '@/mocks/sending-stone'
 import type { GameEvent } from '@/types/sending-stone'
 
@@ -86,6 +88,123 @@ describe('db/campaign-events', () => {
     })
     expect(prismaMock.actorSheet.createMany).toHaveBeenCalledWith({
       data: [{ campaignId: 'c1', actorId: 'actor-thorin', data: sheet }],
+    })
+  })
+
+  describe('descriptions', () => {
+    const refs = [
+      TEXTS.fighter,
+      TEXTS.secondWind,
+      TEXTS.actionSurge,
+      TEXTS.bless,
+      TEXTS.poisoned,
+    ]
+
+    it('character.texts keeps them sanitised, pointing at the game, without bumping the version', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        origin: 'https://my-game.forge-vtt.com',
+      } as any)
+      const html =
+        '<p>Regain hit points.</p><img src="https://my-game.forge-vtt.com/worlds/erebor/wind.webp" />'
+
+      const result = await apply({
+        type: 'character.texts',
+        data: {
+          texts: {
+            [TEXTS.secondWind]:
+              '<p onclick="steal()">Regain hit points.</p><img src="worlds/erebor/wind.webp"><script>steal()</script>',
+          },
+        },
+      })
+
+      expect(prismaMock.sheetText.upsert).toHaveBeenCalledWith({
+        where: { campaignHash: { campaignId: 'c1', hash: TEXTS.secondWind } },
+        create: { campaignId: 'c1', hash: TEXTS.secondWind, html },
+        update: { html },
+      })
+      expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+        where: { id: 'c1' },
+        data: {
+          title: 'The Lonely Mountain',
+          worldId: 'erebor',
+          worldTitle: 'Return to Erebor',
+          lastEventAt: expect.any(Date),
+          lastSeenAt: expect.any(Date),
+        },
+      })
+      expect(result).toEqual({ lacksTexts: false })
+    })
+
+    it('character.texts for a campaign since deleted keeps nothing', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(null)
+
+      await apply({
+        type: 'character.texts',
+        data: { texts: { [TEXTS.bless]: '<p>Bless</p>' } },
+      })
+
+      expect(prismaMock.sheetText.upsert).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      [5, false],
+      [4, true],
+    ])(
+      'bridge.hello drops those no sheet refers to, and with %i of 5 held, lacks some: %s',
+      async (held, lacksTexts) => {
+        prismaMock.sheetText.count.mockResolvedValue(held)
+
+        const result = await apply({
+          type: 'bridge.hello',
+          data: {
+            characters: [{ ...roster[0], sheet: fullerSheet() }, roster[1]],
+            combats: [],
+          },
+        })
+
+        expect(prismaMock.sheetText.deleteMany).toHaveBeenCalledWith({
+          where: { campaignId: 'c1', hash: { notIn: refs } },
+        })
+        expect(prismaMock.sheetText.count).toHaveBeenCalledWith({
+          where: { campaignId: 'c1', hash: { in: refs } },
+        })
+        expect(result).toEqual({ lacksTexts })
+      },
+    )
+
+    it('character.updated says whether its sheet refers to one not held', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        characters: roster,
+      } as any)
+      prismaMock.sheetText.count.mockResolvedValue(4)
+
+      const result = await apply({
+        type: 'character.updated',
+        data: { character: { ...roster[0], sheet: fullerSheet() } },
+      })
+
+      expect(result).toEqual({ lacksTexts: true })
+    })
+
+    it('a sheet that refers to none, or no sheet, lacks none', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        characters: roster,
+      } as any)
+
+      const plain = await apply({
+        type: 'character.updated',
+        data: { character: { ...roster[0], sheet: characterSheet() } },
+      })
+      const none = await apply({
+        type: 'character.updated',
+        data: { character: { ...roster[0], sheet: null } },
+      })
+
+      expect([plain, none]).toEqual([
+        { lacksTexts: false },
+        { lacksTexts: false },
+      ])
+      expect(prismaMock.sheetText.count).not.toHaveBeenCalled()
     })
   })
 

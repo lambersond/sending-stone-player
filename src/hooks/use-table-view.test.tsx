@@ -75,6 +75,56 @@ describe('hooks/use-table-view', () => {
     expect(result.current.view).toBe(newer)
   })
 
+  it('keeps the sheet it has when the server leaves out an unchanged one', async () => {
+    const sheet = { ac: 18 } as TableView['sheet']
+    const start = {
+      ...initial,
+      sheet,
+      sheetVersion: '2026-10-05T12:00:00.000Z',
+    }
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        respond(200, { ...newer, sheetVersion: start.sheetVersion }),
+      )
+    const { result } = renderHook(() => useTableView('char-1', start))
+
+    await advance(POLL_INTERVAL)
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&sheet=2026-10-05T12%3A00%3A00.000Z',
+      expect.anything(),
+    )
+    expect(result.current.view).toEqual({
+      ...newer,
+      sheet,
+      sheetVersion: start.sheetVersion,
+    })
+
+    // A changed sheet replaces it; no sheet at all clears it.
+    const changed = { ac: 20 } as TableView['sheet']
+    jest.mocked(fetch).mockResolvedValueOnce(
+      respond(200, {
+        ...newer,
+        version: 5,
+        sheet: changed,
+        sheetVersion: 'v2',
+      }),
+    )
+    await advance(POLL_INTERVAL)
+    expect(result.current.view.sheet).toBe(changed)
+
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(200, { ...newer, version: 6 }))
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=5&live=0&sheet=v2',
+      expect.anything(),
+    )
+    expect(result.current.view.sheet).toBeUndefined()
+  })
+
   it('backs off while the server is unreachable, then recovers', async () => {
     jest
       .mocked(fetch)

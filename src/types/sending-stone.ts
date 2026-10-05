@@ -63,11 +63,87 @@ export type SheetSkill = {
 }
 
 /** A character's sheet as the module sends it. Every modifier is the one dnd5e shows. */
+export type SheetClass = {
+  id?: string | null
+  /** dnd5e's, such as "fighter": the id of the class's section of features. */
+  identifier?: string | null
+  name: string
+  levels: number | null
+  subclass: string | null
+  /** The size of its hit dice, and how many are left of how many. */
+  hitDice?: { die: string; value: number | null; max: number | null } | null
+}
+
+/** A status the game names, such as Poisoned or Concentrating. */
+export type SheetCondition = {
+  id: string
+  name: string
+  /** Relative to the game's address, or a full URL. */
+  img: string | null
+  /** Exhaustion's level. */
+  level: number | null
+  /** What the character is concentrating on. */
+  detail: string | null
+  /** Its rules: a description's hash. */
+  text: string | null
+}
+
+export type SheetUses = {
+  /** Uses left. */
+  value: number
+  max: number
+  /** When they come back, such as "Short Rest, Long Rest". */
+  recovery: string | null
+}
+
+export type SheetFeature = {
+  id: string
+  name: string
+  img: string | null
+  /** Such as "Class Feature". */
+  kind: string | null
+  /** Such as "Fighter 1". */
+  requirements: string | null
+  /** Such as "1 Bonus Action". */
+  activation: string | null
+  passive: boolean
+  uses: SheetUses | null
+  text: string | null
+}
+
+/** Features from one class, the species, the background, or anything else. */
+export type SheetFeatureSection = {
+  id: string
+  label: string
+  /** The class's, species' or background's own description. */
+  text: string | null
+  features: SheetFeature[]
+}
+
+export type SheetEffect = {
+  id: string
+  name: string
+  img: string | null
+  /** What it comes from, such as an item or another character's spell. */
+  source: string | null
+  /** The time it has left, such as "9 Rounds". */
+  duration: string | null
+  disabled: boolean
+  text: string | null
+}
+
+/** dnd5e's categories: temporary, passive, inactive and suppressed (unavailable). */
+export type SheetEffectSection = {
+  id: string
+  label: string
+  effects: SheetEffect[]
+}
+
 export type CharacterSheet = {
   /** Relative to the game's address, or a full URL. */
   img: string | null
   level: number | null
-  classes: { name: string; levels: number | null; subclass: string | null }[]
+  classes: SheetClass[]
   species: string | null
   background: string | null
   hp?: { value: number; max: number | null; temp: number } | null
@@ -78,6 +154,9 @@ export type CharacterSheet = {
   inspiration: boolean
   abilities: SheetAbility[]
   skills: SheetSkill[]
+  conditions: SheetCondition[]
+  features: SheetFeatureSection[]
+  effects: SheetEffectSection[]
 }
 
 export type RollSummary = {
@@ -156,6 +235,7 @@ export type GameEvent =
       data: { characters: ConnectedCharacter[]; combats: CombatSnapshot[] }
     }
   | { type: 'character.updated'; data: { character: ConnectedCharacter } }
+  | { type: 'character.texts'; data: { texts: Record<string, string> } }
   | {
       type: 'chat.message.created' | 'chat.message.updated'
       data: { message: SerializedMessage }

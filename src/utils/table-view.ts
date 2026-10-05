@@ -320,6 +320,25 @@ export function toTableSheet(
       ...skill,
       label: skill.label || SKILLS[skill.id] || skill.id,
     })),
+    // Sheets from before module 0.6.0 have none of these.
+    conditions: (sheet.conditions ?? []).map(condition => ({
+      ...condition,
+      img: iconUrl(condition.img, origin),
+    })),
+    features: (sheet.features ?? []).map(section => ({
+      ...section,
+      features: section.features.map(feature => ({
+        ...feature,
+        img: iconUrl(feature.img, origin),
+      })),
+    })),
+    effects: (sheet.effects ?? []).map(section => ({
+      ...section,
+      effects: section.effects.map(effect => ({
+        ...effect,
+        img: iconUrl(effect.img, origin),
+      })),
+    })),
   }
 }
 
@@ -335,6 +354,24 @@ export function portraitUrl(
   origin: string,
 ): string | undefined {
   if (!img || img.endsWith(DEFAULT_PORTRAIT)) return undefined
+  return gameAssetUrl(img, origin)
+}
+
+/** Where an icon loads from, or null, as the sheet has it, for none. */
+function iconUrl(img: string | null, origin: string): string | null {
+  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for no icon
+  return gameAssetUrl(img, origin) ?? null
+}
+
+/**
+ * Where an image from the game loads from, such as an icon: Foundry keeps its own files, such as
+ * icons/svg/item-bag.svg, relative to the game's address. Only web addresses are kept.
+ */
+export function gameAssetUrl(
+  img: string | null | undefined,
+  origin: string,
+): string | undefined {
+  if (!img) return undefined
   try {
     const url = new URL(img, `${origin}/`)
     return ['http:', 'https:'].includes(url.protocol) ? url.href : undefined

@@ -1,6 +1,12 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { envelopeSchema, parseGameEvent } from './sending-stone'
-import { characterSheet, combat, roster } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  combat,
+  fullerSheet,
+  roster,
+  TEXTS,
+} from '@/mocks/sending-stone'
 
 /** A chat message with these dnd5e details, as read. */
 const messageWith = (dnd5e: object) =>
@@ -106,6 +112,83 @@ describe('schemas/sending-stone', () => {
       classes: [],
       abilities: [{ id: 'str', label: '', checkMode: 0, save: 7 }],
     })
+  })
+
+  it('reads features, conditions and effects, as sent from module 0.6.0', () => {
+    const character = { ...roster[0], sheet: fullerSheet() }
+
+    expect(parseGameEvent('character.updated', { character })).toEqual({
+      type: 'character.updated',
+      data: { character },
+    })
+  })
+
+  it('drops a malformed feature, condition or effect, rather than the sheet', () => {
+    const sheet = fullerSheet()
+    const [section] = sheet.features
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          conditions: [{ id: 'poisoned' }, ...sheet.conditions],
+          features: [
+            {
+              ...section,
+              text: 'not a hash',
+              features: [
+                { ...section.features[0], uses: { value: 'one' } },
+                { name: 'No id' },
+              ],
+            },
+          ],
+          effects: 'none',
+        },
+      },
+    }) as any
+
+    expect(event.data.character.sheet).toMatchObject({
+      conditions: sheet.conditions,
+      features: [
+        {
+          id: 'fighter',
+          text: null,
+          features: [{ id: 'second-wind', uses: null, text: TEXTS.secondWind }],
+        },
+      ],
+      effects: [],
+    })
+  })
+
+  it('reads a sheet from before module 0.6.0 as having no features, conditions or effects', () => {
+    const { conditions, features, effects, ...older } = characterSheet()
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: older },
+    }) as any
+
+    expect([conditions, features, effects]).toEqual([[], [], []])
+    expect(event.data.character.sheet).toMatchObject({
+      conditions: [],
+      features: [],
+      effects: [],
+    })
+  })
+
+  it('reads character.texts, dropping any description that is malformed', () => {
+    expect(
+      parseGameEvent('character.texts', {
+        texts: {
+          [TEXTS.bless]: '<p>Bless</p>',
+          'not-a-hash': '<p>Odd</p>',
+          [TEXTS.fighter]: 5,
+          [TEXTS.poisoned]: 'x'.repeat(200_001),
+        },
+      }),
+    ).toEqual({
+      type: 'character.texts',
+      data: { texts: { [TEXTS.bless]: '<p>Bless</p>' } },
+    })
+    expect(() => parseGameEvent('character.texts', {})).toThrow()
   })
 
   it("drops a sheet it can't read, keeping the character", () => {

@@ -10,11 +10,12 @@ import {
 } from './table-view'
 import {
   characterSheet,
+  fullerSheet,
   chatMessage,
   combat,
   combatant,
 } from '@/mocks/sending-stone'
-import type { SerializedMessage } from '@/types/sending-stone'
+import type { CharacterSheet, SerializedMessage } from '@/types/sending-stone'
 
 const viewer: Viewer = {
   actorId: 'actor-thorin',
@@ -477,6 +478,38 @@ describe('utils/table-view', () => {
       expect(toTableSheet(characterSheet({ img }), origin).portrait).toBe(
         portrait,
       )
+    })
+
+    it('finds the icons of conditions, features and effects at the game', () => {
+      const view = toTableSheet(fullerSheet(), origin)
+
+      expect(view.conditions.map(({ img }) => img)).toEqual([
+        `${origin}/systems/dnd5e/icons/svg/statuses/concentrating.svg`,
+        `${origin}/systems/dnd5e/icons/svg/statuses/exhaustion.svg`,
+        `${origin}/systems/dnd5e/icons/svg/statuses/poisoned.svg`,
+      ])
+      expect(
+        view.features.flatMap(({ features }) => features.map(({ img }) => img)),
+      ).toEqual([
+        `${origin}/icons/magic/life/heart-cross-green.webp`,
+        null,
+        'https://assets.forge-vtt.com/darkvision.webp',
+      ])
+      expect(view.effects[0].effects[0].img).toBe(
+        `${origin}/icons/magic/control/buff-flight-wings-blue.webp`,
+      )
+    })
+
+    it('reads a sheet from before module 0.6.0 as having no features, conditions or effects', () => {
+      const { conditions, features, effects, ...older } = characterSheet()
+      const view = toTableSheet(older as CharacterSheet, origin)
+
+      expect([conditions, features, effects]).toEqual([[], [], []])
+      expect([view.conditions, view.features, view.effects]).toEqual([
+        [],
+        [],
+        [],
+      ])
     })
 
     it("names abilities and skills in dnd5e's English when the module left them blank", () => {

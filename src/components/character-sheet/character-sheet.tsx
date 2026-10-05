@@ -2,10 +2,19 @@
 
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { Footprints, Shield, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import {
+  CircleAlert,
+  Footprints,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from 'lucide-react'
+import { conditionDetail } from './effects-tab'
 import { ModifyRoll } from './modify-roll'
 import { RollButton, type RollTarget } from './roll-button'
 import { RollMenu, type MenuPoint, type RollChoice } from './roll-menu'
+import { SheetHeading } from './sheet-heading'
 import { Modal } from '@/components/modal'
 import { formatModifier } from '@/utils/format-modifier'
 import { toAdvantage } from '@/utils/roll-mode'
@@ -17,6 +26,8 @@ type Props = {
   name: string
   sheet: TableSheet
   onRoll: (roll: SheetRoll) => void
+  /** Shows the character's conditions in full, with their rules. */
+  onShowConditions?: () => void
 }
 
 /**
@@ -24,7 +35,12 @@ type Props = {
  * Each rolls when tapped, and a right-click or long-press offers advantage, disadvantage, or a
  * roll with extra dice or modifiers. Laid out after Tidy 5e's character sheet.
  */
-export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
+export function CharacterSheet({
+  name,
+  sheet,
+  onRoll,
+  onShowConditions,
+}: Readonly<Props>) {
   const [menu, setMenu] = useState<{
     anchor: HTMLElement
     target: RollTarget
@@ -63,13 +79,17 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
 
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
-      <SheetHeader name={name} sheet={sheet} />
+      <SheetHeader
+        name={name}
+        sheet={sheet}
+        onShowConditions={onShowConditions}
+      />
 
       <section
         aria-labelledby='abilities-heading'
         className='flex flex-col gap-3'
       >
-        <Heading id='abilities-heading'>Abilities</Heading>
+        <SheetHeading id='abilities-heading'>Abilities</SheetHeading>
         <ul className='grid grid-cols-3 gap-2 @xl:grid-cols-6'>
           {sheet.abilities.map(ability => (
             <AbilityTile key={ability.id} ability={ability} {...actions} />
@@ -83,7 +103,7 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
           className='flex flex-col gap-2'
         >
           <div className='flex items-baseline justify-between gap-2 px-1'>
-            <Heading id='skills-heading'>Skills</Heading>
+            <SheetHeading id='skills-heading'>Skills</SheetHeading>
             <span aria-hidden className='text-xs text-text-secondary'>
               Modifier · Passive
             </span>
@@ -136,7 +156,12 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
 function SheetHeader({
   name,
   sheet,
-}: Readonly<{ name: string; sheet: TableSheet }>) {
+  onShowConditions,
+}: Readonly<{
+  name: string
+  sheet: TableSheet
+  onShowConditions?: () => void
+}>) {
   const identity = [sheet.species, sheet.background].filter(Boolean)
   return (
     <header className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'>
@@ -157,6 +182,27 @@ function SheetHeader({
           )}
         </div>
       </div>
+      {sheet.conditions.length > 0 && (
+        <ul aria-label='Conditions' className='flex flex-wrap gap-1.5'>
+          {sheet.conditions.map(condition => (
+            <li key={condition.id}>
+              <button
+                type='button'
+                onClick={onShowConditions}
+                className='inline-flex items-center gap-1.5 rounded-full border border-border bg-page py-1 pr-2.5 pl-1 text-xs font-semibold transition-colors hover:border-primary hover:bg-primary/5'
+              >
+                <StatusIcon src={condition.img} />
+                {condition.name}
+                {conditionDetail(condition) && (
+                  <span className='font-normal text-text-secondary'>
+                    {conditionDetail(condition)}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <dl className='grid grid-cols-2 gap-2 @lg:grid-cols-6'>
         {sheet.hp && (
           <Stat label='Hit points' wide>
@@ -199,6 +245,34 @@ function SheetHeader({
         )}
       </dl>
     </header>
+  )
+}
+
+/**
+ * A condition's icon. The game's status icons are white, made for its dark token controls, so they
+ * sit on a dark disc.
+ */
+function StatusIcon({ src }: Readonly<{ src: string | null }>) {
+  const [failed, setFailed] = useState<string>()
+  if (!src || failed === src) {
+    return (
+      <span
+        aria-hidden
+        className='flex size-5 items-center justify-center rounded-full bg-ruby/15 text-ruby'
+      >
+        <CircleAlert className='size-3.5' />
+      </span>
+    )
+  }
+  return (
+    // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=''
+      className='size-5 rounded-full bg-[#23232f] p-0.5'
+      onError={() => setFailed(src)}
+    />
   )
 }
 
@@ -458,17 +532,6 @@ function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
 }
 
 /* -------------------------------------------- */
-
-function Heading({ id, children }: Readonly<{ id: string; children: string }>) {
-  return (
-    <h2
-      id={id}
-      className='text-xs font-semibold tracking-wider text-text-secondary uppercase'
-    >
-      {children}
-    </h2>
-  )
-}
 
 /* -------------------------------------------- */
 

@@ -26,6 +26,7 @@ export const EVENTS = {
   PING: 'bridge.ping',
   HEARTBEAT: 'bridge.heartbeat',
   CHARACTER_UPDATED: 'character.updated',
+  CHARACTER_TEXTS: 'character.texts',
   CHAT_CREATED: 'chat.message.created',
   CHAT_UPDATED: 'chat.message.updated',
   CHAT_DELETED: 'chat.message.deleted',
