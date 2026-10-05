@@ -106,3 +106,15 @@ if (typeof HTMLDialogElement !== 'undefined') {
   HTMLDialogElement.prototype.showModal = Dialog.prototype.showModal
   HTMLDialogElement.prototype.close = Dialog.prototype.close
 }
+
+// jsdom has no media queries either. Every query is unmatched, as in a narrow window; a test of a
+// wide one spies on matchMedia.
+if (globalThis.window !== undefined) {
+  globalThis.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }) as unknown as MediaQueryList
+}

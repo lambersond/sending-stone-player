@@ -1,6 +1,12 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import clsx from 'clsx'
 import {
   ArrowLeft,
@@ -17,6 +23,7 @@ import { LiveStatus, type LiveState } from './live-status'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { ConfirmDialog } from '@/components/modal'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTableView } from '@/hooks/use-table-view'
 import { gameHost } from '@/utils/game-host'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
@@ -24,6 +31,9 @@ import type { Character } from '@/types/character'
 import type { TableCombat, TableView } from '@/types/table'
 
 type Tab = 'combat' | 'chat'
+
+/** From Tailwind's lg width, combat and chat sit side by side rather than in tabs. */
+const SIDE_BY_SIDE = '(min-width: 64rem)'
 
 type Props = {
   character: Character
@@ -39,7 +49,10 @@ type Props = {
   deleteCharacter: () => Promise<void>
 }
 
-/** A character's live view of its campaign: the combat tracker and the chat log. */
+/**
+ * A character's live view of its campaign: the combat tracker and the chat log, in tabs on a phone
+ * or tablet and side by side on a wider screen.
+ */
 export function GameTable({
   character,
   initialView,
@@ -51,50 +64,80 @@ export function GameTable({
   const [tab, setTab] = useState<Tab>(() =>
     initialView.combat?.started ? 'combat' : 'chat',
   )
+  // A wide screen shows the chat beside combat, so it is always in view there.
+  const sideBySide = useMediaQuery(SIDE_BY_SIDE)
+  const chatInView = sideBySide || tab === 'chat'
 
-  // Messages newer than the newest one seen on the chat tab are unread.
+  // Messages newer than the newest one seen in the chat are unread.
   const newest = view.messages.at(-1)?.sentAt ?? ''
   const [seenUpTo, setSeenUpTo] = useState(newest)
-  if (tab === 'chat' && seenUpTo !== newest) setSeenUpTo(newest)
-  const unread =
-    tab === 'chat'
-      ? 0
-      : view.messages.filter(({ sentAt }) => sentAt > seenUpTo).length
+  if (chatInView && seenUpTo !== newest) setSeenUpTo(newest)
+  const unread = chatInView
+    ? 0
+    : view.messages.filter(({ sentAt }) => sentAt > seenUpTo).length
 
   const myTurn = isMyTurn(view.combat)
 
   // Keep the chat pinned to the newest message unless the player has scrolled up to read.
-  const scroller = useRef<HTMLDivElement>(null)
+  const chatScroller = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
   useLayoutEffect(() => {
-    const element = scroller.current
-    if (element && tab === 'chat' && pinned.current) {
+    const element = chatScroller.current
+    if (element && chatInView && pinned.current) {
       element.scrollTop = element.scrollHeight
     }
-  }, [tab, view.messages])
-  const onScroll = () => {
-    const element = scroller.current
-    if (element && tab === 'chat') {
+  }, [chatInView, view.messages])
+  const onChatScroll = () => {
+    const element = chatScroller.current
+    if (element && chatInView) {
       pinned.current =
         element.scrollHeight - element.scrollTop - element.clientHeight < 80
     }
   }
   const show = (next: Tab) => {
-    pinned.current = true
-    if (scroller.current) scroller.current.scrollTop = 0
+    // Back on the chat, start from the newest message.
+    if (next === 'chat') pinned.current = true
     setTab(next)
   }
 
   const playing = view.campaign !== undefined && character.actorId !== null
-  let content: ReactNode
+  let table: ReactNode
   if (!view.campaign || (!character.actorId && !choice)) {
-    content = <NoCampaign name={character.name} />
+    table = (
+      <Scroller>
+        <NoCampaign name={character.name} />
+      </Scroller>
+    )
   } else if (!character.actorId && choice) {
-    content = <ChooseActor choice={choice} action={chooseActor} />
-  } else if (tab === 'combat') {
-    content = <CombatTracker combat={view.combat} />
+    table = (
+      <Scroller>
+        <ChooseActor choice={choice} action={chooseActor} />
+      </Scroller>
+    )
   } else {
-    content = <ChatLog messages={view.messages} />
+    // One pane at a time in tabs; side by side on a wide screen.
+    table = (
+      <div className='flex min-h-0 flex-1 lg:divide-x lg:divide-border'>
+        <Pane
+          icon={Swords}
+          title='Combat'
+          summary={combatSummary(view.combat)}
+          shown={tab === 'combat'}
+        >
+          <CombatTracker combat={view.combat} />
+        </Pane>
+        <Pane
+          icon={MessageSquare}
+          title='Chat'
+          summary={messageCount(view.messages.length)}
+          shown={tab === 'chat'}
+          scroller={chatScroller}
+          onScroll={onChatScroll}
+        >
+          <ChatLog messages={view.messages} />
+        </Pane>
+      </div>
+    )
   }
 
   return (
@@ -113,9 +156,19 @@ export function GameTable({
               <h1 className='truncate text-lg leading-tight font-semibold'>
                 {character.name}
               </h1>
-              <p className='truncate text-sm text-text-secondary'>
+              <p
+                className={clsx(
+                  'truncate text-sm text-text-secondary',
+                  playing && 'lg:hidden',
+                )}
+              >
                 {subtitle(tab, view, character)}
               </p>
+              {playing && (
+                <p className='hidden truncate text-sm text-text-secondary lg:block'>
+                  {campaignAndGame(view, character)}
+                </p>
+              )}
             </div>
           </div>
           <div className='flex shrink-0 items-center gap-1'>
@@ -133,23 +186,14 @@ export function GameTable({
             </ConfirmDialog>
           </div>
         </header>
-        <div
-          ref={scroller}
-          onScroll={onScroll}
-          className='min-h-0 flex-1 overflow-y-auto'
-        >
-          {playing && view.campaign && !view.connected && (
-            <NotConnected
-              name={character.name}
-              campaign={view.campaign.title}
-            />
-          )}
-          {content}
-        </div>
+        {playing && view.campaign && !view.connected && (
+          <NotConnected name={character.name} campaign={view.campaign.title} />
+        )}
+        {table}
       </div>
       <nav
         aria-label='Table'
-        className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5'
+        className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'
       >
         <TabButton
           icon={Swords}
@@ -178,6 +222,75 @@ export function GameTable({
         </TabButton>
       </nav>
     </div>
+  )
+}
+
+/**
+ * A scrolling area of the table. It is positioned so that what is placed absolutely inside it,
+ * such as text only for screen readers, scrolls with it rather than stretching the page.
+ */
+function Scroller({
+  ref,
+  onScroll,
+  children,
+}: Readonly<{
+  ref?: RefObject<HTMLDivElement | null>
+  onScroll?: () => void
+  children: ReactNode
+}>) {
+  return (
+    <div
+      ref={ref}
+      onScroll={onScroll}
+      className='@container relative min-h-0 flex-1 overflow-y-auto'
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Combat or chat: shown as a tab on a narrower screen, and as a column, headed with what is
+ * happening in it, on a wide one.
+ */
+function Pane({
+  icon: Icon,
+  title,
+  summary,
+  shown,
+  scroller,
+  onScroll,
+  children,
+}: Readonly<{
+  icon: LucideIcon
+  title: string
+  summary: string
+  /** Whether it is the tab shown on a narrower screen. */
+  shown: boolean
+  scroller?: RefObject<HTMLDivElement | null>
+  onScroll?: () => void
+  children: ReactNode
+}>) {
+  const heading = `${title.toLowerCase()}-pane`
+  return (
+    <section
+      aria-labelledby={heading}
+      className={clsx(
+        'min-h-0 min-w-0 flex-1 flex-col',
+        shown ? 'flex' : 'hidden lg:flex',
+      )}
+    >
+      <div className='hidden shrink-0 items-center gap-2 border-b border-border px-8 py-2.5 lg:flex'>
+        <Icon aria-hidden className='size-4 shrink-0 text-primary' />
+        <h2 id={heading} className='text-sm font-semibold'>
+          {title}
+        </h2>
+        <span className='truncate text-sm text-text-secondary'>{summary}</span>
+      </div>
+      <Scroller ref={scroller} onScroll={onScroll}>
+        {children}
+      </Scroller>
+    </section>
   )
 }
 
@@ -218,7 +331,7 @@ function NotConnected({
   campaign,
 }: Readonly<{ name: string; campaign: string }>) {
   return (
-    <p className='mx-4 mt-4 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm md:mx-auto md:mt-6 md:max-w-3xl'>
+    <p className='shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-sm md:px-8'>
       {name} is no longer one of {campaign}&apos;s characters, so only public
       messages show here. Ask your Gamemaster to add them back to the campaign
       in Sending Stone.
@@ -287,18 +400,27 @@ function isMyTurn(combat?: TableCombat): boolean {
   )
 }
 
+/** The header's line under the character's name: what is happening in the tab shown. */
 function subtitle(tab: Tab, view: TableView, character: Character): string {
-  const host = gameHost(character.gameUrl)
-  if (!view.campaign) {
-    return character.campaignTitle
-      ? `${character.campaignTitle} · ${host}`
-      : host
-  }
+  if (!view.campaign) return campaignAndGame(view, character)
   if (tab === 'chat') {
-    const count = view.messages.length
-    return `${view.campaign.title} · ${count} ${count === 1 ? 'message' : 'messages'}`
+    return `${view.campaign.title} · ${messageCount(view.messages.length)}`
   }
-  const combat = view.combat
+  return combatSummary(view.combat)
+}
+
+/** The campaign, as its Gamemaster now titles it, and the game it is played in. */
+function campaignAndGame(view: TableView, character: Character): string {
+  const host = gameHost(character.gameUrl)
+  const title = view.campaign?.title ?? character.campaignTitle
+  return title ? `${title} · ${host}` : host
+}
+
+function messageCount(count: number): string {
+  return `${count} ${count === 1 ? 'message' : 'messages'}`
+}
+
+function combatSummary(combat?: TableCombat): string {
   if (!combat) return 'No combat'
   if (!combat.started) return 'Getting ready'
   const current = combat.combatants.find(({ id }) => id === combat.currentId)

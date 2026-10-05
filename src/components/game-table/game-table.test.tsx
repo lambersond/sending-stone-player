@@ -100,6 +100,22 @@ const renderTable = (
 
 const subtitle = () => screen.getByRole('heading', { level: 1 }).nextSibling
 
+/** The chat's scrolling area, 1000 pixels of messages in a 400-pixel window. */
+const chatScroller = () => {
+  const scroller = screen
+    .getByRole('region', { name: 'Chat' })
+    .querySelector('.overflow-y-auto') as HTMLElement
+  Object.defineProperty(scroller, 'scrollHeight', {
+    value: 1000,
+    configurable: true,
+  })
+  Object.defineProperty(scroller, 'clientHeight', {
+    value: 400,
+    configurable: true,
+  })
+  return scroller
+}
+
 describe('components/game-table/game-table', () => {
   it('opens on combat while an encounter is under way', () => {
     renderTable()
@@ -284,16 +300,8 @@ describe('components/game-table/game-table', () => {
 
   it('keeps the chat at the newest message unless the player scrolls up', async () => {
     const user = userEvent.setup()
-    const { container, rerender } = renderTable(view({ combat: undefined }))
-    const scroller = container.querySelector('.overflow-y-auto') as HTMLElement
-    Object.defineProperty(scroller, 'scrollHeight', {
-      value: 1000,
-      configurable: true,
-    })
-    Object.defineProperty(scroller, 'clientHeight', {
-      value: 400,
-      configurable: true,
-    })
+    const { rerender } = renderTable(view({ combat: undefined }))
+    const scroller = chatScroller()
 
     const arrive = (id: string) => {
       showing({
@@ -316,6 +324,68 @@ describe('components/game-table/game-table', () => {
     expect(scroller.scrollTop).toBe(100)
 
     await user.click(screen.getByRole('button', { name: 'Combat' }))
-    expect(scroller.scrollTop).toBe(0)
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
+    expect(scroller.scrollTop).toBe(1000)
+  })
+
+  it('puts combat and chat in panes of their own', () => {
+    renderTable()
+
+    expect(screen.getByRole('region', { name: 'Combat' })).toContainElement(
+      screen.getByRole('heading', { name: 'Goblin Boss is acting' }),
+    )
+    expect(screen.getByRole('region', { name: 'Chat' })).toContainElement(
+      screen.getByText('message m1'),
+    )
+  })
+
+  describe('on a wide screen', () => {
+    beforeEach(() => {
+      jest.spyOn(globalThis, 'matchMedia').mockImplementation(
+        query =>
+          ({
+            matches: query === '(min-width: 64rem)',
+            addEventListener: () => {},
+            removeEventListener: () => {},
+          }) as unknown as MediaQueryList,
+      )
+    })
+    afterEach(() => jest.restoreAllMocks())
+
+    it('keeps the chat beside combat, so nothing in it is unread', () => {
+      const { rerender } = renderTable()
+      const scroller = chatScroller()
+
+      showing({
+        view: view({
+          messages: [
+            message('m1', '2026-10-04T19:00:00.000Z'),
+            message('m2', '2026-10-04T19:01:00.000Z'),
+          ],
+        }),
+      })
+      rerender(table(view()))
+
+      expect(screen.getByRole('button', { name: 'Combat' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+      expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
+      expect(scroller.scrollTop).toBe(1000)
+    })
+
+    it('heads each pane with what is happening in it', () => {
+      renderTable()
+
+      expect(subtitle()?.nextSibling).toHaveTextContent(
+        'The Lonely Mountain · my-game.forge-vtt.com',
+      )
+      expect(screen.getByRole('region', { name: 'Combat' })).toHaveTextContent(
+        'CombatRound 3 · Goblin Boss’s turn',
+      )
+      expect(screen.getByRole('region', { name: 'Chat' })).toHaveTextContent(
+        /^Chat1 message/,
+      )
+    })
   })
 })
