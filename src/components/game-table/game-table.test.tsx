@@ -489,7 +489,9 @@ describe('components/game-table/game-table', () => {
       )
       const sheetPane = screen.getByRole('region', { name: 'Character' })
       expect(sheetPane).toHaveClass('lg:flex')
-      expect(sheetPane).toHaveTextContent(/^CharacterFighter 5 · Champion/)
+      expect(sheetPane).toHaveTextContent(
+        /^CharacterFeaturesEffectsFighter 5 · Champion/,
+      )
       const column = screen.getByRole('region', { name: 'Combat' })
         .parentElement as HTMLElement
       expect(column).toHaveClass('lg:w-[clamp(320px,40%,500px)]')

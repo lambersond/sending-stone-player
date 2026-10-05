@@ -163,15 +163,12 @@ export function GameTable({
             hasSheet ? 'lg:flex' : 'lg:hidden',
           )}
         >
-          <div className='hidden h-11 shrink-0 items-center gap-2 border-b border-border px-8 lg:flex'>
-            <UserRound aria-hidden className='size-4 shrink-0 text-primary' />
-            <span className='text-sm font-semibold'>Character</span>
-            <span className='truncate text-sm text-text-secondary'>
-              {sheetSummary(view)}
-            </span>
-          </div>
           {view.sheet ? (
-            <CharacterPane name={character.name} sheet={view.sheet} />
+            <CharacterPane
+              characterId={character.id}
+              name={character.name}
+              sheet={view.sheet}
+            />
           ) : (
             <Scroller>
               <NoSheet name={character.name} />

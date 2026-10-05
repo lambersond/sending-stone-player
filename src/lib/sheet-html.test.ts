@@ -62,6 +62,7 @@ describe('lib/sheet-html', () => {
       '<span>Hi</span>',
     ],
     ['a data: image', '<img src="data:image/png;base64,AAAA">', ''],
+    ['an image address that is not one', '<img src="https://[bad">', ''],
     ['an iframe', '<iframe src="https://example.com"></iframe>', ''],
     [
       'a class this app does not use',
