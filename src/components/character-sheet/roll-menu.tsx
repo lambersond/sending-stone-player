@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import {
   autoUpdate,
   flip,
@@ -13,6 +13,8 @@ import {
   useInteractions,
   useListNavigation,
   useRole,
+  type Placement,
+  type VirtualElement,
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import {
@@ -25,6 +27,14 @@ import {
 /** What the player chose: a roll with advantage or disadvantage, or to modify the roll first. */
 export type RollChoice = 'adv' | 'dis' | 'modify'
 
+/** Where the player clicked or pressed for the menu, from the top-left corner of what they hit. */
+export type MenuPoint = {
+  x: number
+  y: number
+  /** A finger or pen, whose hand would hide a menu below it. */
+  touch: boolean
+}
+
 const CHOICES: { choice: RollChoice; label: string; icon: LucideIcon }[] = [
   { choice: 'adv', label: 'Roll with advantage', icon: ChevronsUp },
   { choice: 'dis', label: 'Roll with disadvantage', icon: ChevronsDown },
@@ -32,8 +42,10 @@ const CHOICES: { choice: RollChoice; label: string; icon: LucideIcon }[] = [
 ]
 
 type Props = {
-  /** The part of the sheet it opened from, which it sits beside. */
+  /** The part of the sheet it opened from. */
   anchor: HTMLElement
+  /** Where on it they clicked or pressed. With none, as from a key, the menu goes below it. */
+  point?: MenuPoint
   /** What would be rolled, such as "Perception check +7". */
   title: string
   onChoose: (choice: RollChoice) => void
@@ -41,11 +53,13 @@ type Props = {
 }
 
 /**
- * Other ways to roll a check or save, beside the part of the sheet it opened from. Arrow keys move
- * between them; Escape, or a click or tap elsewhere, closes it.
+ * Other ways to roll a check or save, where the player clicked or pressed for them: at the pointer,
+ * like the browser's own context menu, or above a finger. Arrow keys move between them; Escape, or
+ * a click or tap elsewhere, closes it.
  */
 export function RollMenu({
   anchor,
+  point,
   title,
   onChoose,
   onClose,
@@ -53,16 +67,20 @@ export function RollMenu({
   // eslint-disable-next-line unicorn/no-null -- floating-ui marks no active item with null
   const [active, setActive] = useState<number | null>(null)
   const items = useRef<(HTMLElement | null)[]>([])
+  const { placement, gap } = placing(point)
   const { refs, floatingStyles, context } = useFloating({
     open: true,
     onOpenChange: open => {
       if (!open) onClose()
     },
     elements: { reference: anchor },
-    placement: 'bottom',
+    placement,
     whileElementsMounted: autoUpdate,
-    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
+    middleware: [offset(gap), flip({ padding: 8 }), shift({ padding: 8 })],
   })
+  useLayoutEffect(() => {
+    refs.setPositionReference(point ? pointOn(anchor, point) : anchor)
+  }, [anchor, point, refs])
   const { getFloatingProps, getItemProps } = useInteractions([
     useDismiss(context),
     useRole(context, { role: 'menu' }),
@@ -122,4 +140,40 @@ export function RollMenu({
       </FloatingFocusManager>
     </FloatingPortal>
   )
+}
+
+/**
+ * A click's menu hangs from the pointer, as the browser's would; a press's sits above the finger,
+ * so the hand doesn't hide it; and one from a key sits below the part of the sheet. Each turns to
+ * the other side when there's no room.
+ */
+function placing(point: MenuPoint | undefined): {
+  placement: Placement
+  gap: Parameters<typeof offset>[0]
+} {
+  if (!point) return { placement: 'bottom', gap: 6 }
+  if (point.touch) return { placement: 'top', gap: 16 }
+  return { placement: 'right-start', gap: { mainAxis: 4, alignmentAxis: 4 } }
+}
+
+/** A point on the part of the sheet, which moves with it as the sheet scrolls. */
+function pointOn(anchor: HTMLElement, { x, y }: MenuPoint): VirtualElement {
+  return {
+    contextElement: anchor,
+    getBoundingClientRect: () => {
+      const rect = anchor.getBoundingClientRect()
+      const left = rect.left + x
+      const top = rect.top + y
+      return {
+        x: left,
+        y: top,
+        left,
+        top,
+        right: left,
+        bottom: top,
+        width: 0,
+        height: 0,
+      }
+    },
+  }
 }

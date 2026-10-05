@@ -17,10 +17,17 @@ const renderButton = () => {
       Perception
     </RollButton>,
   )
-  return { button: screen.getByRole('button'), onRoll, onMenu }
+  const button = screen.getByRole('button')
+  // A row 300 by 40 pixels, 100 from the left of the window and 50 from its top.
+  jest
+    .spyOn(button, 'getBoundingClientRect')
+    .mockReturnValue(
+      DOMRect.fromRect({ x: 100, y: 50, width: 300, height: 40 }),
+    )
+  return { button, onRoll, onMenu }
 }
 
-const touch = { pointerType: 'touch', clientX: 10, clientY: 10 }
+const touch = { pointerType: 'touch', clientX: 110, clientY: 60 }
 
 describe('components/character-sheet/roll-button', () => {
   beforeEach(() => jest.useFakeTimers())
@@ -41,16 +48,75 @@ describe('components/character-sheet/roll-button', () => {
   it('opens its menu on a right-click instead of the browser’s, without rolling', () => {
     const { button, onRoll, onMenu } = renderButton()
 
-    const shown = fireEvent.contextMenu(button)
+    const shown = fireEvent.contextMenu(button, {
+      button: 2,
+      clientX: 390,
+      clientY: 70,
+    })
 
     expect(shown).toBe(false)
-    expect(onMenu).toHaveBeenCalledWith(button, target)
+    // Where on the row the click was, for the menu to open there.
+    expect(onMenu).toHaveBeenCalledWith(button, target, {
+      x: 290,
+      y: 20,
+      touch: false,
+    })
     expect(onRoll).not.toHaveBeenCalled()
 
     // The next press is a plain click again.
     fireEvent.pointerDown(button, { pointerType: 'mouse' })
     fireEvent.click(button)
     expect(onRoll).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [
+      'Chrome',
+      () => new MouseEvent('contextmenu', { bubbles: true, button: -1 }),
+    ],
+    [
+      'the Pointer Events spec',
+      () =>
+        new PointerEvent('contextmenu', {
+          bubbles: true,
+          pointerType: '',
+          clientX: 250,
+          clientY: 70,
+        }),
+    ],
+    [
+      'a browser that puts it at the corner of the page',
+      () => new MouseEvent('contextmenu', { bubbles: true, clientX: 0 }),
+    ],
+  ])(
+    'opens its menu below itself for the context menu key, as %s sends it',
+    (_, key) => {
+      const { button, onMenu } = renderButton()
+
+      fireEvent(button, key())
+
+      expect(onMenu).toHaveBeenCalledWith(button, target, undefined)
+    },
+  )
+
+  it('opens its menu above the finger for a touch screen’s own long-press', () => {
+    const { button, onMenu } = renderButton()
+
+    fireEvent(
+      button,
+      new PointerEvent('contextmenu', {
+        bubbles: true,
+        pointerType: 'touch',
+        clientX: 200,
+        clientY: 80,
+      }),
+    )
+
+    expect(onMenu).toHaveBeenCalledWith(button, target, {
+      x: 100,
+      y: 30,
+      touch: true,
+    })
   })
 
   it('opens its menu on a long-press, and the tap that ends it does not roll', () => {
@@ -60,7 +126,12 @@ describe('components/character-sheet/roll-button', () => {
     act(() => jest.advanceTimersByTime(LONG_PRESS - 1))
     expect(onMenu).not.toHaveBeenCalled()
     act(() => jest.advanceTimersByTime(1))
-    expect(onMenu).toHaveBeenCalledWith(button, target)
+    // Where the finger went down, for the menu to open above it.
+    expect(onMenu).toHaveBeenCalledWith(button, target, {
+      x: 10,
+      y: 10,
+      touch: true,
+    })
 
     fireEvent.pointerUp(button, touch)
     fireEvent.click(button)
@@ -72,14 +143,14 @@ describe('components/character-sheet/roll-button', () => {
     [
       'dragged away, as when scrolling',
       (button: HTMLElement) =>
-        fireEvent.pointerMove(button, { ...touch, clientY: 40 }),
+        fireEvent.pointerMove(button, { ...touch, clientY: 90 }),
     ],
     ['cancelled', (button: HTMLElement) => fireEvent.pointerCancel(button)],
   ])('rolls rather than opening its menu on a tap %s early', (_, end) => {
     const { button, onRoll, onMenu } = renderButton()
 
     fireEvent.pointerDown(button, touch)
-    fireEvent.pointerMove(button, { ...touch, clientX: 13 })
+    fireEvent.pointerMove(button, { ...touch, clientX: 113 })
     end(button)
     act(() => jest.advanceTimersByTime(LONG_PRESS))
     fireEvent.click(button)

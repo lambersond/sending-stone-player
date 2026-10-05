@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { Footprints, Shield, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { ModifyRoll } from './modify-roll'
 import { RollButton, type RollTarget } from './roll-button'
-import { RollMenu, type RollChoice } from './roll-menu'
+import { RollMenu, type MenuPoint, type RollChoice } from './roll-menu'
 import { Modal } from '@/components/modal'
 import { formatModifier } from '@/utils/format-modifier'
 import { toAdvantage } from '@/utils/roll-mode'
@@ -28,6 +28,7 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
   const [menu, setMenu] = useState<{
     anchor: HTMLElement
     target: RollTarget
+    point?: MenuPoint
   }>()
   const [modifying, setModifying] = useState<RollTarget>()
 
@@ -39,8 +40,11 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
       modifier: target.modifier,
       advantage: toAdvantage(target.mode),
     })
-  const openMenu = (anchor: HTMLElement, target: RollTarget) =>
-    setMenu({ anchor, target })
+  const openMenu = (
+    anchor: HTMLElement,
+    target: RollTarget,
+    point?: MenuPoint,
+  ) => setMenu({ anchor, target, point })
   // A choice from the menu is the player's say on this roll, as in dnd5e's roll dialog.
   const choose = (target: RollTarget, choice: RollChoice) => {
     setMenu(undefined)
@@ -100,6 +104,7 @@ export function CharacterSheet({ name, sheet, onRoll }: Readonly<Props>) {
       {menu && (
         <RollMenu
           anchor={menu.anchor}
+          point={menu.point}
           title={`${menu.target.label} ${formatModifier(menu.target.modifier)}`}
           onChoose={choice => choose(menu.target, choice)}
           onClose={() => setMenu(undefined)}
@@ -304,7 +309,7 @@ function HitPoints({ hp }: Readonly<{ hp: NonNullable<TableSheet['hp']> }>) {
 
 type RollActions = {
   onRoll: (target: RollTarget) => void
-  onMenu: (anchor: HTMLElement, target: RollTarget) => void
+  onMenu: (anchor: HTMLElement, target: RollTarget, point?: MenuPoint) => void
 }
 
 function AbilityTile({
