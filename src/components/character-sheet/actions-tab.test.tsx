@@ -6,6 +6,7 @@ import {
   characterSheet,
   fullerSheet,
   sheetAction,
+  sheetSpell,
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
@@ -42,7 +43,27 @@ const rows = (region: HTMLElement) =>
     .getAllByRole('listitem')
     .map(item => item.textContent)
 
+/** Each group in a section, by its name, with its actions' names. */
+const groups = (region: HTMLElement) =>
+  within(region)
+    .getAllByRole('group')
+    .map(group => [
+      within(group).getByRole('heading', { level: 3 }).textContent,
+      within(group)
+        .getAllByRole('button', { expanded: false })
+        .map(button => button.querySelector('.font-medium')?.textContent),
+    ])
+
+/** The sheet as wide as a tablet's, or a phone's. */
+const sheetWidth = (width: number) =>
+  jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(width)
+
 describe('components/character-sheet/actions-tab', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
   beforeEach(() => {
     globalThis.fetch = jest.fn(
       async () =>
@@ -57,7 +78,9 @@ describe('components/character-sheet/actions-tab', () => {
     renderTab()
 
     expect(
-      screen.getAllByRole('heading').map(heading => heading.textContent),
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .map(heading => heading.textContent),
     ).toEqual(['Actions', 'Bonus Actions', 'Reactions', 'Special'])
     expect(rows(screen.getByRole('region', { name: 'Actions' }))).toEqual([
       'WarhammerAction · reach 5 ft · Bludgeoning+71d8 + 4',
@@ -377,10 +400,394 @@ describe('components/character-sheet/actions-tab', () => {
     ).toHaveTextContent('Rage')
   })
 
+  it("groups each section's actions by kind: weapons, spells as the spellbook groups them, features and items", () => {
+    renderTab(
+      characterSheet({
+        spells: [
+          {
+            id: 'spell0',
+            label: 'Cantrips',
+            slots: null,
+            spells: [sheetSpell({ id: 'bolt', name: 'Fire Bolt', level: 0 })],
+          },
+          {
+            id: 'pact',
+            label: 'Pact Magic — 3rd Level',
+            slots: { value: 2, max: 2, level: 3 },
+            spells: [sheetSpell({ id: 'hex', name: 'Hex', level: 1 })],
+          },
+          {
+            id: 'spell3',
+            label: '3rd Level',
+            slots: { value: 1, max: 3, level: 3 },
+            spells: [
+              sheetSpell({ id: 'fireball', name: 'Fireball', level: 3 }),
+            ],
+          },
+        ],
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'potion',
+                name: 'Potion of Healing',
+                type: 'consumable',
+              }),
+              sheetAction({
+                id: 'fireball',
+                name: 'Fireball',
+                type: 'spell',
+                level: 3,
+              }),
+              sheetAction({ id: 'dagger', name: 'Dagger', type: 'weapon' }),
+              sheetAction({ id: 'hex', name: 'Hex', type: 'spell', level: 1 }),
+              sheetAction({ id: 'breath', name: 'Fire Breath' }),
+              sheetAction({
+                id: 'bolt',
+                name: 'Fire Bolt',
+                type: 'spell',
+                level: 0,
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    const actions = screen.getByRole('region', { name: 'Actions' })
+    expect(groups(actions)).toEqual([
+      ['Weapons', ['Dagger']],
+      ['Cantrips', ['Fire Bolt']],
+      ['Pact Magic — 3rd Level', ['Hex']],
+      ['3rd Level', ['Fireball']],
+      ['Features', ['Fire Breath']],
+      ['Items', ['Potion of Healing']],
+    ])
+    expect(
+      within(actions).getByRole('group', { name: '3rd Level' }),
+    ).toHaveTextContent('1 of 3 spell slots left')
+    expect(
+      within(actions).getByRole('group', { name: 'Pact Magic — 3rd Level' }),
+    ).toHaveTextContent('2 of 2 spell slots left')
+    expect(
+      within(actions).getByRole('group', { name: 'Cantrips' }),
+    ).not.toHaveTextContent('spell slots')
+  })
+
+  it('opens a spell to the slots it can be cast with, and dims one with none left', async () => {
+    const user = userEvent.setup()
+    renderTab(
+      characterSheet({
+        spells: [
+          {
+            id: 'spell1',
+            label: '1st Level',
+            slots: { value: 0, max: 4, level: 1 },
+            spells: [
+              sheetSpell({ id: 'missile', name: 'Magic Missile', level: 1 }),
+            ],
+          },
+          {
+            id: 'spell2',
+            label: '2nd Level',
+            slots: { value: 1, max: 3, level: 2 },
+            spells: [],
+          },
+          {
+            id: 'spell3',
+            label: '3rd Level',
+            slots: { value: 0, max: 2, level: 3 },
+            spells: [
+              sheetSpell({ id: 'fireball', name: 'Fireball', level: 3 }),
+            ],
+          },
+        ],
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'missile',
+                name: 'Magic Missile',
+                type: 'spell',
+                level: 1,
+              }),
+              sheetAction({
+                id: 'fireball',
+                name: 'Fireball',
+                type: 'spell',
+                level: 3,
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(rows(screen.getByRole('region', { name: 'Actions' }))).toEqual([
+      'Magic MissileAction',
+      'FireballAction · No slots left',
+    ])
+    expect(toggle('Fireball')).toHaveClass('opacity-60')
+    expect(toggle('Magic Missile')).not.toHaveClass('opacity-60')
+
+    await user.click(toggle('Magic Missile'))
+    const castAt = screen.getByText('Cast at').nextElementSibling as HTMLElement
+    expect(
+      within(castAt)
+        .getAllByRole('listitem')
+        .map(pool => pool.textContent),
+    ).toEqual([
+      '1st 0/41st Level, 0 of 4 slots left',
+      '2nd 1/32nd Level, 1 of 3 slots left',
+      '3rd 0/23rd Level, 0 of 2 slots left',
+    ])
+    expect(within(castAt).getAllByRole('listitem')[0]).toHaveClass('text-ruby')
+  })
+
+  it('dims a spell with no slot left in a table too, and says so', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem('sending-stone:actions-layout', 'table')
+    sheetWidth(800)
+    renderTab(
+      characterSheet({
+        spells: [
+          {
+            id: 'spell1',
+            label: '1st Level',
+            slots: { value: 0, max: 4, level: 1 },
+            spells: [
+              sheetSpell({ id: 'missile', name: 'Magic Missile', level: 1 }),
+            ],
+          },
+          {
+            id: 'spell2',
+            label: '2nd Level',
+            slots: { value: 1, max: 3, level: 2 },
+            spells: [],
+          },
+          {
+            id: 'spell3',
+            label: '3rd Level',
+            slots: { value: 0, max: 2, level: 3 },
+            spells: [
+              sheetSpell({ id: 'fireball', name: 'Fireball', level: 3 }),
+            ],
+          },
+        ],
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'missile',
+                name: 'Magic Missile',
+                type: 'spell',
+                level: 1,
+              }),
+              sheetAction({
+                id: 'fireball',
+                name: 'Fireball',
+                type: 'spell',
+                level: 3,
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    const table = screen.getByRole('table', { name: 'Actions' })
+    const fireball = within(table).getByRole('button', { name: /^Fireball/ })
+    expect(fireball).toHaveTextContent('FireballNo slots left')
+    expect(fireball).toHaveClass('opacity-60')
+    expect(
+      within(table).getByRole('button', { name: /^Magic Missile/ }),
+    ).not.toHaveClass('opacity-60')
+
+    await user.click(fireball)
+    expect(
+      within(screen.getByText('Cast at').nextElementSibling as HTMLElement)
+        .getAllByRole('listitem')
+        .map(pool => pool.textContent),
+    ).toEqual(['3rd 0/23rd Level, 0 of 2 slots left'])
+  })
+
+  it('offers no layouts on a phone, keeping to the list whatever was chosen', () => {
+    localStorage.setItem('sending-stone:actions-layout', 'table')
+    sheetWidth(390)
+    renderTab()
+
+    expect(screen.queryByRole('group', { name: 'Layout' })).toBeNull()
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(
+      within(screen.getByRole('region', { name: 'Actions' })).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(4)
+  })
+
+  it('lays actions out in a table on a tablet, lining up what each rolls, and remembers it', async () => {
+    const user = userEvent.setup()
+    sheetWidth(800)
+    const { onRoll } = renderTab()
+
+    const picker = screen.getByRole('group', { name: 'Layout' })
+    expect(
+      within(picker)
+        .getAllByRole('button')
+        .map(button => [
+          button.textContent,
+          button.getAttribute('aria-pressed'),
+        ]),
+    ).toEqual([
+      ['List', 'true'],
+      ['Columns', 'false'],
+      ['Table', 'false'],
+    ])
+    await user.click(within(picker).getByRole('button', { name: 'Table' }))
+
+    expect(localStorage.getItem('sending-stone:actions-layout')).toBe('table')
+    const table = screen.getByRole('table', { name: 'Actions' })
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map(header => header.textContent),
+    ).toEqual(['Name', 'Range', 'Hit / DC', 'Damage', 'Uses'])
+    expect(
+      within(table)
+        .getAllByRole('rowheader')
+        .map(header => header.textContent),
+    ).toEqual(['Weapons', 'Cantrips', 'Features'])
+    expect(
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map(row =>
+          within(row)
+            .queryAllByRole('cell')
+            .map(cell => cell.textContent),
+        ),
+    ).toEqual([
+      [],
+      ['Warhammer', 'reach 5 ft', '+7', '1d8 + 4', ''],
+      ['Handaxe', 'reach 5 ft or range 20/60 ft', '+7', '1d6 + 4', ''],
+      [],
+      ['Guidance', 'Touch', '', '', ''],
+      [],
+      ['Fire Breath', '15 ft', 'DEX 13', '2d6', '1/11 of 1 uses left'],
+    ])
+    expect(
+      within(screen.getByRole('table', { name: 'Reactions' })).getAllByRole(
+        'rowheader',
+      )[0],
+    ).toHaveTextContent('1st Level1/21 of 2 spell slots left')
+
+    await user.click(
+      within(table).getByRole('button', { name: 'Warhammer attack, +7' }),
+    )
+    expect(onRoll).toHaveBeenLastCalledWith({
+      label: 'Warhammer attack',
+      modifier: 7,
+      advantage: undefined,
+    })
+
+    await user.click(within(table).getByRole('button', { name: 'Fire Breath' }))
+    const details = screen.getByText('Saving throw').closest('td')
+    expect(details).toHaveAttribute('colspan', '5')
+    expect(details?.closest('tr')).toHaveAttribute(
+      'id',
+      within(table)
+        .getByRole('button', { name: 'Fire Breath', expanded: true })
+        .getAttribute('aria-controls'),
+    )
+  })
+
+  it('lays sections out side by side on a tablet: Actions in a column, the rest beside it', async () => {
+    const user = userEvent.setup()
+    sheetWidth(800)
+    renderTab()
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }))
+
+    expect(screen.getByRole('button', { name: 'Columns' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    const actions = screen.getByRole('region', { name: 'Actions' })
+    const grid = actions.parentElement?.parentElement as HTMLElement
+    expect(grid).toHaveClass('grid-cols-2', '@6xl:grid-cols-3')
+    const [first, second] = [...grid.children]
+    expect(
+      within(first as HTMLElement)
+        .getAllByRole('heading', { level: 2 })
+        .map(heading => heading.textContent),
+    ).toEqual(['Actions'])
+    expect(
+      within(second as HTMLElement)
+        .getAllByRole('heading', { level: 2 })
+        .map(heading => heading.textContent),
+    ).toEqual(['Bonus Actions', 'Reactions', 'Special'])
+    expect(second).toHaveClass('@6xl:contents')
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it("offers no columns where two don't fit side by side, as beside the chat on a tablet, listing them instead", () => {
+    localStorage.setItem('sending-stone:actions-layout', 'columns')
+    sheetWidth(640)
+    renderTab()
+
+    expect(
+      within(screen.getByRole('group', { name: 'Layout' }))
+        .getAllByRole('button')
+        .map(button => [
+          button.textContent,
+          button.getAttribute('aria-pressed'),
+        ]),
+    ).toEqual([
+      ['List', 'true'],
+      ['Table', 'false'],
+    ])
+    expect(
+      within(screen.getByRole('region', { name: 'Actions' })).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(4)
+  })
+
+  it('remembers the layout chosen, in this browser', () => {
+    localStorage.setItem('sending-stone:actions-layout', 'columns')
+    sheetWidth(800)
+    renderTab()
+
+    expect(screen.getByRole('button', { name: 'Columns' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('puts a lone section in a column of its own', async () => {
+    const user = userEvent.setup()
+    sheetWidth(800)
+    renderTab(withActions(sheetAction({ id: 'dagger', name: 'Dagger' })))
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }))
+
+    const grid = screen.getByRole('region', { name: 'Actions' }).parentElement
+      ?.parentElement as HTMLElement
+    expect(grid.children).toHaveLength(1)
+  })
+
   it('says so when there are no actions to show, as from an older module', () => {
+    sheetWidth(800)
     renderTab(characterSheet())
 
     expect(screen.getByText('No actions to show yet.')).toBeInTheDocument()
     expect(screen.queryByRole('heading')).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Layout' })).toBeNull()
   })
 })

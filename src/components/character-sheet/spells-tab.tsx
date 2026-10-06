@@ -1,15 +1,12 @@
-import clsx from 'clsx'
 import { Wand } from 'lucide-react'
 import { UsesLeft } from './features-tab'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
+import { SpellSlots } from './spell-slots'
 import { formatModifier } from '@/utils/format-modifier'
 import type { SheetSpell, SheetSpellcasting } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-
-/** Slots shown as pips up to this many; past it, as a number alone. */
-const MAX_PIPS = 9
 
 /**
  * The character's spells, as dnd5e's Spells tab shows them to its player: how they cast, then
@@ -40,7 +37,7 @@ export function SpellsTab({
               {section.label}
             </SheetHeading>
             {section.slots && section.slots.max > 0 && (
-              <Slots {...section.slots} />
+              <SpellSlots value={section.slots.value} max={section.slots.max} />
             )}
           </div>
           {section.spells.length > 0 ? (
@@ -139,36 +136,6 @@ function Spellcasting({
         </ul>
       )}
     </section>
-  )
-}
-
-/** A section's spell slots: a pip for each, filled for each left. */
-function Slots({ value, max }: Readonly<{ value: number; max: number }>) {
-  return (
-    <span className='flex shrink-0 items-center gap-2'>
-      {max <= MAX_PIPS && (
-        <span aria-hidden className='flex gap-1'>
-          {Array.from({ length: max }, (_, index) => (
-            <span
-              key={index}
-              className={clsx(
-                'size-2.5 rounded-full border-2 border-primary',
-                index < value && 'bg-primary',
-              )}
-            />
-          ))}
-        </span>
-      )}
-      <span
-        aria-hidden
-        className='text-xs font-semibold text-text-secondary tabular-nums'
-      >
-        {value}/{max}
-      </span>
-      <span className='sr-only'>
-        {value} of {max} spell slots left
-      </span>
-    </span>
   )
 }
 

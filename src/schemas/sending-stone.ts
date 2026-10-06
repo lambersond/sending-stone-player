@@ -357,7 +357,12 @@ const sheetSchema = z
         id: z.string(),
         label: z.string(),
         slots: z
-          .object({ value: z.number(), max: z.number() })
+          // The level, from module 0.8.1.
+          .object({
+            value: z.number(),
+            max: z.number(),
+            level: nullableNumber.optional(),
+          })
           .nullable()
           .catch(null),
         spells: listOf(spellSchema),
