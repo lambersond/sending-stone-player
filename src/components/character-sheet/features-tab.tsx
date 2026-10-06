@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { BookOpen, HeartPulse, Sparkles } from 'lucide-react'
-import { SheetEntry } from './sheet-entry'
+import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import type { SheetClass, SheetUses } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
@@ -55,13 +55,13 @@ export function FeaturesTab({
                 name={feature.name}
                 img={feature.img}
                 fallback={Sparkles}
-                detail={join(
+                detail={joinParts(
                   feature.activation ??
                     (feature.passive ? 'Passive' : undefined),
                   feature.uses?.recovery,
                 )}
                 aside={feature.uses && <UsesLeft uses={feature.uses} />}
-                meta={join(feature.kind, feature.requirements)}
+                meta={joinParts(feature.kind, feature.requirements)}
                 text={feature.text}
               />
             ))}
@@ -128,9 +128,4 @@ function originName(sheet: TableSheet, id: string): string | undefined {
   if (id === 'species') return sheet.species ?? undefined
   if (id === 'background') return sheet.background ?? undefined
   return sheet.classes.find(entry => entry.identifier === id)?.name
-}
-
-function join(...parts: (string | null | undefined)[]): string | undefined {
-  const present = parts.filter(Boolean)
-  return present.length > 0 ? present.join(' · ') : undefined
 }

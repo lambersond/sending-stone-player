@@ -14,8 +14,13 @@ import {
   chatMessage,
   combat,
   combatant,
+  sheetItem,
 } from '@/mocks/sending-stone'
-import type { CharacterSheet, SerializedMessage } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SerializedMessage,
+  SheetContainer,
+} from '@/types/sending-stone'
 
 const viewer: Viewer = {
   actorId: 'actor-thorin',
@@ -510,6 +515,85 @@ describe('utils/table-view', () => {
         [],
         [],
       ])
+    })
+
+    it('finds the icons of items, those in containers too, and spells at the game', () => {
+      const sheet = fullerSheet()
+      const [backpack] = sheet.inventory.containers
+      const view = toTableSheet(
+        {
+          ...sheet,
+          inventory: {
+            ...sheet.inventory,
+            containers: [
+              {
+                ...backpack,
+                img: 'icons/containers/bags/pack-leather.webp',
+                contents: [
+                  {
+                    ...backpack.contents![1],
+                    contents: [
+                      sheetItem({
+                        id: 'coin',
+                        name: 'Old Coin',
+                        img: 'icons/commodities/currency/coin.webp',
+                      }),
+                    ],
+                  } as SheetContainer,
+                ],
+              },
+            ],
+          },
+        },
+        origin,
+      )
+
+      expect(view.inventory.sections[0].items.map(({ img }) => img)).toEqual([
+        `${origin}/icons/weapons/hammers/hammer-war.webp`,
+        null,
+      ])
+      const [pack] = view.inventory.containers
+      expect(pack.img).toBe(`${origin}/icons/containers/bags/pack-leather.webp`)
+      const pouch = pack.contents?.[0] as SheetContainer
+      expect(pouch.contents?.[0].img).toBe(
+        `${origin}/icons/commodities/currency/coin.webp`,
+      )
+      expect(view.spells[1].spells[0].img).toBe(
+        `${origin}/icons/magic/defensive/shield-barrier.webp`,
+      )
+    })
+
+    it('reads a sheet from before module 0.7.0 as having no items, spells, traits or biography', () => {
+      const {
+        inventory,
+        spellcasting,
+        spells,
+        traits,
+        deathSaves,
+        details,
+        ...older
+      } = characterSheet()
+      const view = toTableSheet(older as CharacterSheet, origin)
+
+      expect(view).toMatchObject({
+        inventory,
+        spellcasting,
+        spells,
+        traits,
+        deathSaves,
+        details,
+      })
+      expect(view.spellcasting).toBeNull()
+    })
+
+    it("keeps a container's secret contents secret", () => {
+      const sheet = fullerSheet()
+      const view = toTableSheet(sheet, origin)
+
+      expect(view.inventory.containers[1]).toMatchObject({
+        name: 'Puzzle Box',
+        contents: null,
+      })
     })
 
     it("names abilities and skills in dnd5e's English when the module left them blank", () => {

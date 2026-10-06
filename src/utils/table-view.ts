@@ -6,6 +6,9 @@ import type {
   Dnd5eMessageData,
   RollSummary,
   SerializedMessage,
+  SheetContainer,
+  SheetInventory,
+  SheetItem,
 } from '@/types/sending-stone'
 import type {
   Side,
@@ -339,6 +342,73 @@ export function toTableSheet(
         img: iconUrl(effect.img, origin),
       })),
     })),
+    // Nor these, before module 0.7.0.
+    inventory: inventoryView(sheet.inventory ?? BEFORE_0_7_0.inventory, origin),
+    spellcasting: sheet.spellcasting ?? BEFORE_0_7_0.spellcasting,
+    spells: (sheet.spells ?? []).map(section => ({
+      ...section,
+      spells: section.spells.map(spell => ({
+        ...spell,
+        img: iconUrl(spell.img, origin),
+      })),
+    })),
+    traits: sheet.traits ?? [],
+    deathSaves: sheet.deathSaves ?? BEFORE_0_7_0.deathSaves,
+    details: sheet.details ?? BEFORE_0_7_0.details,
+  }
+}
+
+/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+/** A sheet from before module 0.7.0, which sent none of these: as a sheet with none of them. */
+const BEFORE_0_7_0: Pick<
+  CharacterSheet,
+  'inventory' | 'spellcasting' | 'deathSaves' | 'details'
+> = {
+  inventory: {
+    sections: [],
+    containers: [],
+    currency: [],
+    encumbrance: null,
+    attunement: null,
+  },
+  spellcasting: null,
+  deathSaves: null,
+  details: {
+    about: [],
+    personality: [],
+    appearance: null,
+    xp: null,
+    biography: null,
+  },
+}
+/* eslint-enable unicorn/no-null */
+
+/** The inventory, with its items' icons, those in containers too, loading from the game. */
+function inventoryView(
+  inventory: SheetInventory,
+  origin: string,
+): SheetInventory {
+  const item = <T extends SheetItem>(entry: T): T => ({
+    ...entry,
+    img: iconUrl(entry.img, origin),
+  })
+  const container = (entry: SheetContainer): SheetContainer => ({
+    ...item(entry),
+    // Null while what it holds is secret.
+    contents:
+      entry.contents === null
+        ? entry.contents
+        : entry.contents.map(inner =>
+            'contents' in inner ? container(inner) : item(inner),
+          ),
+  })
+  return {
+    ...inventory,
+    sections: inventory.sections.map(section => ({
+      ...section,
+      items: section.items.map(entry => item(entry)),
+    })),
+    containers: inventory.containers.map(entry => container(entry)),
   }
 }
 

@@ -174,6 +174,151 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it('drops a malformed item, spell, trait or detail, rather than the sheet', () => {
+    const sheet = fullerSheet()
+    const { inventory, spells, details } = sheet
+    const [backpack] = inventory.containers
+    const [cantrips, first] = spells
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          inventory: {
+            ...inventory,
+            sections: [
+              {
+                ...inventory.sections[0],
+                items: [
+                  { name: 'No id' },
+                  { ...inventory.sections[0].items[0], weight: 'heavy' },
+                ],
+              },
+            ],
+            containers: [
+              {
+                ...backpack,
+                capacity: { value: 'some' },
+                contents: [
+                  { type: 'container', name: 'No id' },
+                  { ...backpack.contents?.[0], attunement: 'maybe' },
+                  {
+                    id: 'sack',
+                    name: 'Sack',
+                    type: 'container',
+                    contents: 'lots',
+                  },
+                  null,
+                ],
+              },
+            ],
+            encumbrance: { value: 'lots' },
+          },
+          spellcasting: 'yes',
+          spells: [
+            { ...cantrips, spells: [{ id: 'nameless' }] },
+            {
+              ...first,
+              slots: { value: 1 },
+              spells: [{ ...first.spells[0], prepared: 3 }],
+            },
+          ],
+          traits: [{ id: 'senses' }, sheet.traits[0]],
+          deathSaves: { success: 'one' },
+          details: {
+            ...details,
+            xp: { value: 'lots' },
+            about: [{ id: 'age' }],
+          },
+        },
+      },
+    }) as any
+
+    expect(event.data.character.sheet).toMatchObject({
+      inventory: {
+        sections: [
+          { id: 'weapons', items: [{ id: 'warhammer', weight: null }] },
+        ],
+        containers: [
+          {
+            id: 'backpack',
+            capacity: null,
+            contents: [
+              { id: 'rope', attunement: null },
+              { id: 'sack', contents: null, capacity: null },
+            ],
+          },
+        ],
+        currency: inventory.currency,
+        encumbrance: null,
+        attunement: inventory.attunement,
+      },
+      spellcasting: null,
+      spells: [
+        { id: 'spell0', spells: [] },
+        {
+          id: 'spell1',
+          slots: null,
+          spells: [{ id: 'shield', prepared: null, text: TEXTS.shield }],
+        },
+      ],
+      traits: [sheet.traits[0]],
+      deathSaves: null,
+      details: { about: [], xp: null, biography: TEXTS.biography },
+    })
+  })
+
+  it("reads an inventory or details it can't make sense of as empty", () => {
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: { ...fullerSheet(), inventory: 'lots', details: 'none' },
+      },
+    }) as any
+
+    expect(event.data.character.sheet).toMatchObject({
+      inventory: {
+        sections: [],
+        containers: [],
+        currency: [],
+        encumbrance: null,
+        attunement: null,
+      },
+      details: {
+        about: [],
+        personality: [],
+        appearance: null,
+        xp: null,
+        biography: null,
+      },
+    })
+  })
+
+  it('reads a sheet from before module 0.7.0 as having no items, spells, traits or biography', () => {
+    const {
+      inventory,
+      spellcasting,
+      spells,
+      traits,
+      deathSaves,
+      details,
+      ...older
+    } = characterSheet()
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: older },
+    }) as any
+
+    expect(event.data.character.sheet).toMatchObject({
+      inventory,
+      spellcasting,
+      spells,
+      traits,
+      deathSaves,
+      details,
+    })
+    expect(event.data.character.sheet.spellcasting).toBeNull()
+  })
+
   it('reads character.texts, dropping any description that is malformed', () => {
     expect(
       parseGameEvent('character.texts', {

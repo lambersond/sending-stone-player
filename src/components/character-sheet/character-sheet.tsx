@@ -121,6 +121,28 @@ export function CharacterSheet({
         </section>
       )}
 
+      {sheet.traits.length > 0 && (
+        <section
+          aria-labelledby='traits-heading'
+          className='flex flex-col gap-2'
+        >
+          <SheetHeading id='traits-heading'>Traits</SheetHeading>
+          <dl className='grid gap-x-4 rounded-2xl border border-border bg-card p-1.5 @2xl:grid-cols-2'>
+            {sheet.traits.map(trait => (
+              <div
+                key={trait.id}
+                className='flex flex-col gap-0.5 rounded-xl px-2.5 py-2'
+              >
+                <dt className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
+                  {trait.label}
+                </dt>
+                <dd className='text-sm'>{trait.values.join(', ')}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
       {menu && (
         <RollMenu
           anchor={menu.anchor}
@@ -163,6 +185,11 @@ function SheetHeader({
   onShowConditions?: () => void
 }>) {
   const identity = [sheet.species, sheet.background].filter(Boolean)
+  const { deathSaves } = sheet
+  // dnd5e's sheet shows them while the character is down, as do we; and while any are marked.
+  const dying =
+    deathSaves !== null &&
+    (sheet.hp?.value === 0 || deathSaves.success > 0 || deathSaves.failure > 0)
   return (
     <header className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'>
       <div className='flex items-center gap-4'>
@@ -207,6 +234,11 @@ function SheetHeader({
         {sheet.hp && (
           <Stat label='Hit points' wide>
             <HitPoints hp={sheet.hp} />
+          </Stat>
+        )}
+        {dying && (
+          <Stat label='Death saves' wide>
+            <DeathSaves saves={deathSaves} />
           </Stat>
         )}
         {sheet.ac !== null && (
@@ -379,6 +411,42 @@ function HitPoints({ hp }: Readonly<{ hp: NonNullable<TableSheet['hp']> }>) {
   )
 }
 
+/** Death saving throws made: successes and failures, three of either ending them. */
+function DeathSaves({
+  saves,
+}: Readonly<{ saves: { success: number; failure: number } }>) {
+  return (
+    <span className='flex flex-col gap-1 text-xs font-semibold'>
+      <SaveMarks label='Successes' count={saves.success} mark='bg-primary' />
+      <SaveMarks label='Failures' count={saves.failure} mark='bg-danger' />
+    </span>
+  )
+}
+
+function SaveMarks({
+  label,
+  count,
+  mark,
+}: Readonly<{ label: string; count: number; mark: string }>) {
+  return (
+    <span className='flex items-center gap-2'>
+      <span className='w-16 text-text-secondary'>{label}</span>
+      <span aria-hidden className='flex gap-1'>
+        {[0, 1, 2].map(index => (
+          <span
+            key={index}
+            className={clsx(
+              'size-3 rounded-full border-2 border-border',
+              index < count && clsx('border-transparent', mark),
+            )}
+          />
+        ))}
+      </span>
+      <span className='sr-only'>{Math.min(count, 3)} of 3</span>
+    </span>
+  )
+}
+
 /* -------------------------------------------- */
 
 type RollActions = {
@@ -530,8 +598,6 @@ function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
     </span>
   )
 }
-
-/* -------------------------------------------- */
 
 /* -------------------------------------------- */
 

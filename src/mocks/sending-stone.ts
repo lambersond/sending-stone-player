@@ -5,6 +5,8 @@ import type {
   CombatSnapshot,
   SerializedMessage,
   SheetAbility,
+  SheetItem,
+  SheetSpell,
 } from '@/types/sending-stone'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
@@ -148,6 +150,24 @@ export function characterSheet(
     conditions: [],
     features: [],
     effects: [],
+    inventory: {
+      sections: [],
+      containers: [],
+      currency: [],
+      encumbrance: null,
+      attunement: null,
+    },
+    spellcasting: null,
+    spells: [],
+    traits: [],
+    deathSaves: null,
+    details: {
+      about: [],
+      personality: [],
+      appearance: null,
+      xp: null,
+      biography: null,
+    },
     ...fields,
   }
 }
@@ -159,7 +179,58 @@ export const TEXTS = {
   actionSurge: '2b3c4d5e6f7081',
   poisoned: '3c4d5e6f708192',
   bless: '4d5e6f708192a3',
+  warhammer: '5e6f708192a3b4',
+  ring: '6f708192a3b4c5',
+  backpack: '708192a3b4c5d6',
+  rope: '8192a3b4c5d6e7',
+  shield: '92a3b4c5d6e7f8',
+  biography: 'a3b4c5d6e7f809',
 } as const
+
+/** An item, as the module sends it from 0.7.0. */
+export function sheetItem(
+  fields: Partial<SheetItem> & Pick<SheetItem, 'id' | 'name'>,
+): SheetItem {
+  return {
+    img: null,
+    type: 'loot',
+    quantity: 1,
+    weight: null,
+    price: null,
+    equipped: null,
+    attunement: null,
+    attuned: false,
+    uses: null,
+    rarity: null,
+    properties: [],
+    identified: true,
+    text: null,
+    ...fields,
+  }
+}
+
+/** A spell, as the module sends it from 0.7.0. */
+export function sheetSpell(
+  fields: Partial<SheetSpell> & Pick<SheetSpell, 'id' | 'name'>,
+): SheetSpell {
+  return {
+    img: null,
+    level: 1,
+    school: 'Abjuration',
+    components: 'V, S',
+    materials: null,
+    concentration: false,
+    ritual: false,
+    activation: '1 Action',
+    range: 'Self',
+    duration: 'Instantaneous',
+    target: null,
+    prepared: null,
+    uses: null,
+    text: null,
+    ...fields,
+  }
+}
 
 /** Thorin's features, conditions and effects, as the module sends them from 0.6.0. */
 export function fullerSheet(
@@ -251,6 +322,203 @@ export function fullerSheet(
         ],
       },
     ],
+    inventory: {
+      sections: [
+        {
+          id: 'weapons',
+          label: 'Weapons',
+          items: [
+            sheetItem({
+              id: 'warhammer',
+              name: 'Warhammer',
+              img: 'icons/weapons/hammers/hammer-war.webp',
+              type: 'weapon',
+              weight: { value: 5, units: 'lb' },
+              price: '15 GP',
+              equipped: true,
+              properties: ['Versatile'],
+              text: TEXTS.warhammer,
+            }),
+            sheetItem({
+              id: 'handaxe',
+              name: 'Handaxe',
+              type: 'weapon',
+              quantity: 2,
+              weight: { value: 4, units: 'lb' },
+              price: '5 GP',
+              equipped: false,
+            }),
+          ],
+        },
+        {
+          id: 'equipment',
+          label: 'Equipment',
+          items: [
+            sheetItem({
+              id: 'ring',
+              name: 'Plain Ring',
+              type: 'equipment',
+              equipped: true,
+              attuned: true,
+              identified: false,
+              text: TEXTS.ring,
+            }),
+            sheetItem({
+              id: 'cloak',
+              name: 'Cloak of Protection',
+              type: 'equipment',
+              equipped: true,
+              attunement: 'required',
+              attuned: true,
+              rarity: 'Uncommon',
+              properties: ['Magical'],
+              uses: { value: 2, max: 3, recovery: 'Dawn' },
+            }),
+          ],
+        },
+      ],
+      containers: [
+        {
+          ...sheetItem({
+            id: 'backpack',
+            name: 'Backpack',
+            type: 'container',
+            weight: { value: 5, units: 'lb' },
+            text: TEXTS.backpack,
+          }),
+          capacity: { value: 12.5, max: 30, units: 'lb' },
+          contents: [
+            sheetItem({
+              id: 'rope',
+              name: 'Hempen Rope',
+              quantity: 1,
+              weight: { value: 10, units: 'lb' },
+              text: TEXTS.rope,
+            }),
+            {
+              ...sheetItem({ id: 'pouch', name: 'Pouch', type: 'container' }),
+              capacity: { value: 2, max: 6, units: 'Items' },
+              contents: [
+                sheetItem({ id: 'coin', name: 'Old Coin', quantity: 2 }),
+              ],
+            },
+          ],
+        },
+        {
+          ...sheetItem({
+            id: 'box',
+            name: 'Puzzle Box',
+            type: 'container',
+            identified: false,
+          }),
+          capacity: null,
+          contents: null,
+        },
+      ],
+      currency: [
+        { id: 'pp', label: 'Platinum', abbreviation: 'PP', value: 2 },
+        { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 41 },
+        { id: 'sp', label: 'Silver', abbreviation: 'SP', value: 0 },
+      ],
+      encumbrance: {
+        value: 62.5,
+        max: 270,
+        units: 'lb',
+        encumbered: 90,
+        heavilyEncumbered: 180,
+      },
+      attunement: { value: 2, max: 3 },
+    },
+    spellcasting: {
+      ability: 'Wisdom',
+      dc: 12,
+      attack: 4,
+      classes: [{ name: 'Fighter', ability: 'Wisdom', dc: 12, attack: 4 }],
+    },
+    spells: [
+      {
+        id: 'spell0',
+        label: 'Cantrips',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'guidance',
+            name: 'Guidance',
+            level: 0,
+            school: 'Divination',
+            concentration: true,
+          }),
+        ],
+      },
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 1, max: 2 },
+        spells: [
+          sheetSpell({
+            id: 'shield',
+            name: 'Shield',
+            img: 'icons/magic/defensive/shield-barrier.webp',
+            activation: '1 Reaction',
+            duration: '1 Round',
+            prepared: 1,
+            text: TEXTS.shield,
+          }),
+          sheetSpell({
+            id: 'alarm',
+            name: 'Alarm',
+            ritual: true,
+            components: 'V, S, M',
+            materials: 'A tiny bell',
+            prepared: 0,
+          }),
+          sheetSpell({
+            id: 'cure',
+            name: 'Cure Wounds',
+            school: 'Evocation',
+            prepared: 2,
+          }),
+        ],
+      },
+      {
+        id: 'spell2',
+        label: '2nd Level',
+        slots: { value: 0, max: 0 },
+        spells: [],
+      },
+      {
+        id: 'innate',
+        label: 'Innate',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'misty',
+            name: 'Misty Step',
+            level: 2,
+            uses: { value: 0, max: 1, recovery: 'Long Rest' },
+          }),
+        ],
+      },
+    ],
+    traits: [
+      { id: 'senses', label: 'Senses', values: ['Darkvision 60 ft'] },
+      { id: 'languages', label: 'Languages', values: ['Common', 'Dwarvish'] },
+      { id: 'dr', label: 'Damage Resistances', values: ['Poison'] },
+    ],
+    deathSaves: { success: 0, failure: 0 },
+    details: {
+      about: [
+        { id: 'alignment', label: 'Alignment', value: 'Lawful Good' },
+        { id: 'age', label: 'Age', value: '195' },
+      ],
+      personality: [
+        { id: 'ideal', label: 'Ideals', value: 'Greater good.' },
+        { id: 'flaw', label: 'Flaws', value: 'Gold-sick.' },
+      ],
+      appearance: 'Broad-shouldered, with a braided beard.',
+      xp: { value: 6500, max: 14_000 },
+      biography: TEXTS.biography,
+    },
     effects: [
       {
         id: 'temporary',

@@ -10,6 +10,7 @@ import {
   roster,
   TEXTS,
 } from '@/mocks/sending-stone'
+import { sheetTextRefs } from '@/utils/sheet-texts'
 import type { GameEvent } from '@/types/sending-stone'
 
 const world = { id: 'erebor', title: 'Return to Erebor' }
@@ -92,13 +93,7 @@ describe('db/campaign-events', () => {
   })
 
   describe('descriptions', () => {
-    const refs = [
-      TEXTS.fighter,
-      TEXTS.secondWind,
-      TEXTS.actionSurge,
-      TEXTS.bless,
-      TEXTS.poisoned,
-    ]
+    const refs = sheetTextRefs(fullerSheet())
 
     it('character.texts keeps them sanitised, pointing at the game, without bumping the version', async () => {
       prismaMock.campaign.findUnique.mockResolvedValue({
@@ -147,10 +142,10 @@ describe('db/campaign-events', () => {
     })
 
     it.each([
-      [5, false],
-      [4, true],
+      [11, false],
+      [10, true],
     ])(
-      'bridge.hello drops those no sheet refers to, and with %i of 5 held, lacks some: %s',
+      'bridge.hello drops those no sheet refers to, and with %i of 11 held, lacks some: %s',
       async (held, lacksTexts) => {
         prismaMock.sheetText.count.mockResolvedValue(held)
 
