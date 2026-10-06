@@ -12,6 +12,12 @@ describe('utils/sheet-texts', () => {
       TEXTS.actionSurge,
       TEXTS.bless,
       TEXTS.poisoned,
+      TEXTS.warhammer,
+      TEXTS.ring,
+      TEXTS.backpack,
+      TEXTS.rope,
+      TEXTS.shield,
+      TEXTS.biography,
     ])
   })
 

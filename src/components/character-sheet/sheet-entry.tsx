@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { SheetText } from './sheet-text'
@@ -18,14 +18,18 @@ type Props = {
   aside?: ReactNode
   /** Shown above the description when open, such as the kind of feature. */
   meta?: string
-  /** Its description's hash. Without one it doesn't open. */
+  /** Shown above the description when open, each with its label, such as a spell's range. */
+  facts?: { label: string; value: string }[]
+  /** Its description's hash. */
   text: string | null
+  /** Shown when open, after the description, such as what a container holds. */
+  children?: ReactNode
   muted?: boolean
 }
 
 /**
  * A row on the sheet, such as a feature or an effect, that opens to show its description, loaded
- * only once it is opened.
+ * only once it is opened. With nothing to show, it doesn't open.
  */
 export function SheetEntry({
   characterId,
@@ -35,7 +39,9 @@ export function SheetEntry({
   detail,
   aside,
   meta,
+  facts = [],
   text,
+  children,
   muted = false,
 }: Readonly<Props>) {
   const [open, setOpen] = useState(false)
@@ -58,7 +64,7 @@ export function SheetEntry({
     muted && 'opacity-60',
   )
 
-  if (!text && !meta) {
+  if (!text && !meta && facts.length === 0 && !children) {
     return (
       <li>
         <div className={rowClass}>
@@ -70,10 +76,7 @@ export function SheetEntry({
   }
   return (
     <li>
-      <details
-        className='group'
-        onToggle={event => setOpen(event.currentTarget.open)}
-      >
+      <details onToggle={event => setOpen(event.currentTarget.open)}>
         <summary
           className={clsx(
             rowClass,
@@ -81,20 +84,46 @@ export function SheetEntry({
           )}
         >
           {row}
+          {/* By its own state: an entry can sit open inside another, such as a pouch in a
+              backpack, and a closed one inside it mustn't look open. */}
           <ChevronDown
             aria-hidden
-            className='size-4 shrink-0 text-text-secondary transition-transform group-open:rotate-180'
+            className={clsx(
+              'size-4 shrink-0 text-text-secondary transition-transform',
+              open && 'rotate-180',
+            )}
           />
         </summary>
         {open && (
           <div className='flex flex-col gap-2 px-2.5 pt-1 pb-3 pl-[3.25rem]'>
             {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
+            {facts.length > 0 && (
+              <dl className='grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs'>
+                {facts.map(fact => (
+                  <Fragment key={fact.label}>
+                    <dt className='font-semibold text-text-secondary'>
+                      {fact.label}
+                    </dt>
+                    <dd>{fact.value}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            )}
             {text && <SheetText characterId={characterId} hash={text} />}
+            {children}
           </div>
         )}
       </details>
     </li>
   )
+}
+
+/** A row's parts, such as a spell's casting time and range, joined by dots, or nothing for none. */
+export function joinParts(
+  ...parts: (string | false | null | undefined)[]
+): string | undefined {
+  const present = parts.filter(Boolean)
+  return present.length > 0 ? present.join(' · ') : undefined
 }
 
 function EntryIcon({

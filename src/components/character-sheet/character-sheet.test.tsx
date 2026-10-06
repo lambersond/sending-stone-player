@@ -74,6 +74,77 @@ describe('components/character-sheet/character-sheet', () => {
     expect(container.querySelector(`.${color}[style]`)).toBeInTheDocument()
   })
 
+  it("lists the character's traits", () => {
+    renderSheet({
+      traits: [
+        { id: 'senses', label: 'Senses', values: ['Darkvision 60 ft'] },
+        { id: 'languages', label: 'Languages', values: ['Common', 'Dwarvish'] },
+      ],
+    })
+
+    const traits = screen.getByRole('region', { name: 'Traits' })
+    expect(
+      within(traits)
+        .getAllByRole('term')
+        .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`),
+    ).toEqual(['Senses: Darkvision 60 ft', 'Languages: Common, Dwarvish'])
+  })
+
+  it('has no traits to show for a character without any', () => {
+    renderSheet({ traits: [] })
+
+    expect(screen.queryByRole('region', { name: 'Traits' })).toBeNull()
+  })
+
+  it.each([
+    [
+      { value: 0, max: 44, temp: 0 },
+      { success: 0, failure: 0 },
+    ],
+    [
+      { value: 3, max: 44, temp: 0 },
+      { success: 2, failure: 1 },
+    ],
+  ])(
+    'shows death saves while the character is down at %o, or has some marked, %o',
+    (hp, deathSaves) => {
+      renderSheet({ hp, deathSaves })
+
+      const saves = screen.getByText('Death saves').closest('div')
+      const marks = (label: string) => {
+        const row = within(saves as HTMLElement).getByText(label)
+          .parentElement as HTMLElement
+        return [...(row.querySelector('[aria-hidden]')?.children ?? [])].map(
+          mark => mark.classList.contains('border-transparent'),
+        )
+      }
+      expect(marks('Successes')).toEqual(
+        [0, 1, 2].map(index => index < deathSaves.success),
+      )
+      expect(marks('Failures')).toEqual(
+        [0, 1, 2].map(index => index < deathSaves.failure),
+      )
+      expect(saves).toHaveTextContent(
+        `Successes${deathSaves.success} of 3Failures${deathSaves.failure} of 3`,
+      )
+    },
+  )
+
+  it('leaves out death saves while the character is up and none are marked', () => {
+    renderSheet({
+      hp: { value: 3, max: 44, temp: 0 },
+      deathSaves: { success: 0, failure: 0 },
+    })
+
+    expect(screen.queryByText('Death saves')).toBeNull()
+  })
+
+  it('leaves out death saves for a system without them', () => {
+    renderSheet({ hp: { value: 0, max: 44, temp: 0 }, deathSaves: null })
+
+    expect(screen.queryByText('Death saves')).toBeNull()
+  })
+
   it('shows the portrait, or the initials when there is none or it fails', () => {
     const { container, unmount } = render(
       <CharacterSheet

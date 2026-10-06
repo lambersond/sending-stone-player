@@ -139,6 +139,112 @@ export type SheetEffectSection = {
   effects: SheetEffect[]
 }
 
+export type SheetItem = {
+  id: string
+  name: string
+  img: string | null
+  /** Such as "weapon" or "container". */
+  type: string
+  quantity: number
+  /** The item's and its quantity's weight together, or null for none. */
+  weight: { value: number; units: string } | null
+  /** dnd5e's label, such as "15 GP". */
+  price: string | null
+  /** Null for a type that is never equipped. */
+  equipped: boolean | null
+  attunement: 'required' | 'optional' | null
+  attuned: boolean
+  uses: SheetUses | null
+  rarity: string | null
+  properties: string[]
+  /** False for an item not identified yet, which keeps its secrets. */
+  identified: boolean
+  text: string | null
+}
+
+export type SheetContainer = SheetItem & {
+  /** How full it is, by count or weight; null without a limit, or when its contents are secret. */
+  capacity: { value: number; max: number; units: string } | null
+  /** Null when its contents are secret. */
+  contents: (SheetItem | SheetContainer)[] | null
+}
+
+export type SheetInventory = {
+  /** Items by type, in dnd5e's order, leaving out those in containers. */
+  sections: { id: string; label: string; items: SheetItem[] }[]
+  containers: SheetContainer[]
+  currency: { id: string; label: string; abbreviation: string; value: number }[]
+  /** Where being encumbered begins is set only under the variant rule. */
+  encumbrance: {
+    value: number
+    max: number | null
+    units: string
+    encumbered: number | null
+    heavilyEncumbered: number | null
+  } | null
+  attunement: { value: number; max: number | null } | null
+}
+
+export type SheetSpellcasting = {
+  ability: string | null
+  /** Spell save DC. */
+  dc: number | null
+  /** Spell attack bonus. */
+  attack: number | null
+  classes: {
+    name: string
+    ability: string | null
+    dc: number | null
+    attack: number | null
+  }[]
+}
+
+export type SheetSpell = {
+  id: string
+  name: string
+  img: string | null
+  level: number
+  school: string | null
+  /** Such as "V, S, M". */
+  components: string | null
+  materials: string | null
+  concentration: boolean
+  ritual: boolean
+  activation: string | null
+  range: string | null
+  duration: string | null
+  target: string | null
+  /** 0 unprepared, 1 prepared, 2 always prepared; null for one that isn't prepared. */
+  prepared: 0 | 1 | 2 | null
+  uses: SheetUses | null
+  text: string | null
+}
+
+/** Cantrips, a spell level, pact magic, or a casting method such as at will. */
+export type SheetSpellSection = {
+  id: string
+  label: string
+  /** Slots left of how many, for a section that uses them. */
+  slots: { value: number; max: number } | null
+  spells: SheetSpell[]
+}
+
+/** Such as Senses: Darkvision 60 ft. */
+export type SheetTrait = { id: string; label: string; values: string[] }
+
+export type SheetDetail = { id: string; label: string; value: string }
+
+export type SheetDetails = {
+  /** Alignment, age and the like. */
+  about: SheetDetail[]
+  /** Personality traits, ideals, bonds and flaws. */
+  personality: SheetDetail[]
+  appearance: string | null
+  xp: { value: number; max: number | null } | null
+  /** Its description's hash. */
+  biography: string | null
+}
+
 export type CharacterSheet = {
   /** Relative to the game's address, or a full URL. */
   img: string | null
@@ -157,6 +263,12 @@ export type CharacterSheet = {
   conditions: SheetCondition[]
   features: SheetFeatureSection[]
   effects: SheetEffectSection[]
+  inventory: SheetInventory
+  spellcasting: SheetSpellcasting | null
+  spells: SheetSpellSection[]
+  traits: SheetTrait[]
+  deathSaves: { success: number; failure: number } | null
+  details: SheetDetails
 }
 
 export type RollSummary = {

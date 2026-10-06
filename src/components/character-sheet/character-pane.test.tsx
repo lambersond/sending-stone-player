@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
@@ -62,8 +63,11 @@ describe('components/character-sheet/character-pane', () => {
     )
     expect(tabs.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       'Character',
+      'Inventory',
+      'Spells',
       'Features',
       'Effects, 3 conditions',
+      'Biography',
     ])
     expect(tabs.getByRole('tab', { name: 'Character' })).toHaveAttribute(
       'aria-selected',
@@ -83,6 +87,81 @@ describe('components/character-sheet/character-pane', () => {
     expect(screen.queryByRole('heading', { name: 'Abilities' })).toBeNull()
     // Rolls are made from the Character tab, where the tray is.
     expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+  })
+
+  it.each([
+    ['Inventory', 'Weapons'],
+    ['Spells', 'Spellcasting'],
+    ['Effects', 'Conditions'],
+    ['Biography', 'Details'],
+  ])('shows %s', async (name, heading) => {
+    const user = userEvent.setup()
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+    renderPane()
+
+    await user.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }))
+
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName(
+      new RegExp(`^${name}`),
+    )
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+  })
+
+  it('labels only the chosen tab where all the labels might not fit, naming each for screen readers', async () => {
+    const user = userEvent.setup()
+    renderPane()
+
+    const label = (name: string) =>
+      screen.getByRole('tab', { name: new RegExp(`^${name}`) })
+        .firstElementChild?.nextElementSibling
+    expect(label('Character')).not.toHaveClass('sr-only')
+    expect(label('Inventory')).toHaveClass('sr-only', '@3xl:not-sr-only')
+    expect(screen.getByRole('tab', { name: 'Inventory' })).toHaveAttribute(
+      'title',
+      'Inventory',
+    )
+
+    await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+
+    expect(label('Inventory')).not.toHaveClass('sr-only')
+    expect(label('Character')).toHaveClass('sr-only')
+  })
+
+  it("has no Spells tab for a character who doesn't cast", () => {
+    renderPane(characterSheet())
+
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
+      'Character',
+      'Inventory',
+      'Features',
+      'Effects',
+      'Biography',
+    ])
+  })
+
+  it('has a Spells tab for a character with spells but no spellcasting class', () => {
+    const sheet = fullerSheet()
+    renderPane({ ...sheet, spellcasting: null })
+
+    expect(screen.getByRole('tab', { name: 'Spells' })).toBeInTheDocument()
+  })
+
+  it('shows the character when the tab shown is gone', async () => {
+    const user = userEvent.setup()
+    const sheet = fullerSheet()
+    const { rerender } = renderPane(sheet)
+    await user.click(screen.getByRole('tab', { name: 'Spells' }))
+
+    rerender(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet({ ...sheet, spellcasting: null, spells: [] }, GAME)}
+      />,
+    )
+
+    expect(screen.queryByRole('tab', { name: 'Spells' })).toBeNull()
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Character')
   })
 
   it('keeps rolls while another part of the sheet is shown', async () => {

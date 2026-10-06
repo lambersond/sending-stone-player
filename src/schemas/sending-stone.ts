@@ -74,6 +74,143 @@ const featureSchema = z.looseObject({
   text: textRef,
 })
 
+const usesSchema = z
+  .looseObject({
+    value: z.number(),
+    max: z.number(),
+    recovery: nullableString,
+  })
+  .nullable()
+  .catch(null)
+
+const itemFields = {
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  type: z.string().catch(''),
+  quantity: z.number().catch(1),
+  weight: z
+    .object({ value: z.number(), units: z.string().catch('') })
+    .nullable()
+    .catch(null),
+  price: nullableString,
+  equipped: z.boolean().nullable().catch(null),
+  attunement: z.enum(['required', 'optional']).nullable().catch(null),
+  attuned: z.boolean().catch(false),
+  uses: usesSchema,
+  rarity: nullableString,
+  properties: z.array(z.string()).catch([]),
+  identified: z.boolean().catch(true),
+  text: textRef,
+}
+
+const itemSchema = z.looseObject(itemFields)
+
+type ParsedContainer = z.output<typeof itemSchema> & {
+  capacity: { value: number; max: number; units: string } | null
+  contents: (z.output<typeof itemSchema> | ParsedContainer)[] | null
+}
+
+// A container holds items, and containers that hold their own.
+const containerSchema: z.ZodType<ParsedContainer> = z.lazy(() =>
+  z.looseObject({
+    ...itemFields,
+    capacity: z
+      .object({
+        value: z.number(),
+        max: z.number(),
+        units: z.string().catch(''),
+      })
+      .nullable()
+      .catch(null),
+    contents: z
+      .array(z.unknown())
+      .nullable()
+      .catch(null)
+      .transform(entries =>
+        entries === null
+          ? null
+          : entries.flatMap(value => {
+              const schema =
+                (value as { type?: unknown } | null)?.type === 'container'
+                  ? containerSchema
+                  : itemSchema
+              const parsed = schema.safeParse(value)
+              return parsed.success ? [parsed.data] : []
+            }),
+      ),
+  }),
+)
+
+const inventorySchema = z
+  .looseObject({
+    sections: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string(),
+        items: listOf(itemSchema),
+      }),
+    ),
+    containers: listOf(containerSchema),
+    currency: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string().catch(''),
+        abbreviation: z.string().catch(''),
+        value: z.number().catch(0),
+      }),
+    ),
+    encumbrance: z
+      .looseObject({
+        value: z.number(),
+        max: nullableNumber,
+        units: z.string().catch(''),
+        encumbered: nullableNumber,
+        heavilyEncumbered: nullableNumber,
+      })
+      .nullable()
+      .catch(null),
+    attunement: z
+      .looseObject({ value: z.number(), max: nullableNumber })
+      .nullable()
+      .catch(null),
+  })
+  .catch({
+    sections: [],
+    containers: [],
+    currency: [],
+    encumbrance: null,
+    attunement: null,
+  })
+
+const spellSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  level: z.number().catch(0),
+  school: nullableString,
+  components: nullableString,
+  materials: nullableString,
+  concentration: z.boolean().catch(false),
+  ritual: z.boolean().catch(false),
+  activation: nullableString,
+  range: nullableString,
+  duration: nullableString,
+  target: nullableString,
+  prepared: z
+    .union([z.literal(0), z.literal(1), z.literal(2)])
+    .nullable()
+    .catch(null),
+  uses: usesSchema,
+  text: textRef,
+})
+
+const detailSchema = z.looseObject({
+  id: z.string(),
+  label: z.string(),
+  value: z.string(),
+})
+
 const effectSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -170,6 +307,64 @@ const sheetSchema = z
         effects: listOf(effectSchema),
       }),
     ),
+    // Sent from module 0.7.0.
+    inventory: inventorySchema,
+    spellcasting: z
+      .looseObject({
+        ability: nullableString,
+        dc: nullableNumber,
+        attack: nullableNumber,
+        classes: listOf(
+          z.looseObject({
+            name: z.string(),
+            ability: nullableString,
+            dc: nullableNumber,
+            attack: nullableNumber,
+          }),
+        ),
+      })
+      .nullable()
+      .catch(null),
+    spells: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string(),
+        slots: z
+          .object({ value: z.number(), max: z.number() })
+          .nullable()
+          .catch(null),
+        spells: listOf(spellSchema),
+      }),
+    ),
+    traits: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string(),
+        values: z.array(z.string()).catch([]),
+      }),
+    ),
+    deathSaves: z
+      .object({ success: z.number(), failure: z.number() })
+      .nullable()
+      .catch(null),
+    details: z
+      .looseObject({
+        about: listOf(detailSchema),
+        personality: listOf(detailSchema),
+        appearance: nullableString,
+        xp: z
+          .object({ value: z.number(), max: nullableNumber })
+          .nullable()
+          .catch(null),
+        biography: textRef,
+      })
+      .catch({
+        about: [],
+        personality: [],
+        appearance: null,
+        xp: null,
+        biography: null,
+      }),
   })
   .nullable()
   .optional()
