@@ -8,10 +8,12 @@ import {
   Shield,
   ShieldCheck,
   Sparkles,
+  Star,
   Zap,
 } from 'lucide-react'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { conditionDetail } from './effects-tab'
+import { useFavorite } from './favorite-mark'
 import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
 import { formatModifier } from '@/utils/format-modifier'
@@ -453,7 +455,8 @@ function AbilityTile({
   )
 }
 
-const PROFICIENCY: Record<string, string> = {
+/** Proficiency, as a skill's multiplier says it. */
+export const PROFICIENCY: Record<string, string> = {
   '0.5': 'half proficiency',
   '1': 'proficient',
   '2': 'expertise',
@@ -465,6 +468,7 @@ function SkillRow({
   onRoll,
   onMenu,
 }: Readonly<{ skill: SheetSkill; ability: string } & RollActions>) {
+  const favorite = useFavorite(`skill:${skill.id}`)
   const proficiency = PROFICIENCY[String(skill.proficiency)]
   const details = [
     proficiency,
@@ -480,15 +484,18 @@ function SkillRow({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}`}
+        label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}${favorite ? ', favorite' : ''}`}
         className='flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
       >
         <ProficiencyMark value={skill.proficiency} />
         <span className='w-8 shrink-0 text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
           {ability}
         </span>
-        <span className='min-w-0 flex-1 truncate font-medium'>
-          {skill.label}
+        <span className='flex min-w-0 flex-1 items-center gap-1'>
+          <span className='truncate font-medium'>{skill.label}</span>
+          {favorite && (
+            <Star aria-hidden className='size-3 shrink-0 fill-gold text-gold' />
+          )}
         </span>
         <ModeChip mode={skill.mode} />
         <span className='w-8 text-right font-semibold tabular-nums'>
@@ -520,7 +527,7 @@ function ProficiencyMark({ value }: Readonly<{ value: number }>) {
 }
 
 /** Advantage or disadvantage from the character's conditions and features. */
-function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
+export function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
   if (mode === 0) return
   return (
     <span
@@ -537,7 +544,8 @@ function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
 
 /* -------------------------------------------- */
 
-function modeText(mode: RollMode): string {
+/** Advantage or disadvantage, as a roll's label says it. */
+export function modeText(mode: RollMode): string {
   if (mode > 0) return ', with advantage'
   if (mode < 0) return ', with disadvantage'
   return ''

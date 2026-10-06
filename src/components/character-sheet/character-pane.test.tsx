@@ -2,7 +2,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
-import { characterSheet, fullerSheet, TEXTS } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  fullerSheet,
+  sheetFavorites,
+  TEXTS,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
 
@@ -23,6 +28,19 @@ const renderPane = (sheet: CharacterSheet = fullerSheet()) =>
       sheet={toTableSheet(sheet, GAME)}
     />,
   )
+
+/** Thorin's sheet, with his favorites. */
+const favored = (favorites = sheetFavorites()) => fullerSheet({ favorites })
+
+/** The sheet this many pixels wide, as a browser would lay it out. */
+const wide = (width: number) =>
+  jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(width)
+
+/** Shows a tab of the sheet. */
+const show = (name: string) =>
+  userEvent
+    .setup()
+    .click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }))
 
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
@@ -245,5 +263,146 @@ describe('components/character-sheet/character-pane', () => {
       `/api/characters/char-1/texts/${TEXTS.secondWind}`,
       { signal: expect.any(AbortSignal) },
     )
+  })
+
+  describe('favorites', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      localStorage.clear()
+    })
+
+    it.each(['Actions', 'Inventory', 'Spells', 'Effects'])(
+      'shows them at the top of %s on a phone or tablet',
+      async name => {
+        renderPane(favored())
+        await show(name)
+
+        const panel = screen.getByRole('tabpanel')
+        const strip = within(panel).getByRole('region', { name: 'Favorites' })
+        expect(panel.querySelector('section')).toBe(strip)
+        expect(within(strip).getAllByRole('listitem')).toHaveLength(7)
+        expect(screen.queryByRole('complementary')).toBeNull()
+      },
+    )
+
+    it.each(['Character', 'Features', 'Biography'])(
+      'leaves them out of %s',
+      async name => {
+        globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+        renderPane(favored())
+        await show(name)
+
+        expect(screen.queryByRole('region', { name: 'Favorites' })).toBeNull()
+        expect(screen.queryByRole('complementary')).toBeNull()
+      },
+    )
+
+    it('shows them in a column beside those tabs where the sheet is wide enough for both', async () => {
+      wide(936)
+      renderPane(favored())
+      await show('Actions')
+
+      const column = screen.getByRole('complementary', { name: 'Favorites' })
+      expect(within(column).getAllByRole('listitem')).toHaveLength(7)
+      const panel = screen.getByRole('tabpanel')
+      expect(panel).not.toContainElement(column)
+      expect(
+        within(panel).queryByRole('region', { name: 'Favorites' }),
+      ).toBeNull()
+
+      await show('Features')
+      expect(screen.queryByRole('complementary')).toBeNull()
+    })
+
+    it('shows them at the top of the tab where the sheet is narrower', async () => {
+      wide(935)
+      renderPane(favored())
+      await show('Spells')
+
+      expect(screen.queryByRole('complementary')).toBeNull()
+      expect(
+        screen.getByRole('region', { name: 'Favorites' }),
+      ).toBeInTheDocument()
+    })
+
+    it('has none to show for a sheet without any, as from a module before 0.9.0', async () => {
+      wide(1200)
+      renderPane()
+      await show('Actions')
+
+      expect(screen.queryByRole('region', { name: 'Favorites' })).toBeNull()
+      expect(screen.queryByRole('complementary')).toBeNull()
+    })
+
+    it('rolls from them into the tray, which shows with them', async () => {
+      const user = userEvent.setup()
+      renderPane(favored())
+      await show('Inventory')
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Perception check, +4 (proficient, passive 14)',
+        }),
+      )
+      const status = screen.getByRole('status')
+      await waitFor(() => expect(status).toHaveTextContent('Perception check'))
+      expect(
+        screen.getByRole('region', { name: 'Your rolls' }),
+      ).toBeInTheDocument()
+    })
+
+    it("has no tray beside favorites that don't roll", async () => {
+      renderPane(
+        favored(
+          sheetFavorites().filter(
+            ({ type }) => type === 'effect' || type === 'slots',
+          ),
+        ),
+      )
+      await show('Effects')
+
+      expect(
+        screen.getByRole('region', { name: 'Favorites' }),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+    })
+
+    it('stars each one wherever the sheet lists it', async () => {
+      renderPane(favored())
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Perception check, +4 (proficient, passive 14), favorite',
+        }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', {
+          name: 'Athletics check, +7 (proficient, passive 17)',
+        }),
+      ).toBeInTheDocument()
+
+      await show('Actions')
+      const actions = screen.getByRole('region', { name: 'Actions' })
+      expect(
+        within(actions).getByRole('button', {
+          name: /^Warhammer\s*, favorite/,
+        }),
+      ).toBeInTheDocument()
+      expect(
+        within(actions).getByRole('button', { name: /^Handaxe Action/ }),
+      ).toBeInTheDocument()
+
+      await show('Inventory')
+      const weapons = screen.getByRole('region', { name: 'Weapons' })
+      expect(
+        within(weapons)
+          .getAllByText(', favorite')
+          .map(star => star.closest('li')?.textContent?.split(',', 1)[0]),
+      ).toEqual(['Warhammer'])
+
+      await show('Effects')
+      const effects = screen.getByRole('region', { name: 'Temporary Effects' })
+      expect(within(effects).getByText(', favorite')).toBeInTheDocument()
+    })
   })
 })

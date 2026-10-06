@@ -363,6 +363,12 @@ export function toTableSheet(
         img: iconUrl(action.img, origin),
       })),
     })),
+    // Nor these, before module 0.9.0.
+    favorites: (sheet.favorites ?? []).map(favorite =>
+      'img' in favorite
+        ? { ...favorite, img: iconUrl(favorite.img, origin) }
+        : favorite,
+    ),
   }
 }
 

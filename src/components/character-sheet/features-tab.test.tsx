@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
+import { FavoriteMarks } from './favorite-mark'
 import { FeaturesTab } from './features-tab'
 import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
@@ -100,5 +101,22 @@ describe('components/character-sheet/features-tab', () => {
     expect(screen.getByRole('region', { name: 'Classes' })).toHaveTextContent(
       'FighterHit dice–/– d8',
     )
+  })
+
+  it('stars a favorite', () => {
+    render(
+      <FavoriteMarks keys={new Set(['item:darkvision'])}>
+        <FeaturesTab
+          characterId='char-1'
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        />
+      </FavoriteMarks>,
+    )
+
+    expect(
+      screen
+        .getAllByText(', favorite')
+        .map(star => star.closest('li')?.textContent),
+    ).toEqual(['Darkvision, favoritePassive'])
   })
 })

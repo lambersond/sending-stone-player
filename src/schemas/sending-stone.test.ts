@@ -5,10 +5,12 @@ import {
   combat,
   fullerSheet,
   roster,
+  sheetFavorites,
   TEXTS,
 } from '@/mocks/sending-stone'
 import type {
   SheetAction,
+  SheetActivityFavorite,
   SheetSpell,
   SheetSpellSection,
 } from '@/types/sending-stone'
@@ -407,6 +409,68 @@ describe('schemas/sending-stone', () => {
 
     expect(actions).toEqual([])
     expect(event.data.character.sheet.actions).toEqual([])
+  })
+
+  it('reads favorites of every kind, as sent from module 0.9.0', () => {
+    const favorites = sheetFavorites()
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: fullerSheet({ favorites }) },
+    }) as any
+
+    expect(event.data.character.sheet.favorites).toEqual(favorites)
+  })
+
+  it("drops a malformed favorite, or one of a kind it doesn't know, rather than the sheet", () => {
+    const [resource, warhammer, fireball, bless, perception, tools, slots] =
+      sheetFavorites()
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: fullerSheet({
+          favorites: [
+            { type: 'facility', id: 'forge', name: 'Forge' },
+            { type: 'item', name: 'No id' },
+            'warhammer',
+            { ...resource, uses: { value: 'all' } },
+            { ...warhammer, itemType: 7, img: 7 },
+            {
+              ...fireball,
+              toHit: '+7',
+              save: { ability: 7 },
+              damage: [
+                { formula: 5 },
+                ...(fireball as SheetActivityFavorite).damage,
+              ],
+            },
+            { ...bless, disabled: 'yes', suppressed: undefined },
+            { ...perception, name: undefined },
+            { ...tools, total: '+5' },
+            { ...tools, id: 'herb', passive: '12', mode: 2 },
+            { ...slots, level: 'first' },
+          ] as any,
+        }),
+      },
+    }) as any
+
+    expect(event.data.character.sheet.favorites).toEqual([
+      { ...resource, uses: null },
+      { ...warhammer, itemType: '', img: null },
+      { ...fireball, toHit: null, save: null },
+      { ...bless, disabled: false, suppressed: false },
+      { ...perception, name: '' },
+      { ...tools, id: 'herb', passive: null, mode: 0 },
+      { ...slots, level: null },
+    ])
+  })
+
+  it('reads a sheet from before module 0.9.0 as having no favorites', () => {
+    const { favorites, ...older } = characterSheet()
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: older },
+    }) as any
+
+    expect(favorites).toEqual([])
+    expect(event.data.character.sheet.favorites).toEqual([])
   })
 
   it("reads an inventory or details it can't make sense of as empty", () => {

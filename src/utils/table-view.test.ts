@@ -14,6 +14,7 @@ import {
   chatMessage,
   combat,
   combatant,
+  sheetFavorites,
   sheetItem,
 } from '@/mocks/sending-stone'
 import type {
@@ -598,6 +599,33 @@ describe('utils/table-view', () => {
       ])
       expect(actions).toEqual([])
       expect(toTableSheet(older as CharacterSheet, origin).actions).toEqual([])
+    })
+
+    it("finds favorites' icons at the game, and reads a sheet from before module 0.9.0 as having none", () => {
+      const favorites = sheetFavorites()
+      const view = toTableSheet(fullerSheet({ favorites }), origin)
+      const { favorites: none, ...older } = characterSheet()
+
+      expect(view.favorites).toEqual([
+        favorites[0],
+        {
+          ...favorites[1],
+          img: `${origin}/icons/weapons/hammers/hammer-war.webp`,
+        },
+        {
+          ...favorites[2],
+          img: `${origin}/systems/dnd5e/icons/svg/activity/cast.svg`,
+        },
+        {
+          ...favorites[3],
+          img: `${origin}/icons/magic/control/buff-flight-wings-blue.webp`,
+        },
+        ...favorites.slice(4),
+      ])
+      expect(none).toEqual([])
+      expect(toTableSheet(older as CharacterSheet, origin).favorites).toEqual(
+        [],
+      )
     })
 
     it("keeps a container's secret contents secret", () => {

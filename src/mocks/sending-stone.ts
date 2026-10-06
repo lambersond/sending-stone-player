@@ -6,6 +6,7 @@ import type {
   SerializedMessage,
   SheetAbility,
   SheetAction,
+  SheetFavorite,
   SheetItem,
   SheetSpell,
 } from '@/types/sending-stone'
@@ -170,6 +171,7 @@ export function characterSheet(
       biography: null,
     },
     actions: [],
+    favorites: [],
     ...fields,
   }
 }
@@ -666,4 +668,69 @@ export function fullerSheet(
     ],
     ...fields,
   })
+}
+
+/**
+ * Thorin's favorites, one of each kind, as the module sends them from 0.9.0. Those that refer to
+ * the rest of the sheet refer to fullerSheet's.
+ */
+export function sheetFavorites(): SheetFavorite[] {
+  return [
+    {
+      type: 'resource',
+      id: 'primary',
+      name: 'Superiority Dice',
+      uses: { value: 3, max: 4, recovery: 'Short Rest' },
+    },
+    {
+      type: 'item',
+      id: 'warhammer',
+      itemType: 'weapon',
+      name: 'Warhammer',
+      img: 'icons/weapons/hammers/hammer-war.webp',
+    },
+    {
+      type: 'activity',
+      id: 'cast-fireball',
+      itemId: 'staff',
+      itemType: 'weapon',
+      itemName: 'Staff of Fire',
+      name: 'Cast Fireball',
+      img: 'systems/dnd5e/icons/svg/activity/cast.svg',
+      activation: 'Action',
+      range: '150 ft',
+      target: '20 ft Sphere',
+      toHit: null,
+      save: { ability: 'DEX', dc: 15 },
+      damage: [{ formula: '8d6', type: 'Fire', healing: false }],
+      uses: null,
+    },
+    {
+      type: 'effect',
+      id: 'blessed',
+      name: 'Bless',
+      img: 'icons/magic/control/buff-flight-wings-blue.webp',
+      disabled: false,
+      suppressed: false,
+    },
+    { type: 'skill', id: 'prc', name: 'Perception' },
+    {
+      type: 'tool',
+      id: 'thief',
+      name: "Thieves' Tools",
+      ability: 'dex',
+      total: 5,
+      passive: null,
+      proficiency: 1,
+      mode: 0,
+    },
+    {
+      type: 'slots',
+      id: 'spell1',
+      name: '1st Level',
+      value: 1,
+      max: 2,
+      level: 1,
+    },
+  ]
 }

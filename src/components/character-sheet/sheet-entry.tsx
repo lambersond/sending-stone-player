@@ -3,6 +3,7 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
+import { FavoriteStar, useFavorite } from './favorite-mark'
 import { SheetText } from './sheet-text'
 
 type Props = {
@@ -20,11 +21,13 @@ type Props = {
   meta?: string
   /** Shown above the description when open, each with its label, such as a spell's range. */
   facts?: { label: string; value: string }[]
-  /** Its description's hash. */
-  text: string | null
+  /** Its description's hash, if it has one. */
+  text?: string | null
   /** Shown when open, after the description, such as what a container holds. */
   children?: ReactNode
   muted?: boolean
+  /** What it's listed by among favorites, such as "item:<id>", to be marked if it's one. */
+  favoriteKey?: string
 }
 
 /**
@@ -43,13 +46,18 @@ export function SheetEntry({
   text,
   children,
   muted = false,
+  favoriteKey,
 }: Readonly<Props>) {
   const [open, setOpen] = useState(false)
+  const favorite = useFavorite(favoriteKey)
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
       <span className='min-w-0 flex-1'>
-        <span className='block truncate font-medium'>{name}</span>
+        <span className='flex items-center gap-1'>
+          <span className='truncate font-medium'>{name}</span>
+          {favorite && <FavoriteStar />}
+        </span>
         {detail && (
           <span className='block truncate text-xs text-text-secondary'>
             {detail}

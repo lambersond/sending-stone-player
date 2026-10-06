@@ -10,6 +10,7 @@ import type {
   SheetItem,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { ReactNode } from 'react'
 
 /**
  * The character's inventory, as dnd5e's Inventory tab shows it to its player: coin, load and
@@ -18,13 +19,20 @@ import type { TableSheet } from '@/types/table'
 export function InventoryTab({
   characterId,
   sheet,
-}: Readonly<{ characterId: string; sheet: TableSheet }>) {
+  favorites,
+}: Readonly<{
+  characterId: string
+  sheet: TableSheet
+  /** Shown first, such as the character's favorites. */
+  favorites?: ReactNode
+}>) {
   const { inventory } = sheet
   const { currency, encumbrance, attunement } = inventory
   const empty =
     inventory.sections.length === 0 && inventory.containers.length === 0
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {favorites}
       {(currency.length > 0 || encumbrance || attunement) && (
         <Holdings inventory={inventory} />
       )}
@@ -169,7 +177,7 @@ function Load({
 }
 
 /** An item, or a container that opens to what it holds. */
-function ItemEntry({
+export function ItemEntry({
   characterId,
   item,
 }: Readonly<{ characterId: string; item: SheetItem | SheetContainer }>) {
@@ -207,6 +215,7 @@ function ItemEntry({
       name={item.name}
       img={item.img}
       fallback={container ? Backpack : Package}
+      favoriteKey={`item:${item.id}`}
       detail={detail}
       aside={
         (item.quantity !== 1 || uses) && (

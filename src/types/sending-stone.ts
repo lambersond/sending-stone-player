@@ -299,6 +299,105 @@ export type SheetActionSection = {
   actions: SheetAction[]
 }
 
+/** An item made a favorite. */
+export type SheetItemFavorite = {
+  type: 'item'
+  /** The item's, as in inventory, spells, features and actions. */
+  id: string
+  /** Such as "weapon" or "spell". */
+  itemType: string
+  name: string
+  img: string | null
+}
+
+/**
+ * One of an item's activities made a favorite, such as a staff's Cast Fireball, with what it does
+ * as an action has it, for that activity alone.
+ */
+export type SheetActivityFavorite = Pick<
+  SheetAction,
+  'activation' | 'range' | 'target' | 'toHit' | 'save' | 'damage' | 'uses'
+> & {
+  type: 'activity'
+  /** The activity's. */
+  id: string
+  /** The item's, as in inventory, spells, features and actions. */
+  itemId: string
+  itemType: string
+  itemName: string
+  name: string
+  img: string | null
+}
+
+/** An effect made a favorite. */
+export type SheetEffectFavorite = {
+  type: 'effect'
+  /** As in effects. */
+  id: string
+  name: string
+  img: string | null
+  disabled: boolean
+  /** Unavailable for now, as an unequipped item's effect is. */
+  suppressed: boolean
+}
+
+/** A skill made a favorite. */
+export type SheetSkillFavorite = {
+  type: 'skill'
+  /** As in skills, such as "prc". */
+  id: string
+  name: string
+}
+
+/** A tool made a favorite, with what rolling it takes, as a skill has, since it's nowhere else. */
+export type SheetToolFavorite = {
+  type: 'tool'
+  /** Such as "thief". */
+  id: string
+  name: string
+  /** The ability it's checked with, such as "dex". */
+  ability: string | null
+  total: number
+  passive: number | null
+  /** As a skill's: 0, 0.5, 1 or 2. */
+  proficiency: number
+  mode: RollMode
+}
+
+/** A pool of spell slots made a favorite, with how many are left and the level they cast at. */
+export type SheetSlotsFavorite = {
+  type: 'slots'
+  /** As in spells, such as "spell3" or "pact". */
+  id: string
+  name: string
+  value: number
+  max: number
+  level: number | null
+}
+
+/** An old-style resource, which dnd5e lists first among the favorites, with its uses. */
+export type SheetResourceFavorite = {
+  type: 'resource'
+  /** Such as "primary". */
+  id: string
+  name: string
+  uses: SheetUses | null
+}
+
+/**
+ * Something the player made a favorite, as dnd5e's sheet lists it under Favorites, and Tidy 5e in
+ * its own; or an old-style resource, which they list there too. Each refers to what the sheet
+ * lists elsewhere by the id it lists it by. Module 0.9.0.
+ */
+export type SheetFavorite =
+  | SheetItemFavorite
+  | SheetActivityFavorite
+  | SheetEffectFavorite
+  | SheetSkillFavorite
+  | SheetToolFavorite
+  | SheetSlotsFavorite
+  | SheetResourceFavorite
+
 export type CharacterSheet = {
   /** Relative to the game's address, or a full URL. */
   img: string | null
@@ -324,6 +423,8 @@ export type CharacterSheet = {
   deathSaves: { success: number; failure: number } | null
   details: SheetDetails
   actions: SheetActionSection[]
+  /** In the order dnd5e shows them: resources first, then in the player's order. */
+  favorites: SheetFavorite[]
 }
 
 export type RollSummary = {

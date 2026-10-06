@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { CircleAlert, Info, Sparkles } from 'lucide-react'
 import { ConditionsReference } from './conditions-reference'
 import { SheetEntry } from './sheet-entry'
@@ -17,10 +17,17 @@ import type { TableSheet } from '@/types/table'
 export function EffectsTab({
   characterId,
   sheet,
-}: Readonly<{ characterId: string; sheet: TableSheet }>) {
+  favorites,
+}: Readonly<{
+  characterId: string
+  sheet: TableSheet
+  /** Shown first, such as the character's favorites. */
+  favorites?: ReactNode
+}>) {
   const [reading, setReading] = useState(false)
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {favorites}
       <section
         aria-labelledby='conditions-heading'
         className='flex flex-col gap-2'
@@ -68,22 +75,10 @@ export function EffectsTab({
           </SheetHeading>
           <ul className='rounded-2xl border border-border bg-card p-1.5'>
             {section.effects.map(effect => (
-              <SheetEntry
+              <EffectEntry
                 key={effect.id}
                 characterId={characterId}
-                name={effect.name}
-                img={effect.img}
-                fallback={Sparkles}
-                detail={effectDetail(effect)}
-                aside={
-                  effect.disabled && (
-                    <span className='shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-text-secondary'>
-                      Off
-                    </span>
-                  )
-                }
-                muted={effect.disabled}
-                text={effect.text}
+                effect={effect}
               />
             ))}
           </ul>
@@ -103,6 +98,44 @@ export function EffectsTab({
         <ConditionsReference conditions={sheet.conditions} />
       </SidePanel>
     </div>
+  )
+}
+
+/**
+ * An effect: where it came from and the time it has left, muted while it's off, or unavailable
+ * for now, as an unequipped item's effect is; opening to its description.
+ */
+export function EffectEntry({
+  characterId,
+  effect,
+  suppressed = false,
+}: Readonly<{
+  characterId: string
+  effect: SheetEffect
+  /** Said of it where the section it's in doesn't say so, as among favorites. */
+  suppressed?: boolean
+}>) {
+  let state: string | undefined
+  if (effect.disabled) state = 'Off'
+  else if (suppressed) state = 'Unavailable'
+  return (
+    <SheetEntry
+      characterId={characterId}
+      name={effect.name}
+      img={effect.img}
+      fallback={Sparkles}
+      favoriteKey={`effect:${effect.id}`}
+      detail={effectDetail(effect)}
+      aside={
+        state && (
+          <span className='shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-text-secondary'>
+            {state}
+          </span>
+        )
+      }
+      muted={state !== undefined}
+      text={effect.text}
+    />
   )
 }
 

@@ -7,6 +7,7 @@ import { SpellSlots } from './spell-slots'
 import { formatModifier } from '@/utils/format-modifier'
 import type { SheetSpell, SheetSpellcasting } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { ReactNode } from 'react'
 
 /**
  * The character's spells, as dnd5e's Spells tab shows them to its player: how they cast, then
@@ -16,7 +17,13 @@ import type { TableSheet } from '@/types/table'
 export function SpellsTab({
   characterId,
   sheet,
-}: Readonly<{ characterId: string; sheet: TableSheet }>) {
+  favorites,
+}: Readonly<{
+  characterId: string
+  sheet: TableSheet
+  /** Shown first, such as the character's favorites. */
+  favorites?: ReactNode
+}>) {
   // A spell level with slots shows even with no spells of its own, as they can cast a lower
   // level's.
   const sections = sheet.spells.filter(
@@ -24,6 +31,7 @@ export function SpellsTab({
   )
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {favorites}
       {sheet.spellcasting && <Spellcasting spellcasting={sheet.spellcasting} />}
 
       {sections.map(section => (
@@ -143,7 +151,7 @@ function Spellcasting({
  * A spell: when and how it is cast, marked for concentration, ritual or always prepared. One not
  * prepared is muted.
  */
-function SpellEntry({
+export function SpellEntry({
   characterId,
   spell,
 }: Readonly<{ characterId: string; spell: SheetSpell }>) {
@@ -173,6 +181,7 @@ function SpellEntry({
       name={spell.name}
       img={spell.img}
       fallback={Wand}
+      favoriteKey={`item:${spell.id}`}
       detail={joinParts(
         spell.activation,
         spell.range,

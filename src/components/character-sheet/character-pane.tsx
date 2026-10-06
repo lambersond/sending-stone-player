@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
 import {
@@ -17,12 +17,20 @@ import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet, classLine } from './character-sheet'
 import { EffectsTab } from './effects-tab'
+import { FavoriteMarks } from './favorite-mark'
+import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { RollTray } from './roll-tray'
 import { SpellsTab } from './spells-tab'
 import { Scroller } from '@/components/scroller'
-import { useSheetRoller } from '@/hooks/use-sheet-roller'
+import {
+  useSheetRoller,
+  type SheetDamageRoll,
+  type SheetRoll,
+} from '@/hooks/use-sheet-roller'
+import { useWidth } from '@/hooks/use-width'
+import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import type { TableSheet } from '@/types/table'
 
 type Props = { characterId: string; name: string; sheet: TableSheet }
@@ -49,6 +57,21 @@ type SheetTab =
   | 'effects'
   | 'biography'
 
+/** The tabs the character's favorites are shown with, as what's used most there. */
+const WITH_FAVORITES = new Set<SheetTab>([
+  'actions',
+  'inventory',
+  'spells',
+  'effects',
+])
+
+/**
+ * How wide the sheet must be, in pixels, for the favorites to have a column of their own beside
+ * the tab: room for their column, 360 pixels, about a phone's width, and beside it for the
+ * Actions tab's table.
+ */
+const COLUMN_FROM = 936
+
 /**
  * The character's sheet, rolling 3D dice across the screen. The dice and their textures load
  * once the sheet is shown, and leave with it.
@@ -65,6 +88,8 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
   const { roll, rollDamage, rolls, rolling } = useSheetRoller()
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  const width = useWidth(body)
   const show = (next: SheetTab) => {
     setTab(next)
     scroller.current?.scrollTo?.({ top: 0 })
@@ -76,9 +101,30 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
   // A tab the sheet no longer has, such as Spells for a character who lost theirs, shows the
   // character.
   const tab = tabs.some(({ id }) => id === chosen) ? chosen : 'character'
+  const onRoll = (request: SheetRoll) => {
+    void roll(request)
+  }
+  const onRollDamage = (request: SheetDamageRoll) => {
+    void rollDamage(request)
+  }
+  const entries = useMemo(() => favoriteEntries(sheet), [sheet])
+  const marks = useMemo(() => favoriteKeys(sheet.favorites), [sheet.favorites])
+  // On a phone or tablet, the favorites are at the top of the tabs they're shown with; where the
+  // sheet is wide enough, they have a column beside them.
+  const showsFavorites = WITH_FAVORITES.has(tab) && entries.length > 0
+  const beside = showsFavorites && width >= COLUMN_FROM
+  const favorites = { characterId, sheet, entries, onRoll, onRollDamage }
+  const strip =
+    showsFavorites && !beside ? <FavoritesStrip {...favorites} /> : undefined
+  // Rolls are made from the Character and Actions tabs, and from favorites, so the tray shows
+  // there; the rolls stay.
+  const showsRolls =
+    tab === 'character' ||
+    tab === 'actions' ||
+    (showsFavorites && rollsAny(entries))
 
   return (
-    <>
+    <FavoriteMarks keys={marks}>
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
           labels don't fit. */}
       <div className='@container flex h-11 shrink-0 items-center gap-3 border-b border-border px-3 md:px-6 lg:px-7'>
@@ -124,56 +170,62 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
           {classLine(sheet)}
         </span>
       </div>
-      <Scroller ref={scroller}>
-        <div
-          id='sheet-panel'
-          role='tabpanel'
-          aria-labelledby={`sheet-tab-${tab}`}
-        >
-          {tab === 'character' && (
-            <CharacterSheet
-              name={name}
-              sheet={sheet}
-              onRoll={request => {
-                void roll(request)
-              }}
-              onShowConditions={() => show('effects')}
-            />
-          )}
-          {tab === 'actions' && (
-            <ActionsTab
-              characterId={characterId}
-              sheet={sheet}
-              onRoll={request => {
-                void roll(request)
-              }}
-              onRollDamage={request => {
-                void rollDamage(request)
-              }}
-            />
-          )}
-          {tab === 'inventory' && (
-            <InventoryTab characterId={characterId} sheet={sheet} />
-          )}
-          {tab === 'spells' && (
-            <SpellsTab characterId={characterId} sheet={sheet} />
-          )}
-          {tab === 'features' && (
-            <FeaturesTab characterId={characterId} sheet={sheet} />
-          )}
-          {tab === 'effects' && (
-            <EffectsTab characterId={characterId} sheet={sheet} />
-          )}
-          {tab === 'biography' && (
-            <BiographyTab characterId={characterId} sheet={sheet} />
-          )}
-        </div>
-      </Scroller>
-      {/* Rolls are made from the Character and Actions tabs, so the tray shows there; the rolls
-          stay. */}
-      {(tab === 'character' || tab === 'actions') && (
-        <RollTray rolls={rolls} rolling={rolling} />
-      )}
-    </>
+      <div ref={body} className='flex min-h-0 flex-1'>
+        {beside && <FavoritesColumn {...favorites} />}
+        <Scroller ref={scroller}>
+          <div
+            id='sheet-panel'
+            role='tabpanel'
+            aria-labelledby={`sheet-tab-${tab}`}
+          >
+            {tab === 'character' && (
+              <CharacterSheet
+                name={name}
+                sheet={sheet}
+                onRoll={onRoll}
+                onShowConditions={() => show('effects')}
+              />
+            )}
+            {tab === 'actions' && (
+              <ActionsTab
+                characterId={characterId}
+                sheet={sheet}
+                onRoll={onRoll}
+                onRollDamage={onRollDamage}
+                favorites={strip}
+              />
+            )}
+            {tab === 'inventory' && (
+              <InventoryTab
+                characterId={characterId}
+                sheet={sheet}
+                favorites={strip}
+              />
+            )}
+            {tab === 'spells' && (
+              <SpellsTab
+                characterId={characterId}
+                sheet={sheet}
+                favorites={strip}
+              />
+            )}
+            {tab === 'features' && (
+              <FeaturesTab characterId={characterId} sheet={sheet} />
+            )}
+            {tab === 'effects' && (
+              <EffectsTab
+                characterId={characterId}
+                sheet={sheet}
+                favorites={strip}
+              />
+            )}
+            {tab === 'biography' && (
+              <BiographyTab characterId={characterId} sheet={sheet} />
+            )}
+          </div>
+        </Scroller>
+      </div>
+      {showsRolls && <RollTray rolls={rolls} rolling={rolling} />}
+    </FavoriteMarks>
   )
 }

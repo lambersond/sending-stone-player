@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActionsTab } from './actions-tab'
+import { FavoriteMarks } from './favorite-mark'
 import {
   characterSheet,
   fullerSheet,
@@ -900,5 +901,41 @@ describe('components/character-sheet/actions-tab', () => {
     expect(screen.getByText('No actions to show yet.')).toBeInTheDocument()
     expect(screen.queryByRole('heading')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Layout' })).toBeNull()
+  })
+
+  it('stars a favorite, in a list and in a table, and shows first what it is given, such as the favorites', () => {
+    sheetWidth(600)
+    const sheet = toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')
+    const tab = (
+      <FavoriteMarks keys={new Set(['item:warhammer'])}>
+        <ActionsTab
+          characterId='char-1'
+          sheet={sheet}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          favorites={<p>Her favorites</p>}
+        />
+      </FavoriteMarks>
+    )
+    render(tab)
+
+    expect(
+      screen.getByRole('button', { name: /^Warhammer\s*, favorite/ }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText(', favorite')).toHaveLength(1)
+    expect(
+      screen
+        .getByText('Her favorites')
+        .compareDocumentPosition(screen.getByRole('group', { name: 'Layout' })),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+
+    cleanup()
+    localStorage.setItem('sending-stone:actions-layout', 'table')
+    render(tab)
+    expect(
+      within(screen.getAllByRole('table')[0]).getByRole('button', {
+        name: /^Warhammer\s*, favorite/,
+      }),
+    ).toBeInTheDocument()
   })
 })
