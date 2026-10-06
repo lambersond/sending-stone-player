@@ -1,24 +1,43 @@
-import { CircleAlert, Sparkles } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import { CircleAlert, Info, Sparkles } from 'lucide-react'
+import { ConditionsReference } from './conditions-reference'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
+import { SidePanel } from '@/components/side-panel'
 import type { SheetCondition, SheetEffect } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
 /**
  * The character's conditions, with their rules, and effects, grouped as dnd5e's Effects tab
- * groups them: temporary, passive, inactive and unavailable.
+ * groups them: temporary, passive, inactive and unavailable. Beside the conditions' heading, a
+ * button opens an aside with every condition's rules.
  */
 export function EffectsTab({
   characterId,
   sheet,
 }: Readonly<{ characterId: string; sheet: TableSheet }>) {
+  const [reading, setReading] = useState(false)
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       <section
         aria-labelledby='conditions-heading'
         className='flex flex-col gap-2'
       >
-        <SheetHeading id='conditions-heading'>Conditions</SheetHeading>
+        <div className='flex items-center gap-1'>
+          <SheetHeading id='conditions-heading'>Conditions</SheetHeading>
+          <button
+            type='button'
+            aria-haspopup='dialog'
+            aria-label='Every condition and its rules'
+            title='Every condition and its rules'
+            onClick={() => setReading(true)}
+            className='-my-1 rounded-full p-1 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary'
+          >
+            <Info aria-hidden className='size-4' />
+          </button>
+        </div>
         {sheet.conditions.length > 0 ? (
           <ul className='rounded-2xl border border-border bg-card p-1.5'>
             {sheet.conditions.map(condition => (
@@ -74,6 +93,15 @@ export function EffectsTab({
       {sheet.effects.length === 0 && (
         <p className='text-sm text-text-secondary'>No effects.</p>
       )}
+
+      <SidePanel
+        open={reading}
+        onClose={() => setReading(false)}
+        title='Conditions'
+        subtitle='Every condition in the 2024 rules (5.5e)'
+      >
+        <ConditionsReference conditions={sheet.conditions} />
+      </SidePanel>
     </div>
   )
 }

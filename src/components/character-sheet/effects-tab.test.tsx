@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { EffectsTab } from './effects-tab'
 import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
@@ -64,6 +65,31 @@ describe('components/character-sheet/effects-tab', () => {
         screen.getByRole('region', { name: 'Temporary Effects' }),
       ).getByRole('listitem'),
     ).toHaveTextContent(/^BlessedFrom Bless$/)
+  })
+
+  it('opens every condition and its rules in an aside, from beside the heading', async () => {
+    const user = userEvent.setup()
+    renderTab()
+
+    const panel = document.querySelector('dialog') as HTMLDialogElement
+    expect(panel.open).toBe(false)
+    const info = screen.getByRole('button', {
+      name: 'Every condition and its rules',
+    })
+    expect(info).toHaveAttribute('aria-haspopup', 'dialog')
+    await user.click(info)
+
+    expect(panel.open).toBe(true)
+    const reference = within(screen.getByRole('dialog', { name: 'Conditions' }))
+    expect(
+      reference.getByText('Every condition in the 2024 rules (5.5e)'),
+    ).toBeInTheDocument()
+    expect(
+      reference.getByRole('region', { name: 'Poisoned' }),
+    ).toHaveTextContent('You have it')
+
+    await user.click(reference.getByRole('button', { name: 'Close' }))
+    expect(panel.open).toBe(false)
   })
 
   it('says so when there are none', () => {

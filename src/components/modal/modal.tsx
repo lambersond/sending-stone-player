@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useModalDialog } from '@/hooks/use-modal-dialog'
 
 type Props = {
   open: boolean
@@ -16,15 +17,8 @@ type Props = {
  * each time it opens.
  */
 export function Modal({ open, onClose, title, children }: Readonly<Props>) {
-  const ref = useRef<HTMLDialogElement>(null)
+  const ref = useModalDialog(open)
   const titleId = useId()
-
-  useEffect(() => {
-    const dialog = ref.current
-    if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
-    if (!open && dialog.open) dialog.close()
-  }, [open])
 
   return (
     <dialog
