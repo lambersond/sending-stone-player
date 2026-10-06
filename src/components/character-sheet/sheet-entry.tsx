@@ -126,7 +126,8 @@ export function joinParts(
   return present.length > 0 ? present.join(' · ') : undefined
 }
 
-function EntryIcon({
+/** An entry's icon from the game, or its fallback when it has none or it fails to load. */
+export function EntryIcon({
   src,
   fallback: Fallback,
 }: Readonly<{ src?: string | null; fallback: LucideIcon }>) {

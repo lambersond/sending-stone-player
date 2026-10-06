@@ -21,6 +21,19 @@ describe('utils/sheet-texts', () => {
     ])
   })
 
+  it("counts an action's description, as one not listed elsewhere", () => {
+    const sheet = fullerSheet()
+    const [section] = sheet.actions
+    sheet.actions = [
+      {
+        ...section,
+        actions: [{ ...section.actions[0], text: '0f1e2d3c4b5a69' }],
+      },
+    ]
+
+    expect(sheetTextRefs(sheet).at(-1)).toBe('0f1e2d3c4b5a69')
+  })
+
   it('finds none in a sheet without them, as from a module before 0.6.0', () => {
     expect(sheetTextRefs(characterSheet())).toEqual([])
     expect(sheetTextRefs({})).toEqual([])

@@ -21,11 +21,18 @@ import {
   ChevronsDown,
   ChevronsUp,
   SlidersHorizontal,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 
-/** What the player chose: a roll with advantage or disadvantage, or to modify the roll first. */
-export type RollChoice = 'adv' | 'dis' | 'modify'
+/**
+ * What the player chose: a roll with advantage or disadvantage, or to modify the roll first; or,
+ * for damage, a critical hit's.
+ */
+export type RollChoice = 'adv' | 'dis' | 'modify' | 'critical'
+
+/** The ways to roll a check, save or attack. */
+export const D20_CHOICES: RollChoice[] = ['adv', 'dis', 'modify']
 
 /** Where the player clicked or pressed for the menu, from the top-left corner of what they hit. */
 export type MenuPoint = {
@@ -35,11 +42,12 @@ export type MenuPoint = {
   touch: boolean
 }
 
-const CHOICES: { choice: RollChoice; label: string; icon: LucideIcon }[] = [
-  { choice: 'adv', label: 'Roll with advantage', icon: ChevronsUp },
-  { choice: 'dis', label: 'Roll with disadvantage', icon: ChevronsDown },
-  { choice: 'modify', label: 'Modify roll…', icon: SlidersHorizontal },
-]
+const CHOICES: Record<RollChoice, { label: string; icon: LucideIcon }> = {
+  adv: { label: 'Roll with advantage', icon: ChevronsUp },
+  dis: { label: 'Roll with disadvantage', icon: ChevronsDown },
+  modify: { label: 'Modify roll…', icon: SlidersHorizontal },
+  critical: { label: 'Roll critical damage', icon: Zap },
+}
 
 type Props = {
   /** The part of the sheet it opened from. */
@@ -48,6 +56,8 @@ type Props = {
   point?: MenuPoint
   /** What would be rolled, such as "Perception check +7". */
   title: string
+  /** The ways it can be rolled; those of a d20 roll unless said. */
+  choices?: RollChoice[]
   onChoose: (choice: RollChoice) => void
   onClose: () => void
 }
@@ -61,6 +71,7 @@ export function RollMenu({
   anchor,
   point,
   title,
+  choices = D20_CHOICES,
   onChoose,
   onClose,
 }: Readonly<Props>) {
@@ -108,34 +119,38 @@ export function RollMenu({
           >
             {title}
           </p>
-          {CHOICES.map(({ choice, label, icon: Icon }, index) => (
-            <button
-              key={choice}
-              type='button'
-              role='menuitem'
-              ref={node => {
-                items.current[index] = node
-              }}
-              // The first item takes focus when the menu opens.
-              tabIndex={(active ?? 0) === index ? 0 : -1}
-              className={clsx(
-                'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium outline-none',
-                active === index && 'bg-primary/10',
-              )}
-              {...getItemProps({ onClick: () => onChoose(choice) })}
-            >
-              <Icon
-                aria-hidden
+          {choices.map((choice, index) => {
+            const { label, icon: Icon } = CHOICES[choice]
+            return (
+              <button
+                key={choice}
+                type='button'
+                role='menuitem'
+                ref={node => {
+                  items.current[index] = node
+                }}
+                // The first item takes focus when the menu opens.
+                tabIndex={(active ?? 0) === index ? 0 : -1}
                 className={clsx(
-                  'size-4',
-                  choice === 'adv' && 'text-primary',
-                  choice === 'dis' && 'text-ruby',
-                  choice === 'modify' && 'text-text-secondary',
+                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium outline-none',
+                  active === index && 'bg-primary/10',
                 )}
-              />
-              {label}
-            </button>
-          ))}
+                {...getItemProps({ onClick: () => onChoose(choice) })}
+              >
+                <Icon
+                  aria-hidden
+                  className={clsx(
+                    'size-4',
+                    choice === 'adv' && 'text-primary',
+                    choice === 'dis' && 'text-ruby',
+                    choice === 'modify' && 'text-text-secondary',
+                    choice === 'critical' && 'text-gold-text',
+                  )}
+                />
+                {label}
+              </button>
+            )
+          })}
         </div>
       </FloatingFocusManager>
     </FloatingPortal>

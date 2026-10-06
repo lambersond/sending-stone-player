@@ -6,7 +6,8 @@ import type {
 
 /**
  * The descriptions a sheet refers to, by hash: its features' and their sections', its effects',
- * its conditions', its items' (those in containers too), its spells' and its biography.
+ * its conditions', its items' (those in containers too), its spells', its biography and its
+ * actions'.
  */
 export function sheetTextRefs(sheet: Partial<CharacterSheet>): string[] {
   const refs = [
@@ -23,6 +24,9 @@ export function sheetTextRefs(sheet: Partial<CharacterSheet>): string[] {
       section.spells.map(spell => spell.text),
     ),
     sheet.details?.biography,
+    ...(sheet.actions ?? []).flatMap(section =>
+      section.actions.map(action => action.text),
+    ),
   ]
   return [...new Set(refs.filter(ref => typeof ref === 'string'))]
 }

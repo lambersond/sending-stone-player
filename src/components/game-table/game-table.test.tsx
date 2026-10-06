@@ -490,7 +490,7 @@ describe('components/game-table/game-table', () => {
       const sheetPane = screen.getByRole('region', { name: 'Character' })
       expect(sheetPane).toHaveClass('lg:flex')
       expect(sheetPane).toHaveTextContent(
-        /^CharacterInventoryFeaturesEffectsBiographyFighter 5 · Champion/,
+        /^CharacterActionsInventoryFeaturesEffectsBiographyFighter 5 · Champion/,
       )
       const column = screen.getByRole('region', { name: 'Combat' })
         .parentElement as HTMLElement
@@ -611,7 +611,7 @@ describe('components/game-table/game-table', () => {
       ).toBeInTheDocument()
       expect(
         within(pane).getByRole('region', { name: 'Your rolls' }),
-      ).toHaveTextContent('Tap an ability or skill to roll it.')
+      ).toHaveTextContent('Tap an ability, skill or attack to roll it.')
     })
 
     it('opens on combat during a fight, and switches to the sheet', async () => {

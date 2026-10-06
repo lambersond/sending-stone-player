@@ -586,6 +586,20 @@ describe('utils/table-view', () => {
       expect(view.spellcasting).toBeNull()
     })
 
+    it("finds actions' icons at the game, and reads a sheet from before module 0.8.0 as having none", () => {
+      const view = toTableSheet(fullerSheet(), origin)
+      const { actions, ...older } = characterSheet()
+
+      expect(view.actions[0].actions.map(({ img }) => img)).toEqual([
+        `${origin}/icons/weapons/hammers/hammer-war.webp`,
+        null,
+        null,
+        null,
+      ])
+      expect(actions).toEqual([])
+      expect(toTableSheet(older as CharacterSheet, origin).actions).toEqual([])
+    })
+
     it("keeps a container's secret contents secret", () => {
       const sheet = fullerSheet()
       const view = toTableSheet(sheet, origin)

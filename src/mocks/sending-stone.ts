@@ -5,6 +5,7 @@ import type {
   CombatSnapshot,
   SerializedMessage,
   SheetAbility,
+  SheetAction,
   SheetItem,
   SheetSpell,
 } from '@/types/sending-stone'
@@ -168,6 +169,7 @@ export function characterSheet(
       xp: null,
       biography: null,
     },
+    actions: [],
     ...fields,
   }
 }
@@ -203,6 +205,28 @@ export function sheetItem(
     uses: null,
     rarity: null,
     properties: [],
+    identified: true,
+    text: null,
+    ...fields,
+  }
+}
+
+/** An action, as the module sends it from 0.8.0. */
+export function sheetAction(
+  fields: Partial<SheetAction> & Pick<SheetAction, 'id' | 'name'>,
+): SheetAction {
+  return {
+    img: null,
+    type: 'feat',
+    activation: 'Action',
+    range: null,
+    target: null,
+    toHit: null,
+    save: null,
+    damage: [],
+    uses: null,
+    level: null,
+    concentration: false,
     identified: true,
     text: null,
     ...fields,
@@ -519,6 +543,95 @@ export function fullerSheet(
       xp: { value: 6500, max: 14_000 },
       biography: TEXTS.biography,
     },
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            id: 'warhammer',
+            name: 'Warhammer',
+            img: 'icons/weapons/hammers/hammer-war.webp',
+            type: 'weapon',
+            range: 'reach 5 ft',
+            target: '1 Creature',
+            toHit: 7,
+            damage: [
+              { formula: '1d8 + 4', type: 'Bludgeoning', healing: false },
+            ],
+            text: TEXTS.warhammer,
+          }),
+          sheetAction({
+            id: 'handaxe',
+            name: 'Handaxe',
+            type: 'weapon',
+            range: 'reach 5 ft or range 20/60 ft',
+            toHit: 7,
+            damage: [{ formula: '1d6 + 4', type: 'Slashing', healing: false }],
+          }),
+          sheetAction({
+            id: 'guidance',
+            name: 'Guidance',
+            type: 'spell',
+            range: 'Touch',
+            level: 0,
+            concentration: true,
+          }),
+          sheetAction({
+            id: 'breath',
+            name: 'Fire Breath',
+            range: '15 ft',
+            target: '15 ft Cone',
+            save: { ability: 'DEX', dc: 13 },
+            damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+            uses: { value: 1, max: 1, recovery: 'Long Rest' },
+          }),
+        ],
+      },
+      {
+        id: 'bonus',
+        label: 'Bonus Actions',
+        actions: [
+          sheetAction({
+            id: 'second-wind',
+            name: 'Second Wind',
+            activation: 'Bonus Action',
+            range: 'Self',
+            damage: [{ formula: '1d10 + 5', type: 'Healing', healing: true }],
+            uses: { value: 1, max: 1, recovery: 'Short Rest, Long Rest' },
+            text: TEXTS.secondWind,
+          }),
+        ],
+      },
+      {
+        id: 'reaction',
+        label: 'Reactions',
+        actions: [
+          sheetAction({
+            id: 'shield',
+            name: 'Shield',
+            type: 'spell',
+            activation: 'Reaction',
+            range: 'Self',
+            level: 1,
+            text: TEXTS.shield,
+          }),
+        ],
+      },
+      {
+        id: 'special',
+        label: 'Special',
+        actions: [
+          sheetAction({
+            id: 'action-surge',
+            name: 'Action Surge',
+            activation: 'Special',
+            uses: { value: 0, max: 1, recovery: 'Short Rest' },
+            text: TEXTS.actionSurge,
+          }),
+        ],
+      },
+    ],
     effects: [
       {
         id: 'temporary',

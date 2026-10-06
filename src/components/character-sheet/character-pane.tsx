@@ -6,12 +6,14 @@ import clsx from 'clsx'
 import {
   Backpack,
   BookOpen,
+  ChessKnight,
   Feather,
   ListChecks,
   UserRound,
   WandSparkles,
   type LucideIcon,
 } from 'lucide-react'
+import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet, classLine } from './character-sheet'
 import { EffectsTab } from './effects-tab'
@@ -27,10 +29,11 @@ type Props = { characterId: string; name: string; sheet: TableSheet }
 
 /**
  * The parts of the sheet, in the order Tidy 5e's character sheet has them, with dnd5e's icons for
- * them where it has them. Spells is only for a character who casts them.
+ * them where it has them, and Tidy's for Actions. Spells is only for a character who casts them.
  */
 const TABS: { id: SheetTab; label: string; icon: LucideIcon }[] = [
   { id: 'character', label: 'Character', icon: UserRound },
+  { id: 'actions', label: 'Actions', icon: ChessKnight },
   { id: 'inventory', label: 'Inventory', icon: Backpack },
   { id: 'spells', label: 'Spells', icon: BookOpen },
   { id: 'features', label: 'Features', icon: ListChecks },
@@ -38,7 +41,13 @@ const TABS: { id: SheetTab; label: string; icon: LucideIcon }[] = [
   { id: 'biography', label: 'Biography', icon: Feather },
 ]
 type SheetTab =
-  'character' | 'inventory' | 'spells' | 'features' | 'effects' | 'biography'
+  | 'character'
+  | 'actions'
+  | 'inventory'
+  | 'spells'
+  | 'features'
+  | 'effects'
+  | 'biography'
 
 /**
  * The character's sheet, rolling 3D dice across the screen. The dice and their textures load
@@ -53,7 +62,7 @@ export function CharacterPane(props: Readonly<Props>) {
 }
 
 function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
-  const { roll, rolls, rolling } = useSheetRoller()
+  const { roll, rollDamage, rolls, rolling } = useSheetRoller()
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
   const show = (next: SheetTab) => {
@@ -76,7 +85,7 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
         <div
           role='tablist'
           aria-label='Character sheet'
-          className='flex min-w-0 gap-1 overflow-x-auto lg:shrink-0'
+          className='flex min-w-0 gap-0.5 overflow-x-auto lg:shrink-0 @3xl:gap-1'
         >
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
@@ -89,7 +98,9 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
               aria-controls='sheet-panel'
               onClick={() => show(id)}
               className={clsx(
-                'flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors',
+                'flex shrink-0 items-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors',
+                // Seven tabs' icons, and the chosen one's label, fit a 320-pixel screen.
+                tab === id ? 'px-2' : 'px-1.5 @3xl:px-2',
                 tab === id
                   ? 'bg-primary/10 text-primary'
                   : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
@@ -129,6 +140,18 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
               onShowConditions={() => show('effects')}
             />
           )}
+          {tab === 'actions' && (
+            <ActionsTab
+              characterId={characterId}
+              sheet={sheet}
+              onRoll={request => {
+                void roll(request)
+              }}
+              onRollDamage={request => {
+                void rollDamage(request)
+              }}
+            />
+          )}
           {tab === 'inventory' && (
             <InventoryTab characterId={characterId} sheet={sheet} />
           )}
@@ -146,8 +169,11 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
           )}
         </div>
       </Scroller>
-      {/* Rolls are made from the Character tab, so the tray shows there; the rolls stay. */}
-      {tab === 'character' && <RollTray rolls={rolls} rolling={rolling} />}
+      {/* Rolls are made from the Character and Actions tabs, so the tray shows there; the rolls
+          stay. */}
+      {(tab === 'character' || tab === 'actions') && (
+        <RollTray rolls={rolls} rolling={rolling} />
+      )}
     </>
   )
 }

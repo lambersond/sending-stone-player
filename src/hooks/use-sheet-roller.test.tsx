@@ -1,9 +1,12 @@
+/* eslint-disable unicorn/no-null -- a damage part without a kind has null */
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { act, renderHook } from '@testing-library/react'
 import {
   ANIMATION_TIMEOUT,
   ROLL_HISTORY,
   useSheetRoller,
+  type LocalCheck,
+  type LocalDamage,
 } from './use-sheet-roller'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
@@ -56,7 +59,7 @@ describe('hooks/use-sheet-roller', () => {
     })
 
     expect(result.current.rolling).toBe(false)
-    const [roll] = result.current.rolls
+    const [roll] = result.current.rolls as LocalCheck[]
     expect(roll).toMatchObject({ label: 'Perception check', modifier: 5 })
     expect(roll.d20s).toHaveLength(1)
     expect(roll.total).toBe(roll.natural + 5)
@@ -75,7 +78,7 @@ describe('hooks/use-sheet-roller', () => {
       }),
     )
 
-    const [roll] = result.current.rolls
+    const [roll] = result.current.rolls as LocalCheck[]
     expect(roll.advantage).toBe('adv')
     expect(roll.d20s).toHaveLength(2)
     expect(roll.natural).toBe(Math.max(...roll.d20s))
@@ -99,7 +102,7 @@ describe('hooks/use-sheet-roller', () => {
       }),
     )
 
-    const [roll] = result.current.rolls
+    const [roll] = result.current.rolls as LocalCheck[]
     expect(roll.d20s).toHaveLength(2)
     expect(roll.extras.map(({ text }) => text)).toEqual(['+1d4', '−2d6', '+2'])
     const [bless, bane, flat] = roll.extras
@@ -111,6 +114,97 @@ describe('hooks/use-sheet-roller', () => {
     expect(fake.roll.mock.calls[0][0]).toBe(
       `2d20+1d4+2d6@${[...roll.d20s, ...bless.values, ...bane.values].join(',')}`,
     )
+  })
+
+  it('throws the dice of every part of a damage roll, and adds each part up with its kind', async () => {
+    const fake = renderer()
+    const { result } = renderHook(() => useSheetRoller())
+
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame Tongue damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+            type: 'Slashing',
+          },
+          { terms: [{ sign: 1, count: 2, sides: 6 }], type: 'Fire' },
+        ],
+      }),
+    )
+
+    const [roll] = result.current.rolls as LocalDamage[]
+    expect(roll).toMatchObject({
+      kind: 'damage',
+      label: 'Flame Tongue damage',
+      critical: false,
+      healing: false,
+    })
+    const [slashing, fire] = roll.parts
+    expect(slashing.terms.map(({ text }) => text)).toEqual(['1d8', '+4'])
+    expect(slashing.terms[0].values).toHaveLength(1)
+    expect(slashing.total).toBe(slashing.terms[0].values[0] + 4)
+    expect(fire).toMatchObject({ type: 'Fire' })
+    expect(fire.terms[0].text).toBe('+2d6')
+    expect(fire.terms[0].values).toHaveLength(2)
+    expect(roll.total).toBe(slashing.total + fire.total)
+    expect(fake.roll.mock.calls[0][0]).toBe(
+      `1d8+2d6@${[...slashing.terms[0].values, ...fire.terms[0].values].join(',')}`,
+    )
+  })
+
+  it('rolls every die twice for a critical hit, adding the same numbers once', async () => {
+    renderer()
+    const { result } = renderHook(() => useSheetRoller())
+
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Longsword damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 3 },
+              { sign: -1, count: 1, sides: 4 },
+            ],
+            type: null,
+          },
+        ],
+        critical: true,
+      }),
+    )
+
+    const [roll] = result.current.rolls as LocalDamage[]
+    const [dice, flat, less] = roll.parts[0].terms
+    expect([dice.text, flat.text, less.text]).toEqual(['2d8', '+3', '−2d4'])
+    expect(dice.values).toHaveLength(2)
+    expect(less.values).toHaveLength(2)
+    expect(less.value).toBe(-(less.values[0] + less.values[1]))
+    expect(roll.total).toBe(dice.value + 3 + less.value)
+    expect(roll.critical).toBe(true)
+  })
+
+  it('keeps healing with nothing to throw, without dice', async () => {
+    const fake = renderer()
+    const { result } = renderHook(() => useSheetRoller())
+
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Healing Word healing',
+        parts: [{ terms: [{ sign: 1, flat: 5 }], type: 'Healing' }],
+        healing: true,
+      }),
+    )
+
+    expect(fake.roll).not.toHaveBeenCalled()
+    expect(result.current.rolls[0]).toMatchObject({
+      kind: 'damage',
+      total: 5,
+      healing: true,
+    })
   })
 
   it('still rolls, without dice, when the 3D renderer is not ready', async () => {

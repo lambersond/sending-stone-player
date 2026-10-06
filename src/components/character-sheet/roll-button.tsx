@@ -20,12 +20,13 @@ export const LONG_PRESS = 500
 /** How far a touch may move and still count as held, in pixels. */
 const DRIFT = 10
 
-type Props = {
-  target: RollTarget
+type Props<T> = {
+  /** What it rolls: a check or save, or an action's damage. */
+  target: T
   /** Rolls it as it stands. */
-  onRoll: (target: RollTarget) => void
+  onRoll: (target: T) => void
   /** Offers other ways to roll it, where on this button the player clicked or pressed. */
-  onMenu: (anchor: HTMLElement, target: RollTarget, point?: MenuPoint) => void
+  onMenu: (anchor: HTMLElement, target: T, point?: MenuPoint) => void
   label: string
   className: string
   children: ReactNode
@@ -35,14 +36,14 @@ type Props = {
  * A part of the sheet that rolls when tapped or clicked, and offers other ways to roll on a
  * right-click, a long-press on a touch screen, or the keyboard's context menu key.
  */
-export function RollButton({
+export function RollButton<T = RollTarget>({
   target,
   onRoll,
   onMenu,
   label,
   className,
   children,
-}: Readonly<Props>) {
+}: Readonly<Props<T>>) {
   const press = useRef({
     x: 0,
     y: 0,

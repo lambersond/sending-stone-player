@@ -355,6 +355,14 @@ export function toTableSheet(
     traits: sheet.traits ?? [],
     deathSaves: sheet.deathSaves ?? BEFORE_0_7_0.deathSaves,
     details: sheet.details ?? BEFORE_0_7_0.details,
+    // Nor these, before module 0.8.0.
+    actions: (sheet.actions ?? []).map(section => ({
+      ...section,
+      actions: section.actions.map(action => ({
+        ...action,
+        img: iconUrl(action.img, origin),
+      })),
+    })),
   }
 }
 

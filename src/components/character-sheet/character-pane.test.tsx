@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import { characterSheet, fullerSheet, TEXTS } from '@/mocks/sending-stone'
@@ -63,6 +63,7 @@ describe('components/character-sheet/character-pane', () => {
     )
     expect(tabs.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       'Character',
+      'Actions',
       'Inventory',
       'Spells',
       'Features',
@@ -90,6 +91,7 @@ describe('components/character-sheet/character-pane', () => {
   })
 
   it.each([
+    ['Actions', 'Bonus Actions'],
     ['Inventory', 'Weapons'],
     ['Spells', 'Spellcasting'],
     ['Effects', 'Conditions'],
@@ -132,6 +134,7 @@ describe('components/character-sheet/character-pane', () => {
 
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       'Character',
+      'Actions',
       'Inventory',
       'Features',
       'Effects',
@@ -162,6 +165,25 @@ describe('components/character-sheet/character-pane', () => {
 
     expect(screen.queryByRole('tab', { name: 'Spells' })).toBeNull()
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Character')
+  })
+
+  it('rolls attacks and damage from Actions into the tray, which shows there too', async () => {
+    const user = userEvent.setup()
+    renderPane()
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+    await user.click(
+      screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+    )
+    const status = screen.getByRole('status')
+    await waitFor(() => expect(status).toHaveTextContent('Warhammer attack'))
+    expect(status).toHaveTextContent(/d20 \d+ \+7/)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
+    )
+    await waitFor(() => expect(status).toHaveTextContent('Warhammer damage'))
+    expect(status).toHaveTextContent(/1d8 \(\d\) \+4 Bludgeoning/)
   })
 
   it('keeps rolls while another part of the sheet is shown', async () => {

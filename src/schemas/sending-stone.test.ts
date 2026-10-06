@@ -268,6 +268,59 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it('reads actions, dropping a malformed action, damage or saving throw rather than the sheet', () => {
+    const sheet = fullerSheet()
+    const [section, ...rest] = sheet.actions
+    const [warhammer, ...others] = section.actions
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          actions: [
+            {
+              ...section,
+              actions: [
+                { name: 'No id' },
+                {
+                  ...warhammer,
+                  toHit: '7',
+                  save: { ability: 7 },
+                  damage: [{ formula: 5 }, ...warhammer.damage],
+                  uses: { value: 'all' },
+                },
+                ...others,
+              ],
+            },
+            { id: 'nameless' },
+            ...rest,
+          ],
+        },
+      },
+    }) as any
+
+    expect(event.data.character.sheet.actions).toEqual([
+      {
+        ...section,
+        actions: [
+          { ...warhammer, toHit: null, save: null, uses: null },
+          ...others,
+        ],
+      },
+      ...rest,
+    ])
+  })
+
+  it('reads a sheet from before module 0.8.0 as having no actions', () => {
+    const { actions, ...older } = characterSheet()
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: older },
+    }) as any
+
+    expect(actions).toEqual([])
+    expect(event.data.character.sheet.actions).toEqual([])
+  })
+
   it("reads an inventory or details it can't make sense of as empty", () => {
     const event = parseGameEvent('character.updated', {
       character: {
