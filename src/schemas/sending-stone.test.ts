@@ -7,7 +7,11 @@ import {
   roster,
   TEXTS,
 } from '@/mocks/sending-stone'
-import type { SheetSpellSection } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetSpell,
+  SheetSpellSection,
+} from '@/types/sending-stone'
 
 /** A chat message with these dnd5e details, as read. */
 const messageWith = (dnd5e: object) =>
@@ -303,6 +307,53 @@ describe('schemas/sending-stone', () => {
       { value: 0, max: 0 },
       null,
     ])
+  })
+
+  it('reads the item a spell is cast from, from module 0.8.2, leaving it out as an older module does', () => {
+    const sheet = fullerSheet()
+    const [cantrips, first, ...rest] = sheet.spells
+    const [section, ...others] = sheet.actions
+    const wand = { id: 'wand', name: 'Wand of Magic Missiles' }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            cantrips,
+            {
+              ...first,
+              spells: [
+                { ...first.spells[0], castFrom: wand },
+                { ...first.spells[1], castFrom: { id: 7 } },
+                ...first.spells.slice(2),
+              ],
+            },
+            ...rest,
+          ],
+          actions: [
+            {
+              ...section,
+              actions: [
+                { ...section.actions[0], castFrom: null },
+                { ...section.actions[1], castFrom: wand },
+                ...section.actions.slice(2),
+              ],
+            },
+            ...others,
+          ],
+        },
+      },
+    }) as any
+
+    const { spells, actions } = event.data.character.sheet
+    expect(spells[1].spells.map((spell: SheetSpell) => spell.castFrom)).toEqual(
+      [wand, null, undefined],
+    )
+    expect(
+      actions[0].actions.map((action: SheetAction) => action.castFrom),
+    ).toEqual([null, wand, undefined, undefined])
+    expect('castFrom' in actions[0].actions[2]).toBe(false)
   })
 
   it('reads actions, dropping a malformed action, damage or saving throw rather than the sheet', () => {

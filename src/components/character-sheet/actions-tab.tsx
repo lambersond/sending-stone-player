@@ -22,7 +22,7 @@ import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SheetText } from './sheet-text'
 import { SpellSlots } from './spell-slots'
-import { useStoredChoice } from '@/hooks/use-stored-choice'
+import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import {
   groupActions,
@@ -89,6 +89,9 @@ const LAYOUT_IDS = LAYOUTS.map(({ id }) => id)
 /** Where this browser keeps the layout chosen. */
 const LAYOUT_KEY = 'sending-stone:actions-layout'
 
+/** Where this browser keeps the groups closed, after which the character's id. */
+const CLOSED_KEY = 'sending-stone:actions-closed'
+
 /** Icons for actions without one of their own, by the item's type. */
 const FALLBACKS: Record<string, LucideIcon> = {
   weapon: Sword,
@@ -110,9 +113,11 @@ const KINDS: Record<string, string> = {
 /**
  * What the character can do in a fight, as Tidy 5e's Actions tab lists it: by how each is
  * activated, with its bonus to hit, the saving throw it calls for, and its damage or healing.
- * Within each section, actions are grouped by kind: weapons; spells as the spellbook groups them,
- * such as by level, with their slots; features; and items. The bonus rolls the attack and the
- * damage its damage, as the Character tab rolls checks; a right-click or long-press offers
+ * Within each section, actions are grouped as Tidy 5e groups a sheet by where things come from:
+ * what the character carries, by kind, such as weapons and consumables; spells as the spellbook
+ * groups them, such as by level, with their slots; spells cast from an item, under its name; and
+ * features. Each group closes, and stays closed for the character. The bonus rolls the attack
+ * and the damage its damage, as the Character tab rolls checks; a right-click or long-press offers
  * advantage and the like, or a critical hit's damage. Each action opens to its description, and a
  * spell to the slots it can be cast with.
  *
@@ -137,6 +142,8 @@ export function ActionsTab({
   const offered = LAYOUTS.filter(({ from }) => width >= from)
   const [chosen, choose] = useStoredChoice(LAYOUT_KEY, LAYOUT_IDS, 'list')
   const layout = offered.some(({ id }) => id === chosen) ? chosen : 'list'
+  // The groups the player closed, for this character.
+  const [closed, toggleGroup] = useStoredSet(`${CLOSED_KEY}:${characterId}`)
   const roll = (target: DamageTarget, critical = false) =>
     onRollDamage({
       label: target.label,
@@ -165,6 +172,8 @@ export function ActionsTab({
       section={section}
       layout={layout}
       rows={rows}
+      closed={closed}
+      onToggle={toggleGroup}
     />
   ))
 
@@ -262,12 +271,31 @@ function Columns({ sections }: Readonly<{ sections: ReactNode[] }>) {
   )
 }
 
+/** Whether each group is open, and what opens or closes it. */
+type Groups = {
+  isOpen: (group: ActionGroup) => boolean
+  toggle: (group: ActionGroup) => void
+}
+
 /** A section of actions, such as Bonus Actions, in a list or a table. */
 function ActionSection({
   section,
   layout,
   rows,
-}: Readonly<{ section: GroupedSection; layout: Layout; rows: Rows }>) {
+  closed,
+  onToggle,
+}: Readonly<{
+  section: GroupedSection
+  layout: Layout
+  rows: Rows
+  closed: ReadonlySet<string>
+  onToggle: (name: string) => void
+}>) {
+  const name = (group: ActionGroup) => `${section.id}/${group.id}`
+  const groups: Groups = {
+    isOpen: group => !closed.has(name(group)),
+    toggle: group => onToggle(name(group)),
+  }
   return (
     <section
       aria-labelledby={section.headingId}
@@ -279,49 +307,110 @@ function ActionSection({
           groups={section.groups}
           labelledBy={section.headingId}
           rows={rows}
+          state={groups}
         />
       ) : (
-        <ActionList groups={section.groups} rows={rows} />
+        <ActionList groups={section.groups} rows={rows} state={groups} />
       )}
     </section>
   )
 }
 
-/** A section's actions listed in their groups, each group under its name. */
+/**
+ * A section's actions listed in their groups, each under its name, which closes the group or
+ * opens it again.
+ */
 function ActionList({
   groups,
   rows,
-}: Readonly<{ groups: ActionGroup[]; rows: Rows }>) {
+  state,
+}: Readonly<{ groups: ActionGroup[]; rows: Rows; state: Groups }>) {
   const prefix = useId()
   return (
     // A container, so that each row fits the column it's in.
     <div className='@container rounded-2xl border border-border bg-card p-1.5'>
-      {groups.map((group, index) => (
-        <div
-          key={group.id}
-          role='group'
-          aria-labelledby={`${prefix}-${group.id}`}
-          className={clsx(index > 0 && 'mt-1 border-t border-border pt-1')}
-        >
-          <div className='flex items-center justify-between gap-3 px-2.5 pt-1.5'>
-            <h3
-              id={`${prefix}-${group.id}`}
-              className='min-w-0 truncate text-xs font-semibold text-text-secondary'
-            >
-              {group.label}
+      {groups.map((group, index) => {
+        const open = state.isOpen(group)
+        return (
+          <div
+            key={group.id}
+            role='group'
+            aria-labelledby={`${prefix}-${group.id}`}
+            className={clsx(index > 0 && 'mt-1 border-t border-border pt-1')}
+          >
+            <h3>
+              <GroupToggle
+                group={group}
+                open={open}
+                labelId={`${prefix}-${group.id}`}
+                controls={`${prefix}-${group.id}-actions`}
+                onToggle={() => state.toggle(group)}
+              />
             </h3>
-            {group.slots && (
-              <SpellSlots value={group.slots.value} max={group.slots.max} />
-            )}
+            {/* Closed, its actions are hidden but kept, each as open as it was. */}
+            <ul id={`${prefix}-${group.id}-actions`} hidden={!open}>
+              {group.actions.map(action => (
+                <ActionEntry key={action.id} action={action} rows={rows} />
+              ))}
+            </ul>
           </div>
-          <ul>
-            {group.actions.map(action => (
-              <ActionEntry key={action.id} action={action} rows={rows} />
-            ))}
-          </ul>
-        </div>
-      ))}
+        )
+      })}
     </div>
+  )
+}
+
+/**
+ * A group's name, with how many actions are in it and the spell slots they're cast with, if they
+ * use any, as a button that closes the group or opens it again.
+ */
+function GroupToggle({
+  group,
+  open,
+  labelId,
+  controls,
+  onToggle,
+}: Readonly<{
+  group: ActionGroup
+  open: boolean
+  labelId: string
+  controls: string
+  onToggle: () => void
+}>) {
+  const count = group.actions.length
+  return (
+    <button
+      type='button'
+      aria-expanded={open}
+      aria-controls={controls}
+      onClick={onToggle}
+      className='flex w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-primary/5'
+    >
+      <ChevronDown
+        aria-hidden
+        className={clsx(
+          'size-3.5 shrink-0 text-text-secondary transition-transform',
+          !open && '-rotate-90',
+        )}
+      />
+      <span
+        id={labelId}
+        className='min-w-0 truncate text-xs font-semibold text-text-secondary'
+      >
+        {group.label}
+      </span>
+      <span className='shrink-0 text-xs text-text-secondary tabular-nums opacity-70'>
+        <span aria-hidden>{count}</span>
+        <span className='sr-only'>
+          , {count === 1 ? '1 action' : `${count} actions`}
+        </span>
+      </span>
+      {group.slots && (
+        <span className='ml-auto pl-2'>
+          <SpellSlots value={group.slots.value} max={group.slots.max} />
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -333,7 +422,14 @@ function ActionTable({
   groups,
   labelledBy,
   rows,
-}: Readonly<{ groups: ActionGroup[]; labelledBy: string; rows: Rows }>) {
+  state,
+}: Readonly<{
+  groups: ActionGroup[]
+  labelledBy: string
+  rows: Rows
+  state: Groups
+}>) {
+  const prefix = useId()
   const head = 'px-2 py-2 text-left font-semibold whitespace-nowrap'
   return (
     <div className='overflow-x-auto rounded-2xl border border-border bg-card'>
@@ -357,32 +453,40 @@ function ActionTable({
             </th>
           </tr>
         </thead>
-        {groups.map(group => (
-          <tbody key={group.id} className='border-t border-border'>
-            <tr>
-              <th
-                scope='rowgroup'
-                colSpan={5}
-                className='px-4 pt-2 pb-0.5 text-left font-normal'
-              >
-                <span className='flex items-center justify-between gap-3'>
-                  <span className='min-w-0 truncate text-xs font-semibold text-text-secondary'>
-                    {group.label}
-                  </span>
-                  {group.slots && (
-                    <SpellSlots
-                      value={group.slots.value}
-                      max={group.slots.max}
-                    />
-                  )}
-                </span>
-              </th>
-            </tr>
-            {group.actions.map(action => (
-              <ActionTableRow key={action.id} action={action} rows={rows} />
-            ))}
-          </tbody>
-        ))}
+        {groups.map(group => {
+          const open = state.isOpen(group)
+          return (
+            <tbody
+              key={group.id}
+              id={`${prefix}-${group.id}`}
+              className='border-t border-border'
+            >
+              <tr>
+                <th
+                  scope='rowgroup'
+                  colSpan={5}
+                  className='px-2.5 pt-1.5 pb-0.5 text-left font-normal'
+                >
+                  <GroupToggle
+                    group={group}
+                    open={open}
+                    labelId={`${prefix}-${group.id}-name`}
+                    controls={`${prefix}-${group.id}`}
+                    onToggle={() => state.toggle(group)}
+                  />
+                </th>
+              </tr>
+              {group.actions.map(action => (
+                <ActionTableRow
+                  key={action.id}
+                  action={action}
+                  rows={rows}
+                  hidden={!open}
+                />
+              ))}
+            </tbody>
+          )
+        })}
       </table>
     </div>
   )
@@ -507,7 +611,8 @@ function ActionEntry({
 function ActionTableRow({
   action,
   rows,
-}: Readonly<{ action: SheetAction; rows: Rows }>) {
+  hidden,
+}: Readonly<{ action: SheetAction; rows: Rows; hidden: boolean }>) {
   const [open, setOpen] = useState(false)
   const body = useId()
   const view = viewOf(action, rows.spellbook)
@@ -515,7 +620,8 @@ function ActionTableRow({
 
   return (
     <>
-      <tr>
+      {/* In a closed group, it's hidden but kept, as open as it was. */}
+      <tr hidden={hidden}>
         {/* As wide as the table leaves it, and no wider, so that a long name is cut short. */}
         <td className='w-full max-w-0 py-0.5 pr-2 pl-1.5'>
           <button
@@ -584,7 +690,7 @@ function ActionTableRow({
         </td>
       </tr>
       {open && (
-        <tr id={body}>
+        <tr id={body} hidden={hidden}>
           <td colSpan={5} className='px-4 pt-1 pb-3 pl-[3.375rem]'>
             <div className='flex flex-col gap-2'>
               <ActionDetails

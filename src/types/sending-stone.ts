@@ -199,6 +199,9 @@ export type SheetSpellcasting = {
   }[]
 }
 
+/** The item a spell is cast from, with one of its Cast activities, such as a wand. Module 0.8.2. */
+export type SheetCastFrom = { id: string; name: string }
+
 export type SheetSpell = {
   id: string
   name: string
@@ -217,6 +220,8 @@ export type SheetSpell = {
   /** 0 unprepared, 1 prepared, 2 always prepared; null for one that isn't prepared. */
   prepared: 0 | 1 | 2 | null
   uses: SheetUses | null
+  /** The item it's cast from, such as a wand; null or absent for the character's own. */
+  castFrom?: SheetCastFrom | null
   text: string | null
 }
 
@@ -279,6 +284,8 @@ export type SheetAction = {
   uses: SheetUses | null
   /** A spell's level, 0 for a cantrip; null for anything else. */
   level: number | null
+  /** For a spell, the item it's cast from, such as a wand; null or absent for anything else. */
+  castFrom?: SheetCastFrom | null
   concentration: boolean
   /** False for an item not identified yet, which keeps its secrets. */
   identified: boolean

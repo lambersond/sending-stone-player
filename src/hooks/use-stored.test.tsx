@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react'
-import { useStoredChoice } from './use-stored-choice'
+import { useStoredChoice, useStoredSet } from './use-stored'
 
 const LAYOUTS = ['list', 'columns', 'table'] as const
 
-describe('hooks/use-stored-choice', () => {
+describe('hooks/use-stored', () => {
   afterEach(() => {
     jest.restoreAllMocks()
     localStorage.clear()
@@ -53,5 +53,40 @@ describe('hooks/use-stored-choice', () => {
     act(() => result.current[1]('columns'))
 
     expect(result.current[0]).toBe('columns')
+  })
+
+  describe('useStoredSet', () => {
+    it('starts empty, and adds a name or takes it out, as this browser keeps it', () => {
+      const { result } = renderHook(() => useStoredSet('closed'))
+      expect([...result.current[0]]).toEqual([])
+
+      act(() => result.current[1]('action/weapons'))
+      act(() => result.current[1]('bonus/features'))
+      expect([...result.current[0]]).toEqual([
+        'action/weapons',
+        'bonus/features',
+      ])
+      expect(localStorage.getItem('closed')).toBe(
+        '["action/weapons","bonus/features"]',
+      )
+
+      act(() => result.current[1]('action/weapons'))
+      expect([...result.current[0]]).toEqual(['bonus/features'])
+    })
+
+    it('reads only names, from what this browser keeps', () => {
+      localStorage.setItem('kept', '["a", 2, "b"]')
+      expect([
+        ...renderHook(() => useStoredSet('kept')).result.current[0],
+      ]).toEqual(['a', 'b'])
+      localStorage.setItem('odd', '{"a": 1}')
+      expect([
+        ...renderHook(() => useStoredSet('odd')).result.current[0],
+      ]).toEqual([])
+      localStorage.setItem('broken', '[')
+      expect([
+        ...renderHook(() => useStoredSet('broken')).result.current[0],
+      ]).toEqual([])
+    })
   })
 })

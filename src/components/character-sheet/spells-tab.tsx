@@ -173,7 +173,11 @@ function SpellEntry({
       name={spell.name}
       img={spell.img}
       fallback={Wand}
-      detail={joinParts(spell.activation, spell.range)}
+      detail={joinParts(
+        spell.activation,
+        spell.range,
+        spell.castFrom && `From ${spell.castFrom.name}`,
+      )}
       aside={
         marked && (
           <span className='flex shrink-0 items-center gap-1'>
