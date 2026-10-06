@@ -10,14 +10,11 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react'
+import { useD20Rolls, type RollActions } from './d20-rolls'
 import { conditionDetail } from './effects-tab'
-import { ModifyRoll } from './modify-roll'
-import { RollButton, type RollTarget } from './roll-button'
-import { RollMenu, type MenuPoint, type RollChoice } from './roll-menu'
+import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
-import { Modal } from '@/components/modal'
 import { formatModifier } from '@/utils/format-modifier'
-import { toAdvantage } from '@/utils/roll-mode'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
@@ -41,38 +38,7 @@ export function CharacterSheet({
   onRoll,
   onShowConditions,
 }: Readonly<Props>) {
-  const [menu, setMenu] = useState<{
-    anchor: HTMLElement
-    target: RollTarget
-    point?: MenuPoint
-  }>()
-  const [modifying, setModifying] = useState<RollTarget>()
-
-  // A tap rolls with whatever advantage or disadvantage the character's conditions and features
-  // give.
-  const tap = (target: RollTarget) =>
-    onRoll({
-      label: target.label,
-      modifier: target.modifier,
-      advantage: toAdvantage(target.mode),
-    })
-  const openMenu = (
-    anchor: HTMLElement,
-    target: RollTarget,
-    point?: MenuPoint,
-  ) => setMenu({ anchor, target, point })
-  // A choice from the menu is the player's say on this roll, as in dnd5e's roll dialog.
-  const choose = (target: RollTarget, choice: RollChoice) => {
-    setMenu(undefined)
-    if (choice === 'modify') setModifying(target)
-    else
-      onRoll({
-        label: target.label,
-        modifier: target.modifier,
-        advantage: choice,
-      })
-  }
-  const actions = { onRoll: tap, onMenu: openMenu }
+  const { actions, dialogs } = useD20Rolls(onRoll)
   const abbreviation = (id: string) =>
     sheet.abilities.find(ability => ability.id === id)?.abbreviation ??
     id.toUpperCase()
@@ -143,32 +109,7 @@ export function CharacterSheet({
         </section>
       )}
 
-      {menu && (
-        <RollMenu
-          anchor={menu.anchor}
-          point={menu.point}
-          title={`${menu.target.label} ${formatModifier(menu.target.modifier)}`}
-          onChoose={choice => choose(menu.target, choice)}
-          onClose={() => setMenu(undefined)}
-        />
-      )}
-      <Modal
-        open={modifying !== undefined}
-        onClose={() => setModifying(undefined)}
-        title='Modify roll'
-      >
-        {modifying && (
-          <ModifyRoll
-            target={modifying}
-            mode={modifying.mode}
-            onRoll={request => {
-              setModifying(undefined)
-              onRoll(request)
-            }}
-            onCancel={() => setModifying(undefined)}
-          />
-        )}
-      </Modal>
+      {dialogs}
     </div>
   )
 }
@@ -448,11 +389,6 @@ function SaveMarks({
 }
 
 /* -------------------------------------------- */
-
-type RollActions = {
-  onRoll: (target: RollTarget) => void
-  onMenu: (anchor: HTMLElement, target: RollTarget, point?: MenuPoint) => void
-}
 
 function AbilityTile({
   ability,

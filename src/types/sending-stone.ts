@@ -245,6 +245,49 @@ export type SheetDetails = {
   biography: string | null
 }
 
+/** A part of an action's damage or healing, such as 1d8 + 4 slashing. */
+export type SheetDamage = {
+  /** As dnd5e shows it, such as "1d8 + 4". */
+  formula: string
+  /** Such as "Slashing" or "Healing"; null for none. */
+  type: string | null
+  /** Healing or temporary hit points, rather than damage. */
+  healing: boolean
+}
+
+/** Something the character can do in a fight, as Tidy 5e's Actions tab lists it. */
+export type SheetAction = {
+  /** The item's id. */
+  id: string
+  name: string
+  img: string | null
+  /** The item's type, such as "weapon", "spell" or "feat". */
+  type: string
+  /** Such as "1 Action" or "1 Bonus Action". */
+  activation: string | null
+  range: string | null
+  target: string | null
+  /** The bonus to hit, for an action that attacks. */
+  toHit: number | null
+  /** The saving throw it calls for: the ability's abbreviation, such as "DEX", and the DC. */
+  save: { ability: string; dc: number | null } | null
+  damage: SheetDamage[]
+  uses: SheetUses | null
+  /** A spell's level, 0 for a cantrip; null for anything else. */
+  level: number | null
+  concentration: boolean
+  /** False for an item not identified yet, which keeps its secrets. */
+  identified: boolean
+  text: string | null
+}
+
+/** Actions taken with one kind of activation, such as Bonus Action. */
+export type SheetActionSection = {
+  id: string
+  label: string
+  actions: SheetAction[]
+}
+
 export type CharacterSheet = {
   /** Relative to the game's address, or a full URL. */
   img: string | null
@@ -269,6 +312,7 @@ export type CharacterSheet = {
   traits: SheetTrait[]
   deathSaves: { success: number; failure: number } | null
   details: SheetDetails
+  actions: SheetActionSection[]
 }
 
 export type RollSummary = {

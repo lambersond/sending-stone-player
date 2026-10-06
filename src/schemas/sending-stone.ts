@@ -211,6 +211,33 @@ const detailSchema = z.looseObject({
   value: z.string(),
 })
 
+const actionSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  type: z.string().catch(''),
+  activation: nullableString,
+  range: nullableString,
+  target: nullableString,
+  toHit: nullableNumber,
+  save: z
+    .object({ ability: z.string(), dc: nullableNumber })
+    .nullable()
+    .catch(null),
+  damage: listOf(
+    z.looseObject({
+      formula: z.string(),
+      type: nullableString,
+      healing: z.boolean().catch(false),
+    }),
+  ),
+  uses: usesSchema,
+  level: nullableNumber,
+  concentration: z.boolean().catch(false),
+  identified: z.boolean().catch(true),
+  text: textRef,
+})
+
 const effectSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -365,6 +392,14 @@ const sheetSchema = z
         xp: null,
         biography: null,
       }),
+    // Sent from module 0.8.0.
+    actions: listOf(
+      z.looseObject({
+        id: z.string(),
+        label: z.string(),
+        actions: listOf(actionSchema),
+      }),
+    ),
   })
   .nullable()
   .optional()

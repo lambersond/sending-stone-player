@@ -1,7 +1,11 @@
 import clsx from 'clsx'
 import { Dices } from 'lucide-react'
 import { formatModifier } from '@/utils/format-modifier'
-import type { LocalRoll } from '@/hooks/use-sheet-roller'
+import type {
+  LocalCheck,
+  LocalDamage,
+  LocalRoll,
+} from '@/hooks/use-sheet-roller'
 
 /**
  * The player's rolls, newest first: the latest in full, the rest on request. They are kept on
@@ -16,8 +20,8 @@ export function RollTray({
     <p className='flex items-center gap-2 text-sm text-text-secondary'>
       <Dices aria-hidden className='size-5 shrink-0 text-primary' />
       <span>
-        Tap an ability or skill to roll it. Right-click or long-press it for
-        advantage, disadvantage or extra dice.
+        Tap an ability, skill or attack to roll it. Right-click or long-press it
+        for more ways to roll.
       </span>
     </p>
   )
@@ -31,8 +35,10 @@ export function RollTray({
         Rolling…
       </p>
     )
+  } else if (latest?.kind === 'damage') {
+    status = <DamageResult roll={latest} />
   } else if (latest) {
-    status = <RollResult roll={latest} />
+    status = <CheckResult roll={latest} />
   }
 
   return (
@@ -76,7 +82,7 @@ export function RollTray({
   )
 }
 
-function RollResult({ roll }: Readonly<{ roll: LocalRoll }>) {
+function CheckResult({ roll }: Readonly<{ roll: LocalCheck }>) {
   const critical = roll.natural === 20
   const fumble = roll.natural === 1
   let extra = ''
@@ -114,8 +120,53 @@ function RollResult({ roll }: Readonly<{ roll: LocalRoll }>) {
   )
 }
 
+/** Damage or healing: the total, and each part of it with its dice and kind. */
+function DamageResult({ roll }: Readonly<{ roll: LocalDamage }>) {
+  return (
+    <div className='flex items-center gap-3'>
+      <span
+        className={clsx(
+          'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
+          roll.healing
+            ? 'bg-primary/10 text-primary'
+            : 'bg-damage/15 text-damage',
+        )}
+      >
+        {roll.total}
+      </span>
+      <div className='min-w-0'>
+        <p className='truncate font-semibold'>{roll.label}</p>
+        <p className='text-xs text-text-secondary tabular-nums'>
+          {roll.parts.map((part, index) => (
+            <span key={index}>
+              {index > 0 && ' '}
+              {part.terms.map(({ text, values }, at) => (
+                <span key={at}>
+                  {at > 0 && ' '}
+                  {text}
+                  {values.length > 0 && (
+                    <>
+                      {' ('}
+                      <span className='font-semibold text-text-primary'>
+                        {values.join(', ')}
+                      </span>
+                      )
+                    </>
+                  )}
+                </span>
+              ))}
+              {part.type && ` ${part.type}`}
+            </span>
+          ))}
+          {roll.critical && ' · Critical hit'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /** The d20s thrown, the one that didn't count struck through. */
-function Dice({ roll }: Readonly<{ roll: LocalRoll }>) {
+function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   const kept = roll.d20s.indexOf(roll.natural)
   return (
     <>
@@ -135,6 +186,11 @@ function Dice({ roll }: Readonly<{ roll: LocalRoll }>) {
 }
 
 function breakdown(roll: LocalRoll): string {
+  if (roll.kind === 'damage') {
+    return roll.parts
+      .map(part => (part.type ? `${part.total} ${part.type}` : part.total))
+      .join(' + ')
+  }
   return [
     roll.natural,
     formatModifier(roll.modifier),

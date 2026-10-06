@@ -1,9 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RollTray } from './roll-tray'
-import type { LocalRoll } from '@/hooks/use-sheet-roller'
+import type { LocalCheck, LocalDamage } from '@/hooks/use-sheet-roller'
 
-const roll = (fields: Partial<LocalRoll> = {}): LocalRoll => ({
+const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
+  kind: 'check',
   id: 'r1',
   label: 'Perception check',
   total: 16,
@@ -15,12 +16,38 @@ const roll = (fields: Partial<LocalRoll> = {}): LocalRoll => ({
   ...fields,
 })
 
+const damage = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
+  kind: 'damage',
+  id: 'd1',
+  label: 'Flame Tongue damage',
+  total: 16,
+  critical: false,
+  healing: false,
+  parts: [
+    {
+      type: 'Slashing',
+      total: 9,
+      terms: [
+        { text: '1d8', values: [5], value: 5 },
+        { text: '+4', values: [], value: 4 },
+      ],
+    },
+    {
+      type: 'Fire',
+      total: 7,
+      terms: [{ text: '+2d6', values: [3, 4], value: 7 }],
+    },
+  ],
+  at: 0,
+  ...fields,
+})
+
 describe('components/character-sheet/roll-tray', () => {
   it('invites a roll, and says rolls stay with the player for now', () => {
     render(<RollTray rolls={[]} rolling={false} />)
 
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Tap an ability or skill to roll it.',
+      'Tap an ability, skill or attack to roll it.',
     )
     expect(
       screen.getByText(/They aren't sent to your Gamemaster's game/),
@@ -99,6 +126,67 @@ describe('components/character-sheet/roll-tray', () => {
     expect(within(status).getByText(String(natural + 4))).toHaveClass(color)
   })
 
+  it('shows damage: its total, and each part with its dice and kind', () => {
+    render(
+      <RollTray
+        rolls={[
+          damage({
+            parts: [
+              {
+                type: 'Slashing',
+                total: 9,
+                terms: [
+                  { text: '2d8', values: [3, 2], value: 5 },
+                  { text: '+4', values: [], value: 4 },
+                ],
+              },
+              {
+                type: 'Fire',
+                total: 7,
+                terms: [{ text: '+2d6', values: [3, 4], value: 7 }],
+              },
+            ],
+            critical: true,
+          }),
+        ]}
+        rolling={false}
+      />,
+    )
+
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('16Flame Tongue damage')
+    expect(status).toHaveTextContent(
+      '2d8 (3, 2) +4 Slashing +2d6 (3, 4) Fire · Critical hit',
+    )
+    expect(within(status).getByText('16')).toHaveClass('text-damage')
+  })
+
+  it('shows healing in the accent', () => {
+    render(
+      <RollTray
+        rolls={[
+          damage({
+            label: 'Cure Wounds healing',
+            total: 8,
+            healing: true,
+            parts: [
+              {
+                type: 'Healing',
+                total: 8,
+                terms: [{ text: '2d8', values: [5, 3], value: 8 }],
+              },
+            ],
+          }),
+        ]}
+        rolling={false}
+      />,
+    )
+
+    expect(within(screen.getByRole('status')).getByText('8')).toHaveClass(
+      'text-primary',
+    )
+  })
+
   it('keeps earlier rolls a tap away', async () => {
     const user = userEvent.setup()
     render(
@@ -111,6 +199,7 @@ describe('components/character-sheet/roll-tray', () => {
             extras: [{ text: '+1d4', values: [4], value: 4 }],
           }),
           roll({ id: 'r3', label: 'Strength saving throw', total: 9 }),
+          damage({ id: 'r3b' }),
           roll({
             id: 'r2',
             label: 'Stealth check',
@@ -124,11 +213,12 @@ describe('components/character-sheet/roll-tray', () => {
       />,
     )
 
-    await user.click(screen.getByText('Earlier rolls (3)'))
+    await user.click(screen.getByText('Earlier rolls (4)'))
 
     const earlier = screen.getAllByRole('listitem')
     expect(earlier.map(item => item.textContent)).toEqual([
       'Strength saving throw12 +4 = 9',
+      'Flame Tongue damage9 Slashing + 7 Fire = 16',
       'Stealth check4 −1 = 3',
       'Perception check12 +4 = 16',
     ])
