@@ -224,8 +224,12 @@ export type SheetSpell = {
 export type SheetSpellSection = {
   id: string
   label: string
-  /** Slots left of how many, for a section that uses them. */
-  slots: { value: number; max: number } | null
+  /**
+   * Slots left of how many, for a section that uses them, and the level a spell is cast at with
+   * one, which for pact magic is its slots' level. The level is null for pact magic without
+   * slots, and from module 0.8.0 and earlier.
+   */
+  slots: { value: number; max: number; level?: number | null } | null
   spells: SheetSpell[]
 }
 

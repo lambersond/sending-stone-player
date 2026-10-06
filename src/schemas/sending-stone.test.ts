@@ -7,6 +7,7 @@ import {
   roster,
   TEXTS,
 } from '@/mocks/sending-stone'
+import type { SheetSpellSection } from '@/types/sending-stone'
 
 /** A chat message with these dnd5e details, as read. */
 const messageWith = (dnd5e: object) =>
@@ -266,6 +267,42 @@ describe('schemas/sending-stone', () => {
       deathSaves: null,
       details: { about: [], xp: null, biography: TEXTS.biography },
     })
+  })
+
+  it("reads the level each spell slot casts at, from module 0.8.1, keeping a slot whose level it can't read", () => {
+    const sheet = fullerSheet()
+    const [cantrips, first, ...rest] = sheet.spells
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            cantrips,
+            { ...first, slots: { value: 1, max: 2, level: 1 } },
+            {
+              id: 'pact',
+              label: 'Pact Magic — 3rd Level',
+              slots: { value: 2, max: 2, level: 'third' },
+              spells: [],
+            },
+            ...rest,
+          ],
+        },
+      },
+    }) as any
+
+    expect(
+      event.data.character.sheet.spells.map(
+        (section: SheetSpellSection) => section.slots,
+      ),
+    ).toEqual([
+      null,
+      { value: 1, max: 2, level: 1 },
+      { value: 2, max: 2, level: null },
+      { value: 0, max: 0 },
+      null,
+    ])
   })
 
   it('reads actions, dropping a malformed action, damage or saving throw rather than the sheet', () => {
