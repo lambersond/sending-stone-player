@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { BookOpen, HeartPulse, Sparkles } from 'lucide-react'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
-import type { SheetClass, SheetUses } from '@/types/sending-stone'
+import type { SheetClass, SheetFeature, SheetUses } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
 /**
@@ -49,20 +49,10 @@ export function FeaturesTab({
               />
             )}
             {section.features.map(feature => (
-              <SheetEntry
+              <FeatureEntry
                 key={feature.id}
                 characterId={characterId}
-                name={feature.name}
-                img={feature.img}
-                fallback={Sparkles}
-                detail={joinParts(
-                  feature.activation ??
-                    (feature.passive ? 'Passive' : undefined),
-                  feature.uses?.recovery,
-                )}
-                aside={feature.uses && <UsesLeft uses={feature.uses} />}
-                meta={joinParts(feature.kind, feature.requirements)}
-                text={feature.text}
+                feature={feature}
               />
             ))}
           </ul>
@@ -73,6 +63,29 @@ export function FeaturesTab({
         <p className='text-sm text-text-secondary'>No features to show yet.</p>
       )}
     </div>
+  )
+}
+
+/** A feature: how it's used and its uses left, opening to its description. */
+export function FeatureEntry({
+  characterId,
+  feature,
+}: Readonly<{ characterId: string; feature: SheetFeature }>) {
+  return (
+    <SheetEntry
+      characterId={characterId}
+      name={feature.name}
+      img={feature.img}
+      fallback={Sparkles}
+      favoriteKey={`item:${feature.id}`}
+      detail={joinParts(
+        feature.activation ?? (feature.passive ? 'Passive' : undefined),
+        feature.uses?.recovery,
+      )}
+      aside={feature.uses && <UsesLeft uses={feature.uses} />}
+      meta={joinParts(feature.kind, feature.requirements)}
+      text={feature.text}
+    />
   )
 }
 

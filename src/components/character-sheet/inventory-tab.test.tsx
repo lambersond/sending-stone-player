@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { FavoriteMarks } from './favorite-mark'
 import { InventoryTab } from './inventory-tab'
 import {
   characterSheet,
@@ -314,5 +315,33 @@ describe('components/character-sheet/inventory-tab', () => {
     expect(screen.getByText('No items to show yet.')).toBeInTheDocument()
     expect(screen.queryByRole('term')).toBeNull()
     expect(screen.queryByRole('heading')).toBeNull()
+  })
+
+  it('stars a favorite, though it is in a container, and shows first what it is given, such as the favorites', async () => {
+    const user = userEvent.setup()
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+    render(
+      <FavoriteMarks keys={new Set(['item:rope', 'item:cloak'])}>
+        <InventoryTab
+          characterId='char-1'
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+          favorites={<p>Her favorites</p>}
+        />
+      </FavoriteMarks>,
+    )
+    await user.click(screen.getByText('Backpack'))
+
+    expect(
+      screen
+        .getAllByText(', favorite')
+        .map(star => star.closest('summary')?.textContent?.split(',', 1)[0]),
+    ).toEqual(['Cloak of Protection', 'Hempen Rope'])
+    expect(
+      screen
+        .getByText('Her favorites')
+        .compareDocumentPosition(
+          screen.getByRole('heading', { name: 'Weapons' }),
+        ),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 })

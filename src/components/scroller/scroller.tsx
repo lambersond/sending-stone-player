@@ -17,7 +17,7 @@ export function Scroller({
     <div
       ref={ref}
       onScroll={onScroll}
-      className='@container relative min-h-0 flex-1 overflow-y-auto'
+      className='@container relative min-h-0 min-w-0 flex-1 overflow-y-auto'
     >
       {children}
     </div>

@@ -2,6 +2,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EffectsTab } from './effects-tab'
+import { FavoriteMarks } from './favorite-mark'
 import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
@@ -97,5 +98,30 @@ describe('components/character-sheet/effects-tab', () => {
 
     expect(screen.getByText('None.')).toBeInTheDocument()
     expect(screen.getByText('No effects.')).toBeInTheDocument()
+  })
+
+  it('stars a favorite, and shows first what it is given, such as the favorites', () => {
+    render(
+      <FavoriteMarks keys={new Set(['effect:rage'])}>
+        <EffectsTab
+          characterId='char-1'
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+          favorites={<p>Her favorites</p>}
+        />
+      </FavoriteMarks>,
+    )
+
+    expect(
+      screen
+        .getAllByText(', favorite')
+        .map(star => star.closest('li')?.textContent),
+    ).toEqual(['Rage, favoriteOff'])
+    expect(
+      screen
+        .getByText('Her favorites')
+        .compareDocumentPosition(
+          screen.getByRole('heading', { name: 'Conditions' }),
+        ),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 })

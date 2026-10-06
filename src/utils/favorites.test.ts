@@ -1,0 +1,337 @@
+/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+import { favoriteEntries, favoriteKeys, rollsAny } from './favorites'
+import {
+  fullerSheet,
+  sheetAction,
+  sheetFavorites,
+  sheetSpell,
+  TEXTS,
+} from '@/mocks/sending-stone'
+import type { SheetFavorite } from '@/types/sending-stone'
+
+/** An item made a favorite, by its id. */
+const item = (id: string, itemType = 'loot'): SheetFavorite => ({
+  type: 'item',
+  id,
+  itemType,
+  name: id,
+  img: null,
+})
+
+describe('utils/favorites', () => {
+  describe('favoriteEntries', () => {
+    it('finds what each favorite refers to on the sheet, in the order dnd5e shows them', () => {
+      const sheet = fullerSheet({ favorites: sheetFavorites() })
+      const entries = favoriteEntries(sheet)
+
+      expect(entries.map(({ key, kind }) => [key, kind])).toEqual([
+        ['resource:primary', 'resource'],
+        ['item:warhammer', 'action'],
+        ['activity:cast-fireball', 'action'],
+        ['effect:blessed', 'effect'],
+        ['skill:prc', 'check'],
+        ['tool:thief', 'check'],
+        ['slots:spell1', 'slots'],
+      ])
+      const [resource, warhammer, fireball, bless, perception, tools, slots] =
+        entries
+      expect(resource).toMatchObject({
+        resource: { name: 'Superiority Dice', uses: { value: 3, max: 4 } },
+      })
+      expect(warhammer).toEqual({
+        key: 'item:warhammer',
+        kind: 'action',
+        action: sheet.actions[0].actions[0],
+        note: undefined,
+      })
+      expect(fireball).toEqual({
+        key: 'activity:cast-fireball',
+        kind: 'action',
+        action: sheetAction({
+          id: 'staff',
+          name: 'Cast Fireball',
+          img: 'systems/dnd5e/icons/svg/activity/cast.svg',
+          type: 'weapon',
+          activation: 'Action',
+          range: '150 ft',
+          target: '20 ft Sphere',
+          save: { ability: 'DEX', dc: 15 },
+          damage: [{ formula: '8d6', type: 'Fire', healing: false }],
+          castFrom: null,
+        }),
+        note: 'Staff of Fire',
+      })
+      expect(bless).toEqual({
+        key: 'effect:blessed',
+        kind: 'effect',
+        effect: sheet.effects[0].effects[0],
+        suppressed: false,
+      })
+      expect(perception).toEqual({
+        key: 'skill:prc',
+        kind: 'check',
+        check: sheet.skills[1],
+      })
+      expect(tools).toEqual({
+        key: 'tool:thief',
+        kind: 'check',
+        check: {
+          id: 'thief',
+          label: "Thieves' Tools",
+          ability: 'dex',
+          total: 5,
+          passive: null,
+          proficiency: 1,
+          mode: 0,
+        },
+      })
+      expect(slots).toMatchObject({
+        slots: { name: '1st Level', value: 1, max: 2, level: 1 },
+      })
+    })
+
+    it('shows an item as an action if it is one, else as a spell, a thing carried, a feature or a class', () => {
+      const sheet = fullerSheet({
+        favorites: [
+          item('second-wind', 'feat'),
+          item('cure', 'spell'),
+          item('cloak', 'equipment'),
+          item('rope'),
+          item('pouch', 'container'),
+          item('darkvision', 'feat'),
+          item('fighter', 'class'),
+          item('soldier', 'background'),
+        ],
+      })
+
+      expect(
+        favoriteEntries(sheet).map(entry => {
+          switch (entry.kind) {
+            case 'action': {
+              return [entry.kind, entry.action.name]
+            }
+            case 'spell': {
+              return [entry.kind, entry.spell.name]
+            }
+            case 'item': {
+              return [entry.kind, entry.item.name]
+            }
+            case 'feature': {
+              return [entry.kind, entry.feature.name]
+            }
+            case 'class': {
+              return [entry.kind, entry.entry.name]
+            }
+            default: {
+              return [entry.kind, entry.key]
+            }
+          }
+        }),
+      ).toEqual([
+        ['action', 'Second Wind'],
+        ['spell', 'Cure Wounds'],
+        ['item', 'Cloak of Protection'],
+        ['item', 'Hempen Rope'],
+        ['item', 'Pouch'],
+        ['feature', 'Darkvision'],
+        ['class', 'Fighter'],
+        ['other', 'item:soldier'],
+      ])
+    })
+
+    it('says by an action what its group would have: the item a spell is cast from, or how many there are', () => {
+      const sheet = fullerSheet({
+        favorites: [item('handaxe', 'weapon'), item('wand-missile', 'spell')],
+      })
+      sheet.actions[0].actions.push(
+        sheetAction({
+          id: 'wand-missile',
+          name: 'Magic Missile',
+          type: 'spell',
+          level: 1,
+          castFrom: { id: 'wand', name: 'Wand of Magic Missiles' },
+        }),
+      )
+
+      expect(
+        favoriteEntries(sheet).map(entry =>
+          entry.kind === 'action' ? entry.note : entry.kind,
+        ),
+      ).toEqual(['×2', 'From Wand of Magic Missiles'])
+    })
+
+    it("takes an activity's spell level, concentration and description from its spell, and whether it's identified from its item", () => {
+      const sheet = fullerSheet({
+        favorites: [
+          {
+            type: 'activity',
+            id: 'heal',
+            itemId: 'cure',
+            itemType: 'spell',
+            itemName: 'Cure Wounds',
+            name: 'Cure Wounds',
+            img: null,
+            activation: 'Action',
+            range: 'Touch',
+            target: null,
+            toHit: null,
+            save: null,
+            damage: [{ formula: '2d8 + 3', type: 'Healing', healing: true }],
+            uses: null,
+          },
+          {
+            type: 'activity',
+            id: 'glow',
+            itemId: 'ring',
+            itemType: 'equipment',
+            itemName: 'Plain Ring',
+            name: 'Glow',
+            img: null,
+            activation: 'Bonus Action',
+            range: null,
+            target: null,
+            toHit: null,
+            save: null,
+            damage: [],
+            uses: null,
+          },
+        ],
+      })
+      sheet.spells[1].spells[2] = sheetSpell({
+        ...sheet.spells[1].spells[2],
+        concentration: true,
+        text: TEXTS.shield,
+      })
+
+      const [cure, glow] = favoriteEntries(sheet)
+      expect(cure).toMatchObject({
+        kind: 'action',
+        action: {
+          id: 'cure',
+          type: 'spell',
+          level: 1,
+          concentration: true,
+          identified: true,
+          text: TEXTS.shield,
+        },
+        // Named as its spell is, it needs no more said.
+        note: undefined,
+      })
+      expect(glow).toMatchObject({
+        kind: 'action',
+        action: { id: 'ring', identified: false, text: TEXTS.ring },
+        note: 'Plain Ring',
+      })
+    })
+
+    it("shows an effect the Effects tab doesn't list, such as a condition's, as the favorite has it", () => {
+      const sheet = fullerSheet({
+        favorites: [
+          {
+            type: 'effect',
+            id: 'dnd5epoisoned00',
+            name: 'Poisoned',
+            img: 'systems/dnd5e/icons/svg/statuses/poisoned.svg',
+            disabled: false,
+            suppressed: true,
+          },
+        ],
+      })
+
+      expect(favoriteEntries(sheet)).toEqual([
+        {
+          key: 'effect:dnd5epoisoned00',
+          kind: 'effect',
+          effect: {
+            id: 'dnd5epoisoned00',
+            name: 'Poisoned',
+            img: 'systems/dnd5e/icons/svg/statuses/poisoned.svg',
+            source: null,
+            duration: null,
+            disabled: false,
+            text: null,
+          },
+          suppressed: true,
+        },
+      ])
+    })
+
+    it('leaves out a skill the sheet no longer has, and any favorite listed twice', () => {
+      const sheet = fullerSheet({
+        favorites: [
+          { type: 'skill', id: 'xyz', name: 'Gone' },
+          { type: 'skill', id: 'ath', name: 'Athletics' },
+          { type: 'skill', id: 'ath', name: 'Athletics' },
+        ],
+      })
+
+      expect(favoriteEntries(sheet).map(({ key }) => key)).toEqual([
+        'skill:ath',
+      ])
+    })
+
+    it('has none for a sheet with none', () => {
+      expect(favoriteEntries(fullerSheet())).toEqual([])
+    })
+  })
+
+  describe('favoriteKeys', () => {
+    it('marks the items, effects and skills that are favorites, and nothing for the rest', () => {
+      expect(favoriteKeys(sheetFavorites())).toEqual(
+        new Set(['item:warhammer', 'effect:blessed', 'skill:prc']),
+      )
+    })
+  })
+
+  describe('rollsAny', () => {
+    it('says whether any favorite rolls, as an attack, damage or a check does', () => {
+      const sheet = fullerSheet({ favorites: sheetFavorites() })
+      const entries = favoriteEntries(sheet)
+      const kinds = (...keys: string[]) =>
+        entries.filter(entry => keys.includes(entry.key))
+
+      expect(rollsAny(entries)).toBe(true)
+      expect(rollsAny(kinds('skill:prc'))).toBe(true)
+      expect(rollsAny(kinds('activity:cast-fireball'))).toBe(true)
+      expect(
+        rollsAny(kinds('resource:primary', 'effect:blessed', 'slots:spell1')),
+      ).toBe(false)
+      expect(
+        rollsAny(
+          favoriteEntries(
+            fullerSheet({ favorites: [item('action-surge', 'feat')] }),
+          ),
+        ),
+      ).toBe(false)
+      expect(rollsAny([])).toBe(false)
+    })
+  })
+
+  it("takes the description of an activity of a feature from the feature's", () => {
+    const sheet = fullerSheet({
+      favorites: [
+        {
+          type: 'activity',
+          id: 'see',
+          itemId: 'darkvision',
+          itemType: 'feat',
+          itemName: 'Darkvision',
+          name: 'See',
+          img: null,
+          activation: null,
+          range: null,
+          target: null,
+          toHit: null,
+          save: null,
+          damage: [],
+          uses: null,
+        },
+      ],
+    })
+    sheet.features[1].features[0].text = TEXTS.fighter
+
+    expect(favoriteEntries(sheet)).toMatchObject([
+      { kind: 'action', action: { text: TEXTS.fighter }, note: 'Darkvision' },
+    ])
+  })
+})

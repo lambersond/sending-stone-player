@@ -223,11 +223,8 @@ const detailSchema = z.looseObject({
   value: z.string(),
 })
 
-const actionSchema = z.looseObject({
-  id: z.string(),
-  name: z.string(),
-  img: nullableString,
-  type: z.string().catch(''),
+/** What an action does, as an action or one of an item's activities has it. */
+const actionFields = {
   activation: nullableString,
   range: nullableString,
   target: nullableString,
@@ -244,6 +241,14 @@ const actionSchema = z.looseObject({
     }),
   ),
   uses: usesSchema,
+}
+
+const actionSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  type: z.string().catch(''),
+  ...actionFields,
   level: nullableNumber,
   // From module 0.8.2.
   castFrom: castFromSchema,
@@ -261,6 +266,64 @@ const effectSchema = z.looseObject({
   disabled: z.boolean().catch(false),
   text: textRef,
 })
+
+/** A favorite, by its type. One of a type a later module adds is dropped, as one malformed is. */
+const favoriteSchema = z.discriminatedUnion('type', [
+  z.looseObject({
+    type: z.literal('item'),
+    id: z.string(),
+    itemType: z.string().catch(''),
+    name: z.string(),
+    img: nullableString,
+  }),
+  z.looseObject({
+    type: z.literal('activity'),
+    id: z.string(),
+    itemId: z.string(),
+    itemType: z.string().catch(''),
+    itemName: z.string().catch(''),
+    name: z.string(),
+    img: nullableString,
+    ...actionFields,
+  }),
+  z.looseObject({
+    type: z.literal('effect'),
+    id: z.string(),
+    name: z.string(),
+    img: nullableString,
+    disabled: z.boolean().catch(false),
+    suppressed: z.boolean().catch(false),
+  }),
+  z.looseObject({
+    type: z.literal('skill'),
+    id: z.string(),
+    name: z.string().catch(''),
+  }),
+  z.looseObject({
+    type: z.literal('tool'),
+    id: z.string(),
+    name: z.string(),
+    ability: nullableString,
+    total: z.number(),
+    passive: nullableNumber,
+    proficiency: z.number().catch(0),
+    mode: rollMode,
+  }),
+  z.looseObject({
+    type: z.literal('slots'),
+    id: z.string(),
+    name: z.string(),
+    value: z.number(),
+    max: z.number(),
+    level: nullableNumber,
+  }),
+  z.looseObject({
+    type: z.literal('resource'),
+    id: z.string(),
+    name: z.string(),
+    uses: usesSchema,
+  }),
+])
 
 // A sheet that can't be read is dropped rather than failing the event that carries it.
 const sheetSchema = z
@@ -419,6 +482,8 @@ const sheetSchema = z
         actions: listOf(actionSchema),
       }),
     ),
+    // Sent from module 0.9.0.
+    favorites: listOf(favoriteSchema),
   })
   .nullable()
   .optional()

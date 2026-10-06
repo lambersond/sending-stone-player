@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { FavoriteMarks } from './favorite-mark'
 import { SpellsTab } from './spells-tab'
 import {
   characterSheet,
@@ -296,5 +297,28 @@ describe('components/character-sheet/spells-tab', () => {
 
     expect(screen.getByText('No spells to show yet.')).toBeInTheDocument()
     expect(screen.queryByRole('heading')).toBeNull()
+  })
+
+  it('stars a favorite, and shows first what it is given, such as the favorites', () => {
+    render(
+      <FavoriteMarks keys={new Set(['item:shield'])}>
+        <SpellsTab
+          characterId='char-1'
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+          favorites={<p>Her favorites</p>}
+        />
+      </FavoriteMarks>,
+    )
+
+    expect(
+      screen.getAllByText(', favorite').map(star => star.closest('summary')),
+    ).toEqual([row('Shield')])
+    expect(
+      screen
+        .getByText('Her favorites')
+        .compareDocumentPosition(
+          screen.getByRole('heading', { name: 'Spellcasting' }),
+        ),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 })
