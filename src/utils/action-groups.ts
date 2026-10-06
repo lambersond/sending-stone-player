@@ -2,11 +2,15 @@
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 
 /**
- * Actions of one kind within a section of the Actions tab: weapons, spells cast one way, such as
- * those of a spell level or pact magic, features, or items.
+ * Actions of one kind within a section of the Actions tab, as Tidy 5e groups a sheet by where
+ * things come from: weapons, equipment and the like, spells cast one way, such as those of a spell
+ * level or pact magic, spells cast from an item, or features.
  */
 export type ActionGroup = {
-  /** "weapons", "features" or "items", or a spellbook section's id after "spells-". */
+  /**
+   * Such as "weapons", "consumables" or "features"; a spellbook section's id after "spells-"; or
+   * the id of the item spells are cast from, after "from-".
+   */
   id: string
   label: string
   /** The slots its spells are cast with, for a spell level or pact magic that has any. */
@@ -26,20 +30,29 @@ export type SlotPool = {
   max: number
 }
 
-/** Where groups come within a section: weapons, spells in the spellbook's order, then the rest. */
-const ORDER = {
-  weapons: 0,
-  spells: 100,
-  spellsByLevel: 200,
-  features: 300,
-  items: 400,
+/** The kinds of things a character carries, as dnd5e's inventory names and orders them. */
+const ITEM_KINDS: Record<string, { id: string; label: string }> = {
+  weapon: { id: 'weapons', label: 'Weapons' },
+  equipment: { id: 'equipment', label: 'Equipment' },
+  consumable: { id: 'consumables', label: 'Consumables' },
+  tool: { id: 'tools', label: 'Tools' },
+  container: { id: 'containers', label: 'Containers' },
+  loot: { id: 'loot', label: 'Loot' },
 }
+const ITEM_ORDER = Object.keys(ITEM_KINDS)
 
 /**
- * A section's actions in groups of a kind, so that a spell's level and an item's kind show: first
- * weapons, then spells, grouped as the spellbook groups them, such as Cantrips, 1st Level or Pact
- * Magic, with their slots, then features, then everything else a character carries. Each keeps its
- * actions in the player's order.
+ * Where groups come within a section: what's carried, then spells in the spellbook's order, then
+ * spells cast from items, then features.
+ */
+const ORDER = { items: 0, spells: 100, castFrom: 200, features: 300 }
+
+/**
+ * A section's actions in groups of a kind, so that an item's kind and a spell's level show, as
+ * Tidy 5e groups a sheet by where things come from. First what the character carries, by kind:
+ * weapons, equipment, consumables and so on. Then spells, as the spellbook groups them, such as
+ * Cantrips, Pact Magic or each level, with their slots; then spells cast from an item, under its
+ * name; then features. Each keeps its actions in the player's order.
  */
 export function groupActions(
   actions: SheetAction[],
@@ -55,6 +68,7 @@ export function groupActions(
     entry.group.actions.push(action)
     groups.set(kind.id, entry)
   }
+  // Groups that come in the same place, such as spells from several items, keep their order.
   return [...groups.values()]
     .toSorted((a, b) => a.order - b.order)
     .map(({ group }) => group)
@@ -65,39 +79,7 @@ function groupOf(
   action: SheetAction,
   spellbook: SheetSpellSection[],
 ): Omit<ActionGroup, 'actions'> & { order: number } {
-  if (action.type === 'weapon') {
-    return {
-      id: 'weapons',
-      label: 'Weapons',
-      slots: null,
-      order: ORDER.weapons,
-    }
-  }
-  if (action.type === 'spell') {
-    const index = spellbook.findIndex(section =>
-      section.spells.some(spell => spell.id === action.id),
-    )
-    if (index !== -1) {
-      const { id, label, slots } = spellbook[index]
-      return {
-        id: `spells-${id}`,
-        label,
-        slots:
-          slots && slots.max > 0
-            ? { value: slots.value, max: slots.max }
-            : null,
-        order: ORDER.spells + index,
-      }
-    }
-    // A spell the spellbook doesn't show, such as one cast from an item, goes by its level.
-    const level = action.level ?? 0
-    return {
-      id: `spells-level${level}`,
-      label: levelLabel(level),
-      slots: null,
-      order: ORDER.spellsByLevel + level,
-    }
-  }
+  if (action.type === 'spell') return spellGroupOf(action, spellbook)
   if (action.type === 'feat') {
     return {
       id: 'features',
@@ -106,7 +88,60 @@ function groupOf(
       order: ORDER.features,
     }
   }
-  return { id: 'items', label: 'Items', slots: null, order: ORDER.items }
+  const kind = ITEM_KINDS[action.type]
+  return kind
+    ? {
+        ...kind,
+        slots: null,
+        order: ORDER.items + ITEM_ORDER.indexOf(action.type),
+      }
+    : {
+        id: 'items',
+        label: 'Items',
+        slots: null,
+        order: ORDER.items + ITEM_ORDER.length,
+      }
+}
+
+/**
+ * A spell's group: the item it's cast from, if it's cast from one; otherwise its section of the
+ * spellbook, such as 1st Level or Pact Magic, with its slots.
+ */
+function spellGroupOf(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+): Omit<ActionGroup, 'actions'> & { order: number } {
+  if (action.castFrom) {
+    return {
+      id: `from-${action.castFrom.id}`,
+      label: action.castFrom.name,
+      slots: null,
+      order: ORDER.castFrom,
+    }
+  }
+  const index = spellbook.findIndex(section =>
+    section.spells.some(spell => spell.id === action.id),
+  )
+  if (index !== -1) {
+    const { id, label, slots } = spellbook[index]
+    return {
+      id: `spells-${id}`,
+      label,
+      slots:
+        slots && slots.max > 0 ? { value: slots.value, max: slots.max } : null,
+      order: ORDER.spells + index,
+    }
+  }
+  // A spell the spellbook doesn't show is one cast from an item, from a module before 0.8.2,
+  // which doesn't say which. It goes with the spells from items the spellbook does show, as
+  // dnd5e names them.
+  const items = spellbook.findIndex(section => section.id === 'item')
+  return {
+    id: 'spells-item',
+    label: items === -1 ? 'Additional Spells' : spellbook[items].label,
+    slots: null,
+    order: items === -1 ? ORDER.castFrom : ORDER.spells + items,
+  }
 }
 
 /**
@@ -158,11 +193,6 @@ export function poolName(pool: SlotPool): string {
     return pool.level === null ? 'Pact' : `Pact ${ordinal(pool.level)}`
   }
   return pool.label
-}
-
-/** A spell level as dnd5e names it, such as "Cantrips" or "3rd Level". */
-export function levelLabel(level: number): string {
-  return level === 0 ? 'Cantrips' : `${ordinal(level)} Level`
 }
 
 /** Such as 1st, 2nd, 3rd or 4th, for a spell level, 1 to 9. */

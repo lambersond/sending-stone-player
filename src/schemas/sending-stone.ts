@@ -74,6 +74,16 @@ const featureSchema = z.looseObject({
   text: textRef,
 })
 
+/**
+ * The item a spell is cast from, such as a wand. Left out, as sent, by modules before 0.8.2, so
+ * that a sheet from one reads as it did; null for one that can't be read.
+ */
+const castFromSchema = z
+  .object({ id: z.string(), name: z.string() })
+  .nullable()
+  .optional()
+  .catch(null)
+
 const usesSchema = z
   .looseObject({
     value: z.number(),
@@ -202,6 +212,8 @@ const spellSchema = z.looseObject({
     .nullable()
     .catch(null),
   uses: usesSchema,
+  // From module 0.8.2.
+  castFrom: castFromSchema,
   text: textRef,
 })
 
@@ -233,6 +245,8 @@ const actionSchema = z.looseObject({
   ),
   uses: usesSchema,
   level: nullableNumber,
+  // From module 0.8.2.
+  castFrom: castFromSchema,
   concentration: z.boolean().catch(false),
   identified: z.boolean().catch(true),
   text: textRef,

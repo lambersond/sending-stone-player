@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActionsTab } from './actions-tab'
 import {
@@ -48,10 +54,12 @@ const groups = (region: HTMLElement) =>
   within(region)
     .getAllByRole('group')
     .map(group => [
-      within(group).getByRole('heading', { level: 3 }).textContent,
+      // Its name, which is what labels it, without its count and slots.
+      within(group).getByRole('heading', { level: 3 }).querySelector('[id]')
+        ?.textContent,
       within(group)
-        .getAllByRole('button', { expanded: false })
-        .map(button => button.querySelector('.font-medium')?.textContent),
+        .queryAllByRole('listitem')
+        .map(item => item.querySelector('button .font-medium')?.textContent),
     ])
 
 /** The sheet as wide as a tablet's, or a phone's. */
@@ -362,9 +370,10 @@ describe('components/character-sheet/actions-tab', () => {
     expect(screen.getByText('Cantrip · Concentration')).toBeInTheDocument()
     expect(screen.getByText('Level 1 spell')).toBeInTheDocument()
     expect(screen.getByText('Equipment · Not identified')).toBeInTheDocument()
-    expect(
-      within(screen.getAllByRole('listitem')[2]).queryByRole('term'),
-    ).toBeNull()
+    const wand = screen
+      .getByRole('button', { name: /^Strange Wand/ })
+      .closest('li') as HTMLElement
+    expect(within(wand).queryByRole('term')).toBeNull()
   })
 
   it('opens an action of a kind it has no name for to just its facts', async () => {
@@ -459,12 +468,15 @@ describe('components/character-sheet/actions-tab', () => {
     const actions = screen.getByRole('region', { name: 'Actions' })
     expect(groups(actions)).toEqual([
       ['Weapons', ['Dagger']],
+      ['Consumables', ['Potion of Healing']],
       ['Cantrips', ['Fire Bolt']],
       ['Pact Magic — 3rd Level', ['Hex']],
       ['3rd Level', ['Fireball']],
       ['Features', ['Fire Breath']],
-      ['Items', ['Potion of Healing']],
     ])
+    expect(
+      within(actions).getByRole('button', { name: /^Weapons/ }),
+    ).toHaveTextContent('Weapons1, 1 action')
     expect(
       within(actions).getByRole('group', { name: '3rd Level' }),
     ).toHaveTextContent('1 of 3 spell slots left')
@@ -617,6 +629,101 @@ describe('components/character-sheet/actions-tab', () => {
     ).toEqual(['3rd 0/23rd Level, 0 of 2 slots left'])
   })
 
+  it('closes a group, and keeps it closed for the character, in a list or a table', async () => {
+    const user = userEvent.setup()
+    sheetWidth(800)
+    renderTab()
+    const actions = () => screen.getByRole('region', { name: 'Actions' })
+    const weapons = () =>
+      within(actions()).getByRole('button', { name: /^Weapons/ })
+
+    expect(weapons()).toHaveAttribute('aria-expanded', 'true')
+    await user.click(weapons())
+
+    expect(weapons()).toHaveAttribute('aria-expanded', 'false')
+    expect(rows(actions())).toEqual([
+      'GuidanceAction · Touch',
+      'Fire BreathAction · 15 ft · Fire1/11 of 1 uses leftDEX 132d6',
+    ])
+    expect(
+      JSON.parse(
+        localStorage.getItem('sending-stone:actions-closed:char-1') ?? '',
+      ),
+    ).toEqual(['action/weapons'])
+
+    cleanup()
+    renderTab()
+    expect(weapons()).toHaveAttribute('aria-expanded', 'false')
+    await user.click(screen.getByRole('button', { name: 'Table' }))
+    const table = screen.getByRole('table', { name: 'Actions' })
+    expect(
+      within(table).queryByRole('button', { name: /^Warhammer/ }),
+    ).toBeNull()
+    expect(
+      within(table).getByRole('button', { name: /^Weapons/ }),
+    ).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(within(table).getByRole('button', { name: /^Weapons/ }))
+    expect(
+      within(table).getByRole('button', { name: 'Warhammer' }),
+    ).toBeVisible()
+    expect(localStorage.getItem('sending-stone:actions-closed:char-1')).toBe(
+      '[]',
+    )
+  })
+
+  it("puts spells cast from an item under its name, after the spellbook's", () => {
+    const wand = { id: 'wand', name: 'Wand of Magic Missiles' }
+    renderTab(
+      characterSheet({
+        spells: [
+          {
+            id: 'spell0',
+            label: 'Cantrips',
+            slots: null,
+            spells: [sheetSpell({ id: 'bolt', name: 'Fire Bolt', level: 0 })],
+          },
+        ],
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({ id: 'wand', name: wand.name, type: 'consumable' }),
+              sheetAction({
+                id: 'wand-missile',
+                name: 'Magic Missile',
+                type: 'spell',
+                level: 1,
+                castFrom: wand,
+              }),
+              sheetAction({
+                id: 'coat-hands',
+                name: 'Burning Hands',
+                type: 'spell',
+                level: 1,
+                castFrom: { id: 'coat', name: 'Cinder Coat' },
+              }),
+              sheetAction({
+                id: 'bolt',
+                name: 'Fire Bolt',
+                type: 'spell',
+                level: 0,
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(groups(screen.getByRole('region', { name: 'Actions' }))).toEqual([
+      ['Consumables', ['Wand of Magic Missiles']],
+      ['Cantrips', ['Fire Bolt']],
+      ['Wand of Magic Missiles', ['Magic Missile']],
+      ['Cinder Coat', ['Burning Hands']],
+    ])
+  })
+
   it('offers no layouts on a phone, keeping to the list whatever was chosen', () => {
     localStorage.setItem('sending-stone:actions-layout', 'table')
     sheetWidth(390)
@@ -662,7 +769,11 @@ describe('components/character-sheet/actions-tab', () => {
       within(table)
         .getAllByRole('rowheader')
         .map(header => header.textContent),
-    ).toEqual(['Weapons', 'Cantrips', 'Features'])
+    ).toEqual([
+      'Weapons2, 2 actions',
+      'Cantrips1, 1 action',
+      'Features1, 1 action',
+    ])
     expect(
       within(table)
         .getAllByRole('row')
@@ -685,7 +796,7 @@ describe('components/character-sheet/actions-tab', () => {
       within(screen.getByRole('table', { name: 'Reactions' })).getAllByRole(
         'rowheader',
       )[0],
-    ).toHaveTextContent('1st Level1/21 of 2 spell slots left')
+    ).toHaveTextContent('1st Level1, 1 action1/21 of 2 spell slots left')
 
     await user.click(
       within(table).getByRole('button', { name: 'Warhammer attack, +7' }),

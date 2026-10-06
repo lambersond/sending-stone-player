@@ -264,6 +264,33 @@ describe('components/character-sheet/spells-tab', () => {
     expect(within(third).queryByText(/slots left/)).toBeNull()
   })
 
+  it('names the item a spell is cast from', () => {
+    renderTab(
+      fullerSheet({
+        spells: [
+          {
+            id: 'item',
+            label: 'Additional Spells',
+            slots: null,
+            spells: [
+              sheetSpell({
+                id: 'wand-missile',
+                name: 'Magic Missile',
+                activation: '1 Action',
+                range: '120 ft',
+                castFrom: { id: 'wand', name: 'Wand of Magic Missiles' },
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(
+      rows(screen.getByRole('region', { name: 'Additional Spells' })),
+    ).toEqual(['Magic Missile1 Action · 120 ft · From Wand of Magic Missiles'])
+  })
+
   it('says so when there are no spells to show', () => {
     renderTab(characterSheet())
 
