@@ -1,6 +1,10 @@
 import { DIE_SIDES } from '@lambersond/3d-dice-core'
 import { z } from 'zod'
-import { PROTOCOL_VERSION, ROLL_KINDS } from '@/constants/sending-stone'
+import {
+  MAX_DAMAGE_TERMS,
+  PROTOCOL_VERSION,
+  ROLL_KINDS,
+} from '@/constants/sending-stone'
 import { MAX_DICE, MAX_FLAT, type ExtraTerm } from '@/utils/roll-modifiers'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -12,6 +16,9 @@ const KEY = /^[\w.:-]{1,64}$/
 
 /** A Foundry document's id. */
 const FOUNDRY_ID = /^[\dA-Za-z]{1,64}$/
+
+/** A roll request's id, as this app gives it. */
+const REQUEST_ID = /^[\w-]{1,64}$/
 
 const sign = z.union([z.literal(1), z.literal(-1)])
 
@@ -39,7 +46,9 @@ const rolledDiceSchema = z.strictObject({
  * A roll a player asks to have made in the Gamemaster's game, with the dice they rolled. The dice
  * must be exactly those the roll throws: its d20, or two of them with advantage or disadvantage,
  * then the dice of each term added, in order, each result one of the die's faces. The game uses
- * them as they are, so no more could be slipped in.
+ * them as they are, so no more could be slipped in. An attack names the item and attack activity
+ * it's made with, and the combatant it's made at, if any; its damage names the attack, and has the
+ * dice that attack said its damage throws, which are checked against them when it's taken.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -48,13 +57,37 @@ export const rollRequestSchema = z
     mode: z.union([z.literal(-1), z.literal(0), z.literal(1)]),
     explicit: z.boolean(),
     extras: z.array(extraTermSchema).max(MAX_EXTRAS),
-    dice: z
-      .array(rolledDiceSchema)
-      .min(1)
-      .max(MAX_EXTRAS + 1),
+    dice: z.array(rolledDiceSchema).max(MAX_DAMAGE_TERMS),
     combatId: z.string().regex(FOUNDRY_ID).optional(),
+    item: z.string().regex(FOUNDRY_ID).optional(),
+    activity: z.string().regex(FOUNDRY_ID).optional(),
+    target: z
+      .strictObject({
+        combatId: z.string().regex(FOUNDRY_ID),
+        combatantId: z.string().regex(FOUNDRY_ID),
+      })
+      .nullable()
+      .optional(),
+    use: z.string().regex(REQUEST_ID).optional(),
   })
   .superRefine((request, context) => {
+    const attack = request.kind === 'attack'
+    const named = request.item !== undefined || request.activity !== undefined
+    const both = request.item !== undefined && request.activity !== undefined
+    if (attack ? !both : named) {
+      context.addIssue({
+        code: 'custom',
+        path: ['activity'],
+        message: 'An attack, and only an attack, is made with an item',
+      })
+    }
+    if (!attack && request.target !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['target'],
+        message: 'Only an attack has a target',
+      })
+    }
     const keyed = ['skill', 'tool', 'ability', 'save'].includes(request.kind)
     if (keyed !== (request.key !== undefined)) {
       context.addIssue({
@@ -69,6 +102,30 @@ export const rollRequestSchema = z
         path: ['combatId'],
         message: 'Initiative, and only initiative, is rolled in a combat',
       })
+    }
+    if ((request.kind === 'damage') !== (request.use !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['use'],
+        message: 'Damage, and only damage, follows an attack',
+      })
+    }
+    if (request.kind === 'damage') {
+      const plain =
+        request.mode === 0 && !request.explicit && request.extras.length === 0
+      const dice = request.dice.every(
+        ({ faces, results }) =>
+          (DIE_SIDES as readonly number[]).includes(faces) &&
+          results.every(result => result >= 1 && result <= faces),
+      )
+      if (!plain || !dice) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dice'],
+          message: 'Damage is rolled as the attack said, and nothing more',
+        })
+      }
+      return
     }
     const expected = expectedDice(request.mode, request.extras as ExtraTerm[])
     const { dice } = request

@@ -151,6 +151,80 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it("reads an attack's result: what came of it, and the dice its damage throws", () => {
+    const damage = {
+      critical: true,
+      plannable: true,
+      rolls: [
+        {
+          formula: '2d8 + 4',
+          type: 'slashing',
+          dice: [{ faces: 8, number: 2 }],
+        },
+        { formula: '2d6', type: 'fire', dice: [{ faces: 6, number: 2 }] },
+      ],
+    }
+    const result = {
+      id: 'req-1',
+      status: 'done',
+      messageId: 'msg-1',
+      visible: true,
+      rolls: [],
+      attack: { critical: true, fumble: false, outcome: 'hit' },
+      damage,
+    }
+
+    expect(parseGameEvent('command.result', result)?.data).toMatchObject({
+      attack: { critical: true, fumble: false, outcome: 'hit' },
+      damage,
+    })
+    // What came of it, where the Gamemaster doesn't show it; and an attack with no damage.
+    expect(
+      parseGameEvent('command.result', {
+        ...result,
+        attack: { critical: false, fumble: true, outcome: 'graze' },
+        damage: null,
+      })?.data,
+    ).toMatchObject({
+      attack: { critical: false, fumble: true, outcome: null },
+      damage: null,
+    })
+    expect(
+      parseGameEvent('command.result', {
+        ...result,
+        attack: 'hit',
+        damage: { ...damage, rolls: 'many' },
+      })?.data,
+    ).toMatchObject({ attack: null, damage: null })
+  })
+
+  it('leaves damage throwing more dice than a player may send for the game to roll', () => {
+    const many = Array.from({ length: 11 }, () => ({ faces: 6, number: 1 }))
+    const data = parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      damage: {
+        critical: false,
+        plannable: true,
+        rolls: [
+          { formula: '11d6', type: 'fire', dice: many },
+          { formula: '11d6', type: 'cold', dice: many },
+        ],
+      },
+    })?.data as { damage: unknown }
+
+    expect(data.damage).toEqual({
+      critical: false,
+      plannable: false,
+      rolls: [
+        { formula: '11d6', type: 'fire', dice: [] },
+        { formula: '11d6', type: 'cold', dice: [] },
+      ],
+    })
+  })
+
   it.each([
     ['without its id', { status: 'done' }],
     ['with an outcome it does not know', { id: 'req-1', status: 'maybe' }],

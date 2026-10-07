@@ -27,6 +27,7 @@ import { formatModifier } from '@/utils/format-modifier'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
 import type { RollActions } from './d20-rolls'
 import type { SheetDamageRoll } from '@/hooks/use-sheet-roller'
+import type { RollSource } from '@/types/roll'
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 
 /*
@@ -88,6 +89,7 @@ export function useDamageRolls(onRollDamage: (roll: SheetDamageRoll) => void): {
       parts: target.parts,
       healing: target.healing,
       critical,
+      ...(target.source && { source: target.source }),
     })
   const dialogs = menu && (
     <RollMenu
@@ -199,7 +201,12 @@ export function ActionEntry({
           </span>
         )}
         {toHit !== null && (
-          <AttackChip name={name} toHit={toHit} d20={rows.d20} />
+          <AttackChip
+            name={name}
+            toHit={toHit}
+            d20={rows.d20}
+            source={attackSource(action)}
+          />
         )}
         {save && <SaveChip save={save} />}
         {view.formula && (
@@ -241,15 +248,31 @@ export function Chevron({ open }: Readonly<{ open: boolean }>) {
   )
 }
 
+/**
+ * What an action's attack is, for the Gamemaster's game to make it: its item and attack activity.
+ * None for an action whose attack the module didn't name, as before module 0.11.0.
+ */
+export function attackSource(action: SheetAction): RollSource | undefined {
+  return action.attackId
+    ? { kind: 'attack', item: action.id, activity: action.attackId }
+    : undefined
+}
+
 /** An attack's bonus, as a button that rolls it, or offers advantage and the like. */
 export function AttackChip({
   name,
   toHit,
   d20,
-}: Readonly<{ name: string; toHit: number; d20: RollActions }>) {
+  source,
+}: Readonly<{
+  name: string
+  toHit: number
+  d20: RollActions
+  source?: RollSource
+}>) {
   return (
     <RollButton
-      target={{ label: `${name} attack`, modifier: toHit, mode: 0 }}
+      target={{ label: `${name} attack`, modifier: toHit, mode: 0, source }}
       {...d20}
       label={`${name} attack, ${formatModifier(toHit)}`}
       className='shrink-0 rounded-lg bg-attack/15 px-2 py-1 text-sm font-bold text-attack tabular-nums transition-colors hover:bg-attack/25'
@@ -464,5 +487,8 @@ function damageTarget(
     parts,
     healing,
     formula: action.damage.map(part => part.formula).join(' + '),
+    ...(action.attackId && {
+      source: { item: action.id, activity: action.attackId },
+    }),
   }
 }

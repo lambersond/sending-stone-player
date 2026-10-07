@@ -294,6 +294,30 @@ describe('app/api/events', () => {
         expect(applyCampaignEvent).not.toHaveBeenCalled()
       })
 
+      it('records what came of an attack, and the dice its damage throws', async () => {
+        const attack = {
+          ...result,
+          attack: { critical: false, fumble: false, outcome: 'miss' },
+          damage: {
+            critical: false,
+            plannable: true,
+            rolls: [
+              {
+                formula: '1d8 + 4',
+                type: 'bludgeoning',
+                dice: [{ faces: 8, number: 1 }],
+              },
+            ],
+          },
+        }
+        const response = await post(
+          envelope('command.result', attack, { sequence: null }),
+        )
+
+        expect(response.status).toBe(204)
+        expect(recordCommandResult).toHaveBeenCalledWith('c1', attack)
+      })
+
       it('refuses a result without its id', async () => {
         const response = await post(
           envelope('command.result', { ...result, id: '' }, { sequence: null }),

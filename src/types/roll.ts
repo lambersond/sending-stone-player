@@ -1,4 +1,5 @@
 import type { ROLL_KINDS } from '@/constants/sending-stone'
+import type { AttackOutcome, DamagePreview } from '@/types/sending-stone'
 import type { TableRoll } from '@/types/table'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
 
@@ -12,13 +13,22 @@ export type RollKind = (typeof ROLL_KINDS)[number]
 
 /**
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
- * tool's key, an ability check or saving throw by the ability's, a death saving throw, or
- * initiative in a combat.
+ * tool's key, an ability check or saving throw by the ability's, a death saving throw, initiative
+ * in a combat, or an attack with an item's attack activity, at a combatant, or none.
  */
 export type RollSource =
   | { kind: 'skill' | 'tool' | 'ability' | 'save'; key: string }
   | { kind: 'death' }
   | { kind: 'initiative'; combatId: string }
+  | {
+      kind: 'attack'
+      item: string
+      activity: string
+      target?: AttackTarget | null
+    }
+
+/** The combatant an attack is made at, in the combat its player sees. */
+export type AttackTarget = { combatId: string; combatantId: string }
 
 /** The dice of one roll of a kind of die, in the order they were thrown. */
 export type RolledDice = { faces: number; results: number[] }
@@ -38,6 +48,13 @@ export type RollRequestInput = {
   dice: RolledDice[]
   /** For initiative, the combat it's rolled in. */
   combatId?: string
+  /** For an attack, the item and its attack activity. */
+  item?: string
+  activity?: string
+  /** For an attack, the combatant it's made at, if any. */
+  target?: AttackTarget | null
+  /** For damage, the attack it follows. */
+  use?: string
 }
 
 /**
@@ -58,4 +75,8 @@ export type RollRequestView = {
   /** The game's total, when its player may see it. */
   total?: number
   rolls?: TableRoll[]
+  /** For an attack, what came of it, when its player may see it. */
+  attack?: AttackOutcome
+  /** For an attack, the dice its damage will throw; null when no damage follows. */
+  damage?: DamagePreview | null
 }

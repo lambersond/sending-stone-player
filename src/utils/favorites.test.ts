@@ -57,6 +57,7 @@ describe('utils/favorites', () => {
           target: '20 ft Sphere',
           save: { ability: 'DEX', dc: 15 },
           damage: [{ formula: '8d6', type: 'Fire', healing: false }],
+          attackId: null,
           castFrom: null,
         }),
         note: 'Staff of Fire',

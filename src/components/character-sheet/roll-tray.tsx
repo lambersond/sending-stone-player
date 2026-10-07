@@ -1,12 +1,20 @@
 import clsx from 'clsx'
-import { Dices, EyeOff, LoaderCircle, Send, TriangleAlert } from 'lucide-react'
+import {
+  Dices,
+  EyeOff,
+  LoaderCircle,
+  Send,
+  Swords,
+  TriangleAlert,
+} from 'lucide-react'
 import { formatModifier } from '@/utils/format-modifier'
 import type {
   LocalCheck,
   LocalDamage,
   LocalRoll,
 } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import type { DueDamage, TableRollState } from '@/hooks/use-table-rolls'
+import type { RollKind } from '@/types/roll'
 
 /** The player's rolls' way to the Gamemaster's game. */
 export type TableRolls = {
@@ -17,6 +25,10 @@ export type TableRolls = {
   /** Whether the player sends them from this device. */
   sending: boolean
   setSending: (sending: boolean) => void
+  /** Whether the game takes this kind of roll from this device now. */
+  takes?: (kind: RollKind) => boolean
+  /** Roll the damage of an attack the game made, as the game said it will. */
+  rollDamage?: (name: string, due: DueDamage) => void
 }
 
 /**
@@ -51,9 +63,15 @@ export function RollTray({
       </p>
     )
   } else if (latest?.kind === 'damage') {
-    status = <DamageResult roll={latest} />
+    status = <DamageResult roll={latest} state={table?.states.get(latest.id)} />
   } else if (latest) {
-    status = <CheckResult roll={latest} state={table?.states.get(latest.id)} />
+    status = (
+      <CheckResult
+        roll={latest}
+        state={table?.states.get(latest.id)}
+        onRollDamage={table?.rollDamage}
+      />
+    )
   }
 
   return (
@@ -78,10 +96,15 @@ export function RollTray({
                 >
                   <span className='truncate'>{roll.label}</span>
                   <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
-                    {breakdown(roll)} ={' '}
-                    <span className='text-sm font-semibold text-text-primary'>
-                      {roll.total}
-                    </span>
+                    {breakdown(roll)}
+                    {(roll.kind === 'check' || !byTheGame(roll)) && (
+                      <>
+                        {' = '}
+                        <span className='text-sm font-semibold text-text-primary'>
+                          {roll.total}
+                        </span>
+                      </>
+                    )}
                     <TableMark state={table?.states.get(roll.id)} />
                   </span>
                 </li>
@@ -91,11 +114,7 @@ export function RollTray({
         )}
         {table?.available ? (
           <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1'>
-            <p className='text-[11px] text-text-secondary'>
-              {table.sending
-                ? 'Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.'
-                : 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'}
-            </p>
+            <p className='text-[11px] text-text-secondary'>{reachOf(table)}</p>
             <label className='flex shrink-0 cursor-pointer items-center gap-2 text-xs font-semibold'>
               <input
                 type='checkbox'
@@ -132,6 +151,16 @@ export function RollTray({
   )
 }
 
+/** Whether the player's rolls reach the Gamemaster's game, and which. */
+function reachOf(table: TableRolls): string {
+  if (!table.sending) {
+    return 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'
+  }
+  return table.takes?.('attack')
+    ? 'Checks, saves and attacks you roll here are made in your Gamemaster’s game too, with the same dice.'
+    : 'Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.'
+}
+
 /** What the game said of a roll, in words: why it wasn't made, mostly. */
 const REASONS: Record<string, string> = {
   unavailable: 'your Gamemaster’s game isn’t taking rolls now',
@@ -141,10 +170,35 @@ const REASONS: Record<string, string> = {
   'not-in-combat': 'you aren’t in the combat',
   'already-rolled': 'you have rolled initiative already',
   busy: 'too many rolls at once. Wait a moment',
+  cancelled: 'it was called off in the game',
   timeout: 'the game took too long',
   network: 'Sending Stone couldn’t be reached',
   expired: 'your Gamemaster’s game didn’t pick it up',
   lost: 'no answer from your Gamemaster’s game',
+  'attacks-off': 'your Gamemaster’s game isn’t taking attacks',
+  'midi-off': 'your Gamemaster’s game isn’t taking attacks',
+  'self-test': 'your Gamemaster’s game isn’t taking attacks',
+  item: 'your character in the game hasn’t that item',
+  activity: 'it can’t be used now',
+  area: 'area attacks aren’t made from here yet',
+  ammo: 'you have no ammunition left',
+  target: 'that target can’t be attacked',
+  scene: 'your Gamemaster isn’t looking at that target’s scene',
+  consume: 'there’s nothing left to use it with',
+  slots: 'you have no spell slots left for it',
+  'damage-type': 'its kind of damage is chosen in the game',
+  'active-defence': 'your Gamemaster’s targets defend themselves',
+  reaction: 'you’ve used your reaction',
+  'bonus-action': 'you’ve used your bonus action',
+  'midi-dialog': 'your Gamemaster’s game asks how to roll it',
+  midi: 'your Gamemaster’s game stopped it',
+  'no-attack': 'the attack wasn’t made',
+  gone: 'the attack can’t be found any more',
+  'not-waiting': 'the attack’s damage was rolled in the game',
+  'no-damage': 'no damage follows the attack',
+  damaged: 'its damage is rolled already',
+  dice: 'the dice weren’t the attack’s',
+  invalid: 'your Gamemaster’s game couldn’t make it',
 }
 
 /** Where a roll is on its way to the game, or what the game made of it. */
@@ -174,6 +228,12 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
             <span className='font-semibold text-text-primary tabular-nums'>
               {state.total ?? '?'}
             </span>
+            {outcomeOf(state) && (
+              <span className='font-semibold text-text-primary'>
+                {' · '}
+                {outcomeOf(state)}
+              </span>
+            )}
           </span>
         </p>
       ) : (
@@ -196,6 +256,39 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
   }
 }
 
+/** What came of an attack at the table, as the game shows players. */
+function outcomeOf(state: TableRollState): string | undefined {
+  const { attack } = state
+  if (!attack) return undefined
+  if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
+  if (attack.outcome === 'miss') return 'Miss'
+  return attack.critical ? 'Critical hit' : undefined
+}
+
+/** Roll the damage of an attack the game made, while the game waits for it. */
+function DamageButton({
+  name,
+  state,
+  onRollDamage,
+}: Readonly<{
+  name: string
+  state: TableRollState
+  onRollDamage: (name: string, due: DueDamage) => void
+}>) {
+  const { damage, requestId } = state
+  if (state.status !== 'done' || !damage || state.damaged || !requestId) return
+  return (
+    <button
+      type='button'
+      onClick={() => onRollDamage(name, { use: requestId, damage })}
+      className='mt-2 flex items-center gap-1.5 rounded-lg bg-damage/15 px-3 py-1.5 text-sm font-semibold text-damage transition-colors hover:bg-damage/25'
+    >
+      <Swords aria-hidden className='size-4' />
+      {damage.critical ? 'Roll critical damage' : 'Roll damage'}
+    </button>
+  )
+}
+
 /** A roll's way to the game, in brief, among the earlier rolls. */
 function TableMark({ state }: Readonly<{ state?: TableRollState }>) {
   if (!state) return
@@ -215,7 +308,12 @@ function TableMark({ state }: Readonly<{ state?: TableRollState }>) {
 function CheckResult({
   roll,
   state,
-}: Readonly<{ roll: LocalCheck; state?: TableRollState }>) {
+  onRollDamage,
+}: Readonly<{
+  roll: LocalCheck
+  state?: TableRollState
+  onRollDamage?: (name: string, due: DueDamage) => void
+}>) {
   const critical = roll.natural === 20
   const fumble = roll.natural === 1
   let extra = ''
@@ -249,13 +347,32 @@ function CheckResult({
           {fumble && ' · Natural 1'}
         </p>
         {state && <TableStatus state={state} />}
+        {state && onRollDamage && (
+          <DamageButton
+            name={roll.label.replace(/ attack$/, '')}
+            state={state}
+            onRollDamage={onRollDamage}
+          />
+        )}
       </div>
     </div>
   )
 }
 
-/** Damage or healing: the total, and each part of it with its dice and kind. */
-function DamageResult({ roll }: Readonly<{ roll: LocalDamage }>) {
+/**
+ * Damage or healing: the total, and each part of it with its dice and kind. Damage the game rolls
+ * itself, which throws no dice here, shows the game's total.
+ */
+function DamageResult({
+  roll,
+  state,
+}: Readonly<{ roll: LocalDamage; state?: TableRollState }>) {
+  const rolledThere = byTheGame(roll)
+  let total: number | string = roll.total
+  if (rolledThere) {
+    total =
+      state?.status === 'done' && state.visible ? (state.total ?? '?') : '…'
+  }
   return (
     <div className='flex items-center gap-3'>
       <span
@@ -266,34 +383,37 @@ function DamageResult({ roll }: Readonly<{ roll: LocalDamage }>) {
             : 'bg-damage/15 text-damage',
         )}
       >
-        {roll.total}
+        {total}
       </span>
       <div className='min-w-0'>
         <p className='truncate font-semibold'>{roll.label}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
-          {roll.parts.map((part, index) => (
-            <span key={index}>
-              {index > 0 && ' '}
-              {part.terms.map(({ text, values }, at) => (
-                <span key={at}>
-                  {at > 0 && ' '}
-                  {text}
-                  {values.length > 0 && (
-                    <>
-                      {' ('}
-                      <span className='font-semibold text-text-primary'>
-                        {values.join(', ')}
-                      </span>
-                      )
-                    </>
-                  )}
-                </span>
-              ))}
-              {part.type && ` ${part.type}`}
-            </span>
-          ))}
+          {rolledThere && 'Its dice are rolled in your Gamemaster’s game'}
+          {!rolledThere &&
+            roll.parts.map((part, index) => (
+              <span key={index}>
+                {index > 0 && ' '}
+                {part.terms.map(({ text, values }, at) => (
+                  <span key={at}>
+                    {at > 0 && ' '}
+                    {text}
+                    {values.length > 0 && (
+                      <>
+                        {' ('}
+                        <span className='font-semibold text-text-primary'>
+                          {values.join(', ')}
+                        </span>
+                        )
+                      </>
+                    )}
+                  </span>
+                ))}
+                {part.type && ` ${part.type}`}
+              </span>
+            ))}
           {roll.critical && ' · Critical hit'}
         </p>
+        {state && <TableStatus state={state} />}
       </div>
     </div>
   )
@@ -319,8 +439,14 @@ function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   )
 }
 
+/** Is this damage the game's to roll, with no dice thrown here? */
+function byTheGame(roll: LocalDamage): boolean {
+  return roll.parts.every(part => part.terms.length === 0)
+}
+
 function breakdown(roll: LocalRoll): string {
   if (roll.kind === 'damage') {
+    if (byTheGame(roll)) return 'rolled at the table'
     return roll.parts
       .map(part => (part.type ? `${part.total} ${part.type}` : part.total))
       .join(' + ')

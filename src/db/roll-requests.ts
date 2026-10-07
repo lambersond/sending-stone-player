@@ -11,6 +11,7 @@ import {
 } from '@/constants/sending-stone'
 import {
   availableRollKinds,
+  checkDamage,
   checkRoll,
   toCommand,
   toRollRequestView,
@@ -72,42 +73,68 @@ export async function createRollRequest(
   }
 
   const now = Date.now()
-  const [sheet, combats, inFlight, lastMinute] = await Promise.all([
-    prisma.actorSheet.findUnique({
-      where: { campaignActor: { campaignId, actorId } },
-      select: { data: true },
-    }),
-    input.kind === 'initiative'
-      ? prisma.combat.findMany({
-          where: { campaignId, combatId: input.combatId },
-          select: { data: true },
-        })
-      : [],
-    prisma.rollRequest.count({
-      where: {
-        characterId: character.id,
-        OR: [
-          { status: 'pending', createdAt: { gt: ago(now, ROLL_PENDING_FOR) } },
-          {
-            status: 'claimed',
-            claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) },
-          },
-        ],
-      },
-    }),
-    prisma.rollRequest.count({
-      where: { characterId: character.id, createdAt: { gt: ago(now, 60_000) } },
-    }),
-  ])
+  const damage = input.kind === 'damage' && input.use ? input.use : undefined
+  // The combat a roll is made in: initiative's, or the one an attack's target is in.
+  const combatId =
+    input.kind === 'initiative' ? input.combatId : input.target?.combatId
+  const [sheet, combats, use, others, inFlight, lastMinute] = await Promise.all(
+    [
+      prisma.actorSheet.findUnique({
+        where: { campaignActor: { campaignId, actorId } },
+        select: { data: true },
+      }),
+      combatId
+        ? prisma.combat.findMany({
+            where: { campaignId, combatId },
+            select: { data: true },
+          })
+        : [],
+      damage
+        ? prisma.rollRequest.findFirst({
+            where: { id: damage, characterId: character.id },
+            select: heldSelect,
+          })
+        : undefined,
+      damage
+        ? prisma.rollRequest.findMany({
+            where: { useId: damage, characterId: character.id },
+            select: { status: true, createdAt: true, claimedAt: true },
+          })
+        : [],
+      prisma.rollRequest.count({
+        where: {
+          characterId: character.id,
+          OR: [
+            {
+              status: 'pending',
+              createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
+            },
+            {
+              status: 'claimed',
+              claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) },
+            },
+          ],
+        },
+      }),
+      prisma.rollRequest.count({
+        where: {
+          characterId: character.id,
+          createdAt: { gt: ago(now, 60_000) },
+        },
+      }),
+    ],
+  )
   if (inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE) {
     return { status: 429, reason: 'busy' }
   }
-  const refusal = checkRoll(
-    input,
-    sheet?.data as unknown as CharacterSheet | undefined,
-    combats.map(({ data }) => data as unknown as CombatSnapshot),
-    actorId,
-  )
+  const refusal = damage
+    ? checkDamage(input, use, others, now)
+    : checkRoll(
+        input,
+        sheet?.data as unknown as CharacterSheet | undefined,
+        combats.map(({ data }) => data as unknown as CombatSnapshot),
+        actorId,
+      )
   if (refusal) return { status: 422, reason: refusal }
 
   const { id } = await prisma.rollRequest.create({
@@ -117,6 +144,7 @@ export async function createRollRequest(
       actorId,
       kind: input.kind,
       payload: input as unknown as Prisma.InputJsonValue,
+      useId: damage,
       createdAt: new Date(now),
     },
     select: { id: true },
@@ -190,14 +218,29 @@ export async function claimRollRequests(
 /**
  * Record what became of a roll the module fetched. An answer for a roll already answered, or
  * another campaign's, changes nothing; one that comes after its player was told it was lost still
- * counts.
+ * counts, as does one saying it was made after all, once the module had said it took too long.
  */
 export async function recordCommandResult(
   campaignId: string,
   result: CommandResult,
 ): Promise<void> {
+  const made = result.status === 'done'
   await prisma.rollRequest.updateMany({
-    where: { id: result.id, campaignId, status: 'claimed' },
+    where: {
+      id: result.id,
+      campaignId,
+      OR: [
+        { status: 'claimed' },
+        ...(made
+          ? [
+              {
+                status: 'failed' as const,
+                result: { path: ['reason'], equals: 'timeout' },
+              },
+            ]
+          : []),
+      ],
+    },
     data: {
       status: result.status,
       result: result as unknown as Prisma.InputJsonValue,

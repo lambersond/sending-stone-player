@@ -53,6 +53,12 @@ export type SheetDamageRoll = {
   critical?: boolean
   /** Healing, or temporary hit points, rather than damage. */
   healing?: boolean
+  /** The attack it's the damage of: its item and attack activity. */
+  source?: { item: string; activity: string }
+  /** The attack made in the Gamemaster's game whose damage this is, to be rolled there too. */
+  use?: string
+  /** Its dice are the game's, a critical hit's already doubled. */
+  exact?: boolean
 }
 
 /** Something the player added to a roll, or a term of a damage roll, and what it came to. */
@@ -103,9 +109,11 @@ export type LocalRoll = LocalCheck | LocalDamage
  * Must be used within a DiceRendererProvider.
  * @param onThrown - Told of each check or save as its dice are thrown, before they land, with
  * what they came to: to have the Gamemaster's game make it too.
+ * @param onDamageThrown - The same, for damage.
  */
 export function useSheetRoller(
   onThrown?: (roll: SheetRoll, check: LocalCheck) => void,
+  onDamageThrown?: (roll: SheetDamageRoll, damage: LocalDamage) => void,
 ) {
   const renderer = useDiceRenderer()
   const [rolls, setRolls] = useState<LocalRoll[]>([])
@@ -162,29 +170,36 @@ export function useSheetRoller(
   )
 
   const rollDamage = useCallback(
-    async ({
-      label,
-      parts,
-      critical = false,
-      healing = false,
-    }: SheetDamageRoll) => {
-      // As dnd5e rolls a critical hit by default: twice the dice, the same numbers added.
+    async (request: SheetDamageRoll) => {
+      const {
+        label,
+        parts,
+        critical = false,
+        healing = false,
+        exact = false,
+      } = request
+      // As dnd5e rolls a critical hit by default: twice the dice, the same numbers added. Dice
+      // the game gave are thrown as they are.
+      const doubled = critical && !exact
       const dice = parts.flatMap(({ terms }) =>
         terms.filter(term => 'sides' in term),
       )
       const result = executeRoll({
         pools: dice.map(({ count, sides }) => ({
-          count: critical ? count * 2 : count,
+          count: doubled ? count * 2 : count,
           sides,
         })),
         modifier: 0,
       })
-      await land(
-        result,
-        toLocalDamage(label, parts, result, { critical, healing }),
-      )
+      const damage = toLocalDamage(label, parts, result, {
+        critical,
+        healing,
+        doubled,
+      })
+      onDamageThrown?.(request, damage)
+      await land(result, damage)
     },
-    [land],
+    [land, onDamageThrown],
   )
 
   return { roll, rollDamage, rolls, rolling: inFlight > 0 }
@@ -229,7 +244,11 @@ function toLocalDamage(
   label: string,
   parts: SheetDamageRoll['parts'],
   result: RollResult,
-  { critical, healing }: { critical: boolean; healing: boolean },
+  {
+    critical,
+    healing,
+    doubled,
+  }: { critical: boolean; healing: boolean; doubled: boolean },
 ): LocalDamage {
   // The dice's pools are in the order their terms were written.
   const pools = [...result.pools]
@@ -241,7 +260,7 @@ function toLocalDamage(
         'sides' in term
           ? values.reduce((sum, value) => sum + value, 0)
           : term.flat
-      const text = damageTerm(term, { first, critical })
+      const text = damageTerm(term, { first, doubled })
       first = false
       return { text, values, value: term.sign * amount }
     })
@@ -266,12 +285,12 @@ function toLocalDamage(
 /** A term of a damage roll as thrown: 1d8 first, then +4 or −1d4, its dice doubled on a crit. */
 function damageTerm(
   term: ExtraTerm,
-  { first, critical }: { first: boolean; critical: boolean },
+  { first, doubled }: { first: boolean; doubled: boolean },
 ): string {
   let sign = first ? '' : '+'
   if (term.sign < 0) sign = '−'
   if ('flat' in term) return `${sign}${term.flat}`
-  return `${sign}${critical ? term.count * 2 : term.count}d${term.sides}`
+  return `${sign}${doubled ? term.count * 2 : term.count}d${term.sides}`
 }
 
 /** Wait for a promise, but no longer than this many milliseconds. */

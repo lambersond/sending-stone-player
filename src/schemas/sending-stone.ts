@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { z } from 'zod'
-import { EVENTS } from '@/constants/sending-stone'
+import { EVENTS, MAX_DAMAGE_TERMS } from '@/constants/sending-stone'
+import { MAX_DICE } from '@/utils/roll-modifiers'
 import type { GameEvent } from '@/types/sending-stone'
 
 // Payloads may gain fields at any time, so objects are loose: unknown keys are kept, not
@@ -229,6 +230,8 @@ const actionFields = {
   range: nullableString,
   target: nullableString,
   toHit: nullableNumber,
+  // From module 0.11.0: the attack activity the bonus to hit is for.
+  attackId: z.string().nullable().optional().catch(null),
   save: z
     .object({ ability: z.string(), dc: nullableNumber })
     .nullable()
@@ -608,6 +611,53 @@ const commandResultSchema = z.object({
     .transform(value => value ?? null),
   visible: z.boolean().catch(false),
   rolls: z.array(rollSchema).max(10).catch([]),
+  // From module 0.11.0, for an attack.
+  attack: z
+    .object({
+      critical: z.boolean().catch(false),
+      fumble: z.boolean().catch(false),
+      outcome: z.enum(['hit', 'miss']).nullable().catch(null),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
+  damage: z
+    .object({
+      critical: z.boolean().catch(false),
+      plannable: z.boolean().catch(false),
+      rolls: z
+        .array(
+          z.object({
+            formula: z.string().max(500),
+            type: z.string().max(64).nullable().catch(null),
+            dice: z
+              .array(
+                z.object({
+                  faces: z.int().min(2).max(100),
+                  number: z
+                    .int()
+                    .min(1)
+                    .max(MAX_DICE * 2),
+                }),
+              )
+              .max(MAX_DAMAGE_TERMS),
+          }),
+        )
+        .max(10),
+    })
+    // Damage throwing more dice than a player may send is rolled by the game.
+    .transform(damage =>
+      damage.rolls.flatMap(roll => roll.dice).length > MAX_DAMAGE_TERMS
+        ? {
+            ...damage,
+            plannable: false,
+            rolls: damage.rolls.map(roll => ({ ...roll, dice: [] })),
+          }
+        : damage,
+    )
+    .nullable()
+    .optional()
+    .catch(null),
 })
 
 const hitPointsSchema = z

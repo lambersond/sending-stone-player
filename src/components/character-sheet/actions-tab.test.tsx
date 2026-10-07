@@ -123,6 +123,12 @@ describe('components/character-sheet/actions-tab', () => {
       label: 'Warhammer attack',
       modifier: 7,
       advantage: undefined,
+      // The attack, for the Gamemaster's game to make it too.
+      source: {
+        kind: 'attack',
+        item: 'warhammer',
+        activity: 'warhammerAttack',
+      },
       explicit: false,
     })
 
@@ -137,6 +143,7 @@ describe('components/character-sheet/actions-tab', () => {
       label: 'Handaxe attack',
       modifier: 7,
       advantage: 'adv',
+      source: { kind: 'attack', item: 'handaxe', activity: 'handaxeAttack' },
       explicit: true,
     })
   })
@@ -156,6 +163,8 @@ describe('components/character-sheet/actions-tab', () => {
         },
       ],
       healing: false,
+      // The attack it's the damage of, whose damage may be due at the table.
+      source: { item: 'warhammer', activity: 'warhammerAttack' },
     }
 
     await user.click(
@@ -808,6 +817,12 @@ describe('components/character-sheet/actions-tab', () => {
       label: 'Warhammer attack',
       modifier: 7,
       advantage: undefined,
+      // The attack, for the Gamemaster's game to make it too.
+      source: {
+        kind: 'attack',
+        item: 'warhammer',
+        activity: 'warhammerAttack',
+      },
       explicit: false,
     })
 

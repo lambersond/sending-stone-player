@@ -1,9 +1,12 @@
 import {
   BRIDGE_POLLED_WITHIN,
+  DAMAGE_WITHIN,
   ROLL_ANSWER_WITHIN,
   ROLL_KINDS,
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
+import { outOfSlots, slotPools } from '@/utils/action-groups'
+import { favoriteEntries } from '@/utils/favorites'
 import { toTableRoll } from '@/utils/table-view'
 import type {
   RollKind,
@@ -15,15 +18,28 @@ import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
+  SheetAction,
 } from '@/types/sending-stone'
 
 /**
  * Why a roll can't go to the Gamemaster's game: the game can't take it now, the sheet has no such
- * skill, ability or tool, the character isn't dying, isn't in the combat, or has rolled initiative
- * already.
+ * skill, ability, tool or attack, the character isn't dying, isn't in the combat, or has rolled
+ * initiative already. For an attack: the spell it's made with has no spell slots left, or its
+ * target can't be attacked. For damage: its attack can't be found, or is too old; no damage
+ * follows it; its damage is rolled already; or the dice aren't those the attack said.
  */
 export type RollRefusal =
-  'unavailable' | 'unknown' | 'not-dying' | 'not-in-combat' | 'already-rolled'
+  | 'unavailable'
+  | 'unknown'
+  | 'not-dying'
+  | 'not-in-combat'
+  | 'already-rolled'
+  | 'slots'
+  | 'target'
+  | 'gone'
+  | 'no-damage'
+  | 'damaged'
+  | 'dice'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -97,7 +113,82 @@ export function checkRoll(
       if (!combatant) return 'not-in-combat'
       return combatant.initiative === null ? undefined : 'already-rolled'
     }
+    case 'attack': {
+      return sheet ? checkAttack(input, sheet, combats) : 'unknown'
+    }
+    // Checked against its attack, by checkDamage.
+    case 'damage': {
+      return undefined
+    }
   }
+}
+
+/**
+ * Can the character make this attack: is it one of its actions, or favorites, identified, with a
+ * spell slot left for a spell, at a combatant its player can see? Whatever else it spends, such as
+ * its uses or ammunition, the game checks as it would spend it.
+ */
+function checkAttack(
+  input: RollRequestInput,
+  sheet: CharacterSheet,
+  combats: CombatSnapshot[],
+): RollRefusal | undefined {
+  const action = attacksOf(sheet).find(
+    ({ id, attackId }) => id === input.item && attackId === input.activity,
+  )
+  if (!action || !action.identified) return 'unknown'
+  if (outOfSlots(action, slotPools(action, sheet.spells))) return 'slots'
+  const { target } = input
+  if (target) {
+    const combatant = combats
+      .find(({ id }) => id === target.combatId)
+      ?.combatants.find(({ id }) => id === target.combatantId)
+    if (!combatant || combatant.hidden === true) return 'target'
+  }
+  return undefined
+}
+
+/** The character's attacks: its actions', and its favorite activities'. */
+function attacksOf(sheet: CharacterSheet): SheetAction[] {
+  const actions = sheet.actions.flatMap(section => section.actions)
+  const favorites = favoriteEntries(sheet).flatMap(entry =>
+    entry.kind === 'action' ? [entry.action] : [],
+  )
+  return [...actions, ...favorites].filter(action => action.attackId)
+}
+
+/**
+ * Can this damage be rolled: does it follow the character's own attack, made in the game lately,
+ * that said damage follows; is no other damage for it on its way or made; and are its dice those
+ * the attack said its damage throws, in order?
+ * @param use - The attack, if it's the character's.
+ * @param others - The other damage asked for the same attack.
+ */
+export function checkDamage(
+  input: RollRequestInput,
+  use: HeldRollRequest | null | undefined,
+  others: Pick<HeldRollRequest, 'status' | 'createdAt' | 'claimedAt'>[],
+  now = Date.now(),
+): RollRefusal | undefined {
+  if (use?.kind !== 'attack' || use.status !== 'done') return 'gone'
+  if (now - use.createdAt.getTime() > DAMAGE_WITHIN) return 'gone'
+  const damage = (use.result as CommandResult | null)?.damage
+  if (!damage) return 'no-damage'
+  const taken = others.some(other =>
+    ['sending', 'rolling', 'done'].includes(rollStatus(other, now)),
+  )
+  if (taken) return 'damaged'
+  const planned = damage.plannable
+    ? damage.rolls.flatMap(roll => roll.dice)
+    : []
+  const matches =
+    input.dice.length === planned.length &&
+    input.dice.every(
+      ({ faces, results }, index) =>
+        faces === planned[index].faces &&
+        results.length === planned[index].number,
+    )
+  return matches ? undefined : 'dice'
 }
 
 /** Nothing, for what the sheet has; or that it doesn't. */
@@ -151,15 +242,28 @@ export function toRollRequestView(
     return { id: request.id, status, reason: result?.reason ?? undefined }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
-  if (!result.visible) return { id: request.id, status, visible: false }
+  // An attack's damage is the player's to roll, even of an attack they can't see.
+  const damage = result.damage === undefined ? {} : { damage: result.damage }
+  if (!result.visible)
+    return { id: request.id, status, visible: false, ...damage }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
     id: request.id,
     status,
     visible: true,
-    total: rolls[0]?.total ?? undefined,
+    total:
+      request.kind === 'damage' ? sumOf(rolls) : (rolls[0]?.total ?? undefined),
     rolls,
+    ...(result.attack ? { attack: result.attack } : {}),
+    ...damage,
   }
+}
+
+/** Damage's total: each of its parts', added up, when the game said each. */
+function sumOf(rolls: { total: number | null }[]): number | undefined {
+  if (rolls.length === 0 || rolls.some(roll => roll.total === null))
+    return undefined
+  return rolls.reduce((sum, roll) => sum + (roll.total ?? 0), 0)
 }
 
 /** A held roll as the module is sent it. */

@@ -187,8 +187,11 @@ export function CampaignCard({
 
 /** Whether the players' rolls are made in the Gamemaster's game, and if not, how they could be. */
 function rollsText({ rolls }: OwnedCampaign): string {
+  if (rolls.enabled && rolls.reaching && rolls.attacks) {
+    return 'Checks, saves, initiative, death saves and attacks your players roll here are made in your game too, with the same dice. Their attacks spend ammunition, uses and spell slots there.'
+  }
   if (rolls.enabled && rolls.reaching) {
-    return 'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice.'
+    return 'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks stay here: to have them made in your game too, tick Let players attack from Sending Stone in Manage Campaigns in Foundry.'
   }
   if (rolls.enabled) {
     return 'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.'
