@@ -32,6 +32,7 @@ import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { formatModifier } from '@/utils/format-modifier'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type { RollSource } from '@/types/roll'
 import type {
   SheetAbility,
   SheetClass,
@@ -243,6 +244,7 @@ function FavoriteRow({
       return (
         <CheckEntry
           check={entry.check}
+          source={entry.source}
           ability={abilities.find(({ id }) => id === entry.check.ability)}
           d20={rows.d20}
         />
@@ -327,10 +329,12 @@ function ClassEntry({
  */
 function CheckEntry({
   check,
+  source,
   ability,
   d20,
 }: Readonly<{
   check: SheetSkill
+  source: RollSource
   ability: SheetAbility | undefined
   d20: RollActions
 }>) {
@@ -346,6 +350,7 @@ function CheckEntry({
           label: `${check.label} check`,
           modifier: check.total,
           mode: check.mode,
+          source,
         }}
         {...d20}
         label={`${check.label} check, ${formatModifier(check.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(check.mode)}`}

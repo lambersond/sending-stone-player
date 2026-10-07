@@ -29,11 +29,21 @@ import {
   type SheetDamageRoll,
   type SheetRoll,
 } from '@/hooks/use-sheet-roller'
+import { useTableRolls } from '@/hooks/use-table-rolls'
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
-import type { TableSheet } from '@/types/table'
+import type { RollKind } from '@/types/roll'
+import type { TableCombat, TableSheet } from '@/types/table'
 
-type Props = { characterId: string; name: string; sheet: TableSheet }
+type Props = {
+  characterId: string
+  name: string
+  sheet: TableSheet
+  /** The encounter under way. */
+  combat?: TableCombat
+  /** The rolls the Gamemaster's game takes from the player now, made there with the same dice. */
+  rollsToTable?: RollKind[]
+}
 
 /**
  * The parts of the sheet, in the order Tidy 5e's character sheet has them, with dnd5e's icons for
@@ -84,8 +94,15 @@ export function CharacterPane(props: Readonly<Props>) {
   )
 }
 
-function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
-  const { roll, rollDamage, rolls, rolling } = useSheetRoller()
+function RollingSheet({
+  characterId,
+  name,
+  sheet,
+  combat,
+  rollsToTable,
+}: Readonly<Props>) {
+  const table = useTableRolls(characterId, rollsToTable)
+  const { roll, rollDamage, rolls, rolling } = useSheetRoller(table.send)
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
@@ -182,6 +199,7 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
               <CharacterSheet
                 name={name}
                 sheet={sheet}
+                combat={combat}
                 onRoll={onRoll}
                 onShowConditions={() => show('effects')}
               />
@@ -225,7 +243,7 @@ function RollingSheet({ characterId, name, sheet }: Readonly<Props>) {
           </div>
         </Scroller>
       </div>
-      {showsRolls && <RollTray rolls={rolls} rolling={rolling} />}
+      {showsRolls && <RollTray rolls={rolls} rolling={rolling} table={table} />}
     </FavoriteMarks>
   )
 }

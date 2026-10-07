@@ -75,6 +75,28 @@ describe('hooks/use-table-view', () => {
     expect(result.current.view).toBe(newer)
   })
 
+  it('asks for news with the rolls the game takes from the player, as it has them', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(200, { ...newer, rollsToTable: [] }))
+    renderHook(() =>
+      useTableView('char-1', { ...initial, rollsToTable: ['skill', 'save'] }),
+    )
+
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&rolls=skill%2Csave',
+      expect.anything(),
+    )
+
+    jest.mocked(fetch).mockResolvedValueOnce(respond(204))
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=4&live=0',
+      expect.anything(),
+    )
+  })
+
   it('keeps the sheet it has when the server leaves out an unchanged one', async () => {
     const sheet = { ac: 18 } as TableView['sheet']
     const start = {

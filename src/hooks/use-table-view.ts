@@ -25,6 +25,7 @@ export function useTableView(characterId: string, initial: TableView) {
     version: initial.version,
     live: initial.live,
     sheetVersion: initial.sheetVersion,
+    rolls: initial.rollsToTable?.join(',') ?? '',
   })
 
   useEffect(() => {
@@ -35,10 +36,11 @@ export function useTableView(characterId: string, initial: TableView) {
 
     const poll = async () => {
       try {
-        const { version, live, sheetVersion } = seen.current
+        const { version, live, sheetVersion, rolls } = seen.current
         const query = new URLSearchParams({
           version: String(version),
           live: live ? '1' : '0',
+          ...(rolls && { rolls }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(
@@ -58,6 +60,7 @@ export function useTableView(characterId: string, initial: TableView) {
             version: next.version,
             live: next.live,
             sheetVersion: next.sheetVersion,
+            rolls: next.rollsToTable?.join(',') ?? '',
           }
           // A sheet left out is the one this page already has.
           setView(held =>

@@ -5,6 +5,7 @@
 import { OPTIONS, POST } from './route'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
+import { recordCommandResult } from '@/db/roll-requests'
 import { chatMessage } from '@/mocks/sending-stone'
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
@@ -13,6 +14,7 @@ jest.mock('@/db/campaigns', () => ({
   findEventCampaign: jest.fn(),
   markSeen: jest.fn(),
 }))
+jest.mock('@/db/roll-requests', () => ({ recordCommandResult: jest.fn() }))
 
 const URL = 'https://player.example/api/events'
 const GAME = 'https://my-game.forge-vtt.com'
@@ -152,7 +154,10 @@ describe('app/api/events', () => {
           /^application\/json/,
         )
         expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
-        await expect(response.json()).resolves.toEqual({ resend: 'hello' })
+        await expect(response.json()).resolves.toEqual({
+          resend: 'hello',
+          features: { commands: true },
+        })
         expect(markSeen).toHaveBeenCalledWith('c1')
       },
     )
@@ -164,7 +169,9 @@ describe('app/api/events', () => {
         envelope('bridge.hello', { characters: [], combats: [] }),
       )
 
-      expect(response.status).toBe(204)
+      await expect(response.json()).resolves.toEqual({
+        features: { commands: true },
+      })
       expect(applyCampaignEvent).toHaveBeenCalledWith(
         'c1',
         world,
@@ -214,7 +221,9 @@ describe('app/api/events', () => {
         const response = await post(event)
 
         expect(response.status).toBe(200)
-        await expect(response.json()).resolves.toEqual({ resend: 'hello' })
+        await expect(response.json()).resolves.toMatchObject({
+          resend: 'hello',
+        })
       },
     )
 
@@ -243,11 +252,76 @@ describe('app/api/events', () => {
       ['a heartbeat', 'bridge.heartbeat'],
       ['an event type it does not use', 'actor.updated'],
     ])('notes %s as the game being connected', async (_, type) => {
-      const response = await post(envelope(type, {}, { sequence: null }))
+      await post(envelope(type, {}, { sequence: null }))
 
-      expect(response.status).toBe(204)
       expect(markSeen).toHaveBeenCalledWith('c1')
       expect(applyCampaignEvent).not.toHaveBeenCalled()
+    })
+
+    it('tells the module, in answer to its hello or heartbeat only, that it has commands to fetch', async () => {
+      const heartbeat = await post(
+        envelope('bridge.heartbeat', {}, { sequence: null }),
+      )
+      expect(heartbeat.status).toBe(200)
+      expect(heartbeat.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+      await expect(heartbeat.json()).resolves.toEqual({
+        features: { commands: true },
+      })
+
+      const other = await post(envelope('actor.updated', {}))
+      expect(other.status).toBe(204)
+    })
+
+    describe('command.result', () => {
+      const result = {
+        id: 'req-1',
+        status: 'done',
+        reason: null,
+        error: null,
+        messageId: 'msg-1',
+        visible: true,
+        rolls: [],
+      }
+
+      it("records what became of a player's roll, without bumping the campaign's version", async () => {
+        const response = await post(
+          envelope('command.result', result, { sequence: null }),
+        )
+
+        expect(response.status).toBe(204)
+        expect(recordCommandResult).toHaveBeenCalledWith('c1', result)
+        expect(markSeen).toHaveBeenCalledWith('c1')
+        expect(applyCampaignEvent).not.toHaveBeenCalled()
+      })
+
+      it('refuses a result without its id', async () => {
+        const response = await post(
+          envelope('command.result', { ...result, id: '' }, { sequence: null }),
+        )
+
+        expect(response.status).toBe(400)
+        expect(recordCommandResult).not.toHaveBeenCalled()
+      })
+
+      it('asks for a retry when the result cannot be stored', async () => {
+        const consoleError = jest
+          .spyOn(console, 'error')
+          .mockImplementation(() => {})
+        jest
+          .mocked(recordCommandResult)
+          .mockRejectedValueOnce(new Error('db down'))
+
+        const response = await post(
+          envelope('command.result', result, { sequence: null }),
+        )
+
+        expect(response.status).toBe(500)
+        expect(consoleError).toHaveBeenCalledWith(
+          `Failed to apply command.result from ${GAME}`,
+          expect.any(Error),
+        )
+        consoleError.mockRestore()
+      })
     })
 
     it('refuses an event sent to no campaign', async () => {

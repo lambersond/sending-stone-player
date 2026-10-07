@@ -50,6 +50,8 @@ export function ModifyRoll({
       modifier: target.modifier,
       advantage: toAdvantage(mode),
       extras: parsed.terms,
+      source: target.source,
+      explicit: true,
     })
   }
 

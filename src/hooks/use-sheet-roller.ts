@@ -11,6 +11,7 @@ import {
 } from '@lambersond/3d-dice-core'
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
+import type { RollSource } from '@/types/roll'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -33,6 +34,13 @@ export type SheetRoll = {
   advantage?: Advantage
   /** What the player adds, such as +1d4 for Bless. */
   extras?: ExtraTerm[]
+  /** What it is, for the Gamemaster's game to make it too. */
+  source?: RollSource
+  /**
+   * Whether the player chose how to roll it, as in dnd5e's roll dialog, rather than tapping it to
+   * roll as the sheet has it.
+   */
+  explicit?: boolean
 }
 
 /** Damage or healing from the character's sheet, such as a weapon's. */
@@ -91,10 +99,14 @@ export type LocalRoll = LocalCheck | LocalDamage
 
 /**
  * Rolls checks, saves, attacks and damage from the player's character sheet, tumbling 3D dice
- * across the screen. Each result is revealed once the dice land on it, and kept on this page
- * only: nothing is sent to Foundry, or anywhere else. Must be used within a DiceRendererProvider.
+ * across the screen. Each result is revealed once the dice land on it, and kept on this page.
+ * Must be used within a DiceRendererProvider.
+ * @param onThrown - Told of each check or save as its dice are thrown, before they land, with
+ * what they came to: to have the Gamemaster's game make it too.
  */
-export function useSheetRoller() {
+export function useSheetRoller(
+  onThrown?: (roll: SheetRoll, check: LocalCheck) => void,
+) {
   const renderer = useDiceRenderer()
   const [rolls, setRolls] = useState<LocalRoll[]>([])
   const [inFlight, setInFlight] = useState(0)
@@ -122,7 +134,8 @@ export function useSheetRoller() {
   )
 
   const roll = useCallback(
-    async ({ label, modifier, advantage, extras = [] }: SheetRoll) => {
+    async (request: SheetRoll) => {
+      const { label, modifier, advantage, extras = [] } = request
       const result = executeRoll({
         pools: [{ sides: 20, count: 1 }],
         modifier,
@@ -141,9 +154,11 @@ export function useSheetRoller() {
       const thrown = extra
         ? { ...result, pools: [...result.pools, ...extra.pools] }
         : result
-      await land(thrown, toLocalRoll(label, result, extras, extra))
+      const check = toLocalRoll(label, result, extras, extra)
+      onThrown?.(request, check)
+      await land(thrown, check)
     },
-    [land],
+    [land, onThrown],
   )
 
   const rollDamage = useCallback(

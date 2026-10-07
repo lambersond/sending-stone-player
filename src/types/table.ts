@@ -1,3 +1,4 @@
+import type { RollKind } from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
 
 /**
@@ -97,4 +98,9 @@ export type TableView = {
   sheetVersion?: string
   /** How far the player has read the chat, on any device: later messages are unread. */
   chatReadAt?: string
+  /**
+   * The rolls the player can have made in the Gamemaster's game from here, with the dice they
+   * roll: none unless the Gamemaster lets them, and the game is fetching them.
+   */
+  rollsToTable?: RollKind[]
 }

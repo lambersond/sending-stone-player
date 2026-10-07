@@ -71,6 +71,7 @@ describe('utils/favorites', () => {
         key: 'skill:prc',
         kind: 'check',
         check: sheet.skills[1],
+        source: { kind: 'skill', key: 'prc' },
       })
       expect(tools).toEqual({
         key: 'tool:thief',
@@ -84,6 +85,7 @@ describe('utils/favorites', () => {
           proficiency: 1,
           mode: 0,
         },
+        source: { kind: 'tool', key: 'thief' },
       })
       expect(slots).toMatchObject({
         slots: { name: '1st Level', value: 1, max: 2, level: 1 },

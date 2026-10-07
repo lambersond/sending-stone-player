@@ -52,7 +52,7 @@ describe('db/campaign-events', () => {
 
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster },
+      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
     })
     expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1' },
@@ -82,13 +82,53 @@ describe('db/campaign-events', () => {
 
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster },
+      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
     })
     expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1' },
     })
     expect(prismaMock.actorSheet.createMany).toHaveBeenCalledWith({
       data: [{ campaignId: 'c1', actorId: 'actor-thorin', data: sheet }],
+    })
+  })
+
+  it("bridge.hello keeps whether the game takes players' rolls, and which it knows", async () => {
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: {
+            enabled: true,
+            kinds: ['skill', 'save', 'attack', 'initiative'],
+            reason: null,
+          },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['skill', 'save', 'initiative'],
+      },
+    })
+
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: { enabled: false, kinds: [], reason: 'self-test' },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
     })
   })
 

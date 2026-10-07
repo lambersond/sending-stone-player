@@ -496,11 +496,38 @@ export type CombatSnapshot = {
   combatants: CombatantSummary[]
 }
 
+/**
+ * What the module does for a campaign beyond sending its events, from its hello. Module 0.10.0.
+ */
+export type BridgeFeatures = {
+  /** Whether its players may roll in the game from here, which rolls, and if not, why not. */
+  rolls?: { enabled: boolean; kinds: string[]; reason: string | null } | null
+}
+
+/** What became of a command the module fetched, such as a player's roll. Module 0.10.0. */
+export type CommandResult = {
+  id: string
+  status: 'done' | 'failed'
+  /** Why it failed, such as "off" or "not-dying". */
+  reason: string | null
+  error: string | null
+  /** The chat message the roll made. */
+  messageId: string | null
+  /** Whether the roll's player may see it; false for one the game made blind. */
+  visible: boolean
+  /** The roll as the game made it, when its player may see it. */
+  rolls: RollSummary[]
+}
+
 /** An event this app acts on, with its payload checked. */
 export type GameEvent =
   | {
       type: 'bridge.hello'
-      data: { characters: ConnectedCharacter[]; combats: CombatSnapshot[] }
+      data: {
+        characters: ConnectedCharacter[]
+        combats: CombatSnapshot[]
+        features?: BridgeFeatures | null
+      }
     }
   | { type: 'character.updated'; data: { character: ConnectedCharacter } }
   | { type: 'character.texts'; data: { texts: Record<string, string> } }
@@ -527,3 +554,4 @@ export type GameEvent =
       type: 'combat.combatant.removed'
       data: { combatId: string; combatantId: string }
     }
+  | { type: 'command.result'; data: CommandResult }

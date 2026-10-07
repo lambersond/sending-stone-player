@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { KeyRound, RefreshCw, Trash2, UserMinus } from 'lucide-react'
+import { Dices, KeyRound, RefreshCw, Trash2, UserMinus } from 'lucide-react'
 import { SecretForm } from './secret-form'
 import { CopyField } from '@/components/copy-button'
 import { LocalTime } from '@/components/game-table/local-time'
@@ -140,6 +140,14 @@ export function CampaignCard({
         )}
       </section>
 
+      <section className='grid gap-1'>
+        <h4 className='flex items-center gap-1.5 text-sm font-medium'>
+          <Dices aria-hidden className='size-4 text-text-secondary' />
+          Players&apos; rolls
+        </h4>
+        <p className='text-sm text-text-secondary'>{rollsText(campaign)}</p>
+      </section>
+
       <footer className='flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4'>
         <details className='group min-w-0 flex-1'>
           <summary className={clsx(QUIET_BUTTON, 'cursor-pointer')}>
@@ -175,6 +183,17 @@ export function CampaignCard({
       </footer>
     </article>
   )
+}
+
+/** Whether the players' rolls are made in the Gamemaster's game, and if not, how they could be. */
+function rollsText({ rolls }: OwnedCampaign): string {
+  if (rolls.enabled && rolls.reaching) {
+    return 'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice.'
+  }
+  if (rolls.enabled) {
+    return 'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.'
+  }
+  return 'They stay here. To have them made in your game with the same dice, tick Let players roll from Sending Stone for this campaign in Manage Campaigns in Foundry.'
 }
 
 function FoundryStatus({ campaign }: Readonly<{ campaign: OwnedCampaign }>) {

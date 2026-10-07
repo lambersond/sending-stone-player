@@ -1,4 +1,5 @@
 import prisma from '@/clients/prisma'
+import { ROLL_KINDS } from '@/constants/sending-stone'
 import {
   keepOnlySheetTexts,
   lacksSheetTexts,
@@ -68,11 +69,17 @@ async function apply(
   switch (event.type) {
     case 'bridge.hello': {
       // The campaign's full current state. It carries no chat, so the chat log is kept.
-      const { characters } = event.data
+      const { characters, features } = event.data
       await tx.campaign.update({
         where: { id: campaignId },
         data: {
           characters: characters.map(character => rosterEntry(character)),
+          // Whether its players may roll in the game from here. A module before 0.10.0 can't
+          // make their rolls, and says nothing of them.
+          rollsEnabled: features?.rolls?.enabled === true,
+          rollKinds: (features?.rolls?.kinds ?? []).filter(kind =>
+            (ROLL_KINDS as readonly string[]).includes(kind),
+          ),
         },
       })
       await tx.actorSheet.deleteMany({ where: { campaignId } })

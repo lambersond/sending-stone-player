@@ -38,6 +38,8 @@ export function useD20Rolls(onRoll: (roll: SheetRoll) => void): {
       label: target.label,
       modifier: target.modifier,
       advantage: toAdvantage(target.mode),
+      source: target.source,
+      explicit: false,
     })
   const openMenu = (
     anchor: HTMLElement,
@@ -53,6 +55,8 @@ export function useD20Rolls(onRoll: (roll: SheetRoll) => void): {
         label: target.label,
         modifier: target.modifier,
         advantage: choice,
+        source: target.source,
+        explicit: true,
       })
   }
 

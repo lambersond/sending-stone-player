@@ -3,6 +3,7 @@
 import { useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
 import type { MenuPoint } from './roll-menu'
+import type { RollSource } from '@/types/roll'
 import type { RollMode } from '@/types/sending-stone'
 
 /** Something on the sheet that rolls: a check or save, its modifier, and the character's mode. */
@@ -12,6 +13,8 @@ export type RollTarget = {
   modifier: number
   /** Advantage or disadvantage from the character's conditions and features. */
   mode: RollMode
+  /** What it is, for the Gamemaster's game to make it too; unset for a roll it can't make. */
+  source?: RollSource
 }
 
 /** How long a touch must be held to open the roll's menu, in milliseconds. */

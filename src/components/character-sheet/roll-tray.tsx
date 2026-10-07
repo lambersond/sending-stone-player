@@ -1,20 +1,35 @@
 import clsx from 'clsx'
-import { Dices } from 'lucide-react'
+import { Dices, EyeOff, LoaderCircle, Send, TriangleAlert } from 'lucide-react'
 import { formatModifier } from '@/utils/format-modifier'
 import type {
   LocalCheck,
   LocalDamage,
   LocalRoll,
 } from '@/hooks/use-sheet-roller'
+import type { TableRollState } from '@/hooks/use-table-rolls'
+
+/** The player's rolls' way to the Gamemaster's game. */
+export type TableRolls = {
+  /** Each roll sent, by its id. */
+  states: ReadonlyMap<string, TableRollState>
+  /** Whether the game takes any of the player's rolls now. */
+  available: boolean
+  /** Whether the player sends them from this device. */
+  sending: boolean
+  setSending: (sending: boolean) => void
+}
 
 /**
- * The player's rolls, newest first: the latest in full, the rest on request. They are kept on
- * this page only, which the tray says, so no one expects them to have reached the table.
+ * The player's rolls, newest first: the latest in full, the rest on request. The tray says
+ * whether they reach the table, so no one expects one to have reached it that didn't: when the
+ * Gamemaster's game takes the player's rolls, it makes them too, with the same dice, and the tray
+ * says what it made of each.
  */
 export function RollTray({
   rolls,
   rolling,
-}: Readonly<{ rolls: LocalRoll[]; rolling: boolean }>) {
+  table,
+}: Readonly<{ rolls: LocalRoll[]; rolling: boolean; table?: TableRolls }>) {
   const [latest, ...earlier] = rolls
   let status = (
     <p className='flex items-center gap-2 text-sm text-text-secondary'>
@@ -38,7 +53,7 @@ export function RollTray({
   } else if (latest?.kind === 'damage') {
     status = <DamageResult roll={latest} />
   } else if (latest) {
-    status = <CheckResult roll={latest} />
+    status = <CheckResult roll={latest} state={table?.states.get(latest.id)} />
   }
 
   return (
@@ -67,22 +82,140 @@ export function RollTray({
                     <span className='text-sm font-semibold text-text-primary'>
                       {roll.total}
                     </span>
+                    <TableMark state={table?.states.get(roll.id)} />
                   </span>
                 </li>
               ))}
             </ol>
           </details>
         )}
-        <p className='text-[11px] text-text-secondary'>
-          Only you see these rolls for now. They aren&apos;t sent to your
-          Gamemaster&apos;s game.
-        </p>
+        {table?.available ? (
+          <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1'>
+            <p className='text-[11px] text-text-secondary'>
+              {table.sending
+                ? 'Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.'
+                : 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'}
+            </p>
+            <label className='flex shrink-0 cursor-pointer items-center gap-2 text-xs font-semibold'>
+              <input
+                type='checkbox'
+                role='switch'
+                checked={table.sending}
+                onChange={event => table.setSending(event.target.checked)}
+                className='peer sr-only'
+              />
+              <span
+                aria-hidden
+                className={clsx(
+                  'relative h-4 w-7 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
+                  table.sending ? 'bg-primary' : 'bg-border',
+                )}
+              >
+                <span
+                  className={clsx(
+                    'absolute top-0.5 size-3 rounded-full bg-card shadow-sm transition-[left]',
+                    table.sending ? 'left-3.5' : 'left-0.5',
+                  )}
+                />
+              </span>
+              Send to the table
+            </label>
+          </div>
+        ) : (
+          <p className='text-[11px] text-text-secondary'>
+            Only you see these rolls for now. They aren&apos;t sent to your
+            Gamemaster&apos;s game.
+          </p>
+        )}
       </div>
     </section>
   )
 }
 
-function CheckResult({ roll }: Readonly<{ roll: LocalCheck }>) {
+/** What the game said of a roll, in words: why it wasn't made, mostly. */
+const REASONS: Record<string, string> = {
+  unavailable: 'your Gamemaster’s game isn’t taking rolls now',
+  off: 'your Gamemaster’s game isn’t taking rolls now',
+  unknown: 'your character in the game can’t make it',
+  'not-dying': 'you aren’t dying',
+  'not-in-combat': 'you aren’t in the combat',
+  'already-rolled': 'you have rolled initiative already',
+  busy: 'too many rolls at once. Wait a moment',
+  timeout: 'the game took too long',
+  network: 'Sending Stone couldn’t be reached',
+  expired: 'your Gamemaster’s game didn’t pick it up',
+  lost: 'no answer from your Gamemaster’s game',
+}
+
+/** Where a roll is on its way to the game, or what the game made of it. */
+function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
+  const line = 'mt-1 flex items-center gap-1.5 text-xs'
+  switch (state.status) {
+    case 'sending':
+    case 'rolling': {
+      return (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <LoaderCircle
+            aria-hidden
+            className='size-3.5 shrink-0 motion-safe:animate-spin'
+          />
+          {state.status === 'sending'
+            ? 'Sending to your Gamemaster’s game…'
+            : 'Rolling in your Gamemaster’s game…'}
+        </p>
+      )
+    }
+    case 'done': {
+      return state.visible ? (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
+          <span>
+            At the table:{' '}
+            <span className='font-semibold text-text-primary tabular-nums'>
+              {state.total ?? '?'}
+            </span>
+          </span>
+        </p>
+      ) : (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <EyeOff aria-hidden className='size-3.5 shrink-0' />
+          Rolled at the table, hidden by your Gamemaster
+        </p>
+      )
+    }
+    default: {
+      const reason = REASONS[state.reason ?? state.status]
+      return (
+        <p className={clsx(line, 'text-warning')}>
+          <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+          Not made at the table
+          {reason ? `: ${reason}` : ''}
+        </p>
+      )
+    }
+  }
+}
+
+/** A roll's way to the game, in brief, among the earlier rolls. */
+function TableMark({ state }: Readonly<{ state?: TableRollState }>) {
+  if (!state) return
+  if (state.status === 'done') {
+    return (
+      <span className='ml-1.5'>
+        {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
+      </span>
+    )
+  }
+  if (state.status === 'sending' || state.status === 'rolling') {
+    return <span className='ml-1.5'>· sending</span>
+  }
+  return <span className='ml-1.5'>· not at the table</span>
+}
+
+function CheckResult({
+  roll,
+  state,
+}: Readonly<{ roll: LocalCheck; state?: TableRollState }>) {
   const critical = roll.natural === 20
   const fumble = roll.natural === 1
   let extra = ''
@@ -115,6 +248,7 @@ function CheckResult({ roll }: Readonly<{ roll: LocalCheck }>) {
           {critical && ' · Natural 20'}
           {fumble && ' · Natural 1'}
         </p>
+        {state && <TableStatus state={state} />}
       </div>
     </div>
   )

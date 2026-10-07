@@ -12,6 +12,7 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
   connected: true,
   rosterReceived: true,
   live: true,
+  rolls: { enabled: false, reaching: false },
   characters: [],
   ...fields,
 })
@@ -169,6 +170,30 @@ describe('components/campaigns/campaign-card', () => {
     expect(input).toHaveAttribute('aria-invalid', 'true')
     expect(input).toHaveAccessibleDescription(
       'Use a secret of at least 12 characters.',
+    )
+  })
+
+  it.each([
+    [
+      'made in the game',
+      { enabled: true, reaching: true },
+      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice.',
+    ],
+    [
+      'turned on, while the game is closed',
+      { enabled: true, reaching: false },
+      'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.',
+    ],
+    [
+      'not turned on',
+      { enabled: false, reaching: false },
+      'They stay here. To have them made in your game with the same dice, tick Let players roll from Sending Stone for this campaign in Manage Campaigns in Foundry.',
+    ],
+  ])("says whether players' rolls are %s", (_, rolls, text) => {
+    renderCard({ rolls })
+
+    expect(screen.getByText("Players' rolls").nextSibling).toHaveTextContent(
+      text,
     )
   })
 })

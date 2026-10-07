@@ -6,6 +6,8 @@ import {
 } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
+import { recordCommandResult } from '@/db/roll-requests'
+import { attempt, cors, notSetUp } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
@@ -17,6 +19,11 @@ import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
 //
 // Each campaign is set up here by its Gamemaster with a secret, and only events carrying that
 // secret are accepted for it. The module drops a post refused with a 4xx and tells the Gamemaster.
+//
+// Its hello and heartbeats are answered with what this app does beyond taking events: it has
+// commands, such as players' rolls, for the module to fetch from /api/bridge/commands. A module
+// fetches them only from an app that says so, as an older app would refuse the fetch in a way
+// that, across origins, the module can't tell from a network failure.
 
 export function OPTIONS(request: Request) {
   return new Response(undefined, { status: 204, headers: cors(request) })
@@ -58,7 +65,7 @@ export async function POST(request: Request) {
       if (!campaign) return checkGameSecret(origin, secret)
       const found = await findEventCampaign(origin, campaign, secret)
       return typeof found === 'string' ? found : 'ok'
-    })
+    }, CHECK_FAILED)
     if (!checked) return respond(500)
     if (checked === 'unknown')
       return respond(404, notSetUp(origin, campaign?.title))
@@ -69,7 +76,10 @@ export async function POST(request: Request) {
   }
 
   const { campaign } = envelope
-  const found = await attempt(() => findEventCampaign(origin, campaign, secret))
+  const found = await attempt(
+    () => findEventCampaign(origin, campaign, secret),
+    CHECK_FAILED,
+  )
   if (!found) return respond(500)
   if (found === 'unknown') {
     return respond(404, notSetUp(origin, envelope.campaign.title))
@@ -86,16 +96,23 @@ export async function POST(request: Request) {
 
   let applied
   try {
-    // A heartbeat, or an event this app does not use yet, still says the game is connected.
-    applied = event
-      ? await applyCampaignEvent(
-          found.id,
-          envelope.world,
-          envelope.campaign,
-          event,
-          envelope.session,
-        )
-      : await markSeen(found.id)
+    if (event?.type === EVENTS.COMMAND_RESULT) {
+      // What became of a player's roll. Only its player's page asks after it, so the campaign's
+      // version, which every player's page watches, is left alone.
+      await recordCommandResult(found.id, event.data)
+      await markSeen(found.id)
+    } else if (event) {
+      applied = await applyCampaignEvent(
+        found.id,
+        envelope.world,
+        envelope.campaign,
+        event,
+        envelope.session,
+      )
+    } else {
+      // A heartbeat, or an event this app does not use yet, still says the game is connected.
+      await markSeen(found.id)
+    }
   } catch (error) {
     console.error(`Failed to apply ${envelope.type} from ${origin}`, error)
     return respond(500)
@@ -108,41 +125,22 @@ export async function POST(request: Request) {
   // description not held means one went missing. Either way, ask for everything again.
   const lacksHello =
     event?.type !== EVENTS.HELLO && found.helloSession !== envelope.session
-  if (lacksHello || applied?.lacksTexts) {
-    return Response.json({ resend: 'hello' }, { headers: cors(request) })
+  const resend = lacksHello || applied?.lacksTexts === true
+  const announce =
+    envelope.type === EVENTS.HELLO || envelope.type === EVENTS.HEARTBEAT
+  if (resend || announce) {
+    return Response.json(
+      {
+        ...(resend && { resend: 'hello' }),
+        ...(announce && { features: FEATURES }),
+      },
+      { headers: cors(request) },
+    )
   }
   return respond(204)
 }
 
-/** Run a database step, logging a failure for a retryable 500 answer, with CORS headers. */
-async function attempt<T>(step: () => Promise<T>): Promise<T | undefined> {
-  try {
-    return await step()
-  } catch (error) {
-    console.error('Failed to check a Sending Stone event', error)
-    return undefined
-  }
-}
+/** What this app does beyond taking events, as told to the module. */
+const FEATURES = { commands: true }
 
-const notSetUp = (origin: string, title?: string) =>
-  title
-    ? `No campaign titled “${title}” is set up for ${origin} in Sending Stone`
-    : `No campaign is set up for ${origin} in Sending Stone`
-
-function cors(request: Request): Headers {
-  const headers = new Headers({
-    'Access-Control-Allow-Origin': request.headers.get('origin') ?? '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '600',
-    Vary: 'Origin',
-  })
-  // Chromium asks before a public page, such as a Forge game, may reach a private address,
-  // such as this listener running on localhost.
-  if (
-    request.headers.get('access-control-request-private-network') === 'true'
-  ) {
-    headers.set('Access-Control-Allow-Private-Network', 'true')
-  }
-  return headers
-}
+const CHECK_FAILED = 'Failed to check a Sending Stone event'

@@ -1,4 +1,5 @@
 import { getCharacter } from '@/db/characters'
+import { notePlayersSeen } from '@/db/roll-requests'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
@@ -6,9 +7,10 @@ import type { NextRequest } from 'next/server'
 const headers = { 'Cache-Control': 'no-store' }
 
 /**
- * A character's view of its campaign, for the player's page to poll. Pass the version and the
- * liveness last seen as `?version=7&live=1` to get 204 No Content while neither has changed, and
- * the sheet's version as `&sheet=` to have an unchanged sheet left out.
+ * A character's view of its campaign, for the player's page to poll. Pass the version, the
+ * liveness and the rolls the game takes, as last seen, as `?version=7&live=1&rolls=skill,save` to
+ * get 204 No Content while none has changed, and the sheet's version as `&sheet=` to have an
+ * unchanged sheet left out.
  */
 export async function GET(
   request: NextRequest,
@@ -21,12 +23,22 @@ export async function GET(
   const character = await getCharacter(user.id, id)
   if (!character) return new Response(undefined, { status: 404, headers })
 
+  // A player at the table may roll, so the Gamemaster's module waits for their rolls.
+  if (character.campaignId) {
+    try {
+      await notePlayersSeen(character.campaignId)
+    } catch (error) {
+      console.error('Failed to note a player at the table', error)
+    }
+  }
+
   const known = request.nextUrl.searchParams
   if (known.has('version')) {
-    const { version, live } = await getCampaignStatus(character)
+    const { version, live, rollsToTable } = await getCampaignStatus(character)
     if (
       Number(known.get('version')) === version &&
-      (known.get('live') === '1') === live
+      (known.get('live') === '1') === live &&
+      (known.get('rolls') ?? '') === rollsToTable.join(',')
     ) {
       return new Response(undefined, { status: 204, headers })
     }

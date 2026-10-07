@@ -52,6 +52,9 @@ describe('db/campaigns', () => {
           lastSeenAt: seen,
           helloSession: 'session-1',
           characters: roster,
+          rollsEnabled: true,
+          rollKinds: ['skill', 'save'],
+          bridgePolledAt: seen,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -67,6 +70,9 @@ describe('db/campaigns', () => {
           lastSeenAt: null,
           helloSession: null,
           characters: [],
+          rollsEnabled: false,
+          rollKinds: [],
+          bridgePolledAt: null,
           players: [],
         },
       ] as any)
@@ -82,6 +88,7 @@ describe('db/campaigns', () => {
           rosterReceived: true,
           live: true,
           lastSeenAt: seen.toISOString(),
+          rolls: { enabled: true, reaching: true },
           characters: [
             {
               id: 'actor-thorin',
@@ -107,6 +114,7 @@ describe('db/campaigns', () => {
           rosterReceived: false,
           live: false,
           lastSeenAt: undefined,
+          rolls: { enabled: false, reaching: false },
           characters: [],
         },
       ])
