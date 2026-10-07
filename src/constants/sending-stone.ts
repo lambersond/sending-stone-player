@@ -51,7 +51,7 @@ export const COMMANDS_PATH = '/api/bridge/commands'
 /**
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
  * ability check, a saving throw, a death saving throw, or initiative; and, where the Gamemaster
- * lets them, an attack, then its damage.
+ * lets them, an attack, or the use of a spell or feature, then its damage or healing.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -61,14 +61,30 @@ export const ROLL_KINDS = [
   'death',
   'initiative',
   'attack',
+  'use',
   'damage',
 ] as const
 
-/** How long after an attack is made its damage may be rolled at the table, in milliseconds. */
+/**
+ * How long after an attack or a use is made its damage may be rolled at the table, in
+ * milliseconds.
+ */
 export const DAMAGE_WITHIN = 600_000
 
-/** The most dice terms an attack's damage may throw. */
+/** The most dice terms an attack's or a use's damage may throw. */
 export const MAX_DAMAGE_TERMS = 20
+
+/** The most combatants a use may be made at. */
+export const MAX_USE_TARGETS = 20
+
+/** A kind of damage or healing, as dnd5e keys it, such as "fire" or "temphp". */
+export const DAMAGE_TYPE = /^[A-Za-z][\w-]{0,31}$/
+
+/** A spell slot's pool, as dnd5e keys it, such as "spell3" or "pact". */
+export const SPELL_SLOT = /^(spell[1-9]|pact)$/
+
+/** A weapon's attack mode, as dnd5e keys it, such as "twoHanded" or "thrown-offhand". */
+export const ATTACK_MODE = /^[A-Za-z][\w-]{0,31}$/
 
 /**
  * How the module's fetch of players' rolls is answered, in milliseconds. While a player has their

@@ -35,6 +35,7 @@ import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type {
   SheetAbility,
+  SheetAction,
   SheetClass,
   SheetSkill,
 } from '@/types/sending-stone'
@@ -48,6 +49,8 @@ type Props = {
   entries: FavoriteEntry[]
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction) => void
 }
 
 /** Where this browser keeps whether the favorites are shown, after which the character's id. */
@@ -163,12 +166,19 @@ function FavoritesList({
   entries,
   onRoll,
   onRollDamage,
+  onUse,
 }: Readonly<Props>) {
   const { actions: d20, dialogs } = useD20Rolls(onRoll)
   const { actions: damage, dialogs: damageMenu } = useDamageRolls(onRollDamage)
   const card = useRef<HTMLDivElement>(null)
   const width = useWidth(card)
-  const rows: ActionRows = { characterId, spellbook: sheet.spells, d20, damage }
+  const rows: ActionRows = {
+    characterId,
+    spellbook: sheet.spells,
+    d20,
+    damage,
+    ...(onUse && { use: { onUse } }),
+  }
   // Side by side, the first half is in the first list and the rest in the second, so that each
   // stays in its list as favorites open and close.
   const half = Math.ceil(entries.length / 2)

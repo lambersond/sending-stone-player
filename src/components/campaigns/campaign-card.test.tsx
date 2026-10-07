@@ -12,7 +12,7 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
   connected: true,
   rosterReceived: true,
   live: true,
-  rolls: { enabled: false, reaching: false, attacks: false },
+  rolls: { enabled: false, reaching: false, attacks: false, spells: false },
   characters: [],
   ...fields,
 })
@@ -175,23 +175,28 @@ describe('components/campaigns/campaign-card', () => {
 
   it.each([
     [
-      'made in the game, with their attacks',
-      { enabled: true, reaching: true, attacks: true },
+      'made in the game, with their attacks and spells',
+      { enabled: true, reaching: true, attacks: true, spells: true },
+      'Checks, saves, initiative, death saves, attacks and spells your players roll and cast here are made in your game too, with the same dice. Their attacks, spells and features spend ammunition, uses and spell slots there.',
+    ],
+    [
+      'made in the game, with their attacks, by a module before spells',
+      { enabled: true, reaching: true, attacks: true, spells: false },
       'Checks, saves, initiative, death saves and attacks your players roll here are made in your game too, with the same dice. Their attacks spend ammunition, uses and spell slots there.',
     ],
     [
       'made in the game, but not their attacks',
-      { enabled: true, reaching: true, attacks: false },
-      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks stay here: to have them made in your game too, tick Let players attack from Sending Stone in Manage Campaigns in Foundry.',
+      { enabled: true, reaching: true, attacks: false, spells: false },
+      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Let players attack and cast from Sending Stone in Manage Campaigns in Foundry.',
     ],
     [
       'turned on, while the game is closed',
-      { enabled: true, reaching: false, attacks: true },
+      { enabled: true, reaching: false, attacks: true, spells: true },
       'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.',
     ],
     [
       'not turned on',
-      { enabled: false, reaching: false, attacks: false },
+      { enabled: false, reaching: false, attacks: false, spells: false },
       'They stay here. To have them made in your game with the same dice, tick Let players roll from Sending Stone for this campaign in Manage Campaigns in Foundry.',
     ],
   ])("says whether players' rolls are %s", (_, rolls, text) => {

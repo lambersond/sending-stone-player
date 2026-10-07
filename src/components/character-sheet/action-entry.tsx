@@ -43,12 +43,21 @@ export type DamageActions = {
   onMenu: (anchor: HTMLElement, target: DamageTarget, point?: MenuPoint) => void
 }
 
-/** What every action's row needs: the character, its spellbook, and what rolling does. */
+/** Using a spell or feature in the Gamemaster's game, rather than rolling it here. */
+export type UseActions = {
+  onUse: (action: SheetAction) => void
+}
+
+/**
+ * What every action's row needs: the character, its spellbook, and what rolling does; and using
+ * spells and features, while the Gamemaster's game takes them.
+ */
 export type ActionRows = {
   characterId: string
   spellbook: SheetSpellSection[]
   d20: RollActions
   damage: DamageActions
+  use?: UseActions
 }
 
 /** Icons for actions without one of their own, by the item's type. */
@@ -114,22 +123,41 @@ export function useDamageRolls(onRollDamage: (roll: SheetDamageRoll) => void): {
 }
 
 /**
- * An action as it's shown, worked out once for a row: its damage or healing and their kinds, and
- * for a spell cast with slots, which it can be cast with and whether any are left.
+ * An action as it's shown, worked out once for a row: its damage or healing and their kinds, for a
+ * spell cast with slots, which it can be cast with and whether any are left; and, while the
+ * Gamemaster's game takes spells and features, which of its chips use it there: its saving throw's
+ * and damage's, for an activity that calls for one or deals it, or else one of its own.
  */
-export function viewOf(action: SheetAction, spellbook: SheetSpellSection[]) {
+export function viewOf(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+  using?: UseActions,
+) {
   const healing =
     action.damage.length > 0 && action.damage.every(part => part.healing)
   const pools = slotPools(action, spellbook)
+  const formula = action.damage.map(part => part.formula).join(' + ')
+  const use =
+    using && action.activity && action.identified ? action.activity : undefined
+  const save = !!use && use.type === 'save' && !!action.save
+  const damage =
+    !!use && use.type !== 'utility' && !!formula && !action.attackId
+  const onUse = using && (() => using.onUse(action))
   return {
     healing,
-    formula: action.damage.map(part => part.formula).join(' + '),
+    formula,
     target: damageTarget(action, healing),
     types: [
       ...new Set(action.damage.flatMap(part => (part.type ? [part.type] : []))),
     ],
     pools,
     spent: outOfSlots(action, pools),
+    /** What the chips do in the game, if anything. */
+    uses: {
+      save: save ? onUse : undefined,
+      damage: damage ? onUse : undefined,
+      chip: use && !save && !damage ? onUse : undefined,
+    },
   }
 }
 
@@ -146,7 +174,7 @@ export function ActionEntry({
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
-  const view = viewOf(action, rows.spellbook)
+  const view = viewOf(action, rows.spellbook, rows.use)
   const { name, toHit, save, uses } = action
   const detail = joinParts(
     note,
@@ -194,7 +222,8 @@ export function ActionEntry({
           <span
             className={clsx(
               'shrink-0',
-              (toHit !== null || save || view.formula) && 'hidden @md:inline',
+              (toHit !== null || save || view.formula || view.uses.chip) &&
+                'hidden @md:inline',
             )}
           >
             <UsesLeft uses={uses} />
@@ -208,7 +237,7 @@ export function ActionEntry({
             source={attackSource(action)}
           />
         )}
-        {save && <SaveChip save={save} />}
+        {save && <SaveChip name={name} save={save} onUse={view.uses.save} />}
         {view.formula && (
           <DamageChip
             name={name}
@@ -216,8 +245,10 @@ export function ActionEntry({
             healing={view.healing}
             target={view.target}
             damage={rows.damage}
+            onUse={view.uses.damage}
           />
         )}
+        {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
       </div>
       {open && (
         <div
@@ -282,25 +313,74 @@ export function AttackChip({
   )
 }
 
-/** The saving throw an action calls for, such as DEX 14. */
+/**
+ * The saving throw an action calls for, such as DEX 14: while the Gamemaster's game takes spells
+ * and features, a button that uses it there, calling for it.
+ */
 export function SaveChip({
+  name,
   save,
-}: Readonly<{ save: NonNullable<SheetAction['save']> }>) {
-  return (
-    <span
-      className='shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-semibold whitespace-nowrap tabular-nums'
-      title={`${save.ability.toUpperCase()} saving throw`}
-    >
+  onUse,
+}: Readonly<{
+  name: string
+  save: NonNullable<SheetAction['save']>
+  onUse?: () => void
+}>) {
+  const chip =
+    'shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-semibold whitespace-nowrap tabular-nums'
+  const title = `${save.ability.toUpperCase()} saving throw`
+  const content = (
+    <>
       <span className='text-text-secondary uppercase'>{save.ability}</span>
       {save.dc !== null && ` ${save.dc}`}
+    </>
+  )
+  if (onUse) {
+    return (
+      <button
+        type='button'
+        aria-label={`${name}, ${title}${save.dc === null ? '' : ` DC ${save.dc}`}`}
+        title={title}
+        onClick={onUse}
+        className={clsx(chip, 'transition-colors hover:bg-primary/5')}
+      >
+        {content}
+      </button>
+    )
+  }
+  return (
+    <span className={chip} title={title}>
+      {content}
     </span>
+  )
+}
+
+/**
+ * A spell or feature that rolls nothing of its own, such as Bless, Shield or Action Surge, as a
+ * button that casts or uses it in the Gamemaster's game.
+ */
+export function UseChip({
+  action,
+  onUse,
+}: Readonly<{ action: SheetAction; onUse: () => void }>) {
+  const verb = action.type === 'spell' ? 'Cast' : 'Use'
+  return (
+    <button
+      type='button'
+      aria-label={`${verb} ${action.name}`}
+      onClick={onUse}
+      className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/20'
+    >
+      {verb}
+    </button>
   )
 }
 
 /**
  * The damage or healing an action rolls, as a button that rolls it: damage, which a right-click
  * or long-press can roll as a critical hit's, or healing. A formula the app can't read is shown,
- * but not rolled.
+ * but not rolled. While the Gamemaster's game takes the spell or feature it's of, it uses it
+ * there, and its damage or healing follows.
  */
 export function DamageChip({
   name,
@@ -308,18 +388,37 @@ export function DamageChip({
   healing,
   target,
   damage,
+  onUse,
 }: Readonly<{
   name: string
   formula: string
   healing: boolean
   target: DamageTarget | undefined
   damage: DamageActions
+  onUse?: () => void
 }>) {
   const chip = clsx(
     'max-w-36 shrink-0 truncate rounded-lg px-2 py-1 text-sm font-semibold tabular-nums',
     healing ? 'bg-primary/10 text-primary' : 'bg-damage/15 text-damage',
   )
   const label = `${name} ${healing ? 'healing' : 'damage'}, ${formula}`
+  if (onUse) {
+    return (
+      <button
+        type='button'
+        aria-label={label}
+        title={formula}
+        onClick={onUse}
+        className={clsx(
+          chip,
+          'transition-colors',
+          healing ? 'hover:bg-primary/20' : 'hover:bg-damage/25',
+        )}
+      >
+        {formula}
+      </button>
+    )
+  }
   if (!target) {
     return (
       <span className={chip} title={formula}>

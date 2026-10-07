@@ -88,7 +88,12 @@ describe('db/campaigns', () => {
           rosterReceived: true,
           live: true,
           lastSeenAt: seen.toISOString(),
-          rolls: { enabled: true, reaching: true, attacks: true },
+          rolls: {
+            enabled: true,
+            reaching: true,
+            attacks: true,
+            spells: false,
+          },
           characters: [
             {
               id: 'actor-thorin',
@@ -114,7 +119,12 @@ describe('db/campaigns', () => {
           rosterReceived: false,
           live: false,
           lastSeenAt: undefined,
-          rolls: { enabled: false, reaching: false, attacks: false },
+          rolls: {
+            enabled: false,
+            reaching: false,
+            attacks: false,
+            spells: false,
+          },
           characters: [],
         },
       ])

@@ -184,6 +184,46 @@ export function outOfSlots(
   return pools.every(pool => pool.value === 0)
 }
 
+/**
+ * The slots a spell is cast with when the player chooses none, as dnd5e's usage dialog picks them:
+ * its own, as the spellbook lists it, if any are left; otherwise the lowest spell level's with any
+ * left, then pact magic's. Null for a spell cast without slots, or with none left.
+ */
+export function defaultPool(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+): SlotPool | null {
+  const pools = slotPools(action, spellbook)
+  if (!pools) return null
+  const own = spellbook.find(section =>
+    section.spells.some(spell => spell.id === action.id),
+  )
+  const inOrder = [
+    ...pools.filter(({ id }) => id !== 'pact'),
+    ...pools.filter(({ id }) => id === 'pact'),
+  ]
+  return (
+    pools.find(pool => pool.id === own?.id && pool.value > 0) ??
+    inOrder.find(pool => pool.value > 0) ??
+    null
+  )
+}
+
+/**
+ * The level a spell is cast at: the chosen slots', or else those dnd5e picks; or its own, when it's
+ * cast without slots. Null for anything that isn't a spell.
+ */
+export function castAtLevel(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+  slot?: string | null,
+): number | null {
+  const pool = slot
+    ? slotPools(action, spellbook)?.find(({ id }) => id === slot)
+    : defaultPool(action, spellbook)
+  return pool?.level ?? action.level
+}
+
 /** A pool's short name, such as "3rd" for a spell level's or "Pact 3rd" for pact magic's. */
 export function poolName(pool: SlotPool): string {
   if (spellLevelOf(pool.id) !== null && pool.level !== null) {

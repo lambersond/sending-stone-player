@@ -368,6 +368,61 @@ describe('components/character-sheet/favorites', () => {
     expect(screen.getByText('Weapon')).toBeInTheDocument()
   })
 
+  it('uses an activity in the game from its chips while the game takes it, as its item', async () => {
+    const user = userEvent.setup()
+    const onUse = jest.fn()
+    const exhale: SheetFavorite = {
+      type: 'activity',
+      id: 'exhale',
+      itemId: 'breath',
+      itemType: 'feat',
+      itemName: 'Fire Breath',
+      name: 'Exhale',
+      img: null,
+      activation: 'Action',
+      range: '15 ft',
+      target: '15 ft Cone',
+      toHit: null,
+      save: { ability: 'DEX', dc: 13 },
+      damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+      uses: null,
+      activity: {
+        id: 'exhale',
+        type: 'save',
+        targets: {
+          self: false,
+          area: true,
+          count: null,
+          perLevel: null,
+          affects: 'creature',
+        },
+      },
+    }
+    const props = propsFor(withFavorites([exhale]))
+    const { rerender } = render(<FavoritesStrip {...props} onUse={onUse} />)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Exhale, DEX saving throw DC 13' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Exhale damage, 2d6' }))
+    expect(onUse).toHaveBeenCalledTimes(2)
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'breath',
+        activity: expect.objectContaining({ id: 'exhale', type: 'save' }),
+      }),
+    )
+
+    // While the game takes none, its damage is rolled here.
+    rerender(<FavoritesStrip {...props} />)
+    expect(
+      screen.queryByRole('button', { name: 'Exhale, DEX saving throw DC 13' }),
+    ).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Exhale damage, 2d6' }))
+    expect(onRollDamage).toHaveBeenCalledTimes(1)
+    expect(onUse).toHaveBeenCalledTimes(2)
+  })
+
   it('shows what it can of a favorite the sheet says little of', () => {
     const sheet = withFavorites([
       {

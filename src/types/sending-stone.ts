@@ -283,6 +283,15 @@ export type SheetAction = {
    * game. Module 0.11.0; absent before, and null for an action that doesn't attack.
    */
   attackId?: string | null
+  /**
+   * What else it's used through in the Gamemaster's game, such as a saving throw or healing, and
+   * whom at. Module 0.12.0; absent before, and null for an action with none.
+   */
+  activity?: SheetUse | null
+  /** The ways its attack is made, when there's more than one, such as thrown. Module 0.12.0. */
+  attackModes?: SheetAttackMode[] | null
+  /** The ammunition its attack fires, for a weapon that fires it. Module 0.12.0. */
+  ammunition?: SheetAmmunition[] | null
   /** The saving throw it calls for: the ability's abbreviation, such as "DEX", and the DC. */
   save: { ability: string; dc: number | null } | null
   damage: SheetDamage[]
@@ -296,6 +305,37 @@ export type SheetAction = {
   identified: boolean
   text: string | null
 }
+
+/**
+ * An activity a player can have used in the Gamemaster's game other than an attack: one calling for
+ * a saving throw, dealing damage, healing, or anything else, such as Bless.
+ */
+export type SheetUse = {
+  /** The activity's id. */
+  id: string
+  type: 'save' | 'damage' | 'heal' | 'utility'
+  targets: SheetUseTargets
+}
+
+/** Whom an activity is used at. */
+export type SheetUseTargets = {
+  /** Its user alone, as Second Wind or Shield. */
+  self: boolean
+  /** Everyone in an area, as Fireball. */
+  area: boolean
+  /** The most targets it takes, at its own level; null for no limit. */
+  count: number | null
+  /** How many more it takes for each level it's cast above its own, as Bless; null for none. */
+  perLevel: number | null
+  /** dnd5e's kind of target, such as "ally", "enemy", "creature" or "willing"; null for none. */
+  affects: string | null
+}
+
+/** A way a weapon attacks, such as "twoHanded", as dnd5e labels it, such as "Two-Handed". */
+export type SheetAttackMode = { value: string; label: string }
+
+/** Ammunition a weapon fires, by its item's id, with how much is left. */
+export type SheetAmmunition = { id: string; name: string; quantity: number }
 
 /** Actions taken with one kind of activation, such as Bonus Action. */
 export type SheetActionSection = {
@@ -326,6 +366,9 @@ export type SheetActivityFavorite = Pick<
   | 'target'
   | 'toHit'
   | 'attackId'
+  | 'activity'
+  | 'attackModes'
+  | 'ammunition'
   | 'save'
   | 'damage'
   | 'uses'
@@ -531,9 +574,17 @@ export type CommandResult = {
   rolls: RollSummary[]
   /** For an attack, what came of it, when its player may see it. Module 0.11.0. */
   attack?: AttackOutcome | null
-  /** For an attack, the dice its damage will throw; null when no damage follows. Module 0.11.0. */
+  /** For a use, the kind of activity used. Module 0.12.0. */
+  use?: UseOutcome | null
+  /**
+   * For an attack or a use, the dice its damage or healing will throw; null when none follows.
+   * Module 0.11.0.
+   */
   damage?: DamagePreview | null
 }
+
+/** A spell or feature used in the game: the kind of activity it was. */
+export type UseOutcome = { type: string }
 
 /**
  * What came of an attack made in the game: a critical hit or a fumble, and whether it hit its
@@ -546,21 +597,34 @@ export type AttackOutcome = {
 }
 
 /**
- * The dice an attack's damage will throw in the game, as the game will make up its rolls, with a
- * critical hit's dice: for the player to roll them. None when the game can't say beforehand, as for
- * a d3, and then rolls them all itself.
+ * The dice an attack's or a use's damage or healing will throw in the game, as the game will make
+ * up its rolls, with a critical hit's dice: for the player to roll them. None when the game can't
+ * say beforehand, as for a d3, and then rolls them all itself.
  */
 export type DamagePreview = {
   critical: boolean
   plannable: boolean
-  rolls: {
-    /** As the game will roll it, such as "2d8 + 3". */
-    formula: string
-    /** Such as "Slashing"; null for none. */
-    type: string | null
-    dice: { faces: number; number: number }[]
-  }[]
+  /** Healing, rather than damage. Module 0.12.0. */
+  healing?: boolean
+  rolls: DamagePreviewRoll[]
 }
+
+/** One of damage's rolls, as the game will roll it. */
+export type DamagePreviewRoll = {
+  /** As the game will roll it, such as "2d8 + 3". */
+  formula: string
+  /** Such as "Slashing"; null for none. */
+  type: string | null
+  /**
+   * The kinds of damage its roller chooses among, as Chromatic Orb's, by key and label; null or
+   * absent for none. Module 0.12.0.
+   */
+  types?: DamageTypeChoice[] | null
+  dice: { faces: number; number: number }[]
+}
+
+/** A kind of damage to choose, such as { key: "fire", label: "Fire" }. */
+export type DamageTypeChoice = { key: string; label: string }
 
 /** An event this app acts on, with its payload checked. */
 export type GameEvent =

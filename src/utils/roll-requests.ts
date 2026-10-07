@@ -5,10 +5,12 @@ import {
   ROLL_KINDS,
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
-import { outOfSlots, slotPools } from '@/utils/action-groups'
+import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
 import { favoriteEntries } from '@/utils/favorites'
 import { toTableRoll } from '@/utils/table-view'
+import { mostTargets } from '@/utils/uses'
 import type {
+  AttackTarget,
   RollKind,
   RollRequestInput,
   RollRequestView,
@@ -23,10 +25,12 @@ import type {
 
 /**
  * Why a roll can't go to the Gamemaster's game: the game can't take it now, the sheet has no such
- * skill, ability, tool or attack, the character isn't dying, isn't in the combat, or has rolled
- * initiative already. For an attack: the spell it's made with has no spell slots left, or its
- * target can't be attacked. For damage: its attack can't be found, or is too old; no damage
- * follows it; its damage is rolled already; or the dice aren't those the attack said.
+ * skill, ability, tool, attack, spell or feature, the character isn't dying, isn't in the combat,
+ * or has rolled initiative already. For an attack or a use: the spell it's cast with has no spell
+ * slots left, or none of the slot chosen; the attack mode or ammunition chosen isn't the weapon's,
+ * or none of it is left; or a target can't be picked, or there are more than it takes. For damage:
+ * its attack or use can't be found, or is too old; no damage follows it; its damage is rolled
+ * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -35,11 +39,15 @@ export type RollRefusal =
   | 'not-in-combat'
   | 'already-rolled'
   | 'slots'
+  | 'slot'
+  | 'mode'
+  | 'ammo'
   | 'target'
   | 'gone'
   | 'no-damage'
   | 'damaged'
   | 'dice'
+  | 'type'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -116,7 +124,10 @@ export function checkRoll(
     case 'attack': {
       return sheet ? checkAttack(input, sheet, combats) : 'unknown'
     }
-    // Checked against its attack, by checkDamage.
+    case 'use': {
+      return sheet ? checkUse(input, sheet, combats) : 'unknown'
+    }
+    // Checked against its attack or use, by checkDamage.
     case 'damage': {
       return undefined
     }
@@ -125,21 +136,84 @@ export function checkRoll(
 
 /**
  * Can the character make this attack: is it one of its actions, or favorites, identified, with a
- * spell slot left for a spell, at a combatant its player can see? Whatever else it spends, such as
- * its uses or ammunition, the game checks as it would spend it.
+ * spell slot left for a spell, in the attack mode and with the ammunition chosen, if they're the
+ * weapon's, at a combatant its player can see? Whatever else it spends, such as its uses, the game
+ * checks as it would spend it.
  */
 function checkAttack(
   input: RollRequestInput,
   sheet: CharacterSheet,
   combats: CombatSnapshot[],
 ): RollRefusal | undefined {
-  const action = attacksOf(sheet).find(
-    ({ id, attackId }) => id === input.item && attackId === input.activity,
+  const action = actionsOf(sheet).find(
+    ({ id, attackId }) =>
+      id === input.item && !!attackId && attackId === input.activity,
   )
   if (!action || !action.identified) return 'unknown'
-  if (outOfSlots(action, slotPools(action, sheet.spells))) return 'slots'
-  const { target } = input
-  if (target) {
+  const slot = checkSlot(input, action, sheet)
+  if (slot) return slot
+  const { attackMode, ammunition } = input
+  if (
+    attackMode &&
+    !action.attackModes?.some(({ value }) => value === attackMode)
+  ) {
+    return 'mode'
+  }
+  if (ammunition) {
+    const fired = action.ammunition?.find(({ id }) => id === ammunition)
+    if (!fired || fired.quantity <= 0) return 'ammo'
+  }
+  return checkTargets(input.target ? [input.target] : [], combats)
+}
+
+/**
+ * Can the character use this spell or feature: is it what one of its actions, or favorites, is
+ * used through, identified, with a spell slot left for a spell, at no more combatants than it takes
+ * at the level it's cast at, all of them combatants its player can see? Whatever else it spends,
+ * such as its uses, the game checks as it would spend it.
+ */
+function checkUse(
+  input: RollRequestInput,
+  sheet: CharacterSheet,
+  combats: CombatSnapshot[],
+): RollRefusal | undefined {
+  const action = actionsOf(sheet).find(
+    ({ id, activity }) => id === input.item && activity?.id === input.activity,
+  )
+  if (!action?.activity || !action.identified) return 'unknown'
+  const slot = checkSlot(input, action, sheet)
+  if (slot) return slot
+  const targets = input.targets ?? []
+  const level = castAtLevel(action, sheet.spells, input.slot)
+  if (targets.length > mostTargets(action.activity, action.level, level)) {
+    return 'target'
+  }
+  return checkTargets(targets, combats)
+}
+
+/**
+ * Can a spell be cast with the slot chosen: one of the spell's pools, with one left? With none
+ * chosen, has it any slot, or use of its own, left? A slot chosen for a spell cast without slots,
+ * such as an innate one, is the game's to leave out.
+ */
+function checkSlot(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+): RollRefusal | undefined {
+  const pools = slotPools(action, sheet.spells)
+  if (!input.slot) return outOfSlots(action, pools) ? 'slots' : undefined
+  if (!pools) return undefined
+  const pool = pools.find(({ id }) => id === input.slot)
+  return pool && pool.value > 0 ? undefined : 'slot'
+}
+
+/** Are these combatants of a combat their player can see, as picked? */
+function checkTargets(
+  targets: AttackTarget[],
+  combats: CombatSnapshot[],
+): RollRefusal | undefined {
+  for (const target of targets) {
     const combatant = combats
       .find(({ id }) => id === target.combatId)
       ?.combatants.find(({ id }) => id === target.combatantId)
@@ -148,21 +222,22 @@ function checkAttack(
   return undefined
 }
 
-/** The character's attacks: its actions', and its favorite activities'. */
-function attacksOf(sheet: CharacterSheet): SheetAction[] {
+/** The character's actions, and its favorite activities as actions. */
+function actionsOf(sheet: CharacterSheet): SheetAction[] {
   const actions = sheet.actions.flatMap(section => section.actions)
   const favorites = favoriteEntries(sheet).flatMap(entry =>
     entry.kind === 'action' ? [entry.action] : [],
   )
-  return [...actions, ...favorites].filter(action => action.attackId)
+  return [...actions, ...favorites]
 }
 
 /**
- * Can this damage be rolled: does it follow the character's own attack, made in the game lately,
- * that said damage follows; is no other damage for it on its way or made; and are its dice those
- * the attack said its damage throws, in order?
- * @param use - The attack, if it's the character's.
- * @param others - The other damage asked for the same attack.
+ * Can this damage be rolled: does it follow the character's own attack or use, made in the game
+ * lately, that said damage or healing follows; is no other damage for it on its way or made; are
+ * its dice those it said its damage throws, in order; and is each kind of damage chosen one its
+ * roll offers?
+ * @param use - The attack or use, if it's the character's.
+ * @param others - The other damage asked for the same attack or use.
  */
 export function checkDamage(
   input: RollRequestInput,
@@ -170,7 +245,8 @@ export function checkDamage(
   others: Pick<HeldRollRequest, 'status' | 'createdAt' | 'claimedAt'>[],
   now = Date.now(),
 ): RollRefusal | undefined {
-  if (use?.kind !== 'attack' || use.status !== 'done') return 'gone'
+  const follows = use?.kind === 'attack' || use?.kind === 'use'
+  if (!use || !follows || use.status !== 'done') return 'gone'
   if (now - use.createdAt.getTime() > DAMAGE_WITHIN) return 'gone'
   const damage = (use.result as CommandResult | null)?.damage
   if (!damage) return 'no-damage'
@@ -188,7 +264,16 @@ export function checkDamage(
         faces === planned[index].faces &&
         results.length === planned[index].number,
     )
-  return matches ? undefined : 'dice'
+  if (!matches) return 'dice'
+  const types = input.types ?? []
+  const offered =
+    types.length <= damage.rolls.length &&
+    types.every(
+      (type, index) =>
+        type === null ||
+        (damage.rolls[index].types ?? []).some(({ key }) => key === type),
+    )
+  return offered ? undefined : 'type'
 }
 
 /** Nothing, for what the sheet has; or that it doesn't. */
@@ -242,10 +327,11 @@ export function toRollRequestView(
     return { id: request.id, status, reason: result?.reason ?? undefined }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
-  // An attack's damage is the player's to roll, even of an attack they can't see.
+  // An attack's or a use's damage is the player's to roll, even of one they can't see.
   const damage = result.damage === undefined ? {} : { damage: result.damage }
+  const use = result.use ? { use: result.use } : {}
   if (!result.visible)
-    return { id: request.id, status, visible: false, ...damage }
+    return { id: request.id, status, visible: false, ...use, ...damage }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
     id: request.id,
@@ -255,6 +341,7 @@ export function toRollRequestView(
       request.kind === 'damage' ? sumOf(rolls) : (rolls[0]?.total ?? undefined),
     rolls,
     ...(result.attack ? { attack: result.attack } : {}),
+    ...use,
     ...damage,
   }
 }

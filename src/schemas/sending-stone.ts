@@ -1,6 +1,10 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { z } from 'zod'
-import { EVENTS, MAX_DAMAGE_TERMS } from '@/constants/sending-stone'
+import {
+  DAMAGE_TYPE,
+  EVENTS,
+  MAX_DAMAGE_TERMS,
+} from '@/constants/sending-stone'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import type { GameEvent } from '@/types/sending-stone'
 
@@ -224,6 +228,32 @@ const detailSchema = z.looseObject({
   value: z.string(),
 })
 
+/**
+ * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
+ * kinds of activity the game uses, or none.
+ */
+const useSchema = z
+  .looseObject({
+    id: z.string().min(1),
+    type: z.enum(['save', 'damage', 'heal', 'utility']),
+    targets: z.looseObject({
+      self: z.boolean().catch(false),
+      area: z.boolean().catch(false),
+      count: z.int().positive().nullable().catch(null),
+      perLevel: z
+        .int()
+        .positive()
+        .nullable()
+        .optional()
+        .catch(null)
+        .transform(value => value ?? null),
+      affects: nullableString,
+    }),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+
 /** What an action does, as an action or one of an item's activities has it. */
 const actionFields = {
   activation: nullableString,
@@ -232,6 +262,24 @@ const actionFields = {
   toHit: nullableNumber,
   // From module 0.11.0: the attack activity the bonus to hit is for.
   attackId: z.string().nullable().optional().catch(null),
+  // From module 0.12.0.
+  activity: useSchema,
+  attackModes: z
+    .array(z.looseObject({ value: z.string().min(1), label: z.string() }))
+    .nullable()
+    .optional()
+    .catch(null),
+  ammunition: z
+    .array(
+      z.looseObject({
+        id: z.string().min(1),
+        name: z.string(),
+        quantity: z.number().catch(0),
+      }),
+    )
+    .nullable()
+    .optional()
+    .catch(null),
   save: z
     .object({ ability: z.string(), dc: nullableNumber })
     .nullable()
@@ -621,15 +669,35 @@ const commandResultSchema = z.object({
     .nullable()
     .optional()
     .catch(null),
+  // From module 0.12.0, for a use.
+  use: z
+    .object({ type: z.string().max(32) })
+    .nullable()
+    .optional()
+    .catch(null),
   damage: z
     .object({
       critical: z.boolean().catch(false),
       plannable: z.boolean().catch(false),
+      // From module 0.12.0.
+      healing: z.boolean().optional().catch(false),
       rolls: z
         .array(
           z.object({
             formula: z.string().max(500),
             type: z.string().max(64).nullable().catch(null),
+            // From module 0.12.0: the kinds of damage its roller chooses among.
+            types: z
+              .array(
+                z.object({
+                  key: z.string().regex(DAMAGE_TYPE),
+                  label: z.string().max(64),
+                }),
+              )
+              .max(20)
+              .nullable()
+              .optional()
+              .catch(null),
             dice: z
               .array(
                 z.object({

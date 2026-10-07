@@ -6,6 +6,7 @@ import { parseExtraTerms, type ExtraTerm } from '@/utils/roll-modifiers'
 import type {
   LocalCheck,
   LocalDamage,
+  LocalUse,
   SheetDamageRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
@@ -16,6 +17,7 @@ import type {
   RollRequestView,
   RollSource,
   RollStatus,
+  UseSource,
 } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
 
@@ -39,27 +41,29 @@ export const SEND_KEY = 'sending-stone:send-rolls'
 
 const SEND_CHOICES = ['on', 'off'] as const
 
-/** An attack's item and attack activity, by which its damage is found. */
+/** An attack's or a use's item and activity, by which its damage is found. */
 export type AttackSource = { item: string; activity: string }
 
 /**
  * A roll's way to the Gamemaster's game, as its player is told: as the app has it, or refused,
- * when the app didn't take it for the game at all, saying why. An attack's also keeps its id at the
- * table and what it was made with, so that its damage can be rolled there too, once.
+ * when the app didn't take it for the game at all, saying why. An attack's or a use's also keeps
+ * its id at the table and what it was made with, so that its damage can be rolled there too, once.
  */
 export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   status: RollStatus | 'refused'
   /** Its id at the table, once the app has taken it. */
   requestId?: string
-  /** For an attack, its item and attack activity. */
+  /** For an attack or a use, its item and activity. */
   source?: AttackSource
-  /** For an attack, whether its damage has been sent. */
+  /** For a use, what was used, such as "Fireball", which its damage is named after. */
+  name?: string
+  /** For an attack or a use, whether its damage has been sent. */
   damaged?: boolean
 }
 
-/** An attack made at the table whose damage is still to roll there. */
+/** An attack or a use made at the table whose damage is still to roll there. */
 export type DueDamage = {
-  /** The attack's id at the table. */
+  /** The attack's or use's id at the table. */
   use: string
   damage: DamagePreview
 }
@@ -148,10 +152,10 @@ export function useTableRolls(
 
   const sendDamage = useCallback(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
-      const { use } = roll
+      const { use, types } = roll
       const { kinds, on } = latest.current
       if (!on || !use || !kinds.includes('damage')) return
-      // Its attack's damage is on its way: it isn't offered again.
+      // Its attack's or use's damage is on its way: it isn't offered again.
       setStates(held => {
         const next = new Map(held)
         for (const [id, state] of next) {
@@ -168,8 +172,34 @@ export function useTableRolls(
           explicit: false,
           extras: [],
           dice: damageDice(roll, damage),
+          ...(types?.some(type => type !== null) && { types }),
         },
         {},
+      )
+    },
+    [start],
+  )
+
+  const sendUse = useCallback(
+    (used: LocalUse, use: UseSource) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('use')) return
+      const { item, activity, targets } = use
+      start(
+        used.id,
+        {
+          kind: 'use',
+          item,
+          activity,
+          targets,
+          // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own slot
+          slot: use.slot ?? null,
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+        },
+        { source: { item, activity }, name: used.label },
       )
     },
     [start],
@@ -182,6 +212,7 @@ export function useTableRolls(
   return {
     send,
     sendDamage,
+    sendUse,
     states,
     /** Whether the game takes any of the player's rolls now. */
     available: kinds.length > 0,
@@ -190,9 +221,12 @@ export function useTableRolls(
     setSending,
     /** Whether the game takes this kind of roll from this device now. */
     takes: (kind: RollKind) => on && kinds.includes(kind),
-    /** The attack at the table with this id, if its damage is still to roll there. */
+    /** The attack or use at the table with this id, if its damage is still to roll there. */
     dueDamage: (use: string) => dueOf(states, state => state.requestId === use),
-    /** The latest attack at the table made with this item and activity, if its damage is due. */
+    /**
+     * The latest attack or use at the table made with this item and activity, if its damage is
+     * due.
+     */
     dueFor: (source: AttackSource) =>
       dueOf(
         states,
@@ -309,6 +343,9 @@ export function toRollRequest(
       activity: source.activity,
       // eslint-disable-next-line unicorn/no-null -- the protocol's for no target
       target: source.target ?? null,
+      ...(source.slot && { slot: source.slot }),
+      ...(source.ammunition && { ammunition: source.ammunition }),
+      ...(source.attackMode && { attackMode: source.attackMode }),
     }),
     mode: modeOf(check.advantage),
     explicit: roll.explicit === true,
@@ -341,25 +378,53 @@ function damageDice(roll: SheetDamageRoll, damage: LocalDamage): RolledDice[] {
 }
 
 /**
- * An attack's damage, to roll as the game said it will: each of its rolls a part, with its dice as
- * the game will throw them, a critical hit's already doubled, and its numbers where the app can
- * read them. Damage the game can't say beforehand has no dice here: the game rolls them.
- * @param label - What the attack was made with, such as "Longsword".
+ * An attack's or a use's damage or healing, to roll as the game said it will: each of its rolls a
+ * part, with its dice as the game will throw them, a critical hit's already doubled, and its
+ * numbers where the app can read them, as the kind of damage chosen, if any. Damage the game can't
+ * say beforehand has no dice here: the game rolls them.
+ * @param label - What the attack or use was made with, such as "Longsword".
+ * @param type - The kind of damage chosen, such as "fire", for each roll that offers it.
  */
 export function damageRollOf(
   label: string,
   { use, damage }: DueDamage,
+  type?: string,
 ): SheetDamageRoll {
+  const healing = damage.healing === true
+  const types = type ? typesFor(damage, type) : undefined
   return {
-    label: `${label} damage`,
+    label: `${label} ${healing ? 'healing' : 'damage'}`,
     critical: damage.critical,
+    healing,
     exact: true,
     use,
-    parts: damage.rolls.map(roll => ({
-      type: roll.type,
+    ...(types && { types }),
+    parts: damage.rolls.map((roll, index) => ({
+      type: chosenLabel(roll, types?.[index]) ?? roll.type,
       terms: damage.plannable ? termsOf(roll) : [],
     })),
   }
+}
+
+/** The kinds of damage among which a roll of damage lets its roller choose, if any. */
+export function choicesOf(damage: DamagePreview) {
+  return damage.rolls.find(roll => (roll.types?.length ?? 0) > 1)?.types ?? []
+}
+
+/** The kind chosen for each of damage's rolls: this one, for each roll that offers it. */
+function typesFor(damage: DamagePreview, type: string): (string | null)[] {
+  return damage.rolls.map(roll =>
+    // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own choice
+    roll.types?.some(({ key }) => key === type) ? type : null,
+  )
+}
+
+/** A kind of damage chosen, as the game labels it. */
+function chosenLabel(
+  roll: DamagePreview['rolls'][number],
+  type: string | null | undefined,
+): string | undefined {
+  return roll.types?.find(({ key }) => key === type)?.label
 }
 
 /**

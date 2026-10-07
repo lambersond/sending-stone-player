@@ -1,9 +1,13 @@
 import { DIE_SIDES } from '@lambersond/3d-dice-core'
 import { z } from 'zod'
 import {
+  ATTACK_MODE,
+  DAMAGE_TYPE,
   MAX_DAMAGE_TERMS,
+  MAX_USE_TARGETS,
   PROTOCOL_VERSION,
   ROLL_KINDS,
+  SPELL_SLOT,
 } from '@/constants/sending-stone'
 import { MAX_DICE, MAX_FLAT, type ExtraTerm } from '@/utils/roll-modifiers'
 import type { RollRequestInput } from '@/types/roll'
@@ -34,6 +38,12 @@ const extraTermSchema = z.union([
   z.strictObject({ sign, flat: z.int().min(0).max(MAX_FLAT) }),
 ])
 
+/** A combatant picked, in a combat its player sees. */
+const targetSchema = z.strictObject({
+  combatId: z.string().regex(FOUNDRY_ID),
+  combatantId: z.string().regex(FOUNDRY_ID),
+})
+
 const rolledDiceSchema = z.strictObject({
   faces: z.int().min(2).max(100),
   results: z
@@ -47,8 +57,11 @@ const rolledDiceSchema = z.strictObject({
  * must be exactly those the roll throws: its d20, or two of them with advantage or disadvantage,
  * then the dice of each term added, in order, each result one of the die's faces. The game uses
  * them as they are, so no more could be slipped in. An attack names the item and attack activity
- * it's made with, and the combatant it's made at, if any; its damage names the attack, and has the
- * dice that attack said its damage throws, which are checked against them when it's taken.
+ * it's made with, the combatant it's made at, if any, and the spell slot, ammunition and attack
+ * mode chosen, if any. A use of a spell or feature names its item and activity, the combatants it's
+ * used at, all in one combat, and the spell slot chosen, if any, and throws no dice. Their damage
+ * names the attack or use, the dice it said its damage throws, which are checked against them when
+ * it's taken, and the kinds of damage chosen.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -61,24 +74,27 @@ export const rollRequestSchema = z
     combatId: z.string().regex(FOUNDRY_ID).optional(),
     item: z.string().regex(FOUNDRY_ID).optional(),
     activity: z.string().regex(FOUNDRY_ID).optional(),
-    target: z
-      .strictObject({
-        combatId: z.string().regex(FOUNDRY_ID),
-        combatantId: z.string().regex(FOUNDRY_ID),
-      })
-      .nullable()
-      .optional(),
+    target: targetSchema.nullable().optional(),
+    targets: z.array(targetSchema).max(MAX_USE_TARGETS).optional(),
+    slot: z.string().regex(SPELL_SLOT).nullable().optional(),
+    ammunition: z.string().regex(FOUNDRY_ID).optional(),
+    attackMode: z.string().regex(ATTACK_MODE).optional(),
     use: z.string().regex(REQUEST_ID).optional(),
+    types: z
+      .array(z.string().regex(DAMAGE_TYPE).nullable())
+      .max(MAX_DAMAGE_TERMS)
+      .optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
+    const use = request.kind === 'use'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
-    if (attack ? !both : named) {
+    if (attack || use ? !both : named) {
       context.addIssue({
         code: 'custom',
         path: ['activity'],
-        message: 'An attack, and only an attack, is made with an item',
+        message: 'An attack or a use, and only those, is made with an item',
       })
     }
     if (!attack && request.target !== undefined) {
@@ -86,6 +102,46 @@ export const rollRequestSchema = z
         code: 'custom',
         path: ['target'],
         message: 'Only an attack has a target',
+      })
+    }
+    if (use !== (request.targets !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['targets'],
+        message: 'A use, and only a use, has its targets',
+      })
+    }
+    const targets = request.targets ?? []
+    const combats = new Set(targets.map(({ combatId }) => combatId))
+    const combatants = new Set(targets.map(({ combatantId }) => combatantId))
+    if (combats.size > 1 || combatants.size < targets.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['targets'],
+        message: 'A use is made at different combatants of one combat',
+      })
+    }
+    if (!attack && !use && request.slot !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['slot'],
+        message: 'Only an attack or a use casts a spell',
+      })
+    }
+    const weapon =
+      request.ammunition !== undefined || request.attackMode !== undefined
+    if (!attack && weapon) {
+      context.addIssue({
+        code: 'custom',
+        path: ['attackMode'],
+        message: 'Only an attack is made with ammunition, in a mode',
+      })
+    }
+    if (request.kind !== 'damage' && request.types !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['types'],
+        message: 'Only damage has kinds to choose',
       })
     }
     const keyed = ['skill', 'tool', 'ability', 'save'].includes(request.kind)
@@ -107,8 +163,23 @@ export const rollRequestSchema = z
       context.addIssue({
         code: 'custom',
         path: ['use'],
-        message: 'Damage, and only damage, follows an attack',
+        message: 'Damage, and only damage, follows an attack or a use',
       })
+    }
+    if (use) {
+      const plain =
+        request.mode === 0 &&
+        !request.explicit &&
+        request.extras.length === 0 &&
+        request.dice.length === 0
+      if (!plain) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dice'],
+          message: 'A use throws no dice',
+        })
+      }
+      return
     }
     if (request.kind === 'damage') {
       const plain =
