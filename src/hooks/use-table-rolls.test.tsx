@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react'
 import {
   CHECK_EVERY,
+  choicesOf,
   damageRollOf,
   FOLLOW_FOR,
   LATE_FOLLOW,
@@ -12,6 +13,7 @@ import {
 import type {
   LocalCheck,
   LocalDamage,
+  LocalUse,
   SheetDamageRoll,
   SheetRoll,
 } from './use-sheet-roller'
@@ -181,6 +183,28 @@ describe('hooks/use-table-rolls', () => {
         ),
       ).toMatchObject({ kind: 'attack', target: null })
     })
+
+    it('asks for an attack with the spell slot, ammunition and attack mode chosen', () => {
+      const thrown = check({ advantage: undefined, d20s: [15], extras: [] })
+      expect(
+        toRollRequest(
+          longsword,
+          {
+            kind: 'attack',
+            item: 'bow',
+            activity: 'shoot',
+            slot: 'spell2',
+            ammunition: 'arrows',
+            attackMode: 'twoHanded',
+          },
+          thrown,
+        ),
+      ).toMatchObject({
+        slot: 'spell2',
+        ammunition: 'arrows',
+        attackMode: 'twoHanded',
+      })
+    })
   })
 
   describe('damageRollOf', () => {
@@ -190,6 +214,7 @@ describe('hooks/use-table-rolls', () => {
       ).toEqual<SheetDamageRoll>({
         label: 'Longsword damage',
         critical: false,
+        healing: false,
         exact: true,
         use: 'req-1',
         parts: [
@@ -226,6 +251,7 @@ describe('hooks/use-table-rolls', () => {
       ).toEqual({
         label: 'Longsword damage',
         critical: true,
+        healing: false,
         exact: true,
         use: 'req-1',
         parts: [
@@ -239,6 +265,75 @@ describe('hooks/use-table-rolls', () => {
           { type: 'fire', terms: [{ sign: 1, count: 2, sides: 6 }] },
         ],
       })
+    })
+
+    it('rolls healing as healing, and the kind of damage chosen for each roll that offers it', () => {
+      const fire = { key: 'fire', label: 'Fire' }
+      const cold = { key: 'cold', label: 'Cold' }
+      expect(
+        damageRollOf('Cure Wounds', {
+          use: 'req-1',
+          damage: preview({
+            healing: true,
+            rolls: [
+              {
+                formula: '2d8 + 3',
+                type: 'Healing',
+                dice: [{ faces: 8, number: 2 }],
+              },
+            ],
+          }),
+        }),
+      ).toMatchObject({ label: 'Cure Wounds healing', healing: true })
+
+      const orb = preview({
+        rolls: [
+          {
+            formula: '3d8',
+            type: 'Acid',
+            types: [{ key: 'acid', label: 'Acid' }, fire, cold],
+            dice: [{ faces: 8, number: 3 }],
+          },
+          {
+            formula: '1d6',
+            type: 'Acid',
+            types: [fire, cold],
+            dice: [{ faces: 6, number: 1 }],
+          },
+          { formula: '2', type: 'Force', dice: [] },
+        ],
+      })
+      expect(choicesOf(orb)).toEqual([
+        { key: 'acid', label: 'Acid' },
+        fire,
+        cold,
+      ])
+      expect(choicesOf(preview())).toEqual([])
+      const chosen = damageRollOf(
+        'Chromatic Orb',
+        { use: 'req-1', damage: orb },
+        'acid',
+      )
+      expect(chosen.types).toEqual(['acid', null, null])
+      expect(chosen.parts.map(part => part.type)).toEqual([
+        'Acid',
+        'Acid',
+        'Force',
+      ])
+      const cooled = damageRollOf(
+        'Chromatic Orb',
+        { use: 'req-1', damage: orb },
+        'cold',
+      )
+      expect(cooled.types).toEqual(['cold', 'cold', null])
+      expect(cooled.parts.map(part => part.type)).toEqual([
+        'Cold',
+        'Cold',
+        'Force',
+      ])
+      expect(
+        damageRollOf('Chromatic Orb', { use: 'req-1', damage: orb }).types,
+      ).toBeUndefined()
     })
 
     it('throws no dice for damage the game rolls itself', () => {
@@ -559,6 +654,129 @@ describe('hooks/use-table-rolls', () => {
         ),
       )
       expect(fetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('uses', () => {
+    const fireball: LocalUse = {
+      kind: 'use',
+      id: 'u1',
+      label: 'Fireball',
+      spell: true,
+      at: 0,
+    }
+    const cast = {
+      kind: 'use' as const,
+      item: 'fireball',
+      activity: 'blast',
+      targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }],
+      slot: 'spell4',
+    }
+
+    it('sends a use, with no dice, and follows it until the game has made it, its damage then due', async () => {
+      const fire = { key: 'fire', label: 'Fire' }
+      const damage = preview({
+        rolls: [
+          {
+            formula: '9d6',
+            type: 'Fire',
+            types: [fire, { key: 'cold', label: 'Cold' }],
+            dice: [{ faces: 6, number: 9 }],
+          },
+        ],
+      })
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            rolls: [],
+            use: { type: 'save' },
+            damage,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+      const { result } = render(['use', 'damage'])
+      expect(result.current.takes('use')).toBe(true)
+
+      act(() => result.current.sendUse(fireball, cast))
+      expect(fetch).toHaveBeenLastCalledWith('/api/characters/char-1/rolls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'use',
+          item: 'fireball',
+          activity: 'blast',
+          targets: cast.targets,
+          slot: 'spell4',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+        }),
+        signal: expect.any(AbortSignal),
+      })
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('u1')).toMatchObject({
+        status: 'done',
+        requestId: 'req-1',
+        name: 'Fireball',
+        source: { item: 'fireball', activity: 'blast' },
+        use: { type: 'save' },
+      })
+      const due = { use: 'req-1', damage }
+      expect(
+        result.current.dueFor({ item: 'fireball', activity: 'blast' }),
+      ).toEqual(due)
+
+      act(() =>
+        result.current.sendDamage(damageRollOf('Fireball', due, 'fire'), {
+          ...thrownDamage(),
+          parts: [
+            {
+              type: 'Fire',
+              total: 9,
+              terms: [
+                { text: '9d6', values: [1, 1, 1, 1, 1, 1, 1, 1, 1], value: 9 },
+              ],
+            },
+          ],
+        }),
+      )
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.lastCall?.[1]?.body)),
+      ).toEqual({
+        kind: 'damage',
+        use: 'req-1',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 6, results: [1, 1, 1, 1, 1, 1, 1, 1, 1] }],
+        types: ['fire'],
+      })
+      expect(
+        result.current.dueFor({ item: 'fireball', activity: 'blast' }),
+      ).toBeUndefined()
+    })
+
+    it("sends the game's own slot for none chosen, and no use the game doesn't take", () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render(['attack', 'damage'])
+      act(() => result.current.sendUse(fireball, cast))
+      expect(fetch).not.toHaveBeenCalled()
+
+      const { result: taking } = render(['use'])
+      act(() => taking.current.sendUse(fireball, { ...cast, slot: undefined }))
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.lastCall?.[1]?.body)),
+      ).toMatchObject({
+        kind: 'use',
+        slot: null,
+      })
     })
   })
 

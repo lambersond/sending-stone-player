@@ -55,8 +55,12 @@ export type SheetDamageRoll = {
   healing?: boolean
   /** The attack it's the damage of: its item and attack activity. */
   source?: { item: string; activity: string }
-  /** The attack made in the Gamemaster's game whose damage this is, to be rolled there too. */
+  /**
+   * The attack or use made in the Gamemaster's game whose damage this is, to be rolled there too.
+   */
   use?: string
+  /** For the game, the kind of damage chosen for each of its rolls that offers a choice. */
+  types?: (string | null)[]
   /** Its dice are the game's, a critical hit's already doubled. */
   exact?: boolean
 }
@@ -100,13 +104,31 @@ export type LocalDamage = {
   at: number
 }
 
-/** A roll as this page keeps it. */
-export type LocalRoll = LocalCheck | LocalDamage
+/**
+ * A spell or feature used in the Gamemaster's game, as this page keeps it: it throws no dice of
+ * its own, but follows its way to the game.
+ */
+export type LocalUse = {
+  kind: 'use'
+  id: string
+  /** What was used, such as "Fireball". */
+  label: string
+  /** A spell, which is cast, rather than used. */
+  spell: boolean
+  at: number
+}
+
+/** A roll as this page keeps it, or a use. */
+export type LocalRoll = LocalCheck | LocalDamage | LocalUse
+
+/** How many uses this page has kept, for their ids. */
+let uses = 0
 
 /**
  * Rolls checks, saves, attacks and damage from the player's character sheet, tumbling 3D dice
- * across the screen. Each result is revealed once the dice land on it, and kept on this page.
- * Must be used within a DiceRendererProvider.
+ * across the screen. Each result is revealed once the dice land on it, and kept on this page, as
+ * are the spells and features used, which throw no dice. Must be used within a
+ * DiceRendererProvider.
  * @param onThrown - Told of each check or save as its dice are thrown, before they land, with
  * what they came to: to have the Gamemaster's game make it too.
  * @param onDamageThrown - The same, for damage.
@@ -202,7 +224,20 @@ export function useSheetRoller(
     [land, onDamageThrown],
   )
 
-  return { roll, rollDamage, rolls, rolling: inFlight > 0 }
+  // Keeps a spell or feature used, first among the rolls.
+  const logUse = useCallback((label: string, spell: boolean): LocalUse => {
+    const used: LocalUse = {
+      kind: 'use',
+      id: `use-${Date.now()}-${++uses}`,
+      label,
+      spell,
+      at: Date.now(),
+    }
+    setRolls(earlier => [used, ...earlier].slice(0, ROLL_HISTORY))
+    return used
+  }, [])
+
+  return { roll, rollDamage, logUse, rolls, rolling: inFlight > 0 }
 }
 
 function toLocalRoll(

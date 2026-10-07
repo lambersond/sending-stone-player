@@ -2,7 +2,11 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RollTray, type TableRolls } from './roll-tray'
-import type { LocalCheck, LocalDamage } from '@/hooks/use-sheet-roller'
+import type {
+  LocalCheck,
+  LocalDamage,
+  LocalUse,
+} from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
 
 const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
@@ -513,6 +517,310 @@ describe('components/character-sheet/roll-tray', () => {
         expect(
           screen.getByText(
             'Checks, saves and attacks you roll here are made in your Gamemaster’s game too, with the same dice.',
+          ),
+        ).toBeInTheDocument()
+      })
+
+      it('offers the kinds of damage the game lets the attacker choose, a button each', async () => {
+        const user = userEvent.setup()
+        const rollDamage = jest.fn()
+        const orb = {
+          ...preview,
+          rolls: [
+            {
+              formula: '3d8',
+              type: 'acid',
+              types: [
+                { key: 'acid', label: 'Acid' },
+                { key: 'fire', label: 'Fire' },
+              ],
+              dice: [{ faces: 8, number: 3 }],
+            },
+          ],
+        }
+        render(
+          <RollTray
+            rolls={[roll({ label: 'Chromatic Orb attack', total: 17 })]}
+            rolling={false}
+            table={table([['r1', made({ damage: orb })]], { rollDamage })}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Choose its kind of damage:AcidFire',
+        )
+        expect(screen.queryByRole('button', { name: 'Roll damage' })).toBeNull()
+        await user.click(
+          screen.getByRole('button', { name: 'Roll Fire damage' }),
+        )
+        expect(rollDamage).toHaveBeenCalledWith(
+          'Chromatic Orb',
+          { use: 'req-1', damage: orb },
+          'fire',
+        )
+      })
+    })
+
+    describe('spells and features', () => {
+      const fireball: LocalUse = {
+        kind: 'use',
+        id: 'u1',
+        label: 'Fireball',
+        spell: true,
+        at: 0,
+      }
+      const secondWind: LocalUse = {
+        ...fireball,
+        label: 'Second Wind',
+        spell: false,
+      }
+      const fire = {
+        critical: false,
+        plannable: true,
+        rolls: [
+          { formula: '8d6', type: 'fire', dice: [{ faces: 6, number: 8 }] },
+        ],
+      }
+      const heal = {
+        critical: false,
+        plannable: true,
+        healing: true,
+        rolls: [
+          {
+            formula: '1d10 + 5',
+            type: 'healing',
+            dice: [{ faces: 10, number: 1 }],
+          },
+        ],
+      }
+      const used = (fields: Partial<TableRollState> = {}): TableRollState => ({
+        status: 'done',
+        visible: true,
+        requestId: 'req-1',
+        use: { type: 'save' },
+        damage: fire,
+        ...fields,
+      })
+
+      it.each<[string, LocalUse, TableRollState, string]>([
+        [
+          'on its way',
+          fireball,
+          { status: 'sending' },
+          'Sending to your Gamemaster’s game…',
+        ],
+        [
+          'being cast',
+          fireball,
+          { status: 'rolling' },
+          'Casting it in your Gamemaster’s game…',
+        ],
+        [
+          'being used',
+          secondWind,
+          { status: 'rolling' },
+          'Using it in your Gamemaster’s game…',
+        ],
+        [
+          'cast, its damage to follow',
+          fireball,
+          used(),
+          'Cast at the table, its damage to follow',
+        ],
+        [
+          'used, its healing to follow',
+          secondWind,
+          used({ use: { type: 'heal' }, damage: heal }),
+          'Used at the table, its healing to follow',
+        ],
+        [
+          'cast, with nothing to follow',
+          fireball,
+          used({ use: { type: 'utility' }, damage: null }),
+          'Cast at the table',
+        ],
+        [
+          'cast, its damage sent',
+          fireball,
+          used({ damaged: true }),
+          'Cast at the table',
+        ],
+        [
+          'refused',
+          fireball,
+          { status: 'refused', reason: 'slot' },
+          'Not cast at the table: that spell slot can’t cast it',
+        ],
+        [
+          'failed in the game',
+          secondWind,
+          { status: 'failed', reason: 'consume' },
+          'Not used at the table: there’s nothing left to use it with',
+        ],
+        [
+          'failed for a reason it does not know',
+          secondWind,
+          { status: 'failed', reason: 'gremlins' },
+          'Not used at the table',
+        ],
+      ])('says where a use is when %s', (_, use, state, text) => {
+        render(
+          <RollTray
+            rolls={[use]}
+            rolling={false}
+            table={table([['u1', state]], { rollDamage: jest.fn() })}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          new RegExp(`^${use.label}${text}$`),
+        )
+        // Its damage or healing is rolled for it, with no button.
+        expect(screen.queryByRole('button')).toBeNull()
+      })
+
+      it.each([
+        ['activity', 'it can’t be used from Sending Stone'],
+        ['target', 'a target can’t be picked, or there are too many'],
+        ['type', 'it can’t deal that kind of damage'],
+        ['mode', 'the weapon can’t attack that way'],
+        ['ammo', 'you have none of that ammunition left'],
+        ['no-damage', 'no damage follows it'],
+      ])('says why when the game refuses it for %s', (reason, text) => {
+        render(
+          <RollTray
+            rolls={[fireball]}
+            rolling={false}
+            table={table([['u1', { status: 'failed', reason }]])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          `Not cast at the table: ${text}`,
+        )
+      })
+
+      it('offers the kinds of damage the game lets the caster choose, a button each, before it is rolled', async () => {
+        const user = userEvent.setup()
+        const rollDamage = jest.fn()
+        const breath = {
+          ...fire,
+          rolls: [
+            {
+              formula: '3d6',
+              type: 'acid',
+              types: [
+                { key: 'acid', label: 'Acid' },
+                { key: 'cold', label: 'Cold' },
+                { key: 'fire', label: 'Fire' },
+              ],
+              dice: [{ faces: 6, number: 3 }],
+            },
+          ],
+        }
+        render(
+          <RollTray
+            rolls={[{ ...fireball, label: 'Dragon’s Breath' }]}
+            rolling={false}
+            table={table([['u1', used({ damage: breath })]], { rollDamage })}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^Dragon’s BreathCast at the tableChoose its kind of damage:AcidColdFire$/,
+        )
+        await user.click(
+          screen.getByRole('button', { name: 'Roll Cold damage' }),
+        )
+        expect(rollDamage).toHaveBeenCalledWith(
+          'Dragon’s Breath',
+          { use: 'req-1', damage: breath },
+          'cold',
+        )
+      })
+
+      it('offers the kinds of healing to choose by their names', () => {
+        render(
+          <RollTray
+            rolls={[secondWind]}
+            rolling={false}
+            table={table(
+              [
+                [
+                  'u1',
+                  used({
+                    damage: {
+                      ...heal,
+                      rolls: [
+                        {
+                          ...heal.rolls[0],
+                          types: [
+                            { key: 'healing', label: 'Healing' },
+                            { key: 'temphp', label: 'Temporary Hit Points' },
+                          ],
+                        },
+                      ],
+                    },
+                  }),
+                ],
+              ],
+              { rollDamage: jest.fn() },
+            )}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Choose its kind of healing:',
+        )
+        expect(
+          screen.getAllByRole('button').map(button => button.ariaLabel),
+        ).toEqual(['Roll Healing', 'Roll Temporary Hit Points'])
+      })
+
+      it('marks each earlier use with how it went at the table', async () => {
+        const user = userEvent.setup()
+        render(
+          <RollTray
+            rolls={[
+              roll({ id: 'r1' }),
+              fireball,
+              { ...secondWind, id: 'u2' },
+              { ...fireball, id: 'u3', label: 'Shield' },
+            ]}
+            rolling={false}
+            table={table([
+              ['u1', used()],
+              ['u2', { status: 'rolling' }],
+              ['u3', { status: 'failed', reason: 'reaction' }],
+            ])}
+          />,
+        )
+
+        await user.click(screen.getByText('Earlier rolls (3)'))
+
+        expect(
+          screen.getAllByRole('listitem').map(item => item.textContent),
+        ).toEqual([
+          'Fireballcast· at the table',
+          'Second Windused· sending',
+          'Shieldcast· not at the table',
+        ])
+      })
+
+      it('names spells among the rolls made at the table, when the game takes them', () => {
+        render(
+          <RollTray
+            rolls={[]}
+            rolling={false}
+            table={table([], {
+              takes: kind => ['attack', 'use'].includes(kind),
+            })}
+          />,
+        )
+
+        expect(
+          screen.getByText(
+            'Checks, saves, attacks and spells you roll or cast here are made in your Gamemaster’s game too, with the same dice.',
           ),
         ).toBeInTheDocument()
       })

@@ -71,6 +71,7 @@ export async function listOwnedCampaigns(
         enabled: campaign.rollsEnabled,
         reaching: availableRollKinds(campaign).length > 0,
         attacks: campaign.rollKinds.includes('attack'),
+        spells: campaign.rollKinds.includes('use'),
       },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)

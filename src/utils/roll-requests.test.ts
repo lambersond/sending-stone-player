@@ -19,7 +19,11 @@ import {
   sheetSpell,
 } from '@/mocks/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
-import type { CommandResult, DamagePreview } from '@/types/sending-stone'
+import type {
+  CommandResult,
+  DamagePreview,
+  SheetAction,
+} from '@/types/sending-stone'
 
 const NOW = Date.parse('2026-10-09T20:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)
@@ -71,6 +75,103 @@ const damagePart = (total: number | null) => ({
   total,
   dice: [{ faces: 8, results: [{ result: 5, active: true }] }],
 })
+
+/** A spell with an activity the game uses. */
+const spell = (
+  id: string,
+  name: string,
+  level: number,
+  activity: NonNullable<SheetAction['activity']>,
+) => sheetAction({ id, name, type: 'spell', level, activity })
+
+/** Whom an activity is used at: one creature, unless said otherwise. */
+const targets = (
+  fields: Partial<NonNullable<SheetAction['activity']>['targets']>,
+) => ({
+  self: false,
+  area: false,
+  count: null,
+  perLevel: null,
+  affects: 'creature',
+  ...fields,
+})
+
+/** A cleric with Fireball, Cure Wounds and Bless, and Second Wind, with slots as given. */
+const cleric = (spell1 = 2, spell3 = 1) =>
+  fullerSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          spell('fireball', 'Fireball', 3, {
+            id: 'blast',
+            type: 'save',
+            targets: targets({ area: true }),
+          }),
+          spell('cure', 'Cure Wounds', 1, {
+            id: 'mend',
+            type: 'heal',
+            targets: targets({ count: 1, affects: 'ally' }),
+          }),
+          spell('bless', 'Bless', 1, {
+            id: 'blessing',
+            type: 'utility',
+            targets: targets({ count: 3, perLevel: 1 }),
+          }),
+          sheetAction({
+            id: 'wind',
+            name: 'Second Wind',
+            activity: {
+              id: 'breather',
+              type: 'heal',
+              targets: targets({ self: true, affects: 'self' }),
+            },
+          }),
+        ],
+      },
+    ],
+    spells: [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: spell1, max: 4, level: 1 },
+        spells: [
+          sheetSpell({ id: 'cure', name: 'Cure Wounds' }),
+          sheetSpell({ id: 'bless', name: 'Bless' }),
+        ],
+      },
+      {
+        id: 'spell2',
+        label: '2nd Level',
+        slots: { value: 0, max: 3, level: 2 },
+        spells: [],
+      },
+      {
+        id: 'spell3',
+        label: '3rd Level',
+        slots: { value: spell3, max: 2, level: 3 },
+        spells: [sheetSpell({ id: 'fireball', name: 'Fireball', level: 3 })],
+      },
+    ],
+  })
+
+/** A use of an item's activity at combatants of the combat, by their ids. */
+const useRequest = (
+  item: string,
+  activity: string,
+  at: string[],
+  fields: Partial<RollRequestInput> = {},
+) =>
+  request({
+    kind: 'use',
+    key: undefined,
+    item,
+    activity,
+    targets: at.map(combatantId => ({ combatId: 'cmbt1', combatantId })),
+    dice: [],
+    ...fields,
+  })
 
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
@@ -395,6 +496,206 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('checkRoll for an attack with choices', () => {
+    const fight = combat({
+      combatants: [combatant({ id: 'c-goblin', name: 'Goblin' })],
+    })
+    const sheet = fullerSheet({
+      actions: [
+        {
+          id: 'action',
+          label: 'Actions',
+          actions: [
+            sheetAction({
+              id: 'handaxe',
+              name: 'Handaxe',
+              type: 'weapon',
+              attackId: 'chop',
+              attackModes: [
+                { value: 'oneHanded', label: 'One-Handed' },
+                { value: 'thrown', label: 'Thrown' },
+              ],
+            }),
+            sheetAction({
+              id: 'bow',
+              name: 'Longbow',
+              type: 'weapon',
+              attackId: 'shoot',
+              ammunition: [
+                { id: 'arrows', name: 'Arrows', quantity: 12 },
+                { id: 'spent', name: 'Broken Arrows', quantity: 0 },
+              ],
+            }),
+            sheetAction({
+              id: 'orb',
+              name: 'Chromatic Orb',
+              type: 'spell',
+              level: 1,
+              attackId: 'orbCast',
+            }),
+          ],
+        },
+      ],
+      spells: [
+        {
+          id: 'spell1',
+          label: '1st Level',
+          slots: { value: 1, max: 2, level: 1 },
+          spells: [sheetSpell({ id: 'orb', name: 'Chromatic Orb' })],
+        },
+        {
+          id: 'spell2',
+          label: '2nd Level',
+          slots: { value: 0, max: 2, level: 2 },
+          spells: [],
+        },
+      ],
+    })
+    const check = (fields: Partial<RollRequestInput>) =>
+      checkRoll(
+        attackRequest({ ...targetAt('c-goblin'), ...fields }),
+        sheet,
+        [fight],
+        'actor-thorin',
+      )
+
+    it('lets an attack be made in a mode the weapon has, with its ammunition left, from a slot left', () => {
+      expect(
+        check({ item: 'handaxe', activity: 'chop', attackMode: 'thrown' }),
+      ).toBeUndefined()
+      expect(
+        check({ item: 'bow', activity: 'shoot', ammunition: 'arrows' }),
+      ).toBeUndefined()
+      expect(
+        check({ item: 'orb', activity: 'orbCast', slot: 'spell1' }),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      [
+        'a mode the weapon has not',
+        { item: 'handaxe', activity: 'chop', attackMode: 'twoHanded' },
+        'mode',
+      ],
+      [
+        'a mode for a weapon with one',
+        { item: 'bow', activity: 'shoot', attackMode: 'thrown' },
+        'mode',
+      ],
+      [
+        'ammunition used up',
+        { item: 'bow', activity: 'shoot', ammunition: 'spent' },
+        'ammo',
+      ],
+      [
+        'ammunition the weapon does not fire',
+        { item: 'handaxe', activity: 'chop', ammunition: 'arrows' },
+        'ammo',
+      ],
+      [
+        'a slot with none left',
+        { item: 'orb', activity: 'orbCast', slot: 'spell2' },
+        'slot',
+      ],
+      [
+        'a slot the character has not',
+        { item: 'orb', activity: 'orbCast', slot: 'spell5' },
+        'slot',
+      ],
+    ])('refuses an attack with %s', (_name, fields, reason) => {
+      expect(check(fields as Partial<RollRequestInput>)).toBe(reason)
+    })
+  })
+
+  describe('checkRoll for a use', () => {
+    const fight = combat({
+      combatants: [
+        combatant({ id: 'c-goblin', name: 'Goblin' }),
+        combatant({ id: 'c-hob', name: 'Hobgoblin' }),
+        combatant({ id: 'c-ogre', name: 'Ogre' }),
+        combatant({ id: 'c-lurker', name: 'Lurker', hidden: true }),
+        combatant({ id: 'c-vex', name: 'Vex', playerOwned: true }),
+        combatant({ id: 'c-thorin', character: 'actor-thorin' }),
+      ],
+    })
+    const check = (input: RollRequestInput, sheet = cleric()) =>
+      checkRoll(input, sheet, [fight], 'actor-thorin')
+
+    it('lets a spell or feature be used at the combatants picked, with a slot left', () => {
+      expect(
+        check(useRequest('fireball', 'blast', ['c-goblin', 'c-hob'])),
+      ).toBeUndefined()
+      expect(check(useRequest('cure', 'mend', ['c-vex']))).toBeUndefined()
+      expect(check(useRequest('wind', 'breather', []))).toBeUndefined()
+      expect(check(useRequest('fireball', 'blast', []))).toBeUndefined()
+      expect(
+        check(useRequest('cure', 'mend', ['c-vex'], { slot: 'spell3' })),
+      ).toBeUndefined()
+    })
+
+    it('takes more targets for a spell that takes more cast higher, chosen or by default', () => {
+      const four = ['c-goblin', 'c-hob', 'c-ogre', 'c-vex']
+      expect(
+        check(useRequest('bless', 'blessing', four.slice(0, 3))),
+      ).toBeUndefined()
+      expect(check(useRequest('bless', 'blessing', four))).toBe('target')
+      expect(
+        check(useRequest('bless', 'blessing', four, { slot: 'spell3' })),
+      ).toBeUndefined()
+      // With no 1st-level slot left, Bless is cast at 3rd, as dnd5e would.
+      expect(
+        check(useRequest('bless', 'blessing', four), cleric(0, 1)),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      [
+        'an activity the action is not used through',
+        useRequest('fireball', 'other', []),
+        'unknown',
+      ],
+      ['an attack', useRequest('cure', 'warhammerAttack', []), 'unknown'],
+      [
+        'a slot below the spell',
+        useRequest('fireball', 'blast', [], { slot: 'spell1' }),
+        'slot',
+      ],
+      [
+        'a slot with none left',
+        useRequest('cure', 'mend', ['c-vex'], { slot: 'spell2' }),
+        'slot',
+      ],
+      [
+        'more targets than it takes',
+        useRequest('cure', 'mend', ['c-vex', 'c-hob']),
+        'target',
+      ],
+      [
+        'a target for one used on its user',
+        useRequest('wind', 'breather', ['c-vex']),
+        'target',
+      ],
+      [
+        'a combatant its player cannot see',
+        useRequest('fireball', 'blast', ['c-lurker']),
+        'target',
+      ],
+      [
+        'a combatant not in the combat',
+        useRequest('fireball', 'blast', ['c-nobody']),
+        'target',
+      ],
+    ])('refuses a use with %s', (_name, input, reason) => {
+      expect(check(input)).toBe(reason)
+    })
+
+    it('refuses a spell with no slot left', () => {
+      expect(check(useRequest('fireball', 'blast', []), cleric(2, 0))).toBe(
+        'slots',
+      )
+    })
+  })
+
   describe('checkDamage', () => {
     const preview: DamagePreview = {
       critical: false,
@@ -461,6 +762,31 @@ describe('utils/roll-requests', () => {
       ['an attack made too long ago', use({ createdAt: ago(600_001) })],
     ])('refuses the damage of %s', (_name, attack) => {
       expect(checkDamage(thrown, attack, [], NOW)).toBe('gone')
+    })
+
+    it("lets a use's damage be rolled, as the kinds chosen among those its rolls offer", () => {
+      const fire = { key: 'fire', label: 'Fire' }
+      const cold = { key: 'cold', label: 'Cold' }
+      const offered = use({
+        kind: 'use',
+        result: result({
+          ...preview,
+          rolls: [
+            { ...preview.rolls[0], types: [fire, cold] },
+            preview.rolls[1],
+          ],
+        }),
+      })
+      const as = (types: (string | null)[]) => ({ ...thrown, types })
+      expect(checkDamage(thrown, offered, [], NOW)).toBeUndefined()
+      expect(checkDamage(as(['cold']), offered, [], NOW)).toBeUndefined()
+      expect(checkDamage(as(['fire', null]), offered, [], NOW)).toBeUndefined()
+      expect(checkDamage(as(['acid']), offered, [], NOW)).toBe('type')
+      expect(checkDamage(as([null, 'fire']), offered, [], NOW)).toBe('type')
+      expect(checkDamage(as(['fire', null, null]), offered, [], NOW)).toBe(
+        'type',
+      )
+      expect(checkDamage(as(['fire']), use(), [], NOW)).toBe('type')
     })
 
     it('refuses the damage of an attack no damage follows', () => {
@@ -699,6 +1025,42 @@ describe('utils/roll-requests', () => {
         status: 'done',
         visible: false,
         damage: preview,
+      })
+    })
+
+    it('says what kind of activity a use was, and the dice its healing throws, seen or not', () => {
+      const used = (visible: boolean): CommandResult => ({
+        ...attackResult(visible),
+        rolls: [],
+        attack: undefined,
+        use: { type: 'heal' },
+        damage: { ...preview, healing: true },
+      })
+      expect(
+        toRollRequestView(
+          held({ kind: 'use', status: 'done', result: used(true) }),
+          NOW,
+        ),
+      ).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        use: { type: 'heal' },
+        damage: { ...preview, healing: true },
+      })
+      expect(
+        toRollRequestView(
+          held({ kind: 'use', status: 'done', result: used(false) }),
+          NOW,
+        ),
+      ).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: false,
+        use: { type: 'heal' },
+        damage: { ...preview, healing: true },
       })
     })
 

@@ -74,9 +74,11 @@ export async function createRollRequest(
 
   const now = Date.now()
   const damage = input.kind === 'damage' && input.use ? input.use : undefined
-  // The combat a roll is made in: initiative's, or the one an attack's target is in.
+  // The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in.
   const combatId =
-    input.kind === 'initiative' ? input.combatId : input.target?.combatId
+    input.kind === 'initiative'
+      ? input.combatId
+      : (input.target?.combatId ?? input.targets?.[0]?.combatId)
   const [sheet, combats, use, others, inFlight, lastMinute] = await Promise.all(
     [
       prisma.actorSheet.findUnique({

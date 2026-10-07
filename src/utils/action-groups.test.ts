@@ -1,5 +1,7 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
+  castAtLevel,
+  defaultPool,
   groupActions,
   ordinal,
   outOfSlots,
@@ -287,6 +289,34 @@ describe('utils/action-groups', () => {
         ['spell3', 3],
         ['pact', null],
       ])
+    })
+  })
+
+  describe('defaultPool and castAtLevel', () => {
+    it("picks a spell's own slots, else the lowest spell level's left, then pact magic's, as dnd5e does", () => {
+      const missile = spell('missile', 'Magic Missile', 1)
+      expect(defaultPool(missile, spellbook)?.id).toBe('spell2')
+      expect(defaultPool(spell('hex', 'Hex', 1), spellbook)?.id).toBe('pact')
+      expect(defaultPool(spell('fireball', 'Fireball', 3), spellbook)?.id).toBe(
+        'spell3',
+      )
+      const spent = spellbook.map(section =>
+        section.slots
+          ? { ...section, slots: { ...section.slots, value: 0 } }
+          : section,
+      )
+      expect(defaultPool(missile, spent)).toBeNull()
+      expect(defaultPool(spell('bolt', 'Fire Bolt', 0), spellbook)).toBeNull()
+    })
+
+    it('casts a spell at the level of the slots chosen, else of those dnd5e picks, else its own', () => {
+      const missile = spell('missile', 'Magic Missile', 1)
+      expect(castAtLevel(missile, spellbook)).toBe(2)
+      expect(castAtLevel(missile, spellbook, 'spell3')).toBe(3)
+      expect(castAtLevel(spell('bolt', 'Fire Bolt', 0), spellbook)).toBe(0)
+      expect(
+        castAtLevel(sheetAction({ id: 'dagger', name: 'Dagger' }), spellbook),
+      ).toBeNull()
     })
   })
 

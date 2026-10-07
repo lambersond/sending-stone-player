@@ -323,6 +323,33 @@ describe('hooks/use-sheet-roller', () => {
     expect(result.current.rolling).toBe(false)
   })
 
+  it('keeps a spell or feature used, which throws no dice, first among the rolls', async () => {
+    const fake = renderer()
+    const { result } = renderHook(() => useSheetRoller())
+    await act(() =>
+      result.current.roll({ label: 'Perception check', modifier: 0 }),
+    )
+
+    let used: ReturnType<typeof result.current.logUse> | undefined
+    act(() => {
+      used = result.current.logUse('Fireball', true)
+    })
+    let other: typeof used
+    act(() => {
+      other = result.current.logUse('Second Wind', false)
+    })
+
+    expect(used).toMatchObject({ kind: 'use', label: 'Fireball', spell: true })
+    expect(other?.id).not.toBe(used?.id)
+    expect(result.current.rolls.map(roll => roll.label)).toEqual([
+      'Second Wind',
+      'Fireball',
+      'Perception check',
+    ])
+    expect(fake.roll).toHaveBeenCalledTimes(1)
+    expect(result.current.rolling).toBe(false)
+  })
+
   it(`keeps the latest ${ROLL_HISTORY} rolls, newest first`, async () => {
     renderer()
     const { result } = renderHook(() => useSheetRoller())

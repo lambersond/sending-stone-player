@@ -2,18 +2,25 @@ import clsx from 'clsx'
 import {
   Dices,
   EyeOff,
+  HeartPulse,
   LoaderCircle,
   Send,
+  Sparkles,
   Swords,
   TriangleAlert,
 } from 'lucide-react'
+import {
+  choicesOf,
+  type DueDamage,
+  type TableRollState,
+} from '@/hooks/use-table-rolls'
 import { formatModifier } from '@/utils/format-modifier'
 import type {
   LocalCheck,
   LocalDamage,
   LocalRoll,
+  LocalUse,
 } from '@/hooks/use-sheet-roller'
-import type { DueDamage, TableRollState } from '@/hooks/use-table-rolls'
 import type { RollKind } from '@/types/roll'
 
 /** The player's rolls' way to the Gamemaster's game. */
@@ -27,8 +34,11 @@ export type TableRolls = {
   setSending: (sending: boolean) => void
   /** Whether the game takes this kind of roll from this device now. */
   takes?: (kind: RollKind) => boolean
-  /** Roll the damage of an attack the game made, as the game said it will. */
-  rollDamage?: (name: string, due: DueDamage) => void
+  /**
+   * Roll the damage of an attack or use the game made, as the game said it will, as the kind of
+   * damage chosen, if any.
+   */
+  rollDamage?: (name: string, due: DueDamage, type?: string) => void
 }
 
 /**
@@ -64,6 +74,14 @@ export function RollTray({
     )
   } else if (latest?.kind === 'damage') {
     status = <DamageResult roll={latest} state={table?.states.get(latest.id)} />
+  } else if (latest?.kind === 'use') {
+    status = (
+      <UseResult
+        roll={latest}
+        state={table?.states.get(latest.id)}
+        onRollDamage={table?.rollDamage}
+      />
+    )
   } else if (latest) {
     status = (
       <CheckResult
@@ -97,7 +115,8 @@ export function RollTray({
                   <span className='truncate'>{roll.label}</span>
                   <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
                     {breakdown(roll)}
-                    {(roll.kind === 'check' || !byTheGame(roll)) && (
+                    {(roll.kind === 'check' ||
+                      (roll.kind === 'damage' && !byTheGame(roll))) && (
                       <>
                         {' = '}
                         <span className='text-sm font-semibold text-text-primary'>
@@ -105,7 +124,10 @@ export function RollTray({
                         </span>
                       </>
                     )}
-                    <TableMark state={table?.states.get(roll.id)} />
+                    <TableMark
+                      state={table?.states.get(roll.id)}
+                      used={roll.kind === 'use'}
+                    />
                   </span>
                 </li>
               ))}
@@ -156,6 +178,9 @@ function reachOf(table: TableRolls): string {
   if (!table.sending) {
     return 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'
   }
+  if (table.takes?.('use')) {
+    return 'Checks, saves, attacks and spells you roll or cast here are made in your Gamemaster’s game too, with the same dice.'
+  }
   return table.takes?.('attack')
     ? 'Checks, saves and attacks you roll here are made in your Gamemaster’s game too, with the same dice.'
     : 'Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.'
@@ -179,25 +204,28 @@ const REASONS: Record<string, string> = {
   'midi-off': 'your Gamemaster’s game isn’t taking attacks',
   'self-test': 'your Gamemaster’s game isn’t taking attacks',
   item: 'your character in the game hasn’t that item',
-  activity: 'it can’t be used now',
+  activity: 'it can’t be used from Sending Stone',
   area: 'area attacks aren’t made from here yet',
-  ammo: 'you have no ammunition left',
-  target: 'that target can’t be attacked',
+  ammo: 'you have none of that ammunition left',
+  mode: 'the weapon can’t attack that way',
+  target: 'a target can’t be picked, or there are too many',
   scene: 'your Gamemaster isn’t looking at that target’s scene',
   consume: 'there’s nothing left to use it with',
   slots: 'you have no spell slots left for it',
+  slot: 'that spell slot can’t cast it',
   'damage-type': 'its kind of damage is chosen in the game',
+  type: 'it can’t deal that kind of damage',
   'active-defence': 'your Gamemaster’s targets defend themselves',
   reaction: 'you’ve used your reaction',
   'bonus-action': 'you’ve used your bonus action',
   'midi-dialog': 'your Gamemaster’s game asks how to roll it',
   midi: 'your Gamemaster’s game stopped it',
   'no-attack': 'the attack wasn’t made',
-  gone: 'the attack can’t be found any more',
-  'not-waiting': 'the attack’s damage was rolled in the game',
-  'no-damage': 'no damage follows the attack',
+  gone: 'it can’t be found in the game any more',
+  'not-waiting': 'its damage was rolled in the game',
+  'no-damage': 'no damage follows it',
   damaged: 'its damage is rolled already',
-  dice: 'the dice weren’t the attack’s',
+  dice: 'the dice weren’t those the game said',
   invalid: 'your Gamemaster’s game couldn’t make it',
 }
 
@@ -265,7 +293,10 @@ function outcomeOf(state: TableRollState): string | undefined {
   return attack.critical ? 'Critical hit' : undefined
 }
 
-/** Roll the damage of an attack the game made, while the game waits for it. */
+/**
+ * Roll the damage or healing of an attack or use the game made, while the game waits for it: as
+ * one of the kinds of damage it offers, a button each, where it offers a choice.
+ */
 function DamageButton({
   name,
   state,
@@ -273,26 +304,66 @@ function DamageButton({
 }: Readonly<{
   name: string
   state: TableRollState
-  onRollDamage: (name: string, due: DueDamage) => void
+  onRollDamage: (name: string, due: DueDamage, type?: string) => void
 }>) {
   const { damage, requestId } = state
   if (state.status !== 'done' || !damage || state.damaged || !requestId) return
+  const due = { use: requestId, damage }
+  const Icon = damage.healing ? HeartPulse : Swords
+  const kind = damage.healing ? 'healing' : 'damage'
+  const button = clsx(
+    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+    damage.healing
+      ? 'bg-primary/10 text-primary hover:bg-primary/20'
+      : 'bg-damage/15 text-damage hover:bg-damage/25',
+  )
+  const choices = choicesOf(damage)
+  if (choices.length > 0) {
+    return (
+      <div className='mt-2'>
+        <p className='text-xs text-text-secondary'>
+          Choose its kind of {kind}:
+        </p>
+        <div className='mt-1 flex flex-wrap gap-1.5'>
+          {choices.map(({ key, label }) => (
+            <button
+              key={key}
+              type='button'
+              // A kind of healing names itself, such as Temporary Hit Points.
+              aria-label={
+                damage.healing ? `Roll ${label}` : `Roll ${label} ${kind}`
+              }
+              onClick={() => onRollDamage(name, due, key)}
+              className={button}
+            >
+              <Icon aria-hidden className='size-4' />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
   return (
     <button
       type='button'
-      onClick={() => onRollDamage(name, { use: requestId, damage })}
-      className='mt-2 flex items-center gap-1.5 rounded-lg bg-damage/15 px-3 py-1.5 text-sm font-semibold text-damage transition-colors hover:bg-damage/25'
+      onClick={() => onRollDamage(name, due)}
+      className={clsx(button, 'mt-2')}
     >
-      <Swords aria-hidden className='size-4' />
-      {damage.critical ? 'Roll critical damage' : 'Roll damage'}
+      <Icon aria-hidden className='size-4' />
+      {damage.critical ? `Roll critical ${kind}` : `Roll ${kind}`}
     </button>
   )
 }
 
 /** A roll's way to the game, in brief, among the earlier rolls. */
-function TableMark({ state }: Readonly<{ state?: TableRollState }>) {
+function TableMark({
+  state,
+  used = false,
+}: Readonly<{ state?: TableRollState; used?: boolean }>) {
   if (!state) return
   if (state.status === 'done') {
+    if (used) return <span className='ml-1.5'>· at the table</span>
     return (
       <span className='ml-1.5'>
         {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
@@ -312,7 +383,7 @@ function CheckResult({
 }: Readonly<{
   roll: LocalCheck
   state?: TableRollState
-  onRollDamage?: (name: string, due: DueDamage) => void
+  onRollDamage?: (name: string, due: DueDamage, type?: string) => void
 }>) {
   const critical = roll.natural === 20
   const fumble = roll.natural === 1
@@ -419,6 +490,91 @@ function DamageResult({
   )
 }
 
+/**
+ * A spell or feature used in the game: its way there, and once it's made, the damage or healing
+ * that follows it, rolled at once, unless its kind is to be chosen first.
+ */
+function UseResult({
+  roll,
+  state,
+  onRollDamage,
+}: Readonly<{
+  roll: LocalUse
+  state?: TableRollState
+  onRollDamage?: (name: string, due: DueDamage, type?: string) => void
+}>) {
+  const status = state && <UseStatus roll={roll} state={state} />
+  return (
+    <div className='flex items-center gap-3'>
+      <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'>
+        <Sparkles aria-hidden className='size-6' />
+      </span>
+      <div className='min-w-0'>
+        <p className='truncate font-semibold'>{roll.label}</p>
+        {status}
+        {state &&
+          onRollDamage &&
+          state.damage &&
+          choicesOf(state.damage).length > 0 && (
+            <DamageButton
+              name={roll.label}
+              state={state}
+              onRollDamage={onRollDamage}
+            />
+          )}
+      </div>
+    </div>
+  )
+}
+
+/** Where a use is on its way to the game, or what became of it. */
+function UseStatus({
+  roll,
+  state,
+}: Readonly<{ roll: LocalUse; state: TableRollState }>) {
+  const verb = roll.spell ? 'Cast' : 'Used'
+  const line = 'mt-1 flex items-center gap-1.5 text-xs'
+  switch (state.status) {
+    case 'sending':
+    case 'rolling': {
+      return (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <LoaderCircle
+            aria-hidden
+            className='size-3.5 shrink-0 motion-safe:animate-spin'
+          />
+          {state.status === 'sending'
+            ? 'Sending to your Gamemaster’s game…'
+            : `${roll.spell ? 'Casting' : 'Using'} it in your Gamemaster’s game…`}
+        </p>
+      )
+    }
+    case 'done': {
+      const { damage } = state
+      const follows = damage && !state.damaged && choicesOf(damage).length === 0
+      return (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
+          {verb} at the table
+          {follows
+            ? `, its ${damage.healing ? 'healing' : 'damage'} to follow`
+            : ''}
+        </p>
+      )
+    }
+    default: {
+      const reason = REASONS[state.reason ?? state.status]
+      return (
+        <p className={clsx(line, 'text-warning')}>
+          <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+          Not {verb.toLowerCase()} at the table
+          {reason ? `: ${reason}` : ''}
+        </p>
+      )
+    }
+  }
+}
+
 /** The d20s thrown, the one that didn't count struck through. */
 function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   const kept = roll.d20s.indexOf(roll.natural)
@@ -445,6 +601,7 @@ function byTheGame(roll: LocalDamage): boolean {
 }
 
 function breakdown(roll: LocalRoll): string {
+  if (roll.kind === 'use') return roll.spell ? 'cast' : 'used'
   if (roll.kind === 'damage') {
     if (byTheGame(roll)) return 'rolled at the table'
     return roll.parts

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
 import {
@@ -23,7 +23,7 @@ import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { RollTray } from './roll-tray'
 import { SpellsTab } from './spells-tab'
-import { TargetPicker, targetsOf } from './target-picker'
+import { asks, UsePicker, type Picked, type Picking } from './use-picker'
 import { Scroller } from '@/components/scroller'
 import {
   useSheetRoller,
@@ -31,6 +31,7 @@ import {
   type SheetRoll,
 } from '@/hooks/use-sheet-roller'
 import {
+  choicesOf,
   damageRollOf,
   useTableRolls,
   type DueDamage,
@@ -38,7 +39,8 @@ import {
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import type { RollKind } from '@/types/roll'
-import type { TableCombat, TableCombatant, TableSheet } from '@/types/table'
+import type { SheetAction } from '@/types/sending-stone'
+import type { TableCombat, TableSheet } from '@/types/table'
 
 type Props = {
   characterId: string
@@ -107,12 +109,12 @@ function RollingSheet({
   rollsToTable,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable)
-  const { roll, rollDamage, rolls, rolling } = useSheetRoller(
+  const { roll, rollDamage, logUse, rolls, rolling } = useSheetRoller(
     table.send,
     table.sendDamage,
   )
-  // An attack made at the table, while its player picks who it's made at.
-  const [picking, setPicking] = useState<SheetRoll>()
+  // An attack or a use made at the table, while its player picks whom at, and with what.
+  const [picking, setPicking] = useState<Picking>()
   const [lastTarget, setLastTarget] = useState<string>()
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
@@ -129,31 +131,102 @@ function RollingSheet({
   // A tab the sheet no longer has, such as Spells for a character who lost theirs, shows the
   // character.
   const tab = tabs.some(({ id }) => id === chosen) ? chosen : 'character'
-  // An attack the game makes, in a combat, is made at a combatant the player picks first.
+  const entries = useMemo(() => favoriteEntries(sheet), [sheet])
+  // An attack the game makes is made at a combatant the player picks first, in a combat, and with
+  // the slot, ammunition or mode they choose, where there's more than one.
   const onRoll = (request: SheetRoll) => {
-    const attack = request.source?.kind === 'attack'
-    if (attack && table.takes('attack') && targetsOf(combat).length > 0) {
-      setPicking(request)
+    const { source } = request
+    const action =
+      source?.kind === 'attack' && table.takes('attack')
+        ? actionsOf(sheet, entries).find(
+            ({ id, attackId }) =>
+              id === source.item && attackId === source.activity,
+          )
+        : undefined
+    const asking: Picking | undefined = action && {
+      kind: 'attack',
+      action,
+      request,
+    }
+    if (asking && asks(asking, combat, sheet.spells)) {
+      setPicking(asking)
       return
     }
     void roll(request)
   }
-  const pick = (combatant?: TableCombatant) => {
-    const request = picking
+  // A spell or feature the game uses: at the combatants the player picks, in a combat, and with
+  // the slot they choose; or, while its damage is due, that damage rolled.
+  const onUse = (action: SheetAction) => {
+    if (!action.activity) return
+    const due = table.dueFor({ item: action.id, activity: action.activity.id })
+    if (due) {
+      rollDue(action.name, due)
+      return
+    }
+    const asking: Picking = { kind: 'use', action }
+    if (asks(asking, combat, sheet.spells)) {
+      setPicking(asking)
+      return
+    }
+    use(action, { targets: [] })
+  }
+  const use = (action: SheetAction, picked: Picked) => {
+    if (!action.activity) return
+    const used = logUse(action.name, action.type === 'spell')
+    table.sendUse(used, {
+      kind: 'use',
+      item: action.id,
+      activity: action.activity.id,
+      // A combat that ended while they picked leaves no one to target.
+      targets: combat
+        ? picked.targets.map(({ id }) => ({
+            combatId: combat.id,
+            combatantId: id,
+          }))
+        : [],
+      slot: picked.slot,
+    })
+  }
+  const pick = (picked: Picked) => {
+    const asked = picking
     setPicking(undefined)
-    if (request?.source?.kind !== 'attack') return
+    if (asked?.kind === 'use') {
+      use(asked.action, picked)
+      return
+    }
+    const source = asked?.request.source
+    if (!asked || source?.kind !== 'attack') return
+    const [combatant] = picked.targets
     if (combatant) setLastTarget(combatant.id)
     // A combat that ended while they picked leaves no one to attack.
     const target =
       combatant && combat
         ? { combatId: combat.id, combatantId: combatant.id }
         : undefined
-    void roll({ ...request, source: { ...request.source, target } })
+    const { slot, ammunition, attackMode } = picked
+    void roll({
+      ...asked.request,
+      source: { ...source, target, slot, ammunition, attackMode },
+    })
   }
-  // An attack's damage, while the game waits for it, is rolled for the game, as the game said.
-  const rollDue = (name: string, due: DueDamage) => {
-    void rollDamage(damageRollOf(name, due))
+  // An attack's or a use's damage, while the game waits for it, is rolled for the game, as the
+  // game said, as the kind of damage chosen, if any.
+  const rollDue = (name: string, due: DueDamage, type?: string) => {
+    void rollDamage(damageRollOf(name, due, type))
   }
+  // A use's damage or healing is rolled as soon as the game says it's due, once; unless its kind
+  // is to be chosen first, in the tray.
+  const rolledFor = useRef(new Set<string>())
+  useEffect(() => {
+    for (const state of table.states.values()) {
+      const { name, requestId, damage } = state
+      if (!name || state.status !== 'done' || !requestId || !damage) continue
+      if (state.damaged || rolledFor.current.has(requestId)) continue
+      if (choicesOf(damage).length > 0) continue
+      rolledFor.current.add(requestId)
+      void rollDamage(damageRollOf(name, { use: requestId, damage }))
+    }
+  }, [table.states, rollDamage])
   const onRollDamage = (request: SheetDamageRoll) => {
     const due = request.source && table.dueFor(request.source)
     if (due) {
@@ -162,13 +235,20 @@ function RollingSheet({
     }
     void rollDamage(request)
   }
-  const entries = useMemo(() => favoriteEntries(sheet), [sheet])
   const marks = useMemo(() => favoriteKeys(sheet.favorites), [sheet.favorites])
   // On a phone or tablet, the favorites are at the top of the tabs they're shown with; where the
   // sheet is wide enough, they have a column beside them.
   const showsFavorites = WITH_FAVORITES.has(tab) && entries.length > 0
   const beside = showsFavorites && width >= COLUMN_FROM
-  const favorites = { characterId, sheet, entries, onRoll, onRollDamage }
+  const using = table.takes('use') ? onUse : undefined
+  const favorites = {
+    characterId,
+    sheet,
+    entries,
+    onRoll,
+    onRollDamage,
+    onUse: using,
+  }
   const strip =
     showsFavorites && !beside ? <FavoritesStrip {...favorites} /> : undefined
   // Rolls are made from the Character and Actions tabs, and from favorites, so the tray shows
@@ -248,6 +328,7 @@ function RollingSheet({
                 sheet={sheet}
                 onRoll={onRoll}
                 onRollDamage={onRollDamage}
+                onUse={using}
                 favorites={strip}
               />
             )}
@@ -288,14 +369,27 @@ function RollingSheet({
           table={{ ...table, rollDamage: rollDue }}
         />
       )}
-      <TargetPicker
-        open={picking !== undefined}
-        label={picking?.label ?? ''}
+      <UsePicker
+        picking={picking}
         combat={combat}
+        spellbook={sheet.spells}
         last={lastTarget}
         onPick={pick}
         onClose={() => setPicking(undefined)}
       />
     </FavoriteMarks>
   )
+}
+
+/** The character's actions, and its favorite activities as actions. */
+function actionsOf(
+  sheet: TableSheet,
+  entries: ReturnType<typeof favoriteEntries>,
+): SheetAction[] {
+  return [
+    ...sheet.actions.flatMap(section => section.actions),
+    ...entries.flatMap(entry =>
+      entry.kind === 'action' ? [entry.action] : [],
+    ),
+  ]
 }

@@ -912,6 +912,150 @@ describe('components/character-sheet/actions-tab', () => {
     expect(grid.children).toHaveLength(1)
   })
 
+  describe('spells and features used in the game', () => {
+    const targets = {
+      self: false,
+      area: false,
+      count: null,
+      perLevel: null,
+      affects: null,
+    }
+    const breath = sheetAction({
+      id: 'breath',
+      name: 'Fire Breath',
+      save: { ability: 'DEX', dc: 13 },
+      damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+      activity: {
+        id: 'breathSave',
+        type: 'save',
+        targets: { ...targets, area: true, affects: 'creature' },
+      },
+    })
+    const missile = sheetAction({
+      id: 'missile',
+      name: 'Magic Missile',
+      type: 'spell',
+      level: 1,
+      damage: [{ formula: '3d4 + 3', type: 'Force', healing: false }],
+      activity: {
+        id: 'missileDamage',
+        type: 'damage',
+        targets: { ...targets, count: 3, perLevel: 1, affects: 'creature' },
+      },
+    })
+    const surge = sheetAction({
+      id: 'surge',
+      name: 'Action Surge',
+      activity: { id: 'surgeUse', type: 'utility', targets },
+    })
+    const bless = sheetAction({
+      id: 'bless',
+      name: 'Bless',
+      type: 'spell',
+      level: 1,
+      activity: {
+        id: 'blessCast',
+        type: 'utility',
+        targets: { ...targets, count: 3, perLevel: 1, affects: 'ally' },
+      },
+    })
+    // A spell attack's damage is its attack's, rolled once the attack is made.
+    const bolt = sheetAction({
+      id: 'bolt',
+      name: 'Fire Bolt',
+      type: 'spell',
+      level: 0,
+      attackId: 'boltAttack',
+      toHit: 5,
+      damage: [{ formula: '1d10', type: 'Fire', healing: false }],
+    })
+    // An item not identified yet keeps what it does to itself.
+    const wand = sheetAction({
+      id: 'wand',
+      name: 'Strange Wand',
+      identified: false,
+      activity: { id: 'wandUse', type: 'utility', targets },
+    })
+    const sheet = toTableSheet(
+      withActions(breath, missile, surge, bless, bolt, wand),
+      'https://my-game.forge-vtt.com',
+    )
+
+    it('uses them from their chips while the game takes them, in a list and in a table', async () => {
+      const user = userEvent.setup()
+      sheetWidth(800)
+      const onUse = jest.fn()
+      const onRoll = jest.fn()
+      const onRollDamage = jest.fn()
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={sheet}
+          onRoll={onRoll}
+          onRollDamage={onRollDamage}
+          onUse={onUse}
+        />,
+      )
+      const used = () => onUse.mock.calls.map(([action]) => action.id)
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Fire Breath, DEX saving throw DC 13',
+        }),
+      )
+      await user.click(
+        screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
+      )
+      await user.click(
+        screen.getByRole('button', { name: 'Magic Missile damage, 3d4 + 3' }),
+      )
+      await user.click(screen.getByRole('button', { name: 'Use Action Surge' }))
+      await user.click(screen.getByRole('button', { name: 'Cast Bless' }))
+      expect(used()).toEqual(['breath', 'breath', 'missile', 'surge', 'bless'])
+      expect(screen.queryByRole('button', { name: /Strange Wand$/ })).toBeNull()
+      await user.click(
+        screen.getByRole('button', { name: 'Fire Bolt damage, 1d10' }),
+      )
+      expect(onRollDamage).toHaveBeenCalledTimes(1)
+      expect(onUse).toHaveBeenCalledTimes(5)
+
+      await user.click(screen.getByRole('button', { name: 'Table' }))
+      const table = screen.getByRole('table', { name: 'Actions' })
+      await user.click(
+        within(table).getByRole('button', {
+          name: 'Fire Breath, DEX saving throw DC 13',
+        }),
+      )
+      await user.click(
+        within(table).getByRole('button', { name: 'Use Action Surge' }),
+      )
+      await user.click(
+        within(table).getByRole('button', {
+          name: 'Magic Missile damage, 3d4 + 3',
+        }),
+      )
+      expect(used().slice(5)).toEqual(['breath', 'surge', 'missile'])
+    })
+
+    it('rolls their chips here while the game takes none', async () => {
+      const user = userEvent.setup()
+      const { onRollDamage } = renderTab(
+        withActions(breath, missile, surge, bless),
+      )
+
+      expect(
+        screen.queryByRole('button', {
+          name: 'Fire Breath, DEX saving throw DC 13',
+        }),
+      ).toBeNull()
+      expect(screen.queryByRole('button', { name: /^(Use|Cast) / })).toBeNull()
+      await user.click(
+        screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
+      )
+      expect(onRollDamage).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('says so when there are no actions to show, as from an older module', () => {
     sheetWidth(800)
     renderTab(characterSheet())

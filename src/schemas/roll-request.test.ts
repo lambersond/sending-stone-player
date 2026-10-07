@@ -39,8 +39,27 @@ const damage = {
   ],
 }
 
+/** Fireball, cast at two goblins with a 4th-level slot. */
+const use = {
+  kind: 'use',
+  item: 'fireball',
+  activity: 'blast',
+  targets: [
+    { combatId: 'cmbt1', combatantId: 'goblin' },
+    { combatId: 'cmbt1', combatantId: 'hobgoblin' },
+  ],
+  slot: 'spell4',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+}
+
 const parseAttack = (fields: object) =>
   rollRequestSchema.safeParse({ ...attack, ...fields })
+
+const parseUse = (fields: object) =>
+  rollRequestSchema.safeParse({ ...use, ...fields })
 
 const parseDamage = (fields: object) =>
   rollRequestSchema.safeParse({ ...damage, ...fields })
@@ -168,6 +187,68 @@ describe('schemas/roll-request', () => {
     expect(parseAttack(fields).success).toBe(false)
   })
 
+  it('takes an attack with the spell slot, ammunition and attack mode chosen', () => {
+    expect(
+      parseAttack({
+        slot: 'spell2',
+        ammunition: 'silverArrows',
+        attackMode: 'thrown-offhand',
+      }).success,
+    ).toBe(true)
+    expect(parseAttack({ slot: 'pact' }).success).toBe(true)
+    expect(parseAttack({ slot: null }).success).toBe(true)
+  })
+
+  it.each([
+    ['with a slot that is not one', { slot: 'spell10' }],
+    ['with a slot of nothing', { slot: '' }],
+    ['with ammunition that is not an id', { ammunition: 'silver arrows' }],
+    ['in a mode that is not one', { attackMode: '2 hands' }],
+    ['at targets', { targets: [] }],
+    ['with kinds of damage', { types: ['fire'] }],
+  ])('refuses an attack %s', (_name, fields) => {
+    expect(parseAttack(fields).success).toBe(false)
+  })
+
+  it('takes a use at the combatants picked, or none, with the slot chosen, or none', () => {
+    expect(parseUse({}).success).toBe(true)
+    expect(parseUse({ targets: [], slot: null }).success).toBe(true)
+    expect(parseUse({ slot: undefined }).success).toBe(true)
+  })
+
+  it.each([
+    ['without its item', { item: undefined }],
+    ['without its activity', { activity: undefined }],
+    ['without its targets', { targets: undefined }],
+    ['at one target', { target: use.targets[0] }],
+    [
+      'at the same combatant twice',
+      { targets: [use.targets[0], use.targets[0]] },
+    ],
+    [
+      'at combatants of two combats',
+      { targets: [use.targets[0], { combatId: 'cmbt2', combatantId: 'ogre' }] },
+    ],
+    [
+      'at too many',
+      {
+        targets: Array.from({ length: 21 }, (_, index) => ({
+          combatId: 'cmbt1',
+          combatantId: `c${index}`,
+        })),
+      },
+    ],
+    ['with a slot that is not one', { slot: 'spell0' }],
+    ['with ammunition', { ammunition: 'arrows' }],
+    ['in an attack mode', { attackMode: 'thrown' }],
+    ['with a d20', { dice: [{ faces: 20, results: [12] }] }],
+    ['with advantage', { mode: 1 }],
+    ['with something added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['following an attack', { use: 'req-1' }],
+  ])('refuses a use %s', (_name, fields) => {
+    expect(parseUse(fields).success).toBe(false)
+  })
+
   it('takes damage with the dice its attack said, or none for the game to roll', () => {
     expect(parseDamage({}).success).toBe(true)
     expect(parseDamage({ dice: [] }).success).toBe(true)
@@ -194,8 +275,20 @@ describe('schemas/roll-request', () => {
     ['at a target', { target: null }],
     ['naming a key', { key: 'prc' }],
     ['in a combat', { combatId: 'cmbt1' }],
+    ['at targets', { targets: [] }],
+    ['with a spell slot', { slot: 'spell1' }],
+    ['with a kind of damage that is not one', { types: ['fire damage'] }],
+    [
+      'with too many kinds of damage',
+      { types: Array.from({ length: 21 }, () => null) },
+    ],
   ])('refuses damage %s', (_name, fields) => {
     expect(parseDamage(fields).success).toBe(false)
+  })
+
+  it('takes damage with the kind chosen for each roll offering one', () => {
+    expect(parseDamage({ types: ['fire', null] }).success).toBe(true)
+    expect(parseDamage({ types: [] }).success).toBe(true)
   })
 
   it("reads the module's fetch, for one of its campaigns", () => {

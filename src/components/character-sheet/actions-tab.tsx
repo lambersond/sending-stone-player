@@ -20,6 +20,7 @@ import {
   FALLBACKS,
   SaveChip,
   useDamageRolls,
+  UseChip,
   viewOf,
   type ActionRows,
 } from './action-entry'
@@ -41,6 +42,8 @@ type Props = {
   sheet: TableSheet
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction) => void
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
 }
@@ -92,6 +95,7 @@ export function ActionsTab({
   sheet,
   onRoll,
   onRollDamage,
+  onUse,
   favorites,
 }: Readonly<Props>) {
   const { actions: d20, dialogs } = useD20Rolls(onRoll)
@@ -108,6 +112,7 @@ export function ActionsTab({
     spellbook: sheet.spells,
     d20,
     damage,
+    ...(onUse && { use: { onUse } }),
   }
   const sections = sheet.actions.map((section, index): GroupedSection => ({
     ...section,
@@ -442,7 +447,7 @@ function ActionTableRow({
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
-  const view = viewOf(action, rows.spellbook)
+  const view = viewOf(action, rows.spellbook, rows.use)
   const { name, toHit, save, uses } = action
 
   return (
@@ -496,7 +501,12 @@ function ActionTableRow({
                 source={attackSource(action)}
               />
             )}
-            {save && <SaveChip save={save} />}
+            {save && (
+              <SaveChip name={name} save={save} onUse={view.uses.save} />
+            )}
+            {view.uses.chip && (
+              <UseChip action={action} onUse={view.uses.chip} />
+            )}
           </span>
         </td>
         {/* In a cell of its own, each chip is laid out as it is in a list's row, not as a
@@ -510,6 +520,7 @@ function ActionTableRow({
                 healing={view.healing}
                 target={view.target}
                 damage={rows.damage}
+                onUse={view.uses.damage}
               />
             </span>
           )}

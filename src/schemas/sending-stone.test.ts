@@ -198,6 +198,67 @@ describe('schemas/sending-stone', () => {
     ).toMatchObject({ attack: null, damage: null })
   })
 
+  it("reads a use's result: the kind of activity used, and its healing's dice, or the kinds of damage to choose", () => {
+    const healing = {
+      critical: false,
+      plannable: true,
+      healing: true,
+      rolls: [
+        {
+          formula: '2d8 + 3',
+          type: 'Healing',
+          types: null,
+          dice: [{ faces: 8, number: 2 }],
+        },
+      ],
+    }
+    const result = {
+      id: 'req-2',
+      status: 'done',
+      messageId: 'msg-2',
+      visible: true,
+      rolls: [],
+      use: { type: 'heal' },
+      damage: healing,
+    }
+    expect(parseGameEvent('command.result', result)?.data).toMatchObject({
+      use: { type: 'heal' },
+      damage: healing,
+    })
+
+    const choices = [
+      { key: 'acid', label: 'Acid' },
+      { key: 'fire', label: 'Fire' },
+    ]
+    const orb = parseGameEvent('command.result', {
+      ...result,
+      use: undefined,
+      damage: {
+        critical: false,
+        plannable: true,
+        rolls: [
+          { formula: '3d8', type: 'Acid', types: choices, dice: [] },
+          {
+            formula: '1d6',
+            type: 'Fire',
+            types: [{ key: 'fire acid' }],
+            dice: [],
+          },
+        ],
+      },
+    })?.data as any
+    expect(orb.damage.rolls.map((roll: any) => roll.types)).toEqual([
+      choices,
+      null,
+    ])
+    // A module before 0.12.0 says neither.
+    expect(orb.use).toBeUndefined()
+    expect(orb.damage.healing).toBeUndefined()
+    expect(
+      parseGameEvent('command.result', { ...result, use: 'heal' })?.data,
+    ).toMatchObject({ use: null })
+  })
+
   it('leaves damage throwing more dice than a player may send for the game to roll', () => {
     const many = Array.from({ length: 11 }, () => ({ faces: 6, number: 1 }))
     const data = parseGameEvent('command.result', {
@@ -550,6 +611,76 @@ describe('schemas/sending-stone', () => {
       },
       ...rest,
     ])
+  })
+
+  it('reads what else an action is used through, its attack modes and its ammunition, as sent from module 0.12.0', () => {
+    const sheet = fullerSheet()
+    const [section, ...rest] = sheet.actions
+    const [warhammer, handaxe, ...others] = section.actions
+    const blast = {
+      id: 'blast',
+      type: 'save',
+      targets: {
+        self: false,
+        area: true,
+        count: null,
+        perLevel: null,
+        affects: 'creature',
+      },
+    }
+    const modes = [
+      { value: 'oneHanded', label: 'One-Handed' },
+      { value: 'thrown', label: 'Thrown' },
+    ]
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          actions: [
+            {
+              ...section,
+              actions: [
+                {
+                  ...warhammer,
+                  activity: blast,
+                  ammunition: [
+                    { id: 'bolts', name: 'Bolts', quantity: 'many' },
+                  ],
+                },
+                { ...handaxe, attackModes: modes },
+                {
+                  ...others[0],
+                  activity: { ...blast, type: 'summon' },
+                  attackModes: 'all',
+                },
+                {
+                  ...others[1],
+                  activity: {
+                    ...blast,
+                    targets: { ...blast.targets, count: 0, perLevel: 'one' },
+                  },
+                },
+              ],
+            },
+            ...rest,
+          ],
+        },
+      },
+    }) as any
+    const [hammer, axe, guidance, breath] =
+      event.data.character.sheet.actions[0].actions
+    expect(hammer.activity).toEqual(blast)
+    expect(hammer.ammunition).toEqual([
+      { id: 'bolts', name: 'Bolts', quantity: 0 },
+    ])
+    expect(axe.attackModes).toEqual(modes)
+    expect([guidance.activity, guidance.attackModes]).toEqual([null, null])
+    expect(breath.activity.targets).toEqual({
+      ...blast.targets,
+      count: null,
+      perLevel: null,
+    })
   })
 
   it('reads a sheet from before module 0.8.0 as having no actions', () => {
