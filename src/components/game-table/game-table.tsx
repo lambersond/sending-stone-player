@@ -168,6 +168,9 @@ export function GameTable({
               characterId={character.id}
               name={character.name}
               sheet={view.sheet}
+              combat={view.combat}
+              // A character no longer in the campaign's game has no rolls made there.
+              rollsToTable={view.connected ? view.rollsToTable : undefined}
             />
           ) : (
             <Scroller>

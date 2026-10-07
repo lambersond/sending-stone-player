@@ -72,6 +72,63 @@ describe('components/character-sheet/character-pane', () => {
     expect(screen.getByRole('status')).toHaveTextContent('+7')
   })
 
+  it("sends a roll to the Gamemaster's game, when it takes the player's rolls, and shows its total there", async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.clear()
+    const responses: Record<string, unknown> = {
+      'POST /api/characters/char-1/rolls': { id: 'req-1' },
+      'GET /api/characters/char-1/rolls/req-1': {
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: 31,
+      },
+    }
+    globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      const answer = responses[`${init?.method ?? 'GET'} ${url}`]
+      return {
+        ok: answer !== undefined,
+        status: init?.method === 'POST' ? 202 : 200,
+        json: async () => answer,
+      } as Response
+    }) as typeof fetch
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save']}
+      />,
+    )
+
+    expect(
+      screen.getByRole('switch', { name: 'Send to the table' }),
+    ).toBeChecked()
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Strength saving throw, +7, proficient',
+      }),
+    )
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const sent = JSON.parse(
+      String(jest.mocked(fetch).mock.calls[0][1]?.body),
+    ) as { kind: string; key: string; dice: { results: number[] }[] }
+    expect(sent).toMatchObject({ kind: 'save', key: 'str', mode: 0 })
+    const natural = sent.dice[0].results[0]
+    expect(screen.getByRole('status')).toHaveTextContent(`d20 ${natural} +7`)
+    expect(
+      await screen.findByText('At the table:', {}, { timeout: 3000 }),
+    ).toHaveTextContent('At the table: 31')
+
+    // A check the game doesn't take stays here.
+    await user.click(screen.getByRole('button', { name: /^Athletics check/ }))
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it("has Tidy 5e's tabs, and shows one part of the sheet at a time", async () => {
     const user = userEvent.setup()
     renderPane()

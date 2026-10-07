@@ -66,6 +66,42 @@ describe('hooks/use-sheet-roller', () => {
     expect(fake.roll.mock.calls[0][0]).toBe(`1d20@${roll.natural}`)
   })
 
+  it('tells of a check as its dice are thrown, before they land, with what they came to', async () => {
+    const landing = deferred<number[]>()
+    renderer({
+      roll: jest.fn<Promise<number[]>, [string, object?]>(
+        () => landing.promise,
+      ),
+    })
+    const onThrown = jest.fn()
+    const { result } = renderHook(() => useSheetRoller(onThrown))
+    const request = {
+      label: 'Perception check',
+      modifier: 5,
+      advantage: 'adv' as const,
+      extras: [{ sign: 1 as const, count: 1, sides: 4 as const }],
+      source: { kind: 'skill' as const, key: 'prc' },
+      explicit: true,
+    }
+
+    let rolled: Promise<void> | undefined
+    act(() => {
+      rolled = result.current.roll(request)
+    })
+    expect(onThrown).toHaveBeenCalledTimes(1)
+    const [told, check] = onThrown.mock.calls[0] as [unknown, LocalCheck]
+    expect(told).toBe(request)
+    expect(check.d20s).toHaveLength(2)
+    expect(check.extras[0].values).toHaveLength(1)
+    expect(result.current.rolls).toEqual([])
+
+    await act(async () => {
+      landing.resolve([])
+      await rolled
+    })
+    expect(result.current.rolls).toEqual([check])
+  })
+
   it('throws two d20s with advantage, keeping the higher', async () => {
     renderer()
     const { result } = renderHook(() => useSheetRoller())

@@ -26,6 +26,11 @@ const messageWith = (dnd5e: object) =>
     },
   })?.data as any
 
+/** A bridge.hello with these features, as read. */
+const helloWith = (features?: unknown) =>
+  parseGameEvent('bridge.hello', { characters: [], combats: [], features })
+    ?.data as any
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -79,6 +84,78 @@ describe('schemas/sending-stone', () => {
       type: 'bridge.hello',
       data,
     })
+  })
+
+  it("reads what the game does beyond its events, from module 0.10.0, as missing when it can't", () => {
+    expect(
+      helloWith({
+        rolls: { enabled: true, kinds: ['skill', 'death'], reason: null },
+        later: { enabled: true },
+      }).features,
+    ).toEqual({
+      rolls: { enabled: true, kinds: ['skill', 'death'], reason: null },
+      later: { enabled: true },
+    })
+    expect(
+      helloWith({ rolls: { enabled: 'yes', kinds: 'skill' } }).features,
+    ).toEqual({ rolls: { enabled: false, kinds: [], reason: null } })
+    expect(helloWith({ rolls: 'on' }).features).toEqual({ rolls: null })
+    expect(helloWith('all').features).toBeNull()
+    expect(helloWith().features).toBeUndefined()
+  })
+
+  it("reads a command's result, keeping only what the app shows", () => {
+    const roll = {
+      formula: '1d20 + 4',
+      total: 18,
+      dice: [{ faces: 20, results: [{ result: 14, active: true }] }],
+    }
+    expect(
+      parseGameEvent('command.result', {
+        id: 'req-1',
+        status: 'done',
+        messageId: 'msg-1',
+        visible: true,
+        rolls: [roll],
+        dice: { planned: [14], used: [14], foundry: [] },
+      }),
+    ).toEqual({
+      type: 'command.result',
+      data: {
+        id: 'req-1',
+        status: 'done',
+        reason: null,
+        error: null,
+        messageId: 'msg-1',
+        visible: true,
+        rolls: [expect.objectContaining({ formula: '1d20 + 4', total: 18 })],
+      },
+    })
+    expect(
+      parseGameEvent('command.result', {
+        id: 'req-1',
+        status: 'failed',
+        reason: 'not-dying',
+        error: 42,
+        visible: 'no',
+        rolls: 'none',
+      })?.data,
+    ).toEqual({
+      id: 'req-1',
+      status: 'failed',
+      reason: 'not-dying',
+      error: null,
+      messageId: null,
+      visible: false,
+      rolls: [],
+    })
+  })
+
+  it.each([
+    ['without its id', { status: 'done' }],
+    ['with an outcome it does not know', { id: 'req-1', status: 'maybe' }],
+  ])('refuses a command result %s', (_name, data) => {
+    expect(() => parseGameEvent('command.result', data)).toThrow()
   })
 
   it("reads a character's sheet in bridge.hello and character.updated", () => {

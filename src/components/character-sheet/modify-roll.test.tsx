@@ -3,7 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { ModifyRoll } from './modify-roll'
 import type { RollMode } from '@/types/sending-stone'
 
-const target = { label: 'Stealth check', modifier: 1, mode: -1 as RollMode }
+const target = {
+  label: 'Stealth check',
+  modifier: 1,
+  mode: -1 as RollMode,
+  source: { kind: 'skill' as const, key: 'ste' },
+}
 
 const renderForm = (mode: RollMode = -1) => {
   const onRoll = jest.fn()
@@ -49,6 +54,9 @@ describe('components/character-sheet/modify-roll', () => {
         { sign: -1, count: 1, sides: 6 },
         { sign: 1, flat: 2 },
       ],
+      // The player's say, for the Gamemaster's game too.
+      source: { kind: 'skill', key: 'ste' },
+      explicit: true,
     })
   })
 
@@ -64,6 +72,8 @@ describe('components/character-sheet/modify-roll', () => {
       modifier: 1,
       advantage: undefined,
       extras: [],
+      source: { kind: 'skill', key: 'ste' },
+      explicit: true,
     })
   })
 

@@ -143,7 +143,8 @@ function toTargets(
   })
 }
 
-function toTableRoll(roll: RollSummary): TableRoll {
+/** A roll as a player is shown it: its formula, total, every die, and what marks it. */
+export function toTableRoll(roll: RollSummary): TableRoll {
   return {
     formula: roll.formula,
     total: roll.total,

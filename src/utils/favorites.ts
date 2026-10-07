@@ -36,7 +36,12 @@ export type FavoriteView =
   | { kind: 'feature'; feature: SheetFeature }
   | { kind: 'class'; entry: SheetClass }
   | { kind: 'effect'; effect: SheetEffect; suppressed: boolean }
-  | { kind: 'check'; check: SheetSkill }
+  | {
+      kind: 'check'
+      check: SheetSkill
+      /** A skill's or a tool's, for the Gamemaster's game to roll it too. */
+      source: { kind: 'skill' | 'tool'; key: string }
+    }
   | { kind: 'slots'; slots: SheetSlotsFavorite }
   | { kind: 'resource'; resource: SheetResourceFavorite }
   /** An item the sheet lists nowhere else, such as a background. */
@@ -140,7 +145,13 @@ function entryOf(
     }
     case 'skill': {
       const skill = index.skills.get(favorite.id)
-      return skill && { kind: 'check', check: skill }
+      return (
+        skill && {
+          kind: 'check',
+          check: skill,
+          source: { kind: 'skill', key: skill.id },
+        }
+      )
     }
     case 'tool': {
       const { id, name, ability, total, passive, proficiency, mode } = favorite
@@ -155,6 +166,7 @@ function entryOf(
           proficiency,
           mode,
         },
+        source: { kind: 'tool', key: id },
       }
     }
     case 'slots': {

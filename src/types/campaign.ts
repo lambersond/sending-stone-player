@@ -12,6 +12,11 @@ export type OwnedCampaign = {
   /** Is the Gamemaster's game sending right now? */
   live: boolean
   lastSeenAt?: string
+  /**
+   * Whether players' rolls are made in the game, with the dice they roll here: turned on in
+   * Foundry, and whether the game is fetching them now.
+   */
+  rolls: { enabled: boolean; reaching: boolean }
   /** Each with who plays it, and their character's id, once a player has chosen it. */
   characters: {
     id: string

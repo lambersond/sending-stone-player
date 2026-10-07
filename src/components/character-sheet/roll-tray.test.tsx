@@ -1,7 +1,8 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RollTray } from './roll-tray'
+import { RollTray, type TableRolls } from './roll-tray'
 import type { LocalCheck, LocalDamage } from '@/hooks/use-sheet-roller'
+import type { TableRollState } from '@/hooks/use-table-rolls'
 
 const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
   kind: 'check',
@@ -223,5 +224,158 @@ describe('components/character-sheet/roll-tray', () => {
       'Perception check12 +4 = 16',
     ])
     expect(screen.getByRole('status')).toHaveTextContent('+1d4 (4)')
+  })
+
+  describe('at the table', () => {
+    const table = (
+      states: [string, TableRollState][] = [],
+      fields: Partial<TableRolls> = {},
+    ): TableRolls => ({
+      states: new Map(states),
+      available: true,
+      sending: true,
+      setSending: jest.fn(),
+      ...fields,
+    })
+
+    it.each<[string, TableRollState, string]>([
+      [
+        'on its way',
+        { status: 'sending' },
+        'Sending to your Gamemaster’s game…',
+      ],
+      [
+        'being made',
+        { status: 'rolling' },
+        'Rolling in your Gamemaster’s game…',
+      ],
+      [
+        "made, with the game's total",
+        { status: 'done', visible: true, total: 23 },
+        'At the table: 23',
+      ],
+      [
+        'made blind',
+        { status: 'done', visible: false },
+        'Rolled at the table, hidden by your Gamemaster',
+      ],
+      [
+        'refused',
+        { status: 'refused', reason: 'not-dying' },
+        'Not made at the table: you aren’t dying',
+      ],
+      [
+        'failed in the game',
+        { status: 'failed', reason: 'already-rolled' },
+        'Not made at the table: you have rolled initiative already',
+      ],
+      [
+        'not fetched',
+        { status: 'expired' },
+        'Not made at the table: your Gamemaster’s game didn’t pick it up',
+      ],
+      [
+        'never answered',
+        { status: 'lost' },
+        'Not made at the table: no answer from your Gamemaster’s game',
+      ],
+      [
+        'failed for a reason it does not know',
+        { status: 'failed', reason: 'gremlins' },
+        'Not made at the table',
+      ],
+    ])('says where the latest roll is when %s', (_, state, text) => {
+      render(
+        <RollTray
+          rolls={[roll()]}
+          rolling={false}
+          table={table([['r1', state]])}
+        />,
+      )
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        new RegExp(`${text}$`),
+      )
+    })
+
+    it('marks each earlier roll with how it went at the table', async () => {
+      const user = userEvent.setup()
+      render(
+        <RollTray
+          rolls={[
+            roll({ id: 'r5' }),
+            roll({ id: 'r4' }),
+            roll({ id: 'r3' }),
+            roll({ id: 'r2' }),
+            roll({ id: 'r1' }),
+          ]}
+          rolling={false}
+          table={table([
+            ['r4', { status: 'done', visible: true, total: 19 }],
+            ['r3', { status: 'done', visible: false }],
+            ['r2', { status: 'rolling' }],
+            ['r1', { status: 'refused', reason: 'busy' }],
+          ])}
+        />,
+      )
+
+      await user.click(screen.getByText('Earlier rolls (4)'))
+
+      expect(
+        screen.getAllByRole('listitem').map(item => item.textContent),
+      ).toEqual([
+        'Perception check12 +4 = 16· table 19',
+        'Perception check12 +4 = 16· hidden',
+        'Perception check12 +4 = 16· sending',
+        'Perception check12 +4 = 16· not at the table',
+      ])
+    })
+
+    it('says rolls go to the table, with a switch to keep them on this device', async () => {
+      const user = userEvent.setup()
+      const sending = table()
+      const { rerender } = render(
+        <RollTray rolls={[]} rolling={false} table={sending} />,
+      )
+
+      expect(
+        screen.getByText(
+          /made in your Gamemaster’s game too, with the same dice/,
+        ),
+      ).toBeInTheDocument()
+      const toggle = screen.getByRole('switch', { name: 'Send to the table' })
+      expect(toggle).toBeChecked()
+      await user.click(toggle)
+      expect(sending.setSending).toHaveBeenCalledWith(false)
+
+      rerender(
+        <RollTray
+          rolls={[]}
+          rolling={false}
+          table={table([], { sending: false })}
+        />,
+      )
+      expect(
+        screen.getByRole('switch', { name: 'Send to the table' }),
+      ).not.toBeChecked()
+      expect(
+        screen.getByText(/Only you see these rolls. They aren’t sent/),
+      ).toBeInTheDocument()
+    })
+
+    it('offers no switch while the game takes no rolls', () => {
+      render(
+        <RollTray
+          rolls={[]}
+          rolling={false}
+          table={table([], { available: false })}
+        />,
+      )
+
+      expect(screen.queryByRole('switch')).toBeNull()
+      expect(
+        screen.getByText(/They aren't sent to your Gamemaster's game/),
+      ).toBeInTheDocument()
+    })
   })
 })

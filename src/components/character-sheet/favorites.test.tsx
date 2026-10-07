@@ -103,6 +103,7 @@ describe('components/character-sheet/favorites', () => {
       label: 'Warhammer attack',
       modifier: 7,
       advantage: undefined,
+      explicit: false,
     })
 
     await user.click(
@@ -124,6 +125,8 @@ describe('components/character-sheet/favorites', () => {
       label: 'Perception check',
       modifier: 4,
       advantage: undefined,
+      source: { kind: 'skill', key: 'prc' },
+      explicit: false,
     })
 
     await user.click(
@@ -135,6 +138,8 @@ describe('components/character-sheet/favorites', () => {
       label: "Thieves' Tools check",
       modifier: 5,
       advantage: undefined,
+      source: { kind: 'tool', key: 'thief' },
+      explicit: false,
     })
   })
 
@@ -152,6 +157,8 @@ describe('components/character-sheet/favorites', () => {
       label: 'Perception check',
       modifier: 4,
       advantage: 'adv',
+      source: { kind: 'skill', key: 'prc' },
+      explicit: true,
     })
 
     fireEvent.contextMenu(

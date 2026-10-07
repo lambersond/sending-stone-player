@@ -123,6 +123,7 @@ describe('components/character-sheet/actions-tab', () => {
       label: 'Warhammer attack',
       modifier: 7,
       advantage: undefined,
+      explicit: false,
     })
 
     fireEvent.contextMenu(
@@ -136,6 +137,7 @@ describe('components/character-sheet/actions-tab', () => {
       label: 'Handaxe attack',
       modifier: 7,
       advantage: 'adv',
+      explicit: true,
     })
   })
 
@@ -806,6 +808,7 @@ describe('components/character-sheet/actions-tab', () => {
       label: 'Warhammer attack',
       modifier: 7,
       advantage: undefined,
+      explicit: false,
     })
 
     await user.click(within(table).getByRole('button', { name: 'Fire Breath' }))

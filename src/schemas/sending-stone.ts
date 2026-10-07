@@ -495,7 +495,7 @@ const characterSchema = z.looseObject({
   sheet: sheetSchema,
 })
 
-const rollSchema = z.looseObject({
+export const rollSchema = z.looseObject({
   formula: z.string().catch(''),
   total: z.number().nullable().catch(null),
   dice: z
@@ -558,6 +558,58 @@ const messageSchema = z.looseObject({
   dnd5e: dnd5eSchema,
 })
 
+/**
+ * What the module does for a campaign beyond sending its events. Features it can't describe are
+ * taken as missing, as from a module before 0.10.0.
+ */
+const featuresSchema = z
+  .looseObject({
+    rolls: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+
+/**
+ * What became of a command; one without its id, or an outcome, can't be recorded. It's kept as
+ * read, so only what the app shows is kept.
+ */
+const commandResultSchema = z.object({
+  id: z.string().min(1).max(64),
+  status: z.enum(['done', 'failed']),
+  reason: z
+    .string()
+    .max(64)
+    .nullable()
+    .optional()
+    .catch(null)
+    .transform(value => value ?? null),
+  error: z
+    .string()
+    .max(1000)
+    .nullable()
+    .optional()
+    .catch(null)
+    .transform(value => value ?? null),
+  messageId: z
+    .string()
+    .max(64)
+    .nullable()
+    .optional()
+    .catch(null)
+    .transform(value => value ?? null),
+  visible: z.boolean().catch(false),
+  rolls: z.array(rollSchema).max(10).catch([]),
+})
+
 const hitPointsSchema = z
   .object({
     value: z.number(),
@@ -614,6 +666,8 @@ export function parseGameEvent(
           .looseObject({
             characters: z.array(characterSchema),
             combats: z.array(combatSchema),
+            // Sent from module 0.10.0.
+            features: featuresSchema,
           })
           .parse(data),
       }
@@ -674,6 +728,9 @@ export function parseGameEvent(
           .looseObject({ combatId: z.string(), combatantId: z.string() })
           .parse(data),
       }
+    }
+    case EVENTS.COMMAND_RESULT: {
+      return { type, data: commandResultSchema.parse(data) }
     }
     default: {
       return undefined

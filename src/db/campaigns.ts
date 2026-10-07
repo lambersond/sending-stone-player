@@ -6,6 +6,7 @@ import {
   verifySecret,
 } from '@/lib/campaign-secret'
 import { literalPattern } from '@/utils/literal-pattern'
+import { availableRollKinds } from '@/utils/roll-requests'
 import type {
   CampaignChoice,
   CampaignSetupInput,
@@ -44,6 +45,9 @@ export async function listOwnedCampaigns(
       lastSeenAt: true,
       helloSession: true,
       characters: true,
+      rollsEnabled: true,
+      rollKinds: true,
+      bridgePolledAt: true,
       players: {
         select: { id: true, actorId: true, user: { select: { name: true } } },
       },
@@ -63,6 +67,10 @@ export async function listOwnedCampaigns(
       rosterReceived: campaign.helloSession !== null,
       live: isLive(campaign.lastSeenAt),
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
+      rolls: {
+        enabled: campaign.rollsEnabled,
+        reaching: availableRollKinds(campaign).length > 0,
+      },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
         return { id, name, player: player?.user.name, characterId: player?.id }

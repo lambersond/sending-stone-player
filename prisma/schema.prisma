@@ -12,6 +12,15 @@ datasource db {
 // Enums
 // -----------------------
 
+// Where a player's roll for the Gamemaster's game stands: waiting for the module to fetch it,
+// fetched, or made in the game, or not.
+enum RollRequestStatus {
+  pending
+  claimed
+  done
+  failed
+}
+
 // -----------------------
 // User model
 // -----------------------
@@ -92,7 +101,7 @@ model Verification {
 // A character a user plays: one of a campaign's characters, chosen from its list after following
 // the Gamemaster's invite link.
 model Character {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   // The character's name in Foundry when it was chosen.
   name          String
   // The game's origin, such as https://my-game.forge-vtt.com, and the campaign's title, when the
@@ -103,15 +112,16 @@ model Character {
   // before players chose from a campaign's characters, until its player chooses, and for one whose
   // campaign was removed.
   campaignId    String?
-  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaign      Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   actorId       String?
   // When its player last had the chat in view, or another device of theirs did: messages sent
   // after it are unread.
   chatReadAt    DateTime?
   userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  rollRequests  RollRequest[]
 
   // One player per character.
   @@unique([campaignId, actorId], name: "campaignActor")
@@ -123,42 +133,52 @@ model Character {
 // module sends. The module's campaign with the same title is bound to it by its first event.
 // Players join it through the Gamemaster's invite link.
 model Campaign {
-  id           String        @id @default(cuid())
+  id             String        @id @default(cuid())
   // The origin the game is served from, which its events arrive with.
-  origin       String
+  origin         String
   // The module's id for the campaign, which never changes. Unset until its first event.
-  foundryId    String?
+  foundryId      String?
   // The module's campaign with this title is the one bound to it. Renaming it in the module renames
   // it here.
-  title        String
-  worldId      String?
-  worldTitle   String?
+  title          String
+  worldId        String?
+  worldTitle     String?
   // The Gamemaster who set the campaign up. Unset only for a campaign from before Gamemasters set
   // campaigns up here, which accepts no events until one sets it up.
-  ownerId      String?
-  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId        String?
+  owner          User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   // A hash of the secret the module sends with each event.
-  secretHash   String?
+  secretHash     String?
   // The code in the link the Gamemaster shares to invite players. Resetting it retires the old link.
-  inviteCode   String?       @unique
+  inviteCode     String?       @unique
   // The campaign's characters, from its latest bridge.hello.
-  characters   Json          @default("[]")
+  characters     Json          @default("[]")
   // The module session whose bridge.hello was last applied. An event from another session means
   // this may be missing the campaign's state, such as when its hello was refused before the
   // campaign was set up here, so the module is asked to send it again.
-  helloSession String?
+  helloSession   String?
   // Bumped on every change, so a viewer can tell cheaply whether anything is new.
-  version      Int           @default(0)
-  lastEventAt  DateTime?
+  version        Int           @default(0)
+  lastEventAt    DateTime?
   // When anything, an event or a heartbeat, last arrived: whether the Gamemaster is connected.
-  lastSeenAt   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  messages     ChatMessage[]
-  combats      Combat[]
-  sheets       ActorSheet[]
-  texts        SheetText[]
-  players      Character[]
+  lastSeenAt     DateTime?
+  // Whether the Gamemaster lets the campaign's players roll in their game from here, and which
+  // rolls the module can make, from its latest bridge.hello.
+  rollsEnabled   Boolean       @default(false)
+  rollKinds      String[]      @default([])
+  // When the module last fetched players' rolls: whether it is fetching them now.
+  bridgePolledAt DateTime?
+  // When one of the campaign's players last had their table open: whether a roll may be coming,
+  // so the module's fetch is held open for one.
+  playersSeenAt  DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  messages       ChatMessage[]
+  combats        Combat[]
+  sheets         ActorSheet[]
+  texts          SheetText[]
+  players        Character[]
+  rollRequests   RollRequest[]
 
   @@unique([origin, foundryId], name: "originCampaign")
   @@index([ownerId])
@@ -231,4 +251,35 @@ model SheetText {
 
   @@unique([campaignId, hash], name: "campaignHash")
   @@map("sheet_text")
+}
+
+// A roll a player made here, for their character to make in the Gamemaster's game with the same
+// dice. The Gamemaster's module fetches it, makes it, and reports what came of it. It is fetched
+// at most once: a fetch whose answer is lost loses the roll, rather than making it twice.
+model RollRequest {
+  id           String            @id @default(cuid())
+  campaignId   String
+  campaign     Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  characterId  String
+  character    Character         @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  // The Foundry actor that rolls.
+  actorId      String
+  // Such as "skill" or "save".
+  kind         String
+  // What to roll and how, and the dice the player rolled: the command the module is sent.
+  payload      Json
+  status       RollRequestStatus @default(pending)
+  // Which fetch took it, and from which module session.
+  claimToken   String?
+  claimSession String?
+  claimedAt    DateTime?
+  // What the module reported: the roll as the game made it, or why it couldn't.
+  result       Json?
+  completedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([campaignId, status, createdAt])
+  @@index([characterId, createdAt])
+  @@map("roll_request")
 }

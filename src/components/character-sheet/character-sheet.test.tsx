@@ -5,6 +5,7 @@ import { CharacterSheet, classLine } from './character-sheet'
 import { characterSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet as Sheet } from '@/types/sending-stone'
+import type { TableCombat } from '@/types/table'
 
 const sheetOf = (fields: Partial<Sheet> = {}) =>
   toTableSheet(characterSheet(fields), 'https://my-game.forge-vtt.com')
@@ -20,6 +21,30 @@ const renderSheet = (fields: Partial<Sheet> = {}) => {
   )
   return onRoll
 }
+
+/** A combat the character is in, with its initiative. */
+const combatWith = (initiative: number | null): TableCombat => ({
+  id: 'cmbt1',
+  name: null,
+  started: true,
+  round: 1,
+  combatants: [
+    {
+      id: 'c-boss',
+      name: 'Goblin Boss',
+      initiative: null,
+      defeated: false,
+      side: 'other',
+    },
+    {
+      id: 'c-thorin',
+      name: 'Thorin Oakenshield',
+      initiative,
+      defeated: false,
+      side: 'me',
+    },
+  ],
+})
 
 describe('components/character-sheet/character-sheet', () => {
   it('shows who the character is and their vital numbers', () => {
@@ -130,6 +155,82 @@ describe('components/character-sheet/character-sheet', () => {
     },
   )
 
+  it('rolls a death saving throw while the character is dying, for the game to make too', async () => {
+    const user = userEvent.setup()
+    const onRoll = renderSheet({
+      hp: { value: 0, max: 44, temp: 0 },
+      deathSaves: { success: 1, failure: 2 },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Death saving throw' }))
+
+    expect(onRoll).toHaveBeenCalledWith({
+      label: 'Death saving throw',
+      modifier: 0,
+      advantage: undefined,
+      source: { kind: 'death' },
+      explicit: false,
+    })
+  })
+
+  it.each([
+    ['up again', { value: 3, max: 44, temp: 0 }, { success: 2, failure: 1 }],
+    ['stable', { value: 0, max: 44, temp: 0 }, { success: 3, failure: 0 }],
+    ['dead', { value: 0, max: 44, temp: 0 }, { success: 1, failure: 3 }],
+  ])('rolls no death saving throw for a character %s', (_, hp, deathSaves) => {
+    renderSheet({ hp, deathSaves })
+
+    expect(screen.getByText('Death saves')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Death saving throw' }),
+    ).toBeNull()
+  })
+
+  it('rolls initiative, for the combat when the character waits to roll it there', async () => {
+    const user = userEvent.setup()
+    const onRoll = jest.fn()
+    const { rerender } = render(
+      <CharacterSheet
+        name='Thorin Oakenshield'
+        sheet={sheetOf()}
+        combat={combatWith(null)}
+        onRoll={onRoll}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Initiative, +1, to roll for the combat',
+      }),
+    )
+    expect(onRoll).toHaveBeenLastCalledWith({
+      label: 'Initiative',
+      modifier: 1,
+      advantage: undefined,
+      source: { kind: 'initiative', combatId: 'cmbt1' },
+      explicit: false,
+    })
+
+    // Once rolled, or outside a combat, it rolls here only.
+    rerender(
+      <CharacterSheet
+        name='Thorin Oakenshield'
+        sheet={sheetOf()}
+        combat={combatWith(14)}
+        onRoll={onRoll}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Initiative, +1' }))
+    expect(onRoll).toHaveBeenLastCalledWith({
+      label: 'Initiative',
+      modifier: 1,
+      advantage: undefined,
+      source: undefined,
+      explicit: false,
+    })
+    expect(onRoll.mock.lastCall?.[0].source).toBeUndefined()
+  })
+
   it('leaves out death saves while the character is up and none are marked', () => {
     renderSheet({
       hp: { value: 3, max: 44, temp: 0 },
@@ -181,14 +282,31 @@ describe('components/character-sheet/character-sheet', () => {
       screen.getByRole('button', { name: 'Intelligence saving throw, −1' }),
     )
 
+    // Each says what it is, for the Gamemaster's game to roll it too.
+    const tap = { advantage: undefined, explicit: false }
     expect(onRoll.mock.calls).toEqual([
-      [{ label: 'Strength check', modifier: 4, advantage: undefined }],
-      [{ label: 'Strength saving throw', modifier: 7, advantage: undefined }],
       [
         {
+          ...tap,
+          label: 'Strength check',
+          modifier: 4,
+          source: { kind: 'ability', key: 'str' },
+        },
+      ],
+      [
+        {
+          ...tap,
+          label: 'Strength saving throw',
+          modifier: 7,
+          source: { kind: 'save', key: 'str' },
+        },
+      ],
+      [
+        {
+          ...tap,
           label: 'Intelligence saving throw',
           modifier: -1,
-          advantage: undefined,
+          source: { kind: 'save', key: 'int' },
         },
       ],
     ])
@@ -215,6 +333,8 @@ describe('components/character-sheet/character-sheet', () => {
       label: 'Stealth check',
       modifier: 1,
       advantage: 'dis',
+      source: { kind: 'skill', key: 'ste' },
+      explicit: false,
     })
   })
 
@@ -258,6 +378,8 @@ describe('components/character-sheet/character-sheet', () => {
       label: 'Strength check',
       modifier: 4,
       advantage: 'adv',
+      source: { kind: 'ability', key: 'str' },
+      explicit: false,
     })
   })
 
@@ -274,10 +396,13 @@ describe('components/character-sheet/character-sheet', () => {
       screen.getByRole('menuitem', { name: 'Roll with advantage' }),
     )
 
+    // The player's say on how to roll it, as in dnd5e's roll dialog.
     expect(onRoll).toHaveBeenCalledWith({
       label: 'Stealth check',
       modifier: 1,
       advantage: 'adv',
+      source: { kind: 'skill', key: 'ste' },
+      explicit: true,
     })
     expect(screen.queryByRole('menu')).toBeNull()
 
@@ -291,6 +416,8 @@ describe('components/character-sheet/character-sheet', () => {
       label: 'Strength check',
       modifier: 4,
       advantage: 'dis',
+      source: { kind: 'ability', key: 'str' },
+      explicit: true,
     })
   })
 
@@ -320,6 +447,8 @@ describe('components/character-sheet/character-sheet', () => {
       modifier: 1,
       advantage: undefined,
       extras: [{ sign: 1, count: 1, sides: 4 }],
+      source: { kind: 'skill', key: 'ste' },
+      explicit: true,
     })
     expect(dialog).not.toHaveAttribute('open')
   })

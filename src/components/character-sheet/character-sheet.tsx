@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   CircleAlert,
+  Dices,
   Footprints,
   Shield,
   ShieldCheck,
@@ -17,13 +18,16 @@ import { useFavorite } from './favorite-mark'
 import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
 import { formatModifier } from '@/utils/format-modifier'
+import { isDying } from '@/utils/roll-requests'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
-import type { TableSheet } from '@/types/table'
+import type { TableCombat, TableSheet } from '@/types/table'
 
 type Props = {
   name: string
   sheet: TableSheet
+  /** The encounter under way, in which the character may be waiting to roll initiative. */
+  combat?: TableCombat
   onRoll: (roll: SheetRoll) => void
   /** Shows the character's conditions in full, with their rules. */
   onShowConditions?: () => void
@@ -37,6 +41,7 @@ type Props = {
 export function CharacterSheet({
   name,
   sheet,
+  combat,
   onRoll,
   onShowConditions,
 }: Readonly<Props>) {
@@ -44,12 +49,18 @@ export function CharacterSheet({
   const abbreviation = (id: string) =>
     sheet.abilities.find(ability => ability.id === id)?.abbreviation ??
     id.toUpperCase()
+  // The character's place in the encounter, while it has no initiative yet.
+  const waiting = combat?.combatants.some(
+    ({ side, initiative }) => side === 'me' && initiative === null,
+  )
 
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       <SheetHeader
         name={name}
         sheet={sheet}
+        actions={actions}
+        combatId={waiting ? combat?.id : undefined}
         onShowConditions={onShowConditions}
       />
 
@@ -121,10 +132,15 @@ export function CharacterSheet({
 function SheetHeader({
   name,
   sheet,
+  actions,
+  combatId,
   onShowConditions,
 }: Readonly<{
   name: string
   sheet: TableSheet
+  actions: RollActions
+  /** The combat the character waits to roll initiative in. */
+  combatId?: string
   onShowConditions?: () => void
 }>) {
   const identity = [sheet.species, sheet.background].filter(Boolean)
@@ -181,7 +197,25 @@ function SheetHeader({
         )}
         {dying && (
           <Stat label='Death saves' wide>
-            <DeathSaves saves={deathSaves} />
+            <span className='flex items-center justify-between gap-2'>
+              <DeathSaves saves={deathSaves} />
+              {isDying(sheet) && (
+                <RollButton
+                  target={{
+                    label: 'Death saving throw',
+                    modifier: 0,
+                    mode: 0,
+                    source: { kind: 'death' },
+                  }}
+                  {...actions}
+                  label='Death saving throw'
+                  className='inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-semibold transition-colors hover:border-primary hover:bg-primary/5 focus-visible:border-primary'
+                >
+                  <Dices aria-hidden className='size-4 text-primary' />
+                  Roll
+                </RollButton>
+              )}
+            </span>
           </Stat>
         )}
         {sheet.ac !== null && (
@@ -199,10 +233,34 @@ function SheetHeader({
         )}
         {sheet.initiative !== null && (
           <Stat label='Initiative' short='Init'>
-            <span className='inline-flex items-center gap-1'>
-              <Zap aria-hidden className='size-4 text-text-secondary' />
+            <RollButton
+              target={{
+                label: 'Initiative',
+                modifier: sheet.initiative,
+                mode: 0,
+                source: combatId ? { kind: 'initiative', combatId } : undefined,
+              }}
+              {...actions}
+              label={`Initiative, ${formatModifier(sheet.initiative)}${combatId ? ', to roll for the combat' : ''}`}
+              className='-mx-1 inline-flex items-center gap-1 rounded-lg px-1 transition-colors hover:bg-primary/10 focus-visible:bg-primary/10'
+            >
+              <Zap
+                aria-hidden
+                className={clsx(
+                  'size-4',
+                  combatId ? 'text-primary' : 'text-text-secondary',
+                )}
+              />
               {formatModifier(sheet.initiative)}
-            </span>
+              {combatId && (
+                <span
+                  aria-hidden
+                  className='rounded bg-primary px-1 text-[10px] font-bold tracking-wide text-on-primary uppercase'
+                >
+                  Roll
+                </span>
+              )}
+            </RollButton>
           </Stat>
         )}
         {sheet.speed && (
@@ -406,6 +464,7 @@ function AbilityTile({
           label: `${label} check`,
           modifier: check,
           mode: ability.checkMode,
+          source: { kind: 'ability', key: ability.id },
         }}
         onRoll={onRoll}
         onMenu={onMenu}
@@ -432,6 +491,7 @@ function AbilityTile({
           label: `${label} saving throw`,
           modifier: save,
           mode: ability.saveMode,
+          source: { kind: 'save', key: ability.id },
         }}
         onRoll={onRoll}
         onMenu={onMenu}
@@ -481,6 +541,7 @@ function SkillRow({
           label: `${skill.label} check`,
           modifier: skill.total,
           mode: skill.mode,
+          source: { kind: 'skill', key: skill.id },
         }}
         onRoll={onRoll}
         onMenu={onMenu}

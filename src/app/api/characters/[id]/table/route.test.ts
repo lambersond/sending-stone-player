@@ -4,10 +4,13 @@
 import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
+import { notePlayersSeen } from '@/db/roll-requests'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
+import type { RollKind } from '@/types/roll'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
+jest.mock('@/db/roll-requests', () => ({ notePlayersSeen: jest.fn() }))
 jest.mock('@/db/table', () => ({
   getCampaignStatus: jest.fn(),
   getTableView: jest.fn(),
@@ -38,7 +41,11 @@ describe('app/api/characters/[id]/table', () => {
   beforeEach(() => {
     jest.mocked(getCurrentUser).mockResolvedValue({ id: 'user-1' } as any)
     jest.mocked(getCharacter).mockResolvedValue(character)
-    jest.mocked(getCampaignStatus).mockResolvedValue({ version: 7, live: true })
+    jest.mocked(getCampaignStatus).mockResolvedValue({
+      version: 7,
+      live: true,
+      rollsToTable: [],
+    })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
 
@@ -68,17 +75,66 @@ describe('app/api/characters/[id]/table', () => {
     expect(response.status).toBe(204)
     expect(getCampaignStatus).toHaveBeenCalledWith(character)
     expect(getTableView).not.toHaveBeenCalled()
+
+    jest.mocked(getCampaignStatus).mockResolvedValue({
+      version: 7,
+      live: true,
+      rollsToTable: ['skill', 'save'],
+    })
+    const withRolls = await get('?version=7&live=1&rolls=skill,save')
+    expect(withRolls.status).toBe(204)
   })
 
-  it.each([
+  it.each<[string, string, boolean?, RollKind[]?]>([
     ['behind', '?version=6&live=1'],
     ['who thinks the game is offline', '?version=7&live=0'],
     ['who missed it going offline', '?version=7&live=1', false],
-  ])('sends the view to a viewer %s', async (_, query, live = true) => {
-    jest.mocked(getCampaignStatus).mockResolvedValue({ version: 7, live })
-    const response = await get(query)
+    [
+      'who missed the game starting to take rolls',
+      '?version=7&live=1',
+      true,
+      ['skill'],
+    ],
+    ['who missed it no longer taking them', '?version=7&live=1&rolls=skill'],
+  ])(
+    'sends the view to a viewer %s',
+    async (_, query, live = true, rollsToTable = []) => {
+      jest
+        .mocked(getCampaignStatus)
+        .mockResolvedValue({ version: 7, live, rollsToTable })
+      const response = await get(query)
+
+      expect(response.status).toBe(200)
+    },
+  )
+
+  it("notes a player at the campaign's table, as one who may roll", async () => {
+    await get('?version=7&live=1')
+    expect(notePlayersSeen).toHaveBeenCalledWith('c1')
+
+    jest
+      .mocked(getCharacter)
+      // eslint-disable-next-line unicorn/no-null -- the character's campaign is unset
+      .mockResolvedValue({ ...character, campaignId: null })
+    jest.mocked(notePlayersSeen).mockClear()
+    await get()
+    expect(notePlayersSeen).not.toHaveBeenCalled()
+  })
+
+  it('serves the view even when the player cannot be noted', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    jest.mocked(notePlayersSeen).mockRejectedValueOnce(new Error('db down'))
+
+    const response = await get()
 
     expect(response.status).toBe(200)
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to note a player at the table',
+      expect.any(Error),
+    )
+    consoleError.mockRestore()
   })
 
   it('refuses someone not signed in', async () => {
