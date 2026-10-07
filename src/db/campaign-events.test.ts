@@ -101,7 +101,7 @@ describe('db/campaign-events', () => {
         features: {
           rolls: {
             enabled: true,
-            kinds: ['skill', 'save', 'attack', 'initiative'],
+            kinds: ['skill', 'save', 'attack', 'heal', 'initiative'],
             reason: null,
           },
         },
@@ -112,7 +112,7 @@ describe('db/campaign-events', () => {
       data: {
         characters: roster,
         rollsEnabled: true,
-        rollKinds: ['skill', 'save', 'initiative'],
+        rollKinds: ['skill', 'save', 'attack', 'initiative'],
       },
     })
 

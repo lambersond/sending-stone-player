@@ -10,6 +10,7 @@ import {
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
+import type { TableCombat } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock('@lambersond/3d-dice-react', () => ({
@@ -259,6 +260,188 @@ describe('components/character-sheet/character-pane', () => {
     )
     await waitFor(() => expect(status).toHaveTextContent('Warhammer damage'))
     expect(status).toHaveTextContent(/1d8 \(\d\) \+4 Bludgeoning/)
+  })
+
+  describe('attacks at the table', () => {
+    const fight: TableCombat = {
+      id: 'cmbt1',
+      name: null,
+      started: true,
+      round: 1,
+      combatants: [
+        {
+          id: 'goblin1',
+          name: 'Goblin',
+          initiative: 15,
+          defeated: false,
+          side: 'other',
+        },
+        {
+          id: 'thorin1',
+          name: 'Thorin Oakenshield',
+          initiative: 12,
+          defeated: false,
+          side: 'me',
+        },
+      ],
+    }
+    const preview = {
+      critical: false,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d8 + 4',
+          type: 'bludgeoning',
+          dice: [{ faces: 8, number: 1 }],
+        },
+      ],
+    }
+
+    /** The game, which makes the attack, a hit, then its damage. */
+    const game = () => {
+      const posted: Record<string, unknown>[] = []
+      globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+          return {
+            ok: true,
+            status: 202,
+            json: async () => ({ id: `req-${posted.length}` }),
+          } as Response
+        }
+        const answer =
+          url === '/api/characters/char-1/rolls/req-1'
+            ? {
+                id: 'req-1',
+                status: 'done',
+                visible: true,
+                total: 19,
+                attack: { critical: false, fumble: false, outcome: 'hit' },
+                damage: preview,
+              }
+            : { id: 'req-2', status: 'done', visible: true, total: 9 }
+        return { ok: true, status: 200, json: async () => answer } as Response
+      }) as typeof fetch
+      return posted
+    }
+
+    const renderFight = (combat: TableCombat | null = fight) =>
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          combat={combat ?? undefined}
+          rollsToTable={['attack', 'damage']}
+        />,
+      )
+
+    beforeEach(() => {
+      globalThis.localStorage.clear()
+    })
+
+    it('makes an attack at the combatant picked, then rolls its damage there', async () => {
+      const user = userEvent.setup()
+      const posted = game()
+      renderFight()
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+      )
+      const picker = screen.getByRole('dialog', { name: 'Warhammer attack' })
+      // Nothing is rolled until a target is picked.
+      expect(fetch).not.toHaveBeenCalled()
+      expect(within(picker).queryByText('Thorin Oakenshield')).toBeNull()
+      await user.click(within(picker).getByRole('button', { name: 'Goblin' }))
+
+      expect(posted[0]).toMatchObject({
+        kind: 'attack',
+        item: 'warhammer',
+        activity: 'warhammerAttack',
+        target: { combatId: 'cmbt1', combatantId: 'goblin1' },
+      })
+      const status = screen.getByRole('status')
+      await waitFor(
+        () => expect(status).toHaveTextContent('At the table: 19 · Hit'),
+        { timeout: 3000 },
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Roll damage' }))
+      expect(posted[1]).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [{ faces: 8, results: [expect.any(Number)] }],
+      })
+      await waitFor(() => expect(status).toHaveTextContent('Warhammer damage'))
+      const [die] = (posted[1].dice as { results: number[] }[])[0].results
+      expect(status).toHaveTextContent(`1d8 (${die}) +4 bludgeoning`)
+      await waitFor(() => expect(status).toHaveTextContent('At the table: 9'), {
+        timeout: 3000,
+      })
+      // Its damage is rolled once.
+      expect(screen.queryByRole('button', { name: 'Roll damage' })).toBeNull()
+    })
+
+    it("rolls a waiting attack's damage from its damage chip, as the game said", async () => {
+      const user = userEvent.setup()
+      const posted = game()
+      renderFight()
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+      )
+      await user.click(screen.getByRole('button', { name: 'No target' }))
+      expect(posted[0]).toMatchObject({ kind: 'attack', target: null })
+      await screen.findByText(/· Hit/, {}, { timeout: 3000 })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
+      )
+
+      expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+    })
+
+    it('makes an attack at once, at no one, out of combat', async () => {
+      const user = userEvent.setup()
+      const posted = game()
+      renderFight(null)
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+      )
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(posted[0]).toMatchObject({ kind: 'attack', target: null })
+    })
+
+    it("asks no target for an attack the game doesn't take", async () => {
+      const user = userEvent.setup()
+      game()
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          combat={fight}
+          rollsToTable={['skill', 'save']}
+        />,
+      )
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+      )
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Warhammer attack',
+        ),
+      )
+      expect(fetch).not.toHaveBeenCalled()
+    })
   })
 
   it('keeps rolls while another part of the sheet is shown', async () => {

@@ -278,6 +278,11 @@ export type SheetAction = {
   target: string | null
   /** The bonus to hit, for an action that attacks. */
   toHit: number | null
+  /**
+   * The attack activity the bonus to hit is for, by which the attack is made in the Gamemaster's
+   * game. Module 0.11.0; absent before, and null for an action that doesn't attack.
+   */
+  attackId?: string | null
   /** The saving throw it calls for: the ability's abbreviation, such as "DEX", and the DC. */
   save: { ability: string; dc: number | null } | null
   damage: SheetDamage[]
@@ -316,7 +321,14 @@ export type SheetItemFavorite = {
  */
 export type SheetActivityFavorite = Pick<
   SheetAction,
-  'activation' | 'range' | 'target' | 'toHit' | 'save' | 'damage' | 'uses'
+  | 'activation'
+  | 'range'
+  | 'target'
+  | 'toHit'
+  | 'attackId'
+  | 'save'
+  | 'damage'
+  | 'uses'
 > & {
   type: 'activity'
   /** The activity's. */
@@ -517,6 +529,37 @@ export type CommandResult = {
   visible: boolean
   /** The roll as the game made it, when its player may see it. */
   rolls: RollSummary[]
+  /** For an attack, what came of it, when its player may see it. Module 0.11.0. */
+  attack?: AttackOutcome | null
+  /** For an attack, the dice its damage will throw; null when no damage follows. Module 0.11.0. */
+  damage?: DamagePreview | null
+}
+
+/**
+ * What came of an attack made in the game: a critical hit or a fumble, and whether it hit its
+ * target, where the game shows players that; never the target's armor class.
+ */
+export type AttackOutcome = {
+  critical: boolean
+  fumble: boolean
+  outcome: 'hit' | 'miss' | null
+}
+
+/**
+ * The dice an attack's damage will throw in the game, as the game will make up its rolls, with a
+ * critical hit's dice: for the player to roll them. None when the game can't say beforehand, as for
+ * a d3, and then rolls them all itself.
+ */
+export type DamagePreview = {
+  critical: boolean
+  plannable: boolean
+  rolls: {
+    /** As the game will roll it, such as "2d8 + 3". */
+    formula: string
+    /** Such as "Slashing"; null for none. */
+    type: string | null
+    dice: { faces: number; number: number }[]
+  }[]
 }
 
 /** An event this app acts on, with its payload checked. */

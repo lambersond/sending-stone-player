@@ -50,7 +50,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
 
 /**
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
- * ability check, a saving throw, a death saving throw, or initiative.
+ * ability check, a saving throw, a death saving throw, or initiative; and, where the Gamemaster
+ * lets them, an attack, then its damage.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -59,7 +60,15 @@ export const ROLL_KINDS = [
   'save',
   'death',
   'initiative',
+  'attack',
+  'damage',
 ] as const
+
+/** How long after an attack is made its damage may be rolled at the table, in milliseconds. */
+export const DAMAGE_WITHIN = 600_000
+
+/** The most dice terms an attack's damage may throw. */
+export const MAX_DAMAGE_TERMS = 20
 
 /**
  * How the module's fetch of players' rolls is answered, in milliseconds. While a player has their

@@ -103,6 +103,12 @@ describe('components/character-sheet/favorites', () => {
       label: 'Warhammer attack',
       modifier: 7,
       advantage: undefined,
+      // The attack, for the Gamemaster's game to make it too.
+      source: {
+        kind: 'attack',
+        item: 'warhammer',
+        activity: 'warhammerAttack',
+      },
       explicit: false,
     })
 

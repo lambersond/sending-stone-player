@@ -46,10 +46,32 @@ const initiative: RollRequestInput = {
   combatId: 'cmbt1',
 }
 
-/** A campaign whose game takes skill checks and initiative, its module fetching them. */
+/** A warhammer attack at the goblin. */
+const swing: RollRequestInput = {
+  kind: 'attack',
+  item: 'warhammer',
+  activity: 'warhammerAttack',
+  target: { combatId: 'cmbt1', combatantId: 'c-goblin' },
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [{ faces: 20, results: [15] }],
+}
+
+/** Its damage: 1d8 + 4. */
+const smash: RollRequestInput = {
+  kind: 'damage',
+  use: 'req-0',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [{ faces: 8, results: [6] }],
+}
+
+/** A campaign whose game takes skill checks, initiative and attacks, its module fetching them. */
 const takingRolls = {
   rollsEnabled: true,
-  rollKinds: ['skill', 'initiative'],
+  rollKinds: ['skill', 'initiative', 'attack', 'damage'],
   bridgePolledAt: ago(5000),
 }
 
@@ -65,6 +87,34 @@ const held = (id: string, fields: object = {}) => ({
   claimedAt: new Date(NOW),
   ...fields,
 })
+
+/** The warhammer attack, req-0, made in the game: a hit, its damage to roll. */
+const madeSwing = (fields: object = {}) =>
+  held('req-0', {
+    kind: 'attack',
+    payload: swing,
+    status: 'done',
+    createdAt: ago(20_000),
+    result: {
+      id: 'req-0',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+      damage: {
+        critical: false,
+        plannable: true,
+        rolls: [
+          {
+            formula: '1d8 + 4',
+            type: 'bludgeoning',
+            dice: [{ faces: 8, number: 1 }],
+          },
+        ],
+      },
+    },
+    ...fields,
+  })
 
 describe('db/roll-requests', () => {
   beforeEach(() => {
@@ -230,6 +280,105 @@ describe('db/roll-requests', () => {
         reason: 'not-in-combat',
       })
     })
+
+    it('takes an attack at a combatant of the combat it is in, as the player sees it', async () => {
+      const fight = combat({
+        combatants: [
+          combatant({ id: 'c-goblin', name: 'Goblin' }),
+          combatant({ id: 'c-lurker', name: 'Lurker', hidden: true }),
+        ],
+      })
+      given({ combats: [fight] })
+
+      await expect(createRollRequest(character, swing)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.combat.findMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', combatId: 'cmbt1' },
+        select: { data: true },
+      })
+      expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          kind: 'attack',
+          payload: swing,
+          useId: undefined,
+        }),
+        select: { id: true },
+      })
+
+      given({ combats: [fight] })
+      await expect(
+        createRollRequest(character, {
+          ...swing,
+          target: { combatId: 'cmbt1', combatantId: 'c-lurker' },
+        }),
+      ).resolves.toEqual({ status: 422, reason: 'target' })
+    })
+
+    it('takes an attack at no one, looking up no combat', async () => {
+      given()
+
+      await expect(
+        createRollRequest(character, { ...swing, target: null }),
+      ).resolves.toEqual({ id: 'req-1' })
+      expect(prismaMock.combat.findMany).not.toHaveBeenCalled()
+    })
+
+    describe('damage', () => {
+      it("takes an attack's damage, noting the attack it follows", async () => {
+        given()
+        prismaMock.rollRequest.findFirst.mockResolvedValue(madeSwing() as any)
+        prismaMock.rollRequest.findMany.mockResolvedValue([])
+
+        await expect(createRollRequest(character, smash)).resolves.toEqual({
+          id: 'req-1',
+        })
+        // Only the character's own attack, and the damage asked for it.
+        expect(prismaMock.rollRequest.findFirst).toHaveBeenCalledWith({
+          where: { id: 'req-0', characterId: 'char-1' },
+          select: expect.objectContaining({ status: true, result: true }),
+        })
+        expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
+          where: { useId: 'req-0', characterId: 'char-1' },
+          select: { status: true, createdAt: true, claimedAt: true },
+        })
+        expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            kind: 'damage',
+            payload: smash,
+            useId: 'req-0',
+          }),
+          select: { id: true },
+        })
+      })
+
+      it.each([
+        ['of an attack that is not the character’s', null, [], 'gone'],
+        ['rolled already', madeSwing(), [{ status: 'done' }], 'damaged'],
+        ['with dice its attack did not say', madeSwing({}), [], 'dice'],
+      ])('refuses damage %s', async (_name, use, others, reason) => {
+        given()
+        prismaMock.rollRequest.findFirst.mockResolvedValue(use as any)
+        prismaMock.rollRequest.findMany.mockResolvedValue(
+          others.map(other => ({
+            createdAt: ago(1000),
+            claimedAt: null,
+            ...other,
+          })) as any,
+        )
+        const input =
+          reason === 'dice'
+            ? { ...smash, dice: [{ faces: 6, results: [6] }] }
+            : smash
+
+        await expect(createRollRequest(character, input)).resolves.toEqual({
+          status: 422,
+          reason,
+        })
+        expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+      })
+    })
   })
 
   describe('getRollRequestView', () => {
@@ -329,9 +478,38 @@ describe('db/roll-requests', () => {
       }
       await recordCommandResult('c1', result)
 
+      // Made after all, once the module said it took too long, it counts too.
       expect(prismaMock.rollRequest.updateMany).toHaveBeenCalledWith({
-        where: { id: 'req-1', campaignId: 'c1', status: 'claimed' },
+        where: {
+          id: 'req-1',
+          campaignId: 'c1',
+          OR: [
+            { status: 'claimed' },
+            {
+              status: 'failed',
+              result: { path: ['reason'], equals: 'timeout' },
+            },
+          ],
+        },
         data: { status: 'done', result, completedAt: new Date(NOW) },
+      })
+    })
+
+    it('records a roll that failed only while it was still to be answered', async () => {
+      const result = {
+        id: 'req-1',
+        status: 'failed' as const,
+        reason: 'timeout',
+        error: null,
+        messageId: null,
+        visible: false,
+        rolls: [],
+      }
+      await recordCommandResult('c1', result)
+
+      expect(prismaMock.rollRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 'req-1', campaignId: 'c1', OR: [{ status: 'claimed' }] },
+        data: { status: 'failed', result, completedAt: new Date(NOW) },
       })
     })
   })

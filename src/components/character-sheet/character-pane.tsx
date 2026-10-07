@@ -23,17 +23,22 @@ import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { RollTray } from './roll-tray'
 import { SpellsTab } from './spells-tab'
+import { TargetPicker, targetsOf } from './target-picker'
 import { Scroller } from '@/components/scroller'
 import {
   useSheetRoller,
   type SheetDamageRoll,
   type SheetRoll,
 } from '@/hooks/use-sheet-roller'
-import { useTableRolls } from '@/hooks/use-table-rolls'
+import {
+  damageRollOf,
+  useTableRolls,
+  type DueDamage,
+} from '@/hooks/use-table-rolls'
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import type { RollKind } from '@/types/roll'
-import type { TableCombat, TableSheet } from '@/types/table'
+import type { TableCombat, TableCombatant, TableSheet } from '@/types/table'
 
 type Props = {
   characterId: string
@@ -102,7 +107,13 @@ function RollingSheet({
   rollsToTable,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable)
-  const { roll, rollDamage, rolls, rolling } = useSheetRoller(table.send)
+  const { roll, rollDamage, rolls, rolling } = useSheetRoller(
+    table.send,
+    table.sendDamage,
+  )
+  // An attack made at the table, while its player picks who it's made at.
+  const [picking, setPicking] = useState<SheetRoll>()
+  const [lastTarget, setLastTarget] = useState<string>()
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
@@ -118,10 +129,37 @@ function RollingSheet({
   // A tab the sheet no longer has, such as Spells for a character who lost theirs, shows the
   // character.
   const tab = tabs.some(({ id }) => id === chosen) ? chosen : 'character'
+  // An attack the game makes, in a combat, is made at a combatant the player picks first.
   const onRoll = (request: SheetRoll) => {
+    const attack = request.source?.kind === 'attack'
+    if (attack && table.takes('attack') && targetsOf(combat).length > 0) {
+      setPicking(request)
+      return
+    }
     void roll(request)
   }
+  const pick = (combatant?: TableCombatant) => {
+    const request = picking
+    setPicking(undefined)
+    if (request?.source?.kind !== 'attack') return
+    if (combatant) setLastTarget(combatant.id)
+    // A combat that ended while they picked leaves no one to attack.
+    const target =
+      combatant && combat
+        ? { combatId: combat.id, combatantId: combatant.id }
+        : undefined
+    void roll({ ...request, source: { ...request.source, target } })
+  }
+  // An attack's damage, while the game waits for it, is rolled for the game, as the game said.
+  const rollDue = (name: string, due: DueDamage) => {
+    void rollDamage(damageRollOf(name, due))
+  }
   const onRollDamage = (request: SheetDamageRoll) => {
+    const due = request.source && table.dueFor(request.source)
+    if (due) {
+      rollDue(request.label.replace(/ damage$/, ''), due)
+      return
+    }
     void rollDamage(request)
   }
   const entries = useMemo(() => favoriteEntries(sheet), [sheet])
@@ -243,7 +281,21 @@ function RollingSheet({
           </div>
         </Scroller>
       </div>
-      {showsRolls && <RollTray rolls={rolls} rolling={rolling} table={table} />}
+      {showsRolls && (
+        <RollTray
+          rolls={rolls}
+          rolling={rolling}
+          table={{ ...table, rollDamage: rollDue }}
+        />
+      )}
+      <TargetPicker
+        open={picking !== undefined}
+        label={picking?.label ?? ''}
+        combat={combat}
+        last={lastTarget}
+        onPick={pick}
+        onClose={() => setPicking(undefined)}
+      />
     </FavoriteMarks>
   )
 }

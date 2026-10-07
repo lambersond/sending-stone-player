@@ -268,6 +268,8 @@ model RollRequest {
   kind         String
   // What to roll and how, and the dice the player rolled: the command the module is sent.
   payload      Json
+  // For damage, the attack it follows.
+  useId        String?
   status       RollRequestStatus @default(pending)
   // Which fetch took it, and from which module session.
   claimToken   String?
@@ -281,5 +283,6 @@ model RollRequest {
 
   @@index([campaignId, status, createdAt])
   @@index([characterId, createdAt])
+  @@index([useId])
   @@map("roll_request")
 }

@@ -70,6 +70,7 @@ export async function listOwnedCampaigns(
       rolls: {
         enabled: campaign.rollsEnabled,
         reaching: availableRollKinds(campaign).length > 0,
+        attacks: campaign.rollKinds.includes('attack'),
       },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)

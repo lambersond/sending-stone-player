@@ -223,6 +223,38 @@ describe('hooks/use-sheet-roller', () => {
     expect(roll.critical).toBe(true)
   })
 
+  it("throws a critical hit's dice as the game gave them, already doubled, and tells of them", async () => {
+    renderer()
+    const onDamageThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, onDamageThrown),
+    )
+    const request = {
+      label: 'Longsword damage',
+      parts: [
+        {
+          terms: [
+            { sign: 1 as const, count: 2, sides: 8 as const },
+            { sign: 1 as const, flat: 4 },
+          ],
+          type: 'slashing',
+        },
+      ],
+      critical: true,
+      exact: true,
+      use: 'req-1',
+    }
+
+    await act(() => result.current.rollDamage(request))
+
+    const [roll] = result.current.rolls as LocalDamage[]
+    const [dice, flat] = roll.parts[0].terms
+    expect([dice.text, flat.text]).toEqual(['2d8', '+4'])
+    expect(dice.values).toHaveLength(2)
+    expect(roll.critical).toBe(true)
+    expect(onDamageThrown).toHaveBeenCalledWith(request, roll)
+  })
+
   it('keeps healing with nothing to throw, without dice', async () => {
     const fake = renderer()
     const { result } = renderHook(() => useSheetRoller())

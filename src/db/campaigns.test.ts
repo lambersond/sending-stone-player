@@ -53,7 +53,7 @@ describe('db/campaigns', () => {
           helloSession: 'session-1',
           characters: roster,
           rollsEnabled: true,
-          rollKinds: ['skill', 'save'],
+          rollKinds: ['skill', 'save', 'attack', 'damage'],
           bridgePolledAt: seen,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
@@ -88,7 +88,7 @@ describe('db/campaigns', () => {
           rosterReceived: true,
           live: true,
           lastSeenAt: seen.toISOString(),
-          rolls: { enabled: true, reaching: true },
+          rolls: { enabled: true, reaching: true, attacks: true },
           characters: [
             {
               id: 'actor-thorin',
@@ -114,7 +114,7 @@ describe('db/campaigns', () => {
           rosterReceived: false,
           live: false,
           lastSeenAt: undefined,
-          rolls: { enabled: false, reaching: false },
+          rolls: { enabled: false, reaching: false, attacks: false },
           characters: [],
         },
       ])

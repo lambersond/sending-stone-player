@@ -14,6 +14,7 @@ import {
   ActionDetails,
   ActionEntry,
   AttackChip,
+  attackSource,
   Chevron,
   DamageChip,
   FALLBACKS,
@@ -488,7 +489,12 @@ function ActionTableRow({
         <td className='px-2'>
           <span className='flex gap-1'>
             {toHit !== null && (
-              <AttackChip name={name} toHit={toHit} d20={rows.d20} />
+              <AttackChip
+                name={name}
+                toHit={toHit}
+                d20={rows.d20}
+                source={attackSource(action)}
+              />
             )}
             {save && <SaveChip save={save} />}
           </span>

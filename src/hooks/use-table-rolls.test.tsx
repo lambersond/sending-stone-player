@@ -1,13 +1,22 @@
+/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, renderHook } from '@testing-library/react'
 import {
   CHECK_EVERY,
+  damageRollOf,
   FOLLOW_FOR,
+  LATE_FOLLOW,
   SEND_KEY,
   toRollRequest,
   useTableRolls,
 } from './use-table-rolls'
-import type { LocalCheck, SheetRoll } from './use-sheet-roller'
+import type {
+  LocalCheck,
+  LocalDamage,
+  SheetDamageRoll,
+  SheetRoll,
+} from './use-sheet-roller'
 import type { RollKind } from '@/types/roll'
+import type { DamagePreview } from '@/types/sending-stone'
 
 const perception: SheetRoll = {
   label: 'Perception check',
@@ -35,6 +44,50 @@ const check = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
     { text: '+1d4', values: [2], value: 2 },
     { text: '−1', values: [], value: -1 },
     { text: '+2d6', values: [5, 1], value: 6 },
+  ],
+  at: 0,
+  ...fields,
+})
+
+const longsword: SheetRoll = {
+  label: 'Longsword attack',
+  modifier: 7,
+  source: {
+    kind: 'attack',
+    item: 'longsword',
+    activity: 'swing',
+    target: { combatId: 'cmbt1', combatantId: 'goblin' },
+  },
+}
+
+/** The damage the game said a hit with the longsword throws: 1d8 + 4, then 1d6 fire. */
+const preview = (fields: Partial<DamagePreview> = {}): DamagePreview => ({
+  critical: false,
+  plannable: true,
+  rolls: [
+    { formula: '1d8 + 4', type: 'slashing', dice: [{ faces: 8, number: 1 }] },
+    { formula: '1d6', type: 'fire', dice: [{ faces: 6, number: 1 }] },
+  ],
+  ...fields,
+})
+
+const thrownDamage = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
+  kind: 'damage',
+  id: 'r2',
+  label: 'Longsword damage',
+  total: 15,
+  critical: false,
+  healing: false,
+  parts: [
+    {
+      type: 'slashing',
+      total: 9,
+      terms: [
+        { text: '1d8', values: [5], value: 5 },
+        { text: '+4', values: [], value: 4 },
+      ],
+    },
+    { type: 'fire', total: 6, terms: [{ text: '1d6', values: [6], value: 6 }] },
   ],
   at: 0,
   ...fields,
@@ -106,6 +159,97 @@ describe('hooks/use-table-rolls', () => {
           check({ advantage: undefined, d20s: [11], extras: [] }),
         ),
       ).toMatchObject({ kind: 'death', mode: 0 })
+    })
+
+    it('asks for an attack with its item, its attack and its target', () => {
+      const thrown = check({ advantage: undefined, d20s: [15], extras: [] })
+      expect(toRollRequest(longsword, longsword.source!, thrown)).toEqual({
+        kind: 'attack',
+        item: 'longsword',
+        activity: 'swing',
+        target: { combatId: 'cmbt1', combatantId: 'goblin' },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 20, results: [15] }],
+      })
+      expect(
+        toRollRequest(
+          longsword,
+          { kind: 'attack', item: 'longsword', activity: 'swing' },
+          thrown,
+        ),
+      ).toMatchObject({ kind: 'attack', target: null })
+    })
+  })
+
+  describe('damageRollOf', () => {
+    it('rolls the damage the game said, part by part, with its formula', () => {
+      expect(
+        damageRollOf('Longsword', { use: 'req-1', damage: preview() }),
+      ).toEqual<SheetDamageRoll>({
+        label: 'Longsword damage',
+        critical: false,
+        exact: true,
+        use: 'req-1',
+        parts: [
+          {
+            type: 'slashing',
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+          },
+          { type: 'fire', terms: [{ sign: 1, count: 1, sides: 6 }] },
+        ],
+      })
+    })
+
+    it("rolls a critical hit's dice as the game doubled them, and only dice the app can't read", () => {
+      const critical = preview({
+        critical: true,
+        rolls: [
+          {
+            formula: '2d8 + 4',
+            type: 'slashing',
+            dice: [{ faces: 8, number: 2 }],
+          },
+          {
+            formula: '1d6 + @mod',
+            type: 'fire',
+            dice: [{ faces: 6, number: 2 }],
+          },
+        ],
+      })
+      expect(
+        damageRollOf('Longsword', { use: 'req-1', damage: critical }),
+      ).toEqual({
+        label: 'Longsword damage',
+        critical: true,
+        exact: true,
+        use: 'req-1',
+        parts: [
+          {
+            type: 'slashing',
+            terms: [
+              { sign: 1, count: 2, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+          },
+          { type: 'fire', terms: [{ sign: 1, count: 2, sides: 6 }] },
+        ],
+      })
+    })
+
+    it('throws no dice for damage the game rolls itself', () => {
+      const roll = damageRollOf('Club', {
+        use: 'req-1',
+        damage: preview({ plannable: false }),
+      })
+      expect(roll.parts).toEqual([
+        { type: 'slashing', terms: [] },
+        { type: 'fire', terms: [] },
+      ])
     })
   })
 
@@ -239,7 +383,10 @@ describe('hooks/use-table-rolls', () => {
     })
 
     await advance(FOLLOW_FOR)
-    expect(result.current.states.get('r1')).toEqual({ status: 'lost' })
+    expect(result.current.states.get('r1')).toEqual({
+      status: 'lost',
+      requestId: 'req-1',
+    })
   })
 
   it('stops following a roll the page may no longer see', async () => {
@@ -252,8 +399,167 @@ describe('hooks/use-table-rolls', () => {
     act(() => result.current.send(perception, check()))
     await advance(CHECK_EVERY)
 
-    expect(result.current.states.get('r1')).toEqual({ status: 'lost' })
+    expect(result.current.states.get('r1')).toEqual({
+      status: 'lost',
+      requestId: 'req-1',
+    })
     expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('goes on asking after a roll that took the game too long, which it may make after all', async () => {
+    const timedOut = { id: 'req-1', status: 'failed', reason: 'timeout' }
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      .mockResolvedValueOnce(respond(200, timedOut))
+      .mockResolvedValueOnce(respond(200, timedOut))
+      .mockResolvedValueOnce(respond(200, { id: 'req-1', status: 'done' }))
+    const { result } = render()
+
+    act(() => result.current.send(perception, check()))
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('r1')).toMatchObject({
+      status: 'failed',
+      reason: 'timeout',
+    })
+
+    await advance(CHECK_EVERY * 2)
+    expect(result.current.states.get('r1')).toMatchObject({ status: 'done' })
+    await advance(CHECK_EVERY * 3)
+    expect(fetch).toHaveBeenCalledTimes(4)
+  })
+
+  it("stops asking after a roll that took too long, once the game can't make it any more", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      .mockResolvedValue(
+        respond(200, { id: 'req-1', status: 'failed', reason: 'timeout' }),
+      )
+    const { result } = render()
+
+    act(() => result.current.send(perception, check()))
+    await advance(LATE_FOLLOW + CHECK_EVERY * 2)
+    const asked = jest.mocked(fetch).mock.calls.length
+    await advance(CHECK_EVERY * 5)
+
+    expect(fetch).toHaveBeenCalledTimes(asked)
+    // It stays as the game last said, rather than lost.
+    expect(result.current.states.get('r1')).toMatchObject({
+      status: 'failed',
+      reason: 'timeout',
+    })
+  })
+
+  describe('attacks', () => {
+    const made = {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      total: 19,
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+      damage: preview(),
+    }
+    const attackCheck = check({
+      label: 'Longsword attack',
+      advantage: undefined,
+      d20s: [12],
+      extras: [],
+    })
+
+    it('sends an attack, then rolls its damage at the table once, with the dice the game said', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(respond(200, made))
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+      const { result } = render(['attack', 'damage'])
+      expect(result.current.takes('attack')).toBe(true)
+
+      act(() => result.current.send(longsword, attackCheck))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('r1')).toMatchObject({
+        status: 'done',
+        requestId: 'req-1',
+        source: { item: 'longsword', activity: 'swing' },
+        attack: { outcome: 'hit' },
+      })
+      const due = { use: 'req-1', damage: preview() }
+      expect(result.current.dueDamage('req-1')).toEqual(due)
+      expect(
+        result.current.dueFor({ item: 'longsword', activity: 'swing' }),
+      ).toEqual(due)
+      expect(
+        result.current.dueFor({ item: 'longsword', activity: 'thrown' }),
+      ).toBeUndefined()
+
+      act(() =>
+        result.current.sendDamage(
+          damageRollOf('Longsword', due),
+          thrownDamage(),
+        ),
+      )
+      expect(fetch).toHaveBeenLastCalledWith('/api/characters/char-1/rolls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'damage',
+          use: 'req-1',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [
+            { faces: 8, results: [5] },
+            { faces: 6, results: [6] },
+          ],
+        }),
+        signal: expect.any(AbortSignal),
+      })
+      expect(result.current.states.get('r1')).toMatchObject({ damaged: true })
+      expect(result.current.states.get('r2')).toEqual({ status: 'sending' })
+      // Its damage is on its way: it isn't offered again.
+      expect(result.current.dueDamage('req-1')).toBeUndefined()
+      expect(
+        result.current.dueFor({ item: 'longsword', activity: 'swing' }),
+      ).toBeUndefined()
+    })
+
+    it('offers no damage for an attack that missed, or whose damage the game rolls with nothing to follow', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(respond(200, { ...made, damage: null }))
+      const { result } = render(['attack', 'damage'])
+
+      act(() => result.current.send(longsword, attackCheck))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('r1')).toMatchObject({ status: 'done' })
+      expect(result.current.dueDamage('req-1')).toBeUndefined()
+    })
+
+    it("sends no damage the game doesn't take, nor damage of no attack at the table", () => {
+      const { result } = render(['attack'])
+      const due = { use: 'req-1', damage: preview() }
+
+      act(() =>
+        result.current.sendDamage(
+          damageRollOf('Longsword', due),
+          thrownDamage(),
+        ),
+      )
+      expect(fetch).not.toHaveBeenCalled()
+
+      const { result: taking } = render(['attack', 'damage'])
+      act(() =>
+        taking.current.sendDamage(
+          { label: 'Longsword damage', parts: [] },
+          thrownDamage(),
+        ),
+      )
+      expect(fetch).not.toHaveBeenCalled()
+    })
   })
 
   it('stops following its rolls once gone', async () => {

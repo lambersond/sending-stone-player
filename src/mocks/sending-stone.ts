@@ -555,6 +555,7 @@ export function fullerSheet(
             name: 'Warhammer',
             img: 'icons/weapons/hammers/hammer-war.webp',
             type: 'weapon',
+            attackId: 'warhammerAttack',
             range: 'reach 5 ft',
             target: '1 Creature',
             toHit: 7,
@@ -567,6 +568,7 @@ export function fullerSheet(
             id: 'handaxe',
             name: 'Handaxe',
             type: 'weapon',
+            attackId: 'handaxeAttack',
             range: 'reach 5 ft or range 20/60 ft',
             toHit: 7,
             damage: [{ formula: '1d6 + 4', type: 'Slashing', healing: false }],
@@ -704,6 +706,7 @@ export function sheetFavorites(): SheetFavorite[] {
       save: { ability: 'DEX', dc: 15 },
       damage: [{ formula: '8d6', type: 'Fire', healing: false }],
       uses: null,
+      attackId: null,
     },
     {
       type: 'effect',

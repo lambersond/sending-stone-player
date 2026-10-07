@@ -59,9 +59,38 @@ describe('app/api/characters/[id]/rolls', () => {
     expect(createRollRequest).toHaveBeenCalledWith(character, perception)
   })
 
+  it('takes an attack at a combatant, then its damage', async () => {
+    const attack = {
+      kind: 'attack',
+      item: 'warhammer',
+      activity: 'warhammerAttack',
+      target: { combatId: 'cmbt1', combatantId: 'goblin1' },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [15] }],
+    }
+    const attacked = await post(attack)
+    expect(attacked.status).toBe(202)
+    expect(createRollRequest).toHaveBeenLastCalledWith(character, attack)
+
+    const damage = {
+      kind: 'damage',
+      use: 'req-1',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [6] }],
+    }
+    const damaged = await post(damage)
+    expect(damaged.status).toBe(202)
+    expect(createRollRequest).toHaveBeenLastCalledWith(character, damage)
+  })
+
   it.each([
     [409, 'unavailable'],
     [422, 'not-dying'],
+    [422, 'damaged'],
     [429, 'busy'],
   ] as const)(
     'answers %i when the roll is refused, saying why',

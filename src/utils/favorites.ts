@@ -236,6 +236,7 @@ function activityAction(
       range: favorite.range,
       target: favorite.target,
       toHit: favorite.toHit,
+      attackId: favorite.attackId ?? null,
       save: favorite.save,
       damage: favorite.damage,
       uses: favorite.uses,
