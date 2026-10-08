@@ -32,10 +32,15 @@ import {
 } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
+import { activityAction } from '@/utils/sheet-actions'
 import type { MenuPoint, RollChoice } from './roll-menu'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
-import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetActivity,
+  SheetSpellSection,
+} from '@/types/sending-stone'
 
 /*
  * An action as the Actions tab shows it, and the favorites too, and the spells, features and
@@ -320,7 +325,8 @@ export function ActionEntry({
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
-  const { name, toHit, save, uses } = action
+  const others = otherActivities(action)
+  const { name, uses } = action
   const detail =
     look.detail ??
     joinParts(
@@ -329,6 +335,7 @@ export function ActionEntry({
       action.range,
       view.types.join(', '),
       view.spent && 'No slots left',
+      firstInFoundry(action) && 'Used in Foundry',
     )
 
   return (
@@ -364,41 +371,26 @@ export function ActionEntry({
           </span>
         </button>
         {look.marks}
-        {uses && (
-          // Beside what the action rolls, in a narrow list, its uses would leave its name too
-          // little room; they're listed when it opens.
-          <span
-            className={clsx(
-              'shrink-0',
-              (toHit !== null || save || view.formula || view.uses.chip) &&
-                'hidden @md:inline',
-            )}
-          >
-            <UsesLeft uses={uses} />
-          </span>
-        )}
-        {toHit !== null && (
-          <AttackChip
-            name={name}
-            toHit={toHit}
-            d20={rows.d20}
-            source={attackSource(action)}
-          />
-        )}
-        {save && <SaveChip name={name} save={save} onUse={view.uses.save} />}
-        {view.formula && (
-          <DamageChip
-            name={name}
-            formula={view.formula}
-            healing={view.healing}
-            target={view.target}
-            damage={rows.damage}
-            onUse={view.uses.damage}
-            verb={verbOf(action)}
-          />
-        )}
-        {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
+        {uses && <ChipUses uses={uses} view={view} action={action} />}
+        <ActionChips action={action} view={view} rows={rows} />
       </div>
+      {others.length > 0 && (
+        <ul
+          aria-label={`${name}: its other activities`}
+          className='mb-1 ml-[1.625rem] border-l border-border pl-[1.5rem]'
+        >
+          {others.map(other => (
+            <ActivityEntry
+              key={other.activity.id}
+              activity={other.activity}
+              action={other.action}
+              parent={action}
+              rows={rows}
+              muted={look.muted}
+            />
+          ))}
+        </ul>
+      )}
       {open && (
         <div
           id={body}
@@ -413,6 +405,164 @@ export function ActionEntry({
         </div>
       )}
     </li>
+  )
+}
+
+/**
+ * One of an action's other activities, beneath it, such as Hex's Bonus Hex Damage: its name, how
+ * it differs from the action in how it's used and how far it reaches, and what it rolls beside it,
+ * as an action's row has them. One the app can't use, such as a summoning, says so.
+ */
+function ActivityEntry({
+  activity,
+  action,
+  parent,
+  rows,
+  muted,
+}: Readonly<{
+  activity: SheetActivity
+  /** The activity as an action of its own. */
+  action: SheetAction
+  parent: SheetAction
+  rows: ActionRows
+  muted?: boolean
+}>) {
+  const view = viewOf(action, rows.spellbook, rows.use)
+  const { uses } = action
+  const detail = joinParts(...activityDetail(activity, parent, view.spent))
+  return (
+    <li className='flex items-center gap-2 py-0.5 pr-1.5'>
+      <span
+        className={clsx(
+          'min-w-0 flex-1 py-0.5',
+          (view.spent || muted || !usedFromApp(activity)) && 'opacity-60',
+        )}
+      >
+        <span className='block truncate text-sm'>{activity.name}</span>
+        {detail && (
+          <span className='block truncate text-xs text-text-secondary'>
+            {detail}
+          </span>
+        )}
+      </span>
+      {uses && <ChipUses uses={uses} view={view} action={action} />}
+      <ActionChips action={action} view={view} rows={rows} />
+    </li>
+  )
+}
+
+/**
+ * An action's other activities, after its first, which the action is, each with itself as an
+ * action of its own, rolled and used as that activity alone.
+ */
+export function otherActivities(
+  action: SheetAction,
+): { activity: SheetActivity; action: SheetAction }[] {
+  return (action.activities ?? []).slice(1).map(activity => ({
+    activity,
+    action: activityAction(action, activity),
+  }))
+}
+
+/** The kinds of activity the app rolls or uses; others, such as a summoning, are Foundry's. */
+const FROM_APP = new Set(['attack', 'save', 'damage', 'heal', 'utility'])
+
+/** Is this a kind of activity the app rolls or uses? */
+export function usedFromApp(activity: SheetActivity): boolean {
+  return FROM_APP.has(activity.type)
+}
+
+/**
+ * Is an action with more than one activity first one the app can't use, such as Flaming Sphere's
+ * summoning, with the rest beneath it?
+ */
+export function firstInFoundry(action: SheetAction): boolean {
+  const [first] = action.activities ?? []
+  return !!first && !usedFromApp(first)
+}
+
+/**
+ * What to say of one of an action's activities beneath it: how it's used and how far it reaches,
+ * where that differs from the action, its kinds of damage, and whether it's out of slots, or used
+ * only in Foundry.
+ */
+export function activityDetail(
+  activity: SheetActivity,
+  parent: SheetAction,
+  spent: boolean,
+): (string | false | null | undefined)[] {
+  return [
+    activity.activation !== parent.activation && activity.activation,
+    activity.range !== parent.range && activity.range,
+    [
+      ...new Set(
+        activity.damage.flatMap(part => (part.type ? [part.type] : [])),
+      ),
+    ].join(', '),
+    spent && 'No slots left',
+    !usedFromApp(activity) && 'Used in Foundry',
+  ]
+}
+
+/** An action's uses beside what it rolls, which in a narrow list are listed when it opens. */
+function ChipUses({
+  uses,
+  view,
+  action,
+}: Readonly<{
+  uses: NonNullable<SheetAction['uses']>
+  view: ReturnType<typeof viewOf>
+  action: SheetAction
+}>) {
+  const rolls =
+    action.toHit !== null || !!action.save || !!view.formula || !!view.uses.chip
+  return (
+    // Beside what the action rolls, in a narrow list, its uses would leave its name too little
+    // room; they're listed when it opens.
+    <span className={clsx('shrink-0', rolls && 'hidden @md:inline')}>
+      <UsesLeft uses={uses} />
+    </span>
+  )
+}
+
+/**
+ * What an action rolls, each a button of its own: its attack's bonus, its saving throw, its
+ * damage or healing, or using it in the game.
+ */
+export function ActionChips({
+  action,
+  view,
+  rows,
+}: Readonly<{
+  action: SheetAction
+  view: ReturnType<typeof viewOf>
+  rows: ActionRows
+}>) {
+  const { name, toHit, save } = action
+  return (
+    <>
+      {toHit !== null && (
+        <AttackChip
+          name={name}
+          toHit={toHit}
+          d20={rows.d20}
+          source={attackSource(action)}
+        />
+      )}
+      {save && <SaveChip name={name} save={save} onUse={view.uses.save} />}
+      {view.formula && (
+        <DamageChip
+          name={name}
+          formula={view.formula}
+          healing={view.healing}
+          target={view.target}
+          damage={rows.damage}
+          onUse={view.uses.damage}
+          verb={verbOf(action)}
+        />
+      )}
+      {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
+    </>
   )
 }
 
@@ -610,9 +760,14 @@ export function DamageChip({
   )
 }
 
-/** What using an action in the game is called: casting, for a spell. */
+/**
+ * What using an action in the game is called: casting, for a spell, but for one of its activities
+ * used after it's cast, without spending a slot, such as Spirit Guardians' save each turn.
+ */
 export function verbOf(action: SheetAction): 'Cast' | 'Use' {
-  return action.type === 'spell' ? 'Cast' : 'Use'
+  return action.type === 'spell' && action.consumesSlot !== false
+    ? 'Cast'
+    : 'Use'
 }
 
 /** All there is to know of an action once it's open: what it is, its facts, its description. */

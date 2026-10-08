@@ -423,6 +423,70 @@ describe('utils/roll-requests', () => {
       ).toBeUndefined()
     })
 
+    it("lets the character attack with an attack that's one of an item's later activities", () => {
+      const blade = fullerSheet({
+        actions: [
+          {
+            id: 'bonus',
+            label: 'Bonus Actions',
+            actions: [
+              sheetAction({
+                id: 'blade',
+                name: 'Flame Blade',
+                type: 'spell',
+                level: 0,
+                activities: [
+                  {
+                    id: 'evoke',
+                    name: 'Evoke Blade',
+                    type: 'utility',
+                    activation: 'Bonus Action',
+                    range: 'Self',
+                    target: null,
+                    toHit: null,
+                    attackId: null,
+                    save: null,
+                    damage: [],
+                    uses: null,
+                  },
+                  {
+                    id: 'slash',
+                    name: 'Attack',
+                    type: 'attack',
+                    activation: 'Action',
+                    range: 'reach 5 ft',
+                    target: null,
+                    toHit: 6,
+                    attackId: 'slash',
+                    save: null,
+                    damage: [{ formula: '3d6', type: 'Fire', healing: false }],
+                    uses: null,
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      })
+
+      expect(
+        checkRoll(
+          attackRequest({ item: 'blade', activity: 'slash' }),
+          blade,
+          [],
+          'actor-thorin',
+        ),
+      ).toBeUndefined()
+      expect(
+        checkRoll(
+          attackRequest({ item: 'blade', activity: 'evoke' }),
+          blade,
+          [],
+          'actor-thorin',
+        ),
+      ).toBe('unknown')
+    })
+
     it('refuses an attack the sheet has no such action for', () => {
       expect(
         checkRoll(
@@ -760,6 +824,76 @@ describe('utils/roll-requests', () => {
       expect(check(useRequest('fireball', 'blast', []), cleric(2, 0))).toBe(
         'slots',
       )
+    })
+
+    it("lets any of an item's activities be used, one spending no slot with none left too", () => {
+      const cast = {
+        id: 'guard',
+        type: 'utility' as const,
+        targets: targets({ self: true, affects: 'self' }),
+      }
+      const lists = cleric(2, 0)
+      lists.actions[0].actions.push(
+        sheetAction({
+          id: 'guardians',
+          name: 'Spirit Guardians',
+          type: 'spell',
+          level: 3,
+          activity: cast,
+          activities: [
+            {
+              id: 'guard',
+              name: 'Cast',
+              type: 'utility',
+              activation: 'Action',
+              range: 'Self',
+              target: null,
+              toHit: null,
+              attackId: null,
+              activity: cast,
+              save: null,
+              damage: [],
+              uses: null,
+            },
+            {
+              id: 'aura',
+              name: 'Emanation Save',
+              type: 'save',
+              activation: 'Special',
+              range: 'Self',
+              target: null,
+              toHit: null,
+              attackId: null,
+              activity: { id: 'aura', type: 'save', targets: targets({}) },
+              save: { ability: 'WIS', dc: 14 },
+              damage: [{ formula: '3d8', type: 'Radiant', healing: false }],
+              consumesSlot: false,
+              uses: null,
+            },
+          ],
+        }),
+      )
+      lists.spells[2].spells.push(
+        sheetSpell({ id: 'guardians', name: 'Spirit Guardians', level: 3 }),
+      )
+
+      // Its 3rd-level slots are spent, but its save each turn spends none.
+      expect(
+        check(useRequest('guardians', 'aura', ['c-goblin']), lists),
+      ).toBeUndefined()
+      expect(
+        check(
+          useRequest('guardians', 'aura', ['c-goblin'], { slot: 'spell3' }),
+          lists,
+        ),
+      ).toBeUndefined()
+      expect(check(useRequest('guardians', 'guard', []), lists)).toBe('slots')
+      expect(
+        check(useRequest('guardians', 'guard', [], { slot: 'spell3' }), lists),
+      ).toBe('slot')
+      expect(
+        check(useRequest('guardians', 'aura', [], { slot: 'spell1' }), lists),
+      ).toBe('slot')
     })
 
     it('lets a spell, feature or item be used from where the sheet lists it, but a spell not prepared', () => {

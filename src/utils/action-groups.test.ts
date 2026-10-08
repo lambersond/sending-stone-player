@@ -309,6 +309,16 @@ describe('utils/action-groups', () => {
       expect(defaultPool(spell('bolt', 'Fire Bolt', 0), spellbook)).toBeNull()
     })
 
+    it("uses an activity that spends no slot at its spell's own level, whether any is left or not", () => {
+      // Magic Missile's own slots, 1st level, have none left.
+      const darts = {
+        ...spell('missile', 'Magic Missile', 1),
+        consumesSlot: false,
+      }
+      expect(defaultPool(darts, spellbook)?.id).toBe('spell1')
+      expect(castAtLevel(darts, spellbook)).toBe(1)
+    })
+
     it('casts a spell at the level of the slots chosen, else of those dnd5e picks, else its own', () => {
       const missile = spell('missile', 'Magic Missile', 1)
       expect(castAtLevel(missile, spellbook)).toBe(2)
@@ -333,6 +343,13 @@ describe('utils/action-groups', () => {
           [pool(0)],
         ),
       ).toBe(false)
+    })
+  })
+
+  describe('outOfSlots for an activity that spends none', () => {
+    it('is never out of them', () => {
+      const aura = { ...spell('shield', 'Shield', 1), consumesSlot: false }
+      expect(outOfSlots(aura, [pool(0), pool(0)])).toBe(false)
     })
   })
 

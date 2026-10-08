@@ -87,6 +87,15 @@ const useSchema = z
   .optional()
   .catch(null)
 
+const usesSchema = z
+  .looseObject({
+    value: z.number(),
+    max: z.number(),
+    recovery: nullableString,
+  })
+  .nullable()
+  .catch(null)
+
 /** What an action rolls, and what it's used through in the game. */
 const rollFields = {
   toHit: nullableNumber,
@@ -121,7 +130,26 @@ const rollFields = {
       healing: z.boolean().catch(false),
     }),
   ),
+  // From module 0.14.0: false for a spell's activity that spends no slot; anything else spends one.
+  consumesSlot: z.boolean().optional().catch(true),
 }
+
+/**
+ * Each of an item's activities, for an item with more than one, from module 0.14.0: what each is
+ * called, its kind, and what it does, as an action does.
+ */
+const activitiesSchema = listOf(
+  z.looseObject({
+    id: z.string().min(1),
+    name: z.string(),
+    type: z.string().catch(''),
+    activation: nullableString,
+    range: nullableString,
+    target: nullableString,
+    ...rollFields,
+    uses: usesSchema,
+  }),
+).optional()
 
 /**
  * What a spell, feature or inventory item rolls, as an action does, from module 0.13.0, for one
@@ -136,6 +164,8 @@ const itemRollFields = {
   ammunition: rollFields.ammunition,
   save: rollFields.save.optional(),
   damage: rollFields.damage.optional(),
+  consumesSlot: rollFields.consumesSlot,
+  activities: activitiesSchema,
 }
 
 /**
@@ -177,15 +207,6 @@ const castFromSchema = z
   .object({ id: z.string(), name: z.string() })
   .nullable()
   .optional()
-  .catch(null)
-
-const usesSchema = z
-  .looseObject({
-    value: z.number(),
-    max: z.number(),
-    recovery: nullableString,
-  })
-  .nullable()
   .catch(null)
 
 const itemFields = {
@@ -336,6 +357,7 @@ const actionSchema = z.looseObject({
   img: nullableString,
   type: z.string().catch(''),
   ...actionFields,
+  activities: activitiesSchema,
   level: nullableNumber,
   // From module 0.8.2.
   castFrom: castFromSchema,

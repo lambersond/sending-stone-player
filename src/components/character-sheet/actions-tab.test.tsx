@@ -50,6 +50,12 @@ const rows = (region: HTMLElement) =>
     .getAllByRole('listitem')
     .map(item => item.textContent)
 
+/** What's listed beneath an action, of its other activities. */
+const others = (name: string) =>
+  within(screen.getByRole('list', { name: `${name}: its other activities` }))
+    .getAllByRole('listitem')
+    .map(item => item.textContent)
+
 /** Each group in a section, by its name, with its actions' names. */
 const groups = (region: HTMLElement) =>
   within(region)
@@ -1099,6 +1105,280 @@ describe('components/character-sheet/actions-tab', () => {
         screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
       )
       expect(onRollDamage).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('items with more than one activity', () => {
+    const targets = {
+      self: false,
+      area: false,
+      count: 1,
+      perLevel: null,
+      affects: 'creature',
+    }
+    const curse = { id: 'curse', type: 'utility' as const, targets }
+    // Hex is cast by its curse, its damage on a hit and moving the curse following without a slot.
+    const hex = sheetAction({
+      id: 'hex',
+      name: 'Hex',
+      type: 'spell',
+      level: 1,
+      activation: 'Bonus Action',
+      range: '90 ft',
+      activity: curse,
+      activities: [
+        {
+          id: 'curse',
+          name: 'Place Curse',
+          type: 'utility',
+          activation: 'Bonus Action',
+          range: '90 ft',
+          target: '1 Creature',
+          toHit: null,
+          attackId: null,
+          activity: curse,
+          save: null,
+          damage: [],
+          uses: null,
+        },
+        {
+          id: 'hit',
+          name: 'Bonus Hex Damage',
+          type: 'damage',
+          activation: 'Special',
+          range: null,
+          target: null,
+          toHit: null,
+          attackId: null,
+          activity: { id: 'hit', type: 'damage', targets },
+          save: null,
+          damage: [{ formula: '1d6', type: 'Necrotic', healing: false }],
+          consumesSlot: false,
+          uses: null,
+        },
+        {
+          id: 'move',
+          name: 'Curse New Creature',
+          type: 'utility',
+          activation: 'Bonus Action',
+          range: '90 ft',
+          target: '1 Creature',
+          toHit: null,
+          attackId: null,
+          activity: { id: 'move', type: 'utility', targets },
+          save: null,
+          damage: [],
+          consumesSlot: false,
+          uses: null,
+        },
+      ],
+    })
+    // An unarmed strike hits, or grapples or shoves.
+    const unarmed = sheetAction({
+      id: 'unarmed',
+      name: 'Unarmed Strike',
+      type: 'weapon',
+      range: 'reach 5 ft',
+      toHit: 5,
+      attackId: 'punch',
+      damage: [{ formula: '1 + 3', type: 'Bludgeoning', healing: false }],
+      activities: [
+        {
+          id: 'punch',
+          name: 'Attack',
+          type: 'attack',
+          activation: 'Action',
+          range: 'reach 5 ft',
+          target: null,
+          toHit: 5,
+          attackId: 'punch',
+          save: null,
+          damage: [{ formula: '1 + 3', type: 'Bludgeoning', healing: false }],
+          uses: null,
+        },
+        {
+          id: 'grapple',
+          name: 'Grapple/Shove',
+          type: 'save',
+          activation: 'Action',
+          range: '5 ft',
+          target: null,
+          toHit: null,
+          attackId: null,
+          activity: { id: 'grapple', type: 'save', targets },
+          save: { ability: 'DC', dc: 13 },
+          damage: [],
+          uses: null,
+        },
+      ],
+    })
+    // Flaming Sphere is summoned, which is Foundry's to do, then rams.
+    const sphere = sheetAction({
+      id: 'sphere',
+      name: 'Flaming Sphere',
+      type: 'spell',
+      level: 2,
+      range: '60 ft',
+      activities: [
+        {
+          id: 'call',
+          name: 'Summon',
+          type: 'summon',
+          activation: 'Action',
+          range: '60 ft',
+          target: null,
+          toHit: null,
+          attackId: null,
+          save: null,
+          damage: [],
+          uses: null,
+        },
+        {
+          id: 'ram',
+          name: 'Ram',
+          type: 'save',
+          activation: 'Bonus Action',
+          range: '5 ft',
+          target: null,
+          toHit: null,
+          attackId: null,
+          activity: { id: 'ram', type: 'save', targets },
+          save: { ability: 'DEX', dc: 14 },
+          damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+          consumesSlot: false,
+          uses: null,
+        },
+      ],
+    })
+    const sheet = toTableSheet(
+      withActions(hex, unarmed, sphere),
+      'https://my-game.forge-vtt.com',
+    )
+    const renderUsing = () => {
+      const onUse = jest.fn()
+      const onRoll = jest.fn()
+      const onRollDamage = jest.fn()
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={sheet}
+          onRoll={onRoll}
+          onRollDamage={onRollDamage}
+          onUse={onUse}
+        />,
+      )
+      return { onUse, onRoll, onRollDamage }
+    }
+    it('lists the rest of their activities beneath them, each with what it rolls', () => {
+      renderUsing()
+
+      // Each row holds its activities' rows, which are listed after it.
+      expect(rows(screen.getByRole('region', { name: 'Actions' }))).toEqual([
+        'Unarmed StrikeAction · reach 5 ft · Bludgeoning+51 + 3Grapple/Shove5 ftDC 13',
+        'Grapple/Shove5 ftDC 13',
+        'HexBonus Action · 90 ftCastBonus Hex DamageSpecial · Necrotic1d6Curse New CreatureUse',
+        'Bonus Hex DamageSpecial · Necrotic1d6',
+        'Curse New CreatureUse',
+        'Flaming SphereAction · 60 ft · Used in FoundryRamBonus Action · 5 ft · FireDEX 142d6',
+        'RamBonus Action · 5 ft · FireDEX 142d6',
+      ])
+      expect(others('Hex')).toEqual([
+        'Bonus Hex DamageSpecial · Necrotic1d6',
+        'Curse New CreatureUse',
+      ])
+    })
+
+    it('uses each from its own chips while the game takes them, as that activity alone', async () => {
+      const user = userEvent.setup()
+      const { onUse, onRoll } = renderUsing()
+      const used = () =>
+        onUse.mock.calls.map(([action]) => [action.name, action.activity.id])
+
+      await user.click(screen.getByRole('button', { name: 'Cast Hex' }))
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Hex (Bonus Hex Damage) damage, 1d6',
+        }),
+      )
+      await user.click(
+        screen.getByRole('button', { name: 'Use Hex (Curse New Creature)' }),
+      )
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Unarmed Strike (Grapple/Shove), DC saving throw DC 13',
+        }),
+      )
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Flaming Sphere (Ram), DEX saving throw DC 14',
+        }),
+      )
+      expect(used()).toEqual([
+        ['Hex', 'curse'],
+        ['Hex (Bonus Hex Damage)', 'hit'],
+        ['Hex (Curse New Creature)', 'move'],
+        ['Unarmed Strike (Grapple/Shove)', 'grapple'],
+        ['Flaming Sphere (Ram)', 'ram'],
+      ])
+
+      await user.click(
+        screen.getByRole('button', { name: 'Unarmed Strike attack, +5' }),
+      )
+      expect(onRoll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: { kind: 'attack', item: 'unarmed', activity: 'punch' },
+        }),
+      )
+    })
+
+    it('lists them in a table too, beneath their item, their chips in its columns', async () => {
+      const user = userEvent.setup()
+      sheetWidth(800)
+      const { onUse } = renderUsing()
+
+      await user.click(screen.getByRole('button', { name: 'Table' }))
+      const table = screen.getByRole('table', { name: 'Actions' })
+      const cells = (text: string) =>
+        [
+          ...within(table).getByText(text, { exact: true }).closest('tr')!
+            .children,
+        ].map(cell => cell.textContent)
+      expect(cells('Grapple/Shove')).toEqual([
+        'Grapple/Shove',
+        '5 ft',
+        'DC 13',
+        '',
+        '',
+      ])
+      expect(cells('Ram')).toEqual([
+        'RamBonus Action · Fire',
+        '5 ft',
+        'DEX 14',
+        '2d6',
+        '',
+      ])
+      expect(within(table).getByText('Used in Foundry')).toBeVisible()
+      await user.click(
+        within(table).getByRole('button', {
+          name: 'Hex (Bonus Hex Damage) damage, 1d6',
+        }),
+      )
+      expect(onUse.mock.calls[0][0].activity.id).toBe('hit')
+    })
+
+    it('rolls their chips here while the game takes none', async () => {
+      const user = userEvent.setup()
+      const { onRollDamage } = renderTab(withActions(hex, unarmed, sphere))
+
+      expect(screen.queryByRole('button', { name: /^(Use|Cast) / })).toBeNull()
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Hex (Bonus Hex Damage) damage, 1d6',
+        }),
+      )
+      expect(onRollDamage).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'Hex (Bonus Hex Damage) damage' }),
+      )
     })
   })
 

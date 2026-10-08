@@ -944,6 +944,106 @@ describe('schemas/sending-stone', () => {
     )
   })
 
+  it("reads each of an item's activities, and whether one spends a spell slot, as sent from module 0.14.0", () => {
+    const sheet = fullerSheet()
+    const [section, ...rest] = sheet.actions
+    const [warhammer, ...others] = section.actions
+    const [cantrips, ...spellbook] = sheet.spells
+    const swing = {
+      id: 'swing',
+      name: 'Attack',
+      type: 'attack',
+      activation: '1 Action',
+      range: 'reach 5 ft',
+      target: null,
+      toHit: 7,
+      attackId: 'swing',
+      activity: null,
+      attackModes: null,
+      ammunition: null,
+      save: null,
+      damage: [{ formula: '1d8 + 4', type: 'Bludgeoning', healing: false }],
+      uses: null,
+    }
+    const shove = {
+      ...swing,
+      id: 'shove',
+      name: 'Grapple/Shove',
+      type: 'save',
+      range: '5 ft',
+      toHit: null,
+      attackId: null,
+      activity: {
+        id: 'shove',
+        type: 'save',
+        targets: {
+          self: false,
+          area: false,
+          count: 1,
+          perLevel: null,
+          affects: 'creature',
+        },
+      },
+      save: { ability: 'DC', dc: 15 },
+      damage: [],
+    }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          actions: [
+            {
+              ...section,
+              actions: [
+                {
+                  ...warhammer,
+                  activities: [
+                    swing,
+                    shove,
+                    { id: 7 },
+                    { ...shove, id: 'trip', consumesSlot: 'never' },
+                  ],
+                },
+                ...others,
+              ],
+            },
+            ...rest,
+          ],
+          spells: [
+            {
+              ...cantrips,
+              spells: [
+                {
+                  ...cantrips.spells[0],
+                  toHit: null,
+                  save: null,
+                  damage: [],
+                  consumesSlot: false,
+                  activities: 'many',
+                },
+              ],
+            },
+            ...spellbook,
+          ],
+        },
+      },
+    }) as any
+
+    const read = event.data.character.sheet
+    // A malformed one is dropped, and a slot spent unless it's said none is.
+    expect(read.actions[0].actions[0].activities).toEqual([
+      swing,
+      shove,
+      { ...shove, id: 'trip', consumesSlot: true },
+    ])
+    expect(read.actions[0].actions[1]).not.toHaveProperty('activities')
+    expect(read.spells[0].spells[0]).toMatchObject({
+      consumesSlot: false,
+      activities: [],
+    })
+  })
+
   it('reads a sheet from before module 0.8.0 as having no actions', () => {
     const { actions, ...older } = characterSheet()
     const event = parseGameEvent('character.updated', {

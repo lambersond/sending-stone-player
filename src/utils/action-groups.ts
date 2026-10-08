@@ -173,13 +173,14 @@ export function slotPools(
 
 /**
  * Has a spell no slot left to be cast with, and no use of its own left? Then it can't be cast
- * until the character rests.
+ * until the character rests. One of its activities used without spending a slot, such as Hex's
+ * Bonus Hex Damage, is never out of them.
  */
 export function outOfSlots(
   action: SheetAction,
   pools: SlotPool[] | null,
 ): boolean {
-  if (!pools) return false
+  if (!pools || action.consumesSlot === false) return false
   if (action.uses && action.uses.value > 0) return false
   return pools.every(pool => pool.value === 0)
 }
@@ -187,7 +188,8 @@ export function outOfSlots(
 /**
  * The slots a spell is cast with when the player chooses none, as dnd5e's usage dialog picks them:
  * its own, as the spellbook lists it, if any are left; otherwise the lowest spell level's with any
- * left, then pact magic's. Null for a spell cast without slots, or with none left.
+ * left, then pact magic's. Null for a spell cast without slots, or with none left. One of its
+ * activities used without spending a slot is used at its own level's, left or not.
  */
 export function defaultPool(
   action: SheetAction,
@@ -198,13 +200,14 @@ export function defaultPool(
   const own = spellbook.find(section =>
     section.spells.some(spell => spell.id === action.id),
   )
+  const spends = action.consumesSlot !== false
   const inOrder = [
     ...pools.filter(({ id }) => id !== 'pact'),
     ...pools.filter(({ id }) => id === 'pact'),
   ]
   return (
-    pools.find(pool => pool.id === own?.id && pool.value > 0) ??
-    inOrder.find(pool => pool.value > 0) ??
+    pools.find(pool => pool.id === own?.id && (pool.value > 0 || !spends)) ??
+    inOrder.find(pool => pool.value > 0 || !spends) ??
     null
   )
 }

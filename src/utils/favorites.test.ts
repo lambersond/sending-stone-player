@@ -312,6 +312,51 @@ describe('utils/favorites', () => {
       expect(rollsAny([])).toBe(false)
     })
 
+    it('says so of one whose only rolls are its later activities, such as Flaming Sphere after its summoning', () => {
+      const sheet = fullerSheet({ favorites: [item('sphere', 'spell')] })
+      const [cantrips, ...spellbook] = sheet.spells
+      sheet.spells = [
+        {
+          ...cantrips,
+          spells: [
+            sheetSpell({
+              id: 'sphere',
+              name: 'Flaming Sphere',
+              activities: [
+                {
+                  id: 'call',
+                  name: 'Summon',
+                  type: 'summon',
+                  activation: '1 Action',
+                  range: null,
+                  target: null,
+                  toHit: null,
+                  save: null,
+                  damage: [],
+                  uses: null,
+                },
+                {
+                  id: 'ram',
+                  name: 'Ram',
+                  type: 'save',
+                  activation: '1 Bonus Action',
+                  range: null,
+                  target: null,
+                  toHit: null,
+                  save: { ability: 'DEX', dc: 14 },
+                  damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+                  uses: null,
+                },
+              ],
+            }),
+          ],
+        },
+        ...spellbook,
+      ]
+
+      expect(rollsAny(favoriteEntries(sheet))).toBe(true)
+    })
+
     it('says so of a spell, something carried or a feature that rolls, but not one not identified', () => {
       const sheet = fullerSheet()
       const damage = [{ formula: '1d10', type: 'Fire', healing: false }]

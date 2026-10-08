@@ -281,6 +281,39 @@ describe('components/character-sheet/use-picker', () => {
     })
   })
 
+  it('uses an activity that spends no slot at the level chosen, one with none left too', async () => {
+    const user = userEvent.setup()
+    // A spell's save each turn, such as Spirit Guardians', after it's cast at its 1st-level slots.
+    const aura = spell('shield', 'Shield (Emanation Save)', 1, {
+      activity: use('save', { count: 1 }),
+      consumesSlot: false,
+    })
+    const { onPick } = renderPicker(using(aura))
+
+    const levels = screen.getByRole('group', { name: 'At level' })
+    expect(
+      within(levels)
+        .getAllByRole('radio')
+        .map(radio => [
+          radio.textContent,
+          radio.getAttribute('aria-checked'),
+          (radio as HTMLButtonElement).disabled,
+        ]),
+    ).toEqual([
+      ['1st', 'true', false],
+      ['2nd', 'false', false],
+      ['3rd', 'false', false],
+    ])
+    expect(screen.getByText('Choose who to use it at.')).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: '2nd Level' }))
+    await user.click(screen.getByRole('button', { name: /^Goblin$/ }))
+
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [fight.combatants[0]],
+      slot: 'spell2',
+    })
+  })
+
   it('heals the one tapped, or no one', async () => {
     const user = userEvent.setup()
     const cure = spell('cure', 'Cure Wounds', 1, {
