@@ -166,6 +166,8 @@ model Campaign {
   // rolls the module can make, from its latest bridge.hello.
   rollsEnabled   Boolean       @default(false)
   rollKinds      String[]      @default([])
+  // What else the module can do with them, such as take damage a player changed.
+  rollFeatures   String[]      @default([])
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,

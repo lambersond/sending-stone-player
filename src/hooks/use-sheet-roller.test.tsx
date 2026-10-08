@@ -255,6 +255,70 @@ describe('hooks/use-sheet-roller', () => {
     expect(onDamageThrown).toHaveBeenCalledWith(request, roll)
   })
 
+  it('throws damage changed as the player chose: more of its first die, another size, landing high', async () => {
+    const fake = renderer()
+    const onDamageThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, onDamageThrown),
+    )
+
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Toll the Dead damage',
+        parts: [{ terms: [{ sign: 1, count: 1, sides: 8 }], type: 'Necrotic' }],
+        modifiers: { extra: 1, faces: 12, maximize: true },
+      }),
+    )
+
+    const [roll] = result.current.rolls as LocalDamage[]
+    expect(roll.parts[0].terms[0]).toMatchObject({
+      text: '2d12',
+      values: [12, 12],
+    })
+    expect(roll).toMatchObject({ total: 24, maximized: true })
+    // The dice land on their highest faces.
+    expect(fake.roll.mock.calls[0][0]).toBe('2d12@12,12')
+    // The game is told of the dice thrown, as changed.
+    expect(onDamageThrown.mock.calls[0][0].parts).toEqual([
+      { terms: [{ sign: 1, count: 2, sides: 12 }], type: 'Necrotic' },
+    ])
+  })
+
+  it("adds as many of the game's dice for each as it throws, and doubles those rolled here for a critical hit", async () => {
+    renderer()
+    const { result } = renderHook(() => useSheetRoller())
+    const parts = [
+      {
+        terms: [{ sign: 1 as const, count: 2, sides: 8 as const }],
+        type: null,
+      },
+    ]
+
+    await act(() =>
+      result.current.rollDamage({
+        label: 'At the table',
+        parts,
+        critical: true,
+        exact: true,
+        perDie: 2,
+        modifiers: { extra: 1 },
+      }),
+    )
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Here',
+        parts: [{ terms: [{ sign: 1, count: 1, sides: 8 }], type: null }],
+        critical: true,
+        modifiers: { extra: 1 },
+      }),
+    )
+
+    const [here, table] = result.current.rolls as LocalDamage[]
+    expect(table.parts[0].terms[0].text).toBe('4d8')
+    expect(here.parts[0].terms[0].text).toBe('4d8')
+    expect(here.maximized).toBeUndefined()
+  })
+
   it('keeps healing with nothing to throw, without dice', async () => {
     const fake = renderer()
     const { result } = renderHook(() => useSheetRoller())

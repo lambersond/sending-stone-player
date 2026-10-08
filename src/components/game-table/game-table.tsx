@@ -171,6 +171,7 @@ export function GameTable({
               combat={view.combat}
               // A character no longer in the campaign's game has no rolls made there.
               rollsToTable={view.connected ? view.rollsToTable : undefined}
+              rollFeatures={view.connected ? view.rollFeatures : undefined}
             />
           ) : (
             <Scroller>

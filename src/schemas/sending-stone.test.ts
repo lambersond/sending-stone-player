@@ -31,6 +31,29 @@ const helloWith = (features?: unknown) =>
   parseGameEvent('bridge.hello', { characters: [], combats: [], features })
     ?.data as any
 
+/** How many dice a command's damage said its first roll throws for each of its own, as read. */
+const perDieOf = (perDie?: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      damage: {
+        critical: true,
+        plannable: true,
+        rolls: [
+          {
+            formula: '2d8 + 4',
+            type: 'Slashing',
+            dice: [{ faces: 8, number: 2 }],
+            perDie,
+          },
+        ],
+      },
+    })?.data as any
+  ).damage.rolls[0].perDie
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -102,6 +125,23 @@ describe('schemas/sending-stone', () => {
     expect(helloWith({ rolls: 'on' }).features).toEqual({ rolls: null })
     expect(helloWith('all').features).toBeNull()
     expect(helloWith().features).toBeUndefined()
+  })
+
+  it('reads whether the game takes damage a player changed, from module 0.13.0', () => {
+    const rolls = { enabled: true, kinds: ['damage'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, modifiers: true } }).features.rolls,
+    ).toEqual({ ...rolls, modifiers: true })
+    expect(
+      helloWith({ rolls: { ...rolls, modifiers: 'yes' } }).features.rolls,
+    ).toEqual({ ...rolls, modifiers: false })
+  })
+
+  it("reads how many dice each of damage's rolls throws for each of its own, from module 0.13.0", () => {
+    expect(perDieOf(2)).toBe(2)
+    expect(perDieOf()).toBeUndefined()
+    expect(perDieOf(0)).toBe(1)
+    expect(perDieOf('two')).toBe(1)
   })
 
   it("reads a command's result, keeping only what the app shows", () => {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStoredChoice } from '@/hooks/use-stored'
+import { changes, type DamageModifiers } from '@/utils/damage-modifiers'
 import { parseExtraTerms, type ExtraTerm } from '@/utils/roll-modifiers'
 import type {
   LocalCheck,
@@ -12,6 +13,7 @@ import type {
 } from '@/hooks/use-sheet-roller'
 import type {
   RolledDice,
+  RollFeature,
   RollKind,
   RollRequestInput,
   RollRequestView,
@@ -57,6 +59,8 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   source?: AttackSource
   /** For a use, what was used, such as "Fireball", which its damage is named after. */
   name?: string
+  /** For a use, how the player chose to change the damage that follows it. */
+  modifiers?: DamageModifiers
   /** For an attack or a use, whether its damage has been sent. */
   damaged?: boolean
 }
@@ -66,6 +70,8 @@ export type DueDamage = {
   /** The attack's or use's id at the table. */
   use: string
   damage: DamagePreview
+  /** How the player chose to change it as they used it, if they did. */
+  modifiers?: DamageModifiers
 }
 
 /** Where a roll's way to the game ends. */
@@ -83,12 +89,14 @@ const SETTLED = new Set<TableRollState['status']>([
  * each until the game has made it. An attack the game made can then have its damage rolled there.
  * @param characterId - The player's character.
  * @param kinds - The rolls the game takes now.
+ * @param features - What else the game does with them, such as take damage the player changed.
  * @returns `send` and `sendDamage`, to call as a roll's dice are thrown; each roll's way, by its
  * id; and which attacks wait for their damage.
  */
 export function useTableRolls(
   characterId: string,
   kinds: readonly RollKind[] = [],
+  features: readonly RollFeature[] = [],
 ) {
   const [states, setStates] = useState<ReadonlyMap<string, TableRollState>>(
     () => new Map(),
@@ -152,7 +160,7 @@ export function useTableRolls(
 
   const sendDamage = useCallback(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
-      const { use, types } = roll
+      const { use, types, modifiers } = roll
       const { kinds, on } = latest.current
       if (!on || !use || !kinds.includes('damage')) return
       // Its attack's or use's damage is on its way: it isn't offered again.
@@ -173,6 +181,7 @@ export function useTableRolls(
           extras: [],
           dice: damageDice(roll, damage),
           ...(types?.some(type => type !== null) && { types }),
+          ...(modifiers && changes(modifiers) && { modifiers }),
         },
         {},
       )
@@ -181,7 +190,7 @@ export function useTableRolls(
   )
 
   const sendUse = useCallback(
-    (used: LocalUse, use: UseSource) => {
+    (used: LocalUse, use: UseSource, modifiers?: DamageModifiers) => {
       const { kinds, on } = latest.current
       if (!on || !kinds.includes('use')) return
       const { item, activity, targets } = use
@@ -199,7 +208,11 @@ export function useTableRolls(
           extras: [],
           dice: [],
         },
-        { source: { item, activity }, name: used.label },
+        {
+          source: { item, activity },
+          name: used.label,
+          ...(modifiers && changes(modifiers) && { modifiers }),
+        },
       )
     },
     [start],
@@ -221,6 +234,8 @@ export function useTableRolls(
     setSending,
     /** Whether the game takes this kind of roll from this device now. */
     takes: (kind: RollKind) => on && kinds.includes(kind),
+    /** Whether the game takes damage the player changed from this device now. */
+    modifies: on && kinds.includes('damage') && features.includes('modifiers'),
     /** The attack or use at the table with this id, if its damage is still to roll there. */
     dueDamage: (use: string) => dueOf(states, state => state.requestId === use),
     /**
@@ -251,7 +266,11 @@ function dueOf(
       !!state.requestId,
   )
   return due?.requestId && due.damage
-    ? { use: due.requestId, damage: due.damage }
+    ? {
+        use: due.requestId,
+        damage: due.damage,
+        ...(due.modifiers && { modifiers: due.modifiers }),
+      }
     : undefined
 }
 
@@ -380,15 +399,17 @@ function damageDice(roll: SheetDamageRoll, damage: LocalDamage): RolledDice[] {
 /**
  * An attack's or a use's damage or healing, to roll as the game said it will: each of its rolls a
  * part, with its dice as the game will throw them, a critical hit's already doubled, and its
- * numbers where the app can read them, as the kind of damage chosen, if any. Damage the game can't
- * say beforehand has no dice here: the game rolls them.
+ * numbers where the app can read them, as the kind of damage chosen, if any, and changed as the
+ * player chose. Damage the game can't say beforehand has no dice here: the game rolls them.
  * @param label - What the attack or use was made with, such as "Longsword".
  * @param type - The kind of damage chosen, such as "fire", for each roll that offers it.
+ * @param modifiers - How the player changes it now; else as they chose as they used it.
  */
 export function damageRollOf(
   label: string,
-  { use, damage }: DueDamage,
+  { use, damage, modifiers: chosen }: DueDamage,
   type?: string,
+  modifiers: DamageModifiers | undefined = chosen,
 ): SheetDamageRoll {
   const healing = damage.healing === true
   const types = type ? typesFor(damage, type) : undefined
@@ -399,6 +420,8 @@ export function damageRollOf(
     exact: true,
     use,
     ...(types && { types }),
+    ...(modifiers && changes(modifiers) && { modifiers }),
+    perDie: damage.rolls[0]?.perDie ?? 1,
     parts: damage.rolls.map((roll, index) => ({
       type: chosenLabel(roll, types?.[index]) ?? roll.type,
       terms: damage.plannable ? termsOf(roll) : [],

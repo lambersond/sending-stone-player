@@ -2,15 +2,18 @@ import {
   BRIDGE_POLLED_WITHIN,
   DAMAGE_WITHIN,
   ROLL_ANSWER_WITHIN,
+  ROLL_FEATURES,
   ROLL_KINDS,
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
 import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
+import { modifiedDice } from '@/utils/damage-modifiers'
 import { sheetActions } from '@/utils/sheet-actions'
 import { toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
   AttackTarget,
+  RollFeature,
   RollKind,
   RollRequestInput,
   RollRequestView,
@@ -80,6 +83,35 @@ export function availableRollKinds(
   if (!campaign.rollsEnabled || !polled || now - polled >= BRIDGE_POLLED_WITHIN)
     return []
   return ROLL_KINDS.filter(kind => campaign.rollKinds.includes(kind))
+}
+
+/**
+ * What else a campaign's game does with its players' rolls now, such as take damage they changed:
+ * nothing while it takes none.
+ */
+export function availableRollFeatures(
+  campaign: Parameters<typeof availableRollKinds>[0] & {
+    rollFeatures: string[]
+  },
+  now = Date.now(),
+): RollFeature[] {
+  if (availableRollKinds(campaign, now).length === 0) return []
+  return ROLL_FEATURES.filter(feature =>
+    campaign.rollFeatures.includes(feature),
+  )
+}
+
+/**
+ * What says which rolls a game takes, and what else it does with them, as a viewer last saw it:
+ * such as "skill,save,damage;modifiers".
+ */
+export function rollsKey(
+  kinds: readonly string[] = [],
+  features: readonly string[] = [],
+): string {
+  return features.length > 0
+    ? `${kinds.join(',')};${features.join(',')}`
+    : kinds.join(',')
 }
 
 /**
@@ -225,8 +257,8 @@ function checkTargets(
 /**
  * Can this damage be rolled: does it follow the character's own attack or use, made in the game
  * lately, that said damage or healing follows; is no other damage for it on its way or made; are
- * its dice those it said its damage throws, in order; and is each kind of damage chosen one its
- * roll offers?
+ * its dice those it said its damage throws, in order, changed as the player chose, if they did;
+ * and is each kind of damage chosen one its roll offers?
  * @param use - The attack or use, if it's the character's.
  * @param others - The other damage asked for the same attack or use.
  */
@@ -245,9 +277,8 @@ export function checkDamage(
     ['sending', 'rolling', 'done'].includes(rollStatus(other, now)),
   )
   if (taken) return 'damaged'
-  const planned = damage.plannable
-    ? damage.rolls.flatMap(roll => roll.dice)
-    : []
+  const planned = modifiedDice(damage, input.modifiers)
+  if (!planned) return 'dice'
   const matches =
     input.dice.length === planned.length &&
     input.dice.every(

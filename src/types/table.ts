@@ -1,4 +1,4 @@
-import type { RollKind } from '@/types/roll'
+import type { RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
 
 /**
@@ -103,4 +103,6 @@ export type TableView = {
    * roll: none unless the Gamemaster lets them, and the game is fetching them.
    */
   rollsToTable?: RollKind[]
+  /** What else the game can do with them, such as take damage the player changed. */
+  rollFeatures?: RollFeature[]
 }

@@ -45,6 +45,7 @@ describe('app/api/characters/[id]/table', () => {
       version: 7,
       live: true,
       rollsToTable: [],
+      rollFeatures: [],
     })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
@@ -80,9 +81,24 @@ describe('app/api/characters/[id]/table', () => {
       version: 7,
       live: true,
       rollsToTable: ['skill', 'save'],
+      rollFeatures: [],
     })
     const withRolls = await get('?version=7&live=1&rolls=skill,save')
     expect(withRolls.status).toBe(204)
+
+    jest.mocked(getCampaignStatus).mockResolvedValue({
+      version: 7,
+      live: true,
+      rollsToTable: ['skill', 'damage'],
+      rollFeatures: ['modifiers'],
+    })
+    const withFeatures = await get(
+      `?version=7&live=1&rolls=${encodeURIComponent('skill,damage;modifiers')}`,
+    )
+    expect(withFeatures.status).toBe(204)
+    // A viewer who missed the game taking changed damage is sent the view.
+    const without = await get('?version=7&live=1&rolls=skill,damage')
+    expect(without.status).toBe(200)
   })
 
   it.each<[string, string, boolean?, RollKind[]?]>([
@@ -101,7 +117,7 @@ describe('app/api/characters/[id]/table', () => {
     async (_, query, live = true, rollsToTable = []) => {
       jest
         .mocked(getCampaignStatus)
-        .mockResolvedValue({ version: 7, live, rollsToTable })
+        .mockResolvedValue({ version: 7, live, rollsToTable, rollFeatures: [] })
       const response = await get(query)
 
       expect(response.status).toBe(200)

@@ -655,6 +655,8 @@ const featuresSchema = z
         enabled: z.boolean().catch(false),
         kinds: z.array(z.string()).catch([]),
         reason: nullableString.optional().transform(reason => reason ?? null),
+        // From module 0.13.0: whether players may change their damage.
+        modifiers: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -744,6 +746,9 @@ const commandResultSchema = z.object({
                 }),
               )
               .max(MAX_DAMAGE_TERMS),
+            // From module 0.13.0: how many dice it throws for each die of its own; one, as
+            // before, when it can't be read.
+            perDie: z.int().min(1).max(10).optional().catch(1),
           }),
         )
         .max(10),

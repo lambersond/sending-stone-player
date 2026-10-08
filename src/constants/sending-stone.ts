@@ -66,6 +66,12 @@ export const ROLL_KINDS = [
 ] as const
 
 /**
+ * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
+ * player changed, with more dice, another die or every die at its highest (module 0.13.0).
+ */
+export const ROLL_FEATURES = ['modifiers'] as const
+
+/**
  * How long after an attack or a use is made its damage may be rolled at the table, in
  * milliseconds.
  */

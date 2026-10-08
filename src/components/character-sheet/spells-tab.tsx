@@ -1,7 +1,12 @@
 'use client'
 
 import { Wand } from 'lucide-react'
-import { ActionEntry, useActionRows, type ActionRows } from './action-entry'
+import {
+  ActionEntry,
+  useActionRows,
+  type ActionRows,
+  type TableDamage,
+} from './action-entry'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -16,6 +21,7 @@ import type {
   SheetSpellcasting,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 import type { ReactNode } from 'react'
 
 /**
@@ -32,6 +38,7 @@ export function SpellsTab({
   onRoll,
   onRollDamage,
   onUse,
+  tableDamage,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
@@ -40,7 +47,9 @@ export function SpellsTab({
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Casts a spell in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction) => void
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -48,6 +57,7 @@ export function SpellsTab({
     onRoll,
     onRollDamage,
     onUse,
+    tableDamage,
   })
   // A spell level with slots shows even with no spells of its own, as they can cast a lower
   // level's.

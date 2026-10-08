@@ -39,6 +39,7 @@ describe('db/table', () => {
         version: 7,
         live: true,
         rollsToTable: [],
+        rollFeatures: [],
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -47,6 +48,7 @@ describe('db/table', () => {
           lastSeenAt: true,
           rollsEnabled: true,
           rollKinds: true,
+          rollFeatures: true,
           bridgePolledAt: true,
         },
       })
@@ -62,13 +64,19 @@ describe('db/table', () => {
         version: 7,
         live: false,
         rollsToTable: [],
+        rollFeatures: [],
       })
     })
 
     it('is version 0, without looking, for a character in no campaign', async () => {
       await expect(
         getCampaignStatus({ ...character, campaignId: null }),
-      ).resolves.toEqual({ version: 0, live: false, rollsToTable: [] })
+      ).resolves.toEqual({
+        version: 0,
+        live: false,
+        rollsToTable: [],
+        rollFeatures: [],
+      })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
       prismaMock.campaign.findUnique.mockResolvedValue(null)
@@ -76,6 +84,7 @@ describe('db/table', () => {
         version: 0,
         live: false,
         rollsToTable: [],
+        rollFeatures: [],
       })
     })
 
@@ -84,18 +93,21 @@ describe('db/table', () => {
         version: 7,
         lastSeenAt: recently(),
         rollsEnabled: true,
-        rollKinds: ['save', 'skill'],
+        rollKinds: ['save', 'skill', 'damage'],
+        rollFeatures: ['modifiers', 'later'],
         bridgePolledAt: new Date(Date.now() - 5000),
       }
       prismaMock.campaign.findUnique.mockResolvedValue(takingRolls as any)
       await expect(getCampaignStatus(character)).resolves.toMatchObject({
-        rollsToTable: ['skill', 'save'],
+        rollsToTable: ['skill', 'save', 'damage'],
+        // What else it does with them, that this app knows.
+        rollFeatures: ['modifiers'],
       })
 
       // None for a character without an actor to make them.
       await expect(
         getCampaignStatus({ ...character, actorId: null }),
-      ).resolves.toMatchObject({ rollsToTable: [] })
+      ).resolves.toMatchObject({ rollsToTable: [], rollFeatures: [] })
 
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...takingRolls,
@@ -103,6 +115,7 @@ describe('db/table', () => {
       } as any)
       await expect(getCampaignStatus(character)).resolves.toMatchObject({
         rollsToTable: [],
+        rollFeatures: [],
       })
     })
   })
@@ -143,6 +156,7 @@ describe('db/table', () => {
           characters: true,
           rollsEnabled: true,
           rollKinds: true,
+          rollFeatures: true,
           bridgePolledAt: true,
         },
       })
@@ -313,6 +327,7 @@ describe('db/table', () => {
         combat: undefined,
         sheet: undefined,
         rollsToTable: [],
+        rollFeatures: [],
       })
       expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
 

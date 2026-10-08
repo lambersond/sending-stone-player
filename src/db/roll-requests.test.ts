@@ -72,6 +72,7 @@ const smash: RollRequestInput = {
 const takingRolls = {
   rollsEnabled: true,
   rollKinds: ['skill', 'initiative', 'attack', 'damage'],
+  rollFeatures: [] as string[],
   bridgePolledAt: ago(5000),
 }
 
@@ -154,7 +155,12 @@ describe('db/roll-requests', () => {
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
-        select: { rollsEnabled: true, rollKinds: true, bridgePolledAt: true },
+        select: {
+          rollsEnabled: true,
+          rollKinds: true,
+          rollFeatures: true,
+          bridgePolledAt: true,
+        },
       })
       expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
         where: { campaignActor: { campaignId: 'c1', actorId: 'actor-thorin' } },
@@ -377,6 +383,37 @@ describe('db/roll-requests', () => {
           reason,
         })
         expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+      })
+
+      it('takes damage the player changed, with the changed dice, only where the game takes it so', async () => {
+        const changed = {
+          ...smash,
+          modifiers: { extra: 1, faces: 10 as const },
+          dice: [{ faces: 10, results: [6, 7] }],
+        }
+        given()
+        prismaMock.rollRequest.findFirst.mockResolvedValue(madeSwing() as any)
+        prismaMock.rollRequest.findMany.mockResolvedValue([])
+        await expect(createRollRequest(character, changed)).resolves.toEqual({
+          status: 409,
+          reason: 'unavailable',
+        })
+
+        prismaMock.campaign.findUnique.mockResolvedValue({
+          ...takingRolls,
+          rollFeatures: ['modifiers'],
+        } as any)
+        // The dice its attack said, unchanged, aren't those of the damage changed.
+        await expect(
+          createRollRequest(character, {
+            ...smash,
+            modifiers: changed.modifiers,
+          }),
+        ).resolves.toEqual({ status: 422, reason: 'dice' })
+        await expect(createRollRequest(character, changed)).resolves.toEqual({
+          id: 'req-1',
+        })
+        expect(prismaMock.rollRequest.create).toHaveBeenCalledTimes(1)
       })
     })
   })

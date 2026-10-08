@@ -2,7 +2,12 @@
 
 import clsx from 'clsx'
 import { Backpack, Package } from 'lucide-react'
-import { ActionEntry, useActionRows, type ActionRows } from './action-entry'
+import {
+  ActionEntry,
+  useActionRows,
+  type ActionRows,
+  type TableDamage,
+} from './action-entry'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -16,6 +21,7 @@ import type {
   SheetItem,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 import type { ReactNode } from 'react'
 
 /**
@@ -31,6 +37,7 @@ export function InventoryTab({
   onRoll,
   onRollDamage,
   onUse,
+  tableDamage,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
@@ -39,7 +46,9 @@ export function InventoryTab({
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Uses an item in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction) => void
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -47,6 +56,7 @@ export function InventoryTab({
     onRoll,
     onRollDamage,
     onUse,
+    tableDamage,
   })
   const { inventory } = sheet
   const { currency, encumbrance, attunement } = inventory

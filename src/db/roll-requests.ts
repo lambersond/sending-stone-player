@@ -9,6 +9,7 @@ import {
   ROLLS_KEPT_FOR,
   ROLLS_PER_MINUTE,
 } from '@/constants/sending-stone'
+import { changes } from '@/utils/damage-modifiers'
 import {
   availableRollKinds,
   checkDamage,
@@ -66,9 +67,21 @@ export async function createRollRequest(
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    select: { rollsEnabled: true, rollKinds: true, bridgePolledAt: true },
+    select: {
+      rollsEnabled: true,
+      rollKinds: true,
+      rollFeatures: true,
+      bridgePolledAt: true,
+    },
   })
   if (!campaign || !availableRollKinds(campaign).includes(input.kind)) {
+    return { status: 409, reason: 'unavailable' }
+  }
+  // Damage a player changed goes only to a game that can roll it so.
+  if (
+    changes(input.modifiers) &&
+    !campaign.rollFeatures.includes('modifiers')
+  ) {
     return { status: 409, reason: 'unavailable' }
   }
 

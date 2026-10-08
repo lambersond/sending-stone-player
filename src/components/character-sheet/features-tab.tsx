@@ -1,7 +1,12 @@
 'use client'
 
 import { BookOpen, HeartPulse, Sparkles } from 'lucide-react'
-import { ActionEntry, useActionRows, type ActionRows } from './action-entry'
+import {
+  ActionEntry,
+  useActionRows,
+  type ActionRows,
+  type TableDamage,
+} from './action-entry'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesLeft } from './uses-left'
@@ -13,6 +18,7 @@ import type {
   SheetFeature,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 /**
  * The character's classes, with their hit dice, and features, grouped as dnd5e's Features tab
@@ -26,13 +32,16 @@ export function FeaturesTab({
   onRoll,
   onRollDamage,
   onUse,
+  tableDamage,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Uses a feature in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction) => void
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -40,6 +49,7 @@ export function FeaturesTab({
     onRoll,
     onRollDamage,
     onUse,
+    tableDamage,
   })
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>

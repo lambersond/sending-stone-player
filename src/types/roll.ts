@@ -1,10 +1,11 @@
-import type { ROLL_KINDS } from '@/constants/sending-stone'
+import type { ROLL_FEATURES, ROLL_KINDS } from '@/constants/sending-stone'
 import type {
   AttackOutcome,
   DamagePreview,
   UseOutcome,
 } from '@/types/sending-stone'
 import type { TableRoll } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /**
@@ -14,6 +15,9 @@ import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /** A roll a player can have made in the game. */
 export type RollKind = (typeof ROLL_KINDS)[number]
+
+/** What else the game can do with players' rolls, such as take damage they changed. */
+export type RollFeature = (typeof ROLL_FEATURES)[number]
 
 /**
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
@@ -91,6 +95,8 @@ export type RollRequestInput = {
   use?: string
   /** For damage, the kind chosen for each of its rolls that offers a choice, by place. */
   types?: (string | null)[]
+  /** For damage, how the player changed it: more dice, another die, every die at its highest. */
+  modifiers?: DamageModifiers
 }
 
 /**

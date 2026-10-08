@@ -50,7 +50,7 @@ export function useD20Rolls(onRoll: (roll: SheetRoll) => void): {
   const choose = (target: RollTarget, choice: RollChoice) => {
     setMenu(undefined)
     if (choice === 'modify') setModifying(target)
-    else if (choice !== 'critical')
+    else if (choice === 'adv' || choice === 'dis')
       onRoll({
         label: target.label,
         modifier: target.modifier,

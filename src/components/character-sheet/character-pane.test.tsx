@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import {
@@ -11,7 +17,7 @@ import {
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { RollKind } from '@/types/roll'
+import type { RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 
@@ -627,7 +633,12 @@ describe('components/character-sheet/character-pane', () => {
     const renderCasting = ({
       combat = fight,
       kinds = ['use', 'attack', 'damage'],
-    }: { combat?: TableCombat | null; kinds?: RollKind[] } = {}) =>
+      features = [],
+    }: {
+      combat?: TableCombat | null
+      kinds?: RollKind[]
+      features?: RollFeature[]
+    } = {}) =>
       render(
         <CharacterPane
           characterId='char-1'
@@ -635,6 +646,7 @@ describe('components/character-sheet/character-pane', () => {
           sheet={toTableSheet(casting(), GAME)}
           combat={combat ?? undefined}
           rollsToTable={kinds}
+          rollFeatures={features}
         />,
       )
 
@@ -710,6 +722,57 @@ describe('components/character-sheet/character-pane', () => {
       await user.click(tray.getByText('Earlier rolls (1)'))
       expect(tray.getByRole('listitem')).toHaveTextContent(
         /^Fire Breath\s*used\s*· at the table$/,
+      )
+    })
+
+    it("uses a feature with its damage changed, from its damage chip's menu, where the game takes it so", async () => {
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': used('save', fire),
+        'req-2': { status: 'done', visible: true, total: 12 },
+      })
+      const { unmount } = renderCasting()
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      // Where the game doesn't take damage changed, its chip just uses it.
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
+      )
+      expect(screen.queryByRole('menu')).toBeNull()
+      unmount()
+
+      renderCasting({ features: ['modifiers'] })
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
+      )
+      const menu = screen.getByRole('menu', { name: 'Fire Breath damage 2d6' })
+      expect(
+        within(menu)
+          .getAllByRole('menuitem')
+          .map(item => item.textContent),
+      ).toEqual(['Use with maximum damage', 'Use with damage modified…'])
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Use with maximum damage' }),
+      )
+      const picker = screen.getByRole('dialog', { name: 'Fire Breath' })
+      await user.click(within(picker).getByRole('checkbox', { name: 'Goblin' }))
+      await user.click(
+        within(picker).getByRole('button', { name: 'Use at 1 target' }),
+      )
+
+      // The use asks nothing of its damage; its damage, which follows, is at its highest.
+      expect(posted[0]).toMatchObject({ kind: 'use', item: 'breath' })
+      expect(posted[0]).not.toHaveProperty('modifiers')
+      await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+      expect(posted[1]).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [{ faces: 6, results: [6, 6] }],
+        modifiers: { maximize: true },
+      })
+      const status = screen.getByRole('status')
+      await waitFor(() =>
+        expect(status).toHaveTextContent('2d6 (6, 6) fire · Maximum'),
       )
     })
 

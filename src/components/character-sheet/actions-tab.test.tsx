@@ -148,7 +148,7 @@ describe('components/character-sheet/actions-tab', () => {
     })
   })
 
-  it("rolls damage, or a critical hit's from its menu", async () => {
+  it("rolls damage, or from its menu a critical hit's, its highest, or with its dice changed", async () => {
     const user = userEvent.setup()
     const { onRollDamage } = renderTab()
     const damage = {
@@ -185,13 +185,56 @@ describe('components/character-sheet/actions-tab', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map(item => item.textContent),
-    ).toEqual(['Roll critical damage'])
-    await user.click(within(menu).getByRole('menuitem'))
+    ).toEqual(['Roll critical damage', 'Roll maximum damage', 'Modify damage…'])
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Roll critical damage' }),
+    )
     expect(onRollDamage).toHaveBeenLastCalledWith({ ...damage, critical: true })
     expect(screen.queryByRole('menu')).toBeNull()
+
+    const chip = screen.getByRole('button', {
+      name: 'Warhammer damage, 1d8 + 4',
+    })
+    fireEvent.contextMenu(chip)
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll maximum damage' }),
+    )
+    expect(onRollDamage).toHaveBeenLastCalledWith({
+      ...damage,
+      critical: false,
+      modifiers: { maximize: true },
+    })
+
+    // Two more dice, made d12s, as a critical hit's.
+    fireEvent.contextMenu(chip)
+    await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      '1d8 + 4 Bludgeoning',
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: 'One die more' }),
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: 'One die more' }),
+    )
+    await user.click(within(dialog).getByRole('radio', { name: 'd12' }))
+    await user.click(
+      within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+    )
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      '6d12 + 4 Bludgeoning',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+    expect(onRollDamage).toHaveBeenLastCalledWith({
+      ...damage,
+      critical: true,
+      modifiers: { extra: 2, faces: 12 },
+    })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('rolls healing, which has no critical hit', async () => {
+  it('rolls healing, which has no critical hit, but can be at its highest', async () => {
     const user = userEvent.setup()
     const { onRollDamage } = renderTab()
 
@@ -199,7 +242,10 @@ describe('components/character-sheet/actions-tab', () => {
       name: 'Second Wind healing, 1d10 + 5',
     })
     fireEvent.contextMenu(healing)
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(
+      screen.getAllByRole('menuitem').map(item => item.textContent),
+    ).toEqual(['Roll maximum healing', 'Modify healing…'])
+    await user.keyboard('{Escape}')
     await user.click(healing)
 
     expect(onRollDamage).toHaveBeenLastCalledWith({

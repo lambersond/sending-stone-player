@@ -16,6 +16,7 @@ import {
   FALLBACKS,
   useActionRows,
   type ActionRows,
+  type TableDamage,
 } from './action-entry'
 import { ModeChip, modeText, PROFICIENCY } from './character-sheet'
 import { EffectEntry } from './effects-tab'
@@ -41,6 +42,7 @@ import type {
   SheetSkill,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 import type { FavoriteEntry } from '@/utils/favorites'
 
 type Props = {
@@ -51,7 +53,9 @@ type Props = {
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction) => void
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
 }
 
 /** Where this browser keeps whether the favorites are shown, after which the character's id. */
@@ -168,6 +172,7 @@ function FavoritesList({
   onRoll,
   onRollDamage,
   onUse,
+  tableDamage,
 }: Readonly<Props>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -175,6 +180,7 @@ function FavoritesList({
     onRoll,
     onRollDamage,
     onUse,
+    tableDamage,
   })
   const card = useRef<HTMLDivElement>(null)
   const width = useWidth(card)

@@ -52,7 +52,12 @@ describe('db/campaign-events', () => {
 
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
+      data: {
+        characters: roster,
+        rollsEnabled: false,
+        rollKinds: [],
+        rollFeatures: [],
+      },
     })
     expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1' },
@@ -82,7 +87,12 @@ describe('db/campaign-events', () => {
 
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
+      data: {
+        characters: roster,
+        rollsEnabled: false,
+        rollKinds: [],
+        rollFeatures: [],
+      },
     })
     expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1' },
@@ -103,6 +113,7 @@ describe('db/campaign-events', () => {
             enabled: true,
             kinds: ['skill', 'save', 'attack', 'heal', 'initiative'],
             reason: null,
+            modifiers: true,
           },
         },
       },
@@ -113,6 +124,8 @@ describe('db/campaign-events', () => {
         characters: roster,
         rollsEnabled: true,
         rollKinds: ['skill', 'save', 'attack', 'initiative'],
+        // From module 0.13.0: it takes damage the player changed.
+        rollFeatures: ['modifiers'],
       },
     })
 
@@ -128,7 +141,12 @@ describe('db/campaign-events', () => {
     })
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
+      data: {
+        characters: roster,
+        rollsEnabled: false,
+        rollKinds: [],
+        rollFeatures: [],
+      },
     })
   })
 

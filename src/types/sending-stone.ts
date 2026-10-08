@@ -580,8 +580,16 @@ export type CombatSnapshot = {
  * What the module does for a campaign beyond sending its events, from its hello. Module 0.10.0.
  */
 export type BridgeFeatures = {
-  /** Whether its players may roll in the game from here, which rolls, and if not, why not. */
-  rolls?: { enabled: boolean; kinds: string[]; reason: string | null } | null
+  /**
+   * Whether its players may roll in the game from here, which rolls, and if not, why not; and
+   * whether they may change their damage there, from module 0.13.0.
+   */
+  rolls?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+    modifiers?: boolean
+  } | null
 }
 
 /** What became of a command the module fetched, such as a player's roll. Module 0.10.0. */
@@ -646,6 +654,11 @@ export type DamagePreviewRoll = {
    */
   types?: DamageTypeChoice[] | null
   dice: { faces: number; number: number }[]
+  /**
+   * How many dice it throws for each die of its own: 1, or on a critical hit as many as the
+   * world's rules make of each, such as 2. Module 0.13.0; absent before, as 1.
+   */
+  perDie?: number
 }
 
 /** A kind of damage to choose, such as { key: "fire", label: "Fire" }. */

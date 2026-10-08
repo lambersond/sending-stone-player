@@ -1,6 +1,9 @@
 import prisma from '@/clients/prisma'
 import { isLive } from '@/db/campaigns'
-import { availableRollKinds } from '@/utils/roll-requests'
+import {
+  availableRollFeatures,
+  availableRollKinds,
+} from '@/utils/roll-requests'
 import {
   pickCombat,
   portraitUrl,
@@ -10,7 +13,7 @@ import {
   type Viewer,
 } from '@/utils/table-view'
 import type { Character } from '@/types/character'
-import type { RollKind } from '@/types/roll'
+import type { RollFeature, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
   CombatSnapshot,
@@ -24,27 +27,37 @@ export const MESSAGE_LIMIT = 100
 
 /**
  * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
- * which rolls its game takes from players.
+ * which rolls its game takes from players, and what else it does with them.
  */
 export type CampaignStatus = {
   version: number
   live: boolean
   rollsToTable: RollKind[]
+  rollFeatures: RollFeature[]
 }
 
 /** What says which rolls a campaign's game takes from players. */
 const rollsSelect = {
   rollsEnabled: true,
   rollKinds: true,
+  rollFeatures: true,
   bridgePolledAt: true,
 } as const
 
 /** The rolls a character's player can have made in the game: none without an actor to make them. */
 function rollsToTable(
   character: Character,
-  campaign: Parameters<typeof availableRollKinds>[0] | null | undefined,
+  campaign: Parameters<typeof availableRollFeatures>[0] | null | undefined,
 ): RollKind[] {
   return character.actorId && campaign ? availableRollKinds(campaign) : []
+}
+
+/** What else the game does with them, as with the rolls. */
+function rollFeatures(
+  character: Character,
+  campaign: Parameters<typeof availableRollFeatures>[0] | null | undefined,
+): RollFeature[] {
+  return character.actorId && campaign ? availableRollFeatures(campaign) : []
 }
 
 /**
@@ -55,7 +68,7 @@ export async function getCampaignStatus(
   character: Character,
 ): Promise<CampaignStatus> {
   if (!character.campaignId)
-    return { version: 0, live: false, rollsToTable: [] }
+    return { version: 0, live: false, rollsToTable: [], rollFeatures: [] }
   const campaign = await prisma.campaign.findUnique({
     where: { id: character.campaignId },
     select: { version: true, lastSeenAt: true, ...rollsSelect },
@@ -64,6 +77,7 @@ export async function getCampaignStatus(
     version: campaign?.version ?? 0,
     live: isLive(campaign?.lastSeenAt),
     rollsToTable: rollsToTable(character, campaign),
+    rollFeatures: rollFeatures(character, campaign),
   }
 }
 
@@ -165,5 +179,6 @@ export async function getTableView(
     sheetVersion,
     chatReadAt: character.chatReadAt,
     rollsToTable: rollsToTable(character, campaign),
+    rollFeatures: rollFeatures(character, campaign),
   }
 }

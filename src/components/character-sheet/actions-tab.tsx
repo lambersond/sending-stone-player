@@ -21,8 +21,10 @@ import {
   SaveChip,
   useActionRows,
   UseChip,
+  verbOf,
   viewOf,
   type ActionRows,
+  type TableDamage,
 } from './action-entry'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { EntryIcon } from './sheet-entry'
@@ -35,6 +37,7 @@ import { groupActions, type ActionGroup } from '@/utils/action-groups'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { SheetAction, SheetActionSection } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
   characterId: string
@@ -42,7 +45,9 @@ type Props = {
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction) => void
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
 }
@@ -95,6 +100,7 @@ export function ActionsTab({
   onRoll,
   onRollDamage,
   onUse,
+  tableDamage,
   favorites,
 }: Readonly<Props>) {
   const { rows, dialogs } = useActionRows({
@@ -103,6 +109,7 @@ export function ActionsTab({
     onRoll,
     onRollDamage,
     onUse,
+    tableDamage,
   })
   const root = useRef<HTMLDivElement>(null)
   const width = useWidth(root)
@@ -517,6 +524,7 @@ function ActionTableRow({
                 target={view.target}
                 damage={rows.damage}
                 onUse={view.uses.damage}
+                verb={verbOf(action)}
               />
             </span>
           )}

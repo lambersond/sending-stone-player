@@ -39,9 +39,11 @@ import {
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { sheetActions } from '@/utils/sheet-actions'
-import type { RollKind } from '@/types/roll'
+import type { TableDamage } from './action-entry'
+import type { RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type { TableCombat, TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
   characterId: string
@@ -51,6 +53,8 @@ type Props = {
   combat?: TableCombat
   /** The rolls the Gamemaster's game takes from the player now, made there with the same dice. */
   rollsToTable?: RollKind[]
+  /** What else the game does with them, such as take damage the player changed. */
+  rollFeatures?: RollFeature[]
 }
 
 /**
@@ -117,8 +121,9 @@ function RollingSheet({
   sheet,
   combat,
   rollsToTable,
+  rollFeatures,
 }: Readonly<Props>) {
-  const table = useTableRolls(characterId, rollsToTable)
+  const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const { roll, rollDamage, logUse, rolls, rolling } = useSheetRoller(
     table.send,
     table.sendDamage,
@@ -165,43 +170,52 @@ function RollingSheet({
     void roll(request)
   }
   // A spell or feature the game uses: at the combatants the player picks, in a combat, and with
-  // the slot they choose; or, while its damage is due, that damage rolled.
-  const onUse = (action: SheetAction) => {
+  // the slot they choose, its damage changed as they chose, if they did; or, while its damage is
+  // due, that damage rolled.
+  const onUse = (action: SheetAction, modifiers?: DamageModifiers) => {
     if (!action.activity) return
     const due = table.dueFor({ item: action.id, activity: action.activity.id })
     if (due) {
-      rollDue(action.name, due)
+      rollDue(action.name, due, undefined, modifiers)
       return
     }
-    const asking: Picking = { kind: 'use', action }
+    const asking: Picking = { kind: 'use', action, modifiers }
     if (asks(asking, combat, sheet.spells)) {
       setPicking(asking)
       return
     }
-    use(action, { targets: [] })
+    use(action, { targets: [] }, modifiers)
   }
-  const use = (action: SheetAction, picked: Picked) => {
+  const use = (
+    action: SheetAction,
+    picked: Picked,
+    modifiers?: DamageModifiers,
+  ) => {
     if (!action.activity) return
     const used = logUse(action.name, action.type === 'spell')
-    table.sendUse(used, {
-      kind: 'use',
-      item: action.id,
-      activity: action.activity.id,
-      // A combat that ended while they picked leaves no one to target.
-      targets: combat
-        ? picked.targets.map(({ id }) => ({
-            combatId: combat.id,
-            combatantId: id,
-          }))
-        : [],
-      slot: picked.slot,
-    })
+    table.sendUse(
+      used,
+      {
+        kind: 'use',
+        item: action.id,
+        activity: action.activity.id,
+        // A combat that ended while they picked leaves no one to target.
+        targets: combat
+          ? picked.targets.map(({ id }) => ({
+              combatId: combat.id,
+              combatantId: id,
+            }))
+          : [],
+        slot: picked.slot,
+      },
+      modifiers,
+    )
   }
   const pick = (picked: Picked) => {
     const asked = picking
     setPicking(undefined)
     if (asked?.kind === 'use') {
-      use(asked.action, picked)
+      use(asked.action, picked, asked.modifiers)
       return
     }
     const source = asked?.request.source
@@ -220,9 +234,14 @@ function RollingSheet({
     })
   }
   // An attack's or a use's damage, while the game waits for it, is rolled for the game, as the
-  // game said, as the kind of damage chosen, if any.
-  const rollDue = (name: string, due: DueDamage, type?: string) => {
-    void rollDamage(damageRollOf(name, due, type))
+  // game said, as the kind of damage chosen, if any, and changed as the player chose, if they did.
+  const rollDue = (
+    name: string,
+    due: DueDamage,
+    type?: string,
+    modifiers?: DamageModifiers,
+  ) => {
+    void rollDamage(damageRollOf(name, due, type, modifiers ?? due.modifiers))
   }
   // A use's damage or healing is rolled as soon as the game says it's due, once; unless its kind
   // is to be chosen first, in the tray.
@@ -234,13 +253,19 @@ function RollingSheet({
       if (state.damaged || rolledFor.current.has(requestId)) continue
       if (choicesOf(damage).length > 0) continue
       rolledFor.current.add(requestId)
-      void rollDamage(damageRollOf(name, { use: requestId, damage }))
+      const { modifiers } = state
+      void rollDamage(damageRollOf(name, { use: requestId, damage, modifiers }))
     }
   }, [table.states, rollDamage])
   const onRollDamage = (request: SheetDamageRoll) => {
     const due = request.source && table.dueFor(request.source)
     if (due) {
-      rollDue(request.label.replace(/ damage$/, ''), due)
+      rollDue(
+        request.label.replace(/ (damage|healing)$/, ''),
+        due,
+        undefined,
+        request.modifiers,
+      )
       return
     }
     void rollDamage(request)
@@ -251,6 +276,10 @@ function RollingSheet({
   const showsFavorites = WITH_FAVORITES.has(tab) && entries.length > 0
   const beside = showsFavorites && width >= COLUMN_FROM
   const using = table.takes('use') ? onUse : undefined
+  // While the game takes damage: which it waits for, and whether it takes it changed.
+  const tableDamage: TableDamage | undefined = table.takes('damage')
+    ? { modifies: table.modifies, dueFor: table.dueFor }
+    : undefined
   const favorites = {
     characterId,
     sheet,
@@ -258,13 +287,14 @@ function RollingSheet({
     onRoll,
     onRollDamage,
     onUse: using,
+    tableDamage,
   }
   const strip =
     showsFavorites && !beside ? <FavoritesStrip {...favorites} /> : undefined
   // Rolls are made from the Character, Actions, Inventory, Spells and Features tabs, and from
   // favorites, so the tray shows there; the rolls stay.
   const showsRolls = ROLLING.has(tab) || (showsFavorites && rollsAny(entries))
-  const handlers = { onRoll, onRollDamage, onUse: using }
+  const handlers = { onRoll, onRollDamage, onUse: using, tableDamage }
 
   return (
     <FavoriteMarks keys={marks}>
