@@ -209,7 +209,7 @@ const REASONS: Record<string, string> = {
   ammo: 'you have none of that ammunition left',
   mode: 'the weapon can’t attack that way',
   target: 'a target can’t be picked, or there are too many',
-  scene: 'your Gamemaster isn’t looking at that target’s scene',
+  scene: 'your Gamemaster isn’t viewing that target’s level or scene',
   consume: 'there’s nothing left to use it with',
   slots: 'you have no spell slots left for it',
   slot: 'that spell slot can’t cast it',
