@@ -311,6 +311,46 @@ describe('utils/favorites', () => {
       ).toBe(false)
       expect(rollsAny([])).toBe(false)
     })
+
+    it('says so of a spell, something carried or a feature that rolls, but not one not identified', () => {
+      const sheet = fullerSheet()
+      const damage = [{ formula: '1d10', type: 'Fire', healing: false }]
+      const [cantrips, ...spellbook] = sheet.spells
+      sheet.spells = [
+        {
+          ...cantrips,
+          spells: [
+            sheetSpell({ id: 'bolt', name: 'Fire Bolt', toHit: 5, damage }),
+          ],
+        },
+        ...spellbook,
+      ]
+      const [weapons, ...kinds] = sheet.inventory.sections
+      sheet.inventory.sections = [
+        {
+          ...weapons,
+          items: [
+            { ...weapons.items[0], toHit: 7, damage },
+            { ...weapons.items[1], identified: false, toHit: 7, damage },
+          ],
+        },
+        ...kinds,
+      ]
+      sheet.features[0].features[0] = {
+        ...sheet.features[0].features[0],
+        damage: [{ formula: '1d10 + 5', type: 'Healing', healing: true }],
+      }
+      const rolls = (...favorites: SheetFavorite[]) =>
+        rollsAny(favoriteEntries({ ...sheet, actions: [], favorites }))
+
+      expect(rolls(item('bolt', 'spell'))).toBe(true)
+      expect(rolls(item('warhammer', 'weapon'))).toBe(true)
+      expect(rolls(item('second-wind', 'feat'))).toBe(true)
+      expect(rolls(item('handaxe', 'weapon'))).toBe(false)
+      expect(rolls(item('shield', 'spell'), item('action-surge', 'feat'))).toBe(
+        false,
+      )
+    })
   })
 
   it("takes the description of an activity of a feature from the feature's", () => {

@@ -11,12 +11,13 @@ import {
   Wand,
   type LucideIcon,
 } from 'lucide-react'
+import { useD20Rolls, type RollActions } from './d20-rolls'
 import { FavoriteStar, useFavorite } from './favorite-mark'
-import { UsesLeft } from './features-tab'
 import { RollButton } from './roll-button'
 import { RollMenu, type MenuPoint } from './roll-menu'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
+import { UsesLeft } from './uses-left'
 import {
   outOfSlots,
   poolName,
@@ -25,14 +26,14 @@ import {
 } from '@/utils/action-groups'
 import { formatModifier } from '@/utils/format-modifier'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
-import type { RollActions } from './d20-rolls'
-import type { SheetDamageRoll } from '@/hooks/use-sheet-roller'
+import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 
 /*
- * An action as the Actions tab shows it, and the favorites too: its name, opening to the rest,
- * and beside it what it rolls, each a button of its own.
+ * An action as the Actions tab shows it, and the favorites too, and the spells, features and
+ * inventory items that roll: its name, opening to the rest, and beside it what it rolls, each a
+ * button of its own.
  */
 
 /** An action's damage or healing, ready to roll, with its formula as dnd5e shows it. */
@@ -58,6 +59,61 @@ export type ActionRows = {
   d20: RollActions
   damage: DamageActions
   use?: UseActions
+}
+
+/**
+ * How a tab shows something it lists as an action, where it's shown otherwise than on the Actions
+ * tab: such as a spell on the Spells tab, with its school and components, or an item in the
+ * inventory, with its weight and price.
+ */
+export type EntryLook = {
+  /** Under its name, in place of how it's used; empty for nothing. */
+  detail?: string
+  /** Beside what it rolls, such as a spell's marks or how many there are of an item. */
+  marks?: ReactNode
+  /** Over its facts once it's open, in place of what kind of action it is. */
+  meta?: string
+  /** Its own facts, after how and at whom it's used, such as a spell's duration. */
+  facts?: { label: string; value: string }[]
+  /** Faded, such as a spell not prepared. */
+  muted?: boolean
+}
+
+/**
+ * What every action's row needs, on a tab or among the favorites, with the menus and dialogs its
+ * rolls open in `dialogs`, to be put on the page.
+ */
+export function useActionRows({
+  characterId,
+  spellbook,
+  onRoll,
+  onRollDamage,
+  onUse,
+}: Readonly<{
+  characterId: string
+  spellbook: SheetSpellSection[]
+  onRoll: (roll: SheetRoll) => void
+  onRollDamage: (roll: SheetDamageRoll) => void
+  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction) => void
+}>): { rows: ActionRows; dialogs: ReactNode } {
+  const { actions: d20, dialogs } = useD20Rolls(onRoll)
+  const { actions: damage, dialogs: damageMenu } = useDamageRolls(onRollDamage)
+  return {
+    rows: {
+      characterId,
+      spellbook,
+      d20,
+      damage,
+      ...(onUse && { use: { onUse } }),
+    },
+    dialogs: (
+      <>
+        {dialogs}
+        {damageMenu}
+      </>
+    ),
+  }
 }
 
 /** Icons for actions without one of their own, by the item's type. */
@@ -164,25 +220,33 @@ export function viewOf(
 /**
  * An action in a list: its name, how it's activated and its reach, opening to the rest; and
  * beside it what it rolls, each a button of its own. A note, such as the item an activity is one
- * of, comes first.
+ * of, comes first. A tab that lists it otherwise shows it as it shows the rest it lists.
  */
 export function ActionEntry({
   action,
   rows,
   note,
-}: Readonly<{ action: SheetAction; rows: ActionRows; note?: string }>) {
+  look = {},
+}: Readonly<{
+  action: SheetAction
+  rows: ActionRows
+  note?: string
+  look?: EntryLook
+}>) {
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
   const { name, toHit, save, uses } = action
-  const detail = joinParts(
-    note,
-    action.activation,
-    action.range,
-    view.types.join(', '),
-    view.spent && 'No slots left',
-  )
+  const detail =
+    look.detail ??
+    joinParts(
+      note,
+      action.activation,
+      action.range,
+      view.types.join(', '),
+      view.spent && 'No slots left',
+    )
 
   return (
     <li>
@@ -194,7 +258,7 @@ export function ActionEntry({
           onClick={() => setOpen(!open)}
           className={clsx(
             'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
-            view.spent && 'opacity-60',
+            (view.spent || look.muted) && 'opacity-60',
           )}
         >
           <EntryIcon
@@ -216,6 +280,7 @@ export function ActionEntry({
             )}
           </span>
         </button>
+        {look.marks}
         {uses && (
           // Beside what the action rolls, in a narrow list, its uses would leave its name too
           // little room; they're listed when it opens.
@@ -259,6 +324,7 @@ export function ActionEntry({
             action={action}
             pools={view.pools}
             characterId={rows.characterId}
+            look={look}
           />
         </div>
       )}
@@ -456,16 +522,20 @@ export function ActionDetails({
   action,
   pools,
   characterId,
+  look = {},
 }: Readonly<{
   action: SheetAction
   pools: SlotPool[] | null
   characterId: string
+  look?: EntryLook
 }>) {
-  const meta = joinParts(kindOf(action), !action.identified && 'Not identified')
+  const meta =
+    look.meta ??
+    joinParts(kindOf(action), !action.identified && 'Not identified')
   return (
     <>
       {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
-      <Facts action={action} pools={pools} />
+      <Facts action={action} pools={pools} more={look.facts} />
       {action.text && (
         <SheetText characterId={characterId} hash={action.text} />
       )}
@@ -475,19 +545,29 @@ export function ActionDetails({
 
 /**
  * All there is to know of how an action is used, each with its label, and for a spell cast with
- * slots, the slots it can be cast with.
+ * slots, the slots it can be cast with. More of its own, such as a spell's duration, follow whom
+ * it's used at.
  */
 function Facts({
   action,
   pools,
-}: Readonly<{ action: SheetAction; pools: SlotPool[] | null }>) {
+  more = [],
+}: Readonly<{
+  action: SheetAction
+  pools: SlotPool[] | null
+  more?: { label: string; value: string }[]
+}>) {
   const { save, uses } = action
   const healing =
     action.damage.length > 0 && action.damage.every(part => part.healing)
   const facts: [string, ReactNode][] = [
-    ['Activation', action.activation],
+    [
+      action.type === 'spell' ? 'Casting time' : 'Activation',
+      action.activation,
+    ],
     ['Range', action.range],
     ['Target', action.target],
+    ...more.map(({ label, value }): [string, ReactNode] => [label, value]),
     [
       'To hit',
       action.toHit === null ? undefined : formatModifier(action.toHit),

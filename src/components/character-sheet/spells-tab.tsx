@@ -1,29 +1,54 @@
+'use client'
+
 import { Wand } from 'lucide-react'
-import { UsesLeft } from './features-tab'
+import { ActionEntry, useActionRows, type ActionRows } from './action-entry'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
+import { UsesLeft } from './uses-left'
 import { formatModifier } from '@/utils/format-modifier'
-import type { SheetSpell, SheetSpellcasting } from '@/types/sending-stone'
+import { spellAction } from '@/utils/sheet-actions'
+import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetAction,
+  SheetSpell,
+  SheetSpellcasting,
+} from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { ReactNode } from 'react'
 
 /**
  * The character's spells, as dnd5e's Spells tab shows them to its player: how they cast, then
  * their spellbook in its sections, such as Cantrips and each spell level, with the slots left.
- * Each spell opens to its description.
+ * Each spell opens to its description. What a spell rolls is beside it, as on the Actions tab: its
+ * attack, saving throw and damage or healing, each a button that rolls it, or casts it in the
+ * Gamemaster's game while the game takes spells.
  */
 export function SpellsTab({
   characterId,
   sheet,
   favorites,
+  onRoll,
+  onRollDamage,
+  onUse,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
+  onRoll: (roll: SheetRoll) => void
+  onRollDamage: (roll: SheetDamageRoll) => void
+  /** Casts a spell in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction) => void
 }>) {
+  const { rows, dialogs } = useActionRows({
+    characterId,
+    spellbook: sheet.spells,
+    onRoll,
+    onRollDamage,
+    onUse,
+  })
   // A spell level with slots shows even with no spells of its own, as they can cast a lower
   // level's.
   const sections = sheet.spells.filter(
@@ -49,12 +74,14 @@ export function SpellsTab({
             )}
           </div>
           {section.spells.length > 0 ? (
-            <ul className='rounded-2xl border border-border bg-card p-1.5'>
+            // A container, so that each row fits the list it's in.
+            <ul className='@container rounded-2xl border border-border bg-card p-1.5'>
               {section.spells.map(spell => (
                 <SpellEntry
                   key={spell.id}
                   characterId={characterId}
                   spell={spell}
+                  rows={rows}
                 />
               ))}
             </ul>
@@ -69,6 +96,8 @@ export function SpellsTab({
       {sections.length === 0 && (
         <p className='text-sm text-text-secondary'>No spells to show yet.</p>
       )}
+
+      {dialogs}
     </div>
   )
 }
@@ -149,12 +178,14 @@ function Spellcasting({
 
 /**
  * A spell: when and how it is cast, marked for concentration, ritual or always prepared. One not
- * prepared is muted.
+ * prepared is muted. Given the rows actions are in, one that rolls shows what it rolls beside it,
+ * as an action does: one not prepared is rolled here only, as the game would have it prepared.
  */
 export function SpellEntry({
   characterId,
   spell,
-}: Readonly<{ characterId: string; spell: SheetSpell }>) {
+  rows,
+}: Readonly<{ characterId: string; spell: SheetSpell; rows?: ActionRows }>) {
   const unprepared = spell.prepared === 0
   const components = [
     spell.components,
@@ -162,19 +193,37 @@ export function SpellEntry({
   ]
     .filter(Boolean)
     .join(' ')
-  const specifics: [string, string | null][] = [
-    ['Casting time', spell.activation],
-    ['Range', spell.range],
-    ['Target', spell.target],
-    ['Duration', spell.duration],
-    ['Components', components],
-  ]
+  const meta = joinParts(
+    spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`,
+    spell.school,
+    unprepared && 'Not prepared',
+  )
   const marked =
-    unprepared ||
-    spell.concentration ||
-    spell.ritual ||
-    spell.prepared === 2 ||
-    spell.uses !== null
+    unprepared || spell.concentration || spell.ritual || spell.prepared === 2
+  const action = rows && spellAction(spell)
+  if (rows && action) {
+    return (
+      <ActionEntry
+        action={action}
+        rows={rows}
+        note={spell.castFrom ? `From ${spell.castFrom.name}` : undefined}
+        look={{
+          marks: marked && (
+            <span className='flex shrink-0 items-center gap-1'>
+              <Marks spell={spell} />
+            </span>
+          ),
+          meta,
+          // How it's cast, its range and target are an action's.
+          facts: factsOf([
+            ['Duration', spell.duration],
+            ['Components', components],
+          ]),
+          muted: unprepared,
+        }}
+      />
+    )
+  }
   return (
     <SheetEntry
       characterId={characterId}
@@ -188,29 +237,45 @@ export function SpellEntry({
         spell.castFrom && `From ${spell.castFrom.name}`,
       )}
       aside={
-        marked && (
+        (marked || spell.uses) && (
           <span className='flex shrink-0 items-center gap-1'>
-            {unprepared && <span className='sr-only'>Not prepared</span>}
-            {spell.concentration && <Mark short='C' label='Concentration' />}
-            {spell.ritual && <Mark short='R' label='Ritual' />}
-            {spell.prepared === 2 && (
-              <Mark short='Always' label='Always prepared' />
-            )}
+            <Marks spell={spell} />
             {spell.uses && <UsesLeft uses={spell.uses} />}
           </span>
         )
       }
-      meta={joinParts(
-        spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`,
-        spell.school,
-        unprepared && 'Not prepared',
-      )}
-      facts={specifics.flatMap(([label, value]) =>
-        value ? [{ label, value }] : [],
-      )}
+      meta={meta}
+      facts={factsOf([
+        ['Casting time', spell.activation],
+        ['Range', spell.range],
+        ['Target', spell.target],
+        ['Duration', spell.duration],
+        ['Components', components],
+      ])}
       text={spell.text}
       muted={unprepared}
     />
+  )
+}
+
+/** A spell's marks: for concentration, ritual or always prepared, and not prepared, unseen. */
+function Marks({ spell }: Readonly<{ spell: SheetSpell }>) {
+  return (
+    <>
+      {spell.prepared === 0 && <span className='sr-only'>Not prepared</span>}
+      {spell.concentration && <Mark short='C' label='Concentration' />}
+      {spell.ritual && <Mark short='R' label='Ritual' />}
+      {spell.prepared === 2 && <Mark short='Always' label='Always prepared' />}
+    </>
+  )
+}
+
+/** The facts there are of these, each with its label. */
+function factsOf(
+  specifics: [string, string | null][],
+): { label: string; value: string }[] {
+  return specifics.flatMap(([label, value]) =>
+    value ? [{ label, value }] : [],
   )
 }
 

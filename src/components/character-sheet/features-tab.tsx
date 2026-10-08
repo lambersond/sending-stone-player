@@ -1,19 +1,46 @@
-import clsx from 'clsx'
+'use client'
+
 import { BookOpen, HeartPulse, Sparkles } from 'lucide-react'
+import { ActionEntry, useActionRows, type ActionRows } from './action-entry'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
-import type { SheetClass, SheetFeature, SheetUses } from '@/types/sending-stone'
+import { UsesLeft } from './uses-left'
+import { featureAction } from '@/utils/sheet-actions'
+import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetAction,
+  SheetClass,
+  SheetFeature,
+} from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
 /**
  * The character's classes, with their hit dice, and features, grouped as dnd5e's Features tab
  * groups them: by the class, species or background each came from. Each opens to its
- * description.
+ * description. What a feature rolls is beside it, as on the Actions tab, each a button that rolls
+ * it, or uses it in the Gamemaster's game while the game takes features.
  */
 export function FeaturesTab({
   characterId,
   sheet,
-}: Readonly<{ characterId: string; sheet: TableSheet }>) {
+  onRoll,
+  onRollDamage,
+  onUse,
+}: Readonly<{
+  characterId: string
+  sheet: TableSheet
+  onRoll: (roll: SheetRoll) => void
+  onRollDamage: (roll: SheetDamageRoll) => void
+  /** Uses a feature in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction) => void
+}>) {
+  const { rows, dialogs } = useActionRows({
+    characterId,
+    spellbook: sheet.spells,
+    onRoll,
+    onRollDamage,
+    onUse,
+  })
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {sheet.classes.length > 0 && (
@@ -39,7 +66,8 @@ export function FeaturesTab({
           <SheetHeading id={`features-${section.id}`}>
             {section.label}
           </SheetHeading>
-          <ul className='rounded-2xl border border-border bg-card p-1.5'>
+          {/* A container, so that each row fits the list it's in. */}
+          <ul className='@container rounded-2xl border border-border bg-card p-1.5'>
             {section.text && (
               <SheetEntry
                 characterId={characterId}
@@ -53,6 +81,7 @@ export function FeaturesTab({
                 key={feature.id}
                 characterId={characterId}
                 feature={feature}
+                rows={rows}
               />
             ))}
           </ul>
@@ -62,15 +91,30 @@ export function FeaturesTab({
       {sheet.features.length === 0 && (
         <p className='text-sm text-text-secondary'>No features to show yet.</p>
       )}
+
+      {dialogs}
     </div>
   )
 }
 
-/** A feature: how it's used and its uses left, opening to its description. */
+/**
+ * A feature: how it's used and its uses left, opening to its description. Given the rows actions
+ * are in, one that rolls shows what it rolls beside it, as an action does.
+ */
 export function FeatureEntry({
   characterId,
   feature,
-}: Readonly<{ characterId: string; feature: SheetFeature }>) {
+  rows,
+}: Readonly<{
+  characterId: string
+  feature: SheetFeature
+  rows?: ActionRows
+}>) {
+  const meta = joinParts(feature.kind, feature.requirements)
+  const action = rows && featureAction(feature)
+  if (rows && action) {
+    return <ActionEntry action={action} rows={rows} look={{ meta }} />
+  }
   return (
     <SheetEntry
       characterId={characterId}
@@ -83,7 +127,7 @@ export function FeatureEntry({
         feature.uses?.recovery,
       )}
       aside={feature.uses && <UsesLeft uses={feature.uses} />}
-      meta={joinParts(feature.kind, feature.requirements)}
+      meta={meta}
       text={feature.text}
     />
   )
@@ -114,25 +158,6 @@ function ClassCard({ entry }: Readonly<{ entry: SheetClass }>) {
         </span>
       )}
     </li>
-  )
-}
-
-/** Uses left of a limited feature: 1/3, in ruby when none are left. */
-export function UsesLeft({ uses }: Readonly<{ uses: SheetUses }>) {
-  return (
-    <span
-      className={clsx(
-        'shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
-        uses.value === 0 ? 'border-ruby/40 text-ruby' : 'border-border',
-      )}
-    >
-      <span aria-hidden>
-        {uses.value}/{uses.max}
-      </span>
-      <span className='sr-only'>
-        {uses.value} of {uses.max} uses left
-      </span>
-    </span>
   )
 }
 

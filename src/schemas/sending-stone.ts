@@ -60,6 +60,94 @@ const conditionSchema = z.looseObject({
   text: textRef,
 })
 
+/**
+ * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
+ * kinds of activity the game uses, or none.
+ */
+const useSchema = z
+  .looseObject({
+    id: z.string().min(1),
+    type: z.enum(['save', 'damage', 'heal', 'utility']),
+    targets: z.looseObject({
+      self: z.boolean().catch(false),
+      area: z.boolean().catch(false),
+      count: z.int().positive().nullable().catch(null),
+      perLevel: z
+        .int()
+        .positive()
+        .nullable()
+        .optional()
+        .catch(null)
+        .transform(value => value ?? null),
+      affects: nullableString,
+    }),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+
+/** What an action rolls, and what it's used through in the game. */
+const rollFields = {
+  toHit: nullableNumber,
+  // From module 0.11.0: the attack activity the bonus to hit is for.
+  attackId: z.string().nullable().optional().catch(null),
+  // From module 0.12.0.
+  activity: useSchema,
+  attackModes: z
+    .array(z.looseObject({ value: z.string().min(1), label: z.string() }))
+    .nullable()
+    .optional()
+    .catch(null),
+  ammunition: z
+    .array(
+      z.looseObject({
+        id: z.string().min(1),
+        name: z.string(),
+        quantity: z.number().catch(0),
+      }),
+    )
+    .nullable()
+    .optional()
+    .catch(null),
+  save: z
+    .object({ ability: z.string(), dc: nullableNumber })
+    .nullable()
+    .catch(null),
+  damage: listOf(
+    z.looseObject({
+      formula: z.string(),
+      type: nullableString,
+      healing: z.boolean().catch(false),
+    }),
+  ),
+}
+
+/**
+ * What a spell, feature or inventory item rolls, as an action does, from module 0.13.0, for one
+ * that rolls or is used through anything. Left out, as sent, for one that doesn't, and by earlier
+ * modules, so that it reads as it did.
+ */
+const itemRollFields = {
+  toHit: rollFields.toHit.optional(),
+  attackId: rollFields.attackId,
+  activity: rollFields.activity,
+  attackModes: rollFields.attackModes,
+  ammunition: rollFields.ammunition,
+  save: rollFields.save.optional(),
+  damage: rollFields.damage.optional(),
+}
+
+/**
+ * How a feature or inventory item that rolls is used, as an action has it, from module 0.13.0; and
+ * what it rolls. Left out, as sent, for one that rolls nothing.
+ */
+const usageFields = {
+  range: nullableString.optional(),
+  target: nullableString.optional(),
+  concentration: z.boolean().catch(false).optional(),
+  ...itemRollFields,
+}
+
 const featureSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -76,6 +164,7 @@ const featureSchema = z.looseObject({
     })
     .nullable()
     .catch(null),
+  ...usageFields,
   text: textRef,
 })
 
@@ -116,6 +205,8 @@ const itemFields = {
   rarity: nullableString,
   properties: z.array(z.string()).catch([]),
   identified: z.boolean().catch(true),
+  activation: nullableString.optional(),
+  ...usageFields,
   text: textRef,
 }
 
@@ -219,6 +310,7 @@ const spellSchema = z.looseObject({
   uses: usesSchema,
   // From module 0.8.2.
   castFrom: castFromSchema,
+  ...itemRollFields,
   text: textRef,
 })
 
@@ -228,69 +320,12 @@ const detailSchema = z.looseObject({
   value: z.string(),
 })
 
-/**
- * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
- * kinds of activity the game uses, or none.
- */
-const useSchema = z
-  .looseObject({
-    id: z.string().min(1),
-    type: z.enum(['save', 'damage', 'heal', 'utility']),
-    targets: z.looseObject({
-      self: z.boolean().catch(false),
-      area: z.boolean().catch(false),
-      count: z.int().positive().nullable().catch(null),
-      perLevel: z
-        .int()
-        .positive()
-        .nullable()
-        .optional()
-        .catch(null)
-        .transform(value => value ?? null),
-      affects: nullableString,
-    }),
-  })
-  .nullable()
-  .optional()
-  .catch(null)
-
 /** What an action does, as an action or one of an item's activities has it. */
 const actionFields = {
   activation: nullableString,
   range: nullableString,
   target: nullableString,
-  toHit: nullableNumber,
-  // From module 0.11.0: the attack activity the bonus to hit is for.
-  attackId: z.string().nullable().optional().catch(null),
-  // From module 0.12.0.
-  activity: useSchema,
-  attackModes: z
-    .array(z.looseObject({ value: z.string().min(1), label: z.string() }))
-    .nullable()
-    .optional()
-    .catch(null),
-  ammunition: z
-    .array(
-      z.looseObject({
-        id: z.string().min(1),
-        name: z.string(),
-        quantity: z.number().catch(0),
-      }),
-    )
-    .nullable()
-    .optional()
-    .catch(null),
-  save: z
-    .object({ ability: z.string(), dc: nullableNumber })
-    .nullable()
-    .catch(null),
-  damage: listOf(
-    z.looseObject({
-      formula: z.string(),
-      type: nullableString,
-      healing: z.boolean().catch(false),
-    }),
-  ),
+  ...rollFields,
   uses: usesSchema,
 }
 

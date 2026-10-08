@@ -109,7 +109,15 @@ export type SheetFeature = {
   passive: boolean
   uses: SheetUses | null
   text: string | null
-}
+} & SheetUsage
+
+/**
+ * How a feature or inventory item that rolls, or is used through anything, is used, as an action
+ * is, and what it rolls. Module 0.13.0; absent from one that rolls nothing, and before.
+ */
+export type SheetUsage = Partial<
+  Pick<SheetAction, 'range' | 'target' | 'concentration'> & SheetRolls
+>
 
 /** Features from one class, the species, the background, or anything else. */
 export type SheetFeatureSection = {
@@ -159,8 +167,10 @@ export type SheetItem = {
   properties: string[]
   /** False for an item not identified yet, which keeps its secrets. */
   identified: boolean
+  /** Such as "1 Action", for an item that rolls. Module 0.13.0. */
+  activation?: string | null
   text: string | null
-}
+} & SheetUsage
 
 export type SheetContainer = SheetItem & {
   /** How full it is, by count or weight; null without a limit, or when its contents are secret. */
@@ -223,7 +233,7 @@ export type SheetSpell = {
   /** The item it's cast from, such as a wand; null or absent for the character's own. */
   castFrom?: SheetCastFrom | null
   text: string | null
-}
+} & Partial<SheetRolls>
 
 /** Cantrips, a spell level, pact magic, or a casting method such as at will. */
 export type SheetSpellSection = {
@@ -336,6 +346,21 @@ export type SheetAttackMode = { value: string; label: string }
 
 /** Ammunition a weapon fires, by its item's id, with how much is left. */
 export type SheetAmmunition = { id: string; name: string; quantity: number }
+
+/**
+ * What an action rolls, and what it's used through in the Gamemaster's game. Module 0.13.0 sends
+ * them for the spells, features and inventory items that roll or are used through anything too.
+ */
+export type SheetRolls = Pick<
+  SheetAction,
+  | 'toHit'
+  | 'attackId'
+  | 'activity'
+  | 'attackModes'
+  | 'ammunition'
+  | 'save'
+  | 'damage'
+>
 
 /** Actions taken with one kind of activation, such as Bonus Action. */
 export type SheetActionSection = {

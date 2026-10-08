@@ -7,6 +7,7 @@ import {
   fullerSheet,
   sheetAction,
   sheetFavorites,
+  sheetItem,
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
@@ -165,6 +166,11 @@ const used = (type: string, damage: unknown) => ({
   damage,
 })
 
+/** Healing, as a part of what something rolls. */
+const healing = (formula: string) => [
+  { formula, type: 'Healing', healing: true },
+]
+
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
     globalThis.fetch = jest.fn(
@@ -284,7 +290,13 @@ describe('components/character-sheet/character-pane', () => {
       screen.getByRole('heading', { name: 'Fighter Features' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Abilities' })).toBeNull()
-    // Rolls are made from the Character tab, where the tray is.
+    // Rolls are made from the features, as from the Character tab, so the tray is there too.
+    expect(
+      screen.getByRole('region', { name: 'Your rolls' }),
+    ).toBeInTheDocument()
+
+    await user.click(tabs.getByRole('tab', { name: 'Biography' }))
+
     expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
   })
 
@@ -890,6 +902,99 @@ describe('components/character-sheet/character-pane', () => {
           ),
         { timeout: 3000 },
       )
+    })
+
+    it('casts, uses and attacks from the Spells and Inventory tabs as from Actions', async () => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      const sheet = casting()
+      sheet.spells = sheet.spells.map(section => ({
+        ...section,
+        spells: section.spells.map(spell =>
+          spell.id === 'cure'
+            ? {
+                ...spell,
+                activity: activity('cureHeal', 'heal', {
+                  count: 1,
+                  affects: 'creature',
+                }),
+                damage: healing('2d8 + 3'),
+              }
+            : spell,
+        ),
+      }))
+      // Carried, but not among the actions: a bow that isn't equipped, and a potion.
+      sheet.inventory.sections[0].items.push(
+        sheetItem({
+          id: 'bow',
+          name: 'Longbow',
+          type: 'weapon',
+          equipped: false,
+          toHit: 5,
+          attackId: 'bowAttack',
+          damage: [{ formula: '1d8 + 3', type: 'Piercing', healing: false }],
+        }),
+      )
+      sheet.inventory.sections[1].items.push(
+        sheetItem({
+          id: 'potion',
+          name: 'Potion of Healing',
+          type: 'consumable',
+          activity: activity('drink', 'heal', { self: true, affects: 'self' }),
+          damage: healing('2d4 + 2'),
+        }),
+      )
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(sheet, GAME)}
+          combat={fight}
+          rollsToTable={['use', 'attack', 'damage']}
+        />,
+      )
+
+      await user.click(screen.getByRole('tab', { name: 'Spells' }))
+      await user.click(
+        screen.getByRole('button', { name: 'Cure Wounds healing, 2d8 + 3' }),
+      )
+      const picker = screen.getByRole('dialog', { name: 'Cure Wounds' })
+      await user.click(within(picker).getByRole('button', { name: /^Vex/ }))
+      expect(posted[0]).toMatchObject({
+        kind: 'use',
+        item: 'cure',
+        activity: 'cureHeal',
+        targets: [{ combatId: 'cmbt1', combatantId: 'vex1' }],
+        slot: 'spell1',
+      })
+      // The tray shows with the spells, as rolls are made from them.
+      expect(screen.getByRole('status')).toHaveTextContent('Cure Wounds')
+
+      await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Potion of Healing healing, 2d4 + 2',
+        }),
+      )
+      expect(posted[1]).toMatchObject({
+        kind: 'use',
+        item: 'potion',
+        activity: 'drink',
+        targets: [],
+      })
+      await user.click(
+        screen.getByRole('button', { name: 'Longbow attack, +5' }),
+      )
+      const at = screen.getByRole('dialog', { name: 'Longbow attack' })
+      await user.click(
+        within(at).getByRole('button', { name: 'Goblin Archer' }),
+      )
+      expect(posted[2]).toMatchObject({
+        kind: 'attack',
+        item: 'bow',
+        activity: 'bowAttack',
+        target: { combatId: 'cmbt1', combatantId: 'goblin2' },
+      })
     })
 
     it("rolls a use's chips here while the game takes no spells or features", async () => {

@@ -1,10 +1,16 @@
+'use client'
+
 import clsx from 'clsx'
 import { Backpack, Package } from 'lucide-react'
-import { UsesLeft } from './features-tab'
+import { ActionEntry, useActionRows, type ActionRows } from './action-entry'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
+import { UsesLeft } from './uses-left'
+import { itemAction } from '@/utils/sheet-actions'
+import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type {
+  SheetAction,
   SheetContainer,
   SheetInventory,
   SheetItem,
@@ -14,18 +20,34 @@ import type { ReactNode } from 'react'
 
 /**
  * The character's inventory, as dnd5e's Inventory tab shows it to its player: coin, load and
- * attunement, items by type, and containers, each opening to what it holds.
+ * attunement, items by type, and containers, each opening to what it holds. What an item rolls is
+ * beside it, as on the Actions tab, whether it's equipped or not: each a button that rolls it, or
+ * uses it in the Gamemaster's game while the game takes items' uses.
  */
 export function InventoryTab({
   characterId,
   sheet,
   favorites,
+  onRoll,
+  onRollDamage,
+  onUse,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
+  onRoll: (roll: SheetRoll) => void
+  onRollDamage: (roll: SheetDamageRoll) => void
+  /** Uses an item in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction) => void
 }>) {
+  const { rows, dialogs } = useActionRows({
+    characterId,
+    spellbook: sheet.spells,
+    onRoll,
+    onRollDamage,
+    onUse,
+  })
   const { inventory } = sheet
   const { currency, encumbrance, attunement } = inventory
   const empty =
@@ -46,9 +68,15 @@ export function InventoryTab({
           <SheetHeading id={`inventory-${section.id}`}>
             {section.label}
           </SheetHeading>
-          <ul className='rounded-2xl border border-border bg-card p-1.5'>
+          {/* A container, so that each row fits the list it's in. */}
+          <ul className='@container rounded-2xl border border-border bg-card p-1.5'>
             {section.items.map(item => (
-              <ItemEntry key={item.id} characterId={characterId} item={item} />
+              <ItemEntry
+                key={item.id}
+                characterId={characterId}
+                item={item}
+                rows={rows}
+              />
             ))}
           </ul>
         </section>
@@ -60,12 +88,13 @@ export function InventoryTab({
           className='flex flex-col gap-2'
         >
           <SheetHeading id='inventory-containers'>Containers</SheetHeading>
-          <ul className='rounded-2xl border border-border bg-card p-1.5'>
+          <ul className='@container rounded-2xl border border-border bg-card p-1.5'>
             {inventory.containers.map(container => (
               <ItemEntry
                 key={container.id}
                 characterId={characterId}
                 item={container}
+                rows={rows}
               />
             ))}
           </ul>
@@ -75,6 +104,8 @@ export function InventoryTab({
       {empty && (
         <p className='text-sm text-text-secondary'>No items to show yet.</p>
       )}
+
+      {dialogs}
     </div>
   )
 }
@@ -176,11 +207,19 @@ function Load({
   )
 }
 
-/** An item, or a container that opens to what it holds. */
+/**
+ * An item, or a container that opens to what it holds. Given the rows actions are in, one that
+ * rolls shows what it rolls beside it, as an action does.
+ */
 export function ItemEntry({
   characterId,
   item,
-}: Readonly<{ characterId: string; item: SheetItem | SheetContainer }>) {
+  rows,
+}: Readonly<{
+  characterId: string
+  item: SheetItem | SheetContainer
+  rows?: ActionRows
+}>) {
   const container = 'contents' in item ? item : undefined
   const { weight, uses } = item
   const capacity = container?.capacity
@@ -209,6 +248,27 @@ export function ItemEntry({
     item.attunement === 'optional' && 'Attunement optional',
     ...item.properties,
   )
+  const quantity = item.quantity !== 1 && (
+    <span className='text-sm font-semibold text-text-secondary tabular-nums'>
+      ×{item.quantity}
+    </span>
+  )
+  const action = rows && !container ? itemAction(item) : undefined
+  if (rows && action) {
+    return (
+      <ActionEntry
+        action={action}
+        rows={rows}
+        look={{
+          // What it is to carry, rather than how it's used, which it opens to; or nothing.
+          detail: detail ?? '',
+          marks: quantity,
+          meta,
+          facts,
+        }}
+      />
+    )
+  }
   return (
     <SheetEntry
       characterId={characterId}
@@ -220,11 +280,7 @@ export function ItemEntry({
       aside={
         (item.quantity !== 1 || uses) && (
           <span className='flex shrink-0 items-center gap-1.5'>
-            {item.quantity !== 1 && (
-              <span className='text-sm font-semibold text-text-secondary tabular-nums'>
-                ×{item.quantity}
-              </span>
-            )}
+            {quantity}
             {uses && <UsesLeft uses={uses} />}
           </span>
         )
@@ -234,7 +290,7 @@ export function ItemEntry({
       text={item.text}
     >
       {container && (
-        <Contents characterId={characterId} container={container} />
+        <Contents characterId={characterId} container={container} rows={rows} />
       )}
     </SheetEntry>
   )
@@ -243,7 +299,12 @@ export function ItemEntry({
 function Contents({
   characterId,
   container,
-}: Readonly<{ characterId: string; container: SheetContainer }>) {
+  rows,
+}: Readonly<{
+  characterId: string
+  container: SheetContainer
+  rows?: ActionRows
+}>) {
   if (container.contents === null) {
     return (
       <p className='text-sm text-text-secondary'>
@@ -257,10 +318,15 @@ function Contents({
   return (
     <ul
       aria-label={`In the ${container.name}`}
-      className='-ml-2.5 rounded-xl border border-border'
+      className='@container -ml-2.5 rounded-xl border border-border'
     >
       {container.contents.map(item => (
-        <ItemEntry key={item.id} characterId={characterId} item={item} />
+        <ItemEntry
+          key={item.id}
+          characterId={characterId}
+          item={item}
+          rows={rows}
+        />
       ))}
     </ul>
   )

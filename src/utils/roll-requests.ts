@@ -6,7 +6,7 @@ import {
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
 import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
-import { favoriteEntries } from '@/utils/favorites'
+import { sheetActions } from '@/utils/sheet-actions'
 import { toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
@@ -135,17 +135,17 @@ export function checkRoll(
 }
 
 /**
- * Can the character make this attack: is it one of its actions, or favorites, identified, with a
- * spell slot left for a spell, in the attack mode and with the ammunition chosen, if they're the
- * weapon's, at a combatant its player can see? Whatever else it spends, such as its uses, the game
- * checks as it would spend it.
+ * Can the character make this attack: is it one of its actions, favorites, spells, features or
+ * inventory items, identified, with a spell slot left for a spell, in the attack mode and with the
+ * ammunition chosen, if they're the weapon's, at a combatant its player can see? Whatever else it
+ * spends, such as its uses, the game checks as it would spend it.
  */
 function checkAttack(
   input: RollRequestInput,
   sheet: CharacterSheet,
   combats: CombatSnapshot[],
 ): RollRefusal | undefined {
-  const action = actionsOf(sheet).find(
+  const action = sheetActions(sheet).find(
     ({ id, attackId }) =>
       id === input.item && !!attackId && attackId === input.activity,
   )
@@ -167,17 +167,17 @@ function checkAttack(
 }
 
 /**
- * Can the character use this spell or feature: is it what one of its actions, or favorites, is
- * used through, identified, with a spell slot left for a spell, at no more combatants than it takes
- * at the level it's cast at, all of them combatants its player can see? Whatever else it spends,
- * such as its uses, the game checks as it would spend it.
+ * Can the character use this spell or feature: is it what one of its actions, favorites, spells,
+ * features or inventory items is used through, identified, with a spell slot left for a spell, at
+ * no more combatants than it takes at the level it's cast at, all of them combatants its player
+ * can see? Whatever else it spends, such as its uses, the game checks as it would spend it.
  */
 function checkUse(
   input: RollRequestInput,
   sheet: CharacterSheet,
   combats: CombatSnapshot[],
 ): RollRefusal | undefined {
-  const action = actionsOf(sheet).find(
+  const action = sheetActions(sheet).find(
     ({ id, activity }) => id === input.item && activity?.id === input.activity,
   )
   if (!action?.activity || !action.identified) return 'unknown'
@@ -220,15 +220,6 @@ function checkTargets(
     if (!combatant || combatant.hidden === true) return 'target'
   }
   return undefined
-}
-
-/** The character's actions, and its favorite activities as actions. */
-function actionsOf(sheet: CharacterSheet): SheetAction[] {
-  const actions = sheet.actions.flatMap(section => section.actions)
-  const favorites = favoriteEntries(sheet).flatMap(entry =>
-    entry.kind === 'action' ? [entry.action] : [],
-  )
-  return [...actions, ...favorites]
 }
 
 /**

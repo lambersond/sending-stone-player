@@ -683,6 +683,121 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it('reads what spells, features and items roll, as sent from module 0.13.0, leaving it out of those that roll nothing', () => {
+    const sheet = fullerSheet()
+    const [cantrips, ...spellbook] = sheet.spells
+    const [fighter, ...origins] = sheet.features
+    const [weapons, ...kinds] = sheet.inventory.sections
+    const [backpack, ...containers] = sheet.inventory.containers
+    const [rope, ...packed] = backpack.contents ?? []
+    const flame = {
+      toHit: null,
+      activity: {
+        id: 'flame',
+        type: 'save',
+        targets: {
+          self: false,
+          area: false,
+          count: 1,
+          perLevel: null,
+          affects: 'creature',
+        },
+      },
+      save: { ability: 'DEX', dc: 12 },
+      damage: [{ formula: '1d8', type: 'Radiant', healing: false }],
+    }
+    const hammer = {
+      activation: '1 Action',
+      range: 'reach 5 ft',
+      target: '1 Creature',
+      concentration: false,
+      toHit: 7,
+      attackId: 'swing',
+      attackModes: null,
+      ammunition: null,
+      save: null,
+      damage: [{ formula: '1d8 + 4', type: 'Bludgeoning', healing: false }],
+    }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            { ...cantrips, spells: [{ ...cantrips.spells[0], ...flame }] },
+            ...spellbook,
+          ],
+          features: [
+            {
+              ...fighter,
+              features: [
+                {
+                  ...fighter.features[0],
+                  range: 'Self',
+                  target: null,
+                  concentration: false,
+                  ...flame,
+                },
+                {
+                  ...fighter.features[1],
+                  toHit: 'high',
+                  damage: 'lots',
+                  range: 5,
+                },
+              ],
+            },
+            ...origins,
+          ],
+          inventory: {
+            ...sheet.inventory,
+            sections: [
+              {
+                ...weapons,
+                items: [{ ...weapons.items[0], ...hammer }, weapons.items[1]],
+              },
+              ...kinds,
+            ],
+            containers: [
+              { ...backpack, contents: [{ ...rope, ...hammer }, ...packed] },
+              ...containers,
+            ],
+          },
+        },
+      },
+    }) as any
+
+    const read = event.data.character.sheet
+    expect(read.spells[0].spells[0]).toEqual({
+      ...cantrips.spells[0],
+      ...flame,
+    })
+    expect(read.features[0].features).toEqual([
+      {
+        ...fighter.features[0],
+        range: 'Self',
+        target: null,
+        concentration: false,
+        ...flame,
+      },
+      { ...fighter.features[1], toHit: null, damage: [], range: null },
+    ])
+    expect(read.inventory.sections[0].items[0]).toEqual({
+      ...weapons.items[0],
+      ...hammer,
+    })
+    expect(read.inventory.containers[0].contents[0]).toEqual({
+      ...rope,
+      ...hammer,
+    })
+    // Those that roll nothing are read as sent, with none of it.
+    expect(read.spells[1].spells).toEqual(spellbook[0].spells)
+    expect(read.features[1]).toEqual(origins[0])
+    expect(read.inventory.sections[0].items[1]).toEqual(weapons.items[1])
+    expect(Object.keys(read.inventory.sections[0].items[1]).toSorted()).toEqual(
+      Object.keys(weapons.items[1]).toSorted(),
+    )
+  })
+
   it('reads a sheet from before module 0.8.0 as having no actions', () => {
     const { actions, ...older } = characterSheet()
     const event = parseGameEvent('character.updated', {

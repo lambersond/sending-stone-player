@@ -38,6 +38,7 @@ import {
 } from '@/hooks/use-table-rolls'
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
+import { sheetActions } from '@/utils/sheet-actions'
 import type { RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type { TableCombat, TableSheet } from '@/types/table'
@@ -73,6 +74,15 @@ type SheetTab =
   | 'features'
   | 'effects'
   | 'biography'
+
+/** The tabs things are rolled from, which the rolls are shown with. */
+const ROLLING = new Set<SheetTab>([
+  'character',
+  'actions',
+  'inventory',
+  'spells',
+  'features',
+])
 
 /** The tabs the character's favorites are shown with, as what's used most there. */
 const WITH_FAVORITES = new Set<SheetTab>([
@@ -138,7 +148,7 @@ function RollingSheet({
     const { source } = request
     const action =
       source?.kind === 'attack' && table.takes('attack')
-        ? actionsOf(sheet, entries).find(
+        ? sheetActions(sheet, entries).find(
             ({ id, attackId }) =>
               id === source.item && attackId === source.activity,
           )
@@ -251,12 +261,10 @@ function RollingSheet({
   }
   const strip =
     showsFavorites && !beside ? <FavoritesStrip {...favorites} /> : undefined
-  // Rolls are made from the Character and Actions tabs, and from favorites, so the tray shows
-  // there; the rolls stay.
-  const showsRolls =
-    tab === 'character' ||
-    tab === 'actions' ||
-    (showsFavorites && rollsAny(entries))
+  // Rolls are made from the Character, Actions, Inventory, Spells and Features tabs, and from
+  // favorites, so the tray shows there; the rolls stay.
+  const showsRolls = ROLLING.has(tab) || (showsFavorites && rollsAny(entries))
+  const handlers = { onRoll, onRollDamage, onUse: using }
 
   return (
     <FavoriteMarks keys={marks}>
@@ -326,9 +334,7 @@ function RollingSheet({
               <ActionsTab
                 characterId={characterId}
                 sheet={sheet}
-                onRoll={onRoll}
-                onRollDamage={onRollDamage}
-                onUse={using}
+                {...handlers}
                 favorites={strip}
               />
             )}
@@ -336,6 +342,7 @@ function RollingSheet({
               <InventoryTab
                 characterId={characterId}
                 sheet={sheet}
+                {...handlers}
                 favorites={strip}
               />
             )}
@@ -343,11 +350,16 @@ function RollingSheet({
               <SpellsTab
                 characterId={characterId}
                 sheet={sheet}
+                {...handlers}
                 favorites={strip}
               />
             )}
             {tab === 'features' && (
-              <FeaturesTab characterId={characterId} sheet={sheet} />
+              <FeaturesTab
+                characterId={characterId}
+                sheet={sheet}
+                {...handlers}
+              />
             )}
             {tab === 'effects' && (
               <EffectsTab
@@ -379,17 +391,4 @@ function RollingSheet({
       />
     </FavoriteMarks>
   )
-}
-
-/** The character's actions, and its favorite activities as actions. */
-function actionsOf(
-  sheet: TableSheet,
-  entries: ReturnType<typeof favoriteEntries>,
-): SheetAction[] {
-  return [
-    ...sheet.actions.flatMap(section => section.actions),
-    ...entries.flatMap(entry =>
-      entry.kind === 'action' ? [entry.action] : [],
-    ),
-  ]
 }

@@ -14,23 +14,24 @@ import {
 import {
   ActionEntry,
   FALLBACKS,
-  useDamageRolls,
+  useActionRows,
   type ActionRows,
 } from './action-entry'
 import { ModeChip, modeText, PROFICIENCY } from './character-sheet'
-import { useD20Rolls, type RollActions } from './d20-rolls'
 import { EffectEntry } from './effects-tab'
 import { FavoriteMarks, NO_MARKS } from './favorite-mark'
-import { FeatureEntry, UsesLeft } from './features-tab'
+import { FeatureEntry } from './features-tab'
 import { ItemEntry } from './inventory-tab'
 import { RollButton } from './roll-button'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SpellSlots } from './spell-slots'
 import { SpellEntry } from './spells-tab'
+import { UsesLeft } from './uses-left'
 import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { formatModifier } from '@/utils/format-modifier'
+import type { RollActions } from './d20-rolls'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type {
@@ -168,17 +169,15 @@ function FavoritesList({
   onRollDamage,
   onUse,
 }: Readonly<Props>) {
-  const { actions: d20, dialogs } = useD20Rolls(onRoll)
-  const { actions: damage, dialogs: damageMenu } = useDamageRolls(onRollDamage)
-  const card = useRef<HTMLDivElement>(null)
-  const width = useWidth(card)
-  const rows: ActionRows = {
+  const { rows, dialogs } = useActionRows({
     characterId,
     spellbook: sheet.spells,
-    d20,
-    damage,
-    ...(onUse && { use: { onUse } }),
-  }
+    onRoll,
+    onRollDamage,
+    onUse,
+  })
+  const card = useRef<HTMLDivElement>(null)
+  const width = useWidth(card)
   // Side by side, the first half is in the first list and the rest in the second, so that each
   // stays in its list as favorites open and close.
   const half = Math.ceil(entries.length / 2)
@@ -210,7 +209,6 @@ function FavoritesList({
         ))}
       </div>
       {dialogs}
-      {damageMenu}
     </FavoriteMarks>
   )
 }
@@ -230,13 +228,23 @@ function FavoriteRow({
       return <ActionEntry action={entry.action} rows={rows} note={entry.note} />
     }
     case 'spell': {
-      return <SpellEntry characterId={characterId} spell={entry.spell} />
+      return (
+        <SpellEntry characterId={characterId} spell={entry.spell} rows={rows} />
+      )
     }
     case 'item': {
-      return <ItemEntry characterId={characterId} item={entry.item} />
+      return (
+        <ItemEntry characterId={characterId} item={entry.item} rows={rows} />
+      )
     }
     case 'feature': {
-      return <FeatureEntry characterId={characterId} feature={entry.feature} />
+      return (
+        <FeatureEntry
+          characterId={characterId}
+          feature={entry.feature}
+          rows={rows}
+        />
+      )
     }
     case 'class': {
       return <ClassEntry characterId={characterId} entry={entry.entry} />

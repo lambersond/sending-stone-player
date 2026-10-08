@@ -19,17 +19,16 @@ import {
   DamageChip,
   FALLBACKS,
   SaveChip,
-  useDamageRolls,
+  useActionRows,
   UseChip,
   viewOf,
   type ActionRows,
 } from './action-entry'
-import { useD20Rolls } from './d20-rolls'
 import { FavoriteStar, useFavorite } from './favorite-mark'
-import { UsesLeft } from './features-tab'
 import { EntryIcon } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
+import { UsesLeft } from './uses-left'
 import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
@@ -98,8 +97,13 @@ export function ActionsTab({
   onUse,
   favorites,
 }: Readonly<Props>) {
-  const { actions: d20, dialogs } = useD20Rolls(onRoll)
-  const { actions: damage, dialogs: damageMenu } = useDamageRolls(onRollDamage)
+  const { rows, dialogs } = useActionRows({
+    characterId,
+    spellbook: sheet.spells,
+    onRoll,
+    onRollDamage,
+    onUse,
+  })
   const root = useRef<HTMLDivElement>(null)
   const width = useWidth(root)
   const offered = LAYOUTS.filter(({ from }) => width >= from)
@@ -107,13 +111,6 @@ export function ActionsTab({
   const layout = offered.some(({ id }) => id === chosen) ? chosen : 'list'
   // The groups the player closed, for this character.
   const [closed, toggleGroup] = useStoredSet(`${CLOSED_KEY}:${characterId}`)
-  const rows: ActionRows = {
-    characterId,
-    spellbook: sheet.spells,
-    d20,
-    damage,
-    ...(onUse && { use: { onUse } }),
-  }
   const sections = sheet.actions.map((section, index): GroupedSection => ({
     ...section,
     // A section the player named in Tidy 5e may have any name, so it isn't the id.
@@ -150,7 +147,6 @@ export function ActionsTab({
       )}
 
       {dialogs}
-      {damageMenu}
     </div>
   )
 }
