@@ -28,7 +28,13 @@ const campaign = {
   connected: true,
   rosterReceived: true,
   live: true,
-  rolls: { enabled: false, reaching: false, attacks: false, spells: false },
+  rolls: {
+    enabled: false,
+    reaching: false,
+    attacks: false,
+    spells: false,
+    prompts: false,
+  },
   characters: [
     { id: 'actor-thorin', name: 'Thorin Oakenshield', player: 'Alice' },
     { id: 'actor-vex', name: 'Vex' },

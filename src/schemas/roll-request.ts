@@ -5,6 +5,7 @@ import {
   DAMAGE_TYPE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  PROMPT_ID,
   PROTOCOL_VERSION,
   ROLL_KINDS,
   SPELL_SLOT,
@@ -73,7 +74,7 @@ const rolledDiceSchema = z.strictObject({
  * used at, all in one combat, and the spell slot chosen, if any, and throws no dice. Their damage
  * names the attack or use, the dice it said its damage throws, which are checked against them when
  * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
- * then changed so.
+ * then changed so. A saving throw the game asked for names the prompt it answers.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -97,6 +98,7 @@ export const rollRequestSchema = z
       .max(MAX_DAMAGE_TERMS)
       .optional(),
     modifiers: modifiersSchema.optional(),
+    prompt: z.string().regex(PROMPT_ID).optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
@@ -162,6 +164,13 @@ export const rollRequestSchema = z
         code: 'custom',
         path: ['modifiers'],
         message: 'Only damage is changed so',
+      })
+    }
+    if (request.kind !== 'save' && request.prompt !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['prompt'],
+        message: 'Only a saving throw answers what the game asks',
       })
     }
     const keyed = ['skill', 'tool', 'ability', 'save'].includes(request.kind)

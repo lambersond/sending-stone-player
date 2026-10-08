@@ -9,7 +9,9 @@ import {
   ROLLS_KEPT_FOR,
   ROLLS_PER_MINUTE,
 } from '@/constants/sending-stone'
+import { closePrompt } from '@/db/campaign-events'
 import { changes } from '@/utils/damage-modifiers'
+import { checkPrompt } from '@/utils/prompts'
 import {
   availableRollKinds,
   checkDamage,
@@ -77,10 +79,12 @@ export async function createRollRequest(
   if (!campaign || !availableRollKinds(campaign).includes(input.kind)) {
     return { status: 409, reason: 'unavailable' }
   }
-  // Damage a player changed goes only to a game that can roll it so.
+  // Damage a player changed goes only to a game that can roll it so, and an answer to what the
+  // game asked only to one that asks.
   if (
-    changes(input.modifiers) &&
-    !campaign.rollFeatures.includes('modifiers')
+    (changes(input.modifiers) &&
+      !campaign.rollFeatures.includes('modifiers')) ||
+    (input.prompt && !campaign.rollFeatures.includes('prompts'))
   ) {
     return { status: 409, reason: 'unavailable' }
   }
@@ -92,8 +96,9 @@ export async function createRollRequest(
     input.kind === 'initiative'
       ? input.combatId
       : (input.target?.combatId ?? input.targets?.[0]?.combatId)
-  const [sheet, combats, use, others, inFlight, lastMinute] = await Promise.all(
-    [
+  const prompt = input.prompt
+  const [sheet, combats, use, others, inFlight, lastMinute, asked, answers] =
+    await Promise.all([
       prisma.actorSheet.findUnique({
         where: { campaignActor: { campaignId, actorId } },
         select: { data: true },
@@ -137,19 +142,40 @@ export async function createRollRequest(
           createdAt: { gt: ago(now, 60_000) },
         },
       }),
-    ],
-  )
+      prompt
+        ? prisma.rollPrompt.findUnique({
+            where: { campaignPrompt: { campaignId, promptId: prompt } },
+            select: {
+              actorId: true,
+              data: true,
+              expiresAt: true,
+              closedAt: true,
+            },
+          })
+        : undefined,
+      prompt
+        ? prisma.rollRequest.findMany({
+            where: {
+              characterId: character.id,
+              kind: 'save',
+              payload: { path: ['prompt'], equals: prompt },
+            },
+            select: { status: true, createdAt: true, claimedAt: true },
+          })
+        : [],
+    ])
   if (inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE) {
     return { status: 429, reason: 'busy' }
   }
   const refusal = damage
     ? checkDamage(input, use, others, now)
-    : checkRoll(
+    : (checkRoll(
         input,
         sheet?.data as unknown as CharacterSheet | undefined,
         combats.map(({ data }) => data as unknown as CombatSnapshot),
         actorId,
-      )
+      ) ??
+      (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined))
   if (refusal) return { status: 422, reason: refusal }
 
   const { id } = await prisma.rollRequest.create({
@@ -233,14 +259,15 @@ export async function claimRollRequests(
 /**
  * Record what became of a roll the module fetched. An answer for a roll already answered, or
  * another campaign's, changes nothing; one that comes after its player was told it was lost still
- * counts, as does one saying it was made after all, once the module had said it took too long.
+ * counts, as does one saying it was made after all, once the module had said it took too long. A
+ * save that answered what the game asked, or found it no longer waits, closes it.
  */
 export async function recordCommandResult(
   campaignId: string,
   result: CommandResult,
 ): Promise<void> {
   const made = result.status === 'done'
-  await prisma.rollRequest.updateMany({
+  const { count } = await prisma.rollRequest.updateMany({
     where: {
       id: result.id,
       campaignId,
@@ -262,6 +289,21 @@ export async function recordCommandResult(
       completedAt: new Date(),
     },
   })
+  if (count === 0 || !(made || result.reason === 'prompt')) return
+  const request = await prisma.rollRequest.findFirst({
+    where: { id: result.id, campaignId },
+    select: { payload: true },
+  })
+  const prompt = (request?.payload as RollRequestInput | null)?.prompt
+  if (!prompt) return
+  const reason = made ? 'answered' : (result.error ?? 'gone')
+  // Its player's page is told only when that changes what it shows.
+  if (await closePrompt(prisma, campaignId, prompt, reason)) {
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { version: { increment: 1 } },
+    })
+  }
 }
 
 /**

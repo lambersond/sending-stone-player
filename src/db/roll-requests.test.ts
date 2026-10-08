@@ -117,6 +117,21 @@ const madeSwing = (fields: object = {}) =>
     ...fields,
   })
 
+/** The save the game asks of Thorin, as held: Dexterity or Strength, for another minute. */
+const asked = (fields: object = {}) => ({
+  actorId: 'actor-thorin',
+  data: {
+    type: 'save',
+    abilities: ['dex', 'str'],
+    dc: 15,
+    label: 'Burning Hands',
+    messageId: 'msg1',
+  },
+  expiresAt: new Date(NOW + 60_000),
+  closedAt: null,
+  ...fields,
+})
+
 describe('db/roll-requests', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW })
@@ -502,7 +517,115 @@ describe('db/roll-requests', () => {
     })
   })
 
+  describe('createRollRequest, answering what the game asked', () => {
+    /** A Dexterity saving throw answering the game's prompt. */
+    const answer: RollRequestInput = {
+      kind: 'save',
+      key: 'dex',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [12] }],
+      prompt: 'msg1-thorin',
+    }
+    const given = ({
+      prompt = asked() as object | null,
+      answers = [] as object[],
+      features = ['prompts'],
+    } = {}) => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...takingRolls,
+        rollKinds: ['save'],
+        rollFeatures: features,
+      } as any)
+      prismaMock.actorSheet.findUnique.mockResolvedValue({
+        data: fullerSheet(),
+      } as any)
+      prismaMock.rollRequest.count.mockResolvedValue(0)
+      prismaMock.rollPrompt.findUnique.mockResolvedValue(prompt as any)
+      prismaMock.rollRequest.findMany.mockResolvedValue(answers as any)
+      prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+    }
+
+    it('takes a save answering an open prompt of its character, with an ability it offers', async () => {
+      given()
+
+      await expect(createRollRequest(character, answer)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollPrompt.findUnique).toHaveBeenCalledWith({
+        where: {
+          campaignPrompt: { campaignId: 'c1', promptId: 'msg1-thorin' },
+        },
+        select: { actorId: true, data: true, expiresAt: true, closedAt: true },
+      })
+      expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
+        where: {
+          characterId: 'char-1',
+          kind: 'save',
+          payload: { path: ['prompt'], equals: 'msg1-thorin' },
+        },
+        select: { status: true, createdAt: true, claimedAt: true },
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ kind: 'save', payload: answer }),
+        }),
+      )
+    })
+
+    it("refuses an answer where the game doesn't ask its players", async () => {
+      given({ features: [] })
+
+      await expect(createRollRequest(character, answer)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
+    })
+
+    it.each([
+      ['no such prompt', { prompt: null }],
+      ['a closed one', { prompt: asked({ closedAt: ago(1000) }) }],
+      ['one run out', { prompt: asked({ expiresAt: ago(1) }) }],
+      ['another character’s', { prompt: asked({ actorId: 'actor-vex' }) }],
+      [
+        'one answered already',
+        {
+          answers: [
+            { status: 'claimed', createdAt: ago(2000), claimedAt: ago(1000) },
+          ],
+        },
+      ],
+    ])('refuses an answer to %s', async (_name, fields) => {
+      given(fields)
+
+      await expect(createRollRequest(character, answer)).resolves.toEqual({
+        status: 422,
+        reason: 'prompt',
+      })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    it("refuses an ability the prompt doesn't offer, and takes another answer once one failed", async () => {
+      given()
+      await expect(
+        createRollRequest(character, { ...answer, key: 'con' }),
+      ).resolves.toEqual({ status: 422, reason: 'prompt' })
+
+      given({
+        answers: [{ status: 'failed', createdAt: ago(5000), claimedAt: null }],
+      })
+      await expect(createRollRequest(character, answer)).resolves.toEqual({
+        id: 'req-1',
+      })
+    })
+  })
+
   describe('recordCommandResult', () => {
+    beforeEach(() => {
+      prismaMock.rollRequest.updateMany.mockResolvedValue({ count: 1 })
+    })
+
     it("records what became of a fetched roll of the campaign's", async () => {
       const result = {
         id: 'req-1',
@@ -547,6 +670,74 @@ describe('db/roll-requests', () => {
       expect(prismaMock.rollRequest.updateMany).toHaveBeenCalledWith({
         where: { id: 'req-1', campaignId: 'c1', OR: [{ status: 'claimed' }] },
         data: { status: 'failed', result, completedAt: new Date(NOW) },
+      })
+      // Nothing it answered is closed: it may be answered again.
+      expect(prismaMock.rollPrompt.updateMany).not.toHaveBeenCalled()
+    })
+
+    describe('of a save answering what the game asked', () => {
+      const result = {
+        id: 'req-1',
+        status: 'done' as const,
+        reason: null,
+        error: null,
+        messageId: 'msg-2',
+        visible: true,
+        rolls: [],
+        outcome: 'failure' as const,
+      }
+      beforeEach(() => {
+        prismaMock.rollRequest.findFirst.mockResolvedValue({
+          payload: { kind: 'save', key: 'dex', prompt: 'msg1-thorin' },
+        } as any)
+      })
+
+      it("closes the prompt it answered, telling its player's page", async () => {
+        prismaMock.rollPrompt.updateMany.mockResolvedValue({ count: 1 })
+
+        await recordCommandResult('c1', result)
+
+        expect(prismaMock.rollRequest.findFirst).toHaveBeenCalledWith({
+          where: { id: 'req-1', campaignId: 'c1' },
+          select: { payload: true },
+        })
+        expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith({
+          where: { campaignId: 'c1', promptId: 'msg1-thorin', closedAt: null },
+          data: { closedAt: new Date(NOW), closedReason: 'answered' },
+        })
+        expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+          where: { id: 'c1' },
+          data: { version: { increment: 1 } },
+        })
+      })
+
+      it('closes a prompt the game said no longer waits, as it said, and only once', async () => {
+        prismaMock.rollPrompt.updateMany.mockResolvedValue({ count: 0 })
+
+        await recordCommandResult('c1', {
+          ...result,
+          status: 'failed',
+          reason: 'prompt',
+          error: 'expired',
+          outcome: null,
+        })
+
+        expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { closedAt: new Date(NOW), closedReason: 'expired' },
+          }),
+        )
+        // The module said so already: its page has been told.
+        expect(prismaMock.campaign.update).not.toHaveBeenCalled()
+      })
+
+      it("changes nothing for a result it didn't record", async () => {
+        prismaMock.rollRequest.updateMany.mockResolvedValue({ count: 0 })
+
+        await recordCommandResult('c1', result)
+
+        expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+        expect(prismaMock.rollPrompt.updateMany).not.toHaveBeenCalled()
       })
     })
   })

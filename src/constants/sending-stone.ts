@@ -40,6 +40,8 @@ export const EVENTS = {
   COMBATANT_UPDATED: 'combat.combatant.updated',
   COMBATANT_REMOVED: 'combat.combatant.removed',
   COMMAND_RESULT: 'command.result',
+  PROMPT_OPENED: 'roll.prompt.opened',
+  PROMPT_CLOSED: 'roll.prompt.closed',
 } as const
 
 /**
@@ -67,9 +69,16 @@ export const ROLL_KINDS = [
 
 /**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
- * player changed, with more dice, another die or every die at its highest (module 0.13.0).
+ * player changed, with more dice, another die or every die at its highest; and ask players for the
+ * saving throws their game asks of their characters, such as concentration checks (module 0.13.0).
  */
-export const ROLL_FEATURES = ['modifiers'] as const
+export const ROLL_FEATURES = ['modifiers', 'prompts'] as const
+
+/**
+ * A saving throw the game asks for, as the module names it: its chat card's id and its
+ * character's, joined by "-".
+ */
+export const PROMPT_ID = /^[A-Za-z0-9]{1,64}-[A-Za-z0-9]{1,64}$/
 
 /**
  * How long after an attack or a use is made its damage may be rolled at the table, in

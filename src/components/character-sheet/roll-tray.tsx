@@ -243,6 +243,7 @@ const REASONS: Record<string, string> = {
   damaged: 'its damage is rolled already',
   dice: 'the dice weren’t those the game said',
   invalid: 'your Gamemaster’s game couldn’t make it',
+  prompt: 'your Gamemaster’s game isn’t asking for it any more',
 }
 
 /** Where a roll is on its way to the game, or what the game made of it. */
@@ -300,8 +301,12 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
   }
 }
 
-/** What came of an attack at the table, as the game shows players. */
+/** Whether a save the game asked for succeeded, in a word. */
+const SAVED = { success: 'saved', failure: 'failed' } as const
+
+/** What came at the table of an attack, or a save the game asked for, as the game shows players. */
 function outcomeOf(state: TableRollState): string | undefined {
+  if (state.outcome) return state.outcome === 'success' ? 'Saved' : 'Failed'
   const { attack } = state
   if (!attack) return undefined
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
@@ -440,6 +445,7 @@ function TableMark({
     return (
       <span className='ml-1.5'>
         {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
+        {state.visible && state.outcome && `, ${SAVED[state.outcome]}`}
       </span>
     )
   }

@@ -33,7 +33,9 @@ import type {
  * slots left, or none of the slot chosen; the attack mode or ammunition chosen isn't the weapon's,
  * or none of it is left; or a target can't be picked, or there are more than it takes. For damage:
  * its attack or use can't be found, or is too old; no damage follows it; its damage is rolled
- * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers.
+ * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers. For a
+ * saving throw the game asked for: it no longer waits, isn't this character's, isn't rolled with an
+ * ability it may be, or is answered already.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -51,6 +53,7 @@ export type RollRefusal =
   | 'damaged'
   | 'dice'
   | 'type'
+  | 'prompt'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -363,6 +366,7 @@ export function toRollRequestView(
       request.kind === 'damage' ? sumOf(rolls) : (rolls[0]?.total ?? undefined),
     rolls,
     ...(result.attack ? { attack: result.attack } : {}),
+    ...(result.outcome ? { outcome: result.outcome } : {}),
     ...use,
     ...damage,
   }

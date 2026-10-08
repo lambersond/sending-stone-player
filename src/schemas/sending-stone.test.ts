@@ -54,6 +54,18 @@ const perDieOf = (perDie?: unknown) =>
     })?.data as any
   ).damage.rolls[0].perDie
 
+/** Whether a save the game asked for succeeded, as a command's result says and as read. */
+const outcomeOf = (outcome?: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      outcome,
+    })?.data as any
+  ).outcome
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -105,7 +117,8 @@ describe('schemas/sending-stone', () => {
 
     expect(parseGameEvent('bridge.hello', data)).toEqual({
       type: 'bridge.hello',
-      data,
+      // None of the saves the game asks for, as from a module before 0.13.0.
+      data: { ...data, prompts: [] },
     })
   })
 
@@ -135,6 +148,91 @@ describe('schemas/sending-stone', () => {
     expect(
       helloWith({ rolls: { ...rolls, modifiers: 'yes' } }).features.rolls,
     ).toEqual({ ...rolls, modifiers: false })
+  })
+
+  it('reads whether players are asked for the saves their game asks of them, from module 0.13.0', () => {
+    const rolls = { enabled: true, kinds: ['save'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, prompts: true } }).features.rolls,
+    ).toEqual({ ...rolls, prompts: true })
+    expect(
+      helloWith({ rolls: { ...rolls, prompts: 1 } }).features.rolls,
+    ).toEqual({ ...rolls, prompts: false })
+  })
+
+  it('reads the saves the game asks for, in its hello and as they open and close, from module 0.13.0', () => {
+    const prompt = {
+      id: 'msg1-thorin',
+      actorId: 'thorin',
+      messageId: 'msg1',
+      type: 'save',
+      abilities: ['dex', 'str'],
+      dc: 15,
+      label: 'Burning Hands',
+      openedAt: '2026-10-08T12:00:00.000Z',
+      expiresAt: '2026-10-08T12:10:00.000Z',
+    }
+    const concentration = {
+      ...prompt,
+      id: 'msg2-thorin',
+      messageId: 'msg2',
+      type: 'concentration',
+      abilities: ['con'],
+      dc: null,
+      label: null,
+    }
+    // A prompt without what it asks for, or of a kind this app doesn't know, is dropped.
+    const hello = parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      prompts: [
+        prompt,
+        concentration,
+        { ...prompt, id: 'no-dash-here' },
+        { ...prompt, type: 'check' },
+        { ...prompt, abilities: [] },
+        'msg3-thorin',
+      ],
+    })?.data as any
+    expect(hello.prompts).toEqual([prompt, concentration])
+    expect(
+      parseGameEvent('bridge.hello', {
+        characters: [],
+        combats: [],
+        prompts: 'none',
+      })?.data,
+    ).toEqual({ characters: [], combats: [], prompts: [] })
+
+    // Its label and DC are only shown, so an odd one is taken as none.
+    expect(
+      parseGameEvent('roll.prompt.opened', {
+        prompt: { ...prompt, dc: 'fifteen', label: 7 },
+      }),
+    ).toEqual({
+      type: 'roll.prompt.opened',
+      data: { prompt: { ...prompt, dc: null, label: null } },
+    })
+    expect(() =>
+      parseGameEvent('roll.prompt.opened', {
+        prompt: { ...prompt, expiresAt: 'soon' },
+      }),
+    ).toThrow()
+
+    expect(
+      parseGameEvent('roll.prompt.closed', {
+        id: 'msg1-thorin',
+        reason: 'answered',
+      }),
+    ).toEqual({
+      type: 'roll.prompt.closed',
+      data: { id: 'msg1-thorin', reason: 'answered' },
+    })
+    expect(
+      parseGameEvent('roll.prompt.closed', { id: 'msg1-thorin' })?.data,
+    ).toEqual({ id: 'msg1-thorin', reason: 'gone' })
+    expect(() =>
+      parseGameEvent('roll.prompt.closed', { id: 'msg1 thorin' }),
+    ).toThrow()
   })
 
   it("reads how many dice each of damage's rolls throws for each of its own, from module 0.13.0", () => {
@@ -189,6 +287,14 @@ describe('schemas/sending-stone', () => {
       visible: false,
       rolls: [],
     })
+  })
+
+  it("reads whether a save the game asked for succeeded, from module 0.13.0, as unknown when it can't", () => {
+    expect(outcomeOf('success')).toBe('success')
+    expect(outcomeOf('failure')).toBe('failure')
+    expect(outcomeOf(null)).toBeNull()
+    expect(outcomeOf('saved')).toBeNull()
+    expect(outcomeOf()).toBeUndefined()
   })
 
   it("reads an attack's result: what came of it, and the dice its damage throws", () => {
@@ -340,7 +446,7 @@ describe('schemas/sending-stone', () => {
       parseGameEvent('bridge.hello', { characters: [character], combats: [] }),
     ).toEqual({
       type: 'bridge.hello',
-      data: { characters: [character], combats: [] },
+      data: { characters: [character], combats: [], prompts: [] },
     })
     expect(parseGameEvent('character.updated', { character })).toEqual({
       type: 'character.updated',

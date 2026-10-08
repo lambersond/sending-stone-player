@@ -289,6 +289,21 @@ describe('components/character-sheet/roll-tray', () => {
         { status: 'failed', reason: 'gremlins' },
         'Not made at the table',
       ],
+      [
+        'made, answering what the game asked, saved',
+        { status: 'done', visible: true, total: 16, outcome: 'success' },
+        'At the table: 16 · Saved',
+      ],
+      [
+        'made, answering what the game asked, failed',
+        { status: 'done', visible: true, total: 7, outcome: 'failure' },
+        'At the table: 7 · Failed',
+      ],
+      [
+        'answering what the game no longer asks',
+        { status: 'failed', reason: 'prompt' },
+        'Not made at the table: your Gamemaster’s game isn’t asking for it any more',
+      ],
     ])('says where the latest roll is when %s', (_, state, text) => {
       render(
         <RollTray
@@ -904,7 +919,10 @@ describe('components/character-sheet/roll-tray', () => {
           ]}
           rolling={false}
           table={table([
-            ['r4', { status: 'done', visible: true, total: 19 }],
+            [
+              'r4',
+              { status: 'done', visible: true, total: 19, outcome: 'success' },
+            ],
             ['r3', { status: 'done', visible: false }],
             ['r2', { status: 'rolling' }],
             ['r1', { status: 'refused', reason: 'busy' }],
@@ -917,7 +935,7 @@ describe('components/character-sheet/roll-tray', () => {
       expect(
         screen.getAllByRole('listitem').map(item => item.textContent),
       ).toEqual([
-        'Perception check12 +4 = 16· table 19',
+        'Perception check12 +4 = 16· table 19, saved',
         'Perception check12 +4 = 16· hidden',
         'Perception check12 +4 = 16· sending',
         'Perception check12 +4 = 16· not at the table',

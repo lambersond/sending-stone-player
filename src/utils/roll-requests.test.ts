@@ -174,6 +174,32 @@ const useRequest = (
     ...fields,
   })
 
+/** A save answering what the game asked, made, as its player is told of it. */
+const answered = (outcome: 'success' | 'failure' | null) =>
+  toRollRequestView(
+    held({
+      kind: 'save',
+      status: 'done',
+      result: {
+        id: 'req-1',
+        status: 'done',
+        reason: null,
+        error: null,
+        messageId: 'msg-1',
+        visible: true,
+        rolls: [
+          {
+            formula: '1d20 + 4',
+            total: 18,
+            dice: [{ faces: 20, results: [{ result: 14, active: true }] }],
+          },
+        ],
+        outcome,
+      },
+    }),
+    NOW,
+  )
+
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
     const campaign = {
@@ -1036,6 +1062,15 @@ describe('utils/roll-requests', () => {
           },
         ],
       })
+    })
+
+    it('shows whether a save the game asked for succeeded, where the game shows its player', () => {
+      expect(answered('success')).toMatchObject({
+        total: 18,
+        outcome: 'success',
+      })
+      expect(answered('failure')).toMatchObject({ outcome: 'failure' })
+      expect(answered(null)).not.toHaveProperty('outcome')
     })
 
     it('keeps a roll the game made blind from its player', () => {

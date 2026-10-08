@@ -887,6 +887,57 @@ describe('hooks/use-table-rolls', () => {
     })
   })
 
+  describe('saves the game asked for', () => {
+    /** A Dexterity saving throw answering the game's prompt. */
+    const answer: SheetRoll = {
+      label: 'Dexterity saving throw',
+      modifier: 1,
+      source: { kind: 'save', key: 'dex', prompt: 'msg1-thorin' },
+    }
+
+    it("sends a save answering the game's prompt, and says it's answering it until it fails", async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'failed', reason: 'cancelled' }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-2',
+            status: 'done',
+            visible: true,
+            total: 16,
+            outcome: 'success',
+          }),
+        )
+      const { result } = render(['save'], ['prompts'])
+
+      act(() => result.current.send(answer, check({ advantage: undefined })))
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body)),
+      ).toMatchObject({ kind: 'save', key: 'dex', prompt: 'msg1-thorin' })
+      expect(result.current.answering).toEqual(new Set(['msg1-thorin']))
+
+      // One that failed may be answered again.
+      await advance(CHECK_EVERY)
+      expect(result.current.answering).toEqual(new Set())
+
+      act(() =>
+        result.current.send(answer, check({ id: 'r2', advantage: undefined })),
+      )
+      await advance(CHECK_EVERY)
+      expect(result.current.states.get('r2')).toMatchObject({
+        status: 'done',
+        total: 16,
+        outcome: 'success',
+        prompt: 'msg1-thorin',
+      })
+      expect(result.current.answering).toEqual(new Set(['msg1-thorin']))
+    })
+  })
+
   it('stops following its rolls once gone', async () => {
     jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
     const { result, unmount } = render()

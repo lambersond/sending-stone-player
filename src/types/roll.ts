@@ -2,6 +2,7 @@ import type { ROLL_FEATURES, ROLL_KINDS } from '@/constants/sending-stone'
 import type {
   AttackOutcome,
   DamagePreview,
+  SaveOutcome,
   UseOutcome,
 } from '@/types/sending-stone'
 import type { TableRoll } from '@/types/table'
@@ -21,12 +22,14 @@ export type RollFeature = (typeof ROLL_FEATURES)[number]
 
 /**
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
- * tool's key, an ability check or saving throw by the ability's, a death saving throw, initiative
- * in a combat, or an attack with an item's attack activity, at a combatant, or none, with the spell
- * slot, ammunition and attack mode chosen.
+ * tool's key, an ability check or saving throw by the ability's, and for a saving throw the game
+ * asked for, the prompt it answers; a death saving throw, initiative in a combat, or an attack with
+ * an item's attack activity, at a combatant, or none, with the spell slot, ammunition and attack
+ * mode chosen.
  */
 export type RollSource =
-  | { kind: 'skill' | 'tool' | 'ability' | 'save'; key: string }
+  | { kind: 'skill' | 'tool' | 'ability'; key: string }
+  | { kind: 'save'; key: string; prompt?: string }
   | { kind: 'death' }
   | { kind: 'initiative'; combatId: string }
   | ({
@@ -97,6 +100,8 @@ export type RollRequestInput = {
   types?: (string | null)[]
   /** For damage, how the player changed it: more dice, another die, every die at its highest. */
   modifiers?: DamageModifiers
+  /** For a saving throw the game asked for, the prompt it answers. */
+  prompt?: string
 }
 
 /**
@@ -123,4 +128,6 @@ export type RollRequestView = {
   use?: UseOutcome
   /** For an attack or a use, the dice its damage or healing will throw; null when none follows. */
   damage?: DamagePreview | null
+  /** For a saving throw the game asked for, whether it succeeded, where its player may know. */
+  outcome?: SaveOutcome
 }

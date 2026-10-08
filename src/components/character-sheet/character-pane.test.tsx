@@ -207,6 +207,72 @@ describe('components/character-sheet/character-pane', () => {
     expect(screen.getByRole('status')).toHaveTextContent('+7')
   })
 
+  it('asks the player on every tab for the saves the game asks of them, and answers from there', async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.clear()
+    const posted = answering({
+      'req-1': { status: 'done', visible: true, total: 18, outcome: 'success' },
+    })
+    const ask = {
+      id: 'msg2-thorin',
+      type: 'concentration' as const,
+      abilities: ['con'],
+      label: 'Bless',
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+    }
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save']}
+        rollFeatures={['prompts']}
+        prompts={[ask]}
+      />,
+    )
+    await show('Biography')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    const banner = screen.getByRole('region', { name: 'Your Gamemaster asks' })
+    expect(banner).toHaveTextContent('Concentration checkBless')
+    await user.click(
+      within(banner).getByRole('button', {
+        name: 'Roll Concentration check, +6',
+      }),
+    )
+
+    expect(posted).toEqual([
+      expect.objectContaining({ kind: 'save', key: 'con', prompt: ask.id }),
+    ])
+    // Its roll shows on this tab too, and how it went at the table.
+    expect(screen.getByRole('status')).toHaveTextContent('Concentration check')
+    expect(
+      await screen.findByText('At the table:', {}, { timeout: 3000 }),
+    ).toHaveTextContent('At the table: 18 · Saved')
+  })
+
+  it("asks nothing where the game doesn't take the player's saves now", () => {
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        prompts={[
+          {
+            id: 'msg2-thorin',
+            type: 'concentration',
+            abilities: ['con'],
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
+          },
+        ]}
+      />,
+    )
+
+    expect(
+      screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+    ).not.toBeInTheDocument()
+  })
+
   it("sends a roll to the Gamemaster's game, when it takes the player's rolls, and shows its total there", async () => {
     const user = userEvent.setup()
     globalThis.localStorage.clear()

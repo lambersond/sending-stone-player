@@ -589,7 +589,31 @@ export type BridgeFeatures = {
     kinds: string[]
     reason: string | null
     modifiers?: boolean
+    /** Whether its players are asked here for the saves their game asks of them. Module 0.13.0. */
+    prompts?: boolean
   } | null
+}
+
+/**
+ * A saving throw the game asks of one of a campaign's characters, which its player rolls here,
+ * such as a concentration check after damage. Module 0.13.0.
+ */
+export type GamePrompt = {
+  /** Its chat card's id and its character's, joined by "-". */
+  id: string
+  actorId: string
+  /** The chat card that asks. */
+  messageId: string
+  type: 'save' | 'concentration'
+  /** The abilities it may be rolled with, such as ["dex"]; one for a concentration check. */
+  abilities: string[]
+  /** Its DC, where the player may see it. */
+  dc: number | null
+  /** What asks: a spell or feature, or what the character is concentrating on. */
+  label: string | null
+  openedAt: string
+  /** When it stops waiting for its player. */
+  expiresAt: string
 }
 
 /** What became of a command the module fetched, such as a player's roll. Module 0.10.0. */
@@ -614,7 +638,15 @@ export type CommandResult = {
    * Module 0.11.0.
    */
   damage?: DamagePreview | null
+  /**
+   * For a save the game asked for, whether it succeeded, where its player may know. Module
+   * 0.13.0.
+   */
+  outcome?: SaveOutcome | null
 }
+
+/** Whether a saving throw succeeded against its DC. */
+export type SaveOutcome = 'success' | 'failure'
 
 /** A spell or feature used in the game: the kind of activity it was. */
 export type UseOutcome = { type: string }
@@ -672,6 +704,8 @@ export type GameEvent =
         characters: ConnectedCharacter[]
         combats: CombatSnapshot[]
         features?: BridgeFeatures | null
+        /** The saves the game is asking its players for. Module 0.13.0. */
+        prompts?: GamePrompt[]
       }
     }
   | { type: 'character.updated'; data: { character: ConnectedCharacter } }
@@ -700,3 +734,5 @@ export type GameEvent =
       data: { combatId: string; combatantId: string }
     }
   | { type: 'command.result'; data: CommandResult }
+  | { type: 'roll.prompt.opened'; data: { prompt: GamePrompt } }
+  | { type: 'roll.prompt.closed'; data: { id: string; reason: string } }

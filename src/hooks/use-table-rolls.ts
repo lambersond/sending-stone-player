@@ -63,6 +63,8 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   modifiers?: DamageModifiers
   /** For an attack or a use, whether its damage has been sent. */
   damaged?: boolean
+  /** For a saving throw the game asked for, the prompt it answers. */
+  prompt?: string
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -149,10 +151,12 @@ export function useTableRolls(
       const { source } = roll
       const { kinds, on } = latest.current
       if (!on || !source || !kinds.includes(source.kind)) return
-      const kept =
-        source.kind === 'attack'
-          ? { source: { item: source.item, activity: source.activity } }
-          : {}
+      let kept: Partial<TableRollState> = {}
+      if (source.kind === 'attack') {
+        kept = { source: { item: source.item, activity: source.activity } }
+      } else if (source.kind === 'save' && source.prompt) {
+        kept = { prompt: source.prompt }
+      }
       start(check.id, toRollRequest(roll, source, check), kept)
     },
     [start],
@@ -236,6 +240,11 @@ export function useTableRolls(
     takes: (kind: RollKind) => on && kinds.includes(kind),
     /** Whether the game takes damage the player changed from this device now. */
     modifies: on && kinds.includes('damage') && features.includes('modifiers'),
+    /**
+     * The saves the game asked for that the player has answered from this page, on their way to
+     * the game or made there: not to be answered again.
+     */
+    answering: answeringOf(states),
     /** The attack or use at the table with this id, if its damage is still to roll there. */
     dueDamage: (use: string) => dueOf(states, state => state.requestId === use),
     /**
@@ -250,6 +259,19 @@ export function useTableRolls(
           state.source.activity === source.activity,
       ),
   }
+}
+
+/** The prompts answered by rolls on their way to the game, or made there. */
+function answeringOf(
+  states: ReadonlyMap<string, TableRollState>,
+): ReadonlySet<string> {
+  const answering = new Set<string>()
+  for (const { prompt, status } of states.values()) {
+    if (prompt && ['sending', 'rolling', 'done'].includes(status)) {
+      answering.add(prompt)
+    }
+  }
+  return answering
 }
 
 /** The latest of the attacks that pass the test whose damage is still to roll at the table. */
@@ -357,6 +379,7 @@ export function toRollRequest(
     kind: source.kind,
     ...('key' in source && { key: source.key }),
     ...('combatId' in source && { combatId: source.combatId }),
+    ...(source.kind === 'save' && source.prompt && { prompt: source.prompt }),
     ...(source.kind === 'attack' && {
       item: source.item,
       activity: source.activity,

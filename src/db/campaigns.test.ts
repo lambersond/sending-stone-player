@@ -54,6 +54,7 @@ describe('db/campaigns', () => {
           characters: roster,
           rollsEnabled: true,
           rollKinds: ['skill', 'save', 'attack', 'damage'],
+          rollFeatures: ['modifiers', 'prompts'],
           bridgePolledAt: seen,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
@@ -72,6 +73,7 @@ describe('db/campaigns', () => {
           characters: [],
           rollsEnabled: false,
           rollKinds: [],
+          rollFeatures: [],
           bridgePolledAt: null,
           players: [],
         },
@@ -93,6 +95,7 @@ describe('db/campaigns', () => {
             reaching: true,
             attacks: true,
             spells: false,
+            prompts: true,
           },
           characters: [
             {
@@ -124,6 +127,7 @@ describe('db/campaigns', () => {
             reaching: false,
             attacks: false,
             spells: false,
+            prompts: false,
           },
           characters: [],
         },

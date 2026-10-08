@@ -4,6 +4,7 @@ import {
   DAMAGE_TYPE,
   EVENTS,
   MAX_DAMAGE_TERMS,
+  PROMPT_ID,
 } from '@/constants/sending-stone'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import type { GameEvent } from '@/types/sending-stone'
@@ -655,8 +656,10 @@ const featuresSchema = z
         enabled: z.boolean().catch(false),
         kinds: z.array(z.string()).catch([]),
         reason: nullableString.optional().transform(reason => reason ?? null),
-        // From module 0.13.0: whether players may change their damage.
+        // From module 0.13.0: whether players may change their damage, and whether they're
+        // asked for the saves their game asks of them.
         modifiers: z.boolean().optional().catch(false),
+        prompts: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -665,6 +668,31 @@ const featuresSchema = z
   .nullable()
   .optional()
   .catch(null)
+
+/**
+ * A saving throw the game asks of one of a campaign's characters, from module 0.13.0. One without
+ * what it asks for can't be rolled; its label is only shown.
+ */
+const promptSchema = z.object({
+  id: z.string().regex(PROMPT_ID),
+  actorId: z.string().min(1).max(64),
+  messageId: z.string().min(1).max(64),
+  type: z.enum(['save', 'concentration']),
+  abilities: z
+    .array(z.string().regex(/^[A-Za-z][\w-]{0,31}$/))
+    .min(1)
+    .max(10),
+  dc: z.int().min(0).max(100).nullable().catch(null),
+  label: z
+    .string()
+    .max(200)
+    .nullable()
+    .optional()
+    .catch(null)
+    .transform(label => label || null),
+  openedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+})
 
 /**
  * What became of a command; one without its id, or an outcome, can't be recorded. It's kept as
@@ -712,6 +740,8 @@ const commandResultSchema = z.object({
     .nullable()
     .optional()
     .catch(null),
+  // From module 0.13.0, for a save the game asked for.
+  outcome: z.enum(['success', 'failure']).nullable().optional().catch(null),
   damage: z
     .object({
       critical: z.boolean().catch(false),
@@ -826,6 +856,8 @@ export function parseGameEvent(
             combats: z.array(combatSchema),
             // Sent from module 0.10.0.
             features: featuresSchema,
+            // Sent from module 0.13.0; none from an older module.
+            prompts: listOf(promptSchema),
           })
           .parse(data),
       }
@@ -889,6 +921,23 @@ export function parseGameEvent(
     }
     case EVENTS.COMMAND_RESULT: {
       return { type, data: commandResultSchema.parse(data) }
+    }
+    case EVENTS.PROMPT_OPENED: {
+      return {
+        type,
+        data: z.looseObject({ prompt: promptSchema }).parse(data),
+      }
+    }
+    case EVENTS.PROMPT_CLOSED: {
+      return {
+        type,
+        data: z
+          .looseObject({
+            id: z.string().regex(PROMPT_ID),
+            reason: z.string().max(32).catch('gone'),
+          })
+          .parse(data),
+      }
     }
     default: {
       return undefined

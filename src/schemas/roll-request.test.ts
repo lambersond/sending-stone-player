@@ -306,6 +306,15 @@ describe('schemas/roll-request', () => {
     expect(parseDamage({ modifiers: {} }).success).toBe(true)
   })
 
+  it('takes a saving throw answering what the game asked, and only a saving throw', () => {
+    const save = { kind: 'save', key: 'dex' }
+    expect(parse({ ...save, prompt: 'msg1-thorin' }).success).toBe(true)
+    expect(parse({ ...save, prompt: 'msg1 thorin' }).success).toBe(false)
+    expect(parse({ ...save, prompt: 'msg1-thorin-2' }).success).toBe(false)
+    expect(parse({ prompt: 'msg1-thorin' }).success).toBe(false)
+    expect(parseAttack({ prompt: 'msg1-thorin' }).success).toBe(false)
+  })
+
   it("reads the module's fetch, for one of its campaigns", () => {
     const poll = {
       protocol: 2,

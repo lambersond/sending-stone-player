@@ -21,6 +21,7 @@ import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
+import { PromptBanner } from './prompt-banner'
 import { RollTray } from './roll-tray'
 import { SpellsTab } from './spells-tab'
 import { asks, UsePicker, type Picked, type Picking } from './use-picker'
@@ -36,13 +37,14 @@ import {
   useTableRolls,
   type DueDamage,
 } from '@/hooks/use-table-rolls'
+import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { TableDamage } from './action-entry'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
-import type { TableCombat, TableSheet } from '@/types/table'
+import type { TableCombat, TablePrompt, TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
@@ -55,6 +57,8 @@ type Props = {
   rollsToTable?: RollKind[]
   /** What else the game does with them, such as take damage the player changed. */
   rollFeatures?: RollFeature[]
+  /** The saving throws the game asks of the character, for its player to roll here. */
+  prompts?: TablePrompt[]
 }
 
 /**
@@ -122,8 +126,12 @@ function RollingSheet({
   combat,
   rollsToTable,
   rollFeatures,
+  prompts,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
+  const waiting = useWaitingPrompts(prompts)
+  // Once the player answers what the game asked, the tray shows its roll whichever tab is open.
+  const [prompted, setPrompted] = useState(false)
   const { roll, rollDamage, logUse, rolls, rolling } = useSheetRoller(
     table.send,
     table.sendDamage,
@@ -293,7 +301,8 @@ function RollingSheet({
     showsFavorites && !beside ? <FavoritesStrip {...favorites} /> : undefined
   // Rolls are made from the Character, Actions, Inventory, Spells and Features tabs, and from
   // favorites, so the tray shows there; the rolls stay.
-  const showsRolls = ROLLING.has(tab) || (showsFavorites && rollsAny(entries))
+  const showsRolls =
+    ROLLING.has(tab) || (showsFavorites && rollsAny(entries)) || prompted
   const handlers = { onRoll, onRollDamage, onUse: using, tableDamage }
 
   return (
@@ -343,6 +352,20 @@ function RollingSheet({
           {classLine(sheet)}
         </span>
       </div>
+      {/* What the game asks of the character, above every tab, while the game takes the answer. */}
+      {waiting.length > 0 && table.available && (
+        <PromptBanner
+          prompts={waiting}
+          sheet={sheet}
+          answering={table.answering}
+          sending={table.sending}
+          onSend={() => table.setSending(true)}
+          onRoll={request => {
+            setPrompted(true)
+            onRoll(request)
+          }}
+        />
+      )}
       <div ref={body} className='flex min-h-0 flex-1'>
         {beside && <FavoritesColumn {...favorites} />}
         <Scroller ref={scroller}>

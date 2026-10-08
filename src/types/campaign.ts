@@ -14,14 +14,16 @@ export type OwnedCampaign = {
   lastSeenAt?: string
   /**
    * Whether players' rolls are made in the game, with the dice they roll here: turned on in
-   * Foundry, whether the game is fetching them now, and whether their attacks, and their spells
-   * and features, are made there too, as the game last said.
+   * Foundry, whether the game is fetching them now, whether their attacks, and their spells and
+   * features, are made there too, and whether they're asked here for the saves the game asks of
+   * their characters, as the game last said.
    */
   rolls: {
     enabled: boolean
     reaching: boolean
     attacks: boolean
     spells: boolean
+    prompts: boolean
   }
   /** Each with who plays it, and their character's id, once a player has chosen it. */
   characters: {

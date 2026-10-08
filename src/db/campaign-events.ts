@@ -10,6 +10,7 @@ import type {
   CombatantSummary,
   CombatSnapshot,
   ConnectedCharacter,
+  GamePrompt,
   GameEvent,
   SerializedMessage,
 } from '@/types/sending-stone'
@@ -69,7 +70,7 @@ async function apply(
   switch (event.type) {
     case 'bridge.hello': {
       // The campaign's full current state. It carries no chat, so the chat log is kept.
-      const { characters, features } = event.data
+      const { characters, features, prompts = [] } = event.data
       await tx.campaign.update({
         where: { id: campaignId },
         data: {
@@ -80,11 +81,25 @@ async function apply(
           rollKinds: (features?.rolls?.kinds ?? []).filter(kind =>
             (ROLL_KINDS as readonly string[]).includes(kind),
           ),
-          // What else it can do with them: from module 0.13.0, take damage a player changed.
-          rollFeatures:
-            features?.rolls?.modifiers === true ? ['modifiers'] : [],
+          // What else it can do with them: from module 0.13.0, take damage a player changed, and
+          // ask players for the saves their game asks of them.
+          rollFeatures: [
+            ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
+            ...(features?.rolls?.prompts === true ? ['prompts'] : []),
+          ],
         },
       })
+      // The saves its game is asking for: any other still open has closed meanwhile.
+      await tx.rollPrompt.updateMany({
+        where: {
+          campaignId,
+          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+          closedAt: null,
+          promptId: { notIn: prompts.map(({ id }) => id) },
+        },
+        data: { closedAt: new Date(), closedReason: 'gone' },
+      })
+      for (const prompt of prompts) await savePrompt(tx, campaignId, prompt)
       await tx.actorSheet.deleteMany({ where: { campaignId } })
       await tx.actorSheet.createMany({
         data: characters.flatMap(({ id, sheet }) =>
@@ -162,6 +177,14 @@ async function apply(
       )
       return false
     }
+    case 'roll.prompt.opened': {
+      await savePrompt(tx, campaignId, event.data.prompt)
+      return false
+    }
+    case 'roll.prompt.closed': {
+      await closePrompt(tx, campaignId, event.data.id, event.data.reason)
+      return false
+    }
   }
   return false
 }
@@ -226,6 +249,48 @@ async function saveMessage(
     create: { campaignId, messageId: message.id, ...fields },
     update: fields,
   })
+}
+
+/**
+ * A save the game asks for, as the module now describes it. One that has closed stays closed: the
+ * module never asks again on the same card.
+ */
+async function savePrompt(tx: Tx, campaignId: string, prompt: GamePrompt) {
+  const fields = {
+    actorId: prompt.actorId,
+    data: toJson({
+      type: prompt.type,
+      abilities: prompt.abilities,
+      dc: prompt.dc,
+      label: prompt.label,
+      messageId: prompt.messageId,
+    }),
+    openedAt: new Date(prompt.openedAt),
+    expiresAt: new Date(prompt.expiresAt),
+  }
+  await tx.rollPrompt.upsert({
+    where: { campaignPrompt: { campaignId, promptId: prompt.id } },
+    create: { campaignId, promptId: prompt.id, ...fields },
+    update: fields,
+  })
+}
+
+/**
+ * Close a save the game asked for, saying why, such as "answered": unless it closed already.
+ * @returns Whether it was open.
+ */
+export async function closePrompt(
+  tx: Tx,
+  campaignId: string,
+  promptId: string,
+  reason: string,
+): Promise<boolean> {
+  const { count } = await tx.rollPrompt.updateMany({
+    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+    where: { campaignId, promptId, closedAt: null },
+    data: { closedAt: new Date(), closedReason: reason },
+  })
+  return count > 0
 }
 
 async function saveCombat(tx: Tx, campaignId: string, combat: CombatSnapshot) {

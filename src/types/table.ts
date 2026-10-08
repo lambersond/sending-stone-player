@@ -72,6 +72,23 @@ export type TableCombat = {
   combatants: TableCombatant[]
 }
 
+/**
+ * A saving throw the Gamemaster's game asks of the player's character, to roll here: such as a
+ * concentration check after damage, or a save a spell targeting them calls for.
+ */
+export type TablePrompt = {
+  id: string
+  type: 'save' | 'concentration'
+  /** The abilities it may be rolled with, such as ["dex"]; one for a concentration check. */
+  abilities: string[]
+  /** Unset where the game doesn't show the player its DC. */
+  dc?: number
+  /** What asks, such as "Fireball", or what the character is concentrating on. */
+  label?: string
+  /** When it stops waiting. */
+  expiresAt: string
+}
+
 /** The player's own character's sheet, to see and roll from. */
 export type TableSheet = Omit<CharacterSheet, 'img'> & {
   /** The portrait's full address. Unset when it has none, or only Foundry's default. */
@@ -105,4 +122,6 @@ export type TableView = {
   rollsToTable?: RollKind[]
   /** What else the game can do with them, such as take damage the player changed. */
   rollFeatures?: RollFeature[]
+  /** The saving throws the game is asking of the character, oldest first, while it takes them. */
+  prompts?: TablePrompt[]
 }

@@ -312,6 +312,51 @@ describe('components/game-table/game-table', () => {
     ).toBeInTheDocument()
   })
 
+  it('marks the character tab while the game asks the player for a save', async () => {
+    const user = userEvent.setup()
+    const prompts = [
+      {
+        id: 'msg2-thorin',
+        type: 'concentration' as const,
+        abilities: ['con'],
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      },
+    ]
+    renderTable(view({ prompts }))
+
+    // It opens on combat, an encounter being under way.
+    expect(
+      screen.getByRole('button', {
+        name: 'Character , your Gamemaster asks for a roll',
+      }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Character/ }))
+    expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
+  it("marks nothing while the character isn't one of the campaign's", () => {
+    renderTable(
+      view({
+        connected: false,
+        prompts: [
+          {
+            id: 'msg2-thorin',
+            type: 'concentration',
+            abilities: ['con'],
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
+          },
+        ],
+      }),
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Character' }),
+    ).toBeInTheDocument()
+  })
+
   it.each([
     [combat({ started: false, currentId: undefined }), 'Getting ready'],
     [combat({ currentId: undefined }), 'Round 3'],
