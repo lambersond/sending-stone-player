@@ -11,28 +11,36 @@ import {
   Wand,
   type LucideIcon,
 } from 'lucide-react'
+import { useD20Rolls, type RollActions } from './d20-rolls'
+import { useDamageMenu, type DamageChoice } from './damage-menu'
 import { FavoriteStar, useFavorite } from './favorite-mark'
-import { UsesLeft } from './features-tab'
 import { RollButton } from './roll-button'
-import { RollMenu, type MenuPoint } from './roll-menu'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
+import { UsesLeft } from './uses-left'
+import { damageRollOf, type DueDamage } from '@/hooks/use-table-rolls'
 import {
   outOfSlots,
   poolName,
   slotPools,
   type SlotPool,
 } from '@/utils/action-groups'
+import {
+  changes,
+  firstDie,
+  type DamageModifiers,
+} from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
-import type { RollActions } from './d20-rolls'
-import type { SheetDamageRoll } from '@/hooks/use-sheet-roller'
+import type { MenuPoint, RollChoice } from './roll-menu'
+import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 
 /*
- * An action as the Actions tab shows it, and the favorites too: its name, opening to the rest,
- * and beside it what it rolls, each a button of its own.
+ * An action as the Actions tab shows it, and the favorites too, and the spells, features and
+ * inventory items that roll: its name, opening to the rest, and beside it what it rolls, each a
+ * button of its own.
  */
 
 /** An action's damage or healing, ready to roll, with its formula as dnd5e shows it. */
@@ -40,12 +48,37 @@ export type DamageTarget = SheetDamageRoll & { formula: string }
 
 export type DamageActions = {
   onRoll: (target: DamageTarget) => void
-  onMenu: (anchor: HTMLElement, target: DamageTarget, point?: MenuPoint) => void
+  /**
+   * Offers other ways to roll it; or, for the damage of a spell or feature used in the game, to
+   * use it with its damage changed.
+   */
+  onMenu: (
+    anchor: HTMLElement,
+    target: DamageTarget,
+    point?: MenuPoint,
+    use?: DamageUse,
+  ) => void
+}
+
+/** A spell or feature used in the game, its damage to follow, as its damage chip's menu uses it. */
+export type DamageUse = {
+  /** Such as "Cast". */
+  verb: string
+  onUse: (modifiers?: DamageModifiers) => void
 }
 
 /** Using a spell or feature in the Gamemaster's game, rather than rolling it here. */
 export type UseActions = {
-  onUse: (action: SheetAction) => void
+  /** Uses it, its damage changed as the player chose, if they did. */
+  onUse: (action: SheetAction, modifiers?: DamageModifiers) => void
+}
+
+/** What the Gamemaster's game does with damage rolled from the sheet, while it takes damage. */
+export type TableDamage = {
+  /** Whether it takes damage the player changed. */
+  modifies: boolean
+  /** An attack's or a use's damage due at the table, if it's waiting for it. */
+  dueFor: (source: { item: string; activity: string }) => DueDamage | undefined
 }
 
 /**
@@ -58,6 +91,67 @@ export type ActionRows = {
   d20: RollActions
   damage: DamageActions
   use?: UseActions
+}
+
+/**
+ * How a tab shows something it lists as an action, where it's shown otherwise than on the Actions
+ * tab: such as a spell on the Spells tab, with its school and components, or an item in the
+ * inventory, with its weight and price.
+ */
+export type EntryLook = {
+  /** Under its name, in place of how it's used; empty for nothing. */
+  detail?: string
+  /** Beside what it rolls, such as a spell's marks or how many there are of an item. */
+  marks?: ReactNode
+  /** Over its facts once it's open, in place of what kind of action it is. */
+  meta?: string
+  /** Its own facts, after how and at whom it's used, such as a spell's duration. */
+  facts?: { label: string; value: string }[]
+  /** Faded, such as a spell not prepared. */
+  muted?: boolean
+}
+
+/**
+ * What every action's row needs, on a tab or among the favorites, with the menus and dialogs its
+ * rolls open in `dialogs`, to be put on the page.
+ */
+export function useActionRows({
+  characterId,
+  spellbook,
+  onRoll,
+  onRollDamage,
+  onUse,
+  tableDamage,
+}: Readonly<{
+  characterId: string
+  spellbook: SheetSpellSection[]
+  onRoll: (roll: SheetRoll) => void
+  onRollDamage: (roll: SheetDamageRoll) => void
+  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
+}>): { rows: ActionRows; dialogs: ReactNode } {
+  const { actions: d20, dialogs } = useD20Rolls(onRoll)
+  const { actions: damage, dialogs: damageMenu } = useDamageRolls(
+    onRollDamage,
+    tableDamage,
+  )
+  return {
+    rows: {
+      characterId,
+      spellbook,
+      d20,
+      damage,
+      ...(onUse && { use: { onUse } }),
+    },
+    dialogs: (
+      <>
+        {dialogs}
+        {damageMenu}
+      </>
+    ),
+  }
 }
 
 /** Icons for actions without one of their own, by the item's type. */
@@ -80,46 +174,88 @@ const KINDS: Record<string, string> = {
 
 /**
  * Rolling an action's damage or healing from the sheet. A tap rolls it; a right-click or
- * long-press on damage offers to roll it as a critical hit's. The menu is in `dialogs`, to be put
- * on the page.
+ * long-press offers other ways: as a critical hit's, for damage rolled here; at its highest; or
+ * with its dice changed first, more of them or another size. For damage the Gamemaster's game is
+ * waiting for, the game decides a critical hit, and the rest is offered where it takes them. A
+ * spell or feature the game uses offers to use it so, its damage to follow. The menu and its
+ * dialog are in `dialogs`, to be put on the page.
  */
-export function useDamageRolls(onRollDamage: (roll: SheetDamageRoll) => void): {
+export function useDamageRolls(
+  onRollDamage: (roll: SheetDamageRoll) => void,
+  table?: TableDamage,
+): {
   actions: DamageActions
   dialogs: ReactNode
 } {
-  const [menu, setMenu] = useState<{
-    anchor: HTMLElement
-    target: DamageTarget
-    point?: MenuPoint
-  }>()
-  const roll = (target: DamageTarget, critical = false) =>
+  const { open, dialogs } = useDamageMenu()
+  const roll = (
+    target: DamageTarget,
+    { critical = false, modifiers }: DamageChoice = {},
+  ) =>
     onRollDamage({
       label: target.label,
       parts: target.parts,
       healing: target.healing,
       critical,
       ...(target.source && { source: target.source }),
+      ...(modifiers && changes(modifiers) && { modifiers }),
     })
-  const dialogs = menu && (
-    <RollMenu
-      anchor={menu.anchor}
-      point={menu.point}
-      title={`${menu.target.label} ${menu.target.formula}`}
-      choices={['critical']}
-      onChoose={() => {
-        setMenu(undefined)
-        roll(menu.target, true)
-      }}
-      onClose={() => setMenu(undefined)}
-    />
-  )
-  return {
-    actions: {
-      onRoll: target => roll(target),
-      onMenu: (anchor, target, point) => setMenu({ anchor, target, point }),
-    },
-    dialogs,
+  const onMenu: DamageActions['onMenu'] = (anchor, target, point, use) => {
+    const subject = {
+      label: target.label,
+      formula: target.formula,
+      healing: target.healing === true,
+    }
+    const changed: RollChoice[] = firstDie(target.parts)
+      ? ['maximize', 'modify-damage']
+      : ['maximize']
+    if (use) {
+      if (!table?.modifies) return
+      open(
+        anchor,
+        {
+          ...subject,
+          parts: target.parts,
+          choices: changed,
+          verb: use.verb,
+          onChoose: ({ modifiers }) => use.onUse(modifiers),
+        },
+        point,
+      )
+      return
+    }
+    const due = target.source && table?.dueFor(target.source)
+    if (due) {
+      if (!table?.modifies) return
+      // As the game will throw it: a critical hit's dice as it doubled them.
+      const game = damageRollOf(target.label, due)
+      open(
+        anchor,
+        {
+          ...subject,
+          parts: game.parts,
+          perDie: game.perDie,
+          choices: firstDie(game.parts)
+            ? ['maximize', 'modify-damage']
+            : ['maximize'],
+          onChoose: choice => roll(target, choice),
+        },
+        point,
+      )
+      return
+    }
+    open(
+      anchor,
+      {
+        ...subject,
+        parts: target.parts,
+        choices: target.healing ? changed : ['critical', ...changed],
+        onChoose: choice => roll(target, choice),
+      },
+      point,
+    )
   }
+  return { actions: { onRoll: target => roll(target), onMenu }, dialogs }
 }
 
 /**
@@ -142,7 +278,10 @@ export function viewOf(
   const save = !!use && use.type === 'save' && !!action.save
   const damage =
     !!use && use.type !== 'utility' && !!formula && !action.attackId
-  const onUse = using && (() => using.onUse(action))
+  const onUse =
+    using &&
+    ((modifiers?: DamageModifiers) =>
+      modifiers ? using.onUse(action, modifiers) : using.onUse(action))
   return {
     healing,
     formula,
@@ -164,25 +303,33 @@ export function viewOf(
 /**
  * An action in a list: its name, how it's activated and its reach, opening to the rest; and
  * beside it what it rolls, each a button of its own. A note, such as the item an activity is one
- * of, comes first.
+ * of, comes first. A tab that lists it otherwise shows it as it shows the rest it lists.
  */
 export function ActionEntry({
   action,
   rows,
   note,
-}: Readonly<{ action: SheetAction; rows: ActionRows; note?: string }>) {
+  look = {},
+}: Readonly<{
+  action: SheetAction
+  rows: ActionRows
+  note?: string
+  look?: EntryLook
+}>) {
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
   const { name, toHit, save, uses } = action
-  const detail = joinParts(
-    note,
-    action.activation,
-    action.range,
-    view.types.join(', '),
-    view.spent && 'No slots left',
-  )
+  const detail =
+    look.detail ??
+    joinParts(
+      note,
+      action.activation,
+      action.range,
+      view.types.join(', '),
+      view.spent && 'No slots left',
+    )
 
   return (
     <li>
@@ -194,7 +341,7 @@ export function ActionEntry({
           onClick={() => setOpen(!open)}
           className={clsx(
             'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
-            view.spent && 'opacity-60',
+            (view.spent || look.muted) && 'opacity-60',
           )}
         >
           <EntryIcon
@@ -216,6 +363,7 @@ export function ActionEntry({
             )}
           </span>
         </button>
+        {look.marks}
         {uses && (
           // Beside what the action rolls, in a narrow list, its uses would leave its name too
           // little room; they're listed when it opens.
@@ -246,6 +394,7 @@ export function ActionEntry({
             target={view.target}
             damage={rows.damage}
             onUse={view.uses.damage}
+            verb={verbOf(action)}
           />
         )}
         {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
@@ -259,6 +408,7 @@ export function ActionEntry({
             action={action}
             pools={view.pools}
             characterId={rows.characterId}
+            look={look}
           />
         </div>
       )}
@@ -324,7 +474,7 @@ export function SaveChip({
 }: Readonly<{
   name: string
   save: NonNullable<SheetAction['save']>
-  onUse?: () => void
+  onUse?: (modifiers?: DamageModifiers) => void
 }>) {
   const chip =
     'shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-semibold whitespace-nowrap tabular-nums'
@@ -341,7 +491,7 @@ export function SaveChip({
         type='button'
         aria-label={`${name}, ${title}${save.dc === null ? '' : ` DC ${save.dc}`}`}
         title={title}
-        onClick={onUse}
+        onClick={() => onUse()}
         className={clsx(chip, 'transition-colors hover:bg-primary/5')}
       >
         {content}
@@ -362,13 +512,16 @@ export function SaveChip({
 export function UseChip({
   action,
   onUse,
-}: Readonly<{ action: SheetAction; onUse: () => void }>) {
-  const verb = action.type === 'spell' ? 'Cast' : 'Use'
+}: Readonly<{
+  action: SheetAction
+  onUse: (modifiers?: DamageModifiers) => void
+}>) {
+  const verb = verbOf(action)
   return (
     <button
       type='button'
       aria-label={`${verb} ${action.name}`}
-      onClick={onUse}
+      onClick={() => onUse()}
       className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/20'
     >
       {verb}
@@ -377,10 +530,11 @@ export function UseChip({
 }
 
 /**
- * The damage or healing an action rolls, as a button that rolls it: damage, which a right-click
- * or long-press can roll as a critical hit's, or healing. A formula the app can't read is shown,
- * but not rolled. While the Gamemaster's game takes the spell or feature it's of, it uses it
- * there, and its damage or healing follows.
+ * The damage or healing an action rolls, as a button that rolls it, which a right-click or
+ * long-press offers other ways to roll: as a critical hit's, at its highest, or changed. A formula
+ * the app can't read is shown, but not rolled. While the Gamemaster's game takes the spell or
+ * feature it's of, it uses it there, and its damage or healing follows; its menu then uses it
+ * with its damage changed.
  */
 export function DamageChip({
   name,
@@ -389,31 +543,49 @@ export function DamageChip({
   target,
   damage,
   onUse,
+  verb = 'Use',
 }: Readonly<{
   name: string
   formula: string
   healing: boolean
   target: DamageTarget | undefined
   damage: DamageActions
-  onUse?: () => void
+  onUse?: (modifiers?: DamageModifiers) => void
+  /** What using it is called, such as "Cast" for a spell. */
+  verb?: string
 }>) {
   const chip = clsx(
     'max-w-36 shrink-0 truncate rounded-lg px-2 py-1 text-sm font-semibold tabular-nums',
     healing ? 'bg-primary/10 text-primary' : 'bg-damage/15 text-damage',
   )
   const label = `${name} ${healing ? 'healing' : 'damage'}, ${formula}`
+  const hover = clsx(
+    'transition-colors',
+    healing ? 'hover:bg-primary/20' : 'hover:bg-damage/25',
+  )
+  if (onUse && target) {
+    return (
+      <RollButton
+        target={target}
+        onRoll={() => onUse()}
+        onMenu={(anchor, at, point) =>
+          damage.onMenu(anchor, at, point, { verb, onUse })
+        }
+        label={label}
+        className={clsx(chip, hover)}
+      >
+        {formula}
+      </RollButton>
+    )
+  }
   if (onUse) {
     return (
       <button
         type='button'
         aria-label={label}
         title={formula}
-        onClick={onUse}
-        className={clsx(
-          chip,
-          'transition-colors',
-          healing ? 'hover:bg-primary/20' : 'hover:bg-damage/25',
-        )}
+        onClick={() => onUse()}
+        className={clsx(chip, hover)}
       >
         {formula}
       </button>
@@ -426,29 +598,21 @@ export function DamageChip({
       </span>
     )
   }
-  if (healing) {
-    return (
-      <button
-        type='button'
-        aria-label={label}
-        title={formula}
-        onClick={() => damage.onRoll(target)}
-        className={clsx(chip, 'transition-colors hover:bg-primary/20')}
-      >
-        {formula}
-      </button>
-    )
-  }
   return (
     <RollButton
       target={target}
       {...damage}
       label={label}
-      className={clsx(chip, 'transition-colors hover:bg-damage/25')}
+      className={clsx(chip, hover)}
     >
       {formula}
     </RollButton>
   )
+}
+
+/** What using an action in the game is called: casting, for a spell. */
+export function verbOf(action: SheetAction): 'Cast' | 'Use' {
+  return action.type === 'spell' ? 'Cast' : 'Use'
 }
 
 /** All there is to know of an action once it's open: what it is, its facts, its description. */
@@ -456,16 +620,20 @@ export function ActionDetails({
   action,
   pools,
   characterId,
+  look = {},
 }: Readonly<{
   action: SheetAction
   pools: SlotPool[] | null
   characterId: string
+  look?: EntryLook
 }>) {
-  const meta = joinParts(kindOf(action), !action.identified && 'Not identified')
+  const meta =
+    look.meta ??
+    joinParts(kindOf(action), !action.identified && 'Not identified')
   return (
     <>
       {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
-      <Facts action={action} pools={pools} />
+      <Facts action={action} pools={pools} more={look.facts} />
       {action.text && (
         <SheetText characterId={characterId} hash={action.text} />
       )}
@@ -475,19 +643,29 @@ export function ActionDetails({
 
 /**
  * All there is to know of how an action is used, each with its label, and for a spell cast with
- * slots, the slots it can be cast with.
+ * slots, the slots it can be cast with. More of its own, such as a spell's duration, follow whom
+ * it's used at.
  */
 function Facts({
   action,
   pools,
-}: Readonly<{ action: SheetAction; pools: SlotPool[] | null }>) {
+  more = [],
+}: Readonly<{
+  action: SheetAction
+  pools: SlotPool[] | null
+  more?: { label: string; value: string }[]
+}>) {
   const { save, uses } = action
   const healing =
     action.damage.length > 0 && action.damage.every(part => part.healing)
   const facts: [string, ReactNode][] = [
-    ['Activation', action.activation],
+    [
+      action.type === 'spell' ? 'Casting time' : 'Activation',
+      action.activation,
+    ],
     ['Range', action.range],
     ['Target', action.target],
+    ...more.map(({ label, value }): [string, ReactNode] => [label, value]),
     [
       'To hit',
       action.toHit === null ? undefined : formatModifier(action.toHit),

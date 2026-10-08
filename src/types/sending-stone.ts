@@ -109,7 +109,15 @@ export type SheetFeature = {
   passive: boolean
   uses: SheetUses | null
   text: string | null
-}
+} & SheetUsage
+
+/**
+ * How a feature or inventory item that rolls, or is used through anything, is used, as an action
+ * is, and what it rolls. Module 0.13.0; absent from one that rolls nothing, and before.
+ */
+export type SheetUsage = Partial<
+  Pick<SheetAction, 'range' | 'target' | 'concentration'> & SheetRolls
+>
 
 /** Features from one class, the species, the background, or anything else. */
 export type SheetFeatureSection = {
@@ -159,8 +167,10 @@ export type SheetItem = {
   properties: string[]
   /** False for an item not identified yet, which keeps its secrets. */
   identified: boolean
+  /** Such as "1 Action", for an item that rolls. Module 0.13.0. */
+  activation?: string | null
   text: string | null
-}
+} & SheetUsage
 
 export type SheetContainer = SheetItem & {
   /** How full it is, by count or weight; null without a limit, or when its contents are secret. */
@@ -223,7 +233,7 @@ export type SheetSpell = {
   /** The item it's cast from, such as a wand; null or absent for the character's own. */
   castFrom?: SheetCastFrom | null
   text: string | null
-}
+} & Partial<SheetRolls>
 
 /** Cantrips, a spell level, pact magic, or a casting method such as at will. */
 export type SheetSpellSection = {
@@ -336,6 +346,21 @@ export type SheetAttackMode = { value: string; label: string }
 
 /** Ammunition a weapon fires, by its item's id, with how much is left. */
 export type SheetAmmunition = { id: string; name: string; quantity: number }
+
+/**
+ * What an action rolls, and what it's used through in the Gamemaster's game. Module 0.13.0 sends
+ * them for the spells, features and inventory items that roll or are used through anything too.
+ */
+export type SheetRolls = Pick<
+  SheetAction,
+  | 'toHit'
+  | 'attackId'
+  | 'activity'
+  | 'attackModes'
+  | 'ammunition'
+  | 'save'
+  | 'damage'
+>
 
 /** Actions taken with one kind of activation, such as Bonus Action. */
 export type SheetActionSection = {
@@ -555,8 +580,40 @@ export type CombatSnapshot = {
  * What the module does for a campaign beyond sending its events, from its hello. Module 0.10.0.
  */
 export type BridgeFeatures = {
-  /** Whether its players may roll in the game from here, which rolls, and if not, why not. */
-  rolls?: { enabled: boolean; kinds: string[]; reason: string | null } | null
+  /**
+   * Whether its players may roll in the game from here, which rolls, and if not, why not; and
+   * whether they may change their damage there, from module 0.13.0.
+   */
+  rolls?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+    modifiers?: boolean
+    /** Whether its players are asked here for the saves their game asks of them. Module 0.13.0. */
+    prompts?: boolean
+  } | null
+}
+
+/**
+ * A saving throw the game asks of one of a campaign's characters, which its player rolls here,
+ * such as a concentration check after damage. Module 0.13.0.
+ */
+export type GamePrompt = {
+  /** Its chat card's id and its character's, joined by "-". */
+  id: string
+  actorId: string
+  /** The chat card that asks. */
+  messageId: string
+  type: 'save' | 'concentration'
+  /** The abilities it may be rolled with, such as ["dex"]; one for a concentration check. */
+  abilities: string[]
+  /** Its DC, where the player may see it. */
+  dc: number | null
+  /** What asks: a spell or feature, or what the character is concentrating on. */
+  label: string | null
+  openedAt: string
+  /** When it stops waiting for its player. */
+  expiresAt: string
 }
 
 /** What became of a command the module fetched, such as a player's roll. Module 0.10.0. */
@@ -581,7 +638,15 @@ export type CommandResult = {
    * Module 0.11.0.
    */
   damage?: DamagePreview | null
+  /**
+   * For a save the game asked for, whether it succeeded, where its player may know. Module
+   * 0.13.0.
+   */
+  outcome?: SaveOutcome | null
 }
+
+/** Whether a saving throw succeeded against its DC. */
+export type SaveOutcome = 'success' | 'failure'
 
 /** A spell or feature used in the game: the kind of activity it was. */
 export type UseOutcome = { type: string }
@@ -621,6 +686,11 @@ export type DamagePreviewRoll = {
    */
   types?: DamageTypeChoice[] | null
   dice: { faces: number; number: number }[]
+  /**
+   * How many dice it throws for each die of its own: 1, or on a critical hit as many as the
+   * world's rules make of each, such as 2. Module 0.13.0; absent before, as 1.
+   */
+  perDie?: number
 }
 
 /** A kind of damage to choose, such as { key: "fire", label: "Fire" }. */
@@ -634,6 +704,8 @@ export type GameEvent =
         characters: ConnectedCharacter[]
         combats: CombatSnapshot[]
         features?: BridgeFeatures | null
+        /** The saves the game is asking its players for. Module 0.13.0. */
+        prompts?: GamePrompt[]
       }
     }
   | { type: 'character.updated'; data: { character: ConnectedCharacter } }
@@ -662,3 +734,5 @@ export type GameEvent =
       data: { combatId: string; combatantId: string }
     }
   | { type: 'command.result'; data: CommandResult }
+  | { type: 'roll.prompt.opened'; data: { prompt: GamePrompt } }
+  | { type: 'roll.prompt.closed'; data: { id: string; reason: string } }

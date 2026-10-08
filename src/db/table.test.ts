@@ -39,6 +39,7 @@ describe('db/table', () => {
         version: 7,
         live: true,
         rollsToTable: [],
+        rollFeatures: [],
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -47,6 +48,7 @@ describe('db/table', () => {
           lastSeenAt: true,
           rollsEnabled: true,
           rollKinds: true,
+          rollFeatures: true,
           bridgePolledAt: true,
         },
       })
@@ -62,13 +64,19 @@ describe('db/table', () => {
         version: 7,
         live: false,
         rollsToTable: [],
+        rollFeatures: [],
       })
     })
 
     it('is version 0, without looking, for a character in no campaign', async () => {
       await expect(
         getCampaignStatus({ ...character, campaignId: null }),
-      ).resolves.toEqual({ version: 0, live: false, rollsToTable: [] })
+      ).resolves.toEqual({
+        version: 0,
+        live: false,
+        rollsToTable: [],
+        rollFeatures: [],
+      })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
       prismaMock.campaign.findUnique.mockResolvedValue(null)
@@ -76,6 +84,7 @@ describe('db/table', () => {
         version: 0,
         live: false,
         rollsToTable: [],
+        rollFeatures: [],
       })
     })
 
@@ -84,18 +93,21 @@ describe('db/table', () => {
         version: 7,
         lastSeenAt: recently(),
         rollsEnabled: true,
-        rollKinds: ['save', 'skill'],
+        rollKinds: ['save', 'skill', 'damage'],
+        rollFeatures: ['modifiers', 'later'],
         bridgePolledAt: new Date(Date.now() - 5000),
       }
       prismaMock.campaign.findUnique.mockResolvedValue(takingRolls as any)
       await expect(getCampaignStatus(character)).resolves.toMatchObject({
-        rollsToTable: ['skill', 'save'],
+        rollsToTable: ['skill', 'save', 'damage'],
+        // What else it does with them, that this app knows.
+        rollFeatures: ['modifiers'],
       })
 
       // None for a character without an actor to make them.
       await expect(
         getCampaignStatus({ ...character, actorId: null }),
-      ).resolves.toMatchObject({ rollsToTable: [] })
+      ).resolves.toMatchObject({ rollsToTable: [], rollFeatures: [] })
 
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...takingRolls,
@@ -103,6 +115,7 @@ describe('db/table', () => {
       } as any)
       await expect(getCampaignStatus(character)).resolves.toMatchObject({
         rollsToTable: [],
+        rollFeatures: [],
       })
     })
   })
@@ -143,6 +156,7 @@ describe('db/table', () => {
           characters: true,
           rollsEnabled: true,
           rollKinds: true,
+          rollFeatures: true,
           bridgePolledAt: true,
         },
       })
@@ -284,6 +298,85 @@ describe('db/table', () => {
       ])
     })
 
+    it('shows the saves the game asks of the character, oldest first, while the game takes them', async () => {
+      jest.useFakeTimers({ now: Date.parse('2026-10-08T12:05:00Z') })
+      const asking = {
+        ...campaign,
+        rollsEnabled: true,
+        rollKinds: ['save'],
+        rollFeatures: ['prompts'],
+        bridgePolledAt: new Date(Date.now() - 5000),
+      }
+      prismaMock.campaign.findUnique.mockResolvedValue(asking as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([])
+      prismaMock.combat.findMany.mockResolvedValue([])
+      prismaMock.rollPrompt.findMany.mockResolvedValue([
+        {
+          promptId: 'msg1-thorin',
+          data: {
+            type: 'concentration',
+            abilities: ['con'],
+            dc: null,
+            label: 'Bless',
+            messageId: 'msg1',
+          },
+          expiresAt: new Date('2026-10-08T12:10:00Z'),
+        },
+        {
+          promptId: 'msg2-thorin',
+          data: {
+            type: 'save',
+            abilities: ['dex'],
+            dc: 15,
+            label: null,
+            messageId: 'msg2',
+          },
+          expiresAt: new Date('2026-10-08T12:11:00Z'),
+        },
+      ] as any)
+
+      const view = await getTableView(character)
+
+      expect(prismaMock.rollPrompt.findMany).toHaveBeenCalledWith({
+        where: {
+          campaignId: 'c1',
+          actorId: 'actor-thorin',
+          closedAt: null,
+          expiresAt: { gt: new Date('2026-10-08T12:05:00Z') },
+        },
+        orderBy: { openedAt: 'asc' },
+        select: { promptId: true, data: true, expiresAt: true },
+      })
+      expect(view.prompts).toEqual([
+        {
+          id: 'msg1-thorin',
+          type: 'concentration',
+          abilities: ['con'],
+          label: 'Bless',
+          expiresAt: '2026-10-08T12:10:00.000Z',
+        },
+        {
+          id: 'msg2-thorin',
+          type: 'save',
+          abilities: ['dex'],
+          dc: 15,
+          expiresAt: '2026-10-08T12:11:00.000Z',
+        },
+      ])
+
+      // Once the game stops taking them, there's none to answer.
+      prismaMock.rollPrompt.findMany.mockClear()
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...asking,
+        bridgePolledAt: new Date(Date.now() - 600_000),
+      } as any)
+      await expect(getTableView(character)).resolves.toMatchObject({
+        prompts: [],
+      })
+      expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
+      jest.useRealTimers()
+    })
+
     it("shows only public chat to a character no longer one of the campaign's", async () => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...campaign,
@@ -313,8 +406,11 @@ describe('db/table', () => {
         combat: undefined,
         sheet: undefined,
         rollsToTable: [],
+        rollFeatures: [],
+        prompts: [],
       })
       expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
 
       const removed = await getTableView({
         ...character,

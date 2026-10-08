@@ -18,6 +18,7 @@ import {
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import {
+  ArrowUpToLine,
   ChevronsDown,
   ChevronsUp,
   SlidersHorizontal,
@@ -27,9 +28,10 @@ import {
 
 /**
  * What the player chose: a roll with advantage or disadvantage, or to modify the roll first; or,
- * for damage, a critical hit's.
+ * for damage or healing, a critical hit's, every die at its highest, or to change its dice first.
  */
-export type RollChoice = 'adv' | 'dis' | 'modify' | 'critical'
+export type RollChoice =
+  'adv' | 'dis' | 'modify' | 'critical' | 'maximize' | 'modify-damage'
 
 /** The ways to roll a check, save or attack. */
 export const D20_CHOICES: RollChoice[] = ['adv', 'dis', 'modify']
@@ -47,6 +49,8 @@ const CHOICES: Record<RollChoice, { label: string; icon: LucideIcon }> = {
   dis: { label: 'Roll with disadvantage', icon: ChevronsDown },
   modify: { label: 'Modify roll…', icon: SlidersHorizontal },
   critical: { label: 'Roll critical damage', icon: Zap },
+  maximize: { label: 'Roll maximum damage', icon: ArrowUpToLine },
+  'modify-damage': { label: 'Modify damage…', icon: SlidersHorizontal },
 }
 
 type Props = {
@@ -58,6 +62,8 @@ type Props = {
   title: string
   /** The ways it can be rolled; those of a d20 roll unless said. */
   choices?: RollChoice[]
+  /** What to call a choice instead, such as "Roll maximum healing". */
+  labels?: Partial<Record<RollChoice, string>>
   onChoose: (choice: RollChoice) => void
   onClose: () => void
 }
@@ -72,6 +78,7 @@ export function RollMenu({
   point,
   title,
   choices = D20_CHOICES,
+  labels = {},
   onChoose,
   onClose,
 }: Readonly<Props>) {
@@ -120,7 +127,8 @@ export function RollMenu({
             {title}
           </p>
           {choices.map((choice, index) => {
-            const { label, icon: Icon } = CHOICES[choice]
+            const { icon: Icon } = CHOICES[choice]
+            const label = labels[choice] ?? CHOICES[choice].label
             return (
               <button
                 key={choice}
@@ -143,8 +151,10 @@ export function RollMenu({
                     'size-4',
                     choice === 'adv' && 'text-primary',
                     choice === 'dis' && 'text-ruby',
-                    choice === 'modify' && 'text-text-secondary',
+                    (choice === 'modify' || choice === 'modify-damage') &&
+                      'text-text-secondary',
                     choice === 'critical' && 'text-gold-text',
+                    choice === 'maximize' && 'text-damage',
                   )}
                 />
                 {label}

@@ -176,7 +176,10 @@ describe('app/api/events', () => {
         'c1',
         world,
         campaign,
-        { type: 'bridge.hello', data: { characters: [], combats: [] } },
+        {
+          type: 'bridge.hello',
+          data: { characters: [], combats: [], prompts: [] },
+        },
         's1',
       )
     })
@@ -270,6 +273,36 @@ describe('app/api/events', () => {
 
       const other = await post(envelope('actor.updated', {}))
       expect(other.status).toBe(204)
+    })
+
+    it('applies the saves the game asks for, as they open and close', async () => {
+      const prompt = {
+        id: 'msg1-thorin',
+        actorId: 'thorin',
+        messageId: 'msg1',
+        type: 'concentration',
+        abilities: ['con'],
+        dc: null,
+        label: 'Bless',
+        openedAt: '2026-10-08T12:00:00.000Z',
+        expiresAt: '2026-10-08T12:10:00.000Z',
+      }
+
+      const opened = await post(envelope('roll.prompt.opened', { prompt }))
+      const closed = await post(
+        envelope('roll.prompt.closed', { id: prompt.id, reason: 'answered' }),
+      )
+
+      expect([opened.status, closed.status]).toEqual([204, 204])
+      expect(
+        jest.mocked(applyCampaignEvent).mock.calls.map(call => call[3]),
+      ).toEqual([
+        { type: 'roll.prompt.opened', data: { prompt } },
+        {
+          type: 'roll.prompt.closed',
+          data: { id: prompt.id, reason: 'answered' },
+        },
+      ])
     })
 
     describe('command.result', () => {

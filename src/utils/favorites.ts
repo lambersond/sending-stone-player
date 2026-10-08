@@ -12,6 +12,7 @@ import type {
   SheetItem,
   SheetItemFavorite,
   SheetResourceFavorite,
+  SheetRolls,
   SheetSkill,
   SheetSlotsFavorite,
   SheetSpell,
@@ -109,14 +110,38 @@ export function favoriteKeys(favorites: SheetFavorite[]): Set<string> {
   )
 }
 
-/** Does any favorite roll, as an attack, damage or healing, or a check does? */
+/**
+ * Does any favorite roll, as an attack, damage or healing, or a check does: an action, or a spell,
+ * something carried or a feature that rolls?
+ */
 export function rollsAny(entries: FavoriteEntry[]): boolean {
-  return entries.some(
-    entry =>
-      entry.kind === 'check' ||
-      (entry.kind === 'action' &&
-        (entry.action.toHit !== null || entry.action.damage.length > 0)),
-  )
+  return entries.some(entry => {
+    switch (entry.kind) {
+      case 'check': {
+        return true
+      }
+      case 'action': {
+        return rolls(entry.action)
+      }
+      case 'spell': {
+        return rolls(entry.spell)
+      }
+      case 'item': {
+        return entry.item.identified && rolls(entry.item)
+      }
+      case 'feature': {
+        return rolls(entry.feature)
+      }
+      default: {
+        return false
+      }
+    }
+  })
+}
+
+/** Does this roll an attack, or damage or healing? */
+function rolls(entry: Partial<SheetRolls>): boolean {
+  return (entry.toHit ?? null) !== null || (entry.damage ?? []).length > 0
 }
 
 function entryOf(

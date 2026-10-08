@@ -31,6 +31,41 @@ const helloWith = (features?: unknown) =>
   parseGameEvent('bridge.hello', { characters: [], combats: [], features })
     ?.data as any
 
+/** How many dice a command's damage said its first roll throws for each of its own, as read. */
+const perDieOf = (perDie?: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      damage: {
+        critical: true,
+        plannable: true,
+        rolls: [
+          {
+            formula: '2d8 + 4',
+            type: 'Slashing',
+            dice: [{ faces: 8, number: 2 }],
+            perDie,
+          },
+        ],
+      },
+    })?.data as any
+  ).damage.rolls[0].perDie
+
+/** Whether a save the game asked for succeeded, as a command's result says and as read. */
+const outcomeOf = (outcome?: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      outcome,
+    })?.data as any
+  ).outcome
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -82,7 +117,8 @@ describe('schemas/sending-stone', () => {
 
     expect(parseGameEvent('bridge.hello', data)).toEqual({
       type: 'bridge.hello',
-      data,
+      // None of the saves the game asks for, as from a module before 0.13.0.
+      data: { ...data, prompts: [] },
     })
   })
 
@@ -102,6 +138,108 @@ describe('schemas/sending-stone', () => {
     expect(helloWith({ rolls: 'on' }).features).toEqual({ rolls: null })
     expect(helloWith('all').features).toBeNull()
     expect(helloWith().features).toBeUndefined()
+  })
+
+  it('reads whether the game takes damage a player changed, from module 0.13.0', () => {
+    const rolls = { enabled: true, kinds: ['damage'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, modifiers: true } }).features.rolls,
+    ).toEqual({ ...rolls, modifiers: true })
+    expect(
+      helloWith({ rolls: { ...rolls, modifiers: 'yes' } }).features.rolls,
+    ).toEqual({ ...rolls, modifiers: false })
+  })
+
+  it('reads whether players are asked for the saves their game asks of them, from module 0.13.0', () => {
+    const rolls = { enabled: true, kinds: ['save'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, prompts: true } }).features.rolls,
+    ).toEqual({ ...rolls, prompts: true })
+    expect(
+      helloWith({ rolls: { ...rolls, prompts: 1 } }).features.rolls,
+    ).toEqual({ ...rolls, prompts: false })
+  })
+
+  it('reads the saves the game asks for, in its hello and as they open and close, from module 0.13.0', () => {
+    const prompt = {
+      id: 'msg1-thorin',
+      actorId: 'thorin',
+      messageId: 'msg1',
+      type: 'save',
+      abilities: ['dex', 'str'],
+      dc: 15,
+      label: 'Burning Hands',
+      openedAt: '2026-10-08T12:00:00.000Z',
+      expiresAt: '2026-10-08T12:10:00.000Z',
+    }
+    const concentration = {
+      ...prompt,
+      id: 'msg2-thorin',
+      messageId: 'msg2',
+      type: 'concentration',
+      abilities: ['con'],
+      dc: null,
+      label: null,
+    }
+    // A prompt without what it asks for, or of a kind this app doesn't know, is dropped.
+    const hello = parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      prompts: [
+        prompt,
+        concentration,
+        { ...prompt, id: 'no-dash-here' },
+        { ...prompt, type: 'check' },
+        { ...prompt, abilities: [] },
+        'msg3-thorin',
+      ],
+    })?.data as any
+    expect(hello.prompts).toEqual([prompt, concentration])
+    expect(
+      parseGameEvent('bridge.hello', {
+        characters: [],
+        combats: [],
+        prompts: 'none',
+      })?.data,
+    ).toEqual({ characters: [], combats: [], prompts: [] })
+
+    // Its label and DC are only shown, so an odd one is taken as none.
+    expect(
+      parseGameEvent('roll.prompt.opened', {
+        prompt: { ...prompt, dc: 'fifteen', label: 7 },
+      }),
+    ).toEqual({
+      type: 'roll.prompt.opened',
+      data: { prompt: { ...prompt, dc: null, label: null } },
+    })
+    expect(() =>
+      parseGameEvent('roll.prompt.opened', {
+        prompt: { ...prompt, expiresAt: 'soon' },
+      }),
+    ).toThrow()
+
+    expect(
+      parseGameEvent('roll.prompt.closed', {
+        id: 'msg1-thorin',
+        reason: 'answered',
+      }),
+    ).toEqual({
+      type: 'roll.prompt.closed',
+      data: { id: 'msg1-thorin', reason: 'answered' },
+    })
+    expect(
+      parseGameEvent('roll.prompt.closed', { id: 'msg1-thorin' })?.data,
+    ).toEqual({ id: 'msg1-thorin', reason: 'gone' })
+    expect(() =>
+      parseGameEvent('roll.prompt.closed', { id: 'msg1 thorin' }),
+    ).toThrow()
+  })
+
+  it("reads how many dice each of damage's rolls throws for each of its own, from module 0.13.0", () => {
+    expect(perDieOf(2)).toBe(2)
+    expect(perDieOf()).toBeUndefined()
+    expect(perDieOf(0)).toBe(1)
+    expect(perDieOf('two')).toBe(1)
   })
 
   it("reads a command's result, keeping only what the app shows", () => {
@@ -149,6 +287,14 @@ describe('schemas/sending-stone', () => {
       visible: false,
       rolls: [],
     })
+  })
+
+  it("reads whether a save the game asked for succeeded, from module 0.13.0, as unknown when it can't", () => {
+    expect(outcomeOf('success')).toBe('success')
+    expect(outcomeOf('failure')).toBe('failure')
+    expect(outcomeOf(null)).toBeNull()
+    expect(outcomeOf('saved')).toBeNull()
+    expect(outcomeOf()).toBeUndefined()
   })
 
   it("reads an attack's result: what came of it, and the dice its damage throws", () => {
@@ -300,7 +446,7 @@ describe('schemas/sending-stone', () => {
       parseGameEvent('bridge.hello', { characters: [character], combats: [] }),
     ).toEqual({
       type: 'bridge.hello',
-      data: { characters: [character], combats: [] },
+      data: { characters: [character], combats: [], prompts: [] },
     })
     expect(parseGameEvent('character.updated', { character })).toEqual({
       type: 'character.updated',
@@ -681,6 +827,121 @@ describe('schemas/sending-stone', () => {
       count: null,
       perLevel: null,
     })
+  })
+
+  it('reads what spells, features and items roll, as sent from module 0.13.0, leaving it out of those that roll nothing', () => {
+    const sheet = fullerSheet()
+    const [cantrips, ...spellbook] = sheet.spells
+    const [fighter, ...origins] = sheet.features
+    const [weapons, ...kinds] = sheet.inventory.sections
+    const [backpack, ...containers] = sheet.inventory.containers
+    const [rope, ...packed] = backpack.contents ?? []
+    const flame = {
+      toHit: null,
+      activity: {
+        id: 'flame',
+        type: 'save',
+        targets: {
+          self: false,
+          area: false,
+          count: 1,
+          perLevel: null,
+          affects: 'creature',
+        },
+      },
+      save: { ability: 'DEX', dc: 12 },
+      damage: [{ formula: '1d8', type: 'Radiant', healing: false }],
+    }
+    const hammer = {
+      activation: '1 Action',
+      range: 'reach 5 ft',
+      target: '1 Creature',
+      concentration: false,
+      toHit: 7,
+      attackId: 'swing',
+      attackModes: null,
+      ammunition: null,
+      save: null,
+      damage: [{ formula: '1d8 + 4', type: 'Bludgeoning', healing: false }],
+    }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            { ...cantrips, spells: [{ ...cantrips.spells[0], ...flame }] },
+            ...spellbook,
+          ],
+          features: [
+            {
+              ...fighter,
+              features: [
+                {
+                  ...fighter.features[0],
+                  range: 'Self',
+                  target: null,
+                  concentration: false,
+                  ...flame,
+                },
+                {
+                  ...fighter.features[1],
+                  toHit: 'high',
+                  damage: 'lots',
+                  range: 5,
+                },
+              ],
+            },
+            ...origins,
+          ],
+          inventory: {
+            ...sheet.inventory,
+            sections: [
+              {
+                ...weapons,
+                items: [{ ...weapons.items[0], ...hammer }, weapons.items[1]],
+              },
+              ...kinds,
+            ],
+            containers: [
+              { ...backpack, contents: [{ ...rope, ...hammer }, ...packed] },
+              ...containers,
+            ],
+          },
+        },
+      },
+    }) as any
+
+    const read = event.data.character.sheet
+    expect(read.spells[0].spells[0]).toEqual({
+      ...cantrips.spells[0],
+      ...flame,
+    })
+    expect(read.features[0].features).toEqual([
+      {
+        ...fighter.features[0],
+        range: 'Self',
+        target: null,
+        concentration: false,
+        ...flame,
+      },
+      { ...fighter.features[1], toHit: null, damage: [], range: null },
+    ])
+    expect(read.inventory.sections[0].items[0]).toEqual({
+      ...weapons.items[0],
+      ...hammer,
+    })
+    expect(read.inventory.containers[0].contents[0]).toEqual({
+      ...rope,
+      ...hammer,
+    })
+    // Those that roll nothing are read as sent, with none of it.
+    expect(read.spells[1].spells).toEqual(spellbook[0].spells)
+    expect(read.features[1]).toEqual(origins[0])
+    expect(read.inventory.sections[0].items[1]).toEqual(weapons.items[1])
+    expect(Object.keys(read.inventory.sections[0].items[1]).toSorted()).toEqual(
+      Object.keys(weapons.items[1]).toSorted(),
+    )
   })
 
   it('reads a sheet from before module 0.8.0 as having no actions', () => {

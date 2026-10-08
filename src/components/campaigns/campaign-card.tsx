@@ -185,8 +185,20 @@ export function CampaignCard({
   )
 }
 
+/**
+ * Whether the players' rolls are made in the Gamemaster's game, and if not, how they could be; and
+ * whether they're asked here for the saves the game asks of them.
+ */
+function rollsText(campaign: OwnedCampaign): string {
+  const { rolls } = campaign
+  const made = madeText(campaign)
+  return rolls.enabled && rolls.reaching && rolls.prompts
+    ? `${made} When your game asks one of their characters for a saving throw, such as a concentration check, its player is asked here to roll it.`
+    : made
+}
+
 /** Whether the players' rolls are made in the Gamemaster's game, and if not, how they could be. */
-function rollsText({ rolls }: OwnedCampaign): string {
+function madeText({ rolls }: OwnedCampaign): string {
   if (rolls.enabled && rolls.reaching && rolls.spells) {
     return 'Checks, saves, initiative, death saves, attacks and spells your players roll and cast here are made in your game too, with the same dice. Their attacks, spells and features spend ammunition, uses and spell slots there.'
   }

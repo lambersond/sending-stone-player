@@ -206,6 +206,7 @@ describe('schemas/roll-request', () => {
     ['in a mode that is not one', { attackMode: '2 hands' }],
     ['at targets', { targets: [] }],
     ['with kinds of damage', { types: ['fire'] }],
+    ['with its damage changed', { modifiers: { maximize: true } }],
   ])('refuses an attack %s', (_name, fields) => {
     expect(parseAttack(fields).success).toBe(false)
   })
@@ -282,6 +283,10 @@ describe('schemas/roll-request', () => {
       'with too many kinds of damage',
       { types: Array.from({ length: 21 }, () => null) },
     ],
+    ['made a die there is no such damage of', { modifiers: { faces: 20 } }],
+    ['with dice taken away', { modifiers: { extra: -1 } }],
+    ['with more dice than a roll throws', { modifiers: { extra: 41 } }],
+    ['changed some other way', { modifiers: { halve: true } }],
   ])('refuses damage %s', (_name, fields) => {
     expect(parseDamage(fields).success).toBe(false)
   })
@@ -289,6 +294,25 @@ describe('schemas/roll-request', () => {
   it('takes damage with the kind chosen for each roll offering one', () => {
     expect(parseDamage({ types: ['fire', null] }).success).toBe(true)
     expect(parseDamage({ types: [] }).success).toBe(true)
+  })
+
+  it('takes damage changed as the player chose: more dice, another die, its highest', () => {
+    expect(
+      parseDamage({
+        modifiers: { extra: 2, faces: 12, maximize: true },
+        dice: [{ faces: 12, results: [12, 12, 12] }],
+      }).success,
+    ).toBe(true)
+    expect(parseDamage({ modifiers: {} }).success).toBe(true)
+  })
+
+  it('takes a saving throw answering what the game asked, and only a saving throw', () => {
+    const save = { kind: 'save', key: 'dex' }
+    expect(parse({ ...save, prompt: 'msg1-thorin' }).success).toBe(true)
+    expect(parse({ ...save, prompt: 'msg1 thorin' }).success).toBe(false)
+    expect(parse({ ...save, prompt: 'msg1-thorin-2' }).success).toBe(false)
+    expect(parse({ prompt: 'msg1-thorin' }).success).toBe(false)
+    expect(parseAttack({ prompt: 'msg1-thorin' }).success).toBe(false)
   })
 
   it("reads the module's fetch, for one of its campaigns", () => {

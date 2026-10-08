@@ -5,10 +5,12 @@ import {
   DAMAGE_TYPE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  PROMPT_ID,
   PROTOCOL_VERSION,
   ROLL_KINDS,
   SPELL_SLOT,
 } from '@/constants/sending-stone'
+import { DIE_SIZES, MOST_DICE } from '@/utils/damage-modifiers'
 import { MAX_DICE, MAX_FLAT, type ExtraTerm } from '@/utils/roll-modifiers'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -44,6 +46,16 @@ const targetSchema = z.strictObject({
   combatantId: z.string().regex(FOUNDRY_ID),
 })
 
+/** How a player changed damage: more of its first die, another size of it, its highest. */
+const modifiersSchema = z.strictObject({
+  extra: z.int().min(0).max(MOST_DICE).optional(),
+  faces: z
+    .int()
+    .refine(faces => (DIE_SIZES as readonly number[]).includes(faces))
+    .optional(),
+  maximize: z.boolean().optional(),
+})
+
 const rolledDiceSchema = z.strictObject({
   faces: z.int().min(2).max(100),
   results: z
@@ -61,7 +73,8 @@ const rolledDiceSchema = z.strictObject({
  * mode chosen, if any. A use of a spell or feature names its item and activity, the combatants it's
  * used at, all in one combat, and the spell slot chosen, if any, and throws no dice. Their damage
  * names the attack or use, the dice it said its damage throws, which are checked against them when
- * it's taken, and the kinds of damage chosen.
+ * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
+ * then changed so. A saving throw the game asked for names the prompt it answers.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -84,6 +97,8 @@ export const rollRequestSchema = z
       .array(z.string().regex(DAMAGE_TYPE).nullable())
       .max(MAX_DAMAGE_TERMS)
       .optional(),
+    modifiers: modifiersSchema.optional(),
+    prompt: z.string().regex(PROMPT_ID).optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
@@ -142,6 +157,20 @@ export const rollRequestSchema = z
         code: 'custom',
         path: ['types'],
         message: 'Only damage has kinds to choose',
+      })
+    }
+    if (request.kind !== 'damage' && request.modifiers !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['modifiers'],
+        message: 'Only damage is changed so',
+      })
+    }
+    if (request.kind !== 'save' && request.prompt !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['prompt'],
+        message: 'Only a saving throw answers what the game asks',
       })
     }
     const keyed = ['skill', 'tool', 'ability', 'save'].includes(request.kind)

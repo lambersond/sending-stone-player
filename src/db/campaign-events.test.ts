@@ -52,7 +52,12 @@ describe('db/campaign-events', () => {
 
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
+      data: {
+        characters: roster,
+        rollsEnabled: false,
+        rollKinds: [],
+        rollFeatures: [],
+      },
     })
     expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1' },
@@ -82,7 +87,12 @@ describe('db/campaign-events', () => {
 
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
+      data: {
+        characters: roster,
+        rollsEnabled: false,
+        rollKinds: [],
+        rollFeatures: [],
+      },
     })
     expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1' },
@@ -103,6 +113,8 @@ describe('db/campaign-events', () => {
             enabled: true,
             kinds: ['skill', 'save', 'attack', 'heal', 'initiative'],
             reason: null,
+            modifiers: true,
+            prompts: true,
           },
         },
       },
@@ -113,6 +125,9 @@ describe('db/campaign-events', () => {
         characters: roster,
         rollsEnabled: true,
         rollKinds: ['skill', 'save', 'attack', 'initiative'],
+        // From module 0.13.0: it takes damage the player changed, and asks players for the saves
+        // their game asks of them.
+        rollFeatures: ['modifiers', 'prompts'],
       },
     })
 
@@ -128,7 +143,102 @@ describe('db/campaign-events', () => {
     })
     expect(prismaMock.campaign.update).toHaveBeenCalledWith({
       where: { id: 'c1' },
-      data: { characters: roster, rollsEnabled: false, rollKinds: [] },
+      data: {
+        characters: roster,
+        rollsEnabled: false,
+        rollKinds: [],
+        rollFeatures: [],
+      },
+    })
+  })
+
+  describe('saves the game asks for', () => {
+    const prompt = {
+      id: 'msg1-thorin',
+      actorId: 'actor-thorin',
+      messageId: 'msg1',
+      type: 'save' as const,
+      abilities: ['dex'],
+      dc: 15,
+      label: 'Burning Hands',
+      openedAt: '2026-10-08T12:00:00.000Z',
+      expiresAt: '2026-10-08T12:10:00.000Z',
+    }
+    /** What a prompt is kept as, created or updated. */
+    const kept = {
+      actorId: 'actor-thorin',
+      data: {
+        type: 'save',
+        abilities: ['dex'],
+        dc: 15,
+        label: 'Burning Hands',
+        messageId: 'msg1',
+      },
+      openedAt: new Date('2026-10-08T12:00:00.000Z'),
+      expiresAt: new Date('2026-10-08T12:10:00.000Z'),
+    }
+
+    it('roll.prompt.opened keeps it, for its character’s player to answer', async () => {
+      await apply({ type: 'roll.prompt.opened', data: { prompt } })
+
+      expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith({
+        where: {
+          campaignPrompt: { campaignId: 'c1', promptId: 'msg1-thorin' },
+        },
+        create: { campaignId: 'c1', promptId: 'msg1-thorin', ...kept },
+        update: kept,
+      })
+      expect(prismaMock.campaign.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ version: { increment: 1 } }),
+        }),
+      )
+    })
+
+    it('roll.prompt.closed closes it, saying why, unless it closed already', async () => {
+      prismaMock.rollPrompt.updateMany.mockResolvedValue({ count: 1 })
+      await apply({
+        type: 'roll.prompt.closed',
+        data: { id: 'msg1-thorin', reason: 'rolled' },
+      })
+
+      expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', promptId: 'msg1-thorin', closedAt: null },
+        data: { closedAt: expect.any(Date), closedReason: 'rolled' },
+      })
+    })
+
+    it('bridge.hello keeps those it says are open, and closes any other', async () => {
+      await apply({
+        type: 'bridge.hello',
+        data: { characters: roster, combats: [], prompts: [prompt] },
+      })
+
+      expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith({
+        where: {
+          campaignId: 'c1',
+          closedAt: null,
+          promptId: { notIn: ['msg1-thorin'] },
+        },
+        data: { closedAt: expect.any(Date), closedReason: 'gone' },
+      })
+      expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: kept }),
+      )
+
+      // A module before 0.13.0 asks none.
+      jest.clearAllMocks()
+      prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+      await apply({
+        type: 'bridge.hello',
+        data: { characters: roster, combats: [] },
+      })
+      expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { campaignId: 'c1', closedAt: null, promptId: { notIn: [] } },
+        }),
+      )
+      expect(prismaMock.rollPrompt.upsert).not.toHaveBeenCalled()
     })
   })
 

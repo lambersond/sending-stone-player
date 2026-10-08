@@ -14,6 +14,7 @@ import { friendly, mostTargets, picksTargets } from '@/utils/uses'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 import type { TableCombat, TableCombatant } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 /*
  * What an attack or the use of a spell or feature is made with, chosen as it's made: whom at, and
@@ -23,7 +24,12 @@ import type { TableCombat, TableCombatant } from '@/types/table'
 /** An attack, or a use, whose choices are being made. */
 export type Picking =
   | { kind: 'attack'; action: SheetAction; request: SheetRoll }
-  | { kind: 'use'; action: SheetAction }
+  | {
+      kind: 'use'
+      action: SheetAction
+      /** How the player chose to change the damage that follows it. */
+      modifiers?: DamageModifiers
+    }
 
 /** What the player chose. */
 export type Picked = {

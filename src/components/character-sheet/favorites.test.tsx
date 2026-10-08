@@ -13,6 +13,7 @@ import {
   fullerSheet,
   sheetFavorites,
   sheetItem,
+  sheetSpell,
   TEXTS,
 } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
@@ -421,6 +422,83 @@ describe('components/character-sheet/favorites', () => {
     await user.click(screen.getByRole('button', { name: 'Exhale damage, 2d6' }))
     expect(onRollDamage).toHaveBeenCalledTimes(1)
     expect(onUse).toHaveBeenCalledTimes(2)
+  })
+
+  it('rolls a favorite spell, item or feature as its tab rolls it', async () => {
+    const user = userEvent.setup()
+    const onUse = jest.fn()
+    const sheet = withFavorites([
+      item('bolt', 'spell'),
+      item('potion', 'consumable'),
+      item('surge', 'feat'),
+    ])
+    const [cantrips, ...spellbook] = sheet.spells
+    sheet.spells = [
+      {
+        ...cantrips,
+        spells: [
+          sheetSpell({
+            id: 'bolt',
+            name: 'Fire Bolt',
+            level: 0,
+            toHit: 5,
+            attackId: 'boltAttack',
+            damage: [{ formula: '2d10', type: 'Fire', healing: false }],
+          }),
+        ],
+      },
+      ...spellbook,
+    ]
+    const self = {
+      self: true,
+      area: false,
+      count: null,
+      perLevel: null,
+      affects: 'self',
+    }
+    sheet.inventory.sections[1].items.push(
+      sheetItem({
+        id: 'potion',
+        name: 'Potion of Healing',
+        type: 'consumable',
+        activity: { id: 'drink', type: 'heal', targets: self },
+        damage: [{ formula: '2d4 + 2', type: 'Healing', healing: true }],
+      }),
+    )
+    sheet.features[0].features.push({
+      id: 'surge',
+      name: 'Surge',
+      img: null,
+      kind: null,
+      requirements: null,
+      activation: 'Special',
+      passive: false,
+      uses: null,
+      text: null,
+      activity: { id: 'go', type: 'utility', targets: self },
+    })
+    render(<FavoritesStrip {...propsFor(sheet)} onUse={onUse} />)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Fire Bolt attack, +5' }),
+    )
+    expect(onRoll).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        source: { kind: 'attack', item: 'bolt', activity: 'boltAttack' },
+      }),
+    )
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Potion of Healing healing, 2d4 + 2',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Use Surge' }))
+    expect(onUse.mock.calls.map(([action]) => action.id)).toEqual([
+      'potion',
+      'surge',
+    ])
+    // Nothing is marked a favorite among them, as every one is.
+    expect(screen.queryByText(', favorite')).toBeNull()
   })
 
   it('shows what it can of a favorite the sheet says little of', () => {

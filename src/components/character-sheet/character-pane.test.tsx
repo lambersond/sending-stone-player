@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import {
@@ -7,10 +13,11 @@ import {
   fullerSheet,
   sheetAction,
   sheetFavorites,
+  sheetItem,
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { RollKind } from '@/types/roll'
+import type { RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 
@@ -165,6 +172,11 @@ const used = (type: string, damage: unknown) => ({
   damage,
 })
 
+/** Healing, as a part of what something rolls. */
+const healing = (formula: string) => [
+  { formula, type: 'Healing', healing: true },
+]
+
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
     globalThis.fetch = jest.fn(
@@ -193,6 +205,72 @@ describe('components/character-sheet/character-pane', () => {
     expect(total).toBeGreaterThanOrEqual(8)
     expect(total).toBeLessThanOrEqual(27)
     expect(screen.getByRole('status')).toHaveTextContent('+7')
+  })
+
+  it('asks the player on every tab for the saves the game asks of them, and answers from there', async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.clear()
+    const posted = answering({
+      'req-1': { status: 'done', visible: true, total: 18, outcome: 'success' },
+    })
+    const ask = {
+      id: 'msg2-thorin',
+      type: 'concentration' as const,
+      abilities: ['con'],
+      label: 'Bless',
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+    }
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save']}
+        rollFeatures={['prompts']}
+        prompts={[ask]}
+      />,
+    )
+    await show('Biography')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    const banner = screen.getByRole('region', { name: 'Your Gamemaster asks' })
+    expect(banner).toHaveTextContent('Concentration checkBless')
+    await user.click(
+      within(banner).getByRole('button', {
+        name: 'Roll Concentration check, +6',
+      }),
+    )
+
+    expect(posted).toEqual([
+      expect.objectContaining({ kind: 'save', key: 'con', prompt: ask.id }),
+    ])
+    // Its roll shows on this tab too, and how it went at the table.
+    expect(screen.getByRole('status')).toHaveTextContent('Concentration check')
+    expect(
+      await screen.findByText('At the table:', {}, { timeout: 3000 }),
+    ).toHaveTextContent('At the table: 18 · Saved')
+  })
+
+  it("asks nothing where the game doesn't take the player's saves now", () => {
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        prompts={[
+          {
+            id: 'msg2-thorin',
+            type: 'concentration',
+            abilities: ['con'],
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
+          },
+        ]}
+      />,
+    )
+
+    expect(
+      screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+    ).not.toBeInTheDocument()
   })
 
   it("sends a roll to the Gamemaster's game, when it takes the player's rolls, and shows its total there", async () => {
@@ -284,7 +362,13 @@ describe('components/character-sheet/character-pane', () => {
       screen.getByRole('heading', { name: 'Fighter Features' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Abilities' })).toBeNull()
-    // Rolls are made from the Character tab, where the tray is.
+    // Rolls are made from the features, as from the Character tab, so the tray is there too.
+    expect(
+      screen.getByRole('region', { name: 'Your rolls' }),
+    ).toBeInTheDocument()
+
+    await user.click(tabs.getByRole('tab', { name: 'Biography' }))
+
     expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
   })
 
@@ -615,7 +699,12 @@ describe('components/character-sheet/character-pane', () => {
     const renderCasting = ({
       combat = fight,
       kinds = ['use', 'attack', 'damage'],
-    }: { combat?: TableCombat | null; kinds?: RollKind[] } = {}) =>
+      features = [],
+    }: {
+      combat?: TableCombat | null
+      kinds?: RollKind[]
+      features?: RollFeature[]
+    } = {}) =>
       render(
         <CharacterPane
           characterId='char-1'
@@ -623,6 +712,7 @@ describe('components/character-sheet/character-pane', () => {
           sheet={toTableSheet(casting(), GAME)}
           combat={combat ?? undefined}
           rollsToTable={kinds}
+          rollFeatures={features}
         />,
       )
 
@@ -698,6 +788,57 @@ describe('components/character-sheet/character-pane', () => {
       await user.click(tray.getByText('Earlier rolls (1)'))
       expect(tray.getByRole('listitem')).toHaveTextContent(
         /^Fire Breath\s*used\s*· at the table$/,
+      )
+    })
+
+    it("uses a feature with its damage changed, from its damage chip's menu, where the game takes it so", async () => {
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': used('save', fire),
+        'req-2': { status: 'done', visible: true, total: 12 },
+      })
+      const { unmount } = renderCasting()
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      // Where the game doesn't take damage changed, its chip just uses it.
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
+      )
+      expect(screen.queryByRole('menu')).toBeNull()
+      unmount()
+
+      renderCasting({ features: ['modifiers'] })
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'Fire Breath damage, 2d6' }),
+      )
+      const menu = screen.getByRole('menu', { name: 'Fire Breath damage 2d6' })
+      expect(
+        within(menu)
+          .getAllByRole('menuitem')
+          .map(item => item.textContent),
+      ).toEqual(['Use with maximum damage', 'Use with damage modified…'])
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Use with maximum damage' }),
+      )
+      const picker = screen.getByRole('dialog', { name: 'Fire Breath' })
+      await user.click(within(picker).getByRole('checkbox', { name: 'Goblin' }))
+      await user.click(
+        within(picker).getByRole('button', { name: 'Use at 1 target' }),
+      )
+
+      // The use asks nothing of its damage; its damage, which follows, is at its highest.
+      expect(posted[0]).toMatchObject({ kind: 'use', item: 'breath' })
+      expect(posted[0]).not.toHaveProperty('modifiers')
+      await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+      expect(posted[1]).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [{ faces: 6, results: [6, 6] }],
+        modifiers: { maximize: true },
+      })
+      const status = screen.getByRole('status')
+      await waitFor(() =>
+        expect(status).toHaveTextContent('2d6 (6, 6) fire · Maximum'),
       )
     })
 
@@ -890,6 +1031,99 @@ describe('components/character-sheet/character-pane', () => {
           ),
         { timeout: 3000 },
       )
+    })
+
+    it('casts, uses and attacks from the Spells and Inventory tabs as from Actions', async () => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      const sheet = casting()
+      sheet.spells = sheet.spells.map(section => ({
+        ...section,
+        spells: section.spells.map(spell =>
+          spell.id === 'cure'
+            ? {
+                ...spell,
+                activity: activity('cureHeal', 'heal', {
+                  count: 1,
+                  affects: 'creature',
+                }),
+                damage: healing('2d8 + 3'),
+              }
+            : spell,
+        ),
+      }))
+      // Carried, but not among the actions: a bow that isn't equipped, and a potion.
+      sheet.inventory.sections[0].items.push(
+        sheetItem({
+          id: 'bow',
+          name: 'Longbow',
+          type: 'weapon',
+          equipped: false,
+          toHit: 5,
+          attackId: 'bowAttack',
+          damage: [{ formula: '1d8 + 3', type: 'Piercing', healing: false }],
+        }),
+      )
+      sheet.inventory.sections[1].items.push(
+        sheetItem({
+          id: 'potion',
+          name: 'Potion of Healing',
+          type: 'consumable',
+          activity: activity('drink', 'heal', { self: true, affects: 'self' }),
+          damage: healing('2d4 + 2'),
+        }),
+      )
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(sheet, GAME)}
+          combat={fight}
+          rollsToTable={['use', 'attack', 'damage']}
+        />,
+      )
+
+      await user.click(screen.getByRole('tab', { name: 'Spells' }))
+      await user.click(
+        screen.getByRole('button', { name: 'Cure Wounds healing, 2d8 + 3' }),
+      )
+      const picker = screen.getByRole('dialog', { name: 'Cure Wounds' })
+      await user.click(within(picker).getByRole('button', { name: /^Vex/ }))
+      expect(posted[0]).toMatchObject({
+        kind: 'use',
+        item: 'cure',
+        activity: 'cureHeal',
+        targets: [{ combatId: 'cmbt1', combatantId: 'vex1' }],
+        slot: 'spell1',
+      })
+      // The tray shows with the spells, as rolls are made from them.
+      expect(screen.getByRole('status')).toHaveTextContent('Cure Wounds')
+
+      await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Potion of Healing healing, 2d4 + 2',
+        }),
+      )
+      expect(posted[1]).toMatchObject({
+        kind: 'use',
+        item: 'potion',
+        activity: 'drink',
+        targets: [],
+      })
+      await user.click(
+        screen.getByRole('button', { name: 'Longbow attack, +5' }),
+      )
+      const at = screen.getByRole('dialog', { name: 'Longbow attack' })
+      await user.click(
+        within(at).getByRole('button', { name: 'Goblin Archer' }),
+      )
+      expect(posted[2]).toMatchObject({
+        kind: 'attack',
+        item: 'bow',
+        activity: 'bowAttack',
+        target: { combatId: 'cmbt1', combatantId: 'goblin2' },
+      })
     })
 
     it("rolls a use's chips here while the game takes no spells or features", async () => {

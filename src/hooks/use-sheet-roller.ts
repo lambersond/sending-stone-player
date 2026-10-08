@@ -10,6 +10,7 @@ import {
   type RollResult,
 } from '@lambersond/3d-dice-core'
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
+import { withModifiers, type DamageModifiers } from '@/utils/damage-modifiers'
 import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
 import type { RollSource } from '@/types/roll'
 
@@ -25,6 +26,9 @@ export const ANIMATION_TIMEOUT = 15_000
 
 /** How many of this page's rolls are kept. */
 export const ROLL_HISTORY = 20
+
+/** A random source that lands every die on its highest face, for damage at its highest. */
+const HIGHEST = () => 1 - Number.EPSILON
 
 /** A d20 roll from the character's sheet, such as a skill check or a saving throw. */
 export type SheetRoll = {
@@ -63,6 +67,13 @@ export type SheetDamageRoll = {
   types?: (string | null)[]
   /** Its dice are the game's, a critical hit's already doubled. */
   exact?: boolean
+  /** How the player changed it: more of its first die, another size of it, its highest. */
+  modifiers?: DamageModifiers
+  /**
+   * For dice that are the game's, how many it throws for each die added, as a critical hit's
+   * doubled dice take two.
+   */
+  perDie?: number
 }
 
 /** Something the player added to a roll, or a term of a damage roll, and what it came to. */
@@ -99,6 +110,8 @@ export type LocalDamage = {
   total: number
   critical: boolean
   healing: boolean
+  /** Every die at its highest, as the player chose. */
+  maximized?: boolean
   /** Each part of the formula, with what it came to. */
   parts: { type: string | null; total: number; terms: LocalExtra[] }[]
   at: number
@@ -158,7 +171,7 @@ export function useSheetRoller(
       } finally {
         setInFlight(count => count - 1)
       }
-      setRolls(earlier => [kept, ...earlier].slice(0, ROLL_HISTORY))
+      setRolls(earlier => keeping(earlier, kept))
     },
     [renderer],
   )
@@ -195,30 +208,39 @@ export function useSheetRoller(
     async (request: SheetDamageRoll) => {
       const {
         label,
-        parts,
         critical = false,
         healing = false,
         exact = false,
+        modifiers,
+        perDie = 1,
       } = request
+      // Changed as the player chose: the game's dice take as many more for each die added as it
+      // throws for each; those rolled here are doubled after, for a critical hit.
+      const parts = withModifiers(request.parts, modifiers, exact ? perDie : 1)
       // As dnd5e rolls a critical hit by default: twice the dice, the same numbers added. Dice
       // the game gave are thrown as they are.
       const doubled = critical && !exact
       const dice = parts.flatMap(({ terms }) =>
         terms.filter(term => 'sides' in term),
       )
-      const result = executeRoll({
-        pools: dice.map(({ count, sides }) => ({
-          count: doubled ? count * 2 : count,
-          sides,
-        })),
-        modifier: 0,
-      })
+      const maximized = modifiers?.maximize === true
+      const result = executeRoll(
+        {
+          pools: dice.map(({ count, sides }) => ({
+            count: doubled ? count * 2 : count,
+            sides,
+          })),
+          modifier: 0,
+        },
+        maximized ? { rng: HIGHEST } : undefined,
+      )
       const damage = toLocalDamage(label, parts, result, {
         critical,
         healing,
         doubled,
+        maximized,
       })
-      onDamageThrown?.(request, damage)
+      onDamageThrown?.({ ...request, parts }, damage)
       await land(result, damage)
     },
     [land, onDamageThrown],
@@ -233,7 +255,7 @@ export function useSheetRoller(
       spell,
       at: Date.now(),
     }
-    setRolls(earlier => [used, ...earlier].slice(0, ROLL_HISTORY))
+    setRolls(earlier => keeping(earlier, used))
     return used
   }, [])
 
@@ -283,7 +305,13 @@ function toLocalDamage(
     critical,
     healing,
     doubled,
-  }: { critical: boolean; healing: boolean; doubled: boolean },
+    maximized,
+  }: {
+    critical: boolean
+    healing: boolean
+    doubled: boolean
+    maximized: boolean
+  },
 ): LocalDamage {
   // The dice's pools are in the order their terms were written.
   const pools = [...result.pools]
@@ -312,6 +340,7 @@ function toLocalDamage(
     total: kept.reduce((sum, part) => sum + part.total, 0),
     critical,
     healing,
+    ...(maximized && { maximized }),
     parts: kept,
     at: result.at,
   }
@@ -326,6 +355,17 @@ function damageTerm(
   if (term.sign < 0) sign = '−'
   if ('flat' in term) return `${sign}${term.flat}`
   return `${sign}${doubled ? term.count * 2 : term.count}d${term.sides}`
+}
+
+/**
+ * The rolls kept, and another, newest first by when each was thrown rather than when its dice
+ * landed: a roll thrown while the dice of one before it still tumble is the latest, should they
+ * land after it.
+ */
+function keeping(earlier: LocalRoll[], roll: LocalRoll): LocalRoll[] {
+  return [roll, ...earlier]
+    .toSorted((a, b) => b.at - a.at)
+    .slice(0, ROLL_HISTORY)
 }
 
 /** Wait for a promise, but no longer than this many milliseconds. */

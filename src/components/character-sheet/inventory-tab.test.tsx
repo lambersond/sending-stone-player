@@ -16,6 +16,8 @@ const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
     <InventoryTab
       characterId='char-1'
+      onRoll={jest.fn()}
+      onRollDamage={jest.fn()}
       sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
     />,
   )
@@ -43,6 +45,117 @@ describe('components/character-sheet/inventory-tab', () => {
           json: async () => ({ html: '<p>Sturdy and well kept.</p>' }),
         }) as Response,
     )
+  })
+
+  it('shows what an item rolls beside it, whether it is equipped or not, and wherever it is', async () => {
+    const user = userEvent.setup()
+    const sheet = fullerSheet()
+    const [weapons, ...kinds] = sheet.inventory.sections
+    const [backpack, ...containers] = sheet.inventory.containers
+    const handaxe = {
+      ...weapons.items[1],
+      activation: '1 Action',
+      range: 'reach 5 ft or range 20/60 ft',
+      target: '1 Creature',
+      toHit: 7,
+      attackId: 'handaxeAttack',
+      damage: [{ formula: '1d6 + 4', type: 'Slashing', healing: false }],
+    }
+    const potion = sheetItem({
+      id: 'potion',
+      name: 'Potion of Healing',
+      type: 'consumable',
+      quantity: 3,
+      activation: '1 Bonus Action',
+      activity: {
+        id: 'drink',
+        type: 'heal',
+        targets: {
+          self: true,
+          area: false,
+          count: null,
+          perLevel: null,
+          affects: 'self',
+        },
+      },
+      damage: [{ formula: '2d4 + 2', type: 'Healing', healing: true }],
+    })
+    const onRoll = jest.fn()
+    const onUse = jest.fn()
+    render(
+      <InventoryTab
+        characterId='char-1'
+        sheet={toTableSheet(
+          {
+            ...sheet,
+            inventory: {
+              ...sheet.inventory,
+              sections: [
+                { ...weapons, items: [weapons.items[0], handaxe] },
+                ...kinds,
+              ],
+              containers: [
+                {
+                  ...backpack,
+                  contents: [potion, ...(backpack.contents ?? [])],
+                },
+                ...containers,
+              ],
+            },
+          },
+          'https://my-game.forge-vtt.com',
+        )}
+        onRoll={onRoll}
+        onRollDamage={jest.fn()}
+        onUse={onUse}
+      />,
+    )
+
+    const axe = screen
+      .getByRole('button', { name: /^Handaxe/, expanded: false })
+      .closest('li') as HTMLElement
+    // What it is to carry is said of it, as of anything else carried.
+    expect(within(axe).getByText('4 lb · 5 GP')).toBeInTheDocument()
+    expect(within(axe).getByText('×2')).toBeInTheDocument()
+    await user.click(
+      within(axe).getByRole('button', { name: 'Handaxe attack, +7' }),
+    )
+    expect(onRoll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: { kind: 'attack', item: 'handaxe', activity: 'handaxeAttack' },
+      }),
+    )
+    await user.click(
+      within(axe).getByRole('button', { name: /^Handaxe/, expanded: false }),
+    )
+    expect(
+      within(axe)
+        .getAllByRole('term')
+        .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`),
+    ).toEqual([
+      'Activation: 1 Action',
+      'Range: reach 5 ft or range 20/60 ft',
+      'Target: 1 Creature',
+      'Weight: 4 lb',
+      'Price: 5 GP',
+      'To hit: +7',
+      'Damage: 1d6 + 4 Slashing',
+    ])
+
+    await user.click(screen.getByText('Backpack'))
+    await user.click(
+      within(screen.getByRole('list', { name: 'In the Backpack' })).getByRole(
+        'button',
+        { name: 'Potion of Healing healing, 2d4 + 2' },
+      ),
+    )
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'potion', type: 'consumable' }),
+    )
+    // Nothing else carried rolls.
+    expect(
+      screen.getByText('Hempen Rope').closest('summary'),
+    ).toBeInTheDocument()
   })
 
   it("shows the character's coin, load and attunement", () => {
@@ -324,6 +437,8 @@ describe('components/character-sheet/inventory-tab', () => {
       <FavoriteMarks keys={new Set(['item:rope', 'item:cloak'])}>
         <InventoryTab
           characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
           sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
           favorites={<p>Her favorites</p>}
         />

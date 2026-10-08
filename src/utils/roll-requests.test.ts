@@ -16,6 +16,7 @@ import {
   fullerSheet,
   sheetAction,
   sheetFavorites,
+  sheetItem,
   sheetSpell,
 } from '@/mocks/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
@@ -172,6 +173,32 @@ const useRequest = (
     dice: [],
     ...fields,
   })
+
+/** A save answering what the game asked, made, as its player is told of it. */
+const answered = (outcome: 'success' | 'failure' | null) =>
+  toRollRequestView(
+    held({
+      kind: 'save',
+      status: 'done',
+      result: {
+        id: 'req-1',
+        status: 'done',
+        reason: null,
+        error: null,
+        messageId: 'msg-1',
+        visible: true,
+        rolls: [
+          {
+            formula: '1d20 + 4',
+            total: 18,
+            dice: [{ faces: 20, results: [{ result: 14, active: true }] }],
+          },
+        ],
+        outcome,
+      },
+    }),
+    NOW,
+  )
 
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
@@ -476,6 +503,46 @@ describe('utils/roll-requests', () => {
       ).toBe('target')
     })
 
+    it('lets the character attack with a weapon carried, or a spell from its spellbook, but one not prepared', () => {
+      const bolt = { toHit: 5, attackId: 'bolt', damage: [] }
+      const lists = caster({ value: 1, max: 2 })
+      lists.spells[0].spells = [
+        sheetSpell({
+          id: 'guidingBolt',
+          name: 'Guiding Bolt',
+          prepared: 1,
+          ...bolt,
+        }),
+        sheetSpell({
+          id: 'witchBolt',
+          name: 'Witch Bolt',
+          prepared: 0,
+          ...bolt,
+        }),
+      ]
+      lists.actions = []
+      lists.inventory.sections[0].items[1] = sheetItem({
+        id: 'handaxe',
+        name: 'Handaxe',
+        type: 'weapon',
+        equipped: false,
+        toHit: 7,
+        attackId: 'handaxeAttack',
+      })
+      const check = (fields: Partial<RollRequestInput>) =>
+        checkRoll(attackRequest(fields), lists, [], 'actor-thorin')
+
+      expect(check({ item: 'guidingBolt', activity: 'bolt' })).toBeUndefined()
+      expect(check({ item: 'handaxe', activity: 'handaxeAttack' })).toBe(
+        undefined,
+      )
+      // The game would have it prepared first.
+      expect(check({ item: 'witchBolt', activity: 'bolt' })).toBe('unknown')
+      expect(check({ item: 'warhammer', activity: 'warhammerAttack' })).toBe(
+        'unknown',
+      )
+    })
+
     it('refuses a spell attack with no spell slot left, and lets a favorite activity attack', () => {
       const bolt = attackRequest({ item: 'guidingBolt', activity: 'bolt' })
       expect(
@@ -693,6 +760,82 @@ describe('utils/roll-requests', () => {
       expect(check(useRequest('fireball', 'blast', []), cleric(2, 0))).toBe(
         'slots',
       )
+    })
+
+    it('lets a spell, feature or item be used from where the sheet lists it, but a spell not prepared', () => {
+      const lists = cleric()
+      const ward = {
+        activity: {
+          id: 'ward',
+          type: 'utility' as const,
+          targets: targets({ count: 1, affects: 'ally' }),
+        },
+      }
+      lists.spells[0].spells.push(
+        sheetSpell({
+          id: 'sanctuary',
+          name: 'Sanctuary',
+          prepared: 1,
+          ...ward,
+        }),
+        sheetSpell({ id: 'hold', name: 'Hold Person', prepared: 0, ...ward }),
+      )
+      lists.features = [
+        {
+          id: 'other',
+          label: 'Other Features',
+          text: null,
+          features: [
+            {
+              id: 'breath',
+              name: 'Dragon Breath',
+              img: null,
+              kind: null,
+              requirements: null,
+              activation: '1 Action',
+              passive: false,
+              uses: null,
+              text: null,
+              activity: {
+                id: 'exhale',
+                type: 'save',
+                targets: targets({ area: true }),
+              },
+              save: { ability: 'DEX', dc: 13 },
+            },
+          ],
+        },
+      ]
+      lists.inventory.sections[0].items.push(
+        sheetItem({
+          id: 'potion',
+          name: 'Potion of Healing',
+          activity: {
+            id: 'drink',
+            type: 'heal',
+            targets: targets({ self: true, affects: 'self' }),
+          },
+        }),
+        sheetItem({
+          id: 'scroll',
+          name: 'Odd Scroll',
+          identified: false,
+          ...ward,
+        }),
+      )
+
+      expect(
+        check(useRequest('sanctuary', 'ward', ['c-vex']), lists),
+      ).toBeUndefined()
+      expect(
+        check(useRequest('breath', 'exhale', ['c-goblin', 'c-hob']), lists),
+      ).toBeUndefined()
+      expect(check(useRequest('potion', 'drink', []), lists)).toBeUndefined()
+      // The game would have it prepared first.
+      expect(check(useRequest('hold', 'ward', ['c-vex']), lists)).toBe(
+        'unknown',
+      )
+      expect(check(useRequest('scroll', 'ward', []), lists)).toBe('unknown')
     })
   })
 
@@ -919,6 +1062,15 @@ describe('utils/roll-requests', () => {
           },
         ],
       })
+    })
+
+    it('shows whether a save the game asked for succeeded, where the game shows its player', () => {
+      expect(answered('success')).toMatchObject({
+        total: 18,
+        outcome: 'success',
+      })
+      expect(answered('failure')).toMatchObject({ outcome: 'failure' })
+      expect(answered(null)).not.toHaveProperty('outcome')
     })
 
     it('keeps a roll the game made blind from its player', () => {

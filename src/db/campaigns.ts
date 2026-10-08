@@ -47,6 +47,7 @@ export async function listOwnedCampaigns(
       characters: true,
       rollsEnabled: true,
       rollKinds: true,
+      rollFeatures: true,
       bridgePolledAt: true,
       players: {
         select: { id: true, actorId: true, user: { select: { name: true } } },
@@ -72,6 +73,7 @@ export async function listOwnedCampaigns(
         reaching: availableRollKinds(campaign).length > 0,
         attacks: campaign.rollKinds.includes('attack'),
         spells: campaign.rollKinds.includes('use'),
+        prompts: campaign.rollFeatures.includes('prompts'),
       },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)

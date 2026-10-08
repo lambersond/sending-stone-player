@@ -4,6 +4,7 @@ import {
   DAMAGE_TYPE,
   EVENTS,
   MAX_DAMAGE_TERMS,
+  PROMPT_ID,
 } from '@/constants/sending-stone'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import type { GameEvent } from '@/types/sending-stone'
@@ -60,6 +61,94 @@ const conditionSchema = z.looseObject({
   text: textRef,
 })
 
+/**
+ * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
+ * kinds of activity the game uses, or none.
+ */
+const useSchema = z
+  .looseObject({
+    id: z.string().min(1),
+    type: z.enum(['save', 'damage', 'heal', 'utility']),
+    targets: z.looseObject({
+      self: z.boolean().catch(false),
+      area: z.boolean().catch(false),
+      count: z.int().positive().nullable().catch(null),
+      perLevel: z
+        .int()
+        .positive()
+        .nullable()
+        .optional()
+        .catch(null)
+        .transform(value => value ?? null),
+      affects: nullableString,
+    }),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+
+/** What an action rolls, and what it's used through in the game. */
+const rollFields = {
+  toHit: nullableNumber,
+  // From module 0.11.0: the attack activity the bonus to hit is for.
+  attackId: z.string().nullable().optional().catch(null),
+  // From module 0.12.0.
+  activity: useSchema,
+  attackModes: z
+    .array(z.looseObject({ value: z.string().min(1), label: z.string() }))
+    .nullable()
+    .optional()
+    .catch(null),
+  ammunition: z
+    .array(
+      z.looseObject({
+        id: z.string().min(1),
+        name: z.string(),
+        quantity: z.number().catch(0),
+      }),
+    )
+    .nullable()
+    .optional()
+    .catch(null),
+  save: z
+    .object({ ability: z.string(), dc: nullableNumber })
+    .nullable()
+    .catch(null),
+  damage: listOf(
+    z.looseObject({
+      formula: z.string(),
+      type: nullableString,
+      healing: z.boolean().catch(false),
+    }),
+  ),
+}
+
+/**
+ * What a spell, feature or inventory item rolls, as an action does, from module 0.13.0, for one
+ * that rolls or is used through anything. Left out, as sent, for one that doesn't, and by earlier
+ * modules, so that it reads as it did.
+ */
+const itemRollFields = {
+  toHit: rollFields.toHit.optional(),
+  attackId: rollFields.attackId,
+  activity: rollFields.activity,
+  attackModes: rollFields.attackModes,
+  ammunition: rollFields.ammunition,
+  save: rollFields.save.optional(),
+  damage: rollFields.damage.optional(),
+}
+
+/**
+ * How a feature or inventory item that rolls is used, as an action has it, from module 0.13.0; and
+ * what it rolls. Left out, as sent, for one that rolls nothing.
+ */
+const usageFields = {
+  range: nullableString.optional(),
+  target: nullableString.optional(),
+  concentration: z.boolean().catch(false).optional(),
+  ...itemRollFields,
+}
+
 const featureSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -76,6 +165,7 @@ const featureSchema = z.looseObject({
     })
     .nullable()
     .catch(null),
+  ...usageFields,
   text: textRef,
 })
 
@@ -116,6 +206,8 @@ const itemFields = {
   rarity: nullableString,
   properties: z.array(z.string()).catch([]),
   identified: z.boolean().catch(true),
+  activation: nullableString.optional(),
+  ...usageFields,
   text: textRef,
 }
 
@@ -219,6 +311,7 @@ const spellSchema = z.looseObject({
   uses: usesSchema,
   // From module 0.8.2.
   castFrom: castFromSchema,
+  ...itemRollFields,
   text: textRef,
 })
 
@@ -228,69 +321,12 @@ const detailSchema = z.looseObject({
   value: z.string(),
 })
 
-/**
- * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
- * kinds of activity the game uses, or none.
- */
-const useSchema = z
-  .looseObject({
-    id: z.string().min(1),
-    type: z.enum(['save', 'damage', 'heal', 'utility']),
-    targets: z.looseObject({
-      self: z.boolean().catch(false),
-      area: z.boolean().catch(false),
-      count: z.int().positive().nullable().catch(null),
-      perLevel: z
-        .int()
-        .positive()
-        .nullable()
-        .optional()
-        .catch(null)
-        .transform(value => value ?? null),
-      affects: nullableString,
-    }),
-  })
-  .nullable()
-  .optional()
-  .catch(null)
-
 /** What an action does, as an action or one of an item's activities has it. */
 const actionFields = {
   activation: nullableString,
   range: nullableString,
   target: nullableString,
-  toHit: nullableNumber,
-  // From module 0.11.0: the attack activity the bonus to hit is for.
-  attackId: z.string().nullable().optional().catch(null),
-  // From module 0.12.0.
-  activity: useSchema,
-  attackModes: z
-    .array(z.looseObject({ value: z.string().min(1), label: z.string() }))
-    .nullable()
-    .optional()
-    .catch(null),
-  ammunition: z
-    .array(
-      z.looseObject({
-        id: z.string().min(1),
-        name: z.string(),
-        quantity: z.number().catch(0),
-      }),
-    )
-    .nullable()
-    .optional()
-    .catch(null),
-  save: z
-    .object({ ability: z.string(), dc: nullableNumber })
-    .nullable()
-    .catch(null),
-  damage: listOf(
-    z.looseObject({
-      formula: z.string(),
-      type: nullableString,
-      healing: z.boolean().catch(false),
-    }),
-  ),
+  ...rollFields,
   uses: usesSchema,
 }
 
@@ -620,6 +656,10 @@ const featuresSchema = z
         enabled: z.boolean().catch(false),
         kinds: z.array(z.string()).catch([]),
         reason: nullableString.optional().transform(reason => reason ?? null),
+        // From module 0.13.0: whether players may change their damage, and whether they're
+        // asked for the saves their game asks of them.
+        modifiers: z.boolean().optional().catch(false),
+        prompts: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -628,6 +668,31 @@ const featuresSchema = z
   .nullable()
   .optional()
   .catch(null)
+
+/**
+ * A saving throw the game asks of one of a campaign's characters, from module 0.13.0. One without
+ * what it asks for can't be rolled; its label is only shown.
+ */
+const promptSchema = z.object({
+  id: z.string().regex(PROMPT_ID),
+  actorId: z.string().min(1).max(64),
+  messageId: z.string().min(1).max(64),
+  type: z.enum(['save', 'concentration']),
+  abilities: z
+    .array(z.string().regex(/^[A-Za-z][\w-]{0,31}$/))
+    .min(1)
+    .max(10),
+  dc: z.int().min(0).max(100).nullable().catch(null),
+  label: z
+    .string()
+    .max(200)
+    .nullable()
+    .optional()
+    .catch(null)
+    .transform(label => label || null),
+  openedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+})
 
 /**
  * What became of a command; one without its id, or an outcome, can't be recorded. It's kept as
@@ -675,6 +740,8 @@ const commandResultSchema = z.object({
     .nullable()
     .optional()
     .catch(null),
+  // From module 0.13.0, for a save the game asked for.
+  outcome: z.enum(['success', 'failure']).nullable().optional().catch(null),
   damage: z
     .object({
       critical: z.boolean().catch(false),
@@ -709,6 +776,9 @@ const commandResultSchema = z.object({
                 }),
               )
               .max(MAX_DAMAGE_TERMS),
+            // From module 0.13.0: how many dice it throws for each die of its own; one, as
+            // before, when it can't be read.
+            perDie: z.int().min(1).max(10).optional().catch(1),
           }),
         )
         .max(10),
@@ -786,6 +856,8 @@ export function parseGameEvent(
             combats: z.array(combatSchema),
             // Sent from module 0.10.0.
             features: featuresSchema,
+            // Sent from module 0.13.0; none from an older module.
+            prompts: listOf(promptSchema),
           })
           .parse(data),
       }
@@ -849,6 +921,23 @@ export function parseGameEvent(
     }
     case EVENTS.COMMAND_RESULT: {
       return { type, data: commandResultSchema.parse(data) }
+    }
+    case EVENTS.PROMPT_OPENED: {
+      return {
+        type,
+        data: z.looseObject({ prompt: promptSchema }).parse(data),
+      }
+    }
+    case EVENTS.PROMPT_CLOSED: {
+      return {
+        type,
+        data: z
+          .looseObject({
+            id: z.string().regex(PROMPT_ID),
+            reason: z.string().max(32).catch('gone'),
+          })
+          .parse(data),
+      }
     }
     default: {
       return undefined

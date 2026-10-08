@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { rollsKey } from '@/utils/roll-requests'
 import type { TableView } from '@/types/table'
 
 export type Connection = 'live' | 'reconnecting'
@@ -25,7 +26,7 @@ export function useTableView(characterId: string, initial: TableView) {
     version: initial.version,
     live: initial.live,
     sheetVersion: initial.sheetVersion,
-    rolls: initial.rollsToTable?.join(',') ?? '',
+    rolls: rollsKey(initial.rollsToTable, initial.rollFeatures),
   })
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export function useTableView(characterId: string, initial: TableView) {
             version: next.version,
             live: next.live,
             sheetVersion: next.sheetVersion,
-            rolls: next.rollsToTable?.join(',') ?? '',
+            rolls: rollsKey(next.rollsToTable, next.rollFeatures),
           }
           // A sheet left out is the one this page already has.
           setView(held =>

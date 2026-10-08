@@ -29,6 +29,7 @@ import { ConfirmDialog } from '@/components/modal'
 import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTableView } from '@/hooks/use-table-view'
+import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { gameHost } from '@/utils/game-host'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character } from '@/types/character'
@@ -112,6 +113,8 @@ export function GameTable({
   }, [seenUpTo, markChatRead])
 
   const myTurn = isMyTurn(view.combat)
+  // The saves the game asks of the character, which its tab marks while they wait.
+  const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
 
   // Keep the chat pinned to the newest message unless the player has scrolled up to read.
   const chatScroller = useRef<HTMLDivElement>(null)
@@ -171,6 +174,8 @@ export function GameTable({
               combat={view.combat}
               // A character no longer in the campaign's game has no rolls made there.
               rollsToTable={view.connected ? view.rollsToTable : undefined}
+              rollFeatures={view.connected ? view.rollFeatures : undefined}
+              prompts={view.connected ? view.prompts : undefined}
             />
           ) : (
             <Scroller>
@@ -311,7 +316,13 @@ export function GameTable({
           label='Character'
           active={tab === 'character'}
           onClick={() => show('character')}
-        />
+        >
+          {asked.length > 0 && tab !== 'character' && (
+            <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
+              <span className='sr-only'>, your Gamemaster asks for a roll</span>
+            </span>
+          )}
+        </TabButton>
         <TabButton
           icon={Swords}
           label='Combat'

@@ -10,15 +10,94 @@ import {
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { CharacterSheet } from '@/types/sending-stone'
+import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
     <SpellsTab
       characterId='char-1'
+      onRoll={jest.fn()}
+      onRollDamage={jest.fn()}
       sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
     />,
   )
+
+/** Healing on a creature touched, as Cure Wounds is cast. */
+const mend: SheetUse = {
+  id: 'mend',
+  type: 'heal',
+  targets: {
+    self: false,
+    area: false,
+    count: 1,
+    perLevel: null,
+    affects: 'creature',
+  },
+}
+
+/**
+ * Thorin's spells, of which Cure Wounds heals, Fire Bolt and Witch Bolt attack, and Witch Bolt
+ * isn't prepared.
+ */
+const rolling = (): CharacterSheet => {
+  const sheet = fullerSheet()
+  const [, first, ...spellbook] = sheet.spells
+  return {
+    ...sheet,
+    spells: [
+      {
+        id: 'spell0',
+        label: 'Cantrips',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'fire-bolt',
+            name: 'Fire Bolt',
+            level: 0,
+            school: 'Evocation',
+            range: '120 ft',
+            toHit: 4,
+            attackId: 'boltAttack',
+            damage: [{ formula: '2d10', type: 'Fire', healing: false }],
+          }),
+        ],
+      },
+      {
+        ...first,
+        spells: first.spells.map(spell =>
+          spell.id === 'cure'
+            ? {
+                ...spell,
+                range: 'Touch',
+                target: '1 Creature',
+                activity: mend,
+                damage: [
+                  { formula: '2d8 + 3', type: 'Healing', healing: true },
+                ],
+              }
+            : spell,
+        ),
+      },
+      {
+        id: 'spell1b',
+        label: 'Not prepared',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'witch',
+            name: 'Witch Bolt',
+            concentration: true,
+            prepared: 0,
+            toHit: 4,
+            attackId: 'witchAttack',
+            damage: [{ formula: '1d12', type: 'Lightning', healing: false }],
+          }),
+        ],
+      },
+      ...spellbook,
+    ],
+  }
+}
 
 const row = (name: string) =>
   screen.getByText(name).closest('summary') as HTMLElement
@@ -292,6 +371,108 @@ describe('components/character-sheet/spells-tab', () => {
     ).toEqual(['Magic Missile1 Action · 120 ft · From Wand of Magic Missiles'])
   })
 
+  it('shows what a spell rolls beside it, rolling it here or casting it in the game', async () => {
+    const user = userEvent.setup()
+    const onRoll = jest.fn()
+    const onRollDamage = jest.fn()
+    const onUse = jest.fn()
+    render(
+      <SpellsTab
+        characterId='char-1'
+        sheet={toTableSheet(rolling(), 'https://my-game.forge-vtt.com')}
+        onRoll={onRoll}
+        onRollDamage={onRollDamage}
+        onUse={onUse}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Fire Bolt attack, +4' }),
+    )
+    expect(onRoll).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        label: 'Fire Bolt attack',
+        modifier: 4,
+        source: { kind: 'attack', item: 'fire-bolt', activity: 'boltAttack' },
+      }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Fire Bolt damage, 2d10' }),
+    )
+    expect(onRollDamage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        label: 'Fire Bolt damage',
+        source: { item: 'fire-bolt', activity: 'boltAttack' },
+      }),
+    )
+    // Cast in the game, its healing following.
+    await user.click(
+      screen.getByRole('button', { name: 'Cure Wounds healing, 2d8 + 3' }),
+    )
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'cure', type: 'spell', activity: mend }),
+    )
+    // Not prepared, it's rolled here only, as the game would have it prepared first.
+    await user.click(
+      screen.getByRole('button', { name: 'Witch Bolt attack, +4' }),
+    )
+    expect(onRoll.mock.lastCall?.[0]).toMatchObject({
+      label: 'Witch Bolt attack',
+      source: undefined,
+    })
+    expect(
+      screen.getByRole('button', { name: /^Witch Bolt/, expanded: false }),
+    ).toHaveClass('opacity-60')
+    // The rest of the spellbook is as it was.
+    expect(row('Shield')).toBeInTheDocument()
+  })
+
+  it('opens a spell that rolls to how it is cast, as any other, and what it rolls', async () => {
+    const user = userEvent.setup()
+    render(
+      <SpellsTab
+        characterId='char-1'
+        sheet={toTableSheet(rolling(), 'https://my-game.forge-vtt.com')}
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: /^Cure Wounds/, expanded: false }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: /^Witch Bolt/, expanded: false }),
+    )
+
+    const cure = screen
+      .getByRole('button', { name: /^Cure Wounds/, expanded: true })
+      .closest('li') as HTMLElement
+    expect(within(cure).getByText('Level 1 · Evocation')).toBeInTheDocument()
+    expect(
+      within(cure)
+        .getAllByRole('term')
+        .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`),
+    ).toEqual([
+      'Casting time: 1 Action',
+      'Range: Touch',
+      'Target: 1 Creature',
+      'Duration: Instantaneous',
+      'Components: V, S',
+      'Healing: 2d8 + 3',
+      'Cast at: 1st 1/21st Level, 1 of 2 slots left',
+    ])
+    const witch = screen
+      .getByRole('button', { name: /^Witch Bolt/, expanded: true })
+      .closest('li') as HTMLElement
+    expect(
+      within(witch).getByText('Level 1 · Abjuration · Not prepared'),
+    ).toBeInTheDocument()
+    expect(within(witch).getByText('Concentration')).toHaveClass('sr-only')
+    // Cast here, it's the player's to say which slot it takes.
+    expect(within(witch).queryByText('Cast at')).toBeNull()
+  })
+
   it('says so when there are no spells to show', () => {
     renderTab(characterSheet())
 
@@ -304,6 +485,8 @@ describe('components/character-sheet/spells-tab', () => {
       <FavoriteMarks keys={new Set(['item:shield'])}>
         <SpellsTab
           characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
           sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
           favorites={<p>Her favorites</p>}
         />

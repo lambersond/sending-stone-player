@@ -17,7 +17,7 @@ import type {
   SheetDamageRoll,
   SheetRoll,
 } from './use-sheet-roller'
-import type { RollKind } from '@/types/roll'
+import type { RollFeature, RollKind } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
 
 const perception: SheetRoll = {
@@ -107,9 +107,12 @@ const advance = (ms: number) =>
     await jest.advanceTimersByTimeAsync(ms)
   })
 
-const render = (kinds: RollKind[] = ['skill', 'save']) =>
-  renderHook(props => useTableRolls('char-1', props.kinds), {
-    initialProps: { kinds },
+const render = (
+  kinds: RollKind[] = ['skill', 'save'],
+  features: RollFeature[] = [],
+) =>
+  renderHook(props => useTableRolls('char-1', props.kinds, props.features), {
+    initialProps: { kinds, features },
   })
 
 describe('hooks/use-table-rolls', () => {
@@ -217,6 +220,7 @@ describe('hooks/use-table-rolls', () => {
         healing: false,
         exact: true,
         use: 'req-1',
+        perDie: 1,
         parts: [
           {
             type: 'slashing',
@@ -238,11 +242,13 @@ describe('hooks/use-table-rolls', () => {
             formula: '2d8 + 4',
             type: 'slashing',
             dice: [{ faces: 8, number: 2 }],
+            perDie: 2,
           },
           {
             formula: '1d6 + @mod',
             type: 'fire',
             dice: [{ faces: 6, number: 2 }],
+            perDie: 2,
           },
         ],
       })
@@ -254,6 +260,7 @@ describe('hooks/use-table-rolls', () => {
         healing: false,
         exact: true,
         use: 'req-1',
+        perDie: 2,
         parts: [
           {
             type: 'slashing',
@@ -265,6 +272,33 @@ describe('hooks/use-table-rolls', () => {
           { type: 'fire', terms: [{ sign: 1, count: 2, sides: 6 }] },
         ],
       })
+    })
+
+    it('keeps how the player changed it, now or as they used it, and how many dice the game throws for each added', () => {
+      const critical = preview({
+        critical: true,
+        rolls: [
+          {
+            formula: '2d8 + 4',
+            type: 'slashing',
+            dice: [{ faces: 8, number: 2 }],
+            perDie: 2,
+          },
+        ],
+      })
+      const used = { use: 'req-1', damage: critical, modifiers: { extra: 1 } }
+
+      expect(damageRollOf('Longsword', used)).toMatchObject({
+        modifiers: { extra: 1 },
+        perDie: 2,
+      })
+      expect(
+        damageRollOf('Longsword', used, undefined, { maximize: true }),
+      ).toMatchObject({ modifiers: { maximize: true } })
+      // Changes that change nothing aren't kept.
+      expect(
+        damageRollOf('Longsword', used, undefined, { extra: 0 }),
+      ).not.toHaveProperty('modifiers')
     })
 
     it('rolls healing as healing, and the kind of damage chosen for each roll that offers it', () => {
@@ -427,7 +461,7 @@ describe('hooks/use-table-rolls', () => {
   it('sends with what the game takes as it changes', () => {
     const { result, rerender } = render(['save'])
 
-    rerender({ kinds: ['skill'] })
+    rerender({ kinds: ['skill'], features: [] })
     act(() => result.current.send(perception, check()))
 
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -763,6 +797,79 @@ describe('hooks/use-table-rolls', () => {
       ).toBeUndefined()
     })
 
+    it('keeps how the player changed the damage that follows a use, to roll it so, where the game takes it', async () => {
+      const damage = preview({
+        rolls: [
+          {
+            formula: '8d6',
+            type: 'Fire',
+            dice: [{ faces: 6, number: 8 }],
+            perDie: 1,
+          },
+        ],
+      })
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            rolls: [],
+            use: { type: 'save' },
+            damage,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+      const { result, rerender } = render(['use', 'damage'])
+      expect(result.current.modifies).toBe(false)
+      rerender({ kinds: ['use', 'damage'], features: ['modifiers'] })
+      expect(result.current.modifies).toBe(true)
+
+      act(() => result.current.sendUse(fireball, cast, { maximize: true }))
+      // The use itself carries none: they're its damage's.
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.lastCall?.[1]?.body)),
+      ).not.toHaveProperty('modifiers')
+      await advance(CHECK_EVERY)
+
+      const due = result.current.dueFor({ item: 'fireball', activity: 'blast' })
+      expect(due).toEqual({
+        use: 'req-1',
+        damage,
+        modifiers: { maximize: true },
+      })
+      const roll = damageRollOf('Fireball', due as NonNullable<typeof due>)
+      act(() =>
+        result.current.sendDamage(roll, {
+          ...thrownDamage(),
+          maximized: true,
+          parts: [
+            {
+              type: 'Fire',
+              total: 48,
+              terms: [
+                {
+                  text: '8d6',
+                  values: [6, 6, 6, 6, 6, 6, 6, 6],
+                  value: 48,
+                },
+              ],
+            },
+          ],
+        }),
+      )
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.lastCall?.[1]?.body)),
+      ).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [{ faces: 6, results: [6, 6, 6, 6, 6, 6, 6, 6] }],
+        modifiers: { maximize: true },
+      })
+    })
+
     it("sends the game's own slot for none chosen, and no use the game doesn't take", () => {
       jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
       const { result } = render(['attack', 'damage'])
@@ -777,6 +884,57 @@ describe('hooks/use-table-rolls', () => {
         kind: 'use',
         slot: null,
       })
+    })
+  })
+
+  describe('saves the game asked for', () => {
+    /** A Dexterity saving throw answering the game's prompt. */
+    const answer: SheetRoll = {
+      label: 'Dexterity saving throw',
+      modifier: 1,
+      source: { kind: 'save', key: 'dex', prompt: 'msg1-thorin' },
+    }
+
+    it("sends a save answering the game's prompt, and says it's answering it until it fails", async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'failed', reason: 'cancelled' }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-2',
+            status: 'done',
+            visible: true,
+            total: 16,
+            outcome: 'success',
+          }),
+        )
+      const { result } = render(['save'], ['prompts'])
+
+      act(() => result.current.send(answer, check({ advantage: undefined })))
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body)),
+      ).toMatchObject({ kind: 'save', key: 'dex', prompt: 'msg1-thorin' })
+      expect(result.current.answering).toEqual(new Set(['msg1-thorin']))
+
+      // One that failed may be answered again.
+      await advance(CHECK_EVERY)
+      expect(result.current.answering).toEqual(new Set())
+
+      act(() =>
+        result.current.send(answer, check({ id: 'r2', advantage: undefined })),
+      )
+      await advance(CHECK_EVERY)
+      expect(result.current.states.get('r2')).toMatchObject({
+        status: 'done',
+        total: 16,
+        outcome: 'success',
+        prompt: 'msg1-thorin',
+      })
+      expect(result.current.answering).toEqual(new Set(['msg1-thorin']))
     })
   })
 

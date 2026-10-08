@@ -2,15 +2,18 @@ import {
   BRIDGE_POLLED_WITHIN,
   DAMAGE_WITHIN,
   ROLL_ANSWER_WITHIN,
+  ROLL_FEATURES,
   ROLL_KINDS,
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
 import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
-import { favoriteEntries } from '@/utils/favorites'
+import { modifiedDice } from '@/utils/damage-modifiers'
+import { sheetActions } from '@/utils/sheet-actions'
 import { toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
   AttackTarget,
+  RollFeature,
   RollKind,
   RollRequestInput,
   RollRequestView,
@@ -30,7 +33,9 @@ import type {
  * slots left, or none of the slot chosen; the attack mode or ammunition chosen isn't the weapon's,
  * or none of it is left; or a target can't be picked, or there are more than it takes. For damage:
  * its attack or use can't be found, or is too old; no damage follows it; its damage is rolled
- * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers.
+ * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers. For a
+ * saving throw the game asked for: it no longer waits, isn't this character's, isn't rolled with an
+ * ability it may be, or is answered already.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -48,6 +53,7 @@ export type RollRefusal =
   | 'damaged'
   | 'dice'
   | 'type'
+  | 'prompt'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -80,6 +86,35 @@ export function availableRollKinds(
   if (!campaign.rollsEnabled || !polled || now - polled >= BRIDGE_POLLED_WITHIN)
     return []
   return ROLL_KINDS.filter(kind => campaign.rollKinds.includes(kind))
+}
+
+/**
+ * What else a campaign's game does with its players' rolls now, such as take damage they changed:
+ * nothing while it takes none.
+ */
+export function availableRollFeatures(
+  campaign: Parameters<typeof availableRollKinds>[0] & {
+    rollFeatures: string[]
+  },
+  now = Date.now(),
+): RollFeature[] {
+  if (availableRollKinds(campaign, now).length === 0) return []
+  return ROLL_FEATURES.filter(feature =>
+    campaign.rollFeatures.includes(feature),
+  )
+}
+
+/**
+ * What says which rolls a game takes, and what else it does with them, as a viewer last saw it:
+ * such as "skill,save,damage;modifiers".
+ */
+export function rollsKey(
+  kinds: readonly string[] = [],
+  features: readonly string[] = [],
+): string {
+  return features.length > 0
+    ? `${kinds.join(',')};${features.join(',')}`
+    : kinds.join(',')
 }
 
 /**
@@ -135,17 +170,17 @@ export function checkRoll(
 }
 
 /**
- * Can the character make this attack: is it one of its actions, or favorites, identified, with a
- * spell slot left for a spell, in the attack mode and with the ammunition chosen, if they're the
- * weapon's, at a combatant its player can see? Whatever else it spends, such as its uses, the game
- * checks as it would spend it.
+ * Can the character make this attack: is it one of its actions, favorites, spells, features or
+ * inventory items, identified, with a spell slot left for a spell, in the attack mode and with the
+ * ammunition chosen, if they're the weapon's, at a combatant its player can see? Whatever else it
+ * spends, such as its uses, the game checks as it would spend it.
  */
 function checkAttack(
   input: RollRequestInput,
   sheet: CharacterSheet,
   combats: CombatSnapshot[],
 ): RollRefusal | undefined {
-  const action = actionsOf(sheet).find(
+  const action = sheetActions(sheet).find(
     ({ id, attackId }) =>
       id === input.item && !!attackId && attackId === input.activity,
   )
@@ -167,17 +202,17 @@ function checkAttack(
 }
 
 /**
- * Can the character use this spell or feature: is it what one of its actions, or favorites, is
- * used through, identified, with a spell slot left for a spell, at no more combatants than it takes
- * at the level it's cast at, all of them combatants its player can see? Whatever else it spends,
- * such as its uses, the game checks as it would spend it.
+ * Can the character use this spell or feature: is it what one of its actions, favorites, spells,
+ * features or inventory items is used through, identified, with a spell slot left for a spell, at
+ * no more combatants than it takes at the level it's cast at, all of them combatants its player
+ * can see? Whatever else it spends, such as its uses, the game checks as it would spend it.
  */
 function checkUse(
   input: RollRequestInput,
   sheet: CharacterSheet,
   combats: CombatSnapshot[],
 ): RollRefusal | undefined {
-  const action = actionsOf(sheet).find(
+  const action = sheetActions(sheet).find(
     ({ id, activity }) => id === input.item && activity?.id === input.activity,
   )
   if (!action?.activity || !action.identified) return 'unknown'
@@ -222,20 +257,11 @@ function checkTargets(
   return undefined
 }
 
-/** The character's actions, and its favorite activities as actions. */
-function actionsOf(sheet: CharacterSheet): SheetAction[] {
-  const actions = sheet.actions.flatMap(section => section.actions)
-  const favorites = favoriteEntries(sheet).flatMap(entry =>
-    entry.kind === 'action' ? [entry.action] : [],
-  )
-  return [...actions, ...favorites]
-}
-
 /**
  * Can this damage be rolled: does it follow the character's own attack or use, made in the game
  * lately, that said damage or healing follows; is no other damage for it on its way or made; are
- * its dice those it said its damage throws, in order; and is each kind of damage chosen one its
- * roll offers?
+ * its dice those it said its damage throws, in order, changed as the player chose, if they did;
+ * and is each kind of damage chosen one its roll offers?
  * @param use - The attack or use, if it's the character's.
  * @param others - The other damage asked for the same attack or use.
  */
@@ -254,9 +280,8 @@ export function checkDamage(
     ['sending', 'rolling', 'done'].includes(rollStatus(other, now)),
   )
   if (taken) return 'damaged'
-  const planned = damage.plannable
-    ? damage.rolls.flatMap(roll => roll.dice)
-    : []
+  const planned = modifiedDice(damage, input.modifiers)
+  if (!planned) return 'dice'
   const matches =
     input.dice.length === planned.length &&
     input.dice.every(
@@ -341,6 +366,7 @@ export function toRollRequestView(
       request.kind === 'damage' ? sumOf(rolls) : (rolls[0]?.total ?? undefined),
     rolls,
     ...(result.attack ? { attack: result.attack } : {}),
+    ...(result.outcome ? { outcome: result.outcome } : {}),
     ...use,
     ...damage,
   }

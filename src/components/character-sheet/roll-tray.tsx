@@ -9,11 +9,15 @@ import {
   Swords,
   TriangleAlert,
 } from 'lucide-react'
+import { useDamageMenu } from './damage-menu'
+import { RollButton } from './roll-button'
 import {
   choicesOf,
+  damageRollOf,
   type DueDamage,
   type TableRollState,
 } from '@/hooks/use-table-rolls'
+import { firstDie, type DamageModifiers } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
 import type {
   LocalCheck,
@@ -36,10 +40,20 @@ export type TableRolls = {
   takes?: (kind: RollKind) => boolean
   /**
    * Roll the damage of an attack or use the game made, as the game said it will, as the kind of
-   * damage chosen, if any.
+   * damage chosen, if any, and changed as the player chose, if they did.
    */
-  rollDamage?: (name: string, due: DueDamage, type?: string) => void
+  rollDamage?: RollDue
+  /** Whether the game takes damage the player changed. */
+  modifies?: boolean
 }
+
+/** Roll the damage the game waits for, as the kind chosen, changed as chosen. */
+type RollDue = (
+  name: string,
+  due: DueDamage,
+  type?: string,
+  modifiers?: DamageModifiers,
+) => void
 
 /**
  * The player's rolls, newest first: the latest in full, the rest on request. The tray says
@@ -80,6 +94,7 @@ export function RollTray({
         roll={latest}
         state={table?.states.get(latest.id)}
         onRollDamage={table?.rollDamage}
+        modifies={table?.modifies}
       />
     )
   } else if (latest) {
@@ -88,6 +103,7 @@ export function RollTray({
         roll={latest}
         state={table?.states.get(latest.id)}
         onRollDamage={table?.rollDamage}
+        modifies={table?.modifies}
       />
     )
   }
@@ -209,7 +225,7 @@ const REASONS: Record<string, string> = {
   ammo: 'you have none of that ammunition left',
   mode: 'the weapon can’t attack that way',
   target: 'a target can’t be picked, or there are too many',
-  scene: 'your Gamemaster isn’t looking at that target’s scene',
+  scene: 'your Gamemaster isn’t viewing that target’s level or scene',
   consume: 'there’s nothing left to use it with',
   slots: 'you have no spell slots left for it',
   slot: 'that spell slot can’t cast it',
@@ -227,6 +243,7 @@ const REASONS: Record<string, string> = {
   damaged: 'its damage is rolled already',
   dice: 'the dice weren’t those the game said',
   invalid: 'your Gamemaster’s game couldn’t make it',
+  prompt: 'your Gamemaster’s game isn’t asking for it any more',
 }
 
 /** Where a roll is on its way to the game, or what the game made of it. */
@@ -284,8 +301,12 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
   }
 }
 
-/** What came of an attack at the table, as the game shows players. */
+/** Whether a save the game asked for succeeded, in a word. */
+const SAVED = { success: 'saved', failure: 'failed' } as const
+
+/** What came at the table of an attack, or a save the game asked for, as the game shows players. */
 function outcomeOf(state: TableRollState): string | undefined {
+  if (state.outcome) return state.outcome === 'success' ? 'Saved' : 'Failed'
   const { attack } = state
   if (!attack) return undefined
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
@@ -295,20 +316,29 @@ function outcomeOf(state: TableRollState): string | undefined {
 
 /**
  * Roll the damage or healing of an attack or use the game made, while the game waits for it: as
- * one of the kinds of damage it offers, a button each, where it offers a choice.
+ * one of the kinds of damage it offers, a button each, where it offers a choice. Where the game
+ * takes damage the player changed, a right-click or long-press offers to roll it at its highest,
+ * or with its dice changed first.
  */
 function DamageButton({
   name,
   state,
   onRollDamage,
+  modifies = false,
 }: Readonly<{
   name: string
   state: TableRollState
-  onRollDamage: (name: string, due: DueDamage, type?: string) => void
+  onRollDamage: RollDue
+  modifies?: boolean
 }>) {
+  const { open, dialogs } = useDamageMenu()
   const { damage, requestId } = state
   if (state.status !== 'done' || !damage || state.damaged || !requestId) return
-  const due = { use: requestId, damage }
+  const due: DueDamage = {
+    use: requestId,
+    damage,
+    ...(state.modifiers && { modifiers: state.modifiers }),
+  }
   const Icon = damage.healing ? HeartPulse : Swords
   const kind = damage.healing ? 'healing' : 'damage'
   const button = clsx(
@@ -317,6 +347,60 @@ function DamageButton({
       ? 'bg-primary/10 text-primary hover:bg-primary/20'
       : 'bg-damage/15 text-damage hover:bg-damage/25',
   )
+  // Its dice as the game will throw them, for its menu to change them.
+  const game = damageRollOf(name, due)
+  const formula = damage.rolls.map(roll => roll.formula).join(' + ')
+  const roll = (type?: string, modifiers?: DamageModifiers) => {
+    if (modifiers) onRollDamage(name, due, type, modifiers)
+    else if (type) onRollDamage(name, due, type)
+    else onRollDamage(name, due)
+  }
+  // A button that rolls it, which a right-click or long-press offers to change first.
+  const rollButton = (
+    text: string,
+    label: string,
+    type: string | undefined,
+    className: string,
+  ) =>
+    modifies ? (
+      <RollButton
+        target={type}
+        onRoll={() => roll(type)}
+        onMenu={(anchor, _, point) =>
+          open(
+            anchor,
+            {
+              label: game.label,
+              formula,
+              parts: game.parts,
+              healing: damage.healing === true,
+              perDie: game.perDie,
+              // Damage the game rolls itself has no dice here to change, but can be its highest.
+              choices: firstDie(game.parts)
+                ? ['maximize', 'modify-damage']
+                : ['maximize'],
+              onChoose: ({ modifiers }) => roll(type, modifiers),
+            },
+            point,
+          )
+        }
+        label={label}
+        className={className}
+      >
+        <Icon aria-hidden className='size-4' />
+        {text}
+      </RollButton>
+    ) : (
+      <button
+        type='button'
+        aria-label={label}
+        onClick={() => roll(type)}
+        className={className}
+      >
+        <Icon aria-hidden className='size-4' />
+        {text}
+      </button>
+    )
   const choices = choicesOf(damage)
   if (choices.length > 0) {
     return (
@@ -326,33 +410,27 @@ function DamageButton({
         </p>
         <div className='mt-1 flex flex-wrap gap-1.5'>
           {choices.map(({ key, label }) => (
-            <button
-              key={key}
-              type='button'
-              // A kind of healing names itself, such as Temporary Hit Points.
-              aria-label={
-                damage.healing ? `Roll ${label}` : `Roll ${label} ${kind}`
-              }
-              onClick={() => onRollDamage(name, due, key)}
-              className={button}
-            >
-              <Icon aria-hidden className='size-4' />
-              {label}
-            </button>
+            <span key={key} className='contents'>
+              {rollButton(
+                label,
+                // A kind of healing names itself, such as Temporary Hit Points.
+                damage.healing ? `Roll ${label}` : `Roll ${label} ${kind}`,
+                key,
+                button,
+              )}
+            </span>
           ))}
         </div>
+        {dialogs}
       </div>
     )
   }
+  const text = damage.critical ? `Roll critical ${kind}` : `Roll ${kind}`
   return (
-    <button
-      type='button'
-      onClick={() => onRollDamage(name, due)}
-      className={clsx(button, 'mt-2')}
-    >
-      <Icon aria-hidden className='size-4' />
-      {damage.critical ? `Roll critical ${kind}` : `Roll ${kind}`}
-    </button>
+    <>
+      {rollButton(text, text, undefined, clsx(button, 'mt-2'))}
+      {dialogs}
+    </>
   )
 }
 
@@ -367,6 +445,7 @@ function TableMark({
     return (
       <span className='ml-1.5'>
         {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
+        {state.visible && state.outcome && `, ${SAVED[state.outcome]}`}
       </span>
     )
   }
@@ -380,10 +459,12 @@ function CheckResult({
   roll,
   state,
   onRollDamage,
+  modifies,
 }: Readonly<{
   roll: LocalCheck
   state?: TableRollState
-  onRollDamage?: (name: string, due: DueDamage, type?: string) => void
+  onRollDamage?: RollDue
+  modifies?: boolean
 }>) {
   const critical = roll.natural === 20
   const fumble = roll.natural === 1
@@ -423,6 +504,7 @@ function CheckResult({
             name={roll.label.replace(/ attack$/, '')}
             state={state}
             onRollDamage={onRollDamage}
+            modifies={modifies}
           />
         )}
       </div>
@@ -483,6 +565,7 @@ function DamageResult({
               </span>
             ))}
           {roll.critical && ' · Critical hit'}
+          {roll.maximized && ' · Maximum'}
         </p>
         {state && <TableStatus state={state} />}
       </div>
@@ -498,10 +581,12 @@ function UseResult({
   roll,
   state,
   onRollDamage,
+  modifies,
 }: Readonly<{
   roll: LocalUse
   state?: TableRollState
-  onRollDamage?: (name: string, due: DueDamage, type?: string) => void
+  onRollDamage?: RollDue
+  modifies?: boolean
 }>) {
   const status = state && <UseStatus roll={roll} state={state} />
   return (
@@ -520,6 +605,7 @@ function UseResult({
               name={roll.label}
               state={state}
               onRollDamage={onRollDamage}
+              modifies={modifies}
             />
           )}
       </div>

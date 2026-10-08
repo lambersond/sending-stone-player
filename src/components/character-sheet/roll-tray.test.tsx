@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RollTray, type TableRolls } from './roll-tray'
 import type {
@@ -289,6 +289,21 @@ describe('components/character-sheet/roll-tray', () => {
         { status: 'failed', reason: 'gremlins' },
         'Not made at the table',
       ],
+      [
+        'made, answering what the game asked, saved',
+        { status: 'done', visible: true, total: 16, outcome: 'success' },
+        'At the table: 16 · Saved',
+      ],
+      [
+        'made, answering what the game asked, failed',
+        { status: 'done', visible: true, total: 7, outcome: 'failure' },
+        'At the table: 7 · Failed',
+      ],
+      [
+        'answering what the game no longer asks',
+        { status: 'failed', reason: 'prompt' },
+        'Not made at the table: your Gamemaster’s game isn’t asking for it any more',
+      ],
     ])('says where the latest roll is when %s', (_, state, text) => {
       render(
         <RollTray
@@ -390,6 +405,71 @@ describe('components/character-sheet/roll-tray', () => {
           use: 'req-1',
           damage: preview,
         })
+      })
+
+      it('offers to roll it at its highest, or changed, where the game takes it so', async () => {
+        const user = userEvent.setup()
+        const rollDamage = jest.fn()
+        const { rerender } = render(
+          <RollTray
+            rolls={[attack]}
+            rolling={false}
+            table={table([['r1', made()]], { rollDamage })}
+          />,
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: 'Roll damage' }),
+        )
+        expect(screen.queryByRole('menu')).toBeNull()
+
+        rerender(
+          <RollTray
+            rolls={[attack]}
+            rolling={false}
+            table={table([['r1', made()]], { rollDamage, modifies: true })}
+          />,
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: 'Roll damage' }),
+        )
+        const menu = screen.getByRole('menu', {
+          name: 'Longsword damage 1d8 + 4',
+        })
+        await user.click(
+          within(menu).getByRole('menuitem', { name: 'Roll maximum damage' }),
+        )
+        expect(rollDamage).toHaveBeenLastCalledWith(
+          'Longsword',
+          { use: 'req-1', damage: preview },
+          undefined,
+          { maximize: true },
+        )
+
+        // A die more, as the game will throw it.
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: 'Roll damage' }),
+        )
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        await user.click(
+          within(dialog).getByRole('button', { name: 'One die more' }),
+        )
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '2d8 + 4 slashing',
+        )
+        // The game decides a critical hit.
+        expect(
+          within(dialog).queryByRole('switch', { name: /^Critical/ }),
+        ).toBe(null)
+        await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+        expect(rollDamage).toHaveBeenLastCalledWith(
+          'Longsword',
+          { use: 'req-1', damage: preview },
+          undefined,
+          { extra: 1 },
+        )
       })
 
       it("offers a critical hit's damage as such", () => {
@@ -839,7 +919,10 @@ describe('components/character-sheet/roll-tray', () => {
           ]}
           rolling={false}
           table={table([
-            ['r4', { status: 'done', visible: true, total: 19 }],
+            [
+              'r4',
+              { status: 'done', visible: true, total: 19, outcome: 'success' },
+            ],
             ['r3', { status: 'done', visible: false }],
             ['r2', { status: 'rolling' }],
             ['r1', { status: 'refused', reason: 'busy' }],
@@ -852,7 +935,7 @@ describe('components/character-sheet/roll-tray', () => {
       expect(
         screen.getAllByRole('listitem').map(item => item.textContent),
       ).toEqual([
-        'Perception check12 +4 = 16· table 19',
+        'Perception check12 +4 = 16· table 19, saved',
         'Perception check12 +4 = 16· hidden',
         'Perception check12 +4 = 16· sending',
         'Perception check12 +4 = 16· not at the table',

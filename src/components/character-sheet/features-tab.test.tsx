@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { FeaturesTab } from './features-tab'
 import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
@@ -10,6 +11,8 @@ const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
     <FeaturesTab
       characterId='char-1'
+      onRoll={jest.fn()}
+      onRollDamage={jest.fn()}
       sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
     />,
   )
@@ -48,6 +51,78 @@ describe('components/character-sheet/features-tab', () => {
       'src',
       'https://assets.forge-vtt.com/darkvision.webp',
     )
+  })
+
+  it('shows what a feature rolls beside it, rolling it here or using it in the game', async () => {
+    const user = userEvent.setup()
+    // Its description loads once it's open.
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+    const sheet = fullerSheet()
+    const [fighter, ...origins] = sheet.features
+    const wind = {
+      ...fighter.features[0],
+      range: 'Self',
+      target: null,
+      concentration: false,
+      activity: {
+        id: 'windHeal',
+        type: 'heal' as const,
+        targets: {
+          self: true,
+          area: false,
+          count: null,
+          perLevel: null,
+          affects: 'self',
+        },
+      },
+      damage: [{ formula: '1d10 + 5', type: 'Healing', healing: true }],
+    }
+    const props = {
+      characterId: 'char-1',
+      sheet: toTableSheet(
+        { ...sheet, features: [{ ...fighter, features: [wind] }, ...origins] },
+        'https://my-game.forge-vtt.com',
+      ),
+      onRoll: jest.fn(),
+      onRollDamage: jest.fn(),
+    }
+    const onUse = jest.fn()
+    const { rerender } = render(<FeaturesTab {...props} onUse={onUse} />)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
+    )
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'second-wind', type: 'feat' }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: /^Second Wind/, expanded: false }),
+    )
+    expect(screen.getByText('Class Feature · Fighter 1')).toBeInTheDocument()
+    expect(
+      screen
+        .getAllByRole('term')
+        .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`),
+    ).toEqual([
+      'Activation: 1 Bonus Action',
+      'Range: Self',
+      'Healing: 1d10 + 5',
+      'Uses: 1 of 1 left, Short Rest, Long Rest',
+    ])
+
+    // While the game takes no features, it's rolled here.
+    rerender(<FeaturesTab {...props} />)
+    await user.click(
+      screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
+    )
+    expect(props.onRollDamage).toHaveBeenCalledWith(
+      expect.objectContaining({ label: 'Second Wind healing', healing: true }),
+    )
+    expect(onUse).toHaveBeenCalledTimes(1)
+    // A feature that rolls nothing is as it was.
+    expect(
+      screen.getByText('Darkvision').closest('li')?.querySelector('button'),
+    ).toBeNull()
   })
 
   it('names the species or background a group came from, if it has a description', () => {
@@ -108,6 +183,8 @@ describe('components/character-sheet/features-tab', () => {
       <FavoriteMarks keys={new Set(['item:darkvision'])}>
         <FeaturesTab
           characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
           sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
         />
       </FavoriteMarks>,

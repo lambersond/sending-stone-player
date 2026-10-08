@@ -166,6 +166,9 @@ model Campaign {
   // rolls the module can make, from its latest bridge.hello.
   rollsEnabled   Boolean       @default(false)
   rollKinds      String[]      @default([])
+  // What else the module can do with them, such as take damage a player changed, or ask players
+  // for the saving throws their game asks of their characters.
+  rollFeatures   String[]      @default([])
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,
@@ -179,6 +182,7 @@ model Campaign {
   texts          SheetText[]
   players        Character[]
   rollRequests   RollRequest[]
+  rollPrompts    RollPrompt[]
 
   @@unique([origin, foundryId], name: "originCampaign")
   @@index([ownerId])
@@ -285,4 +289,31 @@ model RollRequest {
   @@index([characterId, createdAt])
   @@index([useId])
   @@map("roll_request")
+}
+
+// A saving throw a campaign's game asks of one of its characters, such as a concentration check,
+// which its player rolls here: from the module's roll.prompt.opened until its roll.prompt.closed,
+// or its time runs out.
+model RollPrompt {
+  id           String    @id @default(cuid())
+  campaignId   String
+  campaign     Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // The module's id for it: its chat card's id and its character's.
+  promptId     String
+  // The Foundry actor asked.
+  actorId      String
+  // What it asks, as the module described it: the kind of save, its abilities, DC and label.
+  data         Json
+  openedAt     DateTime
+  // When it stops waiting for its player, if nothing closes it first.
+  expiresAt    DateTime
+  // Once closed: when, and why, such as "answered" or "gone".
+  closedAt     DateTime?
+  closedReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([campaignId, promptId], name: "campaignPrompt")
+  @@index([campaignId, actorId, closedAt])
+  @@map("roll_prompt")
 }

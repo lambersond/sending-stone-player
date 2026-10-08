@@ -19,23 +19,25 @@ import {
   DamageChip,
   FALLBACKS,
   SaveChip,
-  useDamageRolls,
+  useActionRows,
   UseChip,
+  verbOf,
   viewOf,
   type ActionRows,
+  type TableDamage,
 } from './action-entry'
-import { useD20Rolls } from './d20-rolls'
 import { FavoriteStar, useFavorite } from './favorite-mark'
-import { UsesLeft } from './features-tab'
 import { EntryIcon } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
+import { UsesLeft } from './uses-left'
 import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { SheetAction, SheetActionSection } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
   characterId: string
@@ -43,7 +45,9 @@ type Props = {
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction) => void
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
 }
@@ -96,10 +100,17 @@ export function ActionsTab({
   onRoll,
   onRollDamage,
   onUse,
+  tableDamage,
   favorites,
 }: Readonly<Props>) {
-  const { actions: d20, dialogs } = useD20Rolls(onRoll)
-  const { actions: damage, dialogs: damageMenu } = useDamageRolls(onRollDamage)
+  const { rows, dialogs } = useActionRows({
+    characterId,
+    spellbook: sheet.spells,
+    onRoll,
+    onRollDamage,
+    onUse,
+    tableDamage,
+  })
   const root = useRef<HTMLDivElement>(null)
   const width = useWidth(root)
   const offered = LAYOUTS.filter(({ from }) => width >= from)
@@ -107,13 +118,6 @@ export function ActionsTab({
   const layout = offered.some(({ id }) => id === chosen) ? chosen : 'list'
   // The groups the player closed, for this character.
   const [closed, toggleGroup] = useStoredSet(`${CLOSED_KEY}:${characterId}`)
-  const rows: ActionRows = {
-    characterId,
-    spellbook: sheet.spells,
-    d20,
-    damage,
-    ...(onUse && { use: { onUse } }),
-  }
   const sections = sheet.actions.map((section, index): GroupedSection => ({
     ...section,
     // A section the player named in Tidy 5e may have any name, so it isn't the id.
@@ -150,7 +154,6 @@ export function ActionsTab({
       )}
 
       {dialogs}
-      {damageMenu}
     </div>
   )
 }
@@ -521,6 +524,7 @@ function ActionTableRow({
                 target={view.target}
                 damage={rows.damage}
                 onUse={view.uses.damage}
+                verb={verbOf(action)}
               />
             </span>
           )}
