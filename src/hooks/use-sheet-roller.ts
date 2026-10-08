@@ -171,7 +171,7 @@ export function useSheetRoller(
       } finally {
         setInFlight(count => count - 1)
       }
-      setRolls(earlier => [kept, ...earlier].slice(0, ROLL_HISTORY))
+      setRolls(earlier => keeping(earlier, kept))
     },
     [renderer],
   )
@@ -255,7 +255,7 @@ export function useSheetRoller(
       spell,
       at: Date.now(),
     }
-    setRolls(earlier => [used, ...earlier].slice(0, ROLL_HISTORY))
+    setRolls(earlier => keeping(earlier, used))
     return used
   }, [])
 
@@ -355,6 +355,17 @@ function damageTerm(
   if (term.sign < 0) sign = '−'
   if ('flat' in term) return `${sign}${term.flat}`
   return `${sign}${doubled ? term.count * 2 : term.count}d${term.sides}`
+}
+
+/**
+ * The rolls kept, and another, newest first by when each was thrown rather than when its dice
+ * landed: a roll thrown while the dice of one before it still tumble is the latest, should they
+ * land after it.
+ */
+function keeping(earlier: LocalRoll[], roll: LocalRoll): LocalRoll[] {
+  return [roll, ...earlier]
+    .toSorted((a, b) => b.at - a.at)
+    .slice(0, ROLL_HISTORY)
 }
 
 /** Wait for a promise, but no longer than this many milliseconds. */

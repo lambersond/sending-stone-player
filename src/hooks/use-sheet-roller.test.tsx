@@ -387,6 +387,51 @@ describe('hooks/use-sheet-roller', () => {
     expect(result.current.rolling).toBe(false)
   })
 
+  it('keeps rolls in the order they were thrown, should dice thrown later land first', async () => {
+    const healing = deferred<number[]>()
+    const attack = deferred<number[]>()
+    renderer({
+      roll: jest
+        .fn<Promise<number[]>, [string, object?]>()
+        .mockReturnValueOnce(healing.promise)
+        .mockReturnValueOnce(attack.promise),
+    })
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1000)
+    const { result } = renderHook(() => useSheetRoller())
+
+    let healed: Promise<void> | undefined
+    act(() => {
+      healed = result.current.rollDamage({
+        label: 'Cure Wounds healing',
+        parts: [{ terms: [{ sign: 1, count: 2, sides: 8 }], type: 'Healing' }],
+        healing: true,
+      })
+    })
+    now.mockReturnValue(2000)
+    let attacked: Promise<void> | undefined
+    act(() => {
+      attacked = result.current.roll({
+        label: 'Witch Bolt attack',
+        modifier: 6,
+      })
+    })
+    await act(async () => {
+      attack.resolve([11])
+      await attacked
+    })
+    expect(result.current.rolling).toBe(true)
+    await act(async () => {
+      healing.resolve([4, 5])
+      await healed
+    })
+
+    expect(result.current.rolling).toBe(false)
+    expect(result.current.rolls.map(roll => roll.label)).toEqual([
+      'Witch Bolt attack',
+      'Cure Wounds healing',
+    ])
+  })
+
   it('keeps a spell or feature used, which throws no dice, first among the rolls', async () => {
     const fake = renderer()
     const { result } = renderHook(() => useSheetRoller())
