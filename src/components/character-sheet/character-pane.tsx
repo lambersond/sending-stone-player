@@ -13,6 +13,7 @@ import {
   WandSparkles,
   type LucideIcon,
 } from 'lucide-react'
+import { verbOf, type TableDamage } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet, classLine } from './character-sheet'
@@ -41,7 +42,6 @@ import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { sheetActions } from '@/utils/sheet-actions'
-import type { TableDamage } from './action-entry'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type { TableCombat, TablePrompt, TableSheet } from '@/types/table'
@@ -200,7 +200,7 @@ function RollingSheet({
     modifiers?: DamageModifiers,
   ) => {
     if (!action.activity) return
-    const used = logUse(action.name, action.type === 'spell')
+    const used = logUse(action.name, verbOf(action) === 'Cast')
     table.sendUse(
       used,
       {

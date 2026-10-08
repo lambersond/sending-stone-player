@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
+  activityAction,
   featureAction,
   itemAction,
   sheetActions,
@@ -13,8 +14,10 @@ import {
 } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,
+  SheetActivity,
   SheetFeature,
   SheetRolls,
+  SheetSpell,
   SheetUse,
 } from '@/types/sending-stone'
 
@@ -130,6 +133,62 @@ const rolling = (): CharacterSheet => {
   }
 }
 
+/**
+ * Hex's activities: placing its curse, then its damage on a hit and moving it, which spend no
+ * slot.
+ */
+const hexActivities = (): SheetActivity[] => [
+  {
+    id: 'curse',
+    name: 'Place Curse',
+    type: 'utility',
+    activation: '1 Bonus Action',
+    range: '90 ft',
+    target: '1 Creature',
+    ...rolls({ activity: use('curse', 'utility') }),
+    uses: null,
+  },
+  {
+    id: 'hit',
+    name: 'Bonus Hex Damage',
+    type: 'damage',
+    activation: 'Special',
+    range: null,
+    target: null,
+    ...rolls({
+      activity: use('hit', 'damage'),
+      damage: [{ formula: '1d6', type: 'Necrotic', healing: false }],
+    }),
+    consumesSlot: false,
+    uses: null,
+  },
+  {
+    id: 'move',
+    name: 'Curse New Creature',
+    type: 'utility',
+    activation: '1 Bonus Action',
+    range: '90 ft',
+    target: '1 Creature',
+    ...rolls({ activity: use('move', 'utility') }),
+    consumesSlot: false,
+    uses: null,
+  },
+]
+
+/** Hex, its own fields its curse's, as the module sends a spell with more than one activity. */
+const hex = (fields: Partial<SheetSpell> = {}): SheetSpell =>
+  sheetSpell({
+    id: 'hex',
+    name: 'Hex',
+    activation: '1 Bonus Action',
+    range: '90 ft',
+    target: '1 Creature',
+    prepared: 1,
+    ...rolls({ activity: use('curse', 'utility') }),
+    activities: hexActivities(),
+    ...fields,
+  })
+
 describe('utils/sheet-actions', () => {
   describe('sheetActions', () => {
     it('lists the actions, the favorite activities, then the spells, features and items that roll', () => {
@@ -153,6 +212,21 @@ describe('utils/sheet-actions', () => {
         'witch Witch Bolt',
         'breath Dragon Breath',
         'potion Potion of Healing',
+      ])
+    })
+
+    it('follows each with its other activities, so that each is found as it would be made', () => {
+      const sheet = rolling()
+      sheet.spells[1].spells.push(hex())
+
+      expect(
+        sheetActions(sheet)
+          .filter(({ id }) => id === 'hex')
+          .map(({ name, activity }) => [name, activity?.id]),
+      ).toEqual([
+        ['Hex', 'curse'],
+        ['Hex (Bonus Hex Damage)', 'hit'],
+        ['Hex (Curse New Creature)', 'move'],
       ])
     })
 
@@ -245,6 +319,69 @@ describe('utils/sheet-actions', () => {
       ).toMatchObject({ activity: use('bless', 'utility') })
     })
 
+    it('keeps the activities of a spell not prepared to the phone, and makes one whose later activities roll an action', () => {
+      const unprepared = spellAction(hex({ prepared: 0 }))
+      expect(
+        unprepared?.activities?.map(({ activity, attackId }) => [
+          activity,
+          attackId,
+        ]),
+      ).toEqual([
+        [null, null],
+        [null, null],
+        [null, null],
+      ])
+      expect(unprepared?.activities?.[1].damage).toEqual(
+        hexActivities()[1].damage,
+      )
+
+      const sphere = spellAction(
+        sheetSpell({
+          id: 'sphere',
+          name: 'Flaming Sphere',
+          level: 2,
+          prepared: 1,
+          ...rolls(),
+          activities: [
+            {
+              id: 'call',
+              name: 'Summon',
+              type: 'summon',
+              activation: '1 Action',
+              range: '60 ft',
+              target: null,
+              ...rolls(),
+              uses: null,
+            },
+            {
+              id: 'ram',
+              name: 'Ram',
+              type: 'save',
+              activation: '1 Bonus Action',
+              range: '5 ft',
+              target: null,
+              ...rolls({
+                activity: use('ram', 'save'),
+                save: { ability: 'DEX', dc: 14 },
+                damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+              }),
+              consumesSlot: false,
+              uses: null,
+            },
+          ],
+        }),
+      )
+      expect(sphere).toMatchObject({ activity: null, damage: [] })
+      expect(sphere?.activities?.map(({ name }) => name)).toEqual([
+        'Summon',
+        'Ram',
+      ])
+      // One with a single activity lists none.
+      expect(
+        spellAction(hex({ activities: hexActivities().slice(0, 1) })),
+      ).not.toHaveProperty('activities')
+    })
+
     it('has nothing for a spell that rolls nothing, or from an older module', () => {
       expect(spellAction(sheetSpell({ id: 'alarm', name: 'Alarm' }))).toBe(
         undefined,
@@ -252,6 +389,33 @@ describe('utils/sheet-actions', () => {
       expect(
         spellAction(sheetSpell({ id: 'alarm', name: 'Alarm', ...rolls() })),
       ).toBeUndefined()
+    })
+  })
+
+  describe('activityAction', () => {
+    it("makes one of an item's activities an action of its own, the item's, named for both, rolling and used as it alone", () => {
+      const action = spellAction(hex())
+      if (!action) throw new Error('Hex is cast')
+      const [, hit] = hexActivities()
+
+      expect(activityAction(action, hit)).toEqual({
+        id: 'hex',
+        name: 'Hex (Bonus Hex Damage)',
+        img: null,
+        type: 'spell',
+        activation: 'Special',
+        range: null,
+        target: null,
+        ...rolls({ activity: use('hit', 'damage'), damage: hit.damage }),
+        consumesSlot: false,
+        uses: null,
+        level: 1,
+        castFrom: null,
+        concentration: false,
+        identified: true,
+        text: null,
+      })
+      expect(activityAction(action, { ...hit, name: 'Hex' }).name).toBe('Hex')
     })
   })
 

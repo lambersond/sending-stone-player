@@ -13,13 +13,17 @@ import {
 import {
   ActionDetails,
   ActionEntry,
+  activityDetail,
   AttackChip,
   attackSource,
   Chevron,
   DamageChip,
   FALLBACKS,
+  firstInFoundry,
+  otherActivities,
   SaveChip,
   useActionRows,
+  usedFromApp,
   UseChip,
   verbOf,
   viewOf,
@@ -27,7 +31,7 @@ import {
   type TableDamage,
 } from './action-entry'
 import { FavoriteStar, useFavorite } from './favorite-mark'
-import { EntryIcon } from './sheet-entry'
+import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesLeft } from './uses-left'
@@ -35,7 +39,11 @@ import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
-import type { SheetAction, SheetActionSection } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetActionSection,
+  SheetActivity,
+} from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 
@@ -440,7 +448,8 @@ function ActionTable({
 
 /**
  * An action in a table: its name, opening to the rest in a row of its own below, and its range,
- * what it rolls and its uses, each in its column.
+ * what it rolls and its uses, each in its column; then each of its other activities, in a row of
+ * its own.
  */
 function ActionTableRow({
   action,
@@ -479,9 +488,12 @@ function ActionTableRow({
                 {favorite && <FavoriteStar />}
                 <Chevron open={open} />
               </span>
-              {view.spent && (
+              {(view.spent || firstInFoundry(action)) && (
                 <span className='block truncate text-xs text-text-secondary'>
-                  No slots left
+                  {joinParts(
+                    view.spent && 'No slots left',
+                    firstInFoundry(action) && 'Used in Foundry',
+                  )}
                 </span>
               )}
             </span>
@@ -537,6 +549,16 @@ function ActionTableRow({
           )}
         </td>
       </tr>
+      {otherActivities(action).map(other => (
+        <ActivityTableRow
+          key={other.activity.id}
+          activity={other.activity}
+          action={other.action}
+          parent={action}
+          rows={rows}
+          hidden={hidden}
+        />
+      ))}
       {open && (
         <tr id={body} hidden={hidden}>
           <td colSpan={5} className='px-4 pt-1 pb-3 pl-[3.375rem]'>
@@ -551,5 +573,92 @@ function ActionTableRow({
         </tr>
       )}
     </>
+  )
+}
+
+/**
+ * One of an action's other activities in a table, beneath it, such as Hex's Bonus Hex Damage: its
+ * name, and its range, what it rolls and its uses, each in its column.
+ */
+function ActivityTableRow({
+  activity,
+  action,
+  parent,
+  rows,
+  hidden,
+}: Readonly<{
+  activity: SheetActivity
+  /** The activity as an action of its own. */
+  action: SheetAction
+  parent: SheetAction
+  rows: ActionRows
+  hidden: boolean
+}>) {
+  const view = viewOf(action, rows.spellbook, rows.use)
+  const { name, toHit, save, uses } = action
+  // Its range has a column of its own.
+  const [activation, , ...rest] = activityDetail(activity, parent, view.spent)
+  const detail = joinParts(activation, ...rest)
+  return (
+    <tr hidden={hidden}>
+      <td className='w-full max-w-0 py-0.5 pr-2 pl-[3.375rem]'>
+        <span
+          className={clsx(
+            'block border-l border-border py-0.5 pl-2.5',
+            (view.spent || !usedFromApp(activity)) && 'opacity-60',
+          )}
+        >
+          <span className='block truncate'>{activity.name}</span>
+          {detail && (
+            <span className='block truncate text-xs text-text-secondary'>
+              {detail}
+            </span>
+          )}
+        </span>
+      </td>
+      <td className='px-2 text-xs whitespace-nowrap text-text-secondary'>
+        {action.range && action.range !== parent.range && (
+          <span className='block max-w-32 truncate' title={action.range}>
+            {action.range}
+          </span>
+        )}
+      </td>
+      <td className='px-2'>
+        <span className='flex gap-1'>
+          {toHit !== null && (
+            <AttackChip
+              name={name}
+              toHit={toHit}
+              d20={rows.d20}
+              source={attackSource(action)}
+            />
+          )}
+          {save && <SaveChip name={name} save={save} onUse={view.uses.save} />}
+          {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
+        </span>
+      </td>
+      <td className='px-2'>
+        {view.formula && (
+          <span className='flex'>
+            <DamageChip
+              name={name}
+              formula={view.formula}
+              healing={view.healing}
+              target={view.target}
+              damage={rows.damage}
+              onUse={view.uses.damage}
+              verb={verbOf(action)}
+            />
+          </span>
+        )}
+      </td>
+      <td className='py-0.5 pr-4 pl-2'>
+        {uses && (
+          <span className='flex justify-end'>
+            <UsesLeft uses={uses} />
+          </span>
+        )}
+      </td>
+    </tr>
   )
 }

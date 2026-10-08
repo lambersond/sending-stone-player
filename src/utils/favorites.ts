@@ -141,7 +141,11 @@ export function rollsAny(entries: FavoriteEntry[]): boolean {
 
 /** Does this roll an attack, or damage or healing? */
 function rolls(entry: Partial<SheetRolls>): boolean {
-  return (entry.toHit ?? null) !== null || (entry.damage ?? []).length > 0
+  return (
+    (entry.toHit ?? null) !== null ||
+    (entry.damage ?? []).length > 0 ||
+    (entry.activities ?? []).some(activity => rolls(activity))
+  )
 }
 
 function entryOf(
@@ -267,6 +271,7 @@ function activityAction(
       ammunition: favorite.ammunition ?? null,
       save: favorite.save,
       damage: favorite.damage,
+      ...(favorite.consumesSlot === false && { consumesSlot: false }),
       uses: favorite.uses,
       level: spell?.level ?? action?.level ?? null,
       castFrom: action?.castFrom ?? spell?.castFrom ?? null,

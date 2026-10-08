@@ -305,6 +305,18 @@ export type SheetAction = {
   /** The saving throw it calls for: the ability's abbreviation, such as "DEX", and the DC. */
   save: { ability: string; dc: number | null } | null
   damage: SheetDamage[]
+  /**
+   * False for a spell's activity used after it's cast without spending a spell slot, such as Hex's
+   * Bonus Hex Damage: it's used at the level chosen, whether any slot is left or not. Module
+   * 0.14.0; absent otherwise.
+   */
+  consumesSlot?: boolean
+  /**
+   * Each of its activities, for an item with more than one: its first, which the rest of the action
+   * is, such as Hex's curse, then the others, such as its Bonus Hex Damage. Module 0.14.0; absent
+   * otherwise.
+   */
+  activities?: SheetActivity[]
   uses: SheetUses | null
   /** A spell's level, 0 for a cantrip; null for anything else. */
   level: number | null
@@ -325,6 +337,34 @@ export type SheetUse = {
   id: string
   type: 'save' | 'damage' | 'heal' | 'utility'
   targets: SheetUseTargets
+}
+
+/**
+ * One of an item's activities, for an item with more than one, such as Hex's Bonus Hex Damage or an
+ * unarmed strike's Grapple/Shove: what it's called, its kind, and what it does, as an action does.
+ * Module 0.14.0.
+ */
+export type SheetActivity = Pick<
+  SheetAction,
+  | 'activation'
+  | 'range'
+  | 'target'
+  | 'toHit'
+  | 'attackId'
+  | 'activity'
+  | 'attackModes'
+  | 'ammunition'
+  | 'save'
+  | 'damage'
+  | 'consumesSlot'
+  | 'uses'
+> & {
+  /** The activity's id. */
+  id: string
+  /** Such as "Bonus Hex Damage", or its kind's, such as "Attack". */
+  name: string
+  /** Such as "attack", "save" or "summon", which the app can't use. */
+  type: string
 }
 
 /** Whom an activity is used at. */
@@ -360,6 +400,8 @@ export type SheetRolls = Pick<
   | 'ammunition'
   | 'save'
   | 'damage'
+  | 'consumesSlot'
+  | 'activities'
 >
 
 /** Actions taken with one kind of activation, such as Bonus Action. */
@@ -396,6 +438,7 @@ export type SheetActivityFavorite = Pick<
   | 'ammunition'
   | 'save'
   | 'damage'
+  | 'consumesSlot'
   | 'uses'
 > & {
   type: 'activity'

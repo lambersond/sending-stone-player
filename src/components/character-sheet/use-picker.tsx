@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Check, Crosshair, Skull, Sparkles } from 'lucide-react'
+import { verbOf } from './action-entry'
 import { Modal } from '@/components/modal'
 import {
   defaultPool,
@@ -178,7 +179,9 @@ function Choices({
     ...(modes.length > 0 && mode && { attackMode: mode }),
   }
   const pick = (targets: TableCombatant[]) => onPick({ targets, ...options })
-  const spell = action.type === 'spell'
+  // An activity used without spending a slot, such as Spirit Guardians' save each turn, is used at
+  // the level chosen, whether any slot is left or not.
+  const spends = action.consumesSlot !== false
 
   // Whom at.
   let whom
@@ -204,7 +207,7 @@ function Choices({
     const targets = useTargetsOf(action, combat)
     const castAt = pools.find(({ id }) => id === slot)?.level ?? action.level
     const most = mostTargets(use, action.level, castAt)
-    const verb = spell ? 'Cast' : 'Use'
+    const verb = verbOf(action)
     if (targets.length === 0) {
       whom = <Go label={verb} onGo={() => pick([])} />
     } else if (most === 1) {
@@ -246,19 +249,22 @@ function Choices({
   return (
     <div className='flex flex-col gap-4'>
       {pools.length > 0 && (
-        <ChipRow label='Cast at'>
+        <ChipRow label={spends ? 'Cast at' : 'At level'}>
           {pools.map(pool => (
             <Chip
               key={pool.id}
               selected={pool.id === slot}
-              disabled={pool.value === 0}
+              disabled={spends && pool.value === 0}
               onSelect={() => setSlot(pool.id)}
-              label={poolLabel(pool)}
+              label={spends ? poolLabel(pool) : pool.label}
             >
-              {poolName(pool)}{' '}
-              <span className='font-normal text-text-secondary'>
-                · {pool.value} left
-              </span>
+              {poolName(pool)}
+              {spends && (
+                <span className='font-normal text-text-secondary'>
+                  {' '}
+                  · {pool.value} left
+                </span>
+              )}
             </Chip>
           ))}
         </ChipRow>

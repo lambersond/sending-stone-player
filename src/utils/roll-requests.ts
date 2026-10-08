@@ -229,7 +229,8 @@ function checkUse(
 /**
  * Can a spell be cast with the slot chosen: one of the spell's pools, with one left? With none
  * chosen, has it any slot, or use of its own, left? A slot chosen for a spell cast without slots,
- * such as an innate one, is the game's to leave out.
+ * such as an innate one, is the game's to leave out. One of its activities used without spending a
+ * slot, such as Spirit Guardians' save each turn, may be used at any of its pools' levels.
  */
 function checkSlot(
   input: RollRequestInput,
@@ -240,7 +241,9 @@ function checkSlot(
   if (!input.slot) return outOfSlots(action, pools) ? 'slots' : undefined
   if (!pools) return undefined
   const pool = pools.find(({ id }) => id === input.slot)
-  return pool && pool.value > 0 ? undefined : 'slot'
+  // An activity used without spending a slot is used at its level, whether any is left or not.
+  const spends = action.consumesSlot !== false
+  return pool && (pool.value > 0 || !spends) ? undefined : 'slot'
 }
 
 /** Are these combatants of a combat their player can see, as picked? */

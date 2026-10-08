@@ -3,6 +3,7 @@ import { favoriteEntries, type FavoriteEntry } from '@/utils/favorites'
 import { allItems } from '@/utils/sheet-texts'
 import type {
   SheetAction,
+  SheetActivity,
   SheetFeature,
   SheetItem,
   SheetRolls,
@@ -20,8 +21,9 @@ type RollingSheet = Parameters<typeof favoriteEntries>[0]
 
 /**
  * Everything the character can roll or use, as actions: its actions, then its favorite
- * activities, then its spells, features and inventory items, so that an attack or a use is found
- * wherever it was made from, and checked as it would be made.
+ * activities, then its spells, features and inventory items, each followed by its other
+ * activities, so that an attack or a use is found wherever it was made from, and checked as it
+ * would be made.
  * @param entries - Its favorites, when they're at hand.
  */
 export function sheetActions(
@@ -40,7 +42,54 @@ export function sheetActions(
       section.features.flatMap(feature => present(featureAction(feature))),
     ),
     ...allItems(sheet).flatMap(item => present(itemAction(item))),
-  ]
+  ].flatMap(action => [action, ...activityActions(action)])
+}
+
+/**
+ * The other activities of an action with more than one, such as Hex's Bonus Hex Damage after its
+ * curse, each as an action of its own; none for one with one.
+ */
+export function activityActions(action: SheetAction): SheetAction[] {
+  return (action.activities ?? [])
+    .slice(1)
+    .map(activity => activityAction(action, activity))
+}
+
+/**
+ * One of an action's activities as an action of its own, as an activity made a favorite is: the
+ * item's, rolling and used as that activity alone, and named for both, such as "Hex (Bonus Hex
+ * Damage)", for its rolls.
+ */
+export function activityAction(
+  action: SheetAction,
+  activity: SheetActivity,
+): SheetAction {
+  return {
+    id: action.id,
+    name:
+      activity.name && activity.name !== action.name
+        ? `${action.name} (${activity.name})`
+        : action.name,
+    img: action.img,
+    type: action.type,
+    activation: activity.activation,
+    range: activity.range,
+    target: activity.target,
+    toHit: activity.toHit,
+    attackId: activity.attackId ?? null,
+    activity: activity.activity ?? null,
+    attackModes: activity.attackModes ?? null,
+    ammunition: activity.ammunition ?? null,
+    save: activity.save,
+    damage: activity.damage,
+    ...(activity.consumesSlot === false && { consumesSlot: false }),
+    uses: activity.uses,
+    level: action.level,
+    castFrom: action.castFrom ?? null,
+    concentration: action.concentration,
+    identified: action.identified,
+    text: action.text,
+  }
 }
 
 /**
@@ -133,6 +182,7 @@ function rollsOf(
   entry: Partial<SheetRolls>,
   inGame: boolean,
 ): SheetRolls | undefined {
+  const activities = entry.activities ?? []
   const rolls: SheetRolls = {
     toHit: entry.toHit ?? null,
     attackId: inGame ? (entry.attackId ?? null) : null,
@@ -141,12 +191,25 @@ function rollsOf(
     ammunition: entry.ammunition ?? null,
     save: entry.save ?? null,
     damage: entry.damage ?? [],
+    ...(entry.consumesSlot === false && { consumesSlot: false }),
+    // Each of its activities, for one with more than one, made in the game only while it may be.
+    ...(activities.length > 1 && {
+      activities: inGame
+        ? activities
+        : activities.map(activity => ({
+            ...activity,
+            attackId: null,
+            activity: null,
+          })),
+    }),
   }
-  const any =
-    rolls.toHit !== null ||
-    !!rolls.activity ||
-    rolls.save !== null ||
-    rolls.damage.length > 0
+  const any = [rolls, ...(rolls.activities ?? [])].some(
+    each =>
+      each.toHit !== null ||
+      !!each.activity ||
+      each.save !== null ||
+      each.damage.length > 0,
+  )
   return any ? rolls : undefined
 }
 
