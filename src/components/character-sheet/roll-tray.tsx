@@ -215,14 +215,25 @@ function reachOf(table: TableRolls): string {
   if (!table.sending) {
     return 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'
   }
-  if (table.takes?.('use')) {
-    return table.takes('hitDie')
-      ? 'Checks, saves, attacks, spells and hit dice you roll, cast or spend here are made in your Gamemaster’s game too, with the same dice.'
-      : 'Checks, saves, attacks and spells you roll or cast here are made in your Gamemaster’s game too, with the same dice.'
-  }
-  return table.takes?.('attack')
-    ? 'Checks, saves and attacks you roll here are made in your Gamemaster’s game too, with the same dice.'
-    : 'Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.'
+  const casts = table.takes?.('use') === true
+  const spends = table.takes?.('hitDie') === true
+  const kinds = ['Checks', 'saves']
+  if (casts || table.takes?.('attack')) kinds.push('attacks')
+  if (casts) kinds.push('spells')
+  if (spends) kinds.push('hit dice')
+  const verbs = [
+    'roll',
+    ...(casts ? ['cast'] : []),
+    ...(spends ? ['spend'] : []),
+  ]
+  return `${listed(kinds)} you ${listed(verbs, 'or')} here are made in your Gamemaster’s game too, with the same dice.`
+}
+
+/** Words listed as a sentence has them: "a, b and c". */
+function listed(words: string[], last = 'and'): string {
+  return words.length > 1
+    ? `${words.slice(0, -1).join(', ')} ${last} ${words.at(-1)}`
+    : words.join('')
 }
 
 /** What the game said of a roll, in words: why it wasn't made, mostly. */

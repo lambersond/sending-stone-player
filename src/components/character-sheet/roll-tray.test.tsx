@@ -1121,6 +1121,31 @@ describe('components/character-sheet/roll-tray', () => {
       )
     })
 
+    it.each([
+      [['hitDie'], 'Checks, saves and hit dice you roll or spend here'],
+      [
+        ['attack', 'hitDie'],
+        'Checks, saves, attacks and hit dice you roll or spend here',
+      ],
+    ])(
+      'names hit dice among what is made at the table without spells too (%j)',
+      (kinds, text) => {
+        render(
+          <RollTray
+            rolls={[]}
+            rolling={false}
+            table={table([], { takes: kind => kinds.includes(kind) })}
+          />,
+        )
+
+        expect(
+          screen.getByText(
+            `${text} are made in your Gamemaster’s game too, with the same dice.`,
+          ),
+        ).toBeInTheDocument()
+      },
+    )
+
     it('names hit dice among what is made at the table, when the game takes them', () => {
       render(
         <RollTray
