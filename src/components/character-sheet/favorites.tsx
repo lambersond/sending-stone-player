@@ -33,7 +33,7 @@ import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { formatModifier } from '@/utils/format-modifier'
-import { hitDieRoll } from '@/utils/formulas'
+import { hitDieRoll, spendable } from '@/utils/formulas'
 import type { RollActions } from './d20-rolls'
 import type {
   SheetDamageRoll,
@@ -347,7 +347,7 @@ function ClassEntry({
 }>) {
   const { hitDice } = entry
   let aside: ReactNode
-  if (hitDice && onSpendHitDie) {
+  if (hitDice && onSpendHitDie && spendable(hitDice)) {
     aside = (
       <HitDieButton
         pool={hitDice}

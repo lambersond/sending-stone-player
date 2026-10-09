@@ -340,6 +340,65 @@ describe('utils/favorites', () => {
     })
   })
 
+  it('rolls an activity favorite of a spell not prepared here only, and keeps its formula and area', () => {
+    const sheet = fullerSheet()
+    const [cantrips, ...spellbook] = sheet.spells
+    const entries = favoriteEntries({
+      ...sheet,
+      spells: [
+        {
+          ...cantrips,
+          spells: [
+            sheetSpell({ id: 'breath', name: 'Dragon Breath', prepared: 0 }),
+          ],
+        },
+        ...spellbook,
+      ],
+      favorites: [
+        {
+          type: 'activity',
+          id: 'breathAttack',
+          itemId: 'breath',
+          itemType: 'spell',
+          itemName: 'Dragon Breath',
+          name: 'Exhale',
+          img: null,
+          activation: '1 Action',
+          range: null,
+          target: '15 ft Cone',
+          toHit: 5,
+          attackId: 'breathAttack',
+          activity: {
+            id: 'breathUse',
+            type: 'utility',
+            targets: {
+              self: false,
+              area: true,
+              count: null,
+              perLevel: null,
+              affects: null,
+            },
+          },
+          save: null,
+          damage: [],
+          uses: null,
+          rollFormula: { formula: '1d6', name: 'Gust' },
+          attackArea: { count: null, perLevel: null, affects: 'creature' },
+        },
+      ],
+    })
+
+    const [entry] = entries
+    expect(entry.kind).toBe('action')
+    expect(entry.kind === 'action' && entry.action).toMatchObject({
+      attackId: null,
+      activity: null,
+      toHit: 5,
+      rollFormula: { formula: '1d6', name: 'Gust' },
+      attackArea: { count: null, perLevel: null, affects: 'creature' },
+    })
+  })
+
   describe('favoriteKeys', () => {
     it('marks the items, effects and skills that are favorites, and nothing for the rest', () => {
       expect(favoriteKeys(sheetFavorites())).toEqual(
@@ -349,6 +408,56 @@ describe('utils/favorites', () => {
   })
 
   describe('rollsAny', () => {
+    it('says so of a class whose hit dice are spent, and of one whose only roll is a formula', () => {
+      const sheet = fullerSheet({
+        favorites: [item('fighter', 'class'), item('lantern', 'loot')],
+      })
+      const [fighter] = favoriteEntries(sheet)
+      expect(rollsAny([fighter])).toBe(true)
+      expect(
+        rollsAny(
+          favoriteEntries({
+            ...sheet,
+            classes: sheet.classes.map(entry => ({ ...entry, hitDice: null })),
+          }),
+        ),
+      ).toBe(false)
+
+      const lantern = sheetAction({
+        id: 'lantern',
+        name: 'Lantern',
+        rollFormula: { formula: '1d4', name: 'Light radius' },
+      })
+      expect(
+        rollsAny(
+          favoriteEntries(
+            fullerSheet({
+              actions: [{ id: 'action', label: 'Actions', actions: [lantern] }],
+              favorites: [
+                {
+                  type: 'activity',
+                  id: 'lanternUse',
+                  itemId: 'lantern',
+                  itemType: 'loot',
+                  itemName: 'Lantern',
+                  name: 'Light',
+                  img: null,
+                  activation: null,
+                  range: null,
+                  target: null,
+                  toHit: null,
+                  save: null,
+                  damage: [],
+                  uses: null,
+                  rollFormula: lantern.rollFormula,
+                },
+              ],
+            }),
+          ),
+        ),
+      ).toBe(true)
+    })
+
     it('says whether any favorite rolls, as an attack, damage or a check does', () => {
       const sheet = fullerSheet({ favorites: sheetFavorites() })
       const entries = favoriteEntries(sheet)

@@ -95,6 +95,16 @@ describe('utils/formulas', () => {
       ])
     })
 
+    it('leaves out a size of hit die the game has none of, which no hit die spent could be', () => {
+      expect(
+        hitDicePools([
+          classWith('Fighter', 'd10', 2, 5),
+          classWith('Oddity', 'd3', 1, 1),
+          classWith('Mystery', 'x', 1, 1),
+        ]),
+      ).toEqual([{ die: 'd10', value: 2, max: 5 }])
+    })
+
     it("can't say how many there are of a size when the sheet doesn't say for one of its classes", () => {
       expect(
         hitDicePools([

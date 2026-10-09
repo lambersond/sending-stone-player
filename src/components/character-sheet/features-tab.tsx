@@ -11,7 +11,7 @@ import { HitDieButton } from './hit-dice'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesLeft } from './uses-left'
-import { hitDieRoll } from '@/utils/formulas'
+import { hitDieRoll, spendable } from '@/utils/formulas'
 import { featureAction } from '@/utils/sheet-actions'
 import type {
   SheetDamageRoll,
@@ -188,7 +188,7 @@ function ClassCard({
           </span>
         )}
       </span>
-      {hitDice && onSpendHitDie && (
+      {hitDice && onSpendHitDie && spendable(hitDice) && (
         <HitDieButton
           pool={hitDice}
           onSpend={onSpendHitDie}
@@ -197,7 +197,7 @@ function ClassCard({
           {counts}
         </HitDieButton>
       )}
-      {hitDice && !onSpendHitDie && (
+      {hitDice && !(onSpendHitDie && spendable(hitDice)) && (
         <span className='flex shrink-0 items-center gap-1.5 text-sm'>
           {counts}
         </span>

@@ -247,7 +247,8 @@ function actionNote(
 
 /**
  * An activity as an action: what it does, from the favorite, and of its item, from the rest of the
- * sheet, its spell level, whether it's identified, and its description.
+ * sheet, its spell level, whether it's identified, and its description. One of a spell not
+ * prepared is rolled here only, as on the Spells tab, as the game would have it prepared first.
  */
 function activityAction(
   favorite: SheetActivityFavorite,
@@ -258,6 +259,7 @@ function activityAction(
   const spell = index.spells.get(itemId)
   const item = index.items.get(itemId)
   const feature = index.features.get(itemId)
+  const inGame = spell?.prepared !== 0
   return {
     action: {
       // The item's, as an action's is, by which its spell is found in the spellbook.
@@ -269,8 +271,8 @@ function activityAction(
       range: favorite.range,
       target: favorite.target,
       toHit: favorite.toHit,
-      attackId: favorite.attackId ?? null,
-      activity: favorite.activity ?? null,
+      attackId: inGame ? (favorite.attackId ?? null) : null,
+      activity: inGame ? (favorite.activity ?? null) : null,
       attackModes: favorite.attackModes ?? null,
       ammunition: favorite.ammunition ?? null,
       save: favorite.save,

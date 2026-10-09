@@ -1,3 +1,4 @@
+import { HIT_DIE } from '@/constants/sending-stone'
 import {
   parseExtraTerms,
   type ExtraDice,
@@ -32,6 +33,11 @@ export type HitDicePool = {
   max: number | null
 }
 
+/** Is this a size of hit die the game has, which a hit die spent there can be, such as "d10"? */
+export function spendable({ die }: Pick<HitDicePool, 'die'>): boolean {
+  return HIT_DIE.test(die)
+}
+
 /**
  * A character's hit dice by size, largest first, as dnd5e's sheet shows them: those of every class
  * with that size of hit die added together.
@@ -39,7 +45,7 @@ export type HitDicePool = {
 export function hitDicePools(classes: SheetClass[]): HitDicePool[] {
   const pools = new Map<string, HitDicePool>()
   for (const { hitDice } of classes) {
-    if (!hitDice) continue
+    if (!hitDice || !spendable(hitDice)) continue
     const pool = pools.get(hitDice.die)
     pools.set(
       hitDice.die,
