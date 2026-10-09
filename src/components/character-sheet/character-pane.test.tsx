@@ -362,7 +362,7 @@ describe('components/character-sheet/character-pane', () => {
     )
 
     await user.click(
-      screen.getByRole('button', { name: 'Spend a d10 hit die, 3 of 5 left' }),
+      screen.getByRole('button', { name: 'd10 3/5 left, spend one' }),
     )
 
     expect(posted).toEqual([

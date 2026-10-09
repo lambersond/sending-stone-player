@@ -101,6 +101,13 @@ export function SpellsTab({
       {favorites}
       {sheet.spellcasting && <Spellcasting spellcasting={sheet.spellcasting} />}
       {searchable && <SpellSearch query={query} onChange={setQuery} />}
+      {/* What a search finds, as a screen reader is told while typing; the tray's is the page's
+          status. */}
+      {searchable && (
+        <p aria-live='polite' className='sr-only'>
+          {search && foundOf(sections)}
+        </p>
+      )}
 
       {sections.map(section => (
         <section
@@ -147,6 +154,16 @@ export function SpellsTab({
       {dialogs}
     </div>
   )
+}
+
+/** How many spells a search found, in words. */
+function foundOf(sections: TableSheet['spells']): string {
+  const found = sections.reduce(
+    (total, section) => total + section.spells.length,
+    0,
+  )
+  if (found === 0) return 'No spells found'
+  return found === 1 ? '1 spell found' : `${found} spells found`
 }
 
 /** A search of the character's spells by name, whatever its case. */
@@ -265,12 +282,14 @@ export function SpellEntry({
   ]
     .filter(Boolean)
     .join(' ')
-  // A spell its item can't cast now is listed, but can't be cast, and says why in its detail.
-  const unusable = spell.castFrom?.usable === false
+  // A spell its item can't cast now is listed, but can't be cast, and says why: first, where a
+  // narrow row cuts the rest short, and once it's open.
+  const unusable = spell.castFrom?.usable === false ? spell.castFrom : undefined
   const meta = joinParts(
     spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`,
     spell.school,
     unprepared && 'Not prepared',
+    unusable && `${whyNot(unusable)} · From ${unusable.name}`,
   )
   const marked =
     unprepared || spell.concentration || spell.ritual || spell.prepared === 2
@@ -305,11 +324,15 @@ export function SpellEntry({
       img={spell.img}
       fallback={Wand}
       favoriteKey={`item:${spell.id}`}
-      detail={joinParts(
-        spell.activation,
-        spell.range,
-        spell.castFrom && fromNote(spell.castFrom),
-      )}
+      detail={
+        unusable
+          ? joinParts(whyNot(unusable), fromNote(unusable), spell.activation)
+          : joinParts(
+              spell.activation,
+              spell.range,
+              spell.castFrom && fromNote(spell.castFrom),
+            )
+      }
       aside={
         (marked || spell.uses) && (
           <span className='flex shrink-0 items-center gap-1'>
@@ -327,20 +350,14 @@ export function SpellEntry({
         ['Components', components],
       ])}
       text={spell.text}
-      muted={unprepared || unusable}
+      muted={unprepared || !!unusable}
     />
   )
 }
 
-/**
- * The item a spell is cast from, such as "From Wand of Fireballs", and why it can't be cast now,
- * if it can't.
- */
-function fromNote(castFrom: SheetCastFrom): string | undefined {
-  return joinParts(
-    `From ${castFrom.name}`,
-    castFrom.usable === false && whyNot(castFrom),
-  )
+/** The item a spell is cast from, such as "From Wand of Fireballs". */
+function fromNote(castFrom: SheetCastFrom): string {
+  return `From ${castFrom.name}`
 }
 
 /** Why the item a spell is cast from can't cast it now: it needs attuning, or else it can't. */

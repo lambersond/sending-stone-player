@@ -259,14 +259,13 @@ describe('components/character-sheet/character-sheet', () => {
       />,
     )
 
-    const spend = within(
-      screen.getByRole('group', { name: 'Hit dice' }),
-    ).getAllByRole('button')
-    expect(spend.map(button => button.getAttribute('aria-label'))).toEqual([
-      'Spend a d10 hit die, 4 of 7 left',
-      'Spend a d6 hit die, 0 of 2 left',
-    ])
-    expect(spend.map(button => button.textContent)).toEqual(['d104/7', 'd60/2'])
+    const dice = within(screen.getByRole('group', { name: 'Hit dice' }))
+    // Named for what each shows, then what it does.
+    const spend = [
+      dice.getByRole('button', { name: 'd10 4/7 left, spend one' }),
+      dice.getByRole('button', { name: 'd6 0/2 left, spend one' }),
+    ]
+    expect(dice.getAllByRole('button')).toEqual(spend)
     expect(spend[1]).toBeDisabled()
 
     await user.click(spend[0])

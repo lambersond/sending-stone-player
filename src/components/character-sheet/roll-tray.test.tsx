@@ -304,6 +304,31 @@ describe('components/character-sheet/roll-tray', () => {
     )
   })
 
+  it('says among the earlier rolls when a hit die gave back its least', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          hitDie({ id: 'h2' }),
+          hitDie({
+            total: 1,
+            terms: [
+              { text: '1d6', values: [1], value: 1 },
+              { text: '−2', values: [], value: -2 },
+            ],
+            minimum: 1,
+          }),
+        ]}
+        rolling={false}
+      />,
+    )
+
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      'Hit die (d10)1 −2, at least 1 = 1',
+    )
+  })
+
   describe('at the table', () => {
     const table = (
       states: [string, TableRollState][] = [],
@@ -1061,6 +1086,26 @@ describe('components/character-sheet/roll-tray', () => {
         /1d10 \(7\) \+2At the table: 9 · 4 HP regained$/,
       )
     })
+
+    it.each([
+      ['self-test', 'your Gamemaster’s game can’t make it with your dice'],
+      ['area', 'your Gamemaster’s game can’t make that area attack from here'],
+    ])(
+      'says what the game refusing it as %s means, whatever was rolled',
+      (reason, text) => {
+        render(
+          <RollTray
+            rolls={[hitDie()]}
+            rolling={false}
+            table={table([['h1', { status: 'failed', reason }]])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          `Not made at the table: ${text}`,
+        )
+      },
+    )
 
     it('says why a hit die was not spent at the table', () => {
       render(

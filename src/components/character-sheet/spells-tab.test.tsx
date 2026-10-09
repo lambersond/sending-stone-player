@@ -371,7 +371,7 @@ describe('components/character-sheet/spells-tab', () => {
     ).toEqual(['Magic Missile1 Action · 120 ft · From Wand of Magic Missiles'])
   })
 
-  it('lists a spell its item can’t cast now, muted, saying why, and without its rolls', () => {
+  it('lists a spell its item can’t cast now, muted, saying why, and without its rolls', async () => {
     renderTab(
       fullerSheet({
         spells: [
@@ -415,14 +415,21 @@ describe('components/character-sheet/spells-tab', () => {
     expect(
       rows(screen.getByRole('region', { name: 'Additional Spells' })),
     ).toEqual([
-      'Silvery Barbs1 Reaction · 60 ft · From Worn Bardic Eternal Flame · Needs attuning',
-      'Light1 Action · Touch · From Staff · Can’t be cast now',
+      'Silvery BarbsNeeds attuning · From Worn Bardic Eternal Flame · 1 Reaction',
+      'LightCan’t be cast now · From Staff · 1 Action',
       'Magic Missile1 Action · 120 ft · From Wand of Magic Missiles',
     ])
     expect(row('Silvery Barbs')).toHaveClass('opacity-60')
     expect(row('Light')).toHaveClass('opacity-60')
     expect(row('Magic Missile')).not.toHaveClass('opacity-60')
     expect(screen.queryByRole('button', { name: /Silvery Barbs/ })).toBeNull()
+    // Opened, it says so again, beyond where a narrow row cuts it short.
+    await userEvent.setup().click(row('Silvery Barbs'))
+    expect(
+      await within(row('Silvery Barbs').parentElement!).findByText(
+        /· Needs attuning · From Worn Bardic Eternal Flame$/,
+      ),
+    ).toBeInTheDocument()
   })
 
   it('searches spells by name, whatever its case, once there are more than four', async () => {
@@ -433,6 +440,7 @@ describe('components/character-sheet/spells-tab', () => {
     })
 
     await user.type(search, 'BOLT')
+    expect(screen.getByText('2 spells found')).toHaveClass('sr-only')
     expect(
       screen.getAllByRole('heading').map(heading => heading.textContent),
     ).toEqual(['Spellcasting', 'Cantrips', 'Not prepared'])
@@ -451,6 +459,11 @@ describe('components/character-sheet/spells-tab', () => {
     await user.clear(search)
     await user.type(search, '  wish ')
     expect(screen.getByText('No spells match “wish”.')).toBeInTheDocument()
+    // A screen reader hears what the search found.
+    expect(screen.getByText('No spells found')).toHaveAttribute(
+      'aria-live',
+      'polite',
+    )
 
     await user.clear(search)
     expect(screen.getByRole('region', { name: 'Innate' })).toBeInTheDocument()

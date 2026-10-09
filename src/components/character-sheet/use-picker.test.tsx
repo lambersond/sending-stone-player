@@ -413,6 +413,66 @@ describe('components/character-sheet/use-picker', () => {
       })
     })
 
+    it('takes more for each level it is cast above its own, with its only pool of slots, as the game does', () => {
+      const ray = spell('ray', 'Scorching Cone', 1, {
+        attackId: 'rayAttack',
+        toHit: 6,
+        attackArea: { count: 1, perLevel: 1, affects: 'creature' },
+      })
+      render(
+        <UsePicker
+          picking={attacking(ray)}
+          combat={fight}
+          spellbook={[
+            {
+              id: 'pact',
+              label: 'Pact Magic',
+              slots: { value: 2, max: 2, level: 3 },
+              spells: [sheetSpell({ id: 'ray', name: 'Scorching Cone' })],
+            },
+          ]}
+          areas
+          onPick={jest.fn()}
+          onClose={jest.fn()}
+        />,
+      )
+
+      // Cast with a 3rd-level pact slot, two levels higher: three targets.
+      expect(
+        screen.getByText('Tick who is caught in the area. Up to 3.'),
+      ).toBeInTheDocument()
+    })
+
+    it('ticks no more than the game takes at once, however many an area may catch', async () => {
+      const user = userEvent.setup()
+      const crowd: TableCombat = {
+        ...fight,
+        combatants: Array.from({ length: 22 }, (_, index) =>
+          combatant({ id: `foe${index}`, name: `Foe ${index}` }),
+        ),
+      }
+      renderPicker(
+        attacking({
+          ...breath,
+          attackArea: { count: null, perLevel: null, affects: 'creature' },
+        }),
+        { combat: crowd, areas: true },
+      )
+
+      expect(
+        screen.getByText('Tick who is caught in the area.'),
+      ).toBeInTheDocument()
+      for (const index of Array.from({ length: 20 }, (_, at) => at)) {
+        await user.click(
+          screen.getByRole('checkbox', { name: new RegExp(`^Foe ${index}$`) }),
+        )
+      }
+      expect(screen.getByRole('checkbox', { name: /^Foe 20$/ })).toBeDisabled()
+      expect(
+        screen.getByRole('button', { name: 'Attack 20 targets' }),
+      ).toBeInTheDocument()
+    })
+
     it('takes one target, as any attack, where the game makes it at one', async () => {
       const user = userEvent.setup()
       const { onPick } = renderPicker(attacking(breath))

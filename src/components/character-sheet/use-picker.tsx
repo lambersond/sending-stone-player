@@ -5,7 +5,9 @@ import clsx from 'clsx'
 import { Check, Crosshair, Skull, Sparkles } from 'lucide-react'
 import { actionTitle, verbOf } from './action-entry'
 import { Modal } from '@/components/modal'
+import { MAX_USE_TARGETS } from '@/constants/sending-stone'
 import {
+  castAtLevel,
   defaultPool,
   poolName,
   slotPools,
@@ -192,16 +194,18 @@ function Choices({
   // the level chosen, whether any slot is left or not.
   const spends = action.consumesSlot !== false
 
-  // Those ticked, as many as a use or an area attack takes at the slot chosen.
-  const castAt = pools.find(({ id }) => id === slot)?.level ?? action.level
+  // Those ticked, as many as a use or an area attack takes at the slot chosen, as the game takes
+  // them: no more than it's sent.
+  const castAt = castAtLevel(action, spellbook, slot)
   const tickList = (
     targets: TableCombatant[],
-    { area, most, verb }: { area: boolean; most: number; verb: string },
+    { area, most: takes, verb }: { area: boolean; most: number; verb: string },
   ) => {
+    const most = Math.min(takes, MAX_USE_TARGETS)
     const chosen = ticked.slice(0, most)
     return (
       <TickList
-        lead={leadFor(area, most)}
+        lead={leadFor(area, takes)}
         targets={targets}
         ticked={chosen}
         full={chosen.length >= most}

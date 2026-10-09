@@ -25,7 +25,7 @@ describe('components/character-sheet/features-tab', () => {
       screen.getByRole('region', { name: 'Classes' }),
     ).getAllByRole('listitem')
     expect(classes.map(item => item.textContent)).toEqual([
-      'Fighter 5ChampionHit dice3/5 d10',
+      'Fighter 5ChampionHit dice 3/5 d10',
     ])
   })
 
@@ -63,12 +63,12 @@ describe('components/character-sheet/features-tab', () => {
     const classes = screen.getByRole('region', { name: 'Classes' })
     expect(
       within(classes).getByRole('button', {
-        name: 'Spend a d6 hit die, 0 of 2 left',
+        name: 'Hit dice 0/2 d6 left, spend one',
       }),
     ).toBeDisabled()
     await user.click(
       within(classes).getByRole('button', {
-        name: 'Spend a d10 hit die, 3 of 5 left',
+        name: 'Hit dice 3/5 d10 left, spend one',
       }),
     )
     // At least none under the 2014 rules.
@@ -80,7 +80,7 @@ describe('components/character-sheet/features-tab', () => {
       }),
     )
     expect(within(classes).getAllByRole('listitem')[0]).toHaveTextContent(
-      'Fighter 5ChampionHit dice3/5 d10',
+      'Fighter 5ChampionHit dice 3/5 d10 left, spend one',
     )
   })
 
@@ -229,7 +229,7 @@ describe('components/character-sheet/features-tab', () => {
     })
 
     expect(screen.getByRole('region', { name: 'Classes' })).toHaveTextContent(
-      'FighterHit dice–/– d8',
+      'FighterHit dice –/– d8',
     )
   })
 

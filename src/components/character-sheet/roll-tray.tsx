@@ -241,10 +241,10 @@ const REASONS: Record<string, string> = {
   lost: 'no answer from your Gamemaster’s game',
   'attacks-off': 'your Gamemaster’s game isn’t taking attacks',
   'midi-off': 'your Gamemaster’s game isn’t taking attacks',
-  'self-test': 'your Gamemaster’s game isn’t taking attacks',
+  'self-test': 'your Gamemaster’s game can’t make it with your dice',
   item: 'your character in the game hasn’t that item',
   activity: 'it can’t be used from Sending Stone',
-  area: 'your Gamemaster’s game picks that area’s targets itself',
+  area: 'your Gamemaster’s game can’t make that area attack from here',
   ammo: 'you have none of that ammunition left',
   mode: 'the weapon can’t attack that way',
   target: 'a target can’t be picked, or there are too many',
@@ -785,11 +785,14 @@ function byTheGame(roll: LocalDamage): boolean {
 function breakdown(roll: LocalRoll): string {
   if (roll.kind === 'use') return roll.spell ? 'cast' : 'used'
   if (roll.kind === 'formula') {
-    return roll.terms
+    const terms = roll.terms
       .map(({ value }, index) =>
         index === 0 ? String(value) : formatModifier(value),
       )
       .join(' ')
+    return roll.minimum === undefined
+      ? terms
+      : `${terms}, at least ${roll.minimum}`
   }
   if (roll.kind === 'damage') {
     if (byTheGame(roll)) return 'rolled at the table'

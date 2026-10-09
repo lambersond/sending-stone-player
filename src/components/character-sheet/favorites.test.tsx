@@ -215,9 +215,9 @@ describe('components/character-sheet/favorites', () => {
       />,
     )
 
-    expect(rows()).toEqual(['Fighter 5Championd103/5'])
+    expect(rows()).toEqual(['Fighter 5Championd10 3/5 left, spend one'])
     await user.click(
-      screen.getByRole('button', { name: 'Spend a d10 hit die, 3 of 5 left' }),
+      screen.getByRole('button', { name: 'd10 3/5 left, spend one' }),
     )
     expect(onRollFormula).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -399,6 +399,57 @@ describe('utils/favorites', () => {
     })
   })
 
+  it("rolls an activity favorite of a spell its item can't cast now here only", () => {
+    const sheet = fullerSheet()
+    const [cantrips, ...spellbook] = sheet.spells
+    const [entry] = favoriteEntries({
+      ...sheet,
+      spells: [
+        {
+          ...cantrips,
+          spells: [
+            sheetSpell({
+              id: 'ray',
+              name: 'Ray of Frost',
+              castFrom: {
+                id: 'staff',
+                name: 'Staff of Frost',
+                usable: false,
+                attune: true,
+              },
+            }),
+          ],
+        },
+        ...spellbook,
+      ],
+      favorites: [
+        {
+          type: 'activity',
+          id: 'rayshot',
+          itemId: 'ray',
+          itemType: 'spell',
+          itemName: 'Ray of Frost',
+          name: 'Ray of Frost',
+          img: null,
+          activation: '1 Action',
+          range: null,
+          target: null,
+          toHit: 6,
+          attackId: 'rayshot',
+          save: null,
+          damage: [{ formula: '1d8', type: 'Cold', healing: false }],
+          uses: null,
+        },
+      ],
+    })
+
+    expect(entry.kind === 'action' && entry.action).toMatchObject({
+      attackId: null,
+      activity: null,
+      toHit: 6,
+    })
+  })
+
   describe('favoriteKeys', () => {
     it('marks the items, effects and skills that are favorites, and nothing for the rest', () => {
       expect(favoriteKeys(sheetFavorites())).toEqual(

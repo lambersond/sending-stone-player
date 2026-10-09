@@ -169,7 +169,7 @@ function ClassCard({
   const counts = hitDice && (
     <>
       <HeartPulse aria-hidden className='size-4 text-text-secondary' />
-      <span className='text-text-secondary'>Hit dice</span>
+      <span className='text-text-secondary'>Hit dice</span>{' '}
       <span className='font-semibold tabular-nums'>
         {hitDice.value ?? '–'}/{hitDice.max ?? '–'} {hitDice.die}
       </span>
