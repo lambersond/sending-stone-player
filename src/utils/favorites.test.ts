@@ -18,6 +18,20 @@ const item = (id: string, itemType = 'loot'): SheetFavorite => ({
   img: null,
 })
 
+/** One of an item's activities, rolling nothing. */
+const activity = (id: string, name: string) => ({
+  id,
+  name,
+  type: 'cast',
+  activation: null,
+  range: null,
+  target: null,
+  toHit: null,
+  save: null,
+  damage: [],
+  uses: null,
+})
+
 describe('utils/favorites', () => {
   describe('favoriteEntries', () => {
     it('finds what each favorite refers to on the sheet, in the order dnd5e shows them', () => {
@@ -273,6 +287,51 @@ describe('utils/favorites', () => {
 
       expect(favoriteEntries(sheet).map(({ key }) => key)).toEqual([
         'skill:ath',
+      ])
+    })
+
+    it('shows an item listed under each kind of action it has as its first row, with every activity of the rest', () => {
+      const strike = activity('strike', 'Attack')
+      const barbs = activity('cast-barbs', 'Silvery Barbs')
+      const wisp = activity('cast-wisp', 'Starry Wisp')
+      const sheet = fullerSheet({
+        actions: [
+          {
+            id: 'reaction',
+            label: 'Reactions',
+            actions: [
+              sheetAction({
+                id: 'flame',
+                name: 'Bardic Flame',
+                activityName: 'Silvery Barbs',
+                activities: [barbs],
+              }),
+            ],
+          },
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'flame',
+                name: 'Bardic Flame',
+                toHit: 5,
+                activities: [strike, wisp],
+              }),
+            ],
+          },
+        ],
+        favorites: [item('flame', 'weapon')],
+      })
+      const [entry] = favoriteEntries(sheet)
+
+      if (entry.kind !== 'action') throw new Error('an action')
+      expect(entry.action).toMatchObject({ toHit: 5 })
+      expect(entry.action).not.toHaveProperty('activityName')
+      expect(entry.action.activities?.map(a => a.id)).toEqual([
+        'strike',
+        'cast-wisp',
+        'cast-barbs',
       ])
     })
 

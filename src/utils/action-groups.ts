@@ -88,12 +88,14 @@ function groupOf(
       order: ORDER.features,
     }
   }
-  const kind = ITEM_KINDS[action.type]
+  // An item used up, such as a scroll, or a necklace whose beads never come back, is a consumable.
+  const type = action.consumable ? 'consumable' : action.type
+  const kind = ITEM_KINDS[type]
   return kind
     ? {
         ...kind,
         slots: null,
-        order: ORDER.items + ITEM_ORDER.indexOf(action.type),
+        order: ORDER.items + ITEM_ORDER.indexOf(type),
       }
     : {
         id: 'items',

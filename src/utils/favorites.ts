@@ -272,10 +272,19 @@ function activityAction(
       save: favorite.save,
       damage: favorite.damage,
       ...(favorite.consumesSlot === false && { consumesSlot: false }),
+      ...(favorite.cast && { cast: favorite.cast }),
       uses: favorite.uses,
       level: spell?.level ?? action?.level ?? null,
-      castFrom: action?.castFrom ?? spell?.castFrom ?? null,
-      concentration: action?.concentration ?? spell?.concentration ?? false,
+      // A spell the item casts is cast from it.
+      castFrom: favorite.cast
+        ? { id: itemId, name: favorite.itemName }
+        : (action?.castFrom ?? spell?.castFrom ?? null),
+      // A spell the item casts takes concentration as the spell does.
+      concentration:
+        favorite.cast?.concentration ??
+        action?.concentration ??
+        spell?.concentration ??
+        false,
       identified: item?.identified ?? action?.identified ?? true,
       text: action?.text ?? spell?.text ?? item?.text ?? feature?.text ?? null,
     },
@@ -286,11 +295,37 @@ function activityAction(
   }
 }
 
+/**
+ * Each item as one action, as Favorites, which has no sections, shows it: an item the Actions tab
+ * lists under each kind of action it has, such as a staff that strikes as an action and casts
+ * Silvery Barbs as a reaction, is its row for its first activity, with every activity of its other
+ * rows besides.
+ */
+function wholeActions(actions: SheetAction[]): Map<string, SheetAction> {
+  const whole = new Map<string, SheetAction>()
+  for (const action of actions) {
+    const kept = whole.get(action.id)
+    if (!kept) {
+      whole.set(action.id, action)
+      continue
+    }
+    const [first, other] =
+      kept.activityName && !action.activityName
+        ? [action, kept]
+        : [kept, action]
+    whole.set(action.id, {
+      ...first,
+      activities: [...(first.activities ?? []), ...(other.activities ?? [])],
+    })
+  }
+  return whole
+}
+
 function indexOf(sheet: Parameters<typeof favoriteEntries>[0]): Index {
   const byId = <T extends { id: string }>(entries: T[]) =>
     new Map(entries.map(entry => [entry.id, entry]))
   return {
-    actions: byId(sheet.actions.flatMap(section => section.actions)),
+    actions: wholeActions(sheet.actions.flatMap(section => section.actions)),
     spells: byId(sheet.spells.flatMap(section => section.spells)),
     items: byId(allItems(sheet)),
     features: byId(sheet.features.flatMap(section => section.features)),

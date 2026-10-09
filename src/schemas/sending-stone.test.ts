@@ -1044,6 +1044,79 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it('reads an item under each kind of action it has, the spells it casts and what is used up, as sent from module 0.15.0', () => {
+    const sheet = fullerSheet()
+    const [section, ...rest] = sheet.actions
+    const [warhammer, ...others] = section.actions
+    const cast = { level: 1, concentration: false, charges: 1, short: true }
+    const barbs = {
+      id: 'cast-barbs',
+      name: 'Silvery Barbs',
+      type: 'cast',
+      activation: 'Reaction',
+      activationType: 'reaction',
+      range: '60 ft',
+      target: null,
+      toHit: null,
+      attackId: null,
+      activity: null,
+      attackModes: null,
+      ammunition: null,
+      save: null,
+      damage: [],
+      cast,
+      uses: null,
+    }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          actions: [
+            {
+              ...section,
+              actions: [
+                {
+                  ...warhammer,
+                  activityName: 'Silvery Barbs',
+                  activationType: 'reaction',
+                  consumable: true,
+                  cast: { ...cast, text: TEXTS.shield },
+                  activities: [barbs, { ...barbs, id: 'odd', cast: 'yes' }],
+                },
+                {
+                  ...others[0],
+                  activityName: 7,
+                  activationType: 5,
+                  consumable: 'yes',
+                  cast: { level: 'high', short: 'no' },
+                },
+                ...others.slice(1),
+              ],
+            },
+            ...rest,
+          ],
+        },
+      },
+    }) as any
+
+    const [read, odd] = event.data.character.sheet.actions[0].actions
+    expect(read).toMatchObject({
+      activityName: 'Silvery Barbs',
+      activationType: 'reaction',
+      consumable: true,
+      cast: { ...cast, text: TEXTS.shield },
+      activities: [barbs, { ...barbs, id: 'odd', cast: null }],
+    })
+    // Malformed, each reads as though it weren't sent.
+    expect(odd).toMatchObject({
+      activityName: null,
+      activationType: null,
+      consumable: false,
+      cast: { level: 0, concentration: false, charges: null, short: false },
+    })
+  })
+
   it('reads a sheet from before module 0.8.0 as having no actions', () => {
     const { actions, ...older } = characterSheet()
     const event = parseGameEvent('character.updated', {

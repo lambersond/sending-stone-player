@@ -83,10 +83,18 @@ export function activityAction(
     save: activity.save,
     damage: activity.damage,
     ...(activity.consumesSlot === false && { consumesSlot: false }),
+    ...(activity.cast && { cast: activity.cast }),
+    ...(activity.activationType !== undefined && {
+      activationType: activity.activationType,
+    }),
     uses: activity.uses,
     level: action.level,
-    castFrom: action.castFrom ?? null,
-    concentration: action.concentration,
+    // A spell the item casts is cast from it.
+    castFrom: activity.cast
+      ? { id: action.id, name: action.name }
+      : (action.castFrom ?? null),
+    // A spell cast from the item takes concentration as the spell does.
+    concentration: activity.cast?.concentration ?? action.concentration,
     identified: action.identified,
     text: action.text,
   }
@@ -192,6 +200,7 @@ function rollsOf(
     save: entry.save ?? null,
     damage: entry.damage ?? [],
     ...(entry.consumesSlot === false && { consumesSlot: false }),
+    ...(entry.cast && { cast: entry.cast }),
     // Each of its activities, for one with more than one, made in the game only while it may be.
     ...(activities.length > 1 && {
       activities: inGame

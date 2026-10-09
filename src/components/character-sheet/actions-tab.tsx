@@ -13,17 +13,21 @@ import {
 import {
   ActionDetails,
   ActionEntry,
+  actionTitle,
   activityDetail,
   AttackChip,
   attackSource,
+  castNote,
   Chevron,
   DamageChip,
+  dimmed,
   FALLBACKS,
   firstInFoundry,
+  moreNote,
   otherActivities,
+  ownUses,
   SaveChip,
   useActionRows,
-  usedFromApp,
   UseChip,
   verbOf,
   viewOf,
@@ -262,9 +266,15 @@ function ActionSection({
           labelledBy={section.headingId}
           rows={rows}
           state={groups}
+          section={section.id}
         />
       ) : (
-        <ActionList groups={section.groups} rows={rows} state={groups} />
+        <ActionList
+          groups={section.groups}
+          rows={rows}
+          state={groups}
+          section={section.id}
+        />
       )}
     </section>
   )
@@ -278,7 +288,14 @@ function ActionList({
   groups,
   rows,
   state,
-}: Readonly<{ groups: ActionGroup[]; rows: ActionRows; state: Groups }>) {
+  section,
+}: Readonly<{
+  groups: ActionGroup[]
+  rows: ActionRows
+  state: Groups
+  /** The section's id: the kind of action its actions take, which goes without saying. */
+  section: string
+}>) {
   const prefix = useId()
   return (
     // A container, so that each row fits the column it's in.
@@ -304,7 +321,12 @@ function ActionList({
             {/* Closed, its actions are hidden but kept, each as open as it was. */}
             <ul id={`${prefix}-${group.id}-actions`} hidden={!open}>
               {group.actions.map(action => (
-                <ActionEntry key={action.id} action={action} rows={rows} />
+                <ActionEntry
+                  key={action.id}
+                  action={action}
+                  rows={rows}
+                  section={section}
+                />
               ))}
             </ul>
           </div>
@@ -377,11 +399,13 @@ function ActionTable({
   labelledBy,
   rows,
   state,
+  section,
 }: Readonly<{
   groups: ActionGroup[]
   labelledBy: string
   rows: ActionRows
   state: Groups
+  section: string
 }>) {
   const prefix = useId()
   const head = 'px-2 py-2 text-left font-semibold whitespace-nowrap'
@@ -436,6 +460,7 @@ function ActionTable({
                   action={action}
                   rows={rows}
                   hidden={!open}
+                  section={section}
                 />
               ))}
             </tbody>
@@ -447,20 +472,36 @@ function ActionTable({
 }
 
 /**
- * An action in a table: its name, opening to the rest in a row of its own below, and its range,
- * what it rolls and its uses, each in its column; then each of its other activities, in a row of
- * its own.
+ * An action in a table: its name, opening to the rest below, and its range, what it rolls and its
+ * uses, each in its column; once it's open, each of its other activities, in a row of its own, and
+ * all there is to know of it.
  */
 function ActionTableRow({
   action,
   rows,
   hidden,
-}: Readonly<{ action: SheetAction; rows: ActionRows; hidden: boolean }>) {
+  section,
+}: Readonly<{
+  action: SheetAction
+  rows: ActionRows
+  hidden: boolean
+  section: string
+}>) {
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
-  const { name, toHit, save, uses } = action
+  const { toHit, save, uses } = action
+  const others = otherActivities(action)
+  // Its range has a column of its own.
+  const detail = joinParts(
+    action.activityName,
+    castNote(action.cast),
+    view.spent && 'No slots left',
+    firstInFoundry(action) && 'Used in Foundry',
+    !open && moreNote(others.length),
+  )
+  const name = actionTitle(action)
 
   return (
     <>
@@ -475,7 +516,7 @@ function ActionTableRow({
             onClick={() => setOpen(!open)}
             className={clsx(
               'flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-primary/5',
-              view.spent && 'opacity-60',
+              (view.spent || action.cast?.short) && 'opacity-60',
             )}
           >
             <EntryIcon
@@ -484,16 +525,13 @@ function ActionTableRow({
             />
             <span className='min-w-0 flex-1'>
               <span className='flex items-center gap-1'>
-                <span className='truncate font-medium'>{name}</span>
+                <span className='truncate font-medium'>{action.name}</span>
                 {favorite && <FavoriteStar />}
                 <Chevron open={open} />
               </span>
-              {(view.spent || firstInFoundry(action)) && (
+              {detail && (
                 <span className='block truncate text-xs text-text-secondary'>
-                  {joinParts(
-                    view.spent && 'No slots left',
-                    firstInFoundry(action) && 'Used in Foundry',
-                  )}
+                  {detail}
                 </span>
               )}
             </span>
@@ -549,16 +587,19 @@ function ActionTableRow({
           )}
         </td>
       </tr>
-      {otherActivities(action).map(other => (
-        <ActivityTableRow
-          key={other.activity.id}
-          activity={other.activity}
-          action={other.action}
-          parent={action}
-          rows={rows}
-          hidden={hidden}
-        />
-      ))}
+      {/* Its other activities, folded away with the rest until it's opened. */}
+      {open &&
+        others.map(other => (
+          <ActivityTableRow
+            key={other.activity.id}
+            activity={other.activity}
+            action={other.action}
+            parent={action}
+            rows={rows}
+            hidden={hidden}
+            section={section}
+          />
+        ))}
       {open && (
         <tr id={body} hidden={hidden}>
           <td colSpan={5} className='px-4 pt-1 pb-3 pl-[3.375rem]'>
@@ -586,6 +627,7 @@ function ActivityTableRow({
   parent,
   rows,
   hidden,
+  section,
 }: Readonly<{
   activity: SheetActivity
   /** The activity as an action of its own. */
@@ -593,19 +635,22 @@ function ActivityTableRow({
   parent: SheetAction
   rows: ActionRows
   hidden: boolean
+  section: string
 }>) {
   const view = viewOf(action, rows.spellbook, rows.use)
-  const { name, toHit, save, uses } = action
+  const { name, toHit, save } = action
+  const uses = ownUses(activity, parent)
   // Its range has a column of its own.
-  const [activation, , ...rest] = activityDetail(activity, parent, view.spent)
-  const detail = joinParts(activation, ...rest)
+  const detail = joinParts(
+    ...activityDetail(activity, parent, view.spent, { section, range: false }),
+  )
   return (
     <tr hidden={hidden}>
       <td className='w-full max-w-0 py-0.5 pr-2 pl-[3.375rem]'>
         <span
           className={clsx(
             'block border-l border-border py-0.5 pl-2.5',
-            (view.spent || !usedFromApp(activity)) && 'opacity-60',
+            (view.spent || dimmed(activity)) && 'opacity-60',
           )}
         >
           <span className='block truncate'>{activity.name}</span>

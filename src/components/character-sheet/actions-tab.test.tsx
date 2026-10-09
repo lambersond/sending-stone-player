@@ -56,6 +56,13 @@ const others = (name: string) =>
     .getAllByRole('listitem')
     .map(item => item.textContent)
 
+/** The button that opens the Bardic Flame's row in a section. */
+const flameRow = (section: string) =>
+  within(screen.getByRole('region', { name: section })).getByRole('button', {
+    name: /^Bardic Flame/,
+    expanded: false,
+  })
+
 /** Each group in a section, by its name, with its actions' names. */
 const groups = (region: HTMLElement) =>
   within(region)
@@ -1269,23 +1276,35 @@ describe('components/character-sheet/actions-tab', () => {
       )
       return { onUse, onRoll, onRollDamage }
     }
-    it('lists the rest of their activities beneath them, each with what it rolls', () => {
+    it('folds the rest of their activities away, saying how many, until one is opened', async () => {
+      const user = userEvent.setup()
       renderUsing()
 
-      // Each row holds its activities' rows, which are listed after it.
+      // Closed, each says how many more it has, and lists none of them.
       expect(rows(screen.getByRole('region', { name: 'Actions' }))).toEqual([
-        'Unarmed StrikeAction · reach 5 ft · Bludgeoning+51 + 3Grapple/Shove5 ftDC 13',
-        'Grapple/Shove5 ftDC 13',
-        'HexBonus Action · 90 ftCastBonus Hex DamageSpecial · Necrotic1d6Curse New CreatureUse',
-        'Bonus Hex DamageSpecial · Necrotic1d6',
-        'Curse New CreatureUse',
-        'Flaming SphereAction · 60 ft · Used in FoundryRamBonus Action · 5 ft · FireDEX 142d6',
-        'RamBonus Action · 5 ft · FireDEX 142d6',
+        'Unarmed StrikeAction · reach 5 ft · Bludgeoning · 1 more+51 + 3',
+        'HexBonus Action · 90 ft · 2 moreCast',
+        'Flaming SphereAction · 60 ft · Used in Foundry · 1 more',
       ])
+      expect(
+        screen.queryByRole('list', { name: 'Hex: its other activities' }),
+      ).toBeNull()
+
+      // Open, its activities are listed beneath it, each with what it rolls.
+      await user.click(toggle('Hex'))
       expect(others('Hex')).toEqual([
         'Bonus Hex DamageSpecial · Necrotic1d6',
         'Curse New CreatureUse',
       ])
+      expect(
+        screen.getByRole('button', { name: /^Hex/, expanded: true }),
+      ).toHaveTextContent('HexBonus Action · 90 ft')
+      await user.click(
+        screen.getByRole('button', { name: /^Hex/, expanded: true }),
+      )
+      expect(
+        screen.queryByRole('list', { name: 'Hex: its other activities' }),
+      ).toBeNull()
     })
 
     it('uses each from its own chips while the game takes them, as that activity alone', async () => {
@@ -1293,6 +1312,9 @@ describe('components/character-sheet/actions-tab', () => {
       const { onUse, onRoll } = renderUsing()
       const used = () =>
         onUse.mock.calls.map(([action]) => [action.name, action.activity.id])
+      for (const name of ['Hex', 'Unarmed Strike', 'Flaming Sphere']) {
+        await user.click(toggle(name))
+      }
 
       await user.click(screen.getByRole('button', { name: 'Cast Hex' }))
       await user.click(
@@ -1338,6 +1360,19 @@ describe('components/character-sheet/actions-tab', () => {
 
       await user.click(screen.getByRole('button', { name: 'Table' }))
       const table = screen.getByRole('table', { name: 'Actions' })
+      // Folded away until each is opened, as in a list.
+      expect(
+        within(table).queryByText('Grapple/Shove', { exact: true }),
+      ).toBeNull()
+      expect(within(table).getByText('2 more')).toBeVisible()
+      for (const name of ['Hex', 'Unarmed Strike', 'Flaming Sphere']) {
+        await user.click(
+          within(table).getByRole('button', {
+            name: new RegExp(`^${name}`),
+            expanded: false,
+          }),
+        )
+      }
       const cells = (text: string) =>
         [
           ...within(table).getByText(text, { exact: true }).closest('tr')!
@@ -1371,6 +1406,7 @@ describe('components/character-sheet/actions-tab', () => {
       const { onRollDamage } = renderTab(withActions(hex, unarmed, sphere))
 
       expect(screen.queryByRole('button', { name: /^(Use|Cast) / })).toBeNull()
+      await user.click(toggle('Hex'))
       await user.click(
         screen.getByRole('button', {
           name: 'Hex (Bonus Hex Damage) damage, 1d6',
@@ -1379,6 +1415,195 @@ describe('components/character-sheet/actions-tab', () => {
       expect(onRollDamage).toHaveBeenCalledWith(
         expect.objectContaining({ label: 'Hex (Bonus Hex Damage) damage' }),
       )
+    })
+  })
+
+  describe('an item under each kind of action it has, and the spells it casts', () => {
+    const charges = { value: 2, max: 10, recovery: 'Dawn' }
+    const targets = {
+      self: false,
+      area: false,
+      count: 1,
+      perLevel: null,
+      affects: 'creature',
+    }
+    const wisp = {
+      id: 'cast-wisp',
+      name: 'Starry Wisp',
+      type: 'cast',
+      activation: 'Action',
+      activationType: 'action',
+      range: '60 ft',
+      target: null,
+      toHit: 6,
+      attackId: 'cast-wisp',
+      activity: null,
+      save: null,
+      damage: [{ formula: '1d8', type: 'Radiant', healing: false }],
+      cast: { level: 0, concentration: false, charges: 1, short: false },
+      uses: charges,
+    }
+    // A weapon that strikes as an action and casts spells from its charges: under Actions, its
+    // strike and the spells cast as actions; under Reactions, Silvery Barbs, which it has too few
+    // charges left for.
+    const flame = sheetAction({
+      id: 'flame',
+      name: 'Bardic Flame',
+      type: 'weapon',
+      activationType: 'action',
+      range: 'reach 5 ft',
+      toHit: 5,
+      attackId: 'strike',
+      damage: [{ formula: '1d6 + 1', type: 'Bludgeoning', healing: false }],
+      uses: charges,
+      activities: [
+        {
+          id: 'strike',
+          name: 'Attack',
+          type: 'attack',
+          activation: 'Action',
+          activationType: 'action',
+          range: 'reach 5 ft',
+          target: null,
+          toHit: 5,
+          attackId: 'strike',
+          save: null,
+          damage: [{ formula: '1d6 + 1', type: 'Bludgeoning', healing: false }],
+          uses: null,
+        },
+        wisp,
+        {
+          id: 'cast-charm',
+          name: 'Charm Person',
+          type: 'cast',
+          activation: 'Action',
+          activationType: 'action',
+          range: null,
+          target: null,
+          toHit: null,
+          attackId: null,
+          activity: null,
+          save: null,
+          damage: [],
+          uses: null,
+        },
+      ],
+    })
+    const barbs = sheetAction({
+      id: 'flame',
+      name: 'Bardic Flame',
+      type: 'weapon',
+      activityName: 'Silvery Barbs',
+      activation: 'Reaction',
+      activationType: 'reaction',
+      range: '60 ft',
+      activity: { id: 'cast-barbs', type: 'utility', targets },
+      cast: {
+        level: 1,
+        concentration: false,
+        charges: 3,
+        short: true,
+        text: TEXTS.shield,
+      },
+      uses: charges,
+      activities: [
+        {
+          id: 'cast-barbs',
+          name: 'Silvery Barbs',
+          type: 'cast',
+          activation: 'Reaction',
+          activationType: 'reaction',
+          range: '60 ft',
+          target: null,
+          toHit: null,
+          attackId: null,
+          activity: { id: 'cast-barbs', type: 'utility', targets },
+          save: null,
+          damage: [],
+          cast: { level: 1, concentration: false, charges: 3, short: true },
+          uses: charges,
+        },
+      ],
+    })
+    const sheet = toTableSheet(
+      characterSheet({
+        actions: [
+          { id: 'action', label: 'Actions', actions: [flame] },
+          { id: 'reaction', label: 'Reactions', actions: [barbs] },
+        ],
+      }),
+      'https://my-game.forge-vtt.com',
+    )
+    const renderFlame = () => {
+      const onUse = jest.fn()
+      const onRoll = jest.fn()
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={sheet}
+          onRoll={onRoll}
+          onRollDamage={jest.fn()}
+          onUse={onUse}
+        />,
+      )
+      return { onUse, onRoll }
+    }
+
+    it('lists it under each, as itself, each row named for its spell where it is not its first, without saying the kind of action again', () => {
+      renderFlame()
+
+      expect(rows(screen.getByRole('region', { name: 'Actions' }))).toEqual([
+        'Bardic Flamereach 5 ft · Bludgeoning · 2 more2/102 of 10 uses left+51d6 + 1',
+      ])
+      expect(rows(screen.getByRole('region', { name: 'Reactions' }))).toEqual([
+        'Bardic FlameSilvery Barbs · 60 ft · No charges left2/102 of 10 uses leftCast',
+      ])
+      expect(flameRow('Reactions')).toHaveClass('opacity-60')
+      expect(flameRow('Actions')).not.toHaveClass('opacity-60')
+    })
+
+    it('casts its spells from it, named for both, the cost in charges said and those it is short of faded', async () => {
+      const user = userEvent.setup()
+      const { onUse, onRoll } = renderFlame()
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Cast Bardic Flame (Silvery Barbs)',
+        }),
+      )
+      expect(onUse.mock.calls[0][0]).toMatchObject({
+        id: 'flame',
+        activityName: 'Silvery Barbs',
+        activity: { id: 'cast-barbs' },
+      })
+
+      await user.click(flameRow('Actions'))
+      // The charges a spell spends are the weapon's, shown by it, not by each spell.
+      expect(others('Bardic Flame')).toEqual([
+        'Starry Wisp60 ft · Radiant · 1 charge+61d8',
+        'Charm PersonUsed in Foundry',
+      ])
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Bardic Flame (Starry Wisp) attack, +6',
+        }),
+      )
+      expect(onRoll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: 'Bardic Flame (Starry Wisp) attack',
+          source: { kind: 'attack', item: 'flame', activity: 'cast-wisp' },
+        }),
+      )
+    })
+
+    it('opens a row cast from it to the spell', async () => {
+      const user = userEvent.setup()
+      renderFlame()
+
+      await user.click(flameRow('Reactions'))
+      expect(
+        screen.getByText('Level 1 spell · Cast from Bardic Flame'),
+      ).toBeVisible()
     })
   })
 

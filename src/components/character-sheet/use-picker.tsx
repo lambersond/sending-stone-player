@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Check, Crosshair, Skull, Sparkles } from 'lucide-react'
-import { verbOf } from './action-entry'
+import { actionTitle, verbOf } from './action-entry'
 import { Modal } from '@/components/modal'
 import {
   defaultPool,
@@ -133,10 +133,13 @@ export function UsePicker({
   onPick: (picked: Picked) => void
   onClose: () => void
 }>) {
-  const title =
-    picking?.kind === 'attack'
-      ? picking.request.label
-      : (picking?.action.name ?? '')
+  let title = ''
+  if (picking) {
+    title =
+      picking.kind === 'attack'
+        ? picking.request.label
+        : actionTitle(picking.action)
+  }
   return (
     <Modal open={picking !== undefined} onClose={onClose} title={title}>
       {picking && (

@@ -227,6 +227,35 @@ describe('utils/action-groups', () => {
     it('has no groups for no actions', () => {
       expect(groupActions([], spellbook)).toEqual([])
     })
+
+    it('puts what is used up with the consumables, whatever kind of thing it is', () => {
+      const groups = groupActions(
+        [
+          sheetAction({ id: 'boots', name: 'Winged Boots', type: 'equipment' }),
+          sheetAction({
+            id: 'beads',
+            name: 'Necklace of Beads',
+            type: 'equipment',
+            consumable: true,
+          }),
+          sheetAction({ id: 'potion', name: 'Potion', type: 'consumable' }),
+          sheetAction({
+            id: 'blade',
+            name: 'Luck Blade',
+            type: 'weapon',
+            consumable: true,
+          }),
+        ],
+        spellbook,
+      )
+
+      expect(
+        groups.map(group => [group.label, group.actions.map(a => a.name)]),
+      ).toEqual([
+        ['Equipment', ['Winged Boots']],
+        ['Consumables', ['Necklace of Beads', 'Potion', 'Luck Blade']],
+      ])
+    })
   })
 
   describe('slotPools', () => {

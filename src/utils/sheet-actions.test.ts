@@ -137,6 +137,23 @@ const rolling = (): CharacterSheet => {
  * Hex's activities: placing its curse, then its damage on a hit and moving it, which spend no
  * slot.
  */
+/** An item that rolls nothing of its own, as an action. */
+const sheetActionOf = (id: string, name: string) => ({
+  id,
+  name,
+  img: null,
+  type: 'weapon',
+  activation: 'Action',
+  range: null,
+  target: null,
+  ...rolls(),
+  uses: null,
+  level: null,
+  concentration: false,
+  identified: true,
+  text: null,
+})
+
 const hexActivities = (): SheetActivity[] => [
   {
     id: 'curse',
@@ -416,6 +433,33 @@ describe('utils/sheet-actions', () => {
         text: null,
       })
       expect(activityAction(action, { ...hit, name: 'Hex' }).name).toBe('Hex')
+    })
+
+    it('makes a spell an item casts an action that casts it, taking concentration as the spell does', () => {
+      const staff = {
+        ...sheetActionOf('staff', 'Staff of Charming'),
+        concentration: false,
+      }
+      const [, hit] = hexActivities()
+      const cast = { level: 2, concentration: true, charges: 1, short: false }
+      const charm = {
+        ...hit,
+        id: 'cast-hold',
+        name: 'Hold Person',
+        type: 'cast',
+        activationType: 'action',
+        cast,
+      }
+
+      expect(activityAction(staff, charm)).toMatchObject({
+        id: 'staff',
+        name: 'Staff of Charming (Hold Person)',
+        activationType: 'action',
+        cast,
+        castFrom: { id: 'staff', name: 'Staff of Charming' },
+        concentration: true,
+      })
+      expect(activityAction(staff, hit)).not.toHaveProperty('cast')
     })
   })
 
