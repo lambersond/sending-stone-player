@@ -152,6 +152,50 @@ describe('db/campaign-events', () => {
     })
   })
 
+  it('bridge.hello keeps whether the game makes area attacks at the combatants players pick, and takes their hit dice and formulas, from module 0.16.0', async () => {
+    const rolls = {
+      enabled: true,
+      kinds: ['attack', 'hitDie', 'formula', 'rest'],
+      reason: null,
+    }
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: { rolls: { ...rolls, prompts: true, areaAttacks: true } },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['attack', 'hitDie', 'formula'],
+        rollFeatures: ['prompts', 'areaAttacks'],
+      },
+    })
+
+    prismaMock.campaign.update.mockClear()
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: { rolls: { ...rolls, modifiers: true, areaAttacks: false } },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['attack', 'hitDie', 'formula'],
+        rollFeatures: ['modifiers'],
+      },
+    })
+  })
+
   describe('saves the game asks for', () => {
     const prompt = {
       id: 'msg1-thorin',

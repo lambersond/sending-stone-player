@@ -13,6 +13,7 @@ import {
   combat,
   combatant,
   fullerSheet,
+  sheetAction,
 } from '@/mocks/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -618,6 +619,213 @@ describe('db/roll-requests', () => {
       await expect(createRollRequest(character, answer)).resolves.toEqual({
         id: 'req-1',
       })
+    })
+  })
+
+  describe('createRollRequest, for area attacks, hit dice and formulas', () => {
+    /**
+     * Thorin with Dragon Breath, made at two in its cone, and a lantern whose light's radius is
+     * 1d4 + 3; and his Fighter levels' d10 hit dice, 3 of 5 left.
+     */
+    const sheet = fullerSheet({
+      actions: [
+        {
+          id: 'action',
+          label: 'Actions',
+          actions: [
+            sheetAction({
+              id: 'breath',
+              name: 'Dragon Breath',
+              toHit: 5,
+              attackId: 'exhale',
+              attackArea: { count: 2, perLevel: null, affects: 'creature' },
+            }),
+            sheetAction({
+              id: 'lantern',
+              name: 'Lantern',
+              activity: {
+                id: 'shine',
+                type: 'utility',
+                targets: {
+                  self: true,
+                  area: false,
+                  count: null,
+                  perLevel: null,
+                  affects: 'self',
+                },
+              },
+              rollFormula: { formula: '1d4 + 3', name: 'Light radius' },
+            }),
+          ],
+        },
+      ],
+    })
+    const fight = combat({
+      combatants: [
+        combatant({ id: 'c-goblin', name: 'Goblin' }),
+        combatant({ id: 'c-hob', name: 'Hobgoblin' }),
+        combatant({ id: 'c-ogre', name: 'Ogre' }),
+      ],
+    })
+    const given = ({
+      kinds = ['attack', 'hitDie', 'formula'],
+      features = ['areaAttacks'],
+      data = sheet as object,
+    } = {}) => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...takingRolls,
+        rollKinds: kinds,
+        rollFeatures: features,
+      } as any)
+      prismaMock.actorSheet.findUnique.mockResolvedValue({ data } as any)
+      prismaMock.combat.findMany.mockResolvedValue([{ data: fight }] as any)
+      prismaMock.rollRequest.count.mockResolvedValue(0)
+      prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+    }
+
+    /** Dragon Breath at the goblin and the hobgoblin. */
+    const breath: RollRequestInput = {
+      kind: 'attack',
+      item: 'breath',
+      activity: 'exhale',
+      targets: [
+        { combatId: 'cmbt1', combatantId: 'c-goblin' },
+        { combatId: 'cmbt1', combatantId: 'c-hob' },
+      ],
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [15] }],
+    }
+
+    /** A d10 hit die spent. */
+    const hitDie: RollRequestInput = {
+      kind: 'hitDie',
+      denomination: 'd10',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 10, results: [6] }],
+    }
+
+    /** The lantern's light. */
+    const light: RollRequestInput = {
+      kind: 'formula',
+      item: 'lantern',
+      activity: 'shine',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 4, results: [2] }],
+    }
+
+    it('takes an area attack at the combatants picked, from the combat they are in, where the game makes it so', async () => {
+      given()
+
+      await expect(createRollRequest(character, breath)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.combat.findMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', combatId: 'cmbt1' },
+        select: { data: true },
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'attack', payload: breath }),
+        select: { id: true },
+      })
+    })
+
+    it("refuses, without looking further, an area attack where the game doesn't make it at those picked, but not an attack at one", async () => {
+      given({ features: ['modifiers', 'prompts'] })
+
+      await expect(createRollRequest(character, breath)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
+      expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+
+      await expect(
+        createRollRequest(character, {
+          ...breath,
+          targets: undefined,
+          target: { combatId: 'cmbt1', combatantId: 'c-goblin' },
+        }),
+      ).resolves.toEqual({ id: 'req-1' })
+    })
+
+    it('refuses an area attack at more combatants than its area takes', async () => {
+      given()
+
+      await expect(
+        createRollRequest(character, {
+          ...breath,
+          targets: [
+            ...(breath.targets ?? []),
+            { combatId: 'cmbt1', combatantId: 'c-ogre' },
+          ],
+        }),
+      ).resolves.toEqual({ status: 422, reason: 'target' })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    it('takes a hit die of a size the character has one of left, looking up no combat', async () => {
+      given()
+
+      await expect(createRollRequest(character, hitDie)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.combat.findMany).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'hitDie', payload: hitDie }),
+        select: { id: true },
+      })
+    })
+
+    it('refuses a hit die with none of its size left, or where the game takes none', async () => {
+      const [fighter] = sheet.classes
+      given({
+        data: {
+          ...sheet,
+          classes: [{ ...fighter, hitDice: { die: 'd10', value: 0, max: 5 } }],
+        },
+      })
+      await expect(createRollRequest(character, hitDie)).resolves.toEqual({
+        status: 422,
+        reason: 'no-hit-dice',
+      })
+
+      given({ kinds: ['attack', 'formula'] })
+      await expect(createRollRequest(character, hitDie)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    it("takes an activity's own formula with the dice it throws, where the game takes it", async () => {
+      given()
+      await expect(createRollRequest(character, light)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'formula', payload: light }),
+        select: { id: true },
+      })
+
+      await expect(
+        createRollRequest(character, {
+          ...light,
+          dice: [{ faces: 6, results: [2] }],
+        }),
+      ).resolves.toEqual({ status: 422, reason: 'dice' })
+
+      given({ kinds: ['attack', 'hitDie'] })
+      await expect(createRollRequest(character, light)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledTimes(1)
     })
   })
 

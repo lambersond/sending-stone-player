@@ -64,6 +64,40 @@ const parseUse = (fields: object) =>
 const parseDamage = (fields: object) =>
   rollRequestSchema.safeParse({ ...damage, ...fields })
 
+/** Fire Breath, an area attack, at a goblin and a hobgoblin. */
+const parseArea = (fields: object) =>
+  parseAttack({ target: undefined, targets: use.targets, ...fields })
+
+/** A d10 hit die spent, landing on 7. */
+const hitDie = {
+  kind: 'hitDie',
+  denomination: 'd10',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [{ faces: 10, results: [7] }],
+}
+
+const parseHitDie = (fields: object) =>
+  rollRequestSchema.safeParse({ ...hitDie, ...fields })
+
+/** A lantern's light, whose radius is 1d4 + 2d6 + 3. */
+const formula = {
+  kind: 'formula',
+  item: 'lantern',
+  activity: 'shine',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [
+    { faces: 4, results: [3] },
+    { faces: 6, results: [2, 5] },
+  ],
+}
+
+const parseFormula = (fields: object) =>
+  rollRequestSchema.safeParse({ ...formula, ...fields })
+
 describe('schemas/roll-request', () => {
   it('takes a roll with exactly the dice it throws', () => {
     expect(parse({}).success).toBe(true)
@@ -209,6 +243,131 @@ describe('schemas/roll-request', () => {
     ['with its damage changed', { modifiers: { maximize: true } }],
   ])('refuses an attack %s', (_name, fields) => {
     expect(parseAttack(fields).success).toBe(false)
+  })
+
+  it('takes an area attack at the combatants in its area, all in one combat, in place of a target', () => {
+    expect(parseArea({}).success).toBe(true)
+    expect(parseArea({ targets: [use.targets[0]] }).success).toBe(true)
+    expect(parseArea({ slot: 'spell2' }).success).toBe(true)
+  })
+
+  it.each([
+    ['at a target as well', { target: attack.target }],
+    ['at no target as well', { target: null }],
+    [
+      'at the same combatant twice',
+      { targets: [use.targets[0], use.targets[0]] },
+    ],
+    [
+      'at combatants of two combats',
+      { targets: [use.targets[0], { combatId: 'cmbt2', combatantId: 'ogre' }] },
+    ],
+    [
+      'at too many',
+      {
+        targets: Array.from({ length: 21 }, (_, index) => ({
+          combatId: 'cmbt1',
+          combatantId: `c${index}`,
+        })),
+      },
+    ],
+    ['at a combatant with no combat', { targets: [{ combatantId: 'goblin' }] }],
+  ])('refuses an area attack %s', (_name, fields) => {
+    expect(parseArea(fields).success).toBe(false)
+  })
+
+  it('takes targets for an attack or a use, and nothing else', () => {
+    expect(parse({ targets: use.targets }).success).toBe(false)
+    expect(parseDamage({ targets: use.targets }).success).toBe(false)
+    expect(
+      parse({ kind: 'death', key: undefined, targets: use.targets }).success,
+    ).toBe(false)
+  })
+
+  it('takes a hit die spent, of any size a class has, with its one die', () => {
+    expect(parseHitDie({}).success).toBe(true)
+    for (const faces of [4, 6, 8, 10, 12]) {
+      expect(
+        parseHitDie({
+          denomination: `d${faces}`,
+          dice: [{ faces, results: [faces] }],
+        }).success,
+      ).toBe(true)
+    }
+  })
+
+  it.each([
+    ['without its size', { denomination: undefined }],
+    [
+      'of a size no class has',
+      { denomination: 'd20', dice: [{ faces: 20, results: [7] }] },
+    ],
+    ['of a size that is not a die', { denomination: '10' }],
+    ['of a size written otherwise', { denomination: 'D10' }],
+    ['with a die of another size', { dice: [{ faces: 8, results: [7] }] }],
+    ['with no die', { dice: [] }],
+    [
+      'with two dice',
+      {
+        dice: [
+          { faces: 10, results: [7] },
+          { faces: 10, results: [2] },
+        ],
+      },
+    ],
+    ['with two results', { dice: [{ faces: 10, results: [7, 2] }] }],
+    ['with a result past the die', { dice: [{ faces: 10, results: [11] }] }],
+    ['with advantage', { mode: 1 }],
+    ['rolled as the player chose', { explicit: true }],
+    ['with something added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['naming a key', { key: 'con' }],
+    ['naming an item', { item: 'lantern', activity: 'shine' }],
+    ['at a target', { target: null }],
+    ['at targets', { targets: [] }],
+    ['with a spell slot', { slot: 'spell1' }],
+    ['in a combat', { combatId: 'cmbt1' }],
+    ['following an attack', { use: 'req-1' }],
+    ['answering what the game asked', { prompt: 'msg1-thorin' }],
+  ])('refuses a hit die %s', (_name, fields) => {
+    expect(parseHitDie(fields).success).toBe(false)
+  })
+
+  it('gives a size to a hit die, and to nothing else', () => {
+    expect(parse({ denomination: 'd10' }).success).toBe(false)
+    expect(parseAttack({ denomination: 'd10' }).success).toBe(false)
+    expect(parseDamage({ denomination: 'd10' }).success).toBe(false)
+    expect(parseFormula({ denomination: 'd10' }).success).toBe(false)
+  })
+
+  it("takes a feature's own formula with its item and activity, and the dice it throws, or none", () => {
+    expect(parseFormula({}).success).toBe(true)
+    expect(parseFormula({ dice: [] }).success).toBe(true)
+    expect(
+      parseFormula({ dice: [{ faces: 100, results: [100] }] }).success,
+    ).toBe(true)
+  })
+
+  it.each([
+    ['without its item', { item: undefined }],
+    ['without its activity', { activity: undefined }],
+    ['with an id that is not one', { activity: 'shine.light' }],
+    ['with a die that does not exist', { dice: [{ faces: 7, results: [3] }] }],
+    ['with a result past the die', { dice: [{ faces: 4, results: [5] }] }],
+    ['with a result of nothing', { dice: [{ faces: 4, results: [0] }] }],
+    ['with a die thrown for nothing', { dice: [{ faces: 4, results: [] }] }],
+    ['with advantage', { mode: -1 }],
+    ['rolled as the player chose', { explicit: true }],
+    ['with something added', { extras: [{ sign: 1, count: 1, sides: 4 }] }],
+    ['naming a key', { key: 'prc' }],
+    ['at a target', { target: null }],
+    ['at targets', { targets: [] }],
+    ['with a spell slot', { slot: 'spell1' }],
+    ['with ammunition', { ammunition: 'arrows' }],
+    ['with kinds of damage', { types: ['fire'] }],
+    ['changed as damage is', { modifiers: { maximize: true } }],
+    ['following an attack', { use: 'req-1' }],
+  ])('refuses a formula %s', (_name, fields) => {
+    expect(parseFormula(fields).success).toBe(false)
   })
 
   it('takes a use at the combatants picked, or none, with the slot chosen, or none', () => {

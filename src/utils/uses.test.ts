@@ -44,6 +44,18 @@ describe('utils/uses', () => {
     ).toBe(0)
   })
 
+  it("takes as many targets as an area attack's area does, more for each level higher where it says so, or any number", () => {
+    const cone = { count: 2, perLevel: 1, affects: 'creature' }
+    expect(mostTargets(cone, 1, 1)).toBe(2)
+    expect(mostTargets(cone, 1, 3)).toBe(4)
+    // Not a spell, it's made at as many as its area takes.
+    expect(mostTargets(cone, null, null)).toBe(2)
+    expect(mostTargets({ ...cone, perLevel: null }, 1, 5)).toBe(2)
+    expect(mostTargets({ ...cone, count: null }, null, null)).toBe(
+      Number.POSITIVE_INFINITY,
+    )
+  })
+
   it('picks targets for a use at someone, or at an area, but not on oneself or at nothing', () => {
     expect(picksTargets(use('save'))).toBe(true)
     expect(picksTargets(use('save', { area: true, affects: null }))).toBe(true)
