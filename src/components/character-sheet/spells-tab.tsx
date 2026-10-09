@@ -15,7 +15,11 @@ import { SpellSlots } from './spell-slots'
 import { UsesLeft } from './uses-left'
 import { formatModifier } from '@/utils/format-modifier'
 import { spellAction } from '@/utils/sheet-actions'
-import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+} from '@/hooks/use-sheet-roller'
 import type {
   SheetAction,
   SheetCastFrom,
@@ -42,6 +46,7 @@ export function SpellsTab({
   favorites,
   onRoll,
   onRollDamage,
+  onRollFormula,
   onUse,
   tableDamage,
 }: Readonly<{
@@ -51,6 +56,8 @@ export function SpellsTab({
   favorites?: ReactNode
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Rolls an activity's own formula, such as a light's radius. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Casts a spell in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -61,6 +68,7 @@ export function SpellsTab({
     spellbook: sheet.spells,
     onRoll,
     onRollDamage,
+    onRollFormula,
     onUse,
     tableDamage,
   })

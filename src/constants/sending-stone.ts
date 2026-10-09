@@ -53,7 +53,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
 /**
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
  * ability check, a saving throw, a death saving throw, or initiative; and, where the Gamemaster
- * lets them, an attack, or the use of a spell or feature, then its damage or healing.
+ * lets them, an attack, or the use of a spell or feature, then its damage or healing; a hit die
+ * spent, or a feature's own formula, such as a light's radius (module 0.16.0).
  */
 export const ROLL_KINDS = [
   'skill',
@@ -65,14 +66,18 @@ export const ROLL_KINDS = [
   'attack',
   'use',
   'damage',
+  'hitDie',
+  'formula',
 ] as const
 
 /**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
  * player changed, with more dice, another die or every die at its highest; and ask players for the
- * saving throws their game asks of their characters, such as concentration checks (module 0.13.0).
+ * saving throws their game asks of their characters, such as concentration checks (module 0.13.0);
+ * and make an area attack, such as a breath weapon's, at the combatants its player picks (module
+ * 0.16.0).
  */
-export const ROLL_FEATURES = ['modifiers', 'prompts'] as const
+export const ROLL_FEATURES = ['modifiers', 'prompts', 'areaAttacks'] as const
 
 /**
  * A saving throw the game asks for, as the module names it: its chat card's id and its
@@ -89,11 +94,14 @@ export const DAMAGE_WITHIN = 600_000
 /** The most dice terms an attack's or a use's damage may throw. */
 export const MAX_DAMAGE_TERMS = 20
 
-/** The most combatants a use may be made at. */
+/** The most combatants a use, or an area attack, may be made at. */
 export const MAX_USE_TARGETS = 20
 
 /** A kind of damage or healing, as dnd5e keys it, such as "fire" or "temphp". */
 export const DAMAGE_TYPE = /^[A-Za-z][\w-]{0,31}$/
+
+/** A hit die's size, as dnd5e names it, such as "d10". */
+export const HIT_DIE = /^d(4|6|8|10|12)$/
 
 /** A spell slot's pool, as dnd5e keys it, such as "spell3" or "pact". */
 export const SPELL_SLOT = /^(spell[1-9]|pact)$/

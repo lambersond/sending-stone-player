@@ -22,6 +22,8 @@ import { formatModifier } from '@/utils/format-modifier'
 import type {
   LocalCheck,
   LocalDamage,
+  LocalExtra,
+  LocalFormula,
   LocalRoll,
   LocalUse,
 } from '@/hooks/use-sheet-roller'
@@ -86,26 +88,8 @@ export function RollTray({
         Rolling…
       </p>
     )
-  } else if (latest?.kind === 'damage') {
-    status = <DamageResult roll={latest} state={table?.states.get(latest.id)} />
-  } else if (latest?.kind === 'use') {
-    status = (
-      <UseResult
-        roll={latest}
-        state={table?.states.get(latest.id)}
-        onRollDamage={table?.rollDamage}
-        modifies={table?.modifies}
-      />
-    )
   } else if (latest) {
-    status = (
-      <CheckResult
-        roll={latest}
-        state={table?.states.get(latest.id)}
-        onRollDamage={table?.rollDamage}
-        modifies={table?.modifies}
-      />
-    )
+    status = <LatestResult roll={latest} table={table} />
   }
 
   return (
@@ -132,6 +116,7 @@ export function RollTray({
                   <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
                     {breakdown(roll)}
                     {(roll.kind === 'check' ||
+                      roll.kind === 'formula' ||
                       (roll.kind === 'damage' && !byTheGame(roll))) && (
                       <>
                         {' = '}
@@ -189,13 +174,51 @@ export function RollTray({
   )
 }
 
+/** The latest roll, in full, and its way to the game. */
+function LatestResult({
+  roll,
+  table,
+}: Readonly<{ roll: LocalRoll; table?: TableRolls }>) {
+  const state = table?.states.get(roll.id)
+  switch (roll.kind) {
+    case 'damage': {
+      return <DamageResult roll={roll} state={state} />
+    }
+    case 'formula': {
+      return <FormulaResult roll={roll} state={state} />
+    }
+    case 'use': {
+      return (
+        <UseResult
+          roll={roll}
+          state={state}
+          onRollDamage={table?.rollDamage}
+          modifies={table?.modifies}
+        />
+      )
+    }
+    case 'check': {
+      return (
+        <CheckResult
+          roll={roll}
+          state={state}
+          onRollDamage={table?.rollDamage}
+          modifies={table?.modifies}
+        />
+      )
+    }
+  }
+}
+
 /** Whether the player's rolls reach the Gamemaster's game, and which. */
 function reachOf(table: TableRolls): string {
   if (!table.sending) {
     return 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'
   }
   if (table.takes?.('use')) {
-    return 'Checks, saves, attacks and spells you roll or cast here are made in your Gamemaster’s game too, with the same dice.'
+    return table.takes('hitDie')
+      ? 'Checks, saves, attacks, spells and hit dice you roll, cast or spend here are made in your Gamemaster’s game too, with the same dice.'
+      : 'Checks, saves, attacks and spells you roll or cast here are made in your Gamemaster’s game too, with the same dice.'
   }
   return table.takes?.('attack')
     ? 'Checks, saves and attacks you roll here are made in your Gamemaster’s game too, with the same dice.'
@@ -221,7 +244,7 @@ const REASONS: Record<string, string> = {
   'self-test': 'your Gamemaster’s game isn’t taking attacks',
   item: 'your character in the game hasn’t that item',
   activity: 'it can’t be used from Sending Stone',
-  area: 'area attacks aren’t made from here yet',
+  area: 'your Gamemaster’s game picks that area’s targets itself',
   ammo: 'you have none of that ammunition left',
   mode: 'the weapon can’t attack that way',
   target: 'a target can’t be picked, or there are too many',
@@ -244,6 +267,7 @@ const REASONS: Record<string, string> = {
   dice: 'the dice weren’t those the game said',
   invalid: 'your Gamemaster’s game couldn’t make it',
   prompt: 'your Gamemaster’s game isn’t asking for it any more',
+  'no-hit-dice': 'you have no hit dice of that size left',
 }
 
 /** Where a roll is on its way to the game, or what the game made of it. */
@@ -266,21 +290,24 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
     }
     case 'done': {
       return state.visible ? (
-        <p className={clsx(line, 'text-text-secondary')}>
-          <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
-          <span>
-            At the table:{' '}
-            <span className='font-semibold text-text-primary tabular-nums'>
-              {state.total ?? '?'}
-            </span>
-            {outcomeOf(state) && (
-              <span className='font-semibold text-text-primary'>
-                {' · '}
-                {outcomeOf(state)}
+        <>
+          <p className={clsx(line, 'text-text-secondary')}>
+            <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
+            <span>
+              At the table:{' '}
+              <span className='font-semibold text-text-primary tabular-nums'>
+                {state.total ?? '?'}
               </span>
-            )}
-          </span>
-        </p>
+              {outcomeOf(state) && (
+                <span className='font-semibold text-text-primary'>
+                  {' · '}
+                  {outcomeOf(state)}
+                </span>
+              )}
+            </span>
+          </p>
+          <AreaOutcomes state={state} />
+        </>
       ) : (
         <p className={clsx(line, 'text-text-secondary')}>
           <EyeOff aria-hidden className='size-3.5 shrink-0' />
@@ -307,11 +334,50 @@ const SAVED = { success: 'saved', failure: 'failed' } as const
 /** What came at the table of an attack, or a save the game asked for, as the game shows players. */
 function outcomeOf(state: TableRollState): string | undefined {
   if (state.outcome) return state.outcome === 'success' ? 'Saved' : 'Failed'
+  if (state.healed !== undefined) return `${state.healed} HP regained`
   const { attack } = state
   if (!attack) return undefined
+  // An area attack at more than one: how many it hit, of those the game says of.
+  const told = (attack.targets ?? []).filter(({ outcome }) => outcome !== null)
+  if (attack.targets && attack.targets.length > 1 && told.length > 0) {
+    const hits = told.filter(({ outcome }) => outcome === 'hit').length
+    const hit = `Hit ${hits} of ${told.length}`
+    return attack.critical ? `Critical hit · ${hit}` : hit
+  }
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
   if (attack.outcome === 'miss') return 'Miss'
   return attack.critical ? 'Critical hit' : undefined
+}
+
+/**
+ * Whom an area attack at more than one hit, and whom it missed, by name, as the game shows
+ * players; nothing of one the game says nothing of.
+ */
+function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
+  const targets = state.attack?.targets ?? []
+  if (targets.length < 2 || targets.every(({ outcome }) => outcome === null)) {
+    return
+  }
+  return (
+    <ul aria-label='Targets' className='mt-0.5 flex flex-wrap gap-x-3 text-xs'>
+      {targets.map(({ combatantId, outcome }) => (
+        <li key={combatantId} className='text-text-secondary'>
+          {state.targetNames?.[combatantId] ?? 'A target'}
+          {outcome && (
+            <span
+              className={clsx(
+                'font-semibold',
+                outcome === 'hit' ? 'text-text-primary' : 'text-text-secondary',
+              )}
+            >
+              {': '}
+              {outcome === 'hit' ? 'Hit' : 'Miss'}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 /**
@@ -546,21 +612,7 @@ function DamageResult({
             roll.parts.map((part, index) => (
               <span key={index}>
                 {index > 0 && ' '}
-                {part.terms.map(({ text, values }, at) => (
-                  <span key={at}>
-                    {at > 0 && ' '}
-                    {text}
-                    {values.length > 0 && (
-                      <>
-                        {' ('}
-                        <span className='font-semibold text-text-primary'>
-                          {values.join(', ')}
-                        </span>
-                        )
-                      </>
-                    )}
-                  </span>
-                ))}
+                <Terms terms={part.terms} />
                 {part.type && ` ${part.type}`}
               </span>
             ))}
@@ -571,6 +623,50 @@ function DamageResult({
       </div>
     </div>
   )
+}
+
+/**
+ * A hit die spent, or a formula rolled: the total, and each of its terms with its dice, and the
+ * least it comes to, where its dice came to less.
+ */
+function FormulaResult({
+  roll,
+  state,
+}: Readonly<{ roll: LocalFormula; state?: TableRollState }>) {
+  return (
+    <div className='flex items-center gap-3'>
+      <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl font-bold text-primary tabular-nums'>
+        {roll.total}
+      </span>
+      <div className='min-w-0'>
+        <p className='truncate font-semibold'>{roll.label}</p>
+        <p className='text-xs text-text-secondary tabular-nums'>
+          <Terms terms={roll.terms} />
+          {roll.minimum !== undefined && ` · at least ${roll.minimum}`}
+        </p>
+        {state && <TableStatus state={state} />}
+      </div>
+    </div>
+  )
+}
+
+/** Each term of a roll with no d20, with its dice: 1d10 (7) +2. */
+function Terms({ terms }: Readonly<{ terms: LocalExtra[] }>) {
+  return terms.map(({ text, values }, at) => (
+    <span key={at}>
+      {at > 0 && ' '}
+      {text}
+      {values.length > 0 && (
+        <>
+          {' ('}
+          <span className='font-semibold text-text-primary'>
+            {values.join(', ')}
+          </span>
+          )
+        </>
+      )}
+    </span>
+  ))
 }
 
 /**
@@ -688,6 +784,13 @@ function byTheGame(roll: LocalDamage): boolean {
 
 function breakdown(roll: LocalRoll): string {
   if (roll.kind === 'use') return roll.spell ? 'cast' : 'used'
+  if (roll.kind === 'formula') {
+    return roll.terms
+      .map(({ value }, index) =>
+        index === 0 ? String(value) : formatModifier(value),
+      )
+      .join(' ')
+  }
   if (roll.kind === 'damage') {
     if (byTheGame(roll)) return 'rolled at the table'
     return roll.parts

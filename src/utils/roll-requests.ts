@@ -8,6 +8,7 @@ import {
 } from '@/constants/sending-stone'
 import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
 import { modifiedDice } from '@/utils/damage-modifiers'
+import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
 import { toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
@@ -35,7 +36,8 @@ import type {
  * its attack or use can't be found, or is too old; no damage follows it; its damage is rolled
  * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers. For a
  * saving throw the game asked for: it no longer waits, isn't this character's, isn't rolled with an
- * ability it may be, or is answered already.
+ * ability it may be, or is answered already. For a hit die: the character has none of its size
+ * left. For a formula: its dice aren't those the formula throws.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -54,6 +56,7 @@ export type RollRefusal =
   | 'dice'
   | 'type'
   | 'prompt'
+  | 'no-hit-dice'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -119,8 +122,9 @@ export function rollsKey(
 
 /**
  * Can the character make this roll, as its sheet and the encounter stand? A skill, ability or
- * tool must be on its sheet; it must be dying to roll a death saving throw; and it must be in the
- * combat, without initiative yet, to roll initiative.
+ * tool must be on its sheet; it must be dying to roll a death saving throw; it must be in the
+ * combat, without initiative yet, to roll initiative; and it must have a hit die of the size it
+ * spends left.
  * @returns Why not, or nothing when it can.
  */
 export function checkRoll(
@@ -162,6 +166,12 @@ export function checkRoll(
     case 'use': {
       return sheet ? checkUse(input, sheet, combats) : 'unknown'
     }
+    case 'hitDie': {
+      return checkHitDie(input, sheet)
+    }
+    case 'formula': {
+      return sheet ? checkFormula(input, sheet) : 'unknown'
+    }
     // Checked against its attack or use, by checkDamage.
     case 'damage': {
       return undefined
@@ -172,8 +182,9 @@ export function checkRoll(
 /**
  * Can the character make this attack: is it one of its actions, favorites, spells, features or
  * inventory items, identified, with a spell slot left for a spell, in the attack mode and with the
- * ammunition chosen, if they're the weapon's, at a combatant its player can see? Whatever else it
- * spends, such as its uses, the game checks as it would spend it.
+ * ammunition chosen, if they're the weapon's, at a combatant its player can see, or for an area
+ * attack, at no more combatants than it takes, all of them ones its player can see? Whatever else
+ * it spends, such as its uses, the game checks as it would spend it.
  */
 function checkAttack(
   input: RollRequestInput,
@@ -198,6 +209,16 @@ function checkAttack(
     const fired = action.ammunition?.find(({ id }) => id === ammunition)
     if (!fired || fired.quantity <= 0) return 'ammo'
   }
+  // An area attack is made at those in its area, as many as it takes at the level it's cast at.
+  if (input.targets !== undefined) {
+    const area = action.attackArea
+    if (!area) return 'target'
+    const level = castAtLevel(action, sheet.spells, input.slot)
+    if (input.targets.length > mostTargets(area, action.level, level)) {
+      return 'target'
+    }
+    return checkTargets(input.targets, combats)
+  }
   return checkTargets(input.target ? [input.target] : [], combats)
 }
 
@@ -220,7 +241,9 @@ function checkUse(
   if (slot) return slot
   const targets = input.targets ?? []
   const level = castAtLevel(action, sheet.spells, input.slot)
-  if (targets.length > mostTargets(action.activity, action.level, level)) {
+  if (
+    targets.length > mostTargets(action.activity.targets, action.level, level)
+  ) {
     return 'target'
   }
   return checkTargets(targets, combats)
@@ -244,6 +267,47 @@ function checkSlot(
   // An activity used without spending a slot is used at its level, whether any is left or not.
   const spends = action.consumesSlot !== false
   return pool && (pool.value > 0 || !spends) ? undefined : 'slot'
+}
+
+/**
+ * Has the character a class with hit dice of this size, with one of them left? How many are left
+ * of a class whose sheet doesn't say is the game's to check.
+ */
+function checkHitDie(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  const sized = (sheet?.classes ?? []).flatMap(({ hitDice }) =>
+    hitDice && hitDice.die === input.denomination ? [hitDice] : [],
+  )
+  if (sized.length === 0) return 'unknown'
+  return sized.some(({ value }) => value === null || value > 0)
+    ? undefined
+    : 'no-hit-dice'
+}
+
+/**
+ * Is this the formula of one of the character's actions, favorites, spells, features or inventory
+ * items, identified, that the game may use, and are its dice those the formula throws, in order?
+ */
+function checkFormula(
+  input: RollRequestInput,
+  sheet: CharacterSheet,
+): RollRefusal | undefined {
+  const action = sheetActions(sheet).find(
+    ({ id, activity, rollFormula }) =>
+      id === input.item && activity?.id === input.activity && !!rollFormula,
+  )
+  if (!action?.rollFormula || !action.identified) return 'unknown'
+  const thrown = formulaDice(action.rollFormula.formula)
+  if (!thrown) return 'unknown'
+  const matches =
+    input.dice.length === thrown.length &&
+    input.dice.every(
+      ({ faces, results }, index) =>
+        faces === thrown[index].sides && results.length === thrown[index].count,
+    )
+  return matches ? undefined : 'dice'
 }
 
 /** Are these combatants of a combat their player can see, as picked? */
@@ -370,6 +434,7 @@ export function toRollRequestView(
     rolls,
     ...(result.attack ? { attack: result.attack } : {}),
     ...(result.outcome ? { outcome: result.outcome } : {}),
+    ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
     ...use,
     ...damage,
   }

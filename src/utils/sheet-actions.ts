@@ -84,6 +84,8 @@ export function activityAction(
     damage: activity.damage,
     ...(activity.consumesSlot === false && { consumesSlot: false }),
     ...(activity.cast && { cast: activity.cast }),
+    ...(activity.rollFormula && { rollFormula: activity.rollFormula }),
+    ...(activity.attackArea && { attackArea: activity.attackArea }),
     ...(activity.activationType !== undefined && {
       activationType: activity.activationType,
     }),
@@ -201,6 +203,8 @@ function rollsOf(
     damage: entry.damage ?? [],
     ...(entry.consumesSlot === false && { consumesSlot: false }),
     ...(entry.cast && { cast: entry.cast }),
+    ...(entry.rollFormula && { rollFormula: entry.rollFormula }),
+    ...(entry.attackArea && { attackArea: entry.attackArea }),
     // Each of its activities, for one with more than one, made in the game only while it may be.
     ...(activities.length > 1 && {
       activities: inGame
@@ -217,7 +221,8 @@ function rollsOf(
       each.toHit !== null ||
       !!each.activity ||
       each.save !== null ||
-      each.damage.length > 0,
+      each.damage.length > 0 ||
+      !!each.rollFormula,
   )
   return any ? rolls : undefined
 }

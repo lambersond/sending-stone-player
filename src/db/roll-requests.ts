@@ -79,12 +79,15 @@ export async function createRollRequest(
   if (!campaign || !availableRollKinds(campaign).includes(input.kind)) {
     return { status: 409, reason: 'unavailable' }
   }
-  // Damage a player changed goes only to a game that can roll it so, and an answer to what the
-  // game asked only to one that asks.
+  // Damage a player changed goes only to a game that can roll it so, an answer to what the game
+  // asked only to one that asks, and an area attack only to one that makes it at those picked.
   if (
     (changes(input.modifiers) &&
       !campaign.rollFeatures.includes('modifiers')) ||
-    (input.prompt && !campaign.rollFeatures.includes('prompts'))
+    (input.prompt && !campaign.rollFeatures.includes('prompts')) ||
+    (input.kind === 'attack' &&
+      input.targets !== undefined &&
+      !campaign.rollFeatures.includes('areaAttacks'))
   ) {
     return { status: 409, reason: 'unavailable' }
   }

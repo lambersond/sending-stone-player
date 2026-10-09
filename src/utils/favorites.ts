@@ -111,14 +111,17 @@ export function favoriteKeys(favorites: SheetFavorite[]): Set<string> {
 }
 
 /**
- * Does any favorite roll, as an attack, damage or healing, or a check does: an action, or a spell,
- * something carried or a feature that rolls?
+ * Does any favorite roll, as an attack, damage or healing, a formula, or a check does: an action,
+ * or a spell, something carried or a feature that rolls, or a class whose hit dice are spent?
  */
 export function rollsAny(entries: FavoriteEntry[]): boolean {
   return entries.some(entry => {
     switch (entry.kind) {
       case 'check': {
         return true
+      }
+      case 'class': {
+        return !!entry.entry.hitDice
       }
       case 'action': {
         return rolls(entry.action)
@@ -139,11 +142,12 @@ export function rollsAny(entries: FavoriteEntry[]): boolean {
   })
 }
 
-/** Does this roll an attack, or damage or healing? */
+/** Does this roll an attack, damage or healing, or a formula of its own? */
 function rolls(entry: Partial<SheetRolls>): boolean {
   return (
     (entry.toHit ?? null) !== null ||
     (entry.damage ?? []).length > 0 ||
+    !!entry.rollFormula ||
     (entry.activities ?? []).some(activity => rolls(activity))
   )
 }
@@ -273,6 +277,8 @@ function activityAction(
       damage: favorite.damage,
       ...(favorite.consumesSlot === false && { consumesSlot: false }),
       ...(favorite.cast && { cast: favorite.cast }),
+      ...(favorite.rollFormula && { rollFormula: favorite.rollFormula }),
+      ...(favorite.attackArea && { attackArea: favorite.attackArea }),
       uses: favorite.uses,
       level: spell?.level ?? action?.level ?? null,
       // A spell the item casts is cast from it.

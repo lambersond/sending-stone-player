@@ -971,6 +971,113 @@ describe('components/character-sheet/actions-tab', () => {
     expect(grid.children).toHaveLength(1)
   })
 
+  describe("an activity's own formula", () => {
+    const lantern = sheetAction({
+      id: 'lantern',
+      name: 'Lantern of Revealing',
+      activity: {
+        id: 'lanternUse',
+        type: 'utility',
+        targets: {
+          self: true,
+          area: false,
+          count: null,
+          perLevel: null,
+          affects: null,
+        },
+      },
+      rollFormula: { formula: '1d4 + 3', name: 'Light radius' },
+    })
+    const renderWith = (sheet: CharacterSheet) => {
+      const onRollFormula = jest.fn()
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          onRollFormula={onRollFormula}
+        />,
+      )
+      return onRollFormula
+    }
+
+    it('rolls it any time, apart from using it, for the game to roll too', async () => {
+      const user = userEvent.setup()
+      const onRollFormula = renderWith(withActions(lantern))
+
+      const chip = screen.getByRole('button', {
+        name: 'Roll Lantern of Revealing: Light radius, 1d4 + 3',
+      })
+      expect(chip).toHaveTextContent('1d4 + 3')
+      expect(chip).toHaveAttribute('title', 'Light radius')
+      await user.click(chip)
+      expect(onRollFormula).toHaveBeenCalledWith({
+        label: 'Lantern of Revealing: Light radius',
+        terms: [
+          { sign: 1, count: 1, sides: 4 },
+          { sign: 1, flat: 3 },
+        ],
+        source: { kind: 'formula', item: 'lantern', activity: 'lanternUse' },
+      })
+    })
+
+    it("rolls it here alone when the game can't use the activity, naming a formula without a name", async () => {
+      const user = userEvent.setup()
+      const onRollFormula = renderWith(
+        withActions({
+          ...lantern,
+          activity: null,
+          rollFormula: { formula: '2d6', name: null },
+        }),
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Roll Lantern of Revealing roll, 2d6',
+        }),
+      )
+      expect(onRollFormula).toHaveBeenCalledWith({
+        label: 'Lantern of Revealing roll',
+        terms: [{ sign: 1, count: 2, sides: 6 }],
+      })
+    })
+
+    it("shows a formula it can't read, or of an item not identified, without rolling it", () => {
+      renderWith(
+        withActions(
+          { ...lantern, rollFormula: { formula: '(1d4)*5', name: 'Fall' } },
+          {
+            ...lantern,
+            id: 'orb',
+            name: 'Strange Orb',
+            identified: false,
+            rollFormula: { formula: '1d6', name: null },
+          },
+        ),
+      )
+
+      expect(screen.getByText('(1d4)*5')).toBeInTheDocument()
+      expect(screen.getByText('1d6')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Roll / })).toBeNull()
+    })
+
+    it('rolls it from a table too', async () => {
+      const user = userEvent.setup()
+      sheetWidth(800)
+      localStorage.setItem('sending-stone:actions-layout', 'table')
+      const onRollFormula = renderWith(withActions(lantern))
+
+      const table = screen.getByRole('table', { name: 'Actions' })
+      await user.click(
+        within(table).getByRole('button', {
+          name: 'Roll Lantern of Revealing: Light radius, 1d4 + 3',
+        }),
+      )
+      expect(onRollFormula).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('spells and features used in the game', () => {
     const targets = {
       self: false,

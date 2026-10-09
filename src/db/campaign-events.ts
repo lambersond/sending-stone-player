@@ -82,10 +82,12 @@ async function apply(
             (ROLL_KINDS as readonly string[]).includes(kind),
           ),
           // What else it can do with them: from module 0.13.0, take damage a player changed, and
-          // ask players for the saves their game asks of them.
+          // ask players for the saves their game asks of them; from module 0.16.0, make area
+          // attacks at the combatants players pick.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
+            ...(features?.rolls?.areaAttacks === true ? ['areaAttacks'] : []),
           ],
         },
       })

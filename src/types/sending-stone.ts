@@ -339,6 +339,16 @@ export type SheetAction = {
   activityName?: string | null
   /** For a spell an item casts, with a Cast activity, how it's cast. Module 0.15.0. */
   cast?: SheetCast | null
+  /**
+   * Its activity's own formula, rolled any time, apart from using it, such as a light's radius.
+   * Module 0.16.0.
+   */
+  rollFormula?: SheetFormula | null
+  /**
+   * For an area attack, such as a breath weapon's, whom it's made at: as many as it takes. Module
+   * 0.16.0; absent for any other.
+   */
+  attackArea?: SheetAttackArea | null
   /** An item used up rather than kept: a consumable, or one whose uses never come back. */
   consumable?: boolean
   uses: SheetUses | null
@@ -367,6 +377,21 @@ export type SheetCast = {
   /** The spell's description's hash. */
   text?: string | null
 }
+
+/**
+ * Whom an area attack is made at: as many as it affects, or any number, more for each level a
+ * spell is cast above its own where it says so, and of what kind, such as "creature".
+ */
+export type SheetAttackArea = Pick<
+  SheetUseTargets,
+  'count' | 'perLevel' | 'affects'
+>
+
+/**
+ * A utility activity's own formula, with the character's numbers in it, such as "1d4 + 3", and
+ * what dnd5e calls it, such as "Light radius", if anything.
+ */
+export type SheetFormula = { formula: string; name: string | null }
 
 /**
  * An activity a player can have used in the Gamemaster's game other than an attack: one calling for
@@ -399,6 +424,8 @@ export type SheetActivity = Pick<
   | 'damage'
   | 'consumesSlot'
   | 'cast'
+  | 'rollFormula'
+  | 'attackArea'
   | 'uses'
 > & {
   /** The activity's id. */
@@ -444,6 +471,8 @@ export type SheetRolls = Pick<
   | 'damage'
   | 'consumesSlot'
   | 'cast'
+  | 'rollFormula'
+  | 'attackArea'
   | 'activities'
 >
 
@@ -484,6 +513,8 @@ export type SheetActivityFavorite = Pick<
   | 'damage'
   | 'consumesSlot'
   | 'cast'
+  | 'rollFormula'
+  | 'attackArea'
   | 'uses'
 > & {
   type: 'activity'
@@ -571,6 +602,11 @@ export type CharacterSheet = {
   img: string | null
   level: number | null
   classes: SheetClass[]
+  /**
+   * The world's rules: the 2024 rules ("modern") or the 2014 rules ("legacy"). Module 0.16.0;
+   * absent before.
+   */
+  rules?: 'modern' | 'legacy' | null
   species: string | null
   background: string | null
   hp?: { value: number; max: number | null; temp: number } | null
@@ -679,6 +715,8 @@ export type BridgeFeatures = {
     modifiers?: boolean
     /** Whether its players are asked here for the saves their game asks of them. Module 0.13.0. */
     prompts?: boolean
+    /** Whether an area attack is made at the combatants its player picks. Module 0.16.0. */
+    areaAttacks?: boolean
   } | null
 }
 
@@ -731,6 +769,8 @@ export type CommandResult = {
    * 0.13.0.
    */
   outcome?: SaveOutcome | null
+  /** For a hit die, the hit points it gave back, no more than were missing. Module 0.16.0. */
+  healed?: number | null
 }
 
 /** Whether a saving throw succeeded against its DC. */
@@ -746,6 +786,18 @@ export type UseOutcome = { type: string }
 export type AttackOutcome = {
   critical: boolean
   fumble: boolean
+  outcome: 'hit' | 'miss' | null
+  /**
+   * For an area attack, whether it hit each combatant picked, where the game shows players that.
+   * Module 0.16.0.
+   */
+  targets?: AttackTargetOutcome[]
+}
+
+/** Whether an area attack hit one of the combatants it was made at. */
+export type AttackTargetOutcome = {
+  combatId: string
+  combatantId: string
   outcome: 'hit' | 'miss' | null
 }
 

@@ -7,11 +7,14 @@ import { parseExtraTerms, type ExtraTerm } from '@/utils/roll-modifiers'
 import type {
   LocalCheck,
   LocalDamage,
+  LocalFormula,
   LocalUse,
   SheetDamageRoll,
+  SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
 import type {
+  FormulaSource,
   RolledDice,
   RollFeature,
   RollKind,
@@ -65,6 +68,8 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   damaged?: boolean
   /** For a saving throw the game asked for, the prompt it answers. */
   prompt?: string
+  /** For an area attack, the names of the combatants it was made at, by their ids. */
+  targetNames?: Record<string, string>
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -153,7 +158,10 @@ export function useTableRolls(
       if (!on || !source || !kinds.includes(source.kind)) return
       let kept: Partial<TableRollState> = {}
       if (source.kind === 'attack') {
-        kept = { source: { item: source.item, activity: source.activity } }
+        kept = {
+          source: { item: source.item, activity: source.activity },
+          ...(roll.targetNames && { targetNames: roll.targetNames }),
+        }
       } else if (source.kind === 'save' && source.prompt) {
         kept = { prompt: source.prompt }
       }
@@ -222,6 +230,16 @@ export function useTableRolls(
     [start],
   )
 
+  const sendFormula = useCallback(
+    (roll: SheetFormulaRoll, rolled: LocalFormula) => {
+      const { source } = roll
+      const { kinds, on } = latest.current
+      if (!on || !source || !kinds.includes(source.kind)) return
+      start(rolled.id, toFormulaRequest(roll, source, rolled), {})
+    },
+    [start],
+  )
+
   const setSending = useCallback(
     (next: boolean) => choose(next ? 'on' : 'off'),
     [choose],
@@ -229,6 +247,7 @@ export function useTableRolls(
   return {
     send,
     sendDamage,
+    sendFormula,
     sendUse,
     states,
     /** Whether the game takes any of the player's rolls now. */
@@ -240,6 +259,8 @@ export function useTableRolls(
     takes: (kind: RollKind) => on && kinds.includes(kind),
     /** Whether the game takes damage the player changed from this device now. */
     modifies: on && kinds.includes('damage') && features.includes('modifiers'),
+    /** Whether the game makes an area attack at the combatants picked, from this device now. */
+    areas: on && kinds.includes('attack') && features.includes('areaAttacks'),
     /**
      * The saves the game asked for that the player has answered from this page, on their way to
      * the game or made there: not to be answered again.
@@ -383,8 +404,10 @@ export function toRollRequest(
     ...(source.kind === 'attack' && {
       item: source.item,
       activity: source.activity,
-      // eslint-disable-next-line unicorn/no-null -- the protocol's for no target
-      target: source.target ?? null,
+      ...(source.targets
+        ? { targets: source.targets }
+        : // eslint-disable-next-line unicorn/no-null -- the protocol's for no target
+          { target: source.target ?? null }),
       ...(source.slot && { slot: source.slot }),
       ...(source.ammunition && { ammunition: source.ammunition }),
       ...(source.attackMode && { attackMode: source.attackMode }),
@@ -400,6 +423,31 @@ export function toRollRequest(
           : [],
       ),
     ],
+  }
+}
+
+/**
+ * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, or
+ * the formula's item and activity, and the dice of each of its terms, in order.
+ */
+export function toFormulaRequest(
+  roll: SheetFormulaRoll,
+  source: FormulaSource,
+  rolled: LocalFormula,
+): RollRequestInput {
+  return {
+    kind: source.kind,
+    ...(source.kind === 'hitDie'
+      ? { denomination: source.denomination }
+      : { item: source.item, activity: source.activity }),
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: roll.terms.flatMap((term, index) =>
+      'sides' in term
+        ? [{ faces: term.sides, results: rolled.terms[index]?.values ?? [] }]
+        : [],
+    ),
   }
 }
 

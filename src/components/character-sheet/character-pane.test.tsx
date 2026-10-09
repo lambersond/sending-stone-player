@@ -330,6 +330,62 @@ describe('components/character-sheet/character-pane', () => {
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
+  it("spends a hit die in the Gamemaster's game, when it takes them, with the same die", async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.clear()
+    const posted: Record<string, unknown>[] = []
+    globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        return {
+          ok: true,
+          status: 202,
+          json: async () => ({ id: 'req-1' }),
+        } as Response
+      }
+      const answer = {
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: 9,
+        healed: 4,
+      }
+      return { ok: true, status: 200, json: async () => answer } as Response
+    }) as typeof fetch
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(fullerSheet(), GAME)}
+        rollsToTable={['hitDie']}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Spend a d10 hit die, 3 of 5 left' }),
+    )
+
+    expect(posted).toEqual([
+      {
+        kind: 'hitDie',
+        denomination: 'd10',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 10, results: [expect.any(Number)] }],
+      },
+    ])
+    const [die] = (posted[0].dice as { results: number[] }[])[0].results
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(
+      `${Math.max(1, die + 3)}Hit die (d10)1d10 (${die}) +3`,
+    )
+    await waitFor(
+      () => expect(status).toHaveTextContent('At the table: 9 · 4 HP regained'),
+      { timeout: 3000 },
+    )
+  })
+
   it("has Tidy 5e's tabs, and shows one part of the sheet at a time", async () => {
     const user = userEvent.setup()
     renderPane()
@@ -587,6 +643,121 @@ describe('components/character-sheet/character-pane', () => {
       })
       // Its damage is rolled once.
       expect(screen.queryByRole('button', { name: 'Roll damage' })).toBeNull()
+    })
+
+    it('makes an area attack at those ticked, where the game makes it so, and says whom it hit', async () => {
+      const user = userEvent.setup()
+      const posted: Record<string, unknown>[] = []
+      globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+          return {
+            ok: true,
+            status: 202,
+            json: async () => ({ id: 'req-1' }),
+          } as Response
+        }
+        const answer = {
+          id: 'req-1',
+          status: 'done',
+          visible: true,
+          total: 17,
+          attack: {
+            critical: false,
+            fumble: false,
+            outcome: null,
+            targets: [
+              { combatId: 'cmbt1', combatantId: 'goblin1', outcome: 'hit' },
+              { combatId: 'cmbt1', combatantId: 'boss1', outcome: 'miss' },
+            ],
+          },
+          damage: null,
+        }
+        return { ok: true, status: 200, json: async () => answer } as Response
+      }) as typeof fetch
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(
+            characterSheet({
+              actions: [
+                {
+                  id: 'action',
+                  label: 'Actions',
+                  actions: [
+                    sheetAction({
+                      id: 'breath',
+                      name: 'Breath Weapon',
+                      attackId: 'breathAttack',
+                      toHit: 5,
+                      attackArea: {
+                        count: null,
+                        perLevel: null,
+                        affects: 'creature',
+                      },
+                    }),
+                  ],
+                },
+              ],
+            }),
+            GAME,
+          )}
+          combat={{
+            ...fight,
+            combatants: [
+              ...fight.combatants,
+              {
+                id: 'boss1',
+                name: 'Goblin Boss',
+                initiative: 8,
+                defeated: false,
+                side: 'other',
+              },
+            ],
+          }}
+          rollsToTable={['attack', 'damage']}
+          rollFeatures={['areaAttacks']}
+        />,
+      )
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Breath Weapon attack, +5' }),
+      )
+      const picker = screen.getByRole('dialog', {
+        name: 'Breath Weapon attack',
+      })
+      await user.click(
+        within(picker).getByRole('checkbox', { name: /^Goblin$/ }),
+      )
+      await user.click(
+        within(picker).getByRole('checkbox', { name: /^Goblin Boss/ }),
+      )
+      await user.click(
+        within(picker).getByRole('button', { name: 'Attack 2 targets' }),
+      )
+
+      expect(posted[0]).toMatchObject({
+        kind: 'attack',
+        item: 'breath',
+        activity: 'breathAttack',
+        targets: [
+          { combatId: 'cmbt1', combatantId: 'goblin1' },
+          { combatId: 'cmbt1', combatantId: 'boss1' },
+        ],
+      })
+      expect(posted[0]).not.toHaveProperty('target')
+      const status = screen.getByRole('status')
+      await waitFor(
+        () => expect(status).toHaveTextContent('At the table: 17 · Hit 1 of 2'),
+        { timeout: 3000 },
+      )
+      expect(
+        within(within(status).getByRole('list', { name: 'Targets' }))
+          .getAllByRole('listitem')
+          .map(item => item.textContent),
+      ).toEqual(['Goblin: Hit', 'Goblin Boss: Miss'])
     })
 
     it("rolls a waiting attack's damage from its damage chip, as the game said", async () => {

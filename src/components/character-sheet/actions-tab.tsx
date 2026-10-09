@@ -20,6 +20,7 @@ import {
   castNote,
   Chevron,
   DamageChip,
+  FormulaChip,
   dimmed,
   FALLBACKS,
   firstInFoundry,
@@ -42,7 +43,11 @@ import { UsesLeft } from './uses-left'
 import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
-import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+} from '@/hooks/use-sheet-roller'
 import type {
   SheetAction,
   SheetActionSection,
@@ -56,6 +61,8 @@ type Props = {
   sheet: TableSheet
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Rolls an activity's own formula, such as a light's radius. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -111,6 +118,7 @@ export function ActionsTab({
   sheet,
   onRoll,
   onRollDamage,
+  onRollFormula,
   onUse,
   tableDamage,
   favorites,
@@ -120,6 +128,7 @@ export function ActionsTab({
     spellbook: sheet.spells,
     onRoll,
     onRollDamage,
+    onRollFormula,
     onUse,
     tableDamage,
   })
@@ -557,6 +566,9 @@ function ActionTableRow({
             {save && (
               <SaveChip name={name} save={save} onUse={view.uses.save} />
             )}
+            {action.rollFormula && (
+              <FormulaChip action={action} onRoll={rows.formula} />
+            )}
             {view.uses.chip && (
               <UseChip action={action} onUse={view.uses.chip} />
             )}
@@ -679,6 +691,9 @@ function ActivityTableRow({
             />
           )}
           {save && <SaveChip name={name} save={save} onUse={view.uses.save} />}
+          {action.rollFormula && (
+            <FormulaChip action={action} onRoll={rows.formula} />
+          )}
           {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
         </span>
       </td>
