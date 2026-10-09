@@ -132,6 +132,20 @@ const rollFields = {
   ),
   // From module 0.14.0: false for a spell's activity that spends no slot; anything else spends one.
   consumesSlot: z.boolean().optional().catch(true),
+  // From module 0.15.0: how a spell an item casts is cast, for a Cast activity.
+  cast: z
+    .looseObject({
+      level: z.number().catch(0),
+      concentration: z.boolean().catch(false),
+      charges: nullableNumber,
+      short: z.boolean().catch(false),
+      text: textRef.optional(),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
+  // From module 0.15.0: the kind of action it takes, where it takes one, such as "bonus".
+  activationType: z.string().nullable().optional().catch(null),
 }
 
 /**
@@ -358,6 +372,10 @@ const actionSchema = z.looseObject({
   type: z.string().catch(''),
   ...actionFields,
   activities: activitiesSchema,
+  // From module 0.15.0: the activity an item is listed for in a section, where it isn't its first.
+  activityName: z.string().nullable().optional().catch(null),
+  // From module 0.15.0: an item used up rather than kept.
+  consumable: z.boolean().optional().catch(false),
   level: nullableNumber,
   // From module 0.8.2.
   castFrom: castFromSchema,

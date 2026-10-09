@@ -315,11 +315,14 @@ export function ActionEntry({
   rows,
   note,
   look = {},
+  section,
 }: Readonly<{
   action: SheetAction
   rows: ActionRows
   note?: string
   look?: EntryLook
+  /** The section of the Actions tab it's listed in, whose kind of action goes without saying. */
+  section?: string
 }>) {
   const [open, setOpen] = useState(false)
   const body = useId()
@@ -331,11 +334,14 @@ export function ActionEntry({
     look.detail ??
     joinParts(
       note,
-      action.activation,
+      action.activityName,
+      activationIn(action, section),
       action.range,
       view.types.join(', '),
+      castNote(action.cast),
       view.spent && 'No slots left',
       firstInFoundry(action) && 'Used in Foundry',
+      !open && moreNote(others.length),
     )
 
   return (
@@ -348,7 +354,7 @@ export function ActionEntry({
           onClick={() => setOpen(!open)}
           className={clsx(
             'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
-            (view.spent || look.muted) && 'opacity-60',
+            (view.spent || look.muted || action.cast?.short) && 'opacity-60',
           )}
         >
           <EntryIcon
@@ -374,34 +380,35 @@ export function ActionEntry({
         {uses && <ChipUses uses={uses} view={view} action={action} />}
         <ActionChips action={action} view={view} rows={rows} />
       </div>
-      {others.length > 0 && (
-        <ul
-          aria-label={`${name}: its other activities`}
-          className='mb-1 ml-[1.625rem] border-l border-border pl-[1.5rem]'
-        >
-          {others.map(other => (
-            <ActivityEntry
-              key={other.activity.id}
-              activity={other.activity}
-              action={other.action}
-              parent={action}
-              rows={rows}
-              muted={look.muted}
-            />
-          ))}
-        </ul>
-      )}
       {open && (
-        <div
-          id={body}
-          className='flex flex-col gap-2 px-2.5 pt-1 pb-3 pl-[3.25rem]'
-        >
-          <ActionDetails
-            action={action}
-            pools={view.pools}
-            characterId={rows.characterId}
-            look={look}
-          />
+        <div id={body} className='flex flex-col gap-2 pb-3'>
+          {/* Its other activities, folded away with the rest until it's opened. */}
+          {others.length > 0 && (
+            <ul
+              aria-label={`${name}: its other activities`}
+              className='ml-[1.625rem] border-l border-border pl-[1.5rem]'
+            >
+              {others.map(other => (
+                <ActivityEntry
+                  key={other.activity.id}
+                  activity={other.activity}
+                  action={other.action}
+                  parent={action}
+                  rows={rows}
+                  muted={look.muted}
+                  section={section}
+                />
+              ))}
+            </ul>
+          )}
+          <div className='flex flex-col gap-2 px-2.5 pt-1 pl-[3.25rem]'>
+            <ActionDetails
+              action={action}
+              pools={view.pools}
+              characterId={rows.characterId}
+              look={look}
+            />
+          </div>
         </div>
       )}
     </li>
@@ -419,6 +426,7 @@ function ActivityEntry({
   parent,
   rows,
   muted,
+  section,
 }: Readonly<{
   activity: SheetActivity
   /** The activity as an action of its own. */
@@ -426,16 +434,19 @@ function ActivityEntry({
   parent: SheetAction
   rows: ActionRows
   muted?: boolean
+  section?: string
 }>) {
   const view = viewOf(action, rows.spellbook, rows.use)
-  const { uses } = action
-  const detail = joinParts(...activityDetail(activity, parent, view.spent))
+  const uses = ownUses(activity, parent)
+  const detail = joinParts(
+    ...activityDetail(activity, parent, view.spent, { section }),
+  )
   return (
     <li className='flex items-center gap-2 py-0.5 pr-1.5'>
       <span
         className={clsx(
           'min-w-0 flex-1 py-0.5',
-          (view.spent || muted || !usedFromApp(activity)) && 'opacity-60',
+          (view.spent || muted || dimmed(activity)) && 'opacity-60',
         )}
       >
         <span className='block truncate text-sm'>{activity.name}</span>
@@ -467,9 +478,77 @@ export function otherActivities(
 /** The kinds of activity the app rolls or uses; others, such as a summoning, are Foundry's. */
 const FROM_APP = new Set(['attack', 'save', 'damage', 'heal', 'utility'])
 
-/** Is this a kind of activity the app rolls or uses? */
+/**
+ * Is this an activity the app rolls or uses: one of a kind it does, or one the module says it can
+ * roll or use, such as a spell a staff casts?
+ */
 export function usedFromApp(activity: SheetActivity): boolean {
-  return FROM_APP.has(activity.type)
+  return (
+    FROM_APP.has(activity.type) || !!(activity.attackId || activity.activity)
+  )
+}
+
+/** Is an activity shown faded: one used only in Foundry, or a spell cast from charges not left? */
+export function dimmed(activity: SheetActivity): boolean {
+  return !usedFromApp(activity) || activity.cast?.short === true
+}
+
+/**
+ * An activity's uses, beside it: none for a spell cast from its item's charges, which are shown by
+ * the item already.
+ */
+export function ownUses(
+  activity: SheetActivity,
+  parent: SheetAction,
+): SheetAction['uses'] | undefined {
+  const { uses } = activity
+  const same =
+    !!uses &&
+    !!parent.uses &&
+    uses.value === parent.uses.value &&
+    uses.max === parent.uses.max
+  return activity.cast && same ? undefined : uses
+}
+
+/**
+ * What a spell cast from an item costs, such as "1 charge", or that the item hasn't that many
+ * left.
+ */
+export function castNote(cast: SheetAction['cast']): string | undefined {
+  if (!cast) return undefined
+  if (cast.short) return 'No charges left'
+  if (!cast.charges) return undefined
+  return cast.charges === 1 ? '1 charge' : `${cast.charges} charges`
+}
+
+/** How many more activities an action has than it shows while it's closed, such as "3 more". */
+export function moreNote(count: number): string | undefined {
+  return count > 0 ? `${count} more` : undefined
+}
+
+/**
+ * How an action is activated, but where its section of the Actions tab says it already, as one
+ * action does under Actions, or a reaction under Reactions.
+ */
+export function activationIn(
+  action: Pick<SheetAction, 'activation' | 'activationType'>,
+  section?: string,
+): string | null | undefined {
+  return section && action.activationType === section
+    ? undefined
+    : action.activation
+}
+
+/**
+ * An action's name for its rolls: an item's, and the activity it's listed for, where it isn't the
+ * item's first, such as "Staff (Silvery Barbs)".
+ */
+export function actionTitle(
+  action: Pick<SheetAction, 'name' | 'activityName'>,
+): string {
+  return action.activityName
+    ? `${action.name} (${action.activityName})`
+    : action.name
 }
 
 /**
@@ -490,15 +569,26 @@ export function activityDetail(
   activity: SheetActivity,
   parent: SheetAction,
   spent: boolean,
+  {
+    section,
+    range = true,
+  }: {
+    /** The section of the Actions tab it's listed in. */
+    section?: string
+    /** Whether to say how far it reaches, which a table has a column for. */
+    range?: boolean
+  } = {},
 ): (string | false | null | undefined)[] {
   return [
-    activity.activation !== parent.activation && activity.activation,
-    activity.range !== parent.range && activity.range,
+    activity.activation !== parent.activation &&
+      activationIn(activity, section),
+    range && activity.range !== parent.range && activity.range,
     [
       ...new Set(
         activity.damage.flatMap(part => (part.type ? [part.type] : [])),
       ),
     ].join(', '),
+    castNote(activity.cast),
     spent && 'No slots left',
     !usedFromApp(activity) && 'Used in Foundry',
   ]
@@ -538,7 +628,8 @@ export function ActionChips({
   view: ReturnType<typeof viewOf>
   rows: ActionRows
 }>) {
-  const { name, toHit, save } = action
+  const { toHit, save } = action
+  const name = actionTitle(action)
   return (
     <>
       {toHit !== null && (
@@ -670,7 +761,7 @@ export function UseChip({
   return (
     <button
       type='button'
-      aria-label={`${verb} ${action.name}`}
+      aria-label={`${verb} ${actionTitle(action)}`}
       onClick={() => onUse()}
       className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/20'
     >
@@ -761,11 +852,13 @@ export function DamageChip({
 }
 
 /**
- * What using an action in the game is called: casting, for a spell, but for one of its activities
- * used after it's cast, without spending a slot, such as Spirit Guardians' save each turn.
+ * What using an action in the game is called: casting, for a spell, or one an item casts, but for
+ * one of a spell's activities used after it's cast, without spending a slot, such as Spirit
+ * Guardians' save each turn.
  */
 export function verbOf(action: SheetAction): 'Cast' | 'Use' {
-  return action.type === 'spell' && action.consumesSlot !== false
+  return (action.type === 'spell' && action.consumesSlot !== false) ||
+    !!action.cast
     ? 'Cast'
     : 'Use'
 }
@@ -782,16 +875,24 @@ export function ActionDetails({
   characterId: string
   look?: EntryLook
 }>) {
+  // An item listed for a spell it casts opens to the spell.
+  const { cast } = action
+  const spell = cast?.text ? cast : undefined
   const meta =
     look.meta ??
-    joinParts(kindOf(action), !action.identified && 'Not identified')
+    (spell
+      ? joinParts(
+          spell.level === 0 ? 'Cantrip' : `Level ${spell.level} spell`,
+          spell.concentration && 'Concentration',
+          `Cast from ${action.castFrom?.name ?? action.name}`,
+        )
+      : joinParts(kindOf(action), !action.identified && 'Not identified'))
+  const text = spell?.text ?? action.text
   return (
     <>
       {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
       <Facts action={action} pools={pools} more={look.facts} />
-      {action.text && (
-        <SheetText characterId={characterId} hash={action.text} />
-      )}
+      {text && <SheetText characterId={characterId} hash={text} />}
     </>
   )
 }
@@ -915,7 +1016,7 @@ function damageTarget(
     parts.push({ terms: read.terms, type: part.type })
   }
   return {
-    label: `${action.name} ${healing ? 'healing' : 'damage'}`,
+    label: `${actionTitle(action)} ${healing ? 'healing' : 'damage'}`,
     parts,
     healing,
     formula: action.damage.map(part => part.formula).join(' + '),

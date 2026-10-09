@@ -13,7 +13,7 @@ import {
   WandSparkles,
   type LucideIcon,
 } from 'lucide-react'
-import { verbOf, type TableDamage } from './action-entry'
+import { actionTitle, verbOf, type TableDamage } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet, classLine } from './character-sheet'
@@ -184,7 +184,7 @@ function RollingSheet({
     if (!action.activity) return
     const due = table.dueFor({ item: action.id, activity: action.activity.id })
     if (due) {
-      rollDue(action.name, due, undefined, modifiers)
+      rollDue(actionTitle(action), due, undefined, modifiers)
       return
     }
     const asking: Picking = { kind: 'use', action, modifiers }
@@ -200,7 +200,7 @@ function RollingSheet({
     modifiers?: DamageModifiers,
   ) => {
     if (!action.activity) return
-    const used = logUse(action.name, verbOf(action) === 'Cast')
+    const used = logUse(actionTitle(action), verbOf(action) === 'Cast')
     table.sendUse(
       used,
       {

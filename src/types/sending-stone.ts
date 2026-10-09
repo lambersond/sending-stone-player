@@ -284,6 +284,12 @@ export type SheetAction = {
   type: string
   /** Such as "1 Action" or "1 Bonus Action". */
   activation: string | null
+  /**
+   * The kind of action it's activated with, as a section's id names it, such as "action", "bonus"
+   * or "reaction", where it takes just one; null for any other, such as two actions or a minute.
+   * Module 0.15.0.
+   */
+  activationType?: string | null
   range: string | null
   target: string | null
   /** The bonus to hit, for an action that attacks. */
@@ -317,6 +323,15 @@ export type SheetAction = {
    * otherwise.
    */
   activities?: SheetActivity[]
+  /**
+   * The activity an item is listed for in a section of the Actions tab, where it isn't the item's
+   * first, such as a staff's Silvery Barbs under Reactions. Module 0.15.0; absent otherwise.
+   */
+  activityName?: string | null
+  /** For a spell an item casts, with a Cast activity, how it's cast. Module 0.15.0. */
+  cast?: SheetCast | null
+  /** An item used up rather than kept: a consumable, or one whose uses never come back. */
+  consumable?: boolean
   uses: SheetUses | null
   /** A spell's level, 0 for a cantrip; null for anything else. */
   level: number | null
@@ -326,6 +341,22 @@ export type SheetAction = {
   /** False for an item not identified yet, which keeps its secrets. */
   identified: boolean
   text: string | null
+}
+
+/**
+ * How a spell an item casts is cast, such as a staff's Silvery Barbs: at what level, whether it
+ * takes concentration, how many of the item's uses it spends, if any, and whether that many are
+ * left; and, where the item is listed for it, the spell's description.
+ */
+export type SheetCast = {
+  level: number
+  concentration: boolean
+  /** How many of the item's uses, or the activity's own, it spends; null for none, or a formula. */
+  charges: number | null
+  /** Fewer are left than it spends. */
+  short: boolean
+  /** The spell's description's hash. */
+  text?: string | null
 }
 
 /**
@@ -347,6 +378,7 @@ export type SheetUse = {
 export type SheetActivity = Pick<
   SheetAction,
   | 'activation'
+  | 'activationType'
   | 'range'
   | 'target'
   | 'toHit'
@@ -357,13 +389,14 @@ export type SheetActivity = Pick<
   | 'save'
   | 'damage'
   | 'consumesSlot'
+  | 'cast'
   | 'uses'
 > & {
   /** The activity's id. */
   id: string
   /** Such as "Bonus Hex Damage", or its kind's, such as "Attack". */
   name: string
-  /** Such as "attack", "save" or "summon", which the app can't use. */
+  /** Such as "attack", "save", "cast" or "summon", which the app can't use. */
   type: string
 }
 
@@ -401,6 +434,7 @@ export type SheetRolls = Pick<
   | 'save'
   | 'damage'
   | 'consumesSlot'
+  | 'cast'
   | 'activities'
 >
 
@@ -429,6 +463,7 @@ export type SheetItemFavorite = {
 export type SheetActivityFavorite = Pick<
   SheetAction,
   | 'activation'
+  | 'activationType'
   | 'range'
   | 'target'
   | 'toHit'
@@ -439,6 +474,7 @@ export type SheetActivityFavorite = Pick<
   | 'save'
   | 'damage'
   | 'consumesSlot'
+  | 'cast'
   | 'uses'
 > & {
   type: 'activity'
