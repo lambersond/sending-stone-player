@@ -218,7 +218,13 @@ const featureSchema = z.looseObject({
  * that a sheet from one reads as it did; null for one that can't be read.
  */
 const castFromSchema = z
-  .object({ id: z.string(), name: z.string() })
+  .object({
+    id: z.string(),
+    name: z.string(),
+    // From module 0.16.0: false for a spell the item can't cast now, and whether it needs attuning.
+    usable: z.boolean().optional().catch(true),
+    attune: z.boolean().optional().catch(false),
+  })
   .nullable()
   .optional()
   .catch(null)

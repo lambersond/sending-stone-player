@@ -210,7 +210,16 @@ export type SheetSpellcasting = {
 }
 
 /** The item a spell is cast from, with one of its Cast activities, such as a wand. Module 0.8.2. */
-export type SheetCastFrom = { id: string; name: string }
+/**
+ * The item a spell is cast from. From module 0.16.0, one the item can't cast now says so, and
+ * whether it's for want of attuning to the item.
+ */
+export type SheetCastFrom = {
+  id: string
+  name: string
+  usable?: boolean
+  attune?: boolean
+}
 
 export type SheetSpell = {
   id: string

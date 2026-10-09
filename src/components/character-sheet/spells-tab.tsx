@@ -1,6 +1,7 @@
 'use client'
 
-import { Wand } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { Search, Wand } from 'lucide-react'
 import {
   ActionEntry,
   useActionRows,
@@ -17,19 +18,23 @@ import { spellAction } from '@/utils/sheet-actions'
 import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type {
   SheetAction,
+  SheetCastFrom,
   SheetSpell,
   SheetSpellcasting,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
-import type { ReactNode } from 'react'
+
+/** How many spells a character has before their spells can be searched. */
+const SEARCH_FROM = 5
 
 /**
  * The character's spells, as dnd5e's Spells tab shows them to its player: how they cast, then
  * their spellbook in its sections, such as Cantrips and each spell level, with the slots left.
  * Each spell opens to its description. What a spell rolls is beside it, as on the Actions tab: its
  * attack, saving throw and damage or healing, each a button that rolls it, or casts it in the
- * Gamemaster's game while the game takes spells.
+ * Gamemaster's game while the game takes spells. With more than a few spells, they can be searched
+ * by name.
  */
 export function SpellsTab({
   characterId,
@@ -59,15 +64,35 @@ export function SpellsTab({
     onUse,
     tableDamage,
   })
-  // A spell level with slots shows even with no spells of its own, as they can cast a lower
-  // level's.
-  const sections = sheet.spells.filter(
-    section => section.spells.length > 0 || (section.slots?.max ?? 0) > 0,
+  const [query, setQuery] = useState('')
+  const count = sheet.spells.reduce(
+    (total, section) => total + section.spells.length,
+    0,
   )
+  const searchable = count >= SEARCH_FROM
+  const search = searchable ? query.trim().toLocaleLowerCase() : ''
+  // A spell level with slots shows even with no spells of its own, as they can cast a lower
+  // level's; while searching, only those with a spell found.
+  const sections = sheet.spells
+    .map(section =>
+      search
+        ? {
+            ...section,
+            spells: section.spells.filter(spell =>
+              spell.name.toLocaleLowerCase().includes(search),
+            ),
+          }
+        : section,
+    )
+    .filter(
+      section =>
+        section.spells.length > 0 || (!search && (section.slots?.max ?? 0) > 0),
+    )
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
       {sheet.spellcasting && <Spellcasting spellcasting={sheet.spellcasting} />}
+      {searchable && <SpellSearch query={query} onChange={setQuery} />}
 
       {sections.map(section => (
         <section
@@ -104,10 +129,39 @@ export function SpellsTab({
       ))}
 
       {sections.length === 0 && (
-        <p className='text-sm text-text-secondary'>No spells to show yet.</p>
+        <p className='text-sm text-text-secondary'>
+          {search
+            ? `No spells match “${query.trim()}”.`
+            : 'No spells to show yet.'}
+        </p>
       )}
 
       {dialogs}
+    </div>
+  )
+}
+
+/** A search of the character's spells by name, whatever its case. */
+function SpellSearch({
+  query,
+  onChange,
+}: Readonly<{ query: string; onChange: (query: string) => void }>) {
+  return (
+    <div className='relative'>
+      <Search
+        aria-hidden
+        className='pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-secondary'
+      />
+      <input
+        type='search'
+        value={query}
+        onChange={event => onChange(event.target.value)}
+        aria-label='Search spells by name'
+        placeholder='Search spells'
+        autoComplete='off'
+        spellCheck={false}
+        className='h-11 w-full rounded-xl border border-border bg-page pr-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-primary/40'
+      />
     </div>
   )
 }
@@ -203,6 +257,8 @@ export function SpellEntry({
   ]
     .filter(Boolean)
     .join(' ')
+  // A spell its item can't cast now is listed, but can't be cast, and says why in its detail.
+  const unusable = spell.castFrom?.usable === false
   const meta = joinParts(
     spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`,
     spell.school,
@@ -216,7 +272,7 @@ export function SpellEntry({
       <ActionEntry
         action={action}
         rows={rows}
-        note={spell.castFrom ? `From ${spell.castFrom.name}` : undefined}
+        note={spell.castFrom ? fromNote(spell.castFrom) : undefined}
         look={{
           marks: marked && (
             <span className='flex shrink-0 items-center gap-1'>
@@ -244,7 +300,7 @@ export function SpellEntry({
       detail={joinParts(
         spell.activation,
         spell.range,
-        spell.castFrom && `From ${spell.castFrom.name}`,
+        spell.castFrom && fromNote(spell.castFrom),
       )}
       aside={
         (marked || spell.uses) && (
@@ -263,9 +319,25 @@ export function SpellEntry({
         ['Components', components],
       ])}
       text={spell.text}
-      muted={unprepared}
+      muted={unprepared || unusable}
     />
   )
+}
+
+/**
+ * The item a spell is cast from, such as "From Wand of Fireballs", and why it can't be cast now,
+ * if it can't.
+ */
+function fromNote(castFrom: SheetCastFrom): string | undefined {
+  return joinParts(
+    `From ${castFrom.name}`,
+    castFrom.usable === false && whyNot(castFrom),
+  )
+}
+
+/** Why the item a spell is cast from can't cast it now: it needs attuning, or else it can't. */
+function whyNot(castFrom: SheetCastFrom): string {
+  return castFrom.attune ? 'Needs attuning' : 'Can’t be cast now'
 }
 
 /** A spell's marks: for concentration, ritual or always prepared, and not prepared, unseen. */

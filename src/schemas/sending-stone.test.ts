@@ -716,6 +716,51 @@ describe('schemas/sending-stone', () => {
     expect('castFrom' in actions[0].actions[2]).toBe(false)
   })
 
+  it('reads whether the item a spell is cast from can cast it now, from module 0.16.0', () => {
+    const sheet = fullerSheet()
+    const [cantrips, first, ...rest] = sheet.spells
+    const flame = { id: 'flame', name: 'Worn Bardic Eternal Flame' }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            cantrips,
+            {
+              ...first,
+              spells: [
+                {
+                  ...first.spells[0],
+                  castFrom: { ...flame, usable: false, attune: true },
+                },
+                {
+                  ...first.spells[1],
+                  castFrom: { ...flame, usable: 'no', attune: 1 },
+                },
+                { ...first.spells[2], castFrom: flame },
+              ],
+            },
+            ...rest,
+          ],
+        },
+      },
+    }) as any
+
+    expect(
+      event.data.character.sheet.spells[1].spells.map(
+        (spell: SheetSpell) => spell.castFrom,
+      ),
+    ).toEqual([
+      { ...flame, usable: false, attune: true },
+      { ...flame, usable: true, attune: false },
+      flame,
+    ])
+    expect(
+      'usable' in event.data.character.sheet.spells[1].spells[2].castFrom,
+    ).toBe(false)
+  })
+
   it('reads actions, dropping a malformed action, damage or saving throw rather than the sheet', () => {
     const sheet = fullerSheet()
     const [section, ...rest] = sheet.actions
