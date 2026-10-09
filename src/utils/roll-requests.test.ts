@@ -24,6 +24,7 @@ import type {
   CommandResult,
   DamagePreview,
   SheetAction,
+  SheetClass,
 } from '@/types/sending-stone'
 
 const NOW = Date.parse('2026-10-09T20:00:00Z')
@@ -195,6 +196,139 @@ const answered = (outcome: 'success' | 'failure' | null) =>
           },
         ],
         outcome,
+      },
+    }),
+    NOW,
+  )
+
+/**
+ * Thorin with Dragon Breath, made at two in its cone; a storm, at any number; Acid Spray, at two
+ * and one more for each level higher, with 1st-level slots as given; and a warhammer.
+ */
+const breather = (spell1 = 2) =>
+  fullerSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            id: 'breath',
+            name: 'Dragon Breath',
+            toHit: 5,
+            attackId: 'exhale',
+            attackArea: { count: 2, perLevel: null, affects: 'creature' },
+          }),
+          sheetAction({
+            id: 'storm',
+            name: 'Storm',
+            toHit: 5,
+            attackId: 'gust',
+            attackArea: { count: null, perLevel: null, affects: null },
+          }),
+          sheetAction({
+            id: 'spray',
+            name: 'Acid Spray',
+            type: 'spell',
+            level: 1,
+            toHit: 5,
+            attackId: 'splash',
+            attackArea: { count: 2, perLevel: 1, affects: 'creature' },
+          }),
+          sheetAction({
+            id: 'warhammer',
+            name: 'Warhammer',
+            type: 'weapon',
+            toHit: 7,
+            attackId: 'warhammerAttack',
+          }),
+        ],
+      },
+    ],
+    spells: [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: spell1, max: 4, level: 1 },
+        spells: [sheetSpell({ id: 'spray', name: 'Acid Spray' })],
+      },
+      {
+        id: 'spell2',
+        label: '2nd Level',
+        slots: { value: 1, max: 3, level: 2 },
+        spells: [],
+      },
+    ],
+  })
+
+/** An area attack with an item's attack at combatants of the combat, by their ids. */
+const areaRequest = (
+  item: string,
+  activity: string,
+  at: string[],
+  fields: Partial<RollRequestInput> = {},
+) =>
+  attackRequest({
+    item,
+    activity,
+    targets: at.map(combatantId => ({ combatId: 'cmbt1', combatantId })),
+    ...fields,
+  })
+
+/** A hit die of this size spent. */
+const hitDieRequest = (denomination = 'd10') =>
+  request({
+    kind: 'hitDie',
+    key: undefined,
+    denomination,
+    dice: [{ faces: Number(denomination.slice(1)), results: [4] }],
+  })
+
+/** Thorin, with a class with each of these hit dice. */
+const classed = (...hitDice: SheetClass['hitDice'][]) =>
+  fullerSheet({
+    classes: hitDice.map((dice, index) => ({
+      name: `Class ${index + 1}`,
+      levels: dice?.max ?? 1,
+      subclass: null,
+      hitDice: dice,
+    })),
+  })
+
+/** Can the character make this roll, as its sheet stands, out of combat? */
+const checkSheet = (input: RollRequestInput, sheet = fullerSheet()) =>
+  checkRoll(input, sheet, [], 'actor-thorin')
+
+/** An activity the game uses on its user alone, such as a lantern's. */
+const utility = (id: string) => ({
+  id,
+  type: 'utility' as const,
+  targets: targets({ self: true, affects: 'self' }),
+})
+
+/** A hit die spent, as its player is told of it, giving back this many hit points. */
+const spent = (visible: boolean, healed?: number | null) =>
+  toRollRequestView(
+    held({
+      kind: 'hitDie',
+      status: 'done',
+      result: {
+        id: 'req-1',
+        status: 'done',
+        reason: null,
+        error: null,
+        messageId: 'msg-1',
+        visible,
+        rolls: visible
+          ? [
+              {
+                formula: '1d10 + 3',
+                total: 9,
+                dice: [{ faces: 10, results: [{ result: 6, active: true }] }],
+              },
+            ]
+          : [],
+        healed,
       },
     }),
     NOW,
@@ -973,6 +1107,364 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('checkRoll for an area attack', () => {
+    const fight = combat({
+      combatants: [
+        combatant({ id: 'c-goblin', name: 'Goblin' }),
+        combatant({ id: 'c-hob', name: 'Hobgoblin' }),
+        combatant({ id: 'c-ogre', name: 'Ogre' }),
+        combatant({ id: 'c-lurker', name: 'Lurker', hidden: true }),
+      ],
+    })
+    const check = (input: RollRequestInput, sheet = breather()) =>
+      checkRoll(input, sheet, [fight], 'actor-thorin')
+
+    it('lets an area attack be made at as many combatants as its area takes, or at none', () => {
+      expect(
+        check(areaRequest('breath', 'exhale', ['c-goblin', 'c-hob'])),
+      ).toBeUndefined()
+      expect(check(areaRequest('breath', 'exhale', ['c-ogre']))).toBeUndefined()
+      expect(check(areaRequest('breath', 'exhale', []))).toBeUndefined()
+      expect(
+        check(areaRequest('storm', 'gust', ['c-goblin', 'c-hob', 'c-ogre'])),
+      ).toBeUndefined()
+    })
+
+    it('takes more combatants for a spell whose area takes more cast higher, chosen or by default', () => {
+      const three = ['c-goblin', 'c-hob', 'c-ogre']
+      expect(
+        check(areaRequest('spray', 'splash', three.slice(0, 2))),
+      ).toBeUndefined()
+      expect(check(areaRequest('spray', 'splash', three))).toBe('target')
+      expect(
+        check(areaRequest('spray', 'splash', three, { slot: 'spell1' })),
+      ).toBe('target')
+      expect(
+        check(areaRequest('spray', 'splash', three, { slot: 'spell2' })),
+      ).toBeUndefined()
+      // With no 1st-level slot left, Acid Spray is cast at 2nd, as dnd5e would.
+      expect(
+        check(areaRequest('spray', 'splash', three), breather(0)),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      [
+        'more combatants than its area takes',
+        areaRequest('breath', 'exhale', ['c-goblin', 'c-hob', 'c-ogre']),
+      ],
+      [
+        'combatants, for an attack with no area',
+        areaRequest('warhammer', 'warhammerAttack', ['c-goblin']),
+      ],
+      [
+        'no one in its area, for an attack with no area',
+        areaRequest('warhammer', 'warhammerAttack', []),
+      ],
+      [
+        'a combatant its player cannot see',
+        areaRequest('breath', 'exhale', ['c-goblin', 'c-lurker']),
+      ],
+      [
+        'a combatant not in the combat',
+        areaRequest('breath', 'exhale', ['c-dragon']),
+      ],
+    ])('refuses an area attack at %s', (_name, input) => {
+      expect(check(input)).toBe('target')
+    })
+
+    it('refuses an area attack the sheet has no such attack for, or with no slot of that chosen left', () => {
+      expect(check(areaRequest('breath', 'breathe', ['c-goblin']))).toBe(
+        'unknown',
+      )
+      expect(
+        check(areaRequest('spray', 'splash', ['c-goblin'], { slot: 'spell3' })),
+      ).toBe('slot')
+    })
+
+    it('still lets an attack with an area be made at one target, as before', () => {
+      expect(
+        check(attackRequest({ item: 'breath', activity: 'exhale' })),
+      ).toBeUndefined()
+      expect(
+        check(
+          attackRequest({
+            item: 'breath',
+            activity: 'exhale',
+            ...targetAt('c-goblin'),
+          }),
+        ),
+      ).toBeUndefined()
+    })
+  })
+
+  describe('checkRoll for a hit die', () => {
+    it('lets the character spend a hit die of a size it has one of left', () => {
+      // Thorin's Fighter levels have 3 of their 5 d10s left.
+      expect(checkSheet(hitDieRequest())).toBeUndefined()
+    })
+
+    it("lets a hit die be spent from any class of its size with one left, or whose sheet doesn't say how many, for the game to check", () => {
+      const drained = { die: 'd10', value: 0, max: 3 }
+      expect(
+        checkSheet(
+          hitDieRequest(),
+          classed(
+            drained,
+            { die: 'd6', value: 1, max: 1 },
+            { ...drained, value: 2 },
+          ),
+        ),
+      ).toBeUndefined()
+      expect(
+        checkSheet(hitDieRequest(), classed({ ...drained, value: null })),
+      ).toBeUndefined()
+      expect(
+        checkSheet(
+          hitDieRequest('d6'),
+          classed(drained, { die: 'd6', value: 1, max: 1 }),
+        ),
+      ).toBeUndefined()
+    })
+
+    it('refuses a hit die of a size the character has none of left', () => {
+      const drained = { die: 'd10', value: 0, max: 3 }
+      expect(checkSheet(hitDieRequest(), classed(drained))).toBe('no-hit-dice')
+      expect(
+        checkSheet(
+          hitDieRequest(),
+          classed(
+            drained,
+            { ...drained, max: 2 },
+            { die: 'd6', value: 1, max: 1 },
+          ),
+        ),
+      ).toBe('no-hit-dice')
+    })
+
+    it('refuses a hit die of a size no class of the character has, or a character without a sheet', () => {
+      expect(checkSheet(hitDieRequest('d8'))).toBe('unknown')
+      // A sheet that says nothing of its classes' hit dice has none to spend.
+      expect(checkSheet(hitDieRequest(), characterSheet())).toBe('unknown')
+      expect(checkSheet(hitDieRequest(), classed(null))).toBe('unknown')
+      expect(checkSheet(hitDieRequest(), classed())).toBe('unknown')
+      expect(checkRoll(hitDieRequest(), undefined, [], 'actor-thorin')).toBe(
+        'unknown',
+      )
+    })
+  })
+
+  describe('checkRoll for a formula', () => {
+    /** A lantern's light, whose radius is 1d4 + 2d6 + 3. */
+    const light = { formula: '1d4 + 2d6 + 3', name: 'Light radius' }
+    const thrown = [
+      { faces: 4, results: [3] },
+      { faces: 6, results: [2, 5] },
+    ]
+
+    /** Thorin with lights of every kind, and a torch, which has no formula of its own. */
+    const lit = () =>
+      fullerSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'lantern',
+                name: 'Lantern',
+                type: 'equipment',
+                activity: utility('shine'),
+                rollFormula: light,
+              }),
+              sheetAction({
+                id: 'torch',
+                name: 'Torch',
+                activity: utility('burn'),
+              }),
+              sheetAction({
+                id: 'glowstone',
+                name: 'Glowstone',
+                rollFormula: light,
+              }),
+              sheetAction({
+                id: 'odd',
+                name: 'Odd Lamp',
+                activity: utility('glow'),
+                rollFormula: light,
+                identified: false,
+              }),
+              sheetAction({
+                id: 'strange',
+                name: 'Strange Lamp',
+                activity: utility('flicker'),
+                rollFormula: { formula: '1d4 + @mod', name: null },
+              }),
+              sheetAction({
+                id: 'candle',
+                name: 'Candle',
+                activity: utility('flame'),
+                rollFormula: { formula: '5', name: null },
+              }),
+            ],
+          },
+        ],
+      })
+
+    /** An activity's own formula rolled, with these dice. */
+    const formulaRequest = (
+      item: string,
+      activity: string,
+      dice: RollRequestInput['dice'] = thrown,
+    ) => request({ kind: 'formula', key: undefined, item, activity, dice })
+    const check = (input: RollRequestInput, sheet = lit()) =>
+      checkRoll(input, sheet, [], 'actor-thorin')
+
+    it("lets the character roll an activity's own formula, with the dice it throws, in order", () => {
+      expect(check(formulaRequest('lantern', 'shine'))).toBeUndefined()
+      // A formula of numbers alone throws none.
+      expect(check(formulaRequest('candle', 'flame', []))).toBeUndefined()
+    })
+
+    it.each([
+      ['a die missing', [thrown[0]]],
+      ['no dice', []],
+      ['a die too few', [thrown[0], { faces: 6, results: [2] }]],
+      ['a die too many', [thrown[0], { faces: 6, results: [2, 5, 1] }]],
+      ['dice the formula does not throw', [...thrown, thrown[0]]],
+      ['the wrong die', [{ faces: 8, results: [3] }, thrown[1]]],
+      ['the dice the other way about', [thrown[1], thrown[0]]],
+    ])('refuses a formula with %s', (_name, dice) => {
+      expect(check(formulaRequest('lantern', 'shine', dice))).toBe('dice')
+    })
+
+    it('refuses dice for a formula of numbers alone', () => {
+      expect(
+        check(formulaRequest('candle', 'flame', [{ faces: 4, results: [1] }])),
+      ).toBe('dice')
+    })
+
+    it.each([
+      ['an action with no formula of its own', 'torch', 'burn'],
+      ['an activity the action is not used through', 'lantern', 'burn'],
+      ['an action the game uses through nothing', 'glowstone', 'shine'],
+      ['an item the sheet has not', 'lamp', 'shine'],
+      ['an item not identified yet', 'odd', 'glow'],
+      ["a formula the app can't read", 'strange', 'flicker'],
+    ])('refuses the formula of %s', (_name, item, activity) => {
+      expect(check(formulaRequest(item, activity))).toBe('unknown')
+    })
+
+    it('refuses a formula for a character without a sheet', () => {
+      expect(
+        checkRoll(
+          formulaRequest('lantern', 'shine'),
+          undefined,
+          [],
+          'actor-thorin',
+        ),
+      ).toBe('unknown')
+    })
+
+    it("lets the formula of an item's later activity, a feature or something carried be rolled, and a spell's only while it's prepared", () => {
+      const lists = lit()
+      const [lantern] = lists.actions[0].actions
+      const activity = {
+        name: 'Shine',
+        type: 'utility',
+        activation: 'Action',
+        range: 'Self',
+        target: null,
+        toHit: null,
+        attackId: null,
+        save: null,
+        damage: [],
+        uses: null,
+      }
+      lists.actions[0].actions[0] = {
+        ...lantern,
+        rollFormula: undefined,
+        activity: utility('open'),
+        activities: [
+          { ...activity, id: 'open', activity: utility('open') },
+          {
+            ...activity,
+            id: 'shine',
+            activity: utility('shine'),
+            rollFormula: light,
+          },
+        ],
+      }
+      lists.spells[0].spells.push(
+        sheetSpell({
+          id: 'flame',
+          name: 'Eternal Flame',
+          level: 0,
+          prepared: 1,
+          activity: utility('kindle'),
+          rollFormula: light,
+        }),
+        sheetSpell({
+          id: 'dancing',
+          name: 'Dancing Lights',
+          level: 0,
+          prepared: 0,
+          activity: utility('dance'),
+          rollFormula: light,
+        }),
+      )
+      lists.features = [
+        {
+          id: 'other',
+          label: 'Other Features',
+          text: null,
+          features: [
+            {
+              id: 'radiance',
+              name: 'Radiance',
+              img: null,
+              kind: null,
+              requirements: null,
+              activation: '1 Action',
+              passive: false,
+              uses: null,
+              text: null,
+              activity: utility('radiate'),
+              rollFormula: light,
+            },
+          ],
+        },
+      ]
+      lists.inventory.sections[0].items.push(
+        sheetItem({
+          id: 'lamp',
+          name: 'Lamp',
+          activity: utility('light'),
+          rollFormula: light,
+        }),
+        sheetItem({
+          id: 'orb',
+          name: 'Odd Orb',
+          identified: false,
+          activity: utility('pulse'),
+          rollFormula: light,
+        }),
+      )
+
+      expect(check(formulaRequest('lantern', 'shine'), lists)).toBeUndefined()
+      // Its first activity has no formula of its own.
+      expect(check(formulaRequest('lantern', 'open'), lists)).toBe('unknown')
+      expect(check(formulaRequest('flame', 'kindle'), lists)).toBeUndefined()
+      expect(
+        check(formulaRequest('radiance', 'radiate'), lists),
+      ).toBeUndefined()
+      expect(check(formulaRequest('lamp', 'light'), lists)).toBeUndefined()
+      // The game would have it prepared first.
+      expect(check(formulaRequest('dancing', 'dance'), lists)).toBe('unknown')
+      expect(check(formulaRequest('orb', 'pulse'), lists)).toBe('unknown')
+    })
+  })
+
   describe('checkDamage', () => {
     const preview: DamagePreview = {
       critical: false,
@@ -1205,6 +1697,19 @@ describe('utils/roll-requests', () => {
       })
       expect(answered('failure')).toMatchObject({ outcome: 'failure' })
       expect(answered(null)).not.toHaveProperty('outcome')
+    })
+
+    it('shows the hit points a hit die gave back in the game, where the game shows its player', () => {
+      expect(spent(true, 9)).toMatchObject({ total: 9, healed: 9 })
+      // Spent at full hit points, it gives back none.
+      expect(spent(true, 0)).toMatchObject({ total: 9, healed: 0 })
+      expect(spent(true, null)).not.toHaveProperty('healed')
+      expect(spent(true)).not.toHaveProperty('healed')
+      expect(spent(false, 9)).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: false,
+      })
     })
 
     it('keeps a roll the game made blind from its player', () => {

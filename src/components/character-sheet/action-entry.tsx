@@ -4,6 +4,7 @@ import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   ChevronDown,
+  Dices,
   FlaskConical,
   Shield,
   Sparkles,
@@ -31,10 +32,15 @@ import {
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
+import { formulaTerms } from '@/utils/formulas'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
 import { activityAction } from '@/utils/sheet-actions'
 import type { MenuPoint, RollChoice } from './roll-menu'
-import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+} from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type {
   SheetAction,
@@ -96,6 +102,8 @@ export type ActionRows = {
   d20: RollActions
   damage: DamageActions
   use?: UseActions
+  /** Rolls an activity's own formula, such as a light's radius. */
+  formula?: (roll: SheetFormulaRoll) => void
 }
 
 /**
@@ -125,6 +133,7 @@ export function useActionRows({
   spellbook,
   onRoll,
   onRollDamage,
+  onRollFormula,
   onUse,
   tableDamage,
 }: Readonly<{
@@ -132,6 +141,8 @@ export function useActionRows({
   spellbook: SheetSpellSection[]
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Rolls an activity's own formula, such as a light's radius. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -149,6 +160,7 @@ export function useActionRows({
       d20,
       damage,
       ...(onUse && { use: { onUse } }),
+      ...(onRollFormula && { formula: onRollFormula }),
     },
     dialogs: (
       <>
@@ -605,7 +617,11 @@ function ChipUses({
   action: SheetAction
 }>) {
   const rolls =
-    action.toHit !== null || !!action.save || !!view.formula || !!view.uses.chip
+    action.toHit !== null ||
+    !!action.save ||
+    !!view.formula ||
+    !!view.uses.chip ||
+    !!action.rollFormula
   return (
     // Beside what the action rolls, in a narrow list, its uses would leave its name too little
     // room; they're listed when it opens.
@@ -617,7 +633,7 @@ function ChipUses({
 
 /**
  * What an action rolls, each a button of its own: its attack's bonus, its saving throw, its
- * damage or healing, or using it in the game.
+ * damage or healing, its own formula, or using it in the game.
  */
 export function ActionChips({
   action,
@@ -651,6 +667,9 @@ export function ActionChips({
           onUse={view.uses.damage}
           verb={verbOf(action)}
         />
+      )}
+      {action.rollFormula && (
+        <FormulaChip action={action} onRoll={rows.formula} />
       )}
       {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
     </>
@@ -768,6 +787,75 @@ export function UseChip({
       {verb}
     </button>
   )
+}
+
+/**
+ * An activity's own formula, such as a light's radius or a fall's distance, as a button that
+ * rolls it any time, apart from using the activity: in the Gamemaster's game too, while it may be
+ * used there. A formula the app can't read is shown, but not rolled.
+ */
+export function FormulaChip({
+  action,
+  onRoll,
+}: Readonly<{
+  action: SheetAction
+  onRoll?: (roll: SheetFormulaRoll) => void
+}>) {
+  const own = action.rollFormula
+  if (!own) return
+  const roll = formulaRollOf(action)
+  const chip =
+    'inline-flex max-w-36 shrink-0 items-center gap-1 rounded-lg border border-border px-2 py-1 text-sm font-semibold tabular-nums'
+  const content = (
+    <>
+      <Dices aria-hidden className='size-3.5 shrink-0 text-primary' />
+      <span className='truncate'>{own.formula}</span>
+    </>
+  )
+  const title = own.name ?? undefined
+  if (!roll || !onRoll) {
+    return (
+      <span className={chip} title={title ?? own.formula}>
+        {content}
+      </span>
+    )
+  }
+  return (
+    <button
+      type='button'
+      aria-label={`Roll ${roll.label}, ${own.formula}`}
+      title={title}
+      onClick={() => onRoll(roll)}
+      className={clsx(chip, 'transition-colors hover:bg-primary/5')}
+    >
+      {content}
+    </button>
+  )
+}
+
+/**
+ * An activity's own formula as it's rolled: named for the action and what dnd5e calls it, such as
+ * "Eternal Flame: Light radius", and, while the game may use the activity, for the game to roll it
+ * too. Nothing for a formula the app can't read, or of an item not identified.
+ */
+export function formulaRollOf(
+  action: SheetAction,
+): SheetFormulaRoll | undefined {
+  const own = action.rollFormula
+  const terms = own && action.identified ? formulaTerms(own.formula) : undefined
+  if (!own || !terms) return undefined
+  const title = actionTitle(action)
+  return {
+    label: own.name ? `${title}: ${own.name}` : `${title} roll`,
+    terms,
+    ...(action.activity && {
+      source: {
+        kind: 'formula',
+        item: action.id,
+        activity: action.activity.id,
+      },
+    }),
+  }
 }
 
 /**

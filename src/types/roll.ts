@@ -24,8 +24,8 @@ export type RollFeature = (typeof ROLL_FEATURES)[number]
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
  * tool's key, an ability check or saving throw by the ability's, and for a saving throw the game
  * asked for, the prompt it answers; a death saving throw, initiative in a combat, or an attack with
- * an item's attack activity, at a combatant, or none, with the spell slot, ammunition and attack
- * mode chosen.
+ * an item's attack activity, at a combatant, or none, or for an area attack at those in its area,
+ * with the spell slot, ammunition and attack mode chosen.
  */
 export type RollSource =
   | { kind: 'skill' | 'tool' | 'ability'; key: string }
@@ -37,6 +37,8 @@ export type RollSource =
       item: string
       activity: string
       target?: AttackTarget | null
+      /** For an area attack, those in its area, in place of a target. */
+      targets?: AttackTarget[]
     } & AttackChoices)
 
 /** What a player chooses an attack is made with; the game's own choice for what they leave out. */
@@ -61,6 +63,14 @@ export type UseSource = {
   slot?: string | null
 }
 
+/**
+ * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or an
+ * item's activity's own formula, such as a light's radius.
+ */
+export type FormulaSource =
+  | { kind: 'hitDie'; denomination: string }
+  | { kind: 'formula'; item: string; activity: string }
+
 /** The combatant an attack, or a use, is made at, in the combat its player sees. */
 export type AttackTarget = { combatId: string; combatantId: string }
 
@@ -82,12 +92,12 @@ export type RollRequestInput = {
   dice: RolledDice[]
   /** For initiative, the combat it's rolled in. */
   combatId?: string
-  /** For an attack or a use, the item and its activity. */
+  /** For an attack, a use or a formula, the item and its activity. */
   item?: string
   activity?: string
   /** For an attack, the combatant it's made at, if any. */
   target?: AttackTarget | null
-  /** For a use, the combatants it's used at. */
+  /** For a use, the combatants it's used at; for an area attack, those in its area. */
   targets?: AttackTarget[]
   /** For an attack or a use of a spell, the spell slot chosen. */
   slot?: string | null
@@ -102,6 +112,8 @@ export type RollRequestInput = {
   modifiers?: DamageModifiers
   /** For a saving throw the game asked for, the prompt it answers. */
   prompt?: string
+  /** For a hit die, its size, such as "d10". */
+  denomination?: string
 }
 
 /**
@@ -130,4 +142,6 @@ export type RollRequestView = {
   damage?: DamagePreview | null
   /** For a saving throw the game asked for, whether it succeeded, where its player may know. */
   outcome?: SaveOutcome
+  /** For a hit die, the hit points it gave back in the game, when its player may see it. */
+  healed?: number
 }

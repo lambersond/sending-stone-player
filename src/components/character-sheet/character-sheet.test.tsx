@@ -46,6 +46,16 @@ const combatWith = (initiative: number | null): TableCombat => ({
   ],
 })
 
+/** A class with hit dice of a size, this many left of how many. */
+const hitDice = (die: string, value: number | null, max: number | null) => ({
+  id: die,
+  identifier: die,
+  name: die,
+  levels: max,
+  subclass: null,
+  hitDice: { die, value, max },
+})
+
 describe('components/character-sheet/character-sheet', () => {
   it('shows who the character is and their vital numbers', () => {
     renderSheet({ inspiration: true, hp: { value: 31, max: 44, temp: 5 } })
@@ -229,6 +239,64 @@ describe('components/character-sheet/character-sheet', () => {
       explicit: false,
     })
     expect(onRoll.mock.lastCall?.[0].source).toBeUndefined()
+  })
+
+  it('spends a hit die from beside the hit points, a tap a die of its size, none with none left', async () => {
+    const user = userEvent.setup()
+    const onRollFormula = jest.fn()
+    render(
+      <CharacterSheet
+        name='Thorin Oakenshield'
+        sheet={sheetOf({
+          classes: [
+            hitDice('d6', 0, 2),
+            hitDice('d10', 3, 5),
+            hitDice('d10', 1, 2),
+          ],
+        })}
+        onRoll={jest.fn()}
+        onRollFormula={onRollFormula}
+      />,
+    )
+
+    const dice = within(screen.getByRole('group', { name: 'Hit dice' }))
+    // Named for what each shows, then what it does.
+    const spend = [
+      dice.getByRole('button', { name: 'd10 4/7 left, spend one' }),
+      dice.getByRole('button', { name: 'd6 0/2 left, spend one' }),
+    ]
+    expect(dice.getAllByRole('button')).toEqual(spend)
+    expect(spend[1]).toBeDisabled()
+
+    await user.click(spend[0])
+    // The die, and Thorin's Constitution modifier, giving back at least 1.
+    expect(onRollFormula).toHaveBeenCalledWith({
+      label: 'Hit die (d10)',
+      terms: [
+        { sign: 1, count: 1, sides: 10 },
+        { sign: 1, flat: 3 },
+      ],
+      healing: true,
+      minimum: 1,
+      source: { kind: 'hitDie', denomination: 'd10' },
+    })
+  })
+
+  it('offers no hit dice to spend where nothing rolls them', () => {
+    renderSheet({
+      classes: [
+        {
+          id: 'fighter',
+          identifier: 'fighter',
+          name: 'Fighter',
+          levels: 5,
+          subclass: null,
+          hitDice: { die: 'd10', value: 3, max: 5 },
+        },
+      ],
+    })
+
+    expect(screen.queryByRole('group', { name: 'Hit dice' })).toBeNull()
   })
 
   it('leaves out death saves while the character is up and none are marked', () => {

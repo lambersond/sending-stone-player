@@ -30,6 +30,7 @@ import { Scroller } from '@/components/scroller'
 import {
   useSheetRoller,
   type SheetDamageRoll,
+  type SheetFormulaRoll,
   type SheetRoll,
 } from '@/hooks/use-sheet-roller'
 import {
@@ -132,10 +133,8 @@ function RollingSheet({
   const waiting = useWaitingPrompts(prompts)
   // Once the player answers what the game asked, the tray shows its roll whichever tab is open.
   const [prompted, setPrompted] = useState(false)
-  const { roll, rollDamage, logUse, rolls, rolling } = useSheetRoller(
-    table.send,
-    table.sendDamage,
-  )
+  const { roll, rollDamage, rollFormula, logUse, rolls, rolling } =
+    useSheetRoller(table.send, table.sendDamage, table.sendFormula)
   // An attack or a use made at the table, while its player picks whom at, and with what.
   const [picking, setPicking] = useState<Picking>()
   const [lastTarget, setLastTarget] = useState<string>()
@@ -228,6 +227,28 @@ function RollingSheet({
     }
     const source = asked?.request.source
     if (!asked || source?.kind !== 'attack') return
+    const { slot, ammunition, attackMode } = picked
+    // An area attack, where the game makes it at those picked, is made at those in its area.
+    if (table.areas && asked.action.attackArea) {
+      // A combat that ended while they picked leaves no one to attack.
+      const caught = combat ? picked.targets : []
+      void roll({
+        ...asked.request,
+        source: {
+          ...source,
+          targets: combat
+            ? caught.map(({ id }) => ({ combatId: combat.id, combatantId: id }))
+            : [],
+          slot,
+          ammunition,
+          attackMode,
+        },
+        targetNames: Object.fromEntries(
+          caught.map(({ id, name }) => [id, name]),
+        ),
+      })
+      return
+    }
     const [combatant] = picked.targets
     if (combatant) setLastTarget(combatant.id)
     // A combat that ended while they picked leaves no one to attack.
@@ -235,7 +256,6 @@ function RollingSheet({
       combatant && combat
         ? { combatId: combat.id, combatantId: combatant.id }
         : undefined
-    const { slot, ammunition, attackMode } = picked
     void roll({
       ...asked.request,
       source: { ...source, target, slot, ammunition, attackMode },
@@ -288,12 +308,15 @@ function RollingSheet({
   const tableDamage: TableDamage | undefined = table.takes('damage')
     ? { modifies: table.modifies, dueFor: table.dueFor }
     : undefined
+  // A hit die spent, or a formula rolled, such as a light's radius.
+  const onRollFormula = (request: SheetFormulaRoll) => void rollFormula(request)
   const favorites = {
     characterId,
     sheet,
     entries,
     onRoll,
     onRollDamage,
+    onRollFormula,
     onUse: using,
     tableDamage,
   }
@@ -303,7 +326,13 @@ function RollingSheet({
   // favorites, so the tray shows there; the rolls stay.
   const showsRolls =
     ROLLING.has(tab) || (showsFavorites && rollsAny(entries)) || prompted
-  const handlers = { onRoll, onRollDamage, onUse: using, tableDamage }
+  const handlers = {
+    onRoll,
+    onRollDamage,
+    onRollFormula,
+    onUse: using,
+    tableDamage,
+  }
 
   return (
     <FavoriteMarks keys={marks}>
@@ -380,6 +409,7 @@ function RollingSheet({
                 sheet={sheet}
                 combat={combat}
                 onRoll={onRoll}
+                onRollFormula={onRollFormula}
                 onShowConditions={() => show('effects')}
               />
             )}
@@ -438,6 +468,7 @@ function RollingSheet({
         picking={picking}
         combat={combat}
         spellbook={sheet.spells}
+        areas={table.areas}
         last={lastTarget}
         onPick={pick}
         onClose={() => setPicking(undefined)}

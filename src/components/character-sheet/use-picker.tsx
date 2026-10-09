@@ -5,7 +5,9 @@ import clsx from 'clsx'
 import { Check, Crosshair, Skull, Sparkles } from 'lucide-react'
 import { actionTitle, verbOf } from './action-entry'
 import { Modal } from '@/components/modal'
+import { MAX_USE_TARGETS } from '@/constants/sending-stone'
 import {
+  castAtLevel,
   defaultPool,
   poolName,
   slotPools,
@@ -114,14 +116,15 @@ export function asks(
  * What an attack, or a spell or feature used, is made with, chosen as it's made: the spell slot,
  * ammunition and attack mode, where there's more than one, each preset as the game would have it;
  * and whom at. An attack, or a use at one target, is made at the one tapped, or at no one; a use at
- * more, or at an area, at those ticked, as many as it takes at the level it's cast at; one with
- * no one to pick, at once.
+ * more, or at an area, at those ticked, as many as it takes at the level it's cast at, as is an
+ * area attack where the game makes it so; one with no one to pick, at once.
  */
 export function UsePicker({
   picking,
   combat,
   spellbook,
   last,
+  areas = false,
   onPick,
   onClose,
 }: Readonly<{
@@ -130,6 +133,8 @@ export function UsePicker({
   spellbook: SheetSpellSection[]
   /** The combatant last attacked, if any. */
   last?: string
+  /** Whether the game makes an area attack at the combatants picked. */
+  areas?: boolean
   onPick: (picked: Picked) => void
   onClose: () => void
 }>) {
@@ -148,6 +153,7 @@ export function UsePicker({
           combat={combat}
           spellbook={spellbook}
           last={last}
+          areas={areas}
           onPick={onPick}
         />
       )}
@@ -160,12 +166,14 @@ function Choices({
   combat,
   spellbook,
   last,
+  areas,
   onPick,
 }: Readonly<{
   picking: Picking
   combat?: TableCombat
   spellbook: SheetSpellSection[]
   last?: string
+  areas: boolean
   onPick: (picked: Picked) => void
 }>) {
   const { action } = picking
@@ -186,9 +194,55 @@ function Choices({
   // the level chosen, whether any slot is left or not.
   const spends = action.consumesSlot !== false
 
+  // Those ticked, as many as a use or an area attack takes at the slot chosen, as the game takes
+  // them: no more than it's sent.
+  const castAt = castAtLevel(action, spellbook, slot)
+  const tickList = (
+    targets: TableCombatant[],
+    { area, most: takes, verb }: { area: boolean; most: number; verb: string },
+  ) => {
+    const most = Math.min(takes, MAX_USE_TARGETS)
+    const chosen = ticked.slice(0, most)
+    return (
+      <TickList
+        lead={leadFor(area, takes)}
+        targets={targets}
+        ticked={chosen}
+        full={chosen.length >= most}
+        onToggle={id =>
+          setTicked(
+            chosen.includes(id)
+              ? chosen.filter(other => other !== id)
+              : [...chosen, id],
+          )
+        }
+        go={
+          chosen.length > 0
+            ? `${verb} ${chosen.length} ${chosen.length === 1 ? 'target' : 'targets'}`
+            : verb.replace(/ at$/, '')
+        }
+        onGo={() => pick(targets.filter(({ id }) => chosen.includes(id)))}
+      />
+    )
+  }
+
   // Whom at.
   let whom
-  if (picking.kind === 'attack') {
+  const area =
+    areas && picking.kind === 'attack' ? action.attackArea : undefined
+  if (area) {
+    const targets = targetsOf(combat)
+    whom =
+      targets.length > 0 ? (
+        tickList(targets, {
+          area: true,
+          most: mostTargets(area, action.level, castAt),
+          verb: 'Attack',
+        })
+      ) : (
+        <Go label='Attack' onGo={() => pick([])} />
+      )
+  } else if (picking.kind === 'attack') {
     const targets = targetsOf(combat)
     whom =
       targets.length > 0 ? (
@@ -208,8 +262,7 @@ function Choices({
   } else {
     const use = action.activity!
     const targets = useTargetsOf(action, combat)
-    const castAt = pools.find(({ id }) => id === slot)?.level ?? action.level
-    const most = mostTargets(use, action.level, castAt)
+    const most = mostTargets(use.targets, action.level, castAt)
     const verb = verbOf(action)
     if (targets.length === 0) {
       whom = <Go label={verb} onGo={() => pick([])} />
@@ -223,29 +276,11 @@ function Choices({
         />
       )
     } else {
-      // Those ticked, as many as it takes at the slot chosen.
-      const chosen = ticked.slice(0, most)
-      whom = (
-        <TickList
-          lead={leadFor(use.targets.area, most)}
-          targets={targets}
-          ticked={chosen}
-          full={chosen.length >= most}
-          onToggle={id =>
-            setTicked(
-              chosen.includes(id)
-                ? chosen.filter(other => other !== id)
-                : [...chosen, id],
-            )
-          }
-          go={
-            chosen.length > 0
-              ? `${verb} at ${chosen.length} ${chosen.length === 1 ? 'target' : 'targets'}`
-              : verb
-          }
-          onGo={() => pick(targets.filter(({ id }) => chosen.includes(id)))}
-        />
-      )
+      whom = tickList(targets, {
+        area: use.targets.area,
+        most,
+        verb: `${verb} at`,
+      })
     }
   }
 

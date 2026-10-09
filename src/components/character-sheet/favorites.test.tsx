@@ -205,6 +205,28 @@ describe('components/character-sheet/favorites', () => {
     ])
   })
 
+  it("spends a class's hit die from its favorite, where something rolls them", async () => {
+    const user = userEvent.setup()
+    const onRollFormula = jest.fn()
+    render(
+      <FavoritesStrip
+        {...propsFor(withFavorites([item('fighter', 'class')]))}
+        onRollFormula={onRollFormula}
+      />,
+    )
+
+    expect(rows()).toEqual(['Fighter 5Championd10 3/5 left, spend one'])
+    await user.click(
+      screen.getByRole('button', { name: 'd10 3/5 left, spend one' }),
+    )
+    expect(onRollFormula).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Hit die (d10)',
+        source: { kind: 'hitDie', denomination: 'd10' },
+      }),
+    )
+  })
+
   it('says whether an effect is off, or unavailable for now', () => {
     render(
       <FavoritesStrip

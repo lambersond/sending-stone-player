@@ -371,6 +371,118 @@ describe('components/character-sheet/spells-tab', () => {
     ).toEqual(['Magic Missile1 Action · 120 ft · From Wand of Magic Missiles'])
   })
 
+  it('lists a spell its item can’t cast now, muted, saying why, and without its rolls', async () => {
+    renderTab(
+      fullerSheet({
+        spells: [
+          {
+            id: 'item',
+            label: 'Additional Spells',
+            slots: null,
+            spells: [
+              sheetSpell({
+                id: 'flame-barbs',
+                name: 'Silvery Barbs',
+                activation: '1 Reaction',
+                range: '60 ft',
+                castFrom: {
+                  id: 'flame',
+                  name: 'Worn Bardic Eternal Flame',
+                  usable: false,
+                  attune: true,
+                },
+              }),
+              sheetSpell({
+                id: 'staff-light',
+                name: 'Light',
+                activation: '1 Action',
+                range: 'Touch',
+                castFrom: { id: 'staff', name: 'Staff', usable: false },
+              }),
+              sheetSpell({
+                id: 'wand-missile',
+                name: 'Magic Missile',
+                activation: '1 Action',
+                range: '120 ft',
+                castFrom: { id: 'wand', name: 'Wand of Magic Missiles' },
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(
+      rows(screen.getByRole('region', { name: 'Additional Spells' })),
+    ).toEqual([
+      'Silvery BarbsNeeds attuning · From Worn Bardic Eternal Flame · 1 Reaction',
+      'LightCan’t be cast now · From Staff · 1 Action',
+      'Magic Missile1 Action · 120 ft · From Wand of Magic Missiles',
+    ])
+    expect(row('Silvery Barbs')).toHaveClass('opacity-60')
+    expect(row('Light')).toHaveClass('opacity-60')
+    expect(row('Magic Missile')).not.toHaveClass('opacity-60')
+    expect(screen.queryByRole('button', { name: /Silvery Barbs/ })).toBeNull()
+    // Opened, it says so again, beyond where a narrow row cuts it short.
+    await userEvent.setup().click(row('Silvery Barbs'))
+    expect(
+      await within(row('Silvery Barbs').parentElement!).findByText(
+        /· Needs attuning · From Worn Bardic Eternal Flame$/,
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('searches spells by name, whatever its case, once there are more than four', async () => {
+    const user = userEvent.setup()
+    renderTab(rolling())
+    const search = screen.getByRole('searchbox', {
+      name: 'Search spells by name',
+    })
+
+    await user.type(search, 'BOLT')
+    expect(screen.getByText('2 spells found')).toHaveClass('sr-only')
+    expect(
+      screen.getAllByRole('heading').map(heading => heading.textContent),
+    ).toEqual(['Spellcasting', 'Cantrips', 'Not prepared'])
+    expect(rows(screen.getByRole('region', { name: 'Cantrips' }))).toEqual([
+      expect.stringMatching(/^Fire Bolt/),
+    ])
+    expect(screen.queryByText('Shield')).toBeNull()
+
+    // A section with slots but no spell found is left out while searching.
+    await user.clear(search)
+    await user.type(search, 'cure')
+    expect(
+      screen.getAllByRole('heading').map(heading => heading.textContent),
+    ).toEqual(['Spellcasting', '1st Level'])
+
+    await user.clear(search)
+    await user.type(search, '  wish ')
+    expect(screen.getByText('No spells match “wish”.')).toBeInTheDocument()
+    // A screen reader hears what the search found.
+    expect(screen.getByText('No spells found')).toHaveAttribute(
+      'aria-live',
+      'polite',
+    )
+
+    await user.clear(search)
+    expect(screen.getByRole('region', { name: 'Innate' })).toBeInTheDocument()
+    expect(screen.getByText('Shield')).toBeInTheDocument()
+  })
+
+  it('offers no search for four spells or fewer', () => {
+    const sheet = fullerSheet()
+    renderTab({
+      ...sheet,
+      spells: sheet.spells.map(section =>
+        section.id === 'innate' ? { ...section, spells: [] } : section,
+      ),
+    })
+
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    expect(screen.getByText('Shield')).toBeInTheDocument()
+  })
+
   it('shows what a spell rolls beside it, rolling it here or casting it in the game', async () => {
     const user = userEvent.setup()
     const onRoll = jest.fn()

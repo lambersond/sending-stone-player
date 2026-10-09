@@ -111,14 +111,17 @@ export function favoriteKeys(favorites: SheetFavorite[]): Set<string> {
 }
 
 /**
- * Does any favorite roll, as an attack, damage or healing, or a check does: an action, or a spell,
- * something carried or a feature that rolls?
+ * Does any favorite roll, as an attack, damage or healing, a formula, or a check does: an action,
+ * or a spell, something carried or a feature that rolls, or a class whose hit dice are spent?
  */
 export function rollsAny(entries: FavoriteEntry[]): boolean {
   return entries.some(entry => {
     switch (entry.kind) {
       case 'check': {
         return true
+      }
+      case 'class': {
+        return !!entry.entry.hitDice
       }
       case 'action': {
         return rolls(entry.action)
@@ -139,11 +142,12 @@ export function rollsAny(entries: FavoriteEntry[]): boolean {
   })
 }
 
-/** Does this roll an attack, or damage or healing? */
+/** Does this roll an attack, damage or healing, or a formula of its own? */
 function rolls(entry: Partial<SheetRolls>): boolean {
   return (
     (entry.toHit ?? null) !== null ||
     (entry.damage ?? []).length > 0 ||
+    !!entry.rollFormula ||
     (entry.activities ?? []).some(activity => rolls(activity))
   )
 }
@@ -243,7 +247,9 @@ function actionNote(
 
 /**
  * An activity as an action: what it does, from the favorite, and of its item, from the rest of the
- * sheet, its spell level, whether it's identified, and its description.
+ * sheet, its spell level, whether it's identified, and its description. One of a spell not
+ * prepared, or that its item can't cast now, is rolled here only, as on the Spells tab, as the game
+ * would have it prepared, or the item able to cast it, first.
  */
 function activityAction(
   favorite: SheetActivityFavorite,
@@ -254,6 +260,7 @@ function activityAction(
   const spell = index.spells.get(itemId)
   const item = index.items.get(itemId)
   const feature = index.features.get(itemId)
+  const inGame = spell?.prepared !== 0 && spell?.castFrom?.usable !== false
   return {
     action: {
       // The item's, as an action's is, by which its spell is found in the spellbook.
@@ -265,14 +272,16 @@ function activityAction(
       range: favorite.range,
       target: favorite.target,
       toHit: favorite.toHit,
-      attackId: favorite.attackId ?? null,
-      activity: favorite.activity ?? null,
+      attackId: inGame ? (favorite.attackId ?? null) : null,
+      activity: inGame ? (favorite.activity ?? null) : null,
       attackModes: favorite.attackModes ?? null,
       ammunition: favorite.ammunition ?? null,
       save: favorite.save,
       damage: favorite.damage,
       ...(favorite.consumesSlot === false && { consumesSlot: false }),
       ...(favorite.cast && { cast: favorite.cast }),
+      ...(favorite.rollFormula && { rollFormula: favorite.rollFormula }),
+      ...(favorite.attackArea && { attackArea: favorite.attackArea }),
       uses: favorite.uses,
       level: spell?.level ?? action?.level ?? null,
       // A spell the item casts is cast from it.

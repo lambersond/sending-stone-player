@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   ATTACK_MODE,
   DAMAGE_TYPE,
+  HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
   PROMPT_ID,
@@ -69,12 +70,15 @@ const rolledDiceSchema = z.strictObject({
  * must be exactly those the roll throws: its d20, or two of them with advantage or disadvantage,
  * then the dice of each term added, in order, each result one of the die's faces. The game uses
  * them as they are, so no more could be slipped in. An attack names the item and attack activity
- * it's made with, the combatant it's made at, if any, and the spell slot, ammunition and attack
- * mode chosen, if any. A use of a spell or feature names its item and activity, the combatants it's
- * used at, all in one combat, and the spell slot chosen, if any, and throws no dice. Their damage
+ * it's made with, the combatant it's made at, if any, or for an area attack those in its area, and
+ * the spell slot, ammunition and attack mode chosen, if any. A use of a spell or feature names its
+ * item and activity, the combatants it's used at, all in one combat, and the spell slot chosen, if
+ * any, and throws no dice. Their damage
  * names the attack or use, the dice it said its damage throws, which are checked against them when
  * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
- * then changed so. A saving throw the game asked for names the prompt it answers.
+ * then changed so. A saving throw the game asked for names the prompt it answers. A hit die names
+ * its size, and throws its one die; a feature's own formula names its item and activity, and
+ * throws the dice its formula does, which are checked against it when it's asked for.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -99,17 +103,28 @@ export const rollRequestSchema = z
       .optional(),
     modifiers: modifiersSchema.optional(),
     prompt: z.string().regex(PROMPT_ID).optional(),
+    denomination: z.string().regex(HIT_DIE).optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
     const use = request.kind === 'use'
+    const formula = request.kind === 'formula'
+    const hitDie = request.kind === 'hitDie'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
-    if (attack || use ? !both : named) {
+    if (attack || use || formula ? !both : named) {
       context.addIssue({
         code: 'custom',
         path: ['activity'],
-        message: 'An attack or a use, and only those, is made with an item',
+        message:
+          'An attack, a use or a formula, and only those, is made with an item',
+      })
+    }
+    if (hitDie !== (request.denomination !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['denomination'],
+        message: 'A hit die, and only a hit die, has a size',
       })
     }
     if (!attack && request.target !== undefined) {
@@ -119,11 +134,22 @@ export const rollRequestSchema = z
         message: 'Only an attack has a target',
       })
     }
-    if (use !== (request.targets !== undefined)) {
+    // A use has its targets; an area attack, such as a breath weapon's, has those in its area,
+    // and no target of its own.
+    const targeted = request.targets !== undefined
+    if (use ? !targeted : targeted && !attack) {
       context.addIssue({
         code: 'custom',
         path: ['targets'],
-        message: 'A use, and only a use, has its targets',
+        message: 'A use, or an area attack, and only those, has its targets',
+      })
+    }
+    if (attack && targeted && request.target !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['targets'],
+        message:
+          'An attack is made at a target, or at those in its area, not both',
       })
     }
     const targets = request.targets ?? []
@@ -133,7 +159,8 @@ export const rollRequestSchema = z
       context.addIssue({
         code: 'custom',
         path: ['targets'],
-        message: 'A use is made at different combatants of one combat',
+        message:
+          'A use or an attack is made at different combatants of one combat',
       })
     }
     if (!attack && !use && request.slot !== undefined) {
@@ -210,7 +237,7 @@ export const rollRequestSchema = z
       }
       return
     }
-    if (request.kind === 'damage') {
+    if (request.kind === 'damage' || hitDie || formula) {
       const plain =
         request.mode === 0 && !request.explicit && request.extras.length === 0
       const dice = request.dice.every(
@@ -218,11 +245,21 @@ export const rollRequestSchema = z
           (DIE_SIDES as readonly number[]).includes(faces) &&
           results.every(result => result >= 1 && result <= faces),
       )
-      if (!plain || !dice) {
+      // A hit die throws its one die.
+      const [die] = request.dice
+      const one =
+        !hitDie ||
+        (request.dice.length === 1 &&
+          `d${die.faces}` === request.denomination &&
+          die.results.length === 1)
+      if (!plain || !dice || !one) {
         context.addIssue({
           code: 'custom',
           path: ['dice'],
-          message: 'Damage is rolled as the attack said, and nothing more',
+          message:
+            request.kind === 'damage'
+              ? 'Damage is rolled as the attack said, and nothing more'
+              : 'It is rolled as it is, and nothing more',
         })
       }
       return

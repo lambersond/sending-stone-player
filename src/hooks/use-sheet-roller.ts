@@ -12,7 +12,7 @@ import {
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { withModifiers, type DamageModifiers } from '@/utils/damage-modifiers'
 import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
-import type { RollSource } from '@/types/roll'
+import type { FormulaSource, RollSource } from '@/types/roll'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -45,6 +45,8 @@ export type SheetRoll = {
    * roll as the sheet has it.
    */
   explicit?: boolean
+  /** For an area attack, the names of the combatants it's made at, by their ids. */
+  targetNames?: Record<string, string>
 }
 
 /** Damage or healing from the character's sheet, such as a weapon's. */
@@ -74,6 +76,23 @@ export type SheetDamageRoll = {
    * doubled dice take two.
    */
   perDie?: number
+}
+
+/**
+ * Dice and numbers with no d20, from the character's sheet: a hit die spent, or an item's
+ * activity's own formula, such as a light's radius.
+ */
+export type SheetFormulaRoll = {
+  /** What is rolled, such as "Hit die (d10)". */
+  label: string
+  /** Its terms, in order, such as 1d10 and +2. */
+  terms: ExtraTerm[]
+  /** Hit points given back, as a hit die's are. */
+  healing?: boolean
+  /** The least it comes to, as a hit die spent gives back at least 1. */
+  minimum?: number
+  /** What it is, for the Gamemaster's game to make it too. */
+  source?: FormulaSource
 }
 
 /** Something the player added to a roll, or a term of a damage roll, and what it came to. */
@@ -131,8 +150,22 @@ export type LocalUse = {
   at: number
 }
 
+/** A hit die spent, or a formula rolled, as this page keeps it. */
+export type LocalFormula = {
+  kind: 'formula'
+  id: string
+  label: string
+  total: number
+  healing: boolean
+  /** Each term, with what it came to. */
+  terms: LocalExtra[]
+  /** The least it comes to, when its dice and numbers came to less. */
+  minimum?: number
+  at: number
+}
+
 /** A roll as this page keeps it, or a use. */
-export type LocalRoll = LocalCheck | LocalDamage | LocalUse
+export type LocalRoll = LocalCheck | LocalDamage | LocalUse | LocalFormula
 
 /** How many uses this page has kept, for their ids. */
 let uses = 0
@@ -145,10 +178,12 @@ let uses = 0
  * @param onThrown - Told of each check or save as its dice are thrown, before they land, with
  * what they came to: to have the Gamemaster's game make it too.
  * @param onDamageThrown - The same, for damage.
+ * @param onFormulaThrown - The same, for a hit die or a formula.
  */
 export function useSheetRoller(
   onThrown?: (roll: SheetRoll, check: LocalCheck) => void,
   onDamageThrown?: (roll: SheetDamageRoll, damage: LocalDamage) => void,
+  onFormulaThrown?: (roll: SheetFormulaRoll, rolled: LocalFormula) => void,
 ) {
   const renderer = useDiceRenderer()
   const [rolls, setRolls] = useState<LocalRoll[]>([])
@@ -246,6 +281,46 @@ export function useSheetRoller(
     [land, onDamageThrown],
   )
 
+  const rollFormula = useCallback(
+    async (request: SheetFormulaRoll) => {
+      const { label, terms, healing = false, minimum } = request
+      const dice = terms.filter(term => 'sides' in term)
+      const result = executeRoll({
+        pools: dice.map(({ count, sides }) => ({ count, sides })),
+        modifier: 0,
+      })
+      // The dice's pools are in the order their terms were written.
+      const pools = [...result.pools]
+      const kept = terms.map((term, index) => {
+        const values = 'sides' in term ? (pools.shift()?.kept ?? []) : []
+        const amount =
+          'sides' in term
+            ? values.reduce((sum, value) => sum + value, 0)
+            : term.flat
+        return {
+          text: damageTerm(term, { first: index === 0, doubled: false }),
+          values,
+          value: term.sign * amount,
+        }
+      })
+      const sum = kept.reduce((total, { value }) => total + value, 0)
+      const total = minimum === undefined ? sum : Math.max(minimum, sum)
+      const rolled: LocalFormula = {
+        kind: 'formula',
+        id: result.id,
+        label,
+        total,
+        healing,
+        terms: kept,
+        ...(total !== sum && { minimum }),
+        at: result.at,
+      }
+      onFormulaThrown?.(request, rolled)
+      await land(result, rolled)
+    },
+    [land, onFormulaThrown],
+  )
+
   // Keeps a spell or feature used, first among the rolls.
   const logUse = useCallback((label: string, spell: boolean): LocalUse => {
     const used: LocalUse = {
@@ -259,7 +334,14 @@ export function useSheetRoller(
     return used
   }, [])
 
-  return { roll, rollDamage, logUse, rolls, rolling: inFlight > 0 }
+  return {
+    roll,
+    rollDamage,
+    rollFormula,
+    logUse,
+    rolls,
+    rolling: inFlight > 0,
+  }
 }
 
 function toLocalRoll(

@@ -5,6 +5,7 @@ import { RollTray, type TableRolls } from './roll-tray'
 import type {
   LocalCheck,
   LocalDamage,
+  LocalFormula,
   LocalUse,
 } from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
@@ -43,6 +44,21 @@ const damage = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
       total: 7,
       terms: [{ text: '+2d6', values: [3, 4], value: 7 }],
     },
+  ],
+  at: 0,
+  ...fields,
+})
+
+/** A hit die spent: a d10 that came up 7, and +2 for Constitution. */
+const hitDie = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
+  kind: 'formula',
+  id: 'h1',
+  label: 'Hit die (d10)',
+  total: 9,
+  healing: true,
+  terms: [
+    { text: '1d10', values: [7], value: 7 },
+    { text: '+2', values: [], value: 2 },
   ],
   at: 0,
   ...fields,
@@ -231,6 +247,88 @@ describe('components/character-sheet/roll-tray', () => {
     expect(screen.getByRole('status')).toHaveTextContent('+1d4 (4)')
   })
 
+  it('shows a hit die spent: its total, its die and Constitution, and the least it gives back', () => {
+    const { rerender } = render(<RollTray rolls={[hitDie()]} rolling={false} />)
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '9Hit die (d10)1d10 (7) +2',
+    )
+
+    rerender(
+      <RollTray
+        rolls={[
+          hitDie({
+            total: 1,
+            terms: [
+              { text: '1d10', values: [1], value: 1 },
+              { text: '−3', values: [], value: -3 },
+            ],
+            minimum: 1,
+          }),
+        ]}
+        rolling={false}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '1Hit die (d10)1d10 (1) −3 · at least 1',
+    )
+  })
+
+  it('shows a formula rolled, and keeps it among the earlier rolls', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          hitDie({
+            id: 'f1',
+            label: 'Eternal Flame: Light radius',
+            total: 6,
+            healing: false,
+            terms: [
+              { text: '2d4', values: [2, 3], value: 5 },
+              { text: '+1', values: [], value: 1 },
+            ],
+          }),
+          hitDie(),
+        ]}
+        rolling={false}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '6Eternal Flame: Light radius2d4 (2, 3) +1',
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      'Hit die (d10)7 +2 = 9',
+    )
+  })
+
+  it('says among the earlier rolls when a hit die gave back its least', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          hitDie({ id: 'h2' }),
+          hitDie({
+            total: 1,
+            terms: [
+              { text: '1d6', values: [1], value: 1 },
+              { text: '−2', values: [], value: -2 },
+            ],
+            minimum: 1,
+          }),
+        ]}
+        rolling={false}
+      />,
+    )
+
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      'Hit die (d10)1 −2, at least 1 = 1',
+    )
+  })
+
   describe('at the table', () => {
     const table = (
       states: [string, TableRollState][] = [],
@@ -366,6 +464,73 @@ describe('components/character-sheet/roll-tray', () => {
         expect(screen.getByRole('status')).toHaveTextContent(
           `At the table: 19 · ${text}`,
         )
+      })
+
+      it('says how many of those in its area an area attack hit, and which', () => {
+        render(
+          <RollTray
+            rolls={[roll({ label: 'Breath Weapon attack', total: 17 })]}
+            rolling={false}
+            table={table([
+              [
+                'r1',
+                made({
+                  total: 17,
+                  attack: {
+                    critical: false,
+                    fumble: false,
+                    outcome: null,
+                    targets: [
+                      { combatId: 'c1', combatantId: 'g1', outcome: 'hit' },
+                      { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+                      { combatId: 'c1', combatantId: 'g3', outcome: 'hit' },
+                    ],
+                  },
+                  targetNames: { g1: 'Goblin', g2: 'Hobgoblin' },
+                }),
+              ],
+            ])}
+          />,
+        )
+
+        const status = screen.getByRole('status')
+        expect(status).toHaveTextContent('At the table: 17 · Hit 2 of 3')
+        expect(
+          within(within(status).getByRole('list', { name: 'Targets' }))
+            .getAllByRole('listitem')
+            .map(item => item.textContent),
+        ).toEqual(['Goblin: Hit', 'Hobgoblin: Miss', 'A target: Hit'])
+      })
+
+      it('says nothing of whom an area attack hit where the Gamemaster shows no hits', () => {
+        render(
+          <RollTray
+            rolls={[roll({ label: 'Breath Weapon attack', total: 17 })]}
+            rolling={false}
+            table={table([
+              [
+                'r1',
+                made({
+                  total: 17,
+                  attack: {
+                    critical: true,
+                    fumble: false,
+                    outcome: null,
+                    targets: [
+                      { combatId: 'c1', combatantId: 'g1', outcome: null },
+                      { combatId: 'c1', combatantId: 'g2', outcome: null },
+                    ],
+                  },
+                }),
+              ],
+            ])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /At the table: 17 · Critical hit$/,
+        )
+        expect(screen.queryByRole('list', { name: 'Targets' })).toBeNull()
       })
 
       it('says no more than the total when the Gamemaster shows no hits', () => {
@@ -904,6 +1069,99 @@ describe('components/character-sheet/roll-tray', () => {
           ),
         ).toBeInTheDocument()
       })
+    })
+
+    it('says how many hit points a hit die spent at the table gave back', () => {
+      render(
+        <RollTray
+          rolls={[hitDie()]}
+          rolling={false}
+          table={table([
+            ['h1', { status: 'done', visible: true, total: 9, healed: 4 }],
+          ])}
+        />,
+      )
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /1d10 \(7\) \+2At the table: 9 · 4 HP regained$/,
+      )
+    })
+
+    it.each([
+      ['self-test', 'your Gamemaster’s game can’t make it with your dice'],
+      ['area', 'your Gamemaster’s game can’t make that area attack from here'],
+    ])(
+      'says what the game refusing it as %s means, whatever was rolled',
+      (reason, text) => {
+        render(
+          <RollTray
+            rolls={[hitDie()]}
+            rolling={false}
+            table={table([['h1', { status: 'failed', reason }]])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          `Not made at the table: ${text}`,
+        )
+      },
+    )
+
+    it('says why a hit die was not spent at the table', () => {
+      render(
+        <RollTray
+          rolls={[hitDie()]}
+          rolling={false}
+          table={table([['h1', { status: 'failed', reason: 'no-hit-dice' }]])}
+        />,
+      )
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Not made at the table: you have no hit dice of that size left',
+      )
+    })
+
+    it.each([
+      [['hitDie'], 'Checks, saves and hit dice you roll or spend here'],
+      [
+        ['attack', 'hitDie'],
+        'Checks, saves, attacks and hit dice you roll or spend here',
+      ],
+    ])(
+      'names hit dice among what is made at the table without spells too (%j)',
+      (kinds, text) => {
+        render(
+          <RollTray
+            rolls={[]}
+            rolling={false}
+            table={table([], { takes: kind => kinds.includes(kind) })}
+          />,
+        )
+
+        expect(
+          screen.getByText(
+            `${text} are made in your Gamemaster’s game too, with the same dice.`,
+          ),
+        ).toBeInTheDocument()
+      },
+    )
+
+    it('names hit dice among what is made at the table, when the game takes them', () => {
+      render(
+        <RollTray
+          rolls={[]}
+          rolling={false}
+          table={table([], {
+            takes: kind => ['attack', 'use', 'hitDie'].includes(kind),
+          })}
+        />,
+      )
+
+      expect(
+        screen.getByText(
+          'Checks, saves, attacks, spells and hit dice you roll, cast or spend here are made in your Gamemaster’s game too, with the same dice.',
+        ),
+      ).toBeInTheDocument()
     })
 
     it('marks each earlier roll with how it went at the table', async () => {

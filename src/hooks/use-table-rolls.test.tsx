@@ -7,14 +7,17 @@ import {
   FOLLOW_FOR,
   LATE_FOLLOW,
   SEND_KEY,
+  toFormulaRequest,
   toRollRequest,
   useTableRolls,
 } from './use-table-rolls'
 import type {
   LocalCheck,
   LocalDamage,
+  LocalFormula,
   LocalUse,
   SheetDamageRoll,
+  SheetFormulaRoll,
   SheetRoll,
 } from './use-sheet-roller'
 import type { RollFeature, RollKind } from '@/types/roll'
@@ -94,6 +97,58 @@ const thrownDamage = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
   at: 0,
   ...fields,
 })
+
+/** A d10 hit die spent, with Thorin's Constitution modifier of +3. */
+const hitDie: SheetFormulaRoll = {
+  label: 'Hit die (d10)',
+  terms: [
+    { sign: 1, count: 1, sides: 10 },
+    { sign: 1, flat: 3 },
+  ],
+  healing: true,
+  minimum: 1,
+  source: { kind: 'hitDie', denomination: 'd10' },
+}
+
+/** It landed on 6, giving back 9. */
+const spent = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
+  kind: 'formula',
+  id: 'f1',
+  label: 'Hit die (d10)',
+  total: 9,
+  healing: true,
+  terms: [
+    { text: '1d10', values: [6], value: 6 },
+    { text: '+3', values: [], value: 3 },
+  ],
+  at: 0,
+  ...fields,
+})
+
+/** A lantern's light, whose radius is 2 + 1d4 − 1d6, as dnd5e has it. */
+const lantern: SheetFormulaRoll = {
+  label: 'Lantern: Light radius',
+  terms: [
+    { sign: 1, flat: 2 },
+    { sign: 1, count: 1, sides: 4 },
+    { sign: -1, count: 1, sides: 6 },
+  ],
+  source: { kind: 'formula', item: 'lantern', activity: 'shine' },
+}
+
+const shone: LocalFormula = {
+  kind: 'formula',
+  id: 'f2',
+  label: 'Lantern: Light radius',
+  total: 1,
+  healing: false,
+  terms: [
+    { text: '2', values: [], value: 2 },
+    { text: '+1d4', values: [3], value: 3 },
+    { text: '−1d6', values: [4], value: -4 },
+  ],
+  at: 0,
+}
 
 const respond = (status: number, body?: unknown) =>
   ({
@@ -207,6 +262,85 @@ describe('hooks/use-table-rolls', () => {
         ammunition: 'arrows',
         attackMode: 'twoHanded',
       })
+    })
+
+    it('asks for an area attack at those in its area, in place of a target', () => {
+      const thrown = check({ advantage: undefined, d20s: [15], extras: [] })
+      const targets = [
+        { combatId: 'cmbt1', combatantId: 'goblin' },
+        { combatId: 'cmbt1', combatantId: 'ogre' },
+      ]
+      const request = toRollRequest(
+        longsword,
+        {
+          kind: 'attack',
+          item: 'breath',
+          activity: 'exhale',
+          targets,
+          slot: 'spell2',
+        },
+        thrown,
+      )
+      expect(request).toEqual({
+        kind: 'attack',
+        item: 'breath',
+        activity: 'exhale',
+        targets,
+        slot: 'spell2',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 20, results: [15] }],
+      })
+      expect(request).not.toHaveProperty('target')
+      // At no one in its area, it's still an area attack.
+      expect(
+        toRollRequest(
+          longsword,
+          { kind: 'attack', item: 'breath', activity: 'exhale', targets: [] },
+          thrown,
+        ),
+      ).not.toHaveProperty('target')
+    })
+  })
+
+  describe('toFormulaRequest', () => {
+    it('asks for a hit die by its size, with its die as thrown, and none of its numbers', () => {
+      expect(
+        toFormulaRequest(
+          hitDie,
+          { kind: 'hitDie', denomination: 'd10' },
+          spent(),
+        ),
+      ).toEqual({
+        kind: 'hitDie',
+        denomination: 'd10',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 10, results: [6] }],
+      })
+    })
+
+    it("asks for an activity's own formula by its item and activity, with the dice of each term, in order", () => {
+      const request = toFormulaRequest(
+        lantern,
+        { kind: 'formula', item: 'lantern', activity: 'shine' },
+        shone,
+      )
+      expect(request).toEqual({
+        kind: 'formula',
+        item: 'lantern',
+        activity: 'shine',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [
+          { faces: 4, results: [3] },
+          { faces: 6, results: [4] },
+        ],
+      })
+      expect(request).not.toHaveProperty('denomination')
     })
   })
 
@@ -884,6 +1018,190 @@ describe('hooks/use-table-rolls', () => {
         kind: 'use',
         slot: null,
       })
+    })
+  })
+
+  describe('area attacks', () => {
+    const targets = [
+      { combatId: 'cmbt1', combatantId: 'goblin' },
+      { combatId: 'cmbt1', combatantId: 'ogre' },
+    ]
+    const targetNames = { goblin: 'Goblin', ogre: 'Ogre' }
+    const breath: SheetRoll = {
+      label: 'Dragon Breath attack',
+      modifier: 5,
+      source: { kind: 'attack', item: 'breath', activity: 'exhale', targets },
+      targetNames,
+    }
+    const breathCheck = check({
+      label: 'Dragon Breath attack',
+      advantage: undefined,
+      d20s: [12],
+      extras: [],
+    })
+
+    it('makes area attacks only where the game makes them at those picked, from a device sending rolls', () => {
+      const { result, rerender } = render(['attack', 'damage'])
+      expect(result.current.areas).toBe(false)
+
+      rerender({ kinds: ['attack', 'damage'], features: ['areaAttacks'] })
+      expect(result.current.areas).toBe(true)
+      rerender({ kinds: ['damage'], features: ['areaAttacks'] })
+      expect(result.current.areas).toBe(false)
+
+      rerender({ kinds: ['attack', 'damage'], features: ['areaAttacks'] })
+      act(() => result.current.setSending(false))
+      expect(result.current.areas).toBe(false)
+    })
+
+    it('sends an area attack at those picked, keeping their names, to show what came of it at each', async () => {
+      const attack = {
+        critical: false,
+        fumble: false,
+        outcome: null,
+        targets: [
+          { ...targets[0], outcome: 'hit' },
+          { ...targets[1], outcome: 'miss' },
+        ],
+      }
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 17,
+            attack,
+            damage: preview(),
+          }),
+        )
+      const { result } = render(['attack', 'damage'], ['areaAttacks'])
+
+      act(() => result.current.send(breath, breathCheck))
+      const sent = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body))
+      expect(sent).toMatchObject({
+        kind: 'attack',
+        item: 'breath',
+        activity: 'exhale',
+        targets,
+      })
+      expect(sent).not.toHaveProperty('target')
+      expect(result.current.states.get('r1')).toEqual({
+        status: 'sending',
+        source: { item: 'breath', activity: 'exhale' },
+        targetNames,
+      })
+
+      await advance(CHECK_EVERY)
+      expect(result.current.states.get('r1')).toMatchObject({
+        status: 'done',
+        requestId: 'req-1',
+        targetNames,
+        attack,
+      })
+      expect(
+        result.current.dueFor({ item: 'breath', activity: 'exhale' }),
+      ).toEqual({ use: 'req-1', damage: preview() })
+    })
+
+    it("keeps no combatants' names for a roll that isn't an attack", () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render()
+
+      act(() => result.current.send({ ...perception, targetNames }, check()))
+      expect(result.current.states.get('r1')).toEqual({ status: 'sending' })
+    })
+  })
+
+  describe('hit dice and formulas', () => {
+    it('sends a hit die spent where the game takes them, and follows it until the game has made it', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 9,
+            healed: 7,
+          }),
+        )
+      const { result } = render(['hitDie', 'formula'])
+      expect(result.current.takes('hitDie')).toBe(true)
+
+      act(() => result.current.sendFormula(hitDie, spent()))
+      expect(fetch).toHaveBeenCalledWith('/api/characters/char-1/rolls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'hitDie',
+          denomination: 'd10',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 10, results: [6] }],
+        }),
+        signal: expect.any(AbortSignal),
+      })
+      expect(result.current.states.get('f1')).toEqual({ status: 'sending' })
+
+      await advance(CHECK_EVERY)
+      expect(result.current.states.get('f1')).toMatchObject({
+        status: 'done',
+        requestId: 'req-1',
+        total: 9,
+        healed: 7,
+      })
+      await advance(CHECK_EVERY * 3)
+      expect(fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it("sends an activity's own formula where the game takes it", () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+      const { result } = render(['formula'])
+
+      act(() => result.current.sendFormula(lantern, shone))
+      expect(
+        JSON.parse(String(jest.mocked(fetch).mock.lastCall?.[1]?.body)),
+      ).toEqual(
+        toFormulaRequest(
+          lantern,
+          { kind: 'formula', item: 'lantern', activity: 'shine' },
+          shone,
+        ),
+      )
+      expect(result.current.states.get('f2')).toEqual({ status: 'sending' })
+    })
+
+    it.each<[string, RollKind[], SheetFormulaRoll]>([
+      ['a hit die where the game takes only formulas', ['formula'], hitDie],
+      ['a formula where the game takes only hit dice', ['hitDie'], lantern],
+      [
+        'a formula the game cannot make',
+        ['hitDie', 'formula'],
+        { ...lantern, source: undefined },
+      ],
+    ])("doesn't send %s", (_name, kinds, roll) => {
+      const { result } = render(kinds)
+
+      act(() => result.current.sendFormula(roll, spent()))
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.current.states.size).toBe(0)
+    })
+
+    it("doesn't send a hit die or a formula from a device the player turned sending off on", () => {
+      const { result } = render(['hitDie', 'formula'])
+
+      act(() => result.current.setSending(false))
+      act(() => result.current.sendFormula(hitDie, spent()))
+      act(() => result.current.sendFormula(lantern, shone))
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.current.states.size).toBe(0)
     })
   })
 

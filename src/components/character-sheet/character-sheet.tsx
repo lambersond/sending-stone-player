@@ -15,11 +15,13 @@ import {
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { conditionDetail } from './effects-tab'
 import { useFavorite } from './favorite-mark'
+import { HitDieButton } from './hit-dice'
 import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
 import { formatModifier } from '@/utils/format-modifier'
+import { hitDicePools, hitDieRoll } from '@/utils/formulas'
 import { isDying } from '@/utils/roll-requests'
-import type { SheetRoll } from '@/hooks/use-sheet-roller'
+import type { SheetFormulaRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
 import type { TableCombat, TableSheet } from '@/types/table'
 
@@ -29,6 +31,8 @@ type Props = {
   /** The encounter under way, in which the character may be waiting to roll initiative. */
   combat?: TableCombat
   onRoll: (roll: SheetRoll) => void
+  /** Spends a hit die, rolling it. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Shows the character's conditions in full, with their rules. */
   onShowConditions?: () => void
 }
@@ -43,6 +47,7 @@ export function CharacterSheet({
   sheet,
   combat,
   onRoll,
+  onRollFormula,
   onShowConditions,
 }: Readonly<Props>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
@@ -62,6 +67,9 @@ export function CharacterSheet({
         actions={actions}
         combatId={waiting ? combat?.id : undefined}
         onShowConditions={onShowConditions}
+        onSpendHitDie={
+          onRollFormula && (die => onRollFormula(hitDieRoll(sheet, die)))
+        }
       />
 
       <section
@@ -135,6 +143,7 @@ function SheetHeader({
   actions,
   combatId,
   onShowConditions,
+  onSpendHitDie,
 }: Readonly<{
   name: string
   sheet: TableSheet
@@ -142,8 +151,10 @@ function SheetHeader({
   /** The combat the character waits to roll initiative in. */
   combatId?: string
   onShowConditions?: () => void
+  onSpendHitDie?: (die: string) => void
 }>) {
   const identity = [sheet.species, sheet.background].filter(Boolean)
+  const pools = hitDicePools(sheet.classes)
   const { deathSaves } = sheet
   // dnd5e's sheet shows them while the character is down, as do we; and while any are marked.
   const dying =
@@ -193,6 +204,22 @@ function SheetHeader({
         {sheet.hp && (
           <Stat label='Hit points' wide>
             <HitPoints hp={sheet.hp} />
+            {/* Spent any time, each tap a die of that size, for the hit points it gives back. */}
+            {onSpendHitDie && pools.length > 0 && (
+              <span
+                role='group'
+                aria-label='Hit dice'
+                className='mt-1.5 flex flex-wrap items-center gap-1'
+              >
+                {pools.map(pool => (
+                  <HitDieButton
+                    key={pool.die}
+                    pool={pool}
+                    onSpend={onSpendHitDie}
+                  />
+                ))}
+              </span>
+            )}
           </Stat>
         )}
         {dying && (

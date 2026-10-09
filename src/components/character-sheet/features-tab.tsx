@@ -7,11 +7,17 @@ import {
   type ActionRows,
   type TableDamage,
 } from './action-entry'
+import { HitDieButton } from './hit-dice'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesLeft } from './uses-left'
+import { hitDieRoll, spendable } from '@/utils/formulas'
 import { featureAction } from '@/utils/sheet-actions'
-import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+} from '@/hooks/use-sheet-roller'
 import type {
   SheetAction,
   SheetClass,
@@ -24,13 +30,15 @@ import type { DamageModifiers } from '@/utils/damage-modifiers'
  * The character's classes, with their hit dice, and features, grouped as dnd5e's Features tab
  * groups them: by the class, species or background each came from. Each opens to its
  * description. What a feature rolls is beside it, as on the Actions tab, each a button that rolls
- * it, or uses it in the Gamemaster's game while the game takes features.
+ * it, or uses it in the Gamemaster's game while the game takes features. A class's hit dice are
+ * spent from it, a tap a die.
  */
 export function FeaturesTab({
   characterId,
   sheet,
   onRoll,
   onRollDamage,
+  onRollFormula,
   onUse,
   tableDamage,
 }: Readonly<{
@@ -38,6 +46,8 @@ export function FeaturesTab({
   sheet: TableSheet
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Spends a hit die, or rolls a feature's own formula. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Uses a feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -48,6 +58,7 @@ export function FeaturesTab({
     spellbook: sheet.spells,
     onRoll,
     onRollDamage,
+    onRollFormula,
     onUse,
     tableDamage,
   })
@@ -61,7 +72,14 @@ export function FeaturesTab({
           <SheetHeading id='classes-heading'>Classes</SheetHeading>
           <ul className='grid gap-2 @xl:grid-cols-2'>
             {sheet.classes.map(entry => (
-              <ClassCard key={entry.id ?? entry.name} entry={entry} />
+              <ClassCard
+                key={entry.id ?? entry.name}
+                entry={entry}
+                onSpendHitDie={
+                  onRollFormula &&
+                  (die => onRollFormula(hitDieRoll(sheet, die)))
+                }
+              />
             ))}
           </ul>
         </section>
@@ -143,8 +161,20 @@ export function FeatureEntry({
   )
 }
 
-function ClassCard({ entry }: Readonly<{ entry: SheetClass }>) {
+function ClassCard({
+  entry,
+  onSpendHitDie,
+}: Readonly<{ entry: SheetClass; onSpendHitDie?: (die: string) => void }>) {
   const { hitDice } = entry
+  const counts = hitDice && (
+    <>
+      <HeartPulse aria-hidden className='size-4 text-text-secondary' />
+      <span className='text-text-secondary'>Hit dice</span>{' '}
+      <span className='font-semibold tabular-nums'>
+        {hitDice.value ?? '–'}/{hitDice.max ?? '–'} {hitDice.die}
+      </span>
+    </>
+  )
   return (
     <li className='flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3'>
       <span className='min-w-0'>
@@ -158,13 +188,18 @@ function ClassCard({ entry }: Readonly<{ entry: SheetClass }>) {
           </span>
         )}
       </span>
-      {hitDice && (
+      {hitDice && onSpendHitDie && spendable(hitDice) && (
+        <HitDieButton
+          pool={hitDice}
+          onSpend={onSpendHitDie}
+          className='shrink-0 gap-1.5 px-2.5 py-1.5 text-sm font-normal'
+        >
+          {counts}
+        </HitDieButton>
+      )}
+      {hitDice && !(onSpendHitDie && spendable(hitDice)) && (
         <span className='flex shrink-0 items-center gap-1.5 text-sm'>
-          <HeartPulse aria-hidden className='size-4 text-text-secondary' />
-          <span className='text-text-secondary'>Hit dice</span>
-          <span className='font-semibold tabular-nums'>
-            {hitDice.value ?? '–'}/{hitDice.max ?? '–'} {hitDice.die}
-          </span>
+          {counts}
         </span>
       )}
     </li>

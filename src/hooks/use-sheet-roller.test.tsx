@@ -7,6 +7,8 @@ import {
   useSheetRoller,
   type LocalCheck,
   type LocalDamage,
+  type LocalFormula,
+  type SheetFormulaRoll,
 } from './use-sheet-roller'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
@@ -29,6 +31,18 @@ const renderer = (fields: object = {}) => {
   jest.mocked(useDiceRenderer).mockReturnValue(fake as any)
   return fake
 }
+
+/** A d8 hit die spent, with this Constitution modifier, 0 or less, giving back at least this. */
+const hitDie = (con: number, minimum: number): SheetFormulaRoll => ({
+  label: 'Hit die (d8)',
+  terms: [
+    { sign: 1, count: 1, sides: 8 },
+    ...(con === 0 ? [] : [{ sign: -1 as const, flat: -con }]),
+  ],
+  healing: true,
+  minimum,
+  source: { kind: 'hitDie', denomination: 'd8' },
+})
 
 describe('hooks/use-sheet-roller', () => {
   afterEach(() => jest.restoreAllMocks())
@@ -337,6 +351,126 @@ describe('hooks/use-sheet-roller', () => {
       total: 5,
       healing: true,
     })
+  })
+
+  it("throws a formula's dice, adding up each term in order, and tells of it as they're thrown, before they land", async () => {
+    const landing = deferred<number[]>()
+    const fake = renderer({
+      roll: jest.fn<Promise<number[]>, [string, object?]>(
+        () => landing.promise,
+      ),
+    })
+    const onFormulaThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, undefined, onFormulaThrown),
+    )
+    const request: SheetFormulaRoll = {
+      label: 'Lantern: Light radius',
+      terms: [
+        { sign: 1, count: 1, sides: 4 },
+        { sign: 1, flat: 3 },
+        { sign: -1, count: 2, sides: 6 },
+      ],
+      source: { kind: 'formula', item: 'lantern', activity: 'shine' },
+    }
+
+    let rolled: Promise<void> | undefined
+    act(() => {
+      rolled = result.current.rollFormula(request)
+    })
+    expect(onFormulaThrown).toHaveBeenCalledTimes(1)
+    const [told, formula] = onFormulaThrown.mock.calls[0] as [
+      unknown,
+      LocalFormula,
+    ]
+    expect(told).toBe(request)
+    expect(result.current.rolling).toBe(true)
+    expect(result.current.rolls).toEqual([])
+    expect(formula).toMatchObject({
+      kind: 'formula',
+      label: 'Lantern: Light radius',
+      healing: false,
+    })
+    // With no least it comes to, it may come to less than nothing.
+    expect(formula).not.toHaveProperty('minimum')
+    const [light, flat, shadow] = formula.terms
+    expect([light.text, flat.text, shadow.text]).toEqual(['1d4', '+3', '−2d6'])
+    expect(light.values).toHaveLength(1)
+    expect(light.value).toBe(light.values[0])
+    expect(flat).toEqual({ text: '+3', values: [], value: 3 })
+    expect(shadow.values).toHaveLength(2)
+    expect(shadow.value).toBe(-(shadow.values[0] + shadow.values[1]))
+    expect(formula.total).toBe(light.value + 3 + shadow.value)
+    expect(fake.roll.mock.calls[0][0]).toBe(
+      `1d4+2d6@${[...light.values, ...shadow.values].join(',')}`,
+    )
+
+    await act(async () => {
+      landing.resolve([])
+      await rolled
+    })
+    expect(result.current.rolling).toBe(false)
+    expect(result.current.rolls).toEqual([formula])
+  })
+
+  it('comes to no less than its least, as a hit die spent does, saying so only when its dice and numbers came to less', async () => {
+    renderer()
+    const random = jest.spyOn(Math, 'random').mockReturnValue(0)
+    const { result } = renderHook(() => useSheetRoller())
+    const latest = () => result.current.rolls[0] as LocalFormula
+
+    // The die lands on 1; with −3, that's −2.
+    await act(() => result.current.rollFormula(hitDie(-3, 1)))
+    expect(latest()).toMatchObject({
+      label: 'Hit die (d8)',
+      total: 1,
+      minimum: 1,
+      healing: true,
+    })
+    expect(latest().terms).toEqual([
+      { text: '1d8', values: [1], value: 1 },
+      { text: '−3', values: [], value: -3 },
+    ])
+    // Under the 2014 rules, at least none.
+    await act(() => result.current.rollFormula(hitDie(-3, 0)))
+    expect(latest()).toMatchObject({ total: 0, minimum: 0 })
+    // Coming to just the least, or more, it's as it came to.
+    await act(() => result.current.rollFormula(hitDie(0, 1)))
+    expect(latest().total).toBe(1)
+    expect(latest()).not.toHaveProperty('minimum')
+    random.mockReturnValue(0.99)
+    await act(() => result.current.rollFormula(hitDie(-3, 1)))
+    expect(latest().total).toBe(5)
+    expect(latest()).not.toHaveProperty('minimum')
+  })
+
+  it('keeps a formula of numbers alone, with no dice to throw', async () => {
+    const fake = renderer()
+    const onFormulaThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, undefined, onFormulaThrown),
+    )
+
+    await act(() =>
+      result.current.rollFormula({
+        label: 'Candle roll',
+        terms: [{ sign: 1, flat: 5 }],
+      }),
+    )
+
+    expect(fake.roll).not.toHaveBeenCalled()
+    expect(result.current.rolls).toEqual([
+      expect.objectContaining({
+        kind: 'formula',
+        total: 5,
+        healing: false,
+        terms: [{ text: '5', values: [], value: 5 }],
+      }),
+    ])
+    expect(onFormulaThrown).toHaveBeenCalledWith(
+      { label: 'Candle roll', terms: [{ sign: 1, flat: 5 }] },
+      result.current.rolls[0],
+    )
   })
 
   it('still rolls, without dice, when the 3D renderer is not ready', async () => {

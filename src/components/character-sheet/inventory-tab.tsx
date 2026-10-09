@@ -13,7 +13,11 @@ import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { UsesLeft } from './uses-left'
 import { itemAction } from '@/utils/sheet-actions'
-import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+} from '@/hooks/use-sheet-roller'
 import type {
   SheetAction,
   SheetContainer,
@@ -36,6 +40,7 @@ export function InventoryTab({
   favorites,
   onRoll,
   onRollDamage,
+  onRollFormula,
   onUse,
   tableDamage,
 }: Readonly<{
@@ -45,6 +50,8 @@ export function InventoryTab({
   favorites?: ReactNode
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Rolls an activity's own formula, such as a light's radius. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Uses an item in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -55,6 +62,7 @@ export function InventoryTab({
     spellbook: sheet.spells,
     onRoll,
     onRollDamage,
+    onRollFormula,
     onUse,
     tableDamage,
   })

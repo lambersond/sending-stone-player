@@ -25,8 +25,63 @@ describe('components/character-sheet/features-tab', () => {
       screen.getByRole('region', { name: 'Classes' }),
     ).getAllByRole('listitem')
     expect(classes.map(item => item.textContent)).toEqual([
-      'Fighter 5ChampionHit dice3/5 d10',
+      'Fighter 5ChampionHit dice 3/5 d10',
     ])
+  })
+
+  it("spends a class's hit die from its card, where something rolls them", async () => {
+    const user = userEvent.setup()
+    const onRollFormula = jest.fn()
+    const sheet = fullerSheet()
+    render(
+      <FeaturesTab
+        characterId='char-1'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        onRollFormula={onRollFormula}
+        sheet={toTableSheet(
+          {
+            ...sheet,
+            rules: 'legacy',
+            classes: [
+              ...sheet.classes,
+              {
+                id: 'wizard',
+                identifier: 'wizard',
+                name: 'Wizard',
+                levels: 2,
+                subclass: null,
+                hitDice: { die: 'd6', value: 0, max: 2 },
+              },
+            ],
+          },
+          'https://my-game.forge-vtt.com',
+        )}
+      />,
+    )
+
+    const classes = screen.getByRole('region', { name: 'Classes' })
+    expect(
+      within(classes).getByRole('button', {
+        name: 'Hit dice 0/2 d6 left, spend one',
+      }),
+    ).toBeDisabled()
+    await user.click(
+      within(classes).getByRole('button', {
+        name: 'Hit dice 3/5 d10 left, spend one',
+      }),
+    )
+    // At least none under the 2014 rules.
+    expect(onRollFormula).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Hit die (d10)',
+        minimum: 0,
+        source: { kind: 'hitDie', denomination: 'd10' },
+      }),
+    )
+    expect(within(classes).getAllByRole('listitem')[0]).toHaveTextContent(
+      'Fighter 5ChampionHit dice 3/5 d10 left, spend one',
+    )
   })
 
   it('groups features by where they came from, with how and how often each is used', () => {
@@ -174,7 +229,7 @@ describe('components/character-sheet/features-tab', () => {
     })
 
     expect(screen.getByRole('region', { name: 'Classes' })).toHaveTextContent(
-      'FighterHit dice–/– d8',
+      'FighterHit dice –/– d8',
     )
   })
 

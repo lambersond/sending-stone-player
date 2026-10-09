@@ -1,4 +1,4 @@
-import type { SheetUse } from '@/types/sending-stone'
+import type { SheetUse, SheetUseTargets } from '@/types/sending-stone'
 
 /**
  * Spells and features a player has used in the Gamemaster's game, other than attacks: whom they're
@@ -9,18 +9,23 @@ import type { SheetUse } from '@/types/sending-stone'
 const FRIENDLY = new Set(['ally', 'willing'])
 
 /**
- * The most targets a use takes when cast at a level: none for one used on its user alone; the
- * number it affects, and more for each level above its own where it says so, as Bless; or any
- * number.
+ * The most targets a use, or an area attack, takes when cast at a level: none for one used on its
+ * user alone; the number it affects, and more for each level above its own where it says so, as
+ * Bless; or any number.
+ * @param targets - A use's targets, or an area attack's area.
  * @param spellLevel - The spell's own level; null for anything but a spell.
  * @param castAt - The level it's cast at.
  */
 export function mostTargets(
-  use: SheetUse,
+  {
+    self = false,
+    count,
+    perLevel,
+  }: Partial<Pick<SheetUseTargets, 'self'>> &
+    Pick<SheetUseTargets, 'count' | 'perLevel'>,
   spellLevel: number | null,
   castAt: number | null,
 ): number {
-  const { self, count, perLevel } = use.targets
   if (self) return 0
   if (count === null) return Number.POSITIVE_INFINITY
   const above =

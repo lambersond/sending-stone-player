@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   BookOpen,
@@ -22,6 +22,7 @@ import { ModeChip, modeText, PROFICIENCY } from './character-sheet'
 import { EffectEntry } from './effects-tab'
 import { FavoriteMarks, NO_MARKS } from './favorite-mark'
 import { FeatureEntry } from './features-tab'
+import { HitDieButton } from './hit-dice'
 import { ItemEntry } from './inventory-tab'
 import { RollButton } from './roll-button'
 import { joinParts, SheetEntry } from './sheet-entry'
@@ -32,8 +33,13 @@ import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { formatModifier } from '@/utils/format-modifier'
+import { hitDieRoll, spendable } from '@/utils/formulas'
 import type { RollActions } from './d20-rolls'
-import type { SheetDamageRoll, SheetRoll } from '@/hooks/use-sheet-roller'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+} from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type {
   SheetAbility,
@@ -52,6 +58,8 @@ type Props = {
   entries: FavoriteEntry[]
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
+  /** Rolls an activity's own formula, such as a light's radius. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -171,6 +179,7 @@ function FavoritesList({
   entries,
   onRoll,
   onRollDamage,
+  onRollFormula,
   onUse,
   tableDamage,
 }: Readonly<Props>) {
@@ -179,6 +188,7 @@ function FavoritesList({
     spellbook: sheet.spells,
     onRoll,
     onRollDamage,
+    onRollFormula,
     onUse,
     tableDamage,
   })
@@ -209,6 +219,10 @@ function FavoritesList({
                 entry={entry}
                 rows={rows}
                 abilities={sheet.abilities}
+                onSpendHitDie={
+                  onRollFormula &&
+                  (die => onRollFormula(hitDieRoll(sheet, die)))
+                }
               />
             ))}
           </ul>
@@ -223,10 +237,12 @@ function FavoriteRow({
   entry,
   rows,
   abilities,
+  onSpendHitDie,
 }: Readonly<{
   entry: FavoriteEntry
   rows: ActionRows
   abilities: SheetAbility[]
+  onSpendHitDie?: (die: string) => void
 }>) {
   const { characterId } = rows
   switch (entry.kind) {
@@ -253,7 +269,13 @@ function FavoriteRow({
       )
     }
     case 'class': {
-      return <ClassEntry characterId={characterId} entry={entry.entry} />
+      return (
+        <ClassEntry
+          characterId={characterId}
+          entry={entry.entry}
+          onSpendHitDie={onSpendHitDie}
+        />
+      )
     }
     case 'effect': {
       return (
@@ -313,12 +335,27 @@ function FavoriteRow({
   }
 }
 
-/** A class made a favorite: its levels and subclass, and its hit dice left. */
+/** A class made a favorite: its levels and subclass, and its hit dice left, each tap one spent. */
 function ClassEntry({
   characterId,
   entry,
-}: Readonly<{ characterId: string; entry: SheetClass }>) {
+  onSpendHitDie,
+}: Readonly<{
+  characterId: string
+  entry: SheetClass
+  onSpendHitDie?: (die: string) => void
+}>) {
   const { hitDice } = entry
+  let aside: ReactNode
+  if (hitDice && onSpendHitDie && spendable(hitDice)) {
+    aside = (
+      <HitDieButton
+        pool={hitDice}
+        onSpend={onSpendHitDie}
+        className='shrink-0 gap-1 px-2 py-0.5 text-xs font-semibold'
+      />
+    )
+  }
   return (
     <SheetEntry
       characterId={characterId}
@@ -328,7 +365,8 @@ function ClassEntry({
       fallback={ListChecks}
       detail={entry.subclass ?? undefined}
       aside={
-        hitDice && (
+        aside ??
+        (hitDice && (
           <span className='shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold tabular-nums'>
             <span aria-hidden>
               {hitDice.value ?? '–'}/{hitDice.max ?? '–'}{' '}
@@ -341,7 +379,7 @@ function ClassEntry({
               {hitDice.die} hit dice left
             </span>
           </span>
-        )
+        ))
       }
     />
   )

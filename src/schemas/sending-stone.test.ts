@@ -66,6 +66,38 @@ const outcomeOf = (outcome?: unknown) =>
     })?.data as any
   ).outcome
 
+/** The hit points a hit die gave back, as a command's result says and as read. */
+const healedOf = (healed?: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      healed,
+    })?.data as any
+  ).healed
+
+/** The world's rules, as a character's sheet says and as read. */
+const rulesOf = (rules?: unknown) =>
+  (
+    parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: { ...characterSheet(), rules } },
+    }) as any
+  ).data.character.sheet.rules
+
+/** What came of an attack, as a command's result says and as read. */
+const attackOf = (attack: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      attack,
+    })?.data as any
+  ).attack
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -158,6 +190,24 @@ describe('schemas/sending-stone', () => {
     expect(
       helloWith({ rolls: { ...rolls, prompts: 1 } }).features.rolls,
     ).toEqual({ ...rolls, prompts: false })
+  })
+
+  it('reads whether the game makes an area attack at the combatants its player picks, from module 0.16.0', () => {
+    const rolls = {
+      enabled: true,
+      kinds: ['attack', 'hitDie', 'formula'],
+      reason: null,
+    }
+    expect(
+      helloWith({ rolls: { ...rolls, areaAttacks: true } }).features.rolls,
+    ).toEqual({ ...rolls, areaAttacks: true })
+    expect(
+      helloWith({ rolls: { ...rolls, areaAttacks: 'yes' } }).features.rolls,
+    ).toEqual({ ...rolls, areaAttacks: false })
+    // A module before 0.16.0 says nothing of it.
+    expect(helloWith({ rolls }).features.rolls).not.toHaveProperty(
+      'areaAttacks',
+    )
   })
 
   it('reads the saves the game asks for, in its hello and as they open and close, from module 0.13.0', () => {
@@ -297,6 +347,17 @@ describe('schemas/sending-stone', () => {
     expect(outcomeOf()).toBeUndefined()
   })
 
+  it("reads the hit points a hit die gave back, from module 0.16.0, as unknown when it can't", () => {
+    expect(healedOf(7)).toBe(7)
+    expect(healedOf(0)).toBe(0)
+    expect(healedOf(null)).toBeNull()
+    expect(healedOf(-1)).toBeNull()
+    expect(healedOf(2.5)).toBeNull()
+    expect(healedOf('7')).toBeNull()
+    expect(healedOf(1_000_001)).toBeNull()
+    expect(healedOf()).toBeUndefined()
+  })
+
   it("reads an attack's result: what came of it, and the dice its damage throws", () => {
     const damage = {
       critical: true,
@@ -342,6 +403,41 @@ describe('schemas/sending-stone', () => {
         damage: { ...damage, rolls: 'many' },
       })?.data,
     ).toMatchObject({ attack: null, damage: null })
+  })
+
+  it("reads whether an area attack hit each combatant picked, from module 0.16.0, leaving them out when it can't", () => {
+    const attack = { critical: false, fumble: false, outcome: null }
+    const hits = [
+      { combatId: 'cmbt1', combatantId: 'goblin', outcome: 'hit' },
+      { combatId: 'cmbt1', combatantId: 'ogre', outcome: 'miss' },
+      { combatId: 'cmbt1', combatantId: 'lurker', outcome: null },
+    ]
+    expect(attackOf({ ...attack, targets: hits })).toEqual({
+      ...attack,
+      targets: hits,
+    })
+    // What came of it at one it can't read is unknown.
+    expect(
+      attackOf({ ...attack, targets: [{ ...hits[0], outcome: 'graze' }] })
+        .targets,
+    ).toEqual([{ ...hits[0], outcome: null }])
+
+    // Those it can't read are left out, keeping the rest of the attack.
+    for (const targets of [
+      'all',
+      [{ combatantId: 'goblin', outcome: 'hit' }],
+      [{ ...hits[0], combatId: 'c'.repeat(65) }],
+      Array.from({ length: 21 }, (_, index) => ({
+        ...hits[0],
+        combatantId: `c${index}`,
+      })),
+    ]) {
+      const read = attackOf({ ...attack, outcome: 'hit', targets })
+      expect(read).toMatchObject({ ...attack, outcome: 'hit' })
+      expect(read.targets).toBeUndefined()
+    }
+    // A module before 0.16.0 sends none.
+    expect(attackOf(attack)).not.toHaveProperty('targets')
   })
 
   it("reads a use's result: the kind of activity used, and its healing's dice, or the kinds of damage to choose", () => {
@@ -477,6 +573,14 @@ describe('schemas/sending-stone', () => {
       classes: [],
       abilities: [{ id: 'str', label: '', checkMode: 0, save: 7 }],
     })
+  })
+
+  it("reads the world's rules, from module 0.16.0, as unknown when it can't", () => {
+    expect(rulesOf('modern')).toBe('modern')
+    expect(rulesOf('legacy')).toBe('legacy')
+    expect(rulesOf('2014')).toBeNull()
+    expect(rulesOf(null)).toBeNull()
+    expect(rulesOf()).toBeUndefined()
   })
 
   it('reads features, conditions and effects, as sent from module 0.6.0', () => {
@@ -714,6 +818,51 @@ describe('schemas/sending-stone', () => {
       actions[0].actions.map((action: SheetAction) => action.castFrom),
     ).toEqual([null, wand, undefined, undefined])
     expect('castFrom' in actions[0].actions[2]).toBe(false)
+  })
+
+  it('reads whether the item a spell is cast from can cast it now, from module 0.16.0', () => {
+    const sheet = fullerSheet()
+    const [cantrips, first, ...rest] = sheet.spells
+    const flame = { id: 'flame', name: 'Worn Bardic Eternal Flame' }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            cantrips,
+            {
+              ...first,
+              spells: [
+                {
+                  ...first.spells[0],
+                  castFrom: { ...flame, usable: false, attune: true },
+                },
+                {
+                  ...first.spells[1],
+                  castFrom: { ...flame, usable: 'no', attune: 1 },
+                },
+                { ...first.spells[2], castFrom: flame },
+              ],
+            },
+            ...rest,
+          ],
+        },
+      },
+    }) as any
+
+    expect(
+      event.data.character.sheet.spells[1].spells.map(
+        (spell: SheetSpell) => spell.castFrom,
+      ),
+    ).toEqual([
+      { ...flame, usable: false, attune: true },
+      { ...flame, usable: true, attune: false },
+      flame,
+    ])
+    expect(
+      'usable' in event.data.character.sheet.spells[1].spells[2].castFrom,
+    ).toBe(false)
   })
 
   it('reads actions, dropping a malformed action, damage or saving throw rather than the sheet', () => {
@@ -1115,6 +1264,185 @@ describe('schemas/sending-stone', () => {
       consumable: false,
       cast: { level: 0, concentration: false, charges: null, short: false },
     })
+  })
+
+  it("reads an action's own formula, and whom an area attack is made at, of actions, activities and favorites, from module 0.16.0", () => {
+    const sheet = fullerSheet()
+    const [section, bonus, ...rest] = sheet.actions
+    const [warhammer, handaxe, guidance, breath] = section.actions
+    const [resource, item, fireball, ...favorites] = sheetFavorites()
+    const light = { formula: '1d4 + 3', name: 'Light radius' }
+    const cone = { count: 3, perLevel: 1, affects: 'creature' }
+    const shine = {
+      id: 'shine',
+      name: 'Shine',
+      type: 'utility',
+      activation: '1 Action',
+      range: 'Self',
+      target: null,
+      toHit: null,
+      attackId: null,
+      activity: null,
+      attackModes: null,
+      ammunition: null,
+      save: null,
+      damage: [],
+      uses: null,
+    }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          actions: [
+            {
+              ...section,
+              actions: [
+                {
+                  ...warhammer,
+                  rollFormula: light,
+                  attackArea: cone,
+                  activities: [
+                    { ...shine, rollFormula: light, attackArea: cone },
+                    { ...shine, id: 'odd', rollFormula: 'radius' },
+                  ],
+                },
+                {
+                  ...handaxe,
+                  rollFormula: { formula: '' },
+                  attackArea: { count: 0, perLevel: 'one', affects: 5 },
+                },
+                {
+                  ...guidance,
+                  rollFormula: { formula: 'x'.repeat(501), name: 'Long' },
+                  attackArea: 'cone',
+                },
+                {
+                  ...breath,
+                  rollFormula: { formula: '2d6' },
+                  attackArea: { count: null, affects: null },
+                },
+              ],
+            },
+            bonus,
+            ...rest,
+          ],
+          favorites: [
+            resource,
+            item,
+            { ...fireball, rollFormula: light, attackArea: cone },
+            ...favorites,
+          ],
+        },
+      },
+    }) as any
+
+    const read = event.data.character.sheet
+    const [hammer, axe, odd, fire] = read.actions[0].actions
+    expect(hammer).toMatchObject({ rollFormula: light, attackArea: cone })
+    expect(hammer.activities).toEqual([
+      { ...shine, rollFormula: light, attackArea: cone },
+      { ...shine, id: 'odd', rollFormula: null },
+    ])
+    // Malformed, a formula is none; an area keeps what it can read of whom it's made at.
+    expect([axe.rollFormula, axe.attackArea]).toEqual([
+      null,
+      { count: null, perLevel: null, affects: null },
+    ])
+    expect([odd.rollFormula, odd.attackArea]).toEqual([null, null])
+    expect([fire.rollFormula, fire.attackArea]).toEqual([
+      { formula: '2d6', name: null },
+      { count: null, perLevel: null, affects: null },
+    ])
+    expect(read.favorites[2]).toEqual({
+      ...fireball,
+      rollFormula: light,
+      attackArea: cone,
+    })
+    // As an older module sends it, an action has neither.
+    expect(read.actions[1].actions[0]).not.toHaveProperty('rollFormula')
+    expect(read.actions[1].actions[0]).not.toHaveProperty('attackArea')
+  })
+
+  it('reads the formulas and areas of spells, features and items, from module 0.16.0, leaving them out where not sent', () => {
+    const sheet = fullerSheet()
+    const [cantrips, ...spellbook] = sheet.spells
+    const [fighter, ...origins] = sheet.features
+    const [weapons, ...kinds] = sheet.inventory.sections
+    const light = { formula: '1d4 + 3', name: 'Light radius' }
+    const cone = { count: null, perLevel: null, affects: 'creature' }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          spells: [
+            {
+              ...cantrips,
+              spells: [
+                { ...cantrips.spells[0], rollFormula: light, attackArea: cone },
+              ],
+            },
+            ...spellbook,
+          ],
+          features: [
+            {
+              ...fighter,
+              features: [
+                {
+                  ...fighter.features[0],
+                  rollFormula: { formula: 7 },
+                  attackArea: { count: 'two', affects: 'creature' },
+                },
+                fighter.features[1],
+              ],
+            },
+            ...origins,
+          ],
+          inventory: {
+            ...sheet.inventory,
+            sections: [
+              {
+                ...weapons,
+                items: [
+                  { ...weapons.items[0], rollFormula: light },
+                  weapons.items[1],
+                ],
+              },
+              ...kinds,
+            ],
+          },
+        },
+      },
+    }) as any
+
+    const read = event.data.character.sheet
+    expect(read.spells[0].spells[0]).toEqual({
+      ...cantrips.spells[0],
+      rollFormula: light,
+      attackArea: cone,
+    })
+    // Malformed, a formula is none; an area keeps what it can read of whom it's made at.
+    expect(read.features[0].features[0]).toEqual({
+      ...fighter.features[0],
+      rollFormula: null,
+      attackArea: { count: null, perLevel: null, affects: 'creature' },
+    })
+    expect(read.inventory.sections[0].items[0]).toEqual({
+      ...weapons.items[0],
+      rollFormula: light,
+    })
+    for (const unsent of [
+      read.features[0].features[1],
+      read.inventory.sections[0].items[0],
+      read.inventory.sections[0].items[1],
+    ]) {
+      expect(unsent).not.toHaveProperty('attackArea')
+    }
+    expect(read.features[0].features[1]).not.toHaveProperty('rollFormula')
+    expect(read.inventory.sections[0].items[1]).not.toHaveProperty(
+      'rollFormula',
+    )
   })
 
   it('reads a sheet from before module 0.8.0 as having no actions', () => {

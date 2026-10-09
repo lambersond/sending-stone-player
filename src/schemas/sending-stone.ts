@@ -4,6 +4,7 @@ import {
   DAMAGE_TYPE,
   EVENTS,
   MAX_DAMAGE_TERMS,
+  MAX_USE_TARGETS,
   PROMPT_ID,
 } from '@/constants/sending-stone'
 import { MAX_DICE } from '@/utils/roll-modifiers'
@@ -146,6 +147,31 @@ const rollFields = {
     .catch(null),
   // From module 0.15.0: the kind of action it takes, where it takes one, such as "bonus".
   activationType: z.string().nullable().optional().catch(null),
+  // From module 0.16.0: whom an area attack is made at, such as a breath weapon's.
+  attackArea: z
+    .looseObject({
+      count: z.int().positive().nullable().catch(null),
+      perLevel: z
+        .int()
+        .positive()
+        .nullable()
+        .optional()
+        .catch(null)
+        .transform(perLevel => perLevel ?? null),
+      affects: nullableString,
+    })
+    .nullable()
+    .optional()
+    .catch(null),
+  // From module 0.16.0: a utility activity's own formula, and what it's called.
+  rollFormula: z
+    .looseObject({
+      formula: z.string().min(1).max(500),
+      name: nullableString,
+    })
+    .nullable()
+    .optional()
+    .catch(null),
 }
 
 /**
@@ -179,6 +205,8 @@ const itemRollFields = {
   save: rollFields.save.optional(),
   damage: rollFields.damage.optional(),
   consumesSlot: rollFields.consumesSlot,
+  attackArea: rollFields.attackArea,
+  rollFormula: rollFields.rollFormula,
   activities: activitiesSchema,
 }
 
@@ -218,7 +246,13 @@ const featureSchema = z.looseObject({
  * that a sheet from one reads as it did; null for one that can't be read.
  */
 const castFromSchema = z
-  .object({ id: z.string(), name: z.string() })
+  .object({
+    id: z.string(),
+    name: z.string(),
+    // From module 0.16.0: false for a spell the item can't cast now, and whether it needs attuning.
+    usable: z.boolean().optional().catch(true),
+    attune: z.boolean().optional().catch(false),
+  })
   .nullable()
   .optional()
   .catch(null)
@@ -579,6 +613,8 @@ const sheetSchema = z
         values: z.array(z.string()).catch([]),
       }),
     ),
+    // From module 0.16.0: the world's rules, which say how much a hit die gives back at least.
+    rules: z.enum(['modern', 'legacy']).nullable().optional().catch(null),
     deathSaves: z
       .object({ success: z.number(), failure: z.number() })
       .nullable()
@@ -700,6 +736,8 @@ const featuresSchema = z
         // asked for the saves their game asks of them.
         modifiers: z.boolean().optional().catch(false),
         prompts: z.boolean().optional().catch(false),
+        // From module 0.16.0: whether an area attack is made at the combatants its player picks.
+        areaAttacks: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -770,6 +808,19 @@ const commandResultSchema = z.object({
       critical: z.boolean().catch(false),
       fumble: z.boolean().catch(false),
       outcome: z.enum(['hit', 'miss']).nullable().catch(null),
+      // From module 0.16.0, for an area attack: whether it hit each combatant picked.
+      targets: z
+        .array(
+          z.object({
+            combatId: z.string().max(64),
+            combatantId: z.string().max(64),
+            outcome: z.enum(['hit', 'miss']).nullable().catch(null),
+          }),
+        )
+        .max(MAX_USE_TARGETS)
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as by older modules
+        .catch(undefined),
     })
     .nullable()
     .optional()
@@ -782,6 +833,8 @@ const commandResultSchema = z.object({
     .catch(null),
   // From module 0.13.0, for a save the game asked for.
   outcome: z.enum(['success', 'failure']).nullable().optional().catch(null),
+  // From module 0.16.0, for a hit die.
+  healed: z.int().min(0).max(1_000_000).nullable().optional().catch(null),
   damage: z
     .object({
       critical: z.boolean().catch(false),

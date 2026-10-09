@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
   activityAction,
+  activityActions,
   featureAction,
   itemAction,
   sheetActions,
@@ -8,6 +9,7 @@ import {
 } from './sheet-actions'
 import {
   fullerSheet,
+  sheetAction,
   sheetFavorites,
   sheetItem,
   sheetSpell,
@@ -254,6 +256,68 @@ describe('utils/sheet-actions', () => {
         sheet.actions.flatMap(section => section.actions),
       )
     })
+  })
+
+  it("makes an item whose only roll is its formula an action, keeping it and an area attack's area", () => {
+    const lantern = sheetItem({
+      id: 'lantern',
+      name: 'Lantern of Revealing',
+      rollFormula: { formula: '1d4 + 3', name: 'Light radius' },
+    })
+    const sheet = fullerSheet()
+    sheet.inventory = {
+      ...sheet.inventory,
+      sections: [{ id: 'loot', label: 'Loot', items: [lantern] }],
+    }
+
+    expect(
+      sheetActions(sheet).find(({ id }) => id === 'lantern'),
+    ).toMatchObject({
+      rollFormula: { formula: '1d4 + 3', name: 'Light radius' },
+    })
+
+    const breath = sheetAction({
+      id: 'breath',
+      name: 'Breath Weapon',
+      attackId: 'breathAttack',
+      toHit: 5,
+      activities: [
+        {
+          id: 'breathAttack',
+          name: 'Exhale',
+          type: 'attack',
+          activation: '1 Action',
+          range: null,
+          target: null,
+          toHit: 5,
+          attackId: 'breathAttack',
+          save: null,
+          damage: [],
+          uses: null,
+        },
+        {
+          id: 'gust',
+          name: 'Gust',
+          type: 'utility',
+          activation: '1 Bonus Action',
+          range: null,
+          target: null,
+          toHit: 5,
+          attackId: 'gustAttack',
+          save: null,
+          damage: [],
+          uses: null,
+          rollFormula: { formula: '2d6', name: null },
+          attackArea: { count: 3, perLevel: null, affects: 'creature' },
+        },
+      ],
+    })
+    expect(activityActions(breath)).toEqual([
+      expect.objectContaining({
+        rollFormula: { formula: '2d6', name: null },
+        attackArea: { count: 3, perLevel: null, affects: 'creature' },
+      }),
+    ])
   })
 
   describe('spellAction', () => {
