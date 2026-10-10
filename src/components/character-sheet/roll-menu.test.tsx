@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RollMenu, type MenuPoint } from './roll-menu'
+import { Modal } from '@/components/modal'
 
 const renderMenu = (point?: MenuPoint) => {
   const onChoose = jest.fn()
@@ -132,5 +133,38 @@ describe('components/character-sheet/roll-menu', () => {
 
     expect(onClose).toHaveBeenCalled()
     expect(onChoose).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape inside a modal dialog, cancelling the key, which the browser would otherwise take as a request to close the dialog too', async () => {
+    const user = userEvent.setup()
+    const onClose = jest.fn()
+    const pressed: KeyboardEvent[] = []
+    const keep = (event: KeyboardEvent) => pressed.push(event)
+    globalThis.addEventListener('keydown', keep, true)
+    render(<button type='button'>Perception</button>)
+    render(
+      <Modal open onClose={jest.fn()} title='Bardic Flame'>
+        <RollMenu
+          anchor={screen.getByRole('button', { name: 'Perception' })}
+          title='Perception check +7'
+          onChoose={jest.fn()}
+          onClose={onClose}
+        />
+      </Modal>,
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+      ).toHaveFocus(),
+    )
+
+    await user.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalled()
+    expect(pressed.at(-1)).toMatchObject({
+      key: 'Escape',
+      defaultPrevented: true,
+    })
+    globalThis.removeEventListener('keydown', keep, true)
   })
 })

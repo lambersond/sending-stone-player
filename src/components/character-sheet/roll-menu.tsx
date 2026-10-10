@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import {
   autoUpdate,
   flip,
@@ -25,6 +25,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import { usePortalRoot, useTopmostEscape } from '@/components/modal'
 
 /**
  * What the player chose: a roll with advantage or disadvantage, or to modify the roll first; or,
@@ -44,28 +45,55 @@ export type MenuPoint = {
   touch: boolean
 }
 
-const CHOICES: Record<RollChoice, { label: string; icon: LucideIcon }> = {
-  adv: { label: 'Roll with advantage', icon: ChevronsUp },
-  dis: { label: 'Roll with disadvantage', icon: ChevronsDown },
-  modify: { label: 'Modify roll…', icon: SlidersHorizontal },
-  critical: { label: 'Roll critical damage', icon: Zap },
-  maximize: { label: 'Roll maximum damage', icon: ArrowUpToLine },
-  'modify-damage': { label: 'Modify damage…', icon: SlidersHorizontal },
+const CHOICES: Record<
+  RollChoice,
+  { label: string; icon: LucideIcon; tint: string }
+> = {
+  adv: { label: 'Roll with advantage', icon: ChevronsUp, tint: 'text-primary' },
+  dis: {
+    label: 'Roll with disadvantage',
+    icon: ChevronsDown,
+    tint: 'text-ruby',
+  },
+  modify: {
+    label: 'Modify roll…',
+    icon: SlidersHorizontal,
+    tint: 'text-text-secondary',
+  },
+  critical: {
+    label: 'Roll critical damage',
+    icon: Zap,
+    tint: 'text-gold-text',
+  },
+  maximize: {
+    label: 'Roll maximum damage',
+    icon: ArrowUpToLine,
+    tint: 'text-damage',
+  },
+  'modify-damage': {
+    label: 'Modify damage…',
+    icon: SlidersHorizontal,
+    tint: 'text-text-secondary',
+  },
 }
 
-type Props = {
+/** Where a menu opens, and what it's of. */
+type MenuPlace = {
   /** The part of the sheet it opened from. */
   anchor: HTMLElement
-  /** Where on it they clicked or pressed. With none, as from a key, the menu goes below it. */
+  /** Where on it they clicked or pressed. With none, as from a key or a tap, it goes below it. */
   point?: MenuPoint
-  /** What would be rolled, such as "Perception check +7". */
+  /** What it's of, such as "Perception check +7". */
   title: string
+  onClose: () => void
+}
+
+type Props = MenuPlace & {
   /** The ways it can be rolled; those of a d20 roll unless said. */
   choices?: RollChoice[]
   /** What to call a choice instead, such as "Roll maximum healing". */
   labels?: Partial<Record<RollChoice, string>>
   onChoose: (choice: RollChoice) => void
-  onClose: () => void
 }
 
 /**
@@ -74,17 +102,61 @@ type Props = {
  * a click or tap elsewhere, closes it.
  */
 export function RollMenu({
-  anchor,
-  point,
-  title,
   choices = D20_CHOICES,
   labels = {},
   onChoose,
-  onClose,
+  ...place
 }: Readonly<Props>) {
+  return (
+    <ChoiceMenu
+      {...place}
+      items={choices.map(choice => ({
+        ...choiceItem(choice),
+        ...(labels[choice] && { label: labels[choice] }),
+      }))}
+      onChoose={onChoose}
+    />
+  )
+}
+
+/** A way to roll as a menu offers it, such as "Roll with advantage". */
+export function choiceItem(choice: RollChoice): MenuItem<RollChoice> {
+  return { id: choice, ...CHOICES[choice] }
+}
+
+/** One of a menu's items: what it says, its icon and the icon's colour, as a class. */
+export type MenuItem<T extends string> = {
+  id: T
+  label: string
+  icon: LucideIcon
+  tint?: string
+  /** Why it can't be chosen now, said under it; unset where it can be. */
+  disabled?: string
+}
+
+/**
+ * A menu of things to do with a part of the sheet, opened where the player clicked or pressed for
+ * it, as `RollMenu` is: the first item that can be chosen takes focus, arrow keys move between
+ * them, skipping any that can't be chosen now, which say why; Escape, or a click or tap elsewhere,
+ * closes it. Inside a modal dialog, it opens in the dialog, as the page behind it is inert, and
+ * Escape closes only the menu.
+ */
+export function ChoiceMenu<T extends string>({
+  anchor,
+  point,
+  title,
+  items,
+  onChoose,
+  onClose,
+}: Readonly<
+  MenuPlace & { items: MenuItem<T>[]; onChoose: (choice: T) => void }
+>) {
   // eslint-disable-next-line unicorn/no-null -- floating-ui marks no active item with null
   const [active, setActive] = useState<number | null>(null)
-  const items = useRef<(HTMLElement | null)[]>([])
+  const list = useRef<(HTMLElement | null)[]>([])
+  const reasons = useId()
+  const root = usePortalRoot()
+  useTopmostEscape(true)
   const { placement, gap } = placing(point)
   const { refs, floatingStyles, context } = useFloating({
     open: true,
@@ -103,21 +175,26 @@ export function RollMenu({
     useDismiss(context),
     useRole(context, { role: 'menu' }),
     useListNavigation(context, {
-      listRef: items,
+      listRef: list,
       activeIndex: active,
       onNavigate: setActive,
       loop: true,
     }),
   ])
+  // The first that can be chosen takes focus when the menu opens.
+  const first = Math.max(
+    0,
+    items.findIndex(item => !item.disabled),
+  )
 
   return (
-    <FloatingPortal>
+    <FloatingPortal root={root}>
       <FloatingFocusManager context={context} initialFocus={0} modal={false}>
         <div
           ref={refs.setFloating}
           style={floatingStyles}
           aria-label={title}
-          className='z-50 flex min-w-56 flex-col rounded-xl border border-border bg-card p-1 text-text-primary shadow-xl'
+          className='z-50 flex max-w-[calc(100vw-1rem)] min-w-56 flex-col rounded-xl border border-border bg-card p-1 text-text-primary shadow-xl'
           {...getFloatingProps()}
         >
           <p
@@ -126,38 +203,56 @@ export function RollMenu({
           >
             {title}
           </p>
-          {choices.map((choice, index) => {
-            const { icon: Icon } = CHOICES[choice]
-            const label = labels[choice] ?? CHOICES[choice].label
+          {items.map((item, index) => {
+            const { icon: Icon } = item
+            const why = `${reasons}-${index}`
             return (
               <button
-                key={choice}
+                key={item.id}
                 type='button'
                 role='menuitem'
+                disabled={item.disabled !== undefined}
+                // Named for what it does, and why it can't be done now said after.
+                aria-label={
+                  item.disabled === undefined ? undefined : item.label
+                }
+                aria-describedby={item.disabled === undefined ? undefined : why}
                 ref={node => {
-                  items.current[index] = node
+                  list.current[index] = node
                 }}
-                // The first item takes focus when the menu opens.
-                tabIndex={(active ?? 0) === index ? 0 : -1}
+                tabIndex={(active ?? first) === index ? 0 : -1}
                 className={clsx(
-                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium outline-none',
+                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium outline-none disabled:cursor-not-allowed',
                   active === index && 'bg-primary/10',
                 )}
-                {...getItemProps({ onClick: () => onChoose(choice) })}
+                {...getItemProps({ onClick: () => onChoose(item.id) })}
               >
                 <Icon
                   aria-hidden
                   className={clsx(
-                    'size-4',
-                    choice === 'adv' && 'text-primary',
-                    choice === 'dis' && 'text-ruby',
-                    (choice === 'modify' || choice === 'modify-damage') &&
-                      'text-text-secondary',
-                    choice === 'critical' && 'text-gold-text',
-                    choice === 'maximize' && 'text-damage',
+                    'size-4 shrink-0',
+                    item.disabled === undefined
+                      ? item.tint
+                      : 'text-text-secondary',
                   )}
                 />
-                {label}
+                <span className='flex min-w-0 flex-col'>
+                  <span
+                    className={clsx(
+                      item.disabled !== undefined && 'text-text-secondary',
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                  {item.disabled !== undefined && (
+                    <span
+                      id={why}
+                      className='text-xs font-normal text-text-secondary'
+                    >
+                      {item.disabled}
+                    </span>
+                  )}
+                </span>
               </button>
             )
           })}

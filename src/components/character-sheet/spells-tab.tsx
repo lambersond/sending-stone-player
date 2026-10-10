@@ -9,6 +9,7 @@ import {
   type TableDamage,
 } from './action-entry'
 import { componentsOf, whyNot } from './action-info'
+import { spellOrigin } from './description-actions'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -346,6 +347,7 @@ export function SpellEntry({
         ['Components', components],
       ])}
       text={spell.text}
+      origin={{ name: spellOrigin(spell), item: spell.id }}
       muted={unprepared || !!unusable}
     />
   )

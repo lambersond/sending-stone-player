@@ -178,8 +178,11 @@ describe('utils/formulas', () => {
   describe('atFullHitPoints', () => {
     it.each([
       [{ value: 44, max: 44, temp: 0 }, true],
-      // Above it, where a temporary change raised it, which the sheet leaves out: some may be
-      // missing, such as at 42 of 40 raised by 5 to 45.
+      // From module 0.17.0, its maximum with a temporary change to it, as dnd5e heals up to, such
+      // as 44 lowered to 30 by a wraith's Life Drain.
+      [{ value: 30, max: 30, temp: 0 }, true],
+      // Above it, where a temporary change raised it, which an older module's sheet leaves out:
+      // some may be missing, such as at 42 of 40 raised by 5 to 45.
       [{ value: 49, max: 44, temp: 5 }, false],
       [{ value: 42, max: 40, temp: 0 }, false],
       [{ value: 43, max: 44, temp: 10 }, false],

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import {
+  BellRing,
   Crosshair,
   Droplet,
   HeartPulse,
@@ -12,9 +13,11 @@ import {
 } from 'lucide-react'
 import { EmptyState } from './empty-state'
 import { LocalTime } from './local-time'
+import { askTitle } from '@/utils/table-view'
 import type {
   Side,
   TableAction,
+  TableAsk,
   TableMessage,
   TableRoll,
   TableTarget,
@@ -134,7 +137,15 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
             className='text-xs text-text-secondary'
           />
         </header>
-        {kind === 'text' && (
+        {message.ask && (
+          <AskBubble
+            ask={message.ask}
+            speaker={speaker}
+            whisper={whisper}
+            mine={mine}
+          />
+        )}
+        {kind === 'text' && !message.ask && (
           <>
             {label && text && (
               <span className='text-xs font-semibold text-text-secondary'>
@@ -194,6 +205,51 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
         )}
       </div>
     </article>
+  )
+}
+
+/**
+ * A roll request card: who asks the table for which saving throw, with its DC where players may
+ * see it, and what asks for it, such as the asker's item. It's for the Gamemaster, who rolls it
+ * for the creatures it names.
+ */
+function AskBubble({
+  ask,
+  speaker,
+  whisper,
+  mine,
+}: Readonly<{
+  ask: TableAsk
+  speaker: string
+  whisper: boolean
+  mine: boolean
+}>) {
+  const title = askTitle(ask)
+  return (
+    <div
+      className={clsx(
+        bubble(whisper, mine),
+        'flex flex-col gap-1.5 border-l-4 border-l-primary',
+      )}
+    >
+      {/* The sentence below says what it is; the chip only marks it, for the eye. */}
+      <span
+        aria-hidden
+        className='inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary uppercase'
+      >
+        <BellRing className='size-3' />
+        {ask.type === 'concentration' ? 'Concentration' : 'Saving throw'}
+      </span>
+      <p className='font-semibold break-words'>
+        {speaker} asks for {/^[AEIOU]/.test(title) ? 'an' : 'a'} {title}
+      </p>
+      {ask.label && (
+        <p className='text-xs break-words text-text-secondary'>
+          <span className='sr-only'>From </span>
+          {ask.label}
+        </p>
+      )}
+    </div>
   )
 }
 

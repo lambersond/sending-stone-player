@@ -35,8 +35,8 @@ type Props = {
   onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Whether the Gamemaster's game spends a hit die rolled too, as it does while it takes them. */
   spendsAtTable?: boolean
-  /** Shows the character's conditions in full, with their rules. */
-  onShowConditions?: () => void
+  /** Shows one of the character's conditions in full, with its rules, by its id. */
+  onShowConditions?: (id: string) => void
 }
 
 /**
@@ -151,7 +151,7 @@ function SheetHeader({
   actions: RollActions
   /** The combat the character waits to roll initiative in. */
   combatId?: string
-  onShowConditions?: () => void
+  onShowConditions?: (id: string) => void
   /** How a hit die is spent; their counts alone without. */
   spending?: HitDieSpending
 }>) {
@@ -187,7 +187,7 @@ function SheetHeader({
             <li key={condition.id}>
               <button
                 type='button'
-                onClick={onShowConditions}
+                onClick={() => onShowConditions?.(condition.id)}
                 className='inline-flex items-center gap-1.5 rounded-full border border-border bg-page py-1 pr-2.5 pl-1 text-xs font-semibold transition-colors hover:border-primary hover:bg-primary/5'
               >
                 <StatusIcon src={condition.img} />

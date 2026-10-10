@@ -30,6 +30,22 @@ const roll = (fields: Partial<TableRoll> = {}): TableRoll => ({
   ...fields,
 })
 
+/** Thorin's ask of the table, as the server shows it. */
+const ask = (fields: Partial<TableMessage> = {}) =>
+  message({
+    speaker: 'Thorin',
+    side: 'me',
+    label: 'Roll Request: Worn Bardic Eternal Flame',
+    text: 'Dexterity saving throw',
+    ask: {
+      type: 'save',
+      abilities: ['dex'],
+      dc: 15,
+      label: 'Worn Bardic Eternal Flame',
+    },
+    ...fields,
+  })
+
 describe('components/game-table/chat-log', () => {
   it('says when there are no messages', () => {
     render(<ChatLog messages={[]} />)
@@ -305,6 +321,58 @@ describe('components/game-table/chat-log', () => {
       'border-l-spell',
     )
     expect(screen.getByText('Goblin')).toBeInTheDocument()
+  })
+
+  describe('roll request cards', () => {
+    it('says who asks the table for which saving throw, its DC, and what asks for it', () => {
+      render(<ChatLog messages={[ask()]} />)
+
+      const article = screen.getByRole('article')
+      expect(
+        within(article).getByText(
+          'Thorin asks for a DC 15 Dexterity saving throw',
+        ),
+      ).toBeInTheDocument()
+      expect(within(article).getByText('Saving throw')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      )
+      expect(
+        within(article).getByText('Worn Bardic Eternal Flame'),
+      ).toHaveTextContent('From Worn Bardic Eternal Flame')
+      // Its line of text, for pages that don't read its ask, and the card's flavor are left out.
+      expect(within(article).queryByText('Dexterity saving throw')).toBeNull()
+      expect(within(article).queryByText(/Roll Request/)).toBeNull()
+    })
+
+    it("words the Gamemaster's card without a DC, nor what asks, and a concentration check", () => {
+      render(
+        <ChatLog
+          messages={[
+            ask({
+              id: 'm1',
+              speaker: 'Gamemaster',
+              side: 'other',
+              ask: { type: 'save', abilities: ['int', 'wis'] },
+            }),
+            ask({
+              id: 'm2',
+              ask: { type: 'concentration', abilities: ['con'], dc: 10 },
+            }),
+          ]}
+        />,
+      )
+
+      const [gm, thorin] = screen.getAllByRole('article')
+      expect(gm).toHaveTextContent(
+        'Gamemaster asks for an Intelligence or Wisdom saving throw',
+      )
+      expect(within(gm).queryByText(/^From/)).toBeNull()
+      expect(within(thorin).getByText('Concentration')).toBeInTheDocument()
+      expect(thorin).toHaveTextContent(
+        'Thorin asks for a DC 10 Concentration check',
+      )
+    })
   })
 
   describe('initials', () => {

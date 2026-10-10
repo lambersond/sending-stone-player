@@ -9,6 +9,7 @@ const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
     <BiographyTab
       characterId='char-1'
+      name='Thorin Oakenshield'
       sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
     />,
   )

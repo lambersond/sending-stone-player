@@ -2,6 +2,13 @@
 
 import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
+import {
+  closingAfter,
+  DescriptionLinks,
+  spellOrigin,
+  useDescriptionActions,
+  type DescriptionOrigin,
+} from './description-actions'
 import { joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
 import { Modal } from '@/components/modal'
@@ -36,30 +43,39 @@ export type ActivityInfo = {
 }
 
 /**
- * What there is to read of one of an item's activities folded beneath it, in a dialog, without
- * anything to roll, which stays on its row: its spell's, where it casts one the Spells tab lists
- * under the item, or else what its row has. `show` opens it; the dialog is in `dialog`, to be put
- * on the page.
+ * What there is to read of one of an item's activities folded beneath it, in a dialog, with no
+ * roll buttons of its own, which stay on its row: its spell's, where it casts one the Spells tab
+ * lists under the item, or else what its row has. Its description's links act as they do on the
+ * sheet, and once one throws dice, or asks the table, the dialog closes, for the dice and the tray
+ * behind it to be seen. `show` opens it; the dialog is in `dialog`, to be put on the page.
  */
 export function useActionInfo(
   characterId: string,
   spellbook: SheetSpellSection[],
 ): { show: (info: ActivityInfo) => void; dialog: ReactNode } {
   const [info, setInfo] = useState<ActivityInfo>()
+  const actions = useDescriptionActions()
   const spell = info && spellOf(info, spellbook)
+  const close = () => setInfo(undefined)
   return {
     show: setInfo,
     dialog: (
       <Modal
         open={!!info}
-        onClose={() => setInfo(undefined)}
+        onClose={close}
         title={spell?.name ?? info?.activity.name ?? ''}
         subtitle={
           info && joinParts(spell && spellKind(spell), `From ${info.item.name}`)
         }
       >
         {info && (
-          <ActivityAbout characterId={characterId} info={info} spell={spell} />
+          <DescriptionLinks actions={actions && closingAfter(actions, close)}>
+            <ActivityAbout
+              characterId={characterId}
+              info={info}
+              spell={spell}
+            />
+          </DescriptionLinks>
         )}
       </Modal>
     ),
@@ -67,13 +83,20 @@ export function useActionInfo(
 }
 
 /**
- * The spell an activity casts, as the Spells tab lists it under the activity's item, where it can
- * be told which.
+ * The spell an activity casts, as the Spells tab lists it under the activity's item: the copy the
+ * module names, from 0.17.0; or else where it can be told which.
  */
 function spellOf(
   { activity, item }: ActivityInfo,
   spellbook: SheetSpellSection[],
 ): SheetSpell | undefined {
+  const named =
+    typeof activity.spellId === 'string'
+      ? spellbook
+          .flatMap(section => section.spells)
+          .find(spell => spell.id === activity.spellId)
+      : undefined
+  if (named) return named
   return itemSpellOf(spellbook, item.id, {
     name: activity.name,
     text: activity.cast?.text,
@@ -84,8 +107,9 @@ function spellOf(
 
 /**
  * All there is to read of one of an item's activities: its marks, such as for concentration or no
- * charges left; its facts, a spell's among them where it casts one; and the spell's description,
- * or else the item's, under the item's name.
+ * charges left; its facts, a spell's among them where it casts one, with what a reaction answers
+ * and how long it lasts; and the spell's description, or its own, or else the item's, under the
+ * item's name.
  */
 function ActivityAbout({
   characterId,
@@ -109,7 +133,7 @@ function ActivityAbout({
     unusable && whyNot(unusable),
     foundry && 'Used in Foundry',
   ].filter(mark => typeof mark === 'string')
-  const facts = spellFacts(spell, cast)
+  const facts = [...ownFacts(activity, spell), ...spellFacts(spell, cast)]
   const formula = action.rollFormula
   if (formula) {
     facts.push({
@@ -119,7 +143,18 @@ function ActivityAbout({
         : formula.formula,
     })
   }
-  const text = spell?.text ?? cast?.text
+  const text = spell?.text ?? cast?.text ?? textOf(activity)
+  // A spell's description is the spell's, cast from the item; an activity's own is the item's.
+  const origin: DescriptionOrigin =
+    spell || cast?.text
+      ? {
+          name: spellOrigin({
+            name: spell?.name ?? activity.name,
+            castFrom: item,
+          }),
+          item: item.id,
+        }
+      : { name: action.name, item: item.id }
   return (
     <div className='flex flex-col gap-3'>
       {marks.length > 0 && (
@@ -139,7 +174,9 @@ function ActivityAbout({
         casting={!!spell || activity.type === 'cast'}
         more={facts}
       />
-      {text && <SheetText characterId={characterId} hash={text} />}
+      {text && (
+        <SheetText characterId={characterId} hash={text} origin={origin} />
+      )}
       {/* An activity that casts no spell known has no description of its own: its item's is
           what there is to read of it. */}
       {!text && item.text && (
@@ -150,11 +187,41 @@ function ActivityAbout({
           >
             {item.name}
           </h3>
-          <SheetText characterId={characterId} hash={item.text} />
+          <SheetText
+            characterId={characterId}
+            hash={item.text}
+            origin={{ name: item.name, item: item.id }}
+          />
         </section>
       )}
     </div>
   )
+}
+
+/**
+ * An activity's own facts, from module 0.17.0: what a reaction is taken in answer to, and how long
+ * what it does lasts, where its spell doesn't say.
+ */
+function ownFacts(
+  activity: SheetActivity,
+  spell: SheetSpell | undefined,
+): { label: string; value: string }[] {
+  const { trigger, duration } = activity
+  return [
+    ...(typeof trigger === 'string' && trigger
+      ? [{ label: 'Trigger', value: trigger }]
+      : []),
+    ...(typeof duration === 'string' && duration && !spell?.duration
+      ? [{ label: 'Duration', value: duration }]
+      : []),
+  ]
+}
+
+/** An activity's own description's hash, which dnd5e 6 gives it; none before. */
+function textOf(activity: SheetActivity): string | undefined {
+  return typeof activity.text === 'string' && activity.text
+    ? activity.text
+    : undefined
 }
 
 /**

@@ -474,6 +474,141 @@ describe('schemas/roll-request', () => {
     expect(parseAttack({ prompt: 'msg1-thorin' }).success).toBe(false)
   })
 
+  describe('from a link in a description', () => {
+    const TEXT = '0f1a2b3c4d5e6f'
+    /** Asking the table for the save link 3 of a description calls for. */
+    const ask = {
+      kind: 'ask',
+      text: TEXT,
+      link: 3,
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    /** Its damage: 2d6 fire and 1d4 cold, chosen. */
+    const textDamage = {
+      ...ask,
+      kind: 'textDamage',
+      link: 4,
+      dice: [
+        { faces: 6, results: [3, 5] },
+        { faces: 4, results: [2] },
+      ],
+      types: ['fire', 'cold'],
+    }
+    /** A roll of its own: 1d6 + 2. */
+    const textRoll = {
+      ...ask,
+      kind: 'textRoll',
+      link: 5,
+      dice: [{ faces: 6, results: [4] }],
+    }
+    const parseAsk = (fields: object) =>
+      rollRequestSchema.safeParse({ ...ask, ...fields })
+
+    it('takes an ask of the table, which throws no dice', () => {
+      expect(parseAsk({}).data).toEqual(ask)
+      expect(parseAsk({ link: 0 }).success).toBe(true)
+      expect(parseAsk({ link: 199 }).success).toBe(true)
+    })
+
+    it.each([
+      ['without its description', { text: undefined }],
+      ['without its link', { link: undefined }],
+      ['without its description or link', { text: undefined, link: undefined }],
+      ['naming no description', { text: 'Second Wind' }],
+      ['naming a description in capitals', { text: TEXT.toUpperCase() }],
+      ['naming a link past the last', { link: 200 }],
+      ['naming a link before the first', { link: -1 }],
+      ['naming part of a link', { link: 1.5 }],
+      ['naming a link in words', { link: '3' }],
+      ['with a die', { dice: [{ faces: 20, results: [12] }] }],
+      ['with advantage', { mode: 1 }],
+      ['rolled as the player chose', { explicit: true }],
+      ['with something added', { extras: [{ sign: 1, flat: 2 }] }],
+      ['naming an ability', { key: 'dex' }],
+      ['answering what the game asked', { prompt: 'msg1-thorin' }],
+      ['naming an item', { item: 'staff', activity: 'cast' }],
+      ['with kinds of damage', { types: ['fire'] }],
+      ['following an attack', { use: 'req-1' }],
+      ['naming a DC', { dc: 15 }],
+    ])('refuses an ask %s', (_name, fields) => {
+      expect(parseAsk(fields).success).toBe(false)
+    })
+
+    it("takes a description's damage and roll with the dice their formulas throw", () => {
+      expect(rollRequestSchema.safeParse(textDamage).data).toEqual(textDamage)
+      expect(
+        rollRequestSchema.safeParse({ ...textDamage, types: [null, 'cold'] })
+          .success,
+      ).toBe(true)
+      expect(
+        rollRequestSchema.safeParse({ ...textDamage, types: undefined })
+          .success,
+      ).toBe(true)
+      expect(rollRequestSchema.safeParse(textRoll).data).toEqual(textRoll)
+      // A formula of numbers alone throws none.
+      expect(
+        rollRequestSchema.safeParse({ ...textRoll, dice: [] }).success,
+      ).toBe(true)
+    })
+
+    it.each([
+      ['without its description', { text: undefined }],
+      ['without its link', { link: undefined }],
+      ['without its description or link', { text: undefined, link: undefined }],
+      ['with advantage', { mode: -1 }],
+      ['rolled as the player chose', { explicit: true }],
+      ['with something added', { extras: [{ sign: 1, count: 1, sides: 4 }] }],
+      [
+        'with a die that does not exist',
+        { dice: [{ faces: 7, results: [3] }] },
+      ],
+      ['with a result past the die', { dice: [{ faces: 6, results: [7] }] }],
+      ['with a die thrown for nothing', { dice: [{ faces: 6, results: [] }] }],
+      ['changed as damage may be', { modifiers: { extra: 1 } }],
+      ['with a kind of damage that is not one', { types: ['fire damage'] }],
+      ['following an attack', { use: 'req-1' }],
+      ['naming an ability', { key: 'dex' }],
+      ['at a target', { target: null }],
+      ['answering what the game asked', { prompt: 'msg1-thorin' }],
+      ['naming an item', { item: 'staff', activity: 'cast' }],
+    ])("refuses a description's damage or roll %s", (_name, fields) => {
+      expect(
+        rollRequestSchema.safeParse({ ...textDamage, ...fields }).success,
+      ).toBe(false)
+      expect(
+        rollRequestSchema.safeParse({ ...textRoll, ...fields }).success,
+      ).toBe(false)
+    })
+
+    it("gives kinds of damage to a description's damage, and not to its roll", () => {
+      expect(
+        rollRequestSchema.safeParse({ ...textRoll, types: ['fire'] }).success,
+      ).toBe(false)
+    })
+
+    it("takes a player's own saving throw a description calls for, but not one answering the game too", () => {
+      const save = { kind: 'save', key: 'dex', text: TEXT, link: 3 }
+
+      expect(parse(save).success).toBe(true)
+      expect(parse({ ...save, link: undefined }).success).toBe(false)
+      expect(parse({ ...save, text: undefined }).success).toBe(false)
+      expect(parse({ ...save, prompt: 'msg1-thorin' }).success).toBe(false)
+    })
+
+    it('names a link for nothing else', () => {
+      expect(parse({ text: TEXT, link: 3 }).success).toBe(false)
+      expect(
+        parse({ kind: 'ability', key: 'dex', text: TEXT, link: 3 }).success,
+      ).toBe(false)
+      expect(parseDamage({ text: TEXT, link: 3 }).success).toBe(false)
+      expect(parseUse({ text: TEXT, link: 3 }).success).toBe(false)
+      expect(parseAttack({ link: 3 }).success).toBe(false)
+    })
+  })
+
   it("reads the module's fetch, for one of its campaigns", () => {
     const poll = {
       protocol: 2,

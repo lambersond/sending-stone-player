@@ -2093,6 +2093,57 @@ describe('components/character-sheet/actions-tab', () => {
         ).toBeInTheDocument()
       })
 
+      it('finds its spell by the copy the module names, whatever it is called, and says what a reaction answers, how long it lasts, and its own description', async () => {
+        const user = userEvent.setup()
+        const [strike, , charm] = flame.activities ?? []
+        const parry = {
+          ...charm,
+          id: 'parry',
+          name: 'Parry',
+          type: 'utility',
+          activation: 'Reaction',
+          activationType: 'reaction',
+          trigger: 'When a creature hits you with a melee attack',
+          duration: '1 Round',
+          text: TEXTS.rope,
+        }
+        renderRead(copies, [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              {
+                ...flame,
+                activities: [
+                  strike,
+                  // Renamed, and named for another spell: the copy the module names is its own.
+                  { ...charm, name: 'Starry Wisp', spellId: 'charm-copy' },
+                  parry,
+                ],
+              },
+            ],
+          },
+        ])
+
+        await user.click(flameRow('Actions'))
+        await user.click(about('Bardic Flame (Starry Wisp)'))
+        expect(
+          screen.getByRole('dialog', { name: 'Charm Person' }),
+        ).toHaveTextContent('Level 1 · Enchantment · From Bardic Flame')
+        await user.click(screen.getByRole('button', { name: 'Close' }))
+
+        await user.click(about('Bardic Flame (Parry)'))
+        const dialog = screen.getByRole('dialog', { name: 'Parry' })
+        expect(factsIn(dialog)).toEqual([
+          'Activation: Reaction',
+          'Trigger: When a creature hits you with a melee attack',
+          'Duration: 1 Round',
+        ])
+        expect(
+          await within(dialog).findByText(`Text ${TEXTS.rope}`),
+        ).toBeInTheDocument()
+      })
+
       it("shows what its row has for a Cast whose spell the module didn't find, as the item's only spell is another Cast's", async () => {
         const user = userEvent.setup()
         const [strike, , charm] = flame.activities ?? []

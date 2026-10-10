@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -30,6 +31,8 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 
 const GAME = 'https://my-game.forge-vtt.com'
 
+type User = ReturnType<typeof userEvent.setup>
+
 const renderPane = (sheet: CharacterSheet = fullerSheet()) =>
   render(
     <CharacterPane
@@ -45,6 +48,10 @@ const favored = (favorites = sheetFavorites()) => fullerSheet({ favorites })
 /** The sheet this many pixels wide, as a browser would lay it out. */
 const wide = (width: number) =>
   jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(width)
+
+/** The button that opens an action's row, by its name. */
+const toggleOf = (name: string) =>
+  screen.getByRole('button', { name: new RegExp(`^${name}`), expanded: false })
 
 /** Shows a tab of the sheet. */
 const show = (name: string) =>
@@ -176,6 +183,53 @@ const used = (type: string, damage: unknown) => ({
 const healing = (formula: string) => [
   { formula, type: 'Healing', healing: true },
 ]
+
+const SAVE =
+  '<p>Make a <span class="ss-save roll" data-n="0" data-ability="str" data-dc="15">DC 15 Strength</span> saving throw or take <span class="ss-damage roll" data-n="1" data-formulas="2d6" data-types="fire">2d6 fire</span> and fall <span class="ss-condition ref" data-condition="prone">Prone</span>.</p>'
+
+/**
+ * The game, which has each description's HTML by its hash, and makes each roll as it answers
+ * it by the request's id: everything posted, in order.
+ */
+const describing = (
+  html: Record<string, string>,
+  answers: Record<string, Record<string, unknown>> = {},
+) => {
+  const posted: Record<string, unknown>[] = []
+  globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+    const hash = /\/texts\/(\w+)$/.exec(String(url))?.[1]
+    if (hash) {
+      return {
+        ok: true,
+        json: async () => ({ html: html[hash] ?? '<p>Nothing.</p>' }),
+      } as Response
+    }
+    if (init?.method === 'POST') {
+      posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      return {
+        ok: true,
+        status: 202,
+        json: async () => ({ id: `req-${posted.length}` }),
+      } as Response
+    }
+    const id = String(url).split('/').at(-1) ?? ''
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ id, status: 'pending', ...answers[id] }),
+    } as Response
+  }) as typeof fetch
+  return posted
+}
+
+/** Opens Second Wind on the Features tab, to its description. */
+const openSecondWind = async () => {
+  const user = userEvent.setup()
+  await show('Features')
+  await user.click(screen.getByText('Second Wind'))
+  await screen.findByRole('button', { name: 'DC 15 Strength' })
+  return user
+}
 
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
@@ -1389,8 +1443,10 @@ describe('components/character-sheet/character-pane', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Strength check')
   })
 
-  it("shows the character's conditions, which open their rules in Effects", async () => {
+  it("shows the character's conditions, each opening the panel at its rules, or Effects where the app has none", async () => {
     const user = userEvent.setup()
+    const scrolled = jest.fn()
+    Element.prototype.scrollIntoView = scrolled
     renderPane()
 
     const conditions = within(screen.getByRole('list', { name: 'Conditions' }))
@@ -1401,10 +1457,22 @@ describe('components/character-sheet/character-pane', () => {
     ])
     await user.click(conditions.getByRole('button', { name: 'Poisoned' }))
 
+    // The panel, over the sheet, at the condition's rules, once it's shown.
+    const panel = screen.getByRole('dialog', { name: 'Conditions' })
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName(/^Character/)
+    await waitFor(() => expect(scrolled).toHaveBeenCalled())
+    expect(scrolled.mock.contexts.at(-1)).toBe(
+      within(panel).getByRole('region', { name: 'Poisoned' }),
+    )
+    await user.click(within(panel).getByRole('button', { name: 'Close' }))
+
+    // Concentrating has no rules here: its chip shows it among the effects.
+    await user.click(conditions.getByRole('button', { name: /^Concentrating/ }))
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName(/^Effects/)
     expect(
       screen.getByRole('heading', { name: 'Conditions' }),
     ).toBeInTheDocument()
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
   })
 
   it('has no conditions to show for a character without any', () => {
@@ -1426,9 +1494,13 @@ describe('components/character-sheet/character-pane', () => {
     expect(fetch).not.toHaveBeenCalled()
     await user.click(within(feature).getByText('Second Wind'))
 
-    expect(
-      await within(feature).findByText('1d10 + 5', { selector: '.roll' }),
-    ).toBeInTheDocument()
+    // A roll the module didn't mark as one the app acts on is only text.
+    const formula = await within(feature).findByText('1d10 + 5')
+    expect(formula).not.toHaveClass('roll')
+    expect(formula.closest('p')).toHaveTextContent(
+      'Regain 1d10 + 5 hit points.',
+    )
+    expect(within(feature).queryByRole('button', { name: /1d10/ })).toBeNull()
     expect(
       within(feature).getByText('Class Feature · Fighter 1'),
     ).toBeInTheDocument()
@@ -1436,6 +1508,468 @@ describe('components/character-sheet/character-pane', () => {
       `/api/characters/char-1/texts/${TEXTS.secondWind}`,
       { signal: expect.any(AbortSignal) },
     )
+  })
+
+  describe('descriptions that roll', () => {
+    // Each test's character is a new one, as descriptions loaded are kept by character.
+    let characters = 0
+    const renderTaking = (kinds: RollKind[], sheet = fullerSheet()) =>
+      render(
+        <CharacterPane
+          characterId={`described-${++characters}`}
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(sheet, GAME)}
+          rollsToTable={kinds}
+        />,
+      )
+
+    beforeEach(() => globalThis.localStorage.clear())
+
+    it("rolls the player's own save a description calls for, against its DC, in the game too, saying the table can't be asked from there", async () => {
+      const posted = describing(
+        { [TEXTS.secondWind]: SAVE },
+        { 'req-1': { status: 'done', visible: true, total: 21 } },
+      )
+      renderTaking(['save'])
+      const user = await openSecondWind()
+
+      await user.click(screen.getByRole('button', { name: 'DC 15 Strength' }))
+      const menu = screen.getByRole('menu', {
+        name: 'DC 15 Strength saving throw',
+      })
+      expect(
+        within(menu).getByRole('menuitem', { name: 'Ask the table' }),
+      ).toHaveAccessibleDescription(
+        'Your Gamemaster’s game can’t be asked from Sending Stone yet.',
+      )
+      await user.click(
+        within(menu).getByRole('menuitem', {
+          name: 'Roll my Strength save (+7)',
+        }),
+      )
+
+      expect(posted).toEqual([
+        expect.objectContaining({
+          kind: 'save',
+          key: 'str',
+          text: TEXTS.secondWind,
+          link: 0,
+        }),
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Strength saving throwd20 \d+ \+7( · Natural (20|1))? · DC 15/,
+      )
+      expect(
+        await screen.findByText('At the table:', {}, { timeout: 3000 }),
+      ).toHaveTextContent('At the table: 21 · Saved')
+    })
+
+    it('asks the table, where the game takes it, and says it was posted', async () => {
+      const posted = describing(
+        { [TEXTS.secondWind]: SAVE },
+        { 'req-1': { status: 'done', visible: true, rolls: [] } },
+      )
+      renderTaking(['save', 'ask'])
+      const user = await openSecondWind()
+
+      await user.click(screen.getByRole('button', { name: 'DC 15 Strength' }))
+      await user.click(screen.getByRole('menuitem', { name: 'Ask the table' }))
+
+      expect(posted).toEqual([
+        {
+          kind: 'ask',
+          text: TEXTS.secondWind,
+          link: 0,
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+        },
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'DC 15 Strength saving throw',
+      )
+      expect(
+        await screen.findByText(
+          'Posted to the table’s chat',
+          {},
+          { timeout: 3000 },
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it("can't ask the table from a device that doesn't send rolls, but can send them from there, where the tray's switch isn't shown", async () => {
+      const posted = describing({ [TEXTS.biography]: SAVE })
+      globalThis.localStorage.setItem('sending-stone:send-rolls', 'off')
+      renderTaking(['save', 'ask'])
+      const user = userEvent.setup()
+      await show('Biography')
+      expect(screen.queryByRole('switch')).toBeNull()
+
+      await user.click(
+        await screen.findByRole('button', { name: 'DC 15 Strength' }),
+      )
+      expect(
+        screen.getByRole('menuitem', { name: 'Ask the table' }),
+      ).toHaveAccessibleDescription(
+        'This device doesn’t send your rolls to the table.',
+      )
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Send my rolls to the table' }),
+      )
+      expect(globalThis.localStorage.getItem('sending-stone:send-rolls')).toBe(
+        'on',
+      )
+      expect(posted).toEqual([])
+
+      await user.click(screen.getByRole('button', { name: 'DC 15 Strength' }))
+      expect(
+        screen.queryByRole('menuitem', { name: 'Send my rolls to the table' }),
+      ).toBeNull()
+      await user.click(screen.getByRole('menuitem', { name: 'Ask the table' }))
+      expect(posted).toEqual([expect.objectContaining({ kind: 'ask' })])
+    })
+
+    it("says the game can't be asked, and offers no switch, where it takes no asks, whether this device sends rolls or not", async () => {
+      describing({ [TEXTS.secondWind]: SAVE })
+      globalThis.localStorage.setItem('sending-stone:send-rolls', 'off')
+      renderTaking(['save'])
+      const user = await openSecondWind()
+
+      await user.click(screen.getByRole('button', { name: 'DC 15 Strength' }))
+
+      expect(
+        screen.getByRole('menuitem', { name: 'Ask the table' }),
+      ).toHaveAccessibleDescription(
+        'Your Gamemaster’s game can’t be asked from Sending Stone yet.',
+      )
+      expect(
+        screen.queryByRole('menuitem', { name: 'Send my rolls to the table' }),
+      ).toBeNull()
+    })
+
+    it("rolls a description's damage, named for where it's from, in the game too where it takes it", async () => {
+      const posted = describing({ [TEXTS.secondWind]: SAVE })
+      renderTaking(['textDamage'])
+      const user = await openSecondWind()
+
+      await user.click(
+        screen.getByRole('button', { name: '2d6 fire, roll damage' }),
+      )
+
+      expect(posted).toEqual([
+        expect.objectContaining({
+          kind: 'textDamage',
+          text: TEXTS.secondWind,
+          link: 1,
+          dice: [{ faces: 6, results: expect.any(Array) }],
+        }),
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Second Wind damage2d6 \(\d, \d\) fire/,
+      )
+    })
+
+    it('shows the tray on Biography once its description rolls, named for the character as the game names it, saying only the player sees a roll the game doesn’t take', async () => {
+      const user = userEvent.setup()
+      describing({
+        [TEXTS.biography]:
+          '<p>Lucky: <span class="ss-roll roll" data-n="0" data-formula="1d4">1d4</span></p>',
+      })
+      renderTaking(['save'])
+      await show('Biography')
+      expect(screen.queryByRole('status')).toBeNull()
+
+      await user.click(
+        await screen.findByRole('button', { name: '1d4, roll it' }),
+      )
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\dThorin Oakenshield roll1d4 \(\d\)Only you see this roll$/,
+      )
+      expect(fetch).not.toHaveBeenCalledWith(
+        expect.stringMatching(/\/rolls$/),
+        expect.anything(),
+      )
+    })
+
+    it.each<[string, string, (user: User) => Promise<unknown>, CharacterSheet]>(
+      [
+        [
+          'Features',
+          TEXTS.secondWind,
+          async user => {
+            await show('Features')
+            await user.click(screen.getByText('Second Wind'))
+          },
+          fullerSheet(),
+        ],
+        [
+          'Actions',
+          TEXTS.warhammer,
+          async user => {
+            await show('Actions')
+            await user.click(toggleOf('Warhammer'))
+          },
+          fullerSheet(),
+        ],
+        [
+          'Inventory',
+          TEXTS.warhammer,
+          async user => {
+            await show('Inventory')
+            await user.click(screen.getByText('Warhammer'))
+          },
+          fullerSheet(),
+        ],
+        [
+          'Spells',
+          TEXTS.shield,
+          async user => {
+            await show('Spells')
+            await user.click(screen.getByText('Shield'))
+          },
+          fullerSheet(),
+        ],
+        ['Biography', TEXTS.biography, () => show('Biography'), fullerSheet()],
+        [
+          'a favorite',
+          TEXTS.warhammer,
+          async user => {
+            await show('Effects')
+            const strip = screen.getByRole('region', { name: 'Favorites' })
+            await user.click(within(strip).getByText('Warhammer'))
+          },
+          favored(),
+        ],
+      ],
+    )(
+      'opens the conditions panel at a condition a description names, from %s',
+      async (_, hash, open, sheet) => {
+        const scrolled = jest.fn()
+        Element.prototype.scrollIntoView = scrolled
+        describing({ [hash]: SAVE })
+        renderTaking([], sheet)
+        const user = userEvent.setup()
+
+        await open(user)
+        await user.click(await screen.findByRole('button', { name: 'Prone' }))
+
+        const panel = screen.getByRole('dialog', { name: 'Conditions' })
+        await waitFor(() =>
+          expect(scrolled.mock.contexts.at(-1)).toBe(
+            within(panel).getByRole('region', { name: 'Prone' }),
+          ),
+        )
+        Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+      },
+    )
+
+    it("opens the conditions panel at the Effects tab's own condition, and from its button, at the top", async () => {
+      const scrolled = jest.fn()
+      Element.prototype.scrollIntoView = scrolled
+      describing({
+        [TEXTS.poisoned]:
+          '<p>While <span class="ss-condition ref" data-condition="poisoned">Poisoned</span>, you have Disadvantage.</p>',
+      })
+      renderTaking([])
+      const user = userEvent.setup()
+
+      await show('Effects')
+      const effects = screen.getByRole('region', { name: 'Conditions' })
+      await user.click(within(effects).getByText('Poisoned'))
+      await user.click(
+        await within(effects).findByRole('button', { name: 'Poisoned' }),
+      )
+      let panel = screen.getByRole('dialog', { name: 'Conditions' })
+      await waitFor(() =>
+        expect(scrolled.mock.contexts.at(-1)).toBe(
+          within(panel).getByRole('region', { name: 'Poisoned' }),
+        ),
+      )
+      expect(
+        within(panel).getByRole('region', { name: 'Poisoned' }),
+      ).toHaveTextContent('You have it')
+      await user.click(within(panel).getByRole('button', { name: 'Close' }))
+      scrolled.mockClear()
+
+      await user.click(
+        screen.getByRole('button', { name: 'Every condition and its rules' }),
+      )
+      panel = screen.getByRole('dialog', { name: 'Conditions' })
+      expect(
+        screen.getAllByRole('dialog', { name: 'Conditions' }),
+      ).toHaveLength(1)
+      // A frame later, when it would have scrolled to one.
+      await act(
+        () => new Promise(resolve => requestAnimationFrame(() => resolve(0))),
+      )
+      expect(scrolled).not.toHaveBeenCalled()
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    })
+
+    /**
+     * Thorin's sheet with Bardic Flame, whose Glow is folded beneath it, its description this;
+     * and the dialog about Glow, opened on the Actions tab.
+     */
+    const openGlow = async (html: string, kinds: RollKind[] = []) => {
+      const sheet = fullerSheet()
+      const flame = sheetAction({
+        id: 'flame',
+        name: 'Bardic Flame',
+        type: 'weapon',
+        text: TEXTS.warhammer,
+        activities: [
+          {
+            id: 'strike',
+            name: 'Attack',
+            type: 'attack',
+            activation: 'Action',
+            range: null,
+            target: null,
+            toHit: null,
+            save: null,
+            damage: [],
+            uses: null,
+          },
+          {
+            id: 'glow',
+            name: 'Glow',
+            type: 'utility',
+            activation: 'Action',
+            range: null,
+            target: null,
+            toHit: null,
+            save: null,
+            damage: [],
+            uses: null,
+          },
+        ],
+      })
+      const posted = describing({ [TEXTS.warhammer]: html })
+      renderTaking(kinds, {
+        ...sheet,
+        actions: sheet.actions.map(section =>
+          section.id === 'action'
+            ? { ...section, actions: [...section.actions, flame] }
+            : section,
+        ),
+      })
+      const user = userEvent.setup()
+      await show('Actions')
+      await user.click(toggleOf('Bardic Flame'))
+      const about = screen.getByRole('button', {
+        name: 'About Bardic Flame (Glow)',
+      })
+      const reopen = async () => {
+        await user.click(about)
+        return screen.getByRole('dialog', { name: 'Glow' })
+      }
+      return { user, posted, reopen, dialog: await reopen() }
+    }
+
+    it("acts in the dialog about one of an item's activities: its menus inside it, which Escape closes alone, and it once the dice are thrown", async () => {
+      const pressed: KeyboardEvent[] = []
+      const keep = (event: KeyboardEvent) => pressed.push(event)
+      globalThis.addEventListener('keydown', keep, true)
+      const { user, dialog } = await openGlow(SAVE)
+
+      await user.click(
+        await within(dialog).findByRole('button', { name: 'DC 15 Strength' }),
+      )
+      expect(dialog).toContainElement(screen.getByRole('menu'))
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('menu')).toBeNull()
+      // The browser would take Escape as a request to close the dialog too, unless cancelled.
+      expect(pressed.at(-1)).toMatchObject({
+        key: 'Escape',
+        defaultPrevented: true,
+      })
+      globalThis.removeEventListener('keydown', keep, true)
+
+      await user.click(
+        within(dialog).getByRole('button', { name: '2d6 fire, roll damage' }),
+      )
+      expect(screen.queryByRole('dialog', { name: 'Glow' })).toBeNull()
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /Bardic Flame damage2d6 \(\d, \d\) fire/,
+      )
+    })
+
+    it.each<
+      [string, (user: User, dialog: HTMLElement) => Promise<void>, RegExp]
+    >([
+      [
+        'the player rolls their own save',
+        async (user, dialog) => {
+          await user.click(
+            await within(dialog).findByRole('button', {
+              name: 'DC 15 Strength',
+            }),
+          )
+          await user.click(
+            screen.getByRole('menuitem', {
+              name: 'Roll my Strength save (+7)',
+            }),
+          )
+        },
+        /^\d+Strength saving throwd20 \d+ \+7/,
+      ],
+      [
+        'its own roll is rolled',
+        async (user, dialog) => {
+          await user.click(
+            await within(dialog).findByRole('button', { name: '1d4, roll it' }),
+          )
+        },
+        /^\dBardic Flame roll1d4 \(\d\)/,
+      ],
+      [
+        'the table is asked',
+        async (user, dialog) => {
+          await user.click(
+            await within(dialog).findByRole('button', {
+              name: 'DC 15 Strength',
+            }),
+          )
+          await user.click(
+            screen.getByRole('menuitem', { name: 'Ask the table' }),
+          )
+        },
+        /^DC 15 Strength saving throw/,
+      ],
+    ])(
+      "closes the dialog about one of an item's activities once %s, for the tray behind it to be seen",
+      async (_, step, status) => {
+        const { user, dialog } = await openGlow(
+          `${SAVE}<p>Lucky: <span class="ss-roll roll" data-n="2" data-formula="1d4">1d4</span></p>`,
+          ['save', 'ask'],
+        )
+
+        await step(user, dialog)
+
+        expect(screen.queryByRole('dialog', { name: 'Glow' })).toBeNull()
+        expect(screen.getByRole('status')).toHaveTextContent(status)
+      },
+    )
+
+    it("opens the conditions panel from the dialog about one of an item's activities", async () => {
+      const scrolled = jest.fn()
+      Element.prototype.scrollIntoView = scrolled
+      const { user, dialog } = await openGlow(SAVE)
+
+      await user.click(
+        await within(dialog).findByRole('button', { name: 'Prone' }),
+      )
+
+      const panel = screen.getByRole('dialog', { name: 'Conditions' })
+      await waitFor(() =>
+        expect(scrolled.mock.contexts.at(-1)).toBe(
+          within(panel).getByRole('region', { name: 'Prone' }),
+        ),
+      )
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    })
   })
 
   describe('favorites', () => {

@@ -18,6 +18,7 @@ import {
   sheetFavorites,
   sheetItem,
   sheetSpell,
+  TEXTS,
 } from '@/mocks/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
 import type {
@@ -26,6 +27,7 @@ import type {
   SheetAction,
   SheetClass,
 } from '@/types/sending-stone'
+import type { FoundLink } from '@/utils/description-links'
 
 const NOW = Date.parse('2026-10-09T20:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)
@@ -1465,6 +1467,265 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('checkRoll from a link in a description', () => {
+    /** Second Wind's description, which is on Thorin's sheet. */
+    const TEXT = TEXTS.secondWind
+    /**
+     * Its links, as held: a save, one in a secret, concentration checks naming an ability and
+     * none, damage, and rolls, some the app can't read.
+     */
+    const links = new Map<number, FoundLink>([
+      [
+        0,
+        {
+          link: {
+            kind: 'save',
+            n: 0,
+            abilities: ['str', 'dex'],
+            dc: 15,
+            concentration: false,
+          },
+          secret: false,
+        },
+      ],
+      [
+        1,
+        {
+          link: {
+            kind: 'save',
+            n: 1,
+            abilities: ['wis'],
+            concentration: false,
+          },
+          secret: true,
+        },
+      ],
+      [
+        2,
+        {
+          link: {
+            kind: 'save',
+            n: 2,
+            abilities: ['wis'],
+            dc: 10,
+            concentration: true,
+          },
+          secret: false,
+        },
+      ],
+      [
+        3,
+        {
+          link: {
+            kind: 'damage',
+            n: 3,
+            parts: [
+              { formula: '2d6 + 3', types: ['fire', 'cold'] },
+              { formula: '1d4', types: [] },
+              { formula: '5', types: ['force'] },
+            ],
+            healing: false,
+          },
+          secret: false,
+        },
+      ],
+      [4, { link: { kind: 'roll', n: 4, formula: '1d6 + 2' }, secret: false }],
+      [
+        5,
+        {
+          link: {
+            kind: 'damage',
+            n: 5,
+            parts: [{ formula: '2d6 * 2', types: [] }],
+            healing: false,
+          },
+          secret: false,
+        },
+      ],
+      [6, { link: { kind: 'roll', n: 6, formula: '(1d6)' }, secret: false }],
+      [
+        7,
+        {
+          link: {
+            kind: 'damage',
+            n: 7,
+            parts: [
+              { formula: '1d4', types: [] },
+              { formula: '2d6 * 2', types: [] },
+            ],
+            healing: false,
+          },
+          secret: false,
+        },
+      ],
+      [
+        8,
+        {
+          link: {
+            kind: 'save',
+            n: 8,
+            abilities: ['con'],
+            concentration: true,
+          },
+          secret: false,
+        },
+      ],
+    ])
+    const linked = (fields: Partial<RollRequestInput>) =>
+      request({
+        kind: 'ask',
+        key: undefined,
+        text: TEXT,
+        link: 0,
+        dice: [],
+        ...fields,
+      })
+    const check = (
+      input: RollRequestInput,
+      held: ReadonlyMap<number, FoundLink> | undefined = links,
+      sheet = fullerSheet(),
+    ) => checkRoll(input, sheet, [], 'actor-thorin', held)
+
+    /** The dice link 3's damage throws: 2d6, then 1d4; its 5 throws none. */
+    const burn = [
+      { faces: 6, results: [2, 6] },
+      { faces: 4, results: [3] },
+    ]
+    const textDamage = (fields: Partial<RollRequestInput> = {}) =>
+      linked({ kind: 'textDamage', link: 3, dice: burn, ...fields })
+    const textRoll = (fields: Partial<RollRequestInput> = {}) =>
+      linked({
+        kind: 'textRoll',
+        link: 4,
+        dice: [{ faces: 6, results: [5] }],
+        ...fields,
+      })
+
+    it('lets the table be asked for a saving throw a description on the sheet calls for', () => {
+      expect(check(linked({}))).toBeUndefined()
+      expect(check(linked({ link: 2 }))).toBeUndefined()
+    })
+
+    it('never lets the table be asked for one in a secret, which would be posted for everyone', () => {
+      expect(check(linked({ link: 1 }))).toBe('secret')
+    })
+
+    it.each([
+      ['damage', 3],
+      ['a roll', 4],
+      ['a link the description has not', 9],
+    ])('refuses to ask the table for %s', (_name, link) => {
+      expect(check(linked({ link }))).toBe('link')
+    })
+
+    it.each([
+      ['an ask', linked({})],
+      ['a saving throw', linked({ kind: 'save', key: 'dex' })],
+      ['damage', textDamage()],
+      ['a roll', textRoll()],
+    ])(
+      'refuses %s from a description no longer on the sheet, or not held here',
+      (_name, input) => {
+        expect(check({ ...input, text: 'ffffffffffffff' })).toBe('gone')
+        expect(checkRoll(input, fullerSheet(), [], 'actor-thorin')).toBe('gone')
+        expect(checkRoll(input, undefined, [], 'actor-thorin', links)).toBe(
+          'unknown',
+        )
+      },
+    )
+
+    it("lets the player roll their own saving throw a description calls for, with an ability it names, a secret's too", () => {
+      expect(check(linked({ kind: 'save', key: 'dex' }))).toBeUndefined()
+      expect(check(linked({ kind: 'save', key: 'str' }))).toBeUndefined()
+      expect(
+        check(linked({ kind: 'save', key: 'wis', link: 1 })),
+      ).toBeUndefined()
+    })
+
+    it('lets a concentration check be rolled with the ability it names, or Constitution where it names none, as the game does', () => {
+      expect(
+        check(linked({ kind: 'save', key: 'wis', link: 2 })),
+      ).toBeUndefined()
+      expect(check(linked({ kind: 'save', key: 'con', link: 2 }))).toBe('link')
+      expect(check(linked({ kind: 'save', key: 'dex', link: 2 }))).toBe('link')
+      expect(
+        check(linked({ kind: 'save', key: 'con', link: 8 })),
+      ).toBeUndefined()
+      expect(check(linked({ kind: 'save', key: 'wis', link: 8 }))).toBe('link')
+    })
+
+    it.each([
+      ['with an ability it does not name', { key: 'con' }],
+      ['for damage', { key: 'dex', link: 3 }],
+      ['for a link the description has not', { key: 'dex', link: 9 }],
+    ])("refuses the player's own saving throw %s", (_name, fields) => {
+      expect(check(linked({ kind: 'save', ...fields }))).toBe('link')
+    })
+
+    it('still refuses a saving throw with an ability the sheet has not, first', () => {
+      expect(check(linked({ kind: 'save', key: 'luck' }))).toBe('unknown')
+    })
+
+    it("lets a description's damage be rolled with the dice its parts throw, each as a kind it offers, where chosen", () => {
+      expect(check(textDamage())).toBeUndefined()
+      expect(check(textDamage({ types: ['cold'] }))).toBeUndefined()
+      expect(
+        check(textDamage({ types: [null, null, 'force'] })),
+      ).toBeUndefined()
+      expect(check(textDamage({ types: [] }))).toBeUndefined()
+    })
+
+    it.each([
+      ['a part does not offer', ['force']],
+      ['a part offering none', [null, 'fire']],
+      ['more parts than it has', [null, null, null, null]],
+    ])('refuses a kind of damage %s', (_name, types) => {
+      expect(check(textDamage({ types }))).toBe('type')
+    })
+
+    it.each([
+      ['a die missing', [burn[0]]],
+      ['no dice', []],
+      ['a die too few', [{ faces: 6, results: [2] }, burn[1]]],
+      ['a die too many', [...burn, { faces: 6, results: [1] }]],
+      ['the wrong die', [{ faces: 8, results: [2, 6] }, burn[1]]],
+      ['the dice the other way about', [burn[1], burn[0]]],
+    ])("refuses a description's damage with %s", (_name, dice) => {
+      expect(check(textDamage({ dice }))).toBe('dice')
+    })
+
+    it("refuses damage the app can't read, which it couldn't have rolled", () => {
+      expect(
+        check(textDamage({ link: 5, dice: [{ faces: 6, results: [1, 2] }] })),
+      ).toBe('dice')
+      // With no dice at all, as an unread part would throw none.
+      expect(check(textDamage({ link: 5, dice: [] }))).toBe('dice')
+      // With only the dice of the part it can read.
+      expect(
+        check(textDamage({ link: 7, dice: [{ faces: 4, results: [3] }] })),
+      ).toBe('dice')
+    })
+
+    it("lets a description's own roll be rolled with the dice its formula throws, and nothing else", () => {
+      expect(check(textRoll())).toBeUndefined()
+      expect(check(textRoll({ dice: [] }))).toBe('dice')
+      expect(check(textRoll({ dice: [{ faces: 8, results: [5] }] }))).toBe(
+        'dice',
+      )
+      expect(check(textRoll({ link: 6 }))).toBe('dice')
+    })
+
+    it.each([
+      ['damage asked for a roll', textDamage({ link: 4 })],
+      ['damage asked for a save', textDamage({ link: 0 })],
+      ['a roll asked for damage', textRoll({ link: 3 })],
+      ['a roll asked for a save', textRoll({ link: 0 })],
+      ['a roll of a link the description has not', textRoll({ link: 9 })],
+    ])('refuses %s', (_name, input) => {
+      expect(check(input)).toBe('link')
+    })
+  })
+
   describe('checkDamage', () => {
     const preview: DamagePreview = {
       critical: false,
@@ -1868,6 +2129,18 @@ describe('utils/roll-requests', () => {
         },
       })
 
+    it("totals a description's damage's parts too", () => {
+      expect(
+        toRollRequestView(
+          {
+            ...madeDamage([damagePart(9), damagePart(7)]),
+            kind: 'textDamage',
+          },
+          NOW,
+        ),
+      ).toMatchObject({ total: 16 })
+    })
+
     it("totals damage's parts, when the game said each", () => {
       expect(
         toRollRequestView(madeDamage([damagePart(9), damagePart(7)]), NOW),
@@ -1886,6 +2159,23 @@ describe('utils/roll-requests', () => {
     it('sends the module what to roll, whose, and with which dice', () => {
       expect(toCommand(held())).toEqual({
         ...request({}),
+        id: 'req-1',
+        actorId: 'actor-thorin',
+      })
+    })
+
+    it("sends the link a description's roll is for, and the kinds of damage chosen", () => {
+      const payload = request({
+        kind: 'textDamage',
+        key: undefined,
+        text: TEXTS.secondWind,
+        link: 3,
+        dice: [{ faces: 6, results: [2, 6] }],
+        types: ['cold', null],
+      })
+
+      expect(toCommand(held({ kind: 'textDamage', payload }))).toEqual({
+        ...payload,
         id: 'req-1',
         actorId: 'actor-thorin',
       })

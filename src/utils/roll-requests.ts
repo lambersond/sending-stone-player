@@ -10,6 +10,7 @@ import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
 import { modifiedDice } from '@/utils/damage-modifiers'
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
+import { sheetTextRefs } from '@/utils/sheet-texts'
 import { toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
@@ -26,6 +27,8 @@ import type {
   CommandResult,
   SheetAction,
 } from '@/types/sending-stone'
+import type { FoundLink } from '@/utils/description-links'
+import type { ExtraDice } from '@/utils/roll-modifiers'
 
 /**
  * Why a roll can't go to the Gamemaster's game: the game can't take it now, the sheet has no such
@@ -37,7 +40,11 @@ import type {
  * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers. For a
  * saving throw the game asked for: it no longer waits, isn't this character's, isn't rolled with an
  * ability it may be, or is answered already. For a hit die: the character has none of its size
- * left. For a formula: its dice aren't those the formula throws.
+ * left. For a formula: its dice aren't those the formula throws. From a link in a description: the
+ * description is no longer on the sheet, or not held here (`gone`); it has no such link, or not of
+ * the kind asked for, or a saving throw it calls for isn't rolled with that ability (`link`); the
+ * table is asked for one in a secret (`secret`); its dice aren't those its formulas throw, or a
+ * kind of damage chosen isn't one it offers.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -57,6 +64,8 @@ export type RollRefusal =
   | 'type'
   | 'prompt'
   | 'no-hit-dice'
+  | 'link'
+  | 'secret'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -124,7 +133,10 @@ export function rollsKey(
  * Can the character make this roll, as its sheet and the encounter stand? A skill, ability or
  * tool must be on its sheet; it must be dying to roll a death saving throw; it must be in the
  * combat, without initiative yet, to roll initiative; and it must have a hit die of the size it
- * spends left.
+ * spends left. What a link in a description asks for must be what that link is, in a description
+ * on its sheet.
+ * @param links - For a roll from a link in a description, the links the game acts on in that
+ *   description, as held here; none where it isn't held.
  * @returns Why not, or nothing when it can.
  */
 export function checkRoll(
@@ -132,14 +144,27 @@ export function checkRoll(
   sheet: CharacterSheet | undefined,
   combats: CombatSnapshot[],
   actorId: string,
+  links?: ReadonlyMap<number, FoundLink>,
 ): RollRefusal | undefined {
   switch (input.kind) {
     case 'skill': {
       return known(sheet?.skills.some(({ id }) => id === input.key) === true)
     }
-    case 'ability':
-    case 'save': {
+    case 'ability': {
       return known(sheet?.abilities.some(({ id }) => id === input.key) === true)
+    }
+    case 'save': {
+      return (
+        known(sheet?.abilities.some(({ id }) => id === input.key) === true) ??
+        (input.text === undefined
+          ? undefined
+          : checkLinked(input, sheet, links))
+      )
+    }
+    case 'ask':
+    case 'textDamage':
+    case 'textRoll': {
+      return checkLinked(input, sheet, links)
     }
     case 'tool': {
       // The sheet lists tools only among the favorites.
@@ -301,13 +326,74 @@ function checkFormula(
   if (!action?.rollFormula || !action.identified) return 'unknown'
   const thrown = formulaDice(action.rollFormula.formula)
   if (!thrown) return 'unknown'
-  const matches =
+  return throws(input, thrown) ? undefined : 'dice'
+}
+
+/**
+ * Is what a roll from a link in a description asks for what the link is, in a description on the
+ * character's sheet now, held here? The table is asked for a saving throw the link calls for, but
+ * never one in a secret, which would be posted for everyone; the player's own saving throw is
+ * rolled with one of the abilities it names, or Constitution for a concentration check that names
+ * none, as the game takes it; damage or healing is rolled as its parts' formulas throw, each as a
+ * kind of damage the part offers, where chosen; and a roll of its own as its formula throws. The
+ * game reads the link again from its own copy, so nothing it asks for is taken from the app.
+ */
+function checkLinked(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+  links: ReadonlyMap<number, FoundLink> | undefined,
+): RollRefusal | undefined {
+  if (!sheet) return 'unknown'
+  const { text, link: number } = input
+  if (!text || number === undefined || !links) return 'gone'
+  if (!sheetTextRefs(sheet).includes(text)) return 'gone'
+  const found = links.get(number)
+  switch (input.kind) {
+    case 'ask': {
+      if (found?.link.kind !== 'save') return 'link'
+      return found.secret ? 'secret' : undefined
+    }
+    case 'save': {
+      // A concentration check that names no ability holds Constitution, which the game takes too.
+      if (found?.link.kind !== 'save') return 'link'
+      return found.link.abilities.includes(input.key ?? '') ? undefined : 'link'
+    }
+    case 'textDamage': {
+      if (found?.link.kind !== 'damage') return 'link'
+      const { parts } = found.link
+      const types = input.types ?? []
+      const offered =
+        types.length <= parts.length &&
+        types.every(
+          (type, index) => type === null || parts[index].types.includes(type),
+        )
+      if (!offered) return 'type'
+      // A part the app can't read, it couldn't have rolled.
+      const thrown = parts.map(({ formula }) => formulaDice(formula))
+      if (thrown.includes(undefined)) return 'dice'
+      const dice = thrown.flatMap(each => each ?? [])
+      return throws(input, dice) ? undefined : 'dice'
+    }
+    case 'textRoll': {
+      if (found?.link.kind !== 'roll') return 'link'
+      const thrown = formulaDice(found.link.formula)
+      return thrown && throws(input, thrown) ? undefined : 'dice'
+    }
+    default: {
+      return 'link'
+    }
+  }
+}
+
+/** Are a roll's dice those a formula throws, in order: the same kinds of dice, as many of each? */
+function throws(input: RollRequestInput, thrown: ExtraDice[]): boolean {
+  return (
     input.dice.length === thrown.length &&
     input.dice.every(
       ({ faces, results }, index) =>
         faces === thrown[index].sides && results.length === thrown[index].count,
     )
-  return matches ? undefined : 'dice'
+  )
 }
 
 /** Are these combatants of a combat their player can see, as picked? */
@@ -429,8 +515,9 @@ export function toRollRequestView(
     id: request.id,
     status,
     visible: true,
-    total:
-      request.kind === 'damage' ? sumOf(rolls) : (rolls[0]?.total ?? undefined),
+    total: ['damage', 'textDamage'].includes(request.kind)
+      ? sumOf(rolls)
+      : (rolls[0]?.total ?? undefined),
     rolls,
     ...(result.attack ? { attack: result.attack } : {}),
     ...(result.outcome ? { outcome: result.outcome } : {}),

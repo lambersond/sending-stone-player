@@ -26,6 +26,19 @@ const messageWith = (dnd5e: object) =>
     },
   })?.data as any
 
+/** A chat message with this ask, as read; or whether it has none at all. */
+const askOf = (ask?: unknown) => {
+  const { message } = parseGameEvent('chat.message.created', {
+    message: {
+      id: 'm1',
+      timestamp: 1,
+      audience: { public: true, characters: [] },
+      ...(ask !== undefined && { ask }),
+    },
+  })?.data as any
+  return 'ask' in message ? message.ask : 'absent'
+}
+
 /** A bridge.hello with these features, as read. */
 const helloWith = (features?: unknown) =>
   parseGameEvent('bridge.hello', { characters: [], combats: [], features })
@@ -1364,6 +1377,157 @@ describe('schemas/sending-stone', () => {
     expect(read.actions[1].actions[0]).not.toHaveProperty('attackArea')
   })
 
+  it('reads the spell copy a Cast is of, and what an activity says of itself, of actions, activities, favorites and items, from module 0.17.0', () => {
+    const sheet = fullerSheet()
+    const [section, ...rest] = sheet.actions
+    const [warhammer, handaxe, ...actions] = section.actions
+    const [resource, item, fireball, ...favorites] = sheetFavorites()
+    const [weapons, ...kinds] = sheet.inventory.sections
+    const casts = {
+      level: 1,
+      concentration: false,
+      charges: 1,
+      short: false,
+      text: TEXTS.bless,
+    }
+    const wisp = {
+      id: 'wisp',
+      name: 'Starry Wisp',
+      type: 'cast',
+      activation: '1 Action',
+      range: '60 ft',
+      target: null,
+      toHit: 5,
+      attackId: 'wisp',
+      activity: null,
+      attackModes: null,
+      ammunition: null,
+      save: null,
+      damage: [],
+      uses: null,
+      cast: casts,
+      spellId: 'wispCopy',
+      duration: '1 Round',
+      trigger: null,
+      text: TEXTS.ring,
+    }
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          actions: [
+            {
+              ...section,
+              actions: [
+                {
+                  ...warhammer,
+                  cast: casts,
+                  spellId: 'wispCopy',
+                  activities: [
+                    wisp,
+                    {
+                      ...wisp,
+                      id: 'odd',
+                      spellId: 7,
+                      duration: 3,
+                      trigger: ['hit'],
+                      text: 'Starry Wisp',
+                    },
+                    {
+                      ...wisp,
+                      id: 'barbs',
+                      trigger: 'When a creature succeeds on a save',
+                      spellId: '',
+                    },
+                  ],
+                },
+                handaxe,
+                ...actions,
+              ],
+            },
+            ...rest,
+          ],
+          favorites: [
+            resource,
+            item,
+            {
+              ...fireball,
+              cast: casts,
+              spellId: 'fireballCopy',
+              duration: 'Instantaneous',
+              trigger: null,
+              text: TEXTS.shield,
+            },
+            ...favorites,
+          ],
+          inventory: {
+            ...sheet.inventory,
+            sections: [
+              {
+                ...weapons,
+                items: [
+                  { ...weapons.items[0], cast: casts, spellId: 'wispCopy' },
+                  { ...weapons.items[1], cast: 'yes', spellId: 3 },
+                ],
+              },
+              ...kinds,
+            ],
+          },
+        },
+      },
+    }) as any
+
+    const read = event.data.character.sheet
+    const [hammer, axe] = read.actions[0].actions
+    expect(hammer).toMatchObject({ cast: casts, spellId: 'wispCopy' })
+    expect(hammer.activities).toEqual([
+      wisp,
+      {
+        ...wisp,
+        id: 'odd',
+        spellId: null,
+        duration: null,
+        trigger: null,
+        text: null,
+      },
+      {
+        ...wisp,
+        id: 'barbs',
+        trigger: 'When a creature succeeds on a save',
+        spellId: null,
+      },
+    ])
+    expect(read.favorites[2]).toEqual({
+      ...fireball,
+      cast: casts,
+      spellId: 'fireballCopy',
+      duration: 'Instantaneous',
+      trigger: null,
+      text: TEXTS.shield,
+    })
+    expect(read.inventory.sections[0].items[0]).toEqual({
+      ...weapons.items[0],
+      cast: casts,
+      spellId: 'wispCopy',
+    })
+    expect(read.inventory.sections[0].items[1]).toEqual({
+      ...weapons.items[1],
+      cast: null,
+      spellId: null,
+    })
+    // As an older module sends them, they have none of these.
+    for (const unsent of [
+      axe,
+      read.favorites[1],
+      read.inventory.containers[0],
+    ]) {
+      for (const field of ['spellId', 'duration', 'trigger', 'cast']) {
+        expect(unsent).not.toHaveProperty(field)
+      }
+    }
+  })
+
   it('reads the formulas and areas of spells, features and items, from module 0.16.0, leaving them out where not sent', () => {
     const sheet = fullerSheet()
     const [cantrips, ...spellbook] = sheet.spells
@@ -1679,6 +1843,73 @@ describe('schemas/sending-stone', () => {
     ).toMatchObject({
       item: { name: 'Club', type: null },
       originatingMessage: null,
+    })
+  })
+
+  describe("a message's ask", () => {
+    it('reads the saving throw a roll request card asks the table for, from module 0.17.0', () => {
+      expect(
+        askOf({
+          type: 'save',
+          abilities: ['str', 'dex', 'dex'],
+          dc: 15,
+          label: ' Worn Bardic Eternal Flame ',
+        }),
+      ).toEqual({
+        type: 'save',
+        abilities: ['str', 'dex'],
+        dc: 15,
+        label: 'Worn Bardic Eternal Flame',
+      })
+      expect(askOf({ type: 'concentration', abilities: [] })).toEqual({
+        type: 'concentration',
+        abilities: [],
+      })
+    })
+
+    it('tells a message that asks nothing from an older module, which sends no ask', () => {
+      expect(askOf(null)).toBeNull()
+      expect(askOf()).toBe('absent')
+    })
+
+    it.each([
+      ['an ability dnd5e lacks', { abilities: ['luck'] }],
+      ['a name any object answers to', { abilities: ['constructor'] }],
+      ['a prototype', { abilities: ['__proto__'] }],
+      ['no ability for a save', { abilities: [] }],
+      [
+        'too many abilities',
+        { abilities: Array.from({ length: 7 }, () => 'dex') },
+      ],
+      ['another kind', { type: 'check' }],
+      ['abilities that are not a list', { abilities: 'dex' }],
+    ])(
+      'takes an ask with %s as none, not as from an older module',
+      (_name, fields) => {
+        expect(
+          askOf({ type: 'save', abilities: ['dex'], ...fields }),
+        ).toBeNull()
+        expect(askOf('Dexterity')).toBeNull()
+      },
+    )
+
+    it.each([
+      ['of 0', 0],
+      ['of 100', 100],
+      ['in part', 12.5],
+      ['in words', '15'],
+    ])('leaves out a DC %s, and a label too long or not one', (_name, dc) => {
+      expect(
+        askOf({ type: 'save', abilities: ['dex'], dc, label: 'x'.repeat(201) }),
+      ).toEqual({ type: 'save', abilities: ['dex'] })
+      expect(askOf({ type: 'save', abilities: ['dex'], label: 7 })).toEqual({
+        type: 'save',
+        abilities: ['dex'],
+      })
+      expect(askOf({ type: 'save', abilities: ['dex'], label: '  ' })).toEqual({
+        type: 'save',
+        abilities: ['dex'],
+      })
     })
   })
 

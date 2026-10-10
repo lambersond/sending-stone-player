@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { SheetText } from './sheet-text'
+import type { DescriptionOrigin } from './description-actions'
 
 type Props = {
   characterId: string
@@ -23,6 +24,11 @@ type Props = {
   facts?: { label: string; value: string }[]
   /** Its description's hash, if it has one. */
   text?: string | null
+  /**
+   * Where its description is from, as what's rolled from it is named; its name, and nothing else,
+   * unless said.
+   */
+  origin?: DescriptionOrigin
   /** Shown when open, after the description, such as what a container holds. */
   children?: ReactNode
   muted?: boolean
@@ -44,6 +50,7 @@ export function SheetEntry({
   meta,
   facts = [],
   text,
+  origin,
   children,
   muted = false,
   favoriteKey,
@@ -117,7 +124,13 @@ export function SheetEntry({
                 ))}
               </dl>
             )}
-            {text && <SheetText characterId={characterId} hash={text} />}
+            {text && (
+              <SheetText
+                characterId={characterId}
+                hash={text}
+                origin={origin ?? { name }}
+              />
+            )}
             {children}
           </div>
         )}

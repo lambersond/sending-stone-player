@@ -92,8 +92,9 @@ export function hitDieRoll(
 
 /**
  * Is the character at full hit points, where a hit die spent would give back nothing? As far as
- * the sheet says: at their maximum. Its maximum leaves out a temporary change to it, so above it,
- * which only one raising it allows, some may still be missing, and they aren't known to be full.
+ * the sheet says: at their maximum, which from module 0.17.0 is the one dnd5e heals up to, with any
+ * temporary change to it. An older module's leaves that out, so above it, which only one raising
+ * it allows, some may still be missing, and they aren't known to be full.
  */
 export function atFullHitPoints({ hp }: Pick<CharacterSheet, 'hp'>): boolean {
   return !!hp && hp.value === hp.max

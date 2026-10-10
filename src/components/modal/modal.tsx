@@ -3,6 +3,7 @@
 import { useId, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
+import { InPortalRoot, useDialogRoot } from './portal-root'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
 
 type Props = {
@@ -17,7 +18,7 @@ type Props = {
 /**
  * A modal dialog on the browser's own <dialog>, which keeps focus inside it, closes on Escape and
  * makes the page behind it inert. Its content is only rendered while open, so it starts afresh
- * each time it opens.
+ * each time it opens. Menus and tooltips opened from its content open inside it, over its edges.
  */
 export function Modal({
   open,
@@ -27,11 +28,12 @@ export function Modal({
   children,
 }: Readonly<Props>) {
   const ref = useModalDialog(open)
+  const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
 
   return (
     <dialog
-      ref={ref}
+      ref={attach}
       aria-labelledby={titleId}
       // Escape closes the dialog itself; this keeps the owner's state in step.
       onClose={onClose}
@@ -39,10 +41,11 @@ export function Modal({
       onClick={event => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className='m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-border bg-card p-0 text-text-primary shadow-xl backdrop:bg-black/50'
+      // Its content scrolls, not the dialog, so a menu opened inside it may reach past its edges.
+      className='m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-2xl border border-border bg-card p-0 text-text-primary shadow-xl backdrop:bg-black/50'
     >
       {open && (
-        <>
+        <InPortalRoot root={root}>
           <header
             className={clsx(
               'flex justify-between gap-4 border-b border-border px-5 py-4',
@@ -69,7 +72,7 @@ export function Modal({
           <div className='max-h-[calc(100dvh-9rem)] overflow-y-auto p-5'>
             {children}
           </div>
-        </>
+        </InPortalRoot>
       )}
     </dialog>
   )

@@ -1,18 +1,17 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
 import { CircleAlert, Info, Sparkles } from 'lucide-react'
-import { ConditionsReference } from './conditions-reference'
+import { useConditionsPanel, useShowConditions } from './conditions-panel'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
-import { SidePanel } from '@/components/side-panel'
 import type { SheetCondition, SheetEffect } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
+import type { ReactNode } from 'react'
 
 /**
  * The character's conditions, with their rules, and effects, grouped as dnd5e's Effects tab
  * groups them: temporary, passive, inactive and unavailable. Beside the conditions' heading, a
- * button opens an aside with every condition's rules.
+ * button opens the sheet's aside with every condition's rules; or, on its own, one of its own.
  */
 export function EffectsTab({
   characterId,
@@ -24,7 +23,9 @@ export function EffectsTab({
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
 }>) {
-  const [reading, setReading] = useState(false)
+  const shared = useShowConditions()
+  const own = useConditionsPanel(sheet.conditions)
+  const showConditions = shared ?? own.show
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
@@ -39,7 +40,7 @@ export function EffectsTab({
             aria-haspopup='dialog'
             aria-label='Every condition and its rules'
             title='Every condition and its rules'
-            onClick={() => setReading(true)}
+            onClick={() => showConditions()}
             className='-my-1 rounded-full p-1 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary'
           >
             <Info aria-hidden className='size-4' />
@@ -89,14 +90,7 @@ export function EffectsTab({
         <p className='text-sm text-text-secondary'>No effects.</p>
       )}
 
-      <SidePanel
-        open={reading}
-        onClose={() => setReading(false)}
-        title='Conditions'
-        subtitle='Every condition in the 2024 rules (5.5e)'
-      >
-        <ConditionsReference conditions={sheet.conditions} />
-      </SidePanel>
+      {!shared && own.panel}
     </div>
   )
 }

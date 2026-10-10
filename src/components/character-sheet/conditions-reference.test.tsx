@@ -134,4 +134,41 @@ describe('components/character-sheet/conditions-reference', () => {
       screen.getByText(/Each condition's opening line is left out/),
     ).toBeInTheDocument()
   })
+
+  it('opens at a condition, a frame after it’s drawn, once the dialog it’s in is shown', () => {
+    jest.useFakeTimers()
+    const scrolled = jest.fn()
+    Element.prototype.scrollIntoView = scrolled
+    try {
+      render(<ConditionsReference conditions={[]} at='prone' />)
+      expect(scrolled).not.toHaveBeenCalled()
+
+      jest.advanceTimersToNextFrame()
+
+      expect(scrolled).toHaveBeenCalledTimes(1)
+      expect(scrolled).toHaveBeenCalledWith({
+        block: 'start',
+        behavior: 'auto',
+      })
+      expect(scrolled.mock.contexts[0]).toBe(
+        screen.getByRole('region', { name: 'Prone' }),
+      )
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('opens at the top for a condition it has no rules for', () => {
+    jest.useFakeTimers()
+    const scrolled = jest.fn()
+    Element.prototype.scrollIntoView = scrolled
+    try {
+      render(<ConditionsReference conditions={[]} at='bleeding' />)
+      jest.advanceTimersToNextFrame()
+
+      expect(scrolled).not.toHaveBeenCalled()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
 })
