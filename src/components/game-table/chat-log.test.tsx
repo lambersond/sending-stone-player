@@ -373,6 +373,60 @@ describe('components/game-table/chat-log', () => {
         'Thorin asks for a DC 10 Concentration check',
       )
     })
+
+    it("words a check, the player's and the Gamemaster's, a tool by the game's name for it", () => {
+      render(
+        <ChatLog
+          messages={[
+            ask({
+              id: 'm1',
+              text: 'Strength (Athletics) check',
+              ask: {
+                type: 'check',
+                checks: [{ type: 'skill', ability: 'str', skill: 'ath' }],
+                dc: 15,
+                label: 'Cloak of Climbing',
+              },
+            }),
+            ask({
+              id: 'm2',
+              speaker: 'Gamemaster',
+              side: 'other',
+              ask: {
+                type: 'check',
+                checks: [
+                  { type: 'check', ability: 'int' },
+                  {
+                    type: 'tool',
+                    ability: 'dex',
+                    tool: 'thief',
+                    name: 'Lockpicks',
+                  },
+                ],
+              },
+            }),
+          ]}
+        />,
+      )
+
+      const [thorin, gm] = screen.getAllByRole('article')
+      expect(
+        within(thorin).getByText(
+          'Thorin asks for a DC 15 Strength (Athletics) check',
+        ),
+      ).toBeInTheDocument()
+      expect(within(thorin).getByText('Check')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      )
+      expect(within(thorin).getByText('Cloak of Climbing')).toHaveTextContent(
+        'From Cloak of Climbing',
+      )
+      expect(gm).toHaveTextContent(
+        'Gamemaster asks for an Intelligence or Dexterity (Lockpicks) check',
+      )
+      expect(within(gm).queryByText(/^From/)).toBeNull()
+    })
   })
 
   describe('initials', () => {

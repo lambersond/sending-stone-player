@@ -559,8 +559,9 @@ export function toRollRequest(
     ...('key' in source && { key: source.key }),
     ...('combatId' in source && { combatId: source.combatId }),
     ...(source.kind === 'save' && source.prompt && { prompt: source.prompt }),
-    // A saving throw a description calls for, which the game makes against the DC it names.
-    ...(source.kind === 'save' &&
+    // A saving throw or check a description calls for, which the game makes against the DC it
+    // names.
+    ...('text' in source &&
       source.text !== undefined &&
       source.link !== undefined && { text: source.text, link: source.link }),
     ...(source.kind === 'attack' && {

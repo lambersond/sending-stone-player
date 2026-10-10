@@ -3,12 +3,17 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DescriptionLinks,
+  sheetTools,
   type DescriptionActions,
 } from './description-actions'
 import { SheetText } from './sheet-text'
 import { Modal } from '@/components/modal'
-import { characterSheet } from '@/mocks/sending-stone'
-import type { SheetCondition } from '@/types/sending-stone'
+import { characterSheet, sheetFavorites } from '@/mocks/sending-stone'
+import type {
+  SheetCondition,
+  SheetSkill,
+  SheetTool,
+} from '@/types/sending-stone'
 
 type User = ReturnType<typeof userEvent.setup>
 
@@ -28,6 +33,9 @@ const actionsFor = (
   takes: () => true,
   ask: jest.fn(),
   abilities: characterSheet().abilities,
+  skills: characterSheet().skills,
+  tools: sheetTools(characterSheet()),
+  proficiency: characterSheet().proficiency,
   conditions: [],
   rules: 'modern',
   showConditions: jest.fn(),
@@ -57,6 +65,20 @@ const renderText = async (
 
 const save = (attributes: string, label = 'DC 15 Dexterity') =>
   `<p>Make a <span class="ss-save roll" data-n="3" ${attributes}>${label}</span> saving throw.</p>`
+
+const check = (attributes: string, label = 'DC 15 Strength (Athletics)') =>
+  `<p>Make a <span class="ss-check roll" data-n="4" ${attributes}>${label}</span> check.</p>`
+
+/** Thieves' Tools, as Thorin's sheet has them, proficient. */
+const THIEF: SheetTool = {
+  id: 'thief',
+  name: "Thieves' Tools",
+  ability: 'dex',
+  total: 5,
+  passive: null,
+  proficiency: 1,
+  mode: 0,
+}
 
 /** The menu's items, as named. */
 const itemsOf = (menu: HTMLElement) =>
@@ -365,6 +387,591 @@ describe('components/character-sheet/description-link', () => {
       expect(actions.ask).not.toHaveBeenCalled()
       expect(actions.roll).not.toHaveBeenCalled()
       expect(screen.queryByRole('menu')).toBeNull()
+    })
+  })
+
+  describe('a check', () => {
+    it('opens a menu as a saving throw does: to ask the table, or roll the player’s own check, with advantage, disadvantage or modified', async () => {
+      const user = userEvent.setup()
+      await renderText(check('data-checks="skill:str:ath" data-dc="15"'))
+
+      const link = screen.getByRole('button', {
+        name: 'DC 15 Strength (Athletics)',
+      })
+      expect(link).toHaveAttribute('aria-haspopup', 'menu')
+      await user.click(link)
+
+      const menu = screen.getByRole('menu', {
+        name: 'DC 15 Strength (Athletics) check',
+      })
+      expect(itemsOf(menu)).toEqual([
+        'Ask the table',
+        'Roll my Strength (Athletics) check (+7)',
+        'Roll with advantage',
+        'Roll with disadvantage',
+        'Modify roll…',
+      ])
+    })
+
+    it('asks the table for it, by its description and number', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        check('data-checks="skill:str:ath" data-dc="15"'),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 15 Strength (Athletics)' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Ask the table' }))
+
+      expect(actions.ask).toHaveBeenCalledWith({
+        label: 'DC 15 Strength (Athletics) check',
+        text: hash,
+        link: 4,
+      })
+      expect(actions.roll).not.toHaveBeenCalled()
+    })
+
+    it('rolls the player’s own, against its DC, for the game to make it against that too', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        check('data-checks="skill:str:ath" data-dc="15"'),
+      )
+      const open = () =>
+        user.click(
+          screen.getByRole('button', { name: 'DC 15 Strength (Athletics)' }),
+        )
+      const source = { kind: 'skill', key: 'ath', text: hash, link: 4 }
+
+      await open()
+      await user.click(
+        screen.getByRole('menuitem', {
+          name: 'Roll my Strength (Athletics) check (+7)',
+        }),
+      )
+      await open()
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll with disadvantage' }),
+      )
+
+      expect(jest.mocked(actions.roll).mock.calls).toEqual([
+        [
+          {
+            label: 'Strength (Athletics) check',
+            modifier: 7,
+            advantage: undefined,
+            source,
+            explicit: false,
+            dc: 15,
+          },
+        ],
+        [
+          {
+            label: 'Strength (Athletics) check',
+            modifier: 7,
+            advantage: 'dis',
+            source,
+            explicit: true,
+            dc: 15,
+          },
+        ],
+      ])
+    })
+
+    it('modifies the roll first, still against its DC', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        check('data-checks="check:int" data-dc="12"', 'DC 12 Intelligence'),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 12 Intelligence' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify roll…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify roll' })
+      await user.type(within(dialog).getByRole('textbox'), '1d4')
+      await user.click(within(dialog).getByRole('button', { name: /^Roll/ }))
+
+      expect(actions.roll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: 'Intelligence check',
+          modifier: -1,
+          extras: [{ sign: 1, count: 1, sides: 4 }],
+          source: { kind: 'ability', key: 'int', text: hash, link: 4 },
+          explicit: true,
+          dc: 12,
+        }),
+      )
+    })
+
+    it('offers one roll for each way it may be made, as the sheet makes it, with the ability the description names', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        check(
+          'data-checks="check:int|check:wis|skill:dex:ste|skill:cha:ath"',
+          'Intelligence, Wisdom, Stealth or Charisma (Athletics)',
+        ),
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Intelligence, Wisdom, Stealth or Charisma (Athletics)',
+        }),
+      )
+      const menu = screen.getByRole('menu', {
+        name: 'Intelligence, Wisdom, Dexterity (Stealth), or Charisma (Athletics) check',
+      })
+      expect(itemsOf(menu)).toEqual([
+        'Ask the table',
+        'Roll my Intelligence check (−1)',
+        'Roll my Wisdom check (+1)',
+        'Roll my Dexterity (Stealth) check (+1, disadvantage)',
+        // Athletics' +7 is Strength's +4 and +3 more: with Charisma's +0, +3.
+        'Roll my Charisma (Athletics) check (+3)',
+      ])
+      await user.click(
+        within(menu).getByRole('menuitem', {
+          name: 'Roll my Charisma (Athletics) check (+3)',
+        }),
+      )
+
+      expect(actions.roll).toHaveBeenCalledWith({
+        label: 'Charisma (Athletics) check',
+        modifier: 3,
+        advantage: undefined,
+        source: { kind: 'skill', key: 'ath', text: hash, link: 4 },
+        explicit: false,
+      })
+    })
+
+    it('rolls a tool the character has as the sheet has it, and one it hasn’t as dnd5e does, with the ability alone', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        check(
+          'data-checks="tool:dex:thief|tool:int:thief|tool:int:herb" data-dc="15"',
+          'DC 15 tools',
+        ),
+        actionsFor({ tools: [THIEF] }),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'DC 15 tools' }))
+      const menu = screen.getByRole('menu', {
+        name: "DC 15 Dexterity (Thieves' Tools) or Intelligence (Herbalism Kit) check",
+      })
+      expect(itemsOf(menu)).toEqual([
+        'Ask the table',
+        "Roll my Dexterity (Thieves' Tools) check (+5)",
+        'Roll my Intelligence (Herbalism Kit) check (−1)',
+      ])
+      await user.click(
+        within(menu).getByRole('menuitem', {
+          name: 'Roll my Intelligence (Herbalism Kit) check (−1)',
+        }),
+      )
+
+      expect(actions.roll).toHaveBeenCalledWith({
+        label: 'Intelligence (Herbalism Kit) check',
+        modifier: -1,
+        advantage: undefined,
+        source: { kind: 'tool', key: 'herb', text: hash, link: 4 },
+        explicit: false,
+        dc: 15,
+      })
+    })
+
+    it('rolls a tool with the ability the description names, where it isn’t its own', async () => {
+      const user = userEvent.setup()
+      await renderText(
+        check('data-checks="tool:int:thief"', 'Intelligence (Thieves’ Tools)'),
+        actionsFor({ tools: [THIEF] }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Intelligence (Thieves’ Tools)' }),
+      )
+
+      // Thieves' Tools' +5 is Dexterity's +1 and +4 more: with Intelligence's −1, +3.
+      expect(itemsOf(screen.getByRole('menu'))).toContain(
+        "Roll my Intelligence (Thieves' Tools) check (+3)",
+      )
+    })
+
+    it('rolls a skill check made using a tool with advantage, where the character is proficient with both, as dnd5e does', async () => {
+      const user = userEvent.setup()
+      const html = check(
+        'data-checks="skill:str:ath" data-using-tool="thief"',
+        'Strength (Athletics)',
+      )
+      await renderText(html, actionsFor({ tools: [THIEF] }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength (Athletics)' }),
+      )
+      expect(
+        itemsOf(
+          screen.getByRole('menu', {
+            name: "Strength (Athletics) check using Thieves' Tools",
+          }),
+        ),
+      ).toContain('Roll my Strength (Athletics) check (+7, advantage)')
+    })
+
+    it('rolls a skill check made using a tool with the tool’s proficiency, where it’s higher than the skill’s, as dnd5e does, with advantage only where the character has both', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        check(
+          'data-checks="skill:dex:ste" data-using-tool="thief" data-dc="15"',
+          'DC 15 Dexterity (Stealth)',
+        ),
+        actionsFor({ tools: [THIEF] }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 15 Dexterity (Stealth)' }),
+      )
+      // Stealth's +1 has no proficiency; Thieves' Tools' +3 is added. Proficient in only one, the
+      // sheet's disadvantage on Stealth stands.
+      await user.click(
+        screen.getByRole('menuitem', {
+          name: 'Roll my Dexterity (Stealth) check (+4, disadvantage)',
+        }),
+      )
+
+      expect(actions.roll).toHaveBeenCalledWith({
+        label: 'Dexterity (Stealth) check',
+        modifier: 4,
+        advantage: 'dis',
+        source: { kind: 'skill', key: 'ste', text: hash, link: 4 },
+        explicit: false,
+        dc: 15,
+      })
+    })
+
+    it.each([
+      // Half proficiency, as from Jack of All Trades, is +1 of the +3, rounded down, as dnd5e
+      // rounds it: the tool's +3 in its place; and dnd5e counts it as proficiency, for advantage.
+      [
+        'half proficient in the skill',
+        { skill: { proficiency: 0.5, total: 2, mode: 0 as const }, tool: {} },
+        'Roll my Dexterity (Stealth) check (+4, advantage)',
+      ],
+      // Expertise in the tool, or Tool Expertise, which the sheet's proficiency with it says: +6.
+      [
+        'with expertise in the tool',
+        { skill: {}, tool: { proficiency: 2 } },
+        'Roll my Dexterity (Stealth) check (+7, disadvantage)',
+      ],
+      // The skill's own proficiency, where it's as high as the tool's.
+      [
+        'as proficient in the skill',
+        { skill: { proficiency: 1, total: 4, mode: 0 as const }, tool: {} },
+        'Roll my Dexterity (Stealth) check (+4, advantage)',
+      ],
+      [
+        'with expertise in the skill',
+        { skill: { proficiency: 2, total: 7, mode: 0 as const }, tool: {} },
+        'Roll my Dexterity (Stealth) check (+7, advantage)',
+      ],
+      // No proficiency with the tool: nothing added, and no advantage.
+      [
+        'not proficient with the tool',
+        {
+          skill: { proficiency: 1, total: 4, mode: 0 as const },
+          tool: { proficiency: 0 },
+        },
+        'Roll my Dexterity (Stealth) check (+4)',
+      ],
+    ])(
+      'rolls a skill check made using a tool %s with the higher proficiency of the two',
+      async (_, { skill, tool }, item) => {
+        const user = userEvent.setup()
+        const stealth: SheetSkill = {
+          ...characterSheet().skills.find(each => each.id === 'ste')!,
+          ...skill,
+        }
+        await renderText(
+          check(
+            'data-checks="skill:dex:ste" data-using-tool="thief"',
+            'Dexterity (Stealth)',
+          ),
+          actionsFor({
+            skills: [stealth],
+            tools: [{ ...THIEF, ...tool }],
+          }),
+        )
+
+        await user.click(
+          screen.getByRole('button', { name: 'Dexterity (Stealth)' }),
+        )
+
+        expect(itemsOf(screen.getByRole('menu'))).toContain(item)
+      },
+    )
+
+    it('adds no tool’s proficiency where the sheet has no proficiency bonus', async () => {
+      const user = userEvent.setup()
+      await renderText(
+        check(
+          'data-checks="skill:dex:ste" data-using-tool="thief"',
+          'Dexterity (Stealth)',
+        ),
+        actionsFor({ tools: [THIEF], proficiency: null }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Dexterity (Stealth)' }),
+      )
+
+      expect(itemsOf(screen.getByRole('menu'))).toContain(
+        'Roll my Dexterity (Stealth) check (+1, disadvantage)',
+      )
+    })
+
+    it.each([
+      ['proficient in both', {}, {}, '+7, advantage'],
+      ['not proficient with the tool', {}, { proficiency: 0 }, '+7'],
+      // Strength's +4, and the tool's proficiency in place of the skill's.
+      ['not proficient in the skill', { proficiency: 0, total: 4 }, {}, '+7'],
+      [
+        'proficient in both, with disadvantage on the skill',
+        { mode: -1 as const },
+        {},
+        '+7',
+      ],
+    ])(
+      'gives a skill check made using a tool advantage only where the character is proficient in both, which disadvantage cancels: %s',
+      async (_, skill: Partial<SheetSkill>, tool: Partial<SheetTool>, roll) => {
+        const user = userEvent.setup()
+        const skills = characterSheet().skills.map(each =>
+          each.id === 'ath' ? { ...each, ...skill } : each,
+        )
+        await renderText(
+          check(
+            'data-checks="skill:str:ath" data-using-tool="thief"',
+            'Strength (Athletics)',
+          ),
+          actionsFor({ skills, tools: [{ ...THIEF, ...tool }] }),
+        )
+
+        await user.click(
+          screen.getByRole('button', { name: 'Strength (Athletics)' }),
+        )
+
+        expect(itemsOf(screen.getByRole('menu'))).toContain(
+          `Roll my Strength (Athletics) check (${roll})`,
+        )
+      },
+    )
+
+    it('rolls an ability check, and a tool’s the character hasn’t, as the sheet makes that ability’s check, with its own bonus and mode, not its modifier', async () => {
+      const user = userEvent.setup()
+      // Jack of All Trades adds +1 to Intelligence's −1, and something gives advantage on it.
+      const abilities = characterSheet().abilities.map(ability =>
+        ability.id === 'int'
+          ? { ...ability, check: 1, checkMode: 1 as const }
+          : ability,
+      )
+      const { hash, actions } = await renderText(
+        check(
+          'data-checks="check:int|tool:int:herb" data-dc="12"',
+          'DC 12 Intelligence',
+        ),
+        actionsFor({ abilities, tools: [] }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 12 Intelligence' }),
+      )
+      const menu = screen.getByRole('menu')
+      expect(itemsOf(menu)).toEqual([
+        'Ask the table',
+        'Roll my Intelligence check (+1, advantage)',
+        'Roll my Intelligence (Herbalism Kit) check (+1, advantage)',
+      ])
+      await user.click(
+        within(menu).getByRole('menuitem', {
+          name: 'Roll my Intelligence check (+1, advantage)',
+        }),
+      )
+
+      expect(actions.roll).toHaveBeenCalledWith({
+        label: 'Intelligence check',
+        modifier: 1,
+        advantage: 'adv',
+        source: { kind: 'ability', key: 'int', text: hash, link: 4 },
+        explicit: false,
+        dc: 12,
+      })
+    })
+
+    it('rolls a tool the character has with its own mode, which the sheet combines with its ability’s', async () => {
+      const user = userEvent.setup()
+      const abilities = characterSheet().abilities.map(ability =>
+        ability.id === 'dex' ? { ...ability, checkMode: -1 as const } : ability,
+      )
+      await renderText(
+        check('data-checks="tool:dex:thief"', "Dexterity (Thieves' Tools)"),
+        actionsFor({ abilities, tools: [{ ...THIEF, mode: 1 }] }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: "Dexterity (Thieves' Tools)" }),
+      )
+
+      expect(itemsOf(screen.getByRole('menu'))).toContain(
+        "Roll my Dexterity (Thieves' Tools) check (+5, advantage)",
+      )
+    })
+
+    it('names a skill and a tool as the sheet does, in the game’s language, in its title, its rolls, and what the table is asked for', async () => {
+      const user = userEvent.setup()
+      const skills = characterSheet().skills.map(skill =>
+        skill.id === 'ath' ? { ...skill, label: 'Athlétisme' } : skill,
+      )
+      const outils = { ...THIEF, name: 'Outils de voleur' }
+      const { hash, actions } = await renderText(
+        check(
+          'data-checks="skill:str:ath" data-using-tool="thief" data-dc="15"',
+          'DD 15 Force (Athlétisme)',
+        ) +
+          check('data-checks="tool:dex:thief"', 'Dextérité').replace(
+            'data-n="4"',
+            'data-n="5"',
+          ),
+        actionsFor({ skills, tools: [outils] }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DD 15 Force (Athlétisme)' }),
+      )
+      const menu = screen.getByRole('menu', {
+        name: 'DC 15 Strength (Athlétisme) check using Outils de voleur',
+      })
+      expect(itemsOf(menu)).toContain(
+        'Roll my Strength (Athlétisme) check (+7, advantage)',
+      )
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Ask the table' }),
+      )
+      expect(actions.ask).toHaveBeenCalledWith({
+        label: 'DC 15 Strength (Athlétisme) check using Outils de voleur',
+        text: hash,
+        link: 4,
+      })
+
+      await user.click(screen.getByRole('button', { name: 'Dextérité' }))
+      expect(
+        itemsOf(
+          screen.getByRole('menu', {
+            name: 'Dexterity (Outils de voleur) check',
+          }),
+        ),
+      ).toContain('Roll my Dexterity (Outils de voleur) check (+5)')
+    })
+
+    it('rolls a skill check made using a tool the character hasn’t as the sheet has it', async () => {
+      const user = userEvent.setup()
+      await renderText(
+        check(
+          'data-checks="skill:str:ath" data-using-tool="herb"',
+          'Strength (Athletics)',
+        ),
+        actionsFor({ tools: [THIEF] }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength (Athletics)' }),
+      )
+      expect(
+        itemsOf(
+          screen.getByRole('menu', {
+            name: 'Strength (Athletics) check using Herbalism Kit',
+          }),
+        ),
+      ).toContain('Roll my Strength (Athletics) check (+7)')
+    })
+
+    it('knows the tools the sheet lists, from module 0.18.0, and those among its favorites, as before', () => {
+      const favorites = sheetFavorites()
+      const herb = { ...THIEF, id: 'herb', name: 'Herbalism Kit' }
+
+      // Before module 0.18.0, only the favorites name a tool.
+      expect(sheetTools(characterSheet({ favorites }))).toEqual([THIEF])
+      // The sheet's own come first, a favorite only where they don't have it.
+      expect(
+        sheetTools(
+          characterSheet({ tools: [herb, { ...THIEF, total: 6 }], favorites }),
+        ),
+      ).toEqual([herb, { ...THIEF, total: 6 }])
+      expect(sheetTools(characterSheet())).toEqual([])
+    })
+
+    it('offers no roll of a skill the sheet hasn’t, but still asks the table', async () => {
+      const user = userEvent.setup()
+      await renderText(
+        check('data-checks="skill:dex:acr"', 'Dexterity (Acrobatics)'),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Dexterity (Acrobatics)' }),
+      )
+
+      expect(
+        itemsOf(
+          screen.getByRole('menu', { name: 'Dexterity (Acrobatics) check' }),
+        ),
+      ).toEqual(['Ask the table'])
+    })
+
+    it('never asks the table for one in a secret, and says why it can’t where it can’t', async () => {
+      const user = userEvent.setup()
+      const { actions } = await renderText(
+        `<section class="secret">${check('data-checks="check:wis"', 'Wisdom')}</section>` +
+          check('data-checks="check:str"', 'Strength').replace(
+            'data-n="4"',
+            'data-n="5"',
+          ),
+        actionsFor({
+          askBlocked: 'your Gamemaster’s game isn’t taking rolls now',
+        }),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Wisdom' }))
+      expect(itemsOf(screen.getByRole('menu'))).toEqual([
+        'Roll my Wisdom check (+1)',
+        'Roll with advantage',
+        'Roll with disadvantage',
+        'Modify roll…',
+      ])
+      await user.keyboard('{Escape}')
+
+      await user.click(screen.getByRole('button', { name: 'Strength' }))
+      const ask = within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Ask the table',
+      })
+      expect(ask).toBeDisabled()
+      expect(ask).toHaveAccessibleDescription(
+        'Your Gamemaster’s game isn’t taking rolls now.',
+      )
+      await user.click(ask)
+      expect(actions.ask).not.toHaveBeenCalled()
+    })
+
+    it('is only its text where the sheet says nothing of what its links do', async () => {
+      const hash = nextHash()
+      globalThis.fetch = jest.fn(
+        async () =>
+          ({
+            ok: true,
+            json: async () => ({ html: check('data-checks="check:str"') }),
+          }) as Response,
+      )
+      render(<SheetText characterId='char-1' hash={hash} origin={ORIGIN} />)
+
+      expect(await screen.findByText(/Make a/)).toHaveTextContent(
+        'Make a DC 15 Strength (Athletics) check.',
+      )
+      expect(screen.queryByRole('button')).toBeNull()
     })
   })
 

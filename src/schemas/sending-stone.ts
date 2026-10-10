@@ -8,6 +8,7 @@ import {
   MAX_USE_TARGETS,
   PROMPT_ID,
 } from '@/constants/sending-stone'
+import { MAX_CHECKS } from '@/utils/description-links'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import type { GameEvent } from '@/types/sending-stone'
 
@@ -445,6 +446,17 @@ const effectSchema = z.looseObject({
   text: textRef,
 })
 
+/** A tool the character has, with what rolling it takes, as a skill has. */
+const toolFields = {
+  id: z.string(),
+  name: z.string(),
+  ability: nullableString,
+  total: z.number(),
+  passive: nullableNumber,
+  proficiency: z.number().catch(0),
+  mode: rollMode,
+}
+
 /** A favorite, by its type. One of a type a later module adds is dropped, as one malformed is. */
 const favoriteSchema = z.discriminatedUnion('type', [
   z.looseObject({
@@ -478,16 +490,7 @@ const favoriteSchema = z.discriminatedUnion('type', [
     id: z.string(),
     name: z.string().catch(''),
   }),
-  z.looseObject({
-    type: z.literal('tool'),
-    id: z.string(),
-    name: z.string(),
-    ability: nullableString,
-    total: z.number(),
-    passive: nullableNumber,
-    proficiency: z.number().catch(0),
-    mode: rollMode,
-  }),
+  z.looseObject({ type: z.literal('tool'), ...toolFields }),
   z.looseObject({
     type: z.literal('slots'),
     id: z.string(),
@@ -573,6 +576,9 @@ const sheetSchema = z
         mode: rollMode,
       }),
     ),
+    // Sent from module 0.18.0, for the checks descriptions ask for; before, only favorites
+    // named tools.
+    tools: listOf(z.looseObject(toolFields)).optional(),
     // Sent from module 0.6.0.
     conditions: listOf(conditionSchema),
     features: listOf(
@@ -716,33 +722,79 @@ const dnd5eSchema = z
   .nullable()
   .catch(null)
 
+/** One of dnd5e's abilities, never a name any object answers to. */
+const abilityId = z.string().refine(id => Object.hasOwn(ABILITIES, id))
+
+/** A skill's or tool's key, as dnd5e's are. */
+const checkKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
+
+/** What an ask says besides what it asks for: its DC, and what asks for it. */
+const askFields = {
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out where it can't be read
+  dc: z.int().min(1).max(99).optional().catch(undefined),
+  label: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the DC
+    .catch(undefined)
+    .transform(label => label || undefined),
+}
+
 /**
- * The saving throw a roll request card asks the table for, from module 0.17.0: one the Gamemaster
- * posted from a description, or one a player asked for from the app. Its abilities are dnd5e's
- * own, never a name any object answers to; its DC is there only where players may see it, and
- * what asks for it, such as an item, is a name. Null for any other message, and for one that
- * can't be read, which then shows as its text; absent from an older module, whose cards are read
- * from their buttons instead.
+ * One way a check the table is asked for may be made: an ability check, or a skill's or a tool's,
+ * each with the ability it's made with; a skill's names its skill, a tool's its tool, and only
+ * they do. A tool's name is the game's, where it says.
  */
-const askSchema = z
+const askedCheckSchema = z
   .object({
-    type: z.enum(['save', 'concentration']),
-    abilities: z
-      .array(z.string().refine(id => Object.hasOwn(ABILITIES, id)))
-      .max(6)
-      .transform(ids => [...new Set(ids)]),
-    // eslint-disable-next-line unicorn/no-useless-undefined -- left out where it can't be read
-    dc: z.int().min(1).max(99).optional().catch(undefined),
-    label: z
+    type: z.enum(['check', 'skill', 'tool']),
+    ability: abilityId,
+    skill: checkKey.optional(),
+    tool: checkKey.optional(),
+    name: z
       .string()
       .trim()
-      .max(200)
+      .max(100)
       .optional()
-      // eslint-disable-next-line unicorn/no-useless-undefined -- as for the DC
+      // eslint-disable-next-line unicorn/no-useless-undefined -- as an ask's DC
       .catch(undefined)
-      .transform(label => label || undefined),
+      .transform(name => name || undefined),
   })
-  .refine(ask => ask.type === 'concentration' || ask.abilities.length > 0)
+  .refine(
+    check =>
+      (check.type === 'skill') === (check.skill !== undefined) &&
+      (check.type === 'tool') === (check.tool !== undefined),
+  )
+
+/**
+ * The saving throw a roll request card asks the table for, from module 0.17.0: one the Gamemaster
+ * posted from a description, or one a player asked for from the app; or from module 0.18.0, the
+ * check. Its abilities are dnd5e's own, never a name any object answers to, as are its skills' and
+ * tools' keys; its DC is there only where players may see it, and what asks for it, such as an
+ * item, is a name. Null for any other message, and for one that can't be read, which then shows as
+ * its text, as one of a kind a later module adds does; absent from an older module, whose cards are
+ * read from their buttons instead.
+ */
+const askSchema = z
+  .discriminatedUnion('type', [
+    z
+      .object({
+        type: z.enum(['save', 'concentration']),
+        abilities: z
+          .array(abilityId)
+          .max(6)
+          .transform(ids => [...new Set(ids)]),
+        ...askFields,
+      })
+      .refine(ask => ask.type === 'concentration' || ask.abilities.length > 0),
+    z.object({
+      type: z.literal('check'),
+      checks: z.array(askedCheckSchema).min(1).max(MAX_CHECKS),
+      ...askFields,
+    }),
+  ])
   .nullable()
   .optional()
   .catch(null)

@@ -22,6 +22,17 @@ import { ModifyRoll } from './modify-roll'
 import { choiceItem, ChoiceMenu, D20_CHOICES, type MenuItem } from './roll-menu'
 import { Modal, usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ABILITIES } from '@/constants/dnd5e'
+import {
+  checkName,
+  checkTitle,
+  toolOrSkillName,
+  type CheckLink,
+  type CheckOption,
+  type ConditionLink,
+  type DamageLink,
+  type RollLink,
+  type SaveLink,
+} from '@/utils/description-links'
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import { toAdvantage } from '@/utils/roll-mode'
@@ -31,20 +42,20 @@ import type {
 } from './description-actions'
 import type { LinkPart } from './description-html'
 import type { RollTarget } from './roll-button'
-import type { SheetAbility } from '@/types/sending-stone'
 import type {
-  ConditionLink,
-  DamageLink,
-  RollLink,
-  SaveLink,
-} from '@/utils/description-links'
+  RollMode,
+  SheetAbility,
+  SheetSkill,
+  SheetTool,
+} from '@/types/sending-stone'
 
 /*
- * The links in a description, as the sheet acts on them: a saving throw it calls for opens a menu,
- * to ask the table for it or roll the player's own; its damage or healing, and its own rolls, roll
- * at a tap with the player's dice; and a condition it names shows its rules, on a hover or focus,
- * and opens the conditions panel at it on a tap. Each says only what the description says, as
- * text; one the app can't act on, such as a formula it can't read, is only that text.
+ * The links in a description, as the sheet acts on them: a saving throw or check it calls for
+ * opens a menu, to ask the table for it or roll the player's own; its damage or healing, and its
+ * own rolls, roll at a tap with the player's dice; and a condition it names shows its rules, on a
+ * hover or focus, and opens the conditions panel at it on a tap. Each says only what the
+ * description says, as text; one the app can't act on, such as a formula it can't read, is only
+ * that text.
  */
 
 /** A menu a description's link opens: where, what it's of, its items, and what each does. */
@@ -55,17 +66,20 @@ type OpenMenu = {
   onChoose: (id: string) => void
 }
 
-/** The menus a description's links open, and the dialog that modifies a saving throw first. */
+/**
+ * The menus a description's links open, and the dialog that modifies a saving throw or check
+ * first.
+ */
 export type LinkMenus = {
   open: (menu: OpenMenu) => void
-  /** Modify a saving throw before it's rolled, against the DC its description names. */
+  /** Modify a saving throw or check before it's rolled, against the DC its description names. */
   modify: (target: RollTarget, dc?: number) => void
 }
 
 /**
  * The menus a description's links open, one at a time, and the dialog that modifies a saving
- * throw before it's rolled, which are in `dialogs`, to be put on the page beside the description,
- * never in it.
+ * throw or check before it's rolled, which are in `dialogs`, to be put on the page beside the
+ * description, never in it.
  */
 export function useLinkMenus(actions?: DescriptionActions): {
   menus: LinkMenus
@@ -164,6 +178,18 @@ export function DescriptionLink({
         />
       )
     }
+    case 'check': {
+      return (
+        <CheckButton
+          link={link}
+          label={label}
+          secret={part.secret}
+          hash={hash}
+          actions={actions}
+          menus={menus}
+        />
+      )
+    }
     case 'damage': {
       return (
         <DamageButton
@@ -246,39 +272,9 @@ function SaveButton({
     source: { kind: 'save', key: ability.id, text: hash, link: link.n },
   })
   const roll = (target: RollTarget, chosen?: 'adv' | 'dis') =>
-    actions.roll({
-      label: target.label,
-      modifier: target.modifier,
-      advantage: chosen ?? toAdvantage(target.mode),
-      source: target.source,
-      explicit: chosen !== undefined,
-      ...(link.dc !== undefined && { dc: link.dc }),
-    })
+    rollAgainst(actions, target, link.dc, chosen)
   const items: MenuItem<string>[] = [
-    ...(secret
-      ? []
-      : [
-          {
-            id: 'ask',
-            label: 'Ask the table',
-            icon: BellRing,
-            tint: 'text-primary',
-            ...(actions.askBlocked && {
-              disabled: sentence(actions.askBlocked),
-            }),
-          },
-          // Where only this device's switch keeps it from being asked, a way to turn it on.
-          ...(actions.sendRolls
-            ? [
-                {
-                  id: 'send',
-                  label: 'Send my rolls to the table',
-                  icon: Send,
-                  tint: 'text-primary',
-                },
-              ]
-            : []),
-        ]),
+    ...askItems(secret, actions),
     ...abilities.map(ability => ({
       id: `roll:${ability.id}`,
       label: `Roll my ${link.concentration ? 'concentration check' : `${ability.label} save`} (${formatModifier(ability.save)}${modeWord(ability.saveMode)})`,
@@ -322,6 +318,193 @@ function SaveButton({
       {label}
     </button>
   )
+}
+
+/**
+ * A check a description calls for, which opens a menu, as a saving throw's does: to ask the table
+ * for it, on the game's own card, for the Gamemaster to roll for those it names, unless it's in a
+ * secret, and where this device doesn't send rolls, to send them; or to roll the player's own,
+ * against its DC: each way it may be made that the character can, and for one, with advantage,
+ * with disadvantage, or modified first.
+ */
+function CheckButton({
+  link,
+  label,
+  secret,
+  hash,
+  actions,
+  menus,
+}: Readonly<{
+  link: CheckLink
+  label: string
+  secret: boolean
+  hash: string
+  actions: DescriptionActions
+  menus: LinkMenus
+}>) {
+  // A skill or tool by the sheet's name for it, where it has one.
+  const nameOf = (option: CheckOption) => {
+    const named =
+      option.type === 'skill'
+        ? actions.skills.find(skill => skill.id === option.key)?.label
+        : actions.tools.find(tool => tool.id === option.key)?.name
+    return checkName(option, option.type === 'check' ? undefined : named)
+  }
+  const using =
+    link.usingTool &&
+    (actions.tools.find(tool => tool.id === link.usingTool)?.name ||
+      toolOrSkillName('tool', link.usingTool))
+  const title = checkTitle(
+    link.checks.map(option => nameOf(option)),
+    {
+      dc: link.dc,
+      ...(using && { using }),
+    },
+  )
+  const choices = link.checks.flatMap((option, index) => {
+    const target = checkTarget(option, nameOf(option), link, hash, actions)
+    return target ? [{ id: `roll:${index}`, target }] : []
+  })
+  const items: MenuItem<string>[] = [
+    ...askItems(secret, actions),
+    ...choices.map(({ id, target }) => ({
+      id,
+      label: `Roll my ${target.label} (${formatModifier(target.modifier)}${modeWord(target.mode)})`,
+      icon: Dices,
+      tint: 'text-primary',
+    })),
+    // For one way to make it, the other ways to roll it, as the sheet's menu offers them.
+    ...(choices.length === 1
+      ? D20_CHOICES.map(choice => choiceItem(choice))
+      : []),
+  ]
+  const choose = (id: string) => {
+    const only = choices.length === 1 ? choices[0].target : undefined
+    if (id === 'ask') {
+      actions.ask({ label: title, text: hash, link: link.n })
+    } else if (id === 'send') {
+      actions.sendRolls?.()
+    } else if (id.startsWith('roll:')) {
+      const chosen = choices.find(choice => choice.id === id)
+      if (chosen) rollAgainst(actions, chosen.target, link.dc)
+    } else if (only && (id === 'adv' || id === 'dis')) {
+      rollAgainst(actions, only, link.dc, id)
+    } else if (only && id === 'modify') {
+      menus.modify(only, link.dc)
+    }
+  }
+  return (
+    <button
+      type='button'
+      aria-haspopup='menu'
+      onClick={event =>
+        menus.open({
+          anchor: event.currentTarget,
+          title,
+          items,
+          onChoose: choose,
+        })
+      }
+      className={clsx(PILL, 'bg-primary/12 hover:bg-primary/20')}
+    >
+      {label}
+    </button>
+  )
+}
+
+/**
+ * How the character makes one of the ways a check a description calls for may be made, as the
+ * game makes it: an ability check as the sheet has it; a skill's, or a tool's the character has,
+ * as the sheet has it, but with the ability the description names, where that isn't its own, and
+ * for a skill check made using a tool the character has, with the higher of the two
+ * proficiencies, and with advantage where it has both, as dnd5e makes it; and a tool's the
+ * character hasn't as dnd5e makes it, without proficiency, as that ability's check is. The game's
+ * own total is the one that counts, which takes in what the sheet doesn't say, such as a bonus to
+ * one ability's checks alone. None where the sheet has no such ability or skill.
+ */
+function checkTarget(
+  option: CheckOption,
+  name: string,
+  link: CheckLink,
+  hash: string,
+  actions: DescriptionActions,
+): RollTarget | undefined {
+  const ability = actions.abilities.find(each => each.id === option.ability)
+  if (!ability) return
+  const label = `${name} check`
+  const linked = { text: hash, link: link.n }
+  if (option.type === 'check') {
+    return {
+      label,
+      modifier: ability.check,
+      mode: ability.checkMode,
+      source: { kind: 'ability', key: ability.id, ...linked },
+    }
+  }
+  const { key } = option
+  if (key === undefined) return
+  if (option.type === 'skill') {
+    const skill = actions.skills.find(each => each.id === key)
+    if (!skill) return
+    const tool = actions.tools.find(each => each.id === link.usingTool)
+    const both = !!tool && skill.proficiency > 0 && tool.proficiency > 0
+    return {
+      label,
+      modifier: withAbility(
+        skill.total + withTool(skill, tool, actions.proficiency),
+        skill.ability,
+        ability,
+        actions,
+      ),
+      mode: both ? withAdvantage(skill.mode) : skill.mode,
+      source: { kind: 'skill', key, ...linked },
+    }
+  }
+  const tool = actions.tools.find(each => each.id === key)
+  return {
+    label,
+    modifier: tool
+      ? withAbility(tool.total, tool.ability, ability, actions)
+      : ability.check,
+    mode: tool ? tool.mode : ability.checkMode,
+    source: { kind: 'tool', key, ...linked },
+  }
+}
+
+/**
+ * A skill's or tool's modifier, made with another ability than its own, as a description may ask:
+ * its own ability's modifier taken away, and the other's added.
+ */
+function withAbility(
+  total: number,
+  own: string | null,
+  ability: SheetAbility,
+  actions: DescriptionActions,
+): number {
+  const from = actions.abilities.find(each => each.id === own)
+  return from && from.id !== ability.id ? total - from.mod + ability.mod : total
+}
+
+/**
+ * What a skill check made using a tool the character has gains over the skill's own modifier, as
+ * dnd5e makes it: the higher of the two proficiencies in place of the skill's, where the tool's is
+ * higher, each times the proficiency bonus, rounded down. The tool's is the sheet's, doubled for
+ * Tool Expertise. Nothing where the sheet has no proficiency bonus.
+ */
+function withTool(
+  skill: SheetSkill,
+  tool: SheetTool | undefined,
+  bonus: number | null,
+): number {
+  if (!tool || bonus === null || tool.proficiency <= skill.proficiency) return 0
+  return (
+    Math.floor(tool.proficiency * bonus) - Math.floor(skill.proficiency * bonus)
+  )
+}
+
+/** A roll's mode with advantage added, which disadvantage cancels, as dnd5e counts them. */
+function withAdvantage(mode: RollMode): RollMode {
+  return mode < 0 ? 0 : 1
 }
 
 /**
@@ -547,13 +730,65 @@ function ConditionTip({
   )
 }
 
+/**
+ * The ways a saving throw's or check's menu offers to ask the table for it: there unless it's in a
+ * secret, which the table mustn't read; with why it can't be, where it can't; and where this
+ * device doesn't send rolls, to send them.
+ */
+function askItems(
+  secret: boolean,
+  actions: DescriptionActions,
+): MenuItem<string>[] {
+  if (secret) return []
+  return [
+    {
+      id: 'ask',
+      label: 'Ask the table',
+      icon: BellRing,
+      tint: 'text-primary',
+      ...(actions.askBlocked && { disabled: sentence(actions.askBlocked) }),
+    },
+    // Where only this device's switch keeps it from being asked, a way to turn it on.
+    ...(actions.sendRolls
+      ? [
+          {
+            id: 'send',
+            label: 'Send my rolls to the table',
+            icon: Send,
+            tint: 'text-primary',
+          },
+        ]
+      : []),
+  ]
+}
+
+/**
+ * Rolls a saving throw or check a description calls for, the player's own, against the DC it
+ * names, if any: as the sheet has it, or with the advantage or disadvantage chosen.
+ */
+function rollAgainst(
+  actions: DescriptionActions,
+  target: RollTarget,
+  dc: number | undefined,
+  chosen?: 'adv' | 'dis',
+) {
+  actions.roll({
+    label: target.label,
+    modifier: target.modifier,
+    advantage: chosen ?? toAdvantage(target.mode),
+    source: target.source,
+    explicit: chosen !== undefined,
+    ...(dc !== undefined && { dc }),
+  })
+}
+
 /** A kind of damage or healing, by dnd5e's key, as the tray says it, such as "fire". */
 function typeLabel(type: string | null): string | null {
   if (type === 'temphp') return 'temporary hit points'
   return type
 }
 
-/** The advantage or disadvantage the sheet rolls a save with, as a menu item says it. */
+/** The advantage or disadvantage the sheet rolls a save or check with, as a menu item says it. */
 function modeWord(mode: number): string {
   if (mode > 0) return ', advantage'
   if (mode < 0) return ', disadvantage'

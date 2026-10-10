@@ -208,10 +208,17 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
   )
 }
 
+/** What a roll request card's chip calls what it asks for. */
+const CHIPS: Record<TableAsk['type'], string> = {
+  save: 'Saving throw',
+  concentration: 'Concentration',
+  check: 'Check',
+}
+
 /**
- * A roll request card: who asks the table for which saving throw, with its DC where players may
- * see it, and what asks for it, such as the asker's item. It's for the Gamemaster, who rolls it
- * for the creatures it names.
+ * A roll request card: who asks the table for which saving throw or check, with its DC where
+ * players may see it, and what asks for it, such as the asker's item. It's for the Gamemaster, who
+ * rolls it for the creatures it names.
  */
 function AskBubble({
   ask,
@@ -238,7 +245,7 @@ function AskBubble({
         className='inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary uppercase'
       >
         <BellRing className='size-3' />
-        {ask.type === 'concentration' ? 'Concentration' : 'Saving throw'}
+        {CHIPS[ask.type]}
       </span>
       <p className='font-semibold break-words'>
         {speaker} asks for {/^[AEIOU]/.test(title) ? 'an' : 'a'} {title}

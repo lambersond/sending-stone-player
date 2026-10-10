@@ -1,5 +1,13 @@
 import { ABILITIES, SKILLS } from '@/constants/dnd5e'
+import {
+  checkName,
+  checkTitle,
+  MAX_CHECKS,
+  toolOrSkillName,
+  type CheckOption,
+} from '@/utils/description-links'
 import type {
+  AskedCheck,
   CharacterSheet,
   CombatantSummary,
   CombatSnapshot,
@@ -15,6 +23,7 @@ import type {
   Side,
   TableAction,
   TableAsk,
+  TableCheckAsk,
   TableCombat,
   TableMessage,
   TableRoll,
@@ -110,9 +119,9 @@ export function toTableMessage(
 }
 
 /**
- * The saving throw a roll request card asks the table for: as the module says, from 0.17.0; or,
- * from an older module, which doesn't, as a Gamemaster's card's own buttons say, without its DC,
- * which players may not be meant to see.
+ * The saving throw or check a roll request card asks the table for: as the module says, from 0.17.0
+ * for a saving throw and 0.18.0 for a check; or, from an older module, which doesn't, as a
+ * Gamemaster's card's own buttons say, without its DC, which players may not be meant to see.
  */
 function askOf(message: SerializedMessage): TableAsk | undefined {
   if (message.ask !== undefined) return tableAsk(message.ask)
@@ -121,43 +130,88 @@ function askOf(message: SerializedMessage): TableAsk | undefined {
 
 /**
  * The module's ask, as stored. Checked when it was received, but checked again here, as one stored
- * before then may not have been: its abilities only dnd5e's own, its DC a number, and what asks a
- * name.
+ * before then may not have been: its abilities only dnd5e's own, its skills and tools only keys,
+ * its DC a number, and what asks a name. A check any of whose ways doesn't hold up isn't read at
+ * all, rather than read as asking for less than it does.
  */
 function tableAsk(ask: MessageAsk | null): TableAsk | undefined {
-  if (!ask || (ask.type !== 'save' && ask.type !== 'concentration')) return
+  if (!ask) return
+  const { dc, label } = ask
+  const told = {
+    ...(Number.isInteger(dc) && { dc }),
+    ...(typeof label === 'string' && label.trim() && { label: label.trim() }),
+  }
+  if (ask.type === 'check') {
+    const listed = Array.isArray(ask.checks) ? ask.checks : []
+    const checks = listed.flatMap(each => {
+      const check = askedCheck(each)
+      return check ? [check] : []
+    })
+    const whole =
+      checks.length > 0 &&
+      checks.length === listed.length &&
+      checks.length <= MAX_CHECKS
+    return whole ? { type: 'check', checks, ...told } : undefined
+  }
+  if (ask.type !== 'save' && ask.type !== 'concentration') return
   const abilities = Array.isArray(ask.abilities)
     ? ask.abilities.filter(id => isAbility(id))
     : []
   if (ask.type === 'save' && abilities.length === 0) return
-  const { dc, label } = ask
+  return { type: ask.type, abilities, ...told }
+}
+
+/** The kinds of check a card asks for, as dnd5e's buttons name them. */
+const CHECK_TYPES = new Set<unknown>(['check', 'skill', 'tool'])
+
+/** A skill's or tool's key, as dnd5e's are. */
+const CHECK_KEY = /^[A-Za-z][\w-]{0,31}$/
+
+/**
+ * One way a check may be made, as an ask or a card's button has it, if it holds up: an ability
+ * check by one of dnd5e's abilities, a skill check by its skill's key, a tool check by its tool's,
+ * with the tool's name where it says one.
+ */
+function askedCheck(
+  check: Partial<Record<keyof AskedCheck, unknown>>,
+): AskedCheck | undefined {
+  const { type, ability, skill, tool, name } = check
+  if (!CHECK_TYPES.has(type) || !isAbility(ability)) return
+  const key = type === 'skill' ? skill : tool
+  if (type !== 'check' && (typeof key !== 'string' || !CHECK_KEY.test(key))) {
+    return
+  }
+  const named = type === 'tool' && typeof name === 'string' && name.trim()
   return {
-    type: ask.type,
-    abilities,
-    ...(Number.isInteger(dc) && { dc }),
-    ...(typeof label === 'string' && label.trim() && { label: label.trim() }),
+    type: type as AskedCheck['type'],
+    ability,
+    ...(type === 'skill' && { skill: key as string }),
+    ...(type === 'tool' && { tool: key as string }),
+    ...(named && { name: named }),
   }
 }
 
 /**
  * The saving throw an older module's roll request card asks for, read from its buttons, as dnd5e
- * makes them: those that request a save, or a concentration check, by ability. Only a card spoken
- * by no character, as dnd5e posts a Gamemaster's, is read so: the app isn't told who is a
- * Gamemaster, and a card a player wrote names its writer anyway. Never its DC.
+ * makes them: those that request a save, or a concentration check, by ability; or else those that
+ * request a check, by ability and skill or tool. Only a card spoken by no character, as dnd5e
+ * posts a Gamemaster's, is read so: the app isn't told who is a Gamemaster, and a card a player
+ * wrote names its writer anyway. Never its DC.
  */
 function requestCardAsk(message: SerializedMessage): TableAsk | undefined {
   const { content } = message
   if (message.character || message.speaker.actorId) return
   if (typeof content !== 'string' || !content.includes('rollRequest')) return
-  const buttons = [...content.matchAll(/<button\b([^>]*)>/gi)]
+  // A tag's attributes end at the next "<" too, as dnd5e's never hold one: read to the next ">"
+  // alone, a run of unclosed tags would take each to the end of the text.
+  const requests = [...content.matchAll(/<button\b([^<>]*)>/gi)]
     .map(([, attributes]) => dataOf(attributes))
-    .filter(
-      data =>
-        data.get('action') === 'rollRequest' &&
-        (data.get('type') === 'save' || data.get('type') === 'concentration'),
-    )
-  const type = buttons[0]?.get('type') as TableAsk['type'] | undefined
-  if (!type) return
+    .filter(data => data.get('action') === 'rollRequest')
+  const buttons = requests.filter(
+    data => data.get('type') === 'save' || data.get('type') === 'concentration',
+  )
+  if (buttons.length === 0) return requestCardCheck(requests)
+  const type = buttons[0].get('type') as 'save' | 'concentration'
   const abilities = buttons.flatMap(data => {
     const ability = data.get('ability')
     return data.get('type') === type && ability && isAbility(ability)
@@ -168,11 +222,43 @@ function requestCardAsk(message: SerializedMessage): TableAsk | undefined {
   return { type, abilities: [...new Set(abilities)] }
 }
 
-/** An element's data attributes, by name without "data-", from its opening tag's attributes. */
+/**
+ * The check an older module's roll request card asks for, from its buttons' data: each way it may
+ * be made once, as dnd5e's card offers each once. One offering more than the most a check may
+ * isn't read at all, as the module's ask for it isn't, rather than read as asking for less.
+ */
+function requestCardCheck(
+  requests: Map<string, string>[],
+): TableCheckAsk | undefined {
+  const seen = new Set<string>()
+  const checks = requests.flatMap(data => {
+    const check = askedCheck({
+      type: data.get('type'),
+      ability: data.get('ability'),
+      skill: data.get('skill'),
+      tool: data.get('tool'),
+    })
+    const id =
+      check && `${check.type}:${check.skill ?? check.tool ?? check.ability}`
+    if (!check || !id || seen.has(id)) return []
+    seen.add(id)
+    return [check]
+  })
+  if (checks.length === 0 || checks.length > MAX_CHECKS) return
+  return { type: 'check', checks }
+}
+
+/**
+ * An element's data attributes, by name without "data-", from its opening tag's attributes. Each
+ * name and the space around its "=" are bounded, as dnd5e's are short: unbounded, a tag of
+ * "data-data-data-…" would take each to the end of the tag, from every "data-" in it.
+ */
 function dataOf(attributes: string): Map<string, string> {
   return new Map(
     [
-      ...attributes.matchAll(/\bdata-([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g),
+      ...attributes.matchAll(
+        /\bdata-([\w-]{1,64})\s{0,8}=\s{0,8}(?:"([^"]*)"|'([^']*)')/g,
+      ),
     ].map(([, name, double, single]) => [name, double ?? single ?? '']),
   )
 }
@@ -185,9 +271,16 @@ function isAbility(id: unknown): id is string {
 /**
  * What a roll request card asks for, in words: such as "DC 15 Dexterity saving throw", "Strength
  * or Dexterity saving throw", or "DC 10 Concentration check", naming its ability where it isn't
- * Constitution.
+ * Constitution; or a check, such as "DC 15 Strength (Athletics) check", or "Intelligence or Wisdom
+ * check", a tool by the game's name for it where it says.
  */
-export function askTitle(ask: Pick<TableAsk, 'type' | 'abilities' | 'dc'>) {
+export function askTitle(ask: TableAsk): string {
+  if (ask.type === 'check') {
+    const names = ask.checks.map(check =>
+      checkName(checkOptionOf(check), check.name),
+    )
+    return checkTitle(names, { dc: ask.dc })
+  }
   const dc = ask.dc === undefined ? '' : `DC ${ask.dc} `
   const names = ask.abilities
     .filter(id => isAbility(id))
@@ -200,6 +293,16 @@ export function askTitle(ask: Pick<TableAsk, 'type' | 'abilities' | 'dc'>) {
   }
   const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(names)
   return `${dc}${list} saving throw`
+}
+
+/** One way a check the table is asked for may be made, as a description's link has it. */
+function checkOptionOf(check: AskedCheck): CheckOption {
+  const key = check.type === 'skill' ? check.skill : check.tool
+  return {
+    type: check.type,
+    ability: check.ability,
+    ...(check.type !== 'check' && key !== undefined && { key }),
+  }
 }
 
 const HEALING = new Set(['healing', 'temphp'])
@@ -443,6 +546,13 @@ export function toTableSheet(
       ...skill,
       label: skill.label || SKILLS[skill.id] || skill.id,
     })),
+    // Sheets from before module 0.18.0 have none.
+    ...(sheet.tools && {
+      tools: sheet.tools.map(tool => ({
+        ...tool,
+        name: tool.name || toolOrSkillName('tool', tool.id),
+      })),
+    }),
     // Sheets from before module 0.6.0 have none of these.
     conditions: (sheet.conditions ?? []).map(condition => ({
       ...condition,

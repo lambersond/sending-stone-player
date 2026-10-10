@@ -1670,6 +1670,41 @@ describe('hooks/use-table-rolls', () => {
       })
     })
 
+    it.each([
+      ['skill', 'ath'],
+      ['tool', 'thief'],
+      ['ability', 'int'],
+    ] as const)(
+      "sends a %s check a description calls for, the player's own, by its link",
+      (kind, key) => {
+        jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        const { result } = render([kind])
+
+        act(() =>
+          result.current.send(
+            {
+              label: 'A check',
+              modifier: 1,
+              source: { kind, key, text: HASH, link: 4 },
+              dc: 15,
+            },
+            check({ advantage: 'adv', d20s: [11, 17], extras: [] }),
+          ),
+        )
+
+        expect(sent()).toEqual({
+          kind,
+          key,
+          text: HASH,
+          link: 4,
+          mode: 1,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 20, results: [11, 17] }],
+        })
+      },
+    )
+
     it("sends a description's damage by its link, with the dice thrown and the kinds chosen, where the game takes it", () => {
       jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
       const { result } = render(['textDamage'])

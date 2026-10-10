@@ -56,7 +56,7 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * lets them, an attack, or the use of a spell or feature, then its damage or healing; a hit die
  * spent, or a feature's own formula, such as a light's radius (module 0.16.0); and from a link in
  * a description, the table asked for the saving throw it calls for, its damage or healing, or a
- * roll of its own (module 0.17.0).
+ * roll of its own (module 0.17.0), or for the check it calls for (module 0.18.0).
  */
 export const ROLL_KINDS = [
   'skill',
@@ -151,8 +151,8 @@ export const ROLLS_IN_FLIGHT = 3
 export const ROLLS_PER_MINUTE = 20
 
 /**
- * How many times a minute a character may ask the table for a saving throw a description calls
- * for, on top of those: each ask is a card in everyone's chat. Asks the game didn't make don't
- * count.
+ * How many times a minute a character may ask the table for a saving throw or check a description
+ * calls for, on top of those: each ask is a card in everyone's chat. Asks the game didn't make
+ * don't count.
  */
 export const ASKS_PER_MINUTE = 3

@@ -300,13 +300,18 @@ const NOT_MADE = new Set<TableRollState['status']>([
 ])
 
 /**
- * Where a roll is on its way to the game, or what the game made of it: for a saving throw against
- * a DC a description names, whether it was made, by the game's total where it doesn't say.
+ * Where a roll is on its way to the game, or what the game made of it: for a saving throw or check
+ * against a DC a description names, whether it was made, by the game's total where it doesn't say.
  */
 function TableStatus({
   state,
   dc,
-}: Readonly<{ state: TableRollState; dc?: number }>) {
+  verdict,
+}: Readonly<{
+  state: TableRollState
+  dc?: number
+  verdict?: LocalCheck['verdict']
+}>) {
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   // Of dice sent one after another, as hit dice spent at once, which is on its way.
   const die = state.together
@@ -339,10 +344,10 @@ function TableStatus({
               <span className='font-semibold text-text-primary tabular-nums'>
                 {state.total ?? '?'}
               </span>
-              {outcomeOf(state, dc) && (
+              {outcomeOf(state, dc, verdict) && (
                 <span className='font-semibold text-text-primary'>
                   {' · '}
-                  {outcomeOf(state, dc)}
+                  {outcomeOf(state, dc, verdict)}
                 </span>
               )}
             </span>
@@ -400,12 +405,16 @@ function PartlyMade({
 }
 
 /**
- * What came at the table of an attack, or a save the game asked for or made against a DC, as the
- * game shows players: against a DC it doesn't say of, by its total.
+ * What came at the table of an attack, or a save the game asked for or made against a DC, or a
+ * check made against one, as the game shows players: against a DC it doesn't say of, by its total.
  */
-function outcomeOf(state: TableRollState, dc?: number): string | undefined {
+function outcomeOf(
+  state: TableRollState,
+  dc?: number,
+  verdict?: LocalCheck['verdict'],
+): string | undefined {
   const saved = savedAt(state, dc)
-  if (saved !== undefined) return saved ? 'Saved' : 'Failed'
+  if (saved !== undefined) return verdictWord(saved, verdict)
   if (state.healed !== undefined) return `${state.healed} HP regained`
   const { attack } = state
   if (!attack) return undefined
@@ -422,8 +431,8 @@ function outcomeOf(state: TableRollState, dc?: number): string | undefined {
 }
 
 /**
- * Whether a save the game asked for, or made against a DC a description names, succeeded there:
- * as the game says, or else by its total against that DC.
+ * Whether a save the game asked for, or a save or check made against a DC a description names,
+ * succeeded there: as the game says, or else by its total against that DC.
  */
 function savedAt(state: TableRollState, dc?: number): boolean | undefined {
   if (state.outcome) return state.outcome === 'success'
@@ -582,9 +591,9 @@ function DamageButton({
 }
 
 /**
- * A roll's way to the game, in brief, among the earlier rolls: for a saving throw against a DC a
- * description names that the game didn't make, whether this roll made it, as when it was the
- * latest.
+ * A roll's way to the game, in brief, among the earlier rolls: for a saving throw or check against
+ * a DC a description names that the game didn't make, whether this roll made it, as when it was
+ * the latest.
  */
 function TableMark({
   state,
@@ -604,10 +613,12 @@ function TableMark({
       return <span className='ml-1.5'>· at the table</span>
     }
     const saved = state.visible ? savedAt(state, dcOf(roll)) : undefined
+    const verdict = roll.kind === 'check' ? roll.verdict : undefined
     return (
       <span className='ml-1.5'>
         {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
-        {saved !== undefined && (saved ? ', saved' : ', failed')}
+        {saved !== undefined &&
+          `, ${verdictWord(saved, verdict).toLowerCase()}`}
       </span>
     )
   }
@@ -633,21 +644,30 @@ function TableMark({
   )
 }
 
-/** The DC a description names for a saving throw rolled against it, if any. */
+/** The DC a description names for a saving throw or check rolled against it, if any. */
 function dcOf(roll: LocalRoll): number | undefined {
   return roll.kind === 'check' ? roll.dc : undefined
 }
 
 /**
- * Whether a saving throw against a DC a description names was made, by this roll, where the game
- * didn't make it: none where there's no DC, or the game made it, which its status says.
+ * Whether a saving throw or check against a DC a description names was made, by this roll, where
+ * the game didn't make it: none where there's no DC, or the game made it, which its status says.
  */
 function savedHere(
   roll: LocalCheck,
   state?: TableRollState,
 ): string | undefined {
   if (roll.dc === undefined || (state && !NOT_MADE.has(state.status))) return
-  return roll.total >= roll.dc ? 'Saved' : 'Failed'
+  return verdictWord(roll.total >= roll.dc, roll.verdict)
+}
+
+/**
+ * Whether a roll against a DC made it, in a word: a saving throw saved, a check passed, or either
+ * failed.
+ */
+function verdictWord(made: boolean, verdict?: LocalCheck['verdict']): string {
+  if (!made) return 'Failed'
+  return verdict === 'check' ? 'Passed' : 'Saved'
 }
 
 /** Said of a roll from a description the game didn't take, which no one else sees. */
@@ -710,7 +730,9 @@ function CheckResult({
             </span>
           )}
         </p>
-        {state && <TableStatus state={state} dc={roll.dc} />}
+        {state && (
+          <TableStatus state={state} dc={roll.dc} verdict={roll.verdict} />
+        )}
         {!state && roll.described && <OnlyYou />}
         {state && onRollDamage && (
           <DamageButton
@@ -916,8 +938,9 @@ function UseStatus({
 }
 
 /**
- * The table asked for a saving throw a description calls for: on dnd5e's own card in the game's
- * chat, for the Gamemaster to roll for those it names; its way there, or why it wasn't posted.
+ * The table asked for a saving throw or check a description calls for: on dnd5e's own card in the
+ * game's chat, for the Gamemaster to roll for those it names; its way there, or why it wasn't
+ * posted.
  */
 function AskResult({
   roll,

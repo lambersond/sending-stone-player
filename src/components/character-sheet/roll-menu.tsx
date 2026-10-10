@@ -8,6 +8,7 @@ import {
   FloatingPortal,
   offset,
   shift,
+  size,
   useDismiss,
   useFloating,
   useInteractions,
@@ -138,8 +139,8 @@ export type MenuItem<T extends string> = {
  * A menu of things to do with a part of the sheet, opened where the player clicked or pressed for
  * it, as `RollMenu` is: the first item that can be chosen takes focus, arrow keys move between
  * them, skipping any that can't be chosen now, which say why; Escape, or a click or tap elsewhere,
- * closes it. Inside a modal dialog, it opens in the dialog, as the page behind it is inert, and
- * Escape closes only the menu.
+ * closes it. One taller than the room there is scrolls inside. Inside a modal dialog, it opens in
+ * the dialog, as the page behind it is inert, and Escape closes only the menu.
  */
 export function ChoiceMenu<T extends string>({
   anchor,
@@ -166,7 +167,19 @@ export function ChoiceMenu<T extends string>({
     elements: { reference: anchor },
     placement,
     whileElementsMounted: autoUpdate,
-    middleware: [offset(gap), flip({ padding: 8 }), shift({ padding: 8 })],
+    middleware: [
+      offset(gap),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      // No taller than the room on the side it's on, its items scrolled inside it: one with many,
+      // as a check that may be made many ways, may be taller than a phone's screen.
+      size({
+        padding: 8,
+        apply: ({ availableHeight, elements }) => {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
+        },
+      }),
+    ],
   })
   useLayoutEffect(() => {
     refs.setPositionReference(point ? pointOn(anchor, point) : anchor)
@@ -194,12 +207,12 @@ export function ChoiceMenu<T extends string>({
           ref={refs.setFloating}
           style={floatingStyles}
           aria-label={title}
-          className='z-50 flex max-w-[calc(100vw-1rem)] min-w-56 flex-col rounded-xl border border-border bg-card p-1 text-text-primary shadow-xl'
+          className='z-50 flex max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] min-w-56 flex-col overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-1 text-text-primary shadow-xl'
           {...getFloatingProps()}
         >
           <p
             aria-hidden
-            className='px-3 pt-1.5 pb-1 text-xs font-semibold text-text-secondary'
+            className='shrink-0 px-3 pt-1.5 pb-1 text-xs font-semibold text-text-secondary'
           >
             {title}
           </p>
@@ -222,7 +235,7 @@ export function ChoiceMenu<T extends string>({
                 }}
                 tabIndex={(active ?? first) === index ? 0 : -1}
                 className={clsx(
-                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium outline-none disabled:cursor-not-allowed',
+                  'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium outline-none disabled:cursor-not-allowed',
                   active === index && 'bg-primary/10',
                 )}
                 {...getItemProps({ onClick: () => onChoose(item.id) })}

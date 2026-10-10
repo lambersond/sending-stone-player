@@ -27,6 +27,9 @@ export const ANIMATION_TIMEOUT = 15_000
 /** How many of this page's rolls are kept. */
 export const ROLL_HISTORY = 20
 
+/** The rolls that are checks, which pass a DC, rather than save against it. */
+const CHECKS = new Set<RollSource['kind']>(['skill', 'tool', 'ability'])
+
 /** A random source that lands every die on its highest face, for damage at its highest. */
 const HIGHEST = () => 1 - Number.EPSILON
 
@@ -47,7 +50,9 @@ export type SheetRoll = {
   explicit?: boolean
   /** For an area attack, the names of the combatants it's made at, by their ids. */
   targetNames?: Record<string, string>
-  /** For a saving throw a description calls for, the DC it names, which it's made against. */
+  /**
+   * For a saving throw or check a description calls for, the DC it names, which it's made against.
+   */
   dc?: number
 }
 
@@ -127,8 +132,13 @@ export type LocalCheck = {
   /** The d20 that counts. */
   natural: number
   extras: LocalExtra[]
-  /** For a saving throw a description calls for, the DC it names. */
+  /** For a saving throw or check a description calls for, the DC it names. */
   dc?: number
+  /**
+   * For a saving throw or check a description calls for, what it's said to do when it reaches its
+   * DC: a saving throw is saved, as one is unless it says, and a check passed.
+   */
+  verdict?: 'save' | 'check'
   /** Rolled from a link in a description. */
   described?: boolean
   at: number
@@ -187,13 +197,13 @@ export type LocalFormula = {
 }
 
 /**
- * The table asked for a saving throw a description calls for, as this page keeps it: it throws no
- * dice, but follows its way to the game.
+ * The table asked for a saving throw or check a description calls for, as this page keeps it: it
+ * throws no dice, but follows its way to the game.
  */
 export type LocalAsk = {
   kind: 'ask'
   id: string
-  /** What was asked for, such as "DC 15 Dexterity saving throw". */
+  /** What was asked for, such as "DC 15 Dexterity saving throw" or "Strength (Athletics) check". */
   label: string
   at: number
 }
@@ -268,9 +278,12 @@ export function useSheetRoller(
         ? { ...result, pools: [...result.pools, ...extra.pools] }
         : result
       const check = toLocalRoll(label, result, extras, extra)
+      const { source } = request
       if (request.dc !== undefined) check.dc = request.dc
-      if (request.source?.kind === 'save' && request.source.text) {
+      if (source && 'text' in source && source.text) {
         check.described = true
+        // Against its DC, which the game may know where the description keeps it from the player.
+        if (CHECKS.has(source.kind)) check.verdict = 'check'
       }
       onThrown?.(request, check)
       await land(thrown, check)
@@ -402,7 +415,7 @@ export function useSheetRoller(
     return used
   }, [])
 
-  // Keeps the table asked for a saving throw, first among the rolls.
+  // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
       kind: 'ask',

@@ -1730,6 +1730,121 @@ describe('components/character-sheet/character-pane', () => {
       ).toBeNull()
     })
 
+    it("rolls the player's own check a description calls for with the sheet's tool, against its DC, in the game too, and asks the table for it", async () => {
+      const CHECK =
+        '<p>Pick it with a <span class="ss-check roll" data-n="2" data-checks="tool:dex:thief" data-dc="15">DC 15 Dexterity (Thieves’ Tools)</span> check.</p>'
+      const posted = describing(
+        { [TEXTS.secondWind]: SAVE + CHECK },
+        {
+          'req-1': { status: 'done', visible: true, total: 13 },
+          'req-2': { status: 'done', visible: true, rolls: [] },
+        },
+      )
+      renderTaking(
+        ['tool', 'ask'],
+        fullerSheet({ favorites: sheetFavorites() }),
+      )
+      const user = await openSecondWind()
+      const link = screen.getByRole('button', {
+        name: 'DC 15 Dexterity (Thieves’ Tools)',
+      })
+
+      await user.click(link)
+      await user.click(
+        within(
+          screen.getByRole('menu', {
+            name: "DC 15 Dexterity (Thieves' Tools) check",
+          }),
+        ).getByRole('menuitem', {
+          name: "Roll my Dexterity (Thieves' Tools) check (+5)",
+        }),
+      )
+      expect(posted).toEqual([
+        expect.objectContaining({
+          kind: 'tool',
+          key: 'thief',
+          text: TEXTS.secondWind,
+          link: 2,
+        }),
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Dexterity \(Thieves' Tools\) checkd20 \d+ \+5( · Natural (20|1))? · DC 15/,
+      )
+      expect(
+        await screen.findByText('At the table:', {}, { timeout: 3000 }),
+      ).toHaveTextContent('At the table: 13 · Failed')
+
+      await user.click(link)
+      await user.click(screen.getByRole('menuitem', { name: 'Ask the table' }))
+      expect(posted).toHaveLength(2)
+      expect(posted[1]).toEqual({
+        kind: 'ask',
+        text: TEXTS.secondWind,
+        link: 2,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      })
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "DC 15 Dexterity (Thieves' Tools) check",
+      )
+    })
+
+    it("rolls the player's own skill check a description calls for with the sheet's skills and proficiency, against its DC, in the game too", async () => {
+      const CHECKS =
+        '<p>Climb with a <span class="ss-check roll" data-n="2" data-checks="skill:str:ath" data-dc="15">DC 15 Strength (Athletics)</span> check,' +
+        ' then a <span class="ss-check roll" data-n="3" data-checks="skill:dex:ste" data-using-tool="thief">Dexterity (Stealth)</span> check using Thieves’ Tools.</p>'
+      const posted = describing(
+        { [TEXTS.secondWind]: SAVE + CHECKS },
+        { 'req-1': { status: 'done', visible: true, total: 19 } },
+      )
+      renderTaking(
+        ['skill', 'ask'],
+        fullerSheet({ favorites: sheetFavorites() }),
+      )
+      const user = await openSecondWind()
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 15 Strength (Athletics)' }),
+      )
+      await user.click(
+        within(
+          screen.getByRole('menu', {
+            name: 'DC 15 Strength (Athletics) check',
+          }),
+        ).getByRole('menuitem', {
+          name: 'Roll my Strength (Athletics) check (+7)',
+        }),
+      )
+      expect(posted).toEqual([
+        expect.objectContaining({
+          kind: 'skill',
+          key: 'ath',
+          text: TEXTS.secondWind,
+          link: 2,
+        }),
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Strength \(Athletics\) checkd20 \d+ \+7( · Natural (20|1))? · DC 15/,
+      )
+
+      // Not proficient in Stealth, but with the Thieves' Tools its favorites name: Dexterity's +1
+      // and the sheet's proficiency, +3; proficient in only one, no advantage.
+      await user.click(
+        screen.getByRole('button', { name: 'Dexterity (Stealth)' }),
+      )
+      expect(
+        within(
+          screen.getByRole('menu', {
+            name: "Dexterity (Stealth) check using Thieves' Tools",
+          }),
+        ).getByRole('menuitem', {
+          name: 'Roll my Dexterity (Stealth) check (+4, disadvantage)',
+        }),
+      ).toBeInTheDocument()
+    })
+
     it("rolls a description's damage, named for where it's from, in the game too where it takes it", async () => {
       const posted = describing({ [TEXTS.secondWind]: SAVE })
       renderTaking(['textDamage'])

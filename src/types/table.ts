@@ -1,5 +1,5 @@
 import type { RollFeature, RollKind } from '@/types/roll'
-import type { CharacterSheet } from '@/types/sending-stone'
+import type { AskedCheck, CharacterSheet } from '@/types/sending-stone'
 
 /**
  * What a player is shown of their campaign: their view of its chat log and combat tracker, and
@@ -53,22 +53,35 @@ export type TableMessage = {
   text?: string
   rolls: TableRoll[]
   targets: TableTarget[]
-  /** For a roll request card, the saving throw it asks the table for. */
+  /** For a roll request card, the saving throw or check it asks the table for. */
   ask?: TableAsk
 }
 
 /**
  * The saving throw a roll request card in the chat asks the table for, such as "DC 15 Dexterity
- * saving throw", from a description: by the Gamemaster, or by a player from the app, naming what
- * asks for it.
+ * saving throw", or the check, such as "DC 15 Strength (Athletics) check", from a description: by
+ * the Gamemaster, or by a player from the app, naming what asks for it.
  */
-export type TableAsk = {
+export type TableAsk = TableSaveAsk | TableCheckAsk
+
+/** A saving throw, or a concentration check, the table is asked for. */
+export type TableSaveAsk = {
   type: 'save' | 'concentration'
   /** The abilities it may be rolled with, such as ["dex"]; for concentration, the one it names. */
   abilities: string[]
   /** Unset where players may not see it. */
   dc?: number
   /** What asks for it, such as "Worn Bardic Eternal Flame". */
+  label?: string
+}
+
+/** A check the table is asked for, in one way or more, such as Strength (Athletics). */
+export type TableCheckAsk = {
+  type: 'check'
+  checks: AskedCheck[]
+  /** Unset where players may not see it. */
+  dc?: number
+  /** What asks for it, such as "Cloak of Climbing". */
   label?: string
 }
 

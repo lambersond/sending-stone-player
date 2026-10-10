@@ -396,6 +396,26 @@ describe('utils/roll-requests', () => {
       ).toBeUndefined()
     })
 
+    it('lets the character roll a tool its sheet lists among its tools, from module 0.18.0, as among its favorites', () => {
+      const herb = {
+        id: 'herb',
+        name: 'Herbalism Kit',
+        ability: 'wis',
+        total: 4,
+        passive: null,
+        proficiency: 1,
+        mode: 0,
+      } as const
+      expect(
+        checkRoll(
+          request({ kind: 'tool', key: 'herb' }),
+          characterSheet({ tools: [herb] }),
+          [],
+          'actor-thorin',
+        ),
+      ).toBeUndefined()
+    })
+
     it('refuses what the sheet lacks, or a roll without a sheet', () => {
       expect(
         checkRoll(request({ key: 'xyz' }), sheet, [], 'actor-thorin'),
@@ -1570,6 +1590,35 @@ describe('utils/roll-requests', () => {
           secret: false,
         },
       ],
+      [
+        10,
+        {
+          link: {
+            kind: 'check',
+            n: 10,
+            checks: [
+              { type: 'skill', ability: 'str', key: 'ath' },
+              { type: 'skill', ability: 'dex', key: 'ste' },
+              { type: 'tool', ability: 'dex', key: 'thief' },
+              { type: 'tool', ability: 'int', key: 'herb' },
+              { type: 'check', ability: 'int' },
+            ],
+            dc: 15,
+          },
+          secret: false,
+        },
+      ],
+      [
+        11,
+        {
+          link: {
+            kind: 'check',
+            n: 11,
+            checks: [{ type: 'check', ability: 'wis' }],
+          },
+          secret: true,
+        },
+      ],
     ])
     const linked = (fields: Partial<RollRequestInput>) =>
       request({
@@ -1665,6 +1714,71 @@ describe('utils/roll-requests', () => {
     it('still refuses a saving throw with an ability the sheet has not, first', () => {
       expect(check(linked({ kind: 'save', key: 'luck' }))).toBe('unknown')
     })
+
+    it('lets the table be asked for a check a description on the sheet calls for, but never one in a secret', () => {
+      expect(check(linked({ link: 10 }))).toBeUndefined()
+      expect(check(linked({ link: 11 }))).toBe('secret')
+    })
+
+    /** The player's own check, of this kind and key, from link 10 unless said. */
+    const own = (kind: 'skill' | 'tool' | 'ability', key: string, link = 10) =>
+      check(linked({ kind, key, link, dice: [{ faces: 20, results: [12] }] }))
+
+    it("lets the player roll their own check a description calls for, each way it may be made, a secret's too", () => {
+      expect(own('skill', 'ath')).toBeUndefined()
+      expect(own('skill', 'ste')).toBeUndefined()
+      expect(own('tool', 'thief')).toBeUndefined()
+      expect(own('ability', 'int')).toBeUndefined()
+      expect(own('ability', 'wis', 11)).toBeUndefined()
+    })
+
+    it('lets a tool check a description calls for be rolled with a tool the character hasn’t, as dnd5e makes one', () => {
+      const herb = linked({ kind: 'tool', key: 'herb', link: 10 })
+
+      expect(check(herb)).toBeUndefined()
+      // Not one the description doesn't call for, which the sheet doesn't list either.
+      expect(check({ ...herb, text: undefined, link: undefined })).toBe(
+        'unknown',
+      )
+    })
+
+    it.each([
+      ['a skill it does not name', { kind: 'skill', key: 'prc' }],
+      ['a tool it does not name', { kind: 'tool', key: 'disg' }],
+      ['an ability check it does not name', { kind: 'ability', key: 'str' }],
+      [
+        'a skill, where it names only an ability',
+        { kind: 'skill', key: 'prc', link: 11 },
+      ],
+      ['a skill as a tool', { kind: 'tool', key: 'ath' }],
+      ['a check of a save', { kind: 'ability', key: 'dex', link: 0 }],
+      ['a check of damage', { kind: 'skill', key: 'ath', link: 3 }],
+      ['a check of a link it has not', { kind: 'skill', key: 'ath', link: 9 }],
+      ['a save of a check', { kind: 'save', key: 'int', link: 10 }],
+    ] as const)("refuses the player's own check of %s", (_name, fields) => {
+      expect(check(linked({ link: 10, ...fields }))).toBe('link')
+    })
+
+    it('still refuses a check with a skill or ability the sheet has not, first', () => {
+      expect(check(linked({ kind: 'skill', key: 'acr', link: 10 }))).toBe(
+        'unknown',
+      )
+      expect(check(linked({ kind: 'ability', key: 'luck', link: 10 }))).toBe(
+        'unknown',
+      )
+    })
+
+    it.each([
+      ['a skill check', linked({ kind: 'skill', key: 'ath', link: 10 })],
+      ['a tool check', linked({ kind: 'tool', key: 'thief', link: 10 })],
+      ['an ability check', linked({ kind: 'ability', key: 'int', link: 10 })],
+    ])(
+      'refuses %s from a description no longer on the sheet, or not held here',
+      (_name, input) => {
+        expect(check({ ...input, text: 'ffffffffffffff' })).toBe('gone')
+        expect(checkRoll(input, fullerSheet(), [], 'actor-thorin')).toBe('gone')
+      },
+    )
 
     it("lets a description's damage be rolled with the dice its parts throw, each as a kind it offers, where chosen", () => {
       expect(check(textDamage())).toBeUndefined()
