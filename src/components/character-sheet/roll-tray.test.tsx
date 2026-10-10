@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RollTray, type TableRolls } from './roll-tray'
 import type {
+  LocalAsk,
   LocalCheck,
   LocalDamage,
   LocalFormula,
@@ -1245,6 +1246,235 @@ describe('components/character-sheet/roll-tray', () => {
       expect(
         screen.getByText(/They aren't sent to your Gamemaster's game/),
       ).toBeInTheDocument()
+    })
+  })
+
+  describe('from descriptions', () => {
+    const table = (states: [string, TableRollState][] = []): TableRolls => ({
+      states: new Map(states),
+      available: true,
+      sending: true,
+      setSending: jest.fn(),
+    })
+    const save = roll({
+      id: 's1',
+      label: 'Dexterity saving throw',
+      modifier: 1,
+      d20s: [13],
+      natural: 13,
+      total: 14,
+      dc: 15,
+      described: true,
+    })
+    const asked: LocalAsk = {
+      kind: 'ask',
+      id: 'a1',
+      label: 'DC 15 Dexterity saving throw',
+      at: 0,
+    }
+
+    it('says whether a saving throw made against its DC here was made, and that only the player sees it', () => {
+      const { rerender } = render(<RollTray rolls={[save]} rolling={false} />)
+
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent('d20 13 +1 · DC 15 · Failed')
+      expect(status).toHaveTextContent(/Only you see this roll$/)
+
+      rerender(
+        <RollTray
+          rolls={[{ ...save, total: 15, natural: 14, d20s: [14] }]}
+          rolling={false}
+        />,
+      )
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'd20 14 +1 · DC 15 · Saved',
+      )
+    })
+
+    it.each<[string, TableRollState, string]>([
+      [
+        'made there, by its total where the game says nothing of it',
+        { status: 'done', visible: true, total: 17 },
+        'd20 13 +1 · DC 15At the table: 17 · Saved',
+      ],
+      [
+        'made there, by a total that meets the DC',
+        { status: 'done', visible: true, total: 15 },
+        'd20 13 +1 · DC 15At the table: 15 · Saved',
+      ],
+      [
+        'made there, as the game says',
+        { status: 'done', visible: true, total: 14, outcome: 'failure' },
+        'd20 13 +1 · DC 15At the table: 14 · Failed',
+      ],
+      [
+        'hidden there',
+        { status: 'done', visible: false },
+        'd20 13 +1 · DC 15Rolled at the table, hidden by your Gamemaster',
+      ],
+      [
+        'on its way',
+        { status: 'sending' },
+        'd20 13 +1 · DC 15Sending to your Gamemaster’s game…',
+      ],
+      [
+        'not made there, by this roll',
+        { status: 'refused', reason: 'gone' },
+        'd20 13 +1 · DC 15 · FailedNot made at the table: it can’t be found in the game any more',
+      ],
+    ])(
+      'says whether a saving throw against its DC was made, %s',
+      (_, state, text) => {
+        render(
+          <RollTray
+            rolls={[save]}
+            rolling={false}
+            table={table([['s1', state]])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          `14Dexterity saving throw${text}`,
+          { normalizeWhitespace: false },
+        )
+        expect(screen.queryByText('Only you see this roll')).toBeNull()
+      },
+    )
+
+    it('says only the player sees damage or a roll from a description the game didn’t take', () => {
+      const { rerender } = render(
+        <RollTray
+          rolls={[damage({ described: true })]}
+          rolling={false}
+          table={table()}
+        />,
+      )
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /Only you see this roll$/,
+      )
+
+      rerender(
+        <RollTray
+          rolls={[hitDie({ described: true, healing: false })]}
+          rolling={false}
+          table={table()}
+        />,
+      )
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /Only you see this roll$/,
+      )
+
+      // Nor of a roll that isn't one, which the footer says of already.
+      rerender(<RollTray rolls={[damage()]} rolling={false} table={table()} />)
+      expect(screen.queryByText('Only you see this roll')).toBeNull()
+    })
+
+    it.each<[string, TableRollState | undefined, string]>([
+      [
+        'on its way',
+        { status: 'sending' },
+        'Sending to your Gamemaster’s game…',
+      ],
+      [
+        'being posted',
+        { status: 'rolling' },
+        'Posting it in your Gamemaster’s game…',
+      ],
+      [
+        'posted',
+        { status: 'done', visible: true, rolls: [] },
+        'Posted to the table’s chat',
+      ],
+      [
+        'asked a moment ago',
+        { status: 'failed', reason: 'busy' },
+        'Not posted to the table: the table was asked a moment ago. Wait a little before asking again',
+      ],
+      [
+        'in a secret',
+        { status: 'failed', reason: 'secret' },
+        'Not posted to the table: it’s in a secret part of the description',
+      ],
+      [
+        'no such link',
+        { status: 'failed', reason: 'link' },
+        'Not posted to the table: your Gamemaster’s game doesn’t find that in its description',
+      ],
+      [
+        'no longer on the sheet',
+        { status: 'refused', reason: 'gone' },
+        'Not posted to the table: it can’t be found in the game any more',
+      ],
+      ['not sent', undefined, 'Not posted to the table'],
+    ])('says where the table asked is when %s', (_, state, text) => {
+      render(
+        <RollTray
+          rolls={[asked]}
+          rolling={false}
+          table={table(state ? [['a1', state]] : [])}
+        />,
+      )
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        new RegExp(`^DC 15 Dexterity saving throw${text}$`),
+      )
+    })
+
+    it('marks earlier asks and saves against a DC with how they went at the table', async () => {
+      const user = userEvent.setup()
+      render(
+        <RollTray
+          rolls={[roll({ id: 'r9' }), asked, { ...asked, id: 'a2' }, save]}
+          rolling={false}
+          table={table([
+            ['a1', { status: 'done', visible: true }],
+            ['a2', { status: 'failed', reason: 'busy' }],
+            ['s1', { status: 'done', visible: true, total: 18 }],
+          ])}
+        />,
+      )
+
+      await user.click(screen.getByText('Earlier rolls (3)'))
+
+      expect(
+        screen.getAllByRole('listitem').map(item => item.textContent),
+      ).toEqual([
+        'DC 15 Dexterity saving throwasked· posted',
+        'DC 15 Dexterity saving throwasked· not posted',
+        'Dexterity saving throw13 +1 = 14· table 18, saved',
+      ])
+    })
+
+    it('marks earlier saves against a DC the game didn’t make with whether they were made here, and one it made by a total meeting the DC as saved', async () => {
+      const user = userEvent.setup()
+      const made = { ...save, id: 's2', natural: 14, d20s: [14], total: 15 }
+      render(
+        <RollTray
+          rolls={[
+            roll({ id: 'r9' }),
+            save,
+            made,
+            { ...save, id: 's3' },
+            { ...made, id: 's4' },
+          ]}
+          rolling={false}
+          table={table([
+            ['s3', { status: 'refused', reason: 'gone' }],
+            ['s4', { status: 'done', visible: true, total: 15 }],
+          ])}
+        />,
+      )
+
+      await user.click(screen.getByText('Earlier rolls (4)'))
+
+      expect(
+        screen.getAllByRole('listitem').map(item => item.textContent),
+      ).toEqual([
+        'Dexterity saving throw13 +1 = 14· DC 15, failed',
+        'Dexterity saving throw14 +1 = 15· DC 15, saved',
+        'Dexterity saving throw13 +1 = 14· DC 15, failed· not at the table',
+        'Dexterity saving throw14 +1 = 15· table 15, saved',
+      ])
     })
   })
 })

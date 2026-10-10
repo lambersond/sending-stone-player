@@ -306,6 +306,7 @@ export function ItemEntry({
       meta={meta}
       facts={facts}
       text={item.text}
+      origin={{ name: item.name, item: item.id }}
     >
       {container && (
         <Contents characterId={characterId} container={container} rows={rows} />

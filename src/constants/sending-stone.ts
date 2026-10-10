@@ -54,7 +54,9 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
  * ability check, a saving throw, a death saving throw, or initiative; and, where the Gamemaster
  * lets them, an attack, or the use of a spell or feature, then its damage or healing; a hit die
- * spent, or a feature's own formula, such as a light's radius (module 0.16.0).
+ * spent, or a feature's own formula, such as a light's radius (module 0.16.0); and from a link in
+ * a description, the table asked for the saving throw it calls for, its damage or healing, or a
+ * roll of its own (module 0.17.0).
  */
 export const ROLL_KINDS = [
   'skill',
@@ -68,6 +70,9 @@ export const ROLL_KINDS = [
   'damage',
   'hitDie',
   'formula',
+  'ask',
+  'textDamage',
+  'textRoll',
 ] as const
 
 /**
@@ -144,3 +149,10 @@ export const ROLLS_KEPT_FOR = 86_400_000
 /** How many of a character's rolls may be on their way to the game at once, and in a minute. */
 export const ROLLS_IN_FLIGHT = 3
 export const ROLLS_PER_MINUTE = 20
+
+/**
+ * How many times a minute a character may ask the table for a saving throw a description calls
+ * for, on top of those: each ask is a card in everyone's chat. Asks the game didn't make don't
+ * count.
+ */
+export const ASKS_PER_MINUTE = 3

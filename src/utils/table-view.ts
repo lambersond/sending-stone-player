@@ -4,6 +4,7 @@ import type {
   CombatantSummary,
   CombatSnapshot,
   Dnd5eMessageData,
+  MessageAsk,
   RollSummary,
   SerializedMessage,
   SheetContainer,
@@ -13,6 +14,7 @@ import type {
 import type {
   Side,
   TableAction,
+  TableAsk,
   TableCombat,
   TableMessage,
   TableRoll,
@@ -76,6 +78,11 @@ export function toTableMessage(
   if (rolls.length > 0) kind = 'roll'
   else if (isCard) kind = 'card'
   const action = combatAction(message, rolls)
+  // A roll request card stays text, for pages that don't read its ask, but never its own text,
+  // which may hold a DC players may not see.
+  const ask = kind === 'text' ? askOf(message) : undefined
+  let text = kind === 'text' ? message.text.trim() || undefined : undefined
+  if (ask) text = askTitle({ ...ask, dc: undefined })
 
   return {
     id: message.id,
@@ -90,7 +97,7 @@ export function toTableMessage(
     label: messageLabel(message),
     action,
     // A roll's or card's content is its rendering; their details are shown instead.
-    text: kind === 'text' ? message.text.trim() || undefined : undefined,
+    text,
     rolls,
     targets: toTargets(
       message.dnd5e?.targets.length
@@ -98,7 +105,101 @@ export function toTableMessage(
         : (inheritedTargets ?? []),
       action === 'attack' || action === 'spell-attack' ? rolls[0] : undefined,
     ),
+    ...(ask && { ask }),
   }
+}
+
+/**
+ * The saving throw a roll request card asks the table for: as the module says, from 0.17.0; or,
+ * from an older module, which doesn't, as a Gamemaster's card's own buttons say, without its DC,
+ * which players may not be meant to see.
+ */
+function askOf(message: SerializedMessage): TableAsk | undefined {
+  if (message.ask !== undefined) return tableAsk(message.ask)
+  return requestCardAsk(message)
+}
+
+/**
+ * The module's ask, as stored. Checked when it was received, but checked again here, as one stored
+ * before then may not have been: its abilities only dnd5e's own, its DC a number, and what asks a
+ * name.
+ */
+function tableAsk(ask: MessageAsk | null): TableAsk | undefined {
+  if (!ask || (ask.type !== 'save' && ask.type !== 'concentration')) return
+  const abilities = Array.isArray(ask.abilities)
+    ? ask.abilities.filter(id => isAbility(id))
+    : []
+  if (ask.type === 'save' && abilities.length === 0) return
+  const { dc, label } = ask
+  return {
+    type: ask.type,
+    abilities,
+    ...(Number.isInteger(dc) && { dc }),
+    ...(typeof label === 'string' && label.trim() && { label: label.trim() }),
+  }
+}
+
+/**
+ * The saving throw an older module's roll request card asks for, read from its buttons, as dnd5e
+ * makes them: those that request a save, or a concentration check, by ability. Only a card spoken
+ * by no character, as dnd5e posts a Gamemaster's, is read so: the app isn't told who is a
+ * Gamemaster, and a card a player wrote names its writer anyway. Never its DC.
+ */
+function requestCardAsk(message: SerializedMessage): TableAsk | undefined {
+  const { content } = message
+  if (message.character || message.speaker.actorId) return
+  if (typeof content !== 'string' || !content.includes('rollRequest')) return
+  const buttons = [...content.matchAll(/<button\b([^>]*)>/gi)]
+    .map(([, attributes]) => dataOf(attributes))
+    .filter(
+      data =>
+        data.get('action') === 'rollRequest' &&
+        (data.get('type') === 'save' || data.get('type') === 'concentration'),
+    )
+  const type = buttons[0]?.get('type') as TableAsk['type'] | undefined
+  if (!type) return
+  const abilities = buttons.flatMap(data => {
+    const ability = data.get('ability')
+    return data.get('type') === type && ability && isAbility(ability)
+      ? [ability]
+      : []
+  })
+  if (type === 'save' && abilities.length === 0) return
+  return { type, abilities: [...new Set(abilities)] }
+}
+
+/** An element's data attributes, by name without "data-", from its opening tag's attributes. */
+function dataOf(attributes: string): Map<string, string> {
+  return new Map(
+    [
+      ...attributes.matchAll(/\bdata-([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g),
+    ].map(([, name, double, single]) => [name, double ?? single ?? '']),
+  )
+}
+
+/** Is this one of dnd5e's abilities' ids, and not a name any object answers to? */
+function isAbility(id: unknown): id is string {
+  return typeof id === 'string' && Object.hasOwn(ABILITIES, id)
+}
+
+/**
+ * What a roll request card asks for, in words: such as "DC 15 Dexterity saving throw", "Strength
+ * or Dexterity saving throw", or "DC 10 Concentration check", naming its ability where it isn't
+ * Constitution.
+ */
+export function askTitle(ask: Pick<TableAsk, 'type' | 'abilities' | 'dc'>) {
+  const dc = ask.dc === undefined ? '' : `DC ${ask.dc} `
+  const names = ask.abilities
+    .filter(id => isAbility(id))
+    .map(id => ABILITIES[id])
+  if (ask.type === 'concentration') {
+    const [ability] = ask.abilities
+    return ability && ability !== 'con' && names[0]
+      ? `${dc}Concentration check (${names[0]})`
+      : `${dc}Concentration check`
+  }
+  const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(names)
+  return `${dc}${list} saving throw`
 }
 
 const HEALING = new Set(['healing', 'temphp'])
@@ -188,9 +289,16 @@ function messageLabel(message: SerializedMessage): string | undefined {
         break
       }
       // Whether it was an attack, damage or healing is shown beside the item's name.
-      case 'attack':
+      case 'attack': {
+        if (item) return item
+        break
+      }
+      // Damage from a description, which no activity rolls, is named for where it's from, as its
+      // card's flavor names it: a spell an item casts, by the spell's name and the item's.
       case 'damage':
       case 'healing': {
+        const origin = dnd5e?.activity ? undefined : originOf(message.flavor)
+        if (origin) return origin
         if (item) return item
         break
       }
@@ -213,6 +321,17 @@ function messageLabel(message: SerializedMessage): string | undefined {
 
 const textOf = (value: unknown) =>
   typeof value === 'string' ? value.trim() || undefined : undefined
+
+/**
+ * Where damage rolled from a description is from, as its card's flavor names it before dnd5e's
+ * own words for the roll: "Starry Wisp (Worn Bardic Eternal Flame)", of "Starry Wisp (Worn Bardic
+ * Eternal Flame) - Damage Roll". None for a flavor not made so.
+ */
+function originOf(flavor: string): string | undefined {
+  const text = htmlToText(flavor) ?? ''
+  const end = text.lastIndexOf(' - ')
+  return end > 0 ? text.slice(0, end) : undefined
+}
 
 const ENTITIES: Record<string, string> = {
   amp: '&',

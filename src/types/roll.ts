@@ -23,13 +23,14 @@ export type RollFeature = (typeof ROLL_FEATURES)[number]
 /**
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
  * tool's key, an ability check or saving throw by the ability's, and for a saving throw the game
- * asked for, the prompt it answers; a death saving throw, initiative in a combat, or an attack with
- * an item's attack activity, at a combatant, or none, or for an area attack at those in its area,
- * with the spell slot, ammunition and attack mode chosen.
+ * asked for, the prompt it answers, or for one a description calls for, its link; a death saving
+ * throw, initiative in a combat, or an attack with an item's attack activity, at a combatant, or
+ * none, or for an area attack at those in its area, with the spell slot, ammunition and attack
+ * mode chosen.
  */
 export type RollSource =
   | { kind: 'skill' | 'tool' | 'ability'; key: string }
-  | { kind: 'save'; key: string; prompt?: string }
+  | ({ kind: 'save'; key: string; prompt?: string } & Partial<TextLink>)
   | { kind: 'death' }
   | { kind: 'initiative'; combatId: string }
   | ({
@@ -64,12 +65,20 @@ export type UseSource = {
 }
 
 /**
- * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or an
- * item's activity's own formula, such as a light's radius.
+ * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", an
+ * item's activity's own formula, such as a light's radius, or a description's own roll, by its
+ * link.
  */
 export type FormulaSource =
   | { kind: 'hitDie'; denomination: string }
   | { kind: 'formula'; item: string; activity: string }
+  | ({ kind: 'textRoll' } & TextLink)
+
+/**
+ * A link in one of the character's descriptions the game acts on, by which the game finds what it
+ * asks for in its own copy: the description's hash, and the link's number in it.
+ */
+export type TextLink = { text: string; link: number }
 
 /** The combatant an attack, or a use, is made at, in the combat its player sees. */
 export type AttackTarget = { combatId: string; combatantId: string }
@@ -114,6 +123,13 @@ export type RollRequestInput = {
   prompt?: string
   /** For a hit die, its size, such as "d10". */
   denomination?: string
+  /**
+   * From a link in a description: the description's hash, for an ask, a description's damage or
+   * roll, or a saving throw it calls for, the player's own.
+   */
+  text?: string
+  /** The link's number in that description. */
+  link?: number
 }
 
 /**

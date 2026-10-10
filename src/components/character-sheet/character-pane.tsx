@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
 import {
@@ -17,13 +17,23 @@ import { actionTitle, verbOf, type TableDamage } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet, classLine } from './character-sheet'
+import {
+  ConditionsOpener,
+  rulesOf,
+  useConditionsPanel,
+  type ShowConditions,
+} from './conditions-panel'
+import {
+  DescriptionLinks,
+  type DescriptionActions,
+} from './description-actions'
 import { EffectsTab } from './effects-tab'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { PromptBanner } from './prompt-banner'
-import { RollTray } from './roll-tray'
+import { REASONS, RollTray } from './roll-tray'
 import { SpellsTab } from './spells-tab'
 import { asks, UsePicker, type Picked, type Picking } from './use-picker'
 import { Scroller } from '@/components/scroller'
@@ -131,10 +141,13 @@ function RollingSheet({
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const waiting = useWaitingPrompts(prompts)
-  // Once the player answers what the game asked, the tray shows its roll whichever tab is open.
+  // Once the player answers what the game asked, or rolls from a description, the tray shows its
+  // roll whichever tab is open, Effects and Biography among them.
   const [prompted, setPrompted] = useState(false)
-  const { roll, rollDamage, rollFormula, logUse, rolls, rolling } =
+  const [described, setDescribed] = useState(false)
+  const { roll, rollDamage, rollFormula, logUse, logAsk, rolls, rolling } =
     useSheetRoller(table.send, table.sendDamage, table.sendFormula)
+  const conditions = useConditionsPanel(sheet.conditions)
   // An attack or a use made at the table, while its player picks whom at, and with what.
   const [picking, setPicking] = useState<Picking>()
   const [lastTarget, setLastTarget] = useState<string>()
@@ -328,7 +341,10 @@ function RollingSheet({
   // Rolls are made from the Character, Actions, Inventory, Spells and Features tabs, and from
   // favorites, so the tray shows there; the rolls stay.
   const showsRolls =
-    ROLLING.has(tab) || (showsFavorites && rollsAny(entries)) || prompted
+    ROLLING.has(tab) ||
+    (showsFavorites && rollsAny(entries)) ||
+    prompted ||
+    described
   const handlers = {
     onRoll,
     onRollDamage,
@@ -336,9 +352,52 @@ function RollingSheet({
     onUse: using,
     tableDamage,
   }
+  // What the links in descriptions do, on every tab, favorite and dialog: each roll they make,
+  // and the table asked, shows in the tray, whichever tab it's on.
+  const descriptions: DescriptionActions = {
+    roll: request => {
+      setDescribed(true)
+      onRoll(request)
+    },
+    rollDamage: request => {
+      setDescribed(true)
+      void rollDamage(request)
+    },
+    rollFormula: request => {
+      setDescribed(true)
+      void rollFormula(request)
+    },
+    takes: table.takes,
+    ask: ({ label, text, link }) => {
+      if (!table.takes('ask')) return
+      setDescribed(true)
+      table.sendAsk(logAsk(label), { text, link })
+    },
+    askBlocked: askBlocked(table, rollsToTable),
+    // Where only this device's switch keeps the table from being asked, a way to turn it on, as
+    // the tray's switch may not be on the tab.
+    ...(table.available &&
+      !table.sending &&
+      rollsToTable?.includes('ask') && {
+        sendRolls: () => table.setSending(true),
+      }),
+    abilities: sheet.abilities,
+    conditions: sheet.conditions,
+    rules: sheet.rules,
+    showConditions: conditions.show,
+  }
+  // A condition's chip opens its rules, where the app has them; else its place in Effects.
+  const showCondition = (id: string) => {
+    if (rulesOf(id)) conditions.show(id)
+    else show('effects')
+  }
 
   return (
-    <FavoriteMarks keys={marks}>
+    <SheetContext
+      marks={marks}
+      showConditions={conditions.show}
+      descriptions={descriptions}
+    >
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
           labels don't fit. */}
       <div className='@container flex h-11 shrink-0 items-center gap-3 border-b border-border px-3 md:px-6 lg:px-7'>
@@ -414,7 +473,7 @@ function RollingSheet({
                 onRoll={onRoll}
                 onRollFormula={onRollFormula}
                 spendsAtTable={spendsAtTable}
-                onShowConditions={() => show('effects')}
+                onShowConditions={showCondition}
               />
             )}
             {tab === 'actions' && (
@@ -457,7 +516,11 @@ function RollingSheet({
               />
             )}
             {tab === 'biography' && (
-              <BiographyTab characterId={characterId} sheet={sheet} />
+              <BiographyTab
+                characterId={characterId}
+                name={name}
+                sheet={sheet}
+              />
             )}
           </div>
         </Scroller>
@@ -478,6 +541,48 @@ function RollingSheet({
         onPick={pick}
         onClose={() => setPicking(undefined)}
       />
+      {conditions.panel}
+    </SheetContext>
+  )
+}
+
+/**
+ * What every part of the sheet inside knows of it: which of what it lists are favorites, how to
+ * open its conditions panel, and what the links in its descriptions do.
+ */
+function SheetContext({
+  marks,
+  showConditions,
+  descriptions,
+  children,
+}: Readonly<{
+  marks: ReadonlySet<string>
+  showConditions: ShowConditions
+  descriptions: DescriptionActions
+  children: ReactNode
+}>) {
+  return (
+    <FavoriteMarks keys={marks}>
+      <ConditionsOpener show={showConditions}>
+        <DescriptionLinks actions={descriptions}>{children}</DescriptionLinks>
+      </ConditionsOpener>
     </FavoriteMarks>
   )
+}
+
+/**
+ * Why the table can't be asked for a saving throw a description calls for from here now, as the
+ * tray says why a roll wasn't made; nothing while it can be.
+ * @param kinds - The rolls the game takes now.
+ */
+function askBlocked(
+  table: ReturnType<typeof useTableRolls>,
+  kinds: readonly RollKind[] = [],
+): string | undefined {
+  if (table.takes('ask')) return undefined
+  if (!table.available) return REASONS.unavailable
+  if (!kinds.includes('ask')) {
+    return 'your Gamemaster’s game can’t be asked from Sending Stone yet'
+  }
+  return 'this device doesn’t send your rolls to the table'
 }

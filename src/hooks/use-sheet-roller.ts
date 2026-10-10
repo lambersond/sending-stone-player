@@ -12,7 +12,7 @@ import {
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { withModifiers, type DamageModifiers } from '@/utils/damage-modifiers'
 import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
-import type { FormulaSource, RollSource } from '@/types/roll'
+import type { FormulaSource, RollSource, TextLink } from '@/types/roll'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -47,6 +47,8 @@ export type SheetRoll = {
   explicit?: boolean
   /** For an area attack, the names of the combatants it's made at, by their ids. */
   targetNames?: Record<string, string>
+  /** For a saving throw a description calls for, the DC it names, which it's made against. */
+  dc?: number
 }
 
 /** Damage or healing from the character's sheet, such as a weapon's. */
@@ -76,6 +78,8 @@ export type SheetDamageRoll = {
    * doubled dice take two.
    */
   perDie?: number
+  /** For damage or healing a description deals, its link, for the game to roll it too. */
+  text?: TextLink
 }
 
 /**
@@ -118,6 +122,10 @@ export type LocalCheck = {
   /** The d20 that counts. */
   natural: number
   extras: LocalExtra[]
+  /** For a saving throw a description calls for, the DC it names. */
+  dc?: number
+  /** Rolled from a link in a description. */
+  described?: boolean
   at: number
 }
 
@@ -133,6 +141,8 @@ export type LocalDamage = {
   maximized?: boolean
   /** Each part of the formula, with what it came to. */
   parts: { type: string | null; total: number; terms: LocalExtra[] }[]
+  /** Rolled from a link in a description. */
+  described?: boolean
   at: number
 }
 
@@ -161,13 +171,28 @@ export type LocalFormula = {
   terms: LocalExtra[]
   /** The least it comes to, when its dice and numbers came to less. */
   minimum?: number
+  /** Rolled from a link in a description. */
+  described?: boolean
   at: number
 }
 
-/** A roll as this page keeps it, or a use. */
-export type LocalRoll = LocalCheck | LocalDamage | LocalUse | LocalFormula
+/**
+ * The table asked for a saving throw a description calls for, as this page keeps it: it throws no
+ * dice, but follows its way to the game.
+ */
+export type LocalAsk = {
+  kind: 'ask'
+  id: string
+  /** What was asked for, such as "DC 15 Dexterity saving throw". */
+  label: string
+  at: number
+}
 
-/** How many uses this page has kept, for their ids. */
+/** A roll as this page keeps it, or a use, or an ask. */
+export type LocalRoll =
+  LocalCheck | LocalDamage | LocalUse | LocalFormula | LocalAsk
+
+/** How many uses and asks this page has kept, for their ids. */
 let uses = 0
 
 /**
@@ -233,6 +258,10 @@ export function useSheetRoller(
         ? { ...result, pools: [...result.pools, ...extra.pools] }
         : result
       const check = toLocalRoll(label, result, extras, extra)
+      if (request.dc !== undefined) check.dc = request.dc
+      if (request.source?.kind === 'save' && request.source.text) {
+        check.described = true
+      }
       onThrown?.(request, check)
       await land(thrown, check)
     },
@@ -275,6 +304,7 @@ export function useSheetRoller(
         doubled,
         maximized,
       })
+      if (request.text) damage.described = true
       onDamageThrown?.({ ...request, parts }, damage)
       await land(result, damage)
     },
@@ -313,6 +343,7 @@ export function useSheetRoller(
         healing,
         terms: kept,
         ...(total !== sum && { minimum }),
+        ...(request.source?.kind === 'textRoll' && { described: true }),
         at: result.at,
       }
       onFormulaThrown?.(request, rolled)
@@ -334,11 +365,24 @@ export function useSheetRoller(
     return used
   }, [])
 
+  // Keeps the table asked for a saving throw, first among the rolls.
+  const logAsk = useCallback((label: string): LocalAsk => {
+    const asked: LocalAsk = {
+      kind: 'ask',
+      id: `ask-${Date.now()}-${++uses}`,
+      label,
+      at: Date.now(),
+    }
+    setRolls(earlier => keeping(earlier, asked))
+    return asked
+  }, [])
+
   return {
     roll,
     rollDamage,
     rollFormula,
     logUse,
+    logAsk,
     rolls,
     rolling: inFlight > 0,
   }

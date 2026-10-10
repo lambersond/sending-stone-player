@@ -41,7 +41,10 @@ export type TableMessage = {
   avatar?: string
   side: Side
   whisper: boolean
-  /** text: something said; roll: one or more rolls; card: an item or ability used. */
+  /**
+   * text: something said, or a roll request card, with a line of text for pages that don't read
+   * its ask; roll: one or more rolls; card: an item or ability used.
+   */
   kind: 'text' | 'roll' | 'card'
   /** What the message is about, such as "Longsword" or "Perception check". */
   label?: string
@@ -50,6 +53,23 @@ export type TableMessage = {
   text?: string
   rolls: TableRoll[]
   targets: TableTarget[]
+  /** For a roll request card, the saving throw it asks the table for. */
+  ask?: TableAsk
+}
+
+/**
+ * The saving throw a roll request card in the chat asks the table for, such as "DC 15 Dexterity
+ * saving throw", from a description: by the Gamemaster, or by a player from the app, naming what
+ * asks for it.
+ */
+export type TableAsk = {
+  type: 'save' | 'concentration'
+  /** The abilities it may be rolled with, such as ["dex"]; for concentration, the one it names. */
+  abilities: string[]
+  /** Unset where players may not see it. */
+  dc?: number
+  /** What asks for it, such as "Worn Bardic Eternal Flame". */
+  label?: string
 }
 
 export type TableCombatant = {

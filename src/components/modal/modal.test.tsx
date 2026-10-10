@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfirmDialog } from './confirm-dialog'
 import { Modal } from './modal'
+import { usePortalRoot, useTopmostEscape } from './portal-root'
+import { SidePanel } from '@/components/side-panel'
 
 describe('components/modal', () => {
   it('opens and closes the dialog, rendering its content only while open', () => {
@@ -136,5 +138,76 @@ describe('components/modal/confirm-dialog', () => {
 
     expect(onConfirm).not.toHaveBeenCalled()
     expect(dialog).not.toHaveAttribute('open')
+  })
+
+  it('has Escape close only a menu or tooltip open inside it, cancelling the key, which the browser would otherwise take as a request to close it too', async () => {
+    const user = userEvent.setup()
+    const pressed: KeyboardEvent[] = []
+    const keep = (event: KeyboardEvent) => pressed.push(event)
+    globalThis.addEventListener('keydown', keep, true)
+    function Tip({ open }: Readonly<{ open: boolean }>) {
+      useTopmostEscape(open)
+      return <button type='button'>Prone</button>
+    }
+    const { rerender } = render(
+      <Modal open onClose={jest.fn()} title='Starry Wisp'>
+        <Tip open />
+      </Modal>,
+    )
+    screen.getByRole('button', { name: 'Prone' }).focus()
+
+    await user.keyboard('{Escape}')
+    expect(pressed.at(-1)?.defaultPrevented).toBe(true)
+
+    rerender(
+      <Modal open onClose={jest.fn()} title='Starry Wisp'>
+        <Tip open={false} />
+      </Modal>,
+    )
+    await user.keyboard('{Escape}')
+    expect(pressed.at(-1)?.defaultPrevented).toBe(false)
+    // Other keys are never cancelled.
+    rerender(
+      <Modal open onClose={jest.fn()} title='Starry Wisp'>
+        <Tip open />
+      </Modal>,
+    )
+    await user.keyboard('{Enter}')
+    expect(pressed.at(-1)).toMatchObject({
+      key: 'Enter',
+      defaultPrevented: false,
+    })
+    globalThis.removeEventListener('keydown', keep, true)
+  })
+
+  it('has menus and tooltips opened inside it open inside it, as the page behind is inert', () => {
+    const roots: (HTMLElement | null | undefined)[] = []
+    function Opener() {
+      roots.push(usePortalRoot())
+      return <p>Opener</p>
+    }
+    render(
+      <>
+        <Opener />
+        <Modal open onClose={jest.fn()} title='Starry Wisp'>
+          <Opener />
+        </Modal>
+        <SidePanel open onClose={jest.fn()} title='Conditions'>
+          <Opener />
+        </SidePanel>
+      </>,
+    )
+
+    // Outside any dialog, the page; inside each, its dialog, once it's there.
+    expect(roots[0]).toBeUndefined()
+    expect(roots.at(-2)).toBe(
+      screen.getByRole('dialog', { name: 'Starry Wisp' }),
+    )
+    expect(roots.at(-1)).toBe(
+      screen.getByRole('dialog', { name: 'Conditions' }),
+    )
+    expect(screen.getByRole('dialog', { name: 'Starry Wisp' })).toHaveClass(
+      'overflow-visible',
+    )
   })
 })

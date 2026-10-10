@@ -109,6 +109,9 @@ export function FeaturesTab({
                 name={`About ${originName(sheet, section.id) ?? 'this'}`}
                 fallback={BookOpen}
                 text={section.text}
+                origin={{
+                  name: originName(sheet, section.id) ?? section.label,
+                }}
               />
             )}
             {section.features.map(feature => (
@@ -164,6 +167,7 @@ export function FeatureEntry({
       aside={feature.uses && <UsesLeft uses={feature.uses} />}
       meta={meta}
       text={feature.text}
+      origin={{ name: feature.name, item: feature.id }}
     />
   )
 }

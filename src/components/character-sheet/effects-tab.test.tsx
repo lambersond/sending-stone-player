@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { ConditionsOpener } from './conditions-panel'
 import { EffectsTab } from './effects-tab'
 import { FavoriteMarks } from './favorite-mark'
 import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
@@ -123,5 +124,25 @@ describe('components/character-sheet/effects-tab', () => {
           screen.getByRole('heading', { name: 'Conditions' }),
         ),
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('opens the sheet’s own conditions panel, where it has one, and none of its own', async () => {
+    const user = userEvent.setup()
+    const show = jest.fn()
+    render(
+      <ConditionsOpener show={show}>
+        <EffectsTab
+          characterId='char-1'
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        />
+      </ConditionsOpener>,
+    )
+
+    expect(document.querySelector('dialog')).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: 'Every condition and its rules' }),
+    )
+
+    expect(show).toHaveBeenCalledWith()
   })
 })

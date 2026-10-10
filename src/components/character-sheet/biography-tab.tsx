@@ -6,12 +6,19 @@ import type { TableSheet } from '@/types/table'
 
 /**
  * Who the character is, as dnd5e's Biography tab tells it: alignment, age and the like, their
- * experience, their personality and appearance, and their story.
+ * experience, their personality and appearance, and their story. A roll in their story is named
+ * for the character, as the game names it.
  */
 export function BiographyTab({
   characterId,
+  name,
   sheet,
-}: Readonly<{ characterId: string; sheet: TableSheet }>) {
+}: Readonly<{
+  characterId: string
+  /** The character's name. */
+  name: string
+  sheet: TableSheet
+}>) {
   const { about, personality, appearance, xp, biography } = sheet.details
   const empty =
     about.length === 0 &&
@@ -79,7 +86,11 @@ export function BiographyTab({
         >
           <SheetHeading id='biography-heading'>Biography</SheetHeading>
           <div className='rounded-2xl border border-border bg-card px-4 py-3'>
-            <SheetText characterId={characterId} hash={biography} />
+            <SheetText
+              characterId={characterId}
+              hash={biography}
+              origin={{ name }}
+            />
           </div>
         </section>
       )}

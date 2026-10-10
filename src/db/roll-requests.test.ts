@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 /* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
 import { prismaMock } from '../../jest.setup'
 import {
@@ -8,12 +11,14 @@ import {
   notePlayersSeen,
   recordCommandResult,
 } from './roll-requests'
+import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import {
   characterSheet,
   combat,
   combatant,
   fullerSheet,
   sheetAction,
+  TEXTS,
 } from '@/mocks/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -826,6 +831,189 @@ describe('db/roll-requests', () => {
         reason: 'unavailable',
       })
       expect(prismaMock.rollRequest.create).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('createRollRequest, from a link in a description', () => {
+    /**
+     * Second Wind's description, as held: a save the table may be asked for, one in a secret,
+     * damage, and a roll of its own.
+     */
+    const described = sanitizeSheetHtml(
+      '<p>Each creature makes a <span class="ss-save roll" data-n="0" data-ability="dex" data-dc="15">DC 15 Dexterity</span> saving throw, taking ' +
+        '<span class="ss-damage roll" data-n="1" data-formulas="2d6&amp;1d4" data-types="fire|cold&amp;">2d6 fire or cold and 1d4</span> damage, ' +
+        'and <span class="ss-roll roll" data-n="2" data-formula="1d6 + 2">1d6 + 2</span> more.</p>' +
+        '<section class="secret"><p>Or a <span class="ss-save roll" data-n="3" data-ability="wis">Wisdom</span> saving throw.</p></section>',
+      'https://my-game.forge-vtt.com',
+    )
+    const linked: RollRequestInput = {
+      kind: 'ask',
+      text: TEXTS.secondWind,
+      link: 0,
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    const given = ({ html = described as string | null, asks = 0 } = {}) => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...takingRolls,
+        rollKinds: ['save', 'ask', 'textDamage', 'textRoll'],
+      } as any)
+      prismaMock.actorSheet.findUnique.mockResolvedValue({
+        data: fullerSheet(),
+      } as any)
+      prismaMock.sheetText.findUnique.mockResolvedValue(
+        html === null ? null : ({ html } as any),
+      )
+      prismaMock.rollRequest.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(asks)
+      prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+    }
+
+    it('asks the table for a save a description on the sheet calls for, as held', async () => {
+      given()
+
+      await expect(createRollRequest(character, linked)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.sheetText.findUnique).toHaveBeenCalledWith({
+        where: { campaignHash: { campaignId: 'c1', hash: TEXTS.secondWind } },
+        select: { html: true },
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'ask', payload: linked }),
+        select: { id: true },
+      })
+    })
+
+    it('counts the asks the game made or may yet make in the last minute, at most three', async () => {
+      given()
+      await createRollRequest(character, linked)
+
+      expect(prismaMock.rollRequest.count).toHaveBeenCalledTimes(3)
+      expect(prismaMock.rollRequest.count).toHaveBeenLastCalledWith({
+        where: {
+          characterId: 'char-1',
+          kind: 'ask',
+          status: { in: ['pending', 'claimed', 'done'] },
+          createdAt: { gt: ago(60_000) },
+        },
+      })
+
+      given({ asks: 3 })
+      await expect(createRollRequest(character, linked)).resolves.toEqual({
+        status: 429,
+        reason: 'busy',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledTimes(1)
+    })
+
+    it('counts no asks for any other roll, and looks up no description for one without a link', async () => {
+      given()
+      await createRollRequest(character, {
+        kind: 'save',
+        key: 'dex',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 20, results: [11] }],
+      })
+
+      expect(prismaMock.rollRequest.count).toHaveBeenCalledTimes(2)
+      expect(prismaMock.sheetText.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).toHaveBeenCalled()
+    })
+
+    it.each([
+      ['a link in a secret', { link: 3 }, 'secret'],
+      ['damage', { link: 1 }, 'link'],
+      ['a link the description has not', { link: 9 }, 'link'],
+      ['a description not on the sheet', { text: 'ffffffffffffff' }, 'gone'],
+    ])('refuses to ask the table for %s', async (_name, fields, reason) => {
+      given()
+
+      await expect(
+        createRollRequest(character, { ...linked, ...fields }),
+      ).resolves.toEqual({ status: 422, reason })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses a link in a description not held here', async () => {
+      given({ html: null })
+
+      await expect(createRollRequest(character, linked)).resolves.toEqual({
+        status: 422,
+        reason: 'gone',
+      })
+    })
+
+    it("rolls a player's own save a description calls for with an ability it names", async () => {
+      const save: RollRequestInput = {
+        ...linked,
+        kind: 'save',
+        key: 'dex',
+        dice: [{ faces: 20, results: [11] }],
+      }
+      given()
+      await expect(createRollRequest(character, save)).resolves.toEqual({
+        id: 'req-1',
+      })
+
+      given()
+      await expect(
+        createRollRequest(character, { ...save, key: 'str' }),
+      ).resolves.toEqual({ status: 422, reason: 'link' })
+    })
+
+    it("rolls a description's damage and roll with the dice their formulas throw", async () => {
+      const textDamage: RollRequestInput = {
+        ...linked,
+        kind: 'textDamage',
+        link: 1,
+        dice: [
+          { faces: 6, results: [2, 5] },
+          { faces: 4, results: [3] },
+        ],
+        types: ['cold'],
+      }
+      given()
+      await expect(createRollRequest(character, textDamage)).resolves.toEqual({
+        id: 'req-1',
+      })
+
+      given()
+      await expect(
+        createRollRequest(character, { ...textDamage, types: ['acid'] }),
+      ).resolves.toEqual({ status: 422, reason: 'type' })
+
+      const textRoll: RollRequestInput = {
+        ...linked,
+        kind: 'textRoll',
+        link: 2,
+        dice: [{ faces: 6, results: [4] }],
+      }
+      given()
+      await expect(createRollRequest(character, textRoll)).resolves.toEqual({
+        id: 'req-1',
+      })
+
+      given()
+      await expect(
+        createRollRequest(character, { ...textRoll, dice: [] }),
+      ).resolves.toEqual({ status: 422, reason: 'dice' })
+    })
+
+    it('refuses a link the game does not take', async () => {
+      given()
+      prismaMock.campaign.findUnique.mockResolvedValue(takingRolls as any)
+
+      await expect(createRollRequest(character, linked)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
     })
   })
 

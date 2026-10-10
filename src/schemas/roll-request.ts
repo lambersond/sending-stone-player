@@ -11,7 +11,9 @@ import {
   ROLL_KINDS,
   SPELL_SLOT,
 } from '@/constants/sending-stone'
+import { TEXT_HASH } from '@/schemas/sending-stone'
 import { DIE_SIZES, MOST_DICE } from '@/utils/damage-modifiers'
+import { MAX_LINKS } from '@/utils/description-links'
 import { MAX_DICE, MAX_FLAT, type ExtraTerm } from '@/utils/roll-modifiers'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -26,6 +28,9 @@ const FOUNDRY_ID = /^[\dA-Za-z]{1,64}$/
 
 /** A roll request's id, as this app gives it. */
 const REQUEST_ID = /^[\w-]{1,64}$/
+
+/** What is asked for by a link in a description, and only by one. */
+const FROM_TEXT = new Set(['ask', 'textDamage', 'textRoll'])
 
 const sign = z.union([z.literal(1), z.literal(-1)])
 
@@ -104,6 +109,12 @@ export const rollRequestSchema = z
     modifiers: modifiersSchema.optional(),
     prompt: z.string().regex(PROMPT_ID).optional(),
     denomination: z.string().regex(HIT_DIE).optional(),
+    text: z.string().regex(TEXT_HASH).optional(),
+    link: z
+      .int()
+      .min(0)
+      .max(MAX_LINKS - 1)
+      .optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
@@ -179,7 +190,8 @@ export const rollRequestSchema = z
         message: 'Only an attack is made with ammunition, in a mode',
       })
     }
-    if (request.kind !== 'damage' && request.types !== undefined) {
+    const damaging = request.kind === 'damage' || request.kind === 'textDamage'
+    if (!damaging && request.types !== undefined) {
       context.addIssue({
         code: 'custom',
         path: ['types'],
@@ -198,6 +210,31 @@ export const rollRequestSchema = z
         code: 'custom',
         path: ['prompt'],
         message: 'Only a saving throw answers what the game asks',
+      })
+    }
+    const linked = request.text !== undefined
+    if (linked !== (request.link !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['link'],
+        message: 'A link is named by its description and its number together',
+      })
+    }
+    const fromText = FROM_TEXT.has(request.kind)
+    if (fromText ? !linked : linked && request.kind !== 'save') {
+      context.addIssue({
+        code: 'custom',
+        path: ['text'],
+        message:
+          'An ask, or damage or a roll from a description, and only those or a saving throw, names a link',
+      })
+    }
+    if (linked && request.prompt !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['prompt'],
+        message:
+          'A saving throw answers what the game asks, or what a description calls for, not both',
       })
     }
     const keyed = ['skill', 'tool', 'ability', 'save'].includes(request.kind)
@@ -222,7 +259,7 @@ export const rollRequestSchema = z
         message: 'Damage, and only damage, follows an attack or a use',
       })
     }
-    if (use) {
+    if (use || request.kind === 'ask') {
       const plain =
         request.mode === 0 &&
         !request.explicit &&
@@ -232,12 +269,12 @@ export const rollRequestSchema = z
         context.addIssue({
           code: 'custom',
           path: ['dice'],
-          message: 'A use throws no dice',
+          message: use ? 'A use throws no dice' : 'An ask throws no dice',
         })
       }
       return
     }
-    if (request.kind === 'damage' || hitDie || formula) {
+    if (damaging || hitDie || formula || request.kind === 'textRoll') {
       const plain =
         request.mode === 0 && !request.explicit && request.extras.length === 0
       const dice = request.dice.every(

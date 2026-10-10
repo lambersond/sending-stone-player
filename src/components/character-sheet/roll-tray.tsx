@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import {
+  BellRing,
   Dices,
   EyeOff,
   HeartPulse,
@@ -20,6 +21,7 @@ import {
 import { firstDie, type DamageModifiers } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
 import type {
+  LocalAsk,
   LocalCheck,
   LocalDamage,
   LocalExtra,
@@ -125,10 +127,7 @@ export function RollTray({
                         </span>
                       </>
                     )}
-                    <TableMark
-                      state={table?.states.get(roll.id)}
-                      used={roll.kind === 'use'}
-                    />
+                    <TableMark state={table?.states.get(roll.id)} roll={roll} />
                   </span>
                 </li>
               ))}
@@ -187,6 +186,9 @@ function LatestResult({
     case 'formula': {
       return <FormulaResult roll={roll} state={state} />
     }
+    case 'ask': {
+      return <AskResult roll={roll} state={state} />
+    }
     case 'use': {
       return (
         <UseResult
@@ -237,7 +239,7 @@ function listed(words: string[], last = 'and'): string {
 }
 
 /** What the game said of a roll, in words: why it wasn't made, mostly. */
-const REASONS: Record<string, string> = {
+export const REASONS: Record<string, string> = {
   unavailable: 'your Gamemaster’s game isn’t taking rolls now',
   off: 'your Gamemaster’s game isn’t taking rolls now',
   unknown: 'your character in the game can’t make it',
@@ -272,6 +274,8 @@ const REASONS: Record<string, string> = {
   midi: 'your Gamemaster’s game stopped it',
   'no-attack': 'the attack wasn’t made',
   gone: 'it can’t be found in the game any more',
+  link: 'your Gamemaster’s game doesn’t find that in its description',
+  secret: 'it’s in a secret part of the description',
   'not-waiting': 'its damage was rolled in the game',
   'no-damage': 'no damage follows it',
   damaged: 'its damage is rolled already',
@@ -281,8 +285,28 @@ const REASONS: Record<string, string> = {
   'no-hit-dice': 'you have no hit dice of that size left',
 }
 
-/** Where a roll is on its way to the game, or what the game made of it. */
-function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
+/** Why the table wasn't asked, in words, where it differs from why a roll wasn't made. */
+const ASK_REASONS: Record<string, string> = {
+  ...REASONS,
+  busy: 'the table was asked a moment ago. Wait a little before asking again',
+}
+
+/** Where a roll ends without the game having made it. */
+const NOT_MADE = new Set<TableRollState['status']>([
+  'failed',
+  'expired',
+  'lost',
+  'refused',
+])
+
+/**
+ * Where a roll is on its way to the game, or what the game made of it: for a saving throw against
+ * a DC a description names, whether it was made, by the game's total where it doesn't say.
+ */
+function TableStatus({
+  state,
+  dc,
+}: Readonly<{ state: TableRollState; dc?: number }>) {
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   switch (state.status) {
     case 'sending':
@@ -309,10 +333,10 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
               <span className='font-semibold text-text-primary tabular-nums'>
                 {state.total ?? '?'}
               </span>
-              {outcomeOf(state) && (
+              {outcomeOf(state, dc) && (
                 <span className='font-semibold text-text-primary'>
                   {' · '}
-                  {outcomeOf(state)}
+                  {outcomeOf(state, dc)}
                 </span>
               )}
             </span>
@@ -339,12 +363,13 @@ function TableStatus({ state }: Readonly<{ state: TableRollState }>) {
   }
 }
 
-/** Whether a save the game asked for succeeded, in a word. */
-const SAVED = { success: 'saved', failure: 'failed' } as const
-
-/** What came at the table of an attack, or a save the game asked for, as the game shows players. */
-function outcomeOf(state: TableRollState): string | undefined {
-  if (state.outcome) return state.outcome === 'success' ? 'Saved' : 'Failed'
+/**
+ * What came at the table of an attack, or a save the game asked for or made against a DC, as the
+ * game shows players: against a DC it doesn't say of, by its total.
+ */
+function outcomeOf(state: TableRollState, dc?: number): string | undefined {
+  const saved = savedAt(state, dc)
+  if (saved !== undefined) return saved ? 'Saved' : 'Failed'
   if (state.healed !== undefined) return `${state.healed} HP regained`
   const { attack } = state
   if (!attack) return undefined
@@ -358,6 +383,15 @@ function outcomeOf(state: TableRollState): string | undefined {
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
   if (attack.outcome === 'miss') return 'Miss'
   return attack.critical ? 'Critical hit' : undefined
+}
+
+/**
+ * Whether a save the game asked for, or made against a DC a description names, succeeded there:
+ * as the game says, or else by its total against that DC.
+ */
+function savedAt(state: TableRollState, dc?: number): boolean | undefined {
+  if (state.outcome) return state.outcome === 'success'
+  if (dc !== undefined && state.total !== undefined) return state.total >= dc
 }
 
 /**
@@ -511,25 +545,74 @@ function DamageButton({
   )
 }
 
-/** A roll's way to the game, in brief, among the earlier rolls. */
+/**
+ * A roll's way to the game, in brief, among the earlier rolls: for a saving throw against a DC a
+ * description names that the game didn't make, whether this roll made it, as when it was the
+ * latest.
+ */
 function TableMark({
   state,
-  used = false,
-}: Readonly<{ state?: TableRollState; used?: boolean }>) {
-  if (!state) return
+  roll,
+}: Readonly<{ state?: TableRollState; roll: LocalRoll }>) {
+  const here = roll.kind === 'check' ? savedHere(roll, state) : undefined
+  const mine = here && (
+    <span className='ml-1.5'>
+      · DC {dcOf(roll)}, {here.toLowerCase()}
+    </span>
+  )
+  if (!state) return mine
+  const asked = roll.kind === 'ask'
   if (state.status === 'done') {
-    if (used) return <span className='ml-1.5'>· at the table</span>
+    if (asked) return <span className='ml-1.5'>· posted</span>
+    if (roll.kind === 'use') {
+      return <span className='ml-1.5'>· at the table</span>
+    }
+    const saved = state.visible ? savedAt(state, dcOf(roll)) : undefined
     return (
       <span className='ml-1.5'>
         {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
-        {state.visible && state.outcome && `, ${SAVED[state.outcome]}`}
+        {saved !== undefined && (saved ? ', saved' : ', failed')}
       </span>
     )
   }
   if (state.status === 'sending' || state.status === 'rolling') {
     return <span className='ml-1.5'>· sending</span>
   }
-  return <span className='ml-1.5'>· not at the table</span>
+  return (
+    <>
+      {mine}
+      <span className='ml-1.5'>
+        {asked ? '· not posted' : '· not at the table'}
+      </span>
+    </>
+  )
+}
+
+/** The DC a description names for a saving throw rolled against it, if any. */
+function dcOf(roll: LocalRoll): number | undefined {
+  return roll.kind === 'check' ? roll.dc : undefined
+}
+
+/**
+ * Whether a saving throw against a DC a description names was made, by this roll, where the game
+ * didn't make it: none where there's no DC, or the game made it, which its status says.
+ */
+function savedHere(
+  roll: LocalCheck,
+  state?: TableRollState,
+): string | undefined {
+  if (roll.dc === undefined || (state && !NOT_MADE.has(state.status))) return
+  return roll.total >= roll.dc ? 'Saved' : 'Failed'
+}
+
+/** Said of a roll from a description the game didn't take, which no one else sees. */
+function OnlyYou() {
+  return (
+    <p className='mt-1 flex items-center gap-1.5 text-xs text-text-secondary'>
+      <EyeOff aria-hidden className='size-3.5 shrink-0' />
+      Only you see this roll
+    </p>
+  )
 }
 
 function CheckResult({
@@ -574,8 +657,16 @@ function CheckResult({
           {extra && ` · ${extra}`}
           {critical && ' · Natural 20'}
           {fumble && ' · Natural 1'}
+          {roll.dc !== undefined && ` · DC ${roll.dc}`}
+          {savedHere(roll, state) && (
+            <span className='font-semibold text-text-primary'>
+              {' · '}
+              {savedHere(roll, state)}
+            </span>
+          )}
         </p>
-        {state && <TableStatus state={state} />}
+        {state && <TableStatus state={state} dc={roll.dc} />}
+        {!state && roll.described && <OnlyYou />}
         {state && onRollDamage && (
           <DamageButton
             name={roll.label.replace(/ attack$/, '')}
@@ -631,6 +722,7 @@ function DamageResult({
           {roll.maximized && ' · Maximum'}
         </p>
         {state && <TableStatus state={state} />}
+        {!state && roll.described && <OnlyYou />}
       </div>
     </div>
   )
@@ -656,6 +748,7 @@ function FormulaResult({
           {roll.minimum !== undefined && ` · at least ${roll.minimum}`}
         </p>
         {state && <TableStatus state={state} />}
+        {!state && roll.described && <OnlyYou />}
       </div>
     </div>
   )
@@ -768,6 +861,66 @@ function UseStatus({
   }
 }
 
+/**
+ * The table asked for a saving throw a description calls for: on dnd5e's own card in the game's
+ * chat, for the Gamemaster to roll for those it names; its way there, or why it wasn't posted.
+ */
+function AskResult({
+  roll,
+  state,
+}: Readonly<{ roll: LocalAsk; state?: TableRollState }>) {
+  return (
+    <div className='flex items-center gap-3'>
+      <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'>
+        <BellRing aria-hidden className='size-6' />
+      </span>
+      <div className='min-w-0'>
+        <p className='truncate font-semibold'>{roll.label}</p>
+        <AskStatus state={state} />
+      </div>
+    </div>
+  )
+}
+
+/** Where an ask is on its way to the game's chat, or why it isn't there. */
+function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
+  const line = 'mt-1 flex items-center gap-1.5 text-xs'
+  switch (state?.status) {
+    case 'sending':
+    case 'rolling': {
+      return (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <LoaderCircle
+            aria-hidden
+            className='size-3.5 shrink-0 motion-safe:animate-spin'
+          />
+          {state.status === 'sending'
+            ? 'Sending to your Gamemaster’s game…'
+            : 'Posting it in your Gamemaster’s game…'}
+        </p>
+      )
+    }
+    case 'done': {
+      return (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
+          Posted to the table’s chat
+        </p>
+      )
+    }
+    default: {
+      const reason = state && ASK_REASONS[state.reason ?? state.status]
+      return (
+        <p className={clsx(line, 'text-warning')}>
+          <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+          Not posted to the table
+          {reason ? `: ${reason}` : ''}
+        </p>
+      )
+    }
+  }
+}
+
 /** The d20s thrown, the one that didn't count struck through. */
 function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   const kept = roll.d20s.indexOf(roll.natural)
@@ -795,6 +948,7 @@ function byTheGame(roll: LocalDamage): boolean {
 
 function breakdown(roll: LocalRoll): string {
   if (roll.kind === 'use') return roll.spell ? 'cast' : 'used'
+  if (roll.kind === 'ask') return 'asked'
   if (roll.kind === 'formula') {
     const terms = roll.terms
       .map(({ value }, index) =>

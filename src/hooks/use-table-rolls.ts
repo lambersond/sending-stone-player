@@ -5,6 +5,7 @@ import { useStoredChoice } from '@/hooks/use-stored'
 import { changes, type DamageModifiers } from '@/utils/damage-modifiers'
 import { parseExtraTerms, type ExtraTerm } from '@/utils/roll-modifiers'
 import type {
+  LocalAsk,
   LocalCheck,
   LocalDamage,
   LocalFormula,
@@ -22,6 +23,7 @@ import type {
   RollRequestView,
   RollSource,
   RollStatus,
+  TextLink,
   UseSource,
 } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
@@ -172,8 +174,27 @@ export function useTableRolls(
 
   const sendDamage = useCallback(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
-      const { use, types, modifiers } = roll
+      const { use, types, modifiers, text } = roll
       const { kinds, on } = latest.current
+      // A description's damage or healing, which the game reads from its own copy of it.
+      if (text) {
+        if (!on || !kinds.includes('textDamage')) return
+        start(
+          damage.id,
+          {
+            kind: 'textDamage',
+            text: text.text,
+            link: text.link,
+            mode: 0,
+            explicit: false,
+            extras: [],
+            dice: damageDice(roll, damage),
+            ...(types?.some(type => type !== null) && { types }),
+          },
+          {},
+        )
+        return
+      }
       if (!on || !use || !kinds.includes('damage')) return
       // Its attack's or use's damage is on its way: it isn't offered again.
       setStates(held => {
@@ -240,6 +261,24 @@ export function useTableRolls(
     [start],
   )
 
+  const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
+    const { kinds, on } = latest.current
+    if (!on || !kinds.includes('ask')) return
+    start(
+      asked.id,
+      {
+        kind: 'ask',
+        text,
+        link,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      },
+      {},
+    )
+  }, [])
+
   const setSending = useCallback(
     (next: boolean) => choose(next ? 'on' : 'off'),
     [choose],
@@ -249,6 +288,7 @@ export function useTableRolls(
     sendDamage,
     sendFormula,
     sendUse,
+    sendAsk,
     states,
     /** Whether the game takes any of the player's rolls now. */
     available: kinds.length > 0,
@@ -401,6 +441,10 @@ export function toRollRequest(
     ...('key' in source && { key: source.key }),
     ...('combatId' in source && { combatId: source.combatId }),
     ...(source.kind === 'save' && source.prompt && { prompt: source.prompt }),
+    // A saving throw a description calls for, which the game makes against the DC it names.
+    ...(source.kind === 'save' &&
+      source.text !== undefined &&
+      source.link !== undefined && { text: source.text, link: source.link }),
     ...(source.kind === 'attack' && {
       item: source.item,
       activity: source.activity,
@@ -427,8 +471,9 @@ export function toRollRequest(
 }
 
 /**
- * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, or
- * the formula's item and activity, and the dice of each of its terms, in order.
+ * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, the
+ * formula's item and activity, or the description's link it's in, and the dice of each of its
+ * terms, in order.
  */
 export function toFormulaRequest(
   roll: SheetFormulaRoll,
@@ -437,9 +482,7 @@ export function toFormulaRequest(
 ): RollRequestInput {
   return {
     kind: source.kind,
-    ...(source.kind === 'hitDie'
-      ? { denomination: source.denomination }
-      : { item: source.item, activity: source.activity }),
+    ...formulaOrigin(source),
     mode: 0,
     explicit: false,
     extras: [],
@@ -448,6 +491,21 @@ export function toFormulaRequest(
         ? [{ faces: term.sides, results: rolled.terms[index]?.values ?? [] }]
         : [],
     ),
+  }
+}
+
+/** What a formula rolled is, for the game to find it. */
+function formulaOrigin(source: FormulaSource): Partial<RollRequestInput> {
+  switch (source.kind) {
+    case 'hitDie': {
+      return { denomination: source.denomination }
+    }
+    case 'formula': {
+      return { item: source.item, activity: source.activity }
+    }
+    case 'textRoll': {
+      return { text: source.text, link: source.link }
+    }
   }
 }
 

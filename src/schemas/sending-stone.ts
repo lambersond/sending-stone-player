@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { z } from 'zod'
+import { ABILITIES } from '@/constants/dnd5e'
 import {
   DAMAGE_TYPE,
   EVENTS,
@@ -172,6 +173,18 @@ const rollFields = {
     .nullable()
     .optional()
     .catch(null),
+  // From module 0.17.0: for a Cast, the id of the Spells tab's copy of its spell.
+  spellId: z.string().min(1).max(64).nullable().optional().catch(null),
+}
+
+/**
+ * What an activity says of itself, from module 0.17.0: how long what it does lasts, what a
+ * reaction is taken in answer to, and under dnd5e 6, its own description.
+ */
+const activityFields = {
+  duration: nullableString.optional(),
+  trigger: nullableString.optional(),
+  text: textRef.optional(),
 }
 
 /**
@@ -188,6 +201,7 @@ const activitiesSchema = listOf(
     target: nullableString,
     ...rollFields,
     uses: usesSchema,
+    ...activityFields,
   }),
 ).optional()
 
@@ -207,6 +221,9 @@ const itemRollFields = {
   consumesSlot: rollFields.consumesSlot,
   attackArea: rollFields.attackArea,
   rollFormula: rollFields.rollFormula,
+  // From module 0.15.0, for a Cast, how its spell is cast; and from 0.17.0, its description.
+  cast: rollFields.cast,
+  spellId: rollFields.spellId,
   activities: activitiesSchema,
 }
 
@@ -446,6 +463,7 @@ const favoriteSchema = z.discriminatedUnion('type', [
     name: z.string(),
     img: nullableString,
     ...actionFields,
+    ...activityFields,
   }),
   z.looseObject({
     type: z.literal('effect'),
@@ -698,6 +716,37 @@ const dnd5eSchema = z
   .nullable()
   .catch(null)
 
+/**
+ * The saving throw a roll request card asks the table for, from module 0.17.0: one the Gamemaster
+ * posted from a description, or one a player asked for from the app. Its abilities are dnd5e's
+ * own, never a name any object answers to; its DC is there only where players may see it, and
+ * what asks for it, such as an item, is a name. Null for any other message, and for one that
+ * can't be read, which then shows as its text; absent from an older module, whose cards are read
+ * from their buttons instead.
+ */
+const askSchema = z
+  .object({
+    type: z.enum(['save', 'concentration']),
+    abilities: z
+      .array(z.string().refine(id => Object.hasOwn(ABILITIES, id)))
+      .max(6)
+      .transform(ids => [...new Set(ids)]),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out where it can't be read
+    dc: z.int().min(1).max(99).optional().catch(undefined),
+    label: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      // eslint-disable-next-line unicorn/no-useless-undefined -- as for the DC
+      .catch(undefined)
+      .transform(label => label || undefined),
+  })
+  .refine(ask => ask.type === 'concentration' || ask.abilities.length > 0)
+  .nullable()
+  .optional()
+  .catch(null)
+
 const messageSchema = z.looseObject({
   id: z.string(),
   type: z.string().catch('base'),
@@ -719,6 +768,8 @@ const messageSchema = z.looseObject({
   }),
   rolls: z.array(rollSchema).catch([]),
   dnd5e: dnd5eSchema,
+  // From module 0.17.0.
+  ask: askSchema,
 })
 
 /**

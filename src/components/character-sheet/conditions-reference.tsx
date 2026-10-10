@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import clsx from 'clsx'
 import { CONDITION_BASICS, CONDITIONS, SRD_LINKS } from '@/constants/conditions'
 import type { SheetCondition } from '@/types/sending-stone'
@@ -8,11 +8,17 @@ import type { SheetCondition } from '@/types/sending-stone'
 /**
  * Every condition of D&D's 2024 rules, with its rules as the SRD 5.2 gives them, after what a
  * condition is and how long one lasts. Those the character has are marked, Exhaustion with its
- * level. A row of their names at the top jumps to each, for a quick look in the middle of a fight.
+ * level. A row of their names at the top jumps to each, for a quick look in the middle of a fight;
+ * and it opens at one, where it's opened for one, such as from a description naming it.
  */
 export function ConditionsReference({
   conditions,
-}: Readonly<{ conditions: SheetCondition[] }>) {
+  at,
+}: Readonly<{
+  conditions: SheetCondition[]
+  /** The condition to show first, by its id. */
+  at?: string
+}>) {
   const prefix = useId()
   const sections = useRef(new Map<string, HTMLElement>())
   const has = new Map(conditions.map(condition => [condition.id, condition]))
@@ -26,6 +32,17 @@ export function ConditionsReference({
       behavior: reduced ? 'auto' : 'smooth',
     })
   }
+  // Opened at a condition, it's there at once: a frame after it's drawn, as the dialog it's in is
+  // shown only after that, and nothing in a dialog not shown yet can be scrolled to.
+  useEffect(() => {
+    if (!at) return
+    const frame = requestAnimationFrame(() =>
+      sections.current
+        .get(at)
+        ?.scrollIntoView?.({ block: 'start', behavior: 'auto' }),
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [at])
 
   return (
     <div className='flex flex-col gap-5 text-sm'>

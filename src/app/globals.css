@@ -80,8 +80,8 @@ body {
 }
 
 /* A description from the Gamemaster's game, such as a feature's: HTML Foundry enriched and this
-   app sanitised. Links to Foundry's documents arrive as .ref and rolls as .roll, since neither
-   works outside Foundry. */
+   app sanitised, drawn as the page's own elements. Links to Foundry's documents arrive as .ref,
+   since they don't work outside Foundry; the links the app acts on are buttons of its own. */
 .sheet-text {
   font-size: 0.875rem;
   line-height: 1.55;
@@ -124,13 +124,6 @@ body {
   }
   & .ref {
     font-weight: 600;
-  }
-  & .roll {
-    border-radius: 0.375rem;
-    background: color-mix(in oklab, var(--color-primary) 12%, transparent);
-    padding: 0 0.3em;
-    font-weight: 600;
-    white-space: nowrap;
   }
   & section.secret {
     border-left: 3px solid var(--color-whisper);

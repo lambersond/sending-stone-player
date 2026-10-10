@@ -24,6 +24,7 @@ import {
 } from './action-info'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { useDamageMenu, type DamageChoice } from './damage-menu'
+import { spellOrigin, type DescriptionOrigin } from './description-actions'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { RollButton } from './roll-button'
 import { EntryIcon, joinParts } from './sheet-entry'
@@ -1054,9 +1055,42 @@ export function ActionDetails({
           ...(look.facts ?? []),
         ]}
       />
-      {text && <SheetText characterId={characterId} hash={text} />}
+      {text && (
+        <SheetText
+          characterId={characterId}
+          hash={text}
+          origin={originOf(action, spell)}
+        />
+      )}
     </>
   )
+}
+
+/**
+ * Where the description an action opens to is from, as what's rolled from it is named: the spell
+ * an item is listed for, and the item, such as "Starry Wisp (Worn Bardic Eternal Flame)"; a spell
+ * and the item it's cast from, if any; or else the item.
+ */
+function originOf(action: SheetAction, spell?: SheetSpell): DescriptionOrigin {
+  const { cast } = action
+  if (cast?.text) {
+    const name =
+      spell?.name ??
+      action.activityName ??
+      action.activities?.[0]?.name ??
+      action.name
+    return {
+      name: spellOrigin({
+        name,
+        castFrom: { name: action.castFrom?.name ?? action.name },
+      }),
+      item: action.id,
+    }
+  }
+  if (action.type === 'spell') {
+    return { name: spellOrigin(action), item: action.id }
+  }
+  return { name: action.name, item: action.id }
 }
 
 /**

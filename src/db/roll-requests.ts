@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import prisma from '@/clients/prisma'
 import {
+  ASKS_PER_MINUTE,
   PLAYERS_PRESENT_FOR,
   PLAYERS_SEEN_EVERY,
   ROLL_ANSWER_WITHIN,
@@ -10,6 +11,7 @@ import {
   ROLLS_PER_MINUTE,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { sheetLinks } from '@/lib/sheet-html'
 import { changes } from '@/utils/damage-modifiers'
 import { checkPrompt } from '@/utils/prompts'
 import {
@@ -57,7 +59,9 @@ export type RollRejection = {
 
 /**
  * Take a player's roll for their character to make in the Gamemaster's game: if the game takes
- * this kind of roll now, the sheet allows it, and the player isn't sending too many.
+ * this kind of roll now, the sheet allows it, and the player isn't sending too many, nor asking the
+ * table too often. One from a link in a description is checked against that description, as held
+ * here.
  * @param character - The player's character, already checked to be theirs.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -100,74 +104,106 @@ export async function createRollRequest(
       ? input.combatId
       : (input.target?.combatId ?? input.targets?.[0]?.combatId)
   const prompt = input.prompt
-  const [sheet, combats, use, others, inFlight, lastMinute, asked, answers] =
-    await Promise.all([
-      prisma.actorSheet.findUnique({
-        where: { campaignActor: { campaignId, actorId } },
-        select: { data: true },
-      }),
-      combatId
-        ? prisma.combat.findMany({
-            where: { campaignId, combatId },
-            select: { data: true },
-          })
-        : [],
-      damage
-        ? prisma.rollRequest.findFirst({
-            where: { id: damage, characterId: character.id },
-            select: heldSelect,
-          })
-        : undefined,
-      damage
-        ? prisma.rollRequest.findMany({
-            where: { useId: damage, characterId: character.id },
-            select: { status: true, createdAt: true, claimedAt: true },
-          })
-        : [],
-      prisma.rollRequest.count({
-        where: {
-          characterId: character.id,
-          OR: [
-            {
-              status: 'pending',
-              createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
-            },
-            {
-              status: 'claimed',
-              claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) },
-            },
-          ],
-        },
-      }),
-      prisma.rollRequest.count({
-        where: {
-          characterId: character.id,
-          createdAt: { gt: ago(now, 60_000) },
-        },
-      }),
-      prompt
-        ? prisma.rollPrompt.findUnique({
-            where: { campaignPrompt: { campaignId, promptId: prompt } },
-            select: {
-              actorId: true,
-              data: true,
-              expiresAt: true,
-              closedAt: true,
-            },
-          })
-        : undefined,
-      prompt
-        ? prisma.rollRequest.findMany({
-            where: {
-              characterId: character.id,
-              kind: 'save',
-              payload: { path: ['prompt'], equals: prompt },
-            },
-            select: { status: true, createdAt: true, claimedAt: true },
-          })
-        : [],
-    ])
-  if (inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE) {
+  const text = input.text
+  const [
+    sheet,
+    combats,
+    use,
+    others,
+    inFlight,
+    lastMinute,
+    asked,
+    answers,
+    described,
+    asks,
+  ] = await Promise.all([
+    prisma.actorSheet.findUnique({
+      where: { campaignActor: { campaignId, actorId } },
+      select: { data: true },
+    }),
+    combatId
+      ? prisma.combat.findMany({
+          where: { campaignId, combatId },
+          select: { data: true },
+        })
+      : [],
+    damage
+      ? prisma.rollRequest.findFirst({
+          where: { id: damage, characterId: character.id },
+          select: heldSelect,
+        })
+      : undefined,
+    damage
+      ? prisma.rollRequest.findMany({
+          where: { useId: damage, characterId: character.id },
+          select: { status: true, createdAt: true, claimedAt: true },
+        })
+      : [],
+    prisma.rollRequest.count({
+      where: {
+        characterId: character.id,
+        OR: [
+          {
+            status: 'pending',
+            createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
+          },
+          {
+            status: 'claimed',
+            claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) },
+          },
+        ],
+      },
+    }),
+    prisma.rollRequest.count({
+      where: {
+        characterId: character.id,
+        createdAt: { gt: ago(now, 60_000) },
+      },
+    }),
+    prompt
+      ? prisma.rollPrompt.findUnique({
+          where: { campaignPrompt: { campaignId, promptId: prompt } },
+          select: {
+            actorId: true,
+            data: true,
+            expiresAt: true,
+            closedAt: true,
+          },
+        })
+      : undefined,
+    prompt
+      ? prisma.rollRequest.findMany({
+          where: {
+            characterId: character.id,
+            kind: 'save',
+            payload: { path: ['prompt'], equals: prompt },
+          },
+          select: { status: true, createdAt: true, claimedAt: true },
+        })
+      : [],
+    text
+      ? prisma.sheetText.findUnique({
+          where: { campaignHash: { campaignId, hash: text } },
+          select: { html: true },
+        })
+      : undefined,
+    // Asks the game made, or may yet make.
+    input.kind === 'ask'
+      ? prisma.rollRequest.count({
+          where: {
+            characterId: character.id,
+            kind: 'ask',
+            status: { in: ['pending', 'claimed', 'done'] },
+            createdAt: { gt: ago(now, 60_000) },
+          },
+        })
+      : 0,
+  ])
+  if (
+    inFlight >= ROLLS_IN_FLIGHT ||
+    lastMinute >= ROLLS_PER_MINUTE ||
+    asks >= ASKS_PER_MINUTE
+  ) {
     return { status: 429, reason: 'busy' }
   }
   const refusal = damage
@@ -177,6 +213,7 @@ export async function createRollRequest(
         sheet?.data as unknown as CharacterSheet | undefined,
         combats.map(({ data }) => data as unknown as CombatSnapshot),
         actorId,
+        described ? sheetLinks(described.html) : undefined,
       ) ??
       (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined))
   if (refusal) return { status: 422, reason: refusal }

@@ -340,6 +340,11 @@ export type SheetAction = {
   /** For a spell an item casts, with a Cast activity, how it's cast. Module 0.15.0. */
   cast?: SheetCast | null
   /**
+   * For a Cast, the id of the copy of its spell the Spells tab lists under the item. Module
+   * 0.17.0; absent before, and for a Cast whose spell dnd5e keeps no copy of.
+   */
+  spellId?: string | null
+  /**
    * Its activity's own formula, rolled any time, apart from using it, such as a light's radius.
    * Module 0.16.0.
    */
@@ -434,6 +439,17 @@ export type SheetActivity = Pick<
   name: string
   /** Such as "attack", "save", "cast" or "summon", which the app can't use. */
   type: string
+  /**
+   * For a Cast, the id of the copy of its spell the Spells tab lists under the item. Module
+   * 0.17.0; absent before, and for a Cast whose spell dnd5e keeps no copy of.
+   */
+  spellId?: string | null
+  /** How long what it does lasts, such as "1 Minute"; none for an instant. Module 0.17.0. */
+  duration?: string | null
+  /** For a reaction, what it's taken in answer to. Module 0.17.0. */
+  trigger?: string | null
+  /** Its own description's hash, which dnd5e 6 gives an activity. Module 0.17.0. */
+  text?: string | null
 }
 
 /** Whom an activity is used at. */
@@ -471,6 +487,7 @@ export type SheetRolls = Pick<
   | 'damage'
   | 'consumesSlot'
   | 'cast'
+  | 'spellId'
   | 'rollFormula'
   | 'attackArea'
   | 'activities'
@@ -513,6 +530,7 @@ export type SheetActivityFavorite = Pick<
   | 'damage'
   | 'consumesSlot'
   | 'cast'
+  | 'spellId'
   | 'rollFormula'
   | 'attackArea'
   | 'uses'
@@ -526,6 +544,12 @@ export type SheetActivityFavorite = Pick<
   itemName: string
   name: string
   img: string | null
+  /** How long what it does lasts, as an activity has it. Module 0.17.0. */
+  duration?: SheetActivity['duration']
+  /** For a reaction, what it's taken in answer to. Module 0.17.0. */
+  trigger?: SheetActivity['trigger']
+  /** Its own description's hash, under dnd5e 6. Module 0.17.0. */
+  text?: SheetActivity['text']
 }
 
 /** An effect made a favorite. */
@@ -609,6 +633,10 @@ export type CharacterSheet = {
   rules?: 'modern' | 'legacy' | null
   species: string | null
   background: string | null
+  /**
+   * Its maximum is the one dnd5e shows and heals up to, with any temporary change to it, such as
+   * Aid's, from module 0.17.0; before, the maximum without it.
+   */
   hp?: { value: number; max: number | null; temp: number } | null
   ac: number | null
   proficiency: number | null
@@ -661,6 +689,20 @@ export type Dnd5eMessageData = {
   originatingMessage?: string | null
 }
 
+/**
+ * The saving throw a roll request card asks the table for: one the Gamemaster posted from a
+ * description, or one a player asked for from the app. Module 0.17.0.
+ */
+export type MessageAsk = {
+  type: 'save' | 'concentration'
+  /** dnd5e's ids, such as ["dex"]; for a concentration check, the one it names, if any. */
+  abilities: string[]
+  /** Its DC, only where players may see it. */
+  dc?: number
+  /** What asks for it, such as the player's item. */
+  label?: string
+}
+
 export type SerializedMessage = {
   id: string
   type: string
@@ -675,6 +717,13 @@ export type SerializedMessage = {
   audience: { public: boolean; characters: string[] }
   rolls: RollSummary[]
   dnd5e: Dnd5eMessageData | null
+  /** The message's HTML, as Foundry holds it: read, never shown. */
+  content?: string
+  /**
+   * The saving throw it asks the table for, if it's a roll request card; null for any other
+   * message. Module 0.17.0; absent before.
+   */
+  ask?: MessageAsk | null
 }
 
 export type CombatantSummary = {
@@ -685,6 +734,7 @@ export type CombatantSummary = {
   // The connected character's actor id, or null.
   character: string | null
   playerOwned: boolean
+  /** As a sheet's: with any temporary change to the maximum, from module 0.17.0. */
   hp?: { value: number; max: number | null; temp: number } | null
   // Present only when the Gamemaster sends Gamemaster-only information.
   hidden?: boolean

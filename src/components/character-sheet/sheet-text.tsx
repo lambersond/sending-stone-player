@@ -1,6 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  useDescriptionActions,
+  type DescriptionOrigin,
+} from './description-actions'
+import { drawDescription, readDescription } from './description-html'
+import { DescriptionLink, useLinkMenus } from './description-link'
 
 /**
  * Descriptions already loaded on this page, by character and hash. The same hash always names the
@@ -8,18 +14,36 @@ import { useEffect, useState } from 'react'
  */
 const loaded = new Map<string, string>()
 
+type Props = {
+  characterId: string
+  hash: string
+  /** Where it's from, as what's rolled from it is named. */
+  origin: DescriptionOrigin
+}
+
 /**
  * A description from the sheet, such as a feature's, loaded when it is first shown. The server
- * sanitised it when the Gamemaster's game sent it.
+ * sanitised it when the Gamemaster's game sent it, and it's drawn as the page's own elements, from
+ * the tags it may have, never set as HTML. Its links the game acts on, such as a saving throw it
+ * calls for or the damage it deals, do so, where the sheet says what they do. Another description
+ * in its place starts afresh, never showing this one while it loads.
  */
-export function SheetText({
-  characterId,
-  hash,
-}: Readonly<{ characterId: string; hash: string }>) {
+export function SheetText(props: Readonly<Props>) {
+  return <LoadedText key={`${props.characterId}/${props.hash}`} {...props} />
+}
+
+function LoadedText({ characterId, hash, origin }: Readonly<Props>) {
   const key = `${characterId}/${hash}`
   const [html, setHtml] = useState(() => loaded.get(key))
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const actions = useDescriptionActions()
+  const { menus, dialogs } = useLinkMenus(actions)
+  // Read only where there's a browser to read it: on the server, it's still loading.
+  const body = useMemo(
+    () => (html === undefined ? undefined : readDescription(html)),
+    [html],
+  )
 
   useEffect(() => {
     if (loaded.has(key)) return
@@ -39,10 +63,22 @@ export function SheetText({
     return () => controller.abort()
   }, [characterId, hash, key, attempt])
 
-  if (html !== undefined) {
-    // Sanitised by the server when the game sent it.
+  if (body) {
     return (
-      <div className='sheet-text' dangerouslySetInnerHTML={{ __html: html }} />
+      <>
+        <div className='sheet-text'>
+          {drawDescription(body, part => (
+            <DescriptionLink
+              part={part}
+              hash={hash}
+              origin={origin}
+              actions={actions}
+              menus={menus}
+            />
+          ))}
+        </div>
+        {dialogs}
+      </>
     )
   }
   if (failed) {

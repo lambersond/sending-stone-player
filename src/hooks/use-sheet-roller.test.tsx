@@ -593,6 +593,70 @@ describe('hooks/use-sheet-roller', () => {
     expect(result.current.rolling).toBe(false)
   })
 
+  it('keeps the table asked for a saving throw, which throws no dice, first among the rolls', async () => {
+    const fake = renderer()
+    const { result } = renderHook(() => useSheetRoller())
+    await act(() =>
+      result.current.roll({ label: 'Perception check', modifier: 0 }),
+    )
+
+    let asked: ReturnType<typeof result.current.logAsk> | undefined
+    act(() => {
+      asked = result.current.logAsk('DC 15 Dexterity saving throw')
+    })
+
+    expect(asked).toMatchObject({
+      kind: 'ask',
+      label: 'DC 15 Dexterity saving throw',
+    })
+    expect(result.current.rolls.map(roll => roll.kind)).toEqual([
+      'ask',
+      'check',
+    ])
+    expect(fake.roll).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks what a description rolls as its, and a saving throw it calls for with its DC', async () => {
+    renderer()
+    const onThrown = jest.fn()
+    const { result } = renderHook(() => useSheetRoller(onThrown))
+    const text = { text: '0f1a2b3c4d5e6f', link: 1 }
+
+    await act(() =>
+      result.current.roll({
+        label: 'Dexterity saving throw',
+        modifier: 1,
+        source: { kind: 'save', key: 'dex', ...text },
+        dc: 15,
+      }),
+    )
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame damage',
+        parts: [{ terms: [{ sign: 1, count: 2, sides: 6 }], type: 'fire' }],
+        text,
+      }),
+    )
+    await act(() =>
+      result.current.rollFormula({
+        label: 'Flame roll',
+        terms: [{ sign: 1, count: 1, sides: 4 }],
+        source: { kind: 'textRoll', ...text },
+      }),
+    )
+    await act(() =>
+      result.current.roll({ label: 'Dexterity saving throw', modifier: 1 }),
+    )
+
+    const [plain, formula, damage, save] = result.current.rolls
+    expect(save).toMatchObject({ kind: 'check', dc: 15, described: true })
+    expect(onThrown.mock.calls[0][1]).toMatchObject({ dc: 15, described: true })
+    expect(damage).toMatchObject({ kind: 'damage', described: true })
+    expect(formula).toMatchObject({ kind: 'formula', described: true })
+    expect(plain).not.toHaveProperty('dc')
+    expect(plain).not.toHaveProperty('described')
+  })
+
   it(`keeps the latest ${ROLL_HISTORY} rolls, newest first`, async () => {
     renderer()
     const { result } = renderHook(() => useSheetRoller())

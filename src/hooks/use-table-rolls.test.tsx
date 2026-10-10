@@ -12,6 +12,7 @@ import {
   useTableRolls,
 } from './use-table-rolls'
 import type {
+  LocalAsk,
   LocalCheck,
   LocalDamage,
   LocalFormula,
@@ -169,6 +170,13 @@ const render = (
   renderHook(props => useTableRolls('char-1', props.kinds, props.features), {
     initialProps: { kinds, features },
   })
+
+/** What was sent last, as the app has it. */
+const sent = () =>
+  JSON.parse(String(jest.mocked(fetch).mock.lastCall?.[1]?.body)) as Record<
+    string,
+    unknown
+  >
 
 describe('hooks/use-table-rolls', () => {
   beforeEach(() => {
@@ -1253,6 +1261,176 @@ describe('hooks/use-table-rolls', () => {
         prompt: 'msg1-thorin',
       })
       expect(result.current.answering).toEqual(new Set(['msg1-thorin']))
+    })
+  })
+
+  describe('links in descriptions', () => {
+    const HASH = '0f1a2b3c4d5e6f'
+
+    it("sends a saving throw a description calls for, the player's own, by its link", () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render(['save'])
+
+      act(() =>
+        result.current.send(
+          {
+            label: 'Dexterity saving throw',
+            modifier: 1,
+            source: { kind: 'save', key: 'dex', text: HASH, link: 3 },
+            dc: 15,
+          },
+          check({ advantage: undefined, d20s: [11], extras: [] }),
+        ),
+      )
+
+      expect(sent()).toEqual({
+        kind: 'save',
+        key: 'dex',
+        text: HASH,
+        link: 3,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 20, results: [11] }],
+      })
+    })
+
+    it("sends a description's damage by its link, with the dice thrown and the kinds chosen, where the game takes it", () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render(['textDamage'])
+      const roll: SheetDamageRoll = {
+        label: 'Flame damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+            type: 'slashing',
+          },
+          { terms: [{ sign: 1, count: 1, sides: 6 }], type: 'fire' },
+        ],
+        text: { text: HASH, link: 1 },
+        types: [null, 'fire'],
+      }
+
+      act(() => result.current.sendDamage(roll, thrownDamage()))
+
+      expect(sent()).toEqual({
+        kind: 'textDamage',
+        text: HASH,
+        link: 1,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [
+          { faces: 8, results: [5] },
+          { faces: 6, results: [6] },
+        ],
+        types: [null, 'fire'],
+      })
+      expect(result.current.states.get('r2')).toEqual({ status: 'sending' })
+
+      // With no choice to make, no kinds.
+      act(() =>
+        result.current.sendDamage(
+          { ...roll, types: undefined },
+          thrownDamage({ id: 'r3' }),
+        ),
+      )
+      expect(sent()).not.toHaveProperty('types')
+    })
+
+    it("sends a description's own roll by its link, where the game takes it", () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render(['textRoll'])
+
+      act(() =>
+        result.current.sendFormula(
+          {
+            label: 'Luckstone roll',
+            terms: [{ sign: 1, count: 1, sides: 4 }],
+            source: { kind: 'textRoll', text: HASH, link: 2 },
+          },
+          spent({ id: 'f3', terms: [{ text: '1d4', values: [3], value: 3 }] }),
+        ),
+      )
+
+      expect(sent()).toEqual({
+        kind: 'textRoll',
+        text: HASH,
+        link: 2,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 4, results: [3] }],
+      })
+    })
+
+    it('asks the table for a saving throw, by its link, with no dice, and follows it until it is posted', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'done', visible: true }),
+        )
+      const { result } = render(['ask'])
+      const asked: LocalAsk = {
+        kind: 'ask',
+        id: 'a1',
+        label: 'DC 15 Dexterity saving throw',
+        at: 0,
+      }
+
+      act(() => result.current.sendAsk(asked, { text: HASH, link: 3 }))
+
+      expect(sent()).toEqual({
+        kind: 'ask',
+        text: HASH,
+        link: 3,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      })
+      await advance(CHECK_EVERY)
+      expect(result.current.states.get('a1')).toMatchObject({
+        status: 'done',
+        requestId: 'req-1',
+      })
+    })
+
+    it("sends none of them where the game doesn't take them, or from a device that doesn't send", () => {
+      const { result, rerender } = render(['save', 'damage', 'formula'])
+      const asked: LocalAsk = { kind: 'ask', id: 'a1', label: 'Ask', at: 0 }
+
+      act(() => {
+        result.current.sendAsk(asked, { text: HASH, link: 0 })
+        result.current.sendDamage(
+          {
+            label: 'Flame damage',
+            parts: [],
+            text: { text: HASH, link: 1 },
+            // As though it followed a use, which a description's damage never does.
+            use: 'req-9',
+          },
+          thrownDamage(),
+        )
+        result.current.sendFormula(
+          {
+            label: 'Luckstone roll',
+            terms: [],
+            source: { kind: 'textRoll', text: HASH, link: 2 },
+          },
+          spent(),
+        )
+      })
+      rerender({ kinds: ['ask', 'textDamage', 'textRoll'], features: [] })
+      act(() => result.current.setSending(false))
+      act(() => result.current.sendAsk(asked, { text: HASH, link: 0 }))
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.current.states.size).toBe(0)
     })
   })
 
