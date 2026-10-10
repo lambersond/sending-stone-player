@@ -1,8 +1,9 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { InventoryTab } from './inventory-tab'
+import { Modal } from '@/components/modal'
 import {
   characterSheet,
   fullerSheet,
@@ -24,6 +25,12 @@ const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
 
 const withInventory = (inventory: Partial<SheetInventory>) =>
   fullerSheet({ inventory: { ...fullerSheet().inventory, ...inventory } })
+
+/** Gold of the character's, 12,877 pieces, with this abbreviation. */
+const gold = (abbreviation = 'GP') =>
+  withInventory({
+    currency: [{ id: 'gp', label: 'Gold', abbreviation, value: 12_877 }],
+  })
 
 const rows = (list: HTMLElement) =>
   within(list)
@@ -177,6 +184,153 @@ describe('components/character-sheet/inventory-tab', () => {
     expect(screen.getByTitle('Gold')).not.toHaveClass('text-text-secondary')
     expect(encumbrance).toHaveTextContent('62.5 / 270 lb')
     expect(attunement).toHaveTextContent('2 / 3')
+  })
+
+  it('shortens coin from 1,000, rounding down, with the exact amount a click or tap away', async () => {
+    const user = userEvent.setup()
+    renderTab(
+      withInventory({
+        currency: [
+          { id: 'pp', label: 'Platinum', abbreviation: 'PP', value: 1050 },
+          { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 12_877 },
+          { id: 'ep', label: '', abbreviation: 'EP', value: 2_500_000 },
+          { id: 'sp', label: 'Silver', abbreviation: 'SP', value: 999 },
+        ],
+      }),
+    )
+
+    const [currency] = screen.getAllByRole('definition')
+    expect(
+      within(currency)
+        .getAllByRole('listitem')
+        .map(coin => coin.textContent),
+    ).toEqual(['1k PP', '12.8k GP', '2.5M EP', '999 SP'])
+    // Each shortened amount is a button, named first for what it shows; one under 1,000 is text.
+    const buttons = within(currency).getAllByRole('button')
+    expect(buttons.map(button => button.textContent)).toEqual([
+      '1k PP',
+      '12.8k GP',
+      '2.5M EP',
+    ])
+    for (const button of buttons) {
+      expect(button).toHaveAccessibleName(`${button.textContent}, exact amount`)
+      expect(button).toHaveAttribute('aria-haspopup', 'dialog')
+      expect(button).toHaveAttribute('aria-expanded', 'false')
+    }
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    const gold = screen.getByRole('button', { name: '12.8k GP, exact amount' })
+    await user.click(gold)
+    const exact = screen.getByRole('dialog', { name: '12,877 GP' })
+    expect(exact).toHaveTextContent(/^Gold12,877 GP$/)
+    expect(gold).toHaveAttribute('aria-expanded', 'true')
+    await waitFor(() => expect(exact).toHaveFocus())
+
+    // Escape closes it, back on the amount.
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(gold).toHaveAttribute('aria-expanded', 'false')
+    await waitFor(() => expect(gold).toHaveFocus())
+
+    // So does a click or tap elsewhere.
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('dialog', { name: '12,877 GP' })).toBeVisible()
+    await user.click(screen.getByText('Encumbrance'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    // A coin the sheet doesn't name shows only its amount.
+    await user.click(
+      screen.getByRole('button', { name: '2.5M EP, exact amount' }),
+    )
+    expect(
+      screen.getByRole('dialog', { name: '2,500,000 EP' }),
+    ).toHaveTextContent(/^2,500,000 EP$/)
+  })
+
+  describe('a shortened amount of coin', () => {
+    it('is named for its amount alone, for a coin with no abbreviation', async () => {
+      const user = userEvent.setup()
+      renderTab(gold(''))
+
+      await user.click(
+        screen.getByRole('button', { name: '12.8k, exact amount' }),
+      )
+      expect(screen.getByRole('dialog', { name: '12,877' })).toHaveTextContent(
+        /^Gold12,877$/,
+      )
+    })
+
+    it('opens the exact amount above it, so that the finger that tapped it does not cover it', async () => {
+      const user = userEvent.setup()
+      // A 1024 by 768 window.
+      for (const [side, size] of [
+        ['clientWidth', 1024],
+        ['clientHeight', 768],
+      ] as const)
+        Object.defineProperty(document.documentElement, side, {
+          configurable: true,
+          value: size,
+        })
+      try {
+        renderTab(gold())
+        const amount = screen.getByRole('button', {
+          name: '12.8k GP, exact amount',
+        })
+        // 60 by 20 pixels, 100 from the left of the window and 400 from its top.
+        jest
+          .spyOn(amount, 'getBoundingClientRect')
+          .mockReturnValue(
+            DOMRect.fromRect({ x: 100, y: 400, width: 60, height: 20 }),
+          )
+        await user.click(amount)
+
+        // Its middle over the amount's, 6 pixels above it.
+        await waitFor(() =>
+          expect(
+            screen.getByRole('dialog', { name: '12,877 GP' }).style.transform,
+          ).toBe('translate(130px, 394px)'),
+        )
+      } finally {
+        for (const side of ['clientWidth', 'clientHeight'])
+          Reflect.deleteProperty(document.documentElement, side)
+      }
+    })
+
+    it('opens the exact amount inside a dialog it is in, as the page behind it can’t be used, where Escape closes only it', async () => {
+      const user = userEvent.setup()
+      const pressed: KeyboardEvent[] = []
+      const keep = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') pressed.push(event)
+      }
+      globalThis.addEventListener('keydown', keep, true)
+      render(
+        <Modal open onClose={jest.fn()} title='Thorin'>
+          <InventoryTab
+            characterId='char-1'
+            onRoll={jest.fn()}
+            onRollDamage={jest.fn()}
+            sheet={toTableSheet(gold(), 'https://my-game.forge-vtt.com')}
+          />
+        </Modal>,
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: '12.8k GP, exact amount' }),
+      )
+      const exact = screen.getByRole('dialog', { name: '12,877 GP' })
+      expect(screen.getByRole('dialog', { name: 'Thorin' })).toContainElement(
+        exact,
+      )
+      await waitFor(() => expect(exact).toHaveFocus())
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('dialog', { name: '12,877 GP' })).toBeNull()
+      // The key cancelled, which the browser would otherwise take to close the dialog too.
+      expect(pressed.at(-1)?.defaultPrevented).toBe(true)
+      await user.keyboard('{Escape}')
+      expect(pressed.at(-1)?.defaultPrevented).toBe(false)
+      globalThis.removeEventListener('keydown', keep, true)
+    })
   })
 
   it('draws the load against the most the character can carry, marking where encumbrance begins', () => {

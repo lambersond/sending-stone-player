@@ -444,6 +444,62 @@ describe('hooks/use-sheet-roller', () => {
     expect(latest()).not.toHaveProperty('minimum')
   })
 
+  it('throws several of a formula together, each coming to no less than its least, as hit dice spent at once do', async () => {
+    const fake = renderer()
+    const onFormulaThrown = jest.fn()
+    // The dice land on 1, 8 and 5.
+    const random = jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.5)
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, undefined, onFormulaThrown),
+    )
+    const latest = () => result.current.rolls[0] as LocalFormula
+    const request = { ...hitDie(-3, 1), label: 'Hit dice (3d8)', times: 3 }
+
+    await act(() => result.current.rollFormula(request))
+    // In one throw.
+    expect(fake.roll).toHaveBeenCalledTimes(1)
+    expect(fake.roll.mock.calls[0][0]).toBe('3d8@1,8,5')
+    // Each die with −3 for Constitution, at least 1: 1, 5 and 2. Its terms as one, all its dice
+    // and numbers, which came to 5, less than they gave back.
+    expect(latest()).toEqual({
+      kind: 'formula',
+      id: expect.any(String),
+      label: 'Hit dice (3d8)',
+      total: 8,
+      healing: true,
+      terms: [
+        { text: '3d8', values: [1, 8, 5], value: 14 },
+        { text: '−9', values: [], value: -9 },
+      ],
+      minimum: 1,
+      times: 3,
+      at: expect.any(Number),
+    })
+    expect(onFormulaThrown).toHaveBeenCalledWith(request, latest())
+
+    // Under the 2014 rules, each at least none: 0, 0 and 5.
+    random
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99)
+    await act(() =>
+      result.current.rollFormula({ ...request, ...hitDie(-3, 0), times: 3 }),
+    )
+    expect(latest()).toMatchObject({ total: 5, minimum: 0, times: 3 })
+    // None came to less than its least: 4, 5 and 2.
+    random
+      .mockReturnValueOnce(0.8)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.5)
+    await act(() => result.current.rollFormula(request))
+    expect(latest().total).toBe(11)
+    expect(latest()).not.toHaveProperty('minimum')
+  })
+
   it('keeps a formula of numbers alone, with no dice to throw', async () => {
     const fake = renderer()
     const onFormulaThrown = jest.fn()

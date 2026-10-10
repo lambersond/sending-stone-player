@@ -43,6 +43,14 @@ export const FOLLOW_FOR = 110_000
  */
 export const LATE_FOLLOW = 330_000
 
+/**
+ * Of rolls sent one after another, as hit dice spent at once, how long to wait before sending one
+ * again that the app turned away as one too many at once, in milliseconds; and how long to go on
+ * sending it: past the minute over which the app counts a character's rolls.
+ */
+export const BUSY_WAIT = 5000
+export const BUSY_FOR = 65_000
+
 /** Where this browser keeps whether to send the player's rolls to the table. */
 export const SEND_KEY = 'sending-stone:send-rolls'
 
@@ -72,6 +80,11 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   prompt?: string
   /** For an area attack, the names of the combatants it was made at, by their ids. */
   targetNames?: Record<string, string>
+  /**
+   * For rolls sent one after another as one, as hit dice spent at once are, a request a die: how
+   * many there are, and how many of them the game has made.
+   */
+  together?: { count: number; made: number }
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -149,6 +162,61 @@ export function useTableRolls(
           kept = { ...kept, requestId: id }
         },
       ).finally(() => running.current.delete(controller))
+    },
+    [],
+  )
+
+  /**
+   * Send rolls to the game one after another, each once the game has made the one before it, and
+   * follow them, keeping their way together under the local roll's id: as hit dice spent at once,
+   * which the game spends one a time, so that no more than one is on its way at once. One the app
+   * turns away as one too many at once is sent again, with the same dice, a moment later, for up
+   * to a minute: many dice spent at once may be more than a minute's rolls. None is sent after one
+   * the game didn't make, nor once the page is left, which the player is told as they're sent.
+   */
+  const startEach = useCallback(
+    (localId: string, inputs: RollRequestInput[]) => {
+      const controller = new AbortController()
+      const { signal } = controller
+      running.current.add(controller)
+      const each: TableRollState[] = []
+      const update = () => {
+        if (!signal.aborted) {
+          setStates(held =>
+            new Map(held).set(localId, together(each, inputs.length)),
+          )
+        }
+      }
+      const send = async (index: number, input: RollRequestInput) => {
+        const until = Date.now() + BUSY_FOR
+        while (!signal.aborted) {
+          each[index] = { status: 'sending' }
+          update()
+          // Turned away as one too many at once, it's still on its way while it may be sent again.
+          let again = false
+          await follow(
+            latest.current.characterId,
+            input,
+            signal,
+            state => {
+              again = busy(state) && Date.now() < until
+              if (again) return
+              each[index] = state
+              update()
+            },
+            () => {},
+          )
+          if (signal.aborted || !again) return
+          await pause(BUSY_WAIT, signal)
+        }
+      }
+      const run = async () => {
+        for (const [index, input] of inputs.entries()) {
+          await send(index, input)
+          if (signal.aborted || each[index].status !== 'done') return
+        }
+      }
+      void run().finally(() => running.current.delete(controller))
     },
     [],
   )
@@ -256,9 +324,21 @@ export function useTableRolls(
       const { source } = roll
       const { kinds, on } = latest.current
       if (!on || !source || !kinds.includes(source.kind)) return
+      // Several thrown together, as hit dice spent at once, are a request each, as the game spends
+      // a hit die a request.
+      const times = roll.times ?? 1
+      if (times > 1) {
+        startEach(
+          rolled.id,
+          Array.from({ length: times }, (_, copy) =>
+            toFormulaRequest(roll, source, rolled, copy),
+          ),
+        )
+        return
+      }
       start(rolled.id, toFormulaRequest(roll, source, rolled), {})
     },
-    [start],
+    [start, startEach],
   )
 
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
@@ -355,6 +435,44 @@ function dueOf(
         ...(due.modifiers && { modifiers: due.modifiers }),
       }
     : undefined
+}
+
+/**
+ * Rolls sent one after another, as one: where the latest sent is on its way; or, once each is made,
+ * what the game made of them all, their totals and the hit points they gave back added up; or that
+ * one of them wasn't made, and why, after how many were.
+ */
+function together(each: TableRollState[], count: number): TableRollState {
+  const made = each.filter(({ status }) => status === 'done')
+  const latest = each.at(-1) ?? { status: 'sending' }
+  const visible = made.length > 0 && made.every(state => state.visible)
+  const totals = made.map(({ total }) => total)
+  const healed = made.map(state => state.healed)
+  const status =
+    latest.status === 'done' && made.length < count ? 'sending' : latest.status
+  return {
+    status,
+    ...(latest.reason !== undefined && { reason: latest.reason }),
+    ...(made.length > 0 && { visible }),
+    ...(visible && known(totals) && { total: added(totals) }),
+    ...(visible && known(healed) && { healed: added(healed) }),
+    together: { count, made: made.length },
+  }
+}
+
+/** Whether the app turned a roll away as one too many at once, to send again a moment later. */
+function busy(state: TableRollState): boolean {
+  return state.status === 'refused' && state.reason === 'busy'
+}
+
+/** Whether every number is known. */
+function known(numbers: (number | undefined)[]): numbers is number[] {
+  return numbers.every(number => number !== undefined)
+}
+
+/** Numbers added up. */
+function added(numbers: number[]): number {
+  return numbers.reduce((sum, number) => sum + number, 0)
 }
 
 /** Send a roll to the game, then ask after it until it's made, or given up on. */
@@ -473,12 +591,14 @@ export function toRollRequest(
 /**
  * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, the
  * formula's item and activity, or the description's link it's in, and the dice of each of its
- * terms, in order.
+ * terms, in order. Of several thrown together, as hit dice spent at once, one of them: its own.
+ * @param copy - Which of several thrown together, from 0; the first unless said.
  */
 export function toFormulaRequest(
   roll: SheetFormulaRoll,
   source: FormulaSource,
   rolled: LocalFormula,
+  copy = 0,
 ): RollRequestInput {
   return {
     kind: source.kind,
@@ -488,7 +608,15 @@ export function toFormulaRequest(
     extras: [],
     dice: roll.terms.flatMap((term, index) =>
       'sides' in term
-        ? [{ faces: term.sides, results: rolled.terms[index]?.values ?? [] }]
+        ? [
+            {
+              faces: term.sides,
+              results: (rolled.terms[index]?.values ?? []).slice(
+                copy * term.count,
+                (copy + 1) * term.count,
+              ),
+            },
+          ]
         : [],
     ),
   }

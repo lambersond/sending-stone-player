@@ -95,6 +95,11 @@ export type SheetFormulaRoll = {
   healing?: boolean
   /** The least it comes to, as a hit die spent gives back at least 1. */
   minimum?: number
+  /**
+   * How many of it are thrown together, each coming to its own total, at least its least, as hit
+   * dice spent at once are; one unless said.
+   */
+  times?: number
   /** What it is, for the Gamemaster's game to make it too. */
   source?: FormulaSource
 }
@@ -167,10 +172,15 @@ export type LocalFormula = {
   label: string
   total: number
   healing: boolean
-  /** Each term, with what it came to. */
+  /** Each term, with what it came to: for several thrown together, all of theirs as one. */
   terms: LocalExtra[]
-  /** The least it comes to, when its dice and numbers came to less. */
+  /**
+   * The least it comes to, when its dice and numbers came to less; for several thrown together,
+   * the least each does, when one of them came to less.
+   */
   minimum?: number
+  /** How many of it were thrown together, as hit dice spent at once, where more than one. */
+  times?: number
   /** Rolled from a link in a description. */
   described?: boolean
   at: number
@@ -313,28 +323,54 @@ export function useSheetRoller(
 
   const rollFormula = useCallback(
     async (request: SheetFormulaRoll) => {
-      const { label, terms, healing = false, minimum } = request
+      const { label, terms, healing = false, minimum, times = 1 } = request
       const dice = terms.filter(term => 'sides' in term)
+      // Several thrown together throw each term's dice that many times, in one throw.
       const result = executeRoll({
-        pools: dice.map(({ count, sides }) => ({ count, sides })),
+        pools: dice.map(({ count, sides }) => ({
+          count: count * times,
+          sides,
+        })),
         modifier: 0,
       })
-      // The dice's pools are in the order their terms were written.
+      // The dice's pools are in the order their terms were written, each with every copy's dice,
+      // the first's first.
       const pools = [...result.pools]
+      const thrown = terms.map(term =>
+        'sides' in term ? (pools.shift()?.kept ?? []) : [],
+      )
+      // What each copy came to, at least its least.
+      const totals = Array.from({ length: times }, (_, copy) => {
+        let sum = 0
+        for (const [index, term] of terms.entries()) {
+          const amount =
+            'sides' in term
+              ? thrown[index]
+                  .slice(copy * term.count, (copy + 1) * term.count)
+                  .reduce((sum, value) => sum + value, 0)
+              : term.flat
+          sum += term.sign * amount
+        }
+        return minimum === undefined ? sum : Math.max(minimum, sum)
+      })
       const kept = terms.map((term, index) => {
-        const values = 'sides' in term ? (pools.shift()?.kept ?? []) : []
+        const values = thrown[index]
         const amount =
           'sides' in term
             ? values.reduce((sum, value) => sum + value, 0)
-            : term.flat
+            : term.flat * times
+        const all =
+          'sides' in term
+            ? { ...term, count: term.count * times }
+            : { ...term, flat: term.flat * times }
         return {
-          text: damageTerm(term, { first: index === 0, doubled: false }),
+          text: damageTerm(all, { first: index === 0, doubled: false }),
           values,
           value: term.sign * amount,
         }
       })
       const sum = kept.reduce((total, { value }) => total + value, 0)
-      const total = minimum === undefined ? sum : Math.max(minimum, sum)
+      const total = totals.reduce((all, each) => all + each, 0)
       const rolled: LocalFormula = {
         kind: 'formula',
         id: result.id,
@@ -343,6 +379,7 @@ export function useSheetRoller(
         healing,
         terms: kept,
         ...(total !== sum && { minimum }),
+        ...(times > 1 && { times }),
         ...(request.source?.kind === 'textRoll' && { described: true }),
         at: result.at,
       }

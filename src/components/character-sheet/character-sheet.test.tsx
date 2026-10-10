@@ -63,9 +63,24 @@ const term = (label: string) =>
 /** The Hit dice tile's description. */
 const tile = () => term('Hit dice')?.nextSibling as HTMLElement
 
-/** How many hit dice of a size are left, as a row of the Hit dice tile shows it. */
-const counts = (row: HTMLElement) =>
-  row.querySelector('[aria-hidden].tabular-nums') as HTMLElement
+/** The grid of the sheet's vital numbers, and the columns each of its tiles takes. */
+const grid = () => {
+  const terms = screen.getAllByRole('term')
+  const tiles = terms.map(term => term.parentElement as HTMLElement)
+  return {
+    labels: terms.map(term => term.textContent),
+    classes: [...(tiles[0].parentElement as HTMLElement).classList],
+    spans: tiles.map(tile =>
+      [...tile.classList].filter(name => name.includes('col-span')),
+    ),
+  }
+}
+
+/** What a row of the Hit dice tile shows: its size and how many are left, such as "d10 4/7". */
+const shown = (row: HTMLElement) =>
+  [...row.querySelectorAll('span[aria-hidden] > span')]
+    .map(part => part.textContent)
+    .join(' ')
 
 describe('components/character-sheet/character-sheet', () => {
   it('shows who the character is and their vital numbers', () => {
@@ -219,11 +234,14 @@ describe('components/character-sheet/character-sheet', () => {
       />,
     )
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Initiative, +1, to roll for the combat',
-      }),
-    )
+    const initiative = screen.getByRole('button', {
+      name: 'Initiative, +1, to roll for the combat',
+    })
+    expect(initiative).toHaveTextContent(/^\+1Roll$/)
+    // Its Roll badge goes under the number in a tile too narrow for both, rather than under the
+    // tile beside it.
+    expect(initiative).toHaveClass('inline-flex', 'flex-wrap')
+    await user.click(initiative)
     expect(onRoll).toHaveBeenLastCalledWith({
       label: 'Initiative',
       modifier: 1,
@@ -253,11 +271,8 @@ describe('components/character-sheet/character-sheet', () => {
   })
 
   describe('hit dice', () => {
-    /** Thorin's sheet with classes of these hit dice, the game spending them or not. */
-    const renderDice = (
-      fields: Partial<Sheet>,
-      spendsAtTable?: boolean,
-    ): jest.Mock => {
+    /** Thorin's sheet with classes of these hit dice, something spending them. */
+    const renderDice = (fields: Partial<Sheet>): jest.Mock => {
       const onRollFormula = jest.fn()
       render(
         <CharacterSheet
@@ -265,52 +280,65 @@ describe('components/character-sheet/character-sheet', () => {
           sheet={sheetOf(fields)}
           onRoll={jest.fn()}
           onRollFormula={onRollFormula}
-          spendsAtTable={spendsAtTable}
         />,
       )
       return onRollFormula
     }
 
-    it('spends a hit die from a tile of its own, a tap a die of its size, the largest first, none with none left', async () => {
+    it('has a row for each size, the largest first: its die, its size, how many are left, and a button that uses one', async () => {
       const user = userEvent.setup()
-      const onRollFormula = renderDice(
-        {
-          classes: [
-            hitDice('d6', 0, 2),
-            hitDice('d10', 3, 5),
-            hitDice('d10', 1, 2),
-          ],
-        },
-        true,
-      )
+      const onRollFormula = renderDice({
+        classes: [
+          hitDice('d6', 0, 2),
+          hitDice('d10', 3, 5),
+          hitDice('d10', 1, 2),
+        ],
+      })
 
-      // Named for what each shows, then how many are left, a space before the comma, as a browser
-      // also sets apart the words only a screen reader has.
-      const spend = [
-        within(tile()).getByRole('button', { name: 'Spend d10 , 4 of 7 left' }),
-        within(tile()).getByRole('button', { name: 'Spend d6 , 0 of 2 left' }),
+      const rows = within(tile()).getAllByRole('listitem')
+      expect(rows.map(row => shown(row))).toEqual(['d10 4/7', 'd6 0/2'])
+      // Each size's die, drawn in the colour of the text around it, only to look at.
+      for (const [row, box] of [
+        [rows[0], '0 0 100 100'],
+        [rows[1], '0 0 100 100'],
+      ] as const) {
+        const icon = row.querySelector('svg')
+        expect(icon).toHaveAttribute('aria-hidden', 'true')
+        expect(icon).toHaveAttribute('viewBox', box)
+        expect(icon?.querySelector('path')).toHaveAttribute(
+          'fill',
+          'currentColor',
+        )
+        // Left out of a tile too narrow for it, a count such as 10/12 and the button, as on a
+        // phone under 375 pixels wide, so that the count doesn't go under the button.
+        expect(icon).toHaveClass('size-5', '@max-[150px]:hidden')
+        expect(icon?.closest(String.raw`.\@container`)).toBe(
+          term('Hit dice')?.parentElement,
+        )
+      }
+      // In ruby with none left.
+      expect(within(rows[1]).getByText('0/2')).toHaveClass('text-ruby')
+      expect(within(rows[0]).getByText('4/7')).not.toHaveClass('text-ruby')
+      // Each button says Use, and is named for it, then the size and how many are left.
+      const use = [
+        within(tile()).getByRole('button', {
+          name: 'Use a d10 hit die, 4 of 7 left',
+        }),
+        within(tile()).getByRole('button', {
+          name: 'Use a d6 hit die, 0 of 2 left',
+        }),
       ]
-      expect(within(tile()).getAllByRole('button')).toEqual(spend)
-      expect(spend[0]).toHaveTextContent(/^Spend d10/)
-      expect(spend[0]).toBeEnabled()
-      expect(spend[1]).toBeDisabled()
-      // Beside each, what's left: as pips, and in words, in ruby with none left.
-      const [d10, d6] = within(tile()).getAllByRole('listitem')
-      expect(counts(d10)).toHaveTextContent('4 of 7 left')
-      expect(
-        [...counts(d10).querySelectorAll('.rounded-full')].map(pip =>
-          pip.classList.contains('bg-primary'),
-        ),
-      ).toEqual([true, true, true, true, false, false, false])
-      expect(counts(d10)).not.toHaveClass('text-ruby')
-      expect(counts(d6)).toHaveTextContent('0 of 2 left')
-      expect(counts(d6)).toHaveClass('text-ruby')
-      // Taking the room the button leaves, the count puts its words under its pips on a phone,
-      // the button staying beside it, rather than the button going under it.
-      expect(counts(d10)).toHaveClass('flex-1', 'flex-wrap')
+      expect(within(tile()).getAllByRole('button')).toEqual(use)
+      expect(use.map(button => button.textContent)).toEqual(['Use', 'Use'])
+      expect(use[0]).toHaveAttribute('aria-haspopup', 'dialog')
+      expect(use[0]).toBeEnabled()
+      expect(use[1]).toBeDisabled()
+      expect(use[1]).toHaveAccessibleDescription('None left')
+      // No pips: a phone's column has no room for them.
+      expect(tile().querySelector('.rounded-full')).toBeNull()
 
-      await user.click(spend[0])
-      // The die, and Thorin's Constitution modifier, giving back at least 1.
+      await user.click(use[0])
+      // One die, and Thorin's Constitution modifier, giving back at least 1.
       expect(onRollFormula).toHaveBeenCalledWith({
         label: 'Hit die (d10)',
         terms: [
@@ -321,41 +349,62 @@ describe('components/character-sheet/character-sheet', () => {
         minimum: 1,
         source: { kind: 'hitDie', denomination: 'd10' },
       })
+      await user.click(use[1])
+      expect(onRollFormula).toHaveBeenCalledTimes(1)
     })
 
-    it("says it rolls a hit die where the game won't spend it, as it's only rolled here", async () => {
+    it('uses several at once from a popover, opened with a right-click', async () => {
       const user = userEvent.setup()
-      const onRollFormula = renderDice({ classes: [hitDice('d10', 3, 5)] })
+      const onRollFormula = renderDice({ classes: [hitDice('d10', 4, 5)] })
 
+      await user.pointer({
+        keys: '[MouseRight]',
+        target: within(tile()).getByRole('button', { name: /^Use a d10/ }),
+      })
+      const popover = screen.getByRole('dialog', { name: 'Use d10 hit dice' })
       await user.click(
-        within(tile()).getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
+        within(popover).getByRole('button', { name: 'One die more' }),
       )
+      await user.click(
+        within(popover).getByRole('button', { name: 'One die more' }),
+      )
+      // Thorin's Constitution, +3, for each.
+      expect(popover).toHaveTextContent('Heals 3d10 + 9')
+      await user.click(
+        within(popover).getByRole('button', { name: 'Use 3 d10 hit dice' }),
+      )
+
+      expect(onRollFormula).toHaveBeenCalledTimes(1)
       expect(onRollFormula).toHaveBeenCalledWith(
         expect.objectContaining({
+          label: 'Hit dice (3d10)',
+          times: 3,
+          minimum: 1,
           source: { kind: 'hitDie', denomination: 'd10' },
         }),
       )
-      expect(screen.queryByRole('button', { name: /^Spend/ })).toBeNull()
+      expect(screen.queryByRole('dialog')).toBeNull()
     })
 
-    it('spends none at full hit points, and says so', async () => {
+    it('uses none at full hit points, saying why only in its title', async () => {
       const user = userEvent.setup()
-      const onRollFormula = renderDice(
-        {
-          hp: { value: 44, max: 44, temp: 0 },
-          classes: [hitDice('d10', 3, 5)],
-        },
-        true,
-      )
-
-      const spend = within(tile()).getByRole('button', {
-        name: 'Spend d10 , 3 of 5 left',
+      const onRollFormula = renderDice({
+        hp: { value: 44, max: 44, temp: 0 },
+        classes: [hitDice('d10', 3, 5)],
       })
-      expect(spend).toBeDisabled()
-      expect(spend).toHaveAccessibleDescription('At full hit points')
-      expect(tile()).toHaveTextContent(/At full hit points$/)
-      await user.click(spend)
+
+      const use = within(tile()).getByRole('button', {
+        name: 'Use a d10 hit die, 3 of 5 left',
+      })
+      expect(use).toBeDisabled()
+      expect(use).toHaveAttribute('title', 'At full hit points')
+      expect(use).toHaveAccessibleDescription('At full hit points')
+      expect(screen.queryByText(/At full hit points/)).toBeNull()
+      await user.click(use)
+      // Nor does its popover open.
+      fireEvent.contextMenu(use)
       expect(onRollFormula).not.toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).toBeNull()
     })
 
     it.each([
@@ -364,50 +413,39 @@ describe('components/character-sheet/character-sheet', () => {
       // at 42 of 40 raised to 45: some may still be missing.
       ['above their maximum', { value: 42, max: 40, temp: 0 }],
       ['with them unknown', { value: 43, max: null, temp: 0 }],
-    ])('spends one at full hit points %s', (_, hp) => {
-      renderDice({ hp, classes: [hitDice('d10', 3, 5)] }, true)
+    ])('uses one at full hit points %s', (_, hp) => {
+      renderDice({ hp, classes: [hitDice('d10', 3, 5)] })
 
-      expect(
-        within(tile()).getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
-      ).toBeEnabled()
-      expect(tile()).not.toHaveTextContent('At full hit points')
+      const use = within(tile()).getByRole('button', {
+        name: 'Use a d10 hit die, 3 of 5 left',
+      })
+      expect(use).toBeEnabled()
+      expect(use).not.toHaveAttribute('title')
     })
 
     it('says how many are left as far as the sheet knows', () => {
-      renderDice(
-        {
-          classes: [
-            hitDice('d12', null, 5),
-            hitDice('d10', 2, null),
-            hitDice('d8', null, null),
-          ],
-        },
-        true,
-      )
+      renderDice({
+        classes: [
+          hitDice('d12', null, 5),
+          hitDice('d10', 2, null),
+          hitDice('d8', null, null),
+        ],
+      })
 
-      expect(
-        within(tile())
-          .getAllByRole('button')
-          .map(button => button.textContent),
-      ).toEqual([
-        'Spend d12, an unknown number of 5 left',
-        'Spend d10, 2 left',
-        'Spend d8, an unknown number left',
-      ])
-      // Without both counts, no pips.
       expect(
         within(tile())
           .getAllByRole('listitem')
-          .map(row => row.querySelector('[aria-hidden]')?.textContent),
-      ).toEqual(['– of 5 left', '2 left', '– left'])
-      expect(tile().querySelector('.rounded-full')).toBeNull()
-    })
-
-    it('draws no pips past nine, where the words say it alone', () => {
-      renderDice({ classes: [hitDice('d10', 7, 12)] }, true)
-
-      expect(tile().querySelector('.rounded-full')).toBeNull()
-      expect(tile()).toHaveTextContent(/^7 of 12 left/)
+          .map(row => shown(row)),
+      ).toEqual(['d12 –/5', 'd10 2/–', 'd8 –/–'])
+      expect(
+        within(tile())
+          .getAllByRole('button')
+          .map(button => button.getAttribute('aria-label')),
+      ).toEqual([
+        'Use a d12 hit die, an unknown number of 5 left',
+        'Use a d10 hit die, 2 left',
+        'Use a d8 hit die, an unknown number left',
+      ])
     })
 
     it('shows how many are left where nothing rolls them, with nothing to tap', () => {
@@ -418,12 +456,13 @@ describe('components/character-sheet/character-sheet', () => {
 
       // Whether or not the sheet has hit points; and only those of a size the game has.
       expect(within(tile()).queryByRole('button')).toBeNull()
-      expect(
-        within(tile())
-          .getAllByRole('listitem')
-          .map(row => row.textContent),
-      ).toEqual(['3 of 5 leftd10, 3 of 5 left'])
-      expect(tile()).not.toHaveTextContent('At full hit points')
+      const [row] = within(tile()).getAllByRole('listitem')
+      expect(within(tile()).getAllByRole('listitem')).toHaveLength(1)
+      expect(shown(row)).toBe('d10 3/5')
+      // In words for a screen reader, as a button would say it.
+      expect(row.querySelector('.sr-only')).toHaveTextContent(
+        'd10, 3 of 5 left',
+      )
     })
 
     it('has no tile for a character without hit dice the game has', () => {
@@ -432,35 +471,115 @@ describe('components/character-sheet/character-sheet', () => {
       expect(term('Hit dice')).toBeUndefined()
     })
 
-    it('comes after the hit points and the death saves, and last on a row of its own where the sheet is wide, however wide', () => {
-      renderDice(
-        {
-          hp: { value: 0, max: 44, temp: 0 },
-          deathSaves: { success: 1, failure: 0 },
-          classes: [hitDice('d10', 3, 5)],
-        },
-        true,
-      )
+    it('sits beside the hit points at every width, the numbers after them on its row where the sheet is as wide as it gets', () => {
+      renderDice({ classes: [hitDice('d10', 3, 5)] })
 
-      const terms = screen.getAllByRole('term')
-      expect(terms.slice(0, 4).map(term => term.textContent)).toEqual([
+      const { labels, classes, spans } = grid()
+      expect(labels).toEqual([
         'Hit points',
-        'Death saves',
         'Hit dice',
         'Armor classAC',
+        'ProficiencyProf',
+        'InitiativeInit',
+        'Speed',
       ])
-      // Never put back beside the others, in a column too narrow for a die and its button, nor
-      // the others left shorter than it.
-      const stat = terms[2].parentElement as HTMLElement
-      expect(
-        [...stat.classList].filter(name => /(order|col-span)-/.test(name)),
-      ).toEqual(['col-span-2', '@lg:order-last', '@lg:col-span-6'])
-      expect([...(stat.parentElement as HTMLElement).classList]).toEqual([
+      // A column each of the two on a phone, and two of four wider, the numbers a column each on
+      // the rows after them; or, where the sheet is as wide as it gets, two of eight, the numbers
+      // on their row, each tile wide enough for a Roll badge or a speed of 120 ft.
+      expect(classes).toEqual([
+        'grid',
+        'grid-cols-2',
+        'gap-2',
+        '@lg:grid-cols-4',
+        '@5xl:grid-cols-8',
+      ])
+      expect(spans).toEqual([
+        ['@lg:col-span-2'],
+        ['@lg:col-span-2'],
+        [],
+        [],
+        [],
+        [],
+      ])
+    })
+
+    it('has the death saves on a row of their own after them while the character is dying, the numbers a row after, however wide', () => {
+      renderDice({
+        hp: { value: 0, max: 44, temp: 0 },
+        deathSaves: { success: 1, failure: 0 },
+        classes: [hitDice('d10', 3, 5)],
+      })
+
+      const { labels, classes, spans } = grid()
+      expect(labels).toEqual([
+        'Hit points',
+        'Hit dice',
+        'Death saves',
+        'Armor classAC',
+        'ProficiencyProf',
+        'InitiativeInit',
+        'Speed',
+      ])
+      // Never eight to a row, which would leave half the numbers' row empty.
+      expect(classes).toEqual([
+        'grid',
+        'grid-cols-2',
+        'gap-2',
+        '@lg:grid-cols-4',
+      ])
+      expect(spans).toEqual([
+        ['@lg:col-span-2'],
+        ['@lg:col-span-2'],
+        ['col-span-2', '@lg:col-span-4'],
+        [],
+        [],
+        [],
+        [],
+      ])
+    })
+
+    it('leaves the numbers under them, however wide, beside more than one size of hit die, side by side where they have room', () => {
+      renderDice({ classes: [hitDice('d10', 3, 5), hitDice('d6', 1, 2)] })
+
+      expect(grid().classes).toEqual([
+        'grid',
+        'grid-cols-2',
+        'gap-2',
+        '@lg:grid-cols-4',
+      ])
+      // Each row as wide as a die, its size, its count and its button, wrapping under the other.
+      const rows = within(tile()).getAllByRole('listitem')
+      expect(rows[0].parentElement).toHaveClass('flex', 'flex-wrap')
+      for (const row of rows) expect(row).toHaveClass('flex-[1_1_9rem]')
+      // The hit points' tile, as tall as theirs, has its bar at its foot, not empty space under it.
+      const hitPoints = term('Hit points')?.nextSibling as HTMLElement
+      expect(hitPoints).toHaveClass('flex-1')
+      expect(hitPoints.firstChild).toHaveClass(
+        'flex',
+        'h-full',
+        'flex-col',
+        'justify-between',
+      )
+    })
+
+    it('makes one row of the hit points and the numbers wider, without hit dice the game has, and gives the hit points a row on a phone', () => {
+      renderDice({ classes: [hitDice('d3', 1, 1)] })
+
+      const { labels, classes, spans } = grid()
+      expect(labels).toEqual([
+        'Hit points',
+        'Armor classAC',
+        'ProficiencyProf',
+        'InitiativeInit',
+        'Speed',
+      ])
+      expect(classes).toEqual([
         'grid',
         'grid-cols-2',
         'gap-2',
         '@lg:grid-cols-6',
       ])
+      expect(spans).toEqual([['col-span-2'], [], [], [], []])
     })
   })
 

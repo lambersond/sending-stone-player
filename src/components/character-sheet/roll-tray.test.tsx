@@ -275,6 +275,30 @@ describe('components/character-sheet/roll-tray', () => {
     )
   })
 
+  it('shows hit dice spent at once as one roll: their total, every die, Constitution for each, and the least each gives back', async () => {
+    const user = userEvent.setup()
+    const three = hitDie({
+      id: 'h3',
+      label: 'Hit dice (3d10)',
+      total: 8,
+      terms: [
+        { text: '3d10', values: [1, 8, 5], value: 14 },
+        { text: '−9', values: [], value: -9 },
+      ],
+      minimum: 1,
+      times: 3,
+    })
+    render(<RollTray rolls={[three, { ...three, id: 'h2' }]} rolling={false} />)
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '8Hit dice (3d10)3d10 (1, 8, 5) −9 · at least 1 each',
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      'Hit dice (3d10)14 −9, at least 1 each = 8',
+    )
+  })
+
   it('shows a formula rolled, and keeps it among the earlier rolls', async () => {
     const user = userEvent.setup()
     render(
@@ -1107,6 +1131,111 @@ describe('components/character-sheet/roll-tray', () => {
         )
       },
     )
+
+    describe('hit dice spent at once, a request a die', () => {
+      const three = hitDie({
+        label: 'Hit dice (3d10)',
+        total: 22,
+        terms: [
+          { text: '3d10', values: [6, 2, 5], value: 13 },
+          { text: '+9', values: [], value: 9 },
+        ],
+        times: 3,
+      })
+      const renderState = (state: TableRollState) =>
+        render(
+          <RollTray
+            rolls={[three, { ...three, id: 'h0' }]}
+            rolling={false}
+            table={table([
+              ['h1', state],
+              ['h0', state],
+            ])}
+          />,
+        )
+
+      it.each<[string, TableRollState, string]>([
+        [
+          'the first on its way',
+          { status: 'sending', together: { count: 3, made: 0 } },
+          'Sending die 1 of 3 to your Gamemaster’s game… Keep this page open until they’re all sent.',
+        ],
+        [
+          'the second being made',
+          {
+            status: 'rolling',
+            visible: true,
+            total: 9,
+            healed: 9,
+            together: { count: 3, made: 1 },
+          },
+          'Rolling die 2 of 3 in your Gamemaster’s game… Keep this page open until they’re all sent.',
+        ],
+      ])(
+        'says where they are, %s, and that the rest are sent from this page',
+        (_, state, text) => {
+          renderState(state)
+
+          expect(screen.getByRole('status')).toHaveTextContent(
+            new RegExp(`${text}$`),
+          )
+        },
+      )
+
+      it('says what they all came to at the table, and gave back, once each is made', async () => {
+        const user = userEvent.setup()
+        renderState({
+          status: 'done',
+          visible: true,
+          total: 22,
+          healed: 20,
+          together: { count: 3, made: 3 },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /3d10 \(6, 2, 5\) \+9At the table: 22 · 20 HP regained$/,
+        )
+        await user.click(screen.getByText('Earlier rolls (1)'))
+        expect(screen.getByRole('listitem')).toHaveTextContent(
+          'Hit dice (3d10)13 +9 = 22· table 22',
+        )
+      })
+
+      it('says how many were made before one was not, what they gave back, and why not the rest', async () => {
+        const user = userEvent.setup()
+        renderState({
+          status: 'refused',
+          reason: 'no-hit-dice',
+          visible: true,
+          total: 9,
+          healed: 9,
+          together: { count: 3, made: 1 },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          new RegExp(
+            String.raw`\+91 of 3 made at the table · 9 HP regained\. ` +
+              'Not the rest: you have no hit dice of that size left$',
+          ),
+        )
+        await user.click(screen.getByText('Earlier rolls (1)'))
+        expect(screen.getByRole('listitem')).toHaveTextContent(
+          /= 22· 1 of 3 at the table$/,
+        )
+      })
+
+      it('says none was made where the first was not', () => {
+        renderState({
+          status: 'failed',
+          reason: 'no-hit-dice',
+          together: { count: 3, made: 0 },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /\+9Not made at the table: you have no hit dice of that size left$/,
+        )
+      })
+    })
 
     it('says why a hit die was not spent at the table', () => {
       render(

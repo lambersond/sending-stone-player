@@ -3,6 +3,7 @@ import {
   atFullHitPoints,
   formulaDice,
   formulaTerms,
+  hitDiceFormula,
   hitDicePools,
   hitDieRoll,
 } from './formulas'
@@ -172,6 +173,44 @@ describe('utils/formulas', () => {
         healing: true,
         source: { kind: 'hitDie', denomination: 'd4' },
       })
+    })
+  })
+
+  describe('hitDieRoll of several', () => {
+    it('throws several of one size together, each with Constitution, at least its least', () => {
+      expect(hitDieRoll(characterSheet(), 'd10', 3)).toEqual({
+        label: 'Hit dice (3d10)',
+        terms: [
+          { sign: 1, count: 1, sides: 10 },
+          { sign: 1, flat: 3 },
+        ],
+        healing: true,
+        minimum: 1,
+        times: 3,
+        source: { kind: 'hitDie', denomination: 'd10' },
+      })
+      expect(hitDieRoll(sheetWith(-1, 'legacy'), 'd8', 2)).toMatchObject({
+        label: 'Hit dice (2d8)',
+        minimum: 0,
+        times: 2,
+      })
+      // One is as a single one is.
+      expect(hitDieRoll(characterSheet(), 'd10', 1)).toEqual(
+        hitDieRoll(characterSheet(), 'd10'),
+      )
+    })
+  })
+
+  describe('hitDiceFormula', () => {
+    it.each([
+      // Thorin's Constitution of 16 adds 3 a die.
+      [characterSheet(), 1, '1d10 + 3'],
+      [characterSheet(), 3, '3d10 + 9'],
+      [sheetWith(-1), 3, '3d10 − 3'],
+      [sheetWith(0), 2, '2d10'],
+      [sheetWith(null), 4, '4d10'],
+    ])('says what spending them gives back: %#', (sheet, count, formula) => {
+      expect(hitDiceFormula(sheet, 'd10', count)).toBe(formula)
     })
   })
 
