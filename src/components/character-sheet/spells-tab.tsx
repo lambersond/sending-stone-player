@@ -8,6 +8,7 @@ import {
   type ActionRows,
   type TableDamage,
 } from './action-entry'
+import { componentsOf, whyNot } from './action-info'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -276,12 +277,7 @@ export function SpellEntry({
   rows,
 }: Readonly<{ characterId: string; spell: SheetSpell; rows?: ActionRows }>) {
   const unprepared = spell.prepared === 0
-  const components = [
-    spell.components,
-    spell.materials && `(${spell.materials})`,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const components = componentsOf(spell)
   // A spell its item can't cast now is listed, but can't be cast, and says why: first, where a
   // narrow row cuts the rest short, and once it's open.
   const unusable = spell.castFrom?.usable === false ? spell.castFrom : undefined
@@ -358,11 +354,6 @@ export function SpellEntry({
 /** The item a spell is cast from, such as "From Wand of Fireballs". */
 function fromNote(castFrom: SheetCastFrom): string {
   return `From ${castFrom.name}`
-}
-
-/** Why the item a spell is cast from can't cast it now: it needs attuning, or else it can't. */
-function whyNot(castFrom: SheetCastFrom): string {
-  return castFrom.attune ? 'Needs attuning' : 'Can’t be cast now'
 }
 
 /** A spell's marks: for concentration, ritual or always prepared, and not prepared, unseen. */

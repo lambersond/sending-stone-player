@@ -4,6 +4,7 @@ import {
   activityActions,
   featureAction,
   itemAction,
+  itemSpellOf,
   sheetActions,
   spellAction,
 } from './sheet-actions'
@@ -20,6 +21,7 @@ import type {
   SheetFeature,
   SheetRolls,
   SheetSpell,
+  SheetSpellSection,
   SheetUse,
 } from '@/types/sending-stone'
 
@@ -207,6 +209,12 @@ const hex = (fields: Partial<SheetSpell> = {}): SheetSpell =>
     activities: hexActivities(),
     ...fields,
   })
+
+/** A spellbook whose spells cast from items are these, as dnd5e lists its copy of each. */
+const spellbook = (...spells: SheetSpell[]): SheetSpellSection[] => [
+  { id: 'spell1', label: '1st Level', slots: null, spells: [] },
+  { id: 'item', label: 'Item Spells', slots: null, spells },
+]
 
 describe('utils/sheet-actions', () => {
   describe('sheetActions', () => {
@@ -524,6 +532,104 @@ describe('utils/sheet-actions', () => {
         concentration: true,
       })
       expect(activityAction(staff, hit)).not.toHaveProperty('cast')
+    })
+  })
+
+  describe('itemSpellOf', () => {
+    const staff = { id: 'staff', name: 'Staff of Fire' }
+    const fireball = sheetSpell({
+      id: 'fireball-copy',
+      name: 'Fireball',
+      level: 3,
+      castFrom: staff,
+      text: '0f1a2b3c4d5e6f',
+    })
+    const wall = sheetSpell({
+      id: 'wall-copy',
+      name: 'Wall of Fire',
+      level: 4,
+      castFrom: staff,
+      text: '1a2b3c4d5e6f70',
+    })
+    // Another item's copy of the same spell, which is never the staff's.
+    const wand = sheetSpell({
+      id: 'wand-copy',
+      name: 'Fireball',
+      level: 3,
+      castFrom: { id: 'wand', name: 'Wand of Fireballs' },
+      text: '0f1a2b3c4d5e6f',
+    })
+
+    it('finds the spell an activity casts among those its item casts, by its name', () => {
+      const spells = spellbook(wand, fireball, wall)
+
+      expect(
+        itemSpellOf(spells, 'staff', { name: 'Fireball', casts: true }),
+      ).toBe(fireball)
+      expect(
+        itemSpellOf(spells, 'staff', { name: 'Wall of Fire', casts: true }),
+      ).toBe(wall)
+      expect(
+        itemSpellOf(spells, 'wand', { name: 'Fireball', casts: true }),
+      ).toBe(wand)
+    })
+
+    it('finds it by its description first, where the module sent it', () => {
+      expect(
+        itemSpellOf(spellbook(fireball, wall), 'staff', {
+          name: 'Cast Fireball',
+          text: '1a2b3c4d5e6f70',
+          casts: true,
+        }),
+      ).toBe(wall)
+    })
+
+    it("falls back to the item's only spell for a Cast activity renamed, and to none for more than one", () => {
+      const renamed = { name: 'Cast Fireball', casts: true, resolved: true }
+
+      expect(itemSpellOf(spellbook(wand, fireball), 'staff', renamed)).toBe(
+        fireball,
+      )
+      expect(
+        itemSpellOf(spellbook(fireball, wall), 'staff', renamed),
+      ).toBeUndefined()
+      // Nor where two of the item's spells have its name.
+      expect(
+        itemSpellOf(
+          spellbook(fireball, { ...wall, name: 'Fireball' }),
+          'staff',
+          { name: 'Fireball', casts: true },
+        ),
+      ).toBeUndefined()
+    })
+
+    it("falls back to the item's only spell for a Cast whose spell the module didn't find only where that can't be cast now", () => {
+      // Its spell not set, or lost, it's named for its kind, and the only spell is another Cast's.
+      const unset = { name: 'Cast', casts: true }
+
+      expect(
+        itemSpellOf(spellbook(wand, fireball), 'staff', unset),
+      ).toBeUndefined()
+      // One that can't be cast now the module says nothing of either, as of the spell it casts.
+      const unusable = {
+        ...fireball,
+        castFrom: { ...staff, usable: false, attune: true },
+      }
+      expect(itemSpellOf(spellbook(unusable), 'staff', unset)).toBe(unusable)
+    })
+
+    it("finds none for an activity that isn't a Cast, unless one has its name", () => {
+      const spells = spellbook(fireball)
+
+      expect(
+        itemSpellOf(spells, 'staff', { name: 'Attack', casts: false }),
+      ).toBeUndefined()
+      expect(
+        itemSpellOf(spells, 'staff', { name: 'Fireball', casts: false }),
+      ).toBe(fireball)
+      expect(
+        itemSpellOf(spells, 'sword', { name: 'Fireball', casts: true }),
+      ).toBeUndefined()
     })
   })
 

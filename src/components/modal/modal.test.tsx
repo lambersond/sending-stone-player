@@ -52,6 +52,35 @@ describe('components/modal', () => {
     fireEvent(dialog, new Event('close'))
     expect(onClose).toHaveBeenCalledTimes(3)
   })
+
+  it('says under its title what it is given, such as where its content comes from', () => {
+    const { rerender } = render(
+      <Modal
+        open
+        onClose={jest.fn()}
+        title='Starry Wisp'
+        subtitle='Cantrip · From Bardic Flame'
+      >
+        <p>Its description</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Starry Wisp' })
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      /^Starry Wisp$/,
+    )
+    expect(
+      within(dialog).getByText('Cantrip · From Bardic Flame'),
+    ).toBeVisible()
+
+    rerender(
+      <Modal open onClose={jest.fn()} title='Help'>
+        <p>Steps</p>
+      </Modal>,
+    )
+    expect(
+      screen.getByRole('dialog', { name: 'Help' }).querySelector('header'),
+    ).toHaveTextContent(/^Help$/)
+  })
 })
 
 describe('components/modal/confirm-dialog', () => {

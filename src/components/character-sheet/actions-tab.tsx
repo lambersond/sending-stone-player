@@ -15,6 +15,7 @@ import {
   ActionEntry,
   actionTitle,
   activityDetail,
+  ActivityInfoButton,
   AttackChip,
   attackSource,
   castNote,
@@ -620,6 +621,7 @@ function ActionTableRow({
                 action={action}
                 pools={view.pools}
                 characterId={rows.characterId}
+                spellbook={rows.spellbook}
               />
             </div>
           </td>
@@ -631,7 +633,8 @@ function ActionTableRow({
 
 /**
  * One of an action's other activities in a table, beneath it, such as Hex's Bonus Hex Damage: its
- * name, and its range, what it rolls and its uses, each in its column.
+ * name, and its range, what it rolls and its uses, each in its column. One of an item's opens to
+ * what there is to read of it from beside its name.
  */
 function ActivityTableRow({
   activity,
@@ -665,7 +668,15 @@ function ActivityTableRow({
             (view.spent || dimmed(activity)) && 'opacity-60',
           )}
         >
-          <span className='block truncate'>{activity.name}</span>
+          <span className='flex items-center gap-1'>
+            <span className='truncate'>{activity.name}</span>
+            <ActivityInfoButton
+              activity={activity}
+              action={action}
+              parent={parent}
+              rows={rows}
+            />
+          </span>
           {detail && (
             <span className='block truncate text-xs text-text-secondary'>
               {detail}

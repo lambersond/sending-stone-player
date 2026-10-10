@@ -310,6 +310,8 @@ function RollingSheet({
     : undefined
   // A hit die spent, or a formula rolled, such as a light's radius.
   const onRollFormula = (request: SheetFormulaRoll) => void rollFormula(request)
+  // A hit die is spent in the game too while it takes them; else it's only rolled here.
+  const spendsAtTable = table.takes('hitDie')
   const favorites = {
     characterId,
     sheet,
@@ -317,6 +319,7 @@ function RollingSheet({
     onRoll,
     onRollDamage,
     onRollFormula,
+    spendsAtTable,
     onUse: using,
     tableDamage,
   }
@@ -410,6 +413,7 @@ function RollingSheet({
                 combat={combat}
                 onRoll={onRoll}
                 onRollFormula={onRollFormula}
+                spendsAtTable={spendsAtTable}
                 onShowConditions={() => show('effects')}
               />
             )}
@@ -442,6 +446,7 @@ function RollingSheet({
                 characterId={characterId}
                 sheet={sheet}
                 {...handlers}
+                spendsAtTable={spendsAtTable}
               />
             )}
             {tab === 'effects' && (

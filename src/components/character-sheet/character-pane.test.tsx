@@ -362,7 +362,7 @@ describe('components/character-sheet/character-pane', () => {
     )
 
     await user.click(
-      screen.getByRole('button', { name: 'd10 3/5 left, spend one' }),
+      screen.getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
     )
 
     expect(posted).toEqual([
@@ -384,6 +384,60 @@ describe('components/character-sheet/character-pane', () => {
       () => expect(status).toHaveTextContent('At the table: 9 · 4 HP regained'),
       { timeout: 3000 },
     )
+  })
+
+  it("says a hit die is only rolled where the game won't spend it, on every tab and favorite", async () => {
+    globalThis.localStorage.clear()
+    const { rerender } = render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(favored(), GAME)}
+        rollsToTable={['skill']}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
+    ).toBeInTheDocument()
+    await show('Features')
+    expect(
+      within(screen.getByRole('region', { name: 'Classes' })).getByRole(
+        'button',
+        { name: 'Roll d10 , 3 of 5 left' },
+      ),
+    ).toBeInTheDocument()
+
+    // Once the game takes them, each spends it.
+    const favoredFighter = favored([
+      ...sheetFavorites(),
+      {
+        type: 'item',
+        id: 'fighter',
+        itemType: 'class',
+        name: 'Fighter',
+        img: null,
+      },
+    ])
+    rerender(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(favoredFighter, GAME)}
+        rollsToTable={['skill', 'hitDie']}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
+    ).toBeInTheDocument()
+    await show('Actions')
+    const favorites = screen.getByRole('region', { name: /^Favorites/ })
+    expect(
+      within(favorites).getByRole('button', {
+        name: 'Spend d10 , 3 of 5 left',
+      }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Roll d10/ })).toBeNull()
   })
 
   it("has Tidy 5e's tabs, and shows one part of the sheet at a time", async () => {

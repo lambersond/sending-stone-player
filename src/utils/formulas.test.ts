@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for a count it doesn't know */
-import { formulaDice, formulaTerms, hitDicePools, hitDieRoll } from './formulas'
+import {
+  atFullHitPoints,
+  formulaDice,
+  formulaTerms,
+  hitDicePools,
+  hitDieRoll,
+} from './formulas'
 import { characterSheet } from '@/mocks/sending-stone'
 import type { CharacterSheet, SheetClass } from '@/types/sending-stone'
 
@@ -166,6 +172,24 @@ describe('utils/formulas', () => {
         healing: true,
         source: { kind: 'hitDie', denomination: 'd4' },
       })
+    })
+  })
+
+  describe('atFullHitPoints', () => {
+    it.each([
+      [{ value: 44, max: 44, temp: 0 }, true],
+      // Above it, where a temporary change raised it, which the sheet leaves out: some may be
+      // missing, such as at 42 of 40 raised by 5 to 45.
+      [{ value: 49, max: 44, temp: 5 }, false],
+      [{ value: 42, max: 40, temp: 0 }, false],
+      [{ value: 43, max: 44, temp: 10 }, false],
+      [{ value: 0, max: 44, temp: 0 }, false],
+      // Without their maximum, or any hit points, it can't say.
+      [{ value: 44, max: null, temp: 0 }, false],
+      [null, false],
+      [undefined, false],
+    ])('says whether hit points of %o are full: %s', (hp, full) => {
+      expect(atFullHitPoints({ hp })).toBe(full)
     })
   })
 })

@@ -17,7 +17,12 @@ import {
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { CharacterSheet, SheetAction } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SheetAction,
+  SheetActionSection,
+  SheetSpell,
+} from '@/types/sending-stone'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) => {
   const onRoll = jest.fn()
@@ -55,6 +60,16 @@ const others = (name: string) =>
   within(screen.getByRole('list', { name: `${name}: its other activities` }))
     .getAllByRole('listitem')
     .map(item => item.textContent)
+
+/** An element's facts, each with its label, such as "Range: 60 ft". */
+const factsIn = (element: HTMLElement) =>
+  within(element)
+    .getAllByRole('term')
+    .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`)
+
+/** The button beside one of an item's activities that opens what there is to read of it. */
+const about = (name: string) =>
+  screen.getByRole('button', { name: `About ${name}` })
 
 /** The button that opens the Bardic Flame's row in a section. */
 const flameRow = (section: string) =>
@@ -1523,6 +1538,27 @@ describe('components/character-sheet/actions-tab', () => {
         expect.objectContaining({ label: 'Hex (Bonus Hex Damage) damage' }),
       )
     })
+
+    it("opens what there is to read of an item's, but not of a spell's, which opens to its own", async () => {
+      const user = userEvent.setup()
+      renderUsing()
+      for (const name of ['Hex', 'Unarmed Strike', 'Flaming Sphere']) {
+        await user.click(toggle(name))
+      }
+
+      const about = screen.getAllByRole('button', { name: /^About / })
+      expect(about.map(button => button.getAttribute('aria-label'))).toEqual([
+        'About Unarmed Strike (Grapple/Shove)',
+      ])
+      await user.click(about[0])
+      const dialog = screen.getByRole('dialog', { name: 'Grapple/Shove' })
+      expect(within(dialog).getByText('From Unarmed Strike')).toBeVisible()
+      expect(factsIn(dialog)).toEqual([
+        'Activation: Action',
+        'Range: 5 ft',
+        'Saving throw: DC 13 DC',
+      ])
+    })
   })
 
   describe('an item under each kind of action it has, and the spells it casts', () => {
@@ -1711,6 +1747,554 @@ describe('components/character-sheet/actions-tab', () => {
       expect(
         screen.getByText('Level 1 spell · Cast from Bardic Flame'),
       ).toBeVisible()
+    })
+
+    describe('to read about', () => {
+      const from = { id: 'flame', name: 'Bardic Flame' }
+      // dnd5e's copy of each spell the Flame casts, as the Spells tab lists it under the Flame.
+      const copies = [
+        sheetSpell({
+          id: 'wisp-copy',
+          name: 'Starry Wisp',
+          level: 0,
+          school: 'Evocation',
+          range: '60 ft',
+          castFrom: from,
+          text: TEXTS.bless,
+        }),
+        sheetSpell({
+          id: 'charm-copy',
+          name: 'Charm Person',
+          school: 'Enchantment',
+          range: '30 ft',
+          target: '1 Humanoid',
+          duration: '1 Hour',
+          castFrom: from,
+          text: TEXTS.ring,
+        }),
+        sheetSpell({
+          id: 'barbs-copy',
+          name: 'Silvery Barbs',
+          school: 'Enchantment',
+          components: 'V',
+          activation: '1 Reaction',
+          range: '60 ft',
+          target: '1 Creature',
+          castFrom: from,
+          text: TEXTS.shield,
+        }),
+      ]
+      /**
+       * The Actions tab, with the Flame under each kind of action it has, or these, and these
+       * spells cast from items, each description shown as its hash.
+       */
+      const renderRead = (
+        spells: SheetSpell[] = copies,
+        actions: SheetActionSection[] = [
+          { id: 'action', label: 'Actions', actions: [flame] },
+          { id: 'reaction', label: 'Reactions', actions: [barbs] },
+        ],
+      ) => {
+        globalThis.fetch = jest.fn(
+          async (url: RequestInfo | URL) =>
+            ({
+              ok: true,
+              json: async () => ({
+                html: `<p>Text ${String(url).split('/').at(-1)}</p>`,
+              }),
+            }) as Response,
+        )
+        render(
+          <ActionsTab
+            // Of its own, as descriptions already loaded are kept by character.
+            characterId='char-2'
+            sheet={toTableSheet(
+              characterSheet({
+                actions,
+                spells: [
+                  { id: 'item', label: 'Item Spells', slots: null, spells },
+                ],
+              }),
+              'https://my-game.forge-vtt.com',
+            )}
+            onRoll={jest.fn()}
+            onRollDamage={jest.fn()}
+          />,
+        )
+      }
+
+      it('puts a button beside the name of each of its other activities, the row unchanged, that opens its spell as the Spells tab has it', async () => {
+        const user = userEvent.setup()
+        renderRead()
+
+        // None on its rows, which open to what there is to read of them.
+        expect(screen.queryByRole('button', { name: /^About / })).toBeNull()
+        await user.click(flameRow('Actions'))
+        expect(others('Bardic Flame')).toEqual([
+          'Starry Wisp60 ft · Radiant · 1 charge+61d8',
+          'Charm PersonUsed in Foundry',
+        ])
+        const wisp = about('Bardic Flame (Starry Wisp)')
+        expect(wisp).toHaveAttribute('aria-haspopup', 'dialog')
+        expect(wisp).toHaveAttribute(
+          'title',
+          'About Bardic Flame (Starry Wisp)',
+        )
+        expect(wisp.previousSibling).toHaveTextContent(/^Starry Wisp$/)
+        expect(screen.getAllByRole('button', { name: /^About / })).toHaveLength(
+          2,
+        )
+
+        await user.click(wisp)
+        const dialog = screen.getByRole('dialog', { name: 'Starry Wisp' })
+        expect(
+          within(dialog).getByText('Cantrip · Evocation · From Bardic Flame'),
+        ).toBeVisible()
+        expect(factsIn(dialog)).toEqual([
+          'Casting time: Action',
+          'Range: 60 ft',
+          'Duration: Instantaneous',
+          'Components: V, S',
+          'Cost: 1 charge',
+          'To hit: +6',
+          'Damage: 1d8 Radiant',
+          'Uses: 2 of 10 left, Dawn',
+        ])
+        expect(
+          await within(dialog).findByText(`Text ${TEXTS.bless}`),
+        ).toBeInTheDocument()
+        // Nothing in it rolls: its row does.
+        expect(
+          within(dialog)
+            .getAllByRole('button')
+            .map(button => button.getAttribute('aria-label')),
+        ).toEqual(['Close'])
+
+        await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+        expect(screen.queryByRole('dialog')).toBeNull()
+      })
+
+      it("finds a spell by its name, how it's cast and its range its own where its activity has none, and closes on Escape", async () => {
+        const user = userEvent.setup()
+        renderRead()
+
+        await user.click(flameRow('Actions'))
+        await user.click(about('Bardic Flame (Charm Person)'))
+        const dialog = screen.getByRole('dialog', { name: 'Charm Person' })
+        expect(
+          within(dialog).getByText('Level 1 · Enchantment · From Bardic Flame'),
+        ).toBeVisible()
+        expect(
+          within(dialog)
+            .getAllByRole('listitem')
+            .map(mark => mark.textContent),
+        ).toEqual(['Used in Foundry'])
+        expect(factsIn(dialog)).toEqual([
+          'Casting time: Action',
+          'Range: 30 ft',
+          'Target: 1 Humanoid',
+          'Duration: 1 Hour',
+          'Components: V, S',
+        ])
+        expect(
+          await within(dialog).findByText(`Text ${TEXTS.ring}`),
+        ).toBeInTheDocument()
+
+        // The browser closes the dialog on Escape, firing close.
+        fireEvent(dialog, new Event('close'))
+        expect(screen.queryByRole('dialog')).toBeNull()
+      })
+
+      it("marks a spell it's short of charges for, that takes concentration, or that it can't cast until it's attuned", async () => {
+        const user = userEvent.setup()
+        const [strike, , charm] = flame.activities ?? []
+        renderRead(
+          [
+            copies[0],
+            {
+              ...copies[1],
+              castFrom: { ...from, usable: false, attune: true },
+            },
+          ],
+          [
+            {
+              id: 'action',
+              label: 'Actions',
+              actions: [
+                {
+                  ...flame,
+                  activities: [
+                    strike,
+                    {
+                      ...wisp,
+                      cast: { ...wisp.cast, concentration: true, short: true },
+                    },
+                    charm,
+                  ],
+                },
+              ],
+            },
+          ],
+        )
+        const marks = (name: string) =>
+          within(screen.getByRole('dialog', { name }))
+            .getAllByRole('listitem')
+            .map(mark => mark.textContent)
+
+        await user.click(flameRow('Actions'))
+        await user.click(about('Bardic Flame (Starry Wisp)'))
+        expect(marks('Starry Wisp')).toEqual([
+          'Concentration',
+          'No charges left',
+        ])
+        await user.click(screen.getByRole('button', { name: 'Close' }))
+        await user.click(about('Bardic Flame (Charm Person)'))
+        expect(marks('Charm Person')).toEqual([
+          'Needs attuning',
+          'Used in Foundry',
+        ])
+      })
+
+      it("marks none for concentration where only the item's first activity takes it", async () => {
+        const user = userEvent.setup()
+        const [strike] = flame.activities ?? []
+        // First, a Cast that takes concentration, for which the module marks the whole Flame.
+        renderRead(copies, [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              {
+                ...flame,
+                concentration: true,
+                activities: [
+                  { ...wisp, cast: { ...wisp.cast, concentration: true } },
+                  strike,
+                ],
+              },
+            ],
+          },
+        ])
+
+        await user.click(flameRow('Actions'))
+        await user.click(about('Bardic Flame (Attack)'))
+        const dialog = screen.getByRole('dialog', { name: 'Attack' })
+        expect(within(dialog).queryAllByRole('listitem')).toEqual([])
+        expect(within(dialog).queryByText('Concentration')).toBeNull()
+      })
+
+      it("falls back to the item's only spell for a Cast renamed, or else shows what its row has, and the item's description", async () => {
+        const user = userEvent.setup()
+        const staff = sheetAction({
+          id: 'staff',
+          name: 'Staff of Fire',
+          type: 'weapon',
+          toHit: 4,
+          attackId: 'bonk',
+          damage: [{ formula: '1d6', type: 'Bludgeoning', healing: false }],
+          text: TEXTS.warhammer,
+          activities: [
+            {
+              id: 'bonk',
+              name: 'Attack',
+              type: 'attack',
+              activation: 'Action',
+              range: 'reach 5 ft',
+              target: null,
+              toHit: 4,
+              attackId: 'bonk',
+              save: null,
+              damage: [{ formula: '1d6', type: 'Bludgeoning', healing: false }],
+              uses: null,
+            },
+            {
+              id: 'cast-fireball',
+              name: 'Cast Fireball',
+              type: 'cast',
+              activation: 'Action',
+              range: '150 ft',
+              target: null,
+              toHit: null,
+              attackId: null,
+              activity: { id: 'cast-fireball', type: 'save', targets },
+              save: { ability: 'DEX', dc: 15 },
+              damage: [{ formula: '8d6', type: 'Fire', healing: false }],
+              cast: {
+                level: 5,
+                concentration: false,
+                charges: 3,
+                short: false,
+              },
+              uses: null,
+            },
+          ],
+        })
+        const of = { id: 'staff', name: 'Staff of Fire' }
+        const fireball = sheetSpell({
+          id: 'fireball-copy',
+          name: 'Fireball',
+          level: 3,
+          school: 'Evocation',
+          components: 'V, S, M',
+          materials: 'a ball of bat guano and sulfur',
+          target: '20 ft Sphere',
+          castFrom: of,
+          text: TEXTS.poisoned,
+        })
+        const wall = sheetSpell({
+          id: 'wall-copy',
+          name: 'Wall of Fire',
+          level: 4,
+          castFrom: of,
+        })
+        const actions = [{ id: 'action', label: 'Actions', actions: [staff] }]
+
+        renderRead([fireball], actions)
+        await user.click(toggle('Staff of Fire'))
+        await user.click(about('Staff of Fire (Cast Fireball)'))
+        let dialog = screen.getByRole('dialog', { name: 'Fireball' })
+        expect(
+          within(dialog).getByText('Level 3 · Evocation · From Staff of Fire'),
+        ).toBeVisible()
+        expect(factsIn(dialog)).toEqual([
+          'Casting time: Action',
+          'Range: 150 ft',
+          'Target: 20 ft Sphere',
+          'Duration: Instantaneous',
+          'Components: V, S, M (a ball of bat guano and sulfur)',
+          'Cast at: 5th level',
+          'Cost: 3 charges',
+          'Saving throw: DC 15 DEX',
+          'Damage: 8d6 Fire',
+        ])
+        expect(
+          await within(dialog).findByText(`Text ${TEXTS.poisoned}`),
+        ).toBeInTheDocument()
+
+        // Of two spells, neither of its name, it can't tell which.
+        cleanup()
+        renderRead([fireball, wall], actions)
+        await user.click(toggle('Staff of Fire'))
+        await user.click(about('Staff of Fire (Cast Fireball)'))
+        dialog = screen.getByRole('dialog', { name: 'Cast Fireball' })
+        expect(within(dialog).getByText('From Staff of Fire')).toBeVisible()
+        expect(factsIn(dialog)).toEqual([
+          'Casting time: Action',
+          'Range: 150 ft',
+          'Cost: 3 charges',
+          'Saving throw: DC 15 DEX',
+          'Damage: 8d6 Fire',
+        ])
+        const item = within(dialog).getByRole('region', {
+          name: 'Staff of Fire',
+        })
+        expect(
+          await within(item).findByText(`Text ${TEXTS.warhammer}`),
+        ).toBeInTheDocument()
+      })
+
+      it("shows what its row has for a Cast whose spell the module didn't find, as the item's only spell is another Cast's", async () => {
+        const user = userEvent.setup()
+        const [strike, , charm] = flame.activities ?? []
+        // Its spell not set, or lost: named for its kind, it rolls nothing, and has no copy.
+        const unset = { ...charm, id: 'cast-unset', name: 'Cast' }
+        renderRead(
+          [copies[1]],
+          [
+            {
+              id: 'action',
+              label: 'Actions',
+              actions: [
+                {
+                  ...flame,
+                  text: TEXTS.warhammer,
+                  activities: [strike, charm, unset],
+                },
+              ],
+            },
+          ],
+        )
+
+        await user.click(flameRow('Actions'))
+        await user.click(about('Bardic Flame (Cast)'))
+        const dialog = screen.getByRole('dialog', { name: 'Cast' })
+        expect(within(dialog).getByText('From Bardic Flame')).toBeVisible()
+        expect(
+          within(dialog).queryByText(/Charm Person|Enchantment/),
+        ).toBeNull()
+        const item = within(dialog).getByRole('region', {
+          name: 'Bardic Flame',
+        })
+        expect(
+          await within(item).findByText(`Text ${TEXTS.warhammer}`),
+        ).toBeInTheDocument()
+
+        // The Cast of its name still finds it.
+        await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+        await user.click(about('Bardic Flame (Charm Person)'))
+        expect(
+          screen.getByRole('dialog', { name: 'Charm Person' }),
+        ).toHaveTextContent('Level 1 · Enchantment · From Bardic Flame')
+      })
+
+      it("says how a spell is cast as the spell does where its activity doesn't", async () => {
+        const user = userEvent.setup()
+        const [strike, , charm] = flame.activities ?? []
+        renderRead(
+          [{ ...copies[1], activation: '1 Bonus Action' }],
+          [
+            {
+              id: 'action',
+              label: 'Actions',
+              actions: [
+                {
+                  ...flame,
+                  activities: [strike, { ...charm, activation: null }],
+                },
+              ],
+            },
+          ],
+        )
+
+        await user.click(flameRow('Actions'))
+        await user.click(about('Bardic Flame (Charm Person)'))
+        expect(
+          factsIn(screen.getByRole('dialog', { name: 'Charm Person' }))[0],
+        ).toBe('Casting time: 1 Bonus Action')
+      })
+
+      it("reads a weapon's other attack, with the weapon's description under its name, in a table too", async () => {
+        const user = userEvent.setup()
+        sheetWidth(800)
+        const attack = {
+          type: 'attack',
+          activation: 'Action',
+          target: null,
+          toHit: 7,
+          save: null,
+          damage: [{ formula: '1d6 + 4', type: 'Slashing', healing: false }],
+          uses: null,
+        }
+        const handaxe = sheetAction({
+          id: 'handaxe',
+          name: 'Handaxe',
+          type: 'weapon',
+          range: 'reach 5 ft',
+          toHit: 7,
+          attackId: 'swing',
+          damage: attack.damage,
+          text: TEXTS.backpack,
+          activities: [
+            { ...attack, id: 'swing', name: 'Attack', range: 'reach 5 ft' },
+            { ...attack, id: 'throw', name: 'Throw', range: '20/60 ft' },
+          ],
+        })
+        renderRead([], [{ id: 'action', label: 'Actions', actions: [handaxe] }])
+
+        await user.click(screen.getByRole('button', { name: 'Table' }))
+        const table = screen.getByRole('table', { name: 'Actions' })
+        await user.click(
+          within(table).getByRole('button', {
+            name: /^Handaxe/,
+            expanded: false,
+          }),
+        )
+        // Its name and its kind of damage, as before.
+        expect(
+          within(table).getByText('Throw', { exact: true }).closest('td'),
+        ).toHaveTextContent(/^ThrowSlashing$/)
+        await user.click(
+          within(table).getByRole('button', { name: 'About Handaxe (Throw)' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Throw' })
+        expect(within(dialog).getByText('From Handaxe')).toBeVisible()
+        expect(within(dialog).queryByRole('list')).toBeNull()
+        expect(factsIn(dialog)).toEqual([
+          'Activation: Action',
+          'Range: 20/60 ft',
+          'To hit: +7',
+          'Damage: 1d6 + 4 Slashing',
+        ])
+        const item = within(dialog).getByRole('region', { name: 'Handaxe' })
+        expect(
+          await within(item).findByText(`Text ${TEXTS.backpack}`),
+        ).toBeInTheDocument()
+      })
+
+      it("says an activity's own formula, and what dnd5e calls it", async () => {
+        const user = userEvent.setup()
+        const light = {
+          type: 'utility',
+          activation: 'Bonus Action',
+          range: 'Self',
+          target: null,
+          toHit: null,
+          attackId: null,
+          save: null,
+          damage: [],
+          uses: null,
+        }
+        const lantern = sheetAction({
+          id: 'lantern',
+          name: 'Lantern of Revealing',
+          type: 'equipment',
+          activity: { id: 'lit', type: 'utility', targets },
+          activities: [
+            {
+              ...light,
+              id: 'lit',
+              name: 'Light',
+              activity: { id: 'lit', type: 'utility', targets },
+            },
+            {
+              ...light,
+              id: 'hood',
+              name: 'Lower the Hood',
+              activity: { id: 'hood', type: 'utility', targets },
+              rollFormula: { formula: '1d4 + 3', name: 'Light radius' },
+            },
+          ],
+        })
+        renderRead(
+          [],
+          [{ id: 'bonus', label: 'Bonus Actions', actions: [lantern] }],
+        )
+
+        await user.click(toggle('Lantern of Revealing'))
+        await user.click(about('Lantern of Revealing (Lower the Hood)'))
+        expect(
+          factsIn(screen.getByRole('dialog', { name: 'Lower the Hood' })),
+        ).toEqual([
+          'Activation: Bonus Action',
+          'Range: Self',
+          'Formula: 1d4 + 3 (Light radius)',
+        ])
+      })
+
+      it('opens a row cast from it to the spell in full, as the Spells tab has it', async () => {
+        const user = userEvent.setup()
+        renderRead()
+
+        await user.click(flameRow('Reactions'))
+        const reactions = screen.getByRole('region', { name: 'Reactions' })
+        expect(
+          within(reactions).getByText(
+            'Level 1 · Enchantment · From Bardic Flame',
+          ),
+        ).toBeVisible()
+        expect(factsIn(reactions)).toEqual([
+          'Casting time: Reaction',
+          'Range: 60 ft',
+          'Target: 1 Creature',
+          'Duration: Instantaneous',
+          'Components: V',
+          'Cost: 3 charges',
+          'Uses: 2 of 10 left, Dawn',
+        ])
+        expect(
+          await within(reactions).findByText(`Text ${TEXTS.shield}`),
+        ).toBeInTheDocument()
+      })
     })
   })
 

@@ -56,6 +56,17 @@ const hitDice = (die: string, value: number | null, max: number | null) => ({
   hitDice: { die, value, max },
 })
 
+/** A stat's label, by its text. */
+const term = (label: string) =>
+  screen.queryAllByRole('term').find(term => term.textContent === label)
+
+/** The Hit dice tile's description. */
+const tile = () => term('Hit dice')?.nextSibling as HTMLElement
+
+/** How many hit dice of a size are left, as a row of the Hit dice tile shows it. */
+const counts = (row: HTMLElement) =>
+  row.querySelector('[aria-hidden].tabular-nums') as HTMLElement
+
 describe('components/character-sheet/character-sheet', () => {
   it('shows who the character is and their vital numbers', () => {
     renderSheet({ inspiration: true, hp: { value: 31, max: 44, temp: 5 } })
@@ -241,62 +252,216 @@ describe('components/character-sheet/character-sheet', () => {
     expect(onRoll.mock.lastCall?.[0].source).toBeUndefined()
   })
 
-  it('spends a hit die from beside the hit points, a tap a die of its size, none with none left', async () => {
-    const user = userEvent.setup()
-    const onRollFormula = jest.fn()
-    render(
-      <CharacterSheet
-        name='Thorin Oakenshield'
-        sheet={sheetOf({
+  describe('hit dice', () => {
+    /** Thorin's sheet with classes of these hit dice, the game spending them or not. */
+    const renderDice = (
+      fields: Partial<Sheet>,
+      spendsAtTable?: boolean,
+    ): jest.Mock => {
+      const onRollFormula = jest.fn()
+      render(
+        <CharacterSheet
+          name='Thorin Oakenshield'
+          sheet={sheetOf(fields)}
+          onRoll={jest.fn()}
+          onRollFormula={onRollFormula}
+          spendsAtTable={spendsAtTable}
+        />,
+      )
+      return onRollFormula
+    }
+
+    it('spends a hit die from a tile of its own, a tap a die of its size, the largest first, none with none left', async () => {
+      const user = userEvent.setup()
+      const onRollFormula = renderDice(
+        {
           classes: [
             hitDice('d6', 0, 2),
             hitDice('d10', 3, 5),
             hitDice('d10', 1, 2),
           ],
-        })}
-        onRoll={jest.fn()}
-        onRollFormula={onRollFormula}
-      />,
-    )
-
-    const dice = within(screen.getByRole('group', { name: 'Hit dice' }))
-    // Named for what each shows, then what it does.
-    const spend = [
-      dice.getByRole('button', { name: 'd10 4/7 left, spend one' }),
-      dice.getByRole('button', { name: 'd6 0/2 left, spend one' }),
-    ]
-    expect(dice.getAllByRole('button')).toEqual(spend)
-    expect(spend[1]).toBeDisabled()
-
-    await user.click(spend[0])
-    // The die, and Thorin's Constitution modifier, giving back at least 1.
-    expect(onRollFormula).toHaveBeenCalledWith({
-      label: 'Hit die (d10)',
-      terms: [
-        { sign: 1, count: 1, sides: 10 },
-        { sign: 1, flat: 3 },
-      ],
-      healing: true,
-      minimum: 1,
-      source: { kind: 'hitDie', denomination: 'd10' },
-    })
-  })
-
-  it('offers no hit dice to spend where nothing rolls them', () => {
-    renderSheet({
-      classes: [
-        {
-          id: 'fighter',
-          identifier: 'fighter',
-          name: 'Fighter',
-          levels: 5,
-          subclass: null,
-          hitDice: { die: 'd10', value: 3, max: 5 },
         },
-      ],
+        true,
+      )
+
+      // Named for what each shows, then how many are left, a space before the comma, as a browser
+      // also sets apart the words only a screen reader has.
+      const spend = [
+        within(tile()).getByRole('button', { name: 'Spend d10 , 4 of 7 left' }),
+        within(tile()).getByRole('button', { name: 'Spend d6 , 0 of 2 left' }),
+      ]
+      expect(within(tile()).getAllByRole('button')).toEqual(spend)
+      expect(spend[0]).toHaveTextContent(/^Spend d10/)
+      expect(spend[0]).toBeEnabled()
+      expect(spend[1]).toBeDisabled()
+      // Beside each, what's left: as pips, and in words, in ruby with none left.
+      const [d10, d6] = within(tile()).getAllByRole('listitem')
+      expect(counts(d10)).toHaveTextContent('4 of 7 left')
+      expect(
+        [...counts(d10).querySelectorAll('.rounded-full')].map(pip =>
+          pip.classList.contains('bg-primary'),
+        ),
+      ).toEqual([true, true, true, true, false, false, false])
+      expect(counts(d10)).not.toHaveClass('text-ruby')
+      expect(counts(d6)).toHaveTextContent('0 of 2 left')
+      expect(counts(d6)).toHaveClass('text-ruby')
+      // Taking the room the button leaves, the count puts its words under its pips on a phone,
+      // the button staying beside it, rather than the button going under it.
+      expect(counts(d10)).toHaveClass('flex-1', 'flex-wrap')
+
+      await user.click(spend[0])
+      // The die, and Thorin's Constitution modifier, giving back at least 1.
+      expect(onRollFormula).toHaveBeenCalledWith({
+        label: 'Hit die (d10)',
+        terms: [
+          { sign: 1, count: 1, sides: 10 },
+          { sign: 1, flat: 3 },
+        ],
+        healing: true,
+        minimum: 1,
+        source: { kind: 'hitDie', denomination: 'd10' },
+      })
     })
 
-    expect(screen.queryByRole('group', { name: 'Hit dice' })).toBeNull()
+    it("says it rolls a hit die where the game won't spend it, as it's only rolled here", async () => {
+      const user = userEvent.setup()
+      const onRollFormula = renderDice({ classes: [hitDice('d10', 3, 5)] })
+
+      await user.click(
+        within(tile()).getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
+      )
+      expect(onRollFormula).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: { kind: 'hitDie', denomination: 'd10' },
+        }),
+      )
+      expect(screen.queryByRole('button', { name: /^Spend/ })).toBeNull()
+    })
+
+    it('spends none at full hit points, and says so', async () => {
+      const user = userEvent.setup()
+      const onRollFormula = renderDice(
+        {
+          hp: { value: 44, max: 44, temp: 0 },
+          classes: [hitDice('d10', 3, 5)],
+        },
+        true,
+      )
+
+      const spend = within(tile()).getByRole('button', {
+        name: 'Spend d10 , 3 of 5 left',
+      })
+      expect(spend).toBeDisabled()
+      expect(spend).toHaveAccessibleDescription('At full hit points')
+      expect(tile()).toHaveTextContent(/At full hit points$/)
+      await user.click(spend)
+      expect(onRollFormula).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['one short of them', { value: 43, max: 44, temp: 0 }],
+      // Above the maximum the sheet has, which leaves out an effect raising it, such as Aid's, as
+      // at 42 of 40 raised to 45: some may still be missing.
+      ['above their maximum', { value: 42, max: 40, temp: 0 }],
+      ['with them unknown', { value: 43, max: null, temp: 0 }],
+    ])('spends one at full hit points %s', (_, hp) => {
+      renderDice({ hp, classes: [hitDice('d10', 3, 5)] }, true)
+
+      expect(
+        within(tile()).getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
+      ).toBeEnabled()
+      expect(tile()).not.toHaveTextContent('At full hit points')
+    })
+
+    it('says how many are left as far as the sheet knows', () => {
+      renderDice(
+        {
+          classes: [
+            hitDice('d12', null, 5),
+            hitDice('d10', 2, null),
+            hitDice('d8', null, null),
+          ],
+        },
+        true,
+      )
+
+      expect(
+        within(tile())
+          .getAllByRole('button')
+          .map(button => button.textContent),
+      ).toEqual([
+        'Spend d12, an unknown number of 5 left',
+        'Spend d10, 2 left',
+        'Spend d8, an unknown number left',
+      ])
+      // Without both counts, no pips.
+      expect(
+        within(tile())
+          .getAllByRole('listitem')
+          .map(row => row.querySelector('[aria-hidden]')?.textContent),
+      ).toEqual(['– of 5 left', '2 left', '– left'])
+      expect(tile().querySelector('.rounded-full')).toBeNull()
+    })
+
+    it('draws no pips past nine, where the words say it alone', () => {
+      renderDice({ classes: [hitDice('d10', 7, 12)] }, true)
+
+      expect(tile().querySelector('.rounded-full')).toBeNull()
+      expect(tile()).toHaveTextContent(/^7 of 12 left/)
+    })
+
+    it('shows how many are left where nothing rolls them, with nothing to tap', () => {
+      renderSheet({
+        hp: null,
+        classes: [hitDice('d10', 3, 5), hitDice('d3', 1, 1)],
+      })
+
+      // Whether or not the sheet has hit points; and only those of a size the game has.
+      expect(within(tile()).queryByRole('button')).toBeNull()
+      expect(
+        within(tile())
+          .getAllByRole('listitem')
+          .map(row => row.textContent),
+      ).toEqual(['3 of 5 leftd10, 3 of 5 left'])
+      expect(tile()).not.toHaveTextContent('At full hit points')
+    })
+
+    it('has no tile for a character without hit dice the game has', () => {
+      renderSheet({ classes: [hitDice('d3', 1, 1)] })
+
+      expect(term('Hit dice')).toBeUndefined()
+    })
+
+    it('comes after the hit points and the death saves, and last on a row of its own where the sheet is wide, however wide', () => {
+      renderDice(
+        {
+          hp: { value: 0, max: 44, temp: 0 },
+          deathSaves: { success: 1, failure: 0 },
+          classes: [hitDice('d10', 3, 5)],
+        },
+        true,
+      )
+
+      const terms = screen.getAllByRole('term')
+      expect(terms.slice(0, 4).map(term => term.textContent)).toEqual([
+        'Hit points',
+        'Death saves',
+        'Hit dice',
+        'Armor classAC',
+      ])
+      // Never put back beside the others, in a column too narrow for a die and its button, nor
+      // the others left shorter than it.
+      const stat = terms[2].parentElement as HTMLElement
+      expect(
+        [...stat.classList].filter(name => /(order|col-span)-/.test(name)),
+      ).toEqual(['col-span-2', '@lg:order-last', '@lg:col-span-6'])
+      expect([...(stat.parentElement as HTMLElement).classList]).toEqual([
+        'grid',
+        'grid-cols-2',
+        'gap-2',
+        '@lg:grid-cols-6',
+      ])
+    })
   })
 
   it('leaves out death saves while the character is up and none are marked', () => {
