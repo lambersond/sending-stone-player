@@ -62,17 +62,20 @@ export function hitDicePools(classes: SheetClass[]): HitDicePool[] {
 }
 
 /**
- * A hit die spent, as dnd5e rolls it: the die, and the character's Constitution modifier, giving
- * back at least 1 hit point, or at least none under the 2014 rules.
+ * Hit dice of one size spent, as dnd5e rolls each: the die, and the character's Constitution
+ * modifier, giving back at least 1 hit point, or at least none under the 2014 rules. Several spent
+ * at once are thrown together, each giving back its own, at least its least.
+ * @param count - How many, one unless said.
  */
 export function hitDieRoll(
   sheet: Pick<CharacterSheet, 'abilities' | 'rules'>,
   die: string,
+  count = 1,
 ): SheetFormulaRoll {
-  const con = sheet.abilities.find(({ id }) => id === 'con')?.mod ?? 0
+  const con = conOf(sheet)
   const sides = sizeOf(die)
   return {
-    label: `Hit die (${die})`,
+    label: count > 1 ? `Hit dice (${count}${die})` : `Hit die (${die})`,
     terms: [
       { sign: 1, count: 1, sides } as ExtraDice,
       ...(con === 0
@@ -86,8 +89,24 @@ export function hitDieRoll(
     ],
     healing: true,
     minimum: sheet.rules === 'legacy' ? 0 : 1,
+    ...(count > 1 && { times: count }),
     source: { kind: 'hitDie', denomination: die },
   }
+}
+
+/**
+ * What hit dice of one size spent at once give back, as a formula: the dice, and the character's
+ * Constitution modifier for each, such as "3d8 + 9", or "3d8 − 3" for a modifier of −1.
+ */
+export function hitDiceFormula(
+  sheet: Pick<CharacterSheet, 'abilities'>,
+  die: string,
+  count: number,
+): string {
+  const added = conOf(sheet) * count
+  const dice = `${count}${die}`
+  if (added === 0) return dice
+  return `${dice} ${added < 0 ? '−' : '+'} ${Math.abs(added)}`
 }
 
 /**
@@ -98,6 +117,11 @@ export function hitDieRoll(
  */
 export function atFullHitPoints({ hp }: Pick<CharacterSheet, 'hp'>): boolean {
   return !!hp && hp.value === hp.max
+}
+
+/** The character's Constitution modifier, which each hit die spent adds; none where unknown. */
+function conOf({ abilities }: Pick<CharacterSheet, 'abilities'>): number {
+  return abilities.find(({ id }) => id === 'con')?.mod ?? 0
 }
 
 /** A die's size, such as 10 for "d10". */

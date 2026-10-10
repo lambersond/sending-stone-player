@@ -265,9 +265,9 @@ export function ChoiceMenu<T extends string>({
 /**
  * A click's menu hangs from the pointer, as the browser's would; a press's sits above the finger,
  * so the hand doesn't hide it; and one from a key sits below the part of the sheet. Each turns to
- * the other side when there's no room.
+ * the other side when there's no room. So does any popover opened as a menu is.
  */
-function placing(point: MenuPoint | undefined): {
+export function placing(point: MenuPoint | undefined): {
   placement: Placement
   gap: Parameters<typeof offset>[0]
 } {
@@ -277,7 +277,10 @@ function placing(point: MenuPoint | undefined): {
 }
 
 /** A point on the part of the sheet, which moves with it as the sheet scrolls. */
-function pointOn(anchor: HTMLElement, { x, y }: MenuPoint): VirtualElement {
+export function pointOn(
+  anchor: HTMLElement,
+  { x, y }: MenuPoint,
+): VirtualElement {
   return {
     contextElement: anchor,
     getBoundingClientRect: () => {

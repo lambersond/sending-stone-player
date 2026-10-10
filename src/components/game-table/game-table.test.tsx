@@ -110,7 +110,12 @@ const renderTable = (
   return render(table(initial, who, options))
 }
 
-const subtitle = () => screen.getByRole('heading', { level: 1 }).nextSibling
+/** The character's name, at the top of the page. */
+const nameOf = () => screen.getByRole('heading', { level: 1 })
+/** The line under the character's name. */
+const subtitle = () => nameOf().parentElement?.nextSibling
+/** What follows the character's name on its line: the class line, on a wide screen. */
+const besideName = () => nameOf().nextSibling
 
 /** The chat's scrolling area, 1000 pixels of messages in a 400-pixel window. */
 const chatScroller = () => {
@@ -535,7 +540,7 @@ describe('components/game-table/game-table', () => {
       const sheetPane = screen.getByRole('region', { name: 'Character' })
       expect(sheetPane).toHaveClass('lg:flex')
       expect(sheetPane).toHaveTextContent(
-        /^CharacterActionsInventoryFeaturesEffectsBiographyFighter 5 · Champion/,
+        /^CharacterActionsInventoryFeaturesEffectsBiography/,
       )
       const column = screen.getByRole('region', { name: 'Combat' })
         .parentElement as HTMLElement
@@ -562,6 +567,43 @@ describe('components/game-table/game-table', () => {
       expect(screen.getByRole('region', { name: 'Chat' })).not.toHaveClass(
         'hidden',
       )
+    })
+
+    it("names the class and subclass after the character's name, cut short before it is", () => {
+      renderTable(view({ sheet }))
+
+      expect(nameOf()).toHaveTextContent(/^Thorin$/)
+      expect(nameOf()).toHaveClass('shrink-0', 'max-w-full', 'truncate')
+      // Their line keeps what's cut short within it, rather than under the header's buttons.
+      expect(nameOf().parentElement).toHaveClass(
+        'flex',
+        'items-baseline',
+        'overflow-hidden',
+      )
+      expect(besideName()).toHaveTextContent(/^Fighter 5 · Champion$/)
+      expect(besideName()).toHaveClass(
+        'hidden',
+        'lg:block',
+        'min-w-0',
+        'truncate',
+        'text-text-secondary',
+      )
+      // The line under the name is the phone's, and the campaign and game stay under it here.
+      expect(subtitle()).toHaveClass('lg:hidden')
+      expect(subtitle()?.nextSibling).toHaveTextContent(
+        /^The Lonely Mountain · my-game.forge-vtt.com$/,
+      )
+      // And it's no longer beside the sheet's tabs.
+      expect(
+        screen.getByRole('tablist', { name: 'Character sheet' }).parentElement,
+      ).not.toHaveTextContent('Fighter 5 · Champion')
+    })
+
+    it('shows nothing after the name until the sheet arrives', () => {
+      renderTable()
+
+      expect(nameOf()).toHaveTextContent(/^Thorin$/)
+      expect(besideName()).toBeNull()
     })
 
     it('counts messages unread while combat sits beside the sheet', async () => {

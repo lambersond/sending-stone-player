@@ -158,4 +158,55 @@ describe('components/character-sheet/roll-button', () => {
     expect(onMenu).not.toHaveBeenCalled()
     expect(onRoll).toHaveBeenCalledTimes(1)
   })
+
+  it('says it opens a dialog, where it does', () => {
+    render(
+      <RollButton
+        target={target}
+        onRoll={jest.fn()}
+        onMenu={jest.fn()}
+        label='Use a d8 hit die, 3 of 5 left'
+        popup='dialog'
+        className=''
+      >
+        Use
+      </RollButton>,
+    )
+
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    )
+  })
+
+  it('neither rolls nor offers other ways while disabled, saying why in its title', () => {
+    const onRoll = jest.fn()
+    const onMenu = jest.fn()
+    render(
+      <RollButton
+        target={target}
+        onRoll={onRoll}
+        onMenu={onMenu}
+        label='Use a d8 hit die, 0 of 5 left'
+        disabled
+        title='None left'
+        className=''
+      >
+        Use
+      </RollButton>,
+    )
+    const button = screen.getByRole('button')
+
+    expect(button).toBeDisabled()
+    expect(button).toHaveAccessibleDescription('None left')
+    fireEvent.click(button)
+    // The browser's own menu, rather than none.
+    expect(fireEvent.contextMenu(button, { button: 2 })).toBe(true)
+    fireEvent.contextMenu(button, { button: -1 })
+    fireEvent.pointerDown(button, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS))
+
+    expect(onRoll).not.toHaveBeenCalled()
+    expect(onMenu).not.toHaveBeenCalled()
+  })
 })

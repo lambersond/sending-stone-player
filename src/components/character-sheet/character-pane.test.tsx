@@ -18,7 +18,7 @@ import {
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { RollFeature, RollKind } from '@/types/roll'
+import type { RolledDice, RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 
@@ -416,7 +416,7 @@ describe('components/character-sheet/character-pane', () => {
     )
 
     await user.click(
-      screen.getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
+      screen.getByRole('button', { name: 'Use a d10 hit die, 3 of 5 left' }),
     )
 
     expect(posted).toEqual([
@@ -440,29 +440,84 @@ describe('components/character-sheet/character-pane', () => {
     )
   })
 
-  it("says a hit die is only rolled where the game won't spend it, on every tab and favorite", async () => {
+  it("spends hit dice used at once in the Gamemaster's game a request a die, one after another, and says what came of them all", async () => {
+    const user = userEvent.setup()
     globalThis.localStorage.clear()
-    const { rerender } = render(
+    const posted: Record<string, unknown>[] = []
+    // Each made at the table once asked after, giving back 4 then 6.
+    const healed = [4, 6]
+    globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        return {
+          ok: true,
+          status: 202,
+          json: async () => ({ id: `req-${posted.length}` }),
+        } as Response
+      }
+      const id = url.split('/').at(-1) ?? ''
+      const answer = {
+        id,
+        status: 'done',
+        visible: true,
+        total: healed[Number(id.slice(4)) - 1],
+        healed: healed[Number(id.slice(4)) - 1],
+      }
+      return { ok: true, status: 200, json: async () => answer } as Response
+    }) as typeof fetch
+    render(
       <CharacterPane
         characterId='char-1'
         name='Thorin Oakenshield'
-        sheet={toTableSheet(favored(), GAME)}
-        rollsToTable={['skill']}
+        sheet={toTableSheet(fullerSheet(), GAME)}
+        rollsToTable={['hitDie']}
       />,
     )
 
-    expect(
-      screen.getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
-    ).toBeInTheDocument()
-    await show('Features')
-    expect(
-      within(screen.getByRole('region', { name: 'Classes' })).getByRole(
-        'button',
-        { name: 'Roll d10 , 3 of 5 left' },
-      ),
-    ).toBeInTheDocument()
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('button', {
+        name: 'Use a d10 hit die, 3 of 5 left',
+      }),
+    })
+    const popover = screen.getByRole('dialog', { name: 'Use d10 hit dice' })
+    await user.click(
+      within(popover).getByRole('button', { name: 'One die more' }),
+    )
+    expect(popover).toHaveTextContent('Heals 2d10 + 6')
+    await user.click(
+      within(popover).getByRole('button', { name: 'Use 2 d10 hit dice' }),
+    )
 
-    // Once the game takes them, each spends it.
+    // One throw of both dice, in the tray as one roll; the first die sent alone.
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(
+      /^\d+Hit dice \(2d10\)2d10 \(\d+, \d+\) \+6/,
+    )
+    expect(posted).toHaveLength(1)
+    await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+    const dice = posted.map(({ dice }) => dice as RolledDice[])
+    expect(dice).toEqual([
+      [{ faces: 10, results: [expect.any(Number)] }],
+      [{ faces: 10, results: [expect.any(Number)] }],
+    ])
+    expect(status).toHaveTextContent(
+      `2d10 (${dice[0][0].results[0]}, ${dice[1][0].results[0]})`,
+    )
+    expect(
+      posted.every(
+        ({ kind, denomination }) => kind === 'hitDie' && denomination === 'd10',
+      ),
+    ).toBe(true)
+    await waitFor(
+      () =>
+        expect(status).toHaveTextContent('At the table: 10 · 10 HP regained'),
+      { timeout: 3000 },
+    )
+  })
+
+  it("uses hit dice from the Character tab and a class's favorite, whether or not the game spends them, but not from the Features tab", async () => {
+    globalThis.localStorage.clear()
     const favoredFighter = favored([
       ...sheetFavorites(),
       {
@@ -473,6 +528,33 @@ describe('components/character-sheet/character-pane', () => {
         img: null,
       },
     ])
+    const { rerender } = render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(favoredFighter, GAME)}
+        rollsToTable={['skill']}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Use a d10 hit die, 3 of 5 left' }),
+    ).toHaveTextContent(/^Use$/)
+    await show('Features')
+    expect(
+      within(screen.getByRole('region', { name: 'Classes' })).queryByRole(
+        'button',
+      ),
+    ).toBeNull()
+    await show('Actions')
+    const favorites = screen.getByRole('region', { name: /^Favorites/ })
+    expect(
+      within(favorites).getByRole('button', {
+        name: 'Use a d10 hit die, 3 of 5 left',
+      }),
+    ).toHaveTextContent(/^Use$/)
+
+    // The same once the game takes them.
     rerender(
       <CharacterPane
         characterId='char-1'
@@ -482,16 +564,13 @@ describe('components/character-sheet/character-pane', () => {
       />,
     )
     expect(
-      screen.getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
-    ).toBeInTheDocument()
-    await show('Actions')
-    const favorites = screen.getByRole('region', { name: /^Favorites/ })
-    expect(
       within(favorites).getByRole('button', {
-        name: 'Spend d10 , 3 of 5 left',
+        name: 'Use a d10 hit die, 3 of 5 left',
       }),
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Roll d10/ })).toBeNull()
+    ).toHaveTextContent(/^Use$/)
+    expect(
+      screen.queryByRole('button', { name: /^(Spend|Roll) d10/ }),
+    ).toBeNull()
   })
 
   it("has Tidy 5e's tabs, and shows one part of the sheet at a time", async () => {
@@ -515,9 +594,12 @@ describe('components/character-sheet/character-pane', () => {
       'true',
     )
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Character')
-    expect(
-      screen.getByText('Fighter 5 · Champion', { selector: 'span' }),
-    ).toBeInTheDocument()
+    // The class line is by the character's name, in the page's header, not beside the tabs.
+    const tabsRow = screen.getByRole('tablist', {
+      name: 'Character sheet',
+    }).parentElement
+    expect(tabsRow?.children).toHaveLength(1)
+    expect(tabsRow).not.toHaveTextContent('Fighter 5 · Champion')
 
     await user.click(tabs.getByRole('tab', { name: 'Features' }))
 

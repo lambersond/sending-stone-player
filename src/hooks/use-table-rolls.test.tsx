@@ -1,6 +1,8 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, renderHook } from '@testing-library/react'
 import {
+  BUSY_FOR,
+  BUSY_WAIT,
   CHECK_EVERY,
   choicesOf,
   damageRollOf,
@@ -125,6 +127,38 @@ const spent = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
   at: 0,
   ...fields,
 })
+
+/** Three d10 hit dice spent at once, thrown together. */
+const hitDice: SheetFormulaRoll = {
+  ...hitDie,
+  label: 'Hit dice (3d10)',
+  times: 3,
+}
+
+/** They landed on 6, 2 and 5, giving back 9, 5 and 8. */
+const spentThree = (): LocalFormula =>
+  spent({
+    label: 'Hit dice (3d10)',
+    total: 22,
+    terms: [
+      { text: '3d10', values: [6, 2, 5], value: 13 },
+      { text: '+9', values: [], value: 9 },
+    ],
+    times: 3,
+  })
+
+/** Whether a roll sent threw the second of the three d10s spent at once, which landed on 2. */
+const isSecond = (dice: unknown) =>
+  JSON.stringify(dice) === JSON.stringify([{ faces: 10, results: [2] }])
+
+/** The bodies of the rolls sent, in order. */
+const posted = () =>
+  jest
+    .mocked(fetch)
+    .mock.calls.filter(([, init]) => init?.method === 'POST')
+    .map(
+      ([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>,
+    )
 
 /** A lantern's light, whose radius is 2 + 1d4 − 1d6, as dnd5e has it. */
 const lantern: SheetFormulaRoll = {
@@ -328,6 +362,19 @@ describe('hooks/use-table-rolls', () => {
         extras: [],
         dice: [{ faces: 10, results: [6] }],
       })
+    })
+
+    it('asks for one of several hit dice thrown together with its own die', () => {
+      const source = { kind: 'hitDie', denomination: 'd10' } as const
+      expect(
+        [0, 1, 2].map(
+          copy => toFormulaRequest(hitDice, source, spentThree(), copy).dice,
+        ),
+      ).toEqual([
+        [{ faces: 10, results: [6] }],
+        [{ faces: 10, results: [2] }],
+        [{ faces: 10, results: [5] }],
+      ])
     })
 
     it("asks for an activity's own formula by its item and activity, with the dice of each term, in order", () => {
@@ -1165,6 +1212,334 @@ describe('hooks/use-table-rolls', () => {
       })
       await advance(CHECK_EVERY * 3)
       expect(fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('sends hit dice spent at once a request a die, each once the game has made the one before, keeping where they are as one', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(respond(200, { id: 'req-1', status: 'rolling' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 9,
+            healed: 9,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-2',
+            status: 'done',
+            visible: true,
+            total: 5,
+            healed: 5,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-3' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-3',
+            status: 'done',
+            visible: true,
+            total: 8,
+            healed: 6,
+          }),
+        )
+      const { result } = render(['hitDie'])
+      const state = () => result.current.states.get('f1')
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      // The first die alone, as the game spends one a request.
+      expect(posted()).toEqual([
+        {
+          kind: 'hitDie',
+          denomination: 'd10',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 10, results: [6] }],
+        },
+      ])
+      expect(state()).toEqual({
+        status: 'sending',
+        together: { count: 3, made: 0 },
+      })
+
+      // While the game makes it, the next waits, so that no more than one is on its way at once.
+      await advance(CHECK_EVERY)
+      expect(state()).toEqual({
+        status: 'rolling',
+        together: { count: 3, made: 0 },
+      })
+      expect(posted()).toHaveLength(1)
+
+      await advance(CHECK_EVERY)
+      expect(posted().map(({ dice }) => dice)).toEqual([
+        [{ faces: 10, results: [6] }],
+        [{ faces: 10, results: [2] }],
+      ])
+      expect(state()).toEqual({
+        status: 'sending',
+        visible: true,
+        total: 9,
+        healed: 9,
+        together: { count: 3, made: 1 },
+      })
+
+      await advance(CHECK_EVERY)
+      expect(posted()).toHaveLength(3)
+      expect(posted()[2].dice).toEqual([{ faces: 10, results: [5] }])
+
+      // Once each is made, what they came to, and gave back, added up.
+      await advance(CHECK_EVERY)
+      expect(state()).toEqual({
+        status: 'done',
+        visible: true,
+        total: 22,
+        healed: 20,
+        together: { count: 3, made: 3 },
+      })
+      await advance(CHECK_EVERY * 3)
+      expect(fetch).toHaveBeenCalledTimes(7)
+    })
+
+    it("sends none after one the game didn't take or make, keeping how many it made, and why not the rest", async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 9,
+            healed: 9,
+          }),
+        )
+        .mockResolvedValueOnce(respond(422, { reason: 'no-hit-dice' }))
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'refused',
+        reason: 'no-hit-dice',
+        visible: true,
+        total: 9,
+        healed: 9,
+        together: { count: 3, made: 1 },
+      })
+      await advance(CHECK_EVERY * 3)
+      expect(posted()).toHaveLength(2)
+    })
+
+    it('sends one the app turned away as one too many at once again a moment later, with the same dice, then the rest', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 9,
+            healed: 9,
+          }),
+        )
+        .mockResolvedValueOnce(respond(429, { reason: 'busy' }))
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-2',
+            status: 'done',
+            visible: true,
+            total: 5,
+            healed: 5,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-3' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-3',
+            status: 'done',
+            visible: true,
+            total: 8,
+            healed: 6,
+          }),
+        )
+      const { result } = render(['hitDie'])
+      const state = () => result.current.states.get('f1')
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+      // Turned away, the second is still on its way, rather than the rest given up on.
+      expect(posted()).toHaveLength(2)
+      expect(state()).toEqual({
+        status: 'sending',
+        visible: true,
+        total: 9,
+        healed: 9,
+        together: { count: 3, made: 1 },
+      })
+
+      await advance(BUSY_WAIT - 1)
+      expect(posted()).toHaveLength(2)
+      await advance(1)
+      expect(posted().map(({ dice }) => dice)).toEqual([
+        [{ faces: 10, results: [6] }],
+        [{ faces: 10, results: [2] }],
+        [{ faces: 10, results: [2] }],
+      ])
+
+      await advance(CHECK_EVERY * 2)
+      expect(posted()).toHaveLength(4)
+      expect(state()).toEqual({
+        status: 'done',
+        visible: true,
+        total: 22,
+        healed: 20,
+        together: { count: 3, made: 3 },
+      })
+    })
+
+    it('gives up on one the app turns away for over a minute, keeping how many it made, and why not the rest', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 9,
+            healed: 9,
+          }),
+        )
+        .mockResolvedValue(respond(429, { reason: 'busy' }))
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY + BUSY_FOR - BUSY_WAIT)
+      expect(result.current.states.get('f1')).toMatchObject({
+        status: 'sending',
+        together: { count: 3, made: 1 },
+      })
+      await advance(BUSY_WAIT)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'refused',
+        reason: 'busy',
+        visible: true,
+        total: 9,
+        healed: 9,
+        together: { count: 3, made: 1 },
+      })
+      // The second, sent again every few seconds; the third never.
+      const sent = posted()
+      expect(sent.slice(1).every(({ dice }) => isSecond(dice))).toBe(true)
+      expect(sent).toHaveLength(2 + BUSY_FOR / BUSY_WAIT)
+      await advance(BUSY_WAIT * 3)
+      expect(posted()).toHaveLength(sent.length)
+    })
+
+    it('sends none of the rest once the page is left, nor sends one turned away again', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'done', visible: true }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+      const { result, unmount } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+      expect(posted()).toHaveLength(2)
+      unmount()
+      await advance(CHECK_EVERY * 5)
+
+      // The second, on its way, isn't asked after; the third isn't sent.
+      expect(fetch).toHaveBeenCalledTimes(3)
+
+      // Nor is one turned away sent again.
+      jest
+        .mocked(fetch)
+        .mockClear()
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'done', visible: true }),
+        )
+        .mockResolvedValueOnce(respond(429, { reason: 'busy' }))
+      const again = render(['hitDie'])
+      act(() => again.result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+      again.unmount()
+      await advance(BUSY_WAIT * 2)
+      expect(posted()).toHaveLength(2)
+    })
+
+    it('says no total or hit points given back where the game made any of them blind', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 9,
+            healed: 9,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-2', status: 'done', visible: false }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-3' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-3',
+            status: 'done',
+            visible: true,
+            total: 8,
+            healed: 6,
+          }),
+        )
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY * 3)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'done',
+        visible: false,
+        together: { count: 3, made: 3 },
+      })
+    })
+
+    it('keeps that the game made none of them, where it made the first not', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'failed', reason: 'gone' }),
+        )
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'failed',
+        reason: 'gone',
+        together: { count: 3, made: 0 },
+      })
+      await advance(CHECK_EVERY * 3)
+      expect(posted()).toHaveLength(1)
     })
 
     it("sends an activity's own formula where the game takes it", () => {

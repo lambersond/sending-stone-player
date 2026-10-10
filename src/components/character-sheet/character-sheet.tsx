@@ -31,10 +31,8 @@ type Props = {
   /** The encounter under way, in which the character may be waiting to roll initiative. */
   combat?: TableCombat
   onRoll: (roll: SheetRoll) => void
-  /** Spends a hit die, rolling it. */
+  /** Spends hit dice, rolling them. */
   onRollFormula?: (roll: SheetFormulaRoll) => void
-  /** Whether the Gamemaster's game spends a hit die rolled too, as it does while it takes them. */
-  spendsAtTable?: boolean
   /** Shows one of the character's conditions in full, with its rules, by its id. */
   onShowConditions?: (id: string) => void
 }
@@ -50,7 +48,6 @@ export function CharacterSheet({
   combat,
   onRoll,
   onRollFormula,
-  spendsAtTable,
   onShowConditions,
 }: Readonly<Props>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
@@ -70,7 +67,7 @@ export function CharacterSheet({
         actions={actions}
         combatId={waiting ? combat?.id : undefined}
         onShowConditions={onShowConditions}
-        spending={hitDieSpending(sheet, onRollFormula, spendsAtTable)}
+        spending={hitDieSpending(sheet, onRollFormula)}
       />
 
       <section
@@ -202,17 +199,35 @@ function SheetHeader({
           ))}
         </ul>
       )}
-      {/* Where the sheet is wide enough, its hit dice go last, on a row of their own however wide
-          it is, so the numbers beside the hit points stay on theirs, as tall as each other, and
-          each size of die stays on one line with its button. */}
-      <dl className='grid grid-cols-2 gap-2 @lg:grid-cols-6'>
+      {/* The hit points and the hit dice side by side, however wide the sheet; while the
+          character is dying, the death saves on a row of their own; then the numbers after them,
+          two to a row on a phone, and four wider. Only where the sheet is as wide as it gets do
+          the numbers go on the row beside one size of hit die, eight to a row: narrower, an eighth
+          is too narrow for a Roll badge, temporary hit points or a speed of 120 ft. Not beside
+          more than one size, which is taller, nor while the death saves show, which would leave
+          half the next row empty. Without hit dice, the hit points and the numbers make one row,
+          or the hit points one of their own on a phone. */}
+      <dl
+        className={clsx(
+          'grid grid-cols-2 gap-2',
+          pools.length > 0 ? '@lg:grid-cols-4' : '@lg:grid-cols-6',
+          pools.length === 1 && !dying && '@5xl:grid-cols-8',
+        )}
+      >
         {sheet.hp && (
-          <Stat label='Hit points' wide>
+          <Stat label='Hit points' wide={pools.length > 0 ? 'pair' : 'double'}>
             <HitPoints hp={sheet.hp} />
           </Stat>
         )}
+        {/* Spent any time, a tap a die of that size, for the hit points it gives back; or more at
+            once, from its popover. */}
+        {pools.length > 0 && (
+          <Stat label='Hit dice' wide='pair'>
+            <HitDiceList pools={pools} spending={spending} />
+          </Stat>
+        )}
         {dying && (
-          <Stat label='Death saves' wide>
+          <Stat label='Death saves' wide='row'>
             <span className='flex items-center justify-between gap-2'>
               <DeathSaves saves={deathSaves} />
               {isDying(sheet) && (
@@ -232,13 +247,6 @@ function SheetHeader({
                 </RollButton>
               )}
             </span>
-          </Stat>
-        )}
-        {/* After the death saves, which stay under the hit points while the character is dying.
-            Spent any time, each tap a die of that size, for the hit points it gives back. */}
-        {pools.length > 0 && (
-          <Stat label='Hit dice' wide className='@lg:order-last @lg:col-span-6'>
-            <HitDiceList pools={pools} spending={spending} />
           </Stat>
         )}
         {sheet.ac !== null && (
@@ -265,7 +273,9 @@ function SheetHeader({
               }}
               {...actions}
               label={`Initiative, ${formatModifier(sheet.initiative)}${combatId ? ', to roll for the combat' : ''}`}
-              className='-mx-1 inline-flex items-center gap-1 rounded-lg px-1 transition-colors hover:bg-primary/10 focus-visible:bg-primary/10'
+              // Its Roll badge goes under the number in a tile too narrow for both, rather than
+              // under the tile beside it.
+              className='-mx-1 inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-lg px-1 transition-colors hover:bg-primary/10 focus-visible:bg-primary/10'
             >
               <Zap
                 aria-hidden
@@ -364,28 +374,30 @@ function Portrait({ name, src }: Readonly<{ name: string; src?: string }>) {
 /**
  * One of the sheet's vital numbers. Each box is a container, so a label with a short form, such as
  * Prof for Proficiency, can use it when its box is too narrow for the whole word: the longest,
- * Armor class, needs 114 pixels.
+ * Armor class, needs 114 pixels. What it shows fills the box's height, which a taller box beside
+ * it on its row may stretch, for the hit points' bar to sit at its foot.
+ * @param wide - For one of a pair, such as the hit points beside the hit dice, a column on a
+ * phone, where there are two, and two where there are more; two columns however many there are,
+ * as the hit points with no hit dice beside them; or a row of its own, up to four columns.
  */
 function Stat({
   label,
   short,
-  wide = false,
-  className,
+  wide,
   children,
 }: Readonly<{
   label: string
   short?: string
-  wide?: boolean
-  /** Where it goes in the grid, where that differs from its place among the others. */
-  className?: string
+  wide?: 'pair' | 'double' | 'row'
   children: ReactNode
 }>) {
   return (
     <div
       className={clsx(
         '@container flex min-w-0 flex-col gap-0.5 rounded-xl bg-page py-2',
-        wide && 'col-span-2',
-        className,
+        wide === 'pair' && '@lg:col-span-2',
+        wide === 'double' && 'col-span-2',
+        wide === 'row' && 'col-span-2 @lg:col-span-4',
       )}
     >
       <dt className='truncate px-3 text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
@@ -403,18 +415,22 @@ function Stat({
           label
         )}
       </dt>
-      <dd className='px-3 text-lg font-bold tabular-nums'>{children}</dd>
+      <dd className='flex-1 px-3 text-lg font-bold tabular-nums'>{children}</dd>
     </div>
   )
 }
 
+/**
+ * The character's hit points, of how many, and any temporary ones, over a bar of how many are left;
+ * the bar at the foot of the tile, should the hit dice beside it make it taller.
+ */
 function HitPoints({ hp }: Readonly<{ hp: NonNullable<TableSheet['hp']> }>) {
   const ratio = hp.max ? Math.max(0, Math.min(1, hp.value / hp.max)) : 1
   let bar = 'bg-primary'
   if (ratio <= 0.25) bar = 'bg-danger'
   else if (ratio <= 0.5) bar = 'bg-warning'
   return (
-    <span className='flex flex-col gap-1'>
+    <span className='flex h-full flex-col justify-between gap-1'>
       <span className='flex flex-wrap items-baseline gap-x-1'>
         <span>{hp.value}</span>
         {hp.max !== null && (

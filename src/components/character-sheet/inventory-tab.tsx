@@ -1,5 +1,19 @@
 'use client'
 
+import { useId, useState, type ReactNode } from 'react'
+import {
+  autoUpdate,
+  flip,
+  FloatingFocusManager,
+  FloatingPortal,
+  offset,
+  shift,
+  useClick,
+  useDismiss,
+  useFloating,
+  useInteractions,
+  useRole,
+} from '@floating-ui/react'
 import clsx from 'clsx'
 import { Backpack, Package } from 'lucide-react'
 import {
@@ -12,6 +26,8 @@ import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { UsesLeft } from './uses-left'
+import { usePortalRoot, useTopmostEscape } from '@/components/modal'
+import { compactAmount } from '@/utils/format-amount'
 import { itemAction } from '@/utils/sheet-actions'
 import type {
   SheetDamageRoll,
@@ -26,7 +42,6 @@ import type {
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
-import type { ReactNode } from 'react'
 
 /**
  * The character's inventory, as dnd5e's Inventory tab shows it to its player: coin, load and
@@ -143,10 +158,7 @@ function Holdings({ inventory }: Readonly<{ inventory: SheetInventory }>) {
                 title={coin.label}
                 className={clsx(coin.value === 0 && 'text-text-secondary')}
               >
-                <span className='font-semibold tabular-nums'>
-                  {coin.value.toLocaleString()}
-                </span>{' '}
-                <span className='text-xs'>{coin.abbreviation}</span>
+                <CoinAmount coin={coin} />
               </li>
             ))}
           </ul>
@@ -172,6 +184,91 @@ function Holdings({ inventory }: Readonly<{ inventory: SheetInventory }>) {
         </SheetFact>
       )}
     </dl>
+  )
+}
+
+type Coin = SheetInventory['currency'][number]
+
+/**
+ * How much of a coin the character has, such as "41 GP". From 1,000, it's shortened, as in
+ * "12.8k GP", so that every coin fits on a phone, and the exact amount is a click or tap away.
+ */
+function CoinAmount({ coin }: Readonly<{ coin: Coin }>) {
+  const short = compactAmount(coin.value)
+  if (short === undefined) {
+    return <CoinText amount={coin.value.toLocaleString()} coin={coin} />
+  }
+  return <ExactAmount short={short} coin={coin} />
+}
+
+/** An amount and the coin's abbreviation after it, smaller, as in "41 GP". */
+function CoinText({ amount, coin }: Readonly<{ amount: string; coin: Coin }>) {
+  return (
+    <>
+      <span className='font-semibold tabular-nums'>{amount}</span>{' '}
+      <span className='text-xs'>{coin.abbreviation}</span>
+    </>
+  )
+}
+
+/**
+ * A shortened amount of a coin, as a button that opens a popover above it with the exact amount,
+ * and the coin's name, such as "Gold": by a click or tap, or Enter or Space. Escape, or a click
+ * or tap elsewhere, closes it; inside a dialog too, and only it.
+ */
+function ExactAmount({ short, coin }: Readonly<{ short: string; coin: Coin }>) {
+  const [open, setOpen] = useState(false)
+  const amount = useId()
+  const shown = `${short} ${coin.abbreviation}`.trimEnd()
+  const root = usePortalRoot()
+  useTopmostEscape(open)
+  const { refs, floatingStyles, context } = useFloating({
+    open,
+    onOpenChange: setOpen,
+    placement: 'top',
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
+  })
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    useClick(context),
+    useDismiss(context),
+    useRole(context, { role: 'dialog' }),
+  ])
+  return (
+    <>
+      <button
+        ref={refs.setReference}
+        type='button'
+        // What it shows, then what it opens to.
+        aria-label={`${shown}, exact amount`}
+        className='rounded-md underline decoration-text-secondary/60 decoration-dotted underline-offset-4 transition-colors hover:text-primary'
+        {...getReferenceProps()}
+      >
+        <CoinText amount={short} coin={coin} />
+      </button>
+      {open && (
+        <FloatingPortal root={root}>
+          <FloatingFocusManager context={context} modal={false}>
+            <div
+              ref={refs.setFloating}
+              style={floatingStyles}
+              aria-labelledby={amount}
+              className='z-50 flex max-w-[calc(100vw-1rem)] flex-col gap-0.5 rounded-xl border border-border bg-card px-3 py-2 text-text-primary shadow-xl outline-none'
+              {...getFloatingProps()}
+            >
+              {coin.label && (
+                <p className='text-xs font-semibold text-text-secondary'>
+                  {coin.label}
+                </p>
+              )}
+              <p id={amount}>
+                <CoinText amount={coin.value.toLocaleString()} coin={coin} />
+              </p>
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
+      )}
+    </>
   )
 }
 

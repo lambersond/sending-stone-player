@@ -206,70 +206,67 @@ describe('components/character-sheet/favorites', () => {
     ])
   })
 
-  it("spends a class's hit die from its favorite, where something rolls them", async () => {
+  it("uses a class's hit dice from its favorite, a tap a die, or more at once from its popover", async () => {
     const user = userEvent.setup()
     const onRollFormula = jest.fn()
     render(
       <FavoritesStrip
         {...propsFor(withFavorites([item('fighter', 'class')]))}
         onRollFormula={onRollFormula}
-        spendsAtTable
       />,
     )
 
-    // Beside its hit dice, the button, named for what it shows, then how many are left.
-    expect(rows()).toEqual([
-      'Fighter 5Hit dice 3/5 d10 · ChampionSpend d10, 3 of 5 left',
-    ])
-    await user.click(
-      screen.getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
-    )
-    expect(onRollFormula).toHaveBeenCalledWith(
+    // Beside its hit dice, a button with their die that says Use, named for it, then the size
+    // and how many are left.
+    expect(rows()).toEqual(['Fighter 5Hit dice 3/5 d10 · ChampionUse'])
+    const use = screen.getByRole('button', {
+      name: 'Use a d10 hit die, 3 of 5 left',
+    })
+    expect(use.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    await user.click(use)
+    expect(onRollFormula).toHaveBeenLastCalledWith(
       expect.objectContaining({
         label: 'Hit die (d10)',
         source: { kind: 'hitDie', denomination: 'd10' },
       }),
     )
+
+    // From the keyboard's context menu key, its popover offers as many as are left.
+    fireEvent.contextMenu(use, { button: -1 })
+    const popover = screen.getByRole('dialog', { name: 'Use d10 hit dice' })
+    const more = within(popover).getByRole('button', { name: 'One die more' })
+    for (let press = 0; press < 3; press++) await user.click(more)
+    expect(popover).toHaveTextContent('3 of 3')
+    expect(more).toHaveAttribute('aria-disabled', 'true')
+    await user.click(
+      within(popover).getByRole('button', { name: 'Use 3 d10 hit dice' }),
+    )
+    expect(onRollFormula).toHaveBeenLastCalledWith(
+      expect.objectContaining({ label: 'Hit dice (3d10)', times: 3 }),
+    )
   })
 
-  it("rolls a class's hit die from its favorite where the game won't spend it, and spends none at full hit points", async () => {
+  it("uses none from a class's favorite at full hit points, saying why only in its button's title", async () => {
     const user = userEvent.setup()
     const onRollFormula = jest.fn()
-    const { rerender } = render(
-      <FavoritesStrip
-        {...propsFor(withFavorites([item('fighter', 'class')]))}
-        onRollFormula={onRollFormula}
-      />,
-    )
-
-    await user.click(
-      screen.getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
-    )
-    expect(onRollFormula).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText(/At full hit points/)).toBeNull()
-
-    rerender(
+    render(
       <FavoritesStrip
         {...propsFor({
           ...withFavorites([item('fighter', 'class')]),
           hp: { value: 44, max: 44, temp: 0 },
         })}
         onRollFormula={onRollFormula}
-        spendsAtTable
       />,
     )
-    const spend = screen.getByRole('button', {
-      name: 'Spend d10 , 3 of 5 left',
+
+    const use = screen.getByRole('button', {
+      name: 'Use a d10 hit die, 3 of 5 left',
     })
-    expect(spend).toBeDisabled()
-    expect(spend).toHaveAccessibleDescription('At full hit points')
-    // Said after the hit dice too, before what a narrow row cuts short, as a touch screen shows
-    // no title.
-    expect(rows()).toEqual([
-      'Fighter 5Hit dice 3/5 d10 · At full hit points · ChampionSpend d10, 3 of 5 left',
-    ])
-    await user.click(spend)
-    expect(onRollFormula).toHaveBeenCalledTimes(1)
+    expect(use).toBeDisabled()
+    expect(use).toHaveAccessibleDescription('At full hit points')
+    expect(rows()).toEqual(['Fighter 5Hit dice 3/5 d10 · ChampionUse'])
+    await user.click(use)
+    expect(onRollFormula).not.toHaveBeenCalled()
   })
 
   it("offers no hit die from a class's favorite of a size the game doesn't have, nor says why at full hit points", () => {
@@ -290,7 +287,6 @@ describe('components/character-sheet/favorites', () => {
           ],
         })}
         onRollFormula={jest.fn()}
-        spendsAtTable
       />,
     )
 

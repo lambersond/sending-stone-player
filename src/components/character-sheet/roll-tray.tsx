@@ -308,6 +308,10 @@ function TableStatus({
   dc,
 }: Readonly<{ state: TableRollState; dc?: number }>) {
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
+  // Of dice sent one after another, as hit dice spent at once, which is on its way.
+  const die = state.together
+    ? ` die ${state.together.made + 1} of ${state.together.count}`
+    : ''
   switch (state.status) {
     case 'sending':
     case 'rolling': {
@@ -318,8 +322,10 @@ function TableStatus({
             className='size-3.5 shrink-0 motion-safe:animate-spin'
           />
           {state.status === 'sending'
-            ? 'Sending to your Gamemaster’s game…'
-            : 'Rolling in your Gamemaster’s game…'}
+            ? `Sending${die} to your Gamemaster’s game…`
+            : `Rolling${die} in your Gamemaster’s game…`}
+          {/* Each is sent from this page once the one before is made: leaving it, none more is. */}
+          {state.together && ' Keep this page open until they’re all sent.'}
         </p>
       )
     }
@@ -355,12 +361,42 @@ function TableStatus({
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-          Not made at the table
+          {state.together?.made ? (
+            <PartlyMade state={state} together={state.together} />
+          ) : (
+            'Not made at the table'
+          )}
           {reason ? `: ${reason}` : ''}
         </p>
       )
     }
   }
+}
+
+/**
+ * Of dice sent one after another, as hit dice spent at once, those the game made before one it
+ * didn't: how many, and the hit points they gave back, where the player may see them, before why
+ * the rest weren't made.
+ */
+function PartlyMade({
+  state,
+  together: { count, made },
+}: Readonly<{
+  state: TableRollState
+  together: NonNullable<TableRollState['together']>
+}>) {
+  return (
+    <span>
+      {made} of {count} made at the table
+      {state.healed !== undefined && (
+        <span className='font-semibold text-text-primary'>
+          {' · '}
+          {state.healed} HP regained
+        </span>
+      )}
+      . Not the rest
+    </span>
+  )
 }
 
 /**
@@ -578,6 +614,15 @@ function TableMark({
   if (state.status === 'sending' || state.status === 'rolling') {
     return <span className='ml-1.5'>· sending</span>
   }
+  // Of dice sent one after another, those the game made before one it didn't.
+  const made = state.together?.made
+  if (made) {
+    return (
+      <span className='ml-1.5'>
+        · {made} of {state.together?.count} at the table
+      </span>
+    )
+  }
   return (
     <>
       {mine}
@@ -730,7 +775,8 @@ function DamageResult({
 
 /**
  * A hit die spent, or a formula rolled: the total, and each of its terms with its dice, and the
- * least it comes to, where its dice came to less.
+ * least it comes to, where its dice came to less. Hit dice spent at once are one roll, every die
+ * among its terms, and the least each gives back said where one gave back its least.
  */
 function FormulaResult({
   roll,
@@ -745,13 +791,21 @@ function FormulaResult({
         <p className='truncate font-semibold'>{roll.label}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
           <Terms terms={roll.terms} />
-          {roll.minimum !== undefined && ` · at least ${roll.minimum}`}
+          {roll.minimum !== undefined && ` · ${leastOf(roll)}`}
         </p>
         {state && <TableStatus state={state} />}
         {!state && roll.described && <OnlyYou />}
       </div>
     </div>
   )
+}
+
+/**
+ * The least a roll with no d20 came to, as it says when its dice came to less: "at least 1", or
+ * "at least 1 each" of several thrown together.
+ */
+function leastOf({ minimum, times }: LocalFormula): string {
+  return `at least ${minimum}${times ? ' each' : ''}`
 }
 
 /** Each term of a roll with no d20, with its dice: 1d10 (7) +2. */
@@ -955,9 +1009,7 @@ function breakdown(roll: LocalRoll): string {
         index === 0 ? String(value) : formatModifier(value),
       )
       .join(' ')
-    return roll.minimum === undefined
-      ? terms
-      : `${terms}, at least ${roll.minimum}`
+    return roll.minimum === undefined ? terms : `${terms}, ${leastOf(roll)}`
   }
   if (roll.kind === 'damage') {
     if (byTheGame(roll)) return 'rolled at the table'

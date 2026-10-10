@@ -23,10 +23,10 @@ import { EffectEntry } from './effects-tab'
 import { FavoriteMarks, NO_MARKS } from './favorite-mark'
 import { FeatureEntry } from './features-tab'
 import {
-  FULL_HP,
-  HitDieButton,
+  HitDieIcon,
   hitDiceText,
   hitDieSpending,
+  HitDieUse,
   type HitDieSpending,
 } from './hit-dice'
 import { ItemEntry } from './inventory-tab'
@@ -64,10 +64,8 @@ type Props = {
   entries: FavoriteEntry[]
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
-  /** Spends a hit die, or rolls an activity's own formula, such as a light's radius. */
+  /** Spends hit dice, or rolls an activity's own formula, such as a light's radius. */
   onRollFormula?: (roll: SheetFormulaRoll) => void
-  /** Whether the Gamemaster's game spends a hit die rolled too, as it does while it takes them. */
-  spendsAtTable?: boolean
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -188,7 +186,6 @@ function FavoritesList({
   onRoll,
   onRollDamage,
   onRollFormula,
-  spendsAtTable,
   onUse,
   tableDamage,
 }: Readonly<Props>) {
@@ -201,7 +198,7 @@ function FavoritesList({
     onUse,
     tableDamage,
   })
-  const spending = hitDieSpending(sheet, onRollFormula, spendsAtTable)
+  const spending = hitDieSpending(sheet, onRollFormula)
   const card = useRef<HTMLDivElement>(null)
   const width = useWidth(card)
   // Side by side, the first half is in the first list and the rest in the second, so that each
@@ -343,9 +340,9 @@ function FavoriteRow({
 }
 
 /**
- * A class made a favorite: its levels, its hit dice and subclass, and a button that spends one of
- * those hit dice, where something rolls them and the game has their size, as on its card, which
- * says after them when it's disabled at full hit points.
+ * A class made a favorite: its levels, its hit dice and subclass, and a button with its die that
+ * spends those hit dice, a tap a die, or more at once from its popover, as the Character tab's do,
+ * where something rolls them and the game has their size.
  */
 function ClassEntry({
   characterId,
@@ -357,8 +354,6 @@ function ClassEntry({
   spending?: HitDieSpending
 }>) {
   const { hitDice } = entry
-  const spends =
-    hitDice && spending && spendable(hitDice) ? spending : undefined
   return (
     <SheetEntry
       characterId={characterId}
@@ -366,14 +361,16 @@ function ClassEntry({
         entry.levels === null ? entry.name : `${entry.name} ${entry.levels}`
       }
       fallback={ListChecks}
-      // The hit dice first, and why they aren't spent, as a row this narrow cuts its end short.
-      detail={joinParts(
-        hitDice && hitDiceText(hitDice),
-        spends?.full && FULL_HP,
-        entry.subclass,
-      )}
+      // The hit dice first, as a row this narrow cuts its end short.
+      detail={joinParts(hitDice && hitDiceText(hitDice), entry.subclass)}
       aside={
-        hitDice && spends && <HitDieButton pool={hitDice} spending={spends} />
+        hitDice &&
+        spending &&
+        spendable(hitDice) && (
+          <HitDieUse pool={hitDice} spending={spending}>
+            <HitDieIcon die={hitDice.die} className='size-4 text-primary' />
+          </HitDieUse>
+        )
       }
     />
   )

@@ -269,9 +269,18 @@ export function GameTable({
               <ArrowLeft aria-hidden className='size-5' />
             </Link>
             <div className='min-w-0'>
-              <h1 className='truncate text-lg leading-tight font-semibold'>
-                {character.name}
-              </h1>
+              {/* On a wide screen, the class and subclass follow the name, cut short before it
+                  is. Narrower, the line under the name has them, on the Character tab. */}
+              <div className='flex items-baseline gap-2 overflow-hidden'>
+                <h1 className='max-w-full shrink-0 truncate text-lg leading-tight font-semibold'>
+                  {character.name}
+                </h1>
+                {playing && view.sheet && (
+                  <p className='hidden min-w-0 truncate text-sm text-text-secondary lg:block'>
+                    {classLine(view.sheet)}
+                  </p>
+                )}
+              </div>
               <p
                 className={clsx(
                   'truncate text-sm text-text-secondary',

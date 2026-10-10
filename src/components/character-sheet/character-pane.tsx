@@ -16,7 +16,7 @@ import {
 import { actionTitle, verbOf, type TableDamage } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
-import { CharacterSheet, classLine } from './character-sheet'
+import { CharacterSheet } from './character-sheet'
 import {
   ConditionsOpener,
   rulesOf,
@@ -321,10 +321,8 @@ function RollingSheet({
   const tableDamage: TableDamage | undefined = table.takes('damage')
     ? { modifies: table.modifies, dueFor: table.dueFor }
     : undefined
-  // A hit die spent, or a formula rolled, such as a light's radius.
+  // Hit dice spent, or a formula rolled, such as a light's radius.
   const onRollFormula = (request: SheetFormulaRoll) => void rollFormula(request)
-  // A hit die is spent in the game too while it takes them; else it's only rolled here.
-  const spendsAtTable = table.takes('hitDie')
   const favorites = {
     characterId,
     sheet,
@@ -332,7 +330,6 @@ function RollingSheet({
     onRoll,
     onRollDamage,
     onRollFormula,
-    spendsAtTable,
     onUse: using,
     tableDamage,
   }
@@ -400,11 +397,11 @@ function RollingSheet({
     >
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
           labels don't fit. */}
-      <div className='@container flex h-11 shrink-0 items-center gap-3 border-b border-border px-3 md:px-6 lg:px-7'>
+      <div className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'>
         <div
           role='tablist'
           aria-label='Character sheet'
-          className='flex min-w-0 gap-0.5 overflow-x-auto lg:shrink-0 @3xl:gap-1'
+          className='flex min-w-0 gap-0.5 overflow-x-auto @3xl:gap-1'
         >
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
@@ -439,9 +436,6 @@ function RollingSheet({
             </button>
           ))}
         </div>
-        <span className='ml-auto hidden min-w-0 truncate text-sm text-text-secondary lg:block'>
-          {classLine(sheet)}
-        </span>
       </div>
       {/* What the game asks of the character, above every tab, while the game takes the answer. */}
       {waiting.length > 0 && table.available && (
@@ -472,7 +466,6 @@ function RollingSheet({
                 combat={combat}
                 onRoll={onRoll}
                 onRollFormula={onRollFormula}
-                spendsAtTable={spendsAtTable}
                 onShowConditions={showCondition}
               />
             )}
@@ -505,7 +498,6 @@ function RollingSheet({
                 characterId={characterId}
                 sheet={sheet}
                 {...handlers}
-                spendsAtTable={spendsAtTable}
               />
             )}
             {tab === 'effects' && (
