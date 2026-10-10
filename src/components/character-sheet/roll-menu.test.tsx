@@ -74,6 +74,21 @@ describe('components/character-sheet/roll-menu', () => {
     await waitFor(() => expect(menuAt()).toBe('translate(300px, 246px)'))
   })
 
+  it('is no taller than the room on the side it opens on, its items scrolled inside it, as one with many may be taller than a phone’s screen', async () => {
+    renderMenu()
+    const menu = screen.getByRole('menu')
+    // Taller than the window: 514 pixels below the row, from 246 down to 8 short of 768, and 186
+    // above it; it stays below, where there's more room.
+    jest
+      .spyOn(menu, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ width: 224, height: 900 }))
+    fireEvent.scroll(globalThis.window)
+
+    await waitFor(() => expect(menu.style.maxHeight).toBe('514px'))
+    expect(menuAt()).toBe('translate(300px, 246px)')
+    expect(menu).toHaveClass('overflow-y-auto')
+  })
+
   it('offers advantage, disadvantage and modifying the roll', async () => {
     const user = userEvent.setup()
     const { onChoose } = renderMenu()

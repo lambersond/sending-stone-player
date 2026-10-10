@@ -598,11 +598,45 @@ describe('schemas/roll-request', () => {
       expect(parse({ ...save, prompt: 'msg1-thorin' }).success).toBe(false)
     })
 
+    it.each([
+      ['a skill check', { kind: 'skill', key: 'ath' }],
+      ['a tool check', { kind: 'tool', key: 'thief' }],
+      ['an ability check', { kind: 'ability', key: 'int' }],
+    ])(
+      "takes a player's own %s a description calls for, with the dice a check throws",
+      (_name, fields) => {
+        const check = { ...fields, text: TEXT, link: 3 }
+
+        expect(parse(check).data).toEqual({ ...perception, ...check })
+        expect(
+          parse({
+            ...check,
+            mode: 1,
+            explicit: true,
+            dice: [{ faces: 20, results: [14, 3] }],
+          }).success,
+        ).toBe(true)
+        expect(parse({ ...check, link: undefined }).success).toBe(false)
+        expect(parse({ ...check, text: undefined }).success).toBe(false)
+        expect(parse({ ...check, key: undefined }).success).toBe(false)
+        // Only a saving throw answers what the game asks.
+        expect(parse({ ...check, prompt: 'msg1-thorin' }).success).toBe(false)
+        // Its d20 is thrown, as any check's.
+        expect(parse({ ...check, dice: [] }).success).toBe(false)
+      },
+    )
+
     it('names a link for nothing else', () => {
-      expect(parse({ text: TEXT, link: 3 }).success).toBe(false)
-      expect(
-        parse({ kind: 'ability', key: 'dex', text: TEXT, link: 3 }).success,
-      ).toBe(false)
+      const death = { kind: 'death', key: undefined }
+      const initiative = {
+        kind: 'initiative',
+        key: undefined,
+        combatId: 'combat1',
+      }
+      expect(parse(death).success).toBe(true)
+      expect(parse({ ...death, text: TEXT, link: 3 }).success).toBe(false)
+      expect(parse(initiative).success).toBe(true)
+      expect(parse({ ...initiative, text: TEXT, link: 3 }).success).toBe(false)
       expect(parseDamage({ text: TEXT, link: 3 }).success).toBe(false)
       expect(parseUse({ text: TEXT, link: 3 }).success).toBe(false)
       expect(parseAttack({ link: 3 }).success).toBe(false)

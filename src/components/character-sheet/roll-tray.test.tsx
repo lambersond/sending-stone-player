@@ -1470,6 +1470,125 @@ describe('components/character-sheet/roll-tray', () => {
       },
     )
 
+    describe('a check against its DC', () => {
+      const athletics = roll({
+        id: 'c1',
+        label: 'Strength (Athletics) check',
+        modifier: 7,
+        d20s: [7],
+        natural: 7,
+        total: 14,
+        dc: 15,
+        verdict: 'check',
+        described: true,
+      })
+
+      it('says whether it passed here, and that only the player sees it', () => {
+        const { rerender } = render(
+          <RollTray rolls={[athletics]} rolling={false} />,
+        )
+
+        const status = screen.getByRole('status')
+        expect(status).toHaveTextContent('d20 7 +7 · DC 15 · Failed')
+        expect(status).toHaveTextContent(/Only you see this roll$/)
+
+        rerender(
+          <RollTray
+            rolls={[{ ...athletics, total: 15, natural: 8, d20s: [8] }]}
+            rolling={false}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'd20 8 +7 · DC 15 · Passed',
+        )
+      })
+
+      it.each<[string, TableRollState, string]>([
+        [
+          'by its total where the game says nothing of it',
+          { status: 'done', visible: true, total: 16 },
+          'At the table: 16 · Passed',
+        ],
+        [
+          'as the game says',
+          { status: 'done', visible: true, total: 16, outcome: 'failure' },
+          'At the table: 16 · Failed',
+        ],
+        [
+          'as the game says it passed',
+          { status: 'done', visible: true, total: 12, outcome: 'success' },
+          'At the table: 12 · Passed',
+        ],
+      ])('says whether it passed at the table, %s', (_name, state, text) => {
+        render(
+          <RollTray
+            rolls={[athletics]}
+            rolling={false}
+            table={table([['c1', state]])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          `14Strength (Athletics) checkd20 7 +7 · DC 15${text}`,
+          { normalizeWhitespace: false },
+        )
+      })
+
+      it('says whether it passed at the table, as the game says, where the description keeps its DC from the player', () => {
+        render(
+          <RollTray
+            rolls={[{ ...athletics, dc: undefined }]}
+            rolling={false}
+            table={table([
+              [
+                'c1',
+                {
+                  status: 'done',
+                  visible: true,
+                  total: 14,
+                  outcome: 'success',
+                },
+              ],
+            ])}
+          />,
+        )
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          '14Strength (Athletics) checkd20 7 +7At the table: 14 · Passed',
+          { normalizeWhitespace: false },
+        )
+      })
+
+      it('says whether it passed among the earlier rolls', async () => {
+        const user = userEvent.setup()
+        render(
+          <RollTray
+            rolls={[
+              roll({ id: 'r9', label: 'Perception check' }),
+              athletics,
+              { ...athletics, id: 'c2', total: 18 },
+              { ...athletics, id: 'c3' },
+            ]}
+            rolling={false}
+            table={table([
+              ['c2', { status: 'done', visible: true, total: 18 }],
+              ['c3', { status: 'done', visible: true, total: 9 }],
+            ])}
+          />,
+        )
+
+        await user.click(screen.getByText('Earlier rolls (3)'))
+
+        expect(
+          screen.getAllByRole('listitem').map(item => item.textContent),
+        ).toEqual([
+          'Strength (Athletics) check7 +7 = 14· DC 15, failed',
+          'Strength (Athletics) check7 +7 = 18· table 18, passed',
+          'Strength (Athletics) check7 +7 = 14· table 9, failed',
+        ])
+      })
+    })
+
     it('says only the player sees damage or a roll from a description the game didn’t take', () => {
       const { rerender } = render(
         <RollTray

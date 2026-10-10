@@ -27,7 +27,7 @@ import type {
   CommandResult,
   SheetAction,
 } from '@/types/sending-stone'
-import type { FoundLink } from '@/utils/description-links'
+import type { CheckOption, FoundLink } from '@/utils/description-links'
 import type { ExtraDice } from '@/utils/roll-modifiers'
 
 /**
@@ -42,9 +42,9 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * ability it may be, or is answered already. For a hit die: the character has none of its size
  * left. For a formula: its dice aren't those the formula throws. From a link in a description: the
  * description is no longer on the sheet, or not held here (`gone`); it has no such link, or not of
- * the kind asked for, or a saving throw it calls for isn't rolled with that ability (`link`); the
- * table is asked for one in a secret (`secret`); its dice aren't those its formulas throw, or a
- * kind of damage chosen isn't one it offers.
+ * the kind asked for, or a saving throw it calls for isn't rolled with that ability, or a check
+ * with that skill, tool or ability (`link`); the table is asked for one in a secret (`secret`); its
+ * dice aren't those its formulas throw, or a kind of damage chosen isn't one it offers.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -131,10 +131,10 @@ export function rollsKey(
 
 /**
  * Can the character make this roll, as its sheet and the encounter stand? A skill, ability or
- * tool must be on its sheet; it must be dying to roll a death saving throw; it must be in the
- * combat, without initiative yet, to roll initiative; and it must have a hit die of the size it
- * spends left. What a link in a description asks for must be what that link is, in a description
- * on its sheet.
+ * tool must be on its sheet, but for a tool check a description calls for, which dnd5e makes with
+ * any tool; it must be dying to roll a death saving throw; it must be in the combat, without
+ * initiative yet, to roll initiative; and it must have a hit die of the size it spends left. What
+ * a link in a description asks for must be what that link is, in a description on its sheet.
  * @param links - For a roll from a link in a description, the links the game acts on in that
  *   description, as held here; none where it isn't held.
  * @returns Why not, or nothing when it can.
@@ -146,19 +146,20 @@ export function checkRoll(
   actorId: string,
   links?: ReadonlyMap<number, FoundLink>,
 ): RollRefusal | undefined {
+  const linked = () =>
+    input.text === undefined ? undefined : checkLinked(input, sheet, links)
   switch (input.kind) {
     case 'skill': {
-      return known(sheet?.skills.some(({ id }) => id === input.key) === true)
+      return (
+        known(sheet?.skills.some(({ id }) => id === input.key) === true) ??
+        linked()
+      )
     }
-    case 'ability': {
-      return known(sheet?.abilities.some(({ id }) => id === input.key) === true)
-    }
+    case 'ability':
     case 'save': {
       return (
         known(sheet?.abilities.some(({ id }) => id === input.key) === true) ??
-        (input.text === undefined
-          ? undefined
-          : checkLinked(input, sheet, links))
+        linked()
       )
     }
     case 'ask':
@@ -167,11 +168,14 @@ export function checkRoll(
       return checkLinked(input, sheet, links)
     }
     case 'tool': {
-      // The sheet lists tools only among the favorites.
+      // A description's tool check is made as dnd5e makes one, with the tool or without it.
+      if (input.text !== undefined) return checkLinked(input, sheet, links)
+      // The sheet lists tools among its tools, from module 0.18.0, and its favorites.
       return known(
-        (sheet?.favorites ?? []).some(
-          ({ type, id }) => type === 'tool' && id === input.key,
-        ),
+        (sheet?.tools ?? []).some(({ id }) => id === input.key) ||
+          (sheet?.favorites ?? []).some(
+            ({ type, id }) => type === 'tool' && id === input.key,
+          ),
       )
     }
     case 'death': {
@@ -331,12 +335,14 @@ function checkFormula(
 
 /**
  * Is what a roll from a link in a description asks for what the link is, in a description on the
- * character's sheet now, held here? The table is asked for a saving throw the link calls for, but
- * never one in a secret, which would be posted for everyone; the player's own saving throw is
- * rolled with one of the abilities it names, or Constitution for a concentration check that names
- * none, as the game takes it; damage or healing is rolled as its parts' formulas throw, each as a
- * kind of damage the part offers, where chosen; and a roll of its own as its formula throws. The
- * game reads the link again from its own copy, so nothing it asks for is taken from the app.
+ * character's sheet now, held here? The table is asked for a saving throw or check the link calls
+ * for, but never one in a secret, which would be posted for everyone; the player's own saving
+ * throw is rolled with one of the abilities it names, or Constitution for a concentration check
+ * that names none, as the game takes it; the player's own check is one of the link's, by its kind
+ * and its skill's, tool's or ability's key; damage or healing is rolled as its parts' formulas
+ * throw, each as a kind of damage the part offers, where chosen; and a roll of its own as its
+ * formula throws. The game reads the link again from its own copy, so nothing it asks for is taken
+ * from the app.
  */
 function checkLinked(
   input: RollRequestInput,
@@ -350,13 +356,26 @@ function checkLinked(
   const found = links.get(number)
   switch (input.kind) {
     case 'ask': {
-      if (found?.link.kind !== 'save') return 'link'
+      if (found?.link.kind !== 'save' && found?.link.kind !== 'check') {
+        return 'link'
+      }
       return found.secret ? 'secret' : undefined
     }
     case 'save': {
       // A concentration check that names no ability holds Constitution, which the game takes too.
       if (found?.link.kind !== 'save') return 'link'
       return found.link.abilities.includes(input.key ?? '') ? undefined : 'link'
+    }
+    case 'skill':
+    case 'tool':
+    case 'ability': {
+      if (found?.link.kind !== 'check') return 'link'
+      const type = CHECK_TYPES[input.kind]
+      const offered = found.link.checks.some(
+        option =>
+          option.type === type && (option.key ?? option.ability) === input.key,
+      )
+      return offered ? undefined : 'link'
     }
     case 'textDamage': {
       if (found?.link.kind !== 'damage') return 'link'
@@ -384,6 +403,13 @@ function checkLinked(
     }
   }
 }
+
+/** The kind of option a check a description calls for has, for each kind of roll that makes one. */
+const CHECK_TYPES = {
+  skill: 'skill',
+  tool: 'tool',
+  ability: 'check',
+} as const satisfies Partial<Record<RollKind, CheckOption['type']>>
 
 /** Are a roll's dice those a formula throws, in order: the same kinds of dice, as many of each? */
 function throws(input: RollRequestInput, thrown: ExtraDice[]): boolean {

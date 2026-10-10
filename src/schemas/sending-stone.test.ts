@@ -39,6 +39,14 @@ const askOf = (ask?: unknown) => {
   return 'ask' in message ? message.ask : 'absent'
 }
 
+/** A sheet with these tools, as read; with none, a sheet from before module 0.18.0. */
+const sheetWithTools = (tools?: unknown) =>
+  (
+    parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: { ...fullerSheet(), tools } },
+    }) as any
+  ).data.character.sheet
+
 /** A bridge.hello with these features, as read. */
 const helloWith = (features?: unknown) =>
   parseGameEvent('bridge.hello', { characters: [], combats: [], features })
@@ -1671,6 +1679,32 @@ describe('schemas/sending-stone', () => {
     ])
   })
 
+  it('reads the tools the character has, from module 0.18.0, dropping a malformed one; none before', () => {
+    const thief = {
+      id: 'thief',
+      name: "Thieves' Tools",
+      ability: 'dex',
+      total: 5,
+      passive: null,
+      proficiency: 1,
+      mode: 0,
+    }
+    const herb = { ...thief, id: 'herb', name: 'Herbalism Kit' }
+
+    expect(sheetWithTools([thief, herb]).tools).toEqual([thief, herb])
+    expect(
+      sheetWithTools([
+        { ...thief, total: '+5' },
+        'herb',
+        { ...herb, ability: 7, passive: '12', mode: 2, proficiency: 'yes' },
+      ]).tools,
+    ).toEqual([
+      { ...herb, ability: null, passive: null, mode: 0, proficiency: 0 },
+    ])
+    expect(sheetWithTools('all').tools).toEqual([])
+    expect(sheetWithTools().tools).toBeUndefined()
+  })
+
   it('reads a sheet from before module 0.9.0 as having no favorites', () => {
     const { favorites, ...older } = characterSheet()
     const event = parseGameEvent('character.updated', {
@@ -1881,7 +1915,8 @@ describe('schemas/sending-stone', () => {
         'too many abilities',
         { abilities: Array.from({ length: 7 }, () => 'dex') },
       ],
-      ['another kind', { type: 'check' }],
+      ['another kind', { type: 'attack' }],
+      ['a check with no ways to make it', { type: 'check' }],
       ['abilities that are not a list', { abilities: 'dex' }],
     ])(
       'takes an ask with %s as none, not as from an older module',
@@ -1892,6 +1927,91 @@ describe('schemas/sending-stone', () => {
         expect(askOf('Dexterity')).toBeNull()
       },
     )
+
+    it('reads the check a roll request card asks the table for, from module 0.18.0', () => {
+      const checks = [
+        { type: 'skill', ability: 'str', skill: 'ath' },
+        {
+          type: 'tool',
+          ability: 'dex',
+          tool: 'thief',
+          name: " Thieves' Tools ",
+        },
+        { type: 'check', ability: 'int' },
+      ]
+
+      expect(
+        askOf({ type: 'check', checks, dc: 15, label: 'Cloak of Climbing' }),
+      ).toEqual({
+        type: 'check',
+        checks: [
+          { type: 'skill', ability: 'str', skill: 'ath' },
+          {
+            type: 'tool',
+            ability: 'dex',
+            tool: 'thief',
+            name: "Thieves' Tools",
+          },
+          { type: 'check', ability: 'int' },
+        ],
+        dc: 15,
+        label: 'Cloak of Climbing',
+      })
+      // A Gamemaster's card, which nothing names, and whose DC players may not see.
+      expect(askOf({ type: 'check', checks: [checks[2]] })).toEqual({
+        type: 'check',
+        checks: [{ type: 'check', ability: 'int' }],
+      })
+    })
+
+    it.each([
+      ['no ways', []],
+      [
+        'more than ten ways',
+        Array.from({ length: 11 }, () => ({ type: 'check', ability: 'str' })),
+      ],
+      ['an ability dnd5e lacks', [{ type: 'check', ability: 'san' }]],
+      ['a name any object answers to', [{ type: 'check', ability: 'valueOf' }]],
+      ['a kind of roll that isn’t a check', [{ type: 'save', ability: 'dex' }]],
+      ['a skill check of no skill', [{ type: 'skill', ability: 'str' }]],
+      [
+        'a skill check of a tool',
+        [{ type: 'skill', ability: 'dex', tool: 'thief' }],
+      ],
+      [
+        'a tool check of a skill too',
+        [{ type: 'tool', ability: 'dex', tool: 'thief', skill: 'slt' }],
+      ],
+      [
+        'an ability check of a skill',
+        [{ type: 'check', ability: 'str', skill: 'ath' }],
+      ],
+      [
+        'a key that isn’t one',
+        [{ type: 'skill', ability: 'str', skill: 'ath|acr' }],
+      ],
+      [
+        'one way that doesn’t hold up among others',
+        [
+          { type: 'check', ability: 'str' },
+          { type: 'check', ability: 'luck' },
+        ],
+      ],
+      ['ways that are not a list', { type: 'check', ability: 'str' }],
+    ])('takes a check asked for with %s as none', (_name, checks) => {
+      expect(askOf({ type: 'check', checks, dc: 15 })).toBeNull()
+    })
+
+    it('leaves out a tool’s name too long or not one', () => {
+      const tool = { type: 'tool', ability: 'dex', tool: 'thief' }
+
+      for (const name of ['x'.repeat(101), 7, '  ']) {
+        expect(askOf({ type: 'check', checks: [{ ...tool, name }] })).toEqual({
+          type: 'check',
+          checks: [tool],
+        })
+      }
+    })
 
     it.each([
       ['of 0', 0],

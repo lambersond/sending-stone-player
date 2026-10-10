@@ -587,6 +587,12 @@ export type SheetToolFavorite = {
   mode: RollMode
 }
 
+/**
+ * A tool the character has, with what rolling it takes, as a skill has, for a check a description
+ * asks for to be made with it. Module 0.18.0.
+ */
+export type SheetTool = Omit<SheetToolFavorite, 'type'>
+
 /** A pool of spell slots made a favorite, with how many are left and the level they cast at. */
 export type SheetSlotsFavorite = {
   type: 'slots'
@@ -645,6 +651,8 @@ export type CharacterSheet = {
   inspiration: boolean
   abilities: SheetAbility[]
   skills: SheetSkill[]
+  /** The tools the character has. Module 0.18.0; absent before, when only favorites name them. */
+  tools?: SheetTool[]
   conditions: SheetCondition[]
   features: SheetFeatureSection[]
   effects: SheetEffectSection[]
@@ -691,9 +699,13 @@ export type Dnd5eMessageData = {
 
 /**
  * The saving throw a roll request card asks the table for: one the Gamemaster posted from a
- * description, or one a player asked for from the app. Module 0.17.0.
+ * description, or one a player asked for from the app. Module 0.17.0; or the check one does, from
+ * module 0.18.0.
  */
-export type MessageAsk = {
+export type MessageAsk = MessageSaveAsk | MessageCheckAsk
+
+/** A saving throw, or a concentration check, a roll request card asks the table for. */
+export type MessageSaveAsk = {
   type: 'save' | 'concentration'
   /** dnd5e's ids, such as ["dex"]; for a concentration check, the one it names, if any. */
   abilities: string[]
@@ -701,6 +713,31 @@ export type MessageAsk = {
   dc?: number
   /** What asks for it, such as the player's item. */
   label?: string
+}
+
+/** A check a roll request card asks the table for, its buttons' ways to make it. Module 0.18.0. */
+export type MessageCheckAsk = {
+  type: 'check'
+  checks: AskedCheck[]
+  /** Its DC, only where players may see it. */
+  dc?: number
+  /** What asks for it, such as the player's item. */
+  label?: string
+}
+
+/**
+ * One way a check the table is asked for may be made, as its card's button has it: an ability
+ * check, or a skill's or a tool's, each with the ability it's made with, as dnd5e's keys.
+ */
+export type AskedCheck = {
+  type: 'check' | 'skill' | 'tool'
+  ability: string
+  /** For a skill check, the skill's key, such as "ath". */
+  skill?: string
+  /** For a tool check, the tool's key, such as "thief". */
+  tool?: string
+  /** For a tool check, the tool's name, as the game has it, such as "Thieves' Tools". */
+  name?: string
 }
 
 export type SerializedMessage = {
@@ -721,7 +758,7 @@ export type SerializedMessage = {
   content?: string
   /**
    * The saving throw it asks the table for, if it's a roll request card; null for any other
-   * message. Module 0.17.0; absent before.
+   * message. Module 0.17.0; absent before. The check one asks for, from module 0.18.0.
    */
   ask?: MessageAsk | null
 }

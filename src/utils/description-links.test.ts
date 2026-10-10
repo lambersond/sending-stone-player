@@ -1,4 +1,11 @@
-import { linkAttributes, linkClassOf, linkOf } from './description-links'
+import {
+  checkName,
+  checkTitle,
+  linkAttributes,
+  linkClassOf,
+  linkOf,
+  toolOrSkillName,
+} from './description-links'
 
 describe('utils/description-links', () => {
   describe('linkOf', () => {
@@ -86,6 +93,41 @@ describe('utils/description-links', () => {
       })
     })
 
+    it('reads a check: each way it may be made once, the first kept, its DC, and the tool a skill check is made using', () => {
+      expect(
+        linkOf({
+          class: 'ss-check roll',
+          'data-n': '6',
+          'data-checks':
+            'skill:str:ath|skill:dex:acr|skill:dex:ath|check:int|check:int|tool:dex:thief',
+          'data-dc': '15',
+          'data-using-tool': 'thief',
+        }),
+      ).toEqual({
+        kind: 'check',
+        n: 6,
+        checks: [
+          { type: 'skill', ability: 'str', key: 'ath' },
+          { type: 'skill', ability: 'dex', key: 'acr' },
+          { type: 'check', ability: 'int' },
+          { type: 'tool', ability: 'dex', key: 'thief' },
+        ],
+        dc: 15,
+        usingTool: 'thief',
+      })
+      expect(
+        linkOf({
+          class: 'ss-check roll',
+          'data-n': '0',
+          'data-checks': 'check:str',
+        }),
+      ).toEqual({
+        kind: 'check',
+        n: 0,
+        checks: [{ type: 'check', ability: 'str' }],
+      })
+    })
+
     it('reads a roll of its own and a condition', () => {
       expect(
         linkOf({ class: 'ss-roll roll', 'data-n': '5', 'data-formula': '1d6' }),
@@ -107,13 +149,68 @@ describe('utils/description-links', () => {
         'an ability any object has',
         { class: 'ss-save', 'data-n': '0', 'data-ability': 'constructor' },
       ],
+      ['a check of no way', { class: 'ss-check', 'data-n': '0' }],
+      [
+        'a check by an ability dnd5e hasn’t',
+        { class: 'ss-check', 'data-n': '0', 'data-checks': 'check:san' },
+      ],
+      [
+        'a check of no number',
+        { class: 'ss-check', 'data-checks': 'check:str' },
+      ],
     ])('reads nothing from a span with %s', (_name, attribs) => {
       expect(linkOf(attribs)).toBeUndefined()
     })
   })
 
+  describe('a check’s words', () => {
+    it('names each way, by the ability and the skill or tool: the name given, else dnd5e’s, else its key', () => {
+      expect(checkName({ type: 'check', ability: 'str' })).toBe('Strength')
+      expect(checkName({ type: 'skill', ability: 'str', key: 'ath' })).toBe(
+        'Strength (Athletics)',
+      )
+      expect(checkName({ type: 'skill', ability: 'cha', key: 'ath' })).toBe(
+        'Charisma (Athletics)',
+      )
+      expect(checkName({ type: 'tool', ability: 'dex', key: 'thief' })).toBe(
+        "Dexterity (Thieves' Tools)",
+      )
+      expect(
+        checkName({ type: 'tool', ability: 'int', key: 'herb' }, 'Herbs'),
+      ).toBe('Intelligence (Herbs)')
+      expect(checkName({ type: 'skill', ability: 'wis', key: 'pil' })).toBe(
+        'Wisdom (pil)',
+      )
+      expect(toolOrSkillName('tool', 'water')).toBe('Water Vehicle')
+      expect(toolOrSkillName('tool', 'constructor')).toBe('constructor')
+    })
+
+    it('says the check, its DC, its choice, and the tool a skill check is made using', () => {
+      expect(checkTitle(['Strength (Athletics)'], { dc: 15 })).toBe(
+        'DC 15 Strength (Athletics) check',
+      )
+      expect(checkTitle(['Intelligence', 'Wisdom'])).toBe(
+        'Intelligence or Wisdom check',
+      )
+      expect(
+        checkTitle(
+          ['Strength (Athletics)', 'Dexterity (Acrobatics)', 'Dexterity'],
+          { dc: 12 },
+        ),
+      ).toBe(
+        'DC 12 Strength (Athletics), Dexterity (Acrobatics), or Dexterity check',
+      )
+      expect(
+        checkTitle(['Dexterity (Sleight of Hand)'], {
+          using: "Thieves' Tools",
+        }),
+      ).toBe("Dexterity (Sleight of Hand) check using Thieves' Tools")
+    })
+  })
+
   it('finds the first class of a link a class list names', () => {
     expect(linkClassOf('roll ss-damage ss-save')).toBe('ss-save')
+    expect(linkClassOf('ss-check roll')).toBe('ss-check')
     expect(linkClassOf('roll')).toBeUndefined()
     expect(linkClassOf('')).toBeUndefined()
   })

@@ -9,16 +9,20 @@ import type {
 } from '@/hooks/use-sheet-roller'
 import type { RollKind, TextLink } from '@/types/roll'
 import type {
+  CharacterSheet,
   SheetAbility,
   SheetCastFrom,
   SheetCondition,
+  SheetSkill,
+  SheetTool,
 } from '@/types/sending-stone'
 
 /*
- * What the links in the sheet's descriptions do: a saving throw a description calls for, the
- * table asked for it or the player's own rolled; its damage or healing and its own rolls, rolled
- * with the player's dice, and in the Gamemaster's game too, where it takes them; and a condition
- * it names, its rules shown. The sheet gives them once, for every tab, favorite and dialog in it.
+ * What the links in the sheet's descriptions do: a saving throw or check a description calls for,
+ * the table asked for it or the player's own rolled; its damage or healing and its own rolls,
+ * rolled with the player's dice, and in the Gamemaster's game too, where it takes them; and a
+ * condition it names, its rules shown. The sheet gives them once, for every tab, favorite and
+ * dialog in it.
  */
 
 /** Where a description is from, as what's rolled from it is named, such as "Handaxe damage". */
@@ -45,13 +49,13 @@ export function spellOrigin({
 
 /** What the table is asked for, from a description's link. */
 export type Asking = TextLink & {
-  /** Such as "DC 15 Dexterity saving throw". */
+  /** Such as "DC 15 Dexterity saving throw" or "DC 15 Strength (Athletics) check". */
   label: string
 }
 
 /** What a description's links do on the sheet. */
 export type DescriptionActions = {
-  /** Rolls a saving throw the player makes themselves, as the sheet rolls one. */
+  /** Rolls a saving throw or check the player makes themselves, as the sheet rolls one. */
   roll: (roll: SheetRoll) => void
   /** Rolls damage or healing with the player's dice. */
   rollDamage: (roll: SheetDamageRoll) => void
@@ -59,7 +63,9 @@ export type DescriptionActions = {
   rollFormula: (roll: SheetFormulaRoll) => void
   /** Whether the Gamemaster's game takes this kind of roll from this device now. */
   takes: (kind: RollKind) => boolean
-  /** Asks the table for the saving throw a description calls for, on the game's own card. */
+  /**
+   * Asks the table for the saving throw or check a description calls for, on the game's own card.
+   */
   ask: (asking: Asking) => void
   /** Why the table can't be asked now, as the tray says why; unset while it can be. */
   askBlocked?: string
@@ -68,14 +74,40 @@ export type DescriptionActions = {
    * where that alone keeps the table from being asked.
    */
   sendRolls?: () => void
-  /** The character's abilities, with their saving throws. */
+  /** The character's abilities, with their checks and saving throws. */
   abilities: SheetAbility[]
+  /** The character's skills. */
+  skills: SheetSkill[]
+  /** The tools the character has, as far as the sheet says: its tools, or its favorites. */
+  tools: SheetTool[]
+  /** The character's proficiency bonus, as a skill checked using a tool may take a tool's. */
+  proficiency: number | null
   /** The conditions the character has. */
   conditions: SheetCondition[]
   /** The world's rules: the 2024 rules ("modern") or the 2014 rules ("legacy"). */
   rules?: 'modern' | 'legacy' | null
   /** Opens the conditions panel, at a condition. */
   showConditions: ShowConditions
+}
+
+/**
+ * The tools the character has, as far as its sheet says: its tools, from module 0.18.0, and the
+ * tools it made favorites, which named them before.
+ */
+export function sheetTools(
+  sheet: Pick<CharacterSheet, 'tools' | 'favorites'>,
+): SheetTool[] {
+  const tools = [...(sheet.tools ?? [])]
+  for (const favorite of sheet.favorites ?? []) {
+    if (
+      favorite.type === 'tool' &&
+      !tools.some(tool => tool.id === favorite.id)
+    ) {
+      const { id, name, ability, total, passive, proficiency, mode } = favorite
+      tools.push({ id, name, ability, total, passive, proficiency, mode })
+    }
+  }
+  return tools
 }
 
 const Actions = createContext<DescriptionActions | undefined>(undefined)

@@ -103,6 +103,50 @@ describe('lib/sheet-html', () => {
       expect(clean(html)).toBe(html)
     })
 
+    it('keeps a check: an ability, a skill or a tool with its ability, a choice of them, its DC, and a tool a skill is checked using', () => {
+      const html =
+        '<span class="ss-check roll" data-n="0" data-checks="skill:str:ath" data-dc="15">DC 15 Strength (Athletics)</span>' +
+        '<span class="ss-check roll" data-n="1" data-checks="check:int|check:wis">Intelligence or Wisdom</span>' +
+        '<span class="ss-check roll" data-n="2" data-checks="skill:str:ath|skill:dex:acr" data-dc="12">DC 12 Strength (Athletics) or Dexterity (Acrobatics)</span>' +
+        '<span class="ss-check roll" data-n="3" data-checks="tool:dex:thief" data-dc="15">DC 15 Dexterity (Thieves’ Tools)</span>' +
+        '<span class="ss-check roll" data-n="4" data-checks="skill:dex:slt" data-using-tool="thief">Dexterity (Sleight of Hand)</span>'
+
+      expect(clean(html)).toBe(html)
+      expect(sheetLinks(clean(html)).size).toBe(5)
+    })
+
+    it.each([
+      ['an ability dnd5e hasn’t', 'check:hon'],
+      ['an ability any object has', 'check:constructor'],
+      ['a skill without its ability', 'skill:ath'],
+      ['a check with a skill', 'check:str:ath'],
+      ['a kind of roll that isn’t a check', 'save:dex'],
+      ['a key with more in it', 'skill:str:ath:acr'],
+      ['a key that isn’t one', 'tool:dex:thieves tools'],
+      ['nothing', ''],
+      ['an option left empty', 'check:str|'],
+      [
+        'more than ten ways',
+        Array.from({ length: 11 }, (_, n) => `tool:dex:t${n}`).join('|'),
+      ],
+    ])('keeps a check naming %s as text', (_name, checks) => {
+      expect(
+        clean(
+          `<span class="ss-check roll" data-n="0" data-checks="${checks}" data-dc="15">x</span>`,
+        ),
+      ).toBe('<span class="roll">x</span>')
+    })
+
+    it('keeps a check, but not a DC or tool it names that doesn’t hold up', () => {
+      expect(
+        clean(
+          '<span class="ss-check roll" data-n="0" data-checks="check:str" data-dc="100" data-using-tool="thieves tools" data-skill="ath" data-ability="dex">x</span>',
+        ),
+      ).toBe(
+        '<span class="ss-check roll" data-n="0" data-checks="check:str">x</span>',
+      )
+    })
+
     it('keeps as many links as the module numbers, 0 to 199', () => {
       const html = Array.from(
         { length: 200 },
@@ -361,6 +405,46 @@ describe('lib/sheet-html', () => {
             },
           ],
           [7, { link: { kind: 'roll', n: 7, formula: '1d6' }, secret: false }],
+        ]),
+      )
+    })
+
+    it('reads a check, each of its ways once, and whether it’s in a secret', () => {
+      const html = clean(
+        '<span class="ss-check roll" data-n="0" data-checks="skill:str:ath|skill:dex:ath|tool:dex:thief|check:int" data-dc="15" data-using-tool="thief">x</span>' +
+          '<section class="secret"><span class="ss-check roll" data-n="1" data-checks="check:wis">y</span></section>',
+      )
+
+      expect(sheetLinks(html)).toEqual(
+        new Map([
+          [
+            0,
+            {
+              link: {
+                kind: 'check',
+                n: 0,
+                checks: [
+                  { type: 'skill', ability: 'str', key: 'ath' },
+                  { type: 'tool', ability: 'dex', key: 'thief' },
+                  { type: 'check', ability: 'int' },
+                ],
+                dc: 15,
+                usingTool: 'thief',
+              },
+              secret: false,
+            },
+          ],
+          [
+            1,
+            {
+              link: {
+                kind: 'check',
+                n: 1,
+                checks: [{ type: 'check', ability: 'wis' }],
+              },
+              secret: true,
+            },
+          ],
         ]),
       )
     })

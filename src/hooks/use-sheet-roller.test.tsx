@@ -706,11 +706,57 @@ describe('hooks/use-sheet-roller', () => {
 
     const [plain, formula, damage, save] = result.current.rolls
     expect(save).toMatchObject({ kind: 'check', dc: 15, described: true })
+    expect(save).not.toHaveProperty('verdict')
     expect(onThrown.mock.calls[0][1]).toMatchObject({ dc: 15, described: true })
     expect(damage).toMatchObject({ kind: 'damage', described: true })
     expect(formula).toMatchObject({ kind: 'formula', described: true })
     expect(plain).not.toHaveProperty('dc')
     expect(plain).not.toHaveProperty('described')
+  })
+
+  it('marks a check a description calls for as its, passed rather than saved against its DC', async () => {
+    renderer()
+    const { result } = renderHook(() => useSheetRoller())
+    const text = { text: '0f1a2b3c4d5e6f', link: 4 }
+
+    for (const source of [
+      { kind: 'skill', key: 'ath', ...text },
+      { kind: 'tool', key: 'thief', ...text },
+      { kind: 'ability', key: 'int', ...text },
+    ] as const) {
+      await act(() =>
+        result.current.roll({ label: 'A check', modifier: 1, source, dc: 15 }),
+      )
+    }
+    // Without a DC, as one whose DC the game keeps from the player, it's still passed or not.
+    await act(() =>
+      result.current.roll({
+        label: 'Intelligence check',
+        modifier: -1,
+        source: { kind: 'ability', key: 'int', ...text },
+      }),
+    )
+    await act(() =>
+      result.current.roll({
+        label: 'Athletics check',
+        modifier: 7,
+        source: { kind: 'skill', key: 'ath' },
+      }),
+    )
+
+    const [plain, undecided, ...checks] = result.current.rolls
+    for (const check of checks) {
+      expect(check).toMatchObject({
+        kind: 'check',
+        dc: 15,
+        verdict: 'check',
+        described: true,
+      })
+    }
+    expect(undecided).toMatchObject({ described: true, verdict: 'check' })
+    expect(undecided).not.toHaveProperty('dc')
+    expect(plain).not.toHaveProperty('described')
+    expect(plain).not.toHaveProperty('verdict')
   })
 
   it(`keeps the latest ${ROLL_HISTORY} rolls, newest first`, async () => {

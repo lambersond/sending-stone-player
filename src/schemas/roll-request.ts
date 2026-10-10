@@ -32,6 +32,12 @@ const REQUEST_ID = /^[\w-]{1,64}$/
 /** What is asked for by a link in a description, and only by one. */
 const FROM_TEXT = new Set(['ask', 'textDamage', 'textRoll'])
 
+/**
+ * What may be asked for by a link in a description, or not: a saving throw, or from module 0.18.0
+ * a check, the player's own.
+ */
+const LINKABLE = new Set(['save', 'skill', 'tool', 'ability'])
+
 const sign = z.union([z.literal(1), z.literal(-1)])
 
 /** A term the player added, as the app's Modify roll reads it: dice, or a number. */
@@ -81,9 +87,10 @@ const rolledDiceSchema = z.strictObject({
  * any, and throws no dice. Their damage
  * names the attack or use, the dice it said its damage throws, which are checked against them when
  * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
- * then changed so. A saving throw the game asked for names the prompt it answers. A hit die names
- * its size, and throws its one die; a feature's own formula names its item and activity, and
- * throws the dice its formula does, which are checked against it when it's asked for.
+ * then changed so. A saving throw the game asked for names the prompt it answers; a saving throw
+ * or check a description calls for may name its link. A hit die names its size, and throws its one
+ * die; a feature's own formula names its item and activity, and throws the dice its formula does,
+ * which are checked against it when it's asked for.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -221,12 +228,12 @@ export const rollRequestSchema = z
       })
     }
     const fromText = FROM_TEXT.has(request.kind)
-    if (fromText ? !linked : linked && request.kind !== 'save') {
+    if (fromText ? !linked : linked && !LINKABLE.has(request.kind)) {
       context.addIssue({
         code: 'custom',
         path: ['text'],
         message:
-          'An ask, or damage or a roll from a description, and only those or a saving throw, names a link',
+          'An ask, or damage or a roll from a description, and only those or a saving throw or check, names a link',
       })
     }
     if (linked && request.prompt !== undefined) {

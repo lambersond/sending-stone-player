@@ -22,14 +22,14 @@ export type RollFeature = (typeof ROLL_FEATURES)[number]
 
 /**
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
- * tool's key, an ability check or saving throw by the ability's, and for a saving throw the game
- * asked for, the prompt it answers, or for one a description calls for, its link; a death saving
+ * tool's key, an ability check or saving throw by the ability's, and for one a description calls
+ * for, its link; for a saving throw the game asked for, the prompt it answers; a death saving
  * throw, initiative in a combat, or an attack with an item's attack activity, at a combatant, or
  * none, or for an area attack at those in its area, with the spell slot, ammunition and attack
  * mode chosen.
  */
 export type RollSource =
-  | { kind: 'skill' | 'tool' | 'ability'; key: string }
+  | ({ kind: 'skill' | 'tool' | 'ability'; key: string } & Partial<TextLink>)
   | ({ kind: 'save'; key: string; prompt?: string } & Partial<TextLink>)
   | { kind: 'death' }
   | { kind: 'initiative'; combatId: string }
@@ -125,7 +125,7 @@ export type RollRequestInput = {
   denomination?: string
   /**
    * From a link in a description: the description's hash, for an ask, a description's damage or
-   * roll, or a saving throw it calls for, the player's own.
+   * roll, or a saving throw or check it calls for, the player's own.
    */
   text?: string
   /** The link's number in that description. */

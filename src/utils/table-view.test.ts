@@ -51,6 +51,14 @@ const button = (ability: string, type = 'save', action = 'rollRequest') =>
   `<button type="button" data-type="${type}" data-ability="${ability}" data-dc="15" data-format="long" data-action="${action}" data-visibility="all">` +
   `<span class="visible-dc"><i class="fas fa-shield-heart"></i>DC 15 ${ability} saving throw</span>` +
   `<span class="hidden-dc"><i class="fas fa-shield-heart"></i>${ability} saving throw</span></button>`
+/**
+ * dnd5e 5.3.3's request card's button for a check, as `createCheckRequestButtons` makes it, with
+ * these data attributes.
+ */
+const checkButton = (data: string) =>
+  `<button type="button" ${data} data-dc="15" data-format="short" data-action="rollRequest" data-visibility="all">` +
+  '<span class="visible-dc"><i class="dnd5e-icon"></i>DC 15 check</span>' +
+  '<span class="hidden-dc"><i class="dnd5e-icon"></i>check</span></button>'
 const card = (...buttons: string[]) =>
   `<div class="chat-card request-card"><div class="card-buttons">${buttons.join('')}</div></div>`
 /** The Gamemaster's card, as a module before 0.17.0 sends it: its text doubled, DC and all. */
@@ -79,6 +87,10 @@ const askWith = (fields: object) =>
     asked({ type: 'save', abilities: ['dex'], ...fields } as any),
     viewer,
   ).ask
+
+/** What the server shows of a player's ask for a check, its ways these. */
+const checkWith = (checks: unknown, fields: object = {}) =>
+  askWith({ type: 'check', abilities: undefined, checks, ...fields })
 
 describe('utils/table-view', () => {
   describe('toTableMessage', () => {
@@ -575,7 +587,10 @@ describe('utils/table-view', () => {
         'whose buttons do something else',
         gmCard(card(button('dex', 'save', 'rollSave'))),
       ],
-      ['asking for a check', gmCard(card(button('ath', 'skill')))],
+      [
+        'asking for a check with an ability dnd5e lacks',
+        gmCard(card(button('ath', 'skill'))),
+      ],
       [
         'asking with abilities dnd5e lacks',
         gmCard(
@@ -591,6 +606,177 @@ describe('utils/table-view', () => {
         'DC 15 Dexterity saving throw Dexterity saving throw',
       )
     })
+
+    it("shows the module's ask for a check, the game's name for a tool, with a line of text without its DC", () => {
+      const message = toTableMessage(
+        asked({
+          type: 'check',
+          checks: [
+            { type: 'skill', ability: 'str', skill: 'ath' },
+            { type: 'tool', ability: 'dex', tool: 'thief', name: 'Lockpicks' },
+          ],
+          dc: 15,
+          label: 'Cloak of Climbing',
+        }),
+        viewer,
+      )
+
+      expect(message).toMatchObject({
+        kind: 'text',
+        text: 'Strength (Athletics) or Dexterity (Lockpicks) check',
+        ask: {
+          type: 'check',
+          checks: [
+            { type: 'skill', ability: 'str', skill: 'ath' },
+            { type: 'tool', ability: 'dex', tool: 'thief', name: 'Lockpicks' },
+          ],
+          dc: 15,
+          label: 'Cloak of Climbing',
+        },
+      })
+    })
+
+    it("checks the module's ask for a check again, reading none where a way to make it doesn't hold up", () => {
+      expect(
+        checkWith([{ type: 'check', ability: 'int' }], {
+          dc: 12.5,
+          label: ' Map ',
+        }),
+      ).toEqual({
+        type: 'check',
+        checks: [{ type: 'check', ability: 'int' }],
+        label: 'Map',
+      })
+      // What only a tool has is left off any other.
+      expect(
+        checkWith([
+          { type: 'skill', ability: 'str', skill: 'ath', name: 'Climbing' },
+        ]),
+      ).toEqual({
+        type: 'check',
+        checks: [{ type: 'skill', ability: 'str', skill: 'ath' }],
+      })
+      expect(checkWith([])).toBeUndefined()
+      expect(checkWith('ath')).toBeUndefined()
+      expect(
+        checkWith([
+          { type: 'check', ability: 'int' },
+          { type: 'check', ability: 'constructor' },
+        ]),
+      ).toBeUndefined()
+      expect(checkWith([{ type: 'skill', ability: 'str' }])).toBeUndefined()
+      expect(
+        checkWith([{ type: 'tool', ability: 'dex', tool: 'a b' }]),
+      ).toBeUndefined()
+      expect(checkWith([{ type: 'save', ability: 'dex' }])).toBeUndefined()
+      expect(
+        checkWith(
+          Array.from({ length: 11 }, () => ({ type: 'check', ability: 'str' })),
+        ),
+      ).toBeUndefined()
+    })
+
+    it("reads an older module's Gamemaster card for a check from its buttons, each way once, without its DC", () => {
+      const message = toTableMessage(
+        gmCard(
+          card(
+            checkButton(
+              'data-type="skill" data-ability="str" data-skill="ath"',
+            ),
+            checkButton(
+              'data-type="skill" data-ability="dex" data-skill="acr" data-using-tool="thief"',
+            ),
+            checkButton(
+              'data-type="skill" data-ability="str" data-skill="ath"',
+            ),
+            checkButton(
+              'data-type="tool" data-ability="dex" data-tool="thief"',
+            ),
+            checkButton('data-type="check" data-ability="luck"'),
+          ),
+          { text: 'DC 15 check check' },
+        ),
+        viewer,
+      )
+
+      expect(message).toMatchObject({
+        text: "Strength (Athletics), Dexterity (Acrobatics), or Dexterity (Thieves' Tools) check",
+        ask: {
+          type: 'check',
+          checks: [
+            { type: 'skill', ability: 'str', skill: 'ath' },
+            { type: 'skill', ability: 'dex', skill: 'acr' },
+            { type: 'tool', ability: 'dex', tool: 'thief' },
+          ],
+        },
+      })
+      expect(message.ask).not.toHaveProperty('dc')
+      expect(JSON.stringify(message)).not.toContain('15')
+    })
+
+    it("reads no ask from an older module's card offering more checks than a check may, rather than less than it asks", () => {
+      const skills = [
+        'acr',
+        'ani',
+        'arc',
+        'ath',
+        'dec',
+        'his',
+        'ins',
+        'itm',
+        'inv',
+        'med',
+        'nat',
+      ]
+      const message = (count: number) =>
+        gmCard(
+          card(
+            ...skills
+              .slice(0, count)
+              .map(skill =>
+                checkButton(
+                  `data-type="skill" data-ability="int" data-skill="${skill}"`,
+                ),
+              ),
+          ),
+        )
+
+      expect(toTableMessage(message(10), viewer).ask).toMatchObject({
+        type: 'check',
+        checks: expect.arrayContaining([
+          { type: 'skill', ability: 'int', skill: 'med' },
+        ]),
+      })
+      const eleven = toTableMessage(message(11), viewer)
+      expect(eleven.ask).toBeUndefined()
+      expect(eleven.text).toBe(
+        'DC 15 Dexterity saving throw Dexterity saving throw',
+      )
+    })
+
+    it.each([
+      [
+        'a long run of "data-" in a tag',
+        `<button data-action="rollRequest" data-type="save" data-ability="dex" title="${'data-'.repeat(20_000)}">`,
+        { type: 'save', abilities: ['dex'] },
+      ],
+      [
+        'a long run of unclosed tags',
+        `<button data-action="rollRequest" data-type="save" data-ability="dex">${'<button'.repeat(15_000)}`,
+        { type: 'save', abilities: ['dex'] },
+      ],
+    ])(
+      "reads an older module's card with %s quickly, each tag once",
+      (_name, content, ask) => {
+        const started = performance.now()
+        const message = toTableMessage(gmCard(content), viewer)
+        const took = performance.now() - started
+
+        expect(message.ask).toEqual(ask)
+        // Read from each "data-" or "<button" to the end, 100,000 characters take seconds.
+        expect(took).toBeLessThan(500)
+      },
+    )
 
     it('never takes a data attribute for one of its own', () => {
       expect(
@@ -647,6 +833,48 @@ describe('utils/table-view', () => {
     ] as const)('words %j as "%s"', (ask, title) => {
       expect(askTitle({ ...ask, abilities: [...ask.abilities] })).toBe(title)
     })
+
+    it.each([
+      [
+        [{ type: 'skill', ability: 'str', skill: 'ath' }],
+        15,
+        'DC 15 Strength (Athletics) check',
+      ],
+      [
+        [
+          { type: 'check', ability: 'int' },
+          { type: 'check', ability: 'wis' },
+        ],
+        undefined,
+        'Intelligence or Wisdom check',
+      ],
+      [
+        [{ type: 'tool', ability: 'dex', tool: 'thief' }],
+        10,
+        "DC 10 Dexterity (Thieves' Tools) check",
+      ],
+      [
+        [{ type: 'tool', ability: 'int', tool: 'herb', name: 'Herbs' }],
+        undefined,
+        'Intelligence (Herbs) check',
+      ],
+      [
+        [{ type: 'skill', ability: 'wis', skill: 'pil' }],
+        undefined,
+        'Wisdom (pil) check',
+      ],
+    ] as const)(
+      'words a check of %j against DC %s as "%s"',
+      (checks, dc, title) => {
+        expect(
+          askTitle({
+            type: 'check',
+            checks: checks.map(check => ({ ...check })),
+            ...(dc !== undefined && { dc }),
+          }),
+        ).toBe(title)
+      },
+    )
   })
 
   describe('htmlToText', () => {
@@ -770,6 +998,28 @@ describe('utils/table-view', () => {
       expect(toTableSheet(characterSheet({ img }), origin).portrait).toBe(
         portrait,
       )
+    })
+
+    it("names the tools the character has, from module 0.18.0, by dnd5e's name where the sheet has none", () => {
+      const thief = {
+        id: 'thief',
+        name: '',
+        ability: 'dex',
+        total: 5,
+        passive: null,
+        proficiency: 1,
+        mode: 0,
+      } as const
+      const view = toTableSheet(
+        characterSheet({ tools: [thief, { ...thief, id: 'x', name: '' }] }),
+        origin,
+      )
+
+      expect(view.tools).toEqual([
+        { ...thief, name: "Thieves' Tools" },
+        { ...thief, id: 'x', name: 'x' },
+      ])
+      expect(toTableSheet(characterSheet(), origin)).not.toHaveProperty('tools')
     })
 
     it('finds the icons of conditions, features and effects at the game', () => {

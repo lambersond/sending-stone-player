@@ -25,6 +25,7 @@ import {
 } from './conditions-panel'
 import {
   DescriptionLinks,
+  sheetTools,
   type DescriptionActions,
 } from './description-actions'
 import { EffectsTab } from './effects-tab'
@@ -379,6 +380,9 @@ function RollingSheet({
         sendRolls: () => table.setSending(true),
       }),
     abilities: sheet.abilities,
+    skills: sheet.skills,
+    tools: sheetTools(sheet),
+    proficiency: sheet.proficiency,
     conditions: sheet.conditions,
     rules: sheet.rules,
     showConditions: conditions.show,
@@ -563,8 +567,8 @@ function SheetContext({
 }
 
 /**
- * Why the table can't be asked for a saving throw a description calls for from here now, as the
- * tray says why a roll wasn't made; nothing while it can be.
+ * Why the table can't be asked for a saving throw or check a description calls for from here now,
+ * as the tray says why a roll wasn't made; nothing while it can be.
  * @param kinds - The rolls the game takes now.
  */
 function askBlocked(

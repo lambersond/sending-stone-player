@@ -837,13 +837,14 @@ describe('db/roll-requests', () => {
   describe('createRollRequest, from a link in a description', () => {
     /**
      * Second Wind's description, as held: a save the table may be asked for, one in a secret,
-     * damage, and a roll of its own.
+     * damage, a roll of its own, and a check.
      */
     const described = sanitizeSheetHtml(
       '<p>Each creature makes a <span class="ss-save roll" data-n="0" data-ability="dex" data-dc="15">DC 15 Dexterity</span> saving throw, taking ' +
         '<span class="ss-damage roll" data-n="1" data-formulas="2d6&amp;1d4" data-types="fire|cold&amp;">2d6 fire or cold and 1d4</span> damage, ' +
         'and <span class="ss-roll roll" data-n="2" data-formula="1d6 + 2">1d6 + 2</span> more.</p>' +
-        '<section class="secret"><p>Or a <span class="ss-save roll" data-n="3" data-ability="wis">Wisdom</span> saving throw.</p></section>',
+        '<section class="secret"><p>Or a <span class="ss-save roll" data-n="3" data-ability="wis">Wisdom</span> saving throw.</p></section>' +
+        '<p>Climbing out takes a <span class="ss-check roll" data-n="4" data-checks="skill:str:ath|tool:dex:thief" data-dc="15">DC 15 Strength (Athletics) or Dexterity (Thieves’ Tools)</span> check.</p>',
       'https://my-game.forge-vtt.com',
     )
     const linked: RollRequestInput = {
@@ -858,7 +859,15 @@ describe('db/roll-requests', () => {
     const given = ({ html = described as string | null, asks = 0 } = {}) => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...takingRolls,
-        rollKinds: ['save', 'ask', 'textDamage', 'textRoll'],
+        rollKinds: [
+          'save',
+          'skill',
+          'tool',
+          'ability',
+          'ask',
+          'textDamage',
+          'textRoll',
+        ],
       } as any)
       prismaMock.actorSheet.findUnique.mockResolvedValue({
         data: fullerSheet(),
@@ -965,6 +974,47 @@ describe('db/roll-requests', () => {
       given()
       await expect(
         createRollRequest(character, { ...save, key: 'str' }),
+      ).resolves.toEqual({ status: 422, reason: 'link' })
+    })
+
+    it('asks the table for a check a description calls for', async () => {
+      given()
+
+      await expect(
+        createRollRequest(character, { ...linked, link: 4 }),
+      ).resolves.toEqual({ id: 'req-1' })
+    })
+
+    it("rolls a player's own check a description calls for, one of its ways, a tool the character hasn't too", async () => {
+      const check: RollRequestInput = {
+        ...linked,
+        kind: 'skill',
+        key: 'ath',
+        link: 4,
+        dice: [{ faces: 20, results: [11] }],
+      }
+      given()
+      await expect(createRollRequest(character, check)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'skill', payload: check }),
+        select: { id: true },
+      })
+
+      given()
+      await expect(
+        createRollRequest(character, { ...check, kind: 'tool', key: 'thief' }),
+      ).resolves.toEqual({ id: 'req-1' })
+
+      given()
+      await expect(
+        createRollRequest(character, { ...check, key: 'prc' }),
+      ).resolves.toEqual({ status: 422, reason: 'link' })
+
+      given()
+      await expect(
+        createRollRequest(character, { ...check, kind: 'ability', key: 'str' }),
       ).resolves.toEqual({ status: 422, reason: 'link' })
     })
 

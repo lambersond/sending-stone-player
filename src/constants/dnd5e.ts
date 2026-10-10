@@ -1,4 +1,4 @@
-/** D&D Fifth Edition's ability and skill ids, as the system records them on rolls. */
+/** D&D Fifth Edition's ability, skill and tool ids, as the system records them on rolls. */
 
 export const ABILITIES: Record<string, string> = {
   str: 'Strength',
@@ -28,4 +28,51 @@ export const SKILLS: Record<string, string> = {
   slt: 'Sleight of Hand',
   ste: 'Stealth',
   sur: 'Survival',
+}
+
+/**
+ * The tools dnd5e checks, by its keys, with the names of its 2024 base items, as its own links
+ * name them; and the vehicles it checks as tools. For a tool the sheet doesn't name.
+ */
+export const TOOLS: Record<string, string> = {
+  alchemist: "Alchemist's Supplies",
+  bagpipes: 'Bagpipes',
+  brewer: "Brewer's Supplies",
+  calligrapher: "Calligrapher's Supplies",
+  card: 'Playing Cards',
+  carpenter: "Carpenter's Tools",
+  cartographer: "Cartographer's Tools",
+  chess: 'Dragonchess',
+  cobbler: "Cobbler's Tools",
+  cook: "Cook's Utensils",
+  dice: 'Dice',
+  disg: 'Disguise Kit',
+  drum: 'Drum',
+  dulcimer: 'Dulcimer',
+  flute: 'Flute',
+  forg: 'Forgery Kit',
+  glassblower: "Glassblower's Tools",
+  herb: 'Herbalism Kit',
+  horn: 'Horn',
+  jeweler: "Jeweler's Tools",
+  leatherworker: "Leatherworker's Tools",
+  lute: 'Lute',
+  lyre: 'Lyre',
+  mason: "Mason's Tools",
+  navg: "Navigator's Tools",
+  painter: "Painter's Supplies",
+  panflute: 'Pan Flute',
+  pois: "Poisoner's Kit",
+  potter: "Potter's Tools",
+  shawm: 'Shawm',
+  smith: "Smith's Tools",
+  thief: "Thieves' Tools",
+  tinker: "Tinker's Tools",
+  viol: 'Viol',
+  weaver: "Weaver's Tools",
+  woodcarver: "Woodcarver's Tools",
+  air: 'Air Vehicle',
+  land: 'Land Vehicle',
+  space: 'Space Vehicle',
+  water: 'Water Vehicle',
 }
