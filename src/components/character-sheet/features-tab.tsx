@@ -1,17 +1,23 @@
 'use client'
 
-import { BookOpen, HeartPulse, Sparkles } from 'lucide-react'
+import { BookOpen, Sparkles } from 'lucide-react'
 import {
   ActionEntry,
   useActionRows,
   type ActionRows,
   type TableDamage,
 } from './action-entry'
-import { HitDieButton } from './hit-dice'
+import {
+  FULL_HP,
+  HitDieButton,
+  hitDiceText,
+  hitDieSpending,
+  type HitDieSpending,
+} from './hit-dice'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesLeft } from './uses-left'
-import { hitDieRoll, spendable } from '@/utils/formulas'
+import { spendable } from '@/utils/formulas'
 import { featureAction } from '@/utils/sheet-actions'
 import type {
   SheetDamageRoll,
@@ -39,6 +45,7 @@ export function FeaturesTab({
   onRoll,
   onRollDamage,
   onRollFormula,
+  spendsAtTable,
   onUse,
   tableDamage,
 }: Readonly<{
@@ -48,6 +55,8 @@ export function FeaturesTab({
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Spends a hit die, or rolls a feature's own formula. */
   onRollFormula?: (roll: SheetFormulaRoll) => void
+  /** Whether the Gamemaster's game spends a hit die rolled too, as it does while it takes them. */
+  spendsAtTable?: boolean
   /** Uses a feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -62,6 +71,7 @@ export function FeaturesTab({
     onUse,
     tableDamage,
   })
+  const spending = hitDieSpending(sheet, onRollFormula, spendsAtTable)
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {sheet.classes.length > 0 && (
@@ -75,10 +85,7 @@ export function FeaturesTab({
               <ClassCard
                 key={entry.id ?? entry.name}
                 entry={entry}
-                onSpendHitDie={
-                  onRollFormula &&
-                  (die => onRollFormula(hitDieRoll(sheet, die)))
-                }
+                spending={spending}
               />
             ))}
           </ul>
@@ -161,19 +168,22 @@ export function FeatureEntry({
   )
 }
 
+/**
+ * A class: its levels, then its subclass and hit dice, and beside them a button that spends one of
+ * those, where something rolls them and the game has their size; at full hit points disabled,
+ * which it says after the hit dice too, as a touch screen shows no button's title.
+ */
 function ClassCard({
   entry,
-  onSpendHitDie,
-}: Readonly<{ entry: SheetClass; onSpendHitDie?: (die: string) => void }>) {
+  spending,
+}: Readonly<{ entry: SheetClass; spending?: HitDieSpending }>) {
   const { hitDice } = entry
-  const counts = hitDice && (
-    <>
-      <HeartPulse aria-hidden className='size-4 text-text-secondary' />
-      <span className='text-text-secondary'>Hit dice</span>{' '}
-      <span className='font-semibold tabular-nums'>
-        {hitDice.value ?? '–'}/{hitDice.max ?? '–'} {hitDice.die}
-      </span>
-    </>
+  const spends =
+    hitDice && spending && spendable(hitDice) ? spending : undefined
+  const detail = joinParts(
+    entry.subclass,
+    hitDice && hitDiceText(hitDice),
+    spends?.full && FULL_HP,
   )
   return (
     <li className='flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3'>
@@ -182,26 +192,12 @@ function ClassCard({
           {entry.name}
           {entry.levels !== null && ` ${entry.levels}`}
         </span>
-        {entry.subclass && (
-          <span className='block truncate text-sm text-text-secondary'>
-            {entry.subclass}
-          </span>
+        {/* Wrapping, not cut short, so a long subclass leaves the hit dice in sight. */}
+        {detail && (
+          <span className='block text-sm text-text-secondary'>{detail}</span>
         )}
       </span>
-      {hitDice && onSpendHitDie && spendable(hitDice) && (
-        <HitDieButton
-          pool={hitDice}
-          onSpend={onSpendHitDie}
-          className='shrink-0 gap-1.5 px-2.5 py-1.5 text-sm font-normal'
-        >
-          {counts}
-        </HitDieButton>
-      )}
-      {hitDice && !(onSpendHitDie && spendable(hitDice)) && (
-        <span className='flex shrink-0 items-center gap-1.5 text-sm'>
-          {counts}
-        </span>
-      )}
+      {hitDice && spends && <HitDieButton pool={hitDice} spending={spends} />}
     </li>
   )
 }

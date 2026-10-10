@@ -6,12 +6,22 @@ import {
   ChevronDown,
   Dices,
   FlaskConical,
+  Info,
   Shield,
   Sparkles,
   Sword,
   Wand,
   type LucideIcon,
 } from 'lucide-react'
+import {
+  castAs,
+  castCost,
+  Facts,
+  spellFacts,
+  spellKind,
+  useActionInfo,
+  type ActivityInfo,
+} from './action-info'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { useDamageMenu, type DamageChoice } from './damage-menu'
 import { FavoriteStar, useFavorite } from './favorite-mark'
@@ -20,12 +30,7 @@ import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
 import { UsesLeft } from './uses-left'
 import { damageRollOf, type DueDamage } from '@/hooks/use-table-rolls'
-import {
-  outOfSlots,
-  poolName,
-  slotPools,
-  type SlotPool,
-} from '@/utils/action-groups'
+import { outOfSlots, slotPools, type SlotPool } from '@/utils/action-groups'
 import {
   changes,
   firstDie,
@@ -34,7 +39,7 @@ import {
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
-import { activityAction } from '@/utils/sheet-actions'
+import { activityAction, itemSpellOf } from '@/utils/sheet-actions'
 import type { MenuPoint, RollChoice } from './roll-menu'
 import type {
   SheetDamageRoll,
@@ -45,6 +50,7 @@ import type { RollSource } from '@/types/roll'
 import type {
   SheetAction,
   SheetActivity,
+  SheetSpell,
   SheetSpellSection,
 } from '@/types/sending-stone'
 
@@ -104,6 +110,8 @@ export type ActionRows = {
   use?: UseActions
   /** Rolls an activity's own formula, such as a light's radius. */
   formula?: (roll: SheetFormulaRoll) => void
+  /** Opens what there is to read of one of an item's activities folded beneath it. */
+  about: (info: ActivityInfo) => void
 }
 
 /**
@@ -153,6 +161,7 @@ export function useActionRows({
     onRollDamage,
     tableDamage,
   )
+  const { show: about, dialog: info } = useActionInfo(characterId, spellbook)
   return {
     rows: {
       characterId,
@@ -161,11 +170,13 @@ export function useActionRows({
       damage,
       ...(onUse && { use: { onUse } }),
       ...(onRollFormula && { formula: onRollFormula }),
+      about,
     },
     dialogs: (
       <>
         {dialogs}
         {damageMenu}
+        {info}
       </>
     ),
   }
@@ -418,6 +429,7 @@ export function ActionEntry({
               action={action}
               pools={view.pools}
               characterId={rows.characterId}
+              spellbook={rows.spellbook}
               look={look}
             />
           </div>
@@ -430,7 +442,8 @@ export function ActionEntry({
 /**
  * One of an action's other activities, beneath it, such as Hex's Bonus Hex Damage: its name, how
  * it differs from the action in how it's used and how far it reaches, and what it rolls beside it,
- * as an action's row has them. One the app can't use, such as a summoning, says so.
+ * as an action's row has them. One the app can't use, such as a summoning, says so. One of an
+ * item's opens to what there is to read of it from beside its name.
  */
 function ActivityEntry({
   activity,
@@ -461,7 +474,15 @@ function ActivityEntry({
           (view.spent || muted || dimmed(activity)) && 'opacity-60',
         )}
       >
-        <span className='block truncate text-sm'>{activity.name}</span>
+        <span className='flex items-center gap-1'>
+          <span className='truncate text-sm'>{activity.name}</span>
+          <ActivityInfoButton
+            activity={activity}
+            action={action}
+            parent={parent}
+            rows={rows}
+          />
+        </span>
         {detail && (
           <span className='block truncate text-xs text-text-secondary'>
             {detail}
@@ -471,6 +492,47 @@ function ActivityEntry({
       {uses && <ChipUses uses={uses} view={view} action={action} />}
       <ActionChips action={action} view={view} rows={rows} />
     </li>
+  )
+}
+
+/**
+ * A button beside the name of one of an item's activities folded beneath it, such as a staff's
+ * Starry Wisp, that opens what there is to read of it, as its row has no description of its own.
+ * None for a spell's, such as Spirit Guardians' save each turn, as the spell opens to its own.
+ */
+export function ActivityInfoButton({
+  activity,
+  action,
+  parent,
+  rows,
+}: Readonly<{
+  activity: SheetActivity
+  /** The activity as an action of its own. */
+  action: SheetAction
+  parent: SheetAction
+  rows: ActionRows
+}>) {
+  if (parent.type === 'spell') return
+  const label = `About ${actionTitle(action)}`
+  return (
+    // Outside its name, so that a long one is cut short before it, and as tall as the name's line.
+    <button
+      type='button'
+      aria-haspopup='dialog'
+      aria-label={label}
+      title={label}
+      onClick={() =>
+        rows.about({
+          activity,
+          action,
+          item: parent,
+          foundry: !usedFromApp(activity),
+        })
+      }
+      className='-my-1 shrink-0 rounded-full p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary'
+    >
+      <Info aria-hidden className='size-4' />
+    </button>
   )
 }
 
@@ -528,9 +590,7 @@ export function ownUses(
  */
 export function castNote(cast: SheetAction['cast']): string | undefined {
   if (!cast) return undefined
-  if (cast.short) return 'No charges left'
-  if (!cast.charges) return undefined
-  return cast.charges === 1 ? '1 charge' : `${cast.charges} charges`
+  return cast.short ? 'No charges left' : castCost(cast)
 }
 
 /** How many more activities an action has than it shows while it's closed, such as "3 more". */
@@ -951,129 +1011,76 @@ export function verbOf(action: SheetAction): 'Cast' | 'Use' {
     : 'Use'
 }
 
-/** All there is to know of an action once it's open: what it is, its facts, its description. */
+/**
+ * All there is to know of an action once it's open: what it is, its facts, its description. An
+ * item listed for a spell it casts opens to the spell: in full, as the Spells tab has it, where it
+ * lists it under the item.
+ */
 export function ActionDetails({
   action,
   pools,
   characterId,
+  spellbook,
   look = {},
 }: Readonly<{
   action: SheetAction
   pools: SlotPool[] | null
   characterId: string
+  /** The character's spells, among which the spell an item is listed for is found. */
+  spellbook: SheetSpellSection[]
   look?: EntryLook
 }>) {
-  // An item listed for a spell it casts opens to the spell.
   const { cast } = action
-  const spell = cast?.text ? cast : undefined
-  const meta =
-    look.meta ??
-    (spell
-      ? joinParts(
-          spell.level === 0 ? 'Cantrip' : `Level ${spell.level} spell`,
-          spell.concentration && 'Concentration',
-          `Cast from ${action.castFrom?.name ?? action.name}`,
-        )
-      : joinParts(kindOf(action), !action.identified && 'Not identified'))
-  const text = spell?.text ?? action.text
+  const spell = cast?.text
+    ? itemSpellOf(spellbook, action.id, {
+        name:
+          action.activityName ?? action.activities?.[0]?.name ?? action.name,
+        text: cast.text,
+        casts: true,
+        resolved: true,
+      })
+    : undefined
+  const meta = look.meta ?? metaOf(action, spell)
+  const text = cast?.text ?? action.text
   return (
     <>
       {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
-      <Facts action={action} pools={pools} more={look.facts} />
+      <Facts
+        action={spell ? castAs(action, spell) : action}
+        pools={pools}
+        casting={!!spell}
+        more={[
+          ...(spell ? spellFacts(spell, cast) : []),
+          ...(look.facts ?? []),
+        ]}
+      />
       {text && <SheetText characterId={characterId} hash={text} />}
     </>
   )
 }
 
 /**
- * All there is to know of how an action is used, each with its label, and for a spell cast with
- * slots, the slots it can be cast with. More of its own, such as a spell's duration, follow whom
- * it's used at.
+ * What an action is, over its facts: for an item listed for a spell it casts, the spell's level,
+ * and its school where the Spells tab lists it, and whom it's cast from; or else a spell's level,
+ * or the item's type.
  */
-function Facts({
-  action,
-  pools,
-  more = [],
-}: Readonly<{
-  action: SheetAction
-  pools: SlotPool[] | null
-  more?: { label: string; value: string }[]
-}>) {
-  const { save, uses } = action
-  const healing =
-    action.damage.length > 0 && action.damage.every(part => part.healing)
-  const facts: [string, ReactNode][] = [
-    [
-      action.type === 'spell' ? 'Casting time' : 'Activation',
-      action.activation,
-    ],
-    ['Range', action.range],
-    ['Target', action.target],
-    ...more.map(({ label, value }): [string, ReactNode] => [label, value]),
-    [
-      'To hit',
-      action.toHit === null ? undefined : formatModifier(action.toHit),
-    ],
-    [
-      'Saving throw',
-      save &&
-        `${save.dc === null ? '' : `DC ${save.dc} `}${save.ability.toUpperCase()}`,
-    ],
-    [
-      healing ? 'Healing' : 'Damage',
-      action.damage
-        .map(part =>
-          part.type && !part.healing
-            ? `${part.formula} ${part.type}`
-            : part.formula,
-        )
-        .join(' + '),
-    ],
-    [
-      'Uses',
-      uses &&
-        `${uses.value} of ${uses.max} left${uses.recovery ? `, ${uses.recovery}` : ''}`,
-    ],
-    ['Cast at', pools && pools.length > 0 && <CastAt pools={pools} />],
-  ]
-  const shown = facts.filter(([, value]) => Boolean(value))
-  if (shown.length === 0) return
-  return (
-    <dl className='grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-0.5 text-xs'>
-      {shown.map(([label, value]) => (
-        <div key={label} className='contents'>
-          <dt className='font-semibold text-text-secondary'>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-/** The slots a spell can be cast with, each with how many are left, such as "3rd 1/2". */
-function CastAt({ pools }: Readonly<{ pools: SlotPool[] }>) {
-  return (
-    <ul className='flex flex-wrap gap-1'>
-      {pools.map(pool => (
-        <li
-          key={pool.id}
-          className={clsx(
-            'rounded-md border px-1.5 font-semibold tabular-nums',
-            pool.value === 0 ? 'border-ruby/40 text-ruby' : 'border-border',
-          )}
-        >
-          <span aria-hidden>
-            {poolName(pool)}{' '}
-            <span className='font-normal text-text-secondary'>
-              {pool.value}/{pool.max}
-            </span>
-          </span>
-          <span className='sr-only'>
-            {pool.label}, {pool.value} of {pool.max} slots left
-          </span>
-        </li>
-      ))}
-    </ul>
+function metaOf(action: SheetAction, spell?: SheetSpell): string | undefined {
+  const { cast } = action
+  if (!cast?.text) {
+    return joinParts(kindOf(action), !action.identified && 'Not identified')
+  }
+  const from = action.castFrom?.name ?? action.name
+  if (spell) {
+    return joinParts(
+      spellKind(spell),
+      cast.concentration && 'Concentration',
+      `From ${from}`,
+    )
+  }
+  return joinParts(
+    cast.level === 0 ? 'Cantrip' : `Level ${cast.level} spell`,
+    cast.concentration && 'Concentration',
+    `Cast from ${from}`,
   )
 }
 

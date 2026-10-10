@@ -432,6 +432,73 @@ describe('components/character-sheet/spells-tab', () => {
     ).toBeInTheDocument()
   })
 
+  it("puts nothing to read about beside a spell's own activities, as the spell opens to its own description", async () => {
+    const user = userEvent.setup()
+    const { targets } = mend
+    const activity = {
+      activation: 'Action',
+      range: 'Self',
+      target: null,
+      toHit: null,
+      attackId: null,
+      save: null,
+      damage: [],
+      uses: null,
+    }
+    renderTab(
+      fullerSheet({
+        spells: [
+          {
+            id: 'item',
+            label: 'Additional Spells',
+            slots: null,
+            spells: [
+              sheetSpell({
+                id: 'staff-guardians',
+                name: 'Spirit Guardians',
+                level: 3,
+                castFrom: { id: 'staff', name: 'Staff of the Guardians' },
+                activity: { id: 'call', type: 'utility', targets },
+                activities: [
+                  {
+                    ...activity,
+                    id: 'call',
+                    name: 'Cast',
+                    type: 'utility',
+                    activity: { id: 'call', type: 'utility', targets },
+                  },
+                  {
+                    ...activity,
+                    id: 'aura',
+                    name: 'Emanation Save',
+                    type: 'save',
+                    activity: { id: 'aura', type: 'save', targets },
+                    save: { ability: 'WIS', dc: 14 },
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /^Spirit Guardians/,
+        expanded: false,
+      }),
+    )
+    expect(
+      within(
+        screen.getByRole('list', {
+          name: 'Spirit Guardians: its other activities',
+        }),
+      ).getByRole('listitem'),
+    ).toHaveTextContent(/^Emanation Save/)
+    expect(screen.queryByRole('button', { name: /^About / })).toBeNull()
+  })
+
   it('searches spells by name, whatever its case, once there are more than four', async () => {
     const user = userEvent.setup()
     renderTab(rolling())

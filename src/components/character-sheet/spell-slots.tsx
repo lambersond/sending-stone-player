@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 
-/** Slots shown as pips up to this many; past it, as a number alone. */
+/** Counts shown as pips up to this many; past it, as a number alone. */
 const MAX_PIPS = 9
 
 /**
@@ -13,19 +13,7 @@ export function SpellSlots({
 }: Readonly<{ value: number; max: number }>) {
   return (
     <span className='flex shrink-0 items-center gap-2'>
-      {max <= MAX_PIPS && (
-        <span aria-hidden className='flex gap-1'>
-          {Array.from({ length: max }, (_, index) => (
-            <span
-              key={index}
-              className={clsx(
-                'size-2.5 rounded-full border-2 border-primary',
-                index < value && 'bg-primary',
-              )}
-            />
-          ))}
-        </span>
-      )}
+      <Pips value={value} max={max} />
       <span
         aria-hidden
         className='text-xs font-semibold text-text-secondary tabular-nums'
@@ -35,6 +23,28 @@ export function SpellSlots({
       <span className='sr-only'>
         {value} of {max} spell slots left
       </span>
+    </span>
+  )
+}
+
+/**
+ * A pip for each of a count, such as spell slots or hit dice, filled for each left; none past
+ * nine, where the number beside them says it alone. Only to look at, as the words beside them say
+ * the same.
+ */
+export function Pips({ value, max }: Readonly<{ value: number; max: number }>) {
+  if (max > MAX_PIPS) return
+  return (
+    <span aria-hidden className='flex gap-1'>
+      {Array.from({ length: max }, (_, index) => (
+        <span
+          key={index}
+          className={clsx(
+            'size-2.5 rounded-full border-2 border-primary',
+            index < value && 'bg-primary',
+          )}
+        />
+      ))}
     </span>
   )
 }

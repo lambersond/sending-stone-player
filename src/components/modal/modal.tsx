@@ -1,6 +1,7 @@
 'use client'
 
 import { useId, type ReactNode } from 'react'
+import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
 
@@ -8,6 +9,8 @@ type Props = {
   open: boolean
   onClose: () => void
   title: string
+  /** Under the title, such as where its content comes from. */
+  subtitle?: string
   children: ReactNode
 }
 
@@ -16,7 +19,13 @@ type Props = {
  * makes the page behind it inert. Its content is only rendered while open, so it starts afresh
  * each time it opens.
  */
-export function Modal({ open, onClose, title, children }: Readonly<Props>) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+}: Readonly<Props>) {
   const ref = useModalDialog(open)
   const titleId = useId()
 
@@ -34,10 +43,20 @@ export function Modal({ open, onClose, title, children }: Readonly<Props>) {
     >
       {open && (
         <>
-          <header className='flex items-center justify-between gap-4 border-b border-border px-5 py-4'>
-            <h2 id={titleId} className='text-lg font-semibold'>
-              {title}
-            </h2>
+          <header
+            className={clsx(
+              'flex justify-between gap-4 border-b border-border px-5 py-4',
+              subtitle ? 'items-start' : 'items-center',
+            )}
+          >
+            <div className='min-w-0'>
+              <h2 id={titleId} className='text-lg font-semibold'>
+                {title}
+              </h2>
+              {subtitle && (
+                <p className='text-xs text-text-secondary'>{subtitle}</p>
+              )}
+            </div>
             <button
               type='button'
               onClick={onClose}

@@ -15,11 +15,11 @@ import {
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { conditionDetail } from './effects-tab'
 import { useFavorite } from './favorite-mark'
-import { HitDieButton } from './hit-dice'
+import { HitDiceList, hitDieSpending, type HitDieSpending } from './hit-dice'
 import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
 import { formatModifier } from '@/utils/format-modifier'
-import { hitDicePools, hitDieRoll } from '@/utils/formulas'
+import { hitDicePools } from '@/utils/formulas'
 import { isDying } from '@/utils/roll-requests'
 import type { SheetFormulaRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
@@ -33,6 +33,8 @@ type Props = {
   onRoll: (roll: SheetRoll) => void
   /** Spends a hit die, rolling it. */
   onRollFormula?: (roll: SheetFormulaRoll) => void
+  /** Whether the Gamemaster's game spends a hit die rolled too, as it does while it takes them. */
+  spendsAtTable?: boolean
   /** Shows the character's conditions in full, with their rules. */
   onShowConditions?: () => void
 }
@@ -48,6 +50,7 @@ export function CharacterSheet({
   combat,
   onRoll,
   onRollFormula,
+  spendsAtTable,
   onShowConditions,
 }: Readonly<Props>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
@@ -67,9 +70,7 @@ export function CharacterSheet({
         actions={actions}
         combatId={waiting ? combat?.id : undefined}
         onShowConditions={onShowConditions}
-        onSpendHitDie={
-          onRollFormula && (die => onRollFormula(hitDieRoll(sheet, die)))
-        }
+        spending={hitDieSpending(sheet, onRollFormula, spendsAtTable)}
       />
 
       <section
@@ -143,7 +144,7 @@ function SheetHeader({
   actions,
   combatId,
   onShowConditions,
-  onSpendHitDie,
+  spending,
 }: Readonly<{
   name: string
   sheet: TableSheet
@@ -151,7 +152,8 @@ function SheetHeader({
   /** The combat the character waits to roll initiative in. */
   combatId?: string
   onShowConditions?: () => void
-  onSpendHitDie?: (die: string) => void
+  /** How a hit die is spent; their counts alone without. */
+  spending?: HitDieSpending
 }>) {
   const identity = [sheet.species, sheet.background].filter(Boolean)
   const pools = hitDicePools(sheet.classes)
@@ -200,26 +202,13 @@ function SheetHeader({
           ))}
         </ul>
       )}
+      {/* Where the sheet is wide enough, its hit dice go last, on a row of their own however wide
+          it is, so the numbers beside the hit points stay on theirs, as tall as each other, and
+          each size of die stays on one line with its button. */}
       <dl className='grid grid-cols-2 gap-2 @lg:grid-cols-6'>
         {sheet.hp && (
           <Stat label='Hit points' wide>
             <HitPoints hp={sheet.hp} />
-            {/* Spent any time, each tap a die of that size, for the hit points it gives back. */}
-            {onSpendHitDie && pools.length > 0 && (
-              <span
-                role='group'
-                aria-label='Hit dice'
-                className='mt-1.5 flex flex-wrap items-center gap-1'
-              >
-                {pools.map(pool => (
-                  <HitDieButton
-                    key={pool.die}
-                    pool={pool}
-                    onSpend={onSpendHitDie}
-                  />
-                ))}
-              </span>
-            )}
           </Stat>
         )}
         {dying && (
@@ -243,6 +232,13 @@ function SheetHeader({
                 </RollButton>
               )}
             </span>
+          </Stat>
+        )}
+        {/* After the death saves, which stay under the hit points while the character is dying.
+            Spent any time, each tap a die of that size, for the hit points it gives back. */}
+        {pools.length > 0 && (
+          <Stat label='Hit dice' wide className='@lg:order-last @lg:col-span-6'>
+            <HitDiceList pools={pools} spending={spending} />
           </Stat>
         )}
         {sheet.ac !== null && (
@@ -374,11 +370,14 @@ function Stat({
   label,
   short,
   wide = false,
+  className,
   children,
 }: Readonly<{
   label: string
   short?: string
   wide?: boolean
+  /** Where it goes in the grid, where that differs from its place among the others. */
+  className?: string
   children: ReactNode
 }>) {
   return (
@@ -386,6 +385,7 @@ function Stat({
       className={clsx(
         '@container flex min-w-0 flex-col gap-0.5 rounded-xl bg-page py-2',
         wide && 'col-span-2',
+        className,
       )}
     >
       <dt className='truncate px-3 text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>

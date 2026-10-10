@@ -25,8 +25,10 @@ describe('components/character-sheet/features-tab', () => {
       screen.getByRole('region', { name: 'Classes' }),
     ).getAllByRole('listitem')
     expect(classes.map(item => item.textContent)).toEqual([
-      'Fighter 5ChampionHit dice 3/5 d10',
+      'Fighter 5Champion · Hit dice 3/5 d10',
     ])
+    // Nothing to tap where nothing rolls them.
+    expect(within(classes[0]).queryByRole('button')).toBeNull()
   })
 
   it("spends a class's hit die from its card, where something rolls them", async () => {
@@ -39,6 +41,7 @@ describe('components/character-sheet/features-tab', () => {
         onRoll={jest.fn()}
         onRollDamage={jest.fn()}
         onRollFormula={onRollFormula}
+        spendsAtTable
         sheet={toTableSheet(
           {
             ...sheet,
@@ -53,6 +56,14 @@ describe('components/character-sheet/features-tab', () => {
                 subclass: null,
                 hitDice: { die: 'd6', value: 0, max: 2 },
               },
+              {
+                id: 'oddity',
+                identifier: 'oddity',
+                name: 'Oddity',
+                levels: 1,
+                subclass: null,
+                hitDice: { die: 'd3', value: 1, max: 1 },
+              },
             ],
           },
           'https://my-game.forge-vtt.com',
@@ -61,15 +72,23 @@ describe('components/character-sheet/features-tab', () => {
     )
 
     const classes = screen.getByRole('region', { name: 'Classes' })
+    // Its subclass and hit dice, and beside them the button, named for what it shows, then how
+    // many are left.
     expect(
-      within(classes).getByRole('button', {
-        name: 'Hit dice 0/2 d6 left, spend one',
-      }),
+      within(classes)
+        .getAllByRole('listitem')
+        .map(item => item.textContent),
+    ).toEqual([
+      'Fighter 5Champion · Hit dice 3/5 d10Spend d10, 3 of 5 left',
+      'Wizard 2Hit dice 0/2 d6Spend d6, 0 of 2 left',
+      // A size of hit die the game doesn't have, which none spent could be.
+      'Oddity 1Hit dice 1/1 d3',
+    ])
+    expect(
+      within(classes).getByRole('button', { name: 'Spend d6 , 0 of 2 left' }),
     ).toBeDisabled()
     await user.click(
-      within(classes).getByRole('button', {
-        name: 'Hit dice 3/5 d10 left, spend one',
-      }),
+      within(classes).getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
     )
     // At least none under the 2014 rules.
     expect(onRollFormula).toHaveBeenCalledWith(
@@ -79,9 +98,51 @@ describe('components/character-sheet/features-tab', () => {
         source: { kind: 'hitDie', denomination: 'd10' },
       }),
     )
-    expect(within(classes).getAllByRole('listitem')[0]).toHaveTextContent(
-      'Fighter 5ChampionHit dice 3/5 d10 left, spend one',
+  })
+
+  it("rolls a class's hit die where the game won't spend it, and spends none at full hit points", async () => {
+    const user = userEvent.setup()
+    const onRollFormula = jest.fn()
+    const props = {
+      characterId: 'char-1',
+      onRoll: jest.fn(),
+      onRollDamage: jest.fn(),
+      onRollFormula,
+    }
+    const { rerender } = render(
+      <FeaturesTab
+        {...props}
+        sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+      />,
     )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
+    )
+    expect(onRollFormula).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/At full hit points/)).toBeNull()
+
+    rerender(
+      <FeaturesTab
+        {...props}
+        spendsAtTable
+        sheet={toTableSheet(
+          fullerSheet({ hp: { value: 44, max: 44, temp: 0 } }),
+          'https://my-game.forge-vtt.com',
+        )}
+      />,
+    )
+    const spend = screen.getByRole('button', {
+      name: 'Spend d10 , 3 of 5 left',
+    })
+    expect(spend).toBeDisabled()
+    expect(spend).toHaveAccessibleDescription('At full hit points')
+    // Said after the hit dice too, as a touch screen shows no title.
+    expect(spend.closest('li')?.textContent).toBe(
+      'Fighter 5Champion · Hit dice 3/5 d10 · At full hit pointsSpend d10, 3 of 5 left',
+    )
+    await user.click(spend)
+    expect(onRollFormula).toHaveBeenCalledTimes(1)
   })
 
   it('groups features by where they came from, with how and how often each is used', () => {
@@ -211,7 +272,7 @@ describe('components/character-sheet/features-tab', () => {
     renderTab({ ...sheet, classes: [{ ...classes[0], hitDice: null }] })
 
     expect(screen.getByText('No features to show yet.')).toBeInTheDocument()
-    expect(screen.queryByText('Hit dice')).toBeNull()
+    expect(screen.queryByText(/Hit dice/)).toBeNull()
   })
 
   it('shows hit dice it only partly knows', () => {

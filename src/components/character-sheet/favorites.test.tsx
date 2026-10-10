@@ -199,7 +199,8 @@ describe('components/character-sheet/favorites', () => {
       'Cure Wounds1 Action · SelfAlwaysAlways prepared',
       expect.stringMatching(/^Cloak of ProtectionEquipped · Attuned/),
       expect.stringMatching(/^DarkvisionPassive/),
-      'Fighter 5Champion3/5 d103 of 5 d10 hit dice left',
+      // Its hit dice first, as the row cuts its end short.
+      'Fighter 5Hit dice 3/5 d10 · Champion',
       'SoldierBackground',
       expect.stringMatching(/^Handaxe×2 · Action/),
     ])
@@ -212,12 +213,16 @@ describe('components/character-sheet/favorites', () => {
       <FavoritesStrip
         {...propsFor(withFavorites([item('fighter', 'class')]))}
         onRollFormula={onRollFormula}
+        spendsAtTable
       />,
     )
 
-    expect(rows()).toEqual(['Fighter 5Championd10 3/5 left, spend one'])
+    // Beside its hit dice, the button, named for what it shows, then how many are left.
+    expect(rows()).toEqual([
+      'Fighter 5Hit dice 3/5 d10 · ChampionSpend d10, 3 of 5 left',
+    ])
     await user.click(
-      screen.getByRole('button', { name: 'd10 3/5 left, spend one' }),
+      screen.getByRole('button', { name: 'Spend d10 , 3 of 5 left' }),
     )
     expect(onRollFormula).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -225,6 +230,72 @@ describe('components/character-sheet/favorites', () => {
         source: { kind: 'hitDie', denomination: 'd10' },
       }),
     )
+  })
+
+  it("rolls a class's hit die from its favorite where the game won't spend it, and spends none at full hit points", async () => {
+    const user = userEvent.setup()
+    const onRollFormula = jest.fn()
+    const { rerender } = render(
+      <FavoritesStrip
+        {...propsFor(withFavorites([item('fighter', 'class')]))}
+        onRollFormula={onRollFormula}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Roll d10 , 3 of 5 left' }),
+    )
+    expect(onRollFormula).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/At full hit points/)).toBeNull()
+
+    rerender(
+      <FavoritesStrip
+        {...propsFor({
+          ...withFavorites([item('fighter', 'class')]),
+          hp: { value: 44, max: 44, temp: 0 },
+        })}
+        onRollFormula={onRollFormula}
+        spendsAtTable
+      />,
+    )
+    const spend = screen.getByRole('button', {
+      name: 'Spend d10 , 3 of 5 left',
+    })
+    expect(spend).toBeDisabled()
+    expect(spend).toHaveAccessibleDescription('At full hit points')
+    // Said after the hit dice too, before what a narrow row cuts short, as a touch screen shows
+    // no title.
+    expect(rows()).toEqual([
+      'Fighter 5Hit dice 3/5 d10 · At full hit points · ChampionSpend d10, 3 of 5 left',
+    ])
+    await user.click(spend)
+    expect(onRollFormula).toHaveBeenCalledTimes(1)
+  })
+
+  it("offers no hit die from a class's favorite of a size the game doesn't have, nor says why at full hit points", () => {
+    render(
+      <FavoritesStrip
+        {...propsFor({
+          ...withFavorites([item('oddity', 'class')]),
+          hp: { value: 44, max: 44, temp: 0 },
+          classes: [
+            {
+              id: 'oddity',
+              identifier: 'oddity',
+              name: 'Oddity',
+              levels: 1,
+              subclass: null,
+              hitDice: { die: 'd3', value: 1, max: 1 },
+            },
+          ],
+        })}
+        onRollFormula={jest.fn()}
+        spendsAtTable
+      />,
+    )
+
+    expect(rows()).toEqual(['Oddity 1Hit dice 1/1 d3'])
+    expect(screen.queryByRole('button', { name: /d3/ })).toBeNull()
   })
 
   it('says whether an effect is off, or unavailable for now', () => {
@@ -347,6 +418,63 @@ describe('components/character-sheet/favorites', () => {
     expect(
       within(column).queryByRole('button', { name: /^Favorites/ }),
     ).toBeNull()
+  })
+
+  it("opens what there is to read of an item's other activities from beside each, as its tab does", async () => {
+    const user = userEvent.setup()
+    const attack = {
+      type: 'attack',
+      activation: 'Action',
+      target: null,
+      toHit: 7,
+      save: null,
+      damage: [{ formula: '1d6 + 4', type: 'Piercing', healing: false }],
+      uses: null,
+    }
+    const sheet = withFavorites([item('javelin', 'weapon', 'Javelin')])
+    sheet.inventory.sections[0].items.push(
+      sheetItem({
+        id: 'javelin',
+        name: 'Javelin',
+        type: 'weapon',
+        range: 'reach 5 ft',
+        toHit: 7,
+        attackId: 'stab',
+        damage: attack.damage,
+        text: TEXTS.rope,
+        activities: [
+          { ...attack, id: 'stab', name: 'Attack', range: 'reach 5 ft' },
+          { ...attack, id: 'throw', name: 'Throw', range: '30/120 ft' },
+        ],
+      }),
+    )
+    render(
+      <FavoritesStrip
+        {...propsFor(sheet)}
+        // Of its own, as descriptions already loaded are kept by character.
+        characterId='char-3'
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: /^Javelin/, expanded: false }),
+    )
+    // Its row says what it did before.
+    expect(
+      within(
+        screen.getByRole('list', { name: 'Javelin: its other activities' }),
+      ).getByRole('listitem'),
+    ).toHaveTextContent(/^ThrowAction · 30\/120 ft · Piercing\+71d6 \+ 4$/)
+    await user.click(
+      screen.getByRole('button', { name: 'About Javelin (Throw)' }),
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Throw' })
+    expect(within(dialog).getByText('From Javelin')).toBeVisible()
+    expect(
+      await within(
+        within(dialog).getByRole('region', { name: 'Javelin' }),
+      ).findByText('Fifty feet of rope.'),
+    ).toBeInTheDocument()
   })
 
   it('shows an activity with what the sheet lists of its item, opening to its description', async () => {
@@ -555,7 +683,7 @@ describe('components/character-sheet/favorites', () => {
     expect(rows()).toEqual([
       'Odd KitCheckDis−1',
       'Luck',
-      'Wizard–/– d6Unknown of unknown d6 hit dice left',
+      'WizardHit dice –/– d6',
       'Sorcerer 1',
       'Lost Blade',
     ])

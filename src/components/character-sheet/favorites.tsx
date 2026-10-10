@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, type ReactNode } from 'react'
+import { useId, useRef } from 'react'
 import clsx from 'clsx'
 import {
   BookOpen,
@@ -22,7 +22,13 @@ import { ModeChip, modeText, PROFICIENCY } from './character-sheet'
 import { EffectEntry } from './effects-tab'
 import { FavoriteMarks, NO_MARKS } from './favorite-mark'
 import { FeatureEntry } from './features-tab'
-import { HitDieButton } from './hit-dice'
+import {
+  FULL_HP,
+  HitDieButton,
+  hitDiceText,
+  hitDieSpending,
+  type HitDieSpending,
+} from './hit-dice'
 import { ItemEntry } from './inventory-tab'
 import { RollButton } from './roll-button'
 import { joinParts, SheetEntry } from './sheet-entry'
@@ -33,7 +39,7 @@ import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { formatModifier } from '@/utils/format-modifier'
-import { hitDieRoll, spendable } from '@/utils/formulas'
+import { spendable } from '@/utils/formulas'
 import type { RollActions } from './d20-rolls'
 import type {
   SheetDamageRoll,
@@ -58,8 +64,10 @@ type Props = {
   entries: FavoriteEntry[]
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
-  /** Rolls an activity's own formula, such as a light's radius. */
+  /** Spends a hit die, or rolls an activity's own formula, such as a light's radius. */
   onRollFormula?: (roll: SheetFormulaRoll) => void
+  /** Whether the Gamemaster's game spends a hit die rolled too, as it does while it takes them. */
+  spendsAtTable?: boolean
   /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
@@ -180,6 +188,7 @@ function FavoritesList({
   onRoll,
   onRollDamage,
   onRollFormula,
+  spendsAtTable,
   onUse,
   tableDamage,
 }: Readonly<Props>) {
@@ -192,6 +201,7 @@ function FavoritesList({
     onUse,
     tableDamage,
   })
+  const spending = hitDieSpending(sheet, onRollFormula, spendsAtTable)
   const card = useRef<HTMLDivElement>(null)
   const width = useWidth(card)
   // Side by side, the first half is in the first list and the rest in the second, so that each
@@ -219,10 +229,7 @@ function FavoritesList({
                 entry={entry}
                 rows={rows}
                 abilities={sheet.abilities}
-                onSpendHitDie={
-                  onRollFormula &&
-                  (die => onRollFormula(hitDieRoll(sheet, die)))
-                }
+                spending={spending}
               />
             ))}
           </ul>
@@ -237,12 +244,12 @@ function FavoriteRow({
   entry,
   rows,
   abilities,
-  onSpendHitDie,
+  spending,
 }: Readonly<{
   entry: FavoriteEntry
   rows: ActionRows
   abilities: SheetAbility[]
-  onSpendHitDie?: (die: string) => void
+  spending?: HitDieSpending
 }>) {
   const { characterId } = rows
   switch (entry.kind) {
@@ -273,7 +280,7 @@ function FavoriteRow({
         <ClassEntry
           characterId={characterId}
           entry={entry.entry}
-          onSpendHitDie={onSpendHitDie}
+          spending={spending}
         />
       )
     }
@@ -335,27 +342,23 @@ function FavoriteRow({
   }
 }
 
-/** A class made a favorite: its levels and subclass, and its hit dice left, each tap one spent. */
+/**
+ * A class made a favorite: its levels, its hit dice and subclass, and a button that spends one of
+ * those hit dice, where something rolls them and the game has their size, as on its card, which
+ * says after them when it's disabled at full hit points.
+ */
 function ClassEntry({
   characterId,
   entry,
-  onSpendHitDie,
+  spending,
 }: Readonly<{
   characterId: string
   entry: SheetClass
-  onSpendHitDie?: (die: string) => void
+  spending?: HitDieSpending
 }>) {
   const { hitDice } = entry
-  let aside: ReactNode
-  if (hitDice && onSpendHitDie && spendable(hitDice)) {
-    aside = (
-      <HitDieButton
-        pool={hitDice}
-        onSpend={onSpendHitDie}
-        className='shrink-0 gap-1 px-2 py-0.5 text-xs font-semibold'
-      />
-    )
-  }
+  const spends =
+    hitDice && spending && spendable(hitDice) ? spending : undefined
   return (
     <SheetEntry
       characterId={characterId}
@@ -363,23 +366,14 @@ function ClassEntry({
         entry.levels === null ? entry.name : `${entry.name} ${entry.levels}`
       }
       fallback={ListChecks}
-      detail={entry.subclass ?? undefined}
+      // The hit dice first, and why they aren't spent, as a row this narrow cuts its end short.
+      detail={joinParts(
+        hitDice && hitDiceText(hitDice),
+        spends?.full && FULL_HP,
+        entry.subclass,
+      )}
       aside={
-        aside ??
-        (hitDice && (
-          <span className='shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold tabular-nums'>
-            <span aria-hidden>
-              {hitDice.value ?? '–'}/{hitDice.max ?? '–'}{' '}
-              <span className='font-normal text-text-secondary'>
-                {hitDice.die}
-              </span>
-            </span>
-            <span className='sr-only'>
-              {hitDice.value ?? 'Unknown'} of {hitDice.max ?? 'unknown'}{' '}
-              {hitDice.die} hit dice left
-            </span>
-          </span>
-        ))
+        hitDice && spends && <HitDieButton pool={hitDice} spending={spends} />
       }
     />
   )
