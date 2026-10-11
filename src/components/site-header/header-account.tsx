@@ -19,7 +19,10 @@ export async function HeaderAccount() {
   }
 
   return (
-    <nav aria-label='Account' className='flex min-w-0 items-center gap-2'>
+    <nav
+      aria-label='Account'
+      className='flex min-w-0 items-center gap-1 sm:gap-2'
+    >
       <Link
         href='/campaigns'
         className='inline-flex items-center gap-1.5 rounded-lg p-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary sm:px-2.5'
@@ -31,7 +34,11 @@ export async function HeaderAccount() {
         href='/characters'
         className='inline-flex min-w-0 items-center gap-2 rounded-lg p-1 text-sm font-medium transition-colors hover:bg-primary/10 sm:pr-2.5'
       >
-        <Avatar name={user.name} image={user.image} className='size-7' />
+        <Avatar
+          name={user.name}
+          image={user.image}
+          className='size-7 shrink-0'
+        />
         <span className='max-w-40 truncate max-sm:sr-only'>{user.name}</span>
       </Link>
       <SignOutButton />

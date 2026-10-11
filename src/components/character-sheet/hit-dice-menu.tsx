@@ -97,7 +97,7 @@ export function HitDiceMenu({
   const title = useId()
   const root = usePortalRoot()
   useTopmostEscape(true)
-  const { placement, gap } = placing(point)
+  const { placement, gap, across } = placing(point)
   const { refs, floatingStyles, context } = useFloating({
     open: true,
     onOpenChange: open => {
@@ -106,7 +106,11 @@ export function HitDiceMenu({
     elements: { reference: anchor },
     placement,
     whileElementsMounted: autoUpdate,
-    middleware: [offset(gap), flip({ padding: 8 }), shift({ padding: 8 })],
+    middleware: [
+      offset(gap),
+      flip({ padding: 8 }),
+      shift({ padding: 8, crossAxis: across }),
+    ],
   })
   useLayoutEffect(() => {
     refs.setPositionReference(point ? pointOn(anchor, point) : anchor)

@@ -158,7 +158,7 @@ export function ChoiceMenu<T extends string>({
   const reasons = useId()
   const root = usePortalRoot()
   useTopmostEscape(true)
-  const { placement, gap } = placing(point)
+  const { placement, gap, across } = placing(point)
   const { refs, floatingStyles, context } = useFloating({
     open: true,
     onOpenChange: open => {
@@ -170,7 +170,7 @@ export function ChoiceMenu<T extends string>({
     middleware: [
       offset(gap),
       flip({ padding: 8 }),
-      shift({ padding: 8 }),
+      shift({ padding: 8, crossAxis: across }),
       // No taller than the room on the side it's on, its items scrolled inside it: one with many,
       // as a check that may be made many ways, may be taller than a phone's screen.
       size({
@@ -278,15 +278,22 @@ export function ChoiceMenu<T extends string>({
 /**
  * A click's menu hangs from the pointer, as the browser's would; a press's sits above the finger,
  * so the hand doesn't hide it; and one from a key sits below the part of the sheet. Each turns to
- * the other side when there's no room. So does any popover opened as a menu is.
+ * the other side when there's no room, and a click's, beside the pointer, moves back across onto
+ * the screen where neither side has room, as on a phone's narrow one (`across`). So does any
+ * popover opened as a menu is.
  */
-export function placing(point: MenuPoint | undefined): {
+export function placing(point?: MenuPoint): {
   placement: Placement
   gap: Parameters<typeof offset>[0]
+  across: boolean
 } {
-  if (!point) return { placement: 'bottom', gap: 6 }
-  if (point.touch) return { placement: 'top', gap: 16 }
-  return { placement: 'right-start', gap: { mainAxis: 4, alignmentAxis: 4 } }
+  if (!point) return { placement: 'bottom', gap: 6, across: false }
+  if (point.touch) return { placement: 'top', gap: 16, across: false }
+  return {
+    placement: 'right-start',
+    gap: { mainAxis: 4, alignmentAxis: 4 },
+    across: true,
+  }
 }
 
 /** A point on the part of the sheet, which moves with it as the sheet scrolls. */
