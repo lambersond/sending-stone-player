@@ -5,8 +5,12 @@
 /** The protocol version this listener understands. Version 2 sends each event to campaigns. */
 export const PROTOCOL_VERSION = 2
 
-/** The largest envelope accepted, in bytes. A bridge.hello with every combat is well under. */
-export const MAX_ENVELOPE_BYTES = 1_000_000
+/**
+ * The largest envelope accepted, in bytes. A campaign's bridge.hello carries every character's
+ * whole sheet, which for a party of nine with large spellbooks has come to 1.1 MB. It stays under
+ * the 4.5 MB a Vercel function accepts.
+ */
+export const MAX_ENVELOPE_BYTES = 4_000_000
 
 /**
  * Where the module posts events. The Gamemaster sets only this app's address as the module's
