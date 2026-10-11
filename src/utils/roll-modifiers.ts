@@ -1,7 +1,15 @@
 import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
 
-/** Dice added to or taken from a roll, such as +1d4 for Bless or −1d6. */
-export type ExtraDice = { sign: 1 | -1; count: number; sides: DieSides }
+/**
+ * Dice added to or taken from a roll, such as +1d4 for Bless or −1d6. Of damage, those a critical
+ * hit's critical damage adds, such as a weapon's, are marked `added`: never its first die.
+ */
+export type ExtraDice = {
+  sign: 1 | -1
+  count: number
+  sides: DieSides
+  added?: true
+}
 
 /** A flat number added to or taken from a roll. */
 export type ExtraFlat = { sign: 1 | -1; flat: number }

@@ -9,6 +9,7 @@ import {
   spellAction,
 } from './sheet-actions'
 import {
+  castingSheet,
   fullerSheet,
   sheetAction,
   sheetFavorites,
@@ -255,6 +256,22 @@ describe('utils/sheet-actions', () => {
         ['Hex (Bonus Hex Damage)', 'hit'],
         ['Hex (Curse New Creature)', 'move'],
       ])
+    })
+
+    it('finds a spell an item casts by its Cast and by the copy the Spells tab lists, each activity once, from module 0.20.0', () => {
+      const made = sheetActions(castingSheet()).map(
+        ({ id, name, activity, attackId }) =>
+          `${id}/${activity?.id ?? attackId} ${name}`,
+      )
+      expect(made).toEqual([
+        'mm-wand/cast-mm Wand of Magic Missiles',
+        'flame/strike Bardic Flame',
+        'flame/cast-hex Bardic Flame (Hex)',
+        'mm/mm-darts Magic Missile',
+        'hex/hex-curse Hex',
+        'hex/hex-dmg Hex (Bonus Hex Damage)',
+      ])
+      expect(new Set(made).size).toBe(made.length)
     })
 
     it('lists nothing more for a sheet from a module that sends nothing they roll', () => {
@@ -696,6 +713,24 @@ describe('utils/sheet-actions', () => {
         identified: true,
         text: null,
       })
+    })
+
+    it('keeps the copy of the spell a Cast casts, whose later activities are used beneath it', () => {
+      const cast = { level: 1, concentration: false, charges: 1, short: false }
+      expect(
+        itemAction(
+          sheetItem({
+            id: 'wand',
+            name: 'Wand',
+            ...flame,
+            cast,
+            spellId: 'copy',
+          }),
+        ),
+      ).toMatchObject({ cast, spellId: 'copy' })
+      expect(
+        itemAction(sheetItem({ id: 'wand', name: 'Wand', ...flame })),
+      ).not.toHaveProperty('spellId')
     })
 
     it('has nothing for an item that rolls nothing, or is not identified yet', () => {

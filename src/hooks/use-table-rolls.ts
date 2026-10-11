@@ -44,9 +44,10 @@ export const FOLLOW_FOR = 110_000
 export const LATE_FOLLOW = 330_000
 
 /**
- * Of rolls sent one after another, as hit dice spent at once, how long to wait before sending one
- * again that the app turned away as one too many at once, in milliseconds; and how long to go on
- * sending it: past the minute over which the app counts a character's rolls.
+ * Of rolls sent one after another, as hit dice spent at once to a game before module 0.20.0, how
+ * long to wait before sending one again that the app turned away as one too many at once, in
+ * milliseconds; and how long to go on sending it: past the minute over which the app counts a
+ * character's rolls.
  */
 export const BUSY_WAIT = 5000
 export const BUSY_FOR = 65_000
@@ -81,8 +82,19 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   /** For an area attack, the names of the combatants it was made at, by their ids. */
   targetNames?: Record<string, string>
   /**
-   * For rolls sent one after another as one, as hit dice spent at once are, a request a die: how
-   * many there are, and how many of them the game has made.
+   * For an attack or a use of a spell an item casts, which is cast at a level the item offers,
+   * rather than with a spell slot: a level it doesn't offer is refused as a slot is.
+   */
+  itemCast?: boolean
+  /**
+   * For hit dice spent at once sent as one, as from module 0.20.0, which are refused for want of
+   * dice where there aren't as many of a size left as are spent, not only where there are none.
+   */
+  hitDice?: boolean
+  /**
+   * For rolls sent one after another as one, as hit dice spent at once are to a game before module
+   * 0.20.0, a request a die: how many there are, and how many of them the game has made. From
+   * 0.20.0, sent as one, the same, once the game stopped part way through them.
    */
   together?: { count: number; made: number }
 }
@@ -148,9 +160,15 @@ export function useTableRolls(
       const controller = new AbortController()
       running.current.add(controller)
       const update = (state: TableRollState) => {
-        if (!controller.signal.aborted) {
-          setStates(held => new Map(held).set(localId, { ...kept, ...state }))
-        }
+        if (controller.signal.aborted) return
+        // Hit dice the game stopped spending part way, which it made some of, say how many.
+        const partly =
+          state.status === 'failed' && (state.spent?.made ?? 0) > 0
+            ? { together: state.spent }
+            : {}
+        setStates(held =>
+          new Map(held).set(localId, { ...kept, ...state, ...partly }),
+        )
       }
       update({ status: 'sending' })
       void follow(
@@ -169,10 +187,11 @@ export function useTableRolls(
   /**
    * Send rolls to the game one after another, each once the game has made the one before it, and
    * follow them, keeping their way together under the local roll's id: as hit dice spent at once,
-   * which the game spends one a time, so that no more than one is on its way at once. One the app
-   * turns away as one too many at once is sent again, with the same dice, a moment later, for up
-   * to a minute: many dice spent at once may be more than a minute's rolls. None is sent after one
-   * the game didn't make, nor once the page is left, which the player is told as they're sent.
+   * which a game before module 0.20.0 spends one a request, so that no more than one is on its way
+   * at once. One the app turns away as one too many at once is sent again, with the same dice, a
+   * moment later, for up to a minute: many dice spent at once may be more than a minute's rolls.
+   * None is sent after one the game didn't make, nor once the page is left, which the player is
+   * told as they're sent.
    */
   const startEach = useCallback(
     (localId: string, inputs: RollRequestInput[]) => {
@@ -231,6 +250,7 @@ export function useTableRolls(
         kept = {
           source: { item: source.item, activity: source.activity },
           ...(roll.targetNames && { targetNames: roll.targetNames }),
+          ...(roll.itemCast && { itemCast: true }),
         }
       } else if (source.kind === 'save' && source.prompt) {
         kept = { prompt: source.prompt }
@@ -245,11 +265,12 @@ export function useTableRolls(
       const { use, types, modifiers, text } = roll
       const { kinds, on } = latest.current
       // A description's damage or healing, which the game reads from its own copy of it: changed
-      // as the player chose, and a critical hit's, as the world's rules make one. One with its dice
-      // doubled here, not made so, is the player's alone.
+      // as the player chose, and a critical hit's, as the world's rules make one, where one is
+      // offered, with what it adds. One with its dice doubled here, not made so, or not offered
+      // so, is the player's alone.
       if (text) {
         if (!on || !kinds.includes('textDamage')) return
-        if (roll.critical && !roll.criticalRule) return
+        if (roll.critical && (!roll.criticalRule || !roll.criticalAdds)) return
         start(
           damage.id,
           {
@@ -317,6 +338,7 @@ export function useTableRolls(
         {
           source: { item, activity },
           name: used.label,
+          ...(used.itemCast && { itemCast: true }),
           ...(modifiers && changes(modifiers) && { modifiers }),
         },
       )
@@ -328,19 +350,20 @@ export function useTableRolls(
     (roll: SheetFormulaRoll, rolled: LocalFormula) => {
       const { source } = roll
       const { kinds, on } = latest.current
-      if (!on || !source || !kinds.includes(source.kind)) return
-      // Several thrown together, as hit dice spent at once, are a request each, as the game spends
-      // a hit die a request.
-      const times = roll.times ?? 1
-      if (times > 1) {
-        startEach(
-          rolled.id,
-          Array.from({ length: times }, (_, copy) =>
-            toFormulaRequest(roll, source, rolled, copy),
-          ),
-        )
+      if (!on || !source) return
+      // Hit dice spent at once are one request, from module 0.20.0; before, a hit die each, as the
+      // game spent a hit die a request, one after another, the largest first.
+      if (source.kind === 'hitDice') {
+        if (kinds.includes('hitDice')) {
+          start(rolled.id, toHitDiceRequest(source, rolled), {
+            hitDice: true,
+          })
+        } else if (kinds.includes('hitDie')) {
+          startEach(rolled.id, toHitDieRequests(source, rolled))
+        }
         return
       }
+      if (!kinds.includes(source.kind)) return
       start(rolled.id, toFormulaRequest(roll, source, rolled), {})
     },
     [start, startEach],
@@ -529,8 +552,13 @@ async function follow(
       if (response.ok) {
         const view = (await response.json()) as RollRequestView
         update({ ...view, requestId: id })
-        // A roll that took too long may still be made, once the Gamemaster answers.
-        if (view.status === 'failed' && view.reason === 'timeout') {
+        // A roll that took too long may still be made, once the Gamemaster answers; but not hit
+        // dice the game says it made some of before it stopped, as it does once it had to.
+        if (
+          view.status === 'failed' &&
+          view.reason === 'timeout' &&
+          !view.spent
+        ) {
           if (!late) until = Date.now() + LATE_FOLLOW
           late = true
         } else if (SETTLED.has(view.status)) {
@@ -603,14 +631,12 @@ export function toRollRequest(
 /**
  * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, the
  * formula's item and activity, or the description's link it's in, and the dice of each of its
- * terms, in order. Of several thrown together, as hit dice spent at once, one of them: its own.
- * @param copy - Which of several thrown together, from 0; the first unless said.
+ * terms, in order.
  */
 export function toFormulaRequest(
   roll: SheetFormulaRoll,
-  source: FormulaSource,
+  source: Exclude<FormulaSource, { kind: 'hitDice' }>,
   rolled: LocalFormula,
-  copy = 0,
 ): RollRequestInput {
   return {
     kind: source.kind,
@@ -620,22 +646,57 @@ export function toFormulaRequest(
     extras: [],
     dice: roll.terms.flatMap((term, index) =>
       'sides' in term
-        ? [
-            {
-              faces: term.sides,
-              results: (rolled.terms[index]?.values ?? []).slice(
-                copy * term.count,
-                (copy + 1) * term.count,
-              ),
-            },
-          ]
+        ? [{ faces: term.sides, results: rolled.terms[index]?.values ?? [] }]
         : [],
     ),
   }
 }
 
+/**
+ * Hit dice spent at once as the game is asked to spend them, from module 0.20.0: how many of each
+ * size, the largest first, and each size's dice, as thrown, in the same order.
+ */
+export function toHitDiceRequest(
+  source: Extract<FormulaSource, { kind: 'hitDice' }>,
+  rolled: LocalFormula,
+): RollRequestInput {
+  return {
+    kind: 'hitDice',
+    hitDice: source.hitDice,
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: source.hitDice.map(({ denomination }, index) => ({
+      faces: Number(denomination.slice(1)),
+      results: rolled.terms[index]?.values ?? [],
+    })),
+  }
+}
+
+/**
+ * Hit dice spent at once as a game before module 0.20.0 is asked to spend them: a hit die each, its
+ * own die as thrown, the largest first, in the order thrown.
+ */
+export function toHitDieRequests(
+  source: Extract<FormulaSource, { kind: 'hitDice' }>,
+  rolled: LocalFormula,
+): RollRequestInput[] {
+  return source.hitDice.flatMap(({ denomination }, index) =>
+    (rolled.terms[index]?.values ?? []).map(value => ({
+      kind: 'hitDie' as const,
+      denomination,
+      mode: 0 as const,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: Number(denomination.slice(1)), results: [value] }],
+    })),
+  )
+}
+
 /** What a formula rolled is, for the game to find it. */
-function formulaOrigin(source: FormulaSource): Partial<RollRequestInput> {
+function formulaOrigin(
+  source: Exclude<FormulaSource, { kind: 'hitDice' }>,
+): Partial<RollRequestInput> {
   switch (source.kind) {
     case 'hitDie': {
       return { denomination: source.denomination }
@@ -721,13 +782,15 @@ function chosenLabel(
 
 /**
  * A roll's terms, as its formula has them, when they throw the dice the game said; otherwise its
- * dice alone.
+ * dice alone. Either way, the dice of a critical hit's critical damage are marked added, as the
+ * game marks them, so that none is ever its first die.
  */
 function termsOf(roll: DamagePreview['rolls'][number]): ExtraTerm[] {
-  const dice = roll.dice.map(({ faces, number }) => ({
+  const dice = roll.dice.map(({ faces, number, added }) => ({
     sign: 1 as const,
     count: number,
     sides: faces as Extract<ExtraTerm, { sides: number }>['sides'],
+    ...(added && { added }),
   }))
   const parsed = parseExtraTerms(roll.formula)
   if (!parsed.ok) return dice
@@ -740,7 +803,14 @@ function termsOf(roll: DamagePreview['rolls'][number]): ExtraTerm[] {
         term.count === dice[index].count &&
         term.sides === dice[index].sides,
     )
-  return same ? parsed.terms : dice
+  if (!same) return dice
+  // Its terms of dice are its dice, in order.
+  let index = 0
+  return parsed.terms.map(term => {
+    if (!('sides' in term)) return term
+    const { added } = dice[index++]
+    return added ? { ...term, added } : term
+  })
 }
 
 function modeOf(advantage: LocalCheck['advantage']): -1 | 0 | 1 {

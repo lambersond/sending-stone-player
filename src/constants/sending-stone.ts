@@ -54,9 +54,10 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
  * ability check, a saving throw, a death saving throw, or initiative; and, where the Gamemaster
  * lets them, an attack, or the use of a spell or feature, then its damage or healing; a hit die
- * spent, or a feature's own formula, such as a light's radius (module 0.16.0); and from a link in
- * a description, the table asked for the saving throw it calls for, its damage or healing, or a
- * roll of its own (module 0.17.0), or for the check it calls for (module 0.18.0).
+ * spent, or a feature's own formula, such as a light's radius (module 0.16.0), or several hit dice
+ * spent at once, of one size or more (module 0.20.0); and from a link in a description, the table
+ * asked for the saving throw it calls for, its damage or healing, or a roll of its own (module
+ * 0.17.0), or for the check it calls for (module 0.18.0).
  */
 export const ROLL_KINDS = [
   'skill',
@@ -69,6 +70,7 @@ export const ROLL_KINDS = [
   'use',
   'damage',
   'hitDie',
+  'hitDice',
   'formula',
   'ask',
   'textDamage',
@@ -108,6 +110,12 @@ export const DAMAGE_TYPE = /^[A-Za-z][\w-]{0,31}$/
 
 /** A hit die's size, as dnd5e names it, such as "d10". */
 export const HIT_DIE = /^d(4|6|8|10|12)$/
+
+/**
+ * The most hit dice spent at once, of every size together: a character's at level 20. One with more
+ * left, as dnd5e's extra hit dice may give, spends the rest in another go.
+ */
+export const MOST_HIT_DICE = 20
 
 /** A spell slot's pool, as dnd5e keys it, such as "spell3" or "pact". */
 export const SPELL_SLOT = /^(spell[1-9]|pact)$/

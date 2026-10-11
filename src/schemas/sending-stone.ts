@@ -6,6 +6,7 @@ import {
   EVENTS,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  MOST_HIT_DICE,
   PROMPT_ID,
 } from '@/constants/sending-stone'
 import { MAX_CHECKS } from '@/utils/description-links'
@@ -99,6 +100,26 @@ const usesSchema = z
   .nullable()
   .catch(null)
 
+/**
+ * A level a spell an item casts may be cast at, from module 0.20.0: 1 to 9, with how many of the
+ * item's uses it spends there, if counted, and whether fewer are left.
+ */
+const castLevelSchema = z.looseObject({
+  level: z.int().min(1).max(9),
+  charges: z.int().min(0).nullable().catch(null),
+  short: z.boolean().catch(false),
+})
+
+/** Are a cast's levels each above the last, the first the level it's cast at by default? */
+function castLevelsFrom(levels: { level: number }[], level: number): boolean {
+  return (
+    levels[0]?.level === level &&
+    levels.every(
+      (entry, index) => index === 0 || entry.level > levels[index - 1].level,
+    )
+  )
+}
+
 /** What an action rolls, and what it's used through in the game. */
 const rollFields = {
   toHit: nullableNumber,
@@ -143,7 +164,20 @@ const rollFields = {
       charges: nullableNumber,
       short: z.boolean().catch(false),
       text: textRef.optional(),
+      // From module 0.20.0: the levels it may be cast at, with what each spends; left out where
+      // malformed, as where any isn't one, there are fewer than two or more than nine.
+      levels: z
+        .array(castLevelSchema)
+        .min(2)
+        .max(9)
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+        .catch(undefined),
     })
+    // Levels out of order, or not from its own, are left out too, the rest kept.
+    .transform(({ levels, ...cast }) =>
+      levels && castLevelsFrom(levels, cast.level) ? { ...cast, levels } : cast,
+    )
     .nullable()
     .optional()
     .catch(null),
@@ -647,6 +681,13 @@ const sheetSchema = z
         multiplyNumeric: z.boolean(),
         powerfulCritical: z.boolean(),
         altered: z.boolean(),
+        // From module 0.20.0: how it throws the dice a critical hit adds; null where it can't say,
+        // or where it says what this app doesn't know, the rule itself still read.
+        bonusDice: z
+          .enum(['rolled', 'maximized', 'ignored'])
+          .nullable()
+          .optional()
+          .catch(null),
       })
       .nullable()
       .optional()
@@ -916,7 +957,8 @@ const commandResultSchema = z.object({
     .catch(null)
     .transform(value => value ?? null),
   visible: z.boolean().catch(false),
-  rolls: z.array(rollSchema).max(10).catch([]),
+  // For hit dice, every roll of every card they made, as many as a module adds to each.
+  rolls: z.array(rollSchema).max(40).catch([]),
   // From module 0.11.0, for an attack.
   attack: z
     .object({
@@ -948,8 +990,17 @@ const commandResultSchema = z.object({
     .catch(null),
   // From module 0.13.0, for a save the game asked for.
   outcome: z.enum(['success', 'failure']).nullable().optional().catch(null),
-  // From module 0.16.0, for a hit die.
+  // From module 0.16.0, for a hit die; from 0.20.0, for hit dice.
   healed: z.int().min(0).max(1_000_000).nullable().optional().catch(null),
+  // From module 0.20.0, for hit dice.
+  spent: z
+    .object({
+      count: z.int().min(1).max(MOST_HIT_DICE),
+      made: z.int().min(0).max(MOST_HIT_DICE),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
   damage: z
     .object({
       critical: z.boolean().catch(false),
@@ -981,6 +1032,13 @@ const commandResultSchema = z.object({
                     .int()
                     .min(1)
                     .max(MAX_DICE * 2),
+                  // From module 0.20.0: dice of a critical hit's critical damage, never its first
+                  // die; anything else is left out, and the preview still read.
+                  added: z
+                    .literal(true)
+                    .optional()
+                    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+                    .catch(undefined),
                 }),
               )
               .max(MAX_DAMAGE_TERMS),

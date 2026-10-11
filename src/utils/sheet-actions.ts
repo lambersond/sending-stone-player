@@ -246,6 +246,8 @@ function rollsOf(
     damage: entry.damage ?? [],
     ...(entry.consumesSlot === false && { consumesSlot: false }),
     ...(entry.cast && { cast: entry.cast }),
+    // For a Cast, its spell's copy, whose other activities are used beneath it.
+    ...(entry.spellId && { spellId: entry.spellId }),
     ...(entry.rollFormula && { rollFormula: entry.rollFormula }),
     ...(entry.attackArea && { attackArea: entry.attackArea }),
     // Each of its activities, for one with more than one, made in the game only while it may be.

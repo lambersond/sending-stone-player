@@ -379,7 +379,12 @@ export function componentsOf(
 /** How many of an item's charges a spell cast from it costs, such as "1 charge"; none for none. */
 export function castCost(cast: SheetCast): string | undefined {
   if (!cast.charges) return undefined
-  return cast.charges === 1 ? '1 charge' : `${cast.charges} charges`
+  return chargesOf(cast.charges)
+}
+
+/** So many of an item's charges, such as "1 charge" or "3 charges". */
+export function chargesOf(count: number): string {
+  return count === 1 ? '1 charge' : `${count} charges`
 }
 
 /** Why the item a spell is cast from can't cast it now: it needs attuning, or else it can't. */

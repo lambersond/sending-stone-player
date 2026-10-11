@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
 import {
+  castingSheet,
   fullerSheet,
   sheetFavorites,
   sheetItem,
@@ -242,7 +243,72 @@ describe('components/character-sheet/favorites', () => {
       within(popover).getByRole('button', { name: 'Use 3 d10 hit dice' }),
     )
     expect(onRollFormula).toHaveBeenLastCalledWith(
-      expect.objectContaining({ label: 'Hit dice (3d10)', times: 3 }),
+      expect.objectContaining({
+        label: 'Hit dice (3d10)',
+        source: {
+          kind: 'hitDice',
+          hitDice: [{ denomination: 'd10', count: 3 }],
+        },
+      }),
+    )
+  })
+
+  it("goes by its class's own hit dice, and its popover by every class's of that size, as dnd5e spends them", async () => {
+    const user = userEvent.setup()
+    const onRollFormula = jest.fn()
+    const sheet = withFavorites([
+      item('fighter', 'class'),
+      item('paladin', 'class'),
+    ])
+    sheet.classes = [
+      {
+        id: 'fighter',
+        identifier: 'fighter',
+        name: 'Fighter',
+        levels: 3,
+        subclass: null,
+        hitDice: { die: 'd10', value: 0, max: 3 },
+      },
+      {
+        id: 'paladin',
+        identifier: 'paladin',
+        name: 'Paladin',
+        levels: 2,
+        subclass: null,
+        hitDice: { die: 'd10', value: 2, max: 2 },
+      },
+    ]
+    render(
+      <FavoritesStrip {...propsFor(sheet)} onRollFormula={onRollFormula} />,
+    )
+
+    // Each as its row says: the fighter's spent, the paladin's not.
+    expect(rows()).toEqual([
+      'Fighter 3Hit dice 0/3 d10Use',
+      'Paladin 2Hit dice 2/2 d10Use',
+    ])
+    const fighter = screen.getByRole('button', {
+      name: 'Use a d10 hit die, 0 of 3 left',
+    })
+    expect(fighter).toBeDisabled()
+    expect(fighter).toHaveAttribute('title', 'None left')
+    const paladin = screen.getByRole('button', {
+      name: 'Use a d10 hit die, 2 of 2 left',
+    })
+    expect(paladin).toBeEnabled()
+
+    // Its popover offers the d10s left of both classes, which are the paladin's.
+    fireEvent.contextMenu(paladin, { button: -1 })
+    const popover = screen.getByRole('dialog', { name: 'Use d10 hit dice' })
+    expect(popover).toHaveTextContent('1 of 2')
+    await user.click(
+      within(popover).getByRole('button', { name: 'Use 1 d10 hit die' }),
+    )
+    expect(onRollFormula).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        label: 'Hit die (d10)',
+        source: { kind: 'hitDie', denomination: 'd10' },
+      }),
     )
   })
 
@@ -513,6 +579,54 @@ describe('components/character-sheet/favorites', () => {
       { signal: expect.any(AbortSignal) },
     )
     expect(screen.getByText('Weapon')).toBeInTheDocument()
+  })
+
+  it("lists a favorite Cast's spell's later activities beneath it, as its tab does, from module 0.20.0", async () => {
+    const user = userEvent.setup()
+    const sheet = castingSheet({
+      favorites: [
+        {
+          type: 'activity',
+          id: 'cast-hex',
+          itemId: 'flame',
+          itemType: 'weapon',
+          itemName: 'Bardic Flame',
+          name: 'Hex',
+          img: null,
+          activation: 'Bonus Action',
+          range: '90 ft',
+          target: null,
+          toHit: null,
+          save: null,
+          damage: [],
+          uses: null,
+          activity: {
+            id: 'cast-hex',
+            type: 'utility',
+            targets: {
+              self: false,
+              area: false,
+              count: 1,
+              perLevel: null,
+              affects: 'enemy',
+            },
+          },
+          cast: { level: 1, concentration: true, charges: 1, short: false },
+          spellId: 'hex',
+        },
+      ],
+    })
+    render(<FavoritesStrip {...propsFor(sheet)} onUse={jest.fn()} />)
+
+    expect(rows()).toEqual([
+      'HexBardic Flame · Bonus Action · 90 ft · 1 charge · 1 moreCast',
+    ])
+    await user.click(screen.getByRole('button', { name: /^Hex Bardic Flame/ }))
+    expect(
+      within(
+        screen.getByRole('list', { name: 'Hex: its other activities' }),
+      ).getByRole('listitem'),
+    ).toHaveTextContent(/^Hex \(Bonus Hex Damage\)Special · Necrotic1d6$/)
   })
 
   it('uses an activity in the game from its chips while the game takes it, as its item', async () => {

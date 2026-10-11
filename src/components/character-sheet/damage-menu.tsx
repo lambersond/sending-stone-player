@@ -8,9 +8,11 @@ import { Modal } from '@/components/modal'
 import {
   criticalParts,
   DIE_SIZES,
+  EVERY_DIE_TWICE,
   firstDie,
   mostExtra,
   withModifiers,
+  type CriticalAdds,
   type DamageModifiers,
   type DieSize,
 } from '@/utils/damage-modifiers'
@@ -47,6 +49,11 @@ export type DamageSubject = {
    * critical hit then is, rather than every die twice.
    */
   criticalRule?: CriticalRule
+  /**
+   * For a description's damage, what a critical hit adds to each of its parts, such as a weapon's
+   * extra dice and critical damage, which the dialog's critical hit throws too.
+   */
+  criticalAdds?: CriticalAdds
   onChoose: (choice: DamageChoice) => void
 }
 
@@ -137,8 +144,8 @@ function labelsFor({
 /**
  * Changing damage or healing before it's rolled: more of its first die, that die another size,
  * every die at its highest, and, for damage rolled here, a critical hit's, each die twice, or as
- * the world's rules make one, for a description's damage the game rolls too. What it will throw is
- * shown as it's changed.
+ * the world's rules make one, for a description's damage the game rolls too, with what a critical
+ * hit adds to a description's. What it will throw is shown as it's changed.
  */
 export function ModifyDamage({
   subject,
@@ -152,17 +159,19 @@ export function ModifyDamage({
   const die = firstDie(subject.parts)
   const perDie = subject.perDie ?? 1
   const rule = subject.criticalRule
+  const adds = subject.criticalAdds
   const [extra, setExtra] = useState(0)
   const [faces, setFaces] = useState<number | undefined>(die?.sides)
   const [maximize, setMaximize] = useState(false)
   const [critical, setCritical] = useState(false)
   const offersCritical = subject.choices.includes('critical')
   // A critical hit throws its dice as many times over as the world's rules make it, or twice where
-  // it's rolled here, and as many more of each die added: they must all still fit.
+  // it's rolled here, with the extra dice it adds, and as many more of each die added: they must
+  // all still fit.
   const mostWith = (crit: boolean) => {
     if (!crit) return mostExtra(subject.parts, perDie)
     const made = rule ?? EVERY_DIE_TWICE
-    return mostExtra(criticalParts(subject.parts, made), made.perDie)
+    return mostExtra(criticalParts(subject.parts, made, adds), made.perDie)
   }
   const most = mostWith(critical)
   const modifiers: DamageModifiers = {
@@ -173,10 +182,9 @@ export function ModifyDamage({
     ...(maximize && { maximize }),
   }
   const changed = withModifiers(subject.parts, modifiers, perDie)
-  const thrown =
-    critical && rule
-      ? formulaOf(criticalParts(changed, rule))
-      : formulaOf(changed, { doubled: critical })
+  const thrown = critical
+    ? formulaOf(criticalParts(changed, rule ?? EVERY_DIE_TWICE, adds))
+    : formulaOf(changed)
   const sizes = die
     ? [...new Set<number>([...DIE_SIZES, die.sides])].toSorted((a, b) => a - b)
     : []
@@ -311,14 +319,6 @@ export function ModifyDamage({
   )
 }
 
-/** A critical hit's damage as dnd5e makes it by default, and one rolled here: every die twice. */
-const EVERY_DIE_TWICE: CriticalRule = {
-  perDie: 2,
-  multiplyNumeric: false,
-  powerfulCritical: false,
-  altered: false,
-}
-
 /**
  * What a critical hit's damage is, in a few words: every die twice, as dnd5e makes it by default,
  * or as the world's rules make it, such as under Powerful Critical; and where those rules change
@@ -391,18 +391,13 @@ function Toggle({
 }
 
 /** Damage's parts as a formula, as thrown: such as "2d12 + 4 Necrotic + 1d6 Fire". */
-export function formulaOf(
-  parts: SheetDamageRoll['parts'],
-  { doubled = false }: { doubled?: boolean } = {},
-): string {
+export function formulaOf(parts: SheetDamageRoll['parts']): string {
   return parts
     .map(({ terms, type }) => {
       const text = terms
         .map((term, index) => {
           const value =
-            'sides' in term
-              ? `${doubled ? term.count * 2 : term.count}d${term.sides}`
-              : String(term.flat)
+            'sides' in term ? `${term.count}d${term.sides}` : String(term.flat)
           if (index === 0) return term.sign < 0 ? `−${value}` : value
           return `${term.sign < 0 ? '−' : '+'} ${value}`
         })

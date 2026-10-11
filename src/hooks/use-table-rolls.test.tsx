@@ -10,6 +10,8 @@ import {
   LATE_FOLLOW,
   SEND_KEY,
   toFormulaRequest,
+  toHitDiceRequest,
+  toHitDieRequests,
   toRollRequest,
   useTableRolls,
 } from './use-table-rolls'
@@ -23,7 +25,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from './use-sheet-roller'
-import type { RollFeature, RollKind } from '@/types/roll'
+import type { FormulaSource, RollFeature, RollKind } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
 
 const perception: SheetRoll = {
@@ -128,26 +130,71 @@ const spent = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
   ...fields,
 })
 
-/** Three d10 hit dice spent at once, thrown together. */
+/** Two d10 hit dice and a d8 spent at once, thrown together, the largest first. */
 const hitDice: SheetFormulaRoll = {
-  ...hitDie,
-  label: 'Hit dice (3d10)',
-  times: 3,
+  label: 'Hit dice (2d10 + 1d8)',
+  terms: [],
+  sets: [
+    { terms: hitDie.terms, times: 2 },
+    {
+      terms: [
+        { sign: 1, count: 1, sides: 8 },
+        { sign: 1, flat: 3 },
+      ],
+      times: 1,
+    },
+  ],
+  healing: true,
+  minimum: 1,
+  source: {
+    kind: 'hitDice',
+    hitDice: [
+      { denomination: 'd10', count: 2 },
+      { denomination: 'd8', count: 1 },
+    ],
+  },
 }
 
-/** They landed on 6, 2 and 5, giving back 9, 5 and 8. */
+/** The d10s landed on 6 and 2, the d8 on 5, giving back 9, 5 and 8. */
 const spentThree = (): LocalFormula =>
   spent({
-    label: 'Hit dice (3d10)',
+    label: 'Hit dice (2d10 + 1d8)',
     total: 22,
     terms: [
-      { text: '3d10', values: [6, 2, 5], value: 13 },
+      { text: '2d10', values: [6, 2], value: 8 },
+      { text: '+1d8', values: [5], value: 5 },
       { text: '+9', values: [], value: 9 },
     ],
     times: 3,
   })
 
-/** Whether a roll sent threw the second of the three d10s spent at once, which landed on 2. */
+/** The three spent at once as a game from module 0.20.0 is asked to spend them. */
+const hitDiceRequest = {
+  kind: 'hitDice',
+  hitDice: [
+    { denomination: 'd10', count: 2 },
+    { denomination: 'd8', count: 1 },
+  ],
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [
+    { faces: 10, results: [6, 2] },
+    { faces: 8, results: [5] },
+  ],
+}
+
+/** A hit die as a game before module 0.20.0 is asked to spend one of several spent at once. */
+const oneHitDie = (denomination: string, faces: number, value: number) => ({
+  kind: 'hitDie',
+  denomination,
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [{ faces, results: [value] }],
+})
+
+/** Whether a roll sent threw the second of the three dice spent at once, a d10 that landed on 2. */
 const isSecond = (dice: unknown) =>
   JSON.stringify(dice) === JSON.stringify([{ faces: 10, results: [2] }])
 
@@ -364,16 +411,23 @@ describe('hooks/use-table-rolls', () => {
       })
     })
 
-    it('asks for one of several hit dice thrown together with its own die', () => {
-      const source = { kind: 'hitDie', denomination: 'd10' } as const
-      expect(
-        [0, 1, 2].map(
-          copy => toFormulaRequest(hitDice, source, spentThree(), copy).dice,
-        ),
-      ).toEqual([
-        [{ faces: 10, results: [6] }],
-        [{ faces: 10, results: [2] }],
-        [{ faces: 10, results: [5] }],
+    it('asks for hit dice spent at once by how many of each size, with the dice of each, in order', () => {
+      const source = hitDice.source as Extract<
+        FormulaSource,
+        { kind: 'hitDice' }
+      >
+      expect(toHitDiceRequest(source, spentThree())).toEqual(hitDiceRequest)
+    })
+
+    it('asks a game before module 0.20.0 for hit dice spent at once a hit die each, with its own die, the largest first', () => {
+      const source = hitDice.source as Extract<
+        FormulaSource,
+        { kind: 'hitDice' }
+      >
+      expect(toHitDieRequests(source, spentThree())).toEqual([
+        oneHitDie('d10', 10, 6),
+        oneHitDie('d10', 10, 2),
+        oneHitDie('d8', 8, 5),
       ])
     })
 
@@ -461,6 +515,45 @@ describe('hooks/use-table-rolls', () => {
           { type: 'fire', terms: [{ sign: 1, count: 2, sides: 6 }] },
         ],
       })
+    })
+
+    it("marks a critical hit's critical damage's dice added, as the game does, from its formula or its dice alone", () => {
+      // A greataxe's critical hit: 3d12 + 3, and the weapon's 1d6.
+      const greataxe = preview({
+        critical: true,
+        rolls: [
+          {
+            formula: '3d12 + 3 + 1d6',
+            type: 'slashing',
+            dice: [
+              { faces: 12, number: 3 },
+              { faces: 6, number: 1, added: true },
+            ],
+            perDie: 2,
+          },
+        ],
+      })
+      const { parts } = damageRollOf('Greataxe', {
+        use: 'req-1',
+        damage: greataxe,
+      })
+      expect(parts[0].terms).toEqual([
+        { sign: 1, count: 3, sides: 12 },
+        { sign: 1, flat: 3 },
+        { sign: 1, count: 1, sides: 6, added: true },
+      ])
+      // Where the app can't read its formula, its dice alone, marked as well.
+      const flavoured = damageRollOf('Greataxe', {
+        use: 'req-1',
+        damage: {
+          ...greataxe,
+          rolls: [{ ...greataxe.rolls[0], formula: '3d12 + 3 + 1d6[fire]' }],
+        },
+      })
+      expect(flavoured.parts[0].terms).toEqual([
+        { sign: 1, count: 3, sides: 12 },
+        { sign: 1, count: 1, sides: 6, added: true },
+      ])
     })
 
     it('keeps how the player changed it, now or as they used it, and how many dice the game throws for each added', () => {
@@ -1214,7 +1307,7 @@ describe('hooks/use-table-rolls', () => {
       expect(fetch).toHaveBeenCalledTimes(2)
     })
 
-    it('sends hit dice spent at once a request a die, each once the game has made the one before, keeping where they are as one', async () => {
+    it('sends hit dice spent at once to a game before module 0.20.0 a request a die, the largest first, each once the game has made the one before, keeping where they are as one', async () => {
       jest
         .mocked(fetch)
         .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
@@ -1291,7 +1384,12 @@ describe('hooks/use-table-rolls', () => {
 
       await advance(CHECK_EVERY)
       expect(posted()).toHaveLength(3)
-      expect(posted()[2].dice).toEqual([{ faces: 10, results: [5] }])
+      // The d8 last, by its own size.
+      expect(posted()[2]).toMatchObject({
+        kind: 'hitDie',
+        denomination: 'd8',
+        dice: [{ faces: 8, results: [5] }],
+      })
 
       // Once each is made, what they came to, and gave back, added up.
       await advance(CHECK_EVERY)
@@ -1397,6 +1495,7 @@ describe('hooks/use-table-rolls', () => {
 
       await advance(CHECK_EVERY * 2)
       expect(posted()).toHaveLength(4)
+      expect(posted()[3].dice).toEqual([{ faces: 8, results: [5] }])
       expect(state()).toEqual({
         status: 'done',
         visible: true,
@@ -1542,6 +1641,169 @@ describe('hooks/use-table-rolls', () => {
       expect(posted()).toHaveLength(1)
     })
 
+    it('sends hit dice spent at once as one request, from module 0.20.0, and follows it until the game has spent them all', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(respond(200, { id: 'req-1', status: 'rolling' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            total: 22,
+            healed: 20,
+            spent: { count: 3, made: 3 },
+          }),
+        )
+      const { result } = render(['hitDie', 'hitDice'])
+      const state = () => result.current.states.get('f1')
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      expect(posted()).toEqual([hitDiceRequest])
+      // As one, not a die at a time, which the game refuses for want of dice as one too.
+      expect(state()).toEqual({ status: 'sending', hitDice: true })
+      await advance(CHECK_EVERY)
+      expect(state()).toEqual({
+        id: 'req-1',
+        status: 'rolling',
+        requestId: 'req-1',
+        hitDice: true,
+      })
+
+      await advance(CHECK_EVERY)
+      expect(state()).toEqual({
+        id: 'req-1',
+        status: 'done',
+        requestId: 'req-1',
+        hitDice: true,
+        visible: true,
+        total: 22,
+        healed: 20,
+        spent: { count: 3, made: 3 },
+      })
+      await advance(CHECK_EVERY * 3)
+      expect(fetch).toHaveBeenCalledTimes(3)
+    })
+
+    it('sends one hit die alone as a hit die, where the game takes several at once too', () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render(['hitDie', 'hitDice'])
+
+      act(() => result.current.sendFormula(hitDie, spent()))
+
+      expect(posted()).toEqual([
+        {
+          kind: 'hitDie',
+          denomination: 'd10',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 10, results: [6] }],
+        },
+      ])
+    })
+
+    it('keeps how many of the hit dice sent as one the game made, where it stopped part way, and why not the rest', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'failed',
+            reason: 'full-hp',
+            visible: true,
+            total: 9,
+            healed: 9,
+            spent: { count: 3, made: 1 },
+          }),
+        )
+      const { result } = render(['hitDie', 'hitDice'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('f1')).toEqual({
+        id: 'req-1',
+        status: 'failed',
+        reason: 'full-hp',
+        requestId: 'req-1',
+        hitDice: true,
+        visible: true,
+        total: 9,
+        healed: 9,
+        spent: { count: 3, made: 1 },
+        together: { count: 3, made: 1 },
+      })
+      await advance(CHECK_EVERY * 3)
+      expect(fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps asking after hit dice sent as one that took the game too long, until it says how many it made', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'failed', reason: 'timeout' }),
+        )
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'failed', reason: 'timeout' }),
+        )
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-1',
+            status: 'failed',
+            reason: 'timeout',
+            visible: false,
+            spent: { count: 3, made: 1 },
+          }),
+        )
+      const { result } = render(['hitDie', 'hitDice'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY * 2)
+      // The game may yet say it made some.
+      expect(result.current.states.get('f1')).toEqual({
+        id: 'req-1',
+        status: 'failed',
+        reason: 'timeout',
+        requestId: 'req-1',
+        hitDice: true,
+      })
+
+      await advance(CHECK_EVERY)
+      expect(result.current.states.get('f1')).toEqual({
+        id: 'req-1',
+        status: 'failed',
+        reason: 'timeout',
+        requestId: 'req-1',
+        hitDice: true,
+        visible: false,
+        spent: { count: 3, made: 1 },
+        together: { count: 3, made: 1 },
+      })
+      // Settled, once it says.
+      await advance(CHECK_EVERY * 5)
+      expect(fetch).toHaveBeenCalledTimes(4)
+    })
+
+    it('keeps that hit dice refused for want of dice were sent as one, which wants fewer, not none of a size', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(422, { reason: 'no-hit-dice' }))
+      const { result } = render(['hitDie', 'hitDice'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(0)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'refused',
+        reason: 'no-hit-dice',
+        hitDice: true,
+      })
+    })
+
     it("sends an activity's own formula where the game takes it", () => {
       jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-2' }))
       const { result } = render(['formula'])
@@ -1561,6 +1823,16 @@ describe('hooks/use-table-rolls', () => {
 
     it.each<[string, RollKind[], SheetFormulaRoll]>([
       ['a hit die where the game takes only formulas', ['formula'], hitDie],
+      [
+        'hit dice spent at once where the game takes only formulas',
+        ['formula'],
+        hitDice,
+      ],
+      [
+        'a hit die alone where the game takes only several at once',
+        ['formula', 'hitDice'],
+        hitDie,
+      ],
       ['a formula where the game takes only hit dice', ['hitDie'], lantern],
       [
         'a formula the game cannot make',
@@ -1576,11 +1848,12 @@ describe('hooks/use-table-rolls', () => {
       expect(result.current.states.size).toBe(0)
     })
 
-    it("doesn't send a hit die or a formula from a device the player turned sending off on", () => {
-      const { result } = render(['hitDie', 'formula'])
+    it("doesn't send a hit die, hit dice or a formula from a device the player turned sending off on", () => {
+      const { result } = render(['hitDie', 'hitDice', 'formula'])
 
       act(() => result.current.setSending(false))
       act(() => result.current.sendFormula(hitDie, spent()))
+      act(() => result.current.sendFormula(hitDice, spentThree()))
       act(() => result.current.sendFormula(lantern, shone))
 
       expect(fetch).not.toHaveBeenCalled()
@@ -1774,6 +2047,7 @@ describe('hooks/use-table-rolls', () => {
           powerfulCritical: false,
           altered: false,
         },
+        criticalAdds: { dice: [0, 0], damage: [[], []] },
         modifiers: { extra: 0, maximize: true },
       }
       const thrown = thrownDamage({
@@ -1822,6 +2096,74 @@ describe('hooks/use-table-rolls', () => {
       )
       expect(sent()).not.toHaveProperty('critical')
       expect(sent()).not.toHaveProperty('modifiers')
+    })
+
+    it("sends what a critical hit adds to a description's damage as thrown: each part's own dice, then its critical damage's", () => {
+      jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-1' }))
+      const { result } = render(['textDamage'], ['modifiers'])
+      // As thrown: a greataxe's 3d12 + 4 with Savage Attacks' die, and the weapon's 1d6.
+      const roll: SheetDamageRoll = {
+        label: 'Greataxe damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 3, sides: 12 },
+              { sign: 1, flat: 4 },
+              { sign: 1, count: 1, sides: 6, added: true },
+            ],
+            type: 'slashing',
+          },
+        ],
+        text: { text: HASH, link: 0 },
+        critical: true,
+        criticalRule: {
+          perDie: 2,
+          multiplyNumeric: false,
+          powerfulCritical: false,
+          altered: false,
+          bonusDice: 'rolled',
+        },
+        criticalAdds: {
+          dice: [1],
+          damage: [[{ sign: 1, count: 1, sides: 6 }]],
+        },
+      }
+      const thrown = thrownDamage({
+        critical: true,
+        parts: [
+          {
+            type: 'slashing',
+            total: 26,
+            terms: [
+              { text: '3d12', values: [5, 7, 9], value: 21 },
+              { text: '+4', values: [], value: 4 },
+              { text: '+1d6', values: [1], value: 1 },
+            ],
+          },
+        ],
+      })
+
+      act(() => result.current.sendDamage(roll, thrown))
+
+      expect(sent()).toMatchObject({
+        kind: 'textDamage',
+        link: 0,
+        critical: true,
+        dice: [
+          { faces: 12, results: [5, 7, 9] },
+          { faces: 6, results: [1] },
+        ],
+      })
+
+      // Not offered as one, as without what it adds, it's the player's alone.
+      jest.mocked(fetch).mockClear()
+      act(() =>
+        result.current.sendDamage(
+          { ...roll, criticalAdds: undefined },
+          thrownDamage({ id: 'r3', critical: true }),
+        ),
+      )
+      expect(fetch).not.toHaveBeenCalled()
     })
 
     it("keeps a description's critical hit with its dice doubled here, rather than as the game makes one, from the game", () => {

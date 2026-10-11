@@ -737,3 +737,194 @@ export function sheetFavorites(): SheetFavorite[] {
     },
   ]
 }
+
+/** The levels a Wand of Magic Missiles casts its spell at, with 7 charges left, as dnd5e's. */
+export const WAND_LEVELS = [
+  { level: 1, charges: 1, short: false },
+  { level: 2, charges: 2, short: false },
+  { level: 3, charges: 3, short: false },
+]
+
+/** Whom an activity is used at: so many creatures, more for each level higher, unless said. */
+const castTargets = (
+  count: number | null,
+  perLevel: number | null = null,
+  affects = 'creature',
+) => ({ self: false, area: false, count, perLevel, affects })
+
+/**
+ * Spells cast from items, as the module sends them from 0.20.0: a Wand of Magic Missiles, its spell
+ * cast higher for more of its charges, and a weapon that casts Hex, whose Bonus Hex Damage, used
+ * after it's cast, spends nothing; each Cast listed as an action, with the copy of its spell the
+ * Spells tab lists under its item.
+ */
+export function castingSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  const wand = { id: 'mm-wand', name: 'Wand of Magic Missiles' }
+  const flame = { id: 'flame', name: 'Bardic Flame' }
+  const darts = [{ formula: '1d4 + 1', type: 'Force', healing: false }]
+  const strike = [{ formula: '1d6 + 1', type: 'Bludgeoning', healing: false }]
+  const necrotic = [{ formula: '1d6', type: 'Necrotic', healing: false }]
+  const curse = { id: 'cast-hex', type: 'utility' as const }
+  const hexDamage = {
+    id: 'hex-dmg',
+    name: 'Bonus Hex Damage',
+    type: 'damage',
+    activation: 'Special',
+    range: '90 ft',
+    target: null,
+    toHit: null,
+    attackId: null,
+    activity: {
+      id: 'hex-dmg',
+      type: 'damage' as const,
+      targets: castTargets(1),
+    },
+    save: null,
+    damage: necrotic,
+    consumesSlot: false,
+    uses: null,
+  }
+  return characterSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            ...wand,
+            type: 'consumable',
+            range: '120 ft',
+            activity: {
+              id: 'cast-mm',
+              type: 'damage',
+              targets: castTargets(3, 1),
+            },
+            damage: darts,
+            cast: {
+              level: 1,
+              concentration: false,
+              charges: 1,
+              short: false,
+              levels: WAND_LEVELS,
+            },
+            spellId: 'mm',
+            uses: { value: 7, max: 7, recovery: 'Dawn' },
+          }),
+          sheetAction({
+            ...flame,
+            type: 'weapon',
+            range: 'reach 5 ft',
+            toHit: 5,
+            attackId: 'strike',
+            damage: strike,
+            uses: { value: 4, max: 10, recovery: 'Dawn' },
+            activities: [
+              {
+                id: 'strike',
+                name: 'Attack',
+                type: 'attack',
+                activation: 'Action',
+                range: 'reach 5 ft',
+                target: null,
+                toHit: 5,
+                attackId: 'strike',
+                save: null,
+                damage: strike,
+                uses: null,
+              },
+              {
+                id: 'cast-hex',
+                name: 'Hex',
+                type: 'cast',
+                activation: 'Bonus Action',
+                range: '90 ft',
+                target: null,
+                toHit: null,
+                attackId: null,
+                activity: {
+                  ...curse,
+                  targets: castTargets(1, null, 'enemy'),
+                },
+                save: null,
+                damage: [],
+                cast: {
+                  level: 1,
+                  concentration: true,
+                  charges: 1,
+                  short: false,
+                },
+                spellId: 'hex',
+                uses: { value: 4, max: 10, recovery: 'Dawn' },
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+    spells: [
+      {
+        id: 'item',
+        label: 'Item Spells',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'mm',
+            name: 'Magic Missile',
+            school: 'Evocation',
+            range: '120 ft',
+            castFrom: wand,
+            activity: {
+              id: 'mm-darts',
+              type: 'damage',
+              targets: castTargets(3, 1),
+            },
+            toHit: null,
+            save: null,
+            damage: darts,
+          }),
+          sheetSpell({
+            id: 'hex',
+            name: 'Hex',
+            school: 'Enchantment',
+            activation: '1 Bonus Action',
+            range: '90 ft',
+            concentration: true,
+            castFrom: flame,
+            toHit: null,
+            activity: {
+              id: 'hex-curse',
+              type: 'utility',
+              targets: castTargets(1, null, 'enemy'),
+            },
+            save: null,
+            damage: [],
+            activities: [
+              {
+                id: 'hex-curse',
+                name: 'Cast',
+                type: 'utility',
+                activation: '1 Bonus Action',
+                range: '90 ft',
+                target: null,
+                toHit: null,
+                attackId: null,
+                activity: {
+                  id: 'hex-curse',
+                  type: 'utility',
+                  targets: castTargets(1, null, 'enemy'),
+                },
+                save: null,
+                damage: [],
+                uses: null,
+              },
+              hexDamage,
+            ],
+          }),
+        ],
+      },
+    ],
+    ...fields,
+  })
+}

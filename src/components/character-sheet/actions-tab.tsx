@@ -34,6 +34,7 @@ import {
   verbOf,
   viewOf,
   type ActionRows,
+  type OtherActivity,
   type TableDamage,
 } from './action-entry'
 import { FavoriteStar, useFavorite } from './favorite-mark'
@@ -44,16 +45,13 @@ import { UsesLeft } from './uses-left'
 import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
+import { castOf } from '@/utils/casts'
 import type {
   SheetDamageRoll,
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
-import type {
-  SheetAction,
-  SheetActionSection,
-  SheetActivity,
-} from '@/types/sending-stone'
+import type { SheetAction, SheetActionSection } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 
@@ -126,7 +124,7 @@ export function ActionsTab({
 }: Readonly<Props>) {
   const { rows, dialogs } = useActionRows({
     characterId,
-    spellbook: sheet.spells,
+    sheet,
     onRoll,
     onRollDamage,
     onRollFormula,
@@ -501,12 +499,13 @@ function ActionTableRow({
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
+  const cast = castOf(action, rows.casts)
   const { toHit, save, uses } = action
-  const others = otherActivities(action)
+  const others = otherActivities(action, rows.spellbook)
   // Its range has a column of its own.
   const detail = joinParts(
     action.activityName,
-    castNote(action.cast),
+    castNote(cast),
     view.spent && 'No slots left',
     firstInFoundry(action) && 'Used in Foundry',
     !open && moreNote(others.length),
@@ -526,7 +525,7 @@ function ActionTableRow({
             onClick={() => setOpen(!open)}
             className={clsx(
               'flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-primary/5',
-              (view.spent || action.cast?.short) && 'opacity-60',
+              (view.spent || cast?.short) && 'opacity-60',
             )}
           >
             <EntryIcon
@@ -604,9 +603,8 @@ function ActionTableRow({
       {open &&
         others.map(other => (
           <ActivityTableRow
-            key={other.activity.id}
-            activity={other.activity}
-            action={other.action}
+            key={other.key}
+            other={other}
             parent={action}
             rows={rows}
             hidden={hidden}
@@ -637,27 +635,30 @@ function ActionTableRow({
  * what there is to read of it from beside its name.
  */
 function ActivityTableRow({
-  activity,
-  action,
+  other,
   parent,
   rows,
   hidden,
   section,
 }: Readonly<{
-  activity: SheetActivity
-  /** The activity as an action of its own. */
-  action: SheetAction
+  other: OtherActivity
   parent: SheetAction
   rows: ActionRows
   hidden: boolean
   section: string
 }>) {
+  const { activity, action } = other
   const view = viewOf(action, rows.spellbook, rows.use)
+  const cast = castOf(action, rows.casts)
   const { name, toHit, save } = action
   const uses = ownUses(activity, parent)
   // Its range has a column of its own.
   const detail = joinParts(
-    ...activityDetail(activity, parent, view.spent, { section, range: false }),
+    ...activityDetail(activity, parent, view.spent, {
+      section,
+      range: false,
+      cast,
+    }),
   )
   return (
     <tr hidden={hidden}>
@@ -665,16 +666,17 @@ function ActivityTableRow({
         <span
           className={clsx(
             'block border-l border-border py-0.5 pl-2.5',
-            (view.spent || dimmed(activity)) && 'opacity-60',
+            (view.spent || dimmed(activity, cast)) && 'opacity-60',
           )}
         >
           <span className='flex items-center gap-1'>
-            <span className='truncate'>{activity.name}</span>
+            <span className='truncate'>{other.name}</span>
             <ActivityInfoButton
               activity={activity}
               action={action}
               parent={parent}
               rows={rows}
+              spellId={other.spellId}
             />
           </span>
           {detail && (

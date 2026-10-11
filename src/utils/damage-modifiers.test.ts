@@ -1,7 +1,9 @@
 /* eslint-disable unicorn/no-null -- a preview's roll of no kind of its own has null */
 import {
   changes,
+  criticalOffered,
   criticalParts,
+  EVERY_DIE_TWICE,
   firstDie,
   linkDamage,
   modifiedDice,
@@ -9,7 +11,9 @@ import {
   reshapes,
   withModifiers,
 } from './damage-modifiers'
-import type { DamagePreview } from '@/types/sending-stone'
+import { formulaTerms } from '@/utils/formulas'
+import type { CriticalRule, DamagePreview } from '@/types/sending-stone'
+import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /** Toll the Dead's damage, 1d8 necrotic, and a second part, 1d6 + 2 fire. */
 const parts = [
@@ -45,6 +49,24 @@ const critical: DamagePreview = {
     },
   ],
 }
+
+/** Damage's parts as written, such as "3d12 + 4 + 1d6". */
+const written = (thrown: { terms: ExtraTerm[] }[]) =>
+  thrown
+    .map(({ terms }) =>
+      terms
+        .map((term, index) => {
+          const value =
+            'sides' in term ? `${term.count}d${term.sides}` : `${term.flat}`
+          if (index === 0) return term.sign < 0 ? `-${value}` : value
+          return `${term.sign < 0 ? '-' : '+'} ${value}`
+        })
+        .join(' '),
+    )
+    .join(' + ')
+
+/** A part as the app reads its formula. */
+const partOf = (formula: string) => ({ terms: formulaTerms(formula) ?? [] })
 
 describe('utils/damage-modifiers', () => {
   it('says whether changes change anything, and whether they change the dice', () => {
@@ -244,5 +266,323 @@ describe('utils/damage-modifiers', () => {
         parts: [...link.parts, { formula: '1d3', types: [] }],
       }),
     ).toBeUndefined()
+  })
+  describe('what a critical hit adds', () => {
+    /** A greataxe's 1d12 + 4, to which Savage Attacks adds a die, and the weapon 1d6. */
+    const greataxe = {
+      parts: [{ formula: '1d12 + 4', types: ['slashing'] }],
+      healing: false,
+      criticalAdds: { dice: [1], damage: ['1d6'] },
+    }
+
+    const POWERFUL: CriticalRule = {
+      perDie: 1,
+      multiplyNumeric: false,
+      powerfulCritical: true,
+      altered: false,
+      bonusDice: 'rolled',
+    }
+
+    it.each<[string, CriticalRule, string]>([
+      [
+        'as dnd5e does by default, its extra die thrown',
+        EVERY_DIE_TWICE,
+        '3d12 + 4 + 1d6',
+      ],
+      [
+        'under Powerful Critical, its extra die thrown',
+        POWERFUL,
+        '2d12 + 4 + 12 + 1d6',
+      ],
+      [
+        'with its numbers doubled',
+        { ...EVERY_DIE_TWICE, multiplyNumeric: true },
+        '3d12 + 8 + 1d6',
+      ],
+      [
+        'its extra die at its most, as Midi-QOL’s maxCrit',
+        { ...POWERFUL, bonusDice: 'maximized' },
+        '1d12 + 4 + 12 + 12 + 1d6',
+      ],
+      [
+        'its extra die left out, as Midi-QOL’s rules that ignore it',
+        { ...POWERFUL, powerfulCritical: false, bonusDice: 'ignored' },
+        '1d12 + 4 + 1d6',
+      ],
+    ])('adds them %s', (_, rule, formula) => {
+      const adds = criticalOffered(greataxe, rule)
+      expect(adds).toEqual({
+        dice: [1],
+        damage: [[{ sign: 1, count: 1, sides: 6 }]],
+      })
+      const thrown = criticalParts(
+        [partOf('1d12 + 4')],
+        rule,
+        adds || undefined,
+      )
+      expect(written(thrown)).toBe(formula)
+      // The critical damage's dice are marked, never its first die.
+      expect(thrown[0].terms.at(-1)).toEqual({
+        sign: 1,
+        count: 1,
+        sides: 6,
+        added: true,
+      })
+    })
+
+    it('throws its extra dice at the size its first die is made, once changed', () => {
+      const adds = criticalOffered(greataxe, EVERY_DIE_TWICE)
+      const changed = withModifiers([partOf('1d12 + 4')], {
+        extra: 1,
+        faces: 10,
+      })
+      expect(
+        written(criticalParts(changed, EVERY_DIE_TWICE, adds || undefined)),
+      ).toBe('5d10 + 4 + 1d6')
+    })
+
+    it('plans its dice as the game will throw them, the critical damage’s marked, and changes only its own first die', () => {
+      const adds = criticalOffered(greataxe, EVERY_DIE_TWICE) || undefined
+      const preview = linkDamage(greataxe, EVERY_DIE_TWICE, adds)
+      expect(preview).toEqual({
+        critical: true,
+        plannable: true,
+        healing: false,
+        rolls: [
+          {
+            formula: '1d12 + 4',
+            type: null,
+            perDie: 2,
+            dice: [
+              { faces: 12, number: 3 },
+              { faces: 6, number: 1, added: true },
+            ],
+          },
+        ],
+      })
+      expect(preview && modifiedDice(preview, { extra: 1, faces: 10 })).toEqual(
+        [
+          { faces: 10, number: 5 },
+          { faces: 6, number: 1, added: true },
+        ],
+      )
+    })
+
+    it('adds no more dice than one roll may throw, its extra dice counted', () => {
+      // Brutal Critical's three extra dice on 2d6 make 7d6: eight more of it fit, twice each.
+      const adds = { dice: [3], damage: [[]] }
+      expect(
+        mostExtra(criticalParts([partOf('2d6')], EVERY_DIE_TWICE, adds), 2),
+      ).toBe(16)
+    })
+
+    it('never takes a die of critical damage as the first die', () => {
+      const added = {
+        sign: 1 as const,
+        count: 1,
+        sides: 6 as const,
+        added: true as const,
+      }
+      expect(
+        firstDie([{ terms: [{ sign: 1, flat: 3 }, added] }]),
+      ).toBeUndefined()
+      expect(
+        firstDie([{ terms: [added, { sign: 1, count: 2, sides: 8 }] }]),
+      ).toEqual({ sign: 1, count: 2, sides: 8 })
+      // Nor does a change go to it.
+      expect(withModifiers([{ terms: [added] }], { extra: 1 })).toEqual([
+        { terms: [added] },
+      ])
+    })
+
+    it('changes no die of critical damage in the game’s preview, and nothing where its first roll has no die of its own', () => {
+      // "3 + 1d6": a number, and the weapon's critical damage.
+      const numbers: DamagePreview = {
+        critical: true,
+        plannable: true,
+        rolls: [
+          {
+            formula: '3 + 1d6',
+            type: 'Bludgeoning',
+            dice: [{ faces: 6, number: 1, added: true }],
+            perDie: 2,
+          },
+        ],
+      }
+      expect(modifiedDice(numbers)).toEqual([
+        { faces: 6, number: 1, added: true },
+      ])
+      expect(modifiedDice(numbers, { maximize: true })).toEqual([
+        { faces: 6, number: 1, added: true },
+      ])
+      expect(modifiedDice(numbers, { extra: 1 })).toBeUndefined()
+      expect(modifiedDice(numbers, { faces: 8 })).toBeUndefined()
+      // Its own die changed where it is, after the critical damage's, as Midi-QOL may place them.
+      expect(
+        modifiedDice(
+          {
+            ...numbers,
+            rolls: [
+              {
+                ...numbers.rolls[0],
+                dice: [
+                  { faces: 6, number: 1, added: true },
+                  { faces: 8, number: 2 },
+                ],
+              },
+            ],
+          },
+          { extra: 1 },
+        ),
+      ).toEqual([
+        { faces: 6, number: 1, added: true },
+        { faces: 8, number: 4 },
+      ])
+    })
+
+    it('offers a critical hit with nothing added where its link says nothing, as before', () => {
+      expect(
+        criticalOffered(
+          {
+            parts: [
+              { formula: '2d6 + 3', types: [] },
+              { formula: '1d4', types: [] },
+            ],
+            healing: false,
+          },
+          { ...EVERY_DIE_TWICE, bonusDice: undefined },
+        ),
+      ).toEqual({ dice: [0, 0], damage: [[], []] })
+    })
+
+    it.each<[string, CriticalRule['bonusDice']]>([
+      ['can’t say', null],
+      ['is from a module before 0.20.0', undefined],
+    ])(
+      'offers additions of numbers alone where the world’s rule %s, but none with dice',
+      (_, bonusDice) => {
+        const rule = { ...EVERY_DIE_TWICE, bonusDice }
+        // A javelin's +4.
+        const javelin = {
+          parts: [{ formula: '1d6 + 4', types: [] }],
+          healing: false,
+          criticalAdds: { dice: [0], damage: ['4'] },
+        }
+        expect(criticalOffered(javelin, rule)).toEqual({
+          dice: [0],
+          damage: [[{ sign: 1, flat: 4 }]],
+        })
+        expect(
+          written(
+            criticalParts(
+              [partOf('1d6 + 4')],
+              rule,
+              criticalOffered(javelin, rule) || undefined,
+            ),
+          ),
+        ).toBe('2d6 + 4 + 4')
+        expect(criticalOffered(greataxe, rule)).toBe(false)
+        expect(
+          criticalOffered(
+            { ...greataxe, criticalAdds: { dice: [1], damage: [''] } },
+            rule,
+          ),
+        ).toBe(false)
+        expect(
+          criticalOffered(
+            { ...greataxe, criticalAdds: { dice: [0], damage: ['1d6'] } },
+            rule,
+          ),
+        ).toBe(false)
+      },
+    )
+
+    it.each<
+      [
+        string,
+        Parameters<typeof criticalOffered>[0],
+        CriticalRule | null | undefined,
+      ]
+    >([
+      ['for healing', { ...greataxe, healing: true }, EVERY_DIE_TWICE],
+      [
+        'for damage the game marks as never a critical hit’s',
+        { ...greataxe, critical: false, criticalAdds: undefined },
+        EVERY_DIE_TWICE,
+      ],
+      [
+        'where the sheet doesn’t say how the world makes one',
+        greataxe,
+        undefined,
+      ],
+      ['where it says the world can’t', greataxe, null],
+      [
+        'with extra dice for a part whose first term is a number',
+        {
+          ...greataxe,
+          parts: [{ formula: '3 + 1d6', types: [] }],
+          criticalAdds: { dice: [1], damage: [''] },
+        },
+        EVERY_DIE_TWICE,
+      ],
+      [
+        'with extra dice for a part whose first dice are taken away',
+        {
+          ...greataxe,
+          parts: [{ formula: '-1d4 + 2d6', types: [] }],
+          criticalAdds: { dice: [1], damage: [''] },
+        },
+        EVERY_DIE_TWICE,
+      ],
+      [
+        'with critical damage the app can’t read',
+        { ...greataxe, criticalAdds: { dice: [1], damage: ['1d3'] } },
+        EVERY_DIE_TWICE,
+      ],
+      [
+        'with a part the app can’t read',
+        { ...greataxe, parts: [{ formula: '1d3 + 4', types: [] }] },
+        EVERY_DIE_TWICE,
+      ],
+      [
+        'where a die would be thrown more than 40 times',
+        { ...greataxe, parts: [{ formula: '20d12', types: [] }] },
+        EVERY_DIE_TWICE,
+      ],
+      [
+        'where it would throw more than 20 kinds of dice',
+        {
+          parts: Array.from({ length: 10 }, () => ({
+            formula: '1d4 + 1d6',
+            types: [],
+          })),
+          healing: false,
+          criticalAdds: {
+            dice: Array.from({ length: 10 }, () => 0),
+            damage: ['1d8', ...Array.from({ length: 9 }, () => '')],
+          },
+        },
+        EVERY_DIE_TWICE,
+      ],
+    ])('offers no critical hit %s', (_, link, rule) => {
+      expect(criticalOffered(link, rule)).toBe(false)
+    })
+
+    it('offers one up to the most one roll may throw', () => {
+      // 19d12, twice, and one die more: 39.
+      expect(
+        criticalOffered(
+          { ...greataxe, parts: [{ formula: '19d12', types: [] }] },
+          EVERY_DIE_TWICE,
+        ),
+      ).toEqual({ dice: [1], damage: [[{ sign: 1, count: 1, sides: 6 }]] })
+      // Extra dice the rules leave out add nothing.
+      expect(
+        criticalOffered(
+          { ...greataxe, parts: [{ formula: '20d12', types: [] }] },
+          { ...EVERY_DIE_TWICE, bonusDice: 'ignored' },
+        ),
+      ).not.toBe(false)
+    })
   })
 })

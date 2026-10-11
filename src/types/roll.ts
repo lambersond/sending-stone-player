@@ -65,14 +65,18 @@ export type UseSource = {
 }
 
 /**
- * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", an
- * item's activity's own formula, such as a light's radius, or a description's own roll, by its
- * link.
+ * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
+ * several spent at once, how many of each size, the largest first; an item's activity's own
+ * formula, such as a light's radius; or a description's own roll, by its link.
  */
 export type FormulaSource =
   | { kind: 'hitDie'; denomination: string }
+  | { kind: 'hitDice'; hitDice: HitDiceSpent[] }
   | { kind: 'formula'; item: string; activity: string }
   | ({ kind: 'textRoll' } & TextLink)
+
+/** Hit dice of one size spent at once: the size, such as "d10", and how many. */
+export type HitDiceSpent = { denomination: string; count: number }
 
 /**
  * A link in one of the character's descriptions the game acts on, by which the game finds what it
@@ -123,14 +127,20 @@ export type RollRequestInput = {
    */
   modifiers?: DamageModifiers
   /**
-   * For a description's damage, a critical hit's, as the world's rules make it, from module 0.19.0.
-   * Never healing.
+   * For a description's damage, a critical hit's, as the world's rules make it, from module 0.19.0;
+   * from module 0.20.0, with what a critical hit adds to it, its dice after each part's own. Never
+   * healing.
    */
   critical?: true
   /** For a saving throw the game asked for, the prompt it answers. */
   prompt?: string
   /** For a hit die, its size, such as "d10". */
   denomination?: string
+  /**
+   * For several hit dice spent at once, from module 0.20.0, how many of each size, each size once,
+   * the largest first; its dice, a roll of each size's in the same order, are spent in that order.
+   */
+  hitDice?: HitDiceSpent[]
   /**
    * From a link in a description: the description's hash, for an ask, a description's damage or
    * roll, or a saving throw or check it calls for, the player's own.
@@ -166,6 +176,15 @@ export type RollRequestView = {
   damage?: DamagePreview | null
   /** For a saving throw the game asked for, whether it succeeded, where its player may know. */
   outcome?: SaveOutcome
-  /** For a hit die, the hit points it gave back in the game, when its player may see it. */
+  /**
+   * For a hit die or hit dice, the hit points they gave back in the game, when its player may see
+   * them.
+   */
   healed?: number
+  /**
+   * For hit dice spent at once, how many were asked for and how many the game made, from module
+   * 0.20.0, where it made some: all of them, where their player may see them; or where it stopped
+   * part way, as at full hit points, how many it made before, even of those they can't see.
+   */
+  spent?: { count: number; made: number }
 }

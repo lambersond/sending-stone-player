@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
 import { prismaMock } from '../../jest.setup'
-import { getSheetText } from './sheet-texts'
+import { getSheetText, saveSheetTexts } from './sheet-texts'
 import { fullerSheet, TEXTS } from '@/mocks/sending-stone'
 import type { Character } from '@/types/character'
 
@@ -12,6 +12,28 @@ const character = {
 } as Character
 
 describe('db/sheet-texts', () => {
+  describe('saveSheetTexts', () => {
+    it('replaces what it holds of a description sent again, kept anew, as every hello sends them all', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        origin: 'https://foundry.example',
+      } as any)
+      // What a critical hit adds, which an app before kept none of, held now.
+      const span =
+        '<span class="ss-damage roll" data-n="0" data-formulas="1d12 + 4" data-critical="false" data-critical-dice="1" data-critical-damage="1d6">1d12 + 4</span>'
+
+      await saveSheetTexts(prismaMock as any, 'c1', {
+        [TEXTS.secondWind]: `<p>It deals ${span}<script>alert(1)</script>.</p>`,
+      })
+
+      const html = `<p>It deals ${span}.</p>`
+      expect(prismaMock.sheetText.upsert).toHaveBeenCalledWith({
+        where: { campaignHash: { campaignId: 'c1', hash: TEXTS.secondWind } },
+        create: { campaignId: 'c1', hash: TEXTS.secondWind, html },
+        update: { html },
+      })
+    })
+  })
+
   describe('getSheetText', () => {
     it("gives a description on the character's own sheet", async () => {
       prismaMock.actorSheet.findUnique.mockResolvedValue({
