@@ -55,6 +55,31 @@ describe('components/modal', () => {
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 
+  it('closes only for its own close, not one of a dialog opened inside it, which React hands it too', () => {
+    const outer = jest.fn()
+    const inner = jest.fn()
+    render(
+      <Modal open onClose={outer} title='Starry Wisp'>
+        <Modal open onClose={inner} title='Modify damage'>
+          <p>Dice</p>
+        </Modal>
+      </Modal>,
+    )
+
+    // The browser closes the inner one on Escape, firing close at it alone.
+    fireEvent(
+      screen.getByRole('dialog', { name: 'Modify damage' }),
+      new Event('close'),
+    )
+    expect(inner).toHaveBeenCalledTimes(1)
+    expect(outer).not.toHaveBeenCalled()
+    fireEvent(
+      screen.getByRole('dialog', { name: 'Starry Wisp' }),
+      new Event('close'),
+    )
+    expect(outer).toHaveBeenCalledTimes(1)
+  })
+
   it('says under its title what it is given, such as where its content comes from', () => {
     const { rerender } = render(
       <Modal

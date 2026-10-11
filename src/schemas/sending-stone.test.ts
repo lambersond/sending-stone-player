@@ -107,6 +107,19 @@ const rulesOf = (rules?: unknown) =>
     }) as any
   ).data.character.sheet.rules
 
+/** How the world rolls a critical hit's damage, as a character's sheet says and as read. */
+const criticalOf = (...critical: unknown[]) =>
+  (
+    parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...characterSheet(),
+          ...(critical.length > 0 && { critical: critical[0] }),
+        },
+      },
+    }) as any
+  ).data.character.sheet
 /** What came of an attack, as a command's result says and as read. */
 const attackOf = (attack: unknown) =>
   (
@@ -602,6 +615,49 @@ describe('schemas/sending-stone', () => {
     expect(rulesOf('2014')).toBeNull()
     expect(rulesOf(null)).toBeNull()
     expect(rulesOf()).toBeUndefined()
+  })
+
+  it("reads how the world rolls a critical hit's damage, from module 0.19.0, as none when it can't say, and absent before", () => {
+    const rule = {
+      perDie: 2,
+      multiplyNumeric: false,
+      powerfulCritical: false,
+      altered: false,
+    }
+    expect(criticalOf(rule).critical).toEqual(rule)
+    const powerful = {
+      perDie: 1,
+      multiplyNumeric: true,
+      powerfulCritical: true,
+      altered: false,
+    }
+    expect(criticalOf(powerful).critical).toEqual(powerful)
+    // Midi-QOL's rules that roll its dice at their highest.
+    expect(criticalOf({ ...rule, altered: true }).critical).toEqual({
+      ...rule,
+      altered: true,
+    })
+    expect(criticalOf(null).critical).toBeNull()
+    // From before it said whether the dice are altered.
+    const unaltered = {
+      perDie: 2,
+      multiplyNumeric: false,
+      powerfulCritical: false,
+    }
+    for (const junk of [
+      'double',
+      { ...rule, perDie: 0 },
+      { ...rule, perDie: 1.5 },
+      { ...rule, perDie: 5 },
+      { ...rule, multiplyNumeric: 'yes' },
+      { ...rule, altered: 'no' },
+      unaltered,
+      { perDie: 2 },
+    ]) {
+      expect(criticalOf(junk).critical).toBeNull()
+    }
+    // A sheet from before module 0.19.0, which says nothing of it, is told from one that can't say.
+    expect(criticalOf()).not.toHaveProperty('critical')
   })
 
   it('reads features, conditions and effects, as sent from module 0.6.0', () => {

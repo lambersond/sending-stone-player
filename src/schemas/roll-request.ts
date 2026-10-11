@@ -87,10 +87,12 @@ const rolledDiceSchema = z.strictObject({
  * any, and throws no dice. Their damage
  * names the attack or use, the dice it said its damage throws, which are checked against them when
  * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
- * then changed so. A saving throw the game asked for names the prompt it answers; a saving throw
- * or check a description calls for may name its link. A hit die names its size, and throws its one
- * die; a feature's own formula names its item and activity, and throws the dice its formula does,
- * which are checked against it when it's asked for.
+ * then changed so. A description's damage names its link, and may be changed so too, or be a
+ * critical hit's, as the world's rules make one, which an attack's damage never says: its attack
+ * did. A saving throw the game asked for names the prompt it answers; a saving throw or check a
+ * description calls for may name its link. A hit die names its size, and throws its one die; a
+ * feature's own formula names its item and activity, and throws the dice its formula does, which
+ * are checked against it when it's asked for.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -114,6 +116,7 @@ export const rollRequestSchema = z
       .max(MAX_DAMAGE_TERMS)
       .optional(),
     modifiers: modifiersSchema.optional(),
+    critical: z.literal(true).optional(),
     prompt: z.string().regex(PROMPT_ID).optional(),
     denomination: z.string().regex(HIT_DIE).optional(),
     text: z.string().regex(TEXT_HASH).optional(),
@@ -205,11 +208,19 @@ export const rollRequestSchema = z
         message: 'Only damage has kinds to choose',
       })
     }
-    if (request.kind !== 'damage' && request.modifiers !== undefined) {
+    if (!damaging && request.modifiers !== undefined) {
       context.addIssue({
         code: 'custom',
         path: ['modifiers'],
         message: 'Only damage is changed so',
+      })
+    }
+    if (request.kind !== 'textDamage' && request.critical !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['critical'],
+        message:
+          "Only a description's damage is rolled as a critical hit's here",
       })
     }
     if (request.kind !== 'save' && request.prompt !== undefined) {

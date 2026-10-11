@@ -241,6 +241,7 @@ describe('schemas/roll-request', () => {
     ['at targets', { targets: [] }],
     ['with kinds of damage', { types: ['fire'] }],
     ['with its damage changed', { modifiers: { maximize: true } }],
+    ['as a critical hit’s', { critical: true }],
   ])('refuses an attack %s', (_name, fields) => {
     expect(parseAttack(fields).success).toBe(false)
   })
@@ -365,6 +366,7 @@ describe('schemas/roll-request', () => {
     ['with ammunition', { ammunition: 'arrows' }],
     ['with kinds of damage', { types: ['fire'] }],
     ['changed as damage is', { modifiers: { maximize: true } }],
+    ['as a critical hit’s', { critical: true }],
     ['following an attack', { use: 'req-1' }],
   ])('refuses a formula %s', (_name, fields) => {
     expect(parseFormula(fields).success).toBe(false)
@@ -446,6 +448,8 @@ describe('schemas/roll-request', () => {
     ['with dice taken away', { modifiers: { extra: -1 } }],
     ['with more dice than a roll throws', { modifiers: { extra: 41 } }],
     ['changed some other way', { modifiers: { halve: true } }],
+    // Its attack said whether it was a critical hit.
+    ['as a critical hit’s', { critical: true }],
   ])('refuses damage %s', (_name, fields) => {
     expect(parseDamage(fields).success).toBe(false)
   })
@@ -533,6 +537,8 @@ describe('schemas/roll-request', () => {
       ['with kinds of damage', { types: ['fire'] }],
       ['following an attack', { use: 'req-1' }],
       ['naming a DC', { dc: 15 }],
+      ['changed as damage may be', { modifiers: { extra: 1 } }],
+      ['as a critical hit’s', { critical: true }],
     ])('refuses an ask %s', (_name, fields) => {
       expect(parseAsk(fields).success).toBe(false)
     })
@@ -567,7 +573,6 @@ describe('schemas/roll-request', () => {
       ],
       ['with a result past the die', { dice: [{ faces: 6, results: [7] }] }],
       ['with a die thrown for nothing', { dice: [{ faces: 6, results: [] }] }],
-      ['changed as damage may be', { modifiers: { extra: 1 } }],
       ['with a kind of damage that is not one', { types: ['fire damage'] }],
       ['following an attack', { use: 'req-1' }],
       ['naming an ability', { key: 'dex' }],
@@ -578,6 +583,40 @@ describe('schemas/roll-request', () => {
       expect(
         rollRequestSchema.safeParse({ ...textDamage, ...fields }).success,
       ).toBe(false)
+      expect(
+        rollRequestSchema.safeParse({ ...textRoll, ...fields }).success,
+      ).toBe(false)
+    })
+
+    it("takes a description's damage changed, as an attack's may be, or as a critical hit's, from module 0.19.0", () => {
+      for (const fields of [
+        { modifiers: { extra: 1 } },
+        { modifiers: { extra: 2, faces: 8, maximize: true } },
+        { critical: true },
+        { critical: true, modifiers: { extra: 1, faces: 10 } },
+      ]) {
+        expect(
+          rollRequestSchema.safeParse({ ...textDamage, ...fields }).data,
+        ).toEqual({ ...textDamage, ...fields })
+      }
+    })
+
+    it.each([
+      ['changed so that it can’t be', { modifiers: { faces: 7 } }],
+      ['with more dice than a roll may throw', { modifiers: { extra: 41 } }],
+      ['changed in some other way', { modifiers: { minimize: true } }],
+      ['as anything but a critical hit’s', { critical: false }],
+      ['as a critical hit’s in words', { critical: 'true' }],
+    ])("refuses a description's damage %s", (_name, fields) => {
+      expect(
+        rollRequestSchema.safeParse({ ...textDamage, ...fields }).success,
+      ).toBe(false)
+    })
+
+    it.each([
+      ['changed as damage may be', { modifiers: { extra: 1 } }],
+      ['as a critical hit’s', { critical: true }],
+    ])("refuses a description's own roll %s", (_name, fields) => {
       expect(
         rollRequestSchema.safeParse({ ...textRoll, ...fields }).success,
       ).toBe(false)

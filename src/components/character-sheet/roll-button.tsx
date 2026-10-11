@@ -26,8 +26,8 @@ const DRIFT = 10
 type Props<T> = {
   /** What it rolls: a check or save, or an action's damage. */
   target: T
-  /** Rolls it as it stands. */
-  onRoll: (target: T) => void
+  /** Rolls it as it stands, from this button. */
+  onRoll: (target: T, anchor: HTMLElement) => void
   /** Offers other ways to roll it, where on this button the player clicked or pressed. */
   onMenu: (anchor: HTMLElement, target: T, point?: MenuPoint) => void
   label: string
@@ -78,12 +78,12 @@ export function RollButton<T = RollTarget>({
         'touch-manipulation select-none [-webkit-touch-callout:none]',
         className,
       )}
-      onClick={() => {
+      onClick={event => {
         if (press.current.opened) {
           press.current.opened = false
           return
         }
-        onRoll(target)
+        onRoll(target, event.currentTarget)
       }}
       onContextMenu={event => {
         // A disabled button offers nothing, as React still tells it of a right-click.

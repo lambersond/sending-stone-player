@@ -77,10 +77,11 @@ export const ROLL_KINDS = [
 
 /**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
- * player changed, with more dice, another die or every die at its highest; and ask players for the
- * saving throws their game asks of their characters, such as concentration checks (module 0.13.0);
- * and make an area attack, such as a breath weapon's, at the combatants its player picks (module
- * 0.16.0).
+ * player changed, with more dice, another die or every die at its highest, and from module 0.19.0
+ * a description's damage changed so too, whose sheets then say how the world rolls a critical
+ * hit's; and ask players for the saving throws their game asks of their characters, such as
+ * concentration checks (module 0.13.0); and make an area attack, such as a breath weapon's, at the
+ * combatants its player picks (module 0.16.0).
  */
 export const ROLL_FEATURES = ['modifiers', 'prompts', 'areaAttacks'] as const
 

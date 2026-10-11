@@ -10,6 +10,7 @@ import type {
 import type { RollKind, TextLink } from '@/types/roll'
 import type {
   CharacterSheet,
+  CriticalRule,
   SheetAbility,
   SheetCastFrom,
   SheetCondition,
@@ -20,9 +21,9 @@ import type {
 /*
  * What the links in the sheet's descriptions do: a saving throw or check a description calls for,
  * the table asked for it or the player's own rolled; its damage or healing and its own rolls,
- * rolled with the player's dice, and in the Gamemaster's game too, where it takes them; and a
- * condition it names, its rules shown. The sheet gives them once, for every tab, favorite and
- * dialog in it.
+ * rolled with the player's dice, and in the Gamemaster's game too, where it takes them, damage as a
+ * critical hit's or changed too; and a condition it names, its rules shown. The sheet gives them
+ * once, for every tab, favorite and dialog in it.
  */
 
 /** Where a description is from, as what's rolled from it is named, such as "Handaxe damage". */
@@ -53,6 +54,20 @@ export type Asking = TextLink & {
   label: string
 }
 
+/**
+ * What the Gamemaster's game takes of a description's damage or healing from this device, besides
+ * rolling it plainly.
+ */
+export type DescribedDamage = {
+  /** Whether it takes it changed: more dice, another die, every die at its highest. */
+  modifies: boolean
+  /**
+   * How the world's rules make a critical hit's damage, which it rolls a description's as; unset
+   * where it can't say, and takes none.
+   */
+  critical?: CriticalRule
+}
+
 /** What a description's links do on the sheet. */
 export type DescriptionActions = {
   /** Rolls a saving throw or check the player makes themselves, as the sheet rolls one. */
@@ -63,6 +78,11 @@ export type DescriptionActions = {
   rollFormula: (roll: SheetFormulaRoll) => void
   /** Whether the Gamemaster's game takes this kind of roll from this device now. */
   takes: (kind: RollKind) => boolean
+  /**
+   * What the game takes of a description's damage or healing, besides rolling it plainly, where it
+   * takes it from this device now; unset where it doesn't, and its damage is the player's alone.
+   */
+  damage?: DescribedDamage
   /**
    * Asks the table for the saving throw or check a description calls for, on the game's own card.
    */

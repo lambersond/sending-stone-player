@@ -35,8 +35,12 @@ export function Modal({
     <dialog
       ref={attach}
       aria-labelledby={titleId}
-      // Escape closes the dialog itself; this keeps the owner's state in step.
-      onClose={onClose}
+      // Escape closes the dialog itself; this keeps the owner's state in step. Only its own close:
+      // React hands a dialog opened inside it, such as one modifying damage in an item's details,
+      // the close of that dialog too.
+      onClose={event => {
+        if (event.target === event.currentTarget) onClose()
+      }}
       // A click on the dialog element, rather than its content, is a click on the backdrop.
       onClick={event => {
         if (event.target === event.currentTarget) onClose()

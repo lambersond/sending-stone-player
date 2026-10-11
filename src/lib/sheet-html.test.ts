@@ -98,7 +98,8 @@ describe('lib/sheet-html', () => {
         '<span class="ss-save roll" data-n="1" data-ability="str|dex">Strength or Dexterity</span>' +
         '<span class="ss-save roll" data-n="4" data-dc="10" data-type="concentration">Concentration</span>' +
         '<span class="ss-damage roll" data-n="2" data-formulas="2d4 + 2" data-types="healing" data-healing="true">2d4 + 2</span>' +
-        '<span class="ss-damage roll" data-n="3" data-formulas="1d6&amp;1d8" data-types="&amp;cold">1d6 and 1d8 cold</span>'
+        '<span class="ss-damage roll" data-n="3" data-formulas="1d6&amp;1d8" data-types="&amp;cold">1d6 and 1d8 cold</span>' +
+        '<span class="ss-damage roll" data-n="5" data-formulas="1d4" data-types="poison" data-critical="false">1d4 poison</span>'
 
       expect(clean(html)).toBe(html)
     })
@@ -259,6 +260,7 @@ describe('lib/sheet-html', () => {
       ['a DC with more after it', 'data-dc="15 or 17"'],
       ['another kind of save', 'data-type="check"'],
       ['healing on a save', 'data-healing="true"'],
+      ['damage’s critical hit on a save', 'data-critical="false"'],
       ['a formula on a save', 'data-formula="1d6"'],
     ])('keeps a save, but not %s', (_, attribute) => {
       expect(
@@ -269,6 +271,19 @@ describe('lib/sheet-html', () => {
         '<span class="ss-save roll" data-n="0" data-ability="dex">Dexterity</span>',
       )
     })
+
+    it.each(['true', 'no', ''])(
+      'keeps damage, but not a critical hit’s said as "%s", only as never one',
+      value => {
+        expect(
+          clean(
+            `<span class="ss-damage roll" data-n="0" data-formulas="1d6" data-critical="${value}">1d6</span>`,
+          ),
+        ).toBe(
+          '<span class="ss-damage roll" data-n="0" data-formulas="1d6">1d6</span>',
+        )
+      },
+    )
 
     it.each([
       ['a type that is not a key', 'fire&amp;<b>cold</b>'],

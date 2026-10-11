@@ -333,6 +333,136 @@ describe('hooks/use-sheet-roller', () => {
     expect(here.maximized).toBeUndefined()
   })
 
+  it("throws a description's critical hit as the world's rules make one, once changed as the player chose, and tells the game of the dice so", async () => {
+    const fake = renderer()
+    const onDamageThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, onDamageThrown),
+    )
+    const parts = [
+      {
+        terms: [
+          { sign: 1 as const, count: 2, sides: 6 as const },
+          { sign: 1 as const, flat: 3 },
+        ],
+        type: 'fire',
+      },
+      {
+        terms: [{ sign: 1 as const, count: 1, sides: 4 as const }],
+        type: null,
+      },
+    ]
+    const text = { text: 'a1b2c3d4e5f6a7', link: 3 }
+
+    // As dnd5e makes one by default, the numbers doubled too: one die more is two more.
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame damage',
+        parts,
+        critical: true,
+        criticalRule: {
+          perDie: 2,
+          multiplyNumeric: true,
+          powerfulCritical: false,
+          altered: false,
+        },
+        modifiers: { extra: 1 },
+        text,
+      }),
+    )
+    const [doubled] = result.current.rolls as LocalDamage[]
+    expect(
+      doubled.parts.map(part => part.terms.map(term => term.text)),
+    ).toEqual([['6d6', '+6'], ['+2d4']])
+    expect(doubled).toMatchObject({ critical: true, described: true })
+    expect(fake.roll.mock.calls[0][0]).toMatch(/^6d6\+2d4@/)
+    expect(onDamageThrown.mock.calls[0][0].parts).toEqual([
+      {
+        terms: [
+          { sign: 1, count: 6, sides: 6 },
+          { sign: 1, flat: 6 },
+        ],
+        type: 'fire',
+      },
+      { terms: [{ sign: 1, count: 2, sides: 4 }], type: null },
+    ])
+
+    // Under Powerful Critical: its dice once, a d8 now, and the most they could roll added, at
+    // their highest.
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame damage',
+        parts,
+        critical: true,
+        criticalRule: {
+          perDie: 1,
+          multiplyNumeric: false,
+          powerfulCritical: true,
+          altered: false,
+        },
+        modifiers: { extra: 1, faces: 8, maximize: true },
+        text,
+      }),
+    )
+    const [powerful] = result.current.rolls as LocalDamage[]
+    expect(
+      powerful.parts.map(part => part.terms.map(term => term.text)),
+    ).toEqual([
+      ['3d8', '+3', '+24'],
+      ['+1d4', '+4'],
+    ])
+    expect(powerful).toMatchObject({
+      critical: true,
+      maximized: true,
+      total: 24 + 3 + 24 + 4 + 4,
+    })
+
+    // Not a critical hit, it's thrown as it is, the rules aside.
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame damage',
+        parts,
+        criticalRule: {
+          perDie: 2,
+          multiplyNumeric: true,
+          powerfulCritical: true,
+          altered: false,
+        },
+        text,
+      }),
+    )
+    const [plain] = result.current.rolls as LocalDamage[]
+    expect(plain.parts.map(part => part.terms.map(term => term.text))).toEqual([
+      ['2d6', '+3'],
+      ['+1d4'],
+    ])
+    expect(plain.critical).toBe(false)
+    expect(plain).not.toHaveProperty('gameTotal')
+    expect(doubled).not.toHaveProperty('gameTotal')
+
+    // Under rules that change its dice as only the game adds them up, such as Midi-QOL's at their
+    // highest: thrown twice over, its total the game's to say.
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame damage',
+        parts,
+        critical: true,
+        criticalRule: {
+          perDie: 2,
+          multiplyNumeric: false,
+          powerfulCritical: false,
+          altered: true,
+        },
+        text,
+      }),
+    )
+    const [altered] = result.current.rolls as LocalDamage[]
+    expect(
+      altered.parts.map(part => part.terms.map(term => term.text)),
+    ).toEqual([['4d6', '+3'], ['+2d4']])
+    expect(altered).toMatchObject({ critical: true, gameTotal: true })
+  })
+
   it('keeps healing with nothing to throw, without dice', async () => {
     const fake = renderer()
     const { result } = renderHook(() => useSheetRoller())

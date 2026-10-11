@@ -1,5 +1,11 @@
+import { formulaDice } from '@/utils/formulas'
 import { MAX_DICE, type ExtraTerm } from '@/utils/roll-modifiers'
-import type { DamagePreview } from '@/types/sending-stone'
+import type {
+  CriticalRule,
+  DamagePreview,
+  DamagePreviewRoll,
+} from '@/types/sending-stone'
+import type { DamageLink } from '@/utils/description-links'
 
 /*
  * Changing damage or healing as it's rolled, as dnd5e's damage dialog lets a player: more of its
@@ -117,4 +123,66 @@ export function mostExtra(parts: readonly Part[], perDie = 1): number {
   const die = firstDie(parts)
   if (!die) return 0
   return Math.max(0, Math.floor((MOST_DICE - die.count) / Math.max(perDie, 1)))
+}
+
+/**
+ * Damage's parts as a critical hit's, as a world's rules make it: each term of dice thrown
+ * `perDie` times; each number twice, where its rules double them; and, under Powerful Critical, the
+ * most each part's dice could roll added to it, as dnd5e adds it whatever their sign.
+ */
+export function criticalParts<P extends Part>(
+  parts: P[],
+  { perDie, multiplyNumeric, powerfulCritical }: CriticalRule,
+): P[] {
+  return parts.map(part => {
+    const terms: ExtraTerm[] = part.terms.map(term => {
+      if ('sides' in term) return { ...term, count: term.count * perDie }
+      return multiplyNumeric ? { ...term, flat: term.flat * 2 } : term
+    })
+    let most = 0
+    if (powerfulCritical) {
+      for (const term of part.terms) {
+        if ('sides' in term) most += term.count * term.sides
+      }
+    }
+    return {
+      ...part,
+      terms: most > 0 ? [...terms, { sign: 1, flat: most }] : terms,
+    }
+  })
+}
+
+/**
+ * A description's damage or healing as the game will throw it, as an attack's preview says it: the
+ * dice of each of its parts, in order, every one `perDie` times on a critical hit, as the world's
+ * rules make it, which take as many more for each die added. None where a part's formula can't be
+ * read, which the app couldn't have rolled.
+ * @param critical - How the world rolls a critical hit's, for one; none for damage rolled plainly.
+ */
+export function linkDamage(
+  link: Pick<DamageLink, 'parts' | 'healing'>,
+  critical?: CriticalRule,
+): DamagePreview | undefined {
+  const perDie = critical?.perDie ?? 1
+  const rolls: DamagePreviewRoll[] = []
+  for (const { formula } of link.parts) {
+    const dice = formulaDice(formula)
+    if (!dice) return undefined
+    rolls.push({
+      formula,
+      // eslint-disable-next-line unicorn/no-null -- the preview's for no kind of its own
+      type: null,
+      perDie,
+      dice: dice.map(({ sides, count }) => ({
+        faces: sides,
+        number: count * perDie,
+      })),
+    })
+  }
+  return {
+    critical: critical !== undefined,
+    plannable: true,
+    healing: link.healing,
+    rolls,
+  }
 }

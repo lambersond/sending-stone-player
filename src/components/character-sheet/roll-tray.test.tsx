@@ -775,6 +775,56 @@ describe('components/character-sheet/roll-tray', () => {
         )
       })
 
+      it("shows the game's total of a critical hit's whose dice its rules change as only it adds them up, once it says", () => {
+        const critical = damage({
+          label: 'Flame damage',
+          total: 10,
+          critical: true,
+          gameTotal: true,
+          described: true,
+          parts: [
+            {
+              type: 'fire',
+              total: 10,
+              terms: [{ text: '4d6', values: [1, 2, 3, 4], value: 10 }],
+            },
+          ],
+        })
+        const { rerender } = render(
+          <RollTray
+            rolls={[critical]}
+            rolling={false}
+            table={table([['d1', { status: 'rolling' }]])}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^10Flame damage4d6 \(1, 2, 3, 4\) fire · Critical hit/,
+        )
+
+        rerender(
+          <RollTray
+            rolls={[critical]}
+            rolling={false}
+            table={table([
+              ['d1', { status: 'done', visible: true, total: 24 }],
+            ])}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^24Flame damage4d6 \(1, 2, 3, 4\) fire · Critical hit.*At the table: 24$/,
+        )
+
+        // One the game didn't take is the player's own.
+        rerender(
+          <RollTray
+            rolls={[critical]}
+            rolling={false}
+            table={table([['d1', { status: 'refused', reason: 'dice' }]])}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(/^10Flame damage/)
+      })
+
       it('names attacks among the rolls made at the table, when the game takes them', () => {
         render(
           <RollTray

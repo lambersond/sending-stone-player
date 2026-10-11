@@ -6,6 +6,7 @@ import { Minus, Plus } from 'lucide-react'
 import { RollMenu, type MenuPoint, type RollChoice } from './roll-menu'
 import { Modal } from '@/components/modal'
 import {
+  criticalParts,
   DIE_SIZES,
   firstDie,
   mostExtra,
@@ -14,6 +15,7 @@ import {
   type DieSize,
 } from '@/utils/damage-modifiers'
 import type { SheetDamageRoll } from '@/hooks/use-sheet-roller'
+import type { CriticalRule } from '@/types/sending-stone'
 
 /*
  * The ways to roll damage or healing, from a right-click or long-press on it: as a critical hit's,
@@ -40,6 +42,11 @@ export type DamageSubject = {
   perDie?: number
   /** For a spell or feature used with it, what using it is called, such as "Cast". */
   verb?: string
+  /**
+   * For damage the game rolls too, how the world's rules make a critical hit's, which the dialog's
+   * critical hit then is, rather than every die twice.
+   */
+  criticalRule?: CriticalRule
   onChoose: (choice: DamageChoice) => void
 }
 
@@ -129,8 +136,9 @@ function labelsFor({
 
 /**
  * Changing damage or healing before it's rolled: more of its first die, that die another size,
- * every die at its highest, and, for damage rolled here, a critical hit's, each die twice. What it
- * will throw is shown as it's changed.
+ * every die at its highest, and, for damage rolled here, a critical hit's, each die twice, or as
+ * the world's rules make one, for a description's damage the game rolls too. What it will throw is
+ * shown as it's changed.
  */
 export function ModifyDamage({
   subject,
@@ -143,13 +151,20 @@ export function ModifyDamage({
 }>) {
   const die = firstDie(subject.parts)
   const perDie = subject.perDie ?? 1
+  const rule = subject.criticalRule
   const [extra, setExtra] = useState(0)
   const [faces, setFaces] = useState<number | undefined>(die?.sides)
   const [maximize, setMaximize] = useState(false)
   const [critical, setCritical] = useState(false)
   const offersCritical = subject.choices.includes('critical')
-  // A critical hit rolled here throws two of each die added.
-  const most = mostExtra(subject.parts, critical ? 2 : perDie)
+  // A critical hit throws its dice as many times over as the world's rules make it, or twice where
+  // it's rolled here, and as many more of each die added: they must all still fit.
+  const mostWith = (crit: boolean) => {
+    if (!crit) return mostExtra(subject.parts, perDie)
+    const made = rule ?? EVERY_DIE_TWICE
+    return mostExtra(criticalParts(subject.parts, made), made.perDie)
+  }
+  const most = mostWith(critical)
   const modifiers: DamageModifiers = {
     ...(extra > 0 && { extra }),
     ...(die &&
@@ -157,9 +172,11 @@ export function ModifyDamage({
       faces !== die.sides && { faces: faces as DieSize }),
     ...(maximize && { maximize }),
   }
-  const thrown = formulaOf(withModifiers(subject.parts, modifiers, perDie), {
-    doubled: critical,
-  })
+  const changed = withModifiers(subject.parts, modifiers, perDie)
+  const thrown =
+    critical && rule
+      ? formulaOf(criticalParts(changed, rule))
+      : formulaOf(changed, { doubled: critical })
   const sizes = die
     ? [...new Set<number>([...DIE_SIZES, die.sides])].toSorted((a, b) => a - b)
     : []
@@ -182,6 +199,7 @@ export function ModifyDamage({
           {thrown}
         </output>
         {maximize && ', every die at its highest'}
+        {critical && rule?.altered && ', as your Gamemaster’s game rolls it'}
       </p>
 
       {die && (
@@ -265,11 +283,11 @@ export function ModifyDamage({
             checked={critical}
             onChange={next => {
               setCritical(next)
-              // Two of each die added still fit.
-              setExtra(Math.min(extra, mostExtra(subject.parts, next ? 2 : 1)))
+              // As many of each die added as a critical hit's take still fit.
+              setExtra(Math.min(extra, mostWith(next)))
             }}
             label='Critical hit'
-            hint='Every die twice.'
+            hint={criticalHint(rule)}
           />
         )}
       </div>
@@ -291,6 +309,39 @@ export function ModifyDamage({
       </div>
     </form>
   )
+}
+
+/** A critical hit's damage as dnd5e makes it by default, and one rolled here: every die twice. */
+const EVERY_DIE_TWICE: CriticalRule = {
+  perDie: 2,
+  multiplyNumeric: false,
+  powerfulCritical: false,
+  altered: false,
+}
+
+/**
+ * What a critical hit's damage is, in a few words: every die twice, as dnd5e makes it by default,
+ * or as the world's rules make it, such as under Powerful Critical; and where those rules change
+ * its dice as only the game can add them up, such as Midi-QOL's at their highest, that it's the
+ * game's.
+ */
+function criticalHint(rule?: CriticalRule): string {
+  const perDie = rule?.perDie ?? 2
+  const times = perDie === 2 ? 'twice' : `${perDie} times`
+  if (rule?.altered) {
+    return perDie === 1
+      ? 'As your Gamemaster’s game rolls one.'
+      : `Every die ${times}, as your Gamemaster’s game rolls one.`
+  }
+  const numbers = rule?.multiplyNumeric === true
+  if (rule?.powerfulCritical) {
+    return numbers
+      ? 'Its dice, the most they could roll added, and every number twice.'
+      : 'Its dice, and the most they could roll added.'
+  }
+  // Such as Midi-QOL's rule that adds only a weapon's own critical damage.
+  if (perDie === 1) return 'As your Gamemaster’s game rolls one.'
+  return numbers ? `Every die and number ${times}.` : `Every die ${times}.`
 }
 
 const STEP =

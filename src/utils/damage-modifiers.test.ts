@@ -1,6 +1,9 @@
+/* eslint-disable unicorn/no-null -- a preview's roll of no kind of its own has null */
 import {
   changes,
+  criticalParts,
   firstDie,
+  linkDamage,
   modifiedDice,
   mostExtra,
   reshapes,
@@ -119,5 +122,127 @@ describe('utils/damage-modifiers', () => {
     expect(mostExtra(parts)).toBe(39)
     expect(mostExtra(parts, 2)).toBe(19)
     expect(mostExtra([{ terms: [{ sign: 1, flat: 5 }] }])).toBe(0)
+  })
+
+  /** 2d6 + 3, less 1d4: a part with a term of dice taken away. */
+  const less = [
+    {
+      terms: [
+        { sign: 1 as const, count: 2, sides: 6 as const },
+        { sign: 1 as const, flat: 3 },
+        { sign: -1 as const, count: 1, sides: 4 as const },
+      ],
+      type: 'Fire',
+    },
+    parts[0],
+  ]
+
+  it("makes damage a critical hit's as a world's rules make it", () => {
+    // dnd5e's by default: every die twice, the numbers once.
+    expect(
+      criticalParts(less, {
+        perDie: 2,
+        multiplyNumeric: false,
+        powerfulCritical: false,
+        altered: false,
+      }),
+    ).toEqual([
+      {
+        terms: [
+          { sign: 1, count: 4, sides: 6 },
+          { sign: 1, flat: 3 },
+          { sign: -1, count: 2, sides: 4 },
+        ],
+        type: 'Fire',
+      },
+      { terms: [{ sign: 1, count: 2, sides: 8 }], type: 'Necrotic' },
+    ])
+    // The numbers twice too.
+    expect(
+      criticalParts(less, {
+        perDie: 2,
+        multiplyNumeric: true,
+        powerfulCritical: false,
+        altered: false,
+      })[0].terms[1],
+    ).toEqual({ sign: 1, flat: 6 })
+    // Under Powerful Critical: the dice once, and the most each part's could roll added, as dnd5e
+    // adds it, whatever their sign.
+    expect(
+      criticalParts(less, {
+        perDie: 1,
+        multiplyNumeric: false,
+        powerfulCritical: true,
+        altered: false,
+      }),
+    ).toEqual([
+      { ...less[0], terms: [...less[0].terms, { sign: 1, flat: 16 }] },
+      { ...parts[0], terms: [...parts[0].terms, { sign: 1, flat: 8 }] },
+    ])
+    // A part of numbers alone has nothing to add.
+    const flat = [{ terms: [{ sign: 1 as const, flat: 5 }] }]
+    expect(
+      criticalParts(flat, {
+        perDie: 1,
+        multiplyNumeric: false,
+        powerfulCritical: true,
+        altered: false,
+      }),
+    ).toEqual(flat)
+  })
+
+  it("plans a description's damage as an attack's preview has it: its parts' dice, a critical hit's as many times as the world's rules throw each", () => {
+    const link = {
+      parts: [
+        { formula: '2d6 + 3 - 1d4', types: ['fire'] },
+        { formula: '5', types: [] },
+        { formula: '1d8', types: [] },
+      ],
+      healing: false,
+    }
+
+    expect(linkDamage(link)).toEqual({
+      critical: false,
+      plannable: true,
+      healing: false,
+      rolls: [
+        {
+          formula: '2d6 + 3 - 1d4',
+          type: null,
+          perDie: 1,
+          dice: [
+            { faces: 6, number: 2 },
+            { faces: 4, number: 1 },
+          ],
+        },
+        { formula: '5', type: null, perDie: 1, dice: [] },
+        {
+          formula: '1d8',
+          type: null,
+          perDie: 1,
+          dice: [{ faces: 8, number: 1 }],
+        },
+      ],
+    })
+    const doubled = linkDamage(link, {
+      perDie: 2,
+      multiplyNumeric: false,
+      powerfulCritical: false,
+      altered: false,
+    })
+    expect(doubled).toMatchObject({ critical: true })
+    // One die more is two more, of its first roll's first die.
+    expect(doubled && modifiedDice(doubled, { extra: 1 })).toEqual([
+      { faces: 6, number: 6 },
+      { faces: 4, number: 2 },
+      { faces: 8, number: 2 },
+    ])
+    // None for a part the app can't read.
+    expect(
+      linkDamage({
+        ...link,
+        parts: [...link.parts, { formula: '1d3', types: [] }],
+      }),
+    ).toBeUndefined()
   })
 })

@@ -93,6 +93,28 @@ describe('utils/description-links', () => {
       })
     })
 
+    it("reads damage never a critical hit's, from module 0.19.0, and nothing else as saying so", () => {
+      const poison = {
+        class: 'ss-damage roll',
+        'data-n': '4',
+        'data-formulas': '1d4',
+        'data-types': 'poison',
+      }
+
+      expect(linkOf({ ...poison, 'data-critical': 'false' })).toEqual({
+        kind: 'damage',
+        n: 4,
+        parts: [{ formula: '1d4', types: ['poison'] }],
+        healing: false,
+        critical: false,
+      })
+      for (const value of ['true', 'no', '']) {
+        expect(
+          linkOf({ ...poison, 'data-critical': value }),
+        ).not.toHaveProperty('critical')
+      }
+    })
+
     it('reads a check: each way it may be made once, the first kept, its DC, and the tool a skill check is made using', () => {
       expect(
         linkOf({
