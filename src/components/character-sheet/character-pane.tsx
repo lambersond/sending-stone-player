@@ -366,6 +366,15 @@ function RollingSheet({
       void rollFormula(request)
     },
     takes: table.takes,
+    // A description's damage at the table: changed, where the game takes it so, which it does
+    // only from module 0.19.0, whose sheets say how it makes a critical hit's; and as one, where
+    // they say how.
+    ...(table.takes('textDamage') && {
+      damage: {
+        modifies: table.modifiesText && sheet.critical !== undefined,
+        ...(sheet.critical && { critical: sheet.critical }),
+      },
+    }),
     ask: ({ label, text, link }) => {
       if (!table.takes('ask')) return
       setDescribed(true)

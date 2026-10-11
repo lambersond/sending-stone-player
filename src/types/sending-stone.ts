@@ -627,6 +627,28 @@ export type SheetFavorite =
   | SheetSlotsFavorite
   | SheetResourceFavorite
 
+/**
+ * How a world rolls a critical hit's damage, as dnd5e's settings and any module that changes them,
+ * such as Midi-QOL, make it, as the game finds it by building one: every die thrown `perDie` times,
+ * such as twice, or once under Powerful Critical; the numbers added twice, where its rules double
+ * them; under Powerful Critical, the most the dice could roll added too; and whether its rules
+ * change the dice further, which only the game can then add up. Module 0.19.0.
+ */
+export type CriticalRule = {
+  /** How many of each die it throws, such as 2, or 1 under Powerful Critical. */
+  perDie: number
+  /** As dnd5e's "Multiply Numeric Critical Damage": every number added twice. */
+  multiplyNumeric: boolean
+  /** As dnd5e's "Powerful Critical": the most its dice could roll added to them. */
+  powerfulCritical: boolean
+  /**
+   * Its dice changed beyond being thrown `perDie` times, as Midi-QOL's rules that roll them at
+   * their highest, double them or keep the highest of them do: what they come to is the game's to
+   * say.
+   */
+  altered: boolean
+}
+
 export type CharacterSheet = {
   /** Relative to the game's address, or a full URL. */
   img: string | null
@@ -637,6 +659,13 @@ export type CharacterSheet = {
    * absent before.
    */
   rules?: 'modern' | 'legacy' | null
+  /**
+   * How the world rolls a critical hit's damage, for a description's: null where its rules add dice
+   * of their own, such as Midi-QOL's that explode, or the game can't say. Module 0.19.0, which
+   * takes a description's damage changed, and as a critical hit's; absent before, when it takes
+   * neither.
+   */
+  critical?: CriticalRule | null
   species: string | null
   background: string | null
   /**

@@ -32,6 +32,12 @@ import type { FoundLink } from '@/utils/description-links'
 const NOW = Date.parse('2026-10-09T20:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)
 
+/** Damage's dice: `first` of a die, d6s unless said, then `fours` d4s. */
+const diceOf = (first: number, fours: number, faces = 6) => [
+  { faces, results: Array.from({ length: first }, () => 1) },
+  { faces: 4, results: Array.from({ length: fours }, () => 2) },
+]
+
 const request = (fields: Partial<RollRequestInput>): RollRequestInput => ({
   kind: 'skill',
   key: 'prc',
@@ -1619,6 +1625,47 @@ describe('utils/roll-requests', () => {
           secret: true,
         },
       ],
+      [
+        12,
+        {
+          link: {
+            kind: 'damage',
+            n: 12,
+            parts: [{ formula: '2d4 + 2', types: ['healing'] }],
+            healing: true,
+          },
+          secret: false,
+        },
+      ],
+      [
+        13,
+        {
+          link: {
+            kind: 'damage',
+            n: 13,
+            parts: [
+              { formula: '3', types: ['fire'] },
+              { formula: '1d6', types: ['fire'] },
+            ],
+            healing: false,
+          },
+          secret: false,
+        },
+      ],
+      [
+        14,
+        {
+          // A saving throw's, as dnd5e's own link rolls it, which is never a critical hit's.
+          link: {
+            kind: 'damage',
+            n: 14,
+            parts: [{ formula: '1d4', types: ['poison'] }],
+            healing: false,
+            critical: false,
+          },
+          secret: false,
+        },
+      ],
     ])
     const linked = (fields: Partial<RollRequestInput>) =>
       request({
@@ -1642,6 +1689,9 @@ describe('utils/roll-requests', () => {
     ]
     const textDamage = (fields: Partial<RollRequestInput> = {}) =>
       linked({ kind: 'textDamage', link: 3, dice: burn, ...fields })
+    /** Link 13's damage, whose first part is a number alone: 3, then 1d6 fire. */
+    const fire = (fields: Partial<RollRequestInput>) =>
+      textDamage({ link: 13, dice: [{ faces: 6, results: [4] }], ...fields })
     const textRoll = (fields: Partial<RollRequestInput> = {}) =>
       linked({
         kind: 'textRoll',
@@ -1818,6 +1868,250 @@ describe('utils/roll-requests', () => {
       expect(
         check(textDamage({ link: 7, dice: [{ faces: 4, results: [3] }] })),
       ).toBe('dice')
+    })
+
+    /** How the world rolls a critical hit's damage, as dnd5e does by default. */
+    const DOUBLED = {
+      perDie: 2,
+      multiplyNumeric: false,
+      powerfulCritical: false,
+      altered: false,
+    }
+    /** As it does under Powerful Critical: once, the most the dice could roll added. */
+    const POWERFUL = {
+      perDie: 1,
+      multiplyNumeric: false,
+      powerfulCritical: true,
+      altered: false,
+    }
+    /** A sheet from module 0.19.0, saying how the world rolls a critical hit's damage, or not. */
+    const ruled = (critical: typeof DOUBLED | null = DOUBLED) => ({
+      ...fullerSheet(),
+      critical,
+    })
+    it("lets a description's damage be rolled as a critical hit's, every die as many times as the world's rules throw it", () => {
+      const critical = textDamage({ critical: true, dice: diceOf(4, 2) })
+
+      expect(check(critical, links, ruled())).toBeUndefined()
+      expect(check(critical, links, ruled(POWERFUL))).toBe('dice')
+      // Under Powerful Critical, its dice once, as they are.
+      expect(
+        check(textDamage({ critical: true }), links, ruled(POWERFUL)),
+      ).toBeUndefined()
+      expect(
+        check(
+          textDamage({ critical: true, types: ['cold'], dice: diceOf(4, 2) }),
+          links,
+          ruled(),
+        ),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      ['plainly', diceOf(2, 1)],
+      ['with a die too few', diceOf(3, 2)],
+      ['with a die too many', diceOf(5, 2)],
+      ['with its second part’s plain', diceOf(4, 1)],
+    ])("refuses a critical hit's damage thrown %s", (_name, dice) => {
+      expect(check(textDamage({ critical: true, dice }), links, ruled())).toBe(
+        'dice',
+      )
+    })
+
+    it("refuses a critical hit's damage where the sheet doesn't say how the world rolls one", () => {
+      const critical = textDamage({ critical: true, dice: diceOf(4, 2) })
+
+      // It can't say, as under rules that add dice of their own.
+      expect(check(critical, links, ruled(null))).toBe('dice')
+      // From before module 0.19.0, which rolled every description's damage plainly.
+      expect(check(critical, links, fullerSheet())).toBe('dice')
+      expect(check(textDamage({ critical: true }), links, fullerSheet())).toBe(
+        'dice',
+      )
+    })
+
+    it("never lets healing be rolled as a critical hit's", () => {
+      const healing = textDamage({
+        link: 12,
+        dice: [{ faces: 4, results: [1, 2] }],
+      })
+
+      expect(check(healing, links, ruled())).toBeUndefined()
+      expect(
+        check(
+          {
+            ...healing,
+            critical: true,
+            dice: [{ faces: 4, results: [1, 2, 3, 4] }],
+          },
+          links,
+          ruled(),
+        ),
+      ).toBe('link')
+      // But at its highest, or with more dice, as healing may be.
+      expect(
+        check(
+          {
+            ...healing,
+            modifiers: { extra: 1, maximize: true },
+            dice: [{ faces: 4, results: [4, 4, 4] }],
+          },
+          links,
+          ruled(),
+        ),
+      ).toBeUndefined()
+    })
+
+    it("never lets damage the game marks as never a critical hit's be rolled as one, though it may be changed", () => {
+      const poison = textDamage({
+        link: 14,
+        dice: [{ faces: 4, results: [3] }],
+      })
+
+      expect(check(poison, links, ruled())).toBeUndefined()
+      expect(
+        check(
+          { ...poison, critical: true, dice: [{ faces: 4, results: [3, 1] }] },
+          links,
+          ruled(),
+        ),
+      ).toBe('link')
+      expect(check({ ...poison, critical: true }, links, ruled())).toBe('link')
+      expect(
+        check(
+          {
+            ...poison,
+            modifiers: { extra: 1 },
+            dice: [{ faces: 4, results: [3, 1] }],
+          },
+          links,
+          ruled(),
+        ),
+      ).toBeUndefined()
+    })
+
+    it("lets a description's damage be changed as an attack's may be: more of its first die, another size of it, its highest", () => {
+      const sheet = ruled()
+
+      expect(
+        check(
+          textDamage({ modifiers: { extra: 2 }, dice: diceOf(4, 1) }),
+          links,
+          sheet,
+        ),
+      ).toBeUndefined()
+      expect(
+        check(
+          textDamage({ modifiers: { faces: 8 }, dice: diceOf(2, 1, 8) }),
+          links,
+          sheet,
+        ),
+      ).toBeUndefined()
+      expect(
+        check(textDamage({ modifiers: { maximize: true } }), links, sheet),
+      ).toBeUndefined()
+      expect(
+        check(
+          textDamage({
+            modifiers: { extra: 1, faces: 10, maximize: true },
+            dice: diceOf(3, 1, 10),
+          }),
+          links,
+          sheet,
+        ),
+      ).toBeUndefined()
+      // Not with the dice unchanged.
+      expect(check(textDamage({ modifiers: { extra: 2 } }), links, sheet)).toBe(
+        'dice',
+      )
+      expect(check(textDamage({ modifiers: { faces: 8 } }), links, sheet)).toBe(
+        'dice',
+      )
+    })
+
+    it("adds as many dice for each die added to a critical hit's as the world's rules throw of each", () => {
+      expect(
+        check(
+          textDamage({
+            critical: true,
+            modifiers: { extra: 1 },
+            dice: diceOf(6, 2),
+          }),
+          links,
+          ruled(),
+        ),
+      ).toBeUndefined()
+      expect(
+        check(
+          textDamage({
+            critical: true,
+            modifiers: { extra: 1 },
+            dice: diceOf(5, 2),
+          }),
+          links,
+          ruled(),
+        ),
+      ).toBe('dice')
+      expect(
+        check(
+          textDamage({
+            critical: true,
+            modifiers: { extra: 2, faces: 12 },
+            dice: diceOf(4, 1, 12),
+          }),
+          links,
+          ruled(POWERFUL),
+        ),
+      ).toBeUndefined()
+    })
+
+    it("refuses a description's damage given more dice, or another die, where its first part throws none", () => {
+      expect(check(fire({}), links, ruled())).toBeUndefined()
+      expect(
+        check(fire({ modifiers: { maximize: true } }), links, ruled()),
+      ).toBeUndefined()
+      expect(
+        check(
+          fire({
+            modifiers: { extra: 1 },
+            dice: [{ faces: 6, results: [4, 5] }],
+          }),
+          links,
+          ruled(),
+        ),
+      ).toBe('dice')
+      expect(
+        check(
+          fire({ modifiers: { faces: 8 }, dice: [{ faces: 8, results: [4] }] }),
+          links,
+          ruled(),
+        ),
+      ).toBe('dice')
+    })
+
+    it("refuses a description's damage changed where the game, before module 0.19.0, doesn't take it so", () => {
+      const old = fullerSheet()
+
+      expect(
+        check(textDamage({ modifiers: { maximize: true } }), links, old),
+      ).toBe('unavailable')
+      expect(
+        check(
+          textDamage({ modifiers: { extra: 1 }, dice: diceOf(3, 1) }),
+          links,
+          old,
+        ),
+      ).toBe('unavailable')
+      // Unchanged after all, it's as plain as any.
+      expect(check(textDamage({ modifiers: {} }), links, old)).toBeUndefined()
+      // Where the sheet can't say how the world rolls a critical hit's, it's still changed.
+      expect(
+        check(
+          textDamage({ modifiers: { maximize: true } }),
+          links,
+          ruled(null),
+        ),
+      ).toBeUndefined()
     })
 
     it("lets a description's own roll be rolled with the dice its formula throws, and nothing else", () => {

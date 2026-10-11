@@ -244,9 +244,12 @@ export function useTableRolls(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
       const { use, types, modifiers, text } = roll
       const { kinds, on } = latest.current
-      // A description's damage or healing, which the game reads from its own copy of it.
+      // A description's damage or healing, which the game reads from its own copy of it: changed
+      // as the player chose, and a critical hit's, as the world's rules make one. One with its dice
+      // doubled here, not made so, is the player's alone.
       if (text) {
         if (!on || !kinds.includes('textDamage')) return
+        if (roll.critical && !roll.criticalRule) return
         start(
           damage.id,
           {
@@ -258,6 +261,8 @@ export function useTableRolls(
             extras: [],
             dice: damageDice(roll, damage),
             ...(types?.some(type => type !== null) && { types }),
+            ...(roll.critical && { critical: true as const }),
+            ...(modifiers && changes(modifiers) && { modifiers }),
           },
           {},
         )
@@ -379,6 +384,12 @@ export function useTableRolls(
     takes: (kind: RollKind) => on && kinds.includes(kind),
     /** Whether the game takes damage the player changed from this device now. */
     modifies: on && kinds.includes('damage') && features.includes('modifiers'),
+    /**
+     * Whether the game takes a description's damage the player changed from this device now, as
+     * it may from module 0.19.0, whose sheets say how it makes a critical hit's.
+     */
+    modifiesText:
+      on && kinds.includes('textDamage') && features.includes('modifiers'),
     /** Whether the game makes an area attack at the combatants picked, from this device now. */
     areas: on && kinds.includes('attack') && features.includes('areaAttacks'),
     /**

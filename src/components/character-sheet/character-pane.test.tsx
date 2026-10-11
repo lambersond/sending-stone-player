@@ -1595,13 +1595,18 @@ describe('components/character-sheet/character-pane', () => {
   describe('descriptions that roll', () => {
     // Each test's character is a new one, as descriptions loaded are kept by character.
     let characters = 0
-    const renderTaking = (kinds: RollKind[], sheet = fullerSheet()) =>
+    const renderTaking = (
+      kinds: RollKind[],
+      sheet: CharacterSheet = fullerSheet(),
+      features: RollFeature[] = [],
+    ) =>
       render(
         <CharacterPane
           characterId={`described-${++characters}`}
           name='Thorin Oakenshield'
           sheet={toTableSheet(sheet, GAME)}
           rollsToTable={kinds}
+          rollFeatures={features}
         />,
       )
 
@@ -1862,6 +1867,104 @@ describe('components/character-sheet/character-pane', () => {
           dice: [{ faces: 6, results: expect.any(Array) }],
         }),
       ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Second Wind damage2d6 \(\d, \d\) fire/,
+      )
+    })
+
+    it("rolls a description's damage as a critical hit's, as the sheet says the world makes one, changed as the player chose, in the game too, the tray saying so", async () => {
+      const posted = describing(
+        { [TEXTS.secondWind]: SAVE },
+        { 'req-1': { status: 'done', visible: true, total: 30 } },
+      )
+      renderTaking(
+        ['textDamage'],
+        fullerSheet({
+          critical: {
+            perDie: 2,
+            multiplyNumeric: false,
+            powerfulCritical: false,
+            altered: false,
+          },
+        }),
+        ['modifiers'],
+      )
+      const user = await openSecondWind()
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '2d6 fire, roll damage' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+      await user.click(
+        within(dialog).getByRole('button', { name: 'One die more' }),
+      )
+      await user.click(
+        within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+      )
+      await user.click(
+        within(dialog).getByRole('switch', { name: /^Maximum damage/ }),
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+
+      // Its three d6s, each thrown twice, at their highest.
+      expect(posted).toEqual([
+        {
+          kind: 'textDamage',
+          text: TEXTS.secondWind,
+          link: 1,
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 6, results: [6, 6, 6, 6, 6, 6] }],
+          critical: true,
+          modifiers: { extra: 1, maximize: true },
+        },
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^36Second Wind damage6d6 \(6, 6, 6, 6, 6, 6\) fire · Critical hit · Maximum/,
+      )
+      // Its status is asked for a second after it's sent, as the page asks it.
+      expect(
+        await screen.findByText(/At the table:/, {}, { timeout: 3000 }),
+      ).toHaveTextContent('At the table: 30')
+    })
+
+    it("offers a description's damage as a critical hit's, but not changed, where the game says how it makes one but not that it takes damage changed", async () => {
+      describing({ [TEXTS.secondWind]: SAVE })
+      renderTaking(
+        ['textDamage'],
+        fullerSheet({
+          critical: {
+            perDie: 2,
+            multiplyNumeric: false,
+            powerfulCritical: false,
+            altered: false,
+          },
+        }),
+        [],
+      )
+      await openSecondWind()
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '2d6 fire, roll damage' }),
+      )
+      expect(within(screen.getByRole('menu')).getAllByRole('menuitem')).toEqual(
+        [screen.getByRole('menuitem', { name: 'Roll critical damage' })],
+      )
+    })
+
+    it("offers a description's damage only as the game takes it: no critical hit, nor changed, from a game before module 0.19.0", async () => {
+      describing({ [TEXTS.secondWind]: SAVE })
+      renderTaking(['textDamage'], fullerSheet(), ['modifiers'])
+      const user = await openSecondWind()
+
+      const link = screen.getByRole('button', { name: '2d6 fire, roll damage' })
+      // Nothing more to offer: the browser's own menu.
+      expect(link).not.toHaveAttribute('aria-haspopup')
+      expect(fireEvent.contextMenu(link)).toBe(true)
+      expect(screen.queryByRole('menu')).toBeNull()
+      await user.click(link)
       expect(screen.getByRole('status')).toHaveTextContent(
         /^\d+Second Wind damage2d6 \(\d, \d\) fire/,
       )

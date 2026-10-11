@@ -1,15 +1,25 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DescriptionLinks,
   sheetTools,
   type DescriptionActions,
 } from './description-actions'
+import { LONG_PRESS } from './roll-button'
 import { SheetText } from './sheet-text'
 import { Modal } from '@/components/modal'
 import { characterSheet, sheetFavorites } from '@/mocks/sending-stone'
 import type {
+  CriticalRule,
   SheetCondition,
   SheetSkill,
   SheetTool,
@@ -86,6 +96,9 @@ const itemsOf = (menu: HTMLElement) =>
     .getAllByRole('menuitem')
     .map(item => item.getAttribute('aria-label') ?? item.textContent)
 
+/** The ways the menu open offers to roll a link's damage, as named. */
+const ways = () => itemsOf(screen.getByRole('menu'))
+
 /**
  * Whether the browser would take Escape, last pressed, as a request to close the modal dialog it
  * was pressed in: it does, once the key has gone everywhere, unless something cancelled it.
@@ -102,12 +115,61 @@ const escapes = () => {
   }
 }
 
+/** Damage of `n` d6s, as a description deals it, at link 0. */
+const dice = (n: number) =>
+  `<p><span class="ss-damage roll" data-n="0" data-formulas="${n}d6" data-types="fire">${n}d6</span></p>`
+
+/** The Modify damage dialog of a link's damage, of `n` d6s, as these actions roll it. */
+const modifying = async (user: User, n: number, actions = actionsFor()) => {
+  await renderText(dice(n), actions)
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: `${n}d6, roll damage` }),
+  )
+  await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+  const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+  const more = within(dialog).getByRole('button', { name: 'One die more' })
+  const add = async (times: number) => {
+    for (let added = 0; added < times; added++) await user.click(more)
+  }
+  return {
+    dialog,
+    more,
+    add,
+    thrown: () => within(dialog).getByRole('status'),
+    critical: () =>
+      within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+  }
+}
+
 /** A description in a modal dialog, as the dialog about an item's activity shows one. */
 const inDialog = (text: React.ReactNode) => (
   <Modal open onClose={jest.fn()} title='Starry Wisp'>
     {text}
   </Modal>
 )
+
+/**
+ * A description in a dialog that closes as the dialog about an item's activity does: told so, and
+ * its content gone.
+ */
+function InfoDialog({
+  onClose,
+  children,
+}: Readonly<{ onClose: () => void; children: React.ReactNode }>) {
+  const [open, setOpen] = useState(true)
+  return (
+    <Modal
+      open={open}
+      onClose={() => {
+        onClose()
+        setOpen(false)
+      }}
+      title='Starry Wisp'
+    >
+      {open && children}
+    </Modal>
+  )
+}
 
 describe('components/character-sheet/description-link', () => {
   describe('a saving throw', () => {
@@ -1002,8 +1064,10 @@ describe('components/character-sheet/description-link', () => {
       const link = screen.getByRole('button', {
         name: '2d6 + 3 fire, roll damage',
       })
-      expect(link).not.toHaveAttribute('aria-haspopup')
+      // Its other ways to roll it are in a menu, as an action's damage's are.
+      expect(link).toHaveAttribute('aria-haspopup', 'menu')
       await user.click(link)
+      expect(screen.queryByRole('menu')).toBeNull()
 
       expect(actions.rollDamage).toHaveBeenCalledWith({
         label: 'Worn Bardic Eternal Flame damage',
@@ -1031,8 +1095,9 @@ describe('components/character-sheet/description-link', () => {
       const link = screen.getByRole('button', { name: '1d10, roll damage' })
       expect(link).toHaveAttribute('aria-haspopup', 'menu')
       await user.click(link)
+      // Named as the damage menu names it.
       const menu = screen.getByRole('menu', {
-        name: 'Worn Bardic Eternal Flame damage, 1d10 + 1d6',
+        name: 'Worn Bardic Eternal Flame damage 1d10 + 1d6',
       })
       expect(itemsOf(menu)).toEqual(['Roll cold damage', 'Roll fire damage'])
       await user.click(
@@ -1066,6 +1131,579 @@ describe('components/character-sheet/description-link', () => {
           healing: true,
         }),
       )
+    })
+
+    /** Damage of 2d6 + 3 fire and 1d4, as a description deals it, at link 1. */
+    const FLAME =
+      '<p>It takes <span class="ss-damage roll" data-n="1" data-formulas="2d6 + 3&amp;1d4" data-types="fire&amp;">2d6 + 3 fire</span>.</p>'
+    /** Healing of 2d4 + 2, at link 0. */
+    const MEND =
+      '<p>Regain <span class="ss-damage roll" data-n="0" data-formulas="2d4 + 2" data-types="healing" data-healing="true">2d4 + 2</span> hit points.</p>'
+    /** Damage of 1d10 cold or fire, then 1d6 necrotic, at link 2. */
+    const CHOICE =
+      '<p><span class="ss-damage roll" data-n="2" data-formulas="1d10&amp;1d6" data-types="cold|fire&amp;necrotic">1d10</span></p>'
+    /** How the world rolls a critical hit's damage, as dnd5e does by default. */
+    const DOUBLED = {
+      perDie: 2,
+      multiplyNumeric: false,
+      powerfulCritical: false,
+      altered: false,
+    }
+    /** Its parts, as a tap rolls them. */
+    const flame = [
+      {
+        terms: [
+          { sign: 1, count: 2, sides: 6 },
+          { sign: 1, flat: 3 },
+        ],
+        type: 'fire',
+      },
+      { terms: [{ sign: 1, count: 1, sides: 4 }], type: null },
+    ]
+
+    it('offers other ways to roll it on a right-click, as an action’s damage does: a critical hit’s, its highest, or changed, the player’s alone', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(FLAME)
+
+      const link = screen.getByRole('button', {
+        name: '2d6 + 3 fire, roll damage',
+      })
+      expect(fireEvent.contextMenu(link, { button: 2 })).toBe(false)
+      const menu = screen.getByRole('menu', {
+        name: 'Worn Bardic Eternal Flame damage 2d6 + 3 + 1d4',
+      })
+      expect(itemsOf(menu)).toEqual([
+        'Roll critical damage',
+        'Roll maximum damage',
+        'Modify damage…',
+      ])
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Roll critical damage' }),
+      )
+
+      // Every die twice, as dnd5e rolls one by default: the game doesn't roll it.
+      expect(actions.rollDamage).toHaveBeenLastCalledWith({
+        label: 'Worn Bardic Eternal Flame damage',
+        parts: flame,
+        healing: false,
+        text: { text: hash, link: 1 },
+        critical: true,
+      })
+      expect(screen.queryByRole('menu')).toBeNull()
+
+      fireEvent.contextMenu(link, { button: 2 })
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll maximum damage' }),
+      )
+      expect(actions.rollDamage).toHaveBeenLastCalledWith({
+        label: 'Worn Bardic Eternal Flame damage',
+        parts: flame,
+        healing: false,
+        text: { text: hash, link: 1 },
+        modifiers: { maximize: true },
+      })
+    })
+
+    it('opens its menu on a long-press on a touch screen, the tap that ends it rolling nothing, and from the keyboard', async () => {
+      const { actions } = await renderText(FLAME)
+      const link = screen.getByRole('button', {
+        name: '2d6 + 3 fire, roll damage',
+      })
+
+      jest.useFakeTimers()
+      try {
+        fireEvent.pointerDown(link, {
+          pointerType: 'touch',
+          clientX: 20,
+          clientY: 10,
+        })
+        act(() => jest.advanceTimersByTime(LONG_PRESS))
+        expect(screen.getByRole('menu')).toBeInTheDocument()
+        fireEvent.pointerUp(link, { pointerType: 'touch' })
+        fireEvent.click(link)
+        expect(actions.rollDamage).not.toHaveBeenCalled()
+      } finally {
+        jest.useRealTimers()
+      }
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+
+      // The context menu key, or Shift+F10, which have no pointer.
+      fireEvent.contextMenu(link, { button: -1 })
+      expect(ways()).toEqual([
+        'Roll critical damage',
+        'Roll maximum damage',
+        'Modify damage…',
+      ])
+    })
+
+    it('offers healing at its highest, or changed, but never as a critical hit’s', async () => {
+      await renderText(MEND)
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '2d4 + 2, roll healing' }),
+      )
+      expect(ways()).toEqual(['Roll maximum healing', 'Modify healing…'])
+    })
+
+    it('asks which kind after the way, where it offers a choice, saying what will be thrown and how, and rolls it so', async () => {
+      const user = userEvent.setup()
+      const { actions } = await renderText(
+        CHOICE,
+        actionsFor({ damage: { modifies: true, critical: DOUBLED } }),
+      )
+
+      const link = screen.getByRole('button', { name: '1d10, roll damage' })
+      fireEvent.contextMenu(link)
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+      )
+      expect(actions.rollDamage).not.toHaveBeenCalled()
+      const kinds = screen.getByRole('menu', {
+        name: 'Worn Bardic Eternal Flame damage 2d10 + 2d6 · Critical hit',
+      })
+      expect(itemsOf(kinds)).toEqual([
+        'Roll critical cold damage',
+        'Roll critical fire damage',
+      ])
+      await user.click(
+        within(kinds).getByRole('menuitem', {
+          name: 'Roll critical fire damage',
+        }),
+      )
+
+      expect(actions.rollDamage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parts: [
+            expect.objectContaining({ type: 'fire' }),
+            expect.objectContaining({ type: 'necrotic' }),
+          ],
+          types: ['fire', null],
+          critical: true,
+          criticalRule: DOUBLED,
+        }),
+      )
+
+      // At its highest, as it is.
+      fireEvent.contextMenu(link)
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll maximum damage' }),
+      )
+      expect(
+        itemsOf(
+          screen.getByRole('menu', {
+            name: 'Worn Bardic Eternal Flame damage 1d10 + 1d6 · Maximum',
+          }),
+        ),
+      ).toEqual(['Roll maximum cold damage', 'Roll maximum fire damage'])
+      await user.keyboard('{Escape}')
+
+      // Changed: a die more, another size, at its highest, a critical hit's, as it will be thrown.
+      fireEvent.contextMenu(link)
+      await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+      await user.click(
+        within(dialog).getByRole('button', { name: 'One die more' }),
+      )
+      await user.click(within(dialog).getByRole('radio', { name: 'd12' }))
+      await user.click(
+        within(dialog).getByRole('switch', { name: /^Maximum damage/ }),
+      )
+      await user.click(
+        within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+      expect(
+        itemsOf(
+          screen.getByRole('menu', {
+            name: 'Worn Bardic Eternal Flame damage 4d12 + 2d6 · Critical hit · Maximum',
+          }),
+        ),
+      ).toEqual(['Roll critical cold damage', 'Roll critical fire damage'])
+    })
+
+    it('says what a kind will be thrown as where the player alone rolls it: a critical hit’s every die twice, as a die more and another size', async () => {
+      const user = userEvent.setup()
+      await renderText(CHOICE)
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '1d10, roll damage' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+      await user.click(
+        within(dialog).getByRole('button', { name: 'One die more' }),
+      )
+      await user.click(within(dialog).getByRole('radio', { name: 'd8' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+      expect(
+        screen.getByRole('menu', {
+          name: 'Worn Bardic Eternal Flame damage 2d8 + 1d6',
+        }),
+      ).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '1d10, roll damage' }),
+      )
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+      )
+      expect(
+        screen.getByRole('menu', {
+          name: 'Worn Bardic Eternal Flame damage 2d10 + 2d6 · Critical hit',
+        }),
+      ).toBeInTheDocument()
+    })
+
+    it('closes only the dialog changing it, inside a dialog it’s in: cancelled, escaped, or rolled as a kind still to choose', async () => {
+      const user = userEvent.setup()
+      const closed = jest.fn()
+      const { actions } = await renderText(
+        CHOICE,
+        actionsFor({ damage: { modifies: true, critical: DOUBLED } }),
+        text => <InfoDialog onClose={closed}>{text}</InfoDialog>,
+      )
+      const modify = async () => {
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '1d10, roll damage' }),
+        )
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        return screen.getByRole('dialog', { name: 'Modify damage' })
+      }
+
+      await user.click(
+        within(await modify()).getByRole('button', { name: 'Cancel' }),
+      )
+      expect(screen.queryByRole('dialog', { name: 'Modify damage' })).toBeNull()
+      // The browser closes it itself on Escape, telling it alone.
+      fireEvent(await modify(), new Event('close'))
+      expect(screen.queryByRole('dialog', { name: 'Modify damage' })).toBeNull()
+      const dialog = await modify()
+      await user.click(
+        within(dialog).getByRole('button', { name: 'One die more' }),
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+      await user.click(
+        within(
+          screen.getByRole('menu', {
+            name: 'Worn Bardic Eternal Flame damage 2d10 + 1d6',
+          }),
+        ).getByRole('menuitem', { name: 'Roll fire damage' }),
+      )
+
+      expect(closed).not.toHaveBeenCalled()
+      expect(
+        screen.getByRole('dialog', { name: 'Starry Wisp' }),
+      ).toContainElement(
+        screen.getByRole('button', { name: '1d10, roll damage' }),
+      )
+      expect(actions.rollDamage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          types: ['fire', null],
+          modifiers: { extra: 1 },
+        }),
+      )
+    })
+
+    it('offers only what the game takes, where it rolls it too: a critical hit’s as its world makes one, where the sheet says how, and changed where it takes it so', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        FLAME,
+        actionsFor({ damage: { modifies: false, critical: DOUBLED } }),
+      )
+
+      const link = screen.getByRole('button', {
+        name: '2d6 + 3 fire, roll damage',
+      })
+      fireEvent.contextMenu(link)
+      expect(ways()).toEqual(['Roll critical damage'])
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+      )
+
+      expect(actions.rollDamage).toHaveBeenLastCalledWith({
+        label: 'Worn Bardic Eternal Flame damage',
+        parts: flame,
+        healing: false,
+        text: { text: hash, link: 1 },
+        critical: true,
+        criticalRule: DOUBLED,
+      })
+    })
+
+    it.each<[string, Partial<DescriptionActions>]>([
+      ['the player’s alone', {}],
+      ['the game’s too', { damage: { modifies: true, critical: DOUBLED } }],
+    ])(
+      'offers no critical hit where the game marks damage as never one, as a saving throw’s, %s',
+      async (_, fields) => {
+        const user = userEvent.setup()
+        const { actions } = await renderText(
+          '<p>It takes <span class="ss-damage roll" data-n="0" data-formulas="1d4" data-types="poison" data-critical="false">1d4 poison</span>.</p>',
+          actionsFor(fields),
+        )
+        const link = screen.getByRole('button', {
+          name: '1d4 poison, roll damage',
+        })
+
+        fireEvent.contextMenu(link)
+        expect(ways()).toEqual(['Roll maximum damage', 'Modify damage…'])
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        expect(within(dialog).getAllByRole('switch')).toEqual([
+          within(dialog).getByRole('switch', { name: /^Maximum damage/ }),
+        ])
+        await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+        await user.click(link)
+        expect(actions.rollDamage).toHaveBeenCalledWith(
+          expect.not.objectContaining({ critical: true }),
+        )
+      },
+    )
+
+    it('offers no die to change where its first part has none, as "3 + 1d6"', async () => {
+      await renderText(
+        '<p>It takes <span class="ss-damage roll" data-n="0" data-formulas="3&amp;1d6" data-types="fire&amp;cold">3 fire and 1d6 cold</span>.</p>',
+        actionsFor({ damage: { modifies: true, critical: DOUBLED } }),
+      )
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', {
+          name: '3 fire and 1d6 cold, roll damage',
+        }),
+      )
+      expect(ways()).toEqual(['Roll critical damage', 'Roll maximum damage'])
+    })
+
+    it('offers no critical hit where the sheet doesn’t say how the world makes one', async () => {
+      await renderText(FLAME, actionsFor({ damage: { modifies: true } }))
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '2d6 + 3 fire, roll damage' }),
+      )
+      expect(ways()).toEqual(['Roll maximum damage', 'Modify damage…'])
+    })
+
+    it('offers nothing where the game takes none of it but as it is, as healing it takes unchanged, which a tap still rolls', async () => {
+      // The browser's own menu, then.
+      const { actions } = await renderText(
+        MEND,
+        actionsFor({ damage: { modifies: false, critical: DOUBLED } }),
+      )
+      const healing = screen.getByRole('button', {
+        name: '2d4 + 2, roll healing',
+      })
+      expect(healing).not.toHaveAttribute('aria-haspopup')
+      expect(fireEvent.contextMenu(healing)).toBe(true)
+      expect(screen.queryByRole('menu')).toBeNull()
+      fireEvent.click(healing)
+      expect(actions.rollDamage).toHaveBeenCalledWith(
+        expect.objectContaining({ healing: true }),
+      )
+    })
+
+    it('changes it before it’s rolled, as an action’s damage may be, its critical hit as the game makes one', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        FLAME,
+        actionsFor({ damage: { modifies: true, critical: DOUBLED } }),
+      )
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '2d6 + 3 fire, roll damage' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+      expect(within(dialog).getByRole('status')).toHaveTextContent(
+        '2d6 + 3 fire + 1d4',
+      )
+      await user.click(
+        within(dialog).getByRole('button', { name: 'One die more' }),
+      )
+      const critical = within(dialog).getByRole('switch', {
+        name: /^Critical hit/,
+      })
+      expect(critical).toHaveAccessibleName('Critical hit Every die twice.')
+      await user.click(critical)
+      expect(within(dialog).getByRole('status')).toHaveTextContent(
+        '6d6 + 3 fire + 2d4',
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+
+      expect(actions.rollDamage).toHaveBeenLastCalledWith({
+        label: 'Worn Bardic Eternal Flame damage',
+        parts: flame,
+        healing: false,
+        text: { text: hash, link: 1 },
+        critical: true,
+        criticalRule: DOUBLED,
+        modifiers: { extra: 1 },
+      })
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('shows a critical hit under Powerful Critical as the game makes one: its dice, and the most they could roll added', async () => {
+      const user = userEvent.setup()
+      await renderText(
+        FLAME,
+        actionsFor({
+          damage: {
+            modifies: true,
+            critical: {
+              perDie: 1,
+              multiplyNumeric: false,
+              powerfulCritical: true,
+              altered: false,
+            },
+          },
+        }),
+      )
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '2d6 + 3 fire, roll damage' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+      await user.click(within(dialog).getByRole('radio', { name: 'd8' }))
+      const critical = within(dialog).getByRole('switch', {
+        name: /^Critical hit/,
+      })
+      expect(critical).toHaveAccessibleName(
+        'Critical hit Its dice, and the most they could roll added.',
+      )
+      await user.click(critical)
+      expect(within(dialog).getByRole('status')).toHaveTextContent(
+        '2d8 + 3 + 16 fire + 1d4 + 4',
+      )
+    })
+
+    it.each<[string, Partial<DescriptionActions>]>([
+      ['the player’s alone, every die twice', {}],
+      [
+        'as the game makes one, every die twice',
+        { damage: { modifies: true, critical: DOUBLED } },
+      ],
+    ])(
+      'adds no more dice to a critical hit’s than 40 of its first die, %s, and fewer once it’s one',
+      async (_, fields) => {
+        const user = userEvent.setup()
+        const { add, more, thrown, critical } = await modifying(
+          user,
+          18,
+          actionsFor(fields),
+        )
+
+        await add(3)
+        expect(thrown()).toHaveTextContent('21d6 fire')
+        await user.click(critical())
+        // 18 and 2 more, each twice: 40.
+        expect(thrown()).toHaveTextContent('40d6 fire')
+        expect(more).toBeDisabled()
+      },
+    )
+
+    it('adds as many dice to a critical hit’s under Powerful Critical as to its damage, each thrown once', async () => {
+      const user = userEvent.setup()
+      const { add, more, thrown, critical } = await modifying(
+        user,
+        20,
+        actionsFor({
+          damage: {
+            modifies: true,
+            critical: {
+              perDie: 1,
+              multiplyNumeric: false,
+              powerfulCritical: true,
+              altered: false,
+            },
+          },
+        }),
+      )
+
+      await add(11)
+      await user.click(critical())
+      // Each of the 31 once, and the most they could roll: none taken away.
+      expect(thrown()).toHaveTextContent('31d6 + 186 fire')
+      await add(9)
+      expect(thrown()).toHaveTextContent('40d6 + 240 fire')
+      expect(more).toBeDisabled()
+    })
+
+    it.each<[string, CriticalRule | undefined, string]>([
+      ['rolled by the player alone', undefined, 'Every die twice.'],
+      ['as dnd5e makes one', DOUBLED, 'Every die twice.'],
+      [
+        'with its numbers doubled',
+        { ...DOUBLED, multiplyNumeric: true },
+        'Every die and number twice.',
+      ],
+      ['three times over', { ...DOUBLED, perDie: 3 }, 'Every die 3 times.'],
+      [
+        'three times over, its numbers too',
+        { ...DOUBLED, perDie: 3, multiplyNumeric: true },
+        'Every die and number 3 times.',
+      ],
+      [
+        'under Powerful Critical',
+        { ...DOUBLED, perDie: 1, powerfulCritical: true },
+        'Its dice, and the most they could roll added.',
+      ],
+      [
+        'under Powerful Critical, its numbers doubled',
+        {
+          ...DOUBLED,
+          perDie: 1,
+          multiplyNumeric: true,
+          powerfulCritical: true,
+        },
+        'Its dice, the most they could roll added, and every number twice.',
+      ],
+      [
+        'its dice once, as they are',
+        { ...DOUBLED, perDie: 1 },
+        'As your Gamemaster’s game rolls one.',
+      ],
+      [
+        'its dice twice, changed as only the game adds them up',
+        { ...DOUBLED, altered: true },
+        'Every die twice, as your Gamemaster’s game rolls one.',
+      ],
+      [
+        'its dice once, changed as only the game adds them up',
+        { ...DOUBLED, perDie: 1, altered: true },
+        'As your Gamemaster’s game rolls one.',
+      ],
+    ])('says what a critical hit is %s', async (_, rule, hint) => {
+      const user = userEvent.setup()
+      const { critical } = await modifying(
+        user,
+        2,
+        actionsFor(rule && { damage: { modifies: true, critical: rule } }),
+      )
+
+      expect(critical()).toHaveAccessibleName(`Critical hit ${hint}`)
+    })
+
+    it('says a critical hit whose dice the game changes as only it adds them up is thrown as it rolls it', async () => {
+      const user = userEvent.setup()
+      const { dialog, thrown, critical } = await modifying(
+        user,
+        2,
+        actionsFor({
+          damage: { modifies: true, critical: { ...DOUBLED, altered: true } },
+        }),
+      )
+
+      await user.click(critical())
+      expect(thrown()).toHaveTextContent('4d6 fire')
+      expect(
+        within(dialog).getByText(/as your Gamemaster’s game rolls it$/),
+      ).toBe(thrown().parentElement)
     })
 
     it('is only its text where the app can’t read its formula', async () => {

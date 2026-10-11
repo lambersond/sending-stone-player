@@ -749,17 +749,20 @@ function CheckResult({
 
 /**
  * Damage or healing: the total, and each part of it with its dice and kind. Damage the game rolls
- * itself, which throws no dice here, shows the game's total.
+ * itself, which throws no dice here, shows the game's total; so does a critical hit's whose dice
+ * the game's rules change as only it can add them up, once it says.
  */
 function DamageResult({
   roll,
   state,
 }: Readonly<{ roll: LocalDamage; state?: TableRollState }>) {
   const rolledThere = byTheGame(roll)
+  const told = state?.status === 'done' && state.visible
   let total: number | string = roll.total
   if (rolledThere) {
-    total =
-      state?.status === 'done' && state.visible ? (state.total ?? '?') : '…'
+    total = told ? (state.total ?? '?') : '…'
+  } else if (roll.gameTotal && told) {
+    total = state.total ?? '?'
   }
   return (
     <div className='flex items-center gap-3'>

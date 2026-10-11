@@ -639,6 +639,18 @@ const sheetSchema = z
     ),
     // From module 0.16.0: the world's rules, which say how much a hit die gives back at least.
     rules: z.enum(['modern', 'legacy']).nullable().optional().catch(null),
+    // From module 0.19.0: how the world rolls a critical hit's damage, for a description's, which
+    // that module takes changed too; null where it can't say.
+    critical: z
+      .object({
+        perDie: z.int().min(1).max(4),
+        multiplyNumeric: z.boolean(),
+        powerfulCritical: z.boolean(),
+        altered: z.boolean(),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
     deathSaves: z
       .object({ success: z.number(), failure: z.number() })
       .nullable()

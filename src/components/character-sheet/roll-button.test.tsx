@@ -41,7 +41,8 @@ describe('components/character-sheet/roll-button', () => {
     act(() => jest.advanceTimersByTime(LONG_PRESS))
     fireEvent.click(button)
 
-    expect(onRoll).toHaveBeenCalledWith(target)
+    // From this button, as what it rolls may first open a menu of its own there.
+    expect(onRoll).toHaveBeenCalledWith(target, button)
     expect(onMenu).not.toHaveBeenCalled()
   })
 

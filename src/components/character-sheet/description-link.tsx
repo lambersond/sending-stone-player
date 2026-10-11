@@ -18,10 +18,30 @@ import {
 import clsx from 'clsx'
 import { BellRing, Dices, HeartPulse, Send, Swords } from 'lucide-react'
 import { rulesOf } from './conditions-panel'
+import {
+  formulaOf,
+  useDamageMenu,
+  type DamageChoice,
+  type DamageSubject,
+} from './damage-menu'
 import { ModifyRoll } from './modify-roll'
-import { choiceItem, ChoiceMenu, D20_CHOICES, type MenuItem } from './roll-menu'
+import { RollButton, type RollTarget } from './roll-button'
+import {
+  choiceItem,
+  ChoiceMenu,
+  D20_CHOICES,
+  type MenuItem,
+  type MenuPoint,
+  type RollChoice,
+} from './roll-menu'
 import { Modal, usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ABILITIES } from '@/constants/dnd5e'
+import {
+  changes,
+  criticalParts,
+  firstDie,
+  withModifiers,
+} from '@/utils/damage-modifiers'
 import {
   checkName,
   checkTitle,
@@ -37,48 +57,61 @@ import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import { toAdvantage } from '@/utils/roll-mode'
 import type {
+  DescribedDamage,
   DescriptionActions,
   DescriptionOrigin,
 } from './description-actions'
 import type { LinkPart } from './description-html'
-import type { RollTarget } from './roll-button'
 import type {
+  CriticalRule,
   RollMode,
   SheetAbility,
   SheetSkill,
   SheetTool,
 } from '@/types/sending-stone'
+import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /*
  * The links in a description, as the sheet acts on them: a saving throw or check it calls for
  * opens a menu, to ask the table for it or roll the player's own; its damage or healing, and its
- * own rolls, roll at a tap with the player's dice; and a condition it names shows its rules, on a
- * hover or focus, and opens the conditions panel at it on a tap. Each says only what the
- * description says, as text; one the app can't act on, such as a formula it can't read, is only
- * that text.
+ * own rolls, roll at a tap with the player's dice, and its damage offers other ways to roll it, as
+ * an action's does; and a condition it names shows its rules, on a hover or focus, and opens the
+ * conditions panel at it on a tap. Each says only what the description says, as text; one the app
+ * can't act on, such as a formula it can't read, is only that text.
  */
 
 /** A menu a description's link opens: where, what it's of, its items, and what each does. */
 type OpenMenu = {
   anchor: HTMLElement
+  /** Where on the link the player clicked or pressed for it; below the link with none. */
+  point?: MenuPoint
   title: string
   items: MenuItem<string>[]
   onChoose: (id: string) => void
 }
 
 /**
- * The menus a description's links open, and the dialog that modifies a saving throw or check
- * first.
+ * The menus a description's links open, and the dialogs that modify a saving throw or check, or
+ * damage, first.
  */
 export type LinkMenus = {
   open: (menu: OpenMenu) => void
   /** Modify a saving throw or check before it's rolled, against the DC its description names. */
   modify: (target: RollTarget, dc?: number) => void
+  /**
+   * The other ways to roll a description's damage or healing: as a critical hit's, at its highest,
+   * or changed first.
+   */
+  damage: (
+    anchor: HTMLElement,
+    subject: DamageSubject,
+    point?: MenuPoint,
+  ) => void
 }
 
 /**
- * The menus a description's links open, one at a time, and the dialog that modifies a saving
- * throw or check before it's rolled, which are in `dialogs`, to be put on the page beside the
+ * The menus a description's links open, one at a time, and the dialogs that modify a saving throw
+ * or check, or damage, before it's rolled, which are in `dialogs`, to be put on the page beside the
  * description, never in it.
  */
 export function useLinkMenus(actions?: DescriptionActions): {
@@ -90,11 +123,13 @@ export function useLinkMenus(actions?: DescriptionActions): {
     target: RollTarget
     dc?: number
   }>()
+  const damage = useDamageMenu()
   const dialogs = (
     <>
       {menu && (
         <ChoiceMenu
           anchor={menu.anchor}
+          point={menu.point}
           title={menu.title}
           items={menu.items}
           onChoose={id => {
@@ -120,12 +155,14 @@ export function useLinkMenus(actions?: DescriptionActions): {
           />
         </Modal>
       )}
+      {actions && damage.dialogs}
     </>
   )
   return {
     menus: {
       open: setMenu,
       modify: (target, dc) => setModifying({ target, dc }),
+      damage: damage.open,
     },
     dialogs,
   }
@@ -509,8 +546,13 @@ function withAdvantage(mode: RollMode): RollMode {
 
 /**
  * Damage or healing a description deals, which a tap rolls with the player's dice, named for where
- * it's from; first asking which kind, where it offers a choice. One whose formula the app can't
- * read is only its text.
+ * it's from; first asking which kind, where it offers a choice. A right-click, a long-press, or the
+ * keyboard's context menu key offers other ways to roll it, as an action's damage does: as a
+ * critical hit's, for damage; at its highest; or with its dice changed first; then which kind,
+ * where it offers a choice, the menu saying what will be thrown, and how. Where the Gamemaster's
+ * game rolls it too, it offers only those the game takes: a critical hit's as the world's rules
+ * make one, where the sheet says how, and changed where the game takes it so. One whose formula the
+ * app can't read is only its text.
  */
 function DamageButton({
   link,
@@ -531,8 +573,16 @@ function DamageButton({
   const read = terms.flatMap(each => (each ? [each] : []))
   if (read.length !== link.parts.length) return label
   const kind = link.healing ? 'healing' : 'damage'
+  const name = `${origin.name} ${kind}`
+  const formula = link.parts.map(part => part.formula).join(' + ')
   const choice = link.parts.find(part => part.types.length > 1)
-  const roll = (chosen?: string) => {
+  const table = actions.damage
+  const rule = table?.critical
+  const ways = damageWays(link, read, table)
+  const roll = (
+    chosen: string | undefined,
+    { critical = false, modifiers }: DamageChoice = {},
+  ) => {
     const types = link.parts.map(part =>
       chosen && part.types.includes(chosen)
         ? chosen
@@ -540,7 +590,7 @@ function DamageButton({
           (part.types[0] ?? null),
     )
     actions.rollDamage({
-      label: `${origin.name} ${kind}`,
+      label: name,
       parts: read.map((part, index) => ({
         terms: part,
         type: typeLabel(types[index]),
@@ -554,43 +604,146 @@ function DamageButton({
           part.types.length > 1 ? types[index] : null,
         ),
       }),
+      // A critical hit's as the game makes one, where it rolls it too and says how; else every
+      // die twice, the player's alone.
+      ...(critical && { critical, ...(rule && { criticalRule: rule }) }),
+      ...(modifiers && changes(modifiers) && { modifiers }),
     })
   }
-  const Icon = link.healing ? HeartPulse : Swords
+  // Which kind first, where it offers a choice, then rolled so, the way chosen: the menu says what
+  // will be thrown, as the damage menu says it, and how.
+  const rollFrom = (
+    anchor: HTMLElement,
+    way?: DamageChoice,
+    point?: MenuPoint,
+  ) => {
+    if (!choice) {
+      roll(undefined, way)
+      return
+    }
+    const critical = way?.critical === true
+    const maximum = way?.modifiers?.maximize === true
+    const thrown = way ? thrownBy(read, way, rule) : formula
+    const how = [critical && 'Critical hit', maximum && 'Maximum']
+      .filter(Boolean)
+      .map(word => ` · ${word}`)
+      .join('')
+    let adjective = ''
+    if (critical) adjective = 'critical '
+    else if (maximum) adjective = 'maximum '
+    menus.open({
+      anchor,
+      point,
+      title: `${name} ${thrown}${how}`,
+      items: choice.types.map(type => ({
+        id: type,
+        label: link.healing
+          ? `Roll ${adjective}${typeLabel(type)}`
+          : `Roll ${adjective}${typeLabel(type)} damage`,
+        icon: link.healing ? HeartPulse : Swords,
+        tint: link.healing ? 'text-primary' : 'text-damage',
+      })),
+      onChoose: type => roll(type, way),
+    })
+  }
+  const props = {
+    label: `${label}, roll ${kind}`,
+    className: clsx(
+      PILL,
+      link.healing
+        ? 'bg-primary/12 text-primary hover:bg-primary/20'
+        : 'bg-damage/15 text-damage hover:bg-damage/25',
+    ),
+  }
+  if (ways.length === 0) {
+    return (
+      <button
+        type='button'
+        aria-label={props.label}
+        {...(choice && { 'aria-haspopup': 'menu' as const })}
+        onClick={event => rollFrom(event.currentTarget)}
+        className={props.className}
+      >
+        {label}
+      </button>
+    )
+  }
   return (
-    <button
-      type='button'
-      aria-label={`${label}, roll ${kind}`}
-      {...(choice && { 'aria-haspopup': 'menu' as const })}
-      onClick={event => {
-        if (!choice) {
-          roll()
-          return
-        }
-        menus.open({
-          anchor: event.currentTarget,
-          title: `${origin.name} ${kind}, ${link.parts.map(part => part.formula).join(' + ')}`,
-          items: choice.types.map(type => ({
-            id: type,
-            label: link.healing
-              ? `Roll ${typeLabel(type)}`
-              : `Roll ${typeLabel(type)} damage`,
-            icon: Icon,
-            tint: link.healing ? 'text-primary' : 'text-damage',
-          })),
-          onChoose: roll,
-        })
-      }}
-      className={clsx(
-        PILL,
-        link.healing
-          ? 'bg-primary/12 text-primary hover:bg-primary/20'
-          : 'bg-damage/15 text-damage hover:bg-damage/25',
-      )}
+    <RollButton
+      target={link}
+      onRoll={(_link, anchor) => rollFrom(anchor)}
+      onMenu={(anchor, _link, point) =>
+        menus.damage(
+          anchor,
+          {
+            label: name,
+            formula,
+            // As thrown unchanged, each part as the kind it is, where it offers no choice.
+            parts: read.map((part, index) => {
+              const { types } = link.parts[index]
+              return {
+                terms: part,
+                // eslint-disable-next-line unicorn/no-null -- none, or one still to choose
+                type: types.length === 1 ? typeLabel(types[0]) : null,
+              }
+            }),
+            healing: link.healing,
+            choices: ways,
+            ...(rule && { criticalRule: rule }),
+            onChoose: way => rollFrom(anchor, way, point),
+          },
+          point,
+        )
+      }
+      {...props}
     >
       {label}
-    </button>
+    </RollButton>
   )
+}
+
+/**
+ * What a description's damage or healing will throw, rolled the way chosen: changed as the player
+ * chose, and as a critical hit's, as the world's rules make one, where the game says how, or else
+ * every die twice; such as "4d10 + 2d6".
+ */
+function thrownBy(
+  parts: ExtraTerm[][],
+  { critical = false, modifiers }: DamageChoice,
+  rule?: CriticalRule,
+): string {
+  const changed = withModifiers(
+    // eslint-disable-next-line unicorn/no-null -- its kind is still to choose
+    parts.map(terms => ({ terms, type: null })),
+    modifiers,
+    1,
+  )
+  if (critical && rule) return formulaOf(criticalParts(changed, rule))
+  return formulaOf(changed, { doubled: critical })
+}
+
+/**
+ * The other ways a description's damage or healing may be rolled, as an action's may: as a critical
+ * hit's, for damage the game doesn't mark as never one, and at its highest, or with its first die
+ * changed, where it has one. Where the game rolls it too, only those it takes: a critical hit's
+ * where the sheet says how the world makes one, and changed where it takes it so.
+ */
+function damageWays(
+  link: DamageLink,
+  parts: ExtraTerm[][],
+  table: DescribedDamage | undefined,
+): RollChoice[] {
+  const critical =
+    !link.healing &&
+    link.critical !== false &&
+    (!table || table.critical !== undefined)
+  const changed = !table || table.modifies
+  const die = firstDie(parts.map(terms => ({ terms })))
+  return [
+    ...(critical ? (['critical'] as const) : []),
+    ...(changed ? (['maximize'] as const) : []),
+    ...(changed && die ? (['modify-damage'] as const) : []),
+  ]
 }
 
 /**

@@ -117,8 +117,16 @@ export type RollRequestInput = {
   use?: string
   /** For damage, the kind chosen for each of its rolls that offers a choice, by place. */
   types?: (string | null)[]
-  /** For damage, how the player changed it: more dice, another die, every die at its highest. */
+  /**
+   * For damage, or a description's from module 0.19.0, how the player changed it: more dice,
+   * another die, every die at its highest.
+   */
   modifiers?: DamageModifiers
+  /**
+   * For a description's damage, a critical hit's, as the world's rules make it, from module 0.19.0.
+   * Never healing.
+   */
+  critical?: true
   /** For a saving throw the game asked for, the prompt it answers. */
   prompt?: string
   /** For a hit die, its size, such as "d10". */

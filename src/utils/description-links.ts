@@ -4,8 +4,9 @@ import { DAMAGE_TYPE } from '@/constants/sending-stone'
 /*
  * The links in a description the app can act on, as the module marks them since 0.17.0: a saving
  * throw it asks for, damage or healing it deals, a roll of its own, and a condition it names; and
- * since 0.18.0, a check it asks for. The module sends each as a span with a class of its own and
- * what it means in data attributes:
+ * since 0.18.0, a check it asks for; and since 0.19.0, damage never rolled as a critical hit's, as
+ * dnd5e's own link offers none, is marked so. The module sends each as a span with a class of its
+ * own and what it means in data attributes:
  *
  *   <span class="ss-save roll" data-n="0" data-ability="dex" data-dc="15">DC 15 Dexterity</span>
  *   <span class="ss-damage roll" data-n="1" data-formulas="2d6&1d4" data-types="fire&cold|fire">…
@@ -89,6 +90,11 @@ export type DamageLink = {
     types: string[]
   }[]
   healing: boolean
+  /**
+   * Damage never rolled as a critical hit's, as dnd5e's own link offers none, such as a saving
+   * throw's, or the game can't plan its dice, as a weapon's extra dice. Module 0.19.0.
+   */
+  critical?: false
 }
 
 /** A roll of a description's own, such as [[/r 1d4]]. */
@@ -154,6 +160,7 @@ export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
     // A part's types joined by |, the parts by &; a part may have none.
     'data-types': new RegExp(`^${TYPES}?(?:&${TYPES}?){0,9}$`),
     'data-healing': /^true$/,
+    'data-critical': /^false$/,
   },
   'ss-roll': {
     'data-n': /^(?:0|[1-9]\d?|1\d\d)$/,
@@ -257,6 +264,7 @@ export function linkOf(
             .filter(type => DAMAGE_TYPE.test(type)),
         })),
         healing: kept['data-healing'] === 'true',
+        ...(kept['data-critical'] === 'false' && { critical: false as const }),
       }
     }
     case 'ss-roll': {

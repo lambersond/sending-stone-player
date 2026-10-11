@@ -1751,6 +1751,112 @@ describe('hooks/use-table-rolls', () => {
       expect(sent()).not.toHaveProperty('types')
     })
 
+    it("sends a description's critical hit, as the world's rules made it, and its damage changed, as the player chose", () => {
+      jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-1' }))
+      const { result } = render(['textDamage'], ['modifiers'])
+      const roll: SheetDamageRoll = {
+        label: 'Flame damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 2, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+            type: 'slashing',
+          },
+          { terms: [{ sign: 1, count: 2, sides: 6 }], type: 'fire' },
+        ],
+        text: { text: HASH, link: 1 },
+        critical: true,
+        criticalRule: {
+          perDie: 2,
+          multiplyNumeric: false,
+          powerfulCritical: false,
+          altered: false,
+        },
+        modifiers: { extra: 0, maximize: true },
+      }
+      const thrown = thrownDamage({
+        critical: true,
+        maximized: true,
+        parts: [
+          {
+            type: 'slashing',
+            total: 20,
+            terms: [
+              { text: '2d8', values: [8, 8], value: 16 },
+              { text: '+4', values: [], value: 4 },
+            ],
+          },
+          {
+            type: 'fire',
+            total: 12,
+            terms: [{ text: '+2d6', values: [6, 6], value: 12 }],
+          },
+        ],
+      })
+
+      act(() => result.current.sendDamage(roll, thrown))
+
+      expect(sent()).toEqual({
+        kind: 'textDamage',
+        text: HASH,
+        link: 1,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [
+          { faces: 8, results: [8, 8] },
+          { faces: 6, results: [6, 6] },
+        ],
+        critical: true,
+        modifiers: { extra: 0, maximize: true },
+      })
+
+      // Unchanged after all, it says nothing of them.
+      act(() =>
+        result.current.sendDamage(
+          { ...roll, critical: false, modifiers: { extra: 0 } },
+          thrownDamage({ id: 'r3' }),
+        ),
+      )
+      expect(sent()).not.toHaveProperty('critical')
+      expect(sent()).not.toHaveProperty('modifiers')
+    })
+
+    it("keeps a description's critical hit with its dice doubled here, rather than as the game makes one, from the game", () => {
+      const { result } = render(['textDamage'], ['modifiers'])
+
+      act(() =>
+        result.current.sendDamage(
+          {
+            label: 'Flame damage',
+            parts: [{ terms: [{ sign: 1, count: 1, sides: 8 }], type: null }],
+            text: { text: HASH, link: 1 },
+            critical: true,
+          },
+          thrownDamage({ critical: true }),
+        ),
+      )
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.current.states.size).toBe(0)
+    })
+
+    it("says whether the game takes a description's damage changed, as it takes an attack's", () => {
+      const { result, rerender } = render(['textDamage'])
+      expect(result.current.modifiesText).toBe(false)
+      rerender({ kinds: ['textDamage'], features: ['modifiers'] })
+      expect(result.current.modifiesText).toBe(true)
+      // An attack's damage it takes changed is not a description's.
+      expect(result.current.modifies).toBe(false)
+      rerender({ kinds: ['damage'], features: ['modifiers'] })
+      expect(result.current.modifiesText).toBe(false)
+      rerender({ kinds: ['textDamage'], features: ['modifiers'] })
+      act(() => result.current.setSending(false))
+      expect(result.current.modifiesText).toBe(false)
+    })
+
     it("sends a description's own roll by its link, where the game takes it", () => {
       jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
       const { result } = render(['textRoll'])

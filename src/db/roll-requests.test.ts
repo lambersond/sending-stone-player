@@ -856,9 +856,15 @@ describe('db/roll-requests', () => {
       extras: [],
       dice: [],
     }
-    const given = ({ html = described as string | null, asks = 0 } = {}) => {
+    const given = ({
+      html = described as string | null,
+      asks = 0,
+      features = [] as string[],
+      sheet = fullerSheet() as object,
+    } = {}) => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...takingRolls,
+        rollFeatures: features,
         rollKinds: [
           'save',
           'skill',
@@ -870,7 +876,7 @@ describe('db/roll-requests', () => {
         ],
       } as any)
       prismaMock.actorSheet.findUnique.mockResolvedValue({
-        data: fullerSheet(),
+        data: sheet,
       } as any)
       prismaMock.sheetText.findUnique.mockResolvedValue(
         html === null ? null : ({ html } as any),
@@ -1054,6 +1060,95 @@ describe('db/roll-requests', () => {
       await expect(
         createRollRequest(character, { ...textRoll, dice: [] }),
       ).resolves.toEqual({ status: 422, reason: 'dice' })
+    })
+
+    it("rolls a description's damage changed, where the game takes it so, and as a critical hit's, as the sheet says the world makes one", async () => {
+      /** A sheet from module 0.19.0, whose world doubles a critical hit's dice. */
+      const sheet = {
+        ...fullerSheet(),
+        critical: {
+          perDie: 2,
+          multiplyNumeric: false,
+          powerfulCritical: false,
+          altered: false,
+        },
+      }
+      const critical: RollRequestInput = {
+        ...linked,
+        kind: 'textDamage',
+        link: 1,
+        critical: true,
+        modifiers: { extra: 1, maximize: true },
+        dice: [
+          { faces: 6, results: [6, 6, 6, 6, 6, 6] },
+          { faces: 4, results: [4, 4] },
+        ],
+      }
+      given({ features: ['modifiers'], sheet })
+      await expect(createRollRequest(character, critical)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          kind: 'textDamage',
+          payload: critical,
+        }),
+        select: { id: true },
+      })
+
+      // Changed, only where the game takes damage changed.
+      given({ sheet })
+      await expect(createRollRequest(character, critical)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
+
+      // A critical hit's alone, where it doesn't.
+      const plain = {
+        ...critical,
+        modifiers: undefined,
+        dice: [
+          { faces: 6, results: [1, 2, 3, 4] },
+          { faces: 4, results: [1, 2] },
+        ],
+      }
+      given({ sheet })
+      await expect(createRollRequest(character, plain)).resolves.toEqual({
+        id: 'req-1',
+      })
+
+      // Not with the dice its world doesn't throw.
+      given({ sheet })
+      await expect(
+        createRollRequest(character, {
+          ...plain,
+          dice: [
+            { faces: 6, results: [1, 2] },
+            { faces: 4, results: [1] },
+          ],
+        }),
+      ).resolves.toEqual({ status: 422, reason: 'dice' })
+
+      // Nor where the sheet, from before module 0.19.0, doesn't say how it makes one, nor
+      // takes it changed.
+      given({ features: ['modifiers'] })
+      await expect(createRollRequest(character, plain)).resolves.toEqual({
+        status: 422,
+        reason: 'dice',
+      })
+      given({ features: ['modifiers'] })
+      await expect(
+        createRollRequest(character, {
+          ...linked,
+          kind: 'textDamage',
+          link: 1,
+          modifiers: { maximize: true },
+          dice: [
+            { faces: 6, results: [6, 6] },
+            { faces: 4, results: [4] },
+          ],
+        }),
+      ).resolves.toEqual({ status: 422, reason: 'unavailable' })
     })
 
     it('refuses a link the game does not take', async () => {

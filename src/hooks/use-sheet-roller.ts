@@ -10,9 +10,14 @@ import {
   type RollResult,
 } from '@lambersond/3d-dice-core'
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
-import { withModifiers, type DamageModifiers } from '@/utils/damage-modifiers'
+import {
+  criticalParts,
+  withModifiers,
+  type DamageModifiers,
+} from '@/utils/damage-modifiers'
 import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
 import type { FormulaSource, RollSource, TextLink } from '@/types/roll'
+import type { CriticalRule } from '@/types/sending-stone'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -62,7 +67,7 @@ export type SheetDamageRoll = {
   label: string
   /** Each part of the formula, with its kind of damage, such as "Slashing". */
   parts: { terms: ExtraTerm[]; type: string | null }[]
-  /** A critical hit, which rolls every die twice. */
+  /** A critical hit, which rolls every die twice, unless the game's or its rules say otherwise. */
   critical?: boolean
   /** Healing, or temporary hit points, rather than damage. */
   healing?: boolean
@@ -85,6 +90,11 @@ export type SheetDamageRoll = {
   perDie?: number
   /** For damage or healing a description deals, its link, for the game to roll it too. */
   text?: TextLink
+  /**
+   * For a description's damage the game rolls too, how the world's rules make a critical hit's, for
+   * one to be thrown so here, once changed as the player chose, rather than every die twice.
+   */
+  criticalRule?: CriticalRule
 }
 
 /**
@@ -158,6 +168,11 @@ export type LocalDamage = {
   parts: { type: string | null; total: number; terms: LocalExtra[] }[]
   /** Rolled from a link in a description. */
   described?: boolean
+  /**
+   * A critical hit's whose dice the world's rules change as only the game can add them up, such as
+   * Midi-QOL's at their highest: its total is the game's, once it says.
+   */
+  gameTotal?: boolean
   at: number
 }
 
@@ -302,11 +317,18 @@ export function useSheetRoller(
         perDie = 1,
       } = request
       // Changed as the player chose: the game's dice take as many more for each die added as it
-      // throws for each; those rolled here are doubled after, for a critical hit.
-      const parts = withModifiers(request.parts, modifiers, exact ? perDie : 1)
+      // throws for each; those rolled here are doubled after, for a critical hit, or made a
+      // critical hit's as the world's rules make one, where they're given.
+      const changed = withModifiers(
+        request.parts,
+        modifiers,
+        exact ? perDie : 1,
+      )
+      const rule = critical ? request.criticalRule : undefined
+      const parts = rule ? criticalParts(changed, rule) : changed
       // As dnd5e rolls a critical hit by default: twice the dice, the same numbers added. Dice
-      // the game gave are thrown as they are.
-      const doubled = critical && !exact
+      // the game gave, or made as its rules make them, are thrown as they are.
+      const doubled = critical && !exact && !rule
       const dice = parts.flatMap(({ terms }) =>
         terms.filter(term => 'sides' in term),
       )
@@ -328,6 +350,7 @@ export function useSheetRoller(
         maximized,
       })
       if (request.text) damage.described = true
+      if (rule?.altered) damage.gameTotal = true
       onDamageThrown?.({ ...request, parts }, damage)
       await land(result, damage)
     },

@@ -7,7 +7,7 @@ import {
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
 import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
-import { modifiedDice } from '@/utils/damage-modifiers'
+import { changes, linkDamage, modifiedDice } from '@/utils/damage-modifiers'
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
 import { sheetTextRefs } from '@/utils/sheet-texts'
@@ -43,8 +43,11 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * left. For a formula: its dice aren't those the formula throws. From a link in a description: the
  * description is no longer on the sheet, or not held here (`gone`); it has no such link, or not of
  * the kind asked for, or a saving throw it calls for isn't rolled with that ability, or a check
- * with that skill, tool or ability (`link`); the table is asked for one in a secret (`secret`); its
- * dice aren't those its formulas throw, or a kind of damage chosen isn't one it offers.
+ * with that skill, tool or ability, or healing, or damage the game marks as never a critical hit's,
+ * is asked for as one (`link`); the table is asked for one in a secret (`secret`); its dice aren't
+ * those its formulas throw, changed as the player chose, or as a critical hit's where the sheet
+ * doesn't say how the world makes one; a kind of damage chosen isn't one it offers; or damage is
+ * changed where the game, before module 0.19.0, doesn't take it so (`unavailable`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -340,9 +343,11 @@ function checkFormula(
  * throw is rolled with one of the abilities it names, or Constitution for a concentration check
  * that names none, as the game takes it; the player's own check is one of the link's, by its kind
  * and its skill's, tool's or ability's key; damage or healing is rolled as its parts' formulas
- * throw, each as a kind of damage the part offers, where chosen; and a roll of its own as its
- * formula throws. The game reads the link again from its own copy, so nothing it asks for is taken
- * from the app.
+ * throw, each as a kind of damage the part offers, where chosen, changed as the player chose, as an
+ * attack's damage may be, where the game takes it so, and damage, never healing nor damage the game
+ * marks as never one, as a critical hit's, its dice thrown as many times as the world's rules say,
+ * where the sheet says; and a roll of its own as its formula throws. The game reads the link again
+ * from its own copy, so nothing it asks for is taken from the app.
  */
 function checkLinked(
   input: RollRequestInput,
@@ -379,7 +384,12 @@ function checkLinked(
     }
     case 'textDamage': {
       if (found?.link.kind !== 'damage') return 'link'
-      const { parts } = found.link
+      const damage = found.link
+      // Healing is never a critical hit's, nor damage the game marks as never one.
+      if (input.critical && (damage.healing || damage.critical === false)) {
+        return 'link'
+      }
+      const { parts } = damage
       const types = input.types ?? []
       const offered =
         types.length <= parts.length &&
@@ -387,11 +397,18 @@ function checkLinked(
           (type, index) => type === null || parts[index].types.includes(type),
         )
       if (!offered) return 'type'
+      // Changed only where the game takes it so, from module 0.19.0, whose sheets say how it makes
+      // a critical hit's, or that it can't.
+      if (changes(input.modifiers) && sheet.critical === undefined) {
+        return 'unavailable'
+      }
+      // A critical hit's only as the world's rules make it, where the sheet says how.
+      const rule = input.critical ? sheet.critical : undefined
+      if (input.critical && !rule) return 'dice'
       // A part the app can't read, it couldn't have rolled.
-      const thrown = parts.map(({ formula }) => formulaDice(formula))
-      if (thrown.includes(undefined)) return 'dice'
-      const dice = thrown.flatMap(each => each ?? [])
-      return throws(input, dice) ? undefined : 'dice'
+      const preview = linkDamage(damage, rule ?? undefined)
+      const planned = preview && modifiedDice(preview, input.modifiers)
+      return planned && matchesPlanned(input, planned) ? undefined : 'dice'
     }
     case 'textRoll': {
       if (found?.link.kind !== 'roll') return 'link'
@@ -418,6 +435,24 @@ function throws(input: RollRequestInput, thrown: ExtraDice[]): boolean {
     input.dice.every(
       ({ faces, results }, index) =>
         faces === thrown[index].sides && results.length === thrown[index].count,
+    )
+  )
+}
+
+/**
+ * Are a roll's dice those its damage was planned to throw, in order: the same kinds of dice, as
+ * many of each?
+ */
+function matchesPlanned(
+  input: RollRequestInput,
+  planned: { faces: number; number: number }[],
+): boolean {
+  return (
+    input.dice.length === planned.length &&
+    input.dice.every(
+      ({ faces, results }, index) =>
+        faces === planned[index].faces &&
+        results.length === planned[index].number,
     )
   )
 }
@@ -460,15 +495,7 @@ export function checkDamage(
   )
   if (taken) return 'damaged'
   const planned = modifiedDice(damage, input.modifiers)
-  if (!planned) return 'dice'
-  const matches =
-    input.dice.length === planned.length &&
-    input.dice.every(
-      ({ faces, results }, index) =>
-        faces === planned[index].faces &&
-        results.length === planned[index].number,
-    )
-  if (!matches) return 'dice'
+  if (!planned || !matchesPlanned(input, planned)) return 'dice'
   const types = input.types ?? []
   const offered =
     types.length <= damage.rolls.length &&
