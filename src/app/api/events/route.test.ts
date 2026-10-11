@@ -3,6 +3,7 @@
  */
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { OPTIONS, POST } from './route'
+import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
 import { recordCommandResult } from '@/db/roll-requests'
@@ -432,8 +433,23 @@ describe('app/api/events', () => {
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
+    it('takes a hello of more than 1 MB, as a party with large spellbooks sends', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      const response = await post(
+        envelope('bridge.hello', {
+          characters: [],
+          combats: [],
+          padding: 'x'.repeat(1_200_000),
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(applyCampaignEvent).toHaveBeenCalled()
+    })
+
     it('refuses an oversized body', async () => {
-      const response = await post('x'.repeat(1_000_001))
+      const response = await post('x'.repeat(MAX_ENVELOPE_BYTES + 1))
 
       expect(response.status).toBe(413)
     })
@@ -444,7 +460,7 @@ describe('app/api/events', () => {
         headers: {
           Authorization: 'Bearer hunter2',
           Origin: GAME,
-          'Content-Length': '2000000',
+          'Content-Length': String(MAX_ENVELOPE_BYTES + 1),
         },
         body: '{}',
       })

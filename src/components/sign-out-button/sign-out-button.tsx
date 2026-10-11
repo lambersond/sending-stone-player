@@ -21,7 +21,7 @@ export function SignOutButton() {
       type='button'
       onClick={signOut}
       disabled={pending}
-      className='inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:opacity-50'
+      className='inline-flex items-center gap-1.5 rounded-lg p-1.5 text-sm sm:px-2.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:opacity-50'
     >
       <LogOut aria-hidden className='size-4' />
       <span className='max-sm:sr-only'>Sign out</span>

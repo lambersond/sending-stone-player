@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RollMenu, type MenuPoint } from './roll-menu'
+import { placing, RollMenu, type MenuPoint } from './roll-menu'
 import { Modal } from '@/components/modal'
 
 const renderMenu = (point?: MenuPoint) => {
@@ -48,6 +48,21 @@ describe('components/character-sheet/roll-menu', () => {
   afterAll(() => {
     for (const side of ['clientWidth', 'clientHeight'])
       Reflect.deleteProperty(document.documentElement, side)
+  })
+
+  it('lets only a click’s menu move back across onto the screen, where neither side of the pointer has room', () => {
+    expect(placing({ x: 195, y: 20, touch: false })).toMatchObject({
+      placement: 'right-start',
+      across: true,
+    })
+    expect(placing({ x: 195, y: 20, touch: true })).toMatchObject({
+      placement: 'top',
+      across: false,
+    })
+    expect(placing()).toMatchObject({
+      placement: 'bottom',
+      across: false,
+    })
   })
 
   it('hangs from the pointer, like the browser’s own menu, and stays with it as the sheet scrolls', async () => {
