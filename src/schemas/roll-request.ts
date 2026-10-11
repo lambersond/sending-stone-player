@@ -6,6 +6,7 @@ import {
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  MOST_HIT_DICE,
   PROMPT_ID,
   PROTOCOL_VERSION,
   ROLL_KINDS,
@@ -68,6 +69,15 @@ const modifiersSchema = z.strictObject({
   maximize: z.boolean().optional(),
 })
 
+/** Hit dice of one size spent at once: the size, and how many. */
+const hitDiceSchema = z.strictObject({
+  denomination: z.string().regex(HIT_DIE),
+  count: z.int().min(1).max(MOST_HIT_DICE),
+})
+
+/** How many sizes of hit die there are, each of which may be spent at once. */
+const HIT_DIE_SIZES = 5
+
 const rolledDiceSchema = z.strictObject({
   faces: z.int().min(2).max(100),
   results: z
@@ -90,9 +100,11 @@ const rolledDiceSchema = z.strictObject({
  * then changed so. A description's damage names its link, and may be changed so too, or be a
  * critical hit's, as the world's rules make one, which an attack's damage never says: its attack
  * did. A saving throw the game asked for names the prompt it answers; a saving throw or check a
- * description calls for may name its link. A hit die names its size, and throws its one die; a
- * feature's own formula names its item and activity, and throws the dice its formula does, which
- * are checked against it when it's asked for.
+ * description calls for may name its link. A hit die names its size, and throws its one die;
+ * several hit dice spent at once name how many of each size, each size once, no more than 20 in
+ * all, and throw those of each size together, in the same order; a feature's own
+ * formula names its item and activity, and throws the dice its formula does, which are checked
+ * against it when it's asked for.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -119,6 +131,7 @@ export const rollRequestSchema = z
     critical: z.literal(true).optional(),
     prompt: z.string().regex(PROMPT_ID).optional(),
     denomination: z.string().regex(HIT_DIE).optional(),
+    hitDice: z.array(hitDiceSchema).min(1).max(HIT_DIE_SIZES).optional(),
     text: z.string().regex(TEXT_HASH).optional(),
     link: z
       .int()
@@ -131,6 +144,7 @@ export const rollRequestSchema = z
     const use = request.kind === 'use'
     const formula = request.kind === 'formula'
     const hitDie = request.kind === 'hitDie'
+    const hitDice = request.kind === 'hitDice'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
     if (attack || use || formula ? !both : named) {
@@ -146,6 +160,20 @@ export const rollRequestSchema = z
         code: 'custom',
         path: ['denomination'],
         message: 'A hit die, and only a hit die, has a size',
+      })
+    }
+    if (hitDice !== (request.hitDice !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['hitDice'],
+        message: 'Hit dice, and only hit dice, say how many of each size',
+      })
+    }
+    if (request.hitDice && !spentOnce(request.hitDice)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['hitDice'],
+        message: `Each size is spent once, and no more than ${MOST_HIT_DICE} dice in all`,
       })
     }
     if (!attack && request.target !== undefined) {
@@ -292,6 +320,19 @@ export const rollRequestSchema = z
       }
       return
     }
+    if (hitDice) {
+      const plain =
+        request.mode === 0 && !request.explicit && request.extras.length === 0
+      if (!plain || !throwsHitDice(request.dice, request.hitDice ?? [])) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dice'],
+          message:
+            'Hit dice are rolled as they are, a die each, and nothing more',
+        })
+      }
+      return
+    }
     if (damaging || hitDie || formula || request.kind === 'textRoll') {
       const plain =
         request.mode === 0 && !request.explicit && request.extras.length === 0
@@ -337,6 +378,32 @@ export const rollRequestSchema = z
       })
     }
   }) as unknown as z.ZodType<RollRequestInput>
+
+/** Are hit dice spent at once each of their sizes once, no more than the most in all? */
+function spentOnce(hitDice: { denomination: string; count: number }[]) {
+  const sizes = new Set(hitDice.map(({ denomination }) => denomination))
+  const count = hitDice.reduce((all, { count }) => all + count, 0)
+  return sizes.size === hitDice.length && count <= MOST_HIT_DICE
+}
+
+/**
+ * Are these the dice hit dice spent at once throw: for each size, in the same order, a roll of as
+ * many of that size as are spent, each result one of its faces?
+ */
+function throwsHitDice(
+  dice: { faces: number; results: number[] }[],
+  hitDice: { denomination: string; count: number }[],
+): boolean {
+  return (
+    dice.length === hitDice.length &&
+    dice.every(
+      ({ faces, results }, index) =>
+        `d${faces}` === hitDice[index].denomination &&
+        results.length === hitDice[index].count &&
+        results.every(result => result >= 1 && result <= faces),
+    )
+  )
+}
 
 /** The dice a roll throws, in order: its d20s, then each added term's. */
 function expectedDice(

@@ -280,6 +280,8 @@ function activityAction(
       damage: favorite.damage,
       ...(favorite.consumesSlot === false && { consumesSlot: false }),
       ...(favorite.cast && { cast: favorite.cast }),
+      // For a Cast, its spell's copy, whose other activities are used beneath it.
+      ...(favorite.spellId && { spellId: favorite.spellId }),
       ...(favorite.rollFormula && { rollFormula: favorite.rollFormula }),
       ...(favorite.attackArea && { attackArea: favorite.attackArea }),
       uses: favorite.uses,

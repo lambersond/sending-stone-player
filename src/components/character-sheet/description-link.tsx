@@ -38,9 +38,12 @@ import { Modal, usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ABILITIES } from '@/constants/dnd5e'
 import {
   changes,
+  criticalOffered,
   criticalParts,
+  EVERY_DIE_TWICE,
   firstDie,
   withModifiers,
+  type CriticalAdds,
 } from '@/utils/damage-modifiers'
 import {
   checkName,
@@ -549,10 +552,12 @@ function withAdvantage(mode: RollMode): RollMode {
  * it's from; first asking which kind, where it offers a choice. A right-click, a long-press, or the
  * keyboard's context menu key offers other ways to roll it, as an action's damage does: as a
  * critical hit's, for damage; at its highest; or with its dice changed first; then which kind,
- * where it offers a choice, the menu saying what will be thrown, and how. Where the Gamemaster's
- * game rolls it too, it offers only those the game takes: a critical hit's as the world's rules
- * make one, where the sheet says how, and changed where the game takes it so. One whose formula the
- * app can't read is only its text.
+ * where it offers a choice, the menu saying what will be thrown, and how. A critical hit's adds
+ * what one adds to it, as the game reads its activity, such as a weapon's extra dice and critical
+ * damage. Where the Gamemaster's game rolls it too, it offers only those the game takes: a critical
+ * hit's as the world's rules make one, where the sheet says how and they take what it adds, and
+ * changed where the game takes it so; where the player alone rolls it, a critical hit's is as dnd5e
+ * makes one by default. One whose formula the app can't read is only its text.
  */
 function DamageButton({
   link,
@@ -578,7 +583,10 @@ function DamageButton({
   const choice = link.parts.find(part => part.types.length > 1)
   const table = actions.damage
   const rule = table?.critical
-  const ways = damageWays(link, read, table)
+  // What a critical hit adds, where one is offered: as the world's rules make one, where the game
+  // rolls it too, or else as dnd5e does by default.
+  const adds = criticalOffered(link, table ? rule : EVERY_DIE_TWICE)
+  const ways = damageWays(read, table, adds)
   const roll = (
     chosen: string | undefined,
     { critical = false, modifiers }: DamageChoice = {},
@@ -605,8 +613,12 @@ function DamageButton({
         ),
       }),
       // A critical hit's as the game makes one, where it rolls it too and says how; else every
-      // die twice, the player's alone.
-      ...(critical && { critical, ...(rule && { criticalRule: rule }) }),
+      // die twice, the player's alone; with what a critical hit adds, either way.
+      ...(critical && {
+        critical,
+        ...(rule && { criticalRule: rule }),
+        ...(adds && { criticalAdds: adds }),
+      }),
       ...(modifiers && changes(modifiers) && { modifiers }),
     })
   }
@@ -623,7 +635,7 @@ function DamageButton({
     }
     const critical = way?.critical === true
     const maximum = way?.modifiers?.maximize === true
-    const thrown = way ? thrownBy(read, way, rule) : formula
+    const thrown = way ? thrownBy(read, way, rule, adds || undefined) : formula
     const how = [critical && 'Critical hit', maximum && 'Maximum']
       .filter(Boolean)
       .map(word => ` · ${word}`)
@@ -690,6 +702,7 @@ function DamageButton({
             healing: link.healing,
             choices: ways,
             ...(rule && { criticalRule: rule }),
+            ...(adds && { criticalAdds: adds }),
             onChoose: way => rollFrom(anchor, way, point),
           },
           point,
@@ -705,12 +718,13 @@ function DamageButton({
 /**
  * What a description's damage or healing will throw, rolled the way chosen: changed as the player
  * chose, and as a critical hit's, as the world's rules make one, where the game says how, or else
- * every die twice; such as "4d10 + 2d6".
+ * every die twice, with what a critical hit adds; such as "4d10 + 2d6".
  */
 function thrownBy(
   parts: ExtraTerm[][],
   { critical = false, modifiers }: DamageChoice,
   rule?: CriticalRule,
+  adds?: CriticalAdds,
 ): string {
   const changed = withModifiers(
     // eslint-disable-next-line unicorn/no-null -- its kind is still to choose
@@ -718,29 +732,28 @@ function thrownBy(
     modifiers,
     1,
   )
-  if (critical && rule) return formulaOf(criticalParts(changed, rule))
-  return formulaOf(changed, { doubled: critical })
+  if (critical) {
+    return formulaOf(criticalParts(changed, rule ?? EVERY_DIE_TWICE, adds))
+  }
+  return formulaOf(changed)
 }
 
 /**
  * The other ways a description's damage or healing may be rolled, as an action's may: as a critical
- * hit's, for damage the game doesn't mark as never one, and at its highest, or with its first die
+ * hit's, where one is offered, as `criticalOffered` says, and at its highest, or with its first die
  * changed, where it has one. Where the game rolls it too, only those it takes: a critical hit's
  * where the sheet says how the world makes one, and changed where it takes it so.
+ * @param adds - What a critical hit adds, where one is offered.
  */
 function damageWays(
-  link: DamageLink,
   parts: ExtraTerm[][],
   table: DescribedDamage | undefined,
+  adds: CriticalAdds | false,
 ): RollChoice[] {
-  const critical =
-    !link.healing &&
-    link.critical !== false &&
-    (!table || table.critical !== undefined)
   const changed = !table || table.modifies
   const die = firstDie(parts.map(terms => ({ terms })))
   return [
-    ...(critical ? (['critical'] as const) : []),
+    ...(adds ? (['critical'] as const) : []),
     ...(changed ? (['maximize'] as const) : []),
     ...(changed && die ? (['modify-damage'] as const) : []),
   ]

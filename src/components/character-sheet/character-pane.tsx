@@ -52,6 +52,7 @@ import {
 } from '@/hooks/use-table-rolls'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
+import { castIndex, isItemCast } from '@/utils/casts'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { RollFeature, RollKind } from '@/types/roll'
@@ -168,6 +169,8 @@ function RollingSheet({
   // character.
   const tab = tabs.some(({ id }) => id === chosen) ? chosen : 'character'
   const entries = useMemo(() => favoriteEntries(sheet), [sheet])
+  // How each spell an item casts is cast, and at which levels it may be.
+  const itemCasts = useMemo(() => castIndex(sheet), [sheet])
   // An attack the game makes is made at a combatant the player picks first, in a combat, and with
   // the slot, ammunition or mode they choose, where there's more than one.
   const onRoll = (request: SheetRoll) => {
@@ -184,11 +187,11 @@ function RollingSheet({
       action,
       request,
     }
-    if (asking && asks(asking, combat, sheet.spells)) {
+    if (asking && asks(asking, combat, sheet.spells, itemCasts)) {
       setPicking(asking)
       return
     }
-    void roll(request)
+    void roll(action ? { ...request, ...itemCastOf(action) } : request)
   }
   // A spell or feature the game uses: at the combatants the player picks, in a combat, and with
   // the slot they choose, its damage changed as they chose, if they did; or, while its damage is
@@ -201,7 +204,7 @@ function RollingSheet({
       return
     }
     const asking: Picking = { kind: 'use', action, modifiers }
-    if (asks(asking, combat, sheet.spells)) {
+    if (asks(asking, combat, sheet.spells, itemCasts)) {
       setPicking(asking)
       return
     }
@@ -213,7 +216,11 @@ function RollingSheet({
     modifiers?: DamageModifiers,
   ) => {
     if (!action.activity) return
-    const used = logUse(actionTitle(action), verbOf(action) === 'Cast')
+    const used = logUse(
+      actionTitle(action),
+      verbOf(action) === 'Cast',
+      isItemCast(action),
+    )
     table.sendUse(
       used,
       {
@@ -260,6 +267,7 @@ function RollingSheet({
         targetNames: Object.fromEntries(
           caught.map(({ id, name }) => [id, name]),
         ),
+        ...itemCastOf(asked.action),
       })
       return
     }
@@ -273,6 +281,7 @@ function RollingSheet({
     void roll({
       ...asked.request,
       source: { ...source, target, slot, ammunition, attackMode },
+      ...itemCastOf(asked.action),
     })
   }
   // An attack's or a use's damage, while the game waits for it, is rolled for the game, as the
@@ -541,6 +550,7 @@ function RollingSheet({
         picking={picking}
         combat={combat}
         spellbook={sheet.spells}
+        casts={itemCasts}
         areas={table.areas}
         last={lastTarget}
         onPick={pick}
@@ -573,6 +583,14 @@ function SheetContext({
       </ConditionsOpener>
     </FavoriteMarks>
   )
+}
+
+/**
+ * An attack of a spell an item casts, such as a staff's Guiding Bolt, marked as one: it's cast at a
+ * level the item offers, not with a slot, which the tray says where the game refuses it.
+ */
+function itemCastOf(action: SheetAction): { itemCast?: true } {
+  return isItemCast(action) ? { itemCast: true } : {}
 }
 
 /**

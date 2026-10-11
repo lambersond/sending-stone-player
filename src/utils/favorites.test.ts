@@ -1,11 +1,13 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { favoriteEntries, favoriteKeys, rollsAny } from './favorites'
 import {
+  castingSheet,
   fullerSheet,
   sheetAction,
   sheetFavorites,
   sheetSpell,
   TEXTS,
+  WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import type { SheetFavorite } from '@/types/sending-stone'
 
@@ -242,6 +244,46 @@ describe('utils/favorites', () => {
         action: { id: 'ring', identified: false, text: TEXTS.ring },
         note: 'Plain Ring',
       })
+    })
+
+    it('keeps the copy of the spell a Cast made a favorite casts, whose later activities are used beneath it, from module 0.20.0', () => {
+      const cast = {
+        level: 1,
+        concentration: false,
+        charges: 1,
+        short: false,
+        levels: WAND_LEVELS,
+      }
+      const favorite = (id: string, spellId?: string): SheetFavorite => ({
+        type: 'activity',
+        id,
+        itemId: 'mm-wand',
+        itemType: 'consumable',
+        itemName: 'Wand of Magic Missiles',
+        name: 'Magic Missile',
+        img: null,
+        activation: 'Action',
+        range: '120 ft',
+        target: null,
+        toHit: null,
+        save: null,
+        damage: [{ formula: '1d4 + 1', type: 'Force', healing: false }],
+        uses: null,
+        cast,
+        ...(spellId && { spellId }),
+      })
+      const [kept, older] = favoriteEntries(
+        castingSheet({
+          favorites: [favorite('cast-mm', 'mm'), favorite('cast-old')],
+        }),
+      )
+      expect(kept).toMatchObject({
+        kind: 'action',
+        action: { id: 'mm-wand', cast, spellId: 'mm' },
+      })
+      expect(older.kind === 'action' && older.action).not.toHaveProperty(
+        'spellId',
+      )
     })
 
     it("shows an effect the Effects tab doesn't list, such as a condition's, as the favorite has it", () => {

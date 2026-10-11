@@ -69,6 +69,22 @@ const more = () =>
 const fewer = () =>
   within(popover()).getByRole('button', { name: 'One die fewer' })
 
+/** A class of this size of hit die, this many left of this many. */
+const sized = (id: string, die: string, value: number, max: number) => ({
+  id,
+  identifier: id,
+  name: id,
+  levels: max,
+  subclass: null,
+  hitDice: { die, value, max },
+})
+
+/** The popover for hit dice of several sizes, and its buttons. */
+const mixed = () => screen.getByRole('dialog', { name: 'Use hit dice' })
+const step = (die: string, way: 'more' | 'fewer') =>
+  within(mixed()).getByRole('button', { name: `One ${die} ${way}` })
+const submit = () => within(mixed()).getByRole('button', { name: /^Use \d+/ })
+
 describe('components/character-sheet/hit-dice', () => {
   it('uses one die a tap, named for what it says, then how many are left, and says it opens a dialog', async () => {
     const user = userEvent.setup()
@@ -83,7 +99,10 @@ describe('components/character-sheet/hit-dice', () => {
     expect(onRollFormula).toHaveBeenCalledWith(
       expect.objectContaining({ label: 'Hit die (d8)', minimum: 1 }),
     )
-    expect(onRollFormula.mock.lastCall?.[0]).not.toHaveProperty('times')
+    expect(onRollFormula.mock.lastCall?.[0]).toMatchObject({
+      source: { kind: 'hitDie', denomination: 'd8' },
+    })
+    expect(onRollFormula.mock.lastCall?.[0]).not.toHaveProperty('sets')
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -120,14 +139,22 @@ describe('components/character-sheet/hit-dice', () => {
     expect(onRollFormula).toHaveBeenCalledTimes(1)
     expect(onRollFormula).toHaveBeenCalledWith({
       label: 'Hit dice (3d8)',
-      terms: [
-        { sign: 1, count: 1, sides: 8 },
-        { sign: 1, flat: 3 },
+      terms: [],
+      sets: [
+        {
+          terms: [
+            { sign: 1, count: 1, sides: 8 },
+            { sign: 1, flat: 3 },
+          ],
+          times: 3,
+        },
       ],
       healing: true,
       minimum: 1,
-      times: 3,
-      source: { kind: 'hitDie', denomination: 'd8' },
+      source: {
+        kind: 'hitDice',
+        hitDice: [{ denomination: 'd8', count: 3 }],
+      },
     })
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -157,7 +184,10 @@ describe('components/character-sheet/hit-dice', () => {
     await user.click(within(popover()).getByRole('button', { name: /^Use 2/ }))
 
     expect(onRollFormula).toHaveBeenCalledWith(
-      expect.objectContaining({ minimum: 0, times: 2 }),
+      expect.objectContaining({
+        minimum: 0,
+        sets: [{ terms: expect.any(Array), times: 2 }],
+      }),
     )
   })
 
@@ -181,7 +211,7 @@ describe('components/character-sheet/hit-dice', () => {
     ).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(onRollFormula).toHaveBeenCalledWith(
-      expect.objectContaining({ times: 3 }),
+      expect.objectContaining({ label: 'Hit dice (3d8)' }),
     )
   })
 
@@ -334,7 +364,9 @@ describe('components/character-sheet/hit-dice', () => {
     // Closed, a click uses one again.
     await user.click(use)
     expect(onRollFormula).toHaveBeenCalledTimes(1)
-    expect(onRollFormula.mock.lastCall?.[0]).not.toHaveProperty('times')
+    expect(onRollFormula.mock.lastCall?.[0]).toMatchObject({
+      label: 'Hit die (d8)',
+    })
   })
 
   it('closes on a tap on its Use button after a long-press opened it, using none', () => {
@@ -424,4 +456,256 @@ describe('components/character-sheet/hit-dice', () => {
       expect(screen.queryByRole('dialog')).toBeNull()
     },
   )
+  describe('of several sizes', () => {
+    /**
+     * A Use button for d8 hit dice, on a sheet with these classes, by default a fighter's d10s, 3
+     * of 5 left, a rogue's d8s, 2 of 2, and a wizard's d6, spent, with a Constitution of +3.
+     */
+    const renderMixed = (
+      classes = [
+        sized('fighter', 'd10', 3, 5),
+        sized('rogue', 'd8', 2, 2),
+        sized('wizard', 'd6', 0, 1),
+      ],
+    ) => {
+      const onRollFormula = jest.fn()
+      const spending = hitDieSpending(sheetWith(3, { classes }), onRollFormula)
+      if (!spending) throw new Error('Nothing spends them')
+      const pool = spending.pools.find(({ die }) => die === 'd8')
+      if (!pool) throw new Error('No d8s')
+      render(<HitDieUse pool={pool} spending={spending} />)
+      const use = screen.getByRole('button', { name: /^Use a d8 hit die/ })
+      return { use, onRollFormula, spending }
+    }
+
+    it('passes every size the character has to the popover, as dnd5e pools them', () => {
+      const { spending } = renderMixed([
+        sized('fighter', 'd10', 1, 3),
+        sized('paladin', 'd10', 2, 2),
+        sized('rogue', 'd8', 2, 2),
+      ])
+
+      expect(spending.pools).toEqual([
+        { die: 'd10', value: 3, max: 5 },
+        { die: 'd8', value: 2, max: 2 },
+      ])
+    })
+
+    it('offers each size the character has, the largest first, the one it opened for at 1 and the rest at none', async () => {
+      const user = userEvent.setup()
+      const { use, onRollFormula } = renderMixed()
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+
+      const rows = within(mixed()).getAllByRole('listitem')
+      expect(rows.map(row => row.textContent)).toEqual([
+        'd100 of 3',
+        'd81 of 2',
+        'd60 of 0',
+      ])
+      expect(step('d10', 'fewer')).toHaveAttribute('aria-disabled', 'true')
+      expect(step('d10', 'more')).toHaveAttribute('aria-disabled', 'false')
+      expect(step('d8', 'fewer')).toHaveAttribute('aria-disabled', 'false')
+      // None of a size left: none to spend.
+      expect(step('d6', 'fewer')).toHaveAttribute('aria-disabled', 'true')
+      expect(step('d6', 'more')).toHaveAttribute('aria-disabled', 'true')
+      expect(mixed()).toHaveTextContent('Heals 1d8 + 3')
+      // One more of its own size is what it's opened for.
+      await waitFor(() => expect(step('d8', 'more')).toHaveFocus())
+      expect(onRollFormula).not.toHaveBeenCalled()
+    })
+
+    it('spends those chosen of every size at once, the largest first, saying what they give back', async () => {
+      const user = userEvent.setup()
+      const { use, onRollFormula } = renderMixed()
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+      await user.click(step('d10', 'more'))
+      await user.click(step('d10', 'more'))
+      expect(mixed()).toHaveTextContent('Heals 2d10 + 1d8 + 9')
+      expect(seen(submit())).toBe('Use 3')
+      expect(submit()).toHaveAccessibleName('Use 3 hit dice: 2d10 and 1d8')
+      await user.click(submit())
+
+      expect(onRollFormula).toHaveBeenCalledTimes(1)
+      expect(onRollFormula).toHaveBeenCalledWith({
+        label: 'Hit dice (2d10 + 1d8)',
+        terms: [],
+        sets: [
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 10 },
+              { sign: 1, flat: 3 },
+            ],
+            times: 2,
+          },
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 3 },
+            ],
+            times: 1,
+          },
+        ],
+        healing: true,
+        minimum: 1,
+        source: {
+          kind: 'hitDice',
+          hitDice: [
+            { denomination: 'd10', count: 2 },
+            { denomination: 'd8', count: 1 },
+          ],
+        },
+      })
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('spends one die alone as a hit die, of whichever size, and none with none chosen', async () => {
+      const user = userEvent.setup()
+      const { use, onRollFormula } = renderMixed()
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+      await user.click(step('d8', 'fewer'))
+      // None chosen: nothing to spend.
+      expect(seen(submit())).toBe('Use 0')
+      expect(submit()).toHaveAttribute('aria-disabled', 'true')
+      expect(mixed()).toHaveTextContent('Heals 0')
+      expect(step('d8', 'fewer')).toHaveAttribute('aria-disabled', 'true')
+      await user.click(submit())
+      expect(onRollFormula).not.toHaveBeenCalled()
+      expect(mixed()).toBeInTheDocument()
+
+      await user.click(step('d10', 'more'))
+      expect(submit()).toHaveAccessibleName('Use 1 d10 hit die')
+      expect(submit()).toHaveAttribute('aria-disabled', 'false')
+      await user.click(submit())
+      expect(onRollFormula).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: 'Hit die (d10)',
+          source: { kind: 'hitDie', denomination: 'd10' },
+        }),
+      )
+    })
+
+    it('starts on its Use button where no more of the size it opened for is left', async () => {
+      const user = userEvent.setup()
+      const { use } = renderMixed([
+        sized('fighter', 'd10', 3, 5),
+        sized('rogue', 'd8', 1, 2),
+      ])
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+
+      expect(step('d8', 'more')).toHaveAttribute('aria-disabled', 'true')
+      await waitFor(() => expect(submit()).toHaveFocus())
+      expect(submit()).toHaveAccessibleName('Use 1 d8 hit die')
+    })
+
+    it('spends no more than 20 at once, of every size together, saying so', async () => {
+      const user = userEvent.setup()
+      const { use } = renderMixed([
+        sized('fighter', 'd10', 15, 15),
+        sized('rogue', 'd8', 10, 10),
+      ])
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+      for (let press = 0; press < 15; press++) {
+        fireEvent.click(step('d10', 'more'))
+      }
+      // All of a size: no more of it, though not for the most at once.
+      expect(within(mixed()).getAllByRole('listitem')[0]).toHaveTextContent(
+        '15 of 15',
+      )
+      expect(step('d10', 'more')).toHaveAttribute('aria-disabled', 'true')
+      expect(step('d10', 'more')).not.toHaveAttribute('title')
+      for (let press = 0; press < 6; press++) {
+        fireEvent.click(step('d8', 'more'))
+      }
+      // 15 and 5: the most at once.
+      expect(within(mixed()).getAllByRole('listitem')[1]).toHaveTextContent(
+        '5 of 10',
+      )
+      expect(step('d8', 'more')).toHaveAttribute('aria-disabled', 'true')
+      expect(step('d8', 'more')).toHaveAttribute('title', 'At most 20 at once')
+      expect(mixed()).toHaveTextContent('Heals 15d10 + 5d8 + 60')
+      expect(seen(submit())).toBe('Use 20')
+
+      // One fewer, and there's room again.
+      await user.click(step('d10', 'fewer'))
+      expect(step('d8', 'more')).toHaveAttribute('aria-disabled', 'false')
+      expect(step('d8', 'more')).not.toHaveAttribute('title')
+    })
+
+    it('spends no more than 20 at once of one size, with more left than that', async () => {
+      const user = userEvent.setup()
+      const { use, onRollFormula } = renderUse({ value: 25, max: 25 })
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+      for (let press = 0; press < 25; press++) fireEvent.click(more())
+
+      expect(popover()).toHaveTextContent('20 of 25')
+      expect(more()).toHaveAttribute('aria-disabled', 'true')
+      expect(more()).toHaveAttribute('title', 'At most 20 at once')
+      await user.click(
+        within(popover()).getByRole('button', { name: 'Use 20 d8 hit dice' }),
+      )
+      expect(onRollFormula).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'Hit dice (20d8)' }),
+      )
+    })
+
+    it('names each of three sizes for a screen reader, all of them listed', async () => {
+      const user = userEvent.setup()
+      const { use } = renderMixed([
+        sized('fighter', 'd10', 3, 5),
+        sized('rogue', 'd8', 2, 2),
+        sized('wizard', 'd6', 1, 1),
+      ])
+
+      await user.pointer({ keys: '[MouseRight]', target: use })
+      await user.click(step('d10', 'more'))
+      await user.click(step('d6', 'more'))
+
+      expect(submit()).toHaveAccessibleName('Use 3 hit dice: 1d10, 1d8 and 1d6')
+      expect(mixed()).toHaveTextContent('Heals 1d10 + 1d8 + 1d6 + 9')
+    })
+
+    it('keeps to how many of each are left as the sheet changes while it is open', async () => {
+      const user = userEvent.setup()
+      const onRollFormula = jest.fn()
+      const use = (d10s: number) => {
+        const spending = hitDieSpending(
+          sheetWith(3, {
+            classes: [
+              sized('fighter', 'd10', d10s, 5),
+              sized('rogue', 'd8', 2, 2),
+            ],
+          }),
+          onRollFormula,
+        )!
+        return (
+          <HitDieUse
+            pool={spending.pools.find(({ die }) => die === 'd8')!}
+            spending={spending}
+          />
+        )
+      }
+      const { rerender } = render(use(3))
+
+      await user.pointer({
+        keys: '[MouseRight]',
+        target: screen.getByRole('button', { name: /^Use a d8/ }),
+      })
+      for (let press = 0; press < 3; press++) {
+        await user.click(step('d10', 'more'))
+      }
+      expect(mixed()).toHaveTextContent('Heals 3d10 + 1d8 + 12')
+      // Two spent elsewhere.
+      rerender(use(1))
+      expect(within(mixed()).getAllByRole('listitem')[0]).toHaveTextContent(
+        '1 of 1',
+      )
+      expect(mixed()).toHaveTextContent('Heals 1d10 + 1d8 + 6')
+    })
+  })
 })

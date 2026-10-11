@@ -5,6 +5,7 @@ import { FavoriteMarks } from './favorite-mark'
 import { InventoryTab } from './inventory-tab'
 import { Modal } from '@/components/modal'
 import {
+  castingSheet,
   characterSheet,
   fullerSheet,
   sheetItem,
@@ -331,6 +332,48 @@ describe('components/character-sheet/inventory-tab', () => {
       expect(pressed.at(-1)?.defaultPrevented).toBe(false)
       globalThis.removeEventListener('keydown', keep, true)
     })
+  })
+
+  it("lists a wand's spell's later activities beneath it, as the Actions tab does, from module 0.20.0", async () => {
+    const user = userEvent.setup()
+    const sheet = castingSheet()
+    const flame = sheet.actions[0].actions[1]
+    const [, hex] = flame.activities!
+    // A wand whose only activity casts Hex, as the module sends it, its Cast its own rolls.
+    sheet.inventory.sections = [
+      {
+        id: 'consumable',
+        label: 'Consumables',
+        items: [
+          sheetItem({
+            id: 'hex-wand',
+            name: 'Wand of Hexes',
+            type: 'consumable',
+            uses: { value: 3, max: 7, recovery: 'Dawn' },
+            activation: hex.activation,
+            range: hex.range,
+            toHit: null,
+            activity: hex.activity,
+            save: null,
+            damage: [],
+            cast: hex.cast,
+            spellId: 'hex',
+          }),
+        ],
+      },
+    ]
+    renderTab(sheet)
+
+    await user.click(
+      screen.getByRole('button', { name: /^Wand of Hexes/, expanded: false }),
+    )
+    expect(
+      within(
+        screen.getByRole('list', {
+          name: 'Wand of Hexes: its other activities',
+        }),
+      ).getByRole('listitem'),
+    ).toHaveTextContent(/^Hex \(Bonus Hex Damage\)Special · Necrotic1d6$/)
   })
 
   it('draws the load against the most the character can carry, marking where encumbrance begins', () => {

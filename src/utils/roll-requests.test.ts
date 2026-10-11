@@ -10,6 +10,7 @@ import {
   type HeldRollRequest,
 } from './roll-requests'
 import {
+  castingSheet,
   characterSheet,
   combat,
   combatant,
@@ -19,10 +20,12 @@ import {
   sheetItem,
   sheetSpell,
   TEXTS,
+  WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
 import type {
   CommandResult,
+  CriticalRule,
   DamagePreview,
   SheetAction,
   SheetClass,
@@ -36,6 +39,20 @@ const ago = (ms: number) => new Date(NOW - ms)
 const diceOf = (first: number, fours: number, faces = 6) => [
   { faces, results: Array.from({ length: first }, () => 1) },
   { faces: 4, results: Array.from({ length: fours }, () => 2) },
+]
+
+/** A sheet saying how the world rolls a critical hit's damage, and the dice it adds. */
+const ruledSo = (critical: CriticalRule | null) => ({
+  ...fullerSheet(),
+  critical,
+})
+
+/** A greataxe's critical hit's dice: so many d12s, then so many d6s of its critical damage. */
+const greataxeDice = (twelves: number, sixes = 1) => [
+  { faces: 12, results: Array.from({ length: twelves }, () => 7) },
+  ...(sixes > 0
+    ? [{ faces: 6, results: Array.from({ length: sixes }, () => 3) }]
+    : []),
 ]
 
 const request = (fields: Partial<RollRequestInput>): RollRequestInput => ({
@@ -292,6 +309,18 @@ const hitDieRequest = (denomination = 'd10') =>
     dice: [{ faces: Number(denomination.slice(1)), results: [4] }],
   })
 
+/** Hit dice spent at once, this many of each size, each die landing on 4. */
+const hitDiceRequest = (...counts: [string, number][]) =>
+  request({
+    kind: 'hitDice',
+    key: undefined,
+    hitDice: counts.map(([denomination, count]) => ({ denomination, count })),
+    dice: counts.map(([denomination, count]) => ({
+      faces: Number(denomination.slice(1)),
+      results: Array.from({ length: count }, () => 4),
+    })),
+  })
+
 /** Thorin, with a class with each of these hit dice. */
 const classed = (...hitDice: SheetClass['hitDice'][]) =>
   fullerSheet({
@@ -341,6 +370,105 @@ const spent = (visible: boolean, healed?: number | null) =>
     }),
     NOW,
   )
+
+/** A hit die's roll, as the game made it, giving back this many. */
+const hitDieRoll = (total: number) => ({
+  formula: '1d10 + 3',
+  total,
+  dice: [{ faces: 10, results: [{ result: total - 3, active: true }] }],
+})
+
+/**
+ * Hit dice spent at once, as their player is told of them, from module 0.20.0: of three, as many
+ * as the game made, each giving back this many, and why it stopped, if it did.
+ */
+const spentAtOnce = (
+  visible: boolean,
+  made: number,
+  reason: string | null = null,
+) =>
+  toRollRequestView(
+    held({
+      kind: 'hitDice',
+      status: made === 3 ? 'done' : 'failed',
+      result: {
+        id: 'req-1',
+        status: made === 3 ? 'done' : 'failed',
+        reason,
+        error: null,
+        messageId: made > 0 ? `msg-${made}` : null,
+        visible,
+        rolls: visible
+          ? [9, 5, 8].slice(0, made).map(total => hitDieRoll(total))
+          : [],
+        ...(made > 0 && {
+          healed: [9, 5, 6].slice(0, made).reduce((a, b) => a + b, 0),
+        }),
+        spent: { count: 3, made },
+      },
+    }),
+    NOW,
+  )
+
+/** The first so many of the combatants a spell an item casts is cast at. */
+const castAt = (count: number) =>
+  ['c-goblin', 'c-hob', 'c-ogre', 'c-wolf', 'c-bat', 'c-rat'].slice(0, count)
+
+/** The sheet, the Bardic Flame casting Hex at 1st or 2nd level, for 1 or 2 charges. */
+const hexHigher = (short = false) => {
+  const sheet = castingSheet()
+  const flame = sheet.actions[0].actions[1]
+  const [strike, hex] = flame.activities!
+  flame.activities = [
+    strike,
+    {
+      ...hex,
+      cast: {
+        ...hex.cast!,
+        levels: [
+          { level: 1, charges: 1, short: false },
+          { level: 2, charges: 2, short },
+        ],
+      },
+    },
+  ]
+  return sheet
+}
+
+/** A staff casting a spell attack, and one whose area takes more cast higher. */
+const castingStaves = () => {
+  const sheet = castingSheet()
+  const cast = {
+    level: 1,
+    concentration: false,
+    charges: 1,
+    short: false,
+    levels: WAND_LEVELS,
+  }
+  sheet.actions[0].actions.push(
+    sheetAction({
+      id: 'staff',
+      name: 'Staff of Bolts',
+      type: 'weapon',
+      toHit: 6,
+      attackId: 'cast-bolt',
+      damage: [{ formula: '4d6', type: 'Radiant', healing: false }],
+      cast,
+      spellId: 'bolt',
+    }),
+    sheetAction({
+      id: 'horn',
+      name: 'Horn of Spray',
+      type: 'equipment',
+      toHit: 6,
+      attackId: 'cast-spray',
+      attackArea: { count: 2, perLevel: 1, affects: 'creature' },
+      cast,
+      spellId: 'spray',
+    }),
+  )
+  return sheet
+}
 
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
@@ -1226,6 +1354,174 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('checkRoll for a spell an item casts, from module 0.20.0', () => {
+    const fight = combat({
+      combatants: ['goblin', 'hob', 'ogre', 'wolf', 'bat', 'rat'].map(name =>
+        combatant({ id: `c-${name}`, name }),
+      ),
+    })
+    const check = (input: RollRequestInput, sheet = castingSheet()) =>
+      checkRoll(input, sheet, [fight], 'actor-thorin')
+
+    it('casts it at any level the item offers, its own too, and its copy and later activities at those of its Cast', () => {
+      for (const slot of ['spell1', 'spell2', 'spell3']) {
+        expect(
+          check(useRequest('mm-wand', 'cast-mm', castAt(3), { slot })),
+        ).toBeUndefined()
+        expect(
+          check(useRequest('mm', 'mm-darts', castAt(3), { slot })),
+        ).toBeUndefined()
+      }
+      for (const activity of ['hex-curse', 'hex-dmg']) {
+        expect(
+          check(
+            useRequest('hex', activity, castAt(1), { slot: 'spell2' }),
+            hexHigher(),
+          ),
+        ).toBeUndefined()
+      }
+    })
+
+    it('leaves whether the item has the charges for it to the game, and uses a later activity that spends none at a level it is short of', () => {
+      expect(
+        check(
+          useRequest('flame', 'cast-hex', castAt(1), { slot: 'spell2' }),
+          hexHigher(true),
+        ),
+      ).toBeUndefined()
+      expect(
+        check(
+          useRequest('hex', 'hex-dmg', castAt(1), { slot: 'spell2' }),
+          hexHigher(true),
+        ),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      [
+        'a level it does not offer',
+        useRequest('mm-wand', 'cast-mm', [], { slot: 'spell4' }),
+      ],
+      ['pact magic', useRequest('mm-wand', 'cast-mm', [], { slot: 'pact' })],
+      [
+        'a level its copy does not offer',
+        useRequest('mm', 'mm-darts', [], { slot: 'spell5' }),
+      ],
+      [
+        'any level for one cast at its own alone',
+        useRequest('flame', 'cast-hex', [], { slot: 'spell1' }),
+      ],
+      [
+        'any level for its copy',
+        useRequest('hex', 'hex-curse', [], { slot: 'spell1' }),
+      ],
+      [
+        'any level for its later activity',
+        useRequest('hex', 'hex-dmg', [], { slot: 'spell1' }),
+      ],
+    ])('refuses it at %s', (_name, input) => {
+      expect(check(input)).toBe('slot')
+    })
+
+    it('casts it with no level chosen, as before, at the one it is cast at', () => {
+      expect(check(useRequest('mm-wand', 'cast-mm', castAt(3)))).toBeUndefined()
+      expect(check(useRequest('mm-wand', 'cast-mm', castAt(4)))).toBe('target')
+      expect(check(useRequest('flame', 'cast-hex', castAt(1)))).toBeUndefined()
+      expect(check(useRequest('hex', 'hex-dmg', castAt(1)))).toBeUndefined()
+    })
+
+    it('takes more targets for each level it is cast above the one it is cast at by default', () => {
+      for (const item of [
+        ['mm-wand', 'cast-mm'],
+        ['mm', 'mm-darts'],
+      ]) {
+        const [id, activity] = item
+        expect(
+          check(useRequest(id, activity, castAt(4), { slot: 'spell2' })),
+        ).toBeUndefined()
+        expect(
+          check(useRequest(id, activity, castAt(5), { slot: 'spell2' })),
+        ).toBe('target')
+        expect(
+          check(useRequest(id, activity, castAt(5), { slot: 'spell3' })),
+        ).toBeUndefined()
+        expect(
+          check(useRequest(id, activity, castAt(6), { slot: 'spell3' })),
+        ).toBe('target')
+      }
+
+      // Cast at 2nd level, Magic Missile takes 4, and one more at 3rd, as its copy does too,
+      // though the copy is of a 1st-level spell.
+      const sheet = castingSheet()
+      const wand = sheet.actions[0].actions[0]
+      const levels = WAND_LEVELS.slice(1)
+      sheet.actions[0].actions[0] = {
+        ...wand,
+        activity: {
+          ...wand.activity!,
+          targets: { ...wand.activity!.targets, count: 4 },
+        },
+        cast: { ...wand.cast!, level: 2, charges: 2, levels },
+      }
+      const copy = sheet.spells[0].spells[0]
+      sheet.spells[0].spells[0] = {
+        ...copy,
+        activity: {
+          ...copy.activity!,
+          targets: { ...copy.activity!.targets, count: 4 },
+        },
+      }
+      for (const [id, activity] of [
+        ['mm-wand', 'cast-mm'],
+        ['mm', 'mm-darts'],
+      ]) {
+        expect(
+          check(useRequest(id, activity, castAt(4)), sheet),
+        ).toBeUndefined()
+        expect(check(useRequest(id, activity, castAt(5)), sheet)).toBe('target')
+        expect(
+          check(useRequest(id, activity, castAt(5), { slot: 'spell3' }), sheet),
+        ).toBeUndefined()
+        expect(
+          check(useRequest(id, activity, castAt(6), { slot: 'spell3' }), sheet),
+        ).toBe('target')
+      }
+    })
+
+    it('makes a spell attack at a level the item offers, its area taking more higher', () => {
+      const sheet = castingStaves()
+      const bolt = (slot?: string) =>
+        check(
+          attackRequest({
+            item: 'staff',
+            activity: 'cast-bolt',
+            ...targetAt('c-goblin'),
+            ...(slot && { slot }),
+          }),
+          sheet,
+        )
+      expect(bolt()).toBeUndefined()
+      expect(bolt('spell3')).toBeUndefined()
+      expect(bolt('spell4')).toBe('slot')
+      expect(bolt('pact')).toBe('slot')
+
+      const spray = (count: number, slot?: string) =>
+        check(
+          areaRequest(
+            'horn',
+            'cast-spray',
+            castAt(count),
+            slot ? { slot } : {},
+          ),
+          sheet,
+        )
+      expect(spray(2)).toBeUndefined()
+      expect(spray(3)).toBe('target')
+      expect(spray(3, 'spell2')).toBeUndefined()
+      expect(spray(5, 'spell3')).toBe('target')
+    })
+  })
+
   describe('checkRoll for a hit die', () => {
     it('lets the character spend a hit die of a size it has one of left', () => {
       // Thorin's Fighter levels have 3 of their 5 d10s left.
@@ -1279,6 +1575,79 @@ describe('utils/roll-requests', () => {
       expect(checkRoll(hitDieRequest(), undefined, [], 'actor-thorin')).toBe(
         'unknown',
       )
+    })
+  })
+
+  describe('checkRoll for hit dice spent at once, from module 0.20.0', () => {
+    it('lets the character spend as many of each size as its classes of that size have left, together', () => {
+      // Thorin's Fighter levels have 3 of their 5 d10s left.
+      expect(checkSheet(hitDiceRequest(['d10', 3]))).toBeUndefined()
+      // Two classes of one size, each with some left: as many as both together.
+      const sheet = classed(
+        { die: 'd10', value: 1, max: 3 },
+        { die: 'd10', value: 2, max: 2 },
+        { die: 'd8', value: 2, max: 2 },
+      )
+      expect(
+        checkSheet(hitDiceRequest(['d10', 3], ['d8', 2]), sheet),
+      ).toBeUndefined()
+      expect(checkSheet(hitDiceRequest(['d8', 1]), sheet)).toBeUndefined()
+    })
+
+    it("leaves how many there are of a size to the game where the sheet doesn't say for one of its classes", () => {
+      expect(
+        checkSheet(
+          hitDiceRequest(['d10', 5], ['d6', 1]),
+          classed(
+            { die: 'd10', value: null, max: 3 },
+            { die: 'd10', value: 0, max: 2 },
+            { die: 'd6', value: 1, max: 1 },
+          ),
+        ),
+      ).toBeUndefined()
+      // Only for that size: a size after it is checked all the same.
+      const unsaid = classed(
+        { die: 'd10', value: null, max: 3 },
+        { die: 'd8', value: 1, max: 2 },
+      )
+      expect(checkSheet(hitDiceRequest(['d10', 1], ['d8', 3]), unsaid)).toBe(
+        'no-hit-dice',
+      )
+      expect(checkSheet(hitDiceRequest(['d10', 1], ['d6', 1]), unsaid)).toBe(
+        'unknown',
+      )
+    })
+
+    it('refuses more of a size than the character has left of it', () => {
+      const sheet = classed(
+        { die: 'd10', value: 1, max: 3 },
+        { die: 'd10', value: 2, max: 2 },
+        { die: 'd8', value: 0, max: 2 },
+      )
+      expect(checkSheet(hitDiceRequest(['d10', 4]), sheet)).toBe('no-hit-dice')
+      expect(checkSheet(hitDiceRequest(['d10', 1], ['d8', 1]), sheet)).toBe(
+        'no-hit-dice',
+      )
+      expect(checkSheet(hitDiceRequest(['d10', 4]))).toBe('no-hit-dice')
+    })
+
+    it('refuses a size no class of the character has, or a character without a sheet', () => {
+      expect(checkSheet(hitDiceRequest(['d10', 1], ['d8', 1]))).toBe('unknown')
+      expect(checkSheet(hitDiceRequest(['d10', 1]), characterSheet())).toBe(
+        'unknown',
+      )
+      expect(
+        checkRoll(hitDiceRequest(['d10', 1]), undefined, [], 'actor-thorin'),
+      ).toBe('unknown')
+    })
+
+    it('leaves whether the character is at full hit points to the game', () => {
+      expect(
+        checkSheet(
+          hitDiceRequest(['d10', 2]),
+          fullerSheet({ hp: { value: 44, max: 44, temp: 0 } }),
+        ),
+      ).toBeUndefined()
     })
   })
 
@@ -2114,6 +2483,139 @@ describe('utils/roll-requests', () => {
       ).toBeUndefined()
     })
 
+    describe('with what a critical hit adds, from module 0.20.0', () => {
+      /** A greataxe's 1d12 + 4, to which Savage Attacks adds a die, and the weapon 1d6. */
+      const greataxe: FoundLink = {
+        link: {
+          kind: 'damage',
+          n: 0,
+          parts: [{ formula: '1d12 + 4', types: ['slashing'] }],
+          healing: false,
+          criticalAdds: { dice: [1], damage: ['1d6'] },
+        },
+        secret: false,
+      }
+      /** A javelin's 1d6 + 4, to which a critical hit adds 4. */
+      const javelin: FoundLink = {
+        link: {
+          kind: 'damage',
+          n: 1,
+          parts: [{ formula: '1d6 + 4', types: ['piercing'] }],
+          healing: false,
+          criticalAdds: { dice: [0], damage: ['4'] },
+        },
+        secret: false,
+      }
+      const adding = new Map([
+        [0, greataxe],
+        [1, javelin],
+      ])
+      const rolled = { ...DOUBLED, bonusDice: 'rolled' as const }
+      const chop = (fields: Partial<RollRequestInput> = {}) =>
+        textDamage({
+          link: 0,
+          critical: true,
+          dice: greataxeDice(3),
+          ...fields,
+        })
+
+      it('takes its extra dice on its first die and its critical damage after, as the world throws them', () => {
+        expect(check(chop(), adding, ruledSo(rolled))).toBeUndefined()
+        // Under Powerful Critical, its die once and the extra die thrown with it.
+        expect(
+          check(
+            chop({ dice: greataxeDice(2) }),
+            adding,
+            ruledSo({ ...POWERFUL, bonusDice: 'rolled' }),
+          ),
+        ).toBeUndefined()
+        // Under Midi-QOL's maxCrit, the extra die's most added, not thrown.
+        expect(
+          check(
+            chop({ dice: greataxeDice(1) }),
+            adding,
+            ruledSo({ ...POWERFUL, bonusDice: 'maximized' }),
+          ),
+        ).toBeUndefined()
+        // Changed, the extra die thrown at the size its first die is made.
+        expect(
+          check(
+            chop({
+              modifiers: { extra: 1, faces: 10 },
+              dice: [
+                { faces: 10, results: [1, 2, 3, 4, 5] },
+                { faces: 6, results: [3] },
+              ],
+            }),
+            adding,
+            ruledSo(rolled),
+          ),
+        ).toBeUndefined()
+      })
+
+      it.each([
+        ['without the extra die', greataxeDice(2)],
+        ['without the critical damage', greataxeDice(3, 0)],
+        ['with the critical damage first', greataxeDice(3).toReversed()],
+        ['with its dice doubled alone', greataxeDice(2, 2)],
+      ])('refuses it %s', (_, dice) => {
+        expect(check(chop({ dice }), adding, ruledSo(rolled))).toBe('dice')
+      })
+
+      it.each([
+        ['can’t say', null],
+        ['is from a module before 0.20.0', undefined],
+      ])(
+        'refuses dice added where the world’s rule %s how it throws them, but takes numbers added',
+        (_, bonusDice) => {
+          const rule = { ...DOUBLED, bonusDice }
+          expect(check(chop(), adding, ruledSo(rule))).toBe('dice')
+          expect(
+            check(chop({ dice: greataxeDice(2, 0) }), adding, ruledSo(rule)),
+          ).toBe('dice')
+          // A javelin's 4 throws no die.
+          expect(
+            check(
+              textDamage({
+                link: 1,
+                critical: true,
+                dice: [{ faces: 6, results: [2, 5] }],
+              }),
+              adding,
+              ruledSo(rule),
+            ),
+          ).toBeUndefined()
+        },
+      )
+
+      it('refuses it where the sheet doesn’t say how the world makes one at all', () => {
+        expect(check(chop(), adding, ruledSo(null))).toBe('dice')
+        expect(check(chop(), adding, fullerSheet())).toBe('dice')
+      })
+
+      it('takes it plainly, as it is, what a critical hit adds left out', () => {
+        expect(
+          check(
+            chop({ critical: undefined, dice: greataxeDice(1, 0) }),
+            adding,
+            ruledSo(rolled),
+          ),
+        ).toBeUndefined()
+        expect(
+          check(chop({ critical: undefined }), adding, ruledSo(rolled)),
+        ).toBe('dice')
+      })
+
+      it('still refuses damage marked never a critical hit’s without what one adds', () => {
+        const poison = textDamage({
+          link: 14,
+          critical: true,
+          dice: [{ faces: 4, results: [3, 1] }],
+        })
+        expect(check(poison, links, ruledSo(rolled))).toBe('link')
+      })
+    })
+
     it("lets a description's own roll be rolled with the dice its formula throws, and nothing else", () => {
       expect(check(textRoll())).toBeUndefined()
       expect(check(textRoll({ dice: [] }))).toBe('dice')
@@ -2239,6 +2741,80 @@ describe('utils/roll-requests', () => {
       ['rolled', held({ status: 'done' })],
     ])('refuses damage already %s', (_name, other) => {
       expect(checkDamage(thrown, use(), [other], NOW)).toBe('damaged')
+    })
+
+    it("changes only a critical hit's own first die, never its critical damage's", () => {
+      // A greataxe's critical hit: 3d12 + 3, and the weapon's 1d6.
+      const greataxe = use({
+        result: result({
+          critical: true,
+          plannable: true,
+          rolls: [
+            {
+              formula: '3d12 + 3 + 1d6',
+              type: 'slashing',
+              dice: [
+                { faces: 12, number: 3 },
+                { faces: 6, number: 1, added: true },
+              ],
+              perDie: 2,
+            },
+          ],
+        }),
+      })
+      const sent = (twelves: number) =>
+        damageRequest([
+          { faces: 12, results: Array.from({ length: twelves }, () => 7) },
+          { faces: 6, results: [4] },
+        ])
+      expect(checkDamage(sent(3), greataxe, [], NOW)).toBeUndefined()
+      expect(
+        checkDamage({ ...sent(5), modifiers: { extra: 1 } }, greataxe, [], NOW),
+      ).toBeUndefined()
+      expect(
+        checkDamage({ ...sent(4), modifiers: { extra: 1 } }, greataxe, [], NOW),
+      ).toBe('dice')
+
+      // "3 + 1d6": no die of its own to add to.
+      const numbers = use({
+        result: result({
+          critical: true,
+          plannable: true,
+          rolls: [
+            {
+              formula: '3 + 1d6',
+              type: 'bludgeoning',
+              dice: [{ faces: 6, number: 1, added: true }],
+              perDie: 2,
+            },
+          ],
+        }),
+      })
+      const six = damageRequest([{ faces: 6, results: [4] }])
+      expect(checkDamage(six, numbers, [], NOW)).toBeUndefined()
+      expect(
+        checkDamage(
+          {
+            ...damageRequest([{ faces: 6, results: [4, 2, 1] }]),
+            modifiers: { extra: 1 },
+          },
+          numbers,
+          [],
+          NOW,
+        ),
+      ).toBe('dice')
+      expect(
+        checkDamage({ ...six, modifiers: { extra: 1 } }, numbers, [], NOW),
+      ).toBe('dice')
+      // At its highest, as it is.
+      expect(
+        checkDamage(
+          { ...six, modifiers: { maximize: true } },
+          numbers,
+          [],
+          NOW,
+        ),
+      ).toBeUndefined()
     })
 
     it.each([
@@ -2423,6 +2999,58 @@ describe('utils/roll-requests', () => {
       expect(toRollRequestView(held({ status: 'done' }), NOW)).toEqual({
         id: 'req-1',
         status: 'done',
+      })
+    })
+  })
+
+  describe('toRollRequestView for hit dice spent at once, from module 0.20.0', () => {
+    it('shows what every die the game made came to, added up, and gave back, and how many it made', () => {
+      const view = spentAtOnce(true, 3)
+      expect(view).toMatchObject({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: 22,
+        healed: 20,
+        spent: { count: 3, made: 3 },
+      })
+      expect(view.rolls).toHaveLength(3)
+      expect(spentAtOnce(false, 3)).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: false,
+      })
+    })
+
+    it('shows how many the game made before it stopped, what they came to and gave back, and why it stopped', () => {
+      const view = spentAtOnce(true, 1, 'full-hp')
+      expect(view).toEqual({
+        id: 'req-1',
+        status: 'failed',
+        reason: 'full-hp',
+        visible: true,
+        total: 9,
+        rolls: [expect.objectContaining({ formula: '1d10 + 3', total: 9 })],
+        healed: 9,
+        spent: { count: 3, made: 1 },
+      })
+    })
+
+    it('shows how many the game made blind before it stopped, but not what they came to or gave back', () => {
+      expect(spentAtOnce(false, 2, 'timeout')).toEqual({
+        id: 'req-1',
+        status: 'failed',
+        reason: 'timeout',
+        visible: false,
+        spent: { count: 3, made: 2 },
+      })
+    })
+
+    it('says only why, where the game made none of them', () => {
+      expect(spentAtOnce(true, 0, 'full-hp')).toEqual({
+        id: 'req-1',
+        status: 'failed',
+        reason: 'full-hp',
       })
     })
   })

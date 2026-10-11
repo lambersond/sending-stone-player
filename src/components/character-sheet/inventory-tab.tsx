@@ -74,7 +74,7 @@ export function InventoryTab({
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
-    spellbook: sheet.spells,
+    sheet,
     onRoll,
     onRollDamage,
     onRollFormula,

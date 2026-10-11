@@ -5,6 +5,7 @@ import {
   formulaTerms,
   hitDiceFormula,
   hitDicePools,
+  hitDiceRoll,
   hitDieRoll,
 } from './formulas'
 import { characterSheet } from '@/mocks/sending-stone'
@@ -176,41 +177,132 @@ describe('utils/formulas', () => {
     })
   })
 
-  describe('hitDieRoll of several', () => {
-    it('throws several of one size together, each with Constitution, at least its least', () => {
-      expect(hitDieRoll(characterSheet(), 'd10', 3)).toEqual({
-        label: 'Hit dice (3d10)',
-        terms: [
-          { sign: 1, count: 1, sides: 10 },
-          { sign: 1, flat: 3 },
+  describe('hitDiceRoll', () => {
+    it('throws hit dice of several sizes together, the largest first, each with Constitution, at least its least', () => {
+      // Thorin's Constitution of 16 adds 3 a die.
+      expect(
+        hitDiceRoll(characterSheet(), [
+          { die: 'd8', count: 1 },
+          { die: 'd10', count: 2 },
+        ]),
+      ).toEqual({
+        label: 'Hit dice (2d10 + 1d8)',
+        terms: [],
+        sets: [
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 10 },
+              { sign: 1, flat: 3 },
+            ],
+            times: 2,
+          },
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 3 },
+            ],
+            times: 1,
+          },
         ],
         healing: true,
         minimum: 1,
-        times: 3,
-        source: { kind: 'hitDie', denomination: 'd10' },
+        source: {
+          kind: 'hitDice',
+          hitDice: [
+            { denomination: 'd10', count: 2 },
+            { denomination: 'd8', count: 1 },
+          ],
+        },
       })
-      expect(hitDieRoll(sheetWith(-1, 'legacy'), 'd8', 2)).toMatchObject({
-        label: 'Hit dice (2d8)',
+    })
+
+    it('names those of one size by that size, and leaves out a size with none chosen', () => {
+      expect(
+        hitDiceRoll(sheetWith(-1, 'legacy'), [
+          { die: 'd6', count: 0 },
+          { die: 'd8', count: 3 },
+        ]),
+      ).toEqual({
+        label: 'Hit dice (3d8)',
+        terms: [],
+        sets: [
+          {
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: -1, flat: 1 },
+            ],
+            times: 3,
+          },
+        ],
+        healing: true,
         minimum: 0,
-        times: 2,
+        source: {
+          kind: 'hitDice',
+          hitDice: [{ denomination: 'd8', count: 3 }],
+        },
       })
-      // One is as a single one is.
-      expect(hitDieRoll(characterSheet(), 'd10', 1)).toEqual(
-        hitDieRoll(characterSheet(), 'd10'),
-      )
+      // With no Constitution modifier, each die alone.
+      expect(
+        hitDiceRoll(sheetWith(0), [
+          { die: 'd12', count: 1 },
+          { die: 'd4', count: 1 },
+        ]).sets,
+      ).toEqual([
+        { terms: [{ sign: 1, count: 1, sides: 12 }], times: 1 },
+        { terms: [{ sign: 1, count: 1, sides: 4 }], times: 1 },
+      ])
+    })
+
+    it('leaves one die alone a hit die spent', () => {
+      const one = hitDieRoll(characterSheet(), 'd10')
+      expect(one).not.toHaveProperty('sets')
+      expect(one.source).toEqual({ kind: 'hitDie', denomination: 'd10' })
     })
   })
 
   describe('hitDiceFormula', () => {
     it.each([
       // Thorin's Constitution of 16 adds 3 a die.
-      [characterSheet(), 1, '1d10 + 3'],
-      [characterSheet(), 3, '3d10 + 9'],
-      [sheetWith(-1), 3, '3d10 − 3'],
-      [sheetWith(0), 2, '2d10'],
-      [sheetWith(null), 4, '4d10'],
-    ])('says what spending them gives back: %#', (sheet, count, formula) => {
-      expect(hitDiceFormula(sheet, 'd10', count)).toBe(formula)
+      [characterSheet(), [{ die: 'd10', count: 1 }], '1d10 + 3'],
+      [characterSheet(), [{ die: 'd10', count: 3 }], '3d10 + 9'],
+      [
+        characterSheet(),
+        [
+          { die: 'd8', count: 1 },
+          { die: 'd10', count: 2 },
+        ],
+        '2d10 + 1d8 + 9',
+      ],
+      [
+        sheetWith(-1),
+        [
+          { die: 'd6', count: 1 },
+          { die: 'd10', count: 2 },
+        ],
+        '2d10 + 1d6 − 3',
+      ],
+      [sheetWith(-1), [{ die: 'd10', count: 3 }], '3d10 − 3'],
+      [
+        sheetWith(0),
+        [
+          { die: 'd10', count: 2 },
+          { die: 'd8', count: 1 },
+        ],
+        '2d10 + 1d8',
+      ],
+      [sheetWith(null), [{ die: 'd10', count: 4 }], '4d10'],
+      // A size with none chosen is left out; with none at all, nothing.
+      [
+        characterSheet(),
+        [
+          { die: 'd12', count: 0 },
+          { die: 'd8', count: 2 },
+        ],
+        '2d8 + 6',
+      ],
+      [characterSheet(), [{ die: 'd8', count: 0 }], '0'],
+    ])('says what spending them gives back: %#', (sheet, counts, formula) => {
+      expect(hitDiceFormula(sheet, counts)).toBe(formula)
     })
   })
 

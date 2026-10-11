@@ -285,6 +285,71 @@ describe('lib/sheet-html', () => {
       },
     )
 
+    it('keeps what a critical hit adds, from module 0.20.0, for each part, and reads it so', () => {
+      const html =
+        '<span class="ss-damage roll" data-n="0" data-formulas="1d12 + 4" data-types="slashing" data-critical="false" data-critical-dice="1" data-critical-damage="1d6">1d12 + 4</span>' +
+        '<span class="ss-damage roll" data-n="1" data-formulas="1d6&amp;1d4" data-critical="false" data-critical-dice="0&amp;0" data-critical-damage="1d4&amp;1d4">1d6 fire and 1d4 cold</span>' +
+        '<span class="ss-damage roll" data-n="2" data-formulas="1d6 + 4" data-critical-dice="0" data-critical-damage="4">1d6 + 4</span>'
+
+      expect(clean(html)).toBe(html)
+      const links = sheetLinks(clean(html))
+      expect(links.get(0)?.link).toMatchObject({
+        criticalAdds: { dice: [1], damage: ['1d6'] },
+      })
+      expect(links.get(0)?.link).not.toHaveProperty('critical')
+      expect(links.get(1)?.link).toMatchObject({
+        criticalAdds: { dice: [0, 0], damage: ['1d4', '1d4'] },
+      })
+      expect(links.get(2)?.link).toMatchObject({
+        criticalAdds: { dice: [0], damage: ['4'] },
+      })
+    })
+
+    it('keeps a part that adds no critical damage, as one left empty', () => {
+      const html =
+        '<span class="ss-damage roll" data-n="0" data-formulas="2d8 + 4" data-critical="false" data-critical-dice="1" data-critical-damage="">2d8 + 4</span>'
+
+      expect(sheetLinks(clean(html)).get(0)?.link).toMatchObject({
+        criticalAdds: { dice: [1], damage: [''] },
+      })
+    })
+
+    it.each([
+      ['extra dice that aren’t a count', 'data-critical-dice="1d6"'],
+      ['more than 20 extra dice', 'data-critical-dice="21"'],
+      [
+        'more than ten parts',
+        `data-critical-dice="${Array.from({ length: 11 }, () => '0').join('&amp;')}"`,
+      ],
+      ['critical damage with a flavour', 'data-critical-damage="1d6[fire]"'],
+      ['critical damage multiplied', 'data-critical-damage="1d6*2"'],
+      ['critical damage with markup', 'data-critical-damage="1d6&lt;b&gt;"'],
+    ])(
+      'keeps damage never a critical hit’s, but drops what a critical hit adds with %s',
+      (_, malformed) => {
+        const name = malformed.slice(0, malformed.indexOf('='))
+        const pair = {
+          'data-critical-dice': 'data-critical-dice="1"',
+          'data-critical-damage': 'data-critical-damage="1d6"',
+        }
+        const attributes = Object.entries(pair)
+          .map(([each, value]) => (each === name ? malformed : value))
+          .join(' ')
+        const kept = clean(
+          `<span class="ss-damage roll" data-n="0" data-formulas="1d6" data-critical="false" ${attributes}>1d6</span>`,
+        )
+
+        // The other kept, as it holds up alone, but meaning nothing without it.
+        const other = Object.entries(pair).find(([each]) => each !== name)?.[1]
+        expect(kept).toBe(
+          `<span class="ss-damage roll" data-n="0" data-formulas="1d6" data-critical="false" ${other}>1d6</span>`,
+        )
+        const { link } = sheetLinks(kept).get(0) ?? {}
+        expect(link).toMatchObject({ critical: false })
+        expect(link).not.toHaveProperty('criticalAdds')
+      },
+    )
+
     it.each([
       ['a type that is not a key', 'fire&amp;<b>cold</b>'],
       ['a type starting with a digit', '1fire'],

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { SpellsTab } from './spells-tab'
 import {
+  castingSheet,
   characterSheet,
   fullerSheet,
   sheetSpell,
@@ -497,6 +498,25 @@ describe('components/character-sheet/spells-tab', () => {
       ).getByRole('listitem'),
     ).toHaveTextContent(/^Emanation Save/)
     expect(screen.queryByRole('button', { name: /^About / })).toBeNull()
+  })
+
+  it("says what a spell cast from an item costs, as the item's Cast of it says, from module 0.20.0, and nothing for a later activity that spends none", async () => {
+    const user = userEvent.setup()
+    renderTab(castingSheet())
+
+    const listed = within(
+      screen.getByRole('region', { name: 'Item Spells' }),
+    ).getAllByRole('button', { expanded: false })
+    expect(listed.map(button => button.textContent)).toEqual([
+      'Magic MissileFrom Wand of Magic Missiles · 1 Action · 120 ft · Force · 1–3 charges',
+      'HexFrom Bardic Flame · 1 Bonus Action · 90 ft · 1 charge · 1 more',
+    ])
+    await user.click(listed[1])
+    expect(
+      within(
+        screen.getByRole('list', { name: 'Hex: its other activities' }),
+      ).getByRole('listitem'),
+    ).toHaveTextContent(/^Bonus Hex DamageSpecial · Necrotic1d6$/)
   })
 
   it('searches spells by name, whatever its case, once there are more than four', async () => {

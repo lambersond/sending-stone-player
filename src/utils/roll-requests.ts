@@ -6,8 +6,14 @@ import {
   ROLL_KINDS,
   ROLL_PENDING_FOR,
 } from '@/constants/sending-stone'
-import { castAtLevel, outOfSlots, slotPools } from '@/utils/action-groups'
-import { changes, linkDamage, modifiedDice } from '@/utils/damage-modifiers'
+import { outOfSlots, slotPools } from '@/utils/action-groups'
+import { castAtLevel, castIndex, castOf, type CastIndex } from '@/utils/casts'
+import {
+  changes,
+  criticalOffered,
+  linkDamage,
+  modifiedDice,
+} from '@/utils/damage-modifiers'
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
 import { sheetTextRefs } from '@/utils/sheet-texts'
@@ -34,20 +40,23 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * Why a roll can't go to the Gamemaster's game: the game can't take it now, the sheet has no such
  * skill, ability, tool, attack, spell or feature, the character isn't dying, isn't in the combat,
  * or has rolled initiative already. For an attack or a use: the spell it's cast with has no spell
- * slots left, or none of the slot chosen; the attack mode or ammunition chosen isn't the weapon's,
- * or none of it is left; or a target can't be picked, or there are more than it takes. For damage:
+ * slots left, or none of the slot chosen; a spell an item casts isn't offered at the level chosen
+ * (`slot`); the attack mode or ammunition chosen isn't the weapon's, or none of it is left; or a
+ * target can't be picked, or there are more than it takes. For damage:
  * its attack or use can't be found, or is too old; no damage follows it; its damage is rolled
  * already; the dice aren't those it said; or a kind of damage chosen isn't one it offers. For a
  * saving throw the game asked for: it no longer waits, isn't this character's, isn't rolled with an
  * ability it may be, or is answered already. For a hit die: the character has none of its size
- * left. For a formula: its dice aren't those the formula throws. From a link in a description: the
- * description is no longer on the sheet, or not held here (`gone`); it has no such link, or not of
- * the kind asked for, or a saving throw it calls for isn't rolled with that ability, or a check
- * with that skill, tool or ability, or healing, or damage the game marks as never a critical hit's,
- * is asked for as one (`link`); the table is asked for one in a secret (`secret`); its dice aren't
- * those its formulas throw, changed as the player chose, or as a critical hit's where the sheet
- * doesn't say how the world makes one; a kind of damage chosen isn't one it offers; or damage is
- * changed where the game, before module 0.19.0, doesn't take it so (`unavailable`).
+ * left; for hit dice spent at once, fewer of a size than are spent. For a formula: its dice aren't
+ * those the formula throws. From a link in a description: the description is no longer on the
+ * sheet, or not held here (`gone`); it has no such link, or not of the kind asked for, or a saving
+ * throw it calls for isn't rolled with that ability, or a check with that skill, tool or ability,
+ * or healing, or damage the game marks as never a critical hit's, without what one adds, is asked
+ * for as one (`link`); the table is asked for one in a secret (`secret`); its dice aren't those
+ * its formulas throw, changed as the player chose, or as a critical hit's where the sheet doesn't
+ * say how the world makes one, or where it isn't offered, as where it adds dice the world's rules
+ * don't say how they throw; a kind of damage chosen isn't one it offers; or damage is changed where
+ * the game, before module 0.19.0, doesn't take it so (`unavailable`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -136,8 +145,9 @@ export function rollsKey(
  * Can the character make this roll, as its sheet and the encounter stand? A skill, ability or
  * tool must be on its sheet, but for a tool check a description calls for, which dnd5e makes with
  * any tool; it must be dying to roll a death saving throw; it must be in the combat, without
- * initiative yet, to roll initiative; and it must have a hit die of the size it spends left. What
- * a link in a description asks for must be what that link is, in a description on its sheet.
+ * initiative yet, to roll initiative; and it must have a hit die of the size it spends left, or of
+ * hit dice spent at once, as many of each size as it spends. What a link in a description asks for
+ * must be what that link is, in a description on its sheet.
  * @param links - For a roll from a link in a description, the links the game acts on in that
  *   description, as held here; none where it isn't held.
  * @returns Why not, or nothing when it can.
@@ -201,6 +211,9 @@ export function checkRoll(
     case 'hitDie': {
       return checkHitDie(input, sheet)
     }
+    case 'hitDice': {
+      return checkHitDice(input, sheet)
+    }
     case 'formula': {
       return sheet ? checkFormula(input, sheet) : 'unknown'
     }
@@ -228,7 +241,8 @@ function checkAttack(
       id === input.item && !!attackId && attackId === input.activity,
   )
   if (!action || !action.identified) return 'unknown'
-  const slot = checkSlot(input, action, sheet)
+  const casts = castIndex(sheet)
+  const slot = checkSlot(input, action, sheet, casts)
   if (slot) return slot
   const { attackMode, ammunition } = input
   if (
@@ -245,8 +259,8 @@ function checkAttack(
   if (input.targets !== undefined) {
     const area = action.attackArea
     if (!area) return 'target'
-    const level = castAtLevel(action, sheet.spells, input.slot)
-    if (input.targets.length > mostTargets(area, action.level, level)) {
+    const { base, level } = levelsOf(input, action, sheet, casts)
+    if (input.targets.length > mostTargets(area, base, level)) {
       return 'target'
     }
     return checkTargets(input.targets, combats)
@@ -269,29 +283,56 @@ function checkUse(
     ({ id, activity }) => id === input.item && activity?.id === input.activity,
   )
   if (!action?.activity || !action.identified) return 'unknown'
-  const slot = checkSlot(input, action, sheet)
+  const casts = castIndex(sheet)
+  const slot = checkSlot(input, action, sheet, casts)
   if (slot) return slot
   const targets = input.targets ?? []
-  const level = castAtLevel(action, sheet.spells, input.slot)
-  if (
-    targets.length > mostTargets(action.activity.targets, action.level, level)
-  ) {
+  const { base, level } = levelsOf(input, action, sheet, casts)
+  if (targets.length > mostTargets(action.activity.targets, base, level)) {
     return 'target'
   }
   return checkTargets(targets, combats)
 }
 
 /**
+ * The level a spell is cast at, and the level more targets are counted from, cast higher: its
+ * own, or for a spell an item casts, the level it's cast at by default.
+ */
+function levelsOf(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+  casts: CastIndex,
+): { base: number | null; level: number | null } {
+  return {
+    base: castOf(action, casts)?.level ?? action.level,
+    level: castAtLevel(action, sheet.spells, input.slot, casts),
+  }
+}
+
+/**
  * Can a spell be cast with the slot chosen: one of the spell's pools, with one left? With none
  * chosen, has it any slot, or use of its own, left? A slot chosen for a spell cast without slots,
  * such as an innate one, is the game's to leave out. One of its activities used without spending a
- * slot, such as Spirit Guardians' save each turn, may be used at any of its pools' levels.
+ * slot, such as Spirit Guardians' save each turn, may be used at any of its pools' levels. A spell
+ * an item casts, and each of its activities, is cast at one of the levels the item offers, from
+ * module 0.20.0, and never with a slot otherwise; whether the item has the charges for it is the
+ * game's to check, as it spends them.
  */
 function checkSlot(
   input: RollRequestInput,
   action: SheetAction,
   sheet: CharacterSheet,
+  casts: CastIndex,
 ): RollRefusal | undefined {
+  const cast = castOf(action, casts)
+  if (cast && input.slot) {
+    const { slot } = input
+    const offered =
+      /^spell[1-9]$/.test(slot) &&
+      !!cast.levels?.some(({ level }) => `spell${level}` === slot)
+    return offered ? undefined : 'slot'
+  }
   const pools = slotPools(action, sheet.spells)
   if (!input.slot) return outOfSlots(action, pools) ? 'slots' : undefined
   if (!pools) return undefined
@@ -316,6 +357,28 @@ function checkHitDie(
   return sized.some(({ value }) => value === null || value > 0)
     ? undefined
     : 'no-hit-dice'
+}
+
+/**
+ * Has the character, for each size of hit die spent at once, classes with hit dice of that size,
+ * with as many of them left as are spent, all together? How many are left of a class whose sheet
+ * doesn't say is the game's to check, for that size; and whether the character is at full hit
+ * points, which the game checks as it spends them.
+ */
+function checkHitDice(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  for (const { denomination, count } of input.hitDice ?? []) {
+    const sized = (sheet?.classes ?? []).flatMap(({ hitDice }) =>
+      hitDice && hitDice.die === denomination ? [hitDice] : [],
+    )
+    if (sized.length === 0) return 'unknown'
+    if (sized.some(({ value }) => value === null)) continue
+    const left = sized.reduce((all, { value }) => all + (value ?? 0), 0)
+    if (left < count) return 'no-hit-dice'
+  }
+  return undefined
 }
 
 /**
@@ -346,8 +409,9 @@ function checkFormula(
  * throw, each as a kind of damage the part offers, where chosen, changed as the player chose, as an
  * attack's damage may be, where the game takes it so, and damage, never healing nor damage the game
  * marks as never one, as a critical hit's, its dice thrown as many times as the world's rules say,
- * where the sheet says; and a roll of its own as its formula throws. The game reads the link again
- * from its own copy, so nothing it asks for is taken from the app.
+ * where the sheet says, with the dice a critical hit adds, as they throw them; and a roll of its
+ * own as its formula throws. The game reads the link again from its own copy, so nothing it asks
+ * for is taken from the app.
  */
 function checkLinked(
   input: RollRequestInput,
@@ -385,7 +449,8 @@ function checkLinked(
     case 'textDamage': {
       if (found?.link.kind !== 'damage') return 'link'
       const damage = found.link
-      // Healing is never a critical hit's, nor damage the game marks as never one.
+      // Healing is never a critical hit's, nor damage the game marks as never one, without what
+      // one adds, which a module from 0.20.0 marks so only for apps before.
       if (input.critical && (damage.healing || damage.critical === false)) {
         return 'link'
       }
@@ -402,11 +467,14 @@ function checkLinked(
       if (changes(input.modifiers) && sheet.critical === undefined) {
         return 'unavailable'
       }
-      // A critical hit's only as the world's rules make it, where the sheet says how.
+      // A critical hit's only as the world's rules make it, where the sheet says how, and where
+      // one is offered, as where they say how they throw the dice it adds; then with what it adds.
       const rule = input.critical ? sheet.critical : undefined
       if (input.critical && !rule) return 'dice'
+      const adds = rule ? criticalOffered(damage, rule) : undefined
+      if (adds === false) return 'dice'
       // A part the app can't read, it couldn't have rolled.
-      const preview = linkDamage(damage, rule ?? undefined)
+      const preview = linkDamage(damage, rule ?? undefined, adds)
       const planned = preview && modifiedDice(preview, input.modifiers)
       return planned && matchesPlanned(input, planned) ? undefined : 'dice'
     }
@@ -547,15 +615,38 @@ export function rollStatus(
   }
 }
 
-/** A roll as its player is told of it: where it stands, and what the game made of it. */
+/**
+ * A roll as its player is told of it: where it stands, and what the game made of it. Of hit dice
+ * spent at once, how many the game made, where it made some: all of them, where their player may
+ * see them, or where it stopped part way, even where they can't; and where they can, what those it
+ * made came to, all together, and gave back.
+ */
 export function toRollRequestView(
   request: HeldRollRequest,
   now = Date.now(),
 ): RollRequestView {
   const status = rollStatus(request, now)
   const result = request.result as CommandResult | null
+  const spent = result?.spent ? { spent: result.spent } : {}
   if (status === 'failed') {
-    return { id: request.id, status, reason: result?.reason ?? undefined }
+    const reason = result?.reason ?? undefined
+    if (!result?.spent || result.spent.made === 0) {
+      return { id: request.id, status, reason }
+    }
+    if (!result.visible) {
+      return { id: request.id, status, reason, visible: false, ...spent }
+    }
+    const rolls = result.rolls.map(roll => toTableRoll(roll))
+    return {
+      id: request.id,
+      status,
+      reason,
+      visible: true,
+      total: sumOf(rolls),
+      rolls,
+      ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
+      ...spent,
+    }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
   // An attack's or a use's damage is the player's to roll, even of one they can't see.
@@ -568,7 +659,7 @@ export function toRollRequestView(
     id: request.id,
     status,
     visible: true,
-    total: ['damage', 'textDamage'].includes(request.kind)
+    total: SUMMED.has(request.kind)
       ? sumOf(rolls)
       : (rolls[0]?.total ?? undefined),
     rolls,
@@ -577,10 +668,14 @@ export function toRollRequestView(
     ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
     ...use,
     ...damage,
+    ...spent,
   }
 }
 
-/** Damage's total: each of its parts', added up, when the game said each. */
+/** The rolls whose total is all of their rolls' added up: damage's parts, or hit dice's cards. */
+const SUMMED = new Set(['damage', 'textDamage', 'hitDice'])
+
+/** Damage's total, or hit dice's: each of its rolls', added up, when the game said each. */
 function sumOf(rolls: { total: number | null }[]): number | undefined {
   if (rolls.length === 0 || rolls.some(roll => roll.total === null))
     return undefined

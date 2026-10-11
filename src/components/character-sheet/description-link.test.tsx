@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -1160,6 +1161,8 @@ describe('components/character-sheet/description-link', () => {
       },
       { terms: [{ sign: 1, count: 1, sides: 4 }], type: null },
     ]
+    /** What a critical hit adds to its parts: nothing, as its link says nothing. */
+    const NOTHING_ADDED = { dice: [0, 0], damage: [[], []] }
 
     it('offers other ways to roll it on a right-click, as an action’s damage does: a critical hit’s, its highest, or changed, the player’s alone', async () => {
       const user = userEvent.setup()
@@ -1188,6 +1191,7 @@ describe('components/character-sheet/description-link', () => {
         healing: false,
         text: { text: hash, link: 1 },
         critical: true,
+        criticalAdds: NOTHING_ADDED,
       })
       expect(screen.queryByRole('menu')).toBeNull()
 
@@ -1431,6 +1435,7 @@ describe('components/character-sheet/description-link', () => {
         text: { text: hash, link: 1 },
         critical: true,
         criticalRule: DOUBLED,
+        criticalAdds: NOTHING_ADDED,
       })
     })
 
@@ -1542,9 +1547,195 @@ describe('components/character-sheet/description-link', () => {
         text: { text: hash, link: 1 },
         critical: true,
         criticalRule: DOUBLED,
+        criticalAdds: NOTHING_ADDED,
         modifiers: { extra: 1 },
       })
       expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    describe('with what a critical hit adds, from module 0.20.0', () => {
+      /** A greataxe's 1d12 + 4, slashing or piercing, with Savage Attacks' die and its 1d6. */
+      const GREATAXE =
+        '<p>It deals <span class="ss-damage roll" data-n="0" data-formulas="1d12 + 4" data-types="slashing|piercing" data-critical="false" data-critical-dice="1" data-critical-damage="1d6">1d12 + 4</span>.</p>'
+      /** A javelin's 1d6 + 4, to which a critical hit adds 4. */
+      const JAVELIN =
+        '<p>It deals <span class="ss-damage roll" data-n="0" data-formulas="1d6 + 4" data-types="piercing" data-critical-dice="0" data-critical-damage="4">1d6 + 4</span>.</p>'
+      /** As the game reads them. */
+      const ADDS = {
+        dice: [1],
+        damage: [[{ sign: 1, count: 1, sides: 6 }]],
+      }
+      const ROLLED: CriticalRule = { ...DOUBLED, bonusDice: 'rolled' }
+
+      it('offers a critical hit’s, saying what it throws, its extra die and critical damage too, and rolls it so', async () => {
+        const user = userEvent.setup()
+        const { hash, actions } = await renderText(
+          GREATAXE,
+          actionsFor({ damage: { modifies: true, critical: ROLLED } }),
+        )
+        const link = screen.getByRole('button', {
+          name: '1d12 + 4, roll damage',
+        })
+
+        fireEvent.contextMenu(link)
+        expect(ways()).toEqual([
+          'Roll critical damage',
+          'Roll maximum damage',
+          'Modify damage…',
+        ])
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+        )
+        const kinds = screen.getByRole('menu', {
+          name: 'Worn Bardic Eternal Flame damage 3d12 + 4 + 1d6 · Critical hit',
+        })
+        await user.click(
+          within(kinds).getByRole('menuitem', {
+            name: 'Roll critical slashing damage',
+          }),
+        )
+        expect(actions.rollDamage).toHaveBeenLastCalledWith({
+          label: 'Worn Bardic Eternal Flame damage',
+          parts: [
+            {
+              terms: [
+                { sign: 1, count: 1, sides: 12 },
+                { sign: 1, flat: 4 },
+              ],
+              type: 'slashing',
+            },
+          ],
+          healing: false,
+          text: { text: hash, link: 0 },
+          types: ['slashing'],
+          critical: true,
+          criticalRule: ROLLED,
+          criticalAdds: ADDS,
+        })
+
+        // Changed, a die more is two more, its extra die and critical damage as they are.
+        fireEvent.contextMenu(link)
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        await user.click(
+          within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+        )
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '3d12 + 4 + 1d6',
+        )
+        await user.click(
+          within(dialog).getByRole('button', { name: 'One die more' }),
+        )
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '5d12 + 4 + 1d6',
+        )
+      })
+
+      it('offers no die more than one roll may throw, its extra dice counted', async () => {
+        const user = userEvent.setup()
+        await renderText(
+          '<p><span class="ss-damage roll" data-n="0" data-formulas="2d6" data-types="slashing" data-critical="false" data-critical-dice="3" data-critical-damage="">2d6</span></p>',
+          actionsFor({ damage: { modifies: true, critical: ROLLED } }),
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '2d6, roll damage' }),
+        )
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        await user.click(
+          within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+        )
+        // Brutal Critical's three dice on 2d6: 7d6, then sixteen more, two at a time.
+        const more = within(dialog).getByRole('button', {
+          name: 'One die more',
+        })
+        for (let added = 0; added < 16; added++) await user.click(more)
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '39d6 slashing',
+        )
+        expect(more).toBeDisabled()
+      })
+
+      it('offers no critical hit where the world’s rule doesn’t say how it throws dice added, but one adding numbers alone', async () => {
+        const user = userEvent.setup()
+        const unsaid = { ...DOUBLED, bonusDice: null }
+        await renderText(
+          GREATAXE,
+          actionsFor({ damage: { modifies: true, critical: unsaid } }),
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '1d12 + 4, roll damage' }),
+        )
+        expect(ways()).toEqual(['Roll maximum damage', 'Modify damage…'])
+        await user.keyboard('{Escape}')
+        cleanup()
+
+        const { actions } = await renderText(
+          JAVELIN,
+          actionsFor({ damage: { modifies: true, critical: unsaid } }),
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '1d6 + 4, roll damage' }),
+        )
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        await user.click(
+          within(dialog).getByRole('switch', { name: /^Critical hit/ }),
+        )
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '2d6 + 4 + 4 piercing',
+        )
+        await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+        expect(actions.rollDamage).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            critical: true,
+            criticalRule: unsaid,
+            criticalAdds: { dice: [0], damage: [[{ sign: 1, flat: 4 }]] },
+          }),
+        )
+      })
+
+      it('adds them where the player alone rolls it, as dnd5e makes a critical hit by default', async () => {
+        const user = userEvent.setup()
+        const { actions } = await renderText(GREATAXE)
+
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '1d12 + 4, roll damage' }),
+        )
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+        )
+        expect(
+          screen.getByRole('menu', {
+            name: 'Worn Bardic Eternal Flame damage 3d12 + 4 + 1d6 · Critical hit',
+          }),
+        ).toBeInTheDocument()
+        await user.click(
+          screen.getByRole('menuitem', {
+            name: 'Roll critical piercing damage',
+          }),
+        )
+        const [request] = jest.mocked(actions.rollDamage).mock.lastCall ?? []
+        expect(request).toMatchObject({ critical: true, criticalAdds: ADDS })
+        expect(request).not.toHaveProperty('criticalRule')
+      })
+
+      it('offers none where the game marks it never one, and says nothing it adds', async () => {
+        await renderText(
+          '<p><span class="ss-damage roll" data-n="0" data-formulas="1d12 + 4" data-types="slashing" data-critical="false" data-critical-dice="1">1d12 + 4</span></p>',
+          actionsFor({ damage: { modifies: true, critical: ROLLED } }),
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '1d12 + 4, roll damage' }),
+        )
+        expect(ways()).toEqual(['Roll maximum damage', 'Modify damage…'])
+      })
     })
 
     it('shows a critical hit under Powerful Critical as the game makes one: its dice, and the most they could roll added', async () => {

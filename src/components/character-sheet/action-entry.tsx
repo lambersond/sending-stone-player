@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useMemo, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   ChevronDown,
@@ -16,6 +16,7 @@ import {
 import {
   castAs,
   castCost,
+  chargesOf,
   Facts,
   spellFacts,
   spellKind,
@@ -32,6 +33,7 @@ import { SheetText } from './sheet-text'
 import { UsesLeft } from './uses-left'
 import { damageRollOf, type DueDamage } from '@/hooks/use-table-rolls'
 import { outOfSlots, slotPools, type SlotPool } from '@/utils/action-groups'
+import { castIndex, castOf, type CastIndex } from '@/utils/casts'
 import {
   changes,
   firstDie,
@@ -40,7 +42,7 @@ import {
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
-import { activityAction, itemSpellOf } from '@/utils/sheet-actions'
+import { activityAction, itemSpellOf, spellAction } from '@/utils/sheet-actions'
 import type { MenuPoint, RollChoice } from './roll-menu'
 import type {
   SheetDamageRoll,
@@ -49,8 +51,10 @@ import type {
 } from '@/hooks/use-sheet-roller'
 import type { RollSource } from '@/types/roll'
 import type {
+  CharacterSheet,
   SheetAction,
   SheetActivity,
+  SheetCast,
   SheetSpell,
   SheetSpellSection,
 } from '@/types/sending-stone'
@@ -106,6 +110,8 @@ export type TableDamage = {
 export type ActionRows = {
   characterId: string
   spellbook: SheetSpellSection[]
+  /** How each spell an item casts is cast, by its copy's id. */
+  casts: CastIndex
   d20: RollActions
   damage: DamageActions
   use?: UseActions
@@ -139,7 +145,7 @@ export type EntryLook = {
  */
 export function useActionRows({
   characterId,
-  spellbook,
+  sheet,
   onRoll,
   onRollDamage,
   onRollFormula,
@@ -147,7 +153,11 @@ export function useActionRows({
   tableDamage,
 }: Readonly<{
   characterId: string
-  spellbook: SheetSpellSection[]
+  /** Its spellbook, and wherever a spell an item casts is listed with how it's cast. */
+  sheet: Pick<
+    CharacterSheet,
+    'spells' | 'actions' | 'inventory' | 'features' | 'favorites'
+  >
   onRoll: (roll: SheetRoll) => void
   onRollDamage: (roll: SheetDamageRoll) => void
   /** Rolls an activity's own formula, such as a light's radius. */
@@ -157,6 +167,8 @@ export function useActionRows({
   /** What the game does with damage, while it takes it. */
   tableDamage?: TableDamage
 }>): { rows: ActionRows; dialogs: ReactNode } {
+  const spellbook = sheet.spells
+  const casts = useMemo(() => castIndex(sheet), [sheet])
   const { actions: d20, dialogs } = useD20Rolls(onRoll)
   const { actions: damage, dialogs: damageMenu } = useDamageRolls(
     onRollDamage,
@@ -167,6 +179,7 @@ export function useActionRows({
     rows: {
       characterId,
       spellbook,
+      casts,
       d20,
       damage,
       ...(onUse && { use: { onUse } }),
@@ -352,7 +365,8 @@ export function ActionEntry({
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
-  const others = otherActivities(action)
+  const cast = castOf(action, rows.casts)
+  const others = otherActivities(action, rows.spellbook)
   const { name, uses } = action
   const detail =
     look.detail ??
@@ -362,7 +376,7 @@ export function ActionEntry({
       activationIn(action, section),
       action.range,
       view.types.join(', '),
-      castNote(action.cast),
+      castNote(cast),
       view.spent && 'No slots left',
       firstInFoundry(action) && 'Used in Foundry',
       !open && moreNote(others.length),
@@ -378,7 +392,7 @@ export function ActionEntry({
           onClick={() => setOpen(!open)}
           className={clsx(
             'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
-            (view.spent || look.muted || action.cast?.short) && 'opacity-60',
+            (view.spent || look.muted || cast?.short) && 'opacity-60',
           )}
         >
           <EntryIcon
@@ -414,9 +428,8 @@ export function ActionEntry({
             >
               {others.map(other => (
                 <ActivityEntry
-                  key={other.activity.id}
-                  activity={other.activity}
-                  action={other.action}
+                  key={other.key}
+                  other={other}
                   parent={action}
                   rows={rows}
                   muted={look.muted}
@@ -447,41 +460,41 @@ export function ActionEntry({
  * item's opens to what there is to read of it from beside its name.
  */
 function ActivityEntry({
-  activity,
-  action,
+  other,
   parent,
   rows,
   muted,
   section,
 }: Readonly<{
-  activity: SheetActivity
-  /** The activity as an action of its own. */
-  action: SheetAction
+  other: OtherActivity
   parent: SheetAction
   rows: ActionRows
   muted?: boolean
   section?: string
 }>) {
+  const { activity, action } = other
   const view = viewOf(action, rows.spellbook, rows.use)
+  const cast = castOf(action, rows.casts)
   const uses = ownUses(activity, parent)
   const detail = joinParts(
-    ...activityDetail(activity, parent, view.spent, { section }),
+    ...activityDetail(activity, parent, view.spent, { section, cast }),
   )
   return (
     <li className='flex items-center gap-2 py-0.5 pr-1.5'>
       <span
         className={clsx(
           'min-w-0 flex-1 py-0.5',
-          (view.spent || muted || dimmed(activity)) && 'opacity-60',
+          (view.spent || muted || dimmed(activity, cast)) && 'opacity-60',
         )}
       >
         <span className='flex items-center gap-1'>
-          <span className='truncate text-sm'>{activity.name}</span>
+          <span className='truncate text-sm'>{other.name}</span>
           <ActivityInfoButton
             activity={activity}
             action={action}
             parent={parent}
             rows={rows}
+            spellId={other.spellId}
           />
         </span>
         {detail && (
@@ -499,19 +512,23 @@ function ActivityEntry({
 /**
  * A button beside the name of one of an item's activities folded beneath it, such as a staff's
  * Starry Wisp, that opens what there is to read of it, as its row has no description of its own.
- * None for a spell's, such as Spirit Guardians' save each turn, as the spell opens to its own.
+ * None for a spell's, such as Spirit Guardians' save each turn, as the spell opens to its own; but
+ * one of a spell an item casts, beneath the item, opens to the spell, as the Spells tab lists it.
  */
 export function ActivityInfoButton({
   activity,
   action,
   parent,
   rows,
+  spellId,
 }: Readonly<{
   activity: SheetActivity
   /** The activity as an action of its own. */
   action: SheetAction
   parent: SheetAction
   rows: ActionRows
+  /** For one of a spell an item casts, the copy of the spell the Spells tab lists. */
+  spellId?: string
 }>) {
   if (parent.type === 'spell') return
   const label = `About ${actionTitle(action)}`
@@ -524,7 +541,7 @@ export function ActivityInfoButton({
       title={label}
       onClick={() =>
         rows.about({
-          activity,
+          activity: spellId ? { ...activity, spellId } : activity,
           action,
           item: parent,
           foundry: !usedFromApp(activity),
@@ -537,17 +554,68 @@ export function ActivityInfoButton({
   )
 }
 
+/** One of an action's other activities, beneath it. */
+export type OtherActivity = {
+  activity: SheetActivity
+  /** The activity as an action of its own, rolled and used as that activity alone. */
+  action: SheetAction
+  /**
+   * What it's called: its own name, or for one of a spell an item casts, the spell's and its own,
+   * such as "Hex (Bonus Hex Damage)".
+   */
+  name: string
+  /** For one of a spell an item casts, the copy of the spell the Spells tab lists it under. */
+  spellId?: string
+  /** Unique among them: its action's id and its own. */
+  key: string
+}
+
 /**
  * An action's other activities, after its first, which the action is, each with itself as an
- * action of its own, rolled and used as that activity alone.
+ * action of its own, rolled and used as that activity alone. After each Cast, the action itself
+ * where it's one, come the other activities of its spell, as the Spells tab lists the spell under
+ * the item, while the item can cast it: those used after it's cast, such as Hex's Bonus Hex Damage,
+ * each named for the spell too, and used as the copy's. So do those of a Cast that says nothing of
+ * how it's cast, such as one whose spell summons first. None is ever one of the action's own.
  */
 export function otherActivities(
   action: SheetAction,
-): { activity: SheetActivity; action: SheetAction }[] {
-  return (action.activities ?? []).slice(1).map(activity => ({
-    activity,
-    action: activityAction(action, activity),
+  spellbook: SheetSpellSection[],
+): OtherActivity[] {
+  const own = (action.activities ?? []).slice(1).flatMap(activity => [
+    {
+      activity,
+      action: activityAction(action, activity),
+      name: activity.name,
+    },
+    ...(activity.type === 'cast'
+      ? spellActivities(activity.spellId, spellbook)
+      : []),
+  ])
+  return [...spellActivities(action.spellId, spellbook), ...own].map(other => ({
+    ...other,
+    key: `${other.action.id}:${other.activity.id}`,
   }))
+}
+
+/**
+ * The other activities of a spell an item casts, after its first, which its Cast is, as the copy of
+ * it the Spells tab lists under the item has them; none while the item can't cast it.
+ */
+function spellActivities(
+  spellId: string | null | undefined,
+  spellbook: SheetSpellSection[],
+): Omit<OtherActivity, 'key'>[] {
+  if (!spellId) return []
+  const copy = spellbook
+    .flatMap(section => section.spells)
+    .find(spell => spell.id === spellId && spell.castFrom?.usable !== false)
+  const spell = copy && spellAction(copy)
+  if (!spell) return []
+  return (spell.activities ?? []).slice(1).map(activity => {
+    const used = activityAction(spell, activity)
+    return { activity, action: used, name: used.name, spellId }
+  })
 }
 
 /** The kinds of activity the app rolls or uses; others, such as a summoning, are Foundry's. */
@@ -563,9 +631,15 @@ export function usedFromApp(activity: SheetActivity): boolean {
   )
 }
 
-/** Is an activity shown faded: one used only in Foundry, or a spell cast from charges not left? */
-export function dimmed(activity: SheetActivity): boolean {
-  return !usedFromApp(activity) || activity.cast?.short === true
+/**
+ * Is an activity shown faded: one used only in Foundry, or a spell cast from charges not left, as
+ * `castOf` says how it's cast?
+ */
+export function dimmed(
+  activity: SheetActivity,
+  cast: SheetCast | null | undefined,
+): boolean {
+  return !usedFromApp(activity) || cast?.short === true
 }
 
 /**
@@ -586,12 +660,23 @@ export function ownUses(
 }
 
 /**
- * What a spell cast from an item costs, such as "1 charge", or that the item hasn't that many
- * left.
+ * What a spell cast from an item costs, as `castOf` says how it's cast, such as "1 charge"; for one
+ * cast higher for more, what it may cost of what's left, such as "1–3 charges"; or that the item
+ * hasn't enough left. Nothing for one that costs none, or a formula.
  */
-export function castNote(cast: SheetAction['cast']): string | undefined {
-  if (!cast) return undefined
-  return cast.short ? 'No charges left' : castCost(cast)
+export function castNote(
+  cast: SheetCast | null | undefined,
+): string | undefined {
+  if (!cast?.charges) return undefined
+  if (!cast.levels) return cast.short ? 'No charges left' : castCost(cast)
+  const left = cast.levels.filter(({ short }) => !short)
+  if (left.length === 0) return 'No charges left'
+  const counts = left.flatMap(({ charges }) =>
+    charges === null ? [] : [charges],
+  )
+  if (counts.length === 0) return castCost(cast)
+  const [low, high] = [Math.min(...counts), Math.max(...counts)]
+  return low === high ? chargesOf(low) : `${low}–${high} charges`
 }
 
 /** How many more activities an action has than it shows while it's closed, such as "3 more". */
@@ -645,11 +730,14 @@ export function activityDetail(
   {
     section,
     range = true,
+    cast,
   }: {
     /** The section of the Actions tab it's listed in. */
     section?: string
     /** Whether to say how far it reaches, which a table has a column for. */
     range?: boolean
+    /** For a spell cast from an item, how, as `castOf` says. */
+    cast?: SheetCast | null
   } = {},
 ): (string | false | null | undefined)[] {
   return [
@@ -661,7 +749,7 @@ export function activityDetail(
         activity.damage.flatMap(part => (part.type ? [part.type] : [])),
       ),
     ].join(', '),
-    castNote(activity.cast),
+    castNote(cast),
     spent && 'No slots left',
     !usedFromApp(activity) && 'Used in Foundry',
   ]
@@ -1002,14 +1090,12 @@ export function DamageChip({
 
 /**
  * What using an action in the game is called: casting, for a spell, or one an item casts, but for
- * one of a spell's activities used after it's cast, without spending a slot, such as Spirit
- * Guardians' save each turn.
+ * one of a spell's activities used after it's cast, without spending a slot or the item's uses,
+ * such as Spirit Guardians' save each turn.
  */
 export function verbOf(action: SheetAction): 'Cast' | 'Use' {
-  return (action.type === 'spell' && action.consumesSlot !== false) ||
-    !!action.cast
-    ? 'Cast'
-    : 'Use'
+  if (action.consumesSlot === false) return 'Use'
+  return action.type === 'spell' || !!action.cast ? 'Cast' : 'Use'
 }
 
 /**

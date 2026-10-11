@@ -299,21 +299,24 @@ export async function claimRollRequests(
 /**
  * Record what became of a roll the module fetched. An answer for a roll already answered, or
  * another campaign's, changes nothing; one that comes after its player was told it was lost still
- * counts, as does one saying it was made after all, once the module had said it took too long. A
- * save that answered what the game asked, or found it no longer waits, closes it.
+ * counts, as does one saying it was made after all, once the module had said it took too long, or
+ * of hit dice spent at once, that some of them were before it stopped. A save that answered what
+ * the game asked, or found it no longer waits, closes it.
  */
 export async function recordCommandResult(
   campaignId: string,
   result: CommandResult,
 ): Promise<void> {
   const made = result.status === 'done'
+  // Late, but made after all, or some of them.
+  const late = made || (result.spent?.made ?? 0) > 0
   const { count } = await prisma.rollRequest.updateMany({
     where: {
       id: result.id,
       campaignId,
       OR: [
         { status: 'claimed' },
-        ...(made
+        ...(late
           ? [
               {
                 status: 'failed' as const,

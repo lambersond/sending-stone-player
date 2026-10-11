@@ -115,6 +115,91 @@ describe('utils/description-links', () => {
       }
     })
 
+    describe('what a critical hit adds, from module 0.20.0', () => {
+      /** A greataxe's damage, a critical hit's with Savage Attacks' die and the weapon's 1d6. */
+      const greataxe = {
+        class: 'ss-damage roll',
+        'data-n': '5',
+        'data-formulas': '1d12 + 4',
+        'data-types': 'slashing',
+        'data-critical': 'false',
+        'data-critical-dice': '1',
+        'data-critical-damage': '1d6',
+      }
+
+      it('reads it for each part, a critical hit then offered, though marked never one for apps before', () => {
+        expect(linkOf(greataxe)).toEqual({
+          kind: 'damage',
+          n: 5,
+          parts: [{ formula: '1d12 + 4', types: ['slashing'] }],
+          healing: false,
+          criticalAdds: { dice: [1], damage: ['1d6'] },
+        })
+        // Two parts, the second adding nothing.
+        expect(
+          linkOf({
+            ...greataxe,
+            'data-formulas': '1d6&1d4',
+            'data-types': 'fire&cold',
+            'data-critical-dice': '0&0',
+            'data-critical-damage': '1d4&',
+          }),
+        ).toMatchObject({
+          criticalAdds: { dice: [0, 0], damage: ['1d4', ''] },
+        })
+        expect(
+          linkOf({ ...greataxe, 'data-critical': undefined }),
+        ).not.toHaveProperty('critical')
+      })
+
+      it('reads numbers alone added, as a javelin’s, which are never marked never one', () => {
+        expect(
+          linkOf({
+            ...greataxe,
+            'data-formulas': '1d6 + 4',
+            'data-critical': undefined,
+            'data-critical-dice': '0',
+            'data-critical-damage': '4',
+          }),
+        ).toEqual({
+          kind: 'damage',
+          n: 5,
+          parts: [{ formula: '1d6 + 4', types: ['slashing'] }],
+          healing: false,
+          criticalAdds: { dice: [0], damage: ['4'] },
+        })
+      })
+
+      it.each<[string, Record<string, string | undefined>]>([
+        ['only its extra dice', { 'data-critical-damage': undefined }],
+        ['only its critical damage', { 'data-critical-dice': undefined }],
+        ['fewer extra dice than parts', { 'data-formulas': '1d12&1d4' }],
+        [
+          'more critical damage than parts',
+          { 'data-critical-dice': '1', 'data-critical-damage': '1d6&1d4' },
+        ],
+        ['extra dice that aren’t a count', { 'data-critical-dice': '1d6' }],
+        ['more than 20 extra dice', { 'data-critical-dice': '21' }],
+        ['critical damage of other signs', { 'data-critical-damage': '1d6*2' }],
+        [
+          'critical damage with a flavour',
+          { 'data-critical-damage': '1d6[fire]' },
+        ],
+        [
+          'critical damage the app can’t read',
+          { 'data-critical-damage': '1d3' },
+        ],
+        [
+          'critical damage of a die too many',
+          { 'data-critical-damage': '21d6' },
+        ],
+      ])('keeps it never a critical hit’s where it has %s', (_, changed) => {
+        const link = linkOf({ ...greataxe, ...changed })
+        expect(link).toMatchObject({ kind: 'damage', critical: false })
+        expect(link).not.toHaveProperty('criticalAdds')
+      })
+    })
+
     it('reads a check: each way it may be made once, the first kept, its DC, and the tool a skill check is made using', () => {
       expect(
         linkOf({

@@ -283,6 +283,33 @@ export const REASONS: Record<string, string> = {
   invalid: 'your Gamemaster’s game couldn’t make it',
   prompt: 'your Gamemaster’s game isn’t asking for it any more',
   'no-hit-dice': 'you have no hit dice of that size left',
+  'full-hp': 'you’re at full hit points',
+}
+
+/**
+ * Why a spell an item casts wasn't cast, or its attack made, in words, where it differs from why a
+ * roll wasn't made: it's cast at a level the item offers, which no spell slot is spent for, and a
+ * level the item no longer offers, as when its charges ran low, is refused as a slot is.
+ */
+const ITEM_CAST_REASONS: Record<string, string> = {
+  slot: 'the item can’t cast it at that level now',
+}
+
+/**
+ * Why hit dice spent at once, sent as one, weren't all spent, in words, where it differs from why a
+ * hit die wasn't: they're refused where fewer of a size are left than are spent, not only none.
+ */
+const HIT_DICE_REASONS: Record<string, string> = {
+  'no-hit-dice': 'you haven’t that many hit dice left',
+}
+
+/** Why a roll, an attack or a use wasn't made, in words, if it's one the player is told of. */
+function reasonOf(state: TableRollState): string | undefined {
+  const key = state.reason ?? state.status
+  const own =
+    (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
+    (state.hitDice ? HIT_DICE_REASONS[key] : undefined)
+  return own ?? REASONS[key]
 }
 
 /** Why the table wasn't asked, in words, where it differs from why a roll wasn't made. */
@@ -362,16 +389,19 @@ function TableStatus({
       )
     }
     default: {
-      const reason = REASONS[state.reason ?? state.status]
+      const reason = reasonOf(state)
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-          {state.together?.made ? (
-            <PartlyMade state={state} together={state.together} />
-          ) : (
-            'Not made at the table'
-          )}
-          {reason ? `: ${reason}` : ''}
+          {/* As one, so that why reads on from what was made, rather than beside it. */}
+          <span>
+            {state.together?.made ? (
+              <PartlyMade state={state} together={state.together} />
+            ) : (
+              'Not made at the table'
+            )}
+            {reason ? `: ${reason}` : ''}
+          </span>
         </p>
       )
     }
@@ -379,7 +409,7 @@ function TableStatus({
 }
 
 /**
- * Of dice sent one after another, as hit dice spent at once, those the game made before one it
+ * Of hit dice spent at once, sent one after another or as one, those the game made before one it
  * didn't: how many, and the hit points they gave back, where the player may see them, before why
  * the rest weren't made.
  */
@@ -928,7 +958,7 @@ function UseStatus({
       )
     }
     default: {
-      const reason = REASONS[state.reason ?? state.status]
+      const reason = reasonOf(state)
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />

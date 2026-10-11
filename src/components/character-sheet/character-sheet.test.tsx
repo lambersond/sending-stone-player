@@ -378,9 +378,54 @@ describe('components/character-sheet/character-sheet', () => {
       expect(onRollFormula).toHaveBeenCalledWith(
         expect.objectContaining({
           label: 'Hit dice (3d10)',
-          times: 3,
+          sets: [expect.objectContaining({ times: 3 })],
           minimum: 1,
-          source: { kind: 'hitDie', denomination: 'd10' },
+          source: {
+            kind: 'hitDice',
+            hitDice: [{ denomination: 'd10', count: 3 }],
+          },
+        }),
+      )
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('uses several of more than one size at once, from the popover of any of them', async () => {
+      const user = userEvent.setup()
+      const onRollFormula = renderDice({
+        classes: [hitDice('d10', 4, 5), hitDice('d8', 2, 2)],
+      })
+
+      await user.pointer({
+        keys: '[MouseRight]',
+        target: within(tile()).getByRole('button', { name: /^Use a d8/ }),
+      })
+      const popover = screen.getByRole('dialog', { name: 'Use hit dice' })
+      expect(
+        within(popover)
+          .getAllByRole('listitem')
+          .map(row => row.textContent),
+      ).toEqual(['d100 of 4', 'd81 of 2'])
+      const more = within(popover).getByRole('button', { name: 'One d10 more' })
+      await user.click(more)
+      await user.click(more)
+      expect(popover).toHaveTextContent('Heals 2d10 + 1d8 + 9')
+      await user.click(
+        within(popover).getByRole('button', {
+          name: 'Use 3 hit dice: 2d10 and 1d8',
+        }),
+      )
+
+      expect(onRollFormula).toHaveBeenCalledTimes(1)
+      expect(onRollFormula).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: 'Hit dice (2d10 + 1d8)',
+          source: {
+            kind: 'hitDice',
+            hitDice: [
+              { denomination: 'd10', count: 2 },
+              { denomination: 'd8', count: 1 },
+            ],
+          },
         }),
       )
       expect(screen.queryByRole('dialog')).toBeNull()

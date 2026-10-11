@@ -44,6 +44,34 @@ const hitDie = (con: number, minimum: number): SheetFormulaRoll => ({
   source: { kind: 'hitDie', denomination: 'd8' },
 })
 
+/**
+ * Two d10 hit dice and a d8 spent at once, with this Constitution modifier, 0 or less, each giving
+ * back at least this.
+ */
+const hitDice = (con: number, minimum: number): SheetFormulaRoll => {
+  const terms = (sides: 8 | 10) => [
+    { sign: 1 as const, count: 1, sides },
+    ...(con === 0 ? [] : [{ sign: -1 as const, flat: -con }]),
+  ]
+  return {
+    label: 'Hit dice (2d10 + 1d8)',
+    terms: [],
+    sets: [
+      { terms: terms(10), times: 2 },
+      { terms: terms(8), times: 1 },
+    ],
+    healing: true,
+    minimum,
+    source: {
+      kind: 'hitDice',
+      hitDice: [
+        { denomination: 'd10', count: 2 },
+        { denomination: 'd8', count: 1 },
+      ],
+    },
+  }
+}
+
 describe('hooks/use-sheet-roller', () => {
   afterEach(() => jest.restoreAllMocks())
 
@@ -463,6 +491,92 @@ describe('hooks/use-sheet-roller', () => {
     expect(altered).toMatchObject({ critical: true, gameTotal: true })
   })
 
+  it("throws what a critical hit adds to a description's damage: extra dice with its first die, and its critical damage after, as the world's rules make one, or as dnd5e does by default", async () => {
+    const fake = renderer()
+    const onDamageThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, onDamageThrown),
+    )
+    // A greataxe's 1d12 + 4, to which Savage Attacks adds a die, and the weapon 1d6.
+    const parts = [
+      {
+        terms: [
+          { sign: 1 as const, count: 1, sides: 12 as const },
+          { sign: 1 as const, flat: 4 },
+        ],
+        type: 'slashing',
+      },
+    ]
+    const criticalAdds = {
+      dice: [1],
+      damage: [[{ sign: 1 as const, count: 1, sides: 6 as const }]],
+    }
+    const text = { text: 'a1b2c3d4e5f6a7', link: 0 }
+
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Greataxe damage',
+        parts,
+        critical: true,
+        criticalRule: {
+          perDie: 2,
+          multiplyNumeric: false,
+          powerfulCritical: false,
+          altered: false,
+          bonusDice: 'rolled',
+        },
+        criticalAdds,
+        text,
+      }),
+    )
+    const [ruled] = result.current.rolls as LocalDamage[]
+    expect(ruled.parts[0].terms.map(term => term.text)).toEqual([
+      '3d12',
+      '+4',
+      '+1d6',
+    ])
+    expect(ruled.parts[0].terms.map(term => term.values.length)).toEqual([
+      3, 0, 1,
+    ])
+    expect(ruled.total).toBe(
+      ruled.parts[0].terms.reduce((sum, term) => sum + term.value, 0),
+    )
+    // The d12s first, then the d6: the pools the dice are thrown in.
+    expect(fake.roll.mock.calls[0][0]).toMatch(/^3d12\+1d6@/)
+    // Told of as thrown, the critical damage's die marked.
+    expect(onDamageThrown.mock.calls[0][0].parts).toEqual([
+      {
+        terms: [
+          { sign: 1, count: 3, sides: 12 },
+          { sign: 1, flat: 4 },
+          { sign: 1, count: 1, sides: 6, added: true },
+        ],
+        type: 'slashing',
+      },
+    ])
+
+    // The player's alone, with no rules given: as dnd5e makes one by default, a die more two more.
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Greataxe damage',
+        parts,
+        critical: true,
+        criticalAdds,
+        modifiers: { extra: 1 },
+        text,
+      }),
+    )
+    const [local] = result.current.rolls as LocalDamage[]
+    expect(local.parts[0].terms.map(term => term.text)).toEqual([
+      '5d12',
+      '+4',
+      '+1d6',
+    ])
+    expect(fake.roll.mock.calls[1][0]).toMatch(/^5d12\+1d6@/)
+    expect(local).toMatchObject({ critical: true, described: true })
+    expect(local).not.toHaveProperty('gameTotal')
+  })
+
   it('keeps healing with nothing to throw, without dice', async () => {
     const fake = renderer()
     const { result } = renderHook(() => useSheetRoller())
@@ -574,10 +688,10 @@ describe('hooks/use-sheet-roller', () => {
     expect(latest()).not.toHaveProperty('minimum')
   })
 
-  it('throws several of a formula together, each coming to no less than its least, as hit dice spent at once do', async () => {
+  it('throws hit dice of several sizes at once, each die coming to no less than its least, as hit dice spent at once do', async () => {
     const fake = renderer()
     const onFormulaThrown = jest.fn()
-    // The dice land on 1, 8 and 5.
+    // The d10s land on 1 and 10, the d8 on 5.
     const random = jest
       .spyOn(Math, 'random')
       .mockReturnValueOnce(0)
@@ -587,22 +701,23 @@ describe('hooks/use-sheet-roller', () => {
       useSheetRoller(undefined, undefined, onFormulaThrown),
     )
     const latest = () => result.current.rolls[0] as LocalFormula
-    const request = { ...hitDie(-3, 1), label: 'Hit dice (3d8)', times: 3 }
+    const request = hitDice(-3, 1)
 
     await act(() => result.current.rollFormula(request))
     // In one throw.
     expect(fake.roll).toHaveBeenCalledTimes(1)
-    expect(fake.roll.mock.calls[0][0]).toBe('3d8@1,8,5')
-    // Each die with −3 for Constitution, at least 1: 1, 5 and 2. Its terms as one, all its dice
-    // and numbers, which came to 5, less than they gave back.
+    expect(fake.roll.mock.calls[0][0]).toBe('2d10+1d8@1,10,5')
+    // Each die with −3 for Constitution, at least 1: 1, 7 and 2. Its dice a term a size, then all
+    // their numbers as one, which came to 7, less than they gave back.
     expect(latest()).toEqual({
       kind: 'formula',
       id: expect.any(String),
-      label: 'Hit dice (3d8)',
-      total: 8,
+      label: 'Hit dice (2d10 + 1d8)',
+      total: 10,
       healing: true,
       terms: [
-        { text: '3d8', values: [1, 8, 5], value: 14 },
+        { text: '2d10', values: [1, 10], value: 11 },
+        { text: '+1d8', values: [5], value: 5 },
         { text: '−9', values: [], value: -9 },
       ],
       minimum: 1,
@@ -616,17 +731,49 @@ describe('hooks/use-sheet-roller', () => {
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.99)
-    await act(() =>
-      result.current.rollFormula({ ...request, ...hitDie(-3, 0), times: 3 }),
-    )
+    await act(() => result.current.rollFormula(hitDice(-3, 0)))
     expect(latest()).toMatchObject({ total: 5, minimum: 0, times: 3 })
-    // None came to less than its least: 4, 5 and 2.
+    // None came to less than its least: 9, 10 and 5.
     random
       .mockReturnValueOnce(0.8)
       .mockReturnValueOnce(0.99)
       .mockReturnValueOnce(0.5)
     await act(() => result.current.rollFormula(request))
-    expect(latest().total).toBe(11)
+    expect(latest().total).toBe(15)
+    expect(latest()).not.toHaveProperty('minimum')
+  })
+
+  it('throws several of one size at once, with no number where Constitution adds none', async () => {
+    const fake = renderer()
+    // The dice land on 1, 8 and 5.
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.5)
+    const { result } = renderHook(() => useSheetRoller())
+    const latest = () => result.current.rolls[0] as LocalFormula
+
+    await act(() =>
+      result.current.rollFormula({
+        label: 'Hit dice (3d8)',
+        terms: [],
+        sets: [{ terms: [{ sign: 1, count: 1, sides: 8 }], times: 3 }],
+        healing: true,
+        minimum: 1,
+        source: {
+          kind: 'hitDice',
+          hitDice: [{ denomination: 'd8', count: 3 }],
+        },
+      }),
+    )
+
+    expect(fake.roll.mock.calls[0][0]).toBe('3d8@1,8,5')
+    expect(latest()).toMatchObject({
+      total: 14,
+      terms: [{ text: '3d8', values: [1, 8, 5], value: 14 }],
+      times: 3,
+    })
     expect(latest()).not.toHaveProperty('minimum')
   })
 

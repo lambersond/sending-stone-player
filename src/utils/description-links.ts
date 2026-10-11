@@ -1,15 +1,19 @@
 import { ABILITIES, SKILLS, TOOLS } from '@/constants/dnd5e'
 import { DAMAGE_TYPE } from '@/constants/sending-stone'
+import { formulaTerms } from '@/utils/formulas'
 
 /*
  * The links in a description the app can act on, as the module marks them since 0.17.0: a saving
  * throw it asks for, damage or healing it deals, a roll of its own, and a condition it names; and
  * since 0.18.0, a check it asks for; and since 0.19.0, damage never rolled as a critical hit's, as
- * dnd5e's own link offers none, is marked so. The module sends each as a span with a class of its
- * own and what it means in data attributes:
+ * dnd5e's own link offers none, is marked so; and since 0.20.0, what a critical hit adds to each of
+ * damage's parts, such as a weapon's extra dice and its critical damage. The module sends each as a
+ * span with a class of its own and what it means in data attributes:
  *
  *   <span class="ss-save roll" data-n="0" data-ability="dex" data-dc="15">DC 15 Dexterity</span>
  *   <span class="ss-damage roll" data-n="1" data-formulas="2d6&1d4" data-types="fire&cold|fire">…
+ *   <span class="ss-damage roll" data-n="4" data-formulas="1d12 + 4" data-critical="false"
+ *     data-critical-dice="1" data-critical-damage="1d6">…
  *   <span class="ss-roll roll" data-n="2" data-formula="1d6">1d6</span>
  *   <span class="ss-condition ref" data-condition="prone">Prone</span>
  *   <span class="ss-check roll" data-n="3" data-checks="skill:str:ath" data-dc="15">DC 15 Str…
@@ -92,9 +96,18 @@ export type DamageLink = {
   healing: boolean
   /**
    * Damage never rolled as a critical hit's, as dnd5e's own link offers none, such as a saving
-   * throw's, or the game can't plan its dice, as a weapon's extra dice. Module 0.19.0.
+   * throw's, or the game can't plan its dice, as a weapon's extra dice before module 0.20.0. Module
+   * 0.19.0.
    */
   critical?: false
+  /**
+   * What a critical hit adds to each part, in order, as the game reads its activity: the extra dice
+   * its first die throws, such as Savage Attacks' or Brutal Critical's, and its critical damage,
+   * such as a weapon's 1d6, or "" for none. Only where both are sent for every part, and each
+   * critical damage reads; then it may be rolled as a critical hit's, though the module marks it
+   * never one for apps before. Module 0.20.0.
+   */
+  criticalAdds?: { dice: number[]; damage: string[] }
 }
 
 /** A roll of a description's own, such as [[/r 1d4]]. */
@@ -161,6 +174,11 @@ export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
     'data-types': new RegExp(`^${TYPES}?(?:&${TYPES}?){0,9}$`),
     'data-healing': /^true$/,
     'data-critical': /^false$/,
+    // The extra dice a critical hit adds to each part's first die, 0 to 20, joined by &.
+    'data-critical-dice': /^(?:1?\d|20)(?:&(?:1?\d|20)){0,9}$/,
+    // The critical damage a critical hit adds to each part, of dice, numbers and signs, joined by
+    // &; a part may have none.
+    'data-critical-damage': /^[\dd +-]{0,100}(?:&[\dd +-]{0,100}){0,9}$/,
   },
   'ss-roll': {
     'data-n': /^(?:0|[1-9]\d?|1\d\d)$/,
@@ -254,6 +272,7 @@ export function linkOf(
     case 'ss-damage': {
       const formulas = kept['data-formulas'].split('&')
       const types = (kept['data-types'] ?? '').split('&')
+      const criticalAdds = criticalAddsOf(kept, formulas.length)
       return {
         kind: 'damage',
         n,
@@ -264,7 +283,11 @@ export function linkOf(
             .filter(type => DAMAGE_TYPE.test(type)),
         })),
         healing: kept['data-healing'] === 'true',
-        ...(kept['data-critical'] === 'false' && { critical: false as const }),
+        // What a critical hit adds, where it holds up, which a module from 0.20.0 marks never a
+        // critical hit's only for apps before; else never one, where it says so.
+        ...(criticalAdds
+          ? { criticalAdds }
+          : kept['data-critical'] === 'false' && { critical: false as const }),
       }
     }
     case 'ss-roll': {
@@ -274,6 +297,28 @@ export function linkOf(
       return { kind: 'condition', condition: kept['data-condition'] }
     }
   }
+}
+
+/**
+ * What a critical hit adds to each of damage's parts, from its `data-critical-dice` and
+ * `data-critical-damage`, which their patterns have checked: none unless it has both, one of each
+ * for every part, and each part's critical damage, where it has any, reads as a formula.
+ * @param parts - How many parts it has.
+ */
+function criticalAddsOf(
+  kept: Record<string, string>,
+  parts: number,
+): DamageLink['criticalAdds'] {
+  const dice = kept['data-critical-dice']
+  const damage = kept['data-critical-damage']
+  if (dice === undefined || damage === undefined) return
+  const counts = dice.split('&').map(Number)
+  const formulas = damage.split('&').map(formula => formula.trim())
+  if (counts.length !== parts || formulas.length !== parts) return
+  if (!formulas.every(formula => formula === '' || formulaTerms(formula))) {
+    return
+  }
+  return { dice: counts, damage: formulas }
 }
 
 /**

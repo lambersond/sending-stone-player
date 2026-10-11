@@ -4,25 +4,35 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import { Check, Crosshair, Skull, Sparkles } from 'lucide-react'
 import { actionTitle, verbOf } from './action-entry'
+import { chargesOf } from './action-info'
 import { Modal } from '@/components/modal'
 import { MAX_USE_TARGETS } from '@/constants/sending-stone'
 import {
-  castAtLevel,
   defaultPool,
+  ordinal,
   poolName,
   slotPools,
   type SlotPool,
 } from '@/utils/action-groups'
+import { castAtLevel, castOf, type CastIndex } from '@/utils/casts'
 import { friendly, mostTargets, picksTargets } from '@/utils/uses'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
-import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetCastLevel,
+  SheetSpellSection,
+} from '@/types/sending-stone'
 import type { TableCombat, TableCombatant } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 /*
  * What an attack or the use of a spell or feature is made with, chosen as it's made: whom at, and
- * with which spell slot, ammunition or attack mode, where there's a choice.
+ * with which spell slot, ammunition or attack mode, or at which level a spell an item casts is
+ * cast, where there's a choice.
  */
+
+/** No spell an item casts, as for a sheet that lists none. */
+const NO_CASTS: CastIndex = new Map()
 
 /** An attack, or a use, whose choices are being made. */
 export type Picking =
@@ -37,7 +47,10 @@ export type Picking =
 /** What the player chose. */
 export type Picked = {
   targets: TableCombatant[]
-  /** The spell slot chosen, such as "spell3", where there's a choice. */
+  /**
+   * The spell slot chosen, such as "spell3", where there's a choice; or for a spell an item casts,
+   * the level, as "spell" and the level.
+   */
   slot?: string
   ammunition?: string
   attackMode?: string
@@ -74,13 +87,22 @@ export function useTargetsOf(
   ]
 }
 
-/** The choices an attack or a use offers beyond its targets: slots, ammunition and modes. */
-function choicesOf(picking: Picking, spellbook: SheetSpellSection[]) {
+/**
+ * The choices an attack or a use offers beyond its targets: slots, or the levels a spell an item
+ * casts may be cast at, from module 0.20.0, which has no slots; ammunition and modes.
+ */
+function choicesOf(
+  picking: Picking,
+  spellbook: SheetSpellSection[],
+  casts: CastIndex,
+) {
   const { action } = picking
-  const pools = slotPools(action, spellbook) ?? []
+  const levels = castOf(action, casts)?.levels ?? []
+  const pools = levels.length > 0 ? [] : (slotPools(action, spellbook) ?? [])
   const attack = picking.kind === 'attack'
   return {
     pools: pools.length > 1 ? pools : [],
+    levels,
     ammunition:
       attack && (action.ammunition?.length ?? 0) > 1 ? action.ammunition! : [],
     modes:
@@ -92,14 +114,21 @@ function choicesOf(picking: Picking, spellbook: SheetSpellSection[]) {
 
 /**
  * Does an attack or a use ask anything before it's made: whom at, in a combat with anyone to pick,
- * or with which slot, ammunition or mode, where there's more than one?
+ * or with which slot, ammunition or mode, where there's more than one, or at which level a spell an
+ * item casts is cast, where it may be cast higher?
+ * @param casts - How each spell an item casts is cast, by its copy's id.
  */
 export function asks(
   picking: Picking,
   combat: TableCombat | undefined,
   spellbook: SheetSpellSection[],
+  casts: CastIndex = NO_CASTS,
 ): boolean {
-  const { pools, ammunition, modes } = choicesOf(picking, spellbook)
+  const { pools, levels, ammunition, modes } = choicesOf(
+    picking,
+    spellbook,
+    casts,
+  )
   const targets =
     picking.kind === 'attack'
       ? targetsOf(combat)
@@ -107,6 +136,7 @@ export function asks(
   return (
     targets.length > 0 ||
     pools.length > 0 ||
+    levels.length > 0 ||
     ammunition.length > 0 ||
     modes.length > 0
   )
@@ -114,6 +144,7 @@ export function asks(
 
 /**
  * What an attack, or a spell or feature used, is made with, chosen as it's made: the spell slot,
+ * or the level a spell an item casts is cast at, with the item's charges it spends there,
  * ammunition and attack mode, where there's more than one, each preset as the game would have it;
  * and whom at. An attack, or a use at one target, is made at the one tapped, or at no one; a use at
  * more, or at an area, at those ticked, as many as it takes at the level it's cast at, as is an
@@ -123,6 +154,7 @@ export function UsePicker({
   picking,
   combat,
   spellbook,
+  casts = NO_CASTS,
   last,
   areas = false,
   onPick,
@@ -131,6 +163,8 @@ export function UsePicker({
   picking?: Picking
   combat?: TableCombat
   spellbook: SheetSpellSection[]
+  /** How each spell an item casts is cast, by its copy's id. */
+  casts?: CastIndex
   /** The combatant last attacked, if any. */
   last?: string
   /** Whether the game makes an area attack at the combatants picked. */
@@ -152,6 +186,7 @@ export function UsePicker({
           picking={picking}
           combat={combat}
           spellbook={spellbook}
+          casts={casts}
           last={last}
           areas={areas}
           onPick={onPick}
@@ -165,6 +200,7 @@ function Choices({
   picking,
   combat,
   spellbook,
+  casts,
   last,
   areas,
   onPick,
@@ -172,20 +208,31 @@ function Choices({
   picking: Picking
   combat?: TableCombat
   spellbook: SheetSpellSection[]
+  casts: CastIndex
   last?: string
   areas: boolean
   onPick: (picked: Picked) => void
 }>) {
   const { action } = picking
-  const { pools, ammunition, modes } = choicesOf(picking, spellbook)
-  const [slot, setSlot] = useState(defaultPool(action, spellbook)?.id)
+  const { pools, levels, ammunition, modes } = choicesOf(
+    picking,
+    spellbook,
+    casts,
+  )
+  // A spell an item casts is cast at the level it's cast at by default, unless chosen otherwise.
+  const cast = castOf(action, casts)
+  const [slot, setSlot] = useState(
+    cast && levels.length > 0
+      ? `spell${cast.level}`
+      : defaultPool(action, spellbook)?.id,
+  )
   const [ammo, setAmmo] = useState(
     ammunition.find(({ quantity }) => quantity > 0)?.id,
   )
   const [mode, setMode] = useState(modes[0]?.value)
   const [ticked, setTicked] = useState<string[]>([])
   const options = {
-    ...(pools.length > 0 && slot && { slot }),
+    ...((pools.length > 0 || levels.length > 0) && slot && { slot }),
     ...(ammunition.length > 0 && ammo && { ammunition: ammo }),
     ...(modes.length > 0 && mode && { attackMode: mode }),
   }
@@ -194,9 +241,11 @@ function Choices({
   // the level chosen, whether any slot is left or not.
   const spends = action.consumesSlot !== false
 
-  // Those ticked, as many as a use or an area attack takes at the slot chosen, as the game takes
-  // them: no more than it's sent.
-  const castAt = castAtLevel(action, spellbook, slot)
+  // Those ticked, as many as a use or an area attack takes at the slot chosen, or the level, as
+  // the game takes them: no more than it's sent. A spell an item casts takes more for each level
+  // above the one it's cast at by default.
+  const castAt = castAtLevel(action, spellbook, slot, casts)
+  const base = cast?.level ?? action.level
   const tickList = (
     targets: TableCombatant[],
     { area, most: takes, verb }: { area: boolean; most: number; verb: string },
@@ -236,7 +285,7 @@ function Choices({
       targets.length > 0 ? (
         tickList(targets, {
           area: true,
-          most: mostTargets(area, action.level, castAt),
+          most: mostTargets(area, base, castAt),
           verb: 'Attack',
         })
       ) : (
@@ -262,7 +311,7 @@ function Choices({
   } else {
     const use = action.activity!
     const targets = useTargetsOf(action, combat)
-    const most = mostTargets(use.targets, action.level, castAt)
+    const most = mostTargets(use.targets, base, castAt)
     const verb = verbOf(action)
     if (targets.length === 0) {
       whom = <Go label={verb} onGo={() => pick([])} />
@@ -301,6 +350,27 @@ function Choices({
                 <span className='font-normal text-text-secondary'>
                   {' '}
                   · {pool.value} left
+                </span>
+              )}
+            </Chip>
+          ))}
+        </ChipRow>
+      )}
+      {levels.length > 0 && (
+        <ChipRow label={spends ? 'Cast at' : 'At level'}>
+          {levels.map(level => (
+            <Chip
+              key={level.level}
+              selected={`spell${level.level}` === slot}
+              disabled={spends && level.short}
+              onSelect={() => setSlot(`spell${level.level}`)}
+              label={levelLabel(level, spends)}
+            >
+              {ordinal(level.level)}
+              {spends && level.charges !== null && (
+                <span className='font-normal text-text-secondary'>
+                  {' '}
+                  · {chargesOf(level.charges)}
                 </span>
               )}
             </Chip>
@@ -355,6 +425,17 @@ function leadFor(area: boolean, most: number): string {
 /** A pool of slots, as a screen reader is told: such as "3rd Level, 2 slots left". */
 function poolLabel(pool: SlotPool): string {
   return `${pool.label}, ${pool.value} ${pool.value === 1 ? 'slot' : 'slots'} left`
+}
+
+/**
+ * A level a spell an item casts may be cast at, as a screen reader is told: such as "2nd Level,
+ * 2 charges", for one that spends them; or "2nd Level".
+ */
+function levelLabel(level: SheetCastLevel, spends: boolean): string {
+  const name = `${ordinal(level.level)} Level`
+  return spends && level.charges !== null
+    ? `${name}, ${chargesOf(level.charges)}`
+    : name
 }
 
 /** A row of choices, of which one is made. */

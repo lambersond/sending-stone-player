@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { envelopeSchema, parseGameEvent } from './sending-stone'
 import {
+  castingSheet,
   characterSheet,
   combat,
   fullerSheet,
@@ -120,6 +121,17 @@ const criticalOf = (...critical: unknown[]) =>
       },
     }) as any
   ).data.character.sheet
+/** Damage an attack or a use said follows, as a command's result says and as read. */
+const damageOf = (damage: unknown) =>
+  (
+    parseGameEvent('command.result', {
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      rolls: [],
+      damage,
+    })?.data as { damage: any }
+  ).damage
 /** What came of an attack, as a command's result says and as read. */
 const attackOf = (attack: unknown) =>
   (
@@ -131,6 +143,49 @@ const attackOf = (attack: unknown) =>
       attack,
     })?.data as any
   ).attack
+
+/** A wand's cast, as read: as an action's, an activity's and a favorite's. */
+const readCast = (sent: unknown) => {
+  const sheet = castingSheet()
+  const [wand, flame] = sheet.actions[0].actions
+  const [resource, item, fireball, ...favorites] = sheetFavorites()
+  const event = parseGameEvent('character.updated', {
+    character: {
+      ...roster[0],
+      sheet: {
+        ...sheet,
+        actions: [
+          {
+            ...sheet.actions[0],
+            actions: [
+              { ...wand, cast: sent },
+              {
+                ...flame,
+                activities: [
+                  flame.activities![0],
+                  { ...flame.activities![1], cast: sent },
+                ],
+              },
+            ],
+          },
+        ],
+        favorites: [
+          resource,
+          item,
+          { ...fireball, cast: sent, spellId: 'fireballCopy' },
+          ...favorites,
+        ],
+      },
+    },
+  }) as any
+  const read = event.data.character.sheet
+  const [action, withActivities] = read.actions[0].actions
+  return [
+    action.cast,
+    withActivities.activities[1].cast,
+    read.favorites[2].cast,
+  ]
+}
 
 describe('schemas/sending-stone', () => {
   const envelope = {
@@ -392,6 +447,60 @@ describe('schemas/sending-stone', () => {
     expect(healedOf()).toBeUndefined()
   })
 
+  it("reads how many hit dice spent at once the game made, from module 0.20.0, as unknown when it can't", () => {
+    const spentOf = (spent?: unknown) =>
+      (
+        parseGameEvent('command.result', {
+          id: 'req-1',
+          status: 'failed',
+          reason: 'full-hp',
+          visible: true,
+          rolls: [],
+          healed: 9,
+          spent,
+        })?.data as any
+      ).spent
+    expect(spentOf({ count: 3, made: 1 })).toEqual({ count: 3, made: 1 })
+    expect(spentOf({ count: 20, made: 0 })).toEqual({ count: 20, made: 0 })
+    expect(spentOf({ count: 3 })).toBeNull()
+    expect(spentOf({ count: 0, made: 0 })).toBeNull()
+    expect(spentOf({ count: 21, made: 21 })).toBeNull()
+    expect(spentOf({ count: 3, made: -1 })).toBeNull()
+    expect(spentOf({ count: 3, made: 1.5 })).toBeNull()
+    expect(spentOf(null)).toBeNull()
+    // An older module's result says nothing of it.
+    expect(spentOf()).toBeUndefined()
+    expect(
+      parseGameEvent('command.result', {
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        healed: 9,
+      })?.data,
+    ).not.toHaveProperty('spent')
+  })
+
+  it('keeps every roll of hit dice spent at once, as many as a module adds, up to 40', () => {
+    const roll = {
+      formula: '1d10 + 3',
+      total: 9,
+      dice: [{ faces: 10, results: [{ result: 6, active: true }] }],
+    }
+    const rollsOf = (count: number) =>
+      (
+        parseGameEvent('command.result', {
+          id: 'req-1',
+          status: 'done',
+          visible: true,
+          rolls: Array.from({ length: count }, () => roll),
+          spent: { count: 20, made: 20 },
+        })?.data as any
+      ).rolls
+    expect(rollsOf(40)).toHaveLength(40)
+    expect(rollsOf(41)).toEqual([])
+  })
+
   it("reads an attack's result: what came of it, and the dice its damage throws", () => {
     const damage = {
       critical: true,
@@ -535,6 +644,41 @@ describe('schemas/sending-stone', () => {
     ).toMatchObject({ use: null })
   })
 
+  it("reads the dice of a critical hit's critical damage as added, from module 0.20.0, leaving out anything else said of them", () => {
+    const greataxe = {
+      critical: true,
+      plannable: true,
+      rolls: [
+        {
+          formula: '3d12 + 3 + 1d6',
+          type: 'Slashing',
+          dice: [
+            { faces: 12, number: 3 },
+            { faces: 6, number: 1, added: true },
+          ],
+          perDie: 2,
+        },
+      ],
+    }
+    expect(damageOf(greataxe)).toEqual(greataxe)
+    for (const junk of [false, 'true', 1, null]) {
+      const read = damageOf({
+        ...greataxe,
+        rolls: [
+          {
+            ...greataxe.rolls[0],
+            dice: [
+              { faces: 12, number: 3, added: junk },
+              { faces: 6, number: 1, added: true },
+            ],
+          },
+        ],
+      })
+      expect(read).toEqual(greataxe)
+      expect(read.rolls[0].dice[0].added).toBeUndefined()
+    }
+  })
+
   it('leaves damage throwing more dice than a player may send for the game to roll', () => {
     const many = Array.from({ length: 11 }, () => ({ faces: 6, number: 1 }))
     const data = parseGameEvent('command.result', {
@@ -658,6 +802,32 @@ describe('schemas/sending-stone', () => {
     }
     // A sheet from before module 0.19.0, which says nothing of it, is told from one that can't say.
     expect(criticalOf()).not.toHaveProperty('critical')
+  })
+
+  it('reads how the world throws the dice a critical hit adds, from module 0.20.0, as null where it can’t say, the rule kept', () => {
+    const rule = {
+      perDie: 2,
+      multiplyNumeric: false,
+      powerfulCritical: false,
+      altered: false,
+    }
+    for (const bonusDice of ['rolled', 'maximized', 'ignored', null]) {
+      expect(criticalOf({ ...rule, bonusDice }).critical).toEqual({
+        ...rule,
+        bonusDice,
+      })
+    }
+    // From module 0.19.0, which doesn't say: the rule as it was, taking no dice added.
+    const older = criticalOf(rule).critical
+    expect(older).toEqual(rule)
+    expect(older.bonusDice).toBeUndefined()
+    // What this app doesn't know is as though it can't say, the rule still read.
+    for (const junk of ['doubled', 1, true, {}, ['rolled']]) {
+      expect(criticalOf({ ...rule, bonusDice: junk }).critical).toEqual({
+        ...rule,
+        bonusDice: null,
+      })
+    }
   })
 
   it('reads features, conditions and effects, as sent from module 0.6.0', () => {
@@ -1590,6 +1760,63 @@ describe('schemas/sending-stone', () => {
         expect(unsent).not.toHaveProperty(field)
       }
     }
+  })
+
+  describe('the levels a spell an item casts may be cast at, from module 0.20.0', () => {
+    const levels = [
+      { level: 1, charges: 1, short: false },
+      { level: 2, charges: 2, short: false },
+      { level: 3, charges: 3, short: true },
+    ]
+    const cast = { level: 1, concentration: false, charges: 1, short: false }
+
+    it('reads each, with the charges it spends there and whether fewer are left', () => {
+      for (const read of readCast({ ...cast, levels })) {
+        expect(read).toEqual({ ...cast, levels })
+      }
+      // What's said of a level that can't be read is taken as for nothing, or enough left.
+      const [read] = readCast({
+        ...cast,
+        levels: [
+          { level: 1, charges: 1, short: false },
+          { level: 2, charges: 'two', short: 'no' },
+        ],
+      })
+      expect(read.levels).toEqual([
+        { level: 1, charges: 1, short: false },
+        { level: 2, charges: null, short: false },
+      ])
+    })
+
+    it.each([
+      ['out of order', [levels[0], levels[2], levels[1]]],
+      ['twice the same', [levels[0], levels[1], levels[1]]],
+      ['at level 0', [{ level: 0, charges: 0, short: false }, ...levels]],
+      ['at level 10', [...levels, { level: 10, charges: 10, short: true }]],
+      ['not from the level it is cast at', levels.slice(1)],
+      ['just one', levels.slice(0, 1)],
+      [
+        'ten of them',
+        Array.from({ length: 10 }, (_, index) => ({
+          level: index + 1,
+          charges: index + 1,
+          short: false,
+        })),
+      ],
+      ['not a list', 'spell1-spell3'],
+    ])('leaves them out, the rest of the cast kept, %s', (_name, sent) => {
+      for (const read of readCast({ ...cast, levels: sent })) {
+        expect(read).toEqual(cast)
+        expect(read).not.toHaveProperty('levels')
+      }
+    })
+
+    it('leaves them out as an older module does', () => {
+      for (const read of readCast(cast)) {
+        expect(read).toEqual(cast)
+        expect(read).not.toHaveProperty('levels')
+      }
+    })
   })
 
   it('reads the formulas and areas of spells, features and items, from module 0.16.0, leaving them out where not sent', () => {

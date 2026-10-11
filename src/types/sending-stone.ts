@@ -323,7 +323,8 @@ export type SheetAction = {
   /**
    * False for a spell's activity used after it's cast without spending a spell slot, such as Hex's
    * Bonus Hex Damage: it's used at the level chosen, whether any slot is left or not. Module
-   * 0.14.0; absent otherwise.
+   * 0.14.0; absent otherwise. From module 0.20.0, the same of the copy of a spell an item casts,
+   * cantrips' too: it spends none of the item's uses either.
    */
   consumesSlot?: boolean
   /**
@@ -373,6 +374,7 @@ export type SheetAction = {
  * left; and, where the item is listed for it, the spell's description.
  */
 export type SheetCast = {
+  /** The level it's cast at when none is chosen: the Cast's, or the spell's own if higher. */
   level: number
   concentration: boolean
   /** How many of the item's uses, or the activity's own, it spends; null for none, or a formula. */
@@ -381,6 +383,26 @@ export type SheetCast = {
   short: boolean
   /** The spell's description's hash. */
   text?: string | null
+  /**
+   * For one the item lets be cast higher, such as a wand's Magic Missile, each level it may be cast
+   * at, from `level` up, as dnd5e offers them; but those whose cost is more than the item ever has.
+   * At least two, in order, the first at `level`, as it spends there. Module 0.20.0; absent before,
+   * and for one cast at its level alone.
+   */
+  levels?: SheetCastLevel[]
+}
+
+/**
+ * A level a spell an item casts may be cast at, with how many of the item's uses it spends there,
+ * as `charges` and `short` say of the cast.
+ */
+export type SheetCastLevel = {
+  /** 1 to 9. */
+  level: number
+  /** How many of the item's uses it spends; null for none, or a formula. */
+  charges: number | null
+  /** Fewer are left than it spends. */
+  short: boolean
 }
 
 /**
@@ -460,7 +482,12 @@ export type SheetUseTargets = {
   area: boolean
   /** The most targets it takes, at its own level; null for no limit. */
   count: number | null
-  /** How many more it takes for each level it's cast above its own, as Bless; null for none. */
+  /**
+   * How many more it takes for each level it's cast above its own, as Bless; null for none. For a
+   * spell an item casts, above the level it's cast at by default, its `cast.level`, from module
+   * 0.20.0. Before, a Cast's own `activity` and `attackArea` always had null, and its copy's was
+   * counted from the spell's own level: the same where the Cast is at that level, null above it.
+   */
   perLevel: number | null
   /** dnd5e's kind of target, such as "ally", "enemy", "creature" or "willing"; null for none. */
   affects: string | null
@@ -647,6 +674,13 @@ export type CriticalRule = {
    * say.
    */
   altered: boolean
+  /**
+   * How it throws the dice a critical hit adds to a part's first die, such as Savage Attacks' or
+   * Brutal Critical's: thrown with it, after its dice are multiplied ("rolled"); not thrown, but
+   * the most they could roll added as a number ("maximized"); or left out ("ignored"). Null, or
+   * absent before module 0.20.0, where it can't say, and no additions with dice are taken.
+   */
+  bonusDice?: 'rolled' | 'maximized' | 'ignored' | null
 }
 
 export type CharacterSheet = {
@@ -869,7 +903,10 @@ export type CommandResult = {
   messageId: string | null
   /** Whether the roll's player may see it; false for one the game made blind. */
   visible: boolean
-  /** The roll as the game made it, when its player may see it. */
+  /**
+   * The roll as the game made it, when its player may see it; for hit dice, every roll of every
+   * card they made, in order.
+   */
   rolls: RollSummary[]
   /** For an attack, what came of it, when its player may see it. Module 0.11.0. */
   attack?: AttackOutcome | null
@@ -885,8 +922,16 @@ export type CommandResult = {
    * 0.13.0.
    */
   outcome?: SaveOutcome | null
-  /** For a hit die, the hit points it gave back, no more than were missing. Module 0.16.0. */
+  /**
+   * For a hit die or hit dice, the hit points they gave back, no more than were missing. Module
+   * 0.16.0; for hit dice, 0.20.0.
+   */
   healed?: number | null
+  /**
+   * For hit dice, how many were asked for, and how many the game made, a card each, once they
+   * passed its checks: all of them, or those made before it stopped. Module 0.20.0.
+   */
+  spent?: { count: number; made: number } | null
 }
 
 /** Whether a saving throw succeeded against its DC. */
@@ -941,7 +986,11 @@ export type DamagePreviewRoll = {
    * absent for none. Module 0.12.0.
    */
   types?: DamageTypeChoice[] | null
-  dice: { faces: number; number: number }[]
+  /**
+   * Each kind of die it throws, in order. From module 0.20.0, those of the critical damage a
+   * critical hit adds, such as a weapon's, are marked `added`: they are never its first die.
+   */
+  dice: { faces: number; number: number; added?: true }[]
   /**
    * How many dice it throws for each die of its own: 1, or on a critical hit as many as the
    * world's rules make of each, such as 2. Module 0.13.0; absent before, as 1.

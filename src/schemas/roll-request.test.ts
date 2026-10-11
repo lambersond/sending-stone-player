@@ -81,6 +81,37 @@ const hitDie = {
 const parseHitDie = (fields: object) =>
   rollRequestSchema.safeParse({ ...hitDie, ...fields })
 
+/** Two d10 hit dice and a d8 spent at once, landing on 7 and 3, and 4. */
+const hitDice = {
+  kind: 'hitDice',
+  hitDice: [
+    { denomination: 'd10', count: 2 },
+    { denomination: 'd8', count: 1 },
+  ],
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [
+    { faces: 10, results: [7, 3] },
+    { faces: 8, results: [4] },
+  ],
+}
+
+const parseHitDice = (fields: object) =>
+  rollRequestSchema.safeParse({ ...hitDice, ...fields })
+
+/** Hit dice of these sizes spent at once, this many of each, each die landing on 1. */
+const spentAtOnce = (counts: [number, number][]) => ({
+  hitDice: counts.map(([faces, count]) => ({
+    denomination: `d${faces}`,
+    count,
+  })),
+  dice: counts.map(([faces, count]) => ({
+    faces,
+    results: Array.from({ length: count }, () => 1),
+  })),
+})
+
 /** A lantern's light, whose radius is 1d4 + 2d6 + 3. */
 const formula = {
   kind: 'formula',
@@ -331,6 +362,169 @@ describe('schemas/roll-request', () => {
     ['answering what the game asked', { prompt: 'msg1-thorin' }],
   ])('refuses a hit die %s', (_name, fields) => {
     expect(parseHitDie(fields).success).toBe(false)
+  })
+
+  it('takes hit dice spent at once, of one size or several, with a roll of each size in the same order', () => {
+    expect(parseHitDice({}).success).toBe(true)
+    expect(parseHitDice({}).data).toEqual(hitDice)
+    expect(parseHitDice(spentAtOnce([[6, 2]])).success).toBe(true)
+    // Every size there is, in any order, as many as the most at once.
+    expect(
+      parseHitDice(
+        spentAtOnce([
+          [4, 1],
+          [12, 4],
+          [8, 5],
+          [6, 5],
+          [10, 5],
+        ]),
+      ).success,
+    ).toBe(true)
+    expect(parseHitDice(spentAtOnce([[10, 20]])).success).toBe(true)
+  })
+
+  it.each([
+    ['without how many of each size', { hitDice: undefined }],
+    ['of no size', spentAtOnce([])],
+    [
+      'of a size no class has',
+      spentAtOnce([
+        [20, 1],
+        [10, 1],
+      ]),
+    ],
+    [
+      'of a size written otherwise',
+      {
+        hitDice: [
+          { denomination: 'D10', count: 2 },
+          { denomination: 'd8', count: 1 },
+        ],
+      },
+    ],
+    [
+      'with none of a size',
+      {
+        hitDice: [
+          { denomination: 'd10', count: 0 },
+          { denomination: 'd8', count: 1 },
+        ],
+        dice: [
+          { faces: 10, results: [] },
+          { faces: 8, results: [4] },
+        ],
+      },
+    ],
+    [
+      'with part of a die',
+      {
+        hitDice: [
+          { denomination: 'd10', count: 1.5 },
+          { denomination: 'd8', count: 1 },
+        ],
+      },
+    ],
+    [
+      'of one size twice',
+      spentAtOnce([
+        [10, 1],
+        [10, 1],
+      ]),
+    ],
+    [
+      'of more than 20 in all',
+      spentAtOnce([
+        [10, 15],
+        [8, 6],
+      ]),
+    ],
+    ['of more than 20 of one size', spentAtOnce([[10, 21]])],
+    [
+      'with more to them',
+      {
+        hitDice: [
+          { denomination: 'd10', count: 2, class: 'fighter' },
+          { denomination: 'd8', count: 1 },
+        ],
+      },
+    ],
+    ['with no dice', { dice: [] }],
+    [
+      'with the rolls of its sizes the other way round',
+      { dice: [...hitDice.dice].toReversed() },
+    ],
+    [
+      'with a die of another size',
+      {
+        dice: [
+          { faces: 10, results: [7, 3] },
+          { faces: 6, results: [4] },
+        ],
+      },
+    ],
+    [
+      'with too few dice of a size',
+      {
+        dice: [
+          { faces: 10, results: [7] },
+          { faces: 8, results: [4] },
+        ],
+      },
+    ],
+    [
+      'with too many dice of a size',
+      {
+        dice: [
+          { faces: 10, results: [7, 3] },
+          { faces: 8, results: [4, 1] },
+        ],
+      },
+    ],
+    [
+      'with a roll of a size more',
+      {
+        dice: [...hitDice.dice, { faces: 6, results: [1] }],
+      },
+    ],
+    [
+      'with a result past the die',
+      {
+        dice: [
+          { faces: 10, results: [7, 11] },
+          { faces: 8, results: [4] },
+        ],
+      },
+    ],
+    [
+      'with a result of none',
+      {
+        dice: [
+          { faces: 10, results: [7, 0] },
+          { faces: 8, results: [4] },
+        ],
+      },
+    ],
+    ['with advantage', { mode: 1 }],
+    ['rolled as the player chose', { explicit: true }],
+    ['with something added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['with a size of its own', { denomination: 'd10' }],
+    ['naming a key', { key: 'con' }],
+    ['naming an item', { item: 'lantern', activity: 'shine' }],
+    ['at a target', { target: null }],
+    ['with a spell slot', { slot: 'spell1' }],
+    ['answering what the game asked', { prompt: 'msg1-thorin' }],
+    ['from a link in a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
+    ["as a critical hit's", { critical: true }],
+  ])('refuses hit dice spent at once %s', (_name, fields) => {
+    expect(parseHitDice(fields).success).toBe(false)
+  })
+
+  it('says how many of each size only of hit dice spent at once', () => {
+    const { hitDice: counts } = hitDice
+    expect(parseHitDie({ hitDice: counts }).success).toBe(false)
+    expect(parse({ hitDice: counts }).success).toBe(false)
+    expect(parseFormula({ hitDice: counts }).success).toBe(false)
+    expect(parseDamage({ hitDice: counts }).success).toBe(false)
   })
 
   it('gives a size to a hit die, and to nothing else', () => {

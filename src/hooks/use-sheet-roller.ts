@@ -12,7 +12,9 @@ import {
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import {
   criticalParts,
+  EVERY_DIE_TWICE,
   withModifiers,
+  type CriticalAdds,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
@@ -59,6 +61,11 @@ export type SheetRoll = {
    * For a saving throw or check a description calls for, the DC it names, which it's made against.
    */
   dc?: number
+  /**
+   * For an attack a spell an item casts makes, such as a staff's Guiding Bolt: cast at a level the
+   * item offers, rather than with a spell slot.
+   */
+  itemCast?: boolean
 }
 
 /** Damage or healing from the character's sheet, such as a weapon's. */
@@ -95,26 +102,33 @@ export type SheetDamageRoll = {
    * one to be thrown so here, once changed as the player chose, rather than every die twice.
    */
   criticalRule?: CriticalRule
+  /**
+   * For a description's damage, what a critical hit adds to each of its parts, where one is
+   * offered, such as a weapon's extra dice and critical damage: thrown with it, as the world's
+   * rules make one, or as dnd5e does by default where none are given.
+   */
+  criticalAdds?: CriticalAdds
 }
 
 /**
- * Dice and numbers with no d20, from the character's sheet: a hit die spent, or an item's
- * activity's own formula, such as a light's radius.
+ * Dice and numbers with no d20, from the character's sheet: a hit die spent, or several at once, or
+ * an item's activity's own formula, such as a light's radius.
  */
 export type SheetFormulaRoll = {
   /** What is rolled, such as "Hit die (d10)". */
   label: string
-  /** Its terms, in order, such as 1d10 and +2. */
+  /** Its terms, in order, such as 1d10 and +2; none where it's thrown in sets. */
   terms: ExtraTerm[]
+  /**
+   * Thrown in sets, all at once, each set's terms so many times, each time coming to its own total,
+   * at least its least: as hit dice spent at once are, a set of each size, the largest first, each
+   * die with the character's Constitution modifier.
+   */
+  sets?: { terms: ExtraTerm[]; times: number }[]
   /** Hit points given back, as a hit die's are. */
   healing?: boolean
-  /** The least it comes to, as a hit die spent gives back at least 1. */
+  /** The least it comes to, as a hit die spent gives back at least 1; thrown in sets, each time. */
   minimum?: number
-  /**
-   * How many of it are thrown together, each coming to its own total, at least its least, as hit
-   * dice spent at once are; one unless said.
-   */
-  times?: number
   /** What it is, for the Gamemaster's game to make it too. */
   source?: FormulaSource
 }
@@ -187,6 +201,11 @@ export type LocalUse = {
   label: string
   /** A spell, which is cast, rather than used. */
   spell: boolean
+  /**
+   * A spell an item casts, or one of its activities, such as a wand's Magic Missile: cast at a
+   * level the item offers, rather than with a spell slot.
+   */
+  itemCast?: boolean
   at: number
 }
 
@@ -197,14 +216,17 @@ export type LocalFormula = {
   label: string
   total: number
   healing: boolean
-  /** Each term, with what it came to: for several thrown together, all of theirs as one. */
+  /**
+   * Each term, with what it came to; thrown in sets, as hit dice spent at once, each set's dice as
+   * one term, in order, then all of their numbers as one.
+   */
   terms: LocalExtra[]
   /**
    * The least it comes to, when its dice and numbers came to less; for several thrown together,
    * the least each does, when one of them came to less.
    */
   minimum?: number
-  /** How many of it were thrown together, as hit dice spent at once, where more than one. */
+  /** How many dice were thrown together, each to its own total, as hit dice spent at once. */
   times?: number
   /** Rolled from a link in a description. */
   described?: boolean
@@ -318,14 +340,18 @@ export function useSheetRoller(
       } = request
       // Changed as the player chose: the game's dice take as many more for each die added as it
       // throws for each; those rolled here are doubled after, for a critical hit, or made a
-      // critical hit's as the world's rules make one, where they're given.
+      // critical hit's as the world's rules make one, where they're given, or as dnd5e makes one
+      // by default, where it adds anything; with what it adds, either way.
       const changed = withModifiers(
         request.parts,
         modifiers,
         exact ? perDie : 1,
       )
-      const rule = critical ? request.criticalRule : undefined
-      const parts = rule ? criticalParts(changed, rule) : changed
+      const { criticalAdds } = request
+      const rule = critical
+        ? (request.criticalRule ?? (criticalAdds && EVERY_DIE_TWICE))
+        : undefined
+      const parts = rule ? criticalParts(changed, rule, criticalAdds) : changed
       // As dnd5e rolls a critical hit by default: twice the dice, the same numbers added. Dice
       // the game gave, or made as its rules make them, are thrown as they are.
       const doubled = critical && !exact && !rule
@@ -359,52 +385,56 @@ export function useSheetRoller(
 
   const rollFormula = useCallback(
     async (request: SheetFormulaRoll) => {
-      const { label, terms, healing = false, minimum, times = 1 } = request
-      const dice = terms.filter(term => 'sides' in term)
-      // Several thrown together throw each term's dice that many times, in one throw.
+      const { label, healing = false, minimum } = request
+      // A formula is a set of one, thrown once.
+      const sets = request.sets ?? [{ terms: request.terms, times: 1 }]
+      // Every set's dice in one throw, each set's terms' dice thrown as many times as it is.
       const result = executeRoll({
-        pools: dice.map(({ count, sides }) => ({
-          count: count * times,
-          sides,
-        })),
+        pools: sets.flatMap(({ terms, times }) =>
+          terms.flatMap(term =>
+            'sides' in term
+              ? [{ count: term.count * times, sides: term.sides }]
+              : [],
+          ),
+        ),
         modifier: 0,
       })
-      // The dice's pools are in the order their terms were written, each with every copy's dice,
-      // the first's first.
+      // The dice's pools are in the order their sets and terms were written, each with every
+      // time's dice, the first's first.
       const pools = [...result.pools]
-      const thrown = terms.map(term =>
-        'sides' in term ? (pools.shift()?.kept ?? []) : [],
+      const thrown = sets.map(({ terms }) =>
+        terms.map(term => ('sides' in term ? (pools.shift()?.kept ?? []) : [])),
       )
-      // What each copy came to, at least its least.
-      const totals = Array.from({ length: times }, (_, copy) => {
-        let sum = 0
-        for (const [index, term] of terms.entries()) {
-          const amount =
-            'sides' in term
-              ? thrown[index]
-                  .slice(copy * term.count, (copy + 1) * term.count)
-                  .reduce((sum, value) => sum + value, 0)
-              : term.flat
-          sum += term.sign * amount
-        }
-        return minimum === undefined ? sum : Math.max(minimum, sum)
-      })
-      const kept = terms.map((term, index) => {
-        const values = thrown[index]
-        const amount =
-          'sides' in term
-            ? values.reduce((sum, value) => sum + value, 0)
-            : term.flat * times
-        const all =
-          'sides' in term
-            ? { ...term, count: term.count * times }
-            : { ...term, flat: term.flat * times }
-        return {
-          text: damageTerm(all, { first: index === 0, doubled: false }),
-          values,
-          value: term.sign * amount,
-        }
-      })
+      // What each time each set is thrown came to, at least its least.
+      const totals = sets.flatMap(({ terms, times }, set) =>
+        Array.from({ length: times }, (_, time) => {
+          let sum = 0
+          for (const [index, term] of terms.entries()) {
+            const amount =
+              'sides' in term
+                ? thrown[set][index]
+                    .slice(time * term.count, (time + 1) * term.count)
+                    .reduce((sum, value) => sum + value, 0)
+                : term.flat
+            sum += term.sign * amount
+          }
+          return minimum === undefined ? sum : Math.max(minimum, sum)
+        }),
+      )
+      const kept = request.sets
+        ? setTerms(sets, thrown)
+        : request.terms.map((term, index) => {
+            const values = thrown[0][index]
+            const amount =
+              'sides' in term
+                ? values.reduce((sum, value) => sum + value, 0)
+                : term.flat
+            return {
+              text: damageTerm(term, { first: index === 0, doubled: false }),
+              values,
+              value: term.sign * amount,
+            }
+          })
       const sum = kept.reduce((total, { value }) => total + value, 0)
       const total = totals.reduce((all, each) => all + each, 0)
       const rolled: LocalFormula = {
@@ -415,7 +445,7 @@ export function useSheetRoller(
         healing,
         terms: kept,
         ...(total !== sum && { minimum }),
-        ...(times > 1 && { times }),
+        ...(totals.length > 1 && { times: totals.length }),
         ...(request.source?.kind === 'textRoll' && { described: true }),
         at: result.at,
       }
@@ -426,17 +456,21 @@ export function useSheetRoller(
   )
 
   // Keeps a spell or feature used, first among the rolls.
-  const logUse = useCallback((label: string, spell: boolean): LocalUse => {
-    const used: LocalUse = {
-      kind: 'use',
-      id: `use-${Date.now()}-${++uses}`,
-      label,
-      spell,
-      at: Date.now(),
-    }
-    setRolls(earlier => keeping(earlier, used))
-    return used
-  }, [])
+  const logUse = useCallback(
+    (label: string, spell: boolean, itemCast?: boolean): LocalUse => {
+      const used: LocalUse = {
+        kind: 'use',
+        id: `use-${Date.now()}-${++uses}`,
+        label,
+        spell,
+        ...(itemCast && { itemCast }),
+        at: Date.now(),
+      }
+      setRolls(earlier => keeping(earlier, used))
+      return used
+    },
+    [],
+  )
 
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
@@ -543,6 +577,48 @@ function toLocalDamage(
     parts: kept,
     at: result.at,
   }
+}
+
+/**
+ * Sets thrown at once, as hit dice spent at once, term by term: each set's dice, every time's
+ * together, such as 2d10, then +1d8, in order; then all of their numbers added up, such as +9,
+ * where they come to any.
+ */
+function setTerms(
+  sets: NonNullable<SheetFormulaRoll['sets']>,
+  thrown: number[][][],
+): LocalExtra[] {
+  const dice: LocalExtra[] = []
+  let flat = 0
+  for (const [set, { terms, times }] of sets.entries()) {
+    for (const [index, term] of terms.entries()) {
+      if (!('sides' in term)) {
+        flat += term.sign * term.flat * times
+        continue
+      }
+      const values = thrown[set][index]
+      dice.push({
+        text: damageTerm(
+          { ...term, count: term.count * times },
+          { first: dice.length === 0, doubled: false },
+        ),
+        values,
+        value: term.sign * values.reduce((sum, value) => sum + value, 0),
+      })
+    }
+  }
+  if (flat === 0) return dice
+  return [
+    ...dice,
+    {
+      text: damageTerm(
+        { sign: flat < 0 ? -1 : 1, flat: Math.abs(flat) },
+        { first: dice.length === 0, doubled: false },
+      ),
+      values: [],
+      value: flat,
+    },
+  ]
 }
 
 /** A term of a damage roll as thrown: 1d8 first, then +4 or −1d4, its dice doubled on a crit. */

@@ -23,12 +23,12 @@ import { EffectEntry } from './effects-tab'
 import { FavoriteMarks, NO_MARKS } from './favorite-mark'
 import { FeatureEntry } from './features-tab'
 import {
-  HitDieIcon,
   hitDiceText,
   hitDieSpending,
   HitDieUse,
   type HitDieSpending,
 } from './hit-dice'
+import { HitDieIcon } from './hit-die-icon'
 import { ItemEntry } from './inventory-tab'
 import { RollButton } from './roll-button'
 import { joinParts, SheetEntry } from './sheet-entry'
@@ -191,7 +191,7 @@ function FavoritesList({
 }: Readonly<Props>) {
   const { rows, dialogs } = useActionRows({
     characterId,
-    spellbook: sheet.spells,
+    sheet,
     onRoll,
     onRollDamage,
     onRollFormula,
@@ -342,7 +342,9 @@ function FavoriteRow({
 /**
  * A class made a favorite: its levels, its hit dice and subclass, and a button with its die that
  * spends those hit dice, a tap a die, or more at once from its popover, as the Character tab's do,
- * where something rolls them and the game has their size.
+ * where something rolls them and the game has their size. The button goes by the class's own, as
+ * its row does; its popover, by every class's of each size, which dnd5e chooses among as it spends
+ * them.
  */
 function ClassEntry({
   characterId,

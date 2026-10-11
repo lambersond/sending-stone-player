@@ -65,6 +65,17 @@ const hitDie = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
   ...fields,
 })
 
+/**
+ * That what was made of hit dice spent at once, and why not the rest, are one run of text after the
+ * status line's icon, so that why reads on from what was made rather than in a column beside it.
+ */
+const expectOneRun = (made: HTMLElement) => {
+  const line = made.closest('p') as HTMLElement
+  expect(
+    [...line.childNodes].filter(node => node.nodeName.toLowerCase() !== 'svg'),
+  ).toHaveLength(1)
+}
+
 describe('components/character-sheet/roll-tray', () => {
   it('invites a roll, and says rolls stay with the player for now', () => {
     render(<RollTray rolls={[]} rolling={false} />)
@@ -427,6 +438,26 @@ describe('components/character-sheet/roll-tray', () => {
         { status: 'failed', reason: 'prompt' },
         'Not made at the table: your Gamemaster’s game isn’t asking for it any more',
       ],
+      [
+        'refused a spell slot',
+        { status: 'refused', reason: 'slot' },
+        'Not made at the table: that spell slot can’t cast it',
+      ],
+      [
+        'an attack of a spell an item casts, refused at a level the item no longer offers',
+        { status: 'refused', reason: 'slot', itemCast: true },
+        'Not made at the table: the item can’t cast it at that level now',
+      ],
+      [
+        'an attack of a spell an item casts, failed in the game at that level',
+        { status: 'failed', reason: 'slot', itemCast: true },
+        'Not made at the table: the item can’t cast it at that level now',
+      ],
+      [
+        'an attack of a spell an item casts, failed for another reason',
+        { status: 'failed', reason: 'consume', itemCast: true },
+        'Not made at the table: there’s nothing left to use it with',
+      ],
     ])('says where the latest roll is when %s', (_, state, text) => {
       render(
         <RollTray
@@ -662,6 +693,88 @@ describe('components/character-sheet/roll-tray', () => {
         )
       })
 
+      it("changes a critical hit's own first die, never its critical damage's, and offers no die to change where it has none of its own", async () => {
+        const user = userEvent.setup()
+        const rollDamage = jest.fn()
+        // A greataxe's critical hit: 3d12 + 3, and the weapon's 1d6.
+        const greataxe = {
+          ...preview,
+          critical: true,
+          rolls: [
+            {
+              formula: '3d12 + 3 + 1d6',
+              type: 'Slashing',
+              dice: [
+                { faces: 12, number: 3 },
+                { faces: 6, number: 1, added: true as const },
+              ],
+              perDie: 2,
+            },
+          ],
+        }
+        const { unmount } = render(
+          <RollTray
+            rolls={[attack]}
+            rolling={false}
+            table={table([['r1', made({ damage: greataxe })]], {
+              rollDamage,
+              modifies: true,
+            })}
+          />,
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: 'Roll critical damage' }),
+        )
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        await user.click(
+          within(dialog).getByRole('button', { name: 'One die more' }),
+        )
+        await user.click(within(dialog).getByRole('radio', { name: 'd10' }))
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '5d10 + 3 + 1d6 Slashing',
+        )
+        unmount()
+
+        // "3 + 1d6": a number, and the weapon's critical damage.
+        render(
+          <RollTray
+            rolls={[attack]}
+            rolling={false}
+            table={table(
+              [
+                [
+                  'r1',
+                  made({
+                    damage: {
+                      ...greataxe,
+                      rolls: [
+                        {
+                          ...greataxe.rolls[0],
+                          formula: '3 + 1d6',
+                          dice: [{ faces: 6, number: 1, added: true }],
+                        },
+                      ],
+                    },
+                  }),
+                ],
+              ],
+              { rollDamage, modifies: true },
+            )}
+          />,
+        )
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: 'Roll critical damage' }),
+        )
+        expect(
+          within(screen.getByRole('menu'))
+            .getAllByRole('menuitem')
+            .map(item => item.textContent),
+        ).toEqual(['Roll maximum damage'])
+      })
+
       it("offers a critical hit's damage as such", () => {
         render(
           <RollTray
@@ -894,6 +1007,18 @@ describe('components/character-sheet/roll-tray', () => {
         label: 'Second Wind',
         spell: false,
       }
+      // Cast from a wand, at a level it offers, and Hex's damage after it's cast from a flame.
+      const wandMissile: LocalUse = {
+        ...fireball,
+        label: 'Magic Missile',
+        itemCast: true,
+      }
+      const hexDamage: LocalUse = {
+        ...fireball,
+        label: 'Bonus Hex Damage',
+        spell: false,
+        itemCast: true,
+      }
       const fire = {
         critical: false,
         plannable: true,
@@ -976,6 +1101,30 @@ describe('components/character-sheet/roll-tray', () => {
           secondWind,
           { status: 'failed', reason: 'consume' },
           'Not used at the table: there’s nothing left to use it with',
+        ],
+        [
+          'cast from an item, refused at a level it no longer offers',
+          wandMissile,
+          { status: 'refused', reason: 'slot', itemCast: true },
+          'Not cast at the table: the item can’t cast it at that level now',
+        ],
+        [
+          'cast from an item, failed in the game at a level it no longer offers',
+          wandMissile,
+          { status: 'failed', reason: 'slot', itemCast: true },
+          'Not cast at the table: the item can’t cast it at that level now',
+        ],
+        [
+          'used after it’s cast from an item, at a level the item no longer offers',
+          hexDamage,
+          { status: 'failed', reason: 'slot', itemCast: true },
+          'Not used at the table: the item can’t cast it at that level now',
+        ],
+        [
+          'cast from an item, with no charges left',
+          wandMissile,
+          { status: 'failed', reason: 'consume', itemCast: true },
+          'Not cast at the table: there’s nothing left to use it with',
         ],
         [
           'failed for a reason it does not know',
@@ -1268,6 +1417,7 @@ describe('components/character-sheet/roll-tray', () => {
               'Not the rest: you have no hit dice of that size left$',
           ),
         )
+        expectOneRun(screen.getByText(/made at the table/))
         await user.click(screen.getByText('Earlier rolls (1)'))
         expect(screen.getByRole('listitem')).toHaveTextContent(
           /= 22· 1 of 3 at the table$/,
@@ -1285,6 +1435,146 @@ describe('components/character-sheet/roll-tray', () => {
           /\+9Not made at the table: you have no hit dice of that size left$/,
         )
       })
+    })
+
+    describe('hit dice spent at once as one request, from module 0.20.0', () => {
+      const three = hitDie({
+        label: 'Hit dice (2d10 + 1d8)',
+        total: 22,
+        terms: [
+          { text: '2d10', values: [6, 2], value: 8 },
+          { text: '+1d8', values: [5], value: 5 },
+          { text: '+9', values: [], value: 9 },
+        ],
+        times: 3,
+      })
+      const renderState = (state: TableRollState) =>
+        render(
+          <RollTray
+            rolls={[three, { ...three, id: 'h0' }]}
+            rolling={false}
+            table={table([
+              ['h1', state],
+              ['h0', state],
+            ])}
+          />,
+        )
+
+      it.each<[string, TableRollState, string]>([
+        ['on their way', { status: 'sending' }, 'Sending to'],
+        ['being made', { status: 'rolling' }, 'Rolling in'],
+      ])(
+        'says where they are, %s, as one, with nothing more to send from this page',
+        (_, state, text) => {
+          renderState(state)
+
+          const status = screen.getByRole('status')
+          expect(status).toHaveTextContent(
+            new RegExp(String.raw`\+9${text} your Gamemaster’s game…$`),
+          )
+          expect(status).not.toHaveTextContent(/die \d of \d/)
+          expect(status).not.toHaveTextContent('Keep this page open')
+        },
+      )
+
+      it('says what they all came to at the table, and gave back', () => {
+        renderState({
+          status: 'done',
+          visible: true,
+          total: 22,
+          healed: 20,
+          spent: { count: 3, made: 3 },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /2d10 \(6, 2\) \+1d8 \(5\) \+9At the table: 22 · 20 HP regained$/,
+        )
+      })
+
+      it('says how many the game made before it stopped, what they gave back, and why not the rest', async () => {
+        const user = userEvent.setup()
+        renderState({
+          status: 'failed',
+          reason: 'full-hp',
+          visible: true,
+          total: 9,
+          healed: 9,
+          spent: { count: 3, made: 1 },
+          together: { count: 3, made: 1 },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          new RegExp(
+            String.raw`\+91 of 3 made at the table · 9 HP regained\. ` +
+              'Not the rest: you’re at full hit points$',
+          ),
+        )
+        expectOneRun(screen.getByText(/made at the table/))
+        await user.click(screen.getByText('Earlier rolls (1)'))
+        expect(screen.getByRole('listitem')).toHaveTextContent(
+          /= 22· 1 of 3 at the table$/,
+        )
+      })
+
+      it('says how many the game made before it stopped, but not what they gave back, where it made them blind', () => {
+        renderState({
+          status: 'failed',
+          reason: 'timeout',
+          visible: false,
+          spent: { count: 3, made: 2 },
+          together: { count: 3, made: 2 },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /\+92 of 3 made at the table\. Not the rest: the game took too long$/,
+        )
+      })
+
+      it('says none was made where the game spent none, as at full hit points', () => {
+        renderState({ status: 'failed', reason: 'full-hp' })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /\+9Not made at the table: you’re at full hit points$/,
+        )
+      })
+
+      it.each<[string, TableRollState, string]>([
+        [
+          'refused before any was spent',
+          { status: 'refused', reason: 'no-hit-dice', hitDice: true },
+          String.raw`\+9Not made at the table`,
+        ],
+        [
+          'refused in the game before any was spent',
+          { status: 'failed', reason: 'no-hit-dice', hitDice: true },
+          String.raw`\+9Not made at the table`,
+        ],
+        [
+          'stopped part way',
+          {
+            status: 'failed',
+            reason: 'no-hit-dice',
+            hitDice: true,
+            visible: true,
+            total: 9,
+            healed: 9,
+            spent: { count: 3, made: 1 },
+            together: { count: 3, made: 1 },
+          },
+          String.raw`\+91 of 3 made at the table · 9 HP regained\. Not the rest`,
+        ],
+      ])(
+        'says there are not that many left, not none of a size, where they were %s for want of dice',
+        (_, state, text) => {
+          renderState(state)
+
+          const status = screen.getByRole('status')
+          expect(status).toHaveTextContent(
+            new RegExp(`${text}: you haven’t that many hit dice left$`),
+          )
+          expect(status).not.toHaveTextContent('of that size')
+        },
+      )
     })
 
     it('says why a hit die was not spent at the table', () => {

@@ -196,6 +196,33 @@ describe('db/campaign-events', () => {
     })
   })
 
+  it("bridge.hello keeps whether the game spends several hit dice at once, from module 0.20.0, in the module's order", async () => {
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: {
+            enabled: true,
+            // The module's order.
+            kinds: ['skill', 'initiative', 'hitDie', 'hitDice', 'formula'],
+            reason: null,
+          },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['skill', 'initiative', 'hitDie', 'hitDice', 'formula'],
+        rollFeatures: [],
+      },
+    })
+  })
+
   describe('saves the game asks for', () => {
     const prompt = {
       id: 'msg1-thorin',

@@ -10,12 +10,15 @@ import {
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import {
+  castingSheet,
   characterSheet,
   fullerSheet,
   sheetAction,
   sheetFavorites,
   sheetItem,
+  sheetSpell,
   TEXTS,
+  WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { RolledDice, RollFeature, RollKind } from '@/types/roll'
@@ -440,7 +443,122 @@ describe('components/character-sheet/character-pane', () => {
     )
   })
 
-  it("spends hit dice used at once in the Gamemaster's game a request a die, one after another, and says what came of them all", async () => {
+  it("spends hit dice used at once in the Gamemaster's game as one request, from module 0.20.0, and says what came of them all", async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.clear()
+    const posted: Record<string, unknown>[] = []
+    globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        return {
+          ok: true,
+          status: 202,
+          json: async () => ({ id: 'req-1' }),
+        } as Response
+      }
+      const answer = {
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: 10,
+        healed: 10,
+        spent: { count: 2, made: 2 },
+      }
+      return { ok: true, status: 200, json: async () => answer } as Response
+    }) as typeof fetch
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(fullerSheet(), GAME)}
+        rollsToTable={['hitDie', 'hitDice']}
+      />,
+    )
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('button', {
+        name: 'Use a d10 hit die, 3 of 5 left',
+      }),
+    })
+    const popover = screen.getByRole('dialog', { name: 'Use d10 hit dice' })
+    await user.click(
+      within(popover).getByRole('button', { name: 'One die more' }),
+    )
+    await user.click(
+      within(popover).getByRole('button', { name: 'Use 2 d10 hit dice' }),
+    )
+
+    // One throw of both dice, sent as one.
+    expect(posted).toEqual([
+      {
+        kind: 'hitDice',
+        hitDice: [{ denomination: 'd10', count: 2 }],
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [
+          { faces: 10, results: [expect.any(Number), expect.any(Number)] },
+        ],
+      },
+    ])
+    const [a, b] = (posted[0].dice as RolledDice[])[0].results
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(`Hit dice (2d10)2d10 (${a}, ${b}) +6`)
+    expect(status).not.toHaveTextContent('Keep this page open')
+    await waitFor(
+      () =>
+        expect(status).toHaveTextContent('At the table: 10 · 10 HP regained'),
+      { timeout: 3000 },
+    )
+    expect(posted).toHaveLength(1)
+  })
+
+  it("says hit dice used at once the Gamemaster's game refused for want of dice want fewer, not none of a size", async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.clear()
+    // As when one was spent elsewhere since this sheet was sent: 3 of 5 left here, 1 in the game.
+    globalThis.fetch = jest.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 422,
+          json: async () => ({ reason: 'no-hit-dice' }),
+        }) as Response,
+    ) as typeof fetch
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(fullerSheet(), GAME)}
+        rollsToTable={['hitDie', 'hitDice']}
+      />,
+    )
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('button', {
+        name: 'Use a d10 hit die, 3 of 5 left',
+      }),
+    })
+    const popover = screen.getByRole('dialog', { name: 'Use d10 hit dice' })
+    await user.click(
+      within(popover).getByRole('button', { name: 'One die more' }),
+    )
+    await user.click(
+      within(popover).getByRole('button', { name: 'Use 2 d10 hit dice' }),
+    )
+
+    const status = screen.getByRole('status')
+    await waitFor(() =>
+      expect(status).toHaveTextContent(
+        /Not made at the table: you haven’t that many hit dice left$/,
+      ),
+    )
+    expect(status).not.toHaveTextContent('of that size')
+  })
+
+  it('spends hit dice used at once in a game before module 0.20.0 a request a die, one after another, and says what came of them all', async () => {
     const user = userEvent.setup()
     globalThis.localStorage.clear()
     const posted: Record<string, unknown>[] = []
@@ -1375,6 +1493,190 @@ describe('components/character-sheet/character-pane', () => {
       expect(posted).toHaveLength(1)
     })
 
+    it("casts a spell an item casts higher at the level chosen, and its later activity as the spell's copy's, from module 0.20.0", async () => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(castingSheet(), GAME)}
+          rollsToTable={['use', 'attack', 'damage']}
+        />,
+      )
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      // Out of combat, it asks the level, preset to its own.
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Wand of Magic Missiles damage, 1d4 + 1',
+        }),
+      )
+      const picker = screen.getByRole('dialog', {
+        name: 'Wand of Magic Missiles',
+      })
+      expect(
+        within(picker).getByRole('radio', { name: '1st Level, 1 charge' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      await user.click(
+        within(picker).getByRole('radio', { name: '2nd Level, 2 charges' }),
+      )
+      await user.click(within(picker).getByRole('button', { name: 'Cast' }))
+      expect(posted[0]).toMatchObject({
+        kind: 'use',
+        item: 'mm-wand',
+        activity: 'cast-mm',
+        targets: [],
+        slot: 'spell2',
+      })
+
+      // Hex, cast at its level alone, asks nothing, and its Bonus Hex Damage is the copy's.
+      await user.click(
+        screen.getByRole('button', { name: /^Bardic Flame/, expanded: false }),
+      )
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Hex (Bonus Hex Damage) damage, 1d6',
+        }),
+      )
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(posted[1]).toMatchObject({
+        kind: 'use',
+        item: 'hex',
+        activity: 'hex-dmg',
+        targets: [],
+        slot: null,
+      })
+    })
+
+    it('asks the level of a spell an item casts from its copy on the Spells tab, and says where the item can’t cast it there now', async () => {
+      const user = userEvent.setup()
+      // The wand's charges ran low in the game before it was cast.
+      const posted = answering({
+        'req-1': { status: 'failed', reason: 'slot' },
+      })
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(castingSheet(), GAME)}
+          rollsToTable={['use', 'attack', 'damage']}
+        />,
+      )
+      await user.click(screen.getByRole('tab', { name: 'Spells' }))
+
+      // Out of combat, the copy asks the level its wand casts it at, as the wand's row does.
+      await user.click(
+        screen.getByRole('button', { name: 'Magic Missile damage, 1d4 + 1' }),
+      )
+      const picker = screen.getByRole('dialog', { name: 'Magic Missile' })
+      expect(
+        within(picker).getByRole('radio', { name: '1st Level, 1 charge' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      await user.click(
+        within(picker).getByRole('radio', { name: '2nd Level, 2 charges' }),
+      )
+      await user.click(within(picker).getByRole('button', { name: 'Cast' }))
+
+      expect(posted[0]).toMatchObject({
+        kind: 'use',
+        item: 'mm',
+        activity: 'mm-darts',
+        targets: [],
+        slot: 'spell2',
+      })
+      await waitFor(
+        () =>
+          expect(screen.getByRole('status')).toHaveTextContent(
+            'Not cast at the table: the item can’t cast it at that level now',
+          ),
+        { timeout: 3000 },
+      )
+    })
+
+    it('asks the level of an attack a spell an item casts makes, from its copy, and says where the item can’t cast it there now', async () => {
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': { status: 'failed', reason: 'slot' },
+      })
+      // A staff that casts Guiding Bolt, from 1st to 3rd for a charge a level.
+      const staff = { id: 'bolt-staff', name: 'Staff of Guiding' }
+      const radiant = [{ formula: '4d6', type: 'Radiant', healing: false }]
+      const sheet = castingSheet()
+      sheet.actions[0].actions.push(
+        sheetAction({
+          ...staff,
+          type: 'weapon',
+          range: '120 ft',
+          toHit: 5,
+          attackId: 'cast-guide',
+          damage: radiant,
+          cast: {
+            level: 1,
+            concentration: false,
+            charges: 1,
+            short: false,
+            levels: WAND_LEVELS,
+          },
+          spellId: 'guide',
+          uses: { value: 10, max: 10, recovery: 'Dawn' },
+        }),
+      )
+      sheet.spells[0].spells.push(
+        sheetSpell({
+          id: 'guide',
+          name: 'Guiding Bolt',
+          school: 'Evocation',
+          range: '120 ft',
+          castFrom: staff,
+          toHit: 5,
+          attackId: 'guide-bolt',
+          activity: null,
+          save: null,
+          damage: radiant,
+        }),
+      )
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(sheet, GAME)}
+          rollsToTable={['use', 'attack', 'damage']}
+        />,
+      )
+      await user.click(screen.getByRole('tab', { name: 'Spells' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Guiding Bolt attack, +5' }),
+      )
+      const picker = screen.getByRole('dialog', {
+        name: 'Guiding Bolt attack',
+      })
+      expect(
+        within(picker).getByRole('radio', { name: '1st Level, 1 charge' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      await user.click(
+        within(picker).getByRole('radio', { name: '3rd Level, 3 charges' }),
+      )
+      await user.click(within(picker).getByRole('button', { name: 'Attack' }))
+
+      await waitFor(() => expect(posted).toHaveLength(1))
+      expect(posted[0]).toMatchObject({
+        kind: 'attack',
+        item: 'guide',
+        activity: 'guide-bolt',
+        target: null,
+        slot: 'spell3',
+      })
+      await waitFor(
+        () =>
+          expect(screen.getByRole('status')).toHaveTextContent(
+            'Not made at the table: the item can’t cast it at that level now',
+          ),
+        { timeout: 3000 },
+      )
+    })
+
     it('says why the game didn’t use it', async () => {
       const user = userEvent.setup()
       answering({ 'req-1': { status: 'failed', reason: 'consume' } })
@@ -1928,6 +2230,58 @@ describe('components/character-sheet/character-pane', () => {
       expect(
         await screen.findByText(/At the table:/, {}, { timeout: 3000 }),
       ).toHaveTextContent('At the table: 30')
+    })
+
+    it("rolls a description's critical hit with what one adds, as the game reads its activity: its extra die with its first, then its critical damage, in the game too", async () => {
+      // A greataxe's 1d12 + 4, with Savage Attacks' die and its 1d6, as module 0.20.0 marks it.
+      const posted = describing({
+        [TEXTS.secondWind]:
+          '<p>Make a <span class="ss-save roll" data-n="0" data-ability="str" data-dc="15">DC 15 Strength</span> saving throw or take <span class="ss-damage roll" data-n="1" data-formulas="1d12 + 4" data-types="slashing" data-critical="false" data-critical-dice="1" data-critical-damage="1d6">1d12 + 4 slashing</span>.</p>',
+      })
+      renderTaking(
+        ['textDamage'],
+        fullerSheet({
+          critical: {
+            perDie: 2,
+            multiplyNumeric: false,
+            powerfulCritical: false,
+            altered: false,
+            bonusDice: 'rolled',
+          },
+        }),
+        ['modifiers'],
+      )
+      const user = await openSecondWind()
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: '1d12 + 4 slashing, roll damage' }),
+      )
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+      )
+
+      // Three d12s, its own twice and the extra one, then the weapon's d6.
+      expect(posted).toEqual([
+        expect.objectContaining({
+          kind: 'textDamage',
+          link: 1,
+          critical: true,
+          dice: [
+            {
+              faces: 12,
+              results: [
+                expect.any(Number),
+                expect.any(Number),
+                expect.any(Number),
+              ],
+            },
+            { faces: 6, results: [expect.any(Number)] },
+          ],
+        }),
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Second Wind damage3d12 \(\d+, \d+, \d+\) \+4 \+1d6 \(\d\) slashing · Critical hit/,
+      )
     })
 
     it("offers a description's damage as a critical hit's, but not changed, where the game says how it makes one but not that it takes damage changed", async () => {

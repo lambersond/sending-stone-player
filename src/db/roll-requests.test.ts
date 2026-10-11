@@ -808,6 +808,70 @@ describe('db/roll-requests', () => {
       expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
     })
 
+    /** Two d10 hit dice spent at once, from module 0.20.0. */
+    const hitDice: RollRequestInput = {
+      kind: 'hitDice',
+      hitDice: [{ denomination: 'd10', count: 2 }],
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 10, results: [6, 2] }],
+    }
+
+    it('takes hit dice spent at once, as many of a size as are left, where the game takes them so', async () => {
+      given({ kinds: ['hitDie', 'hitDice'] })
+
+      await expect(createRollRequest(character, hitDice)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.combat.findMany).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'hitDice', payload: hitDice }),
+        select: { id: true },
+      })
+    })
+
+    it('refuses hit dice spent at once where the game takes only a hit die a request, or more of a size than are left', async () => {
+      given({ kinds: ['attack', 'hitDie', 'formula'] })
+      await expect(createRollRequest(character, hitDice)).resolves.toEqual({
+        status: 409,
+        reason: 'unavailable',
+      })
+
+      // Thorin's Fighter levels have 3 of their 5 d10s left.
+      given({ kinds: ['hitDie', 'hitDice'] })
+      await expect(
+        createRollRequest(character, {
+          ...hitDice,
+          hitDice: [{ denomination: 'd10', count: 4 }],
+          dice: [{ faces: 10, results: [6, 2, 1, 1] }],
+        }),
+      ).resolves.toEqual({ status: 422, reason: 'no-hit-dice' })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['nineteen', 19, { id: 'req-1' }],
+      ['twenty', 20, { status: 429, reason: 'busy' }],
+    ])(
+      'counts hit dice spent at once one roll toward the minute, with %s made in it before',
+      async (_name, lastMinute, taken) => {
+        given({ kinds: ['hitDie', 'hitDice'] })
+        prismaMock.rollRequest.count.mockReset()
+        prismaMock.rollRequest.count
+          .mockResolvedValueOnce(0)
+          .mockResolvedValueOnce(lastMinute)
+
+        await expect(
+          createRollRequest(character, {
+            ...hitDice,
+            hitDice: [{ denomination: 'd10', count: 3 }],
+            dice: [{ faces: 10, results: [6, 2, 1] }],
+          }),
+        ).resolves.toEqual(taken)
+      },
+    )
+
     it("takes an activity's own formula with the dice it throws, where the game takes it", async () => {
       given()
       await expect(createRollRequest(character, light)).resolves.toEqual({
@@ -1214,6 +1278,57 @@ describe('db/roll-requests', () => {
       })
       // Nothing it answered is closed: it may be answered again.
       expect(prismaMock.rollPrompt.updateMany).not.toHaveBeenCalled()
+    })
+
+    it('records hit dice the game spent some of before it stopped, once the module had said they took too long, as made after all', async () => {
+      const result = {
+        id: 'req-1',
+        status: 'failed' as const,
+        reason: 'timeout',
+        error: null,
+        messageId: 'msg-1',
+        visible: true,
+        rolls: [],
+        healed: 9,
+        spent: { count: 3, made: 1 },
+      }
+      await recordCommandResult('c1', result)
+
+      expect(prismaMock.rollRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'req-1',
+          campaignId: 'c1',
+          OR: [
+            { status: 'claimed' },
+            {
+              status: 'failed',
+              result: { path: ['reason'], equals: 'timeout' },
+            },
+          ],
+        },
+        data: { status: 'failed', result, completedAt: new Date(NOW) },
+      })
+      // It answered nothing the game asked.
+      expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+    })
+
+    it('records hit dice the game spent none of only while they were still to be answered', async () => {
+      const result = {
+        id: 'req-1',
+        status: 'failed' as const,
+        reason: 'full-hp',
+        error: null,
+        messageId: null,
+        visible: false,
+        rolls: [],
+        spent: { count: 3, made: 0 },
+      }
+      await recordCommandResult('c1', result)
+
+      expect(prismaMock.rollRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 'req-1', campaignId: 'c1', OR: [{ status: 'claimed' }] },
+        data: { status: 'failed', result, completedAt: new Date(NOW) },
+      })
     })
 
     describe('of a save answering what the game asked', () => {

@@ -8,7 +8,14 @@ import {
   useTargetsOf,
   type Picking,
 } from './use-picker'
-import { sheetAction, sheetSpell } from '@/mocks/sending-stone'
+import {
+  castingSheet,
+  sheetAction,
+  sheetSpell,
+  WAND_LEVELS,
+} from '@/mocks/sending-stone'
+import { castIndex, type CastIndex } from '@/utils/casts'
+import { activityActions, spellAction } from '@/utils/sheet-actions'
 import type {
   SheetAction,
   SheetSpellSection,
@@ -38,6 +45,16 @@ const fight: TableCombat = {
     combatant({ id: 'wolf1', name: 'Wolf', defeated: true }),
   ],
 }
+
+/** The chips a row offers: their text, whether each is chosen, and whether it can be. */
+const chips = (row: string) =>
+  within(screen.getByRole('group', { name: row }))
+    .getAllByRole('radio')
+    .map(radio => [
+      radio.textContent,
+      radio.getAttribute('aria-checked'),
+      (radio as HTMLButtonElement).disabled,
+    ])
 
 /** Slots of 1st to 3rd level, the 2nd used up. */
 const spellbook: SheetSpellSection[] = [
@@ -109,7 +126,13 @@ const renderPicker = (
     combat = fight,
     last,
     areas,
-  }: { combat?: TableCombat | null; last?: string; areas?: boolean } = {},
+    casts,
+  }: {
+    combat?: TableCombat | null
+    last?: string
+    areas?: boolean
+    casts?: CastIndex
+  } = {},
 ) => {
   const onPick = jest.fn()
   const onClose = jest.fn()
@@ -118,6 +141,7 @@ const renderPicker = (
       picking={picking}
       combat={combat ?? undefined}
       spellbook={spellbook}
+      casts={casts}
       last={last}
       areas={areas}
       onPick={onPick}
@@ -494,6 +518,135 @@ describe('components/character-sheet/use-picker', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cast' }))
     expect(onPick).toHaveBeenCalledWith({ targets: [], slot: 'spell1' })
+  })
+
+  describe('a spell an item casts, from module 0.20.0', () => {
+    const sheet = castingSheet()
+    const casts = castIndex(sheet)
+    const [wand, flame] = sheet.actions[0].actions
+
+    /** The Wand's Magic Missile, cast at the levels given, or at its own alone. */
+    const wandWith = (levels?: typeof WAND_LEVELS): SheetAction => {
+      const cast = { ...wand.cast! }
+      delete cast.levels
+      return { ...wand, cast: levels ? { ...cast, levels } : cast }
+    }
+
+    it('asks at which level it is cast, out of a fight too, where the item casts it higher', () => {
+      expect(asks(using(wand), undefined, spellbook, casts)).toBe(true)
+      expect(asks(attacking(wand), undefined, spellbook, casts)).toBe(true)
+      // Its copy, as the Spells tab lists it, at the levels of the item's Cast of it.
+      const copy = spellAction(sheet.spells[0].spells[0])!
+      expect(asks(using(copy), undefined, spellbook, casts)).toBe(true)
+      expect(asks(using(copy), undefined, spellbook)).toBe(false)
+      // Hex, cast at its level alone, asks nothing out of a fight.
+      const hex = activityActions(flame)[0]
+      expect(asks(using(hex), undefined, spellbook, casts)).toBe(false)
+      expect(asks(using(wandWith()), undefined, spellbook, casts)).toBe(false)
+    })
+
+    it('offers each level with the charges it spends, preset to its own, and casts at the one chosen', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(wand), { combat: null, casts })
+
+      expect(chips('Cast at')).toEqual([
+        ['1st · 1 charge', 'true', false],
+        ['2nd · 2 charges', 'false', false],
+        ['3rd · 3 charges', 'false', false],
+      ])
+      await user.click(
+        screen.getByRole('radio', { name: '2nd Level, 2 charges' }),
+      )
+      await user.click(screen.getByRole('button', { name: 'Cast' }))
+      expect(onPick).toHaveBeenCalledWith({ targets: [], slot: 'spell2' })
+    })
+
+    it('casts at its own level unless another is chosen, saying so', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(wand), { combat: null, casts })
+      await user.click(screen.getByRole('button', { name: 'Cast' }))
+      expect(onPick).toHaveBeenCalledWith({ targets: [], slot: 'spell1' })
+    })
+
+    it('offers no level it has too few charges left for', () => {
+      const shorter = wandWith([
+        WAND_LEVELS[0],
+        WAND_LEVELS[1],
+        { ...WAND_LEVELS[2], short: true },
+      ])
+      renderPicker(using(shorter), { combat: null, casts })
+      expect(chips('Cast at')).toEqual([
+        ['1st · 1 charge', 'true', false],
+        ['2nd · 2 charges', 'false', false],
+        ['3rd · 3 charges', 'false', true],
+      ])
+    })
+
+    it('uses a later activity that spends nothing at any level, saying no charges', async () => {
+      const user = userEvent.setup()
+      const higher = castingSheet()
+      const [strike, hexCast] = higher.actions[0].actions[1].activities!
+      higher.actions[0].actions[1].activities = [
+        strike,
+        {
+          ...hexCast,
+          cast: {
+            ...hexCast.cast!,
+            levels: [
+              { level: 1, charges: 1, short: false },
+              { level: 2, charges: 2, short: true },
+            ],
+          },
+        },
+      ]
+      const [bonus] = activityActions(spellAction(higher.spells[0].spells[1])!)
+      const { onPick } = renderPicker(using(bonus), {
+        casts: castIndex(higher),
+      })
+
+      expect(screen.queryByRole('group', { name: 'Cast at' })).toBeNull()
+      expect(chips('At level')).toEqual([
+        ['1st', 'true', false],
+        ['2nd', 'false', false],
+      ])
+      expect(screen.getByText('Choose who to use it at.')).toBeInTheDocument()
+      await user.click(screen.getByRole('radio', { name: '2nd Level' }))
+      await user.click(screen.getByRole('button', { name: /^Goblin$/ }))
+      expect(onPick).toHaveBeenCalledWith({
+        targets: [fight.combatants[0]],
+        slot: 'spell2',
+      })
+    })
+
+    it('offers no level, and sends none, for one cast at its level alone', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(wandWith()), { casts })
+      expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('checkbox', { name: /^Goblin$/ }))
+      await user.click(screen.getByRole('button', { name: 'Cast at 1 target' }))
+      expect(onPick).toHaveBeenCalledWith({ targets: [fight.combatants[0]] })
+    })
+
+    it('takes as many targets more as the level chosen is above its own', async () => {
+      const user = userEvent.setup()
+      renderPicker(using(wand), { casts })
+
+      expect(
+        screen.getByText('Tick who to target. Up to 3.'),
+      ).toBeInTheDocument()
+      await user.click(
+        screen.getByRole('radio', { name: '2nd Level, 2 charges' }),
+      )
+      expect(
+        screen.getByText('Tick who to target. Up to 4.'),
+      ).toBeInTheDocument()
+      for (const name of [/^Goblin$/, /^Vex/, /^Goblin Boss/, /^Wolf/]) {
+        await user.click(screen.getByRole('checkbox', { name }))
+      }
+      expect(
+        screen.getByRole('button', { name: 'Cast at 4 targets' }),
+      ).toBeInTheDocument()
+    })
   })
 
   it('closes, and shows nothing while nothing is picked', async () => {

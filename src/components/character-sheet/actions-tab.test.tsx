@@ -7,20 +7,24 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { castNote, verbOf } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { FavoriteMarks } from './favorite-mark'
 import {
+  castingSheet,
   characterSheet,
   fullerSheet,
   sheetAction,
   sheetSpell,
   TEXTS,
+  WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type {
   CharacterSheet,
   SheetAction,
   SheetActionSection,
+  SheetActivity,
   SheetSpell,
 } from '@/types/sending-stone'
 
@@ -94,6 +98,52 @@ const groups = (region: HTMLElement) =>
 /** The sheet as wide as a tablet's, or a phone's. */
 const sheetWidth = (width: number) =>
   jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(width)
+
+/** A cast's levels from the 1st, each costing as many charges, each short or not as given. */
+const castLevels = (...short: boolean[]) =>
+  short.map((each, index) => ({
+    level: index + 1,
+    charges: index + 1,
+    short: each,
+  }))
+
+/** A spell's activity, as the Spells tab's copy lists it. */
+const spellActivity = (
+  fields: Partial<SheetActivity> & Pick<SheetActivity, 'id' | 'name'>,
+): SheetActivity => ({
+  type: 'utility',
+  activation: 'Action',
+  range: 'Self',
+  target: null,
+  toHit: null,
+  attackId: null,
+  activity: null,
+  save: null,
+  damage: [],
+  uses: null,
+  ...fields,
+})
+/** A copy of a spell an item casts, as the Spells tab lists it under the item. */
+const copyOf = (
+  fields: Partial<SheetSpell> & Pick<SheetSpell, 'id' | 'name'>,
+  from: { id: string; name: string },
+  activities: SheetActivity[],
+) =>
+  sheetSpell({
+    level: 3,
+    castFrom: from,
+    activity: activities[0].activity,
+    save: activities[0].save,
+    damage: activities[0].damage,
+    activities,
+    ...fields,
+  })
+/** A sheet with these actions, and these copies listed under their items. */
+const castingWith = (actions: SheetAction[], copies: SheetSpell[]) =>
+  characterSheet({
+    actions: [{ id: 'action', label: 'Actions', actions }],
+    spells: [{ id: 'item', label: 'Item Spells', slots: null, spells: copies }],
+  })
 
 describe('components/character-sheet/actions-tab', () => {
   afterEach(() => {
@@ -2346,6 +2396,382 @@ describe('components/character-sheet/actions-tab', () => {
           await within(reactions).findByText(`Text ${TEXTS.shield}`),
         ).toBeInTheDocument()
       })
+    })
+  })
+
+  describe('spells an item casts higher, and their later activities, from module 0.20.0', () => {
+    const renderCasting = (sheet: CharacterSheet = castingSheet()) => {
+      const onUse = jest.fn()
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          onUse={onUse}
+        />,
+      )
+      return { onUse }
+    }
+    const radiant = [{ formula: '3d8', type: 'Radiant', healing: false }]
+    const self = {
+      self: true,
+      area: false,
+      count: null,
+      perLevel: null,
+      affects: 'self',
+    }
+    const one = { ...self, self: false, count: 1, affects: 'creature' }
+    it("says what a spell cast higher may cost, and lists the spell's later activities beneath its Cast, named for it", async () => {
+      const user = userEvent.setup()
+      const { onUse } = renderCasting()
+
+      expect(rows(screen.getByRole('region', { name: 'Actions' }))).toEqual([
+        'Bardic FlameAction · reach 5 ft · Bludgeoning · 2 more4/104 of 10 uses left+51d6 + 1',
+        'Wand of Magic MissilesAction · 120 ft · Force · 1–3 charges7/77 of 7 uses left1d4 + 1',
+      ])
+      await user.click(flameRow('Actions'))
+      expect(others('Bardic Flame')).toEqual([
+        'HexBonus Action · 90 ft · 1 chargeCast',
+        'Hex (Bonus Hex Damage)Special · 90 ft · Necrotic1d6',
+      ])
+
+      // Used as the copy's activity, it spends nothing, and is used rather than cast.
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Hex (Bonus Hex Damage) damage, 1d6',
+        }),
+      )
+      expect(onUse.mock.calls[0][0]).toMatchObject({
+        id: 'hex',
+        name: 'Hex (Bonus Hex Damage)',
+        activity: { id: 'hex-dmg' },
+        consumesSlot: false,
+      })
+    })
+
+    it("opens a later activity's spell, as the Spells tab lists it under the item", async () => {
+      const user = userEvent.setup()
+      renderCasting()
+      await user.click(flameRow('Actions'))
+      await user.click(about('Hex (Bonus Hex Damage)'))
+
+      const dialog = screen.getByRole('dialog', { name: 'Hex' })
+      expect(dialog).toHaveTextContent(
+        'Level 1 · Enchantment · From Bardic Flame',
+      )
+    })
+
+    it('fades a spell the item has too few charges left for at any level, but never a later activity that spends none', async () => {
+      const user = userEvent.setup()
+      const sheet = castingSheet()
+      const [wand, flame] = sheet.actions[0].actions
+      const short = { level: 1, concentration: false, charges: 1, short: true }
+      sheet.actions[0].actions = [
+        {
+          ...wand,
+          cast: {
+            ...short,
+            levels: WAND_LEVELS.map(level => ({ ...level, short: true })),
+          },
+        },
+        {
+          ...flame,
+          activities: [
+            flame.activities![0],
+            { ...flame.activities![1], cast: short },
+          ],
+        },
+      ]
+      renderCasting(sheet)
+
+      const wandRow = toggle('Wand of Magic Missiles')
+      expect(wandRow).toHaveTextContent('No charges left')
+      expect(wandRow).toHaveClass('opacity-60')
+      await user.click(flameRow('Actions'))
+      const [hex, bonus] = within(
+        screen.getByRole('list', {
+          name: 'Bardic Flame: its other activities',
+        }),
+      ).getAllByRole('listitem')
+      expect(hex).toHaveTextContent('No charges left')
+      expect(hex.firstElementChild).toHaveClass('opacity-60')
+      expect(bonus).not.toHaveTextContent('charge')
+      expect(bonus.firstElementChild).not.toHaveClass('opacity-60')
+    })
+
+    it('fades a later activity that spends charges, under a Cast too short of them, as its Cast is', async () => {
+      const user = userEvent.setup()
+      const sheet = castingSheet()
+      const [wand, flame] = sheet.actions[0].actions
+      const short = { level: 1, concentration: true, charges: 1, short: true }
+      sheet.actions[0].actions = [
+        wand,
+        {
+          ...flame,
+          activities: [
+            flame.activities![0],
+            { ...flame.activities![1], cast: short },
+          ],
+        },
+      ]
+      // Hex's damage spends a charge too, as a later activity that spends a slot does.
+      const [copies] = sheet.spells
+      const [missile, hex] = copies.spells
+      copies.spells = [
+        missile,
+        {
+          ...hex,
+          activities: [
+            hex.activities![0],
+            { ...hex.activities![1], consumesSlot: undefined },
+          ],
+        },
+      ]
+      renderCasting(sheet)
+
+      await user.click(flameRow('Actions'))
+      const [, bonus] = within(
+        screen.getByRole('list', {
+          name: 'Bardic Flame: its other activities',
+        }),
+      ).getAllByRole('listitem')
+      expect(bonus).toHaveTextContent('Hex (Bonus Hex Damage)')
+      expect(bonus).toHaveTextContent('No charges left')
+      expect(bonus.firstElementChild).toHaveClass('opacity-60')
+    })
+
+    it("lists no later activities of a spell its item can't cast now", async () => {
+      const user = userEvent.setup()
+      const sheet = castingSheet()
+      // The module sends none for such a copy; were any sent, they'd be the game's to refuse.
+      const [copies] = sheet.spells
+      const [missile, hex] = copies.spells
+      copies.spells = [
+        missile,
+        {
+          ...hex,
+          castFrom: {
+            id: 'flame',
+            name: 'Bardic Flame',
+            usable: false,
+            attune: true,
+          },
+        },
+      ]
+      renderCasting(sheet)
+
+      await user.click(flameRow('Actions'))
+      expect(others('Bardic Flame')).toEqual([
+        'HexBonus Action · 90 ft · 1 chargeCast',
+      ])
+    })
+
+    it("lists each Cast's later activities after it, a wand's beneath it, a staff's of two spells each after its own", async () => {
+      const user = userEvent.setup()
+      const errors = jest.spyOn(console, 'error')
+      const wand = { id: 'wand', name: 'Wand of Guardians' }
+      const staff = { id: 'staff', name: 'Staff of Spirits' }
+      const cast = { level: 3, concentration: true, charges: 1, short: false }
+      const guardians = (id: string, from: typeof wand) =>
+        copyOf({ id, name: 'Spirit Guardians' }, from, [
+          spellActivity({
+            id: 'dnd5eactivity000',
+            name: 'Cast',
+            activity: {
+              id: 'dnd5eactivity000',
+              type: 'utility',
+              targets: self,
+            },
+          }),
+          spellActivity({
+            id: 'dnd5eactivity100',
+            name: 'Emanation Save',
+            type: 'save',
+            activation: 'Special',
+            activity: { id: 'dnd5eactivity100', type: 'save', targets: one },
+            save: { ability: 'WIS', dc: 15 },
+            damage: radiant,
+            consumesSlot: false,
+          }),
+        ])
+      const castActivity = (id: string, name: string, spellId: string) =>
+        spellActivity({
+          id,
+          name,
+          type: 'cast',
+          activity: { id, type: 'utility', targets: self },
+          cast,
+          spellId,
+        })
+      renderCasting(
+        castingWith(
+          [
+            sheetAction({
+              ...wand,
+              type: 'equipment',
+              activity: { id: 'cast-wand', type: 'utility', targets: self },
+              cast,
+              spellId: 'wand-copy',
+              uses: { value: 7, max: 7, recovery: 'Dawn' },
+            }),
+            sheetAction({
+              ...staff,
+              type: 'weapon',
+              activity: { id: 'cast-sg', type: 'utility', targets: self },
+              cast,
+              spellId: 'staff-sg',
+              activities: [
+                castActivity('cast-sg', 'Spirit Guardians', 'staff-sg'),
+                castActivity('cast-sg2', 'Spirit Guardians Again', 'staff-sg2'),
+              ],
+            }),
+          ],
+          [
+            guardians('wand-copy', wand),
+            guardians('staff-sg', staff),
+            guardians('staff-sg2', staff),
+          ],
+        ),
+      )
+
+      expect(toggle('Wand of Guardians')).toHaveTextContent('1 more')
+      expect(toggle('Staff of Spirits')).toHaveTextContent('3 more')
+      await user.click(toggle('Wand of Guardians'))
+      await user.click(toggle('Staff of Spirits'))
+      expect(others('Wand of Guardians')).toEqual([
+        'Spirit Guardians (Emanation Save)Special · Self · RadiantWIS 153d8',
+      ])
+      expect(others('Staff of Spirits')).toEqual([
+        'Spirit Guardians (Emanation Save)Special · Self · RadiantWIS 153d8',
+        'Spirit Guardians AgainSelf · 1 chargeCast',
+        'Spirit Guardians (Emanation Save)Special · Self · RadiantWIS 153d8',
+      ])
+      expect(
+        errors.mock.calls.some(call => String(call[0]).includes('same key')),
+      ).toBe(false)
+    })
+
+    it("lists the later activities of a Cast that says nothing of how it's cast, such as one that summons first", async () => {
+      const user = userEvent.setup()
+      const staff = { id: 'magi', name: 'Staff of the Magi' }
+      renderCasting(
+        castingWith(
+          [
+            sheetAction({
+              ...staff,
+              type: 'weapon',
+              toHit: 7,
+              attackId: 'strike',
+              damage: [
+                { formula: '1d6 + 2', type: 'Bludgeoning', healing: false },
+              ],
+              activities: [
+                spellActivity({
+                  id: 'strike',
+                  name: 'Attack',
+                  type: 'attack',
+                  toHit: 7,
+                  attackId: 'strike',
+                }),
+                spellActivity({
+                  id: 'cast-sphere',
+                  name: 'Flaming Sphere',
+                  type: 'cast',
+                  spellId: 'sphere',
+                }),
+              ],
+            }),
+          ],
+          [
+            copyOf({ id: 'sphere', name: 'Flaming Sphere', level: 2 }, staff, [
+              spellActivity({ id: 'summon', name: 'Summon', type: 'summon' }),
+              spellActivity({
+                id: 'ram',
+                name: 'Ram',
+                type: 'save',
+                activity: { id: 'ram', type: 'save', targets: one },
+                save: { ability: 'DEX', dc: 17 },
+                damage: [{ formula: '2d6', type: 'Fire', healing: false }],
+              }),
+            ]),
+          ],
+        ),
+      )
+
+      await user.click(toggle('Staff of the Magi'))
+      expect(others('Staff of the Magi')).toEqual([
+        'Flaming SphereSelf · Used in Foundry',
+        'Flaming Sphere (Ram)Self · FireDEX 172d6',
+      ])
+      expect(about('Flaming Sphere (Ram)')).toBeVisible()
+    })
+
+    it("says what a spell cast from an item costs, as how it's cast says", () => {
+      const cast = { level: 1, concentration: false, charges: 1, short: false }
+      expect(
+        castNote({ ...cast, levels: castLevels(false, false, false) }),
+      ).toBe('1–3 charges')
+      expect(
+        castNote({ ...cast, levels: castLevels(false, false, true) }),
+      ).toBe('1–2 charges')
+      expect(castNote({ ...cast, levels: castLevels(false, true, true) })).toBe(
+        '1 charge',
+      )
+      expect(
+        castNote({ ...cast, short: true, levels: castLevels(true, true) }),
+      ).toBe('No charges left')
+      expect(castNote(cast)).toBe('1 charge')
+      expect(castNote({ ...cast, charges: 3 })).toBe('3 charges')
+      expect(castNote({ ...cast, short: true })).toBe('No charges left')
+      // One that spends nothing, or a formula, says nothing.
+      expect(castNote({ ...cast, charges: null, short: false })).toBeUndefined()
+      expect(
+        castNote({
+          ...cast,
+          charges: null,
+          levels: castLevels(false, false).map(level => ({
+            ...level,
+            charges: null,
+          })),
+        }),
+      ).toBeUndefined()
+      expect(castNote(null)).toBeUndefined()
+    })
+
+    it('uses, rather than casts, a later activity that spends nothing, even one the item casts', () => {
+      const cast = { level: 1, concentration: false, charges: 1, short: false }
+      const used = sheetAction({ id: 'wand', name: 'Wand', cast })
+      expect(verbOf(used)).toBe('Cast')
+      expect(verbOf({ ...used, consumesSlot: false })).toBe('Use')
+      const spell = sheetAction({ id: 'hex', name: 'Hex', type: 'spell' })
+      expect(verbOf(spell)).toBe('Cast')
+      expect(verbOf({ ...spell, consumesSlot: false })).toBe('Use')
+      expect(verbOf(sheetAction({ id: 'surge', name: 'Action Surge' }))).toBe(
+        'Use',
+      )
+    })
+
+    it('lists them in a table too, keyed apart, each after its Cast', async () => {
+      const user = userEvent.setup()
+      sheetWidth(800)
+      renderCasting()
+      await user.click(screen.getByRole('button', { name: 'Table' }))
+      await user.click(
+        screen.getByRole('button', { name: /^Bardic Flame/, expanded: false }),
+      )
+
+      const table = screen.getByRole('table', { name: 'Actions' })
+      const names = within(table)
+        .getAllByRole('row')
+        .map(row => row.querySelector('td')?.textContent)
+      expect(names).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^Wand of Magic Missiles.*1–3 charges/),
+          expect.stringMatching(/^HexBonus Action · 1 charge/),
+          expect.stringMatching(/^Hex \(Bonus Hex Damage\)/),
+        ]),
+      )
     })
   })
 

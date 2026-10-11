@@ -61,52 +61,104 @@ export function hitDicePools(classes: SheetClass[]): HitDicePool[] {
   return [...pools.values()].toSorted((a, b) => sizeOf(b.die) - sizeOf(a.die))
 }
 
+/** Hit dice of one size chosen to spend at once: the size, such as "d10", and how many. */
+export type HitDiceCount = { die: string; count: number }
+
 /**
- * Hit dice of one size spent, as dnd5e rolls each: the die, and the character's Constitution
- * modifier, giving back at least 1 hit point, or at least none under the 2014 rules. Several spent
- * at once are thrown together, each giving back its own, at least its least.
- * @param count - How many, one unless said.
+ * A hit die spent, as dnd5e rolls it: the die, and the character's Constitution modifier, giving
+ * back at least 1 hit point, or at least none under the 2014 rules.
  */
 export function hitDieRoll(
   sheet: Pick<CharacterSheet, 'abilities' | 'rules'>,
   die: string,
-  count = 1,
 ): SheetFormulaRoll {
-  const con = conOf(sheet)
-  const sides = sizeOf(die)
   return {
-    label: count > 1 ? `Hit dice (${count}${die})` : `Hit die (${die})`,
-    terms: [
-      { sign: 1, count: 1, sides } as ExtraDice,
-      ...(con === 0
-        ? []
-        : [
-            {
-              sign: con < 0 ? (-1 as const) : (1 as const),
-              flat: Math.abs(con),
-            },
-          ]),
-    ],
+    label: `Hit die (${die})`,
+    terms: hitDieTerms(sheet, die),
     healing: true,
-    minimum: sheet.rules === 'legacy' ? 0 : 1,
-    ...(count > 1 && { times: count }),
+    minimum: leastOf(sheet),
     source: { kind: 'hitDie', denomination: die },
   }
 }
 
 /**
- * What hit dice of one size spent at once give back, as a formula: the dice, and the character's
- * Constitution modifier for each, such as "3d8 + 9", or "3d8 − 3" for a modifier of −1.
+ * Hit dice spent at once, of one size or more, as dnd5e rolls each: thrown together, the largest
+ * first, each die with the character's Constitution modifier, giving back its own, at least its
+ * least. For the game, they're spent in the same order. Those of a size with none chosen are left
+ * out. For two dice or more in all: one die alone is `hitDieRoll`'s, as a hit die spent is.
+ */
+export function hitDiceRoll(
+  sheet: Pick<CharacterSheet, 'abilities' | 'rules'>,
+  counts: HitDiceCount[],
+): SheetFormulaRoll {
+  const spent = spentOf(counts)
+  return {
+    label: `Hit dice (${diceOf(spent)})`,
+    terms: [],
+    sets: spent.map(({ die, count }) => ({
+      terms: hitDieTerms(sheet, die),
+      times: count,
+    })),
+    healing: true,
+    minimum: leastOf(sheet),
+    source: {
+      kind: 'hitDice',
+      hitDice: spent.map(({ die, count }) => ({ denomination: die, count })),
+    },
+  }
+}
+
+/**
+ * What hit dice spent at once give back, as a formula: the dice, the largest first, and the
+ * character's Constitution modifier for each, such as "2d10 + 1d8 + 9", or "3d8 − 3" for a
+ * modifier of −1; "0" for none.
  */
 export function hitDiceFormula(
   sheet: Pick<CharacterSheet, 'abilities'>,
-  die: string,
-  count: number,
+  counts: HitDiceCount[],
 ): string {
-  const added = conOf(sheet) * count
-  const dice = `${count}${die}`
+  const spent = spentOf(counts)
+  if (spent.length === 0) return '0'
+  const added = conOf(sheet) * spent.reduce((all, { count }) => all + count, 0)
+  const dice = diceOf(spent)
   if (added === 0) return dice
   return `${dice} ${added < 0 ? '−' : '+'} ${Math.abs(added)}`
+}
+
+/** A hit die's terms, as dnd5e rolls it: the die, and the character's Constitution modifier. */
+function hitDieTerms(
+  sheet: Pick<CharacterSheet, 'abilities'>,
+  die: string,
+): ExtraTerm[] {
+  const con = conOf(sheet)
+  return [
+    { sign: 1, count: 1, sides: sizeOf(die) } as ExtraDice,
+    ...(con === 0
+      ? []
+      : [
+          {
+            sign: con < 0 ? (-1 as const) : (1 as const),
+            flat: Math.abs(con),
+          },
+        ]),
+  ]
+}
+
+/** The least a hit die gives back: 1, or none under the 2014 rules. */
+function leastOf({ rules }: Pick<CharacterSheet, 'rules'>): number {
+  return rules === 'legacy' ? 0 : 1
+}
+
+/** Hit dice chosen to spend, the sizes with none chosen left out, the largest first. */
+function spentOf(counts: HitDiceCount[]): HitDiceCount[] {
+  return counts
+    .filter(({ count }) => count > 0)
+    .toSorted((a, b) => sizeOf(b.die) - sizeOf(a.die))
+}
+
+/** Hit dice as thrown, such as "2d10 + 1d8". */
+function diceOf(spent: HitDiceCount[]): string {
+  return spent.map(({ die, count }) => `${count}${die}`).join(' + ')
 }
 
 /**

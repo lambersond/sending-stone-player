@@ -3,12 +3,15 @@
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { HitDiceMenu } from './hit-dice-menu'
+import { HitDieIcon } from './hit-die-icon'
 import { RollButton } from './roll-button'
-import { DieIcon, type DieSides } from '@/components/icons'
 import {
   atFullHitPoints,
   hitDiceFormula,
+  hitDicePools,
+  hitDiceRoll,
   hitDieRoll,
+  type HitDiceCount,
   type HitDicePool,
 } from '@/utils/formulas'
 import type { MenuPoint } from './roll-menu'
@@ -20,10 +23,15 @@ import type { TableSheet } from '@/types/table'
  * and spent in the Gamemaster's game too while it takes hit dice.
  */
 export type HitDieSpending = {
-  /** Spends this many hit dice of a size, thrown together. */
-  onSpend: (die: string, count: number) => void
-  /** What spending this many of a size gives back, as a formula, such as "3d8 + 9". */
-  formula: (die: string, count: number) => string
+  /** The character's hit dice by size, largest first, as dnd5e spends them: every class's of it. */
+  pools: HitDicePool[]
+  /**
+   * Spends this many hit dice of each size, thrown together: one alone as a hit die, more as hit
+   * dice spent at once.
+   */
+  onSpend: (counts: HitDiceCount[]) => void
+  /** What spending this many of each size gives back, as a formula, such as "2d10 + 1d8 + 9". */
+  formula: (counts: HitDiceCount[]) => string
   /** At full hit points, where a die spent would give back nothing, so none is. */
   full: boolean
 }
@@ -41,23 +49,36 @@ export function hitDieSpending(
 ): HitDieSpending | undefined {
   if (!onRollFormula) return
   return {
-    onSpend: (die, count) => onRollFormula(hitDieRoll(sheet, die, count)),
-    formula: (die, count) => hitDiceFormula(sheet, die, count),
+    pools: hitDicePools(sheet.classes),
+    onSpend: counts => {
+      const spent = counts.filter(({ count }) => count > 0)
+      const total = spent.reduce((all, { count }) => all + count, 0)
+      if (total === 0) return
+      onRollFormula(
+        total === 1
+          ? hitDieRoll(sheet, spent[0].die)
+          : hitDiceRoll(sheet, spent),
+      )
+    },
+    formula: counts => hitDiceFormula(sheet, counts),
     full: atFullHitPoints(sheet),
   }
 }
 
 /**
  * A button that spends a hit die of one size, a tap a die; a right-click, a long-press, or the
- * keyboard's context menu key opens a popover there to spend more at once, which a tap on the
- * button closes, spending none. It says Use, and is named for that, then the size and how many are
- * left, of how many, for voice control to find it by what's on screen. None is spent with none
- * left, or at full hit points, which its title says; and the popover closes then, for good.
+ * keyboard's context menu key opens a popover there to spend more at once, of that size and any
+ * other the character has, which a tap on the button closes, spending none. It says Use, and is
+ * named for that, then the size and how many are left, of how many, for voice control to find it
+ * by what's on screen. None is spent with none left, or at full hit points, which its title says;
+ * and the popover closes then, for good.
+ * @param pool - The size it spends, and how many of it are left, as its row says: for a class's,
+ *   the class's own, though the popover offers every class's of that size, as dnd5e spends them.
  * @param children - Shown before its word, such as the die's icon.
  */
 export function HitDieUse({
   pool,
-  spending: { onSpend, formula, full },
+  spending: { pools, onSpend, formula, full },
   children,
 }: Readonly<{
   pool: HitDicePool
@@ -65,7 +86,7 @@ export function HitDieUse({
   children?: ReactNode
 }>) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; point?: MenuPoint }>()
-  const { die, value, max } = pool
+  const { die, value } = pool
   let why: string | undefined
   if (value === 0) why = NONE_LEFT
   else if (full) why = FULL_HP
@@ -79,7 +100,7 @@ export function HitDieUse({
         onRoll={() => {
           // With its popover open, as after a long-press, a tap closes it, spending none.
           if (menu) setMenu(undefined)
-          else onSpend(die, 1)
+          else onSpend([{ die, count: 1 }])
         }}
         onMenu={(anchor, _, point) => setMenu({ anchor, point })}
         label={`Use a ${die} hit die, ${leftOf(pool, 'an unknown number')}`}
@@ -96,17 +117,24 @@ export function HitDieUse({
           anchor={menu.anchor}
           point={menu.point}
           die={die}
-          // As many as are left, or where the sheet doesn't say, as many as there are.
-          most={value ?? max ?? 1}
-          formula={count => formula(die, count)}
-          onSpend={count => {
+          pools={withPool(pools, pool)}
+          formula={formula}
+          onSpend={counts => {
             setMenu(undefined)
-            onSpend(die, count)
+            onSpend(counts)
           }}
           onClose={() => setMenu(undefined)}
         />
       )}
     </>
+  )
+}
+
+/** The character's hit dice by size, with a button's own, should they leave its size out. */
+function withPool(pools: HitDicePool[], pool: HitDicePool): HitDicePool[] {
+  if (pools.some(({ die }) => die === pool.die)) return pools
+  return [...pools, pool].toSorted(
+    (a, b) => Number(b.die.slice(1)) - Number(a.die.slice(1)),
   )
 }
 
@@ -163,22 +191,6 @@ export function HitDiceList({
     </ul>
   )
 }
-
-/** A hit die's shape, by its size, such as "d10"; none for a size there's no icon of. */
-export function HitDieIcon({
-  die,
-  className,
-}: Readonly<{ die: string; className?: string }>) {
-  const sides = SIDES.get(die)
-  return (
-    sides && <DieIcon sides={sides} className={clsx('shrink-0', className)} />
-  )
-}
-
-/** The sizes of hit die there's an icon of, by their names. */
-const SIDES = new Map<string, DieSides>(
-  ([4, 6, 8, 10, 12, 20] as const).map(sides => [`d${sides}`, sides]),
-)
 
 /** A class's hit dice as its row says them: "Hit dice 3/5 d10", a dash for a count unknown. */
 export function hitDiceText(pool: HitDicePool): string {
