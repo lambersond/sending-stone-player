@@ -142,12 +142,16 @@ export function rollsAny(entries: FavoriteEntry[]): boolean {
   })
 }
 
-/** Does this roll an attack, damage or healing, or a formula of its own? */
+/**
+ * Does this roll an attack, damage or healing, a formula of its own, or a check an activity asks
+ * of the character?
+ */
 function rolls(entry: Partial<SheetRolls>): boolean {
   return (
     (entry.toHit ?? null) !== null ||
     (entry.damage ?? []).length > 0 ||
     !!entry.rollFormula ||
+    entry.check?.own === true ||
     (entry.activities ?? []).some(activity => rolls(activity))
   )
 }
@@ -284,6 +288,9 @@ function activityAction(
       ...(favorite.spellId && { spellId: favorite.spellId }),
       ...(favorite.rollFormula && { rollFormula: favorite.rollFormula }),
       ...(favorite.attackArea && { attackArea: favorite.attackArea }),
+      // The check it asks for, and what it spends where it uses another activity.
+      ...(favorite.check && { check: favorite.check }),
+      ...(favorite.forward && { forward: favorite.forward }),
       uses: favorite.uses,
       level: spell?.level ?? action?.level ?? null,
       // A spell the item casts is cast from it.

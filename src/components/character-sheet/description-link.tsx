@@ -40,8 +40,9 @@ import {
   changes,
   criticalOffered,
   criticalParts,
+  damageChanges,
   EVERY_DIE_TWICE,
-  firstDie,
+  sameFirstDie,
   withModifiers,
   type CriticalAdds,
 } from '@/utils/damage-modifiers'
@@ -65,6 +66,7 @@ import type {
   DescriptionOrigin,
 } from './description-actions'
 import type { LinkPart } from './description-html'
+import type { ActivityRef, TextLink } from '@/types/roll'
 import type {
   CriticalRule,
   RollMode,
@@ -84,7 +86,7 @@ import type { ExtraTerm } from '@/utils/roll-modifiers'
  */
 
 /** A menu a description's link opens: where, what it's of, its items, and what each does. */
-type OpenMenu = {
+export type OpenMenu = {
   anchor: HTMLElement
   /** Where on the link the player clicked or pressed for it; below the link with none. */
   point?: MenuPoint
@@ -382,57 +384,17 @@ function CheckButton({
   actions: DescriptionActions
   menus: LinkMenus
 }>) {
-  // A skill or tool by the sheet's name for it, where it has one.
-  const nameOf = (option: CheckOption) => {
-    const named =
-      option.type === 'skill'
-        ? actions.skills.find(skill => skill.id === option.key)?.label
-        : actions.tools.find(tool => tool.id === option.key)?.name
-    return checkName(option, option.type === 'check' ? undefined : named)
-  }
   const using =
     link.usingTool &&
     (actions.tools.find(tool => tool.id === link.usingTool)?.name ||
       toolOrSkillName('tool', link.usingTool))
   const title = checkTitle(
-    link.checks.map(option => nameOf(option)),
+    link.checks.map(option => checkOptionName(option, actions)),
     {
       dc: link.dc,
       ...(using && { using }),
     },
   )
-  const choices = link.checks.flatMap((option, index) => {
-    const target = checkTarget(option, nameOf(option), link, hash, actions)
-    return target ? [{ id: `roll:${index}`, target }] : []
-  })
-  const items: MenuItem<string>[] = [
-    ...askItems(secret, actions),
-    ...choices.map(({ id, target }) => ({
-      id,
-      label: `Roll my ${target.label} (${formatModifier(target.modifier)}${modeWord(target.mode)})`,
-      icon: Dices,
-      tint: 'text-primary',
-    })),
-    // For one way to make it, the other ways to roll it, as the sheet's menu offers them.
-    ...(choices.length === 1
-      ? D20_CHOICES.map(choice => choiceItem(choice))
-      : []),
-  ]
-  const choose = (id: string) => {
-    const only = choices.length === 1 ? choices[0].target : undefined
-    if (id === 'ask') {
-      actions.ask({ label: title, text: hash, link: link.n })
-    } else if (id === 'send') {
-      actions.sendRolls?.()
-    } else if (id.startsWith('roll:')) {
-      const chosen = choices.find(choice => choice.id === id)
-      if (chosen) rollAgainst(actions, chosen.target, link.dc)
-    } else if (only && (id === 'adv' || id === 'dis')) {
-      rollAgainst(actions, only, link.dc, id)
-    } else if (only && id === 'modify') {
-      menus.modify(only, link.dc)
-    }
-  }
   return (
     <button
       type='button'
@@ -440,9 +402,26 @@ function CheckButton({
       onClick={event =>
         menus.open({
           anchor: event.currentTarget,
-          title,
-          items,
-          onChoose: choose,
+          ...checkMenuItems({
+            checks: link.checks,
+            dc: link.dc,
+            title,
+            ask: {
+              items: askItems(secret, actions),
+              choose: id => {
+                if (id === 'ask') {
+                  actions.ask({ label: title, text: hash, link: link.n })
+                } else if (id === 'send') {
+                  actions.sendRolls?.()
+                }
+              },
+            },
+            own: true,
+            actions,
+            menus,
+            usingTool: link.usingTool,
+            from: { text: hash, link: link.n },
+          }),
         })
       }
       className={clsx(PILL, 'bg-primary/12 hover:bg-primary/20')}
@@ -453,32 +432,160 @@ function CheckButton({
 }
 
 /**
- * How the character makes one of the ways a check a description calls for may be made, as the
- * game makes it: an ability check as the sheet has it; a skill's, or a tool's the character has,
- * as the sheet has it, but with the ability the description names, where that isn't its own, and
- * for a skill check made using a tool the character has, with the higher of the two
- * proficiencies, and with advantage where it has both, as dnd5e makes it; and a tool's the
- * character hasn't as dnd5e makes it, without proficiency, as that ability's check is. The game's
- * own total is the one that counts, which takes in what the sheet doesn't say, such as a bonus to
- * one ability's checks alone. None where the sheet has no such ability or skill.
+ * One way a check may be made, as a check a description or an activity calls for has it: for an
+ * activity's tool check made with the tool it's of, with the tool's own bonus, which dnd5e adds.
  */
-function checkTarget(
+export type CheckWay = CheckOption & { bonus?: number }
+
+/** What a check is rolled for, for the game to make it too: a description's link, or activity. */
+export type CheckFrom = TextLink | ActivityRef
+
+/**
+ * A way a check may be made, by the sheet's name for its skill or tool, where it has one, as
+ * dnd5e's card names it: such as "Dexterity (Sleight of Hand)".
+ */
+export function checkOptionName(
   option: CheckOption,
+  actions?: Pick<DescriptionActions, 'skills' | 'tools'>,
+): string {
+  const named =
+    option.type === 'skill'
+      ? actions?.skills.find(skill => skill.id === option.key)?.label
+      : actions?.tools.find(tool => tool.id === option.key)?.name
+  return checkName(option, option.type === 'check' ? undefined : named)
+}
+
+/**
+ * A way a check an activity asks for may be made, by its own name, as its chip and the player's
+ * roll name it: the skill's or tool's, by the sheet's name for it, or the ability's, for an ability
+ * check; or as dnd5e's card names it, with the ability, where that isn't the skill's or the tool's
+ * own, as the sheet has it, such as "Strength (Sleight of Hand)".
+ */
+export function checkWayName(
+  option: CheckOption,
+  actions?: Pick<DescriptionActions, 'skills' | 'tools'>,
+): string {
+  const { type, key } = option
+  if (type === 'check' || key === undefined) return checkName(option)
+  const own =
+    type === 'skill'
+      ? actions?.skills.find(skill => skill.id === key)
+      : actions?.tools.find(tool => tool.id === key)
+  if (own?.ability && own.ability !== option.ability) {
+    return checkOptionName(option, actions)
+  }
+  const named = own && ('label' in own ? own.label : own.name)
+  return named || toolOrSkillName(type, key)
+}
+
+/**
+ * The menu a check opens, which a description's link and an activity's chip share: first the ways
+ * to ask the table for it, as given; then, for one the character makes itself, a roll of the
+ * player's own against its DC for each way it may be made that the character can, saying what it
+ * spends where told, and for one, with advantage, with disadvantage, or modified first.
+ * @param ask - What it offers first, and what choosing each of those does.
+ * @param own - Whether the character makes it, and may roll it here.
+ * @param usingTool - For a skill check made using a tool, as a description may ask, the tool.
+ * @param from - What it's rolled for, for the game to make it too; nothing for the player's alone.
+ * @param hint - What each of the player's own rolls says under it, such as that it spends nothing.
+ * @param nameOf - What each way to make it is called, as its roll is named; as dnd5e's card names
+ *   it, unless said.
+ */
+export function checkMenuItems({
+  checks,
+  dc,
+  title,
+  ask,
+  own,
+  actions,
+  menus,
+  usingTool,
+  from,
+  hint,
+  nameOf = option => checkOptionName(option, actions),
+}: {
+  checks: CheckWay[]
+  dc?: number
+  title: string
+  ask: { items: MenuItem<string>[]; choose: (id: string) => void }
+  own: boolean
+  actions?: DescriptionActions
+  menus: LinkMenus
+  usingTool?: string
+  from?: CheckFrom
+  hint?: string
+  nameOf?: (option: CheckWay) => string
+}): Pick<OpenMenu, 'title' | 'items' | 'onChoose'> {
+  const choices =
+    own && actions
+      ? checks.flatMap((option, index) => {
+          const target = checkTarget(option, nameOf(option), actions, {
+            usingTool,
+            from,
+          })
+          return target ? [{ id: `roll:${index}`, target }] : []
+        })
+      : []
+  const items: MenuItem<string>[] = [
+    ...ask.items,
+    ...choices.map(({ id, target }) => ({
+      id,
+      label: `Roll my ${target.label} (${formatModifier(target.modifier)}${modeWord(target.mode)})`,
+      icon: Dices,
+      tint: 'text-primary',
+      ...(hint && { hint }),
+    })),
+    // For one way to make it, the other ways to roll it, as the sheet's menu offers them.
+    ...(choices.length === 1
+      ? D20_CHOICES.map(choice => choiceItem(choice))
+      : []),
+  ]
+  const choose = (id: string) => {
+    const only = choices.length === 1 ? choices[0].target : undefined
+    if (id.startsWith('roll:')) {
+      const chosen = choices.find(choice => choice.id === id)
+      if (chosen && actions) rollAgainst(actions, chosen.target, dc)
+    } else if (only && actions && (id === 'adv' || id === 'dis')) {
+      rollAgainst(actions, only, dc, id)
+    } else if (only && id === 'modify') {
+      menus.modify(only, dc)
+    } else {
+      ask.choose(id)
+    }
+  }
+  return { title, items, onChoose: choose }
+}
+
+/**
+ * How the character makes one of the ways a check a description or an activity calls for may be
+ * made, as the game makes it: an ability check as the sheet has it; a skill's, or a tool's the
+ * character has, as the sheet has it, but with the ability the check names, where that isn't its
+ * own, and for a skill check made using a tool the character has, with the higher of the two
+ * proficiencies, and with advantage where it has both, as dnd5e makes it; and a tool's the
+ * character hasn't as dnd5e makes it, without proficiency, as that ability's check is. An
+ * activity's tool check made with the tool it's of takes the tool's own bonus too. The game's own
+ * total is the one that counts, which takes in what the sheet doesn't say, such as a bonus to one
+ * ability's checks alone. None where the sheet has no such ability or skill.
+ * @param name - What it's called, as the roll is named: such as "Dexterity (Sleight of Hand)".
+ * @param usingTool - For a skill check made using a tool, the tool's key.
+ * @param from - What it's rolled for, for the game to make it too; nothing for the player's alone.
+ */
+export function checkTarget(
+  option: CheckWay,
   name: string,
-  link: CheckLink,
-  hash: string,
   actions: DescriptionActions,
+  { usingTool, from }: { usingTool?: string; from?: CheckFrom },
 ): RollTarget | undefined {
   const ability = actions.abilities.find(each => each.id === option.ability)
   if (!ability) return
   const label = `${name} check`
-  const linked = { text: hash, link: link.n }
+  const bonus = option.bonus ?? 0
   if (option.type === 'check') {
     return {
       label,
-      modifier: ability.check,
+      modifier: ability.check + bonus,
       mode: ability.checkMode,
-      source: { kind: 'ability', key: ability.id, ...linked },
+      source: { kind: 'ability', key: ability.id, ...from },
     }
   }
   const { key } = option
@@ -486,28 +593,30 @@ function checkTarget(
   if (option.type === 'skill') {
     const skill = actions.skills.find(each => each.id === key)
     if (!skill) return
-    const tool = actions.tools.find(each => each.id === link.usingTool)
+    const tool = actions.tools.find(each => each.id === usingTool)
     const both = !!tool && skill.proficiency > 0 && tool.proficiency > 0
     return {
       label,
-      modifier: withAbility(
-        skill.total + withTool(skill, tool, actions.proficiency),
-        skill.ability,
-        ability,
-        actions,
-      ),
+      modifier:
+        withAbility(
+          skill.total + withTool(skill, tool, actions.proficiency),
+          skill.ability,
+          ability,
+          actions,
+        ) + bonus,
       mode: both ? withAdvantage(skill.mode) : skill.mode,
-      source: { kind: 'skill', key, ...linked },
+      source: { kind: 'skill', key, ...from },
     }
   }
   const tool = actions.tools.find(each => each.id === key)
   return {
     label,
-    modifier: tool
-      ? withAbility(tool.total, tool.ability, ability, actions)
-      : ability.check,
+    modifier:
+      (tool
+        ? withAbility(tool.total, tool.ability, ability, actions)
+        : ability.check) + bonus,
     mode: tool ? tool.mode : ability.checkMode,
-    source: { kind: 'tool', key, ...linked },
+    source: { kind: 'tool', key, ...from },
   }
 }
 
@@ -551,13 +660,15 @@ function withAdvantage(mode: RollMode): RollMode {
  * Damage or healing a description deals, which a tap rolls with the player's dice, named for where
  * it's from; first asking which kind, where it offers a choice. A right-click, a long-press, or the
  * keyboard's context menu key offers other ways to roll it, as an action's damage does: as a
- * critical hit's, for damage; at its highest; or with its dice changed first; then which kind,
- * where it offers a choice, the menu saying what will be thrown, and how. A critical hit's adds
- * what one adds to it, as the game reads its activity, such as a weapon's extra dice and critical
- * damage. Where the Gamemaster's game rolls it too, it offers only those the game takes: a critical
- * hit's as the world's rules make one, where the sheet says how and they take what it adds, and
- * changed where the game takes it so; where the player alone rolls it, a critical hit's is as dnd5e
- * makes one by default. One whose formula the app can't read is only its text.
+ * critical hit's, for damage; at its highest, unless it takes a die away; or with its dice changed
+ * first, where it has a first die that it adds; then which kind, where it offers a choice, the menu
+ * saying what will be thrown, and how. A critical hit's adds what one adds to it, as the game reads
+ * its activity, such as a weapon's extra dice and critical damage. Where the Gamemaster's game
+ * rolls it too, it offers only those the game takes: a critical hit's as the world's rules make
+ * one, where the sheet says how and they take what it adds, and changed where the game takes it
+ * so, as a module before 0.21.0, which changes its first die whatever its sign, does only where
+ * that's one it adds; where the player alone rolls it, a critical hit's is as dnd5e makes one by
+ * default. One whose formula the app can't read is only its text.
  */
 function DamageButton({
   link,
@@ -740,9 +851,11 @@ function thrownBy(
 
 /**
  * The other ways a description's damage or healing may be rolled, as an action's may: as a critical
- * hit's, where one is offered, as `criticalOffered` says, and at its highest, or with its first die
- * changed, where it has one. Where the game rolls it too, only those it takes: a critical hit's
- * where the sheet says how the world makes one, and changed where it takes it so.
+ * hit's, where one is offered, as `criticalOffered` says, and at its highest, unless it takes a die
+ * away, or with its first die changed, where it has one, never one it takes away. Where the game
+ * rolls it too, only those it takes: a critical hit's where the sheet says how the world makes
+ * one, and changed where it takes it so, as a module before 0.21.0, which changes its first die
+ * whatever its sign, does only where that's one it adds.
  * @param adds - What a critical hit adds, where one is offered.
  */
 function damageWays(
@@ -751,11 +864,13 @@ function damageWays(
   adds: CriticalAdds | false,
 ): RollChoice[] {
   const changed = !table || table.modifies
-  const die = firstDie(parts.map(terms => ({ terms })))
+  const read = parts.map(terms => ({ terms }))
+  // A module before 0.21.0 changes its first die whatever its sign: only where that's one it adds.
+  const fixed =
+    table !== undefined && table.signed !== true && !sameFirstDie(read)
   return [
     ...(adds ? (['critical'] as const) : []),
-    ...(changed ? (['maximize'] as const) : []),
-    ...(changed && die ? (['modify-damage'] as const) : []),
+    ...(changed ? damageChanges(read, fixed) : []),
   ]
 }
 
@@ -915,16 +1030,40 @@ function askItems(
       ...(actions.askBlocked && { disabled: sentence(actions.askBlocked) }),
     },
     // Where only this device's switch keeps it from being asked, a way to turn it on.
-    ...(actions.sendRolls
-      ? [
-          {
-            id: 'send',
-            label: 'Send my rolls to the table',
-            icon: Send,
-            tint: 'text-primary',
-          },
-        ]
-      : []),
+    ...(actions.sendRolls ? [SEND_ROLLS] : []),
+  ]
+}
+
+/** The menu item that has this device send the player's rolls to the table. */
+const SEND_ROLLS: MenuItem<string> = {
+  id: 'send',
+  label: 'Send my rolls to the table',
+  icon: Send,
+  tint: 'text-primary',
+}
+
+/**
+ * The ways an activity's check menu offers to ask the table for it, by using the activity in the
+ * game, which posts dnd5e's card with a button for each way it may be made: saying what using it
+ * spends, or why it can't be used now; and where it can't, and this device doesn't send rolls, to
+ * send them.
+ * @param spends - What using it spends, such as "Uses Manacles (Bind)".
+ * @param blocked - Why it can't be used now; unset while it can be.
+ */
+export function tableUseItems(
+  spends: string,
+  blocked: string | undefined,
+  actions?: Pick<DescriptionActions, 'sendRolls'>,
+): MenuItem<string>[] {
+  return [
+    {
+      id: 'ask',
+      label: 'Ask the table',
+      icon: BellRing,
+      tint: 'text-primary',
+      ...(blocked ? { disabled: sentence(blocked) } : { hint: spends }),
+    },
+    ...(blocked && actions?.sendRolls ? [SEND_ROLLS] : []),
   ]
 }
 
@@ -962,6 +1101,6 @@ function modeWord(mode: number): string {
 }
 
 /** A reason as a sentence of its own, such as under a menu item. */
-function sentence(reason: string): string {
+export function sentence(reason: string): string {
   return `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`
 }

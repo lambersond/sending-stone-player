@@ -12,6 +12,7 @@ import { CharacterPane } from './character-pane'
 import {
   castingSheet,
   characterSheet,
+  checkingSheet,
   fullerSheet,
   sheetAction,
   sheetFavorites,
@@ -223,6 +224,14 @@ const describing = (
     } as Response
   }) as typeof fetch
   return posted
+}
+
+/** Opens the check Rook's Thieves' Tools ask for, on the Actions tab. */
+const openLock = async (user: User) => {
+  await user.click(screen.getByRole('tab', { name: 'Actions' }))
+  await user.click(
+    screen.getByRole('button', { name: /^Thieves' Tools, DC 15/ }),
+  )
 }
 
 /** Opens Second Wind on the Features tab, to its description. */
@@ -2324,6 +2333,49 @@ describe('components/character-sheet/character-pane', () => {
       )
     })
 
+    it.each<[string, RollFeature[], string[]]>([
+      [
+        'not from a game before module 0.21.0, which would change the die it takes away',
+        ['modifiers'],
+        ['Roll critical damage'],
+      ],
+      [
+        'from a game that changes only a die it adds',
+        ['modifiers', 'signedDice'],
+        ['Roll critical damage', 'Modify damage…'],
+      ],
+    ])(
+      "offers a description's damage that takes a die away with its dice changed %s",
+      async (_, features, offered) => {
+        describing({
+          [TEXTS.secondWind]:
+            '<p>It deals <span class="ss-damage roll" data-n="0" data-formulas="3 - 1d4 + 2d6" data-types="necrotic">3 - 1d4 + 2d6</span> damage, or a <span class="ss-save roll" data-n="1" data-ability="str" data-dc="15">DC 15 Strength</span> saving throw.</p>',
+        })
+        renderTaking(
+          ['textDamage'],
+          fullerSheet({
+            critical: {
+              perDie: 2,
+              multiplyNumeric: false,
+              powerfulCritical: false,
+              altered: false,
+            },
+          }),
+          features,
+        )
+        await openSecondWind()
+
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '3 - 1d4 + 2d6, roll damage' }),
+        )
+        expect(
+          within(screen.getByRole('menu'))
+            .getAllByRole('menuitem')
+            .map(item => item.textContent),
+        ).toEqual(offered)
+      },
+    )
+
     it('shows the tray on Biography once its description rolls, named for the character as the game names it, saying only the player sees a roll the game doesn’t take', async () => {
       const user = userEvent.setup()
       describing({
@@ -2623,6 +2675,115 @@ describe('components/character-sheet/character-pane', () => {
         ),
       )
       Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    })
+  })
+
+  describe('checks activities ask for, from module 0.21.0', () => {
+    let rooks = 0
+    const renderRook = (kinds: RollKind[], features: RollFeature[] = []) =>
+      render(
+        <CharacterPane
+          characterId={`rook-${++rooks}`}
+          name='Rook'
+          sheet={toTableSheet(checkingSheet(), GAME)}
+          rollsToTable={kinds}
+          rollFeatures={features}
+        />,
+      )
+
+    beforeEach(() => globalThis.localStorage.clear())
+
+    it("rolls the player's own against the activity's DC, in the game too, which says whether it passed", async () => {
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': {
+          status: 'done',
+          visible: true,
+          total: 14,
+          outcome: 'failure',
+        },
+      })
+      renderRook(['tool', 'use'], ['activityChecks'])
+
+      await openLock(user)
+      await user.click(
+        screen.getByRole('menuitem', {
+          name: "Roll my Thieves' Tools check (+6)",
+        }),
+      )
+      expect(posted).toEqual([
+        expect.objectContaining({
+          kind: 'tool',
+          key: 'thief',
+          item: 'tools',
+          activity: 'pick',
+          mode: 0,
+          explicit: false,
+        }),
+      ])
+      expect(posted[0]).not.toHaveProperty('text')
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^\d+Thieves' Tools checkd20 \d+ \+6( · Natural (20|1))? · DC 15/,
+      )
+      expect(
+        await screen.findByText('At the table:', {}, { timeout: 3000 }),
+      ).toHaveTextContent('At the table: 14 · Failed')
+    })
+
+    it('asks the table by using the activity in the game, which posts its card', async () => {
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': {
+          status: 'done',
+          visible: true,
+          rolls: [],
+          use: { type: 'check' },
+          damage: null,
+        },
+      })
+      renderRook(['tool', 'use'], ['activityChecks'])
+
+      await openLock(user)
+      await user.click(screen.getByRole('menuitem', { name: 'Ask the table' }))
+      expect(posted).toEqual([
+        {
+          kind: 'use',
+          item: 'tools',
+          activity: 'pick',
+          targets: [],
+          slot: null,
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+        },
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent("Thieves' Tools")
+    })
+
+    it("keeps the player's own roll theirs where the game doesn't make it against the activity, and says why the table can't be asked", async () => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      renderRook(['tool'])
+
+      await openLock(user)
+      expect(
+        screen.getByRole('menuitem', { name: 'Ask the table' }),
+      ).toHaveAccessibleDescription(
+        'Your Gamemaster’s game isn’t taking spells and features.',
+      )
+      await user.click(
+        screen.getByRole('menuitem', {
+          name: "Roll my Thieves' Tools check (+6)",
+        }),
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          "Thieves' Tools check",
+        ),
+      )
+      expect(posted).toEqual([])
+      expect(screen.getByRole('status')).toHaveTextContent(/(Passed|Failed)/)
     })
   })
 

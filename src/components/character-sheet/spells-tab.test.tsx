@@ -6,6 +6,7 @@ import { SpellsTab } from './spells-tab'
 import {
   castingSheet,
   characterSheet,
+  checkingSheet,
   fullerSheet,
   sheetSpell,
   TEXTS,
@@ -517,6 +518,90 @@ describe('components/character-sheet/spells-tab', () => {
         screen.getByRole('list', { name: 'Hex: its other activities' }),
       ).getByRole('listitem'),
     ).toHaveTextContent(/^Bonus Hex DamageSpecial · Necrotic1d6$/)
+  })
+
+  it('lists a spell’s free casting beneath it, cast by a chip of its own, saying what it spends, from module 0.21.0', async () => {
+    const user = userEvent.setup()
+    const onUse = jest.fn()
+    render(
+      <SpellsTab
+        characterId='char-rook'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        onUse={onUse}
+        sheet={toTableSheet(checkingSheet(), 'https://my-game.forge-vtt.com')}
+      />,
+    )
+
+    // The spell itself is cast with a slot, an 8th-level one being left.
+    const bless = screen.getByRole('button', {
+      name: /^Bless/,
+      expanded: false,
+    })
+    expect(bless).not.toHaveTextContent('No slots left')
+    await user.click(bless)
+    const [free] = within(
+      screen.getByRole('list', { name: 'Bless: its other activities' }),
+    ).getAllByRole('listitem')
+    expect(free).toHaveTextContent(/^Cast \(free casting\)1 useCast$/)
+    await user.click(
+      within(free).getByRole('button', {
+        name: 'Cast Bless (Cast (free casting))',
+      }),
+    )
+    expect(onUse.mock.calls[0][0]).toMatchObject({
+      id: 'bless',
+      activity: { id: 'bless-free' },
+      consumesSlot: false,
+      forward: { charges: 1, short: false },
+    })
+  })
+
+  it('lists one free casting of a spell, and dims the spell itself once no slot is left, its own uses spent only by that, from module 0.21.0', async () => {
+    const user = userEvent.setup()
+    const onUse = jest.fn()
+    const sheet = checkingSheet()
+    const [first, last] = sheet.spells
+    last.slots = { value: 0, max: 1, level: 8 }
+    render(
+      <SpellsTab
+        characterId='char-rook'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        onUse={onUse}
+        sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+      />,
+    )
+
+    // Bless has a use of its own left, but that's its free casting's, beneath it.
+    expect(first.spells[0].uses).toEqual({
+      value: 1,
+      max: 1,
+      recovery: 'Long Rest',
+    })
+    const bless = screen.getByRole('button', {
+      name: /^Bless/,
+      expanded: false,
+    })
+    expect(bless).toHaveClass('opacity-60')
+    expect(bless).toHaveTextContent('No slots left')
+    await user.click(bless)
+    const free = within(
+      screen.getByRole('list', { name: 'Bless: its other activities' }),
+    ).getAllByRole('listitem')
+    expect(free).toHaveLength(1)
+    expect(free[0]).toHaveTextContent(/^Cast \(free casting\)1 useCast$/)
+    expect(free[0].querySelector('.opacity-60')).toBeNull()
+    await user.click(
+      within(free[0]).getByRole('button', {
+        name: 'Cast Bless (Cast (free casting))',
+      }),
+    )
+    expect(onUse.mock.calls[0][0]).toMatchObject({
+      id: 'bless',
+      activity: { id: 'bless-free' },
+      forward: { charges: 1, short: false },
+    })
   })
 
   it('searches spells by name, whatever its case, once there are more than four', async () => {

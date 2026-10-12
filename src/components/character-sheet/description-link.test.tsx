@@ -120,6 +120,10 @@ const escapes = () => {
 const dice = (n: number) =>
   `<p><span class="ss-damage roll" data-n="0" data-formulas="${n}d6" data-types="fire">${n}d6</span></p>`
 
+/** Damage of this formula, as a description deals it, at link 0, necrotic. */
+const taking = (formula: string) =>
+  `<p><span class="ss-damage roll" data-n="0" data-formulas="${formula}" data-types="necrotic">${formula}</span></p>`
+
 /** The Modify damage dialog of a link's damage, of `n` d6s, as these actions roll it. */
 const modifying = async (user: User, n: number, actions = actionsFor()) => {
   await renderText(dice(n), actions)
@@ -1895,6 +1899,116 @@ describe('components/character-sheet/description-link', () => {
       expect(
         within(dialog).getByText(/as your Gamemaster’s game rolls it$/),
       ).toBe(thrown().parentElement)
+    })
+
+    describe('that takes a die away', () => {
+      it('offers neither its highest nor its dice changed where its only die is taken away', async () => {
+        // A Reduced Unarmed Strike's bare damage, as dnd5e writes it.
+        await renderText(taking('- 1d4 + 4'))
+
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '- 1d4 + 4, roll damage' }),
+        )
+        expect(ways()).toEqual(['Roll critical damage'])
+      })
+
+      it('changes the die it adds, never the one it takes away, and never at its highest', async () => {
+        const user = userEvent.setup()
+        const { actions } = await renderText(taking('-1d4 + 2d6'))
+
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: '-1d4 + 2d6, roll damage' }),
+        )
+        expect(ways()).toEqual(['Roll critical damage', 'Modify damage…'])
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Modify damage…' }),
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+        expect(
+          within(dialog).queryByRole('switch', { name: /^Maximum/ }),
+        ).toBeNull()
+        await user.click(
+          within(dialog).getByRole('button', { name: 'One die more' }),
+        )
+        expect(within(dialog).getByRole('status')).toHaveTextContent(
+          '−1d4 + 3d6 necrotic',
+        )
+        await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+        expect(actions.rollDamage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            parts: [
+              {
+                terms: [
+                  { sign: -1, count: 1, sides: 4 },
+                  { sign: 1, count: 2, sides: 6 },
+                ],
+                type: 'necrotic',
+              },
+            ],
+            modifiers: { extra: 1 },
+          }),
+        )
+      })
+
+      it.each<[string, CriticalRule, string[]]>([
+        [
+          'every die twice',
+          DOUBLED,
+          ['Roll critical damage', 'Modify damage…'],
+        ],
+        [
+          'not under Powerful Critical, whose most of it some rules add and others take away',
+          { ...DOUBLED, perDie: 1, powerfulCritical: true },
+          ['Modify damage…'],
+        ],
+      ])(
+        'offers a critical hit where the game makes one %s',
+        async (_, critical, offered) => {
+          await renderText(
+            taking('3 - 1d4 + 2d6'),
+            actionsFor({ damage: { modifies: true, signed: true, critical } }),
+          )
+
+          fireEvent.contextMenu(
+            screen.getByRole('button', { name: '3 - 1d4 + 2d6, roll damage' }),
+          )
+          expect(ways()).toEqual(offered)
+        },
+      )
+
+      it.each<[string, string, DescriptionActions['damage'], string[]]>([
+        [
+          'none, from a module before 0.21.0, which would change the die it takes away',
+          '3 - 1d4 + 2d6',
+          { modifies: true, signed: false, critical: DOUBLED },
+          ['Roll critical damage'],
+        ],
+        [
+          'the die it adds, from a module that changes only one it adds',
+          '3 - 1d4 + 2d6',
+          { modifies: true, signed: true, critical: DOUBLED },
+          ['Roll critical damage', 'Modify damage…'],
+        ],
+        [
+          'its first die, from a module before 0.21.0, where that is one it adds',
+          '1d12 - 1d4 + 3',
+          { modifies: true, signed: false, critical: DOUBLED },
+          ['Roll critical damage', 'Modify damage…'],
+        ],
+        [
+          'the die it adds, where the player alone rolls it',
+          '3 - 1d4 + 2d6',
+          undefined,
+          ['Roll critical damage', 'Modify damage…'],
+        ],
+      ])('offers its dice changed: %s', async (_, formula, damage, offered) => {
+        await renderText(taking(formula), actionsFor({ damage }))
+
+        fireEvent.contextMenu(
+          screen.getByRole('button', { name: `${formula}, roll damage` }),
+        )
+        expect(ways()).toEqual(offered)
+      })
     })
 
     it('is only its text where the app can’t read its formula', async () => {

@@ -56,6 +56,12 @@ const listOf = <T extends z.ZodType>(entry: T) =>
       }),
     )
 
+/** One of dnd5e's abilities, never a name any object answers to. */
+const abilityId = z.string().refine(id => Object.hasOwn(ABILITIES, id))
+
+/** A skill's or tool's key, as dnd5e's are. */
+const checkKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
+
 const conditionSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -65,14 +71,95 @@ const conditionSchema = z.looseObject({
   text: textRef,
 })
 
+/** A Foundry document's id, as a command names one. */
+const DOCUMENT_ID = /^[\dA-Za-z]{1,64}$/
+
+/** The most ways an enchant activity may enchant, items it may enchant, and enchantments kept. */
+const MAX_PROFILES = 20
+const MAX_ENCHANTABLE = 500
+const MAX_ENCHANTMENTS = 50
+
+/**
+ * A way an enchant activity may enchant, from module 0.21.0: its profile's id, which the app sends
+ * back, its name, and the spell levels it's offered at, from `min` to `max`, each null for no
+ * limit. One that can't be read is dropped, rather than offered at any level.
+ */
+const enchantProfileSchema = z
+  .looseObject({
+    id: z.string().regex(DOCUMENT_ID),
+    name: z.string().trim().min(1).max(200),
+    min: z.int().min(0).max(99).nullable(),
+    max: z.int().min(0).max(99).nullable(),
+  })
+  .refine(({ min, max }) => min === null || max === null || min <= max)
+
+/**
+ * What an enchant activity enchants, from module 0.21.0: its own item, or those of the character's
+ * its rules allow, by id, each once; the ways it may enchant, each once, at least one; and the
+ * enchantments it has applied. A malformed way, item or enchantment is dropped, and so is the whole
+ * where no way is left, or where it can't say whether it enchants its own item, so that the
+ * activity reads as used in Foundry.
+ */
+const enchantSchema = z
+  .looseObject({
+    self: z.boolean(),
+    toggle: z.boolean().catch(false),
+    profiles: listOf(enchantProfileSchema)
+      .transform(profiles =>
+        profiles
+          .filter(
+            (profile, index) =>
+              profiles.findIndex(({ id }) => id === profile.id) === index,
+          )
+          .slice(0, MAX_PROFILES),
+      )
+      .refine(profiles => profiles.length > 0),
+    items: listOf(z.string().regex(DOCUMENT_ID)).transform(ids =>
+      [...new Set(ids)].slice(0, MAX_ENCHANTABLE),
+    ),
+    applied: listOf(
+      z.looseObject({
+        item: z.string().regex(DOCUMENT_ID),
+        effect: z.string().regex(DOCUMENT_ID),
+        profile: z.string().regex(DOCUMENT_ID),
+      }),
+    ).transform(applied => applied.slice(0, MAX_ENCHANTMENTS)),
+  })
+  // One that enchants its own item enchants no other, and is a switch only then.
+  .transform(enchant =>
+    enchant.self ? { ...enchant, items: [] } : { ...enchant, toggle: false },
+  )
+  .optional()
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  .catch(undefined)
+
+/**
+ * The enchantments on an item, a spell, a feature or an action's item, from module 0.21.0, as many
+ * as fifty; a malformed one dropped. Left out, as sent, for none, and by earlier modules.
+ */
+const enchantmentsSchema = listOf(
+  z.looseObject({
+    id: z.string().regex(DOCUMENT_ID),
+    name: z.string().trim().min(1).max(200),
+    source: z.string().max(200).nullable().catch(null),
+    concentration: z.boolean().catch(false),
+    duration: z.string().max(100).nullable().catch(null),
+    expired: z.boolean().catch(false),
+    endable: z.boolean().catch(false),
+  }),
+)
+  .transform(enchantments => enchantments.slice(0, MAX_ENCHANTMENTS))
+  .optional()
+
 /**
  * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
- * kinds of activity the game uses, or none.
+ * kinds of activity the game uses, or none. From module 0.21.0, an activity that asks for a check;
+ * and one that enchants, with what it enchants, without which it's none.
  */
 const useSchema = z
   .looseObject({
     id: z.string().min(1),
-    type: z.enum(['save', 'damage', 'heal', 'utility']),
+    type: z.enum(['save', 'damage', 'heal', 'utility', 'check', 'enchant']),
     targets: z.looseObject({
       self: z.boolean().catch(false),
       area: z.boolean().catch(false),
@@ -86,10 +173,14 @@ const useSchema = z
         .transform(value => value ?? null),
       affects: nullableString,
     }),
+    // From module 0.21.0, for an enchant activity.
+    enchant: enchantSchema,
   })
   .nullable()
   .optional()
   .catch(null)
+  // An enchant activity that can't say what it enchants is used in Foundry.
+  .transform(use => (use?.type === 'enchant' && !use.enchant ? null : use))
 
 const usesSchema = z
   .looseObject({
@@ -109,6 +200,59 @@ const castLevelSchema = z.looseObject({
   charges: z.int().min(0).nullable().catch(null),
   short: z.boolean().catch(false),
 })
+
+/**
+ * One way a check an activity asks for may be made, from module 0.21.0: an ability check, or a
+ * skill's or a tool's, which names its skill or tool, and only they do; and for a tool's, the
+ * tool's own bonus, a whole number, where it has one.
+ */
+const checkOptionSchema = z
+  .looseObject({
+    type: z.enum(['check', 'skill', 'tool']),
+    ability: abilityId,
+    key: checkKey.optional(),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- none, where it can't be read
+    bonus: z.int().min(-99).max(99).optional().catch(undefined),
+  })
+  .refine(option => (option.type === 'check') === (option.key === undefined))
+
+/**
+ * The check an activity asks for, from module 0.21.0: one to ten ways to make it, each skill, tool
+ * or ability once, the first kept, malformed ones dropped; its DC, if it has one; and whether it's
+ * the character's own to make. Left out where it can't be read, so that the activity is only used.
+ */
+const checkSchema = z
+  .looseObject({
+    checks: listOf(checkOptionSchema)
+      .transform(options => {
+        const seen = new Set<string>()
+        return options.filter(({ type, ability, key }) => {
+          const id = `${type}:${key ?? ability}`
+          if (seen.has(id)) return false
+          seen.add(id)
+          return true
+        })
+      })
+      .refine(options => options.length > 0 && options.length <= MAX_CHECKS),
+    dc: z.int().min(1).max(99).nullable().catch(null),
+    own: z.boolean().catch(false),
+  })
+  .optional()
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  .catch(undefined)
+
+/**
+ * What using an activity that uses another spends of its uses, from module 0.21.0, and whether
+ * that many are left. Left out where it can't be read.
+ */
+const forwardSchema = z
+  .looseObject({
+    charges: z.int().min(0).nullable().catch(null),
+    short: z.boolean().catch(false),
+  })
+  .optional()
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  .catch(undefined)
 
 /** Are a cast's levels each above the last, the first the level it's cast at by default? */
 function castLevelsFrom(levels: { level: number }[], level: number): boolean {
@@ -210,6 +354,9 @@ const rollFields = {
     .catch(null),
   // From module 0.17.0: for a Cast, the id of the Spells tab's copy of its spell.
   spellId: z.string().min(1).max(64).nullable().optional().catch(null),
+  // From module 0.21.0: the check an activity asks for, and what one that uses another spends.
+  check: checkSchema,
+  forward: forwardSchema,
 }
 
 /**
@@ -259,6 +406,9 @@ const itemRollFields = {
   // From module 0.15.0, for a Cast, how its spell is cast; and from 0.17.0, its description.
   cast: rollFields.cast,
   spellId: rollFields.spellId,
+  // From module 0.21.0, for a check activity, and one that uses another.
+  check: rollFields.check,
+  forward: rollFields.forward,
   activities: activitiesSchema,
 }
 
@@ -290,6 +440,8 @@ const featureSchema = z.looseObject({
     .nullable()
     .catch(null),
   ...usageFields,
+  // From module 0.21.0.
+  enchantments: enchantmentsSchema,
   text: textRef,
 })
 
@@ -329,6 +481,8 @@ const itemFields = {
   identified: z.boolean().catch(true),
   activation: nullableString.optional(),
   ...usageFields,
+  // From module 0.21.0.
+  enchantments: enchantmentsSchema,
   text: textRef,
 }
 
@@ -433,6 +587,8 @@ const spellSchema = z.looseObject({
   // From module 0.8.2.
   castFrom: castFromSchema,
   ...itemRollFields,
+  // From module 0.21.0.
+  enchantments: enchantmentsSchema,
   text: textRef,
 })
 
@@ -467,6 +623,8 @@ const actionSchema = z.looseObject({
   castFrom: castFromSchema,
   concentration: z.boolean().catch(false),
   identified: z.boolean().catch(true),
+  // From module 0.21.0: the enchantments on its item.
+  enchantments: enchantmentsSchema,
   text: textRef,
 })
 
@@ -775,12 +933,6 @@ const dnd5eSchema = z
   .nullable()
   .catch(null)
 
-/** One of dnd5e's abilities, never a name any object answers to. */
-const abilityId = z.string().refine(id => Object.hasOwn(ABILITIES, id))
-
-/** A skill's or tool's key, as dnd5e's are. */
-const checkKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
-
 /** What an ask says besides what it asks for: its DC, and what asks for it. */
 const askFields = {
   // eslint-disable-next-line unicorn/no-useless-undefined -- left out where it can't be read
@@ -894,6 +1046,12 @@ const featuresSchema = z
         prompts: z.boolean().optional().catch(false),
         // From module 0.16.0: whether an area attack is made at the combatants its player picks.
         areaAttacks: z.boolean().optional().catch(false),
+        // From module 0.21.0: whether a check an activity asks for, the player's own, is made
+        // against it.
+        activityChecks: z.boolean().optional().catch(false),
+        // From module 0.21.0: whether more dice and another die change only a die damage adds,
+        // never one it takes away, which its previews mark.
+        signedDice: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -1001,6 +1159,33 @@ const commandResultSchema = z.object({
     .nullable()
     .optional()
     .catch(null),
+  // From module 0.21.0, for a use of an enchant activity, or an enchantment ended: the enchantment
+  // applied and the one ended, each null where none was, or it can't be read.
+  enchantment: z
+    .object({
+      enchanted: z
+        .object({
+          item: z.string().max(64),
+          itemName: z.string().max(200),
+          effect: z.string().max(64),
+          profile: z.string().max(64),
+          name: z.string().max(200),
+        })
+        .nullable()
+        .catch(null),
+      ended: z
+        .object({
+          item: z.string().max(64),
+          itemName: z.string().max(200),
+          effect: z.string().max(64),
+          name: z.string().max(200),
+        })
+        .nullable()
+        .catch(null),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
   damage: z
     .object({
       critical: z.boolean().catch(false),
@@ -1035,6 +1220,13 @@ const commandResultSchema = z.object({
                   // From module 0.20.0: dice of a critical hit's critical damage, never its first
                   // die; anything else is left out, and the preview still read.
                   added: z
+                    .literal(true)
+                    .optional()
+                    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+                    .catch(undefined),
+                  // From module 0.21.0: dice the damage takes away, never its first die; anything
+                  // else is left out, and the preview still read.
+                  subtracted: z
                     .literal(true)
                     .optional()
                     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk

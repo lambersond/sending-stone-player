@@ -87,6 +87,9 @@ export function activityAction(
     ...(activity.cast && { cast: activity.cast }),
     ...(activity.rollFormula && { rollFormula: activity.rollFormula }),
     ...(activity.attackArea && { attackArea: activity.attackArea }),
+    // The check it asks for, and what one that uses another spends.
+    ...(activity.check && { check: activity.check }),
+    ...(activity.forward && { forward: activity.forward }),
     ...(activity.activationType !== undefined && {
       activationType: activity.activationType,
     }),
@@ -168,6 +171,7 @@ export function spellAction(spell: SheetSpell): SheetAction | undefined {
       castFrom: spell.castFrom ?? null,
       concentration: spell.concentration,
       identified: true,
+      ...enchantmentsOf(spell),
       text: spell.text,
     }
   )
@@ -194,6 +198,7 @@ export function featureAction(feature: SheetFeature): SheetAction | undefined {
       castFrom: null,
       concentration: feature.concentration ?? false,
       identified: true,
+      ...enchantmentsOf(feature),
       text: feature.text,
     }
   )
@@ -221,6 +226,7 @@ export function itemAction(item: SheetItem): SheetAction | undefined {
       castFrom: null,
       concentration: item.concentration ?? false,
       identified: true,
+      ...enchantmentsOf(item),
       text: item.text,
     }
   )
@@ -250,6 +256,9 @@ function rollsOf(
     ...(entry.spellId && { spellId: entry.spellId }),
     ...(entry.rollFormula && { rollFormula: entry.rollFormula }),
     ...(entry.attackArea && { attackArea: entry.attackArea }),
+    // The check it asks for, and what it spends where it uses another activity.
+    ...(entry.check && { check: entry.check }),
+    ...(entry.forward && { forward: entry.forward }),
     // Each of its activities, for one with more than one, made in the game only while it may be.
     ...(activities.length > 1 && {
       activities: inGame
@@ -270,6 +279,13 @@ function rollsOf(
       !!each.rollFormula,
   )
   return any ? rolls : undefined
+}
+
+/** The enchantments on something, as an action has them: none where there are none. */
+function enchantmentsOf(
+  entry: Pick<SheetAction, 'enchantments'>,
+): Pick<SheetAction, 'enchantments'> {
+  return entry.enchantments?.length ? { enchantments: entry.enchantments } : {}
 }
 
 function present<T>(value: T | undefined): T[] {

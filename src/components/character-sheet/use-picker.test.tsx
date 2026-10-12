@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   asks,
+  enchantPicks,
   targetsOf,
   UsePicker,
   useTargetsOf,
@@ -10,12 +11,14 @@ import {
 } from './use-picker'
 import {
   castingSheet,
+  enchantingSheet,
   sheetAction,
   sheetSpell,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import { castIndex, type CastIndex } from '@/utils/casts'
-import { activityActions, spellAction } from '@/utils/sheet-actions'
+import { belongingsOf } from '@/utils/enchantments'
+import { activityActions, itemAction, spellAction } from '@/utils/sheet-actions'
 import type {
   SheetAction,
   SheetSpellSection,
@@ -395,6 +398,62 @@ describe('components/character-sheet/use-picker', () => {
     })
   })
 
+  it('casts a spell through its free casting with no slots offered, at its own level, from module 0.21.0', async () => {
+    const user = userEvent.setup()
+    const free = spell('bless', 'Bless (Cast (free casting))', 1, {
+      activity: use('utility', { count: 3, affects: 'ally' }),
+      consumesSlot: false,
+      forward: { charges: 1, short: false },
+    })
+    const { onPick } = renderPicker(using(free))
+
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.queryByRole('group', { name: /Cast at|At level/ })).toBeNull()
+    expect(screen.getByText('Tick who to target. Up to 3.')).toBeInTheDocument()
+    for (const name of [/^Thorin/, /^Vex/, /^Goblin$/]) {
+      await user.click(screen.getByRole('checkbox', { name }))
+    }
+    expect(
+      screen.getByRole('checkbox', { name: /^Goblin Boss/ }),
+    ).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Cast at 3 targets' }))
+
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [fight.combatants[1], fight.combatants[2], fight.combatants[0]],
+    })
+    // Nothing is asked of it out of a fight.
+    expect(asks(using(free), undefined, spellbook)).toBe(false)
+  })
+
+  it('uses a spell’s check called for once it’s cast at the level chosen, spending none, from module 0.21.0', async () => {
+    const user = userEvent.setup()
+    // The 2014 Entangle's Escape Plants, which the module uses at the slot's level, as dnd5e does
+    // with the slot unticked, spending none.
+    const plants = spell('orb', 'Entangle (Escape Plants Check)', 1, {
+      activity: use('check', { count: 1 }),
+      check: {
+        checks: [{ type: 'check', ability: 'str' }],
+        dc: 18,
+        own: false,
+      },
+      consumesSlot: false,
+    })
+    const { onPick } = renderPicker(using(plants))
+
+    expect(chips('At level')).toEqual([
+      ['1st', 'true', false],
+      ['2nd', 'false', false],
+      ['3rd', 'false', false],
+    ])
+    await user.click(screen.getByRole('radio', { name: '2nd Level' }))
+    await user.click(screen.getByRole('button', { name: /^Goblin$/ }))
+
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [fight.combatants[0]],
+      slot: 'spell2',
+    })
+  })
+
   it('ticks who an area catches, with no limit, and casts at none', async () => {
     const user = userEvent.setup()
     const fireball = spell('fireball', 'Fireball', 3, {
@@ -654,5 +713,225 @@ describe('components/character-sheet/use-picker', () => {
     const { onClose } = renderPicker(attacking(warhammer))
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+/** An action whose enchant activity enchants so. */
+const enchanting = (
+  action: SheetAction,
+  enchant: Partial<NonNullable<SheetUse['enchant']>>,
+): SheetAction => ({
+  ...action,
+  activity: {
+    ...action.activity!,
+    enchant: { ...action.activity!.enchant!, ...enchant },
+  },
+})
+
+/** Ways to enchant without limits, so many. */
+const ways = (count: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `way${index}`,
+    name: `Flame Blade (${['Fire', 'Cold', 'Acid', 'Lightning', 'Thunder'][index]})`,
+    min: null,
+    max: null,
+  }))
+
+describe('components/character-sheet/use-picker for enchant activities, from module 0.21.0', () => {
+  const sheet = enchantingSheet()
+  const belongings = belongingsOf(sheet)
+  const magicWeapon = spellAction(sheet.spells[1].spells[0])!
+  const shillelagh = spellAction(sheet.spells[0].spells[0])!
+  const [flameTongue, venom] = sheet.inventory.sections[0].items
+    .slice(3)
+    .map(item => itemAction(item)!)
+  const engulf = activityActions(flameTongue)[0]
+  const coat = activityActions(venom)[0]
+
+  const renderEnchant = (action: SheetAction) => {
+    const onPick = jest.fn()
+    render(
+      <UsePicker
+        picking={using(action)}
+        combat={fight}
+        spellbook={sheet.spells}
+        belongings={belongings}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />,
+    )
+    return { onPick }
+  }
+
+  it('asks which item for one that enchants another, and how for one that enchants its own in more ways than one', () => {
+    const ask = (action: SheetAction) =>
+      asks(using(action), fight, sheet.spells)
+    expect(ask(magicWeapon)).toBe(true)
+    expect(ask(shillelagh)).toBe(true)
+    expect(asks(using(shillelagh), undefined, sheet.spells)).toBe(true)
+    expect(ask(engulf)).toBe(false)
+    expect(ask(enchanting(engulf, { profiles: ways(2) }))).toBe(true)
+    expect(ask(coat)).toBe(false)
+    // The way it's on its own item already isn't one to use it in again.
+    expect(
+      ask(
+        enchanting(coat, {
+          profiles: ways(2),
+          applied: [{ item: 'venom', effect: 'e1', profile: 'way0' }],
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('uses one that asks nothing in its first way, at the level it is cast at by default', () => {
+    expect(enchantPicks(engulf, sheet.spells)).toEqual({
+      enchant: { profile: 'ablazeProfile01' },
+    })
+    expect(enchantPicks(magicWeapon, sheet.spells)).toEqual({
+      slot: 'spell2',
+      enchant: { profile: 'SLSudYaACjmmmZsU' },
+    })
+    expect(enchantPicks(warhammer, sheet.spells)).toEqual({})
+  })
+
+  it('offers the ways it enchants at the level chosen, again as it changes, and no level with none', async () => {
+    const user = userEvent.setup()
+    renderEnchant(magicWeapon)
+    expect(chips('Enchantment')).toEqual([['Magic Weapon, +1', 'true', false]])
+    await user.click(
+      screen.getByRole('radio', { name: '4th Level, 1 slot left' }),
+    )
+    expect(chips('Enchantment')).toEqual([['Magic Weapon, +2', 'true', false]])
+    await user.click(
+      screen.getByRole('radio', { name: '2nd Level, 2 slots left' }),
+    )
+    expect(chips('Enchantment')).toEqual([['Magic Weapon, +1', 'true', false]])
+  })
+
+  it('cuts a long way short to the width of its row, saying the whole of it', () => {
+    const long = 'Giant’s Bane: Paired Attunement Bonuses and a Great Deal More'
+    renderEnchant(
+      enchanting(magicWeapon, {
+        profiles: [
+          { id: 'plusOne', name: long, min: null, max: null },
+          { id: 'plusTwo', name: 'Magic Weapon, +2', min: null, max: null },
+        ],
+      }),
+    )
+    const row = screen.getByRole('group', { name: 'Enchantment' })
+    // A fieldset is as wide as what's in it unless it's let shrink, so its chips never cut a name
+    // short and the picker scrolls sideways on a phone: it's let shrink.
+    expect(row.tagName).toBe('FIELDSET')
+    expect(row).toHaveClass('min-w-0')
+    const chip = within(row).getByRole('radio', { name: long })
+    expect(chip).toHaveClass('max-w-full')
+    expect(chip.firstElementChild).toHaveClass('block', 'truncate')
+  })
+
+  it('offers no level at which it enchants nothing', () => {
+    renderEnchant(
+      enchanting(magicWeapon, {
+        profiles: [
+          { id: 'plusOne', name: 'Magic Weapon, +1', min: null, max: 2 },
+          { id: 'plusTwo', name: 'Magic Weapon, +2', min: 4, max: 5 },
+        ],
+      }),
+    )
+    expect(chips('Cast at')).toEqual([
+      ['2nd · 2 left', 'true', false],
+      ['3rd · 1 left', 'false', true],
+      ['4th · 1 left', 'false', false],
+    ])
+  })
+
+  it('lists the items it may enchant with their names and icons, marking those it enchants already', () => {
+    renderEnchant(
+      enchanting(magicWeapon, {
+        applied: [{ item: 'club', effect: 'e1', profile: 'SLSudYaACjmmmZsU' }],
+      }),
+    )
+    expect(screen.getByText('Choose what to enchant.')).toBeInTheDocument()
+    const longsword = screen.getByRole('button', { name: 'Longsword' })
+    expect(longsword.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://game.test/longsword.webp',
+    )
+    expect(
+      screen.getByRole('button', {
+        name: /^Club\b.*enchanted by it already$/,
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Quarterstaff' }),
+    ).toBeInTheDocument()
+  })
+
+  it('enchants the item tapped, at once, in the way and with the slot chosen', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderEnchant(magicWeapon)
+    await user.click(
+      screen.getByRole('radio', { name: '4th Level, 1 slot left' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Longsword' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      slot: 'spell4',
+      enchant: { profile: '8OhsRxK3dF1JeQXO', item: 'longsword' },
+    })
+  })
+
+  it('leaves it on its card, enchanting none of the character’s items', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderEnchant(shillelagh)
+    await user.click(
+      screen.getByRole('button', { name: /^Leave it on the card/ }),
+    )
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      enchant: { profile: 'Oy8fP2N3q4R5s6T7' },
+    })
+  })
+
+  it('says where none of the character’s items can take it, still leaving it on the card', () => {
+    renderEnchant(enchanting(shillelagh, { items: [] }))
+    expect(
+      screen.getByText('None of your items can take it.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^Leave it on the card/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('lists more ways than a row has room for one under another, each name said in full', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderEnchant(
+      enchanting(engulf, { toggle: false, profiles: ways(5) }),
+    )
+    const group = screen.getByRole('radiogroup', { name: 'Enchantment' })
+    expect(within(group).getAllByRole('radio')).toHaveLength(5)
+    await user.click(
+      within(group).getByRole('radio', { name: 'Flame Blade (Thunder)' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Use' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      enchant: { profile: 'way4' },
+    })
+  })
+
+  it('never offers one that enchants its own item the way it is on it already', () => {
+    renderEnchant(
+      enchanting(coat, {
+        profiles: ways(3),
+        applied: [{ item: 'venom', effect: 'e1', profile: 'way1' }],
+      }),
+    )
+    expect(chips('Enchantment')).toEqual([
+      ['Flame Blade (Fire)', 'true', false],
+      ['Flame Blade (Acid)', 'false', false],
+    ])
+    expect(
+      screen.queryByText('Choose what to enchant.'),
+    ).not.toBeInTheDocument()
   })
 })

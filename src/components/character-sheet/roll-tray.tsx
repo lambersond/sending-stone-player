@@ -18,7 +18,11 @@ import {
   type DueDamage,
   type TableRollState,
 } from '@/hooks/use-table-rolls'
-import { firstDie, type DamageModifiers } from '@/utils/damage-modifiers'
+import {
+  damageChanges,
+  diceTakenAway,
+  type DamageModifiers,
+} from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
 import type {
   LocalAsk,
@@ -284,6 +288,12 @@ export const REASONS: Record<string, string> = {
   prompt: 'your Gamemaster’s game isn’t asking for it any more',
   'no-hit-dice': 'you have no hit dice of that size left',
   'full-hp': 'you’re at full hit points',
+  profile: 'that enchantment isn’t offered at that level',
+  'enchant-target': 'that item can’t take that enchantment',
+  applied: 'that enchantment is on it already',
+  enchant:
+    'it was used, but the enchantment wasn’t applied: your Gamemaster can apply it from the card',
+  enchantment: 'that enchantment can’t be ended from here',
 }
 
 /**
@@ -303,12 +313,22 @@ const HIT_DICE_REASONS: Record<string, string> = {
   'no-hit-dice': 'you haven’t that many hit dice left',
 }
 
+/**
+ * Why an enchant activity's enchantment wasn't applied, in words, where it differs from why a use
+ * wasn't made: where the game names no card of it, the Gamemaster can't apply it from one, as none
+ * is in the game's chat, or one is that dnd5e lets no one apply it from, its concentration ended.
+ */
+const ENCHANT_REASONS: Record<string, string> = {
+  enchant: 'it was used, but the enchantment wasn’t applied',
+}
+
 /** Why a roll, an attack or a use wasn't made, in words, if it's one the player is told of. */
 function reasonOf(state: TableRollState): string | undefined {
   const key = state.reason ?? state.status
   const own =
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
-    (state.hitDice ? HIT_DICE_REASONS[key] : undefined)
+    (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
+    (state.card === false ? ENCHANT_REASONS[key] : undefined)
   return own ?? REASONS[key]
 }
 
@@ -504,7 +524,8 @@ function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
  * Roll the damage or healing of an attack or use the game made, while the game waits for it: as
  * one of the kinds of damage it offers, a button each, where it offers a choice. Where the game
  * takes damage the player changed, a right-click or long-press offers to roll it at its highest,
- * or with its dice changed first.
+ * unless it takes a die away, or with its dice changed first, where it has a first die the game
+ * changes; nothing where it offers neither.
  */
 function DamageButton({
   name,
@@ -533,8 +554,10 @@ function DamageButton({
       ? 'bg-primary/10 text-primary hover:bg-primary/20'
       : 'bg-damage/15 text-damage hover:bg-damage/25',
   )
-  // Its dice as the game will throw them, for its menu to change them.
+  // Its dice as the game will throw them, for its menu to change them. Damage the game rolls itself
+  // has no dice here to change, but can be its highest, unless its formula takes a die away.
   const game = damageRollOf(name, due)
+  const ways = damageChanges(game.parts, game.fixed, diceTakenAway(damage))
   const formula = damage.rolls.map(roll => roll.formula).join(' + ')
   const roll = (type?: string, modifiers?: DamageModifiers) => {
     if (modifiers) onRollDamage(name, due, type, modifiers)
@@ -552,7 +575,8 @@ function DamageButton({
       <RollButton
         target={type}
         onRoll={() => roll(type)}
-        onMenu={(anchor, _, point) =>
+        onMenu={(anchor, _, point) => {
+          if (ways.length === 0) return
           open(
             anchor,
             {
@@ -561,15 +585,12 @@ function DamageButton({
               parts: game.parts,
               healing: damage.healing === true,
               perDie: game.perDie,
-              // Damage the game rolls itself has no dice here to change, but can be its highest.
-              choices: firstDie(game.parts)
-                ? ['maximize', 'modify-damage']
-                : ['maximize'],
+              choices: ways,
               onChoose: ({ modifiers }) => roll(type, modifiers),
             },
             point,
           )
-        }
+        }}
         label={label}
         className={className}
       >
@@ -640,7 +661,11 @@ function TableMark({
   if (state.status === 'done') {
     if (asked) return <span className='ml-1.5'>· posted</span>
     if (roll.kind === 'use') {
-      return <span className='ml-1.5'>· at the table</span>
+      return (
+        <span className='ml-1.5'>
+          {enchantmentNote(state.enchantment) ?? '· at the table'}
+        </span>
+      )
     }
     const saved = state.visible ? savedAt(state, dcOf(roll)) : undefined
     const verdict = roll.kind === 'check' ? roll.verdict : undefined
@@ -672,6 +697,20 @@ function TableMark({
       </span>
     </>
   )
+}
+
+/**
+ * What an enchant activity used at the table did, in brief: the enchantment it applied, and on
+ * what, such as "· Magic Weapon, +1 on Longsword"; or else the one it ended, such as "· ended
+ * Ablaze". Nothing where it did neither, as where it was left on its card.
+ */
+function enchantmentNote(
+  enchantment: TableRollState['enchantment'],
+): string | undefined {
+  const { enchanted, ended } = enchantment ?? {}
+  if (enchanted) return `· ${enchanted.name} on ${enchanted.itemName}`
+  if (ended) return `· ended ${ended.name}`
+  return undefined
 }
 
 /** The DC a description names for a saving throw or check rolled against it, if any. */
@@ -922,12 +961,17 @@ function UseResult({
   )
 }
 
-/** Where a use is on its way to the game, or what became of it. */
+/**
+ * Where a use is on its way to the game, or what became of it: for an enchant activity, the
+ * enchantment it applied, and on what, or the one it ended. Or where an enchantment ended is.
+ */
 function UseStatus({
   roll,
   state,
 }: Readonly<{ roll: LocalUse; state: TableRollState }>) {
-  const verb = roll.spell ? 'Cast' : 'Used'
+  let verb = roll.spell ? 'Cast' : 'Used'
+  let doing = roll.spell ? 'Casting' : 'Using'
+  if (roll.ending) [verb, doing] = ['Ended', 'Ending']
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   switch (state.status) {
     case 'sending':
@@ -940,20 +984,26 @@ function UseStatus({
           />
           {state.status === 'sending'
             ? 'Sending to your Gamemaster’s game…'
-            : `${roll.spell ? 'Casting' : 'Using'} it in your Gamemaster’s game…`}
+            : `${doing} it in your Gamemaster’s game…`}
         </p>
       )
     }
     case 'done': {
       const { damage } = state
       const follows = damage && !state.damaged && choicesOf(damage).length === 0
+      const enchanted = roll.ending
+        ? undefined
+        : enchantmentNote(state.enchantment)
       return (
         <p className={clsx(line, 'text-text-secondary')}>
           <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
-          {verb} at the table
-          {follows
-            ? `, its ${damage.healing ? 'healing' : 'damage'} to follow`
-            : ''}
+          <span>
+            {verb} at the table
+            {follows
+              ? `, its ${damage.healing ? 'healing' : 'damage'} to follow`
+              : ''}
+            {enchanted && ` ${enchanted}`}
+          </span>
         </p>
       )
     }
@@ -1057,7 +1107,10 @@ function byTheGame(roll: LocalDamage): boolean {
 }
 
 function breakdown(roll: LocalRoll): string {
-  if (roll.kind === 'use') return roll.spell ? 'cast' : 'used'
+  if (roll.kind === 'use') {
+    if (roll.ending) return 'ended'
+    return roll.spell ? 'cast' : 'used'
+  }
   if (roll.kind === 'ask') return 'asked'
   if (roll.kind === 'formula') {
     const terms = roll.terms

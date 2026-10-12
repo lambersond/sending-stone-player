@@ -83,11 +83,17 @@ async function apply(
           ),
           // What else it can do with them: from module 0.13.0, take damage a player changed, and
           // ask players for the saves their game asks of them; from module 0.16.0, make area
-          // attacks at the combatants players pick.
+          // attacks at the combatants players pick; from module 0.21.0, make a check an activity
+          // asks for, the player's own, against it, and change a description's damage only on a
+          // die it adds.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
             ...(features?.rolls?.areaAttacks === true ? ['areaAttacks'] : []),
+            ...(features?.rolls?.activityChecks === true
+              ? ['activityChecks']
+              : []),
+            ...(features?.rolls?.signedDice === true ? ['signedDice'] : []),
           ],
         },
       })

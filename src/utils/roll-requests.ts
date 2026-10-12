@@ -11,12 +11,13 @@ import { castAtLevel, castIndex, castOf, type CastIndex } from '@/utils/casts'
 import {
   changes,
   criticalOffered,
+  diceTakenAway,
   linkDamage,
   modifiedDice,
 } from '@/utils/damage-modifiers'
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
-import { sheetTextRefs } from '@/utils/sheet-texts'
+import { allItems, sheetTextRefs } from '@/utils/sheet-texts'
 import { toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
@@ -32,14 +33,16 @@ import type {
   CombatSnapshot,
   CommandResult,
   SheetAction,
+  SheetEnchantment,
 } from '@/types/sending-stone'
 import type { CheckOption, FoundLink } from '@/utils/description-links'
 import type { ExtraDice } from '@/utils/roll-modifiers'
 
 /**
  * Why a roll can't go to the Gamemaster's game: the game can't take it now, the sheet has no such
- * skill, ability, tool, attack, spell or feature, the character isn't dying, isn't in the combat,
- * or has rolled initiative already. For an attack or a use: the spell it's cast with has no spell
+ * skill, ability, tool, attack, spell or feature, nor check of the character's own an activity asks
+ * for, the character isn't dying, isn't in the combat, or has rolled initiative already. For an
+ * attack or a use: the spell it's cast with has no spell
  * slots left, or none of the slot chosen; a spell an item casts isn't offered at the level chosen
  * (`slot`); the attack mode or ammunition chosen isn't the weapon's, or none of it is left; or a
  * target can't be picked, or there are more than it takes. For damage:
@@ -56,7 +59,13 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * its formulas throw, changed as the player chose, or as a critical hit's where the sheet doesn't
  * say how the world makes one, or where it isn't offered, as where it adds dice the world's rules
  * don't say how they throw; a kind of damage chosen isn't one it offers; or damage is changed where
- * the game, before module 0.19.0, doesn't take it so (`unavailable`).
+ * the game, before module 0.19.0, doesn't take it so (`unavailable`). For a use of an enchant
+ * activity, from module 0.21.0: the way it enchants isn't one it offers, or not at the level it's
+ * cast at, or none was chosen (`profile`); or the item it enchants isn't one it may, as for one
+ * that enchants its own (`enchant-target`); or one that enchants its own item is used in the way
+ * it's on it in already, which dnd5e would take as ending it, at a cost (`applied`). For an
+ * enchantment ended: it isn't one the player may end, on that item of the character's
+ * (`enchantment`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -78,6 +87,10 @@ export type RollRefusal =
   | 'no-hit-dice'
   | 'link'
   | 'secret'
+  | 'profile'
+  | 'enchant-target'
+  | 'applied'
+  | 'enchantment'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -147,9 +160,12 @@ export function rollsKey(
  * any tool; it must be dying to roll a death saving throw; it must be in the combat, without
  * initiative yet, to roll initiative; and it must have a hit die of the size it spends left, or of
  * hit dice spent at once, as many of each size as it spends. What a link in a description asks for
- * must be what that link is, in a description on its sheet.
+ * must be what that link is, in a description on its sheet; and a check an activity asks for, one
+ * of the ways that activity may be made, as `checkActivityRoll` says.
  * @param links - For a roll from a link in a description, the links the game acts on in that
  *   description, as held here; none where it isn't held.
+ * @param features - What else the campaign's game does with its players' rolls, as its hello
+ *   said, such as `signedDice`; none, as a module before 0.21.0, unless said.
  * @returns Why not, or nothing when it can.
  */
 export function checkRoll(
@@ -158,9 +174,15 @@ export function checkRoll(
   combats: CombatSnapshot[],
   actorId: string,
   links?: ReadonlyMap<number, FoundLink>,
+  features: readonly string[] = [],
 ): RollRefusal | undefined {
+  if (input.item !== undefined && Object.hasOwn(CHECK_TYPES, input.kind)) {
+    return checkActivityRoll(input, sheet)
+  }
   const linked = () =>
-    input.text === undefined ? undefined : checkLinked(input, sheet, links)
+    input.text === undefined
+      ? undefined
+      : checkLinked(input, sheet, links, features)
   switch (input.kind) {
     case 'skill': {
       return (
@@ -178,11 +200,13 @@ export function checkRoll(
     case 'ask':
     case 'textDamage':
     case 'textRoll': {
-      return checkLinked(input, sheet, links)
+      return checkLinked(input, sheet, links, features)
     }
     case 'tool': {
       // A description's tool check is made as dnd5e makes one, with the tool or without it.
-      if (input.text !== undefined) return checkLinked(input, sheet, links)
+      if (input.text !== undefined) {
+        return checkLinked(input, sheet, links, features)
+      }
       // The sheet lists tools among its tools, from module 0.18.0, and its favorites.
       return known(
         (sheet?.tools ?? []).some(({ id }) => id === input.key) ||
@@ -220,6 +244,9 @@ export function checkRoll(
     // Checked against its attack or use, by checkDamage.
     case 'damage': {
       return undefined
+    }
+    case 'endEnchantment': {
+      return checkEnding(input, sheet)
     }
   }
 }
@@ -272,7 +299,8 @@ function checkAttack(
  * Can the character use this spell or feature: is it what one of its actions, favorites, spells,
  * features or inventory items is used through, identified, with a spell slot left for a spell, at
  * no more combatants than it takes at the level it's cast at, all of them combatants its player
- * can see? Whatever else it spends, such as its uses, the game checks as it would spend it.
+ * can see? An enchant activity is used at no one, as `checkEnchant` says. Whatever else it spends,
+ * such as its uses, the game checks as it would spend it.
  */
 function checkUse(
   input: RollRequestInput,
@@ -286,12 +314,90 @@ function checkUse(
   const casts = castIndex(sheet)
   const slot = checkSlot(input, action, sheet, casts)
   if (slot) return slot
+  if (action.activity.type === 'enchant') {
+    return checkEnchant(input, action, sheet, casts)
+  }
+  // Only an enchant activity enchants.
+  if (input.enchant !== undefined) return 'unknown'
   const targets = input.targets ?? []
   const { base, level } = levelsOf(input, action, sheet, casts)
   if (targets.length > mostTargets(action.activity.targets, base, level)) {
     return 'target'
   }
   return checkTargets(targets, combats)
+}
+
+/**
+ * Can the character use this enchant activity so: at no one, as it enchants an item; in one of the
+ * ways it offers, chosen, and for one offered only at some spell levels, such as Magic Weapon's
+ * +2, at the level it's cast at, with the slot, or a spell an item casts at the level, chosen,
+ * where there's a choice; and on one of the items it may enchant, or none, to leave on its card,
+ * but never another for one that enchants its own item, nor in the way it's on its own item in
+ * already, which only a sheet out of date offers, and which dnd5e would take as ending it, at a
+ * cost? Whether the item may take it still is the game's to check, as dnd5e's rules for it say.
+ */
+function checkEnchant(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+  casts: CastIndex,
+): RollRefusal | undefined {
+  const enchant = action.activity?.enchant
+  if (!enchant) return 'unknown'
+  if ((input.targets ?? []).length > 0) return 'target'
+  const chosen = input.enchant
+  if (!chosen) return 'profile'
+  const profile = enchant.profiles.find(({ id }) => id === chosen.profile)
+  if (!profile) return 'profile'
+  if (profile.min !== null || profile.max !== null) {
+    const chooses =
+      (slotPools(action, sheet.spells)?.length ?? 0) > 0 ||
+      (castOf(action, casts)?.levels?.length ?? 0) > 0
+    if (chooses && !input.slot) return 'profile'
+    const level = castAtLevel(action, sheet.spells, input.slot, casts)
+    if (
+      level === null ||
+      (profile.min !== null && level < profile.min) ||
+      (profile.max !== null && level > profile.max)
+    ) {
+      return 'profile'
+    }
+  }
+  const { item } = chosen
+  const offered = enchant.self
+    ? item === undefined
+    : item === undefined || enchant.items.includes(item)
+  if (!offered) return 'enchant-target'
+  const on =
+    enchant.self &&
+    enchant.applied.some(applied => applied.profile === chosen.profile)
+  return on ? 'applied' : undefined
+}
+
+/**
+ * Can the character end this enchantment: is it on one of its inventory items, spells, features or
+ * actions' items, as the sheet lists the enchantments on them, and one the player may end?
+ */
+function checkEnding(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  const { enchantment } = input
+  if (!sheet || !enchantment) return 'enchantment'
+  const enchanted: { id: string; enchantments?: SheetEnchantment[] }[] = [
+    ...allItems(sheet),
+    ...sheet.spells.flatMap(section => section.spells),
+    ...sheet.features.flatMap(section => section.features),
+    ...sheet.actions.flatMap(section => section.actions),
+  ]
+  const endable = enchanted.some(
+    ({ id, enchantments }) =>
+      id === enchantment.item &&
+      !!enchantments?.some(
+        ({ id: effect, endable }) => effect === enchantment.effect && endable,
+      ),
+  )
+  return endable ? undefined : 'enchantment'
 }
 
 /**
@@ -407,16 +513,18 @@ function checkFormula(
  * that names none, as the game takes it; the player's own check is one of the link's, by its kind
  * and its skill's, tool's or ability's key; damage or healing is rolled as its parts' formulas
  * throw, each as a kind of damage the part offers, where chosen, changed as the player chose, as an
- * attack's damage may be, where the game takes it so, and damage, never healing nor damage the game
- * marks as never one, as a critical hit's, its dice thrown as many times as the world's rules say,
- * where the sheet says, with the dice a critical hit adds, as they throw them; and a roll of its
- * own as its formula throws. The game reads the link again from its own copy, so nothing it asks
- * for is taken from the app.
+ * attack's damage may be, where the game takes it so, its first die, where the game changes only
+ * one it adds (`signedDice`), else only where that's its first die whatever its sign, and damage,
+ * never healing nor damage the game marks as never one, as a critical hit's, its dice thrown as
+ * many times as the world's rules say, where the sheet says, with the dice a critical hit adds, as
+ * they throw them; and a roll of its own as its formula throws. The game reads the link again from
+ * its own copy, so nothing it asks for is taken from the app.
  */
 function checkLinked(
   input: RollRequestInput,
   sheet: CharacterSheet | undefined,
   links: ReadonlyMap<number, FoundLink> | undefined,
+  features: readonly string[],
 ): RollRefusal | undefined {
   if (!sheet) return 'unknown'
   const { text, link: number } = input
@@ -475,7 +583,15 @@ function checkLinked(
       if (adds === false) return 'dice'
       // A part the app can't read, it couldn't have rolled.
       const preview = linkDamage(damage, rule ?? undefined, adds)
-      const planned = preview && modifiedDice(preview, input.modifiers)
+      // Never at its highest where it takes a die away, which that would take the most of.
+      if (input.modifiers?.maximize && preview && diceTakenAway(preview)) {
+        return 'dice'
+      }
+      // Its first die changed only where the game changes that one, as a module before 0.21.0,
+      // which changes its first die whatever its sign, does only where that's one it adds.
+      const planned =
+        preview &&
+        modifiedDice(preview, input.modifiers, features.includes('signedDice'))
       return planned && matchesPlanned(input, planned) ? undefined : 'dice'
     }
     case 'textRoll': {
@@ -489,7 +605,37 @@ function checkLinked(
   }
 }
 
-/** The kind of option a check a description calls for has, for each kind of roll that makes one. */
+/**
+ * Is this a check an activity asks for that the character makes itself: the activity of one of its
+ * actions, favorites, spells, features or inventory items, identified, whose check is its own to
+ * make, rolled one of the ways that check may be made, by its kind and its skill's, tool's or
+ * ability's key? The sheet's own skills and tools aren't looked at: dnd5e makes a tool's check with
+ * the tool or without it, and the game reads the check again from the activity.
+ */
+function checkActivityRoll(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  if (!sheet) return 'unknown'
+  const type = CHECK_TYPES[input.kind as keyof typeof CHECK_TYPES]
+  const offered = sheetActions(sheet).some(
+    ({ id, activity, check, identified }) =>
+      id === input.item &&
+      activity?.id === input.activity &&
+      identified &&
+      check?.own === true &&
+      check.checks.some(
+        option =>
+          option.type === type && (option.key ?? option.ability) === input.key,
+      ),
+  )
+  return offered ? undefined : 'unknown'
+}
+
+/**
+ * The kind of option a check a description or an activity calls for has, for each kind of roll
+ * that makes one.
+ */
 const CHECK_TYPES = {
   skill: 'skill',
   tool: 'tool',
@@ -542,8 +688,9 @@ function checkTargets(
 /**
  * Can this damage be rolled: does it follow the character's own attack or use, made in the game
  * lately, that said damage or healing follows; is no other damage for it on its way or made; are
- * its dice those it said its damage throws, in order, changed as the player chose, if they did;
- * and is each kind of damage chosen one its roll offers?
+ * its dice those it said its damage throws, in order, changed as the player chose, if they did,
+ * never at its highest where it takes a die away; and is each kind of damage chosen one its roll
+ * offers?
  * @param use - The attack or use, if it's the character's.
  * @param others - The other damage asked for the same attack or use.
  */
@@ -562,6 +709,7 @@ export function checkDamage(
     ['sending', 'rolling', 'done'].includes(rollStatus(other, now)),
   )
   if (taken) return 'damaged'
+  if (input.modifiers?.maximize && diceTakenAway(damage)) return 'dice'
   const planned = modifiedDice(damage, input.modifiers)
   if (!planned || !matchesPlanned(input, planned)) return 'dice'
   const types = input.types ?? []
@@ -619,7 +767,8 @@ export function rollStatus(
  * A roll as its player is told of it: where it stands, and what the game made of it. Of hit dice
  * spent at once, how many the game made, where it made some: all of them, where their player may
  * see them, or where it stopped part way, even where they can't; and where they can, what those it
- * made came to, all together, and gave back.
+ * made came to, all together, and gave back. Of an enchant activity used, or an enchantment ended,
+ * what it applied and ended, seen or not; and of one that failed, whether no card of it is left.
  */
 export function toRollRequestView(
   request: HeldRollRequest,
@@ -631,7 +780,7 @@ export function toRollRequestView(
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
-      return { id: request.id, status, reason }
+      return { id: request.id, status, reason, ...cardless(result) }
     }
     if (!result.visible) {
       return { id: request.id, status, reason, visible: false, ...spent }
@@ -642,25 +791,36 @@ export function toRollRequestView(
       status,
       reason,
       visible: true,
-      total: sumOf(rolls),
+      total: sumOf(rolls, request.kind),
       rolls,
       ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
       ...spent,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
-  // An attack's or a use's damage is the player's to roll, even of one they can't see.
+  // An attack's or a use's damage is the player's to roll, even of one they can't see; and what an
+  // enchant activity did to their items is theirs to know.
   const damage = result.damage === undefined ? {} : { damage: result.damage }
   const use = result.use ? { use: result.use } : {}
+  const enchantment = result.enchantment
+    ? { enchantment: result.enchantment }
+    : {}
   if (!result.visible)
-    return { id: request.id, status, visible: false, ...use, ...damage }
+    return {
+      id: request.id,
+      status,
+      visible: false,
+      ...use,
+      ...damage,
+      ...enchantment,
+    }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
     id: request.id,
     status,
     visible: true,
     total: SUMMED.has(request.kind)
-      ? sumOf(rolls)
+      ? sumOf(rolls, request.kind)
       : (rolls[0]?.total ?? undefined),
     rolls,
     ...(result.attack ? { attack: result.attack } : {}),
@@ -668,18 +828,48 @@ export function toRollRequestView(
     ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
     ...use,
     ...damage,
+    ...enchantment,
     ...spent,
   }
 }
 
-/** The rolls whose total is all of their rolls' added up: damage's parts, or hit dice's cards. */
+/**
+ * Of a use of an enchant activity that failed, from module 0.21.0, whether the game names no card
+ * of it, from which the Gamemaster could apply its enchantment: none was posted, as where a hook
+ * stopped dnd5e's; it was deleted, as Midi deletes one it stops; or dnd5e lets no one apply it
+ * from the card, as one naming a concentration that has since ended.
+ */
+function cardless(result: CommandResult | null): { card?: false } {
+  const enchanting =
+    result?.reason === 'enchant' || result?.use?.type === 'enchant'
+  return enchanting && result?.messageId === null ? { card: false } : {}
+}
+
+/**
+ * The rolls whose total is all of their rolls' added up: damage's parts, as dnd5e's card adds
+ * damage up, or hit dice's cards.
+ */
 const SUMMED = new Set(['damage', 'textDamage', 'hitDice'])
 
-/** Damage's total, or hit dice's: each of its rolls', added up, when the game said each. */
-function sumOf(rolls: { total: number | null }[]): number | undefined {
+/**
+ * Damage's total, or hit dice's, when the game said each of its rolls': hit dice's added up; and
+ * damage's or healing's as dnd5e's card adds damage up: each kind's rolls together, each kind at
+ * least 0, then every kind. Each roll's own total stays the game's.
+ */
+function sumOf(
+  rolls: { total: number | null; damageType?: string }[],
+  kind: string,
+): number | undefined {
   if (rolls.length === 0 || rolls.some(roll => roll.total === null))
     return undefined
-  return rolls.reduce((sum, roll) => sum + (roll.total ?? 0), 0)
+  if (kind !== 'damage' && kind !== 'textDamage') {
+    return rolls.reduce((sum, roll) => sum + (roll.total ?? 0), 0)
+  }
+  const kinds = new Map<string | undefined, number>()
+  for (const { total, damageType } of rolls) {
+    kinds.set(damageType, (kinds.get(damageType) ?? 0) + (total ?? 0))
+  }
+  return [...kinds.values()].reduce((sum, each) => sum + Math.max(0, each), 0)
 }
 
 /** A held roll as the module is sent it. */

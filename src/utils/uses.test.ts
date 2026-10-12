@@ -69,6 +69,17 @@ describe('utils/uses', () => {
     )
   })
 
+  it('has no targets to pick for an enchant activity, from module 0.21.0, whatever dnd5e says it affects', () => {
+    expect(picksTargets(use('enchant'))).toBe(false)
+    expect(
+      picksTargets(use('enchant', { affects: 'creature', count: 1 })),
+    ).toBe(false)
+    expect(picksTargets(use('enchant', { self: true, affects: null }))).toBe(
+      false,
+    )
+    expect(picksTargets(use('enchant', { area: true }))).toBe(false)
+  })
+
   it('makes healing and help for allies friendly, and harm not', () => {
     expect(friendly(use('heal'))).toBe(true)
     expect(friendly(use('utility', { affects: 'ally' }))).toBe(true)

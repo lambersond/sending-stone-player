@@ -1,6 +1,11 @@
 import { MAX_DAMAGE_TERMS } from '@/constants/sending-stone'
 import { formulaTerms } from '@/utils/formulas'
-import { MAX_DICE, type ExtraTerm } from '@/utils/roll-modifiers'
+import {
+  MAX_DICE,
+  parseExtraTerms,
+  type ExtraDice,
+  type ExtraTerm,
+} from '@/utils/roll-modifiers'
 import type {
   CriticalRule,
   DamagePreview,
@@ -11,7 +16,11 @@ import type { DamageLink } from '@/utils/description-links'
 /*
  * Changing damage or healing as it's rolled, as dnd5e's damage dialog lets a player: more of its
  * first die, as a spell cast at a higher level throws; that die another size, as a versatile weapon
- * held in two hands, or Toll the Dead at a creature that's hurt; or every die at its highest.
+ * held in two hands, or Toll the Dead at a creature that's hurt; or every die at its highest. Its
+ * first die is never one it takes away, as Reduce's −1d4: dnd5e itself places the dice it adds
+ * (a critical hit's extra dice, a spell's scaling, a versatile die) only on a die damage adds,
+ * though a critical hit doubles every die; so more dice never mean less damage, and damage that
+ * takes a die away is never at its highest, which would take the most away.
  */
 
 /** How a player changes damage or healing as they roll it. Each changes nothing unless set. */
@@ -71,7 +80,8 @@ export function reshapes(modifiers?: DamageModifiers): boolean {
 
 /**
  * Where damage's first die is, which more dice are added to, or made another size: the first term
- * of dice its first part adds, if any, never the dice of a critical hit's critical damage.
+ * of dice its first part adds, if any, neither one it takes away nor the dice of a critical hit's
+ * critical damage.
  */
 export function firstDie(
   parts: readonly Part[],
@@ -83,9 +93,9 @@ export function firstDie(
 }
 
 /**
- * Damage's parts with its first die changed: more of it, `perDie` more for each one added, as a
- * critical hit's dice the game has already doubled throw two for each; and another size, if chosen.
- * Damage with no first die to change is as it was.
+ * Damage's parts with its first die changed, neither one it takes away nor critical damage: more of
+ * it, `perDie` more for each one added, as a critical hit's dice the game has already doubled throw
+ * two for each; and another size, if chosen. Damage with no first die to change is as it was.
  */
 export function withModifiers<P extends Part>(
   parts: P[],
@@ -115,20 +125,23 @@ export function withModifiers<P extends Part>(
 /**
  * The dice an attack's or a use's damage throws, as the game said, changed so: more of its first
  * roll's first die, as many more for each as that roll's `perDie` says, or another size of it;
- * never a die of a critical hit's critical damage, which the game marks. None for damage the game
- * rolls itself; nothing when there's no first die to change.
+ * never a die of a critical hit's critical damage, nor one the damage takes away, which the game
+ * marks, as `changedAt` finds it. None for damage the game rolls itself; nothing when there's no
+ * first die to change.
+ * @param signed - Whether the game changes only a die the damage adds, as `changedAt` takes it.
  */
 export function modifiedDice(
   damage: DamagePreview,
   modifiers?: DamageModifiers,
+  signed = marksTaken(damage),
 ): DamagePreviewRoll['dice'] | undefined {
   const planned = damage.plannable
     ? damage.rolls.flatMap(roll => roll.dice)
     : []
   if (!reshapes(modifiers) || !damage.plannable) return planned
   const [first] = damage.rolls
-  // The first roll's dice come first, its first die the first that's its own.
-  const at = first?.dice.findIndex(die => !die.added) ?? -1
+  // The first roll's dice come first, its first die the first that's its own and that it adds.
+  const at = changedAt(damage, signed)
   if (!first || at < 0) return undefined
   return planned.map((die, index) =>
     index === at
@@ -142,8 +155,229 @@ export function modifiedDice(
 }
 
 /**
- * The most dice that may be added to damage's first die: as many as keep it within the most one
- * roll may throw, `perDie` for each, as a critical hit's take.
+ * Does any die of damage, as the game said it, carry the mark of one it takes away? Only a module
+ * from 0.21.0 marks them, so that one that does marks them all.
+ */
+export function marksTaken(damage: DamagePreview): boolean {
+  return damage.rolls.some(roll =>
+    roll.dice.some(die => die.subtracted === true),
+  )
+}
+
+/**
+ * A roll's dice, those it takes away marked: as the game marks them, where it does; else, from a
+ * module before 0.21.0, as its formula has them, where the app reads it and it throws those dice,
+ * in order; else as they are, every one added.
+ * @param marked - Whether the game marks them, as `marksTaken` says of the damage.
+ */
+export function signedDice(
+  roll: DamagePreviewRoll,
+  marked: boolean,
+): DamagePreviewRoll['dice'] {
+  if (marked) return roll.dice
+  const parsed = parseExtraTerms(roll.formula)
+  if (!parsed.ok) return roll.dice
+  const thrown = parsed.terms.filter(
+    (term): term is ExtraDice => 'sides' in term,
+  )
+  const same =
+    thrown.length === roll.dice.length &&
+    thrown.every(
+      (term, index) =>
+        term.count === roll.dice[index].number &&
+        term.sides === roll.dice[index].faces,
+    )
+  if (!same) return roll.dice
+  return roll.dice.map((die, index) =>
+    thrown[index].sign < 0 ? { ...die, subtracted: true as const } : die,
+  )
+}
+
+/**
+ * Where, among damage's first roll's dice as the game said them, its first die is, which more dice
+ * are added to, or made another size: the first that's neither a critical hit's critical damage nor
+ * one the damage takes away; -1 for none.
+ * @param signed - Whether the game changes only a die the damage adds, as a module from 0.21.0
+ *   does: for an attack's or a use's damage, as its preview's marks show; for a description's, as
+ *   the hello says (`signedDice`). One before changes its first die that isn't critical damage
+ *   whatever its sign: only where that's the same die.
+ */
+export function changedAt(
+  damage: DamagePreview,
+  signed = marksTaken(damage),
+): number {
+  const [first] = damage.rolls
+  if (!first) return -1
+  const dice = signedDice(first, marksTaken(damage))
+  const at = dice.findIndex(die => !die.added && !die.subtracted)
+  if (signed) return at
+  return dice.findIndex(die => !die.added) === at ? at : -1
+}
+
+/**
+ * Is damage's first die, which more dice are added to, also the die a module before 0.21.0
+ * changes: its first part's first die that isn't critical damage, whatever its sign?
+ */
+export function sameFirstDie(parts: readonly Part[]): boolean {
+  const die = firstDie(parts)
+  return (
+    die !== undefined &&
+    parts[0].terms.find(term => 'sides' in term && !term.added) === die
+  )
+}
+
+/**
+ * Does damage, as the game said it, take any of its dice away, as Reduce's −1d4 does? Such damage
+ * isn't rolled at its highest, which would take the most away. Damage the game rolls itself has no
+ * dice here to mark: its rolls' formulas say, as `formulaTakesAway` reads them.
+ */
+export function diceTakenAway(damage: DamagePreview): boolean {
+  if (!damage.plannable) {
+    return damage.rolls.some(roll => formulaTakesAway(roll.formula))
+  }
+  const marked = marksTaken(damage)
+  return damage.rolls.some(roll =>
+    signedDice(roll, marked).some(die => die.subtracted === true),
+  )
+}
+
+/** A group of a formula's terms, as dnd5e reads their signs: its own text, what's in brackets. */
+type FormulaGroup = { negative: boolean; own: string; within: string[] }
+
+/**
+ * Does a roll's formula take a die away, read as it's written, for damage whose dice the game
+ * can't say beforehand: where a die is in a group of terms that comes out negative, as dnd5e reads
+ * the signs of damage, at each depth of brackets, each group's own `-` turning it over, and a `-`
+ * after `*`, `/` or `%` or opening it too, as in `1d3 + 3 - 1d4`, or the `(1d4 * -1)` Foundry's
+ * parser may make of a leading −1d4. `1d3 - 1` takes none away, nor does `- - 1d4`. A die within a
+ * function counts as within brackets. The game reads it so too, and refuses it at its highest.
+ */
+export function formulaTakesAway(formula: string): boolean {
+  return groupTakesAway(formula.replaceAll(/\[[^\]]*\]/g, ''), false)
+}
+
+/**
+ * Does a formula, or what's within a pair of brackets of one, take a die away: one of its groups of
+ * terms, parted by a `+`, a `-` or a function's comma between them, coming out negative with a die
+ * of its own, or any brackets within one, read with that group's sign?
+ * @param negative - It's taken away, or made negative, as a whole.
+ */
+function groupTakesAway(text: string, negative: boolean): boolean {
+  let group: FormulaGroup = { negative: false, own: '', within: [] }
+  const groups = [group]
+  let depth = 0
+  // What's within the brackets being read.
+  let inner = ''
+  // The last character read that isn't a space: a sign after a term parts two groups.
+  let before = ''
+  for (const char of text) {
+    if ('({'.includes(char)) {
+      if (depth++ > 0) inner += char
+    } else if (')}'.includes(char)) {
+      if (depth > 1) inner += char
+      else if (depth === 1) {
+        group.within.push(inner)
+        inner = ''
+      }
+      depth = Math.max(depth - 1, 0)
+    } else if (depth > 0) {
+      inner += char
+    } else if ('+-,'.includes(char)) {
+      if (char === ',' || /[\w.)}]/.test(before)) {
+        group = { negative: char === '-', own: '', within: [] }
+        groups.push(group)
+      } else if (char === '-') {
+        group.negative = !group.negative
+      }
+    } else {
+      group.own += char
+    }
+    if (char.trim()) before = char
+  }
+  return groups.some(({ negative: turned, own, within }) => {
+    const sign = negative !== turned
+    return (
+      (sign && /d\d/i.test(own)) ||
+      within.some(each => groupTakesAway(each, sign))
+    )
+  })
+}
+
+/**
+ * Of the changes a player chose for damage before the game said what it throws, those the game
+ * takes, as `checkDamage` tests them: at its highest, unless it takes a die away; its first die
+ * changed, where it has one to change, with no more dice than that die may still take, as many
+ * for each as its roll's `perDie`, as a spell cast higher, whose label had fewer, may leave room
+ * for. Its dice as chosen for damage the game rolls itself, which says none. Nothing where none is
+ * left.
+ */
+export function takenModifiers(
+  damage: DamagePreview,
+  modifiers?: DamageModifiers,
+): DamageModifiers | undefined {
+  if (!modifiers) return undefined
+  const highest = modifiers.maximize === true && !diceTakenAway(damage)
+  if (!damage.plannable) {
+    const kept: DamageModifiers = {
+      ...(modifiers.extra !== undefined && { extra: modifiers.extra }),
+      ...(modifiers.faces !== undefined && { faces: modifiers.faces }),
+      ...(highest && { maximize: true }),
+    }
+    return changes(kept) ? kept : undefined
+  }
+  const [first] = damage.rolls
+  const at = changedAt(damage)
+  const die = at >= 0 ? first?.dice[at] : undefined
+  const extra = die
+    ? Math.min(
+        modifiers.extra ?? 0,
+        Math.floor((MOST_DICE - die.number) / Math.max(first.perDie ?? 1, 1)),
+      )
+    : 0
+  const kept: DamageModifiers = {
+    ...(highest && { maximize: true }),
+    ...(die &&
+      reshapes(modifiers) && {
+        ...(extra > 0 && { extra }),
+        ...(modifiers.faces !== undefined && { faces: modifiers.faces }),
+      }),
+  }
+  return changes(kept) ? kept : undefined
+}
+
+/** Do damage's parts take any of their dice away, as Reduce's −1d4 does? */
+export function takesAway(parts: readonly Part[]): boolean {
+  return parts.some(part =>
+    part.terms.some(term => 'sides' in term && term.sign < 0),
+  )
+}
+
+/** How damage may be changed as it's rolled: at its highest, or with its dice changed first. */
+export type DamageChange = 'maximize' | 'modify-damage'
+
+/**
+ * The ways damage's parts may be changed as they're rolled, in order: at its highest, unless it
+ * takes a die away, which that would take the most of; and with its first die changed, where it
+ * has one, and it may be.
+ * @param fixed - Its dice can't be changed, as the game's preview says.
+ * @param takenAway - It takes a die away: as its parts say, unless the game said otherwise, as of
+ *   damage it rolls itself, whose parts have no dice here (`diceTakenAway`).
+ */
+export function damageChanges(
+  parts: readonly Part[],
+  fixed = false,
+  takenAway = takesAway(parts),
+): DamageChange[] {
+  return [
+    ...(takenAway ? [] : (['maximize'] as const)),
+    ...(firstDie(parts) && !fixed ? (['modify-damage'] as const) : []),
+  ]
+}
+
+/**
+ * The most dice that may be added to damage's first die, neither one it takes away nor critical
+ * damage: as many as keep it within the most one roll may throw, `perDie` for each, as a critical
+ * hit's take.
  */
 export function mostExtra(parts: readonly Part[], perDie = 1): number {
   const die = firstDie(parts)
@@ -155,9 +389,10 @@ export function mostExtra(parts: readonly Part[], perDie = 1): number {
  * Damage's parts as a critical hit's, as a world's rules make it: each term of dice thrown
  * `perDie` times; each number twice, where its rules double them; and, under Powerful Critical, the
  * most each part's dice could roll added to it, as dnd5e adds it whatever their sign. Then what a
- * critical hit adds to each part, in dnd5e's order: its extra dice, thrown with its first die, at
- * the size it's made, or the most they could roll added, or left out, as the rules throw them; and
- * its critical damage, as it is, whose dice are never its first die.
+ * critical hit adds to each part, in dnd5e's order: its extra dice, thrown with its first term
+ * where that's a die it adds, never one it takes away, at the size it's made, or the most they
+ * could roll added, or left out, as the rules throw them; and its critical damage, as it is, whose
+ * dice are never its first die.
  * @param adds - What a critical hit adds to each part; nothing unless said.
  */
 export function criticalParts<P extends Part>(
@@ -198,8 +433,10 @@ export function criticalParts<P extends Part>(
  * one, and what a critical hit adds to it, as the game reads its activity: none where nothing is
  * added. Never for healing; for damage the game marks as never one; where the sheet doesn't say how
  * the world makes one; where it adds dice the world's rules don't say how they throw; where it adds
- * extra dice to a part that has no dice of its own first; where a part, or its critical damage,
- * doesn't read; or where it would throw more of one die, or more kinds, than one roll may.
+ * extra dice to a part that has no dice of its own first; under Powerful Critical, where a part
+ * takes a die away, whose most the world's rules may add or take away; where a part, or its
+ * critical damage, doesn't read; or where it would throw more of one die, or more kinds, than one
+ * roll may.
  */
 export function criticalOffered(
   link: Pick<DamageLink, 'parts' | 'healing' | 'critical' | 'criticalAdds'>,
@@ -214,6 +451,14 @@ export function criticalOffered(
     const added = link.criticalAdds?.damage[index] ?? ''
     const adding = added === '' ? [] : formulaTerms(added)
     if (!terms || !adding) return false
+    // Under Powerful Critical the most a die taken away could roll is added by some rules and
+    // taken away by others, which the sheet can't tell apart.
+    if (
+      rule.powerfulCritical &&
+      terms.some(term => 'sides' in term && term.sign < 0)
+    ) {
+      return false
+    }
     const extra = link.criticalAdds?.dice[index] ?? 0
     const [first] = terms
     if (extra > 0 && (!('sides' in first) || first.sign < 0)) return false
@@ -242,8 +487,8 @@ export function criticalOffered(
  * A description's damage or healing as the game will throw it, as an attack's preview says it: the
  * dice of each of its parts, in order, every one `perDie` times on a critical hit, as the world's
  * rules make it, which take as many more for each die added, with the extra dice a critical hit
- * adds, and then its critical damage's, marked as added. None where a part's formula can't be read,
- * which the app couldn't have rolled.
+ * adds, and then its critical damage's, marked as added; those it takes away marked so, never its
+ * first die. None where a part's formula can't be read, which the app couldn't have rolled.
  * @param critical - How the world rolls a critical hit's, for one; none for damage rolled plainly.
  * @param adds - For a critical hit's, what it adds to each part, as `criticalOffered` has it.
  */
@@ -271,6 +516,7 @@ export function linkDamage(
               faces: term.sides,
               number: term.count,
               ...(term.added && { added: true as const }),
+              ...(term.sign < 0 && { subtracted: true as const }),
             },
           ]
         : [],

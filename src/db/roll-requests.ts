@@ -84,14 +84,18 @@ export async function createRollRequest(
     return { status: 409, reason: 'unavailable' }
   }
   // Damage a player changed goes only to a game that can roll it so, an answer to what the game
-  // asked only to one that asks, and an area attack only to one that makes it at those picked.
+  // asked only to one that asks, an area attack only to one that makes it at those picked, and a
+  // check an activity asks for only to one that makes it against the activity.
   if (
     (changes(input.modifiers) &&
       !campaign.rollFeatures.includes('modifiers')) ||
     (input.prompt && !campaign.rollFeatures.includes('prompts')) ||
     (input.kind === 'attack' &&
       input.targets !== undefined &&
-      !campaign.rollFeatures.includes('areaAttacks'))
+      !campaign.rollFeatures.includes('areaAttacks')) ||
+    (['skill', 'tool', 'ability'].includes(input.kind) &&
+      input.item !== undefined &&
+      !campaign.rollFeatures.includes('activityChecks'))
   ) {
     return { status: 409, reason: 'unavailable' }
   }
@@ -214,6 +218,7 @@ export async function createRollRequest(
         combats.map(({ data }) => data as unknown as CombatSnapshot),
         actorId,
         described ? sheetLinks(described.html) : undefined,
+        campaign.rollFeatures,
       ) ??
       (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined))
   if (refusal) return { status: 422, reason: refusal }

@@ -11,6 +11,7 @@ import {
   EVERY_DIE_TWICE,
   firstDie,
   mostExtra,
+  takesAway,
   withModifiers,
   type CriticalAdds,
   type DamageModifiers,
@@ -143,9 +144,10 @@ function labelsFor({
 
 /**
  * Changing damage or healing before it's rolled: more of its first die, that die another size,
- * every die at its highest, and, for damage rolled here, a critical hit's, each die twice, or as
- * the world's rules make one, for a description's damage the game rolls too, with what a critical
- * hit adds to a description's. What it will throw is shown as it's changed.
+ * every die at its highest, where that's offered, as it isn't for damage that takes a die away,
+ * and, for damage rolled here, a critical hit's, each die twice, or as the world's rules make one,
+ * for a description's damage the game rolls too, with what a critical hit adds to a description's.
+ * What it will throw is shown as it's changed; and which die changes, never one it takes away.
  */
 export function ModifyDamage({
   subject,
@@ -165,6 +167,7 @@ export function ModifyDamage({
   const [maximize, setMaximize] = useState(false)
   const [critical, setCritical] = useState(false)
   const offersCritical = subject.choices.includes('critical')
+  const offersMaximum = subject.choices.includes('maximize')
   // A critical hit throws its dice as many times over as the world's rules make it, or twice where
   // it's rolled here, with the extra dice it adds, and as many more of each die added: they must
   // all still fit.
@@ -272,20 +275,25 @@ export function ModifyDamage({
               ))}
             </div>
             <p className='text-xs text-text-secondary'>
-              Its first die, such as a versatile weapon&apos;s in two hands, or
-              Toll the Dead&apos;s at a creature that&apos;s hurt.
+              {takesAway(subject.parts)
+                ? 'The first die it adds, never one it takes away, such as'
+                : 'Its first die, such as'}{' '}
+              a versatile weapon&apos;s in two hands, or Toll the Dead&apos;s at
+              a creature that&apos;s hurt.
             </p>
           </fieldset>
         </>
       )}
 
       <div className='grid gap-3'>
-        <Toggle
-          checked={maximize}
-          onChange={setMaximize}
-          label={`Maximum ${kind}`}
-          hint='Every die at its highest.'
-        />
+        {offersMaximum && (
+          <Toggle
+            checked={maximize}
+            onChange={setMaximize}
+            label={`Maximum ${kind}`}
+            hint='Every die at its highest.'
+          />
+        )}
         {offersCritical && (
           <Toggle
             checked={critical}

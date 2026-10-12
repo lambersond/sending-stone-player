@@ -10,6 +10,7 @@ import {
   type LocalFormula,
   type SheetFormulaRoll,
 } from './use-sheet-roller'
+import { damageRollOf } from './use-table-rolls'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
 
@@ -31,6 +32,13 @@ const renderer = (fields: object = {}) => {
   jest.mocked(useDiceRenderer).mockReturnValue(fake as any)
   return fake
 }
+
+/** A term of damage's dice: so many of a die, added, unless taken away. */
+const d = (count: number, sides: 4 | 6 | 8, sign: 1 | -1 = 1) => ({
+  sign,
+  count,
+  sides,
+})
 
 /** A d8 hit die spent, with this Constitution modifier, 0 or less, giving back at least this. */
 const hitDie = (con: number, minimum: number): SheetFormulaRoll => ({
@@ -326,6 +334,58 @@ describe('hooks/use-sheet-roller', () => {
     ])
   })
 
+  it("throws the game's dice changed as the player chose, the die damage takes away as it is", async () => {
+    const fake = renderer()
+    const onDamageThrown = jest.fn()
+    const { result } = renderHook(() =>
+      useSheetRoller(undefined, onDamageThrown),
+    )
+    // A greataxe under Reduce, as the game marks it: 1d12 + 3, less 1d4; one die more.
+    const reduced = damageRollOf(
+      'Greataxe',
+      {
+        use: 'req-1',
+        damage: {
+          critical: false,
+          plannable: true,
+          rolls: [
+            {
+              formula: '1d12 + 3 - 1d4',
+              type: 'Slashing',
+              dice: [
+                { faces: 12, number: 1 },
+                { faces: 4, number: 1, subtracted: true },
+              ],
+            },
+          ],
+        },
+      },
+      undefined,
+      { extra: 1 },
+    )
+
+    await act(() => result.current.rollDamage(reduced))
+
+    // Two d12s, and the d4 it takes away, as the game will throw them.
+    expect(fake.roll.mock.calls[0][0]).toMatch(/^2d12\+1d4@/)
+    expect(onDamageThrown.mock.calls[0][0].parts).toEqual([
+      {
+        terms: [
+          { sign: 1, count: 2, sides: 12 },
+          { sign: 1, flat: 3 },
+          { sign: -1, count: 1, sides: 4 },
+        ],
+        type: 'Slashing',
+      },
+    ])
+    const [roll] = result.current.rolls as LocalDamage[]
+    expect(roll.parts[0].terms.map(({ text }) => text)).toEqual([
+      '2d12',
+      '+3',
+      '−1d4',
+    ])
+  })
+
   it("adds as many of the game's dice for each as it throws, and doubles those rolled here for a critical hit", async () => {
     renderer()
     const { result } = renderHook(() => useSheetRoller())
@@ -575,6 +635,85 @@ describe('hooks/use-sheet-roller', () => {
     expect(fake.roll.mock.calls[1][0]).toMatch(/^5d12\+1d6@/)
     expect(local).toMatchObject({ critical: true, described: true })
     expect(local).not.toHaveProperty('gameTotal')
+  })
+
+  it("adds damage up as dnd5e's card does: each kind's parts together, each kind at least 0", async () => {
+    renderer()
+    const random = jest.spyOn(Math, 'random')
+    const { result } = renderHook(() => useSheetRoller())
+    const latest = () => result.current.rolls[0] as LocalDamage
+
+    // A dagger under Ray of Enfeeblement: 1d4 + 3, less 1d8, landing 1 and 8.
+    random.mockReturnValueOnce(0).mockReturnValueOnce(0.99)
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Dagger damage',
+        parts: [
+          {
+            terms: [d(1, 4), { sign: 1, flat: 3 }, d(1, 8, -1)],
+            type: 'Slashing',
+          },
+        ],
+      }),
+    )
+    expect(latest().parts[0].total).toBe(-4)
+    expect(latest().total).toBe(0)
+
+    // Another kind isn't taken away from: −1d8 slashing at 8, 1d6 fire at 5.
+    random.mockReturnValueOnce(0.99).mockReturnValueOnce(0.7)
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame Tongue damage',
+        parts: [
+          { terms: [d(1, 8, -1)], type: 'Slashing' },
+          { terms: [d(1, 6)], type: 'Fire' },
+        ],
+      }),
+    )
+    expect(latest().parts.map(part => part.total)).toEqual([-8, 5])
+    expect(latest().total).toBe(5)
+
+    // One kind's parts are added up first: 1d4 at 4, less 1d6 at 6.
+    random.mockReturnValueOnce(0.99).mockReturnValueOnce(0.99)
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Dagger damage',
+        parts: [
+          { terms: [d(1, 4)], type: 'Slashing' },
+          { terms: [d(1, 6, -1)], type: 'Slashing' },
+        ],
+      }),
+    )
+    expect(latest().parts.map(part => part.total)).toEqual([4, -6])
+    expect(latest().total).toBe(0)
+
+    // Healing too.
+    random.mockReturnValueOnce(0.5)
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Withering healing',
+        parts: [{ terms: [d(1, 4, -1)], type: 'Healing' }],
+        healing: true,
+      }),
+    )
+    expect(latest()).toMatchObject({ healing: true, total: 0 })
+
+    // Damage that takes nothing away comes to all of it: 1d8 + 4 at 5, and 2d6 fire at 6 and 1.
+    random
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0)
+    await act(() =>
+      result.current.rollDamage({
+        label: 'Flame Tongue damage',
+        parts: [
+          { terms: [d(1, 8), { sign: 1, flat: 4 }], type: 'Slashing' },
+          { terms: [d(2, 6)], type: 'Fire' },
+        ],
+      }),
+    )
+    expect(latest().parts.map(part => part.total)).toEqual([9, 7])
+    expect(latest().total).toBe(16)
   })
 
   it('keeps healing with nothing to throw, without dice', async () => {
@@ -1034,6 +1173,39 @@ describe('hooks/use-sheet-roller', () => {
     expect(undecided).not.toHaveProperty('dc')
     expect(plain).not.toHaveProperty('described')
     expect(plain).not.toHaveProperty('verdict')
+  })
+
+  it('marks a check an activity asks for as passed rather than saved against its DC, never as from a description', async () => {
+    renderer()
+    const { result } = renderHook(() => useSheetRoller())
+    const named = { item: 'tools', activity: 'pick' }
+
+    for (const source of [
+      { kind: 'skill', key: 'slt', ...named },
+      { kind: 'tool', key: 'thief', ...named },
+      { kind: 'ability', key: 'dex', ...named },
+    ] as const) {
+      await act(() =>
+        result.current.roll({ label: 'A check', modifier: 6, source, dc: 15 }),
+      )
+    }
+    // Against no DC, as Fast Hands', it's still passed or not, where the game says.
+    await act(() =>
+      result.current.roll({
+        label: 'Sleight of Hand check',
+        modifier: 5,
+        source: { kind: 'skill', key: 'slt', item: 'hands', activity: 'slt' },
+      }),
+    )
+
+    const [undecided, ...checks] = result.current.rolls
+    for (const check of checks) {
+      expect(check).toMatchObject({ kind: 'check', dc: 15, verdict: 'check' })
+      expect(check).not.toHaveProperty('described')
+    }
+    expect(undecided).toMatchObject({ verdict: 'check' })
+    expect(undecided).not.toHaveProperty('dc')
+    expect(undecided).not.toHaveProperty('described')
   })
 
   it(`keeps the latest ${ROLL_HISTORY} rolls, newest first`, async () => {

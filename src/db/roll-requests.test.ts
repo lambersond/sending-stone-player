@@ -14,6 +14,7 @@ import {
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import {
   characterSheet,
+  checkingSheet,
   combat,
   combatant,
   fullerSheet,
@@ -80,6 +81,23 @@ const takingRolls = {
   rollKinds: ['skill', 'initiative', 'attack', 'damage'],
   rollFeatures: [] as string[],
   bridgePolledAt: ago(5000),
+}
+
+/**
+ * A campaign whose game takes Rook's checks and uses, doing what else is given with them, and
+ * holds his sheet, from module 0.21.0.
+ */
+const givenRook = (features: string[]) => {
+  prismaMock.campaign.findUnique.mockResolvedValue({
+    ...takingRolls,
+    rollKinds: ['skill', 'tool', 'ability', 'use'],
+    rollFeatures: features,
+  } as any)
+  prismaMock.actorSheet.findUnique.mockResolvedValue({
+    data: checkingSheet(),
+  } as any)
+  prismaMock.rollRequest.count.mockResolvedValue(0)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
 }
 
 /** A held roll, as read back. */
@@ -1215,6 +1233,49 @@ describe('db/roll-requests', () => {
       ).resolves.toEqual({ status: 422, reason: 'unavailable' })
     })
 
+    it("changes a description's damage that takes a die away only where the game changes the die it adds, from module 0.21.0", async () => {
+      /** Withering Touch's 3 - 1d4 + 2d6, as held. */
+      const withering = sanitizeSheetHtml(
+        '<p>It deals <span class="ss-damage roll" data-n="0" data-formulas="3 - 1d4 + 2d6" data-types="necrotic">3 - 1d4 + 2d6</span> damage.</p>',
+        'https://my-game.forge-vtt.com',
+      )
+      const sheet = {
+        ...fullerSheet(),
+        critical: {
+          perDie: 2,
+          multiplyNumeric: false,
+          powerfulCritical: false,
+          altered: false,
+        },
+      }
+      const more: RollRequestInput = {
+        ...linked,
+        kind: 'textDamage',
+        link: 0,
+        modifiers: { extra: 1 },
+        dice: [
+          { faces: 4, results: [2] },
+          { faces: 6, results: [3, 4, 5] },
+        ],
+      }
+      // A module before 0.21.0 would throw a d4 more, and less damage.
+      given({ html: withering, features: ['modifiers'], sheet })
+      await expect(createRollRequest(character, more)).resolves.toEqual({
+        status: 422,
+        reason: 'dice',
+      })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+
+      given({ html: withering, features: ['modifiers', 'signedDice'], sheet })
+      await expect(createRollRequest(character, more)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'textDamage', payload: more }),
+        select: { id: true },
+      })
+    })
+
     it('refuses a link the game does not take', async () => {
       given()
       prismaMock.campaign.findUnique.mockResolvedValue(takingRolls as any)
@@ -1223,6 +1284,66 @@ describe('db/roll-requests', () => {
         status: 409,
         reason: 'unavailable',
       })
+    })
+  })
+
+  describe('createRollRequest, for a check an activity asks for, from module 0.21.0', () => {
+    /** Thieves' Tools' Pick a Lock, Rook's own to make. */
+    const lock: RollRequestInput = {
+      kind: 'tool',
+      key: 'thief',
+      item: 'tools',
+      activity: 'pick',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [9] }],
+    }
+
+    it('takes it where the game makes it against the activity', async () => {
+      givenRook(['activityChecks'])
+
+      await expect(createRollRequest(character, lock)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ kind: 'tool', payload: lock }),
+        select: { id: true },
+      })
+    })
+
+    it("refuses it, without looking further, where the game doesn't make it so, but not a plain check", async () => {
+      givenRook(['modifiers', 'prompts', 'areaAttacks'])
+
+      for (const input of [
+        lock,
+        { ...lock, kind: 'skill' as const, key: 'slt', activity: 'fh-slt' },
+        { ...lock, kind: 'ability' as const, key: 'dex' },
+      ]) {
+        await expect(createRollRequest(character, input)).resolves.toEqual({
+          status: 409,
+          reason: 'unavailable',
+        })
+      }
+      expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+
+      await expect(
+        createRollRequest(character, {
+          ...lock,
+          item: undefined,
+          activity: undefined,
+        }),
+      ).resolves.toEqual({ id: 'req-1' })
+    })
+
+    it('refuses one the activity has no such way to make, as the sheet says', async () => {
+      givenRook(['activityChecks'])
+
+      await expect(
+        createRollRequest(character, { ...lock, kind: 'skill', key: 'slt' }),
+      ).resolves.toEqual({ status: 422, reason: 'unknown' })
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
     })
   })
 

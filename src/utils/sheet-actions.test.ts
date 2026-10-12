@@ -10,11 +10,15 @@ import {
 } from './sheet-actions'
 import {
   castingSheet,
+  checkingSheet,
   fullerSheet,
+  LOCK_CHECK,
+  MAZE_CHECK,
   sheetAction,
   sheetFavorites,
   sheetItem,
   sheetSpell,
+  SLEIGHT_CHECK,
 } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,
@@ -549,6 +553,67 @@ describe('utils/sheet-actions', () => {
         concentration: true,
       })
       expect(activityAction(staff, hit)).not.toHaveProperty('cast')
+    })
+  })
+
+  describe('checks activities ask for, and activities that use others, from module 0.21.0', () => {
+    it('carries the check an activity asks for, and what one that uses another spends, to it as an action', () => {
+      const sheet = checkingSheet()
+      const [fastHands] = sheet.actions[1].actions
+      const [, thief, object] = fastHands.activities!
+      const [, free] = sheet.actions[0].actions[2].activities!
+      const bless = sheet.actions[0].actions[2]
+
+      expect(activityAction(fastHands, thief)).toMatchObject({
+        name: "Fast Hands (Thieves' Tools)",
+        activity: thief.activity,
+        check: thief.check,
+      })
+      expect(activityAction(fastHands, object)).not.toHaveProperty('check')
+      expect(activityAction(bless, free)).toMatchObject({
+        activity: free.activity,
+        consumesSlot: false,
+        forward: { charges: 1, short: false },
+        uses: { value: 1, max: 1, recovery: 'Long Rest' },
+      })
+      expect(activityAction(bless, free)).not.toHaveProperty('check')
+    })
+
+    it('carries them from the spells, features and items that roll, found wherever they are', () => {
+      const sheet = checkingSheet()
+      const [maze, bless] = [
+        sheet.spells[1].spells[0],
+        sheet.spells[0].spells[0],
+      ]
+      expect(spellAction(maze)).toMatchObject({ check: MAZE_CHECK })
+      expect(spellAction(bless)?.activities?.[1]).toMatchObject({
+        forward: { charges: 1, short: false },
+      })
+      expect(itemAction(sheet.inventory.sections[0].items[0])).toMatchObject({
+        check: LOCK_CHECK,
+      })
+      const { activity, check, activities } = sheet.actions[1].actions[0]
+      expect(
+        featureAction({
+          id: 'fast-hands',
+          name: 'Fast Hands',
+          img: null,
+          kind: 'Class Feature',
+          requirements: 'Thief 3',
+          activation: 'Bonus Action',
+          passive: false,
+          uses: null,
+          text: null,
+          activity,
+          check,
+          activities,
+        }),
+      ).toMatchObject({ check: SLEIGHT_CHECK })
+      expect(
+        sheetActions(sheet).filter(
+          action => action.check?.own === true && action.id === 'tools',
+        ),
+      ).toHaveLength(2)
     })
   })
 

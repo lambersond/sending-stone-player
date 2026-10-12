@@ -2,6 +2,7 @@
 import { favoriteEntries, favoriteKeys, rollsAny } from './favorites'
 import {
   castingSheet,
+  checkingSheet,
   fullerSheet,
   sheetAction,
   sheetFavorites,
@@ -380,6 +381,53 @@ describe('utils/favorites', () => {
     it('has none for a sheet with none', () => {
       expect(favoriteEntries(fullerSheet())).toEqual([])
     })
+  })
+
+  it('keeps the check a favorite activity asks for, and what one that uses another spends, from module 0.21.0', () => {
+    const sheet = checkingSheet()
+    const [fastHands] = sheet.actions[1].actions
+    const [, thief] = fastHands.activities!
+    const [, free] = sheet.actions[0].actions[2].activities!
+    const favorite = (
+      itemId: string,
+      itemName: string,
+      itemType: string,
+      activity: typeof thief,
+    ): SheetFavorite => ({
+      ...activity,
+      type: 'activity',
+      itemId,
+      itemType,
+      itemName,
+      img: null,
+    })
+    const entries = favoriteEntries({
+      ...sheet,
+      favorites: [
+        favorite('fast-hands', 'Fast Hands', 'feat', thief),
+        favorite('bless', 'Bless', 'spell', free),
+      ],
+    })
+
+    const [check, forward] = entries.map(entry =>
+      entry.kind === 'action' ? entry.action : undefined,
+    )
+    expect(check).toMatchObject({
+      id: 'fast-hands',
+      activity: thief.activity,
+      check: thief.check,
+    })
+    expect(check).not.toHaveProperty('forward')
+    expect(forward).toMatchObject({
+      id: 'bless',
+      activity: free.activity,
+      consumesSlot: false,
+      forward: { charges: 1, short: false },
+    })
+    expect(forward).not.toHaveProperty('check')
+    // A check of the player's own is something to roll.
+    expect(rollsAny(entries.slice(0, 1))).toBe(true)
+    expect(rollsAny(entries.slice(1))).toBe(false)
   })
 
   it('rolls an activity favorite of a spell not prepared here only, and keeps its formula and area', () => {

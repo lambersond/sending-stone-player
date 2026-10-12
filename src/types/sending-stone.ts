@@ -108,6 +108,8 @@ export type SheetFeature = {
   activation: string | null
   passive: boolean
   uses: SheetUses | null
+  /** The enchantments on it, such as a spell's. Module 0.21.0; absent before, and for none. */
+  enchantments?: SheetEnchantment[]
   text: string | null
 } & SheetUsage
 
@@ -169,6 +171,11 @@ export type SheetItem = {
   identified: boolean
   /** Such as "1 Action", for an item that rolls. Module 0.13.0. */
   activation?: string | null
+  /**
+   * The enchantments on it, such as Magic Weapon's on a longsword, or a Flame Tongue's own. Module
+   * 0.21.0; absent before, and for none.
+   */
+  enchantments?: SheetEnchantment[]
   text: string | null
 } & SheetUsage
 
@@ -241,6 +248,8 @@ export type SheetSpell = {
   uses: SheetUses | null
   /** The item it's cast from, such as a wand; null or absent for the character's own. */
   castFrom?: SheetCastFrom | null
+  /** The enchantments on it. Module 0.21.0; absent before, and for none. */
+  enchantments?: SheetEnchantment[]
   text: string | null
 } & Partial<SheetRolls>
 
@@ -324,7 +333,10 @@ export type SheetAction = {
    * False for a spell's activity used after it's cast without spending a spell slot, such as Hex's
    * Bonus Hex Damage: it's used at the level chosen, whether any slot is left or not. Module
    * 0.14.0; absent otherwise. From module 0.20.0, the same of the copy of a spell an item casts,
-   * cantrips' too: it spends none of the item's uses either.
+   * cantrips' too: it spends none of the item's uses either. From module 0.21.0, false too for a
+   * spell's activity that uses another, such as its free casting, which spends no slot and is cast
+   * at its own level whatever slot is chosen; and for a leveled spell's check with no activation of
+   * its own, such as the 2014 Entangle's Escape Plants, which is used at the level chosen.
    */
   consumesSlot?: boolean
   /**
@@ -357,6 +369,18 @@ export type SheetAction = {
   attackArea?: SheetAttackArea | null
   /** An item used up rather than kept: a consumable, or one whose uses never come back. */
   consumable?: boolean
+  /**
+   * For an activity that asks for a check, such as Fast Hands' Sleight of Hand or a tool's, the
+   * ways it may be made, against what DC, and whether the character makes it. Module 0.21.0, under
+   * dnd5e 5; absent otherwise.
+   */
+  check?: SheetCheck
+  /**
+   * For an activity that uses another, as dnd5e's forward activities do, such as a spell cast once
+   * a day without a slot: what using it spends of its uses. Its rolls and `activity` are the other
+   * activity's, under its own id. Module 0.21.0; absent otherwise.
+   */
+  forward?: SheetForward
   uses: SheetUses | null
   /** A spell's level, 0 for a cantrip; null for anything else. */
   level: number | null
@@ -365,7 +389,36 @@ export type SheetAction = {
   concentration: boolean
   /** False for an item not identified yet, which keeps its secrets. */
   identified: boolean
+  /**
+   * The enchantments on its item, such as Magic Weapon's on a longsword. Module 0.21.0; absent
+   * before, and for none.
+   */
+  enchantments?: SheetEnchantment[]
   text: string | null
+}
+
+/**
+ * An enchantment on one of the character's items, as dnd5e's enchant activities apply them, such
+ * as Magic Weapon's on a longsword, or a Flame Tongue's own: what it's called, what put it there,
+ * whether it lasts while its caster concentrates, how long it has left, whether its time has run
+ * out, and whether the player may end it from here, as dnd5e's chat card lets its caster. Module
+ * 0.21.0.
+ */
+export type SheetEnchantment = {
+  /** Its effect's id. */
+  id: string
+  /** Such as "Magic Weapon, +1". */
+  name: string
+  /** The item whose activity applied it, such as "Magic Weapon"; null where it can't be found. */
+  source: string | null
+  /** It ends when its caster stops concentrating. */
+  concentration: boolean
+  /** The time it has left, such as "1 Hour"; null for none. */
+  duration: string | null
+  /** Its time has run out, which dnd5e 5 never removes it for. */
+  expired: boolean
+  /** One of the character's own the player may end from here. */
+  endable: boolean
 }
 
 /**
@@ -427,8 +480,106 @@ export type SheetFormula = { formula: string; name: string | null }
 export type SheetUse = {
   /** The activity's id. */
   id: string
-  type: 'save' | 'damage' | 'heal' | 'utility'
+  /**
+   * From module 0.21.0, "check" too, for one that asks for a check, such as Maze; and "enchant",
+   * for one that enchants an item, such as Magic Weapon.
+   */
+  type: 'save' | 'damage' | 'heal' | 'utility' | 'check' | 'enchant'
+  /** Whom it's used at; for an enchant activity, never anyone: what it enchants is in `enchant`. */
   targets: SheetUseTargets
+  /** For an enchant activity, what it enchants and how. Module 0.21.0; absent for any other. */
+  enchant?: SheetEnchant
+}
+
+/**
+ * What an enchant activity enchants, as dnd5e applies it, such as Magic Weapon on a weapon of the
+ * character's, or a Flame Tongue set alight: its item itself, or one of the character's items its
+ * rules allow; the ways it may enchant it; and the enchantments it has applied. Module 0.21.0.
+ */
+export type SheetEnchant = {
+  /** It enchants its own item, as a Flame Tongue's Engulf in Flames does. */
+  self: boolean
+  /**
+   * It enchants its own item and spends nothing, no slot nor use, nor takes concentration, so that
+   * it's turned on and off as a switch is, as Engulf in Flames is.
+   */
+  toggle: boolean
+  /** The ways it may enchant, such as "Magic Weapon, +1", one to twenty, in dnd5e's order. */
+  profiles: SheetEnchantProfile[]
+  /**
+   * The ids of the character's items it may enchant, as dnd5e's rules for it allow, in the order
+   * the character has them; none for one that enchants its own item.
+   */
+  items: string[]
+  /** The enchantments it has applied to the character's items; at most one of its own item. */
+  applied: SheetEnchantApplied[]
+}
+
+/**
+ * A way an enchant activity may enchant, such as "Magic Weapon, +2", with the spell levels it's
+ * offered at, from `min` to `max`, as dnd5e offers it; null for no limit, as anything but a spell
+ * with levels, or one an item casts, always has.
+ */
+export type SheetEnchantProfile = {
+  id: string
+  name: string
+  min: number | null
+  max: number | null
+}
+
+/** An enchantment an enchant activity applied: on which item, its effect's id, and which way. */
+export type SheetEnchantApplied = {
+  item: string
+  effect: string
+  profile: string
+}
+
+/**
+ * The check an activity asks for, such as Fast Hands' Sleight of Hand, Manacles' Bind or Maze's
+ * Investigation: each way it may be made, in the order dnd5e's card offers them, its DC, and
+ * whether it's the character's own to make. Module 0.21.0.
+ */
+export type SheetCheck = {
+  /** One to ten, each skill, tool or ability once. */
+  checks: SheetCheckOption[]
+  /** Its DC, as dnd5e works it out; null for none. */
+  dc: number | null
+  /**
+   * Whether the character makes it, and may roll it from here; false for a spell's, which another
+   * creature makes, such as Maze's.
+   */
+  own: boolean
+}
+
+/**
+ * One way a check an activity asks for may be made: an ability check, or a skill's or a tool's,
+ * each with the ability it's made with, as dnd5e's card's button has it.
+ */
+export type SheetCheckOption = {
+  type: 'check' | 'skill' | 'tool'
+  /** dnd5e's id, such as "dex". */
+  ability: string
+  /** The skill's or tool's key, such as "slt" or "thief"; none for an ability check. */
+  key?: string
+  /**
+   * For a tool check made with the tool the activity is of, the tool's own bonus, such as 1, which
+   * dnd5e adds to it; absent for none.
+   */
+  bonus?: number
+}
+
+/**
+ * What using an activity that uses another spends, as dnd5e's forward activity spends it, such as
+ * a spell cast once a day without a slot. Module 0.21.0.
+ */
+export type SheetForward = {
+  /**
+   * How many uses it spends: 0 for none, as where it has nothing to spend, or the spell's activity
+   * it's used through spends no slot; null for what the sheet can't count, such as a formula.
+   */
+  charges: number | null
+  /** Fewer are left than it spends. */
+  short: boolean
 }
 
 /**
@@ -453,6 +604,8 @@ export type SheetActivity = Pick<
   | 'cast'
   | 'rollFormula'
   | 'attackArea'
+  | 'check'
+  | 'forward'
   | 'uses'
 > & {
   /** The activity's id. */
@@ -517,6 +670,8 @@ export type SheetRolls = Pick<
   | 'spellId'
   | 'rollFormula'
   | 'attackArea'
+  | 'check'
+  | 'forward'
   | 'activities'
 >
 
@@ -560,6 +715,8 @@ export type SheetActivityFavorite = Pick<
   | 'spellId'
   | 'rollFormula'
   | 'attackArea'
+  | 'check'
+  | 'forward'
   | 'uses'
 > & {
   type: 'activity'
@@ -867,6 +1024,16 @@ export type BridgeFeatures = {
     prompts?: boolean
     /** Whether an area attack is made at the combatants its player picks. Module 0.16.0. */
     areaAttacks?: boolean
+    /**
+     * Whether a check an activity asks for, the player's own, is made against it, as its card's
+     * button makes it, under dnd5e 5. Module 0.21.0.
+     */
+    activityChecks?: boolean
+    /**
+     * Whether more dice and another die change only a die damage adds, never one it takes away,
+     * which its previews mark. Module 0.21.0.
+     */
+    signedDice?: boolean
   } | null
 }
 
@@ -932,6 +1099,33 @@ export type CommandResult = {
    * passed its checks: all of them, or those made before it stopped. Module 0.20.0.
    */
   spent?: { count: number; made: number } | null
+  /**
+   * For a use of an enchant activity, or an enchantment ended, the enchantment it applied and the
+   * one it ended, if any; null where it applied and ended none. Module 0.21.0.
+   */
+  enchantment?: EnchantmentOutcome | null
+}
+
+/**
+ * What an enchant activity did to the character's items: the enchantment it applied, such as
+ * Magic Weapon, +1 on a longsword, and the one it ended, such as the one it replaced, or a Flame
+ * Tongue's put out; either null for none.
+ */
+export type EnchantmentOutcome = {
+  enchanted: {
+    item: string
+    /** The item's own name, not as the enchantment renames it. */
+    itemName: string
+    effect: string
+    profile: string
+    name: string
+  } | null
+  ended: {
+    item: string
+    itemName: string
+    effect: string
+    name: string
+  } | null
 }
 
 /** Whether a saving throw succeeded against its DC. */
@@ -988,9 +1182,11 @@ export type DamagePreviewRoll = {
   types?: DamageTypeChoice[] | null
   /**
    * Each kind of die it throws, in order. From module 0.20.0, those of the critical damage a
-   * critical hit adds, such as a weapon's, are marked `added`: they are never its first die.
+   * critical hit adds, such as a weapon's, are marked `added`: they are never its first die. From
+   * module 0.21.0, those the damage takes away, as Reduce's −1d4, are marked `subtracted`: never
+   * its first die. Either mark may be on a die with the other.
    */
-  dice: { faces: number; number: number; added?: true }[]
+  dice: { faces: number; number: number; added?: true; subtracted?: true }[]
   /**
    * How many dice it throws for each die of its own: 1, or on a critical hit as many as the
    * world's rules make of each, such as 2. Module 0.13.0; absent before, as 1.
