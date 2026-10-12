@@ -58,7 +58,8 @@ export type SheetRoll = {
   /** For an area attack, the names of the combatants it's made at, by their ids. */
   targetNames?: Record<string, string>
   /**
-   * For a saving throw or check a description calls for, the DC it names, which it's made against.
+   * For a saving throw or check a description calls for, the DC it names, which it's made against;
+   * or for a check an activity asks for, the activity's.
    */
   dc?: number
   /**
@@ -95,6 +96,11 @@ export type SheetDamageRoll = {
    * doubled dice take two.
    */
   perDie?: number
+  /**
+   * Its dice can't be changed: the game's preview has no first die to change, or one a module
+   * before 0.21.0 would change otherwise.
+   */
+  fixed?: true
   /** For damage or healing a description deals, its link, for the game to roll it too. */
   text?: TextLink
   /**
@@ -156,11 +162,11 @@ export type LocalCheck = {
   /** The d20 that counts. */
   natural: number
   extras: LocalExtra[]
-  /** For a saving throw or check a description calls for, the DC it names. */
+  /** For a saving throw or check a description calls for, the DC it names; or an activity's. */
   dc?: number
   /**
-   * For a saving throw or check a description calls for, what it's said to do when it reaches its
-   * DC: a saving throw is saved, as one is unless it says, and a check passed.
+   * For a saving throw or check a description or an activity calls for, what it's said to do when
+   * it reaches its DC: a saving throw is saved, as one is unless it says, and a check passed.
    */
   verdict?: 'save' | 'check'
   /** Rolled from a link in a description. */
@@ -173,12 +179,16 @@ export type LocalDamage = {
   kind: 'damage'
   id: string
   label: string
+  /**
+   * As dnd5e's card adds damage up: each kind's parts together, each kind at least 0, then every
+   * kind.
+   */
   total: number
   critical: boolean
   healing: boolean
   /** Every die at its highest, as the player chose. */
   maximized?: boolean
-  /** Each part of the formula, with what it came to. */
+  /** Each part of the formula, with what it came to, below 0 where it took more away. */
   parts: { type: string | null; total: number; terms: LocalExtra[] }[]
   /** Rolled from a link in a description. */
   described?: boolean
@@ -206,6 +216,11 @@ export type LocalUse = {
    * level the item offers, rather than with a spell slot.
    */
   itemCast?: boolean
+  /**
+   * An enchantment ended, such as Magic Weapon's on a longsword, rather than anything used, from
+   * module 0.21.0: what it's called is the label.
+   */
+  ending?: boolean
   at: number
 }
 
@@ -321,6 +336,10 @@ export function useSheetRoller(
         check.described = true
         // Against its DC, which the game may know where the description keeps it from the player.
         if (CHECKS.has(source.kind)) check.verdict = 'check'
+      }
+      // A check an activity asks for is passed or failed against its DC, as the game says.
+      if (source && 'activity' in source && CHECKS.has(source.kind)) {
+        check.verdict = 'check'
       }
       onThrown?.(request, check)
       await land(thrown, check)
@@ -472,6 +491,20 @@ export function useSheetRoller(
     [],
   )
 
+  // Keeps an enchantment ended, first among the rolls, as a use is.
+  const logEnd = useCallback((label: string): LocalUse => {
+    const ended: LocalUse = {
+      kind: 'use',
+      id: `use-${Date.now()}-${++uses}`,
+      label,
+      spell: false,
+      ending: true,
+      at: Date.now(),
+    }
+    setRolls(earlier => keeping(earlier, ended))
+    return ended
+  }, [])
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
@@ -489,6 +522,7 @@ export function useSheetRoller(
     rollDamage,
     rollFormula,
     logUse,
+    logEnd,
     logAsk,
     rolls,
     rolling: inFlight > 0,
@@ -566,11 +600,20 @@ function toLocalDamage(
       terms: done,
     }
   })
+  // As dnd5e's card adds damage up: each kind's parts together, each kind at least 0, then every
+  // kind; each part's own total as it came.
+  const kinds = new Map<string | null, number>()
+  for (const { type, total } of kept) {
+    kinds.set(type, (kinds.get(type) ?? 0) + total)
+  }
   return {
     kind: 'damage',
     id: result.id,
     label,
-    total: kept.reduce((sum, part) => sum + part.total, 0),
+    total: [...kinds.values()].reduce(
+      (sum, kind) => sum + Math.max(0, kind),
+      0,
+    ),
     critical,
     healing,
     ...(maximized && { maximized }),

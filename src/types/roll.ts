@@ -2,6 +2,7 @@ import type { ROLL_FEATURES, ROLL_KINDS } from '@/constants/sending-stone'
 import type {
   AttackOutcome,
   DamagePreview,
+  EnchantmentOutcome,
   SaveOutcome,
   UseOutcome,
 } from '@/types/sending-stone'
@@ -23,13 +24,15 @@ export type RollFeature = (typeof ROLL_FEATURES)[number]
 /**
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
  * tool's key, an ability check or saving throw by the ability's, and for one a description calls
- * for, its link; for a saving throw the game asked for, the prompt it answers; a death saving
+ * for, its link; for a check an activity asks for, the player's own, from module 0.21.0, the item
+ * and activity; for a saving throw the game asked for, the prompt it answers; a death saving
  * throw, initiative in a combat, or an attack with an item's attack activity, at a combatant, or
  * none, or for an area attack at those in its area, with the spell slot, ammunition and attack
  * mode chosen.
  */
 export type RollSource =
-  | ({ kind: 'skill' | 'tool' | 'ability'; key: string } & Partial<TextLink>)
+  | ({ kind: 'skill' | 'tool' | 'ability'; key: string } & Partial<TextLink> &
+      Partial<ActivityRef>)
   | ({ kind: 'save'; key: string; prompt?: string } & Partial<TextLink>)
   | { kind: 'death' }
   | { kind: 'initiative'; combatId: string }
@@ -54,7 +57,8 @@ export type AttackChoices = {
 
 /**
  * A spell or feature a player has used in the game, with no roll of its own: an item's activity, at
- * the combatants picked, with the spell slot chosen.
+ * the combatants picked, with the spell slot chosen; and for an enchant activity, from module
+ * 0.21.0, the way it enchants and the item it enchants, if one of the character's.
  */
 export type UseSource = {
   kind: 'use'
@@ -62,6 +66,24 @@ export type UseSource = {
   activity: string
   targets: AttackTarget[]
   slot?: string | null
+  enchant?: EnchantChoice
+}
+
+/**
+ * How an enchant activity is used: the way it enchants, its profile's id; and the character's item
+ * it enchants, by its id, for one that enchants another of their items; none for one that enchants
+ * its own, or to leave on its card in the game, for whoever the Gamemaster says.
+ */
+export type EnchantChoice = { profile: string; item?: string }
+
+/**
+ * An enchantment on one of the character's items ended, as dnd5e's chat card lets its caster end
+ * it, from module 0.21.0: the item's id, and the enchantment's effect's.
+ */
+export type EndEnchantmentSource = {
+  kind: 'endEnchantment'
+  item: string
+  effect: string
 }
 
 /**
@@ -84,6 +106,9 @@ export type HitDiceSpent = { denomination: string; count: number }
  */
 export type TextLink = { text: string; link: number }
 
+/** One of the character's items' activities, by the item's id and its own. */
+export type ActivityRef = { item: string; activity: string }
+
 /** The combatant an attack, or a use, is made at, in the combat its player sees. */
 export type AttackTarget = { combatId: string; combatantId: string }
 
@@ -105,7 +130,10 @@ export type RollRequestInput = {
   dice: RolledDice[]
   /** For initiative, the combat it's rolled in. */
   combatId?: string
-  /** For an attack, a use or a formula, the item and its activity. */
+  /**
+   * For an attack, a use or a formula, the item and its activity; and from module 0.21.0, for a
+   * check an activity asks for, the player's own.
+   */
   item?: string
   activity?: string
   /** For an attack, the combatant it's made at, if any. */
@@ -114,6 +142,10 @@ export type RollRequestInput = {
   targets?: AttackTarget[]
   /** For an attack or a use of a spell, the spell slot chosen. */
   slot?: string | null
+  /** For a use of an enchant activity, from module 0.21.0, how it enchants, and what. */
+  enchant?: EnchantChoice
+  /** For an enchantment ended, from module 0.21.0, the item it's on, and its effect. */
+  enchantment?: { item: string; effect: string }
   /** For an attack, the ammunition and attack mode chosen. */
   ammunition?: string
   attackMode?: string
@@ -187,4 +219,16 @@ export type RollRequestView = {
    * part way, as at full hit points, how many it made before, even of those they can't see.
    */
   spent?: { count: number; made: number }
+  /**
+   * For a use of an enchant activity, or an enchantment ended, from module 0.21.0, the enchantment
+   * it applied and the one it ended, if any.
+   */
+  enchantment?: EnchantmentOutcome
+  /**
+   * For a use of an enchant activity that wasn't made, or whose enchantment wasn't applied, from
+   * module 0.21.0: false where the game names no card of it, so that the Gamemaster can't apply
+   * the enchantment from one: none was posted, it was deleted, or dnd5e lets no one apply it from
+   * the card, as one naming a concentration that has since ended.
+   */
+  card?: false
 }

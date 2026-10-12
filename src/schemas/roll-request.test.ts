@@ -206,7 +206,8 @@ describe('schemas/roll-request', () => {
     ['initiative without its combat', { kind: 'initiative', key: undefined }],
     ['a combat for a skill', { combatId: 'cmbt1' }],
     ['a kind it does not know', { kind: 'heal', key: undefined }],
-    ['an item for a skill', { item: 'longsword', activity: 'swing' }],
+    // From module 0.21.0, a skill check an activity asks for names both.
+    ['an item for a skill, without its activity', { item: 'longsword' }],
     ['a target for a skill', { target: null }],
     ['an attack for a skill', { use: 'req-1' }],
     ['a formula', { formula: '1d20 + 99' }],
@@ -876,6 +877,102 @@ describe('schemas/roll-request', () => {
     })
   })
 
+  describe('a check an activity asks for, from module 0.21.0', () => {
+    const TEXT = '0f1a2b3c4d5e6f'
+    /** The activity: Fast Hands' Sleight of Hand. */
+    const named = { item: 'fastHands', activity: 'slt1' }
+
+    it.each([
+      ['a skill check', { kind: 'skill', key: 'slt' }],
+      ['a tool check', { kind: 'tool', key: 'thief' }],
+      ['an ability check', { kind: 'ability', key: 'str' }],
+    ])(
+      "takes the player's own %s, by its item and activity, with the dice a check throws",
+      (_name, fields) => {
+        const check = { ...fields, ...named }
+
+        expect(parse(check).data).toEqual({ ...perception, ...check })
+        expect(
+          parse({
+            ...check,
+            mode: -1,
+            explicit: true,
+            extras: [{ sign: 1, count: 1, sides: 4 }],
+            dice: [
+              { faces: 20, results: [14, 3] },
+              { faces: 4, results: [2] },
+            ],
+          }).success,
+        ).toBe(true)
+        // Its d20 is thrown, as any check's.
+        expect(parse({ ...check, dice: [] }).success).toBe(false)
+        expect(parse({ ...check, key: undefined }).success).toBe(false)
+      },
+    )
+
+    it.each([
+      ['its item alone', { item: 'fastHands' }],
+      ['its activity alone', { activity: 'slt1' }],
+      ['an item that is not an id', { ...named, item: 'Fast Hands' }],
+      ['a description’s link too', { ...named, text: TEXT, link: 3 }],
+      ['a description too', { ...named, text: TEXT }],
+      ['a link too', { ...named, link: 3 }],
+      ['answering what the game asked', { ...named, prompt: 'msg1-thorin' }],
+    ])('refuses a check named by %s', (_name, fields) => {
+      for (const kind of [
+        { kind: 'skill', key: 'slt' },
+        { kind: 'tool', key: 'thief' },
+        { kind: 'ability', key: 'dex' },
+      ]) {
+        expect(parse({ ...kind, ...fields }).success).toBe(false)
+      }
+    })
+
+    it('refuses a DC sent with it, as one it doesn’t know of: the game reads the DC from the activity', () => {
+      const result = parse({ kind: 'skill', key: 'slt', ...named, dc: 15 })
+
+      expect(result.success).toBe(false)
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({ code: 'unrecognized_keys', keys: ['dc'] }),
+      ])
+    })
+
+    it.each([
+      ['a saving throw', { kind: 'save', key: 'dex' }],
+      ['a death save', { kind: 'death', key: undefined }],
+      [
+        'initiative',
+        { kind: 'initiative', key: undefined, combatId: 'combat1' },
+      ],
+      [
+        'a hit die',
+        {
+          kind: 'hitDie',
+          key: undefined,
+          denomination: 'd8',
+          dice: [{ faces: 8, results: [5] }],
+        },
+      ],
+      [
+        'an ask',
+        { kind: 'ask', key: undefined, text: TEXT, link: 3, dice: [] },
+      ],
+      [
+        'a description’s roll',
+        {
+          kind: 'textRoll',
+          key: undefined,
+          text: TEXT,
+          link: 3,
+          dice: [{ faces: 6, results: [4] }],
+        },
+      ],
+    ])('names no item for %s', (_name, fields) => {
+      expect(parse(fields).success).toBe(true)
+      expect(parse({ ...fields, ...named }).success).toBe(false)
+    })
+  })
+
   it("reads the module's fetch, for one of its campaigns", () => {
     const poll = {
       protocol: 2,
@@ -888,6 +985,145 @@ describe('schemas/roll-request', () => {
     )
     expect(
       commandsPollSchema.safeParse({ ...poll, campaign: undefined }).success,
+    ).toBe(false)
+  })
+})
+
+/** Magic Weapon cast with a 4th-level slot, its +2 put on a longsword. */
+const enchanting = {
+  kind: 'use',
+  item: 'magicweapon',
+  activity: 'mwcast',
+  targets: [],
+  slot: 'spell4',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  enchant: { profile: '8OhsRxK3dF1JeQXO', item: 'longsword' },
+}
+
+/** A Flame Tongue's Ablaze put out. */
+const ending = {
+  kind: 'endEnchantment',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  enchantment: { item: 'flametongue', effect: 'ablazeEffect001' },
+}
+
+const parseEnchanting = (fields: object) =>
+  rollRequestSchema.safeParse({ ...enchanting, ...fields })
+
+const parseEnding = (fields: object) =>
+  rollRequestSchema.safeParse({ ...ending, ...fields })
+
+describe('enchant activities, from module 0.21.0', () => {
+  it('takes a use saying how it enchants, and the item, or none', () => {
+    expect(parseEnchanting({}).success).toBe(true)
+    expect(
+      parseEnchanting({ enchant: { profile: '8OhsRxK3dF1JeQXO' } }).success,
+    ).toBe(true)
+    // An enchant activity's use may say nothing of it, as dnd5e then chooses.
+    expect(parseEnchanting({ enchant: undefined }).success).toBe(true)
+  })
+
+  it.each([
+    ['a way that isn’t an id', { profile: 'Magic Weapon, +2' }],
+    [
+      'an item that isn’t an id',
+      { profile: '8OhsRxK3dF1JeQXO', item: 'long sword' },
+    ],
+    ['no way', { item: 'longsword' }],
+    ['anything else', { profile: '8OhsRxK3dF1JeQXO', level: 4 }],
+  ])('refuses a use enchanting with %s', (_name, enchant) => {
+    expect(parseEnchanting({ enchant }).success).toBe(false)
+  })
+
+  it('takes how it enchants only on a use', () => {
+    const enchant = enchanting.enchant
+    expect(parseAttack({ enchant }).success).toBe(false)
+    expect(
+      rollRequestSchema.safeParse({
+        kind: 'formula',
+        item: 'torch',
+        activity: 'light',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 4, results: [3] }],
+        enchant,
+      }).success,
+    ).toBe(false)
+    expect(parse({ enchant }).success).toBe(false)
+    expect(parseEnding({ enchant }).success).toBe(false)
+  })
+
+  it('takes an enchantment ended, naming its item and effect', () => {
+    expect(parseEnding({}).success).toBe(true)
+    expect(parseEnding({ enchantment: undefined }).success).toBe(false)
+    expect(parseEnding({ enchantment: { item: 'flametongue' } }).success).toBe(
+      false,
+    )
+    expect(
+      parseEnding({
+        enchantment: { item: 'flametongue', effect: 'ablaze!' },
+      }).success,
+    ).toBe(false)
+    expect(
+      parseEnding({
+        enchantment: { ...ending.enchantment, profile: 'ablazeProfile01' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it.each([
+    ['an item', { item: 'flametongue' }],
+    ['an activity', { activity: 'engulf' }],
+    ['an item and activity', { item: 'flametongue', activity: 'engulf' }],
+    ['targets', { targets: [] }],
+    ['a slot', { slot: 'spell2' }],
+    ['a target', { target: null }],
+    ['a key', { key: 'prc' }],
+    ['an attack or use it follows', { use: 'req-1' }],
+    ['a link', { text: 'a3b4c5d6e7f809', link: 0 }],
+  ])('refuses an enchantment ended with %s', (_name, fields) => {
+    expect(parseEnding(fields).success).toBe(false)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])(
+    'refuses an enchantment ended with %s, as it throws no dice',
+    (_name, fields) => {
+      expect(parseEnding(fields).success).toBe(false)
+    },
+  )
+
+  it('names the enchantment ended only when it ends one, a use too, whose checks end early', () => {
+    expect(parseEnchanting({ enchantment: ending.enchantment }).success).toBe(
+      false,
+    )
+    expect(parse({ enchantment: ending.enchantment }).success).toBe(false)
+    expect(
+      rollRequestSchema.safeParse({
+        kind: 'ask',
+        text: 'a3b4c5d6e7f809',
+        link: 0,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+        enchant: enchanting.enchant,
+      }).success,
+    ).toBe(false)
+    // A use still throws no dice.
+    expect(
+      parseEnchanting({ dice: [{ faces: 20, results: [14] }] }).success,
     ).toBe(false)
   })
 })

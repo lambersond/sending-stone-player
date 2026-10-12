@@ -3,10 +3,18 @@ import { envelopeSchema, parseGameEvent } from './sending-stone'
 import {
   castingSheet,
   characterSheet,
+  checkingSheet,
   combat,
+  enchantingSheet,
+  enchantUse,
   fullerSheet,
+  MAGIC_WEAPON_PROFILES,
+  LOCK_CHECK,
+  MAZE_CHECK,
   roster,
+  sheetAction,
   sheetFavorites,
+  SLEIGHT_CHECK,
   TEXTS,
 } from '@/mocks/sending-stone'
 import type {
@@ -185,6 +193,63 @@ const readCast = (sent: unknown) => {
     withActivities.activities[1].cast,
     read.favorites[2].cast,
   ]
+}
+
+/**
+ * What an action, one of its activities and a favorite activity say they ask for, or spend, as
+ * read: the fields given, on each.
+ */
+const readRolls = (fields: object) => {
+  const activity = {
+    id: 'act',
+    name: 'Bind',
+    type: 'check',
+    activation: 'Action',
+    range: null,
+    target: null,
+    toHit: null,
+    save: null,
+    damage: [],
+    uses: null,
+  }
+  const event = parseGameEvent('character.updated', {
+    character: {
+      ...roster[0],
+      sheet: characterSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'manacles',
+                name: 'Manacles',
+                ...fields,
+                activities: [
+                  { ...activity, id: 'first' },
+                  { ...activity, ...fields },
+                ],
+              }),
+            ],
+          },
+        ],
+        favorites: [
+          {
+            ...activity,
+            type: 'activity',
+            itemId: 'manacles',
+            itemType: 'equipment',
+            itemName: 'Manacles',
+            img: null,
+            ...fields,
+          },
+        ],
+      }),
+    },
+  }) as any
+  const read = event.data.character.sheet
+  const [action] = read.actions[0].actions
+  return [action, action.activities[1], read.favorites[0]]
 }
 
 describe('schemas/sending-stone', () => {
@@ -676,6 +741,52 @@ describe('schemas/sending-stone', () => {
       })
       expect(read).toEqual(greataxe)
       expect(read.rolls[0].dice[0].added).toBeUndefined()
+    }
+  })
+
+  it('reads the dice damage takes away as subtracted, from module 0.21.0, leaving out anything else said of them', () => {
+    // A greataxe's critical hit under Reduce: 3d12 + 3, less 2d4, and the weapon's 1d6; and
+    // Midi-QOL's copy of the d4, placed after a minus, both critical damage and taken away.
+    const reduced = {
+      critical: true,
+      plannable: true,
+      rolls: [
+        {
+          formula: '3d12 + 3 - 2d4 + 1d6 - 1d4min4',
+          type: 'Slashing',
+          dice: [
+            { faces: 12, number: 3 },
+            { faces: 4, number: 2, subtracted: true },
+            { faces: 6, number: 1, added: true },
+            { faces: 4, number: 1, added: true, subtracted: true },
+          ],
+          perDie: 2,
+        },
+      ],
+    }
+    const read = damageOf(reduced)
+    expect(read).toEqual(reduced)
+    expect(Object.keys(read.rolls[0].dice[3])).toEqual([
+      'faces',
+      'number',
+      'added',
+      'subtracted',
+    ])
+    for (const junk of [false, 'yes', 1, null]) {
+      const junked = damageOf({
+        ...reduced,
+        rolls: [
+          {
+            ...reduced.rolls[0],
+            dice: [
+              { faces: 12, number: 3, subtracted: junk },
+              ...reduced.rolls[0].dice.slice(1),
+            ],
+          },
+        ],
+      })
+      expect(junked).toEqual(reduced)
+      expect(junked.rolls[0].dice[0].subtracted).toBeUndefined()
     }
   })
 
@@ -2373,5 +2484,536 @@ describe('schemas/sending-stone', () => {
     expect(() =>
       parseGameEvent('combat.turn', { combat: { id: 'cmbt1' } }),
     ).toThrow()
+  })
+
+  describe('checks activities ask for, and activities that use others, from module 0.21.0', () => {
+    it('reads them on actions, activities, spells and items, as sent', () => {
+      const sheet = checkingSheet()
+      const event = parseGameEvent('character.updated', {
+        character: { ...roster[0], sheet },
+      }) as any
+      const read = event.data.character.sheet
+      const [tools, maze, bless] = read.actions[0].actions
+      const [fastHands] = read.actions[1].actions
+      expect(tools.check).toEqual(LOCK_CHECK)
+      expect(tools.activity.type).toBe('check')
+      expect(maze.check).toEqual(MAZE_CHECK)
+      expect(fastHands.check).toEqual(SLEIGHT_CHECK)
+      expect(fastHands.activities.map((each: any) => each.check)).toEqual(
+        sheet.actions[1].actions[0].activities!.map(each => each.check),
+      )
+      expect(bless.activities[1]).toEqual(
+        sheet.actions[0].actions[2].activities![1],
+      )
+      expect(read.spells[1].spells[0].check).toEqual(MAZE_CHECK)
+      expect(read.spells[0].spells[0].activities[1].forward).toEqual({
+        charges: 1,
+        short: false,
+      })
+      expect(read.inventory.sections[0].items[0].check).toEqual(LOCK_CHECK)
+    })
+
+    it('reads them on a favorite activity', () => {
+      for (const read of readRolls({
+        activity: {
+          id: 'act',
+          type: 'check',
+          targets: {
+            self: false,
+            area: false,
+            count: 1,
+            perLevel: null,
+            affects: 'creature',
+          },
+        },
+        check: LOCK_CHECK,
+        forward: { charges: 2, short: true },
+      })) {
+        expect(read.activity.type).toBe('check')
+        expect(read.check).toEqual(LOCK_CHECK)
+        expect(read.forward).toEqual({ charges: 2, short: true })
+      }
+    })
+
+    it('reads an ability check, and drops a malformed way to make one, or one twice', () => {
+      const [read] = readRolls({
+        check: {
+          checks: [
+            { type: 'check', ability: 'str' },
+            { type: 'skill', ability: 'dex' },
+            { type: 'skill', ability: 'dex', key: 'slt', bonus: 'two' },
+            { type: 'tool', ability: 'luck', key: 'thief' },
+            { type: 'check', ability: 'str', key: 'ath' },
+            { type: 'vehicle', ability: 'dex', key: 'land' },
+            { type: 'skill', ability: 'int', key: 'slt' },
+            'Sleight of Hand',
+          ],
+          dc: 13,
+          own: true,
+        },
+      })
+      expect(read.check).toEqual({
+        checks: [
+          { type: 'check', ability: 'str' },
+          { type: 'skill', ability: 'dex', key: 'slt' },
+        ],
+        dc: 13,
+        own: true,
+      })
+    })
+
+    it('takes a DC it can’t read as none, and one whose maker it can’t read as another’s', () => {
+      const [read] = readRolls({
+        check: { ...LOCK_CHECK, dc: 100, own: 'yes' },
+      })
+      expect(read.check).toEqual({ ...LOCK_CHECK, dc: null, own: false })
+    })
+
+    it.each([
+      ['no way to make it', { ...LOCK_CHECK, checks: [] }],
+      ['no way it can read', { ...LOCK_CHECK, checks: [{ type: 'skill' }] }],
+      [
+        'more than ten ways',
+        {
+          ...LOCK_CHECK,
+          checks: [
+            'acr',
+            'ani',
+            'arc',
+            'ath',
+            'dec',
+            'his',
+            'ins',
+            'itm',
+            'inv',
+            'med',
+            'nat',
+          ].map(key => ({ type: 'skill', ability: 'dex', key })),
+        },
+      ],
+      ['not an object', 'Sleight of Hand'],
+    ])('leaves out a check with %s, the activity kept', (_name, check) => {
+      for (const read of readRolls({
+        activity: {
+          id: 'act',
+          type: 'check',
+          targets: {
+            self: true,
+            area: false,
+            count: null,
+            perLevel: null,
+            affects: null,
+          },
+        },
+        check,
+      })) {
+        expect(read).not.toHaveProperty('check', expect.anything())
+        expect(read.activity.type).toBe('check')
+      }
+    })
+
+    it('reads what an activity that uses another spends, as nothing where it can’t, or not enough left where it can’t say', () => {
+      expect(readRolls({ forward: { charges: 1.5, short: 'no' } })[0]).toEqual(
+        expect.objectContaining({ forward: { charges: null, short: false } }),
+      )
+      for (const read of readRolls({ forward: 'one use' })) {
+        expect(read).not.toHaveProperty('forward', expect.anything())
+      }
+    })
+
+    it('reads one that spends nothing as sent, and spending fewer than none as nothing it can say', () => {
+      for (const read of readRolls({ forward: { charges: 0, short: false } })) {
+        expect(read.forward).toEqual({ charges: 0, short: false })
+      }
+      for (const read of readRolls({
+        forward: { charges: -1, short: false },
+      })) {
+        expect(read.forward).toEqual({ charges: null, short: false })
+      }
+    })
+
+    it('leaves them out as an older module does', () => {
+      for (const read of readRolls({})) {
+        expect(read).not.toHaveProperty('check')
+        expect(read).not.toHaveProperty('forward')
+      }
+    })
+
+    it('reads a hello saying whether a check an activity asks for is made against it', () => {
+      const rolls = {
+        enabled: true,
+        kinds: ['skill', 'tool', 'ability', 'use'],
+        reason: null,
+      }
+      expect(
+        helloWith({ rolls: { ...rolls, activityChecks: true } }).features.rolls,
+      ).toEqual({ ...rolls, activityChecks: true })
+      expect(
+        helloWith({ rolls: { ...rolls, activityChecks: 'yes' } }).features
+          .rolls,
+      ).toEqual({ ...rolls, activityChecks: false })
+      // A module before 0.21.0 says nothing of it.
+      expect(helloWith({ rolls }).features.rolls).not.toHaveProperty(
+        'activityChecks',
+      )
+    })
+  })
+})
+
+/** A sheet as read from character.updated. */
+const readSheet = (sheet: unknown) =>
+  (
+    parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet },
+    }) as any
+  ).data.character.sheet
+
+/** An enchant activity, as read wherever an action, activity or favorite has one. */
+const readUse = (activity: unknown) =>
+  readRolls({ activity }).map(read => read.activity)
+
+/** A use's result, as read, with these fields. */
+const enchantResult = (fields: object) =>
+  parseGameEvent('command.result', {
+    id: 'req-1',
+    status: 'done',
+    messageId: 'msg-1',
+    visible: true,
+    rolls: [],
+    use: { type: 'enchant' },
+    damage: null,
+    ...fields,
+  })?.data as any
+
+describe('enchant activities and enchantments, from module 0.21.0', () => {
+  const magicWeapon = enchantUse('mw-cast', {
+    profiles: MAGIC_WEAPON_PROFILES,
+    items: ['longsword', 'club'],
+    applied: [
+      { item: 'club', effect: 'effect000000001', profile: 'SLSudYaACjmmmZsU' },
+    ],
+  })
+
+  it('reads what an enchant activity enchants, on spells, items, their activities, actions and favorites', () => {
+    const sheet = enchantingSheet()
+    const read = readSheet(sheet)
+    expect(read.spells[1].spells[0].activity).toEqual(
+      sheet.spells[1].spells[0].activity,
+    )
+    expect(read.spells[0].spells[0].activity.enchant.applied).toEqual([
+      {
+        item: 'quarterstaff',
+        effect: 'shillEffect01',
+        profile: 'Oy8fP2N3q4R5s6T7',
+      },
+    ])
+    const flameTongue = read.inventory.sections[0].items[3]
+    expect(flameTongue.activities[1].activity.enchant).toEqual({
+      self: true,
+      toggle: true,
+      profiles: [
+        { id: 'ablazeProfile01', name: 'Ablaze', min: null, max: null },
+      ],
+      items: [],
+      applied: [],
+    })
+    for (const use of readUse(magicWeapon)) {
+      expect(use).toEqual(magicWeapon)
+    }
+  })
+
+  it.each([
+    ['without what it enchants', { ...magicWeapon, enchant: undefined }],
+    ['with what it enchants malformed', { ...magicWeapon, enchant: 'all' }],
+    [
+      'with no way to enchant',
+      { ...magicWeapon, enchant: { ...magicWeapon.enchant, profiles: [] } },
+    ],
+    [
+      'with no way it can read',
+      {
+        ...magicWeapon,
+        enchant: {
+          ...magicWeapon.enchant,
+          profiles: [{ id: 'not an id', name: '+1', min: null, max: null }],
+        },
+      },
+    ],
+    [
+      'that can’t say whether it enchants its own item',
+      { ...magicWeapon, enchant: { ...magicWeapon.enchant, self: 'no' } },
+    ],
+  ])('reads an enchant activity %s as none, used in Foundry', (_name, use) => {
+    for (const read of readUse(use)) expect(read).toBeNull()
+  })
+
+  it('drops a malformed way, item or enchantment applied, or one twice, the rest kept', () => {
+    const [read] = readUse({
+      ...magicWeapon,
+      enchant: {
+        ...magicWeapon.enchant,
+        profiles: [
+          ...MAGIC_WEAPON_PROFILES,
+          MAGIC_WEAPON_PROFILES[0],
+          { id: 'backwards000000', name: 'Backwards', min: 5, max: 4 },
+          { id: 'unnamed00000000', name: '', min: null, max: null },
+          { id: 'limitless000000', name: 'Limitless', min: 'low', max: null },
+        ],
+        items: ['longsword', 'longsword', 'the club', 42, 'club'],
+        applied: [
+          { item: 'club', effect: 'effect000000001' },
+          ...magicWeapon.enchant!.applied,
+        ],
+      },
+    })
+    expect(read.enchant).toEqual({
+      ...magicWeapon.enchant,
+      profiles: MAGIC_WEAPON_PROFILES,
+      items: ['longsword', 'club'],
+    })
+  })
+
+  it('takes one that enchants its own item as enchanting no other, and only it as a switch', () => {
+    const [own] = readUse({
+      ...magicWeapon,
+      enchant: { ...magicWeapon.enchant, self: true, toggle: 'yes' },
+    })
+    expect(own.enchant).toEqual(
+      expect.objectContaining({ self: true, toggle: false, items: [] }),
+    )
+    const [other] = readUse({
+      ...magicWeapon,
+      enchant: { ...magicWeapon.enchant, toggle: true },
+    })
+    expect(other.enchant.toggle).toBe(false)
+  })
+
+  it('reads the enchantments on items, those in containers too, spells, features and actions', () => {
+    const shining = {
+      id: 'contFlame01',
+      name: 'Continual Flame',
+      source: 'Continual Flame',
+      concentration: false,
+      duration: '7 Days',
+      expired: false,
+      endable: true,
+    }
+    const enchantments = [
+      shining,
+      { ...shining, id: 'bad id', name: 'Bad' },
+      { ...shining, id: 'unnamed', name: '  ' },
+      {
+        ...shining,
+        id: 'odd',
+        source: 7,
+        concentration: 'yes',
+        duration: 3,
+        expired: 'no',
+        endable: 1,
+      },
+      'Ablaze',
+    ]
+    const read = readSheet(
+      enchantingSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'longsword',
+                name: 'Longsword',
+                enchantments,
+              } as any),
+            ],
+          },
+        ],
+        features: [
+          {
+            id: 'class',
+            label: 'Class Features',
+            text: null,
+            features: [
+              {
+                id: 'blade',
+                name: 'Pact of the Blade',
+                img: null,
+                kind: null,
+                requirements: null,
+                activation: '1 Bonus Action',
+                passive: false,
+                uses: null,
+                text: null,
+                enchantments,
+              } as any,
+            ],
+          },
+        ],
+        spells: [
+          {
+            id: 'spell1',
+            label: '1st Level',
+            slots: null,
+            spells: [
+              { ...enchantingSheet().spells[1].spells[0], enchantments } as any,
+            ],
+          },
+        ],
+        inventory: {
+          ...enchantingSheet().inventory,
+          containers: [
+            {
+              ...enchantingSheet().inventory.sections[1].items[0],
+              id: 'bag',
+              name: 'Bag',
+              type: 'container',
+              capacity: null,
+              contents: [{ id: 'gem', name: 'Gem', enchantments }],
+            } as any,
+          ],
+        },
+      }),
+    )
+    const expected = [
+      shining,
+      {
+        ...shining,
+        id: 'odd',
+        source: null,
+        concentration: false,
+        duration: null,
+        expired: false,
+        endable: false,
+      },
+    ]
+    expect(read.actions[0].actions[0].enchantments).toEqual(expected)
+    expect(read.features[0].features[0].enchantments).toEqual(expected)
+    expect(read.spells[0].spells[0].enchantments).toEqual(expected)
+    expect(read.inventory.containers[0].contents[0].enchantments).toEqual(
+      expected,
+    )
+    // Another's on an item of hers, which she may end, and a template's, which she may not.
+    expect(read.inventory.sections[0].items[1].enchantments).toEqual([
+      expect.objectContaining({ id: 'brynMagicWeap', endable: true }),
+    ])
+    expect(read.inventory.sections[0].items[5].enchantments).toEqual([
+      expect.objectContaining({ id: 'weaponPlusOne1', endable: false }),
+    ])
+  })
+
+  it('keeps no more than fifty enchantments on one item', () => {
+    const many = Array.from({ length: 60 }, (_, index) => ({
+      id: `effect${index}`,
+      name: `Enchantment ${index}`,
+    }))
+    const read = readSheet(
+      enchantingSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'longsword',
+                name: 'Longsword',
+                enchantments: many,
+              } as any),
+            ],
+          },
+        ],
+      }),
+    )
+    expect(read.actions[0].actions[0].enchantments).toHaveLength(50)
+  })
+
+  it('reads a sheet from before module 0.21.0 as it was, with no enchantments', () => {
+    const sheet = fullerSheet()
+    const read = readSheet(sheet)
+    expect(JSON.stringify(read)).not.toMatch(/enchant/i)
+    expect(read).toEqual(readSheet(fullerSheet()))
+  })
+
+  it('reads a use’s result with the enchantment applied and the one ended, as null where it can’t', () => {
+    const enchanted = {
+      item: 'longsword',
+      itemName: 'Longsword',
+      effect: 'effect000000002',
+      profile: 'SLSudYaACjmmmZsU',
+      name: 'Magic Weapon, +1',
+    }
+    const ended = {
+      item: 'longsword',
+      itemName: 'Longsword',
+      effect: 'effect000000001',
+      name: 'Magic Weapon, +1',
+    }
+    expect(
+      enchantResult({ enchantment: { enchanted, ended } }).enchantment,
+    ).toEqual({
+      enchanted,
+      ended,
+    })
+    expect(
+      enchantResult({
+        enchantment: { enchanted: { ...enchanted, name: 7 }, ended },
+      }).enchantment,
+    ).toEqual({ enchanted: null, ended })
+    expect(
+      enchantResult({
+        enchantment: { enchanted, ended: { ...ended, effect: 'x'.repeat(65) } },
+      }).enchantment,
+    ).toEqual({ enchanted, ended: null })
+    expect(enchantResult({ enchantment: 'applied' }).enchantment).toBeNull()
+    // An older module says nothing of it.
+    expect(enchantResult({})).not.toHaveProperty('enchantment')
+  })
+
+  it('keeps the card of a use whose enchantment wasn’t applied', () => {
+    expect(
+      parseGameEvent('command.result', {
+        id: 'req-1',
+        status: 'failed',
+        reason: 'enchant',
+        error: null,
+        messageId: 'card-1',
+        visible: true,
+        rolls: [],
+        use: { type: 'enchant' },
+        damage: null,
+        enchantment: null,
+      })?.data,
+    ).toEqual(
+      expect.objectContaining({
+        status: 'failed',
+        reason: 'enchant',
+        messageId: 'card-1',
+        enchantment: null,
+      }),
+    )
+  })
+})
+
+describe('dice damage takes away, from module 0.21.0', () => {
+  /** The rest of what a hello says of rolls, kept whatever it says of these. */
+  const rolls = {
+    enabled: true,
+    kinds: ['damage', 'textDamage'],
+    reason: null,
+    modifiers: true,
+    activityChecks: true,
+  }
+
+  it('reads a hello saying whether more dice and another die change only a die damage adds', () => {
+    expect(
+      helloWith({ rolls: { ...rolls, signedDice: true } }).features.rolls,
+    ).toEqual({ ...rolls, signedDice: true })
+    // One it can't read is taken as not said.
+    expect(
+      helloWith({ rolls: { ...rolls, signedDice: 'yes' } }).features.rolls,
+    ).toEqual({ ...rolls, signedDice: false })
+    // A module before 0.21.0 says nothing of it.
+    const before = helloWith({ rolls }).features.rolls
+    expect(before).toEqual(rolls)
+    expect(before.signedDice).toBeFalsy()
   })
 })

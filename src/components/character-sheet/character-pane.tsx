@@ -29,6 +29,7 @@ import {
   type DescriptionActions,
 } from './description-actions'
 import { EffectsTab } from './effects-tab'
+import { Enchanting, type EnchantActions } from './enchantments'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { FeaturesTab } from './features-tab'
@@ -36,7 +37,13 @@ import { InventoryTab } from './inventory-tab'
 import { PromptBanner } from './prompt-banner'
 import { REASONS, RollTray } from './roll-tray'
 import { SpellsTab } from './spells-tab'
-import { asks, UsePicker, type Picked, type Picking } from './use-picker'
+import {
+  asks,
+  enchantPicks,
+  UsePicker,
+  type Picked,
+  type Picking,
+} from './use-picker'
 import { Scroller } from '@/components/scroller'
 import {
   useSheetRoller,
@@ -53,6 +60,7 @@ import {
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { castIndex, isItemCast } from '@/utils/casts'
+import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { RollFeature, RollKind } from '@/types/roll'
@@ -147,8 +155,16 @@ function RollingSheet({
   // roll whichever tab is open, Effects and Biography among them.
   const [prompted, setPrompted] = useState(false)
   const [described, setDescribed] = useState(false)
-  const { roll, rollDamage, rollFormula, logUse, logAsk, rolls, rolling } =
-    useSheetRoller(table.send, table.sendDamage, table.sendFormula)
+  const {
+    roll,
+    rollDamage,
+    rollFormula,
+    logUse,
+    logEnd,
+    logAsk,
+    rolls,
+    rolling,
+  } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
   const conditions = useConditionsPanel(sheet.conditions)
   // An attack or a use made at the table, while its player picks whom at, and with what.
   const [picking, setPicking] = useState<Picking>()
@@ -171,6 +187,8 @@ function RollingSheet({
   const entries = useMemo(() => favoriteEntries(sheet), [sheet])
   // How each spell an item casts is cast, and at which levels it may be.
   const itemCasts = useMemo(() => castIndex(sheet), [sheet])
+  // What the character has that an enchantment may be put on.
+  const belongings = useMemo(() => belongingsOf(sheet), [sheet])
   // An attack the game makes is made at a combatant the player picks first, in a combat, and with
   // the slot, ammunition or mode they choose, where there's more than one.
   const onRoll = (request: SheetRoll) => {
@@ -212,10 +230,16 @@ function RollingSheet({
   }
   const use = (
     action: SheetAction,
-    picked: Picked,
+    chose: Picked,
     modifiers?: DamageModifiers,
   ) => {
     if (!action.activity) return
+    // An enchant activity used without asking is used as dnd5e would use it, in the first way it
+    // may enchant.
+    const picked =
+      action.activity.type === 'enchant' && !chose.enchant
+        ? { ...chose, ...enchantPicks(action, sheet.spells, itemCasts) }
+        : chose
     const used = logUse(
       actionTitle(action),
       verbOf(action) === 'Cast',
@@ -235,6 +259,7 @@ function RollingSheet({
             }))
           : [],
         slot: picked.slot,
+        ...(picked.enchant && { enchant: picked.enchant }),
       },
       modifiers,
     )
@@ -376,11 +401,12 @@ function RollingSheet({
     },
     takes: table.takes,
     // A description's damage at the table: changed, where the game takes it so, which it does
-    // only from module 0.19.0, whose sheets say how it makes a critical hit's; and as one, where
-    // they say how.
+    // only from module 0.19.0, whose sheets say how it makes a critical hit's, and on its first
+    // die whatever its sign before module 0.21.0; and as one, where they say how.
     ...(table.takes('textDamage') && {
       damage: {
         modifies: table.modifiesText && sheet.critical !== undefined,
+        signed: table.signsText,
         ...(sheet.critical && { critical: sheet.critical }),
       },
     }),
@@ -390,6 +416,7 @@ function RollingSheet({
       table.sendAsk(logAsk(label), { text, link })
     },
     askBlocked: askBlocked(table, rollsToTable),
+    useBlocked: useBlocked(table, rollsToTable),
     // Where only this device's switch keeps the table from being asked, a way to turn it on, as
     // the tray's switch may not be on the tab.
     ...(table.available &&
@@ -405,6 +432,17 @@ function RollingSheet({
     rules: sheet.rules,
     showConditions: conditions.show,
   }
+  // Enchantments on the character's items, ended as dnd5e's chat card ends them, while the game
+  // takes it, each item named as the sheet lists it; and each enchant activity's latest use, which
+  // its switch follows.
+  const enchanting: EnchantActions = {
+    latestFor: table.latestFor,
+    belongings,
+    ...(table.takes('endEnchantment') && {
+      end: (item, { id, name: ended }, source) =>
+        table.sendEnd(logEnd(ended), { item, effect: id }, source),
+    }),
+  }
   // A condition's chip opens its rules, where the app has them; else its place in Effects.
   const showCondition = (id: string) => {
     if (rulesOf(id)) conditions.show(id)
@@ -416,6 +454,7 @@ function RollingSheet({
       marks={marks}
       showConditions={conditions.show}
       descriptions={descriptions}
+      enchanting={enchanting}
     >
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
           labels don't fit. */}
@@ -551,6 +590,7 @@ function RollingSheet({
         combat={combat}
         spellbook={sheet.spells}
         casts={itemCasts}
+        belongings={belongings}
         areas={table.areas}
         last={lastTarget}
         onPick={pick}
@@ -563,23 +603,27 @@ function RollingSheet({
 
 /**
  * What every part of the sheet inside knows of it: which of what it lists are favorites, how to
- * open its conditions panel, and what the links in its descriptions do.
+ * open its conditions panel, what the links in its descriptions do, and how enchantments end.
  */
 function SheetContext({
   marks,
   showConditions,
   descriptions,
+  enchanting,
   children,
 }: Readonly<{
   marks: ReadonlySet<string>
   showConditions: ShowConditions
   descriptions: DescriptionActions
+  enchanting: EnchantActions
   children: ReactNode
 }>) {
   return (
     <FavoriteMarks keys={marks}>
       <ConditionsOpener show={showConditions}>
-        <DescriptionLinks actions={descriptions}>{children}</DescriptionLinks>
+        <DescriptionLinks actions={descriptions}>
+          <Enchanting actions={enchanting}>{children}</Enchanting>
+        </DescriptionLinks>
       </ConditionsOpener>
     </FavoriteMarks>
   )
@@ -606,6 +650,23 @@ function askBlocked(
   if (!table.available) return REASONS.unavailable
   if (!kinds.includes('ask')) {
     return 'your Gamemaster’s game can’t be asked from Sending Stone yet'
+  }
+  return 'this device doesn’t send your rolls to the table'
+}
+
+/**
+ * Why a spell or feature can't be used in the game from here now, as an activity's check asks the
+ * table by using it, as the tray says why a roll wasn't made; nothing while it can be.
+ * @param kinds - The rolls the game takes now.
+ */
+function useBlocked(
+  table: ReturnType<typeof useTableRolls>,
+  kinds: readonly RollKind[] = [],
+): string | undefined {
+  if (table.takes('use')) return undefined
+  if (!table.available) return REASONS.unavailable
+  if (!kinds.includes('use')) {
+    return 'your Gamemaster’s game isn’t taking spells and features'
   }
   return 'this device doesn’t send your rolls to the table'
 }

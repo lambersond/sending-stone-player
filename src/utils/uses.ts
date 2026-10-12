@@ -37,11 +37,12 @@ export function mostTargets(
 
 /**
  * Does a use have targets to pick: not one used on its user alone, and one that affects someone,
- * or everyone in an area? A use that affects no one, such as Action Surge, has none.
+ * or everyone in an area? A use that affects no one, such as Action Surge, has none; nor has one
+ * that enchants an item, whatever dnd5e says it affects, as it's used at no one.
  */
 export function picksTargets(use: SheetUse): boolean {
   const { self, area, affects } = use.targets
-  if (self) return false
+  if (self || use.type === 'enchant') return false
   return area || (affects !== null && !['object', 'space'].includes(affects))
 }
 

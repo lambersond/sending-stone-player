@@ -29,6 +29,10 @@ type Props = {
    * unless said.
    */
   origin?: DescriptionOrigin
+  /** Beside its name, such as the mark that it's enchanted. */
+  badge?: ReactNode
+  /** Shown when open, before the description, such as the enchantments on it. */
+  lead?: ReactNode
   /** Shown when open, after the description, such as what a container holds. */
   children?: ReactNode
   muted?: boolean
@@ -51,6 +55,8 @@ export function SheetEntry({
   facts = [],
   text,
   origin,
+  badge,
+  lead,
   children,
   muted = false,
   favoriteKey,
@@ -64,6 +70,7 @@ export function SheetEntry({
         <span className='flex items-center gap-1'>
           <span className='truncate font-medium'>{name}</span>
           {favorite && <FavoriteStar />}
+          {badge}
         </span>
         {detail && (
           <span className='block truncate text-xs text-text-secondary'>
@@ -79,7 +86,7 @@ export function SheetEntry({
     muted && 'opacity-60',
   )
 
-  if (!text && !meta && facts.length === 0 && !children) {
+  if (!text && !meta && facts.length === 0 && !lead && !children) {
     return (
       <li>
         <div className={rowClass}>
@@ -124,6 +131,7 @@ export function SheetEntry({
                 ))}
               </dl>
             )}
+            {lead}
             {text && (
               <SheetText
                 characterId={characterId}

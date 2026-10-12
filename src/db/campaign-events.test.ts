@@ -10,6 +10,7 @@ import {
   roster,
   TEXTS,
 } from '@/mocks/sending-stone'
+import { parseGameEvent } from '@/schemas/sending-stone'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import type { GameEvent } from '@/types/sending-stone'
 
@@ -196,6 +197,106 @@ describe('db/campaign-events', () => {
     })
   })
 
+  it('bridge.hello keeps whether the game makes a check an activity asks for against it, from module 0.21.0', async () => {
+    const rolls = {
+      enabled: true,
+      kinds: ['skill', 'tool', 'ability', 'use'],
+      reason: null,
+    }
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: { ...rolls, modifiers: true, activityChecks: true },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['skill', 'tool', 'ability', 'use'],
+        rollFeatures: ['modifiers', 'activityChecks'],
+      },
+    })
+
+    prismaMock.campaign.update.mockClear()
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: { rolls: { ...rolls, activityChecks: false } },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['skill', 'tool', 'ability', 'use'],
+        rollFeatures: [],
+      },
+    })
+  })
+
+  it('bridge.hello keeps whether the game changes only a die damage adds, from module 0.21.0, last', async () => {
+    const rolls = {
+      enabled: true,
+      kinds: ['damage', 'textDamage'],
+      reason: null,
+    }
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: {
+            ...rolls,
+            signedDice: true,
+            modifiers: true,
+            activityChecks: true,
+          },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['damage', 'textDamage'],
+        rollFeatures: ['modifiers', 'activityChecks', 'signedDice'],
+      },
+    })
+
+    // Not from a module before, which says nothing of it, nor where it says what it can't, read
+    // as the hello is read.
+    for (const signedDice of [undefined, 'yes']) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: { rolls: { ...rolls, modifiers: true, signedDice } },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: {
+          characters: roster,
+          rollsEnabled: true,
+          rollKinds: ['damage', 'textDamage'],
+          rollFeatures: ['modifiers'],
+        },
+      })
+    }
+  })
+
   it("bridge.hello keeps whether the game spends several hit dice at once, from module 0.20.0, in the module's order", async () => {
     await apply({
       type: 'bridge.hello',
@@ -218,6 +319,32 @@ describe('db/campaign-events', () => {
         characters: roster,
         rollsEnabled: true,
         rollKinds: ['skill', 'initiative', 'hitDie', 'hitDice', 'formula'],
+        rollFeatures: [],
+      },
+    })
+  })
+
+  it('bridge.hello keeps whether the game ends enchantments, from module 0.21.0', async () => {
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: {
+            enabled: true,
+            kinds: ['attack', 'use', 'damage', 'endEnchantment'],
+            reason: null,
+          },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['attack', 'use', 'damage', 'endEnchantment'],
         rollFeatures: [],
       },
     })

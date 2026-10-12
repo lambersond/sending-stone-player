@@ -12,13 +12,18 @@ import {
 import {
   castingSheet,
   characterSheet,
+  checkingSheet,
   combat,
   combatant,
+  enchantingSheet,
+  enchantment,
+  enchantUse,
   fullerSheet,
   sheetAction,
   sheetFavorites,
   sheetItem,
   sheetSpell,
+  SLEIGHT_CHECK,
   TEXTS,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
@@ -95,6 +100,36 @@ const targetAt = (combatantId: string) => ({
 /** The damage of the attack req-1, with these dice. */
 const damageRequest = (dice: RollRequestInput['dice']) =>
   request({ kind: 'damage', key: undefined, use: 'req-1', dice })
+
+/** Dice of damage that takes a d4 away: so many d4s, then so many of another, d6s unless said. */
+const lessD4 = (fours: number, others: number, faces = 6) => [
+  { faces: 4, results: Array.from({ length: fours }, () => 2) },
+  { faces, results: Array.from({ length: others }, () => 3) },
+]
+
+/** The damage of the attack req-1 that takes a d4 away, with so many d4s and d6s, changed so. */
+const lessD4Damage = (
+  fours: number,
+  sixes: number,
+  modifiers?: RollRequestInput['modifiers'],
+) => ({
+  ...damageRequest(lessD4(fours, sixes)),
+  ...(modifiers && { modifiers }),
+})
+
+/** A description's link to necrotic damage of one part, of this formula, as held. */
+const necroticLink = (n: number, formula: string): [number, FoundLink] => [
+  n,
+  {
+    link: {
+      kind: 'damage',
+      n,
+      parts: [{ formula, types: ['necrotic'] }],
+      healing: false,
+    },
+    secret: false,
+  },
+]
 
 /** A part of damage the game made, totalling this, or saying no total. */
 const damagePart = (total: number | null) => ({
@@ -198,6 +233,109 @@ const useRequest = (
     targets: at.map(combatantId => ({ combatId: 'cmbt1', combatantId })),
     dice: [],
     ...fields,
+  })
+
+/** A check of the player's own, made against an activity, from module 0.21.0. */
+const own = (
+  kind: 'skill' | 'tool' | 'ability',
+  key: string,
+  item: string,
+  activity: string,
+) => request({ kind, key, item, activity })
+
+/**
+ * Rook with only a feature, Quick Fingers, whose second activity uses its first, as a forward
+ * does, from module 0.21.0: its check the first's, by its own id, and his own, or else another's.
+ */
+const quickFingers = (mine: boolean) =>
+  checkingSheet({
+    actions: [],
+    features: [
+      {
+        id: 'rogue',
+        label: 'Rogue Features',
+        text: null,
+        features: [
+          {
+            id: 'quick-fingers',
+            name: 'Quick Fingers',
+            img: null,
+            kind: 'Class Feature',
+            requirements: 'Rogue 3',
+            activation: 'Bonus Action',
+            passive: false,
+            uses: { value: 2, max: 2, recovery: 'Long Rest' },
+            text: null,
+            activity: {
+              id: 'qf-slt',
+              type: 'check',
+              targets: {
+                self: true,
+                area: false,
+                count: null,
+                perLevel: null,
+                affects: null,
+              },
+            },
+            check: { ...SLEIGHT_CHECK, own: mine },
+            activities: [
+              {
+                id: 'qf-slt',
+                name: 'Sleight of Hand',
+                type: 'check',
+                activation: 'Bonus Action',
+                range: 'Self',
+                target: null,
+                toHit: null,
+                attackId: null,
+                activity: {
+                  id: 'qf-slt',
+                  type: 'check',
+                  targets: {
+                    self: true,
+                    area: false,
+                    count: null,
+                    perLevel: null,
+                    affects: null,
+                  },
+                },
+                save: null,
+                damage: [],
+                check: { ...SLEIGHT_CHECK, own: mine },
+                uses: null,
+              },
+              {
+                id: 'qf-again',
+                name: 'Sleight of Hand Again',
+                type: 'forward',
+                activation: 'Reaction',
+                range: 'Self',
+                target: null,
+                toHit: null,
+                attackId: null,
+                // As the activity it's used through, by its own id.
+                activity: {
+                  id: 'qf-again',
+                  type: 'check',
+                  targets: {
+                    self: true,
+                    area: false,
+                    count: null,
+                    perLevel: null,
+                    affects: null,
+                  },
+                },
+                save: null,
+                damage: [],
+                check: { ...SLEIGHT_CHECK, own: mine },
+                forward: { charges: 1, short: false },
+                uses: { value: 2, max: 2, recovery: 'Long Rest' },
+              },
+            ],
+          },
+        ],
+      },
+    ],
   })
 
 /** A save answering what the game asked, made, as its player is told of it. */
@@ -1522,6 +1660,269 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('checkRoll for checks activities ask for, and activities that use others, from module 0.21.0', () => {
+    const fight = combat({
+      combatants: [
+        combatant({ id: 'c-goblin', name: 'Goblin' }),
+        combatant({ id: 'c-hob', name: 'Hobgoblin' }),
+        combatant({ id: 'c-ogre', name: 'Ogre' }),
+        combatant({ id: 'c-vex', name: 'Vex', playerOwned: true }),
+      ],
+    })
+    const check = (input: RollRequestInput, sheet = checkingSheet()) =>
+      checkRoll(input, sheet, [fight], 'actor-rook')
+
+    it("lets the player roll their own check an activity asks for, each way it may be made, wherever it's listed", () => {
+      // Fast Hands, whose Sleight of Hand is its first activity, and Thieves' Tools a later one.
+      expect(check(own('skill', 'slt', 'fast-hands', 'fh-slt'))).toBeUndefined()
+      expect(
+        check(own('tool', 'thief', 'fast-hands', 'fh-thief')),
+      ).toBeUndefined()
+      // Thieves' Tools, listed as an action and in the inventory.
+      expect(check(own('tool', 'thief', 'tools', 'pick'))).toBeUndefined()
+      expect(
+        check(own('tool', 'thief', 'tools', 'pick'), {
+          ...checkingSheet(),
+          actions: [],
+        }),
+      ).toBeUndefined()
+    })
+
+    it('lets an ability check an activity asks for be rolled by its ability', () => {
+      const sheet = checkingSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'manacles',
+                name: 'Manacles',
+                type: 'equipment',
+                activity: {
+                  id: 'burst',
+                  type: 'check',
+                  targets: {
+                    self: true,
+                    area: false,
+                    count: null,
+                    perLevel: null,
+                    affects: null,
+                  },
+                },
+                check: {
+                  checks: [{ type: 'check', ability: 'str' }],
+                  dc: 25,
+                  own: true,
+                },
+              }),
+            ],
+          },
+        ],
+      })
+      expect(
+        check(own('ability', 'str', 'manacles', 'burst'), sheet),
+      ).toBeUndefined()
+      expect(check(own('ability', 'dex', 'manacles', 'burst'), sheet)).toBe(
+        'unknown',
+      )
+      expect(check(own('skill', 'str', 'manacles', 'burst'), sheet)).toBe(
+        'unknown',
+      )
+    })
+
+    it('reads the check from the activity alone, not the sheet’s skills and tools', () => {
+      // dnd5e makes a tool's check with the tool or without it.
+      expect(
+        check(own('tool', 'thief', 'tools', 'pick'), {
+          ...checkingSheet(),
+          tools: [],
+          skills: [],
+        }),
+      ).toBeUndefined()
+      expect(
+        check(own('skill', 'slt', 'fast-hands', 'fh-slt'), {
+          ...checkingSheet(),
+          skills: [],
+        }),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      ['a way it may not be made', own('skill', 'ste', 'fast-hands', 'fh-slt')],
+      ['a tool check of its skill', own('tool', 'slt', 'fast-hands', 'fh-slt')],
+      ['another activity’s way', own('tool', 'thief', 'fast-hands', 'fh-slt')],
+      [
+        'an activity that asks for none',
+        own('skill', 'slt', 'fast-hands', 'fh-use'),
+      ],
+      ['one another creature makes', own('skill', 'inv', 'maze', 'maze-cast')],
+      ['an item the sheet hasn’t', own('skill', 'slt', 'gloves', 'fh-slt')],
+      [
+        'an activity its item hasn’t',
+        own('skill', 'slt', 'fast-hands', 'nope'),
+      ],
+    ])('refuses a check made against %s', (_name, input) => {
+      expect(check(input)).toBe('unknown')
+    })
+
+    it('lets a check a feature asks for through an activity that uses another be rolled by that activity’s id, where it’s the character’s own', () => {
+      expect(
+        check(
+          own('skill', 'slt', 'quick-fingers', 'qf-again'),
+          quickFingers(true),
+        ),
+      ).toBeUndefined()
+      expect(
+        check(
+          own('skill', 'slt', 'quick-fingers', 'qf-slt'),
+          quickFingers(true),
+        ),
+      ).toBeUndefined()
+      expect(
+        check(
+          own('skill', 'slt', 'quick-fingers', 'qf-again'),
+          quickFingers(false),
+        ),
+      ).toBe('unknown')
+      expect(
+        check(
+          own('skill', 'slt', 'quick-fingers', 'qf-slt'),
+          quickFingers(false),
+        ),
+      ).toBe('unknown')
+    })
+
+    it('refuses a check made against an activity of an item not identified, or without a sheet', () => {
+      const sheet = checkingSheet()
+      sheet.actions[0].actions[0] = {
+        ...sheet.actions[0].actions[0],
+        identified: false,
+      }
+      sheet.inventory.sections = []
+      expect(check(own('tool', 'thief', 'tools', 'pick'), sheet)).toBe(
+        'unknown',
+      )
+      expect(
+        checkRoll(own('tool', 'thief', 'tools', 'pick'), undefined, [], 'x'),
+      ).toBe('unknown')
+    })
+
+    it('lets an activity that asks for a check be used, at no more than it takes, with a slot left for a spell', () => {
+      expect(check(useRequest('tools', 'pick', []))).toBeUndefined()
+      expect(check(useRequest('fast-hands', 'fh-thief', []))).toBeUndefined()
+      expect(check(useRequest('maze', 'maze-cast', ['c-goblin']))).toBe(
+        undefined,
+      )
+      expect(
+        check(
+          useRequest('maze', 'maze-cast', ['c-goblin'], { slot: 'spell8' }),
+        ),
+      ).toBeUndefined()
+      expect(
+        check(useRequest('maze', 'maze-cast', ['c-goblin', 'c-hob'])),
+      ).toBe('target')
+      expect(
+        check(useRequest('maze', 'maze-cast', [], { slot: 'spell1' })),
+      ).toBe('slot')
+    })
+
+    it('lets an activity that uses another be used as the other is, by its own id, with any slot chosen or none', () => {
+      const three = ['c-goblin', 'c-hob', 'c-vex']
+      expect(check(useRequest('bless', 'bless-free', three))).toBeUndefined()
+      // Its spell is cast at its own level, whatever slot is chosen, as dnd5e casts it, though
+      // none of its 1st-level slots are left.
+      for (const slot of ['spell1', 'spell3', 'spell8', 'pact', null]) {
+        expect(
+          check(useRequest('bless', 'bless-free', three, { slot })),
+        ).toBeUndefined()
+      }
+      // At its own level, it takes no more.
+      expect(
+        check(useRequest('bless', 'bless-free', [...three, 'c-ogre'])),
+      ).toBe('target')
+      // The spell itself is cast with a slot as ever.
+      expect(
+        check(useRequest('bless', 'bless-cast', three, { slot: 'spell1' })),
+      ).toBe('slot')
+      expect(
+        check(useRequest('bless', 'bless-cast', three, { slot: 'spell8' })),
+      ).toBeUndefined()
+    })
+
+    it("lets a spell's check activity that spends no slot, such as Silent Image's, be used at any of its pools, left or not", () => {
+      const investigate = {
+        id: 'investigate',
+        name: 'Investigate',
+        type: 'check',
+        activation: null,
+        range: '60 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        activity: {
+          id: 'investigate',
+          type: 'check' as const,
+          targets: {
+            self: false,
+            area: false,
+            count: 1,
+            perLevel: null,
+            affects: 'creature',
+          },
+        },
+        save: null,
+        damage: [],
+        consumesSlot: false,
+        check: {
+          checks: [{ type: 'skill' as const, ability: 'int', key: 'inv' }],
+          dc: 13,
+          own: false,
+        },
+        uses: null,
+      }
+      const image = sheetSpell({
+        id: 'image',
+        name: 'Silent Image',
+        prepared: 1,
+        activity: {
+          id: 'illusion',
+          type: 'utility',
+          targets: {
+            self: false,
+            area: true,
+            count: null,
+            perLevel: null,
+            affects: null,
+          },
+        },
+        toHit: null,
+        save: null,
+        damage: [],
+        activities: [
+          { ...investigate, id: 'illusion', type: 'utility', check: undefined },
+          investigate,
+        ],
+      })
+      const sheet = checkingSheet()
+      sheet.spells[0].spells.push(image)
+      for (const slot of ['spell1', 'spell8', null]) {
+        expect(
+          check(
+            useRequest('image', 'investigate', ['c-goblin'], { slot }),
+            sheet,
+          ),
+        ).toBeUndefined()
+      }
+      expect(
+        check(
+          useRequest('image', 'investigate', ['c-goblin'], { slot: 'pact' }),
+          sheet,
+        ),
+      ).toBe('slot')
+    })
+  })
+
   describe('checkRoll for a hit die', () => {
     it('lets the character spend a hit die of a size it has one of left', () => {
       // Thorin's Fighter levels have 3 of their 5 d10s left.
@@ -2049,7 +2450,8 @@ describe('utils/roll-requests', () => {
       input: RollRequestInput,
       held: ReadonlyMap<number, FoundLink> | undefined = links,
       sheet = fullerSheet(),
-    ) => checkRoll(input, sheet, [], 'actor-thorin', held)
+      features?: readonly string[],
+    ) => checkRoll(input, sheet, [], 'actor-thorin', held, features)
 
     /** The dice link 3's damage throws: 2d6, then 1d4; its 5 throws none. */
     const burn = [
@@ -2483,6 +2885,142 @@ describe('utils/roll-requests', () => {
       ).toBeUndefined()
     })
 
+    /** Damage of 3 less 1d4, and 2d6, at link 0 of those that take dice away; plain unless said. */
+    const withering = (fields: Partial<RollRequestInput> = {}) =>
+      textDamage({ link: 0, dice: lessD4(1, 2), ...fields })
+    /** A Reduced Unarmed Strike's bare damage, - 1d4 + 4, at their link 1; plain unless said. */
+    const strike = (fields: Partial<RollRequestInput> = {}) =>
+      textDamage({ link: 1, dice: lessD4(1, 0).slice(0, 1), ...fields })
+
+    describe('that takes dice away', () => {
+      /** Links to damage that takes dice away. */
+      const taken = new Map([
+        necroticLink(0, '3 - 1d4 + 2d6'),
+        necroticLink(1, '- 1d4 + 4'),
+        necroticLink(2, '2d6 - 1d4'),
+      ])
+      /** What a module from 0.21.0 says it does: changes only a die damage adds. */
+      const SIGNED = ['modifiers', 'signedDice']
+      /** What one before says: it changes damage's first die whatever its sign. */
+      const UNSIGNED = ['modifiers']
+
+      it('changes the first die it adds, never one it takes away', () => {
+        expect(check(withering(), taken, ruled(), SIGNED)).toBeUndefined()
+        expect(
+          check(
+            withering({ modifiers: { extra: 1 }, dice: lessD4(1, 3) }),
+            taken,
+            ruled(),
+            SIGNED,
+          ),
+        ).toBeUndefined()
+        expect(
+          check(
+            withering({ modifiers: { faces: 8 }, dice: lessD4(1, 2, 8) }),
+            taken,
+            ruled(),
+            SIGNED,
+          ),
+        ).toBeUndefined()
+        expect(
+          check(
+            withering({ modifiers: { extra: 1 }, dice: lessD4(2, 2) }),
+            taken,
+            ruled(),
+            SIGNED,
+          ),
+        ).toBe('dice')
+        // Damage that adds no die of its own has none to change.
+        expect(check(strike(), taken, ruled(), SIGNED)).toBeUndefined()
+        expect(
+          check(
+            strike({
+              modifiers: { extra: 1 },
+              dice: [{ faces: 4, results: [1, 2] }],
+            }),
+            taken,
+            ruled(),
+            SIGNED,
+          ),
+        ).toBe('dice')
+      })
+
+      it('changes none, for a module before 0.21.0, where the die it would change is one it takes away', () => {
+        // It would throw the d4 more, and less damage: none changed.
+        expect(
+          check(
+            withering({ modifiers: { extra: 1 }, dice: lessD4(1, 3) }),
+            taken,
+            ruled(),
+            UNSIGNED,
+          ),
+        ).toBe('dice')
+        expect(
+          check(
+            withering({ modifiers: { extra: 1 }, dice: lessD4(2, 2) }),
+            taken,
+            ruled(),
+            UNSIGNED,
+          ),
+        ).toBe('dice')
+        // Unchanged, as it was.
+        expect(check(withering(), taken, ruled(), UNSIGNED)).toBeUndefined()
+        // Where its first die is one it adds, that one, as either module changes it.
+        const first = textDamage({
+          link: 2,
+          modifiers: { extra: 1 },
+          dice: [
+            { faces: 6, results: [3, 3, 3] },
+            { faces: 4, results: [2] },
+          ],
+        })
+        expect(check(first, taken, ruled(), UNSIGNED)).toBeUndefined()
+        expect(check(first, taken, ruled(), SIGNED)).toBeUndefined()
+        // Never at its highest where it takes a die away, whichever the module.
+        expect(
+          check(
+            strike({ modifiers: { maximize: true } }),
+            taken,
+            ruled(),
+            UNSIGNED,
+          ),
+        ).toBe('dice')
+      })
+
+      it('takes the game for a module before 0.21.0 where the campaign says nothing of its dice', () => {
+        const more = withering({ modifiers: { extra: 1 }, dice: lessD4(1, 3) })
+        expect(checkRoll(more, ruled(), [], 'actor-thorin', taken)).toBe('dice')
+        expect(
+          checkRoll(more, ruled(), [], 'actor-thorin', taken, SIGNED),
+        ).toBeUndefined()
+      })
+
+      it('never rolls it at its highest, which would take the most away', () => {
+        expect(
+          check(withering({ modifiers: { maximize: true } }), taken, ruled()),
+        ).toBe('dice')
+        expect(
+          check(strike({ modifiers: { maximize: true } }), taken, ruled()),
+        ).toBe('dice')
+      })
+
+      it("rolls it as a critical hit's, the die it takes away doubled too, but not under Powerful Critical", () => {
+        const critical = strike({
+          critical: true,
+          dice: [{ faces: 4, results: [1, 2] }],
+        })
+        expect(check(critical, taken, ruled())).toBeUndefined()
+        // Whose most some rules add and others take away.
+        expect(
+          check(
+            strike({ critical: true }),
+            taken,
+            ruledSo({ ...POWERFUL, bonusDice: 'rolled' }),
+          ),
+        ).toBe('dice')
+      })
+    })
+
     describe('with what a critical hit adds, from module 0.20.0', () => {
       /** A greataxe's 1d12 + 4, to which Savage Attacks adds a die, and the weapon 1d6. */
       const greataxe: FoundLink = {
@@ -2695,6 +3233,35 @@ describe('utils/roll-requests', () => {
     })
 
     it.each([
+      ['takes a die away', '1d3 + 3 - 1d4', 'dice'],
+      [
+        'takes one away as Foundry may wrap a leading die',
+        '(1d4 * -1) + 2d6',
+        'dice',
+      ],
+      ['takes a number away', '1d3 - 1', undefined],
+    ])(
+      'rolls damage the game rolls itself at its highest only where its formula takes no die away: one that %s',
+      (_name, formula, refusal) => {
+        const unplannable = use({
+          result: result({
+            critical: false,
+            plannable: false,
+            rolls: [{ formula, type: 'bludgeoning', dice: [] }],
+          }),
+        })
+        const maximum = {
+          ...damageRequest([]),
+          modifiers: { maximize: true },
+        }
+        expect(checkDamage(maximum, unplannable, [], NOW)).toBe(refusal)
+        expect(
+          checkDamage(damageRequest([]), unplannable, [], NOW),
+        ).toBeUndefined()
+      },
+    )
+
+    it.each([
       ['no attack', null],
       ['an attack still on its way', use({ status: 'claimed' })],
       ['an attack not made', use({ status: 'failed' })],
@@ -2815,6 +3382,103 @@ describe('utils/roll-requests', () => {
           NOW,
         ),
       ).toBeUndefined()
+    })
+
+    /** "-1d4 + 2d6", its d4 marked taken away, from module 0.21.0, or not, from one before. */
+    const withering = (marked: boolean) =>
+      use({
+        kind: 'use',
+        result: result({
+          critical: false,
+          plannable: true,
+          rolls: [
+            {
+              formula: '- 1d4 + 2d6',
+              type: 'necrotic',
+              dice: [
+                { faces: 4, number: 1, ...(marked && { subtracted: true }) },
+                { faces: 6, number: 2 },
+              ],
+            },
+          ],
+        }),
+      })
+
+    describe('that takes dice away', () => {
+      it('changes the first die it adds, never one the game marks taken away', () => {
+        expect(
+          checkDamage(lessD4Damage(1, 2), withering(true), [], NOW),
+        ).toBeUndefined()
+        expect(
+          checkDamage(
+            lessD4Damage(1, 3, { extra: 1 }),
+            withering(true),
+            [],
+            NOW,
+          ),
+        ).toBeUndefined()
+        expect(
+          checkDamage(
+            lessD4Damage(2, 2, { extra: 1 }),
+            withering(true),
+            [],
+            NOW,
+          ),
+        ).toBe('dice')
+      })
+
+      it('changes none where a module before 0.21.0 would change the die it takes away', () => {
+        expect(
+          checkDamage(lessD4Damage(1, 2), withering(false), [], NOW),
+        ).toBeUndefined()
+        expect(
+          checkDamage(
+            lessD4Damage(1, 3, { extra: 1 }),
+            withering(false),
+            [],
+            NOW,
+          ),
+        ).toBe('dice')
+        expect(
+          checkDamage(
+            lessD4Damage(2, 2, { extra: 1 }),
+            withering(false),
+            [],
+            NOW,
+          ),
+        ).toBe('dice')
+      })
+
+      it('never rolls it at its highest, as the game marks it or its formula has it', () => {
+        expect(
+          checkDamage(
+            lessD4Damage(1, 2, { maximize: true }),
+            withering(true),
+            [],
+            NOW,
+          ),
+        ).toBe('dice')
+        expect(
+          checkDamage(
+            lessD4Damage(1, 2, { maximize: true }),
+            withering(false),
+            [],
+            NOW,
+          ),
+        ).toBe('dice')
+        // Damage that takes nothing away is, as ever.
+        expect(
+          checkDamage(
+            {
+              ...thrown,
+              modifiers: { maximize: true },
+            },
+            use(),
+            [],
+            NOW,
+          ),
+        ).toBeUndefined()
+      })
     })
 
     it.each([
@@ -3177,6 +3841,29 @@ describe('utils/roll-requests', () => {
       ).toMatchObject({ total: 16 })
     })
 
+    it("totals damage as dnd5e's card does: each kind's parts together, each kind at least 0", () => {
+      const part = (total: number, damageType: string) => ({
+        ...damagePart(total),
+        damageType,
+      })
+      const totalOf = (rolls: CommandResult['rolls'], kind = 'damage') =>
+        toRollRequestView(
+          { ...madeDamage(rolls), kind: kind as HeldRollRequest['kind'] },
+          NOW,
+        ).total
+      expect(totalOf([part(-4, 'slashing')])).toBe(0)
+      expect(totalOf([part(-4, 'slashing'), part(5, 'fire')])).toBe(5)
+      expect(totalOf([part(-4, 'slashing'), part(5, 'slashing')])).toBe(1)
+      expect(totalOf([part(-4, 'slashing')], 'textDamage')).toBe(0)
+      // Each roll's own total stays the game's.
+      expect(
+        toRollRequestView(madeDamage([part(-4, 'slashing')]), NOW).rolls?.[0]
+          .total,
+      ).toBe(-4)
+      // Hit dice's totals are added up as they are.
+      expect(totalOf([damagePart(-3), damagePart(1)], 'hitDice')).toBe(-2)
+    })
+
     it("totals damage's parts, when the game said each", () => {
       expect(
         toRollRequestView(madeDamage([damagePart(9), damagePart(7)]), NOW),
@@ -3215,6 +3902,423 @@ describe('utils/roll-requests', () => {
         id: 'req-1',
         actorId: 'actor-thorin',
       })
+    })
+  })
+})
+
+/** A use or an enchantment ended, as Ari's sheet has it, checked. */
+const enchantCheck = (
+  fields: Partial<RollRequestInput>,
+  sheet = enchantingSheet(),
+) =>
+  checkRoll(
+    request({ mode: 0, dice: [], key: undefined, ...fields }),
+    sheet,
+    [],
+    'actor-ari',
+  )
+
+/** Magic Weapon cast so, its way and item chosen. */
+const magicWeapon = (
+  profile: string | undefined,
+  slot?: string | null,
+  fields: Partial<RollRequestInput> = {},
+) =>
+  enchantCheck({
+    kind: 'use',
+    item: 'magicweapon',
+    activity: 'mw-cast',
+    targets: [],
+    ...(slot !== undefined && { slot }),
+    ...(profile && { enchant: { profile, item: 'longsword' } }),
+    ...fields,
+  })
+
+const PLUS_ONE = 'SLSudYaACjmmmZsU'
+const PLUS_TWO = '8OhsRxK3dF1JeQXO'
+const PLUS_THREE = '7L1wKfaEdN85IA0Z'
+
+/** Shillelagh cast in its only way, on this item or none. */
+const shillelagh = (item?: string) =>
+  enchantCheck({
+    kind: 'use',
+    item: 'shillelagh',
+    activity: 'shill-cast',
+    targets: [],
+    enchant: { profile: 'Oy8fP2N3q4R5s6T7', ...(item && { item }) },
+  })
+
+/** Engulf in Flames set alight, in this way or its one, on this item or none. */
+const engulf = (
+  item?: string,
+  profile = 'ablazeProfile01',
+  sheet?: ReturnType<typeof enchantingSheet>,
+) =>
+  enchantCheck(
+    {
+      kind: 'use',
+      item: 'flametongue',
+      activity: 'engulf',
+      targets: [],
+      enchant: { profile, ...(item && { item }) },
+    },
+    sheet,
+  )
+
+/**
+ * Ari's sheet with her Flame Tongue alight, its Engulf in Flames setting it alight in two ways, as
+ * a module might, the first of them on it.
+ */
+const alight = () => {
+  const sheet = enchantingSheet()
+  const engulfing = sheet.inventory.sections[0].items[3].activities![1]
+  engulfing.activity = enchantUse('engulf', {
+    ...engulfing.activity!.enchant,
+    profiles: [
+      { id: 'ablazeProfile01', name: 'Ablaze', min: null, max: null },
+      { id: 'frostProfile001', name: 'Frost', min: null, max: null },
+    ],
+    applied: [
+      {
+        item: 'flametongue',
+        effect: 'ablazeEffect001',
+        profile: 'ablazeProfile01',
+      },
+    ],
+  })
+  return sheet
+}
+
+/** An enchantment ended. */
+const end = (
+  item: string,
+  effect: string,
+  sheet?: ReturnType<typeof enchantingSheet>,
+) =>
+  enchantCheck({ kind: 'endEnchantment', enchantment: { item, effect } }, sheet)
+
+describe('utils/roll-requests for enchant activities, from module 0.21.0', () => {
+  describe('checkRoll for a use', () => {
+    it('lets Magic Weapon enchant in a way offered at the level it is cast at', () => {
+      expect(magicWeapon(PLUS_ONE, 'spell2')).toBeUndefined()
+      expect(magicWeapon(PLUS_ONE, 'spell3')).toBeUndefined()
+      expect(magicWeapon(PLUS_TWO, 'spell4')).toBeUndefined()
+    })
+
+    it('refuses a way not offered at the level it is cast at, or chosen with no slot where there are slots', () => {
+      expect(magicWeapon(PLUS_TWO, 'spell2')).toBe('profile')
+      expect(magicWeapon(PLUS_ONE, 'spell4')).toBe('profile')
+      expect(magicWeapon(PLUS_THREE, 'spell4')).toBe('profile')
+      expect(magicWeapon(PLUS_ONE)).toBe('profile')
+      expect(magicWeapon(PLUS_ONE, null)).toBe('profile')
+    })
+
+    it('refuses a use of an enchant activity with no way, or one it hasn’t', () => {
+      expect(magicWeapon(undefined, 'spell2')).toBe('profile')
+      expect(magicWeapon('Oy8fP2N3q4R5s6T7', 'spell2')).toBe('profile')
+    })
+
+    it('still refuses a slot of which none is left, first', () => {
+      const spent = enchantingSheet()
+      spent.spells[3].slots = { value: 0, max: 1, level: 4 }
+      expect(
+        enchantCheck(
+          {
+            kind: 'use',
+            item: 'magicweapon',
+            activity: 'mw-cast',
+            targets: [],
+            slot: 'spell4',
+            enchant: { profile: PLUS_TWO },
+          },
+          spent,
+        ),
+      ).toBe('slot')
+    })
+
+    it('lets a cantrip enchant in its only way with no slot, an item it may, or none', () => {
+      expect(shillelagh('club')).toBeUndefined()
+      expect(shillelagh()).toBeUndefined()
+      expect(shillelagh('longsword')).toBe('enchant-target')
+      expect(shillelagh('flametongue')).toBe('enchant-target')
+    })
+
+    it('refuses an item for one that enchants its own', () => {
+      expect(engulf()).toBeUndefined()
+      expect(engulf('flametongue')).toBe('enchant-target')
+      expect(engulf('longsword')).toBe('enchant-target')
+    })
+
+    it('refuses one that enchants its own item in the way it is on it already, as only a sheet out of date sends, but lets it in another', () => {
+      expect(engulf(undefined, 'ablazeProfile01', alight())).toBe('applied')
+      expect(engulf(undefined, 'frostProfile001', alight())).toBeUndefined()
+    })
+
+    it('refuses an item for one that enchants its own before the way it is on it already', () => {
+      expect(engulf('flametongue', 'ablazeProfile01', alight())).toBe(
+        'enchant-target',
+      )
+    })
+
+    it('lets one that enchants another item enchant one in the way it is on already, which the game replaces', () => {
+      const sheet = enchantingSheet()
+      sheet.spells[0].spells[0].activity!.enchant!.applied = [
+        { item: 'club', effect: 'shillEffect02', profile: 'Oy8fP2N3q4R5s6T7' },
+      ]
+      expect(
+        enchantCheck(
+          {
+            kind: 'use',
+            item: 'shillelagh',
+            activity: 'shill-cast',
+            targets: [],
+            enchant: { profile: 'Oy8fP2N3q4R5s6T7', item: 'club' },
+          },
+          sheet,
+        ),
+      ).toBeUndefined()
+    })
+
+    it('refuses targets for an enchant activity', () => {
+      const fight = combat({
+        combatants: [combatant({ id: 'c-goblin', name: 'Goblin' })],
+      })
+      expect(
+        checkRoll(
+          request({
+            kind: 'use',
+            key: undefined,
+            dice: [],
+            item: 'magicweapon',
+            activity: 'mw-cast',
+            slot: 'spell2',
+            targets: [{ combatId: fight.id, combatantId: 'c-goblin' }],
+            enchant: { profile: PLUS_ONE },
+          }),
+          enchantingSheet(),
+          [fight],
+          'actor-ari',
+        ),
+      ).toBe('target')
+    })
+
+    it('refuses how an enchant activity enchants for any other activity', () => {
+      const sheet = enchantingSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'breath',
+                name: 'Breath Weapon',
+                save: { ability: 'dex', dc: 13 },
+                activity: {
+                  ...enchantUse('breath-save'),
+                  type: 'save',
+                  enchant: undefined,
+                },
+              }),
+            ],
+          },
+        ],
+      })
+      const breathe = (fields: Partial<RollRequestInput>) =>
+        enchantCheck(
+          {
+            kind: 'use',
+            item: 'breath',
+            activity: 'breath-save',
+            targets: [],
+            ...fields,
+          },
+          sheet,
+        )
+      expect(breathe({})).toBeUndefined()
+      expect(breathe({ enchant: { profile: PLUS_ONE } })).toBe('unknown')
+    })
+
+    it('refuses an enchant activity the module can’t say what it enchants of, as one it doesn’t send', () => {
+      const sheet = enchantingSheet()
+      sheet.spells[1].spells[0].activity = {
+        ...sheet.spells[1].spells[0].activity!,
+        enchant: undefined,
+      }
+      expect(
+        enchantCheck(
+          {
+            kind: 'use',
+            item: 'magicweapon',
+            activity: 'mw-cast',
+            targets: [],
+            slot: 'spell2',
+            enchant: { profile: PLUS_ONE },
+          },
+          sheet,
+        ),
+      ).toBe('unknown')
+    })
+  })
+
+  describe('checkRoll for an enchantment ended', () => {
+    it('lets the player end an enchantment they may, on an item, a spell, a feature or an action', () => {
+      expect(end('quarterstaff', 'shillEffect01')).toBeUndefined()
+      // On loot, which rolls nothing.
+      expect(end('pebble', 'contFlame01')).toBeUndefined()
+      const blade = enchantment({ id: 'bladeEffect01', name: 'Pact Weapon' })
+      const sheet = enchantingSheet()
+      sheet.spells[1].spells[0].enchantments = [blade]
+      sheet.features[0].features[0].enchantments = [blade]
+      sheet.actions = [
+        {
+          id: 'action',
+          label: 'Actions',
+          actions: [
+            sheetAction({
+              id: 'warhammer',
+              name: 'Warhammer',
+              enchantments: [blade],
+            }),
+          ],
+        },
+      ]
+      expect(end('magicweapon', 'bladeEffect01', sheet)).toBeUndefined()
+      expect(end('spear', 'bladeEffect01', sheet)).toBeUndefined()
+      expect(end('warhammer', 'bladeEffect01', sheet)).toBeUndefined()
+    })
+
+    it("lets the player end another's on an item of theirs, as its owner, where the module says they may", () => {
+      expect(end('club', 'brynMagicWeap')).toBeUndefined()
+    })
+
+    it('refuses one the player may not end, on another item, of an item the sheet has not, or with no sheet', () => {
+      expect(end('greataxe', 'weaponPlusOne1')).toBe('enchantment')
+      expect(end('longsword', 'shillEffect01')).toBe('enchantment')
+      expect(end('quarterstaff', 'missing00000001')).toBe('enchantment')
+      expect(end('greataxe', 'shillEffect01')).toBe('enchantment')
+      expect(
+        checkRoll(
+          request({
+            kind: 'endEnchantment',
+            key: undefined,
+            dice: [],
+            enchantment: { item: 'quarterstaff', effect: 'shillEffect01' },
+          }),
+          undefined,
+          [],
+          'actor-ari',
+        ),
+      ).toBe('enchantment')
+    })
+
+    it('refuses one on the item named that it may not end, though one on another item by the same id it may', () => {
+      const sheet = enchantingSheet()
+      const [, club, staff] = sheet.inventory.sections[0].items
+      club.enchantments = [
+        enchantment({
+          id: 'sharedEffect01',
+          name: 'Weapon, +1',
+          endable: false,
+        }),
+      ]
+      staff.enchantments = [
+        enchantment({ id: 'sharedEffect01', name: 'Shillelagh (1d10)' }),
+      ]
+      expect(end('club', 'sharedEffect01', sheet)).toBe('enchantment')
+      expect(end('quarterstaff', 'sharedEffect01', sheet)).toBeUndefined()
+    })
+  })
+
+  describe('toRollRequestView', () => {
+    const outcome = {
+      enchanted: {
+        item: 'longsword',
+        itemName: 'Longsword',
+        effect: 'effect000000002',
+        profile: 'SLSudYaACjmmmZsU',
+        name: 'Magic Weapon, +1',
+      },
+      ended: null,
+    }
+    const done = (visible: boolean): CommandResult => ({
+      id: 'req-1',
+      status: 'done',
+      reason: null,
+      error: null,
+      messageId: visible ? 'card-1' : null,
+      visible,
+      rolls: [],
+      use: { type: 'enchant' },
+      damage: null,
+      enchantment: outcome,
+    })
+
+    it('says what an enchant activity applied and ended, seen or not', () => {
+      for (const visible of [true, false]) {
+        expect(
+          toRollRequestView(
+            held({ kind: 'use', status: 'done', result: done(visible) }),
+          ),
+        ).toEqual(
+          expect.objectContaining({
+            status: 'done',
+            visible,
+            use: { type: 'enchant' },
+            enchantment: outcome,
+          }),
+        )
+      }
+    })
+
+    it('says nothing of it for a use whose result has none, nor why one wasn’t made beyond its reason', () => {
+      expect(
+        toRollRequestView(
+          held({
+            kind: 'use',
+            status: 'done',
+            result: { ...done(true), enchantment: null },
+          }),
+        ),
+      ).not.toHaveProperty('enchantment')
+      expect(
+        toRollRequestView(
+          held({
+            kind: 'use',
+            status: 'failed',
+            result: {
+              ...done(true),
+              status: 'failed',
+              reason: 'enchant',
+              enchantment: null,
+            },
+          }),
+        ),
+      ).toEqual({ id: 'req-1', status: 'failed', reason: 'enchant' })
+    })
+
+    it('says of one used whose card is gone from the game’s chat, or was never posted, that there is none', () => {
+      const cases: [Partial<CommandResult>, Record<string, unknown>][] = [
+        [{ reason: 'enchant' }, { reason: 'enchant', card: false }],
+        [{ reason: 'midi' }, { reason: 'midi', card: false }],
+        // Of any other use, nothing.
+        [{ reason: 'consume', use: null }, { reason: 'consume' }],
+      ]
+      for (const [fields, view] of cases) {
+        expect(
+          toRollRequestView(
+            held({
+              kind: 'use',
+              status: 'failed',
+              result: {
+                ...done(false),
+                status: 'failed',
+                enchantment: null,
+                ...fields,
+              },
+            }),
+          ),
+        ).toEqual({ id: 'req-1', status: 'failed', ...view })
+      }
     })
   })
 })

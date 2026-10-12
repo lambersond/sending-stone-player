@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LONG_PRESS } from './roll-button'
 import { RollTray, type TableRolls } from './roll-tray'
 import type {
   LocalAsk,
@@ -773,6 +774,204 @@ describe('components/character-sheet/roll-tray', () => {
             .getAllByRole('menuitem')
             .map(item => item.textContent),
         ).toEqual(['Roll maximum damage'])
+      })
+
+      describe('that takes a die away', () => {
+        /** A greataxe under Reduce, as the game marks it: 1d12 + 3, less 1d4. */
+        const reduced = {
+          ...preview,
+          rolls: [
+            {
+              formula: '1d12 + 3 - 1d4',
+              type: 'Slashing',
+              dice: [
+                { faces: 12, number: 1 },
+                { faces: 4, number: 1, subtracted: true as const },
+              ],
+            },
+          ],
+        }
+        /** A Reduced Unarmed Strike: 1 + 3, less 1d4, which adds no die of its own. */
+        const unarmed = {
+          ...preview,
+          rolls: [
+            {
+              formula: '1 + 3 - 1d4',
+              type: 'Bludgeoning',
+              dice: [{ faces: 4, number: 1, subtracted: true as const }],
+            },
+          ],
+        }
+        const rendered = (damage: typeof preview, rollDamage = jest.fn()) =>
+          render(
+            <RollTray
+              rolls={[attack]}
+              rolling={false}
+              table={table([['r1', made({ damage })]], {
+                rollDamage,
+                modifies: true,
+              })}
+            />,
+          )
+
+        it('offers no menu where there is nothing to change, a long-press doing nothing and a tap rolling it', () => {
+          const rollDamage = jest.fn()
+          rendered(unarmed, rollDamage)
+          const button = screen.getByRole('button', { name: 'Roll damage' })
+
+          fireEvent.contextMenu(button)
+          expect(screen.queryByRole('menu')).toBeNull()
+          jest.useFakeTimers()
+          try {
+            fireEvent.pointerDown(button, {
+              pointerType: 'touch',
+              clientX: 20,
+              clientY: 10,
+            })
+            act(() => jest.advanceTimersByTime(LONG_PRESS))
+            expect(screen.queryByRole('menu')).toBeNull()
+            fireEvent.pointerUp(button, { pointerType: 'touch' })
+            fireEvent.click(button)
+            expect(rollDamage).not.toHaveBeenCalled()
+          } finally {
+            jest.useRealTimers()
+          }
+
+          fireEvent.click(button)
+          expect(rollDamage).toHaveBeenCalledWith('Longsword', {
+            use: 'req-1',
+            damage: unarmed,
+          })
+        })
+
+        it('changes the die it adds, never at its highest, the die it takes away as it is', async () => {
+          const user = userEvent.setup()
+          const rollDamage = jest.fn()
+          rendered(reduced, rollDamage)
+
+          fireEvent.contextMenu(
+            screen.getByRole('button', { name: 'Roll damage' }),
+          )
+          const menu = screen.getByRole('menu', {
+            name: 'Longsword damage 1d12 + 3 - 1d4',
+          })
+          expect(
+            within(menu)
+              .getAllByRole('menuitem')
+              .map(item => item.textContent),
+          ).toEqual(['Modify damage…'])
+          await user.click(
+            within(menu).getByRole('menuitem', { name: 'Modify damage…' }),
+          )
+          const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+          expect(
+            within(dialog).queryByRole('switch', { name: /^Maximum/ }),
+          ).toBeNull()
+          await user.click(
+            within(dialog).getByRole('button', { name: 'One die more' }),
+          )
+          expect(within(dialog).getByRole('status')).toHaveTextContent(
+            '2d12 + 3 − 1d4 Slashing',
+          )
+          await user.click(within(dialog).getByRole('button', { name: 'Roll' }))
+          expect(rollDamage).toHaveBeenLastCalledWith(
+            'Longsword',
+            { use: 'req-1', damage: reduced },
+            undefined,
+            { extra: 1 },
+          )
+        })
+
+        it.each<[string, typeof preview, RegExp]>([
+          [
+            'the first it adds, never one it takes away',
+            reduced,
+            /^The first die it adds, never one it takes away, such as a versatile/,
+          ],
+          [
+            'its first die, where it takes none away',
+            {
+              ...preview,
+              rolls: [
+                {
+                  formula: '1d8 + 3',
+                  type: 'Slashing',
+                  dice: [{ faces: 8, number: 1 }],
+                },
+              ],
+            },
+            /^Its first die, such as a versatile weapon's in two hands/,
+          ],
+        ])('says which die is changed: %s', async (_, damage, hint) => {
+          const user = userEvent.setup()
+          rendered(damage)
+
+          fireEvent.contextMenu(
+            screen.getByRole('button', { name: 'Roll damage' }),
+          )
+          await user.click(
+            screen.getByRole('menuitem', { name: 'Modify damage…' }),
+          )
+          const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+          expect(within(dialog).getByText(hint)).toBeInTheDocument()
+        })
+
+        it.each<[string, string, string[] | undefined]>([
+          ['takes a die away: no menu', '1d3 + 3 - 1d4', undefined],
+          [
+            'takes one away as Foundry may wrap a leading die: no menu',
+            '(1d4 * -1) + 2d6',
+            undefined,
+          ],
+          [
+            'takes none away: at its highest',
+            '1d3 + 3',
+            ['Roll maximum damage'],
+          ],
+        ])(
+          'offers damage the game rolls itself, whose formula %s',
+          (_, formula, items) => {
+            rendered({
+              ...preview,
+              plannable: false,
+              rolls: [{ formula, type: 'Bludgeoning', dice: [] }],
+            })
+            fireEvent.contextMenu(
+              screen.getByRole('button', { name: 'Roll damage' }),
+            )
+            const menu = screen.queryByRole('menu')
+            if (items) {
+              expect(
+                within(menu as HTMLElement)
+                  .getAllByRole('menuitem')
+                  .map(item => item.textContent),
+              ).toEqual(items)
+            } else {
+              expect(menu).toBeNull()
+            }
+          },
+        )
+
+        it('changes none of the dice where a module before 0.21.0 would change the one it takes away', () => {
+          // "-1d4 + 2d6", unmarked: such a module would add to the d4.
+          rendered({
+            ...preview,
+            rolls: [
+              {
+                formula: '- 1d4 + 2d6',
+                type: 'Necrotic',
+                dice: [
+                  { faces: 4, number: 1 },
+                  { faces: 6, number: 2 },
+                ],
+              },
+            ],
+          })
+          fireEvent.contextMenu(
+            screen.getByRole('button', { name: 'Roll damage' }),
+          )
+          expect(screen.queryByRole('menu')).toBeNull()
+        })
       })
 
       it("offers a critical hit's damage as such", () => {
@@ -2064,5 +2263,187 @@ describe('components/character-sheet/roll-tray', () => {
         'Dexterity saving throw14 +1 = 15· table 15, saved',
       ])
     })
+  })
+})
+
+/** The table, with these rolls' ways to it. */
+const tableOf = (states: [string, TableRollState][]): TableRolls => ({
+  states: new Map(states),
+  available: true,
+  sending: true,
+  setSending: jest.fn(),
+})
+
+/** An enchant activity used, or an enchantment ended, at the table, what it did said. */
+const done = (
+  enchantment: TableRollState['enchantment'],
+  fields: Partial<TableRollState> = {},
+): TableRollState => ({
+  status: 'done',
+  visible: true,
+  rolls: [],
+  use: { type: 'enchant' },
+  damage: null,
+  ...(enchantment && { enchantment }),
+  ...fields,
+})
+
+describe('components/character-sheet/roll-tray for enchant activities, from module 0.21.0', () => {
+  const magicWeapon: LocalUse = {
+    kind: 'use',
+    id: 'u1',
+    label: 'Magic Weapon',
+    spell: true,
+    at: 0,
+  }
+  const ablaze: LocalUse = {
+    kind: 'use',
+    id: 'u2',
+    label: 'Ablaze',
+    spell: false,
+    ending: true,
+    at: 0,
+  }
+  const enchanted = {
+    item: 'longsword',
+    itemName: 'Longsword',
+    effect: 'effect000000002',
+    profile: 'SLSudYaACjmmmZsU',
+    name: 'Magic Weapon, +1',
+  }
+  const ended = {
+    item: 'flametongue',
+    itemName: 'Flame Tongue',
+    effect: 'ablazeEffect001',
+    name: 'Ablaze',
+  }
+  it('says what a use put on which item, once the game made it', () => {
+    render(
+      <RollTray
+        rolls={[magicWeapon]}
+        rolling={false}
+        table={tableOf([['u1', done({ enchanted, ended: null })]])}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Magic WeaponCast at the table · Magic Weapon, +1 on Longsword',
+    )
+  })
+
+  it('says an enchantment was ended, where it is on its way, and once it is', () => {
+    const { rerender } = render(
+      <RollTray
+        rolls={[ablaze]}
+        rolling={false}
+        table={tableOf([['u2', { status: 'rolling' }]])}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Ending it in your Gamemaster’s game…',
+    )
+    rerender(
+      <RollTray
+        rolls={[ablaze]}
+        rolling={false}
+        table={tableOf([
+          ['u2', done({ enchanted: null, ended }, { use: undefined })],
+        ])}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'AblazeEnded at the table',
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent('hidden')
+  })
+
+  it('marks each earlier one with what it put on, what it ended, or the card alone, never as hidden', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          roll({ id: 'r1' }),
+          magicWeapon,
+          ablaze,
+          { ...magicWeapon, id: 'u3', label: 'Shillelagh' },
+          { ...ablaze, id: 'u4', label: 'Venom' },
+        ]}
+        rolling={false}
+        table={tableOf([
+          ['u1', done({ enchanted, ended: null })],
+          [
+            'u2',
+            done({ enchanted: null, ended }, { visible: true, use: undefined }),
+          ],
+          ['u3', done({ enchanted: null, ended: null }, { visible: false })],
+          ['u4', { status: 'failed', reason: 'enchantment' }],
+        ])}
+      />,
+    )
+
+    await user.click(screen.getByText('Earlier rolls (4)'))
+
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual([
+      'Magic Weaponcast· Magic Weapon, +1 on Longsword',
+      'Ablazeended· ended Ablaze',
+      'Shillelaghcast· at the table',
+      'Venomended· not at the table',
+    ])
+  })
+
+  it.each([
+    [
+      'profile',
+      'Not cast at the table: that enchantment isn’t offered at that level',
+    ],
+    [
+      'enchant-target',
+      'Not cast at the table: that item can’t take that enchantment',
+    ],
+    ['applied', 'Not cast at the table: that enchantment is on it already'],
+    [
+      'enchant',
+      'Not cast at the table: it was used, but the enchantment wasn’t applied: your Gamemaster can apply it from the card',
+    ],
+  ])('says why a use was not made, for %s', (reason, said) => {
+    render(
+      <RollTray
+        rolls={[magicWeapon]}
+        rolling={false}
+        table={tableOf([['u1', { status: 'failed', reason }]])}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(said)
+  })
+
+  it('says an enchantment was not applied without sending the Gamemaster to a card the game has not', () => {
+    render(
+      <RollTray
+        rolls={[magicWeapon]}
+        rolling={false}
+        table={tableOf([
+          ['u1', { status: 'failed', reason: 'enchant', card: false }],
+        ])}
+      />,
+    )
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(
+      /Not cast at the table: it was used, but the enchantment wasn’t applied$/,
+    )
+    expect(status).not.toHaveTextContent('card')
+  })
+
+  it('says why an enchantment was not ended', () => {
+    render(
+      <RollTray
+        rolls={[ablaze]}
+        rolling={false}
+        table={tableOf([['u2', { status: 'refused', reason: 'enchantment' }]])}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Not ended at the table: that enchantment can’t be ended from here',
+    )
   })
 })

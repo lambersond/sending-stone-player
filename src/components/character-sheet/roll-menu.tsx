@@ -133,6 +133,8 @@ export type MenuItem<T extends string> = {
   tint?: string
   /** Why it can't be chosen now, said under it; unset where it can be. */
   disabled?: string
+  /** What else to know of it, said under it where it can be chosen, such as what it spends. */
+  hint?: string
 }
 
 /**
@@ -219,17 +221,18 @@ export function ChoiceMenu<T extends string>({
           {items.map((item, index) => {
             const { icon: Icon } = item
             const why = `${reasons}-${index}`
+            // Why it can't be done now; or else what else to know of it, where there's anything.
+            const note = item.disabled ?? item.hint
             return (
               <button
                 key={item.id}
                 type='button'
                 role='menuitem'
                 disabled={item.disabled !== undefined}
-                // Named for what it does, and why it can't be done now said after.
-                aria-label={
-                  item.disabled === undefined ? undefined : item.label
-                }
-                aria-describedby={item.disabled === undefined ? undefined : why}
+                // Named for what it does, and why it can't be done now, or what else to know of
+                // it, said after.
+                aria-label={note === undefined ? undefined : item.label}
+                aria-describedby={note === undefined ? undefined : why}
                 ref={node => {
                   list.current[index] = node
                 }}
@@ -257,12 +260,12 @@ export function ChoiceMenu<T extends string>({
                   >
                     {item.label}
                   </span>
-                  {item.disabled !== undefined && (
+                  {note !== undefined && (
                     <span
                       id={why}
                       className='text-xs font-normal text-text-secondary'
                     >
-                      {item.disabled}
+                      {note}
                     </span>
                   )}
                 </span>

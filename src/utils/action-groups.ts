@@ -150,13 +150,14 @@ function spellGroupOf(
  * The slots a spell can be cast with, as dnd5e offers them when it's cast: every spell level's
  * and pact magic's at the spell's level or higher, of which the character has any, lowest first.
  * Null for a spell cast without slots: a cantrip, or one cast at will, innately, as a ritual or
- * from an item.
+ * from an item; or through an activity that uses another, such as a free casting, which dnd5e casts
+ * at its own level without a slot, whatever slot is chosen.
  */
 export function slotPools(
   action: SheetAction,
   spellbook: SheetSpellSection[],
 ): SlotPool[] | null {
-  if (action.type !== 'spell' || !action.level) return null
+  if (action.type !== 'spell' || !action.level || action.forward) return null
   const own = spellbook.find(section =>
     section.spells.some(spell => spell.id === action.id),
   )
@@ -176,14 +177,17 @@ export function slotPools(
 /**
  * Has a spell no slot left to be cast with, and no use of its own left? Then it can't be cast
  * until the character rests. One of its activities used without spending a slot, such as Hex's
- * Bonus Hex Damage, is never out of them.
+ * Bonus Hex Damage, is never out of them. Uses an activity that uses another spends, such as a
+ * free casting's, are no use of its own: that activity has its own row, and casting the spell with
+ * a slot still takes one.
  */
 export function outOfSlots(
   action: SheetAction,
   pools: SlotPool[] | null,
 ): boolean {
   if (!pools || action.consumesSlot === false) return false
-  if (action.uses && action.uses.value > 0) return false
+  const forwarded = action.activities?.some(entry => entry.forward) === true
+  if (!forwarded && action.uses && action.uses.value > 0) return false
   return pools.every(pool => pool.value === 0)
 }
 

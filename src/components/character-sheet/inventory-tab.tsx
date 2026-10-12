@@ -22,6 +22,7 @@ import {
   type ActionRows,
   type TableDamage,
 } from './action-entry'
+import { enchantedEntry } from './enchantments'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -404,6 +405,7 @@ export function ItemEntry({
       facts={facts}
       text={item.text}
       origin={{ name: item.name, item: item.id }}
+      {...enchantedEntry(item)}
     >
       {container && (
         <Contents characterId={characterId} container={container} rows={rows} />

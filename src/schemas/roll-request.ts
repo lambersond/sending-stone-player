@@ -39,6 +39,12 @@ const FROM_TEXT = new Set(['ask', 'textDamage', 'textRoll'])
  */
 const LINKABLE = new Set(['save', 'skill', 'tool', 'ability'])
 
+/**
+ * What may be a check an activity asks for, the player's own, made against it, from module 0.21.0:
+ * a skill, tool or ability check, named by its item and activity.
+ */
+const ACTIVITY_CHECKS = new Set(['skill', 'tool', 'ability'])
+
 const sign = z.union([z.literal(1), z.literal(-1)])
 
 /** A term the player added, as the app's Modify roll reads it: dice, or a number. */
@@ -100,7 +106,11 @@ const rolledDiceSchema = z.strictObject({
  * then changed so. A description's damage names its link, and may be changed so too, or be a
  * critical hit's, as the world's rules make one, which an attack's damage never says: its attack
  * did. A saving throw the game asked for names the prompt it answers; a saving throw or check a
- * description calls for may name its link. A hit die names its size, and throws its one die;
+ * description calls for may name its link; a check an activity asks for may name its item and
+ * activity instead, never both. A use of an enchant activity may say how it enchants, and which of
+ * the character's items, and nothing else may; an enchantment ended, from module 0.21.0, names its
+ * item and effect, and nothing else, and throws no dice. A hit die names its size, and throws its
+ * one die;
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
  * all, and throw those of each size together, in the same order; a feature's own
  * formula names its item and activity, and throws the dice its formula does, which are checked
@@ -138,6 +148,18 @@ export const rollRequestSchema = z
       .min(0)
       .max(MAX_LINKS - 1)
       .optional(),
+    enchant: z
+      .strictObject({
+        profile: z.string().regex(FOUNDRY_ID),
+        item: z.string().regex(FOUNDRY_ID).optional(),
+      })
+      .optional(),
+    enchantment: z
+      .strictObject({
+        item: z.string().regex(FOUNDRY_ID),
+        effect: z.string().regex(FOUNDRY_ID),
+      })
+      .optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
@@ -147,12 +169,28 @@ export const rollRequestSchema = z
     const hitDice = request.kind === 'hitDice'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
-    if (attack || use || formula ? !both : named) {
+    // A check may be one an activity asks for, from module 0.21.0, which names both.
+    const checked = ACTIVITY_CHECKS.has(request.kind)
+    if (attack || use || formula ? !both : named && !(checked && both)) {
       context.addIssue({
         code: 'custom',
         path: ['activity'],
         message:
-          'An attack, a use or a formula, and only those, is made with an item',
+          'An attack, a use or a formula, and only those or a check an activity asks for, is made with an item',
+      })
+    }
+    if (
+      checked &&
+      named &&
+      (request.text !== undefined ||
+        request.link !== undefined ||
+        request.prompt !== undefined)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['item'],
+        message:
+          'A check an activity asks for is made against it, not a link or what the game asks',
       })
     }
     if (hitDie !== (request.denomination !== undefined)) {
@@ -305,18 +343,34 @@ export const rollRequestSchema = z
         message: 'Damage, and only damage, follows an attack or a use',
       })
     }
-    if (use || request.kind === 'ask') {
+    // An enchant activity's use says how it enchants, and only it; an enchantment ended names it,
+    // and nothing else, and throws no dice, as a use doesn't.
+    if (!use && request.enchant !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['enchant'],
+        message: 'Only a use enchants',
+      })
+    }
+    const ending = request.kind === 'endEnchantment'
+    if (ending !== (request.enchantment !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['enchantment'],
+        message: 'An enchantment ended, and only that, names the enchantment',
+      })
+    }
+    if (use || request.kind === 'ask' || ending) {
       const plain =
         request.mode === 0 &&
         !request.explicit &&
         request.extras.length === 0 &&
         request.dice.length === 0
       if (!plain) {
-        context.addIssue({
-          code: 'custom',
-          path: ['dice'],
-          message: use ? 'A use throws no dice' : 'An ask throws no dice',
-        })
+        let message = 'An ask throws no dice'
+        if (use) message = 'A use throws no dice'
+        else if (ending) message = 'Ending an enchantment throws no dice'
+        context.addIssue({ code: 'custom', path: ['dice'], message })
       }
       return
     }

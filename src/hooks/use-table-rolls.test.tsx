@@ -15,6 +15,13 @@ import {
   toRollRequest,
   useTableRolls,
 } from './use-table-rolls'
+import {
+  firstDie,
+  modifiedDice,
+  MOST_DICE,
+  withModifiers,
+  type DamageModifiers,
+} from '@/utils/damage-modifiers'
 import type {
   LocalAsk,
   LocalCheck,
@@ -80,6 +87,20 @@ const preview = (fields: Partial<DamagePreview> = {}): DamagePreview => ({
   ],
   ...fields,
 })
+
+/** A greataxe's damage of one roll, as the game said it, to roll at the table. */
+const one = (
+  formula: string,
+  dice: DamagePreview['rolls'][number]['dice'],
+  fields: Partial<DamagePreview> = {},
+) =>
+  damageRollOf('Greataxe', {
+    use: 'req-1',
+    damage: preview({
+      rolls: [{ formula, type: 'slashing', dice }],
+      ...fields,
+    }),
+  })
 
 const thrownDamage = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
   kind: 'damage',
@@ -231,6 +252,14 @@ const shone: LocalFormula = {
   ],
   at: 0,
 }
+
+/** Pick a Lock, with Thieves' Tools, against its DC, as a check of this kind and key. */
+const lock = (kind: 'skill' | 'tool' | 'ability', key: string): SheetRoll => ({
+  label: "Thieves' Tools check",
+  modifier: 6,
+  source: { kind, key, item: 'tools', activity: 'pick' },
+  dc: 15,
+})
 
 const respond = (status: number, body?: unknown) =>
   ({
@@ -661,6 +690,212 @@ describe('hooks/use-table-rolls', () => {
         { type: 'slashing', terms: [] },
         { type: 'fire', terms: [] },
       ])
+    })
+
+    describe('dice the damage takes away', () => {
+      /** A greataxe under Reduce: 1d12 + 3, less 1d4, as the harness builds it. */
+      const reduced = [
+        { sign: 1, count: 1, sides: 12 },
+        { sign: 1, flat: 3 },
+        { sign: -1, count: 1, sides: 4 },
+      ]
+
+      /** -1d4 + 2d6, from a module before 0.21.0, which marks nothing, or from 0.21.0. */
+      const said = (marked: boolean) =>
+        preview({
+          rolls: [
+            {
+              formula: '- 1d4 + 2d6',
+              type: 'necrotic',
+              dice: [
+                { faces: 4, number: 1, ...(marked && { subtracted: true }) },
+                { faces: 6, number: 2 },
+              ],
+            },
+          ],
+        })
+
+      it('takes away the dice the game marks, from its formula, and changes its first die', () => {
+        const roll = one('1d12 + 3 - 1d4', [
+          { faces: 12, number: 1 },
+          { faces: 4, number: 1, subtracted: true },
+        ])
+        expect(roll.parts[0].terms).toEqual(reduced)
+        expect(roll).not.toHaveProperty('fixed')
+      })
+
+      it('reads which a module before 0.21.0 takes away from its formula', () => {
+        const roll = one('1d12 + 3 - 1d4', [
+          { faces: 12, number: 1 },
+          { faces: 4, number: 1 },
+        ])
+        expect(roll.parts[0].terms).toEqual(reduced)
+        expect(roll).not.toHaveProperty('fixed')
+      })
+
+      it('changes no dice where a module before 0.21.0 would change one it takes away', () => {
+        const roll = one('- 1d4 + 2d6', [
+          { faces: 4, number: 1 },
+          { faces: 6, number: 2 },
+        ])
+        expect(roll.parts[0].terms).toEqual([
+          { sign: -1, count: 1, sides: 4 },
+          { sign: 1, count: 2, sides: 6 },
+        ])
+        expect(roll.fixed).toBe(true)
+        // From module 0.21.0, which changes the d6, they're changed.
+        expect(
+          one('- 1d4 + 2d6', [
+            { faces: 4, number: 1, subtracted: true },
+            { faces: 6, number: 2 },
+          ]),
+        ).not.toHaveProperty('fixed')
+        // Nor where it adds no die of its own.
+        expect(
+          one('1 + 3 - 1d4', [{ faces: 4, number: 1, subtracted: true }]).fixed,
+        ).toBe(true)
+      })
+
+      it("throws dice alone with their marks where the app can't read the formula, as Midi-QOL's copies", () => {
+        const roll = one('1d8 + 1d8min8 - 1d4 - 1d4min4', [
+          { faces: 8, number: 1 },
+          { faces: 8, number: 1, added: true },
+          { faces: 4, number: 1, subtracted: true },
+          { faces: 4, number: 1, added: true, subtracted: true },
+        ])
+        expect(roll.parts[0].terms).toEqual([
+          { sign: 1, count: 1, sides: 8 },
+          { sign: 1, count: 1, sides: 8, added: true },
+          { sign: -1, count: 1, sides: 4 },
+          { sign: -1, count: 1, sides: 4, added: true },
+        ])
+        expect(roll).not.toHaveProperty('fixed')
+      })
+
+      it('changes the same die of the dice the game said as of the parts it rolls', () => {
+        const unmarked = said(false)
+        expect(
+          damageRollOf('Withering Touch', { use: 'req-1', damage: unmarked })
+            .fixed,
+        ).toBe(true)
+        expect(modifiedDice(unmarked, { extra: 1 })).toBeUndefined()
+        // The d6 among its parts, the second of the dice the game said: both changed there.
+        const marked = said(true)
+        const roll = damageRollOf('Withering Touch', {
+          use: 'req-1',
+          damage: marked,
+        })
+        expect(roll).not.toHaveProperty('fixed')
+        expect(firstDie(roll.parts)).toBe(roll.parts[0].terms[1])
+        expect(firstDie(roll.parts)).toEqual({ sign: 1, count: 2, sides: 6 })
+        expect(modifiedDice(marked, { extra: 1 })).toEqual([
+          { faces: 4, number: 1, subtracted: true },
+          { faces: 6, number: 3 },
+        ])
+      })
+
+      it.each<
+        [string, DamagePreview, DamageModifiers, DamageModifiers | undefined]
+      >([
+        [
+          'none where it adds no die of its own',
+          preview({
+            rolls: [
+              {
+                formula: '1 + 3 - 1d4',
+                type: 'bludgeoning',
+                dice: [{ faces: 4, number: 1, subtracted: true }],
+              },
+            ],
+          }),
+          { extra: 1 },
+          undefined,
+        ],
+        [
+          'its die changed, never at its highest where it takes a die away',
+          preview({
+            rolls: [
+              {
+                formula: '1d12 + 3 - 1d4',
+                type: 'slashing',
+                dice: [
+                  { faces: 12, number: 1 },
+                  { faces: 4, number: 1, subtracted: true },
+                ],
+              },
+            ],
+          }),
+          { extra: 1, maximize: true },
+          { extra: 1 },
+        ],
+        [
+          'all of them where the game rolls it itself',
+          preview({
+            plannable: false,
+            rolls: [{ formula: '1d3 - 1d4', type: 'slashing', dice: [] }],
+          }),
+          { extra: 1 },
+          { extra: 1 },
+        ],
+        [
+          'never at its highest where the game rolls it itself and its formula takes a die away',
+          preview({
+            plannable: false,
+            rolls: [{ formula: '1d3 - 1d4', type: 'slashing', dice: [] }],
+          }),
+          { extra: 1, maximize: true },
+          { extra: 1 },
+        ],
+        [
+          'no more dice than its die cast higher may still take, as Cure Wounds at 3rd level, whose label had 2d8',
+          preview({
+            rolls: [
+              {
+                formula: '6d8 + 3',
+                type: 'healing',
+                dice: [{ faces: 8, number: 6 }],
+              },
+            ],
+          }),
+          { extra: 38 },
+          { extra: 34 },
+        ],
+      ])(
+        'rolls it with the changes chosen as it was used that the game takes: %s',
+        (_, damage, modifiers, kept) => {
+          const roll = damageRollOf('Greataxe', {
+            use: 'req-1',
+            damage,
+            modifiers,
+          })
+          if (kept) expect(roll.modifiers).toEqual(kept)
+          else expect(roll).not.toHaveProperty('modifiers')
+          // Never more of a die than a request may carry, so the game is never asked in vain.
+          const thrown = withModifiers(roll.parts, roll.modifiers, roll.perDie)
+          expect(
+            thrown.every(part =>
+              part.terms.every(
+                term => !('sides' in term) || term.count <= MOST_DICE,
+              ),
+            ),
+          ).toBe(true)
+        },
+      )
+
+      it("takes away a critical hit's doubled dice as the game marks them", () => {
+        const roll = one(
+          '- 2d4 + 4d6',
+          [
+            { faces: 4, number: 2, subtracted: true },
+            { faces: 6, number: 4 },
+          ],
+          { critical: true },
+        )
+        expect(roll.parts[0].terms).toEqual([
+          { sign: -1, count: 2, sides: 4 },
+          { sign: 1, count: 4, sides: 6 },
+        ])
+      })
     })
   })
 
@@ -1912,6 +2147,77 @@ describe('hooks/use-table-rolls', () => {
     })
   })
 
+  describe('checks activities ask for, from module 0.21.0', () => {
+    it.each([
+      ['skill', 'slt'],
+      ['tool', 'thief'],
+      ['ability', 'dex'],
+    ] as const)(
+      "sends a %s check an activity asks for, the player's own, by its item and activity, where the game makes it so",
+      (kind, key) => {
+        jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        const { result } = render([kind], ['activityChecks'])
+
+        act(() =>
+          result.current.send(
+            lock(kind, key),
+            check({ advantage: undefined, d20s: [9], extras: [] }),
+          ),
+        )
+
+        expect(sent()).toEqual({
+          kind,
+          key,
+          item: 'tools',
+          activity: 'pick',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 20, results: [9] }],
+        })
+        expect(result.current.states.get('r1')?.status).toBe('sending')
+      },
+    )
+
+    it("keeps one the player's alone where the game doesn't make it against the activity, or take the kind", () => {
+      const { result, rerender } = render(['tool'], ['modifiers'])
+
+      act(() =>
+        result.current.send(
+          lock('tool', 'thief'),
+          check({ advantage: undefined, d20s: [9], extras: [] }),
+        ),
+      )
+      rerender({ kinds: ['skill'], features: ['activityChecks'] })
+      act(() =>
+        result.current.send(
+          lock('tool', 'thief'),
+          check({ advantage: undefined, d20s: [9], extras: [] }),
+        ),
+      )
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.current.states.size).toBe(0)
+    })
+
+    it('still sends a plain check, which names no activity, without the feature', () => {
+      jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      const { result } = render(['tool'])
+
+      act(() =>
+        result.current.send(
+          { ...lock('tool', 'thief'), source: { kind: 'tool', key: 'thief' } },
+          check({ advantage: undefined, d20s: [9], extras: [] }),
+        ),
+      )
+
+      expect(sent()).toEqual(
+        expect.not.objectContaining({ item: expect.anything() }),
+      )
+      expect(sent()).toMatchObject({ kind: 'tool', key: 'thief' })
+    })
+  })
+
   describe('links in descriptions', () => {
     const HASH = '0f1a2b3c4d5e6f'
 
@@ -2197,6 +2503,17 @@ describe('hooks/use-table-rolls', () => {
       rerender({ kinds: ['textDamage'], features: ['modifiers'] })
       act(() => result.current.setSending(false))
       expect(result.current.modifiesText).toBe(false)
+    })
+
+    it("says whether the game changes a description's damage only on a die it adds, from module 0.21.0", () => {
+      const { result, rerender } = render(['textDamage'], ['modifiers'])
+      expect(result.current.signsText).toBe(false)
+      rerender({ kinds: ['textDamage'], features: ['modifiers', 'signedDice'] })
+      expect(result.current.signsText).toBe(true)
+      rerender({ kinds: ['textDamage'], features: ['signedDice'] })
+      expect(result.current.signsText).toBe(true)
+      rerender({ kinds: ['textDamage'], features: ['modifiers'] })
+      expect(result.current.signsText).toBe(false)
     })
 
     it("sends a description's own roll by its link, where the game takes it", () => {

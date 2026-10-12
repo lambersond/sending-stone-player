@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStoredChoice } from '@/hooks/use-stored'
-import { changes, type DamageModifiers } from '@/utils/damage-modifiers'
+import {
+  changedAt,
+  changes,
+  marksTaken,
+  signedDice,
+  takenModifiers,
+  type DamageModifiers,
+} from '@/utils/damage-modifiers'
 import { parseExtraTerms, type ExtraTerm } from '@/utils/roll-modifiers'
 import type {
   LocalAsk,
@@ -15,6 +22,8 @@ import type {
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
 import type {
+  ActivityRef,
+  EndEnchantmentSource,
   FormulaSource,
   RolledDice,
   RollFeature,
@@ -138,9 +147,9 @@ export function useTableRolls(
   const [choice, choose] = useStoredChoice(SEND_KEY, SEND_CHOICES, 'on')
   const on = choice === 'on'
   // As the latest render has them, for `send` to stay the same function.
-  const latest = useRef({ characterId, kinds, on })
+  const latest = useRef({ characterId, kinds, features, on })
   useEffect(() => {
-    latest.current = { characterId, kinds, on }
+    latest.current = { characterId, kinds, features, on }
   })
   const running = useRef(new Set<AbortController>())
   useEffect(() => {
@@ -243,8 +252,11 @@ export function useTableRolls(
   const send = useCallback(
     (roll: SheetRoll, check: LocalCheck) => {
       const { source } = roll
-      const { kinds, on } = latest.current
+      const { kinds, features, on } = latest.current
       if (!on || !source || !kinds.includes(source.kind)) return
+      // A check an activity asks for goes only to a game that makes it against the activity, from
+      // module 0.21.0; to any other, it's the player's alone.
+      if (activityCheck(source) && !features.includes('activityChecks')) return
       let kept: Partial<TableRollState> = {}
       if (source.kind === 'attack') {
         kept = {
@@ -330,6 +342,8 @@ export function useTableRolls(
           targets,
           // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own slot
           slot: use.slot ?? null,
+          // How an enchant activity enchants, and what.
+          ...(use.enchant && { enchant: use.enchant }),
           mode: 0,
           explicit: false,
           extras: [],
@@ -369,6 +383,34 @@ export function useTableRolls(
     [start, startEach],
   )
 
+  /**
+   * End an enchantment on one of the character's items, from module 0.21.0; kept, where it's ended
+   * from an enchant activity's switch, with that activity, so that the switch follows it.
+   */
+  const sendEnd = useCallback(
+    (
+      ended: LocalUse,
+      { item, effect }: Omit<EndEnchantmentSource, 'kind'>,
+      source?: AttackSource,
+    ) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('endEnchantment')) return
+      start(
+        ended.id,
+        {
+          kind: 'endEnchantment',
+          enchantment: { item, effect },
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+        },
+        source ? { source } : {},
+      )
+    },
+    [start],
+  )
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -396,6 +438,7 @@ export function useTableRolls(
     sendDamage,
     sendFormula,
     sendUse,
+    sendEnd,
     sendAsk,
     states,
     /** Whether the game takes any of the player's rolls now. */
@@ -413,6 +456,11 @@ export function useTableRolls(
      */
     modifiesText:
       on && kinds.includes('textDamage') && features.includes('modifiers'),
+    /**
+     * Whether the game changes a description's damage only on a die it adds, from module 0.21.0;
+     * before, on its first die whatever its sign.
+     */
+    signsText: features.includes('signedDice'),
     /** Whether the game makes an area attack at the combatants picked, from this device now. */
     areas: on && kinds.includes('attack') && features.includes('areaAttacks'),
     /**
@@ -422,6 +470,16 @@ export function useTableRolls(
     answering: answeringOf(states),
     /** The attack or use at the table with this id, if its damage is still to roll there. */
     dueDamage: (use: string) => dueOf(states, state => state.requestId === use),
+    /**
+     * The latest use at the table made with this item and activity, or enchantment ended from it,
+     * as it stands, if any: for an enchant activity's switch.
+     */
+    latestFor: (source: AttackSource) =>
+      [...states.values()].findLast(
+        state =>
+          state.source?.item === source.item &&
+          state.source.activity === source.activity,
+      ),
     /**
      * The latest attack or use at the table made with this item and activity, if its damage is
      * due.
@@ -603,6 +661,11 @@ export function toRollRequest(
     ...('text' in source &&
       source.text !== undefined &&
       source.link !== undefined && { text: source.text, link: source.link }),
+    // A check an activity asks for, which the game makes against the activity, as its card does.
+    ...(activityCheck(source) && {
+      item: source.item,
+      activity: source.activity,
+    }),
     ...(source.kind === 'attack' && {
       item: source.item,
       activity: source.activity,
@@ -626,6 +689,19 @@ export function toRollRequest(
       ),
     ],
   }
+}
+
+/** Is a roll a check an activity asks for, the player's own, by its item and activity? */
+function activityCheck(
+  source: RollSource,
+): source is Extract<RollSource, { kind: 'skill' | 'tool' | 'ability' }> &
+  ActivityRef {
+  return (
+    ['skill', 'tool', 'ability'].includes(source.kind) &&
+    'activity' in source &&
+    source.item !== undefined &&
+    source.activity !== undefined
+  )
 }
 
 /**
@@ -728,9 +804,16 @@ function damageDice(roll: SheetDamageRoll, damage: LocalDamage): RolledDice[] {
 
 /**
  * An attack's or a use's damage or healing, to roll as the game said it will: each of its rolls a
- * part, with its dice as the game will throw them, a critical hit's already doubled, and its
- * numbers where the app can read them, as the kind of damage chosen, if any, and changed as the
- * player chose. Damage the game can't say beforehand has no dice here: the game rolls them.
+ * part, with its dice as the game will throw them, a critical hit's already doubled, those it takes
+ * away with their signs, and its numbers where the app can read them, as the kind of damage
+ * chosen, if any, and changed as the player chose. Damage the game can't say beforehand has no
+ * dice here: the game rolls them. Damage whose dice the game won't change is marked `fixed`: one
+ * with no first die to change, or, from a module before 0.21.0, one whose first die it would
+ * change is one it takes away. Changes chosen as it was used that the game's damage can't take
+ * are left out, and it's rolled without them: its highest where it takes a die away, its formula
+ * saying so for damage the game rolls itself; more dice where it has no first die to change; and
+ * more than its first die may still take, as a spell cast higher than its label has, down to as
+ * many as it may.
  * @param label - What the attack or use was made with, such as "Longsword".
  * @param type - The kind of damage chosen, such as "fire", for each roll that offers it.
  * @param modifiers - How the player changes it now; else as they chose as they used it.
@@ -743,6 +826,8 @@ export function damageRollOf(
 ): SheetDamageRoll {
   const healing = damage.healing === true
   const types = type ? typesFor(damage, type) : undefined
+  const marked = marksTaken(damage)
+  const kept = takenModifiers(damage, modifiers)
   return {
     label: `${label} ${healing ? 'healing' : 'damage'}`,
     critical: damage.critical,
@@ -750,11 +835,12 @@ export function damageRollOf(
     exact: true,
     use,
     ...(types && { types }),
-    ...(modifiers && changes(modifiers) && { modifiers }),
+    ...(kept && changes(kept) && { modifiers: kept }),
     perDie: damage.rolls[0]?.perDie ?? 1,
+    ...(damage.plannable && changedAt(damage) < 0 && { fixed: true as const }),
     parts: damage.rolls.map((roll, index) => ({
       type: chosenLabel(roll, types?.[index]) ?? roll.type,
-      terms: damage.plannable ? termsOf(roll) : [],
+      terms: damage.plannable ? termsOf(roll, marked) : [],
     })),
   }
 }
@@ -781,17 +867,24 @@ function chosenLabel(
 }
 
 /**
- * A roll's terms, as its formula has them, when they throw the dice the game said; otherwise its
- * dice alone. Either way, the dice of a critical hit's critical damage are marked added, as the
- * game marks them, so that none is ever its first die.
+ * A roll's terms, as its formula has them, when they throw the dice the game said, with their
+ * signs; otherwise its dice alone. Either way, its dice have their signs, as the game marks them,
+ * or as its formula has them for a module before 0.21.0; and the dice of a critical hit's critical
+ * damage are marked added, as the game marks them, so that none is ever its first die.
+ * @param marked - Whether the game marks the dice the damage takes away.
  */
-function termsOf(roll: DamagePreview['rolls'][number]): ExtraTerm[] {
-  const dice = roll.dice.map(({ faces, number, added }) => ({
-    sign: 1 as const,
-    count: number,
-    sides: faces as Extract<ExtraTerm, { sides: number }>['sides'],
-    ...(added && { added }),
-  }))
+function termsOf(
+  roll: DamagePreview['rolls'][number],
+  marked: boolean,
+): ExtraTerm[] {
+  const dice = signedDice(roll, marked).map(
+    ({ faces, number, added, subtracted }) => ({
+      sign: subtracted ? (-1 as const) : (1 as const),
+      count: number,
+      sides: faces as Extract<ExtraTerm, { sides: number }>['sides'],
+      ...(added && { added }),
+    }),
+  )
   const parsed = parseExtraTerms(roll.formula)
   if (!parsed.ok) return dice
   const thrown = parsed.terms.filter(term => 'sides' in term)
@@ -799,7 +892,7 @@ function termsOf(roll: DamagePreview['rolls'][number]): ExtraTerm[] {
     thrown.length === dice.length &&
     thrown.every(
       (term, index) =>
-        term.sign === 1 &&
+        term.sign === dice[index].sign &&
         term.count === dice[index].count &&
         term.sides === dice[index].sides,
     )

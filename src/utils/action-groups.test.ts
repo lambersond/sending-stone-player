@@ -382,6 +382,58 @@ describe('utils/action-groups', () => {
     })
   })
 
+  describe('activities that use others, from module 0.21.0', () => {
+    /** Shield's free casting, spending one of its uses. */
+    const free = {
+      ...spell('shield', 'Shield', 1),
+      consumesSlot: false,
+      forward: { charges: 1, short: false },
+      uses: { value: 1, max: 1, recovery: 'Long Rest' },
+    }
+
+    it('offer no slots, as dnd5e casts the spell at its own level without one', () => {
+      expect(slotPools(free, spellbook)).toBeNull()
+      expect(defaultPool(free, spellbook)).toBeNull()
+      expect(castAtLevel(free, spellbook, 'spell3')).toBe(1)
+      expect(outOfSlots(free, slotPools(free, spellbook))).toBe(false)
+    })
+
+    it("leave the spell out of slots where its uses are the free casting's alone", () => {
+      const shield = {
+        ...spell('shield', 'Shield', 1),
+        uses: { value: 1, max: 1, recovery: 'Long Rest' },
+        activities: [
+          {
+            id: 'cast',
+            name: 'Cast',
+            type: 'utility',
+            activation: 'Reaction',
+            range: 'Self',
+            target: null,
+            toHit: null,
+            save: null,
+            damage: [],
+            uses: null,
+          },
+          { ...free, id: 'free', name: 'Cast (free casting)', type: 'forward' },
+        ],
+      }
+      expect(outOfSlots(shield, [pool(0)])).toBe(true)
+      expect(outOfSlots(shield, [])).toBe(true)
+      expect(outOfSlots(shield, [pool(1)])).toBe(false)
+      // One of its activities that spends no slot never is.
+      expect(outOfSlots({ ...shield, consumesSlot: false }, [pool(0)])).toBe(
+        false,
+      )
+      // With no free casting, its uses are its own.
+      expect(
+        outOfSlots({ ...shield, activities: shield.activities.slice(0, 1) }, [
+          pool(0),
+        ]),
+      ).toBe(false)
+    })
+  })
+
   it('names pools and ordinals shortly', () => {
     expect(named('spell3', '3rd Level', 3)).toBe('3rd')
     expect(named('pact', 'Pact Magic — 2nd Level', 2)).toBe('Pact 2nd')

@@ -10,6 +10,7 @@ import {
 } from './action-entry'
 import { componentsOf, whyNot } from './action-info'
 import { spellOrigin } from './description-actions'
+import { enchantedEntry } from './enchantments'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -349,6 +350,7 @@ export function SpellEntry({
       text={spell.text}
       origin={{ name: spellOrigin(spell), item: spell.id }}
       muted={unprepared || !!unusable}
+      {...enchantedEntry(spell)}
     />
   )
 }

@@ -61,7 +61,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * spent, or a feature's own formula, such as a light's radius (module 0.16.0), or several hit dice
  * spent at once, of one size or more (module 0.20.0); and from a link in a description, the table
  * asked for the saving throw it calls for, its damage or healing, or a roll of its own (module
- * 0.17.0), or for the check it calls for (module 0.18.0).
+ * 0.17.0), or for the check it calls for (module 0.18.0); and an enchantment on one of the
+ * character's items ended, such as Magic Weapon's, or a Flame Tongue's put out (module 0.21.0).
  */
 export const ROLL_KINDS = [
   'skill',
@@ -79,6 +80,7 @@ export const ROLL_KINDS = [
   'ask',
   'textDamage',
   'textRoll',
+  'endEnchantment',
 ] as const
 
 /**
@@ -87,9 +89,17 @@ export const ROLL_KINDS = [
  * a description's damage changed so too, whose sheets then say how the world rolls a critical
  * hit's; and ask players for the saving throws their game asks of their characters, such as
  * concentration checks (module 0.13.0); and make an area attack, such as a breath weapon's, at the
- * combatants its player picks (module 0.16.0).
+ * combatants its player picks (module 0.16.0); and make a check an activity asks for, the player's
+ * own, against it, as the activity's card does (module 0.21.0, under dnd5e 5); and change a
+ * description's damage only on a die it adds (module 0.21.0).
  */
-export const ROLL_FEATURES = ['modifiers', 'prompts', 'areaAttacks'] as const
+export const ROLL_FEATURES = [
+  'modifiers',
+  'prompts',
+  'areaAttacks',
+  'activityChecks',
+  'signedDice',
+] as const
 
 /**
  * A saving throw the game asks for, as the module names it: its chat card's id and its

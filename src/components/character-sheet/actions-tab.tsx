@@ -25,18 +25,20 @@ import {
   dimmed,
   FALLBACKS,
   firstInFoundry,
+  forwardNote,
   moreNote,
   otherActivities,
   ownUses,
   SaveChip,
   useActionRows,
-  UseChip,
+  UsingChip,
   verbOf,
   viewOf,
   type ActionRows,
   type OtherActivity,
   type TableDamage,
 } from './action-entry'
+import { EnchantedMark } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
@@ -506,6 +508,7 @@ function ActionTableRow({
   const detail = joinParts(
     action.activityName,
     castNote(cast),
+    forwardNote(action.forward),
     view.spent && 'No slots left',
     firstInFoundry(action) && 'Used in Foundry',
     !open && moreNote(others.length),
@@ -525,7 +528,8 @@ function ActionTableRow({
             onClick={() => setOpen(!open)}
             className={clsx(
               'flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-primary/5',
-              (view.spent || cast?.short) && 'opacity-60',
+              (view.spent || cast?.short || action.forward?.short) &&
+                'opacity-60',
             )}
           >
             <EntryIcon
@@ -536,6 +540,7 @@ function ActionTableRow({
               <span className='flex items-center gap-1'>
                 <span className='truncate font-medium'>{action.name}</span>
                 {favorite && <FavoriteStar />}
+                {!!action.enchantments?.length && <EnchantedMark />}
                 <Chevron open={open} />
               </span>
               {detail && (
@@ -569,9 +574,7 @@ function ActionTableRow({
             {action.rollFormula && (
               <FormulaChip action={action} onRoll={rows.formula} />
             )}
-            {view.uses.chip && (
-              <UseChip action={action} onUse={view.uses.chip} />
-            )}
+            <UsingChip action={action} view={view} rows={rows} />
           </span>
         </td>
         {/* In a cell of its own, each chip is laid out as it is in a list's row, not as a
@@ -707,7 +710,7 @@ function ActivityTableRow({
           {action.rollFormula && (
             <FormulaChip action={action} onRoll={rows.formula} />
           )}
-          {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
+          <UsingChip action={action} view={view} rows={rows} />
         </span>
       </td>
       <td className='px-2'>

@@ -62,6 +62,11 @@ export type DescribedDamage = {
   /** Whether it takes it changed: more dice, another die, every die at its highest. */
   modifies: boolean
   /**
+   * Whether it changes only a die the damage adds (module 0.21.0); where not, a change is offered
+   * only where its first die whatever its sign is one it adds.
+   */
+  signed?: boolean
+  /**
    * How the world's rules make a critical hit's damage, which it rolls a description's as; unset
    * where it can't say, and takes none.
    */
@@ -89,6 +94,11 @@ export type DescriptionActions = {
   ask: (asking: Asking) => void
   /** Why the table can't be asked now, as the tray says why; unset while it can be. */
   askBlocked?: string
+  /**
+   * Why a spell or feature can't be used in the game from here now, as the tray says why, for an
+   * activity's check, whose table is asked by using it; unset while it can be.
+   */
+  useBlocked?: string
   /**
    * Has this device send the player's rolls to the table, as the tray's switch does: there only
    * where that alone keeps the table from being asked.

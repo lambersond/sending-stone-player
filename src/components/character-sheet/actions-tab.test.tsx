@@ -66,6 +66,19 @@ const others = (name: string) =>
     .map(item => item.textContent)
 
 /** An element's facts, each with its label, such as "Range: 60 ft". */
+/** What the menu a right-click on this button opens offers, closing it again; none for no menu. */
+const menuOf = (name: string) => {
+  fireEvent.contextMenu(screen.getByRole('button', { name }))
+  const menu = screen.queryByRole('menu')
+  const items = menu
+    ? within(menu)
+        .getAllByRole('menuitem')
+        .map(item => item.textContent)
+    : undefined
+  if (menu) fireEvent.keyDown(menu, { key: 'Escape' })
+  return items
+}
+
 const factsIn = (element: HTMLElement) =>
   within(element)
     .getAllByRole('term')
@@ -1266,6 +1279,60 @@ describe('components/character-sheet/actions-tab', () => {
         }),
       )
       expect(used().slice(5)).toEqual(['breath', 'surge', 'missile'])
+    })
+
+    /** An attack of this damage, rolled here, and a feature that deals it, used in the game. */
+    const both = (id: string, name: string, formula: string) => [
+      sheetAction({
+        id: `${id}Attack`,
+        name: `${name} Strike`,
+        attackId: `${id}Hit`,
+        toHit: 5,
+        damage: [{ formula, type: 'Bludgeoning', healing: false }],
+      }),
+      sheetAction({
+        id: `${id}Touch`,
+        name: `${name} Touch`,
+        damage: [{ formula, type: 'Necrotic', healing: false }],
+        activity: {
+          id: `${id}Damage`,
+          type: 'damage',
+          targets: { ...targets, count: 1, affects: 'creature' },
+        },
+      }),
+    ]
+
+    it('offers no change that takes away more, nor a menu with nothing in it, for damage that takes a die away', () => {
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(
+            withActions(
+              // A Reduced Unarmed Strike's, as dnd5e labels it, which adds no die of its own.
+              ...both('reduced', 'Reduced', '- 1d4 + 4'),
+              // A greataxe's under Reduce.
+              ...both('greataxe', 'Greataxe', '1d12 - 1d4 + 3'),
+            ),
+            'https://my-game.forge-vtt.com',
+          )}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          onUse={jest.fn()}
+          tableDamage={{ modifies: true, dueFor: jest.fn() }}
+        />,
+      )
+
+      expect(menuOf('Reduced Strike damage, - 1d4 + 4')).toEqual([
+        'Roll critical damage',
+      ])
+      expect(menuOf('Reduced Touch damage, - 1d4 + 4')).toBeUndefined()
+      expect(menuOf('Greataxe Strike damage, 1d12 - 1d4 + 3')).toEqual([
+        'Roll critical damage',
+        'Modify damage…',
+      ])
+      expect(menuOf('Greataxe Touch damage, 1d12 - 1d4 + 3')).toEqual([
+        'Use with damage modified…',
+      ])
     })
 
     it('rolls their chips here while the game takes none', async () => {

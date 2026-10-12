@@ -7,6 +7,7 @@ import {
   type ActionRows,
   type TableDamage,
 } from './action-entry'
+import { enchantedEntry } from './enchantments'
 import { hitDiceText } from './hit-dice'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
@@ -153,6 +154,7 @@ export function FeatureEntry({
       meta={meta}
       text={feature.text}
       origin={{ name: feature.name, item: feature.id }}
+      {...enchantedEntry(feature)}
     />
   )
 }

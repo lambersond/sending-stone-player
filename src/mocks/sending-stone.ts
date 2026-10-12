@@ -6,9 +6,12 @@ import type {
   SerializedMessage,
   SheetAbility,
   SheetAction,
+  SheetActivity,
+  SheetEnchantment,
   SheetFavorite,
   SheetItem,
   SheetSpell,
+  SheetUse,
 } from '@/types/sending-stone'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
@@ -925,6 +928,625 @@ export function castingSheet(
         ],
       },
     ],
+    ...fields,
+  })
+}
+
+/** Whom one of Rook's activities is used at: its user alone, or one creature. */
+const selfOnly = {
+  self: true,
+  area: false,
+  count: null,
+  perLevel: null,
+  affects: null,
+}
+
+/** One of Rook's activities that asks for a check, as the module sends it from 0.21.0. */
+const checkActivity = (
+  id: string,
+  name: string,
+  check?: SheetActivity['check'],
+  fields: Partial<SheetActivity> = {},
+): SheetActivity => ({
+  id,
+  name,
+  type: 'check',
+  activation: 'Bonus Action',
+  activationType: 'bonus',
+  range: 'Self',
+  target: null,
+  toHit: null,
+  attackId: null,
+  activity: { id, type: 'check', targets: selfOnly },
+  save: null,
+  damage: [],
+  ...(check && { check }),
+  uses: null,
+  ...fields,
+})
+
+/** Fast Hands' Sleight of Hand, a check of Rook's own, against no DC. */
+export const SLEIGHT_CHECK = {
+  checks: [{ type: 'skill' as const, ability: 'dex', key: 'slt' }],
+  dc: null,
+  own: true,
+}
+
+/** Thieves' Tools' Pick a Lock, a check of Rook's own with the tools' own +1, DC 15. */
+export const LOCK_CHECK = {
+  checks: [{ type: 'tool' as const, ability: 'dex', key: 'thief', bonus: 1 }],
+  dc: 15,
+  own: true,
+}
+
+/** Maze's, which its target makes: an Investigation check, DC 20. */
+export const MAZE_CHECK = {
+  checks: [{ type: 'skill' as const, ability: 'int', key: 'inv' }],
+  dc: 20,
+  own: false,
+}
+
+/**
+ * Rook, a 3rd-level Thief, as the module sends him from 0.21.0, with the activities that ask for
+ * checks: Fast Hands, whose Sleight of Hand and Thieves' Tools are his own to make, then Use an
+ * Object; his Thieves' Tools, +1, whose Pick a Lock is DC 15; and the spells he has from a scroll's
+ * study: Maze, whose check its target makes, and Bless, once a day without a slot, as dnd5e's
+ * forward activity casts it, with none of his 1st-level slots left.
+ */
+export function checkingSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  const fastHands = [
+    checkActivity('fh-slt', 'Sleight of Hand', SLEIGHT_CHECK),
+    checkActivity('fh-thief', "Thieves' Tools", {
+      checks: [{ type: 'tool', ability: 'dex', key: 'thief' }],
+      dc: null,
+      own: true,
+    }),
+    {
+      ...checkActivity('fh-use', 'Use an Object'),
+      type: 'utility',
+      activity: { id: 'fh-use', type: 'utility' as const, targets: selfOnly },
+    },
+  ]
+  const lock = checkActivity('pick', 'Pick a Lock', LOCK_CHECK, {
+    activation: '1 Action',
+    activationType: 'action',
+    range: 'Touch',
+    activity: {
+      id: 'pick',
+      type: 'check',
+      targets: { ...selfOnly, self: false, count: 1, affects: 'object' },
+    },
+  })
+  const maze = {
+    activity: {
+      id: 'maze-cast',
+      type: 'check' as const,
+      targets: castTargets(1),
+    },
+    check: MAZE_CHECK,
+  }
+  const bless = {
+    activity: {
+      id: 'bless-cast',
+      type: 'utility' as const,
+      targets: castTargets(3, 1, 'ally'),
+    },
+    activities: [
+      {
+        id: 'bless-cast',
+        name: 'Cast',
+        type: 'utility',
+        activation: '1 Action',
+        range: '30 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        activity: {
+          id: 'bless-cast',
+          type: 'utility' as const,
+          targets: castTargets(3, 1, 'ally'),
+        },
+        save: null,
+        damage: [],
+        uses: null,
+      },
+      {
+        id: 'bless-free',
+        name: 'Cast (free casting)',
+        type: 'forward',
+        activation: '1 Action',
+        range: '30 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        activity: {
+          id: 'bless-free',
+          type: 'utility' as const,
+          targets: castTargets(3, null, 'ally'),
+        },
+        save: null,
+        damage: [],
+        consumesSlot: false,
+        forward: { charges: 1, short: false },
+        uses: { value: 1, max: 1, recovery: 'Long Rest' },
+      },
+    ],
+  }
+  const spells = {
+    maze: sheetSpell({
+      id: 'maze',
+      name: 'Maze',
+      level: 8,
+      school: 'Conjuration',
+      range: '60 ft',
+      concentration: true,
+      prepared: 1,
+      toHit: null,
+      save: null,
+      damage: [],
+      ...maze,
+    }),
+    bless: sheetSpell({
+      id: 'bless',
+      name: 'Bless',
+      school: 'Enchantment',
+      range: '30 ft',
+      concentration: true,
+      prepared: 1,
+      uses: { value: 1, max: 1, recovery: 'Long Rest' },
+      toHit: null,
+      save: null,
+      damage: [],
+      ...bless,
+    }),
+  }
+  return characterSheet({
+    level: 3,
+    classes: [{ name: 'Rogue', levels: 3, subclass: 'Thief' }],
+    proficiency: 2,
+    abilities: [
+      ability('str', 'Strength', 10),
+      ability('dex', 'Dexterity', 16),
+      ability('con', 'Constitution', 12),
+      ability('int', 'Intelligence', 14),
+      ability('wis', 'Wisdom', 10),
+      ability('cha', 'Charisma', 10),
+    ],
+    skills: [
+      {
+        id: 'slt',
+        label: 'Sleight of Hand',
+        ability: 'dex',
+        total: 5,
+        passive: 15,
+        proficiency: 1,
+        mode: 0,
+      },
+      {
+        id: 'inv',
+        label: 'Investigation',
+        ability: 'int',
+        total: 2,
+        passive: 12,
+        proficiency: 0,
+        mode: 0,
+      },
+    ],
+    tools: [
+      {
+        id: 'thief',
+        name: "Thieves' Tools",
+        ability: 'dex',
+        total: 5,
+        passive: null,
+        proficiency: 1,
+        mode: 0,
+      },
+    ],
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            id: 'tools',
+            name: "Thieves' Tools",
+            type: 'tool',
+            range: 'Touch',
+            activity: lock.activity,
+            check: LOCK_CHECK,
+          }),
+          sheetAction({
+            id: 'maze',
+            name: 'Maze',
+            type: 'spell',
+            activation: '1 Action',
+            range: '60 ft',
+            level: 8,
+            concentration: true,
+            ...maze,
+          }),
+          sheetAction({
+            id: 'bless',
+            name: 'Bless',
+            type: 'spell',
+            activation: '1 Action',
+            range: '30 ft',
+            level: 1,
+            concentration: true,
+            uses: { value: 1, max: 1, recovery: 'Long Rest' },
+            ...bless,
+          }),
+        ],
+      },
+      {
+        id: 'bonus',
+        label: 'Bonus Actions',
+        actions: [
+          sheetAction({
+            id: 'fast-hands',
+            name: 'Fast Hands',
+            activation: 'Bonus Action',
+            activationType: 'bonus',
+            range: 'Self',
+            activity: fastHands[0].activity,
+            check: SLEIGHT_CHECK,
+            activities: fastHands,
+          }),
+        ],
+      },
+    ],
+    spells: [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 0, max: 4, level: 1 },
+        spells: [spells.bless],
+      },
+      {
+        id: 'spell8',
+        label: '8th Level',
+        slots: { value: 1, max: 1, level: 8 },
+        spells: [spells.maze],
+      },
+    ],
+    inventory: {
+      sections: [
+        {
+          id: 'tool',
+          label: 'Tools',
+          items: [
+            sheetItem({
+              id: 'tools',
+              name: "Thieves' Tools",
+              type: 'tool',
+              activation: '1 Action',
+              range: 'Touch',
+              activity: lock.activity,
+              check: LOCK_CHECK,
+              damage: [],
+            }),
+          ],
+        },
+      ],
+      containers: [],
+      currency: [],
+      encumbrance: null,
+      attunement: null,
+    },
+    ...fields,
+  })
+}
+
+/** Magic Weapon's ways to enchant (2014), as dnd5e offers them by the level it's cast at. */
+export const MAGIC_WEAPON_PROFILES = [
+  { id: 'SLSudYaACjmmmZsU', name: 'Magic Weapon, +1', min: null, max: 3 },
+  { id: '8OhsRxK3dF1JeQXO', name: 'Magic Weapon, +2', min: 4, max: 5 },
+  { id: '7L1wKfaEdN85IA0Z', name: 'Magic Weapon, +3', min: 6, max: null },
+]
+
+/** Whom an enchant activity is used at, as the module describes it: at an object, ignored. */
+const enchantTargets = {
+  self: false,
+  area: false,
+  count: 1,
+  perLevel: null,
+  affects: 'object',
+}
+
+/** An enchant activity, as the module sends it from 0.21.0. */
+export const enchantUse = (
+  id: string,
+  enchant: Partial<NonNullable<SheetUse['enchant']>> = {},
+): SheetUse => ({
+  id,
+  type: 'enchant',
+  targets: enchantTargets,
+  enchant: {
+    self: false,
+    toggle: false,
+    profiles: [],
+    items: [],
+    applied: [],
+    ...enchant,
+  },
+})
+
+/** An enchantment on one of Ari's items, as the module sends it from 0.21.0. */
+export const enchantment = (
+  fields: Partial<SheetEnchantment> & Pick<SheetEnchantment, 'id' | 'name'>,
+): SheetEnchantment => ({
+  source: null,
+  concentration: false,
+  duration: null,
+  expired: false,
+  endable: true,
+  ...fields,
+})
+
+/** One of an item's activities, after its attack, as the module sends it from 0.21.0. */
+const enchantActivity = (
+  id: string,
+  name: string,
+  activity: SheetUse | null,
+  fields: Partial<SheetActivity> = {},
+): SheetActivity => ({
+  id,
+  name,
+  type: 'enchant',
+  activation: '1 Bonus Action',
+  activationType: 'bonus',
+  range: 'Self',
+  target: null,
+  toHit: null,
+  attackId: null,
+  activity,
+  save: null,
+  damage: [],
+  uses: null,
+  ...fields,
+})
+
+/** A weapon's attack, its first activity. */
+const attackActivity = (id: string, toHit: number): SheetActivity => ({
+  id,
+  name: 'Attack',
+  type: 'attack',
+  activation: '1 Action',
+  activationType: 'action',
+  range: '5 ft',
+  target: null,
+  toHit,
+  attackId: id,
+  activity: null,
+  save: null,
+  damage: [{ formula: '1d8 + 3', type: 'Slashing', healing: false }],
+  uses: null,
+})
+
+/**
+ * Ari, a 5th-level wizard, as the module sends her from 0.21.0, with the enchant activities she
+ * uses: Magic Weapon (2014), cast with a 2nd-level slot or higher, on her longsword, club or
+ * quarterstaff; Shillelagh, whose 1d10 is on her quarterstaff, its time run out; a Flame Tongue,
+ * set alight as a switch; Dagger of Venom, whose Coat Blade coats it; a pebble lit by Continual
+ * Flame; Bryn's Magic Weapon on her club, which she may end, as the club's owner; a greataxe made
+ * +1 by a magic item's template, which she may not; and Eldritch Spear, a build choice dnd5e uses
+ * in Foundry alone.
+ */
+export function enchantingSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  const magicWeapon = enchantUse('mw-cast', {
+    profiles: MAGIC_WEAPON_PROFILES,
+    items: ['longsword', 'club', 'quarterstaff'],
+  })
+  const shillelagh = enchantUse('shill-cast', {
+    profiles: [
+      {
+        id: 'Oy8fP2N3q4R5s6T7',
+        name: 'Shillelagh (1d10)',
+        min: null,
+        max: null,
+      },
+    ],
+    items: ['club', 'quarterstaff'],
+    applied: [
+      {
+        item: 'quarterstaff',
+        effect: 'shillEffect01',
+        profile: 'Oy8fP2N3q4R5s6T7',
+      },
+    ],
+  })
+  const engulf = enchantUse('engulf', {
+    self: true,
+    toggle: true,
+    profiles: [{ id: 'ablazeProfile01', name: 'Ablaze', min: null, max: null }],
+  })
+  const coat = enchantUse('coat', {
+    self: true,
+    profiles: [{ id: 'venomProfile01', name: 'Venom', min: null, max: null }],
+  })
+  const weapon = (
+    id: string,
+    name: string,
+    more: Partial<SheetItem> = {},
+  ): SheetItem =>
+    sheetItem({
+      id,
+      name,
+      type: 'weapon',
+      activation: '1 Action',
+      range: '5 ft',
+      toHit: 5,
+      attackId: `${id}-attack`,
+      damage: [{ formula: '1d8 + 3', type: 'Slashing', healing: false }],
+      ...more,
+    })
+  const flameTongue = weapon('flametongue', 'Flame Tongue', {
+    activities: [
+      attackActivity('flametongue-attack', 5),
+      enchantActivity('engulf', 'Engulf in Flames', engulf),
+    ],
+  })
+  const venom = weapon('venom', 'Dagger of Venom', {
+    uses: { value: 1, max: 1, recovery: 'Dawn' },
+    activities: [
+      attackActivity('venom-attack', 5),
+      enchantActivity('coat', 'Coat Blade', coat, { activation: '1 Action' }),
+    ],
+  })
+  return characterSheet({
+    level: 5,
+    classes: [{ name: 'Wizard', levels: 5, subclass: 'Evoker' }],
+    spellcasting: {
+      ability: 'int',
+      dc: 15,
+      attack: 7,
+      classes: [{ name: 'Wizard', ability: 'int', dc: 15, attack: 7 }],
+    },
+    spells: [
+      {
+        id: 'spell0',
+        label: 'Cantrips',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'shillelagh',
+            name: 'Shillelagh',
+            level: 0,
+            activation: '1 Bonus Action',
+            range: 'Touch',
+            prepared: 1,
+            toHit: null,
+            save: null,
+            damage: [],
+            activity: shillelagh,
+          }),
+        ],
+      },
+      {
+        id: 'spell2',
+        label: '2nd Level',
+        slots: { value: 2, max: 3, level: 2 },
+        spells: [
+          sheetSpell({
+            id: 'magicweapon',
+            name: 'Magic Weapon',
+            level: 2,
+            school: 'Transmutation',
+            activation: '1 Bonus Action',
+            range: 'Touch',
+            concentration: true,
+            prepared: 1,
+            toHit: null,
+            save: null,
+            damage: [],
+            activity: magicWeapon,
+          }),
+        ],
+      },
+      {
+        id: 'spell3',
+        label: '3rd Level',
+        slots: { value: 1, max: 2, level: 3 },
+        spells: [],
+      },
+      {
+        id: 'spell4',
+        label: '4th Level',
+        slots: { value: 1, max: 1, level: 4 },
+        spells: [],
+      },
+    ],
+    features: [
+      {
+        id: 'warlock',
+        label: 'Warlock Features',
+        text: null,
+        features: [
+          {
+            id: 'spear',
+            name: 'Eldritch Spear',
+            img: null,
+            kind: 'Eldritch Invocation',
+            requirements: null,
+            activation: null,
+            passive: true,
+            uses: null,
+            text: null,
+          },
+        ],
+      },
+    ],
+    inventory: {
+      sections: [
+        {
+          id: 'weapon',
+          label: 'Weapons',
+          items: [
+            weapon('longsword', 'Longsword', {
+              img: 'https://game.test/longsword.webp',
+            }),
+            weapon('club', 'Club', {
+              enchantments: [
+                enchantment({
+                  id: 'brynMagicWeap',
+                  name: 'Magic Weapon, +1',
+                  source: 'Magic Weapon',
+                  concentration: true,
+                }),
+              ],
+            }),
+            weapon('quarterstaff', 'Quarterstaff', {
+              enchantments: [
+                enchantment({
+                  id: 'shillEffect01',
+                  name: 'Shillelagh (1d10)',
+                  source: 'Shillelagh',
+                  duration: null,
+                  expired: true,
+                }),
+              ],
+            }),
+            flameTongue,
+            venom,
+            weapon('greataxe', 'Greataxe, +1', {
+              enchantments: [
+                enchantment({
+                  id: 'weaponPlusOne1',
+                  name: 'Weapon, +1',
+                  endable: false,
+                }),
+              ],
+            }),
+          ],
+        },
+        {
+          id: 'loot',
+          label: 'Loot',
+          items: [
+            sheetItem({
+              id: 'pebble',
+              name: 'Pebble',
+              enchantments: [
+                enchantment({
+                  id: 'contFlame01',
+                  name: 'Continual Flame',
+                  source: 'Continual Flame',
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
+      containers: [],
+      currency: [],
+      encumbrance: null,
+      attunement: null,
+    },
     ...fields,
   })
 }

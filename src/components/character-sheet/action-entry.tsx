@@ -6,7 +6,9 @@ import {
   ChevronDown,
   Dices,
   FlaskConical,
+  Hammer,
   Info,
+  Search,
   Shield,
   Sparkles,
   Sword,
@@ -25,20 +27,48 @@ import {
 } from './action-info'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { useDamageMenu, type DamageChoice } from './damage-menu'
-import { spellOrigin, type DescriptionOrigin } from './description-actions'
+import {
+  spellOrigin,
+  useDescriptionActions,
+  type DescriptionOrigin,
+} from './description-actions'
+import {
+  checkMenuItems,
+  checkOptionName,
+  checkWayName,
+  tableUseItems,
+  useLinkMenus,
+  type LinkMenus,
+} from './description-link'
+import {
+  EndButton,
+  EnchantedMark,
+  EnchantmentList,
+  useEnchanting,
+} from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { RollButton } from './roll-button'
+import { REASONS } from './roll-tray'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
 import { UsesLeft } from './uses-left'
 import { damageRollOf, type DueDamage } from '@/hooks/use-table-rolls'
-import { outOfSlots, slotPools, type SlotPool } from '@/utils/action-groups'
+import {
+  defaultPool,
+  ordinal,
+  outOfSlots,
+  slotPools,
+  type SlotPool,
+} from '@/utils/action-groups'
 import { castIndex, castOf, type CastIndex } from '@/utils/casts'
 import {
   changes,
-  firstDie,
+  damageChanges,
+  diceTakenAway,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
+import { checkTitle } from '@/utils/description-links'
+import { allApplied, enchantOf } from '@/utils/enchantments'
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
@@ -55,6 +85,9 @@ import type {
   SheetAction,
   SheetActivity,
   SheetCast,
+  SheetCheck,
+  SheetEnchant,
+  SheetForward,
   SheetSpell,
   SheetSpellSection,
 } from '@/types/sending-stone'
@@ -119,6 +152,8 @@ export type ActionRows = {
   formula?: (roll: SheetFormulaRoll) => void
   /** Opens what there is to read of one of an item's activities folded beneath it. */
   about: (info: ActivityInfo) => void
+  /** Opens the menu of a check an activity asks for, as a description's check opens its own. */
+  menus: LinkMenus
 }
 
 /**
@@ -175,6 +210,8 @@ export function useActionRows({
     tableDamage,
   )
   const { show: about, dialog: info } = useActionInfo(characterId, spellbook)
+  // A check an activity asks for rolls as a description's does, against its DC.
+  const { menus, dialogs: checks } = useLinkMenus(useDescriptionActions())
   return {
     rows: {
       characterId,
@@ -185,12 +222,14 @@ export function useActionRows({
       ...(onUse && { use: { onUse } }),
       ...(onRollFormula && { formula: onRollFormula }),
       about,
+      menus,
     },
     dialogs: (
       <>
         {dialogs}
         {damageMenu}
         {info}
+        {checks}
       </>
     ),
   }
@@ -216,10 +255,11 @@ const KINDS: Record<string, string> = {
 
 /**
  * Rolling an action's damage or healing from the sheet. A tap rolls it; a right-click or
- * long-press offers other ways: as a critical hit's, for damage rolled here; at its highest; or
- * with its dice changed first, more of them or another size. For damage the Gamemaster's game is
- * waiting for, the game decides a critical hit, and the rest is offered where it takes them. A
- * spell or feature the game uses offers to use it so, its damage to follow. The menu and its
+ * long-press offers other ways: as a critical hit's, for damage rolled here; at its highest, unless
+ * it takes a die away; or with its dice changed first, more of them or another size, where it has a
+ * first die to change. For damage the Gamemaster's game is waiting for, the game decides a critical
+ * hit, and the rest is offered where it takes them. A spell or feature the game uses offers to use
+ * it so, its damage to follow. A menu that would offer nothing isn't opened. The menu and its
  * dialog are in `dialogs`, to be put on the page.
  */
 export function useDamageRolls(
@@ -248,11 +288,9 @@ export function useDamageRolls(
       formula: target.formula,
       healing: target.healing === true,
     }
-    const changed: RollChoice[] = firstDie(target.parts)
-      ? ['maximize', 'modify-damage']
-      : ['maximize']
+    const changed: RollChoice[] = damageChanges(target.parts)
     if (use) {
-      if (!table?.modifies) return
+      if (!table?.modifies || changed.length === 0) return
       open(
         anchor,
         {
@@ -269,29 +307,38 @@ export function useDamageRolls(
     const due = target.source && table?.dueFor(target.source)
     if (due) {
       if (!table?.modifies) return
-      // As the game will throw it: a critical hit's dice as it doubled them.
+      // As the game will throw it: a critical hit's dice as it doubled them; damage it rolls itself
+      // at its highest only where its formula takes no die away.
       const game = damageRollOf(target.label, due)
+      const choices = damageChanges(
+        game.parts,
+        game.fixed,
+        diceTakenAway(due.damage),
+      )
+      if (choices.length === 0) return
       open(
         anchor,
         {
           ...subject,
           parts: game.parts,
           perDie: game.perDie,
-          choices: firstDie(game.parts)
-            ? ['maximize', 'modify-damage']
-            : ['maximize'],
+          choices,
           onChoose: choice => roll(target, choice),
         },
         point,
       )
       return
     }
+    const choices: RollChoice[] = target.healing
+      ? changed
+      : ['critical', ...changed]
+    if (choices.length === 0) return
     open(
       anchor,
       {
         ...subject,
         parts: target.parts,
-        choices: target.healing ? changed : ['critical', ...changed],
+        choices,
         onChoose: choice => roll(target, choice),
       },
       point,
@@ -318,8 +365,13 @@ export function viewOf(
   const use =
     using && action.activity && action.identified ? action.activity : undefined
   const save = !!use && use.type === 'save' && !!action.save
+  // An enchant activity is used through a chip of its own, as a utility is, its damage rolled here.
   const damage =
-    !!use && use.type !== 'utility' && !!formula && !action.attackId
+    !!use &&
+    use.type !== 'utility' &&
+    use.type !== 'enchant' &&
+    !!formula &&
+    !action.attackId
   const onUse =
     using &&
     ((modifiers?: DamageModifiers) =>
@@ -377,6 +429,7 @@ export function ActionEntry({
       action.range,
       view.types.join(', '),
       castNote(cast),
+      forwardNote(action.forward),
       view.spent && 'No slots left',
       firstInFoundry(action) && 'Used in Foundry',
       !open && moreNote(others.length),
@@ -392,7 +445,11 @@ export function ActionEntry({
           onClick={() => setOpen(!open)}
           className={clsx(
             'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
-            (view.spent || look.muted || cast?.short) && 'opacity-60',
+            (view.spent ||
+              look.muted ||
+              cast?.short ||
+              action.forward?.short) &&
+              'opacity-60',
           )}
         >
           <EntryIcon
@@ -405,6 +462,7 @@ export function ActionEntry({
             <span className='flex items-center gap-1'>
               <span className='truncate font-medium'>{name}</span>
               {favorite && <FavoriteStar />}
+              {!!action.enchantments?.length && <EnchantedMark />}
               <Chevron open={open} />
             </span>
             {detail && (
@@ -632,19 +690,24 @@ export function usedFromApp(activity: SheetActivity): boolean {
 }
 
 /**
- * Is an activity shown faded: one used only in Foundry, or a spell cast from charges not left, as
- * `castOf` says how it's cast?
+ * Is an activity shown faded: one used only in Foundry, a spell cast from charges not left, as
+ * `castOf` says how it's cast, or one that uses another without the uses left it spends?
  */
 export function dimmed(
   activity: SheetActivity,
   cast: SheetCast | null | undefined,
 ): boolean {
-  return !usedFromApp(activity) || cast?.short === true
+  return (
+    !usedFromApp(activity) ||
+    cast?.short === true ||
+    activity.forward?.short === true
+  )
 }
 
 /**
- * An activity's uses, beside it: none for a spell cast from its item's charges, which are shown by
- * the item already.
+ * An activity's uses, beside it: none for a spell cast from its item's charges, or one that uses
+ * another with the item's own uses, such as a spell's free casting, which are shown by the item
+ * already.
  */
 export function ownUses(
   activity: SheetActivity,
@@ -656,7 +719,7 @@ export function ownUses(
     !!parent.uses &&
     uses.value === parent.uses.value &&
     uses.max === parent.uses.max
-  return activity.cast && same ? undefined : uses
+  return (activity.cast || activity.forward) && same ? undefined : uses
 }
 
 /**
@@ -677,6 +740,19 @@ export function castNote(
   if (counts.length === 0) return castCost(cast)
   const [low, high] = [Math.min(...counts), Math.max(...counts)]
   return low === high ? chargesOf(low) : `${low}–${high} charges`
+}
+
+/**
+ * What an activity that uses another spends, such as a spell's free casting, as `forward` says:
+ * such as "1 use", or that not as many are left. Nothing for one that spends none, or what the
+ * sheet can't count, such as a formula.
+ */
+export function forwardNote(
+  forward: SheetForward | undefined,
+): string | undefined {
+  if (!forward?.charges) return undefined
+  if (forward.short) return 'No uses left'
+  return forward.charges === 1 ? '1 use' : `${forward.charges} uses`
 }
 
 /** How many more activities an action has than it shows while it's closed, such as "3 more". */
@@ -750,6 +826,7 @@ export function activityDetail(
       ),
     ].join(', '),
     castNote(cast),
+    forwardNote(activity.forward),
     spent && 'No slots left',
     !usedFromApp(activity) && 'Used in Foundry',
   ]
@@ -770,6 +847,7 @@ function ChipUses({
     !!action.save ||
     !!view.formula ||
     !!view.uses.chip ||
+    !!action.check ||
     !!action.rollFormula
   return (
     // Beside what the action rolls, in a narrow list, its uses would leave its name too little
@@ -820,9 +898,204 @@ export function ActionChips({
       {action.rollFormula && (
         <FormulaChip action={action} onRoll={rows.formula} />
       )}
-      {view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />}
+      <UsingChip action={action} view={view} rows={rows} />
     </>
   )
+}
+
+/**
+ * Using an action in the game, as a chip: its check's, for an activity that asks for one, such as
+ * Fast Hands' Sleight of Hand; for one that enchants, as `EnchantChip` has it; or else, while the
+ * game takes spells and features, one that uses it.
+ */
+export function UsingChip({
+  action,
+  view,
+  rows,
+}: Readonly<{
+  action: SheetAction
+  view: ReturnType<typeof viewOf>
+  rows: ActionRows
+}>) {
+  if (action.check) {
+    return (
+      <CheckChip
+        action={action}
+        check={action.check}
+        rows={rows}
+        onUse={view.uses.chip}
+      />
+    )
+  }
+  const enchant = enchantOf(action.activity)
+  if (enchant && view.uses.chip) {
+    return (
+      <EnchantChip action={action} enchant={enchant} onUse={view.uses.chip} />
+    )
+  }
+  return view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />
+}
+
+/**
+ * Using an enchant activity in the game, while the game takes spells and features: for one that
+ * enchants its own item and spends nothing, such as a Flame Tongue's Engulf in Flames, a switch,
+ * on while it's enchanted, that applies it or ends it, as dnd5e uses it again to end it; for one
+ * that enchants its own item in every way it may already, such as Dagger of Venom's Coat Blade
+ * once the blade is coated, a button that ends it, as using it again would only end it at a cost,
+ * saying the item as the sheet lists it, not as the activity's row is named, such as "Dagger of
+ * Venom (Coat Blade)" beneath the dagger; or else one that uses it, as any other.
+ */
+function EnchantChip({
+  action,
+  enchant,
+  onUse,
+}: Readonly<{
+  action: SheetAction
+  enchant: SheetEnchant
+  onUse: (modifiers?: DamageModifiers) => void
+}>) {
+  const { belongings } = useEnchanting()
+  if (enchant.toggle) {
+    return <EnchantSwitch action={action} enchant={enchant} onUse={onUse} />
+  }
+  const [applied] = enchant.applied
+  if (applied && action.activity && allApplied(enchant)) {
+    return (
+      <EndButton
+        item={applied.item}
+        itemName={belongings?.get(applied.item)?.name ?? action.name}
+        enchantment={{
+          id: applied.effect,
+          name: profileName(enchant, applied.profile, action),
+        }}
+        source={{ item: action.id, activity: action.activity.id }}
+        className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/20'
+      />
+    )
+  }
+  return <UseChip action={action} onUse={onUse} />
+}
+
+/** What a way an enchant activity enchants is called, or else the action's name. */
+function profileName(
+  enchant: SheetEnchant,
+  id: string,
+  action: SheetAction,
+): string {
+  return (
+    enchant.profiles.find(profile => profile.id === id)?.name ??
+    actionTitle(action)
+  )
+}
+
+/**
+ * An enchant activity that enchants its own item and spends nothing, such as Engulf in Flames, as
+ * a switch: on while the item is enchanted by it, as the sheet says, or as the game said it left
+ * it once it used it or ended it, until the sheet says otherwise than it did then; turned on, it's
+ * used in the game, in the way chosen, where there's more than one; turned off, what it applied is
+ * ended, with nothing to say so, as it costs nothing. While it's on its way, it can't be turned.
+ */
+function EnchantSwitch({
+  action,
+  enchant,
+  onUse,
+}: Readonly<{
+  action: SheetAction
+  enchant: SheetEnchant
+  onUse: (modifiers?: DamageModifiers) => void
+}>) {
+  const { end, latestFor } = useEnchanting()
+  const source = { item: action.id, activity: action.activity?.id ?? '' }
+  const latest = latestFor?.(source)
+  const pending = latest?.status === 'sending' || latest?.status === 'rolling'
+  // What the game left it as: on where it applied it, off where it ended it.
+  const outcome = latest?.status === 'done' ? latest.enchantment : undefined
+  const told = outcome?.enchanted ?? undefined
+  let said: boolean | undefined
+  if (told) said = true
+  else if (outcome?.ended) said = false
+  const sheetOn = enchant.applied.length > 0
+  const on = useHeld(
+    said === undefined ? undefined : `${latest?.requestId}:${said}`,
+    said,
+    sheetOn,
+    JSON.stringify(enchant.applied),
+  )
+  const [applied] = enchant.applied
+  const effect = told?.effect ?? applied?.effect
+  const turn = () => {
+    if (!on) {
+      onUse()
+      return
+    }
+    if (!effect) return
+    end?.(
+      action.id,
+      {
+        id: effect,
+        name:
+          told?.name ?? profileName(enchant, applied?.profile ?? '', action),
+      },
+      source,
+    )
+  }
+  return (
+    <button
+      type='button'
+      role='switch'
+      aria-checked={on}
+      aria-label={actionTitle(action)}
+      title={on ? 'On: tap to end it' : 'Off: tap to use it'}
+      disabled={pending || (on && (!end || !effect))}
+      onClick={turn}
+      className='flex shrink-0 items-center rounded-lg p-1.5 transition-colors hover:bg-primary/5 disabled:opacity-40'
+    >
+      <span
+        aria-hidden
+        className={clsx(
+          'relative h-5 w-9 rounded-full transition-colors',
+          on ? 'bg-primary' : 'bg-border',
+        )}
+      >
+        <span
+          className={clsx(
+            'absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]',
+            on ? 'left-[1.125rem]' : 'left-0.5',
+          )}
+        />
+      </span>
+    </button>
+  )
+}
+
+/**
+ * What the game said of something, held from when it said it until the sheet changes from how it
+ * was then, as the sheet may come after it; and then, or with nothing said, as the sheet has it.
+ * @param key - Which saying it is: another is held afresh.
+ */
+function useHeld(
+  key: string | undefined,
+  said: boolean | undefined,
+  sheet: boolean,
+  sheetKey: string,
+): boolean {
+  const [held, setHeld] = useState<{
+    key: string
+    said: boolean
+    sheetKey: string
+    /** Whether the sheet has changed since, and is followed from then on. */
+    letGo?: boolean
+  }>()
+  if (key !== held?.key) {
+    setHeld(
+      key === undefined || said === undefined
+        ? undefined
+        : { key, said, sheetKey },
+    )
+  } else if (held && !held.letGo && held.sheetKey !== sheetKey) {
+    setHeld({ ...held, letGo: true })
+  }
+  return held && !held.letGo && held.sheetKey === sheetKey ? held.said : sheet
 }
 
 /** The mark that an action opens, turned while it's open. */
@@ -935,6 +1208,147 @@ export function UseChip({
     >
       {verb}
     </button>
+  )
+}
+
+/**
+ * The check an activity asks for, such as Fast Hands' Sleight of Hand, a tool's, or Maze's
+ * Investigation: its one way's name, or "Check" for several, and its DC, where it has one, cut
+ * short where it's long, but never the DC. For one the character makes, its menu: to ask the
+ * table for it, by using the activity in the game, which posts dnd5e's card with a button for each
+ * way, saying what that spends, or why it can't be used now; or to roll the player's own, against
+ * its DC, which spends nothing and uses nothing, as the card's buttons don't: for each way the
+ * character can make it, and for one, with advantage, with disadvantage, or modified first. For one
+ * another creature makes, such as a spell's, a tap uses it in the game, as a saving throw's chip
+ * does; and while the game doesn't take spells and features, it's only shown.
+ */
+export function CheckChip({
+  action,
+  check,
+  rows,
+  onUse,
+}: Readonly<{
+  action: SheetAction
+  check: SheetCheck
+  rows: ActionRows
+  /** Uses it in the game, while the game takes spells and features. */
+  onUse?: (modifiers?: DamageModifiers) => void
+}>) {
+  const actions = useDescriptionActions()
+  const name = actionTitle(action)
+  const dc = check.dc ?? undefined
+  const title = checkTitle(
+    check.checks.map(option => checkOptionName(option, actions)),
+    { dc },
+  )
+  const [first] = check.checks
+  const label =
+    check.checks.length === 1 && first ? checkWayName(first, actions) : 'Check'
+  const Icon = check.checks.every(option => option.type === 'tool')
+    ? Hammer
+    : Search
+  const chip =
+    'inline-flex max-w-36 shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold whitespace-nowrap tabular-nums'
+  const content = (
+    <>
+      <Icon aria-hidden className='size-3.5 shrink-0' />
+      <span className='min-w-0 truncate'>{label}</span>
+      {dc !== undefined && <span className='shrink-0'>DC {dc}</span>}
+    </>
+  )
+  const named = `${name}, ${title}`
+  if (check.own) {
+    const { activity } = action
+    const open = (anchor: HTMLElement) =>
+      rows.menus.open({
+        anchor,
+        ...checkMenuItems({
+          checks: check.checks,
+          dc,
+          title,
+          ask: {
+            items: tableUseItems(
+              tableUseHint(action, rows),
+              onUse ? undefined : (actions?.useBlocked ?? REASONS.activity),
+              actions,
+            ),
+            choose: id => {
+              if (id === 'ask') onUse?.()
+              else if (id === 'send') actions?.sendRolls?.()
+            },
+          },
+          own: true,
+          actions,
+          menus: rows.menus,
+          // For the game to make it against the activity, as its card's button does.
+          ...(activity && { from: { item: action.id, activity: activity.id } }),
+          hint: 'Spends nothing',
+          nameOf: option => checkWayName(option, actions),
+        }),
+      })
+    return (
+      <button
+        type='button'
+        aria-haspopup='menu'
+        aria-label={named}
+        title={title}
+        onClick={event => open(event.currentTarget)}
+        className={clsx(
+          chip,
+          'bg-primary/10 text-primary transition-colors hover:bg-primary/20',
+        )}
+      >
+        {content}
+      </button>
+    )
+  }
+  if (onUse) {
+    return (
+      <button
+        type='button'
+        aria-label={named}
+        title={title}
+        onClick={() => onUse()}
+        className={clsx(
+          chip,
+          'border border-border transition-colors hover:bg-primary/5',
+        )}
+      >
+        {content}
+      </button>
+    )
+  }
+  return (
+    <span className={clsx(chip, 'border border-border')} title={title}>
+      {content}
+    </span>
+  )
+}
+
+/**
+ * What using an action in the game does, as a check's menu says it, which spends whatever dnd5e
+ * spends: such as "Uses Manacles (Bind)", and what it costs where the sheet says, such as "Casts
+ * Maze · 8th-level slot", a spell cast from an item's charges, or an activity's that uses another.
+ */
+export function tableUseHint(
+  action: SheetAction,
+  rows: Pick<ActionRows, 'spellbook' | 'casts'>,
+): string {
+  const verb = verbOf(action) === 'Cast' ? 'Casts' : 'Uses'
+  const pool =
+    action.consumesSlot !== false && slotPools(action, rows.spellbook)
+      ? defaultPool(action, rows.spellbook)
+      : undefined
+  let slot: string | undefined
+  if (pool?.id === 'pact') slot = 'Pact slot'
+  else if (pool?.level) slot = `${ordinal(pool.level)}-level slot`
+  return (
+    joinParts(
+      `${verb} ${actionTitle(action)}`,
+      castNote(castOf(action, rows.casts)),
+      forwardNote(action.forward),
+      slot,
+    ) ?? ''
   )
 }
 
@@ -1091,9 +1505,13 @@ export function DamageChip({
 /**
  * What using an action in the game is called: casting, for a spell, or one an item casts, but for
  * one of a spell's activities used after it's cast, without spending a slot or the item's uses,
- * such as Spirit Guardians' save each turn.
+ * such as Spirit Guardians' save each turn; and casting, for a spell cast through an activity that
+ * uses another, such as its free casting.
  */
 export function verbOf(action: SheetAction): 'Cast' | 'Use' {
+  // A spell cast through an activity that uses another, such as its free casting, spends no slot,
+  // but is cast all the same.
+  if (action.forward) return action.type === 'spell' ? 'Cast' : 'Use'
   if (action.consumesSlot === false) return 'Use'
   return action.type === 'spell' || !!action.cast ? 'Cast' : 'Use'
 }
@@ -1140,6 +1558,11 @@ export function ActionDetails({
           ...(spell ? spellFacts(spell, cast) : []),
           ...(look.facts ?? []),
         ]}
+      />
+      <EnchantmentList
+        item={action.id}
+        itemName={action.name}
+        enchantments={action.enchantments}
       />
       {text && (
         <SheetText

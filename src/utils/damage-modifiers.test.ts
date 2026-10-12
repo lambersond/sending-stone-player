@@ -1,18 +1,33 @@
 /* eslint-disable unicorn/no-null -- a preview's roll of no kind of its own has null */
 import {
+  changedAt,
   changes,
   criticalOffered,
   criticalParts,
+  damageChanges,
+  diceTakenAway,
   EVERY_DIE_TWICE,
   firstDie,
+  formulaTakesAway,
   linkDamage,
+  marksTaken,
   modifiedDice,
+  MOST_DICE,
   mostExtra,
   reshapes,
+  sameFirstDie,
+  signedDice,
+  takenModifiers,
+  takesAway,
   withModifiers,
+  type DamageModifiers,
 } from './damage-modifiers'
 import { formulaTerms } from '@/utils/formulas'
-import type { CriticalRule, DamagePreview } from '@/types/sending-stone'
+import type {
+  CriticalRule,
+  DamagePreview,
+  DamagePreviewRoll,
+} from '@/types/sending-stone'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /** Toll the Dead's damage, 1d8 necrotic, and a second part, 1d6 + 2 fire. */
@@ -67,6 +82,12 @@ const written = (thrown: { terms: ExtraTerm[] }[]) =>
 
 /** A part as the app reads its formula. */
 const partOf = (formula: string) => ({ terms: formulaTerms(formula) ?? [] })
+
+/** A description's link to damage of one part, of this formula. */
+const linkOf = (formula: string) => ({
+  parts: [{ formula, types: [] }],
+  healing: false,
+})
 
 describe('utils/damage-modifiers', () => {
   it('says whether changes change anything, and whether they change the dice', () => {
@@ -232,9 +253,10 @@ describe('utils/damage-modifiers', () => {
           formula: '2d6 + 3 - 1d4',
           type: null,
           perDie: 1,
+          // The die it takes away is marked so, as the game marks it.
           dice: [
             { faces: 6, number: 2 },
-            { faces: 4, number: 1 },
+            { faces: 4, number: 1, subtracted: true },
           ],
         },
         { formula: '5', type: null, perDie: 1, dice: [] },
@@ -256,7 +278,7 @@ describe('utils/damage-modifiers', () => {
     // One die more is two more, of its first roll's first die.
     expect(doubled && modifiedDice(doubled, { extra: 1 })).toEqual([
       { faces: 6, number: 6 },
-      { faces: 4, number: 2 },
+      { faces: 4, number: 2, subtracted: true },
       { faces: 8, number: 2 },
     ])
     // None for a part the app can't read.
@@ -583,6 +605,471 @@ describe('utils/damage-modifiers', () => {
           { ...EVERY_DIE_TWICE, bonusDice: 'ignored' },
         ),
       ).not.toBe(false)
+    })
+  })
+
+  describe('dice the damage takes away', () => {
+    /** -1d4 + 2d6, as a hand-typed formula has it: a die taken away first, then dice it adds. */
+    const leading = [partOf('-1d4 + 2d6')]
+
+    const POWERFUL: CriticalRule = {
+      ...EVERY_DIE_TWICE,
+      perDie: 1,
+      powerfulCritical: true,
+    }
+
+    /** The game's preview of damage of one roll. */
+    const previewOf = (
+      formula: string,
+      dice: DamagePreviewRoll['dice'],
+      perDie = 1,
+    ): DamagePreview => ({
+      critical: perDie > 1,
+      plannable: true,
+      rolls: [{ formula, type: 'Necrotic', dice, perDie }],
+    })
+
+    /** -1d4 + 2d6 from module 0.21.0, which marks the d4 it takes away. */
+    const marked = previewOf('- 1d4 + 2d6', [
+      { faces: 4, number: 1, subtracted: true },
+      { faces: 6, number: 2 },
+    ])
+
+    /** The same from a module before, which marks nothing. */
+    const unmarked = previewOf('- 1d4 + 2d6', [
+      { faces: 4, number: 1 },
+      { faces: 6, number: 2 },
+    ])
+
+    /** A Reduced Unarmed Strike: 1 + 3, less 1d4, which adds no die of its own. */
+    const unarmed = previewOf('1 + 3 - 1d4', [
+      { faces: 4, number: 1, subtracted: true },
+    ])
+
+    it('changes the first die damage adds, never one it takes away', () => {
+      expect(firstDie(leading)).toEqual({ sign: 1, count: 2, sides: 6 })
+      expect(withModifiers(leading, { extra: 1 })[0].terms).toEqual([
+        { sign: -1, count: 1, sides: 4 },
+        { sign: 1, count: 3, sides: 6 },
+      ])
+      expect(withModifiers(leading, { faces: 12 })[0].terms).toEqual([
+        { sign: -1, count: 1, sides: 4 },
+        { sign: 1, count: 2, sides: 12 },
+      ])
+      expect(mostExtra(leading)).toBe(MOST_DICE - 2)
+    })
+
+    it('reads the dice a roll takes away as the game marks them, or else as its formula has them', () => {
+      expect(marksTaken(marked)).toBe(true)
+      expect(marksTaken(unmarked)).toBe(false)
+      expect(signedDice(marked.rolls[0], true)).toBe(marked.rolls[0].dice)
+      // From a module before 0.21.0, its formula's signs, where it throws those dice.
+      expect(signedDice(unmarked.rolls[0], false)).toEqual([
+        { faces: 4, number: 1, subtracted: true },
+        { faces: 6, number: 2 },
+      ])
+      // A formula the app can't read, or one that throws other dice, leaves them as they are.
+      const unreadable: DamagePreviewRoll = {
+        formula: '1d4min4 - 1d4',
+        type: null,
+        dice: [
+          { faces: 4, number: 1 },
+          { faces: 4, number: 1 },
+        ],
+      }
+      expect(signedDice(unreadable, false)).toBe(unreadable.dice)
+      const mismatched: DamagePreviewRoll = {
+        formula: '- 2d6',
+        type: null,
+        dice: [{ faces: 6, number: 3 }],
+      }
+      expect(signedDice(mismatched, false)).toBe(mismatched.dice)
+    })
+
+    it.each<[string, DamagePreview, number]>([
+      ['the die it adds, after one the game marks taken away', marked, 1],
+      [
+        'none, from a module before 0.21.0 that would change the die it takes away',
+        unmarked,
+        -1,
+      ],
+      [
+        'its first die, from a module before 0.21.0, where that is one it adds',
+        previewOf('1d8 - 1d4 + 3', [
+          { faces: 8, number: 1 },
+          { faces: 4, number: 1 },
+        ]),
+        0,
+      ],
+      ['none, where it adds no die of its own', unarmed, -1],
+      [
+        'none, where the only die it adds is critical damage',
+        previewOf(
+          '1 + 3 - 2d4 + 1d4',
+          [
+            { faces: 4, number: 2, subtracted: true },
+            { faces: 4, number: 1, added: true },
+          ],
+          2,
+        ),
+        -1,
+      ],
+      [
+        'the die after one marked both critical damage and taken away',
+        previewOf('1d8min8 - 1d4min4 + 1d8', [
+          { faces: 4, number: 1, added: true, subtracted: true },
+          { faces: 8, number: 1 },
+        ]),
+        1,
+      ],
+      ['none, for damage of no roll', { ...marked, rolls: [] }, -1],
+    ])('finds where its first die is: %s', (_, damage, at) => {
+      expect(changedAt(damage)).toBe(at)
+      // An attack's or a use's, as its preview's marks say what the game changes.
+      expect(changedAt(damage, marksTaken(damage))).toBe(at)
+    })
+
+    it.each<[string, number, number]>([
+      ['3 - 1d4 + 2d6', 1, -1],
+      ['1d12 - 1d4 + 3', 0, 0],
+      ['- 1d4 + 4', -1, -1],
+    ])(
+      "finds where a description's first die is, %s, as the game changes only one it adds, or its first whatever its sign",
+      (formula, signed, unsigned) => {
+        const preview = linkDamage(linkOf(formula))
+        expect(preview && changedAt(preview, true)).toBe(signed)
+        expect(preview && changedAt(preview, false)).toBe(unsigned)
+      },
+    )
+
+    it("changes a description's die it adds only where the game changes that one", () => {
+      const preview = linkDamage(linkOf('3 - 1d4 + 2d6'))
+      expect(preview && modifiedDice(preview, { extra: 1 }, true)).toEqual([
+        { faces: 4, number: 1, subtracted: true },
+        { faces: 6, number: 3 },
+      ])
+      // A module before 0.21.0 would throw a d4 more.
+      expect(
+        preview && modifiedDice(preview, { extra: 1 }, false),
+      ).toBeUndefined()
+    })
+
+    it.each<[string, { terms: ExtraTerm[] }[], boolean]>([
+      [
+        'a number, then a die taken away, then one it adds',
+        [partOf('3 - 1d4 + 2d6')],
+        false,
+      ],
+      ['a die it adds first', [partOf('1d12 - 1d4 + 3')], true],
+      ['its only die taken away', [partOf('- 1d4 + 4')], false],
+      ['no die', [partOf('5')], false],
+      [
+        'only critical damage',
+        [{ terms: [{ sign: 1, count: 1, sides: 4, added: true }] }],
+        false,
+      ],
+      ['a die and a number', [partOf('1d8 + 3')], true],
+    ])(
+      'says whether its first die is the one a module before 0.21.0 changes: %s',
+      (_, thrown, same) => {
+        expect(sameFirstDie(thrown)).toBe(same)
+      },
+    )
+
+    describe('changes chosen before the game said what it throws', () => {
+      /** A Reduced greataxe's 1d12 + 3 - 1d4, as module 0.21.0 marks it. */
+      const greataxe = previewOf('1d12 + 3 - 1d4', [
+        { faces: 12, number: 1 },
+        { faces: 4, number: 1, subtracted: true },
+      ])
+
+      it.each<
+        [string, DamagePreview, DamageModifiers, DamageModifiers | undefined]
+      >([
+        [
+          'none where it adds no die of its own',
+          unarmed,
+          { extra: 1 },
+          undefined,
+        ],
+        [
+          'its die changed, never at its highest where it takes a die away',
+          greataxe,
+          { extra: 1, maximize: true },
+          { extra: 1 },
+        ],
+        [
+          'none at its highest where it takes a die away',
+          greataxe,
+          { maximize: true },
+          undefined,
+        ],
+        [
+          'all of them where it takes nothing away',
+          previewOf('1d8 + 3', [{ faces: 8, number: 1 }]),
+          { maximize: true, faces: 10 },
+          { maximize: true, faces: 10 },
+        ],
+        [
+          'none from a module before 0.21.0 that would change the die it takes away',
+          unmarked,
+          { extra: 1 },
+          undefined,
+        ],
+        [
+          'all of them where the game rolls it itself',
+          {
+            ...unmarked,
+            plannable: false,
+            rolls: [{ ...unmarked.rolls[0], dice: [] }],
+          },
+          { extra: 1 },
+          { extra: 1 },
+        ],
+        [
+          'its dice, never at its highest, where the game rolls itself damage whose formula takes a die away',
+          {
+            ...unmarked,
+            plannable: false,
+            rolls: [
+              { ...unmarked.rolls[0], formula: '1d3 + 3 - 1d4', dice: [] },
+            ],
+          },
+          { extra: 1, maximize: true },
+          { extra: 1 },
+        ],
+        [
+          'none at its highest where the game rolls itself damage whose formula takes a die away',
+          {
+            ...unmarked,
+            plannable: false,
+            rolls: [
+              { ...unmarked.rolls[0], formula: '1d3 + 3 - 1d4', dice: [] },
+            ],
+          },
+          { maximize: true },
+          undefined,
+        ],
+        [
+          'at its highest where the game rolls itself damage that takes none away',
+          {
+            ...unmarked,
+            plannable: false,
+            rolls: [{ ...unmarked.rolls[0], formula: '1d3 + 3', dice: [] }],
+          },
+          { maximize: true },
+          { maximize: true },
+        ],
+        [
+          'as many more dice as its die cast higher may still take, as Cure Wounds at 3rd level, whose label had 2d8',
+          previewOf('6d8 + 3', [{ faces: 8, number: 6 }]),
+          { extra: 38 },
+          { extra: MOST_DICE - 6 },
+        ],
+        [
+          'as many as Fireball at 9th level may still take, whose label had 8d6',
+          previewOf('14d6', [{ faces: 6, number: 14 }]),
+          { extra: 32, faces: 8 },
+          { extra: MOST_DICE - 14, faces: 8 },
+        ],
+        [
+          'as many as a critical hit may still take, two for each',
+          previewOf('2d12 + 3', [{ faces: 12, number: 2 }], 2),
+          { extra: 20 },
+          { extra: 19 },
+        ],
+        [
+          'its die another size, but no more of it, where it may take none',
+          previewOf(`${MOST_DICE}d6`, [{ faces: 6, number: MOST_DICE }]),
+          { extra: 1, faces: 8 },
+          { faces: 8 },
+        ],
+        [
+          'none where its die may take no more',
+          previewOf(`${MOST_DICE}d6`, [{ faces: 6, number: MOST_DICE }]),
+          { extra: 1 },
+          undefined,
+        ],
+      ])('keeps those the game takes: %s', (_, damage, chosen, kept) => {
+        expect(takenModifiers(damage, chosen)).toEqual(kept)
+        // What they throw is never more of a die than one roll may.
+        const thrown = kept && modifiedDice(damage, kept)
+        expect((thrown ?? []).every(die => die.number <= MOST_DICE)).toBe(true)
+      })
+
+      it('keeps none where none were chosen', () => {
+        expect(takenModifiers(greataxe)).toBeUndefined()
+        expect(takenModifiers(critical)).toBeUndefined()
+      })
+    })
+
+    it('changes the dice the game said, never a die damage takes away', () => {
+      expect(modifiedDice(marked, { extra: 1 })).toEqual([
+        { faces: 4, number: 1, subtracted: true },
+        { faces: 6, number: 3 },
+      ])
+      expect(modifiedDice(marked, { faces: 12 })).toEqual([
+        { faces: 4, number: 1, subtracted: true },
+        { faces: 12, number: 2 },
+      ])
+      // Nothing to change from a module that would change the d4, nor where it adds no die.
+      expect(modifiedDice(unmarked, { extra: 1 })).toBeUndefined()
+      expect(modifiedDice(unarmed, { extra: 1 })).toBeUndefined()
+      // A critical hit's, the d4 doubled too, as dnd5e doubles it: two more for one.
+      const critical = previewOf(
+        '- 2d4 + 4d6',
+        [
+          { faces: 4, number: 2, subtracted: true },
+          { faces: 6, number: 4 },
+        ],
+        2,
+      )
+      expect(modifiedDice(critical, { extra: 1 })).toEqual([
+        { faces: 4, number: 2, subtracted: true },
+        { faces: 6, number: 6 },
+      ])
+      // At its highest alone, the dice it said, as they are.
+      expect(modifiedDice(marked, { maximize: true })).toEqual(
+        marked.rolls[0].dice,
+      )
+      expect(modifiedDice(unmarked, { maximize: true })).toEqual(
+        unmarked.rolls[0].dice,
+      )
+    })
+
+    it('says whether damage takes any of its dice away, as the game marks them or its formula has them', () => {
+      expect(diceTakenAway(marked)).toBe(true)
+      expect(diceTakenAway(unmarked)).toBe(true)
+      expect(diceTakenAway(unarmed)).toBe(true)
+      // In a roll after its first.
+      expect(
+        diceTakenAway({
+          ...marked,
+          rolls: [
+            {
+              formula: '1d8 + 3',
+              type: 'Slashing',
+              dice: [{ faces: 8, number: 1 }],
+            },
+            {
+              formula: '- 1d4',
+              type: 'Slashing',
+              dice: [{ faces: 4, number: 1 }],
+            },
+          ],
+        }),
+      ).toBe(true)
+      expect(
+        diceTakenAway(previewOf('1d8 + 3', [{ faces: 8, number: 1 }])),
+      ).toBe(false)
+      // Damage the game rolls itself has no dice of its own here: its formula says.
+      const itself = (formula: string): DamagePreview => ({
+        ...unmarked,
+        plannable: false,
+        rolls: [{ ...unmarked.rolls[0], formula, dice: [] }],
+      })
+      expect(diceTakenAway(itself('- 1d4 + 2d6'))).toBe(true)
+      expect(diceTakenAway(itself('1d3 + 3 - 1d4'))).toBe(true)
+      expect(diceTakenAway(itself('1d3 + 3'))).toBe(false)
+    })
+
+    // The module's own table (attacks.mjs) reads each the same.
+    it.each<[string, boolean]>([
+      ['1d3 + 3 - 1d4', true],
+      ['1d3 + 3', false],
+      ['1d3 - 1', false],
+      ['1d3 + -1', false],
+      ['-1 + 1d3', false],
+      ['-1d4 + 2d6', true],
+      ['(1d4 * -1) + 2d6', true],
+      ['- - 1d4 + 1d3', false],
+      ['5 - 2 * 1d4', true],
+      ['1d6 - 1d4 * -1', false],
+      ['1d6 - (1 - 1d4)', false],
+      ['1d3 - (1d4 + 1)', true],
+      ['(floor(3 / 2))d8 + 3 - 1d8', true],
+      ['max(1d3 - 1, 1)', false],
+      ['1d3[bludgeoning] + 3 - 1d4[necrotic]', true],
+      ['1d3[non-magical] + 3', false],
+      ['2d6r<=2 + 7 + 1d8', false],
+    ])(
+      'reads whether a formula the game rolls itself takes a die away: %s',
+      (formula, taken) => {
+        expect(formulaTakesAway(formula)).toBe(taken)
+      },
+    )
+
+    it('offers damage the game rolls itself at its highest only where it takes no die away', () => {
+      const none = [{ terms: [] }]
+      expect(damageChanges(none)).toEqual(['maximize'])
+      expect(damageChanges(none, false, true)).toEqual([])
+    })
+
+    it.each<[string, string[], ReturnType<typeof damageChanges>]>([
+      [
+        'damage that takes nothing away',
+        ['1d8 + 3'],
+        ['maximize', 'modify-damage'],
+      ],
+      ['damage that takes its only die away', ['-1d4 + 4'], []],
+      [
+        'damage that takes a die away after its first',
+        ['1d12 + 3 - 1d4'],
+        ['modify-damage'],
+      ],
+      [
+        'a second part that takes a die away',
+        ['1d8', '- 1d4'],
+        ['modify-damage'],
+      ],
+    ])('offers changes to %s', (_, formulas, ways) => {
+      const thrown = formulas.map(formula => partOf(formula))
+      expect(takesAway(thrown)).toBe(!ways.includes('maximize'))
+      expect(damageChanges(thrown)).toEqual(ways)
+      // Dice the game won't change are only ever at their highest.
+      expect(damageChanges(thrown, true)).toEqual(
+        ways.filter(way => way === 'maximize'),
+      )
+    })
+
+    it('marks the dice a description takes away in its preview, critical damage among them', () => {
+      expect(linkDamage(linkOf('- 1d4 + 4'))?.rolls[0].dice).toEqual([
+        { faces: 4, number: 1, subtracted: true },
+      ])
+      expect(
+        linkDamage(linkOf('3 - 1d4 + 2d6'), EVERY_DIE_TWICE)?.rolls[0].dice,
+      ).toEqual([
+        { faces: 4, number: 2, subtracted: true },
+        { faces: 6, number: 4 },
+      ])
+      // Critical damage taken away, as written after a minus.
+      const link = {
+        ...linkOf('1d8'),
+        criticalAdds: { dice: [0], damage: ['- 1d4'] },
+      }
+      const adds = criticalOffered(link, EVERY_DIE_TWICE) || undefined
+      expect(linkDamage(link, EVERY_DIE_TWICE, adds)?.rolls[0].dice).toEqual([
+        { faces: 8, number: 2 },
+        { faces: 4, number: 1, added: true, subtracted: true },
+      ])
+    })
+
+    it('offers no critical hit under Powerful Critical where a part takes a die away', () => {
+      expect(criticalOffered(linkOf('- 1d4 + 4'), POWERFUL)).toBe(false)
+      expect(criticalOffered(linkOf('3 - 1d4 + 2d6'), POWERFUL)).toBe(false)
+      expect(criticalOffered(linkOf('1d8 + 3'), POWERFUL)).toEqual({
+        dice: [0],
+        damage: [[]],
+      })
+      expect(criticalOffered(linkOf('3 - 1d4 + 2d6'), EVERY_DIE_TWICE)).toEqual(
+        { dice: [0], damage: [[]] },
+      )
+      // As dnd5e 5.3.3 makes one: the most of a die taken away added.
+      expect(criticalParts([partOf('-1d4 + 4')], POWERFUL)[0].terms).toEqual([
+        { sign: -1, count: 1, sides: 4 },
+        { sign: 1, flat: 4 },
+        { sign: 1, flat: 4 },
+      ])
     })
   })
 })

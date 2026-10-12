@@ -15,6 +15,8 @@ type Props = {
   /** What will happen. */
   children: ReactNode
   confirmLabel: string
+  /** What the button that keeps things as they are says. */
+  cancelLabel?: string
   onConfirm: () => Promise<void>
   danger?: boolean
 }
@@ -27,6 +29,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  cancelLabel = 'Cancel',
   onConfirm,
   danger = false,
 }: Readonly<Props>) {
@@ -64,7 +67,7 @@ export function ConfirmDialog({
               disabled={pending}
               className='h-10 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-60'
             >
-              Cancel
+              {cancelLabel}
             </button>
             <button
               type='button'
