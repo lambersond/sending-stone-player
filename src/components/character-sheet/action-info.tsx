@@ -22,6 +22,7 @@ import type {
   SheetCastFrom,
   SheetSpell,
   SheetSpellSection,
+  SheetUses,
 } from '@/types/sending-stone'
 
 /*
@@ -231,18 +232,21 @@ function textOf(activity: SheetActivity): string | undefined {
  */
 export function Facts({
   action,
+  uses = action.uses,
   pools,
   more = [],
   casting = false,
 }: Readonly<{
   action: SheetAction
+  /** Its uses, where others are shown in place of its own, as `EntryLook`'s. */
+  uses?: SheetUses | null
   /** For a spell cast with slots, the slots it can be cast with. */
   pools?: SlotPool[] | null
   more?: { label: string; value: string }[]
   /** Whether it's a spell cast from an item, how it's activated being its casting time. */
   casting?: boolean
 }>) {
-  const { save, uses } = action
+  const { save } = action
   const healing =
     action.damage.length > 0 && action.damage.every(part => part.healing)
   const facts: [string, ReactNode][] = [

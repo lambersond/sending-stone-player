@@ -3,10 +3,11 @@ import {
   COMMANDS_COLD_WAIT,
   COMMANDS_HOLD,
   COMMANDS_OFF_WAIT,
+  REFUSAL,
 } from '@/constants/sending-stone'
 import { findEventCampaign } from '@/db/campaigns'
 import { claimRollRequests, markBridgePolled } from '@/db/roll-requests'
-import { attempt, cors, notSetUp } from '@/lib/bridge-http'
+import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
@@ -20,6 +21,8 @@ import type { RollCommand } from '@/utils/roll-requests'
 // While one of the campaign's players has their table open, a fetch is held open until a roll
 // comes, so it reaches the game at once. Otherwise it's answered at once, saying when to ask
 // again, so a game nobody is playing at costs little.
+//
+// A fetch is refused as an event is, its status kept and why said in JSON.
 
 /** A held fetch lasts COMMANDS_HOLD, and a check, after the campaign's lookup. */
 export const maxDuration = 30
@@ -36,8 +39,27 @@ export function OPTIONS(request: Request) {
 export async function POST(request: Request) {
   const headers = cors(request)
   headers.set('Cache-Control', 'no-store')
-  const respond = (status: number, message?: string) =>
-    new Response(message, { status, headers })
+  const unavailable = () =>
+    refuse(
+      request,
+      500,
+      {
+        reason: REFUSAL.UNAVAILABLE,
+        message: 'Sending Stone couldn’t take this just now',
+      },
+      headers,
+    )
+  const tooLarge = () =>
+    refuse(
+      request,
+      413,
+      {
+        reason: REFUSAL.TOO_LARGE,
+        message: `Larger than the ${MAX_POLL_BYTES} bytes Sending Stone takes`,
+        limit: MAX_POLL_BYTES,
+      },
+      headers,
+    )
   /** The commands fetched, and how long to wait before fetching again; none for at once. */
   const answer = (commands: RollCommand[], wait?: number) =>
     Response.json(wait === undefined ? { commands } : { commands, wait }, {
@@ -45,23 +67,43 @@ export async function POST(request: Request) {
     })
 
   const secret = bearerSecret(request.headers.get('authorization'))
-  if (!secret) return respond(401, 'Send the campaign’s secret')
+  if (!secret) {
+    return refuse(
+      request,
+      401,
+      { reason: REFUSAL.NO_SECRET, message: 'Send the campaign’s secret' },
+      headers,
+    )
+  }
 
   const origin = request.headers.get('origin')
   if (!origin || toForgeGameUrl(origin) !== origin) {
-    return respond(403, 'Only games on The Forge are accepted')
+    return refuse(
+      request,
+      403,
+      {
+        reason: REFUSAL.NOT_FORGE,
+        message: 'Only games on The Forge are accepted',
+      },
+      headers,
+    )
   }
 
   const declared = Number(request.headers.get('content-length'))
-  if (declared > MAX_POLL_BYTES) return respond(413)
+  if (declared > MAX_POLL_BYTES) return tooLarge()
   const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_POLL_BYTES) return respond(413)
+  if (Buffer.byteLength(body) > MAX_POLL_BYTES) return tooLarge()
 
   let poll
   try {
     poll = commandsPollSchema.parse(JSON.parse(body))
   } catch {
-    return respond(400, 'Not a Sending Stone fetch')
+    return refuse(
+      request,
+      400,
+      { reason: REFUSAL.BAD_ENVELOPE, message: 'Not a Sending Stone fetch' },
+      headers,
+    )
   }
   const { campaign, session } = poll
 
@@ -69,12 +111,32 @@ export async function POST(request: Request) {
     () => findEventCampaign(origin, campaign, secret),
     CHECK_FAILED,
   )
-  if (!found) return respond(500)
-  if (found === 'unknown') return respond(404, notSetUp(origin, campaign.title))
-  if (found === 'refused') return respond(401)
+  if (!found) return unavailable()
+  if (found === 'unknown') {
+    return refuse(
+      request,
+      404,
+      {
+        reason: REFUSAL.NOT_SET_UP,
+        message: notSetUp(origin, campaign.title),
+      },
+      headers,
+    )
+  }
+  if (found === 'refused') {
+    return refuse(
+      request,
+      401,
+      {
+        reason: REFUSAL.WRONG_SECRET,
+        message: 'The secret isn’t this campaign’s in Sending Stone',
+      },
+      headers,
+    )
+  }
 
   const polled = await attempt(() => markBridgePolled(found.id), CHECK_FAILED)
-  if (!polled) return respond(500)
+  if (!polled) return unavailable()
   if (!polled.rollsEnabled) return answer([], COMMANDS_OFF_WAIT)
 
   const claim = () =>
@@ -84,7 +146,7 @@ export async function POST(request: Request) {
     )
   if (!polled.playersPresent) {
     const commands = await claim()
-    return commands ? answer(commands, COMMANDS_COLD_WAIT) : respond(500)
+    return commands ? answer(commands, COMMANDS_COLD_WAIT) : unavailable()
   }
 
   const until = Date.now() + COMMANDS_HOLD
@@ -92,7 +154,7 @@ export async function POST(request: Request) {
     // Rolls handed to a fetch that was given up on, as when its page closed, would be lost.
     if (request.signal.aborted) return answer([])
     const commands = await claim()
-    if (!commands) return respond(500)
+    if (!commands) return unavailable()
     if (commands.length > 0 || Date.now() >= until) return answer(commands)
     await pause(
       Math.min(COMMANDS_CHECK_EVERY, until - Date.now()),

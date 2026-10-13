@@ -71,13 +71,13 @@ export async function lacksSheetTexts(
 }
 
 /**
- * A description on a character's own sheet, for its player. Undefined unless the character's
- * sheet refers to it and the campaign holds it.
- * @param character - A character of the signed-in user.
+ * A description on a character's own sheet, for whoever is at it: its player, or its campaign's
+ * Gamemaster (#156). Undefined unless the character's sheet refers to it and the campaign holds it.
+ * @param character - The seat at the sheet, resolved for the signed-in user.
  * @param hash - The description's hash.
  */
 export async function getSheetText(
-  character: Character,
+  character: Pick<Character, 'campaignId' | 'actorId'>,
   hash: string,
 ): Promise<string | undefined> {
   if (!character.campaignId || !character.actorId) return undefined

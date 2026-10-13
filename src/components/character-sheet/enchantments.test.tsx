@@ -8,6 +8,7 @@ import {
   sheetAction,
   sheetItem,
 } from '@/mocks/sending-stone'
+import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { RollKind } from '@/types/roll'
 import type {
@@ -187,6 +188,8 @@ jest.setTimeout(20_000)
 describe('enchant activities at the table, from module 0.21.0', () => {
   beforeEach(() => {
     globalThis.localStorage.clear()
+    // These test the tray, whose words a roll's toast would say again.
+    globalThis.localStorage.setItem(TOASTS_KEY, 'off')
   })
 
   describe('a use', () => {

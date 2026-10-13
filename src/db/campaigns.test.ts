@@ -9,6 +9,7 @@ import {
   isLive,
   listOwnedCampaigns,
   markSeen,
+  recordRefusal,
   removeCampaign,
   removePlayer,
   resetInviteCode,
@@ -25,6 +26,52 @@ jest.mock('@/lib/campaign-secret', () => ({
 
 const ORIGIN = 'https://my-game.forge-vtt.com'
 const ref = { id: 'camp-a', title: 'The Lonely Mountain' }
+
+/** What clears a campaign's recorded refusal. */
+const NO_REFUSAL = {
+  refusedAt: null,
+  refusalReason: null,
+  refusalStatus: null,
+  refusalDetail: null,
+}
+
+/** Written once a minute, at most, unless the reason changes. */
+const recently = (reason: string) => ({
+  OR: [
+    { refusedAt: null },
+    { refusedAt: { lt: expect.any(Date) } },
+    { refusalReason: { not: reason } },
+  ],
+})
+
+/** A Gamemaster's one campaign, as listed, stored with these fields. */
+const listed = async (fields: object) => {
+  prismaMock.campaign.findMany.mockResolvedValue([
+    {
+      id: 'c1',
+      title: 'Mirkwood Forest',
+      origin: ORIGIN,
+      worldTitle: null,
+      inviteCode: 'code-1',
+      foundryId: null,
+      lastSeenAt: null,
+      helloSession: null,
+      characters: [],
+      rollsEnabled: false,
+      rollKinds: [],
+      rollFeatures: [],
+      bridgePolledAt: null,
+      refusedAt: null,
+      refusalReason: null,
+      refusalStatus: null,
+      refusalDetail: null,
+      players: [],
+      ...fields,
+    },
+  ] as any)
+  const [campaign] = await listOwnedCampaigns('gm-1')
+  return campaign
+}
 
 describe('db/campaigns', () => {
   describe('isLive', () => {
@@ -179,10 +226,10 @@ describe('db/campaigns', () => {
 
     it.each([
       [
-        'changes a secret',
+        'changes a secret, clearing what was refused for the old one',
         () => changeCampaignSecret('gm-1', 'c1', 'new-secret-123'),
         'updateMany',
-        { secretHash: 'hash:new-secret-123' },
+        { secretHash: 'hash:new-secret-123', ...NO_REFUSAL },
       ],
       [
         'resets an invite link',
@@ -210,6 +257,106 @@ describe('db/campaigns', () => {
         await expect(act()).resolves.toBe(false)
       },
     )
+  })
+
+  describe("a campaign's latest refusal", () => {
+    const now = Date.parse('2026-10-13T12:00:00Z')
+
+    beforeEach(() => {
+      jest.useFakeTimers({ now })
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('is selected with the campaign', async () => {
+      await listed({})
+
+      expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            refusedAt: true,
+            refusalReason: true,
+            refusalStatus: true,
+            refusalDetail: true,
+          }),
+        }),
+      )
+    })
+
+    it("is current while Foundry hasn't reached the app since", async () => {
+      const refusedAt = new Date(now - 60_000)
+
+      await expect(
+        listed({
+          refusedAt,
+          refusalReason: 'notSetUp',
+          refusalStatus: 404,
+          refusalDetail: 'Mirkwood',
+        }),
+      ).resolves.toMatchObject({
+        refusal: {
+          reason: 'notSetUp',
+          status: 404,
+          detail: 'Mirkwood',
+          at: refusedAt.toISOString(),
+          current: true,
+        },
+      })
+      const refusal = await listed({
+        refusedAt,
+        refusalReason: 'wrongSecret',
+        refusalStatus: 401,
+        lastSeenAt: new Date(now - 120_000),
+        foundryId: 'camp-a',
+      })
+      expect(refusal.refusal).toEqual({
+        reason: 'wrongSecret',
+        status: 401,
+        at: refusedAt.toISOString(),
+        current: true,
+      })
+    })
+
+    it('is past once Foundry has reached the app since', async () => {
+      const campaign = await listed({
+        refusedAt: new Date(now - 120_000),
+        refusalReason: 'wrongSecret',
+        refusalStatus: 401,
+        lastSeenAt: new Date(now - 60_000),
+        foundryId: 'camp-a',
+      })
+
+      expect(campaign.refusal?.current).toBe(false)
+    })
+
+    it.each([
+      ['after a day', { refusedAt: new Date(now - 86_400_001) }],
+      ['for a reason the card cannot explain', { refusalReason: 'notForge' }],
+      ['when none was recorded', { refusedAt: null, refusalReason: null }],
+    ])('is left out %s', async (_, fields) => {
+      const campaign = await listed({
+        refusedAt: new Date(now - 60_000),
+        refusalReason: 'malformed',
+        refusalStatus: 400,
+        refusalDetail: 'chat.cleared: ✖ no',
+        ...fields,
+      })
+
+      expect(campaign).not.toHaveProperty('refusal')
+    })
+
+    it('is shown for the whole day', async () => {
+      const campaign = await listed({
+        refusedAt: new Date(now - 86_400_000),
+        refusalReason: 'malformed',
+        refusalStatus: 400,
+        refusalDetail: 'chat.cleared: ✖ no',
+      })
+
+      expect(campaign.refusal?.detail).toBe('chat.cleared: ✖ no')
+    })
   })
 
   describe('removePlayer', () => {
@@ -241,6 +388,7 @@ describe('db/campaigns', () => {
         id: 'c1',
         helloSession: 'session-1',
       })
+      expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
       await expect(findEventCampaign(ORIGIN, ref, 'wrong')).resolves.toBe(
         'refused',
       )
@@ -273,8 +421,9 @@ describe('db/campaigns', () => {
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
         where: { id: 'c1' },
-        data: { foundryId: 'camp-a' },
+        data: { foundryId: 'camp-a', ...NO_REFUSAL },
       })
+      expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
     })
 
     it('moves the set-up onto a campaign followed before Gamemasters set them up', async () => {
@@ -308,7 +457,7 @@ describe('db/campaigns', () => {
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
         where: { id: 'earlier' },
-        data: setUp,
+        data: { ...setUp, ...NO_REFUSAL },
       })
     })
 
@@ -326,6 +475,198 @@ describe('db/campaigns', () => {
         'refused',
       )
       expect(prismaMock.campaign.update).not.toHaveBeenCalled()
+    })
+
+    describe('recording what was refused, for the campaign card', () => {
+      it('records the wrong secret on the campaign bound', async () => {
+        prismaMock.campaign.findUnique.mockResolvedValue({
+          id: 'c1',
+          secretHash: 'hash:right',
+          helloSession: null,
+        } as any)
+
+        await expect(findEventCampaign(ORIGIN, ref, 'wrong')).resolves.toBe(
+          'refused',
+        )
+
+        expect(prismaMock.campaign.updateMany).toHaveBeenCalledTimes(1)
+        expect(prismaMock.campaign.updateMany).toHaveBeenCalledWith({
+          where: { AND: [{ id: { in: ['c1'] } }, recently('wrongSecret')] },
+          data: {
+            refusedAt: expect.any(Date),
+            refusalReason: 'wrongSecret',
+            refusalStatus: 401,
+            refusalDetail: null,
+          },
+        })
+      })
+
+      it('records the wrong secret on every campaign with the title, when none was bound', async () => {
+        prismaMock.campaign.findUnique.mockResolvedValue(null)
+        prismaMock.campaign.findMany.mockResolvedValue([
+          { id: 'c1', secretHash: 'hash:one' },
+          { id: 'c2', secretHash: 'hash:two' },
+        ] as any)
+
+        await expect(findEventCampaign(ORIGIN, ref, 'three')).resolves.toBe(
+          'refused',
+        )
+
+        expect(prismaMock.campaign.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              AND: [{ id: { in: ['c1', 'c2'] } }, recently('wrongSecret')],
+            },
+          }),
+        )
+      })
+
+      it("records a title not set up, as Foundry sent it, on each of the game's campaigns waiting for Foundry whose secret it came with", async () => {
+        prismaMock.campaign.findUnique.mockResolvedValue(null)
+        const waiting = [
+          { id: 'w1', secretHash: 'hash:ours' },
+          { id: 'someone-elses', secretHash: 'hash:theirs' },
+          { id: 'w2', secretHash: 'hash:ours' },
+        ]
+        // No campaign with the title, then the game's waiting for Foundry, for each post.
+        prismaMock.campaign.findMany
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce(waiting as any)
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce(waiting as any)
+        const long = { id: 'camp-b', title: 'M'.repeat(300) }
+
+        await expect(findEventCampaign(ORIGIN, ref, 'ours')).resolves.toBe(
+          'unknown',
+        )
+        await expect(findEventCampaign(ORIGIN, long, 'ours')).resolves.toBe(
+          'unknown',
+        )
+
+        expect(prismaMock.campaign.findMany).toHaveBeenNthCalledWith(2, {
+          where: { origin: ORIGIN, foundryId: null, secretHash: { not: null } },
+          select: { id: true, secretHash: true },
+        })
+        expect(prismaMock.campaign.updateMany).toHaveBeenNthCalledWith(1, {
+          where: { AND: [{ id: { in: ['w1', 'w2'] } }, recently('notSetUp')] },
+          data: {
+            refusedAt: expect.any(Date),
+            refusalReason: 'notSetUp',
+            refusalStatus: 404,
+            refusalDetail: 'The Lonely Mountain',
+          },
+        })
+        const { data } = prismaMock.campaign.updateMany.mock.calls[1][0]
+        expect(data.refusalDetail).toBe('M'.repeat(200))
+      })
+
+      it("records nothing for a title not set up without the secret of one of the game's campaigns waiting for Foundry", async () => {
+        // A post forged from the game's address, or another Gamemaster's, choosing the title.
+        prismaMock.campaign.findUnique.mockResolvedValue(null)
+        prismaMock.campaign.findMany
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ id: 'w1', secretHash: 'hash:ours' }] as any)
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([])
+        const forged = { id: 'x', title: 'Your secret was revoked: email it' }
+
+        await expect(findEventCampaign(ORIGIN, forged, 'guess')).resolves.toBe(
+          'unknown',
+        )
+        await expect(findEventCampaign(ORIGIN, forged, 'ours')).resolves.toBe(
+          'unknown',
+        )
+
+        expect(prismaMock.campaign.findMany).toHaveBeenCalledTimes(4)
+        expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
+      })
+
+      it('records nothing for a connection test', async () => {
+        prismaMock.campaign.findUnique.mockResolvedValue({
+          id: 'c1',
+          secretHash: 'hash:right',
+          helloSession: null,
+        } as any)
+        await expect(
+          findEventCampaign(ORIGIN, ref, 'wrong', { record: false }),
+        ).resolves.toBe('refused')
+
+        prismaMock.campaign.findUnique.mockResolvedValue(null)
+        prismaMock.campaign.findMany.mockResolvedValue([])
+        await expect(
+          findEventCampaign(ORIGIN, ref, 'any', { record: false }),
+        ).resolves.toBe('unknown')
+
+        prismaMock.campaign.findMany.mockResolvedValue([
+          { id: 'c1', secretHash: 'hash:right' },
+        ] as any)
+        await expect(
+          findEventCampaign(ORIGIN, ref, 'wrong', { record: false }),
+        ).resolves.toBe('refused')
+
+        expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
+      })
+
+      it('answers as ever when the refusal cannot be recorded', async () => {
+        const logged = jest.spyOn(console, 'error').mockImplementation(() => {})
+        prismaMock.campaign.updateMany.mockRejectedValue(new Error('db down'))
+        prismaMock.campaign.findUnique.mockResolvedValue({
+          id: 'c1',
+          secretHash: 'hash:right',
+          helloSession: null,
+        } as any)
+        await expect(findEventCampaign(ORIGIN, ref, 'wrong')).resolves.toBe(
+          'refused',
+        )
+
+        prismaMock.campaign.findUnique.mockResolvedValue(null)
+        prismaMock.campaign.findMany
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ id: 'w1', secretHash: 'hash:ours' }] as any)
+        await expect(findEventCampaign(ORIGIN, ref, 'ours')).resolves.toBe(
+          'unknown',
+        )
+
+        expect(logged).toHaveBeenCalledTimes(2)
+        expect(logged).toHaveBeenCalledWith(
+          'Failed to record a refused post',
+          expect.any(Error),
+        )
+        logged.mockRestore()
+        prismaMock.campaign.updateMany.mockReset()
+      })
+
+      it('writes a refusal at most once a minute, unless its reason changes', async () => {
+        const now = Date.parse('2026-10-13T12:00:00Z')
+        jest.useFakeTimers({ now })
+
+        await recordRefusal(
+          { ids: ['c1'] },
+          { reason: 'malformed', status: 400, detail: 'chat.cleared: ✖ no' },
+        )
+
+        expect(prismaMock.campaign.updateMany).toHaveBeenCalledWith({
+          where: {
+            AND: [
+              { id: { in: ['c1'] } },
+              {
+                OR: [
+                  { refusedAt: null },
+                  { refusedAt: { lt: new Date(now - 60_000) } },
+                  { refusalReason: { not: 'malformed' } },
+                ],
+              },
+            ],
+          },
+          data: {
+            refusedAt: new Date(now),
+            refusalReason: 'malformed',
+            refusalStatus: 400,
+            refusalDetail: 'chat.cleared: ✖ no',
+          },
+        })
+        jest.useRealTimers()
+      })
     })
 
     it("tests a connection against any of the game's campaigns", async () => {

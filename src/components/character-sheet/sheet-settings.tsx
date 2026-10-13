@@ -20,25 +20,30 @@ import { Settings } from 'lucide-react'
 import { LayoutPicker, type ActionsLayout } from './actions-layout'
 import { usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useTableRole } from '@/hooks/use-table-api'
+import { seatWords } from '@/utils/seat-words'
 
 type Props = {
   /** Whether this device sends the player's rolls to the table, while the game takes any. */
   send?: { on: boolean; onChange: (on: boolean) => void }
+  /** Whether the player's rolls pop up as toasts on this device. */
+  toasts?: { on: boolean; onChange: (on: boolean) => void }
   /** The Actions tab's layouts, where the sheet is wide enough for more than one. */
   layouts?: ActionsLayout
 }
 
 /**
  * The sheet's settings, behind a cog beside its tabs, so that they're at hand from every tab
- * without taking room from them: whether this device sends the player's rolls to the table, the
- * theme, and how the Actions tab is laid out. It opens as `ExactAmount`'s popover does, by a click
- * or tap, or Enter or Space, its first setting taking focus; Escape, a click or tap elsewhere, or
- * the cog again closes it. It stays open as settings change, for several to be changed at once.
+ * without taking room from them: whether this device sends the player's rolls to the table, and
+ * pops them up as toasts, the theme, and how the Actions tab is laid out. It opens as
+ * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
+ * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
+ * change, for several to be changed at once.
  */
-export function SheetSettings({ send, layouts }: Readonly<Props>) {
+export function SheetSettings({ send, toasts, layouts }: Readonly<Props>) {
+  const { game } = seatWords(useTableRole())
   const [open, setOpen] = useState(false)
   const title = useId()
-  const hint = useId()
   const root = usePortalRoot()
   useTopmostEscape(open)
   const { refs, floatingStyles, context } = useFloating({
@@ -93,37 +98,18 @@ export function SheetSettings({ send, layouts }: Readonly<Props>) {
                 Settings
               </p>
               {send && (
-                <div className='flex flex-col gap-1 border-t border-border pt-3'>
-                  <label className='flex cursor-pointer items-center gap-3 text-sm font-medium'>
-                    <input
-                      type='checkbox'
-                      role='switch'
-                      checked={send.on}
-                      onChange={event => send.onChange(event.target.checked)}
-                      aria-describedby={hint}
-                      className='peer sr-only'
-                    />
-                    <span
-                      aria-hidden
-                      className={clsx(
-                        'relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
-                        send.on ? 'bg-primary' : 'bg-border',
-                      )}
-                    >
-                      <span
-                        className={clsx(
-                          'absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]',
-                          send.on ? 'left-4.5' : 'left-0.5',
-                        )}
-                      />
-                    </span>
-                    Send to the table
-                  </label>
-                  <p id={hint} className='pl-12 text-xs text-text-secondary'>
-                    Your rolls here are made in your Gamemaster’s game too, with
-                    the same dice.
-                  </p>
-                </div>
+                <SwitchSetting
+                  label='Send to the table'
+                  hint={`Your rolls here are made in ${game} too, with the same dice.`}
+                  {...send}
+                />
+              )}
+              {toasts && (
+                <SwitchSetting
+                  label='Roll toasts'
+                  hint='Each roll’s result pops up at the top of the screen for 4 seconds. Tap one to clear it.'
+                  {...toasts}
+                />
               )}
               <Setting label='Theme'>
                 <ThemeToggle />
@@ -142,6 +128,53 @@ export function SheetSettings({ send, layouts }: Readonly<Props>) {
         </FloatingPortal>
       )}
     </>
+  )
+}
+
+/** A setting turned on or off by a switch, said more of beneath it. */
+function SwitchSetting({
+  label,
+  hint,
+  on,
+  onChange,
+}: Readonly<{
+  label: string
+  hint: string
+  on: boolean
+  onChange: (on: boolean) => void
+}>) {
+  const hintId = useId()
+  return (
+    <div className='flex flex-col gap-1 border-t border-border pt-3'>
+      <label className='flex cursor-pointer items-center gap-3 text-sm font-medium'>
+        <input
+          type='checkbox'
+          role='switch'
+          checked={on}
+          onChange={event => onChange(event.target.checked)}
+          aria-describedby={hintId}
+          className='peer sr-only'
+        />
+        <span
+          aria-hidden
+          className={clsx(
+            'relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
+            on ? 'bg-primary' : 'bg-border',
+          )}
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]',
+              on ? 'left-4.5' : 'left-0.5',
+            )}
+          />
+        </span>
+        {label}
+      </label>
+      <p id={hintId} className='pl-12 text-xs text-text-secondary'>
+        {hint}
+      </p>
+    </div>
   )
 }
 

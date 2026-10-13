@@ -36,7 +36,8 @@ import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { PromptBanner } from './prompt-banner'
-import { REASONS, RollTray } from './roll-tray'
+import { RollToasts } from './roll-toasts'
+import { reasons, RollTray } from './roll-tray'
 import { SheetSettings } from './sheet-settings'
 import { SpellsTab } from './spells-tab'
 import {
@@ -48,12 +49,14 @@ import {
   type Picking,
 } from './use-picker'
 import { Scroller } from '@/components/scroller'
+import { useToastSetting } from '@/hooks/use-roll-toasts'
 import {
   useSheetRoller,
   type SheetDamageRoll,
   type SheetFormulaRoll,
   type SheetRoll,
 } from '@/hooks/use-sheet-roller'
+import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
   damageRollOf,
@@ -65,6 +68,7 @@ import { useWidth } from '@/hooks/use-width'
 import { castIndex, isItemCast } from '@/utils/casts'
 import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
+import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
@@ -156,6 +160,7 @@ function RollingSheet({
   prompts,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
+  const role = useTableRole()
   const waiting = useWaitingPrompts(prompts)
   // Once the player answers what the game asked, or rolls from a description, the tray shows its
   // roll whichever tab is open, Effects and Biography among them.
@@ -171,6 +176,8 @@ function RollingSheet({
     rolls,
     rolling,
   } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
+  // Whether each roll also pops up as a toast, which then says it to screen readers, not the tray.
+  const [toasting, setToasting] = useToastSetting()
   const conditions = useConditionsPanel(sheet.conditions)
   // An attack or a use made at the table, while its player picks whom at, and with what.
   const [picking, setPicking] = useState<Picking>()
@@ -364,7 +371,11 @@ function RollingSheet({
     }
     void rollDamage(request)
   }
-  const marks = useMemo(() => favoriteKeys(sheet.favorites), [sheet.favorites])
+  // The features resources stand for are marked as favorites too, as their entries say.
+  const marks = useMemo(
+    () => favoriteKeys(sheet.favorites, entries),
+    [sheet.favorites, entries],
+  )
   // On a phone or tablet, the favorites are at the top of the tabs they're shown with; where the
   // sheet is wide enough, they have a column beside them.
   const showsFavorites = WITH_FAVORITES.has(tab) && entries.length > 0
@@ -440,8 +451,8 @@ function RollingSheet({
       setDescribed(true)
       table.sendAsk(logAsk(label), { text, link })
     },
-    askBlocked: askBlocked(table, rollsToTable),
-    useBlocked: useBlocked(table, rollsToTable),
+    askBlocked: askBlocked(table, role, rollsToTable),
+    useBlocked: useBlocked(table, role, rollsToTable),
     // Where only this device's switch keeps the table from being asked, a way to turn it on, as
     // the switch in the sheet's settings is a step away.
     ...(table.available &&
@@ -532,6 +543,7 @@ function RollingSheet({
                 ? { on: table.sending, onChange: table.setSending }
                 : undefined
             }
+            toasts={{ on: toasting, onChange: setToasting }}
             layouts={
               actionsLayout.offered.length > 1 && sheet.actions.length > 0
                 ? actionsLayout
@@ -626,8 +638,11 @@ function RollingSheet({
           rolls={rolls}
           rolling={rolling}
           table={{ ...table, rollDamage: rollDue }}
+          announce={!toasting}
         />
       )}
+      {/* On every tab, the tray's among them, as a roll's way to the game may end on another. */}
+      <RollToasts rolls={rolls} states={table.states} on={toasting} />
       <UsePicker
         picking={picking}
         combat={combat}
@@ -688,12 +703,13 @@ function itemCastOf(action: SheetAction): { itemCast?: true } {
  */
 function askBlocked(
   table: ReturnType<typeof useTableRolls>,
+  role: SeatRole,
   kinds: readonly RollKind[] = [],
 ): string | undefined {
   if (table.takes('ask')) return undefined
-  if (!table.available) return REASONS.unavailable
+  if (!table.available) return reasons(role).unavailable
   if (!kinds.includes('ask')) {
-    return 'your Gamemaster’s game can’t be asked from Sending Stone yet'
+    return `${seatWords(role).game} can’t be asked from Sending Stone yet`
   }
   return 'this device doesn’t send your rolls to the table'
 }
@@ -705,12 +721,13 @@ function askBlocked(
  */
 function useBlocked(
   table: ReturnType<typeof useTableRolls>,
+  role: SeatRole,
   kinds: readonly RollKind[] = [],
 ): string | undefined {
   if (table.takes('use')) return undefined
-  if (!table.available) return REASONS.unavailable
+  if (!table.available) return reasons(role).unavailable
   if (!kinds.includes('use')) {
-    return 'your Gamemaster’s game isn’t taking spells and features'
+    return `${seatWords(role).game} isn’t taking spells and features`
   }
   return 'this device doesn’t send your rolls to the table'
 }

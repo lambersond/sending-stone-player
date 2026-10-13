@@ -126,6 +126,15 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
           )}
         >
           <span className='font-semibold'>{speaker}</span>
+          {/* Made for the Gamemaster's roll as the character (#156), as this app knows it. */}
+          {message.byGm && (
+            <span
+              title='Rolled by the Gamemaster'
+              className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary'
+            >
+              GM<span className='sr-only'>, rolled by the Gamemaster</span>
+            </span>
+          )}
           {whisper && (
             <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-whisper'>
               <Lock aria-hidden className='size-3' />

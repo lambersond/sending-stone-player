@@ -3,7 +3,9 @@
 import { BellRing, LoaderCircle } from 'lucide-react'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { RollButton, type RollTarget } from './roll-button'
+import { useTableRole } from '@/hooks/use-table-api'
 import { formatModifier } from '@/utils/format-modifier'
+import { seatWords } from '@/utils/seat-words'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { TablePrompt, TableSheet } from '@/types/table'
 
@@ -36,6 +38,7 @@ export function PromptBanner({
   onRoll: (roll: SheetRoll) => void
 }>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
+  const { asks } = seatWords(useTableRole())
   return (
     <section
       aria-labelledby='prompts-heading'
@@ -46,7 +49,7 @@ export function PromptBanner({
         className='flex items-center gap-1.5 text-xs font-semibold text-primary'
       >
         <BellRing aria-hidden className='size-3.5' />
-        Your Gamemaster asks
+        {asks}
       </h2>
       <ul className='mt-1.5 grid gap-2'>
         {prompts.map(prompt => (

@@ -40,6 +40,16 @@ const renderCard = (fields: Partial<OwnedCampaign> = {}) => {
   return actions
 }
 
+const noteOf = (container: HTMLElement) =>
+  container.querySelector<HTMLElement>('[data-refusal]')
+
+/** A refusal note's text, and the times in it, each shown. */
+const textOf = (note: HTMLElement) => {
+  const times = [...note.querySelectorAll('time')]
+  for (const time of times) expect(time.textContent).not.toBe('')
+  return { times, text: note.textContent }
+}
+
 describe('components/campaigns/campaign-card', () => {
   it.each([
     ['live', {}, 'Live'],
@@ -81,6 +91,120 @@ describe('components/campaigns/campaign-card', () => {
     ).toBeInTheDocument()
   })
 
+  describe("why Foundry's latest post was refused", () => {
+    const at = '2026-10-13T11:59:00.000Z'
+    const renderNote = (fields: Partial<OwnedCampaign>) => {
+      const { container } = render(
+        <CampaignCard
+          campaign={campaign(fields)}
+          inviteUrl='https://stone.example/join/code-1'
+          changeSecret={jest.fn()}
+          resetInvite={jest.fn()}
+          removePlayer={jest.fn()}
+          remove={jest.fn()}
+        />,
+      )
+      const note = noteOf(container)
+      expect(note).not.toBeNull()
+      return note as HTMLElement
+    }
+
+    it.each([
+      [
+        'wrongSecret',
+        {},
+        (time: string) =>
+          `At ${time}, Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s. Enter this campaign’s secret in Manage Campaigns in Foundry, in the browser you run the game from, or set a new one with Change secret below and enter that.`,
+      ],
+      [
+        'notSetUp',
+        { detail: 'Mirkwood' },
+        (time: string) =>
+          `At ${time}, Foundry sent a campaign titled “Mirkwood” from this game, and no campaign here has that title. If it’s this one, rename it to “The Lonely Mountain” in Manage Campaigns in Foundry.`,
+      ],
+      [
+        'malformed',
+        {
+          detail:
+            'chat.message.created: ✖ Invalid input: expected string\n  → at message.timestamp',
+        },
+        (time: string) =>
+          `At ${time}, Sending Stone couldn’t read what Foundry sent and dropped it: chat.message.created: ✖ Invalid input: expected string\n  → at message.timestamp. Update the Sending Stone module; if it happens again, report it.`,
+      ],
+    ] as const)(
+      'explains %s, boxed while current',
+      (reason, fields, expected) => {
+        const note = renderNote({
+          live: false,
+          connected: reason === 'wrongSecret',
+          // Last reached before it was refused, as a campaign that worked until its secret changed.
+          lastSeenAt: '2026-10-13T11:00:00.000Z',
+          refusal: { reason, status: 400, at, current: true, ...fields },
+        })
+
+        const { times, text } = textOf(note)
+        expect(times).toHaveLength(1)
+        expect(times[0]).toHaveAttribute('dateTime', at)
+        expect(text).toBe(expected(times[0].textContent ?? ''))
+        expect(text).not.toContain('has reached the app since')
+        expect(note).toHaveAttribute('data-refusal', reason)
+        expect(note).toHaveClass(
+          'rounded-lg',
+          'border',
+          'border-danger/40',
+          'bg-danger/5',
+          'p-3',
+          'text-sm',
+        )
+        expect(note).not.toHaveClass('text-text-secondary')
+      },
+    )
+
+    it('sits between the header and the invite link', () => {
+      const note = renderNote({
+        refusal: { reason: 'wrongSecret', status: 401, at, current: true },
+      })
+
+      expect(note.previousElementSibling?.tagName).toBe('HEADER')
+      expect(note.nextElementSibling).toHaveTextContent(/^Invite link/)
+    })
+
+    it('is muted once Foundry has reached the app since, saying when', () => {
+      const lastSeenAt = '2026-10-13T12:05:00.000Z'
+      const note = renderNote({
+        live: true,
+        lastSeenAt,
+        refusal: { reason: 'wrongSecret', status: 401, at, current: false },
+      })
+
+      const { times, text } = textOf(note)
+      expect(times.map(time => time.getAttribute('dateTime'))).toEqual([
+        at,
+        lastSeenAt,
+      ])
+      expect(text).toBe(
+        `At ${times[0].textContent}, Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s. Enter this campaign’s secret in Manage Campaigns in Foundry, in the browser you run the game from, or set a new one with Change secret below and enter that. Foundry has reached the app since, at ${times[1].textContent}.`,
+      )
+      expect(note).toHaveClass('text-sm', 'text-text-secondary')
+      expect(note).not.toHaveClass('border', 'bg-danger/5')
+    })
+
+    it('shows nothing without one', () => {
+      const { container } = render(
+        <CampaignCard
+          campaign={campaign()}
+          inviteUrl='https://stone.example/join/code-1'
+          changeSecret={jest.fn()}
+          resetInvite={jest.fn()}
+          removePlayer={jest.fn()}
+          remove={jest.fn()}
+        />,
+      )
+
+      expect(noteOf(container)).toBeNull()
+    })
+  })
+
   it('asks before resetting the invite link', async () => {
     const user = userEvent.setup()
     const { resetInvite } = renderCard()
@@ -114,6 +238,43 @@ describe('components/campaigns/campaign-card', () => {
     )
 
     expect(remove).toHaveBeenCalledTimes(1)
+  })
+
+  it('links each character to its sheet, claimed or not, for the Gamemaster to roll as it (#156)', () => {
+    renderCard({
+      characters: [
+        {
+          id: 'thorin',
+          name: 'Thorin',
+          player: 'Alice',
+          characterId: 'char-1',
+        },
+        { id: 'balin', name: 'Balin' },
+      ],
+    })
+
+    expect(
+      screen.getByText('Open one to see its sheet and roll as it.'),
+    ).toBeInTheDocument()
+    for (const [name, id] of [
+      ['Thorin', 'thorin'],
+      ['Balin', 'balin'],
+    ]) {
+      const link = screen.getByRole('link', { name: `Open ${name}'s sheet` })
+      expect(link).toHaveAttribute('href', `/campaigns/c1/characters/${id}`)
+      expect(link).toHaveTextContent(name)
+      expect(link).toHaveClass('truncate')
+      expect(link.closest('li')).toHaveClass('min-h-10')
+    }
+  })
+
+  it('offers no sheet to open before the campaign has characters', () => {
+    renderCard({ characters: [] })
+
+    expect(
+      screen.queryByText('Open one to see its sheet and roll as it.'),
+    ).toBeNull()
+    expect(screen.queryByRole('link', { name: /sheet$/ })).toBeNull()
   })
 
   it("removes a player's character, after asking", async () => {

@@ -1,5 +1,12 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { favoriteEntries, favoriteKeys, rollsAny } from './favorites'
+import {
+  favoriteEntries,
+  favoriteKeys,
+  foldName,
+  resourceNote,
+  rollsAny,
+} from './favorites'
+import { sheetActions } from './sheet-actions'
 import {
   castingSheet,
   checkingSheet,
@@ -10,7 +17,12 @@ import {
   TEXTS,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
-import type { SheetFavorite } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SheetFavorite,
+  SheetFeature,
+  SheetResourceFavorite,
+} from '@/types/sending-stone'
 
 /** An item made a favorite, by its id. */
 const item = (id: string, itemType = 'loot'): SheetFavorite => ({
@@ -20,6 +32,42 @@ const item = (id: string, itemType = 'loot'): SheetFavorite => ({
   name: id,
   img: null,
 })
+
+/** An old-style resource, standing for the feature the module says, if it says. */
+const resource = (
+  id: string,
+  name: string,
+  itemId?: string | null,
+): SheetResourceFavorite => ({
+  type: 'resource',
+  id,
+  name,
+  uses: { value: 0, max: 1, recovery: 'Short Rest' },
+  ...(itemId !== undefined && { itemId }),
+})
+
+/** A feature listed among the rest, passive and with no uses. */
+const feature = (id: string, name: string): SheetFeature => ({
+  id,
+  name,
+  img: null,
+  kind: null,
+  requirements: null,
+  activation: null,
+  passive: true,
+  uses: null,
+  text: null,
+})
+
+/** What Thorin can roll and use, with these favorites. */
+const actionsWith = (...favorites: SheetFavorite[]) =>
+  sheetActions(fullerSheet({ favorites }))
+
+/** The sheet's own action of an id, as the Actions tab lists it. */
+const actionOf = (sheet: CharacterSheet, id: string) =>
+  sheet.actions
+    .flatMap(section => section.actions)
+    .find(action => action.id === id)
 
 /** One of an item's activities, rolling nothing. */
 const activity = (id: string, name: string) => ({
@@ -545,6 +593,185 @@ describe('utils/favorites', () => {
       expect(favoriteKeys(sheetFavorites())).toEqual(
         new Set(['item:warhammer', 'effect:blessed', 'skill:prc']),
       )
+    })
+
+    it('marks the features resources stand for, given the entries, from module 0.23.0', () => {
+      const favorites = [
+        resource('primary', 'Superiority Dice'),
+        resource('secondary', 'Second Wind', 'second-wind'),
+        resource('tertiary', 'Luck', 'darkvision'),
+      ]
+      const entries = favoriteEntries(fullerSheet({ favorites }))
+
+      expect(favoriteKeys(favorites, entries)).toEqual(
+        new Set(['item:second-wind', 'item:darkvision']),
+      )
+      expect(favoriteKeys(favorites)).toEqual(new Set())
+    })
+  })
+
+  describe('resources that stand for features, from module 0.23.0', () => {
+    it("shows a resource the module links as the feature's action, the sheet's own, with the resource", () => {
+      const linked = resource('secondary', 'Second Wind', 'second-wind')
+      const sheet = fullerSheet({ favorites: [linked] })
+      const [entry] = favoriteEntries(sheet)
+
+      expect(entry).toEqual({
+        key: 'item:second-wind',
+        kind: 'action',
+        action: actionOf(sheet, 'second-wind'),
+        resource: linked,
+      })
+      expect(entry.kind === 'action' && entry.action).toBe(
+        actionOf(sheet, 'second-wind'),
+      )
+    })
+
+    it('shows one linked to a feature with no action as the feature, with the resource', () => {
+      const linked = resource('tertiary', 'Keen Eyes', 'darkvision')
+      const sheet = fullerSheet({ favorites: [linked] })
+
+      expect(favoriteEntries(sheet)).toEqual([
+        {
+          key: 'item:darkvision',
+          kind: 'feature',
+          feature: sheet.features[1].features[0],
+          resource: linked,
+        },
+      ])
+    })
+
+    it('keeps a counter where the module links none, or a feature the sheet no longer has', () => {
+      const none = resource('secondary', 'Second Wind', null)
+      const stale = resource('tertiary', 'Second Wind', 'gone')
+      const sheet = fullerSheet({ favorites: [none, stale] })
+
+      expect(favoriteEntries(sheet)).toEqual([
+        { key: 'resource:secondary', kind: 'resource', resource: none },
+        { key: 'resource:tertiary', kind: 'resource', resource: stale },
+      ])
+    })
+
+    it('finds the feature by its name, folded, where an older module names none', () => {
+      const sheet = fullerSheet()
+      sheet.features.push({
+        id: 'other',
+        label: 'Other Features',
+        text: null,
+        features: [
+          feature('ward', "Warden's Ward"),
+          feature('turn', 'Channel Divinity: Turn Undead'),
+          feature('convert', 'Convert Sorcery Points'),
+        ],
+      })
+      const keysFor = (name: string) =>
+        favoriteEntries({ ...sheet, favorites: [resource('primary', name)] })
+          .map(({ key }) => key)
+          .join(' ')
+
+      expect(keysFor('second  wind')).toBe('item:second-wind')
+      expect(keysFor(' SECOND WIND ')).toBe('item:second-wind')
+      expect(keysFor('Warden\u2019s Ward')).toBe('item:ward')
+      expect(keysFor('Warden\u02BCs  ward')).toBe('item:ward')
+      // Never a feature whose name only begins or ends with it.
+      expect(keysFor('Channel Divinity')).toBe('resource:primary')
+      expect(keysFor('Sorcery Points')).toBe('resource:primary')
+      expect(foldName('\uFF37arden\u2019s\u00A0Ward')).toBe("warden's ward")
+    })
+
+    it('links a feature to one resource at most, the first: a later one is a counter', () => {
+      const first = resource('primary', 'Second Wind')
+      const second = resource('secondary', 'Second Wind')
+      const named = resource('tertiary', 'Second Wind', 'second-wind')
+
+      expect(
+        favoriteEntries(fullerSheet({ favorites: [first, second, named] })).map(
+          ({ key }) => key,
+        ),
+      ).toEqual(['item:second-wind', 'resource:secondary', 'resource:tertiary'])
+
+      // With another feature of the name, the second takes that one, the next the sheet lists.
+      const sheet = fullerSheet({ favorites: [first, second, named] })
+      sheet.features.push({
+        id: 'other',
+        label: 'Other Features',
+        text: null,
+        features: [feature('wind-again', 'Second Wind')],
+      })
+      expect(favoriteEntries(sheet).map(({ key }) => key)).toEqual([
+        'item:second-wind',
+        'item:wind-again',
+        'resource:tertiary',
+      ])
+    })
+
+    it("shows the feature once, at the resource's place, but keeps a favorite of one of its activities", () => {
+      const linked = resource('secondary', 'Second Wind', 'second-wind')
+      const sheet = fullerSheet({
+        favorites: [
+          linked,
+          item('warhammer', 'weapon'),
+          item('second-wind', 'feat'),
+          {
+            type: 'activity',
+            id: 'breather',
+            itemId: 'second-wind',
+            itemType: 'feat',
+            itemName: 'Second Wind',
+            name: 'Breather',
+            img: null,
+            activation: 'Bonus Action',
+            range: null,
+            target: null,
+            toHit: null,
+            save: null,
+            damage: [],
+            uses: null,
+          },
+        ],
+      })
+
+      expect(
+        favoriteEntries(sheet).map(entry => [
+          entry.key,
+          'resource' in entry && entry.resource?.id,
+        ]),
+      ).toEqual([
+        ['item:second-wind', 'secondary'],
+        ['item:warhammer', false],
+        ['activity:breather', false],
+      ])
+    })
+
+    it('leaves the actions rolled and used as they were, with their own uses', () => {
+      const linked = actionsWith(
+        resource('secondary', 'Second Wind', 'second-wind'),
+        item('second-wind', 'feat'),
+      )
+      const plain = actionsWith(item('second-wind', 'feat'))
+
+      expect(linked).toHaveLength(plain.length)
+      expect(linked.map(action => action.uses)).toEqual(
+        plain.map(action => action.uses),
+      )
+      expect(
+        linked
+          .filter(action => action.id === 'second-wind')
+          .map(action => action.uses),
+      ).toEqual([
+        { value: 1, max: 1, recovery: 'Short Rest, Long Rest' },
+        { value: 1, max: 1, recovery: 'Short Rest, Long Rest' },
+      ])
+    })
+
+    it("names the resource first where the feature's name is another", () => {
+      expect(resourceNote(resource('primary', 'Ki'), 'Flurry of Blows')).toBe(
+        'Ki',
+      )
+      expect(
+        resourceNote(resource('primary', 'second  wind'), 'Second Wind'),
+      ).toBeUndefined()
+      expect(resourceNote(undefined, 'Second Wind')).toBeUndefined()
     })
   })
 

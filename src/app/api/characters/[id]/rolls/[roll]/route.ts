@@ -1,5 +1,6 @@
 import { getCharacter } from '@/db/characters'
-import { getRollRequestView } from '@/db/roll-requests'
+import { playerSeat } from '@/db/seats'
+import { rollGetResponse } from '@/lib/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 
@@ -17,7 +18,5 @@ export async function GET(
   const character = await getCharacter(user.id, id)
   if (!character) return new Response(undefined, { status: 404, headers })
 
-  const view = await getRollRequestView(character.id, roll)
-  if (!view) return new Response(undefined, { status: 404, headers })
-  return Response.json(view, { headers })
+  return rollGetResponse(playerSeat(character, user.id), roll)
 }

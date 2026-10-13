@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
+import { playerSeat } from './seats'
 import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
 import {
   characterSheet,
@@ -8,14 +9,18 @@ import {
   roster,
 } from '@/mocks/sending-stone'
 
-const character = {
-  id: 'char-1',
-  name: 'Thorin Oakenshield',
-  gameUrl: 'https://my-game.forge-vtt.com',
-  campaignTitle: 'The Lonely Mountain',
-  campaignId: 'c1',
-  actorId: 'actor-thorin',
-}
+/** Thorin's player at his sheet. */
+const character = playerSeat(
+  {
+    id: 'char-1',
+    name: 'Thorin Oakenshield',
+    gameUrl: 'https://my-game.forge-vtt.com',
+    campaignTitle: 'The Lonely Mountain',
+    campaignId: 'c1',
+    actorId: 'actor-thorin',
+  },
+  'user-1',
+)
 const recently = () => new Date(Date.now() - 30_000)
 const campaign = {
   id: 'c1',
@@ -167,7 +172,7 @@ describe('db/table', () => {
         },
         orderBy: { sentAt: 'desc' },
         take: MESSAGE_LIMIT,
-        select: { data: true },
+        select: { messageId: true, data: true, byGm: true },
       })
       expect(prismaMock.combat.findMany).toHaveBeenCalledWith({
         where: { campaignId: 'c1' },
@@ -445,5 +450,136 @@ describe('db/table', () => {
       })
       expect(removed.connected).toBe(false)
     })
+  })
+})
+
+/** A campaign whose game takes these rolls, and does what else is given with them. */
+const taking = (
+  features: string[],
+  kinds = ['skill', 'save', 'use', 'endEnchantment'],
+) => ({
+  ...campaign,
+  rollsEnabled: true,
+  rollKinds: kinds,
+  rollFeatures: features,
+  bridgePolledAt: new Date(Date.now() - 5000),
+})
+/** That campaign, with nothing in its chat, combats or prompts unless given after. */
+const givenCampaign = (found: object) => {
+  prismaMock.campaign.findUnique.mockResolvedValue(found as any)
+  prismaMock.chatMessage.findMany.mockResolvedValue([])
+  prismaMock.combat.findMany.mockResolvedValue([])
+  prismaMock.rollPrompt.findMany.mockResolvedValue([])
+}
+
+describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
+  /** The campaign's Gamemaster at Thorin's sheet, with no character of their own. */
+  const gm = {
+    name: 'Thorin Oakenshield',
+    gameUrl: 'https://my-game.forge-vtt.com',
+    campaignTitle: 'The Lonely Mountain',
+    campaignId: 'c1',
+    actorId: 'actor-thorin',
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+
+  it("never tells a player of the Gamemaster's rolls, in their view or what tells it apart", async () => {
+    givenCampaign(taking(['prompts', 'gmRolls']))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'save', 'use', 'endEnchantment'],
+      rollFeatures: ['prompts'],
+    })
+    const status = await getCampaignStatus(character)
+    expect(status.rollFeatures).toEqual(['prompts'])
+    expect(status).not.toHaveProperty('gm')
+    expect(await getTableView(character)).not.toHaveProperty('gm')
+  })
+
+  it("rolls what the player may, but ending an enchantment, while the game makes the Gamemaster's rolls", async () => {
+    givenCampaign(taking(['prompts', 'gmRolls']))
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'save', 'use'],
+      rollFeatures: ['prompts'],
+      gm: { rolls: 'made' },
+    })
+    await expect(getCampaignStatus(gm)).resolves.toEqual({
+      version: 7,
+      live: true,
+      rollsToTable: ['skill', 'save', 'use'],
+      rollFeatures: ['prompts'],
+      gm: { rolls: 'made' },
+    })
+  })
+
+  it("rolls nothing to the table while the game doesn't make the Gamemaster's, saying whether to update it", async () => {
+    // A module before 0.23.0: it takes the player's rolls, not the Gamemaster's.
+    givenCampaign(taking(['prompts']))
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: [],
+      rollFeatures: [],
+      prompts: [],
+      gm: { rolls: 'update' },
+    })
+    expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
+
+    // A game taking no rolls.
+    givenCampaign({ ...taking(['gmRolls']), rollsEnabled: false })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: [],
+      gm: { rolls: 'off' },
+    })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      gm: { rolls: 'off' },
+    })
+  })
+
+  it("shows the Gamemaster the character's prompts and chat as its player reads them, but never the player's place in it", async () => {
+    givenCampaign(taking(['prompts', 'gmRolls']))
+    prismaMock.chatMessage.findMany.mockResolvedValue([
+      {
+        messageId: 'm2',
+        data: chatMessage({ id: 'm2', gmRoll: 'req-forged' }),
+        byGm: false,
+      },
+      { messageId: 'm1', data: chatMessage({ id: 'm1' }), byGm: true },
+    ] as any)
+    prismaMock.rollPrompt.findMany.mockResolvedValue([
+      {
+        promptId: 'msg1-thorin',
+        data: { type: 'save', abilities: ['dex'], dc: 15, messageId: 'msg1' },
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    ] as any)
+
+    const view = await getTableView({
+      ...gm,
+      chatReadAt: '2026-10-04T19:00:00.000Z',
+    })
+
+    // As the player's: a whisper to another character is left out.
+    expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          campaignId: 'c1',
+          OR: [{ public: true }, { readers: { has: 'actor-thorin' } }],
+        },
+      }),
+    )
+    expect(prismaMock.rollPrompt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ actorId: 'actor-thorin' }),
+      }),
+    )
+    expect(view.prompts).toEqual([
+      expect.objectContaining({ id: 'msg1-thorin', abilities: ['dex'] }),
+    ])
+    expect(view.chatReadAt).toBeUndefined()
+    // Marked as the Gamemaster's from the app's own record, never the message's claim.
+    expect(view.messages.map(({ id, byGm }) => [id, byGm])).toEqual([
+      ['m1', true],
+      ['m2', undefined],
+    ])
   })
 })

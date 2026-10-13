@@ -10,6 +10,7 @@ import {
 import CharacterPage, { generateMetadata } from './page'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
+import { playerSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
 import { requireUser } from '@/lib/session'
 
@@ -87,7 +88,7 @@ describe('app/characters/[id]/page', () => {
     render(await CharacterPage(props('char-1')))
 
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
-    expect(getTableView).toHaveBeenCalledWith(thorin)
+    expect(getTableView).toHaveBeenCalledWith(playerSeat(thorin, 'user-1'))
     expect(
       screen.getByText('table for Thorin Oakenshield at version 7'),
     ).toBeInTheDocument()

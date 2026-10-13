@@ -7,6 +7,7 @@ import {
 } from './description-actions'
 import { drawDescription, readDescription } from './description-html'
 import { DescriptionLink, useLinkMenus } from './description-link'
+import { useTableApi } from '@/hooks/use-table-api'
 
 /**
  * Descriptions already loaded on this page, by character and hash. The same hash always names the
@@ -39,6 +40,8 @@ function LoadedText({ characterId, hash, origin }: Readonly<Props>) {
   const [attempt, setAttempt] = useState(0)
   const actions = useDescriptionActions()
   const { menus, dialogs } = useLinkMenus(actions)
+  // The Gamemaster's seat reads the character's descriptions through its own API.
+  const api = useTableApi(characterId)
   // Read only where there's a browser to read it: on the server, it's still loading.
   const body = useMemo(
     () => (html === undefined ? undefined : readDescription(html)),
@@ -48,7 +51,7 @@ function LoadedText({ characterId, hash, origin }: Readonly<Props>) {
   useEffect(() => {
     if (loaded.has(key)) return
     const controller = new AbortController()
-    fetch(`/api/characters/${characterId}/texts/${hash}`, {
+    fetch(`${api}/texts/${hash}`, {
       signal: controller.signal,
     })
       .then(async response => {
@@ -61,7 +64,7 @@ function LoadedText({ characterId, hash, origin }: Readonly<Props>) {
         if (!controller.signal.aborted) setFailed(true)
       })
     return () => controller.abort()
-  }, [characterId, hash, key, attempt])
+  }, [api, hash, key, attempt])
 
   if (body) {
     return (

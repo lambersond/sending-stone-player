@@ -58,10 +58,13 @@ function sideOf(
 /**
  * A player's view of chat messages, oldest first. Damage rolled from an attack's card names no
  * targets of its own, so it is shown against the attack's.
+ * @param byGm - The messages this app knows were made for the Gamemaster's rolls as a character,
+ *   by their ids: as stored, never as a message says of itself.
  */
 export function toTableMessages(
   messages: SerializedMessage[],
   viewer: Viewer,
+  byGm: ReadonlySet<string> = new Set(),
 ): TableMessage[] {
   const byId = new Map(messages.map(message => [message.id, message]))
   return messages.map(message => {
@@ -70,14 +73,19 @@ export function toTableMessages(
       message.dnd5e?.targets.length || !attack
         ? undefined
         : byId.get(attack)?.dnd5e?.targets
-    return toTableMessage(message, viewer, inherited)
+    return toTableMessage(message, viewer, inherited, byGm.has(message.id))
   })
 }
 
+/**
+ * @param byGm - Whether this app knows the message was made for the Gamemaster's roll as a
+ *   character, from its own record of it; the message's own `gmRoll` is only a claim.
+ */
 export function toTableMessage(
   message: SerializedMessage,
   viewer: Viewer,
   inheritedTargets?: Dnd5eMessageData['targets'],
+  byGm = false,
 ): TableMessage {
   const rolls = message.rolls.map(roll => toTableRoll(roll))
   const isCard =
@@ -115,6 +123,7 @@ export function toTableMessage(
       action === 'attack' || action === 'spell-attack' ? rolls[0] : undefined,
     ),
     ...(ask && { ask }),
+    ...(byGm && { byGm: true as const }),
   }
 }
 

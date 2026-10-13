@@ -132,6 +132,10 @@ describe('components/character-sheet/features-tab', () => {
     }
     const onUse = jest.fn()
     const { rerender } = render(<FeaturesTab {...props} onUse={onUse} />)
+    // As on the Actions tab, its uses keep out of the way of what it rolls in a narrow list.
+    expect(screen.getByText('1 of 1 uses left').closest('.hidden')).toHaveClass(
+      '@md:inline',
+    )
 
     await user.click(
       screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),

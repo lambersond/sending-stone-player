@@ -97,6 +97,8 @@ export type RollRefusal =
 export type HeldRollRequest = {
   id: string
   actorId: string
+  /** Who sent it: the character's player, or the campaign's Gamemaster as it (#156). */
+  role: 'player' | 'gm'
   kind: string
   payload: unknown
   status: 'pending' | 'claimed' | 'done' | 'failed'
@@ -105,8 +107,16 @@ export type HeldRollRequest = {
   claimedAt: Date | null
 }
 
-/** A roll as the module is sent it: whose, what, how, and the dice to make it with. */
-export type RollCommand = RollRequestInput & { id: string; actorId: string }
+/**
+ * A roll as the module is sent it: whose, what, how, and the dice to make it with; and from module
+ * 0.23.0, `by: 'gm'` for one the campaign's Gamemaster made as the character, which the module
+ * marks as theirs. A player's has no `by`.
+ */
+export type RollCommand = RollRequestInput & {
+  id: string
+  actorId: string
+  by?: 'gm'
+}
 
 /**
  * The rolls a campaign's players can have made in its game now: none unless its Gamemaster lets
@@ -931,5 +941,6 @@ export function toCommand(request: HeldRollRequest): RollCommand {
     ...(request.payload as RollRequestInput),
     id: request.id,
     actorId: request.actorId,
+    ...(request.role === 'gm' ? { by: 'gm' as const } : {}),
   }
 }

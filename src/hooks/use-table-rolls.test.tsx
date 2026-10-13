@@ -7,6 +7,7 @@ import {
   choicesOf,
   damageRollOf,
   FOLLOW_FOR,
+  GM_SEND_KEY,
   LATE_FOLLOW,
   SEND_KEY,
   toFormulaRequest,
@@ -15,6 +16,7 @@ import {
   toRollRequest,
   useTableRolls,
 } from './use-table-rolls'
+import { TableApiContext } from '@/hooks/use-table-api'
 import {
   firstDie,
   modifiedDice,
@@ -2702,5 +2704,72 @@ describe('hooks/use-table-rolls', () => {
     expect(signal?.aborted).toBe(true)
     await advance(CHECK_EVERY * 3)
     expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("hooks/use-table-rolls, the Gamemaster's seat (#156)", () => {
+  const seat = {
+    role: 'gm' as const,
+    api: '/api/campaigns/c1/characters/thorin',
+    key: 'gm:c1:thorin',
+  }
+  const renderGm = () =>
+    renderHook(() => useTableRolls(seat.key, ['skill', 'save'], []), {
+      wrapper: ({ children }: { children: React.ReactNode }) => (
+        <TableApiContext value={seat}>{children}</TableApiContext>
+      ),
+    })
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("sends the Gamemaster's rolls through their seat's own API, and follows them there", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-gm' }))
+      .mockResolvedValueOnce(
+        respond(200, {
+          id: 'req-gm',
+          status: 'done',
+          visible: true,
+          total: 23,
+        }),
+      )
+    const { result } = renderGm()
+
+    act(() => result.current.send(perception, check()))
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/campaigns/c1/characters/thorin/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    await advance(CHECK_EVERY)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/campaigns/c1/characters/thorin/rolls/req-gm',
+      { cache: 'no-store', signal: expect.any(AbortSignal) },
+    )
+  })
+
+  it("keeps the Gamemaster's send switch apart from the player's, on the same device", () => {
+    expect(GM_SEND_KEY).toBe('sending-stone:send-rolls:gm')
+    const { result } = renderGm()
+
+    act(() => result.current.setSending(false))
+    expect(globalThis.localStorage.getItem(GM_SEND_KEY)).toBe('off')
+    expect(globalThis.localStorage.getItem(SEND_KEY)).toBeNull()
+
+    const player = render()
+    expect(player.result.current.sending).toBe(true)
+    act(() => player.result.current.setSending(false))
+    expect(globalThis.localStorage.getItem(SEND_KEY)).toBe('off')
+    act(() => result.current.setSending(true))
+    expect(globalThis.localStorage.getItem(GM_SEND_KEY)).toBe('on')
+    expect(globalThis.localStorage.getItem(SEND_KEY)).toBe('off')
   })
 })

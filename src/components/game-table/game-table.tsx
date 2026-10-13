@@ -3,6 +3,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -28,12 +29,19 @@ import { CharacterPane, classLine } from '@/components/character-sheet'
 import { ConfirmDialog } from '@/components/modal'
 import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { TableApiContext } from '@/hooks/use-table-api'
 import { useTableView } from '@/hooks/use-table-view'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { gameHost } from '@/utils/game-host'
+import { seatWords } from '@/utils/seat-words'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
-import type { Character } from '@/types/character'
-import type { TableCombat, TableView } from '@/types/table'
+import type { Character, TableSeat } from '@/types/character'
+import type {
+  GmRolls,
+  TableCombat,
+  TableMessage,
+  TableView,
+} from '@/types/table'
 
 type Tab = 'character' | 'combat' | 'chat'
 
@@ -49,33 +57,49 @@ const SIDE_BY_SIDE = '(min-width: 64rem)'
 type Props = {
   character: Character
   initialView: TableView
+  /**
+   * Who is at the sheet (#156): its player, by default, through the character's own API; or its
+   * campaign's Gamemaster, through theirs, rolling as it.
+   */
+  seat?: TableSeat
   /** The campaign's characters, for a character in it that has yet to choose which it is. */
   choice?: CampaignChoice
-  /** Saves which of its campaign's characters this character is. */
-  chooseActor: (
+  /** Saves which of its campaign's characters this character is. A player's page only. */
+  chooseActor?: (
     state: ChooseCharacterFormState,
     formData: FormData,
   ) => Promise<ChooseCharacterFormState>
-  /** Deletes this character and leaves its page. */
-  deleteCharacter: () => Promise<void>
-  /** Notes that the player has read the chat up to the message sent at this ISO time. */
-  markChatRead: (readAt: string) => Promise<void>
+  /** Deletes this character and leaves its page. A player's page only. */
+  deleteCharacter?: () => Promise<void>
+  /**
+   * Notes that the player has read the chat up to the message sent at this ISO time. A player's
+   * page only: the Gamemaster never moves their place in it.
+   */
+  markChatRead?: (readAt: string) => Promise<void>
 }
 
 /**
  * A character's live view of its campaign: their sheet to roll from, the combat tracker and the
  * chat log. In tabs on a phone or tablet. On a wider screen the sheet fills the main column, and
- * combat and the chat share a narrow one beside it.
+ * combat and the chat share a narrow one beside it. Its campaign's Gamemaster sees it as its
+ * player does, and rolls as it, with no way to choose or delete it (#156).
  */
 export function GameTable({
   character,
   initialView,
+  seat: given,
   choice,
   chooseActor,
   deleteCharacter,
   markChatRead,
 }: Readonly<Props>) {
-  const { view, connection } = useTableView(character.id, initialView)
+  const role = given?.role ?? 'player'
+  const api = given?.api ?? `/api/characters/${character.id}`
+  const key = given?.key ?? character.id
+  const seat = useMemo<TableSeat>(() => ({ role, api, key }), [role, api, key])
+  const gm = seat.role === 'gm'
+  const words = seatWords(seat.role)
+  const { view, connection } = useTableView(seat.api, initialView)
   const fighting = initialView.combat?.started === true
   const [aside, setAside] = useState<Aside>(() =>
     fighting ? 'combat' : 'chat',
@@ -97,26 +121,29 @@ export function GameTable({
 
   // Messages from others newer than the newest the player has had in view are unread. How far
   // they have read is kept with the character, so it lasts across visits and devices. On a first
-  // visit, what is already there counts as read, and anything after it as unread.
+  // visit, what is already there counts as read, and anything after it as unread. The
+  // Gamemaster's rolls as the character are the player's to read, though theirs; and at its
+  // sheet, the Gamemaster reads all but their own, from the newest when they came, never moving
+  // the player's place (#156).
   const newest = view.messages.at(-1)?.sentAt ?? ''
   const [seenUpTo, setSeenUpTo] = useState(
-    () => initialView.chatReadAt ?? (newest || NOTHING_READ),
+    () => (gm ? undefined : initialView.chatReadAt) ?? (newest || NOTHING_READ),
   )
-  const readElsewhere = view.chatReadAt ?? ''
+  const readElsewhere = gm ? '' : (view.chatReadAt ?? '')
   if (readElsewhere > seenUpTo) setSeenUpTo(readElsewhere)
   if (chatInView && newest > seenUpTo) setSeenUpTo(newest)
   const unread = chatInView
     ? 0
     : view.messages.filter(
-        ({ sentAt, side }) => side !== 'me' && sentAt > seenUpTo,
+        message => countsAsUnread(message, gm) && message.sentAt > seenUpTo,
       ).length
-  const saved = useRef(initialView.chatReadAt)
+  const saved = useRef(gm ? seenUpTo : initialView.chatReadAt)
   useEffect(() => {
-    if (seenUpTo === saved.current) return
+    if (gm || !markChatRead || seenUpTo === saved.current) return
     saved.current = seenUpTo
     // Failing to save only means those messages count as unread again on another visit.
     markChatRead(seenUpTo).catch(() => {})
-  }, [seenUpTo, markChatRead])
+  }, [gm, seenUpTo, markChatRead])
 
   const myTurn = isMyTurn(view.combat)
   // The saves the game asks of the character, which its tab marks while they wait.
@@ -153,7 +180,7 @@ export function GameTable({
         <NoCampaign name={character.name} />
       </Scroller>
     )
-  } else if (!character.actorId && choice) {
+  } else if (!character.actorId && choice && chooseActor) {
     table = (
       <Scroller>
         <ChooseActor choice={choice} action={chooseActor} />
@@ -174,7 +201,7 @@ export function GameTable({
         >
           {view.sheet ? (
             <CharacterPane
-              characterId={character.id}
+              characterId={seat.key}
               name={character.name}
               sheet={view.sheet}
               combat={view.combat}
@@ -185,7 +212,12 @@ export function GameTable({
             />
           ) : (
             <Scroller>
-              <NoSheet name={character.name} withheld={view.sheetWithheld} />
+              <NoSheet
+                name={character.name}
+                withheld={view.sheetWithheld}
+                told={words.told}
+                coming={words.noSheet}
+              />
             </Scroller>
           )}
         </Pane>
@@ -263,109 +295,171 @@ export function GameTable({
   }
 
   return (
-    // A character's page has no app bar, so the game table fills the viewport.
-    <div className='flex h-dvh flex-col md:flex-row'>
-      <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
-        <header className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'>
-          <div className='flex min-w-0 items-center gap-2'>
-            <Link
-              href='/characters'
-              aria-label='All characters'
-              className='-ml-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
-            >
-              <ArrowLeft aria-hidden className='size-5' />
-            </Link>
-            <div className='min-w-0'>
-              {/* On a wide screen, the class and subclass follow the name, cut short before it
+    // A character's page has no app bar, so the game table fills the viewport. What reads and rolls
+    // through the seat's API below, the sheet's descriptions and rolls among it, finds it here.
+    <TableApiContext value={seat}>
+      <div className='flex h-dvh flex-col md:flex-row'>
+        <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
+          <header className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'>
+            <div className='flex min-w-0 items-center gap-2'>
+              <Link
+                href={gm ? '/campaigns' : '/characters'}
+                aria-label={gm ? 'Your campaigns' : 'All characters'}
+                className='-ml-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+              >
+                <ArrowLeft aria-hidden className='size-5' />
+              </Link>
+              <div className='min-w-0'>
+                {/* On a wide screen, the class and subclass follow the name, cut short before it
                   is. Narrower, the line under the name has them, on the Character tab. */}
-              <div className='flex items-baseline gap-2 overflow-hidden'>
-                <h1 className='max-w-full shrink-0 truncate text-lg leading-tight font-semibold'>
-                  {character.name}
-                </h1>
-                {playing && view.sheet && (
-                  <p className='hidden min-w-0 truncate text-sm text-text-secondary lg:block'>
-                    {classLine(view.sheet)}
+                <div className='flex items-baseline gap-2 overflow-hidden'>
+                  {gm ? (
+                    // The name and its GM pill stand where the name alone does, and only the name
+                    // is cut short, so a long one on a phone never pushes the pill out of view.
+                    <div className='flex max-w-full shrink-0 items-baseline gap-2'>
+                      <h1 className='min-w-0 truncate text-lg leading-tight font-semibold'>
+                        {character.name}
+                      </h1>
+                      <span className='shrink-0 self-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary'>
+                        GM<span className='sr-only'>, Gamemaster view</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <h1 className='max-w-full shrink-0 truncate text-lg leading-tight font-semibold'>
+                      {character.name}
+                    </h1>
+                  )}
+                  {playing && view.sheet && (
+                    <p className='hidden min-w-0 truncate text-sm text-text-secondary lg:block'>
+                      {classLine(view.sheet)}
+                    </p>
+                  )}
+                </div>
+                <p
+                  className={clsx(
+                    'truncate text-sm text-text-secondary',
+                    playing && 'lg:hidden',
+                  )}
+                >
+                  {subtitle(tab, view, character)}
+                </p>
+                {playing && (
+                  <p className='hidden truncate text-sm text-text-secondary lg:block'>
+                    {campaignAndGame(view, character)}
                   </p>
                 )}
               </div>
-              <p
-                className={clsx(
-                  'truncate text-sm text-text-secondary',
-                  playing && 'lg:hidden',
-                )}
-              >
-                {subtitle(tab, view, character)}
-              </p>
-              {playing && (
-                <p className='hidden truncate text-sm text-text-secondary lg:block'>
-                  {campaignAndGame(view, character)}
-                </p>
+            </div>
+            <div className='flex shrink-0 items-center gap-1'>
+              <LiveStatus state={liveState(playing, view, connection)} />
+              {!gm && deleteCharacter && (
+                <ConfirmDialog
+                  trigger={<Trash2 aria-hidden className='size-4' />}
+                  triggerLabel={`Delete ${character.name}`}
+                  triggerClassName='rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+                  title={`Delete ${character.name}?`}
+                  confirmLabel='Delete'
+                  onConfirm={deleteCharacter}
+                  danger
+                >
+                  <DeleteCharacterWarning name={character.name} />
+                </ConfirmDialog>
               )}
             </div>
-          </div>
-          <div className='flex shrink-0 items-center gap-1'>
-            <LiveStatus state={liveState(playing, view, connection)} />
-            <ConfirmDialog
-              trigger={<Trash2 aria-hidden className='size-4' />}
-              triggerLabel={`Delete ${character.name}`}
-              triggerClassName='rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
-              title={`Delete ${character.name}?`}
-              confirmLabel='Delete'
-              onConfirm={deleteCharacter}
-              danger
-            >
-              <DeleteCharacterWarning name={character.name} />
-            </ConfirmDialog>
-          </div>
-        </header>
-        {playing && view.campaign && !view.connected && (
-          <NotConnected name={character.name} campaign={view.campaign.title} />
-        )}
-        {table}
+          </header>
+          {gm && (
+            <GmNote name={character.name} rolls={view.gm?.rolls ?? 'off'} />
+          )}
+          {playing && view.campaign && !view.connected && (
+            <NotConnected
+              name={character.name}
+              campaign={view.campaign.title}
+              addBack={words.addBack}
+            />
+          )}
+          {table}
+        </div>
+        <nav
+          aria-label='Table'
+          className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'
+        >
+          <TabButton
+            icon={UserRound}
+            label='Character'
+            active={tab === 'character'}
+            onClick={() => show('character')}
+          >
+            {asked.length > 0 && tab !== 'character' && (
+              <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
+                <span className='sr-only'>{words.asksForRoll}</span>
+              </span>
+            )}
+          </TabButton>
+          <TabButton
+            icon={Swords}
+            label='Combat'
+            active={tab === 'combat'}
+            onClick={() => show('combat')}
+          >
+            {myTurn && tab !== 'combat' && (
+              <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
+                <span className='sr-only'>, your turn</span>
+              </span>
+            )}
+          </TabButton>
+          <TabButton
+            icon={MessageSquare}
+            label='Chat'
+            active={tab === 'chat'}
+            onClick={() => show('chat')}
+          >
+            {unread > 0 && (
+              <span className='absolute top-1 right-[calc(50%-1.75rem)] flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary ring-2 ring-card'>
+                {badgeCount(unread)}
+                <span className='sr-only'> unread</span>
+              </span>
+            )}
+          </TabButton>
+        </nav>
       </div>
-      <nav
-        aria-label='Table'
-        className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'
-      >
-        <TabButton
-          icon={UserRound}
-          label='Character'
-          active={tab === 'character'}
-          onClick={() => show('character')}
-        >
-          {asked.length > 0 && tab !== 'character' && (
-            <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
-              <span className='sr-only'>, your Gamemaster asks for a roll</span>
-            </span>
-          )}
-        </TabButton>
-        <TabButton
-          icon={Swords}
-          label='Combat'
-          active={tab === 'combat'}
-          onClick={() => show('combat')}
-        >
-          {myTurn && tab !== 'combat' && (
-            <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
-              <span className='sr-only'>, your turn</span>
-            </span>
-          )}
-        </TabButton>
-        <TabButton
-          icon={MessageSquare}
-          label='Chat'
-          active={tab === 'chat'}
-          onClick={() => show('chat')}
-        >
-          {unread > 0 && (
-            <span className='absolute top-1 right-[calc(50%-1.75rem)] flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary ring-2 ring-card'>
-              {badgeCount(unread)}
-              <span className='sr-only'> unread</span>
-            </span>
-          )}
-        </TabButton>
-      </nav>
-    </div>
+    </TableApiContext>
+  )
+}
+
+/**
+ * Whether a message counts toward the unread: for the player, any but their own rolls, and the
+ * Gamemaster's rolls as their character all the same; for the Gamemaster at the sheet, any but
+ * their own rolls there.
+ */
+function countsAsUnread(message: TableMessage, gm: boolean): boolean {
+  if (gm) return message.byGm !== true
+  return message.side !== 'me' || message.byGm === true
+}
+
+/**
+ * Tells the Gamemaster at one of their campaign's characters' sheets (#156) where what they roll
+ * there goes: made in their game as the character's, marked as theirs; kept here until their
+ * module is new enough to mark it; or kept here while their game takes no rolls.
+ */
+function GmNote({ name, rolls }: Readonly<{ name: string; rolls: GmRolls }>) {
+  const at = `You're at ${name}'s sheet as the Gamemaster.`
+  let note = `${at} What you roll here is made in your game as ${name}'s, marked as yours.`
+  if (rolls === 'update') {
+    note = `${at} Your rolls stay here: update Sending Stone in Foundry to 0.23.0 to make them in your game as ${name}'s.`
+  } else if (rolls === 'off') {
+    note = `${at} Your rolls stay here while your game isn't taking rolls from Sending Stone.`
+  }
+  return (
+    <p
+      className={clsx(
+        'shrink-0 border-b px-4 py-2.5 text-sm md:px-8',
+        rolls === 'made'
+          ? 'border-primary/30 bg-primary/5'
+          : 'border-warning/40 bg-warning/10',
+      )}
+    >
+      {note}
+    </p>
   )
 }
 
@@ -468,12 +562,12 @@ function TabButton({
 function NotConnected({
   name,
   campaign,
-}: Readonly<{ name: string; campaign: string }>) {
+  addBack,
+}: Readonly<{ name: string; campaign: string; addBack: string }>) {
   return (
     <p className='shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-sm md:px-8'>
       {name} is no longer one of {campaign}&apos;s characters, so only public
-      messages show here. Ask your Gamemaster to add them back to the campaign
-      in Sending Stone.
+      messages show here. {addBack}
     </p>
   )
 }
@@ -509,7 +603,16 @@ function NoCampaign({ name }: Readonly<{ name: string }>) {
 function NoSheet({
   name,
   withheld,
-}: Readonly<{ name: string; withheld?: TableView['sheetWithheld'] }>) {
+  told,
+  coming,
+}: Readonly<{
+  name: string
+  withheld?: TableView['sheetWithheld']
+  /** Who was told it was held back. */
+  told: string
+  /** How a sheet comes. */
+  coming: string
+}>) {
   if (withheld?.reason === 'tooLarge') {
     const { bytes, limit } = withheld
     // In megabytes to a tenth, as the module tells the Gamemaster: the size rounded up and the
@@ -524,14 +627,13 @@ function NoSheet({
         {typeof bytes === 'number' &&
           typeof limit === 'number' &&
           `It came to ${megabytes(bytes, Math.ceil)}, more than the ${megabytes(limit, Math.floor)} this app takes. `}
-        Your Gamemaster has been told.
+        {told}
       </EmptyState>
     )
   }
   return (
     <EmptyState icon={UserRound} title={`${name}'s sheet hasn't arrived`}>
-      Your Gamemaster&apos;s Sending Stone module sends it under D&amp;D Fifth
-      Edition, from version 0.5.0. It arrives the next time their game connects.
+      {coming}
     </EmptyState>
   )
 }
@@ -540,7 +642,10 @@ function NoSheet({
 function ChooseActor({
   choice,
   action,
-}: Readonly<{ choice: CampaignChoice; action: Props['chooseActor'] }>) {
+}: Readonly<{
+  choice: CampaignChoice
+  action: NonNullable<Props['chooseActor']>
+}>) {
   return (
     <div className='mx-auto w-full max-w-xl px-4 py-10'>
       <h2 className='text-lg font-semibold'>

@@ -12,6 +12,8 @@ export type OwnedCampaign = {
   /** Is the Gamemaster's game sending right now? */
   live: boolean
   lastSeenAt?: string
+  /** The latest post from Foundry refused for it in the last day, which its card explains. */
+  refusal?: CampaignRefusal
   /**
    * Whether players' rolls are made in the game, with the dice they roll here: turned on in
    * Foundry, whether the game is fetching them now, whether their attacks, and their spells and
@@ -32,6 +34,22 @@ export type OwnedCampaign = {
     player?: string
     characterId?: string
   }[]
+}
+
+/**
+ * A post from Foundry refused for a campaign, as its card explains it: the wrong secret, a title no
+ * campaign here has (`detail`, the title Foundry sent, on each of the game's campaigns waiting for
+ * it), or what couldn't be read (`detail`, the event's type and what was wrong).
+ */
+export type CampaignRefusal = {
+  reason: 'wrongSecret' | 'notSetUp' | 'malformed'
+  /** The status it was refused with. */
+  status: number
+  detail?: string
+  /** When, as an ISO date. */
+  at: string
+  /** Has Foundry not reached the app since? */
+  current: boolean
 }
 
 /** One of a campaign's characters, as offered to a player choosing theirs. */

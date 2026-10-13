@@ -4,6 +4,7 @@
 import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
+import { playerSeat } from '@/db/seats'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCurrentUser } from '@/lib/session'
 
@@ -13,6 +14,8 @@ jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 
 const HASH = '1a2b3c4d5e6f70'
 const character = { id: 'char-1', name: 'Thorin', campaignId: 'c1' }
+/** Its player at its sheet. */
+const seat = playerSeat(character as any, 'user-1')
 
 const get = (hash = HASH) =>
   GET(
@@ -38,7 +41,7 @@ describe('app/api/characters/[id]/texts/[hash]', () => {
       html: '<p>Regain hit points.</p>',
     })
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
-    expect(getSheetText).toHaveBeenCalledWith(character, HASH)
+    expect(getSheetText).toHaveBeenCalledWith(seat, HASH)
   })
 
   it('asks the signed-out to sign in', async () => {

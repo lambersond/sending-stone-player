@@ -1,5 +1,11 @@
 import prisma from '@/clients/prisma'
-import { BRIDGE_TIMEOUT } from '@/constants/sending-stone'
+import {
+  BRIDGE_TIMEOUT,
+  REFUSAL,
+  REFUSAL_RECORD_EVERY,
+  REFUSAL_SHOWN_FOR,
+} from '@/constants/sending-stone'
+import { attempt } from '@/lib/bridge-http'
 import {
   generateInviteCode,
   hashSecret,
@@ -9,6 +15,7 @@ import { literalPattern } from '@/utils/literal-pattern'
 import { availableRollKinds } from '@/utils/roll-requests'
 import type {
   CampaignChoice,
+  CampaignRefusal,
   CampaignSetupInput,
   OwnedCampaign,
 } from '@/types/campaign'
@@ -21,6 +28,49 @@ export function isLive(lastSeenAt: Date | null | undefined, now = Date.now()) {
 
 const rosterOf = (characters: unknown) =>
   characters as unknown as ConnectedCharacter[]
+
+/** The refusals a campaign's card explains: those that can be tied to the campaign. */
+const RECORDED: ReadonlySet<string> = new Set<CampaignRefusal['reason']>([
+  REFUSAL.WRONG_SECRET,
+  REFUSAL.NOT_SET_UP,
+  REFUSAL.MALFORMED,
+])
+
+/**
+ * A campaign's latest refusal, as its card shows it: for a day, and only one it can explain.
+ * Current until Foundry has reached the app since.
+ */
+function refusalOf(
+  campaign: {
+    refusedAt: Date | null
+    refusalReason: string | null
+    refusalStatus: number | null
+    refusalDetail: string | null
+    lastSeenAt: Date | null
+  },
+  now = Date.now(),
+): CampaignRefusal | undefined {
+  const { refusedAt, refusalReason: reason, lastSeenAt } = campaign
+  if (!refusedAt || !reason || !RECORDED.has(reason)) return undefined
+  if (now - refusedAt.getTime() > REFUSAL_SHOWN_FOR) return undefined
+  return {
+    reason: reason as CampaignRefusal['reason'],
+    status: campaign.refusalStatus ?? 0,
+    ...(campaign.refusalDetail && { detail: campaign.refusalDetail }),
+    at: refusedAt.toISOString(),
+    current: !lastSeenAt || refusedAt > lastSeenAt,
+  }
+}
+
+/** What clears a campaign's recorded refusal, as binding it or changing its secret does. */
+const NO_REFUSAL = {
+  /* eslint-disable unicorn/no-null -- Prisma unsets a column with null */
+  refusedAt: null,
+  refusalReason: null,
+  refusalStatus: null,
+  refusalDetail: null,
+  /* eslint-enable unicorn/no-null */
+}
 
 /* -------------------------------------------- */
 /*  Gamemasters                                 */
@@ -49,6 +99,10 @@ export async function listOwnedCampaigns(
       rollKinds: true,
       rollFeatures: true,
       bridgePolledAt: true,
+      refusedAt: true,
+      refusalReason: true,
+      refusalStatus: true,
+      refusalDetail: true,
       players: {
         select: { id: true, actorId: true, user: { select: { name: true } } },
       },
@@ -58,6 +112,7 @@ export async function listOwnedCampaigns(
     const players = new Map(
       campaign.players.map(player => [player.actorId, player]),
     )
+    const refusal = refusalOf(campaign)
     return {
       id: campaign.id,
       title: campaign.title,
@@ -68,6 +123,7 @@ export async function listOwnedCampaigns(
       rosterReceived: campaign.helloSession !== null,
       live: isLive(campaign.lastSeenAt),
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
+      ...(refusal && { refusal }),
       rolls: {
         enabled: campaign.rollsEnabled,
         reaching: availableRollKinds(campaign).length > 0,
@@ -113,7 +169,10 @@ export async function setUpCampaign(
   })
 }
 
-/** @returns Whether the Gamemaster had a campaign with that id to change. */
+/**
+ * A refusal for the old secret no longer says anything of the new one, so it's cleared.
+ * @returns Whether the Gamemaster had a campaign with that id to change.
+ */
 export async function changeCampaignSecret(
   userId: string,
   campaignId: string,
@@ -121,7 +180,7 @@ export async function changeCampaignSecret(
 ): Promise<boolean> {
   const { count } = await prisma.campaign.updateMany({
     where: { id: campaignId, ownerId: userId },
-    data: { secretHash: await hashSecret(secret) },
+    data: { secretHash: await hashSecret(secret), ...NO_REFUSAL },
   })
   return count > 0
 }
@@ -181,16 +240,36 @@ export type EventCampaign =
  * Find the campaign an event is for, and check that the secret it came with is that campaign's.
  * The module's campaign is bound by its first event to the campaign set up here with its title
  * in its game; from then on its id finds it, whatever it is renamed.
+ *
+ * A refusal is recorded for the campaigns it may be meant for, for their cards to explain: the
+ * wrong secret on the campaign bound, or on each with its title; no campaign with its title on
+ * each of the game's waiting for Foundry whose secret it came with, which is it under another
+ * title. Only a post with a campaign's secret records the title it sent there; a wrong-secret
+ * note on a waiting campaign can be left by anyone who knows its title and game, but says
+ * nothing they choose.
  * @param origin - The game's origin, from the request's Origin header.
  * @param campaign - The module's campaign, as the envelope names it.
  * @param secret - The secret the request carried.
+ * @param options.record - Record a refusal: not for a connection test, whose title and secret are
+ *   as typed, perhaps not saved.
  * @returns The campaign; 'unknown' when none is set up for it; 'refused' for the wrong secret.
  */
 export async function findEventCampaign(
   origin: string,
   campaign: CampaignRef,
   secret: string,
+  { record = true }: { record?: boolean } = {},
 ): Promise<EventCampaign> {
+  const wrongSecret = async (ids: string[]): Promise<'refused'> => {
+    if (record) {
+      await recordRefusal(
+        { ids },
+        { reason: REFUSAL.WRONG_SECRET, status: 401 },
+      )
+    }
+    return 'refused'
+  }
+
   const bound = await prisma.campaign.findUnique({
     where: { originCampaign: { origin, foundryId: campaign.id } },
     select: { id: true, secretHash: true, helloSession: true },
@@ -198,7 +277,7 @@ export async function findEventCampaign(
   if (bound?.secretHash) {
     return (await verifySecret(secret, bound.secretHash))
       ? { id: bound.id, helloSession: bound.helloSession ?? undefined }
-      : 'refused'
+      : wrongSecret([bound.id])
   }
 
   const candidates = await prisma.campaign.findMany({
@@ -214,14 +293,91 @@ export async function findEventCampaign(
     orderBy: { createdAt: 'asc' },
     select: { id: true, secretHash: true },
   })
-  if (candidates.length === 0) return 'unknown'
+  if (candidates.length === 0) {
+    if (record) {
+      // Anyone can post a title from a game's address, so it's recorded only on the game's
+      // campaigns waiting for Foundry whose secret it came with: the module's, under another title.
+      const waiting = await prisma.campaign.findMany({
+        where: {
+          origin,
+          // Prisma's filters for an unset field, and a set one.
+          // eslint-disable-next-line unicorn/no-null
+          foundryId: null,
+          // eslint-disable-next-line unicorn/no-null
+          secretHash: { not: null },
+        },
+        select: { id: true, secretHash: true },
+      })
+      const ids: string[] = []
+      for (const { id, secretHash } of waiting) {
+        if (await verifySecret(secret, secretHash ?? '')) ids.push(id)
+      }
+      if (ids.length > 0) {
+        await recordRefusal(
+          { ids },
+          {
+            reason: REFUSAL.NOT_SET_UP,
+            status: 404,
+            detail: campaign.title.slice(0, 200),
+          },
+        )
+      }
+    }
+    return 'unknown'
+  }
   for (const candidate of candidates) {
     if (await verifySecret(secret, candidate.secretHash ?? '')) {
       // Bound only now, so it holds no state from the module's session.
       return { id: await bind(candidate.id, campaign.id, bound?.id) }
     }
   }
-  return 'refused'
+  return wrongSecret(candidates.map(({ id }) => id))
+}
+
+/**
+ * Record a post refused for a campaign, for its card to explain, on the campaigns given by id.
+ * Written at most once a minute unless the reason changes, and a failure to is only logged: it
+ * never changes the answer.
+ */
+export async function recordRefusal(
+  { ids }: { ids: string[] },
+  {
+    reason,
+    status,
+    detail,
+  }: { reason: CampaignRefusal['reason']; status: number; detail?: string },
+): Promise<void> {
+  const now = new Date()
+  await attempt(
+    () =>
+      prisma.campaign.updateMany({
+        where: {
+          AND: [
+            { id: { in: ids } },
+            {
+              OR: [
+                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+                { refusedAt: null },
+                {
+                  refusedAt: {
+                    lt: new Date(now.getTime() - REFUSAL_RECORD_EVERY),
+                  },
+                },
+                { refusalReason: { not: reason } },
+              ],
+            },
+          ],
+        },
+        data: {
+          refusedAt: now,
+          refusalReason: reason,
+          refusalStatus: status,
+          // eslint-disable-next-line unicorn/no-null -- Prisma unsets a column with null
+          refusalDetail: detail ?? null,
+        },
+      }),
+    'Failed to record a refused post',
+  )
 }
 
 /**
@@ -235,10 +391,11 @@ async function bind(
   foundryId: string,
   earlierId: string | undefined,
 ): Promise<string> {
+  // What was refused before it was bound no longer applies.
   if (!earlierId) {
     await prisma.campaign.update({
       where: { id: campaignId },
-      data: { foundryId },
+      data: { foundryId, ...NO_REFUSAL },
     })
     return campaignId
   }
@@ -253,7 +410,10 @@ async function bind(
         inviteCode: true,
       },
     })
-    await tx.campaign.update({ where: { id: earlierId }, data: setUp })
+    await tx.campaign.update({
+      where: { id: earlierId },
+      data: { ...setUp, ...NO_REFUSAL },
+    })
     return earlierId
   })
 }

@@ -59,6 +59,8 @@ export type TableMessage = {
   targets: TableTarget[]
   /** For a roll request card, the saving throw or check it asks the table for. */
   ask?: TableAsk
+  /** Made for a roll the campaign's Gamemaster made here as a character, as this app knows. */
+  byGm?: true
 }
 
 /**
@@ -166,4 +168,13 @@ export type TableView = {
   rollFeatures?: RollFeature[]
   /** The saving throws the game is asking of the character, oldest first, while it takes them. */
   prompts?: TablePrompt[]
+  /**
+   * For the Gamemaster's view of a character only (#156): whether what they roll here is made in
+   * their game (`made`), stays here until its module is updated (`update`), or stays here while
+   * it takes no rolls (`off`).
+   */
+  gm?: { rolls: GmRolls }
 }
+
+/** Where the Gamemaster's rolls as a character go, as their view of it says. */
+export type GmRolls = 'made' | 'update' | 'off'

@@ -11,23 +11,31 @@ export const POLL_INTERVAL = 3000
 /** The longest wait between attempts while the server cannot be reached. */
 const MAX_DELAY = 30_000
 
+/** What the viewer has of a view, which the server compares to say nothing is new. */
+function seenOf(view: TableView) {
+  return {
+    version: view.version,
+    live: view.live,
+    sheetVersion: view.sheetVersion,
+    rolls: rollsKey(view.rollsToTable, view.rollFeatures),
+    // For the Gamemaster's seat (#156): where their rolls go.
+    gm: view.gm?.rolls,
+  }
+}
+
 /**
  * Keep a character's view of its campaign current by polling for changes, including the
  * Gamemaster's game going offline or coming back. Polling pauses while the
  * page is in the background and catches up as soon as it is back.
- * @param characterId - The character being viewed.
+ * @param api - The seat's API base: the character's, such as `/api/characters/<id>`, or the
+ *   Gamemaster's at its sheet (#156).
  * @param initial - The view the page was rendered with.
  */
-export function useTableView(characterId: string, initial: TableView) {
+export function useTableView(api: string, initial: TableView) {
   const router = useRouter()
   const [view, setView] = useState(initial)
   const [connection, setConnection] = useState<Connection>('live')
-  const seen = useRef({
-    version: initial.version,
-    live: initial.live,
-    sheetVersion: initial.sheetVersion,
-    rolls: rollsKey(initial.rollsToTable, initial.rollFeatures),
-  })
+  const seen = useRef(seenOf(initial))
 
   useEffect(() => {
     const controller = new AbortController()
@@ -37,19 +45,21 @@ export function useTableView(characterId: string, initial: TableView) {
 
     const poll = async () => {
       try {
-        const { version, live, sheetVersion, rolls } = seen.current
+        const { version, live, sheetVersion, rolls, gm } = seen.current
         const query = new URLSearchParams({
           version: String(version),
           live: live ? '1' : '0',
           ...(rolls && { rolls }),
+          ...(gm && { gm }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
-        const response = await fetch(
-          `/api/characters/${characterId}/table?${query}`,
-          { cache: 'no-store', signal: controller.signal },
-        )
+        const response = await fetch(`${api}/table?${query}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
         if (response.status === 401 || response.status === 404) {
-          // Signed out, or the character was removed: let the page show why.
+          // Signed out, the character was removed, or it left the Gamemaster's campaign: let the
+          // page show why.
           stopped = true
           router.refresh()
           return
@@ -57,12 +67,7 @@ export function useTableView(characterId: string, initial: TableView) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         if (response.status === 200) {
           const next = (await response.json()) as TableView
-          seen.current = {
-            version: next.version,
-            live: next.live,
-            sheetVersion: next.sheetVersion,
-            rolls: rollsKey(next.rollsToTable, next.rollFeatures),
-          }
+          seen.current = seenOf(next)
           // A sheet left out is the one this page already has.
           setView(held =>
             next.sheet === undefined && next.sheetVersion !== undefined
@@ -103,7 +108,7 @@ export function useTableView(characterId: string, initial: TableView) {
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [characterId, router])
+  }, [api, router])
 
   return { view, connection }
 }

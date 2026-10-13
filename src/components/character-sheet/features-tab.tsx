@@ -22,6 +22,7 @@ import type {
   SheetAction,
   SheetClass,
   SheetFeature,
+  SheetUses,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
@@ -123,22 +124,41 @@ export function FeaturesTab({
 
 /**
  * A feature: how it's used and its uses left, opening to its description. Given the rows actions
- * are in, one that rolls shows what it rolls beside it, as an action does.
+ * are in, one that rolls shows what it rolls beside it, as an action does. Among the favorites, it
+ * may show other uses in place of its own, such as those of a resource it stands for, with a note
+ * first.
  */
 export function FeatureEntry({
   characterId,
   feature,
   rows,
+  uses,
+  note,
 }: Readonly<{
   characterId: string
   feature: SheetFeature
   rows?: ActionRows
+  /**
+   * Uses to show in place of its own, only shown, and shown however narrow the list; null for
+   * none.
+   */
+  uses?: SheetUses | null
+  /** What to say of it first, such as the name of the resource it stands for. */
+  note?: string
 }>) {
   const meta = joinParts(feature.kind, feature.requirements)
   const action = rows && featureAction(feature)
   if (rows && action) {
-    return <ActionEntry action={action} rows={rows} look={{ meta }} />
+    return (
+      <ActionEntry
+        action={action}
+        rows={rows}
+        note={note}
+        look={{ meta, uses }}
+      />
+    )
   }
+  const shown = uses === undefined ? feature.uses : uses
   return (
     <SheetEntry
       characterId={characterId}
@@ -147,10 +167,11 @@ export function FeatureEntry({
       fallback={Sparkles}
       favoriteKey={`item:${feature.id}`}
       detail={joinParts(
+        note,
         feature.activation ?? (feature.passive ? 'Passive' : undefined),
         feature.uses?.recovery,
       )}
-      aside={feature.uses && <UsesLeft uses={feature.uses} />}
+      aside={shown && <UsesLeft uses={shown} />}
       meta={meta}
       text={feature.text}
       origin={{ name: feature.name, item: feature.id }}

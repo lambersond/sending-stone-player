@@ -5,6 +5,7 @@ import {
   type DescriptionActions,
 } from './description-actions'
 import { SheetText } from './sheet-text'
+import { TableApiContext } from '@/hooks/use-table-api'
 
 const ORIGIN = { name: 'Second Wind' }
 
@@ -36,6 +37,38 @@ describe('components/character-sheet/sheet-text', () => {
     )
     expect(screen.getByText('Take one more action.')).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/texts/2b3c4d5e6f7081',
+      expect.anything(),
+    )
+  })
+
+  it("loads one through the Gamemaster's own API at a character's sheet (#156)", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(true, '<p>Stonecunning.</p>'))
+    // As GameTable gives it: the seat's stored-key prefix as the character, its API around it.
+    render(
+      <TableApiContext
+        value={{
+          role: 'gm',
+          api: '/api/campaigns/c1/characters/balin',
+          key: 'gm:c1:balin',
+        }}
+      >
+        <SheetText
+          characterId='gm:c1:balin'
+          hash='9a2b3c4d5e6f70'
+          origin={ORIGIN}
+        />
+      </TableApiContext>,
+    )
+
+    expect(await screen.findByText('Stonecunning.')).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/campaigns/c1/characters/balin/texts/9a2b3c4d5e6f70',
+      expect.anything(),
+    )
   })
 
   it('says when it could not load one, and tries again on request', async () => {

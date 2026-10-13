@@ -21,6 +21,7 @@ import {
   TEXTS,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
+import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { RolledDice, RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
@@ -36,6 +37,15 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 const GAME = 'https://my-game.forge-vtt.com'
 
 type User = ReturnType<typeof userEvent.setup>
+
+/**
+ * This page's storage emptied, but for the roll toasts, which these tests leave off: they test
+ * the tray, whose words a toast would say again.
+ */
+const clearStorage = () => {
+  globalThis.localStorage.clear()
+  globalThis.localStorage.setItem(TOASTS_KEY, 'off')
+}
 
 const renderPane = (sheet: CharacterSheet = fullerSheet()) =>
   render(
@@ -62,6 +72,12 @@ const show = (name: string) =>
   userEvent
     .setup()
     .click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }))
+
+/** The names of the rows starred in a part of the sheet. */
+const starred = (name: string) =>
+  within(screen.getByRole('region', { name }))
+    .getAllByText(', favorite')
+    .map(star => star.closest('li')?.textContent?.split(',', 1)[0])
 
 /** An activity the game uses, as the module describes it from 0.12.0. */
 const activity = (
@@ -243,6 +259,9 @@ const openSecondWind = async () => {
   return user
 }
 
+/** The rolls' toasts, at the top of the screen. */
+const toasts = () => screen.getByRole('log', { name: 'Roll results' })
+
 /** Opens the sheet's settings, from the cog after its tabs. */
 const openSettings = async (user: User) => {
   await user.click(screen.getByRole('button', { name: 'Settings' }))
@@ -296,6 +315,7 @@ const drink = () =>
 
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
+    globalThis.localStorage.setItem(TOASTS_KEY, 'off')
     globalThis.fetch = jest.fn(
       async () =>
         ({
@@ -326,7 +346,7 @@ describe('components/character-sheet/character-pane', () => {
 
   it('asks the player on every tab for the saves the game asks of them, and answers from there', async () => {
     const user = userEvent.setup()
-    globalThis.localStorage.clear()
+    clearStorage()
     const posted = answering({
       'req-1': { status: 'done', visible: true, total: 18, outcome: 'success' },
     })
@@ -392,7 +412,7 @@ describe('components/character-sheet/character-pane', () => {
 
   it("sends a roll to the Gamemaster's game, when it takes the player's rolls, and shows its total there", async () => {
     const user = userEvent.setup()
-    globalThis.localStorage.clear()
+    clearStorage()
     const responses: Record<string, unknown> = {
       'POST /api/characters/char-1/rolls': { id: 'req-1' },
       'GET /api/characters/char-1/rolls/req-1': {
@@ -453,7 +473,7 @@ describe('components/character-sheet/character-pane', () => {
 
   it("spends a hit die in the Gamemaster's game, when it takes them, with the same die", async () => {
     const user = userEvent.setup()
-    globalThis.localStorage.clear()
+    clearStorage()
     const posted: Record<string, unknown>[] = []
     globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
       if (init?.method === 'POST') {
@@ -509,7 +529,7 @@ describe('components/character-sheet/character-pane', () => {
 
   it("spends hit dice used at once in the Gamemaster's game as one request, from module 0.20.0, and says what came of them all", async () => {
     const user = userEvent.setup()
-    globalThis.localStorage.clear()
+    clearStorage()
     const posted: Record<string, unknown>[] = []
     globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
       if (init?.method === 'POST') {
@@ -580,7 +600,7 @@ describe('components/character-sheet/character-pane', () => {
 
   it("says hit dice used at once the Gamemaster's game refused for want of dice want fewer, not none of a size", async () => {
     const user = userEvent.setup()
-    globalThis.localStorage.clear()
+    clearStorage()
     // As when one was spent elsewhere since this sheet was sent: 3 of 5 left here, 1 in the game.
     globalThis.fetch = jest.fn(
       async () =>
@@ -624,7 +644,7 @@ describe('components/character-sheet/character-pane', () => {
 
   it('spends hit dice used at once in a game before module 0.20.0 a request a die, one after another, and says what came of them all', async () => {
     const user = userEvent.setup()
-    globalThis.localStorage.clear()
+    clearStorage()
     const posted: Record<string, unknown>[] = []
     // Each made at the table once asked after, giving back 4 then 6.
     const healed = [4, 6]
@@ -699,7 +719,7 @@ describe('components/character-sheet/character-pane', () => {
   })
 
   it("uses hit dice from the Character tab and a class's favorite, whether or not the game spends them, but not from the Features tab", async () => {
-    globalThis.localStorage.clear()
+    clearStorage()
     const favoredFighter = favored([
       ...sheetFavorites(),
       {
@@ -994,7 +1014,7 @@ describe('components/character-sheet/character-pane', () => {
       )
 
     beforeEach(() => {
-      globalThis.localStorage.clear()
+      clearStorage()
     })
 
     it('makes an attack at the combatant picked, then rolls its damage there', async () => {
@@ -1478,7 +1498,7 @@ describe('components/character-sheet/character-pane', () => {
       )
 
     beforeEach(() => {
-      globalThis.localStorage.clear()
+      clearStorage()
     })
 
     it('uses a feature at those ticked in its area, then rolls its damage there at once, once', async () => {
@@ -2231,7 +2251,7 @@ describe('components/character-sheet/character-pane', () => {
       )
 
     beforeEach(() => {
-      globalThis.localStorage.clear()
+      clearStorage()
     })
 
     it('drinks a potion at its user’s own combatant, ticked already, its range read from the action', async () => {
@@ -2336,7 +2356,7 @@ describe('components/character-sheet/character-pane', () => {
         />,
       )
 
-    beforeEach(() => globalThis.localStorage.clear())
+    beforeEach(() => clearStorage())
 
     it("rolls the player's own save a description calls for, against its DC, in the game too, saying the table can't be asked from there", async () => {
       const posted = describing(
@@ -3106,7 +3126,7 @@ describe('components/character-sheet/character-pane', () => {
         />,
       )
 
-    beforeEach(() => globalThis.localStorage.clear())
+    beforeEach(() => clearStorage())
 
     it("rolls the player's own against the activity's DC, in the game too, which says whether it passed", async () => {
       const user = userEvent.setup()
@@ -3208,7 +3228,7 @@ describe('components/character-sheet/character-pane', () => {
       localStorage.clear()
     })
 
-    it('hold the theme, and no switch while the game takes no rolls', async () => {
+    it('hold the theme, and no switch to send rolls while the game takes none', async () => {
       const user = userEvent.setup()
       renderPane()
       expect(screen.queryByRole('switch')).toBeNull()
@@ -3218,7 +3238,9 @@ describe('components/character-sheet/character-pane', () => {
       expect(
         within(settings).getByRole('radiogroup', { name: 'Theme' }),
       ).toBeInTheDocument()
-      expect(within(settings).queryByRole('switch')).toBeNull()
+      expect(
+        within(settings).queryByRole('switch', { name: 'Send to the table' }),
+      ).toBeNull()
       expect(
         screen.getByRole('region', { name: 'Your rolls' }),
       ).toHaveTextContent(
@@ -3326,6 +3348,112 @@ describe('components/character-sheet/character-pane', () => {
         ),
       ).toHaveLength(4)
       expect(localStorage.getItem('sending-stone:actions-layout')).toBe('table')
+    })
+  })
+
+  describe('roll toasts', () => {
+    // As a player who never turned them off has them.
+    beforeEach(() => globalThis.localStorage.clear())
+    afterEach(() => globalThis.localStorage.clear())
+
+    it('P1 pops each roll up as a toast, the tray still showing it, unannounced', async () => {
+      const user = userEvent.setup()
+      renderPane()
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+
+      const toast = await within(toasts()).findByText('Strength check')
+      expect(toast.closest('[data-roll-toast]')).toHaveTextContent(
+        /^\d+Strength checkd20 \d+ \+4/,
+      )
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent('Strength check')
+      expect(status).toHaveAttribute('aria-live', 'off')
+    })
+
+    it("P2 says in a roll's toast where it is at the table, as it goes", async () => {
+      const user = userEvent.setup()
+      answering({ 'req-1': { status: 'done', visible: true, total: 31 } })
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(characterSheet(), GAME)}
+          rollsToTable={['save']}
+        />,
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Strength saving throw, +7, proficient',
+        }),
+      )
+
+      const label = await within(toasts()).findByText('Strength saving throw')
+      const toast = label.closest('[data-roll-toast]') as HTMLElement
+      expect(toast).toHaveTextContent('Sending to your Gamemaster’s game…')
+      await waitFor(() => expect(toast).toHaveTextContent('At the table: 31'), {
+        timeout: 3000,
+      })
+      expect(toasts().querySelector('[data-roll-toast]')).toBe(toast)
+      expect(screen.getByRole('status')).toHaveTextContent('At the table: 31')
+    })
+
+    it('P3 turns toasts off from the settings, on this device, for good', async () => {
+      const user = userEvent.setup()
+      const { unmount } = renderPane()
+
+      const settings = await openSettings(user)
+      const toggle = within(settings).getByRole('switch', {
+        name: 'Roll toasts',
+      })
+      expect(toggle).toBeChecked()
+      await user.click(toggle)
+      expect(toggle).not.toBeChecked()
+      expect(globalThis.localStorage.getItem(TOASTS_KEY)).toBe('off')
+      await user.keyboard('{Escape}')
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      const status = screen.getByRole('status')
+      await waitFor(() => expect(status).toHaveTextContent('Strength check'))
+      expect(status).toHaveAttribute('aria-live', 'polite')
+      expect(screen.queryByRole('log')).toBeNull()
+
+      unmount()
+      renderPane()
+      expect(
+        within(await openSettings(user)).getByRole('switch', {
+          name: 'Roll toasts',
+        }),
+      ).not.toBeChecked()
+      await user.keyboard('{Escape}')
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent('Strength check'),
+      )
+      expect(screen.queryByRole('log')).toBeNull()
+    })
+
+    it('P4 keeps a toast showing on a tab without the tray, outside the sheet', async () => {
+      const user = userEvent.setup()
+      renderPane()
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+
+      await show('Biography')
+
+      expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+      expect(within(toasts()).getByText('Strength check')).toBeInTheDocument()
+      expect(screen.getByRole('tabpanel')).not.toContainElement(toasts())
+      expect(toasts().parentElement?.parentElement).toBe(document.body)
     })
   })
 
@@ -3467,6 +3595,25 @@ describe('components/character-sheet/character-pane', () => {
       await show('Effects')
       const effects = screen.getByRole('region', { name: 'Temporary Effects' })
       expect(within(effects).getByText(', favorite')).toBeInTheDocument()
+    })
+
+    it('stars the feature a resource stands for, on Features and Actions', async () => {
+      renderPane(
+        favored([
+          {
+            type: 'resource',
+            id: 'secondary',
+            name: 'Second Wind',
+            uses: { value: 0, max: 1, recovery: 'Short Rest' },
+            itemId: 'second-wind',
+          },
+        ]),
+      )
+      await show('Features')
+      expect(starred('Fighter Features')).toEqual(['Second Wind'])
+
+      await show('Actions')
+      expect(starred('Bonus Actions')).toEqual(['Second Wind'])
     })
   })
 })

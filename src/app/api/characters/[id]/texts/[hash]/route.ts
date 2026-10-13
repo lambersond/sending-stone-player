@@ -1,5 +1,6 @@
 import { getCharacter } from '@/db/characters'
-import { getSheetText } from '@/db/sheet-texts'
+import { playerSeat } from '@/db/seats'
+import { textResponse } from '@/lib/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import type { NextRequest } from 'next/server'
@@ -21,15 +22,5 @@ export async function GET(
   const character = await getCharacter(user.id, id)
   if (!character) return new Response(undefined, { status: 404 })
 
-  const html = await getSheetText(character, hash)
-  if (html === undefined) {
-    return new Response(undefined, {
-      status: 404,
-      headers: { 'Cache-Control': 'no-store' },
-    })
-  }
-  return Response.json(
-    { html },
-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
-  )
+  return textResponse(playerSeat(character, user.id), hash)
 }

@@ -466,6 +466,33 @@ describe('utils/table-view', () => {
     })
   })
 
+  describe("the Gamemaster's rolls as a character (#156)", () => {
+    it("marks a message the Gamemaster's only as this app knows it, never as it claims", () => {
+      const messages = toTableMessages(
+        [
+          chatMessage({ id: 'gm' }),
+          chatMessage({ id: 'claims', gmRoll: 'req-forged' }),
+          chatMessage({ id: 'plain' }),
+        ],
+        viewer,
+        new Set(['gm']),
+      )
+
+      expect(messages.map(({ id, byGm }) => [id, byGm])).toEqual([
+        ['gm', true],
+        ['claims', undefined],
+        ['plain', undefined],
+      ])
+      expect(messages[1]).not.toHaveProperty('byGm')
+      expect(toTableMessage(chatMessage(), viewer, undefined, true).byGm).toBe(
+        true,
+      )
+      expect(toTableMessages([chatMessage()], viewer)[0]).not.toHaveProperty(
+        'byGm',
+      )
+    })
+  })
+
   describe('roll request cards', () => {
     it("shows the module's ask, with a line of text without its DC for pages that don't read it", () => {
       expect(

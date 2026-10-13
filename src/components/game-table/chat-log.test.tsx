@@ -55,6 +55,28 @@ describe('components/game-table/chat-log', () => {
     ).toBeInTheDocument()
   })
 
+  it('marks a roll the Gamemaster made as the character, for every reader (#156)', () => {
+    render(
+      <ChatLog
+        messages={[
+          message({ id: 'gm', speaker: 'Thorin', side: 'party', byGm: true }),
+          message({ id: 'own', speaker: 'Thorin', side: 'party' }),
+        ]}
+      />,
+    )
+
+    const [gm, own] = screen.getAllByRole('article')
+    const pill = within(gm).getByTitle('Rolled by the Gamemaster')
+    expect(pill).toHaveTextContent('GM, rolled by the Gamemaster')
+    expect(within(pill).getByText(', rolled by the Gamemaster')).toHaveClass(
+      'sr-only',
+    )
+    expect(pill).toHaveClass('text-[11px]', 'shrink-0')
+    // After the speaker.
+    expect(within(gm).getByText('Thorin').nextSibling).toBe(pill)
+    expect(within(own).queryByTitle('Rolled by the Gamemaster')).toBeNull()
+  })
+
   it('shows who said what, and when', () => {
     render(<ChatLog messages={[message()]} />)
 

@@ -3,12 +3,18 @@ import {
   MAX_ENVELOPE_BYTES,
   PROTOCOL_VERSION,
   EVENTS,
+  REFUSAL,
   SLIM_SHEETS,
 } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
-import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
+import {
+  checkGameSecret,
+  findEventCampaign,
+  markSeen,
+  recordRefusal,
+} from '@/db/campaigns'
 import { recordCommandResult } from '@/db/roll-requests'
-import { attempt, cors, notSetUp } from '@/lib/bridge-http'
+import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
@@ -19,7 +25,9 @@ import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
 // See the module's PROTOCOL.md for what it sends and how it treats each response status.
 //
 // Each campaign is set up here by its Gamemaster with a secret, and only events carrying that
-// secret are accepted for it. The module drops a post refused with a 4xx and tells the Gamemaster.
+// secret are accepted for it. The module drops a post refused with a 4xx. Every refusal keeps its
+// status and says why in JSON, `{reason, message}`, which module 0.23.0 tells the Gamemaster in its
+// own words; one that can be tied to a campaign is also recorded, for the campaign's card.
 //
 // Its hello and heartbeats are answered with what this app does beyond taking events: it has
 // commands, such as players' rolls, for the module to fetch from /api/bridge/commands. A module
@@ -33,49 +41,91 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const respond = (status: number, message?: string) =>
-    new Response(message, { status, headers: cors(request) })
+  const respond = (status: number) =>
+    new Response(undefined, { status, headers: cors(request) })
+  const unavailable = () =>
+    refuse(request, 500, {
+      reason: REFUSAL.UNAVAILABLE,
+      message: 'Sending Stone couldn’t take this just now',
+    })
+  const wrongSecret = () =>
+    refuse(request, 401, {
+      reason: REFUSAL.WRONG_SECRET,
+      message: 'The secret isn’t this campaign’s in Sending Stone',
+    })
+  const unknown = (origin: string, title?: string) =>
+    refuse(request, 404, {
+      reason: REFUSAL.NOT_SET_UP,
+      message: notSetUp(origin, title),
+    })
+  const tooLarge = () =>
+    refuse(request, 413, {
+      reason: REFUSAL.TOO_LARGE,
+      message: `Larger than the ${MAX_ENVELOPE_BYTES} bytes Sending Stone takes`,
+      limit: MAX_ENVELOPE_BYTES,
+    })
 
   const secret = bearerSecret(request.headers.get('authorization'))
-  if (!secret) return respond(401, 'Send the campaign’s secret')
+  if (!secret) {
+    return refuse(request, 401, {
+      reason: REFUSAL.NO_SECRET,
+      message: 'Send the campaign’s secret',
+    })
+  }
 
   // Campaigns are set up for the game they come from, which is the page that sent them.
   const origin = request.headers.get('origin')
   if (!origin || toForgeGameUrl(origin) !== origin) {
-    return respond(403, 'Only games on The Forge are accepted')
+    return refuse(request, 403, {
+      reason: REFUSAL.NOT_FORGE,
+      message: 'Only games on The Forge are accepted',
+    })
   }
 
   // Refused before reading when the size is declared; checked again for a body that wasn't.
   const declared = Number(request.headers.get('content-length'))
-  if (declared > MAX_ENVELOPE_BYTES) return respond(413)
+  if (declared > MAX_ENVELOPE_BYTES) return tooLarge()
   const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_ENVELOPE_BYTES) return respond(413)
+  if (Buffer.byteLength(body) > MAX_ENVELOPE_BYTES) return tooLarge()
 
   let envelope
   try {
     envelope = envelopeSchema.parse(JSON.parse(body))
   } catch {
-    return respond(400, 'Not a Sending Stone envelope')
+    return refuse(request, 400, {
+      reason: REFUSAL.BAD_ENVELOPE,
+      message: 'Not a Sending Stone envelope',
+    })
   }
   if (envelope.protocol !== PROTOCOL_VERSION) {
-    return respond(400, `Unsupported protocol ${envelope.protocol}`)
+    return refuse(request, 400, {
+      reason: REFUSAL.UNSUPPORTED_PROTOCOL,
+      message: `Unsupported protocol ${envelope.protocol}`,
+      protocol: PROTOCOL_VERSION,
+    })
   }
   // A connection test. It names the campaign tested; one from a module before 0.4.0 names none,
-  // and passes with the secret of any of this game's campaigns.
+  // and passes with the secret of any of this game's campaigns. Its title and secret are as typed,
+  // perhaps not saved, so nothing is recorded of it.
   if (envelope.type === EVENTS.PING) {
     const { campaign } = envelope
     const checked = await attempt(async () => {
       if (!campaign) return checkGameSecret(origin, secret)
-      const found = await findEventCampaign(origin, campaign, secret)
+      const found = await findEventCampaign(origin, campaign, secret, {
+        record: false,
+      })
       return typeof found === 'string' ? found : 'ok'
     }, CHECK_FAILED)
-    if (!checked) return respond(500)
-    if (checked === 'unknown')
-      return respond(404, notSetUp(origin, campaign?.title))
-    return respond(checked === 'ok' ? 204 : 401)
+    if (!checked) return unavailable()
+    if (checked === 'unknown') return unknown(origin, campaign?.title)
+    return checked === 'ok' ? respond(204) : wrongSecret()
   }
   if (!envelope.campaign) {
-    return respond(400, `No campaign for ${envelope.type}`)
+    return refuse(request, 400, {
+      reason: REFUSAL.MALFORMED,
+      message: `No campaign for ${envelope.type}`,
+      type: envelope.type,
+    })
   }
 
   const { campaign } = envelope
@@ -83,18 +133,33 @@ export async function POST(request: Request) {
     () => findEventCampaign(origin, campaign, secret),
     CHECK_FAILED,
   )
-  if (!found) return respond(500)
-  if (found === 'unknown') {
-    return respond(404, notSetUp(origin, envelope.campaign.title))
-  }
-  if (found === 'refused') return respond(401)
+  if (!found) return unavailable()
+  if (found === 'unknown') return unknown(origin, envelope.campaign.title)
+  if (found === 'refused') return wrongSecret()
 
   let event
   try {
     event = parseGameEvent(envelope.type, envelope.data)
   } catch (error) {
-    const reason = error instanceof z.ZodError ? z.prettifyError(error) : ''
-    return respond(400, `Malformed ${envelope.type}\n${reason}`)
+    const detail =
+      error instanceof z.ZodError ? z.prettifyError(error) : undefined
+    // Recorded only now that the secret is known to be the campaign's: its card shows what was
+    // wrong first, with the type.
+    const firstLines = detail?.split('\n').slice(0, 2).join('\n') ?? ''
+    await recordRefusal(
+      { ids: [found.id] },
+      {
+        reason: REFUSAL.MALFORMED,
+        status: 400,
+        detail: `${envelope.type}: ${firstLines}`.trimEnd().slice(0, 300),
+      },
+    )
+    return refuse(request, 400, {
+      reason: REFUSAL.MALFORMED,
+      message: `Malformed ${envelope.type}`,
+      type: envelope.type,
+      detail: detail?.slice(0, 1000),
+    })
   }
 
   let applied
@@ -118,7 +183,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error(`Failed to apply ${envelope.type} from ${origin}`, error)
-    return respond(500)
+    return unavailable()
   }
 
   // Descriptions come before the hello or sheet that refers to them, so they may arrive first.

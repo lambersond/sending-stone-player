@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useDamageMenu } from './damage-menu'
 import { RollButton } from './roll-button'
+import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
   damageRollOf,
@@ -25,6 +26,7 @@ import {
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
+import { seatWords, type SeatRole } from '@/utils/seat-words'
 import type {
   LocalAsk,
   LocalCheck,
@@ -67,14 +69,22 @@ type RollDue = (
  * The player's rolls, newest first: the latest in full, the rest on request. The tray says
  * whether they reach the table, so no one expects one to have reached it that didn't: when the
  * Gamemaster's game takes the player's rolls, it makes them too, with the same dice, and the tray
- * says what it made of each.
+ * says what it made of each. Where each roll also pops up as a toast, which says it, the tray's
+ * status is left unannounced (`announce`), so that a screen reader hears each roll once.
  */
 export function RollTray({
   rolls,
   rolling,
   table,
-}: Readonly<{ rolls: LocalRoll[]; rolling: boolean; table?: TableRolls }>) {
+  announce = true,
+}: Readonly<{
+  rolls: LocalRoll[]
+  rolling: boolean
+  table?: TableRolls
+  announce?: boolean
+}>) {
   const [latest, ...earlier] = rolls
+  const role = useTableRole()
   let status = (
     <p className='flex items-center gap-2 text-sm text-text-secondary'>
       <Dices aria-hidden className='size-5 shrink-0 text-primary' />
@@ -104,7 +114,7 @@ export function RollTray({
       className='shrink-0 border-t border-border bg-card px-4 py-3 md:px-8'
     >
       <div className='mx-auto flex max-w-5xl flex-col gap-2'>
-        <div role='status' aria-live='polite'>
+        <div role='status' aria-live={announce ? 'polite' : 'off'}>
           {status}
         </div>
         {earlier.length > 0 && (
@@ -140,11 +150,12 @@ export function RollTray({
           </details>
         )}
         {table?.available ? (
-          <p className='text-[11px] text-text-secondary'>{reachOf(table)}</p>
+          <p className='text-[11px] text-text-secondary'>
+            {reachOf(table, role)}
+          </p>
         ) : (
           <p className='text-[11px] text-text-secondary'>
-            Only you see these rolls for now. They aren&apos;t sent to your
-            Gamemaster&apos;s game.
+            {seatWords(role).notSent}
           </p>
         )}
       </div>
@@ -195,7 +206,7 @@ function LatestResult({
  * Whether the player's rolls reach the Gamemaster's game, and which; or where to send them, while
  * the game takes them but this device doesn't send them.
  */
-function reachOf(table: TableRolls): string {
+function reachOf(table: TableRolls, role: SeatRole): string {
   if (!table.sending) {
     return 'Only you see these rolls: Send to the table is off in Settings.'
   }
@@ -210,7 +221,7 @@ function reachOf(table: TableRolls): string {
     ...(casts ? ['cast'] : []),
     ...(spends ? ['spend'] : []),
   ]
-  return `${listed(kinds)} you ${listed(verbs, 'or')} here are made in your Gamemaster’s game too, with the same dice.`
+  return `${listed(kinds)} you ${listed(verbs, 'or')} here are made in ${seatWords(role).game} too, with the same dice.`
 }
 
 /** Words listed as a sentence has them: "a, b and c". */
@@ -220,59 +231,78 @@ function listed(words: string[], last = 'and'): string {
     : words.join('')
 }
 
-/** What the game said of a roll, in words: why it wasn't made, mostly. */
-export const REASONS: Record<string, string> = {
-  unavailable: 'your Gamemaster’s game isn’t taking rolls now',
-  off: 'your Gamemaster’s game isn’t taking rolls now',
-  unknown: 'your character in the game can’t make it',
-  'not-dying': 'you aren’t dying',
-  'not-in-combat': 'you aren’t in the combat',
-  'already-rolled': 'you have rolled initiative already',
-  busy: 'too many rolls at once. Wait a moment',
-  cancelled: 'it was called off in the game',
-  timeout: 'the game took too long',
-  network: 'Sending Stone couldn’t be reached',
-  expired: 'your Gamemaster’s game didn’t pick it up',
-  lost: 'no answer from your Gamemaster’s game',
-  'attacks-off': 'your Gamemaster’s game isn’t taking attacks',
-  'midi-off': 'your Gamemaster’s game isn’t taking attacks',
-  'self-test': 'your Gamemaster’s game can’t make it with your dice',
-  item: 'your character in the game hasn’t that item',
-  activity: 'it can’t be used from Sending Stone',
-  area: 'your Gamemaster’s game can’t make that area attack from here',
-  ammo: 'you have none of that ammunition left',
-  mode: 'the weapon can’t attack that way',
-  target: 'a target can’t be picked, or there are too many',
-  scene: 'your Gamemaster isn’t viewing that target’s level or scene',
-  consume: 'there’s nothing left to use it with',
-  slots: 'you have no spell slots left for it',
-  slot: 'that spell slot can’t cast it',
-  'damage-type': 'its kind of damage is chosen in the game',
-  type: 'it can’t deal that kind of damage',
-  'active-defence': 'your Gamemaster’s targets defend themselves',
-  reaction: 'you’ve used your reaction',
-  'bonus-action': 'you’ve used your bonus action',
-  'midi-dialog': 'your Gamemaster’s game asks how to roll it',
-  midi: 'your Gamemaster’s game stopped it',
-  'no-attack': 'the attack wasn’t made',
-  gone: 'it can’t be found in the game any more',
-  link: 'your Gamemaster’s game doesn’t find that in its description',
-  secret: 'it’s in a secret part of the description',
-  'not-waiting': 'its damage was rolled in the game',
-  'no-damage': 'no damage follows it',
-  damaged: 'its damage is rolled already',
-  dice: 'the dice weren’t those the game said',
-  invalid: 'your Gamemaster’s game couldn’t make it',
-  prompt: 'your Gamemaster’s game isn’t asking for it any more',
-  'no-hit-dice': 'you have no hit dice of that size left',
-  'full-hp': 'you’re at full hit points',
-  profile: 'that enchantment isn’t offered at that level',
-  'enchant-target': 'that item can’t take that enchantment',
-  applied: 'that enchantment is on it already',
-  enchant:
-    'it was used, but the enchantment wasn’t applied: your Gamemaster can apply it from the card',
-  enchantment: 'that enchantment can’t be ended from here',
+/**
+ * What the game said of a roll, in words: why it wasn't made, mostly; as the seat at the sheet
+ * reads it, its player or the Gamemaster (#156).
+ */
+function reasonsOf(role: SeatRole): Record<string, string> {
+  const { game, notViewing, targets, applies } = seatWords(role)
+  return {
+    unavailable: `${game} isn’t taking rolls now`,
+    off: `${game} isn’t taking rolls now`,
+    unknown: 'your character in the game can’t make it',
+    'not-dying': 'you aren’t dying',
+    'not-in-combat': 'you aren’t in the combat',
+    'already-rolled': 'you have rolled initiative already',
+    busy: 'too many rolls at once. Wait a moment',
+    cancelled: 'it was called off in the game',
+    timeout: 'the game took too long',
+    network: 'Sending Stone couldn’t be reached',
+    expired: `${game} didn’t pick it up`,
+    lost: `no answer from ${game}`,
+    'attacks-off': `${game} isn’t taking attacks`,
+    'midi-off': `${game} isn’t taking attacks`,
+    'self-test': `${game} can’t make it with your dice`,
+    item: 'your character in the game hasn’t that item',
+    activity: 'it can’t be used from Sending Stone',
+    area: `${game} can’t make that area attack from here`,
+    ammo: 'you have none of that ammunition left',
+    mode: 'the weapon can’t attack that way',
+    target: 'a target can’t be picked, or there are too many',
+    scene: `${notViewing} that target’s level or scene`,
+    consume: 'there’s nothing left to use it with',
+    slots: 'you have no spell slots left for it',
+    slot: 'that spell slot can’t cast it',
+    'damage-type': 'its kind of damage is chosen in the game',
+    type: 'it can’t deal that kind of damage',
+    'active-defence': `${targets} defend themselves`,
+    reaction: 'you’ve used your reaction',
+    'bonus-action': 'you’ve used your bonus action',
+    'midi-dialog': `${game} asks how to roll it`,
+    midi: `${game} stopped it`,
+    'no-attack': 'the attack wasn’t made',
+    gone: 'it can’t be found in the game any more',
+    link: `${game} doesn’t find that in its description`,
+    secret: 'it’s in a secret part of the description',
+    'not-waiting': 'its damage was rolled in the game',
+    'no-damage': 'no damage follows it',
+    damaged: 'its damage is rolled already',
+    dice: 'the dice weren’t those the game said',
+    invalid: `${game} couldn’t make it`,
+    prompt: `${game} isn’t asking for it any more`,
+    'no-hit-dice': 'you have no hit dice of that size left',
+    'full-hp': 'you’re at full hit points',
+    profile: 'that enchantment isn’t offered at that level',
+    'enchant-target': 'that item can’t take that enchantment',
+    applied: 'that enchantment is on it already',
+    enchant: `it was used, but the enchantment wasn’t applied: ${applies}`,
+    enchantment: 'that enchantment can’t be ended from here',
+  }
 }
+
+/** Why a roll wasn't made, in words, for each seat. */
+const REASONS_BY_ROLE: Record<SeatRole, Record<string, string>> = {
+  player: reasonsOf('player'),
+  gm: reasonsOf('gm'),
+}
+
+/** What the game said of a roll, in words, as a seat reads it. */
+export function reasons(role: SeatRole): Record<string, string> {
+  return REASONS_BY_ROLE[role]
+}
+
+/** As the character's player reads them. */
+export const REASONS = REASONS_BY_ROLE.player
 
 /**
  * Why a spell an item casts wasn't cast, or its attack made, in words, where it differs from why a
@@ -301,19 +331,21 @@ const ENCHANT_REASONS: Record<string, string> = {
 }
 
 /** Why a roll, an attack or a use wasn't made, in words, if it's one the player is told of. */
-function reasonOf(state: TableRollState): string | undefined {
+function reasonOf(state: TableRollState, role: SeatRole): string | undefined {
   const key = state.reason ?? state.status
   const own =
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
     (state.card === false ? ENCHANT_REASONS[key] : undefined)
-  return own ?? REASONS[key]
+  return own ?? reasons(role)[key]
 }
 
 /** Why the table wasn't asked, in words, where it differs from why a roll wasn't made. */
-const ASK_REASONS: Record<string, string> = {
-  ...REASONS,
-  busy: 'the table was asked a moment ago. Wait a little before asking again',
+function askReasons(role: SeatRole): Record<string, string> {
+  return {
+    ...reasons(role),
+    busy: 'the table was asked a moment ago. Wait a little before asking again',
+  }
 }
 
 /** Where a roll ends without the game having made it. */
@@ -323,6 +355,25 @@ const NOT_MADE = new Set<TableRollState['status']>([
   'lost',
   'refused',
 ])
+
+/**
+ * Where a roll, a use or an ask is on its way to the game, in words: sent, then being made there,
+ * which a use or an ask says as what's done with it, such as "Casting it" or "Posting it".
+ */
+function onItsWay(
+  state: TableRollState,
+  role: SeatRole,
+  doing = 'Rolling',
+): string {
+  // Of dice sent one after another, as hit dice spent at once, which is on its way.
+  const die = state.together
+    ? ` die ${state.together.made + 1} of ${state.together.count}`
+    : ''
+  const { game } = seatWords(role)
+  return state.status === 'sending'
+    ? `Sending${die} to ${game}…`
+    : `${doing}${die} in ${game}…`
+}
 
 /**
  * Where a roll is on its way to the game, or what the game made of it: for a saving throw or check
@@ -337,11 +388,8 @@ function TableStatus({
   dc?: number
   verdict?: LocalCheck['verdict']
 }>) {
+  const role = useTableRole()
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
-  // Of dice sent one after another, as hit dice spent at once, which is on its way.
-  const die = state.together
-    ? ` die ${state.together.made + 1} of ${state.together.count}`
-    : ''
   switch (state.status) {
     case 'sending':
     case 'rolling': {
@@ -351,9 +399,7 @@ function TableStatus({
             aria-hidden
             className='size-3.5 shrink-0 motion-safe:animate-spin'
           />
-          {state.status === 'sending'
-            ? `Sending${die} to your Gamemaster’s game…`
-            : `Rolling${die} in your Gamemaster’s game…`}
+          {onItsWay(state, role)}
           {/* Each is sent from this page once the one before is made: leaving it, none more is. */}
           {state.together && ' Keep this page open until they’re all sent.'}
         </p>
@@ -382,12 +428,12 @@ function TableStatus({
       ) : (
         <p className={clsx(line, 'text-text-secondary')}>
           <EyeOff aria-hidden className='size-3.5 shrink-0' />
-          Rolled at the table, hidden by your Gamemaster
+          {seatWords(role).hidden}
         </p>
       )
     }
     default: {
-      const reason = reasonOf(state)
+      const reason = reasonOf(state, role)
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
@@ -808,15 +854,10 @@ function DamageResult({
   roll,
   state,
 }: Readonly<{ roll: LocalDamage; state?: TableRollState }>) {
+  const { game } = seatWords(useTableRole())
   const rolledThere = byTheGame(roll)
   const again = thrownAgainThere(roll, state)
-  const told = state?.status === 'done' && state.visible
-  let total: number | string = roll.total
-  if (rolledThere || again) {
-    total = told ? (state.total ?? '?') : '…'
-  } else if (roll.gameTotal && told) {
-    total = state.total ?? '?'
-  }
+  const total = shownTotal(roll, state)
   return (
     <div className='flex items-center gap-3'>
       <span
@@ -832,7 +873,7 @@ function DamageResult({
       <div className='min-w-0'>
         <p className='truncate font-semibold'>{roll.label}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
-          {rolledThere && 'Its dice are rolled in your Gamemaster’s game'}
+          {rolledThere && `Its dice are rolled in ${game}`}
           {!rolledThere &&
             roll.parts.map((part, index) => (
               <span key={index}>
@@ -843,7 +884,7 @@ function DamageResult({
             ))}
           {roll.critical && ' · Critical hit'}
           {roll.maximized && ' · Maximum'}
-          {again && THROWN_AGAIN}
+          {again && thrownAgainWords(game)}
         </p>
         {state && <TableStatus state={state} />}
         {!state && roll.described && <OnlyYou />}
@@ -862,25 +903,19 @@ function FormulaResult({
   roll,
   state,
 }: Readonly<{ roll: LocalFormula; state?: TableRollState }>) {
+  const { game } = seatWords(useTableRole())
   const again = thrownAgainThere(roll, state)
-  const told = state?.status === 'done' && state.visible
-  let total: number | string = roll.total
-  if (again) {
-    total = told ? (state.total ?? '?') : '…'
-  } else if (roll.gameTotal && told) {
-    total = state.total ?? '?'
-  }
   return (
     <div className='flex items-center gap-3'>
       <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl font-bold text-primary tabular-nums'>
-        {total}
+        {shownTotal(roll, state)}
       </span>
       <div className='min-w-0'>
         <p className='truncate font-semibold'>{roll.label}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
           <Terms terms={roll.terms} firstThrow={again} />
           {roll.minimum !== undefined && ` · ${leastOf(roll)}`}
-          {again && THROWN_AGAIN}
+          {again && thrownAgainWords(game)}
         </p>
         {state && <TableStatus state={state} />}
         {!state && roll.described && <OnlyYou />}
@@ -979,9 +1014,7 @@ function UseStatus({
   roll,
   state,
 }: Readonly<{ roll: LocalUse; state: TableRollState }>) {
-  let verb = roll.spell ? 'Cast' : 'Used'
-  let doing = roll.spell ? 'Casting' : 'Using'
-  if (roll.ending) [verb, doing] = ['Ended', 'Ending']
+  const role = useTableRole()
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   switch (state.status) {
     case 'sending':
@@ -992,11 +1025,45 @@ function UseStatus({
             aria-hidden
             className='size-3.5 shrink-0 motion-safe:animate-spin'
           />
-          {state.status === 'sending'
-            ? 'Sending to your Gamemaster’s game…'
-            : `${doing} it in your Gamemaster’s game…`}
+          {usedWords(roll, state, role)}
         </p>
       )
+    }
+    case 'done': {
+      return (
+        <p className={clsx(line, 'text-text-secondary')}>
+          <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
+          <span>{usedWords(roll, state, role)}</span>
+        </p>
+      )
+    }
+    default: {
+      return (
+        <p className={clsx(line, 'text-warning')}>
+          <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+          {usedWords(roll, state, role)}
+        </p>
+      )
+    }
+  }
+}
+
+/**
+ * Where a use is on its way to the game, or what became of it, in words: for an enchant activity,
+ * the enchantment it applied, and on what.
+ */
+function usedWords(
+  roll: LocalUse,
+  state: TableRollState,
+  role: SeatRole,
+): string {
+  let verb = roll.spell ? 'Cast' : 'Used'
+  let doing = roll.spell ? 'Casting' : 'Using'
+  if (roll.ending) [verb, doing] = ['Ended', 'Ending']
+  switch (state.status) {
+    case 'sending':
+    case 'rolling': {
+      return onItsWay(state, role, `${doing} it`)
     }
     case 'done': {
       const { damage } = state
@@ -1004,28 +1071,17 @@ function UseStatus({
       const enchanted = roll.ending
         ? undefined
         : enchantmentNote(state.enchantment)
-      return (
-        <p className={clsx(line, 'text-text-secondary')}>
-          <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
-          <span>
-            {verb} at the table
-            {follows
-              ? `, its ${damage.healing ? 'healing' : 'damage'} to follow`
-              : ''}
-            {enchanted && ` ${enchanted}`}
-          </span>
-        </p>
-      )
+      return [
+        `${verb} at the table`,
+        follows
+          ? `, its ${damage.healing ? 'healing' : 'damage'} to follow`
+          : '',
+        enchanted ? ` ${enchanted}` : '',
+      ].join('')
     }
     default: {
-      const reason = reasonOf(state)
-      return (
-        <p className={clsx(line, 'text-warning')}>
-          <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-          Not {verb.toLowerCase()} at the table
-          {reason ? `: ${reason}` : ''}
-        </p>
-      )
+      const reason = reasonOf(state, role)
+      return `Not ${verb.toLowerCase()} at the table${reason ? `: ${reason}` : ''}`
     }
   }
 }
@@ -1054,6 +1110,7 @@ function AskResult({
 
 /** Where an ask is on its way to the game's chat, or why it isn't there. */
 function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
+  const role = useTableRole()
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   switch (state?.status) {
     case 'sending':
@@ -1064,9 +1121,7 @@ function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
             aria-hidden
             className='size-3.5 shrink-0 motion-safe:animate-spin'
           />
-          {state.status === 'sending'
-            ? 'Sending to your Gamemaster’s game…'
-            : 'Posting it in your Gamemaster’s game…'}
+          {askedWords(state, role)}
         </p>
       )
     }
@@ -1074,19 +1129,34 @@ function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
       return (
         <p className={clsx(line, 'text-text-secondary')}>
           <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
-          Posted to the table’s chat
+          {askedWords(state, role)}
         </p>
       )
     }
     default: {
-      const reason = state && ASK_REASONS[state.reason ?? state.status]
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-          Not posted to the table
-          {reason ? `: ${reason}` : ''}
+          {askedWords(state, role)}
         </p>
       )
+    }
+  }
+}
+
+/** Where an ask is on its way to the game's chat, or why it isn't there, in words. */
+function askedWords(state: TableRollState | undefined, role: SeatRole): string {
+  switch (state?.status) {
+    case 'sending':
+    case 'rolling': {
+      return onItsWay(state, role, 'Posting it')
+    }
+    case 'done': {
+      return 'Posted to the table’s chat'
+    }
+    default: {
+      const reason = state && askReasons(role)[state.reason ?? state.status]
+      return `Not posted to the table${reason ? `: ${reason}` : ''}`
     }
   }
 }
@@ -1111,8 +1181,10 @@ function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   )
 }
 
-/** What a roll the game throws dice again for says of it, after its dice. */
-const THROWN_AGAIN = ' · Rerolls thrown in your Gamemaster’s game'
+/** What a roll the game throws dice again for says of it, after its dice, naming the game. */
+function thrownAgainWords(game: string): string {
+  return ` · Rerolls thrown in ${game}`
+}
 
 /**
  * Does the game throw some of this roll's dice again for itself, rerolled or exploded, as Foundry
@@ -1167,4 +1239,169 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
     formatModifier(roll.modifier),
     ...roll.extras.map(({ value }) => formatModifier(value)),
   ].join(' ')
+}
+
+/**
+ * The total a damage roll, a hit die or a formula shows: its own, or the game's where the game
+ * throws its dice, or some of them again, or adds them up as only it can, once it says; "…" until
+ * then, where its own isn't it.
+ */
+export function shownTotal(
+  roll: LocalDamage | LocalFormula,
+  state?: TableRollState,
+): number | string {
+  const told = state?.status === 'done' && state.visible
+  if (
+    (roll.kind === 'damage' && byTheGame(roll)) ||
+    thrownAgainThere(roll, state)
+  ) {
+    return told ? (state.total ?? '?') : '…'
+  }
+  if (roll.gameTotal && told) return state.total ?? '?'
+  return roll.total
+}
+
+/** A roll in brief, as its toast says it: what it was, what it came to, and its way to the game. */
+export type RollBrief = {
+  label: string
+  /** How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask. */
+  badge: 'critical' | 'fumble' | 'plain' | 'damage' | 'healing' | 'use' | 'ask'
+  /** None for a use or an ask, which show an icon; "…" while the game's total is awaited. */
+  total?: number | string
+  /** Its dice, in a line; none for a use or an ask. */
+  dice?: string
+  /** Its way to the game, in the tray's words; none for a roll never sent. */
+  table?: { tone: 'pending' | 'made' | 'not'; text: string }
+}
+
+/**
+ * A roll in brief, for its toast: what the tray says of it, in words, but for the d20 that didn't
+ * count, the targets of an area attack, and anything to tap, which stay in the tray.
+ */
+export function briefOf(
+  roll: LocalRoll,
+  state?: TableRollState,
+  role: SeatRole = 'player',
+): RollBrief {
+  const brief = { label: roll.label, table: tableLine(roll, state, role) }
+  switch (roll.kind) {
+    case 'check': {
+      let badge: RollBrief['badge'] = 'plain'
+      if (roll.natural === 20) badge = 'critical'
+      if (roll.natural === 1) badge = 'fumble'
+      return {
+        ...brief,
+        badge,
+        total: roll.total,
+        dice: checkDice(roll, state),
+      }
+    }
+    case 'damage': {
+      return {
+        ...brief,
+        badge: roll.healing ? 'healing' : 'damage',
+        total: shownTotal(roll, state),
+        dice: [
+          breakdown(roll, state),
+          roll.critical ? ' · Critical hit' : '',
+          roll.maximized ? ' · Maximum' : '',
+        ].join(''),
+      }
+    }
+    case 'formula': {
+      return {
+        ...brief,
+        badge: 'plain',
+        total: shownTotal(roll, state),
+        dice: breakdown(roll, state),
+      }
+    }
+    case 'use': {
+      return { ...brief, badge: 'use' }
+    }
+    case 'ask': {
+      return { ...brief, badge: 'ask' }
+    }
+  }
+}
+
+/**
+ * A check's dice in a line, as the tray shows them but for the d20 that didn't count: such as
+ * "d20 14 +3 · Advantage · DC 15 · Saved".
+ */
+function checkDice(roll: LocalCheck, state?: TableRollState): string {
+  const here = savedHere(roll, state)
+  return [
+    `d20 ${roll.natural} ${formatModifier(roll.modifier)}`,
+    ...roll.extras.map(
+      ({ text, values }) =>
+        ` ${text}${values.length > 0 ? ` (${values.join(', ')})` : ''}`,
+    ),
+    roll.advantage === 'adv' ? ' · Advantage' : '',
+    roll.advantage === 'dis' ? ' · Disadvantage' : '',
+    roll.natural === 20 ? ' · Natural 20' : '',
+    roll.natural === 1 ? ' · Natural 1' : '',
+    roll.dc === undefined ? '' : ` · DC ${roll.dc}`,
+    here ? ` · ${here}` : '',
+  ].join('')
+}
+
+/**
+ * A roll's way to the game as the tray's status line says it, but for its icon, an area attack's
+ * targets, and the hit dice sent one after another asking that the page be kept open. None for a
+ * roll never sent; an ask never sent wasn't posted, as the tray says.
+ */
+function tableLine(
+  roll: LocalRoll,
+  state: TableRollState | undefined,
+  role: SeatRole,
+): RollBrief['table'] {
+  if (roll.kind === 'ask') {
+    return { tone: toneOf(state), text: askedWords(state, role) }
+  }
+  if (!state) return undefined
+  const tone = toneOf(state)
+  if (roll.kind === 'use') return { tone, text: usedWords(roll, state, role) }
+  switch (state.status) {
+    case 'sending':
+    case 'rolling': {
+      return { tone, text: onItsWay(state, role) }
+    }
+    case 'done': {
+      if (!state.visible) return { tone, text: seatWords(role).hidden }
+      const outcome =
+        roll.kind === 'check'
+          ? outcomeOf(state, roll.dc, roll.verdict)
+          : outcomeOf(state)
+      const total = `At the table: ${state.total ?? '?'}`
+      return { tone, text: outcome ? `${total} · ${outcome}` : total }
+    }
+    default: {
+      const { together, healed } = state
+      const reason = reasonOf(state, role)
+      const healing = healed === undefined ? '' : ` · ${healed} HP regained`
+      const made = together?.made
+        ? `${together.made} of ${together.count} made at the table${healing}. Not the rest`
+        : 'Not made at the table'
+      return { tone, text: reason ? `${made}: ${reason}` : made }
+    }
+  }
+}
+
+/** Whether a roll is on its way to the game, was made there, or wasn't. */
+function toneOf(
+  state?: TableRollState,
+): NonNullable<RollBrief['table']>['tone'] {
+  switch (state?.status) {
+    case 'sending':
+    case 'rolling': {
+      return 'pending'
+    }
+    case 'done': {
+      return 'made'
+    }
+    default: {
+      return 'not'
+    }
+  }
 }
