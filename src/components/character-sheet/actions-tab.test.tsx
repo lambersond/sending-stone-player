@@ -20,6 +20,7 @@ import {
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { Layout } from './actions-layout'
 import type {
   CharacterSheet,
   SheetAction,
@@ -28,7 +29,7 @@ import type {
   SheetSpell,
 } from '@/types/sending-stone'
 
-const renderTab = (sheet: CharacterSheet = fullerSheet()) => {
+const renderTab = (sheet: CharacterSheet = fullerSheet(), layout?: Layout) => {
   const onRoll = jest.fn()
   const onRollDamage = jest.fn()
   render(
@@ -37,6 +38,7 @@ const renderTab = (sheet: CharacterSheet = fullerSheet()) => {
       sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
       onRoll={onRoll}
       onRollDamage={onRollDamage}
+      layout={layout}
     />,
   )
   return { onRoll, onRollDamage }
@@ -107,10 +109,6 @@ const groups = (region: HTMLElement) =>
         .queryAllByRole('listitem')
         .map(item => item.querySelector('button .font-medium')?.textContent),
     ])
-
-/** The sheet as wide as a tablet's, or a phone's. */
-const sheetWidth = (width: number) =>
-  jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(width)
 
 /** A cast's levels from the 1st, each costing as many charges, each short or not as given. */
 const castLevels = (...short: boolean[]) =>
@@ -711,8 +709,6 @@ describe('components/character-sheet/actions-tab', () => {
 
   it('dims a spell with no slot left in a table too, and says so', async () => {
     const user = userEvent.setup()
-    localStorage.setItem('sending-stone:actions-layout', 'table')
-    sheetWidth(800)
     renderTab(
       characterSheet({
         spells: [
@@ -760,6 +756,7 @@ describe('components/character-sheet/actions-tab', () => {
           },
         ],
       }),
+      'table',
     )
 
     const table = screen.getByRole('table', { name: 'Actions' })
@@ -780,7 +777,6 @@ describe('components/character-sheet/actions-tab', () => {
 
   it('closes a group, and keeps it closed for the character, in a list or a table', async () => {
     const user = userEvent.setup()
-    sheetWidth(800)
     renderTab()
     const actions = () => screen.getByRole('region', { name: 'Actions' })
     const weapons = () =>
@@ -803,7 +799,8 @@ describe('components/character-sheet/actions-tab', () => {
     cleanup()
     renderTab()
     expect(weapons()).toHaveAttribute('aria-expanded', 'false')
-    await user.click(screen.getByRole('button', { name: 'Table' }))
+    cleanup()
+    renderTab(fullerSheet(), 'table')
     const table = screen.getByRole('table', { name: 'Actions' })
     expect(
       within(table).queryByRole('button', { name: /^Warhammer/ }),
@@ -873,41 +870,10 @@ describe('components/character-sheet/actions-tab', () => {
     ])
   })
 
-  it('offers no layouts on a phone, keeping to the list whatever was chosen', () => {
-    localStorage.setItem('sending-stone:actions-layout', 'table')
-    sheetWidth(390)
-    renderTab()
-
-    expect(screen.queryByRole('group', { name: 'Layout' })).toBeNull()
-    expect(screen.queryByRole('table')).toBeNull()
-    expect(
-      within(screen.getByRole('region', { name: 'Actions' })).getAllByRole(
-        'listitem',
-      ),
-    ).toHaveLength(4)
-  })
-
-  it('lays actions out in a table on a tablet, lining up what each rolls, and remembers it', async () => {
+  it('lays actions out in a table, lining up what each rolls', async () => {
     const user = userEvent.setup()
-    sheetWidth(800)
-    const { onRoll } = renderTab()
+    const { onRoll } = renderTab(fullerSheet(), 'table')
 
-    const picker = screen.getByRole('group', { name: 'Layout' })
-    expect(
-      within(picker)
-        .getAllByRole('button')
-        .map(button => [
-          button.textContent,
-          button.getAttribute('aria-pressed'),
-        ]),
-    ).toEqual([
-      ['List', 'true'],
-      ['Columns', 'false'],
-      ['Table', 'false'],
-    ])
-    await user.click(within(picker).getByRole('button', { name: 'Table' }))
-
-    expect(localStorage.getItem('sending-stone:actions-layout')).toBe('table')
     const table = screen.getByRole('table', { name: 'Actions' })
     expect(
       within(table)
@@ -974,17 +940,9 @@ describe('components/character-sheet/actions-tab', () => {
     )
   })
 
-  it('lays sections out side by side on a tablet: Actions in a column, the rest beside it', async () => {
-    const user = userEvent.setup()
-    sheetWidth(800)
-    renderTab()
+  it('lays sections out side by side: Actions in a column, the rest beside it', () => {
+    renderTab(fullerSheet(), 'columns')
 
-    await user.click(screen.getByRole('button', { name: 'Columns' }))
-
-    expect(screen.getByRole('button', { name: 'Columns' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
     const actions = screen.getByRole('region', { name: 'Actions' })
     const grid = actions.parentElement?.parentElement as HTMLElement
     expect(grid).toHaveClass('grid-cols-2', '@6xl:grid-cols-3')
@@ -1003,46 +961,11 @@ describe('components/character-sheet/actions-tab', () => {
     expect(screen.queryByRole('table')).toBeNull()
   })
 
-  it("offers no columns where two don't fit side by side, as beside the chat on a tablet, listing them instead", () => {
-    localStorage.setItem('sending-stone:actions-layout', 'columns')
-    sheetWidth(640)
-    renderTab()
-
-    expect(
-      within(screen.getByRole('group', { name: 'Layout' }))
-        .getAllByRole('button')
-        .map(button => [
-          button.textContent,
-          button.getAttribute('aria-pressed'),
-        ]),
-    ).toEqual([
-      ['List', 'true'],
-      ['Table', 'false'],
-    ])
-    expect(
-      within(screen.getByRole('region', { name: 'Actions' })).getAllByRole(
-        'listitem',
-      ),
-    ).toHaveLength(4)
-  })
-
-  it('remembers the layout chosen, in this browser', () => {
-    localStorage.setItem('sending-stone:actions-layout', 'columns')
-    sheetWidth(800)
-    renderTab()
-
-    expect(screen.getByRole('button', { name: 'Columns' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+  it('puts a lone section in a column of its own', () => {
+    renderTab(
+      withActions(sheetAction({ id: 'dagger', name: 'Dagger' })),
+      'columns',
     )
-  })
-
-  it('puts a lone section in a column of its own', async () => {
-    const user = userEvent.setup()
-    sheetWidth(800)
-    renderTab(withActions(sheetAction({ id: 'dagger', name: 'Dagger' })))
-
-    await user.click(screen.getByRole('button', { name: 'Columns' }))
 
     const grid = screen.getByRole('region', { name: 'Actions' }).parentElement
       ?.parentElement as HTMLElement
@@ -1066,7 +989,7 @@ describe('components/character-sheet/actions-tab', () => {
       },
       rollFormula: { formula: '1d4 + 3', name: 'Light radius' },
     })
-    const renderWith = (sheet: CharacterSheet) => {
+    const renderWith = (sheet: CharacterSheet, layout?: Layout) => {
       const onRollFormula = jest.fn()
       render(
         <ActionsTab
@@ -1075,6 +998,7 @@ describe('components/character-sheet/actions-tab', () => {
           onRoll={jest.fn()}
           onRollDamage={jest.fn()}
           onRollFormula={onRollFormula}
+          layout={layout}
         />,
       )
       return onRollFormula
@@ -1142,9 +1066,7 @@ describe('components/character-sheet/actions-tab', () => {
 
     it('rolls it from a table too', async () => {
       const user = userEvent.setup()
-      sheetWidth(800)
-      localStorage.setItem('sending-stone:actions-layout', 'table')
-      const onRollFormula = renderWith(withActions(lantern))
+      const onRollFormula = renderWith(withActions(lantern), 'table')
 
       const table = screen.getByRole('table', { name: 'Actions' })
       await user.click(
@@ -1227,19 +1149,20 @@ describe('components/character-sheet/actions-tab', () => {
 
     it('uses them from their chips while the game takes them, in a list and in a table', async () => {
       const user = userEvent.setup()
-      sheetWidth(800)
       const onUse = jest.fn()
       const onRoll = jest.fn()
       const onRollDamage = jest.fn()
-      render(
+      const tab = (layout: Layout) => (
         <ActionsTab
           characterId='char-1'
           sheet={sheet}
           onRoll={onRoll}
           onRollDamage={onRollDamage}
           onUse={onUse}
-        />,
+          layout={layout}
+        />
       )
+      const { rerender } = render(tab('list'))
       const used = () => onUse.mock.calls.map(([action]) => action.id)
 
       await user.click(
@@ -1263,7 +1186,7 @@ describe('components/character-sheet/actions-tab', () => {
       expect(onRollDamage).toHaveBeenCalledTimes(1)
       expect(onUse).toHaveBeenCalledTimes(5)
 
-      await user.click(screen.getByRole('button', { name: 'Table' }))
+      rerender(tab('table'))
       const table = screen.getByRole('table', { name: 'Actions' })
       await user.click(
         within(table).getByRole('button', {
@@ -1500,7 +1423,7 @@ describe('components/character-sheet/actions-tab', () => {
       withActions(hex, unarmed, sphere),
       'https://my-game.forge-vtt.com',
     )
-    const renderUsing = () => {
+    const renderUsing = (layout?: Layout) => {
       const onUse = jest.fn()
       const onRoll = jest.fn()
       const onRollDamage = jest.fn()
@@ -1511,6 +1434,7 @@ describe('components/character-sheet/actions-tab', () => {
           onRoll={onRoll}
           onRollDamage={onRollDamage}
           onUse={onUse}
+          layout={layout}
         />,
       )
       return { onUse, onRoll, onRollDamage }
@@ -1594,10 +1518,8 @@ describe('components/character-sheet/actions-tab', () => {
 
     it('lists them in a table too, beneath their item, their chips in its columns', async () => {
       const user = userEvent.setup()
-      sheetWidth(800)
-      const { onUse } = renderUsing()
+      const { onUse } = renderUsing('table')
 
-      await user.click(screen.getByRole('button', { name: 'Table' }))
       const table = screen.getByRole('table', { name: 'Actions' })
       // Folded away until each is opened, as in a list.
       expect(
@@ -1911,6 +1833,7 @@ describe('components/character-sheet/actions-tab', () => {
           { id: 'action', label: 'Actions', actions: [flame] },
           { id: 'reaction', label: 'Reactions', actions: [barbs] },
         ],
+        layout?: Layout,
       ) => {
         globalThis.fetch = jest.fn(
           async (url: RequestInfo | URL) =>
@@ -1936,6 +1859,7 @@ describe('components/character-sheet/actions-tab', () => {
             )}
             onRoll={jest.fn()}
             onRollDamage={jest.fn()}
+            layout={layout}
           />,
         )
       }
@@ -2333,7 +2257,6 @@ describe('components/character-sheet/actions-tab', () => {
 
       it("reads a weapon's other attack, with the weapon's description under its name, in a table too", async () => {
         const user = userEvent.setup()
-        sheetWidth(800)
         const attack = {
           type: 'attack',
           activation: 'Action',
@@ -2357,9 +2280,12 @@ describe('components/character-sheet/actions-tab', () => {
             { ...attack, id: 'throw', name: 'Throw', range: '20/60 ft' },
           ],
         })
-        renderRead([], [{ id: 'action', label: 'Actions', actions: [handaxe] }])
+        renderRead(
+          [],
+          [{ id: 'action', label: 'Actions', actions: [handaxe] }],
+          'table',
+        )
 
-        await user.click(screen.getByRole('button', { name: 'Table' }))
         const table = screen.getByRole('table', { name: 'Actions' })
         await user.click(
           within(table).getByRole('button', {
@@ -2467,7 +2393,10 @@ describe('components/character-sheet/actions-tab', () => {
   })
 
   describe('spells an item casts higher, and their later activities, from module 0.20.0', () => {
-    const renderCasting = (sheet: CharacterSheet = castingSheet()) => {
+    const renderCasting = (
+      sheet: CharacterSheet = castingSheet(),
+      layout?: Layout,
+    ) => {
       const onUse = jest.fn()
       render(
         <ActionsTab
@@ -2476,6 +2405,7 @@ describe('components/character-sheet/actions-tab', () => {
           onRoll={jest.fn()}
           onRollDamage={jest.fn()}
           onUse={onUse}
+          layout={layout}
         />,
       )
       return { onUse }
@@ -2821,9 +2751,7 @@ describe('components/character-sheet/actions-tab', () => {
 
     it('lists them in a table too, keyed apart, each after its Cast', async () => {
       const user = userEvent.setup()
-      sheetWidth(800)
-      renderCasting()
-      await user.click(screen.getByRole('button', { name: 'Table' }))
+      renderCasting(castingSheet(), 'table')
       await user.click(
         screen.getByRole('button', { name: /^Bardic Flame/, expanded: false }),
       )
@@ -2843,18 +2771,15 @@ describe('components/character-sheet/actions-tab', () => {
   })
 
   it('says so when there are no actions to show, as from an older module', () => {
-    sheetWidth(800)
     renderTab(characterSheet())
 
     expect(screen.getByText('No actions to show yet.')).toBeInTheDocument()
     expect(screen.queryByRole('heading')).toBeNull()
-    expect(screen.queryByRole('group', { name: 'Layout' })).toBeNull()
   })
 
   it('stars a favorite, in a list and in a table, and shows first what it is given, such as the favorites', () => {
-    sheetWidth(600)
     const sheet = toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')
-    const tab = (
+    const tab = (layout: Layout) => (
       <FavoriteMarks keys={new Set(['item:warhammer'])}>
         <ActionsTab
           characterId='char-1'
@@ -2862,10 +2787,11 @@ describe('components/character-sheet/actions-tab', () => {
           onRoll={jest.fn()}
           onRollDamage={jest.fn()}
           favorites={<p>Her favorites</p>}
+          layout={layout}
         />
       </FavoriteMarks>
     )
-    render(tab)
+    render(tab('list'))
 
     expect(
       screen.getByRole('button', { name: /^Warhammer\s*, favorite/ }),
@@ -2874,12 +2800,13 @@ describe('components/character-sheet/actions-tab', () => {
     expect(
       screen
         .getByText('Her favorites')
-        .compareDocumentPosition(screen.getByRole('group', { name: 'Layout' })),
+        .compareDocumentPosition(
+          screen.getByRole('heading', { level: 2, name: 'Actions' }),
+        ),
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
 
     cleanup()
-    localStorage.setItem('sending-stone:actions-layout', 'table')
-    render(tab)
+    render(tab('table'))
     expect(
       within(screen.getAllByRole('table')[0]).getByRole('button', {
         name: /^Warhammer\s*, favorite/,

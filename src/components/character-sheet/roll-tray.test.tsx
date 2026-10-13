@@ -374,7 +374,6 @@ describe('components/character-sheet/roll-tray', () => {
       states: new Map(states),
       available: true,
       sending: true,
-      setSending: jest.fn(),
       ...fields,
     })
 
@@ -1869,11 +1868,9 @@ describe('components/character-sheet/roll-tray', () => {
       ])
     })
 
-    it('says rolls go to the table, with a switch to keep them on this device', async () => {
-      const user = userEvent.setup()
-      const sending = table()
+    it('says rolls go to the table, or that Settings keeps them on this device, with no switch of its own', () => {
       const { rerender } = render(
-        <RollTray rolls={[]} rolling={false} table={sending} />,
+        <RollTray rolls={[]} rolling={false} table={table()} />,
       )
 
       expect(
@@ -1881,10 +1878,7 @@ describe('components/character-sheet/roll-tray', () => {
           /made in your Gamemaster’s game too, with the same dice/,
         ),
       ).toBeInTheDocument()
-      const toggle = screen.getByRole('switch', { name: 'Send to the table' })
-      expect(toggle).toBeChecked()
-      await user.click(toggle)
-      expect(sending.setSending).toHaveBeenCalledWith(false)
+      expect(screen.queryByRole('switch')).toBeNull()
 
       rerender(
         <RollTray
@@ -1893,11 +1887,11 @@ describe('components/character-sheet/roll-tray', () => {
           table={table([], { sending: false })}
         />,
       )
+      expect(screen.queryByRole('switch')).toBeNull()
       expect(
-        screen.getByRole('switch', { name: 'Send to the table' }),
-      ).not.toBeChecked()
-      expect(
-        screen.getByText(/Only you see these rolls. They aren’t sent/),
+        screen.getByText(
+          'Only you see these rolls: Send to the table is off in Settings.',
+        ),
       ).toBeInTheDocument()
     })
 
@@ -1922,7 +1916,6 @@ describe('components/character-sheet/roll-tray', () => {
       states: new Map(states),
       available: true,
       sending: true,
-      setSending: jest.fn(),
     })
     const save = roll({
       id: 's1',
@@ -2271,7 +2264,6 @@ const tableOf = (states: [string, TableRollState][]): TableRolls => ({
   states: new Map(states),
   available: true,
   sending: true,
-  setSending: jest.fn(),
 })
 
 /** An enchant activity used, or an enchantment ended, at the table, what it did said. */

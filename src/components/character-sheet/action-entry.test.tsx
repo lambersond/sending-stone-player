@@ -15,6 +15,7 @@ import {
   sheetSpell,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { Layout } from './actions-layout'
 import type {
   CharacterSheet,
   SheetAction,
@@ -54,10 +55,12 @@ const renderRook = ({
   sheet = checkingSheet(),
   using = true,
   actions = {},
+  layout,
 }: {
   sheet?: CharacterSheet
   using?: boolean
   actions?: Partial<DescriptionActions>
+  layout?: Layout
 } = {}) => {
   const onUse = jest.fn()
   const described = actionsFor(sheet, actions)
@@ -69,6 +72,7 @@ const renderRook = ({
         onRoll={jest.fn()}
         onRollDamage={jest.fn()}
         {...(using && { onUse })}
+        layout={layout}
       />
     </DescriptionLinks>,
   )
@@ -487,10 +491,8 @@ describe('action-entry: checks activities ask for, and activities that use other
 
   it('shows its check in a table too, in its column', async () => {
     const user = userEvent.setup()
-    jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800)
-    const { onUse } = renderRook()
+    const { onUse } = renderRook({ layout: 'table' })
 
-    await user.click(screen.getByRole('button', { name: 'Table' }))
     const table = screen.getByRole('table', { name: 'Actions' })
     const maze = within(table).getByRole('button', {
       name: 'Maze, DC 20 Intelligence (Investigation) check',

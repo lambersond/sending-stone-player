@@ -134,24 +134,33 @@ const chatScroller = () => {
 }
 
 describe('components/game-table/game-table', () => {
-  it('opens on combat while an encounter is under way', () => {
-    renderTable()
+  it('opens on the character while an encounter is under way, marking the player’s turn on Combat', () => {
+    renderTable(view({ combat: combat({ currentId: 'me' }) }))
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       'Thorin',
     )
-    expect(subtitle()).toHaveTextContent('Round 3 · Goblin Boss’s turn')
-    expect(screen.getByRole('button', { name: 'Combat' })).toHaveAttribute(
+    expect(subtitle()).toHaveTextContent(/^The Lonely Mountain$/)
+    expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
       'aria-current',
       'page',
     )
+    expect(
+      screen.getByRole('button', { name: 'Combat , your turn' }),
+    ).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('status')).toHaveTextContent('Live')
     expect(useTableView).toHaveBeenCalledWith('char-1', expect.anything())
   })
 
-  it('opens on chat otherwise, and switches tabs', async () => {
+  it('opens on the character otherwise, and switches tabs', async () => {
     const user = userEvent.setup()
     renderTable(view({ combat: undefined }))
+
+    expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
 
     expect(subtitle()).toHaveTextContent('The Lonely Mountain · 1 message')
     expect(screen.getByText('message m1')).toBeInTheDocument()
@@ -167,6 +176,7 @@ describe('components/game-table/game-table', () => {
   it('counts messages that arrive while on combat as unread', async () => {
     const user = userEvent.setup()
     const { rerender } = renderTable()
+    await user.click(screen.getByRole('button', { name: 'Combat' }))
 
     showing({
       view: view({
@@ -297,11 +307,14 @@ describe('components/game-table/game-table', () => {
     })
 
     it('still counts messages as read when saving how far fails', async () => {
+      const user = userEvent.setup()
       markChatRead.mockRejectedValueOnce(new Error('offline'))
       renderTable(view({ messages, combat: undefined }))
+      await user.click(screen.getByRole('button', { name: 'Chat' }))
 
       await Promise.resolve()
       expect(screen.getByText('message m3')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
     })
   })
 
@@ -309,6 +322,7 @@ describe('components/game-table/game-table', () => {
     const user = userEvent.setup()
     renderTable(view({ combat: combat({ currentId: 'me' }) }))
 
+    await user.click(screen.getByRole('button', { name: /^Combat/ }))
     expect(subtitle()).toHaveTextContent('Round 3 · Your turn')
     await user.click(screen.getByRole('button', { name: 'Chat' }))
 
@@ -328,8 +342,13 @@ describe('components/game-table/game-table', () => {
       },
     ]
     renderTable(view({ prompts }))
+    // The character's own tab, shown, has no mark.
+    expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
 
-    // It opens on combat, an encounter being under way.
+    await user.click(screen.getByRole('button', { name: 'Combat' }))
     expect(
       screen.getByRole('button', {
         name: 'Character , your Gamemaster asks for a roll',
@@ -342,7 +361,8 @@ describe('components/game-table/game-table', () => {
     )
   })
 
-  it("marks nothing while the character isn't one of the campaign's", () => {
+  it("marks nothing while the character isn't one of the campaign's", async () => {
+    const user = userEvent.setup()
     renderTable(
       view({
         connected: false,
@@ -356,6 +376,7 @@ describe('components/game-table/game-table', () => {
         ],
       }),
     )
+    await user.click(screen.getByRole('button', { name: 'Combat' }))
 
     expect(
       screen.getByRole('button', { name: 'Character' }),
@@ -373,11 +394,14 @@ describe('components/game-table/game-table', () => {
     expect(subtitle()).toHaveTextContent(new RegExp(`^${text}$`))
   })
 
-  it('names the campaign as the Gamemaster now titles it', () => {
+  it('names the campaign as the Gamemaster now titles it', async () => {
+    const user = userEvent.setup()
     renderTable(
       view({ campaign: { title: 'The Desolation' }, combat: undefined }),
     )
+    expect(subtitle()).toHaveTextContent(/^The Desolation$/)
 
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
     expect(subtitle()).toHaveTextContent('The Desolation · 1 message')
   })
 
@@ -480,6 +504,7 @@ describe('components/game-table/game-table', () => {
     const user = userEvent.setup()
     const { rerender } = renderTable(view({ combat: undefined }))
     const scroller = chatScroller()
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
 
     const arrive = (id: string) => {
       showing({
@@ -504,6 +529,12 @@ describe('components/game-table/game-table', () => {
     await user.click(screen.getByRole('button', { name: 'Combat' }))
     await user.click(screen.getByRole('button', { name: 'Chat' }))
     expect(scroller.scrollTop).toBe(1000)
+  })
+
+  it('fills the viewport, a character’s page having no app bar', () => {
+    const { container } = renderTable()
+
+    expect(container.firstElementChild).toHaveClass('h-dvh')
   })
 
   it('puts combat and chat in panes of their own', () => {
@@ -683,6 +714,82 @@ describe('components/game-table/game-table', () => {
     })
   })
 
+  describe('as the screen narrows and widens', () => {
+    let wideScreen = true
+    const listeners = new Set<() => void>()
+    /** The window resized, wide enough for the sheet beside combat or the chat, or not. */
+    const resize = (wide: boolean) =>
+      act(() => {
+        wideScreen = wide
+        for (const listener of listeners) listener()
+      })
+
+    beforeEach(() => {
+      wideScreen = true
+      listeners.clear()
+      jest.spyOn(globalThis, 'matchMedia').mockImplementation(
+        query =>
+          ({
+            get matches() {
+              return query === '(min-width: 64rem)' && wideScreen
+            },
+            addEventListener: (_: string, listener: () => void) =>
+              listeners.add(listener),
+            removeEventListener: (_: string, listener: () => void) =>
+              listeners.delete(listener),
+          }) as unknown as MediaQueryList,
+      )
+    })
+    afterEach(() => jest.restoreAllMocks())
+
+    it('shows the character when it narrows to one pane, and keeps the tab chosen as it widens', async () => {
+      const user = userEvent.setup()
+      renderTable(view({ sheet }))
+      const character = () => screen.getByRole('button', { name: 'Character' })
+
+      // Choosing the chat beside the sheet chooses its tab too.
+      await user.click(screen.getByRole('tab', { name: 'Chat' }))
+      expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+
+      resize(false)
+      expect(character()).toHaveAttribute('aria-current', 'page')
+      expect(screen.getByRole('region', { name: 'Character' })).toHaveClass(
+        'flex',
+      )
+      // The chat stays the one beside the sheet, for when it widens again.
+      expect(screen.getByRole('region', { name: 'Chat' })).not.toHaveClass(
+        'hidden',
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Combat' }))
+      resize(true)
+      expect(screen.getByRole('button', { name: 'Combat' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+
+      resize(false)
+      expect(character()).toHaveAttribute('aria-current', 'page')
+    })
+
+    it('keeps the part of the sheet shown as it narrows', async () => {
+      const user = userEvent.setup()
+      renderTable(view({ sheet, combat: undefined }))
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      await user.click(screen.getByRole('tab', { name: 'Chat' }))
+
+      resize(false)
+
+      expect(screen.getByRole('tab', { name: 'Actions' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+    })
+  })
+
   describe('the character tab', () => {
     it('opens on the sheet when there is no fight under way', () => {
       renderTable(view({ sheet, combat: undefined }))
@@ -701,31 +808,39 @@ describe('components/game-table/game-table', () => {
       ).toHaveTextContent('Tap an ability, skill or attack to roll it.')
     })
 
-    it('opens on combat during a fight, and switches to the sheet', async () => {
+    it('opens on the sheet during a fight too, with Combat marked on the player’s turn, and switches to combat', async () => {
       const user = userEvent.setup()
-      renderTable(view({ sheet }))
+      renderTable(view({ sheet, combat: combat({ currentId: 'me' }) }))
       const sheetPane = screen.getByRole('region', { name: 'Character' })
       const column = screen.getByRole('region', { name: 'Combat' })
         .parentElement as HTMLElement
 
-      expect(sheetPane).toHaveClass('hidden')
-      expect(column).not.toHaveClass('hidden')
-      await user.click(screen.getByRole('button', { name: 'Character' }))
-
-      expect(sheetPane).not.toHaveClass('hidden')
-      expect(column).toHaveClass('hidden')
-    })
-
-    it("explains a sheet that hasn't arrived", async () => {
-      const user = userEvent.setup()
-      renderTable(view({ combat: undefined }))
-
-      expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
         'aria-current',
         'page',
       )
-      await user.click(screen.getByRole('button', { name: 'Character' }))
+      expect(subtitle()).toHaveTextContent('Fighter 5 · Champion')
+      expect(sheetPane).not.toHaveClass('hidden')
+      expect(column).toHaveClass('hidden')
+      await user.click(
+        screen.getByRole('button', { name: 'Combat , your turn' }),
+      )
 
+      expect(sheetPane).toHaveClass('hidden')
+      expect(column).not.toHaveClass('hidden')
+      expect(screen.getByRole('button', { name: 'Combat' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+    })
+
+    it("explains a sheet that hasn't arrived, opening on it", () => {
+      renderTable(view({ combat: undefined }))
+
+      expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
       expect(subtitle()).toHaveTextContent('The Lonely Mountain')
       expect(
         screen.getByRole('heading', { name: "Thorin's sheet hasn't arrived" }),
