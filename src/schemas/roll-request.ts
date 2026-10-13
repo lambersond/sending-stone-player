@@ -99,8 +99,8 @@ const rolledDiceSchema = z.strictObject({
  * them as they are, so no more could be slipped in. An attack names the item and attack activity
  * it's made with, the combatant it's made at, if any, or for an area attack those in its area, and
  * the spell slot, ammunition and attack mode chosen, if any. A use of a spell or feature names its
- * item and activity, the combatants it's used at, all in one combat, and the spell slot chosen, if
- * any, and throws no dice. Their damage
+ * item and activity, the combatants it's used at, all in one combat, whether it's made at its user
+ * too, from module 0.22.0, and the spell slot chosen, if any, and throws no dice. Their damage
  * names the attack or use, the dice it said its damage throws, which are checked against them when
  * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
  * then changed so. A description's damage names its link, and may be changed so too, or be a
@@ -129,6 +129,7 @@ export const rollRequestSchema = z
     activity: z.string().regex(FOUNDRY_ID).optional(),
     target: targetSchema.nullable().optional(),
     targets: z.array(targetSchema).max(MAX_USE_TARGETS).optional(),
+    self: z.literal(true).optional(),
     slot: z.string().regex(SPELL_SLOT).nullable().optional(),
     ammunition: z.string().regex(FOUNDRY_ID).optional(),
     attackMode: z.string().regex(ATTACK_MODE).optional(),
@@ -229,6 +230,14 @@ export const rollRequestSchema = z
         code: 'custom',
         path: ['targets'],
         message: 'A use, or an area attack, and only those, has its targets',
+      })
+    }
+    // A use may be made at its user too, from module 0.22.0; an attack never is.
+    if (!use && request.self !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['self'],
+        message: 'Only a use is made at its user',
       })
     }
     if (attack && targeted && request.target !== undefined) {

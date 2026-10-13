@@ -1,6 +1,9 @@
+import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
 import { HIT_DIE } from '@/constants/sending-stone'
+import { readModifier, splitModifiers } from '@/utils/dice-modifiers'
 import {
-  parseExtraTerms,
+  MAX_DICE,
+  MAX_FLAT,
   type ExtraDice,
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
@@ -12,13 +15,58 @@ import type { CharacterSheet, SheetClass } from '@/types/sending-stone'
  * items' activities, such as a light's radius.
  */
 
-/** A formula's terms, such as 1d4 + 3, as the app throws them; none for one it can't read. */
+/**
+ * A sign or a comma (or the start), then dice such as 2d6 with what Foundry does with them after
+ * their faces, such as r<=2, or a number; either with a flavor after it, such as [fire].
+ */
+const FORMULA_TERM =
+  /\s*(,)?\s*([+-])?\s*(?:(\d*)\s*[dD]\s*(\d+)([^\s()[\]{}+\-*/,]*)|(\d+))\s*(?:\[[^\]]*\])?\s*/y
+
+/**
+ * A formula's terms, such as 1d4 + 3 or a sheet's 2d6r<=2 + 7, as the app throws them, read as the
+ * player's own extras are (`parseExtraTerms`), with a flavor after a term, such as [fire], left
+ * out, and each die's modifiers, as Foundry splits them, where it reads every one
+ * (`readModifier`). None for one it can't read: such as one with brackets, a function, a die it
+ * hasn't, or a modifier it doesn't work out, which is shown, never rolled here.
+ */
 export function formulaTerms(formula: string): ExtraTerm[] | undefined {
-  const read = parseExtraTerms(formula)
-  return read.ok && read.terms.length > 0 ? read.terms : undefined
+  const text = formula.replaceAll('−', '-').trim()
+  const terms: ExtraTerm[] = []
+  let index = 0
+  while (index < text.length) {
+    FORMULA_TERM.lastIndex = index
+    const match = FORMULA_TERM.exec(text)
+    const [, comma, sign, count, sides, written = '', flat] = match ?? []
+    const joined = terms.length === 0 ? !comma : Boolean(comma || sign)
+    if (!match || !joined) return
+    const signed = sign === '-' ? -1 : 1
+    if (flat === undefined) {
+      const dice = count ? Number(count) : 1
+      const die = Number(sides)
+      if (!(DIE_SIDES as readonly number[]).includes(die)) return
+      if (dice < 1 || dice > MAX_DICE) return
+      const modifiers = written === '' ? [] : splitModifiers(written)
+      if (!modifiers?.every(each => readModifier(each, die))) return
+      terms.push({
+        sign: signed,
+        count: dice,
+        sides: die as DieSides,
+        ...(modifiers.length > 0 && { modifiers }),
+      })
+    } else {
+      const value = Number(flat)
+      if (value > MAX_FLAT) return
+      terms.push({ sign: signed, flat: value })
+    }
+    index = FORMULA_TERM.lastIndex
+  }
+  return terms.length > 0 ? terms : undefined
 }
 
-/** The dice a formula throws, in order; none for one the app can't read. */
+/**
+ * The dice a formula throws, in order, each term's first throw: a die Foundry rerolls or explodes
+ * is thrown again after; none for one the app can't read.
+ */
 export function formulaDice(formula: string): ExtraDice[] | undefined {
   return formulaTerms(formula)?.filter(
     (term): term is ExtraDice => 'sides' in term,

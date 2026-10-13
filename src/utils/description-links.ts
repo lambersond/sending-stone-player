@@ -7,8 +7,10 @@ import { formulaTerms } from '@/utils/formulas'
  * throw it asks for, damage or healing it deals, a roll of its own, and a condition it names; and
  * since 0.18.0, a check it asks for; and since 0.19.0, damage never rolled as a critical hit's, as
  * dnd5e's own link offers none, is marked so; and since 0.20.0, what a critical hit adds to each of
- * damage's parts, such as a weapon's extra dice and its critical damage. The module sends each as a
- * span with a class of its own and what it means in data attributes:
+ * damage's parts, such as a weapon's extra dice and its critical damage. A formula may hold what
+ * Foundry does with its dice, such as 2d6r2 or 4d6kh3, and since 0.22.0 one with a comparison, such
+ * as 2d6r<=2, written in the attribute as 2d6r&lt;=2. The module sends each as a span with a class
+ * of its own and what it means in data attributes:
  *
  *   <span class="ss-save roll" data-n="0" data-ability="dex" data-dc="15">DC 15 Dexterity</span>
  *   <span class="ss-damage roll" data-n="1" data-formulas="2d6&1d4" data-types="fire&cold|fire">…
@@ -147,6 +149,13 @@ const CHECK = `(?:check:${ABILITY}|(?:skill|tool):${ABILITY}:${KEY})`
 /** The most ways a check a description asks for may be made. */
 export const MAX_CHECKS = 10
 
+/**
+ * A link's formula: numbers, dice, signs and brackets, and the lower-case letters and comparisons
+ * of what Foundry does with its dice, such as 2d6r<=2 or 4d6kh3; whether the app reads it is the
+ * formula reader's to say (`formulaTerms`).
+ */
+const FORMULA = String.raw`[\da-z\s+\-−*/().<>=]{1,100}`
+
 /** The data attributes each link may have, each with the pattern its value must match. */
 export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
   'ss-save': {
@@ -167,9 +176,8 @@ export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
   },
   'ss-damage': {
     'data-n': /^(?:0|[1-9]\d?|1\d\d)$/,
-    // Parts joined by &, each a formula of numbers, dice and signs.
-    'data-formulas':
-      /^[\d\sd+\-−*/().]{1,100}(?:&[\d\sd+\-−*/().]{1,100}){0,9}$/,
+    // Parts joined by &, each a formula of numbers, dice and signs, and what's done with the dice.
+    'data-formulas': new RegExp(`^${FORMULA}(?:&${FORMULA}){0,9}$`),
     // A part's types joined by |, the parts by &; a part may have none.
     'data-types': new RegExp(`^${TYPES}?(?:&${TYPES}?){0,9}$`),
     'data-healing': /^true$/,
@@ -182,7 +190,7 @@ export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
   },
   'ss-roll': {
     'data-n': /^(?:0|[1-9]\d?|1\d\d)$/,
-    'data-formula': /^[\d\sd+\-−*/().]{1,100}$/,
+    'data-formula': new RegExp(`^${FORMULA}$`),
   },
   'ss-condition': {
     'data-condition': /^[a-z][a-z-]{1,31}$/,

@@ -116,6 +116,10 @@ const nameOf = () => screen.getByRole('heading', { level: 1 })
 const subtitle = () => nameOf().parentElement?.nextSibling
 /** What follows the character's name on its line: the class line, on a wide screen. */
 const besideName = () => nameOf().nextSibling
+/** What a sheet held back as too large says beneath its heading. */
+const explanation = () =>
+  screen.getByRole('heading', { name: /sheet is too large to send$/ })
+    .nextSibling
 
 /** The chat's scrolling area, 1000 pixels of messages in a 400-pixel window. */
 const chatScroller = () => {
@@ -845,6 +849,102 @@ describe('components/game-table/game-table', () => {
       expect(
         screen.getByRole('heading', { name: "Thorin's sheet hasn't arrived" }),
       ).toBeInTheDocument()
+    })
+
+    describe('a sheet the module held back, from module 0.22.0', () => {
+      it('says it was too large to send, by how much, in megabytes', () => {
+        renderTable(
+          view({
+            combat: undefined,
+            sheetWithheld: {
+              reason: 'tooLarge',
+              bytes: 5_200_000,
+              limit: 4_000_000,
+            },
+          }),
+        )
+
+        expect(
+          screen.getByRole('heading', {
+            name: "Thorin's sheet is too large to send",
+          }),
+        ).toBeInTheDocument()
+        expect(explanation()).toHaveTextContent(
+          'It came to 5.2 MB, more than the 4.0 MB this app takes. Your Gamemaster has been told.',
+        )
+      })
+
+      it('rounds its size up and the limit down, so that it never reads as within it', () => {
+        renderTable(
+          view({
+            combat: undefined,
+            sheetWithheld: {
+              reason: 'tooLarge',
+              bytes: 1_000_001,
+              limit: 1_000_000,
+            },
+          }),
+        )
+
+        expect(explanation()).toHaveTextContent(
+          'It came to 1.1 MB, more than the 1.0 MB this app takes.',
+        )
+      })
+
+      it("rounds down a limit that isn't a round number, such as 4 MiB", () => {
+        renderTable(
+          view({
+            combat: undefined,
+            sheetWithheld: {
+              reason: 'tooLarge',
+              bytes: 4_194_305,
+              limit: 4_194_304,
+            },
+          }),
+        )
+
+        expect(explanation()).toHaveTextContent(
+          'It came to 4.2 MB, more than the 4.1 MB this app takes.',
+        )
+      })
+
+      it('says only that the Gamemaster has been told, where its sizes are unknown', () => {
+        renderTable(
+          view({
+            combat: undefined,
+            sheetWithheld: {
+              reason: 'tooLarge',
+              bytes: null,
+              limit: 4_000_000,
+            },
+          }),
+        )
+
+        expect(
+          screen.getByRole('heading', {
+            name: "Thorin's sheet is too large to send",
+          }),
+        ).toBeInTheDocument()
+        expect(explanation()).toHaveTextContent(
+          /^Your Gamemaster has been told\.$/,
+        )
+      })
+
+      it("says it hasn't arrived, for any other reason", () => {
+        renderTable(
+          view({
+            combat: undefined,
+            sheetWithheld: { reason: 'later', bytes: 5, limit: 4 },
+          }),
+        )
+
+        expect(
+          screen.getByRole('heading', {
+            name: "Thorin's sheet hasn't arrived",
+          }),
+        ).toBeInTheDocument()
+        expect(screen.queryByText(/has been told/)).not.toBeInTheDocument()
+      })
     })
   })
 })

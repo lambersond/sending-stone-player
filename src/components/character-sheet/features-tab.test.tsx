@@ -169,6 +169,56 @@ describe('components/character-sheet/features-tab', () => {
     ).toBeNull()
   })
 
+  it('rolls damage whose dice Foundry rerolls, as a chip of its own', async () => {
+    const user = userEvent.setup()
+    const onRollDamage = jest.fn()
+    const sheet = fullerSheet()
+    const [fighter, ...origins] = sheet.features
+    const strike = {
+      ...fighter.features[0],
+      id: 'brutal-strike',
+      name: 'Brutal Strike',
+      damage: [
+        { formula: '2d6r<=2 + 7 + 1d8', type: 'Bludgeoning', healing: false },
+      ],
+    }
+    render(
+      <FeaturesTab
+        characterId='char-1'
+        sheet={toTableSheet(
+          {
+            ...sheet,
+            features: [{ ...fighter, features: [strike] }, ...origins],
+          },
+          'https://my-game.forge-vtt.com',
+        )}
+        onRoll={jest.fn()}
+        onRollDamage={onRollDamage}
+      />,
+    )
+
+    const chip = screen.getByRole('button', {
+      name: 'Brutal Strike damage, 2d6r<=2 + 7 + 1d8',
+    })
+    expect(chip).toBeEnabled()
+    await user.click(chip)
+    expect(onRollDamage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Brutal Strike damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+              { sign: 1, flat: 7 },
+              { sign: 1, count: 1, sides: 8 },
+            ],
+            type: 'Bludgeoning',
+          },
+        ],
+      }),
+    )
+  })
+
   it('names the species or background a group came from, if it has a description', () => {
     const sheet = fullerSheet()
     renderTab({

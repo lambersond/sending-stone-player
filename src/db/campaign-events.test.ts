@@ -23,6 +23,16 @@ const saved = () => prismaMock.combat.upsert.mock.calls[0][0].update.data as any
 const apply = (event: GameEvent) =>
   applyCampaignEvent('c1', world, campaign, event, 'session-1')
 
+/** A hello from module 0.22.0: the roster and state, each sheet to follow in a post of its own. */
+const apartHello = (characters = roster) =>
+  apply(
+    parseGameEvent('bridge.hello', {
+      sheetsApart: true,
+      characters,
+      combats: [combat()],
+    }) as GameEvent,
+  )
+
 describe('db/campaign-events', () => {
   beforeEach(() => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
@@ -297,6 +307,40 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it('bridge.hello keeps whether the game makes a use at its user, from module 0.22.0, last', async () => {
+    const rolls = { enabled: true, kinds: ['use'], reason: null }
+    await apply({
+      type: 'bridge.hello',
+      data: {
+        characters: roster,
+        combats: [],
+        features: {
+          rolls: { ...rolls, selfTargets: true, signedDice: true },
+        },
+      },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: {
+        characters: roster,
+        rollsEnabled: true,
+        rollKinds: ['use'],
+        rollFeatures: ['signedDice', 'selfTargets'],
+      },
+    })
+
+    prismaMock.campaign.update.mockClear()
+    await apply({
+      type: 'bridge.hello',
+      data: { characters: roster, combats: [], features: { rolls } },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ rollFeatures: [] }),
+      }),
+    )
+  })
+
   it("bridge.hello keeps whether the game spends several hit dice at once, from module 0.20.0, in the module's order", async () => {
     await apply({
       type: 'bridge.hello',
@@ -347,6 +391,143 @@ describe('db/campaign-events', () => {
         rollKinds: ['attack', 'use', 'damage', 'endEnchantment'],
         rollFeatures: [],
       },
+    })
+  })
+
+  describe('sheets apart, from module 0.22.0', () => {
+    it("bridge.hello keeps the sheets held for its characters, and those sheets' descriptions, until theirs follow", async () => {
+      prismaMock.actorSheet.findMany.mockResolvedValue([
+        { data: fullerSheet() },
+      ] as any)
+
+      const result = await apartHello()
+
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: {
+          characters: roster,
+          rollsEnabled: false,
+          rollKinds: [],
+          rollFeatures: [],
+        },
+      })
+      expect(prismaMock.combat.createMany).toHaveBeenCalledWith({
+        data: [{ campaignId: 'c1', combatId: 'cmbt1', data: combat() }],
+      })
+      // A character it no longer names has left, and its sheet goes.
+      expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledTimes(1)
+      expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
+        where: {
+          campaignId: 'c1',
+          actorId: { notIn: ['actor-thorin', 'actor-vex'] },
+        },
+      })
+      expect(prismaMock.actorSheet.createMany).not.toHaveBeenCalled()
+      expect(prismaMock.actorSheet.findMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1' },
+        select: { data: true },
+      })
+      expect(prismaMock.sheetText.deleteMany).toHaveBeenCalledWith({
+        where: {
+          campaignId: 'c1',
+          hash: { notIn: sheetTextRefs(fullerSheet()) },
+        },
+      })
+      // Their descriptions follow it too: none is missing yet.
+      expect(prismaMock.sheetText.count).not.toHaveBeenCalled()
+      expect(result).toEqual({ lacksTexts: false })
+      expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+        where: { id: 'c1' },
+        data: expect.objectContaining({ helloSession: 'session-1' }),
+      })
+    })
+
+    it('bridge.hello without its characters drops every sheet, keeping no description', async () => {
+      prismaMock.actorSheet.findMany.mockResolvedValue([])
+
+      await expect(apartHello([])).resolves.toEqual({ lacksTexts: false })
+
+      expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', actorId: { notIn: [] } },
+      })
+      expect(prismaMock.sheetText.deleteMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', hash: { notIn: [] } },
+      })
+    })
+
+    it('bridge.hello from an earlier module, its sheets in it, replaces them as before', async () => {
+      const sheet = characterSheet()
+      prismaMock.sheetText.count.mockResolvedValue(0)
+
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: [
+            { ...roster[0], sheet },
+            { ...roster[1], sheet: null },
+          ],
+          combats: [],
+        }) as GameEvent,
+      )
+
+      expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1' },
+      })
+      expect(prismaMock.actorSheet.createMany).toHaveBeenCalledWith({
+        data: [{ campaignId: 'c1', actorId: 'actor-thorin', data: sheet }],
+      })
+      expect(prismaMock.actorSheet.findMany).not.toHaveBeenCalled()
+    })
+
+    it('character.updated keeps why a sheet was held back in the roster, until an update without it', async () => {
+      const withheld = {
+        ...roster[0],
+        sheet: null,
+        sheetWithheld: {
+          reason: 'tooLarge',
+          bytes: 5_200_000,
+          limit: 4_000_000,
+        },
+      }
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        characters: roster,
+      } as any)
+
+      await apply({ type: 'character.updated', data: { character: withheld } })
+
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: {
+          characters: [
+            { ...roster[0], sheetWithheld: withheld.sheetWithheld },
+            roster[1],
+          ],
+        },
+      })
+      expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', actorId: 'actor-thorin' },
+      })
+
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        characters: [
+          { ...roster[0], sheetWithheld: withheld.sheetWithheld },
+          roster[1],
+        ],
+      } as any)
+      prismaMock.campaign.update.mockClear()
+      const sheet = characterSheet()
+
+      await apply({
+        type: 'character.updated',
+        data: { character: { ...roster[0], sheet } },
+      })
+
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { characters: roster },
+      })
+      expect(prismaMock.actorSheet.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: { data: sheet } }),
+      )
     })
   })
 

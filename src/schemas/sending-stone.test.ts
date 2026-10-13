@@ -839,6 +839,132 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  describe('sheets apart, from module 0.22.0', () => {
+    /** A character as a hello from module 0.22.0 names it, with no sheet. */
+    const named = {
+      ...roster[0],
+      uuid: 'Actor.actor-thorin',
+      img: null,
+      type: 'character',
+      owners: ['u-player'],
+    }
+
+    it('reads a hello whose characters carry no sheets, and says so, keeping them without', () => {
+      const hello = parseGameEvent('bridge.hello', {
+        sheetsApart: true,
+        characters: [named],
+        combats: [],
+      })
+
+      expect(hello).toEqual({
+        type: 'bridge.hello',
+        data: {
+          sheetsApart: true,
+          characters: [named],
+          combats: [],
+          prompts: [],
+        },
+      })
+      expect((hello?.data as any).characters[0]).not.toHaveProperty('sheet')
+    })
+
+    it('reads a hello from an earlier module, with its sheets, as before', () => {
+      const character = { ...roster[0], sheet: characterSheet() }
+      const hello = parseGameEvent('bridge.hello', {
+        characters: [character, { ...roster[1], sheet: null }],
+        combats: [],
+      })
+
+      expect(hello?.data).toEqual({
+        characters: [character, { ...roster[1], sheet: null }],
+        combats: [],
+        prompts: [],
+      })
+      expect(hello?.data).not.toHaveProperty('sheetsApart')
+    })
+
+    it.each([['yes'], [1], [null]])(
+      "reads a hello's sheetsApart of %p as false",
+      sheetsApart => {
+        expect(
+          parseGameEvent('bridge.hello', {
+            sheetsApart,
+            characters: [],
+            combats: [],
+          })?.data,
+        ).toMatchObject({ sheetsApart: false })
+      },
+    )
+
+    it('reads why a sheet was held back, with its size and the limit', () => {
+      const withheld = {
+        reason: 'tooLarge',
+        bytes: 5_200_000,
+        limit: 4_000_000,
+      }
+      const read = (sheetWithheld: unknown) =>
+        (
+          parseGameEvent('character.updated', {
+            character: { ...named, sheet: null, sheetWithheld },
+          })?.data as any
+        ).character
+
+      expect(read(withheld)).toEqual({
+        ...named,
+        sheet: null,
+        sheetWithheld: withheld,
+      })
+      // A size it can't read is unknown, the reason still read.
+      expect(read({ reason: 'tooLarge', bytes: '5 MB', limit: -1 })).toEqual({
+        ...named,
+        sheet: null,
+        sheetWithheld: { reason: 'tooLarge', bytes: null, limit: null },
+      })
+      expect(read({ reason: 'later', bytes: 1.5 }).sheetWithheld).toEqual({
+        reason: 'later',
+        bytes: null,
+        limit: null,
+      })
+      // One without a reason it can read is left out, the character kept.
+      for (const junk of [
+        { bytes: 5 },
+        { reason: 'x'.repeat(33) },
+        'tooLarge',
+      ]) {
+        expect(read(junk)).toEqual({ ...named, sheet: null })
+      }
+      expect(
+        (parseGameEvent('character.updated', { character: named })?.data as any)
+          .character,
+      ).toEqual(named)
+    })
+
+    it('reads a slim sheet as the sheet the module built, and one it can’t expand as none', () => {
+      const sheet = characterSheet()
+      const slim = { ...sheet, slim: 1 }
+
+      expect(
+        parseGameEvent('character.updated', {
+          character: { ...named, sheet: slim },
+        }),
+      ).toEqual({
+        type: 'character.updated',
+        data: { character: { ...named, sheet } },
+      })
+      expect(
+        parseGameEvent('bridge.hello', {
+          characters: [{ ...named, sheet: slim }],
+          combats: [],
+        })?.data,
+      ).toMatchObject({ characters: [{ ...named, sheet }] })
+      expect(
+        parseGameEvent('character.updated', {
+          character: { ...named, sheet: { ...sheet, slim: 2 } },
+        })?.data,
+      ).toEqual({ character: { ...named, sheet: null } })
+    })
+  })
+
   it('fills in what a sheet only displays when it is missing or odd', () => {
     const sheet = characterSheet()
     const event = parseGameEvent('character.updated', {
@@ -3015,5 +3141,59 @@ describe('dice damage takes away, from module 0.21.0', () => {
     const before = helloWith({ rolls }).features.rolls
     expect(before).toEqual(rolls)
     expect(before.signedDice).toBeFalsy()
+  })
+})
+
+/** An action's use, its targets these, as read on a sheet. */
+const useTargetsRead = (targets: Record<string, unknown>) => {
+  const sheet = fullerSheet()
+  const [section, ...rest] = sheet.actions
+  const [first, ...others] = section.actions
+  const use = {
+    id: 'drink',
+    type: 'heal',
+    targets: {
+      self: false,
+      area: false,
+      count: null,
+      perLevel: null,
+      affects: 'creature',
+      ...targets,
+    },
+  }
+  const event = parseGameEvent('character.updated', {
+    character: {
+      ...roster[0],
+      sheet: {
+        ...sheet,
+        actions: [
+          { ...section, actions: [{ ...first, activity: use }, ...others] },
+          ...rest,
+        ],
+      },
+    },
+  }) as any
+  return event.data.character.sheet.actions[0].actions[0].activity.targets
+}
+
+describe('Self, from module 0.22.0', () => {
+  it("reads whether a use's range is Self, and nothing where it says nothing, or what it can't", () => {
+    expect(useTargetsRead({ fromSelf: true }).fromSelf).toBe(true)
+    expect(useTargetsRead({ fromSelf: false }).fromSelf).toBe(false)
+    expect(useTargetsRead({})).not.toHaveProperty('fromSelf')
+    expect(useTargetsRead({ fromSelf: 'yes' }).fromSelf).toBeUndefined()
+  })
+
+  it('reads a hello saying whether a use may be made at its user', () => {
+    const rolls = { enabled: true, kinds: ['use'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, selfTargets: true } }).features.rolls
+        .selfTargets,
+    ).toBe(true)
+    expect(
+      helloWith({ rolls: { ...rolls, selfTargets: 'yes' } }).features.rolls
+        .selfTargets,
+    ).toBe(false)
+    expect(helloWith({ rolls }).features.rolls.selfTargets).toBeFalsy()
   })
 })

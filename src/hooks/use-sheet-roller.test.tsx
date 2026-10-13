@@ -40,6 +40,18 @@ const d = (count: number, sides: 4 | 6 | 8, sign: 1 | -1 = 1) => ({
   sides,
 })
 
+/** What Math.random returns for a die of so many sides to land on this face. */
+const face = (value: number, sides: number) => (value - 0.5) / sides
+
+/** Dice that land on these faces, in order, each with its sides. */
+const landing = (...faces: [number, number][]) => {
+  const random = jest.spyOn(Math, 'random')
+  for (const [value, sides] of faces) {
+    random.mockReturnValueOnce(face(value, sides))
+  }
+  return random
+}
+
 /** A d8 hit die spent, with this Constitution modifier, 0 or less, giving back at least this. */
 const hitDie = (con: number, minimum: number): SheetFormulaRoll => ({
   label: 'Hit die (d8)',
@@ -714,6 +726,169 @@ describe('hooks/use-sheet-roller', () => {
     )
     expect(latest().parts.map(part => part.total)).toEqual([9, 7])
     expect(latest().total).toBe(16)
+  })
+
+  describe('dice Foundry works out once thrown', () => {
+    /** Great Weapon Fighting's greatsword, with a d8 of Divine Favor's. */
+    const greatsword = {
+      label: 'Greatsword damage',
+      parts: [
+        {
+          terms: [
+            {
+              sign: 1 as const,
+              count: 2,
+              sides: 6 as const,
+              modifiers: ['r<=2'],
+            },
+            { sign: 1 as const, flat: 7 },
+            { sign: 1 as const, count: 1, sides: 8 as const },
+          ],
+          type: 'Slashing',
+        },
+      ],
+    }
+
+    it('throws the first throw, then the dice rerolled after, in the same throw, the game told of the first throw and its total the game’s', async () => {
+      const fake = renderer()
+      const onDamageThrown = jest.fn()
+      const { result } = renderHook(() =>
+        useSheetRoller(undefined, onDamageThrown),
+      )
+      // The 1 is rerolled, landing 4.
+      landing([1, 6], [5, 6], [3, 8], [4, 6])
+
+      await act(() => result.current.rollDamage(greatsword))
+
+      const [roll] = result.current.rolls as LocalDamage[]
+      const [dice, flat, d8] = roll.parts[0].terms
+      expect(dice).toEqual({
+        text: '2d6r<=2',
+        values: [1, 5],
+        value: 9,
+        thrown: [
+          { value: 1, active: false, rerolled: true },
+          { value: 5, active: true },
+          { value: 4, active: true },
+        ],
+      })
+      expect(flat).toEqual({ text: '+7', values: [], value: 7 })
+      expect(d8).toEqual({ text: '+1d8', values: [3], value: 3 })
+      expect(roll.total).toBe(19)
+      expect(roll.gameTotal).toBe(true)
+      expect(fake.roll).toHaveBeenCalledTimes(1)
+      expect(fake.roll.mock.calls[0][0]).toBe('2d6+1d8+1d6@1,5,3,4')
+      expect(onDamageThrown).toHaveBeenCalledWith(
+        expect.objectContaining({ parts: greatsword.parts }),
+        roll,
+      )
+    })
+
+    it('throws nothing more where no die is rerolled, its total its own', async () => {
+      const fake = renderer()
+      const { result } = renderHook(() => useSheetRoller())
+      landing([3, 6], [5, 6], [3, 8])
+
+      await act(() => result.current.rollDamage(greatsword))
+
+      const [roll] = result.current.rolls as LocalDamage[]
+      expect(roll.parts[0].terms[0]).toMatchObject({
+        values: [3, 5],
+        value: 8,
+      })
+      expect(roll.total).toBe(18)
+      expect(roll).not.toHaveProperty('gameTotal')
+      expect(fake.roll.mock.calls[0][0]).toBe('2d6+1d8@3,5,3')
+    })
+
+    it('keeps the highest of the dice as Foundry does, rethrowing none', async () => {
+      renderer()
+      const { result } = renderHook(() => useSheetRoller())
+      landing([1, 6], [2, 6], [3, 6], [4, 6])
+
+      await act(() =>
+        result.current.rollDamage({
+          label: 'Ability score',
+          parts: [
+            {
+              terms: [{ sign: 1, count: 4, sides: 6, modifiers: ['kh3'] }],
+              type: null,
+            },
+          ],
+        }),
+      )
+
+      const [roll] = result.current.rolls as LocalDamage[]
+      expect(roll.parts[0].terms[0]).toMatchObject({
+        text: '4d6kh3',
+        values: [1, 2, 3, 4],
+        value: 9,
+      })
+      expect(roll.parts[0].terms[0].thrown?.[0]).toEqual({
+        value: 1,
+        active: false,
+        discarded: true,
+      })
+      expect(roll).not.toHaveProperty('gameTotal')
+    })
+
+    it("doubles a critical hit's dice with what Foundry does with them", async () => {
+      renderer()
+      const { result } = renderHook(() => useSheetRoller())
+      landing([3, 6], [4, 6], [5, 6], [6, 6], [8, 8], [8, 8])
+
+      await act(() =>
+        result.current.rollDamage({ ...greatsword, critical: true }),
+      )
+
+      const [roll] = result.current.rolls as LocalDamage[]
+      expect(roll.parts[0].terms[0]).toMatchObject({
+        text: '4d6r<=2',
+        values: [3, 4, 5, 6],
+        value: 18,
+      })
+      expect(roll.total).toBe(18 + 7 + 16)
+    })
+
+    it('throws a formula that explodes as damage does, its total the game’s where a die exploded', async () => {
+      const fake = renderer()
+      const onFormulaThrown = jest.fn()
+      const { result } = renderHook(() =>
+        useSheetRoller(undefined, undefined, onFormulaThrown),
+      )
+      const request: SheetFormulaRoll = {
+        label: 'Wild Magic roll',
+        terms: [
+          { sign: 1, count: 1, sides: 4, modifiers: ['x'] },
+          { sign: 1, flat: 2 },
+        ],
+        source: { kind: 'formula', item: 'surge', activity: 'roll' },
+      }
+      landing([4, 4], [2, 4])
+
+      await act(() => result.current.rollFormula(request))
+
+      const [exploded] = result.current.rolls as LocalFormula[]
+      expect(exploded.terms[0]).toEqual({
+        text: '1d4x',
+        values: [4],
+        value: 6,
+        thrown: [
+          { value: 4, active: true, exploded: true },
+          { value: 2, active: true },
+        ],
+      })
+      expect(exploded.total).toBe(8)
+      expect(exploded.gameTotal).toBe(true)
+      expect(fake.roll.mock.calls[0][0]).toBe('1d4+1d4@4,2')
+      expect(onFormulaThrown).toHaveBeenCalledWith(request, exploded)
+
+      landing([3, 4])
+      await act(() => result.current.rollFormula(request))
+      const [plain] = result.current.rolls as LocalFormula[]
+      expect(plain.total).toBe(5)
+      expect(plain).not.toHaveProperty('gameTotal')
+    })
   })
 
   it('keeps healing with nothing to throw, without dice', async () => {

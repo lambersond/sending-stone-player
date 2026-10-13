@@ -3,6 +3,7 @@ import {
   MAX_ENVELOPE_BYTES,
   PROTOCOL_VERSION,
   EVENTS,
+  SLIM_SHEETS,
 } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
@@ -23,7 +24,9 @@ import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
 // Its hello and heartbeats are answered with what this app does beyond taking events: it has
 // commands, such as players' rolls, for the module to fetch from /api/bridge/commands. A module
 // fetches them only from an app that says so, as an older app would refuse the fetch in a way
-// that, across origins, the module can't tell from a network failure.
+// that, across origins, the module can't tell from a network failure. From module 0.22.0, which
+// sends each sheet in a post of its own, a sheet's post is answered so too: this app reads slim
+// sheets, and takes posts up to its limit, which the module sizes every post by.
 
 export function OPTIONS(request: Request) {
   return new Response(undefined, { status: 204, headers: cors(request) })
@@ -126,8 +129,7 @@ export async function POST(request: Request) {
   const lacksHello =
     event?.type !== EVENTS.HELLO && found.helloSession !== envelope.session
   const resend = lacksHello || applied?.lacksTexts === true
-  const announce =
-    envelope.type === EVENTS.HELLO || envelope.type === EVENTS.HEARTBEAT
+  const announce = ANSWERED_WITH_FEATURES.has(envelope.type)
   if (resend || announce) {
     return Response.json(
       {
@@ -140,7 +142,25 @@ export async function POST(request: Request) {
   return respond(204)
 }
 
-/** What this app does beyond taking events, as told to the module. */
-const FEATURES = { commands: true }
+/**
+ * What this app does beyond taking events, as told to the module: it has commands to fetch, it
+ * expands slim sheets up to this format, and it takes posts of up to this many bytes.
+ */
+const FEATURES = {
+  commands: true,
+  slimSheets: SLIM_SHEETS,
+  maxBytes: MAX_ENVELOPE_BYTES,
+}
+
+/**
+ * The events answered with them: a hello and a heartbeat, and from module 0.22.0 a sheet's post,
+ * as the module sends each sheet slim or in full, and sizes it, by the latest answer, so that it
+ * follows this app being rolled back or deployed again without waiting for a heartbeat.
+ */
+const ANSWERED_WITH_FEATURES: ReadonlySet<string> = new Set([
+  EVENTS.HELLO,
+  EVENTS.HEARTBEAT,
+  EVENTS.CHARACTER_UPDATED,
+])
 
 const CHECK_FAILED = 'Failed to check a Sending Stone event'

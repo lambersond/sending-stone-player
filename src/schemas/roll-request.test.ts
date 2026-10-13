@@ -1127,3 +1127,28 @@ describe('enchant activities, from module 0.21.0', () => {
     ).toBe(false)
   })
 })
+
+describe('a use at its user, from module 0.22.0', () => {
+  it('takes a use at its user, besides its targets, or none', () => {
+    expect(parseUse({ self: true }).success).toBe(true)
+    expect(parseUse({ self: true, targets: [] }).success).toBe(true)
+    expect(parseUse({}).success).toBe(true)
+  })
+
+  it.each([
+    ['false', false],
+    ['null', null],
+    ['a word', 'yes'],
+    ['a number', 1],
+  ])('refuses a use at its user said as %s', (_name, self) => {
+    expect(parseUse({ self }).success).toBe(false)
+  })
+
+  it('refuses anything else at its user, an attack above all', () => {
+    expect(parseAttack({ self: true }).success).toBe(false)
+    expect(parse({ self: true }).success).toBe(false)
+    expect(rollRequestSchema.safeParse({ ...damage, self: true }).success).toBe(
+      false,
+    )
+  })
+})

@@ -27,8 +27,11 @@ import {
   TEXTS,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
+import { quillSheet, slimQuillSheet } from '@/mocks/slim-sheet'
+import { parseGameEvent } from '@/schemas/sending-stone'
 import type { RollRequestInput } from '@/types/roll'
 import type {
+  CharacterSheet,
   CommandResult,
   CriticalRule,
   DamagePreview,
@@ -4320,5 +4323,408 @@ describe('utils/roll-requests for enchant activities, from module 0.21.0', () =>
         ).toEqual({ id: 'req-1', status: 'failed', ...view })
       }
     })
+  })
+})
+
+/** A sheet as this app reads and keeps it, from the post it came in. */
+const kept = (sheet: unknown) =>
+  (
+    parseGameEvent('character.updated', {
+      character: { id: 'actor-quill', name: 'Quill', sheet },
+    })?.data as { character: { sheet: CharacterSheet } }
+  ).character.sheet
+
+describe('utils/roll-requests for a sheet sent slim, from module 0.22.0', () => {
+  const full = kept(quillSheet())
+  const slim = kept(slimQuillSheet())
+  const fight = combat({
+    combatants: [
+      combatant({ id: 'c-goblin', name: 'Goblin' }),
+      combatant({ id: 'c-quill', character: 'actor-quill' }),
+    ],
+  })
+  /** The answer to a roll, judged on a sheet as it's kept. */
+  const judged = (input: RollRequestInput, sheet: CharacterSheet) =>
+    checkRoll(input, sheet, [fight], 'actor-quill')
+
+  it('keeps the sheet the module built', () => {
+    expect(slim).toEqual(full)
+  })
+
+  it.each([
+    [
+      'an action’s attack, its row in Inventory',
+      attackRequest({ item: 'staff', activity: 'staffAttack' }),
+      undefined,
+    ],
+    [
+      'in an attack mode of its weapon',
+      attackRequest({
+        item: 'staff',
+        activity: 'staffAttack',
+        attackMode: 'twoHanded',
+      }),
+      undefined,
+    ],
+    [
+      'in an attack mode its weapon lacks',
+      attackRequest({
+        item: 'staff',
+        activity: 'staffAttack',
+        attackMode: 'thrown',
+      }),
+      'mode',
+    ],
+    [
+      'at a combatant',
+      attackRequest({
+        item: 'staff',
+        activity: 'staffAttack',
+        ...targetAt('c-goblin'),
+      }),
+      undefined,
+    ],
+    [
+      'by another activity of its item',
+      attackRequest({ item: 'embers', activity: 'fireBolt' }),
+      undefined,
+    ],
+    [
+      'its row in a container in a container',
+      attackRequest({ item: 'wand', activity: 'sparks' }),
+      undefined,
+    ],
+    [
+      'by an attack it has not',
+      attackRequest({ item: 'staff', activity: 'embersAttack' }),
+      'unknown',
+    ],
+    [
+      'a split activity’s use, at no one',
+      useRequest('embers', 'flameStep', []),
+      undefined,
+    ],
+    [
+      'a split activity’s use, at too many',
+      useRequest('embers', 'flameStep', ['c-goblin']),
+      'target',
+    ],
+    ['a feature’s use', useRequest('wind', 'windHeal', []), undefined],
+    [
+      'a spell’s use, at as many as it takes',
+      useRequest('missile', 'missileDamage', ['c-goblin']),
+      undefined,
+    ],
+    [
+      'the use of a staff’s Cast, its row without it',
+      useRequest('frost', 'coneCast', []),
+      undefined,
+    ],
+  ])('judges %s the same as on the full sheet', (_, input, answer) => {
+    expect(judged(input, full)).toBe(answer)
+    expect(judged(input, slim)).toBe(answer)
+  })
+})
+/** Thorin with a Wild Magic surge whose formula's die explodes. */
+const surging = () =>
+  fullerSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            id: 'surge',
+            name: 'Wild Surge',
+            activity: utility('roll'),
+            rollFormula: { formula: '1d4x + 2', name: null },
+          }),
+        ],
+      },
+    ],
+  })
+
+/** The surge's formula rolled with these dice, as checked. */
+const surge = (dice: RollRequestInput['dice']) =>
+  checkRoll(
+    request({
+      kind: 'formula',
+      key: undefined,
+      item: 'surge',
+      activity: 'roll',
+      dice,
+    }),
+    surging(),
+    [],
+    'actor-thorin',
+  )
+
+/** An attack made lately, whose damage is of one roll of this formula, its dice as said. */
+const attackOf = (
+  formula: string,
+  dice: DamagePreview['rolls'][number]['dice'],
+  plannable = true,
+) =>
+  held({
+    kind: 'attack',
+    status: 'done',
+    createdAt: ago(60_000),
+    result: {
+      id: 'req-1',
+      status: 'done',
+      reason: null,
+      error: null,
+      messageId: 'msg-1',
+      visible: true,
+      rolls: [],
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+      damage: {
+        critical: false,
+        plannable,
+        rolls: [{ formula, type: 'slashing', dice }],
+      },
+    } satisfies CommandResult,
+  })
+
+/** The damage of the attack req-1 at its highest, with these dice. */
+const maximum = (dice: RollRequestInput['dice']) => ({
+  ...damageRequest(dice),
+  modifiers: { maximize: true },
+})
+
+describe('utils/roll-requests for dice Foundry works out once thrown, from module 0.22.0', () => {
+  /** How dnd5e makes a critical hit by default, which the sheet says, so damage may be changed. */
+  const DEFAULT_CRITICAL: CriticalRule = {
+    perDie: 2,
+    multiplyNumeric: false,
+    powerfulCritical: false,
+    altered: false,
+    bonusDice: 'rolled',
+  }
+
+  describe('checkRoll for a formula', () => {
+    it('takes each die’s first throw, Foundry throwing again any it explodes', () => {
+      expect(surge([{ faces: 4, results: [4] }])).toBeUndefined()
+      expect(surge([{ faces: 4, results: [2] }])).toBeUndefined()
+      expect(surge([{ faces: 4, results: [4, 2] }])).toBe('dice')
+    })
+  })
+
+  describe('checkRoll from a link in a description', () => {
+    const TEXT = TEXTS.secondWind
+    const links = new Map<number, FoundLink>([
+      [
+        0,
+        {
+          link: {
+            kind: 'damage',
+            n: 0,
+            parts: [{ formula: '2d6r<=2 + 1d8 + 7', types: ['slashing'] }],
+            healing: false,
+          },
+          secret: false,
+        },
+      ],
+      [
+        1,
+        {
+          link: {
+            kind: 'damage',
+            n: 1,
+            parts: [{ formula: '1d6x + 2', types: ['thunder'] }],
+            healing: false,
+          },
+          secret: false,
+        },
+      ],
+      [2, { link: { kind: 'roll', n: 2, formula: '4d6kh3' }, secret: false }],
+    ])
+    const check = (fields: Partial<RollRequestInput>) =>
+      checkRoll(
+        request({ key: undefined, text: TEXT, ...fields }),
+        ruledSo(DEFAULT_CRITICAL),
+        [],
+        'actor-thorin',
+        links,
+        ['signedDice'],
+      )
+
+    it("takes a description's damage and roll with each die's first throw", () => {
+      expect(
+        check({
+          kind: 'textDamage',
+          link: 0,
+          dice: [
+            { faces: 6, results: [1, 5] },
+            { faces: 8, results: [3] },
+          ],
+        }),
+      ).toBeUndefined()
+      expect(
+        check({
+          kind: 'textDamage',
+          link: 0,
+          dice: [
+            { faces: 6, results: [1, 5, 4] },
+            { faces: 8, results: [3] },
+          ],
+        }),
+      ).toBe('dice')
+      expect(
+        check({
+          kind: 'textRoll',
+          link: 2,
+          dice: [{ faces: 6, results: [1, 2, 3, 4] }],
+        }),
+      ).toBeUndefined()
+    })
+
+    it('never takes damage at its highest whose die explodes, but where it’s rerolled below its highest', () => {
+      const exploding = {
+        kind: 'textDamage' as const,
+        link: 1,
+        dice: [{ faces: 6, results: [6] }],
+      }
+      expect(check(exploding)).toBeUndefined()
+      expect(check({ ...exploding, modifiers: { maximize: true } })).toBe(
+        'dice',
+      )
+      expect(
+        check({
+          kind: 'textDamage',
+          link: 0,
+          dice: [
+            { faces: 6, results: [6, 6] },
+            { faces: 8, results: [8] },
+          ],
+          modifiers: { maximize: true },
+        }),
+      ).toBeUndefined()
+    })
+  })
+
+  describe('checkDamage', () => {
+    it('takes the first throw of dice Foundry rerolls, at its highest too', () => {
+      const greatsword = attackOf('2d6r<=2 + 7', [{ faces: 6, number: 2 }])
+      const first = [{ faces: 6, results: [1, 5] }]
+      expect(
+        checkDamage(damageRequest(first), greatsword, [], NOW),
+      ).toBeUndefined()
+      expect(
+        checkDamage(
+          damageRequest([{ faces: 6, results: [1, 5, 4] }]),
+          greatsword,
+          [],
+          NOW,
+        ),
+      ).toBe('dice')
+      expect(
+        checkDamage(
+          maximum([{ faces: 6, results: [6, 6] }]),
+          greatsword,
+          [],
+          NOW,
+        ),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      ['explodes', '1d6x + 2'],
+      ['explodes once', '1d6xo + 2'],
+      ['is rerolled on its highest face', '1d6r6 + 2'],
+    ])('never takes damage at its highest whose die %s', (_name, formula) => {
+      const thrown = [{ faces: 6, results: [6] }]
+      const attack = attackOf(formula, [{ faces: 6, number: 1 }])
+      expect(
+        checkDamage(damageRequest(thrown), attack, [], NOW),
+      ).toBeUndefined()
+      expect(checkDamage(maximum(thrown), attack, [], NOW)).toBe('dice')
+    })
+
+    it('never takes damage the game rolls itself at its highest where its formula seems to explode a die', () => {
+      const rolledThere = attackOf('(1d6x) * 2', [], false)
+      expect(checkDamage(maximum([]), rolledThere, [], NOW)).toBe('dice')
+      expect(
+        checkDamage(damageRequest([]), rolledThere, [], NOW),
+      ).toBeUndefined()
+    })
+  })
+})
+
+describe('utils/roll-requests for a use at its user, from module 0.22.0', () => {
+  const fight = combat({
+    combatants: [
+      combatant({ id: 'c-goblin', name: 'Goblin' }),
+      combatant({ id: 'c-hob', name: 'Hobgoblin' }),
+      combatant({ id: 'c-vex', name: 'Vex', playerOwned: true }),
+      combatant({ id: 'c-thorin', character: 'actor-thorin' }),
+    ],
+  })
+  const check = (
+    input: RollRequestInput,
+    features: readonly string[] = ['selfTargets'],
+  ) => checkRoll(input, cleric(), [fight], 'actor-thorin', undefined, features)
+  const atSelf = { self: true as const }
+
+  it('lets a use be made at its user, besides those picked, as one of them', () => {
+    expect(check(useRequest('cure', 'mend', [], atSelf))).toBeUndefined()
+    expect(
+      check(useRequest('bless', 'blessing', ['c-vex', 'c-hob'], atSelf)),
+    ).toBeUndefined()
+    expect(
+      check(useRequest('fireball', 'blast', ['c-goblin'], atSelf)),
+    ).toBeUndefined()
+  })
+
+  it('refuses an enchant activity at its user, which is used at no one', () => {
+    expect(
+      checkRoll(
+        request({
+          kind: 'use',
+          key: undefined,
+          item: 'shillelagh',
+          activity: 'shill-cast',
+          targets: [],
+          self: true,
+          enchant: { profile: 'Oy8fP2N3q4R5s6T7' },
+          dice: [],
+        }),
+        enchantingSheet(),
+        [],
+        'actor-ari',
+        undefined,
+        ['selfTargets'],
+      ),
+    ).toBe('target')
+  })
+
+  it.each([
+    [
+      'from a game that makes no use at its user, as before module 0.22.0',
+      useRequest('cure', 'mend', [], atSelf),
+      [],
+    ],
+    [
+      'of one used on its user alone, which needs no asking',
+      useRequest('wind', 'breather', [], atSelf),
+      undefined,
+    ],
+    [
+      'whose own combatant is among those picked too',
+      useRequest('bless', 'blessing', ['c-thorin'], atSelf),
+      undefined,
+    ],
+    [
+      'with more targets than it takes, its user one of them',
+      useRequest('cure', 'mend', ['c-vex'], atSelf),
+      undefined,
+    ],
+    [
+      'with as many targets as it takes besides',
+      useRequest('bless', 'blessing', ['c-goblin', 'c-hob', 'c-vex'], atSelf),
+      undefined,
+    ],
+  ])('refuses a use at its user %s', (_name, input, features) => {
+    expect(check(input, features)).toBe('target')
   })
 })

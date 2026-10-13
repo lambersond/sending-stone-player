@@ -1091,6 +1091,40 @@ describe('components/character-sheet/description-link', () => {
       })
     })
 
+    it.each([
+      ['escaped', '&lt;='],
+      ['as it is', '<='],
+    ])(
+      'rolls damage whose dice Foundry rerolls, its comparison written %s',
+      async (_name, written) => {
+        const user = userEvent.setup()
+        const { hash, actions } = await renderText(
+          `<p>It takes <span class="ss-damage roll" data-n="1" data-formulas="2d6r${written}2 + 1d8 + 7" data-types="slashing">2d6r&lt;=2 + 1d8 + 7 slashing</span>.</p>`,
+        )
+
+        await user.click(
+          screen.getByRole('button', {
+            name: '2d6r<=2 + 1d8 + 7 slashing, roll damage',
+          }),
+        )
+        expect(actions.rollDamage).toHaveBeenCalledWith({
+          label: 'Worn Bardic Eternal Flame damage',
+          parts: [
+            {
+              terms: [
+                { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+                { sign: 1, count: 1, sides: 8 },
+                { sign: 1, flat: 7 },
+              ],
+              type: 'slashing',
+            },
+          ],
+          healing: false,
+          text: { text: hash, link: 1 },
+        })
+      },
+    )
+
     it('asks which kind first, where it offers a choice, and rolls as that one', async () => {
       const user = userEvent.setup()
       const { actions } = await renderText(
@@ -2043,6 +2077,21 @@ describe('components/character-sheet/description-link', () => {
       )
 
       expect(screen.queryByRole('button')).toBeNull()
+    })
+
+    it('rolls one whose dice Foundry keeps the highest of, with what it does with them', async () => {
+      const user = userEvent.setup()
+      const { hash, actions } = await renderText(
+        '<p>Roll <span class="ss-roll roll" data-n="4" data-formula="4d6kh3">4d6kh3</span>.</p>',
+      )
+
+      await user.click(screen.getByRole('button', { name: '4d6kh3, roll it' }))
+
+      expect(actions.rollFormula).toHaveBeenCalledWith({
+        label: 'Worn Bardic Eternal Flame roll',
+        terms: [{ sign: 1, count: 4, sides: 6, modifiers: ['kh3'] }],
+        source: { kind: 'textRoll', text: hash, link: 4 },
+      })
     })
   })
 

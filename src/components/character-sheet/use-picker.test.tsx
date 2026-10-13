@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import {
   asks,
   enchantPicks,
+  SELF,
+  selfPick,
   targetsOf,
   UsePicker,
   useTargetsOf,
@@ -130,11 +132,13 @@ const renderPicker = (
     last,
     areas,
     casts,
+    selfTargets,
   }: {
     combat?: TableCombat | null
     last?: string
     areas?: boolean
     casts?: CastIndex
+    selfTargets?: boolean
   } = {},
 ) => {
   const onPick = jest.fn()
@@ -147,12 +151,20 @@ const renderPicker = (
       casts={casts}
       last={last}
       areas={areas}
+      selfTargets={selfTargets}
       onPick={onPick}
       onClose={onClose}
     />,
   )
   return { onPick, onClose }
 }
+
+/** The buttons of the picker open, but its Close, as they read. */
+const buttons = () =>
+  within(screen.getByRole('dialog'))
+    .getAllByRole('button')
+    .slice(1)
+    .map(button => button.textContent)
 
 describe('components/character-sheet/use-picker', () => {
   it('can attack anyone in the combat but the attacker', () => {
@@ -182,11 +194,13 @@ describe('components/character-sheet/use-picker', () => {
       'boss1',
       'wolf1',
     ])
+    // Its caster may be caught in it too, last.
     expect(useTargetsOf(fireball, fight).map(({ id }) => id)).toEqual([
       'goblin1',
       'vex1',
       'boss1',
       'wolf1',
+      'thorin1',
     ])
     expect(useTargetsOf(shield, fight)).toEqual([])
     expect(useTargetsOf(fireball)).toEqual([])
@@ -373,7 +387,7 @@ describe('components/character-sheet/use-picker', () => {
 
     expect(screen.getByText('Tick who to target. Up to 3.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cast' })).toBeInTheDocument()
-    for (const name of [/^Thorin/, /^Vex/, /^Goblin$/]) {
+    for (const name of [/^Self/, /^Vex/, /^Goblin$/]) {
       await user.click(screen.getByRole('checkbox', { name }))
     }
     expect(
@@ -410,7 +424,7 @@ describe('components/character-sheet/use-picker', () => {
     expect(screen.queryByRole('radio')).toBeNull()
     expect(screen.queryByRole('group', { name: /Cast at|At level/ })).toBeNull()
     expect(screen.getByText('Tick who to target. Up to 3.')).toBeInTheDocument()
-    for (const name of [/^Thorin/, /^Vex/, /^Goblin$/]) {
+    for (const name of [/^Self/, /^Vex/, /^Goblin$/]) {
       await user.click(screen.getByRole('checkbox', { name }))
     }
     expect(
@@ -577,6 +591,189 @@ describe('components/character-sheet/use-picker', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cast' }))
     expect(onPick).toHaveBeenCalledWith({ targets: [], slot: 'spell1' })
+  })
+
+  describe('Self, from module 0.22.0', () => {
+    /** A potion of healing: healing, its range Self, at any creatures. */
+    const potion = sheetAction({
+      id: 'potion',
+      name: 'Potion of Healing',
+      type: 'consumable',
+      range: 'Self',
+      activity: use('heal', { count: null, fromSelf: true }),
+    })
+    /** Wild Shape: a utility, its range Self, at a creature. */
+    const wildShape = sheetAction({
+      id: 'wild',
+      name: 'Wild Shape',
+      range: 'Self',
+      activity: use('utility', { count: 1, fromSelf: true }),
+    })
+    /** A save at a creature, its range Self, as a Mind Sliver from oneself. */
+    const sliver = sheetAction({
+      id: 'sliver',
+      name: 'Psychic Lash',
+      range: 'Self',
+      activity: use('save', { count: 1, fromSelf: true }),
+    })
+    /** Cure Wounds, by touch. */
+    const cure = spell('cure', 'Cure Wounds', 1, {
+      range: 'Touch',
+      activity: use('heal', { count: 1 }),
+    })
+    /** A fight the player isn't in. */
+    const watching: TableCombat = {
+      ...fight,
+      combatants: fight.combatants.filter(({ side }) => side !== 'me'),
+    }
+    it('offers Self first, marked the default, for one made at its user by default, still a tap away', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(wildShape))
+
+      expect(buttons()).toEqual([
+        'SelfYouDefault',
+        'Goblin',
+        'VexAlly',
+        'Goblin Boss',
+        'WolfDefeated',
+        'No target',
+      ])
+      const self = screen.getByRole('button', { name: /^Self/ })
+      expect(self).toHaveClass('border-primary')
+      expect(screen.getByRole('button', { name: /^Goblin$/ })).toHaveClass(
+        'border-border',
+      )
+      await user.click(self)
+      expect(onPick).toHaveBeenCalledWith({ targets: [fight.combatants[1]] })
+    })
+
+    it('offers Self first, unmarked, for healing by touch', () => {
+      renderPicker(using(cure))
+      expect(buttons()[0]).toBe('SelfYou')
+      expect(screen.getByRole('button', { name: /^Self/ })).toHaveClass(
+        'border-border',
+      )
+    })
+
+    it('offers Self last, above no one, for a save from oneself', () => {
+      renderPicker(using(sliver))
+      expect(buttons()).toEqual([
+        'Goblin',
+        'VexAlly',
+        'Goblin Boss',
+        'WolfDefeated',
+        'SelfYou',
+        'No target',
+      ])
+    })
+
+    it('ticks Self already for one made at its user by default that takes more', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(potion))
+
+      expect(screen.getByRole('checkbox', { name: /^Self/ })).toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /^Vex/ })).not.toBeChecked()
+      await user.click(screen.getByRole('checkbox', { name: /^Vex/ }))
+      await user.click(screen.getByRole('button', { name: 'Use at 2 targets' }))
+      expect(onPick).toHaveBeenCalledWith({
+        targets: [fight.combatants[1], fight.combatants[2]],
+      })
+    })
+
+    it('offers Self in a fight the player is not in where the game makes a use at its user as asked, else none', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(wildShape), {
+        combat: watching,
+        selfTargets: true,
+      })
+
+      expect(buttons()[0]).toBe('SelfYouDefault')
+      await user.click(screen.getByRole('button', { name: /^Self/ }))
+      expect(onPick).toHaveBeenCalledWith({ targets: [], self: true })
+      expect(useTargetsOf(wildShape, watching, true).at(0)).toBe(SELF)
+      // Before module 0.22.0, the game can't.
+      expect(useTargetsOf(wildShape, watching).map(({ id }) => id)).toEqual([
+        'goblin1',
+        'vex1',
+        'boss1',
+        'wolf1',
+      ])
+    })
+
+    it('ticks Self with others where the game makes it at its user as asked', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(using(potion), {
+        combat: watching,
+        selfTargets: true,
+      })
+
+      await user.click(screen.getByRole('checkbox', { name: /^Vex/ }))
+      await user.click(screen.getByRole('button', { name: 'Use at 2 targets' }))
+      expect(onPick).toHaveBeenCalledWith({
+        targets: [watching.combatants[1]],
+        self: true,
+      })
+    })
+
+    it('never offers Self to an attack, nor to harm at enemies', () => {
+      expect(targetsOf(fight).some(({ side }) => side === 'me')).toBe(false)
+      const harm = sheetAction({
+        id: 'harm',
+        name: 'Harm',
+        range: 'Self',
+        activity: use('damage', { count: 1, affects: 'enemy', fromSelf: true }),
+      })
+      expect(
+        useTargetsOf(harm, fight, true).some(({ side }) => side === 'me'),
+      ).toBe(false)
+    })
+
+    it('makes one made at its user by default there where there is no one to pick, saying so', async () => {
+      const user = userEvent.setup()
+      // Out of a fight, where the game makes it at its user as asked.
+      expect(selfPick(wildShape, undefined, true)).toEqual({
+        targets: [],
+        self: true,
+      })
+      // In one, at the player's own combatant.
+      expect(selfPick(wildShape, fight)).toEqual({
+        targets: [fight.combatants[1]],
+      })
+      // One used on its user alone, at no one, as the game makes it.
+      const shield = spell('shield', 'Shield', 1, {
+        activity: use('utility', { self: true, affects: 'self' }),
+      })
+      expect(selfPick(shield)).toEqual({ targets: [] })
+      // Nowhere the game can't, nor for any other use.
+      expect(selfPick(wildShape)).toBeUndefined()
+      expect(selfPick(sliver, undefined, true)).toBeUndefined()
+
+      // A spell cast at its user by default, asked only its slot.
+      const healing = spell('cure', 'Healing Word', 1, {
+        range: 'Self',
+        activity: use('heal', { count: null, fromSelf: true }),
+      })
+      const { onPick } = renderPicker(using(healing), {
+        combat: null,
+        selfTargets: true,
+      })
+      expect(screen.getByText('At: Self')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Cast' }))
+      expect(onPick).toHaveBeenCalledWith({
+        targets: [],
+        self: true,
+        slot: 'spell1',
+      })
+    })
+
+    it('says one used on its user alone is at Self, where it asks its slot', () => {
+      const shield = spell('shield', 'Shield', 1, {
+        activity: use('utility', { self: true, affects: 'self' }),
+      })
+      renderPicker(using(shield))
+      expect(screen.getByText('At: Self')).toBeInTheDocument()
+      expect(asks(using(shield), fight, spellbook, undefined, true)).toBe(true)
+    })
   })
 
   describe('a spell an item casts, from module 0.20.0', () => {

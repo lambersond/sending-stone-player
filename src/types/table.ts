@@ -1,5 +1,9 @@
 import type { RollFeature, RollKind } from '@/types/roll'
-import type { AskedCheck, CharacterSheet } from '@/types/sending-stone'
+import type {
+  AskedCheck,
+  CharacterSheet,
+  SheetWithheld,
+} from '@/types/sending-stone'
 
 /**
  * What a player is shown of their campaign: their view of its chat log and combat tracker, and
@@ -146,6 +150,11 @@ export type TableView = {
   sheet?: TableSheet
   /** Changes whenever the sheet does. Unset when there is no sheet. */
   sheetVersion?: string
+  /**
+   * Why the module held the character's sheet back, such as for being too large to send, with its
+   * size and the limit. Unset otherwise. Module 0.22.0.
+   */
+  sheetWithheld?: SheetWithheld
   /** How far the player has read the chat, on any device: later messages are unread. */
   chatReadAt?: string
   /**

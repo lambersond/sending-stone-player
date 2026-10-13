@@ -19,6 +19,7 @@ import {
   signedDice,
   takenModifiers,
   takesAway,
+  unmaximizable,
   withModifiers,
   type DamageModifiers,
 } from './damage-modifiers'
@@ -87,6 +88,17 @@ const partOf = (formula: string) => ({ terms: formulaTerms(formula) ?? [] })
 const linkOf = (formula: string) => ({
   parts: [{ formula, types: [] }],
   healing: false,
+})
+
+/** The game's preview of damage of one roll of this formula, its dice as said. */
+const rolledAs = (
+  formula: string,
+  dice: DamagePreviewRoll['dice'],
+  plannable = true,
+): DamagePreview => ({
+  critical: false,
+  plannable,
+  rolls: [{ formula, type: 'slashing', dice }],
 })
 
 describe('utils/damage-modifiers', () => {
@@ -670,7 +682,7 @@ describe('utils/damage-modifiers', () => {
       ])
       // A formula the app can't read, or one that throws other dice, leaves them as they are.
       const unreadable: DamagePreviewRoll = {
-        formula: '1d4min4 - 1d4',
+        formula: '1d4ro - 1d4',
         type: null,
         dice: [
           { faces: 4, number: 1 },
@@ -1069,6 +1081,105 @@ describe('utils/damage-modifiers', () => {
         { sign: -1, count: 1, sides: 4 },
         { sign: 1, flat: 4 },
         { sign: 1, flat: 4 },
+      ])
+    })
+  })
+
+  describe('dice Foundry works out once thrown', () => {
+    /** Great Weapon Fighting's 2d6r<=2 + 7, as a part. */
+    const greatsword = [partOf('2d6r<=2 + 7')]
+
+    it('offers its highest unless a die explodes or is rerolled on its highest face', () => {
+      expect(damageChanges(greatsword)).toEqual(['maximize', 'modify-damage'])
+      expect(damageChanges([partOf('4d6kh3')])).toEqual([
+        'maximize',
+        'modify-damage',
+      ])
+      expect(damageChanges([partOf('1d6x + 2')])).toEqual(['modify-damage'])
+      expect(damageChanges([partOf('1d8 + 1d6xo')])).toEqual(['modify-damage'])
+      expect(damageChanges([partOf('2d6r6')])).toEqual(['modify-damage'])
+      expect(unmaximizable([partOf('1d6x')])).toBe(true)
+      expect(unmaximizable(greatsword)).toBe(false)
+    })
+
+    it("reads the game's preview by its formulas, or one it can't read as it seems to explode", () => {
+      expect(
+        unmaximizable(rolledAs('1d6x + 2', [{ faces: 6, number: 1 }])),
+      ).toBe(true)
+      expect(
+        unmaximizable(rolledAs('2d6r<=2 + 7', [{ faces: 6, number: 2 }])),
+      ).toBe(false)
+      expect(unmaximizable(rolledAs('(1d6x>4) * 2', [], false))).toBe(true)
+      expect(unmaximizable(rolledAs('(1d6) * 2', [], false))).toBe(false)
+    })
+
+    it('takes no highest the game refuses for dice that explode', () => {
+      const exploding = rolledAs('1d6x + 2', [{ faces: 6, number: 1 }])
+      expect(takenModifiers(exploding, { maximize: true })).toBeUndefined()
+      expect(takenModifiers(exploding, { maximize: true, extra: 1 })).toEqual({
+        extra: 1,
+      })
+      expect(
+        takenModifiers(rolledAs('2d6r<=2 + 7', [{ faces: 6, number: 2 }]), {
+          maximize: true,
+        }),
+      ).toEqual({ maximize: true })
+    })
+
+    it('keeps what Foundry does with a die as it is changed, doubled or made a critical hit’s', () => {
+      expect(
+        withModifiers(greatsword, { extra: 1, faces: 8 })[0].terms,
+      ).toEqual([
+        { sign: 1, count: 3, sides: 8, modifiers: ['r<=2'] },
+        { sign: 1, flat: 7 },
+      ])
+      expect(criticalParts(greatsword, EVERY_DIE_TWICE)[0].terms).toEqual([
+        { sign: 1, count: 4, sides: 6, modifiers: ['r<=2'] },
+        { sign: 1, flat: 7 },
+      ])
+    })
+
+    it('offers no critical hit under Powerful Critical where a die is kept, dropped, counted or held to a least or most', () => {
+      const POWERFUL: CriticalRule = {
+        ...EVERY_DIE_TWICE,
+        perDie: 1,
+        powerfulCritical: true,
+      }
+      for (const formula of [
+        '4d6kh3',
+        '4d6dl',
+        '2d6min2',
+        '2d6max5',
+        '6d6cs>=5',
+      ]) {
+        expect(criticalOffered(linkOf(formula), POWERFUL)).toBe(false)
+        expect(criticalOffered(linkOf(formula), EVERY_DIE_TWICE)).toEqual({
+          dice: [0],
+          damage: [[]],
+        })
+      }
+      expect(criticalOffered(linkOf('2d6r<=2 + 7'), POWERFUL)).toEqual({
+        dice: [0],
+        damage: [[]],
+      })
+    })
+
+    it('reads the dice a roll takes away from a formula with modifiers too', () => {
+      expect(
+        signedDice(
+          {
+            formula: '2d6r<=2 - 1d4',
+            type: null,
+            dice: [
+              { faces: 6, number: 2 },
+              { faces: 4, number: 1 },
+            ],
+          },
+          false,
+        ),
+      ).toEqual([
+        { faces: 6, number: 2 },
+        { faces: 4, number: 1, subtracted: true },
       ])
     })
   })

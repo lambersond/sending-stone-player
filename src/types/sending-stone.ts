@@ -29,8 +29,23 @@ export type ConnectedCharacter = {
   name: string
   /** The portrait's path: relative to the game's address, or a full URL. */
   img?: string | null
-  /** The character's sheet under dnd5e; null under another system, or from modules before 0.5.0. */
+  /**
+   * The character's sheet under dnd5e; null under another system, or from modules before 0.5.0.
+   * Absent from a hello from module 0.22.0, after which each sheet comes in a post of its own.
+   */
   sheet?: CharacterSheet | null
+  /** Why its sheet is null, where the module held it back. Module 0.22.0. */
+  sheetWithheld?: SheetWithheld
+}
+
+/**
+ * Why the module held a character's sheet back: such as "tooLarge", for one that came to more than
+ * this app takes, with its size and that limit, in bytes, each null where it can't be read.
+ */
+export type SheetWithheld = {
+  reason: string
+  bytes: number | null
+  limit: number | null
 }
 
 /** Whether a roll is made with advantage (1), disadvantage (-1), or neither (0). */
@@ -644,6 +659,11 @@ export type SheetUseTargets = {
   perLevel: number | null
   /** dnd5e's kind of target, such as "ally", "enemy", "creature" or "willing"; null for none. */
   affects: string | null
+  /**
+   * Its range is Self, as a potion's or Wild Shape's, though it may take another target. Module
+   * 0.22.0; absent before, when the action's `range` says so.
+   */
+  fromSelf?: boolean
 }
 
 /** A way a weapon attacks, such as "twoHanded", as dnd5e labels it, such as "Two-Handed". */
@@ -1034,6 +1054,8 @@ export type BridgeFeatures = {
      * which its previews mark. Module 0.21.0.
      */
     signedDice?: boolean
+    /** Whether a use may be made at its user, as `self` on its request asks. Module 0.22.0. */
+    selfTargets?: boolean
   } | null
 }
 
@@ -1207,6 +1229,11 @@ export type GameEvent =
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */
         prompts?: GamePrompt[]
+        /**
+         * Its characters carry no sheets, which follow it, each in a post of its own. Module
+         * 0.22.0.
+         */
+        sheetsApart?: boolean
       }
     }
   | { type: 'character.updated'; data: { character: ConnectedCharacter } }

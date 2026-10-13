@@ -62,8 +62,86 @@ describe('utils/formulas', () => {
       ['a die that does not exist', '1d7'],
       ['too many of a die', '21d6'],
       ['terms with nothing between them', '1d4 3'],
+      ['in brackets', '(1d6 + 2)'],
+      ['a function', 'max(1d6, 3)'],
+      ['a d3', '1d3'],
+      ['a modifier the app does not work out (ro)', '2d6ro<2'],
+      ['an upper-case explosion (X)', '1d6X'],
+      ['an upper-case reroll', '2d6R2'],
+      ['successes taken away (sf)', '4d6sf<3'],
+      ['failures taken away (df)', '4d6cs>4df<2'],
+      ['a margin of success (ms)', '1d20ms>=10'],
+      ['evens counted', '4d6even'],
+      ['odds counted', '4d6odd'],
+      ['advantage written as a modifier', '1d20adv'],
+      ['disadvantage written as a modifier', '1d20dis'],
+      ['successes with no target', '4d6cs'],
+      ['failures with no target', '4d6cf'],
+      ['an explosion every face meets', '1d6x>=1'],
+      ['an explosion once every face meets', '1d6xo<=6'],
+      ['a reroll again and again every face meets', '1d6rr<=6'],
+      ['keeping none', '4d6kh0'],
+      ['dropping none', '4d6d0'],
+      ['a minimum without its number', '2d6min'],
+      ['a comparison Foundry does not make', '2d6r=<2'],
+      ['a modifier after a space', '2d6 r2'],
+      ['modifiers run together', '4d6khx'],
     ])("reads no terms of a formula that's %s", (_name, formula) => {
       expect(formulaTerms(formula)).toBeUndefined()
+    })
+
+    it('leaves out a flavor after a term, as of fire', () => {
+      expect(formulaTerms('2d6[radiant]')).toEqual([
+        { sign: 1, count: 2, sides: 6 },
+      ])
+      expect(formulaTerms('1d8 + 3[slashing] + 1d6 [fire]')).toEqual([
+        { sign: 1, count: 1, sides: 8 },
+        { sign: 1, flat: 3 },
+        { sign: 1, count: 1, sides: 6 },
+      ])
+    })
+
+    it.each([
+      ['a reroll of 1s', '2d6r', ['r']],
+      ['a reroll of a number', '2d6r2', ['r2']],
+      ['a reroll of those at most a number', '2d6r<=2', ['r<=2']],
+      ['a reroll of one of a number', '2d6r1=1', ['r1=1']],
+      ['a reroll again and again', '1d6rr<3', ['rr<3']],
+      ['an explosion on the highest face', '1d6x', ['x']],
+      ['an explosion on a number', '1d10x10', ['x10']],
+      ['an explosion above a number', '1d6x>4', ['x>4']],
+      ['an explosion once', '1d6xo', ['xo']],
+      ['the highest kept', '4d6k', ['k']],
+      ['the highest three kept', '4d6kh3', ['kh3']],
+      ['the lowest kept', '2d20kl', ['kl']],
+      ['the lowest dropped', '4d6d', ['d']],
+      ['the highest dropped', '4d6dh1', ['dh1']],
+      ['the lowest two dropped', '4d6dl2', ['dl2']],
+      ['a minimum', '2d6min3', ['min3']],
+      ['a maximum', '2d6max4', ['max4']],
+      ['successes', '6d6cs>=5', ['cs>=5']],
+      ['failures', '6d6cf<3', ['cf<3']],
+      ['successes on a number', '6d6cs6', ['cs6']],
+      ['several, in order', '4d6r1kh3', ['r1', 'kh3']],
+      ['several with a flavor', '2d6r<=2min2[fire]', ['r<=2', 'min2']],
+    ])(
+      "reads a die's modifiers as written: %s",
+      (_name, formula, modifiers) => {
+        const [term] = formulaTerms(formula) ?? []
+        expect(term).toMatchObject({ sign: 1, modifiers })
+      },
+    )
+
+    it('reads a sheet formula with Great Weapon Fighting, its numbers and other dice', () => {
+      expect(formulaTerms('2d6r<=2 + 7 + 1d8')).toEqual([
+        { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+        { sign: 1, flat: 7 },
+        { sign: 1, count: 1, sides: 8 },
+      ])
+      expect(formulaTerms('2D6r<=2 − 1d4')).toEqual([
+        { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+        { sign: -1, count: 1, sides: 4 },
+      ])
     })
   })
 
@@ -76,6 +154,15 @@ describe('utils/formulas', () => {
       expect(formulaDice('1d10 − 1d4')).toEqual([
         { sign: 1, count: 1, sides: 10 },
         { sign: -1, count: 1, sides: 4 },
+      ])
+    })
+
+    it("counts each die's first throw, as the game is sent it, whatever is thrown again after", () => {
+      expect(formulaDice('2d6r<=2 + 1d8 + 1d6x + 4d6kh3')).toEqual([
+        { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+        { sign: 1, count: 1, sides: 8 },
+        { sign: 1, count: 1, sides: 6, modifiers: ['x'] },
+        { sign: 1, count: 4, sides: 6, modifiers: ['kh3'] },
       ])
     })
 

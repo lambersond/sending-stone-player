@@ -21,7 +21,13 @@ import {
   offeredProfiles,
   type Belonging,
 } from '@/utils/enchantments'
-import { friendly, mostTargets, picksTargets } from '@/utils/uses'
+import {
+  friendly,
+  mostTargets,
+  offersSelf,
+  picksTargets,
+  selfDefault,
+} from '@/utils/uses'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { EnchantChoice } from '@/types/roll'
 import type {
@@ -66,6 +72,11 @@ export type Picking =
 export type Picked = {
   targets: TableCombatant[]
   /**
+   * At its user too, as the game makes a use at its user where it isn't among the combatants, from
+   * module 0.22.0.
+   */
+  self?: true
+  /**
    * The spell slot chosen, such as "spell3", where there's a choice; or for a spell an item casts,
    * the level, as "spell" and the level.
    */
@@ -82,29 +93,94 @@ const SIDES: Partial<Record<TableCombatant['side'], string>> = {
   party: 'Ally',
 }
 
+/**
+ * The player's user as a target of a use, where they aren't among the combatants: the game makes it
+ * at them as asked (`Picked.self`).
+ */
+export const SELF: TableCombatant = {
+  id: '@self',
+  name: 'Self',
+  // eslint-disable-next-line unicorn/no-null -- the tracker's for no initiative
+  initiative: null,
+  defeated: false,
+  side: 'me',
+}
+
 /** The combatants an attack can be made at: everyone in the combat but the attacker. */
 export function targetsOf(combat?: TableCombat): TableCombatant[] {
   return combat?.combatants.filter(combatant => combatant.side !== 'me') ?? []
 }
 
 /**
- * The combatants a use can be made at, in turn order: for one that helps, the player and their
- * allies first, then everyone else; for one that harms, everyone but the player. None for a use
- * with no targets to pick.
+ * Where a use offered at its user, as Self, is made at them: their own combatant, in the combat;
+ * or else, where the game makes a use at its user as asked, from module 0.22.0, at `SELF`. None for
+ * a use not offered so, or one used on its user alone, which has none to pick, or where neither
+ * holds.
+ * @param selfTargets - Whether the game makes a use at its user as asked.
+ */
+export function selfTarget(
+  action: SheetAction,
+  combat?: TableCombat,
+  selfTargets = false,
+): TableCombatant | undefined {
+  if (!offersSelf(action) || action.activity?.targets.self) return undefined
+  const me = combat?.combatants.find(({ side }) => side === 'me')
+  if (me) return me
+  return selfTargets ? SELF : undefined
+}
+
+/**
+ * The combatants a use can be made at, in a combat, in turn order: for one that helps, its user
+ * first, as Self, and their allies, then everyone else; for one that harms, everyone but its user,
+ * then its user, where it may be made at them; and first, where it's made at them by default, as a
+ * potion. None for a use with no targets to pick, or out of a combat.
+ * @param selfTargets - Whether the game makes a use at its user as asked.
  */
 export function useTargetsOf(
   action: SheetAction,
   combat?: TableCombat,
+  selfTargets = false,
 ): TableCombatant[] {
   const use = action.activity
-  if (!use || !picksTargets(use)) return []
-  const all = combat?.combatants ?? []
-  if (!friendly(use)) return all.filter(({ side }) => side !== 'me')
-  return [
-    ...all.filter(({ side }) => side === 'me'),
-    ...all.filter(({ side }) => side === 'party'),
-    ...all.filter(({ side }) => side === 'other'),
-  ]
+  if (!use || !picksTargets(use) || !combat) return []
+  const all = combat.combatants
+  const self = selfTarget(action, combat, selfTargets)
+  const first = self && (friendly(use) || selfDefault(action))
+  const others = friendly(use)
+    ? [
+        ...all.filter(({ side }) => side === 'party'),
+        ...all.filter(({ side }) => side === 'other'),
+      ]
+    : all.filter(({ side }) => side !== 'me')
+  if (!self) return others
+  return first ? [self, ...others] : [...others, self]
+}
+
+/**
+ * How a use made at its user by default is made there where there's no one to pick, as out of a
+ * combat: at no one, for one used on its user alone, which the game makes at them; at their own
+ * combatant, in the combat; or at `self`, where the game makes it so, from module 0.22.0. None
+ * where none holds, or for any other use, which is made at no one.
+ */
+export function selfPick(
+  action: SheetAction,
+  combat?: TableCombat,
+  selfTargets = false,
+): Pick<Picked, 'targets' | 'self'> | undefined {
+  if (!selfDefault(action)) return undefined
+  if (action.activity?.targets.self) return { targets: [] }
+  const me = combat?.combatants.find(({ side }) => side === 'me')
+  if (me) return { targets: [me] }
+  return selfTargets ? { targets: [], self: true } : undefined
+}
+
+/** The combatants picked, as the game is asked: its user as `self` where they're `SELF`. */
+function picked(targets: TableCombatant[]): Pick<Picked, 'targets' | 'self'> {
+  const self = targets.includes(SELF)
+  return {
+    targets: targets.filter(target => target !== SELF),
+    ...(self && { self: true as const }),
+  }
 }
 
 /**
@@ -139,12 +215,14 @@ function choicesOf(
  * which, or to leave it on its card; one that enchants its own, how, where it may more ways than
  * one.
  * @param casts - How each spell an item casts is cast, by its copy's id.
+ * @param selfTargets - Whether the game makes a use at its user as asked, from module 0.22.0.
  */
 export function asks(
   picking: Picking,
   combat: TableCombat | undefined,
   spellbook: SheetSpellSection[],
   casts: CastIndex = NO_CASTS,
+  selfTargets = false,
 ): boolean {
   const { pools, levels, ammunition, modes } = choicesOf(
     picking,
@@ -166,7 +244,7 @@ export function asks(
   const targets =
     picking.kind === 'attack'
       ? targetsOf(combat)
-      : useTargetsOf(picking.action, combat)
+      : useTargetsOf(picking.action, combat, selfTargets)
   return (
     targets.length > 0 ||
     pools.length > 0 ||
@@ -208,9 +286,11 @@ export function enchantPicks(
  * ammunition and attack mode, where there's more than one, each preset as the game would have it;
  * and whom at. An attack, or a use at one target, is made at the one tapped, or at no one; a use at
  * more, or at an area, at those ticked, as many as it takes at the level it's cast at, as is an
- * area attack where the game makes it so; one with no one to pick, at once. One that enchants is
- * used at no one: with the way it enchants, of those it offers at the level chosen, and for one
- * that enchants another item, the item tapped, or none, to leave on its card.
+ * area attack where the game makes it so; one with no one to pick, at once. A use may be made at
+ * its user, as Self, where it's offered: first, and marked the default, or ticked already, for one
+ * made there by default, as a potion. One that enchants is used at no one: with the way it
+ * enchants, of those it offers at the level chosen, and for one that enchants another item, the
+ * item tapped, or none, to leave on its card.
  */
 export function UsePicker({
   picking,
@@ -220,6 +300,7 @@ export function UsePicker({
   belongings = NO_BELONGINGS,
   last,
   areas = false,
+  selfTargets = false,
   onPick,
   onClose,
 }: Readonly<{
@@ -234,6 +315,8 @@ export function UsePicker({
   last?: string
   /** Whether the game makes an area attack at the combatants picked. */
   areas?: boolean
+  /** Whether the game makes a use at its user as asked, from module 0.22.0. */
+  selfTargets?: boolean
   onPick: (picked: Picked) => void
   onClose: () => void
 }>) {
@@ -255,6 +338,7 @@ export function UsePicker({
           belongings={belongings}
           last={last}
           areas={areas}
+          selfTargets={selfTargets}
           onPick={onPick}
         />
       )}
@@ -270,6 +354,7 @@ function Choices({
   belongings,
   last,
   areas,
+  selfTargets,
   onPick,
 }: Readonly<{
   picking: Picking
@@ -279,6 +364,7 @@ function Choices({
   belongings: ReadonlyMap<string, Belonging>
   last?: string
   areas: boolean
+  selfTargets: boolean
   onPick: (picked: Picked) => void
 }>) {
   const { action } = picking
@@ -298,7 +384,13 @@ function Choices({
     ammunition.find(({ quantity }) => quantity > 0)?.id,
   )
   const [mode, setMode] = useState(modes[0]?.value)
-  const [ticked, setTicked] = useState<string[]>([])
+  // A use made at its user by default has them ticked already, as Self.
+  const usable = picking.kind === 'use'
+  const self = usable ? selfTarget(action, combat, selfTargets) : undefined
+  const preset = self && selfDefault(action) ? self : undefined
+  const [ticked, setTicked] = useState<string[]>(() =>
+    preset ? [preset.id] : [],
+  )
   // One that enchants is cast with the slot it's cast with, or at the level, even where there's no
   // choice of it, as the ways it may enchant may hang on it.
   const enchant =
@@ -309,7 +401,8 @@ function Choices({
     ...(ammunition.length > 0 && ammo && { ammunition: ammo }),
     ...(modes.length > 0 && mode && { attackMode: mode }),
   }
-  const pick = (targets: TableCombatant[]) => onPick({ targets, ...options })
+  const pick = (targets: TableCombatant[]) =>
+    onPick({ ...picked(targets), ...options })
   // An activity used without spending a slot, such as Spirit Guardians' save each turn, is used at
   // the level chosen, whether any slot is left or not.
   const spends = action.consumesSlot !== false
@@ -406,16 +499,27 @@ function Choices({
       )
   } else {
     const use = action.activity!
-    const targets = useTargetsOf(action, combat)
+    const targets = useTargetsOf(action, combat, selfTargets)
     const most = mostTargets(use.targets, base, castAt)
     const verb = verbOf(action)
     if (targets.length === 0) {
-      whom = <Go label={verb} onGo={() => pick([])} />
+      // One made at its user by default goes there, as it says, where it may.
+      const at = selfPick(action, combat, selfTargets)
+      whom = (
+        <>
+          {at && <p className='text-sm text-text-secondary'>At: Self</p>}
+          <Go
+            label={verb}
+            onGo={() => onPick({ ...(at ?? { targets: [] }), ...options })}
+          />
+        </>
+      )
     } else if (most === 1) {
       whom = (
         <TargetList
           lead={`Choose who to ${verb.toLowerCase()} it at.`}
           targets={targets}
+          preset={preset?.id}
           onTap={combatant => pick([combatant])}
           onNone={() => pick([])}
         />
@@ -752,11 +856,15 @@ function EnchantWhat({
   )
 }
 
-/** A combatant's name, with whose side they're on and whether they're down. */
+/**
+ * A combatant's name, with whose side they're on and whether they're down; the player's own, as a
+ * use's target, Self, marked where it's the default.
+ */
 function Who({
   combatant,
   last,
-}: Readonly<{ combatant: TableCombatant; last?: string }>) {
+  preset,
+}: Readonly<{ combatant: TableCombatant; last?: string; preset?: string }>) {
   return (
     <>
       <span
@@ -765,7 +873,7 @@ function Who({
           combatant.defeated && 'text-text-secondary line-through',
         )}
       >
-        {combatant.name}
+        {combatant.side === 'me' ? 'Self' : combatant.name}
       </span>
       {SIDES[combatant.side] && (
         <span className='shrink-0 text-xs text-text-secondary'>
@@ -783,21 +891,32 @@ function Who({
           Last target
         </span>
       )}
+      {combatant.id === preset && (
+        <span className='shrink-0 text-xs font-semibold text-primary'>
+          Default
+        </span>
+      )}
     </>
   )
 }
 
-/** Combatants to tap, one of which is the target; or no one. */
+/**
+ * Combatants to tap, one of which is the target; or no one. The last attacked, or the default, is
+ * marked, still a tap away.
+ */
 function TargetList({
   lead,
   targets,
   last,
+  preset,
   onTap,
   onNone,
 }: Readonly<{
   lead: string
   targets: TableCombatant[]
   last?: string
+  /** The default target, such as Self for a potion. */
+  preset?: string
   onTap: (combatant: TableCombatant) => void
   onNone: () => void
 }>) {
@@ -812,11 +931,13 @@ function TargetList({
               onClick={() => onTap(combatant)}
               className={clsx(
                 'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-primary/5',
-                combatant.id === last ? 'border-primary' : 'border-border',
+                combatant.id === last || combatant.id === preset
+                  ? 'border-primary'
+                  : 'border-border',
               )}
             >
               <Crosshair aria-hidden className='size-4 shrink-0 text-attack' />
-              <Who combatant={combatant} last={last} />
+              <Who combatant={combatant} last={last} preset={preset} />
             </button>
           </li>
         ))}
