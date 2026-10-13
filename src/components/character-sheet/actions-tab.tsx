@@ -1,15 +1,8 @@
 'use client'
 
-import { useId, useRef, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import {
-  ChevronDown,
-  Columns2,
-  Rows3,
-  Sparkles,
-  Table2,
-  type LucideIcon,
-} from 'lucide-react'
+import { ChevronDown, Sparkles } from 'lucide-react'
 import {
   ActionDetails,
   ActionEntry,
@@ -44,10 +37,10 @@ import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesLeft } from './uses-left'
-import { useStoredChoice, useStoredSet } from '@/hooks/use-stored'
-import { useWidth } from '@/hooks/use-width'
+import { useStoredSet } from '@/hooks/use-stored'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
 import { castOf } from '@/utils/casts'
+import type { Layout } from './actions-layout'
 import type {
   SheetDamageRoll,
   SheetFormulaRoll,
@@ -70,6 +63,8 @@ type Props = {
   tableDamage?: TableDamage
   /** Shown first, such as the character's favorites. */
   favorites?: ReactNode
+  /** How the actions are laid out, as the sheet's settings say, where it is wide enough. */
+  layout?: Layout
 }
 
 /** A section, with its heading's id and its actions in their groups. */
@@ -77,24 +72,6 @@ type GroupedSection = SheetActionSection & {
   headingId: string
   groups: ActionGroup[]
 }
-
-/** How the tab lays out its actions: in a list, in columns side by side, or in a table. */
-type Layout = 'list' | 'columns' | 'table'
-
-/**
- * The layouts, and the width of the sheet, in pixels, each needs: a table from about a small
- * tablet's, and columns from where two fit side by side, each as wide as a phone's list.
- */
-const LAYOUTS: { id: Layout; label: string; icon: LucideIcon; from: number }[] =
-  [
-    { id: 'list', label: 'List', icon: Rows3, from: 0 },
-    { id: 'columns', label: 'Columns', icon: Columns2, from: 720 },
-    { id: 'table', label: 'Table', icon: Table2, from: 576 },
-  ]
-const LAYOUT_IDS = LAYOUTS.map(({ id }) => id)
-
-/** Where this browser keeps the layout chosen. */
-const LAYOUT_KEY = 'sending-stone:actions-layout'
 
 /** Where this browser keeps the groups closed, after which the character's id. */
 const CLOSED_KEY = 'sending-stone:actions-closed'
@@ -110,9 +87,9 @@ const CLOSED_KEY = 'sending-stone:actions-closed'
  * advantage and the like, or a critical hit's damage. Each action opens to its description, and a
  * spell to the slots it can be cast with.
  *
- * On a phone the actions are listed. On a tablet or wider, the player may lay them out in a table,
- * or in columns, with Actions beside the rest, where the sheet is wide enough for each, and this
- * browser remembers which. Where the layout chosen doesn't fit, they're listed.
+ * On a phone the actions are listed. On a tablet or wider, they're laid out as the sheet's
+ * settings say, where the sheet is wide enough for it: in a table, or in columns, with Actions
+ * beside the rest.
  */
 export function ActionsTab({
   characterId,
@@ -123,6 +100,7 @@ export function ActionsTab({
   onUse,
   tableDamage,
   favorites,
+  layout = 'list',
 }: Readonly<Props>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -133,11 +111,6 @@ export function ActionsTab({
     onUse,
     tableDamage,
   })
-  const root = useRef<HTMLDivElement>(null)
-  const width = useWidth(root)
-  const offered = LAYOUTS.filter(({ from }) => width >= from)
-  const [chosen, choose] = useStoredChoice(LAYOUT_KEY, LAYOUT_IDS, 'list')
-  const layout = offered.some(({ id }) => id === chosen) ? chosen : 'list'
   // The groups the player closed, for this character.
   const [closed, toggleGroup] = useStoredSet(`${CLOSED_KEY}:${characterId}`)
   const sections = sheet.actions.map((section, index): GroupedSection => ({
@@ -159,16 +132,12 @@ export function ActionsTab({
 
   return (
     <div
-      ref={root}
       className={clsx(
         'mx-auto flex w-full flex-col gap-6 p-4 md:px-8 md:py-6',
         layout === 'columns' ? 'max-w-7xl' : 'max-w-5xl',
       )}
     >
       {favorites}
-      {offered.length > 1 && sections.length > 0 && (
-        <LayoutPicker layouts={offered} layout={layout} onChange={choose} />
-      )}
       {layout === 'columns' ? <Columns sections={shown} /> : shown}
 
       {sections.length === 0 && (
@@ -176,43 +145,6 @@ export function ActionsTab({
       )}
 
       {dialogs}
-    </div>
-  )
-}
-
-/** The layouts to choose from, each a button pressed while it's the one chosen. */
-function LayoutPicker({
-  layouts,
-  layout,
-  onChange,
-}: Readonly<{
-  layouts: typeof LAYOUTS
-  layout: Layout
-  onChange: (layout: Layout) => void
-}>) {
-  return (
-    <div
-      role='group'
-      aria-label='Layout'
-      className='flex self-end rounded-lg border border-border bg-card p-0.5'
-    >
-      {layouts.map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          type='button'
-          aria-pressed={layout === id}
-          onClick={() => onChange(id)}
-          className={clsx(
-            'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
-            layout === id
-              ? 'bg-primary/10 text-primary'
-              : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
-          )}
-        >
-          <Icon aria-hidden className='size-4' />
-          {label}
-        </button>
-      ))}
     </div>
   )
 }

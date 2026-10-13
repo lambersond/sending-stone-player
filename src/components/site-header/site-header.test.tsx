@@ -4,6 +4,7 @@ import { SiteHeader } from './site-header'
 import { getCurrentUser } from '@/lib/session'
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
+jest.mock('next/navigation', () => ({ usePathname: () => '/' }))
 jest.mock('@/components/sign-out-button', () => ({
   SignOutButton: () => <button type='button'>Sign out</button>,
 }))

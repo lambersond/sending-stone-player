@@ -41,9 +41,8 @@ export type TableRolls = {
   states: ReadonlyMap<string, TableRollState>
   /** Whether the game takes any of the player's rolls now. */
   available: boolean
-  /** Whether the player sends them from this device. */
+  /** Whether the player sends them from this device, as the sheet's settings say. */
   sending: boolean
-  setSending: (sending: boolean) => void
   /** Whether the game takes this kind of roll from this device now. */
   takes?: (kind: RollKind) => boolean
   /**
@@ -139,33 +138,7 @@ export function RollTray({
           </details>
         )}
         {table?.available ? (
-          <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1'>
-            <p className='text-[11px] text-text-secondary'>{reachOf(table)}</p>
-            <label className='flex shrink-0 cursor-pointer items-center gap-2 text-xs font-semibold'>
-              <input
-                type='checkbox'
-                role='switch'
-                checked={table.sending}
-                onChange={event => table.setSending(event.target.checked)}
-                className='peer sr-only'
-              />
-              <span
-                aria-hidden
-                className={clsx(
-                  'relative h-4 w-7 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
-                  table.sending ? 'bg-primary' : 'bg-border',
-                )}
-              >
-                <span
-                  className={clsx(
-                    'absolute top-0.5 size-3 rounded-full bg-card shadow-sm transition-[left]',
-                    table.sending ? 'left-3.5' : 'left-0.5',
-                  )}
-                />
-              </span>
-              Send to the table
-            </label>
-          </div>
+          <p className='text-[11px] text-text-secondary'>{reachOf(table)}</p>
         ) : (
           <p className='text-[11px] text-text-secondary'>
             Only you see these rolls for now. They aren&apos;t sent to your
@@ -216,10 +189,13 @@ function LatestResult({
   }
 }
 
-/** Whether the player's rolls reach the Gamemaster's game, and which. */
+/**
+ * Whether the player's rolls reach the Gamemaster's game, and which; or where to send them, while
+ * the game takes them but this device doesn't send them.
+ */
 function reachOf(table: TableRolls): string {
   if (!table.sending) {
-    return 'Only you see these rolls. They aren’t sent to your Gamemaster’s game.'
+    return 'Only you see these rolls: Send to the table is off in Settings.'
   }
   const casts = table.takes?.('use') === true
   const spends = table.takes?.('hitDie') === true

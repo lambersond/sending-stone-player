@@ -243,6 +243,12 @@ const openSecondWind = async () => {
   return user
 }
 
+/** Opens the sheet's settings, from the cog after its tabs. */
+const openSettings = async (user: User) => {
+  await user.click(screen.getByRole('button', { name: 'Settings' }))
+  return screen.getByRole('dialog', { name: 'Settings' })
+}
+
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
     globalThis.fetch = jest.fn(
@@ -368,9 +374,13 @@ describe('components/character-sheet/character-pane', () => {
       />,
     )
 
+    // This device sends them, as the switch in the sheet's settings says.
     expect(
-      screen.getByRole('switch', { name: 'Send to the table' }),
+      within(await openSettings(user)).getByRole('switch', {
+        name: 'Send to the table',
+      }),
     ).toBeChecked()
+    await user.keyboard('{Escape}')
     await user.click(
       screen.getByRole('button', {
         name: 'Strength saving throw, +7, proficient',
@@ -721,12 +731,15 @@ describe('components/character-sheet/character-pane', () => {
       'true',
     )
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Character')
-    // The class line is by the character's name, in the page's header, not beside the tabs.
-    const tabsRow = screen.getByRole('tablist', {
-      name: 'Character sheet',
-    }).parentElement
-    expect(tabsRow?.children).toHaveLength(1)
+    // The class line is by the character's name, in the page's header, not beside the tabs; the
+    // settings' cog is after them, and not one of them.
+    const tablist = screen.getByRole('tablist', { name: 'Character sheet' })
+    const tabsRow = tablist.parentElement
+    expect(tabsRow?.children).toHaveLength(2)
     expect(tabsRow).not.toHaveTextContent('Fighter 5 · Champion')
+    const cog = screen.getByRole('button', { name: 'Settings' })
+    expect(tablist).not.toContainElement(cog)
+    expect(tablist.nextElementSibling).toContainElement(cog)
 
     await user.click(tabs.getByRole('tab', { name: 'Features' }))
 
@@ -782,6 +795,26 @@ describe('components/character-sheet/character-pane', () => {
 
     expect(label('Inventory')).not.toHaveClass('sr-only')
     expect(label('Character')).toHaveClass('sr-only')
+  })
+
+  it("leaves no gap before the settings' cog, so that a caster with a condition has room for the tabs", () => {
+    renderPane()
+
+    // At 360 pixels the row has 336 inside its padding, and the cog 32 of them. A caster's seven
+    // tabs, with Character chosen and the dot on Effects, take 301: a gap of 4 before the cog
+    // would leave them 300, and they would scroll.
+    const tablist = screen.getByRole('tablist', { name: 'Character sheet' })
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(7)
+    expect(
+      within(tablist).getByRole('tab', { name: /^Effects/ }),
+    ).toHaveTextContent('3 conditions')
+    const row = tablist.parentElement as HTMLElement
+    expect(row).toHaveClass('px-3')
+    expect([...row.classList].filter(name => /(^|:)gap-/.test(name))).toEqual(
+      [],
+    )
+    // The cog is kept apart, at the end of the row, by its margin.
+    expect(tablist.nextElementSibling).toHaveClass('ml-auto', 'shrink-0')
   })
 
   it("has no Spells tab for a character who doesn't cast", () => {
@@ -1996,7 +2029,7 @@ describe('components/character-sheet/character-pane', () => {
       ).toBeInTheDocument()
     })
 
-    it("can't ask the table from a device that doesn't send rolls, but can send them from there, where the tray's switch isn't shown", async () => {
+    it("can't ask the table from a device that doesn't send rolls, but can send them from there, where the switch isn't shown", async () => {
       const posted = describing({ [TEXTS.biography]: SAVE })
       globalThis.localStorage.setItem('sending-stone:send-rolls', 'off')
       renderTaking(['save', 'ask'])
@@ -2784,6 +2817,133 @@ describe('components/character-sheet/character-pane', () => {
       )
       expect(posted).toEqual([])
       expect(screen.getByRole('status')).toHaveTextContent(/(Passed|Failed)/)
+    })
+  })
+
+  describe("the sheet's settings", () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      localStorage.clear()
+    })
+
+    it('hold the theme, and no switch while the game takes no rolls', async () => {
+      const user = userEvent.setup()
+      renderPane()
+      expect(screen.queryByRole('switch')).toBeNull()
+
+      const settings = await openSettings(user)
+
+      expect(
+        within(settings).getByRole('radiogroup', { name: 'Theme' }),
+      ).toBeInTheDocument()
+      expect(within(settings).queryByRole('switch')).toBeNull()
+      expect(
+        screen.getByRole('region', { name: 'Your rolls' }),
+      ).toHaveTextContent(
+        "Only you see these rolls for now. They aren't sent to your Gamemaster's game.",
+      )
+    })
+
+    it("switch this device's rolls to the table, while the game takes them, the tray saying where", async () => {
+      const user = userEvent.setup()
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(characterSheet(), GAME)}
+          rollsToTable={['save']}
+        />,
+      )
+      const tray = screen.getByRole('region', { name: 'Your rolls' })
+      expect(tray).toHaveTextContent(
+        'Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.',
+      )
+      // The tray has no switch of its own.
+      expect(screen.queryByRole('switch')).toBeNull()
+
+      const settings = await openSettings(user)
+      const toggle = within(settings).getByRole('switch', {
+        name: 'Send to the table',
+      })
+      expect(toggle).toBeChecked()
+      await user.click(toggle)
+
+      expect(toggle).not.toBeChecked()
+      expect(localStorage.getItem('sending-stone:send-rolls')).toBe('off')
+      expect(tray).toHaveTextContent(
+        'Only you see these rolls: Send to the table is off in Settings.',
+      )
+    })
+
+    it.each<[string, number, CharacterSheet, string[]]>([
+      ['a phone', 390, fullerSheet(), []],
+      ['a tablet', 800, fullerSheet(), ['List', 'Columns', 'Table']],
+      [
+        'a wide sheet, beside the favorites',
+        1000,
+        favored(),
+        ['List', 'Table'],
+      ],
+      ['a wide sheet', 1000, fullerSheet(), ['List', 'Columns', 'Table']],
+    ])(
+      'offer on %s the layouts the Actions tab has room for, from any tab',
+      async (_, width, sheet, offered) => {
+        const user = userEvent.setup()
+        wide(width)
+        renderPane(sheet)
+
+        const settings = await openSettings(user)
+        const picker = within(settings).queryByRole('group', {
+          name: 'Actions layout',
+        })
+
+        expect(
+          picker
+            ? within(picker)
+                .getAllByRole('button')
+                .map(button => button.textContent)
+            : [],
+        ).toEqual(offered)
+      },
+    )
+
+    it('offer no layouts for a sheet without actions', async () => {
+      const user = userEvent.setup()
+      wide(800)
+      renderPane(characterSheet({ actions: [] }))
+
+      const settings = await openSettings(user)
+
+      expect(within(settings).queryByRole('group')).toBeNull()
+    })
+
+    it('lay the Actions tab out as chosen there', async () => {
+      const user = userEvent.setup()
+      wide(800)
+      renderPane()
+
+      const settings = await openSettings(user)
+      await user.click(within(settings).getByRole('button', { name: 'Table' }))
+      expect(localStorage.getItem('sending-stone:actions-layout')).toBe('table')
+      await user.keyboard('{Escape}')
+      await show('Actions')
+
+      expect(screen.getByRole('table', { name: 'Actions' })).toBeInTheDocument()
+    })
+
+    it('list the actions on a phone whatever was chosen, keeping the choice', async () => {
+      localStorage.setItem('sending-stone:actions-layout', 'table')
+      wide(390)
+      renderPane()
+      await show('Actions')
+
+      expect(screen.queryByRole('table')).toBeNull()
+      expect(
+        within(screen.getByRole('region', { name: 'Actions' })).getAllByRole(
+          'listitem',
+        ),
+      ).toHaveLength(4)
+      expect(localStorage.getItem('sending-stone:actions-layout')).toBe('table')
     })
   })
 

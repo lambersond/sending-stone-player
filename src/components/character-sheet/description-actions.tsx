@@ -100,8 +100,8 @@ export type DescriptionActions = {
    */
   useBlocked?: string
   /**
-   * Has this device send the player's rolls to the table, as the tray's switch does: there only
-   * where that alone keeps the table from being asked.
+   * Has this device send the player's rolls to the table, as the switch in the sheet's settings
+   * does: there only where that alone keeps the table from being asked.
    */
   sendRolls?: () => void
   /** The character's abilities, with their checks and saving throws. */

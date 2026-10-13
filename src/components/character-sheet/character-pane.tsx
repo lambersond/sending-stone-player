@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { actionTitle, verbOf, type TableDamage } from './action-entry'
+import { useActionsLayout } from './actions-layout'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet } from './character-sheet'
@@ -36,6 +37,7 @@ import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { PromptBanner } from './prompt-banner'
 import { REASONS, RollTray } from './roll-tray'
+import { SheetSettings } from './sheet-settings'
 import { SpellsTab } from './spells-tab'
 import {
   asks,
@@ -127,6 +129,9 @@ const WITH_FAVORITES = new Set<SheetTab>([
  * Actions tab's table.
  */
 const COLUMN_FROM = 936
+
+/** How wide the favorites' column is, in pixels, where they have one. */
+const FAVORITES_COLUMN = 360
 
 /**
  * The character's sheet, rolling 3D dice across the screen. The dice and their textures load
@@ -351,6 +356,13 @@ function RollingSheet({
   // sheet is wide enough, they have a column beside them.
   const showsFavorites = WITH_FAVORITES.has(tab) && entries.length > 0
   const beside = showsFavorites && width >= COLUMN_FROM
+  // How the Actions tab is laid out, as wide as it is, beside the favorites' column where it has
+  // one: kept here, so that the settings offer what it shows from every tab.
+  const actionsLayout = useActionsLayout(
+    entries.length > 0 && width >= COLUMN_FROM
+      ? width - FAVORITES_COLUMN
+      : width,
+  )
   const using = table.takes('use') ? onUse : undefined
   // While the game takes damage: which it waits for, and whether it takes it changed.
   const tableDamage: TableDamage | undefined = table.takes('damage')
@@ -418,7 +430,7 @@ function RollingSheet({
     askBlocked: askBlocked(table, rollsToTable),
     useBlocked: useBlocked(table, rollsToTable),
     // Where only this device's switch keeps the table from being asked, a way to turn it on, as
-    // the tray's switch may not be on the tab.
+    // the switch in the sheet's settings is a step away.
     ...(table.available &&
       !table.sending &&
       rollsToTable?.includes('ask') && {
@@ -457,7 +469,9 @@ function RollingSheet({
       enchanting={enchanting}
     >
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
-          labels don't fit. */}
+          labels don't fit; the settings' cog after them, at the end of the row. No gap before the
+          cog, as its margin and its own padding keep it apart: on a 360-pixel screen a caster's
+          seven tabs, with a condition's dot on Effects, take 301 of the 304 pixels beside it. */}
       <div className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'>
         <div
           role='tablist'
@@ -476,7 +490,8 @@ function RollingSheet({
               onClick={() => show(id)}
               className={clsx(
                 'flex shrink-0 items-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors',
-                // Seven tabs' icons, and the chosen one's label, fit a 320-pixel screen.
+                // Seven tabs' icons, Effects' dot, the chosen one's label and the settings' cog fit
+                // a 360-pixel screen; on a narrower one the tabs scroll.
                 tab === id ? 'px-2' : 'px-1.5 @3xl:px-2',
                 tab === id
                   ? 'bg-primary/10 text-primary'
@@ -496,6 +511,20 @@ function RollingSheet({
               )}
             </button>
           ))}
+        </div>
+        <div className='ml-auto shrink-0'>
+          <SheetSettings
+            send={
+              table.available
+                ? { on: table.sending, onChange: table.setSending }
+                : undefined
+            }
+            layouts={
+              actionsLayout.offered.length > 1 && sheet.actions.length > 0
+                ? actionsLayout
+                : undefined
+            }
+          />
         </div>
       </div>
       {/* What the game asks of the character, above every tab, while the game takes the answer. */}
@@ -536,6 +565,7 @@ function RollingSheet({
                 sheet={sheet}
                 {...handlers}
                 favorites={strip}
+                layout={actionsLayout.layout}
               />
             )}
             {tab === 'inventory' && (

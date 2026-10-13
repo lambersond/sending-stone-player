@@ -80,13 +80,19 @@ export function GameTable({
   const [aside, setAside] = useState<Aside>(() =>
     fighting ? 'combat' : 'chat',
   )
-  const [tab, setTab] = useState<Tab>(() => {
-    if (fighting) return 'combat'
-    return initialView.sheet ? 'character' : 'chat'
-  })
+  // The character comes first, in a fight too, where the Combat tab marks the player's turn; and
+  // without a sheet, where its tab says why.
+  const [tab, setTab] = useState<Tab>('character')
+  const sideBySide = useMediaQuery(SIDE_BY_SIDE)
+  // A screen that narrows from the sheet beside combat or the chat to one pane shows the
+  // character, keeping the part of the sheet shown. Widening changes nothing.
+  const [wasSideBySide, setWasSideBySide] = useState(sideBySide)
+  if (sideBySide !== wasSideBySide) {
+    setWasSideBySide(sideBySide)
+    if (!sideBySide) setTab('character')
+  }
   // The chat is in view when it is the tab shown, or on a wide screen when it is what sits beside
   // the sheet.
-  const sideBySide = useMediaQuery(SIDE_BY_SIDE)
   const chatInView = aside === 'chat' && (sideBySide || tab === 'chat')
 
   // Messages from others newer than the newest the player has had in view are unread. How far
@@ -257,7 +263,8 @@ export function GameTable({
   }
 
   return (
-    <div className='flex h-[calc(100dvh-3.5rem)] flex-col md:flex-row'>
+    // A character's page has no app bar, so the game table fills the viewport.
+    <div className='flex h-dvh flex-col md:flex-row'>
       <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
         <header className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'>
           <div className='flex min-w-0 items-center gap-2'>
