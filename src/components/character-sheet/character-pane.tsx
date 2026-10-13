@@ -42,6 +42,7 @@ import { SpellsTab } from './spells-tab'
 import {
   asks,
   enchantPicks,
+  selfPick,
   UsePicker,
   type Picked,
   type Picking,
@@ -210,7 +211,10 @@ function RollingSheet({
       action,
       request,
     }
-    if (asking && asks(asking, combat, sheet.spells, itemCasts)) {
+    if (
+      asking &&
+      asks(asking, combat, sheet.spells, itemCasts, table.selfTargets)
+    ) {
       setPicking(asking)
       return
     }
@@ -218,7 +222,8 @@ function RollingSheet({
   }
   // A spell or feature the game uses: at the combatants the player picks, in a combat, and with
   // the slot they choose, its damage changed as they chose, if they did; or, while its damage is
-  // due, that damage rolled.
+  // due, that damage rolled. One made at its user by default, as a potion, with no one to pick, as
+  // out of a combat, is made at them, where it may be; any other at no one.
   const onUse = (action: SheetAction, modifiers?: DamageModifiers) => {
     if (!action.activity) return
     const due = table.dueFor({ item: action.id, activity: action.activity.id })
@@ -227,11 +232,12 @@ function RollingSheet({
       return
     }
     const asking: Picking = { kind: 'use', action, modifiers }
-    if (asks(asking, combat, sheet.spells, itemCasts)) {
+    if (asks(asking, combat, sheet.spells, itemCasts, table.selfTargets)) {
       setPicking(asking)
       return
     }
-    use(action, { targets: [] }, modifiers)
+    const at = selfPick(action, combat, table.selfTargets)
+    use(action, at ?? { targets: [] }, modifiers)
   }
   const use = (
     action: SheetAction,
@@ -250,19 +256,26 @@ function RollingSheet({
       verbOf(action) === 'Cast',
       isItemCast(action),
     )
+    // A combat that ended while they picked leaves no one to target; its user, as Self, is still
+    // its user, where the game makes a use at them as asked.
+    const self =
+      picked.self === true ||
+      (!combat &&
+        table.selfTargets &&
+        picked.targets.some(({ side }) => side === 'me'))
     table.sendUse(
       used,
       {
         kind: 'use',
         item: action.id,
         activity: action.activity.id,
-        // A combat that ended while they picked leaves no one to target.
         targets: combat
           ? picked.targets.map(({ id }) => ({
               combatId: combat.id,
               combatantId: id,
             }))
           : [],
+        ...(self && { self: true as const }),
         slot: picked.slot,
         ...(picked.enchant && { enchant: picked.enchant }),
       },
@@ -622,6 +635,7 @@ function RollingSheet({
         casts={itemCasts}
         belongings={belongings}
         areas={table.areas}
+        selfTargets={table.selfTargets}
         last={lastTarget}
         onPick={pick}
         onClose={() => setPicking(undefined)}

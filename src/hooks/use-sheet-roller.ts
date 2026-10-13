@@ -7,6 +7,9 @@ import {
   themeToBoxConfig,
   toDiceBoxNotation,
   type Advantage,
+  type DiePool,
+  type DieSides,
+  type ExecuteRollOptions,
   type RollResult,
 } from '@lambersond/3d-dice-core'
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
@@ -17,7 +20,12 @@ import {
   type CriticalAdds,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
-import { formatExtraTerm, type ExtraTerm } from '@/utils/roll-modifiers'
+import { throwTerm, type ThrownDie } from '@/utils/dice-modifiers'
+import {
+  formatExtraTerm,
+  type ExtraDice,
+  type ExtraTerm,
+} from '@/utils/roll-modifiers'
 import type { FormulaSource, RollSource, TextLink } from '@/types/roll'
 import type { CriticalRule } from '@/types/sending-stone'
 
@@ -141,12 +149,20 @@ export type SheetFormulaRoll = {
 
 /** Something the player added to a roll, or a term of a damage roll, and what it came to. */
 export type LocalExtra = {
-  /** As written, with its sign: +1d4, −1d6, +5. */
+  /** As written, with its sign: +1d4, −1d6, +5, or a sheet's +2d6r<=2. */
   text: string
-  /** Each die's result; empty for a flat number. */
+  /**
+   * Each die's result, as first thrown, which is what the game is sent; empty for a flat number.
+   * Foundry throws again itself any die it rerolls or explodes.
+   */
   values: number[]
   /** What it adds to the total: negative for a term taken away. */
   value: number
+  /**
+   * For a term whose dice Foundry works out once thrown, such as 2d6r<=2's: every die thrown, the
+   * first throw and then any rerolled or exploded, and what became of each.
+   */
+  thrown?: ThrownDie[]
 }
 
 /** A d20 roll as this page keeps it. */
@@ -194,7 +210,8 @@ export type LocalDamage = {
   described?: boolean
   /**
    * A critical hit's whose dice the world's rules change as only the game can add them up, such as
-   * Midi-QOL's at their highest: its total is the game's, once it says.
+   * Midi-QOL's at their highest; or one with a die rerolled or exploded, which Foundry throws again
+   * itself: its total is the game's, once it says.
    */
   gameTotal?: boolean
   at: number
@@ -245,6 +262,11 @@ export type LocalFormula = {
   times?: number
   /** Rolled from a link in a description. */
   described?: boolean
+  /**
+   * A die of it was rerolled or exploded, which Foundry throws again itself: its total is the
+   * game's, once it says.
+   */
+  gameTotal?: boolean
   at: number
 }
 
@@ -378,6 +400,7 @@ export function useSheetRoller(
         terms.filter(term => 'sides' in term),
       )
       const maximized = modifiers?.maximize === true
+      const options = maximized ? { rng: HIGHEST } : undefined
       const result = executeRoll(
         {
           pools: dice.map(({ count, sides }) => ({
@@ -386,18 +409,23 @@ export function useSheetRoller(
           })),
           modifier: 0,
         },
-        maximized ? { rng: HIGHEST } : undefined,
+        options,
       )
-      const damage = toLocalDamage(label, parts, result, {
-        critical,
-        healing,
-        doubled,
-        maximized,
-      })
+      // The dice Foundry would throw again, rerolled or exploded, thrown after the first throw.
+      const again = rethrows(options)
+      const damage = toLocalDamage(
+        label,
+        parts,
+        result,
+        { critical, healing, doubled, maximized },
+        again.more,
+      )
       if (request.text) damage.described = true
-      if (rule?.altered) damage.gameTotal = true
+      if (rule?.altered || damage.parts.some(part => rethrown(part.terms))) {
+        damage.gameTotal = true
+      }
       onDamageThrown?.({ ...request, parts }, damage)
-      await land(result, damage)
+      await land(again.with(result), damage)
     },
     [land, onDamageThrown],
   )
@@ -424,37 +452,41 @@ export function useSheetRoller(
       const thrown = sets.map(({ terms }) =>
         terms.map(term => ('sides' in term ? (pools.shift()?.kept ?? []) : [])),
       )
-      // What each time each set is thrown came to, at least its least.
-      const totals = sets.flatMap(({ terms, times }, set) =>
-        Array.from({ length: times }, (_, time) => {
-          let sum = 0
-          for (const [index, term] of terms.entries()) {
-            const amount =
-              'sides' in term
-                ? thrown[set][index]
-                    .slice(time * term.count, (time + 1) * term.count)
-                    .reduce((sum, value) => sum + value, 0)
-                : term.flat
-            sum += term.sign * amount
-          }
-          return minimum === undefined ? sum : Math.max(minimum, sum)
-        }),
-      )
-      const kept = request.sets
+      // The dice Foundry would throw again, rerolled or exploded, thrown after the first throw:
+      // only a formula thrown once has any, never hit dice.
+      const again = rethrows()
+      const kept: LocalExtra[] = request.sets
         ? setTerms(sets, thrown)
         : request.terms.map((term, index) => {
-            const values = thrown[0][index]
-            const amount =
-              'sides' in term
-                ? values.reduce((sum, value) => sum + value, 0)
-                : term.flat
-            return {
-              text: damageTerm(term, { first: index === 0, doubled: false }),
-              values,
-              value: term.sign * amount,
+            const text = damageTerm(term, {
+              first: index === 0,
+              doubled: false,
+            })
+            if (!('sides' in term)) {
+              return { text, values: [], value: term.sign * term.flat }
             }
+            const done = landTerm(term, thrown[0][index], again.more)
+            return { text, ...done.extra, value: term.sign * done.amount }
           })
       const sum = kept.reduce((total, { value }) => total + value, 0)
+      // What each time each set is thrown came to, at least its least.
+      const totals = request.sets
+        ? sets.flatMap(({ terms, times }, set) =>
+            Array.from({ length: times }, (_, time) => {
+              let sum = 0
+              for (const [index, term] of terms.entries()) {
+                const amount =
+                  'sides' in term
+                    ? thrown[set][index]
+                        .slice(time * term.count, (time + 1) * term.count)
+                        .reduce((sum, value) => sum + value, 0)
+                    : term.flat
+                sum += term.sign * amount
+              }
+              return minimum === undefined ? sum : Math.max(minimum, sum)
+            }),
+          )
+        : [minimum === undefined ? sum : Math.max(minimum, sum)]
       const total = totals.reduce((all, each) => all + each, 0)
       const rolled: LocalFormula = {
         kind: 'formula',
@@ -466,10 +498,11 @@ export function useSheetRoller(
         ...(total !== sum && { minimum }),
         ...(totals.length > 1 && { times: totals.length }),
         ...(request.source?.kind === 'textRoll' && { described: true }),
+        ...(rethrown(kept) && { gameTotal: true }),
         at: result.at,
       }
       onFormulaThrown?.(request, rolled)
-      await land(result, rolled)
+      await land(again.with(result), rolled)
     },
     [land, onFormulaThrown],
   )
@@ -564,6 +597,65 @@ function toLocalRoll(
   }
 }
 
+/**
+ * Throws so many more of a die, for one Foundry rerolls or explodes, which `throwTerm` asks for one
+ * at a time.
+ */
+type More = (sides: DieSides) => (count: number) => number[]
+
+/**
+ * The dice thrown again, rerolled or exploded, after the first throw: `more` throws them, as the
+ * first throw was, and `with` adds them to it, to be thrown with it, as extra dice are.
+ */
+function rethrows(options?: ExecuteRollOptions) {
+  const pools: DiePool[] = []
+  const more: More = sides => count => {
+    const thrown = executeRoll(
+      { pools: [{ sides, count }], modifier: 0 },
+      options,
+    )
+    pools.push(...thrown.pools)
+    return thrown.pools[0]?.kept ?? []
+  }
+  return {
+    more,
+    with: (result: RollResult): RollResult =>
+      pools.length > 0
+        ? { ...result, pools: [...result.pools, ...pools] }
+        : result,
+  }
+}
+
+/**
+ * A term of dice as it landed: what its dice count for, as Foundry works out any modifiers they
+ * have, such as 2d6r<=2's reroll, which throws more after; its first throw, and every die thrown
+ * where it has modifiers.
+ */
+function landTerm(
+  term: ExtraDice,
+  values: number[],
+  more: More,
+): { amount: number; extra: Pick<LocalExtra, 'values' | 'thrown'> } {
+  if (!term.modifiers?.length) {
+    return {
+      amount: values.reduce((sum, value) => sum + value, 0),
+      extra: { values },
+    }
+  }
+  const thrown = throwTerm(term, values, more(term.sides))
+  return {
+    amount: thrown.total,
+    extra: { values, thrown: thrown.dice },
+  }
+}
+
+/** Was any die of these terms rerolled or exploded, which Foundry throws again itself? */
+function rethrown(terms: LocalExtra[]): boolean {
+  return terms.some(({ thrown }) =>
+    thrown?.some(die => die.rerolled || die.exploded),
+  )
+}
+
 function toLocalDamage(
   label: string,
   parts: SheetDamageRoll['parts'],
@@ -579,20 +671,20 @@ function toLocalDamage(
     doubled: boolean
     maximized: boolean
   },
+  more: More,
 ): LocalDamage {
   // The dice's pools are in the order their terms were written.
   const pools = [...result.pools]
   let first = true
   const kept = parts.map(({ terms, type }) => {
-    const done = terms.map(term => {
-      const values = 'sides' in term ? (pools.shift()?.kept ?? []) : []
-      const amount =
-        'sides' in term
-          ? values.reduce((sum, value) => sum + value, 0)
-          : term.flat
+    const done = terms.map((term): LocalExtra => {
       const text = damageTerm(term, { first, doubled })
       first = false
-      return { text, values, value: term.sign * amount }
+      if (!('sides' in term)) {
+        return { text, values: [], value: term.sign * term.flat }
+      }
+      const landed = landTerm(term, pools.shift()?.kept ?? [], more)
+      return { text, ...landed.extra, value: term.sign * landed.amount }
     })
     return {
       type,
@@ -664,7 +756,10 @@ function setTerms(
   ]
 }
 
-/** A term of a damage roll as thrown: 1d8 first, then +4 or −1d4, its dice doubled on a crit. */
+/**
+ * A term of a damage roll as thrown: 1d8 first, then +4 or −1d4, its dice doubled on a crit, with
+ * what Foundry does with them, such as 2d6r<=2.
+ */
 function damageTerm(
   term: ExtraTerm,
   { first, doubled }: { first: boolean; doubled: boolean },
@@ -672,7 +767,8 @@ function damageTerm(
   let sign = first ? '' : '+'
   if (term.sign < 0) sign = '−'
   if ('flat' in term) return `${sign}${term.flat}`
-  return `${sign}${doubled ? term.count * 2 : term.count}d${term.sides}`
+  const count = doubled ? term.count * 2 : term.count
+  return `${sign}${count}d${term.sides}${term.modifiers?.join('') ?? ''}`
 }
 
 /**

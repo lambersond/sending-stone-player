@@ -711,6 +711,59 @@ describe('components/character-sheet/spells-tab', () => {
     expect(row('Shield')).toBeInTheDocument()
   })
 
+  it('rolls damage whose dice Foundry rerolls, as a chip of its own', async () => {
+    const user = userEvent.setup()
+    const onRollDamage = jest.fn()
+    const sheet = rolling()
+    const [cantrips, ...spellbook] = sheet.spells
+    const blade = sheetSpell({
+      id: 'blade',
+      name: 'Booming Blade',
+      level: 0,
+      school: 'Evocation',
+      toHit: 7,
+      attackId: 'bladeAttack',
+      damage: [
+        { formula: '2d6r<=2 + 7 + 1d8', type: 'Thunder', healing: false },
+      ],
+    })
+    render(
+      <SpellsTab
+        characterId='char-1'
+        sheet={toTableSheet(
+          {
+            ...sheet,
+            spells: [{ ...cantrips, spells: [blade] }, ...spellbook],
+          },
+          'https://my-game.forge-vtt.com',
+        )}
+        onRoll={jest.fn()}
+        onRollDamage={onRollDamage}
+      />,
+    )
+
+    const chip = screen.getByRole('button', {
+      name: 'Booming Blade damage, 2d6r<=2 + 7 + 1d8',
+    })
+    expect(chip).toBeEnabled()
+    await user.click(chip)
+    expect(onRollDamage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Booming Blade damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+              { sign: 1, flat: 7 },
+              { sign: 1, count: 1, sides: 8 },
+            ],
+            type: 'Thunder',
+          },
+        ],
+      }),
+    )
+  })
+
   it('opens a spell that rolls to how it is cast, as any other, and what it rolls', async () => {
     const user = userEvent.setup()
     render(

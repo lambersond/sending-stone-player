@@ -257,6 +257,33 @@ describe('db/table', () => {
       expect(older.sheet).toMatchObject({ ac: 18 })
     })
 
+    it("tells the player why the module held their character's sheet back, from module 0.22.0, and only theirs", async () => {
+      const tooLarge = {
+        reason: 'tooLarge',
+        bytes: 5_200_000,
+        limit: 4_000_000,
+      }
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...campaign,
+        characters: [
+          { ...roster[0], sheetWithheld: { ...tooLarge, later: true } },
+          { ...roster[1], sheetWithheld: { ...tooLarge, bytes: 9_000_000 } },
+        ],
+      } as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([])
+      prismaMock.combat.findMany.mockResolvedValue([])
+      prismaMock.actorSheet.findUnique.mockResolvedValue(null)
+
+      const view = await getTableView(character)
+
+      expect(view.sheet).toBeUndefined()
+      expect(view.sheetWithheld).toEqual(tooLarge)
+
+      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+      const sent = await getTableView(character)
+      expect(sent.sheetWithheld).toBeUndefined()
+    })
+
     it('shows damage against the targets of the attack it was rolled from', async () => {
       prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
       const dnd5e = {

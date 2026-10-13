@@ -21,6 +21,7 @@ import {
 import {
   damageChanges,
   diceTakenAway,
+  unmaximizable,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
@@ -119,17 +120,18 @@ export function RollTray({
                 >
                   <span className='truncate'>{roll.label}</span>
                   <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
-                    {breakdown(roll)}
+                    {breakdown(roll, table?.states.get(roll.id))}
                     {(roll.kind === 'check' ||
                       roll.kind === 'formula' ||
-                      (roll.kind === 'damage' && !byTheGame(roll))) && (
-                      <>
-                        {' = '}
-                        <span className='text-sm font-semibold text-text-primary'>
-                          {roll.total}
-                        </span>
-                      </>
-                    )}
+                      (roll.kind === 'damage' && !byTheGame(roll))) &&
+                      !thrownAgainThere(roll, table?.states.get(roll.id)) && (
+                        <>
+                          {' = '}
+                          <span className='text-sm font-semibold text-text-primary'>
+                            {roll.total}
+                          </span>
+                        </>
+                      )}
                     <TableMark state={table?.states.get(roll.id)} roll={roll} />
                   </span>
                 </li>
@@ -531,9 +533,14 @@ function DamageButton({
       : 'bg-damage/15 text-damage hover:bg-damage/25',
   )
   // Its dice as the game will throw them, for its menu to change them. Damage the game rolls itself
-  // has no dice here to change, but can be its highest, unless its formula takes a die away.
+  // has no dice here to change, but can be its highest, unless its formula takes a die away, or
+  // explodes one.
   const game = damageRollOf(name, due)
-  const ways = damageChanges(game.parts, game.fixed, diceTakenAway(damage))
+  const ways = damageChanges(
+    game.parts,
+    game.fixed,
+    diceTakenAway(damage) || unmaximizable(damage),
+  )
   const formula = damage.rolls.map(roll => roll.formula).join(' + ')
   const roll = (type?: string, modifiers?: DamageModifiers) => {
     if (modifiers) onRollDamage(name, due, type, modifiers)
@@ -802,9 +809,10 @@ function DamageResult({
   state,
 }: Readonly<{ roll: LocalDamage; state?: TableRollState }>) {
   const rolledThere = byTheGame(roll)
+  const again = thrownAgainThere(roll, state)
   const told = state?.status === 'done' && state.visible
   let total: number | string = roll.total
-  if (rolledThere) {
+  if (rolledThere || again) {
     total = told ? (state.total ?? '?') : '…'
   } else if (roll.gameTotal && told) {
     total = state.total ?? '?'
@@ -829,12 +837,13 @@ function DamageResult({
             roll.parts.map((part, index) => (
               <span key={index}>
                 {index > 0 && ' '}
-                <Terms terms={part.terms} />
+                <Terms terms={part.terms} firstThrow={again} />
                 {part.type && ` ${part.type}`}
               </span>
             ))}
           {roll.critical && ' · Critical hit'}
           {roll.maximized && ' · Maximum'}
+          {again && THROWN_AGAIN}
         </p>
         {state && <TableStatus state={state} />}
         {!state && roll.described && <OnlyYou />}
@@ -846,22 +855,32 @@ function DamageResult({
 /**
  * A hit die spent, or a formula rolled: the total, and each of its terms with its dice, and the
  * least it comes to, where its dice came to less. Hit dice spent at once are one roll, every die
- * among its terms, and the least each gives back said where one gave back its least.
+ * among its terms, and the least each gives back said where one gave back its least. One with a die
+ * rerolled or exploded, which the game throws again itself, shows the game's total, once it says.
  */
 function FormulaResult({
   roll,
   state,
 }: Readonly<{ roll: LocalFormula; state?: TableRollState }>) {
+  const again = thrownAgainThere(roll, state)
+  const told = state?.status === 'done' && state.visible
+  let total: number | string = roll.total
+  if (again) {
+    total = told ? (state.total ?? '?') : '…'
+  } else if (roll.gameTotal && told) {
+    total = state.total ?? '?'
+  }
   return (
     <div className='flex items-center gap-3'>
       <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl font-bold text-primary tabular-nums'>
-        {roll.total}
+        {total}
       </span>
       <div className='min-w-0'>
         <p className='truncate font-semibold'>{roll.label}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
-          <Terms terms={roll.terms} />
+          <Terms terms={roll.terms} firstThrow={again} />
           {roll.minimum !== undefined && ` · ${leastOf(roll)}`}
+          {again && THROWN_AGAIN}
         </p>
         {state && <TableStatus state={state} />}
         {!state && roll.described && <OnlyYou />}
@@ -878,9 +897,17 @@ function leastOf({ minimum, times }: LocalFormula): string {
   return `at least ${minimum}${times ? ' each' : ''}`
 }
 
-/** Each term of a roll with no d20, with its dice: 1d10 (7) +2. */
-function Terms({ terms }: Readonly<{ terms: LocalExtra[] }>) {
-  return terms.map(({ text, values }, at) => (
+/**
+ * Each term of a roll with no d20, with its dice: 1d10 (7) +2. A term whose dice Foundry works out,
+ * such as 2d6r<=2's, shows every die thrown, those rerolled or dropped struck through, such as
+ * 2d6r<=2 (1, 5, 4) with its 1 rerolled; or, for a roll the game throws those again for itself,
+ * only the first throw, which is what the game was sent (`firstThrow`).
+ */
+function Terms({
+  terms,
+  firstThrow = false,
+}: Readonly<{ terms: LocalExtra[]; firstThrow?: boolean }>) {
+  return terms.map(({ text, values, thrown }, at) => (
     <span key={at}>
       {at > 0 && ' '}
       {text}
@@ -888,7 +915,14 @@ function Terms({ terms }: Readonly<{ terms: LocalExtra[] }>) {
         <>
           {' ('}
           <span className='font-semibold text-text-primary'>
-            {values.join(', ')}
+            {thrown && !firstThrow
+              ? thrown.map((die, index) => (
+                  <span key={index}>
+                    {index > 0 && ', '}
+                    {die.active ? die.value : <s>{die.value}</s>}
+                  </span>
+                ))
+              : values.join(', ')}
           </span>
           )
         </>
@@ -1077,17 +1111,43 @@ function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   )
 }
 
+/** What a roll the game throws dice again for says of it, after its dice. */
+const THROWN_AGAIN = ' · Rerolls thrown in your Gamemaster’s game'
+
+/**
+ * Does the game throw some of this roll's dice again for itself, rerolled or exploded, as Foundry
+ * does with its own dice: one sent to it and not turned away, a die of which was thrown again here
+ * too? Only its first throw, which is what the game was sent, is then shown, and the game's total
+ * once it says, as the dice thrown again here aren't the game's.
+ */
+function thrownAgainThere(roll: LocalRoll, state?: TableRollState): boolean {
+  if (!state || NOT_MADE.has(state.status)) return false
+  if (roll.kind === 'formula') return thrownAgain(roll.terms)
+  if (roll.kind === 'damage') {
+    return roll.parts.some(part => thrownAgain(part.terms))
+  }
+  return false
+}
+
+/** Was a die of these terms thrown again, rerolled or exploded, as Foundry throws one? */
+function thrownAgain(terms: LocalExtra[]): boolean {
+  return terms.some(({ thrown }) =>
+    thrown?.some(die => die.rerolled || die.exploded),
+  )
+}
+
 /** Is this damage the game's to roll, with no dice thrown here? */
 function byTheGame(roll: LocalDamage): boolean {
   return roll.parts.every(part => part.terms.length === 0)
 }
 
-function breakdown(roll: LocalRoll): string {
+function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'use') {
     if (roll.ending) return 'ended'
     return roll.spell ? 'cast' : 'used'
   }
   if (roll.kind === 'ask') return 'asked'
+  if (thrownAgainThere(roll, state)) return 'thrown again at the table'
   if (roll.kind === 'formula') {
     const terms = roll.terms
       .map(({ value }, index) =>

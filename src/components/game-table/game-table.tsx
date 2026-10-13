@@ -185,7 +185,7 @@ export function GameTable({
             />
           ) : (
             <Scroller>
-              <NoSheet name={character.name} />
+              <NoSheet name={character.name} withheld={view.sheetWithheld} />
             </Scroller>
           )}
         </Pane>
@@ -501,8 +501,33 @@ function NoCampaign({ name }: Readonly<{ name: string }>) {
   )
 }
 
-/** For a character whose sheet hasn't arrived, as under a system other than dnd5e. */
-function NoSheet({ name }: Readonly<{ name: string }>) {
+/**
+ * For a character whose sheet hasn't arrived, as under a system other than dnd5e; or from module
+ * 0.22.0, one the module held back for being larger than this app takes, which its Gamemaster has
+ * been told.
+ */
+function NoSheet({
+  name,
+  withheld,
+}: Readonly<{ name: string; withheld?: TableView['sheetWithheld'] }>) {
+  if (withheld?.reason === 'tooLarge') {
+    const { bytes, limit } = withheld
+    // In megabytes to a tenth, as the module tells the Gamemaster: the size rounded up and the
+    // limit down, so that a size over the limit never reads as within it.
+    const megabytes = (count: number, round: (tenths: number) => number) =>
+      `${(round(count / 100_000) / 10).toFixed(1)} MB`
+    return (
+      <EmptyState
+        icon={UserRound}
+        title={`${name}'s sheet is too large to send`}
+      >
+        {typeof bytes === 'number' &&
+          typeof limit === 'number' &&
+          `It came to ${megabytes(bytes, Math.ceil)}, more than the ${megabytes(limit, Math.floor)} this app takes. `}
+        Your Gamemaster has been told.
+      </EmptyState>
+    )
+  }
   return (
     <EmptyState icon={UserRound} title={`${name}'s sheet hasn't arrived`}>
       Your Gamemaster&apos;s Sending Stone module sends it under D&amp;D Fifth

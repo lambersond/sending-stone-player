@@ -14,6 +14,7 @@ import {
   diceTakenAway,
   linkDamage,
   modifiedDice,
+  unmaximizable,
 } from '@/utils/damage-modifiers'
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
@@ -230,7 +231,9 @@ export function checkRoll(
       return sheet ? checkAttack(input, sheet, combats) : 'unknown'
     }
     case 'use': {
-      return sheet ? checkUse(input, sheet, combats) : 'unknown'
+      return sheet
+        ? checkUse(input, sheet, combats, actorId, features)
+        : 'unknown'
     }
     case 'hitDie': {
       return checkHitDie(input, sheet)
@@ -299,13 +302,19 @@ function checkAttack(
  * Can the character use this spell or feature: is it what one of its actions, favorites, spells,
  * features or inventory items is used through, identified, with a spell slot left for a spell, at
  * no more combatants than it takes at the level it's cast at, all of them combatants its player
- * can see? An enchant activity is used at no one, as `checkEnchant` says. Whatever else it spends,
- * such as its uses, the game checks as it would spend it.
+ * can see? An enchant activity is used at no one, its user neither, as `checkEnchant` says. One
+ * made at its user too, from module 0.22.0, is only where the game makes it so, of one with
+ * targets beyond its user, whose own combatant isn't among them too, and counts as one of them.
+ * Whatever else it spends, such as its uses, the game checks as it would spend it.
+ * @param actorId - The character's actor, whose combatant is its user.
+ * @param features - What else the campaign's game does with its players' rolls.
  */
 function checkUse(
   input: RollRequestInput,
   sheet: CharacterSheet,
   combats: CombatSnapshot[],
+  actorId: string,
+  features: readonly string[],
 ): RollRefusal | undefined {
   const action = sheetActions(sheet).find(
     ({ id, activity }) => id === input.item && activity?.id === input.activity,
@@ -315,16 +324,45 @@ function checkUse(
   const slot = checkSlot(input, action, sheet, casts)
   if (slot) return slot
   if (action.activity.type === 'enchant') {
+    // It's used at no one, its user neither, as the game refuses.
+    if (input.self) return 'target'
     return checkEnchant(input, action, sheet, casts)
   }
   // Only an enchant activity enchants.
   if (input.enchant !== undefined) return 'unknown'
   const targets = input.targets ?? []
   const { base, level } = levelsOf(input, action, sheet, casts)
-  if (targets.length > mostTargets(action.activity.targets, base, level)) {
+  const self = input.self === true
+  if (self && checkSelf(targets, action, combats, actorId, features)) {
     return 'target'
   }
+  const most = mostTargets(action.activity.targets, base, level)
+  if (targets.length + (self ? 1 : 0) > most) return 'target'
   return checkTargets(targets, combats)
+}
+
+/**
+ * Can't a use be made at its user too, besides these targets: where the game doesn't make one so,
+ * as before module 0.22.0; where it's one used on its user alone, which needs no asking; or where
+ * the character's own combatant is among its targets already?
+ */
+function checkSelf(
+  targets: AttackTarget[],
+  action: SheetAction,
+  combats: CombatSnapshot[],
+  actorId: string,
+  features: readonly string[],
+): boolean {
+  if (!features.includes('selfTargets') || action.activity?.targets.self) {
+    return true
+  }
+  return targets.some(
+    target =>
+      combats
+        .find(({ id }) => id === target.combatId)
+        ?.combatants.find(({ id }) => id === target.combatantId)?.character ===
+      actorId,
+  )
 }
 
 /**
@@ -583,8 +621,13 @@ function checkLinked(
       if (adds === false) return 'dice'
       // A part the app can't read, it couldn't have rolled.
       const preview = linkDamage(damage, rule ?? undefined, adds)
-      // Never at its highest where it takes a die away, which that would take the most of.
-      if (input.modifiers?.maximize && preview && diceTakenAway(preview)) {
+      // Never at its highest where it takes a die away, which that would take the most of, nor
+      // where a die explodes, or is rerolled on its highest face, whose highest isn't known.
+      if (
+        input.modifiers?.maximize &&
+        preview &&
+        (diceTakenAway(preview) || unmaximizable(preview))
+      ) {
         return 'dice'
       }
       // Its first die changed only where the game changes that one, as a module before 0.21.0,
@@ -642,7 +685,10 @@ const CHECK_TYPES = {
   ability: 'check',
 } as const satisfies Partial<Record<RollKind, CheckOption['type']>>
 
-/** Are a roll's dice those a formula throws, in order: the same kinds of dice, as many of each? */
+/**
+ * Are a roll's dice those a formula throws, in order: the same kinds of dice, as many of each, as
+ * first thrown? Foundry throws again itself any die it rerolls or explodes.
+ */
 function throws(input: RollRequestInput, thrown: ExtraDice[]): boolean {
   return (
     input.dice.length === thrown.length &&
@@ -688,9 +734,9 @@ function checkTargets(
 /**
  * Can this damage be rolled: does it follow the character's own attack or use, made in the game
  * lately, that said damage or healing follows; is no other damage for it on its way or made; are
- * its dice those it said its damage throws, in order, changed as the player chose, if they did,
- * never at its highest where it takes a die away; and is each kind of damage chosen one its roll
- * offers?
+ * its dice those it said its damage throws, in order, each die's first throw, changed as the player
+ * chose, if they did, never at its highest where it takes a die away, or a die explodes or is
+ * rerolled on its highest face; and is each kind of damage chosen one its roll offers?
  * @param use - The attack or use, if it's the character's.
  * @param others - The other damage asked for the same attack or use.
  */
@@ -709,7 +755,14 @@ export function checkDamage(
     ['sending', 'rolling', 'done'].includes(rollStatus(other, now)),
   )
   if (taken) return 'damaged'
-  if (input.modifiers?.maximize && diceTakenAway(damage)) return 'dice'
+  // Never at its highest where it takes a die away, nor where a die explodes, or is rerolled on its
+  // highest face, whose highest isn't known.
+  if (
+    input.modifiers?.maximize &&
+    (diceTakenAway(damage) || unmaximizable(damage))
+  ) {
+    return 'dice'
+  }
   const planned = modifiedDice(damage, input.modifiers)
   if (!planned || !matchesPlanned(input, planned)) return 'dice'
   const types = input.types ?? []

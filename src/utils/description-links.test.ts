@@ -244,6 +244,45 @@ describe('utils/description-links', () => {
       ).toEqual({ kind: 'condition', condition: 'prone' })
     })
 
+    it('reads formulas with what Foundry does with their dice, comparisons and all', () => {
+      expect(
+        linkOf({
+          class: 'ss-damage roll',
+          'data-n': '1',
+          'data-formulas': '2d6r<=2 + 1d8 + 7&1d6x',
+          'data-types': 'slashing&fire',
+        }),
+      ).toEqual({
+        kind: 'damage',
+        n: 1,
+        parts: [
+          { formula: '2d6r<=2 + 1d8 + 7', types: ['slashing'] },
+          { formula: '1d6x', types: ['fire'] },
+        ],
+        healing: false,
+      })
+      expect(
+        linkOf({
+          class: 'ss-roll roll',
+          'data-n': '2',
+          'data-formula': '4d6kh3',
+        }),
+      ).toEqual({ kind: 'roll', n: 2, formula: '4d6kh3' })
+      for (const formula of ['2d6r2', '6d6cs>=5', '1d20 − 1d4min2']) {
+        expect(
+          linkAttributes('ss-roll', { 'data-n': '0', 'data-formula': formula }),
+        ).toEqual({ 'data-n': '0', 'data-formula': formula })
+      }
+    })
+
+    it('keeps a formula of capitals or other signs as text', () => {
+      for (const formula of ['1d6X', '1d6 + @mod', '2d6!', '1d6 + {1}']) {
+        expect(
+          linkAttributes('ss-roll', { 'data-n': '0', 'data-formula': formula }),
+        ).toBeUndefined()
+      }
+    })
+
     it.each([
       ['no class', { 'data-n': '0', 'data-formula': '1d6' }],
       ['a class it has not', { class: 'roll', 'data-n': '0' }],

@@ -927,6 +927,7 @@ describe('components/character-sheet/roll-tray', () => {
             '1d3 + 3',
             ['Roll maximum damage'],
           ],
+          ['explodes a die: no menu', '1d6x + 1d3', undefined],
         ])(
           'offers damage the game rolls itself, whose formula %s',
           (_, formula, items) => {
@@ -950,6 +951,28 @@ describe('components/character-sheet/roll-tray', () => {
             }
           },
         )
+
+        it('offers no maximum where its formula explodes a die, though the app reads it as its dice alone', () => {
+          // More than the app reads as a number: its die alone, no explosion to be seen.
+          rendered({
+            ...preview,
+            rolls: [
+              {
+                formula: '1d6x + 120',
+                type: 'Thunder',
+                dice: [{ faces: 6, number: 1 }],
+              },
+            ],
+          })
+          fireEvent.contextMenu(
+            screen.getByRole('button', { name: 'Roll damage' }),
+          )
+          expect(
+            within(screen.getByRole('menu'))
+              .getAllByRole('menuitem')
+              .map(item => item.textContent),
+          ).toEqual(['Modify damage…'])
+        })
 
         it('changes none of the dice where a module before 0.21.0 would change the one it takes away', () => {
           // "-1d4 + 2d6", unmarked: such a module would add to the d4.
@@ -1134,6 +1157,185 @@ describe('components/character-sheet/roll-tray', () => {
           />,
         )
         expect(screen.getByRole('status')).toHaveTextContent(/^10Flame damage/)
+      })
+
+      it('strikes through the dice rerolled or dropped of a roll of the player’s own; at the table, shows only the first throw, which the game was sent, and the game’s total, once it says', async () => {
+        const user = userEvent.setup()
+        const rerolled = damage({
+          label: 'Greatsword damage',
+          total: 16,
+          gameTotal: true,
+          parts: [
+            {
+              type: 'slashing',
+              total: 16,
+              terms: [
+                {
+                  text: '2d6r<=2',
+                  values: [1, 5],
+                  value: 9,
+                  thrown: [
+                    { value: 1, active: false, rerolled: true },
+                    { value: 5, active: true },
+                    { value: 4, active: true },
+                  ],
+                },
+                { text: '+7', values: [], value: 7 },
+              ],
+            },
+          ],
+        })
+        // The player's own: every die thrown here, the 1 rerolled struck through.
+        const { rerender } = render(
+          <RollTray rolls={[rerolled]} rolling={false} />,
+        )
+        const status = screen.getByRole('status')
+        expect(status).toHaveTextContent(
+          /^16Greatsword damage2d6r<=2 \(1, 5, 4\) \+7 slashing$/,
+        )
+        expect(within(status).getByText('1').tagName).toBe('S')
+
+        // At the table, the game throws the 1 again with its own dice: the first throw, and no
+        // total until the game says.
+        rerender(
+          <RollTray
+            rolls={[rerolled]}
+            rolling={false}
+            table={table([['d1', { status: 'rolling' }]])}
+          />,
+        )
+        expect(status).toHaveTextContent(
+          /^…Greatsword damage2d6r<=2 \(1, 5\) \+7 slashing · Rerolls thrown in your/,
+        )
+        expect(within(status).queryByText('4')).not.toBeInTheDocument()
+        expect(status.querySelector('s')).toBeNull()
+
+        rerender(
+          <RollTray
+            rolls={[rerolled]}
+            rolling={false}
+            table={table([
+              ['d1', { status: 'done', visible: true, total: 18 }],
+            ])}
+          />,
+        )
+        expect(status).toHaveTextContent(
+          /^18Greatsword damage2d6r<=2 \(1, 5\) \+7 slashing · Rerolls thrown/,
+        )
+
+        // Among the earlier rolls, it says the game threw again, with the game's total, not this
+        // phone's.
+        rerender(
+          <RollTray
+            rolls={[roll({ id: 'r2' }), rerolled]}
+            rolling={false}
+            table={table([
+              ['d1', { status: 'done', visible: true, total: 18 }],
+            ])}
+          />,
+        )
+        await user.click(screen.getByText('Earlier rolls (1)'))
+        expect(screen.getByRole('listitem')).toHaveTextContent(
+          'Greatsword damagethrown again at the table· table 18',
+        )
+
+        // One the game didn't take is the player's own, every die thrown here.
+        rerender(
+          <RollTray
+            rolls={[rerolled]}
+            rolling={false}
+            table={table([['d1', { status: 'refused', reason: 'dice' }]])}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^16Greatsword damage2d6r<=2 \(1, 5, 4\) \+7 slashing/,
+        )
+
+        // A formula's, the same.
+        const exploded: LocalFormula = {
+          kind: 'formula',
+          id: 'f1',
+          label: 'Wild Magic roll',
+          total: 6,
+          healing: false,
+          gameTotal: true,
+          terms: [
+            {
+              text: '1d4x',
+              values: [4],
+              value: 6,
+              thrown: [
+                { value: 4, active: true, exploded: true },
+                { value: 2, active: true },
+              ],
+            },
+          ],
+          at: 0,
+        }
+        rerender(<RollTray rolls={[exploded]} rolling={false} />)
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^6Wild Magic roll1d4x \(4, 2\)$/,
+        )
+        rerender(
+          <RollTray
+            rolls={[exploded]}
+            rolling={false}
+            table={table([['f1', { status: 'rolling' }]])}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^…Wild Magic roll1d4x \(4\) · Rerolls thrown in your Gamemaster’s game/,
+        )
+        rerender(
+          <RollTray
+            rolls={[exploded]}
+            rolling={false}
+            table={table([['f1', { status: 'done', visible: true, total: 9 }]])}
+          />,
+        )
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /^9Wild Magic roll1d4x \(4\)/,
+        )
+      })
+
+      it('keeps every die of a roll whose dice Foundry only keeps or drops, which the game works out from the same throw', () => {
+        const kept = damage({
+          label: 'Lucky damage',
+          total: 9,
+          gameTotal: true,
+          parts: [
+            {
+              type: 'fire',
+              total: 9,
+              terms: [
+                {
+                  text: '4d6kh3',
+                  values: [1, 2, 3, 4],
+                  value: 9,
+                  thrown: [
+                    { value: 1, active: false },
+                    { value: 2, active: true },
+                    { value: 3, active: true },
+                    { value: 4, active: true },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        render(
+          <RollTray
+            rolls={[kept]}
+            rolling={false}
+            table={table([['d1', { status: 'rolling' }]])}
+          />,
+        )
+        const status = screen.getByRole('status')
+        expect(status).toHaveTextContent(
+          /^9Lucky damage4d6kh3 \(1, 2, 3, 4\) fire/,
+        )
+        expect(status).not.toHaveTextContent('Rerolls thrown')
+        expect(within(status).getByText('1').tagName).toBe('S')
       })
 
       it('names attacks among the rolls made at the table, when the game takes them', () => {

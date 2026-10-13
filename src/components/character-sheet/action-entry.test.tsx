@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { forwardNote } from './action-entry'
 import { ActionsTab } from './actions-tab'
@@ -9,6 +15,7 @@ import {
   type DescriptionActions,
 } from './description-actions'
 import {
+  characterSheet,
   checkingSheet,
   MAZE_CHECK,
   sheetAction,
@@ -18,6 +25,7 @@ import { toTableSheet } from '@/utils/table-view'
 import type { Layout } from './actions-layout'
 import type {
   CharacterSheet,
+  DamagePreview,
   SheetAction,
   SheetActivity,
 } from '@/types/sending-stone'
@@ -572,6 +580,190 @@ describe('action-entry: checks activities ask for, and activities that use other
     expect(onUse.mock.calls[0][0]).toMatchObject({
       activity: { id: 'escape-plants' },
       consumesSlot: false,
+    })
+  })
+})
+
+describe('action-entry: formulas with what Foundry does with their dice', () => {
+  afterEach(cleanup)
+
+  /** A Great Weapon Fighting greatsword, with Divine Favor's d8, and a cleric's radiant formula. */
+  const actions = [
+    sheetAction({
+      id: 'greatsword',
+      name: 'Greatsword',
+      type: 'weapon',
+      attackId: 'greatswordAttack',
+      toHit: 7,
+      damage: [
+        { formula: '2d6r<=2 + 7 + 1d8', type: 'Slashing', healing: false },
+      ],
+    }),
+    sheetAction({
+      id: 'flail',
+      name: 'Thundering Flail',
+      type: 'weapon',
+      attackId: 'flailAttack',
+      toHit: 6,
+      damage: [{ formula: '1d6x + 2', type: 'Thunder', healing: false }],
+    }),
+    sheetAction({
+      id: 'symbol',
+      name: 'Holy Symbol',
+      rollFormula: { formula: '2d6[radiant]', name: 'Radiance' },
+    }),
+  ]
+  const sheet: CharacterSheet = {
+    ...characterSheet(),
+    actions: [{ id: 'action', label: 'Actions', actions }],
+  }
+  const renderTab = (layout?: Layout) => {
+    const onRollDamage = jest.fn()
+    const onRollFormula = jest.fn()
+    render(
+      <ActionsTab
+        characterId='char-1'
+        sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+        onRoll={jest.fn()}
+        onRollDamage={onRollDamage}
+        onRollFormula={onRollFormula}
+        layout={layout}
+      />,
+    )
+    return { onRollDamage, onRollFormula }
+  }
+
+  it.each<[string, Layout | undefined]>([
+    ['a list', undefined],
+    ['a table', 'table'],
+  ])(
+    'rolls damage whose dice are rerolled as a chip of its own, in %s',
+    async (_name, layout) => {
+      const user = userEvent.setup()
+      const { onRollDamage } = renderTab(layout)
+
+      const chip = screen.getByRole('button', {
+        name: 'Greatsword damage, 2d6r<=2 + 7 + 1d8',
+      })
+      expect(chip).toBeEnabled()
+      await user.click(chip)
+      expect(onRollDamage).toHaveBeenCalledWith({
+        label: 'Greatsword damage',
+        parts: [
+          {
+            terms: [
+              { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+              { sign: 1, flat: 7 },
+              { sign: 1, count: 1, sides: 8 },
+            ],
+            type: 'Slashing',
+          },
+        ],
+        healing: false,
+        critical: false,
+        source: { item: 'greatsword', activity: 'greatswordAttack' },
+      })
+    },
+  )
+
+  it('offers its highest, but not for dice that explode', () => {
+    renderTab()
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', {
+        name: 'Greatsword damage, 2d6r<=2 + 7 + 1d8',
+      }),
+    )
+    expect(
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual(['Roll critical damage', 'Roll maximum damage', 'Modify damage…'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    cleanup()
+
+    renderTab()
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Thundering Flail damage, 1d6x + 2' }),
+    )
+    expect(
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual(['Roll critical damage', 'Modify damage…'])
+  })
+
+  it.each<[string, DamagePreview, string[] | undefined]>([
+    [
+      'the game rolls itself: no menu',
+      {
+        critical: false,
+        plannable: false,
+        rolls: [{ formula: '1d6x + 1d3', type: 'Thunder', dice: [] }],
+      },
+      undefined,
+    ],
+    [
+      'the app can’t read against its dice: no maximum',
+      {
+        critical: false,
+        plannable: true,
+        rolls: [
+          {
+            formula: '1d6x + 120',
+            type: 'Thunder',
+            dice: [{ faces: 6, number: 1 }],
+          },
+        ],
+      },
+      ['Modify damage…'],
+    ],
+  ])(
+    'offers no maximum for damage due whose dice explode, which %s',
+    (_, damage, items) => {
+      render(
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          tableDamage={{
+            modifies: true,
+            dueFor: () => ({ use: 'req-1', damage }),
+          }}
+        />,
+      )
+
+      fireEvent.contextMenu(
+        screen.getByRole('button', {
+          name: 'Thundering Flail damage, 1d6x + 2',
+        }),
+      )
+      const menu = screen.queryByRole('menu')
+      if (items) {
+        expect(
+          within(menu as HTMLElement)
+            .getAllByRole('menuitem')
+            .map(item => item.textContent),
+        ).toEqual(items)
+      } else {
+        expect(menu).toBeNull()
+      }
+    },
+  )
+
+  it('rolls a formula with a flavor', async () => {
+    const user = userEvent.setup()
+    const { onRollFormula } = renderTab()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Roll Holy Symbol: Radiance, 2d6[radiant]',
+      }),
+    )
+    expect(onRollFormula).toHaveBeenCalledWith({
+      label: 'Holy Symbol: Radiance',
+      terms: [{ sign: 1, count: 2, sides: 6 }],
     })
   })
 })

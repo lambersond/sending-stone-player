@@ -249,6 +249,51 @@ const openSettings = async (user: User) => {
   return screen.getByRole('dialog', { name: 'Settings' })
 }
 
+/**
+ * Thorin with a potion of healing, its range Self, at any creatures, as a module before 0.22.0
+ * sends it, saying nothing of its range but the action's; and Wild Shape, a utility at a
+ * creature, its range Self, as the module says from 0.22.0.
+ */
+const selfish = (): CharacterSheet => {
+  const sheet = fullerSheet()
+  const added = [
+    sheetAction({
+      id: 'potion',
+      name: 'Potion of Healing',
+      type: 'consumable',
+      range: 'Self',
+      damage: healing('2d4 + 2'),
+      activity: activity('drink', 'heal', { affects: 'creature' }),
+    }),
+    sheetAction({
+      id: 'wild',
+      name: 'Wild Shape',
+      range: 'Self',
+      activity: activity('shape', 'utility', {
+        count: 1,
+        affects: 'creature',
+        fromSelf: true,
+      }),
+    }),
+  ]
+  return {
+    ...sheet,
+    actions: sheet.actions.map(section =>
+      section.id === 'action'
+        ? { ...section, actions: [...section.actions, ...added] }
+        : section,
+    ),
+  }
+}
+
+/** Drinks the potion, by its healing's chip. */
+const drink = () =>
+  userEvent.setup().click(
+    screen.getByRole('button', {
+      name: 'Potion of Healing healing, 2d4 + 2',
+    }),
+  )
+
 describe('components/character-sheet/character-pane', () => {
   beforeEach(() => {
     globalThis.fetch = jest.fn(
@@ -1171,6 +1216,201 @@ describe('components/character-sheet/character-pane', () => {
     })
   })
 
+  describe('damage whose dice Foundry rerolls, such as Great Weapon Fighting’s', () => {
+    const FORMULA = '2d6r<=2 + 7 + 1d8'
+
+    /**
+     * Thorin's sheet, with his favorites, his warhammer dealing Great Weapon Fighting's damage with
+     * a d8 more, and a second activity, a smite, dealing it too.
+     */
+    const greatWeapon = (favorites = true): CharacterSheet => {
+      const sheet = favorites ? favored() : fullerSheet()
+      const damage = [{ formula: FORMULA, type: 'Slashing', healing: false }]
+      const smite = {
+        id: 'warhammerSmite',
+        name: 'Thunder Smite',
+        type: 'damage',
+        activation: '1 Bonus Action',
+        range: 'reach 5 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        activity: activity('warhammerSmite', 'damage', {
+          count: 1,
+          affects: 'creature',
+        }),
+        save: null,
+        damage,
+        uses: null,
+      }
+      return {
+        ...sheet,
+        actions: sheet.actions.map(section => ({
+          ...section,
+          actions: section.actions.map(action =>
+            action.id === 'warhammer'
+              ? {
+                  ...action,
+                  damage,
+                  activities: [
+                    {
+                      id: 'warhammerAttack',
+                      name: 'Attack',
+                      type: 'attack',
+                      activation: action.activation,
+                      range: action.range,
+                      target: action.target,
+                      toHit: 7,
+                      attackId: 'warhammerAttack',
+                      save: null,
+                      damage,
+                      uses: null,
+                    },
+                    smite,
+                  ],
+                }
+              : action,
+          ),
+        })),
+      }
+    }
+
+    /** The chips that roll its damage, as many as the tab shows. */
+    const chips = () =>
+      screen.getAllByRole('button', { name: `Warhammer damage, ${FORMULA}` })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+      localStorage.clear()
+    })
+
+    it('rolls it from its row, its favorite, its activity and its inventory row, its dice rerolled', async () => {
+      const user = userEvent.setup()
+      renderPane(greatWeapon())
+      await show('Actions')
+
+      // Its row's chip and its favorite's.
+      expect(chips()).toHaveLength(2)
+      for (const chip of chips()) expect(chip).toBeEnabled()
+      expect(
+        within(screen.getByRole('region', { name: 'Favorites' })).getByRole(
+          'button',
+          { name: `Warhammer damage, ${FORMULA}` },
+        ),
+      ).toBeEnabled()
+      await user.click(chips()[0])
+      const status = screen.getByRole('status')
+      await waitFor(() => expect(status).toHaveTextContent('Warhammer damage'))
+      expect(status).toHaveTextContent(
+        /2d6r<=2 \([\d, ]+\) \+7 \+1d8 \(\d\) Slashing/,
+      )
+
+      // Its smite, beneath it.
+      await user.click(
+        within(screen.getByRole('region', { name: 'Actions' })).getByRole(
+          'button',
+          { name: /^Warhammer/, expanded: false },
+        ),
+      )
+      const smite = within(
+        screen.getByRole('list', { name: 'Warhammer: its other activities' }),
+      ).getByRole('button', {
+        name: new RegExp(`damage, ${FORMULA.replaceAll('+', String.raw`\+`)}$`),
+      })
+      expect(smite).toBeEnabled()
+
+      await show('Inventory')
+      expect(chips().length).toBeGreaterThan(0)
+      for (const chip of chips()) expect(chip).toBeEnabled()
+    })
+
+    it('rolls it at the table after an attack, the first throw sent, and shows the game’s total once a die was rerolled', async () => {
+      const user = userEvent.setup()
+      const posted: Record<string, unknown>[] = []
+      globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+          return {
+            ok: true,
+            status: 202,
+            json: async () => ({ id: `req-${posted.length}` }),
+          } as Response
+        }
+        const answer =
+          url === '/api/characters/char-1/rolls/req-1'
+            ? {
+                id: 'req-1',
+                status: 'done',
+                visible: true,
+                total: 19,
+                attack: { critical: false, fumble: false, outcome: 'hit' },
+                damage: {
+                  critical: false,
+                  plannable: true,
+                  rolls: [
+                    {
+                      formula: FORMULA,
+                      type: 'slashing',
+                      dice: [
+                        { faces: 6, number: 2 },
+                        { faces: 8, number: 1 },
+                      ],
+                    },
+                  ],
+                },
+              }
+            : { id: 'req-2', status: 'done', visible: true, total: 23 }
+        return { ok: true, status: 200, json: async () => answer } as Response
+      }) as typeof fetch
+      // Its d6s land 1 and 5, the 1 rerolled to a 4; its d8 lands 3.
+      jest
+        .spyOn(Math, 'random')
+        .mockReturnValueOnce(0.5)
+        .mockReturnValueOnce(0.05)
+        .mockReturnValueOnce(0.75)
+        .mockReturnValueOnce(0.3)
+        .mockReturnValueOnce(0.6)
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(greatWeapon(false), GAME)}
+          rollsToTable={['attack', 'damage']}
+        />,
+      )
+      await show('Actions')
+
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+      )
+      const status = screen.getByRole('status')
+      await waitFor(
+        () => expect(status).toHaveTextContent('At the table: 19 · Hit'),
+        { timeout: 3000 },
+      )
+      await user.click(screen.getByRole('button', { name: 'Roll damage' }))
+
+      expect(posted[1]).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [
+          { faces: 6, results: [1, 5] },
+          { faces: 8, results: [3] },
+        ],
+      })
+      await waitFor(() => expect(status).toHaveTextContent('Warhammer damage'))
+      // The first throw, which the game was sent, not the 4 this phone threw for the 1: the game
+      // throws that again with its own dice.
+      expect(status).toHaveTextContent(
+        '2d6r<=2 (1, 5) +7 +1d8 (3) slashing · Rerolls thrown in your Gamemaster’s game',
+      )
+      // The game's total, once it says, as Foundry rerolled the 1 itself.
+      await waitFor(() => expect(status).toHaveTextContent(/^23/), {
+        timeout: 3000,
+      })
+    })
+  })
+
   describe('spells and features at the table', () => {
     const fight: TableCombat = {
       id: 'cmbt1',
@@ -1486,9 +1726,9 @@ describe('components/character-sheet/character-pane', () => {
       ).toBeChecked()
       expect(
         within(picker)
-          .getAllByRole('button', { name: /^(Thorin|Vex|Goblin)/ })
+          .getAllByRole('button', { name: /^(Self|Vex|Goblin)/ })
           .map(button => button.textContent),
-      ).toEqual(['Thorin OakenshieldYou', 'VexAlly', 'Goblin', 'Goblin Archer'])
+      ).toEqual(['SelfYou', 'VexAlly', 'Goblin', 'Goblin Archer'])
       await user.click(
         within(slots).getByRole('radio', { name: '2nd Level, 2 slots left' }),
       )
@@ -1934,6 +2174,148 @@ describe('components/character-sheet/character-pane', () => {
       `/api/characters/char-1/texts/${TEXTS.secondWind}`,
       { signal: expect.any(AbortSignal) },
     )
+  })
+
+  describe('Self, from module 0.22.0', () => {
+    const fight: TableCombat = {
+      id: 'cmbt1',
+      name: null,
+      started: true,
+      round: 1,
+      combatants: [
+        {
+          id: 'goblin1',
+          name: 'Goblin',
+          initiative: 15,
+          defeated: false,
+          side: 'other',
+        },
+        {
+          id: 'thorin1',
+          name: 'Thorin Oakenshield',
+          initiative: 12,
+          defeated: false,
+          side: 'me',
+        },
+        {
+          id: 'vex1',
+          name: 'Vex',
+          initiative: 9,
+          defeated: false,
+          side: 'party',
+        },
+      ],
+    }
+    /** A fight Thorin isn't in. */
+    const watching: TableCombat = {
+      ...fight,
+      combatants: fight.combatants.filter(({ side }) => side !== 'me'),
+    }
+
+    const renderSelf = ({
+      combat = fight,
+      features = [],
+    }: {
+      combat?: TableCombat | null
+      features?: RollFeature[]
+    } = {}) =>
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(selfish(), GAME)}
+          combat={combat ?? undefined}
+          rollsToTable={['use', 'damage']}
+          rollFeatures={features}
+        />,
+      )
+
+    beforeEach(() => {
+      globalThis.localStorage.clear()
+    })
+
+    it('drinks a potion at its user’s own combatant, ticked already, its range read from the action', async () => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      renderSelf()
+      await show('Actions')
+
+      await drink()
+      const picker = screen.getByRole('dialog', { name: 'Potion of Healing' })
+      expect(
+        within(picker).getByRole('checkbox', { name: /^Self/ }),
+      ).toBeChecked()
+      await user.click(
+        within(picker).getByRole('button', { name: 'Use at 1 target' }),
+      )
+      expect(posted[0]).toMatchObject({
+        kind: 'use',
+        item: 'potion',
+        targets: [{ combatId: 'cmbt1', combatantId: 'thorin1' }],
+      })
+      expect(posted[0]).not.toHaveProperty('self')
+    })
+
+    it('drinks a potion at once out of a fight, at its user where the game makes it so, else at no one', async () => {
+      const posted = answering({})
+      const { unmount } = renderSelf({
+        combat: null,
+        features: ['selfTargets'],
+      })
+      await show('Actions')
+
+      await drink()
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(posted[0]).toMatchObject({
+        kind: 'use',
+        item: 'potion',
+        targets: [],
+        self: true,
+      })
+
+      // Before module 0.22.0, at no one, as before.
+      unmount()
+      renderSelf({ combat: null })
+      await show('Actions')
+      await drink()
+      expect(posted[1]).toMatchObject({ kind: 'use', targets: [] })
+      expect(posted[1]).not.toHaveProperty('self')
+    })
+
+    it('uses Wild Shape at Self, first and the default, or at its user where it is not in the fight', async () => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      let view = renderSelf()
+      await show('Actions')
+
+      await user.click(screen.getByRole('button', { name: 'Use Wild Shape' }))
+      let picker = screen.getByRole('dialog', { name: 'Wild Shape' })
+      const [first] = within(picker)
+        .getAllByRole('button')
+        .slice(1)
+        .map(button => button.textContent)
+      expect(first).toBe('SelfYouDefault')
+      await user.click(within(picker).getByRole('button', { name: /^Self/ }))
+      expect(posted[0]).toMatchObject({
+        targets: [{ combatId: 'cmbt1', combatantId: 'thorin1' }],
+      })
+
+      view.unmount()
+      view = renderSelf({ combat: watching, features: ['selfTargets'] })
+      await show('Actions')
+      await user.click(screen.getByRole('button', { name: 'Use Wild Shape' }))
+      picker = screen.getByRole('dialog', { name: 'Wild Shape' })
+      await user.click(within(picker).getByRole('button', { name: /^Self/ }))
+      expect(posted[1]).toMatchObject({ targets: [], self: true })
+
+      // Nor where the game can't make it at its user.
+      view.unmount()
+      renderSelf({ combat: watching })
+      await show('Actions')
+      await user.click(screen.getByRole('button', { name: 'Use Wild Shape' }))
+      picker = screen.getByRole('dialog', { name: 'Wild Shape' })
+      expect(within(picker).queryByRole('button', { name: /^Self/ })).toBeNull()
+    })
   })
 
   describe('descriptions that roll', () => {

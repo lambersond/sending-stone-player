@@ -57,14 +57,17 @@ export type AttackChoices = {
 
 /**
  * A spell or feature a player has used in the game, with no roll of its own: an item's activity, at
- * the combatants picked, with the spell slot chosen; and for an enchant activity, from module
- * 0.21.0, the way it enchants and the item it enchants, if one of the character's.
+ * the combatants picked, and from module 0.22.0 at its user too, with the spell slot chosen; and
+ * for an enchant activity, from module 0.21.0, the way it enchants and the item it enchants, if one
+ * of the character's.
  */
 export type UseSource = {
   kind: 'use'
   item: string
   activity: string
   targets: AttackTarget[]
+  /** At its user, besides those picked, where its user isn't among them. Module 0.22.0. */
+  self?: true
   slot?: string | null
   enchant?: EnchantChoice
 }
@@ -140,6 +143,11 @@ export type RollRequestInput = {
   target?: AttackTarget | null
   /** For a use, the combatants it's used at; for an area attack, those in its area. */
   targets?: AttackTarget[]
+  /**
+   * For a use, from module 0.22.0: at its user too, besides its targets, such as a potion drunk out
+   * of a combat the character isn't in; its token, where the game finds one.
+   */
+  self?: true
   /** For an attack or a use of a spell, the spell slot chosen. */
   slot?: string | null
   /** For a use of an enchant activity, from module 0.21.0, how it enchants, and what. */

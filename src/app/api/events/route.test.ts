@@ -7,7 +7,7 @@ import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
 import { recordCommandResult } from '@/db/roll-requests'
-import { chatMessage } from '@/mocks/sending-stone'
+import { characterSheet, chatMessage, roster } from '@/mocks/sending-stone'
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({
@@ -19,6 +19,8 @@ jest.mock('@/db/roll-requests', () => ({ recordCommandResult: jest.fn() }))
 
 const URL = 'https://player.example/api/events'
 const GAME = 'https://my-game.forge-vtt.com'
+/** What the app tells the module it does, beyond taking events. */
+const FEATURES = { commands: true, slimSheets: 1, maxBytes: 4_000_000 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 
@@ -157,7 +159,7 @@ describe('app/api/events', () => {
         expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
         await expect(response.json()).resolves.toEqual({
           resend: 'hello',
-          features: { commands: true },
+          features: FEATURES,
         })
         expect(markSeen).toHaveBeenCalledWith('c1')
       },
@@ -171,7 +173,7 @@ describe('app/api/events', () => {
       )
 
       await expect(response.json()).resolves.toEqual({
-        features: { commands: true },
+        features: FEATURES,
       })
       expect(applyCampaignEvent).toHaveBeenCalledWith(
         'c1',
@@ -262,18 +264,97 @@ describe('app/api/events', () => {
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
-    it('tells the module, in answer to its hello or heartbeat only, that it has commands to fetch', async () => {
+    it('tells the module, in answer to its hello, heartbeat or a sheet only, that it has commands to fetch, reads slim sheets, and how large a post it takes', async () => {
       const heartbeat = await post(
         envelope('bridge.heartbeat', {}, { sequence: null }),
       )
       expect(heartbeat.status).toBe(200)
       expect(heartbeat.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
       await expect(heartbeat.json()).resolves.toEqual({
-        features: { commands: true },
+        features: FEATURES,
       })
 
-      const other = await post(envelope('actor.updated', {}))
-      expect(other.status).toBe(204)
+      // From module 0.22.0, which sizes each sheet's post by it, and sends it slim or not by it.
+      const sheet = await post(
+        envelope('character.updated', {
+          character: { id: 'actor-thorin', name: 'Thorin', sheet: null },
+        }),
+      )
+      expect(sheet.status).toBe(200)
+      expect(sheet.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+      await expect(sheet.json()).resolves.toEqual({ features: FEATURES })
+
+      for (const event of [
+        envelope('actor.updated', {}),
+        envelope('chat.message.created', { message: chatMessage() }),
+        envelope(
+          'character.texts',
+          { texts: { '0f1a2b3c4d5e6f': '<p/>' } },
+          { sequence: null },
+        ),
+      ]) {
+        const other = await post(event)
+        expect(other.status).toBe(204)
+      }
+    })
+
+    it('asks for no hello in answer to one whose sheets follow it, from module 0.22.0', async () => {
+      const characters = [
+        {
+          id: 'actor-thorin',
+          uuid: 'Actor.actor-thorin',
+          name: 'Thorin',
+          img: null,
+          type: 'character',
+          owners: [],
+        },
+      ]
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+      jest.mocked(applyCampaignEvent).mockResolvedValue({ lacksTexts: false })
+
+      const response = await post(
+        envelope('bridge.hello', {
+          sheetsApart: true,
+          characters,
+          combats: [],
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ features: FEATURES })
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        {
+          type: 'bridge.hello',
+          data: { sheetsApart: true, characters, combats: [], prompts: [] },
+        },
+        's1',
+      )
+    })
+
+    it('takes a slim sheet, made whole, answering that it reads them', async () => {
+      const sheet = characterSheet()
+
+      const response = await post(
+        envelope('character.updated', {
+          character: { ...roster[0], sheet: { ...sheet, slim: 1 } },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ features: FEATURES })
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        {
+          type: 'character.updated',
+          data: { character: { ...roster[0], sheet } },
+        },
+        's1',
+      )
     })
 
     it('applies the saves the game asks for, as they open and close', async () => {

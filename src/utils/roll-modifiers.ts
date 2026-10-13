@@ -9,6 +9,11 @@ export type ExtraDice = {
   count: number
   sides: DieSides
   added?: true
+  /**
+   * What Foundry does with the dice once thrown, each as written, in order, such as "r<=2" or
+   * "kh3"; none for none. Only a formula of the sheet's has them, never what a player adds.
+   */
+  modifiers?: string[]
 }
 
 /** A flat number added to or taken from a roll. */
@@ -73,12 +78,12 @@ export function parseExtraTerms(input: string): ParseExtrasResult {
   return { ok: true, terms }
 }
 
-/** A term as the player would write it, with a sign: +1d4, −1d6, +5. */
+/** A term as the player would write it, with a sign: +1d4, −1d6, +5, or a sheet's +2d6r<=2. */
 export function formatExtraTerm(term: ExtraTerm): string {
   const sign = term.sign < 0 ? '−' : '+'
   return 'flat' in term
     ? `${sign}${term.flat}`
-    : `${sign}${term.count}d${term.sides}`
+    : `${sign}${term.count}d${term.sides}${term.modifiers?.join('') ?? ''}`
 }
 
 function unreadable(rest: string): string {

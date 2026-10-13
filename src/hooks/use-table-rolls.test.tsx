@@ -571,7 +571,7 @@ describe('hooks/use-table-rolls', () => {
         { sign: 1, flat: 3 },
         { sign: 1, count: 1, sides: 6, added: true },
       ])
-      // Where the app can't read its formula, its dice alone, marked as well.
+      // A flavor is left out of its formula.
       const flavoured = damageRollOf('Greataxe', {
         use: 'req-1',
         damage: {
@@ -579,7 +579,16 @@ describe('hooks/use-table-rolls', () => {
           rolls: [{ ...greataxe.rolls[0], formula: '3d12 + 3 + 1d6[fire]' }],
         },
       })
-      expect(flavoured.parts[0].terms).toEqual([
+      expect(flavoured.parts[0].terms).toEqual(parts[0].terms)
+      // Where the app can't read its formula, its dice alone, marked as well.
+      const unread = damageRollOf('Greataxe', {
+        use: 'req-1',
+        damage: {
+          ...greataxe,
+          rolls: [{ ...greataxe.rolls[0], formula: '3d12 + 3 + 1d6ro' }],
+        },
+      })
+      expect(unread.parts[0].terms).toEqual([
         { sign: 1, count: 3, sides: 12 },
         { sign: 1, count: 1, sides: 6, added: true },
       ])
@@ -756,8 +765,24 @@ describe('hooks/use-table-rolls', () => {
         ).toBe(true)
       })
 
-      it("throws dice alone with their marks where the app can't read the formula, as Midi-QOL's copies", () => {
+      it("reads Midi-QOL's copies, each at least its highest, with their marks", () => {
         const roll = one('1d8 + 1d8min8 - 1d4 - 1d4min4', [
+          { faces: 8, number: 1 },
+          { faces: 8, number: 1, added: true },
+          { faces: 4, number: 1, subtracted: true },
+          { faces: 4, number: 1, added: true, subtracted: true },
+        ])
+        expect(roll.parts[0].terms).toEqual([
+          { sign: 1, count: 1, sides: 8 },
+          { sign: 1, count: 1, sides: 8, added: true, modifiers: ['min8'] },
+          { sign: -1, count: 1, sides: 4 },
+          { sign: -1, count: 1, sides: 4, added: true, modifiers: ['min4'] },
+        ])
+        expect(roll).not.toHaveProperty('fixed')
+      })
+
+      it("throws dice alone with their marks where the app can't read the formula", () => {
+        const roll = one('1d8 + 1d8ro - 1d4 - 1d4ro', [
           { faces: 8, number: 1 },
           { faces: 8, number: 1, added: true },
           { faces: 4, number: 1, subtracted: true },
@@ -1169,6 +1194,62 @@ describe('hooks/use-table-rolls', () => {
       expect(
         result.current.dueFor({ item: 'longsword', activity: 'swing' }),
       ).toBeUndefined()
+    })
+
+    it("rolls Great Weapon Fighting's damage as its formula has it, sending each die's first throw", () => {
+      const greatsword = preview({
+        rolls: [
+          {
+            formula: '2d6r<=2 + 7',
+            type: 'slashing',
+            dice: [{ faces: 6, number: 2 }],
+          },
+        ],
+      })
+      const roll = damageRollOf('Greatsword', {
+        use: 'req-1',
+        damage: greatsword,
+      })
+      expect(roll.parts[0].terms).toEqual([
+        { sign: 1, count: 2, sides: 6, modifiers: ['r<=2'] },
+        { sign: 1, flat: 7 },
+      ])
+      const { result } = render(['attack', 'damage'])
+
+      // Its 1 rerolled to a 4: the game is sent the 1 and the 5, and rerolls the 1 itself.
+      act(() =>
+        result.current.sendDamage(
+          roll,
+          thrownDamage({
+            total: 16,
+            gameTotal: true,
+            parts: [
+              {
+                type: 'slashing',
+                total: 16,
+                terms: [
+                  {
+                    text: '2d6r<=2',
+                    values: [1, 5],
+                    value: 9,
+                    thrown: [
+                      { value: 1, active: false, rerolled: true },
+                      { value: 5, active: true },
+                      { value: 4, active: true },
+                    ],
+                  },
+                  { text: '+7', values: [], value: 7 },
+                ],
+              },
+            ],
+          }),
+        ),
+      )
+      expect(sent()).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [{ faces: 6, results: [1, 5] }],
+      })
     })
 
     it('offers no damage for an attack that missed, or whose damage the game rolls with nothing to follow', async () => {

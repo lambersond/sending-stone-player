@@ -1,8 +1,12 @@
 import { MAX_DAMAGE_TERMS } from '@/constants/sending-stone'
+import {
+  formulaUnmaximizable,
+  readModifier,
+  unmaximizableDie,
+} from '@/utils/dice-modifiers'
 import { formulaTerms } from '@/utils/formulas'
 import {
   MAX_DICE,
-  parseExtraTerms,
   type ExtraDice,
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
@@ -20,7 +24,9 @@ import type { DamageLink } from '@/utils/description-links'
  * first die is never one it takes away, as Reduce's −1d4: dnd5e itself places the dice it adds
  * (a critical hit's extra dice, a spell's scaling, a versatile die) only on a die damage adds,
  * though a critical hit doubles every die; so more dice never mean less damage, and damage that
- * takes a die away is never at its highest, which would take the most away.
+ * takes a die away is never at its highest, which would take the most away. Nor is damage whose
+ * dice explode, or are rerolled on their highest face, as Foundry may throw them again: its highest
+ * isn't known.
  */
 
 /** How a player changes damage or healing as they roll it. Each changes nothing unless set. */
@@ -175,11 +181,10 @@ export function signedDice(
   marked: boolean,
 ): DamagePreviewRoll['dice'] {
   if (marked) return roll.dice
-  const parsed = parseExtraTerms(roll.formula)
-  if (!parsed.ok) return roll.dice
-  const thrown = parsed.terms.filter(
+  const thrown = formulaTerms(roll.formula)?.filter(
     (term): term is ExtraDice => 'sides' in term,
   )
+  if (!thrown) return roll.dice
   const same =
     thrown.length === roll.dice.length &&
     thrown.every(
@@ -304,8 +309,26 @@ function groupTakesAway(text: string, negative: boolean): boolean {
 }
 
 /**
+ * Can't damage be rolled at its highest, as the game refuses it: where a die of it explodes, or is
+ * rerolled on its highest face, as its parts have them; or, as the game said it, as its rolls'
+ * formulas have them, read as Foundry reads them, whether the app reads them or not
+ * (`formulaUnmaximizable`).
+ */
+export function unmaximizable(
+  damage: readonly Part[] | DamagePreview,
+): boolean {
+  if (!('rolls' in damage)) {
+    return damage.some(part =>
+      part.terms.some(term => 'sides' in term && unmaximizableDie(term)),
+    )
+  }
+  return damage.rolls.some(({ formula }) => formulaUnmaximizable(formula))
+}
+
+/**
  * Of the changes a player chose for damage before the game said what it throws, those the game
- * takes, as `checkDamage` tests them: at its highest, unless it takes a die away; its first die
+ * takes, as `checkDamage` tests them: at its highest, unless it takes a die away, or a die of it
+ * explodes or is rerolled on its highest face (`unmaximizable`); its first die
  * changed, where it has one to change, with no more dice than that die may still take, as many
  * for each as its roll's `perDie`, as a spell cast higher, whose label had fewer, may leave room
  * for. Its dice as chosen for damage the game rolls itself, which says none. Nothing where none is
@@ -316,7 +339,10 @@ export function takenModifiers(
   modifiers?: DamageModifiers,
 ): DamageModifiers | undefined {
   if (!modifiers) return undefined
-  const highest = modifiers.maximize === true && !diceTakenAway(damage)
+  const highest =
+    modifiers.maximize === true &&
+    !diceTakenAway(damage) &&
+    !unmaximizable(damage)
   if (!damage.plannable) {
     const kept: DamageModifiers = {
       ...(modifiers.extra !== undefined && { extra: modifiers.extra }),
@@ -357,11 +383,13 @@ export type DamageChange = 'maximize' | 'modify-damage'
 
 /**
  * The ways damage's parts may be changed as they're rolled, in order: at its highest, unless it
- * takes a die away, which that would take the most of; and with its first die changed, where it
- * has one, and it may be.
+ * takes a die away, which that would take the most of, or a die of it explodes or is rerolled on
+ * its highest face (`unmaximizable`); and with its first die changed, where it has one, and it may
+ * be.
  * @param fixed - Its dice can't be changed, as the game's preview says.
- * @param takenAway - It takes a die away: as its parts say, unless the game said otherwise, as of
- *   damage it rolls itself, whose parts have no dice here (`diceTakenAway`).
+ * @param takenAway - It takes a die away, or can't be at its highest otherwise: as its parts say,
+ *   unless the game said otherwise, as of damage it rolls itself, whose parts have no dice here
+ *   (`diceTakenAway`, `unmaximizable`).
  */
 export function damageChanges(
   parts: readonly Part[],
@@ -369,7 +397,7 @@ export function damageChanges(
   takenAway = takesAway(parts),
 ): DamageChange[] {
   return [
-    ...(takenAway ? [] : (['maximize'] as const)),
+    ...(takenAway || unmaximizable(parts) ? [] : (['maximize'] as const)),
     ...(firstDie(parts) && !fixed ? (['modify-damage'] as const) : []),
   ]
 }
@@ -434,7 +462,9 @@ export function criticalParts<P extends Part>(
  * added. Never for healing; for damage the game marks as never one; where the sheet doesn't say how
  * the world makes one; where it adds dice the world's rules don't say how they throw; where it adds
  * extra dice to a part that has no dice of its own first; under Powerful Critical, where a part
- * takes a die away, whose most the world's rules may add or take away; where a part, or its
+ * takes a die away, whose most the world's rules may add or take away, or has a die that's kept,
+ * dropped, counted at least or at most so much, or counted as successes or failures, whose most
+ * dnd5e works out otherwise; where a part, or its
  * critical damage, doesn't read; or where it would throw more of one die, or more kinds, than one
  * roll may.
  */
@@ -455,7 +485,9 @@ export function criticalOffered(
     // taken away by others, which the sheet can't tell apart.
     if (
       rule.powerfulCritical &&
-      terms.some(term => 'sides' in term && term.sign < 0)
+      terms.some(
+        term => 'sides' in term && (term.sign < 0 || countsOtherwise(term)),
+      )
     ) {
       return false
     }
@@ -481,6 +513,17 @@ export function criticalOffered(
     return false
   }
   return adds
+}
+
+/**
+ * Does a die count otherwise than its faces say, by a modifier that keeps or drops some, counts
+ * each at least or at most so much, or counts successes or failures?
+ */
+function countsOtherwise({ sides, modifiers = [] }: ExtraDice): boolean {
+  return modifiers.some(text => {
+    const kind = readModifier(text, sides)?.kind
+    return kind !== undefined && kind !== 'reroll' && kind !== 'explode'
+  })
 }
 
 /**

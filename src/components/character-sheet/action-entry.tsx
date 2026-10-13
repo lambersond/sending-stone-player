@@ -65,13 +65,13 @@ import {
   changes,
   damageChanges,
   diceTakenAway,
+  unmaximizable,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { checkTitle } from '@/utils/description-links'
 import { allApplied, enchantOf } from '@/utils/enchantments'
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
-import { parseExtraTerms } from '@/utils/roll-modifiers'
 import { activityAction, itemSpellOf, spellAction } from '@/utils/sheet-actions'
 import type { MenuPoint, RollChoice } from './roll-menu'
 import type {
@@ -308,12 +308,12 @@ export function useDamageRolls(
     if (due) {
       if (!table?.modifies) return
       // As the game will throw it: a critical hit's dice as it doubled them; damage it rolls itself
-      // at its highest only where its formula takes no die away.
+      // at its highest only where its formula takes no die away, nor explodes one.
       const game = damageRollOf(target.label, due)
       const choices = damageChanges(
         game.parts,
         game.fixed,
-        diceTakenAway(due.damage),
+        diceTakenAway(due.damage) || unmaximizable(due.damage),
       )
       if (choices.length === 0) return
       open(
@@ -1639,8 +1639,9 @@ function kindOf(action: SheetAction): string | undefined {
 }
 
 /**
- * An action's damage or healing, read for rolling: each part's formula as dice and numbers. Unset
- * when there's none, or a formula is beyond reading, such as one with a function in it.
+ * An action's damage or healing, read for rolling: each part's formula as dice and numbers, its
+ * dice with what Foundry does with them, such as Great Weapon Fighting's 2d6r<=2. Unset when
+ * there's none, or a formula is beyond reading, such as one with a function in it.
  */
 function damageTarget(
   action: SheetAction,
@@ -1649,9 +1650,10 @@ function damageTarget(
   if (action.damage.length === 0) return undefined
   const parts: DamageTarget['parts'] = []
   for (const part of action.damage) {
-    const read = parseExtraTerms(part.formula)
-    if (!read.ok) return undefined
-    parts.push({ terms: read.terms, type: part.type })
+    // A part with no formula throws nothing, as before.
+    const terms = part.formula.trim() === '' ? [] : formulaTerms(part.formula)
+    if (!terms) return undefined
+    parts.push({ terms, type: part.type })
   }
   return {
     label: `${actionTitle(action)} ${healing ? 'healing' : 'damage'}`,

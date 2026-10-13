@@ -11,6 +11,7 @@ import {
 } from '@/constants/sending-stone'
 import { MAX_CHECKS } from '@/utils/description-links'
 import { MAX_DICE } from '@/utils/roll-modifiers'
+import { expandSheet } from '@/utils/slim-sheet'
 import type { GameEvent } from '@/types/sending-stone'
 
 // Payloads may gain fields at any time, so objects are loose: unknown keys are kept, not
@@ -172,6 +173,9 @@ const useSchema = z
         .catch(null)
         .transform(value => value ?? null),
       affects: nullableString,
+      // From module 0.22.0: its range is Self, though it may take another target.
+      // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as by older modules
+      fromSelf: z.boolean().optional().catch(undefined),
     }),
     // From module 0.21.0, for an enchant activity.
     enchant: enchantSchema,
@@ -887,10 +891,26 @@ const sheetSchema = z
   .optional()
   .catch(null)
 
+/** A size in bytes, as the module counts one; null where it can't be read. */
+const byteCount = z.int().min(0).nullable().catch(null)
+
 const characterSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
-  sheet: sheetSchema,
+  // From module 0.22.0, a sheet may come slim, which is made whole before it's read, so that it's
+  // read, and kept, as the module built it. Absent from that module's hello, and kept absent.
+  sheet: z.preprocess(expandSheet, sheetSchema),
+  // From module 0.22.0: why its sheet is null, where the module held it back, such as for its
+  // size. Left out where it can't be read.
+  sheetWithheld: z
+    .looseObject({
+      reason: z.string().max(32),
+      bytes: byteCount,
+      limit: byteCount,
+    })
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
 })
 
 export const rollSchema = z.looseObject({
@@ -1052,6 +1072,8 @@ const featuresSchema = z
         // From module 0.21.0: whether more dice and another die change only a die damage adds,
         // never one it takes away, which its previews mark.
         signedDice: z.boolean().optional().catch(false),
+        // From module 0.22.0: whether a use may be made at its user.
+        selfTargets: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -1316,6 +1338,8 @@ export function parseGameEvent(
             features: featuresSchema,
             // Sent from module 0.13.0; none from an older module.
             prompts: listOf(promptSchema),
+            // From module 0.22.0: its characters carry no sheets, which follow it.
+            sheetsApart: z.boolean().optional().catch(false),
           })
           .parse(data),
       }

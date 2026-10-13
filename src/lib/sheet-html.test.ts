@@ -104,6 +104,46 @@ describe('lib/sheet-html', () => {
       expect(clean(html)).toBe(html)
     })
 
+    it('keeps formulas with what Foundry does with their dice, a comparison written back escaped', () => {
+      const html =
+        '<span class="ss-damage roll" data-n="0" data-formulas="2d6r&lt;=2 + 1d8 + 7&amp;1d6x" data-types="slashing&amp;fire">x</span>' +
+        '<span class="ss-roll roll" data-n="1" data-formula="4d6kh3">4d6kh3</span>' +
+        '<span class="ss-roll roll" data-n="2" data-formula="2d6r2">2d6r2</span>' +
+        '<span class="ss-roll roll" data-n="3" data-formula="6d6cs>=5">6d6cs&gt;=5</span>'
+
+      expect(clean(html)).toBe(
+        html.replace('data-formula="6d6cs>=5"', 'data-formula="6d6cs&gt;=5"'),
+      )
+      const links = sheetLinks(clean(html))
+      expect(links.get(0)?.link).toMatchObject({
+        kind: 'damage',
+        parts: [{ formula: '2d6r<=2 + 1d8 + 7' }, { formula: '1d6x' }],
+      })
+      expect(links.get(1)?.link).toEqual({
+        kind: 'roll',
+        n: 1,
+        formula: '4d6kh3',
+      })
+      expect(links.get(3)?.link).toMatchObject({ formula: '6d6cs>=5' })
+      // Read again as kept, the same.
+      expect(clean(clean(html))).toBe(clean(html))
+    })
+
+    it('reads a comparison written as it is, as some browsers write it, or escaped, as others do', () => {
+      const raw =
+        '<span class="ss-damage roll" data-n="0" data-formulas="2d6r<=2 + 7" data-types="slashing">x</span>'
+      const escaped =
+        '<span class="ss-damage roll" data-n="0" data-formulas="2d6r&lt;=2 + 7" data-types="slashing">x</span>'
+
+      expect(clean(raw)).toBe(escaped)
+      expect(clean(escaped)).toBe(escaped)
+      for (const html of [raw, escaped]) {
+        expect(sheetLinks(html).get(0)?.link).toMatchObject({
+          parts: [{ formula: '2d6r<=2 + 7' }],
+        })
+      }
+    })
+
     it('keeps a check: an ability, a skill or a tool with its ability, a choice of them, its DC, and a tool a skill is checked using', () => {
       const html =
         '<span class="ss-check roll" data-n="0" data-checks="skill:str:ath" data-dc="15">DC 15 Strength (Athletics)</span>' +
@@ -189,9 +229,9 @@ describe('lib/sheet-html', () => {
         'data-n="0" data-formula="1d6 + &#64;mod"',
       ],
       [
-        'a formula with words',
+        'a formula with capitals',
         'ss-roll',
-        'data-n="0" data-formula="1d6 + str"',
+        'data-n="0" data-formula="1d6 + Str"',
       ],
       ['an empty formula', 'ss-roll', 'data-n="0" data-formula=""'],
       [
@@ -216,9 +256,9 @@ describe('lib/sheet-html', () => {
         'data-n="0" data-formulas="1d6 + &#64;mod"',
       ],
       [
-        'damage with words',
+        'damage with capitals',
         'ss-damage',
-        'data-n="0" data-formulas="1d6 + str"',
+        'data-n="0" data-formulas="1d6 + STR"',
       ],
       [
         'roll data in damage’s second part',

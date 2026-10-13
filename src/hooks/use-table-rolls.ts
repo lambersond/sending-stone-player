@@ -10,7 +10,7 @@ import {
   takenModifiers,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
-import { parseExtraTerms, type ExtraTerm } from '@/utils/roll-modifiers'
+import { formulaTerms } from '@/utils/formulas'
 import type {
   LocalAsk,
   LocalCheck,
@@ -36,6 +36,7 @@ import type {
   UseSource,
 } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
+import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /** How often to ask after a roll sent to the Gamemaster's game, in milliseconds. */
 export const CHECK_EVERY = 1000
@@ -340,6 +341,8 @@ export function useTableRolls(
           item,
           activity,
           targets,
+          // At its user too, where the game makes it so.
+          ...(use.self && { self: true as const }),
           // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own slot
           slot: use.slot ?? null,
           // How an enchant activity enchants, and what.
@@ -463,6 +466,12 @@ export function useTableRolls(
     signsText: features.includes('signedDice'),
     /** Whether the game makes an area attack at the combatants picked, from this device now. */
     areas: on && kinds.includes('attack') && features.includes('areaAttacks'),
+    /**
+     * Whether the game makes a use at its user as asked, from module 0.22.0, from this device now:
+     * where it isn't in the combat, or there's none.
+     */
+    selfTargets:
+      on && kinds.includes('use') && features.includes('selfTargets'),
     /**
      * The saves the game asked for that the player has answered from this page, on their way to
      * the game or made there: not to be answered again.
@@ -707,7 +716,8 @@ function activityCheck(
 /**
  * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, the
  * formula's item and activity, or the description's link it's in, and the dice of each of its
- * terms, in order.
+ * terms, in order, each term's first throw, as Foundry throws again itself any die it rerolls or
+ * explodes.
  */
 export function toFormulaRequest(
   roll: SheetFormulaRoll,
@@ -786,7 +796,10 @@ function formulaOrigin(
   }
 }
 
-/** Damage's dice as thrown, part by part and term by term, for the game to roll them too. */
+/**
+ * Damage's dice as thrown, part by part and term by term, for the game to roll them too: each
+ * term's first throw, as Foundry throws again itself any die it rerolls or explodes.
+ */
 function damageDice(roll: SheetDamageRoll, damage: LocalDamage): RolledDice[] {
   return roll.parts.flatMap((part, index) =>
     part.terms.flatMap((term, at) =>
@@ -868,7 +881,8 @@ function chosenLabel(
 
 /**
  * A roll's terms, as its formula has them, when they throw the dice the game said, with their
- * signs; otherwise its dice alone. Either way, its dice have their signs, as the game marks them,
+ * signs, each die with what Foundry does with it, such as 2d6r<=2's reroll; otherwise its dice
+ * alone. Either way, its dice have their signs, as the game marks them,
  * or as its formula has them for a module before 0.21.0; and the dice of a critical hit's critical
  * damage are marked added, as the game marks them, so that none is ever its first die.
  * @param marked - Whether the game marks the dice the damage takes away.
@@ -885,9 +899,9 @@ function termsOf(
       ...(added && { added }),
     }),
   )
-  const parsed = parseExtraTerms(roll.formula)
-  if (!parsed.ok) return dice
-  const thrown = parsed.terms.filter(term => 'sides' in term)
+  const terms = formulaTerms(roll.formula)
+  if (!terms) return dice
+  const thrown = terms.filter(term => 'sides' in term)
   const same =
     thrown.length === dice.length &&
     thrown.every(
@@ -899,7 +913,7 @@ function termsOf(
   if (!same) return dice
   // Its terms of dice are its dice, in order.
   let index = 0
-  return parsed.terms.map(term => {
+  return terms.map(term => {
     if (!('sides' in term)) return term
     const { added } = dice[index++]
     return added ? { ...term, added } : term

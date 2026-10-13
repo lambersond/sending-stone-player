@@ -6,11 +6,19 @@
 export const PROTOCOL_VERSION = 2
 
 /**
- * The largest envelope accepted, in bytes. A campaign's bridge.hello carries every character's
- * whole sheet, which for a party of nine with large spellbooks has come to 1.1 MB. It stays under
- * the 4.5 MB a Vercel function accepts.
+ * The largest envelope accepted, in bytes, as this app tells the module (`maxBytes`). A hello
+ * carried every character's whole sheet only from modules before 0.22.0, which for a party of nine
+ * with large spellbooks came to 1.1 MB; since then each sheet comes in a post of its own, which the
+ * module checks against this before sending. A slim sheet is expanded within bounds of it. It stays
+ * under the 4.5 MB a Vercel function accepts.
  */
 export const MAX_ENVELOPE_BYTES = 4_000_000
+
+/**
+ * The highest format of slim sheet this app expands, as it tells the module (`slimSheets`): from
+ * module 0.22.0, actions by reference to their rows, and defaults left out.
+ */
+export const SLIM_SHEETS = 1
 
 /**
  * Where the module posts events. The Gamemaster sets only this app's address as the module's
@@ -91,7 +99,8 @@ export const ROLL_KINDS = [
  * concentration checks (module 0.13.0); and make an area attack, such as a breath weapon's, at the
  * combatants its player picks (module 0.16.0); and make a check an activity asks for, the player's
  * own, against it, as the activity's card does (module 0.21.0, under dnd5e 5); and change a
- * description's damage only on a die it adds (module 0.21.0).
+ * description's damage only on a die it adds (module 0.21.0); and make a use at its user, as its
+ * request's `self` asks (module 0.22.0).
  */
 export const ROLL_FEATURES = [
   'modifiers',
@@ -99,6 +108,7 @@ export const ROLL_FEATURES = [
   'areaAttacks',
   'activityChecks',
   'signedDice',
+  'selfTargets',
 ] as const
 
 /**

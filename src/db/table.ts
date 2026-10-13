@@ -20,6 +20,7 @@ import type {
   CombatSnapshot,
   ConnectedCharacter,
   SerializedMessage,
+  SheetWithheld,
 } from '@/types/sending-stone'
 import type { TableView } from '@/types/table'
 
@@ -80,6 +81,17 @@ export async function getCampaignStatus(
     rollsToTable: rollsToTable(character, campaign),
     rollFeatures: rollFeatures(character, campaign),
   }
+}
+
+/**
+ * Why the module held a character's sheet back, as its entry in the roster keeps it, from module
+ * 0.22.0: only what the player is told.
+ */
+function withheld(
+  entry: ConnectedCharacter | undefined,
+): SheetWithheld | undefined {
+  const held = entry?.sheetWithheld
+  return held && { reason: held.reason, bytes: held.bytes, limit: held.limit }
 }
 
 /**
@@ -194,6 +206,7 @@ export async function getTableView(
         ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
         : undefined,
     sheetVersion,
+    sheetWithheld: withheld(roster.find(({ id }) => id === viewer.actorId)),
     chatReadAt: character.chatReadAt,
     rollsToTable: rollsToTable(character, campaign),
     rollFeatures: features,

@@ -7,6 +7,7 @@ import {
 } from '@/db/sheet-texts'
 import type {
   CampaignRef,
+  CharacterSheet,
   CombatantSummary,
   CombatSnapshot,
   ConnectedCharacter,
@@ -85,7 +86,7 @@ async function apply(
           // ask players for the saves their game asks of them; from module 0.16.0, make area
           // attacks at the combatants players pick; from module 0.21.0, make a check an activity
           // asks for, the player's own, against it, and change a description's damage only on a
-          // die it adds.
+          // die it adds; from module 0.22.0, make a use at its user.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -94,6 +95,7 @@ async function apply(
               ? ['activityChecks']
               : []),
             ...(features?.rolls?.signedDice === true ? ['signedDice'] : []),
+            ...(features?.rolls?.selfTargets === true ? ['selfTargets'] : []),
           ],
         },
       })
@@ -108,12 +110,6 @@ async function apply(
         data: { closedAt: new Date(), closedReason: 'gone' },
       })
       for (const prompt of prompts) await savePrompt(tx, campaignId, prompt)
-      await tx.actorSheet.deleteMany({ where: { campaignId } })
-      await tx.actorSheet.createMany({
-        data: characters.flatMap(({ id, sheet }) =>
-          sheet ? [{ campaignId, actorId: id, data: toJson(sheet) }] : [],
-        ),
-      })
       await tx.combat.deleteMany({ where: { campaignId } })
       await tx.combat.createMany({
         data: event.data.combats.map(combat => ({
@@ -121,6 +117,15 @@ async function apply(
           combatId: combat.id,
           data: toJson(combat),
         })),
+      })
+      if (event.data.sheetsApart === true) {
+        return keepRosterSheets(tx, campaignId, characters)
+      }
+      await tx.actorSheet.deleteMany({ where: { campaignId } })
+      await tx.actorSheet.createMany({
+        data: characters.flatMap(({ id, sheet }) =>
+          sheet ? [{ campaignId, actorId: id, data: toJson(sheet) }] : [],
+        ),
       })
       // Its descriptions came first; any no sheet refers to any more go.
       const sheets = characters.flatMap(({ sheet }) => (sheet ? [sheet] : []))
@@ -234,7 +239,38 @@ async function saveCharacter(
   })
 }
 
-/** A character as the roster keeps it: everything but its sheet, which is kept on its own. */
+/**
+ * The sheets held for a hello from module 0.22.0, whose characters carry none: each follows it in
+ * a post of its own, after its descriptions. Until then, each of its characters keeps the sheet
+ * held, a few seconds old, rather than none; one it no longer names has left, with its sheet. A
+ * sheet missing from it is only on its way, so it never asks for everything again.
+ * @returns That the campaign lacks no description, as it can't tell yet.
+ */
+async function keepRosterSheets(
+  tx: Tx,
+  campaignId: string,
+  characters: ConnectedCharacter[],
+): Promise<false> {
+  await tx.actorSheet.deleteMany({
+    where: { campaignId, actorId: { notIn: characters.map(({ id }) => id) } },
+  })
+  // Its descriptions come after it: those the sheets kept don't refer to go.
+  const kept = await tx.actorSheet.findMany({
+    where: { campaignId },
+    select: { data: true },
+  })
+  await keepOnlySheetTexts(
+    tx,
+    campaignId,
+    kept.map(({ data }) => data as unknown as CharacterSheet),
+  )
+  return false
+}
+
+/**
+ * A character as the roster keeps it: everything but its sheet, which is kept on its own; such as
+ * why its sheet was held back, until an update without it replaces it.
+ */
 function rosterEntry(character: ConnectedCharacter) {
   const entry = { ...character }
   delete entry.sheet
