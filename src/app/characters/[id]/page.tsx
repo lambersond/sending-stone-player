@@ -8,6 +8,7 @@ import {
 import { GameTable } from '@/components/game-table'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
+import { playerSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
@@ -34,7 +35,7 @@ export default async function CharacterPage({ params }: Props) {
   // A character in a campaign but not yet one of its characters chooses which it is.
   const { campaignId, actorId } = character
   const [view, choice] = await Promise.all([
-    getTableView(character),
+    getTableView(playerSeat(character, user.id)),
     campaignId && !actorId
       ? getCampaignChoice(campaignId, user.id, character.id)
       : undefined,

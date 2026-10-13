@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { Minus, Plus } from 'lucide-react'
 import { RollMenu, type MenuPoint, type RollChoice } from './roll-menu'
 import { Modal } from '@/components/modal'
+import { useTableRole } from '@/hooks/use-table-api'
 import {
   criticalParts,
   DIE_SIZES,
@@ -17,6 +18,7 @@ import {
   type DamageModifiers,
   type DieSize,
 } from '@/utils/damage-modifiers'
+import { seatWords } from '@/utils/seat-words'
 import type { SheetDamageRoll } from '@/hooks/use-sheet-roller'
 import type { CriticalRule } from '@/types/sending-stone'
 
@@ -158,6 +160,7 @@ export function ModifyDamage({
   onRoll: (choice: DamageChoice) => void
   onCancel: () => void
 }>) {
+  const { game } = seatWords(useTableRole())
   const die = firstDie(subject.parts)
   const perDie = subject.perDie ?? 1
   const rule = subject.criticalRule
@@ -210,7 +213,7 @@ export function ModifyDamage({
           {thrown}
         </output>
         {maximize && ', every die at its highest'}
-        {critical && rule?.altered && ', as your Gamemaster’s game rolls it'}
+        {critical && rule?.altered && `, as ${game} rolls it`}
       </p>
 
       {die && (
@@ -303,7 +306,7 @@ export function ModifyDamage({
               setExtra(Math.min(extra, mostWith(next)))
             }}
             label='Critical hit'
-            hint={criticalHint(rule)}
+            hint={criticalHint(game, rule)}
           />
         )}
       </div>
@@ -333,13 +336,13 @@ export function ModifyDamage({
  * its dice as only the game can add them up, such as Midi-QOL's at their highest, that it's the
  * game's.
  */
-function criticalHint(rule?: CriticalRule): string {
+function criticalHint(game: string, rule?: CriticalRule): string {
   const perDie = rule?.perDie ?? 2
   const times = perDie === 2 ? 'twice' : `${perDie} times`
   if (rule?.altered) {
     return perDie === 1
-      ? 'As your Gamemaster’s game rolls one.'
-      : `Every die ${times}, as your Gamemaster’s game rolls one.`
+      ? `As ${game} rolls one.`
+      : `Every die ${times}, as ${game} rolls one.`
   }
   const numbers = rule?.multiplyNumeric === true
   if (rule?.powerfulCritical) {
@@ -348,7 +351,7 @@ function criticalHint(rule?: CriticalRule): string {
       : 'Its dice, and the most they could roll added.'
   }
   // Such as Midi-QOL's rule that adds only a weapon's own critical damage.
-  if (perDie === 1) return 'As your Gamemaster’s game rolls one.'
+  if (perDie === 1) return `As ${game} rolls one.`
   return numbers ? `Every die and number ${times}.` : `Every die ${times}.`
 }
 

@@ -33,6 +33,28 @@ const apartHello = (characters = roster) =>
     }) as GameEvent,
   )
 
+/** What a public message to the party is stored as. */
+const chatFields = (message: ReturnType<typeof chatMessage>) => ({
+  sentAt: new Date(message.timestamp),
+  public: true,
+  readers: ['actor-thorin', 'actor-vex'],
+  data: message,
+})
+
+/** A message naming one of the Gamemaster's rolls (#156), as the character that speaks it. */
+const said = (gmRoll: string, actorId: string | null = 'actor-balin') =>
+  chatMessage({ gmRoll, speaker: { alias: 'Balin', actorId } })
+
+/** What a message is stored as, from a created or updated event. */
+const saving = async (
+  type: 'chat.message.created' | 'chat.message.updated',
+  message: ReturnType<typeof chatMessage>,
+) => {
+  prismaMock.chatMessage.upsert.mockClear()
+  await apply({ type, data: { message } })
+  return prismaMock.chatMessage.upsert.mock.calls.at(-1)?.[0]
+}
+
 describe('db/campaign-events', () => {
   beforeEach(() => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
@@ -339,6 +361,32 @@ describe('db/campaign-events', () => {
         data: expect.objectContaining({ rollFeatures: [] }),
       }),
     )
+  })
+
+  it("bridge.hello keeps whether the game makes the Gamemaster's rolls as a character, from module 0.23.0, last; none where it says nothing or what it can't (#156)", async () => {
+    const rolls = { enabled: true, kinds: ['skill'], reason: null }
+    for (const [gmRolls, rollFeatures] of [
+      [true, ['selfTargets', 'gmRolls']],
+      ['yes', ['selfTargets']],
+      [undefined, ['selfTargets']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply({
+        type: 'bridge.hello',
+        data: {
+          characters: roster,
+          combats: [],
+          features: {
+            rolls: { ...rolls, selfTargets: true, gmRolls: gmRolls as any },
+          },
+        },
+      })
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
   })
 
   it("bridge.hello keeps whether the game spends several hit dice at once, from module 0.20.0, in the module's order", async () => {
@@ -803,11 +851,148 @@ describe('db/campaign-events', () => {
       }
       expect(prismaMock.chatMessage.upsert).toHaveBeenCalledWith({
         where: { campaignMessage: { campaignId: 'c1', messageId: 'm1' } },
-        create: { campaignId: 'c1', messageId: 'm1', ...fields },
+        create: { campaignId: 'c1', messageId: 'm1', ...fields, byGm: false },
         update: fields,
       })
     },
   )
+
+  describe("a message made for the Gamemaster's roll as a character (#156)", () => {
+    type Roll = {
+      id: string
+      campaignId: string
+      role: 'player' | 'gm'
+      actorId: string
+      status: 'claimed' | 'done' | 'failed'
+      completedAt?: Date
+      result?: { reason: string }
+    }
+    const ago = (seconds: number) => new Date(Date.now() - seconds * 1000)
+    /** One of this campaign's Gamemaster's rolls as Balin. */
+    const gm = (
+      id: string,
+      status: Roll['status'],
+      completedAt?: Date,
+      reason?: string,
+    ): Roll => ({
+      id,
+      campaignId: 'c1',
+      role: 'gm',
+      actorId: 'actor-balin',
+      status,
+      completedAt,
+      ...(reason && { result: { reason } }),
+    })
+    /** The rolls handed over, as the database holds them. */
+    const rolls: Roll[] = [
+      gm('req-gm', 'claimed'),
+      gm('req-gm-done', 'done', ago(10)),
+      // The module said it took too long, and it may yet be made.
+      gm('req-gm-late', 'failed', ago(300), 'timeout'),
+      gm('req-gm-old', 'done', ago(20 * 3600)),
+      gm('req-gm-failed', 'failed', ago(300), 'error'),
+      { ...gm('req-player', 'claimed'), role: 'player' },
+      { ...gm('req-other', 'claimed'), campaignId: 'c2' },
+    ]
+    /** Whether a count's filter, as the listener writes it, finds a roll. */
+    const finds = (roll: Roll, where: Record<string, any>): boolean =>
+      Object.entries(where).every(([field, test]) => {
+        if (field === 'OR') return test.some((one: any) => finds(roll, one))
+        if (field === 'completedAt') {
+          return !!roll.completedAt && roll.completedAt > test.gt
+        }
+        if (field === 'result') {
+          return (roll.result as any)?.[test.path[0]] === test.equals
+        }
+        return (roll as Record<string, unknown>)[field] === test
+      })
+
+    beforeEach(() => {
+      prismaMock.rollRequest.count.mockImplementation(
+        (async ({ where }: any) =>
+          rolls.filter(roll => finds(roll, where)).length) as any,
+      )
+    })
+
+    afterEach(() => {
+      prismaMock.rollRequest.count.mockReset()
+    })
+
+    it.each(['chat.message.created', 'chat.message.updated'] as const)(
+      "%s marks it the Gamemaster's where it names one of this campaign's Gamemaster's rolls as its character, being made or just made",
+      async type => {
+        for (const id of ['req-gm', 'req-gm-done', 'req-gm-late']) {
+          const message = said(id)
+          await expect(saving(type, message)).resolves.toEqual({
+            where: { campaignMessage: { campaignId: 'c1', messageId: 'm1' } },
+            create: {
+              campaignId: 'c1',
+              messageId: 'm1',
+              ...chatFields(message),
+              byGm: true,
+            },
+            update: { ...chatFields(message), byGm: true },
+          })
+        }
+
+        // Checked against the rolls handed over, never taken from the message.
+        expect(prismaMock.rollRequest.count).toHaveBeenCalledWith({
+          where: {
+            id: 'req-gm',
+            campaignId: 'c1',
+            role: 'gm',
+            actorId: 'actor-balin',
+            OR: [
+              { status: 'claimed' },
+              { completedAt: { gt: expect.any(Date) } },
+              {
+                status: 'failed',
+                result: { path: ['reason'], equals: 'timeout' },
+              },
+            ],
+          },
+        })
+      },
+    )
+
+    it.each([
+      ["a player's roll", said('req-player')],
+      ["another campaign's Gamemaster's", said('req-other')],
+      ['one never handed over', said('req-unknown')],
+      // Its id copied from the Gamemaster's card, of which the player is the author.
+      ['one made long ago', said('req-gm-old')],
+      ['one that failed', said('req-gm-failed')],
+      ["another character's", said('req-gm', 'actor-thorin')],
+      ['one no character speaks', said('req-gm', null)],
+    ])(
+      'leaves it unmarked where the roll it names is %s, and never unmarks it',
+      async (_, message) => {
+        for (const type of [
+          'chat.message.created',
+          'chat.message.updated',
+        ] as const) {
+          await expect(saving(type, message)).resolves.toEqual({
+            where: { campaignMessage: { campaignId: 'c1', messageId: 'm1' } },
+            create: {
+              campaignId: 'c1',
+              messageId: 'm1',
+              ...chatFields(message),
+              byGm: false,
+            },
+            // An edit that drops or changes the claim leaves the mark as it was.
+            update: chatFields(message),
+          })
+        }
+      },
+    )
+
+    it("doesn't look up a message that claims nothing, nor unmark it", async () => {
+      const stored = await saving('chat.message.updated', chatMessage())
+
+      expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+      expect(stored?.update).not.toHaveProperty('byGm')
+    })
+  })
 
   it('chat.message.deleted removes the message', async () => {
     await apply({ type: 'chat.message.deleted', data: { id: 'm1' } })

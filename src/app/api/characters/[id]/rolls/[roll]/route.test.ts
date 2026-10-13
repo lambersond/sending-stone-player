@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
 import { getRollRequestView } from '@/db/roll-requests'
+import { playerSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -19,6 +20,8 @@ const character = {
   campaignId: 'c1',
   actorId: 'actor-thorin',
 }
+/** Its player at its sheet. */
+const seat = playerSeat(character, 'user-1')
 
 const get = () =>
   GET(
@@ -42,7 +45,7 @@ describe('app/api/characters/[id]/rolls/[roll]', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual(view)
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
-    expect(getRollRequestView).toHaveBeenCalledWith('char-1', 'req-1')
+    expect(getRollRequestView).toHaveBeenCalledWith(seat, 'req-1')
   })
 
   it("is not found for a roll that isn't the character's, or a character not the user's", async () => {

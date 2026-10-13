@@ -21,23 +21,31 @@ enum RollRequestStatus {
   failed
 }
 
+// Who sent a roll for a character: its player, or its campaign's Gamemaster rolling as it (#156).
+enum RollRole {
+  player
+  gm
+}
+
 // -----------------------
 // User model
 // -----------------------
 
 model User {
-  id            String      @id
+  id            String        @id
   name          String
   email         String
-  emailVerified Boolean     @default(false)
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
   characters    Character[]
   // The campaigns this user runs as Gamemaster.
   campaigns     Campaign[]
+  // The rolls this user sent here, as a player or as a Gamemaster.
+  rollRequests  RollRequest[]
 
   @@unique([email])
   @@map("user")
@@ -174,6 +182,13 @@ model Campaign {
   // When one of the campaign's players last had their table open: whether a roll may be coming,
   // so the module's fetch is held open for one.
   playersSeenAt  DateTime?
+  // The latest post from Foundry refused that could be tied to the campaign, which its card shows
+  // for a day: when, why (a reason the module shares), its status, and what more there is to say,
+  // such as the title Foundry sent. Cleared when the campaign is bound, or its secret changed.
+  refusedAt      DateTime?
+  refusalReason  String?
+  refusalStatus  Int?
+  refusalDetail  String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   messages       ChatMessage[]
@@ -201,6 +216,9 @@ model ChatMessage {
   readers    String[]
   // The message as the module serialized it for this campaign.
   data       Json
+  // Made for one of this app's rolls by the campaign's Gamemaster as a character: set here, from
+  // the rolls this app handed over, never from what the message says, and never unset.
+  byGm       Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -261,32 +279,39 @@ model SheetText {
 // dice. The Gamemaster's module fetches it, makes it, and reports what came of it. It is fetched
 // at most once: a fetch whose answer is lost loses the roll, rather than making it twice.
 model RollRequest {
-  id           String            @id @default(cuid())
-  campaignId   String
-  campaign     Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  characterId  String
-  character    Character         @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  id            String            @id @default(cuid())
+  campaignId    String
+  campaign      Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // The player's character it was sent for; unset for one the Gamemaster sent.
+  characterId   String?
+  character     Character?        @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  // Who sent it: the character's player, or the campaign's Gamemaster as the character (#156).
+  role          RollRole          @default(player)
+  // The user who sent it. Set on every row since #156, unset on older ones.
+  requestedById String?
+  requestedBy   User?             @relation(fields: [requestedById], references: [id], onDelete: Cascade)
   // The Foundry actor that rolls.
-  actorId      String
+  actorId       String
   // Such as "skill" or "save".
-  kind         String
+  kind          String
   // What to roll and how, and the dice the player rolled: the command the module is sent.
-  payload      Json
+  payload       Json
   // For damage, the attack it follows.
-  useId        String?
-  status       RollRequestStatus @default(pending)
+  useId         String?
+  status        RollRequestStatus @default(pending)
   // Which fetch took it, and from which module session.
-  claimToken   String?
-  claimSession String?
-  claimedAt    DateTime?
+  claimToken    String?
+  claimSession  String?
+  claimedAt     DateTime?
   // What the module reported: the roll as the game made it, or why it couldn't.
-  result       Json?
-  completedAt  DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  result        Json?
+  completedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([campaignId, status, createdAt])
   @@index([characterId, createdAt])
+  @@index([campaignId, actorId, role, createdAt])
   @@index([useId])
   @@map("roll_request")
 }

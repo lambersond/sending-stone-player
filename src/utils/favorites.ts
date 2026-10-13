@@ -23,7 +23,8 @@ import type {
  * sheet shows that elsewhere. An item is shown as an action if it's one, rolled as the Actions tab
  * rolls it; otherwise as a spell, as something carried, as a feature or as a class. An activity is
  * shown as an action, for that activity alone. A skill or a tool rolls as the Character tab rolls a
- * skill.
+ * skill. An old-style resource that stands for a feature is shown as that feature, as an action if
+ * it's one, with the resource's uses; one that stands for none is a counter of its own.
  */
 export type FavoriteView =
   | {
@@ -31,10 +32,17 @@ export type FavoriteView =
       action: SheetAction
       /** What to say of it first, such as the item an activity is one of. */
       note?: string
+      /** The resource it stands for, whose uses it shows in place of its own. */
+      resource?: SheetResourceFavorite
     }
   | { kind: 'spell'; spell: SheetSpell }
   | { kind: 'item'; item: SheetItem | SheetContainer }
-  | { kind: 'feature'; feature: SheetFeature }
+  | {
+      kind: 'feature'
+      feature: SheetFeature
+      /** The resource it stands for, whose uses it shows in place of its own. */
+      resource?: SheetResourceFavorite
+    }
   | { kind: 'class'; entry: SheetClass }
   | { kind: 'effect'; effect: SheetEffect; suppressed: boolean }
   | {
@@ -57,6 +65,8 @@ type Index = {
   spells: Map<string, SheetSpell>
   items: Map<string, SheetItem | SheetContainer>
   features: Map<string, SheetFeature>
+  /** The features, in the order the sheet lists them. */
+  listed: SheetFeature[]
   classes: Map<string, SheetClass>
   effects: Map<string, SheetEffect>
   skills: Map<string, SheetSkill>
@@ -65,7 +75,9 @@ type Index = {
 /**
  * The character's favorites, in their order, each with what it refers to. One that refers to
  * nothing the sheet has any longer, such as a skill a later system dropped, is left out, as is one
- * listed twice.
+ * listed twice. A resource that stands for a feature is that feature's row, in the resource's
+ * place, which dnd5e gives first: a favorite of the feature after it is left out, as it's shown,
+ * but not one of its activities, which is a row of its own.
  */
 export function favoriteEntries(
   sheet: Pick<
@@ -82,7 +94,18 @@ export function favoriteEntries(
 ): FavoriteEntry[] {
   const index = indexOf(sheet)
   const seen = new Set<string>()
+  // The features resources stand for, each for one at most.
+  const claimed = new Set<string>()
   return sheet.favorites.flatMap(favorite => {
+    const linked =
+      favorite.type === 'resource'
+        ? linkedEntry(favorite, index, claimed)
+        : undefined
+    if (linked && !seen.has(linked.key)) {
+      seen.add(linked.key)
+      return [linked]
+    }
+    // A resource that stands for none, or for a feature already shown, is a counter.
     const key = `${favorite.type}:${favorite.id}`
     if (seen.has(key)) return []
     seen.add(key)
@@ -100,14 +123,50 @@ const MARKED: ReadonlySet<SheetFavorite['type']> = new Set([
 
 /**
  * What's marked as a favorite where the sheet lists it elsewhere: items, effects and skills, by
- * keys such as "item:<id>". An activity marks no item, as dnd5e's sheet marks none.
+ * keys such as "item:<id>", and the features resources stand for, among the favorites' entries. An
+ * activity marks no item, as dnd5e's sheet marks none.
  */
-export function favoriteKeys(favorites: SheetFavorite[]): Set<string> {
-  return new Set(
-    favorites.flatMap(({ type, id }) =>
+export function favoriteKeys(
+  favorites: SheetFavorite[],
+  entries: FavoriteEntry[] = [],
+): Set<string> {
+  return new Set([
+    ...favorites.flatMap(({ type, id }) =>
       MARKED.has(type) ? [`${type}:${id}`] : [],
     ),
-  )
+    ...entries.flatMap(entry =>
+      (entry.kind === 'action' || entry.kind === 'feature') && entry.resource
+        ? [entry.key]
+        : [],
+    ),
+  ])
+}
+
+/**
+ * A name as a resource's and a feature's are compared, as the module compares them from 0.23.0:
+ * without case, runs of spacing as one, and typographic apostrophes as plain ones, so that
+ * "Warden’s Ward" and "Warden's Ward" are one name.
+ */
+export function foldName(name: string): string {
+  return name
+    .normalize('NFKC')
+    .replaceAll(/[\u2018\u2019\u02BC\u0060\u00B4]/g, "'")
+    .replaceAll(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+/**
+ * What a feature's row says first where it stands for a resource of another name, such as a pool
+ * one of its activities spends: the resource's name. Nothing where they share theirs.
+ */
+export function resourceNote(
+  resource: SheetResourceFavorite | undefined,
+  name: string,
+): string | undefined {
+  return resource && foldName(resource.name) !== foldName(name)
+    ? resource.name
+    : undefined
 }
 
 /**
@@ -213,6 +272,48 @@ function entryOf(
       return { kind: 'resource', resource: favorite }
     }
   }
+}
+
+/**
+ * A resource as the feature it stands for: that feature's row, as a favorite of it would be, with
+ * the resource; or nothing for one that stands for none.
+ */
+function linkedEntry(
+  resource: SheetResourceFavorite,
+  index: Index,
+  claimed: Set<string>,
+): FavoriteEntry | undefined {
+  const feature = resourceFeature(resource, index, claimed)
+  if (!feature) return undefined
+  const { id, name, img } = feature
+  const view = itemEntry(
+    { type: 'item', id, itemType: 'feat', name, img },
+    index,
+  )
+  if (view.kind !== 'action' && view.kind !== 'feature') return undefined
+  return { key: `item:${id}`, ...view, resource }
+}
+
+/**
+ * The feature a resource stands for, not yet taken by another: the one the module names, from
+ * 0.23.0, whose null stands for none; or before, the first the sheet lists of the resource's name.
+ */
+function resourceFeature(
+  { name, itemId }: SheetResourceFavorite,
+  index: Index,
+  claimed: Set<string>,
+): SheetFeature | undefined {
+  if (itemId === null) return undefined
+  const folded = foldName(name)
+  const feature =
+    itemId === undefined
+      ? index.listed.find(
+          listed => !claimed.has(listed.id) && foldName(listed.name) === folded,
+        )
+      : index.features.get(itemId)
+  if (!feature || claimed.has(feature.id)) return undefined
+  claimed.add(feature.id)
+  return feature
 }
 
 /**
@@ -342,11 +443,13 @@ function wholeActions(actions: SheetAction[]): Map<string, SheetAction> {
 function indexOf(sheet: Parameters<typeof favoriteEntries>[0]): Index {
   const byId = <T extends { id: string }>(entries: T[]) =>
     new Map(entries.map(entry => [entry.id, entry]))
+  const listed = sheet.features.flatMap(section => section.features)
   return {
     actions: wholeActions(sheet.actions.flatMap(section => section.actions)),
     spells: byId(sheet.spells.flatMap(section => section.spells)),
     items: byId(allItems(sheet)),
-    features: byId(sheet.features.flatMap(section => section.features)),
+    features: byId(listed),
+    listed,
     classes: new Map(
       sheet.classes.flatMap(entry => (entry.id ? [[entry.id, entry]] : [])),
     ),

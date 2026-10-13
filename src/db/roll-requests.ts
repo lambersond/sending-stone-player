@@ -24,7 +24,7 @@ import {
   type RollCommand,
   type RollRefusal,
 } from '@/utils/roll-requests'
-import type { Character } from '@/types/character'
+import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput, RollRequestView } from '@/types/roll'
 import type {
   CharacterSheet,
@@ -43,6 +43,7 @@ const CLAIM_LIMIT = 10
 const heldSelect = {
   id: true,
   actorId: true,
+  role: true,
   kind: true,
   payload: true,
   status: true,
@@ -51,6 +52,25 @@ const heldSelect = {
   claimedAt: true,
 } as const
 
+/**
+ * The rolls a seat sent (#156): its player's, by their character; or the Gamemaster's as this
+ * character in this campaign, by them. Never only `characterId: null`, which every Gamemaster's
+ * roll has, of every campaign. The two seats' rolls are apart, so each has its own limits, and
+ * damage follows only its own seat's attack or use.
+ */
+function madeBy(seat: SheetSeat): Prisma.RollRequestWhereInput {
+  if (seat.role === 'gm') {
+    return {
+      // A Gamemaster's seat always has both; '' matches no row should one be missing.
+      campaignId: seat.campaignId ?? '',
+      actorId: seat.actorId ?? '',
+      role: 'gm',
+      requestedById: seat.userId,
+    }
+  }
+  return { characterId: seat.characterId ?? '' }
+}
+
 /** Why a roll wasn't taken, with the HTTP status that says so. */
 export type RollRejection = {
   status: 409 | 422 | 429
@@ -58,18 +78,18 @@ export type RollRejection = {
 }
 
 /**
- * Take a player's roll for their character to make in the Gamemaster's game: if the game takes
- * this kind of roll now, the sheet allows it, and the player isn't sending too many, nor asking the
- * table too often. One from a link in a description is checked against that description, as held
- * here.
- * @param character - The player's character, already checked to be theirs.
+ * Take a roll for a character to make in the Gamemaster's game, from its player or from the
+ * campaign's Gamemaster as it (#156): if the game takes this kind of roll now, and the Gamemaster's
+ * at all, the sheet allows it, and the seat isn't sending too many, nor asking the table too often.
+ * One from a link in a description is checked against that description, as held here.
+ * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
 export async function createRollRequest(
-  character: Character,
+  seat: SheetSeat,
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
-  const { campaignId, actorId } = character
+  const { campaignId, actorId } = seat
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
@@ -80,6 +100,16 @@ export async function createRollRequest(
       bridgePolledAt: true,
     },
   })
+  // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
+  // and ending an enchantment is no roll, so it would leave no mark: the Gamemaster ends one in
+  // Foundry.
+  if (
+    seat.role === 'gm' &&
+    (!campaign?.rollFeatures.includes('gmRolls') ||
+      input.kind === 'endEnchantment')
+  ) {
+    return { status: 409, reason: 'unavailable' }
+  }
   if (!campaign || !availableRollKinds(campaign).includes(input.kind)) {
     return { status: 409, reason: 'unavailable' }
   }
@@ -133,19 +163,19 @@ export async function createRollRequest(
       : [],
     damage
       ? prisma.rollRequest.findFirst({
-          where: { id: damage, characterId: character.id },
+          where: { id: damage, ...madeBy(seat) },
           select: heldSelect,
         })
       : undefined,
     damage
       ? prisma.rollRequest.findMany({
-          where: { useId: damage, characterId: character.id },
+          where: { useId: damage, ...madeBy(seat) },
           select: { status: true, createdAt: true, claimedAt: true },
         })
       : [],
     prisma.rollRequest.count({
       where: {
-        characterId: character.id,
+        ...madeBy(seat),
         OR: [
           {
             status: 'pending',
@@ -160,7 +190,7 @@ export async function createRollRequest(
     }),
     prisma.rollRequest.count({
       where: {
-        characterId: character.id,
+        ...madeBy(seat),
         createdAt: { gt: ago(now, 60_000) },
       },
     }),
@@ -175,10 +205,12 @@ export async function createRollRequest(
           },
         })
       : undefined,
+    // Either seat's answer: the first, its player's or the Gamemaster's, answers it.
     prompt
       ? prisma.rollRequest.findMany({
           where: {
-            characterId: character.id,
+            campaignId,
+            actorId,
             kind: 'save',
             payload: { path: ['prompt'], equals: prompt },
           },
@@ -195,7 +227,7 @@ export async function createRollRequest(
     input.kind === 'ask'
       ? prisma.rollRequest.count({
           where: {
-            characterId: character.id,
+            ...madeBy(seat),
             kind: 'ask',
             status: { in: ['pending', 'claimed', 'done'] },
             createdAt: { gt: ago(now, 60_000) },
@@ -226,7 +258,9 @@ export async function createRollRequest(
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,
-      characterId: character.id,
+      characterId: seat.characterId,
+      role: seat.role,
+      requestedById: seat.userId,
       actorId,
       kind: input.kind,
       payload: input as unknown as Prisma.InputJsonValue,
@@ -235,10 +269,10 @@ export async function createRollRequest(
     },
     select: { id: true },
   })
-  // Only the latest rolls are asked after; older ones go.
+  // Only the latest rolls are asked after; the seat's older ones go.
   await prisma.rollRequest.deleteMany({
     where: {
-      characterId: character.id,
+      ...madeBy(seat),
       createdAt: { lt: ago(now, ROLLS_KEPT_FOR) },
     },
   })
@@ -246,15 +280,15 @@ export async function createRollRequest(
 }
 
 /**
- * A roll of a player's character, as its player is told of it.
- * @returns Undefined for a roll that isn't the character's.
+ * A roll a seat sent, as it is told of it.
+ * @returns Undefined for a roll that isn't the seat's: another character's, or the other seat's.
  */
 export async function getRollRequestView(
-  characterId: string,
+  seat: SheetSeat,
   requestId: string,
 ): Promise<RollRequestView | undefined> {
   const request = await prisma.rollRequest.findFirst({
-    where: { id: requestId, characterId },
+    where: { id: requestId, ...madeBy(seat) },
     select: heldSelect,
   })
   return request ? toRollRequestView(request as HeldRollRequest) : undefined
@@ -263,7 +297,10 @@ export async function getRollRequestView(
 /**
  * Hand the module the rolls waiting for its game, oldest first, marking them fetched. Two fetches
  * at once, as from a Gamemaster's two tabs, never take the same roll: only rows still waiting are
- * marked, and each fetch returns only the rows it marked.
+ * marked, and each fetch returns only the rows it marked. The Gamemaster's rolls as a character
+ * (#156) go only to the session whose hello said it makes them, `gmRolls`, and only those of the
+ * campaign's owner: a module before 0.23.0 would make them unmarked, as the player's. Others stay
+ * waiting, and run out.
  * @param session - The module session that fetched them.
  */
 export async function claimRollRequests(
@@ -271,11 +308,25 @@ export async function claimRollRequests(
   session: string,
 ): Promise<RollCommand[]> {
   const now = Date.now()
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { helloSession: true, rollFeatures: true, ownerId: true },
+  })
+  const ownerId = campaign?.ownerId
+  const gmRolls =
+    !!ownerId &&
+    campaign?.helloSession === session &&
+    campaign.rollFeatures.includes('gmRolls')
   const waiting = await prisma.rollRequest.findMany({
     where: {
       campaignId,
       status: 'pending',
       createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
+      ...(gmRolls
+        ? {
+            OR: [{ role: 'player' }, { role: 'gm', requestedById: ownerId }],
+          }
+        : { role: 'player' }),
     },
     orderBy: { createdAt: 'asc' },
     take: CLAIM_LIMIT,

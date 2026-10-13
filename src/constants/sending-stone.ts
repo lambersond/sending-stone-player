@@ -33,6 +33,31 @@ export const EVENTS_PATH = '/api/events'
  */
 export const BRIDGE_TIMEOUT = 120_000
 
+/**
+ * Why a post or fetch from the module is refused, as every refusal's JSON body says in `reason`,
+ * beside its status: module 0.23.0 tells the Gamemaster in its own words what went wrong and what
+ * to do, and an older module goes by the status alone.
+ */
+export const REFUSAL = {
+  NO_SECRET: 'noSecret',
+  WRONG_SECRET: 'wrongSecret',
+  NOT_FORGE: 'notForge',
+  NOT_SET_UP: 'notSetUp',
+  TOO_LARGE: 'tooLarge',
+  BAD_ENVELOPE: 'badEnvelope',
+  UNSUPPORTED_PROTOCOL: 'unsupportedProtocol',
+  MALFORMED: 'malformed',
+  UNAVAILABLE: 'unavailable',
+} as const
+
+export type RefusalReason = (typeof REFUSAL)[keyof typeof REFUSAL]
+
+/** How often a campaign's latest refusal is written, at most, unless its reason changes. */
+export const REFUSAL_RECORD_EVERY = 60_000
+
+/** How long a campaign's card shows its latest refusal. */
+export const REFUSAL_SHOWN_FOR = 86_400_000
+
 export const EVENTS = {
   HELLO: 'bridge.hello',
   PING: 'bridge.ping',
@@ -100,7 +125,8 @@ export const ROLL_KINDS = [
  * combatants its player picks (module 0.16.0); and make a check an activity asks for, the player's
  * own, against it, as the activity's card does (module 0.21.0, under dnd5e 5); and change a
  * description's damage only on a die it adds (module 0.21.0); and make a use at its user, as its
- * request's `self` asks (module 0.22.0).
+ * request's `self` asks (module 0.22.0); and make the rolls a campaign's Gamemaster makes here as
+ * one of its characters, marked as theirs (module 0.23.0), which only the Gamemaster's view reads.
  */
 export const ROLL_FEATURES = [
   'modifiers',
@@ -109,6 +135,7 @@ export const ROLL_FEATURES = [
   'activityChecks',
   'signedDice',
   'selfTargets',
+  'gmRolls',
 ] as const
 
 /**

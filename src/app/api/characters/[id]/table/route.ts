@@ -1,8 +1,7 @@
 import { getCharacter } from '@/db/characters'
-import { notePlayersSeen } from '@/db/roll-requests'
-import { getCampaignStatus, getTableView } from '@/db/table'
+import { playerSeat } from '@/db/seats'
+import { tableResponse } from '@/lib/seat-routes'
 import { getCurrentUser } from '@/lib/session'
-import { rollsKey } from '@/utils/roll-requests'
 import type { NextRequest } from 'next/server'
 
 const headers = { 'Cache-Control': 'no-store' }
@@ -24,29 +23,5 @@ export async function GET(
   const character = await getCharacter(user.id, id)
   if (!character) return new Response(undefined, { status: 404, headers })
 
-  // A player at the table may roll, so the Gamemaster's module waits for their rolls.
-  if (character.campaignId) {
-    try {
-      await notePlayersSeen(character.campaignId)
-    } catch (error) {
-      console.error('Failed to note a player at the table', error)
-    }
-  }
-
-  const known = request.nextUrl.searchParams
-  if (known.has('version')) {
-    const { version, live, rollsToTable, rollFeatures } =
-      await getCampaignStatus(character)
-    if (
-      Number(known.get('version')) === version &&
-      (known.get('live') === '1') === live &&
-      (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures)
-    ) {
-      return new Response(undefined, { status: 204, headers })
-    }
-  }
-  const sheetVersion = known.get('sheet') ?? undefined
-  return Response.json(await getTableView(character, { sheetVersion }), {
-    headers,
-  })
+  return tableResponse(request, playerSeat(character, user.id))
 }

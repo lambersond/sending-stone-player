@@ -4,7 +4,9 @@ import { createContext, use, type ReactNode } from 'react'
 import { Sparkles } from 'lucide-react'
 import { joinParts } from './sheet-entry'
 import { ConfirmDialog } from '@/components/modal'
+import { useTableRole } from '@/hooks/use-table-api'
 import { enchantmentParts, type Belonging } from '@/utils/enchantments'
+import { seatWords } from '@/utils/seat-words'
 import type { AttackSource, TableRollState } from '@/hooks/use-table-rolls'
 import type { SheetEnchantment } from '@/types/sending-stone'
 
@@ -149,6 +151,7 @@ export function EndButton({
   className?: string
 }>) {
   const { end } = useEnchanting()
+  const { game } = seatWords(useTableRole())
   if (!end) return
   return (
     <ConfirmDialog
@@ -163,9 +166,9 @@ export function EndButton({
       }}
     >
       <p>
-        On {itemName}. Only the enchantment ends, as from its card in your
-        Gamemaster’s game; what it added to the item, such as an attack, goes
-        with it. Any concentration on it goes on.
+        On {itemName}. Only the enchantment ends, as from its card in {game};
+        what it added to the item, such as an attack, goes with it. Any
+        concentration on it goes on.
       </p>
     </ConfirmDialog>
   )

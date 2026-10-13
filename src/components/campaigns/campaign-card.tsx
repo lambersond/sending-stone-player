@@ -1,11 +1,16 @@
 import clsx from 'clsx'
 import { Dices, KeyRound, RefreshCw, Trash2, UserMinus } from 'lucide-react'
+import Link from 'next/link'
 import { SecretForm } from './secret-form'
 import { CopyField } from '@/components/copy-button'
 import { LocalTime } from '@/components/game-table/local-time'
 import { ConfirmDialog } from '@/components/modal'
 import { gameHost } from '@/utils/game-host'
-import type { OwnedCampaign, SecretFormState } from '@/types/campaign'
+import type {
+  CampaignRefusal,
+  OwnedCampaign,
+  SecretFormState,
+} from '@/types/campaign'
 
 type Props = {
   campaign: OwnedCampaign
@@ -59,6 +64,14 @@ export function CampaignCard({
         <FoundryStatus campaign={campaign} />
       </header>
 
+      {campaign.refusal && (
+        <RefusalNote
+          refusal={campaign.refusal}
+          title={campaign.title}
+          lastSeenAt={campaign.lastSeenAt}
+        />
+      )}
+
       <section className='grid gap-1.5'>
         <h4 className='text-sm font-medium'>Invite link</h4>
         <CopyField value={inviteUrl} label='invite link' />
@@ -88,6 +101,11 @@ export function CampaignCard({
 
       <section className='grid gap-2'>
         <h4 className='text-sm font-medium'>Characters</h4>
+        {campaign.characters.length > 0 && (
+          <p className='-mt-1 text-xs text-text-secondary'>
+            Open one to see its sheet and roll as it.
+          </p>
+        )}
         {campaign.characters.length > 0 ? (
           <ul className='grid gap-1.5 text-sm'>
             {campaign.characters.map(character => (
@@ -95,7 +113,14 @@ export function CampaignCard({
                 key={character.id}
                 className='flex min-h-10 items-center justify-between gap-3 rounded-lg bg-page py-1 pr-1 pl-3'
               >
-                <span className='truncate font-medium'>{character.name}</span>
+                {/* Its sheet, as its player sees it, claimed or not (#156). */}
+                <Link
+                  href={`/campaigns/${campaign.id}/characters/${character.id}`}
+                  aria-label={`Open ${character.name}'s sheet`}
+                  className='truncate font-medium text-text-primary underline-offset-2 hover:text-primary hover:underline'
+                >
+                  {character.name}
+                </Link>
                 <span className='flex shrink-0 items-center gap-1'>
                   <span
                     className={clsx(
@@ -212,6 +237,76 @@ function madeText({ rolls }: OwnedCampaign): string {
     return 'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.'
   }
   return 'They stay here. To have them made in your game with the same dice, tick Let players roll from Sending Stone for this campaign in Manage Campaigns in Foundry.'
+}
+
+/**
+ * Why the app last refused a post from Foundry for the campaign, and what to do about it: boxed
+ * while Foundry hasn't reached the app since, muted once it has.
+ */
+function RefusalNote({
+  refusal,
+  title,
+  lastSeenAt,
+}: Readonly<{
+  refusal: CampaignRefusal
+  title: string
+  lastSeenAt?: string
+}>) {
+  const time = <LocalTime value={refusal.at} />
+  let text
+  switch (refusal.reason) {
+    case 'wrongSecret': {
+      text = (
+        <>
+          At {time}, Sending Stone refused Foundry’s post for this campaign: the
+          secret it came with isn’t this campaign’s. Enter this campaign’s
+          secret in Manage Campaigns in Foundry, in the browser you run the game
+          from, or set a new one with Change secret below and enter that.
+        </>
+      )
+      break
+    }
+    case 'notSetUp': {
+      text = (
+        <>
+          At {time}, Foundry sent a campaign titled “{refusal.detail}” from this
+          game, and no campaign here has that title. If it’s this one, rename it
+          to “{title}” in Manage Campaigns in Foundry.
+        </>
+      )
+      break
+    }
+    case 'malformed': {
+      text = (
+        <>
+          At {time}, Sending Stone couldn’t read what Foundry sent and dropped
+          it{refusal.detail && `: ${refusal.detail}`}. Update the Sending Stone
+          module; if it happens again, report it.
+        </>
+      )
+      break
+    }
+  }
+  return (
+    <p
+      data-refusal={refusal.reason}
+      className={clsx(
+        'text-sm wrap-anywhere',
+        refusal.current
+          ? 'rounded-lg border border-danger/40 bg-danger/5 p-3'
+          : 'text-text-secondary',
+      )}
+    >
+      {text}
+      {!refusal.current && lastSeenAt && (
+        <>
+          {' '}
+          Foundry has reached the app since, at <LocalTime value={lastSeenAt} />
+          .
+        </>
+      )}
+    </p>
+  )
 }
 
 function FoundryStatus({ campaign }: Readonly<{ campaign: OwnedCampaign }>) {

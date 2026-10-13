@@ -47,6 +47,25 @@ const post = (
     }),
   )
 
+/** A refusal as the module reads it: its status kept, CORS headers, and why, in JSON. */
+const expectRefusal = async (
+  response: Response,
+  status: number,
+  body: object,
+  origin = GAME,
+) => {
+  expect(response.status).toBe(status)
+  expect(response.headers.get('content-type')).toMatch(/^application\/json/)
+  expect(response.headers.get('access-control-allow-origin')).toBe(origin)
+  expect(response.headers.get('cache-control')).toBe('no-store')
+  await expect(response.json()).resolves.toEqual(body)
+}
+
+const UNAVAILABLE = {
+  reason: 'unavailable',
+  message: 'Sending Stone couldn’t take this just now',
+}
+
 /** The players' rolls as the campaign's game is ready for them. */
 const given = (rollsEnabled: boolean, playersPresent: boolean) =>
   jest
@@ -168,18 +187,28 @@ describe('app/api/bridge/commands', () => {
     })
   })
 
+  const NO_SECRET = {
+    reason: 'noSecret',
+    message: 'Send the campaign’s secret',
+  }
+  const NOT_FORGE = {
+    reason: 'notForge',
+    message: 'Only games on The Forge are accepted',
+  }
   it.each([
-    ['no secret', { Authorization: '' }, 401],
+    ['no secret', { Authorization: '' }, 401, NO_SECRET, GAME],
     [
       'a site that is not a Forge game',
       { Origin: 'https://evil.example' },
       403,
+      NOT_FORGE,
+      'https://evil.example',
     ],
-    ['no origin', { Origin: '' }, 403],
-  ])('refuses a fetch with %s', async (_, headers, status) => {
+    ['no origin', { Origin: '' }, 403, NOT_FORGE, ''],
+  ])('refuses a fetch with %s', async (_, headers, status, body, origin) => {
     const response = await post(poll, headers)
 
-    expect(response.status).toBe(status)
+    await expectRefusal(response, status, body, origin)
     expect(findEventCampaign).not.toHaveBeenCalled()
   })
 
@@ -190,27 +219,42 @@ describe('app/api/bridge/commands', () => {
   ])('refuses a fetch that is %s', async (_, body) => {
     const response = await post(body)
 
-    expect(response.status).toBe(400)
-    expect(await response.text()).toBe('Not a Sending Stone fetch')
+    await expectRefusal(response, 400, {
+      reason: 'badEnvelope',
+      message: 'Not a Sending Stone fetch',
+    })
   })
 
-  it('refuses an oversized fetch', async () => {
-    const response = await post({ ...poll, padding: 'x'.repeat(5000) })
+  it('refuses an oversized fetch, saying how much it takes', async () => {
+    const tooLarge = {
+      reason: 'tooLarge',
+      message: 'Larger than the 4096 bytes Sending Stone takes',
+      limit: 4096,
+    }
+    let response = await post({ ...poll, padding: 'x'.repeat(5000) })
+    await expectRefusal(response, 413, tooLarge)
 
-    expect(response.status).toBe(413)
+    response = await post(poll, { 'Content-Length': '5000' })
+    await expectRefusal(response, 413, tooLarge)
+    expect(findEventCampaign).not.toHaveBeenCalled()
   })
 
   it('refuses a fetch for a campaign not set up, or without its secret', async () => {
     jest.mocked(findEventCampaign).mockResolvedValue('unknown')
     let response = await post()
-    expect(response.status).toBe(404)
-    expect(await response.text()).toBe(
-      `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
-    )
+    await expectRefusal(response, 404, {
+      reason: 'notSetUp',
+      message: `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
+    })
 
     jest.mocked(findEventCampaign).mockResolvedValue('refused')
     response = await post()
-    expect(response.status).toBe(401)
+    await expectRefusal(response, 401, {
+      reason: 'wrongSecret',
+      message: 'The secret isn’t this campaign’s in Sending Stone',
+    })
+    // A fetch's refusal is recorded as an event's is.
+    expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
     expect(markBridgePolled).not.toHaveBeenCalled()
   })
 
@@ -226,8 +270,7 @@ describe('app/api/bridge/commands', () => {
 
     const response = await post()
 
-    expect(response.status).toBe(500)
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+    await expectRefusal(response, 500, UNAVAILABLE)
     expect(consoleError).toHaveBeenCalled()
     consoleError.mockRestore()
   })
@@ -241,7 +284,7 @@ describe('app/api/bridge/commands', () => {
 
     const response = await post()
 
-    expect(response.status).toBe(500)
+    await expectRefusal(response, 500, UNAVAILABLE)
     consoleError.mockRestore()
   })
 })

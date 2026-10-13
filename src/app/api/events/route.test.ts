@@ -2,20 +2,33 @@
  * @jest-environment node
  */
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+import { z } from 'zod'
 import { OPTIONS, POST } from './route'
 import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
-import { checkGameSecret, findEventCampaign, markSeen } from '@/db/campaigns'
+import {
+  checkGameSecret,
+  findEventCampaign,
+  markSeen,
+  recordRefusal,
+} from '@/db/campaigns'
 import { recordCommandResult } from '@/db/roll-requests'
 import { characterSheet, chatMessage, roster } from '@/mocks/sending-stone'
+import { parseGameEvent } from '@/schemas/sending-stone'
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({
   checkGameSecret: jest.fn(),
   findEventCampaign: jest.fn(),
   markSeen: jest.fn(),
+  recordRefusal: jest.fn(),
 }))
 jest.mock('@/db/roll-requests', () => ({ recordCommandResult: jest.fn() }))
+// The real parser, unless a test needs one that fails as no real event can.
+jest.mock('@/schemas/sending-stone', () => {
+  const actual = jest.requireActual('@/schemas/sending-stone')
+  return { ...actual, parseGameEvent: jest.fn(actual.parseGameEvent) }
+})
 
 const URL = 'https://player.example/api/events'
 const GAME = 'https://my-game.forge-vtt.com'
@@ -70,6 +83,37 @@ const ping = () =>
     { userId: 'u-gm', name: 'Gamemaster' },
     { sequence: null, campaign: null },
   )
+
+/** A refusal as the module reads it: its status kept, CORS headers, and why, in JSON. */
+const expectRefusal = async (
+  response: Response,
+  status: number,
+  body: object,
+  origin = GAME,
+) => {
+  expect(response.status).toBe(status)
+  expect(response.headers.get('content-type')).toMatch(/^application\/json/)
+  expect(response.headers.get('access-control-allow-origin')).toBe(origin)
+  await expect(response.json()).resolves.toEqual(body)
+}
+
+const NOT_SET_UP = {
+  reason: 'notSetUp',
+  message: `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
+}
+const WRONG_SECRET = {
+  reason: 'wrongSecret',
+  message: 'The secret isn’t this campaign’s in Sending Stone',
+}
+const UNAVAILABLE = {
+  reason: 'unavailable',
+  message: 'Sending Stone couldn’t take this just now',
+}
+const TOO_LARGE = {
+  reason: 'tooLarge',
+  message: 'Larger than the 4000000 bytes Sending Stone takes',
+  limit: 4_000_000,
+}
 
 describe('app/api/events', () => {
   beforeEach(() => {
@@ -238,10 +282,9 @@ describe('app/api/events', () => {
 
       const response = await post(envelope('chat.cleared', {}))
 
-      expect(response.status).toBe(404)
-      expect(await response.text()).toBe(
-        `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
-      )
+      await expectRefusal(response, 404, NOT_SET_UP)
+      // Recorded there, as it looked the campaign up.
+      expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
@@ -250,7 +293,7 @@ describe('app/api/events', () => {
 
       const response = await post(envelope('chat.cleared', {}))
 
-      expect(response.status).toBe(401)
+      await expectRefusal(response, 401, WRONG_SECRET)
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
@@ -438,7 +481,12 @@ describe('app/api/events', () => {
           envelope('command.result', { ...result, id: '' }, { sequence: null }),
         )
 
-        expect(response.status).toBe(400)
+        await expectRefusal(response, 400, {
+          reason: 'malformed',
+          message: 'Malformed command.result',
+          type: 'command.result',
+          detail: expect.stringMatching(/→ at id/),
+        })
         expect(recordCommandResult).not.toHaveBeenCalled()
       })
 
@@ -454,7 +502,7 @@ describe('app/api/events', () => {
           envelope('command.result', result, { sequence: null }),
         )
 
-        expect(response.status).toBe(500)
+        await expectRefusal(response, 500, UNAVAILABLE)
         expect(consoleError).toHaveBeenCalledWith(
           `Failed to apply command.result from ${GAME}`,
           expect.any(Error),
@@ -468,8 +516,13 @@ describe('app/api/events', () => {
         envelope('chat.cleared', {}, { campaign: null }),
       )
 
-      expect(response.status).toBe(400)
-      expect(await response.text()).toBe('No campaign for chat.cleared')
+      await expectRefusal(response, 400, {
+        reason: 'malformed',
+        message: 'No campaign for chat.cleared',
+        type: 'chat.cleared',
+      })
+      // No campaign to record it on.
+      expect(recordRefusal).not.toHaveBeenCalled()
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
@@ -482,7 +535,10 @@ describe('app/api/events', () => {
         ),
       )
 
-      expect(response.status).toBe(400)
+      await expectRefusal(response, 400, {
+        reason: 'badEnvelope',
+        message: 'Not a Sending Stone envelope',
+      })
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
@@ -498,7 +554,10 @@ describe('app/api/events', () => {
 
       const response = await POST(request)
 
-      expect(response.status).toBe(401)
+      await expectRefusal(response, 401, {
+        reason: 'noSecret',
+        message: 'Send the campaign’s secret',
+      })
       expect(findEventCampaign).not.toHaveBeenCalled()
     })
 
@@ -510,7 +569,16 @@ describe('app/api/events', () => {
     ])('refuses %s', async (_, headers) => {
       const response = await post(envelope('chat.cleared', {}), headers)
 
-      expect(response.status).toBe(403)
+      await expectRefusal(
+        response,
+        403,
+        {
+          reason: 'notForge',
+          message: 'Only games on The Forge are accepted',
+        },
+        headers.Origin,
+      )
+      expect(findEventCampaign).not.toHaveBeenCalled()
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
@@ -529,10 +597,10 @@ describe('app/api/events', () => {
       expect(applyCampaignEvent).toHaveBeenCalled()
     })
 
-    it('refuses an oversized body', async () => {
+    it('refuses an oversized body, saying how much it takes', async () => {
       const response = await post('x'.repeat(MAX_ENVELOPE_BYTES + 1))
 
-      expect(response.status).toBe(413)
+      await expectRefusal(response, 413, TOO_LARGE)
     })
 
     it('refuses a declared oversized body without reading it', async () => {
@@ -549,7 +617,7 @@ describe('app/api/events', () => {
 
       const response = await POST(request)
 
-      expect(response.status).toBe(413)
+      await expectRefusal(response, 413, TOO_LARGE)
       expect(text).not.toHaveBeenCalled()
     })
 
@@ -559,16 +627,24 @@ describe('app/api/events', () => {
     ])('refuses a body that is %s', async (_, body) => {
       const response = await post(body)
 
-      expect(response.status).toBe(400)
-      expect(await response.text()).toBe('Not a Sending Stone envelope')
+      await expectRefusal(response, 400, {
+        reason: 'badEnvelope',
+        message: 'Not a Sending Stone envelope',
+      })
     })
 
-    it.each([1, 3])('refuses protocol %i', async protocol => {
-      const response = await post(envelope('chat.cleared', {}, { protocol }))
+    it.each([1, 3])(
+      'refuses protocol %i, saying which it takes',
+      async protocol => {
+        const response = await post(envelope('chat.cleared', {}, { protocol }))
 
-      expect(response.status).toBe(400)
-      expect(await response.text()).toBe(`Unsupported protocol ${protocol}`)
-    })
+        await expectRefusal(response, 400, {
+          reason: 'unsupportedProtocol',
+          message: `Unsupported protocol ${protocol}`,
+          protocol: 2,
+        })
+      },
+    )
 
     it("answers a connection test with the secret of one of the game's campaigns", async () => {
       const response = await post(ping())
@@ -579,22 +655,28 @@ describe('app/api/events', () => {
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
-    it('tests the campaign a connection test names', async () => {
+    it('tests the campaign a connection test names, recording nothing of it', async () => {
       let response = await testCampaign()
       expect(response.status).toBe(204)
-      expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
+      expect(findEventCampaign).toHaveBeenCalledWith(
+        GAME,
+        campaign,
+        'hunter2',
+        { record: false },
+      )
       expect(checkGameSecret).not.toHaveBeenCalled()
 
       jest.mocked(findEventCampaign).mockResolvedValue('unknown')
       response = await testCampaign()
-      expect(response.status).toBe(404)
-      expect(await response.text()).toBe(
-        `No campaign titled “The Lonely Mountain” is set up for ${GAME} in Sending Stone`,
-      )
+      await expectRefusal(response, 404, NOT_SET_UP)
 
       jest.mocked(findEventCampaign).mockResolvedValue('refused')
       response = await testCampaign()
-      expect(response.status).toBe(401)
+      await expectRefusal(response, 401, WRONG_SECRET)
+      expect(
+        jest.mocked(findEventCampaign).mock.calls.map(call => call[3]),
+      ).toEqual([{ record: false }, { record: false }, { record: false }])
+      expect(recordRefusal).not.toHaveBeenCalled()
       expect(applyCampaignEvent).not.toHaveBeenCalled()
       expect(markSeen).not.toHaveBeenCalled()
     })
@@ -602,14 +684,15 @@ describe('app/api/events', () => {
     it('tells a connection test when no campaign is set up, or the secret is wrong', async () => {
       jest.mocked(checkGameSecret).mockResolvedValue('unknown')
       let response = await post(ping())
-      expect(response.status).toBe(404)
-      expect(await response.text()).toBe(
-        `No campaign is set up for ${GAME} in Sending Stone`,
-      )
+      await expectRefusal(response, 404, {
+        reason: 'notSetUp',
+        message: `No campaign is set up for ${GAME} in Sending Stone`,
+      })
 
       jest.mocked(checkGameSecret).mockResolvedValue('refused')
       response = await post(ping())
-      expect(response.status).toBe(401)
+      await expectRefusal(response, 401, WRONG_SECRET)
+      expect(recordRefusal).not.toHaveBeenCalled()
     })
 
     it('asks for a retry when the campaign cannot be looked up', async () => {
@@ -622,9 +705,8 @@ describe('app/api/events', () => {
       const event = await post(envelope('chat.cleared', {}))
       const test = await post(ping())
 
-      expect(event.status).toBe(500)
-      expect(event.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
-      expect(test.status).toBe(500)
+      await expectRefusal(event, 500, UNAVAILABLE)
+      await expectRefusal(test, 500, UNAVAILABLE)
       expect(consoleError).toHaveBeenCalledWith(
         'Failed to check a Sending Stone event',
         expect.any(Error),
@@ -632,15 +714,65 @@ describe('app/api/events', () => {
       consoleError.mockRestore()
     })
 
-    it('refuses an event missing what the app relies on, saying what', async () => {
+    it('refuses an event missing what the app relies on, saying what, and records it for the campaign', async () => {
       const response = await post(
         envelope('chat.message.created', { message: { id: 'm1' } }),
       )
 
-      expect(response.status).toBe(400)
-      expect(await response.text()).toMatch(
-        /^Malformed chat.message.created\n[\s\S]*timestamp/,
+      await expectRefusal(response, 400, {
+        reason: 'malformed',
+        message: 'Malformed chat.message.created',
+        type: 'chat.message.created',
+        detail: expect.stringMatching(/timestamp/),
+      })
+      expect(recordRefusal).toHaveBeenCalledTimes(1)
+      const [target, refusal] = jest.mocked(recordRefusal).mock.calls[0]
+      expect(target).toEqual({ ids: ['c1'] })
+      expect(refusal).toEqual({
+        reason: 'malformed',
+        status: 400,
+        detail: expect.stringMatching(/^chat\.message\.created: ✖ /),
+      })
+      // What was wrong first: its message, and where.
+      expect(refusal.detail?.split('\n')).toHaveLength(2)
+      expect(applyCampaignEvent).not.toHaveBeenCalled()
+    })
+
+    it('records what was wrong in at most 300 characters, and answers it in at most 1000', async () => {
+      const long = 'y'.repeat(2000)
+      jest.mocked(parseGameEvent).mockImplementationOnce(() => {
+        throw new z.ZodError([
+          { code: 'custom', message: long, path: ['message'], input: {} },
+          { code: 'custom', message: 'and more', path: ['id'], input: {} },
+        ])
+      })
+
+      const response = await post(
+        envelope('chat.message.created', { message: chatMessage() }),
       )
+
+      const body = await response.json()
+      expect(body.detail).toHaveLength(1000)
+      expect(body.detail).toMatch(/^✖ y+$/)
+      const [, refusal] = jest.mocked(recordRefusal).mock.calls[0]
+      expect(refusal.detail).toHaveLength(300)
+      expect(refusal.detail).toMatch(/^chat\.message\.created: ✖ y+$/)
+    })
+
+    it("records nothing malformed for a post without the campaign's secret, nor for a test", async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue('refused')
+      const wrong = await post(
+        envelope('chat.message.created', { message: { id: 'm1' } }),
+      )
+      await expectRefusal(wrong, 401, WRONG_SECRET)
+
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+      const test = await post(
+        envelope('bridge.ping', { nope: true }, { sequence: null }),
+      )
+      expect(test.status).toBe(204)
+
+      expect(recordRefusal).not.toHaveBeenCalled()
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
@@ -652,7 +784,7 @@ describe('app/api/events', () => {
 
       const response = await post(envelope('chat.cleared', {}))
 
-      expect(response.status).toBe(500)
+      await expectRefusal(response, 500, UNAVAILABLE)
       expect(consoleError).toHaveBeenCalledWith(
         `Failed to apply chat.cleared from ${GAME}`,
         expect.any(Error),

@@ -13,7 +13,7 @@ import {
   toTableSheet,
   type Viewer,
 } from '@/utils/table-view'
-import type { Character } from '@/types/character'
+import type { SheetSeat } from '@/types/character'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
@@ -22,20 +22,22 @@ import type {
   SerializedMessage,
   SheetWithheld,
 } from '@/types/sending-stone'
-import type { TableView } from '@/types/table'
+import type { GmRolls, TableView } from '@/types/table'
 
 /** The most recent chat messages shown. */
 export const MESSAGE_LIMIT = 100
 
 /**
  * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
- * which rolls its game takes from players, and what else it does with them.
+ * which rolls its game takes from players, and what else it does with them; and for the
+ * Gamemaster at a character's sheet (#156), where their rolls go.
  */
 export type CampaignStatus = {
   version: number
   live: boolean
   rollsToTable: RollKind[]
   rollFeatures: RollFeature[]
+  gm?: { rolls: GmRolls }
 }
 
 /** What says which rolls a campaign's game takes from players. */
@@ -46,40 +48,56 @@ const rollsSelect = {
   bridgePolledAt: true,
 } as const
 
-/** The rolls a character's player can have made in the game: none without an actor to make them. */
-function rollsToTable(
-  character: Character,
-  campaign: Parameters<typeof availableRollFeatures>[0] | null | undefined,
-): RollKind[] {
-  return character.actorId && campaign ? availableRollKinds(campaign) : []
-}
-
-/** What else the game does with them, as with the rolls. */
-function rollFeatures(
-  character: Character,
-  campaign: Parameters<typeof availableRollFeatures>[0] | null | undefined,
-): RollFeature[] {
-  return character.actorId && campaign ? availableRollFeatures(campaign) : []
+/**
+ * The rolls a seat can have made in the game, none without an actor to make them, and what else
+ * the game does with them. A player's never name `gmRolls`, which only the Gamemaster's view
+ * reads, so their views, and what tells them apart, are as before it. The Gamemaster's (#156) are
+ * none while the game doesn't make their rolls as the character's, marked as theirs, and never an
+ * end of an enchantment, which is no roll; with where their rolls go: made in the game, kept here
+ * until its module is updated, or kept here while it takes no rolls.
+ */
+function seatRolls(
+  seat: SheetSeat,
+  campaign?: Parameters<typeof availableRollFeatures>[0] | null,
+): Pick<CampaignStatus, 'rollsToTable' | 'rollFeatures' | 'gm'> {
+  const kinds = seat.actorId && campaign ? availableRollKinds(campaign) : []
+  const features =
+    seat.actorId && campaign ? availableRollFeatures(campaign) : []
+  const others = features.filter(feature => feature !== 'gmRolls')
+  if (seat.role !== 'gm') return { rollsToTable: kinds, rollFeatures: others }
+  const made = features.includes('gmRolls')
+  let rolls: GmRolls = 'off'
+  if (made) rolls = 'made'
+  else if (kinds.length > 0) rolls = 'update'
+  return {
+    rollsToTable: made ? kinds.filter(kind => kind !== 'endEnchantment') : [],
+    rollFeatures: made ? others : [],
+    gm: { rolls },
+  }
 }
 
 /**
- * The status of a character's campaign, to tell cheaply whether a viewer is up to date.
+ * The status of a seat's campaign, to tell cheaply whether a viewer is up to date.
  * @returns Version 0, not live, while the character is in no campaign.
  */
 export async function getCampaignStatus(
-  character: Character,
+  seat: SheetSeat,
 ): Promise<CampaignStatus> {
-  if (!character.campaignId)
-    return { version: 0, live: false, rollsToTable: [], rollFeatures: [] }
+  if (!seat.campaignId) {
+    return {
+      version: 0,
+      live: false,
+      ...seatRolls(seat),
+    }
+  }
   const campaign = await prisma.campaign.findUnique({
-    where: { id: character.campaignId },
+    where: { id: seat.campaignId },
     select: { version: true, lastSeenAt: true, ...rollsSelect },
   })
   return {
     version: campaign?.version ?? 0,
     live: isLive(campaign?.lastSeenAt),
-    rollsToTable: rollsToTable(character, campaign),
-    rollFeatures: rollFeatures(character, campaign),
+    ...seatRolls(seat, campaign),
   }
 }
 
@@ -96,18 +114,18 @@ function withheld(
 
 /**
  * A character's view of its campaign: the chat its player may read, the encounter under way, and
- * its own sheet. The caller must already have checked that the character belongs to the signed-in
- * user.
- * @param character - The character.
+ * its own sheet. The Gamemaster at its sheet (#156) sees the same, as its player does, but never
+ * their place in the chat. The caller must already have resolved the seat for the signed-in user.
+ * @param seat - Who is at the sheet.
  * @param known - What the viewer already has: the sheet of this version is left out.
  */
 export async function getTableView(
-  character: Character,
+  seat: SheetSeat,
   known: { sheetVersion?: string } = {},
 ): Promise<TableView> {
-  const campaign = character.campaignId
+  const campaign = seat.campaignId
     ? await prisma.campaign.findUnique({
-        where: { id: character.campaignId },
+        where: { id: seat.campaignId },
         select: {
           id: true,
           origin: true,
@@ -126,7 +144,7 @@ export async function getTableView(
 
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   const viewer: Viewer = {
-    actorId: character.actorId ?? undefined,
+    actorId: seat.actorId ?? undefined,
     party: new Set(roster.map(({ id }) => id)),
     portraits: new Map(
       roster.flatMap(({ id, img }) => {
@@ -137,8 +155,8 @@ export async function getTableView(
   }
 
   // The saves the game asks of the character, while it takes their answers.
-  const features = rollFeatures(character, campaign)
-  const prompted = viewer.actorId && features.includes('prompts')
+  const rolls = seatRolls(seat, campaign)
+  const prompted = viewer.actorId && rolls.rollFeatures.includes('prompts')
   const [messages, combats, sheet, prompts] = await Promise.all([
     prisma.chatMessage.findMany({
       where: {
@@ -151,7 +169,7 @@ export async function getTableView(
       },
       orderBy: { sentAt: 'desc' },
       take: MESSAGE_LIMIT,
-      select: { data: true },
+      select: { messageId: true, data: true, byGm: true },
     }),
     prisma.combat.findMany({
       where: { campaignId: campaign.id },
@@ -199,6 +217,9 @@ export async function getTableView(
         .toReversed()
         .map(({ data }) => data as unknown as SerializedMessage),
       viewer,
+      new Set(
+        messages.filter(({ byGm }) => byGm).map(({ messageId }) => messageId),
+      ),
     ),
     combat: combat ? toTableCombat(combat, viewer) : undefined,
     sheet:
@@ -207,9 +228,11 @@ export async function getTableView(
         : undefined,
     sheetVersion,
     sheetWithheld: withheld(roster.find(({ id }) => id === viewer.actorId)),
-    chatReadAt: character.chatReadAt,
-    rollsToTable: rollsToTable(character, campaign),
-    rollFeatures: features,
+    // The player's own; the Gamemaster's seat never reads nor moves it.
+    chatReadAt: seat.role === 'gm' ? undefined : seat.chatReadAt,
+    rollsToTable: rolls.rollsToTable,
+    rollFeatures: rolls.rollFeatures,
     prompts: prompts.map(prompt => toTablePrompt(prompt)),
+    ...(rolls.gm && { gm: rolls.gm }),
   }
 }

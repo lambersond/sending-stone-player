@@ -76,6 +76,7 @@ const request = (fields: Partial<RollRequestInput>): RollRequestInput => ({
 const held = (fields: Partial<HeldRollRequest> = {}): HeldRollRequest => ({
   id: 'req-1',
   actorId: 'actor-thorin',
+  role: 'player',
   kind: 'skill',
   payload: request({}),
   status: 'pending',
@@ -3905,6 +3906,29 @@ describe('utils/roll-requests', () => {
         id: 'req-1',
         actorId: 'actor-thorin',
       })
+    })
+
+    it("says a roll is the Gamemaster's as the character, and a player's as ever, saying nothing of it (#156)", () => {
+      expect(toCommand(held({ role: 'gm' }))).toEqual({
+        ...request({}),
+        id: 'req-1',
+        actorId: 'actor-thorin',
+        by: 'gm',
+      })
+      const player = toCommand(held({ role: 'player' }))
+      expect(player).toEqual({
+        ...request({}),
+        id: 'req-1',
+        actorId: 'actor-thorin',
+      })
+      expect(player).not.toHaveProperty('by')
+      expect(JSON.stringify(player)).toBe(
+        JSON.stringify({
+          ...request({}),
+          id: 'req-1',
+          actorId: 'actor-thorin',
+        }),
+      )
     })
   })
 })

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStoredChoice } from '@/hooks/use-stored'
+import { useTableApi, useTableRole } from '@/hooks/use-table-api'
 import {
   changedAt,
   changes,
@@ -65,6 +66,9 @@ export const BUSY_FOR = 65_000
 /** Where this browser keeps whether to send the player's rolls to the table. */
 export const SEND_KEY = 'sending-stone:send-rolls'
 
+/** And whether to send the Gamemaster's, at a character's sheet (#156): a switch of its own. */
+export const GM_SEND_KEY = `${SEND_KEY}:gm`
+
 const SEND_CHOICES = ['on', 'off'] as const
 
 /** An attack's or a use's item and activity, by which its damage is found. */
@@ -119,7 +123,7 @@ export type DueDamage = {
 }
 
 /** Where a roll's way to the game ends. */
-const SETTLED = new Set<TableRollState['status']>([
+export const SETTLED = new Set<TableRollState['status']>([
   'done',
   'failed',
   'expired',
@@ -131,7 +135,8 @@ const SETTLED = new Set<TableRollState['status']>([
  * Sends the rolls the player makes to the Gamemaster's game, to be made there with the same dice,
  * when the game takes them and the player hasn't turned sending off on this device; and follows
  * each until the game has made it. An attack the game made can then have its damage rolled there.
- * @param characterId - The player's character.
+ * @param characterId - The player's character, or for the Gamemaster's seat (#156) its key; the
+ *   seat's own API, where one is provided, is what the rolls go through.
  * @param kinds - The rolls the game takes now.
  * @param features - What else the game does with them, such as take damage the player changed.
  * @returns `send` and `sendDamage`, to call as a roll's dice are thrown; each roll's way, by its
@@ -145,12 +150,17 @@ export function useTableRolls(
   const [states, setStates] = useState<ReadonlyMap<string, TableRollState>>(
     () => new Map(),
   )
-  const [choice, choose] = useStoredChoice(SEND_KEY, SEND_CHOICES, 'on')
+  const api = useTableApi(characterId)
+  const [choice, choose] = useStoredChoice(
+    useTableRole() === 'gm' ? GM_SEND_KEY : SEND_KEY,
+    SEND_CHOICES,
+    'on',
+  )
   const on = choice === 'on'
   // As the latest render has them, for `send` to stay the same function.
-  const latest = useRef({ characterId, kinds, features, on })
+  const latest = useRef({ api, kinds, features, on })
   useEffect(() => {
-    latest.current = { characterId, kinds, features, on }
+    latest.current = { api, kinds, features, on }
   })
   const running = useRef(new Set<AbortController>())
   useEffect(() => {
@@ -181,15 +191,9 @@ export function useTableRolls(
         )
       }
       update({ status: 'sending' })
-      void follow(
-        latest.current.characterId,
-        input,
-        controller.signal,
-        update,
-        id => {
-          kept = { ...kept, requestId: id }
-        },
-      ).finally(() => running.current.delete(controller))
+      void follow(latest.current.api, input, controller.signal, update, id => {
+        kept = { ...kept, requestId: id }
+      }).finally(() => running.current.delete(controller))
     },
     [],
   )
@@ -224,7 +228,7 @@ export function useTableRolls(
           // Turned away as one too many at once, it's still on its way while it may be sent again.
           let again = false
           await follow(
-            latest.current.characterId,
+            latest.current.api,
             input,
             signal,
             state => {
@@ -576,9 +580,12 @@ function added(numbers: number[]): number {
   return numbers.reduce((sum, number) => sum + number, 0)
 }
 
-/** Send a roll to the game, then ask after it until it's made, or given up on. */
+/**
+ * Send a roll to the game, then ask after it until it's made, or given up on.
+ * @param api - The seat's API base, such as `/api/characters/<id>`.
+ */
 async function follow(
-  characterId: string,
+  api: string,
   input: RollRequestInput,
   signal: AbortSignal,
   update: (state: TableRollState) => void,
@@ -586,7 +593,7 @@ async function follow(
 ) {
   let id: string
   try {
-    const response = await fetch(`/api/characters/${characterId}/rolls`, {
+    const response = await fetch(`${api}/rolls`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -610,10 +617,10 @@ async function follow(
     await pause(CHECK_EVERY, signal)
     if (signal.aborted) return
     try {
-      const response = await fetch(
-        `/api/characters/${characterId}/rolls/${id}`,
-        { cache: 'no-store', signal },
-      )
+      const response = await fetch(`${api}/rolls/${id}`, {
+        cache: 'no-store',
+        signal,
+      })
       // A roll this page can't see any more, such as once signed out, is given up on.
       if (response.status === 401 || response.status === 404) break
       if (response.ok) {

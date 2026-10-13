@@ -11,6 +11,7 @@ import {
   notePlayersSeen,
   recordCommandResult,
 } from './roll-requests'
+import { playerSeat } from './seats'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import {
   characterSheet,
@@ -21,19 +22,24 @@ import {
   sheetAction,
   TEXTS,
 } from '@/mocks/sending-stone'
+import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 
 const NOW = Date.parse('2026-10-09T20:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)
 
-const character = {
-  id: 'char-1',
-  name: 'Thorin Oakenshield',
-  gameUrl: 'https://my-game.forge-vtt.com',
-  campaignTitle: 'The Lonely Mountain',
-  campaignId: 'c1',
-  actorId: 'actor-thorin',
-}
+/** Thorin's player at his sheet. */
+const character = playerSeat(
+  {
+    id: 'char-1',
+    name: 'Thorin Oakenshield',
+    gameUrl: 'https://my-game.forge-vtt.com',
+    campaignTitle: 'The Lonely Mountain',
+    campaignId: 'c1',
+    actorId: 'actor-thorin',
+  },
+  'user-1',
+)
 
 const perception: RollRequestInput = {
   kind: 'skill',
@@ -210,6 +216,8 @@ describe('db/roll-requests', () => {
         data: {
           campaignId: 'c1',
           characterId: 'char-1',
+          role: 'player',
+          requestedById: 'user-1',
           actorId: 'actor-thorin',
           kind: 'skill',
           payload: perception,
@@ -463,7 +471,7 @@ describe('db/roll-requests', () => {
         held('req-1', { status: 'pending', claimedAt: null }) as any,
       )
 
-      await expect(getRollRequestView('char-1', 'req-1')).resolves.toEqual({
+      await expect(getRollRequestView(character, 'req-1')).resolves.toEqual({
         id: 'req-1',
         status: 'sending',
       })
@@ -477,7 +485,7 @@ describe('db/roll-requests', () => {
       prismaMock.rollRequest.findFirst.mockResolvedValue(null)
 
       await expect(
-        getRollRequestView('char-1', 'req-9'),
+        getRollRequestView(character, 'req-9'),
       ).resolves.toBeUndefined()
     })
   })
@@ -492,6 +500,7 @@ describe('db/roll-requests', () => {
           campaignId: 'c1',
           status: 'pending',
           createdAt: { gt: ago(30_000) },
+          role: 'player',
         },
         orderBy: { createdAt: 'asc' },
         take: 10,
@@ -583,9 +592,11 @@ describe('db/roll-requests', () => {
         },
         select: { actorId: true, data: true, expiresAt: true, closedAt: true },
       })
+      // Either seat's answers: its player's or the Gamemaster's (#156).
       expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
         where: {
-          characterId: 'char-1',
+          campaignId: 'c1',
+          actorId: 'actor-thorin',
           kind: 'save',
           payload: { path: ['prompt'], equals: 'msg1-thorin' },
         },
@@ -1575,5 +1586,375 @@ describe('db/roll-requests', () => {
       await notePlayersSeen('c-seen')
       expect(prismaMock.campaign.updateMany).toHaveBeenCalledTimes(3)
     })
+  })
+})
+
+/** The campaign's Gamemaster at Thorin's sheet, rolling as him (#156). */
+const gm = (fields: Partial<SheetSeat> = {}): SheetSeat => ({
+  name: 'Thorin Oakenshield',
+  gameUrl: 'https://my-game.forge-vtt.com',
+  campaignTitle: 'The Lonely Mountain',
+  campaignId: 'c1',
+  actorId: 'actor-thorin',
+  role: 'gm',
+  userId: 'gm-1',
+  characterId: null,
+  ...fields,
+})
+/** What the Gamemaster's rolls as Thorin are found by, here. */
+const gmMade = {
+  campaignId: 'c1',
+  actorId: 'actor-thorin',
+  role: 'gm',
+  requestedById: 'gm-1',
+}
+
+/**
+ * A campaign whose game takes skill checks, attacks and saves, and the Gamemaster's, or not; with
+ * the rolls counted for a seat as `counts` has them.
+ */
+const givenGm = ({
+  features = ['gmRolls'] as string[],
+  counts = (): number => 0,
+}: { features?: string[]; counts?: (where: any) => number } = {}) => {
+  prismaMock.campaign.findUnique.mockResolvedValue({
+    ...takingRolls,
+    rollKinds: [...takingRolls.rollKinds, 'save', 'endEnchantment'],
+    rollFeatures: features,
+  } as any)
+  prismaMock.actorSheet.findUnique.mockResolvedValue({
+    data: fullerSheet(),
+  } as any)
+  prismaMock.rollRequest.count.mockImplementation(((args: any) =>
+    Promise.resolve(counts(args.where))) as any)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-gm' } as any)
+}
+/** The rolls on their way, as counted for whichever seat a count names. */
+const inFlight = (where: any) => (where.OR ? 3 : 0)
+
+/** Mocks with nothing queued from earlier tests, which only clear what they were called with. */
+const fresh = () => {
+  for (const mock of [
+    prismaMock.campaign.findUnique,
+    prismaMock.actorSheet.findUnique,
+    prismaMock.rollPrompt.findUnique,
+    prismaMock.rollRequest.count,
+    prismaMock.rollRequest.findFirst,
+    prismaMock.rollRequest.findMany,
+    prismaMock.rollRequest.create,
+    prismaMock.rollRequest.deleteMany,
+  ]) {
+    mock.mockReset()
+  }
+}
+
+describe("db/roll-requests, the Gamemaster's rolls as a character (#156)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("takes the Gamemaster's roll as the character, by them, with no character of their own, counting and pruning only theirs", async () => {
+    givenGm()
+
+    await expect(createRollRequest(gm(), perception)).resolves.toEqual({
+      id: 'req-gm',
+    })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: {
+        campaignId: 'c1',
+        characterId: null,
+        role: 'gm',
+        requestedById: 'gm-1',
+        actorId: 'actor-thorin',
+        kind: 'skill',
+        payload: perception,
+        createdAt: new Date(NOW),
+      },
+      select: { id: true },
+    })
+    for (const [args] of prismaMock.rollRequest.count.mock.calls) {
+      expect(args?.where).toMatchObject(gmMade)
+      expect(args?.where).not.toHaveProperty('characterId')
+    }
+    expect(prismaMock.rollRequest.deleteMany).toHaveBeenCalledWith({
+      where: { ...gmMade, createdAt: { lt: ago(86_400_000) } },
+    })
+  })
+
+  it("is refused while the game doesn't make the Gamemaster's rolls, and for ending an enchantment, before anything else", async () => {
+    givenGm({ features: ['prompts', 'modifiers'] })
+    await expect(createRollRequest(gm(), perception)).resolves.toEqual({
+      status: 409,
+      reason: 'unavailable',
+    })
+
+    givenGm()
+    await expect(
+      createRollRequest(gm(), {
+        kind: 'endEnchantment',
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+        enchantment: { item: 'club', effect: 'magicWeapon00001' },
+      } as RollRequestInput),
+    ).resolves.toEqual({ status: 409, reason: 'unavailable' })
+    expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("keeps each seat's limits apart, both ways", async () => {
+    // The player has three rolls on their way: the Gamemaster still rolls.
+    givenGm({
+      counts: where => (where.characterId === 'char-1' ? inFlight(where) : 0),
+    })
+    await expect(createRollRequest(character, perception)).resolves.toEqual({
+      status: 429,
+      reason: 'busy',
+    })
+    await expect(createRollRequest(gm(), perception)).resolves.toEqual({
+      id: 'req-gm',
+    })
+
+    // The Gamemaster has three: the player still rolls.
+    givenGm({
+      counts: where => (where.role === 'gm' ? inFlight(where) : 0),
+    })
+    await expect(createRollRequest(gm(), perception)).resolves.toEqual({
+      status: 429,
+      reason: 'busy',
+    })
+    await expect(createRollRequest(character, perception)).resolves.toEqual({
+      id: 'req-gm',
+    })
+  })
+
+  it('keeps two Gamemasters of two campaigns with the same actor apart, in counts, views and prunes', async () => {
+    const other = gm({ campaignId: 'c2', userId: 'gm-2' })
+    // The first has three on their way.
+    givenGm({
+      counts: where =>
+        where.campaignId === 'c1' && where.requestedById === 'gm-1'
+          ? inFlight(where)
+          : 0,
+    })
+    await expect(createRollRequest(gm(), perception)).resolves.toEqual({
+      status: 429,
+      reason: 'busy',
+    })
+    await expect(createRollRequest(other, perception)).resolves.toEqual({
+      id: 'req-gm',
+    })
+    expect(prismaMock.rollRequest.deleteMany).toHaveBeenCalledWith({
+      where: {
+        campaignId: 'c2',
+        actorId: 'actor-thorin',
+        role: 'gm',
+        requestedById: 'gm-2',
+        createdAt: { lt: ago(86_400_000) },
+      },
+    })
+
+    prismaMock.rollRequest.findFirst.mockResolvedValue(null)
+    await expect(getRollRequestView(other, 'req-gm')).resolves.toBeUndefined()
+    expect(prismaMock.rollRequest.findFirst).toHaveBeenLastCalledWith({
+      where: {
+        id: 'req-gm',
+        campaignId: 'c2',
+        actorId: 'actor-thorin',
+        role: 'gm',
+        requestedById: 'gm-2',
+      },
+      select: expect.objectContaining({ role: true, status: true }),
+    })
+  })
+
+  it("rolls damage only after the seat's own attack: never the player's", async () => {
+    givenGm()
+    // An attack is found only where the seat's own rolls are looked for.
+    const attacks = (owner: object) =>
+      prismaMock.rollRequest.findFirst.mockImplementation((({ where }: any) =>
+        Promise.resolve(
+          Object.entries(owner).every(([key, value]) => where[key] === value)
+            ? madeSwing()
+            : null,
+        )) as any)
+    prismaMock.rollRequest.findMany.mockResolvedValue([])
+
+    attacks({ characterId: 'char-1' })
+    await expect(createRollRequest(gm(), smash)).resolves.toEqual({
+      status: 422,
+      reason: 'gone',
+    })
+
+    attacks(gmMade)
+    await expect(createRollRequest(gm(), smash)).resolves.toEqual({
+      id: 'req-gm',
+    })
+    expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
+      where: { useId: 'req-0', ...gmMade },
+      select: { status: true, createdAt: true, claimedAt: true },
+    })
+    // And the player's damage never follows the Gamemaster's attack.
+    await expect(createRollRequest(character, smash)).resolves.toEqual({
+      status: 422,
+      reason: 'gone',
+    })
+  })
+
+  it('answers a prompt once, from either seat: the second answer is refused', async () => {
+    const answer: RollRequestInput = {
+      kind: 'save',
+      key: 'dex',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [12] }],
+      prompt: 'msg1-thorin',
+    }
+    const answered = [
+      { status: 'done', createdAt: ago(5000), claimedAt: ago(4000) },
+    ]
+    for (const [first, second] of [
+      [gm(), character],
+      [character, gm()],
+    ] as const) {
+      givenGm({ features: ['gmRolls', 'prompts'] })
+      prismaMock.rollPrompt.findUnique.mockResolvedValue(asked() as any)
+      // The first seat's answer, made: found for the second, whichever it is.
+      prismaMock.rollRequest.findMany.mockResolvedValue([])
+      await expect(createRollRequest(first, answer)).resolves.toEqual({
+        id: 'req-gm',
+      })
+      prismaMock.rollRequest.findMany.mockResolvedValue(answered as any)
+      await expect(createRollRequest(second, answer)).resolves.toEqual({
+        status: 422,
+        reason: 'prompt',
+      })
+      for (const [args] of prismaMock.rollRequest.findMany.mock.calls) {
+        expect(args?.where).toEqual({
+          campaignId: 'c1',
+          actorId: 'actor-thorin',
+          kind: 'save',
+          payload: { path: ['prompt'], equals: 'msg1-thorin' },
+        })
+      }
+      prismaMock.rollRequest.findMany.mockClear()
+    }
+  })
+
+  it("hands the module the Gamemaster's roll saying it's theirs, and a player's exactly as before", async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      helloSession: 'session-1',
+      rollFeatures: ['gmRolls'],
+      ownerId: 'gm-1',
+    } as any)
+    prismaMock.rollRequest.findMany
+      .mockResolvedValueOnce([{ id: 'req-1' }, { id: 'req-2' }] as any)
+      .mockResolvedValueOnce([
+        held('req-1', { role: 'player' }),
+        held('req-2', { role: 'gm' }),
+      ] as any)
+
+    const commands = await claimRollRequests('c1', 'session-1')
+    expect(commands).toEqual([
+      { ...perception, id: 'req-1', actorId: 'actor-thorin' },
+      { ...perception, id: 'req-2', actorId: 'actor-thorin', by: 'gm' },
+    ])
+    expect(commands[0]).not.toHaveProperty('by')
+  })
+})
+
+describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Waiting rolls, as held: ten older ones of the Gamemaster's, then a player's. */
+  const waiting = [
+    ...Array.from({ length: 10 }, (_, index) => ({
+      id: `gm-${index}`,
+      campaignId: 'c1',
+      status: 'pending',
+      role: 'gm',
+      requestedById: 'gm-1',
+      createdAt: ago(20_000 - index),
+    })),
+    {
+      id: 'player-1',
+      campaignId: 'c1',
+      status: 'pending',
+      role: 'player',
+      requestedById: 'user-1',
+      createdAt: ago(1000),
+    },
+  ]
+  /** Whether a row is one a `where` asks for, as far as a fetch's asks. */
+  const matches = (row: (typeof waiting)[number], where: any): boolean =>
+    Object.entries(where).every(([key, value]: [string, any]) => {
+      if (key === 'OR') return value.some((each: any) => matches(row, each))
+      if (key === 'createdAt') return row.createdAt > value.gt
+      if (key === 'id') return value.in.includes(row.id)
+      if (key === 'claimToken') return true
+      return (row as any)[key] === value
+    })
+  /** A fetch for this session, from a campaign as given, and what it took, in order. */
+  const fetched = async (
+    campaign: object,
+    session = 'session-1',
+  ): Promise<string[]> => {
+    prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+    prismaMock.rollRequest.findMany.mockImplementation((({
+      where,
+      take,
+    }: any) =>
+      Promise.resolve(
+        waiting
+          .filter(row => matches(row, where))
+          .slice(0, take)
+          .map(row => held(row.id, { role: row.role })),
+      )) as any)
+    const commands = await claimRollRequests('c1', session)
+    return commands.map(({ id }) => id)
+  }
+  const ready = {
+    helloSession: 'session-1',
+    rollFeatures: ['gmRolls'],
+    ownerId: 'gm-1',
+  }
+
+  it("takes only players' rolls while the game doesn't make the Gamemaster's, leaving theirs waiting", async () => {
+    await expect(
+      fetched({ ...ready, rollFeatures: ['prompts'] }),
+    ).resolves.toEqual(['player-1'])
+  })
+
+  it("takes the Gamemaster's only for the session whose hello said it makes them", async () => {
+    await expect(fetched(ready, 'session-old')).resolves.toEqual(['player-1'])
+    await expect(fetched(ready)).resolves.toEqual(
+      waiting.slice(0, 10).map(({ id }) => id),
+    )
+  })
+
+  it("takes the Gamemaster's only when its owner sent them, and none of an ownerless campaign", async () => {
+    await expect(fetched({ ...ready, ownerId: 'gm-2' })).resolves.toEqual([
+      'player-1',
+    ])
+    await expect(fetched({ ...ready, ownerId: null })).resolves.toEqual([
+      'player-1',
+    ])
+    await expect(fetched(null as unknown as object)).resolves.toEqual([
+      'player-1',
+    ])
   })
 })

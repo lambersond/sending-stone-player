@@ -8,6 +8,7 @@ import { chargesOf } from './action-info'
 import { EntryIcon } from './sheet-entry'
 import { Modal } from '@/components/modal'
 import { MAX_USE_TARGETS } from '@/constants/sending-stone'
+import { useTableRole } from '@/hooks/use-table-api'
 import {
   defaultPool,
   ordinal,
@@ -21,6 +22,7 @@ import {
   offeredProfiles,
   type Belonging,
 } from '@/utils/enchantments'
+import { seatWords } from '@/utils/seat-words'
 import {
   friendly,
   mostTargets,
@@ -797,6 +799,7 @@ function EnchantWhat({
   ready: boolean
   onGo: (item?: string) => void
 }>) {
+  const { putsOn } = seatWords(useTableRole())
   if (enchant.self) {
     return <Go label={verb} disabled={!ready} onGo={() => onGo()} />
   }
@@ -847,7 +850,7 @@ function EnchantWhat({
           >
             Leave it on the card
             <span className='block text-xs font-normal'>
-              For someone else’s: your Gamemaster puts it on from the card.
+              For someone else’s: {putsOn}.
             </span>
           </button>
         </li>

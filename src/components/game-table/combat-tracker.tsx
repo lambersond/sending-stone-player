@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Swords } from 'lucide-react'
 import { EmptyState } from './empty-state'
+import { useTableRole } from '@/hooks/use-table-api'
+import { seatWords } from '@/utils/seat-words'
 import type { Side, TableCombat, TableCombatant } from '@/types/table'
 
 const INITIATIVE: Record<Side, string> = {
@@ -16,11 +18,11 @@ const ROLE: Record<Side, string | undefined> = {
 }
 
 export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
+  const { noCombat } = seatWords(useTableRole())
   if (!combat) {
     return (
       <EmptyState icon={Swords} title='No combat right now'>
-        The initiative order appears here when your Gamemaster starts an
-        encounter.
+        {noCombat}
       </EmptyState>
     )
   }
@@ -161,6 +163,7 @@ function HitPoints({
 }
 
 function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
+  const { settingUp } = seatWords(useTableRole())
   const current = combat.combatants.find(({ id }) => id === combat.currentId)
   const next = nextUp(combat)
   const myTurn = current?.side === 'me'
@@ -199,9 +202,7 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
         {heading}
       </h2>
       {!combat.started && (
-        <p className='text-sm text-text-secondary'>
-          The Gamemaster is setting up this encounter.
-        </p>
+        <p className='text-sm text-text-secondary'>{settingUp}</p>
       )}
       {!myTurn && next?.side === 'me' && (
         <p className='text-sm text-text-secondary'>You are up next.</p>

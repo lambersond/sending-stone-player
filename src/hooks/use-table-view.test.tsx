@@ -51,7 +51,9 @@ describe('hooks/use-table-view', () => {
 
   it('asks for news with the version and liveness it has, and takes a newer view', async () => {
     jest.mocked(fetch).mockResolvedValueOnce(respond(200, newer))
-    const { result } = renderHook(() => useTableView('char-1', initial))
+    const { result } = renderHook(() =>
+      useTableView('/api/characters/char-1', initial),
+    )
 
     expect(result.current).toEqual({ view: initial, connection: 'live' })
     await advance(POLL_INTERVAL)
@@ -80,7 +82,10 @@ describe('hooks/use-table-view', () => {
       .mocked(fetch)
       .mockResolvedValueOnce(respond(200, { ...newer, rollsToTable: [] }))
     renderHook(() =>
-      useTableView('char-1', { ...initial, rollsToTable: ['skill', 'save'] }),
+      useTableView('/api/characters/char-1', {
+        ...initial,
+        rollsToTable: ['skill', 'save'],
+      }),
     )
 
     await advance(POLL_INTERVAL)
@@ -97,6 +102,35 @@ describe('hooks/use-table-view', () => {
     )
   })
 
+  it("asks for news at the Gamemaster's seat with where their rolls go, as it has it (#156)", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        respond(200, { ...newer, gm: { rolls: 'update' } }),
+      )
+    renderHook(() =>
+      useTableView('/api/campaigns/c1/characters/balin', {
+        ...initial,
+        rollsToTable: ['skill'],
+        gm: { rolls: 'made' },
+      }),
+    )
+
+    // Without it the server, which compares it too, never says nothing is new.
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/campaigns/c1/characters/balin/table?version=3&live=1&rolls=skill&gm=made',
+      expect.anything(),
+    )
+
+    jest.mocked(fetch).mockResolvedValueOnce(respond(204))
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/campaigns/c1/characters/balin/table?version=4&live=0&gm=update',
+      expect.anything(),
+    )
+  })
+
   it('keeps the sheet it has when the server leaves out an unchanged one', async () => {
     const sheet = { ac: 18 } as TableView['sheet']
     const start = {
@@ -109,7 +143,9 @@ describe('hooks/use-table-view', () => {
       .mockResolvedValueOnce(
         respond(200, { ...newer, sheetVersion: start.sheetVersion }),
       )
-    const { result } = renderHook(() => useTableView('char-1', start))
+    const { result } = renderHook(() =>
+      useTableView('/api/characters/char-1', start),
+    )
 
     await advance(POLL_INTERVAL)
 
@@ -153,7 +189,9 @@ describe('hooks/use-table-view', () => {
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockResolvedValueOnce(respond(503))
       .mockResolvedValueOnce(respond(204))
-    const { result } = renderHook(() => useTableView('char-1', initial))
+    const { result } = renderHook(() =>
+      useTableView('/api/characters/char-1', initial),
+    )
 
     await advance(POLL_INTERVAL)
     expect(result.current.connection).toBe('reconnecting')
@@ -171,7 +209,7 @@ describe('hooks/use-table-view', () => {
 
   it.each([401, 404])('stops and lets the page explain a %s', async status => {
     jest.mocked(fetch).mockResolvedValue(respond(status))
-    renderHook(() => useTableView('char-1', initial))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
 
     await advance(POLL_INTERVAL)
     await advance(POLL_INTERVAL * 10)
@@ -182,7 +220,7 @@ describe('hooks/use-table-view', () => {
 
   it('rests in the background and catches up on return', async () => {
     jest.mocked(fetch).mockResolvedValue(respond(204))
-    renderHook(() => useTableView('char-1', initial))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
 
     visibility = 'hidden'
     await advance(POLL_INTERVAL * 3)
@@ -201,7 +239,9 @@ describe('hooks/use-table-view', () => {
       request = init
       return new Promise(() => {})
     })
-    const { unmount } = renderHook(() => useTableView('char-1', initial))
+    const { unmount } = renderHook(() =>
+      useTableView('/api/characters/char-1', initial),
+    )
 
     await advance(POLL_INTERVAL)
     unmount()
@@ -219,7 +259,7 @@ describe('hooks/use-table-view', () => {
         }),
     )
     const { result, unmount } = renderHook(() =>
-      useTableView('char-1', initial),
+      useTableView('/api/characters/char-1', initial),
     )
 
     await advance(POLL_INTERVAL)

@@ -815,6 +815,11 @@ export type SheetResourceFavorite = {
   id: string
   name: string
   uses: SheetUses | null
+  /**
+   * The feature it stands for, by its id in `features` and `actions`, or null for none, as the
+   * module finds it. Module 0.23.0; absent before, where the app finds it by name.
+   */
+  itemId?: string | null
 }
 
 /**
@@ -1001,6 +1006,12 @@ export type SerializedMessage = {
    * message. Module 0.17.0; absent before. The check one asks for, from module 0.18.0.
    */
   ask?: MessageAsk | null
+  /**
+   * The roll it says the campaign's Gamemaster made here as a character, by its id: a claim its
+   * author could write, which only marks the message once checked against the rolls handed over.
+   * Module 0.23.0.
+   */
+  gmRoll?: string
 }
 
 export type CombatantSummary = {
@@ -1056,6 +1067,11 @@ export type BridgeFeatures = {
     signedDice?: boolean
     /** Whether a use may be made at its user, as `self` on its request asks. Module 0.22.0. */
     selfTargets?: boolean
+    /**
+     * Whether a roll may say it's the campaign's Gamemaster's, `by: "gm"`, made as the character
+     * and marked as theirs. Module 0.23.0.
+     */
+    gmRolls?: boolean
   } | null
 }
 

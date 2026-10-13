@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LONG_PRESS } from './roll-button'
-import { RollTray, type TableRolls } from './roll-tray'
+import { briefOf, RollTray, type TableRolls } from './roll-tray'
 import type {
   LocalAsk,
   LocalCheck,
@@ -2639,5 +2639,523 @@ describe('components/character-sheet/roll-tray for enchant activities, from modu
     expect(screen.getByRole('status')).toHaveTextContent(
       'Not ended at the table: that enchantment can’t be ended from here',
     )
+  })
+})
+
+describe('components/character-sheet/roll-tray, in brief for its toast', () => {
+  /** A damage roll the game rolls itself, with no dice here. */
+  const theirs = damage({
+    id: 'd2',
+    label: 'Club damage',
+    total: 0,
+    parts: [{ type: 'Bludgeoning', total: 0, terms: [] }],
+  })
+  /** Damage with a die rerolled here, which the game throws again itself. */
+  const rerolled = damage({
+    id: 'd3',
+    label: 'Greatsword damage',
+    total: 9,
+    parts: [
+      {
+        type: 'Slashing',
+        total: 9,
+        terms: [
+          {
+            text: '2d6r<=2',
+            values: [1, 4],
+            value: 9,
+            thrown: [
+              { value: 1, active: false, rerolled: true },
+              { value: 4, active: true },
+              { value: 5, active: true },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+  const shown: TableRollState = { status: 'done', visible: true, total: 23 }
+
+  it.each<
+    [string, Parameters<typeof briefOf>, string, number | string | undefined]
+  >([
+    [
+      'a natural 20',
+      [roll({ natural: 20, d20s: [20], total: 24 })],
+      'critical',
+      24,
+    ],
+    ['a natural 1', [roll({ natural: 1, d20s: [1], total: 5 })], 'fumble', 5],
+    ['any other check', [roll()], 'plain', 16],
+    ['damage', [damage()], 'damage', 16],
+    ['healing', [damage({ healing: true })], 'healing', 16],
+    [
+      'damage the game rolls, on its way',
+      [theirs, { status: 'sending' }],
+      'damage',
+      '…',
+    ],
+    [
+      'damage the game rolls, made blind',
+      [theirs, { status: 'done', visible: false }],
+      'damage',
+      '…',
+    ],
+    ['damage the game rolled', [theirs, shown], 'damage', 23],
+    [
+      'damage thrown again there, on its way',
+      [rerolled, { status: 'rolling' }],
+      'damage',
+      '…',
+    ],
+    ['damage thrown again there, made', [rerolled, shown], 'damage', 23],
+    [
+      'damage thrown again there, refused',
+      [rerolled, { status: 'refused', reason: 'busy' }],
+      'damage',
+      9,
+    ],
+    [
+      'damage the game adds up, once made',
+      [damage({ gameTotal: true }), shown],
+      'damage',
+      23,
+    ],
+    ['a hit die', [hitDie()], 'plain', 9],
+    [
+      'a use',
+      [{ kind: 'use', id: 'u1', label: 'Bless', spell: true, at: 0 }],
+      'use',
+      undefined,
+    ],
+    [
+      'an ask',
+      [{ kind: 'ask', id: 'a1', label: 'DC 15 Dexterity saving throw', at: 0 }],
+      'ask',
+      undefined,
+    ],
+  ])(
+    'B1 colours %s as the tray does, with its total',
+    (_, args, badge, total) => {
+      const brief = briefOf(...args)
+      expect(brief.badge).toBe(badge)
+      expect(brief.total).toBe(total)
+      if (args[0].kind === 'use' || args[0].kind === 'ask') {
+        expect(brief.dice).toBeUndefined()
+        return
+      }
+      // The tray shows the same total, in the same colours.
+      render(
+        <RollTray
+          rolls={[args[0]]}
+          rolling={false}
+          table={{
+            states: new Map(args[1] ? [[args[0].id, args[1]]] : []),
+            available: true,
+            sending: true,
+          }}
+        />,
+      )
+      const badgeOf = (screen.getByRole('status').querySelector('span') ??
+        undefined) as HTMLElement
+      expect(badgeOf).toHaveTextContent(String(total))
+      const colour = {
+        critical: 'bg-gold',
+        fumble: 'bg-ruby',
+        plain: 'bg-primary/10',
+        damage: 'bg-damage/15',
+        healing: 'bg-primary/10',
+      }[badge]
+      expect(badgeOf).toHaveClass(colour as string)
+    },
+  )
+
+  it.each<[string, Parameters<typeof briefOf>, string]>([
+    [
+      'a check with advantage, against a DC this roll saved',
+      [
+        roll({
+          natural: 14,
+          d20s: [9, 14],
+          modifier: 3,
+          total: 17,
+          advantage: 'adv',
+          dc: 15,
+        }),
+      ],
+      'd20 14 +3 · Advantage · DC 15 · Saved',
+    ],
+    [
+      'a check against a DC this roll passed',
+      [
+        roll({ dc: 15, verdict: 'check' }),
+        { status: 'refused', reason: 'busy' },
+      ],
+      'd20 12 +4 · DC 15 · Passed',
+    ],
+    [
+      'a save against a DC this roll failed, where the game did not make it',
+      [roll({ dc: 18 }), { status: 'expired' }],
+      'd20 12 +4 · DC 18 · Failed',
+    ],
+    [
+      'a save against a DC the game made',
+      [roll({ dc: 15 }), { status: 'done', visible: true, total: 16 }],
+      'd20 12 +4 · DC 15',
+    ],
+    [
+      'a save against a DC on its way',
+      [roll({ dc: 15 }), { status: 'sending' }],
+      'd20 12 +4 · DC 15',
+    ],
+    [
+      'a check with what the player added, with disadvantage, a natural 1',
+      [
+        roll({
+          natural: 1,
+          d20s: [1, 15],
+          total: 10,
+          advantage: 'dis',
+          extras: [
+            { text: '+1d4', values: [3], value: 3 },
+            { text: '+2', values: [], value: 2 },
+          ],
+        }),
+      ],
+      'd20 1 +4 +1d4 (3) +2 · Disadvantage · Natural 1',
+    ],
+    [
+      'a natural 20 with a penalty',
+      [roll({ natural: 20, d20s: [20], modifier: -1, total: 19 })],
+      'd20 20 −1 · Natural 20',
+    ],
+    [
+      'damage',
+      [damage({ critical: true })],
+      '9 Slashing + 7 Fire · Critical hit',
+    ],
+    [
+      'damage at its highest',
+      [damage({ maximized: true })],
+      '9 Slashing + 7 Fire · Maximum',
+    ],
+    [
+      'damage the game rolls',
+      [theirs, { status: 'sending' }],
+      'rolled at the table',
+    ],
+    [
+      'damage thrown again there',
+      [rerolled, shown],
+      'thrown again at the table',
+    ],
+    ['a hit die', [hitDie()], '7 +2'],
+    ['a hit die, at its least', [hitDie({ minimum: 1 })], '7 +2, at least 1'],
+  ])('B2 says the dice of %s in a line', (_, args, dice) => {
+    expect(briefOf(...args).dice).toBe(dice)
+  })
+
+  /** Each kind of roll the tray shows, as it's sent to the table. */
+  const kinds: [
+    string,
+    LocalCheck | LocalDamage | LocalFormula | LocalUse | LocalAsk,
+  ][] = [
+    ['a check', roll()],
+    ['a check against a DC', roll({ dc: 15, verdict: 'check' })],
+    ['damage', damage()],
+    ['damage the game rolls', theirs],
+    ['hit dice', hitDie()],
+    [
+      'a spell',
+      { kind: 'use', id: 'u1', label: 'Fireball', spell: true, at: 0 },
+    ],
+    [
+      'a feature',
+      { kind: 'use', id: 'u2', label: 'Second Wind', spell: false, at: 0 },
+    ],
+    [
+      'an enchantment ended',
+      {
+        kind: 'use',
+        id: 'u3',
+        label: 'Ablaze',
+        spell: false,
+        ending: true,
+        at: 0,
+      },
+    ],
+    [
+      'an ask',
+      { kind: 'ask', id: 'a1', label: 'DC 15 Dexterity saving throw', at: 0 },
+    ],
+  ]
+  const attack = (fields: Partial<NonNullable<TableRollState['attack']>>) => ({
+    critical: false,
+    fumble: false,
+    outcome: null,
+    ...fields,
+  })
+  const preview = {
+    critical: false,
+    plannable: true,
+    rolls: [{ formula: '8d6', type: 'fire', dice: [{ faces: 6, number: 8 }] }],
+  }
+  /** Each way to the game the tray says, and whether it's on its way, made there, or not. */
+  const ways: [string, TableRollState, 'pending' | 'made' | 'not'][] = [
+    ['sent', { status: 'sending' }, 'pending'],
+    ['being made', { status: 'rolling' }, 'pending'],
+    [
+      'sent, a die of three',
+      { status: 'sending', together: { count: 3, made: 1 } },
+      'pending',
+    ],
+    [
+      'being made, a die of three',
+      { status: 'rolling', together: { count: 3, made: 2 } },
+      'pending',
+    ],
+    ['made', { ...shown }, 'made'],
+    ['made, its total unsaid', { status: 'done', visible: true }, 'made'],
+    ['a hit', { ...shown, attack: attack({ outcome: 'hit' }) }, 'made'],
+    ['a miss', { ...shown, attack: attack({ outcome: 'miss' }) }, 'made'],
+    [
+      'a critical hit',
+      { ...shown, attack: attack({ critical: true, outcome: 'hit' }) },
+      'made',
+    ],
+    [
+      'an area attack',
+      {
+        ...shown,
+        attack: attack({
+          targets: [
+            { combatId: 'c1', combatantId: 'g1', outcome: 'hit' },
+            { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+            { combatId: 'c1', combatantId: 'g3', outcome: 'hit' },
+          ],
+        }),
+        targetNames: { g1: 'Goblin' },
+      },
+      'made',
+    ],
+    ['saved', { ...shown, outcome: 'success' }, 'made'],
+    ['failed', { ...shown, total: 7, outcome: 'failure' }, 'made'],
+    ['healing', { ...shown, total: 9, healed: 9 }, 'made'],
+    ['made blind', { status: 'done', visible: false }, 'made'],
+    [
+      'used, its damage to follow',
+      {
+        status: 'done',
+        visible: true,
+        use: { type: 'save' },
+        damage: preview,
+        requestId: 'req-1',
+      },
+      'made',
+    ],
+    [
+      'an enchantment applied',
+      {
+        status: 'done',
+        visible: true,
+        use: { type: 'enchant' },
+        damage: null,
+        enchantment: {
+          enchanted: {
+            item: 'longsword',
+            itemName: 'Longsword',
+            effect: 'effect000000002',
+            profile: 'SLSudYaACjmmmZsU',
+            name: 'Magic Weapon, +1',
+          },
+          ended: null,
+        },
+      },
+      'made',
+    ],
+    ['refused, too many at once', { status: 'refused', reason: 'busy' }, 'not'],
+    ['refused, unreached', { status: 'refused', reason: 'network' }, 'not'],
+    ['refused, for an error', { status: 'refused', reason: 'error' }, 'not'],
+    ['refused, out of slots', { status: 'refused', reason: 'slots' }, 'not'],
+    ['failed, too long', { status: 'failed', reason: 'timeout' }, 'not'],
+    [
+      'failed, at a slot an item cast it',
+      { status: 'failed', reason: 'slot', itemCast: true },
+      'not',
+    ],
+    [
+      'failed, out of hit dice',
+      { status: 'failed', reason: 'no-hit-dice', hitDice: true },
+      'not',
+    ],
+    [
+      'failed, its enchantment on no card',
+      { status: 'failed', reason: 'enchant', card: false },
+      'not',
+    ],
+    [
+      'failed, for a reason unknown',
+      { status: 'failed', reason: 'gremlins' },
+      'not',
+    ],
+    ['expired', { status: 'expired' }, 'not'],
+    ['lost', { status: 'lost' }, 'not'],
+    [
+      'made in part',
+      {
+        status: 'failed',
+        reason: 'full-hp',
+        together: { count: 3, made: 1 },
+        healed: 9,
+      },
+      'not',
+    ],
+  ]
+
+  it.each(
+    kinds.flatMap(([kind, sent]) =>
+      ways.map(
+        ([way, state, tone]) => [`${kind}, ${way}`, sent, state, tone] as const,
+      ),
+    ),
+  )('B3 says of %s what the tray says', (_, sent, state, tone) => {
+    const brief = briefOf(sent, state)
+    render(
+      <RollTray
+        rolls={[sent]}
+        rolling={false}
+        table={{
+          states: new Map([[sent.id, state]]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    const status = screen.getByRole('status')
+
+    expect(brief.label).toBe(sent.label)
+    expect(brief.table?.text).toBeTruthy()
+    expect(status.textContent).toContain(brief.table?.text)
+    expect(brief.table?.tone).toBe(tone)
+    // As the tray colours its line: a warning where it wasn't made, a spinner while on its way.
+    expect(status.querySelector('.text-warning') !== null).toBe(tone === 'not')
+    expect(status.querySelector('[class*="animate-spin"]') !== null).toBe(
+      tone === 'pending',
+    )
+  })
+
+  it.each([
+    ['a check', roll()],
+    ['damage', damage()],
+    ['hit dice', hitDie()],
+    [
+      'a use',
+      { kind: 'use', id: 'u1', label: 'Bless', spell: true, at: 0 } as LocalUse,
+    ],
+  ])('B3 says nothing of the table for %s never sent', (_, kept) => {
+    expect(briefOf(kept).table).toBeUndefined()
+  })
+
+  it.each<[string, TableRollState | undefined, string]>([
+    [
+      'too soon after another',
+      { status: 'refused', reason: 'busy' },
+      'Not posted to the table: the table was asked a moment ago. Wait a little before asking again',
+    ],
+    ['never sent', undefined, 'Not posted to the table'],
+    ['posted', { status: 'done', visible: true }, 'Posted to the table’s chat'],
+    [
+      'being posted',
+      { status: 'rolling' },
+      'Posting it in your Gamemaster’s game…',
+    ],
+  ])('B4 says an ask %s in its own words', (_, state, text) => {
+    const ask: LocalAsk = {
+      kind: 'ask',
+      id: 'a1',
+      label: 'DC 15 Dexterity saving throw',
+      at: 0,
+    }
+    expect(briefOf(ask, state).table?.text).toBe(text)
+  })
+
+  it.each<[string, Parameters<typeof briefOf>, string]>([
+    [
+      'too many at once',
+      [roll(), { status: 'refused', reason: 'busy' }],
+      'Not made at the table: too many rolls at once. Wait a moment',
+    ],
+    [
+      'unreached',
+      [roll(), { status: 'refused', reason: 'network' }],
+      'Not made at the table: Sending Stone couldn’t be reached',
+    ],
+    [
+      'unpicked',
+      [roll(), { status: 'expired' }],
+      'Not made at the table: your Gamemaster’s game didn’t pick it up',
+    ],
+    [
+      'for an unknown reason',
+      [roll(), { status: 'failed', reason: 'gremlins' }],
+      'Not made at the table',
+    ],
+    [
+      'out of slots',
+      [
+        { kind: 'use', id: 'u1', label: 'Fireball', spell: true, at: 0 },
+        { status: 'refused', reason: 'slots' },
+      ],
+      'Not cast at the table: you have no spell slots left for it',
+    ],
+    [
+      'an attack hit',
+      [roll(), { ...shown, attack: attack({ outcome: 'hit' }) }],
+      'At the table: 23 · Hit',
+    ],
+    [
+      'three hit dice, one made',
+      [
+        hitDie(),
+        {
+          status: 'failed',
+          reason: 'full-hp',
+          together: { count: 3, made: 1 },
+          healed: 9,
+        },
+      ],
+      '1 of 3 made at the table · 9 HP regained. Not the rest: you’re at full hit points',
+    ],
+    [
+      'hit dice sent one by one',
+      [hitDie(), { status: 'sending', together: { count: 3, made: 1 } }],
+      'Sending die 2 of 3 to your Gamemaster’s game…',
+    ],
+    [
+      'an enchantment ended',
+      [
+        {
+          kind: 'use',
+          id: 'u3',
+          label: 'Ablaze',
+          spell: false,
+          ending: true,
+          at: 0,
+        },
+        { status: 'done', visible: true },
+      ],
+      'Ended at the table',
+    ],
+  ])('B3 reads, %s, as the contract words it', (_, args, text) => {
+    expect(briefOf(...args).table?.text).toBe(text)
+  })
+
+  it('B6 leaves the status unannounced where toasts say it, a status either way', () => {
+    const { rerender } = render(<RollTray rolls={[roll()]} rolling={false} />)
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+
+    rerender(<RollTray rolls={[roll()]} rolling={false} announce={false} />)
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'off')
+    expect(screen.getByRole('status')).toHaveTextContent('Perception check')
   })
 })

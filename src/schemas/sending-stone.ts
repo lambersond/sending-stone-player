@@ -700,6 +700,10 @@ const favoriteSchema = z.discriminatedUnion('type', [
     id: z.string(),
     name: z.string(),
     uses: usesSchema,
+    // From module 0.23.0, the feature it stands for. One malformed is as good as none: the app
+    // finds the feature by name, and keeps the favorite.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as by older modules
+    itemId: z.string().nullable().optional().catch(undefined),
   }),
 ])
 
@@ -1047,6 +1051,14 @@ const messageSchema = z.looseObject({
   dnd5e: dnd5eSchema,
   // From module 0.17.0.
   ask: askSchema,
+  // From module 0.23.0: the roll a message says the campaign's Gamemaster made here as a character.
+  // Its author may write it, so it's only a claim, checked against the rolls handed over.
+  gmRoll: z
+    .string()
+    .regex(/^[\w-]{1,64}$/)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- no claim, where it can't be read
+    .catch(undefined),
 })
 
 /**
@@ -1074,6 +1086,9 @@ const featuresSchema = z
         signedDice: z.boolean().optional().catch(false),
         // From module 0.22.0: whether a use may be made at its user.
         selfTargets: z.boolean().optional().catch(false),
+        // From module 0.23.0: whether a roll may say it's the Gamemaster's, made as the character
+        // and marked as theirs.
+        gmRolls: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()

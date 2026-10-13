@@ -2199,6 +2199,34 @@ describe('schemas/sending-stone', () => {
     ])
   })
 
+  it('reads the feature a resource stands for, from module 0.23.0, keeping the resource where it is malformed', () => {
+    const [resource] = sheetFavorites()
+    const event = parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: fullerSheet({
+          favorites: [
+            { ...resource, itemId: 'second-wind' },
+            { ...resource, id: 'secondary', itemId: null },
+            { ...resource, id: 'tertiary' },
+            { ...resource, id: 'quaternary', itemId: 7 },
+          ] as any,
+        }),
+      },
+    }) as any
+    const read = event.data.character.sheet.favorites
+
+    expect(read).toEqual([
+      { ...resource, itemId: 'second-wind' },
+      { ...resource, id: 'secondary', itemId: null },
+      { ...resource, id: 'tertiary' },
+      { ...resource, id: 'quaternary' },
+    ])
+    // Absent, from an older module, or malformed: the app finds the feature by name.
+    expect(read[2].itemId).toBeUndefined()
+    expect(read[3].itemId).toBeUndefined()
+  })
+
   it('reads the tools the character has, from module 0.18.0, dropping a malformed one; none before', () => {
     const thief = {
       id: 'thief',
@@ -3195,5 +3223,40 @@ describe('Self, from module 0.22.0', () => {
         .selfTargets,
     ).toBe(false)
     expect(helloWith({ rolls }).features.rolls.selfTargets).toBeFalsy()
+  })
+})
+
+/** The Gamemaster's roll a chat message claims it was made for, as read. */
+const claimOf = (gmRoll?: unknown) => {
+  const { message } = parseGameEvent('chat.message.created', {
+    message: {
+      id: 'm1',
+      timestamp: 1,
+      audience: { public: true, characters: [] },
+      ...(gmRoll !== undefined && { gmRoll }),
+    },
+  })?.data as any
+  return message.gmRoll
+}
+
+describe("The Gamemaster's rolls as a character, from module 0.23.0 (#156)", () => {
+  it('reads a hello saying the game makes them, and nothing where it says nothing, or what it cannot', () => {
+    const rolls = { enabled: true, kinds: ['skill'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, gmRolls: true } }).features.rolls.gmRolls,
+    ).toBe(true)
+    expect(
+      helloWith({ rolls: { ...rolls, gmRolls: 'yes' } }).features.rolls.gmRolls,
+    ).toBe(false)
+    expect(helloWith({ rolls }).features.rolls.gmRolls).toBeFalsy()
+  })
+
+  it("reads a message's claim of the Gamemaster's roll it was made for, and no claim it can't", () => {
+    expect(claimOf('cmgm0roll000001')).toBe('cmgm0roll000001')
+    expect(claimOf('req-1_a')).toBe('req-1_a')
+    for (const junk of [7, '', 'a b', 'x'.repeat(65), '<b>', null, {}]) {
+      expect(claimOf(junk)).toBeUndefined()
+    }
+    expect(claimOf()).toBeUndefined()
   })
 })

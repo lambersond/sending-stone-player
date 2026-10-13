@@ -90,6 +90,7 @@ import type {
   SheetForward,
   SheetSpell,
   SheetSpellSection,
+  SheetUses,
 } from '@/types/sending-stone'
 
 /*
@@ -172,6 +173,12 @@ export type EntryLook = {
   facts?: { label: string; value: string }[]
   /** Faded, such as a spell not prepared. */
   muted?: boolean
+  /**
+   * Uses to show in place of its own, such as those of the resource a favorite feature stands
+   * for; null for none. Only shown: what it spends in the game is its own. Given, they're shown
+   * however narrow the list, as they're what it's there for.
+   */
+  uses?: SheetUses | null
 }
 
 /**
@@ -419,7 +426,8 @@ export function ActionEntry({
   const view = viewOf(action, rows.spellbook, rows.use)
   const cast = castOf(action, rows.casts)
   const others = otherActivities(action, rows.spellbook)
-  const { name, uses } = action
+  const { name } = action
+  const uses = look.uses === undefined ? action.uses : look.uses
   const detail =
     look.detail ??
     joinParts(
@@ -473,7 +481,14 @@ export function ActionEntry({
           </span>
         </button>
         {look.marks}
-        {uses && <ChipUses uses={uses} view={view} action={action} />}
+        {uses && (
+          <ChipUses
+            uses={uses}
+            view={view}
+            action={action}
+            always={look.uses !== undefined}
+          />
+        )}
         <ActionChips action={action} view={view} rows={rows} />
       </div>
       {open && (
@@ -832,15 +847,20 @@ export function activityDetail(
   ]
 }
 
-/** An action's uses beside what it rolls, which in a narrow list are listed when it opens. */
+/**
+ * An action's uses beside what it rolls, which in a narrow list are listed when it opens; unless
+ * they're to be shown `always`, such as a resource's count among the favorites.
+ */
 function ChipUses({
   uses,
   view,
   action,
+  always = false,
 }: Readonly<{
   uses: NonNullable<SheetAction['uses']>
   view: ReturnType<typeof viewOf>
   action: SheetAction
+  always?: boolean
 }>) {
   const rolls =
     action.toHit !== null ||
@@ -851,8 +871,8 @@ function ChipUses({
     !!action.rollFormula
   return (
     // Beside what the action rolls, in a narrow list, its uses would leave its name too little
-    // room; they're listed when it opens.
-    <span className={clsx('shrink-0', rolls && 'hidden @md:inline')}>
+    // room; they're listed when it opens. A count shown always cuts the name short instead.
+    <span className={clsx('shrink-0', rolls && !always && 'hidden @md:inline')}>
       <UsesLeft uses={uses} />
     </span>
   )
@@ -1552,6 +1572,7 @@ export function ActionDetails({
       {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
       <Facts
         action={spell ? castAs(action, spell) : action}
+        uses={look.uses}
         pools={pools}
         casting={!!spell}
         more={[

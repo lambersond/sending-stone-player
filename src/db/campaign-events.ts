@@ -1,5 +1,5 @@
 import prisma from '@/clients/prisma'
-import { ROLL_KINDS } from '@/constants/sending-stone'
+import { ROLL_ANSWER_WITHIN, ROLL_KINDS } from '@/constants/sending-stone'
 import {
   keepOnlySheetTexts,
   lacksSheetTexts,
@@ -86,7 +86,8 @@ async function apply(
           // ask players for the saves their game asks of them; from module 0.16.0, make area
           // attacks at the combatants players pick; from module 0.21.0, make a check an activity
           // asks for, the player's own, against it, and change a description's damage only on a
-          // die it adds; from module 0.22.0, make a use at its user.
+          // die it adds; from module 0.22.0, make a use at its user; from module 0.23.0, make the
+          // Gamemaster's rolls as a character, marked as theirs.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -96,6 +97,7 @@ async function apply(
               : []),
             ...(features?.rolls?.signedDice === true ? ['signedDice'] : []),
             ...(features?.rolls?.selfTargets === true ? ['selfTargets'] : []),
+            ...(features?.rolls?.gmRolls === true ? ['gmRolls'] : []),
           ],
         },
       })
@@ -288,10 +290,34 @@ async function saveMessage(
     readers: message.audience.characters,
     data: toJson(message),
   }
+  // Made for the Gamemaster's roll as a character (#156) only where the roll it names is one this
+  // app handed over as this campaign's Gamemaster's, as the character that speaks it, and while it
+  // was being made: the message's author, the character's player, could write the claim, and copy
+  // a real one from a card of the Gamemaster's they're the author of. The module posts a roll's
+  // messages before what became of it, so they come while it's being made; a little after counts
+  // too, as does any time after the module said it took too long, when it may yet be made. Once
+  // marked, it stays marked, whatever an edit later says.
+  const actorId = message.speaker.actorId
+  const byGm =
+    !!message.gmRoll &&
+    !!actorId &&
+    (await tx.rollRequest.count({
+      where: {
+        id: message.gmRoll,
+        campaignId,
+        role: 'gm',
+        actorId,
+        OR: [
+          { status: 'claimed' },
+          { completedAt: { gt: new Date(Date.now() - ROLL_ANSWER_WITHIN) } },
+          { status: 'failed', result: { path: ['reason'], equals: 'timeout' } },
+        ],
+      },
+    })) > 0
   await tx.chatMessage.upsert({
     where: { campaignMessage: { campaignId, messageId: message.id } },
-    create: { campaignId, messageId: message.id, ...fields },
-    update: fields,
+    create: { campaignId, messageId: message.id, ...fields, byGm },
+    update: { ...fields, ...(byGm && { byGm: true }) },
   })
 }
 

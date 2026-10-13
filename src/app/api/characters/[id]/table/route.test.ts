@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
 import { notePlayersSeen } from '@/db/roll-requests'
+import { playerSeat } from '@/db/seats'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
 import type { RollKind } from '@/types/roll'
@@ -25,6 +26,8 @@ const character = {
   campaignId: 'c1',
   actorId: 'actor-thorin',
 }
+/** Its player at its sheet. */
+const seat = playerSeat(character, 'user-1')
 const view = { version: 7, live: true, connected: true, messages: [] }
 
 const get = (query = '') =>
@@ -57,7 +60,7 @@ describe('app/api/characters/[id]/table', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual(view)
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
-    expect(getTableView).toHaveBeenCalledWith(character, {
+    expect(getTableView).toHaveBeenCalledWith(seat, {
       sheetVersion: undefined,
     })
   })
@@ -65,7 +68,7 @@ describe('app/api/characters/[id]/table', () => {
   it('passes on the version of the sheet the viewer has, to leave it out if unchanged', async () => {
     await get('?version=6&live=1&sheet=2026-10-05T12%3A00%3A00.000Z')
 
-    expect(getTableView).toHaveBeenCalledWith(character, {
+    expect(getTableView).toHaveBeenCalledWith(seat, {
       sheetVersion: '2026-10-05T12:00:00.000Z',
     })
   })
@@ -74,7 +77,7 @@ describe('app/api/characters/[id]/table', () => {
     const response = await get('?version=7&live=1')
 
     expect(response.status).toBe(204)
-    expect(getCampaignStatus).toHaveBeenCalledWith(character)
+    expect(getCampaignStatus).toHaveBeenCalledWith(seat)
     expect(getTableView).not.toHaveBeenCalled()
 
     jest.mocked(getCampaignStatus).mockResolvedValue({

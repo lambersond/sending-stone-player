@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 import { POST } from './route'
 import { getCharacter } from '@/db/characters'
 import { createRollRequest } from '@/db/roll-requests'
+import { playerSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -19,6 +20,8 @@ const character = {
   campaignId: 'c1',
   actorId: 'actor-thorin',
 }
+/** Its player at its sheet. */
+const seat = playerSeat(character, 'user-1')
 
 const perception = {
   kind: 'skill',
@@ -56,7 +59,7 @@ describe('app/api/characters/[id]/rolls', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual({ id: 'req-1' })
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
-    expect(createRollRequest).toHaveBeenCalledWith(character, perception)
+    expect(createRollRequest).toHaveBeenCalledWith(seat, perception)
   })
 
   it('takes an attack at a combatant, then its damage', async () => {
@@ -72,7 +75,7 @@ describe('app/api/characters/[id]/rolls', () => {
     }
     const attacked = await post(attack)
     expect(attacked.status).toBe(202)
-    expect(createRollRequest).toHaveBeenLastCalledWith(character, attack)
+    expect(createRollRequest).toHaveBeenLastCalledWith(seat, attack)
 
     const damage = {
       kind: 'damage',
@@ -84,7 +87,7 @@ describe('app/api/characters/[id]/rolls', () => {
     }
     const damaged = await post(damage)
     expect(damaged.status).toBe(202)
-    expect(createRollRequest).toHaveBeenLastCalledWith(character, damage)
+    expect(createRollRequest).toHaveBeenLastCalledWith(seat, damage)
   })
 
   it.each([
@@ -108,6 +111,8 @@ describe('app/api/characters/[id]/rolls', () => {
     ['not JSON', 'nope'],
     ['a roll with dice it does not throw', { ...perception, mode: 0 }],
     ['a formula', { ...perception, formula: '1d20 + 99' }],
+    // Whose roll it is comes from the page it's sent from, never from what it says (#156).
+    ['a roll saying it is the Gamemaster’s', { ...perception, by: 'gm' }],
   ])('refuses %s', async (_, body) => {
     const response = await post(body)
 

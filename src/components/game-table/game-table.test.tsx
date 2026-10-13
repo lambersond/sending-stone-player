@@ -153,7 +153,10 @@ describe('components/game-table/game-table', () => {
       screen.getByRole('button', { name: 'Combat , your turn' }),
     ).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('status')).toHaveTextContent('Live')
-    expect(useTableView).toHaveBeenCalledWith('char-1', expect.anything())
+    expect(useTableView).toHaveBeenCalledWith(
+      '/api/characters/char-1',
+      expect.anything(),
+    )
   })
 
   it('opens on the character otherwise, and switches tabs', async () => {
@@ -946,5 +949,217 @@ describe('components/game-table/game-table', () => {
         expect(screen.queryByText(/has been told/)).not.toBeInTheDocument()
       })
     })
+  })
+})
+
+/** What a message is, read: the Gamemaster's own roll, or the player's. */
+const theirs = (id: string, sentAt: string): TableMessage => ({
+  ...message(id, sentAt),
+  speaker: 'Thorin',
+  side: 'me',
+  byGm: true,
+})
+const mine = (id: string, sentAt: string): TableMessage => ({
+  ...message(id, sentAt),
+  speaker: 'Thorin',
+  side: 'me',
+})
+
+describe("components/game-table/game-table, the Gamemaster's seat (#156)", () => {
+  const thorin: Character = {
+    id: 'gm:c1:thorin',
+    name: 'Thorin',
+    gameUrl: 'https://my-game.forge-vtt.com',
+    campaignTitle: 'The Lonely Mountain',
+    campaignId: 'c1',
+    actorId: 'thorin',
+  }
+  const seat = {
+    role: 'gm' as const,
+    api: '/api/campaigns/c1/characters/thorin',
+    key: 'gm:c1:thorin',
+  }
+  // Handed in to show the Gamemaster's page never calls it, though its own page never hands it.
+  const gmTable = (initial: TableView) => (
+    <GameTable
+      character={thorin}
+      initialView={initial}
+      seat={seat}
+      markChatRead={markChatRead}
+    />
+  )
+  const renderGm = (initial = view({ gm: { rolls: 'made' } })) => {
+    current = { view: initial, connection: 'live' }
+    jest.mocked(useTableView).mockImplementation(() => current)
+    return render(gmTable(initial))
+  }
+  it('shows the sheet through the seat’s own API, marked GM, with a way back to the campaigns and none to delete it', () => {
+    renderGm()
+
+    expect(useTableView).toHaveBeenCalledWith(seat.api, expect.anything())
+    expect(nameOf()).toHaveTextContent(/^Thorin$/)
+    const pill = besideName() as HTMLElement
+    expect(pill).toHaveTextContent('GM, Gamemaster view')
+    expect(within(pill).getByText(', Gamemaster view')).toHaveClass('sr-only')
+    expect(
+      screen.getByRole('link', { name: 'Your campaigns' }),
+    ).toHaveAttribute('href', '/campaigns')
+    expect(screen.queryByRole('link', { name: 'All characters' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Delete/ })).toBeNull()
+  })
+
+  it('cuts a long name short before the GM pill, which stays in view on a phone', () => {
+    renderGm()
+    const pill = besideName() as HTMLElement
+
+    // The name gives way within the pair, which stands where a player's name alone does.
+    expect(nameOf()).toHaveClass('min-w-0', 'truncate')
+    expect(nameOf()).not.toHaveClass('shrink-0')
+    expect(pill).toHaveClass('shrink-0')
+    expect(nameOf().parentElement).toHaveClass('max-w-full', 'shrink-0')
+
+    renderTable()
+    expect(screen.getAllByRole('heading', { level: 1 })[1]).toHaveClass(
+      'max-w-full',
+      'shrink-0',
+      'truncate',
+    )
+  })
+
+  it.each([
+    [
+      'made',
+      "You're at Thorin's sheet as the Gamemaster. What you roll here is made in your game as Thorin's, marked as yours.",
+    ],
+    [
+      'update',
+      "You're at Thorin's sheet as the Gamemaster. Your rolls stay here: update Sending Stone in Foundry to 0.23.0 to make them in your game as Thorin's.",
+    ],
+    [
+      'off',
+      "You're at Thorin's sheet as the Gamemaster. Your rolls stay here while your game isn't taking rolls from Sending Stone.",
+    ],
+  ] as const)('says where the Gamemaster’s rolls go: %s', (rolls, note) => {
+    renderGm(view({ gm: { rolls } }))
+
+    expect(screen.getByText(note)).toBeInTheDocument()
+  })
+
+  it("follows where the rolls go as the view changes, and says nothing of it on the player's page", () => {
+    const { rerender } = renderGm(view({ gm: { rolls: 'update' } }))
+    showing({ view: view({ gm: { rolls: 'made' } }) })
+    rerender(gmTable(view()))
+    expect(screen.getByText(/marked as yours\.$/)).toBeInTheDocument()
+
+    renderTable()
+    expect(screen.getAllByText(/as the Gamemaster\./)).toHaveLength(1)
+  })
+
+  it("counts unread all but the Gamemaster's own rolls, from what was there when they came, never moving the player's place", async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderGm(
+      view({
+        messages: [message('m1', '2026-10-04T19:00:00.000Z')],
+        chatReadAt: '2026-10-04T18:00:00.000Z',
+        gm: { rolls: 'made' },
+      }),
+    )
+    expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
+
+    showing({
+      view: view({
+        messages: [
+          message('m1', '2026-10-04T19:00:00.000Z'),
+          theirs('m2', '2026-10-04T19:01:00.000Z'),
+          mine('m3', '2026-10-04T19:02:00.000Z'),
+          message('m4', '2026-10-04T19:03:00.000Z'),
+        ],
+        gm: { rolls: 'made' },
+      }),
+    })
+    rerender(gmTable(view()))
+    // The player's own roll counts: the Gamemaster didn't make it.
+    expect(
+      screen.getByRole('button', { name: 'Chat 2 unread' }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^Chat/ }))
+    expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
+    expect(markChatRead).not.toHaveBeenCalled()
+  })
+
+  it("counts the Gamemaster's rolls as a player's character unread for its player", () => {
+    renderTable(
+      view({
+        messages: [
+          message('m1', '2026-10-04T19:00:00.000Z'),
+          theirs('m2', '2026-10-04T19:01:00.000Z'),
+          mine('m3', '2026-10-04T19:02:00.000Z'),
+        ],
+        chatReadAt: '2026-10-04T19:00:00.000Z',
+      }),
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Chat 1 unread' }),
+    ).toBeInTheDocument()
+  })
+
+  it.each([
+    [
+      'with the sheet, a save asked for and the game offline',
+      {
+        sheet,
+        live: false,
+        prompts: [
+          {
+            id: 'msg1-thorin',
+            type: 'save' as const,
+            abilities: ['dex'],
+            expiresAt: '2099-01-01T00:00:00.000Z',
+          },
+        ],
+        rollsToTable: ['save' as const],
+        rollFeatures: ['prompts' as const],
+      },
+    ],
+    ['without a sheet, nor a combat', { combat: undefined }],
+    [
+      'with a sheet held back',
+      {
+        combat: undefined,
+        sheetWithheld: {
+          reason: 'tooLarge',
+          bytes: 5_000_000,
+          limit: 4_000_000,
+        },
+      },
+    ],
+    ['with a combat not yet begun', { combat: combat({ started: false }) }],
+  ])('never names the Gamemaster as someone else, %s', (_name, fields) => {
+    const { container } = renderGm(view({ gm: { rolls: 'made' }, ...fields }))
+
+    expect(container.textContent).not.toMatch(/your Gamemaster/i)
+    expect(container.textContent).not.toMatch(/The Gamemaster is/)
+  })
+
+  it('names the game as theirs: its saves asked for, its liveness, its sheets and combat', () => {
+    renderGm(
+      view({
+        combat: undefined,
+        live: false,
+        gm: { rolls: 'made' },
+        sheetWithheld: { reason: 'later', bytes: 5, limit: 4 },
+      }),
+    )
+
+    expect(
+      screen.getByText(
+        'Your Sending Stone module sends it under D&D Fifth Edition, from version 0.5.0. It arrives the next time your game connects.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Offline. Your game hasn't been heard from in the last two minutes.",
+    )
   })
 })

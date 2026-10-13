@@ -19,7 +19,11 @@ import {
 } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
 import { toTableSheet } from '@/utils/table-view'
-import type { CharacterSheet, SheetFavorite } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SheetFavorite,
+  SheetUses,
+} from '@/types/sending-stone'
 
 const GAME = 'https://my-game.forge-vtt.com'
 
@@ -54,6 +58,16 @@ const item = (id: string, itemType: string, name = id): SheetFavorite => ({
   name,
   img: null,
 })
+
+/** None left of 1 use, back after a short rest. */
+const NONE_LEFT: SheetUses = { value: 0, max: 1, recovery: 'Short Rest' }
+
+/** An old-style resource, standing for the feature the module says. */
+const resource = (
+  name: string,
+  itemId: string | null,
+  uses = NONE_LEFT,
+): SheetFavorite => ({ type: 'resource', id: 'secondary', name, uses, itemId })
 
 /** The rows' texts, in order. */
 const rows = () =>
@@ -759,6 +773,154 @@ describe('components/character-sheet/favorites', () => {
     ])
     // Nothing is marked a favorite among them, as every one is.
     expect(screen.queryByText(', favorite')).toBeNull()
+  })
+
+  describe('a resource that stands for a feature, from module 0.23.0', () => {
+    it("shows the feature's action, with the resource's uses, opening to its description", async () => {
+      const user = userEvent.setup()
+      render(
+        <FavoritesStrip
+          {...propsFor(withFavorites([resource('Second Wind', 'second-wind')]))}
+        />,
+      )
+
+      // As on the Actions tab, but with the resource's uses, not its own 1/1.
+      expect(rows()).toEqual([
+        'Second WindBonus Action · Self · Healing0/10 of 1 uses left1d10 + 5',
+      ])
+      expect(screen.getByText('0 of 1 uses left').parentElement).toHaveClass(
+        'text-ruby',
+      )
+      // Shown in a list however narrow, which its own uses beside what it rolls are not.
+      expect(screen.getByText('0 of 1 uses left').closest('.hidden')).toBeNull()
+      expect(screen.queryByText('1 of 1 uses left')).toBeNull()
+
+      await user.click(screen.getByText('Second Wind'))
+
+      expect(screen.getByText('0 of 1 left, Short Rest')).toBeInTheDocument()
+      expect(await screen.findByText('Fifty feet of rope.')).toBeInTheDocument()
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/characters/char-1/texts/${TEXTS.secondWind}`,
+        { signal: expect.any(AbortSignal) },
+      )
+    })
+
+    it("uses the sheet's own action in the game from its chips", async () => {
+      const user = userEvent.setup()
+      const onUse = jest.fn()
+      const sheet = withFavorites([resource('Second Wind', 'second-wind')])
+      const [, bonus] = sheet.actions
+      bonus.actions[0] = {
+        ...bonus.actions[0],
+        activity: {
+          id: 'breather',
+          type: 'heal',
+          targets: {
+            self: true,
+            area: false,
+            count: null,
+            perLevel: null,
+            affects: 'self',
+          },
+        },
+      }
+      const props = propsFor(sheet)
+      render(<FavoritesStrip {...props} onUse={onUse} />)
+
+      await user.click(
+        screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
+      )
+
+      expect(onUse).toHaveBeenCalledTimes(1)
+      expect(onUse.mock.calls[0][0]).toBe(props.sheet.actions[1].actions[0])
+      expect(onUse.mock.calls[0][0].uses).toEqual({
+        value: 1,
+        max: 1,
+        recovery: 'Short Rest, Long Rest',
+      })
+    })
+
+    it('names the resource first where it stands for a feature of another name', () => {
+      render(
+        <FavoritesStrip
+          {...propsFor(
+            withFavorites([
+              resource('Ki', 'second-wind', {
+                value: 3,
+                max: 5,
+                recovery: 'Short Rest',
+              }),
+            ]),
+          )}
+        />,
+      )
+
+      expect(rows()).toEqual([
+        'Second WindKi · Bonus Action · Self · Healing3/53 of 5 uses left1d10 + 5',
+      ])
+    })
+
+    it('names the resource first before a passive feature of another name', () => {
+      render(
+        <FavoritesStrip
+          {...propsFor(withFavorites([resource('Ki', 'darkvision')]))}
+        />,
+      )
+
+      expect(rows()).toEqual(['DarkvisionKi · Passive0/10 of 1 uses left'])
+    })
+
+    it("shows the resource's uses on a feature that rolls but isn't among the actions", () => {
+      const sheet = withFavorites([
+        resource('Ki', 'second-wind', {
+          value: 3,
+          max: 5,
+          recovery: 'Short Rest',
+        }),
+      ])
+      // As a player may take it off Tidy 5e's Actions list, while it still rolls on Features.
+      const [, bonus] = sheet.actions
+      bonus.actions = bonus.actions.filter(({ id }) => id !== 'second-wind')
+      const [fighter] = sheet.features
+      fighter.features[0] = {
+        ...fighter.features[0],
+        damage: [{ formula: '1d10 + 5', type: 'Healing', healing: true }],
+      }
+      render(<FavoritesStrip {...propsFor(sheet)} />)
+
+      expect(rows()).toEqual([
+        'Second WindKi · 1 Bonus Action · Healing3/53 of 5 uses left1d10 + 5',
+      ])
+      expect(screen.getByText('3 of 5 uses left').closest('.hidden')).toBeNull()
+      expect(screen.queryByText('1 of 1 uses left')).toBeNull()
+    })
+
+    it("shows a passive feature as its tab does, with the resource's uses, opening to its description", async () => {
+      const user = userEvent.setup()
+      const sheet = withFavorites([resource('Darkvision', 'darkvision')])
+      sheet.features[1].features[0].text = TEXTS.fighter
+      render(<FavoritesStrip {...propsFor(sheet)} />)
+
+      expect(rows()).toEqual(['DarkvisionPassive0/10 of 1 uses left'])
+
+      await user.click(screen.getByText('Darkvision'))
+
+      expect(await screen.findByText('Fifty feet of rope.')).toBeInTheDocument()
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/characters/char-1/texts/${TEXTS.fighter}`,
+        { signal: expect.any(AbortSignal) },
+      )
+    })
+
+    it('keeps a counter of one the module says stands for nothing', () => {
+      render(
+        <FavoritesStrip
+          {...propsFor(withFavorites([resource('Second Wind', null)]))}
+        />,
+      )
+
+      expect(rows()).toEqual(['Second WindShort Rest0/10 of 1 uses left'])
+    })
   })
 
   it('shows what it can of a favorite the sheet says little of', () => {

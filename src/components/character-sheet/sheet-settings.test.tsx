@@ -154,4 +154,76 @@ describe('components/character-sheet/sheet-settings', () => {
     await user.click(cog())
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  describe('roll toasts', () => {
+    const HINT =
+      'Each roll’s result pops up at the top of the screen for 4 seconds. Tap one to clear it.'
+
+    it('S1 switches whether rolls pop up as toasts, staying open', async () => {
+      const user = userEvent.setup()
+      const onChange = jest.fn()
+      const { rerender } = render(
+        <SheetSettings toasts={{ on: true, onChange }} />,
+      )
+      await user.click(cog())
+
+      const toggle = within(settings()).getByRole('switch', {
+        name: 'Roll toasts',
+      })
+      expect(toggle).toBeChecked()
+      expect(toggle).toHaveAccessibleDescription(HINT)
+      await user.click(toggle)
+      expect(onChange).toHaveBeenCalledWith(false)
+      expect(settings()).toBeInTheDocument()
+
+      rerender(<SheetSettings toasts={{ on: false, onChange }} />)
+      expect(
+        within(settings()).getByRole('switch', { name: 'Roll toasts' }),
+      ).not.toBeChecked()
+      await user.click(
+        within(settings()).getByRole('switch', { name: 'Roll toasts' }),
+      )
+      expect(onChange).toHaveBeenLastCalledWith(true)
+    })
+
+    it('S2 comes after Send to the table and before the theme, each described by its own hint', async () => {
+      const user = userEvent.setup()
+      render(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          toasts={{ on: true, onChange: jest.fn() }}
+        />,
+      )
+      await user.click(cog())
+
+      const [send, toasts] = within(settings()).getAllByRole('switch')
+      expect(send).toHaveAccessibleName('Send to the table')
+      expect(send).toHaveAccessibleDescription(
+        'Your rolls here are made in your Gamemaster’s game too, with the same dice.',
+      )
+      expect(toasts).toHaveAccessibleName('Roll toasts')
+      expect(toasts).toHaveAccessibleDescription(HINT)
+      const theme = within(settings()).getByRole('radiogroup', {
+        name: 'Theme',
+      })
+      expect(send.compareDocumentPosition(toasts)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(toasts.compareDocumentPosition(theme)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+    })
+
+    it('S3 comes first without Send to the table, taking focus', async () => {
+      const user = userEvent.setup()
+      render(<SheetSettings toasts={{ on: true, onChange: jest.fn() }} />)
+      await user.click(cog())
+
+      const toggle = within(settings()).getByRole('switch', {
+        name: 'Roll toasts',
+      })
+      expect(within(settings()).getAllByRole('switch')).toEqual([toggle])
+      await waitFor(() => expect(toggle).toHaveFocus())
+    })
+  })
 })

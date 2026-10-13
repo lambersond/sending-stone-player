@@ -1,13 +1,10 @@
 import { getCharacter } from '@/db/characters'
-import { createRollRequest } from '@/db/roll-requests'
+import { playerSeat } from '@/db/seats'
+import { rollPostResponse } from '@/lib/seat-routes'
 import { getCurrentUser } from '@/lib/session'
-import { rollRequestSchema } from '@/schemas/roll-request'
 import type { NextRequest } from 'next/server'
 
 const headers = { 'Cache-Control': 'no-store' }
-
-/** The largest roll read. One with every die it may throw is well under. */
-const MAX_ROLL_BYTES = 16_384
 
 /**
  * Have a roll the player made here made in the Gamemaster's game, with the same dice, when the
@@ -27,27 +24,5 @@ export async function POST(
   const character = await getCharacter(user.id, id)
   if (!character) return new Response(undefined, { status: 404, headers })
 
-  // Asked for only as JSON, which a page on another site can't send without asking first.
-  if (!request.headers.get('content-type')?.startsWith('application/json')) {
-    return new Response(undefined, { status: 415, headers })
-  }
-  const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_ROLL_BYTES) {
-    return new Response(undefined, { status: 413, headers })
-  }
-  let input
-  try {
-    input = rollRequestSchema.parse(JSON.parse(body))
-  } catch {
-    return new Response(undefined, { status: 400, headers })
-  }
-
-  const created = await createRollRequest(character, input)
-  if ('reason' in created) {
-    return Response.json(
-      { reason: created.reason },
-      { status: created.status, headers },
-    )
-  }
-  return Response.json({ id: created.id }, { status: 202, headers })
+  return rollPostResponse(request, playerSeat(character, user.id))
 }

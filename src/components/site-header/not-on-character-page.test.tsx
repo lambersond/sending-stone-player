@@ -14,21 +14,29 @@ const renderAt = (pathname: string) => {
 }
 
 describe('components/site-header/not-on-character-page', () => {
-  it.each(['/', '/characters', '/characters/', '/campaigns', '/join/x'])(
-    'shows what it holds on %s',
-    pathname => {
-      renderAt(pathname)
+  it.each([
+    '/',
+    '/characters',
+    '/characters/',
+    '/campaigns',
+    '/campaigns/c1',
+    '/campaigns/c1/characters',
+    '/join/x',
+  ])('shows what it holds on %s', pathname => {
+    renderAt(pathname)
 
-      expect(screen.getByRole('banner')).toHaveTextContent('App bar')
-    },
-  )
+    expect(screen.getByRole('banner')).toHaveTextContent('App bar')
+  })
 
-  it.each(['/characters/abc', '/characters/abc/'])(
-    "hides it on a character's page, %s",
-    pathname => {
-      const { container } = renderAt(pathname)
+  it.each([
+    '/characters/abc',
+    '/characters/abc/',
+    // The Gamemaster at one of their campaign's characters' sheets (#156).
+    '/campaigns/c1/characters/thorin',
+    '/campaigns/c1/characters/thorin/',
+  ])("hides it on a character's page, %s", pathname => {
+    const { container } = renderAt(pathname)
 
-      expect(container).toBeEmptyDOMElement()
-    },
-  )
+    expect(container).toBeEmptyDOMElement()
+  })
 })

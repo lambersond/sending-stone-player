@@ -38,6 +38,7 @@ import { UsesLeft } from './uses-left'
 import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
+import { resourceNote, type FavoriteEntry } from '@/utils/favorites'
 import { formatModifier } from '@/utils/format-modifier'
 import { spendable } from '@/utils/formulas'
 import type { RollActions } from './d20-rolls'
@@ -55,7 +56,6 @@ import type {
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
-import type { FavoriteEntry } from '@/utils/favorites'
 
 type Props = {
   characterId: string
@@ -251,7 +251,16 @@ function FavoriteRow({
   const { characterId } = rows
   switch (entry.kind) {
     case 'action': {
-      return <ActionEntry action={entry.action} rows={rows} note={entry.note} />
+      const { action, resource } = entry
+      // One that stands for a resource shows the resource's uses, and its name where it's another.
+      return (
+        <ActionEntry
+          action={action}
+          rows={rows}
+          note={joinParts(resourceNote(resource, action.name), entry.note)}
+          look={resource && { uses: resource.uses }}
+        />
+      )
     }
     case 'spell': {
       return (
@@ -264,11 +273,16 @@ function FavoriteRow({
       )
     }
     case 'feature': {
+      const { feature, resource } = entry
       return (
         <FeatureEntry
           characterId={characterId}
-          feature={entry.feature}
+          feature={feature}
           rows={rows}
+          {...(resource && {
+            uses: resource.uses,
+            note: resourceNote(resource, feature.name),
+          })}
         />
       )
     }
