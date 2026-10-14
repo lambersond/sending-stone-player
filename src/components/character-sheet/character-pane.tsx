@@ -88,6 +88,11 @@ type Props = {
   rollFeatures?: RollFeature[]
   /** The saving throws the game asks of the character, for its player to roll here. */
   prompts?: TablePrompt[]
+  /**
+   * The table's header, which the rolls' toasts start below where the sheet's tabs aren't shown,
+   * as on a phone showing combat or the chat.
+   */
+  header?: HTMLElement | null
 }
 
 /**
@@ -159,6 +164,7 @@ function RollingSheet({
   rollsToTable,
   rollFeatures,
   prompts,
+  header,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const role = useTableRole()
@@ -187,6 +193,12 @@ function RollingSheet({
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
+  // The row of tabs, and the game's prompts beneath it while it asks any, which the rolls' toasts
+  // start below, so as not to cover the prompts' only buttons.
+  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+  const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
+  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+  const [promptBanner, setPromptBanner] = useState<HTMLElement | null>(null)
   const width = useWidth(body)
   const show = (next: SheetTab) => {
     setTab(next)
@@ -506,7 +518,10 @@ function RollingSheet({
           Effects, take 301 pixels, of the 302 beside both on a 390-pixel screen. Narrower, the
           tabs and the buttons are a little tighter, so that they take 277 of the 280 on a
           360-pixel one; narrower still, the tabs scroll. */}
-      <div className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'>
+      <div
+        ref={setTabRow}
+        className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'
+      >
         <div
           role='tablist'
           aria-label='Character sheet'
@@ -569,6 +584,7 @@ function RollingSheet({
       {/* What the game asks of the character, above every tab, while the game takes the answer. */}
       {waiting.length > 0 && table.available && (
         <PromptBanner
+          ref={setPromptBanner}
           prompts={waiting}
           sheet={sheet}
           answering={table.answering}
@@ -657,6 +673,9 @@ function RollingSheet({
         on={toasting}
         rollDamage={rollDue}
         modifies={table.modifies}
+        tabs={tabRow}
+        prompts={promptBanner}
+        header={header}
       />
       <UsePicker
         picking={picking}

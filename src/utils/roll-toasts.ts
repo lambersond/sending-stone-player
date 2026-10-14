@@ -25,6 +25,29 @@ export const TOAST_FADE = 200
  */
 export const TOAST_CAP = 3
 
+/** How far below the sheet's tabs, or the table's header, the toasts start, in pixels. */
+export const TOAST_GAP = 8
+
+/**
+ * Where the toasts start, in pixels from the top of the screen: under the first of these on screen,
+ * the game's prompts beneath the sheet's row of tabs, say, then the row, then the table's header,
+ * so that what's in them stays to hand. None where none is, as before the page is laid out, for the
+ * toasts to keep to the top of the screen.
+ */
+export function toastTop(
+  under: readonly (Element | null | undefined)[],
+): number | undefined {
+  for (const element of under) {
+    if (!element) continue
+    const { top, bottom } = element.getBoundingClientRect()
+    // Not laid out, as the sheet's tabs on a phone showing combat or the chat, which then end at
+    // the top of the screen; or out of sight, above it or below it.
+    if (bottom <= 0 || top >= globalThis.innerHeight) continue
+    return Math.ceil(bottom) + TOAST_GAP
+  }
+  return undefined
+}
+
 /**
  * A roll's toast: its roll's id, when it popped up, and when it goes: never, while its roll waits
  * for the player (`needsPlayer`).

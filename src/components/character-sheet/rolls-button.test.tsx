@@ -344,6 +344,80 @@ describe('components/character-sheet/rolls-button', () => {
     expect(within(rolls()).queryByRole('button', { name: /^Roll / })).toBeNull()
   })
 
+  it.each<[string, TableRollState]>([
+    [
+      'an attack that missed',
+      hit({
+        attack: { critical: false, fumble: false, outcome: 'miss' },
+        targetNames: undefined,
+      }),
+    ],
+    [
+      'an area attack that missed everyone',
+      hit({
+        attack: {
+          critical: false,
+          fumble: false,
+          outcome: null,
+          targets: [
+            { combatId: 'c1', combatantId: 'g1', outcome: 'miss' },
+            { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+          ],
+        },
+      }),
+    ],
+  ])(
+    'R11 has no dot for %s, nor lists it among the rolls that wait, offering its damage while it is the latest, as the banner does',
+    async (_, missed) => {
+      const user = userEvent.setup()
+      const rollDamage = jest.fn()
+      const { rerender } = render(
+        <RollsButton
+          rolls={[attack]}
+          rolling={false}
+          table={table([['r2', missed]], { rollDamage })}
+        />,
+      )
+      expect(button().textContent).toBe('Your rolls')
+      expect(button().querySelector('.rounded-full')).toBeNull()
+
+      await user.click(button())
+      expect(
+        within(rolls()).queryByRole('group', { name: 'Longsword attack' }),
+      ).toBeNull()
+      await user.click(
+        within(within(rolls()).getByRole('status')).getByRole('button', {
+          name: 'Roll damage',
+        }),
+      )
+      expect(rollDamage).toHaveBeenCalledWith('Longsword', {
+        use: 'req-1',
+        damage: preview,
+      })
+
+      // Once another roll follows it, or while dice roll in its place, its row offers it.
+      for (const [shown, rolling] of [
+        [[perception, attack], false],
+        [[attack], true],
+      ] as const) {
+        rerender(
+          <RollsButton
+            rolls={[...shown]}
+            rolling={rolling}
+            table={table([['r2', missed]], { rollDamage })}
+          />,
+        )
+        expect(button().textContent).toBe('Your rolls')
+        expect(
+          within(rolls()).queryByRole('group', { name: 'Longsword attack' }),
+        ).toBeNull()
+        expect(
+          within(rolls()).queryByRole('button', { name: /^Roll / }),
+        ).toBeNull()
+      }
+    },
+  )
+
   it("R8 offers the latest roll's damage while dice roll in its place, and only once otherwise", async () => {
     const user = userEvent.setup()
     const { rerender } = render(

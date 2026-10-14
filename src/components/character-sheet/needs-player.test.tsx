@@ -2,7 +2,11 @@
 import { render, screen, within } from '@testing-library/react'
 import { RollToasts } from './roll-toasts'
 import { RollTray } from './roll-tray'
-import { needsPlayer, type TableRollState } from '@/hooks/use-table-rolls'
+import {
+  damageDue,
+  needsPlayer,
+  type TableRollState,
+} from '@/hooks/use-table-rolls'
 import type {
   LocalCheck,
   LocalDamage,
@@ -10,13 +14,21 @@ import type {
   LocalUse,
 } from '@/hooks/use-sheet-roller'
 
-// The real one, watched, so that a test can have it say otherwise.
+// The real ones, watched, so that a test can have them say otherwise.
 jest.mock('@/hooks/use-table-rolls', () => {
   const actual = jest.requireActual<typeof import('@/hooks/use-table-rolls')>(
     '@/hooks/use-table-rolls',
   )
-  return { ...actual, needsPlayer: jest.fn(actual.needsPlayer) }
+  return {
+    ...actual,
+    damageDue: jest.fn(actual.damageDue),
+    needsPlayer: jest.fn(actual.needsPlayer),
+  }
 })
+
+const actual = jest.requireActual<typeof import('@/hooks/use-table-rolls')>(
+  '@/hooks/use-table-rolls',
+)
 
 const attack: LocalCheck = {
   kind: 'check',
@@ -119,23 +131,86 @@ const toastWaits = (roll: LocalRoll, state: TableRollState) => {
   return waits
 }
 
-describe('needsPlayer, which the tray and the toasts share', () => {
+/** An attack's outcome at its target. */
+const at = (outcome: 'hit' | 'miss' | null) => ({
+  attack: { critical: false, fumble: false, outcome },
+})
+
+/** An area attack's outcome at each combatant in it, in order. */
+const area = (...outcomes: ('hit' | 'miss' | null)[]) => ({
+  attack: {
+    critical: false,
+    fumble: false,
+    outcome: null,
+    targets: outcomes.map((outcome, index) => ({
+      combatId: 'c1',
+      combatantId: `g${index}`,
+      outcome,
+    })),
+  },
+})
+
+describe('damageDue, which the tray offers, and needsPlayer, for which a toast waits', () => {
   afterEach(() => {
-    jest
-      .mocked(needsPlayer)
-      .mockImplementation(
-        jest.requireActual<typeof import('@/hooks/use-table-rolls')>(
-          '@/hooks/use-table-rolls',
-        ).needsPlayer,
-      )
+    jest.mocked(damageDue).mockImplementation(actual.damageDue)
+    jest.mocked(needsPlayer).mockImplementation(actual.needsPlayer)
   })
 
-  it.each<[string, LocalRoll, TableRollState, boolean]>([
-    ['an attack that hit, its damage to roll', attack, made(), true],
+  it.each<[string, LocalRoll, TableRollState, boolean, boolean]>([
+    [
+      'an attack that hit, its damage to roll',
+      attack,
+      made(at('hit')),
+      true,
+      true,
+    ],
     [
       'an attack that missed, its damage still offered',
       attack,
-      made({ attack: { critical: false, fumble: false, outcome: 'miss' } }),
+      made(at('miss')),
+      true,
+      false,
+    ],
+    [
+      'an attack whose outcome the game kept to itself, as a hit',
+      attack,
+      made(at(null)),
+      true,
+      true,
+    ],
+    [
+      'an attack the game says nothing of, as a hit',
+      attack,
+      made(),
+      true,
+      true,
+    ],
+    [
+      'an area attack that missed everyone',
+      attack,
+      made(area('miss', 'miss')),
+      true,
+      false,
+    ],
+    [
+      'an area attack that hit one of them',
+      attack,
+      made(area('miss', 'hit')),
+      true,
+      true,
+    ],
+    [
+      'an area attack that missed everyone the game says of',
+      attack,
+      made(area('miss', null)),
+      true,
+      false,
+    ],
+    [
+      'an area attack whose outcomes the game kept, as a hit',
+      attack,
+      made(area(null, null)),
+      true,
       true,
     ],
     [
@@ -143,11 +218,13 @@ describe('needsPlayer, which the tray and the toasts share', () => {
       attack,
       made({ damaged: true }),
       false,
+      false,
     ],
     [
       'an attack with no damage to follow',
       attack,
       made({ damage: null }),
+      false,
       false,
     ],
     [
@@ -155,13 +232,21 @@ describe('needsPlayer, which the tray and the toasts share', () => {
       attack,
       made({ requestId: undefined }),
       false,
+      false,
     ],
-    ['an attack on its way', attack, { status: 'sending' }, false],
-    ['an attack refused', attack, { status: 'refused', reason: 'busy' }, false],
+    ['an attack on its way', attack, { status: 'sending' }, false, false],
+    [
+      'an attack refused',
+      attack,
+      { status: 'refused', reason: 'busy' },
+      false,
+      false,
+    ],
     [
       'an attack that failed in the game',
       attack,
       { status: 'failed', reason: 'midi', requestId: 'req-1', damage: preview },
+      false,
       false,
     ],
     [
@@ -169,26 +254,41 @@ describe('needsPlayer, which the tray and the toasts share', () => {
       cast,
       made({ damage: choosing }),
       true,
+      true,
     ],
-    ['a use whose damage is rolled at once', cast, made(), false],
+    [
+      'a use whose kind of damage is to be chosen, which has no hit or miss',
+      cast,
+      made({ damage: choosing, ...at('miss') }),
+      true,
+      true,
+    ],
+    ['a use whose damage is rolled at once', cast, made(), false, false],
     [
       'a use whose chosen damage is rolled',
       cast,
       made({ damage: choosing, damaged: true }),
       false,
+      false,
     ],
-    ['damage', struck, made(), false],
-  ])('%s: %s', (_, roll, state, waits) => {
+    ['damage', struck, made(), false, false],
+  ])('%s', (_, roll, state, due, waits) => {
+    expect(damageDue(roll, state)).toBe(due)
     expect(needsPlayer(roll, state)).toBe(waits)
-    expect(trayOffers(roll, state)).toBe(waits)
+    expect(trayOffers(roll, state)).toBe(due)
     expect(toastWaits(roll, state)).toBe(waits)
   })
 
-  it('is what both ask, so that neither waits where it says not, nor stops where it says to', () => {
+  it('the tray asks damageDue, and the toast needsPlayer, each following what it says', () => {
+    // Damage due after a miss: offered in the tray, and the toast doesn't wait.
     jest.mocked(needsPlayer).mockReturnValue(false)
-    expect(trayOffers(attack, made())).toBe(false)
-    expect(toastWaits(attack, made())).toBe(false)
+    expect(trayOffers(attack, made(at('hit')))).toBe(true)
+    expect(toastWaits(attack, made(at('hit')))).toBe(false)
 
+    jest.mocked(damageDue).mockReturnValue(false)
+    expect(trayOffers(attack, made(at('hit')))).toBe(false)
+
+    jest.mocked(damageDue).mockReturnValue(true)
     jest.mocked(needsPlayer).mockReturnValue(true)
     expect(trayOffers(attack, made({ damaged: true }))).toBe(true)
     expect(toastWaits(attack, made({ damaged: true }))).toBe(true)

@@ -149,6 +149,10 @@ export function GameTable({
   // The saves the game asks of the character, which its tab marks while they wait.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
 
+  // The header, which the sheet's roll toasts start below while its tabs aren't shown.
+  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+  const [header, setHeader] = useState<HTMLElement | null>(null)
+
   // Keep the chat pinned to the newest message unless the player has scrolled up to read.
   const chatScroller = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
@@ -209,6 +213,7 @@ export function GameTable({
               rollsToTable={view.connected ? view.rollsToTable : undefined}
               rollFeatures={view.connected ? view.rollFeatures : undefined}
               prompts={view.connected ? view.prompts : undefined}
+              header={header}
             />
           ) : (
             <Scroller>
@@ -300,7 +305,10 @@ export function GameTable({
     <TableApiContext value={seat}>
       <div className='flex h-dvh flex-col md:flex-row'>
         <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
-          <header className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'>
+          <header
+            ref={setHeader}
+            className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'
+          >
             <div className='flex min-w-0 items-center gap-2'>
               <Link
                 href={gm ? '/campaigns' : '/characters'}

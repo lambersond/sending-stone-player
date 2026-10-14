@@ -265,6 +265,24 @@ describe('components/character-sheet/roll-toasts', () => {
     expect(container).not.toContainElement(log())
   })
 
+  it('C23 keeps a stack taller than the room below its top on the screen, scrolling it there, as on a phone turned sideways', () => {
+    render(<RollToasts rolls={[strength, dexterity]} states={NONE} on />)
+
+    const region = log().parentElement as HTMLElement
+    // As tall as the room down to the bottom of the screen, the toasts at its top, scrolled by a
+    // finger or a wheel on them, with no scrollbar at the screen's edge, which taps go through.
+    expect(region).toHaveClass(
+      'bottom-0',
+      'items-start',
+      'overflow-y-auto',
+      '[scrollbar-width:none]',
+      'pointer-events-none',
+    )
+    // The 8 pixels above them inside it, which their slide drops through, so that scrolled they go
+    // under the row of tabs' edge, not over it; and room below for their shadow.
+    expect(region).toHaveClass('-mt-2', 'pt-2', 'pb-8')
+  })
+
   it('C9 renders nothing on the server, where the setting is not known and there is no body', () => {
     const html = renderToString(
       <RollToasts rolls={[strength]} states={NONE} on />,
@@ -499,13 +517,13 @@ describe('components/character-sheet/roll-toasts', () => {
     })
 
     it('C20 shows and says a roll that pops up over three that wait, for its four seconds', () => {
-      // Attacks that missed, their damage still offered, as dnd5e offers it without Midi.
+      // Attacks that hit, their damage to roll.
       const attacks = ['a1', 'a2', 'a3'].map((id, at) =>
         check(id, { label: `Attack ${at + 1}`, at }),
       )
-      const missed = attacks.map(({ id }): [string, TableRollState] => [
+      const hits = attacks.map(({ id }): [string, TableRollState] => [
         id,
-        hit({ attack: { critical: false, fumble: false, outcome: 'miss' } }),
+        hit(),
       ])
       const save = check('s', { label: 'Dexterity saving throw', at: 3 })
       const toasting = (
@@ -514,7 +532,7 @@ describe('components/character-sheet/roll-toasts', () => {
       ) => (
         <RollToasts
           rolls={rolls}
-          states={ways(...missed, ...more)}
+          states={ways(...hits, ...more)}
           on
           rollDamage={jest.fn()}
         />
@@ -752,6 +770,281 @@ describe('components/character-sheet/roll-toasts', () => {
       )
       expect(toast('a')).not.toHaveAttribute('data-waits')
       expect(targets()).toEqual(['Goblin: Hit', 'Hobgoblin: Miss'])
+    })
+
+    describe('C21 after a miss', () => {
+      /** An area attack's outcome at each of its two targets. */
+      const outcomes = (first: 'hit' | 'miss', second: 'hit' | 'miss') =>
+        hit({
+          attack: {
+            critical: false,
+            fumble: false,
+            outcome: null,
+            targets: [
+              { combatId: 'c1', combatantId: 'g1', outcome: first },
+              { combatId: 'c1', combatantId: 'g2', outcome: second },
+            ],
+          },
+          targetNames: { g1: 'Goblin', g2: 'Hobgoblin' },
+        })
+
+      it.each<[string, TableRollState]>([
+        [
+          'an attack that missed',
+          hit({ attack: { critical: false, fumble: false, outcome: 'miss' } }),
+        ],
+        ['an area attack that missed everyone', outcomes('miss', 'miss')],
+      ])(
+        '%s goes four seconds after the game says so, holding no damage to roll nor ×, its tap closing it',
+        (_, missed) => {
+          const toasting = (state: TableRollState) => (
+            <RollToasts
+              rolls={[attack]}
+              states={ways(['a', state])}
+              on
+              rollDamage={jest.fn()}
+            />
+          )
+          const { rerender } = render(toasting({ status: 'sending' }))
+          wait(1000)
+          rerender(toasting(missed))
+
+          expect(toast('a')).not.toHaveAttribute('data-waits')
+          expect(toast('a')).toHaveAttribute('data-accent', 'ruby')
+          expect(
+            within(toast('a') as HTMLElement).queryByRole('button'),
+          ).toBeNull()
+          wait(3999)
+          expect(toast('a')).toBeInTheDocument()
+          wait(1)
+          expect(toast('a')).toBeNull()
+
+          // Tapped, it goes at once, as any other.
+          rerender(
+            <RollToasts
+              rolls={[{ ...attack, id: 'b' }]}
+              states={ways(['b', missed])}
+              on
+              rollDamage={jest.fn()}
+            />,
+          )
+          fireEvent.click(toast('b') as HTMLElement)
+          expect(toast('b')).toBeNull()
+        },
+      )
+
+      it.each<[string, TableRollState]>([
+        ['an attack that hit', hit()],
+        ['an area attack that hit one of two', outcomes('miss', 'hit')],
+        [
+          'an attack whose outcome the game kept to itself',
+          hit({ attack: { critical: false, fumble: false, outcome: null } }),
+        ],
+      ])('%s stays, its damage to roll', (_, state) => {
+        render(
+          <RollToasts
+            rolls={[attack]}
+            states={ways(['a', state])}
+            on
+            rollDamage={jest.fn()}
+          />,
+        )
+
+        wait(60_000)
+        expect(toast('a')).toHaveAttribute('data-waits', 'true')
+        expect(
+          within(toast('a') as HTMLElement).getByRole('button', {
+            name: 'Roll damage',
+          }),
+        ).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('C22 where they start', () => {
+    const Observer = globalThis.ResizeObserver
+    /** What the layout's observer was asked to watch, and how to say it changed. */
+    let watched: Element[]
+    let resized: () => void
+    let disconnect: jest.Mock
+    /** Where each element is laid out, in pixels: none, while it isn't. */
+    const at = new Map<Element, { top: number; bottom: number }>()
+    const laid = (tag: string) => {
+      const element = document.createElement(tag)
+      element.getBoundingClientRect = () => {
+        const { top, bottom } = at.get(element) ?? { top: 0, bottom: 0 }
+        const height = bottom - top
+        return { top, bottom, height, width: height > 0 ? 390 : 0 } as DOMRect
+      }
+      return element
+    }
+    let header: HTMLElement
+    let pane: HTMLElement
+    let tabs: HTMLElement
+
+    beforeEach(() => {
+      watched = []
+      resized = () => {}
+      disconnect = jest.fn()
+      globalThis.ResizeObserver = jest.fn((callback: () => void) => {
+        resized = callback
+        return {
+          observe: (element: Element) => watched.push(element),
+          unobserve: jest.fn(),
+          disconnect,
+        }
+      }) as unknown as typeof ResizeObserver
+      header = laid('header')
+      pane = laid('section')
+      tabs = laid('div')
+      pane.append(tabs)
+      document.body.append(header, pane)
+      at.set(header, { top: 0, bottom: 64 })
+      at.set(tabs, { top: 64, bottom: 108 })
+    })
+
+    afterEach(() => {
+      globalThis.ResizeObserver = Observer
+      header.remove()
+      pane.remove()
+      at.clear()
+    })
+
+    /** Where the toasts start, as their region is placed. */
+    const top = () => (log().parentElement as HTMLElement).style.top
+
+    it('8 pixels below the row of tabs, measured as they first show, and again as the row moves', () => {
+      render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          tabs={tabs}
+          header={header}
+        />,
+      )
+
+      expect(top()).toBe('116px')
+      // The row, the pane it tops, which grows or shrinks as anything above it does, and the
+      // header.
+      expect(watched).toEqual([tabs, pane, header])
+      // A note above the row, such as the Gamemaster's, wraps.
+      at.set(tabs, { top: 104, bottom: 148 })
+      act(() => resized())
+      expect(top()).toBe('156px')
+    })
+
+    it('below the header while the row is not shown, as on a phone showing combat or the chat, and at the top of the screen with neither', () => {
+      const { rerender } = render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          tabs={tabs}
+          header={header}
+        />,
+      )
+
+      at.delete(tabs)
+      act(() => resized())
+      expect(top()).toBe('72px')
+      at.set(tabs, { top: 64, bottom: 108 })
+      act(() => resized())
+      expect(top()).toBe('116px')
+
+      rerender(<RollToasts rolls={[strength]} states={NONE} on />)
+      expect(top()).toBe('')
+      expect(log().parentElement).toHaveClass(
+        'top-[max(0.5rem,env(safe-area-inset-top))]',
+      )
+    })
+
+    it('again as the window is resized or turned, until the toasts go', () => {
+      const { unmount } = render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          tabs={tabs}
+          header={header}
+        />,
+      )
+
+      at.set(tabs, { top: 60, bottom: 104 })
+      act(() => {
+        globalThis.dispatchEvent(new Event('resize'))
+      })
+      expect(top()).toBe('112px')
+      at.set(tabs, { top: 56, bottom: 100 })
+      act(() => {
+        globalThis.dispatchEvent(new Event('orientationchange'))
+      })
+      expect(top()).toBe('108px')
+
+      unmount()
+      expect(disconnect).toHaveBeenCalled()
+      at.set(tabs, { top: 0, bottom: 44 })
+      const measured = jest.spyOn(tabs, 'getBoundingClientRect')
+      globalThis.dispatchEvent(new Event('resize'))
+      globalThis.dispatchEvent(new Event('orientationchange'))
+      expect(measured).not.toHaveBeenCalled()
+    })
+
+    it("below the game's prompts beneath the row while it asks any, so as not to cover their buttons, and below the row once they go", () => {
+      const prompts = laid('section')
+      pane.append(prompts)
+      at.set(prompts, { top: 108, bottom: 231 })
+      const { rerender } = render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          tabs={tabs}
+          prompts={prompts}
+          header={header}
+        />,
+      )
+
+      expect(top()).toBe('239px')
+      // Watched too, as one answered goes and the rest close up.
+      expect(watched).toEqual([prompts, tabs, pane, header])
+      at.set(prompts, { top: 108, bottom: 187 })
+      act(() => resized())
+      expect(top()).toBe('195px')
+      // Neither laid out, as on a phone showing combat or the chat.
+      at.delete(prompts)
+      at.delete(tabs)
+      act(() => resized())
+      expect(top()).toBe('72px')
+
+      // The game asks nothing more, back on the sheet.
+      at.set(tabs, { top: 64, bottom: 108 })
+      prompts.remove()
+      rerender(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          tabs={tabs}
+          header={header}
+        />,
+      )
+      expect(top()).toBe('116px')
+    })
+
+    it('nowhere while toasts are off, the row not watched', () => {
+      render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on={false}
+          tabs={tabs}
+          header={header}
+        />,
+      )
+
+      expect(watched).toEqual([])
+      expect(globalThis.ResizeObserver).not.toHaveBeenCalled()
     })
   })
 

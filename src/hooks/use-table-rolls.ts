@@ -872,15 +872,40 @@ export function choicesOf(damage: DamagePreview) {
 }
 
 /**
- * Whether a roll waits for its player: an attack the game made, whose damage is still to roll, or
- * a use whose damage or healing waits for its kind to be chosen, as any other use's is rolled at
- * once. The tray offers that damage to roll while it does, and the roll's toast stays until then.
+ * Whether a roll's damage is due: an attack the game made, whose damage is still to roll, or a use
+ * whose damage or healing waits for its kind to be chosen, as any other use's is rolled at once.
+ * The tray offers that damage to roll while it is, after a miss too, for what deals damage on one.
  */
-export function needsPlayer(roll: LocalRoll, state?: TableRollState): boolean {
+export function damageDue(roll: LocalRoll, state?: TableRollState): boolean {
   if (state?.status !== 'done' || !state.damage || state.damaged) return false
   if (!state.requestId) return false
   if (roll.kind === 'check') return true
   return roll.kind === 'use' && choicesOf(state.damage).length > 0
+}
+
+/**
+ * Whether a roll waits for its player, its toast staying until they act: its damage is due
+ * (`damageDue`), and it isn't an attack that missed, whose toast goes as any other's does, its
+ * damage still offered where it's due. A use has no hit or miss, and an attack the game says
+ * nothing of counts as a hit.
+ */
+export function needsPlayer(roll: LocalRoll, state?: TableRollState): boolean {
+  if (!damageDue(roll, state)) return false
+  return roll.kind !== 'check' || !missed(state)
+}
+
+/**
+ * Whether an attack the game made missed: its target, or everyone in its area the game says of,
+ * as the tray's "Hit 0 of 2". Not where the game says nothing of it.
+ */
+export function missed(state?: TableRollState): boolean {
+  const attack = state?.attack
+  if (!attack) return false
+  const told = (attack.targets ?? []).filter(({ outcome }) => outcome !== null)
+  if (attack.targets && attack.targets.length > 1 && told.length > 0) {
+    return told.every(({ outcome }) => outcome === 'miss')
+  }
+  return attack.outcome === 'miss'
 }
 
 /** The kind chosen for each of damage's rolls: this one, for each roll that offers it. */

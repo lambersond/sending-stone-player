@@ -85,11 +85,12 @@ export function SheetSettings({ send, toasts, layouts }: Readonly<Props>) {
       {open && (
         <FloatingPortal root={root}>
           <FloatingFocusManager context={context} modal={false}>
+            {/* Over the rolls' toasts, 100001, which start just below the cog, as it does. */}
             <div
               ref={refs.setFloating}
               style={floatingStyles}
               aria-labelledby={title}
-              className='z-50 flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-3 text-text-primary shadow-xl outline-none'
+              className='z-[100002] flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-3 text-text-primary shadow-xl outline-none'
               {...getFloatingProps()}
             >
               <p

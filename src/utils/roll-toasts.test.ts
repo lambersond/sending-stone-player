@@ -8,6 +8,8 @@ import {
   TOAST_CAP,
   TOAST_FADE,
   TOAST_FOR,
+  TOAST_GAP,
+  toastTop,
   type ToastBook,
 } from './roll-toasts'
 import type { LocalCheck, LocalUse } from '@/hooks/use-sheet-roller'
@@ -40,6 +42,14 @@ const done = (): TableRollState => ({
 
 /** The ids of the toasts showing, top first. */
 const ids = (book: ToastBook) => book.shown.map(({ id }) => id)
+
+/** An element laid out at these bounds, in pixels. */
+const laid = (top: number, bottom: number, width = 390) => {
+  const element = document.createElement('div')
+  element.getBoundingClientRect = () =>
+    ({ top, bottom, height: bottom - top, width }) as DOMRect
+  return element
+}
 
 describe('utils/roll-toasts', () => {
   it('U1 pops a new roll up on top, for four seconds', () => {
@@ -372,11 +382,6 @@ describe('utils/roll-toasts', () => {
       ...fields,
     })
     const FOREVER = Number.POSITIVE_INFINITY
-    /** An attack that missed, its damage still offered, as dnd5e offers it without Midi. */
-    const missed = (id: string): [string, TableRollState] => [
-      id,
-      hit({ attack: { critical: false, fumble: false, outcome: 'miss' } }),
-    ]
     /** The ways to the game of attacks that hit, by their ids, all waiting for their damage. */
     const waiting = (...ids: string[]) =>
       ways(...ids.map((id): [string, TableRollState] => [id, hit()]))
@@ -434,7 +439,7 @@ describe('utils/roll-toasts', () => {
         book = popToasts(
           book,
           met.toReversed(),
-          ways(...met.map(({ id }) => missed(id))),
+          waiting(...met.map(({ id }) => id)),
           at * 100,
           true,
         )
@@ -444,7 +449,7 @@ describe('utils/roll-toasts', () => {
       const rolls = [save, ...attacks.toReversed()]
       const as = (state?: TableRollState) =>
         ways(
-          ...attacks.map(({ id }) => missed(id)),
+          ...attacks.map(({ id }): [string, TableRollState] => [id, hit()]),
           ...(state ? [['s', state] as [string, TableRollState]] : []),
         )
 
@@ -660,6 +665,131 @@ describe('utils/roll-toasts', () => {
           true,
         ).shown,
       ).toEqual([{ id: 'u', poppedAt: 0, until: TOAST_FOR }])
+    })
+
+    describe('after a miss', () => {
+      /** An area attack's outcome at each of its targets, in order. */
+      const area = (...outcomes: ('hit' | 'miss' | null)[]) =>
+        hit({
+          attack: {
+            critical: false,
+            fumble: false,
+            outcome: null,
+            targets: outcomes.map((outcome, at) => ({
+              combatId: 'c1',
+              combatantId: `g${at}`,
+              outcome,
+            })),
+          },
+        })
+      /** A single-target attack's outcome. */
+      const single = (outcome: 'hit' | 'miss' | null) =>
+        hit({ attack: { critical: false, fumble: false, outcome } })
+
+      it.each<[string, TableRollState, number]>([
+        [
+          'an attack that missed, its damage still offered',
+          single('miss'),
+          1000 + TOAST_FOR,
+        ],
+        ['an attack that hit', single('hit'), FOREVER],
+        [
+          'an attack whose outcome the game kept to itself',
+          single(null),
+          FOREVER,
+        ],
+        [
+          'an attack the game says nothing of',
+          hit({ attack: undefined }),
+          FOREVER,
+        ],
+        [
+          'an area attack that missed everyone',
+          area('miss', 'miss'),
+          1000 + TOAST_FOR,
+        ],
+        ['an area attack that hit one of them', area('miss', 'hit'), FOREVER],
+        [
+          'an area attack that missed everyone it says of',
+          area('miss', null),
+          1000 + TOAST_FOR,
+        ],
+        [
+          'an area attack whose outcomes the game kept',
+          area(null, null),
+          FOREVER,
+        ],
+        [
+          'an area attack at one, which missed',
+          hit({
+            attack: {
+              critical: false,
+              fumble: false,
+              outcome: 'miss',
+              targets: [{ combatId: 'c1', combatantId: 'g0', outcome: 'miss' }],
+            },
+          }),
+          1000 + TOAST_FOR,
+        ],
+      ])(
+        'U23 %s: goes four seconds after it settles, or waits',
+        (_, state, until) => {
+          const a = check('a')
+          const sent = popToasts(
+            NO_TOASTS,
+            [a],
+            ways(['a', { status: 'sending' }]),
+            0,
+            true,
+          )
+          const made = popToasts(sent, [a], ways(['a', state]), 1000, true)
+          expect(made.shown).toEqual([{ id: 'a', poppedAt: 0, until }])
+          // Landing made, it pops up for the same time from then.
+          expect(
+            popToasts(NO_TOASTS, [a], ways(['a', state]), 1000, true).shown,
+          ).toEqual([{ id: 'a', poppedAt: 1000, until }])
+        },
+      )
+
+      it('U25 lets the cap drop a miss, as any other, before an earlier attack that hit, which waits', () => {
+        const attacks = ['a', 'b', 'c', 'd'].map((id, at) => check(id, at))
+        let book = NO_TOASTS
+        for (const index of attacks.keys()) {
+          book = popToasts(
+            book,
+            attacks.slice(0, index + 1).toReversed(),
+            ways(['a', hit()], ['b', single('miss')]),
+            index * 100,
+            true,
+          )
+        }
+        // The miss, b, goes first, as any other toast would; the hit, a, stays.
+        expect(ids(book)).toEqual(['d', 'c', 'a'])
+      })
+    })
+  })
+
+  describe('where the toasts start', () => {
+    it('U24 starts them 8 pixels below the first laid out on screen, the row of tabs before the header', () => {
+      expect(TOAST_GAP).toBe(8)
+      expect(toastTop([laid(64, 108), laid(0, 64)])).toBe(116)
+      // A row not laid out, as on a phone showing combat or the chat: below the header.
+      expect(toastTop([laid(0, 0, 0), laid(0, 64)])).toBe(72)
+      expect(toastTop([null, laid(0, 64)])).toBe(72)
+      expect(toastTop([undefined, laid(0, 64)])).toBe(72)
+      // Never above a row that ends part way down a pixel.
+      expect(toastTop([laid(64.2, 108.4)])).toBe(117)
+      // Out of sight, above the screen or below it.
+      expect(toastTop([laid(-60, -16), laid(0, 64)])).toBe(72)
+      expect(
+        toastTop([
+          laid(globalThis.innerHeight, globalThis.innerHeight + 44),
+          laid(0, 64),
+        ]),
+      ).toBe(72)
+      // Neither: at the top of the screen, as the toasts' own classes have it.
+      expect(toastTop([laid(0, 0, 0), null])).toBeUndefined()
+      expect(toastTop([])).toBeUndefined()
     })
   })
 })

@@ -25,7 +25,7 @@ import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { RolledDice, RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
-import type { TableCombat } from '@/types/table'
+import type { TableCombat, TablePrompt } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock('@lambersond/3d-dice-react', () => ({
@@ -278,6 +278,17 @@ const hitToast = async () => {
   return toast
 }
 
+/** The attack's toast, once the game says it missed. */
+const missToast = async () => {
+  const label = await within(toasts()).findByText('Warhammer attack')
+  const toast = label.closest('[data-roll-toast]') as HTMLElement
+  await waitFor(
+    () => expect(toast).toHaveTextContent('At the table: 19 · Miss'),
+    { timeout: 3000 },
+  )
+  return toast
+}
+
 /** Attacks with the warhammer, at no one. */
 const strike = async (user: User) => {
   await user.click(screen.getByRole('tab', { name: 'Actions' }))
@@ -287,6 +298,10 @@ const strike = async (user: User) => {
 
 /** The button beside the cog that opens the rolls, where they pop up as toasts. */
 const rollsButton = () => screen.queryByRole('button', { name: /^Your rolls/ })
+
+/** Where an element is stacked, by its class, on the page's own body, as the toasts are. */
+const layer = (element: Element) =>
+  Number(/(?:^|\s)z-\[?(\d+)\]?(?=\s|$)/.exec(element.className)?.[1])
 
 /** The setting, among the sheet's settings. */
 const results = async (user: User) =>
@@ -1000,8 +1015,8 @@ describe('components/character-sheet/character-pane', () => {
       ],
     }
 
-    /** The game, which makes the attack, a hit, then its damage. */
-    const game = () => {
+    /** The game, which makes the attack, a hit or a miss, then its damage. */
+    const game = (outcome: 'hit' | 'miss' = 'hit') => {
       const posted: Record<string, unknown>[] = []
       globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
         if (init?.method === 'POST') {
@@ -1019,7 +1034,7 @@ describe('components/character-sheet/character-pane', () => {
                 status: 'done',
                 visible: true,
                 total: 19,
-                attack: { critical: false, fumble: false, outcome: 'hit' },
+                attack: { critical: false, fumble: false, outcome },
                 damage: preview,
               }
             : { id: 'req-2', status: 'done', visible: true, total: 9 }
@@ -1201,6 +1216,27 @@ describe('components/character-sheet/character-pane', () => {
       ).toEqual(['Goblin: Hit', 'Goblin Boss: Miss'])
     })
 
+    it('offers the damage of an attack that missed in the banner, for what deals damage on one, rolling it there', async () => {
+      const user = userEvent.setup()
+      const posted = game('miss')
+      renderFight()
+      await strike(user)
+      const status = screen.getByRole('status')
+      await waitFor(
+        () => expect(status).toHaveTextContent('At the table: 19 · Miss'),
+        { timeout: 3000 },
+      )
+
+      await user.click(
+        within(screen.getByRole('region', { name: 'Your rolls' })).getByRole(
+          'button',
+          { name: 'Roll damage' },
+        ),
+      )
+
+      expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+    })
+
     it("rolls a waiting attack's damage from its damage chip, as the game said", async () => {
       const user = userEvent.setup()
       const posted = game()
@@ -1325,6 +1361,44 @@ describe('components/character-sheet/character-pane', () => {
         expect(
           within(rolls).queryByRole('group', { name: 'Warhammer attack' }),
         ).toBeNull()
+      })
+
+      it("T7 lets a miss's toast go as any other, with no dot, its damage rolled from the rolls' button while it's the latest", async () => {
+        const user = userEvent.setup()
+        const posted = game('miss')
+        renderFight()
+        await strike(user)
+
+        const toast = await missToast()
+        expect(toast).not.toHaveAttribute('data-waits')
+        expect(within(toast).queryByRole('button')).toBeNull()
+        expect(rollsButton()?.textContent).toBe('Your rolls')
+        await user.click(rollsButton() as HTMLElement)
+        const rolls = screen.getByRole('dialog', { name: 'Your rolls' })
+        expect(
+          within(rolls).queryByRole('group', { name: 'Warhammer attack' }),
+        ).toBeNull()
+        await user.click(
+          within(within(rolls).getByRole('status')).getByRole('button', {
+            name: 'Roll damage',
+          }),
+        )
+
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+      })
+
+      it("T8 rolls a miss's damage from its row, its toast tapped away", async () => {
+        const user = userEvent.setup()
+        const posted = game('miss')
+        renderFight()
+        await strike(user)
+        await user.click(await missToast())
+
+        await user.click(
+          screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
+        )
+
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
       })
 
       it("T6 opens the damage menu in a hit's toast, where the game takes damage changed", async () => {
@@ -3737,6 +3811,95 @@ describe('components/character-sheet/character-pane', () => {
       expect(within(toasts()).getByText('Strength check')).toBeInTheDocument()
       expect(screen.getByRole('tabpanel')).not.toContainElement(toasts())
       expect(toasts().parentElement?.parentElement).toBe(document.body)
+    })
+
+    it("P7 starts the toasts 8 pixels below the row of tabs, with the rolls' button and the cog", async () => {
+      const user = userEvent.setup()
+      renderPane()
+      const row = screen.getByRole('tablist').parentElement as HTMLElement
+      expect(row).toContainElement(rollsButton())
+      expect(row).toContainElement(
+        screen.getByRole('button', { name: 'Settings' }),
+      )
+      // The row, as a browser lays it out under a header 64 pixels tall, as the window's resized.
+      row.getBoundingClientRect = () =>
+        ({ top: 64, bottom: 108, width: 390, height: 44 }) as DOMRect
+      act(() => {
+        globalThis.dispatchEvent(new Event('resize'))
+      })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+
+      expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+    })
+
+    it("P8 starts the toasts below the game's prompts beneath the row while it asks any, so as not to cover their only buttons, and below the row once they go", async () => {
+      const user = userEvent.setup()
+      const ask: TablePrompt = {
+        id: 'msg2-thorin',
+        type: 'concentration',
+        abilities: ['con'],
+        label: 'Bless',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      }
+      const pane = (prompts: TablePrompt[]) => (
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          rollsToTable={['save']}
+          rollFeatures={['prompts']}
+          prompts={prompts}
+        />
+      )
+      const { rerender } = render(pane([ask]))
+      const row = screen.getByRole('tablist').parentElement as HTMLElement
+      const prompts = screen.getByRole('region', {
+        name: 'Your Gamemaster asks',
+      })
+      // As a browser lays them out under a header 64 pixels tall, the prompts beneath the row.
+      row.getBoundingClientRect = () =>
+        ({ top: 64, bottom: 108, width: 390, height: 44 }) as DOMRect
+      prompts.getBoundingClientRect = () =>
+        ({ top: 108, bottom: 231, width: 390, height: 123 }) as DOMRect
+      act(() => {
+        globalThis.dispatchEvent(new Event('resize'))
+      })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+      expect(toasts().parentElement).toHaveStyle({ top: '239px' })
+
+      // The game asks nothing more.
+      rerender(pane([]))
+      expect(
+        screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+      ).toBeNull()
+      expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+    })
+
+    it("P9 opens the cog's settings and the rolls' popover over the toasts, which start just below them", async () => {
+      const user = userEvent.setup()
+      renderPane()
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+      const region = toasts().parentElement as HTMLElement
+      expect(layer(region)).toBe(100_001)
+
+      const settings = await openSettings(user)
+      expect(layer(settings)).toBeGreaterThan(layer(region))
+      await user.keyboard('{Escape}')
+      await user.click(rollsButton() as HTMLElement)
+      expect(
+        layer(screen.getByRole('dialog', { name: 'Your rolls' })),
+      ).toBeGreaterThan(layer(region))
     })
 
     it("P6 tightens the row of tabs on a phone narrower than 390 pixels, for a caster's to fit beside the rolls' button and the cog", () => {

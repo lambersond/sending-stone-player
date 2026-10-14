@@ -8,6 +8,7 @@ import { formatModifier } from '@/utils/format-modifier'
 import { seatWords } from '@/utils/seat-words'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { TablePrompt, TableSheet } from '@/types/table'
+import type { Ref } from 'react'
 
 type Ability = TableSheet['abilities'][number]
 
@@ -20,6 +21,7 @@ type Ability = TableSheet['abilities'][number]
  * player's rolls to the game, it says so.
  */
 export function PromptBanner({
+  ref,
   prompts,
   sheet,
   answering,
@@ -27,6 +29,8 @@ export function PromptBanner({
   onSend,
   onRoll,
 }: Readonly<{
+  /** The banner, which the rolls' toasts start below while it shows. */
+  ref?: Ref<HTMLElement>
   prompts: TablePrompt[]
   sheet: TableSheet
   /** The prompts answered from this page, on their way to the game or made there. */
@@ -41,6 +45,7 @@ export function PromptBanner({
   const { asks } = seatWords(useTableRole())
   return (
     <section
+      ref={ref}
       aria-labelledby='prompts-heading'
       className='shrink-0 border-b border-primary/30 bg-primary/5 px-3 py-2.5 md:px-6 lg:px-7'
     >

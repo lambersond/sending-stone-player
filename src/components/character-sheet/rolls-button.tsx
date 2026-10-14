@@ -27,10 +27,11 @@ import type { LocalRoll } from '@/hooks/use-sheet-roller'
  * waits for, the earlier ones, and whether they reach the table, so that nothing the banner offers
  * is lost. A dot on the button says while a roll's damage waits for the player, as one whose
  * toast they closed; and each such roll's damage is to roll here, even once other rolls follow it,
- * as the banner offers only the latest's. It opens and closes as the cog's settings do; menus and
- * dialogs opened from it open inside it, so that choosing from one, or Escape on one, closes only
- * that. Never inside a dialog itself, it leaves Escape to the browser, for that dialog to close on
- * it.
+ * as the banner offers only the latest's. An attack that missed doesn't wait (`needsPlayer`): its
+ * damage is offered as the banner offers it, while it's the latest, and from its row. It opens and
+ * closes as the cog's settings do; menus and dialogs opened from it open inside it, so that
+ * choosing from one, or Escape on one, closes only that. Never inside a dialog itself, it leaves
+ * Escape to the browser, for that dialog to close on it.
  */
 export function RollsButton({
   rolls,
@@ -112,12 +113,13 @@ export function RollsButton({
       {open && (
         <FloatingPortal root={root}>
           <FloatingFocusManager context={context} modal={false}>
-            {/* Its content scrolls, not it, so that a menu opened inside may reach past it. */}
+            {/* Its content scrolls, not it, so that a menu opened inside may reach past it. Over
+                the rolls' toasts, which are 100001 and start just below the button, as it does. */}
             <div
               ref={attach}
               style={floatingStyles}
               aria-labelledby={title}
-              className='z-50 flex w-96 max-w-[calc(100vw-1rem)] flex-col rounded-xl border border-border bg-card text-text-primary shadow-xl outline-none'
+              className='z-[100002] flex w-96 max-w-[calc(100vw-1rem)] flex-col rounded-xl border border-border bg-card text-text-primary shadow-xl outline-none'
               {...getFloatingProps()}
             >
               <div className='flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain p-3'>

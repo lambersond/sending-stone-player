@@ -15,8 +15,9 @@ import { RollButton } from './roll-button'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
+  damageDue,
   damageRollOf,
-  needsPlayer,
+  missed,
   type DueDamage,
   type TableRollState,
 } from '@/hooks/use-table-rolls'
@@ -574,9 +575,9 @@ export function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
 }
 
 /**
- * The damage or healing of an attack or use the game made, to roll while it waits for its player
- * (`needsPlayer`), as the tray and the roll's toast both offer it: nothing once it's rolled, nor
- * where there's no way to roll it.
+ * The damage or healing of an attack or use the game made, to roll while it's due (`damageDue`),
+ * after a miss too, as the tray, the rolls' popover and a toast that waits for it all offer it:
+ * nothing once it's rolled, nor where there's no way to roll it.
  */
 export function DamageDue({
   roll,
@@ -592,7 +593,7 @@ export function DamageDue({
   /** On a toast's tint, which its buttons' own tint would make too dark to read. */
   onTint?: boolean
 }>) {
-  if (!state || !onRollDamage || !needsPlayer(roll, state)) return
+  if (!state || !onRollDamage || !damageDue(roll, state)) return
   return (
     <DamageButton
       // An attack's damage is named after its weapon or spell: "Longsword", not "Longsword attack".
@@ -641,7 +642,7 @@ function DamageButton({
 }>) {
   const { open, dialogs } = useDamageMenu()
   const { damage, requestId } = state
-  // Whether it's due is `needsPlayer`'s to say; these are only what rolling it takes.
+  // Whether it's due is `damageDue`'s to say; these are only what rolling it takes.
   if (!damage || !requestId) return
   const due: DueDamage = {
     use: requestId,
@@ -1419,27 +1420,10 @@ function accentOf(
   // What the game made of it, where the player may see it.
   const seen = state?.status === 'done' && state.visible ? state : undefined
   if (roll.natural === 20 || seen?.attack?.critical) return 'gold'
-  if (
-    roll.natural === 1 ||
-    (seen && missed(seen)) ||
-    madeIt(roll, state) === false
-  ) {
+  if (roll.natural === 1 || missed(seen) || madeIt(roll, state) === false) {
     return 'ruby'
   }
   return 'primary'
-}
-
-/**
- * Whether an attack the game made missed: its target, or everyone in its area the game says of,
- * as the tray's "Hit 0 of 2".
- */
-function missed({ attack }: TableRollState): boolean {
-  if (!attack) return false
-  const told = (attack.targets ?? []).filter(({ outcome }) => outcome !== null)
-  if (attack.targets && attack.targets.length > 1 && told.length > 0) {
-    return told.every(({ outcome }) => outcome === 'miss')
-  }
-  return attack.outcome === 'miss'
 }
 
 /**
