@@ -16,7 +16,7 @@ import {
   useRole,
 } from '@floating-ui/react'
 import clsx from 'clsx'
-import { Settings } from 'lucide-react'
+import { PanelBottom, PanelTop, Settings } from 'lucide-react'
 import { LayoutPicker, type ActionsLayout } from './actions-layout'
 import { usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -26,7 +26,7 @@ import { seatWords } from '@/utils/seat-words'
 type Props = {
   /** Whether this device sends the player's rolls to the table, while the game takes any. */
   send?: { on: boolean; onChange: (on: boolean) => void }
-  /** Whether the player's rolls pop up as toasts on this device. */
+  /** Whether the player's rolls pop up as toasts on this device, or stay in the banner. */
   toasts?: { on: boolean; onChange: (on: boolean) => void }
   /** The Actions tab's layouts, where the sheet is wide enough for more than one. */
   layouts?: ActionsLayout
@@ -35,7 +35,7 @@ type Props = {
 /**
  * The sheet's settings, behind a cog beside its tabs, so that they're at hand from every tab
  * without taking room from them: whether this device sends the player's rolls to the table, and
- * pops them up as toasts, the theme, and how the Actions tab is laid out. It opens as
+ * shows them as toasts or in a banner, the theme, and how the Actions tab is laid out. It opens as
  * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
  * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
  * change, for several to be changed at once.
@@ -71,12 +71,13 @@ export function SheetSettings({ send, toasts, layouts }: Readonly<Props>) {
   ])
   return (
     <>
+      {/* A little tighter in the row of tabs on a phone under 390 pixels, as the rolls' button. */}
       <button
         ref={refs.setReference}
         type='button'
         aria-label='Settings'
         title='Settings'
-        className='rounded-lg p-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'
+        className='rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'
         {...getReferenceProps()}
       >
         <Settings aria-hidden className='size-4' />
@@ -84,11 +85,12 @@ export function SheetSettings({ send, toasts, layouts }: Readonly<Props>) {
       {open && (
         <FloatingPortal root={root}>
           <FloatingFocusManager context={context} modal={false}>
+            {/* Over the rolls' toasts, 100001, which start just below the cog, as it does. */}
             <div
               ref={refs.setFloating}
               style={floatingStyles}
               aria-labelledby={title}
-              className='z-50 flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-3 text-text-primary shadow-xl outline-none'
+              className='z-[100002] flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-3 text-text-primary shadow-xl outline-none'
               {...getFloatingProps()}
             >
               <p
@@ -104,13 +106,7 @@ export function SheetSettings({ send, toasts, layouts }: Readonly<Props>) {
                   {...send}
                 />
               )}
-              {toasts && (
-                <SwitchSetting
-                  label='Roll toasts'
-                  hint='Each roll’s result pops up at the top of the screen for 4 seconds. Tap one to clear it.'
-                  {...toasts}
-                />
-              )}
+              {toasts && <ResultsSetting {...toasts} />}
               <Setting label='Theme'>
                 <ThemeToggle />
               </Setting>
@@ -175,6 +171,66 @@ function SwitchSetting({
         {hint}
       </p>
     </div>
+  )
+}
+
+/** The ways the player's rolls are shown, one or the other: as toasts, or in the banner. */
+const RESULTS = [
+  {
+    toasts: true,
+    label: 'Toasts',
+    icon: PanelTop,
+    hint: 'Each roll pops up at the top of the screen for 4 seconds; one you need to act on stays until you do.',
+  },
+  {
+    toasts: false,
+    label: 'Banner',
+    icon: PanelBottom,
+    hint: 'Your rolls stay in a banner at the bottom of the sheet.',
+  },
+]
+
+/**
+ * How the player's rolls are shown, as toasts or in the banner, picked as the Actions tab's layout
+ * is, and said more of beneath, as the choice made shows them.
+ */
+function ResultsSetting({
+  on,
+  onChange,
+}: Readonly<{ on: boolean; onChange: (on: boolean) => void }>) {
+  const hintId = useId()
+  const chosen = RESULTS.find(({ toasts }) => toasts === on) ?? RESULTS[0]
+  return (
+    <Setting label='Roll results'>
+      <div
+        role='radiogroup'
+        aria-label='Roll results'
+        aria-describedby={hintId}
+        className='flex rounded-lg border border-border bg-card p-0.5'
+      >
+        {RESULTS.map(({ toasts, label, icon: Icon }) => (
+          <button
+            key={label}
+            type='button'
+            role='radio'
+            aria-checked={on === toasts}
+            onClick={() => onChange(toasts)}
+            className={clsx(
+              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
+              on === toasts
+                ? 'bg-primary/10 text-primary'
+                : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
+            )}
+          >
+            <Icon aria-hidden className='size-4' />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p id={hintId} className='text-xs text-text-secondary'>
+        {chosen.hint}
+      </p>
+    </Setting>
   )
 }
 

@@ -37,7 +37,8 @@ import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { PromptBanner } from './prompt-banner'
 import { RollToasts } from './roll-toasts'
-import { reasons, RollTray } from './roll-tray'
+import { reasons, RollTray, type TableRolls } from './roll-tray'
+import { RollsButton } from './rolls-button'
 import { SheetSettings } from './sheet-settings'
 import { SpellsTab } from './spells-tab'
 import {
@@ -87,6 +88,11 @@ type Props = {
   rollFeatures?: RollFeature[]
   /** The saving throws the game asks of the character, for its player to roll here. */
   prompts?: TablePrompt[]
+  /**
+   * The table's header, which the rolls' toasts start below where the sheet's tabs aren't shown,
+   * as on a phone showing combat or the chat.
+   */
+  header?: HTMLElement | null
 }
 
 /**
@@ -158,6 +164,7 @@ function RollingSheet({
   rollsToTable,
   rollFeatures,
   prompts,
+  header,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const role = useTableRole()
@@ -176,7 +183,8 @@ function RollingSheet({
     rolls,
     rolling,
   } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
-  // Whether each roll also pops up as a toast, which then says it to screen readers, not the tray.
+  // Whether the rolls pop up as toasts, with the rest a button away, or stay in the banner: one or
+  // the other, never both.
   const [toasting, setToasting] = useToastSetting()
   const conditions = useConditionsPanel(sheet.conditions)
   // An attack or a use made at the table, while its player picks whom at, and with what.
@@ -185,6 +193,12 @@ function RollingSheet({
   const [chosen, setTab] = useState<SheetTab>('character')
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
+  // The row of tabs, and the game's prompts beneath it while it asks any, which the rolls' toasts
+  // start below, so as not to cover the prompts' only buttons.
+  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+  const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
+  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+  const [promptBanner, setPromptBanner] = useState<HTMLElement | null>(null)
   const width = useWidth(body)
   const show = (next: SheetTab) => {
     setTab(next)
@@ -407,12 +421,17 @@ function RollingSheet({
   const strip =
     showsFavorites && !beside ? <FavoritesStrip {...favorites} /> : undefined
   // Rolls are made from the Character, Actions, Inventory, Spells and Features tabs, and from
-  // favorites, so the tray shows there; the rolls stay.
+  // favorites, so the banner shows there, where the player has it rather than toasts; the rolls
+  // stay.
   const showsRolls =
-    ROLLING.has(tab) ||
-    (showsFavorites && rollsAny(entries)) ||
-    prompted ||
-    described
+    !toasting &&
+    (ROLLING.has(tab) ||
+      (showsFavorites && rollsAny(entries)) ||
+      prompted ||
+      described)
+  // The rolls' way to the game, and their damage to roll, as the banner, the toasts and the rolls'
+  // button all offer it.
+  const trayTable: TableRolls = { ...table, rollDamage: rollDue }
   const handlers = {
     onRoll,
     onRollDamage,
@@ -493,10 +512,16 @@ function RollingSheet({
       enchanting={enchanting}
     >
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
-          labels don't fit; the settings' cog after them, at the end of the row. No gap before the
-          cog, as its margin and its own padding keep it apart: on a 360-pixel screen a caster's
-          seven tabs, with a condition's dot on Effects, take 301 of the 304 pixels beside it. */}
-      <div className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'>
+          labels don't fit; the settings' cog after them, at the end of the row, and the rolls'
+          button before it where they pop up as toasts. No gap before them, as their margin and
+          their own padding keep them apart: a caster's seven tabs, with a condition's dot on
+          Effects, take 301 pixels, of the 302 beside both on a 390-pixel screen. Narrower, the
+          tabs and the buttons are a little tighter, so that they take 277 of the 280 on a
+          360-pixel one; narrower still, the tabs scroll. */}
+      <div
+        ref={setTabRow}
+        className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'
+      >
         <div
           role='tablist'
           aria-label='Character sheet'
@@ -514,9 +539,10 @@ function RollingSheet({
               onClick={() => show(id)}
               className={clsx(
                 'flex shrink-0 items-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors',
-                // Seven tabs' icons, Effects' dot, the chosen one's label and the settings' cog fit
-                // a 360-pixel screen; on a narrower one the tabs scroll.
-                tab === id ? 'px-2' : 'px-1.5 @3xl:px-2',
+                // Seven tabs' icons, Effects' dot, the chosen one's label, the rolls' button and
+                // the settings' cog fit a 360-pixel screen; on a narrower one the tabs scroll.
+                // Tighter under 366 pixels inside the row's padding, a screen under 390.
+                tab === id ? 'px-2' : 'px-1.5 @max-[366px]:px-1 @3xl:px-2',
                 tab === id
                   ? 'bg-primary/10 text-primary'
                   : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
@@ -536,7 +562,10 @@ function RollingSheet({
             </button>
           ))}
         </div>
-        <div className='ml-auto shrink-0'>
+        <div className='ml-auto flex shrink-0 items-center'>
+          {toasting && (
+            <RollsButton rolls={rolls} rolling={rolling} table={trayTable} />
+          )}
           <SheetSettings
             send={
               table.available
@@ -555,6 +584,7 @@ function RollingSheet({
       {/* What the game asks of the character, above every tab, while the game takes the answer. */}
       {waiting.length > 0 && table.available && (
         <PromptBanner
+          ref={setPromptBanner}
           prompts={waiting}
           sheet={sheet}
           answering={table.answering}
@@ -634,15 +664,19 @@ function RollingSheet({
         </Scroller>
       </div>
       {showsRolls && (
-        <RollTray
-          rolls={rolls}
-          rolling={rolling}
-          table={{ ...table, rollDamage: rollDue }}
-          announce={!toasting}
-        />
+        <RollTray rolls={rolls} rolling={rolling} table={trayTable} />
       )}
-      {/* On every tab, the tray's among them, as a roll's way to the game may end on another. */}
-      <RollToasts rolls={rolls} states={table.states} on={toasting} />
+      {/* On every tab, as a roll's way to the game may end on another. */}
+      <RollToasts
+        rolls={rolls}
+        states={table.states}
+        on={toasting}
+        rollDamage={rollDue}
+        modifies={table.modifies}
+        tabs={tabRow}
+        prompts={promptBanner}
+        header={header}
+      />
       <UsePicker
         picking={picking}
         combat={combat}

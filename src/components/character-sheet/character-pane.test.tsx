@@ -25,7 +25,7 @@ import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { RolledDice, RollFeature, RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
-import type { TableCombat } from '@/types/table'
+import type { TableCombat, TablePrompt } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock('@lambersond/3d-dice-react', () => ({
@@ -267,6 +267,47 @@ const openSettings = async (user: User) => {
   await user.click(screen.getByRole('button', { name: 'Settings' }))
   return screen.getByRole('dialog', { name: 'Settings' })
 }
+
+/** The attack's toast, once the game says it hit. */
+const hitToast = async () => {
+  const label = await within(toasts()).findByText('Warhammer attack')
+  const toast = label.closest('[data-roll-toast]') as HTMLElement
+  await waitFor(() => expect(toast).toHaveAttribute('data-waits'), {
+    timeout: 3000,
+  })
+  return toast
+}
+
+/** The attack's toast, once the game says it missed. */
+const missToast = async () => {
+  const label = await within(toasts()).findByText('Warhammer attack')
+  const toast = label.closest('[data-roll-toast]') as HTMLElement
+  await waitFor(
+    () => expect(toast).toHaveTextContent('At the table: 19 · Miss'),
+    { timeout: 3000 },
+  )
+  return toast
+}
+
+/** Attacks with the warhammer, at no one. */
+const strike = async (user: User) => {
+  await user.click(screen.getByRole('tab', { name: 'Actions' }))
+  await user.click(screen.getByRole('button', { name: 'Warhammer attack, +7' }))
+  await user.click(screen.getByRole('button', { name: 'No target' }))
+}
+
+/** The button beside the cog that opens the rolls, where they pop up as toasts. */
+const rollsButton = () => screen.queryByRole('button', { name: /^Your rolls/ })
+
+/** Where an element is stacked, by its class, on the page's own body, as the toasts are. */
+const layer = (element: Element) =>
+  Number(/(?:^|\s)z-\[?(\d+)\]?(?=\s|$)/.exec(element.className)?.[1])
+
+/** The setting, among the sheet's settings. */
+const results = async (user: User) =>
+  within(await openSettings(user)).getByRole('radiogroup', {
+    name: 'Roll results',
+  })
 
 /**
  * Thorin with a potion of healing, its range Self, at any creatures, as a module before 0.22.0
@@ -974,8 +1015,8 @@ describe('components/character-sheet/character-pane', () => {
       ],
     }
 
-    /** The game, which makes the attack, a hit, then its damage. */
-    const game = () => {
+    /** The game, which makes the attack, a hit or a miss, then its damage. */
+    const game = (outcome: 'hit' | 'miss' = 'hit') => {
       const posted: Record<string, unknown>[] = []
       globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
         if (init?.method === 'POST') {
@@ -993,7 +1034,7 @@ describe('components/character-sheet/character-pane', () => {
                 status: 'done',
                 visible: true,
                 total: 19,
-                attack: { critical: false, fumble: false, outcome: 'hit' },
+                attack: { critical: false, fumble: false, outcome },
                 damage: preview,
               }
             : { id: 'req-2', status: 'done', visible: true, total: 9 }
@@ -1175,6 +1216,27 @@ describe('components/character-sheet/character-pane', () => {
       ).toEqual(['Goblin: Hit', 'Goblin Boss: Miss'])
     })
 
+    it('offers the damage of an attack that missed in the banner, for what deals damage on one, rolling it there', async () => {
+      const user = userEvent.setup()
+      const posted = game('miss')
+      renderFight()
+      await strike(user)
+      const status = screen.getByRole('status')
+      await waitFor(
+        () => expect(status).toHaveTextContent('At the table: 19 · Miss'),
+        { timeout: 3000 },
+      )
+
+      await user.click(
+        within(screen.getByRole('region', { name: 'Your rolls' })).getByRole(
+          'button',
+          { name: 'Roll damage' },
+        ),
+      )
+
+      expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+    })
+
     it("rolls a waiting attack's damage from its damage chip, as the game said", async () => {
       const user = userEvent.setup()
       const posted = game()
@@ -1192,6 +1254,186 @@ describe('components/character-sheet/character-pane', () => {
       )
 
       expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+    })
+
+    describe('with toasts', () => {
+      beforeEach(() => globalThis.localStorage.removeItem(TOASTS_KEY))
+
+      it("T1 keeps a hit's toast, with its damage to roll, which rolls it at the table, then goes, the damage's own toast popping up", async () => {
+        const user = userEvent.setup()
+        const posted = game()
+        renderFight()
+        await strike(user)
+
+        const toast = await hitToast()
+        expect(toast).toHaveTextContent('At the table: 19 · Hit')
+        expect(rollsButton()?.textContent).toBe('Your rolls, damage to roll')
+        await user.click(
+          within(toast).getByRole('button', { name: 'Roll damage' }),
+        )
+
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+        await within(toasts()).findByText('Warhammer damage')
+        await waitFor(() => expect(toast).not.toBeInTheDocument())
+        expect(rollsButton()?.textContent).toBe('Your rolls')
+      })
+
+      it('T2 closes by its ×, for good, the damage still rolled from the row, as the dot says', async () => {
+        const user = userEvent.setup()
+        const posted = game()
+        renderFight()
+        await strike(user)
+        const toast = await hitToast()
+
+        await user.click(within(toast).getByRole('button', { name: 'Dismiss' }))
+
+        expect(toast).not.toBeInTheDocument()
+        expect(rollsButton()?.textContent).toBe('Your rolls, damage to roll')
+        // The game is asked again, and says the same: it doesn't pop up again.
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        expect(within(toasts()).queryByText('Warhammer attack')).toBeNull()
+
+        await user.click(
+          screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
+        )
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+      })
+
+      it("T3 rolls the damage from the rolls' button, once its toast is closed", async () => {
+        const user = userEvent.setup()
+        const posted = game()
+        renderFight()
+        await strike(user)
+        const toast = await hitToast()
+        await user.click(within(toast).getByRole('button', { name: 'Dismiss' }))
+
+        await user.click(rollsButton() as HTMLElement)
+        const rolls = screen.getByRole('dialog', { name: 'Your rolls' })
+        expect(within(rolls).getByRole('status')).toHaveTextContent(
+          'At the table: 19 · Hit',
+        )
+        await user.click(
+          within(rolls).getByRole('button', { name: 'Roll damage' }),
+        )
+
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+        await waitFor(() =>
+          expect(
+            within(
+              screen.getByRole('dialog', { name: 'Your rolls' }),
+            ).getByRole('status'),
+          ).toHaveTextContent('Warhammer damage'),
+        )
+        expect(within(rolls).getByText('Earlier rolls (1)')).toBeInTheDocument()
+        expect(rollsButton()?.textContent).toBe('Your rolls')
+      })
+
+      it("T5 rolls the damage from the rolls' button, its toast closed, once another roll follows", async () => {
+        const user = userEvent.setup()
+        const posted = game()
+        renderFight()
+        await strike(user)
+        const toast = await hitToast()
+        await user.click(within(toast).getByRole('button', { name: 'Dismiss' }))
+        await user.click(screen.getByRole('tab', { name: 'Character' }))
+        await user.click(
+          screen.getByRole('button', { name: 'Strength check, +4' }),
+        )
+        await within(toasts()).findByText('Strength check')
+
+        expect(rollsButton()?.textContent).toBe('Your rolls, damage to roll')
+        await user.click(rollsButton() as HTMLElement)
+        const rolls = screen.getByRole('dialog', { name: 'Your rolls' })
+        expect(within(rolls).getByRole('status')).toHaveTextContent(
+          'Strength check',
+        )
+        await user.click(
+          within(
+            within(rolls).getByRole('group', { name: 'Warhammer attack' }),
+          ).getByRole('button', { name: 'Roll damage' }),
+        )
+
+        expect(posted).toHaveLength(2)
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+        await waitFor(() =>
+          expect(rollsButton()?.textContent).toBe('Your rolls'),
+        )
+        expect(
+          within(rolls).queryByRole('group', { name: 'Warhammer attack' }),
+        ).toBeNull()
+      })
+
+      it("T7 lets a miss's toast go as any other, with no dot, its damage rolled from the rolls' button while it's the latest", async () => {
+        const user = userEvent.setup()
+        const posted = game('miss')
+        renderFight()
+        await strike(user)
+
+        const toast = await missToast()
+        expect(toast).not.toHaveAttribute('data-waits')
+        expect(within(toast).queryByRole('button')).toBeNull()
+        expect(rollsButton()?.textContent).toBe('Your rolls')
+        await user.click(rollsButton() as HTMLElement)
+        const rolls = screen.getByRole('dialog', { name: 'Your rolls' })
+        expect(
+          within(rolls).queryByRole('group', { name: 'Warhammer attack' }),
+        ).toBeNull()
+        await user.click(
+          within(within(rolls).getByRole('status')).getByRole('button', {
+            name: 'Roll damage',
+          }),
+        )
+
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+      })
+
+      it("T8 rolls a miss's damage from its row, its toast tapped away", async () => {
+        const user = userEvent.setup()
+        const posted = game('miss')
+        renderFight()
+        await strike(user)
+        await user.click(await missToast())
+
+        await user.click(
+          screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
+        )
+
+        expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+      })
+
+      it("T6 opens the damage menu in a hit's toast, where the game takes damage changed", async () => {
+        const user = userEvent.setup()
+        const posted = game()
+        render(
+          <CharacterPane
+            characterId='char-1'
+            name='Thorin Oakenshield'
+            sheet={toTableSheet(fullerSheet(), GAME)}
+            combat={fight}
+            rollsToTable={['attack', 'damage']}
+            rollFeatures={['modifiers']}
+          />,
+        )
+        await strike(user)
+        const toast = await hitToast()
+
+        fireEvent.contextMenu(
+          within(toast).getByRole('button', { name: 'Roll damage' }),
+        )
+        const menu = screen.getByRole('menu', {
+          name: 'Warhammer damage 1d8 + 4',
+        })
+        expect(toast).toContainElement(menu)
+        await user.click(
+          within(menu).getByRole('menuitem', { name: 'Roll maximum damage' }),
+        )
+
+        expect(posted[1]).toMatchObject({
+          kind: 'damage',
+          use: 'req-1',
+          modifiers: { maximize: true },
+        })
+      })
     })
 
     it('makes an attack at once, at no one, out of combat', async () => {
@@ -1682,6 +1924,53 @@ describe('components/character-sheet/character-pane', () => {
         timeout: 3000,
       })
       expect(screen.queryByRole('button', { name: /^Roll/ })).toBeNull()
+    })
+
+    it("T4 keeps a use's toast while its kind of damage is to be chosen, choosing it there, with toasts", async () => {
+      globalThis.localStorage.removeItem(TOASTS_KEY)
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': used('save', {
+          critical: false,
+          plannable: true,
+          rolls: [
+            {
+              formula: '1d10',
+              type: 'acid',
+              types: [
+                { key: 'acid', label: 'Acid' },
+                { key: 'fire', label: 'Fire' },
+              ],
+              dice: [{ faces: 10, number: 1 }],
+            },
+          ],
+        }),
+        'req-2': { status: 'done', visible: true, total: 6 },
+      })
+      renderCasting({ combat: null })
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Breath Weapon damage, 1d10' }),
+      )
+      const label = await within(toasts()).findByText('Breath Weapon')
+      const toast = label.closest('[data-roll-toast]') as HTMLElement
+      await waitFor(
+        () => expect(toast).toHaveTextContent('Choose its kind of damage:'),
+        { timeout: 3000 },
+      )
+      expect(toast).toHaveAttribute('data-waits', 'true')
+      await user.click(
+        within(toast).getByRole('button', { name: 'Roll Fire damage' }),
+      )
+
+      expect(posted[1]).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        types: ['fire'],
+      })
+      await within(toasts()).findByText('Breath Weapon damage')
+      await waitFor(() => expect(toast).not.toBeInTheDocument())
     })
 
     it('uses a feature on its user at once, with no one to pick, and heals them', async () => {
@@ -3351,14 +3640,14 @@ describe('components/character-sheet/character-pane', () => {
     })
   })
 
-  describe('roll toasts', () => {
-    // As a player who never turned them off has them.
+  describe('roll results: toasts or the banner', () => {
+    // As a player who never chose has them: toasts.
     beforeEach(() => globalThis.localStorage.clear())
     afterEach(() => globalThis.localStorage.clear())
 
-    it('P1 pops each roll up as a toast, the tray still showing it, unannounced', async () => {
+    it('P1 pops each roll up as a toast by default, with no banner on any tab, the rolls a button away', async () => {
       const user = userEvent.setup()
-      renderPane()
+      renderPane(castingSheet())
 
       await user.click(
         screen.getByRole('button', { name: 'Strength check, +4' }),
@@ -3368,12 +3657,31 @@ describe('components/character-sheet/character-pane', () => {
       expect(toast.closest('[data-roll-toast]')).toHaveTextContent(
         /^\d+Strength checkd20 \d+ \+4/,
       )
-      const status = screen.getByRole('status')
-      expect(status).toHaveTextContent('Strength check')
-      expect(status).toHaveAttribute('aria-live', 'off')
+      const tabs = screen.getAllByRole('tab')
+      expect(tabs).toHaveLength(7)
+      for (const tab of tabs) {
+        await user.click(tab)
+        expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+        expect(rollsButton()).toBeInTheDocument()
+      }
+      expect(screen.queryByRole('status')).toBeNull()
+      // Just before the cog, at the end of the row of tabs.
+      expect(rollsButton()?.nextElementSibling).toBe(
+        screen.getByRole('button', { name: 'Settings' }),
+      )
+
+      await user.click(rollsButton() as HTMLElement)
+      const rolls = screen.getByRole('dialog', { name: 'Your rolls' })
+      expect(within(rolls).getByRole('status')).toHaveTextContent(
+        'Strength check',
+      )
+      expect(within(rolls).getByRole('status')).toHaveAttribute(
+        'aria-live',
+        'off',
+      )
     })
 
-    it("P2 says in a roll's toast where it is at the table, as it goes", async () => {
+    it("P2 says in a roll's toast where it is at the table, as it goes, as its rolls do", async () => {
       const user = userEvent.setup()
       answering({ 'req-1': { status: 'done', visible: true, total: 31 } })
       render(
@@ -3398,49 +3706,99 @@ describe('components/character-sheet/character-pane', () => {
         timeout: 3000,
       })
       expect(toasts().querySelector('[data-roll-toast]')).toBe(toast)
-      expect(screen.getByRole('status')).toHaveTextContent('At the table: 31')
+      await user.click(rollsButton() as HTMLElement)
+      expect(
+        within(screen.getByRole('dialog', { name: 'Your rolls' })).getByRole(
+          'status',
+        ),
+      ).toHaveTextContent('At the table: 31')
     })
 
-    it('P3 turns toasts off from the settings, on this device, for good', async () => {
+    it('P3 shows the banner instead, as chosen in the settings, on this device, for good, and no toasts', async () => {
       const user = userEvent.setup()
       const { unmount } = renderPane()
-
-      const settings = await openSettings(user)
-      const toggle = within(settings).getByRole('switch', {
-        name: 'Roll toasts',
-      })
-      expect(toggle).toBeChecked()
-      await user.click(toggle)
-      expect(toggle).not.toBeChecked()
-      expect(globalThis.localStorage.getItem(TOASTS_KEY)).toBe('off')
-      await user.keyboard('{Escape}')
-
       await user.click(
         screen.getByRole('button', { name: 'Strength check, +4' }),
       )
-      const status = screen.getByRole('status')
-      await waitFor(() => expect(status).toHaveTextContent('Strength check'))
-      expect(status).toHaveAttribute('aria-live', 'polite')
+      await within(toasts()).findByText('Strength check')
+
+      const choice = await results(user)
+      expect(
+        within(choice).getByRole('radio', { name: 'Toasts' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      await user.click(within(choice).getByRole('radio', { name: 'Banner' }))
+      expect(globalThis.localStorage.getItem(TOASTS_KEY)).toBe('off')
+      expect(
+        within(choice).getByRole('radio', { name: 'Banner' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      // The toast showing is gone, and the rolls' button with it.
+      expect(screen.queryByRole('log')).toBeNull()
+      expect(document.querySelector('[data-roll-toast]')).toBeNull()
+      expect(rollsButton()).toBeNull()
+      await user.keyboard('{Escape}')
+
+      const banner = screen.getByRole('region', { name: 'Your rolls' })
+      expect(within(banner).getByRole('status')).toHaveTextContent(
+        'Strength check',
+      )
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await waitFor(() =>
+        expect(
+          within(banner).getByText('Earlier rolls (1)'),
+        ).toBeInTheDocument(),
+      )
+      expect(within(banner).getByRole('status')).toHaveAttribute(
+        'aria-live',
+        'polite',
+      )
       expect(screen.queryByRole('log')).toBeNull()
 
       unmount()
       renderPane()
       expect(
-        within(await openSettings(user)).getByRole('switch', {
-          name: 'Roll toasts',
-        }),
-      ).not.toBeChecked()
+        within(await results(user)).getByRole('radio', { name: 'Banner' }),
+      ).toHaveAttribute('aria-checked', 'true')
       await user.keyboard('{Escape}')
+      expect(
+        screen.getByRole('region', { name: 'Your rolls' }),
+      ).toBeInTheDocument()
+      expect(rollsButton()).toBeNull()
+    })
+
+    it('P4 reads a player’s toasts turned off before as the banner, and turns back to toasts, popping nothing rolled meanwhile', async () => {
+      const user = userEvent.setup()
+      globalThis.localStorage.setItem(TOASTS_KEY, 'off')
+      renderPane()
+
+      const choice = await results(user)
+      expect(
+        within(choice).getByRole('radio', { name: 'Banner' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      await user.keyboard('{Escape}')
+      expect(
+        screen.getByRole('region', { name: 'Your rolls' }),
+      ).toBeInTheDocument()
       await user.click(
         screen.getByRole('button', { name: 'Strength check, +4' }),
       )
       await waitFor(() =>
         expect(screen.getByRole('status')).toHaveTextContent('Strength check'),
       )
-      expect(screen.queryByRole('log')).toBeNull()
+
+      await user.click(
+        within(await results(user)).getByRole('radio', { name: 'Toasts' }),
+      )
+      expect(globalThis.localStorage.getItem(TOASTS_KEY)).toBe('on')
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+      expect(rollsButton()).toBeInTheDocument()
+      expect(toasts()).toBeEmptyDOMElement()
     })
 
-    it('P4 keeps a toast showing on a tab without the tray, outside the sheet', async () => {
+    it('P5 keeps a toast showing on a tab with nothing to roll, outside the sheet', async () => {
       const user = userEvent.setup()
       renderPane()
       await user.click(
@@ -3450,10 +3808,122 @@ describe('components/character-sheet/character-pane', () => {
 
       await show('Biography')
 
-      expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
       expect(within(toasts()).getByText('Strength check')).toBeInTheDocument()
       expect(screen.getByRole('tabpanel')).not.toContainElement(toasts())
       expect(toasts().parentElement?.parentElement).toBe(document.body)
+    })
+
+    it("P7 starts the toasts 8 pixels below the row of tabs, with the rolls' button and the cog", async () => {
+      const user = userEvent.setup()
+      renderPane()
+      const row = screen.getByRole('tablist').parentElement as HTMLElement
+      expect(row).toContainElement(rollsButton())
+      expect(row).toContainElement(
+        screen.getByRole('button', { name: 'Settings' }),
+      )
+      // The row, as a browser lays it out under a header 64 pixels tall, as the window's resized.
+      row.getBoundingClientRect = () =>
+        ({ top: 64, bottom: 108, width: 390, height: 44 }) as DOMRect
+      act(() => {
+        globalThis.dispatchEvent(new Event('resize'))
+      })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+
+      expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+    })
+
+    it("P8 starts the toasts below the game's prompts beneath the row while it asks any, so as not to cover their only buttons, and below the row once they go", async () => {
+      const user = userEvent.setup()
+      const ask: TablePrompt = {
+        id: 'msg2-thorin',
+        type: 'concentration',
+        abilities: ['con'],
+        label: 'Bless',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      }
+      const pane = (prompts: TablePrompt[]) => (
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          rollsToTable={['save']}
+          rollFeatures={['prompts']}
+          prompts={prompts}
+        />
+      )
+      const { rerender } = render(pane([ask]))
+      const row = screen.getByRole('tablist').parentElement as HTMLElement
+      const prompts = screen.getByRole('region', {
+        name: 'Your Gamemaster asks',
+      })
+      // As a browser lays them out under a header 64 pixels tall, the prompts beneath the row.
+      row.getBoundingClientRect = () =>
+        ({ top: 64, bottom: 108, width: 390, height: 44 }) as DOMRect
+      prompts.getBoundingClientRect = () =>
+        ({ top: 108, bottom: 231, width: 390, height: 123 }) as DOMRect
+      act(() => {
+        globalThis.dispatchEvent(new Event('resize'))
+      })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+      expect(toasts().parentElement).toHaveStyle({ top: '239px' })
+
+      // The game asks nothing more.
+      rerender(pane([]))
+      expect(
+        screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+      ).toBeNull()
+      expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+    })
+
+    it("P9 opens the cog's settings and the rolls' popover over the toasts, which start just below them", async () => {
+      const user = userEvent.setup()
+      renderPane()
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+      const region = toasts().parentElement as HTMLElement
+      expect(layer(region)).toBe(100_001)
+
+      const settings = await openSettings(user)
+      expect(layer(settings)).toBeGreaterThan(layer(region))
+      await user.keyboard('{Escape}')
+      await user.click(rollsButton() as HTMLElement)
+      expect(
+        layer(screen.getByRole('dialog', { name: 'Your rolls' })),
+      ).toBeGreaterThan(layer(region))
+    })
+
+    it("P6 tightens the row of tabs on a phone narrower than 390 pixels, for a caster's to fit beside the rolls' button and the cog", () => {
+      renderPane(castingSheet())
+
+      // The row's width inside its padding, 366 pixels on a 390-pixel screen, as measured in a
+      // browser: the tabs take 277 pixels of the 280 left on a 360-pixel one.
+      const row = screen.getByRole('tablist').parentElement as HTMLElement
+      expect(row).toHaveClass('@container', 'px-3')
+      const tabs = screen.getAllByRole('tab')
+      expect(tabs).toHaveLength(7)
+      for (const tab of tabs.filter(
+        tab => tab.getAttribute('aria-selected') === 'false',
+      )) {
+        expect(tab).toHaveClass('px-1.5', '@max-[366px]:px-1')
+      }
+      expect(tabs[0]).toHaveClass('px-2')
+      expect(tabs[0]).not.toHaveClass('@max-[366px]:px-1')
+      for (const button of [
+        rollsButton() as HTMLElement,
+        screen.getByRole('button', { name: 'Settings' }),
+      ]) {
+        expect(button).toHaveClass('p-2', '@max-[366px]:p-1.5')
+      }
     })
   })
 

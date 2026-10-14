@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
 import { characterSheet } from '@/mocks/sending-stone'
+import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
 import type { TableCombat, TableMessage, TableView } from '@/types/table'
@@ -798,7 +799,14 @@ describe('components/game-table/game-table', () => {
   })
 
   describe('the character tab', () => {
+    afterEach(() => {
+      localStorage.removeItem(TOASTS_KEY)
+      jest.restoreAllMocks()
+    })
+
     it('opens on the sheet when there is no fight under way', () => {
+      // With the rolls in the banner, as the player may have them.
+      localStorage.setItem(TOASTS_KEY, 'off')
       renderTable(view({ sheet, combat: undefined }))
 
       expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
@@ -813,6 +821,68 @@ describe('components/game-table/game-table', () => {
       expect(
         within(pane).getByRole('region', { name: 'Your rolls' }),
       ).toHaveTextContent('Tap an ability, skill or attack to roll it.')
+    })
+
+    it('opens on the sheet with the rolls a button away, where they pop up as toasts', () => {
+      renderTable(view({ sheet, combat: undefined }))
+
+      const pane = screen.getByRole('region', { name: 'Character' })
+      expect(
+        within(pane).getByRole('button', { name: 'Strength check, +4' }),
+      ).toBeInTheDocument()
+      expect(
+        within(pane).queryByRole('region', { name: 'Your rolls' }),
+      ).toBeNull()
+      expect(
+        within(pane).getByRole('button', { name: /^Your rolls/ }),
+      ).toBeInTheDocument()
+    })
+
+    it("starts the sheet's toasts below its row of tabs, and below the header while a phone shows combat or the chat", async () => {
+      // Each observer, to say the layout changed as a browser would.
+      const observers: (() => void)[] = []
+      jest
+        .spyOn(globalThis, 'ResizeObserver')
+        .mockImplementation((callback: ResizeObserverCallback) => {
+          observers.push(() => callback([], {} as ResizeObserver))
+          return {
+            observe: jest.fn(),
+            unobserve: jest.fn(),
+            disconnect: jest.fn(),
+          }
+        })
+      const user = userEvent.setup()
+      renderTable(view({ sheet, combat: undefined }))
+      const pane = screen.getByRole('region', { name: 'Character' })
+      const row = within(pane).getByRole('tablist', { name: 'Character sheet' })
+        .parentElement as HTMLElement
+      // As a browser lays them out on a phone: the row isn't, while its pane is hidden.
+      const header = nameOf().closest('header') as HTMLElement
+      header.getBoundingClientRect = () =>
+        ({ top: 0, bottom: 64, width: 390, height: 64 }) as DOMRect
+      row.getBoundingClientRect = () =>
+        (pane.classList.contains('hidden')
+          ? { top: 0, bottom: 0, width: 0, height: 0 }
+          : { top: 64, bottom: 108, width: 390, height: 44 }) as DOMRect
+      const resized = () =>
+        act(() => {
+          for (const observer of observers) observer()
+        })
+      resized()
+
+      await user.click(
+        within(pane).getByRole('button', { name: 'Strength check, +4' }),
+      )
+      const toasts = screen.getByRole('log', { name: 'Roll results' })
+      await within(toasts).findByText('Strength check')
+      expect(toasts.parentElement).toHaveStyle({ top: '116px' })
+
+      await user.click(screen.getByRole('button', { name: 'Combat' }))
+      resized()
+      expect(toasts.parentElement).toHaveStyle({ top: '72px' })
+      await user.click(screen.getByRole('button', { name: 'Character' }))
+      resized()
+      expect(toasts.parentElement).toHaveStyle({ top: '116px' })
     })
 
     it('opens on the sheet during a fight too, with Combat marked on the player’s turn, and switches to combat', async () => {
