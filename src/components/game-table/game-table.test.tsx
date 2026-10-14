@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
 import { characterSheet } from '@/mocks/sending-stone'
+import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
 import type { TableCombat, TableMessage, TableView } from '@/types/table'
@@ -798,7 +799,11 @@ describe('components/game-table/game-table', () => {
   })
 
   describe('the character tab', () => {
+    afterEach(() => localStorage.removeItem(TOASTS_KEY))
+
     it('opens on the sheet when there is no fight under way', () => {
+      // With the rolls in the banner, as the player may have them.
+      localStorage.setItem(TOASTS_KEY, 'off')
       renderTable(view({ sheet, combat: undefined }))
 
       expect(screen.getByRole('button', { name: 'Character' })).toHaveAttribute(
@@ -813,6 +818,21 @@ describe('components/game-table/game-table', () => {
       expect(
         within(pane).getByRole('region', { name: 'Your rolls' }),
       ).toHaveTextContent('Tap an ability, skill or attack to roll it.')
+    })
+
+    it('opens on the sheet with the rolls a button away, where they pop up as toasts', () => {
+      renderTable(view({ sheet, combat: undefined }))
+
+      const pane = screen.getByRole('region', { name: 'Character' })
+      expect(
+        within(pane).getByRole('button', { name: 'Strength check, +4' }),
+      ).toBeInTheDocument()
+      expect(
+        within(pane).queryByRole('region', { name: 'Your rolls' }),
+      ).toBeNull()
+      expect(
+        within(pane).getByRole('button', { name: /^Your rolls/ }),
+      ).toBeInTheDocument()
     })
 
     it('opens on the sheet during a fight too, with Combat marked on the player’s turn, and switches to combat', async () => {

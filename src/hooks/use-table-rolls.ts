@@ -17,6 +17,7 @@ import type {
   LocalCheck,
   LocalDamage,
   LocalFormula,
+  LocalRoll,
   LocalUse,
   SheetDamageRoll,
   SheetFormulaRoll,
@@ -868,6 +869,18 @@ export function damageRollOf(
 /** The kinds of damage among which a roll of damage lets its roller choose, if any. */
 export function choicesOf(damage: DamagePreview) {
   return damage.rolls.find(roll => (roll.types?.length ?? 0) > 1)?.types ?? []
+}
+
+/**
+ * Whether a roll waits for its player: an attack the game made, whose damage is still to roll, or
+ * a use whose damage or healing waits for its kind to be chosen, as any other use's is rolled at
+ * once. The tray offers that damage to roll while it does, and the roll's toast stays until then.
+ */
+export function needsPlayer(roll: LocalRoll, state?: TableRollState): boolean {
+  if (state?.status !== 'done' || !state.damage || state.damaged) return false
+  if (!state.requestId) return false
+  if (roll.kind === 'check') return true
+  return roll.kind === 'use' && choicesOf(state.damage).length > 0
 }
 
 /** The kind chosen for each of damage's rolls: this one, for each roll that offers it. */

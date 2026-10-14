@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import {
   dropToast,
   dueToasts,
@@ -5,10 +6,11 @@ import {
   popToasts,
   settledMark,
   TOAST_CAP,
+  TOAST_FADE,
   TOAST_FOR,
   type ToastBook,
 } from './roll-toasts'
-import type { LocalCheck } from '@/hooks/use-sheet-roller'
+import type { LocalCheck, LocalUse } from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
 
 /** A check, thrown at `at`. */
@@ -84,9 +86,14 @@ describe('utils/roll-toasts', () => {
 
     expect(TOAST_CAP).toBe(3)
     expect(ids(book)).toEqual(['d', 'c', 'b'])
+    // Of rolls met at once, each shows, the cap catching up as the next pops up.
+    const all = popToasts(NO_TOASTS, rolls.toReversed(), NONE, 0, true)
+    expect(ids(all)).toEqual(['d', 'c', 'b', 'a'])
+    expect(popToasts(all, rolls.toReversed(), NONE, 100, true)).toBe(all)
+    const e = check('e', 4)
     expect(
-      ids(popToasts(NO_TOASTS, rolls.toReversed(), NONE, 0, true)),
-    ).toEqual(['d', 'c', 'b'])
+      ids(popToasts(all, [e, ...rolls.toReversed()], NONE, 200, true)),
+    ).toEqual(['e', 'd', 'c'])
   })
 
   it('U4 gives a toast its full time again where it is, as its roll is made at the table', () => {
@@ -340,5 +347,319 @@ describe('utils/roll-toasts', () => {
     expect(settledMark({ status: 'refused', reason: 'network' })).toBe(
       'refused:network',
     )
+  })
+
+  describe('a toast that waits for the player', () => {
+    const preview = {
+      critical: false,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d8 + 4',
+          type: 'slashing',
+          dice: [{ faces: 8, number: 1 }],
+        },
+      ],
+    }
+    /** An attack the game made, a hit, its damage still to roll. */
+    const hit = (fields: Partial<TableRollState> = {}): TableRollState => ({
+      status: 'done',
+      visible: true,
+      total: 19,
+      requestId: 'req-a',
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+      damage: preview,
+      ...fields,
+    })
+    const FOREVER = Number.POSITIVE_INFINITY
+    /** An attack that missed, its damage still offered, as dnd5e offers it without Midi. */
+    const missed = (id: string): [string, TableRollState] => [
+      id,
+      hit({ attack: { critical: false, fumble: false, outcome: 'miss' } }),
+    ]
+    /** The ways to the game of attacks that hit, by their ids, all waiting for their damage. */
+    const waiting = (...ids: string[]) =>
+      ways(...ids.map((id): [string, TableRollState] => [id, hit()]))
+
+    it('U14 never goes while its damage waits, from popping or once made at the table', () => {
+      const a = check('a')
+      const landed = popToasts(NO_TOASTS, [a], ways(['a', hit()]), 0, true)
+      expect(landed.shown).toEqual([{ id: 'a', poppedAt: 0, until: FOREVER }])
+      expect(dueToasts(landed, 1_000_000)).toBe(landed)
+
+      // On its way at first, then made: from then, it waits.
+      const sent = popToasts(
+        NO_TOASTS,
+        [a],
+        ways(['a', { status: 'sending' }]),
+        0,
+        true,
+      )
+      expect(sent.shown[0].until).toBe(TOAST_FOR)
+      const made = popToasts(sent, [a], ways(['a', hit()]), 1000, true)
+      expect(made.shown).toEqual([{ id: 'a', poppedAt: 0, until: FOREVER }])
+      expect(popToasts(made, [a], ways(['a', hit()]), 9000, true)).toBe(made)
+    })
+
+    it('U15 is never dropped by the cap, the oldest of the others going instead, more than three showing while all wait', () => {
+      const rolls = ['a', 'b', 'c', 'd', 'e'].map((id, at) => check(id, at))
+      let book = NO_TOASTS
+      for (const at of rolls.keys()) {
+        book = popToasts(
+          book,
+          rolls.slice(0, at + 1).toReversed(),
+          waiting('a'),
+          at * 100,
+          true,
+        )
+      }
+      expect(ids(book)).toEqual(['e', 'd', 'a'])
+
+      const all = popToasts(
+        NO_TOASTS,
+        rolls.toReversed(),
+        waiting('a', 'b', 'c', 'd', 'e'),
+        0,
+        true,
+      )
+      expect(TOAST_CAP).toBe(3)
+      expect(ids(all)).toEqual(['e', 'd', 'c', 'b', 'a'])
+    })
+
+    it('U20 shows a roll that pops up over three that wait, for its own time, never dropping it as it pops up', () => {
+      const attacks = ['a1', 'a2', 'a3'].map((id, at) => check(id, at))
+      let book = NO_TOASTS
+      for (const at of attacks.keys()) {
+        const met = attacks.slice(0, at + 1)
+        book = popToasts(
+          book,
+          met.toReversed(),
+          ways(...met.map(({ id }) => missed(id))),
+          at * 100,
+          true,
+        )
+      }
+      expect(ids(book)).toEqual(['a3', 'a2', 'a1'])
+      const save = check('s', 3)
+      const rolls = [save, ...attacks.toReversed()]
+      const as = (state?: TableRollState) =>
+        ways(
+          ...attacks.map(({ id }) => missed(id)),
+          ...(state ? [['s', state] as [string, TableRollState]] : []),
+        )
+
+      const sent = popToasts(book, rolls, as({ status: 'sending' }), 1000, true)
+      expect(ids(sent)).toEqual(['s', 'a3', 'a2', 'a1'])
+      expect(sent.shown[0]).toEqual({
+        id: 's',
+        poppedAt: 1000,
+        until: 1000 + TOAST_FOR,
+      })
+      // Asked again, the game says the same: it stays, over the cap, for its time.
+      const polled = popToasts(
+        sent,
+        rolls,
+        as({ status: 'sending' }),
+        2000,
+        true,
+      )
+      expect(polled).toBe(sent)
+      // Made at the table, it takes its full time again where it is.
+      const made = popToasts(polled, rolls, as(done()), 3000, true)
+      expect(made.shown[0]).toEqual({
+        id: 's',
+        poppedAt: 1000,
+        until: 3000 + TOAST_FOR,
+      })
+      expect(ids(dueToasts(made, 3000 + TOAST_FOR - 1))).toEqual([
+        's',
+        'a3',
+        'a2',
+        'a1',
+      ])
+      expect(ids(dueToasts(made, 3000 + TOAST_FOR))).toEqual(['a3', 'a2', 'a1'])
+
+      // A roll never sent, popping up, takes the place of the one over the cap.
+      const next = check('n', 4)
+      expect(
+        ids(popToasts(made, [next, ...rolls], as(done()), 4000, true)),
+      ).toEqual(['n', 'a3', 'a2', 'a1'])
+      // Met as all three wait, it shows, as it would were none to wait.
+      expect(
+        ids(popToasts(book, [next, ...attacks.toReversed()], as(), 1000, true)),
+      ).toEqual(['n', 'a3', 'a2', 'a1'])
+    })
+
+    it("U21 pops up the damage rolled for a fourth attack over three that wait, the attack's going with its fade", () => {
+      const attacks = ['a1', 'a2', 'a3', 'a4'].map((id, at) => check(id, at))
+      const damage = check('d', 4)
+      let book = popToasts(
+        NO_TOASTS,
+        attacks.toReversed(),
+        waiting('a1', 'a2', 'a3', 'a4'),
+        0,
+        true,
+      )
+      expect(ids(book)).toEqual(['a4', 'a3', 'a2', 'a1'])
+      const rolled = ways(
+        ...['a1', 'a2', 'a3'].map((id): [string, TableRollState] => [
+          id,
+          hit(),
+        ]),
+        ['a4', hit({ damaged: true })],
+      )
+
+      // Its damage lands before the game says it's rolled.
+      book = popToasts(
+        book,
+        [damage, ...attacks.toReversed()],
+        waiting('a1', 'a2', 'a3', 'a4'),
+        1000,
+        true,
+      )
+      expect(ids(book)).toEqual(['d', 'a4', 'a3', 'a2', 'a1'])
+      book = popToasts(
+        book,
+        [damage, ...attacks.toReversed()],
+        rolled,
+        2000,
+        true,
+      )
+      expect(book.shown[1]).toEqual({
+        id: 'a4',
+        poppedAt: 0,
+        until: 2000 + TOAST_FADE,
+      })
+      expect(ids(dueToasts(book, 2000 + TOAST_FADE))).toEqual([
+        'd',
+        'a3',
+        'a2',
+        'a1',
+      ])
+
+      // Or after: the damage's toast shows all the same.
+      const said = popToasts(
+        popToasts(NO_TOASTS, attacks.toReversed(), rolled, 0, true),
+        [damage, ...attacks.toReversed()],
+        rolled,
+        1000,
+        true,
+      )
+      expect(ids(said)).toEqual(['d', 'a3', 'a2', 'a1'])
+    })
+
+    it('U22 takes its full time over the cap once it stops waiting otherwise, rather than going at once', () => {
+      const attacks = ['a', 'b', 'c', 'd'].map((id, at) => check(id, at))
+      const book = popToasts(
+        NO_TOASTS,
+        attacks.toReversed(),
+        waiting('a', 'b', 'c', 'd'),
+        0,
+        true,
+      )
+
+      const ended = popToasts(
+        book,
+        attacks.toReversed(),
+        ways(
+          ...['b', 'c', 'd'].map((id): [string, TableRollState] => [id, hit()]),
+          ['a', hit({ damage: null })],
+        ),
+        7000,
+        true,
+      )
+
+      expect(ended.shown).toEqual([
+        ...book.shown.slice(0, 3),
+        { id: 'a', poppedAt: 0, until: 7000 + TOAST_FOR },
+      ])
+    })
+
+    it('U16 goes at once, with its fade, as its damage is rolled', () => {
+      const a = check('a')
+      const book = popToasts(NO_TOASTS, [a], ways(['a', hit()]), 0, true)
+
+      const rolled = popToasts(
+        book,
+        [a],
+        ways(['a', hit({ damaged: true })]),
+        30_000,
+        true,
+      )
+
+      expect(rolled.shown).toEqual([
+        { id: 'a', poppedAt: 0, until: 30_000 + TOAST_FADE },
+      ])
+      expect(dueToasts(rolled, 30_000 + TOAST_FADE).shown).toEqual([])
+    })
+
+    it('U17 takes its full time from then where it stops waiting otherwise', () => {
+      const a = check('a')
+      const book = popToasts(NO_TOASTS, [a], ways(['a', hit()]), 0, true)
+      const ended = popToasts(
+        book,
+        [a],
+        ways(['a', hit({ damage: null })]),
+        7000,
+        true,
+      )
+
+      expect(ended.shown).toEqual([
+        { id: 'a', poppedAt: 0, until: 7000 + TOAST_FOR },
+      ])
+    })
+
+    it('U18 never pops up again once closed, however often the game is asked', () => {
+      const a = check('a')
+      const b = check('b', 1)
+      const book = popToasts(NO_TOASTS, [a], ways(['a', hit()]), 0, true)
+
+      let closed = dropToast(book, 'a')
+      for (const now of [1000, 5000, 60_000]) {
+        closed = popToasts(closed, [b, a], ways(['a', hit()]), now, true)
+      }
+
+      expect(ids(closed)).toEqual(['b'])
+    })
+
+    it('U19 waits for a use only while its kind of damage is to be chosen, as any other is rolled at once', () => {
+      const breath: LocalUse = {
+        kind: 'use',
+        id: 'u',
+        label: 'Dragon’s Breath',
+        spell: true,
+        at: 0,
+      }
+      const choosing = hit({
+        attack: undefined,
+        damage: {
+          ...preview,
+          rolls: [
+            {
+              formula: '3d6',
+              type: 'acid',
+              types: [
+                { key: 'acid', label: 'Acid' },
+                { key: 'fire', label: 'Fire' },
+              ],
+              dice: [{ faces: 6, number: 3 }],
+            },
+          ],
+        },
+      })
+
+      expect(
+        popToasts(NO_TOASTS, [breath], ways(['u', choosing]), 0, true).shown,
+      ).toEqual([{ id: 'u', poppedAt: 0, until: FOREVER }])
+      expect(
+        popToasts(
+          NO_TOASTS,
+          [breath],
+          ways(['u', hit({ attack: undefined })]),
+          0,
+          true,
+        ).shown,
+      ).toEqual([{ id: 'u', poppedAt: 0, until: TOAST_FOR }])
+    })
   })
 })

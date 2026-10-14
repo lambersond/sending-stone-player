@@ -1,7 +1,14 @@
+/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 import { RollToasts } from './roll-toasts'
-import type { LocalCheck, LocalUse } from '@/hooks/use-sheet-roller'
+import { RollTray } from './roll-tray'
+import type {
+  LocalCheck,
+  LocalDamage,
+  LocalUse,
+} from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
 
 /** A check, as the page keeps it. */
@@ -38,6 +45,10 @@ const shown = () =>
   [...document.querySelectorAll<HTMLElement>('[data-roll-toast]')].map(
     node => node.dataset.rollToast,
   )
+
+/** A user that waits as the fake timers do. */
+const player = () =>
+  userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
 
 /** Lets this many milliseconds pass. */
 const wait = (ms: number) =>
@@ -261,4 +272,578 @@ describe('components/character-sheet/roll-toasts', () => {
 
     expect(html).toBe('')
   })
+
+  describe('one that waits for the player', () => {
+    const attack = check('a', { label: 'Longsword attack', total: 19 })
+    const preview = {
+      critical: false,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d8 + 4',
+          type: 'slashing',
+          dice: [{ faces: 8, number: 1 }],
+        },
+      ],
+    }
+    /** The game's answer to the attack: a hit, its damage still to roll. */
+    const hit = (fields: Partial<TableRollState> = {}): TableRollState => ({
+      status: 'done',
+      visible: true,
+      total: 19,
+      requestId: 'req-1',
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+      damage: preview,
+      ...fields,
+    })
+
+    /** The game's answer to an area attack at two, which hit one. */
+    const area = (damage: TableRollState['damage']): TableRollState =>
+      hit({
+        attack: {
+          critical: false,
+          fumble: false,
+          outcome: null,
+          targets: [
+            { combatId: 'c1', combatantId: 'g1', outcome: 'hit' },
+            { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+          ],
+        },
+        targetNames: { g1: 'Goblin', g2: 'Hobgoblin' },
+        damage,
+      })
+
+    it('C10 holds the damage to roll, rolled as the tray rolls it, with a × to close it', async () => {
+      const user = player()
+      const rollDamage = jest.fn()
+      render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={rollDamage}
+        />,
+      )
+
+      const held = toast('a') as HTMLElement
+      expect(held).toHaveAttribute('data-waits', 'true')
+      expect(within(held).getByRole('button', { name: 'Dismiss' })).toBeTruthy()
+      await user.click(
+        within(held).getByRole('button', { name: 'Roll damage' }),
+      )
+      expect(rollDamage).toHaveBeenCalledTimes(1)
+
+      // The tray rolls it with the same arguments.
+      const trayRolls = jest.fn()
+      render(
+        <RollTray
+          rolls={[attack]}
+          rolling={false}
+          table={{
+            states: ways(['a', hit()]),
+            available: true,
+            sending: true,
+            rollDamage: trayRolls,
+          }}
+        />,
+      )
+      await user.click(
+        within(screen.getByRole('region', { name: 'Your rolls' })).getByRole(
+          'button',
+          { name: 'Roll damage' },
+        ),
+      )
+      expect(rollDamage.mock.calls).toEqual(trayRolls.mock.calls)
+      // On the toast's tint, the button is the card's own colour, for its words to read; the
+      // tray's is as it was.
+      expect(
+        within(held).getByRole('button', { name: 'Roll damage' }),
+      ).toHaveClass('bg-card', 'text-damage')
+      expect(
+        within(screen.getByRole('region', { name: 'Your rolls' })).getByRole(
+          'button',
+          { name: 'Roll damage' },
+        ),
+      ).toHaveClass('bg-damage/15', 'text-damage')
+      expect(rollDamage).toHaveBeenCalledWith('Longsword', {
+        use: 'req-1',
+        damage: preview,
+      })
+      // Rolling it from the toast left it there, for the game to say it's rolled.
+      expect(toast('a')).toBe(held)
+    })
+
+    it('C11 offers each kind of damage to choose, and the damage menu, which opens in the toast', async () => {
+      const user = player()
+      const rollDamage = jest.fn()
+      const orb = {
+        ...preview,
+        rolls: [
+          {
+            formula: '3d8',
+            type: 'acid',
+            types: [
+              { key: 'acid', label: 'Acid' },
+              { key: 'fire', label: 'Fire' },
+            ],
+            dice: [{ faces: 8, number: 3 }],
+          },
+        ],
+      }
+      const orbAttack = check('a', { label: 'Chromatic Orb attack' })
+      const { rerender } = render(
+        <RollToasts
+          rolls={[orbAttack]}
+          states={ways(['a', hit({ damage: orb })])}
+          on
+          rollDamage={rollDamage}
+        />,
+      )
+      const held = toast('a') as HTMLElement
+      expect(held).toHaveTextContent('Choose its kind of damage:AcidFire')
+      expect(
+        within(held).queryByRole('button', { name: 'Roll damage' }),
+      ).toBeNull()
+      await user.click(
+        within(held).getByRole('button', { name: 'Roll Fire damage' }),
+      )
+      expect(rollDamage).toHaveBeenLastCalledWith(
+        'Chromatic Orb',
+        { use: 'req-1', damage: orb },
+        'fire',
+      )
+
+      rerender(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={rollDamage}
+          modifies
+        />,
+      )
+      fireEvent.contextMenu(
+        within(toast('a') as HTMLElement).getByRole('button', {
+          name: 'Roll damage',
+        }),
+      )
+      const menu = screen.getByRole('menu', {
+        name: 'Longsword damage 1d8 + 4',
+      })
+      expect(toast('a')).toContainElement(menu)
+      // Not read out by the log as it opens, nor the dialog that changes the damage.
+      expect(menu.closest('[aria-live]')).toHaveAttribute('aria-live', 'off')
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Roll maximum damage' }),
+      )
+      expect(rollDamage).toHaveBeenLastCalledWith(
+        'Longsword',
+        { use: 'req-1', damage: preview },
+        undefined,
+        { maximize: true },
+      )
+      expect(toast('a')).toBeInTheDocument()
+      fireEvent.contextMenu(
+        within(toast('a') as HTMLElement).getByRole('button', {
+          name: 'Roll damage',
+        }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify damage…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify damage' })
+      expect(toast('a')).toContainElement(dialog)
+      expect(dialog.closest('[aria-live]')).toHaveAttribute('aria-live', 'off')
+    })
+
+    it('C12 never goes by itself, nor when tapped, but for its ×', () => {
+      render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+
+      wait(60_000)
+      expect(toast('a')).not.toHaveAttribute('data-leaving')
+      fireEvent.click(toast('a') as HTMLElement)
+      fireEvent.click(
+        within(toast('a') as HTMLElement).getByText('Longsword attack'),
+      )
+      expect(toast('a')).toBeInTheDocument()
+      expect(toast('a')).not.toHaveClass('cursor-pointer')
+    })
+
+    it('C13 is never dropped by the cap, the oldest of the others going instead', () => {
+      const others = ['b', 'c', 'd'].map((id, at) => check(id, { at: at + 1 }))
+      const { rerender } = render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      for (const at of others.keys()) {
+        rerender(
+          <RollToasts
+            rolls={[...others.slice(0, at + 1).toReversed(), attack]}
+            states={ways(['a', hit()])}
+            on
+            rollDamage={jest.fn()}
+          />,
+        )
+      }
+
+      expect(shown()).toEqual(['d', 'c', 'a'])
+    })
+
+    it('C20 shows and says a roll that pops up over three that wait, for its four seconds', () => {
+      // Attacks that missed, their damage still offered, as dnd5e offers it without Midi.
+      const attacks = ['a1', 'a2', 'a3'].map((id, at) =>
+        check(id, { label: `Attack ${at + 1}`, at }),
+      )
+      const missed = attacks.map(({ id }): [string, TableRollState] => [
+        id,
+        hit({ attack: { critical: false, fumble: false, outcome: 'miss' } }),
+      ])
+      const save = check('s', { label: 'Dexterity saving throw', at: 3 })
+      const toasting = (
+        rolls: LocalCheck[],
+        ...more: [string, TableRollState][]
+      ) => (
+        <RollToasts
+          rolls={rolls}
+          states={ways(...missed, ...more)}
+          on
+          rollDamage={jest.fn()}
+        />
+      )
+      const { rerender } = render(toasting([attacks[0]]))
+      for (const at of [1, 2]) {
+        wait(100)
+        rerender(toasting(attacks.slice(0, at + 1).toReversed()))
+      }
+      expect(shown()).toEqual(['a3', 'a2', 'a1'])
+      const rolls = [save, ...attacks.toReversed()]
+
+      wait(100)
+      rerender(toasting(rolls, ['s', { status: 'sending' }]))
+      expect(shown()).toEqual(['s', 'a3', 'a2', 'a1'])
+      expect(log()).toHaveTextContent('Dexterity saving throw')
+      wait(1000)
+      rerender(
+        toasting(rolls, ['s', { status: 'done', visible: true, total: 12 }]),
+      )
+      expect(shown()).toEqual(['s', 'a3', 'a2', 'a1'])
+      expect(toast('s')).toHaveTextContent('At the table: 12')
+
+      wait(3999)
+      expect(toast('s')).toBeInTheDocument()
+      wait(1)
+      expect(shown()).toEqual(['a3', 'a2', 'a1'])
+    })
+
+    it("C14 goes for good when closed by its ×, as the game's answer comes again", () => {
+      const later = check('b', { at: 1 })
+      const { rerender } = render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+
+      fireEvent.click(
+        within(toast('a') as HTMLElement).getByRole('button', {
+          name: 'Dismiss',
+        }),
+      )
+      expect(toast('a')).toBeNull()
+      const again = () =>
+        rerender(
+          <RollToasts
+            rolls={[later, attack]}
+            states={ways(['a', hit()])}
+            on
+            rollDamage={jest.fn()}
+          />,
+        )
+      wait(1000)
+      again()
+      expect(shown()).toEqual(['b'])
+
+      // The later roll has had its four seconds; the attack never comes back.
+      wait(10_000)
+      again()
+      wait(0)
+      expect(shown()).toEqual([])
+    })
+
+    it('C15 goes at once, with its fade, as its damage is rolled', () => {
+      const { rerender } = render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      wait(5000)
+
+      rerender(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit({ damaged: true })])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      wait(0)
+
+      expect(toast('a')).toHaveAttribute('data-leaving', 'true')
+      expect(within(toast('a') as HTMLElement).queryByRole('button')).toBeNull()
+      wait(200)
+      expect(toast('a')).toBeNull()
+    })
+
+    it('C15b starts its fade as its damage is rolled, not a timer later, fading for all 200 ms', () => {
+      const { rerender } = render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      wait(5000)
+
+      rerender(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit({ damaged: true })])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+
+      expect(toast('a')).toHaveAttribute('data-leaving', 'true')
+      wait(199)
+      expect(toast('a')).toBeInTheDocument()
+      wait(1)
+      expect(toast('a')).toBeNull()
+    })
+
+    it('C15c takes away one whose time passed while timers were held up, once the rolls change', () => {
+      const { rerender } = render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      expect(toast('s')).toBeInTheDocument()
+
+      // Five seconds on the clock, its timers not yet run, as on a busy page.
+      jest.setSystemTime(Date.now() + 5000)
+      rerender(
+        <RollToasts
+          rolls={[dexterity, strength]}
+          states={NONE}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      wait(0)
+
+      expect(shown()).toEqual(['d'])
+    })
+
+    it('C16 takes its four seconds from when it stops waiting otherwise', () => {
+      const { rerender } = render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit()])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      wait(5000)
+
+      rerender(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', hit({ damage: null })])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+
+      expect(toast('a')).not.toHaveAttribute('data-waits')
+      // Not at once, as when its damage is rolled.
+      wait(0)
+      wait(200)
+      expect(toast('a')).not.toHaveAttribute('data-leaving')
+      wait(3799)
+      expect(toast('a')).toBeInTheDocument()
+      wait(1)
+      expect(toast('a')).toBeNull()
+    })
+
+    it('C17 takes no focus as it pops up, its buttons a tab away', async () => {
+      const user = player()
+      const { rerender } = render(
+        <>
+          <button type='button'>Elsewhere</button>
+          <RollToasts rolls={[]} states={NONE} on rollDamage={jest.fn()} />
+        </>,
+      )
+      const elsewhere = screen.getByRole('button', { name: 'Elsewhere' })
+      elsewhere.focus()
+
+      rerender(
+        <>
+          <button type='button'>Elsewhere</button>
+          <RollToasts
+            rolls={[attack]}
+            states={ways(['a', hit()])}
+            on
+            rollDamage={jest.fn()}
+          />
+        </>,
+      )
+
+      expect(document.activeElement).toBe(elsewhere)
+      await user.tab()
+      expect(document.activeElement).toHaveAccessibleName('Roll damage')
+      await user.tab()
+      expect(document.activeElement).toHaveAccessibleName('Dismiss')
+    })
+
+    it('C18 says whom an area attack hit, whether it waits or not', () => {
+      const targets = () =>
+        within(
+          within(toast('a') as HTMLElement).getByRole('list', {
+            name: 'Targets',
+          }),
+        )
+          .getAllByRole('listitem')
+          .map(item => item.textContent)
+      const { rerender } = render(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', area(preview)])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      expect(toast('a')).toHaveAttribute('data-waits', 'true')
+      expect(targets()).toEqual(['Goblin: Hit', 'Hobgoblin: Miss'])
+
+      rerender(
+        <RollToasts
+          rolls={[attack]}
+          states={ways(['a', area(null)])}
+          on
+          rollDamage={jest.fn()}
+        />,
+      )
+      expect(toast('a')).not.toHaveAttribute('data-waits')
+      expect(targets()).toEqual(['Goblin: Hit', 'Hobgoblin: Miss'])
+    })
+  })
+
+  it.each<[string, Parameters<typeof RollToasts>[0], string, string]>([
+    [
+      'not made at the table',
+      {
+        rolls: [strength],
+        states: ways(['s', { status: 'refused', reason: 'busy' }]),
+        on: true,
+      },
+      'warning',
+      'border-l-warning',
+    ],
+    [
+      'a natural 20',
+      {
+        rolls: [check('s', { natural: 20, d20s: [20] })],
+        states: NONE,
+        on: true,
+      },
+      'gold',
+      'border-l-gold',
+    ],
+    [
+      'a natural 1',
+      {
+        rolls: [check('s', { natural: 1, d20s: [1] })],
+        states: NONE,
+        on: true,
+      },
+      'ruby',
+      'border-l-ruby',
+    ],
+    [
+      'damage',
+      {
+        rolls: [
+          {
+            kind: 'damage',
+            id: 's',
+            label: 'Longsword damage',
+            total: 9,
+            critical: false,
+            healing: false,
+            parts: [{ type: 'Slashing', total: 9, terms: [] }],
+            at: 0,
+          } satisfies LocalDamage,
+        ],
+        states: NONE,
+        on: true,
+      },
+      'damage',
+      'border-l-damage',
+    ],
+    [
+      'a plain check',
+      { rolls: [strength], states: NONE, on: true },
+      'primary',
+      'border-l-primary',
+    ],
+  ])(
+    'C19 edges and tints the card of %s in its colour, as a bold card',
+    (_, props, accent, edge) => {
+      render(<RollToasts {...props} />)
+
+      const card = toast('s') as HTMLElement
+      expect(card).toHaveAttribute('data-accent', accent)
+      expect(card).toHaveClass(
+        'border-l-4',
+        edge,
+        `border-${accent}/${accent === 'gold' ? 40 : 30}`,
+        'bg-card',
+        'bg-linear-to-r',
+        `from-${accent}/${accent === 'gold' ? 15 : 10}`,
+        'shadow-2xl',
+      )
+      // Wider, with the tray's large total and a bold title.
+      expect(log()).toHaveClass('w-full', 'sm:max-w-md')
+      expect(card.firstElementChild).toHaveClass(
+        'size-12',
+        'rounded-xl',
+        'text-2xl',
+        'font-bold',
+      )
+      expect(within(card).getByText(props.rolls[0].label)).toHaveClass(
+        'text-base',
+        'font-semibold',
+      )
+      for (const line of card.querySelectorAll('p + p')) {
+        expect(line).toHaveClass('text-sm')
+      }
+    },
+  )
 })

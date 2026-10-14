@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LONG_PRESS } from './roll-button'
-import { briefOf, RollTray, type TableRolls } from './roll-tray'
+import { briefOf, RollTray, type RollBrief, type TableRolls } from './roll-tray'
 import type {
   LocalAsk,
   LocalCheck,
@@ -3148,6 +3148,155 @@ describe('components/character-sheet/roll-tray, in brief for its toast', () => {
     ],
   ])('B3 reads, %s, as the contract words it', (_, args, text) => {
     expect(briefOf(...args).table?.text).toBe(text)
+  })
+
+  it.each<[string, Parameters<typeof briefOf>, RollBrief['accent']]>([
+    [
+      'a roll not made at the table',
+      [roll(), { status: 'refused', reason: 'busy' }],
+      'warning',
+    ],
+    [
+      'a natural 20 not made at the table',
+      [roll({ natural: 20, d20s: [20] }), { status: 'failed', reason: 'off' }],
+      'warning',
+    ],
+    ['damage not made at the table', [damage(), { status: 'lost' }], 'warning'],
+    [
+      'a use not made at the table',
+      [
+        { kind: 'use', id: 'u1', label: 'Bless', spell: true, at: 0 },
+        { status: 'refused', reason: 'slots' },
+      ],
+      'warning',
+    ],
+    [
+      'an ask never posted',
+      [{ kind: 'ask', id: 'a1', label: 'DC 15 Dexterity saving throw', at: 0 }],
+      'warning',
+    ],
+    ['a natural 20', [roll({ natural: 20, d20s: [20] })], 'gold'],
+    [
+      'a critical hit on a 19',
+      [
+        roll({ natural: 19, d20s: [19] }),
+        {
+          ...shown,
+          attack: { critical: true, fumble: false, outcome: 'hit' },
+        },
+      ],
+      'gold',
+    ],
+    ['a natural 1', [roll({ natural: 1, d20s: [1] })], 'ruby'],
+    [
+      'a miss',
+      [
+        roll(),
+        {
+          ...shown,
+          attack: { critical: false, fumble: false, outcome: 'miss' },
+        },
+      ],
+      'ruby',
+    ],
+    [
+      'an area attack that hit no one',
+      [
+        roll(),
+        {
+          ...shown,
+          attack: {
+            critical: false,
+            fumble: false,
+            outcome: null,
+            targets: [
+              { combatId: 'c1', combatantId: 'g1', outcome: 'miss' },
+              { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+            ],
+          },
+        },
+      ],
+      'ruby',
+    ],
+    [
+      'a saving throw the game asked for, failed',
+      [roll(), { ...shown, outcome: 'failure' }],
+      'ruby',
+    ],
+    [
+      'a check against a DC, failed at the table',
+      [roll({ dc: 25, verdict: 'check' }), shown],
+      'ruby',
+    ],
+    ['a save against a DC, failed here', [roll({ dc: 20 }), undefined], 'ruby'],
+    ['damage', [damage()], 'damage'],
+    ['a critical hit’s damage', [damage({ critical: true })], 'damage'],
+    ['healing', [damage({ healing: true })], 'primary'],
+    ['a hit die', [hitDie()], 'primary'],
+    ['a plain check', [roll()], 'primary'],
+    [
+      'an area attack that hit some',
+      [
+        roll(),
+        {
+          ...shown,
+          attack: {
+            critical: false,
+            fumble: false,
+            outcome: null,
+            targets: [
+              { combatId: 'c1', combatantId: 'g1', outcome: 'hit' },
+              { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+            ],
+          },
+        },
+      ],
+      'primary',
+    ],
+    [
+      'a hit',
+      [
+        roll(),
+        {
+          ...shown,
+          attack: { critical: false, fumble: false, outcome: 'hit' },
+        },
+      ],
+      'primary',
+    ],
+    [
+      'a save against a DC, saved at the table',
+      [roll({ dc: 20 }), shown],
+      'primary',
+    ],
+    [
+      'a save against a DC, made blind',
+      [roll({ dc: 25 }), { status: 'done', visible: false }],
+      'primary',
+    ],
+    [
+      'a check on its way',
+      [roll({ dc: 25 }), { status: 'sending' }],
+      'primary',
+    ],
+    [
+      'a use made',
+      [
+        { kind: 'use', id: 'u1', label: 'Bless', spell: true, at: 0 },
+        { status: 'done', visible: true },
+      ],
+      'primary',
+    ],
+    [
+      'an ask posted',
+      [
+        { kind: 'ask', id: 'a1', label: 'DC 15 Dexterity saving throw', at: 0 },
+        { status: 'done', visible: true },
+      ],
+      'primary',
+    ],
+  ])('B7 colours the toast of %s', (_, args, accent) => {
+    expect(briefOf(...args).accent).toBe(accent)
   })
 
   it('B6 leaves the status unannounced where toasts say it, a status either way', () => {

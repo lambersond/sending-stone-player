@@ -14,6 +14,10 @@ const cog = () => screen.getByRole('button', { name: 'Settings' })
 /** The settings, open. */
 const settings = () => screen.getByRole('dialog', { name: 'Settings' })
 
+/** The choice of how rolls show, among the settings. */
+const results = () =>
+  within(settings()).getByRole('radiogroup', { name: 'Roll results' })
+
 describe('components/character-sheet/sheet-settings', () => {
   beforeEach(() => {
     jest.mocked(useTheme).mockReturnValue({
@@ -155,11 +159,12 @@ describe('components/character-sheet/sheet-settings', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  describe('roll toasts', () => {
-    const HINT =
-      'Each roll’s result pops up at the top of the screen for 4 seconds. Tap one to clear it.'
+  describe('roll results', () => {
+    const TOASTS =
+      'Each roll pops up at the top of the screen for 4 seconds; one you need to act on stays until you do.'
+    const BANNER = 'Your rolls stay in a banner at the bottom of the sheet.'
 
-    it('S1 switches whether rolls pop up as toasts, staying open', async () => {
+    it('S1 offers toasts or the banner, one of them, saying more of the one chosen, staying open', async () => {
       const user = userEvent.setup()
       const onChange = jest.fn()
       const { rerender } = render(
@@ -167,26 +172,31 @@ describe('components/character-sheet/sheet-settings', () => {
       )
       await user.click(cog())
 
-      const toggle = within(settings()).getByRole('switch', {
-        name: 'Roll toasts',
-      })
-      expect(toggle).toBeChecked()
-      expect(toggle).toHaveAccessibleDescription(HINT)
-      await user.click(toggle)
+      const [toasts, banner] = within(results()).getAllByRole('radio')
+      expect(toasts).toHaveAccessibleName('Toasts')
+      expect(banner).toHaveAccessibleName('Banner')
+      expect(toasts).toHaveAttribute('aria-checked', 'true')
+      expect(banner).toHaveAttribute('aria-checked', 'false')
+      expect(results()).toHaveAccessibleDescription(TOASTS)
+      await user.click(banner)
       expect(onChange).toHaveBeenCalledWith(false)
       expect(settings()).toBeInTheDocument()
 
       rerender(<SheetSettings toasts={{ on: false, onChange }} />)
       expect(
-        within(settings()).getByRole('switch', { name: 'Roll toasts' }),
-      ).not.toBeChecked()
-      await user.click(
-        within(settings()).getByRole('switch', { name: 'Roll toasts' }),
-      )
+        within(results()).getByRole('radio', { name: 'Banner' }),
+      ).toHaveAttribute('aria-checked', 'true')
+      expect(
+        within(results()).getByRole('radio', { name: 'Toasts' }),
+      ).toHaveAttribute('aria-checked', 'false')
+      expect(results()).toHaveAccessibleDescription(BANNER)
+      await user.click(within(results()).getByRole('radio', { name: 'Toasts' }))
       expect(onChange).toHaveBeenLastCalledWith(true)
+      // A segmented control, as the Actions tab's layouts are picked.
+      expect(results()).toHaveClass('flex', 'rounded-lg', 'border')
     })
 
-    it('S2 comes after Send to the table and before the theme, each described by its own hint', async () => {
+    it('S2 comes after Send to the table and before the theme, captioned Roll results', async () => {
       const user = userEvent.setup()
       render(
         <SheetSettings
@@ -196,20 +206,19 @@ describe('components/character-sheet/sheet-settings', () => {
       )
       await user.click(cog())
 
-      const [send, toasts] = within(settings()).getAllByRole('switch')
-      expect(send).toHaveAccessibleName('Send to the table')
-      expect(send).toHaveAccessibleDescription(
-        'Your rolls here are made in your Gamemaster’s game too, with the same dice.',
-      )
-      expect(toasts).toHaveAccessibleName('Roll toasts')
-      expect(toasts).toHaveAccessibleDescription(HINT)
+      const send = within(settings()).getByRole('switch', {
+        name: 'Send to the table',
+      })
+      expect(within(settings()).getAllByRole('switch')).toEqual([send])
+      expect(within(settings()).queryByText('Roll toasts')).toBeNull()
+      expect(within(settings()).getByText('Roll results')).toBeInTheDocument()
       const theme = within(settings()).getByRole('radiogroup', {
         name: 'Theme',
       })
-      expect(send.compareDocumentPosition(toasts)).toBe(
+      expect(send.compareDocumentPosition(results())).toBe(
         Node.DOCUMENT_POSITION_FOLLOWING,
       )
-      expect(toasts.compareDocumentPosition(theme)).toBe(
+      expect(results().compareDocumentPosition(theme)).toBe(
         Node.DOCUMENT_POSITION_FOLLOWING,
       )
     })
@@ -219,11 +228,11 @@ describe('components/character-sheet/sheet-settings', () => {
       render(<SheetSettings toasts={{ on: true, onChange: jest.fn() }} />)
       await user.click(cog())
 
-      const toggle = within(settings()).getByRole('switch', {
-        name: 'Roll toasts',
-      })
-      expect(within(settings()).getAllByRole('switch')).toEqual([toggle])
-      await waitFor(() => expect(toggle).toHaveFocus())
+      await waitFor(() =>
+        expect(
+          within(results()).getByRole('radio', { name: 'Toasts' }),
+        ).toHaveFocus(),
+      )
     })
   })
 })

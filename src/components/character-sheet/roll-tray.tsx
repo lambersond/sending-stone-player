@@ -16,6 +16,7 @@ import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
   damageRollOf,
+  needsPlayer,
   type DueDamage,
   type TableRollState,
 } from '@/hooks/use-table-rolls'
@@ -58,7 +59,7 @@ export type TableRolls = {
 }
 
 /** Roll the damage the game waits for, as the kind chosen, changed as chosen. */
-type RollDue = (
+export type RollDue = (
   name: string,
   due: DueDamage,
   type?: string,
@@ -66,11 +67,8 @@ type RollDue = (
 ) => void
 
 /**
- * The player's rolls, newest first: the latest in full, the rest on request. The tray says
- * whether they reach the table, so no one expects one to have reached it that didn't: when the
- * Gamemaster's game takes the player's rolls, it makes them too, with the same dice, and the tray
- * says what it made of each. Where each roll also pops up as a toast, which says it, the tray's
- * status is left unannounced (`announce`), so that a screen reader hears each roll once.
+ * The player's rolls, newest first, in a banner at the bottom of the sheet, as `RollHistory` has
+ * them, where the player has their rolls shown so rather than as toasts.
  */
 export function RollTray({
   rolls,
@@ -82,6 +80,42 @@ export function RollTray({
   rolling: boolean
   table?: TableRolls
   announce?: boolean
+}>) {
+  return (
+    <section
+      aria-label='Your rolls'
+      className='shrink-0 border-t border-border bg-card px-4 py-3 md:px-8'
+    >
+      <RollHistory
+        rolls={rolls}
+        rolling={rolling}
+        table={table}
+        announce={announce}
+        className='mx-auto max-w-5xl'
+      />
+    </section>
+  )
+}
+
+/**
+ * The player's rolls, newest first: the latest in full, the rest on request. It says whether they
+ * reach the table, so no one expects one to have reached it that didn't: when the Gamemaster's
+ * game takes the player's rolls, it makes them too, with the same dice, and this says what it made
+ * of each. Where each roll also pops up as a toast, which says it, its status is left unannounced
+ * (`announce`), so that a screen reader hears each roll once.
+ */
+export function RollHistory({
+  rolls,
+  rolling,
+  table,
+  announce = true,
+  className,
+}: Readonly<{
+  rolls: LocalRoll[]
+  rolling: boolean
+  table?: TableRolls
+  announce?: boolean
+  className?: string
 }>) {
   const [latest, ...earlier] = rolls
   const role = useTableRole()
@@ -109,57 +143,52 @@ export function RollTray({
   }
 
   return (
-    <section
-      aria-label='Your rolls'
-      className='shrink-0 border-t border-border bg-card px-4 py-3 md:px-8'
-    >
-      <div className='mx-auto flex max-w-5xl flex-col gap-2'>
-        <div role='status' aria-live={announce ? 'polite' : 'off'}>
-          {status}
-        </div>
-        {earlier.length > 0 && (
-          <details className='group text-sm'>
-            <summary className='cursor-pointer text-xs font-semibold text-text-secondary hover:text-text-primary'>
-              Earlier rolls ({earlier.length})
-            </summary>
-            <ol className='mt-2 flex max-h-40 flex-col gap-1.5 overflow-y-auto'>
-              {earlier.map(roll => (
-                <li
-                  key={roll.id}
-                  className='flex items-baseline justify-between gap-3'
-                >
-                  <span className='truncate'>{roll.label}</span>
-                  <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
-                    {breakdown(roll, table?.states.get(roll.id))}
-                    {(roll.kind === 'check' ||
-                      roll.kind === 'formula' ||
-                      (roll.kind === 'damage' && !byTheGame(roll))) &&
-                      !thrownAgainThere(roll, table?.states.get(roll.id)) && (
-                        <>
-                          {' = '}
-                          <span className='text-sm font-semibold text-text-primary'>
-                            {roll.total}
-                          </span>
-                        </>
-                      )}
-                    <TableMark state={table?.states.get(roll.id)} roll={roll} />
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </details>
-        )}
-        {table?.available ? (
-          <p className='text-[11px] text-text-secondary'>
-            {reachOf(table, role)}
-          </p>
-        ) : (
-          <p className='text-[11px] text-text-secondary'>
-            {seatWords(role).notSent}
-          </p>
-        )}
+    <div className={clsx('flex flex-col gap-2', className)}>
+      <div role='status' aria-live={announce ? 'polite' : 'off'}>
+        {status}
       </div>
-    </section>
+      {earlier.length > 0 && (
+        <details className='group text-sm'>
+          <summary className='cursor-pointer text-xs font-semibold text-text-secondary hover:text-text-primary'>
+            Earlier rolls ({earlier.length})
+          </summary>
+          <ol className='mt-2 flex max-h-40 flex-col gap-1.5 overflow-y-auto'>
+            {earlier.map(roll => (
+              <li
+                key={roll.id}
+                className='flex items-baseline justify-between gap-3'
+              >
+                <span className='truncate'>{roll.label}</span>
+                <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
+                  {breakdown(roll, table?.states.get(roll.id))}
+                  {(roll.kind === 'check' ||
+                    roll.kind === 'formula' ||
+                    (roll.kind === 'damage' && !byTheGame(roll))) &&
+                    !thrownAgainThere(roll, table?.states.get(roll.id)) && (
+                      <>
+                        {' = '}
+                        <span className='text-sm font-semibold text-text-primary'>
+                          {roll.total}
+                        </span>
+                      </>
+                    )}
+                  <TableMark state={table?.states.get(roll.id)} roll={roll} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+      {table?.available ? (
+        <p className='text-[11px] text-text-secondary'>
+          {reachOf(table, role)}
+        </p>
+      ) : (
+        <p className='text-[11px] text-text-secondary'>
+          {seatWords(role).notSent}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -517,7 +546,7 @@ function savedAt(state: TableRollState, dc?: number): boolean | undefined {
  * Whom an area attack at more than one hit, and whom it missed, by name, as the game shows
  * players; nothing of one the game says nothing of.
  */
-function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
+export function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
   const targets = state.attack?.targets ?? []
   if (targets.length < 2 || targets.every(({ outcome }) => outcome === null)) {
     return
@@ -545,6 +574,52 @@ function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
 }
 
 /**
+ * The damage or healing of an attack or use the game made, to roll while it waits for its player
+ * (`needsPlayer`), as the tray and the roll's toast both offer it: nothing once it's rolled, nor
+ * where there's no way to roll it.
+ */
+export function DamageDue({
+  roll,
+  state,
+  onRollDamage,
+  modifies,
+  onTint = false,
+}: Readonly<{
+  roll: LocalRoll
+  state?: TableRollState
+  onRollDamage?: RollDue
+  modifies?: boolean
+  /** On a toast's tint, which its buttons' own tint would make too dark to read. */
+  onTint?: boolean
+}>) {
+  if (!state || !onRollDamage || !needsPlayer(roll, state)) return
+  return (
+    <DamageButton
+      // An attack's damage is named after its weapon or spell: "Longsword", not "Longsword attack".
+      name={
+        roll.kind === 'check' ? roll.label.replace(/ attack$/, '') : roll.label
+      }
+      state={state}
+      onRollDamage={onRollDamage}
+      modifies={modifies}
+      onTint={onTint}
+    />
+  )
+}
+
+/**
+ * The colours of the buttons that roll damage or healing: tinted, on the tray's card; or, on a
+ * toast's tint, the card's own colour, outlined in theirs, for their words to read as clearly.
+ */
+const DAMAGE_BUTTONS = {
+  damage: 'bg-damage/15 text-damage hover:bg-damage/25',
+  healing: 'bg-primary/10 text-primary hover:bg-primary/20',
+  damageOnTint: 'bg-card text-damage ring-1 ring-damage/40 hover:ring-damage',
+  healingOnTint:
+    'bg-card text-primary ring-1 ring-primary/40 hover:ring-primary',
+}
+
+/**
  * Roll the damage or healing of an attack or use the game made, while the game waits for it: as
  * one of the kinds of damage it offers, a button each, where it offers a choice. Where the game
  * takes damage the player changed, a right-click or long-press offers to roll it at its highest,
@@ -556,15 +631,18 @@ function DamageButton({
   state,
   onRollDamage,
   modifies = false,
+  onTint,
 }: Readonly<{
   name: string
   state: TableRollState
   onRollDamage: RollDue
   modifies?: boolean
+  onTint: boolean
 }>) {
   const { open, dialogs } = useDamageMenu()
   const { damage, requestId } = state
-  if (state.status !== 'done' || !damage || state.damaged || !requestId) return
+  // Whether it's due is `needsPlayer`'s to say; these are only what rolling it takes.
+  if (!damage || !requestId) return
   const due: DueDamage = {
     use: requestId,
     damage,
@@ -574,9 +652,7 @@ function DamageButton({
   const kind = damage.healing ? 'healing' : 'damage'
   const button = clsx(
     'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
-    damage.healing
-      ? 'bg-primary/10 text-primary hover:bg-primary/20'
-      : 'bg-damage/15 text-damage hover:bg-damage/25',
+    DAMAGE_BUTTONS[`${kind}${onTint ? 'OnTint' : ''}`],
   )
   // Its dice as the game will throw them, for its menu to change them. Damage the game rolls itself
   // has no dice here to change, but can be its highest, unless its formula takes a die away, or
@@ -832,14 +908,12 @@ function CheckResult({
           <TableStatus state={state} dc={roll.dc} verdict={roll.verdict} />
         )}
         {!state && roll.described && <OnlyYou />}
-        {state && onRollDamage && (
-          <DamageButton
-            name={roll.label.replace(/ attack$/, '')}
-            state={state}
-            onRollDamage={onRollDamage}
-            modifies={modifies}
-          />
-        )}
+        <DamageDue
+          roll={roll}
+          state={state}
+          onRollDamage={onRollDamage}
+          modifies={modifies}
+        />
       </div>
     </div>
   )
@@ -990,17 +1064,12 @@ function UseResult({
       <div className='min-w-0'>
         <p className='truncate font-semibold'>{roll.label}</p>
         {status}
-        {state &&
-          onRollDamage &&
-          state.damage &&
-          choicesOf(state.damage).length > 0 && (
-            <DamageButton
-              name={roll.label}
-              state={state}
-              onRollDamage={onRollDamage}
-              modifies={modifies}
-            />
-          )}
+        <DamageDue
+          roll={roll}
+          state={state}
+          onRollDamage={onRollDamage}
+          modifies={modifies}
+        />
       </div>
     </div>
   )
@@ -1266,6 +1335,8 @@ export type RollBrief = {
   label: string
   /** How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask. */
   badge: 'critical' | 'fumble' | 'plain' | 'damage' | 'healing' | 'use' | 'ask'
+  /** The colour its toast is edged and tinted in, by how it came out (`accentOf`). */
+  accent: 'warning' | 'gold' | 'ruby' | 'damage' | 'primary'
   /** None for a use or an ask, which show an icon; "…" while the game's total is awaited. */
   total?: number | string
   /** Its dice, in a line; none for a use or an ask. */
@@ -1276,14 +1347,20 @@ export type RollBrief = {
 
 /**
  * A roll in brief, for its toast: what the tray says of it, in words, but for the d20 that didn't
- * count, the targets of an area attack, and anything to tap, which stay in the tray.
+ * count; and the colour its toast takes. The targets of an area attack, and the damage to roll
+ * that follows a roll, the toast shows as the tray does.
  */
 export function briefOf(
   roll: LocalRoll,
   state?: TableRollState,
   role: SeatRole = 'player',
 ): RollBrief {
-  const brief = { label: roll.label, table: tableLine(roll, state, role) }
+  const table = tableLine(roll, state, role)
+  const brief = {
+    label: roll.label,
+    table,
+    accent: accentOf(roll, state, table),
+  }
   switch (roll.kind) {
     case 'check': {
       let badge: RollBrief['badge'] = 'plain'
@@ -1323,6 +1400,59 @@ export function briefOf(
       return { ...brief, badge: 'ask' }
     }
   }
+}
+
+/**
+ * The colour a roll's toast takes, the first that fits: the warning's for one not made at the
+ * table; gold for a natural 20 or a critical hit; ruby for a natural 1, a miss, or a saving throw
+ * or check that failed; the damage colour for damage; and the accent for healing, and anything
+ * else, as the tray colours them.
+ */
+function accentOf(
+  roll: LocalRoll,
+  state: TableRollState | undefined,
+  table: RollBrief['table'],
+): RollBrief['accent'] {
+  if (table?.tone === 'not') return 'warning'
+  if (roll.kind === 'damage') return roll.healing ? 'primary' : 'damage'
+  if (roll.kind !== 'check') return 'primary'
+  // What the game made of it, where the player may see it.
+  const seen = state?.status === 'done' && state.visible ? state : undefined
+  if (roll.natural === 20 || seen?.attack?.critical) return 'gold'
+  if (
+    roll.natural === 1 ||
+    (seen && missed(seen)) ||
+    madeIt(roll, state) === false
+  ) {
+    return 'ruby'
+  }
+  return 'primary'
+}
+
+/**
+ * Whether an attack the game made missed: its target, or everyone in its area the game says of,
+ * as the tray's "Hit 0 of 2".
+ */
+function missed({ attack }: TableRollState): boolean {
+  if (!attack) return false
+  const told = (attack.targets ?? []).filter(({ outcome }) => outcome !== null)
+  if (attack.targets && attack.targets.length > 1 && told.length > 0) {
+    return told.every(({ outcome }) => outcome === 'miss')
+  }
+  return attack.outcome === 'miss'
+}
+
+/**
+ * Whether a saving throw or check against a DC made it, as the tray says: at the table, as the game
+ * says or by its total there, where the game made it and the player may see it; else by this roll,
+ * where the game didn't make it, or it wasn't sent. Nothing while it's on its way, or hidden.
+ */
+function madeIt(roll: LocalCheck, state?: TableRollState): boolean | undefined {
+  if (state?.status === 'done') {
+    return state.visible ? savedAt(state, roll.dc) : undefined
+  }
+  if (roll.dc === undefined || (state && !NOT_MADE.has(state.status))) return
+  return roll.total >= roll.dc
 }
 
 /**
