@@ -52,8 +52,8 @@ export function CampaignSetupForm({
         </p>
         <CopyField value={state.saved.secret} label='secret' />
         <p className='text-text-secondary'>
-          In Foundry, enter it beside the campaign in Manage Campaigns, under
-          the same title.
+          In Foundry, enter it on the campaign’s Connection tab in Sending
+          Stone’s settings, under the same title.
         </p>
         <button
           type='button'
@@ -72,7 +72,7 @@ export function CampaignSetupForm({
         <Field
           label='Campaign title'
           name='title'
-          hint='The same title as the campaign in Manage Campaigns in Foundry. Case doesn’t matter.'
+          hint='The same title as the campaign in Sending Stone’s settings in Foundry. Case doesn’t matter.'
           defaultValue={state.values?.title}
           errors={state.errors?.title}
           placeholder={CAMPAIGN_TITLE_EXAMPLE}
@@ -97,7 +97,7 @@ export function CampaignSetupForm({
           ref={secret}
           label='Secret'
           name='secret'
-          hint={`Enter the same secret beside this campaign in Manage Campaigns in Foundry. At least ${SECRET_MIN_LENGTH} characters.`}
+          hint={`Enter the same secret on this campaign’s Connection tab in Sending Stone’s settings in Foundry. At least ${SECRET_MIN_LENGTH} characters.`}
           defaultValue={state.values?.secret ?? suggestedSecret}
           errors={state.errors?.secret}
           minLength={SECRET_MIN_LENGTH}

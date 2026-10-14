@@ -159,7 +159,7 @@ export function CampaignCard({
         ) : (
           <p className='text-sm text-text-secondary'>
             {campaign.rosterReceived
-              ? 'Foundry sent no characters for this campaign. Tick its characters in Manage Campaigns in Foundry.'
+              ? 'Foundry sent no characters for this campaign. Add them on the campaign’s Players tab in Sending Stone’s settings in Foundry.'
               : 'The campaign’s characters appear here once Foundry sends them. Reloading the game in Foundry sends them at once.'}
           </p>
         )}
@@ -231,12 +231,12 @@ function madeText({ rolls }: OwnedCampaign): string {
     return 'Checks, saves, initiative, death saves and attacks your players roll here are made in your game too, with the same dice. Their attacks spend ammunition, uses and spell slots there.'
   }
   if (rolls.enabled && rolls.reaching) {
-    return 'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Let players attack and cast from Sending Stone in Manage Campaigns in Foundry.'
+    return 'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Attacks, spells and features on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
   }
   if (rolls.enabled) {
     return 'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.'
   }
-  return 'They stay here. To have them made in your game with the same dice, tick Let players roll from Sending Stone for this campaign in Manage Campaigns in Foundry.'
+  return 'They stay here. To have them made in your game with the same dice, tick Players roll in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 }
 
 /**
@@ -260,8 +260,9 @@ function RefusalNote({
         <>
           At {time}, Sending Stone refused Foundry’s post for this campaign: the
           secret it came with isn’t this campaign’s. Enter this campaign’s
-          secret in Manage Campaigns in Foundry, in the browser you run the game
-          from, or set a new one with Change secret below and enter that.
+          secret on its Connection tab in Sending Stone’s settings in Foundry,
+          in the browser you run the game from, or set a new one with Change
+          secret below and enter that.
         </>
       )
       break
@@ -271,7 +272,8 @@ function RefusalNote({
         <>
           At {time}, Foundry sent a campaign titled “{refusal.detail}” from this
           game, and no campaign here has that title. If it’s this one, rename it
-          to “{title}” in Manage Campaigns in Foundry.
+          to “{title}” on its Connection tab in Sending Stone’s settings in
+          Foundry.
         </>
       )
       break

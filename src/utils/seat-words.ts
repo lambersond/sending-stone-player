@@ -81,7 +81,8 @@ const WORDS: Record<SeatRole, SeatWords> = {
     told: 'Foundry told you so when it held it back.',
     noSheet:
       'Your Sending Stone module sends it under D&D Fifth Edition, from version 0.5.0. It arrives the next time your game connects.',
-    addBack: 'Add them back to the campaign in Manage Campaigns in Foundry.',
+    addBack:
+      'Add them back on the campaign’s Players tab in Sending Stone’s settings in Foundry.',
     noCombat: 'The initiative order appears here when you start an encounter.',
     settingUp: 'You’re setting up this encounter.',
     connected: 'Your game is connected.',

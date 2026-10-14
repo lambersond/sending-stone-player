@@ -7,24 +7,28 @@ export function ConnectSteps({
   return (
     <ol className='grid list-decimal gap-3 pl-5 text-sm text-text-secondary marker:text-text-primary'>
       <li>
-        Install the Sending Stone module, version 0.4.0 or later, in your game
+        Install the Sending Stone module, version 0.24.0 or later, in your game
         on The Forge, and open the game as Gamemaster.
       </li>
       <li>
-        In <em>Configure Settings</em>, open Sending Stone&apos;s{' '}
-        <em>Manage Campaigns</em> and set the Sending Stone address to
+        In <em>Configure Settings</em>, choose <em>Open Settings</em> under
+        Sending Stone, and under <em>General</em> set the <em>App address</em>{' '}
+        to
         <span className='my-2 block'>
           <CopyField value={destination} label='address' />
         </span>
       </li>
       <li>
-        Add each campaign with the same title as here, enter its secret, and
-        tick its characters. <em>Test</em> checks a campaign before you save.
+        Add each campaign with <em>New campaign</em>: on its <em>Connection</em>{' '}
+        tab give it the same title as here and enter its secret, and on its{' '}
+        <em>Players</em> tab add its characters. <em>Test</em> checks a campaign
+        before you save.
       </li>
       <li>
-        Switch on <em>Send Chat Events</em> and <em>Send Combat Events</em>.
-        Once Foundry connects, each campaign&apos;s characters appear here and
-        your players can choose them from its invite link.
+        Under <em>General</em>, tick <em>Chat messages</em> and{' '}
+        <em>Combat tracker</em>, then <em>Save Changes</em>. Once Foundry
+        connects, each campaign&apos;s characters appear here and your players
+        can choose them from its invite link.
       </li>
     </ol>
   )
