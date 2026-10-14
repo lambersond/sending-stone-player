@@ -165,8 +165,10 @@ export async function POST(request: Request) {
   let applied
   try {
     if (event?.type === EVENTS.COMMAND_RESULT) {
-      // What became of a player's roll. Only its player's page asks after it, so the campaign's
-      // version, which every player's page watches, is left alone.
+      // What became of a roll. Only the page that sent it asks after it, and its character's
+      // player's watches the Gamemaster's as theirs apart (#156), so the campaign's version, which
+      // every page watches, is left alone, unless the result changes what they all show: a prompt
+      // it closed, or the Gamemaster's messages it marks.
       await recordCommandResult(found.id, event.data)
       await markSeen(found.id)
     } else if (event) {

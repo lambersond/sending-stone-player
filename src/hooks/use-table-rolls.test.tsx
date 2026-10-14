@@ -34,7 +34,12 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from './use-sheet-roller'
-import type { FormulaSource, RollFeature, RollKind } from '@/types/roll'
+import type {
+  FormulaSource,
+  RollFeature,
+  RollKind,
+  RollSource,
+} from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
 
 const perception: SheetRoll = {
@@ -2707,6 +2712,12 @@ describe('hooks/use-table-rolls', () => {
   })
 })
 
+/** A roll as the game is asked to make it, with more said of it. */
+const toRollRequestWith = (roll: SheetRoll, fields: object) => ({
+  ...toRollRequest(roll, roll.source as RollSource, check()),
+  ...fields,
+})
+
 describe("hooks/use-table-rolls, the Gamemaster's seat (#156)", () => {
   const seat = {
     role: 'gm' as const,
@@ -2754,6 +2765,33 @@ describe("hooks/use-table-rolls, the Gamemaster's seat (#156)", () => {
       '/api/campaigns/c1/characters/thorin/rolls/req-gm',
       { cache: 'no-store', signal: expect.any(AbortSignal) },
     )
+  })
+
+  it("says what the Gamemaster's page calls each roll, for its player to be shown it by, as the player's page never does", () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-gm' }))
+    const sent = () =>
+      JSON.parse(String(jest.mocked(fetch).mock.calls.at(-1)?.[1]?.body))
+    const { result } = renderGm()
+
+    act(() => result.current.send(perception, check()))
+    expect(sent()).toEqual(
+      toRollRequestWith(perception, { label: 'Perception check' }),
+    )
+
+    // Cut to as long a name as the app keeps, never splitting a character.
+    const long = `${'x'.repeat(119)}🐉 attack`
+    act(() =>
+      result.current.send({ ...perception, label: long }, check({ id: 'r2' })),
+    )
+    expect(sent().label).toBe('x'.repeat(119))
+    act(() =>
+      result.current.send({ ...perception, label: '  ' }, check({ id: 'r3' })),
+    )
+    expect(sent()).not.toHaveProperty('label')
+
+    const player = render()
+    act(() => player.result.current.send(perception, check({ id: 'r4' })))
+    expect(sent()).not.toHaveProperty('label')
   })
 
   it("keeps the Gamemaster's send switch apart from the player's, on the same device", () => {

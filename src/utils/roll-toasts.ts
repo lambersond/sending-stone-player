@@ -64,6 +64,8 @@ export type ToastBook = {
   quiet: ReadonlySet<string>
   /** Of each roll, how its way to the game ended, as its toast last said (`settledMark`). */
   told: ReadonlyMap<string, string>
+  /** Whether the page has met its rolls yet: those it opens with are met as it opens. */
+  opened: boolean
 }
 
 export const NO_TOASTS: ToastBook = {
@@ -71,6 +73,7 @@ export const NO_TOASTS: ToastBook = {
   seen: new Set(),
   quiet: new Set(),
   told: new Map(),
+  opened: false,
 }
 
 /**
@@ -89,8 +92,10 @@ export function settledMark(state?: TableRollState): string | undefined {
  * player, as for its damage to be rolled, keeps its toast until it no longer does: then it goes at
  * once, as its damage is rolled, or else takes its full time from then. Over the cap as toasts pop
  * up, the oldest that doesn't wait for the player goes, never one popping up. Rolls met while
- * toasts are off never pop up; and while they're off none show. The same rolls and ways give the
- * same book.
+ * toasts are off never pop up; and while they're off none show. A roll the Gamemaster made as the
+ * character (#156), which the player didn't make here, pops up only once its way to the game ends,
+ * as the game makes it, or doesn't; never one whose way had ended before the page opened. The same
+ * rolls and ways give the same book.
  * @param rolls - Newest first, as the page keeps them.
  * @param on - Whether the player has toasts on.
  */
@@ -121,10 +126,13 @@ export function popToasts(
     const until = waits ? Number.POSITIVE_INFINITY : now + TOAST_FOR
     if (!seen.has(id)) {
       seen = new Set(seen).add(id)
-      if (!on) {
+      const gm = roll.kind === 'gm'
+      if (!on || (gm && !book.opened && mark !== undefined)) {
         quiet = new Set(quiet).add(id)
         continue
       }
+      // On its way, it's in the banner or the rolls' history only, until the game says.
+      if (gm && mark === undefined) continue
       pop(id, until)
       if (mark !== undefined) told = new Map(told).set(id, mark)
       continue
@@ -169,11 +177,12 @@ export function popToasts(
     showing.every((toast, index) => toast === book.shown[index]) &&
     seen === book.seen &&
     quiet === book.quiet &&
-    told === book.told
+    told === book.told &&
+    book.opened
   ) {
     return book
   }
-  return { shown: showing, seen, quiet, told }
+  return { shown: showing, seen, quiet, told, opened: true }
 }
 
 /** The toasts with one gone, as when the player taps it away, or closes one that waits for them. */

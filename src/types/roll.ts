@@ -188,6 +188,11 @@ export type RollRequestInput = {
   text?: string
   /** The link's number in that description. */
   link?: number
+  /**
+   * What the page that sent it calls it, such as "Perception check", as the Gamemaster's page says
+   * (#156), for the character's player to be shown it by; only ever shown as text.
+   */
+  label?: string
 }
 
 /**
@@ -239,4 +244,41 @@ export type RollRequestView = {
    * the card, as one naming a concentration that has since ended.
    */
   card?: false
+}
+
+/**
+ * A roll the campaign's Gamemaster made as the player's character from their page (#156), as its
+ * player is shown it, beside their own: what it was, what it's called, when it was sent, and where
+ * it stands, with the game's result as the player's own rolls have it, but none of its dice, and
+ * never the damage that follows it, which the Gamemaster rolls.
+ */
+export type GmRollView = Pick<
+  RollRequestView,
+  | 'id'
+  | 'status'
+  | 'reason'
+  | 'visible'
+  | 'total'
+  | 'attack'
+  | 'outcome'
+  | 'healed'
+  | 'spent'
+  | 'enchantment'
+> & {
+  kind: RollKind
+  /** As the Gamemaster's page called it; or for one sent before it said, its kind, as "A check". */
+  label: string
+  /** When it was sent, as an ISO timestamp. */
+  at: string
+  /**
+   * For a roll of a d20, where the game made it and its player may see it: whether the game says
+   * the d20 came up a critical or a fumble.
+   */
+  d20?: 'critical' | 'fumble'
+  /**
+   * For damage, that it's healing, as the game said: of an attack's or a use's, as the game said of
+   * what follows it, as the player's own healing is told; else of every roll the game made of it,
+   * as the chat tells healing.
+   */
+  healing?: true
 }

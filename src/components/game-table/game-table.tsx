@@ -213,6 +213,7 @@ export function GameTable({
               rollsToTable={view.connected ? view.rollsToTable : undefined}
               rollFeatures={view.connected ? view.rollFeatures : undefined}
               prompts={view.connected ? view.prompts : undefined}
+              gmRolls={view.gmRolls}
               header={header}
             />
           ) : (

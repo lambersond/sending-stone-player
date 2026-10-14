@@ -215,6 +215,24 @@ describe('schemas/roll-request', () => {
     expect(parse(fields).success).toBe(false)
   })
 
+  it('takes what the page that sent it calls it, 1 to 120 characters, shown only as text (#156)', () => {
+    for (const label of [
+      'Perception check',
+      'x',
+      'x'.repeat(120),
+      '<b>Hi</b>',
+    ]) {
+      expect(parse({ label })).toMatchObject({
+        success: true,
+        data: { label },
+      })
+    }
+    for (const label of ['', 'x'.repeat(121), 7, null, ['Perception']]) {
+      expect(parse({ label }).success).toBe(false)
+    }
+    expect(parse({}).data).not.toHaveProperty('label')
+  })
+
   it('takes a death save and initiative, which name nothing', () => {
     expect(parse({ kind: 'death', key: undefined }).success).toBe(true)
     expect(

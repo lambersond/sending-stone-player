@@ -1,9 +1,14 @@
+import { createHash } from 'node:crypto'
 import prisma from '@/clients/prisma'
+import { GM_ROLLS_SHOWN, ROLLS_KEPT_FOR } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
 import { toTablePrompt } from '@/utils/prompts'
 import {
   availableRollFeatures,
   availableRollKinds,
+  rollStatus,
+  toGmRollView,
+  type HeldRollRequest,
 } from '@/utils/roll-requests'
 import {
   pickCombat,
@@ -18,19 +23,22 @@ import type { RollFeature, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
   CombatSnapshot,
+  CommandResult,
   ConnectedCharacter,
   SerializedMessage,
   SheetWithheld,
 } from '@/types/sending-stone'
 import type { GmRolls, TableView } from '@/types/table'
+import type { Prisma } from '@prisma/client'
 
 /** The most recent chat messages shown. */
 export const MESSAGE_LIMIT = 100
 
 /**
  * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
- * which rolls its game takes from players, and what else it does with them; and for the
- * Gamemaster at a character's sheet (#156), where their rolls go.
+ * which rolls its game takes from players, and what else it does with them; for the Gamemaster at
+ * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
+ * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`.
  */
 export type CampaignStatus = {
   version: number
@@ -38,7 +46,96 @@ export type CampaignStatus = {
   rollsToTable: RollKind[]
   rollFeatures: RollFeature[]
   gm?: { rolls: GmRolls }
+  gmRollsKey?: string
 }
+
+/**
+ * The rolls the campaign's Gamemaster made as a player's character (#156) that its player is shown,
+ * beside their own: those of the character's actor in its campaign, of those kept. None for the
+ * Gamemaster's own seat, whose page has them already, nor for a character in no campaign.
+ */
+function gmRollsOf(
+  seat: SheetSeat,
+  now: number,
+): Prisma.RollRequestWhereInput | undefined {
+  if (seat.role !== 'player' || !seat.campaignId || !seat.actorId) return
+  return {
+    campaignId: seat.campaignId,
+    actorId: seat.actorId,
+    role: 'gm',
+    createdAt: { gt: new Date(now - ROLLS_KEPT_FOR) },
+  }
+}
+
+/**
+ * What changes whenever any of the Gamemaster's rolls a player is shown does: its status, as time
+ * moves it too, or what the game said of it. None for none.
+ */
+function gmRollsKey(
+  rolls: (Pick<HeldRollRequest, 'id' | 'status' | 'createdAt' | 'claimedAt'> & {
+    completedAt: Date | null
+  })[],
+  now: number,
+): string | undefined {
+  if (rolls.length === 0) return undefined
+  const states = rolls.map(
+    roll =>
+      `${roll.id}:${rollStatus(roll, now)}:${roll.completedAt?.getTime() ?? ''}`,
+  )
+  return createHash('sha256')
+    .update(states.join(','))
+    .digest('base64url')
+    .slice(0, 16)
+}
+
+/**
+ * Of the attacks and uses the Gamemaster's damage shown to a player follows (#156), those the game
+ * said healing follows, for that damage to be told as healing, as the player's own is: read from
+ * the rolls shown, where the attack or use is among them, as it nearly always is, sent just before
+ * its damage; else looked up, among the Gamemaster's as the same character, whose damage follows
+ * only their own.
+ */
+async function healingUses(
+  made: (Pick<HeldRollRequest, 'id' | 'kind' | 'result'> & {
+    useId: string | null
+  })[],
+  seat: SheetSeat,
+): Promise<ReadonlySet<string>> {
+  const followed = new Set(
+    made.flatMap(({ kind, useId }) =>
+      kind === 'damage' && useId ? [useId] : [],
+    ),
+  )
+  if (followed.size === 0) return followed
+  const missing = [...followed].filter(id => !made.some(roll => roll.id === id))
+  const found =
+    missing.length > 0
+      ? await prisma.rollRequest.findMany({
+          where: {
+            id: { in: missing },
+            campaignId: seat.campaignId ?? '',
+            actorId: seat.actorId ?? '',
+            role: 'gm',
+          },
+          select: { id: true, result: true },
+        })
+      : []
+  const heals = [...made, ...found].filter(
+    ({ id, result }) =>
+      followed.has(id) &&
+      (result as CommandResult | null)?.damage?.healing === true,
+  )
+  return new Set(heals.map(({ id }) => id))
+}
+
+/** What says where each of the Gamemaster's rolls a player is shown stands. */
+const gmRollStateSelect = {
+  id: true,
+  status: true,
+  createdAt: true,
+  claimedAt: true,
+  completedAt: true,
+} as const
 
 /** What says which rolls a campaign's game takes from players. */
 const rollsSelect = {
@@ -90,14 +187,28 @@ export async function getCampaignStatus(
       ...seatRolls(seat),
     }
   }
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: seat.campaignId },
-    select: { version: true, lastSeenAt: true, ...rollsSelect },
-  })
+  const now = Date.now()
+  const gmRolls = gmRollsOf(seat, now)
+  const [campaign, made] = await Promise.all([
+    prisma.campaign.findUnique({
+      where: { id: seat.campaignId },
+      select: { version: true, lastSeenAt: true, ...rollsSelect },
+    }),
+    gmRolls
+      ? prisma.rollRequest.findMany({
+          where: gmRolls,
+          orderBy: { createdAt: 'desc' },
+          take: GM_ROLLS_SHOWN,
+          select: gmRollStateSelect,
+        })
+      : [],
+  ])
+  const gmRollsKeyNow = gmRollsKey(made, now)
   return {
     version: campaign?.version ?? 0,
     live: isLive(campaign?.lastSeenAt),
     ...seatRolls(seat, campaign),
+    ...(gmRollsKeyNow && { gmRollsKey: gmRollsKeyNow }),
   }
 }
 
@@ -157,7 +268,9 @@ export async function getTableView(
   // The saves the game asks of the character, while it takes their answers.
   const rolls = seatRolls(seat, campaign)
   const prompted = viewer.actorId && rolls.rollFeatures.includes('prompts')
-  const [messages, combats, sheet, prompts] = await Promise.all([
+  const now = Date.now()
+  const gmRolls = gmRollsOf(seat, now)
+  const [messages, combats, sheet, prompts, made] = await Promise.all([
     prisma.chatMessage.findMany({
       where: {
         campaignId: campaign.id,
@@ -197,8 +310,26 @@ export async function getTableView(
           select: { promptId: true, data: true, expiresAt: true },
         })
       : [],
+    gmRolls
+      ? prisma.rollRequest.findMany({
+          where: gmRolls,
+          orderBy: { createdAt: 'desc' },
+          take: GM_ROLLS_SHOWN,
+          select: {
+            ...gmRollStateSelect,
+            actorId: true,
+            role: true,
+            kind: true,
+            label: true,
+            payload: true,
+            useId: true,
+            result: true,
+          },
+        })
+      : [],
   ])
   const sheetVersion = sheet?.updatedAt.toISOString()
+  const heals = await healingUses(made, seat)
 
   const combat = pickCombat(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
@@ -234,5 +365,11 @@ export async function getTableView(
     rollFeatures: rolls.rollFeatures,
     prompts: prompts.map(prompt => toTablePrompt(prompt)),
     ...(rolls.gm && { gm: rolls.gm }),
+    ...(made.length > 0 && {
+      gmRolls: made.map(roll =>
+        toGmRollView(roll, now, !!roll.useId && heals.has(roll.useId)),
+      ),
+      gmRollsKey: gmRollsKey(made, now),
+    }),
   }
 }

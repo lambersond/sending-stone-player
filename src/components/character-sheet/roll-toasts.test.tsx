@@ -1,15 +1,29 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 import { RollToasts } from './roll-toasts'
 import { RollTray } from './roll-tray'
+import {
+  gmRollsOf,
+  useGmRolls,
+  withGmRolls,
+  type TableRollState,
+} from '@/hooks/use-table-rolls'
 import type {
   LocalCheck,
   LocalDamage,
+  LocalRoll,
   LocalUse,
 } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import type { GmRollView } from '@/types/roll'
 
 /** A check, as the page keeps it. */
 const check = (id: string, fields: Partial<LocalCheck> = {}): LocalCheck => ({
@@ -1139,4 +1153,350 @@ describe('components/character-sheet/roll-toasts', () => {
       }
     },
   )
+})
+
+/** A roll of the Gamemaster's, as the player's view tells it. */
+const view = (fields: Partial<GmRollView> = {}): GmRollView => ({
+  id: 'req-gm',
+  kind: 'attack',
+  label: 'Longsword attack',
+  at: '2026-10-14T12:00:00.000Z',
+  status: 'rolling',
+  ...fields,
+})
+/** What the page shows of it among the player's own, as the pane gives them. */
+const shownOf = (...views: GmRollView[]) =>
+  withGmRolls(
+    [strength],
+    ways(['s', { status: 'done', visible: true, total: 17 }]),
+    gmRollsOf(views),
+  )
+
+describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the character (#156)", () => {
+  const hit = view({
+    status: 'done',
+    visible: true,
+    total: 21,
+    attack: { critical: false, fumble: false, outcome: 'hit' },
+  })
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('G1 pops up only once the game has made it, marked as the Gamemaster’s, with the game’s result and nothing to roll after it', () => {
+    // Already on its way as the page opens: in the rolls' history only, for now.
+    const pending = shownOf(view())
+    const { rerender } = render(
+      <RollToasts rolls={pending.rolls} states={pending.states} on />,
+    )
+    expect(toast('gm:req-gm')).toBeNull()
+
+    const made = shownOf(hit)
+    rerender(<RollToasts rolls={made.rolls} states={made.states} on />)
+
+    const card = toast('gm:req-gm') as HTMLElement
+    expect(card).toHaveAttribute('data-gm', 'true')
+    expect(card).toHaveAttribute('data-accent', 'primary')
+    expect(card).not.toHaveAttribute('data-waits')
+    expect(card).toHaveTextContent(
+      '21Longsword attackGM, rolled by your GamemasterRolled by your GamemasterAt the table: 21 · Hit',
+    )
+    expect(
+      within(card).getByTitle('Rolled by your Gamemaster'),
+    ).toHaveTextContent('GM')
+    // Its damage is the Gamemaster's to roll: nothing to tap, and it goes as any other.
+    expect(within(card).queryByRole('button')).toBeNull()
+    wait(3800)
+    wait(200)
+    expect(toast('gm:req-gm')).toBeNull()
+  })
+
+  it('G1 never offers its damage, nor stays for it, whatever the game said follows it', () => {
+    const made = shownOf(hit)
+    const states = new Map(made.states)
+    states.set('gm:req-gm', {
+      ...states.get('gm:req-gm'),
+      status: 'done',
+      damage: { critical: false, plannable: true, rolls: [] },
+    })
+    const page = (rolls: LocalRoll[]) => (
+      <>
+        <RollToasts rolls={rolls} states={states} on rollDamage={jest.fn()} />
+        <RollTray
+          rolls={rolls}
+          rolling={false}
+          table={{
+            states,
+            available: true,
+            sending: true,
+            rollDamage: jest.fn(),
+          }}
+        />
+      </>
+    )
+    // Made since the page opened.
+    const { rerender } = render(page([]))
+    rerender(page(made.rolls))
+
+    expect(toast('gm:req-gm')).toBeInTheDocument()
+    expect(toast('gm:req-gm')).not.toHaveAttribute('data-waits')
+    expect(screen.queryByRole('button', { name: /damage/i })).toBeNull()
+  })
+
+  it('G2 never pops up one the game had made, or not, before the page opened', () => {
+    const made = shownOf(
+      hit,
+      view({
+        id: 'req-lost',
+        status: 'failed',
+        reason: 'not-dying',
+        kind: 'death',
+        label: 'Death saving throw',
+      }),
+    )
+    render(<RollToasts rolls={made.rolls} states={made.states} on />)
+
+    expect(shown()).toEqual(['s'])
+  })
+
+  it('G3 pops up one made between two looks at the table, at once', () => {
+    const { rerender } = render(
+      <RollToasts rolls={[strength]} states={NONE} on />,
+    )
+    const made = shownOf(
+      view({
+        status: 'failed',
+        reason: 'not-dying',
+        kind: 'death',
+        label: 'Death saving throw',
+      }),
+    )
+    rerender(<RollToasts rolls={made.rolls} states={made.states} on />)
+
+    expect(toast('gm:req-gm')).toHaveAttribute('data-accent', 'warning')
+    expect(toast('gm:req-gm')).toHaveTextContent(
+      'Death saving throwGM, rolled by your GamemasterRolled by your GamemasterNot made at the table: you aren’t dying',
+    )
+  })
+
+  it('G4 shows one the game hid as the player’s own hidden rolls show: hidden, and nothing of what it came to', () => {
+    const { rerender } = render(<RollToasts rolls={[]} states={NONE} on />)
+    const hidden = shownOf(
+      view({
+        status: 'done',
+        visible: false,
+        kind: 'skill',
+        label: 'Stealth check',
+      }),
+    )
+    rerender(<RollToasts rolls={hidden.rolls} states={hidden.states} on />)
+
+    const card = toast('gm:req-gm') as HTMLElement
+    expect(card).toHaveTextContent(
+      'Stealth checkGM, rolled by your GamemasterRolled by your GamemasterRolled at the table, hidden by your Gamemaster',
+    )
+    expect(card.firstElementChild?.querySelector('svg')).toHaveClass(
+      'lucide-eye-off',
+    )
+    expect(card).toHaveAttribute('data-accent', 'primary')
+  })
+
+  it('G5 colours one as the player’s own: a critical gold, a fumble or a miss ruby, damage its own colour, healing as healing', () => {
+    const { rerender } = render(<RollToasts rolls={[]} states={NONE} on />)
+    const accents = [
+      [
+        view({
+          ...hit,
+          id: 'crit',
+          d20: 'critical',
+          attack: { critical: true, fumble: false, outcome: 'hit' },
+        }),
+        'gold',
+      ],
+      [
+        view({
+          ...hit,
+          id: 'fumble',
+          d20: 'fumble',
+          attack: { critical: false, fumble: true, outcome: 'miss' },
+        }),
+        'ruby',
+      ],
+      [
+        view({
+          ...hit,
+          id: 'miss',
+          attack: { critical: false, fumble: false, outcome: 'miss' },
+        }),
+        'ruby',
+      ],
+      [
+        view({
+          id: 'save',
+          kind: 'save',
+          label: 'Dexterity save',
+          status: 'done',
+          visible: true,
+          total: 9,
+          outcome: 'failure',
+        }),
+        'ruby',
+      ],
+      [
+        view({
+          id: 'dmg',
+          kind: 'damage',
+          label: 'Longsword damage',
+          status: 'done',
+          visible: true,
+          total: 8,
+        }),
+        'damage',
+      ],
+      [
+        view({
+          id: 'cast',
+          kind: 'use',
+          label: 'Bless',
+          status: 'done',
+          visible: true,
+        }),
+        'primary',
+      ],
+      [
+        view({
+          id: 'heal',
+          kind: 'damage',
+          label: 'Cure Wounds healing',
+          status: 'done',
+          visible: true,
+          total: 9,
+          healing: true,
+        }),
+        'primary',
+      ],
+    ] as const
+    const made = gmRollsOf(accents.map(([one]) => one))
+    rerender(<RollToasts rolls={made.rolls} states={made.states} on />)
+
+    for (const [{ id }, accent] of accents) {
+      expect(toast(`gm:${id}`)).toHaveAttribute('data-accent', accent)
+    }
+    // Its total in the colours of the player's own healing; damage's in damage's.
+    expect(toast('gm:heal')?.firstElementChild).toHaveClass(
+      'bg-primary/10',
+      'text-primary',
+    )
+    expect(toast('gm:dmg')?.firstElementChild).toHaveClass(
+      'bg-damage/15',
+      'text-damage',
+    )
+    expect(toast('gm:cast')).toHaveTextContent(
+      'BlessGM, rolled by your GamemasterRolled by your GamemasterUsed at the table',
+    )
+    expect(toast('gm:crit')?.firstElementChild).toHaveClass('bg-gold')
+    expect(toast('gm:save')).toHaveTextContent('At the table: 9 · Failed')
+  })
+
+  it('G6 shows it in the banner as the latest roll, and among the earlier ones, marked as the Gamemaster’s', () => {
+    const made = shownOf(view({ ...hit, at: new Date(5).toISOString() }))
+    const { rerender } = render(
+      <RollTray
+        rolls={made.rolls}
+        rolling={false}
+        table={{ states: made.states, available: true, sending: true }}
+      />,
+    )
+
+    const latest = screen.getByRole('status')
+    expect(latest).toHaveTextContent(
+      '21Longsword attackGM, rolled by your GamemasterRolled by your GamemasterAt the table: 21 · Hit',
+    )
+    expect(screen.queryByRole('button')).toBeNull()
+
+    // The player's own roll since, the Gamemaster's among the earlier ones.
+    const later = check('later', {
+      label: 'Perception check',
+      at: Date.parse('2026-10-14T12:01:00.000Z'),
+    })
+    rerender(
+      <RollTray
+        rolls={[later, ...made.rolls]}
+        rolling={false}
+        table={{ states: made.states, available: true, sending: true }}
+      />,
+    )
+    const earlier = screen
+      .getByText('Longsword attack')
+      .closest('li') as HTMLElement
+    expect(earlier).toHaveTextContent(
+      'Longsword attackGM, rolled by your Gamemasterrolled by your Gamemaster· table 21',
+    )
+  })
+
+  it('G7 shows the latest among the player’s own by when each was made', () => {
+    const made = withGmRolls(
+      [
+        check('new', { at: Date.parse('2026-10-14T12:02:00.000Z') }),
+        check('old', { at: Date.parse('2026-10-14T11:00:00.000Z') }),
+      ],
+      NONE,
+      gmRollsOf([hit, view({ id: 'older', at: '2026-10-14T10:00:00.000Z' })]),
+    )
+
+    expect(made.rolls.map(({ id }) => id)).toEqual([
+      'new',
+      'gm:req-gm',
+      'old',
+      'gm:older',
+    ])
+    expect(made.states.get('gm:req-gm')).toEqual({
+      status: 'done',
+      visible: true,
+      total: 21,
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+      requestId: 'req-gm',
+    })
+  })
+
+  it("G8 places each among the player's own by when the page first heard of it, by this device's clock, never the server's", () => {
+    // This device's clock two minutes behind the server's.
+    jest.setSystemTime(Date.parse('2026-10-14T11:58:00.000Z'))
+    const before = view({
+      ...hit,
+      id: 'before',
+      at: '2026-10-14T11:59:00.000Z',
+    })
+    const { result, rerender } = renderHook(
+      ({ views }: { views: GmRollView[] }) => useGmRolls(views),
+      { initialProps: { views: [before] } },
+    )
+    const order = (rolls: LocalRoll[]) =>
+      withGmRolls(rolls, NONE, result.current).rolls.map(({ id }) => id)
+
+    // The player attacks after the page opened with it: their roll is the newer, though the
+    // server's clock says the Gamemaster's was sent later.
+    wait(30_000)
+    const attack = check('own', { at: Date.now() })
+    expect(order([attack])).toEqual(['own', 'gm:before'])
+
+    // Heard of since, newer than the attack, though the server's clock says they were sent before
+    // it; heard of together, in the view's order.
+    wait(3000)
+    const after = view({ ...hit, id: 'after', at: '2026-10-14T11:58:10.000Z' })
+    const also = view({ ...hit, id: 'also', at: '2026-10-14T11:58:05.000Z' })
+    rerender({ views: [after, also, before] })
+    expect(order([attack])).toEqual(['gm:after', 'gm:also', 'own', 'gm:before'])
+
+    // Each heard of once, as later looks bring it again.
+    const heard = result.current.rolls.map(({ at }) => at)
+    wait(3000)
+    rerender({ views: [{ ...after }, { ...also }, { ...before }] })
+    expect(result.current.rolls.map(({ at }) => at)).toEqual(heard)
+  })
 })

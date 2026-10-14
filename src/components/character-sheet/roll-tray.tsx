@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import clsx from 'clsx'
 import {
   BellRing,
@@ -9,6 +10,7 @@ import {
   Sparkles,
   Swords,
   TriangleAlert,
+  type LucideIcon,
 } from 'lucide-react'
 import { useDamageMenu } from './damage-menu'
 import { RollButton } from './roll-button'
@@ -35,6 +37,7 @@ import type {
   LocalDamage,
   LocalExtra,
   LocalFormula,
+  LocalGmRoll,
   LocalRoll,
   LocalUse,
 } from '@/hooks/use-sheet-roller'
@@ -120,6 +123,9 @@ export function RollHistory({
 }>) {
   const [latest, ...earlier] = rolls
   const role = useTableRole()
+  // The roll whose damage is offered here: the latest's own, or the player's latest beneath one of
+  // the Gamemaster's (`offersDamage`); none while dice roll in the latest's place.
+  const offered = rolling ? undefined : offersDamage(rolls)
   let status = (
     <p className='flex items-center gap-2 text-sm text-text-secondary'>
       <Dices aria-hidden className='size-5 shrink-0 text-primary' />
@@ -148,6 +154,9 @@ export function RollHistory({
       <div role='status' aria-live={announce ? 'polite' : 'off'}>
         {status}
       </div>
+      {offered && offered !== latest && table && (
+        <DamageBehind roll={offered} table={table} />
+      )}
       {earlier.length > 0 && (
         <details className='group text-sm'>
           <summary className='cursor-pointer text-xs font-semibold text-text-secondary hover:text-text-primary'>
@@ -159,7 +168,10 @@ export function RollHistory({
                 key={roll.id}
                 className='flex items-baseline justify-between gap-3'
               >
-                <span className='truncate'>{roll.label}</span>
+                <span className='flex min-w-0 items-baseline gap-1.5'>
+                  <span className='truncate'>{roll.label}</span>
+                  {roll.kind === 'gm' && <GmPill />}
+                </span>
                 <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
                   {breakdown(roll, table?.states.get(roll.id))}
                   {(roll.kind === 'check' ||
@@ -189,6 +201,44 @@ export function RollHistory({
           {seatWords(role).notSent}
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * The roll whose damage the latest in full offers: the latest; or, where that's one of the
+ * Gamemaster's as the character (#156), which has none, the player's own latest, as it offered
+ * it before theirs came, so that the Gamemaster's arriving takes nothing from the player.
+ */
+export function offersDamage(
+  rolls: readonly LocalRoll[],
+): LocalRoll | undefined {
+  return rolls.find(roll => roll.kind !== 'gm')
+}
+
+/**
+ * The damage of the player's own latest roll, while it's due, beneath one of the Gamemaster's as
+ * the character that came after it (#156): named by its roll, as the rolls' button names those it
+ * offers, as their buttons all say "Roll damage".
+ */
+function DamageBehind({
+  roll,
+  table,
+}: Readonly<{ roll: LocalRoll; table: TableRolls }>) {
+  const name = useId()
+  const state = table.states.get(roll.id)
+  if (!table.rollDamage || !damageDue(roll, state)) return
+  return (
+    <div role='group' aria-labelledby={name}>
+      <p id={name} className='truncate text-sm font-semibold'>
+        {roll.label}
+      </p>
+      <DamageDue
+        roll={roll}
+        state={state}
+        onRollDamage={table.rollDamage}
+        modifies={table.modifies}
+      />
     </div>
   )
 }
@@ -228,6 +278,9 @@ function LatestResult({
           modifies={table?.modifies}
         />
       )
+    }
+    case 'gm': {
+      return <GmResult roll={roll} state={state} />
     }
   }
 }
@@ -763,10 +816,12 @@ function TableMark({
     </span>
   )
   if (!state) return mine
-  const asked = roll.kind === 'ask'
+  // The Gamemaster's as the character (#156) are told as the player's own of their kind.
+  const kind = roll.kind === 'gm' ? gmShape(roll) : roll.kind
+  const asked = kind === 'ask'
   if (state.status === 'done') {
     if (asked) return <span className='ml-1.5'>· posted</span>
-    if (roll.kind === 'use') {
+    if (kind === 'use') {
       return (
         <span className='ml-1.5'>
           {enchantmentNote(state.enchantment) ?? '· at the table'}
@@ -1231,6 +1286,217 @@ function askedWords(state: TableRollState | undefined, role: SeatRole): string {
   }
 }
 
+/** What a roll of the Gamemaster's as the player's character says of itself (#156). */
+export const GM_WORDS = 'Rolled by your Gamemaster'
+
+/** The same, after what the roll is called, or what it came to. */
+const GM_WORDS_AFTER = 'rolled by your Gamemaster'
+
+/** The mark of a roll of the Gamemaster's, as the chat marks a message made for one. */
+export function GmPill() {
+  return (
+    <span
+      title={GM_WORDS}
+      className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary'
+    >
+      GM<span className='sr-only'>, {GM_WORDS_AFTER}</span>
+    </span>
+  )
+}
+
+/**
+ * What a roll of the Gamemaster's as the character is told as (#156): a use or an ask, as the
+ * player's own are; damage; or else a roll with a total, as a check is.
+ */
+function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
+  if (roll.rolled === 'use' || roll.rolled === 'ask') return roll.rolled
+  if (roll.rolled === 'damage' || roll.rolled === 'textDamage') return 'damage'
+  return 'check'
+}
+
+/**
+ * Whether the game made a roll of the Gamemaster's, and hid it from the player: never a use or an
+ * ask, which say only that they were made.
+ */
+function gmHidden(roll: LocalGmRoll, state?: TableRollState): boolean {
+  return (
+    state?.status === 'done' &&
+    !state.visible &&
+    ['check', 'damage'].includes(gmShape(roll))
+  )
+}
+
+/**
+ * A roll of the Gamemaster's as the character's way to the game, in the tray's words, as the
+ * player's own of its kind (#156): on its way, made, with the game's total and what came of it,
+ * hidden as the game hid it, or not made, and why. None before the page has heard of it.
+ */
+function gmLine(
+  roll: LocalGmRoll,
+  state: TableRollState | undefined,
+  role: SeatRole,
+): RollBrief['table'] {
+  if (!state) return undefined
+  const tone = toneOf(state)
+  const shape = gmShape(roll)
+  switch (state.status) {
+    case 'sending':
+    case 'rolling': {
+      let doing = 'Rolling'
+      if (shape === 'use') doing = 'Using it'
+      if (shape === 'ask') doing = 'Posting it'
+      return { tone, text: onItsWay(state, role, doing) }
+    }
+    case 'done': {
+      if (shape === 'use') {
+        const enchanted = enchantmentNote(state.enchantment)
+        return {
+          tone,
+          text: `Used at the table${enchanted ? ` ${enchanted}` : ''}`,
+        }
+      }
+      if (shape === 'ask') return { tone, text: 'Posted to the table’s chat' }
+      if (!state.visible) return { tone, text: seatWords(role).hidden }
+      const outcome = outcomeOf(state)
+      const total = `At the table: ${state.total ?? '?'}`
+      return { tone, text: outcome ? `${total} · ${outcome}` : total }
+    }
+    default: {
+      const reason = reasonOf(state, role)
+      const { together } = state
+      let made = 'Not made at the table'
+      if (shape === 'use') made = 'Not used at the table'
+      if (shape === 'ask') made = 'Not posted to the table'
+      if (together?.made) {
+        made = `${together.made} of ${together.count} made at the table. Not the rest`
+      }
+      return { tone, text: reason ? `${made}: ${reason}` : made }
+    }
+  }
+}
+
+/**
+ * How a roll of the Gamemaster's as the character shows in its badge (#156): the game's total, in
+ * the colours the player's own take, once the game has made it where they may see it; else a use's
+ * or an ask's icon, the hidden mark, or dice while it's on its way, or wasn't made.
+ */
+function gmBadge(
+  roll: LocalGmRoll,
+  state?: TableRollState,
+): Pick<RollBrief, 'badge' | 'total'> {
+  const shape = gmShape(roll)
+  if (shape === 'use' || shape === 'ask') return { badge: shape }
+  if (gmHidden(roll, state)) return { badge: 'hidden' }
+  if (state?.status !== 'done' || state.total === undefined) {
+    return { badge: 'dice' }
+  }
+  let badge: RollBrief['badge'] = 'plain'
+  if (shape === 'damage') badge = roll.healing ? 'healing' : 'damage'
+  if (state.d20 === 'critical' || state.attack?.critical) badge = 'critical'
+  else if (state.d20 === 'fumble') badge = 'fumble'
+  return { badge, total: state.total }
+}
+
+/** Each kind of total's colours, in the tray and the toasts alike. */
+export const BADGES: Record<RollBrief['badge'], string> = {
+  critical: 'bg-gold text-on-gold',
+  fumble: 'bg-ruby text-on-ruby',
+  plain: 'bg-primary/10 text-primary',
+  damage: 'bg-damage/15 text-damage',
+  healing: 'bg-primary/10 text-primary',
+  use: 'bg-primary/10 text-primary',
+  ask: 'bg-primary/10 text-primary',
+  hidden: 'bg-primary/10 text-primary',
+  dice: 'bg-primary/10 text-primary',
+}
+
+/** A badge's icon, for one that shows no total. */
+export const BADGE_ICONS: Partial<Record<RollBrief['badge'], LucideIcon>> = {
+  use: Sparkles,
+  ask: BellRing,
+  hidden: EyeOff,
+  dice: Dices,
+}
+
+/**
+ * A roll the Gamemaster made as the player's character (#156), as the latest of the player's
+ * rolls: marked as theirs, with the game's result, or where it stands, as the player's own of its
+ * kind; and nothing to roll after it, as its damage is the Gamemaster's.
+ */
+function GmResult({
+  roll,
+  state,
+}: Readonly<{ roll: LocalGmRoll; state?: TableRollState }>) {
+  const role = useTableRole()
+  const { badge, total } = gmBadge(roll, state)
+  const Icon = BADGE_ICONS[badge]
+  const line = gmLine(roll, state, role)
+  const shape = gmShape(roll)
+  const told =
+    state?.status === 'done' &&
+    state.visible &&
+    ['check', 'damage'].includes(shape)
+  const outcome = told ? outcomeOf(state) : undefined
+  let icon = <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
+  if (line?.tone === 'pending') {
+    icon = (
+      <LoaderCircle
+        aria-hidden
+        className='size-3.5 shrink-0 motion-safe:animate-spin'
+      />
+    )
+  } else if (line?.tone === 'not') {
+    icon = <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+  } else if (gmHidden(roll, state)) {
+    icon = <EyeOff aria-hidden className='size-3.5 shrink-0' />
+  }
+  return (
+    <div data-gm-roll={roll.id} className='flex items-center gap-3'>
+      <span
+        className={clsx(
+          'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
+          BADGES[badge],
+        )}
+      >
+        {Icon ? <Icon aria-hidden className='size-6' /> : total}
+      </span>
+      <div className='min-w-0'>
+        <p className='flex items-center gap-1.5'>
+          <span className='truncate font-semibold'>{roll.label}</span>
+          <GmPill />
+        </p>
+        <p className='text-xs text-text-secondary'>{GM_WORDS}</p>
+        {line && (
+          <p
+            className={clsx(
+              'mt-1 flex items-center gap-1.5 text-xs',
+              line.tone === 'not' ? 'text-warning' : 'text-text-secondary',
+            )}
+          >
+            {icon}
+            {told ? (
+              <span>
+                At the table:{' '}
+                <span className='font-semibold text-text-primary tabular-nums'>
+                  {state.total ?? '?'}
+                </span>
+                {outcome && (
+                  <span className='font-semibold text-text-primary'>
+                    {' · '}
+                    {outcome}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span>{line.text}</span>
+            )}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** The d20s thrown, the one that didn't count struck through. */
 function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
   const kept = roll.d20s.indexOf(roll.natural)
@@ -1284,6 +1550,7 @@ function byTheGame(roll: LocalDamage): boolean {
 }
 
 function breakdown(roll: LocalRoll, state?: TableRollState): string {
+  if (roll.kind === 'gm') return GM_WORDS_AFTER
   if (roll.kind === 'use') {
     if (roll.ending) return 'ended'
     return roll.spell ? 'cast' : 'used'
@@ -1334,8 +1601,20 @@ export function shownTotal(
 /** A roll in brief, as its toast says it: what it was, what it came to, and its way to the game. */
 export type RollBrief = {
   label: string
-  /** How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask. */
-  badge: 'critical' | 'fumble' | 'plain' | 'damage' | 'healing' | 'use' | 'ask'
+  /**
+   * How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask; and
+   * for one of the Gamemaster's as the character (#156), hidden, or dice while there's no total.
+   */
+  badge:
+    | 'critical'
+    | 'fumble'
+    | 'plain'
+    | 'damage'
+    | 'healing'
+    | 'use'
+    | 'ask'
+    | 'hidden'
+    | 'dice'
   /** The colour its toast is edged and tinted in, by how it came out (`accentOf`). */
   accent: 'warning' | 'gold' | 'ruby' | 'damage' | 'primary'
   /** None for a use or an ask, which show an icon; "…" while the game's total is awaited. */
@@ -1344,6 +1623,8 @@ export type RollBrief = {
   dice?: string
   /** Its way to the game, in the tray's words; none for a roll never sent. */
   table?: { tone: 'pending' | 'made' | 'not'; text: string }
+  /** Made by the Gamemaster as the player's character (#156), marked so. */
+  gm?: true
 }
 
 /**
@@ -1400,6 +1681,9 @@ export function briefOf(
     case 'ask': {
       return { ...brief, badge: 'ask' }
     }
+    case 'gm': {
+      return { ...brief, ...gmBadge(roll, state), dice: GM_WORDS, gm: true }
+    }
   }
 }
 
@@ -1416,14 +1700,33 @@ function accentOf(
 ): RollBrief['accent'] {
   if (table?.tone === 'not') return 'warning'
   if (roll.kind === 'damage') return roll.healing ? 'primary' : 'damage'
-  if (roll.kind !== 'check') return 'primary'
   // What the game made of it, where the player may see it.
   const seen = state?.status === 'done' && state.visible ? state : undefined
+  if (roll.kind === 'gm') return gmAccent(roll, seen)
+  if (roll.kind !== 'check') return 'primary'
   if (roll.natural === 20 || seen?.attack?.critical) return 'gold'
   if (roll.natural === 1 || missed(seen) || madeIt(roll, state) === false) {
     return 'ruby'
   }
   return 'primary'
+}
+
+/**
+ * The colour a roll of the Gamemaster's as the character takes (#156), as one of the player's own
+ * of its kind, by what the game made of it where the player may see it: gold for a critical,
+ * ruby for a fumble, a miss or a save that failed, the damage colour for damage, never healing.
+ */
+function gmAccent(
+  roll: LocalGmRoll,
+  seen: TableRollState | undefined,
+): RollBrief['accent'] {
+  const shape = gmShape(roll)
+  if (!seen || shape === 'use' || shape === 'ask') return 'primary'
+  if (seen.d20 === 'critical' || seen.attack?.critical) return 'gold'
+  if (seen.d20 === 'fumble' || missed(seen) || savedAt(seen) === false) {
+    return 'ruby'
+  }
+  return shape === 'damage' && !roll.healing ? 'damage' : 'primary'
 }
 
 /**
@@ -1473,6 +1776,7 @@ function tableLine(
   if (roll.kind === 'ask') {
     return { tone: toneOf(state), text: askedWords(state, role) }
   }
+  if (roll.kind === 'gm') return gmLine(roll, state, role)
   if (!state) return undefined
   const tone = toneOf(state)
   if (roll.kind === 'use') return { tone, text: usedWords(roll, state, role) }

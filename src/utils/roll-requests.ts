@@ -19,10 +19,11 @@ import {
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
 import { allItems, sheetTextRefs } from '@/utils/sheet-texts'
-import { toTableRoll } from '@/utils/table-view'
+import { healingRolls, toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
   AttackTarget,
+  GmRollView,
   RollFeature,
   RollKind,
   RollRequestInput,
@@ -893,6 +894,84 @@ export function toRollRequestView(
     ...damage,
     ...enchantment,
     ...spent,
+  }
+}
+
+/**
+ * What a roll of the Gamemaster's as a character is called on its player's page (#156) where their
+ * page didn't say, as before it did: by its kind.
+ */
+const GM_ROLL_KINDS: Record<RollKind, string> = {
+  skill: 'A check',
+  ability: 'A check',
+  tool: 'A check',
+  save: 'A saving throw',
+  death: 'A death saving throw',
+  initiative: 'Initiative',
+  attack: 'An attack',
+  damage: 'Damage',
+  use: 'A use',
+  hitDie: 'Hit dice',
+  hitDice: 'Hit dice',
+  formula: 'A roll',
+  textRoll: 'A roll',
+  textDamage: 'Damage',
+  ask: 'A roll asked of the table',
+  endEnchantment: 'An enchantment ended',
+}
+
+/** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */
+const D20_KINDS: ReadonlySet<string> = new Set([
+  'skill',
+  'ability',
+  'tool',
+  'save',
+  'death',
+  'initiative',
+  'attack',
+])
+
+/**
+ * A roll the campaign's Gamemaster made as a character (#156), as its player is shown it beside
+ * their own: what it's called, as the Gamemaster's page said, or else its kind; when it was sent;
+ * and what the game made of it as the player is told of their own (`toRollRequestView`), hidden as
+ * the game hid it, but none of its dice, and never the damage that follows an attack or a use,
+ * which the Gamemaster rolls. A roll of a d20 the game made where its player may see it also says
+ * whether the game called its first roll a critical or a fumble; and damage, whether it's healing,
+ * as the game said of the attack or use it follows, or else of every roll it made of it.
+ * @param request - Held with its label: text the Gamemaster's page sent, shown as no more.
+ * @param heals - For damage, whether the game said healing follows the attack or use it follows.
+ */
+export function toGmRollView(
+  request: HeldRollRequest & { label: string | null },
+  now = Date.now(),
+  heals = false,
+): GmRollView {
+  const view = toRollRequestView(request, now)
+  const kind = request.kind as RollKind
+  const first = view.visible ? view.rolls?.[0] : undefined
+  let d20: GmRollView['d20']
+  if (D20_KINDS.has(kind) && first?.critical) d20 = 'critical'
+  else if (D20_KINDS.has(kind) && first?.fumble) d20 = 'fumble'
+  const healing =
+    (kind === 'damage' || kind === 'textDamage') &&
+    (heals || healingRolls(view.rolls ?? []))
+  return {
+    id: view.id,
+    kind,
+    label: request.label ?? GM_ROLL_KINDS[kind] ?? 'A roll',
+    at: request.createdAt.toISOString(),
+    status: view.status,
+    ...(view.reason !== undefined && { reason: view.reason }),
+    ...(view.visible !== undefined && { visible: view.visible }),
+    ...(view.total !== undefined && { total: view.total }),
+    ...(view.attack && { attack: view.attack }),
+    ...(view.outcome && { outcome: view.outcome }),
+    ...(view.healed !== undefined && { healed: view.healed }),
+    ...(view.spent && { spent: view.spent }),
+    ...(view.enchantment && { enchantment: view.enchantment }),
+    ...(d20 && { d20 }),
+    ...(healing && { healing }),
   }
 }
 

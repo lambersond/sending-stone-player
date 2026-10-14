@@ -4,6 +4,7 @@ import {
   REFUSAL,
   REFUSAL_RECORD_EVERY,
   REFUSAL_SHOWN_FOR,
+  WAITING_SECRET_CHECKS,
 } from '@/constants/sending-stone'
 import { attempt } from '@/lib/bridge-http'
 import {
@@ -244,9 +245,9 @@ export type EventCampaign =
  * A refusal is recorded for the campaigns it may be meant for, for their cards to explain: the
  * wrong secret on the campaign bound, or on each with its title; no campaign with its title on
  * each of the game's waiting for Foundry whose secret it came with, which is it under another
- * title. Only a post with a campaign's secret records the title it sent there; a wrong-secret
- * note on a waiting campaign can be left by anyone who knows its title and game, but says
- * nothing they choose.
+ * title, of the newest `WAITING_SECRET_CHECKS` waiting. Only a post with a campaign's secret
+ * records the title it sent there; a wrong-secret note on a waiting campaign can be left by anyone
+ * who knows its title and game, but says nothing they choose.
  * @param origin - The game's origin, from the request's Origin header.
  * @param campaign - The module's campaign, as the envelope names it.
  * @param secret - The secret the request carried.
@@ -294,9 +295,11 @@ export async function findEventCampaign(
     select: { id: true, secretHash: true },
   })
   if (candidates.length === 0) {
-    if (record) {
+    if (record && secret) {
       // Anyone can post a title from a game's address, so it's recorded only on the game's
       // campaigns waiting for Foundry whose secret it came with: the module's, under another title.
+      // Each check is a scrypt hash, so only the newest few are checked, as the one just set up for
+      // the module is likely among them.
       const waiting = await prisma.campaign.findMany({
         where: {
           origin,
@@ -306,6 +309,8 @@ export async function findEventCampaign(
           // eslint-disable-next-line unicorn/no-null
           secretHash: { not: null },
         },
+        orderBy: { createdAt: 'desc' },
+        take: WAITING_SECRET_CHECKS,
         select: { id: true, secretHash: true },
       })
       const ids: string[] = []

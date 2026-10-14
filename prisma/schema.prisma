@@ -294,6 +294,9 @@ model RollRequest {
   actorId       String
   // Such as "skill" or "save".
   kind          String
+  // What the Gamemaster's page called it, such as "Perception check", for its player's page to show
+  // it by (#156): only ever shown as text. Unset for a player's roll, and one sent before it was.
+  label         String?
   // What to roll and how, and the dice the player rolled: the command the module is sent.
   payload       Json
   // For damage, the attack it follows.

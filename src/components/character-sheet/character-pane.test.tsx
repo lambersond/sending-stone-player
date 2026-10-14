@@ -23,7 +23,12 @@ import {
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
-import type { RolledDice, RollFeature, RollKind } from '@/types/roll'
+import type {
+  GmRollView,
+  RolledDice,
+  RollFeature,
+  RollKind,
+} from '@/types/roll'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
 import type { TableCombat, TablePrompt } from '@/types/table'
 
@@ -1099,6 +1104,64 @@ describe('components/character-sheet/character-pane', () => {
       })
       // Its damage is rolled once.
       expect(screen.queryByRole('button', { name: 'Roll damage' })).toBeNull()
+    })
+
+    it("keeps the attack's damage in the banner once one of the Gamemaster's rolls as the character comes after it (#156)", async () => {
+      const user = userEvent.setup()
+      const posted = game()
+      const thorin = (gmRolls?: GmRollView[]) => (
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          combat={fight}
+          rollsToTable={['attack', 'damage']}
+          gmRolls={gmRolls}
+        />
+      )
+      const { rerender } = render(thorin())
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      await user.click(
+        screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+      )
+      await user.click(
+        within(
+          screen.getByRole('dialog', { name: 'Warhammer attack' }),
+        ).getByRole('button', { name: 'Goblin' }),
+      )
+      const banner = screen.getByRole('region', { name: 'Your rolls' })
+      await waitFor(
+        () =>
+          expect(within(banner).getByRole('status')).toHaveTextContent(
+            'At the table: 19 · Hit',
+          ),
+        { timeout: 3000 },
+      )
+
+      // The Gamemaster's check, sent since, which the next look at the table brings.
+      rerender(
+        thorin([
+          {
+            id: 'req-gm',
+            kind: 'skill',
+            label: 'Perception check',
+            at: new Date().toISOString(),
+            status: 'done',
+            visible: true,
+            total: 14,
+          },
+        ]),
+      )
+
+      // The latest, with the attack's damage still offered beneath it.
+      expect(within(banner).getByRole('status')).toHaveTextContent(
+        'Perception checkGM',
+      )
+      const due = within(banner).getByRole('group', {
+        name: 'Warhammer attack',
+      })
+      await user.click(within(due).getByRole('button', { name: 'Roll damage' }))
+      expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
     })
 
     it('makes an area attack at those ticked, where the game makes it so, and says whom it hit', async () => {
@@ -4085,5 +4148,78 @@ describe('components/character-sheet/character-pane', () => {
       await show('Actions')
       expect(starred('Bonus Actions')).toEqual(['Second Wind'])
     })
+  })
+})
+
+describe("components/character-sheet/character-pane, the Gamemaster's rolls as the character (#156)", () => {
+  const gmRolls: GmRollView[] = [
+    {
+      id: 'req-gm',
+      kind: 'attack',
+      label: 'Warhammer attack',
+      at: '2026-10-14T12:00:00.000Z',
+      status: 'done',
+      visible: true,
+      total: 19,
+      attack: { critical: false, fumble: false, outcome: 'hit' },
+    },
+  ]
+  const pane = (rolls: GmRollView[]) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={toTableSheet(fullerSheet(), GAME)}
+      gmRolls={rolls}
+    />
+  )
+  const renderWith = (rolls: GmRollView[] = gmRolls) => render(pane(rolls))
+
+  beforeEach(clearStorage)
+
+  it('shows them in the banner, where the player has it, as their latest roll, with nothing to roll', () => {
+    renderWith()
+
+    const banner = screen.getByRole('region', { name: 'Your rolls' })
+    expect(within(banner).getByRole('status')).toHaveTextContent(
+      '19Warhammer attackGM, rolled by your GamemasterRolled by your GamemasterAt the table: 19 · Hit',
+    )
+    expect(within(banner).queryByRole('button')).toBeNull()
+  })
+
+  it('shows them behind the rolls’ button where the player has toasts, with no dot for damage', async () => {
+    globalThis.localStorage.removeItem(TOASTS_KEY)
+    const user = userEvent.setup()
+    renderWith()
+
+    const button = screen.getByRole('button', { name: 'Your rolls' })
+    expect(button.textContent).toBe('Your rolls')
+    await user.click(button)
+    expect(
+      within(screen.getByRole('dialog', { name: 'Your rolls' })).getByText(
+        'Warhammer attack',
+      ),
+    ).toBeInTheDocument()
+    // Made before the page opened: it never pops up.
+    expect(document.querySelector('[data-roll-toast]')).toBeNull()
+  })
+
+  it('pops one up as a toast once the game has made it, where the player has toasts, marked GM, with nothing to tap', () => {
+    globalThis.localStorage.removeItem(TOASTS_KEY)
+    const [{ id, kind, label, at }] = gmRolls
+    const { rerender } = renderWith([
+      { id, kind, label, at, status: 'rolling' },
+    ])
+    // On its way as the page opens: it waits for the game.
+    expect(document.querySelector('[data-roll-toast]')).toBeNull()
+
+    rerender(pane(gmRolls))
+
+    const toast = document.querySelector<HTMLElement>(
+      '[data-roll-toast="gm:req-gm"][data-gm="true"]',
+    )
+    expect(toast).toHaveTextContent(
+      '19Warhammer attackGM, rolled by your GamemasterRolled by your GamemasterAt the table: 19 · Hit',
+    )
+    expect(within(toast as HTMLElement).queryByRole('button')).toBeNull()
   })
 })

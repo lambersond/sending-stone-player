@@ -25,8 +25,9 @@ const MAX_ROLL_BYTES = 16_384
  * A seat's view of its character's campaign, for its page to poll. Pass the version, the liveness
  * and the rolls the game takes, with what else it does with them, as last seen, as
  * `?version=7&live=1&rolls=skill,save;modifiers` to get 204 No Content while none has changed,
- * and for the Gamemaster's seat where their rolls go, as `&gm=made`; and the sheet's version as
- * `&sheet=` to have an unchanged sheet left out.
+ * for the Gamemaster's seat where their rolls go, as `&gm=made`, and for the player's the
+ * Gamemaster's rolls as their character as last seen, as `&gmrolls=` and the view's `gmRollsKey`;
+ * and the sheet's version as `&sheet=` to have an unchanged sheet left out.
  */
 export async function tableResponse(
   request: NextRequest,
@@ -43,13 +44,14 @@ export async function tableResponse(
 
   const known = request.nextUrl.searchParams
   if (known.has('version')) {
-    const { version, live, rollsToTable, rollFeatures, gm } =
+    const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey } =
       await getCampaignStatus(seat)
     if (
       Number(known.get('version')) === version &&
       (known.get('live') === '1') === live &&
       (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures) &&
-      (known.get('gm') ?? undefined) === gm?.rolls
+      (known.get('gm') ?? undefined) === gm?.rolls &&
+      (known.get('gmrolls') ?? undefined) === gmRollsKey
     ) {
       return new Response(undefined, { status: 204, headers })
     }

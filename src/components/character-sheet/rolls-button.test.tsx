@@ -9,7 +9,12 @@ import {
 import userEvent from '@testing-library/user-event'
 import { RollTray, type TableRolls } from './roll-tray'
 import { RollsButton } from './rolls-button'
-import type { LocalCheck, LocalUse } from '@/hooks/use-sheet-roller'
+import type {
+  LocalCheck,
+  LocalGmRoll,
+  LocalRoll,
+  LocalUse,
+} from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
 
 const attack: LocalCheck = {
@@ -441,6 +446,68 @@ describe('components/character-sheet/rolls-button', () => {
     expect(
       within(rolls()).queryByRole('group', { name: 'Longsword attack' }),
     ).toBeNull()
+    expect(
+      within(rolls()).getAllByRole('button', { name: 'Roll damage' }),
+    ).toHaveLength(1)
+  })
+
+  it("R12 offers the player's own latest roll's damage beneath one of the Gamemaster's that came after it (#156), once, as before it came", async () => {
+    const user = userEvent.setup()
+    const rollDamage = jest.fn()
+    const stealth: LocalGmRoll = {
+      kind: 'gm',
+      id: 'gm:req-gm',
+      label: 'Stealth check',
+      rolled: 'skill',
+      at: 2,
+    }
+    const ways = table(
+      [
+        ['r2', hit()],
+        [
+          'gm:req-gm',
+          { status: 'done', visible: true, total: 14, requestId: 'req-gm' },
+        ],
+      ],
+      { rollDamage },
+    )
+    const tray = (shown: LocalRoll[], rolling = false) => (
+      <RollTray rolls={shown} rolling={rolling} table={ways} />
+    )
+    const { rerender, unmount } = render(tray([stealth, attack, perception]))
+    const banner = screen.getByRole('region', { name: 'Your rolls' })
+    expect(within(banner).getByRole('status')).toHaveTextContent(
+      'Stealth checkGM',
+    )
+
+    const due = within(banner).getByRole('group', { name: 'Longsword attack' })
+    await user.click(within(due).getByRole('button', { name: 'Roll damage' }))
+    expect(rollDamage).toHaveBeenCalledWith('Longsword', {
+      use: 'req-1',
+      damage: preview,
+    })
+
+    // Not one before the player's own latest, nor while dice roll, as the banner never offered it.
+    for (const [shown, rolling] of [
+      [[stealth, perception, attack], false],
+      [[stealth, attack], true],
+    ] as const) {
+      rerender(tray([...shown], rolling))
+      expect(
+        within(banner).queryByRole('button', { name: /^Roll / }),
+      ).toBeNull()
+    }
+    unmount()
+
+    // Behind the rolls' button, once.
+    render(
+      <RollsButton rolls={[stealth, attack]} rolling={false} table={ways} />,
+    )
+    expect(button().textContent).toBe('Your rolls, damage to roll')
+    await user.click(button())
+    expect(
+      within(rolls()).getAllByRole('group', { name: 'Longsword attack' }),
+    ).toHaveLength(1)
     expect(
       within(rolls()).getAllByRole('button', { name: 'Roll damage' }),
     ).toHaveLength(1)

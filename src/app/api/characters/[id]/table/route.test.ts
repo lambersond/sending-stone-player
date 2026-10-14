@@ -104,6 +104,29 @@ describe('app/api/characters/[id]/table', () => {
     expect(without.status).toBe(200)
   })
 
+  it("sends the view to a viewer who missed a roll of the Gamemaster's as their character moving on (#156)", async () => {
+    const status = {
+      version: 7,
+      live: true,
+      rollsToTable: [],
+      rollFeatures: [],
+    }
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, gmRollsKey: 'key-now' })
+    const answers = [
+      await get('?version=7&live=1&gmrolls=key-now'),
+      await get('?version=7&live=1&gmrolls=key-before'),
+      // Or the Gamemaster's first.
+      await get('?version=7&live=1'),
+    ]
+    // And one who has one, once there are none to show.
+    jest.mocked(getCampaignStatus).mockResolvedValue(status)
+    answers.push(await get('?version=7&live=1&gmrolls=key-now'))
+
+    expect(answers.map(({ status }) => status)).toEqual([204, 200, 200, 200])
+  })
+
   it.each<[string, string, boolean?, RollKind[]?]>([
     ['behind', '?version=6&live=1'],
     ['who thinks the game is offline', '?version=7&live=0'],

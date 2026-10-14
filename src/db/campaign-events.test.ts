@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
 import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
+import { recordCommandResult } from './roll-requests'
 import {
   characterSheet,
   chatMessage,
@@ -12,7 +13,7 @@ import {
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
 import { sheetTextRefs } from '@/utils/sheet-texts'
-import type { GameEvent } from '@/types/sending-stone'
+import type { CommandResult, GameEvent } from '@/types/sending-stone'
 
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -54,6 +55,28 @@ const saving = async (
   await apply({ type, data: { message } })
   return prismaMock.chatMessage.upsert.mock.calls.at(-1)?.[0]
 }
+
+/**
+ * A message naming the Gamemaster's roll `req-gm` (#156), spoken by Balin: its own, or one a player
+ * forged.
+ */
+const post = (id: string, session = 'session-1') =>
+  applyCampaignEvent(
+    'c1',
+    world,
+    campaign,
+    {
+      type: 'chat.message.created',
+      data: {
+        message: chatMessage({
+          id,
+          gmRoll: 'req-gm',
+          speaker: { alias: 'Balin', actorId: 'actor-balin' },
+        }),
+      },
+    },
+    session,
+  )
 
 describe('db/campaign-events', () => {
   beforeEach(() => {
@@ -381,6 +404,29 @@ describe('db/campaign-events', () => {
           },
         },
       })
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
+  })
+
+  it("bridge.hello keeps whether the game lists the messages each of the Gamemaster's rolls made, from module 0.25.0, last", async () => {
+    const rolls = { enabled: true, kinds: ['skill'], reason: null }
+    for (const [gmRollMessages, rollFeatures] of [
+      [true, ['gmRolls', 'gmRollMessages']],
+      ['yes', ['gmRolls']],
+      [undefined, ['gmRolls']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: { rolls: { ...rolls, gmRolls: true, gmRollMessages } },
+        }) as GameEvent,
+      )
       expect(prismaMock.campaign.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ rollFeatures }),
@@ -991,6 +1037,185 @@ describe('db/campaign-events', () => {
 
       expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
       expect(stored?.update).not.toHaveProperty('byGm')
+    })
+  })
+
+  describe("from module 0.25.0, only the messages the Gamemaster's roll lists as its own", () => {
+    /** One of the Gamemaster's rolls as Balin, being made: fetched a moment ago. */
+    let roll: {
+      id: string
+      role: 'gm' | 'player'
+      status: string
+      completedAt: Date | null
+      result: CommandResult | null
+    }
+    /** The campaign's latest hello: its session, and what it said. */
+    let hello: { helloSession: string; rollFeatures: string[] }
+    /** The campaign's chat, by message id: whether each is marked as the Gamemaster's. */
+    let chat: Map<string, boolean>
+    /** What the roll made: its card, and dnd5e 5.3's death save outcome, apart. */
+    const made = ['m-roll', 'm-outcome']
+    const result: CommandResult = {
+      id: 'req-gm',
+      status: 'done',
+      reason: null,
+      error: null,
+      messageId: 'm-roll',
+      visible: true,
+      rolls: [],
+      messages: made,
+    }
+
+    /** The roll's result, as the listener records it. */
+    const answer = (sent: object = result) =>
+      recordCommandResult(
+        'c1',
+        parseGameEvent('command.result', sent)?.data as CommandResult,
+      )
+    const pills = () => [...chat].filter(([, byGm]) => byGm).map(([id]) => id)
+
+    beforeEach(() => {
+      roll = {
+        id: 'req-gm',
+        role: 'gm',
+        status: 'claimed',
+        completedAt: null,
+        result: null,
+      }
+      hello = {
+        helloSession: 'session-1',
+        rollFeatures: ['gmRolls', 'gmRollMessages'],
+      }
+      chat = new Map()
+      prismaMock.campaign.findUnique.mockImplementation(
+        (async () => hello) as any,
+      )
+      prismaMock.rollRequest.findFirst.mockImplementation((async ({
+        where,
+      }: any) =>
+        where.id === roll.id &&
+        where.campaignId === 'c1' &&
+        (where.role === undefined || where.role === roll.role)
+          ? { result: roll.result, role: roll.role, payload: { kind: 'skill' } }
+          : null) as any)
+      // Today's rule, from an older module: Balin's, while it's being made or just after.
+      prismaMock.rollRequest.count.mockImplementation((async ({
+        where,
+      }: any) =>
+        where.id === roll.id &&
+        where.role === roll.role &&
+        where.actorId === 'actor-balin' &&
+        (roll.status === 'claimed' ||
+          (!!roll.completedAt && roll.completedAt > where.OR[1].completedAt.gt))
+          ? 1
+          : 0) as any)
+      prismaMock.rollRequest.updateMany.mockImplementation((async ({
+        where,
+        data,
+      }: any) => {
+        if (where.id !== roll.id || roll.status !== 'claimed')
+          return { count: 0 }
+        roll.status = data.status
+        roll.completedAt = data.completedAt
+        roll.result = data.result
+        return { count: 1 }
+      }) as any)
+      prismaMock.chatMessage.upsert.mockImplementation((async ({
+        where,
+        create,
+        update,
+      }: any) => {
+        const id = where.campaignMessage.messageId
+        chat.set(
+          id,
+          chat.has(id) ? chat.get(id) || update.byGm === true : create.byGm,
+        )
+      }) as any)
+      prismaMock.chatMessage.updateMany.mockImplementation((async ({
+        where,
+      }: any) => {
+        let count = 0
+        for (const id of where.messageId.in) {
+          if (chat.get(id) === false) {
+            chat.set(id, true)
+            count += 1
+          }
+        }
+        return { count }
+      }) as any)
+    })
+
+    afterEach(() => {
+      for (const mock of [
+        prismaMock.campaign.findUnique,
+        prismaMock.rollRequest.findFirst,
+        prismaMock.rollRequest.count,
+        prismaMock.rollRequest.updateMany,
+        prismaMock.chatMessage.upsert,
+        prismaMock.chatMessage.updateMany,
+      ]) {
+        mock.mockReset()
+      }
+    })
+
+    it("gives a forged message carrying a real roll's id, within 75 seconds, no pill", async () => {
+      // A player's own message, its claim copied from the Gamemaster's card, as the roll is made.
+      await post('m-forged')
+      await post('m-roll')
+      await answer()
+      // And again just after, when an older module's rule would have taken it.
+      await post('m-forged-after')
+
+      expect(pills()).toEqual(['m-roll'])
+      expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+    })
+
+    it('marks the messages it lists whichever comes first, the message or the result', async () => {
+      // dnd5e posts the card before the result; the outcome comes after, as a retried post would.
+      await post('m-roll')
+      expect(pills()).toEqual([])
+
+      await answer()
+      expect(pills()).toEqual(['m-roll'])
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { version: { increment: 1 } },
+      })
+
+      await post('m-outcome')
+      expect(pills()).toEqual(['m-roll', 'm-outcome'])
+    })
+
+    it("marks none of a player's roll's, whatever its result lists", async () => {
+      roll.role = 'player'
+
+      await post('m-roll')
+      await answer()
+      await post('m-outcome')
+
+      expect(pills()).toEqual([])
+    })
+
+    it('keeps the rule before it for an older module, whose hello says nothing of it', async () => {
+      hello.rollFeatures = ['gmRolls']
+      const older = { ...result }
+      delete older.messages
+
+      // Balin's, while it's made and just after: the forged one too, as before.
+      await post('m-forged')
+      await post('m-roll')
+      await answer(older)
+      await post('m-outcome')
+
+      expect(pills()).toEqual(['m-forged', 'm-roll', 'm-outcome'])
+      expect(prismaMock.rollRequest.count).toHaveBeenCalledTimes(3)
+    })
+
+    it("keeps the rule before it for a session whose hello hasn't come, until the result lists them", async () => {
+      await post('m-roll', 'session-2')
+
+      expect(pills()).toEqual(['m-roll'])
+      expect(prismaMock.rollRequest.count).toHaveBeenCalledTimes(1)
     })
   })
 
