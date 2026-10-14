@@ -32,6 +32,11 @@ const campaign = {
   characters: roster,
 }
 
+beforeEach(() => {
+  // The Gamemaster has rolled as no one, unless a test says otherwise (#156).
+  prismaMock.rollRequest.findMany.mockResolvedValue([])
+})
+
 describe('db/table', () => {
   describe('getCampaignStatus', () => {
     it("reads the version of the character's campaign and whether it is live", async () => {
@@ -581,5 +586,350 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       ['m1', true],
       ['m2', undefined],
     ])
+  })
+})
+
+/** Whether a roll held is one Prisma finds by this filter. */
+const finds = (row: Record<string, any>, where: Record<string, any>) =>
+  Object.entries(where).every(([field, test]) => {
+    if (field === 'createdAt') return row.createdAt > test.gt
+    if (Array.isArray(test?.in)) return test.in.includes(row[field])
+    return row[field] === test
+  })
+
+describe("db/table, the Gamemaster's rolls as the player's character (#156)", () => {
+  const now = Date.now()
+  const ago = (ms: number) => new Date(now - ms)
+  /** A roll held: Thorin's, of this campaign, by its Gamemaster, made a minute ago. */
+  const held = (fields: Record<string, unknown>) => ({
+    id: 'req-gm',
+    campaignId: 'c1',
+    actorId: 'actor-thorin',
+    role: 'gm',
+    kind: 'skill',
+    label: 'Perception check',
+    payload: { kind: 'skill', key: 'prc' },
+    status: 'done',
+    createdAt: ago(60_000),
+    claimedAt: ago(58_000),
+    completedAt: ago(55_000),
+    result: {
+      id: 'req-gm',
+      status: 'done',
+      reason: null,
+      error: null,
+      messageId: 'm-roll',
+      visible: true,
+      rolls: [
+        {
+          formula: '1d20 + 3',
+          total: 23,
+          dice: [{ faces: 20, results: [{ result: 20, active: true }] }],
+          critical: true,
+        },
+      ],
+    },
+    ...fields,
+  })
+  /** Every roll the database holds, which a query finds by its filter, as Prisma would. */
+  const rolls = [
+    held({ id: 'req-gm' }),
+    held({ id: 'req-gm-older', createdAt: ago(3_600_000), label: null }),
+    held({ id: 'req-player', role: 'player' }),
+    held({ id: 'req-vex', actorId: 'actor-vex' }),
+    held({ id: 'req-other-campaign', campaignId: 'c2' }),
+    held({ id: 'req-gone', createdAt: ago(86_400_000 + 60_000) }),
+  ]
+
+  beforeEach(() => {
+    givenCampaign(taking(['gmRolls']))
+    prismaMock.rollRequest.findMany.mockImplementation((async ({
+      where,
+      orderBy,
+      take,
+    }: any) => {
+      // Those shown, newest first; else those looked up by their ids.
+      if (!where.id) expect(orderBy).toEqual({ createdAt: 'desc' })
+      return rolls
+        .filter(row => finds(row, where))
+        .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, take)
+    }) as any)
+  })
+
+  it("shows the player only their character's, of their campaign, newest first, of those kept", async () => {
+    const view = await getTableView(character)
+
+    expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          campaignId: 'c1',
+          actorId: 'actor-thorin',
+          role: 'gm',
+          createdAt: { gt: expect.any(Date) },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+    )
+    expect(view.gmRolls).toEqual([
+      {
+        id: 'req-gm',
+        kind: 'skill',
+        label: 'Perception check',
+        at: ago(60_000).toISOString(),
+        status: 'done',
+        visible: true,
+        total: 23,
+        d20: 'critical',
+      },
+      // Sent before the Gamemaster's page said what it's called: called by its kind.
+      expect.objectContaining({ id: 'req-gm-older', label: 'A check' }),
+    ])
+    expect(view.gmRollsKey).toEqual(expect.any(String))
+  })
+
+  it('shows at most ten', async () => {
+    rolls.push(
+      ...Array.from({ length: 12 }, (_, index) =>
+        held({ id: `req-many-${index}`, createdAt: ago(1000 * (index + 1)) }),
+      ),
+    )
+    const view = await getTableView(character)
+    rolls.splice(-12)
+
+    expect(view.gmRolls).toHaveLength(10)
+    expect(view.gmRolls?.map(({ id }) => id)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `req-many-${index}`),
+    )
+  })
+
+  it('shows one the game hid as hidden, as the player’s own, with nothing of what it came to', async () => {
+    // Even where what it came to was sent along with it.
+    rolls[0] = held({
+      result: {
+        ...held({}).result,
+        visible: false,
+        attack: { critical: true, fumble: false, outcome: 'hit' },
+        outcome: 'success',
+        healed: 4,
+      },
+      kind: 'attack',
+      label: 'Longsword attack',
+    })
+    const { gmRolls: [hidden] = [] } = await getTableView(character)
+    rolls[0] = held({})
+
+    expect(hidden).toEqual({
+      id: 'req-gm',
+      kind: 'attack',
+      label: 'Longsword attack',
+      at: ago(60_000).toISOString(),
+      status: 'done',
+      visible: false,
+    })
+  })
+
+  it('tells what the game made of an attack, but never the damage that follows it', async () => {
+    rolls[0] = held({
+      kind: 'attack',
+      label: 'Longsword attack',
+      result: {
+        ...held({}).result,
+        attack: { critical: false, fumble: false, outcome: 'hit' },
+        damage: { critical: false, plannable: true, rolls: [] },
+      },
+    })
+    const { gmRolls: [attack] = [] } = await getTableView(character)
+    rolls[0] = held({})
+
+    expect(attack).toMatchObject({
+      status: 'done',
+      total: 23,
+      attack: { outcome: 'hit' },
+    })
+    expect(attack).not.toHaveProperty('damage')
+    expect(attack).not.toHaveProperty('rolls')
+  })
+
+  it("tells healing as healing, as the game said of the attack or use it follows, or else of every roll it made of it, as the player's own", async () => {
+    const result = held({}).result
+    /** Damage the game rolled, of this kind. */
+    const rolled = (damageType?: string) => ({
+      ...result,
+      rolls: [
+        {
+          formula: '2d8 + 3',
+          total: 9,
+          dice: [{ faces: 8, results: [{ result: 4, active: true }] }],
+          ...(damageType && { damageType }),
+        },
+      ],
+    })
+    const preview = (healing?: boolean) => ({
+      ...result,
+      rolls: [],
+      damage: { critical: false, plannable: true, rolls: [], healing },
+    })
+    const KEPT = 86_400_000
+    const added = [
+      held({
+        id: 'cure',
+        kind: 'use',
+        createdAt: ago(9000),
+        result: preview(true),
+      }),
+      // Of no kind of damage the game named: healing as the use said.
+      held({
+        id: 'heal',
+        kind: 'damage',
+        useId: 'cure',
+        createdAt: ago(8000),
+        result: rolled(),
+      }),
+      held({
+        id: 'hit',
+        kind: 'attack',
+        createdAt: ago(7000),
+        result: preview(),
+      }),
+      held({
+        id: 'cut',
+        kind: 'damage',
+        useId: 'hit',
+        createdAt: ago(6000),
+        result: rolled('slashing'),
+      }),
+      held({
+        id: 'link',
+        kind: 'textDamage',
+        createdAt: ago(5000),
+        result: rolled('healing'),
+      }),
+      held({
+        id: 'burn',
+        kind: 'textDamage',
+        createdAt: ago(4000),
+        result: rolled('fire'),
+      }),
+      // Damage whose use is no longer among those kept: looked up.
+      held({
+        id: 'old-cure',
+        kind: 'use',
+        createdAt: ago(KEPT + 5000),
+        result: preview(true),
+      }),
+      held({
+        id: 'late',
+        kind: 'damage',
+        useId: 'old-cure',
+        createdAt: ago(KEPT - 5000),
+        result: rolled(),
+      }),
+      // Damage naming another character's use, which the app never takes, isn't healing by it.
+      held({
+        id: 'vex-cure',
+        actorId: 'actor-vex',
+        kind: 'use',
+        result: preview(true),
+      }),
+      held({
+        id: 'stray',
+        kind: 'damage',
+        useId: 'vex-cure',
+        createdAt: ago(3000),
+        result: rolled(),
+      }),
+    ]
+    rolls.push(...added)
+    const view = await getTableView(character)
+    rolls.splice(-added.length)
+
+    const healing = Object.fromEntries(
+      (view.gmRolls ?? []).map(({ id, healing }) => [id, healing ?? false]),
+    )
+    expect(healing).toMatchObject({
+      cure: false,
+      heal: true,
+      hit: false,
+      cut: false,
+      link: true,
+      burn: false,
+      late: true,
+      stray: false,
+    })
+    // Looked up once, only those not shown, of this character's, by the Gamemaster.
+    expect(prismaMock.rollRequest.findMany).toHaveBeenCalledTimes(2)
+    expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['vex-cure', 'old-cure'] },
+        campaignId: 'c1',
+        actorId: 'actor-thorin',
+        role: 'gm',
+      },
+      select: { id: true, result: true },
+    })
+  })
+
+  it('never shows them to the Gamemaster, whose page has them, nor looks', async () => {
+    const gm = {
+      ...character,
+      role: 'gm' as const,
+      userId: 'gm-1',
+      characterId: null,
+      chatReadAt: undefined,
+    }
+
+    expect(await getTableView(gm)).not.toHaveProperty('gmRolls')
+    expect(await getCampaignStatus(gm)).not.toHaveProperty('gmRollsKey')
+    expect(prismaMock.rollRequest.findMany).not.toHaveBeenCalled()
+  })
+
+  it('says what tells them apart as the view does, changing as one moves on, by time too', async () => {
+    rolls[0] = held({
+      status: 'pending',
+      claimedAt: null,
+      completedAt: null,
+      createdAt: ago(5000),
+    })
+    const view = await getTableView(character)
+    const status = await getCampaignStatus(character)
+
+    expect(status.gmRollsKey).toBe(view.gmRollsKey)
+    expect(prismaMock.rollRequest.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          claimedAt: true,
+          completedAt: true,
+        },
+      }),
+    )
+
+    // Not fetched in time: it no longer goes to the game, though nothing was written.
+    rolls[0] = held({
+      status: 'pending',
+      claimedAt: null,
+      completedAt: null,
+      createdAt: ago(31_000),
+    })
+    const expired = await getCampaignStatus(character)
+    expect(expired.gmRollsKey).not.toBe(view.gmRollsKey)
+
+    // Made after all, late: what the game said changed.
+    rolls[0] = held({})
+    const made = await getCampaignStatus(character)
+    rolls[0] = held({ completedAt: ago(1000) })
+    const late = await getCampaignStatus(character)
+    expect(late.gmRollsKey).not.toBe(made.gmRollsKey)
+  })
+
+  it('says nothing of them where there are none', async () => {
+    prismaMock.rollRequest.findMany.mockResolvedValue([])
+
+    expect(await getTableView(character)).not.toHaveProperty('gmRolls')
+    expect(await getCampaignStatus(character)).not.toHaveProperty('gmRollsKey')
   })
 })

@@ -15,13 +15,16 @@ import {
   resetInviteCode,
   setUpCampaign,
 } from './campaigns'
+import { WAITING_SECRET_CHECKS } from '@/constants/sending-stone'
+import { verifySecret } from '@/lib/campaign-secret'
 import { roster } from '@/mocks/sending-stone'
 
 jest.mock('@/lib/campaign-secret', () => ({
   generateInviteCode: () => 'fresh-invite-code',
   hashSecret: async (secret: string) => `hash:${secret}`,
-  verifySecret: async (secret: string, hash: string) =>
-    hash === `hash:${secret}`,
+  verifySecret: jest.fn(
+    async (secret: string, hash: string) => hash === `hash:${secret}`,
+  ),
 }))
 
 const ORIGIN = 'https://my-game.forge-vtt.com'
@@ -71,6 +74,36 @@ const listed = async (fields: object) => {
   ] as any)
   const [campaign] = await listOwnedCampaigns('gm-1')
   return campaign
+}
+
+/**
+ * A game with seven campaigns waiting for Foundry, w1 set up first and w7 last, each with its own
+ * secret but those given ours, and none with the title posted; found as Prisma finds them, ordered
+ * and limited as asked.
+ */
+const game = (ours: string[] = []) => {
+  const waiting = Array.from({ length: 7 }, (_, index) => {
+    const id = `w${index + 1}`
+    return {
+      id,
+      secretHash: ours.includes(id) ? 'hash:ours' : `hash:${id}`,
+      createdAt: new Date(Date.UTC(2026, 9, 1 + index)),
+    }
+  })
+  prismaMock.campaign.findUnique.mockResolvedValue(null)
+  prismaMock.campaign.findMany
+    .mockResolvedValueOnce([])
+    .mockImplementationOnce((async ({ orderBy, take }: any) => {
+      const sign = orderBy?.createdAt === 'desc' ? -1 : 1
+      const sorted = orderBy?.createdAt
+        ? waiting.toSorted(
+            (a, b) => sign * (a.createdAt.getTime() - b.createdAt.getTime()),
+          )
+        : waiting
+      return sorted
+        .slice(0, take ?? sorted.length)
+        .map(({ id, secretHash }) => ({ id, secretHash }))
+    }) as any)
 }
 
 describe('db/campaigns', () => {
@@ -545,6 +578,8 @@ describe('db/campaigns', () => {
 
         expect(prismaMock.campaign.findMany).toHaveBeenNthCalledWith(2, {
           where: { origin: ORIGIN, foundryId: null, secretHash: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: WAITING_SECRET_CHECKS,
           select: { id: true, secretHash: true },
         })
         expect(prismaMock.campaign.updateMany).toHaveBeenNthCalledWith(1, {
@@ -579,6 +614,50 @@ describe('db/campaigns', () => {
 
         expect(prismaMock.campaign.findMany).toHaveBeenCalledTimes(4)
         expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
+      })
+
+      describe("checks only the newest few of the game's campaigns waiting for Foundry", () => {
+        afterEach(() => {
+          prismaMock.campaign.findMany.mockReset()
+        })
+
+        it('checks a post whose title matches none against at most five, the newest first', async () => {
+          game()
+
+          await expect(findEventCampaign(ORIGIN, ref, 'ours')).resolves.toBe(
+            'unknown',
+          )
+
+          expect(WAITING_SECRET_CHECKS).toBe(5)
+          expect(jest.mocked(verifySecret).mock.calls).toEqual(
+            ['w7', 'w6', 'w5', 'w4', 'w3'].map(id => ['ours', `hash:${id}`]),
+          )
+        })
+
+        it('notes the title on the newest whose secret it came with, never on an older one', async () => {
+          game(['w7', 'w1'])
+
+          await findEventCampaign(ORIGIN, ref, 'ours')
+
+          expect(prismaMock.campaign.updateMany).toHaveBeenCalledTimes(1)
+          expect(prismaMock.campaign.updateMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+              where: { AND: [{ id: { in: ['w7'] } }, recently('notSetUp')] },
+            }),
+          )
+        })
+
+        it("doesn't look for them at all for a post with no secret", async () => {
+          game()
+
+          await expect(findEventCampaign(ORIGIN, ref, '')).resolves.toBe(
+            'unknown',
+          )
+
+          expect(prismaMock.campaign.findMany).toHaveBeenCalledTimes(1)
+          expect(verifySecret).not.toHaveBeenCalled()
+          expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
+        })
       })
 
       it('records nothing for a connection test', async () => {

@@ -5,6 +5,7 @@ import {
   DAMAGE_TYPE,
   HIT_DIE,
   MAX_DAMAGE_TERMS,
+  MAX_ROLL_LABEL,
   MAX_USE_TARGETS,
   MOST_HIT_DICE,
   PROMPT_ID,
@@ -109,8 +110,9 @@ const rolledDiceSchema = z.strictObject({
  * description calls for may name its link; a check an activity asks for may name its item and
  * activity instead, never both. A use of an enchant activity may say how it enchants, and which of
  * the character's items, and nothing else may; an enchantment ended, from module 0.21.0, names its
- * item and effect, and nothing else, and throws no dice. A hit die names its size, and throws its
- * one die;
+ * item and effect, and nothing else, and throws no dice. Any roll may say what the page that sent
+ * it calls it, its `label`, which only the Gamemaster's page sends (#156), for the character's
+ * player to be shown it by. A hit die names its size, and throws its one die;
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
  * all, and throw those of each size together, in the same order; a feature's own
  * formula names its item and activity, and throws the dice its formula does, which are checked
@@ -161,6 +163,7 @@ export const rollRequestSchema = z
         effect: z.string().regex(FOUNDRY_ID),
       })
       .optional(),
+    label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'

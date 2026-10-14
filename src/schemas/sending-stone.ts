@@ -72,6 +72,9 @@ const conditionSchema = z.looseObject({
   text: textRef,
 })
 
+/** The most chat messages one of the Gamemaster's rolls lists as its own. */
+const MAX_GM_ROLL_MESSAGES = 20
+
 /** A Foundry document's id, as a command names one. */
 const DOCUMENT_ID = /^[\dA-Za-z]{1,64}$/
 
@@ -1089,6 +1092,8 @@ const featuresSchema = z
         // From module 0.23.0: whether a roll may say it's the Gamemaster's, made as the character
         // and marked as theirs.
         gmRolls: z.boolean().optional().catch(false),
+        // From module 0.25.0: whether each of those rolls' results lists the messages it made.
+        gmRollMessages: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -1291,6 +1296,14 @@ const commandResultSchema = z.object({
     .nullable()
     .optional()
     .catch(null),
+  // From module 0.25.0, for the Gamemaster's roll as a character: the ids of the chat messages it
+  // made, which alone are marked as theirs. Anything else is ignored, as from an older module.
+  messages: z
+    .array(z.string().min(1).max(64))
+    .max(MAX_GM_ROLL_MESSAGES)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
 })
 
 const hitPointsSchema = z

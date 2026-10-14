@@ -2,12 +2,15 @@
 
 import { useState } from 'react'
 import clsx from 'clsx'
-import { BellRing, Sparkles, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import {
   AreaOutcomes,
+  BADGE_ICONS,
+  BADGES,
   briefOf,
   DamageDue,
+  GmPill,
   type RollBrief,
   type RollDue,
 } from './roll-tray'
@@ -17,17 +20,6 @@ import { useRollToasts, useToastTop } from '@/hooks/use-roll-toasts'
 import { useTableRole } from '@/hooks/use-table-api'
 import { needsPlayer, type TableRollState } from '@/hooks/use-table-rolls'
 import type { LocalRoll } from '@/hooks/use-sheet-roller'
-
-/** Each kind of total's colours, as the tray's. */
-const BADGES: Record<RollBrief['badge'], string> = {
-  critical: 'bg-gold text-on-gold',
-  fumble: 'bg-ruby text-on-ruby',
-  plain: 'bg-primary/10 text-primary',
-  damage: 'bg-damage/15 text-damage',
-  healing: 'bg-primary/10 text-primary',
-  use: 'bg-primary/10 text-primary',
-  ask: 'bg-primary/10 text-primary',
-}
 
 /**
  * Each outcome's colours: the left edge, a border of it faintly round the rest, and a tint over the
@@ -167,6 +159,7 @@ function Toast({
   return (
     <div
       data-roll-toast={roll.id}
+      data-gm={brief.gm}
       data-accent={brief.accent}
       data-waits={waits || undefined}
       data-leaving={leaving || undefined}
@@ -179,7 +172,12 @@ function Toast({
     >
       <Badge brief={brief} />
       <div className='min-w-0 flex-1'>
-        <p className='truncate text-base font-semibold'>{brief.label}</p>
+        <p className='flex items-center gap-1.5'>
+          <span className='truncate text-base font-semibold'>
+            {brief.label}
+          </span>
+          {brief.gm && <GmPill />}
+        </p>
         {brief.dice && (
           <p className='truncate text-sm text-text-secondary tabular-nums'>
             {brief.dice}
@@ -190,7 +188,8 @@ function Toast({
             {brief.table.text}
           </p>
         )}
-        {state?.status === 'done' && state.visible && (
+        {/* Whom an area attack hit, by the names picked here; the Gamemaster picked theirs. */}
+        {!brief.gm && state?.status === 'done' && state.visible && (
           <AreaOutcomes state={state} />
         )}
         {waits && (
@@ -223,11 +222,13 @@ function Toast({
   )
 }
 
-/** A roll's total, coloured as the tray's; or a use's or an ask's icon. */
+/**
+ * A roll's total, coloured as the tray's; or a use's or an ask's icon, and for one of the
+ * Gamemaster's as the character (#156), the hidden mark or dice where it has no total.
+ */
 function Badge({ brief }: Readonly<{ brief: RollBrief }>) {
-  let shown = <>{brief.total}</>
-  if (brief.badge === 'use') shown = <Sparkles aria-hidden className='size-6' />
-  if (brief.badge === 'ask') shown = <BellRing aria-hidden className='size-6' />
+  const Icon = BADGE_ICONS[brief.badge]
+  const shown = Icon ? <Icon aria-hidden className='size-6' /> : brief.total
   return (
     <span
       className={clsx(

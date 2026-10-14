@@ -1,4 +1,4 @@
-import type { RollFeature, RollKind } from '@/types/roll'
+import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type {
   AskedCheck,
   CharacterSheet,
@@ -174,6 +174,13 @@ export type TableView = {
    * it takes no rolls (`off`).
    */
   gm?: { rolls: GmRolls }
+  /**
+   * For the player's view only (#156): the rolls their campaign's Gamemaster made as their
+   * character lately, newest first, as many as `GM_ROLLS_SHOWN`; with what changes whenever any of
+   * them does, which the page sends back as it polls. Unset where there are none.
+   */
+  gmRolls?: GmRollView[]
+  gmRollsKey?: string
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */

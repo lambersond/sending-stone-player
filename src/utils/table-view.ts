@@ -316,6 +316,16 @@ function checkOptionOf(check: AskedCheck): CheckOption {
 
 const HEALING = new Set(['healing', 'temphp'])
 
+/** Whether damage the game rolled is healing: every roll of it one of dnd5e's kinds of healing. */
+export function healingRolls(
+  rolls: readonly Pick<TableRoll, 'damageType'>[],
+): boolean {
+  return (
+    rolls.length > 0 &&
+    rolls.every(({ damageType }) => !!damageType && HEALING.has(damageType))
+  )
+}
+
 /** Is this an attack, damage, healing or a spell, from what D&D Fifth Edition recorded? */
 function combatAction(
   message: SerializedMessage,
@@ -328,10 +338,7 @@ function combatAction(
       return spell ? 'spell-attack' : 'attack'
     }
     case 'damage': {
-      const healing =
-        rolls.length > 0 &&
-        rolls.every(({ damageType }) => damageType && HEALING.has(damageType))
-      return healing ? 'healing' : 'damage'
+      return healingRolls(rolls) ? 'healing' : 'damage'
     }
     case 'healing': {
       return 'healing'

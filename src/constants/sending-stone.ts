@@ -58,6 +58,13 @@ export const REFUSAL_RECORD_EVERY = 60_000
 /** How long a campaign's card shows its latest refusal. */
 export const REFUSAL_SHOWN_FOR = 86_400_000
 
+/**
+ * How many of a game's campaigns waiting for Foundry a post whose title matches none is checked
+ * against, newest first, to note on their cards: each check is a scrypt hash, which anyone who can
+ * post from the game's address could otherwise have run once for every waiting campaign.
+ */
+export const WAITING_SECRET_CHECKS = 5
+
 export const EVENTS = {
   HELLO: 'bridge.hello',
   PING: 'bridge.ping',
@@ -205,6 +212,13 @@ export const ROLL_ANSWER_WITHIN = 75_000
 
 /** How long a character's rolls are kept, once made. */
 export const ROLLS_KEPT_FOR = 86_400_000
+
+/**
+ * How many of the Gamemaster's latest rolls as a character its player's page is shown (#156), of
+ * those kept, and the longest name the Gamemaster's page gives one, which is shown as text alone.
+ */
+export const GM_ROLLS_SHOWN = 10
+export const MAX_ROLL_LABEL = 120
 
 /** How many of a character's rolls may be on their way to the game at once, and in a minute. */
 export const ROLLS_IN_FLIGHT = 3

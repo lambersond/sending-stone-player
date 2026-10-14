@@ -823,6 +823,36 @@ describe('components/game-table/game-table', () => {
       ).toHaveTextContent('Tap an ability, skill or attack to roll it.')
     })
 
+    it("shows the player the Gamemaster's rolls as their character among their own, as their view brings them (#156)", () => {
+      localStorage.setItem(TOASTS_KEY, 'off')
+      renderTable(
+        view({
+          sheet,
+          combat: undefined,
+          gmRolls: [
+            {
+              id: 'req-gm',
+              kind: 'skill',
+              label: 'Perception check',
+              at: '2026-10-14T12:00:00.000Z',
+              status: 'done',
+              visible: true,
+              total: 15,
+            },
+          ],
+        }),
+      )
+
+      const banner = within(
+        screen.getByRole('region', { name: 'Character' }),
+      ).getByRole('region', { name: 'Your rolls' })
+      expect(
+        banner.querySelector('[data-gm-roll="gm:req-gm"]'),
+      ).toHaveTextContent(
+        '15Perception checkGM, rolled by your GamemasterRolled by your GamemasterAt the table: 15',
+      )
+    })
+
     it('opens on the sheet with the rolls a button away, where they pop up as toasts', () => {
       renderTable(view({ sheet, combat: undefined }))
 

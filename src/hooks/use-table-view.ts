@@ -20,6 +20,8 @@ function seenOf(view: TableView) {
     rolls: rollsKey(view.rollsToTable, view.rollFeatures),
     // For the Gamemaster's seat (#156): where their rolls go.
     gm: view.gm?.rolls,
+    // For the player's: where the Gamemaster's rolls as their character stand.
+    gmRolls: view.gmRollsKey,
   }
 }
 
@@ -45,12 +47,13 @@ export function useTableView(api: string, initial: TableView) {
 
     const poll = async () => {
       try {
-        const { version, live, sheetVersion, rolls, gm } = seen.current
+        const { version, live, sheetVersion, rolls, gm, gmRolls } = seen.current
         const query = new URLSearchParams({
           version: String(version),
           live: live ? '1' : '0',
           ...(rolls && { rolls }),
           ...(gm && { gm }),
+          ...(gmRolls && { gmrolls: gmRolls }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(`${api}/table?${query}`, {

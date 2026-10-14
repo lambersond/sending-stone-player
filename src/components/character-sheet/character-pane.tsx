@@ -61,7 +61,9 @@ import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
   damageRollOf,
+  useGmRolls,
   useTableRolls,
+  withGmRolls,
   type DueDamage,
 } from '@/hooks/use-table-rolls'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
@@ -71,7 +73,7 @@ import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
-import type { RollFeature, RollKind } from '@/types/roll'
+import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type { TableCombat, TablePrompt, TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
@@ -88,6 +90,11 @@ type Props = {
   rollFeatures?: RollFeature[]
   /** The saving throws the game asks of the character, for its player to roll here. */
   prompts?: TablePrompt[]
+  /**
+   * For its player, the rolls the campaign's Gamemaster made as the character lately (#156), shown
+   * among their own.
+   */
+  gmRolls?: GmRollView[]
   /**
    * The table's header, which the rolls' toasts start below where the sheet's tabs aren't shown,
    * as on a phone showing combat or the chat.
@@ -164,6 +171,7 @@ function RollingSheet({
   rollsToTable,
   rollFeatures,
   prompts,
+  gmRolls,
   header,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
@@ -183,6 +191,13 @@ function RollingSheet({
     rolls,
     rolling,
   } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
+  // The Gamemaster's rolls as the character (#156) among the player's own, wherever they're shown,
+  // with nothing to roll after them.
+  const fromGm = useGmRolls(gmRolls)
+  const shown = useMemo(
+    () => withGmRolls(rolls, table.states, fromGm),
+    [rolls, table.states, fromGm],
+  )
   // Whether the rolls pop up as toasts, with the rest a button away, or stay in the banner: one or
   // the other, never both.
   const [toasting, setToasting] = useToastSetting()
@@ -431,7 +446,11 @@ function RollingSheet({
       described)
   // The rolls' way to the game, and their damage to roll, as the banner, the toasts and the rolls'
   // button all offer it.
-  const trayTable: TableRolls = { ...table, rollDamage: rollDue }
+  const trayTable: TableRolls = {
+    ...table,
+    states: shown.states,
+    rollDamage: rollDue,
+  }
   const handlers = {
     onRoll,
     onRollDamage,
@@ -564,7 +583,11 @@ function RollingSheet({
         </div>
         <div className='ml-auto flex shrink-0 items-center'>
           {toasting && (
-            <RollsButton rolls={rolls} rolling={rolling} table={trayTable} />
+            <RollsButton
+              rolls={shown.rolls}
+              rolling={rolling}
+              table={trayTable}
+            />
           )}
           <SheetSettings
             send={
@@ -664,12 +687,12 @@ function RollingSheet({
         </Scroller>
       </div>
       {showsRolls && (
-        <RollTray rolls={rolls} rolling={rolling} table={trayTable} />
+        <RollTray rolls={shown.rolls} rolling={rolling} table={trayTable} />
       )}
       {/* On every tab, as a roll's way to the game may end on another. */}
       <RollToasts
-        rolls={rolls}
-        states={table.states}
+        rolls={shown.rolls}
+        states={shown.states}
         on={toasting}
         rollDamage={rollDue}
         modifies={table.modifies}

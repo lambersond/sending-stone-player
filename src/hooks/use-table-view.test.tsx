@@ -131,6 +131,30 @@ describe('hooks/use-table-view', () => {
     )
   })
 
+  it("asks for news with where the Gamemaster's rolls as the player's character stand, as it has it (#156)", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(200, { ...newer, gmRollsKey: 'key-2' }))
+    renderHook(() =>
+      useTableView('/api/characters/char-1', {
+        ...initial,
+        gmRollsKey: 'key-1',
+      }),
+    )
+
+    // Without it the server, which compares it too, never says nothing is new.
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&gmrolls=key-1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=4&live=0&gmrolls=key-2',
+      expect.anything(),
+    )
+  })
+
   it('keeps the sheet it has when the server leaves out an unchanged one', async () => {
     const sheet = { ac: 18 } as TableView['sheet']
     const start = {

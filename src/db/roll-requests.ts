@@ -255,6 +255,9 @@ export async function createRollRequest(
       (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined))
   if (refusal) return { status: 422, reason: refusal }
 
+  // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is
+  // kept, for the character's player to be shown it by; a player's own page never asks for theirs.
+  const { label, ...command } = input
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,
@@ -263,7 +266,8 @@ export async function createRollRequest(
       requestedById: seat.userId,
       actorId,
       kind: input.kind,
-      payload: input as unknown as Prisma.InputJsonValue,
+      ...(seat.role === 'gm' && label !== undefined && { label }),
+      payload: command as unknown as Prisma.InputJsonValue,
       useId: damage,
       createdAt: new Date(now),
     },
@@ -357,7 +361,9 @@ export async function claimRollRequests(
  * another campaign's, changes nothing; one that comes after its player was told it was lost still
  * counts, as does one saying it was made after all, once the module had said it took too long, or
  * of hit dice spent at once, that some of them were before it stopped. A save that answered what
- * the game asked, or found it no longer waits, closes it.
+ * the game asked, or found it no longer waits, closes it. The chat messages the Gamemaster's roll
+ * as a character made (#156), which the module lists from 0.25.0, are marked as theirs: those
+ * held already now, and any yet to come as they come.
  */
 export async function recordCommandResult(
   campaignId: string,
@@ -388,16 +394,29 @@ export async function recordCommandResult(
       completedAt: new Date(),
     },
   })
-  if (count === 0 || !(made || result.reason === 'prompt')) return
+  const listed = result.messages ?? []
+  const answers = made || result.reason === 'prompt'
+  if (count === 0 || (!answers && listed.length === 0)) return
   const request = await prisma.rollRequest.findFirst({
     where: { id: result.id, campaignId },
-    select: { payload: true },
+    select: { payload: true, role: true },
   })
-  const prompt = (request?.payload as RollRequestInput | null)?.prompt
-  if (!prompt) return
+  // Only what the module said a roll handed over as the Gamemaster's made, never a player's.
+  const marked =
+    request?.role === 'gm' && listed.length > 0
+      ? await prisma.chatMessage.updateMany({
+          where: { campaignId, messageId: { in: listed }, byGm: false },
+          data: { byGm: true },
+        })
+      : { count: 0 }
+  const prompt = answers
+    ? (request?.payload as RollRequestInput | null)?.prompt
+    : undefined
   const reason = made ? 'answered' : (result.error ?? 'gone')
-  // Its player's page is told only when that changes what it shows.
-  if (await closePrompt(prisma, campaignId, prompt, reason)) {
+  const closed =
+    !!prompt && (await closePrompt(prisma, campaignId, prompt, reason))
+  // The campaign's pages are told only when that changes what they show.
+  if (marked.count > 0 || closed) {
     await prisma.campaign.update({
       where: { id: campaignId },
       data: { version: { increment: 1 } },

@@ -10,6 +10,7 @@ import type {
   CharacterSheet,
   CombatantSummary,
   CombatSnapshot,
+  CommandResult,
   ConnectedCharacter,
   GamePrompt,
   GameEvent,
@@ -41,7 +42,7 @@ export async function applyCampaignEvent(
   session: string,
 ): Promise<{ lacksTexts: boolean }> {
   return prisma.$transaction(async tx => {
-    const lacksTexts = await apply(tx, campaignId, event)
+    const lacksTexts = await apply(tx, campaignId, event, session)
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -67,6 +68,7 @@ async function apply(
   tx: Tx,
   campaignId: string,
   event: GameEvent,
+  session: string,
 ): Promise<boolean> {
   switch (event.type) {
     case 'bridge.hello': {
@@ -87,7 +89,9 @@ async function apply(
           // attacks at the combatants players pick; from module 0.21.0, make a check an activity
           // asks for, the player's own, against it, and change a description's damage only on a
           // die it adds; from module 0.22.0, make a use at its user; from module 0.23.0, make the
-          // Gamemaster's rolls as a character, marked as theirs.
+          // Gamemaster's rolls as a character, marked as theirs; and from module 0.25.0, list the
+          // messages each of those made in its result, which only this listener reads, never a
+          // viewer.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -98,6 +102,9 @@ async function apply(
             ...(features?.rolls?.signedDice === true ? ['signedDice'] : []),
             ...(features?.rolls?.selfTargets === true ? ['selfTargets'] : []),
             ...(features?.rolls?.gmRolls === true ? ['gmRolls'] : []),
+            ...(features?.rolls?.gmRollMessages === true
+              ? ['gmRollMessages']
+              : []),
           ],
         },
       })
@@ -146,7 +153,7 @@ async function apply(
     case 'chat.message.created':
     case 'chat.message.updated': {
       // An update is an upsert: a blind roll the Gamemaster reveals arrives as one.
-      await saveMessage(tx, campaignId, event.data.message)
+      await saveMessage(tx, campaignId, event.data.message, session)
       return false
     }
     case 'chat.message.deleted': {
@@ -279,10 +286,17 @@ function rosterEntry(character: ConnectedCharacter) {
   return toJson(entry)
 }
 
+/**
+ * A chat message as the module now serializes it, marked as made for the Gamemaster's roll as a
+ * character (#156) where this app knows it was (`madeForGm`). Once marked, it stays marked,
+ * whatever an edit later says.
+ * @param session - The module session that sent it.
+ */
 async function saveMessage(
   tx: Tx,
   campaignId: string,
   message: SerializedMessage,
+  session: string,
 ) {
   const fields = {
     sentAt: new Date(message.timestamp),
@@ -290,20 +304,59 @@ async function saveMessage(
     readers: message.audience.characters,
     data: toJson(message),
   }
-  // Made for the Gamemaster's roll as a character (#156) only where the roll it names is one this
-  // app handed over as this campaign's Gamemaster's, as the character that speaks it, and while it
-  // was being made: the message's author, the character's player, could write the claim, and copy
-  // a real one from a card of the Gamemaster's they're the author of. The module posts a roll's
-  // messages before what became of it, so they come while it's being made; a little after counts
-  // too, as does any time after the module said it took too long, when it may yet be made. Once
-  // marked, it stays marked, whatever an edit later says.
+  const byGm = await madeForGm(tx, campaignId, message, session)
+  await tx.chatMessage.upsert({
+    where: { campaignMessage: { campaignId, messageId: message.id } },
+    create: { campaignId, messageId: message.id, ...fields, byGm },
+    update: { ...fields, ...(byGm && { byGm: true }) },
+  })
+}
+
+/**
+ * Was a message made for the Gamemaster's roll as a character (#156)? Only where the roll it names
+ * is one this app handed over as this campaign's Gamemaster's: the message's author, the
+ * character's player, could write the claim, and copy a real one from a card of the Gamemaster's
+ * they're the author of. From module 0.25.0, the roll's result lists the messages it made, so only
+ * those listed are, whichever comes first: one that comes before the result is left for the result
+ * to mark, where the session that sent it said in its hello that results list them. From an older
+ * module, it's taken from what the message says, as the character that speaks it, while the roll
+ * was being made: the module posts a roll's messages before what became of it, so they come while
+ * it's being made; a little after counts too, as does any time after the module said it took too
+ * long, when it may yet be made.
+ * @param session - The module session that sent it.
+ */
+async function madeForGm(
+  tx: Tx,
+  campaignId: string,
+  message: SerializedMessage,
+  session: string,
+): Promise<boolean> {
+  const { gmRoll } = message
+  if (!gmRoll) return false
+  const [roll, campaign] = await Promise.all([
+    tx.rollRequest.findFirst({
+      where: { id: gmRoll, campaignId, role: 'gm' },
+      select: { result: true },
+    }),
+    tx.campaign.findUnique({
+      where: { id: campaignId },
+      select: { helloSession: true, rollFeatures: true },
+    }),
+  ])
+  const listed = (roll?.result as CommandResult | null | undefined)?.messages
+  if (listed) return listed.includes(message.id)
+  if (
+    campaign?.helloSession === session &&
+    campaign.rollFeatures.includes('gmRollMessages')
+  ) {
+    return false
+  }
   const actorId = message.speaker.actorId
-  const byGm =
-    !!message.gmRoll &&
+  return (
     !!actorId &&
     (await tx.rollRequest.count({
       where: {
-        id: message.gmRoll,
+        id: gmRoll,
         campaignId,
         role: 'gm',
         actorId,
@@ -314,11 +367,7 @@ async function saveMessage(
         ],
       },
     })) > 0
-  await tx.chatMessage.upsert({
-    where: { campaignMessage: { campaignId, messageId: message.id } },
-    create: { campaignId, messageId: message.id, ...fields, byGm },
-    update: { ...fields, ...(byGm && { byGm: true }) },
-  })
+  )
 }
 
 /**

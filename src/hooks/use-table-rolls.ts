@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableApi, useTableRole } from '@/hooks/use-table-api'
 import {
@@ -17,6 +18,7 @@ import type {
   LocalCheck,
   LocalDamage,
   LocalFormula,
+  LocalGmRoll,
   LocalRoll,
   LocalUse,
   SheetDamageRoll,
@@ -27,6 +29,7 @@ import type {
   ActivityRef,
   EndEnchantmentSource,
   FormulaSource,
+  GmRollView,
   RolledDice,
   RollFeature,
   RollKind,
@@ -112,6 +115,11 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
    * 0.20.0, sent as one, the same, once the game stopped part way through them.
    */
   together?: { count: number; made: number }
+  /**
+   * For a roll of a d20 the Gamemaster made as the character (#156), whether the game says it came
+   * up a critical or a fumble, as there are no dice of it here to say.
+   */
+  d20?: GmRollView['d20']
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -152,16 +160,17 @@ export function useTableRolls(
     () => new Map(),
   )
   const api = useTableApi(characterId)
+  const gm = useTableRole() === 'gm'
   const [choice, choose] = useStoredChoice(
-    useTableRole() === 'gm' ? GM_SEND_KEY : SEND_KEY,
+    gm ? GM_SEND_KEY : SEND_KEY,
     SEND_CHOICES,
     'on',
   )
   const on = choice === 'on'
   // As the latest render has them, for `send` to stay the same function.
-  const latest = useRef({ api, kinds, features, on })
+  const latest = useRef({ api, kinds, features, on, gm })
   useEffect(() => {
-    latest.current = { api, kinds, features, on }
+    latest.current = { api, kinds, features, on, gm }
   })
   const running = useRef(new Set<AbortController>())
   useEffect(() => {
@@ -171,13 +180,19 @@ export function useTableRolls(
     }
   }, [])
 
-  /** Send a roll to the game, and follow it, keeping its way under the local roll's id. */
+  /**
+   * Send a roll to the game, and follow it, keeping its way under the local roll's id. The
+   * Gamemaster's page (#156) says what it calls it, for the character's player to be shown it by.
+   * @param label - What this page calls it, such as "Perception check".
+   */
   const start = useCallback(
     (
       localId: string,
-      input: RollRequestInput,
+      sent: RollRequestInput,
       kept: Partial<TableRollState>,
+      label: string,
     ) => {
+      const input = latest.current.gm ? labelled(sent, label) : sent
       const controller = new AbortController()
       running.current.add(controller)
       const update = (state: TableRollState) => {
@@ -209,7 +224,10 @@ export function useTableRolls(
    * told as they're sent.
    */
   const startEach = useCallback(
-    (localId: string, inputs: RollRequestInput[]) => {
+    (localId: string, sent: RollRequestInput[], label: string) => {
+      const inputs = latest.current.gm
+        ? sent.map(input => labelled(input, label))
+        : sent
       const controller = new AbortController()
       const { signal } = controller
       running.current.add(controller)
@@ -273,7 +291,7 @@ export function useTableRolls(
       } else if (source.kind === 'save' && source.prompt) {
         kept = { prompt: source.prompt }
       }
-      start(check.id, toRollRequest(roll, source, check), kept)
+      start(check.id, toRollRequest(roll, source, check), kept, roll.label)
     },
     [start],
   )
@@ -304,6 +322,7 @@ export function useTableRolls(
             ...(modifiers && changes(modifiers) && { modifiers }),
           },
           {},
+          roll.label,
         )
         return
       }
@@ -329,6 +348,7 @@ export function useTableRolls(
           ...(modifiers && changes(modifiers) && { modifiers }),
         },
         {},
+        roll.label,
       )
     },
     [start],
@@ -363,6 +383,7 @@ export function useTableRolls(
           ...(used.itemCast && { itemCast: true }),
           ...(modifiers && changes(modifiers) && { modifiers }),
         },
+        used.label,
       )
     },
     [start],
@@ -377,16 +398,19 @@ export function useTableRolls(
       // game spent a hit die a request, one after another, the largest first.
       if (source.kind === 'hitDice') {
         if (kinds.includes('hitDice')) {
-          start(rolled.id, toHitDiceRequest(source, rolled), {
-            hitDice: true,
-          })
+          start(
+            rolled.id,
+            toHitDiceRequest(source, rolled),
+            { hitDice: true },
+            roll.label,
+          )
         } else if (kinds.includes('hitDie')) {
-          startEach(rolled.id, toHitDieRequests(source, rolled))
+          startEach(rolled.id, toHitDieRequests(source, rolled), roll.label)
         }
         return
       }
       if (!kinds.includes(source.kind)) return
-      start(rolled.id, toFormulaRequest(roll, source, rolled), {})
+      start(rolled.id, toFormulaRequest(roll, source, rolled), {}, roll.label)
     },
     [start, startEach],
   )
@@ -414,6 +438,7 @@ export function useTableRolls(
           dice: [],
         },
         source ? { source } : {},
+        ended.label,
       )
     },
     [start],
@@ -434,6 +459,7 @@ export function useTableRolls(
         dice: [],
       },
       {},
+      asked.label,
     )
   }, [])
 
@@ -508,6 +534,107 @@ export function useTableRolls(
   }
 }
 
+/** None of the Gamemaster's rolls, the same each time, for what's worked out from them to keep. */
+const NO_GM_ROLLS: readonly GmRollView[] = []
+
+/**
+ * The rolls the campaign's Gamemaster made as the player's character (#156), as the player's view
+ * tells them, to show among the player's own: each as a roll of this page's, apart from its own by
+ * its id, and its way to the game, as the player's own are followed, with the game's result; but
+ * never the damage that follows one, which the Gamemaster rolls, so that it waits for nothing.
+ * @param heard - When this page first heard of each, by this device's clock (`useGmRolls`), to
+ *   place it among the player's own by; else it's placed by when it was sent.
+ */
+export function gmRollsOf(
+  views: readonly GmRollView[] = NO_GM_ROLLS,
+  heard?: ReadonlyMap<string, number>,
+): {
+  rolls: LocalGmRoll[]
+  states: ReadonlyMap<string, TableRollState>
+} {
+  const rolls = views.map((view): LocalGmRoll => ({
+    kind: 'gm',
+    id: `gm:${view.id}`,
+    label: view.label,
+    rolled: view.kind,
+    at: heard?.get(view.id) ?? Date.parse(view.at),
+    ...(view.healing && { healing: true }),
+  }))
+  const states = new Map(
+    views.map(view => {
+      const { status, reason, visible, total, attack, outcome, healed } = view
+      const { spent, enchantment, d20 } = view
+      const state: TableRollState = {
+        status,
+        ...(reason !== undefined && { reason }),
+        ...(visible !== undefined && { visible }),
+        ...(total !== undefined && { total }),
+        ...(attack && { attack }),
+        ...(outcome && { outcome }),
+        ...(healed !== undefined && { healed }),
+        ...(spent && { spent }),
+        ...(enchantment && { enchantment }),
+        ...(d20 && { d20 }),
+        // Hit dice the game stopped spending part way, which it made some of, say how many.
+        ...(status === 'failed' &&
+          (spent?.made ?? 0) > 0 && { together: spent }),
+        requestId: view.id,
+      }
+      return [`gm:${view.id}`, state] as const
+    }),
+  )
+  return { rolls, states }
+}
+
+/**
+ * The rolls the campaign's Gamemaster made as the player's character (#156), as `gmRollsOf` has
+ * them, each placed among the player's own by when this page first heard of it, by this device's
+ * clock, as theirs are: never by when the server says it was sent, as this device's clock may be
+ * behind the server's or ahead of it. So one heard of after the player rolled is newer than their
+ * roll, and one heard of before it older. Those the page opens with are heard of as it opens, in
+ * the order the view has them, as are those one look at the table brings.
+ */
+export function useGmRolls(
+  views: readonly GmRollView[] = NO_GM_ROLLS,
+): ReturnType<typeof gmRollsOf> {
+  const [heard, setHeard] = useState(() => heardOf(new Map(), views))
+  let known = heard
+  // Those the view brings, heard of now: the page renders again at once with them.
+  if (views.some(({ id }) => !heard.has(id))) {
+    known = heardOf(heard, views)
+    setHeard(known)
+  }
+  return useMemo(() => gmRollsOf(views, known), [views, known])
+}
+
+/**
+ * When this page first heard of each of the Gamemaster's rolls the view has, those new to it now:
+ * none it no longer has, which never come back, as they only grow older.
+ */
+function heardOf(
+  held: ReadonlyMap<string, number>,
+  views: readonly GmRollView[],
+): ReadonlyMap<string, number> {
+  const now = Date.now()
+  return new Map(views.map(({ id }) => [id, held.get(id) ?? now]))
+}
+
+/**
+ * The page's own rolls and the Gamemaster's as the character together (#156), newest first by when
+ * each was made, or for the Gamemaster's, heard of, and their ways to the game.
+ */
+export function withGmRolls(
+  rolls: readonly LocalRoll[],
+  states: ReadonlyMap<string, TableRollState>,
+  gm: ReturnType<typeof gmRollsOf>,
+): { rolls: LocalRoll[]; states: ReadonlyMap<string, TableRollState> } {
+  if (gm.rolls.length === 0) return { rolls: [...rolls], states }
+  return {
+    rolls: [...rolls, ...gm.rolls].toSorted((a, b) => b.at - a.at),
+    states: new Map([...states, ...gm.states]),
+  }
+}
+
 /** The prompts answered by rolls on their way to the game, or made there. */
 function answeringOf(
   states: ReadonlyMap<string, TableRollState>,
@@ -564,6 +691,20 @@ function together(each: TableRollState[], count: number): TableRollState {
     ...(visible && known(healed) && { healed: added(healed) }),
     together: { count, made: made.length },
   }
+}
+
+/**
+ * A roll as the Gamemaster's page sends it (#156): with what it calls it, for the character's
+ * player to be shown it by, cut to as long a name as the app keeps, never splitting a character,
+ * and left out where there's nothing to say.
+ */
+function labelled(input: RollRequestInput, label: string): RollRequestInput {
+  let kept = ''
+  for (const character of label.trim()) {
+    if (kept.length + character.length > MAX_ROLL_LABEL) break
+    kept += character
+  }
+  return kept ? { ...input, label: kept } : input
 }
 
 /** Whether the app turned a roll away as one too many at once, to send again a moment later. */

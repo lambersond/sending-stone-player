@@ -1072,6 +1072,11 @@ export type BridgeFeatures = {
      * and marked as theirs. Module 0.23.0.
      */
     gmRolls?: boolean
+    /**
+     * Whether the result of each of the Gamemaster's rolls lists the chat messages it made, as
+     * `messages`, wherever `gmRolls` is true. Module 0.25.0.
+     */
+    gmRollMessages?: boolean
   } | null
 }
 
@@ -1142,6 +1147,12 @@ export type CommandResult = {
    * one it ended, if any; null where it applied and ended none. Module 0.21.0.
    */
   enchantment?: EnchantmentOutcome | null
+  /**
+   * For the Gamemaster's roll as a character, the chat messages it made, by their Foundry ids, in
+   * the order made, as many as 20: those the module marks as theirs. Module 0.25.0; never on a
+   * player's roll.
+   */
+  messages?: string[]
 }
 
 /**

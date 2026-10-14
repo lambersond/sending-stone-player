@@ -26,6 +26,13 @@ import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 
 const NOW = Date.parse('2026-10-09T20:00:00Z')
+
+/** A death save held, the Gamemaster's as the character (#156) or its player's. */
+const heldAs = (role: 'gm' | 'player') =>
+  prismaMock.rollRequest.findFirst.mockResolvedValue({
+    payload: { kind: 'death' },
+    role,
+  } as any)
 const ago = (ms: number) => new Date(NOW - ms)
 
 /** Thorin's player at his sheet. */
@@ -1487,7 +1494,7 @@ describe('db/roll-requests', () => {
 
         expect(prismaMock.rollRequest.findFirst).toHaveBeenCalledWith({
           where: { id: 'req-1', campaignId: 'c1' },
-          select: { payload: true },
+          select: { payload: true, role: true },
         })
         expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith({
           where: { campaignId: 'c1', promptId: 'msg1-thorin', closedAt: null },
@@ -1526,6 +1533,80 @@ describe('db/roll-requests', () => {
 
         expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
         expect(prismaMock.rollPrompt.updateMany).not.toHaveBeenCalled()
+      })
+    })
+
+    describe("of the Gamemaster's roll as a character, listing the messages it made (module 0.25.0)", () => {
+      const result = {
+        id: 'req-gm',
+        status: 'done' as const,
+        reason: null,
+        error: null,
+        messageId: 'm-roll',
+        visible: true,
+        rolls: [],
+        messages: ['m-roll', 'm-outcome'],
+      }
+
+      it("marks those of the campaign's messages held already as the Gamemaster's, telling its pages", async () => {
+        heldAs('gm')
+        prismaMock.chatMessage.updateMany.mockResolvedValue({ count: 2 })
+
+        await recordCommandResult('c1', result)
+
+        expect(prismaMock.chatMessage.updateMany).toHaveBeenCalledWith({
+          where: {
+            campaignId: 'c1',
+            messageId: { in: ['m-roll', 'm-outcome'] },
+            byGm: false,
+          },
+          data: { byGm: true },
+        })
+        expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+          where: { id: 'c1' },
+          data: { version: { increment: 1 } },
+        })
+      })
+
+      it('leaves its pages be where none was held, or all were marked already', async () => {
+        heldAs('gm')
+        prismaMock.chatMessage.updateMany.mockResolvedValue({ count: 0 })
+
+        await recordCommandResult('c1', { ...result, status: 'failed' })
+
+        expect(prismaMock.chatMessage.updateMany).toHaveBeenCalled()
+        expect(prismaMock.campaign.update).not.toHaveBeenCalled()
+      })
+
+      it("never marks a player's roll's, whatever its result lists", async () => {
+        heldAs('player')
+
+        await recordCommandResult('c1', result)
+
+        expect(prismaMock.chatMessage.updateMany).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.update).not.toHaveBeenCalled()
+      })
+
+      it("marks nothing for a result it didn't record, as a second answer", async () => {
+        heldAs('gm')
+        prismaMock.rollRequest.updateMany.mockResolvedValue({ count: 0 })
+
+        await recordCommandResult('c1', result)
+
+        expect(prismaMock.chatMessage.updateMany).not.toHaveBeenCalled()
+      })
+
+      it('looks nothing up for a roll that made none', async () => {
+        heldAs('gm')
+
+        await recordCommandResult('c1', {
+          ...result,
+          status: 'failed',
+          messages: [],
+        })
+
+        expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+        expect(prismaMock.chatMessage.updateMany).not.toHaveBeenCalled()
       })
     })
   })
@@ -1684,6 +1765,33 @@ describe("db/roll-requests, the Gamemaster's rolls as a character (#156)", () =>
     expect(prismaMock.rollRequest.deleteMany).toHaveBeenCalledWith({
       where: { ...gmMade, createdAt: { lt: ago(86_400_000) } },
     })
+  })
+
+  it("keeps what the Gamemaster's page calls a roll, for its player to be shown it by, and never sends it to the game", async () => {
+    givenGm()
+
+    await createRollRequest(gm(), { ...perception, label: 'Perception check' })
+
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        role: 'gm',
+        label: 'Perception check',
+        payload: perception,
+      }),
+      select: { id: true },
+    })
+    const { data } = prismaMock.rollRequest.create.mock.calls[0][0]
+    expect(data.payload).not.toHaveProperty('label')
+  })
+
+  it("keeps no name a player's page sends for a roll, which nothing shows", async () => {
+    givenGm()
+
+    await createRollRequest(character, { ...perception, label: 'Mine' })
+
+    const { data } = prismaMock.rollRequest.create.mock.calls[0][0]
+    expect(data).not.toHaveProperty('label')
+    expect(data.payload).toEqual(perception)
   })
 
   it("is refused while the game doesn't make the Gamemaster's rolls, and for ending an enchantment, before anything else", async () => {

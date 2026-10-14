@@ -26,7 +26,12 @@ import {
   type ExtraDice,
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
-import type { FormulaSource, RollSource, TextLink } from '@/types/roll'
+import type {
+  FormulaSource,
+  RollKind,
+  RollSource,
+  TextLink,
+} from '@/types/roll'
 import type { CriticalRule } from '@/types/sending-stone'
 
 /** The dice, in the app's jade. */
@@ -282,9 +287,33 @@ export type LocalAsk = {
   at: number
 }
 
-/** A roll as this page keeps it, or a use, or an ask. */
+/**
+ * A roll the campaign's Gamemaster made as the player's character from their page (#156), shown on
+ * the player's beside their own: it throws no dice here, but follows its way to the game, as the
+ * player's table view tells it.
+ */
+export type LocalGmRoll = {
+  kind: 'gm'
+  /** Apart from this page's own: `gm:` and its id at the table. */
+  id: string
+  /** As the Gamemaster's page called it, such as "Perception check". */
+  label: string
+  /** What it is, such as "skill" or "attack". */
+  rolled: RollKind
+  /** Of damage, healing, as the game said it is. */
+  healing?: true
+  /**
+   * When this page first heard of it, by this device's clock, as its own rolls are made by
+   * (`useGmRolls`).
+   */
+  at: number
+}
+
+/**
+ * A roll as this page keeps it, or a use, or an ask; or one of the Gamemaster's as the character.
+ */
 export type LocalRoll =
-  LocalCheck | LocalDamage | LocalUse | LocalFormula | LocalAsk
+  LocalCheck | LocalDamage | LocalUse | LocalFormula | LocalAsk | LocalGmRoll
 
 /** How many uses and asks this page has kept, for their ids. */
 let uses = 0

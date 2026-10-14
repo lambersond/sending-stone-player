@@ -817,6 +817,37 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it("reads the messages the Gamemaster's roll made, from module 0.25.0, ignoring anything else", () => {
+    const result = { id: 'req-gm', status: 'done', visible: true, rolls: [] }
+    const listed = (messages: unknown) =>
+      (
+        parseGameEvent('command.result', { ...result, messages })?.data as {
+          messages?: string[]
+        }
+      ).messages
+    const twenty = Array.from({ length: 20 }, (_, index) => `m${index}`)
+
+    expect(listed(['m-roll', 'm-outcome'])).toEqual(['m-roll', 'm-outcome'])
+    expect(listed([])).toEqual([])
+    expect(listed(twenty)).toEqual(twenty)
+    expect(listed(['x'.repeat(64)])).toEqual(['x'.repeat(64)])
+    for (const junk of [
+      [...twenty, 'm20'],
+      ['x'.repeat(65)],
+      [''],
+      ['m-roll', 7],
+      'm-roll',
+      null,
+      { 0: 'm-roll' },
+    ]) {
+      expect(listed(junk)).toBeUndefined()
+    }
+    // Left out by an older module, and for a player's roll.
+    expect(parseGameEvent('command.result', result)?.data).not.toHaveProperty(
+      'messages',
+    )
+  })
+
   it.each([
     ['without its id', { status: 'done' }],
     ['with an outcome it does not know', { id: 'req-1', status: 'maybe' }],

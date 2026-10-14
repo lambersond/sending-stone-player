@@ -16,7 +16,12 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { History } from 'lucide-react'
-import { DamageDue, RollHistory, type TableRolls } from './roll-tray'
+import {
+  DamageDue,
+  offersDamage,
+  RollHistory,
+  type TableRolls,
+} from './roll-tray'
 import { InPortalRoot, usePortalRoot } from '@/components/modal'
 import { needsPlayer } from '@/hooks/use-table-rolls'
 import type { LocalRoll } from '@/hooks/use-sheet-roller'
@@ -27,11 +32,11 @@ import type { LocalRoll } from '@/hooks/use-sheet-roller'
  * waits for, the earlier ones, and whether they reach the table, so that nothing the banner offers
  * is lost. A dot on the button says while a roll's damage waits for the player, as one whose
  * toast they closed; and each such roll's damage is to roll here, even once other rolls follow it,
- * as the banner offers only the latest's. An attack that missed doesn't wait (`needsPlayer`): its
- * damage is offered as the banner offers it, while it's the latest, and from its row. It opens and
- * closes as the cog's settings do; menus and dialogs opened from it open inside it, so that
- * choosing from one, or Escape on one, closes only that. Never inside a dialog itself, it leaves
- * Escape to the browser, for that dialog to close on it.
+ * as the banner offers only the latest's (`offersDamage`). An attack that missed doesn't wait
+ * (`needsPlayer`): its damage is offered as the banner offers it, while it's the latest, and from
+ * its row. It opens and closes as the cog's settings do; menus and dialogs opened from it open
+ * inside it, so that choosing from one, or Escape on one, closes only that. Never inside a dialog
+ * itself, it leaves Escape to the browser, for that dialog to close on it.
  */
 export function RollsButton({
   rolls,
@@ -90,8 +95,10 @@ export function RollsButton({
     needsPlayer(roll, table.states.get(roll.id)),
   )
   // Those the latest roll in full doesn't offer: those before it, and it too while dice roll, as
-  // they then show in its place.
-  const earlier = waiting.filter(roll => rolling || roll !== rolls[0])
+  // they then show in its place. Where the latest is one of the Gamemaster's as the character
+  // (#156), the player's own latest's is offered beneath it.
+  const offered = rolling ? undefined : offersDamage(rolls)
+  const earlier = waiting.filter(roll => roll !== offered)
   return (
     <>
       {/* Named by what it shows, rather than an aria-label, so that the dot is said too. */}
