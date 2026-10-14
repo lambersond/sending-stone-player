@@ -87,7 +87,9 @@ describe('components/campaigns/campaign-card', () => {
     renderCard()
 
     expect(
-      screen.getByText(/Tick its characters in Manage Campaigns in Foundry/),
+      screen.getByText(
+        /Add them on the campaign’s Players tab in Sending Stone’s settings in Foundry/,
+      ),
     ).toBeInTheDocument()
   })
 
@@ -114,13 +116,13 @@ describe('components/campaigns/campaign-card', () => {
         'wrongSecret',
         {},
         (time: string) =>
-          `At ${time}, Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s. Enter this campaign’s secret in Manage Campaigns in Foundry, in the browser you run the game from, or set a new one with Change secret below and enter that.`,
+          `At ${time}, Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s. Enter this campaign’s secret on its Connection tab in Sending Stone’s settings in Foundry, in the browser you run the game from, or set a new one with Change secret below and enter that.`,
       ],
       [
         'notSetUp',
         { detail: 'Mirkwood' },
         (time: string) =>
-          `At ${time}, Foundry sent a campaign titled “Mirkwood” from this game, and no campaign here has that title. If it’s this one, rename it to “The Lonely Mountain” in Manage Campaigns in Foundry.`,
+          `At ${time}, Foundry sent a campaign titled “Mirkwood” from this game, and no campaign here has that title. If it’s this one, rename it to “The Lonely Mountain” on its Connection tab in Sending Stone’s settings in Foundry.`,
       ],
       [
         'malformed',
@@ -183,7 +185,7 @@ describe('components/campaigns/campaign-card', () => {
         lastSeenAt,
       ])
       expect(text).toBe(
-        `At ${times[0].textContent}, Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s. Enter this campaign’s secret in Manage Campaigns in Foundry, in the browser you run the game from, or set a new one with Change secret below and enter that. Foundry has reached the app since, at ${times[1].textContent}.`,
+        `At ${times[0].textContent}, Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s. Enter this campaign’s secret on its Connection tab in Sending Stone’s settings in Foundry, in the browser you run the game from, or set a new one with Change secret below and enter that. Foundry has reached the app since, at ${times[1].textContent}.`,
       )
       expect(note).toHaveClass('text-sm', 'text-text-secondary')
       expect(note).not.toHaveClass('border', 'bg-danger/5')
@@ -318,7 +320,7 @@ describe('components/campaigns/campaign-card', () => {
 
     expect(changeSecret).toHaveBeenCalledTimes(1)
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Saved. Enter the same secret beside this campaign in Manage Campaigns in Foundry.',
+      'Saved. Enter the same secret on this campaign’s Connection tab in Sending Stone’s settings in Foundry.',
     )
   })
 
@@ -372,7 +374,7 @@ describe('components/campaigns/campaign-card', () => {
         spells: false,
         prompts: false,
       },
-      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Let players attack and cast from Sending Stone in Manage Campaigns in Foundry.',
+      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Attacks, spells and features on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
     ],
     [
       'made in the game, and asked for the saves it asks of them',
@@ -383,7 +385,7 @@ describe('components/campaigns/campaign-card', () => {
         spells: false,
         prompts: true,
       },
-      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Let players attack and cast from Sending Stone in Manage Campaigns in Foundry. When your game asks one of their characters for a saving throw, such as a concentration check, its player is asked here to roll it.',
+      'Checks, saves, initiative and death saves your players roll here are made in your game too, with the same dice. Their attacks and spells stay here: to have them made in your game too, tick Attacks, spells and features on the campaign’s Player actions tab in Sending Stone’s settings in Foundry. When your game asks one of their characters for a saving throw, such as a concentration check, its player is asked here to roll it.',
     ],
     [
       'turned on, while the game is closed',
@@ -405,7 +407,7 @@ describe('components/campaigns/campaign-card', () => {
         spells: false,
         prompts: false,
       },
-      'They stay here. To have them made in your game with the same dice, tick Let players roll from Sending Stone for this campaign in Manage Campaigns in Foundry.',
+      'They stay here. To have them made in your game with the same dice, tick Players roll in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
     ],
   ])("says whether players' rolls are %s", (_, rolls, text) => {
     renderCard({ rolls })

@@ -55,8 +55,8 @@ export function SecretForm({ action }: Readonly<Props>) {
       )}
       {state.saved && (
         <p role='status' className='text-sm text-primary'>
-          Saved. Enter the same secret beside this campaign in Manage Campaigns
-          in Foundry.
+          Saved. Enter the same secret on this campaign’s Connection tab in
+          Sending Stone’s settings in Foundry.
         </p>
       )}
     </form>

@@ -43,6 +43,6 @@ describe('components/campaigns/campaign-buttons', () => {
     expect(
       within(dialog).getByText('https://stone.example'),
     ).toBeInTheDocument()
-    expect(dialog).toHaveTextContent('Manage Campaigns')
+    expect(dialog).toHaveTextContent('Open Settings')
   })
 })
