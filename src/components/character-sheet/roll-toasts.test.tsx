@@ -24,6 +24,7 @@ import type {
   LocalUse,
 } from '@/hooks/use-sheet-roller'
 import type { GmRollView } from '@/types/roll'
+import type { TableCombat } from '@/types/table'
 
 /** A check, as the page keeps it. */
 const check = (id: string, fields: Partial<LocalCheck> = {}): LocalCheck => ({
@@ -35,6 +36,25 @@ const check = (id: string, fields: Partial<LocalCheck> = {}): LocalCheck => ({
   d20s: [14],
   natural: 14,
   extras: [],
+  at: 0,
+  ...fields,
+})
+
+/** Damage the player rolled, its dice thrown here. */
+const rolled = (id: string, fields: Partial<LocalDamage>): LocalDamage => ({
+  kind: 'damage',
+  id,
+  label: `${id} damage`,
+  total: 9,
+  critical: false,
+  healing: false,
+  parts: [
+    {
+      type: 'Slashing',
+      total: 9,
+      terms: [{ text: '1d8', values: [5], value: 5 }],
+    },
+  ],
   at: 0,
   ...fields,
 })
@@ -176,9 +196,10 @@ describe('components/character-sheet/roll-toasts', () => {
     )
     expect(toast('s')).toBe(first)
     expect(first).toHaveTextContent('At the table: 18')
+    // Kept to two lines, as the player's own area attack lists its targets after it.
     expect(
       within(first as HTMLElement).getByText('At the table: 18'),
-    ).toHaveClass('text-text-primary')
+    ).toHaveClass('text-text-primary', 'line-clamp-2')
 
     wait(3999)
     expect(toast('s')).toBe(first)
@@ -1115,6 +1136,27 @@ describe('components/character-sheet/roll-toasts', () => {
       'border-l-damage',
     ],
     [
+      'a critical hit’s damage',
+      {
+        rolls: [
+          {
+            kind: 'damage',
+            id: 's',
+            label: 'Longsword damage',
+            total: 18,
+            critical: true,
+            healing: false,
+            parts: [{ type: 'Slashing', total: 18, terms: [] }],
+            at: 0,
+          } satisfies LocalDamage,
+        ],
+        states: NONE,
+        on: true,
+      },
+      'gold',
+      'border-l-gold',
+    ],
+    [
       'a plain check',
       { rolls: [strength], states: NONE, on: true },
       'primary',
@@ -1153,6 +1195,37 @@ describe('components/character-sheet/roll-toasts', () => {
       }
     },
   )
+
+  it('C24 shows a critical hit’s damage in the gold of a natural 20, its total too; other damage, and healing, in their own colours', () => {
+    render(
+      <RollToasts
+        rolls={[
+          rolled('crit', { critical: true, total: 14 }),
+          rolled('plain', {}),
+          rolled('heal', { critical: true, healing: true, total: 8 }),
+        ]}
+        states={NONE}
+        on
+      />,
+    )
+
+    const crit = toast('crit') as HTMLElement
+    expect(crit).toHaveAttribute('data-accent', 'gold')
+    expect(crit).toHaveClass('border-l-gold', 'border-gold/40', 'from-gold/15')
+    expect(crit.firstElementChild).toHaveTextContent('14')
+    expect(crit.firstElementChild).toHaveClass('bg-gold', 'text-on-gold')
+    expect(crit).toHaveTextContent('Slashing · Critical hit')
+
+    const plain = toast('plain') as HTMLElement
+    expect(plain).toHaveAttribute('data-accent', 'damage')
+    expect(plain.firstElementChild).toHaveClass('bg-damage/15', 'text-damage')
+
+    // A critical hit's healing stays healing.
+    const heal = toast('heal') as HTMLElement
+    expect(heal).toHaveAttribute('data-accent', 'primary')
+    expect(heal.firstElementChild).toHaveClass('bg-primary/10', 'text-primary')
+    expect(heal.firstElementChild).not.toHaveClass('bg-gold')
+  })
 })
 
 /** A roll of the Gamemaster's, as the player's view tells it. */
@@ -1164,6 +1237,31 @@ const view = (fields: Partial<GmRollView> = {}): GmRollView => ({
   status: 'rolling',
   ...fields,
 })
+/** The Gamemaster's area attack, at the targets picked, in order, with what came of each. */
+const gmArea = (
+  targets: [string, 'hit' | 'miss' | null][],
+  fields: Partial<GmRollView> = {},
+) =>
+  view({
+    id: 'area',
+    kind: 'attack',
+    label: 'Breath Weapon attack',
+    status: 'done',
+    visible: true,
+    total: 15,
+    attack: {
+      critical: false,
+      fumble: false,
+      outcome: null,
+      targets: targets.map(([combatantId, outcome]) => ({
+        combatId: 'c1',
+        combatantId,
+        outcome,
+      })),
+    },
+    ...fields,
+  })
+
 /** What the page shows of it among the player's own, as the pane gives them. */
 const shownOf = (...views: GmRollView[]) =>
   withGmRolls(
@@ -1380,6 +1478,31 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
         }),
         'primary',
       ],
+      [
+        view({
+          id: 'critdmg',
+          kind: 'damage',
+          label: 'Longsword damage',
+          status: 'done',
+          visible: true,
+          total: 17,
+          critical: true,
+        }),
+        'gold',
+      ],
+      [
+        view({
+          id: 'critheal',
+          kind: 'textDamage',
+          label: 'Healing Word healing',
+          status: 'done',
+          visible: true,
+          total: 6,
+          critical: true,
+          healing: true,
+        }),
+        'primary',
+      ],
     ] as const
     const made = gmRollsOf(accents.map(([one]) => one))
     rerender(<RollToasts rolls={made.rolls} states={made.states} on />)
@@ -1401,6 +1524,29 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
     )
     expect(toast('gm:crit')?.firstElementChild).toHaveClass('bg-gold')
     expect(toast('gm:save')).toHaveTextContent('At the table: 9 · Failed')
+    // A critical hit's damage in a critical's gold, as the player's own; its healing as healing.
+    expect(toast('gm:critdmg')?.firstElementChild).toHaveClass(
+      'bg-gold',
+      'text-on-gold',
+    )
+    expect(toast('gm:critheal')?.firstElementChild).toHaveClass(
+      'bg-primary/10',
+      'text-primary',
+    )
+    // Said in words too, not by its gold alone; never of healing, nor of other damage.
+    expect(toast('gm:critdmg')).toHaveTextContent(
+      'At the table: 17 · Critical hit',
+    )
+    expect(toast('gm:critheal')).toHaveTextContent('At the table: 6')
+    expect(toast('gm:critheal')).not.toHaveTextContent('Critical hit')
+    expect(toast('gm:dmg')).toHaveTextContent('At the table: 8')
+    expect(toast('gm:dmg')).not.toHaveTextContent('Critical hit')
+    // Its GM pill, in the light theme, in the accent's deeper shade, meeting WCAG AA this small.
+    const pill = within(toast('gm:crit') as HTMLElement).getByTitle(
+      'Rolled by your Gamemaster',
+    )
+    expect(pill).toHaveClass('text-primary-hover', 'dark:text-primary')
+    expect(pill).not.toHaveClass('text-primary')
   })
 
   it('G6 shows it in the banner as the latest roll, and among the earlier ones, marked as the Gamemaster’s', () => {
@@ -1498,5 +1644,207 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
     wait(3000)
     rerender({ views: [{ ...after }, { ...also }, { ...before }] })
     expect(result.current.rolls.map(({ at }) => at)).toEqual(heard)
+  })
+
+  describe('G9 an area attack, naming whom it hit by the player’s own view of the combat', () => {
+    /** The combat as the player sees it: no one hidden from players is in it. */
+    const combat: TableCombat = {
+      id: 'c1',
+      name: null,
+      started: true,
+      round: 1,
+      combatants: [
+        {
+          id: 'b1',
+          name: 'Bandit 1',
+          initiative: 15,
+          defeated: false,
+          side: 'other',
+        },
+        {
+          id: 'b2',
+          name: 'Bandit 2',
+          initiative: 12,
+          defeated: false,
+          side: 'other',
+        },
+        {
+          id: 'b3',
+          name: 'Bandit 3',
+          initiative: 9,
+          defeated: false,
+          side: 'other',
+        },
+      ],
+    }
+    /** What the toast, the banner and the rolls' popover say of it, made since the page opened. */
+    const said = (made: GmRollView, seen?: TableCombat) => {
+      const shown = gmRollsOf([made], undefined, seen)
+      const { rerender, unmount } = render(
+        <RollToasts rolls={[]} states={NONE} on />,
+      )
+      rerender(
+        <>
+          <RollToasts rolls={shown.rolls} states={shown.states} on />
+          <RollTray
+            rolls={shown.rolls}
+            rolling={false}
+            table={{ states: shown.states, available: true, sending: true }}
+          />
+        </>,
+      )
+      const card = toast('gm:area') as HTMLElement
+      const line = within(card).getByText(/^At the table/)
+      // The line alone says whom, with no list of its targets after it, so it's said whole.
+      expect(within(card).queryByRole('list', { name: 'Targets' })).toBeNull()
+      expect(line.className).not.toMatch(/line-clamp/)
+      const toastLine = line.textContent
+      const banner = screen.getByRole('status').textContent ?? ''
+      unmount()
+      return { toast: toastLine, banner }
+    }
+
+    it('names those it hit, in the order they were picked, in its toast and the banner', () => {
+      const { toast: line, banner } = said(
+        gmArea([
+          ['b3', 'hit'],
+          ['b2', 'miss'],
+          ['b1', 'hit'],
+        ]),
+        combat,
+      )
+      expect(line).toBe('At the table: 15 · Hit 2 of 3: Bandit 3, Bandit 1')
+      expect(banner).toContain(
+        'At the table: 15 · Hit 2 of 3: Bandit 3, Bandit 1',
+      )
+    })
+
+    it('names every one of many it hit in its toast, longer than two lines on a phone', () => {
+      const ids = ['s1', 's2', 's3', 's4', 's5', 's6']
+      const skeletons: TableCombat = {
+        ...combat,
+        combatants: ids.map((id, index) => ({
+          id,
+          name: `Skeleton ${index + 1}`,
+          initiative: 10,
+          defeated: false,
+          side: 'other',
+        })),
+      }
+      const { toast: line } = said(
+        gmArea(ids.map((id, index) => [id, index < 5 ? 'hit' : 'miss'])),
+        skeletons,
+      )
+      expect(line).toBe(
+        'At the table: 15 · Hit 5 of 6: Skeleton 1, Skeleton 2, Skeleton 3, Skeleton 4, Skeleton 5',
+      )
+    })
+
+    it('keeps the critical hit before it', () => {
+      const { toast: line } = said(
+        gmArea(
+          [
+            ['b1', 'hit'],
+            ['b2', 'miss'],
+            ['b3', 'hit'],
+          ],
+          {
+            attack: {
+              critical: true,
+              fumble: false,
+              outcome: null,
+              targets: [
+                { combatId: 'c1', combatantId: 'b1', outcome: 'hit' },
+                { combatId: 'c1', combatantId: 'b2', outcome: 'miss' },
+                { combatId: 'c1', combatantId: 'b3', outcome: 'hit' },
+              ],
+            },
+            d20: 'critical',
+          },
+        ),
+        combat,
+      )
+      expect(line).toBe(
+        'At the table: 15 · Critical hit · Hit 2 of 3: Bandit 1, Bandit 3',
+      )
+    })
+
+    it('counts one hit the player’s view can’t name, as one hidden from players, as more, never naming it', () => {
+      // "x9" is hidden from players: their view of the combat leaves it out.
+      const { toast: line, banner } = said(
+        gmArea([
+          ['b1', 'hit'],
+          ['x9', 'hit'],
+          ['b2', 'miss'],
+        ]),
+        combat,
+      )
+      expect(line).toBe('At the table: 15 · Hit 2 of 3: Bandit 1 and 1 more')
+      expect(banner).toContain('Hit 2 of 3: Bandit 1 and 1 more')
+      expect(document.body).not.toHaveTextContent('x9')
+    })
+
+    it('names none in another combat than the one the player sees, nor with no combat, saying only how many', () => {
+      const elsewhere: TableCombat = {
+        ...combat,
+        id: 'c2',
+        combatants: [
+          {
+            id: 'b1',
+            name: 'Owlbear',
+            initiative: 3,
+            defeated: false,
+            side: 'other',
+          },
+        ],
+      }
+      const made = gmArea([
+        ['b1', 'hit'],
+        ['b2', 'miss'],
+      ])
+      expect(said(made, elsewhere).toast).toBe('At the table: 15 · Hit 1 of 2')
+      expect(said(made).toast).toBe('At the table: 15 · Hit 1 of 2')
+      expect(
+        said(
+          gmArea([
+            ['b1', 'miss'],
+            ['b2', 'miss'],
+          ]),
+          combat,
+        ).toast,
+      ).toBe('At the table: 15 · Hit 0 of 2')
+    })
+
+    it('leaves the player’s own area attack as it was: how many it hit, its targets listed', () => {
+      const own = check('own', { label: 'Breath Weapon attack', total: 15 })
+      render(
+        <RollTray
+          rolls={[own]}
+          rolling={false}
+          table={{
+            states: ways([
+              'own',
+              {
+                status: 'done',
+                visible: true,
+                total: 15,
+                attack: gmArea([
+                  ['b1', 'hit'],
+                  ['b2', 'miss'],
+                ]).attack,
+                targetNames: { b1: 'Bandit 1', b2: 'Bandit 2' },
+              },
+            ]),
+            available: true,
+            sending: true,
+          }}
+        />,
+      )
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent(
+        'At the table: 15 · Hit 1 of 2Bandit 1: HitBandit 2: Miss',
+      )
+      expect(status).not.toHaveTextContent('Hit 1 of 2: Bandit 1')
+    })
   })
 })

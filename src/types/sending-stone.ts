@@ -36,6 +36,11 @@ export type ConnectedCharacter = {
   sheet?: CharacterSheet | null
   /** Why its sheet is null, where the module held it back. Module 0.22.0. */
   sheetWithheld?: SheetWithheld
+  /**
+   * Whether the character enters its own dice's results, as a hello's roster says, which no
+   * character does yet: always false. Module 0.26.0.
+   */
+  manualDice?: boolean
 }
 
 /**
@@ -1077,6 +1082,11 @@ export type BridgeFeatures = {
      * `messages`, wherever `gmRolls` is true. Module 0.25.0.
      */
     gmRollMessages?: boolean
+    /**
+     * Whether players may enter their own dice's results: where the campaign lets them, the Manual
+     * Dice module is on, and players' rolls are enabled. None may yet. Module 0.26.0.
+     */
+    manualDice?: boolean
   } | null
 }
 

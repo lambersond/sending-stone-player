@@ -89,9 +89,9 @@ async function apply(
           // attacks at the combatants players pick; from module 0.21.0, make a check an activity
           // asks for, the player's own, against it, and change a description's damage only on a
           // die it adds; from module 0.22.0, make a use at its user; from module 0.23.0, make the
-          // Gamemaster's rolls as a character, marked as theirs; and from module 0.25.0, list the
+          // Gamemaster's rolls as a character, marked as theirs; from module 0.25.0, list the
           // messages each of those made in its result, which only this listener reads, never a
-          // viewer.
+          // viewer; and from module 0.26.0, let players enter their own dice's results.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -105,6 +105,7 @@ async function apply(
             ...(features?.rolls?.gmRollMessages === true
               ? ['gmRollMessages']
               : []),
+            ...(features?.rolls?.manualDice === true ? ['manualDice'] : []),
           ],
         },
       })
@@ -225,7 +226,14 @@ async function saveCharacter(
     select: { characters: true },
   })
   const roster = (held?.characters ?? []) as unknown as ConnectedCharacter[]
-  const entry = rosterEntry(character)
+  // Whether it enters its own dice's results is the hello's to say, from module 0.26.0: an update
+  // that leaves it out keeps what the hello said.
+  const said = roster.find(({ id }) => id === character.id)?.manualDice
+  const entry = rosterEntry(
+    character.manualDice === undefined && said !== undefined
+      ? { ...character, manualDice: said }
+      : character,
+  )
   await tx.campaign.update({
     where: { id: campaignId },
     data: {

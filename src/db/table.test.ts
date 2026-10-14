@@ -6,6 +6,7 @@ import {
   characterSheet,
   chatMessage,
   combat,
+  combatant,
   roster,
 } from '@/mocks/sending-stone'
 
@@ -518,6 +519,30 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
     })
   })
 
+  it('tells the player and the Gamemaster at the sheet that players may enter their dice results, from module 0.26.0, while the game takes rolls', async () => {
+    givenCampaign(taking(['gmRolls', 'manualDice']))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollFeatures: ['manualDice'],
+    })
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      rollFeatures: ['manualDice'],
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollFeatures: ['manualDice'],
+      gm: { rolls: 'made' },
+    })
+
+    // Not while the game takes no rolls from here, nor from an older module.
+    givenCampaign({ ...taking(['gmRolls', 'manualDice']), rollsEnabled: false })
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollFeatures: [],
+    })
+    givenCampaign(taking(['gmRolls']))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollFeatures: [],
+    })
+  })
+
   it("rolls nothing to the table while the game doesn't make the Gamemaster's, saying whether to update it", async () => {
     // A module before 0.23.0: it takes the player's rolls, not the Gamemaster's.
     givenCampaign(taking(['prompts']))
@@ -728,6 +753,114 @@ describe("db/table, the Gamemaster's rolls as the player's character (#156)", ()
       status: 'done',
       visible: false,
     })
+  })
+
+  it("tells damage, a description's too, the game called a critical hit's as such, where the player may see it; never a d20 roll's, nor hidden damage's", async () => {
+    const result = held({}).result
+    const damage = (critical: boolean, visible = true) => ({
+      ...result,
+      visible,
+      rolls: [
+        {
+          formula: '2d8 + 4',
+          total: 13,
+          dice: [{ faces: 8, results: [{ result: 4, active: true }] }],
+          damageType: 'slashing',
+          critical,
+        },
+      ],
+    })
+    rolls.splice(
+      0,
+      1,
+      held({
+        id: 'crit',
+        kind: 'damage',
+        label: 'Longsword damage',
+        result: damage(true),
+      }),
+      held({
+        id: 'plain',
+        kind: 'damage',
+        createdAt: ago(61_000),
+        result: damage(false),
+      }),
+      held({
+        id: 'blind',
+        kind: 'damage',
+        createdAt: ago(62_000),
+        result: damage(true, false),
+      }),
+      // A description's damage, rolled as a critical hit's (module 0.19.0).
+      held({
+        id: 'link',
+        kind: 'textDamage',
+        label: 'Divine Smite damage',
+        createdAt: ago(63_000),
+        result: damage(true),
+      }),
+    )
+    const { gmRolls = [] } = await getTableView(character)
+    rolls.splice(0, 4, held({}))
+
+    const byId = new Map(gmRolls.map(roll => [roll.id, roll]))
+    expect(byId.get('crit')).toMatchObject({ total: 13, critical: true })
+    expect(byId.get('crit')).not.toHaveProperty('d20')
+    expect(byId.get('link')).toMatchObject({
+      kind: 'textDamage',
+      total: 13,
+      critical: true,
+    })
+    expect(byId.get('plain')).not.toHaveProperty('critical')
+    expect(byId.get('blind')).not.toHaveProperty('critical')
+    // A d20 roll's says so as a d20's, as before.
+    expect(byId.get('req-gm-older')).toMatchObject({ d20: 'critical' })
+    expect(byId.get('req-gm-older')).not.toHaveProperty('critical')
+  })
+
+  it("never names an area attack's targets: the player's page names them from its own view of the combat, which leaves out one hidden from players", async () => {
+    rolls[0] = held({
+      kind: 'attack',
+      label: 'Breath Weapon attack',
+      result: {
+        ...held({}).result,
+        attack: {
+          critical: false,
+          fumble: false,
+          outcome: null,
+          targets: [
+            { combatId: 'cmbt1', combatantId: 'c-boss', outcome: 'hit' },
+            { combatId: 'cmbt1', combatantId: 'c-hidden', outcome: 'hit' },
+          ],
+        },
+      },
+    })
+    prismaMock.combat.findMany.mockResolvedValue([
+      {
+        data: combat({
+          combatants: [
+            combatant({ id: 'c-boss', name: 'Goblin Boss', initiative: 19 }),
+            combatant({
+              id: 'c-hidden',
+              name: 'Hidden Assassin',
+              initiative: 18,
+              hidden: true,
+            }),
+          ],
+        }),
+      },
+    ] as any)
+    const view = await getTableView(character)
+    rolls[0] = held({})
+
+    expect(view.gmRolls?.[0].attack?.targets).toEqual([
+      { combatId: 'cmbt1', combatantId: 'c-boss', outcome: 'hit' },
+      { combatId: 'cmbt1', combatantId: 'c-hidden', outcome: 'hit' },
+    ])
+    expect(view.combat?.combatants.map(({ name }) => name)).toEqual([
+      'Goblin Boss',
+    ])
+    expect(JSON.stringify(view)).not.toContain('Hidden Assassin')
   })
 
   it('tells what the game made of an attack, but never the damage that follows it', async () => {

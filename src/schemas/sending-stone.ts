@@ -918,6 +918,9 @@ const characterSchema = z.looseObject({
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),
+  // From module 0.26.0, in a hello's roster: whether the character enters its own dice's results.
+  // Left out, as sent, by an older module; false where it can't be read.
+  manualDice: z.boolean().optional().catch(false),
 })
 
 export const rollSchema = z.looseObject({
@@ -1094,6 +1097,9 @@ const featuresSchema = z
         gmRolls: z.boolean().optional().catch(false),
         // From module 0.25.0: whether each of those rolls' results lists the messages it made.
         gmRollMessages: z.boolean().optional().catch(false),
+        // From module 0.26.0: whether players may enter their own dice's results, where the
+        // Manual Dice module is on.
+        manualDice: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()

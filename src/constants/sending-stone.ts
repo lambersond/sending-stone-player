@@ -133,7 +133,9 @@ export const ROLL_KINDS = [
  * own, against it, as the activity's card does (module 0.21.0, under dnd5e 5); and change a
  * description's damage only on a die it adds (module 0.21.0); and make a use at its user, as its
  * request's `self` asks (module 0.22.0); and make the rolls a campaign's Gamemaster makes here as
- * one of its characters, marked as theirs (module 0.23.0), which only the Gamemaster's view reads.
+ * one of its characters, marked as theirs (module 0.23.0), which only the Gamemaster's view reads;
+ * and let players enter their own dice's results, as the Manual Dice module does (module 0.26.0),
+ * which no one may yet, so that the sheet's settings only say it's coming.
  */
 export const ROLL_FEATURES = [
   'modifiers',
@@ -143,6 +145,7 @@ export const ROLL_FEATURES = [
   'signedDice',
   'selfTargets',
   'gmRolls',
+  'manualDice',
 ] as const
 
 /**

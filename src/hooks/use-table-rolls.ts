@@ -41,6 +41,7 @@ import type {
   UseSource,
 } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
+import type { TableCombat } from '@/types/table'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /** How often to ask after a roll sent to the Gamemaster's game, in milliseconds. */
@@ -120,6 +121,11 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
    * up a critical or a fumble, as there are no dice of it here to say.
    */
   d20?: GmRollView['d20']
+  /**
+   * For damage the Gamemaster rolled as the character (#156), that the game says it's a critical
+   * hit's, as there are no dice of it here to say.
+   */
+  critical?: GmRollView['critical']
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -541,13 +547,16 @@ const NO_GM_ROLLS: readonly GmRollView[] = []
  * The rolls the campaign's Gamemaster made as the player's character (#156), as the player's view
  * tells them, to show among the player's own: each as a roll of this page's, apart from its own by
  * its id, and its way to the game, as the player's own are followed, with the game's result; but
- * never the damage that follows one, which the Gamemaster rolls, so that it waits for nothing.
+ * never the damage that follows one, which the Gamemaster rolls, so that it waits for nothing. An
+ * area attack's targets are named as the player's own view of the combat names them (`namesOf`).
  * @param heard - When this page first heard of each, by this device's clock (`useGmRolls`), to
  *   place it among the player's own by; else it's placed by when it was sent.
+ * @param combat - The combat as the player's view has it, which names the targets.
  */
 export function gmRollsOf(
   views: readonly GmRollView[] = NO_GM_ROLLS,
   heard?: ReadonlyMap<string, number>,
+  combat?: TableCombat,
 ): {
   rolls: LocalGmRoll[]
   states: ReadonlyMap<string, TableRollState>
@@ -563,18 +572,21 @@ export function gmRollsOf(
   const states = new Map(
     views.map(view => {
       const { status, reason, visible, total, attack, outcome, healed } = view
-      const { spent, enchantment, d20 } = view
+      const { spent, enchantment, d20, critical } = view
+      const names = namesOf(attack, combat)
       const state: TableRollState = {
         status,
         ...(reason !== undefined && { reason }),
         ...(visible !== undefined && { visible }),
         ...(total !== undefined && { total }),
         ...(attack && { attack }),
+        ...(names && { targetNames: names }),
         ...(outcome && { outcome }),
         ...(healed !== undefined && { healed }),
         ...(spent && { spent }),
         ...(enchantment && { enchantment }),
         ...(d20 && { d20 }),
+        ...(critical && { critical }),
         // Hit dice the game stopped spending part way, which it made some of, say how many.
         ...(status === 'failed' &&
           (spent?.made ?? 0) > 0 && { together: spent }),
@@ -587,15 +599,39 @@ export function gmRollsOf(
 }
 
 /**
+ * The names of an area attack's targets of the Gamemaster's (#156), by their ids, as the player's
+ * own view of the combat names them: only ever names its player may see, as that view leaves out
+ * those hidden from players, never names the Gamemaster's page saw. None of a target that view
+ * doesn't hold, nor of an attack at one target, which says nothing of whom.
+ */
+function namesOf(
+  attack: GmRollView['attack'],
+  combat?: TableCombat,
+): Record<string, string> | undefined {
+  const targets = attack?.targets ?? []
+  if (!combat || targets.length < 2) return undefined
+  const names = targets.flatMap(({ combatId, combatantId }) => {
+    const combatant =
+      combatId === combat.id
+        ? combat.combatants.find(({ id }) => id === combatantId)
+        : undefined
+    return combatant ? [[combatantId, combatant.name] as const] : []
+  })
+  return names.length > 0 ? Object.fromEntries(names) : undefined
+}
+
+/**
  * The rolls the campaign's Gamemaster made as the player's character (#156), as `gmRollsOf` has
  * them, each placed among the player's own by when this page first heard of it, by this device's
  * clock, as theirs are: never by when the server says it was sent, as this device's clock may be
  * behind the server's or ahead of it. So one heard of after the player rolled is newer than their
  * roll, and one heard of before it older. Those the page opens with are heard of as it opens, in
- * the order the view has them, as are those one look at the table brings.
+ * the order the view has them, as are those one look at the table brings. An area attack's targets
+ * are named as the player's view of the combat names them now.
  */
 export function useGmRolls(
   views: readonly GmRollView[] = NO_GM_ROLLS,
+  combat?: TableCombat,
 ): ReturnType<typeof gmRollsOf> {
   const [heard, setHeard] = useState(() => heardOf(new Map(), views))
   let known = heard
@@ -604,7 +640,7 @@ export function useGmRolls(
     known = heardOf(heard, views)
     setHeard(known)
   }
-  return useMemo(() => gmRollsOf(views, known), [views, known])
+  return useMemo(() => gmRollsOf(views, known, combat), [views, known, combat])
 }
 
 /**
