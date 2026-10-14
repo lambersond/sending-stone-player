@@ -11,6 +11,7 @@ import { RollTray, type TableRolls } from './roll-tray'
 import { RollsButton } from './rolls-button'
 import type {
   LocalCheck,
+  LocalDamage,
   LocalGmRoll,
   LocalRoll,
   LocalUse,
@@ -77,6 +78,34 @@ const table = (
   rollDamage: jest.fn(),
   ...fields,
 })
+
+/** Longsword damage the player rolled, its dice thrown here. */
+const longsword = (fields: Partial<LocalDamage>): LocalDamage => ({
+  kind: 'damage',
+  id: 'd1',
+  label: 'Longsword damage',
+  total: 13,
+  critical: false,
+  healing: false,
+  parts: [
+    {
+      type: 'Slashing',
+      total: 13,
+      terms: [{ text: '2d8', values: [4, 5], value: 9 }],
+    },
+  ],
+  at: 3,
+  ...fields,
+})
+
+/** The latest roll's total in the open rolls, in its badge: 13. */
+const latestTotal = () => {
+  const badge = within(rolls())
+    .getByRole('status')
+    .querySelector<HTMLElement>('.size-12')
+  expect(badge).toHaveTextContent(/^13$/)
+  return badge
+}
 
 /** The button, named as it shows: "Your rolls", and whether damage is to roll. */
 const button = () => screen.getByRole('button', { name: /^Your rolls/ })
@@ -511,6 +540,137 @@ describe('components/character-sheet/rolls-button', () => {
     expect(
       within(rolls()).getAllByRole('button', { name: 'Roll damage' }),
     ).toHaveLength(1)
+  })
+
+  it('R13 shows the latest roll’s total in the colour the banner does: a critical hit’s damage in gold, other damage and healing in their own', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <RollsButton
+        rolls={[longsword({ critical: true })]}
+        rolling={false}
+        table={table([])}
+      />,
+    )
+    await user.click(button())
+    expect(latestTotal()).toHaveClass('bg-gold', 'text-on-gold')
+
+    rerender(
+      <RollsButton rolls={[longsword({})]} rolling={false} table={table([])} />,
+    )
+    expect(latestTotal()).toHaveClass('bg-damage/15', 'text-damage')
+
+    rerender(
+      <RollsButton
+        rolls={[longsword({ critical: true, healing: true })]}
+        rolling={false}
+        table={table([])}
+      />,
+    )
+    expect(latestTotal()).toHaveClass('bg-primary/10', 'text-primary')
+
+    // The Gamemaster's as the character (#156), where the game says it's a critical hit's.
+    const gm: LocalGmRoll = {
+      kind: 'gm',
+      id: 'gm:req-gm',
+      label: 'Longsword damage',
+      rolled: 'damage',
+      at: 4,
+    }
+    rerender(
+      <RollsButton
+        rolls={[gm]}
+        rolling={false}
+        table={table([
+          [
+            'gm:req-gm',
+            {
+              status: 'done',
+              visible: true,
+              total: 13,
+              critical: true,
+              requestId: 'req-gm',
+            },
+          ],
+        ])}
+      />,
+    )
+    expect(latestTotal()).toHaveClass('bg-gold', 'text-on-gold')
+    // Said in words too, as the player's own is, not by its gold alone.
+    expect(within(rolls()).getByRole('status')).toHaveTextContent(
+      'At the table: 13 · Critical hit',
+    )
+
+    // A critical hit's healing stays healing, and says nothing of it.
+    rerender(
+      <RollsButton
+        rolls={[{ ...gm, label: 'Cure Wounds healing', healing: true }]}
+        rolling={false}
+        table={table([
+          [
+            'gm:req-gm',
+            {
+              status: 'done',
+              visible: true,
+              total: 13,
+              critical: true,
+              requestId: 'req-gm',
+            },
+          ],
+        ])}
+      />,
+    )
+    expect(latestTotal()).toHaveClass('bg-primary/10', 'text-primary')
+    expect(within(rolls()).getByRole('status')).toHaveTextContent(
+      'At the table: 13',
+    )
+    expect(within(rolls()).getByRole('status')).not.toHaveTextContent(
+      'Critical hit',
+    )
+  })
+
+  it("R14 names whom one of the Gamemaster's area attacks hit (#156), as the banner does", async () => {
+    const user = userEvent.setup()
+    const breath: LocalGmRoll = {
+      kind: 'gm',
+      id: 'gm:req-gm',
+      label: 'Breath Weapon attack',
+      rolled: 'attack',
+      at: 4,
+    }
+    render(
+      <RollsButton
+        rolls={[breath]}
+        rolling={false}
+        table={table([
+          [
+            'gm:req-gm',
+            {
+              ...hit({ requestId: 'req-gm' }),
+              attack: {
+                critical: false,
+                fumble: false,
+                outcome: null,
+                targets: [
+                  { combatId: 'c1', combatantId: 'g1', outcome: 'hit' },
+                  { combatId: 'c1', combatantId: 'g3', outcome: 'hit' },
+                  { combatId: 'c1', combatantId: 'g2', outcome: 'miss' },
+                ],
+              },
+              // As the player's own view of the combat names them: g3 is hidden from players.
+              targetNames: { g1: 'Goblin', g2: 'Hobgoblin' },
+              damage: undefined,
+            },
+          ],
+        ])}
+      />,
+    )
+    await user.click(button())
+
+    expect(within(rolls()).getByRole('status')).toHaveTextContent(
+      'At the table: 19 · Hit 2 of 3: Goblin and 1 more',
+    )
+    // No list of targets: the line says whom.
+    expect(within(rolls()).queryByRole('list', { name: 'Targets' })).toBeNull()
   })
 
   it('R5 invites a roll where there are none', async () => {

@@ -14,6 +14,12 @@ const cog = () => screen.getByRole('button', { name: 'Settings' })
 /** The settings, open. */
 const settings = () => screen.getByRole('dialog', { name: 'Settings' })
 
+/** The switch for entering dice results by hand, among the settings. */
+const manualSwitch = () =>
+  within(settings()).getByRole('switch', {
+    name: 'Enter dice results manually',
+  })
+
 /** The choice of how rolls show, among the settings. */
 const results = () =>
   within(settings()).getByRole('radiogroup', { name: 'Roll results' })
@@ -157,6 +163,78 @@ describe('components/character-sheet/sheet-settings', () => {
     expect(settings()).toBeInTheDocument()
     await user.click(cog())
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  describe('entering dice results manually, from module 0.26.0', () => {
+    const HINT = 'Type in what your own dice show, instead of rolling here.'
+
+    it('M2 shows only where the game lets players, off and disabled, marked Coming soon, with its hint', async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <SheetSettings toasts={{ on: true, onChange: jest.fn() }} />,
+      )
+      await user.click(cog())
+      expect(
+        within(settings()).queryByRole('switch', {
+          name: 'Enter dice results manually',
+        }),
+      ).toBeNull()
+      expect(within(settings()).queryByText('Coming soon')).toBeNull()
+
+      rerender(
+        <SheetSettings toasts={{ on: true, onChange: jest.fn() }} manualDice />,
+      )
+      expect(manualSwitch()).not.toBeChecked()
+      expect(manualSwitch()).toBeDisabled()
+      expect(manualSwitch()).toHaveAccessibleDescription(`Coming soon ${HINT}`)
+      // In the light theme, in the accent's deeper shade: the accent on its tint falls short of
+      // WCAG AA this small.
+      const chip = within(settings()).getByText('Coming soon')
+      expect(chip).toHaveClass(
+        'rounded-full',
+        'text-primary-hover',
+        'dark:text-primary',
+      )
+      expect(chip).not.toHaveClass('text-primary')
+      await user.click(manualSwitch())
+      expect(manualSwitch()).not.toBeChecked()
+      expect(settings()).toBeInTheDocument()
+    })
+
+    it('M3 comes after Send to the table and before Roll results, never taking focus', async () => {
+      const user = userEvent.setup()
+      const { unmount } = render(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          manualDice
+          toasts={{ on: true, onChange: jest.fn() }}
+        />,
+      )
+      await user.click(cog())
+      const send = within(settings()).getByRole('switch', {
+        name: 'Send to the table',
+      })
+      expect(within(settings()).getAllByRole('switch')).toEqual([
+        send,
+        manualSwitch(),
+      ])
+      expect(manualSwitch().compareDocumentPosition(results())).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      await waitFor(() => expect(send).toHaveFocus())
+      unmount()
+
+      // Without Send to the table, the first setting that can change takes it.
+      render(
+        <SheetSettings manualDice toasts={{ on: true, onChange: jest.fn() }} />,
+      )
+      await user.click(cog())
+      await waitFor(() =>
+        expect(
+          within(results()).getByRole('radio', { name: 'Toasts' }),
+        ).toHaveFocus(),
+      )
+    })
   })
 
   describe('roll results', () => {

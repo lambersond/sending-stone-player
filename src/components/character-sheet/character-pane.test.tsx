@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
+import { TableApiContext } from '@/hooks/use-table-api'
 import {
   castingSheet,
   characterSheet,
@@ -23,6 +24,7 @@ import {
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import type { TableSeat } from '@/types/character'
 import type {
   GmRollView,
   RolledDice,
@@ -3631,6 +3633,54 @@ describe('components/character-sheet/character-pane', () => {
       )
     })
 
+    it.each<[string, TableSeat | undefined]>([
+      ["the player's page", undefined],
+      [
+        "the Gamemaster's page for the character",
+        { role: 'gm', api: '/api/campaigns/c1/characters/a1', key: 'gm:c1:a1' },
+      ],
+    ])(
+      'M1 show on %s that entering dice results is coming, off, while the game says players may',
+      async (_, seat) => {
+        const user = userEvent.setup()
+        const pane = (rollFeatures?: RollFeature[]) => (
+          <TableApiContext value={seat}>
+            <CharacterPane
+              characterId='char-1'
+              name='Thorin Oakenshield'
+              sheet={toTableSheet(characterSheet(), GAME)}
+              rollsToTable={['save']}
+              rollFeatures={rollFeatures}
+            />
+          </TableApiContext>
+        )
+        const { rerender } = render(pane(['manualDice']))
+
+        const settings = await openSettings(user)
+        const manual = within(settings).getByRole('switch', {
+          name: 'Enter dice results manually',
+        })
+        expect(manual).toBeDisabled()
+        expect(manual).not.toBeChecked()
+        expect(manual).toHaveAccessibleDescription(
+          'Coming soon Type in what your own dice show, instead of rolling here.',
+        )
+        await user.click(manual)
+        expect(manual).not.toBeChecked()
+
+        // Not where the game doesn't say so, as from a module before 0.26.0.
+        for (const features of [undefined, [], ['modifiers']] as const) {
+          rerender(pane(features && [...features]))
+          expect(
+            within(settings).queryByRole('switch', {
+              name: 'Enter dice results manually',
+            }),
+          ).toBeNull()
+          expect(within(settings).queryByText('Coming soon')).toBeNull()
+        }
+      },
+    )
+
     it.each<[string, number, CharacterSheet, string[]]>([
       ['a phone', 390, fullerSheet(), []],
       ['a tablet', 800, fullerSheet(), ['List', 'Columns', 'Table']],
@@ -4201,6 +4251,81 @@ describe("components/character-sheet/character-pane, the Gamemaster's rolls as t
     ).toBeInTheDocument()
     // Made before the page opened: it never pops up.
     expect(document.querySelector('[data-roll-toast]')).toBeNull()
+  })
+
+  it("names whom an area attack of theirs hit as the player's own view of the combat names them, counting one hidden from players", () => {
+    const combat: TableCombat = {
+      id: 'c1',
+      name: null,
+      started: true,
+      round: 2,
+      combatants: [
+        {
+          id: 'b1',
+          name: 'Bandit 1',
+          initiative: 15,
+          defeated: false,
+          side: 'other',
+        },
+        {
+          id: 'b2',
+          name: 'Bandit 2',
+          initiative: 12,
+          defeated: false,
+          side: 'other',
+        },
+      ],
+    }
+    const breath: GmRollView = {
+      id: 'req-area',
+      kind: 'attack',
+      label: 'Breath Weapon attack',
+      at: '2026-10-14T12:00:00.000Z',
+      status: 'done',
+      visible: true,
+      total: 15,
+      attack: {
+        critical: false,
+        fumble: false,
+        outcome: null,
+        // "x9" is hidden from players: their view of the combat leaves it out.
+        targets: [
+          { combatId: 'c1', combatantId: 'b2', outcome: 'hit' },
+          { combatId: 'c1', combatantId: 'x9', outcome: 'hit' },
+          { combatId: 'c1', combatantId: 'b1', outcome: 'miss' },
+        ],
+      },
+    }
+    // The same rolls each time, as a view that brings no new ones keeps them.
+    const views = [breath]
+    const sheet = toTableSheet(fullerSheet(), GAME)
+    const { rerender } = render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={sheet}
+        combat={combat}
+        gmRolls={views}
+      />,
+    )
+
+    const banner = screen.getByRole('region', { name: 'Your rolls' })
+    expect(within(banner).getByRole('status')).toHaveTextContent(
+      'At the table: 15 · Hit 2 of 3: Bandit 2 and 1 more',
+    )
+
+    // The combat over, there's no one to name.
+    rerender(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={sheet}
+        gmRolls={views}
+      />,
+    )
+    expect(within(banner).getByRole('status')).toHaveTextContent(
+      /At the table: 15 · Hit 2 of 3$/,
+    )
   })
 
   it('pops one up as a toast once the game has made it, where the player has toasts, marked GM, with nothing to tap', () => {

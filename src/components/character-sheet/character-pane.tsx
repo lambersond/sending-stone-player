@@ -192,8 +192,9 @@ function RollingSheet({
     rolling,
   } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
   // The Gamemaster's rolls as the character (#156) among the player's own, wherever they're shown,
-  // with nothing to roll after them.
-  const fromGm = useGmRolls(gmRolls)
+  // with nothing to roll after them; their area attacks' targets named as this page's own combat
+  // names them, which never holds one hidden from players.
+  const fromGm = useGmRolls(gmRolls, combat)
   const shown = useMemo(
     () => withGmRolls(rolls, table.states, fromGm),
     [rolls, table.states, fromGm],
@@ -595,6 +596,9 @@ function RollingSheet({
                 ? { on: table.sending, onChange: table.setSending }
                 : undefined
             }
+            // While the campaign's game says players may enter their dice's results, from module
+            // 0.26.0, which is coming.
+            manualDice={rollFeatures?.includes('manualDice') === true}
             toasts={{ on: toasting, onChange: setToasting }}
             layouts={
               actionsLayout.offered.length > 1 && sheet.actions.length > 0

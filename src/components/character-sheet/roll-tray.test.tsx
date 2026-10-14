@@ -25,6 +25,10 @@ const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
   ...fields,
 })
 
+/** The latest roll's total in the banner, in its badge. */
+const latestTotal = () =>
+  screen.getByRole('status').querySelector('.size-12') as HTMLElement
+
 const damage = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
   kind: 'damage',
   id: 'd1',
@@ -161,7 +165,7 @@ describe('components/character-sheet/roll-tray', () => {
     expect(within(status).getByText(String(natural + 4))).toHaveClass(color)
   })
 
-  it('shows damage: its total, and each part with its dice and kind', () => {
+  it('shows damage: its total, and each part with its dice and kind, a critical hit’s in gold', () => {
     render(
       <RollTray
         rolls={[
@@ -193,7 +197,29 @@ describe('components/character-sheet/roll-tray', () => {
     expect(status).toHaveTextContent(
       '2d8 (3, 2) +4 Slashing +2d6 (3, 4) Fire · Critical hit',
     )
-    expect(within(status).getByText('16')).toHaveClass('text-damage')
+    // In the gold of a natural 20, as the toast's badge is.
+    expect(within(status).getByText('16')).toHaveClass(
+      'bg-gold',
+      'text-on-gold',
+    )
+    expect(within(status).getByText('16')).not.toHaveClass('text-damage')
+  })
+
+  it('shows damage that isn’t a critical hit’s, and a critical hit’s healing, in their own colours', () => {
+    const { rerender } = render(
+      <RollTray rolls={[damage({ critical: false })]} rolling={false} />,
+    )
+    expect(latestTotal()).toHaveClass('bg-damage/15', 'text-damage')
+    expect(latestTotal()).not.toHaveClass('bg-gold')
+
+    rerender(
+      <RollTray
+        rolls={[damage({ critical: true, healing: true })]}
+        rolling={false}
+      />,
+    )
+    expect(latestTotal()).toHaveClass('bg-primary/10', 'text-primary')
+    expect(latestTotal()).not.toHaveClass('bg-gold')
   })
 
   it('shows healing in the accent', () => {
@@ -3230,8 +3256,18 @@ describe('components/character-sheet/roll-tray, in brief for its toast', () => {
     ],
     ['a save against a DC, failed here', [roll({ dc: 20 }), undefined], 'ruby'],
     ['damage', [damage()], 'damage'],
-    ['a critical hit’s damage', [damage({ critical: true })], 'damage'],
+    ['a critical hit’s damage', [damage({ critical: true })], 'gold'],
+    [
+      'a critical hit’s damage not made at the table',
+      [damage({ critical: true }), { status: 'refused', reason: 'busy' }],
+      'warning',
+    ],
     ['healing', [damage({ healing: true })], 'primary'],
+    [
+      'a critical hit’s healing',
+      [damage({ critical: true, healing: true })],
+      'primary',
+    ],
     ['a hit die', [hitDie()], 'primary'],
     ['a plain check', [roll()], 'primary'],
     [

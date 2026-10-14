@@ -276,6 +276,12 @@ export type GmRollView = Pick<
    */
   d20?: 'critical' | 'fumble'
   /**
+   * For damage, where the game made it and its player may see it: that the game says it's a
+   * critical hit's, as dnd5e marks its rolls, for it to show in a critical's gold, and say so, as
+   * the player's own does.
+   */
+  critical?: true
+  /**
    * For damage, that it's healing, as the game said: of an attack's or a use's, as the game said of
    * what follows it, as the player's own healing is told; else of every roll the game made of it,
    * as the chat tells healing.

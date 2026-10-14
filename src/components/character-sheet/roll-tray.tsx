@@ -576,8 +576,8 @@ function outcomeOf(
   const { attack } = state
   if (!attack) return undefined
   // An area attack at more than one: how many it hit, of those the game says of.
-  const told = (attack.targets ?? []).filter(({ outcome }) => outcome !== null)
-  if (attack.targets && attack.targets.length > 1 && told.length > 0) {
+  const told = areaTold(state)
+  if (told) {
     const hits = told.filter(({ outcome }) => outcome === 'hit').length
     const hit = `Hit ${hits} of ${told.length}`
     return attack.critical ? `Critical hit · ${hit}` : hit
@@ -585,6 +585,47 @@ function outcomeOf(
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
   if (attack.outcome === 'miss') return 'Miss'
   return attack.critical ? 'Critical hit' : undefined
+}
+
+/**
+ * Of an area attack at more than one, the targets the game says it hit or missed, in the order they
+ * were picked; none of any other roll, or one the game says nothing of.
+ */
+function areaTold(state: TableRollState) {
+  const targets = state.attack?.targets ?? []
+  const told = targets.filter(({ outcome }) => outcome !== null)
+  return targets.length > 1 && told.length > 0 ? told : undefined
+}
+
+/**
+ * What came at the table of one of the Gamemaster's rolls as the character (#156), as `outcomeOf`
+ * says; for damage the game says is a critical hit's, that it is, as the player's own says it, so
+ * that it's told in words, not by its gold alone; for an area attack, which shows no list of its
+ * targets, with whom it hit, in the order they were picked, by the names the player's own view of
+ * the combat gives them (`targetNames`), and those it can't name counted after them, as one hidden
+ * from players: "Hit 2 of 3: Bandit 1 and 1 more". Where it can name none, no more than
+ * `outcomeOf` says.
+ */
+function gmOutcomeOf(
+  roll: LocalGmRoll,
+  state: TableRollState,
+): string | undefined {
+  const said = outcomeOf(state)
+  // Said wherever it's gold, and only there: never of healing.
+  if (
+    gmShape(roll) === 'damage' &&
+    damageBadge(roll.healing, state.critical) === 'critical'
+  ) {
+    return said ? `${said} · Critical hit` : 'Critical hit'
+  }
+  const hit = (areaTold(state) ?? []).filter(({ outcome }) => outcome === 'hit')
+  const names = hit.flatMap(({ combatantId }) => {
+    const name = state.targetNames?.[combatantId]
+    return name ? [name] : []
+  })
+  if (!said || names.length === 0) return said
+  const more = hit.length - names.length
+  return `${said}: ${names.join(', ')}${more > 0 ? ` and ${more} more` : ''}`
 }
 
 /**
@@ -976,9 +1017,10 @@ function CheckResult({
 }
 
 /**
- * Damage or healing: the total, and each part of it with its dice and kind. Damage the game rolls
- * itself, which throws no dice here, shows the game's total; so does a critical hit's whose dice
- * the game's rules change as only it can add them up, once it says.
+ * Damage or healing: the total, and each part of it with its dice and kind, a critical hit's in
+ * the gold of a natural 20. Damage the game rolls itself, which throws no dice here, shows the
+ * game's total; so does a critical hit's whose dice the game's rules change as only it can add
+ * them up, once it says.
  */
 function DamageResult({
   roll,
@@ -993,9 +1035,7 @@ function DamageResult({
       <span
         className={clsx(
           'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
-          roll.healing
-            ? 'bg-primary/10 text-primary'
-            : 'bg-damage/15 text-damage',
+          BADGES[damageBadge(roll.healing, roll.critical)],
         )}
       >
         {total}
@@ -1292,12 +1332,16 @@ export const GM_WORDS = 'Rolled by your Gamemaster'
 /** The same, after what the roll is called, or what it came to. */
 const GM_WORDS_AFTER = 'rolled by your Gamemaster'
 
-/** The mark of a roll of the Gamemaster's, as the chat marks a message made for one. */
+/**
+ * The mark of a roll of the Gamemaster's, as the chat marks a message made for one: in the light
+ * theme, in the accent's deeper shade, as the accent on its own tint falls short of WCAG AA this
+ * small.
+ */
 export function GmPill() {
   return (
     <span
       title={GM_WORDS}
-      className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary'
+      className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-hover dark:text-primary'
     >
       GM<span className='sr-only'>, {GM_WORDS_AFTER}</span>
     </span>
@@ -1357,7 +1401,7 @@ function gmLine(
       }
       if (shape === 'ask') return { tone, text: 'Posted to the table’s chat' }
       if (!state.visible) return { tone, text: seatWords(role).hidden }
-      const outcome = outcomeOf(state)
+      const outcome = gmOutcomeOf(roll, state)
       const total = `At the table: ${state.total ?? '?'}`
       return { tone, text: outcome ? `${total} · ${outcome}` : total }
     }
@@ -1391,10 +1435,34 @@ function gmBadge(
     return { badge: 'dice' }
   }
   let badge: RollBrief['badge'] = 'plain'
-  if (shape === 'damage') badge = roll.healing ? 'healing' : 'damage'
-  if (state.d20 === 'critical' || state.attack?.critical) badge = 'critical'
-  else if (state.d20 === 'fumble') badge = 'fumble'
+  if (shape === 'damage') badge = damageBadge(roll.healing, state.critical)
+  else if (state.d20 === 'critical' || state.attack?.critical) {
+    badge = 'critical'
+  } else if (state.d20 === 'fumble') badge = 'fumble'
   return { badge, total: state.total }
+}
+
+/**
+ * How damage's total shows, the player's own or the Gamemaster's as the character (#156): healing
+ * as healing, whatever made it; a critical hit's in the gold of a natural 20; any other in the
+ * damage colour.
+ */
+function damageBadge(
+  healing: boolean | undefined,
+  critical: boolean | undefined,
+): 'healing' | 'critical' | 'damage' {
+  if (healing) return 'healing'
+  return critical ? 'critical' : 'damage'
+}
+
+/** The colour damage's toast takes, as its total shows (`damageBadge`). */
+const DAMAGE_ACCENTS: Record<
+  ReturnType<typeof damageBadge>,
+  RollBrief['accent']
+> = {
+  healing: 'primary',
+  critical: 'gold',
+  damage: 'damage',
 }
 
 /** Each kind of total's colours, in the tray and the toasts alike. */
@@ -1436,7 +1504,7 @@ function GmResult({
     state?.status === 'done' &&
     state.visible &&
     ['check', 'damage'].includes(shape)
-  const outcome = told ? outcomeOf(state) : undefined
+  const outcome = told ? gmOutcomeOf(roll, state) : undefined
   let icon = <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
   if (line?.tone === 'pending') {
     icon = (
@@ -1658,7 +1726,7 @@ export function briefOf(
     case 'damage': {
       return {
         ...brief,
-        badge: roll.healing ? 'healing' : 'damage',
+        badge: damageBadge(roll.healing, roll.critical),
         total: shownTotal(roll, state),
         dice: [
           breakdown(roll, state),
@@ -1689,9 +1757,9 @@ export function briefOf(
 
 /**
  * The colour a roll's toast takes, the first that fits: the warning's for one not made at the
- * table; gold for a natural 20 or a critical hit; ruby for a natural 1, a miss, or a saving throw
- * or check that failed; the damage colour for damage; and the accent for healing, and anything
- * else, as the tray colours them.
+ * table; gold for a natural 20, a critical hit, or a critical hit's damage; ruby for a natural 1, a
+ * miss, or a saving throw or check that failed; the damage colour for other damage; and the accent
+ * for healing, and anything else, as the tray colours them.
  */
 function accentOf(
   roll: LocalRoll,
@@ -1699,7 +1767,9 @@ function accentOf(
   table: RollBrief['table'],
 ): RollBrief['accent'] {
   if (table?.tone === 'not') return 'warning'
-  if (roll.kind === 'damage') return roll.healing ? 'primary' : 'damage'
+  if (roll.kind === 'damage') {
+    return DAMAGE_ACCENTS[damageBadge(roll.healing, roll.critical)]
+  }
   // What the game made of it, where the player may see it.
   const seen = state?.status === 'done' && state.visible ? state : undefined
   if (roll.kind === 'gm') return gmAccent(roll, seen)
@@ -1713,8 +1783,9 @@ function accentOf(
 
 /**
  * The colour a roll of the Gamemaster's as the character takes (#156), as one of the player's own
- * of its kind, by what the game made of it where the player may see it: gold for a critical,
- * ruby for a fumble, a miss or a save that failed, the damage colour for damage, never healing.
+ * of its kind, by what the game made of it where the player may see it: gold for a critical, or a
+ * critical hit's damage; ruby for a fumble, a miss or a save that failed; the damage colour for
+ * other damage, never healing.
  */
 function gmAccent(
   roll: LocalGmRoll,
@@ -1722,11 +1793,14 @@ function gmAccent(
 ): RollBrief['accent'] {
   const shape = gmShape(roll)
   if (!seen || shape === 'use' || shape === 'ask') return 'primary'
+  if (shape === 'damage') {
+    return DAMAGE_ACCENTS[damageBadge(roll.healing, seen.critical)]
+  }
   if (seen.d20 === 'critical' || seen.attack?.critical) return 'gold'
   if (seen.d20 === 'fumble' || missed(seen) || savedAt(seen) === false) {
     return 'ruby'
   }
-  return shape === 'damage' && !roll.healing ? 'damage' : 'primary'
+  return 'primary'
 }
 
 /**

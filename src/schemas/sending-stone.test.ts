@@ -364,6 +364,40 @@ describe('schemas/sending-stone', () => {
     )
   })
 
+  it('reads whether players may enter their own dice results, and whether each character does, from module 0.26.0, as false where it can’t', () => {
+    const rolls = { enabled: true, kinds: ['skill'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, manualDice: true } }).features.rolls,
+    ).toEqual({ ...rolls, manualDice: true })
+    for (const junk of ['yes', 1, null, { on: true }]) {
+      expect(
+        helloWith({ rolls: { ...rolls, manualDice: junk } }).features.rolls,
+      ).toEqual({ ...rolls, manualDice: false })
+    }
+    // A module before 0.26.0 says nothing of it.
+    expect(helloWith({ rolls }).features.rolls).not.toHaveProperty('manualDice')
+
+    const [thorin, vex] = roster
+    const characters = (
+      parseGameEvent('bridge.hello', {
+        characters: [
+          { ...thorin, sheet: null, manualDice: false },
+          { ...vex, sheet: null, manualDice: true },
+          { id: 'actor-bilbo', name: 'Bilbo', sheet: null, manualDice: 'no' },
+          { id: 'actor-balin', name: 'Balin', sheet: null },
+        ],
+        combats: [],
+      })?.data as any
+    ).characters
+    expect(characters.map(({ manualDice }: any) => manualDice)).toEqual([
+      false,
+      true,
+      false,
+      undefined,
+    ])
+    expect(characters[3]).not.toHaveProperty('manualDice')
+  })
+
   it('reads the saves the game asks for, in its hello and as they open and close, from module 0.13.0', () => {
     const prompt = {
       id: 'msg1-thorin',

@@ -938,7 +938,8 @@ const D20_KINDS: ReadonlySet<string> = new Set([
  * the game hid it, but none of its dice, and never the damage that follows an attack or a use,
  * which the Gamemaster rolls. A roll of a d20 the game made where its player may see it also says
  * whether the game called its first roll a critical or a fumble; and damage, whether it's healing,
- * as the game said of the attack or use it follows, or else of every roll it made of it.
+ * as the game said of the attack or use it follows, or else of every roll it made of it, and
+ * whether the game called it a critical hit's, where its player may see it.
  * @param request - Held with its label: text the Gamemaster's page sent, shown as no more.
  * @param heals - For damage, whether the game said healing follows the attack or use it follows.
  */
@@ -953,9 +954,10 @@ export function toGmRollView(
   let d20: GmRollView['d20']
   if (D20_KINDS.has(kind) && first?.critical) d20 = 'critical'
   else if (D20_KINDS.has(kind) && first?.fumble) d20 = 'fumble'
-  const healing =
-    (kind === 'damage' || kind === 'textDamage') &&
-    (heals || healingRolls(view.rolls ?? []))
+  const damage = kind === 'damage' || kind === 'textDamage'
+  const healing = damage && (heals || healingRolls(view.rolls ?? []))
+  const critical =
+    damage && !!view.visible && !!view.rolls?.some(roll => roll.critical)
   return {
     id: view.id,
     kind,
@@ -971,6 +973,7 @@ export function toGmRollView(
     ...(view.spent && { spent: view.spent }),
     ...(view.enchantment && { enchantment: view.enchantment }),
     ...(d20 && { d20 }),
+    ...(critical && { critical }),
     ...(healing && { healing }),
   }
 }

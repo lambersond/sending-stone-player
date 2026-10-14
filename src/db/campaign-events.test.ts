@@ -435,6 +435,79 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it('bridge.hello keeps whether players may enter their own dice results, from module 0.26.0, and whether each character does, in its roster', async () => {
+    const rolls = { enabled: true, kinds: ['skill'], reason: null }
+    for (const [manualDice, rollFeatures] of [
+      [true, ['manualDice']],
+      [false, []],
+      ['yes', []],
+      [undefined, []],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: [
+            { ...roster[0], manualDice: false },
+            { ...roster[1], manualDice: 'on' },
+            { id: 'actor-balin', name: 'Balin' },
+          ],
+          combats: [],
+          features: { rolls: { ...rolls, manualDice } },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            rollFeatures,
+            // As said; false where it can't be read; left out by an older module.
+            characters: [
+              { ...roster[0], manualDice: false },
+              { ...roster[1], manualDice: false },
+              { id: 'actor-balin', name: 'Balin' },
+            ],
+          }),
+        }),
+      )
+    }
+  })
+
+  it("character.updated keeps what the hello said of whether the character enters its own dice results, where it doesn't say, from module 0.26.0", async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      characters: [{ ...roster[0], manualDice: true }, roster[1]],
+    } as any)
+
+    await apply({
+      type: 'character.updated',
+      data: { character: { ...roster[0], sheet: null } },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: [{ ...roster[0], manualDice: true }, roster[1]] },
+    })
+
+    // One that says, says.
+    prismaMock.campaign.update.mockClear()
+    await apply({
+      type: 'character.updated',
+      data: { character: { ...roster[0], sheet: null, manualDice: false } },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: [{ ...roster[0], manualDice: false }, roster[1]] },
+    })
+
+    // Nothing said of a character the hello said nothing of.
+    prismaMock.campaign.update.mockClear()
+    await apply({
+      type: 'character.updated',
+      data: { character: { ...roster[1], sheet: null } },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: [{ ...roster[0], manualDice: true }, roster[1]] },
+    })
+  })
+
   it("bridge.hello keeps whether the game spends several hit dice at once, from module 0.20.0, in the module's order", async () => {
     await apply({
       type: 'bridge.hello',

@@ -183,8 +183,16 @@ function Toast({
             {brief.dice}
           </p>
         )}
+        {/* Kept to two lines, but for the Gamemaster's: the line names whom an area attack of
+            theirs hit, with no list of its targets after it, so it's said whole, however many. */}
         {brief.table && (
-          <p className={clsx('line-clamp-2 text-sm', TONES[brief.table.tone])}>
+          <p
+            className={clsx(
+              'text-sm',
+              !brief.gm && 'line-clamp-2',
+              TONES[brief.table.tone],
+            )}
+          >
             {brief.table.text}
           </p>
         )}
