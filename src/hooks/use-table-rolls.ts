@@ -294,7 +294,7 @@ export function useTableRolls(
           ...(roll.targetNames && { targetNames: roll.targetNames }),
           ...(roll.itemCast && { itemCast: true }),
         }
-      } else if (source.kind === 'save' && source.prompt) {
+      } else if ('prompt' in source && source.prompt) {
         kept = { prompt: source.prompt }
       }
       start(check.id, toRollRequest(roll, source, check), kept, roll.label)
@@ -849,7 +849,9 @@ export function toRollRequest(
     kind: source.kind,
     ...('key' in source && { key: source.key }),
     ...('combatId' in source && { combatId: source.combatId }),
-    ...(source.kind === 'save' && source.prompt && { prompt: source.prompt }),
+    // What the game asked for that it answers: a saving throw, or an ability or skill check
+    // Midi-QOL asked for.
+    ...('prompt' in source && source.prompt && { prompt: source.prompt }),
     // A saving throw or check a description calls for, which the game makes against the DC it
     // names.
     ...('text' in source &&

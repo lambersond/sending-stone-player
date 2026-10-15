@@ -388,8 +388,13 @@ export function useSheetRoller(
         // Against its DC, which the game may know where the description keeps it from the player.
         if (CHECKS.has(source.kind)) check.verdict = 'check'
       }
-      // A check an activity asks for is passed or failed against its DC, as the game says.
-      if (source && 'activity' in source && CHECKS.has(source.kind)) {
+      // A check an activity asks for is passed or failed against its DC, as the game says, as is
+      // one Midi-QOL asks for.
+      if (
+        source &&
+        ('activity' in source || 'prompt' in source) &&
+        CHECKS.has(source.kind)
+      ) {
         check.verdict = 'check'
       }
       onThrown?.(request, check)

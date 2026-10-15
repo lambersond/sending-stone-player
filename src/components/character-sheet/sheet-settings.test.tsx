@@ -187,14 +187,10 @@ describe('components/character-sheet/sheet-settings', () => {
       expect(manualSwitch()).not.toBeChecked()
       expect(manualSwitch()).toBeDisabled()
       expect(manualSwitch()).toHaveAccessibleDescription(`Coming soon ${HINT}`)
-      // In the light theme, in the accent's deeper shade: the accent on its tint falls short of
-      // WCAG AA this small.
+      // In the accent as small text, its deeper shade in the light theme: the accent on its tint
+      // falls short of WCAG AA this small.
       const chip = within(settings()).getByText('Coming soon')
-      expect(chip).toHaveClass(
-        'rounded-full',
-        'text-primary-hover',
-        'dark:text-primary',
-      )
+      expect(chip).toHaveClass('rounded-full', 'text-primary-text')
       expect(chip).not.toHaveClass('text-primary')
       await user.click(manualSwitch())
       expect(manualSwitch()).not.toBeChecked()
@@ -272,6 +268,13 @@ describe('components/character-sheet/sheet-settings', () => {
       expect(onChange).toHaveBeenLastCalledWith(true)
       // A segmented control, as the Actions tab's layouts are picked.
       expect(results()).toHaveClass('flex', 'rounded-lg', 'border')
+      // The one chosen, small on the accent's tint, in the accent deep enough to read there.
+      expect(
+        within(results()).getByRole('radio', { name: 'Banner' }),
+      ).toHaveClass('bg-primary/10', 'text-primary-text')
+      expect(
+        within(results()).getByRole('radio', { name: 'Toasts' }),
+      ).not.toHaveClass('text-primary-text')
     })
 
     it('S2 comes after Send to the table and before the theme, captioned Roll results', async () => {

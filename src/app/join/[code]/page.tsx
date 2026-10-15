@@ -29,7 +29,7 @@ export default async function JoinPage({ params }: PageProps<'/join/[code]'>) {
         </p>
         <Link
           href='/characters'
-          className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10'
+          className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary-text transition-colors hover:bg-primary/10'
         >
           Your characters
         </Link>
@@ -59,7 +59,7 @@ export default async function JoinPage({ params }: PageProps<'/join/[code]'>) {
               {index > 0 && ', '}
               <Link
                 href={`/characters/${characterId}`}
-                className='font-semibold text-primary hover:underline'
+                className='font-semibold text-primary-text hover:underline'
               >
                 {name}
               </Link>

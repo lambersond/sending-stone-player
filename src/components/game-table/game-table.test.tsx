@@ -369,6 +369,37 @@ describe('components/game-table/game-table', () => {
     )
   })
 
+  it('marks the character tab for no notice of how what Midi-QOL asked closed, nor for one whose time is up (module 0.27.0)', async () => {
+    const user = userEvent.setup()
+    const midi = {
+      type: 'save' as const,
+      abilities: ['wis'],
+      source: 'midi' as const,
+    }
+    renderTable(
+      view({
+        prompts: [
+          {
+            ...midi,
+            id: 'k1-thorin',
+            expiresAt: new Date(Date.now() + 30_000).toISOString(),
+            closed: 'rolled',
+          },
+          {
+            ...midi,
+            id: 'k2-thorin',
+            expiresAt: new Date(Date.now() - 5000).toISOString(),
+          },
+        ],
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Combat' }))
+    expect(
+      screen.getByRole('button', { name: 'Character' }),
+    ).toBeInTheDocument()
+  })
+
   it("marks nothing while the character isn't one of the campaign's", async () => {
     const user = userEvent.setup()
     renderTable(

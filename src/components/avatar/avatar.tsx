@@ -29,7 +29,7 @@ export function Avatar({ name, image, className }: Readonly<Props>) {
       aria-hidden
       className={clsx(
         classes,
-        'inline-flex items-center justify-center font-semibold text-primary',
+        'inline-flex items-center justify-center font-semibold text-primary-text',
       )}
     >
       {initial(name)}

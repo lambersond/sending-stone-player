@@ -16,7 +16,7 @@ export default function NotFound() {
       </h1>
       <Link
         href='/campaigns'
-        className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10'
+        className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary-text transition-colors hover:bg-primary/10'
       >
         Your campaigns
       </Link>

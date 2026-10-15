@@ -295,7 +295,7 @@ describe('components/game-table/chat-log', () => {
     expect(screen.queryByText('Roll')).toBeNull()
     expect(screen.getAllByText('Goblin Boss')).toHaveLength(1)
     expect(screen.getByText('AC 15')).toBeInTheDocument()
-    expect(screen.getByText('Hit')).toHaveClass('text-primary')
+    expect(screen.getByText('Hit')).toHaveClass('text-primary-text')
     expect(screen.getByText('Miss')).toBeInTheDocument()
     expect(screen.getByText('Smaug').parentElement).toHaveTextContent(/^Smaug$/)
   })

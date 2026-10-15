@@ -3612,6 +3612,48 @@ describe('utils/roll-requests', () => {
       expect(answered(null)).not.toHaveProperty('outcome')
     })
 
+    it('shows an answer to what Midi-QOL asked that made no card, as its dice are the player’s own (module 0.27.0)', () => {
+      const view = toRollRequestView(
+        held({
+          kind: 'skill',
+          status: 'done',
+          result: {
+            id: 'req-1',
+            status: 'done',
+            reason: null,
+            error: null,
+            messageId: null,
+            visible: true,
+            rolls: [
+              {
+                formula: '2d20kh + 7',
+                total: 24,
+                dice: [
+                  {
+                    faces: 20,
+                    results: [
+                      { result: 17, active: true },
+                      { result: 4, active: false },
+                    ],
+                  },
+                ],
+              },
+            ],
+            outcome: 'success',
+          },
+        }),
+        NOW,
+      )
+      expect(view).toMatchObject({
+        status: 'done',
+        visible: true,
+        total: 24,
+        outcome: 'success',
+      })
+      expect(view.rolls).toHaveLength(1)
+      expect(view).not.toHaveProperty('card')
+    })
+
     it('shows the hit points a hit die gave back in the game, where the game shows its player', () => {
       expect(spent(true, 9)).toMatchObject({ total: 9, healed: 9 })
       // Spent at full hit points, it gives back none.

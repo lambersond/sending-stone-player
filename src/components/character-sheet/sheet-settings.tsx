@@ -205,7 +205,7 @@ function SwitchSetting({
             this small. */}
         {soon && (
           <>
-            <span className='mr-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-hover dark:text-primary'>
+            <span className='mr-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-text'>
               Coming soon
             </span>{' '}
           </>
@@ -260,7 +260,7 @@ function ResultsSetting({
             className={clsx(
               'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
               on === toasts
-                ? 'bg-primary/10 text-primary'
+                ? 'bg-primary/10 text-primary-text'
                 : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
             )}
           >

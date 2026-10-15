@@ -150,9 +150,39 @@ export const ROLL_FEATURES = [
 
 /**
  * A saving throw the game asks for, as the module names it: its chat card's id and its
- * character's, joined by "-".
+ * character's, joined by "-"; or for one Midi-QOL asks, from module 0.27.0, a key of the module's
+ * own in place of the card's.
  */
 export const PROMPT_ID = /^[A-Za-z0-9]{1,64}-[A-Za-z0-9]{1,64}$/
+
+/**
+ * The format of what Midi-QOL asks of a character that this app reads, as it tells the module
+ * (`midiPrompts`): from module 0.27.0, its saves, ability and skill checks, concentration checks
+ * and turn saves, which the module asks here while the character is open in the app.
+ */
+export const MIDI_PROMPTS = 1
+
+/**
+ * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a
+ * save or check in one of its workflows, a concentration check, or a save or check an effect
+ * calls for at the start or end of a turn. What a chat card asks says none.
+ */
+export const PROMPT_SOURCES = ['midi', 'concentration', 'overtime'] as const
+
+/**
+ * The longest Midi-QOL waits for a player's answer, from when the module asks, in milliseconds:
+ * then it rolls as the Gamemaster has it set up. A prompt that says it waits longer is held as
+ * waiting this long, from when it came.
+ */
+export const MIDI_PROMPT_WAIT = 60_000
+
+/**
+ * How long a prompt Midi-QOL asks is still shown once its time is up, while the module says what
+ * became of it, in milliseconds; and how long a notice of how it closed shows, where it was rolled
+ * in Foundry or left to Midi-QOL.
+ */
+export const MIDI_PROMPT_GRACE = 15_000
+export const PROMPT_NOTICE_FOR = 6000
 
 /**
  * How long after an attack or a use is made its damage may be rolled at the table, in
@@ -200,6 +230,15 @@ export const PLAYERS_PRESENT_FOR = 120_000
 
 /** How often a player's table marks them present, at most. */
 export const PLAYERS_SEEN_EVERY = 30_000
+
+/**
+ * How recently a player's page must have asked for their character's table for the character to
+ * be open in the app, as the module is told with each fetch (module 0.27.0); how often each page
+ * notes it, at most; and the most characters a campaign has open at once that it's told of.
+ */
+export const OPEN_WITHIN = 15_000
+export const TABLE_SEEN_EVERY = 5000
+export const MOST_OPEN = 200
 
 /** How recently the module must have fetched players' rolls for one to reach the game. */
 export const BRIDGE_POLLED_WITHIN = 45_000

@@ -689,7 +689,7 @@ function Chip({
       className={clsx(
         'max-w-full rounded-lg border px-2.5 py-1 text-sm font-semibold tabular-nums transition-colors disabled:opacity-40',
         selected
-          ? 'border-primary bg-primary/10 text-primary'
+          ? 'border-primary bg-primary/10 text-primary-text'
           : 'border-border hover:bg-primary/5',
       )}
     >
@@ -760,7 +760,7 @@ function ProfileChoice({
             className={clsx(
               'flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 py-1.5 text-left text-sm font-semibold transition-colors',
               id === chosen
-                ? 'border-primary bg-primary/10 text-primary'
+                ? 'border-primary bg-primary/10 text-primary-text'
                 : 'border-border hover:bg-primary/5',
             )}
           >

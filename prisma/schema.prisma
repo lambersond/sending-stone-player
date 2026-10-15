@@ -125,6 +125,10 @@ model Character {
   // When its player last had the chat in view, or another device of theirs did: messages sent
   // after it are unread.
   chatReadAt    DateTime?
+  // When its player's page last asked for its table, at most every few seconds: within the last
+  // few, the character is open in the app, and the Gamemaster's module waits for its answers to
+  // what Midi-QOL asks of it (module 0.27.0). Never the Gamemaster's page's.
+  tableSeenAt   DateTime?
   userId        String
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime      @default(now())

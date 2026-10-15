@@ -427,7 +427,7 @@ function CheckEntry({
       >
         <span
           aria-hidden
-          className='flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-primary/10 text-[11px] font-semibold tracking-wider text-primary uppercase'
+          className='flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-primary/10 text-[11px] font-semibold tracking-wider text-primary-text uppercase'
         >
           {ability?.abbreviation ?? <Dices className='size-4' />}
         </span>

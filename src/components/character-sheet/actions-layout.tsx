@@ -70,7 +70,7 @@ export function LayoutPicker({
           className={clsx(
             'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
             layout === id
-              ? 'bg-primary/10 text-primary'
+              ? 'bg-primary/10 text-primary-text'
               : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
           )}
         >

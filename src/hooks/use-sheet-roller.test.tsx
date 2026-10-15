@@ -281,7 +281,8 @@ describe('hooks/use-sheet-roller', () => {
     expect(dice.values).toHaveLength(2)
     expect(less.values).toHaveLength(2)
     expect(less.value).toBe(-(less.values[0] + less.values[1]))
-    expect(roll.total).toBe(dice.value + 3 + less.value)
+    // Each kind of damage is at least 0, as dnd5e's card adds it up: low dice can take it below.
+    expect(roll.total).toBe(Math.max(0, dice.value + 3 + less.value))
     expect(roll.critical).toBe(true)
   })
 

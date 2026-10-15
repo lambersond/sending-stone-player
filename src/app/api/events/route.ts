@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   MAX_ENVELOPE_BYTES,
+  MIDI_PROMPTS,
   PROTOCOL_VERSION,
   EVENTS,
   REFUSAL,
@@ -178,6 +179,7 @@ export async function POST(request: Request) {
         envelope.campaign,
         event,
         envelope.session,
+        envelope.time,
       )
     } else {
       // A heartbeat, or an event this app does not use yet, still says the game is connected.
@@ -211,12 +213,14 @@ export async function POST(request: Request) {
 
 /**
  * What this app does beyond taking events, as told to the module: it has commands to fetch, it
- * expands slim sheets up to this format, and it takes posts of up to this many bytes.
+ * expands slim sheets up to this format, it takes posts of up to this many bytes, and it reads
+ * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0).
  */
 const FEATURES = {
   commands: true,
   slimSheets: SLIM_SHEETS,
   maxBytes: MAX_ENVELOPE_BYTES,
+  midiPrompts: MIDI_PROMPTS,
 }
 
 /**

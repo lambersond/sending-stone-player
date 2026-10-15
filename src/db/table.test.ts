@@ -375,15 +375,31 @@ describe('db/table', () => {
 
       const view = await getTableView(character)
 
+      // With those Midi-QOL asks whose time ran out in the last fifteen seconds, and those that
+      // closed in the last six, as rolled in Foundry or by Midi-QOL (module 0.27.0).
       expect(prismaMock.rollPrompt.findMany).toHaveBeenCalledWith({
         where: {
           campaignId: 'c1',
           actorId: 'actor-thorin',
-          closedAt: null,
-          expiresAt: { gt: new Date('2026-10-08T12:05:00Z') },
+          OR: [
+            {
+              closedAt: null,
+              expiresAt: { gt: new Date('2026-10-08T12:04:45Z') },
+            },
+            {
+              closedAt: { gt: new Date('2026-10-08T12:04:54Z') },
+              closedReason: { in: ['rolled', 'expired'] },
+            },
+          ],
         },
         orderBy: { openedAt: 'asc' },
-        select: { promptId: true, data: true, expiresAt: true },
+        select: {
+          promptId: true,
+          data: true,
+          expiresAt: true,
+          closedAt: true,
+          closedReason: true,
+        },
       })
       expect(view.prompts).toEqual([
         {
@@ -412,6 +428,117 @@ describe('db/table', () => {
         prompts: [],
       })
       expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
+      jest.useRealTimers()
+    })
+
+    it('shows what Midi-QOL asks a while after its time runs out, and says a moment how it closed, but only of its own', async () => {
+      jest.useFakeTimers({ now: Date.parse('2026-10-08T12:05:00Z') })
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...campaign,
+        rollsEnabled: true,
+        rollKinds: ['save', 'skill'],
+        rollFeatures: ['prompts'],
+        bridgePolledAt: new Date(Date.now() - 5000),
+      } as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([])
+      prismaMock.combat.findMany.mockResolvedValue([])
+      const midi = {
+        type: 'skill',
+        abilities: [],
+        skills: ['ath', 'acr'],
+        dc: 12,
+        label: 'Web',
+        messageId: 'k1',
+        source: 'overtime',
+        advantage: { ath: 'adv' },
+        askedInFoundry: true,
+      }
+      const card = {
+        type: 'save',
+        abilities: ['dex'],
+        dc: 15,
+        label: null,
+        messageId: 'msg2',
+      }
+      const at = (iso: string) => new Date(`2026-10-08T${iso}Z`)
+      prismaMock.rollPrompt.findMany.mockResolvedValue([
+        // Midi-QOL's, its time up ten seconds ago, which the game hasn't closed yet.
+        {
+          promptId: 'k1-thorin',
+          data: midi,
+          expiresAt: at('12:04:50'),
+          closedAt: null,
+          closedReason: null,
+        },
+        // A card's, its time up as long ago: the game no longer waits for it.
+        {
+          promptId: 'msg2-thorin',
+          data: card,
+          expiresAt: at('12:04:50'),
+          closedAt: null,
+          closedReason: null,
+        },
+        // Midi-QOL's, rolled in Foundry three seconds ago, and left to it five seconds ago.
+        {
+          promptId: 'k2-thorin',
+          data: { ...midi, askedInFoundry: false },
+          expiresAt: at('12:05:30'),
+          closedAt: at('12:04:57'),
+          closedReason: 'rolled',
+        },
+        {
+          promptId: 'k3-thorin',
+          data: {
+            ...midi,
+            type: 'save',
+            abilities: ['wis'],
+            skills: undefined,
+          },
+          expiresAt: at('12:04:55'),
+          closedAt: at('12:04:55'),
+          closedReason: 'expired',
+        },
+        // Closed too long ago, or a card's, which closes quietly.
+        {
+          promptId: 'k4-thorin',
+          data: midi,
+          expiresAt: at('12:04:53'),
+          closedAt: at('12:04:53'),
+          closedReason: 'rolled',
+        },
+        {
+          promptId: 'msg5-thorin',
+          data: card,
+          expiresAt: at('12:15:00'),
+          closedAt: at('12:04:59'),
+          closedReason: 'rolled',
+        },
+      ] as any)
+
+      const view = await getTableView(character)
+
+      expect(view.prompts).toEqual([
+        {
+          id: 'k1-thorin',
+          type: 'skill',
+          abilities: [],
+          skills: ['ath', 'acr'],
+          dc: 12,
+          label: 'Web',
+          expiresAt: '2026-10-08T12:04:50.000Z',
+          source: 'overtime',
+          advantage: { ath: 'adv' },
+          askedInFoundry: true,
+        },
+        expect.objectContaining({ id: 'k2-thorin', closed: 'rolled' }),
+        expect.objectContaining({
+          id: 'k3-thorin',
+          type: 'save',
+          abilities: ['wis'],
+          closed: 'expired',
+        }),
+      ])
+      expect(view.prompts?.[1]).not.toHaveProperty('askedInFoundry')
       jest.useRealTimers()
     })
 

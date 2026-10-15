@@ -2235,6 +2235,44 @@ describe('hooks/use-table-rolls', () => {
     })
   })
 
+  describe('what Midi-QOL asked for, from module 0.27.0', () => {
+    it.each([
+      ['skill', 'ath', 'adv', 1, [4, 17]],
+      ['ability', 'str', undefined, 0, [9]],
+      ['save', 'wis', 'dis', -1, [15, 2]],
+    ] as const)(
+      'sends a %s answering it, rolled as Midi-QOL has it, with as many d20s, and says it answers it',
+      (kind, key, advantage, mode, d20s) => {
+        jest.mocked(fetch).mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        const { result } = render([kind], ['prompts'])
+
+        act(() =>
+          result.current.send(
+            {
+              label: 'Answering Midi-QOL',
+              modifier: 3,
+              advantage,
+              source: { kind, key, prompt: 'k3y-thorin' },
+              explicit: false,
+            },
+            check({ advantage, d20s: [...d20s], extras: [] }),
+          ),
+        )
+
+        expect(sent()).toEqual({
+          kind,
+          key,
+          prompt: 'k3y-thorin',
+          mode,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 20, results: d20s }],
+        })
+        expect(result.current.answering).toEqual(new Set(['k3y-thorin']))
+      },
+    )
+  })
+
   describe('checks activities ask for, from module 0.21.0', () => {
     it.each([
       ['skill', 'slt'],

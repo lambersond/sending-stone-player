@@ -1,3 +1,5 @@
+import type { PROMPT_SOURCES } from '@/constants/sending-stone'
+
 /**
  * What the fvtt-sending-stone module sends, as far as this app reads it. Payloads may carry more
  * fields than these; they are kept when stored.
@@ -1087,22 +1089,36 @@ export type BridgeFeatures = {
      * Dice module is on, and players' rolls are enabled. None may yet. Module 0.26.0.
      */
     manualDice?: boolean
+    /**
+     * Whether what Midi-QOL asks of the campaign's characters is asked here too, while they're open
+     * in the app: where the game asks players for saves, and Midi-QOL is one the module can wait
+     * on. Told to the app only; nothing turns on it yet. Module 0.27.0.
+     */
+    midiPrompts?: boolean
   } | null
 }
 
 /**
  * A saving throw the game asks of one of a campaign's characters, which its player rolls here,
- * such as a concentration check after damage. Module 0.13.0.
+ * such as a concentration check after damage. Module 0.13.0. From module 0.27.0, also what
+ * Midi-QOL asks of a character while it's open in the app, which says where it comes from: a save,
+ * or an ability or skill check, which Midi-QOL rolls itself once its time is up.
  */
 export type GamePrompt = {
-  /** Its chat card's id and its character's, joined by "-". */
+  /** Its chat card's id and its character's, joined by "-"; or for Midi-QOL's, a key's. */
   id: string
   actorId: string
-  /** The chat card that asks. */
+  /** The chat card that asks; for Midi-QOL's, its workflow's card, where it has one. */
   messageId: string
-  type: 'save' | 'concentration'
-  /** The abilities it may be rolled with, such as ["dex"]; one for a concentration check. */
+  /** What it asks for: an ability or skill check only where Midi-QOL asks. */
+  type: 'save' | 'concentration' | 'check' | 'skill'
+  /**
+   * The abilities it may be rolled with, such as ["dex"]; one for a concentration check; none for
+   * a skill check.
+   */
   abilities: string[]
+  /** For a skill check, the skills it may be rolled with, such as ["ath", "acr"]. */
+  skills?: string[]
   /** Its DC, where the player may see it. */
   dc: number | null
   /** What asks: a spell or feature, or what the character is concentrating on. */
@@ -1110,7 +1126,19 @@ export type GamePrompt = {
   openedAt: string
   /** When it stops waiting for its player. */
   expiresAt: string
+  /** Where Midi-QOL asks it from; unset for what a chat card asks. */
+  source?: PromptSource
+  /**
+   * How Midi-QOL has each choice rolled, by its key: with advantage or disadvantage, or else
+   * normally. The player has no say.
+   */
+  advantage?: Partial<Record<string, 'adv' | 'dis'>>
+  /** Whether Foundry asks the player too, where Midi-QOL leaves the question to it at the end. */
+  askedInFoundry?: boolean
 }
+
+/** Where Midi-QOL asks what it asks of a character from. Module 0.27.0. */
+export type PromptSource = (typeof PROMPT_SOURCES)[number]
 
 /** What became of a command the module fetched, such as a player's roll. Module 0.10.0. */
 export type CommandResult = {

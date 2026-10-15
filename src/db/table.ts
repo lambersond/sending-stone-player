@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto'
 import prisma from '@/clients/prisma'
-import { GM_ROLLS_SHOWN, ROLLS_KEPT_FOR } from '@/constants/sending-stone'
+import {
+  GM_ROLLS_SHOWN,
+  MIDI_PROMPT_GRACE,
+  PROMPT_NOTICE_FOR,
+  ROLLS_KEPT_FOR,
+} from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
-import { toTablePrompt } from '@/utils/prompts'
+import { toTablePrompts } from '@/utils/prompts'
 import {
   availableRollFeatures,
   availableRollKinds,
@@ -297,17 +302,33 @@ export async function getTableView(
           select: { data: true, updatedAt: true },
         })
       : undefined,
+    // Those Midi-QOL asks a while after their time runs out, and those that closed just now, for
+    // which only Midi-QOL's are shown.
     prompted
       ? prisma.rollPrompt.findMany({
           where: {
             campaignId: campaign.id,
             actorId: viewer.actorId,
-            // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
-            closedAt: null,
-            expiresAt: { gt: new Date() },
+            OR: [
+              {
+                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+                closedAt: null,
+                expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
+              },
+              {
+                closedAt: { gt: new Date(now - PROMPT_NOTICE_FOR) },
+                closedReason: { in: ['rolled', 'expired'] },
+              },
+            ],
           },
           orderBy: { openedAt: 'asc' },
-          select: { promptId: true, data: true, expiresAt: true },
+          select: {
+            promptId: true,
+            data: true,
+            expiresAt: true,
+            closedAt: true,
+            closedReason: true,
+          },
         })
       : [],
     gmRolls
@@ -363,7 +384,7 @@ export async function getTableView(
     chatReadAt: seat.role === 'gm' ? undefined : seat.chatReadAt,
     rollsToTable: rolls.rollsToTable,
     rollFeatures: rolls.rollFeatures,
-    prompts: prompts.map(prompt => toTablePrompt(prompt)),
+    prompts: toTablePrompts(prompts, now),
     ...(rolls.gm && { gm: rolls.gm }),
     ...(made.length > 0 && {
       gmRolls: made.map(roll =>

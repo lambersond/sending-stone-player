@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import prisma from '@/clients/prisma'
 import {
   ASKS_PER_MINUTE,
+  MOST_OPEN,
+  OPEN_WITHIN,
   PLAYERS_PRESENT_FOR,
   PLAYERS_SEEN_EVERY,
   ROLL_ANSWER_WITHIN,
@@ -9,6 +11,7 @@ import {
   ROLLS_IN_FLIGHT,
   ROLLS_KEPT_FOR,
   ROLLS_PER_MINUTE,
+  TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
 import { sheetLinks } from '@/lib/sheet-html'
@@ -205,13 +208,14 @@ export async function createRollRequest(
           },
         })
       : undefined,
-    // Either seat's answer: the first, its player's or the Gamemaster's, answers it.
+    // Either seat's answer: the first, its player's or the Gamemaster's, answers it; a saving
+    // throw, or what Midi-QOL asks may be, an ability or skill check.
     prompt
       ? prisma.rollRequest.findMany({
           where: {
             campaignId,
             actorId,
-            kind: 'save',
+            kind: { in: ['save', 'ability', 'skill'] },
             payload: { path: ['prompt'], equals: prompt },
           },
           select: { status: true, createdAt: true, claimedAt: true },
@@ -468,6 +472,58 @@ export async function notePlayersSeen(campaignId: string): Promise<void> {
     },
     data: { playersSeenAt: new Date(now) },
   })
+}
+
+/** When this server last noted each character's table open. */
+const tablesNoted = new Map<string, number>()
+
+/**
+ * Note that a player has their character's table open, so that the module waits for their answers
+ * to what Midi-QOL asks of it (module 0.27.0). Written at most once every few seconds, in the
+ * database, as the module's fetches that read it may be answered by another of this app's servers.
+ * @param characterId - The player's character; never the Gamemaster's seat, which has none.
+ */
+export async function noteTableOpen(characterId: string): Promise<void> {
+  const now = Date.now()
+  if (now - (tablesNoted.get(characterId) ?? 0) < TABLE_SEEN_EVERY) return
+  tablesNoted.set(characterId, now)
+  await prisma.character.updateMany({
+    where: {
+      id: characterId,
+      OR: [
+        // Prisma's filter for an unset field.
+        // eslint-disable-next-line unicorn/no-null
+        { tableSeenAt: null },
+        { tableSeenAt: { lt: ago(now, TABLE_SEEN_EVERY) } },
+      ],
+    },
+    data: { tableSeenAt: new Date(now) },
+  })
+}
+
+/** An actor's id as the module sends it, and reads it back. */
+const ACTOR_ID = /^[A-Za-z0-9]{1,64}$/
+
+/**
+ * The campaign's characters open in the app now, by their actors' ids, sorted: those whose
+ * player's page asked for their table lately. The module waits only for their answers.
+ */
+export async function openActorIds(campaignId: string): Promise<string[]> {
+  const characters = await prisma.character.findMany({
+    where: {
+      campaignId,
+      // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
+      actorId: { not: null },
+      tableSeenAt: { gt: ago(Date.now(), OPEN_WITHIN) },
+    },
+    orderBy: { actorId: 'asc' },
+    take: MOST_OPEN,
+    select: { actorId: true },
+  })
+  const ids = characters.flatMap(({ actorId }) =>
+    actorId && ACTOR_ID.test(actorId) ? [actorId] : [],
+  )
+  return [...new Set(ids)]
 }
 
 /** The moment this many milliseconds before another. */

@@ -102,7 +102,7 @@ function CombatantRow({
           <span
             className={clsx(
               'truncate font-semibold',
-              side === 'me' && 'text-primary',
+              side === 'me' && 'text-primary-text',
               defeated && 'line-through',
             )}
           >

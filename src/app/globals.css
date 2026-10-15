@@ -16,6 +16,9 @@
   --color-primary: #00805a;
   --color-primary-hover: #006b4b;
   --color-on-primary: #ffffff;
+  /* The accent as small text: deep enough to meet WCAG AA on its own tints, such as a selected
+     option's or a badge's, where the accent itself doesn't. Large text and icons keep the accent. */
+  --color-primary-text: #006b4b;
 
   /* Text */
   --color-text-primary: #17171c;
@@ -62,6 +65,7 @@
   --color-primary: #00a86b;
   --color-primary-hover: #2cc68a;
   --color-on-primary: #0d0d14;
+  --color-primary-text: #00a86b;
 
   --color-text-primary: #ececf3;
   --color-text-secondary: #a3a3b5;

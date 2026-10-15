@@ -8,6 +8,7 @@ import {
   MAX_USE_TARGETS,
   MOST_HIT_DICE,
   PROMPT_ID,
+  PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import { MAX_CHECKS } from '@/utils/description-links'
 import { MAX_DICE } from '@/utils/roll-modifiers'
@@ -1100,6 +1101,8 @@ const featuresSchema = z
         // From module 0.26.0: whether players may enter their own dice's results, where the
         // Manual Dice module is on.
         manualDice: z.boolean().optional().catch(false),
+        // From module 0.27.0: whether what Midi-QOL asks of characters is asked here too.
+        midiPrompts: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -1109,19 +1112,14 @@ const featuresSchema = z
   .optional()
   .catch(null)
 
-/**
- * A saving throw the game asks of one of a campaign's characters, from module 0.13.0. One without
- * what it asks for can't be rolled; its label is only shown.
- */
-const promptSchema = z.object({
+/** What a prompt may be rolled with: an ability's key, such as "dex", or a skill's, as "ath". */
+const promptKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
+
+/** What every prompt says, whatever asks it. Its label is only shown. */
+const promptFields = {
   id: z.string().regex(PROMPT_ID),
   actorId: z.string().min(1).max(64),
   messageId: z.string().min(1).max(64),
-  type: z.enum(['save', 'concentration']),
-  abilities: z
-    .array(z.string().regex(/^[A-Za-z][\w-]{0,31}$/))
-    .min(1)
-    .max(10),
   dc: z.int().min(0).max(100).nullable().catch(null),
   label: z
     .string()
@@ -1132,7 +1130,73 @@ const promptSchema = z.object({
     .transform(label => label || null),
   openedAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
+}
+
+/**
+ * A saving throw a chat card asks of one of a campaign's characters, from module 0.13.0, read as it
+ * was before Midi-QOL's: one without what it asks for can't be rolled, and anything else it says
+ * is dropped. It says nothing of where it comes from.
+ */
+const cardPromptSchema = z.object({
+  ...promptFields,
+  type: z.enum(['save', 'concentration']),
+  abilities: z.array(promptKey).min(1).max(10),
+  source: z.never().optional(),
 })
+
+/**
+ * What Midi-QOL asks of one of a campaign's characters, from module 0.27.0, which says where it
+ * comes from: a save or concentration check by its abilities, an ability check by its abilities,
+ * or a skill check by its skills, and how Midi-QOL has each rolled. Advantage for one it doesn't
+ * offer is dropped; anything else amiss fails it, as this app couldn't answer it as asked.
+ */
+const midiPromptSchema = z
+  .object({
+    ...promptFields,
+    type: z.enum(['save', 'concentration', 'check', 'skill']),
+    abilities: z.array(promptKey).max(10),
+    skills: z.array(promptKey).min(1).max(10).optional(),
+    source: z.enum(PROMPT_SOURCES),
+    advantage: z.record(z.string(), z.enum(['adv', 'dis'])).optional(),
+    askedInFoundry: z.boolean().optional(),
+  })
+  .superRefine((prompt, context) => {
+    const skill = prompt.type === 'skill'
+    if (skill !== (prompt.skills !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['skills'],
+        message: 'A skill check, and only one, offers skills',
+      })
+    }
+    if (!skill && prompt.abilities.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['abilities'],
+        message: 'A save or ability check offers an ability',
+      })
+    }
+  })
+  .transform(prompt => {
+    const offered = new Set(
+      prompt.type === 'skill' ? prompt.skills : prompt.abilities,
+    )
+    return {
+      ...prompt,
+      advantage: Object.fromEntries(
+        Object.entries(prompt.advantage ?? {}).filter(([key]) =>
+          offered.has(key),
+        ),
+      ),
+      askedInFoundry: prompt.askedInFoundry ?? false,
+    }
+  })
+
+/**
+ * What the game asks of one of a campaign's characters: what a chat card asks, as before, or what
+ * Midi-QOL asks, which says where it comes from. One that says so is only ever read as Midi-QOL's.
+ */
+const promptSchema = z.union([midiPromptSchema, cardPromptSchema])
 
 /**
  * What became of a command; one without its id, or an outcome, can't be recorded. It's kept as

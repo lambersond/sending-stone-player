@@ -682,13 +682,30 @@ describe('schemas/roll-request', () => {
     expect(parseDamage({ modifiers: {} }).success).toBe(true)
   })
 
-  it('takes a saving throw answering what the game asked, and only a saving throw', () => {
+  it('takes a saving throw answering what the game asked, or an ability or skill check answering what Midi-QOL asked, and only those', () => {
     const save = { kind: 'save', key: 'dex' }
     expect(parse({ ...save, prompt: 'msg1-thorin' }).success).toBe(true)
     expect(parse({ ...save, prompt: 'msg1 thorin' }).success).toBe(false)
     expect(parse({ ...save, prompt: 'msg1-thorin-2' }).success).toBe(false)
-    expect(parse({ prompt: 'msg1-thorin' }).success).toBe(false)
+    // From module 0.27.0: an ability or skill check Midi-QOL asks for, such as Athletics to escape.
+    expect(parse({ prompt: 'k3y-thorin' }).success).toBe(true)
+    expect(
+      parse({ kind: 'ability', key: 'str', prompt: 'k3y-thorin' }).success,
+    ).toBe(true)
+    expect(
+      parse({ kind: 'tool', key: 'thief', prompt: 'k3y-thorin' }).success,
+    ).toBe(false)
     expect(parseAttack({ prompt: 'msg1-thorin' }).success).toBe(false)
+    expect(
+      parse({ kind: 'death', key: undefined, prompt: 'k3y-thorin' }).success,
+    ).toBe(false)
+    // Never also a check an activity asks for, nor what a description calls for.
+    expect(
+      parse({ item: 'web', activity: 'escape', prompt: 'k3y-thorin' }).success,
+    ).toBe(false)
+    expect(
+      parse({ text: '0f1a2b3c4d5e6f', link: 1, prompt: 'k3y-thorin' }).success,
+    ).toBe(false)
   })
 
   describe('from a link in a description', () => {
