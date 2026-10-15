@@ -25,6 +25,19 @@ import type {
 } from '@/types/sending-stone'
 
 /** A chat message with these dnd5e details, as read. */
+/** A roll with these fields, as a message's arrives, read. */
+const rollWith = (fields: object) =>
+  (
+    parseGameEvent('chat.message.created', {
+      message: {
+        id: 'm1',
+        timestamp: 1,
+        audience: { public: true, characters: [] },
+        rolls: [{ formula: '1d6', total: 4, dice: [], ...fields }],
+      },
+    })?.data as { message: { rolls: object[] } }
+  ).message.rolls[0]
+
 const messageWith = (dnd5e: object) =>
   parseGameEvent('chat.message.created', {
     message: {
@@ -2598,6 +2611,37 @@ describe('schemas/sending-stone', () => {
     expect(event?.data).toMatchObject({
       message: { rolls: [roll], dnd5e },
     })
+  })
+
+  it("reads module 0.28.0's marks on a roll, and leaves out those that don't hold up", () => {
+    const marks = {
+      class: 'DamageRoll',
+      damage: true,
+      damageLabel: ' Stich ',
+      section: 'bonus',
+      flavor: ' Sneak Attack ',
+      attack: true,
+    }
+
+    expect(rollWith(marks)).toEqual({
+      formula: '1d6',
+      total: 4,
+      dice: [],
+      ...marks,
+      damageLabel: 'Stich',
+      flavor: 'Sneak Attack',
+    })
+    const junk = rollWith({
+      class: 7,
+      damage: 'yes',
+      damageLabel: '  ',
+      section: 'weird',
+      flavor: 'x'.repeat(101),
+      attack: 1,
+    })
+    // Left out: undefined, which the stored JSON has none of.
+    expect(junk).toEqual({ formula: '1d6', total: 4, dice: [] })
+    expect(rollWith({})).toEqual({ formula: '1d6', total: 4, dice: [] })
   })
 
   it('reads what marks a combat roll, and drops a malformed armor class', () => {

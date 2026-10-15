@@ -53,15 +53,71 @@ export type TableMessage = {
   kind: 'text' | 'roll' | 'card'
   /** What the message is about, such as "Longsword" or "Perception check". */
   label?: string
-  /** Set for an attack, damage, healing or a spell. */
+  /**
+   * Set for an attack, damage, healing or a spell, from what D&D Fifth Edition recorded of the
+   * whole message. Drawn only on a card; a roll's card and a damage card each carry their own.
+   */
   action?: TableAction
   text?: string
+  /** The rolls drawn on cards of their own, in the message's order: every roll but its damage. */
   rolls: TableRoll[]
+  /** The attack among `rolls`, by its index there, and its chip. */
+  attackRoll?: { index: number; action: 'attack' | 'spell-attack' }
+  /**
+   * The message's damage, folded into a card: its main damage, then Midi-QOL's other damage,
+   * either left out where it has none. Absent when the message has no damage.
+   */
+  damage?: TableDamage[]
   targets: TableTarget[]
   /** For a roll request card, the saving throw or check it asks the table for. */
   ask?: TableAsk
   /** Made for a roll the campaign's Gamemaster made here as a character, as this app knows. */
   byGm?: true
+}
+
+/**
+ * What a kind of damage takes or fills: hit points, or one of healing's pools; 'none' isn't
+ * counted.
+ */
+export type DamagePool = 'harm' | 'healing' | 'temphp' | 'maximum' | 'none'
+
+export type TableDamageKind = {
+  /** dnd5e's key, such as "piercing"; absent for damage of no type. */
+  type?: string
+  /**
+   * The chip's word, such as "Piercing", "Temp HP" or "No damage"; absent for damage of no type.
+   */
+  label?: string
+  /** Its rolls' totals added, at least 0; null when any is unknown. */
+  total: number | null
+  pool: DamagePool
+}
+
+export type TableDamageRoll = {
+  formula: string
+  /** As rolled: may be below 0. */
+  total: number | null
+  dice: TableRoll['dice']
+  /** Its kind's word; absent for damage of no type. */
+  label?: string
+  /** Midi-QOL's bonus damage: its flavor, or "Bonus". */
+  tag?: string
+}
+
+/** A message's damage rolls folded into one card, as dnd5e's damage card adds them up. */
+export type TableDamage = {
+  section: 'main' | 'other'
+  action: 'damage' | 'healing'
+  /** Its rolls' formulas, kind by kind, joined. */
+  formula: string
+  kinds: TableDamageKind[]
+  /** Absent: no big total (mixed pools, or nothing counted). null: unknown ("–"). */
+  total?: number | null
+  critical: boolean
+  /** Main card only: what a creature that saves takes, as dnd5e's damage card says. */
+  onSave?: 'half' | 'none' | 'full'
+  /** Every roll of the card, in roll order. */
+  rolls: TableDamageRoll[]
 }
 
 /**

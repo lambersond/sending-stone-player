@@ -931,6 +931,18 @@ export type RollSummary = {
   critical?: boolean
   fumble?: boolean
   damageType?: string
+  /** The roll's class, such as "D20Roll" or "DamageRoll". */
+  class?: string
+  /** From module 0.28.0: a dnd5e damage roll, of a type or none. */
+  damage?: true
+  /** From module 0.28.0: its damage type's label, as the game words it. */
+  damageLabel?: string
+  /** From module 0.28.0: which of Midi-QOL's damage it is: its base, bonus or other damage. */
+  section?: 'damage' | 'bonus' | 'other'
+  /** From module 0.28.0: what Midi-QOL's bonus damage is called, such as "Sneak Attack". */
+  flavor?: string
+  /** From module 0.28.0: an attack roll, as dnd5e or Midi-QOL marked it. */
+  attack?: true
 }
 
 export type Dnd5eMessageData = {
