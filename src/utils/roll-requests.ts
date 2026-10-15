@@ -19,7 +19,7 @@ import {
 import { formulaDice } from '@/utils/formulas'
 import { sheetActions } from '@/utils/sheet-actions'
 import { allItems, sheetTextRefs } from '@/utils/sheet-texts'
-import { healingRolls, toTableRoll } from '@/utils/table-view'
+import { damageKinds, healingRolls, toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
   AttackTarget,
@@ -1010,11 +1010,9 @@ function sumOf(
   if (kind !== 'damage' && kind !== 'textDamage') {
     return rolls.reduce((sum, roll) => sum + (roll.total ?? 0), 0)
   }
-  const kinds = new Map<string | undefined, number>()
-  for (const { total, damageType } of rolls) {
-    kinds.set(damageType, (kinds.get(damageType) ?? 0) + (total ?? 0))
-  }
-  return [...kinds.values()].reduce((sum, each) => sum + Math.max(0, each), 0)
+  // Each kind as the chat's damage card counts it, but every kind added, Midi-QOL's none and each
+  // kind of healing too, as the table's total always has been.
+  return damageKinds(rolls).reduce((sum, kind) => sum + (kind.total ?? 0), 0)
 }
 
 /** A held roll as the module is sent it. */

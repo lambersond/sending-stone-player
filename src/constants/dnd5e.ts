@@ -31,6 +31,31 @@ export const SKILLS: Record<string, string> = {
 }
 
 /**
+ * dnd5e's damage and healing types, by its keys, with its English labels: the short ones where it
+ * has them, as its own damage card shows them. For a roll the module sent no label for.
+ */
+export const DAMAGE_TYPE_LABELS: Record<string, string> = {
+  acid: 'Acid',
+  bludgeoning: 'Bludgeoning',
+  cold: 'Cold',
+  fire: 'Fire',
+  force: 'Force',
+  lightning: 'Lightning',
+  necrotic: 'Necrotic',
+  piercing: 'Piercing',
+  poison: 'Poison',
+  psychic: 'Psychic',
+  radiant: 'Radiant',
+  slashing: 'Slashing',
+  thunder: 'Thunder',
+  healing: 'Healing',
+  temphp: 'Temp HP',
+  maximum: 'Max HP',
+  // Midi-QOL's own type for damage of no type, as it labels it.
+  none: 'No Type',
+}
+
+/**
  * The tools dnd5e checks, by its keys, with the names of its 2024 base items, as its own links
  * name them; and the vehicles it checks as tools. For a tool the sheet doesn't name.
  */

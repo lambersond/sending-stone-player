@@ -1,4 +1,4 @@
-import { ABILITIES, SKILLS } from '@/constants/dnd5e'
+import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
 import {
   checkName,
   checkTitle,
@@ -20,11 +20,14 @@ import type {
   SheetItem,
 } from '@/types/sending-stone'
 import type {
+  DamagePool,
   Side,
   TableAction,
   TableAsk,
   TableCheckAsk,
   TableCombat,
+  TableDamage,
+  TableDamageKind,
   TableMessage,
   TableRoll,
   TableSheet,
@@ -87,19 +90,34 @@ export function toTableMessage(
   inheritedTargets?: Dnd5eMessageData['targets'],
   byGm = false,
 ): TableMessage {
-  const rolls = message.rolls.map(roll => toTableRoll(roll))
-  const isCard =
-    rolls.length === 0 &&
-    (message.dnd5e?.messageType === 'usage' || message.type === 'usage')
+  // What the message is and does is read from all of its rolls, its damage too.
+  const all = message.rolls.map(roll => toTableRoll(roll))
+  const isCard = all.length === 0 && isUsage(message)
   let kind: TableMessage['kind'] = 'text'
-  if (rolls.length > 0) kind = 'roll'
+  if (all.length > 0) kind = 'roll'
   else if (isCard) kind = 'card'
-  const action = combatAction(message, rolls)
+  const action = combatAction(message, all)
   // A roll request card stays text, for pages that don't read its ask, but never its own text,
   // which may hold a DC players may not see.
   const ask = kind === 'text' ? askOf(message) : undefined
   let text = kind === 'text' ? message.text.trim() || undefined : undefined
   if (ask) text = askTitle({ ...ask, dc: undefined })
+
+  // Its damage rolls fold into damage cards, as dnd5e's card adds them up; every other roll keeps
+  // a card of its own, so damage's dice aren't sent twice.
+  const marks = message.rolls.map(roll => rollMarks(roll))
+  const damaged = marks.map(mark => isDamageRoll(mark))
+  const rolls = all.filter((_, index) => !damaged[index])
+  const attackRoll = attackOf(
+    message,
+    marks.filter((_, index) => !damaged[index]),
+  )
+  const damage = damageOf(
+    message,
+    all.flatMap((roll, index) =>
+      damaged[index] ? [{ roll, marks: marks[index] }] : [],
+    ),
+  )
 
   return {
     id: message.id,
@@ -111,16 +129,18 @@ export function toTableMessage(
     ),
     whisper: !message.audience.public,
     kind,
-    label: messageLabel(message),
+    label: messageLabel(message, damage !== undefined),
     action,
     // A roll's or card's content is its rendering; their details are shown instead.
     text,
     rolls,
+    ...(attackRoll && { attackRoll }),
+    ...(damage && { damage }),
     targets: toTargets(
       message.dnd5e?.targets.length
         ? message.dnd5e.targets
         : (inheritedTargets ?? []),
-      action === 'attack' || action === 'spell-attack' ? rolls[0] : undefined,
+      attackRoll ? rolls[attackRoll.index] : undefined,
     ),
     ...(ask && { ask }),
     ...(byGm && { byGm: true as const }),
@@ -314,9 +334,12 @@ function checkOptionOf(check: AskedCheck): CheckOption {
   }
 }
 
-const HEALING = new Set(['healing', 'temphp'])
+const HEALING = new Set(['healing', 'temphp', 'maximum'])
 
-/** Whether damage the game rolled is healing: every roll of it one of dnd5e's kinds of healing. */
+/**
+ * Whether damage the game rolled is healing: every roll of it one of dnd5e's kinds of healing, its
+ * hit points, temporary ones or its maximum.
+ */
 export function healingRolls(
   rolls: readonly Pick<TableRoll, 'damageType'>[],
 ): boolean {
@@ -344,7 +367,270 @@ function combatAction(
       return 'healing'
     }
   }
-  return spell && dnd5e?.messageType === 'usage' ? 'spell' : undefined
+  return spell && isUsage(message) ? 'spell' : undefined
+}
+
+/**
+ * Is this an item or ability used, as its card? dnd5e 5.x moved what says so from its flags to the
+ * message's own type, so a card it posts says so only there.
+ */
+function isUsage(message: SerializedMessage): boolean {
+  return message.dnd5e?.messageType === 'usage' || message.type === 'usage'
+}
+
+/** What marks a roll, as the module sends it, each only where it holds up. */
+type RollMarks = Pick<
+  RollSummary,
+  | 'class'
+  | 'damage'
+  | 'damageLabel'
+  | 'section'
+  | 'flavor'
+  | 'attack'
+  | 'damageType'
+>
+
+const SECTIONS = new Set<unknown>(['damage', 'bonus', 'other'])
+
+/**
+ * What marks a stored roll, each only where it holds up, and left out where it doesn't: a row is
+ * checked when it arrives, but never again as it's read, and one stored before the app checked a
+ * field holds whatever the module sent then.
+ */
+function rollMarks(roll: RollSummary): RollMarks {
+  const sent = roll as Partial<Record<keyof RollMarks, unknown>>
+  const damageLabel = textUpTo(sent.damageLabel, 64)
+  const flavor = textUpTo(sent.flavor, 100)
+  return {
+    ...(typeof sent.class === 'string' && { class: sent.class }),
+    ...(sent.damage === true && { damage: true as const }),
+    ...(damageLabel && { damageLabel }),
+    ...(SECTIONS.has(sent.section) && {
+      section: sent.section as RollMarks['section'],
+    }),
+    ...(flavor && { flavor }),
+    ...(sent.attack === true && { attack: true as const }),
+    ...(typeof sent.damageType === 'string' && {
+      damageType: sent.damageType,
+    }),
+  }
+}
+
+/** Some text, trimmed, if there is any and it's no longer than this. */
+function textUpTo(value: unknown, most: number): string | undefined {
+  const text = typeof value === 'string' ? value.trim() : ''
+  return text && text.length <= most ? text : undefined
+}
+
+/**
+ * Is this one of a message's damage rolls? From module 0.28.0 the module says so; before then, and
+ * as well, its class does, or the damage type only dnd5e's damage rolls have, or Midi-QOL's tag.
+ */
+function isDamageRoll(marks: RollMarks): boolean {
+  return (
+    marks.damage === true ||
+    !!marks.class?.endsWith('DamageRoll') ||
+    marks.damageType !== undefined ||
+    marks.section !== undefined
+  )
+}
+
+/**
+ * Which of a message's rolls, other than its damage, is its attack, and its chip: one the module
+ * marks as an attack; or else, on a card used or an attack's message, its first d20 roll; or else,
+ * on an attack's message, its first roll. Never a d20 merely for being one: Midi-QOL's card holds
+ * its utility roll too, which may be a d20, and isn't marked as such.
+ * @param marks - The marks of the rolls drawn on cards of their own, in order.
+ */
+function attackOf(
+  message: SerializedMessage,
+  marks: RollMarks[],
+): TableMessage['attackRoll'] {
+  const dnd5e = message.dnd5e
+  const rolled = dnd5e?.roll?.type === 'attack'
+  let index = marks.findIndex(mark => mark.attack === true)
+  if (index === -1 && (rolled || isUsage(message))) {
+    index = marks.findIndex(mark => mark.class === 'D20Roll')
+  }
+  if (index === -1 && rolled && marks.length > 0) index = 0
+  if (index === -1) return undefined
+  const activity = dnd5e?.activity?.type
+  const attack =
+    rolled ||
+    marks[index].attack === true ||
+    (isUsage(message) && (activity === 'attack' || activity === 'midiAttack'))
+  if (!attack) return undefined
+  return {
+    index,
+    action: dnd5e?.item?.type === 'spell' ? 'spell-attack' : 'attack',
+  }
+}
+
+/**
+ * Damage's kinds, by damage type, in the order each first comes: each its rolls' totals added up,
+ * at least 0, as dnd5e's card adds damage up; or null where any of them is unknown. Damage of no
+ * type is a kind of its own.
+ */
+export function damageKinds(
+  rolls: readonly { total: number | null; damageType?: string }[],
+): { type: string | undefined; total: number | null }[] {
+  /* eslint-disable unicorn/no-null -- a total the game didn't say is null, as a roll's is */
+  const kinds = new Map<string | undefined, number | null>()
+  for (const { total, damageType } of rolls) {
+    const sum = kinds.has(damageType) ? (kinds.get(damageType) ?? null) : 0
+    kinds.set(damageType, sum === null || total === null ? null : sum + total)
+  }
+  return [...kinds].map(([type, total]) => ({
+    type,
+    total: total === null ? null : Math.max(0, total),
+  }))
+  /* eslint-enable unicorn/no-null */
+}
+
+/**
+ * What each of dnd5e's kinds of healing fills, and the type Midi-QOL counts as none, its
+ * "midi-none". Its "none" is damage of no type, which it counts and applies as any other, such as a
+ * bonus macro's that names no type.
+ */
+const POOLS: Record<string, DamagePool> = {
+  healing: 'healing',
+  temphp: 'temphp',
+  maximum: 'maximum',
+  'midi-none': 'none',
+}
+
+const poolOf = (type: string | undefined): DamagePool =>
+  type !== undefined && Object.hasOwn(POOLS, type) ? POOLS[type] : 'harm'
+
+/**
+ * A kind of damage's word: as the module says the game words it, or else as dnd5e's English does,
+ * or else its key. Midi-QOL's damage of none at all is "No damage", and damage of no type has no
+ * word.
+ */
+function kindLabel(
+  type: string | undefined,
+  label: string | undefined,
+): string | undefined {
+  if (type === undefined) return undefined
+  if (poolOf(type) === 'none') return 'No damage'
+  if (label) return label
+  if (Object.hasOwn(DAMAGE_TYPE_LABELS, type)) return DAMAGE_TYPE_LABELS[type]
+  return type.charAt(0).toUpperCase() + type.slice(1)
+}
+
+type DamagePart = { roll: TableRoll; marks: RollMarks }
+
+/**
+ * A message's damage, folded into its cards: its main damage, then Midi-QOL's other damage, which
+ * it applies apart, such as on a failed save. Unset when it has none.
+ */
+function damageOf(
+  message: SerializedMessage,
+  parts: DamagePart[],
+): TableDamage[] | undefined {
+  const main = parts.filter(({ marks }) => marks.section !== 'other')
+  const other = parts.filter(({ marks }) => marks.section === 'other')
+  const cards = [
+    ...(main.length > 0 ? [damageCard(message, main, 'main')] : []),
+    ...(other.length > 0 ? [damageCard(message, other, 'other')] : []),
+  ]
+  return cards.length > 0 ? cards : undefined
+}
+
+/**
+ * One damage card: its kinds, and its total where they fill one pool, as a creature takes them;
+ * healing where everything it counts heals, or dnd5e called it healing; a critical as its first
+ * roll was, as dnd5e's card judges it.
+ */
+function damageCard(
+  message: SerializedMessage,
+  parts: DamagePart[],
+  section: TableDamage['section'],
+): TableDamage {
+  const typed = parts.map(({ roll, marks }) => ({
+    total: roll.total,
+    damageType: marks.damageType,
+  }))
+  const kinds: TableDamageKind[] = damageKinds(typed).map(({ type, total }) => {
+    const first = parts.find(({ marks }) => marks.damageType === type)
+    const label = kindLabel(type, first?.marks.damageLabel)
+    return {
+      ...(type !== undefined && { type }),
+      ...(label && { label }),
+      total,
+      pool: poolOf(type),
+    }
+  })
+  const counted = kinds.filter(({ pool }) => pool !== 'none')
+  const pools = new Set(counted.map(({ pool }) => pool))
+  const total = pools.size === 1 ? totalOf(counted) : undefined
+  const healing =
+    (section === 'main' && message.dnd5e?.roll?.type === 'healing') ||
+    (counted.length > 0 && counted.every(({ pool }) => pool !== 'harm'))
+  const labels = new Map(kinds.map(kind => [kind.type, kind.label]))
+  const onSave = section === 'main' ? onSaveOf(message.dnd5e?.roll) : undefined
+  return {
+    section,
+    action: healing ? 'healing' : 'damage',
+    // Kind by kind, as dnd5e's card puts its formula together.
+    formula: joinFormulas(
+      kinds.flatMap(kind =>
+        parts
+          .filter(({ marks }) => marks.damageType === kind.type)
+          .map(({ roll }) => roll.formula),
+      ),
+    ),
+    kinds,
+    ...(total !== undefined && { total }),
+    critical: parts[0].roll.critical,
+    ...(onSave && { onSave }),
+    rolls: parts.map(({ roll, marks }) => {
+      const label = labels.get(marks.damageType)
+      const tag =
+        marks.section === 'bonus' ? (marks.flavor ?? 'Bonus') : undefined
+      return {
+        formula: roll.formula,
+        total: roll.total,
+        dice: roll.dice,
+        ...(label && { label }),
+        ...(tag && { tag }),
+      }
+    }),
+  }
+}
+
+/** Kinds of damage that fill one pool, added up: unknown where any of them is, never part of it. */
+function totalOf(kinds: TableDamageKind[]): number | null {
+  // eslint-disable-next-line unicorn/no-null -- unknown, as a roll's total is
+  if (kinds.some(kind => kind.total === null)) return null
+  return kinds.reduce((sum, kind) => sum + (kind.total ?? 0), 0)
+}
+
+/** Formulas joined into one, "1d4 + 4 + 2d6", a negative one taken away: "1d6 - 1". */
+function joinFormulas(formulas: string[]): string {
+  let joined = ''
+  for (const formula of formulas.map(each => each.trim()).filter(Boolean)) {
+    if (!joined) joined = formula
+    else if (formula.startsWith('-')) {
+      joined += ` - ${formula.slice(1).trimStart()}`
+    } else joined += ` + ${formula}`
+  }
+  return joined
+}
+
+/** What dnd5e records a creature that saves takes of a save activity's damage. */
+const ON_SAVE = new Set<unknown>(['half', 'none', 'full'])
+
+/**
+ * What a creature that saves takes of damage, as dnd5e records it of a save activity's damage.
+ * Its roll's data is loose, so it's read only where it's one of dnd5e's.
+ */
+function onSaveOf(roll: unknown): TableDamage['onSave'] {
+  const onSave =
+    typeof roll === 'object' && roll !== null && 'damageOnSave' in roll
+      ? roll.damageOnSave
+      : undefined
+  return ON_SAVE.has(onSave) ? (onSave as TableDamage['onSave']) : undefined
 }
 
 /**
@@ -384,8 +670,14 @@ export function toTableRoll(roll: RollSummary): TableRoll {
   }
 }
 
-/** What a message is about, from what D&D Fifth Edition recorded or else its flavor. */
-function messageLabel(message: SerializedMessage): string | undefined {
+/**
+ * What a message is about, from what D&D Fifth Edition recorded or else its flavor.
+ * @param damaged - Whether it has damage rolls.
+ */
+function messageLabel(
+  message: SerializedMessage,
+  damaged: boolean,
+): string | undefined {
   const dnd5e = message.dnd5e
   const item = textOf(dnd5e?.item?.name)
   const activity = textOf(dnd5e?.activity?.name)
@@ -432,10 +724,15 @@ function messageLabel(message: SerializedMessage): string | undefined {
       }
     }
   }
-  if (dnd5e?.messageType === 'usage' && item) {
+  if (isUsage(message) && item) {
+    // Its rolls are named for its item alone, as dnd5e's own attack and damage messages are, such
+    // as Midi-QOL's card holding them.
+    if (message.rolls.length > 0) return item
     return activity && activity !== item ? `${item} · ${activity}` : item
   }
-  return htmlToText(message.flavor) ?? textOf(message.title)
+  // Damage that recorded nothing of where it's from, as dnd5e 6's, is named as its flavor says.
+  const origin = damaged ? originOf(message.flavor) : undefined
+  return origin ?? htmlToText(message.flavor) ?? textOf(message.title)
 }
 
 const textOf = (value: unknown) =>

@@ -6,6 +6,7 @@ import {
   isDying,
   rollStatus,
   toCommand,
+  toGmRollView,
   toRollRequestView,
   type HeldRollRequest,
 } from './roll-requests'
@@ -140,6 +141,24 @@ const damagePart = (total: number | null) => ({
   formula: '1d8 + 4',
   total,
   dice: [{ faces: 8, results: [{ result: 5, active: true }] }],
+})
+
+/** A part of damage the game made, totalling this, of this type. */
+const typedPart = (total: number, damageType: string) => ({
+  ...damagePart(total),
+  damageType,
+})
+
+/** A part of damage as its player is shown it, of `damagePart`, every key as it always was. */
+const shownPart = (total: number, damageType?: string) => ({
+  formula: '1d8 + 4',
+  total,
+  dice: [{ faces: 8, value: 5, active: true }],
+  advantage: false,
+  disadvantage: false,
+  critical: false,
+  fumble: false,
+  damageType,
 })
 
 /** A spell with an activity the game uses. */
@@ -3875,6 +3894,13 @@ describe('utils/roll-requests', () => {
         },
       })
 
+    /** The total of damage the game made of these parts, each a total and a type. */
+    const typedTotal = (...parts: [number, string][]) =>
+      toRollRequestView(
+        madeDamage(parts.map(([total, type]) => typedPart(total, type))),
+        NOW,
+      ).total
+
     it("totals a description's damage's parts too", () => {
       expect(
         toRollRequestView(
@@ -3908,6 +3934,64 @@ describe('utils/roll-requests', () => {
       ).toBe(-4)
       // Hit dice's totals are added up as they are.
       expect(totalOf([damagePart(-3), damagePart(1)], 'hitDice')).toBe(-2)
+    })
+
+    it("shows the game's rolls as before, whatever marks module 0.28.0 adds to them", () => {
+      // Every field a roll may carry from module 0.28.0, as a roll request is sent them.
+      const marks = {
+        class: 'DamageRoll',
+        damage: true,
+        damageLabel: 'Piercing',
+        section: 'damage',
+        flavor: 'Sneak Attack',
+        attack: true,
+      }
+      const view = toRollRequestView(
+        madeDamage([
+          { ...damagePart(9), damageType: 'piercing', ...marks },
+          { ...damagePart(-3), damageType: 'piercing', ...marks },
+          { ...damagePart(7), ...marks, section: 'bonus' },
+        ] as CommandResult['rolls']),
+        NOW,
+      )
+
+      expect(view.total).toBe(13)
+      expect(view.rolls).toStrictEqual([
+        shownPart(9, 'piercing'),
+        shownPart(-3, 'piercing'),
+        shownPart(7),
+      ])
+      for (const roll of view.rolls ?? []) {
+        expect(Object.keys(roll)).toEqual([
+          'formula',
+          'total',
+          'dice',
+          'advantage',
+          'disadvantage',
+          'critical',
+          'fumble',
+          'damageType',
+        ])
+      }
+    })
+
+    it("counts every kind in the table's total, as it always has: Midi-QOL's none and each pool of healing too", () => {
+      expect(typedTotal([5, 'piercing'], [4, 'midi-none'])).toBe(9)
+      expect(typedTotal([5, 'piercing'], [4, 'none'])).toBe(9)
+      expect(typedTotal([11, 'healing'], [5, 'temphp'])).toBe(16)
+      expect(typedTotal([11, 'healing'], [5, 'necrotic'])).toBe(16)
+    })
+
+    it("tells the Gamemaster's damage that only raises maximum hit points as healing", () => {
+      const maximum = { ...damagePart(6), damageType: 'maximum' }
+      const necrotic = { ...damagePart(6), damageType: 'necrotic' }
+
+      expect(
+        toGmRollView({ ...madeDamage([maximum]), label: null }, NOW),
+      ).toMatchObject({ healing: true, total: 6 })
+      expect(
+        toGmRollView({ ...madeDamage([maximum, necrotic]), label: null }, NOW),
+      ).not.toHaveProperty('healing')
     })
 
     it("totals damage's parts, when the game said each", () => {

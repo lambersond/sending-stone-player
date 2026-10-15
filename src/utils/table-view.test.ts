@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import {
   askTitle,
+  damageKinds,
   htmlToText,
   pickCombat,
   toTableCombat,
@@ -20,6 +21,7 @@ import {
 } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,
+  RollSummary,
   SerializedMessage,
   SheetContainer,
 } from '@/types/sending-stone'
@@ -91,6 +93,84 @@ const askWith = (fields: object) =>
 /** What the server shows of a player's ask for a check, its ways these. */
 const checkWith = (checks: unknown, fields: object = {}) =>
   askWith({ type: 'check', abilities: undefined, checks, ...fields })
+
+/** A die of these faces, come up so. */
+const die = (faces: number, ...results: number[]) => ({
+  faces,
+  results: results.map(result => ({ result, active: true })),
+})
+/** A damage roll as module 0.27.0 sends one: of dnd5e's DamageRoll, of this type. */
+const part = (
+  total: number | null,
+  damageType?: string,
+  fields: object = {},
+): RollSummary => ({
+  class: 'DamageRoll',
+  formula: '1d6',
+  total,
+  dice: [],
+  ...(damageType !== undefined && { damageType }),
+  ...fields,
+})
+/** And as module 0.28.0 sends it, marked as damage, its type's label said. */
+const marked = (roll: RollSummary, section = 'damage'): RollSummary =>
+  ({
+    ...roll,
+    damage: true,
+    ...(roll.damageType && {
+      damageLabel:
+        roll.damageType.charAt(0).toUpperCase() + roll.damageType.slice(1),
+    }),
+    section,
+  }) as RollSummary
+const piercing = part(5, 'piercing', {
+  formula: '1d4 + 4',
+  dice: [die(4, 1)],
+})
+const poison = part(7, 'poison', { formula: '2d6', dice: [die(6, 2, 5)] })
+/** The attack's d20, as Midi-QOL's card holds it. */
+const d20Roll = (total: number, fields: object = {}): RollSummary => ({
+  class: 'D20Roll',
+  formula: '1d20 + 6',
+  total,
+  dice: [die(20, total - 6)],
+  ...fields,
+})
+/** Corvin's dagger, as Midi-QOL's usage card holds its rolls, as dnd5e 5.x posts it. */
+const corvin = (rolls: RollSummary[], fields: object = {}) =>
+  chatMessage({
+    type: 'usage',
+    title: 'Dagger (Melee) - Midi Attack',
+    text: '',
+    rolls,
+    dnd5e: dnd5e({
+      messageType: null,
+      roll: null,
+      item: { name: 'Dagger (Melee)', type: 'weapon' },
+      activity: { name: 'Midi Attack', type: 'attack' },
+      ...fields,
+    }),
+  })
+/** dnd5e's own damage message, with these parts, and this in its roll's flags. */
+const dnd5eDamage = (rolls: RollSummary[], roll: object = {}) =>
+  chatMessage({
+    text: '',
+    rolls,
+    dnd5e: dnd5e({
+      roll: { type: 'damage', ...roll },
+      item: { name: 'Longbow', type: 'weapon' },
+    }),
+  })
+/** What the server shows of a message's damage. */
+const damageOf = (message: SerializedMessage) =>
+  toTableMessage(message, viewer).damage
+/** A message flavored as dnd5e words a damage roll's, and naming nothing else, with these rolls. */
+const flavored = (rolls: RollSummary[]) =>
+  chatMessage({
+    text: '',
+    flavor: 'Fire Bolt - Damage Roll',
+    rolls,
+  })
 
 describe('utils/table-view', () => {
   describe('toTableMessage', () => {
@@ -185,13 +265,13 @@ describe('utils/table-view', () => {
             ],
             advantage: true,
             critical: false,
-            damageType: 'slashing',
           },
         ],
         dnd5e: dnd5e({ targets: [{ name: 'Goblin' }] }),
       })
 
-      expect(toTableMessage(message, viewer)).toMatchObject({
+      const shown = toTableMessage(message, viewer)
+      expect(shown).toMatchObject({
         kind: 'roll',
         text: undefined,
         action: undefined,
@@ -208,10 +288,12 @@ describe('utils/table-view', () => {
             disadvantage: false,
             critical: false,
             fumble: false,
-            damageType: 'slashing',
           },
         ],
       })
+      // No damage, nor an attack, said to be any.
+      expect(shown).not.toHaveProperty('damage')
+      expect(shown).not.toHaveProperty('attackRoll')
     })
 
     it('shows an item used as a card', () => {
@@ -368,6 +450,13 @@ describe('utils/table-view', () => {
         [roll({ damageType: 'healing' }), roll({ damageType: 'necrotic' })],
         'damage',
       ],
+      [
+        'damage that only raises maximum hit points',
+        { type: 'damage' },
+        'spell',
+        [roll({ damageType: 'maximum' })],
+        'healing',
+      ],
       ['healing', { type: 'healing' }, 'spell', [roll()], 'healing'],
       ['a check', { type: 'skill', skillId: 'prc' }, null, [roll()], undefined],
     ])('marks %s', (_, rollData, itemType, rolls, action) => {
@@ -385,6 +474,24 @@ describe('utils/table-view', () => {
     it('marks a spell cast as a card, but not another item used', () => {
       expect(toTableMessage(cast('spell'), viewer).action).toBe('spell')
       expect(toTableMessage(cast('feat'), viewer).action).toBeUndefined()
+    })
+
+    it('marks a spell cast as dnd5e 5.x posts its card: of type usage, its flags saying nothing', () => {
+      const card = chatMessage({
+        type: 'usage',
+        title: 'Fireball - Cast',
+        dnd5e: dnd5e({
+          messageType: null,
+          item: { name: 'Fireball', type: 'spell' },
+          activity: { name: 'Cast', type: 'save' },
+        }),
+      })
+
+      expect(toTableMessage(card, viewer)).toMatchObject({
+        kind: 'card',
+        action: 'spell',
+        label: 'Fireball · Cast',
+      })
     })
 
     it.each([
@@ -463,6 +570,638 @@ describe('utils/table-view', () => {
         ['orphan', []],
         ['alone', []],
       ])
+    })
+  })
+
+  describe('damage cards', () => {
+    it.each([
+      ['as module 0.27.0 sends them', [piercing, poison]],
+      ['as module 0.28.0 sends them', [marked(piercing), marked(poison)]],
+    ])(
+      "folds Corvin's piercing and poison into one card, totalling 12: %s",
+      (_, rolls) => {
+        const shown = toTableMessage(corvin(rolls), viewer)
+
+        expect(shown).toMatchObject({
+          kind: 'roll',
+          label: 'Dagger (Melee)',
+          rolls: [],
+        })
+        expect(shown).not.toHaveProperty('attackRoll')
+        expect(shown.damage).toEqual([
+          {
+            section: 'main',
+            action: 'damage',
+            formula: '1d4 + 4 + 2d6',
+            kinds: [
+              { type: 'piercing', label: 'Piercing', total: 5, pool: 'harm' },
+              { type: 'poison', label: 'Poison', total: 7, pool: 'harm' },
+            ],
+            total: 12,
+            critical: false,
+            rolls: [
+              {
+                formula: '1d4 + 4',
+                total: 5,
+                dice: [{ faces: 4, value: 1, active: true }],
+                label: 'Piercing',
+              },
+              {
+                formula: '2d6',
+                total: 7,
+                dice: [
+                  { faces: 6, value: 2, active: true },
+                  { faces: 6, value: 5, active: true },
+                ],
+                label: 'Poison',
+              },
+            ],
+          },
+        ])
+      },
+    )
+
+    it('keeps the attack as a card of its own, marked, and judges it against armor class', () => {
+      const hit = toTableMessage(
+        corvin(
+          [d20Roll(19, { attack: true }), marked(piercing), marked(poison)],
+          { targets: [{ name: 'Mira', ac: 14 }] },
+        ),
+        viewer,
+      )
+      const missed = toTableMessage(
+        corvin([d20Roll(9), piercing], {
+          targets: [{ name: 'Mira', ac: 14 }],
+        }),
+        viewer,
+      )
+
+      expect(hit.attackRoll).toEqual({ index: 0, action: 'attack' })
+      expect(hit.rolls).toHaveLength(1)
+      expect(hit.rolls[0]).toMatchObject({ formula: '1d20 + 6', total: 19 })
+      expect(hit.targets).toEqual([{ name: 'Mira', ac: 14, outcome: 'hit' }])
+      expect(hit.damage?.[0].total).toBe(12)
+      // As module 0.27.0 sends it: found by its class, on an attack's card.
+      expect(missed.attackRoll).toEqual({ index: 0, action: 'attack' })
+      expect(missed.targets).toEqual([
+        { name: 'Mira', ac: 14, outcome: 'miss' },
+      ])
+    })
+
+    it('marks a spell attack on a spell', () => {
+      const shown = toTableMessage(
+        corvin([d20Roll(15, { attack: true }), part(9, 'fire')], {
+          item: { name: 'Fire Bolt', type: 'spell' },
+        }),
+        viewer,
+      )
+
+      expect(shown.attackRoll).toEqual({ index: 0, action: 'spell-attack' })
+    })
+
+    it("never takes Midi-QOL's utility d20 for the attack, even where the attack was skipped", () => {
+      const utility = {
+        class: 'BasicRoll',
+        formula: '1d20',
+        total: 20,
+        dice: [die(20, 20)],
+      }
+      const shown = toTableMessage(
+        corvin([utility, piercing], { targets: [{ name: 'Mira', ac: 10 }] }),
+        viewer,
+      )
+
+      expect(shown).not.toHaveProperty('attackRoll')
+      expect(shown.rolls).toEqual([
+        expect.objectContaining({ formula: '1d20', total: 20 }),
+      ])
+      expect(shown.targets).toEqual([{ name: 'Mira', ac: 10 }])
+      expect(shown.damage?.[0].kinds).toHaveLength(1)
+    })
+
+    it("marks no attack on a card of another activity, or a d20 that isn't one", () => {
+      const save = corvin([d20Roll(12), piercing], {
+        activity: { name: 'Save', type: 'save' },
+      })
+      const check = chatMessage({
+        rolls: [d20Roll(12)],
+        dnd5e: dnd5e({ roll: { type: 'skill', skillId: 'prc' } }),
+      })
+
+      expect(toTableMessage(save, viewer)).not.toHaveProperty('attackRoll')
+      expect(toTableMessage(check, viewer)).not.toHaveProperty('attackRoll')
+    })
+
+    it.each([
+      [19, 'hit'],
+      [9, 'miss'],
+    ])(
+      "marks the attack of Midi-QOL's own attack activity, as module 0.27.0 sends it: %p is a %s",
+      (total, outcome) => {
+        // Midi-QOL's attack activity, where it doesn't replace dnd5e's, and no roll marked.
+        const shown = toTableMessage(
+          corvin([d20Roll(total), piercing, poison], {
+            activity: { name: 'Midi Attack', type: 'midiAttack' },
+            targets: [{ name: 'Mira', ac: 14 }],
+          }),
+          viewer,
+        )
+
+        expect(shown.attackRoll).toEqual({ index: 0, action: 'attack' })
+        expect(shown.targets).toEqual([{ name: 'Mira', ac: 14, outcome }])
+      },
+    )
+
+    it("gives Midi-QOL's other damage a card of its own, out of the main card's total", () => {
+      expect(damageOf(corvin([piercing, marked(poison, 'other')]))).toEqual([
+        expect.objectContaining({ section: 'main', total: 5 }),
+        expect.objectContaining({
+          section: 'other',
+          action: 'damage',
+          formula: '2d6',
+          kinds: [{ type: 'poison', label: 'Poison', total: 7, pool: 'harm' }],
+          total: 7,
+        }),
+      ])
+      expect(
+        damageOf(corvin([marked(poison, 'other')]))?.map(card => card.section),
+      ).toEqual(['other'])
+    })
+
+    it("tags Midi-QOL's bonus damage, and adds it to its type's", () => {
+      const sneak = marked(part(21, 'piercing', { formula: '6d6' }), 'bonus')
+      const [card] =
+        damageOf(
+          corvin([
+            marked(piercing),
+            { ...sneak, flavor: 'Sneak Attack' } as RollSummary,
+            marked(part(3, 'force'), 'bonus'),
+          ]),
+        ) ?? []
+
+      expect(card.kinds).toEqual([
+        { type: 'piercing', label: 'Piercing', total: 26, pool: 'harm' },
+        { type: 'force', label: 'Force', total: 3, pool: 'harm' },
+      ])
+      expect(card.total).toBe(29)
+      expect(card.formula).toBe('1d4 + 4 + 6d6 + 1d6')
+      expect(card.rolls.map(({ tag }) => tag)).toEqual([
+        undefined,
+        'Sneak Attack',
+        'Bonus',
+      ])
+    })
+
+    it("folds a bonus macro's plain roll, which only Midi-QOL's tag marks as damage", () => {
+      // Midi-QOL keeps a plain Roll a bonus damage macro returns as it is, and tags it.
+      const sneak: RollSummary = {
+        class: 'Roll',
+        formula: '3d6',
+        total: 11,
+        dice: [],
+        section: 'bonus',
+        flavor: 'Sneak Attack',
+      }
+      const shown = toTableMessage(
+        corvin([
+          d20Roll(17, { attack: true }),
+          marked(part(9, 'piercing', { formula: '1d8 + 4' })),
+          sneak,
+        ]),
+        viewer,
+      )
+
+      expect(shown.rolls).toEqual([
+        expect.objectContaining({ formula: '1d20 + 6' }),
+      ])
+      expect(shown.attackRoll).toEqual({ index: 0, action: 'attack' })
+      expect(shown.damage).toHaveLength(1)
+      const [card] = shown.damage ?? []
+      expect(card.kinds).toEqual([
+        { type: 'piercing', label: 'Piercing', total: 9, pool: 'harm' },
+        { total: 11, pool: 'harm' },
+      ])
+      expect(card.total).toBe(20)
+      expect(card.formula).toBe('1d8 + 4 + 3d6')
+      expect(card.rolls[1]).toMatchObject({
+        formula: '3d6',
+        tag: 'Sneak Attack',
+      })
+    })
+
+    it('folds a roll the module marks as damage, whatever its class', () => {
+      const homebrew: RollSummary = {
+        class: 'HomebrewRoll',
+        formula: '1d4',
+        total: 2,
+        dice: [],
+        damage: true,
+      }
+      const shown = toTableMessage(corvin([marked(piercing), homebrew]), viewer)
+
+      expect(shown.rolls).toEqual([])
+      expect(shown.damage).toHaveLength(1)
+      expect(shown.damage?.[0]).toMatchObject({
+        formula: '1d4 + 4 + 1d4',
+        kinds: [
+          { type: 'piercing', total: 5 },
+          { total: 2, pool: 'harm' },
+        ],
+        total: 7,
+      })
+    })
+
+    it("folds dnd5e's own damage message into one card, kind by kind, as its card puts its formula", () => {
+      const [card] =
+        damageOf(
+          dnd5eDamage([
+            part(13, 'piercing', { formula: '2d8 + 4' }),
+            part(17, 'fire', { formula: '4d6' }),
+            part(21, 'piercing', { formula: '6d6' }),
+          ]),
+        ) ?? []
+
+      expect(card).toMatchObject({
+        section: 'main',
+        action: 'damage',
+        formula: '2d8 + 4 + 6d6 + 4d6',
+        total: 51,
+      })
+      expect(card.kinds.map(({ label, total }) => [label, total])).toEqual([
+        ['Piercing', 34],
+        ['Fire', 17],
+      ])
+      // Its rolls as they were rolled.
+      expect(card.rolls.map(({ formula }) => formula)).toEqual([
+        '2d8 + 4',
+        '4d6',
+        '6d6',
+      ])
+      expect(toTableMessage(dnd5eDamage([part(5)]), viewer)).toMatchObject({
+        label: 'Longbow',
+        action: 'damage',
+        rolls: [],
+      })
+    })
+
+    it('takes a negative part away in the formula', () => {
+      const [card] =
+        damageOf(
+          dnd5eDamage([
+            part(5, 'fire', { formula: ' 1d8 ' }),
+            part(-1, 'fire', { formula: '-1' }),
+          ]),
+        ) ?? []
+
+      expect(card.formula).toBe('1d8 - 1')
+    })
+
+    it('counts each kind at least 0, though each roll stays as rolled', () => {
+      const [card] =
+        damageOf(
+          dnd5eDamage([
+            part(-2, 'piercing', { formula: '1d4 - 5' }),
+            part(6, 'fire'),
+          ]),
+        ) ?? []
+
+      expect(card.kinds.map(({ total }) => total)).toEqual([0, 6])
+      expect(card.total).toBe(6)
+      expect(card.rolls[0].total).toBe(-2)
+    })
+
+    it('shows an unknown total as unknown, never part of it', () => {
+      const [card] =
+        damageOf(dnd5eDamage([part(null, 'piercing'), part(7, 'poison')])) ?? []
+
+      expect(card.kinds.map(({ total }) => total)).toEqual([null, 7])
+      expect(card.total).toBeNull()
+    })
+
+    it('makes damage of no type a kind of its own, with no word', () => {
+      const [card] =
+        damageOf(dnd5eDamage([part(4), part(3, 'fire'), part(2)])) ?? []
+
+      expect(card.kinds).toEqual([
+        { total: 6, pool: 'harm' },
+        { type: 'fire', label: 'Fire', total: 3, pool: 'harm' },
+      ])
+      expect(card.rolls[0]).not.toHaveProperty('label')
+      expect(card.total).toBe(9)
+    })
+
+    it("doesn't count Midi-QOL's damage of none at all", () => {
+      const [card] =
+        damageOf(dnd5eDamage([part(5, 'piercing'), part(4, 'midi-none')])) ?? []
+      const [none] = damageOf(dnd5eDamage([part(4, 'midi-none')])) ?? []
+
+      expect(card.kinds[1]).toEqual({
+        type: 'midi-none',
+        label: 'No damage',
+        total: 4,
+        pool: 'none',
+      })
+      expect(card.total).toBe(5)
+      expect(none).toMatchObject({
+        action: 'damage',
+        kinds: [{ pool: 'none' }],
+      })
+      expect(none).not.toHaveProperty('total')
+    })
+
+    it("counts Midi-QOL's none, damage of no type, as Midi-QOL counts and applies it", () => {
+      // A bonus macro that names no type, as Hunter's Mark's may: Midi makes its type "none"
+      // (utils.ts:28-29) and its sumRolls adds it in (utils.ts:9216-9228). Sent with no label, it
+      // has the app's own word for it.
+      const [card] =
+        damageOf(
+          corvin([
+            piercing,
+            part(3, 'none', {
+              formula: '1d6',
+              section: 'bonus',
+              flavor: "Hunter's Mark",
+            }),
+          ]),
+        ) ?? []
+      const [alone] = damageOf(dnd5eDamage([part(4, 'none')])) ?? []
+
+      expect(card.kinds).toEqual([
+        { type: 'piercing', label: 'Piercing', total: 5, pool: 'harm' },
+        { type: 'none', label: 'No Type', total: 3, pool: 'harm' },
+      ])
+      expect(card.total).toBe(8)
+      expect(card.formula).toBe('1d4 + 4 + 1d6')
+      expect(card.rolls[1]).toMatchObject({
+        label: 'No Type',
+        tag: "Hunter's Mark",
+      })
+      expect(alone).toMatchObject({ action: 'damage', total: 4 })
+    })
+
+    it("words Midi-QOL's damage of none at all as no damage, whatever the module says the game calls it", () => {
+      // Midi-QOL adds its types to dnd5e's damage types, with labels of its own.
+      const [card] =
+        damageOf(
+          corvin([
+            marked(piercing),
+            { ...marked(part(4, 'midi-none')), damageLabel: 'None' },
+            { ...marked(part(2, 'none')), damageLabel: 'Ohne Typ' },
+          ]),
+        ) ?? []
+
+      expect(card.kinds.map(({ label }) => label)).toEqual([
+        'Piercing',
+        'No damage',
+        'Ohne Typ',
+      ])
+      expect(card.rolls.map(({ label }) => label)).toEqual([
+        'Piercing',
+        'No damage',
+        'Ohne Typ',
+      ])
+      expect(card.total).toBe(7)
+    })
+
+    it.each([
+      [
+        'healing and temporary hit points: healing, with no one total',
+        ['healing', 'temphp'],
+        'healing',
+        undefined,
+      ],
+      [
+        'healing and harm: damage, with no one total',
+        ['healing', 'necrotic'],
+        'damage',
+        undefined,
+      ],
+      ['maximum hit points alone: healing', ['maximum'], 'healing', 5],
+      [
+        "healing and Midi-QOL's none: healing",
+        ['healing', 'midi-none'],
+        'healing',
+        5,
+      ],
+    ])('marks %s', (_, types, action, total) => {
+      const [card] =
+        damageOf(
+          chatMessage({
+            rolls: types.map(type => part(5, type)),
+            dnd5e: dnd5e({ roll: { type: 'damage' } }),
+          }),
+        ) ?? []
+
+      expect(card.action).toBe(action)
+      expect(card.total).toBe(total)
+    })
+
+    it("words the pools as dnd5e's card does", () => {
+      const [card] =
+        damageOf(
+          dnd5eDamage([
+            part(5, 'healing'),
+            part(4, 'temphp'),
+            part(3, 'maximum'),
+          ]),
+        ) ?? []
+
+      expect(card.kinds.map(({ label, pool }) => [label, pool])).toEqual([
+        ['Healing', 'healing'],
+        ['Temp HP', 'temphp'],
+        ['Max HP', 'maximum'],
+      ])
+    })
+
+    it('marks healing that dnd5e called healing, and words a type it has no word for', () => {
+      const [card] =
+        damageOf(
+          chatMessage({
+            rolls: [part(5, 'radiant'), part(2, 'homebrew')],
+            dnd5e: dnd5e({ roll: { type: 'healing' } }),
+          }),
+        ) ?? []
+
+      expect(card.action).toBe('healing')
+      expect(card.kinds.map(({ label }) => label)).toEqual([
+        'Radiant',
+        'Homebrew',
+      ])
+    })
+
+    it('words a type as the game does, where the module says', () => {
+      const [card] =
+        damageOf(
+          corvin([
+            { ...marked(piercing), damageLabel: 'Stich' } as RollSummary,
+          ]),
+        ) ?? []
+
+      expect(card.kinds[0].label).toBe('Stich')
+      expect(card.rolls[0].label).toBe('Stich')
+    })
+
+    it('is a critical as its first damage roll is', () => {
+      const [first] =
+        damageOf(
+          dnd5eDamage([
+            part(10, 'piercing', { critical: true }),
+            part(7, 'poison'),
+          ]),
+        ) ?? []
+      const [second] =
+        damageOf(
+          dnd5eDamage([
+            part(5, 'piercing'),
+            part(14, 'poison', { critical: true }),
+          ]),
+        ) ?? []
+
+      expect(first.critical).toBe(true)
+      expect(second.critical).toBe(false)
+    })
+
+    it.each([
+      ['half', 'half'],
+      ['none', 'none'],
+      ['full', 'full'],
+      [0.5, undefined],
+      [null, undefined],
+    ])(
+      'says what a creature that saves takes, of %p',
+      (damageOnSave, onSave) => {
+        const [card, other] =
+          damageOf(
+            dnd5eDamage(
+              [part(28, 'fire'), marked(part(7, 'poison'), 'other')],
+              {
+                damageOnSave,
+              },
+            ),
+          ) ?? []
+
+        expect(card.onSave).toBe(onSave)
+        // Never of Midi-QOL's other damage.
+        expect(other).not.toHaveProperty('onSave')
+      },
+    )
+
+    it('labels a card used with rolls by its item alone, and one without by its activity too', () => {
+      expect(toTableMessage(corvin([piercing]), viewer).label).toBe(
+        'Dagger (Melee)',
+      )
+      expect(toTableMessage(corvin([]), viewer)).toMatchObject({
+        kind: 'card',
+        label: 'Dagger (Melee) · Midi Attack',
+      })
+      // With no item named, as before.
+      expect(
+        toTableMessage(corvin([piercing], { item: null }), viewer).label,
+      ).toBe('Dagger (Melee) - Midi Attack')
+    })
+
+    it('names damage that recorded nothing of where it is from as its flavor does', () => {
+      expect(toTableMessage(flavored([part(9, 'fire')]), viewer).label).toBe(
+        'Fire Bolt',
+      )
+      expect(toTableMessage(flavored([d20Roll(12)]), viewer).label).toBe(
+        'Fire Bolt - Damage Roll',
+      )
+    })
+
+    it('shows folded damage against the targets of the attack it came from', () => {
+      const attack = chatMessage({
+        id: 'attack',
+        rolls: [d20Roll(19)],
+        dnd5e: dnd5e({
+          roll: { type: 'attack' },
+          targets: [{ name: 'Goblin Boss', ac: 15 }],
+        }),
+      })
+      const damage = chatMessage({
+        id: 'damage',
+        rolls: [piercing, poison],
+        dnd5e: dnd5e({
+          roll: { type: 'damage' },
+          originatingMessage: 'attack',
+        }),
+      })
+
+      const [shownAttack, shownDamage] = toTableMessages(
+        [attack, damage],
+        viewer,
+      )
+      expect(shownAttack.targets).toEqual([
+        { name: 'Goblin Boss', ac: 15, outcome: 'hit' },
+      ])
+      // Not judged again: damage isn't an attack.
+      expect(shownDamage).toMatchObject({
+        rolls: [],
+        targets: [{ name: 'Goblin Boss', ac: 15 }],
+      })
+      expect(shownDamage.damage?.[0].total).toBe(12)
+    })
+
+    it("reads a stored roll's marks only where they hold up, as rows aren't checked again", () => {
+      const junk = {
+        class: 'Roll',
+        formula: '1d20',
+        total: 12,
+        dice: [],
+        section: 'weird',
+        damage: 'yes',
+        flavor: 5,
+        attack: 1,
+        damageLabel: '',
+      } as unknown as RollSummary
+      const shown = toTableMessage(corvin([junk]), viewer)
+
+      // Not damage, nor an attack.
+      expect(shown).not.toHaveProperty('damage')
+      expect(shown).not.toHaveProperty('attackRoll')
+      expect(shown.rolls).toHaveLength(1)
+
+      const [card] =
+        damageOf(
+          corvin([
+            {
+              ...part(4, 'piercing', { section: 'bonus' }),
+              flavor: 5,
+              damageLabel: '  ',
+            } as unknown as RollSummary,
+            {
+              ...part(3, 'fire', { class: 7 }),
+              damageLabel: 'x'.repeat(65),
+              flavor: 'y'.repeat(101),
+            } as unknown as RollSummary,
+            part(2, 9 as unknown as string, { class: 'Roll' }),
+          ]),
+        ) ?? []
+      expect(card.rolls.map(({ tag, label }) => [tag, label])).toEqual([
+        ['Bonus', 'Piercing'],
+        [undefined, 'Fire'],
+      ])
+    })
+  })
+
+  describe('damageKinds', () => {
+    it('adds up each kind in the order it first comes, at least 0, null where any is unknown', () => {
+      expect(
+        damageKinds([
+          { total: 4, damageType: 'fire' },
+          { total: -6, damageType: 'cold' },
+          { total: 3 },
+          { total: 2, damageType: 'fire' },
+          { total: null, damageType: 'acid' },
+          { total: 1, damageType: 'acid' },
+        ]),
+      ).toEqual([
+        { type: 'fire', total: 6 },
+        { type: 'cold', total: 0 },
+        { type: undefined, total: 3 },
+        { type: 'acid', total: null },
+      ])
+      expect(damageKinds([])).toEqual([])
     })
   })
 

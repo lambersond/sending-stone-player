@@ -56,6 +56,43 @@ const contrast = (one: number[], other: number[]) => {
 /** The accent's tints the app draws behind its text. */
 const TINTS = [0, 0.05, 0.1, 0.12, 0.15, 0.2]
 
+/** A tint of a colour over what's already drawn, as the browser stacks one on another. */
+const stack = (hex: string, alpha: number, below: number[]) =>
+  rgb(hex).map((channel, index) => channel * alpha + below[index] * (1 - alpha))
+
+type Theme = Record<string, string>
+
+/** The chat's bubbles, each as drawn over the page, as the chat pane puts nothing between. */
+const bubbles = (theme: Theme): [string, number[]][] => [
+  ['a bubble of anyone else', rgb(theme.card)],
+  ["the player's own", stack(theme.primary, 0.1, rgb(theme.page))],
+  ['a whisper', stack(theme.whisper, 0.05, rgb(theme.page))],
+]
+
+/**
+ * The chat's small text this app draws on a tint, or on the bubble itself: by its text's token,
+ * then its tint's token and how strong the tint is.
+ */
+const CHAT_TEXT: [string, string, string, number][] = [
+  ['the Damage chip', 'damage-text', 'damage', 0.15],
+  ['the Healing chip', 'primary-text', 'primary', 0.1],
+  ['the Attack chip', 'attack-text', 'attack', 0.15],
+  ['the Spell and Spell attack chips', 'spell-text', 'spell', 0.15],
+  ['the Hit pill', 'primary-text', 'primary', 0.1],
+  ['the Miss pill', 'text-secondary', 'text-secondary', 0.1],
+  ["a damage chip's word", 'damage-text', 'damage', 0.1],
+  ["a healing chip's word", 'primary-text', 'primary', 0.1],
+  ['a "No damage" chip', 'text-secondary', 'text-secondary', 0.1],
+  ["a damage chip's number", 'text-primary', 'damage', 0.1],
+  ["a healing chip's number", 'text-primary', 'primary', 0.1],
+  [
+    'the "Other damage" caption, a formula, a save line and a tag',
+    'text-secondary',
+    'page',
+    0,
+  ],
+]
+
 describe('app/globals.css', () => {
   it.each(['page', 'card'])(
     'reads the accent as small text at WCAG AA on each of its tints over the %s, in the light theme',
@@ -73,6 +110,57 @@ describe('app/globals.css', () => {
     const behind = tint(light.primary, 0.1, light.page)
     expect(contrast(rgb(light.primary), behind)).toBeLessThan(4.5)
     expect(light['primary-text']).toBe(light['primary-hover'])
+  })
+
+  describe.each([
+    ['light', light],
+    ['dark', dark],
+  ])('the chat, in the %s theme', (_, theme) => {
+    it.each(CHAT_TEXT)(
+      'reads %s at WCAG AA over every bubble',
+      (__, text, behind, alpha) => {
+        for (const [, bubble] of bubbles(theme)) {
+          const ground = stack(theme[behind], alpha, bubble)
+          expect(contrast(rgb(theme[text]), ground)).toBeGreaterThanOrEqual(4.5)
+        }
+      },
+    )
+
+    it("reads a damage card's total, large text, at WCAG AA over every bubble, a critical's in gold", () => {
+      for (const [, bubble] of bubbles(theme)) {
+        expect(
+          contrast(rgb(theme['gold-text']), bubble),
+        ).toBeGreaterThanOrEqual(3)
+        expect(
+          contrast(rgb(theme['text-primary']), bubble),
+        ).toBeGreaterThanOrEqual(3)
+      }
+    })
+  })
+
+  it("needs the chat's text tokens in the light theme, where the colours fall short on their tints", () => {
+    const [, mine] = bubbles(light)[1]
+    for (const name of ['damage', 'attack', 'spell']) {
+      expect(
+        contrast(rgb(light[name]), stack(light[name], 0.15, mine)),
+      ).toBeLessThan(4.5)
+    }
+  })
+
+  it('makes them the colours themselves in the dark theme', () => {
+    for (const name of ['damage', 'attack', 'spell']) {
+      expect(dark[`${name}-text`]).toBe(dark[name])
+    }
+  })
+
+  it("would fall short with a tint under a damage card's summary on a hover, so it has none", () => {
+    // As `hover:bg-primary/5` would draw it, over the player's own bubble, in the light theme.
+    const [, mine] = bubbles(light)[1]
+    const hovered = stack(light.primary, 0.05, mine)
+    expect(
+      contrast(rgb(light['primary-text']), stack(light.primary, 0.1, hovered)),
+    ).toBeLessThan(4.5)
+    expect(contrast(rgb(light['gold-text']), hovered)).toBeLessThan(3)
   })
 
   it('is the accent itself in the dark theme, which reads at AA on its tints there', () => {

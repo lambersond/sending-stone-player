@@ -937,6 +937,35 @@ export const rollSchema = z.looseObject({
       }),
     )
     .catch([]),
+  // What marks a roll, each left out where it doesn't apply, or can't be read: the class it has
+  // always had, and from module 0.28.0, what it says of damage and attacks.
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  class: z.string().max(100).optional().catch(undefined),
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  damage: z.literal(true).optional().catch(undefined),
+  damageLabel: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  section: z
+    .enum(['damage', 'bonus', 'other'])
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  flavor: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  attack: z.literal(true).optional().catch(undefined),
 })
 
 const dnd5eSchema = z

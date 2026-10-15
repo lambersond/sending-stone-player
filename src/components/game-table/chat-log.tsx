@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import clsx from 'clsx'
 import {
   BellRing,
@@ -13,11 +13,15 @@ import {
 } from 'lucide-react'
 import { EmptyState } from './empty-state'
 import { LocalTime } from './local-time'
+import { Chevron } from '@/components/character-sheet/action-entry'
 import { askTitle } from '@/utils/table-view'
 import type {
+  DamagePool,
   Side,
   TableAction,
   TableAsk,
+  TableDamage,
+  TableDamageKind,
   TableMessage,
   TableRoll,
   TableTarget,
@@ -29,7 +33,11 @@ const AVATAR: Record<Side, string> = {
   other: 'bg-whisper/15 text-whisper',
 }
 
-/** How each kind of combat roll is marked: a chip naming it, and an accent down the card's edge. */
+/**
+ * How each kind of combat roll is marked: a chip naming it, and an accent down the card's edge.
+ * Each chip's text is its colour's text token, deep enough to read at WCAG AA on its tint over
+ * every bubble, the player's own and a whisper's too.
+ */
 const ACTIONS: Record<
   TableAction,
   { label: string; icon: LucideIcon; chip: string; accent: string }
@@ -37,44 +45,58 @@ const ACTIONS: Record<
   attack: {
     label: 'Attack',
     icon: Swords,
-    chip: 'bg-attack/15 text-attack',
+    chip: 'bg-attack/15 text-attack-text',
     accent: 'border-l-attack',
   },
   'spell-attack': {
     label: 'Spell attack',
     icon: Sparkles,
-    chip: 'bg-spell/15 text-spell',
+    chip: 'bg-spell/15 text-spell-text',
     accent: 'border-l-spell',
   },
   damage: {
     label: 'Damage',
     icon: Droplet,
-    chip: 'bg-damage/15 text-damage',
+    chip: 'bg-damage/15 text-damage-text',
     accent: 'border-l-damage',
   },
   healing: {
     label: 'Healing',
     icon: HeartPulse,
-    chip: 'bg-primary/15 text-primary-text',
+    chip: 'bg-primary/10 text-primary-text',
     accent: 'border-l-primary',
   },
   spell: {
     label: 'Spell',
     icon: Sparkles,
-    chip: 'bg-spell/15 text-spell',
+    chip: 'bg-spell/15 text-spell-text',
     accent: 'border-l-spell',
   },
 }
 
-/** A message's bubble, its pointed corner toward the speaker's avatar. */
-const bubble = (whisper: boolean, mine: boolean) =>
+/**
+ * A message's bubble, its pointed corner toward the speaker's avatar; gold all round for a
+ * critical. It sets one border colour only: of two, the one the stylesheet sets later wins,
+ * whatever their order here, and gold comes before the player's own and a whisper's.
+ */
+const bubble = (whisper: boolean, mine: boolean, critical = false) =>
   clsx(
     'max-w-full border px-3 py-2.5',
     mine ? 'rounded-[14px_4px_14px_14px]' : 'rounded-[4px_14px_14px_14px]',
-    whisper && 'border-dashed border-whisper/60 bg-whisper/5',
-    !whisper &&
-      (mine ? 'border-primary/30 bg-primary/10' : 'border-border bg-card'),
+    critical ? 'border-gold' : edgeOf(whisper, mine),
+    whisper && 'border-dashed bg-whisper/5',
+    !whisper && (mine ? 'bg-primary/10' : 'bg-card'),
   )
+
+/** A bubble's border colour, for a whisper, the player's own message or anyone else's. */
+function edgeOf(whisper: boolean, mine: boolean): string {
+  if (whisper) return 'border-whisper/60'
+  return mine ? 'border-primary/30' : 'border-border'
+}
+
+/** The caption style of a card's small heading, such as "Used". */
+const CAPTION =
+  'text-[11px] font-semibold tracking-wider text-text-secondary uppercase'
 
 export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
   if (messages.length === 0) {
@@ -99,8 +121,18 @@ export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
 }
 
 function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
-  const { speaker, side, whisper, kind, label, action, text, rolls, targets } =
-    message
+  const {
+    speaker,
+    side,
+    whisper,
+    kind,
+    label,
+    action,
+    text,
+    rolls,
+    attackRoll,
+    targets,
+  } = message
   // The player's own messages sit on the other side, as in a messaging app.
   const mine = side === 'me'
   return (
@@ -184,9 +216,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
             {action ? (
               <ActionChip action={action} />
             ) : (
-              <span className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
-                Used
-              </span>
+              <span className={CAPTION}>Used</span>
             )}
             <span className='font-semibold'>
               {label ?? 'An item or ability'}
@@ -194,19 +224,37 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
             <Targets targets={targets} />
           </div>
         )}
-        {kind === 'roll' &&
-          rolls.map((roll, index) => (
-            <RollCard
-              key={index}
-              roll={roll}
-              label={label}
-              action={action}
-              // Who it was aimed at, called out once, on the first roll.
-              targets={index === 0 ? targets : []}
-              whisper={whisper}
-              mine={mine}
-            />
-          ))}
+        {kind === 'roll' && (
+          <>
+            {rolls.map((roll, index) => (
+              <RollCard
+                key={index}
+                roll={roll}
+                label={label}
+                // Only its attack is marked: its damage cards carry their own marks.
+                action={
+                  attackRoll?.index === index ? attackRoll.action : undefined
+                }
+                // Who it was aimed at, called out once, on the first card.
+                targets={index === 0 ? targets : []}
+                whisper={whisper}
+                mine={mine}
+              />
+            ))}
+            {/* By its section, so an open card stays open as Midi-QOL adds the other. */}
+            {message.damage?.map((damage, index) => (
+              <DamageCard
+                key={damage.section}
+                damage={damage}
+                // Under its attack's card, the item's name isn't said again.
+                label={attackRoll ? undefined : label}
+                targets={rolls.length === 0 && index === 0 ? targets : []}
+                whisper={whisper}
+                mine={mine}
+              />
+            ))}
+          </>
+        )}
         {kind === 'text' && targets.length > 0 && (
           <div className={clsx(mine && 'self-end')}>
             <Targets targets={targets} />
@@ -287,9 +335,8 @@ function RollCard({
   return (
     <div
       className={clsx(
-        bubble(whisper, mine),
+        bubble(whisper, mine, roll.critical),
         'flex w-full max-w-sm flex-col gap-2 p-3',
-        roll.critical && 'border-solid border-gold',
         action && ['border-l-4', ACTIONS[action].accent],
       )}
     >
@@ -321,22 +368,7 @@ function RollCard({
           <span className='font-mono text-sm break-all text-text-secondary'>
             {roll.formula}
           </span>
-          {roll.dice.length > 0 && (
-            <ul aria-label='Dice' className='flex flex-wrap gap-1'>
-              {roll.dice.map((die, index) => (
-                <li
-                  key={index}
-                  className={clsx(
-                    'inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-md border border-border bg-card px-1 font-mono text-xs',
-                    !die.active && 'text-text-secondary line-through',
-                  )}
-                >
-                  {die.value}
-                  {!die.active && <span className='sr-only'> (dropped)</span>}
-                </li>
-              ))}
-            </ul>
-          )}
+          <DiceList dice={roll.dice} />
         </div>
         <span
           className={clsx(
@@ -349,20 +381,227 @@ function RollCard({
           {roll.total ?? '–'}
         </span>
       </div>
-      {damageLabel(roll.damageType) && (
-        <span className='text-xs text-text-secondary capitalize'>
-          {damageLabel(roll.damageType)}
+    </div>
+  )
+}
+
+/** A roll's dice, each as it came up, those it dropped struck through. */
+function DiceList({ dice }: Readonly<{ dice: TableRoll['dice'] }>) {
+  if (dice.length === 0) return
+  return (
+    <ul aria-label='Dice' className='flex flex-wrap gap-1'>
+      {dice.map((die, index) => (
+        <li
+          key={index}
+          className={clsx(
+            'inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-md border border-border bg-card px-1 font-mono text-xs',
+            !die.active && 'text-text-secondary line-through',
+          )}
+        >
+          {die.value}
+          {!die.active && <span className='sr-only'> (dropped)</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** What a creature that saves takes, as dnd5e's damage card says beneath its total. */
+const ON_SAVE: Record<NonNullable<TableDamage['onSave']>, string> = {
+  half: 'Half damage on a save',
+  none: 'No damage on a save',
+  full: 'Full damage on a save',
+}
+
+/**
+ * A message's damage rolls in one card, as dnd5e's damage card adds them up: its formula, a chip
+ * for each kind of damage with what it came to, and their total where they fill one pool. Its
+ * rolls' dice open beneath it, or show inline where it has only the one roll.
+ */
+function DamageCard({
+  damage,
+  label,
+  targets,
+  whisper,
+  mine,
+}: Readonly<{
+  damage: TableDamage
+  label?: string
+  targets: TableTarget[]
+  whisper: boolean
+  mine: boolean
+}>) {
+  const [open, setOpen] = useState(false)
+  const { action, critical, rolls } = damage
+  const formula = damage.formula && (
+    <span className='font-mono text-xs break-words text-text-secondary'>
+      {damage.formula}
+    </span>
+  )
+  return (
+    <div
+      className={clsx(
+        bubble(whisper, mine, critical),
+        'flex w-full max-w-sm flex-col gap-2 p-3',
+        'border-l-4',
+        ACTIONS[action].accent,
+      )}
+    >
+      <div className='flex items-start justify-between gap-2'>
+        <span className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+          <ActionChip action={action} />
+          {damage.section === 'other' && (
+            <span className={CAPTION}>Other damage</span>
+          )}
+          {label && <span className='text-sm font-semibold'>{label}</span>}
         </span>
+        {critical && (
+          <div className='flex shrink-0 flex-wrap justify-end gap-1'>
+            <Badge className='bg-gold text-on-gold'>Critical</Badge>
+          </div>
+        )}
+      </div>
+      <Targets targets={targets} />
+      {rolls.length > 1 ? (
+        <details onToggle={event => setOpen(event.currentTarget.open)}>
+          {/* A hover rings it rather than tinting it: a tint under its chips and total would take
+              them below WCAG AA on the player's own bubble, in the light theme. */}
+          <summary className='-mx-1 flex min-h-11 cursor-pointer list-none items-end gap-2 rounded-lg px-1 hover:ring-1 hover:ring-primary/30 [&::-webkit-details-marker]:hidden'>
+            <span className='flex min-w-0 flex-1 flex-col gap-1.5'>
+              {formula}
+              {/* So its name reads "1d4 + 4 + 2d6, 5 Piercing + 7 Poison = 12". */}
+              {formula && <span className='sr-only'>, </span>}
+              <KindChips kinds={damage.kinds} />
+            </span>
+            <DamageTotal damage={damage} />
+            <span className='mb-1 flex shrink-0'>
+              <Chevron open={open} />
+            </span>
+          </summary>
+          {open && (
+            <ul
+              aria-label='Rolls'
+              className='mt-2 flex flex-col gap-1.5 border-t border-border pt-2'
+            >
+              {rolls.map((roll, index) => (
+                <li
+                  key={index}
+                  className='flex items-end justify-between gap-3'
+                >
+                  <span className='flex min-w-0 flex-wrap items-center gap-1'>
+                    {roll.tag && (
+                      <>
+                        <span className='text-[11px] font-semibold text-text-secondary'>
+                          {roll.tag}
+                        </span>{' '}
+                      </>
+                    )}
+                    <span className='pr-1 font-mono text-xs break-words text-text-secondary'>
+                      {roll.formula}
+                    </span>{' '}
+                    <DiceList dice={roll.dice} />
+                  </span>
+                  <span className='shrink-0 text-sm'>
+                    <span className='font-semibold tabular-nums'>
+                      {roll.total ?? '–'}
+                    </span>
+                    {roll.label && (
+                      <>
+                        {' '}
+                        <span className='text-text-secondary'>
+                          {roll.label}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </details>
+      ) : (
+        <div className='flex items-end gap-2'>
+          <span className='flex min-w-0 flex-1 flex-col gap-1.5'>
+            {formula}
+            <DiceList dice={rolls[0]?.dice ?? []} />
+            <KindChips kinds={damage.kinds} />
+          </span>
+          <DamageTotal damage={damage} />
+        </div>
+      )}
+      {damage.onSave && (
+        <p className='text-xs text-text-secondary'>{ON_SAVE[damage.onSave]}</p>
       )}
     </div>
   )
 }
 
-/** What a damage roll dealt. Healing is already marked as such, so says nothing more. */
-function damageLabel(damageType: string | undefined): string | undefined {
-  if (!damageType || damageType === 'healing') return undefined
-  if (damageType === 'temphp') return 'Temporary hit points'
-  return `${damageType} damage`
+/** A chip of a kind of healing: each of its pools is the accent's. */
+const HEALS = {
+  chip: 'border-transparent bg-primary/10',
+  word: 'text-primary-text',
+}
+
+/**
+ * How each kind of damage's chip is coloured: its tint and edge, and its word's colour. Each has an
+ * edge, if only a clear one, so that every chip is as tall as damage's.
+ */
+const KIND_TONES: Record<DamagePool, { chip: string; word: string }> = {
+  harm: { chip: 'border-damage/30 bg-damage/10', word: 'text-damage-text' },
+  healing: HEALS,
+  temphp: HEALS,
+  maximum: HEALS,
+  none: {
+    chip: 'border-transparent bg-text-secondary/10',
+    word: 'text-text-secondary',
+  },
+}
+
+/** A chip for each kind of damage, "5 Piercing", read as "5 Piercing + 7 Poison". */
+function KindChips({ kinds }: Readonly<{ kinds: TableDamageKind[] }>) {
+  return (
+    <span className='flex flex-wrap gap-1'>
+      {kinds.map((kind, index) => (
+        <Fragment key={index}>
+          {index > 0 && <span className='sr-only'> + </span>}
+          <span
+            className={clsx(
+              'inline-flex items-baseline gap-1 rounded-full border px-2 py-0.5 text-xs',
+              KIND_TONES[kind.pool].chip,
+            )}
+          >
+            {/* Midi-QOL's damage of none is said in words, as it isn't counted. */}
+            {kind.pool !== 'none' && (
+              <span className='font-bold text-text-primary tabular-nums'>
+                {kind.total ?? '–'}
+              </span>
+            )}
+            {/* A space of its own, as the chip's gap isn't one to a screen reader. */}
+            {kind.pool !== 'none' && kind.label && ' '}
+            {kind.label && (
+              <span className={KIND_TONES[kind.pool].word}>{kind.label}</span>
+            )}
+          </span>
+        </Fragment>
+      ))}
+    </span>
+  )
+}
+
+/** A damage card's total, where it has one: "–" while any of it is unknown. */
+function DamageTotal({ damage }: Readonly<{ damage: TableDamage }>) {
+  if (damage.total === undefined) return
+  return (
+    <span
+      className={clsx(
+        'text-3xl leading-none font-semibold tabular-nums',
+        damage.critical && 'text-gold-text',
+      )}
+    >
+      <span className='sr-only'>{' = '}</span>
+      {damage.total ?? '–'}
+    </span>
+  )
 }
 
 function ActionChip({ action }: Readonly<{ action: TableAction }>) {
@@ -400,8 +639,8 @@ function Targets({ targets }: Readonly<{ targets: TableTarget[] }>) {
               className={clsx(
                 'rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
                 target.outcome === 'hit'
-                  ? 'bg-primary/15 text-primary-text'
-                  : 'bg-text-secondary/15 text-text-secondary',
+                  ? 'bg-primary/10 text-primary-text'
+                  : 'bg-text-secondary/10 text-text-secondary',
               )}
             >
               {target.outcome === 'hit' ? 'Hit' : 'Miss'}
