@@ -197,7 +197,7 @@ describe('components/character-sheet/actions-tab', () => {
     ).toHaveClass('text-damage')
     expect(
       screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
-    ).toHaveClass('text-primary')
+    ).toHaveClass('text-primary-text')
     expect(screen.getByTitle('DEX saving throw')).toHaveTextContent('DEX 13')
   })
 

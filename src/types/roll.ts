@@ -25,13 +25,17 @@ export type RollFeature = (typeof ROLL_FEATURES)[number]
  * What a roll on the sheet is, for the game to make it: a skill or tool check by the skill's or
  * tool's key, an ability check or saving throw by the ability's, and for one a description calls
  * for, its link; for a check an activity asks for, the player's own, from module 0.21.0, the item
- * and activity; for a saving throw the game asked for, the prompt it answers; a death saving
- * throw, initiative in a combat, or an attack with an item's attack activity, at a combatant, or
- * none, or for an area attack at those in its area, with the spell slot, ammunition and attack
- * mode chosen.
+ * and activity; for a saving throw the game asked for, the prompt it answers, as for an ability or
+ * skill check Midi-QOL asked for, from module 0.27.0; a death saving throw, initiative in a
+ * combat, or an attack with an item's attack activity, at a combatant, or none, or for an area
+ * attack at those in its area, with the spell slot, ammunition and attack mode chosen.
  */
 export type RollSource =
-  | ({ kind: 'skill' | 'tool' | 'ability'; key: string } & Partial<TextLink> &
+  | ({
+      kind: 'skill' | 'tool' | 'ability'
+      key: string
+      prompt?: string
+    } & Partial<TextLink> &
       Partial<ActivityRef>)
   | ({ kind: 'save'; key: string; prompt?: string } & Partial<TextLink>)
   | { kind: 'death' }

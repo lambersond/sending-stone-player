@@ -352,7 +352,7 @@ function Portrait({ name, src }: Readonly<{ name: string; src?: string }>) {
         aria-hidden
         className={clsx(
           box,
-          'flex items-center justify-center text-lg font-bold text-primary',
+          'flex items-center justify-center text-lg font-bold text-primary-text',
         )}
       >
         {initials(name)}
@@ -638,7 +638,7 @@ export function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
       aria-hidden
       className={clsx(
         'rounded px-1 text-[10px] font-bold tracking-wide uppercase',
-        mode > 0 ? 'bg-primary/15 text-primary' : 'bg-ruby/15 text-ruby',
+        mode > 0 ? 'bg-primary/15 text-primary-text' : 'bg-ruby/15 text-ruby',
       )}
     >
       {mode > 0 ? 'Adv' : 'Dis'}

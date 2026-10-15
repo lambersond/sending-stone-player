@@ -3,13 +3,18 @@
  */
 import { OPTIONS, POST } from './route'
 import { findEventCampaign } from '@/db/campaigns'
-import { claimRollRequests, markBridgePolled } from '@/db/roll-requests'
+import {
+  claimRollRequests,
+  markBridgePolled,
+  openActorIds,
+} from '@/db/roll-requests'
 import type { RollCommand } from '@/utils/roll-requests'
 
 jest.mock('@/db/campaigns', () => ({ findEventCampaign: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
   claimRollRequests: jest.fn(),
   markBridgePolled: jest.fn(),
+  openActorIds: jest.fn(),
 }))
 
 const URL = 'https://player.example/api/bridge/commands'
@@ -79,6 +84,8 @@ describe('app/api/bridge/commands', () => {
       .mockResolvedValue({ id: 'c1', helloSession: 's1' })
     given(true, false)
     jest.mocked(claimRollRequests).mockResolvedValue([])
+    // Thorin's player has his sheet open.
+    jest.mocked(openActorIds).mockResolvedValue(['thorin'])
   })
 
   afterEach(() => {
@@ -108,10 +115,12 @@ describe('app/api/bridge/commands', () => {
     await expect(response.json()).resolves.toEqual({
       commands: [command],
       wait: 10_000,
+      open: ['thorin'],
     })
     expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
     expect(markBridgePolled).toHaveBeenCalledWith('c1')
     expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(openActorIds).toHaveBeenCalledWith('c1')
   })
 
   it('answers at once, saying to ask again in a minute, while the campaign takes no rolls', async () => {
@@ -122,8 +131,34 @@ describe('app/api/bridge/commands', () => {
     await expect(response.json()).resolves.toEqual({
       commands: [],
       wait: 60_000,
+      open: ['thorin'],
     })
     expect(claimRollRequests).not.toHaveBeenCalled()
+  })
+
+  it('says no one is open, where no character is', async () => {
+    jest.mocked(openActorIds).mockResolvedValue([])
+
+    const response = await post()
+
+    await expect(response.json()).resolves.toEqual({
+      commands: [],
+      wait: 10_000,
+      open: [],
+    })
+  })
+
+  it('hands over no rolls, which would be lost, when it cannot read which characters are open', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    jest.mocked(openActorIds).mockRejectedValue(new Error('db down'))
+
+    const response = await post()
+
+    await expectRefusal(response, 500, UNAVAILABLE)
+    expect(claimRollRequests).not.toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 
   describe('while players are at the table', () => {
@@ -137,7 +172,10 @@ describe('app/api/bridge/commands', () => {
 
       const response = await post()
 
-      await expect(response.json()).resolves.toEqual({ commands: [command] })
+      await expect(response.json()).resolves.toEqual({
+        commands: [command],
+        open: ['thorin'],
+      })
     })
 
     it('holds the fetch open until a roll comes', async () => {
@@ -155,7 +193,10 @@ describe('app/api/bridge/commands', () => {
 
       await jest.advanceTimersByTimeAsync(500)
       expect(answered?.status).toBe(200)
-      await expect(answered?.json()).resolves.toEqual({ commands: [command] })
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [command],
+        open: ['thorin'],
+      })
     })
 
     it('answers with nothing after twenty seconds without a roll', async () => {
@@ -166,8 +207,68 @@ describe('app/api/bridge/commands', () => {
       expect(answered).toBeUndefined()
 
       await jest.advanceTimersByTimeAsync(100)
-      await expect(answered?.json()).resolves.toEqual({ commands: [] })
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [],
+        open: ['thorin'],
+      })
       expect(claimRollRequests).toHaveBeenCalledTimes(21)
+      // Which characters are open is read again each time it's checked, as rolls are.
+      expect(openActorIds).toHaveBeenCalledTimes(21)
+    })
+
+    it('answers early, with no rolls, once a character opens or closes, saying which are open now', async () => {
+      jest
+        .mocked(openActorIds)
+        .mockResolvedValueOnce(['balin', 'thorin'])
+        .mockResolvedValueOnce(['balin', 'thorin'])
+        .mockResolvedValueOnce(['balin'])
+      let answered: Response | undefined
+      void post().then(response => (answered = response))
+
+      await jest.advanceTimersByTimeAsync(1500)
+      expect(answered).toBeUndefined()
+
+      await jest.advanceTimersByTimeAsync(500)
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [],
+        open: ['balin'],
+      })
+      // None is handed over once it's seen to change, which the answer would carry.
+      expect(claimRollRequests).toHaveBeenCalledTimes(2)
+    })
+
+    it('answers early when one character closes as another opens, though as many are open', async () => {
+      jest
+        .mocked(openActorIds)
+        .mockResolvedValueOnce(['thorin'])
+        .mockResolvedValueOnce(['balin'])
+      let answered: Response | undefined
+      void post().then(response => (answered = response))
+
+      await jest.advanceTimersByTimeAsync(1000)
+
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [],
+        open: ['balin'],
+      })
+    })
+
+    it('asks for a retry, handing over nothing, when it cannot read again which characters are open', async () => {
+      const consoleError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      jest
+        .mocked(openActorIds)
+        .mockResolvedValueOnce(['thorin'])
+        .mockRejectedValueOnce(new Error('db down'))
+      let answered: Response | undefined
+      void post().then(response => (answered = response))
+
+      await jest.advanceTimersByTimeAsync(1000)
+
+      expect(answered?.status).toBe(500)
+      expect(claimRollRequests).toHaveBeenCalledTimes(1)
+      consoleError.mockRestore()
     })
 
     it('hands over nothing to a fetch given up on, which would lose it', async () => {
@@ -182,7 +283,10 @@ describe('app/api/bridge/commands', () => {
       controller.abort()
       await jest.advanceTimersByTimeAsync(0)
 
-      await expect(answered?.json()).resolves.toEqual({ commands: [] })
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [],
+        open: ['thorin'],
+      })
       expect(claimRollRequests).toHaveBeenCalledTimes(3)
     })
   })

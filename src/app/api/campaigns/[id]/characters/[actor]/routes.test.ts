@@ -11,6 +11,7 @@ import {
   createRollRequest,
   getRollRequestView,
   notePlayersSeen,
+  noteTableOpen,
 } from '@/db/roll-requests'
 import { getGmSeat } from '@/db/seats'
 import { getSheetText } from '@/db/sheet-texts'
@@ -22,6 +23,7 @@ jest.mock('@/db/roll-requests', () => ({
   createRollRequest: jest.fn(),
   getRollRequestView: jest.fn(),
   notePlayersSeen: jest.fn(),
+  noteTableOpen: jest.fn(),
 }))
 jest.mock('@/db/sheet-texts', () => ({ getSheetText: jest.fn() }))
 jest.mock('@/db/table', () => ({
@@ -117,8 +119,11 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
     await expect(table.json()).resolves.toEqual(view)
     expect(getGmSeat).toHaveBeenLastCalledWith('gm-1', 'camp1', 'balin')
     expect(getTableView).toHaveBeenCalledWith(seat, { sheetVersion: undefined })
-    // The Gamemaster at the table may roll, so the module waits for their rolls too.
+    // The Gamemaster at the table may roll, so the module waits for their rolls too; but the
+    // character is open in the app only on its player's page, which alone the module waits for to
+    // answer what Midi-QOL asks.
     expect(notePlayersSeen).toHaveBeenCalledWith('camp1')
+    expect(noteTableOpen).not.toHaveBeenCalled()
 
     const rolled = await routes.rolls()
     expect(rolled.status).toBe(202)

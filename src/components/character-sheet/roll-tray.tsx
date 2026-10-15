@@ -708,7 +708,7 @@ export function DamageDue({
  */
 const DAMAGE_BUTTONS = {
   damage: 'bg-damage/15 text-damage hover:bg-damage/25',
-  healing: 'bg-primary/10 text-primary hover:bg-primary/20',
+  healing: 'bg-primary/10 text-primary-text hover:bg-primary/20',
   damageOnTint: 'bg-card text-damage ring-1 ring-damage/40 hover:ring-damage',
   healingOnTint:
     'bg-card text-primary ring-1 ring-primary/40 hover:ring-primary',
@@ -1341,7 +1341,7 @@ export function GmPill() {
   return (
     <span
       title={GM_WORDS}
-      className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-hover dark:text-primary'
+      className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-text'
     >
       GM<span className='sr-only'>, {GM_WORDS_AFTER}</span>
     </span>

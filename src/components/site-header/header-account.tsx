@@ -11,7 +11,7 @@ export async function HeaderAccount() {
     return (
       <Link
         href='/login'
-        className='rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10'
+        className='rounded-lg px-3 py-1.5 text-sm font-medium text-primary-text transition-colors hover:bg-primary/10'
       >
         Sign in
       </Link>

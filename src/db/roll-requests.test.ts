@@ -9,6 +9,8 @@ import {
   getRollRequestView,
   markBridgePolled,
   notePlayersSeen,
+  noteTableOpen,
+  openActorIds,
   recordCommandResult,
 } from './roll-requests'
 import { playerSeat } from './seats'
@@ -575,7 +577,7 @@ describe('db/roll-requests', () => {
     } = {}) => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...takingRolls,
-        rollKinds: ['save'],
+        rollKinds: ['save', 'ability', 'skill'],
         rollFeatures: features,
       } as any)
       prismaMock.actorSheet.findUnique.mockResolvedValue({
@@ -604,7 +606,7 @@ describe('db/roll-requests', () => {
         where: {
           campaignId: 'c1',
           actorId: 'actor-thorin',
-          kind: 'save',
+          kind: { in: ['save', 'ability', 'skill'] },
           payload: { path: ['prompt'], equals: 'msg1-thorin' },
         },
         select: { status: true, createdAt: true, claimedAt: true },
@@ -646,6 +648,115 @@ describe('db/roll-requests', () => {
         reason: 'prompt',
       })
       expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    describe('of what Midi-QOL asks (module 0.27.0)', () => {
+      /** Midi-QOL asks Thorin for Athletics or Stealth to escape a web, with advantage on his. */
+      const web = asked({
+        data: {
+          type: 'skill',
+          abilities: [],
+          skills: ['ath', 'ste'],
+          dc: 12,
+          label: 'Web',
+          messageId: 'k3y',
+          source: 'overtime',
+          advantage: { ath: 'adv' },
+          askedInFoundry: false,
+        },
+      })
+      const athletics: RollRequestInput = {
+        kind: 'skill',
+        key: 'ath',
+        mode: 1,
+        explicit: false,
+        extras: [],
+        dice: [{ faces: 20, results: [3, 17] }],
+        prompt: 'k3y-thorin',
+      }
+      /** And a Strength check, as a turn's effect may ask for. */
+      const strength = asked({
+        data: {
+          type: 'check',
+          abilities: ['str'],
+          dc: null,
+          label: 'Grappled',
+          messageId: 'k4y',
+          source: 'overtime',
+        },
+      })
+
+      it('takes a skill or ability check of the kind it asks for, with a choice it offers', async () => {
+        given({ prompt: web })
+        await expect(createRollRequest(character, athletics)).resolves.toEqual({
+          id: 'req-1',
+        })
+
+        given({ prompt: strength })
+        await expect(
+          createRollRequest(character, {
+            ...athletics,
+            kind: 'ability',
+            key: 'str',
+            mode: 0,
+            dice: [{ faces: 20, results: [9] }],
+            prompt: 'k4y-thorin',
+          }),
+        ).resolves.toEqual({ id: 'req-1' })
+      })
+
+      it.each<[string, Partial<RollRequestInput>]>([
+        ['a skill it does not offer', { key: 'prc' }],
+        ['another kind of roll', { kind: 'ability', key: 'str' }],
+        ['a saving throw', { kind: 'save', key: 'str' }],
+        [
+          'one rolled as the player chose',
+          { explicit: true, mode: -1, dice: [{ faces: 20, results: [3, 17] }] },
+        ],
+        [
+          'one with something added',
+          {
+            extras: [{ sign: 1, count: 1, sides: 4 }],
+            dice: [
+              { faces: 20, results: [3, 17] },
+              { faces: 4, results: [2] },
+            ],
+          },
+        ],
+      ])(
+        'refuses %s, as Midi-QOL decides how it is rolled',
+        async (_, fields) => {
+          given({ prompt: web })
+
+          await expect(
+            createRollRequest(character, { ...athletics, ...fields }),
+          ).resolves.toEqual({ status: 422, reason: 'prompt' })
+          expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+        },
+      )
+
+      it('refuses a saving throw answering an ability check Midi-QOL asked for, of the ability it offers', async () => {
+        given({ prompt: strength })
+
+        await expect(
+          createRollRequest(character, {
+            ...athletics,
+            kind: 'save',
+            key: 'str',
+            mode: 0,
+            dice: [{ faces: 20, results: [9] }],
+            prompt: 'k4y-thorin',
+          }),
+        ).resolves.toEqual({ status: 422, reason: 'prompt' })
+      })
+
+      it('refuses an ability check answering a save the game asked for, as before', async () => {
+        given()
+
+        await expect(
+          createRollRequest(character, { ...answer, kind: 'ability' }),
+        ).resolves.toEqual({ status: 422, reason: 'prompt' })
+      })
     })
 
     it("refuses an ability the prompt doesn't offer, and takes another answer once one failed", async () => {
@@ -1645,6 +1756,60 @@ describe('db/roll-requests', () => {
     })
   })
 
+  describe('noteTableOpen', () => {
+    it("notes a character's table open at most once every five seconds, in the database", async () => {
+      await noteTableOpen('char-seen')
+      expect(prismaMock.character.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'char-seen',
+          OR: [{ tableSeenAt: null }, { tableSeenAt: { lt: ago(5000) } }],
+        },
+        data: { tableSeenAt: new Date(NOW) },
+      })
+
+      jest.setSystemTime(NOW + 4900)
+      await noteTableOpen('char-seen')
+      expect(prismaMock.character.updateMany).toHaveBeenCalledTimes(1)
+
+      await noteTableOpen('char-other')
+      expect(prismaMock.character.updateMany).toHaveBeenCalledTimes(2)
+
+      jest.setSystemTime(NOW + 5000)
+      await noteTableOpen('char-seen')
+      expect(prismaMock.character.updateMany).toHaveBeenCalledTimes(3)
+      expect(prismaMock.character.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: { tableSeenAt: new Date(NOW + 5000) },
+        }),
+      )
+    })
+  })
+
+  describe('openActorIds', () => {
+    it('lists the actors of the characters whose tables were open in the last fifteen seconds, once each', async () => {
+      // Each as the module names actors, which it reads back; none it would drop.
+      prismaMock.character.findMany.mockResolvedValue([
+        { actorId: 'balin' },
+        { actorId: 'thorin' },
+        { actorId: 'thorin' },
+        { actorId: 'actor-dwalin' },
+        { actorId: null },
+      ] as any)
+
+      await expect(openActorIds('c1')).resolves.toEqual(['balin', 'thorin'])
+      expect(prismaMock.character.findMany).toHaveBeenCalledWith({
+        where: {
+          campaignId: 'c1',
+          actorId: { not: null },
+          tableSeenAt: { gt: ago(15_000) },
+        },
+        orderBy: { actorId: 'asc' },
+        take: 200,
+        select: { actorId: true },
+      })
+    })
+  })
+
   describe('notePlayersSeen', () => {
     it('notes players present at most once every half minute', async () => {
       await notePlayersSeen('c-seen')
@@ -1948,7 +2113,7 @@ describe("db/roll-requests, the Gamemaster's rolls as a character (#156)", () =>
         expect(args?.where).toEqual({
           campaignId: 'c1',
           actorId: 'actor-thorin',
-          kind: 'save',
+          kind: { in: ['save', 'ability', 'skill'] },
           payload: { path: ['prompt'], equals: 'msg1-thorin' },
         })
       }

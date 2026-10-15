@@ -989,7 +989,7 @@ function EnchantChip({
           name: profileName(enchant, applied.profile, action),
         }}
         source={{ item: action.id, activity: action.activity.id }}
-        className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/20'
+        className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary-text transition-colors hover:bg-primary/20'
       />
     )
   }
@@ -1224,7 +1224,7 @@ export function UseChip({
       type='button'
       aria-label={`${verb} ${actionTitle(action)}`}
       onClick={() => onUse()}
-      className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/20'
+      className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary-text transition-colors hover:bg-primary/20'
     >
       {verb}
     </button>
@@ -1315,7 +1315,7 @@ export function CheckChip({
         onClick={event => open(event.currentTarget)}
         className={clsx(
           chip,
-          'bg-primary/10 text-primary transition-colors hover:bg-primary/20',
+          'bg-primary/10 text-primary-text transition-colors hover:bg-primary/20',
         )}
       >
         {content}
@@ -1468,7 +1468,7 @@ export function DamageChip({
 }>) {
   const chip = clsx(
     'max-w-36 shrink-0 truncate rounded-lg px-2 py-1 text-sm font-semibold tabular-nums',
-    healing ? 'bg-primary/10 text-primary' : 'bg-damage/15 text-damage',
+    healing ? 'bg-primary/10 text-primary-text' : 'bg-damage/15 text-damage',
   )
   const label = `${name} ${healing ? 'healing' : 'damage'}, ${formula}`
   const hover = clsx(

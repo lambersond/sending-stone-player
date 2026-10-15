@@ -66,7 +66,7 @@ import {
   withGmRolls,
   type DueDamage,
 } from '@/hooks/use-table-rolls'
-import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
+import { useShownPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { castIndex, isItemCast } from '@/utils/casts'
 import { belongingsOf } from '@/utils/enchantments'
@@ -176,7 +176,8 @@ function RollingSheet({
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const role = useTableRole()
-  const waiting = useWaitingPrompts(prompts)
+  // What the game asks, and what Midi-QOL is doing with what it asked, or did a moment ago.
+  const waiting = useShownPrompts(prompts)
   // Once the player answers what the game asked, or rolls from a description, the tray shows its
   // roll whichever tab is open, Effects and Biography among them.
   const [prompted, setPrompted] = useState(false)
@@ -564,7 +565,7 @@ function RollingSheet({
                 // Tighter under 366 pixels inside the row's padding, a screen under 390.
                 tab === id ? 'px-2' : 'px-1.5 @max-[366px]:px-1 @3xl:px-2',
                 tab === id
-                  ? 'bg-primary/10 text-primary'
+                  ? 'bg-primary/10 text-primary-text'
                   : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
               )}
             >

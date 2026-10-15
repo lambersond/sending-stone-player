@@ -33,9 +33,17 @@ jest.mock('@/schemas/sending-stone', () => {
 const URL = 'https://player.example/api/events'
 const GAME = 'https://my-game.forge-vtt.com'
 /** What the app tells the module it does, beyond taking events. */
-const FEATURES = { commands: true, slimSheets: 1, maxBytes: 4_000_000 }
+const FEATURES = {
+  commands: true,
+  slimSheets: 1,
+  maxBytes: 4_000_000,
+  midiPrompts: 1,
+}
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
+
+/** When the module sent an event, by the game's clock. */
+const TIME = '2026-10-04T19:02:00Z'
 
 const envelope = (type: string, data: object, fields: object = {}) => ({
   protocol: 2,
@@ -43,7 +51,7 @@ const envelope = (type: string, data: object, fields: object = {}) => ({
   session: 's1',
   sequence: 1,
   type,
-  time: '2026-10-04T19:02:00Z',
+  time: TIME,
   world,
   campaign,
   data,
@@ -179,6 +187,7 @@ describe('app/api/events', () => {
         campaign,
         { type: 'chat.message.created', data: { message } },
         's1',
+        TIME,
       )
     })
 
@@ -228,6 +237,7 @@ describe('app/api/events', () => {
           data: { characters: [], combats: [], prompts: [] },
         },
         's1',
+        TIME,
       )
     })
 
@@ -250,6 +260,7 @@ describe('app/api/events', () => {
         campaign,
         { type: 'character.texts', data: { texts } },
         's1',
+        TIME,
       )
     })
 
@@ -307,7 +318,7 @@ describe('app/api/events', () => {
       expect(applyCampaignEvent).not.toHaveBeenCalled()
     })
 
-    it('tells the module, in answer to its hello, heartbeat or a sheet only, that it has commands to fetch, reads slim sheets, and how large a post it takes', async () => {
+    it('tells the module, in answer to its hello, heartbeat or a sheet only, that it has commands to fetch, reads slim sheets and what Midi-QOL asks, and how large a post it takes', async () => {
       const heartbeat = await post(
         envelope('bridge.heartbeat', {}, { sequence: null }),
       )
@@ -374,6 +385,7 @@ describe('app/api/events', () => {
           data: { sheetsApart: true, characters, combats: [], prompts: [] },
         },
         's1',
+        TIME,
       )
     })
 
@@ -397,6 +409,7 @@ describe('app/api/events', () => {
           data: { character: { ...roster[0], sheet } },
         },
         's1',
+        TIME,
       )
     })
 
@@ -428,6 +441,45 @@ describe('app/api/events', () => {
           data: { id: prompt.id, reason: 'answered' },
         },
       ])
+    })
+
+    it('applies what Midi-QOL asks, from module 0.27.0, and refuses one it couldn’t answer as asked', async () => {
+      const web = {
+        id: 'k3yk3yk3yk3yk3yk-thorin',
+        actorId: 'thorin',
+        messageId: 'k3yk3yk3yk3yk3yk',
+        type: 'skill',
+        abilities: [],
+        skills: ['ath', 'acr'],
+        dc: 12,
+        label: 'Web',
+        openedAt: '2026-10-08T12:00:00.000Z',
+        expiresAt: '2026-10-08T12:01:00.000Z',
+        source: 'overtime',
+        advantage: { ath: 'adv' },
+        askedInFoundry: false,
+      }
+
+      const opened = await post(envelope('roll.prompt.opened', { prompt: web }))
+      expect(opened.status).toBe(204)
+      expect(jest.mocked(applyCampaignEvent).mock.calls[0][3]).toEqual({
+        type: 'roll.prompt.opened',
+        data: { prompt: web },
+      })
+
+      // An ability or skill check said to come from nowhere, as no chat card asks one.
+      const refused = await post(
+        envelope('roll.prompt.opened', {
+          prompt: { ...web, source: undefined },
+        }),
+      )
+      await expectRefusal(refused, 400, {
+        reason: 'malformed',
+        message: 'Malformed roll.prompt.opened',
+        type: 'roll.prompt.opened',
+        detail: expect.any(String),
+      })
+      expect(applyCampaignEvent).toHaveBeenCalledTimes(1)
     })
 
     describe('command.result', () => {

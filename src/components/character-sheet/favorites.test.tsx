@@ -138,11 +138,15 @@ describe('components/character-sheet/favorites', () => {
       critical: false,
     })
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Perception check, +4 (proficient, passive 14)',
-      }),
+    const perception = screen.getByRole('button', {
+      name: 'Perception check, +4 (proficient, passive 14)',
+    })
+    // Its ability's badge, small on the accent's tint, in the accent deep enough to read there.
+    expect(perception.querySelector('span[aria-hidden]')).toHaveClass(
+      'bg-primary/10',
+      'text-primary-text',
     )
+    await user.click(perception)
     expect(onRoll).toHaveBeenLastCalledWith({
       label: 'Perception check',
       modifier: 4,

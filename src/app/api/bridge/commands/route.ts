@@ -6,7 +6,11 @@ import {
   REFUSAL,
 } from '@/constants/sending-stone'
 import { findEventCampaign } from '@/db/campaigns'
-import { claimRollRequests, markBridgePolled } from '@/db/roll-requests'
+import {
+  claimRollRequests,
+  markBridgePolled,
+  openActorIds,
+} from '@/db/roll-requests'
 import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { toForgeGameUrl } from '@/schemas/campaign'
@@ -21,6 +25,12 @@ import type { RollCommand } from '@/utils/roll-requests'
 // While one of the campaign's players has their table open, a fetch is held open until a roll
 // comes, so it reaches the game at once. Otherwise it's answered at once, saying when to ask
 // again, so a game nobody is playing at costs little.
+//
+// From this app's round with module 0.27.0, every answer also says which of the campaign's
+// characters are open in the app, `open`, by their actors' ids: the module waits for their
+// players' answers to what Midi-QOL asks of them, and for no one else's. A held fetch is answered
+// early, with no rolls, once that changes, so the module stops waiting for a page closed soon
+// after.
 //
 // A fetch is refused as an event is, its status kept and why said in JSON.
 
@@ -60,11 +70,15 @@ export async function POST(request: Request) {
       },
       headers,
     )
-  /** The commands fetched, and how long to wait before fetching again; none for at once. */
-  const answer = (commands: RollCommand[], wait?: number) =>
-    Response.json(wait === undefined ? { commands } : { commands, wait }, {
-      headers,
-    })
+  /**
+   * The commands fetched, the characters open in the app, and how long to wait before fetching
+   * again; none for at once.
+   */
+  const answer = (commands: RollCommand[], open: string[], wait?: number) =>
+    Response.json(
+      wait === undefined ? { commands, open } : { commands, wait, open },
+      { headers },
+    )
 
   const secret = bearerSecret(request.headers.get('authorization'))
   if (!secret) {
@@ -137,7 +151,15 @@ export async function POST(request: Request) {
 
   const polled = await attempt(() => markBridgePolled(found.id), CHECK_FAILED)
   if (!polled) return unavailable()
-  if (!polled.rollsEnabled) return answer([], COMMANDS_OFF_WAIT)
+  // Read before any rolls are handed over, which a failure after would lose.
+  const readOpen = () =>
+    attempt(
+      () => openActorIds(found.id),
+      'Failed to read which characters are open',
+    )
+  const began = await readOpen()
+  if (!began) return unavailable()
+  if (!polled.rollsEnabled) return answer([], began, COMMANDS_OFF_WAIT)
 
   const claim = () =>
     attempt(
@@ -146,21 +168,37 @@ export async function POST(request: Request) {
     )
   if (!polled.playersPresent) {
     const commands = await claim()
-    return commands ? answer(commands, COMMANDS_COLD_WAIT) : unavailable()
+    return commands
+      ? answer(commands, began, COMMANDS_COLD_WAIT)
+      : unavailable()
   }
 
   const until = Date.now() + COMMANDS_HOLD
   for (;;) {
     // Rolls handed to a fetch that was given up on, as when its page closed, would be lost.
-    if (request.signal.aborted) return answer([])
+    if (request.signal.aborted) return answer([], began)
     const commands = await claim()
     if (!commands) return unavailable()
-    if (commands.length > 0 || Date.now() >= until) return answer(commands)
+    if (commands.length > 0 || Date.now() >= until) {
+      return answer(commands, began)
+    }
     await pause(
       Math.min(COMMANDS_CHECK_EVERY, until - Date.now()),
       request.signal,
     )
+    if (request.signal.aborted) continue
+    // A character opened or closed meanwhile: the module is told at once.
+    const open = await readOpen()
+    if (!open) return unavailable()
+    if (!sameIds(open, began)) return answer([], open)
   }
+}
+
+/** Whether two sorted lists of ids are the same. */
+function sameIds(one: string[], other: string[]): boolean {
+  return (
+    one.length === other.length && one.every((id, index) => id === other[index])
+  )
 }
 
 /** Wait this long, or until the request is given up on. */

@@ -21,8 +21,11 @@ const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 /** The combat as last saved. */
 const saved = () => prismaMock.combat.upsert.mock.calls[0][0].update.data as any
 
-const apply = (event: GameEvent) =>
-  applyCampaignEvent('c1', world, campaign, event, 'session-1')
+/** When the module sent an event, by the game's clock: as each prompt here opened, unless said. */
+const SENT = '2026-10-08T12:00:00.000Z'
+
+const apply = (event: GameEvent, sentAt = SENT) =>
+  applyCampaignEvent('c1', world, campaign, event, 'session-1', sentAt)
 
 /** A hello from module 0.22.0: the roster and state, each sheet to follow in a post of its own. */
 const apartHello = (characters = roster) =>
@@ -76,6 +79,7 @@ const post = (id: string, session = 'session-1') =>
       },
     },
     session,
+    SENT,
   )
 
 describe('db/campaign-events', () => {
@@ -435,6 +439,29 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it('bridge.hello keeps whether the game asks here what Midi-QOL asks, from module 0.27.0', async () => {
+    const rolls = { enabled: true, kinds: ['save'], reason: null }
+    for (const [midiPrompts, rollFeatures] of [
+      [true, ['prompts', 'midiPrompts']],
+      [1, ['prompts']],
+      [undefined, ['prompts']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: { rolls: { ...rolls, prompts: true, midiPrompts } },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
+  })
+
   it('bridge.hello keeps whether players may enter their own dice results, from module 0.26.0, and whether each character does, in its roster', async () => {
     const rolls = { enabled: true, kinds: ['skill'], reason: null }
     for (const [manualDice, rollFeatures] of [
@@ -752,6 +779,135 @@ describe('db/campaign-events', () => {
         where: { campaignId: 'c1', promptId: 'msg1-thorin', closedAt: null },
         data: { closedAt: expect.any(Date), closedReason: 'rolled' },
       })
+    })
+
+    describe('what Midi-QOL asks (module 0.27.0)', () => {
+      const NOW = Date.parse('2026-10-08T15:00:00.000Z')
+      /** Midi-QOL asks Thorin for Athletics or Acrobatics to escape a web, by the game's clock. */
+      const web = {
+        id: 'k3y-thorin',
+        actorId: 'actor-thorin',
+        messageId: 'k3y',
+        type: 'skill' as const,
+        abilities: [],
+        skills: ['ath', 'acr'],
+        dc: 12,
+        label: 'Web',
+        openedAt: '2026-10-08T12:00:00.000Z',
+        expiresAt: '2026-10-08T12:00:42.000Z',
+        source: 'overtime' as const,
+        advantage: { ath: 'adv' as const },
+        askedInFoundry: true,
+      }
+      const data = {
+        type: 'skill',
+        abilities: [],
+        skills: ['ath', 'acr'],
+        dc: 12,
+        label: 'Web',
+        messageId: 'k3y',
+        source: 'overtime',
+        advantage: { ath: 'adv' },
+        askedInFoundry: true,
+      }
+
+      beforeEach(() => {
+        jest.useFakeTimers({ now: NOW })
+      })
+
+      afterEach(() => {
+        jest.useRealTimers()
+      })
+
+      it('keeps it waiting as long from when it came, by this clock, and never moves it after', async () => {
+        await apply({ type: 'roll.prompt.opened', data: { prompt: web } })
+
+        expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith({
+          where: {
+            campaignPrompt: { campaignId: 'c1', promptId: 'k3y-thorin' },
+          },
+          create: {
+            campaignId: 'c1',
+            promptId: 'k3y-thorin',
+            actorId: 'actor-thorin',
+            data,
+            openedAt: new Date('2026-10-08T12:00:00.000Z'),
+            expiresAt: new Date(NOW + 42_000),
+          },
+          // A later copy, as a hello's, leaves when it runs out as it was.
+          update: {
+            actorId: 'actor-thorin',
+            data,
+            openedAt: new Date('2026-10-08T12:00:00.000Z'),
+          },
+        })
+      })
+
+      it.each([
+        ['a minute at most', '2026-10-08T12:05:00.000Z', NOW + 60_000],
+        ['none, said to have run out already', '2026-10-08T11:59:00.000Z', NOW],
+      ])('waits %s', async (_, expiresAt, kept) => {
+        await apply({
+          type: 'roll.prompt.opened',
+          data: { prompt: { ...web, expiresAt } },
+        })
+
+        expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: expect.objectContaining({ expiresAt: new Date(kept) }),
+          }),
+        )
+      })
+
+      it("waits only what's left, where a hello is the first to carry it, its own post lost", async () => {
+        const hold = {
+          ...web,
+          id: 'h0ld-thorin',
+          type: 'save' as const,
+          abilities: ['wis'],
+          skills: undefined,
+          source: 'midi' as const,
+          expiresAt: '2026-10-08T12:01:00.000Z',
+        }
+
+        // Sent 40 seconds after it opened, of the minute it waits.
+        await apply(
+          {
+            type: 'bridge.hello',
+            data: { characters: roster, combats: [], prompts: [hold] },
+          },
+          '2026-10-08T12:00:40.000Z',
+        )
+
+        expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: expect.objectContaining({
+              expiresAt: new Date(NOW + 20_000),
+            }),
+          }),
+        )
+      })
+
+      it.each([
+        ['when it was sent is unreadable', 'soon'],
+        ['it was sent before it opened', '2026-10-08T11:59:30.000Z'],
+      ])(
+        'waits as long as it was given, from when it came, where %s',
+        async (_, sentAt) => {
+          await apply(
+            { type: 'roll.prompt.opened', data: { prompt: web } },
+            sentAt,
+          )
+
+          expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+              create: expect.objectContaining({
+                expiresAt: new Date(NOW + 42_000),
+              }),
+            }),
+          )
+        },
+      )
     })
 
     it('bridge.hello keeps those it says are open, and closes any other', async () => {

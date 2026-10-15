@@ -774,7 +774,7 @@ function DamageButton({
     className: clsx(
       PILL,
       link.healing
-        ? 'bg-primary/12 text-primary hover:bg-primary/20'
+        ? 'bg-primary/12 text-primary-text hover:bg-primary/20'
         : 'bg-damage/15 text-damage hover:bg-damage/25',
     ),
   }

@@ -1,5 +1,9 @@
 import prisma from '@/clients/prisma'
-import { ROLL_ANSWER_WITHIN, ROLL_KINDS } from '@/constants/sending-stone'
+import {
+  MIDI_PROMPT_WAIT,
+  ROLL_ANSWER_WITHIN,
+  ROLL_KINDS,
+} from '@/constants/sending-stone'
 import {
   keepOnlySheetTexts,
   lacksSheetTexts,
@@ -31,6 +35,7 @@ type World = { id: string; title: string }
  * @param campaign - The campaign as the module named it, whose title may have changed.
  * @param event - The event, its payload already checked.
  * @param session - The module session that sent it.
+ * @param sentAt - When the module sent it, by the game's clock: its envelope's `time`.
  * @returns Whether the campaign now lacks a description its sheets refer to, which the module
  * should send again with a hello.
  */
@@ -40,9 +45,10 @@ export async function applyCampaignEvent(
   campaign: CampaignRef,
   event: GameEvent,
   session: string,
+  sentAt: string,
 ): Promise<{ lacksTexts: boolean }> {
   return prisma.$transaction(async tx => {
-    const lacksTexts = await apply(tx, campaignId, event, session)
+    const lacksTexts = await apply(tx, campaignId, event, session, sentAt)
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -69,6 +75,7 @@ async function apply(
   campaignId: string,
   event: GameEvent,
   session: string,
+  sentAt: string,
 ): Promise<boolean> {
   switch (event.type) {
     case 'bridge.hello': {
@@ -91,7 +98,8 @@ async function apply(
           // die it adds; from module 0.22.0, make a use at its user; from module 0.23.0, make the
           // Gamemaster's rolls as a character, marked as theirs; from module 0.25.0, list the
           // messages each of those made in its result, which only this listener reads, never a
-          // viewer; and from module 0.26.0, let players enter their own dice's results.
+          // viewer; from module 0.26.0, let players enter their own dice's results; and from
+          // module 0.27.0, ask here what Midi-QOL asks of characters, which nothing reads yet.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -106,6 +114,7 @@ async function apply(
               ? ['gmRollMessages']
               : []),
             ...(features?.rolls?.manualDice === true ? ['manualDice'] : []),
+            ...(features?.rolls?.midiPrompts === true ? ['midiPrompts'] : []),
           ],
         },
       })
@@ -119,7 +128,9 @@ async function apply(
         },
         data: { closedAt: new Date(), closedReason: 'gone' },
       })
-      for (const prompt of prompts) await savePrompt(tx, campaignId, prompt)
+      for (const prompt of prompts) {
+        await savePrompt(tx, campaignId, prompt, sentAt)
+      }
       await tx.combat.deleteMany({ where: { campaignId } })
       await tx.combat.createMany({
         data: event.data.combats.map(combat => ({
@@ -201,7 +212,7 @@ async function apply(
       return false
     }
     case 'roll.prompt.opened': {
-      await savePrompt(tx, campaignId, event.data.prompt)
+      await savePrompt(tx, campaignId, event.data.prompt, sentAt)
       return false
     }
     case 'roll.prompt.closed': {
@@ -380,25 +391,53 @@ async function madeForGm(
 
 /**
  * A save the game asks for, as the module now describes it. One that has closed stays closed: the
- * module never asks again on the same card.
+ * module never asks again on the same card. What Midi-QOL asks waits a minute at most, by the
+ * game's clock, which may not be this app's: it's held here as waiting, from when it came, what was
+ * left of its wait when it was sent, so that its player is shown how long they have; and it's never
+ * moved by its later copies, as a hello's. A hello may be the first to carry one, after it has
+ * waited a while, when the post that opened it was lost. The time an envelope is sent is when the
+ * module queued it, so a post held up in its queue isn't counted.
+ * @param sentAt - When the module sent it, by the game's clock.
  */
-async function savePrompt(tx: Tx, campaignId: string, prompt: GamePrompt) {
+async function savePrompt(
+  tx: Tx,
+  campaignId: string,
+  prompt: GamePrompt,
+  sentAt: string,
+) {
   const fields = {
     actorId: prompt.actorId,
     data: toJson({
       type: prompt.type,
       abilities: prompt.abilities,
+      skills: prompt.skills,
       dc: prompt.dc,
       label: prompt.label,
       messageId: prompt.messageId,
+      source: prompt.source,
+      advantage: prompt.advantage,
+      askedInFoundry: prompt.askedInFoundry,
     }),
     openedAt: new Date(prompt.openedAt),
-    expiresAt: new Date(prompt.expiresAt),
   }
+  const expiresAt = new Date(prompt.expiresAt)
+  // Where the envelope's time can't be read, or is before it opened, which one clock can't make
+  // it, it's counted from when it opened: never longer than it was given.
+  const openedAt = Date.parse(prompt.openedAt)
+  const sent = Date.parse(sentAt)
+  const from = Number.isNaN(sent) ? openedAt : Math.max(sent, openedAt)
+  const left = expiresAt.getTime() - from
   await tx.rollPrompt.upsert({
     where: { campaignPrompt: { campaignId, promptId: prompt.id } },
-    create: { campaignId, promptId: prompt.id, ...fields },
-    update: fields,
+    create: {
+      campaignId,
+      promptId: prompt.id,
+      ...fields,
+      expiresAt: prompt.source
+        ? new Date(Date.now() + Math.max(0, Math.min(left, MIDI_PROMPT_WAIT)))
+        : expiresAt,
+    },
+    update: prompt.source ? fields : { ...fields, expiresAt },
   })
 }
 

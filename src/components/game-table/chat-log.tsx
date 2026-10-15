@@ -55,7 +55,7 @@ const ACTIONS: Record<
   healing: {
     label: 'Healing',
     icon: HeartPulse,
-    chip: 'bg-primary/15 text-primary',
+    chip: 'bg-primary/15 text-primary-text',
     accent: 'border-l-primary',
   },
   spell: {
@@ -130,7 +130,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
           {message.byGm && (
             <span
               title='Rolled by the Gamemaster'
-              className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary'
+              className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-text'
             >
               GM<span className='sr-only'>, rolled by the Gamemaster</span>
             </span>
@@ -251,7 +251,7 @@ function AskBubble({
       {/* The sentence below says what it is; the chip only marks it, for the eye. */}
       <span
         aria-hidden
-        className='inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary uppercase'
+        className='inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary-text uppercase'
       >
         <BellRing className='size-3' />
         {CHIPS[ask.type]}
@@ -400,7 +400,7 @@ function Targets({ targets }: Readonly<{ targets: TableTarget[] }>) {
               className={clsx(
                 'rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
                 target.outcome === 'hit'
-                  ? 'bg-primary/15 text-primary'
+                  ? 'bg-primary/15 text-primary-text'
                   : 'bg-text-secondary/15 text-text-secondary',
               )}
             >

@@ -46,6 +46,12 @@ const LINKABLE = new Set(['save', 'skill', 'tool', 'ability'])
  */
 const ACTIVITY_CHECKS = new Set(['skill', 'tool', 'ability'])
 
+/**
+ * What may answer what the game asks: a saving throw, or from module 0.27.0, where Midi-QOL asks
+ * for one, an ability or skill check.
+ */
+const ANSWERS = new Set(['save', 'ability', 'skill'])
+
 const sign = z.union([z.literal(1), z.literal(-1)])
 
 /** A term the player added, as the app's Modify roll reads it: dice, or a number. */
@@ -106,13 +112,14 @@ const rolledDiceSchema = z.strictObject({
  * it's taken, and the kinds of damage chosen; and how the player changed it, if they did, its dice
  * then changed so. A description's damage names its link, and may be changed so too, or be a
  * critical hit's, as the world's rules make one, which an attack's damage never says: its attack
- * did. A saving throw the game asked for names the prompt it answers; a saving throw or check a
- * description calls for may name its link; a check an activity asks for may name its item and
- * activity instead, never both. A use of an enchant activity may say how it enchants, and which of
- * the character's items, and nothing else may; an enchantment ended, from module 0.21.0, names its
- * item and effect, and nothing else, and throws no dice. Any roll may say what the page that sent
- * it calls it, its `label`, which only the Gamemaster's page sends (#156), for the character's
- * player to be shown it by. A hit die names its size, and throws its one die;
+ * did. A saving throw the game asked for names the prompt it answers, as does an ability or skill
+ * check Midi-QOL asked for; a saving throw or check a description calls for may name its link; a
+ * check an activity asks for may name its item and activity instead, never both. A use of an
+ * enchant activity may say how it enchants, and which of the character's items, and nothing else
+ * may; an enchantment ended, from module 0.21.0, names its item and effect, and nothing else, and
+ * throws no dice. Any roll may say what the page that sent it calls it, its `label`, which only
+ * the Gamemaster's page sends (#156), for the character's player to be shown it by. A hit die
+ * names its size, and throws its one die;
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
  * all, and throw those of each size together, in the same order; a feature's own
  * formula names its item and activity, and throws the dice its formula does, which are checked
@@ -301,11 +308,12 @@ export const rollRequestSchema = z
           "Only a description's damage is rolled as a critical hit's here",
       })
     }
-    if (request.kind !== 'save' && request.prompt !== undefined) {
+    if (!ANSWERS.has(request.kind) && request.prompt !== undefined) {
       context.addIssue({
         code: 'custom',
         path: ['prompt'],
-        message: 'Only a saving throw answers what the game asks',
+        message:
+          'Only a saving throw, or an ability or skill check, answers what the game asks',
       })
     }
     const linked = request.text !== undefined

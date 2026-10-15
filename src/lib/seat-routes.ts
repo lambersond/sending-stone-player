@@ -2,6 +2,7 @@ import {
   createRollRequest,
   getRollRequestView,
   notePlayersSeen,
+  noteTableOpen,
 } from '@/db/roll-requests'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCampaignStatus, getTableView } from '@/db/table'
@@ -33,14 +34,23 @@ export async function tableResponse(
   request: NextRequest,
   seat: SheetSeat,
 ): Promise<Response> {
-  // Whoever is at the table may roll, so the Gamemaster's module waits for their rolls.
-  if (seat.campaignId) {
-    try {
-      await notePlayersSeen(seat.campaignId)
-    } catch (error) {
-      console.error('Failed to note a player at the table', error)
-    }
-  }
+  // Whoever is at the table may roll, so the Gamemaster's module waits for their rolls; and while
+  // a character's player has it open, the module waits for their answers to what Midi-QOL asks of
+  // it, which the Gamemaster's page at it never says. A failure to note either is only logged.
+  const { campaignId, characterId } = seat
+  await Promise.all([
+    campaignId &&
+      noting(
+        () => notePlayersSeen(campaignId),
+        'Failed to note a player at the table',
+      ),
+    seat.role === 'player' &&
+      characterId &&
+      noting(
+        () => noteTableOpen(characterId),
+        'Failed to note a character open at the table',
+      ),
+  ])
 
   const known = request.nextUrl.searchParams
   if (known.has('version')) {
@@ -60,6 +70,15 @@ export async function tableResponse(
   return Response.json(await getTableView(seat, { sheetVersion }), {
     headers,
   })
+}
+
+/** Note who is at the table, saying so where it fails, which never stops the table being seen. */
+async function noting(note: () => Promise<void>, failed: string) {
+  try {
+    await note()
+  } catch (error) {
+    console.error(failed, error)
+  }
 }
 
 /**

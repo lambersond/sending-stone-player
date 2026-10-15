@@ -4,14 +4,17 @@
 import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
-import { notePlayersSeen } from '@/db/roll-requests'
+import { notePlayersSeen, noteTableOpen } from '@/db/roll-requests'
 import { playerSeat } from '@/db/seats'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
 import type { RollKind } from '@/types/roll'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
-jest.mock('@/db/roll-requests', () => ({ notePlayersSeen: jest.fn() }))
+jest.mock('@/db/roll-requests', () => ({
+  notePlayersSeen: jest.fn(),
+  noteTableOpen: jest.fn(),
+}))
 jest.mock('@/db/table', () => ({
   getCampaignStatus: jest.fn(),
   getTableView: jest.fn(),
@@ -161,6 +164,31 @@ describe('app/api/characters/[id]/table', () => {
     jest.mocked(notePlayersSeen).mockClear()
     await get()
     expect(notePlayersSeen).not.toHaveBeenCalled()
+  })
+
+  it('notes the character open in the app, whether or not anything is new, for the module to wait for its answers', async () => {
+    await get()
+    await get('?version=7&live=1')
+
+    expect(noteTableOpen).toHaveBeenCalledTimes(2)
+    expect(noteTableOpen).toHaveBeenCalledWith('char-1')
+  })
+
+  it('serves the view, and notes the player at the table, even when the character cannot be noted open', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    jest.mocked(noteTableOpen).mockRejectedValueOnce(new Error('db down'))
+
+    const response = await get()
+
+    expect(response.status).toBe(200)
+    expect(notePlayersSeen).toHaveBeenCalledWith('c1')
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to note a character open at the table',
+      expect.any(Error),
+    )
+    consoleError.mockRestore()
   })
 
   it('serves the view even when the player cannot be noted', async () => {

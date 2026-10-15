@@ -2,6 +2,7 @@ import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type {
   AskedCheck,
   CharacterSheet,
+  PromptSource,
   SheetWithheld,
 } from '@/types/sending-stone'
 
@@ -113,20 +114,41 @@ export type TableCombat = {
 
 /**
  * A saving throw the Gamemaster's game asks of the player's character, to roll here: such as a
- * concentration check after damage, or a save a spell targeting them calls for.
+ * concentration check after damage, or a save a spell targeting them calls for; or from module
+ * 0.27.0, what Midi-QOL asks of them, which may be an ability or skill check, and which it rolls
+ * itself once its time is up.
  */
 export type TablePrompt = {
   id: string
-  type: 'save' | 'concentration'
-  /** The abilities it may be rolled with, such as ["dex"]; one for a concentration check. */
+  type: 'save' | 'concentration' | 'check' | 'skill'
+  /**
+   * The abilities it may be rolled with, such as ["dex"]; one for a concentration check; none for
+   * a skill check.
+   */
   abilities: string[]
+  /** For a skill check, the skills it may be rolled with, such as ["ath", "acr"]. */
+  skills?: string[]
   /** Unset where the game doesn't show the player its DC. */
   dc?: number
   /** What asks, such as "Fireball", or what the character is concentrating on. */
   label?: string
   /** When it stops waiting. */
   expiresAt: string
+  /** Where Midi-QOL asks it from; unset for what a chat card asks. */
+  source?: PromptSource
+  /** How Midi-QOL has each choice rolled, by its key, where not normally. */
+  advantage?: Partial<Record<string, 'adv' | 'dis'>>
+  /** Where Foundry asks the player too, and is left to once its time is up. */
+  askedInFoundry?: true
+  /**
+   * For one Midi-QOL asked that closed just now, how, for its player to be told: rolled in Foundry
+   * first, or its time ran out, so Midi-QOL rolled it, or left it to Foundry.
+   */
+  closed?: PromptNotice
 }
+
+/** How a prompt Midi-QOL asked closed, where its player is told. */
+export type PromptNotice = 'rolled' | 'expired'
 
 /** The player's own character's sheet, to see and roll from. */
 export type TableSheet = Omit<CharacterSheet, 'img'> & {

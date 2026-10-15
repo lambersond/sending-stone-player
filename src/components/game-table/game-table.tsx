@@ -329,7 +329,7 @@ export function GameTable({
                       <h1 className='min-w-0 truncate text-lg leading-tight font-semibold'>
                         {character.name}
                       </h1>
-                      <span className='shrink-0 self-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary'>
+                      <span className='shrink-0 self-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-text'>
                         GM<span className='sr-only'>, Gamemaster view</span>
                       </span>
                     </div>
@@ -596,7 +596,7 @@ function NoCampaign({ name }: Readonly<{ name: string }>) {
       </p>
       <Link
         href='/characters'
-        className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10'
+        className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary-text transition-colors hover:bg-primary/10'
       >
         Your characters
       </Link>

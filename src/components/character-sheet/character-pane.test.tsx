@@ -436,6 +436,109 @@ describe('components/character-sheet/character-pane', () => {
     ).toHaveTextContent('At the table: 18 · Saved')
   })
 
+  it('asks for what Midi-QOL asks, rolls it as Midi-QOL has it, and says how it went at the table, though no card shows it (module 0.27.0)', async () => {
+    const user = userEvent.setup()
+    clearStorage()
+    // No card: the Gamemaster's game rolled it without one, as Midi-QOL may.
+    const posted = answering({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        total: 21,
+        rolls: [],
+        outcome: 'success',
+      },
+    })
+    const web = {
+      id: 'k3y-thorin',
+      type: 'skill' as const,
+      abilities: [],
+      skills: ['ath'],
+      dc: 12,
+      label: 'Web',
+      expiresAt: new Date(Date.now() + 42_000).toISOString(),
+      source: 'overtime' as const,
+      advantage: { ath: 'adv' as const },
+    }
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['skill']}
+        rollFeatures={['prompts']}
+        prompts={[web]}
+      />,
+    )
+
+    const banner = screen.getByRole('region', { name: 'Your Gamemaster asks' })
+    expect(banner).toHaveTextContent(
+      'Web: Athletics checkDC 12 · Advantage (Midi)',
+    )
+    await user.click(
+      within(banner).getByRole('button', {
+        name: 'Roll Athletics check, Advantage (Midi), +7',
+      }),
+    )
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'skill',
+        key: 'ath',
+        prompt: web.id,
+        mode: 1,
+        explicit: false,
+        extras: [],
+        dice: [
+          { faces: 20, results: [expect.any(Number), expect.any(Number)] },
+        ],
+      }),
+    ])
+    expect(banner).toHaveTextContent('Rolled. Waiting for the table…')
+    expect(
+      await screen.findByText('At the table:', {}, { timeout: 3000 }),
+    ).toHaveTextContent('At the table: 21 · Passed')
+  })
+
+  it('says a moment that what Midi-QOL asked was rolled in Foundry, then shows it no more', () => {
+    jest.useFakeTimers()
+    try {
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(characterSheet(), GAME)}
+          rollsToTable={['save']}
+          rollFeatures={['prompts']}
+          prompts={[
+            {
+              id: 'k3y-thorin',
+              type: 'save',
+              abilities: ['wis'],
+              label: 'Hold Person',
+              expiresAt: new Date(Date.now() + 30_000).toISOString(),
+              source: 'midi',
+              closed: 'rolled',
+            },
+          ]}
+        />,
+      )
+      const banner = screen.getByRole('region', {
+        name: 'Your Gamemaster asks',
+      })
+      expect(banner).toHaveTextContent(
+        'Hold Person: Wisdom saveRolled in Foundry',
+      )
+
+      act(() => jest.advanceTimersByTime(6100))
+      expect(
+        screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+      ).not.toBeInTheDocument()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   it("asks nothing where the game doesn't take the player's saves now", () => {
     render(
       <CharacterPane

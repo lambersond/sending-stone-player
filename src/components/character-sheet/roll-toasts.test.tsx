@@ -1541,11 +1541,12 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
     expect(toast('gm:critheal')).not.toHaveTextContent('Critical hit')
     expect(toast('gm:dmg')).toHaveTextContent('At the table: 8')
     expect(toast('gm:dmg')).not.toHaveTextContent('Critical hit')
-    // Its GM pill, in the light theme, in the accent's deeper shade, meeting WCAG AA this small.
+    // Its GM pill, in the accent as small text, its deeper shade in the light theme, meeting WCAG
+    // AA this small.
     const pill = within(toast('gm:crit') as HTMLElement).getByTitle(
       'Rolled by your Gamemaster',
     )
-    expect(pill).toHaveClass('text-primary-hover', 'dark:text-primary')
+    expect(pill).toHaveClass('text-primary-text')
     expect(pill).not.toHaveClass('text-primary')
   })
 

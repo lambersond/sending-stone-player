@@ -252,6 +252,10 @@ const readRolls = (fields: object) => {
   return [action, action.activities[1], read.favorites[0]]
 }
 
+/** What a prompt opening reads as. */
+const opened = (prompt: object) =>
+  parseGameEvent('roll.prompt.opened', { prompt })?.data as any
+
 describe('schemas/sending-stone', () => {
   const envelope = {
     protocol: 2,
@@ -471,6 +475,134 @@ describe('schemas/sending-stone', () => {
     expect(() =>
       parseGameEvent('roll.prompt.closed', { id: 'msg1 thorin' }),
     ).toThrow()
+  })
+
+  it('reads whether the game asks here what Midi-QOL asks, from module 0.27.0', () => {
+    const rolls = { enabled: true, kinds: ['save'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, midiPrompts: true } }).features.rolls,
+    ).toEqual({ ...rolls, midiPrompts: true })
+    expect(
+      helloWith({ rolls: { ...rolls, midiPrompts: 1 } }).features.rolls,
+    ).toEqual({ ...rolls, midiPrompts: false })
+    expect(helloWith({ rolls }).features.rolls).not.toHaveProperty(
+      'midiPrompts',
+    )
+  })
+
+  describe('what Midi-QOL asks, from module 0.27.0', () => {
+    /** Midi-QOL asks Thorin for Athletics or Acrobatics, with advantage on Athletics. */
+    const web = {
+      id: 'k3yk3yk3yk3yk3yk-thorin',
+      actorId: 'thorin',
+      messageId: 'k3yk3yk3yk3yk3yk',
+      type: 'skill',
+      abilities: [],
+      skills: ['ath', 'acr'],
+      dc: 12,
+      label: 'Web',
+      openedAt: '2026-10-08T12:00:00.000Z',
+      expiresAt: '2026-10-08T12:01:00.000Z',
+      source: 'overtime',
+      advantage: { ath: 'adv' },
+      askedInFoundry: true,
+    }
+    /** And a Strength or Dexterity save a spell calls for, asked in Foundry too. */
+    const save = {
+      ...web,
+      id: 'card1-thorin',
+      messageId: 'card1',
+      type: 'save',
+      abilities: ['str', 'dex'],
+      skills: undefined,
+      label: 'Hold Person',
+      source: 'midi',
+      advantage: { dex: 'dis' },
+      askedInFoundry: undefined,
+    }
+
+    it('reads where it comes from, its choices, and how Midi-QOL has each rolled', () => {
+      expect(opened(web).prompt).toEqual(web)
+      // Not asked in Foundry unless it says so; and normally, unless it says otherwise.
+      expect(opened(save).prompt).toEqual({
+        ...save,
+        askedInFoundry: false,
+      })
+      expect(
+        opened({ ...save, advantage: undefined }).prompt.advantage,
+      ).toEqual({})
+      for (const [type, source] of [
+        ['concentration', 'concentration'],
+        ['check', 'overtime'],
+        ['save', 'midi'],
+      ]) {
+        expect(
+          opened({ ...save, type, source, abilities: ['con'] }).prompt,
+        ).toMatchObject({ type, source })
+      }
+    })
+
+    it('drops advantage it gives a choice it does not offer', () => {
+      expect(
+        opened({ ...web, advantage: { ath: 'adv', str: 'dis', acr: 'dis' } })
+          .prompt.advantage,
+      ).toEqual({ ath: 'adv', acr: 'dis' })
+      expect(
+        opened({ ...save, advantage: { ath: 'adv' } }).prompt.advantage,
+      ).toEqual({})
+    })
+
+    it.each([
+      [
+        'an ability check said to come from no source',
+        { ...save, type: 'check', source: undefined },
+      ],
+      [
+        'a skill check said to come from no source',
+        { ...web, source: undefined },
+      ],
+      ['a source it does not know', { ...web, source: 'mtb' }],
+      ['skills for a save', { ...save, skills: ['ath'] }],
+      ['no skills for a skill check', { ...web, skills: undefined }],
+      ['no skill at all', { ...web, skills: [] }],
+      ['no ability for a save', { ...save, abilities: [] }],
+      ['advantage not one it knows', { ...web, advantage: { ath: 'double' } }],
+      ['a skill that is no key', { ...web, skills: ['ath', '1st'] }],
+      ['a word for whether Foundry asks', { ...web, askedInFoundry: 'yes' }],
+    ])(
+      'refuses one with %s, as it couldn’t be answered as asked',
+      (_, prompt) => {
+        expect(() => opened(prompt)).toThrow()
+        const hello = parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          prompts: [prompt, web],
+        })?.data as any
+        expect(hello.prompts).toEqual([web])
+      },
+    )
+
+    it('reads a chat card’s save as before, leaving out what only Midi-QOL’s say', () => {
+      const card = {
+        id: 'msg1-thorin',
+        actorId: 'thorin',
+        messageId: 'msg1',
+        type: 'save',
+        abilities: ['dex'],
+        dc: 15,
+        label: 'Burning Hands',
+        openedAt: '2026-10-08T12:00:00.000Z',
+        expiresAt: '2026-10-08T12:10:00.000Z',
+      }
+      const read = opened({
+        ...card,
+        skills: 'none',
+        advantage: { dex: 'adv' },
+        askedInFoundry: true,
+      }).prompt
+      expect(read).toEqual(card)
+      expect(Object.keys(read).toSorted()).toEqual(Object.keys(card).toSorted())
+    })
   })
 
   it("reads how many dice each of damage's rolls throws for each of its own, from module 0.13.0", () => {
