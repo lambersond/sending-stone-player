@@ -1,5 +1,6 @@
-import { Gem, MessageSquare, Swords, UserRound } from 'lucide-react'
+import { Gem, Swords, UserRound } from 'lucide-react'
 import Link from 'next/link'
+import { Logo } from '@/components/logo'
 import { getCurrentUser } from '@/lib/session'
 
 const STEPS = [
@@ -26,9 +27,7 @@ export default async function HomePage() {
   return (
     <div className='mx-auto flex w-full max-w-3xl flex-col px-4 py-16 sm:py-24'>
       <section className='flex flex-col items-center text-center'>
-        <span className='inline-flex rounded-2xl bg-primary/10 p-3 text-primary'>
-          <MessageSquare aria-hidden className='size-7' />
-        </span>
+        <Logo variant='icon' className='size-18' />
         <h1 className='mt-6 max-w-xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl'>
           Your character, wherever you are at the table
         </h1>

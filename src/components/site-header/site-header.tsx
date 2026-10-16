@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
-import { Gem } from 'lucide-react'
 import Link from 'next/link'
 import { HeaderAccount } from './header-account'
 import { NotOnCharacterPage } from './not-on-character-page'
+import { Logo } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 export function SiteHeader() {
@@ -17,7 +17,7 @@ export function SiteHeader() {
             href='/'
             className='inline-flex shrink-0 items-center gap-2 font-semibold tracking-tight'
           >
-            <Gem aria-hidden className='size-5 text-primary' />
+            <Logo variant='mark' className='size-5' />
             <span className='max-[390px]:text-sm max-[360px]:sr-only'>
               Sending Stone
             </span>
