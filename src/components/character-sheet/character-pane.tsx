@@ -9,8 +9,8 @@ import {
   ChessKnight,
   Feather,
   ListChecks,
+  Sparkles,
   UserRound,
-  WandSparkles,
   type LucideIcon,
 } from 'lucide-react'
 import { actionTitle, verbOf, type TableDamage } from './action-entry'
@@ -112,7 +112,7 @@ const TABS: { id: SheetTab; label: string; icon: LucideIcon }[] = [
   { id: 'inventory', label: 'Inventory', icon: Backpack },
   { id: 'spells', label: 'Spells', icon: BookOpen },
   { id: 'features', label: 'Features', icon: ListChecks },
-  { id: 'effects', label: 'Effects', icon: WandSparkles },
+  { id: 'effects', label: 'Effects', icon: Sparkles },
   { id: 'biography', label: 'Biography', icon: Feather },
 ]
 type SheetTab =
