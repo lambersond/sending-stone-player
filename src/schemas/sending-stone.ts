@@ -157,6 +157,35 @@ const enchantmentsSchema = listOf(
   .optional()
 
 /**
+ * A counter of the character's, as the module names one from module 0.29.0: an item's own uses, one
+ * of its activities', or an old-style resource. Exactly one of those shapes, with ids the app can
+ * send back, or none: a counter misnamed is never spent.
+ */
+const counterSchema = z.union([
+  z.strictObject({
+    item: z.string().regex(DOCUMENT_ID),
+    activity: z.string().regex(DOCUMENT_ID).optional(),
+  }),
+  z.strictObject({ resource: z.enum(['primary', 'secondary', 'tertiary']) }),
+])
+
+/** The most counters an activity is said to spend as it's used. */
+const MAX_SPENDS = 20
+
+/**
+ * What using an activity spends, from module 0.29.0: each counter, and how many, null for a cost a
+ * formula works out. One that can't be read is dropped; none are said before.
+ */
+const spendsSchema = listOf(
+  z.object({
+    counter: counterSchema,
+    amount: z.number().nullable().catch(null),
+  }),
+)
+  .transform(spends => spends.slice(0, MAX_SPENDS))
+  .optional()
+
+/**
  * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
  * kinds of activity the game uses, or none. From module 0.21.0, an activity that asks for a check;
  * and one that enchants, with what it enchants, without which it's none.
@@ -183,6 +212,7 @@ const useSchema = z
     }),
     // From module 0.21.0, for an enchant activity.
     enchant: enchantSchema,
+    spends: spendsSchema,
   })
   .nullable()
   .optional()
@@ -195,6 +225,11 @@ const usesSchema = z
     value: z.number(),
     max: z.number(),
     recovery: nullableString,
+    // From module 0.29.0: which counter they are, and whether they're spent directly from here.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    counter: counterSchema.optional().catch(undefined),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the counter
+    spendable: z.literal(true).optional().catch(undefined),
   })
   .nullable()
   .catch(null)
@@ -785,6 +820,20 @@ const sheetSchema = z
     tools: listOf(z.looseObject(toolFields)).optional(),
     // Sent from module 0.6.0.
     conditions: listOf(conditionSchema),
+    // From module 0.29.0: each concentration, for its player to end. A malformed one is dropped.
+    concentration: z
+      .looseObject({
+        effects: listOf(
+          z.looseObject({
+            id: z.string().regex(DOCUMENT_ID),
+            name: z.string().trim().min(1).max(200),
+            item: z.string().regex(DOCUMENT_ID).nullable().catch(null),
+          }),
+        ),
+      })
+      .optional()
+      // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+      .catch(undefined),
     features: listOf(
       z.looseObject({
         id: z.string(),
@@ -968,6 +1017,9 @@ export const rollSchema = z.looseObject({
   attack: z.literal(true).optional().catch(undefined),
 })
 
+/** The most characters a save's outcome is said to be seen by: more than any campaign has. */
+const MAX_READERS = 200
+
 const dnd5eSchema = z
   .looseObject({
     messageType: nullableString,
@@ -985,10 +1037,38 @@ const dnd5eSchema = z
         z.looseObject({
           name: z.string(),
           ac: z.number().nullable().optional().catch(null),
+          // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+          uuid: z.string().min(1).max(500).optional().catch(undefined),
+          // From module 0.29.0, where players see them in Foundry.
+          outcome: z
+            .enum(['hit', 'miss'])
+            .optional()
+            // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
+            .catch(undefined),
+          save: z
+            .enum(['success', 'failure'])
+            .optional()
+            // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
+            .catch(undefined),
         }),
       )
       .catch([]),
     originatingMessage: nullableString.optional(),
+    // From module 0.29.0, on a save rolled from dnd5e's card: whose, and whether it succeeded. A
+    // readers list that can't be read drops it all, rather than show its outcome to everyone.
+    save: z
+      .looseObject({
+        target: z.string().min(1).max(500),
+        outcome: z
+          .enum(['success', 'failure'])
+          .optional()
+          // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+          .catch(undefined),
+        readers: z.array(z.string()).max(MAX_READERS).optional(),
+      })
+      .optional()
+      // eslint-disable-next-line unicorn/no-useless-undefined -- as for its outcome
+      .catch(undefined),
   })
   .nullable()
   .catch(null)
@@ -1424,6 +1504,13 @@ export const combatantSchema = z.looseObject({
   playerOwned: z.boolean().catch(false),
   hp: hitPointsSchema,
   hidden: z.boolean().optional(),
+  // Module 0.29.0. Anything else, such as a number, is dropped, so a secret one is never kept.
+  disposition: z
+    .enum(['friendly', 'neutral', 'hostile'])
+    .nullable()
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
 })
 
 const combatSchema = z.looseObject({

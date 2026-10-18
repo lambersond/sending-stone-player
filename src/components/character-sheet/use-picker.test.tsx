@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   asks,
@@ -238,7 +244,7 @@ describe('components/character-sheet/use-picker', () => {
     expect(asks(using(surge), fight, spellbook)).toBe(false)
   })
 
-  it('lists who can be attacked, the last target first, marking allies and the defeated, then no one', async () => {
+  it('lists who can be attacked, others first with the last target first among them, then allies, marking the defeated, then no one', async () => {
     const user = userEvent.setup()
     const { onPick } = renderPicker(attacking(warhammer), { last: 'boss1' })
 
@@ -248,8 +254,8 @@ describe('components/character-sheet/use-picker', () => {
     expect(buttons.map(button => button.textContent)).toEqual([
       'Goblin BossLast target',
       'Goblin',
-      'VexAlly',
       'WolfDefeated',
+      'Vex, Ally',
       'No target',
     ])
     await user.click(
@@ -630,10 +636,11 @@ describe('components/character-sheet/use-picker', () => {
       const user = userEvent.setup()
       const { onPick } = renderPicker(using(wildShape))
 
+      // Made at its user by default, it lists them and their allies first, though it doesn't heal.
       expect(buttons()).toEqual([
-        'SelfYouDefault',
+        'Self, YouDefault',
+        'Vex, Ally',
         'Goblin',
-        'VexAlly',
         'Goblin Boss',
         'WolfDefeated',
         'No target',
@@ -649,7 +656,7 @@ describe('components/character-sheet/use-picker', () => {
 
     it('offers Self first, unmarked, for healing by touch', () => {
       renderPicker(using(cure))
-      expect(buttons()[0]).toBe('SelfYou')
+      expect(buttons()[0]).toBe('Self, You')
       expect(screen.getByRole('button', { name: /^Self/ })).toHaveClass(
         'border-border',
       )
@@ -659,10 +666,10 @@ describe('components/character-sheet/use-picker', () => {
       renderPicker(using(sliver))
       expect(buttons()).toEqual([
         'Goblin',
-        'VexAlly',
         'Goblin Boss',
         'WolfDefeated',
-        'SelfYou',
+        'Vex, Ally',
+        'Self, You',
         'No target',
       ])
     })
@@ -687,7 +694,7 @@ describe('components/character-sheet/use-picker', () => {
         selfTargets: true,
       })
 
-      expect(buttons()[0]).toBe('SelfYouDefault')
+      expect(buttons()[0]).toBe('Self, YouDefault')
       await user.click(screen.getByRole('button', { name: /^Self/ }))
       expect(onPick).toHaveBeenCalledWith({ targets: [], self: true })
       expect(useTargetsOf(wildShape, watching, true).at(0)).toBe(SELF)
@@ -910,6 +917,526 @@ describe('components/character-sheet/use-picker', () => {
     const { onClose } = renderPicker(attacking(warhammer))
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+/**
+ * A bigger fight, in turn order: Thorin, his allies Éowyn and Vex, a hireling the Gamemaster
+ * marked Friendly, a neutral merchant, and others, one of them down.
+ */
+const crowd: TableCombat = {
+  ...fight,
+  combatants: [
+    combatant({ id: 'archer2', name: 'Goblin Archer 2', initiative: 20 }),
+    combatant({ id: 'eowyn1', name: 'Éowyn', side: 'party', initiative: 19 }),
+    combatant({
+      id: 'mira1',
+      name: 'Mira the Hireling',
+      stance: 'ally',
+      initiative: 17,
+    }),
+    combatant({
+      id: 'thorin1',
+      name: 'Thorin Oakenshield',
+      side: 'me',
+      initiative: 16,
+    }),
+    combatant({
+      id: 'merchant1',
+      name: 'Merchant',
+      stance: 'neutral',
+      initiative: 14,
+    }),
+    combatant({ id: 'bosun1', name: 'Bo’sun Pete', initiative: 12 }),
+    combatant({ id: 'archer3', name: 'Goblin Archer 3', initiative: 9 }),
+    combatant({ id: 'vex1', name: 'Vex', side: 'party', initiative: 8 }),
+    combatant({ id: 'wolf1', name: 'Wolf', defeated: true, initiative: 3 }),
+  ],
+}
+
+/** The picker's lists as they read: each one's heading, if any, with its rows. */
+const lists = () => {
+  const dialog = within(screen.getByRole('dialog'))
+  const headings = dialog.queryAllByRole('heading', { level: 3 })
+  return dialog.getAllByRole('list').map(list => {
+    const heading = list.getAttribute('aria-labelledby')
+    return [
+      heading && headings.find(({ id }) => id === heading)?.textContent,
+      within(list)
+        .getAllByRole('listitem')
+        .map(item => item.textContent),
+    ]
+  })
+}
+
+/**
+ * A row's name as a screen reader is told it, such as "Vex, Ally". jsdom computes no layout, so it
+ * takes the spans of a row for blocks and puts a space before the comma that a browser doesn't.
+ */
+const said = (text: string) => (name: string) =>
+  name.replaceAll(' ,', ',') === text
+
+/** The picker's search, where it has one. */
+const searchbox = () =>
+  screen.queryByRole('searchbox', { name: 'Search targets by name' })
+
+/** What a screen reader is told a search found. */
+const found = () =>
+  within(screen.getByRole('dialog')).getByText(
+    (_, element) => element?.getAttribute('aria-live') === 'polite',
+  )
+
+const heal = (fields: Partial<SheetUse['targets']> = {}) =>
+  spell('cure', 'Cure Wounds', 1, {
+    range: 'Touch',
+    activity: use('heal', { count: 1, ...fields }),
+  })
+const lash = sheetAction({
+  id: 'sliver',
+  name: 'Psychic Lash',
+  range: 'Self',
+  activity: use('save', { count: 1, fromSelf: true }),
+})
+const wildShape = sheetAction({
+  id: 'wild',
+  name: 'Wild Shape',
+  range: 'Self',
+  activity: use('utility', { count: 1, fromSelf: true }),
+})
+const OTHERS = [
+  'Goblin Archer 2',
+  'Merchant, Neutral',
+  'Bo’sun Pete',
+  'Goblin Archer 3',
+  'WolfDefeated',
+]
+const ALLIES = ['Éowyn, Ally', 'Mira the Hireling, Ally', 'Vex, Ally']
+
+describe('components/character-sheet/use-picker allies and others', () => {
+  it('lists others first for an attack, each section in turn order under its heading', () => {
+    renderPicker(attacking(warhammer), { combat: crowd })
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      ['Allies', ALLIES],
+    ])
+    expect(
+      screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent),
+    ).toEqual(['Others', 'Allies'])
+    expect(screen.getByRole('list', { name: 'Allies' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Others' })).toBeInTheDocument()
+  })
+
+  it('lists others first for a use that harms, the player last of their allies', () => {
+    renderPicker(using(lash), { combat: crowd })
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      ['Allies', [...ALLIES, 'Self, You']],
+    ])
+  })
+
+  it('lists others first for an area attack, to tick, as for one at a single target', () => {
+    renderPicker(
+      attacking({
+        ...warhammer,
+        attackArea: { count: 2, perLevel: null, affects: 'creature' },
+      }),
+      { combat: crowd, areas: true },
+    )
+    expect(screen.getAllByRole('checkbox')).not.toHaveLength(0)
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      ['Allies', ALLIES],
+    ])
+  })
+
+  it('lists others first for a use that harms more than one, to tick, the player last of their allies where it may be made at them', () => {
+    // One at enemies alone offers no Self.
+    renderPicker(
+      using(
+        spell('bane', 'Bane', 1, {
+          activity: use('save', { count: 3, affects: 'enemy' }),
+        }),
+      ),
+      { combat: crowd },
+    )
+    expect(screen.getAllByRole('checkbox')).not.toHaveLength(0)
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      ['Allies', ALLIES],
+    ])
+    cleanup()
+
+    renderPicker(
+      using(
+        sheetAction({
+          id: 'darts',
+          name: 'Darts',
+          activity: use('damage', { count: 3 }),
+        }),
+      ),
+      { combat: crowd },
+    )
+    expect(screen.getAllByRole('checkbox')).not.toHaveLength(0)
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      ['Allies', [...ALLIES, 'Self, You']],
+    ])
+  })
+
+  it('lists the player and their allies first for a use that helps, in turn order with a Friendly creature among them', () => {
+    renderPicker(using(heal()), { combat: crowd })
+    // Mira, of no player's, comes between Éowyn and Vex, as in the turn order.
+    expect(lists()).toEqual([
+      ['Allies', ['Self, You', ...ALLIES]],
+      ['Others', OTHERS],
+    ])
+  })
+
+  it('keeps the player first for a use made at them by default, as Wild Shape, though it doesn’t help', () => {
+    renderPicker(using(wildShape), { combat: crowd })
+    expect(lists()).toEqual([
+      ['Allies', ['Self, YouDefault', ...ALLIES]],
+      ['Others', OTHERS],
+    ])
+  })
+
+  it('puts the last attacked first in their own section, an ally still after the others', () => {
+    renderPicker(attacking(warhammer), { combat: crowd, last: 'vex1' })
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      [
+        'Allies',
+        ['Vex, AllyLast target', 'Éowyn, Ally', 'Mira the Hireling, Ally'],
+      ],
+    ])
+  })
+
+  it('puts the last attacked first among the others', () => {
+    renderPicker(attacking(warhammer), { combat: crowd, last: 'archer3' })
+    expect(lists()[0]).toEqual([
+      'Others',
+      [
+        'Goblin Archer 3Last target',
+        'Goblin Archer 2',
+        'Merchant, Neutral',
+        'Bo’sun Pete',
+        'WolfDefeated',
+      ],
+    ])
+  })
+
+  it('heads the sections only where both have someone', () => {
+    const foes: TableCombat = {
+      ...fight,
+      combatants: fight.combatants.filter(({ side }) => side === 'other'),
+    }
+    renderPicker(attacking(warhammer), { combat: foes })
+    expect(lists()).toEqual([[null, ['Goblin', 'Goblin Boss', 'WolfDefeated']]])
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull()
+  })
+
+  it('heads no section of allies alone', () => {
+    const friends: TableCombat = {
+      ...fight,
+      combatants: fight.combatants.filter(({ side }) => side !== 'other'),
+    }
+    renderPicker(using(heal()), { combat: friends })
+    expect(lists()).toEqual([[null, ['Self, You', 'Vex, Ally']]])
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull()
+  })
+
+  it('marks the player, their allies and neutral creatures with pills, each said apart from the name, and no one as an enemy', () => {
+    renderPicker(using(heal()), { combat: crowd })
+    const pill = (name: string, word: string) =>
+      within(screen.getByRole('button', { name: said(name) })).getByText(word)
+    expect(pill('Self, You', 'You')).toHaveClass(
+      'rounded-full',
+      'bg-primary/10',
+      'text-primary-text',
+    )
+    expect(pill('Vex, Ally', 'Ally')).toHaveClass('bg-party/15', 'text-party')
+    expect(pill('Mira the Hireling, Ally', 'Ally')).toHaveClass('text-party')
+    expect(pill('Merchant, Neutral', 'Neutral')).toHaveClass(
+      'bg-text-secondary/10',
+      'text-text-secondary',
+    )
+    // The comma is for screen readers alone.
+    expect(within(pill('Vex, Ally', 'Ally')).getByText(',')).toHaveClass(
+      'sr-only',
+    )
+    // A hostile one, or one whose disposition isn't sent, has none.
+    expect(
+      screen.getByRole('button', { name: 'Goblin Archer 2' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/enemy|hostile/i)).toBeNull()
+  })
+
+  it('shows a shield, not the crosshair, on an ally to tap, with the allies’ edge', () => {
+    renderPicker(attacking(warhammer), { combat: crowd, last: 'archer2' })
+    for (const name of ALLIES) {
+      const row = screen.getByRole('button', { name: said(name) })
+      expect(row.querySelector('.lucide-shield-check')).toHaveClass(
+        'text-party',
+      )
+      expect(row.querySelector('.lucide-crosshair')).toBeNull()
+      expect(row).toHaveClass('border-l-4', 'border-l-party')
+    }
+    const other = screen.getByRole('button', {
+      name: said('Merchant, Neutral'),
+    })
+    expect(other.querySelector('.lucide-crosshair')).toHaveClass('text-attack')
+    expect(other.querySelector('.lucide-shield-check')).toBeNull()
+    expect(other).not.toHaveClass('border-l-party')
+    // The last attacked keeps its own border.
+    expect(
+      screen.getByRole('button', { name: /^Goblin Archer 2/ }),
+    ).toHaveClass('border-primary')
+  })
+
+  it('edges the allies to tick too, and ticks no more than it takes across both sections', async () => {
+    const user = userEvent.setup()
+    const aid = spell('bless', 'Bless', 1, {
+      activity: use('utility', { count: 2, affects: 'ally' }),
+    })
+    const { onPick } = renderPicker(using(aid), { combat: crowd })
+
+    expect(
+      screen.getByRole('checkbox', { name: said('Vex, Ally') }),
+    ).toHaveClass('border-l-party')
+    expect(
+      screen.getByRole('checkbox', { name: 'Goblin Archer 2' }),
+    ).not.toHaveClass('border-l-party')
+    await user.click(screen.getByRole('checkbox', { name: said('Vex, Ally') }))
+    await user.click(screen.getByRole('checkbox', { name: 'Goblin Archer 2' }))
+    expect(
+      screen.getByRole('checkbox', { name: said('Éowyn, Ally') }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('checkbox', { name: 'Goblin Archer 3' }),
+    ).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Cast at 2 targets' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [crowd.combatants[7], crowd.combatants[0]],
+      slot: 'spell1',
+    })
+  })
+})
+
+describe('components/character-sheet/use-picker search', () => {
+  /** A fight of six, Thorin among them: five to attack, six to heal. */
+  const six: TableCombat = {
+    ...fight,
+    combatants: [
+      ...fight.combatants,
+      combatant({ id: 'imp1', name: 'Imp', initiative: 2 }),
+    ],
+  }
+
+  it('offers a search for more than five to pick, counting Self and the defeated, but not No target', () => {
+    renderPicker(attacking(warhammer), { combat: six })
+    expect(searchbox()).toBeNull()
+    cleanup()
+
+    renderPicker(using(heal()), { combat: six })
+    expect(searchbox()).toHaveAttribute('placeholder', 'Search')
+    expect(searchbox()).toHaveClass('text-base')
+    cleanup()
+
+    // An area attack, and a use at more than one, too.
+    renderPicker(
+      attacking({
+        ...warhammer,
+        attackArea: { count: 2, perLevel: null, affects: 'creature' },
+      }),
+      { combat: crowd, areas: true },
+    )
+    expect(searchbox()).toBeInTheDocument()
+  })
+
+  it('finds those whose names have each word typed, whatever their case, accents or quotes', async () => {
+    const user = userEvent.setup()
+    renderPicker(attacking(warhammer), { combat: crowd })
+    expect(found()).toHaveTextContent(/^$/)
+
+    await user.type(searchbox()!, 'GOBLIN')
+    expect(lists()).toEqual([[null, ['Goblin Archer 2', 'Goblin Archer 3']]])
+    expect(found()).toHaveTextContent('2 targets found')
+    expect(found()).toHaveClass('sr-only')
+
+    await user.clear(searchbox()!)
+    await user.type(searchbox()!, 'gob 2')
+    expect(lists()).toEqual([[null, ['Goblin Archer 2']]])
+    expect(found()).toHaveTextContent('1 target found')
+
+    await user.clear(searchbox()!)
+    await user.type(searchbox()!, 'eowyn')
+    expect(lists()).toEqual([[null, ['Éowyn, Ally']]])
+
+    await user.clear(searchbox()!)
+    await user.type(searchbox()!, "bo's")
+    expect(lists()).toEqual([[null, ['Bo’sun Pete']]])
+
+    // Where both sections have someone found, both are headed.
+    await user.clear(searchbox()!)
+    await user.type(searchbox()!, 'i')
+    expect(lists().map(([heading]) => heading)).toEqual(['Others', 'Allies'])
+  })
+
+  it('finds the player’s own row by Self or their name, and no one by a pill’s word', async () => {
+    const user = userEvent.setup()
+    renderPicker(using(heal()), { combat: crowd })
+
+    await user.type(searchbox()!, 'self')
+    expect(lists()).toEqual([[null, ['Self, You']]])
+    await user.clear(searchbox()!)
+    await user.type(searchbox()!, 'oakenshield')
+    expect(lists()).toEqual([[null, ['Self, You']]])
+
+    for (const word of ['ally', 'neutral', 'you', 'defeated']) {
+      await user.clear(searchbox()!)
+      await user.type(searchbox()!, word)
+      expect(screen.queryByRole('list')).toBeNull()
+      expect(screen.getByText('No one matches')).toBeInTheDocument()
+      expect(found()).toHaveTextContent('0 targets found')
+    }
+    expect(
+      screen.getByRole('button', { name: 'No target' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps those ticked whatever is typed, and still sends them', async () => {
+    const user = userEvent.setup()
+    const aid = spell('bless', 'Bless', 1, {
+      activity: use('utility', { count: 3, affects: 'ally' }),
+    })
+    const { onPick } = renderPicker(using(aid), { combat: crowd })
+
+    await user.click(screen.getByRole('checkbox', { name: said('Vex, Ally') }))
+    await user.type(searchbox()!, 'goblin')
+    expect(lists()).toEqual([
+      ['Allies', ['Vex, Ally']],
+      ['Others', ['Goblin Archer 2', 'Goblin Archer 3']],
+    ])
+    // Only those it matched are found.
+    expect(found()).toHaveTextContent('2 targets found')
+    await user.click(screen.getByRole('checkbox', { name: 'Goblin Archer 2' }))
+    await user.clear(searchbox()!)
+    await user.type(searchbox()!, 'zzz')
+    expect(screen.getByText('No one matches')).toBeInTheDocument()
+    expect(lists()).toEqual([
+      ['Allies', ['Vex, Ally']],
+      ['Others', ['Goblin Archer 2']],
+    ])
+    await user.click(screen.getByRole('button', { name: 'Cast at 2 targets' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [crowd.combatants[7], crowd.combatants[0]],
+      slot: 'spell1',
+    })
+  })
+
+  it('clears what is typed on Escape, so a second Escape closes the picker', async () => {
+    const user = userEvent.setup()
+    renderPicker(attacking(warhammer), { combat: crowd })
+    await user.type(searchbox()!, 'gob')
+    expect(screen.getAllByRole('button')).toHaveLength(4)
+
+    expect(fireEvent.keyDown(searchbox()!, { key: 'Escape' })).toBe(false)
+    expect(searchbox()).toHaveValue('')
+    expect(lists()).toEqual([
+      ['Others', OTHERS],
+      ['Allies', ALLIES],
+    ])
+    expect(fireEvent.keyDown(searchbox()!, { key: 'Escape' })).toBe(true)
+  })
+
+  it('picks no one on Enter, only putting the keyboard away', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderPicker(attacking(warhammer), { combat: crowd })
+    await user.type(searchbox()!, 'gob 2{Enter}')
+    expect(onPick).not.toHaveBeenCalled()
+    expect(searchbox()).not.toHaveFocus()
+    expect(lists()).toEqual([[null, ['Goblin Archer 2']]])
+  })
+
+  it('focuses nothing as it opens, so no keyboard covers the list', () => {
+    renderPicker(attacking(warhammer), { combat: crowd })
+    expect(searchbox()).not.toHaveFocus()
+    expect(searchbox()).not.toHaveAttribute('autofocus')
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('keeps what is searched when a slot chosen turns a list to tap into one to tick', async () => {
+    const user = userEvent.setup()
+    const aid = spell('bless', 'Bless', 1, {
+      activity: use('utility', { count: 1, perLevel: 1, affects: 'ally' }),
+    })
+    renderPicker(using(aid), { combat: crowd })
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    await user.type(searchbox()!, 'goblin')
+
+    await user.click(
+      screen.getByRole('radio', { name: '3rd Level, 1 slot left' }),
+    )
+    expect(screen.getByText('Tick who to target. Up to 3.')).toBeInTheDocument()
+    expect(searchbox()).toHaveValue('goblin')
+    expect(screen.getAllByRole('checkbox').map(box => box.textContent)).toEqual(
+      ['Goblin Archer 2', 'Goblin Archer 3'],
+    )
+  })
+
+  it('keeps the search while anything is typed, though the fight shrinks to five', async () => {
+    const user = userEvent.setup()
+    const onPick = jest.fn()
+    const picker = (combat: TableCombat) => (
+      <UsePicker
+        picking={attacking(warhammer)}
+        combat={combat}
+        spellbook={spellbook}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />
+    )
+    const { rerender } = render(picker(crowd))
+    await user.type(searchbox()!, 'zzz')
+    rerender(picker(six))
+    expect(searchbox()).toHaveValue('zzz')
+    await user.clear(searchbox()!)
+    expect(searchbox()).toBeNull()
+  })
+
+  it('counts only those ticked still in the fight', async () => {
+    const user = userEvent.setup()
+    const onPick = jest.fn()
+    const aid = spell('bless', 'Bless', 1, {
+      activity: use('utility', { count: 2, affects: 'ally' }),
+    })
+    const picker = (combat: TableCombat) => (
+      <UsePicker
+        picking={using(aid)}
+        combat={combat}
+        spellbook={spellbook}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />
+    )
+    const { rerender } = render(picker(crowd))
+    await user.click(screen.getByRole('checkbox', { name: said('Vex, Ally') }))
+    await user.click(screen.getByRole('checkbox', { name: 'Goblin Archer 2' }))
+    expect(screen.getByRole('checkbox', { name: 'Bo’sun Pete' })).toBeDisabled()
+
+    // The goblin leaves the fight while the player picks.
+    rerender(
+      picker({
+        ...crowd,
+        combatants: crowd.combatants.filter(({ id }) => id !== 'archer2'),
+      }),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Cast at 1 target' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('checkbox', { name: 'Bo’sun Pete' }),
+    ).not.toBeDisabled()
   })
 })
 

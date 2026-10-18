@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Search, Wand } from 'lucide-react'
+import { Wand } from 'lucide-react'
 import {
   ActionEntry,
   useActionRows,
@@ -16,7 +16,9 @@ import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesLeft } from './uses-left'
+import { SearchField } from '@/components/search-field'
 import { formatModifier } from '@/utils/format-modifier'
+import { matchesSearch, searchKey } from '@/utils/search'
 import { spellAction } from '@/utils/sheet-actions'
 import type {
   SheetDamageRoll,
@@ -41,7 +43,7 @@ const SEARCH_FROM = 5
  * Each spell opens to its description. What a spell rolls is beside it, as on the Actions tab: its
  * attack, saving throw and damage or healing, each a button that rolls it, or casts it in the
  * Gamemaster's game while the game takes spells. With more than a few spells, they can be searched
- * by name.
+ * by name, word by word, whatever its case or accents.
  */
 export function SpellsTab({
   characterId,
@@ -81,7 +83,7 @@ export function SpellsTab({
     0,
   )
   const searchable = count >= SEARCH_FROM
-  const search = searchable ? query.trim().toLocaleLowerCase() : ''
+  const search = searchable && searchKey(query) !== ''
   // A spell level with slots shows even with no spells of its own, as they can cast a lower
   // level's; while searching, only those with a spell found.
   const sections = sheet.spells
@@ -90,7 +92,7 @@ export function SpellsTab({
         ? {
             ...section,
             spells: section.spells.filter(spell =>
-              spell.name.toLocaleLowerCase().includes(search),
+              matchesSearch([spell.name], query),
             ),
           }
         : section,
@@ -103,7 +105,14 @@ export function SpellsTab({
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
       {sheet.spellcasting && <Spellcasting spellcasting={sheet.spellcasting} />}
-      {searchable && <SpellSearch query={query} onChange={setQuery} />}
+      {searchable && (
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          label='Search spells by name'
+          placeholder='Search spells'
+        />
+      )}
       {/* What a search finds, as a screen reader is told while typing; the tray's is the page's
           status. */}
       {searchable && (
@@ -167,31 +176,6 @@ function foundOf(sections: TableSheet['spells']): string {
   )
   if (found === 0) return 'No spells found'
   return found === 1 ? '1 spell found' : `${found} spells found`
-}
-
-/** A search of the character's spells by name, whatever its case. */
-function SpellSearch({
-  query,
-  onChange,
-}: Readonly<{ query: string; onChange: (query: string) => void }>) {
-  return (
-    <div className='relative'>
-      <Search
-        aria-hidden
-        className='pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-secondary'
-      />
-      <input
-        type='search'
-        value={query}
-        onChange={event => onChange(event.target.value)}
-        aria-label='Search spells by name'
-        placeholder='Search spells'
-        autoComplete='off'
-        spellCheck={false}
-        className='h-11 w-full rounded-xl border border-border bg-page pr-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-primary/40'
-      />
-    </div>
-  )
 }
 
 /**

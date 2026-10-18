@@ -26,7 +26,7 @@ import { enchantedEntry } from './enchantments'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
-import { UsesLeft } from './uses-left'
+import { UsesButton } from './uses-button'
 import { usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { compactAmount } from '@/utils/format-amount'
 import { itemAction } from '@/utils/sheet-actions'
@@ -397,7 +397,7 @@ export function ItemEntry({
         (item.quantity !== 1 || uses) && (
           <span className='flex shrink-0 items-center gap-1.5'>
             {quantity}
-            {uses && <UsesLeft uses={uses} />}
+            {uses && <UsesButton uses={uses} name={item.name} />}
           </span>
         )
       }

@@ -2849,3 +2849,89 @@ describe("hooks/use-table-rolls, the Gamemaster's seat (#156)", () => {
     expect(globalThis.localStorage.getItem(SEND_KEY)).toBe('off')
   })
 })
+
+const used = (fields: Partial<LocalUse> = {}): LocalUse => ({
+  kind: 'use',
+  id: 'u1',
+  label: 'Sorcery Points',
+  spell: false,
+  at: 0,
+  ...fields,
+})
+
+describe('hooks/use-table-rolls for concentration, charges and Heroic Inspiration, from module 0.29.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const plain = { mode: 0, explicit: false, extras: [], dice: [] }
+
+  it('sends each, as it is, and follows it until it is made', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-1' }))
+    const { result } = render(['endConcentration', 'spend', 'inspiration'])
+
+    act(() => result.current.sendEndConcentration(used(), 'concBless0001'))
+    expect(sent()).toEqual({
+      kind: 'endConcentration',
+      concentration: { effect: 'concBless0001' },
+      ...plain,
+    })
+    act(() =>
+      result.current.sendSpend(used({ id: 'u2' }), {
+        counter: { resource: 'primary' },
+        count: 3,
+      }),
+    )
+    expect(sent()).toEqual({
+      kind: 'spend',
+      counter: { resource: 'primary' },
+      count: 3,
+      ...plain,
+    })
+    act(() => result.current.sendInspiration(used({ id: 'u3' }), 'gain'))
+    expect(sent()).toEqual({
+      kind: 'inspiration',
+      inspiration: 'gain',
+      ...plain,
+    })
+    for (const id of ['u1', 'u2', 'u3']) {
+      expect(result.current.states.get(id)).toMatchObject({ status: 'sending' })
+    }
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(200, { id: 'req-1', status: 'done', visible: true, rolls: [] }),
+      )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u2')).toMatchObject({ status: 'done' })
+  })
+
+  it("sends none of them where the game doesn't take them, or from a device that doesn't send", () => {
+    const { result, rerender } = render(['use', 'endEnchantment'])
+
+    const sendAll = () =>
+      act(() => {
+        result.current.sendEndConcentration(used(), 'concBless0001')
+        result.current.sendSpend(used(), { counter: { item: 'a' }, count: 1 })
+        result.current.sendInspiration(used(), 'use')
+      })
+    sendAll()
+    rerender({
+      kinds: ['endConcentration', 'spend', 'inspiration'],
+      features: [],
+    })
+    expect(result.current.takes('spend')).toBe(true)
+    act(() => result.current.setSending(false))
+    expect(result.current.takes('spend')).toBe(false)
+    sendAll()
+
+    expect(fetch).not.toHaveBeenCalled()
+    expect(result.current.states.size).toBe(0)
+  })
+})

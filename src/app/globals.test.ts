@@ -93,6 +93,23 @@ const CHAT_TEXT: [string, string, string, number][] = [
   ],
 ]
 
+/**
+ * The marks of whose side a combatant is on, in the combat tracker and the target picker: by
+ * their text's token, then their tint's token and how strong the tint is. Each sits on a card, or
+ * a row of it tinted for whose turn it is, or ticked.
+ */
+const SIDE_TEXT: [string, string, string, number][] = [
+  ["an ally's initiative box, and the Ally pill", 'party', 'party', 0.15],
+  [
+    "a neutral creature's initiative box",
+    'text-secondary',
+    'text-secondary',
+    0.15,
+  ],
+  ['the Neutral pill', 'text-secondary', 'text-secondary', 0.1],
+  ['the You pill', 'primary-text', 'primary', 0.1],
+]
+
 describe('app/globals.css', () => {
   it.each(['page', 'card'])(
     'reads the accent as small text at WCAG AA on each of its tints over the %s, in the light theme',
@@ -138,6 +155,27 @@ describe('app/globals.css', () => {
     })
   })
 
+  describe.each([
+    ['light', light],
+    ['dark', dark],
+  ])(
+    'the combat tracker and the target picker, in the %s theme',
+    (_, theme) => {
+      it.each(SIDE_TEXT)(
+        'reads %s at WCAG AA over a card, and over a row tinted on it',
+        (__, text, behind, alpha) => {
+          const card = rgb(theme.card)
+          for (const row of [card, stack(theme.primary, 0.05, card)]) {
+            const ground = stack(theme[behind], alpha, row)
+            expect(contrast(rgb(theme[text]), ground)).toBeGreaterThanOrEqual(
+              4.5,
+            )
+          }
+        },
+      )
+    },
+  )
+
   it("needs the chat's text tokens in the light theme, where the colours fall short on their tints", () => {
     const [, mine] = bubbles(light)[1]
     for (const name of ['damage', 'attack', 'spell']) {
@@ -161,6 +199,27 @@ describe('app/globals.css', () => {
       contrast(rgb(light['primary-text']), stack(light.primary, 0.1, hovered)),
     ).toBeLessThan(4.5)
     expect(contrast(rgb(light['gold-text']), hovered)).toBeLessThan(3)
+  })
+
+  it.each([
+    ['light', light],
+    ['dark', dark],
+  ])(
+    'reads the Inspired mark, small gold text, at WCAG AA on the page and a card, and their hover tint, in the %s theme',
+    (_, theme) => {
+      for (const surface of ['page', 'card']) {
+        for (const alpha of [0, 0.05]) {
+          const behind = tint(theme.primary, alpha, theme[surface])
+          expect(contrast(rgb(theme['gold-label']), behind)).toBeGreaterThan(
+            4.5,
+          )
+        }
+      }
+    },
+  )
+
+  it('needs it there, as the gold for large text falls short as small text in the light theme', () => {
+    expect(contrast(rgb(light['gold-text']), rgb(light.card))).toBeLessThan(4.5)
   })
 
   it('is the accent itself in the dark theme, which reads at AA on its tints there', () => {

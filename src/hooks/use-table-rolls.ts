@@ -30,6 +30,7 @@ import type {
   EndEnchantmentSource,
   FormulaSource,
   GmRollView,
+  InspirationSource,
   RolledDice,
   RollFeature,
   RollKind,
@@ -37,6 +38,7 @@ import type {
   RollRequestView,
   RollSource,
   RollStatus,
+  SpendSource,
   TextLink,
   UseSource,
 } from '@/types/roll'
@@ -450,6 +452,58 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * End a concentration of the character's, from module 0.29.0, by its effect's id: no roll, so
+   * nothing to keep but its way.
+   */
+  const sendEndConcentration = useCallback(
+    (ended: LocalUse, effect: string) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('endConcentration')) return
+      start(
+        ended.id,
+        {
+          kind: 'endConcentration',
+          concentration: { effect },
+          ...PLAIN,
+        },
+        {},
+        ended.label,
+      )
+    },
+    [start],
+  )
+
+  /** Spend charges of one of the character's counters directly, from module 0.29.0. */
+  const sendSpend = useCallback(
+    (spent: LocalUse, { counter, count }: Omit<SpendSource, 'kind'>) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('spend')) return
+      start(
+        spent.id,
+        { kind: 'spend', counter, count, ...PLAIN },
+        {},
+        spent.label,
+      )
+    },
+    [start],
+  )
+
+  /** Use or gain Heroic Inspiration, from module 0.29.0. */
+  const sendInspiration = useCallback(
+    (changed: LocalUse, inspiration: InspirationSource['inspiration']) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('inspiration')) return
+      start(
+        changed.id,
+        { kind: 'inspiration', inspiration, ...PLAIN },
+        {},
+        changed.label,
+      )
+    },
+    [start],
+  )
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -479,6 +533,9 @@ export function useTableRolls(
     sendFormula,
     sendUse,
     sendEnd,
+    sendEndConcentration,
+    sendSpend,
+    sendInspiration,
     sendAsk,
     states,
     /** Whether the game takes any of the player's rolls now. */
@@ -539,6 +596,17 @@ export function useTableRolls(
       ),
   }
 }
+
+/** How what throws no dice, and is rolled no way, is sent: as it is, with nothing added. */
+const PLAIN = {
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+} as const satisfies Pick<
+  RollRequestInput,
+  'mode' | 'explicit' | 'extras' | 'dice'
+>
 
 /** None of the Gamemaster's rolls, the same each time, for what's worked out from them to keep. */
 const NO_GM_ROLLS: readonly GmRollView[] = []

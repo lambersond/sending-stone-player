@@ -34,7 +34,7 @@ import { RollButton } from './roll-button'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SpellSlots } from './spell-slots'
 import { SpellEntry } from './spells-tab'
-import { UsesLeft } from './uses-left'
+import { UsesButton } from './uses-button'
 import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
@@ -334,7 +334,11 @@ function FavoriteRow({
           name={resource.name}
           fallback={CircleGauge}
           detail={resource.uses?.recovery ?? undefined}
-          aside={resource.uses && <UsesLeft uses={resource.uses} />}
+          aside={
+            resource.uses && (
+              <UsesButton uses={resource.uses} name={resource.name} />
+            )
+          }
         />
       )
     }

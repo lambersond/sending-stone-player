@@ -16,6 +16,7 @@ import {
   chatMessage,
   combat,
   combatant,
+  dispositionCombat,
   sheetFavorites,
   sheetItem,
 } from '@/mocks/sending-stone'
@@ -1742,6 +1743,70 @@ describe('utils/table-view', () => {
         hp: { value: 31, max: 44, temp: 0 },
       })
     })
+
+    it('marks those the game has disposed as allies or neutral, from module 0.29.0, leaving their side and hit points alone', () => {
+      const { combatants } = toTableCombat(dispositionCombat(), viewer)
+
+      expect(
+        combatants.map(({ id, side, stance, hp }) => ({
+          id,
+          side,
+          stance,
+          hp: hp !== undefined,
+        })),
+      ).toEqual([
+        { id: 'c-thorin', side: 'me', stance: undefined, hp: true },
+        // A charmed ally, marked Hostile, is still of the party.
+        { id: 'c-vex', side: 'party', stance: undefined, hp: true },
+        { id: 'c-mira', side: 'other', stance: 'ally', hp: false },
+        { id: 'c-merchant', side: 'other', stance: 'neutral', hp: false },
+        { id: 'c-goblin', side: 'other', stance: undefined, hp: false },
+        { id: 'c-lurker', side: 'other', stance: undefined, hp: false },
+      ])
+      // None is sent where it isn't one.
+      for (const each of combatants.filter(({ stance }) => !stance)) {
+        expect(each).not.toHaveProperty('stance')
+      }
+    })
+
+    it.each([
+      ['friendly', 'other', 'ally'],
+      ['neutral', 'other', 'neutral'],
+      ['hostile', 'other', undefined],
+      [null, 'other', undefined],
+      [undefined, 'other', undefined],
+      ['friendly', 'party', undefined],
+      ['neutral', 'party', undefined],
+      ['hostile', 'party', undefined],
+      [null, 'party', undefined],
+      ['friendly', 'me', undefined],
+      ['neutral', 'me', undefined],
+      ['hostile', 'me', undefined],
+      [undefined, 'me', undefined],
+    ] as const)(
+      'gives a combatant disposed %p, whose side is %s, the stance %p',
+      (disposition, side, stance) => {
+        const fields = {
+          me: { character: 'actor-thorin', playerOwned: true },
+          party: { character: null, playerOwned: true },
+          other: { character: null, playerOwned: false },
+        }[side]
+        const snapshot = combat({
+          combatants: [
+            combatant({
+              id: 'c-one',
+              ...fields,
+              ...(disposition !== undefined && { disposition }),
+            }),
+          ],
+        })
+
+        const [one] = toTableCombat(snapshot, viewer).combatants
+
+        expect(one.side).toBe(side)
+        expect(one.stance).toBe(stance)
+      },
+    )
   })
 
   describe('toTableSheet', () => {
@@ -1962,6 +2027,265 @@ describe('utils/table-view', () => {
         'Athletics',
         'xyz',
       ])
+    })
+  })
+})
+
+const TRIO = [
+  { name: 'Goblin', uuid: 'Actor.gob' },
+  { name: 'Orc', uuid: 'Actor.orc' },
+  { name: 'Kobold', uuid: 'Actor.kob' },
+]
+
+/** A Fireball's card at a goblin, an orc and a kobold, as dnd5e names its targets. */
+const fireball = (targets: object[] = TRIO) =>
+  chatMessage({
+    id: 'fireball',
+    timestamp: 1000,
+    speaker: { alias: 'Ember', actorId: 'actor-ember' },
+    dnd5e: dnd5e({
+      messageType: 'usage',
+      item: { name: 'Fireball', type: 'spell' },
+      activity: { name: 'Save', type: 'save' },
+      targets: targets as never,
+    }),
+  })
+/** A creature's save rolled from the card, as module 0.29.0 sends it. */
+const saved = (id: string, speaker: string, save?: object, timestamp = 2000) =>
+  chatMessage({
+    id,
+    timestamp,
+    speaker: { alias: speaker, actorId: null },
+    rolls: [roll({ total: 12 })],
+    dnd5e: dnd5e({
+      roll: { type: 'save', ability: 'dex' },
+      originatingMessage: 'fireball',
+      ...(save && { save: save as never }),
+    }),
+  })
+const shown = (messages: SerializedMessage[], seen: Viewer = viewer) =>
+  Object.fromEntries(
+    toTableMessages(messages, seen).map(({ id, targets, summary }) => [
+      id,
+      { targets, summary },
+    ]),
+  )
+
+describe('utils/table-view for hits, misses and saves, from module 0.29.0', () => {
+  it("takes the module's word for a hit or a miss over the armor class", () => {
+    const message = chatMessage({
+      rolls: [roll({ total: 15 })],
+      dnd5e: dnd5e({
+        roll: { type: 'attack' },
+        targets: [
+          { name: 'Goblin', ac: 20, outcome: 'hit' },
+          { name: 'Orc', ac: 10, outcome: 'miss' },
+          { name: 'Kobold', outcome: 'miss' },
+        ] as never,
+      }),
+    })
+
+    expect(toTableMessage(message, viewer).targets).toEqual([
+      { name: 'Goblin', ac: 20, outcome: 'hit' },
+      { name: 'Orc', ac: 10, outcome: 'miss' },
+      { name: 'Kobold', outcome: 'miss' },
+    ])
+  })
+
+  it('still judges an attack against the armor class it has, from an older module with Gamemaster-only information, and sums it up', () => {
+    const message = chatMessage({
+      rolls: [roll({ total: 15 })],
+      dnd5e: dnd5e({
+        roll: { type: 'attack' },
+        targets: [
+          { name: 'Goblin', ac: 12 },
+          { name: 'Orc', ac: 16 },
+          { name: 'Kobold', ac: 15 },
+        ],
+      }),
+    })
+
+    expect(toTableMessage(message, viewer)).toMatchObject({
+      targets: [
+        { name: 'Goblin', ac: 12, outcome: 'hit' },
+        { name: 'Orc', ac: 16, outcome: 'miss' },
+        { name: 'Kobold', ac: 15, outcome: 'hit' },
+      ],
+      summary: 'Hit 2 of 3',
+    })
+  })
+
+  it("says whether each saved against Midi-QOL's card, as it says, summing up only those with a result", () => {
+    const message = fireball([
+      { name: 'Goblin', uuid: 'Actor.gob', save: 'failure' },
+      { name: 'Orc', uuid: 'Actor.orc', save: 'success' },
+      { name: 'Kobold', uuid: 'Actor.kob' },
+    ])
+
+    expect(toTableMessage(message, viewer)).toMatchObject({
+      targets: [
+        { name: 'Goblin', save: 'failed' },
+        { name: 'Orc', save: 'saved' },
+        { name: 'Kobold' },
+      ],
+      summary: '1 of 2 saved',
+    })
+    expect(toTableMessage(message, viewer).targets[2]).toEqual({
+      name: 'Kobold',
+    })
+  })
+
+  it('sums up hits and saves together, and nothing for one target or none with a result', () => {
+    const both = fireball([
+      { name: 'Goblin', uuid: 'Actor.gob', outcome: 'hit', save: 'failure' },
+      { name: 'Orc', uuid: 'Actor.orc', outcome: 'miss' },
+    ])
+    expect(toTableMessage(both, viewer).summary).toBe(
+      'Hit 1 of 2 · 0 of 1 saved',
+    )
+    expect(
+      toTableMessage(
+        fireball([{ name: 'Goblin', uuid: 'Actor.gob', outcome: 'hit' }]),
+        viewer,
+      ),
+    ).not.toHaveProperty('summary')
+    expect(toTableMessage(fireball(), viewer)).not.toHaveProperty('summary')
+    // Counting only those whose hit or miss is told.
+    expect(
+      toTableMessage(
+        fireball([
+          { name: 'Goblin', uuid: 'Actor.gob', outcome: 'hit' },
+          { name: 'Orc', uuid: 'Actor.orc', outcome: 'miss' },
+          { name: 'Kobold', uuid: 'Actor.kob' },
+        ]),
+        viewer,
+      ).summary,
+    ).toBe('Hit 1 of 2')
+  })
+
+  it("joins each creature's save onto the card by its uuid, the latest it may see winning", () => {
+    const messages = shown([
+      fireball(),
+      saved(
+        'gob1',
+        'Goblin',
+        { target: 'Actor.gob', outcome: 'success' },
+        2000,
+      ),
+      // Rolled again, later: this one stands.
+      saved(
+        'gob2',
+        'Goblin',
+        { target: 'Actor.gob', outcome: 'failure' },
+        3000,
+      ),
+      saved('orc', 'Orc', { target: 'Actor.orc', outcome: 'success' }),
+      // Not decided, as of a modified d20: none.
+      saved('kob', 'Kobold', { target: 'Actor.kob' }),
+    ])
+
+    expect(messages.fireball).toEqual({
+      targets: [
+        { name: 'Goblin', save: 'failed' },
+        { name: 'Orc', save: 'saved' },
+        { name: 'Kobold' },
+      ],
+      summary: '1 of 2 saved',
+    })
+  })
+
+  it("keeps a save's outcome from viewers it names no character of, but shows it to those it does", () => {
+    const messages = [
+      fireball(),
+      saved('gob', 'Goblin', {
+        target: 'Actor.gob',
+        outcome: 'failure',
+        readers: ['actor-ember'],
+      }),
+      // A later one the viewer may not see doesn't hide an earlier one they may.
+      saved('orc1', 'Orc', { target: 'Actor.orc', outcome: 'success' }, 2000),
+      saved(
+        'orc2',
+        'Orc',
+        { target: 'Actor.orc', outcome: 'failure', readers: ['actor-ember'] },
+        3000,
+      ),
+    ]
+
+    expect(shown(messages).fireball.targets).toEqual([
+      { name: 'Goblin' },
+      { name: 'Orc', save: 'saved' },
+      { name: 'Kobold' },
+    ])
+    expect(shown(messages).gob.targets).toEqual([{ name: 'Goblin' }])
+    const ember = { ...viewer, actorId: 'actor-ember' }
+    expect(shown(messages, ember).fireball.targets).toEqual([
+      { name: 'Goblin', save: 'failed' },
+      { name: 'Orc', save: 'failed' },
+      { name: 'Kobold' },
+    ])
+    expect(shown(messages, ember).gob.targets).toEqual([
+      { name: 'Goblin', save: 'failed' },
+    ])
+    // A viewer with no character of their own is named by none.
+    expect(
+      shown(messages, { ...viewer, actorId: undefined }).gob.targets,
+    ).toEqual([{ name: 'Goblin' }])
+  })
+
+  it("names a creature's own save alone, as the card names it, or else as it speaks", () => {
+    const messages = shown([
+      fireball([{ name: 'Goblin Boss', uuid: 'Actor.gob' }, ...TRIO.slice(1)]),
+      saved('gob', 'Grik', { target: 'Actor.gob', outcome: 'success' }),
+      saved('stray', 'Bat', { target: 'Actor.bat', outcome: 'failure' }),
+      saved('pending', 'Orc', { target: 'Actor.orc' }),
+    ])
+
+    expect(messages.gob).toEqual({
+      targets: [{ name: 'Goblin Boss', save: 'saved' }],
+      summary: undefined,
+    })
+    // One the card didn't name, as dnd5e's button rolls for whoever is controlled.
+    expect(messages.stray.targets).toEqual([{ name: 'Bat', save: 'failed' }])
+    expect(messages.pending.targets).toEqual([{ name: 'Orc' }])
+  })
+
+  it("keeps an older module's save showing its card's targets, as before", () => {
+    const messages = shown([fireball(), saved('old', 'Goblin')])
+
+    expect(messages.old.targets).toEqual([
+      { name: 'Goblin' },
+      { name: 'Orc' },
+      { name: 'Kobold' },
+    ])
+  })
+
+  it("shows damage rolled from a card against the card's targets bare, without what came of them there", () => {
+    const attack = chatMessage({
+      id: 'attack',
+      rolls: [roll({ total: 18 })],
+      dnd5e: dnd5e({
+        roll: { type: 'attack' },
+        targets: [
+          { name: 'Goblin', uuid: 'Actor.gob', ac: 12, outcome: 'hit' },
+          { name: 'Orc', uuid: 'Actor.orc', save: 'success' },
+        ] as never,
+      }),
+    })
+    const damage = chatMessage({
+      id: 'damage',
+      rolls: [roll()],
+      dnd5e: dnd5e({ roll: { type: 'damage' }, originatingMessage: 'attack' }),
+    })
+    const messages = shown([attack, damage])
+
+    expect(messages.attack.targets).toEqual([
+      { name: 'Goblin', ac: 12, outcome: 'hit' },
+      { name: 'Orc', save: 'saved' },
+    ])
+    expect(messages.damage).toEqual({
+      targets: [{ name: 'Goblin', ac: 12 }, { name: 'Orc' }],
+      summary: undefined,
     })
   })
 })

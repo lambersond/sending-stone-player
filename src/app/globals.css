@@ -34,10 +34,12 @@
   --color-whisper: #6b3fb8;
 
   /* Rolls: gold for a critical, ruby for disadvantage. gold-text is gold deep enough to read
-     as text; gold itself is for fills and outlines. */
+     as large text, such as a critical's total, and gold-label as small text, such as the
+     Inspired mark; gold itself is for fills and outlines. */
   --color-gold: #d4a017;
   --color-on-gold: #1f1600;
   --color-gold-text: #a87b00;
+  --color-gold-label: #8a6400;
   --color-ruby: #a50e2d;
   --color-on-ruby: #ffffff;
 
@@ -85,6 +87,7 @@
   --color-gold: #e8b84a;
   --color-on-gold: #1f1600;
   --color-gold-text: #e8b84a;
+  --color-gold-label: #e8b84a;
   --color-ruby: #f0708a;
   --color-on-ruby: #1a0509;
 

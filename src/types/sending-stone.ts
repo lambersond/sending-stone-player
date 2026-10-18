@@ -110,13 +110,47 @@ export type SheetCondition = {
   text: string | null
 }
 
+/** What the character concentrates on, from module 0.29.0: each of dnd5e's concentrations. */
+export type SheetConcentration = { effects: SheetConcentrationEffect[] }
+
+/**
+ * A concentration of the character's: its effect's id, which ends it; what it's on, named as its
+ * player knows it, an unidentified scroll's as unidentified; and that item's id, while it's the
+ * character's, as a scroll spent to cast it isn't.
+ */
+export type SheetConcentrationEffect = {
+  id: string
+  name: string
+  item: string | null
+}
+
 export type SheetUses = {
   /** Uses left. */
   value: number
   max: number
   /** When they come back, such as "Short Rest, Long Rest". */
   recovery: string | null
+  /**
+   * Which counter they are, from module 0.29.0: an item's own uses, one of its activities', or an
+   * old-style resource. Absent before, and for what a Cast or another activity it uses spends of
+   * another counter.
+   */
+  counter?: SheetCounter
+  /**
+   * That its player may spend them directly here, from module 0.29.0: not a spell's own, which
+   * casting it spends, nor those of an item used up as they run out, such as a potion's, which
+   * only using it should spend, nor an unidentified item's.
+   */
+  spendable?: true
 }
+
+/**
+ * A counter of the character's, as the module names one, from module 0.29.0: an item's own uses,
+ * by its id; one of its activities' own, by both; or one of dnd5e's old-style resources.
+ */
+export type SheetCounter =
+  | { item: string; activity?: string }
+  | { resource: 'primary' | 'secondary' | 'tertiary' }
 
 export type SheetFeature = {
   id: string
@@ -511,7 +545,15 @@ export type SheetUse = {
   targets: SheetUseTargets
   /** For an enchant activity, what it enchants and how. Module 0.21.0; absent for any other. */
   enchant?: SheetEnchant
+  /**
+   * What using it spends, from module 0.29.0: each counter, and how many of it, null for a cost
+   * worked out by a formula. Absent before, and where it spends none of the character's counters.
+   */
+  spends?: SheetSpend[]
 }
+
+/** A counter an activity spends as it's used, and how many of it; null where it's a formula's. */
+export type SheetSpend = { counter: SheetCounter; amount: number | null }
 
 /**
  * What an enchant activity enchants, as dnd5e applies it, such as Magic Weapon on a weapon of the
@@ -906,6 +948,11 @@ export type CharacterSheet = {
   /** The tools the character has. Module 0.18.0; absent before, when only favorites name them. */
   tools?: SheetTool[]
   conditions: SheetCondition[]
+  /**
+   * What the character concentrates on, each concentration dnd5e keeps, in its order, for its
+   * player to end. Module 0.29.0; absent before.
+   */
+  concentration?: SheetConcentration
   features: SheetFeatureSection[]
   effects: SheetEffectSection[]
   inventory: SheetInventory
@@ -956,9 +1003,38 @@ export type Dnd5eMessageData = {
   item: { name: string | null; type?: string | null } | null
   activity: { name: string | null; type: string | null } | null
   /** Armor class is sent only when the Gamemaster shares Gamemaster-only information. */
-  targets: { name: string; ac?: number | null }[]
+  targets: Dnd5eTarget[]
   /** For damage rolled from an attack's card: that attack's message. */
   originatingMessage?: string | null
+  /**
+   * For a save rolled from dnd5e's card for a save activity, from module 0.29.0: whose it is, and
+   * whether it succeeded, where players see that in Foundry. Absent for any other message.
+   */
+  save?: Dnd5eSave
+}
+
+/**
+ * Someone a message was aimed at: their name, their actor's uuid, and their armor class where the
+ * Gamemaster shares Gamemaster-only information; and from module 0.29.0, where players see it in
+ * Foundry, whether an attack hit them, and on Midi-QOL's card, whether they saved.
+ */
+export type Dnd5eTarget = {
+  name: string
+  ac?: number | null
+  uuid?: string
+  outcome?: 'hit' | 'miss'
+  save?: 'success' | 'failure'
+}
+
+/**
+ * A save rolled from dnd5e's card: its creature, by its actor's uuid, as the card names its
+ * targets; whether it succeeded, where players see it; and where only the players of some of the
+ * campaign's characters see it, as where only the card's author may, those characters' ids.
+ */
+export type Dnd5eSave = {
+  target: string
+  outcome?: 'success' | 'failure'
+  readers?: string[]
 }
 
 /**
@@ -1045,6 +1121,11 @@ export type CombatantSummary = {
   hp?: { value: number; max: number | null; temp: number } | null
   // Present only when the Gamemaster sends Gamemaster-only information.
   hidden?: boolean
+  /**
+   * How its token is disposed to the party in the game, from module 0.29.0: null for one whose
+   * disposition players aren't shown, such as a secret or hidden token, or one with no token.
+   */
+  disposition?: 'friendly' | 'neutral' | 'hostile' | null
 }
 
 export type CombatSnapshot = {

@@ -7,11 +7,13 @@ import type {
   SheetAbility,
   SheetAction,
   SheetActivity,
+  SheetCounter,
   SheetEnchantment,
   SheetFavorite,
   SheetItem,
   SheetSpell,
   SheetUse,
+  SheetUses,
 } from '@/types/sending-stone'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
@@ -63,7 +65,12 @@ export function combat(fields: Partial<CombatSnapshot> = {}): CombatSnapshot {
     round: 1,
     combatantId: 'c-boss',
     combatants: [
-      combatant({ id: 'c-boss', name: 'Goblin Boss', initiative: 19 }),
+      combatant({
+        id: 'c-boss',
+        name: 'Goblin Boss',
+        initiative: 19,
+        disposition: 'hostile',
+      }),
       combatant({
         id: 'c-thorin',
         name: 'Thorin Oakenshield',
@@ -71,10 +78,72 @@ export function combat(fields: Partial<CombatSnapshot> = {}): CombatSnapshot {
         character: 'actor-thorin',
         playerOwned: true,
         hp: { value: 31, max: 44, temp: 0 },
+        disposition: 'friendly',
       }),
     ],
     ...fields,
   }
+}
+
+/**
+ * A fight with someone of each disposition, as module 0.29.0 sends them: Thorin, his ally Vex, a
+ * hireling the Gamemaster marked Friendly, a neutral merchant, a goblin, and a lurker whose token
+ * is secret, so sent as null; with Gamemaster-only information, each with hit points.
+ */
+export function dispositionCombat(): CombatSnapshot {
+  const hp = { value: 7, max: 7, temp: 0 }
+  return combat({
+    combatantId: 'c-thorin',
+    combatants: [
+      combatant({
+        id: 'c-thorin',
+        name: 'Thorin Oakenshield',
+        initiative: 20,
+        character: 'actor-thorin',
+        playerOwned: true,
+        hp: { value: 31, max: 44, temp: 0 },
+        disposition: 'friendly',
+      }),
+      combatant({
+        id: 'c-vex',
+        name: 'Vex',
+        initiative: 18,
+        character: 'actor-vex',
+        playerOwned: true,
+        hp: { value: 22, max: 38, temp: 0 },
+        // A charmed ally is still an ally.
+        disposition: 'hostile',
+      }),
+      combatant({
+        id: 'c-mira',
+        name: 'Mira the Hireling',
+        initiative: 15,
+        hp,
+        disposition: 'friendly',
+      }),
+      combatant({
+        id: 'c-merchant',
+        name: 'Merchant',
+        initiative: 12,
+        hp,
+        disposition: 'neutral',
+      }),
+      combatant({
+        id: 'c-goblin',
+        name: 'Goblin',
+        initiative: 9,
+        hp,
+        disposition: 'hostile',
+      }),
+      combatant({
+        id: 'c-lurker',
+        name: 'Lurker',
+        initiative: 5,
+        hp,
+        disposition: null,
+      }),
+    ],
+  })
 }
 
 function ability(
@@ -1547,6 +1616,194 @@ export function enchantingSheet(
       encumbrance: null,
       attunement: null,
     },
+    ...fields,
+  })
+}
+
+/** Whom a utility used on its user alone is used at, as the module describes it. */
+const onItsUser = {
+  self: true,
+  area: false,
+  count: null,
+  perLevel: null,
+  affects: null,
+}
+
+/** A utility, as the module sends it from 0.12.0, and what it spends, from 0.29.0. */
+export const utilityUse = (
+  id: string,
+  spends?: SheetUse['spends'],
+): SheetUse => ({
+  id,
+  type: 'utility',
+  targets: onItsUser,
+  ...(spends && { spends }),
+})
+
+/** Uses, as the module sends them from 0.29.0: which counter they are, and if they're spendable. */
+export const counted = (
+  value: number,
+  max: number,
+  counter: SheetCounter,
+  spendable = true,
+): SheetUses => ({
+  value,
+  max,
+  recovery: 'Long Rest',
+  counter,
+  ...(spendable && { spendable: true as const }),
+})
+
+/** A class feature with these uses, used through this activity, if any. */
+const classFeature = (
+  id: string,
+  name: string,
+  uses: SheetUses,
+  activity?: SheetUse,
+) => ({
+  id,
+  name,
+  img: null,
+  kind: 'Class Feature',
+  requirements: null,
+  activation: activity ? 'Special' : null,
+  passive: !activity,
+  uses,
+  text: null,
+  ...(activity && { activity, damage: [] }),
+})
+
+/**
+ * Ember, a sorcerer, as module 0.29.0 sends her: concentrating on Bless; Sorcery Points 8/20, with
+ * a Use that spends one of them; Lucky, used up, with a Use that spends it; Replicate Magic Item, a
+ * counter with nothing to use; a wand whose charges may be spent, and a potion whose may not; and
+ * an old-style resource among her favorites.
+ */
+export function chargingSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  const sorcery = counted(8, 20, { item: 'sorcery' })
+  const lucky = counted(0, 3, { item: 'lucky' })
+  return characterSheet({
+    classes: [{ name: 'Sorcerer', levels: 5, subclass: null }],
+    conditions: [
+      {
+        id: 'concentrating',
+        name: 'Concentrating',
+        img: 'systems/dnd5e/icons/svg/statuses/concentrating.svg',
+        level: null,
+        detail: 'Bless',
+        text: null,
+      },
+    ],
+    concentration: {
+      effects: [{ id: 'concBless0001', name: 'Bless', item: 'bless' }],
+    },
+    features: [
+      {
+        id: 'sorcerer',
+        label: 'Sorcerer Features',
+        text: null,
+        features: [
+          classFeature(
+            'sorcery',
+            'Sorcery Points',
+            sorcery,
+            utilityUse('spUtility', [
+              { counter: { item: 'sorcery' }, amount: 1 },
+            ]),
+          ),
+          classFeature(
+            'lucky',
+            'Lucky',
+            lucky,
+            utilityUse('luckyUse', [{ counter: { item: 'lucky' }, amount: 1 }]),
+          ),
+          classFeature(
+            'replicate',
+            'Replicate Magic Item',
+            counted(3, 3, { item: 'replicate' }),
+          ),
+        ],
+      },
+    ],
+    effects: [
+      {
+        id: 'temporary',
+        label: 'Temporary Effects',
+        effects: [
+          {
+            id: 'concBless0001',
+            name: 'Concentrating: Bless',
+            img: 'systems/dnd5e/icons/svg/statuses/concentrating.svg',
+            source: 'Bless',
+            duration: '9 Rounds',
+            disabled: false,
+            text: null,
+          },
+        ],
+      },
+    ],
+    inventory: {
+      sections: [
+        {
+          id: 'equipment',
+          label: 'Equipment',
+          items: [
+            sheetItem({
+              id: 'wand',
+              name: 'Wand of Secrets',
+              type: 'equipment',
+              uses: counted(2, 3, { item: 'wand' }),
+            }),
+            sheetItem({
+              id: 'potion',
+              name: 'Potion of Healing',
+              type: 'consumable',
+              uses: counted(1, 1, { item: 'potion' }, false),
+            }),
+          ],
+        },
+      ],
+      containers: [],
+      currency: [],
+      encumbrance: null,
+      attunement: null,
+    },
+    actions: [
+      {
+        id: 'special',
+        label: 'Special',
+        actions: [
+          sheetAction({
+            id: 'sorcery',
+            name: 'Sorcery Points',
+            activation: 'Special',
+            activity: utilityUse('spUtility', [
+              { counter: { item: 'sorcery' }, amount: 1 },
+            ]),
+            uses: sorcery,
+          }),
+          sheetAction({
+            id: 'lucky',
+            name: 'Lucky',
+            activation: 'Special',
+            activity: utilityUse('luckyUse', [
+              { counter: { item: 'lucky' }, amount: 1 },
+            ]),
+            uses: lucky,
+          }),
+        ],
+      },
+    ],
+    favorites: [
+      {
+        type: 'resource',
+        id: 'primary',
+        name: 'Superiority Dice',
+        uses: counted(3, 4, { resource: 'primary' }),
+      },
+    ],
     ...fields,
   })
 }

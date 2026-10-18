@@ -11,6 +11,7 @@ import { toTablePrompts } from '@/utils/prompts'
 import {
   availableRollFeatures,
   availableRollKinds,
+  GM_UNSENT,
   rollStatus,
   toGmRollView,
   type HeldRollRequest,
@@ -155,7 +156,8 @@ const rollsSelect = {
  * the game does with them. A player's never name `gmRolls`, which only the Gamemaster's view
  * reads, so their views, and what tells them apart, are as before it. The Gamemaster's (#156) are
  * none while the game doesn't make their rolls as the character's, marked as theirs, and never an
- * end of an enchantment, which is no roll; with where their rolls go: made in the game, kept here
+ * end of an enchantment or a concentration, which is no roll and posts nothing (`GM_UNSENT`); with
+ * where their rolls go: made in the game, kept here
  * until its module is updated, or kept here while it takes no rolls.
  */
 function seatRolls(
@@ -172,7 +174,7 @@ function seatRolls(
   if (made) rolls = 'made'
   else if (kinds.length > 0) rolls = 'update'
   return {
-    rollsToTable: made ? kinds.filter(kind => kind !== 'endEnchantment') : [],
+    rollsToTable: made ? kinds.filter(kind => !GM_UNSENT.has(kind)) : [],
     rollFeatures: made ? others : [],
     gm: { rolls },
   }

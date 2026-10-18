@@ -1187,3 +1187,158 @@ describe('a use at its user, from module 0.22.0', () => {
     )
   })
 })
+
+/** A concentration on Bless ended. */
+const endingConcentration = {
+  kind: 'endConcentration',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  concentration: { effect: 'concBless0001' },
+}
+
+/** Two Sorcery Points spent. */
+const spending = {
+  kind: 'spend',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  counter: { item: 'sorcery' },
+  count: 2,
+}
+
+/** Heroic Inspiration used. */
+const inspiring = {
+  kind: 'inspiration',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  inspiration: 'use',
+}
+
+const parseKind = (base: object, fields: object) =>
+  rollRequestSchema.safeParse({ ...base, ...fields })
+
+/** What the schema says is wrong with a request, by its path. */
+const issuesOf = (base: object, fields: object) => {
+  const parsed = parseKind(base, fields)
+  return parsed.success
+    ? []
+    : parsed.error.issues.map(({ path, message }) => [path.join('.'), message])
+}
+
+describe('concentration, charges and Heroic Inspiration, from module 0.29.0', () => {
+  it('takes each as the module does', () => {
+    expect(parseKind(endingConcentration, {}).success).toBe(true)
+    expect(parseKind(spending, {}).success).toBe(true)
+    expect(parseKind(spending, { count: 1 }).success).toBe(true)
+    expect(parseKind(spending, { count: 999 }).success).toBe(true)
+    expect(
+      parseKind(spending, { counter: { item: 'staff', activity: 'cast01' } })
+        .success,
+    ).toBe(true)
+    expect(
+      parseKind(spending, { counter: { resource: 'tertiary' } }).success,
+    ).toBe(true)
+    expect(parseKind(inspiring, {}).success).toBe(true)
+    expect(parseKind(inspiring, { inspiration: 'gain' }).success).toBe(true)
+  })
+
+  it.each([
+    ['no concentration', endingConcentration, { concentration: undefined }],
+    [
+      'an effect not an id',
+      endingConcentration,
+      { concentration: { effect: 'conc bless' } },
+    ],
+    [
+      'anything else of the concentration',
+      endingConcentration,
+      { concentration: { effect: 'concBless0001', item: 'bless' } },
+    ],
+    ['no counter', spending, { counter: undefined }],
+    ['no count', spending, { count: undefined }],
+    ['a count of 0', spending, { count: 0 }],
+    ['a count over 999', spending, { count: 1000 }],
+    ['a count of a part', spending, { count: 1.5 }],
+    ['a counter not an id', spending, { counter: { item: 'sorcery points' } }],
+    [
+      'a resource of no such name',
+      spending,
+      { counter: { resource: 'fourth' } },
+    ],
+    [
+      'a counter of an item and a resource',
+      spending,
+      { counter: { item: 'sorcery', resource: 'primary' } },
+    ],
+    [
+      'a counter of anything else',
+      spending,
+      { counter: { item: 'sorcery', uses: 2 } },
+    ],
+    ['nothing to say', inspiring, { inspiration: undefined }],
+    ['a word of its own', inspiring, { inspiration: 'spend' }],
+    ['true', inspiring, { inspiration: true }],
+  ])('refuses %s', (_name, base, fields) => {
+    expect(parseKind(base, fields).success).toBe(false)
+  })
+
+  it('takes each field only with its kind, and a count only with charges spent', () => {
+    const { concentration } = endingConcentration
+    const { counter, count } = spending
+    expect(parse({ concentration }).success).toBe(false)
+    expect(parse({ counter, count }).success).toBe(false)
+    expect(parse({ count }).success).toBe(false)
+    expect(parse({ inspiration: 'use' }).success).toBe(false)
+    expect(parseKind(ending, { concentration }).success).toBe(false)
+    expect(parseKind(spending, { concentration }).success).toBe(false)
+    expect(parseKind(spending, { inspiration: 'use' }).success).toBe(false)
+    expect(parseKind(inspiring, { counter, count }).success).toBe(false)
+    expect(parseKind(endingConcentration, { counter, count }).success).toBe(
+      false,
+    )
+    expect(parseKind(endingConcentration, { count }).success).toBe(false)
+    expect(issuesOf(perception, { count })).toEqual([
+      ['count', 'Charges spent, and only those, say how many'],
+    ])
+  })
+
+  it.each([
+    ['an item', { item: 'sorcery' }],
+    ['an activity', { activity: 'spUtility' }],
+    ['an item and activity', { item: 'sorcery', activity: 'spUtility' }],
+    ['targets', { targets: [] }],
+    ['a target', { target: null }],
+    ['at its user', { self: true }],
+    ['a slot', { slot: 'spell2' }],
+    ['how it enchants', { enchant: { profile: '8OhsRxK3dF1JeQXO' } }],
+    ['a prompt', { prompt: 'card1-actor1' }],
+    ['a link', { text: 'a3b4c5d6e7f809', link: 0 }],
+    ['a key', { key: 'prc' }],
+  ])('refuses any of them with %s', (_name, fields) => {
+    for (const base of [endingConcentration, spending, inspiring]) {
+      expect(parseKind(base, fields).success).toBe(false)
+    }
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses any of them with %s, as none throws dice', (_name, fields) => {
+    expect(issuesOf(endingConcentration, fields)).toEqual([
+      ['dice', 'Ending concentration throws no dice'],
+    ])
+    expect(issuesOf(spending, fields)).toEqual([
+      ['dice', 'Spending throws no dice'],
+    ])
+    expect(issuesOf(inspiring, fields)).toEqual([
+      ['dice', 'Heroic Inspiration throws no dice'],
+    ])
+  })
+})

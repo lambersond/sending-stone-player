@@ -35,7 +35,9 @@ import type {
   CombatSnapshot,
   CommandResult,
   SheetAction,
+  SheetCounter,
   SheetEnchantment,
+  SheetUses,
 } from '@/types/sending-stone'
 import type { CheckOption, FoundLink } from '@/utils/description-links'
 import type { ExtraDice } from '@/utils/roll-modifiers'
@@ -67,7 +69,10 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * that enchants its own (`enchant-target`); or one that enchants its own item is used in the way
  * it's on it in already, which dnd5e would take as ending it, at a cost (`applied`). For an
  * enchantment ended: it isn't one the player may end, on that item of the character's
- * (`enchantment`).
+ * (`enchantment`). From module 0.29.0: a concentration ended isn't one the character keeps
+ * (`concentration`); charges spent aren't of a counter the sheet lets the player spend directly
+ * (`uses`), or there aren't as many left (`short`); and Heroic Inspiration is used without it
+ * (`not-inspired`), or gained with it already (`inspired`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -93,6 +98,11 @@ export type RollRefusal =
   | 'enchant-target'
   | 'applied'
   | 'enchantment'
+  | 'concentration'
+  | 'uses'
+  | 'short'
+  | 'not-inspired'
+  | 'inspired'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -118,6 +128,16 @@ export type RollCommand = RollRequestInput & {
   actorId: string
   by?: 'gm'
 }
+
+/**
+ * What the campaign's Gamemaster never sends as a character (#156): an end of an enchantment or,
+ * from module 0.29.0, of a concentration, which post nothing in the game, so would leave no mark of
+ * theirs. Charges spent and Heroic Inspiration post a line marked as theirs.
+ */
+export const GM_UNSENT: ReadonlySet<string> = new Set([
+  'endEnchantment',
+  'endConcentration',
+])
 
 /**
  * The rolls a campaign's players can have made in its game now: none unless its Gamemaster lets
@@ -262,7 +282,81 @@ export function checkRoll(
     case 'endEnchantment': {
       return checkEnding(input, sheet)
     }
+    case 'endConcentration': {
+      const effect = input.concentration?.effect
+      const kept = (sheet?.concentration?.effects ?? []).some(
+        ({ id }) => id === effect,
+      )
+      return kept ? undefined : 'concentration'
+    }
+    case 'spend': {
+      return checkSpend(input, sheet)
+    }
+    case 'inspiration': {
+      if (input.inspiration === 'use') {
+        return sheet?.inspiration === true ? undefined : 'not-inspired'
+      }
+      return sheet?.inspiration === false ? undefined : 'inspired'
+    }
   }
+}
+
+/**
+ * Can these charges be spent directly, from module 0.29.0: are they of a counter the sheet shows,
+ * as a row's, an activity's or a favorite's uses, that it says the player may spend so, with as
+ * many left? The game reads the counter again as it stands, and spends it so.
+ */
+function checkSpend(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  const { counter, count = 0 } = input
+  if (!sheet || !counter) return 'uses'
+  const shown = sheetUses(sheet).find(
+    uses => uses.spendable === true && sameCounter(uses.counter, counter),
+  )
+  if (!shown) return 'uses'
+  return count <= shown.value ? undefined : 'short'
+}
+
+/**
+ * Every count of uses the sheet shows: its features', items', spells' and actions', each of their
+ * activities', and its favorites', a resource's among them.
+ */
+export function sheetUses(sheet: CharacterSheet): SheetUses[] {
+  const rows: {
+    uses?: SheetUses | null
+    activities?: { uses?: SheetUses | null }[]
+  }[] = [
+    ...sheet.features.flatMap(section => section.features),
+    ...allItems(sheet),
+    ...sheet.spells.flatMap(section => section.spells),
+    ...sheet.actions.flatMap(section => section.actions),
+    ...sheet.favorites.flatMap(favorite =>
+      favorite.type === 'activity' || favorite.type === 'resource'
+        ? [favorite]
+        : [],
+    ),
+  ]
+  return rows.flatMap(row => [
+    ...(row.uses ? [row.uses] : []),
+    ...(row.activities ?? []).flatMap(({ uses }) => (uses ? [uses] : [])),
+  ])
+}
+
+/**
+ * Are these the same counter, as the module names them: the same item's own uses, the same
+ * activity's of it, or the same resource? None is the same as none.
+ */
+export function sameCounter(
+  a: SheetCounter | undefined,
+  b: SheetCounter | undefined,
+): boolean {
+  if (!a || !b) return false
+  if ('resource' in a || 'resource' in b) {
+    return 'resource' in a && 'resource' in b && a.resource === b.resource
+  }
+  return a.item === b.item && a.activity === b.activity
 }
 
 /**
@@ -918,6 +1012,9 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   textDamage: 'Damage',
   ask: 'A roll asked of the table',
   endEnchantment: 'An enchantment ended',
+  endConcentration: 'Concentration ended',
+  spend: 'Charges spent',
+  inspiration: 'Heroic Inspiration',
 }
 
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */

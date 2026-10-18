@@ -4,6 +4,7 @@ import type {
   DamagePreview,
   EnchantmentOutcome,
   SaveOutcome,
+  SheetCounter,
   UseOutcome,
 } from '@/types/sending-stone'
 import type { TableRoll } from '@/types/table'
@@ -94,6 +95,31 @@ export type EndEnchantmentSource = {
 }
 
 /**
+ * A concentration of the character's ended, as dnd5e's Break Concentration ends it, with what
+ * depends on it, from module 0.29.0: its effect's id.
+ */
+export type EndConcentrationSource = {
+  kind: 'endConcentration'
+  effect: string
+}
+
+/**
+ * Charges of one of the character's counters spent directly, as on dnd5e's sheet, from module
+ * 0.29.0: the counter, as the sheet names it, and how many.
+ */
+export type SpendSource = {
+  kind: 'spend'
+  counter: SheetCounter
+  count: number
+}
+
+/** Heroic Inspiration used, or gained, from module 0.29.0. */
+export type InspirationSource = {
+  kind: 'inspiration'
+  inspiration: 'use' | 'gain'
+}
+
+/**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
  * formula, such as a light's radius; or a description's own roll, by its link.
@@ -158,6 +184,13 @@ export type RollRequestInput = {
   enchant?: EnchantChoice
   /** For an enchantment ended, from module 0.21.0, the item it's on, and its effect. */
   enchantment?: { item: string; effect: string }
+  /** For a concentration ended, from module 0.29.0, its effect. */
+  concentration?: { effect: string }
+  /** For charges spent directly, from module 0.29.0, the counter they're spent of, and how many. */
+  counter?: SheetCounter
+  count?: number
+  /** For Heroic Inspiration, from module 0.29.0, whether it's used or gained. */
+  inspiration?: 'use' | 'gain'
   /** For an attack, the ammunition and attack mode chosen. */
   ammunition?: string
   attackMode?: string

@@ -17,6 +17,7 @@ import { playerSeat } from './seats'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import {
   characterSheet,
+  chargingSheet,
   checkingSheet,
   combat,
   combatant,
@@ -2229,5 +2230,92 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
     await expect(fetched(null as unknown as object)).resolves.toEqual([
       'player-1',
     ])
+  })
+})
+
+/** A game that takes each, holding Ember's sheet, whose Gamemaster's rolls it makes. */
+const givenEmber = () => {
+  prismaMock.campaign.findUnique.mockResolvedValue({
+    ...takingRolls,
+    rollKinds: ['skill', 'endConcentration', 'spend', 'inspiration'],
+    rollFeatures: ['gmRolls'],
+  } as any)
+  prismaMock.actorSheet.findUnique.mockResolvedValue({
+    data: chargingSheet({ inspiration: true }),
+  } as any)
+  prismaMock.rollRequest.count.mockResolvedValue(0)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+}
+
+describe('db/roll-requests, concentration, charges and Heroic Inspiration, from module 0.29.0', () => {
+  const plain = { mode: 0 as const, explicit: false, extras: [], dice: [] }
+  const ending = {
+    kind: 'endConcentration',
+    ...plain,
+    concentration: { effect: 'concBless0001' },
+  } as RollRequestInput
+  const spending = {
+    kind: 'spend',
+    ...plain,
+    counter: { item: 'sorcery' },
+    count: 2,
+  } as RollRequestInput
+  const inspiring = {
+    kind: 'inspiration',
+    ...plain,
+    inspiration: 'use',
+  } as RollRequestInput
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+    givenEmber()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it.each([
+    ['a concentration ended', ending],
+    ['charges spent', spending],
+    ['Heroic Inspiration used', inspiring],
+  ])("takes the player's %s, as the sheet allows it", async (_name, input) => {
+    await expect(createRollRequest(character, input)).resolves.toEqual({
+      id: 'req-1',
+    })
+  })
+
+  it("refuses the player's, where the sheet doesn't allow it, saying why", async () => {
+    await expect(
+      createRollRequest(character, { ...spending, count: 9 }),
+    ).resolves.toEqual({ status: 422, reason: 'short' })
+    await expect(
+      createRollRequest(character, {
+        ...ending,
+        concentration: { effect: 'concHex000001' },
+      }),
+    ).resolves.toEqual({ status: 422, reason: 'concentration' })
+    await expect(
+      createRollRequest(character, { ...inspiring, inspiration: 'gain' }),
+    ).resolves.toEqual({ status: 422, reason: 'inspired' })
+  })
+
+  it("takes the Gamemaster's charges spent and Heroic Inspiration, which post a line marked theirs, but never a concentration ended, which posts none", async () => {
+    await expect(createRollRequest(gm(), spending)).resolves.toEqual({
+      id: 'req-1',
+    })
+    await expect(createRollRequest(gm(), inspiring)).resolves.toEqual({
+      id: 'req-1',
+    })
+    prismaMock.rollRequest.count.mockClear()
+    prismaMock.rollRequest.create.mockClear()
+
+    await expect(createRollRequest(gm(), ending)).resolves.toEqual({
+      status: 409,
+      reason: 'unavailable',
+    })
+    expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 })
