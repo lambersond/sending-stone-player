@@ -1076,3 +1076,86 @@ describe('components/game-table/chat-log', () => {
     })
   })
 })
+
+describe('components/game-table/chat-log hits, misses and saves, from module 0.29.0', () => {
+  const targets = [
+    { name: 'Goblin', outcome: 'hit' as const, save: 'failed' as const },
+    { name: 'Orc', outcome: 'miss' as const },
+    { name: 'Kobold', save: 'saved' as const },
+    { name: 'Bat' },
+  ]
+
+  it('marks where it landed as a hit, or a failed save, and where it didn’t muted, with a cross, each read after the name', () => {
+    render(
+      <ChatLog
+        messages={[
+          message({
+            kind: 'card',
+            label: 'Fireball',
+            text: undefined,
+            targets,
+            summary: 'Hit 1 of 2 · 1 of 2 saved',
+          }),
+        ]}
+      />,
+    )
+
+    for (const word of ['Hit', 'Failed']) {
+      const pill = screen.getByText(word)
+      expect(pill).toHaveClass('bg-primary/10', 'text-primary-text')
+      expect(pill.querySelector('svg')).toBeNull()
+    }
+    for (const word of ['Miss', 'Saved']) {
+      const pill = screen.getByText(word)
+      expect(pill).toHaveClass('bg-text-secondary/10', 'text-text-secondary')
+      expect(pill.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    }
+    const named = (name: string) =>
+      screen.getByText(name).parentElement?.textContent
+    expect(named('Goblin')).toBe('Goblin, Hit, Failed,')
+    expect(named('Orc')).toBe('Orc, Miss,')
+    expect(named('Kobold')).toBe('Kobold, Saved,')
+    expect(named('Bat')).toBe('Bat')
+    // How it went in all, over who it was at.
+    const summary = screen.getByText('Hit 1 of 2 · 1 of 2 saved')
+    expect(
+      summary.compareDocumentPosition(screen.getByText('Goblin')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('sums it up over the targets of a roll, a damage card or text, once', () => {
+    render(
+      <ChatLog
+        messages={[
+          message({
+            id: 'roll',
+            kind: 'roll',
+            text: undefined,
+            rolls: [roll(), roll({ formula: '1d4' })],
+            attackRoll: { index: 0, action: 'attack' },
+            targets: targets.slice(0, 2),
+            summary: 'Hit 1 of 2',
+          }),
+          message({
+            id: 'damage',
+            kind: 'roll',
+            text: undefined,
+            damage: [corvin()],
+            targets: targets.slice(0, 2),
+            summary: 'Hit 1 of 2 · 0 of 1 saved',
+          }),
+          message({
+            id: 'text',
+            targets: targets.slice(2),
+            summary: '1 of 1 saved',
+          }),
+        ]}
+      />,
+    )
+
+    expect(screen.getAllByText('Hit 1 of 2')).toHaveLength(1)
+    expect(screen.getAllByText('Hit 1 of 2 · 0 of 1 saved')).toHaveLength(1)
+    expect(screen.getAllByText('1 of 1 saved')).toHaveLength(1)
+  })
+})

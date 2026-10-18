@@ -24,6 +24,7 @@ import {
   spellKind,
   useActionInfo,
   type ActivityInfo,
+  type UsesSpending,
 } from './action-info'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { useDamageMenu, type DamageChoice } from './damage-menu'
@@ -47,11 +48,12 @@ import {
   useEnchanting,
 } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
+import { NONE_LEFT } from './hit-dice'
 import { RollButton } from './roll-button'
 import { REASONS } from './roll-tray'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
-import { UsesLeft } from './uses-left'
+import { spendsToo, UsesButton } from './uses-button'
 import { damageRollOf, type DueDamage } from '@/hooks/use-table-rolls'
 import {
   defaultPool,
@@ -489,7 +491,7 @@ export function ActionEntry({
             always={look.uses !== undefined}
           />
         )}
-        <ActionChips action={action} view={view} rows={rows} />
+        <ActionChips action={action} view={view} rows={rows} uses={uses} />
       </div>
       {open && (
         <div id={body} className='flex flex-col gap-2 pb-3'>
@@ -518,6 +520,14 @@ export function ActionEntry({
               characterId={rows.characterId}
               spellbook={rows.spellbook}
               look={look}
+              spending={
+                uses && look.uses === undefined && foldsUses(action, view)
+                  ? {
+                      name: usesName(action, uses),
+                      spends: action.activity?.spends,
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -577,7 +587,7 @@ function ActivityEntry({
         )}
       </span>
       {uses && <ChipUses uses={uses} view={view} action={action} />}
-      <ActionChips action={action} view={view} rows={rows} />
+      <ActionChips action={action} view={view} rows={rows} uses={uses} />
     </li>
   )
 }
@@ -801,6 +811,22 @@ export function actionTitle(
 }
 
 /**
+ * What the count an action's row shows is called, as the game's chat names it once it's spent:
+ * one of the item's activities' own by the activity too, as the row is, such as "Staff of Stars
+ * (Starry Wisp)"; the item's own, or a resource's, by the item, whichever of its activities the
+ * row is listed for, such as "Channel Divinity", not "Channel Divinity (Divine Sense)".
+ */
+export function usesName(
+  action: Pick<SheetAction, 'name' | 'activityName'>,
+  uses: SheetUses,
+): string {
+  const { counter } = uses
+  return counter && 'item' in counter && counter.activity
+    ? actionTitle(action)
+    : action.name
+}
+
+/**
  * Is an action with more than one activity first one the app can't use, such as Flaming Sphere's
  * summoning, with the rest beneath it?
  */
@@ -849,7 +875,9 @@ export function activityDetail(
 
 /**
  * An action's uses beside what it rolls, which in a narrow list are listed when it opens; unless
- * they're to be shown `always`, such as a resource's count among the favorites.
+ * they're to be shown `always`, such as a resource's count among the favorites, or it's used with
+ * a plain Use, which leaves room for them, and whose count is what it's there for. Where the game
+ * takes charges spent from here, they're a button that spends them.
  */
 function ChipUses({
   uses,
@@ -862,19 +890,36 @@ function ChipUses({
   action: SheetAction
   always?: boolean
 }>) {
-  const rolls =
-    action.toHit !== null ||
-    !!action.save ||
-    !!view.formula ||
-    !!view.uses.chip ||
-    !!action.check ||
-    !!action.rollFormula
+  const folds = foldsUses(action, view) && !always
   return (
     // Beside what the action rolls, in a narrow list, its uses would leave its name too little
     // room; they're listed when it opens. A count shown always cuts the name short instead.
-    <span className={clsx('shrink-0', rolls && !always && 'hidden @md:inline')}>
-      <UsesLeft uses={uses} />
+    <span className={clsx('shrink-0', folds && 'hidden @md:inline')}>
+      <UsesButton
+        uses={uses}
+        name={usesName(action, uses)}
+        spends={action.activity?.spends}
+      />
     </span>
+  )
+}
+
+/**
+ * Does an action roll something beside its uses, which in a narrow list folds them away until it
+ * opens: an attack, a saving throw, damage or healing, an enchantment, a check or a formula? Not a
+ * plain Use, which leaves room for them.
+ */
+function foldsUses(
+  action: SheetAction,
+  view: ReturnType<typeof viewOf>,
+): boolean {
+  return (
+    action.toHit !== null ||
+    !!action.save ||
+    !!view.formula ||
+    (!!view.uses.chip && !!enchantOf(action.activity)) ||
+    !!action.check ||
+    !!action.rollFormula
   )
 }
 
@@ -886,10 +931,13 @@ export function ActionChips({
   action,
   view,
   rows,
+  uses,
 }: Readonly<{
   action: SheetAction
   view: ReturnType<typeof viewOf>
   rows: ActionRows
+  /** The uses its row shows, which a Use spending them, with none left, can't be. */
+  uses?: SheetUses | null
 }>) {
   const { toHit, save } = action
   const name = actionTitle(action)
@@ -918,7 +966,7 @@ export function ActionChips({
       {action.rollFormula && (
         <FormulaChip action={action} onRoll={rows.formula} />
       )}
-      <UsingChip action={action} view={view} rows={rows} />
+      <UsingChip action={action} view={view} rows={rows} uses={uses} />
     </>
   )
 }
@@ -932,10 +980,13 @@ export function UsingChip({
   action,
   view,
   rows,
+  uses,
 }: Readonly<{
   action: SheetAction
   view: ReturnType<typeof viewOf>
   rows: ActionRows
+  /** The uses its row shows. */
+  uses?: SheetUses | null
 }>) {
   if (action.check) {
     return (
@@ -950,10 +1001,19 @@ export function UsingChip({
   const enchant = enchantOf(action.activity)
   if (enchant && view.uses.chip) {
     return (
-      <EnchantChip action={action} enchant={enchant} onUse={view.uses.chip} />
+      <EnchantChip
+        action={action}
+        enchant={enchant}
+        onUse={view.uses.chip}
+        uses={uses}
+      />
     )
   }
-  return view.uses.chip && <UseChip action={action} onUse={view.uses.chip} />
+  return (
+    view.uses.chip && (
+      <UseChip action={action} onUse={view.uses.chip} uses={uses} />
+    )
+  )
 }
 
 /**
@@ -969,10 +1029,12 @@ function EnchantChip({
   action,
   enchant,
   onUse,
+  uses,
 }: Readonly<{
   action: SheetAction
   enchant: SheetEnchant
   onUse: (modifiers?: DamageModifiers) => void
+  uses?: SheetUses | null
 }>) {
   const { belongings } = useEnchanting()
   if (enchant.toggle) {
@@ -993,7 +1055,7 @@ function EnchantChip({
       />
     )
   }
-  return <UseChip action={action} onUse={onUse} />
+  return <UseChip action={action} onUse={onUse} uses={uses} />
 }
 
 /** What a way an enchant activity enchants is called, or else the action's name. */
@@ -1209,22 +1271,35 @@ export function SaveChip({
 
 /**
  * A spell or feature that rolls nothing of its own, such as Bless, Shield or Action Surge, as a
- * button that casts or uses it in the Gamemaster's game.
+ * button that casts or uses it in the Gamemaster's game. Where the module says it spends the very
+ * counter its row shows, from 0.29.0, and none of it is left, it can't be: it says so, and a tap
+ * does nothing, as the game would only turn it down.
+ * @param uses - The uses its row shows.
  */
 export function UseChip({
   action,
   onUse,
+  uses,
 }: Readonly<{
   action: SheetAction
   onUse: (modifiers?: DamageModifiers) => void
+  uses?: SheetUses | null
 }>) {
   const verb = verbOf(action)
+  const spent =
+    !!uses &&
+    uses.value === 0 &&
+    spendsToo(action.activity?.spends, uses.counter)
   return (
     <button
       type='button'
       aria-label={`${verb} ${actionTitle(action)}`}
-      onClick={() => onUse()}
-      className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary-text transition-colors hover:bg-primary/20'
+      aria-disabled={spent || undefined}
+      title={spent ? NONE_LEFT : undefined}
+      onClick={() => {
+        if (!spent) onUse()
+      }}
+      className='shrink-0 rounded-lg bg-primary/10 px-2 py-1 text-sm font-semibold text-primary-text transition-colors hover:bg-primary/20 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary/10'
     >
       {verb}
     </button>
@@ -1547,6 +1622,7 @@ export function ActionDetails({
   characterId,
   spellbook,
   look = {},
+  spending,
 }: Readonly<{
   action: SheetAction
   pools: SlotPool[] | null
@@ -1554,6 +1630,8 @@ export function ActionDetails({
   /** The character's spells, among which the spell an item is listed for is found. */
   spellbook: SheetSpellSection[]
   look?: EntryLook
+  /** Where its row's count is folded away in a narrow list, how its uses are spent from here. */
+  spending?: UsesSpending
 }>) {
   const { cast } = action
   const spell = cast?.text
@@ -1574,6 +1652,7 @@ export function ActionDetails({
         action={spell ? castAs(action, spell) : action}
         uses={look.uses}
         pools={pools}
+        spending={spending}
         casting={!!spell}
         more={[
           ...(spell ? spellFacts(spell, cast) : []),

@@ -1,4 +1,4 @@
-export { ConfirmDialog } from './confirm-dialog'
+export { ConfirmDialog, ConfirmModal } from './confirm-dialog'
 export { Modal } from './modal'
 export {
   InPortalRoot,

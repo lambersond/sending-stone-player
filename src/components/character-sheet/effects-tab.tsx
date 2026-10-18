@@ -1,6 +1,7 @@
 'use client'
 
 import { CircleAlert, Info, Sparkles } from 'lucide-react'
+import { concentrationLead, useConcentrating } from './concentration'
 import { useConditionsPanel, useShowConditions } from './conditions-panel'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
@@ -97,7 +98,9 @@ export function EffectsTab({
 
 /**
  * An effect: where it came from and the time it has left, muted while it's off, or unavailable
- * for now, as an unequipped item's effect is; opening to its description.
+ * for now, as an unequipped item's effect is; opening to its description. One of the character's
+ * concentrations opens to what's concentrated on too, and a button that ends it, while the game
+ * takes that from here: inside the opened row, never on the row itself, which opens it.
  */
 export function EffectEntry({
   characterId,
@@ -109,6 +112,7 @@ export function EffectEntry({
   /** Said of it where the section it's in doesn't say so, as among favorites. */
   suppressed?: boolean
 }>) {
+  const concentration = useConcentrating()
   let state: string | undefined
   if (effect.disabled) state = 'Off'
   else if (suppressed) state = 'Unavailable'
@@ -128,6 +132,7 @@ export function EffectEntry({
         )
       }
       muted={state !== undefined}
+      lead={concentrationLead(effect.id, concentration)}
       text={effect.text}
     />
   )

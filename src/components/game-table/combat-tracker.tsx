@@ -17,6 +17,21 @@ const ROLE: Record<Side, string | undefined> = {
   other: undefined,
 }
 
+/**
+ * How one not of the party is drawn where the game has its token disposed, from module 0.29.0:
+ * one marked Friendly as the party's allies are, and a neutral one in grey, not as a foe.
+ */
+const STANCES: Record<
+  NonNullable<TableCombatant['stance']>,
+  { initiative: string; role: string }
+> = {
+  ally: { initiative: INITIATIVE.party, role: 'Ally' },
+  neutral: {
+    initiative: 'bg-text-secondary/15 text-text-secondary',
+    role: 'Neutral',
+  },
+}
+
 export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
   const { noCombat } = seatWords(useTableRole())
   if (!combat) {
@@ -77,7 +92,8 @@ function CombatantRow({
   current,
 }: Readonly<{ combatant: TableCombatant; current: boolean }>) {
   const { name, initiative, defeated, side, hp } = combatant
-  const role = ROLE[side]
+  const stance = combatant.stance && STANCES[combatant.stance]
+  const role = stance ? stance.role : ROLE[side]
   return (
     <li
       aria-current={current ? 'step' : undefined}
@@ -91,7 +107,7 @@ function CombatantRow({
         className={clsx(
           // Wide enough for a tiebreaker such as 18.25, so every row's box lines up.
           'flex h-10 w-15 shrink-0 items-center justify-center rounded-[10px] font-bold tabular-nums',
-          INITIATIVE[side],
+          stance ? stance.initiative : INITIATIVE[side],
         )}
       >
         <span className='sr-only'>Initiative </span>

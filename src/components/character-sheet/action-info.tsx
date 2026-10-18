@@ -11,6 +11,7 @@ import {
 } from './description-actions'
 import { joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
+import { UsesButton } from './uses-button'
 import { Modal } from '@/components/modal'
 import { ordinal, poolName, type SlotPool } from '@/utils/action-groups'
 import { formatModifier } from '@/utils/format-modifier'
@@ -22,6 +23,7 @@ import type {
   SheetCastFrom,
   SheetSpell,
   SheetSpellSection,
+  SheetSpend,
   SheetUses,
 } from '@/types/sending-stone'
 
@@ -226,9 +228,16 @@ function textOf(activity: SheetActivity): string | undefined {
 }
 
 /**
+ * How the uses an action's row shows are spent from its facts, where its row folds them away in a
+ * narrow list: what they're called, and what using it spends, as its count's button has them.
+ */
+export type UsesSpending = { name: string; spends?: SheetSpend[] }
+
+/**
  * All there is to know of how an action is used, each with its label, and for a spell cast with
  * slots, the slots it can be cast with. More of its own, such as a spell's duration, follow whom
- * it's used at.
+ * it's used at. Where its row folds its count away, its uses are spent from here in a narrow list,
+ * as they are from the count wherever that's shown.
  */
 export function Facts({
   action,
@@ -236,6 +245,7 @@ export function Facts({
   pools,
   more = [],
   casting = false,
+  spending,
 }: Readonly<{
   action: SheetAction
   /** Its uses, where others are shown in place of its own, as `EntryLook`'s. */
@@ -245,6 +255,8 @@ export function Facts({
   more?: { label: string; value: string }[]
   /** Whether it's a spell cast from an item, how it's activated being its casting time. */
   casting?: boolean
+  /** Where its row folds its count away in a narrow list, how its uses are spent from here. */
+  spending?: UsesSpending
 }>) {
   const { save } = action
   const healing =
@@ -278,8 +290,21 @@ export function Facts({
     ],
     [
       'Uses',
-      uses &&
-        `${uses.value} of ${uses.max} left${uses.recovery ? `, ${uses.recovery}` : ''}`,
+      uses && (
+        <>
+          {`${uses.value} of ${uses.max} left${uses.recovery ? `, ${uses.recovery}` : ''}`}
+          {/* Only where the row's count is folded away, which is shown beside it otherwise. */}
+          {spending && (
+            <UsesButton
+              uses={uses}
+              name={spending.name}
+              spends={spending.spends}
+              bare
+              className='ml-2 align-middle @md:hidden'
+            />
+          )}
+        </>
+      ),
     ],
     ['Cast at', pools && pools.length > 0 && <CastAt pools={pools} />],
   ]

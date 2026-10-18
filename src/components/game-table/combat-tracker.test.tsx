@@ -43,6 +43,10 @@ const encounter = (fields: Partial<TableCombat> = {}): TableCombat => ({
 const turnPanel = () =>
   screen.getByRole('heading', { level: 2, name: /acting|turn|ready/ })
 
+/** A row's initiative box, coloured by whose side they're on. */
+const box = (row: HTMLElement) =>
+  within(row).getByText('Initiative', { selector: '.sr-only' }).parentElement
+
 describe('components/game-table/combat-tracker', () => {
   it('says when there is no combat', () => {
     render(<CombatTracker />)
@@ -64,6 +68,43 @@ describe('components/game-table/combat-tracker', () => {
     ])
     expect(rows[0]).toHaveAttribute('aria-current', 'step')
     expect(screen.getByText('Ambush')).toBeInTheDocument()
+  })
+
+  it('colours each side, and those the game has disposed as allies or neutral, from module 0.29.0', () => {
+    render(
+      <CombatTracker
+        combat={encounter({
+          combatants: [
+            fighter({ id: 'thorin', name: 'Thorin', side: 'me' }),
+            fighter({ id: 'vex', name: 'Vex', side: 'party' }),
+            fighter({ id: 'mira', name: 'Mira', stance: 'ally' }),
+            fighter({ id: 'merchant', name: 'Merchant', stance: 'neutral' }),
+            fighter({ id: 'goblin', name: 'Goblin' }),
+          ],
+        })}
+      />,
+    )
+
+    const rows = screen.getAllByRole('listitem')
+    expect(rows.map(row => row.textContent)).toEqual([
+      'Initiative 10ThorinYou',
+      'Initiative 10VexAlly',
+      'Initiative 10MiraAlly',
+      'Initiative 10MerchantNeutral',
+      'Initiative 10Goblin',
+    ])
+    expect(box(rows[0])).toHaveClass('bg-primary', 'text-on-primary')
+    for (const ally of [rows[1], rows[2]]) {
+      expect(box(ally)).toHaveClass('bg-party/15', 'text-party')
+    }
+    expect(box(rows[3])).toHaveClass(
+      'bg-text-secondary/15',
+      'text-text-secondary',
+    )
+    expect(box(rows[3])).not.toHaveClass('text-foe')
+    expect(box(rows[4])).toHaveClass('bg-foe/15', 'text-foe')
+    // No one is called an enemy.
+    expect(screen.queryByText(/enemy|hostile/i)).toBeNull()
   })
 
   it('fits a tiebreaker such as 18.14 in a box as wide as every other', () => {

@@ -240,9 +240,16 @@ export type LocalUse = {
   itemCast?: boolean
   /**
    * An enchantment ended, such as Magic Weapon's on a longsword, rather than anything used, from
-   * module 0.21.0: what it's called is the label.
+   * module 0.21.0: what it's called is the label; or from module 0.29.0, a concentration ended.
    */
   ending?: boolean
+  /**
+   * Charges spent directly, rather than anything used, from module 0.29.0: how many; what they're
+   * of, such as "Sorcery Points", is the label.
+   */
+  spent?: number
+  /** Heroic Inspiration used, or gained, rather than anything used, from module 0.29.0. */
+  inspiration?: 'use' | 'gain'
   at: number
 }
 
@@ -572,6 +579,27 @@ export function useSheetRoller(
     return ended
   }, [])
 
+  // Keeps charges spent, or Heroic Inspiration used or gained, first among the rolls, as a use is.
+  const logCharge = useCallback(
+    (
+      label: string,
+      change: Pick<LocalUse, 'spent' | 'inspiration'>,
+    ): LocalUse => {
+      const changed: LocalUse = {
+        kind: 'use',
+        id: `use-${Date.now()}-${++uses}`,
+        label,
+        spell: false,
+        ...(change.spent !== undefined && { spent: change.spent }),
+        ...(change.inspiration && { inspiration: change.inspiration }),
+        at: Date.now(),
+      }
+      setRolls(earlier => keeping(earlier, changed))
+      return changed
+    },
+    [],
+  )
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
@@ -590,6 +618,7 @@ export function useSheetRoller(
     rollFormula,
     logUse,
     logEnd,
+    logCharge,
     logAsk,
     rolls,
     rolling: inFlight > 0,

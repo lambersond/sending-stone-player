@@ -24,6 +24,7 @@ import {
   ownUses,
   SaveChip,
   useActionRows,
+  usesName,
   UsingChip,
   verbOf,
   viewOf,
@@ -36,7 +37,7 @@ import { FavoriteStar, useFavorite } from './favorite-mark'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
-import { UsesLeft } from './uses-left'
+import { UsesButton } from './uses-button'
 import { useStoredSet } from '@/hooks/use-stored'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
 import { castOf } from '@/utils/casts'
@@ -506,7 +507,7 @@ function ActionTableRow({
             {action.rollFormula && (
               <FormulaChip action={action} onRoll={rows.formula} />
             )}
-            <UsingChip action={action} view={view} rows={rows} />
+            <UsingChip action={action} view={view} rows={rows} uses={uses} />
           </span>
         </td>
         {/* In a cell of its own, each chip is laid out as it is in a list's row, not as a
@@ -529,7 +530,11 @@ function ActionTableRow({
         <td className='py-0.5 pr-4 pl-2'>
           {uses && (
             <span className='flex justify-end'>
-              <UsesLeft uses={uses} />
+              <UsesButton
+                uses={uses}
+                name={usesName(action, uses)}
+                spends={action.activity?.spends}
+              />
             </span>
           )}
         </td>
@@ -642,7 +647,7 @@ function ActivityTableRow({
           {action.rollFormula && (
             <FormulaChip action={action} onRoll={rows.formula} />
           )}
-          <UsingChip action={action} view={view} rows={rows} />
+          <UsingChip action={action} view={view} rows={rows} uses={uses} />
         </span>
       </td>
       <td className='px-2'>
@@ -663,7 +668,11 @@ function ActivityTableRow({
       <td className='py-0.5 pr-4 pl-2'>
         {uses && (
           <span className='flex justify-end'>
-            <UsesLeft uses={uses} />
+            <UsesButton
+              uses={uses}
+              name={actionTitle(action)}
+              spends={action.activity?.spends}
+            />
           </span>
         )}
       </td>

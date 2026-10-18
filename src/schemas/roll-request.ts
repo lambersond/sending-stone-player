@@ -6,6 +6,7 @@ import {
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_ROLL_LABEL,
+  MAX_SPEND,
   MAX_USE_TARGETS,
   MOST_HIT_DICE,
   PROMPT_ID,
@@ -91,6 +92,46 @@ const hitDiceSchema = z.strictObject({
 /** How many sizes of hit die there are, each of which may be spent at once. */
 const HIT_DIE_SIZES = 5
 
+/**
+ * A counter charges are spent from directly, from module 0.29.0: an item's own uses, or one of its
+ * activities', or an old-style resource, exactly as the sheet names it.
+ */
+const counterSchema = z.union([
+  z.strictObject({
+    item: z.string().regex(FOUNDRY_ID),
+    activity: z.string().regex(FOUNDRY_ID).optional(),
+  }),
+  z.strictObject({ resource: z.enum(['primary', 'secondary', 'tertiary']) }),
+])
+
+/**
+ * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
+ * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used.
+ */
+const OWN_FIELDS = {
+  endConcentration: {
+    field: 'concentration',
+    message: 'A concentration ended, and only that, names the concentration',
+  },
+  spend: {
+    field: 'counter',
+    message: 'Charges spent, and only those, name their counter',
+  },
+  inspiration: {
+    field: 'inspiration',
+    message: 'Heroic Inspiration, and only that, says whether it’s used',
+  },
+} as const
+
+/** What each of those, and ending an enchantment, is said not to throw. */
+const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
+  use: 'A use throws no dice',
+  endEnchantment: 'Ending an enchantment throws no dice',
+  endConcentration: 'Ending concentration throws no dice',
+  spend: 'Spending throws no dice',
+  inspiration: 'Heroic Inspiration throws no dice',
+}
+
 const rolledDiceSchema = z.strictObject({
   faces: z.int().min(2).max(100),
   results: z
@@ -117,7 +158,10 @@ const rolledDiceSchema = z.strictObject({
  * check an activity asks for may name its item and activity instead, never both. A use of an
  * enchant activity may say how it enchants, and which of the character's items, and nothing else
  * may; an enchantment ended, from module 0.21.0, names its item and effect, and nothing else, and
- * throws no dice. Any roll may say what the page that sent it calls it, its `label`, which only
+ * throws no dice; and from module 0.29.0, a concentration ended names its effect, charges spent
+ * directly their counter and how many, 1 to 999, and Heroic Inspiration whether it's used or
+ * gained, each that and nothing else, and none throws dice. Any roll may say what the page that
+ * sent it calls it, its `label`, which only
  * the Gamemaster's page sends (#156), for the character's player to be shown it by. A hit die
  * names its size, and throws its one die;
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
@@ -170,6 +214,12 @@ export const rollRequestSchema = z
         effect: z.string().regex(FOUNDRY_ID),
       })
       .optional(),
+    concentration: z
+      .strictObject({ effect: z.string().regex(FOUNDRY_ID) })
+      .optional(),
+    counter: counterSchema.optional(),
+    count: z.int().min(1).max(MAX_SPEND).optional(),
+    inspiration: z.enum(['use', 'gain']).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
   })
   .superRefine((request, context) => {
@@ -380,16 +430,29 @@ export const rollRequestSchema = z
         message: 'An enchantment ended, and only that, names the enchantment',
       })
     }
-    if (use || request.kind === 'ask' || ending) {
+    // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, each name
+    // what they're of, and nothing else does; charges, how many, which nothing else says.
+    for (const [kind, { field, message }] of Object.entries(OWN_FIELDS)) {
+      if ((request.kind === kind) !== (request[field] !== undefined)) {
+        context.addIssue({ code: 'custom', path: [field], message })
+      }
+    }
+    if ((request.kind === 'spend') !== (request.count !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['count'],
+        message: 'Charges spent, and only those, say how many',
+      })
+    }
+    const notRolled = Object.hasOwn(OWN_FIELDS, request.kind)
+    if (use || request.kind === 'ask' || ending || notRolled) {
       const plain =
         request.mode === 0 &&
         !request.explicit &&
         request.extras.length === 0 &&
         request.dice.length === 0
       if (!plain) {
-        let message = 'An ask throws no dice'
-        if (use) message = 'A use throws no dice'
-        else if (ending) message = 'Ending an enchantment throws no dice'
+        const message = PLAIN_WORDS[request.kind] ?? 'An ask throws no dice'
         context.addIssue({ code: 'custom', path: ['dice'], message })
       }
       return

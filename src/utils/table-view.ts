@@ -11,7 +11,8 @@ import type {
   CharacterSheet,
   CombatantSummary,
   CombatSnapshot,
-  Dnd5eMessageData,
+  Dnd5eSave,
+  Dnd5eTarget,
   MessageAsk,
   RollSummary,
   SerializedMessage,
@@ -60,7 +61,9 @@ function sideOf(
 
 /**
  * A player's view of chat messages, oldest first. Damage rolled from an attack's card names no
- * targets of its own, so it is shown against the attack's.
+ * targets of its own, so it is shown against the attack's. Each card's targets say whether they
+ * saved, from module 0.29.0, as the latest of their saves rolled from it that the viewer may see
+ * the outcome of says (`savesByCard`).
  * @param byGm - The messages this app knows were made for the Gamemaster's rolls as a character,
  *   by their ids: as stored, never as a message says of itself.
  */
@@ -70,24 +73,37 @@ export function toTableMessages(
   byGm: ReadonlySet<string> = new Set(),
 ): TableMessage[] {
   const byId = new Map(messages.map(message => [message.id, message]))
+  const saves = savesByCard(messages, viewer)
   return messages.map(message => {
-    const attack = message.dnd5e?.originatingMessage
-    const inherited =
-      message.dnd5e?.targets.length || !attack
-        ? undefined
-        : byId.get(attack)?.dnd5e?.targets
-    return toTableMessage(message, viewer, inherited, byGm.has(message.id))
+    const from = message.dnd5e?.originatingMessage
+    const card = from ? byId.get(from) : undefined
+    return toTableMessage(
+      message,
+      viewer,
+      { card, saves: saves.get(message.id) },
+      byGm.has(message.id),
+    )
   })
 }
 
+/** What a message's targets are shown with, from the rest of the chat. */
+export type LinkedMessages = {
+  /** The card it was rolled from, if it's in the chat. */
+  card?: SerializedMessage
+  /** The saves rolled from it, as `savesByCard` has them: by their creature's actor's uuid. */
+  saves?: ReadonlyMap<string, SaveOutcome>
+}
+
 /**
+ * @param linked - The card it was rolled from, and the saves rolled from it, where they're in the
+ *   chat; none, as for a message alone.
  * @param byGm - Whether this app knows the message was made for the Gamemaster's roll as a
  *   character, from its own record of it; the message's own `gmRoll` is only a claim.
  */
 export function toTableMessage(
   message: SerializedMessage,
   viewer: Viewer,
-  inheritedTargets?: Dnd5eMessageData['targets'],
+  linked: LinkedMessages = {},
   byGm = false,
 ): TableMessage {
   // What the message is and does is read from all of its rolls, its damage too.
@@ -119,10 +135,19 @@ export function toTableMessage(
     ),
   )
 
+  const speaker = speakerOf(message)
+  const targets = targetsOf(
+    message,
+    viewer,
+    attackRoll ? rolls[attackRoll.index] : undefined,
+    linked,
+  )
+  const summary = summaryOf(targets)
+
   return {
     id: message.id,
     sentAt: new Date(message.timestamp).toISOString(),
-    speaker: message.speaker.alias?.trim() || message.author?.name || 'Unknown',
+    speaker,
     side: sideOf(viewer, message.character),
     avatar: viewer.portraits?.get(
       message.character ?? message.speaker.actorId ?? '',
@@ -136,12 +161,8 @@ export function toTableMessage(
     rolls,
     ...(attackRoll && { attackRoll }),
     ...(damage && { damage }),
-    targets: toTargets(
-      message.dnd5e?.targets.length
-        ? message.dnd5e.targets
-        : (inheritedTargets ?? []),
-      attackRoll ? rolls[attackRoll.index] : undefined,
-    ),
+    targets,
+    ...(summary && { summary }),
     ...(ask && { ask }),
     ...(byGm && { byGm: true as const }),
   }
@@ -634,19 +655,146 @@ function onSaveOf(roll: unknown): TableDamage['onSave'] {
 }
 
 /**
- * Who a roll or card was aimed at. An attack against a target whose armor class is known hit if
- * it met it: a critical always hits and a natural 1 always misses.
+ * Who a roll or card was aimed at. An attack hit them as the module says, from 0.29.0, where
+ * players see it in Foundry; or else, where their armor class is known, if it met it: a critical
+ * always hits and a natural 1 always misses. Whether they saved is as the module says too: on
+ * Midi-QOL's card, or from their own save rolled from dnd5e's, which `toTableMessages` joins on.
  */
 function toTargets(
-  targets: Dnd5eMessageData['targets'],
+  targets: Dnd5eTarget[],
   attack: TableRoll | undefined,
 ): TableTarget[] {
-  return targets.map(({ name, ac }) => {
-    if (typeof ac !== 'number') return { name }
-    if (!attack || attack.total === null) return { name, ac }
-    const hit = attack.critical || (!attack.fumble && attack.total >= ac)
-    return { name, ac, outcome: hit ? 'hit' : 'miss' }
+  return targets.map(({ name, ac, outcome: told, save }) => {
+    const known = typeof ac === 'number' ? ac : undefined
+    let outcome = told
+    if (!outcome && known !== undefined && attack && attack.total !== null) {
+      const hit = attack.critical || (!attack.fumble && attack.total >= known)
+      outcome = hit ? 'hit' : 'miss'
+    }
+    return {
+      name,
+      ...(known !== undefined && { ac: known }),
+      ...(outcome && { outcome }),
+      ...(save && { save: SAVED[save] }),
+    }
   })
+}
+
+/** A save's outcome as the chat says it of a target. */
+const SAVED: Record<SaveOutcome, NonNullable<TableTarget['save']>> = {
+  success: 'saved',
+  failure: 'failed',
+}
+
+/** Whether a save succeeded, as the module says. */
+type SaveOutcome = NonNullable<Dnd5eSave['outcome']>
+
+/** Who sent a message, as the chat names them. */
+function speakerOf(message: SerializedMessage): string {
+  return message.speaker.alias?.trim() || message.author?.name || 'Unknown'
+}
+
+/**
+ * Who a message was aimed at, as the chat shows them:
+ * - a save rolled from dnd5e's card, from module 0.29.0, its own creature alone, named as the card
+ *   names it, else as it speaks, saying whether it saved, where the viewer may know;
+ * - else its own targets, each with whether they saved, where the viewer may know that of their
+ *   latest save rolled from it (`savesByCard`);
+ * - else, for damage or a save rolled from a card, as from an older module, the card's, as they
+ *   stood, without what came of them there: that was the card's, not this message's.
+ */
+function targetsOf(
+  message: SerializedMessage,
+  viewer: Viewer,
+  attack: TableRoll | undefined,
+  { card, saves }: LinkedMessages,
+): TableTarget[] {
+  const dnd5e = message.dnd5e
+  const save = dnd5e?.save
+  if (save) {
+    const name =
+      card?.dnd5e?.targets.find(({ uuid }) => uuid === save.target)?.name ??
+      speakerOf(message)
+    const { outcome } = save
+    const seen = outcome && readsOutcome(save, viewer)
+    return [{ name, ...(seen && { save: SAVED[outcome] }) }]
+  }
+  const own = dnd5e?.targets ?? []
+  if (own.length > 0) {
+    return toTargets(
+      own.map(target => {
+        const joined = target.uuid ? saves?.get(target.uuid) : undefined
+        return target.save || !joined ? target : { ...target, save: joined }
+      }),
+      attack,
+    )
+  }
+  const inherited = (card?.dnd5e?.targets ?? []).map(
+    ({ name, ac, uuid }): Dnd5eTarget => ({ name, ac, uuid }),
+  )
+  return toTargets(inherited, attack)
+}
+
+/**
+ * May the viewer know how a save came out: where the module names no characters whose players
+ * alone may, or names theirs?
+ */
+function readsOutcome(save: Dnd5eSave, viewer: Viewer): boolean {
+  return (
+    save.readers === undefined ||
+    (!!viewer.actorId && save.readers.includes(viewer.actorId))
+  )
+}
+
+/**
+ * The saves rolled from each of dnd5e's cards, from module 0.29.0, by the card's id: for each
+ * creature, by its actor's uuid, how its latest save rolled from the card came out, of those whose
+ * outcome the viewer may know.
+ */
+function savesByCard(
+  messages: SerializedMessage[],
+  viewer: Viewer,
+): Map<string, Map<string, SaveOutcome>> {
+  const latest = new Map<
+    string,
+    Map<string, { outcome: SaveOutcome; at: number }>
+  >()
+  for (const message of messages) {
+    const dnd5e = message.dnd5e
+    const save = dnd5e?.save
+    const card = dnd5e?.originatingMessage
+    if (dnd5e?.roll?.type !== 'save' || !card || !save?.outcome) continue
+    if (!readsOutcome(save, viewer)) continue
+    const saves = latest.get(card) ?? new Map()
+    const before = saves.get(save.target)
+    if (!before || message.timestamp >= before.at) {
+      saves.set(save.target, { outcome: save.outcome, at: message.timestamp })
+    }
+    latest.set(card, saves)
+  }
+  return new Map(
+    [...latest].map(([card, saves]) => [
+      card,
+      new Map([...saves].map(([uuid, { outcome }]) => [uuid, outcome])),
+    ]),
+  )
+}
+
+/**
+ * How a message aimed at more than one target went, counting only targets with a result of each
+ * kind: "Hit 2 of 3", "3 of 8 saved", or both, joined by " · ". None with no result to count.
+ */
+function summaryOf(targets: TableTarget[]): string | undefined {
+  if (targets.length < 2) return undefined
+  const judged = targets.filter(({ outcome }) => outcome !== undefined)
+  const saved = targets.filter(({ save }) => save !== undefined)
+  const parts = [
+    judged.length > 0 &&
+      `Hit ${judged.filter(({ outcome }) => outcome === 'hit').length} of ${judged.length}`,
+    saved.length > 0 &&
+      `${saved.filter(({ save }) => save === 'saved').length} of ${saved.length} saved`,
+  ].filter(Boolean)
+  return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
 /** A roll as a player is shown it: its formula, total, every die, and what marks it. */
@@ -822,14 +970,31 @@ export function toTableCombat(
 
 function toTableCombatant(combatant: CombatantSummary, viewer: Viewer) {
   const side = sideOf(viewer, combatant.character, combatant.playerOwned)
+  const stance = stanceOf(combatant, side)
   return {
     id: combatant.id,
     name: combatant.name,
     initiative: combatant.initiative,
     defeated: combatant.defeated,
     side,
+    ...(stance && { stance }),
     hp: side === 'other' ? undefined : (combatant.hp ?? undefined),
   }
+}
+
+/**
+ * How a combatant not of the party stands, by its token's disposition, from module 0.29.0: one
+ * marked Friendly is an ally, and a Neutral one neutral. Its side is left alone, as it decides
+ * whose hit points show. None for the party, who are allies whatever their token says, nor for a
+ * hostile one, as that may be only the game's default, nor where the module doesn't say.
+ */
+function stanceOf(
+  combatant: CombatantSummary,
+  side: Side,
+): 'ally' | 'neutral' | undefined {
+  if (side !== 'other') return
+  if (combatant.disposition === 'friendly') return 'ally'
+  if (combatant.disposition === 'neutral') return 'neutral'
 }
 
 /* -------------------------------------------- */

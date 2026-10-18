@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Sparkles,
   Swords,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { EmptyState } from './empty-state'
@@ -132,6 +133,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
     rolls,
     attackRoll,
     targets,
+    summary,
   } = message
   // The player's own messages sit on the other side, as in a messaging app.
   const mine = side === 'me'
@@ -221,7 +223,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
             <span className='font-semibold'>
               {label ?? 'An item or ability'}
             </span>
-            <Targets targets={targets} />
+            <Targets targets={targets} summary={summary} />
           </div>
         )}
         {kind === 'roll' && (
@@ -237,6 +239,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
                 }
                 // Who it was aimed at, called out once, on the first card.
                 targets={index === 0 ? targets : []}
+                summary={index === 0 ? summary : undefined}
                 whisper={whisper}
                 mine={mine}
               />
@@ -249,6 +252,9 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
                 // Under its attack's card, the item's name isn't said again.
                 label={attackRoll ? undefined : label}
                 targets={rolls.length === 0 && index === 0 ? targets : []}
+                summary={
+                  rolls.length === 0 && index === 0 ? summary : undefined
+                }
                 whisper={whisper}
                 mine={mine}
               />
@@ -257,7 +263,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
         )}
         {kind === 'text' && targets.length > 0 && (
           <div className={clsx(mine && 'self-end')}>
-            <Targets targets={targets} />
+            <Targets targets={targets} summary={summary} />
           </div>
         )}
       </div>
@@ -322,6 +328,7 @@ function RollCard({
   label,
   action,
   targets,
+  summary,
   whisper,
   mine,
 }: Readonly<{
@@ -329,6 +336,7 @@ function RollCard({
   label?: string
   action?: TableAction
   targets: TableTarget[]
+  summary?: string
   whisper: boolean
   mine: boolean
 }>) {
@@ -362,7 +370,7 @@ function RollCard({
           )}
         </div>
       </div>
-      <Targets targets={targets} />
+      <Targets targets={targets} summary={summary} />
       <div className='flex items-end justify-between gap-3'>
         <div className='flex min-w-0 flex-col gap-1.5'>
           <span className='font-mono text-sm break-all text-text-secondary'>
@@ -422,12 +430,14 @@ function DamageCard({
   damage,
   label,
   targets,
+  summary,
   whisper,
   mine,
 }: Readonly<{
   damage: TableDamage
   label?: string
   targets: TableTarget[]
+  summary?: string
   whisper: boolean
   mine: boolean
 }>) {
@@ -461,7 +471,7 @@ function DamageCard({
           </div>
         )}
       </div>
-      <Targets targets={targets} />
+      <Targets targets={targets} summary={summary} />
       {rolls.length > 1 ? (
         <details onToggle={event => setOpen(event.currentTarget.open)}>
           {/* A hover rings it rather than tinting it: a tint under its chips and total would take
@@ -619,41 +629,83 @@ function ActionChip({ action }: Readonly<{ action: TableAction }>) {
   )
 }
 
-/** Who a roll or card was aimed at, and whether an attack hit when their armor class is known. */
-function Targets({ targets }: Readonly<{ targets: TableTarget[] }>) {
+/**
+ * Who a roll or card was aimed at, and what came of it for each, where players may know: whether
+ * an attack hit them, and whether they saved. Hit and Failed, where it landed, in the accent's
+ * look; Miss and Saved, where it didn't, muted, with a cross. Over more than one, how it went in
+ * all, as `summary` says.
+ */
+function Targets({
+  targets,
+  summary,
+}: Readonly<{ targets: TableTarget[]; summary?: string }>) {
   if (targets.length === 0) return
   return (
-    <p className='flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
-      <Crosshair aria-hidden className='size-4 shrink-0 text-text-secondary' />
-      <span className='sr-only'>
-        {targets.length === 1 ? 'Target: ' : 'Targets: '}
-      </span>
-      {targets.map((target, index) => (
-        <span key={index} className='inline-flex items-center gap-1.5'>
-          <span className='font-semibold'>{target.name}</span>
-          {target.ac !== undefined && (
-            <span className='text-xs text-text-secondary'>AC {target.ac}</span>
-          )}
-          {target.outcome && (
-            <span
-              className={clsx(
-                'rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
-                target.outcome === 'hit'
-                  ? 'bg-primary/10 text-primary-text'
-                  : 'bg-text-secondary/10 text-text-secondary',
-              )}
-            >
-              {target.outcome === 'hit' ? 'Hit' : 'Miss'}
-            </span>
-          )}
-          {index < targets.length - 1 && (
-            <span aria-hidden className='text-text-secondary'>
-              ,
-            </span>
-          )}
+    <>
+      {summary && (
+        <p className='text-xs font-semibold text-text-secondary'>{summary}</p>
+      )}
+      <p className='flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
+        <Crosshair
+          aria-hidden
+          className='size-4 shrink-0 text-text-secondary'
+        />
+        <span className='sr-only'>
+          {targets.length === 1 ? 'Target: ' : 'Targets: '}
         </span>
-      ))}
-    </p>
+        {targets.map((target, index) => (
+          <span key={index} className='inline-flex items-center gap-1.5'>
+            <span className='font-semibold'>{target.name}</span>
+            {target.ac !== undefined && (
+              <span className='text-xs text-text-secondary'>
+                AC {target.ac}
+              </span>
+            )}
+            {target.outcome && (
+              <Pill landed={target.outcome === 'hit'}>
+                {target.outcome === 'hit' ? 'Hit' : 'Miss'}
+              </Pill>
+            )}
+            {target.save && (
+              <Pill landed={target.save === 'failed'}>
+                {target.save === 'failed' ? 'Failed' : 'Saved'}
+              </Pill>
+            )}
+            {index < targets.length - 1 && (
+              <span aria-hidden className='text-text-secondary'>
+                ,
+              </span>
+            )}
+          </span>
+        ))}
+      </p>
+    </>
+  )
+}
+
+/**
+ * What came of a roll for a target: where it landed, as a hit or a failed save, in the accent's
+ * look; where it didn't, muted, after a cross. Read after the name as ", Hit".
+ */
+function Pill({
+  landed,
+  children,
+}: Readonly<{ landed: boolean; children: string }>) {
+  return (
+    <>
+      <span className='sr-only'>, </span>
+      <span
+        className={clsx(
+          'inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
+          landed
+            ? 'bg-primary/10 text-primary-text'
+            : 'bg-text-secondary/10 text-text-secondary',
+        )}
+      >
+        {!landed && <X aria-hidden className='size-3' />}
+        {children}
+      </span>
+    </>
   )
 }
 

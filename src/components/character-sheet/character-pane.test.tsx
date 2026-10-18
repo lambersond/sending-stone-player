@@ -2205,7 +2205,7 @@ describe('components/character-sheet/character-pane', () => {
         within(picker)
           .getAllByRole('button', { name: /^(Self|Vex|Goblin)/ })
           .map(button => button.textContent),
-      ).toEqual(['SelfYou', 'VexAlly', 'Goblin', 'Goblin Archer'])
+      ).toEqual(['Self, You', 'Vex, Ally', 'Goblin', 'Goblin Archer'])
       await user.click(
         within(slots).getByRole('radio', { name: '2nd Level, 2 slots left' }),
       )
@@ -2771,7 +2771,7 @@ describe('components/character-sheet/character-pane', () => {
         .getAllByRole('button')
         .slice(1)
         .map(button => button.textContent)
-      expect(first).toBe('SelfYouDefault')
+      expect(first).toBe('Self, YouDefault')
       await user.click(within(picker).getByRole('button', { name: /^Self/ }))
       expect(posted[0]).toMatchObject({
         targets: [{ combatId: 'cmbt1', combatantId: 'thorin1' }],

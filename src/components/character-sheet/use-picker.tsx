@@ -1,12 +1,20 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { Check, Crosshair, Package, Skull, Sparkles } from 'lucide-react'
+import {
+  Check,
+  Crosshair,
+  Package,
+  ShieldCheck,
+  Skull,
+  Sparkles,
+} from 'lucide-react'
 import { actionTitle, verbOf } from './action-entry'
 import { chargesOf } from './action-info'
 import { EntryIcon } from './sheet-entry'
 import { Modal } from '@/components/modal'
+import { SearchField } from '@/components/search-field'
 import { MAX_USE_TARGETS } from '@/constants/sending-stone'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
@@ -22,6 +30,7 @@ import {
   offeredProfiles,
   type Belonging,
 } from '@/utils/enchantments'
+import { matchesSearch, searchKey } from '@/utils/search'
 import { seatWords } from '@/utils/seat-words'
 import {
   friendly,
@@ -89,10 +98,90 @@ export type Picked = {
   enchant?: EnchantChoice
 }
 
-/** Who a combatant is, beside its name, as the combat tracker has it. */
-const SIDES: Partial<Record<TableCombatant['side'], string>> = {
-  me: 'You',
-  party: 'Ally',
+/**
+ * How many combatants a list of them may have before they can be searched by name: more than
+ * this, the player's own row and the defeated among them, but not "No target".
+ */
+const SEARCH_ABOVE = 5
+
+/**
+ * Whose side a combatant is on, as a pill beside their name: the player's own row, an ally, or a
+ * creature the game has as neutral. Never an enemy, as a hostile token may be only the game's
+ * default.
+ */
+const PILLS = {
+  you: { label: 'You', look: 'bg-primary/10 text-primary-text' },
+  ally: { label: 'Ally', look: 'bg-party/15 text-party' },
+  neutral: {
+    label: 'Neutral',
+    look: 'bg-text-secondary/10 text-text-secondary',
+  },
+} as const
+
+function pillOf(combatant: TableCombatant): keyof typeof PILLS | undefined {
+  if (combatant.side === 'me') return 'you'
+  if (allied(combatant)) return 'ally'
+  return combatant.stance === 'neutral' ? 'neutral' : undefined
+}
+
+/**
+ * Whether a combatant is on the player's side: they themselves, one of the party, or one the game
+ * has as an ally, as a hireling the Gamemaster marked Friendly, from module 0.29.0.
+ */
+function allied(combatant: TableCombatant): boolean {
+  return combatant.side !== 'other' || combatant.stance === 'ally'
+}
+
+/** Combatants to pick from under a heading: the player and their allies, or everyone else. */
+type Section = {
+  key: 'allies' | 'others'
+  label: 'Allies' | 'Others'
+  rows: TableCombatant[]
+}
+
+/**
+ * Combatants to pick from in two sections, the player and their allies and then everyone else,
+ * each in turn order: for an attack, or a use that harms, everyone else first, with the player's
+ * own row last of their allies; for a use that helps, or one made at its user by default, as a
+ * potion, the player first, then their allies, then everyone else.
+ * @param combat - Whose turn order it is.
+ * @param first - Who goes first in their section, such as the last attacked.
+ */
+function sectionsOf(
+  targets: TableCombatant[],
+  combat: TableCombat | undefined,
+  { helpful, first }: { helpful: boolean; first?: string },
+): Section[] {
+  const turn = new Map(combat?.combatants.map(({ id }, index) => [id, index]))
+  const inTurn = (one: TableCombatant, other: TableCombatant) =>
+    (turn.get(one.id) ?? 0) - (turn.get(other.id) ?? 0)
+  const self = targets.filter(({ side }) => side === 'me')
+  const rest = targets.filter(({ side }) => side !== 'me').toSorted(inTurn)
+  const lead = (rows: TableCombatant[]) => [
+    ...rows.filter(({ id }) => id === first),
+    ...rows.filter(({ id }) => id !== first),
+  ]
+  const friends = rest.filter(combatant => allied(combatant))
+  const allies: Section = {
+    key: 'allies',
+    label: 'Allies',
+    rows: lead(helpful ? [...self, ...friends] : [...friends, ...self]),
+  }
+  const others: Section = {
+    key: 'others',
+    label: 'Others',
+    rows: lead(rest.filter(combatant => !allied(combatant))),
+  }
+  return helpful ? [allies, others] : [others, allies]
+}
+
+/**
+ * What of a combatant's row a search matches: the name it shows, and on the player's own, shown as
+ * Self, their own name too. Nothing else, such as a pill, nor anything the row doesn't show, so a
+ * search hints at no one hidden.
+ */
+function shownOf(combatant: TableCombatant): string[] {
+  return combatant.side === 'me' ? ['Self', combatant.name] : [combatant.name]
 }
 
 /**
@@ -393,6 +482,15 @@ function Choices({
   const [ticked, setTicked] = useState<string[]>(() =>
     preset ? [preset.id] : [],
   )
+  // What the targets are searched by: kept here, as are those ticked, as a slot chosen may turn a
+  // list to tap into one to tick.
+  const [query, setQuery] = useState('')
+  const search = { query, onQuery: setQuery }
+  // A use that helps, or one made at its user by default, lists the player and their allies first.
+  const helpful =
+    usable &&
+    !!action.activity &&
+    (friendly(action.activity) || selfDefault(action))
   // One that enchants is cast with the slot it's cast with, or at the level, even where there's no
   // choice of it, as the ways it may enchant may hang on it.
   const enchant =
@@ -422,14 +520,22 @@ function Choices({
     !enchant || offeredProfiles(enchant, level).length > 0
   const tickList = (
     targets: TableCombatant[],
-    { area, most: takes, verb }: { area: boolean; most: number; verb: string },
+    {
+      area,
+      most: takes,
+      verb,
+      helps,
+    }: { area: boolean; most: number; verb: string; helps: boolean },
   ) => {
     const most = Math.min(takes, MAX_USE_TARGETS)
-    const chosen = ticked.slice(0, most)
+    // Only those still in the combat count, so one gone from it while picking frees a place.
+    const present = new Set(targets.map(({ id }) => id))
+    const chosen = ticked.filter(id => present.has(id)).slice(0, most)
     return (
       <TickList
         lead={leadFor(area, takes)}
-        targets={targets}
+        sections={sectionsOf(targets, combat, { helpful: helps })}
+        {...search}
         ticked={chosen}
         full={chosen.length >= most}
         onToggle={id =>
@@ -461,6 +567,7 @@ function Choices({
           area: true,
           most: mostTargets(area, base, castAt),
           verb: 'Attack',
+          helps: false,
         })
       ) : (
         <Go label='Attack' onGo={() => pick([])} />
@@ -488,10 +595,11 @@ function Choices({
       targets.length > 0 ? (
         <TargetList
           lead='Choose who to attack.'
-          targets={[
-            ...targets.filter(({ id }) => id === last),
-            ...targets.filter(({ id }) => id !== last),
-          ]}
+          sections={sectionsOf(targets, combat, {
+            helpful: false,
+            first: last,
+          })}
+          {...search}
           last={last}
           onTap={combatant => pick([combatant])}
           onNone={() => pick([])}
@@ -520,7 +628,8 @@ function Choices({
       whom = (
         <TargetList
           lead={`Choose who to ${verb.toLowerCase()} it at.`}
-          targets={targets}
+          sections={sectionsOf(targets, combat, { helpful })}
+          {...search}
           preset={preset?.id}
           onTap={combatant => pick([combatant])}
           onNone={() => pick([])}
@@ -531,6 +640,7 @@ function Choices({
         area: use.targets.area,
         most,
         verb: `${verb} at`,
+        helps: helpful,
       })
     }
   }
@@ -861,13 +971,15 @@ function EnchantWhat({
 
 /**
  * A combatant's name, with whose side they're on and whether they're down; the player's own, as a
- * use's target, Self, marked where it's the default.
+ * use's target, Self, marked where it's the default. Each mark is said apart from the name, as
+ * "Vex, Ally".
  */
 function Who({
   combatant,
   last,
   preset,
 }: Readonly<{ combatant: TableCombatant; last?: string; preset?: string }>) {
+  const pill = pillOf(combatant)
   return (
     <>
       <span
@@ -878,9 +990,15 @@ function Who({
       >
         {combatant.side === 'me' ? 'Self' : combatant.name}
       </span>
-      {SIDES[combatant.side] && (
-        <span className='shrink-0 text-xs text-text-secondary'>
-          {SIDES[combatant.side]}
+      {pill && (
+        <span
+          className={clsx(
+            'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            PILLS[pill].look,
+          )}
+        >
+          <span className='sr-only'>, </span>
+          {PILLS[pill].label}
         </span>
       )}
       {combatant.defeated && (
@@ -903,20 +1021,115 @@ function Who({
   )
 }
 
+/** Those shown whatever is typed in a search, where none are. */
+const NONE: readonly string[] = []
+
 /**
- * Combatants to tap, one of which is the target; or no one. The last attacked, or the default, is
- * marked, still a tap away.
+ * Combatants to pick from, in their sections, each a list under its heading where there's more
+ * than one to show; searched by what each row shows, once there are more than a few, the search
+ * kept while anything's typed in it, so it can't be left filtering with no box to clear it. A
+ * screen reader hears how many a search found.
+ * @param kept - Those shown whatever is typed, such as those ticked, so that all the picks made
+ *   can be seen, and unticked.
+ * @param row - A combatant's row, given whether it's among the allies.
+ */
+function Sections({
+  sections,
+  query,
+  onQuery,
+  kept = NONE,
+  row,
+}: Readonly<{
+  sections: Section[]
+  query: string
+  onQuery: (query: string) => void
+  kept?: readonly string[]
+  row: (combatant: TableCombatant, ally: boolean) => ReactNode
+}>) {
+  const id = useId()
+  const count = sections.reduce((total, { rows }) => total + rows.length, 0)
+  const searchable = count > SEARCH_ABOVE || query !== ''
+  const searching = searchable && searchKey(query) !== ''
+  const matches = (combatant: TableCombatant) =>
+    !searching || matchesSearch(shownOf(combatant), query)
+  const found = sections.reduce(
+    (total, { rows }) =>
+      total + rows.filter(combatant => matches(combatant)).length,
+    0,
+  )
+  const shown = sections
+    .map(section => ({
+      ...section,
+      rows: section.rows.filter(
+        combatant => kept.includes(combatant.id) || matches(combatant),
+      ),
+    }))
+    .filter(({ rows }) => rows.length > 0)
+  const headed = shown.length > 1
+  return (
+    <>
+      {searchable && (
+        <div className='mb-3'>
+          <SearchField
+            value={query}
+            onChange={onQuery}
+            label='Search targets by name'
+            placeholder='Search'
+          />
+        </div>
+      )}
+      <p aria-live='polite' className='sr-only'>
+        {searching &&
+          (found === 1 ? '1 target found' : `${found} targets found`)}
+      </p>
+      <div className='flex flex-col gap-4'>
+        {shown.map(({ key, label, rows }) => (
+          <div key={key}>
+            {headed && (
+              <h3
+                id={`${id}-${key}`}
+                className='mb-1.5 px-0.5 text-xs font-semibold tracking-wider text-text-secondary uppercase'
+              >
+                {label}
+              </h3>
+            )}
+            <ul
+              aria-labelledby={headed ? `${id}-${key}` : undefined}
+              className='flex flex-col gap-1.5'
+            >
+              {rows.map(combatant => (
+                <li key={combatant.id}>{row(combatant, key === 'allies')}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        {searching && found === 0 && (
+          <p className='text-sm text-text-secondary'>No one matches</p>
+        )}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Combatants to tap, one of which is the target; or no one, whatever is searched. The last
+ * attacked, or the default, is marked, still a tap away; an ally is marked by a shield, not the
+ * crosshair.
  */
 function TargetList({
   lead,
-  targets,
+  sections,
+  query,
+  onQuery,
   last,
   preset,
   onTap,
   onNone,
 }: Readonly<{
   lead: string
-  targets: TableCombatant[]
+  sections: Section[]
+  query: string
+  onQuery: (query: string) => void
   last?: string
   /** The default target, such as Self for a potion. */
   preset?: string
@@ -926,42 +1139,51 @@ function TargetList({
   return (
     <div>
       <p className='mb-3 text-sm text-text-secondary'>{lead}</p>
-      <ul className='flex flex-col gap-1.5'>
-        {targets.map(combatant => (
-          <li key={combatant.id}>
-            <button
-              type='button'
-              onClick={() => onTap(combatant)}
-              className={clsx(
-                'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-primary/5',
-                combatant.id === last || combatant.id === preset
-                  ? 'border-primary'
-                  : 'border-border',
-              )}
-            >
-              <Crosshair aria-hidden className='size-4 shrink-0 text-attack' />
-              <Who combatant={combatant} last={last} preset={preset} />
-            </button>
-          </li>
-        ))}
-        <li>
+      <Sections
+        sections={sections}
+        query={query}
+        onQuery={onQuery}
+        row={(combatant, ally) => (
           <button
             type='button'
-            onClick={onNone}
-            className='w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-text-secondary transition-colors hover:bg-primary/5 hover:text-text-primary'
+            onClick={() => onTap(combatant)}
+            className={clsx(
+              'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-primary/5',
+              combatant.id === last || combatant.id === preset
+                ? 'border-primary'
+                : 'border-border',
+              ally && 'border-l-4 border-l-party',
+            )}
           >
-            No target
+            {ally ? (
+              <ShieldCheck aria-hidden className='size-4 shrink-0 text-party' />
+            ) : (
+              <Crosshair aria-hidden className='size-4 shrink-0 text-attack' />
+            )}
+            <Who combatant={combatant} last={last} preset={preset} />
           </button>
-        </li>
-      </ul>
+        )}
+      />
+      <button
+        type='button'
+        onClick={onNone}
+        className='mt-1.5 w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-text-secondary transition-colors hover:bg-primary/5 hover:text-text-primary'
+      >
+        No target
+      </button>
     </div>
   )
 }
 
-/** Combatants to tick, as many as a use takes, then made at those ticked. */
+/**
+ * Combatants to tick, as many as a use takes, then made at those ticked. Those ticked stay in the
+ * list whatever is searched.
+ */
 function TickList({
   lead,
-  targets,
+  sections,
+  query,
+  onQuery,
   ticked,
   full,
   onToggle,
@@ -969,7 +1191,9 @@ function TickList({
   onGo,
 }: Readonly<{
   lead: string
-  targets: TableCombatant[]
+  sections: Section[]
+  query: string
+  onQuery: (query: string) => void
   ticked: string[]
   /** Whether as many are ticked as it takes. */
   full: boolean
@@ -980,39 +1204,42 @@ function TickList({
   return (
     <div>
       <p className='mb-3 text-sm text-text-secondary'>{lead}</p>
-      <ul className='flex flex-col gap-1.5'>
-        {targets.map(combatant => {
+      <Sections
+        sections={sections}
+        query={query}
+        onQuery={onQuery}
+        kept={ticked}
+        row={(combatant, ally) => {
           const on = ticked.includes(combatant.id)
           return (
-            <li key={combatant.id}>
-              <button
-                type='button'
-                role='checkbox'
-                aria-checked={on}
-                disabled={!on && full}
-                onClick={() => onToggle(combatant.id)}
+            <button
+              type='button'
+              role='checkbox'
+              aria-checked={on}
+              disabled={!on && full}
+              onClick={() => onToggle(combatant.id)}
+              className={clsx(
+                'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-primary/5 disabled:opacity-40',
+                on ? 'border-primary bg-primary/5' : 'border-border',
+                ally && 'border-l-4 border-l-party',
+              )}
+            >
+              <span
+                aria-hidden
                 className={clsx(
-                  'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-primary/5 disabled:opacity-40',
-                  on ? 'border-primary bg-primary/5' : 'border-border',
+                  'flex size-4 shrink-0 items-center justify-center rounded border',
+                  on
+                    ? 'border-primary bg-primary text-on-primary'
+                    : 'border-border',
                 )}
               >
-                <span
-                  aria-hidden
-                  className={clsx(
-                    'flex size-4 shrink-0 items-center justify-center rounded border',
-                    on
-                      ? 'border-primary bg-primary text-on-primary'
-                      : 'border-border',
-                  )}
-                >
-                  {on && <Check className='size-3' />}
-                </span>
-                <Who combatant={combatant} />
-              </button>
-            </li>
+                {on && <Check className='size-3' />}
+              </span>
+              <Who combatant={combatant} />
+            </button>
           )
-        })}
-      </ul>
+        }}
+      />
       <Go label={go} onGo={onGo} />
     </div>
   )

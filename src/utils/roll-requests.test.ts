@@ -5,6 +5,7 @@ import {
   checkRoll,
   isDying,
   rollStatus,
+  sameCounter,
   toCommand,
   toGmRollView,
   toRollRequestView,
@@ -13,6 +14,8 @@ import {
 import {
   castingSheet,
   characterSheet,
+  chargingSheet,
+  counted,
   checkingSheet,
   combat,
   combatant,
@@ -4877,4 +4880,202 @@ describe('utils/roll-requests for a use at its user, from module 0.22.0', () => 
   ])('refuses a use at its user %s', (_name, input, features) => {
     expect(check(input, features)).toBe('target')
   })
+})
+
+/** What a request of the kinds from module 0.29.0 throws: nothing. */
+const plain = { mode: 0, explicit: false, extras: [], dice: [] } as const
+
+/** Whether Ember may have this done, as her sheet stands; or with no sheet, for null. */
+const charge = (
+  fields: Partial<RollRequestInput>,
+  sheet: CharacterSheet | null = chargingSheet(),
+) =>
+  checkRoll(
+    { kind: 'spend', ...plain, ...fields } as RollRequestInput,
+    sheet ?? undefined,
+    [],
+    'actor-ember',
+  )
+
+/** Spending this many of a counter, as Ember's sheet stands. */
+const spend = (
+  counter: RollRequestInput['counter'],
+  count: number,
+  sheet?: CharacterSheet,
+) => charge({ kind: 'spend', counter, count }, sheet)
+
+/** Ending one of Ember's concentrations, as her sheet stands. */
+const endOf = (effect: string, sheet?: CharacterSheet) =>
+  charge({ kind: 'endConcentration', concentration: { effect } }, sheet)
+
+/** Using or gaining Heroic Inspiration, inspired or not; with no sheet, unsaid. */
+const inspire = (inspiration: 'use' | 'gain', inspired?: boolean) =>
+  charge(
+    { kind: 'inspiration', inspiration },
+    inspired === undefined ? null : chargingSheet({ inspiration: inspired }),
+  )
+
+describe('utils/roll-requests for concentration, charges and Heroic Inspiration, from module 0.29.0', () => {
+  describe('checkRoll for a concentration ended', () => {
+    it('lets the player end one the sheet says the character keeps', () => {
+      expect(endOf('concBless0001')).toBeUndefined()
+    })
+
+    it("refuses one the sheet doesn't list, or with none, or no sheet, as already ended", () => {
+      expect(endOf('concHex000001')).toBe('concentration')
+      expect(
+        endOf(
+          'concBless0001',
+          chargingSheet({ concentration: { effects: [] } }),
+        ),
+      ).toBe('concentration')
+      // As from a module before 0.29.0, which says nothing of them.
+      expect(
+        endOf('concBless0001', chargingSheet({ concentration: undefined })),
+      ).toBe('concentration')
+      expect(
+        charge(
+          {
+            kind: 'endConcentration',
+            concentration: { effect: 'concBless0001' },
+          },
+          null,
+        ),
+      ).toBe('concentration')
+    })
+  })
+
+  describe('checkRoll for charges spent', () => {
+    it.each([
+      ["a feature's", { item: 'sorcery' }, 8],
+      ["an item's", { item: 'wand' }, 2],
+      ["a resource's, among the favorites", { resource: 'primary' }, 3],
+    ] as const)(
+      'lets the player spend %s, up to as many as are left',
+      (_name, counter, left) => {
+        expect(spend(counter, 1)).toBeUndefined()
+        expect(spend(counter, left)).toBeUndefined()
+        expect(spend(counter, left + 1)).toBe('short')
+      },
+    )
+
+    it("lets the player spend an activity's own, as the action's activities, or a favorite activity, list them", () => {
+      const own = counted(2, 2, { item: 'staff', activity: 'staffWisp001' })
+      const wisp = {
+        id: 'staffWisp001',
+        name: 'Starry Wisp',
+        type: 'utility',
+        activation: 'Action',
+        range: null,
+        target: null,
+        toHit: null,
+        save: null,
+        damage: [],
+        uses: own,
+      }
+      const listed = chargingSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [
+              sheetAction({
+                id: 'staff',
+                name: 'Staff of Stars',
+                activities: [{ ...wisp, id: 'staffFirst01', uses: null }, wisp],
+              }),
+            ],
+          },
+        ],
+      })
+      const favorite = chargingSheet({
+        favorites: [
+          {
+            ...wisp,
+            type: 'activity',
+            itemId: 'staff',
+            itemType: 'equipment',
+            itemName: 'Staff of Stars',
+            img: null,
+          },
+        ],
+      })
+      const counter = { item: 'staff', activity: 'staffWisp001' }
+      expect(spend(counter, 2, listed)).toBeUndefined()
+      expect(spend(counter, 3, listed)).toBe('short')
+      expect(spend(counter, 2, favorite)).toBeUndefined()
+      // The item's own uses aren't the activity's.
+      expect(spend({ item: 'staff' }, 1, listed)).toBe('uses')
+    })
+
+    it("refuses a counter the sheet doesn't say may be spent so, or doesn't show, or with no sheet", () => {
+      // The potion's, which only using it spends.
+      expect(spend({ item: 'potion' }, 1)).toBe('uses')
+      expect(spend({ item: 'nowhere' }, 1)).toBe('uses')
+      expect(spend({ resource: 'secondary' }, 1)).toBe('uses')
+      // The feature's, as an activity of it.
+      expect(spend({ item: 'sorcery', activity: 'spUtility' }, 1)).toBe('uses')
+      expect(charge({ counter: { item: 'sorcery' }, count: 1 }, null)).toBe(
+        'uses',
+      )
+      // As from a module before 0.29.0, which names no counter.
+      const before = chargingSheet()
+      before.features[0].features[0].uses = {
+        value: 8,
+        max: 20,
+        recovery: null,
+      }
+      before.actions = []
+      expect(spend({ item: 'sorcery' }, 1, before)).toBe('uses')
+    })
+
+    it('refuses more than are left of one used up', () => {
+      expect(spend({ item: 'lucky' }, 1)).toBe('short')
+    })
+  })
+
+  describe('checkRoll for Heroic Inspiration', () => {
+    it('lets the player use it while inspired, and gain it while not', () => {
+      expect(inspire('use', true)).toBeUndefined()
+      expect(inspire('gain', false)).toBeUndefined()
+    })
+
+    it('refuses using it without it, and gaining it with it', () => {
+      expect(inspire('use', false)).toBe('not-inspired')
+      expect(inspire('gain', true)).toBe('inspired')
+      expect(inspire('use')).toBe('not-inspired')
+    })
+  })
+
+  it.each([
+    [{ item: 'a' }, { item: 'a' }, true],
+    [{ item: 'a', activity: 'b' }, { item: 'a', activity: 'b' }, true],
+    [{ resource: 'primary' }, { resource: 'primary' }, true],
+    [{ item: 'a' }, { item: 'b' }, false],
+    [{ item: 'a' }, { item: 'a', activity: 'b' }, false],
+    [{ item: 'a', activity: 'b' }, { item: 'a', activity: 'c' }, false],
+    [{ resource: 'primary' }, { resource: 'secondary' }, false],
+    [{ resource: 'primary' }, { item: 'primary' }, false],
+    [undefined, undefined, false],
+    [{ item: 'a' }, undefined, false],
+  ] as const)('takes %j and %j for the same counter: %p', (a, b, same) => {
+    expect(sameCounter(a, b)).toBe(same)
+    expect(sameCounter(b, a)).toBe(same)
+  })
+
+  it.each([
+    ['endConcentration', 'Concentration ended'],
+    ['spend', 'Charges spent'],
+    ['inspiration', 'Heroic Inspiration'],
+  ])(
+    "calls the Gamemaster's %s from a page that didn't say %p",
+    (kind, label) => {
+      expect(
+        toGmRollView(
+          { ...held({ kind, status: 'done', result: null }), label: null },
+          NOW,
+        ).label,
+      ).toBe(label)
+    },
+  )
 })

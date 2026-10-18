@@ -642,6 +642,38 @@ describe('components/character-sheet/spells-tab', () => {
     expect(screen.getByText('Shield')).toBeInTheDocument()
   })
 
+  it('searches spells word by word, whatever their accents or quotes', async () => {
+    const user = userEvent.setup()
+    const sheet = rolling()
+    sheet.spells[1].spells.push(
+      sheetSpell({ id: 'melf', name: 'Mélf’s Acid Arrow', level: 2 }),
+    )
+    renderTab(sheet)
+    const search = screen.getByRole('searchbox', {
+      name: 'Search spells by name',
+    })
+    // 16px, so iOS doesn't zoom into it.
+    expect(search).toHaveClass('text-base')
+
+    await user.type(search, "melf's arrow")
+    expect(screen.getByText('1 spell found')).toHaveClass('sr-only')
+    expect(rows(screen.getByRole('region', { name: '1st Level' }))).toEqual([
+      expect.stringMatching(/^Mélf’s Acid Arrow/),
+    ])
+
+    // Each word anywhere in the name, in any order: of the two bolts, only Fire Bolt.
+    await user.clear(search)
+    await user.type(search, 'bolt fi')
+    expect(screen.getByText('1 spell found')).toBeInTheDocument()
+    expect(screen.getByText('Fire Bolt')).toBeInTheDocument()
+    expect(screen.queryByText('Witch Bolt')).toBeNull()
+
+    // Escape clears it first.
+    await user.keyboard('{Escape}')
+    expect(search).toHaveValue('')
+    expect(screen.getByText('Witch Bolt')).toBeInTheDocument()
+  })
+
   it('offers no search for four spells or fewer', () => {
     const sheet = fullerSheet()
     renderTab({

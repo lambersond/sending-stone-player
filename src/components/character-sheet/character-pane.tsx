@@ -18,6 +18,7 @@ import { useActionsLayout } from './actions-layout'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
 import { CharacterSheet } from './character-sheet'
+import { Concentrating, type ConcentrationActions } from './concentration'
 import {
   ConditionsOpener,
   rulesOf,
@@ -49,6 +50,7 @@ import {
   type Picked,
   type Picking,
 } from './use-picker'
+import { Charging, type ChargeActions } from './uses-button'
 import { Scroller } from '@/components/scroller'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
 import {
@@ -182,12 +184,16 @@ function RollingSheet({
   // roll whichever tab is open, Effects and Biography among them.
   const [prompted, setPrompted] = useState(false)
   const [described, setDescribed] = useState(false)
+  // And once they end a concentration, or spend a counter's charges, which they may from Effects
+  // too, a favorite's among them, as that rolls nothing.
+  const [acted, setActed] = useState(false)
   const {
     roll,
     rollDamage,
     rollFormula,
     logUse,
     logEnd,
+    logCharge,
     logAsk,
     rolls,
     rolling,
@@ -445,7 +451,8 @@ function RollingSheet({
     (ROLLING.has(tab) ||
       (showsFavorites && rollsAny(entries)) ||
       prompted ||
-      described)
+      described ||
+      acted)
   // The rolls' way to the game, and their damage to roll, as the banner, the toasts and the rolls'
   // button all offer it.
   const trayTable: TableRolls = {
@@ -519,6 +526,38 @@ function RollingSheet({
         table.sendEnd(logEnd(ended), { item, effect: id }, source),
     }),
   }
+  // The character's concentrations, each ended as dnd5e's Break Concentration ends it, while the
+  // game takes it from here, as it never does from the Gamemaster's page, where it would leave no
+  // mark; nothing goes to the game's chat.
+  const concentrating: ConcentrationActions = {
+    effects: sheet.concentration?.effects,
+    ...(table.takes('endConcentration') && {
+      end: ({ id, name: on }) => {
+        setActed(true)
+        table.sendEndConcentration(logEnd(`Concentration on ${on}`), id)
+      },
+    }),
+  }
+  // A counter's charges spent directly, and Heroic Inspiration used or gained, while the game takes
+  // them from here: each posts a line in the game's chat, the Gamemaster's marked as theirs.
+  const charging: ChargeActions = {
+    ...(table.takes('spend') && {
+      spend: (counter, count, counterName) => {
+        setActed(true)
+        table.sendSpend(logCharge(counterName, { spent: count }), {
+          counter,
+          count,
+        })
+      },
+    }),
+    ...(table.takes('inspiration') && {
+      inspire: inspiration =>
+        table.sendInspiration(
+          logCharge('Heroic Inspiration', { inspiration }),
+          inspiration,
+        ),
+    }),
+  }
   // A condition's chip opens its rules, where the app has them; else its place in Effects.
   const showCondition = (id: string) => {
     if (rulesOf(id)) conditions.show(id)
@@ -531,6 +570,8 @@ function RollingSheet({
       showConditions={conditions.show}
       descriptions={descriptions}
       enchanting={enchanting}
+      concentrating={concentrating}
+      charging={charging}
     >
       {/* A container, so the tabs show only their icons, but for the chosen one, where all their
           labels don't fit; the settings' cog after them, at the end of the row, and the rolls'
@@ -724,26 +765,35 @@ function RollingSheet({
 
 /**
  * What every part of the sheet inside knows of it: which of what it lists are favorites, how to
- * open its conditions panel, what the links in its descriptions do, and how enchantments end.
+ * open its conditions panel, what the links in its descriptions do, how enchantments and
+ * concentrations end, and how counters are spent and Heroic Inspiration changed.
  */
 function SheetContext({
   marks,
   showConditions,
   descriptions,
   enchanting,
+  concentrating,
+  charging,
   children,
 }: Readonly<{
   marks: ReadonlySet<string>
   showConditions: ShowConditions
   descriptions: DescriptionActions
   enchanting: EnchantActions
+  concentrating: ConcentrationActions
+  charging: ChargeActions
   children: ReactNode
 }>) {
   return (
     <FavoriteMarks keys={marks}>
       <ConditionsOpener show={showConditions}>
         <DescriptionLinks actions={descriptions}>
-          <Enchanting actions={enchanting}>{children}</Enchanting>
+          <Enchanting actions={enchanting}>
+            <Concentrating actions={concentrating}>
+              <Charging actions={charging}>{children}</Charging>
+            </Concentrating>
+          </Enchanting>
         </DescriptionLinks>
       </ConditionsOpener>
     </FavoriteMarks>

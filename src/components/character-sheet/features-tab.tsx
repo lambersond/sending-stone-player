@@ -11,7 +11,7 @@ import { enchantedEntry } from './enchantments'
 import { hitDiceText } from './hit-dice'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
-import { UsesLeft } from './uses-left'
+import { UsesButton } from './uses-button'
 import { featureAction } from '@/utils/sheet-actions'
 import type {
   SheetDamageRoll,
@@ -171,7 +171,7 @@ export function FeatureEntry({
         feature.activation ?? (feature.passive ? 'Passive' : undefined),
         feature.uses?.recovery,
       )}
-      aside={shown && <UsesLeft uses={shown} />}
+      aside={shown && <UsesButton uses={shown} name={feature.name} />}
       meta={meta}
       text={feature.text}
       origin={{ name: feature.name, item: feature.id }}

@@ -34,8 +34,16 @@ export type TableTarget = {
   name: string
   /** Only when the Gamemaster shares Gamemaster-only information. */
   ac?: number
-  /** For an attack, when the target's armor class is known. */
+  /**
+   * For an attack, whether it hit them: as the module says, from 0.29.0, where players see it in
+   * Foundry; or else, where their armor class is known, as the attack's total met it.
+   */
   outcome?: 'hit' | 'miss'
+  /**
+   * For a spell's saving throw, whether they saved, where players see it in Foundry, from module
+   * 0.29.0: as Midi-QOL's card says, or as their own save rolled from dnd5e's card came out.
+   */
+  save?: 'saved' | 'failed'
 }
 
 export type TableMessage = {
@@ -69,6 +77,11 @@ export type TableMessage = {
    */
   damage?: TableDamage[]
   targets: TableTarget[]
+  /**
+   * How it went, over more than one target, counting only those with a result: such as "Hit 2 of
+   * 3" or "3 of 8 saved", or both, joined by " · ". Absent where no target has one.
+   */
+  summary?: string
   /** For a roll request card, the saving throw or check it asks the table for. */
   ask?: TableAsk
   /** Made for a roll the campaign's Gamemaster made here as a character, as this app knows. */
@@ -154,6 +167,12 @@ export type TableCombatant = {
   initiative: number | null
   defeated: boolean
   side: Side
+  /**
+   * For one not of the party, how the game has its token disposed, from module 0.29.0: an ally,
+   * as a hireling the Gamemaster marked Friendly, or neutral. Unset for the rest, and for the
+   * party, who are allies whatever their token says.
+   */
+  stance?: 'ally' | 'neutral'
   /** Only for the party; a creature's hit points stay with the Gamemaster. */
   hp?: { value: number; max: number | null; temp: number }
 }

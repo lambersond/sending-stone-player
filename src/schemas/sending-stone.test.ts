@@ -2875,6 +2875,29 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  it.each([
+    ['friendly', 'friendly'],
+    ['neutral', 'neutral'],
+    ['hostile', 'hostile'],
+    [null, null],
+    // Never kept: what the game calls a secret one, by name or by number, or anything else.
+    ['secret', undefined],
+    [-2, undefined],
+    [1, undefined],
+    [undefined, undefined],
+  ])(
+    'reads a combatant disposed %p as %p, from module 0.29.0',
+    (sent, read) => {
+      const event = parseGameEvent('combat.combatant.updated', {
+        combatId: 'cmbt1',
+        combatant: { id: 'c1', name: 'Goblin', disposition: sent },
+      }) as any
+
+      expect(event.data.combatant.disposition).toBe(read)
+      expect(JSON.stringify(event)).not.toMatch(/secret|-2/)
+    },
+  )
+
   it('refuses a combat without its turn state', () => {
     expect(() =>
       parseGameEvent('combat.turn', { combat: { id: 'cmbt1' } }),
@@ -3499,5 +3522,219 @@ describe("The Gamemaster's rolls as a character, from module 0.23.0 (#156)", () 
       expect(claimOf(junk)).toBeUndefined()
     }
     expect(claimOf()).toBeUndefined()
+  })
+})
+
+/** A utility used on its user, saying what it spends, if anything. */
+const spendingUse = (spends?: unknown) => ({
+  id: 'spUtility',
+  type: 'utility',
+  targets: {
+    self: true,
+    area: false,
+    count: null,
+    perLevel: null,
+    affects: null,
+  },
+  ...(spends !== undefined && { spends }),
+})
+
+/** A save message's `dnd5e.save`, as read. */
+const saveOf = (save?: unknown) =>
+  messageWith({ roll: { type: 'save' }, save }).message.dnd5e.save
+
+/** As many characters' ids, as a save's readers. */
+const readerIds = (count: number) =>
+  Array.from({ length: count }, (_, index) => `actor-${index}`)
+
+describe('concentration, counters and outcomes, from module 0.29.0', () => {
+  const effect = { id: 'concBless0001', name: 'Bless', item: 'bless' }
+
+  it("reads a sheet's concentrations, dropping a malformed one, and none as none", () => {
+    expect(
+      readSheet(
+        characterSheet({
+          concentration: {
+            effects: [
+              effect,
+              {
+                id: 'concNoSource1',
+                name: 'Concentration With No Source',
+                item: null,
+              },
+              { id: 'not an id', name: 'Hex', item: 'hex' },
+              { id: 'concBlank0001', name: '  ', item: null },
+            ],
+          },
+        }),
+      ).concentration,
+    ).toEqual({
+      effects: [
+        effect,
+        {
+          id: 'concNoSource1',
+          name: 'Concentration With No Source',
+          item: null,
+        },
+      ],
+    })
+    expect(
+      readSheet(characterSheet({ concentration: { effects: [] } }))
+        .concentration,
+    ).toEqual({ effects: [] })
+    expect(readSheet(characterSheet()).concentration).toBeUndefined()
+    expect(
+      readSheet({ ...characterSheet(), concentration: 'Bless' }).concentration,
+    ).toBeUndefined()
+    // An item that can't be read is none, the concentration kept.
+    expect(
+      readSheet(
+        characterSheet({
+          concentration: { effects: [{ ...effect, item: 7 }] } as never,
+        }),
+      ).concentration,
+    ).toEqual({ effects: [{ ...effect, item: null }] })
+  })
+
+  it.each([
+    [{ item: 'sorcery' }],
+    [{ item: 'staff', activity: 'castStaff01' }],
+    [{ resource: 'primary' }],
+    [{ resource: 'secondary' }],
+    [{ resource: 'tertiary' }],
+  ])("reads uses' counter %j, and that they're spendable", counter => {
+    const uses = { value: 2, max: 3, recovery: null, counter, spendable: true }
+    for (const read of readRolls({ uses })) {
+      expect(read.uses).toEqual(uses)
+    }
+  })
+
+  it.each([
+    ['of an item and a resource', { item: 'sorcery', resource: 'primary' }],
+    ['of no such resource', { resource: 'fourth' }],
+    ['of an item not an id', { item: 'sorcery points' }],
+    ['of an activity not an id', { item: 'staff', activity: 'cast staff' }],
+    ['of anything else', { item: 'sorcery', uses: 2 }],
+    ['of no shape', 'sorcery'],
+  ])('reads a counter %s as none, the uses kept', (_name, counter) => {
+    for (const read of readRolls({
+      uses: { value: 2, max: 3, recovery: null, counter, spendable: true },
+    })) {
+      expect(read.uses).toEqual({
+        value: 2,
+        max: 3,
+        recovery: null,
+        spendable: true,
+      })
+    }
+  })
+
+  it.each([[false], ['yes'], [1], [null]])(
+    'reads spendable said as %p as not',
+    spendable => {
+      for (const read of readRolls({
+        uses: { value: 2, max: 3, recovery: null, spendable },
+      })) {
+        expect(read.uses).toEqual({ value: 2, max: 3, recovery: null })
+      }
+    },
+  )
+
+  it('reads what a use spends, dropping what it can’t read, and none as none', () => {
+    const [read] = readUse(
+      spendingUse([
+        { counter: { item: 'sorcery' }, amount: 1 },
+        { counter: { item: 'font', activity: 'regain01' }, amount: null },
+        { counter: { resource: 'primary' }, amount: 'lots' },
+        { counter: { item: 'not an id' }, amount: 1 },
+        { amount: 2 },
+      ]),
+    )
+    expect(read.spends).toEqual([
+      { counter: { item: 'sorcery' }, amount: 1 },
+      { counter: { item: 'font', activity: 'regain01' }, amount: null },
+      { counter: { resource: 'primary' }, amount: null },
+    ])
+    expect(readUse(spendingUse())[0]).not.toHaveProperty('spends')
+    expect(readUse(spendingUse('sorcery'))[0].spends).toEqual([])
+  })
+
+  it('reads no more than 20 of what a use spends', () => {
+    const spends = Array.from({ length: 21 }, (_, index) => ({
+      counter: { item: `counter${index}` },
+      amount: 1,
+    }))
+    const [read] = readUse(spendingUse(spends))
+    expect(read.spends).toEqual(spends.slice(0, 20))
+  })
+
+  it("reads each target's uuid, whether it was hit and whether it saved, dropping junk", () => {
+    const { message } = messageWith({
+      targets: [
+        { name: 'Goblin', uuid: 'Actor.gob', outcome: 'hit', save: 'failure' },
+        { name: 'Orc', uuid: 'Actor.orc', outcome: 'miss', save: 'success' },
+        { name: 'Kobold', uuid: 7, outcome: 'crit', save: true },
+        { name: 'Bat' },
+      ],
+    })
+
+    expect(message.dnd5e.targets).toEqual([
+      { name: 'Goblin', uuid: 'Actor.gob', outcome: 'hit', save: 'failure' },
+      { name: 'Orc', uuid: 'Actor.orc', outcome: 'miss', save: 'success' },
+      { name: 'Kobold' },
+      { name: 'Bat' },
+    ])
+  })
+
+  it("reads a save's creature, outcome and readers; a readers list it can't read drops it all", () => {
+    expect(saveOf({ target: 'Actor.gob', outcome: 'failure' })).toEqual({
+      target: 'Actor.gob',
+      outcome: 'failure',
+    })
+    expect(
+      saveOf({
+        target: 'Actor.gob',
+        outcome: 'success',
+        readers: ['actor-vex'],
+      }),
+    ).toEqual({
+      target: 'Actor.gob',
+      outcome: 'success',
+      readers: ['actor-vex'],
+    })
+    expect(saveOf({ target: 'Actor.gob' })).toEqual({ target: 'Actor.gob' })
+    expect(saveOf({ target: 'Actor.gob', outcome: 'resisted' })).toEqual({
+      target: 'Actor.gob',
+    })
+    // Never shown to everyone for a list it couldn't read.
+    expect(
+      saveOf({ target: 'Actor.gob', outcome: 'success', readers: 'actor-vex' }),
+    ).toBeUndefined()
+    expect(
+      saveOf({ target: 'Actor.gob', outcome: 'success', readers: [7] }),
+    ).toBeUndefined()
+    expect(saveOf({ outcome: 'success' })).toBeUndefined()
+    expect(saveOf()).toBeUndefined()
+  })
+
+  it('reads as many as 200 readers of a save, and drops it all for more', () => {
+    expect(
+      saveOf({
+        target: 'Actor.gob',
+        outcome: 'success',
+        readers: readerIds(200),
+      }),
+    ).toEqual({
+      target: 'Actor.gob',
+      outcome: 'success',
+      readers: readerIds(200),
+    })
+    expect(
+      saveOf({
+        target: 'Actor.gob',
+        outcome: 'success',
+        readers: readerIds(201),
+      }),
+    ).toBeUndefined()
   })
 })

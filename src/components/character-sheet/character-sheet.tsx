@@ -12,12 +12,15 @@ import {
   Star,
   Zap,
 } from 'lucide-react'
+import { ConcentrationChip } from './concentration'
 import { useD20Rolls, type RollActions } from './d20-rolls'
 import { conditionDetail } from './effects-tab'
 import { useFavorite } from './favorite-mark'
 import { HitDiceList, hitDieSpending, type HitDieSpending } from './hit-dice'
 import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
+import { useCharging } from './uses-button'
+import { ConfirmModal } from '@/components/modal'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
 import { isDying } from '@/utils/roll-requests'
@@ -170,23 +173,14 @@ function SheetHeader({
               {identity.join(' · ')}
             </p>
           )}
-          {sheet.inspiration && (
-            <p className='mt-1 inline-flex items-center gap-1 text-xs font-semibold text-gold-text'>
-              <Sparkles aria-hidden className='size-3.5' />
-              Inspired
-            </p>
-          )}
+          <Inspiration inspired={sheet.inspiration} />
         </div>
       </div>
       {sheet.conditions.length > 0 && (
         <ul aria-label='Conditions' className='flex flex-wrap gap-1.5'>
-          {sheet.conditions.map(condition => (
-            <li key={condition.id}>
-              <button
-                type='button'
-                onClick={() => onShowConditions?.(condition.id)}
-                className='inline-flex items-center gap-1.5 rounded-full border border-border bg-page py-1 pr-2.5 pl-1 text-xs font-semibold transition-colors hover:border-primary hover:bg-primary/5'
-              >
+          {sheet.conditions.map(condition => {
+            const chip = (
+              <>
                 <StatusIcon src={condition.img} />
                 {condition.name}
                 {conditionDetail(condition) && (
@@ -194,9 +188,30 @@ function SheetHeader({
                     {conditionDetail(condition)}
                   </span>
                 )}
+              </>
+            )
+            const opener = (
+              <button
+                type='button'
+                onClick={() => onShowConditions?.(condition.id)}
+                className={CHIP}
+              >
+                {chip}
               </button>
-            </li>
-          ))}
+            )
+            return (
+              <li key={condition.id}>
+                {/* Concentrating has no rules here to open: it ends what's concentrated on. */}
+                {condition.id === CONCENTRATING ? (
+                  <ConcentrationChip className={CHIP} fallback={opener}>
+                    {chip}
+                  </ConcentrationChip>
+                ) : (
+                  opener
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
       {/* The hit points and the hit dice side by side, however wide the sheet; while the
@@ -313,6 +328,75 @@ function SheetHeader({
     </header>
   )
 }
+
+/**
+ * Whether the character has Heroic Inspiration: while the game takes it from here, from module
+ * 0.29.0, a button that uses it, or gains it, once the player says so, as dnd5e's sheet's does,
+ * the game's chat saying so; else, as before, a mark only while they have it.
+ */
+function Inspiration({ inspired }: Readonly<{ inspired: boolean }>) {
+  const { inspire } = useCharging()
+  const [open, setOpen] = useState(false)
+  // What the confirm was opened to do, which it asks and does however the sheet changes while it's
+  // open: the Gamemaster granting it meanwhile never turns the player's gain into a use.
+  const [asked, setAsked] = useState<'use' | 'gain'>('use')
+  const mark = (
+    <>
+      <Sparkles aria-hidden className='size-3.5' />
+      Inspired
+    </>
+  )
+  if (!inspire) {
+    return (
+      inspired && (
+        <p className='mt-1 inline-flex items-center gap-1 text-xs font-semibold text-gold-label'>
+          {mark}
+        </p>
+      )
+    )
+  }
+  const label = inspired
+    ? 'Inspired. Use Heroic Inspiration'
+    : 'Not inspired. Gain Heroic Inspiration'
+  const verb = asked === 'use' ? 'Use' : 'Gain'
+  return (
+    <div className='mt-1'>
+      <button
+        type='button'
+        aria-label={label}
+        title={label}
+        onClick={() => {
+          setAsked(inspired ? 'use' : 'gain')
+          setOpen(true)
+        }}
+        className={clsx(
+          '-mx-1.5 inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-semibold transition-colors hover:bg-primary/5',
+          inspired ? 'text-gold-label' : 'text-text-secondary',
+        )}
+      >
+        {inspired ? mark : 'Not inspired'}
+      </button>
+      <ConfirmModal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`${verb} Heroic Inspiration?`}
+        confirmLabel={verb}
+        onConfirm={async () => {
+          inspire(asked)
+        }}
+      >
+        <p>Foundry’s chat will say so.</p>
+      </ConfirmModal>
+    </div>
+  )
+}
+
+/** The look of a condition's chip in the header. */
+const CHIP =
+  'inline-flex items-center gap-1.5 rounded-full border border-border bg-page py-1 pr-2.5 pl-1 text-xs font-semibold transition-colors hover:border-primary hover:bg-primary/5'
+
+/** dnd5e's status of a character concentrating, as the sheet's conditions name it. */
+const CONCENTRATING = 'concentrating'
 
 /**
  * A condition's icon. The game's status icons are white, made for its dark token controls, so they

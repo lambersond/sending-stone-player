@@ -646,6 +646,20 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
     })
   })
 
+  it('offers the Gamemaster charges spent and Heroic Inspiration, from module 0.29.0, but never a concentration ended', async () => {
+    const kinds = ['skill', 'endConcentration', 'spend', 'inspiration']
+    givenCampaign(taking(['gmRolls'], kinds))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend', 'inspiration'],
+    })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend', 'inspiration'],
+    })
+  })
+
   it('tells the player and the Gamemaster at the sheet that players may enter their dice results, from module 0.26.0, while the game takes rolls', async () => {
     givenCampaign(taking(['gmRolls', 'manualDice']))
     await expect(getTableView(character)).resolves.toMatchObject({

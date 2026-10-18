@@ -21,6 +21,7 @@ import {
   availableRollKinds,
   checkDamage,
   checkRoll,
+  GM_UNSENT,
   toCommand,
   toRollRequestView,
   type HeldRollRequest,
@@ -104,12 +105,12 @@ export async function createRollRequest(
     },
   })
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
-  // and ending an enchantment is no roll, so it would leave no mark: the Gamemaster ends one in
-  // Foundry.
+  // and ending an enchantment or a concentration is no roll, and posts nothing, so it would leave
+  // no mark: the Gamemaster ends one in Foundry. Charges spent and Heroic Inspiration post a line
+  // marked as theirs, so they're the Gamemaster's to send too.
   if (
     seat.role === 'gm' &&
-    (!campaign?.rollFeatures.includes('gmRolls') ||
-      input.kind === 'endEnchantment')
+    (!campaign?.rollFeatures.includes('gmRolls') || GM_UNSENT.has(input.kind))
   ) {
     return { status: 409, reason: 'unavailable' }
   }

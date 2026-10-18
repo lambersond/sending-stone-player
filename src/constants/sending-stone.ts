@@ -102,7 +102,9 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * spent at once, of one size or more (module 0.20.0); and from a link in a description, the table
  * asked for the saving throw it calls for, its damage or healing, or a roll of its own (module
  * 0.17.0), or for the check it calls for (module 0.18.0); and an enchantment on one of the
- * character's items ended, such as Magic Weapon's, or a Flame Tongue's put out (module 0.21.0).
+ * character's items ended, such as Magic Weapon's, or a Flame Tongue's put out (module 0.21.0);
+ * and from module 0.29.0, a concentration of the character's ended, a feature's, an item's or a
+ * resource's charges spent directly, or Heroic Inspiration used or gained, none of them a roll.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -121,7 +123,16 @@ export const ROLL_KINDS = [
   'textDamage',
   'textRoll',
   'endEnchantment',
+  'endConcentration',
+  'spend',
+  'inspiration',
 ] as const
+
+/**
+ * The most charges spent at once, from module 0.29.0: more than any counter has, so that the
+ * counter's own count is what holds a spend back.
+ */
+export const MAX_SPEND = 999
 
 /**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a

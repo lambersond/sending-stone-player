@@ -370,6 +370,11 @@ function reasonsOf(role: SeatRole): Record<string, string> {
     applied: 'that enchantment is on it already',
     enchant: `it was used, but the enchantment wasn’t applied: ${applies}`,
     enchantment: 'that enchantment can’t be ended from here',
+    concentration: 'that concentration has already ended',
+    uses: 'that can’t be spent from Sending Stone',
+    short: 'you haven’t that many left',
+    'not-inspired': 'you have no Heroic Inspiration to use',
+    inspired: 'you have Heroic Inspiration already',
   }
 }
 
@@ -1215,7 +1220,7 @@ function UseStatus({
 
 /**
  * Where a use is on its way to the game, or what became of it, in words: for an enchant activity,
- * the enchantment it applied, and on what.
+ * the enchantment it applied, and on what. Charges spent say how many, as they go and once spent.
  */
 function usedWords(
   roll: LocalUse,
@@ -1223,12 +1228,15 @@ function usedWords(
   role: SeatRole,
 ): string {
   let verb = roll.spell ? 'Cast' : 'Used'
-  let doing = roll.spell ? 'Casting' : 'Using'
-  if (roll.ending) [verb, doing] = ['Ended', 'Ending']
+  let doing = roll.spell ? 'Casting it' : 'Using it'
+  if (roll.ending) [verb, doing] = ['Ended', 'Ending it']
+  if (roll.inspiration === 'gain') [verb, doing] = ['Gained', 'Gaining it']
+  if (roll.spent !== undefined)
+    [verb, doing] = ['Spent', `Spending ${roll.spent}`]
   switch (state.status) {
     case 'sending':
     case 'rolling': {
-      return onItsWay(state, role, `${doing} it`)
+      return onItsWay(state, role, doing)
     }
     case 'done': {
       const { damage } = state
@@ -1237,7 +1245,8 @@ function usedWords(
         ? undefined
         : enchantmentNote(state.enchantment)
       return [
-        `${verb} at the table`,
+        roll.spent === undefined ? verb : `${verb} ${roll.spent}`,
+        ' at the table',
         follows
           ? `, its ${damage.healing ? 'healing' : 'damage'} to follow`
           : '',
@@ -1350,12 +1359,27 @@ export function GmPill() {
 
 /**
  * What a roll of the Gamemaster's as the character is told as (#156): a use or an ask, as the
- * player's own are; damage; or else a roll with a total, as a check is.
+ * player's own are, charges spent or Heroic Inspiration as a use, from module 0.29.0, as they have
+ * no total; damage; or else a roll with a total, as a check is.
  */
 function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
   if (roll.rolled === 'use' || roll.rolled === 'ask') return roll.rolled
+  if (roll.rolled === 'spend' || roll.rolled === 'inspiration') return 'use'
   if (roll.rolled === 'damage' || roll.rolled === 'textDamage') return 'damage'
   return 'check'
+}
+
+/**
+ * What's said of a use of the Gamemaster's as the character as it goes, and once done: of charges
+ * spent, that they were; of Heroic Inspiration, which their page doesn't say was used or gained,
+ * that it changed; of anything else, that it was used.
+ */
+function gmVerbs(roll: LocalGmRoll): { doing: string; done: string } {
+  if (roll.rolled === 'spend') return { doing: 'Spending', done: 'Spent' }
+  if (roll.rolled === 'inspiration') {
+    return { doing: 'Changing', done: 'Changed' }
+  }
+  return { doing: 'Using', done: 'Used' }
 }
 
 /**
@@ -1387,7 +1411,7 @@ function gmLine(
     case 'sending':
     case 'rolling': {
       let doing = 'Rolling'
-      if (shape === 'use') doing = 'Using it'
+      if (shape === 'use') doing = `${gmVerbs(roll).doing} it`
       if (shape === 'ask') doing = 'Posting it'
       return { tone, text: onItsWay(state, role, doing) }
     }
@@ -1396,7 +1420,7 @@ function gmLine(
         const enchanted = enchantmentNote(state.enchantment)
         return {
           tone,
-          text: `Used at the table${enchanted ? ` ${enchanted}` : ''}`,
+          text: `${gmVerbs(roll).done} at the table${enchanted ? ` ${enchanted}` : ''}`,
         }
       }
       if (shape === 'ask') return { tone, text: 'Posted to the table’s chat' }
@@ -1409,7 +1433,9 @@ function gmLine(
       const reason = reasonOf(state, role)
       const { together } = state
       let made = 'Not made at the table'
-      if (shape === 'use') made = 'Not used at the table'
+      if (shape === 'use') {
+        made = `Not ${gmVerbs(roll).done.toLowerCase()} at the table`
+      }
       if (shape === 'ask') made = 'Not posted to the table'
       if (together?.made) {
         made = `${together.made} of ${together.count} made at the table. Not the rest`
@@ -1621,6 +1647,8 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'gm') return GM_WORDS_AFTER
   if (roll.kind === 'use') {
     if (roll.ending) return 'ended'
+    if (roll.spent !== undefined) return `spent ${roll.spent}`
+    if (roll.inspiration === 'gain') return 'gained'
     return roll.spell ? 'cast' : 'used'
   }
   if (roll.kind === 'ask') return 'asked'
