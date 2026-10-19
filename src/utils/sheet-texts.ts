@@ -1,3 +1,4 @@
+import type { GroupSheet } from '@/types/party'
 import type {
   CharacterSheet,
   SheetActivity,
@@ -41,6 +42,20 @@ export function sheetTextRefs(sheet: Partial<CharacterSheet>): string[] {
 }
 
 /**
+ * The descriptions a group's sheet refers to, by hash (module 0.30.0): its own, in full and in
+ * summary, and its items', those in containers too. Its items have nothing to roll or use, so
+ * nothing else.
+ */
+export function groupTextRefs(sheet: Partial<GroupSheet>): string[] {
+  const refs = [
+    sheet.description?.full,
+    sheet.description?.summary,
+    ...allItems(sheet).map(item => item.text),
+  ]
+  return [...new Set(refs.filter(ref => typeof ref === 'string'))]
+}
+
+/**
  * The descriptions what an action, item, feature or spell does refers to: of a spell it casts,
  * and of each of its activities, their own and the spell each casts.
  */
@@ -58,7 +73,9 @@ function activityRefs(entry: {
 }
 
 /** Every item on a sheet: by type, the containers, and what they hold, however deep. */
-export function allItems(sheet: Partial<CharacterSheet>): SheetItem[] {
+export function allItems(
+  sheet: Pick<Partial<CharacterSheet>, 'inventory'>,
+): SheetItem[] {
   const inventory = sheet.inventory
   if (!inventory) return []
   const withContents = (item: SheetItem | SheetContainer): SheetItem[] => [

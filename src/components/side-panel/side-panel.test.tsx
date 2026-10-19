@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import Link from 'next/link'
 import { SidePanel } from './side-panel'
 
 describe('components/side-panel', () => {
@@ -35,6 +36,38 @@ describe('components/side-panel', () => {
       </SidePanel>,
     )
     expect(dialog.open).toBe(false)
+  })
+
+  it('shows its actions beside the Close button, only while open', () => {
+    const { rerender } = render(
+      <SidePanel
+        open
+        onClose={jest.fn()}
+        title='The Company'
+        actions={<Link href='/characters/c/party/company'>Open as page</Link>}
+      >
+        <p>Members</p>
+      </SidePanel>,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: 'The Company' })
+    const link = within(dialog).getByRole('link', { name: 'Open as page' })
+    const close = within(dialog).getByRole('button', { name: 'Close' })
+    // Between the title and the Close button, in the panel's header.
+    expect(link.parentElement?.nextElementSibling).toBe(close)
+    expect(link.closest('header')).toContainElement(close)
+
+    rerender(
+      <SidePanel
+        open={false}
+        onClose={jest.fn()}
+        title='The Company'
+        actions={<Link href='/characters/c/party/company'>Open as page</Link>}
+      >
+        <p>Members</p>
+      </SidePanel>,
+    )
+    expect(screen.queryByRole('link', { name: 'Open as page' })).toBeNull()
   })
 
   it('closes from its button, beside it and Escape, but not from inside', async () => {

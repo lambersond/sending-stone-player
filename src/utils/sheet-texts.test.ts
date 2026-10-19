@@ -1,8 +1,10 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { sheetTextRefs } from './sheet-texts'
+import { groupTextRefs, sheetTextRefs } from './sheet-texts'
 import {
   characterSheet,
   fullerSheet,
+  GROUP_TEXTS,
+  groupSheet,
   sheetAction,
   sheetFavorites,
   sheetItem,
@@ -167,5 +169,29 @@ describe('utils/sheet-texts', () => {
     sheet.favorites = sheetFavorites()
 
     expect(sheetTextRefs(sheet)).toEqual(sheetTextRefs(fullerSheet()))
+  })
+})
+
+describe('utils/sheet-texts groupTextRefs (module 0.30.0)', () => {
+  it("counts a group's descriptions, in full and in summary, and its items', those in containers too", () => {
+    const sheet = groupSheet()
+    sheet.inventory.containers[0].contents?.push(
+      sheetItem({ id: 'ring', name: 'Ring', text: text(1) }),
+    )
+
+    expect(groupTextRefs(sheet).toSorted()).toEqual(
+      [...Object.values(GROUP_TEXTS), text(1)].toSorted(),
+    )
+  })
+
+  it('counts none for a group with no descriptions', () => {
+    expect(
+      groupTextRefs({
+        ...groupSheet(),
+        description: { full: null, summary: null },
+        inventory: { ...groupSheet().inventory, sections: [], containers: [] },
+      }),
+    ).toEqual([])
+    expect(groupTextRefs({})).toEqual([])
   })
 })

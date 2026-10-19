@@ -1,7 +1,19 @@
 /* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
 import { prismaMock } from '../../jest.setup'
-import { getSheetText, saveSheetTexts } from './sheet-texts'
-import { fullerSheet, TEXTS } from '@/mocks/sending-stone'
+import {
+  getGroupText,
+  getSheetText,
+  keepOnlySheetTexts,
+  lacksSheetTexts,
+  saveSheetTexts,
+} from './sheet-texts'
+import {
+  fullerSheet,
+  GROUP_TEXTS,
+  groupSheet,
+  TEXTS,
+} from '@/mocks/sending-stone'
+import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
 import type { Character } from '@/types/character'
 
 const character = {
@@ -85,5 +97,76 @@ describe('db/sheet-texts', () => {
         getSheetText(character, TEXTS.secondWind),
       ).resolves.toBeUndefined()
     })
+  })
+})
+
+describe('db/sheet-texts, for groups (module 0.30.0)', () => {
+  const company = { campaignId: 'c1', groupId: 'company' }
+
+  it("keeps the descriptions of a campaign's characters' and its groups' sheets together", async () => {
+    await keepOnlySheetTexts(
+      prismaMock as any,
+      'c1',
+      [fullerSheet()],
+      [groupSheet()],
+    )
+
+    const { hash } = prismaMock.sheetText.deleteMany.mock.calls[0][0]!
+      .where as {
+      hash: { notIn: string[] }
+    }
+    expect(hash.notIn.toSorted()).toEqual(
+      [
+        ...sheetTextRefs(fullerSheet()),
+        ...groupTextRefs(groupSheet()),
+      ].toSorted(),
+    )
+  })
+
+  it("says whether a group's sheet refers to a description not held", async () => {
+    prismaMock.sheetText.count.mockResolvedValue(4)
+    await expect(
+      lacksSheetTexts(prismaMock as any, 'c1', [], [groupSheet()]),
+    ).resolves.toBe(false)
+
+    prismaMock.sheetText.count.mockResolvedValue(3)
+    await expect(
+      lacksSheetTexts(prismaMock as any, 'c1', [], [groupSheet()]),
+    ).resolves.toBe(true)
+    expect(prismaMock.sheetText.count).toHaveBeenLastCalledWith({
+      where: { campaignId: 'c1', hash: { in: groupTextRefs(groupSheet()) } },
+    })
+  })
+
+  it("gives a description on the group's own sheet", async () => {
+    prismaMock.groupSheet.findUnique.mockResolvedValue({
+      data: groupSheet(),
+    } as any)
+    prismaMock.sheetText.findUnique.mockResolvedValue({
+      html: '<p>Thirteen dwarves and a hobbit.</p>',
+    } as any)
+
+    await expect(getGroupText(company, GROUP_TEXTS.description)).resolves.toBe(
+      '<p>Thirteen dwarves and a hobbit.</p>',
+    )
+    expect(prismaMock.groupSheet.findUnique).toHaveBeenCalledWith({
+      where: { campaignGroup: { campaignId: 'c1', actorId: 'company' } },
+      select: { data: true },
+    })
+  })
+
+  it("gives none its sheet doesn't refer to, nor any without a sheet", async () => {
+    prismaMock.groupSheet.findUnique.mockResolvedValue({
+      data: groupSheet(),
+    } as any)
+
+    await expect(
+      getGroupText(company, TEXTS.secondWind),
+    ).resolves.toBeUndefined()
+    prismaMock.groupSheet.findUnique.mockResolvedValue(null)
+    await expect(
+      getGroupText(company, GROUP_TEXTS.description),
+    ).resolves.toBeUndefined()
+    expect(prismaMock.sheetText.findUnique).not.toHaveBeenCalled()
   })
 })

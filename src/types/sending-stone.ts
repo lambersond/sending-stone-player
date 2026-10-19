@@ -1,4 +1,6 @@
 import type { PROMPT_SOURCES } from '@/constants/sending-stone'
+import type { FoundrySettings } from '@/types/foundry-settings'
+import type { GroupEntry, GroupSheet } from '@/types/party'
 
 /**
  * What the fvtt-sending-stone module sends, as far as this app reads it. Payloads may carry more
@@ -1008,9 +1010,12 @@ export type Dnd5eMessageData = {
   originatingMessage?: string | null
   /**
    * For a save rolled from dnd5e's card for a save activity, from module 0.29.0: whose it is, and
-   * whether it succeeded, where players see that in Foundry. Absent for any other message.
+   * whether it succeeded, where players see that in Foundry; from module 0.30.0, for a saving
+   * throw from anywhere. Absent for any other message.
    */
   save?: Dnd5eSave
+  /** The same for an ability, skill or tool check, from module 0.30.0. */
+  check?: Dnd5eCheck
 }
 
 /**
@@ -1036,6 +1041,9 @@ export type Dnd5eSave = {
   outcome?: 'success' | 'failure'
   readers?: string[]
 }
+
+/** A check, from module 0.30.0: its creature, whether it succeeded and who may know, as a save. */
+export type Dnd5eCheck = Dnd5eSave
 
 /**
  * The saving throw a roll request card asks the table for: one the Gamemaster posted from a
@@ -1383,6 +1391,8 @@ export type GameEvent =
       type: 'bridge.hello'
       data: {
         characters: ConnectedCharacter[]
+        /** The campaign's Group actors, without their sheets, which follow it. Module 0.30.0. */
+        groups?: GroupEntry[]
         combats: CombatSnapshot[]
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */
@@ -1392,6 +1402,12 @@ export type GameEvent =
          * 0.22.0.
          */
         sheetsApart?: boolean
+        /** Sending Stone's id and version in Foundry. */
+        module?: { id: string; version: string | null }
+        foundry?: { version: string; generation?: number | null }
+        system?: { id: string; title: string; version: string }
+        /** The Foundry settings that decide what it sends, for the Gamemaster. Module 0.30.0. */
+        settings?: FoundrySettings
       }
     }
   | { type: 'character.updated'; data: { character: ConnectedCharacter } }
@@ -1422,3 +1438,14 @@ export type GameEvent =
   | { type: 'command.result'; data: CommandResult }
   | { type: 'roll.prompt.opened'; data: { prompt: GamePrompt } }
   | { type: 'roll.prompt.closed'; data: { id: string; reason: string } }
+  | {
+      type: 'group.updated'
+      data: {
+        group: GroupEntry & {
+          sheet: GroupSheet | null
+          sheetWithheld?: SheetWithheld
+        }
+      }
+    }
+  | { type: 'group.removed'; data: { id: string } }
+  | { type: 'bridge.settings'; data: { settings?: FoundrySettings } }

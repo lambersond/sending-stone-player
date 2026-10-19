@@ -11,6 +11,8 @@ type Props = {
   title: string
   /** Under the title, such as where its content comes from. */
   subtitle?: string
+  /** Beside the Close button, such as a link to open its content as a page. */
+  actions?: ReactNode
   children: ReactNode
 }
 
@@ -26,6 +28,7 @@ export function SidePanel({
   onClose,
   title,
   subtitle,
+  actions,
   children,
 }: Readonly<Props>) {
   const ref = useModalDialog(open)
@@ -54,6 +57,11 @@ export function SidePanel({
                   <p className='text-xs text-text-secondary'>{subtitle}</p>
                 )}
               </div>
+              {actions && (
+                <div className='ml-auto flex shrink-0 items-center gap-1'>
+                  {actions}
+                </div>
+              )}
               <button
                 type='button'
                 onClick={onClose}

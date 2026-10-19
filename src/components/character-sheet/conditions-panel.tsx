@@ -16,11 +16,14 @@ export type ShowConditions = (id?: string) => void
 
 const Opener = createContext<ShowConditions | undefined>(undefined)
 
-/** Has every part of the sheet inside open the sheet's conditions panel with `show`. */
+/**
+ * Has every part of the sheet inside open the sheet's conditions panel with `show`; none, given
+ * none, as inside a party's sheet, which has no conditions panel.
+ */
 export function ConditionsOpener({
   show,
   children,
-}: Readonly<{ show: ShowConditions; children: ReactNode }>) {
+}: Readonly<{ show: ShowConditions | undefined; children: ReactNode }>) {
   return <Opener value={show}>{children}</Opener>
 }
 

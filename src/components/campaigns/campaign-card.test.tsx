@@ -20,6 +20,7 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
     prompts: false,
   },
   characters: [],
+  groups: [],
   ...fields,
 })
 
@@ -415,5 +416,29 @@ describe('components/campaigns/campaign-card', () => {
     expect(screen.getByText("Players' rolls").nextSibling).toHaveTextContent(
       text,
     )
+  })
+
+  it('lists its party sheets after its characters, and nothing of them without any (module 0.30.0)', () => {
+    renderCard({
+      groups: [
+        { id: 'company', name: 'The Company', primary: true, shared: false },
+      ],
+    })
+
+    const parties = screen.getByRole('heading', { name: 'Party sheets' })
+    const characters = screen.getByRole('heading', { name: 'Characters' })
+    expect(
+      characters.compareDocumentPosition(parties) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: "Open The Company's party sheet" }),
+    ).toHaveAttribute('href', '/campaigns/c1/party/company')
+  })
+
+  it('has no party sheets section for a campaign without groups', () => {
+    renderCard()
+
+    expect(screen.queryByRole('heading', { name: 'Party sheets' })).toBeNull()
   })
 })

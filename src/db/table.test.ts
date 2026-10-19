@@ -165,6 +165,7 @@ describe('db/table', () => {
           worldTitle: true,
           lastSeenAt: true,
           characters: true,
+          groups: true,
           rollsEnabled: true,
           rollKinds: true,
           rollFeatures: true,

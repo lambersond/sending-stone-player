@@ -1,3 +1,5 @@
+import type { FoundrySnapshot } from '@/types/foundry-settings'
+
 /** A campaign as its Gamemaster sees it on their campaigns page. */
 export type OwnedCampaign = {
   id: string
@@ -14,6 +16,11 @@ export type OwnedCampaign = {
   lastSeenAt?: string
   /** The latest post from Foundry refused for it in the last day, which its card explains. */
   refusal?: CampaignRefusal
+  /**
+   * What Foundry last said of itself for it: its versions, and from module 0.30.0 its settings and
+   * what players see in chat. Unset until a hello is applied.
+   */
+  foundry?: FoundrySnapshot
   /**
    * Whether players' rolls are made in the game, with the dice they roll here: turned on in
    * Foundry, whether the game is fetching them now, whether their attacks, and their spells and
@@ -34,6 +41,11 @@ export type OwnedCampaign = {
     player?: string
     characterId?: string
   }[]
+  /**
+   * Its Group actors, such as its party, from module 0.30.0: whether each is dnd5e's primary
+   * party, and whether any of its players may see it in Foundry.
+   */
+  groups: { id: string; name: string; primary: boolean; shared: boolean }[]
 }
 
 /**

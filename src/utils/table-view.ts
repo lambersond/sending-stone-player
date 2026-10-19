@@ -11,6 +11,7 @@ import type {
   CharacterSheet,
   CombatantSummary,
   CombatSnapshot,
+  Dnd5eCheck,
   Dnd5eSave,
   Dnd5eTarget,
   MessageAsk,
@@ -698,6 +699,7 @@ function speakerOf(message: SerializedMessage): string {
  * Who a message was aimed at, as the chat shows them:
  * - a save rolled from dnd5e's card, from module 0.29.0, its own creature alone, named as the card
  *   names it, else as it speaks, saying whether it saved, where the viewer may know;
+ * - a check, from module 0.30.0, the same, saying whether it succeeded;
  * - else its own targets, each with whether they saved, where the viewer may know that of their
  *   latest save rolled from it (`savesByCard`);
  * - else, for damage or a save rolled from a card, as from an older module, the card's, as they
@@ -719,6 +721,15 @@ function targetsOf(
     const seen = outcome && readsOutcome(save, viewer)
     return [{ name, ...(seen && { save: SAVED[outcome] }) }]
   }
+  const check = dnd5e?.check
+  if (check) {
+    const name =
+      card?.dnd5e?.targets.find(({ uuid }) => uuid === check.target)?.name ??
+      speakerOf(message)
+    const { outcome } = check
+    const seen = outcome && readsOutcome(check, viewer)
+    return [{ name, ...(seen && { check: outcome }) }]
+  }
   const own = dnd5e?.targets ?? []
   if (own.length > 0) {
     return toTargets(
@@ -736,10 +747,10 @@ function targetsOf(
 }
 
 /**
- * May the viewer know how a save came out: where the module names no characters whose players
- * alone may, or names theirs?
+ * May the viewer know how a save or check came out: where the module names no characters whose
+ * players alone may, or names theirs?
  */
-function readsOutcome(save: Dnd5eSave, viewer: Viewer): boolean {
+function readsOutcome(save: Dnd5eSave | Dnd5eCheck, viewer: Viewer): boolean {
   return (
     save.readers === undefined ||
     (!!viewer.actorId && save.readers.includes(viewer.actorId))
@@ -1105,8 +1116,11 @@ const BEFORE_0_7_0: Pick<
 }
 /* eslint-enable unicorn/no-null */
 
-/** The inventory, with its items' icons, those in containers too, loading from the game. */
-function inventoryView(
+/**
+ * The inventory, with its items' icons, those in containers too, loading from the game: a
+ * character's, or a group's (module 0.30.0).
+ */
+export function inventoryView(
   inventory: SheetInventory,
   origin: string,
 ): SheetInventory {
