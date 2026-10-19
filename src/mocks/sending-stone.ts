@@ -1,4 +1,6 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
+import type { GroupEntry, GroupSheet } from '@/types/party'
 import type {
   CharacterSheet,
   CombatantSummary,
@@ -1806,4 +1808,253 @@ export function chargingSheet(
     ],
     ...fields,
   })
+}
+
+/* -------------------------------------------- */
+/*  Groups (module 0.30.0)                      */
+/* -------------------------------------------- */
+
+/** Hashes for a party's descriptions, as the module names them: 14 hexadecimal digits. */
+export const GROUP_TEXTS = {
+  description: 'b4c5d6e7f8091a',
+  summary: 'c5d6e7f8091a2b',
+  map: 'd6e7f8091a2b3c',
+  chest: 'e7f8091a2b3c4d',
+} as const
+
+/** A campaign's characters' actor ids as Foundry makes them, as a group's access names them. */
+export const PARTY = { thorin: 'thorin', vex: 'vex', balin: 'balin' } as const
+
+/**
+ * The Company, a party Group actor as a hello from module 0.30.0 lists it: dnd5e's primary party,
+ * which Thorin's player owns and Vex's observes; Balin's has only Limited, so none.
+ */
+export function groupEntry(fields: Partial<GroupEntry> = {}): GroupEntry {
+  return {
+    id: 'company',
+    uuid: 'Actor.company',
+    name: 'The Company',
+    img: 'worlds/erebor/company.webp',
+    type: 'group',
+    primary: true,
+    access: { [PARTY.thorin]: 'owner', [PARTY.vex]: 'observer' },
+    ...fields,
+  }
+}
+
+/**
+ * The Company's sheet, as module 0.30.0 sends it: three members by name and portrait, its
+ * descriptions by hash, and a stash of coin, a map, and a chest holding a wand with charges.
+ */
+export function groupSheet(fields: Partial<GroupSheet> = {}): GroupSheet {
+  return {
+    members: [
+      {
+        id: PARTY.thorin,
+        name: 'Thorin Oakenshield',
+        img: 'worlds/erebor/thorin.webp',
+        type: 'character',
+        character: true,
+      },
+      {
+        id: PARTY.vex,
+        name: 'Vex',
+        img: null,
+        type: 'character',
+        character: true,
+      },
+      {
+        id: 'myrtle',
+        name: 'Myrtle',
+        img: 'icons/svg/mystery-man.svg',
+        type: 'npc',
+        character: false,
+      },
+    ],
+    description: {
+      full: GROUP_TEXTS.description,
+      summary: GROUP_TEXTS.summary,
+    },
+    inventory: {
+      sections: [
+        {
+          id: 'loot',
+          label: 'Loot',
+          items: [
+            sheetItem({
+              id: 'map',
+              name: "Thror's Map",
+              img: 'icons/sundries/documents/map.webp',
+              text: GROUP_TEXTS.map,
+            }),
+          ],
+        },
+      ],
+      containers: [
+        {
+          ...sheetItem({
+            id: 'chest',
+            name: 'Iron Chest',
+            type: 'container',
+            text: GROUP_TEXTS.chest,
+          }),
+          capacity: null,
+          contents: [
+            sheetItem({
+              id: 'wand',
+              name: 'Wand of Magic Missiles',
+              type: 'consumable',
+              uses: counted(5, 7, { item: 'wand' }),
+            }),
+          ],
+        },
+      ],
+      currency: [
+        { id: 'pp', label: 'Platinum', abbreviation: 'PP', value: 0 },
+        { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 1250 },
+      ],
+      encumbrance: null,
+      attunement: null,
+    },
+    ...fields,
+  }
+}
+
+/* -------------------------------------------- */
+/*  Foundry settings (module 0.30.0)            */
+/* -------------------------------------------- */
+
+/**
+ * What a module from 0.30.0 says of a dnd5e world's settings for a campaign, without Midi-QOL:
+ * dnd5e's own visibility settings and the module's, in English, and what players see in chat.
+ */
+export function foundrySettings(
+  fields: Partial<FoundrySettings> = {},
+): FoundrySettings {
+  return {
+    format: 1,
+    modules: [
+      {
+        id: 'lib-wrapper',
+        title: 'libWrapper',
+        version: '1.13.2.0',
+        active: true,
+      },
+      { id: 'manual-dice', title: 'Manual Dice', version: null, active: false },
+    ],
+    sections: [
+      {
+        id: 'campaign',
+        title: 'This campaign',
+        rows: [
+          {
+            id: 'rolls',
+            label: 'Players roll in the app',
+            value: true,
+            text: 'On',
+          },
+          {
+            id: 'attacks',
+            label: 'Attacks, spells and features',
+            value: true,
+            text: 'On',
+          },
+          {
+            id: 'prompts',
+            label: 'Save and concentration prompts',
+            value: false,
+            text: 'Off',
+          },
+          {
+            id: 'manualDice',
+            label: 'Allow Players to enter dice results manually',
+            value: true,
+            text: 'On',
+            note: 'Manual Dice is not enabled in this world.',
+          },
+          {
+            id: 'groups',
+            label: 'Party sheets',
+            value: 1,
+            text: 'The Company',
+          },
+        ],
+      },
+      {
+        id: 'sending-stone',
+        title: 'Sending Stone, for every campaign',
+        rows: [
+          { id: 'chatEvents', label: 'Chat messages', value: true, text: 'On' },
+          {
+            id: 'chatScope',
+            label: 'Which messages',
+            value: 'all',
+            text: 'Every message players can see',
+          },
+          {
+            id: 'combatEvents',
+            label: 'Combat tracker',
+            value: true,
+            text: 'On',
+          },
+          {
+            id: 'gmContent',
+            label: 'GM-only details',
+            value: false,
+            text: 'Off',
+          },
+        ],
+      },
+      {
+        id: 'dnd5e',
+        title: 'D&D Fifth Edition',
+        rows: [
+          {
+            id: 'attackRollVisibility',
+            label: 'Attack Result Visibility',
+            value: 'hideAC',
+            text: 'Show only results',
+          },
+          {
+            id: 'challengeVisibility',
+            label: 'Challenge Visibility',
+            value: 'player',
+            text: 'Show only from other players',
+          },
+        ],
+      },
+    ],
+    results: [
+      {
+        id: 'hits',
+        state: 'shown',
+        text: 'Hit and miss: shown (Attack Result Visibility: Show only results)',
+      },
+      {
+        id: 'saves',
+        state: 'partial',
+        text: "Saves: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)",
+      },
+      {
+        id: 'checks',
+        state: 'partial',
+        text: "Checks: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)",
+      },
+    ],
+    ...fields,
+  }
+}
+
+/** What Foundry last said of itself for a campaign, as a hello from module 0.30.0 carries it. */
+export function foundrySnapshot(
+  fields: Partial<FoundrySnapshot> = {},
+): FoundrySnapshot {
+  return {
+    receivedAt: '2026-10-19T18:30:00.000Z',
+    module: { id: 'sending-stone', version: '0.30.0' },
+    foundry: { version: '14.365', generation: 14 },
+    system: { id: 'dnd5e', title: 'D&D Fifth Edition', version: '5.3.3' },
+    settings: foundrySettings(),
+    ...fields,
+  }
 }

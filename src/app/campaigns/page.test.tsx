@@ -39,6 +39,7 @@ const campaign = {
     { id: 'actor-thorin', name: 'Thorin Oakenshield', player: 'Alice' },
     { id: 'actor-vex', name: 'Vex' },
   ],
+  groups: [],
 }
 
 describe('app/campaigns/page', () => {

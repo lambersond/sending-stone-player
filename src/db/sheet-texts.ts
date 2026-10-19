@@ -1,7 +1,8 @@
 import prisma from '@/clients/prisma'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
-import { sheetTextRefs } from '@/utils/sheet-texts'
+import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
 import type { Character } from '@/types/character'
+import type { AllowedGroup, GroupSheet } from '@/types/party'
 import type { CharacterSheet } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 
@@ -38,31 +39,44 @@ export async function saveSheetTexts(
   }
 }
 
+/** What a campaign's characters' sheets and its groups' sheets refer to, together. */
+function refsOf(sheets: CharacterSheet[], groups: GroupSheet[]): string[] {
+  return [
+    ...new Set([
+      ...sheets.flatMap(sheet => sheetTextRefs(sheet)),
+      ...groups.flatMap(group => groupTextRefs(group)),
+    ]),
+  ]
+}
+
 /**
- * Drop the campaign's descriptions that none of these sheets refers to: for a hello, which
- * carries all of a campaign's sheets.
+ * Drop the campaign's descriptions that none of these sheets refers to, its characters' or its
+ * groups': for a hello, which carries all of a campaign's sheets, or keeps those held.
  */
 export async function keepOnlySheetTexts(
   tx: Tx,
   campaignId: string,
   sheets: CharacterSheet[],
+  groups: GroupSheet[] = [],
 ): Promise<void> {
-  const refs = sheets.flatMap(sheet => sheetTextRefs(sheet))
+  const refs = refsOf(sheets, groups)
   await tx.sheetText.deleteMany({
     where: { campaignId, hash: { notIn: refs } },
   })
 }
 
 /**
- * Whether the campaign lacks any description these sheets refer to, which means one went
- * missing on its way, since each is sent before the sheet that refers to it.
+ * Whether the campaign lacks any description these sheets refer to, its characters' or its
+ * groups', which means one went missing on its way, since each is sent before the sheet that
+ * refers to it.
  */
 export async function lacksSheetTexts(
   tx: Tx,
   campaignId: string,
   sheets: CharacterSheet[],
+  groups: GroupSheet[] = [],
 ): Promise<boolean> {
-  const refs = [...new Set(sheets.flatMap(sheet => sheetTextRefs(sheet)))]
+  const refs = refsOf(sheets, groups)
   if (refs.length === 0) return false
   const held = await tx.sheetText.count({
     where: { campaignId, hash: { in: refs } },
@@ -96,6 +110,32 @@ export async function getSheetText(
   if (!refs.includes(hash)) return undefined
   const text = await prisma.sheetText.findUnique({
     where: { campaignHash: { campaignId: character.campaignId, hash } },
+    select: { html: true },
+  })
+  return text?.html
+}
+
+/**
+ * A description on a group's sheet (module 0.30.0), for a seat the access check let see the group.
+ * Undefined unless that group's own sheet refers to it and the campaign holds it: never one only
+ * a character's sheet, or another group's, refers to.
+ * @param group - The group, as the access check allowed it.
+ * @param hash - The description's hash.
+ */
+export async function getGroupText(
+  group: AllowedGroup,
+  hash: string,
+): Promise<string | undefined> {
+  const sheet = await prisma.groupSheet.findUnique({
+    where: {
+      campaignGroup: { campaignId: group.campaignId, actorId: group.groupId },
+    },
+    select: { data: true },
+  })
+  const refs = sheet ? groupTextRefs(sheet.data as unknown as GroupSheet) : []
+  if (!refs.includes(hash)) return undefined
+  const text = await prisma.sheetText.findUnique({
+    where: { campaignHash: { campaignId: group.campaignId, hash } },
     select: { html: true },
   })
   return text?.html

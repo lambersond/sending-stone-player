@@ -84,15 +84,40 @@ export function InventoryTab({
   })
   const { inventory } = sheet
   const { currency, encumbrance, attunement } = inventory
-  const empty =
-    inventory.sections.length === 0 && inventory.containers.length === 0
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
       {(currency.length > 0 || encumbrance || attunement) && (
         <Holdings inventory={inventory} />
       )}
+      <InventoryList
+        characterId={characterId}
+        inventory={inventory}
+        rows={rows}
+      />
+      {dialogs}
+    </div>
+  )
+}
 
+/**
+ * Items by type, then containers, each opening to what it holds; or that there are none. Given the
+ * rows actions are in, what an item rolls is beside it; without them, as a party's stash is shown
+ * (module 0.30.0), nothing in it rolls or is used.
+ */
+export function InventoryList({
+  characterId,
+  inventory,
+  rows,
+}: Readonly<{
+  characterId: string
+  inventory: SheetInventory
+  rows?: ActionRows
+}>) {
+  const empty =
+    inventory.sections.length === 0 && inventory.containers.length === 0
+  return (
+    <>
       {inventory.sections.map(section => (
         <section
           key={section.id}
@@ -138,14 +163,14 @@ export function InventoryTab({
       {empty && (
         <p className='text-sm text-text-secondary'>No items to show yet.</p>
       )}
-
-      {dialogs}
-    </div>
+    </>
   )
 }
 
 /** Coin, how much the character carries, and how many items they are attuned to. */
-function Holdings({ inventory }: Readonly<{ inventory: SheetInventory }>) {
+export function Holdings({
+  inventory,
+}: Readonly<{ inventory: SheetInventory }>) {
   const { currency, encumbrance, attunement } = inventory
   return (
     // On a phone, coin across the top, and load and attunement side by side under it.

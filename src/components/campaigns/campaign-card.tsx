@@ -1,6 +1,8 @@
 import clsx from 'clsx'
 import { Dices, KeyRound, RefreshCw, Trash2, UserMinus } from 'lucide-react'
 import Link from 'next/link'
+import { CampaignParties } from './campaign-parties'
+import { FoundrySettingsSection } from './foundry-settings'
 import { SecretForm } from './secret-form'
 import { CopyField } from '@/components/copy-button'
 import { LocalTime } from '@/components/game-table/local-time'
@@ -165,6 +167,8 @@ export function CampaignCard({
         )}
       </section>
 
+      <CampaignParties campaign={campaign} />
+
       <section className='grid gap-1'>
         <h4 className='flex items-center gap-1.5 text-sm font-medium'>
           <Dices aria-hidden className='size-4 text-text-secondary' />
@@ -172,6 +176,8 @@ export function CampaignCard({
         </h4>
         <p className='text-sm text-text-secondary'>{rollsText(campaign)}</p>
       </section>
+
+      <FoundrySettingsSection campaign={campaign} />
 
       <footer className='flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4'>
         <details className='group min-w-0 flex-1'>

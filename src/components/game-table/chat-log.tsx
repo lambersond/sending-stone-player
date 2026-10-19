@@ -631,9 +631,9 @@ function ActionChip({ action }: Readonly<{ action: TableAction }>) {
 
 /**
  * Who a roll or card was aimed at, and what came of it for each, where players may know: whether
- * an attack hit them, and whether they saved. Hit and Failed, where it landed, in the accent's
- * look; Miss and Saved, where it didn't, muted, with a cross. Over more than one, how it went in
- * all, as `summary` says.
+ * an attack hit them, whether they saved, and whether their own check succeeded. Hit, Failed and
+ * Success, where it landed, in the accent's look; Miss, Saved and Failure, where it didn't, muted,
+ * with a cross. Over more than one, how it went in all, as `summary` says.
  */
 function Targets({
   targets,
@@ -669,6 +669,11 @@ function Targets({
             {target.save && (
               <Pill landed={target.save === 'failed'}>
                 {target.save === 'failed' ? 'Failed' : 'Saved'}
+              </Pill>
+            )}
+            {target.check && (
+              <Pill landed={target.check === 'success'}>
+                {target.check === 'success' ? 'Success' : 'Failure'}
               </Pill>
             )}
             {index < targets.length - 1 && (

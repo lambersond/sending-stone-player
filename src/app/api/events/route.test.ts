@@ -13,7 +13,13 @@ import {
   recordRefusal,
 } from '@/db/campaigns'
 import { recordCommandResult } from '@/db/roll-requests'
-import { characterSheet, chatMessage, roster } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  chatMessage,
+  foundrySettings,
+  groupEntry,
+  roster,
+} from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
@@ -38,6 +44,8 @@ const FEATURES = {
   slimSheets: 1,
   maxBytes: 4_000_000,
   midiPrompts: 1,
+  groups: 1,
+  settings: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -234,7 +242,7 @@ describe('app/api/events', () => {
         campaign,
         {
           type: 'bridge.hello',
-          data: { characters: [], combats: [], prompts: [] },
+          data: { characters: [], combats: [], prompts: [], groups: [] },
         },
         's1',
         TIME,
@@ -352,6 +360,36 @@ describe('app/api/events', () => {
       }
     })
 
+    it("answers a group's sheet with what it does too, as the module sends a party's sheet slim and sizes it by that, but not a group's leaving, from module 0.30.0", async () => {
+      jest.mocked(applyCampaignEvent).mockResolvedValue({ lacksTexts: false })
+      const group = { ...groupEntry(), sheet: null }
+
+      const sheet = await post(envelope('group.updated', { group }))
+
+      expect(sheet.status).toBe(200)
+      expect(sheet.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+      await expect(sheet.json()).resolves.toEqual({ features: FEATURES })
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        { type: 'group.updated', data: { group } },
+        's1',
+        TIME,
+      )
+
+      const removed = await post(envelope('group.removed', { id: 'company' }))
+      expect(removed.status).toBe(204)
+      expect(applyCampaignEvent).toHaveBeenLastCalledWith(
+        'c1',
+        world,
+        campaign,
+        { type: 'group.removed', data: { id: 'company' } },
+        's1',
+        TIME,
+      )
+    })
+
     it('asks for no hello in answer to one whose sheets follow it, from module 0.22.0', async () => {
       const characters = [
         {
@@ -382,7 +420,13 @@ describe('app/api/events', () => {
         campaign,
         {
           type: 'bridge.hello',
-          data: { sheetsApart: true, characters, combats: [], prompts: [] },
+          data: {
+            sheetsApart: true,
+            characters,
+            combats: [],
+            prompts: [],
+            groups: [],
+          },
         },
         's1',
         TIME,
@@ -480,6 +524,28 @@ describe('app/api/events', () => {
         detail: expect.any(String),
       })
       expect(applyCampaignEvent).toHaveBeenCalledTimes(1)
+    })
+
+    it("applies Foundry's settings when one changes, from module 0.30.0, answering nothing more, and one it can't read as none", async () => {
+      const settings = foundrySettings()
+
+      const changed = await post(envelope('bridge.settings', { settings }))
+      expect(changed.status).toBe(204)
+      expect(jest.mocked(applyCampaignEvent).mock.calls[0][3]).toEqual({
+        type: 'bridge.settings',
+        data: { settings },
+      })
+
+      // Never refused, for the Gamemaster's card shows them only.
+      const unread = await post(
+        envelope('bridge.settings', { settings: { format: 2 } }),
+      )
+      expect(unread.status).toBe(204)
+      expect(jest.mocked(applyCampaignEvent).mock.calls[1][3]).toEqual({
+        type: 'bridge.settings',
+        data: { settings: undefined },
+      })
+      expect(recordRefusal).not.toHaveBeenCalled()
     })
 
     describe('command.result', () => {

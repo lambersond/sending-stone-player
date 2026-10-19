@@ -1,3 +1,4 @@
+import type { TableGroup } from '@/types/party'
 import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type {
   AskedCheck,
@@ -44,6 +45,11 @@ export type TableTarget = {
    * 0.29.0: as Midi-QOL's card says, or as their own save rolled from dnd5e's card came out.
    */
   save?: 'saved' | 'failed'
+  /**
+   * For their own ability, skill or tool check, whether it succeeded, where players see it in
+   * Foundry, from module 0.30.0.
+   */
+  check?: 'success' | 'failure'
 }
 
 export type TableMessage = {
@@ -278,6 +284,12 @@ export type TableView = {
    */
   gmRolls?: GmRollView[]
   gmRollsKey?: string
+  /**
+   * The campaign's groups this seat may open, such as its party, primary first, from module
+   * 0.30.0: for a player, those their Foundry user may see; for the Gamemaster, every one. Unset
+   * for none.
+   */
+  groups?: TableGroup[]
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */

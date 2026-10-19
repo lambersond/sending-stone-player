@@ -4,11 +4,14 @@ import {
   ROLL_ANSWER_WITHIN,
   ROLL_KINDS,
 } from '@/constants/sending-stone'
+import { groupRoster } from '@/db/party'
 import {
   keepOnlySheetTexts,
   lacksSheetTexts,
   saveSheetTexts,
 } from '@/db/sheet-texts'
+import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
+import type { GroupEntry, GroupSheet } from '@/types/party'
 import type {
   CampaignRef,
   CharacterSheet,
@@ -57,8 +60,11 @@ export async function applyCampaignEvent(
         title: campaign.title,
         worldId: world.id,
         worldTitle: world.title,
-        // Descriptions change nothing anyone sees until a sheet refers to them.
-        ...(event.type !== 'character.texts' && { version: { increment: 1 } }),
+        // Descriptions change nothing anyone sees until a sheet refers to them, and Foundry's
+        // settings only the Gamemaster's campaign card shows, which no table page watches.
+        ...(!['character.texts', 'bridge.settings'].includes(event.type) && {
+          version: { increment: 1 },
+        }),
         lastEventAt: now,
         lastSeenAt: now,
         // The campaign's state is now this session's.
@@ -80,11 +86,14 @@ async function apply(
   switch (event.type) {
     case 'bridge.hello': {
       // The campaign's full current state. It carries no chat, so the chat log is kept.
-      const { characters, features, prompts = [] } = event.data
+      const { characters, features, prompts = [], groups = [] } = event.data
+      const { module, foundry, system, settings } = event.data
       await tx.campaign.update({
         where: { id: campaignId },
         data: {
           characters: characters.map(character => rosterEntry(character)),
+          // Its groups, from module 0.30.0, whose sheets follow it; none from an older module.
+          groups: groups.map(group => groupRosterEntry(group)),
           // Whether its players may roll in the game from here. A module before 0.10.0 can't
           // make their rolls, and says nothing of them.
           rollsEnabled: features?.rolls?.enabled === true,
@@ -116,6 +125,15 @@ async function apply(
             ...(features?.rolls?.manualDice === true ? ['manualDice'] : []),
             ...(features?.rolls?.midiPrompts === true ? ['midiPrompts'] : []),
           ],
+          // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
+          // module before 0.30.0, which reports no settings, clears those an earlier one sent.
+          foundry: toJson({
+            receivedAt: sentAt,
+            ...(module && { module }),
+            ...(foundry && { foundry }),
+            ...(system && { system }),
+            ...(settings && { settings }),
+          }),
         },
       })
       // The saves its game is asking for: any other still open has closed meanwhile.
@@ -138,6 +156,11 @@ async function apply(
           combatId: combat.id,
           data: toJson(combat),
         })),
+      })
+      // A group it no longer lists has left the campaign, with its sheet; those it lists keep
+      // theirs until theirs follow.
+      await tx.groupSheet.deleteMany({
+        where: { campaignId, actorId: { notIn: groups.map(({ id }) => id) } },
       })
       if (event.data.sheetsApart === true) {
         return keepRosterSheets(tx, campaignId, characters)
@@ -219,8 +242,44 @@ async function apply(
       await closePrompt(tx, campaignId, event.data.id, event.data.reason)
       return false
     }
+    case 'group.updated': {
+      const { sheet } = event.data.group
+      await saveGroup(tx, campaignId, event.data.group)
+      return sheet ? lacksSheetTexts(tx, campaignId, [], [sheet]) : false
+    }
+    case 'group.removed': {
+      await removeGroup(tx, campaignId, event.data.id)
+      return false
+    }
+    case 'bridge.settings': {
+      if (event.data.settings) {
+        await saveFoundrySettings(tx, campaignId, event.data.settings, sentAt)
+      }
+      return false
+    }
   }
   return false
+}
+
+/**
+ * Foundry's settings for the campaign as they now stand, from module 0.30.0, which sends them when
+ * one changes: kept with what its last hello said of Foundry's versions, as of when it sent them.
+ */
+async function saveFoundrySettings(
+  tx: Tx,
+  campaignId: string,
+  settings: FoundrySettings,
+  sentAt: string,
+) {
+  const held = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { foundry: true },
+  })
+  const kept = held?.foundry as FoundrySnapshot | null | undefined
+  await tx.campaign.update({
+    where: { id: campaignId },
+    data: { foundry: toJson({ ...kept, settings, receivedAt: sentAt }) },
+  })
 }
 
 /**
@@ -282,17 +341,86 @@ async function keepRosterSheets(
   await tx.actorSheet.deleteMany({
     where: { campaignId, actorId: { notIn: characters.map(({ id }) => id) } },
   })
-  // Its descriptions come after it: those the sheets kept don't refer to go.
-  const kept = await tx.actorSheet.findMany({
-    where: { campaignId },
-    select: { data: true },
-  })
+  // Its descriptions come after it: those the sheets kept don't refer to go, its characters' or
+  // its groups'.
+  const [kept, keptGroups] = await Promise.all([
+    tx.actorSheet.findMany({ where: { campaignId }, select: { data: true } }),
+    tx.groupSheet.findMany({ where: { campaignId }, select: { data: true } }),
+  ])
   await keepOnlySheetTexts(
     tx,
     campaignId,
     kept.map(({ data }) => data as unknown as CharacterSheet),
+    keptGroups.map(({ data }) => data as unknown as GroupSheet),
   )
   return false
+}
+
+/**
+ * One of the campaign's groups as it now stands (module 0.30.0): its entry in the roster, replaced
+ * or added, with why its sheet was held back until an update without it; and its sheet, kept
+ * apart from the characters', or none.
+ */
+async function saveGroup(
+  tx: Tx,
+  campaignId: string,
+  group: GroupEntry & { sheet: GroupSheet | null },
+) {
+  const held = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { groups: true },
+  })
+  const roster = groupRoster(held?.groups)
+  const entry = groupRosterEntry(group)
+  await tx.campaign.update({
+    where: { id: campaignId },
+    data: {
+      groups: roster.some(({ id }) => id === group.id)
+        ? roster.map(listed =>
+            listed.id === group.id ? entry : toJson(listed),
+          )
+        : [...roster.map(listed => toJson(listed)), entry],
+    },
+  })
+
+  const actorId = group.id
+  if (!group.sheet) {
+    await tx.groupSheet.deleteMany({ where: { campaignId, actorId } })
+    return
+  }
+  const data = toJson(group.sheet)
+  await tx.groupSheet.upsert({
+    where: { campaignGroup: { campaignId, actorId } },
+    create: { campaignId, actorId, data },
+    update: { data },
+  })
+}
+
+/** A group deleted in Foundry (module 0.30.0): it leaves the roster, with its sheet. */
+async function removeGroup(tx: Tx, campaignId: string, groupId: string) {
+  const held = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { groups: true },
+  })
+  const roster = groupRoster(held?.groups)
+  if (roster.some(({ id }) => id === groupId)) {
+    await tx.campaign.update({
+      where: { id: campaignId },
+      data: {
+        groups: roster
+          .filter(({ id }) => id !== groupId)
+          .map(entry => toJson(entry)),
+      },
+    })
+  }
+  await tx.groupSheet.deleteMany({ where: { campaignId, actorId: groupId } })
+}
+
+/** A group as the roster keeps it: everything but its sheet, which is kept on its own. */
+function groupRosterEntry(group: GroupEntry & { sheet?: GroupSheet | null }) {
+  const entry = { ...group }
+  delete entry.sheet
+  return toJson(entry)
 }
 
 /**

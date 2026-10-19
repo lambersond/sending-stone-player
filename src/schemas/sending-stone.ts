@@ -10,6 +10,7 @@ import {
   PROMPT_ID,
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
+import { foundrySettingsSchema } from '@/schemas/foundry-settings'
 import { MAX_CHECKS } from '@/utils/description-links'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import { expandSheet } from '@/utils/slim-sheet'
@@ -567,7 +568,7 @@ const containerSchema: z.ZodType<ParsedContainer> = z.lazy(() =>
   }),
 )
 
-const inventorySchema = z
+export const inventorySchema = z
   .looseObject({
     sections: listOf(
       z.looseObject({
@@ -951,6 +952,17 @@ const sheetSchema = z
 /** A size in bytes, as the module counts one; null where it can't be read. */
 const byteCount = z.int().min(0).nullable().catch(null)
 
+/** Why the module held a sheet back, such as for its size; left out where it can't be read. */
+const sheetWithheldSchema = z
+  .looseObject({
+    reason: z.string().max(32),
+    bytes: byteCount,
+    limit: byteCount,
+  })
+  .optional()
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  .catch(undefined)
+
 const characterSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -959,19 +971,57 @@ const characterSchema = z.looseObject({
   sheet: z.preprocess(expandSheet, sheetSchema),
   // From module 0.22.0: why its sheet is null, where the module held it back, such as for its
   // size. Left out where it can't be read.
-  sheetWithheld: z
-    .looseObject({
-      reason: z.string().max(32),
-      bytes: byteCount,
-      limit: byteCount,
-    })
-    .optional()
-    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
-    .catch(undefined),
+  sheetWithheld: sheetWithheldSchema,
   // From module 0.26.0, in a hello's roster: whether the character enters its own dice's results.
   // Left out, as sent, by an older module; false where it can't be read.
   manualDice: z.boolean().optional().catch(false),
 })
+
+/**
+ * One of a campaign's Group actors, such as its party, from module 0.30.0: who may see it, by
+ * campaign character, each with Observer or Owner on it in Foundry. Access that can't be read is
+ * taken as no one's, never as more.
+ */
+const groupEntrySchema = z.looseObject({
+  id: z.string().regex(DOCUMENT_ID),
+  uuid: z.string().max(200),
+  name: z.string().max(500),
+  img: nullableString,
+  type: z.literal('group'),
+  primary: z.boolean().catch(false),
+  access: z
+    .record(z.string().regex(DOCUMENT_ID), z.enum(['observer', 'owner']))
+    .catch({}),
+})
+
+/**
+ * One of a group's members: its name and portrait, and nothing else. Anything more is dropped, so
+ * that nothing a later module sends of it, such as its hit points, is ever kept.
+ */
+const groupMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  img: nullableString,
+  type: z.enum(['character', 'npc', 'vehicle']),
+  character: z.boolean().catch(false),
+})
+
+/**
+ * A group's sheet, made whole first where it comes slim, as a character's is: its members, its
+ * descriptions by hash, and its stash, as a character's inventory is sent.
+ */
+const groupSheetSchema = z.preprocess(
+  expandSheet,
+  z
+    .looseObject({
+      members: listOf(groupMemberSchema),
+      description: z
+        .looseObject({ full: textRef, summary: textRef })
+        .catch({ full: null, summary: null }),
+      inventory: inventorySchema,
+    })
+    .nullable(),
+)
 
 export const rollSchema = z.looseObject({
   formula: z.string().catch(''),
@@ -1020,6 +1070,39 @@ export const rollSchema = z.looseObject({
 /** The most characters a save's outcome is said to be seen by: more than any campaign has. */
 const MAX_READERS = 200
 
+/** Someone a message was aimed at: their name, and what came of it, where players see it. */
+const targetSchema = z.looseObject({
+  name: z.string(),
+  ac: z.number().nullable().optional().catch(null),
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  uuid: z.string().min(1).max(500).optional().catch(undefined),
+  // From module 0.29.0, where players see them in Foundry.
+  outcome: z
+    .enum(['hit', 'miss'])
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
+    .catch(undefined),
+  save: z
+    .enum(['success', 'failure'])
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
+    .catch(undefined),
+})
+
+/**
+ * A save or check a message is the roll of: whose, and whether it succeeded, where players see it.
+ * A readers list that can't be read drops it all, rather than show its outcome to everyone.
+ */
+const rollOutcomeSchema = z.looseObject({
+  target: z.string().min(1).max(500),
+  outcome: z
+    .enum(['success', 'failure'])
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  readers: z.array(z.string()).max(MAX_READERS).optional(),
+})
+
 const dnd5eSchema = z
   .looseObject({
     messageType: nullableString,
@@ -1032,43 +1115,16 @@ const dnd5eSchema = z
       .looseObject({ name: nullableString, type: nullableString })
       .nullable()
       .catch(null),
-    targets: z
-      .array(
-        z.looseObject({
-          name: z.string(),
-          ac: z.number().nullable().optional().catch(null),
-          // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
-          uuid: z.string().min(1).max(500).optional().catch(undefined),
-          // From module 0.29.0, where players see them in Foundry.
-          outcome: z
-            .enum(['hit', 'miss'])
-            .optional()
-            // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
-            .catch(undefined),
-          save: z
-            .enum(['success', 'failure'])
-            .optional()
-            // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
-            .catch(undefined),
-        }),
-      )
-      .catch([]),
+    // From module 0.30.0, one that can't be read drops only itself, not the others with it.
+    targets: listOf(targetSchema),
     originatingMessage: nullableString.optional(),
-    // From module 0.29.0, on a save rolled from dnd5e's card: whose, and whether it succeeded. A
-    // readers list that can't be read drops it all, rather than show its outcome to everyone.
-    save: z
-      .looseObject({
-        target: z.string().min(1).max(500),
-        outcome: z
-          .enum(['success', 'failure'])
-          .optional()
-          // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
-          .catch(undefined),
-        readers: z.array(z.string()).max(MAX_READERS).optional(),
-      })
-      .optional()
-      // eslint-disable-next-line unicorn/no-useless-undefined -- as for its outcome
-      .catch(undefined),
+    // From module 0.29.0, on a save rolled from dnd5e's card: whose, and whether it succeeded; and
+    // from module 0.30.0, on a save from anywhere.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- as for its outcome
+    save: rollOutcomeSchema.optional().catch(undefined),
+    // From module 0.30.0, the same of an ability, skill or tool check.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- as for its outcome
+    check: rollOutcomeSchema.optional().catch(undefined),
   })
   .nullable()
   .catch(null)
@@ -1547,6 +1603,8 @@ export function parseGameEvent(
         data: z
           .looseObject({
             characters: z.array(characterSchema),
+            // From module 0.30.0; none from an older module. One that can't be read is dropped.
+            groups: listOf(groupEntrySchema),
             combats: z.array(combatSchema),
             // Sent from module 0.10.0.
             features: featuresSchema,
@@ -1554,6 +1612,36 @@ export function parseGameEvent(
             prompts: listOf(promptSchema),
             // From module 0.22.0: its characters carry no sheets, which follow it.
             sheetsApart: z.boolean().optional().catch(false),
+            // What Foundry says of itself, for the Gamemaster's card alone: its versions, from
+            // every module; and from module 0.30.0, its settings. None that can't be read ever
+            // refuses the hello.
+            module: z
+              .looseObject({
+                id: z.string().max(100),
+                version: z.string().max(50).nullable(),
+              })
+              .optional()
+              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+              .catch(undefined),
+            foundry: z
+              .looseObject({
+                version: z.string().max(50),
+                generation: z.number().nullable().optional(),
+              })
+              .optional()
+              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+              .catch(undefined),
+            system: z
+              .looseObject({
+                id: z.string().max(100),
+                title: z.string().max(200),
+                version: z.string().max(50),
+              })
+              .optional()
+              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+              .catch(undefined),
+            // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+            settings: foundrySettingsSchema.optional().catch(undefined),
           })
           .parse(data),
       }
@@ -1631,6 +1719,36 @@ export function parseGameEvent(
           .looseObject({
             id: z.string().regex(PROMPT_ID),
             reason: z.string().max(32).catch('gone'),
+          })
+          .parse(data),
+      }
+    }
+    case EVENTS.GROUP_UPDATED: {
+      return {
+        type,
+        data: z
+          .looseObject({
+            group: groupEntrySchema.extend({
+              sheet: groupSheetSchema,
+              sheetWithheld: sheetWithheldSchema,
+            }),
+          })
+          .parse(data),
+      }
+    }
+    case EVENTS.GROUP_REMOVED: {
+      return {
+        type,
+        data: z.looseObject({ id: z.string().regex(DOCUMENT_ID) }).parse(data),
+      }
+    }
+    case EVENTS.BRIDGE_SETTINGS: {
+      return {
+        type,
+        data: z
+          .looseObject({
+            // eslint-disable-next-line unicorn/no-useless-undefined -- as in the hello
+            settings: foundrySettingsSchema.optional().catch(undefined),
           })
           .parse(data),
       }

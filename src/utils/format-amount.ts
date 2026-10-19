@@ -21,3 +21,17 @@ export function compactAmount(value: number): string | undefined {
   const tenths = Math.trunc(value / (at / 10))
   return `${(tenths / 10).toLocaleString()}${suffix}`
 }
+
+/**
+ * A size in bytes in megabytes, to a tenth, as the module tells the Gamemaster of a sheet it held
+ * back: a sheet's size rounded up and the limit down (`round`), so that a size over the limit never
+ * reads as within it.
+ * @param bytes - The size, such as 5,240,000, which is "5.3 MB" rounded up.
+ * @param round - Math.ceil for a size, Math.floor for a limit.
+ */
+export function megabytes(
+  bytes: number,
+  round: (tenths: number) => number,
+): string {
+  return `${(round(bytes / 100_000) / 10).toFixed(1)} MB`
+}

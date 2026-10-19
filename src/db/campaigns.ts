@@ -20,6 +20,8 @@ import type {
   CampaignSetupInput,
   OwnedCampaign,
 } from '@/types/campaign'
+import type { FoundrySnapshot } from '@/types/foundry-settings'
+import type { GroupEntry } from '@/types/party'
 import type { CampaignRef, ConnectedCharacter } from '@/types/sending-stone'
 
 /** Is a Gamemaster's game sending, judging by when its campaign last heard anything? */
@@ -29,6 +31,16 @@ export function isLive(lastSeenAt: Date | null | undefined, now = Date.now()) {
 
 const rosterOf = (characters: unknown) =>
   characters as unknown as ConnectedCharacter[]
+
+/** A campaign's groups, from module 0.30.0: none where it has none to read. */
+const groupsOf = (groups: unknown): GroupEntry[] =>
+  Array.isArray(groups) ? (groups as GroupEntry[]) : []
+
+/** What Foundry last said of itself for a campaign, as its hello and settings were stored. */
+const foundryOf = (foundry: unknown): FoundrySnapshot | undefined =>
+  foundry && typeof foundry === 'object' && !Array.isArray(foundry)
+    ? (foundry as FoundrySnapshot)
+    : undefined
 
 /** The refusals a campaign's card explains: those that can be tied to the campaign. */
 const RECORDED: ReadonlySet<string> = new Set<CampaignRefusal['reason']>([
@@ -96,6 +108,7 @@ export async function listOwnedCampaigns(
       lastSeenAt: true,
       helloSession: true,
       characters: true,
+      groups: true,
       rollsEnabled: true,
       rollKinds: true,
       rollFeatures: true,
@@ -104,6 +117,7 @@ export async function listOwnedCampaigns(
       refusalReason: true,
       refusalStatus: true,
       refusalDetail: true,
+      foundry: true,
       players: {
         select: { id: true, actorId: true, user: { select: { name: true } } },
       },
@@ -114,6 +128,7 @@ export async function listOwnedCampaigns(
       campaign.players.map(player => [player.actorId, player]),
     )
     const refusal = refusalOf(campaign)
+    const foundry = foundryOf(campaign.foundry)
     return {
       id: campaign.id,
       title: campaign.title,
@@ -125,6 +140,8 @@ export async function listOwnedCampaigns(
       live: isLive(campaign.lastSeenAt),
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
       ...(refusal && { refusal }),
+      // What Foundry last said of itself, which the card shows its Gamemaster alone.
+      ...(foundry && { foundry }),
       rolls: {
         enabled: campaign.rollsEnabled,
         reaching: availableRollKinds(campaign).length > 0,
@@ -136,6 +153,15 @@ export async function listOwnedCampaigns(
         const player = players.get(id)
         return { id, name, player: player?.user.name, characterId: player?.id }
       }),
+      // Its party sheets, each saying whether any of its players may see it in Foundry: never who.
+      groups: groupsOf(campaign.groups).map(
+        ({ id, name, primary, access }) => ({
+          id,
+          name,
+          primary: primary === true,
+          shared: Object.keys(access ?? {}).length > 0,
+        }),
+      ),
     }
   })
 }

@@ -7,6 +7,7 @@ import {
   ROLLS_KEPT_FOR,
 } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
+import { groupRoster, tableGroups } from '@/db/party'
 import { toTablePrompts } from '@/utils/prompts'
 import {
   availableRollFeatures,
@@ -252,6 +253,7 @@ export async function getTableView(
           worldTitle: true,
           lastSeenAt: true,
           characters: true,
+          groups: true,
           ...rollsSelect,
         },
       })
@@ -357,6 +359,12 @@ export async function getTableView(
   const combat = pickCombat(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
   )
+  // The party sheets the seat may open, from module 0.30.0: never who else may.
+  const groups = tableGroups(
+    seat,
+    groupRoster(campaign.groups),
+    campaign.origin,
+  )
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -394,5 +402,6 @@ export async function getTableView(
       ),
       gmRollsKey: gmRollsKey(made, now),
     }),
+    ...(groups.length > 0 && { groups }),
   }
 }

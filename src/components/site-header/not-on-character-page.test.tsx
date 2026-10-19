@@ -21,6 +21,7 @@ describe('components/site-header/not-on-character-page', () => {
     '/campaigns',
     '/campaigns/c1',
     '/campaigns/c1/characters',
+    '/characters/abc/party',
     '/join/x',
   ])('shows what it holds on %s', pathname => {
     renderAt(pathname)
@@ -34,6 +35,9 @@ describe('components/site-header/not-on-character-page', () => {
     // The Gamemaster at one of their campaign's characters' sheets (#156).
     '/campaigns/c1/characters/thorin',
     '/campaigns/c1/characters/thorin/',
+    // A party's sheet, as its player or its Gamemaster sees it (module 0.30.0).
+    '/characters/abc/party/company',
+    '/campaigns/c1/party/company',
   ])("hides it on a character's page, %s", pathname => {
     const { container } = renderAt(pathname)
 

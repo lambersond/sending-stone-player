@@ -165,6 +165,9 @@ model Campaign {
   inviteCode     String?       @unique
   // The campaign's characters, from its latest bridge.hello.
   characters     Json          @default("[]")
+  // The campaign's Group actors, such as its party, from its latest bridge.hello and each
+  // group.updated since (module 0.30.0): who may see each, never its sheet, which is kept apart.
+  groups         Json          @default("[]")
   // The module session whose bridge.hello was last applied. An event from another session means
   // this may be missing the campaign's state, such as when its hello was refused before the
   // campaign was set up here, so the module is asked to send it again.
@@ -193,11 +196,15 @@ model Campaign {
   refusalReason  String?
   refusalStatus  Int?
   refusalDetail  String?
+  // What Foundry last said of itself for this campaign: versions, and from module 0.30.0 its
+  // settings and what players see. Read on the Gamemaster's campaign card only.
+  foundry        Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   messages       ChatMessage[]
   combats        Combat[]
   sheets         ActorSheet[]
+  groupSheets    GroupSheet[]
   texts          SheetText[]
   players        Character[]
   rollRequests   RollRequest[]
@@ -260,6 +267,21 @@ model ActorSheet {
 
   @@unique([campaignId, actorId], name: "campaignActor")
   @@map("actor_sheet")
+}
+
+// One of a campaign's Group actors' sheets, as the module last sent it. Kept apart from ActorSheet,
+// so a group can never be claimed, seated or served as a character.
+model GroupSheet {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  actorId    String
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([campaignId, actorId], name: "campaignGroup")
+  @@map("group_sheet")
 }
 
 // A description that a campaign's sheets refer to by hash, such as a feature's. Sent once, apart

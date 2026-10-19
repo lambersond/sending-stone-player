@@ -86,6 +86,9 @@ export const EVENTS = {
   COMMAND_RESULT: 'command.result',
   PROMPT_OPENED: 'roll.prompt.opened',
   PROMPT_CLOSED: 'roll.prompt.closed',
+  GROUP_UPDATED: 'group.updated',
+  GROUP_REMOVED: 'group.removed',
+  BRIDGE_SETTINGS: 'bridge.settings',
 } as const
 
 /**
@@ -172,6 +175,20 @@ export const PROMPT_ID = /^[A-Za-z0-9]{1,64}-[A-Za-z0-9]{1,64}$/
  * and turn saves, which the module asks here while the character is open in the app.
  */
 export const MIDI_PROMPTS = 1
+
+/**
+ * The format of a campaign's Group actors that this app reads, as it tells the module (`groups`):
+ * from module 0.30.0, the hello's `groups`, and `group.updated` and `group.removed`, which the
+ * module sends only then.
+ */
+export const GROUPS = 1
+
+/**
+ * The format of the Foundry settings this app reads, as it tells the module (`settings`): from
+ * module 0.30.0, the hello's `settings`, and `bridge.settings` when one of them changes, which the
+ * module sends only then. Only the Gamemaster's campaign card shows them.
+ */
+export const FOUNDRY_SETTINGS = 1
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

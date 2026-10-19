@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
+import { fakeFullscreen } from '@/mocks/fullscreen'
 import { characterSheet } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
@@ -1292,5 +1293,78 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
     expect(screen.getByRole('status')).toHaveTextContent(
       "Offline. Your game hasn't been heard from in the last two minutes.",
     )
+  })
+})
+
+/**
+ * The header's right-hand cluster, each by its name, or its role where it has none; not the closed
+ * dialog Delete asks in.
+ */
+const cluster = () =>
+  [
+    ...(screen.getByRole('button', { name: 'Full screen' }).parentElement
+      ?.children ?? []),
+  ]
+    .filter(each => each.tagName !== 'DIALOG')
+    .map(each => each.getAttribute('aria-label') ?? each.getAttribute('role'))
+
+describe('components/game-table, full screen', () => {
+  let fullscreen: ReturnType<typeof fakeFullscreen>
+  beforeEach(() => {
+    fullscreen = fakeFullscreen()
+  })
+  afterEach(() => fullscreen.restore())
+
+  const party = {
+    groups: [{ id: 'company', name: 'The Company', primary: true }],
+  }
+
+  it('sits in the header after whether the game is live and the party, before deleting the character', () => {
+    renderTable(view(party))
+
+    expect(cluster()).toEqual([
+      'status',
+      'Party: The Company',
+      'Full screen',
+      'Delete Thorin',
+    ])
+  })
+
+  it('stays in the header on every tab, and fills the screen with the whole page', async () => {
+    const user = userEvent.setup()
+    renderTable(view())
+
+    await user.click(screen.getByRole('tab', { name: 'Combat' }))
+    expect(
+      screen.getByRole('button', { name: 'Full screen' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /^Chat/ }))
+    await user.click(screen.getByRole('button', { name: 'Full screen' }))
+
+    expect(fullscreen.requestFullscreen.mock.contexts[0]).toBe(
+      document.documentElement,
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Exit full screen' }),
+    ).toBeInTheDocument()
+  })
+
+  it("is on the Gamemaster's page too, where nothing is deleted", () => {
+    current = { view: view(party), connection: 'live' }
+    jest.mocked(useTableView).mockImplementation(() => current)
+    render(
+      <GameTable
+        character={{ ...character, id: 'gm:c1:thorin', actorId: 'thorin' }}
+        initialView={current.view}
+        seat={{
+          role: 'gm',
+          api: '/api/campaigns/c1/characters/thorin',
+          key: 'gm:c1:thorin',
+        }}
+        markChatRead={markChatRead}
+      />,
+    )
+
+    expect(cluster()).toEqual(['status', 'Party: The Company', 'Full screen'])
   })
 })

@@ -17,7 +17,7 @@ import {
 } from './campaigns'
 import { WAITING_SECRET_CHECKS } from '@/constants/sending-stone'
 import { verifySecret } from '@/lib/campaign-secret'
-import { roster } from '@/mocks/sending-stone'
+import { groupEntry, roster } from '@/mocks/sending-stone'
 
 jest.mock('@/lib/campaign-secret', () => ({
   generateInviteCode: () => 'fresh-invite-code',
@@ -191,6 +191,7 @@ describe('db/campaigns', () => {
               characterId: undefined,
             },
           ],
+          groups: [],
         },
         {
           id: 'c2',
@@ -210,10 +211,45 @@ describe('db/campaigns', () => {
             prompts: false,
           },
           characters: [],
+          groups: [],
         },
       ])
       expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { ownerId: 'gm-1' } }),
+      )
+    })
+
+    it('lists their party sheets, each saying whether any player may see it, never who (module 0.30.0)', async () => {
+      const campaign = await listed({
+        groups: [
+          groupEntry(),
+          groupEntry({
+            id: 'hidden',
+            name: 'The Hidden Hand',
+            primary: false,
+            access: {},
+          }),
+        ],
+      })
+
+      expect(campaign.groups).toEqual([
+        { id: 'company', name: 'The Company', primary: true, shared: true },
+        {
+          id: 'hidden',
+          name: 'The Hidden Hand',
+          primary: false,
+          shared: false,
+        },
+      ])
+      expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ groups: true }),
+        }),
+      )
+      // None from a campaign the module has said none of.
+      await expect(listed({ groups: undefined })).resolves.toHaveProperty(
+        'groups',
+        [],
       )
     })
 

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import {
+  FOUNDRY_SETTINGS,
+  GROUPS,
   MAX_ENVELOPE_BYTES,
   MIDI_PROMPTS,
   PROTOCOL_VERSION,
@@ -214,24 +216,30 @@ export async function POST(request: Request) {
 /**
  * What this app does beyond taking events, as told to the module: it has commands to fetch, it
  * expands slim sheets up to this format, it takes posts of up to this many bytes, and it reads
- * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0).
+ * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0); and
+ * the campaign's groups in this format, which the module sends only then too (0.30.0).
+ * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0).
  */
 const FEATURES = {
   commands: true,
   slimSheets: SLIM_SHEETS,
   maxBytes: MAX_ENVELOPE_BYTES,
   midiPrompts: MIDI_PROMPTS,
+  groups: GROUPS,
+  settings: FOUNDRY_SETTINGS,
 }
 
 /**
  * The events answered with them: a hello and a heartbeat, and from module 0.22.0 a sheet's post,
  * as the module sends each sheet slim or in full, and sizes it, by the latest answer, so that it
- * follows this app being rolled back or deployed again without waiting for a heartbeat.
+ * follows this app being rolled back or deployed again without waiting for a heartbeat; a group's
+ * sheet too, from module 0.30.0.
  */
 const ANSWERED_WITH_FEATURES: ReadonlySet<string> = new Set([
   EVENTS.HELLO,
   EVENTS.HEARTBEAT,
   EVENTS.CHARACTER_UPDATED,
+  EVENTS.GROUP_UPDATED,
 ])
 
 const CHECK_FAILED = 'Failed to check a Sending Stone event'

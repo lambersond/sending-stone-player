@@ -313,15 +313,16 @@ describe('schemas/sending-stone', () => {
 
   it('reads bridge.hello, keeping fields it does not know', () => {
     const data = {
-      module: { id: 'sending-stone' },
+      module: { id: 'sending-stone', version: '0.29.0' },
       characters: [{ ...roster[0], owners: [] }],
       combats: [combat()],
     }
 
     expect(parseGameEvent('bridge.hello', data)).toEqual({
       type: 'bridge.hello',
-      // None of the saves the game asks for, as from a module before 0.13.0.
-      data: { ...data, prompts: [] },
+      // None of the saves the game asks for, as from a module before 0.13.0, nor groups, as
+      // before 0.30.0.
+      data: { ...data, prompts: [], groups: [] },
     })
   })
 
@@ -456,7 +457,7 @@ describe('schemas/sending-stone', () => {
         combats: [],
         prompts: 'none',
       })?.data,
-    ).toEqual({ characters: [], combats: [], prompts: [] })
+    ).toEqual({ characters: [], combats: [], prompts: [], groups: [] })
 
     // Its label and DC are only shown, so an odd one is taken as none.
     expect(
@@ -1041,7 +1042,7 @@ describe('schemas/sending-stone', () => {
       parseGameEvent('bridge.hello', { characters: [character], combats: [] }),
     ).toEqual({
       type: 'bridge.hello',
-      data: { characters: [character], combats: [], prompts: [] },
+      data: { characters: [character], combats: [], prompts: [], groups: [] },
     })
     expect(parseGameEvent('character.updated', { character })).toEqual({
       type: 'character.updated',
@@ -1073,6 +1074,7 @@ describe('schemas/sending-stone', () => {
           characters: [named],
           combats: [],
           prompts: [],
+          groups: [],
         },
       })
       expect((hello?.data as any).characters[0]).not.toHaveProperty('sheet')
@@ -1089,6 +1091,7 @@ describe('schemas/sending-stone', () => {
         characters: [character, { ...roster[1], sheet: null }],
         combats: [],
         prompts: [],
+        groups: [],
       })
       expect(hello?.data).not.toHaveProperty('sheetsApart')
     })

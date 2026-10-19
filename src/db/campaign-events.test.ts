@@ -114,9 +114,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: false,
         rollKinds: [],
         rollFeatures: [],
+        foundry: { receivedAt: SENT },
       },
     })
     expect(prismaMock.combat.deleteMany).toHaveBeenCalledWith({
@@ -149,9 +151,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: false,
         rollKinds: [],
         rollFeatures: [],
+        foundry: { receivedAt: SENT },
       },
     })
     expect(prismaMock.actorSheet.deleteMany).toHaveBeenCalledWith({
@@ -183,11 +187,13 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['skill', 'save', 'attack', 'initiative'],
         // From module 0.13.0: it takes damage the player changed, and asks players for the saves
         // their game asks of them.
         rollFeatures: ['modifiers', 'prompts'],
+        foundry: { receivedAt: SENT },
       },
     })
 
@@ -205,9 +211,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: false,
         rollKinds: [],
         rollFeatures: [],
+        foundry: { receivedAt: SENT },
       },
     })
   })
@@ -230,9 +238,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['attack', 'hitDie', 'formula'],
         rollFeatures: ['prompts', 'areaAttacks'],
+        foundry: { receivedAt: SENT },
       },
     })
 
@@ -249,9 +259,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['attack', 'hitDie', 'formula'],
         rollFeatures: ['modifiers'],
+        foundry: { receivedAt: SENT },
       },
     })
   })
@@ -276,9 +288,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['skill', 'tool', 'ability', 'use'],
         rollFeatures: ['modifiers', 'activityChecks'],
+        foundry: { receivedAt: SENT },
       },
     })
 
@@ -295,9 +309,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['skill', 'tool', 'ability', 'use'],
         rollFeatures: [],
+        foundry: { receivedAt: SENT },
       },
     })
   })
@@ -327,9 +343,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['damage', 'textDamage'],
         rollFeatures: ['modifiers', 'activityChecks', 'signedDice'],
+        foundry: { receivedAt: SENT },
       },
     })
 
@@ -348,9 +366,11 @@ describe('db/campaign-events', () => {
         where: { id: 'c1' },
         data: {
           characters: roster,
+          groups: [],
           rollsEnabled: true,
           rollKinds: ['damage', 'textDamage'],
           rollFeatures: ['modifiers'],
+          foundry: { receivedAt: SENT },
         },
       })
     }
@@ -372,9 +392,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['use'],
         rollFeatures: ['signedDice', 'selfTargets'],
+        foundry: { receivedAt: SENT },
       },
     })
 
@@ -555,9 +577,11 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['skill', 'initiative', 'hitDie', 'hitDice', 'formula'],
         rollFeatures: [],
+        foundry: { receivedAt: SENT },
       },
     })
   })
@@ -581,14 +605,21 @@ describe('db/campaign-events', () => {
       where: { id: 'c1' },
       data: {
         characters: roster,
+        groups: [],
         rollsEnabled: true,
         rollKinds: ['attack', 'use', 'damage', 'endEnchantment'],
         rollFeatures: [],
+        foundry: { receivedAt: SENT },
       },
     })
   })
 
   describe('sheets apart, from module 0.22.0', () => {
+    beforeEach(() => {
+      // It holds no group's sheet, unless a test says otherwise (module 0.30.0).
+      prismaMock.groupSheet.findMany.mockResolvedValue([])
+    })
+
     it("bridge.hello keeps the sheets held for its characters, and those sheets' descriptions, until theirs follow", async () => {
       prismaMock.actorSheet.findMany.mockResolvedValue([
         { data: fullerSheet() },
@@ -600,9 +631,11 @@ describe('db/campaign-events', () => {
         where: { id: 'c1' },
         data: {
           characters: roster,
+          groups: [],
           rollsEnabled: false,
           rollKinds: [],
           rollFeatures: [],
+          foundry: { receivedAt: SENT },
         },
       })
       expect(prismaMock.combat.createMany).toHaveBeenCalledWith({

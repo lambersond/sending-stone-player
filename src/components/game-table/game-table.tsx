@@ -22,20 +22,25 @@ import Link from 'next/link'
 import { ChatLog } from './chat-log'
 import { CombatTracker } from './combat-tracker'
 import { EmptyState } from './empty-state'
+import { FullscreenButton } from './fullscreen-button'
 import { LiveStatus, type LiveState } from './live-status'
+import { PartyButton } from './party-button'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
 import { ConfirmDialog } from '@/components/modal'
+import { PartyPanel } from '@/components/party-sheet/party-panel'
 import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { useTableView } from '@/hooks/use-table-view'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
+import { megabytes } from '@/utils/format-amount'
 import { gameHost } from '@/utils/game-host'
 import { seatWords } from '@/utils/seat-words'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
+import type { TableGroup } from '@/types/party'
 import type {
   GmRolls,
   TableCombat,
@@ -107,6 +112,17 @@ export function GameTable({
   // The character comes first, in a fight too, where the Combat tab marks the player's turn; and
   // without a sheet, where its tab says why.
   const [tab, setTab] = useState<Tab>('character')
+  // The party sheet open in its side panel, by its group's id (module 0.30.0). Once open, it stays
+  // open as the group was last listed, should the group leave the list, as when the player's
+  // access to it is taken away: the panel then says so, rather than vanishing.
+  const [partyOpen, setPartyOpen] = useState<string>()
+  const listedParty = view.groups?.find(({ id }) => id === partyOpen)
+  const [lastParty, setLastParty] = useState<TableGroup>()
+  if (listedParty && !sameGroup(listedParty, lastParty)) {
+    setLastParty(listedParty)
+  }
+  const party =
+    listedParty ?? (lastParty?.id === partyOpen ? lastParty : undefined)
   const sideBySide = useMediaQuery(SIDE_BY_SIDE)
   // A screen that narrows from the sheet beside combat or the chat to one pane shows the
   // character, keeping the part of the sheet shown. Widening changes nothing.
@@ -361,6 +377,10 @@ export function GameTable({
             </div>
             <div className='flex shrink-0 items-center gap-1'>
               <LiveStatus state={liveState(playing, view, connection)} />
+              {view.groups && view.groups.length > 0 && (
+                <PartyButton groups={view.groups} onOpen={setPartyOpen} />
+              )}
+              <FullscreenButton />
               {!gm && deleteCharacter && (
                 <ConfirmDialog
                   trigger={<Trash2 aria-hidden className='size-4' />}
@@ -430,9 +450,47 @@ export function GameTable({
             )}
           </TabButton>
         </nav>
+        {/* A party sheet, over the character's, never part of it. */}
+        <PartyPanel
+          group={party}
+          api={partyApi(seat, character, party?.id)}
+          pageHref={partyPage(seat, character, party?.id)}
+          role={seat.role}
+          ownSheetHref={gm ? undefined : `/characters/${character.id}`}
+          onClose={() => setPartyOpen(undefined)}
+        />
       </div>
     </TableApiContext>
   )
+}
+
+/** Is this the same group, as listed, as the one kept? */
+function sameGroup(group: TableGroup, kept: TableGroup | undefined): boolean {
+  return (
+    group.id === kept?.id &&
+    group.name === kept.name &&
+    group.primary === kept.primary &&
+    group.portrait === kept.portrait
+  )
+}
+
+/**
+ * Where a party sheet open at the table is read: through the player's character, or for the
+ * Gamemaster's seat, through their campaign.
+ */
+function partyApi(seat: TableSeat, character: Character, group = ''): string {
+  const id = encodeURIComponent(group)
+  return seat.role === 'gm'
+    ? `/api/campaigns/${encodeURIComponent(character.campaignId ?? '')}/party/${id}`
+    : `/api/characters/${encodeURIComponent(character.id)}/party/${id}`
+}
+
+/** A party sheet's own page, as the player or the Gamemaster opens it. */
+function partyPage(seat: TableSeat, character: Character, group = ''): string {
+  const id = encodeURIComponent(group)
+  return seat.role === 'gm'
+    ? `/campaigns/${encodeURIComponent(character.campaignId ?? '')}/party/${id}`
+    : `/characters/${encodeURIComponent(character.id)}/party/${id}`
 }
 
 /**
@@ -624,10 +682,6 @@ function NoSheet({
 }>) {
   if (withheld?.reason === 'tooLarge') {
     const { bytes, limit } = withheld
-    // In megabytes to a tenth, as the module tells the Gamemaster: the size rounded up and the
-    // limit down, so that a size over the limit never reads as within it.
-    const megabytes = (count: number, round: (tenths: number) => number) =>
-      `${(round(count / 100_000) / 10).toFixed(1)} MB`
     return (
       <EmptyState
         icon={UserRound}
