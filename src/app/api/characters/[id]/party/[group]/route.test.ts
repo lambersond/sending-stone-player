@@ -84,9 +84,75 @@ describe('app/api/characters/[id]/party/[group]', () => {
       own: true,
     })
     expect(getCharacter).toHaveBeenCalledWith('user-2', 'char-2')
-    // A party sheet says nothing of who is at the table.
-    expect(notePlayersSeen).not.toHaveBeenCalled()
+    // From module 0.31.0, its player is noted present, as one who may take from it, so the
+    // Gamemaster's module waits for their moves; its character is never noted open.
+    expect(notePlayersSeen).toHaveBeenCalledWith('c1')
     expect(noteTableOpen).not.toHaveBeenCalled()
+  })
+
+  it('notes no one present for a sheet the seat may not see', async () => {
+    held({ [PARTY.thorin]: 'owner' })
+
+    expect(await statusOf()).toBe(404)
+    expect(notePlayersSeen).not.toHaveBeenCalled()
+  })
+
+  describe('taking from it, from module 0.31.0', () => {
+    /** The campaign as held, its game taking moves, or not, and who may see The Company. */
+    const moving = (
+      access: object,
+      { enabled = true, polled = new Date(Date.now() - 5000) } = {},
+    ) =>
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        id: 'c1',
+        title: 'The Lonely Mountain',
+        origin: 'https://my-game.forge-vtt.com',
+        version: 7,
+        lastSeenAt: new Date(Date.now() - 30_000),
+        ownerId: 'gm-1',
+        groups: [groupEntry({ access: access as any })],
+        transfersEnabled: enabled,
+        bridgePolledAt: polled,
+      } as any)
+    const owner = { [PARTY.vex]: 'owner' }
+
+    it('lets a player whose Foundry user owns it take from it, naming no one else', async () => {
+      moving(owner)
+      const viewResponse = await get()
+      const view = await viewResponse.json()
+
+      expect(view.moves).toEqual({})
+      expect(JSON.stringify(view)).not.toContain('observer')
+      expect(JSON.stringify(view)).not.toContain('"access"')
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledTimes(2)
+    })
+
+    it.each([
+      ['an observer', groupEntry().access, {}],
+      ['its game not taking moves', owner, { enabled: false }],
+      [
+        'its module not fetching them lately',
+        owner,
+        { polled: new Date(Date.now() - 60_000) },
+      ],
+    ])('lets no one take from it for %s', async (_, access, game) => {
+      moving(access, game)
+      const viewResponse = await get()
+      const view = await viewResponse.json()
+
+      expect(view).not.toHaveProperty('moves')
+    })
+
+    it('sends the view, not 204, when whether the seat may take from it changes', async () => {
+      moving(owner)
+      expect(await statusOf('?version=7&live=1&moves=1')).toBe(204)
+      expect(await statusOf('?version=7&live=1')).toBe(200)
+
+      // Its module stopped fetching moves, with no new version.
+      moving(owner, { polled: new Date(Date.now() - 60_000) })
+      expect(await statusOf('?version=7&live=1')).toBe(204)
+      expect(await statusOf('?version=7&live=1&moves=1')).toBe(200)
+    })
   })
 
   it('asks the signed-out to sign in', async () => {

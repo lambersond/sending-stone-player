@@ -28,6 +28,12 @@ import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { UsesButton } from './uses-button'
 import { usePortalRoot, useTopmostEscape } from '@/components/modal'
+import {
+  NO_TRANSFERS,
+  Transferring,
+  useTransferring,
+  type TransferControls,
+} from '@/components/transfers/transferring'
 import { compactAmount } from '@/utils/format-amount'
 import { itemAction } from '@/utils/sheet-actions'
 import type {
@@ -48,7 +54,9 @@ import type { DamageModifiers } from '@/utils/damage-modifiers'
  * The character's inventory, as dnd5e's Inventory tab shows it to its player: coin, load and
  * attunement, items by type, and containers, each opening to what it holds. What an item rolls is
  * beside it, as on the Actions tab, whether it's equipped or not: each a button that rolls it, or
- * uses it in the Gamemaster's game while the game takes items' uses.
+ * uses it in the Gamemaster's game while the game takes items' uses. From module 0.31.0, its items
+ * and coins may be moved from here, with the controls given: on this tab alone, never among the
+ * favorites.
  */
 export function InventoryTab({
   characterId,
@@ -59,6 +67,7 @@ export function InventoryTab({
   onRollFormula,
   onUse,
   tableDamage,
+  transfers,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
@@ -72,6 +81,8 @@ export function InventoryTab({
   onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
   /** What the game does with damage, while it takes it. */
   tableDamage?: TableDamage
+  /** How its items and coins are moved, while the game takes moves. */
+  transfers?: TransferControls
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -87,14 +98,16 @@ export function InventoryTab({
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
-      {(currency.length > 0 || encumbrance || attunement) && (
-        <Holdings inventory={inventory} />
-      )}
-      <InventoryList
-        characterId={characterId}
-        inventory={inventory}
-        rows={rows}
-      />
+      <Transferring controls={transfers ?? NO_TRANSFERS}>
+        {(currency.length > 0 || encumbrance || attunement) && (
+          <Holdings inventory={inventory} />
+        )}
+        <InventoryList
+          characterId={characterId}
+          inventory={inventory}
+          rows={rows}
+        />
+      </Transferring>
       {dialogs}
     </div>
   )
@@ -167,16 +180,24 @@ export function InventoryList({
   )
 }
 
-/** Coin, how much the character carries, and how many items they are attuned to. */
+/**
+ * Coin, how much the character carries, and how many items they are attuned to; beside the coin,
+ * how it's moved, where the sheet gives it a way (module 0.31.0).
+ */
 export function Holdings({
   inventory,
 }: Readonly<{ inventory: SheetInventory }>) {
   const { currency, encumbrance, attunement } = inventory
+  const moves = useTransferring().coins?.(currency)
   return (
     // On a phone, coin across the top, and load and attunement side by side under it.
     <dl className='grid grid-cols-2 gap-2 @xl:grid-cols-3'>
       {currency.length > 0 && (
-        <SheetFact label='Currency' className='col-span-2 @xl:col-span-1'>
+        <SheetFact
+          label='Currency'
+          className='col-span-2 @xl:col-span-1'
+          action={moves}
+        >
           <ul className='flex flex-wrap gap-x-3 gap-y-1'>
             {currency.map(coin => (
               <li
@@ -350,7 +371,8 @@ function Load({
 
 /**
  * An item, or a container that opens to what it holds. Given the rows actions are in, one that
- * rolls shows what it rolls beside it, as an action does.
+ * rolls shows what it rolls beside it, as an action does. Where the sheet gives a way to move it
+ * (module 0.31.0), and there's any of it, that's beside it or in it once open.
  */
 export function ItemEntry({
   characterId,
@@ -361,6 +383,8 @@ export function ItemEntry({
   item: SheetItem | SheetContainer
   rows?: ActionRows
 }>) {
+  const transfers = useTransferring()
+  const moves = item.quantity >= 1 ? transfers.item?.(item) : undefined
   const container = 'contents' in item ? item : undefined
   const { weight, uses } = item
   const capacity = container?.capacity
@@ -406,10 +430,20 @@ export function ItemEntry({
           marks: quantity,
           meta,
           facts,
+          moves: moves?.body,
         }}
       />
     )
   }
+  // Only something to open makes it open.
+  const opened = (moves?.body || container) && (
+    <>
+      {moves?.body}
+      {container && (
+        <Contents characterId={characterId} container={container} rows={rows} />
+      )}
+    </>
+  )
   return (
     <SheetEntry
       characterId={characterId}
@@ -419,10 +453,11 @@ export function ItemEntry({
       favoriteKey={`item:${item.id}`}
       detail={detail}
       aside={
-        (item.quantity !== 1 || uses) && (
+        (item.quantity !== 1 || uses || moves?.aside) && (
           <span className='flex shrink-0 items-center gap-1.5'>
             {quantity}
             {uses && <UsesButton uses={uses} name={item.name} />}
+            {moves?.aside}
           </span>
         )
       }
@@ -432,9 +467,7 @@ export function ItemEntry({
       origin={{ name: item.name, item: item.id }}
       {...enchantedEntry(item)}
     >
-      {container && (
-        <Contents characterId={characterId} container={container} rows={rows} />
-      )}
+      {opened || undefined}
     </SheetEntry>
   )
 }

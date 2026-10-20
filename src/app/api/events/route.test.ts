@@ -46,6 +46,8 @@ const FEATURES = {
   midiPrompts: 1,
   groups: 1,
   settings: 1,
+  // From module 0.31.0: moves of items and coins.
+  transfers: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }

@@ -1,5 +1,12 @@
 import clsx from 'clsx'
-import { Dices, KeyRound, RefreshCw, Trash2, UserMinus } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  Dices,
+  KeyRound,
+  RefreshCw,
+  Trash2,
+  UserMinus,
+} from 'lucide-react'
 import Link from 'next/link'
 import { CampaignParties } from './campaign-parties'
 import { FoundrySettingsSection } from './foundry-settings'
@@ -177,6 +184,14 @@ export function CampaignCard({
         <p className='text-sm text-text-secondary'>{rollsText(campaign)}</p>
       </section>
 
+      <section className='grid gap-1'>
+        <h4 className='flex items-center gap-1.5 text-sm font-medium'>
+          <ArrowLeftRight aria-hidden className='size-4 text-text-secondary' />
+          Items and coins
+        </h4>
+        <p className='text-sm text-text-secondary'>{movesText(campaign)}</p>
+      </section>
+
       <FoundrySettingsSection campaign={campaign} />
 
       <footer className='flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4'>
@@ -243,6 +258,41 @@ function madeText({ rolls }: OwnedCampaign): string {
     return 'Turned on in Foundry. Players’ rolls reach your game while it’s open; for now they stay here.'
   }
   return 'They stay here. To have them made in your game with the same dice, tick Players roll in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/**
+ * Whether the players move items and coins from here, from module 0.31.0, and if not, how they
+ * could: with a module before that, which has no such setting, by updating it first.
+ */
+function movesText({ transfers, foundry }: OwnedCampaign): string {
+  if (transfers.enabled && transfers.reaching) {
+    return 'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.'
+  }
+  if (transfers.enabled) {
+    return 'Turned on in Foundry. Moves reach your game while it’s open.'
+  }
+  if (before(foundry?.module?.version, MOVES_FROM)) {
+    return 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
+  }
+  return 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/** The first Sending Stone in Foundry that moves items and coins: major, minor and patch. */
+const MOVES_FROM = [0, 31, 0] as const
+
+/**
+ * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,
+ * or that doesn't read as major.minor.patch, isn't.
+ */
+function before(
+  version: string | null | undefined,
+  than: readonly number[],
+): boolean {
+  const parts = /^(\d+)\.(\d+)\.(\d+)/.exec(version ?? '')
+  if (!parts) return false
+  const numbers = parts.slice(1).map(Number)
+  const differs = numbers.findIndex((part, index) => part !== than[index])
+  return differs !== -1 && numbers[differs] < than[differs]
 }
 
 /**

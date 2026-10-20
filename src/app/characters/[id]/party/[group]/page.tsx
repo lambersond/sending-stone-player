@@ -50,6 +50,17 @@ export default async function CharacterPartyPage({ params }: Props) {
       initialView={view}
       back={{ href: sheet, label: `Back to ${character.name}` }}
       ownSheetHref={sheet}
+      // Taken into the player's character, through its own API (module 0.31.0).
+      takeInto={
+        character.actorId
+          ? {
+              kind: 'own',
+              actorId: character.actorId,
+              name: character.name,
+              api: `/api${sheet}`,
+            }
+          : undefined
+      }
     />
   )
 }

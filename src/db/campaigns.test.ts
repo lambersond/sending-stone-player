@@ -136,6 +136,7 @@ describe('db/campaigns', () => {
           rollKinds: ['skill', 'save', 'attack', 'damage'],
           rollFeatures: ['modifiers', 'prompts'],
           bridgePolledAt: seen,
+          transfersEnabled: true,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -155,6 +156,7 @@ describe('db/campaigns', () => {
           rollKinds: [],
           rollFeatures: [],
           bridgePolledAt: null,
+          transfersEnabled: true,
           players: [],
         },
       ] as any)
@@ -177,6 +179,8 @@ describe('db/campaigns', () => {
             spells: false,
             prompts: true,
           },
+          // From module 0.31.0: turned on, and the game fetching moves.
+          transfers: { enabled: true, reaching: true },
           characters: [
             {
               id: 'actor-thorin',
@@ -210,6 +214,8 @@ describe('db/campaigns', () => {
             spells: false,
             prompts: false,
           },
+          // Turned on, but the game isn't fetching moves.
+          transfers: { enabled: true, reaching: false },
           characters: [],
           groups: [],
         },

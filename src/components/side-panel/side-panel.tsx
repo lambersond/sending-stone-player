@@ -39,7 +39,11 @@ export function SidePanel({
     <dialog
       ref={attach}
       aria-labelledby={titleId}
-      onClose={onClose}
+      // Escape closes the panel itself; this keeps the owner's state in step. Only its own close,
+      // as Modal's: React hands it the close of a dialog opened inside it too, such as a Take's.
+      onClose={event => {
+        if (event.target === event.currentTarget) onClose()
+      }}
       onClick={event => {
         if (event.target === event.currentTarget) onClose()
       }}

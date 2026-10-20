@@ -1,6 +1,7 @@
 import type { PROMPT_SOURCES } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
 import type { GroupEntry, GroupSheet } from '@/types/party'
+import type { TransferMoved } from '@/types/roll'
 
 /**
  * What the fvtt-sending-stone module sends, as far as this app reads it. Payloads may carry more
@@ -244,11 +245,22 @@ export type SheetContainer = SheetItem & {
   contents: (SheetItem | SheetContainer)[] | null
 }
 
+/**
+ * A coin as the sheet lists it: its dnd5e key, such as "gp", its name and abbreviation, and how
+ * many, which dnd5e 6 may hold in part, as 10.5.
+ */
+export type SheetCurrency = {
+  id: string
+  label: string
+  abbreviation: string
+  value: number
+}
+
 export type SheetInventory = {
   /** Items by type, in dnd5e's order, leaving out those in containers. */
   sections: { id: string; label: string; items: SheetItem[] }[]
   containers: SheetContainer[]
-  currency: { id: string; label: string; abbreviation: string; value: number }[]
+  currency: SheetCurrency[]
   /** Where being encumbered begins is set only under the variant rule. */
   encumbrance: {
     value: number
@@ -1197,6 +1209,15 @@ export type BridgeFeatures = {
      */
     midiPrompts?: boolean
   } | null
+  /**
+   * Whether its players may move items and coins from here, apart from the rolls: on, with
+   * `"transfer"` among its kinds, or off, and why, `"off"` or `"system"`. Module 0.31.0.
+   */
+  transfers?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+  } | null
 }
 
 /**
@@ -1292,6 +1313,11 @@ export type CommandResult = {
    * player's roll.
    */
   messages?: string[]
+  /**
+   * For a move of items and coins, what moved, by ids and counts alone: everything, when it was
+   * made, or the parts made before it failed. Module 0.31.0.
+   */
+  transfer?: TransferMoved
 }
 
 /**

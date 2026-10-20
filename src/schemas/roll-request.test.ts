@@ -1342,3 +1342,217 @@ describe('concentration, charges and Heroic Inspiration, from module 0.29.0', ()
     ])
   })
 })
+
+/** Two Potions of Healing taken from the party, as a take sends them. */
+const moving = {
+  kind: 'transfer',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  transfer: {
+    from: 'groupIronCo01',
+    to: 'actorThorin1',
+    items: [{ id: 'potionHeal01', quantity: 2 }],
+  },
+}
+
+/** A move's own fields, the rest as `moving` has them. */
+const moves = (transfer: object) =>
+  parseKind(moving, { transfer: { ...moving.transfer, ...transfer } })
+
+describe('moves of items and coins, from module 0.31.0', () => {
+  it('takes a take, a give, a send, and items and coins together', () => {
+    expect(parseKind(moving, {}).success).toBe(true)
+    // A give of coins to the party.
+    expect(
+      parseKind(moving, {
+        transfer: {
+          from: 'actorThorin1',
+          to: 'groupIronCo01',
+          currency: { gp: 50 },
+        },
+      }).success,
+    ).toBe(true)
+    // A send to another character, of a Rope and 50 gp.
+    expect(
+      parseKind(moving, {
+        transfer: {
+          from: 'actorThorin1',
+          to: 'actorVex0001',
+          items: [{ id: 'rope00000001', quantity: 1 }],
+          currency: { gp: 50, sp: 5 },
+        },
+      }).success,
+    ).toBe(true)
+    expect(
+      moves({ items: [{ id: 'gem', quantity: 10_000_000 }] }).success,
+    ).toBe(true)
+    expect(
+      moves({
+        items: Array.from({ length: 10 }, (_, index) => ({
+          id: `item${index}`,
+          quantity: 1,
+        })),
+      }).success,
+    ).toBe(true)
+  })
+
+  it.each([
+    ['no move', { transfer: undefined }],
+    [
+      'anything else of it',
+      { transfer: { ...moving.transfer, label: 'Take' } },
+    ],
+  ])('refuses %s', (_name, fields) => {
+    expect(parseKind(moving, fields).success).toBe(false)
+  })
+
+  it('refuses an item named in place of the items', () => {
+    const { from, to } = moving.transfer
+    expect(
+      parseKind(moving, {
+        transfer: { from, to, item: { id: 'potionHeal01', quantity: 2 } },
+      }).success,
+    ).toBe(false)
+  })
+
+  it.each([
+    [
+      'from one end to the same',
+      { to: 'groupIronCo01' },
+      ['transfer.to', 'A move goes from one end to another'],
+    ],
+    [
+      'more than ten items',
+      {
+        items: Array.from({ length: 11 }, (_, index) => ({
+          id: `item${index}`,
+          quantity: 1,
+        })),
+      },
+      ['transfer.items'],
+    ],
+    [
+      'an item twice',
+      {
+        items: [
+          { id: 'potionHeal01', quantity: 1 },
+          { id: 'potionHeal01', quantity: 1 },
+        ],
+      },
+      ['transfer.items', 'Each item is moved once'],
+    ],
+    [
+      'none of an item',
+      { items: [{ id: 'potionHeal01', quantity: 0 }] },
+      ['transfer.items.0.quantity'],
+    ],
+    [
+      'more than the most',
+      { items: [{ id: 'potionHeal01', quantity: 10_000_001 }] },
+      ['transfer.items.0.quantity'],
+    ],
+    [
+      'a part of one',
+      { items: [{ id: 'potionHeal01', quantity: 1.5 }] },
+      ['transfer.items.0.quantity'],
+    ],
+    ['no items in its list', { items: [] }, ['transfer.items']],
+    [
+      'an id not an id',
+      { items: [{ id: 'potion heal', quantity: 1 }] },
+      ['transfer.items.0.id'],
+    ],
+    ['an end not an id', { from: 'the party' }, ['transfer.from']],
+    [
+      'a coin of 0',
+      { items: undefined, currency: { gp: 0 } },
+      ['transfer.currency.gp'],
+    ],
+    [
+      'a coin not a key',
+      { items: undefined, currency: { GP: 5 } },
+      ['transfer.currency.GP'],
+    ],
+    [
+      'a key too long',
+      { items: undefined, currency: { platinumpc: 5 } },
+      ['transfer.currency.platinumpc'],
+    ],
+    [
+      'eleven kinds of coin',
+      {
+        items: undefined,
+        currency: Object.fromEntries(
+          Array.from({ length: 11 }, (_, index) => [`c${index}`, 1]),
+        ),
+      },
+      ['transfer.currency', 'From one to ten kinds of coin'],
+    ],
+    [
+      'no kind of coin',
+      { items: undefined, currency: {} },
+      ['transfer.currency', 'From one to ten kinds of coin'],
+    ],
+    [
+      'neither items nor coins',
+      { items: undefined },
+      ['transfer.items', 'A move moves an item or coins'],
+    ],
+  ])('refuses %s', (_name, fields, [path, message]) => {
+    const parsed = moves(fields)
+    expect(parsed.success).toBe(false)
+    const issues = parsed.error!.issues.map(issue => [
+      issue.path.join('.'),
+      issue.message,
+    ])
+    expect(issues).toContainEqual(
+      message === undefined ? [path, expect.any(String)] : [path, message],
+    )
+  })
+
+  it('takes a move only as a transfer, and a transfer only with one', () => {
+    expect(parse({ transfer: moving.transfer }).success).toBe(false)
+    expect(parseKind(spending, { transfer: moving.transfer }).success).toBe(
+      false,
+    )
+    expect(issuesOf(perception, { transfer: moving.transfer })).toEqual([
+      ['transfer', 'A move, and only that, names what moves'],
+    ])
+    expect(issuesOf(moving, { transfer: undefined })).toEqual([
+      ['transfer', 'A move, and only that, names what moves'],
+    ])
+  })
+
+  it.each([
+    ['an item', { item: 'potionHeal01' }],
+    ['targets', { targets: [] }],
+    ['a counter', { counter: { item: 'sorcery' } }],
+    ['a key', { key: 'prc' }],
+    ['a prompt', { prompt: 'card1-actor1' }],
+    ['a link', { text: 'a3b4c5d6e7f809', link: 0 }],
+    ['a slot', { slot: 'spell2' }],
+  ])('refuses a move with %s, a roll’s field', (_name, fields) => {
+    expect(parseKind(moving, fields).success).toBe(false)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a move with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(moving, fields)).toEqual([
+      ['dice', 'Moving throws no dice'],
+    ])
+  })
+
+  it("keeps the Gamemaster's label, as for any roll", () => {
+    expect(
+      parseKind(moving, {
+        label: 'Take 2 Potion of Healing from The Iron Company',
+      }).success,
+    ).toBe(true)
+  })
+})

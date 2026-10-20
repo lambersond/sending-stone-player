@@ -1,4 +1,5 @@
 import type { SheetInventory, SheetWithheld } from '@/types/sending-stone'
+import type { TableMoves } from '@/types/table'
 
 /*
  * A campaign's Group actors, such as its party, as the module sends them from 0.30.0, and as this
@@ -73,6 +74,12 @@ export type PartyView = {
   withheld?: { reason: 'tooLarge'; bytes?: number; limit?: number }
   /** The Gamemaster's view only: no player may see it in Foundry. */
   private?: true
+  /**
+   * Set where the seat may take from it, from module 0.31.0: while the campaign lets items and
+   * coins be moved and its game is taking moves, for a player whose Foundry user has Owner on it,
+   * and for the Gamemaster, with the campaign's characters to take into. Never anyone's access.
+   */
+  moves?: { characters?: TableMoves['characters'] }
 }
 
 /** A group a seat has been let see, by the access check, for its descriptions to be served by. */

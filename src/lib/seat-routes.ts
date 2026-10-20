@@ -28,7 +28,8 @@ const MAX_ROLL_BYTES = 16_384
  * `?version=7&live=1&rolls=skill,save;modifiers` to get 204 No Content while none has changed,
  * for the Gamemaster's seat where their rolls go, as `&gm=made`, and for the player's the
  * Gamemaster's rolls as their character as last seen, as `&gmrolls=` and the view's `gmRollsKey`;
- * and the sheet's version as `&sheet=` to have an unchanged sheet left out.
+ * from module 0.31.0, `&moves=1` where the view last seen let the seat move items and coins; and
+ * the sheet's version as `&sheet=` to have an unchanged sheet left out.
  */
 export async function tableResponse(
   request: NextRequest,
@@ -54,14 +55,15 @@ export async function tableResponse(
 
   const known = request.nextUrl.searchParams
   if (known.has('version')) {
-    const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey } =
+    const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey, moves } =
       await getCampaignStatus(seat)
     if (
       Number(known.get('version')) === version &&
       (known.get('live') === '1') === live &&
       (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures) &&
       (known.get('gm') ?? undefined) === gm?.rolls &&
-      (known.get('gmrolls') ?? undefined) === gmRollsKey
+      (known.get('gmrolls') ?? undefined) === gmRollsKey &&
+      (known.get('moves') === '1') === moves
     ) {
       return new Response(undefined, { status: 204, headers })
     }
@@ -73,7 +75,7 @@ export async function tableResponse(
 }
 
 /** Note who is at the table, saying so where it fails, which never stops the table being seen. */
-async function noting(note: () => Promise<void>, failed: string) {
+export async function noting(note: () => Promise<void>, failed: string) {
   try {
     await note()
   } catch (error) {

@@ -97,6 +97,25 @@ describe('hooks/use-party-sheet', () => {
     )
   })
 
+  it('asks for news saying whether the seat might take from it, as it has it, from module 0.31.0', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(200, { ...initial, version: 4 }))
+    renderHook(() => usePartySheet(API, { ...initial, moves: {} }))
+
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      `${API}?version=3&live=1&moves=1&sheet=2026-10-19T12%3A00%3A00.000Z`,
+      expect.anything(),
+    )
+    jest.mocked(fetch).mockResolvedValueOnce(respond(204))
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      `${API}?version=4&live=1&sheet=2026-10-19T12%3A00%3A00.000Z`,
+      expect.anything(),
+    )
+  })
+
   it('takes a new sheet, and none where the sheet has gone', async () => {
     const changed = {
       ...initial,

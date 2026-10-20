@@ -1396,3 +1396,33 @@ describe('hooks/use-sheet-roller', () => {
     expect(result.current.rolls[0].label).toBe(`Roll ${ROLL_HISTORY + 2}`)
   })
 })
+
+describe('hooks/use-sheet-roller, items and coins moved, from module 0.31.0', () => {
+  it('keeps a move first among the rolls, as a use, named for what moved', () => {
+    renderer()
+    const { result } = renderHook(() => useSheetRoller())
+    const move = {
+      verb: 'give' as const,
+      things: '2 Potion of Healing',
+      other: 'The Iron Company',
+      item: 'potion',
+    }
+
+    let moved: ReturnType<typeof result.current.logMove> | undefined
+    act(() => {
+      result.current.logCharge('Sorcery Points', { spent: 1 })
+      moved = result.current.logMove(move)
+    })
+
+    expect(moved).toEqual({
+      kind: 'use',
+      id: expect.stringMatching(/^use-/),
+      label: '2 Potion of Healing',
+      spell: false,
+      move,
+      at: expect.any(Number),
+    })
+    expect(result.current.rolls[0]).toBe(moved)
+    expect(result.current.rolls).toHaveLength(2)
+  })
+})

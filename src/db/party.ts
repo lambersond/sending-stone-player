@@ -1,6 +1,7 @@
 import prisma from '@/clients/prisma'
 import { isLive } from '@/db/campaigns'
 import { inventoryView, portraitUrl } from '@/utils/table-view'
+import { transfersAvailable } from '@/utils/transfers'
 import type { SheetSeat } from '@/types/character'
 import type {
   AllowedGroup,
@@ -9,6 +10,8 @@ import type {
   PartyView,
   TableGroup,
 } from '@/types/party'
+import type { ConnectedCharacter } from '@/types/sending-stone'
+import type { TableMoves } from '@/types/table'
 
 // Who may see a campaign's party sheets (module 0.30.0), as Foundry shows them: a player whose
 // Foundry user has Observer or Owner on the group, through their character in the campaign; and the
@@ -69,6 +72,19 @@ function canSee(entry: GroupEntry, actorId: string | null): boolean {
   return level === 'observer' || level === 'owner'
 }
 
+/**
+ * Has this campaign character's player Owner on the group in Foundry, as Foundry needs to change
+ * its inventory (module 0.31.0)? Observer can see it, and moves nothing.
+ */
+function owns(entry: GroupEntry, actorId: string | null): boolean {
+  return (
+    !!actorId &&
+    !!entry.access &&
+    Object.hasOwn(entry.access, actorId) &&
+    entry.access[actorId] === 'owner'
+  )
+}
+
 /** The group, as a table page lists it to open: never who may see it. */
 function tableGroup(entry: GroupEntry, origin: string): TableGroup {
   const portrait = portraitUrl(entry.img, origin)
@@ -99,6 +115,45 @@ export function tableGroups(
     .map(entry => tableGroup(entry, origin))
 }
 
+/**
+ * Where a seat at a character's sheet may move its character's items and coins to, from module
+ * 0.31.0: the groups it may give to, for a player only those their Foundry user has Owner on, for
+ * the Gamemaster every one listed, the primary party first; and the campaign's other characters, in
+ * its roster's order. Never anyone's access.
+ * @param roster - The campaign's groups, as its roster keeps them.
+ * @param characters - The campaign's characters, from its hello.
+ */
+export function tableMoves(
+  seat: SheetSeat,
+  roster: GroupEntry[],
+  characters: Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[],
+  origin: string,
+): TableMoves {
+  return {
+    parties: roster
+      .filter(entry => seat.role === 'gm' || owns(entry, seat.actorId))
+      .toSorted(
+        (a, b) => Number(b.primary === true) - Number(a.primary === true),
+      )
+      .map(entry => tableGroup(entry, origin)),
+    characters: characterEnds(
+      characters.filter(({ id }) => id !== seat.actorId),
+      origin,
+    ),
+  }
+}
+
+/** The campaign's characters, as a move names its ends: by name and portrait only. */
+function characterEnds(
+  characters: Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[],
+  origin: string,
+): TableMoves['characters'] {
+  return characters.map(({ id, name, img }) => {
+    const portrait = portraitUrl(img, origin)
+    return { id, name, ...(portrait && { portrait }) }
+  })
+}
+
 /** What the check reads of a campaign: never anything only its Gamemaster may read. */
 const campaignSelect = {
   id: true,
@@ -108,7 +163,24 @@ const campaignSelect = {
   lastSeenAt: true,
   ownerId: true,
   groups: true,
+  transfersEnabled: true,
+  bridgePolledAt: true,
 } as const
+
+/**
+ * Whether the seat may take from the group, from module 0.31.0: while the campaign lets items and
+ * coins be moved, and its game is taking moves; a player only with Owner on it in Foundry.
+ */
+function takes(
+  seat: PartySeat,
+  campaign: { transfersEnabled: boolean; bridgePolledAt: Date | null },
+  entry: GroupEntry,
+): boolean {
+  return (
+    transfersAvailable(campaign) &&
+    (seat.role === 'gm' || owns(entry, seat.actorId))
+  )
+}
 
 /** The campaign and the group's entry, where the seat may see the group; else undefined. */
 async function access(seat: PartySeat, groupId: string) {
@@ -140,20 +212,23 @@ export async function allowedGroup(
 }
 
 /**
- * Whether anything is new on a party sheet the seat may see now: the campaign's version, and
- * whether its game is live. Checked before anything is said to be unchanged, so a player whose
- * access was taken away is told nothing, rather than that nothing changed.
+ * Whether anything is new on a party sheet the seat may see now: the campaign's version, whether
+ * its game is live, and from module 0.31.0 whether the seat may take from it, which its game's
+ * taking moves or not changes with no new version. Checked before anything is said to be
+ * unchanged, so a player whose access was taken away is told nothing, rather than that nothing
+ * changed.
  * @returns Undefined where the seat may not see it.
  */
 export async function getPartyStatus(
   seat: PartySeat,
   groupId: string,
-): Promise<{ version: number; live: boolean } | undefined> {
+): Promise<{ version: number; live: boolean; moves: boolean } | undefined> {
   const found = await access(seat, groupId)
   return (
     found && {
       version: found.campaign.version,
       live: isLive(found.campaign.lastSeenAt),
+      moves: takes(seat, found.campaign, found.entry),
     }
   )
 }
@@ -180,6 +255,16 @@ export async function getGroupView(
   })
   const sheetVersion = held?.updatedAt.toISOString()
   const withheld = entry.sheetWithheld
+  // Who the Gamemaster may take into, from module 0.31.0: any of the campaign's characters, which
+  // only their view reads.
+  const moves = takes(seat, campaign, entry)
+  const roster =
+    moves && seat.role === 'gm'
+      ? await prisma.campaign.findUnique({
+          where: { id: campaign.id },
+          select: { characters: true },
+        })
+      : undefined
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -206,7 +291,28 @@ export async function getGroupView(
       Object.keys(entry.access ?? {}).length === 0 && {
         private: true as const,
       }),
+    ...(moves && {
+      moves: roster
+        ? {
+            characters: characterEnds(
+              characterRoster(roster.characters),
+              campaign.origin,
+            ),
+          }
+        : {},
+    }),
   }
+}
+
+/** A campaign's characters, as its hello listed them: none where there's nothing to read. */
+function characterRoster(
+  characters: unknown,
+): Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[] {
+  return Array.isArray(characters)
+    ? (characters as (ConnectedCharacter | null)[]).filter(
+        (entry): entry is ConnectedCharacter => typeof entry?.id === 'string',
+      )
+    : []
 }
 
 /** A group's sheet as the seat sees it, its portraits and icons loading from the game. */

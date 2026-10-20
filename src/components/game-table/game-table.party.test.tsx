@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
-import { characterSheet } from '@/mocks/sending-stone'
+import { characterSheet, movingPartyView } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
@@ -71,11 +71,18 @@ const party: PartyView = {
 }
 
 let current: { view: TableView; connection: Connection }
-const renderTable = (initial: TableView, seat?: TableSeat) => {
+const renderTable = (
+  initial: TableView,
+  seat?: TableSeat,
+  fields: Partial<Character> = {},
+) => {
   current = { view: initial, connection: 'live' }
   jest.mocked(useTableView).mockImplementation(() => current)
-  const who: Character =
-    seat?.role === 'gm' ? { ...character, id: 'gm:c1:thorin' } : character
+  const who: Character = {
+    ...character,
+    ...(seat?.role === 'gm' && { id: 'gm:c1:thorin' }),
+    ...fields,
+  }
   const element = (
     <GameTable character={who} initialView={initial} seat={seat} />
   )
@@ -97,6 +104,13 @@ const respond = (status: number, body?: unknown) =>
     ok: status >= 200 && status < 300,
     json: async () => body,
   } as Response)
+
+/** What was posted to be moved, and where. */
+const posted = () =>
+  jest
+    .mocked(fetch)
+    .mock.calls.filter(([, init]) => init?.method === 'POST')
+    .map(([url, init]) => ({ url, body: JSON.parse(String(init?.body)) }))
 
 describe('components/game-table, party sheets', () => {
   beforeEach(() => {
@@ -223,5 +237,91 @@ describe('components/game-table, party sheets', () => {
       "It's no longer in this campaign in Foundry.",
     )
     expect(panel).not.toHaveTextContent('your character')
+  })
+})
+
+describe('components/game-table, taking from a party, from module 0.31.0', () => {
+  const gmSeat: TableSeat = {
+    role: 'gm',
+    api: '/api/campaigns/c1/characters/thorin',
+    key: 'gm:c1:thorin',
+  }
+  /** The Company's sheet, as a seat that may take from it is sent it. */
+  const moving = movingPartyView({ group: company })
+
+  beforeEach(() => {
+    // Its polls are answered with the sheet, and a move posted is taken.
+    globalThis.fetch = jest.fn(
+      (url: string | URL | Request, init?: RequestInit) =>
+        init?.method === 'POST' && String(url).endsWith('/rolls')
+          ? respond(202, { id: 'req-move' })
+          : respond(200, moving),
+    ) as typeof fetch
+    jest.mocked(useRouter).mockReturnValue({ refresh: jest.fn() } as any)
+  })
+
+  it.each([
+    [
+      'a player, into their character, through its own way in',
+      undefined,
+      '/api/characters/char-1/rolls',
+      {},
+    ],
+    [
+      'the Gamemaster, into the character whose page it is, through their seat at it',
+      gmSeat,
+      '/api/campaigns/c1/characters/thorin/rolls',
+      { label: 'Take 1 Rope from The Company' },
+    ],
+  ])('lets %s take from its stash', async (_name, seat, rolls, labelled) => {
+    const user = userEvent.setup()
+    renderTable(view([company]), seat)
+
+    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    await user.click(
+      await within(panel).findByRole('button', { name: 'Take Rope' }),
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Take Rope' })
+    expect(dialog).toHaveTextContent('From The Company')
+    await user.click(within(dialog).getByRole('button', { name: 'Take' }))
+
+    // Its dialog closes, and the party sheet stays open, saying where the move stands.
+    expect(screen.queryByRole('dialog', { name: 'Take Rope' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'The Company' })).toBe(panel)
+    expect(within(panel).getByRole('status')).toHaveTextContent(
+      /^Sending to your (Gamemaster’s )?game…$/,
+    )
+
+    expect(posted()).toEqual([
+      {
+        url: rolls,
+        body: {
+          kind: 'transfer',
+          transfer: {
+            from: 'company',
+            to: 'thorin',
+            items: [{ id: 'rope00000001', quantity: 1 }],
+          },
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+          ...labelled,
+        },
+      },
+    ])
+  })
+
+  it("lets no one take from it for a character not in the campaign's roster", async () => {
+    const user = userEvent.setup()
+    // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
+    renderTable(view([company]), undefined, { actorId: null })
+
+    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    await within(panel).findByRole('heading', { name: 'Members · 0' })
+    expect(within(panel).getByText('Rope')).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /^Take/ })).toBeNull()
   })
 })

@@ -14,6 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { createTransferRequest } from '@/db/transfers'
 import { sheetLinks } from '@/lib/sheet-html'
 import { changes } from '@/utils/damage-modifiers'
 import { checkPrompt } from '@/utils/prompts'
@@ -62,7 +63,7 @@ const heldSelect = {
  * roll has, of every campaign. The two seats' rolls are apart, so each has its own limits, and
  * damage follows only its own seat's attack or use.
  */
-function madeBy(seat: SheetSeat): Prisma.RollRequestWhereInput {
+export function madeBy(seat: SheetSeat): Prisma.RollRequestWhereInput {
   if (seat.role === 'gm') {
     return {
       // A Gamemaster's seat always has both; '' matches no row should one be missing.
@@ -75,17 +76,22 @@ function madeBy(seat: SheetSeat): Prisma.RollRequestWhereInput {
   return { characterId: seat.characterId ?? '' }
 }
 
-/** Why a roll wasn't taken, with the HTTP status that says so. */
+/**
+ * Why a roll wasn't taken, with the HTTP status that says so; for a move of items and coins, from
+ * module 0.31.0, also that the seat has a move of the same on its way already (`moving`).
+ */
 export type RollRejection = {
   status: 409 | 422 | 429
-  reason: RollRefusal | 'busy'
+  reason: RollRefusal | 'busy' | 'moving'
 }
 
 /**
  * Take a roll for a character to make in the Gamemaster's game, from its player or from the
  * campaign's Gamemaster as it (#156): if the game takes this kind of roll now, and the Gamemaster's
  * at all, the sheet allows it, and the seat isn't sending too many, nor asking the table too often.
- * One from a link in a description is checked against that description, as held here.
+ * One from a link in a description is checked against that description, as held here. A move of
+ * items and coins, from module 0.31.0, is no roll, and has a switch of its own: it's checked by
+ * `createTransferRequest` alone.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -93,6 +99,7 @@ export async function createRollRequest(
   seat: SheetSeat,
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
+  if (input.kind === 'transfer') return createTransferRequest(seat, input)
   const { campaignId, actorId } = seat
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
@@ -309,7 +316,8 @@ export async function getRollRequestView(
  * marked, and each fetch returns only the rows it marked. The Gamemaster's rolls as a character
  * (#156) go only to the session whose hello said it makes them, `gmRolls`, and only those of the
  * campaign's owner: a module before 0.23.0 would make them unmarked, as the player's. Others stay
- * waiting, and run out.
+ * waiting, and run out. From module 0.31.0, a move of items or coins goes only to the session whose
+ * hello said it takes them, the Gamemaster's as a player's.
  * @param session - The module session that fetched them.
  */
 export async function claimRollRequests(
@@ -319,23 +327,35 @@ export async function claimRollRequests(
   const now = Date.now()
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    select: { helloSession: true, rollFeatures: true, ownerId: true },
+    select: {
+      helloSession: true,
+      rollFeatures: true,
+      ownerId: true,
+      transfersEnabled: true,
+    },
   })
   const ownerId = campaign?.ownerId
+  const current = campaign?.helloSession === session
   const gmRolls =
-    !!ownerId &&
-    campaign?.helloSession === session &&
-    campaign.rollFeatures.includes('gmRolls')
+    !!ownerId && current && campaign.rollFeatures.includes('gmRolls')
+  // Moves go only to the session whose hello said it takes them, and the Gamemaster's need no
+  // `gmRolls`, which the module says only while rolls are on.
+  const transfers = current && campaign?.transfersEnabled === true
+  const notMove = { kind: { not: 'transfer' } }
   const waiting = await prisma.rollRequest.findMany({
     where: {
       campaignId,
       status: 'pending',
       createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
-      ...(gmRolls
-        ? {
-            OR: [{ role: 'player' }, { role: 'gm', requestedById: ownerId }],
-          }
-        : { role: 'player' }),
+      OR: [
+        { role: 'player', ...(transfers ? {} : notMove) },
+        ...(gmRolls
+          ? [{ role: 'gm' as const, requestedById: ownerId, ...notMove }]
+          : []),
+        ...(transfers && ownerId
+          ? [{ role: 'gm' as const, requestedById: ownerId, kind: 'transfer' }]
+          : []),
+      ],
     },
     orderBy: { createdAt: 'asc' },
     take: CLAIM_LIMIT,
@@ -431,21 +451,24 @@ export async function recordCommandResult(
 
 /**
  * Note that the module is fetching players' rolls, which also says its game is connected.
- * @returns Whether the campaign takes players' rolls, and whether any of its players have their
- * table open, so that a roll may be coming.
+ * @returns Whether the campaign takes players' rolls, and from module 0.31.0 their moves of items
+ * and coins, and whether any of its players have their table open, so that one may be coming.
  */
-export async function markBridgePolled(
-  campaignId: string,
-): Promise<{ rollsEnabled: boolean; playersPresent: boolean }> {
+export async function markBridgePolled(campaignId: string): Promise<{
+  rollsEnabled: boolean
+  transfersEnabled: boolean
+  playersPresent: boolean
+}> {
   const now = new Date()
   const campaign = await prisma.campaign.update({
     where: { id: campaignId },
     data: { bridgePolledAt: now, lastSeenAt: now },
-    select: { rollsEnabled: true, playersSeenAt: true },
+    select: { rollsEnabled: true, transfersEnabled: true, playersSeenAt: true },
   })
   const seen = campaign.playersSeenAt?.getTime()
   return {
     rollsEnabled: campaign.rollsEnabled,
+    transfersEnabled: campaign.transfersEnabled,
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }
@@ -528,6 +551,6 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
 }
 
 /** The moment this many milliseconds before another. */
-function ago(now: number, ms: number): Date {
+export function ago(now: number, ms: number): Date {
   return new Date(now - ms)
 }

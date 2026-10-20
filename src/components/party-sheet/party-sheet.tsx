@@ -1,6 +1,14 @@
 'use client'
 
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import clsx from 'clsx'
 import { UserRound, Users } from 'lucide-react'
 import Link from 'next/link'
@@ -20,7 +28,16 @@ import { EntryIcon } from '@/components/character-sheet/sheet-entry'
 import { SheetText } from '@/components/character-sheet/sheet-text'
 import { Charging } from '@/components/character-sheet/uses-button'
 import { EmptyState } from '@/components/game-table/empty-state'
+import { MoveStatus } from '@/components/transfers/move-status'
+import {
+  TakeDialog,
+  takeControls,
+  type TakeInto,
+  type Taking,
+} from '@/components/transfers/take-controls'
+import { NO_TRANSFERS, Transferring } from '@/components/transfers/transferring'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { useTransfers } from '@/hooks/use-transfers'
 import { megabytes } from '@/utils/format-amount'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import type { PartyState } from '@/hooks/use-party-sheet'
@@ -32,7 +49,9 @@ import type { PartyView } from '@/types/party'
  * 0.30.0): its members, by name and portrait only, its stash and its description. The same core
  * is its own page and the side panel over a character's sheet, so it carries everything it reads
  * by itself, wherever it's placed: nothing in it spends, stars, ends or rolls, and its
- * descriptions load through the party's own API.
+ * descriptions load through the party's own API. From module 0.31.0, a seat that may take from it
+ * takes items and coins from its stash, into the character it's given, through that character's
+ * API: never a character's own Give, which it resets as it resets the rest.
  */
 
 type Props = {
@@ -42,6 +61,8 @@ type Props = {
   view: PartyView
   /** The player's own character's sheet, which its name in the members links to. */
   ownSheetHref?: string
+  /** Where it takes into, where the seat may take from it (module 0.31.0). */
+  takeInto?: TakeInto
 }
 
 /** What nothing in a party's sheet does: none of a character's actions are given it. */
@@ -51,11 +72,59 @@ const NO_ACTIONS = {}
  * The party's sheet: its members, then its inventory or its description, in tabs; or, where its
  * sheet isn't here, why. It renders no page around it.
  */
-export function PartySheet({ api, role, view, ownSheetHref }: Readonly<Props>) {
+export function PartySheet({
+  api,
+  role,
+  view,
+  ownSheetHref,
+  takeInto,
+}: Readonly<Props>) {
   const seat = useMemo<TableSeat>(
     () => ({ role, api, key: `party:${view.group.id}` }),
     [role, api, view.group.id],
   )
+  const transfers = useTransfers({ role })
+  // Held here, not in the row, so that a dialog open stays open as its row changes, or its Take
+  // goes, as when the game stops taking moves: what's sent then says why it wasn't taken. What it
+  // was opened for is kept as it closes, as it's closed rather than removed.
+  const [taking, setTaking] = useState<Taking>()
+  const [open, setOpen] = useState(false)
+  const { group } = view
+  const takes = !!view.moves && !!takeInto
+  const receivers = view.moves?.characters
+  const { pending, take } = transfers
+  const controls = useMemo(
+    () =>
+      takes
+        ? takeControls({
+            group,
+            pending,
+            onTake: what => {
+              setTaking({ what, ...(receivers && { receivers }) })
+              setOpen(true)
+            },
+          })
+        : NO_TRANSFERS,
+    [takes, group, pending, receivers],
+  )
+  const close = useCallback(() => setOpen(false), [])
+  // A move sent closes its dialog on a Take that waits for it, which can't be given focus back:
+  // where the move stands, over the stash, is given it instead. This runs after the dialog's own
+  // close, which is inside this sheet, so the page behind it is no longer inert.
+  const status = useRef<HTMLDivElement>(null)
+  const sent = useRef(false)
+  const send = useCallback<typeof take>(
+    (...move) => {
+      sent.current = true
+      take(...move)
+    },
+    [take],
+  )
+  useEffect(() => {
+    if (open || !sent.current) return
+    sent.current = false
+    status.current?.focus()
+  }, [open])
   // Whatever it's placed in, such as a character's sheet, it's given nothing of that.
   return (
     <TableApiContext value={seat}>
@@ -65,15 +134,37 @@ export function PartySheet({ api, role, view, ownSheetHref }: Readonly<Props>) {
             <Enchanting actions={NO_ACTIONS}>
               <Concentrating actions={NO_ACTIONS}>
                 <Charging actions={NO_ACTIONS}>
-                  {view.sheet ? (
-                    <PartyContents
-                      view={view}
-                      sheet={view.sheet}
-                      ownSheetHref={ownSheetHref}
-                    />
-                  ) : (
-                    <NoPartySheet role={role} view={view} />
-                  )}
+                  <Transferring controls={controls}>
+                    {view.sheet ? (
+                      <PartyContents
+                        view={view}
+                        sheet={view.sheet}
+                        ownSheetHref={ownSheetHref}
+                        status={
+                          <MoveStatus
+                            ref={status}
+                            latest={transfers.latest}
+                            onDismiss={transfers.dismiss}
+                          />
+                        }
+                        dialog={
+                          takeInto && (
+                            <TakeDialog
+                              open={open}
+                              taking={taking}
+                              takeInto={takeInto}
+                              group={group}
+                              role={role}
+                              onClose={close}
+                              onSend={send}
+                            />
+                          )
+                        }
+                      />
+                    ) : (
+                      <NoPartySheet role={role} view={view} />
+                    )}
+                  </Transferring>
                 </Charging>
               </Concentrating>
             </Enchanting>
@@ -94,6 +185,7 @@ export function PartySheetFor({
   view,
   state,
   ownSheetHref,
+  takeInto,
 }: Readonly<Omit<Props, 'view'> & { view?: PartyView; state: PartyState }>) {
   if (state === 'gone') {
     return (
@@ -115,7 +207,13 @@ export function PartySheetFor({
     )
   }
   return (
-    <PartySheet api={api} role={role} view={view} ownSheetHref={ownSheetHref} />
+    <PartySheet
+      api={api}
+      role={role}
+      view={view}
+      ownSheetHref={ownSheetHref}
+      takeInto={takeInto}
+    />
   )
 }
 
@@ -130,10 +228,16 @@ function PartyContents({
   view,
   sheet,
   ownSheetHref,
+  status,
+  dialog,
 }: Readonly<{
   view: PartyView
   sheet: NonNullable<PartyView['sheet']>
   ownSheetHref?: string
+  /** Where the latest move taken from it stands, over its stash. */
+  status?: ReactNode
+  /** The dialog a Take opens, after the tabs. */
+  dialog?: ReactNode
 }>) {
   const [tab, setTab] = useState<Tab>('inventory')
   const ids = useId()
@@ -212,6 +316,7 @@ function PartyContents({
             {tab === id &&
               (id === 'inventory' ? (
                 <>
+                  {status}
                   {inventory.currency.length > 0 && (
                     <Holdings inventory={inventory} />
                   )}
@@ -228,6 +333,7 @@ function PartyContents({
           </div>
         ))}
       </div>
+      {dialog}
     </div>
   )
 }

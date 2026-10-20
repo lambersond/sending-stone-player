@@ -72,7 +72,14 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * (`enchantment`). From module 0.29.0: a concentration ended isn't one the character keeps
  * (`concentration`); charges spent aren't of a counter the sheet lets the player spend directly
  * (`uses`), or there aren't as many left (`short`); and Heroic Inspiration is used without it
- * (`not-inspired`), or gained with it already (`inspired`).
+ * (`not-inspired`), or gained with it already (`inspired`). From module 0.31.0, for a move of items
+ * and coins: an end isn't one of the campaign's characters or parties, or a party the player's
+ * character can't see (`unknown`); the character isn't the end the move must be made by, or both
+ * ends are parties (`not-yours`); the player's character may only see the party, not change it
+ * (`not-owner`); an item isn't held there any more, or a coin isn't on the sheet (`gone`); there
+ * isn't as much of it there (`short`); part of a container that holds anything is asked for, as a
+ * container moves whole (`container`); or an item is asked for with the container it's in
+ * (`nested`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -103,6 +110,10 @@ export type RollRefusal =
   | 'short'
   | 'not-inspired'
   | 'inspired'
+  | 'not-yours'
+  | 'not-owner'
+  | 'container'
+  | 'nested'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -935,13 +946,22 @@ export function toRollRequestView(
   const status = rollStatus(request, now)
   const result = request.result as CommandResult | null
   const spent = result?.spent ? { spent: result.spent } : {}
+  // What a move moved, from module 0.31.0: all of it, or what it moved before it failed.
+  const moved = result?.transfer ? { transfer: result.transfer } : {}
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
-      return { id: request.id, status, reason, ...cardless(result) }
+      return { id: request.id, status, reason, ...cardless(result), ...moved }
     }
     if (!result.visible) {
-      return { id: request.id, status, reason, visible: false, ...spent }
+      return {
+        id: request.id,
+        status,
+        reason,
+        visible: false,
+        ...spent,
+        ...moved,
+      }
     }
     const rolls = result.rolls.map(roll => toTableRoll(roll))
     return {
@@ -953,6 +973,7 @@ export function toRollRequestView(
       rolls,
       ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
       ...spent,
+      ...moved,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
@@ -971,6 +992,7 @@ export function toRollRequestView(
       ...use,
       ...damage,
       ...enchantment,
+      ...moved,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -988,6 +1010,7 @@ export function toRollRequestView(
     ...damage,
     ...enchantment,
     ...spent,
+    ...moved,
   }
 }
 
@@ -1015,6 +1038,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   endConcentration: 'Concentration ended',
   spend: 'Charges spent',
   inspiration: 'Heroic Inspiration',
+  transfer: 'Items or coins moved',
 }
 
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */

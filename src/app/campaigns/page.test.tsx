@@ -35,6 +35,7 @@ const campaign = {
     spells: false,
     prompts: false,
   },
+  transfers: { enabled: false, reaching: false },
   characters: [
     { id: 'actor-thorin', name: 'Thorin Oakenshield', player: 'Alice' },
     { id: 'actor-vex', name: 'Vex' },

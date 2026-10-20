@@ -30,6 +30,7 @@ import {
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
+import { moveReasons, moveWords } from '@/utils/move-words'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import type {
   LocalAsk,
@@ -192,16 +193,35 @@ export function RollHistory({
           </ol>
         </details>
       )}
-      {table?.available ? (
-        <p className='text-[11px] text-text-secondary'>
-          {reachOf(table, role)}
-        </p>
-      ) : (
-        <p className='text-[11px] text-text-secondary'>
-          {seatWords(role).notSent}
-        </p>
-      )}
+      {/* Where rolls go, said of none beneath items and coins moved alone. */}
+      {!movesAlone(rolls) &&
+        (table?.available ? (
+          <p className='text-[11px] text-text-secondary'>
+            {reachOf(table, role)}
+          </p>
+        ) : (
+          <p className='text-[11px] text-text-secondary'>
+            {seatWords(role).notSent}
+          </p>
+        ))}
     </div>
+  )
+}
+
+/**
+ * Whether all the tray lists is items and coins moved, from module 0.31.0, the player's or the
+ * Gamemaster's as the character: each is sent to the game, and made or turned down there, whatever
+ * the game takes of the player's rolls and whether this device sends them, so that what's said of
+ * rolls reaching it, or not, isn't said of them.
+ */
+function movesAlone(rolls: readonly LocalRoll[]): boolean {
+  return (
+    rolls.length > 0 &&
+    rolls.every(roll =>
+      roll.kind === 'gm'
+        ? roll.rolled === 'transfer'
+        : roll.kind === 'use' && !!roll.move,
+    )
   )
 }
 
@@ -422,6 +442,8 @@ const ENCHANT_REASONS: Record<string, string> = {
 function reasonOf(state: TableRollState, role: SeatRole): string | undefined {
   const key = state.reason ?? state.status
   const own =
+    // A move of items and coins, from module 0.31.0, has words of its own.
+    (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
     (state.card === false ? ENCHANT_REASONS[key] : undefined)
@@ -1220,13 +1242,15 @@ function UseStatus({
 
 /**
  * Where a use is on its way to the game, or what became of it, in words: for an enchant activity,
- * the enchantment it applied, and on what. Charges spent say how many, as they go and once spent.
+ * the enchantment it applied, and on what. Charges spent say how many, as they go and once spent;
+ * items and coins moved, from module 0.31.0, what moved and between whom.
  */
 function usedWords(
   roll: LocalUse,
   state: TableRollState,
   role: SeatRole,
 ): string {
+  if (roll.move) return moveWords(roll.move, state, role, reasons(role))
   let verb = roll.spell ? 'Cast' : 'Used'
   let doing = roll.spell ? 'Casting it' : 'Using it'
   if (roll.ending) [verb, doing] = ['Ended', 'Ending it']
@@ -1365,6 +1389,8 @@ export function GmPill() {
 function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
   if (roll.rolled === 'use' || roll.rolled === 'ask') return roll.rolled
   if (roll.rolled === 'spend' || roll.rolled === 'inspiration') return 'use'
+  // Items and coins moved, from module 0.31.0, have no total either.
+  if (roll.rolled === 'transfer') return 'use'
   if (roll.rolled === 'damage' || roll.rolled === 'textDamage') return 'damage'
   return 'check'
 }
@@ -1372,10 +1398,12 @@ function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
 /**
  * What's said of a use of the Gamemaster's as the character as it goes, and once done: of charges
  * spent, that they were; of Heroic Inspiration, which their page doesn't say was used or gained,
- * that it changed; of anything else, that it was used.
+ * that it changed; of items or coins moved, from module 0.31.0, that they were; of anything else,
+ * that it was used.
  */
 function gmVerbs(roll: LocalGmRoll): { doing: string; done: string } {
   if (roll.rolled === 'spend') return { doing: 'Spending', done: 'Spent' }
+  if (roll.rolled === 'transfer') return { doing: 'Moving', done: 'Moved' }
   if (roll.rolled === 'inspiration') {
     return { doing: 'Changing', done: 'Changed' }
   }
@@ -1646,6 +1674,7 @@ function byTheGame(roll: LocalDamage): boolean {
 function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'gm') return GM_WORDS_AFTER
   if (roll.kind === 'use') {
+    if (roll.move) return roll.move.verb === 'give' ? 'given' : 'taken'
     if (roll.ending) return 'ended'
     if (roll.spent !== undefined) return `spent ${roll.spent}`
     if (roll.inspiration === 'gain') return 'gained'

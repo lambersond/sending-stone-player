@@ -18,6 +18,8 @@ function queryOf(view: PartyView | undefined): string {
   const query = new URLSearchParams({
     version: String(view.version),
     live: view.live ? '1' : '0',
+    // From module 0.31.0: whether the seat might take from it.
+    ...(view.moves && { moves: '1' }),
     ...(view.sheetVersion && { sheet: view.sheetVersion }),
   })
   return `?${query}`

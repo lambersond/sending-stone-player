@@ -510,7 +510,8 @@ describe('db/roll-requests', () => {
           campaignId: 'c1',
           status: 'pending',
           createdAt: { gt: ago(30_000) },
-          role: 'player',
+          // No move of items and coins, from module 0.31.0, to a session not known to take them.
+          OR: [{ role: 'player', kind: { not: 'transfer' } }],
         },
         orderBy: { createdAt: 'asc' },
         take: 10,
@@ -1727,17 +1728,37 @@ describe('db/roll-requests', () => {
     it('notes the fetch, and tells whether players are about', async () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: true,
+        transfersEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
       await expect(markBridgePolled('c1')).resolves.toEqual({
         rollsEnabled: true,
+        transfersEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
         where: { id: 'c1' },
         data: { bridgePolledAt: new Date(NOW), lastSeenAt: new Date(NOW) },
-        select: { rollsEnabled: true, playersSeenAt: true },
+        select: {
+          rollsEnabled: true,
+          transfersEnabled: true,
+          playersSeenAt: true,
+        },
+      })
+    })
+
+    it('tells whether the campaign takes moves of items and coins, from module 0.31.0, with rolls off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: true,
+        playersPresent: false,
       })
     })
 
@@ -1747,11 +1768,13 @@ describe('db/roll-requests', () => {
     ])('tells players are away when %s', async (_name, playersSeenAt) => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
+        transfersEnabled: false,
         playersSeenAt,
       } as any)
 
       await expect(markBridgePolled('c1')).resolves.toEqual({
         rollsEnabled: false,
+        transfersEnabled: false,
         playersPresent: false,
       })
     })
@@ -2155,7 +2178,15 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
   })
 
   /** Waiting rolls, as held: ten older ones of the Gamemaster's, then a player's. */
-  const waiting = [
+  const waiting: {
+    id: string
+    campaignId: string
+    status: string
+    role: string
+    requestedById: string
+    createdAt: Date
+    kind?: string
+  }[] = [
     ...Array.from({ length: 10 }, (_, index) => ({
       id: `gm-${index}`,
       campaignId: 'c1',
@@ -2180,12 +2211,17 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
       if (key === 'createdAt') return row.createdAt > value.gt
       if (key === 'id') return value.in.includes(row.id)
       if (key === 'claimToken') return true
+      if (key === 'kind' && typeof value === 'object') {
+        return (row.kind ?? 'skill') !== value.not
+      }
+      if (key === 'kind') return (row.kind ?? 'skill') === value
       return (row as any)[key] === value
     })
   /** A fetch for this session, from a campaign as given, and what it took, in order. */
   const fetched = async (
     campaign: object,
     session = 'session-1',
+    rows: ((typeof waiting)[number] & { kind?: string })[] = waiting,
   ): Promise<string[]> => {
     prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
     prismaMock.rollRequest.findMany.mockImplementation((({
@@ -2193,7 +2229,7 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
       take,
     }: any) =>
       Promise.resolve(
-        waiting
+        rows
           .filter(row => matches(row, where))
           .slice(0, take)
           .map(row => held(row.id, { role: row.role })),
@@ -2229,6 +2265,138 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
     ])
     await expect(fetched(null as unknown as object)).resolves.toEqual([
       'player-1',
+    ])
+  })
+})
+
+describe('db/roll-requests, handing over moves of items and coins, from module 0.31.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Waiting, as held: a player's roll and move, and the Gamemaster's roll and moves. */
+  const waiting = [
+    {
+      id: 'roll-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'skill',
+    },
+    {
+      id: 'move-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'transfer',
+    },
+    { id: 'roll-gm', role: 'gm', requestedById: 'gm-1', kind: 'skill' },
+    { id: 'move-gm', role: 'gm', requestedById: 'gm-1', kind: 'transfer' },
+    {
+      id: 'move-other-gm',
+      role: 'gm',
+      requestedById: 'gm-2',
+      kind: 'transfer',
+    },
+  ].map((row, index) => ({
+    ...row,
+    campaignId: 'c1',
+    status: 'pending',
+    createdAt: ago(5000 - index),
+  }))
+  /** Whether a row is one a `where` asks for, as far as a fetch's asks. */
+  const matches = (row: (typeof waiting)[number], where: any): boolean =>
+    Object.entries(where).every(([key, value]: [string, any]) => {
+      if (key === 'OR') return value.some((each: any) => matches(row, each))
+      if (key === 'createdAt') return row.createdAt > value.gt
+      if (key === 'kind' && typeof value === 'object')
+        return row.kind !== value.not
+      return (row as any)[key] === value
+    })
+  /** What a fetch for this session takes, from a campaign as given. */
+  const fetched = async (campaign: object | null, session = 'session-1') => {
+    prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+    prismaMock.rollRequest.findMany.mockImplementation((({ where }: any) =>
+      Promise.resolve(
+        where.claimToken
+          ? waiting
+              .filter(row => where.id.in.includes(row.id))
+              .map(row => held(row.id, { role: row.role }))
+          : waiting
+              .filter(row => matches(row, where))
+              .map(({ id }) => ({ id })),
+      )) as any)
+    const commands = await claimRollRequests('c1', session)
+    return commands.map(({ id }) => id)
+  }
+  /** Moves on, rolls off: the module sends gmRolls only while rolls are on. */
+  const moving = {
+    helloSession: 'session-1',
+    rollFeatures: [],
+    ownerId: 'gm-1',
+    transfersEnabled: true,
+  }
+
+  it("hands the Gamemaster's move over with rolls off, needing no gmRolls, and only its owner's", async () => {
+    await expect(fetched(moving)).resolves.toEqual([
+      'roll-player',
+      'move-player',
+      'move-gm',
+    ])
+  })
+
+  it("still withholds the Gamemaster's rolls without gmRolls, and hands them over with it as before", async () => {
+    await expect(
+      fetched({ ...moving, rollFeatures: ['gmRolls'] }),
+    ).resolves.toEqual(['roll-player', 'move-player', 'roll-gm', 'move-gm'])
+    await expect(
+      fetched({
+        ...moving,
+        rollFeatures: ['gmRolls'],
+        transfersEnabled: false,
+      }),
+    ).resolves.toEqual(['roll-player', 'roll-gm'])
+  })
+
+  it('hands no move to a session whose hello said nothing of them, nor while the campaign takes none', async () => {
+    await expect(fetched(moving, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+    await expect(
+      fetched({ ...moving, transfersEnabled: false }),
+    ).resolves.toEqual(['roll-player'])
+    await expect(fetched({ ...moving, ownerId: null })).resolves.toEqual([
+      'roll-player',
+      'move-player',
+    ])
+    await expect(fetched(null)).resolves.toEqual(['roll-player'])
+  })
+
+  it('hands every move over as the module is sent it, the Gamemaster’s saying so', async () => {
+    const move = {
+      kind: 'transfer',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      transfer: {
+        from: 'company',
+        to: 'actor-thorin',
+        items: [{ id: 'rope', quantity: 1 }],
+      },
+    }
+    prismaMock.campaign.findUnique.mockResolvedValue(moving as any)
+    prismaMock.rollRequest.findMany
+      .mockResolvedValueOnce([{ id: 'move-gm' }] as any)
+      .mockResolvedValueOnce([
+        held('move-gm', { role: 'gm', kind: 'transfer', payload: move }),
+      ] as any)
+
+    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+      { ...move, id: 'move-gm', actorId: 'actor-thorin', by: 'gm' },
     ])
   })
 })

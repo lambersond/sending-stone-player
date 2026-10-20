@@ -116,6 +116,7 @@ describe('db/party', () => {
           {
             version: 7,
             live: true,
+            moves: false,
           },
         )
         await expect(allowedGroup(player(actor), 'company')).resolves.toEqual({
@@ -184,6 +185,8 @@ describe('db/party', () => {
           lastSeenAt: true,
           ownerId: true,
           groups: true,
+          transfersEnabled: true,
+          bridgePolledAt: true,
         },
       })
     })
@@ -198,6 +201,7 @@ describe('db/party', () => {
       await expect(getPartyStatus(gm(), 'hidden')).resolves.toEqual({
         version: 7,
         live: true,
+        moves: false,
       })
     })
 
@@ -217,6 +221,7 @@ describe('db/party', () => {
       ).resolves.toEqual({
         version: 7,
         live: true,
+        moves: false,
       })
       // group.updated took Vex's player's Observer away.
       held({
@@ -473,5 +478,92 @@ describe('db/party', () => {
 
       expect(view).not.toHaveProperty('groups')
     })
+  })
+})
+
+describe('db/party, taking from a party, from module 0.31.0', () => {
+  /** The campaign as held, its game taking moves and fetching them lately, unless given. */
+  const taking = (fields: object = {}) =>
+    held({
+      transfersEnabled: true,
+      bridgePolledAt: new Date(Date.now() - 5000),
+      characters: [
+        { id: PARTY.thorin, name: 'Thorin', img: 'worlds/erebor/thorin.webp' },
+        { id: PARTY.vex, name: 'Vex', img: null },
+      ],
+      ...fields,
+    })
+
+  beforeEach(() => {
+    sheetHeld()
+  })
+
+  it('lets a player whose Foundry user owns the group take from it, and tells them nothing more', async () => {
+    taking()
+
+    const view = await getGroupView(player(), 'company')
+    expect(view?.moves).toEqual({})
+    await expect(getPartyStatus(player(), 'company')).resolves.toEqual({
+      version: 7,
+      live: true,
+      moves: true,
+    })
+    // No one's access, and no roster for a player.
+    expect(JSON.stringify(view)).not.toContain('observer')
+    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalledWith(
+      expect.objectContaining({ select: { characters: true } }),
+    )
+  })
+
+  it('lets a player who only observes the group see it, but take nothing', async () => {
+    taking()
+
+    const view = await getGroupView(player(PARTY.vex), 'company')
+    expect(view?.sheet).toBeDefined()
+    expect(view).not.toHaveProperty('moves')
+    await expect(
+      getPartyStatus(player(PARTY.vex), 'company'),
+    ).resolves.toMatchObject({ moves: false })
+  })
+
+  it("lets the Gamemaster take from any group into any of the campaign's characters", async () => {
+    taking()
+
+    await expect(getGroupView(gm(), 'hidden')).resolves.toMatchObject({
+      moves: {
+        characters: [
+          {
+            id: PARTY.thorin,
+            name: 'Thorin',
+            portrait: `${ORIGIN}/worlds/erebor/thorin.webp`,
+          },
+          { id: PARTY.vex, name: 'Vex' },
+        ],
+      },
+    })
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      select: { characters: true },
+    })
+    await expect(getPartyStatus(gm(), 'company')).resolves.toMatchObject({
+      moves: true,
+    })
+  })
+
+  it.each([
+    ['the campaign lets none be moved', { transfersEnabled: false }],
+    [
+      'its module has fetched none lately',
+      { bridgePolledAt: new Date(Date.now() - 46_000) },
+    ],
+  ])('lets no one take while %s', async (_name, fields) => {
+    taking(fields)
+
+    for (const at of [player(), gm()]) {
+      expect(await getGroupView(at, 'company')).not.toHaveProperty('moves')
+      await expect(getPartyStatus(at, 'company')).resolves.toMatchObject({
+        moves: false,
+      })
+    }
   })
 })

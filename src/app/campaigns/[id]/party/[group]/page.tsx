@@ -40,6 +40,9 @@ export default async function GmPartyPage({ params }: Props) {
       role='gm'
       initialView={view}
       back={{ href: '/campaigns', label: 'Your campaigns' }}
+      // Taken into whichever of the campaign's characters is picked as it's taken (module
+      // 0.31.0): only data, as the page that picks builds the way there itself.
+      takeInto={{ kind: 'choose', campaignId: id }}
     />
   )
 }

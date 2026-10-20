@@ -14,6 +14,7 @@ import {
 } from '@/lib/campaign-secret'
 import { literalPattern } from '@/utils/literal-pattern'
 import { availableRollKinds } from '@/utils/roll-requests'
+import { transfersAvailable } from '@/utils/transfers'
 import type {
   CampaignChoice,
   CampaignRefusal,
@@ -113,6 +114,7 @@ export async function listOwnedCampaigns(
       rollKinds: true,
       rollFeatures: true,
       bridgePolledAt: true,
+      transfersEnabled: true,
       refusedAt: true,
       refusalReason: true,
       refusalStatus: true,
@@ -148,6 +150,10 @@ export async function listOwnedCampaigns(
         attacks: campaign.rollKinds.includes('attack'),
         spells: campaign.rollKinds.includes('use'),
         prompts: campaign.rollFeatures.includes('prompts'),
+      },
+      transfers: {
+        enabled: campaign.transfersEnabled,
+        reaching: transfersAvailable(campaign),
       },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
