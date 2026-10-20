@@ -76,6 +76,7 @@ import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
+import type { PartySheets } from './party-sheets'
 import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type {
@@ -115,6 +116,8 @@ type Props = {
   moves?: TableMoves
   /** The character's Foundry actor, which what's given is given from. */
   actorId?: string
+  /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */
+  parties?: PartySheets
 }
 
 /**
@@ -190,6 +193,7 @@ function RollingSheet({
   header,
   moves,
   actorId,
+  parties,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const role = useTableRole()
@@ -726,6 +730,7 @@ function RollingSheet({
                 {...handlers}
                 favorites={strip}
                 transfers={giving.controls}
+                parties={parties}
               />
             )}
             {tab === 'spells' && (

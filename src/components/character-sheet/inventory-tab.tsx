@@ -23,6 +23,7 @@ import {
   type TableDamage,
 } from './action-entry'
 import { enchantedEntry } from './enchantments'
+import { PartySheetList, type PartySheets } from './party-sheets'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -56,7 +57,7 @@ import type { DamageModifiers } from '@/utils/damage-modifiers'
  * beside it, as on the Actions tab, whether it's equipped or not: each a button that rolls it, or
  * uses it in the Gamemaster's game while the game takes items' uses. From module 0.31.0, its items
  * and coins may be moved from here, with the controls given: on this tab alone, never among the
- * favorites.
+ * favorites. The party sheets the seat may open are under the coin, each opening in its side panel.
  */
 export function InventoryTab({
   characterId,
@@ -68,6 +69,7 @@ export function InventoryTab({
   onUse,
   tableDamage,
   transfers,
+  parties,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
@@ -83,6 +85,8 @@ export function InventoryTab({
   tableDamage?: TableDamage
   /** How its items and coins are moved, while the game takes moves. */
   transfers?: TransferControls
+  /** The party sheets the seat may open, from module 0.30.0. */
+  parties?: PartySheets
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -102,6 +106,7 @@ export function InventoryTab({
         {(currency.length > 0 || encumbrance || attunement) && (
           <Holdings inventory={inventory} />
         )}
+        {parties && <PartySheetList {...parties} />}
         <InventoryList
           characterId={characterId}
           inventory={inventory}

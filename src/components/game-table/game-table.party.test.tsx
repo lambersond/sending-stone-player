@@ -1,5 +1,5 @@
 import { act, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
@@ -9,7 +9,7 @@ import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
 import type { TableView } from '@/types/table'
 
-// The party sheets a character's table opens (module 0.30.0): from a button in its header, in a
+// The party sheets a character's table opens (module 0.30.0): from its sheet's Inventory tab, in a
 // side panel over the sheet, through the seat's own way in.
 
 jest.mock('@/hooks/use-table-view', () => ({ useTableView: jest.fn() }))
@@ -105,6 +105,12 @@ const respond = (status: number, body?: unknown) =>
     json: async () => body,
   } as Response)
 
+/** Opens a party's sheet from the character's Inventory tab. */
+const openParty = async (user: UserEvent, name: string) => {
+  await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+  await user.click(screen.getByRole('button', { name: `Party: ${name}` }))
+}
+
 /** What was posted to be moved, and where. */
 const posted = () =>
   jest
@@ -118,27 +124,36 @@ describe('components/game-table, party sheets', () => {
     jest.mocked(useRouter).mockReturnValue({ refresh: jest.fn() } as any)
   })
 
-  it('offers no party sheet without a group to open', () => {
+  it('offers no party sheet without a group to open', async () => {
+    const user = userEvent.setup()
     renderTable(view())
 
+    await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+    expect(screen.queryByRole('region', { name: /^Part(y|ies)$/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Part(y|ies)/ })).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('puts the Party button right after whether the game is live', () => {
+  it('offers its party sheets on the Inventory tab, never in the header', async () => {
+    const user = userEvent.setup()
     renderTable(view([company]))
 
-    const live = screen.getByText('Live').closest('[role=status]')
-    expect(live?.nextElementSibling).toBe(
-      screen.getByRole('button', { name: 'Party: The Company' }),
-    )
+    // The Character tab is shown first, with the header above it.
+    expect(screen.queryByRole('button', { name: /^Part(y|ies)/ })).toBeNull()
+
+    await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+    const parties = screen.getByRole('region', { name: 'Party' })
+    expect(parties).toHaveTextContent('The CompanyPrimary party')
+    expect(
+      within(parties).getByRole('button', { name: 'Party: The Company' }),
+    ).toBeInTheDocument()
   })
 
   it("opens a player's party sheet over their character's, through their character, and its page", async () => {
     const user = userEvent.setup()
     renderTable(view([company]))
 
-    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
+    await openParty(user, 'The Company')
 
     const panel = screen.getByRole('dialog', { name: 'The Company' })
     expect(
@@ -171,8 +186,7 @@ describe('components/game-table, party sheets', () => {
       key: 'gm:c1:thorin',
     })
 
-    await user.click(screen.getByRole('button', { name: 'Parties' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Scouts' }))
+    await openParty(user, 'Scouts')
 
     const panel = screen.getByRole('dialog', { name: 'Scouts' })
     expect(panel).toHaveTextContent(/^ScoutsParty/)
@@ -193,7 +207,7 @@ describe('components/game-table, party sheets', () => {
   it('stays open, saying so, once the group is no longer the player’s to see', async () => {
     const user = userEvent.setup()
     const { showing } = renderTable(view([company]))
-    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
+    await openParty(user, 'The Company')
     await screen.findByRole('heading', { name: 'Members · 1' })
 
     // The table hears first that its access was taken away: the group leaves its list.
@@ -225,7 +239,7 @@ describe('components/game-table, party sheets', () => {
       key: 'gm:c1:thorin',
     })
 
-    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
+    await openParty(user, 'The Company')
 
     const panel = screen.getByRole('dialog', { name: 'The Company' })
     expect(
@@ -277,7 +291,7 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
     const user = userEvent.setup()
     renderTable(view([company]), seat)
 
-    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
+    await openParty(user, 'The Company')
     const panel = screen.getByRole('dialog', { name: 'The Company' })
     await user.click(
       await within(panel).findByRole('button', { name: 'Take Rope' }),
@@ -313,15 +327,13 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
     ])
   })
 
-  it("lets no one take from it for a character not in the campaign's roster", async () => {
-    const user = userEvent.setup()
+  it("offers a character not in the campaign's roster no party sheet to take from", () => {
     // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
     renderTable(view([company]), undefined, { actorId: null })
 
-    await user.click(screen.getByRole('button', { name: 'Party: The Company' }))
-    const panel = screen.getByRole('dialog', { name: 'The Company' })
-    await within(panel).findByRole('heading', { name: 'Members · 0' })
-    expect(within(panel).getByText('Rope')).toBeInTheDocument()
-    expect(within(panel).queryByRole('button', { name: /^Take/ })).toBeNull()
+    // Without a sheet, it has no Inventory tab to open one from.
+    expect(screen.queryByRole('tab', { name: 'Inventory' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Part(y|ies)/ })).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

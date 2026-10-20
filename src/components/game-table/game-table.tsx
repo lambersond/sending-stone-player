@@ -24,7 +24,6 @@ import { CombatTracker } from './combat-tracker'
 import { EmptyState } from './empty-state'
 import { FullscreenButton } from './fullscreen-button'
 import { LiveStatus, type LiveState } from './live-status'
-import { PartyButton } from './party-button'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
@@ -234,6 +233,10 @@ export function GameTable({
               // Nor its items and coins moved there (module 0.31.0), by either seat.
               moves={view.connected ? view.moves : undefined}
               actorId={character.actorId ?? undefined}
+              // The party sheets it may open, on its Inventory tab (module 0.30.0).
+              parties={
+                view.groups && { groups: view.groups, onOpen: setPartyOpen }
+              }
             />
           ) : (
             <Scroller>
@@ -380,9 +383,6 @@ export function GameTable({
             </div>
             <div className='flex shrink-0 items-center gap-1'>
               <LiveStatus state={liveState(playing, view, connection)} />
-              {view.groups && view.groups.length > 0 && (
-                <PartyButton groups={view.groups} onOpen={setPartyOpen} />
-              )}
               <FullscreenButton />
               {!gm && deleteCharacter && (
                 <ConfirmDialog
