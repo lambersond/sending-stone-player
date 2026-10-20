@@ -9,6 +9,8 @@ import {
   MAX_SPEND,
   MAX_USE_TARGETS,
   MOST_HIT_DICE,
+  MOST_MOVED,
+  MOST_MOVED_ITEMS,
   PROMPT_ID,
   PROTOCOL_VERSION,
   ROLL_KINDS,
@@ -104,9 +106,72 @@ const counterSchema = z.union([
   z.strictObject({ resource: z.enum(['primary', 'secondary', 'tertiary']) }),
 ])
 
+/** A coin's key, as dnd5e keys its currencies, such as "gp". */
+const COIN_KEY = /^[a-z][a-z0-9]{0,7}$/
+
+/** The most kinds of coin one move moves. */
+const MOST_COINS = 10
+
+/**
+ * Items and coins moved, from module 0.31.0: from one end to another, each a campaign character
+ * or party by its Foundry id, one to ten items, each once and by how many, or one to ten kinds of
+ * coin, or both. A coin of none isn't sent.
+ */
+const transferSchema = z
+  .strictObject({
+    from: z.string().regex(FOUNDRY_ID),
+    to: z.string().regex(FOUNDRY_ID),
+    items: z
+      .array(
+        z.strictObject({
+          id: z.string().regex(FOUNDRY_ID),
+          quantity: z.int().min(1).max(MOST_MOVED),
+        }),
+      )
+      .min(1)
+      .max(MOST_MOVED_ITEMS)
+      .optional(),
+    currency: z
+      .record(z.string().regex(COIN_KEY), z.int().min(1).max(MOST_MOVED))
+      .optional(),
+  })
+  .superRefine((transfer, context) => {
+    if (transfer.from === transfer.to) {
+      context.addIssue({
+        code: 'custom',
+        path: ['to'],
+        message: 'A move goes from one end to another',
+      })
+    }
+    const ids = (transfer.items ?? []).map(({ id }) => id)
+    if (new Set(ids).size < ids.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'Each item is moved once',
+      })
+    }
+    const coins = Object.keys(transfer.currency ?? {}).length
+    if (transfer.currency && (coins === 0 || coins > MOST_COINS)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['currency'],
+        message: 'From one to ten kinds of coin',
+      })
+    }
+    if (transfer.items === undefined && transfer.currency === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'A move moves an item or coins',
+      })
+    }
+  })
+
 /**
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
- * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used.
+ * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; and from
+ * module 0.31.0, a move what moves.
  */
 const OWN_FIELDS = {
   endConcentration: {
@@ -121,6 +186,10 @@ const OWN_FIELDS = {
     field: 'inspiration',
     message: 'Heroic Inspiration, and only that, says whether it’s used',
   },
+  transfer: {
+    field: 'transfer',
+    message: 'A move, and only that, names what moves',
+  },
 } as const
 
 /** What each of those, and ending an enchantment, is said not to throw. */
@@ -130,6 +199,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   endConcentration: 'Ending concentration throws no dice',
   spend: 'Spending throws no dice',
   inspiration: 'Heroic Inspiration throws no dice',
+  transfer: 'Moving throws no dice',
 }
 
 const rolledDiceSchema = z.strictObject({
@@ -160,8 +230,9 @@ const rolledDiceSchema = z.strictObject({
  * may; an enchantment ended, from module 0.21.0, names its item and effect, and nothing else, and
  * throws no dice; and from module 0.29.0, a concentration ended names its effect, charges spent
  * directly their counter and how many, 1 to 999, and Heroic Inspiration whether it's used or
- * gained, each that and nothing else, and none throws dice. Any roll may say what the page that
- * sent it calls it, its `label`, which only
+ * gained, each that and nothing else, and none throws dice; and from module 0.31.0, a move of items
+ * and coins names its ends and what moves, and nothing else, and throws no dice. Any roll may say
+ * what the page that sent it calls it, its `label`, which only
  * the Gamemaster's page sends (#156), for the character's player to be shown it by. A hit die
  * names its size, and throws its one die;
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
@@ -220,6 +291,7 @@ export const rollRequestSchema = z
     counter: counterSchema.optional(),
     count: z.int().min(1).max(MAX_SPEND).optional(),
     inspiration: z.enum(['use', 'gain']).optional(),
+    transfer: transferSchema.optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
   })
   .superRefine((request, context) => {
@@ -430,8 +502,9 @@ export const rollRequestSchema = z
         message: 'An enchantment ended, and only that, names the enchantment',
       })
     }
-    // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, each name
-    // what they're of, and nothing else does; charges, how many, which nothing else says.
+    // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, and a move
+    // from module 0.31.0, each name what they're of, and nothing else does; charges, how many,
+    // which nothing else says.
     for (const [kind, { field, message }] of Object.entries(OWN_FIELDS)) {
       if ((request.kind === kind) !== (request[field] !== undefined)) {
         context.addIssue({ code: 'custom', path: [field], message })

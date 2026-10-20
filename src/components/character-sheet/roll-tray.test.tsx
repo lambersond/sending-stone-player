@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LONG_PRESS } from './roll-button'
 import { briefOf, RollTray, type RollBrief, type TableRolls } from './roll-tray'
+import { TableApiContext } from '@/hooks/use-table-api'
 import type {
   LocalAsk,
   LocalCheck,
@@ -3342,5 +3343,196 @@ describe('components/character-sheet/roll-tray, in brief for its toast', () => {
     rerender(<RollTray rolls={[roll()]} rolling={false} announce={false} />)
     expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'off')
     expect(screen.getByRole('status')).toHaveTextContent('Perception check')
+  })
+})
+
+/** Two Potions of Healing given to the party, as the sheet keeps the move. */
+const moved = (
+  move: Partial<NonNullable<LocalUse['move']>> = {},
+): LocalUse => ({
+  kind: 'use',
+  id: 'u-move',
+  label: '2 Potion of Healing',
+  spell: false,
+  move: {
+    verb: 'give',
+    things: '2 Potion of Healing',
+    other: 'The Iron Company',
+    ...move,
+  },
+  at: 0,
+})
+
+describe('items and coins moved, from module 0.31.0', () => {
+  const trayOf = (
+    roll: LocalUse,
+    state: TableRollState,
+    role: 'player' | 'gm' = 'player',
+  ) => {
+    const tray = (
+      <RollTray
+        rolls={[roll]}
+        rolling={false}
+        table={{
+          states: new Map([[roll.id, state]]),
+          available: true,
+          sending: true,
+        }}
+      />
+    )
+    const { unmount } = render(
+      role === 'gm' ? (
+        <TableApiContext
+          value={{
+            role: 'gm',
+            api: '/api/campaigns/c1/characters/thorin',
+            key: 'gm',
+          }}
+        >
+          {tray}
+        </TableApiContext>
+      ) : (
+        tray
+      ),
+    )
+    const text = screen.getByRole('status').textContent
+    unmount()
+    return text
+  }
+  const done: TableRollState = { status: 'done', visible: true, rolls: [] }
+
+  it('reads what was given, and taken, once made, and as it goes', () => {
+    expect(trayOf(moved(), done)).toBe(
+      '2 Potion of HealingGave 2 Potion of Healing to The Iron Company',
+    )
+    expect(
+      trayOf(moved({ verb: 'take', things: '50 gp' }), {
+        status: 'rolling',
+      }),
+    ).toBe('2 Potion of HealingTaking it in your Gamemaster’s game…')
+  })
+
+  it("reads why it wasn't, in a move's own words", () => {
+    expect(
+      trayOf(moved({ verb: 'take' }), {
+        status: 'refused',
+        reason: 'not-owner',
+      }),
+    ).toBe(
+      '2 Potion of HealingNot taken: you need Owner on the party in Foundry',
+    )
+    expect(trayOf(moved(), { status: 'failed', reason: 'short' })).toBe(
+      '2 Potion of HealingNot given: you haven’t that many',
+    )
+  })
+
+  it("reads the Gamemaster's as the character that moved it", () => {
+    expect(
+      trayOf(
+        moved({ things: '5 gp', other: 'Vex', mover: 'Thorin' }),
+        { ...done, move: { verb: 'give', things: '5 gp', other: 'Vex' } },
+        'gm',
+      ),
+    ).toMatch(/Thorin gave 5 gp to Vex$/)
+    expect(
+      trayOf(
+        moved({ mover: 'Thorin' }),
+        { status: 'failed', reason: 'short' },
+        'gm',
+      ),
+    ).toMatch(/Not given: they haven’t that many$/)
+  })
+
+  it('toasts it as a use, and lists it among the earlier rolls as given or taken', async () => {
+    expect(briefOf(moved(), done)).toMatchObject({
+      label: '2 Potion of Healing',
+      badge: 'use',
+      table: {
+        tone: 'made',
+        text: 'Gave 2 Potion of Healing to The Iron Company',
+      },
+    })
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          moved({ verb: 'take', things: '1 Rope' }),
+          { ...moved(), id: 'u-2', label: '1 Rope' },
+          { ...moved({ verb: 'take' }), id: 'u-3', label: '50 gp' },
+        ]}
+        rolling={false}
+        table={{ states: new Map(), available: true, sending: true }}
+      />,
+    )
+    await user.click(screen.getByText('Earlier rolls (2)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['1 Ropegiven', '50 gptaken'])
+  })
+
+  it("reads the Gamemaster's move as the character, on its player's page, by its label", () => {
+    const gm = {
+      kind: 'gm' as const,
+      id: 'gm:req-move',
+      label: 'Give 5 gp to Vex',
+      rolled: 'transfer' as const,
+      at: 0,
+    }
+    expect(briefOf(gm, { status: 'rolling' }).table?.text).toBe(
+      'Moving it in your Gamemaster’s game…',
+    )
+    expect(briefOf(gm, done)).toMatchObject({
+      label: 'Give 5 gp to Vex',
+      badge: 'use',
+      table: { text: 'Moved at the table' },
+    })
+    expect(briefOf(gm, { status: 'failed', reason: 'gone' }).table?.text).toBe(
+      'Not moved at the table: it can’t be found in the game any more',
+    )
+  })
+
+  it('says nothing of rolls reaching the game, or not, beneath moves alone, which reach it whatever it takes of rolls', () => {
+    const gm = {
+      kind: 'gm' as const,
+      id: 'gm:req-move',
+      label: 'Give 5 gp to Vex',
+      rolled: 'transfer' as const,
+      at: 0,
+    }
+    const states = new Map([['u-move', done]])
+    const { rerender } = render(
+      <RollTray
+        rolls={[moved(), gm]}
+        rolling={false}
+        table={{ states, available: false, sending: true }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Gave 2 Potion of Healing to The Iron Company',
+    )
+    expect(screen.queryByText(/Only you see these rolls/)).toBeNull()
+
+    rerender(
+      <RollTray
+        rolls={[moved()]}
+        rolling={false}
+        table={{ states, available: true, sending: false }}
+      />,
+    )
+    expect(screen.queryByText(/Only you see these rolls/)).toBeNull()
+
+    // A roll among them still says where it went.
+    rerender(
+      <RollTray
+        rolls={[moved(), roll()]}
+        rolling={false}
+        table={{ states, available: false, sending: true }}
+      />,
+    )
+    expect(
+      screen.getByText(
+        "Only you see these rolls for now. They aren't sent to your Gamemaster's game.",
+      ),
+    ).toBeInTheDocument()
   })
 })

@@ -19,6 +19,7 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
     spells: false,
     prompts: false,
   },
+  transfers: { enabled: false, reaching: false },
   characters: [],
   groups: [],
   ...fields,
@@ -417,6 +418,68 @@ describe('components/campaigns/campaign-card', () => {
       text,
     )
   })
+
+  it.each([
+    [
+      'moved from here, at once',
+      { enabled: true, reaching: true },
+      'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.',
+    ],
+    [
+      'turned on, the game not fetching them',
+      { enabled: true, reaching: false },
+      'Turned on in Foundry. Moves reach your game while it’s open.',
+    ],
+    [
+      'off',
+      { enabled: false, reaching: false },
+      'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
+    ],
+  ])(
+    'says whether players move items and coins, from module 0.31.0: %s',
+    (_, transfers, text) => {
+      renderCard({ transfers })
+
+      const heading = screen.getByRole('heading', { name: 'Items and coins' })
+      expect(heading.nextSibling).toHaveTextContent(text)
+      // After the players' rolls.
+      expect(
+        screen.getByText("Players' rolls").compareDocumentPosition(heading) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    },
+  )
+
+  it.each([
+    ['0.30.0', 'update'],
+    ['0.9.12', 'update'],
+    ['0.31.0', 'tick'],
+    ['0.31.2', 'tick'],
+    ['1.0.0', 'tick'],
+    // eslint-disable-next-line unicorn/no-null -- a hello says a version it doesn't know as null
+    [null, 'tick'],
+    ['dev', 'tick'],
+  ] as const)(
+    'says how players could move items and coins, with Sending Stone %s in Foundry: %s',
+    (version, how) => {
+      renderCard({
+        transfers: { enabled: false, reaching: false },
+        foundry: {
+          receivedAt: '2026-10-20T12:00:00.000Z',
+          module: { id: 'sending-stone', version },
+        },
+      })
+
+      const heading = screen.getByRole('heading', { name: 'Items and coins' })
+      // A module before 0.31.0 has no such setting to tick.
+      expect(heading.nextSibling).toHaveTextContent(
+        how === 'update'
+          ? 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
+          : 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
+        { normalizeWhitespace: true },
+      )
+    },
+  )
 
   it('lists its party sheets after its characters, and nothing of them without any (module 0.30.0)', () => {
     renderCard({

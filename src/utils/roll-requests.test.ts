@@ -3735,6 +3735,71 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('toRollRequestView for a move of items and coins, from module 0.31.0', () => {
+    const transfer = {
+      from: 'groupIronCo01',
+      to: 'actorThorin1',
+      items: [
+        {
+          id: 'potionHeal01',
+          quantity: 2,
+          created: null,
+          stacked: 'pot0Thorin01',
+        },
+      ],
+      currency: null,
+    }
+    const moved = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
+      toRollRequestView(
+        held({
+          kind: 'transfer',
+          status,
+          claimedAt: ago(500),
+          result: {
+            id: 'req-1',
+            status,
+            reason: null,
+            error: null,
+            messageId: 'm-line',
+            visible: true,
+            rolls: [],
+            transfer,
+            ...fields,
+          },
+        }),
+        NOW,
+      )
+
+    it('passes on what moved, once made, seen or not', () => {
+      expect(moved({}, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        transfer,
+      })
+      expect(moved({ visible: false }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: false,
+        transfer,
+      })
+    })
+
+    it('passes on what moved before it failed, and none where nothing did', () => {
+      expect(
+        moved({ status: 'failed', reason: 'error', error: 'boom' }, 'failed'),
+      ).toEqual({ id: 'req-1', status: 'failed', reason: 'error', transfer })
+      expect(
+        moved(
+          { status: 'failed', reason: 'gone', transfer: undefined },
+          'failed',
+        ),
+      ).toEqual({ id: 'req-1', status: 'failed', reason: 'gone' })
+    })
+  })
+
   describe('toRollRequestView for hit dice spent at once, from module 0.20.0', () => {
     it('shows what every die the game made came to, added up, and gave back, and how many it made', () => {
       const view = spentAtOnce(true, 3)
@@ -5067,6 +5132,8 @@ describe('utils/roll-requests for concentration, charges and Heroic Inspiration,
     ['endConcentration', 'Concentration ended'],
     ['spend', 'Charges spent'],
     ['inspiration', 'Heroic Inspiration'],
+    // From module 0.31.0.
+    ['transfer', 'Items or coins moved'],
   ])(
     "calls the Gamemaster's %s from a page that didn't say %p",
     (kind, label) => {

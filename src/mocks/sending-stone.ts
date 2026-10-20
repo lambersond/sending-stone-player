@@ -1,9 +1,10 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
-import type { GroupEntry, GroupSheet } from '@/types/party'
+import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
 import type {
   CharacterSheet,
   CombatantSummary,
+  CommandResult,
   CombatSnapshot,
   SerializedMessage,
   SheetAbility,
@@ -17,6 +18,7 @@ import type {
   SheetUse,
   SheetUses,
 } from '@/types/sending-stone'
+import type { TableMoves } from '@/types/table'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
 
@@ -1926,7 +1928,9 @@ export function groupSheet(fields: Partial<GroupSheet> = {}): GroupSheet {
 
 /**
  * What a module from 0.30.0 says of a dnd5e world's settings for a campaign, without Midi-QOL:
- * dnd5e's own visibility settings and the module's, in English, and what players see in chat.
+ * dnd5e's own visibility settings and the module's, in English, and what players see in chat;
+ * with the rows module 0.31.0 adds, whether players move items and coins, and whether hits and
+ * saves follow Foundry's visibility settings.
  */
 export function foundrySettings(
   fields: Partial<FoundrySettings> = {},
@@ -1972,6 +1976,13 @@ export function foundrySettings(
             text: 'On',
             note: 'Manual Dice is not enabled in this world.',
           },
+          // From module 0.31.0.
+          {
+            id: 'transfers',
+            label: 'Players move items and coins',
+            value: false,
+            text: 'Off',
+          },
           {
             id: 'groups',
             label: 'Party sheets',
@@ -1990,6 +2001,13 @@ export function foundrySettings(
             label: 'Which messages',
             value: 'all',
             text: 'Every message players can see',
+          },
+          // From module 0.31.0.
+          {
+            id: 'chatResults',
+            label: 'Hit/miss and save results in the app',
+            value: 'foundry',
+            text: "Follow Foundry's visibility settings",
           },
           {
             id: 'combatEvents',
@@ -2055,6 +2073,136 @@ export function foundrySnapshot(
     foundry: { version: '14.365', generation: 14 },
     system: { id: 'dnd5e', title: 'D&D Fifth Edition', version: '5.3.3' },
     settings: foundrySettings(),
+    ...fields,
+  }
+}
+
+/* -------------------------------------------- */
+/*  Moving items and coins (module 0.31.0)      */
+/* -------------------------------------------- */
+
+/**
+ * The Iron Company's stash, as module 0.31.0's group.updated sends it: three Potions of Healing,
+ * a Rope, a Backpack holding a Bedroll, a Strange Vial not identified yet, a Locked Coffer whose
+ * contents are secret, 120 gp and 7 sp.
+ */
+export function partyStash(): GroupSheet['inventory'] {
+  return {
+    sections: [
+      {
+        id: 'consumable',
+        label: 'Consumables',
+        items: [
+          sheetItem({
+            id: 'potionHeal01',
+            name: 'Potion of Healing',
+            type: 'consumable',
+            quantity: 3,
+          }),
+          sheetItem({
+            id: 'strangeVial1',
+            name: 'Strange Vial',
+            type: 'consumable',
+            identified: false,
+          }),
+        ],
+      },
+      {
+        id: 'loot',
+        label: 'Loot',
+        items: [sheetItem({ id: 'rope00000001', name: 'Rope' })],
+      },
+    ],
+    containers: [
+      {
+        ...sheetItem({
+          id: 'backpack0001',
+          name: 'Backpack',
+          type: 'container',
+        }),
+        capacity: null,
+        contents: [sheetItem({ id: 'bedroll00001', name: 'Bedroll' })],
+      },
+      {
+        ...sheetItem({
+          id: 'coffer000001',
+          name: 'Locked Coffer',
+          type: 'container',
+          identified: false,
+        }),
+        capacity: null,
+        contents: null,
+      },
+    ],
+    currency: [
+      { id: 'pp', label: 'Platinum', abbreviation: 'pp', value: 0 },
+      { id: 'gp', label: 'Gold', abbreviation: 'gp', value: 120 },
+      { id: 'sp', label: 'Silver', abbreviation: 'sp', value: 7 },
+    ],
+    encumbrance: null,
+    attunement: null,
+  }
+}
+
+/** The Iron Company, as a hello from module 0.30.0 lists it, which Thorin owns and Vex observes. */
+export function ironCompany(fields: Partial<GroupEntry> = {}): GroupEntry {
+  return groupEntry({
+    id: 'groupIronCo01',
+    uuid: 'Actor.groupIronCo01',
+    name: 'The Iron Company',
+    access: { actorThorin1: 'owner', actorVex0001: 'observer' },
+    ...fields,
+  })
+}
+
+/** Where Thorin's player may move to, as their table view says: The Iron Company and Vex. */
+export function tableMoves(fields: Partial<TableMoves> = {}): TableMoves {
+  return {
+    parties: [{ id: 'groupIronCo01', name: 'The Iron Company', primary: true }],
+    characters: [{ id: 'actorVex0001', name: 'Vex' }],
+    ...fields,
+  }
+}
+
+/** The Iron Company's sheet view, as its owner sees it while they may take from it. */
+export function movingPartyView(fields: Partial<PartyView> = {}): PartyView {
+  return {
+    version: 7,
+    live: true,
+    campaign: { title: 'The Lonely Mountain' },
+    group: { id: 'groupIronCo01', name: 'The Iron Company', primary: true },
+    sheet: { members: [], inventory: partyStash(), description: null },
+    sheetVersion: '2026-10-20T12:00:00.000Z',
+    moves: {},
+    ...fields,
+  }
+}
+
+/** Two Potions of Healing taken from The Iron Company into Thorin, stacked with his own. */
+export function movedResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-move',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: 'm-line',
+    visible: true,
+    rolls: [],
+    transfer: {
+      from: 'groupIronCo01',
+      to: 'actorThorin1',
+      items: [
+        {
+          id: 'potionHeal01',
+          quantity: 2,
+          created: null,
+          stacked: 'potionThorin',
+        },
+      ],
+      currency: null,
+    },
     ...fields,
   }
 }

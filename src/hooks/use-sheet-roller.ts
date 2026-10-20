@@ -250,7 +250,25 @@ export type LocalUse = {
   spent?: number
   /** Heroic Inspiration used, or gained, rather than anything used, from module 0.29.0. */
   inspiration?: 'use' | 'gain'
+  /**
+   * Items or coins moved, rather than anything used, from module 0.31.0: what moved, as the chat
+   * line says it, is the label.
+   */
+  move?: LocalMove
   at: number
+}
+
+/** Items or coins moved, as a page keeps the move: given, or taken, and between whom. */
+export type LocalMove = {
+  verb: 'give' | 'take'
+  /** As the chat line says it, such as "2 Potion of Healing". */
+  things: string
+  /** The other end's name. */
+  other: string
+  /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */
+  mover?: string
+  /** The item moved, if one, to disable its control while pending. */
+  item?: string
 }
 
 /** A hit die spent, or a formula rolled, as this page keeps it. */
@@ -600,6 +618,20 @@ export function useSheetRoller(
     [],
   )
 
+  // Keeps items or coins moved, from module 0.31.0, first among the rolls, as a use is.
+  const logMove = useCallback((move: LocalMove): LocalUse => {
+    const moved: LocalUse = {
+      kind: 'use',
+      id: `use-${Date.now()}-${++uses}`,
+      label: move.things,
+      spell: false,
+      move,
+      at: Date.now(),
+    }
+    setRolls(earlier => keeping(earlier, moved))
+    return moved
+  }, [])
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
@@ -619,6 +651,7 @@ export function useSheetRoller(
     logUse,
     logEnd,
     logCharge,
+    logMove,
     logAsk,
     rolls,
     rolling: inFlight > 0,

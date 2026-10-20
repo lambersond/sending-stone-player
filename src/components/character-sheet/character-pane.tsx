@@ -52,6 +52,7 @@ import {
 } from './use-picker'
 import { Charging, type ChargeActions } from './uses-button'
 import { Scroller } from '@/components/scroller'
+import { useGiveControls } from '@/components/transfers/give-controls'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
 import {
   useSheetRoller,
@@ -77,7 +78,12 @@ import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
-import type { TableCombat, TablePrompt, TableSheet } from '@/types/table'
+import type {
+  TableCombat,
+  TableMoves,
+  TablePrompt,
+  TableSheet,
+} from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
@@ -102,6 +108,13 @@ type Props = {
    * as on a phone showing combat or the chat.
    */
   header?: HTMLElement | null
+  /**
+   * Where the character's items and coins may be given to, from module 0.31.0, while the game
+   * takes moves: from the Inventory tab, through the seat's own API.
+   */
+  moves?: TableMoves
+  /** The character's Foundry actor, which what's given is given from. */
+  actorId?: string
 }
 
 /**
@@ -175,6 +188,8 @@ function RollingSheet({
   prompts,
   gmRolls,
   header,
+  moves,
+  actorId,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   const role = useTableRole()
@@ -185,7 +200,7 @@ function RollingSheet({
   const [prompted, setPrompted] = useState(false)
   const [described, setDescribed] = useState(false)
   // And once they end a concentration, or spend a counter's charges, which they may from Effects
-  // too, a favorite's among them, as that rolls nothing.
+  // too, a favorite's among them, or give an item or coin, as that rolls nothing.
   const [acted, setActed] = useState(false)
   const {
     roll,
@@ -194,10 +209,22 @@ function RollingSheet({
     logUse,
     logEnd,
     logCharge,
+    logMove,
     logAsk,
     rolls,
     rolling,
   } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
+  // Give, on the Inventory tab, from module 0.31.0: its dialog is held here, so that it outlives
+  // the row it was opened from, and the controls going, as when the game stops taking moves.
+  const giving = useGiveControls({
+    moves,
+    table,
+    role,
+    name,
+    actorId,
+    logMove,
+    setActed,
+  })
   // The Gamemaster's rolls as the character (#156) among the player's own, wherever they're shown,
   // with nothing to roll after them; their area attacks' targets named as this page's own combat
   // names them, which never holds one hidden from players.
@@ -698,6 +725,7 @@ function RollingSheet({
                 sheet={sheet}
                 {...handlers}
                 favorites={strip}
+                transfers={giving.controls}
               />
             )}
             {tab === 'spells' && (
@@ -758,6 +786,7 @@ function RollingSheet({
         onPick={pick}
         onClose={() => setPicking(undefined)}
       />
+      {giving.dialog}
       {conditions.panel}
     </SheetContext>
   )

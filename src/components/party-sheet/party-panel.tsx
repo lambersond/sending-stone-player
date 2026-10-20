@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { PartySheetFor } from './party-sheet'
 import { SidePanel } from '@/components/side-panel'
 import { usePartySheet } from '@/hooks/use-party-sheet'
+import type { TakeInto } from '@/components/transfers/take-controls'
 import type { TableGroup } from '@/types/party'
 import type { SeatRole } from '@/utils/seat-words'
 
@@ -17,6 +18,8 @@ type Props = {
   role: SeatRole
   /** The player's own character's sheet, which its name in the members links to. */
   ownSheetHref?: string
+  /** Where it takes into, where the seat may take from it (module 0.31.0). */
+  takeInto?: TakeInto
   onClose: () => void
 }
 
@@ -30,6 +33,7 @@ export function PartyPanel({
   pageHref,
   role,
   ownSheetHref,
+  takeInto,
   onClose,
 }: Readonly<Props>) {
   return (
@@ -57,6 +61,7 @@ export function PartyPanel({
           api={api}
           role={role}
           ownSheetHref={ownSheetHref}
+          takeInto={takeInto}
         />
       )}
     </SidePanel>
@@ -68,7 +73,8 @@ function PartyPanelSheet({
   api,
   role,
   ownSheetHref,
-}: Readonly<Pick<Props, 'api' | 'role' | 'ownSheetHref'>>) {
+  takeInto,
+}: Readonly<Pick<Props, 'api' | 'role' | 'ownSheetHref' | 'takeInto'>>) {
   const { view, state } = usePartySheet(api)
   return (
     <PartySheetFor
@@ -77,6 +83,7 @@ function PartyPanelSheet({
       view={view}
       state={state}
       ownSheetHref={ownSheetHref}
+      takeInto={takeInto}
     />
   )
 }

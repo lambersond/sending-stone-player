@@ -2935,3 +2935,102 @@ describe('hooks/use-table-rolls for concentration, charges and Heroic Inspiratio
     expect(result.current.states.size).toBe(0)
   })
 })
+
+describe('hooks/use-table-rolls, moving items and coins, from module 0.31.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const gift = used({
+    id: 'u-move',
+    label: '5 gp',
+    move: { verb: 'give', things: '5 gp', other: 'Vex' },
+  })
+  const transfer = { from: 'thorin', to: 'vex', currency: { gp: 5 } }
+
+  it("sends a move as it is, whatever rolls the game takes or this device's switch says, and keeps what moved", async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-move' }))
+    const { result } = render([])
+    act(() => result.current.setSending(false))
+
+    act(() => result.current.sendTransfer(gift, transfer))
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(sent()).toEqual({
+      kind: 'transfer',
+      transfer,
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    })
+    expect(result.current.states.get('u-move')).toEqual({
+      status: 'sending',
+      move: gift.move,
+    })
+    const moved = {
+      from: 'thorin',
+      to: 'vex',
+      items: [],
+      currency: { gp: 5 },
+    }
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-move',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        transfer: moved,
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u-move')).toMatchObject({
+      status: 'done',
+      transfer: moved,
+      move: gift.move,
+    })
+  })
+
+  it('sends nothing for a use that is no move', () => {
+    const { result } = render([])
+    act(() => result.current.sendTransfer(used(), transfer))
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("says what the Gamemaster's page calls it, for the character's player to be shown it by", () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-move' }))
+    const seat = {
+      role: 'gm' as const,
+      api: '/api/campaigns/c1/characters/thorin',
+      key: 'gm:c1:thorin',
+    }
+    const { result } = renderHook(() => useTableRolls(seat.key, [], []), {
+      wrapper: ({ children }: { children: React.ReactNode }) => (
+        <TableApiContext value={seat}>{children}</TableApiContext>
+      ),
+    })
+
+    act(() =>
+      result.current.sendTransfer(
+        { ...gift, move: { ...gift.move!, mover: 'Thorin' } },
+        transfer,
+      ),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/campaigns/c1/characters/thorin/rolls',
+      expect.anything(),
+    )
+    expect(sent()).toMatchObject({
+      kind: 'transfer',
+      label: 'Give 5 gp to Vex',
+    })
+  })
+})

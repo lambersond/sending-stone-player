@@ -181,6 +181,8 @@ export type EntryLook = {
    * however narrow the list, as they're what it's there for.
    */
   uses?: SheetUses | null
+  /** Shown once it's open, after its enchantments, such as Give… */
+  moves?: ReactNode
 }
 
 /**
@@ -1664,6 +1666,7 @@ export function ActionDetails({
         itemName={action.name}
         enchantments={action.enchantments}
       />
+      {look.moves}
       {text && (
         <SheetText
           characterId={characterId}

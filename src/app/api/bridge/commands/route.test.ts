@@ -71,11 +71,18 @@ const UNAVAILABLE = {
   message: 'Sending Stone couldn’t take this just now',
 }
 
-/** The players' rolls as the campaign's game is ready for them. */
-const given = (rollsEnabled: boolean, playersPresent: boolean) =>
+/**
+ * The players' rolls as the campaign's game is ready for them, and from module 0.31.0 their moves
+ * of items and coins.
+ */
+const given = (
+  rollsEnabled: boolean,
+  playersPresent: boolean,
+  transfersEnabled = false,
+) =>
   jest
     .mocked(markBridgePolled)
-    .mockResolvedValue({ rollsEnabled, playersPresent })
+    .mockResolvedValue({ rollsEnabled, transfersEnabled, playersPresent })
 
 describe('app/api/bridge/commands', () => {
   beforeEach(() => {
@@ -134,6 +141,37 @@ describe('app/api/bridge/commands', () => {
       open: ['thorin'],
     })
     expect(claimRollRequests).not.toHaveBeenCalled()
+  })
+
+  it('hands over moves of items and coins with rolls off, from module 0.31.0, holding the fetch open as for a roll', async () => {
+    given(false, false, true)
+    jest.mocked(claimRollRequests).mockResolvedValue([command])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [command],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+
+    jest.useFakeTimers()
+    given(false, true, true)
+    jest
+      .mocked(claimRollRequests)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([command])
+    let answered: Response | undefined
+    void post().then(response => (answered = response))
+
+    await jest.advanceTimersByTimeAsync(500)
+    expect(answered).toBeUndefined()
+    await jest.advanceTimersByTimeAsync(1000)
+    await expect(answered?.json()).resolves.toEqual({
+      commands: [command],
+      open: ['thorin'],
+    })
   })
 
   it('says no one is open, where no character is', async () => {

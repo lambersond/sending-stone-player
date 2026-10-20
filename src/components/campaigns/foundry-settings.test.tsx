@@ -131,7 +131,16 @@ describe('components/campaigns/foundry-settings', () => {
       'Attacks, spells and features: On',
       'Save and concentration prompts: Off',
       'Allow Players to enter dice results manually: On: Manual Dice is not enabled in this world.',
+      'Players move items and coins: Off',
       'Party sheets: The Company',
+    ])
+    // From module 0.31.0, rendered as any other row.
+    expect(pairs(listAfter('Sending Stone, for every campaign'))).toEqual([
+      'Chat messages: On',
+      'Which messages: Every message players can see',
+      "Hit/miss and save results in the app: Follow Foundry's visibility settings",
+      'Combat tracker: On',
+      'GM-only details: Off',
     ])
     const note = screen.getByText('Manual Dice is not enabled in this world.')
     expect(note).toHaveClass('text-xs', 'text-text-secondary')
@@ -210,6 +219,7 @@ describe('components/campaigns/foundry-settings', () => {
         spells: false,
         prompts: false,
       },
+      transfers: { enabled: false, reaching: false },
       characters: [],
       groups: [],
       foundry: foundrySnapshot(),
@@ -227,7 +237,12 @@ describe('components/campaigns/foundry-settings', () => {
 
     const details = screen.getByText('Foundry settings').closest('details')
     const rolls = screen.getByRole('heading', { name: "Players' rolls" })
-    expect(details?.previousElementSibling).toBe(rolls.parentElement)
+    // From module 0.31.0, the players' items and coins are between them.
+    const moves = screen.getByRole('heading', { name: 'Items and coins' })
+    expect(moves.parentElement?.previousElementSibling).toBe(
+      rolls.parentElement,
+    )
+    expect(details?.previousElementSibling).toBe(moves.parentElement)
     expect(details?.nextElementSibling?.tagName).toBe('FOOTER')
   })
 })

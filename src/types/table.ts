@@ -290,6 +290,22 @@ export type TableView = {
    * for none.
    */
   groups?: TableGroup[]
+  /**
+   * Where the seat may move the character's items and coins to, from module 0.31.0: set only while
+   * the campaign lets them be moved, its game is taking moves, and the character is in its roster.
+   */
+  moves?: TableMoves
+}
+
+/** Where a seat may move its character's items and coins to. Never anyone's access. */
+export type TableMoves = {
+  /**
+   * Where the seat may give: a player's parties they own in Foundry; the Gamemaster's, every one
+   * listed.
+   */
+  parties: TableGroup[]
+  /** The campaign's other characters, in its roster's order. */
+  characters: { id: string; name: string; portrait?: string }[]
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */

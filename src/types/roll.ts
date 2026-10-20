@@ -120,6 +120,35 @@ export type InspirationSource = {
 }
 
 /**
+ * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
+ * the character's, and what moves, each item by its id and how many of it, and each coin by its
+ * key, such as "gp", and how many.
+ */
+export type TransferInput = {
+  from: string
+  to: string
+  items?: { id: string; quantity: number }[]
+  currency?: Record<string, number>
+}
+
+/**
+ * What a move moved, as the game reports it, from module 0.31.0: each of the command's own items
+ * that moved, and the item it made at the other end or the stack it joined there, and the coins.
+ * Never a name, nor what a container held.
+ */
+export type TransferMoved = {
+  from: string
+  to: string
+  items: {
+    id: string
+    quantity: number
+    created: string | null
+    stacked: string | null
+  }[]
+  currency: Record<string, number> | null
+}
+
+/**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
  * formula, such as a light's radius; or a description's own roll, by its link.
@@ -191,6 +220,8 @@ export type RollRequestInput = {
   count?: number
   /** For Heroic Inspiration, from module 0.29.0, whether it's used or gained. */
   inspiration?: 'use' | 'gain'
+  /** For a move of items and coins, from module 0.31.0, its ends and what moves. */
+  transfer?: TransferInput
   /** For an attack, the ammunition and attack mode chosen. */
   ammunition?: string
   attackMode?: string
@@ -281,6 +312,11 @@ export type RollRequestView = {
    * the card, as one naming a concentration that has since ended.
    */
   card?: false
+  /**
+   * For a move of items and coins, from module 0.31.0, what moved: everything, when it was made,
+   * or the parts made before it failed.
+   */
+  transfer?: TransferMoved
 }
 
 /**

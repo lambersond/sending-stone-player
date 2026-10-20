@@ -107,7 +107,9 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * 0.17.0), or for the check it calls for (module 0.18.0); and an enchantment on one of the
  * character's items ended, such as Magic Weapon's, or a Flame Tongue's put out (module 0.21.0);
  * and from module 0.29.0, a concentration of the character's ended, a feature's, an item's or a
- * resource's charges spent directly, or Heroic Inspiration used or gained, none of them a roll.
+ * resource's charges spent directly, or Heroic Inspiration used or gained, none of them a roll;
+ * and from module 0.31.0, items and coins moved between the character and a party or another
+ * character, none of them a roll.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -129,6 +131,7 @@ export const ROLL_KINDS = [
   'endConcentration',
   'spend',
   'inspiration',
+  'transfer',
 ] as const
 
 /**
@@ -136,6 +139,14 @@ export const ROLL_KINDS = [
  * counter's own count is what holds a spend back.
  */
 export const MAX_SPEND = 999
+
+/**
+ * The most of one item's stack, or of one coin, moved at once, and the most items in one move,
+ * from module 0.31.0: well above any pile a party keeps, so that what's held is what holds a move
+ * back.
+ */
+export const MOST_MOVED = 10_000_000
+export const MOST_MOVED_ITEMS = 10
 
 /**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
@@ -189,6 +200,13 @@ export const GROUPS = 1
  * module sends only then. Only the Gamemaster's campaign card shows them.
  */
 export const FOUNDRY_SETTINGS = 1
+
+/**
+ * The format of moves of items and coins this app takes, as it tells the module (`transfers`):
+ * from module 0.31.0, the `transfer` command and the hello's `features.transfers`. The module
+ * fetches moves alone, with rolls off, only then.
+ */
+export const TRANSFERS = 1
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

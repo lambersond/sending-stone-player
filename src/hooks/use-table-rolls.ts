@@ -13,12 +13,14 @@ import {
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { formulaTerms } from '@/utils/formulas'
+import { moveLabel } from '@/utils/move-words'
 import type {
   LocalAsk,
   LocalCheck,
   LocalDamage,
   LocalFormula,
   LocalGmRoll,
+  LocalMove,
   LocalRoll,
   LocalUse,
   SheetDamageRoll,
@@ -40,6 +42,7 @@ import type {
   RollStatus,
   SpendSource,
   TextLink,
+  TransferInput,
   UseSource,
 } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
@@ -128,6 +131,8 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
    * hit's, as there are no dice of it here to say.
    */
   critical?: GmRollView['critical']
+  /** For a move of items and coins, from module 0.31.0, what moved and between whom. */
+  move?: LocalMove
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -504,6 +509,23 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * Move items or coins between the character and a party or another character, from module
+   * 0.31.0. No switch of this device's holds it back: a move has no version made here instead.
+   */
+  const sendTransfer = useCallback(
+    (moved: LocalUse, transfer: TransferInput) => {
+      if (!moved.move) return
+      start(
+        moved.id,
+        { kind: 'transfer', transfer, ...PLAIN },
+        { move: moved.move },
+        moveLabel(moved.move),
+      )
+    },
+    [start],
+  )
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -536,6 +558,7 @@ export function useTableRolls(
     sendEndConcentration,
     sendSpend,
     sendInspiration,
+    sendTransfer,
     sendAsk,
     states,
     /** Whether the game takes any of the player's rolls now. */
@@ -802,7 +825,10 @@ function together(each: TableRollState[], count: number): TableRollState {
  * player to be shown it by, cut to as long a name as the app keeps, never splitting a character,
  * and left out where there's nothing to say.
  */
-function labelled(input: RollRequestInput, label: string): RollRequestInput {
+export function labelled(
+  input: RollRequestInput,
+  label: string,
+): RollRequestInput {
   let kept = ''
   for (const character of label.trim()) {
     if (kept.length + character.length > MAX_ROLL_LABEL) break
@@ -830,7 +856,7 @@ function added(numbers: number[]): number {
  * Send a roll to the game, then ask after it until it's made, or given up on.
  * @param api - The seat's API base, such as `/api/characters/<id>`.
  */
-async function follow(
+export async function follow(
   api: string,
   input: RollRequestInput,
   signal: AbortSignal,
@@ -893,7 +919,7 @@ async function follow(
 }
 
 /** Why the app didn't take a roll, as it says. */
-async function refusal(response: Response): Promise<string> {
+export async function refusal(response: Response): Promise<string> {
   if (![409, 422, 429].includes(response.status)) return 'error'
   try {
     const { reason } = (await response.json()) as { reason?: unknown }

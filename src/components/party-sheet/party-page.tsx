@@ -8,6 +8,7 @@ import { FullscreenButton } from '@/components/game-table/fullscreen-button'
 import { LiveStatus, type LiveState } from '@/components/game-table/live-status'
 import { usePartySheet } from '@/hooks/use-party-sheet'
 import { TableApiContext } from '@/hooks/use-table-api'
+import type { TakeInto } from '@/components/transfers/take-controls'
 import type { TableSeat } from '@/types/character'
 import type { PartyView } from '@/types/party'
 import type { SeatRole } from '@/utils/seat-words'
@@ -22,6 +23,11 @@ type Props = {
   back: { href: string; label: string }
   /** The player's own character's sheet, which its name in the members links to. */
   ownSheetHref?: string
+  /**
+   * Where it takes into, where the seat may take from it (module 0.31.0): only data, as a server
+   * page passes it.
+   */
+  takeInto?: TakeInto
 }
 
 /**
@@ -35,6 +41,7 @@ export function PartyPage({
   initialView,
   back,
   ownSheetHref,
+  takeInto,
 }: Readonly<Props>) {
   const {
     view = initialView,
@@ -83,6 +90,7 @@ export function PartyPage({
               view={view}
               state={state}
               ownSheetHref={ownSheetHref}
+              takeInto={takeInto}
             />
           </div>
         </div>

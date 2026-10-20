@@ -8,6 +8,7 @@ import {
   EVENTS,
   REFUSAL,
   SLIM_SHEETS,
+  TRANSFERS,
 } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import {
@@ -218,7 +219,8 @@ export async function POST(request: Request) {
  * expands slim sheets up to this format, it takes posts of up to this many bytes, and it reads
  * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0); and
  * the campaign's groups in this format, which the module sends only then too (0.30.0).
- * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0).
+ * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0);
+ * and moves of items and coins, from module 0.31.0.
  */
 const FEATURES = {
   commands: true,
@@ -227,6 +229,7 @@ const FEATURES = {
   midiPrompts: MIDI_PROMPTS,
   groups: GROUPS,
   settings: FOUNDRY_SETTINGS,
+  transfers: TRANSFERS,
 }
 
 /**

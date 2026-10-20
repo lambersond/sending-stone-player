@@ -73,6 +73,58 @@ describe('app/api/campaigns/[id]/party/[group]', () => {
     expect(await statusOf('company', '?version=7&live=0')).toBe(204)
   })
 
+  it('lets them take from it into any of the campaign’s characters, from module 0.31.0, while its game takes moves', async () => {
+    const held = {
+      id: 'c1',
+      title: 'The Lonely Mountain',
+      origin: 'https://my-game.forge-vtt.com',
+      version: 7,
+      lastSeenAt: null,
+      ownerId: 'gm-1',
+      groups: [groupEntry(), hidden],
+      transfersEnabled: true,
+      bridgePolledAt: new Date(Date.now() - 5000),
+    }
+    // The roster is read apart, for the Gamemaster alone.
+    prismaMock.campaign.findUnique.mockImplementation((async ({
+      select,
+    }: any) =>
+      select.characters
+        ? {
+            characters: [
+              {
+                id: 'thorin',
+                name: 'Thorin',
+                img: 'worlds/erebor/thorin.webp',
+              },
+              { id: 'vex', name: 'Vex', img: null },
+            ],
+          }
+        : held) as any)
+
+    const viewResponse = await get('company')
+    const view = await viewResponse.json()
+
+    expect(view.moves).toEqual({
+      characters: [
+        {
+          id: 'thorin',
+          name: 'Thorin',
+          portrait: 'https://my-game.forge-vtt.com/worlds/erebor/thorin.webp',
+        },
+        { id: 'vex', name: 'Vex' },
+      ],
+    })
+    expect(await statusOf('company', '?version=7&live=0&moves=1')).toBe(204)
+    expect(await statusOf('company', '?version=7&live=0')).toBe(200)
+
+    held.transfersEnabled = false
+    const offResponse = await get('company')
+    const off = await offResponse.json()
+    expect(off).not.toHaveProperty('moves')
+    expect(await statusOf('company', '?version=7&live=0')).toBe(204)
+  })
+
   it('asks the signed-out to sign in', async () => {
     // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)

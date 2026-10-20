@@ -1028,6 +1028,94 @@ describe('schemas/sending-stone', () => {
     )
   })
 
+  it('reads what a move of items and coins moved, from module 0.31.0, keeping the rest of a result whose move it can’t read', () => {
+    const result = {
+      id: 'req-move',
+      status: 'done',
+      reason: null,
+      messageId: 'm-line',
+      visible: true,
+      rolls: [],
+    }
+    const transfer = {
+      from: 'groupIronCo01',
+      to: 'actorThorin1',
+      items: [
+        {
+          id: 'potionHeal01',
+          quantity: 2,
+          created: null,
+          stacked: 'potionThorin',
+        },
+        {
+          id: 'backpack0001',
+          quantity: 1,
+          created: 'newPack00001',
+          stacked: null,
+        },
+      ],
+      currency: { gp: 50 },
+    }
+    const read = (moved: unknown) =>
+      parseGameEvent('command.result', { ...result, transfer: moved })
+        ?.data as { transfer?: unknown; messageId: string | null }
+
+    expect(read(transfer).transfer).toEqual(transfer)
+    expect(read({ ...transfer, currency: null }).transfer).toEqual({
+      ...transfer,
+      currency: null,
+    })
+    expect(read({ ...transfer, items: [] }).transfer).toEqual({
+      ...transfer,
+      items: [],
+    })
+    const most = Array.from({ length: 10 }, (_, index) => ({
+      id: `item${index}`,
+      quantity: 10_000_000,
+      created: `copy${index}`,
+      stacked: null,
+    }))
+    expect(read({ ...transfer, items: most }).transfer).toEqual({
+      ...transfer,
+      items: most,
+    })
+    // Names, or anything else, are left out.
+    expect(
+      read({
+        ...transfer,
+        items: [{ ...transfer.items[0], name: 'Potion of Healing' }],
+      }).transfer,
+    ).toEqual({ ...transfer, items: [transfer.items[0]] })
+    for (const junk of [
+      { ...transfer, from: '' },
+      { ...transfer, to: 'x'.repeat(65) },
+      { ...transfer, items: [...most, most[0]] },
+      { ...transfer, items: [{ ...transfer.items[0], quantity: 0 }] },
+      { ...transfer, items: [{ ...transfer.items[0], quantity: 10_000_001 }] },
+      { ...transfer, items: [{ ...transfer.items[0], quantity: 1.5 }] },
+      { ...transfer, items: [{ ...transfer.items[0], created: undefined }] },
+      { ...transfer, currency: { gp: 0 } },
+      { ...transfer, currency: { gp: '50' } },
+      {
+        ...transfer,
+        currency: Object.fromEntries(
+          Array.from({ length: 11 }, (_, index) => [`c${index}`, 1]),
+        ),
+      },
+      { ...transfer, currency: undefined },
+      'moved',
+      null,
+    ]) {
+      const data = read(junk)
+      expect(data.transfer).toBeUndefined()
+      expect(data.messageId).toBe('m-line')
+    }
+    // Left out by an older module, and by any other command.
+    expect(parseGameEvent('command.result', result)?.data).not.toHaveProperty(
+      'transfer',
+    )
+  })
+
   it.each([
     ['without its id', { status: 'done' }],
     ['with an outcome it does not know', { id: 'req-1', status: 'maybe' }],

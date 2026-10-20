@@ -52,6 +52,7 @@ describe('app/api/characters/[id]/table', () => {
       live: true,
       rollsToTable: [],
       rollFeatures: [],
+      moves: false,
     })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
@@ -88,6 +89,7 @@ describe('app/api/characters/[id]/table', () => {
       live: true,
       rollsToTable: ['skill', 'save'],
       rollFeatures: [],
+      moves: false,
     })
     const withRolls = await get('?version=7&live=1&rolls=skill,save')
     expect(withRolls.status).toBe(204)
@@ -97,6 +99,7 @@ describe('app/api/characters/[id]/table', () => {
       live: true,
       rollsToTable: ['skill', 'damage'],
       rollFeatures: ['modifiers'],
+      moves: false,
     })
     const withFeatures = await get(
       `?version=7&live=1&rolls=${encodeURIComponent('skill,damage;modifiers')}`,
@@ -113,6 +116,7 @@ describe('app/api/characters/[id]/table', () => {
       live: true,
       rollsToTable: [],
       rollFeatures: [],
+      moves: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -144,14 +148,43 @@ describe('app/api/characters/[id]/table', () => {
   ])(
     'sends the view to a viewer %s',
     async (_, query, live = true, rollsToTable = []) => {
-      jest
-        .mocked(getCampaignStatus)
-        .mockResolvedValue({ version: 7, live, rollsToTable, rollFeatures: [] })
+      jest.mocked(getCampaignStatus).mockResolvedValue({
+        version: 7,
+        live,
+        rollsToTable,
+        rollFeatures: [],
+        moves: false,
+      })
       const response = await get(query)
 
       expect(response.status).toBe(200)
     },
   )
+
+  it('sends the view to a viewer who missed the game taking moves of items and coins, or no longer taking them (module 0.31.0)', async () => {
+    const status = {
+      version: 7,
+      live: true,
+      rollsToTable: [],
+      rollFeatures: [],
+    }
+    jest.mocked(getCampaignStatus).mockResolvedValue({ ...status, moves: true })
+    const answers = [
+      await get('?version=7&live=1&moves=1'),
+      // Its module began fetching them, with no new version.
+      await get('?version=7&live=1'),
+    ]
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, moves: false })
+    answers.push(
+      await get('?version=7&live=1'),
+      // Its module stopped fetching them.
+      await get('?version=7&live=1&moves=1'),
+    )
+
+    expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
+  })
 
   it("notes a player at the campaign's table, as one who may roll", async () => {
     await get('?version=7&live=1')

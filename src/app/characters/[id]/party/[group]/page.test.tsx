@@ -5,6 +5,8 @@ import CharacterPartyPage, { generateMetadata } from './page'
 import { getCharacter } from '@/db/characters'
 import { getGroupView } from '@/db/party'
 import { requireUser } from '@/lib/session'
+import type { PartyPage as RealPartyPage } from '@/components/party-sheet'
+import type { ComponentProps } from 'react'
 
 jest.mock('next/navigation', () => ({
   notFound: jest.fn(() => {
@@ -17,13 +19,19 @@ jest.mock('@/db/party', () => ({
   getGroupView: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
+/** What the page gave the party's page, as it crosses from the server to the browser. */
+let given: ComponentProps<typeof RealPartyPage> | undefined
 jest.mock('@/components/party-sheet', () => ({
-  PartyPage: ({ api, role, initialView, back, ownSheetHref }: any) => (
-    <p>
-      {initialView.group.name} through {api} as {role}, back to {back.href} as{' '}
-      {back.label}, own sheet {ownSheetHref}
-    </p>
-  ),
+  PartyPage: (props: any) => {
+    given = props
+    const { api, role, initialView, back, ownSheetHref } = props
+    return (
+      <p>
+        {initialView.group.name} through {api} as {role}, back to {back.href} as{' '}
+        {back.label}, own sheet {ownSheetHref}
+      </p>
+    )
+  },
 }))
 
 const character = {
@@ -48,6 +56,7 @@ const props = (id: string, group: string) => ({
 
 describe('app/characters/[id]/party/[group]/page', () => {
   beforeEach(() => {
+    given = undefined
     jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
     jest.mocked(getCharacter).mockResolvedValue(character)
     jest.mocked(getGroupView).mockResolvedValue(view)
@@ -78,6 +87,29 @@ describe('app/characters/[id]/party/[group]/page', () => {
         title: 'The Company',
       },
     )
+  })
+
+  it("takes into the player's character, through its own way in, from module 0.31.0", async () => {
+    render(await CharacterPartyPage(props('char-1', 'company')))
+
+    expect(given?.takeInto).toEqual({
+      kind: 'own',
+      actorId: 'thorin',
+      name: 'Thorin Oakenshield',
+      api: '/api/characters/char-1',
+    })
+  })
+
+  it("takes into no one for a character not in the campaign's roster", async () => {
+    jest
+      .mocked(getCharacter)
+      // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
+      .mockResolvedValue({ ...character, actorId: null })
+
+    render(await CharacterPartyPage(props('char-1', 'company')))
+
+    expect(given).toBeDefined()
+    expect(given?.takeInto).toBeUndefined()
   })
 
   it.each([

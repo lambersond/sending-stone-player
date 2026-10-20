@@ -34,6 +34,11 @@ export type OwnedCampaign = {
     spells: boolean
     prompts: boolean
   }
+  /**
+   * Whether players move items and coins from here, from module 0.31.0, apart from the rolls:
+   * turned on in Foundry, and whether the game is fetching moves now.
+   */
+  transfers: { enabled: boolean; reaching: boolean }
   /** Each with who plays it, and their character's id, once a player has chosen it. */
   characters: {
     id: string

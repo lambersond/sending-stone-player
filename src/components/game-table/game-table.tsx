@@ -231,6 +231,9 @@ export function GameTable({
               prompts={view.connected ? view.prompts : undefined}
               gmRolls={view.gmRolls}
               header={header}
+              // Nor its items and coins moved there (module 0.31.0), by either seat.
+              moves={view.connected ? view.moves : undefined}
+              actorId={character.actorId ?? undefined}
             />
           ) : (
             <Scroller>
@@ -457,6 +460,17 @@ export function GameTable({
           pageHref={partyPage(seat, character, party?.id)}
           role={seat.role}
           ownSheetHref={gm ? undefined : `/characters/${character.id}`}
+          // Taken into the character at this table, through this seat's own API (module 0.31.0).
+          takeInto={
+            character.actorId
+              ? {
+                  kind: 'own',
+                  actorId: character.actorId,
+                  name: character.name,
+                  api: seat.api,
+                }
+              : undefined
+          }
           onClose={() => setPartyOpen(undefined)}
         />
       </div>

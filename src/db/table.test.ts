@@ -7,6 +7,7 @@ import {
   chatMessage,
   combat,
   combatant,
+  groupEntry,
   roster,
 } from '@/mocks/sending-stone'
 
@@ -51,6 +52,7 @@ describe('db/table', () => {
         live: true,
         rollsToTable: [],
         rollFeatures: [],
+        moves: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -61,6 +63,7 @@ describe('db/table', () => {
           rollKinds: true,
           rollFeatures: true,
           bridgePolledAt: true,
+          transfersEnabled: true,
         },
       })
     })
@@ -76,6 +79,7 @@ describe('db/table', () => {
         live: false,
         rollsToTable: [],
         rollFeatures: [],
+        moves: false,
       })
     })
 
@@ -87,6 +91,7 @@ describe('db/table', () => {
         live: false,
         rollsToTable: [],
         rollFeatures: [],
+        moves: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -96,6 +101,7 @@ describe('db/table', () => {
         live: false,
         rollsToTable: [],
         rollFeatures: [],
+        moves: false,
       })
     })
 
@@ -170,6 +176,7 @@ describe('db/table', () => {
           rollKinds: true,
           rollFeatures: true,
           bridgePolledAt: true,
+          transfersEnabled: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -644,6 +651,7 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       rollsToTable: ['skill', 'save', 'use'],
       rollFeatures: ['prompts'],
       gm: { rolls: 'made' },
+      moves: false,
     })
   })
 
@@ -1206,5 +1214,133 @@ describe("db/table, the Gamemaster's rolls as the player's character (#156)", ()
 
     expect(await getTableView(character)).not.toHaveProperty('gmRolls')
     expect(await getCampaignStatus(character)).not.toHaveProperty('gmRollsKey')
+  })
+})
+
+describe('db/table, moving items and coins, from module 0.31.0', () => {
+  /** The Gamemaster at Thorin's sheet. */
+  const gm = {
+    ...character,
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+  /**
+   * The Company, which Thorin's player owns and Vex's observes; a second, which Vex's owns; and a
+   * third, which Thorin's observes. The primary is listed last, so only the view puts it first.
+   */
+  const groups = [
+    groupEntry({
+      id: 'order',
+      name: 'The Silent Order',
+      img: null,
+      primary: false,
+      access: { 'actor-vex': 'owner' },
+    }),
+    groupEntry({
+      id: 'watch',
+      name: 'The Night Watch',
+      img: null,
+      primary: false,
+      access: { 'actor-thorin': 'observer' },
+    }),
+    groupEntry({
+      id: 'company',
+      access: { 'actor-thorin': 'owner', 'actor-vex': 'observer' },
+    }),
+  ]
+  /** The campaign, its game taking moves as given, and fetching them as lately as given. */
+  const moving = (
+    transfersEnabled = true,
+    bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+  ) =>
+    givenCampaign({
+      ...campaign,
+      characters: [
+        { id: 'actor-thorin', name: 'Thorin', img: 'thorin.webp' },
+        { id: 'actor-vex', name: 'Vex', img: null },
+        { id: 'actor-balin', name: 'Balin', img: 'https://cdn.example/b.png' },
+      ],
+      groups,
+      rollsEnabled: false,
+      rollKinds: [],
+      rollFeatures: [],
+      transfersEnabled,
+      bridgePolledAt,
+    })
+
+  it("lists where a player may give: the parties they own, and the campaign's other characters, naming no one's access", async () => {
+    moving()
+    const view = await getTableView(character)
+
+    expect(view.moves).toEqual({
+      parties: [
+        {
+          id: 'company',
+          name: 'The Company',
+          primary: true,
+          portrait: expect.any(String),
+        },
+      ],
+      characters: [
+        { id: 'actor-vex', name: 'Vex' },
+        {
+          id: 'actor-balin',
+          name: 'Balin',
+          portrait: 'https://cdn.example/b.png',
+        },
+      ],
+    })
+    expect(JSON.stringify(view.moves)).not.toContain('owner')
+    expect(JSON.stringify(view.moves)).not.toContain('access')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      moves: true,
+    })
+  })
+
+  it('lists every listed party for the Gamemaster, the primary first', async () => {
+    moving()
+    const view = await getTableView(gm)
+
+    expect(view.moves?.parties.map(({ id }) => id)).toEqual([
+      'company',
+      'order',
+      'watch',
+    ])
+    expect(view.moves?.characters.map(({ id }) => id)).toEqual([
+      'actor-vex',
+      'actor-balin',
+    ])
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      moves: true,
+    })
+  })
+
+  it.each([
+    ['the campaign lets none be moved', () => moving(false)],
+    [
+      'its module has fetched none lately',
+      () => moving(true, new Date(Date.now() - 46_000)),
+    ],
+    ['its module never fetched', () => moving(true, null)],
+  ])('lists nowhere to move to while %s', async (_name, arrange) => {
+    arrange()
+
+    expect(await getTableView(character)).not.toHaveProperty('moves')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      moves: false,
+    })
+  })
+
+  it('lists nowhere for a character no longer in the roster, nor a seat without one', async () => {
+    moving()
+
+    const removed = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(removed).not.toHaveProperty('moves')
+    const none = await getTableView({ ...character, actorId: null })
+    expect(none).not.toHaveProperty('moves')
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ moves: false })
   })
 })

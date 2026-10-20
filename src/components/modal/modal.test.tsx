@@ -108,6 +108,33 @@ describe('components/modal', () => {
       screen.getByRole('dialog', { name: 'Help' }).querySelector('header'),
     ).toHaveTextContent(/^Help$/)
   })
+
+  it('is as wide as a phone’s screen only where it asks to be, and leaves a gutter otherwise', () => {
+    const { rerender } = render(
+      <Modal open onClose={jest.fn()} title='Help'>
+        <p>Steps</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Help' })
+    expect(dialog).toHaveClass('w-[calc(100%-2rem)]', 'max-w-lg', 'rounded-2xl')
+    expect(dialog.className).not.toMatch(/max-sm:/)
+
+    rerender(
+      <Modal open onClose={jest.fn()} title='Help' fullOnPhone>
+        <p>Steps</p>
+      </Modal>,
+    )
+    expect(dialog).toHaveClass(
+      'max-sm:w-full',
+      'max-sm:max-w-none',
+      'max-sm:rounded-none',
+      'max-sm:border-x-0',
+      // Above a phone, as any other.
+      'w-[calc(100%-2rem)]',
+      'max-w-lg',
+      'rounded-2xl',
+    )
+  })
 })
 
 describe('components/modal/confirm-dialog', () => {

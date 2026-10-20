@@ -105,6 +105,7 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
       rollsToTable: ['skill'],
       rollFeatures: [],
       gm: { rolls: 'made' },
+      moves: false,
     })
     jest.mocked(createRollRequest).mockResolvedValue({ id: 'req-gm' })
     jest

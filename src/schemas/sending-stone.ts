@@ -7,6 +7,8 @@ import {
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
   MOST_HIT_DICE,
+  MOST_MOVED,
+  MOST_MOVED_ITEMS,
   PROMPT_ID,
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
@@ -1272,6 +1274,17 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.31.0: whether its players may move items and coins from here, apart from the
+    // rolls.
+    transfers: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -1536,6 +1549,31 @@ const commandResultSchema = z.object({
   messages: z
     .array(z.string().min(1).max(64))
     .max(MAX_GM_ROLL_MESSAGES)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // From module 0.31.0, for a move of items and coins: what moved, by ids and counts alone, never
+  // a name. Anything else is left out, and the rest still read.
+  transfer: z
+    .object({
+      from: z.string().min(1).max(64),
+      to: z.string().min(1).max(64),
+      items: z
+        .array(
+          z.object({
+            id: z.string().min(1).max(64),
+            quantity: z.int().min(1).max(MOST_MOVED),
+            created: z.string().min(1).max(64).nullable(),
+            stacked: z.string().min(1).max(64).nullable(),
+          }),
+        )
+        .max(MOST_MOVED_ITEMS),
+      currency: z
+        .record(z.string().min(1).max(64), z.int().min(1).max(MOST_MOVED))
+        // As many kinds of coin as a move may name.
+        .refine(coins => Object.keys(coins).length <= 10)
+        .nullable(),
+    })
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),

@@ -155,6 +155,30 @@ describe('hooks/use-table-view', () => {
     )
   })
 
+  it('asks for news saying whether the seat may move items and coins, as it has it, from module 0.31.0', async () => {
+    const moves = { parties: [], characters: [{ id: 'vex', name: 'Vex' }] }
+    jest.mocked(fetch).mockResolvedValueOnce(respond(200, { ...newer, moves }))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
+
+    // Without it the server, which compares it too, never says nothing is new once moves are on.
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1',
+      expect.anything(),
+    )
+    jest.mocked(fetch).mockResolvedValueOnce(respond(200, newer))
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=4&live=0&moves=1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=4&live=0',
+      expect.anything(),
+    )
+  })
+
   it('keeps the sheet it has when the server leaves out an unchanged one', async () => {
     const sheet = { ac: 18 } as TableView['sheet']
     const start = {

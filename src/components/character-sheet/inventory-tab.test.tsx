@@ -2,8 +2,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
-import { InventoryTab } from './inventory-tab'
+import { InventoryTab, ItemEntry } from './inventory-tab'
 import { Modal } from '@/components/modal'
+import {
+  Transferring,
+  type TransferControls,
+} from '@/components/transfers/transferring'
 import {
   castingSheet,
   characterSheet,
@@ -13,6 +17,7 @@ import {
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet, SheetInventory } from '@/types/sending-stone'
+import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
@@ -655,5 +660,176 @@ describe('components/character-sheet/inventory-tab', () => {
           screen.getByRole('heading', { name: 'Weapons' }),
         ),
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+})
+
+/** Thorin's things: a handaxe that rolls, and a broken torch, none left of it. */
+const movingSheet = () => {
+  const fuller = fullerSheet()
+  const [weapons, equipment] = fuller.inventory.sections
+  return fullerSheet({
+    inventory: {
+      ...fuller.inventory,
+      sections: [
+        {
+          ...weapons,
+          items: [
+            {
+              ...weapons.items[1],
+              activation: '1 Action',
+              toHit: 7,
+              attackId: 'handaxeAttack',
+              damage: [
+                { formula: '1d6 + 4', type: 'Slashing', healing: false },
+              ],
+            },
+          ],
+        },
+        {
+          ...equipment,
+          items: [
+            ...equipment.items,
+            sheetItem({ id: 'torch', name: 'Torch', quantity: 0 }),
+          ],
+        },
+      ],
+    },
+  })
+}
+
+describe('moving items and coins, from module 0.31.0', () => {
+  /** Controls that say which item and coin they're for, where they're shown. */
+  const controls: TransferControls = {
+    item: item => ({
+      aside: <button type='button'>Aside {item.name}</button>,
+      body: <button type='button'>Body {item.name}</button>,
+    }),
+    coins: currency => (
+      <button type='button'>
+        Coins {currency.map(({ id }) => id).join(' ')}
+      </button>
+    ),
+  }
+  const renderMoving = (transfers?: TransferControls, favorites?: ReactNode) =>
+    render(
+      <InventoryTab
+        characterId='char-1'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        sheet={toTableSheet(movingSheet(), 'https://my-game.forge-vtt.com')}
+        transfers={transfers}
+        favorites={favorites}
+      />,
+    )
+
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  it("gives a plain row its controls beside its quantity and once it's open", async () => {
+    const user = userEvent.setup()
+    renderMoving(controls)
+
+    const ring = screen
+      .getByText('Plain Ring')
+      .closest('summary') as HTMLElement
+    expect(
+      within(ring).getByRole('button', { name: 'Aside Plain Ring' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Body Plain Ring' })).toBeNull()
+    await user.click(screen.getByText('Plain Ring'))
+    expect(
+      screen.getByRole('button', { name: 'Body Plain Ring' }),
+    ).toBeInTheDocument()
+
+    // Inside a container too, and a container itself.
+    await user.click(screen.getByText('Backpack'))
+    expect(
+      screen.getByRole('button', { name: 'Aside Hempen Rope' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Aside Backpack' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Body Backpack' }),
+    ).toBeInTheDocument()
+  })
+
+  it('gives a row that rolls its controls once open alone, after its enchantments', async () => {
+    const user = userEvent.setup()
+    renderMoving(controls)
+
+    expect(screen.queryByRole('button', { name: 'Aside Handaxe' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Body Handaxe' })).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: /^Handaxe/, expanded: false }),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Body Handaxe' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Aside Handaxe' })).toBeNull()
+  })
+
+  it('gives none to an item there are none of', async () => {
+    const user = userEvent.setup()
+    renderMoving(controls)
+
+    expect(screen.queryByRole('button', { name: 'Aside Torch' })).toBeNull()
+    // With nothing else to show, it doesn't open at all.
+    expect(screen.getByText('Torch').closest('summary')).toBeNull()
+    await user.click(screen.getByText('Torch'))
+    expect(screen.queryByRole('button', { name: 'Body Torch' })).toBeNull()
+  })
+
+  it("puts the coin's control in the fact's value, so that its name is Currency alone", () => {
+    renderMoving(controls)
+
+    const coins = screen.getByRole('button', { name: 'Coins pp gp sp' })
+    expect(coins.closest('dd')).not.toBeNull()
+    const currency = screen.getByText('Currency')
+    expect(currency.tagName).toBe('DT')
+    expect(currency).toHaveTextContent(/^Currency$/)
+    expect(coins.closest('dd')?.previousElementSibling).toBe(currency)
+  })
+
+  it('gives none without controls, even inside a sheet that has some, nor to the favorites', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(
+      <Transferring controls={controls}>
+        <InventoryTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={toTableSheet(movingSheet(), 'https://my-game.forge-vtt.com')}
+        />
+      </Transferring>,
+    )
+    expect(
+      screen.queryByRole('button', { name: /^(Aside|Body|Coins)/ }),
+    ).toBeNull()
+    await user.click(screen.getByText('Plain Ring'))
+    expect(
+      screen.queryByRole('button', { name: /^(Aside|Body|Coins)/ }),
+    ).toBeNull()
+    unmount()
+
+    const rope = sheetItem({ id: 'rope', name: 'Hempen Rope' })
+    renderMoving(
+      controls,
+      <ul aria-label='Favorites'>
+        <ItemEntry characterId='char-1' item={rope} />
+      </ul>,
+    )
+    expect(
+      within(screen.getByRole('list', { name: 'Favorites' })).queryByRole(
+        'button',
+        {
+          name: /^Aside/,
+        },
+      ),
+    ).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Aside Plain Ring' }),
+    ).toBeInTheDocument()
   })
 })

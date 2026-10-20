@@ -12,6 +12,8 @@ type Props = {
   title: string
   /** Under the title, such as where its content comes from. */
   subtitle?: string
+  /** On a phone, as wide as the screen, as the side panel is: for content that needs the room. */
+  fullOnPhone?: boolean
   children: ReactNode
 }
 
@@ -25,6 +27,7 @@ export function Modal({
   onClose,
   title,
   subtitle,
+  fullOnPhone = false,
   children,
 }: Readonly<Props>) {
   const ref = useModalDialog(open)
@@ -46,7 +49,11 @@ export function Modal({
         if (event.target === event.currentTarget) onClose()
       }}
       // Its content scrolls, not the dialog, so a menu opened inside it may reach past its edges.
-      className='m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-2xl border border-border bg-card p-0 text-text-primary shadow-xl backdrop:bg-black/50'
+      className={clsx(
+        'm-auto w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-2xl border border-border bg-card p-0 text-text-primary shadow-xl backdrop:bg-black/50',
+        fullOnPhone &&
+          'max-sm:w-full max-sm:max-w-none max-sm:rounded-none max-sm:border-x-0',
+      )}
     >
       {open && (
         <InPortalRoot root={root}>

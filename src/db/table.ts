@@ -7,7 +7,7 @@ import {
   ROLLS_KEPT_FOR,
 } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
-import { groupRoster, tableGroups } from '@/db/party'
+import { groupRoster, tableGroups, tableMoves } from '@/db/party'
 import { toTablePrompts } from '@/utils/prompts'
 import {
   availableRollFeatures,
@@ -25,6 +25,7 @@ import {
   toTableSheet,
   type Viewer,
 } from '@/utils/table-view'
+import { transfersAvailable } from '@/utils/transfers'
 import type { SheetSeat } from '@/types/character'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type {
@@ -45,7 +46,9 @@ export const MESSAGE_LIMIT = 100
  * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
  * which rolls its game takes from players, and what else it does with them; for the Gamemaster at
  * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
- * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`.
+ * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
+ * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
+ * taking moves or not changes with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -54,6 +57,7 @@ export type CampaignStatus = {
   rollFeatures: RollFeature[]
   gm?: { rolls: GmRolls }
   gmRollsKey?: string
+  moves: boolean
 }
 
 /**
@@ -144,12 +148,16 @@ const gmRollStateSelect = {
   completedAt: true,
 } as const
 
-/** What says which rolls a campaign's game takes from players. */
+/**
+ * What says which rolls a campaign's game takes from players, and from module 0.31.0 whether it
+ * takes their moves of items and coins.
+ */
 const rollsSelect = {
   rollsEnabled: true,
   rollKinds: true,
   rollFeatures: true,
   bridgePolledAt: true,
+  transfersEnabled: true,
 } as const
 
 /**
@@ -193,6 +201,7 @@ export async function getCampaignStatus(
       version: 0,
       live: false,
       ...seatRolls(seat),
+      moves: false,
     }
   }
   const now = Date.now()
@@ -217,6 +226,8 @@ export async function getCampaignStatus(
     live: isLive(campaign?.lastSeenAt),
     ...seatRolls(seat, campaign),
     ...(gmRollsKeyNow && { gmRollsKey: gmRollsKeyNow }),
+    // Whether the character is in the roster, which the view reads too, changes the version.
+    moves: !!seat.actorId && !!campaign && transfersAvailable(campaign, now),
   }
 }
 
@@ -360,11 +371,14 @@ export async function getTableView(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
   )
   // The party sheets the seat may open, from module 0.30.0: never who else may.
-  const groups = tableGroups(
-    seat,
-    groupRoster(campaign.groups),
-    campaign.origin,
-  )
+  const listed = groupRoster(campaign.groups)
+  const groups = tableGroups(seat, listed, campaign.origin)
+  const connected = roster.some(({ id }) => id === viewer.actorId)
+  // Where the seat may move the character's items and coins to, from module 0.31.0.
+  const moves =
+    connected && !!seat.actorId && transfersAvailable(campaign, now)
+      ? tableMoves(seat, listed, roster, campaign.origin)
+      : undefined
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -373,7 +387,7 @@ export async function getTableView(
       worldTitle: campaign.worldTitle ?? undefined,
       lastSeenAt: campaign.lastSeenAt?.toISOString(),
     },
-    connected: roster.some(({ id }) => id === viewer.actorId),
+    connected,
     messages: toTableMessages(
       messages
         .toReversed()
@@ -403,5 +417,6 @@ export async function getTableView(
       gmRollsKey: gmRollsKey(made, now),
     }),
     ...(groups.length > 0 && { groups }),
+    ...(moves && { moves }),
   }
 }
