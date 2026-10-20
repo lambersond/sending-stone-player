@@ -41,6 +41,48 @@ jest.mock('@lambersond/3d-dice-react', () => ({
   useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
 }))
 
+// The dice entry dialog is APP-B's, tested beside it (module 0.32.0): here, one that says what
+// it asks for and types a 4 for every die, at most its highest face, or is cancelled.
+const mockEntries: import('@/types/dice-entry').DiceEntry[] = []
+jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
+  DiceEntryDialog: ({
+    entry,
+    onDone,
+    onCancel,
+  }: {
+    entry?: import('@/types/dice-entry').DiceEntry
+    onDone: (values: number[][]) => void
+    onCancel: () => void
+  }) => {
+    if (!entry) return
+    if (!mockEntries.includes(entry)) mockEntries.push(entry)
+    return (
+      <div role='dialog' aria-label={entry.title}>
+        <ul>
+          {entry.terms.map(({ label, count }) => (
+            <li key={label}>{`${label} ×${count}`}</li>
+          ))}
+        </ul>
+        <button
+          type='button'
+          onClick={() =>
+            onDone(
+              entry.terms.map(({ count, sides }) =>
+                Array.from({ length: count }, () => Math.min(sides, 4)),
+              ),
+            )
+          }
+        >
+          Done
+        </button>
+        <button type='button' onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    )
+  },
+}))
+
 const GAME = 'https://my-game.forge-vtt.com'
 
 type User = ReturnType<typeof userEvent.setup>
@@ -3743,44 +3785,47 @@ describe('components/character-sheet/character-pane', () => {
         { role: 'gm', api: '/api/campaigns/c1/characters/a1', key: 'gm:c1:a1' },
       ],
     ])(
-      'M1 show on %s that entering dice results is coming, off, while the game says players may',
+      'M1 show on %s the switch for typing in dice results only where it is offered, never Coming soon (module 0.32.0)',
       async (_, seat) => {
         const user = userEvent.setup()
-        const pane = (rollFeatures?: RollFeature[]) => (
+        const onChange = jest.fn()
+        const pane = (manualDice?: { on: boolean; onChange: () => void }) => (
           <TableApiContext value={seat}>
             <CharacterPane
               characterId='char-1'
               name='Thorin Oakenshield'
               sheet={toTableSheet(characterSheet(), GAME)}
               rollsToTable={['save']}
-              rollFeatures={rollFeatures}
+              rollFeatures={['manualDice']}
+              manualDice={manualDice}
             />
           </TableApiContext>
         )
-        const { rerender } = render(pane(['manualDice']))
+        // The game says players may, but the table offers this seat nothing: as on the
+        // Gamemaster's page, which has nowhere to remember it, or where the character's player
+        // may not.
+        const { rerender } = render(pane())
 
         const settings = await openSettings(user)
+        expect(
+          within(settings).queryByRole('switch', {
+            name: 'Enter dice results manually',
+          }),
+        ).toBeNull()
+        expect(within(settings).queryByText(/Coming soon/)).toBeNull()
+
+        rerender(pane({ on: false, onChange }))
         const manual = within(settings).getByRole('switch', {
           name: 'Enter dice results manually',
         })
-        expect(manual).toBeDisabled()
+        expect(manual).toBeEnabled()
         expect(manual).not.toBeChecked()
         expect(manual).toHaveAccessibleDescription(
-          'Coming soon Type in what your own dice show, instead of rolling here.',
+          'Type in what your own dice show, instead of rolling here.',
         )
         await user.click(manual)
-        expect(manual).not.toBeChecked()
-
-        // Not where the game doesn't say so, as from a module before 0.26.0.
-        for (const features of [undefined, [], ['modifiers']] as const) {
-          rerender(pane(features && [...features]))
-          expect(
-            within(settings).queryByRole('switch', {
-              name: 'Enter dice results manually',
-            }),
-          ).toBeNull()
-          expect(within(settings).queryByText('Coming soon')).toBeNull()
-        }
+        expect(onChange).toHaveBeenCalledWith(true)
+        expect(within(settings).queryByText(/Coming soon/)).toBeNull()
       },
     )
 
@@ -4449,5 +4494,300 @@ describe("components/character-sheet/character-pane, the Gamemaster's rolls as t
       '19Warhammer attackGM, rolled by your GamemasterRolled by your GamemasterAt the table: 19 · Hit',
     )
     expect(within(toast as HTMLElement).queryByRole('button')).toBeNull()
+  })
+})
+
+const answers = () =>
+  answering({
+    'req-1': used('heal', {
+      critical: false,
+      plannable: true,
+      healing: true,
+      rolls: [
+        {
+          formula: '1d10 + 5',
+          type: 'healing',
+          dice: [{ faces: 10, number: 1 }],
+        },
+      ],
+    }),
+  })
+
+const save = (fields: Partial<TablePrompt> = {}): TablePrompt => ({
+  id: 'msg2-thorin',
+  type: 'save',
+  abilities: ['dex'],
+  label: 'Fireball',
+  expiresAt: new Date(Date.now() + 600_000).toISOString(),
+  ...fields,
+})
+
+describe('components/character-sheet/character-pane, typing in their own dice (module 0.32.0)', () => {
+  const typing = { on: true, onChange: jest.fn() }
+
+  beforeEach(() => {
+    clearStorage()
+    mockEntries.length = 0
+  })
+
+  it('asks for the dice of a roll at the table, sends them as typed, and keeps it at once', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save']}
+        rollFeatures={['manualDice']}
+        manualDice={typing}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Strength saving throw, +7, proficient',
+      }),
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Strength saving throw' })
+    expect(dialog).toHaveTextContent('d20 ×1')
+    expect(posted).toEqual([])
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'save',
+        key: 'str',
+        dice: [{ faces: 20, results: [4] }],
+        typed: true,
+      }),
+    ])
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Strength saving throw',
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('posts nothing and keeps nothing where the player cancels', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save']}
+        manualDice={typing}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Strength saving throw, +7, proficient',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(posted).toEqual([])
+    expect(screen.getByRole('status')).not.toHaveTextContent(
+      'Strength saving throw',
+    )
+  })
+
+  it.each([
+    ['while typing is off', { on: false, onChange: jest.fn() }],
+    ['where the game offers it no one, as on the Gamemaster’s page', undefined],
+  ])('throws its own dice, asking for none, %s', async (_name, manualDice) => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save']}
+        rollFeatures={['manualDice']}
+        manualDice={manualDice}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Strength saving throw, +7, proficient',
+      }),
+    )
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(posted).toHaveLength(1)
+    expect(posted[0]).not.toHaveProperty('typed')
+  })
+
+  it("asks for three d20s for an attack dnd5e gives Elven Accuracy, with advantage, wherever it's rolled", async () => {
+    const user = userEvent.setup()
+    const sheet = fullerSheet()
+    const [warhammer, ...rest] = sheet.actions[0].actions
+    sheet.actions[0].actions = [{ ...warhammer, elvenAccuracy: true }, ...rest]
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(sheet, GAME)}
+        manualDice={typing}
+      />,
+    )
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+    )
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Warhammer attack',
+    })
+    expect(dialog).toHaveTextContent('d20, advantage (Elven Accuracy) ×3')
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+
+    // The handaxe has none: two.
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Handaxe attack, +7' }),
+    )
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+    )
+    expect(
+      await screen.findByRole('dialog', { name: 'Handaxe attack' }),
+    ).toHaveTextContent('d20, advantage ×2')
+  })
+
+  describe("a use's damage", () => {
+    const renderHealing = (manualDice = typing) => (
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(casting(), GAME)}
+        rollsToTable={['use', 'damage']}
+        manualDice={manualDice}
+      />
+    )
+    it('waits for a tap while typing, never by itself, even once typing is off, then asks for its dice', async () => {
+      const user = userEvent.setup()
+      const posted = answers()
+      const { rerender } = render(renderHealing())
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(
+        screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
+      )
+      const offered = await screen.findByRole(
+        'button',
+        { name: 'Roll healing' },
+        { timeout: 3000 },
+      )
+      expect(posted).toHaveLength(1)
+      expect(screen.queryByRole('dialog')).toBeNull()
+
+      // Turned off: still offered, never rolled by itself.
+      rerender(renderHealing({ on: false, onChange: jest.fn() }))
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1200))
+      })
+      expect(posted).toHaveLength(1)
+      expect(offered).toBeInTheDocument()
+
+      rerender(renderHealing())
+      await user.click(screen.getByRole('button', { name: 'Roll healing' }))
+      const dialog = screen.getByRole('dialog', {
+        name: 'Second Wind healing',
+      })
+      expect(dialog).toHaveTextContent('1d10 healing ×1')
+      await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+
+      expect(posted[1]).toMatchObject({
+        kind: 'damage',
+        use: 'req-1',
+        dice: [{ faces: 10, results: [4] }],
+        typed: true,
+      })
+    })
+
+    it('stays offered where the player cancels', async () => {
+      const user = userEvent.setup()
+      const posted = answers()
+      render(renderHealing())
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      await user.click(
+        screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
+      )
+      await user.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Roll healing' },
+          { timeout: 3000 },
+        ),
+      )
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(posted).toHaveLength(1)
+      expect(
+        screen.getByRole('button', { name: 'Roll healing' }),
+      ).toBeInTheDocument()
+    })
+  })
+
+  describe('what the game asks', () => {
+    const pane = (prompts: TablePrompt[]) => (
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(characterSheet(), GAME)}
+        rollsToTable={['save', 'skill']}
+        rollFeatures={['prompts']}
+        prompts={prompts}
+        manualDice={typing}
+      />
+    )
+
+    // Each made as its test starts, as its time runs from then.
+    it.each([
+      ["dnd5e's", () => save()],
+      [
+        "Midi-QOL's",
+        () =>
+          save({
+            id: 'k3y-thorin',
+            type: 'skill',
+            abilities: [],
+            skills: ['ath'],
+            label: 'Web',
+            expiresAt: new Date(Date.now() + 42_000).toISOString(),
+            source: 'overtime',
+          }),
+      ],
+    ])(
+      'asks for an answer to %s until it stops waiting, closing once it is answered elsewhere',
+      async (_name, made) => {
+        const prompt = made()
+        const user = userEvent.setup()
+        const posted = answering({})
+        const { rerender } = render(pane([prompt]))
+
+        const banner = screen.getByRole('region', {
+          name: 'Your Gamemaster asks',
+        })
+        await user.click(within(banner).getAllByRole('button')[0])
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+        const [asked] = mockEntries
+        expect(asked.until).toBe(prompt.expiresAt)
+        expect(asked.signal?.aborted).toBe(false)
+
+        // Rolled in Foundry, or from the other seat: the game asks no more.
+        rerender(pane([]))
+        await waitFor(() => expect(asked.signal?.aborted).toBe(true))
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(posted).toEqual([])
+      },
+    )
   })
 })

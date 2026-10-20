@@ -126,7 +126,13 @@ export type InspirationSource = {
  */
 export type TransferInput = {
   from: string
-  to: string
+  /** The receiving end; never with `among`. */
+  to?: string
+  /**
+   * From module 0.32.0, a distribution: the party's characters its coin is shared among, never
+   * with `to`.
+   */
+  among?: string[]
   items?: { id: string; quantity: number }[]
   currency?: Record<string, number>
 }
@@ -138,7 +144,8 @@ export type TransferInput = {
  */
 export type TransferMoved = {
   from: string
-  to: string
+  /** null for a distribution. */
+  to: string | null
   items: {
     id: string
     quantity: number
@@ -146,6 +153,8 @@ export type TransferMoved = {
     stacked: string | null
   }[]
   currency: Record<string, number> | null
+  /** A distribution's characters that were given their share, in order. */
+  among?: string[]
 }
 
 /**
@@ -261,6 +270,8 @@ export type RollRequestInput = {
    * (#156), for the character's player to be shown it by; only ever shown as text.
    */
   label?: string
+  /** Its player typed its dice in from their own, from module 0.32.0: the game marks it so. */
+  typed?: true
 }
 
 /**

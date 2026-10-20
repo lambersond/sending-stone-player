@@ -61,6 +61,7 @@ const held = (fields: object = {}) =>
     lastSeenAt: new Date(Date.now() - 30_000),
     ownerId: 'gm-1',
     groups: [scouts, groupEntry(), hidden],
+    transferFeatures: [],
     ...fields,
   } as any)
 
@@ -186,6 +187,7 @@ describe('db/party', () => {
           ownerId: true,
           groups: true,
           transfersEnabled: true,
+          transferFeatures: true,
           bridgePolledAt: true,
         },
       })
@@ -565,5 +567,201 @@ describe('db/party, taking from a party, from module 0.31.0', () => {
         moves: false,
       })
     }
+  })
+})
+
+describe('db/party, a party’s things sent and distributed, from module 0.32.0', () => {
+  /** Wardens of the Vale, which Thorin's player owns too, and Vex's observes. */
+  const wardens = groupEntry({
+    id: 'wardens',
+    name: 'Wardens of the Vale',
+    primary: false,
+    img: null,
+    access: { [PARTY.thorin]: 'owner', [PARTY.vex]: 'observer' },
+  })
+  const ROSTER = [
+    { id: PARTY.thorin, name: 'Thorin', img: 'worlds/erebor/thorin.webp' },
+    { id: PARTY.vex, name: 'Vex', img: null },
+    { id: PARTY.balin, name: 'Balin', img: null },
+  ]
+  const COINS = [{ id: 'gp', label: 'Gold', abbreviation: 'gp', value: 65 }]
+  /** The campaign as held, taking moves with these features, and Thorin's sheet with his coin. */
+  const sending = (
+    transferFeatures: string[] = ['partySends', 'distribute'],
+    fields: object = {},
+  ) => {
+    held({
+      transfersEnabled: true,
+      transferFeatures,
+      bridgePolledAt: new Date(Date.now() - 5000),
+      characters: ROSTER,
+      groups: [scouts, groupEntry(), wardens, hidden],
+      ...fields,
+    })
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: { inventory: { ...groupSheet().inventory, currency: COINS } },
+    } as any)
+  }
+  const characters = [
+    {
+      id: PARTY.thorin,
+      name: 'Thorin',
+      portrait: `${ORIGIN}/worlds/erebor/thorin.webp`,
+    },
+    { id: PARTY.vex, name: 'Vex' },
+    { id: PARTY.balin, name: 'Balin' },
+  ]
+  const members = [
+    {
+      id: PARTY.thorin,
+      name: 'Thorin Oakenshield',
+      portrait: `${ORIGIN}/worlds/erebor/thorin.webp`,
+    },
+    { id: PARTY.vex, name: 'Vex' },
+  ]
+
+  beforeEach(() => {
+    prismaMock.actorSheet.findUnique.mockReset()
+    sheetHeld()
+  })
+
+  it('tells a player who owns the party where its things may go, who shares its coin, and their own coins to give', async () => {
+    sending()
+
+    const view = await getGroupView(player(), 'company')
+    expect(view?.moves).toEqual({
+      // Only the other parties they own, never this one; every character, their own included.
+      send: {
+        parties: [
+          { id: 'wardens', name: 'Wardens of the Vale', primary: false },
+        ],
+        characters,
+      },
+      // Its members that are the campaign's characters, in its sheet's order: no Myrtle.
+      distribute: members,
+      give: { currency: COINS },
+    })
+    expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
+      where: { campaignActor: { campaignId: 'c1', actorId: PARTY.thorin } },
+      select: { data: true },
+    })
+    // Never anyone's access.
+    expect(JSON.stringify(view)).not.toMatch(/observer|owner|access/)
+  })
+
+  it('lists the other parties a player owns, the primary first, from another party', async () => {
+    sending()
+
+    const view = await getGroupView(player(), 'wardens')
+    expect(view?.moves?.send?.parties).toEqual([
+      {
+        id: 'company',
+        name: 'The Company',
+        portrait: `${ORIGIN}/worlds/erebor/company.webp`,
+        primary: true,
+      },
+    ])
+  })
+
+  it('tells the Gamemaster every other party and every character, and gives them none of a player’s coins', async () => {
+    sending()
+
+    const view = await getGroupView(gm(), 'scouts')
+    expect(view?.moves).toEqual({
+      characters,
+      send: {
+        parties: [
+          {
+            id: 'company',
+            name: 'The Company',
+            portrait: `${ORIGIN}/worlds/erebor/company.webp`,
+            primary: true,
+          },
+          { id: 'wardens', name: 'Wardens of the Vale', primary: false },
+          {
+            id: 'hidden',
+            name: 'The Hidden Hand',
+            portrait: `${ORIGIN}/worlds/erebor/company.webp`,
+            primary: false,
+          },
+        ],
+        characters,
+      },
+      distribute: members,
+    })
+    expect(view?.moves).not.toHaveProperty('give')
+    expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('sends neither where the module does neither, though a player’s give is 0.31.0’s', async () => {
+    sending([])
+
+    expect((await getGroupView(player(), 'company'))?.moves).toEqual({
+      give: { currency: COINS },
+    })
+    expect((await getGroupView(gm(), 'company'))?.moves).toEqual({
+      characters,
+    })
+    sending(['partySends'])
+    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
+      'distribute',
+    )
+    sending(['distribute'])
+    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
+      'send',
+    )
+  })
+
+  it('shares among none without the party’s sheet, with no characters in it, or with more than one distribution may', async () => {
+    sending()
+    prismaMock.groupSheet.findUnique.mockResolvedValue(null)
+    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
+      'distribute',
+    )
+
+    sheetHeld(
+      groupSheet({
+        members: groupSheet().members.map(member => ({
+          ...member,
+          character: false,
+        })),
+      }),
+    )
+    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
+      'distribute',
+    )
+
+    sheetHeld(
+      groupSheet({
+        members: Array.from({ length: 21 }, (_, index) => ({
+          id: `actor${index}`,
+          name: `Hero ${index}`,
+          img: null,
+          type: 'character' as const,
+          character: true,
+        })),
+      }),
+    )
+    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
+      'distribute',
+    )
+  })
+
+  it('gives none of their coins without their sheet', async () => {
+    sending()
+    prismaMock.actorSheet.findUnique.mockResolvedValue(null)
+
+    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
+      'give',
+    )
+  })
+
+  it('tells one who only observes the party none of it, and reads no sheet of theirs', async () => {
+    sending()
+
+    expect(await getGroupView(player(PARTY.vex), 'company')).not.toHaveProperty(
+      'moves',
+    )
+    expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
   })
 })

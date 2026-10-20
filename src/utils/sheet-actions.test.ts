@@ -810,3 +810,75 @@ describe('utils/sheet-actions', () => {
     })
   })
 })
+
+const activity = (fields: Partial<SheetActivity> = {}): SheetActivity => ({
+  id: 'lunge',
+  name: 'Lunge',
+  type: 'attack',
+  activation: 'Action',
+  range: null,
+  target: null,
+  toHit: 7,
+  attackId: 'lunge',
+  save: null,
+  damage: [],
+  uses: null,
+  ...fields,
+})
+
+describe('utils/sheet-actions, Elven Accuracy, from module 0.32.0', () => {
+  /** An attack's rolls, as one dnd5e gives Elven Accuracy says them. */
+  const elven = {
+    toHit: 7,
+    attackId: 'stab',
+    damage: [{ formula: '1d8 + 3', type: 'Piercing', healing: false }],
+    elvenAccuracy: true as const,
+  }
+
+  it("copies it to an activity's own action, and only where the activity has it", () => {
+    const rapier = sheetAction({ id: 'rapier', name: 'Rapier', ...elven })
+    expect(
+      activityAction(rapier, activity({ elvenAccuracy: true })).elvenAccuracy,
+    ).toBe(true)
+    expect(activityAction(rapier, activity())).not.toHaveProperty(
+      'elvenAccuracy',
+    )
+  })
+
+  it("keeps it on an item's, a spell's and a feature's action, for its attack to be found with it", () => {
+    expect(
+      itemAction(
+        sheetItem({ id: 'rapier', name: 'Rapier', type: 'weapon', ...elven }),
+      )?.elvenAccuracy,
+    ).toBe(true)
+    expect(
+      spellAction(
+        sheetSpell({ id: 'bolt', name: 'Fire Bolt', prepared: 1, ...elven }),
+      )?.elvenAccuracy,
+    ).toBe(true)
+    const feature = {
+      id: 'lash',
+      name: 'Thorn Lash',
+      img: null,
+      kind: 'Feature',
+      requirements: null,
+      activation: '1 Action',
+      passive: false,
+      uses: null,
+      text: null,
+      ...elven,
+    } as SheetFeature
+    expect(featureAction(feature)?.elvenAccuracy).toBe(true)
+    expect(
+      itemAction(
+        sheetItem({
+          id: 'axe',
+          name: 'Greataxe',
+          type: 'weapon',
+          ...elven,
+          elvenAccuracy: undefined,
+        }),
+      ),
+    ).not.toHaveProperty('elvenAccuracy')
+  })
+})

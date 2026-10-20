@@ -133,6 +133,11 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   critical?: GmRollView['critical']
   /** For a move of items and coins, from module 0.31.0, what moved and between whom. */
   move?: LocalMove
+  /**
+   * For a use, its damage waits for the player to roll it, as one with a choice of kinds does,
+   * while they type in their own dice.
+   */
+  offer?: true
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -333,6 +338,7 @@ export function useTableRolls(
             ...(types?.some(type => type !== null) && { types }),
             ...(roll.critical && { critical: true as const }),
             ...(modifiers && changes(modifiers) && { modifiers }),
+            ...(damage.typed && { typed: true as const }),
           },
           {},
           roll.label,
@@ -359,6 +365,7 @@ export function useTableRolls(
           dice: damageDice(roll, damage),
           ...(types?.some(type => type !== null) && { types }),
           ...(modifiers && changes(modifiers) && { modifiers }),
+          ...(damage.typed && { typed: true as const }),
         },
         {},
         roll.label,
@@ -549,6 +556,14 @@ export function useTableRolls(
     (next: boolean) => choose(next ? 'on' : 'off'),
     [choose],
   )
+  // A use's damage left for the player to roll, while they type in their own dice: once.
+  const offerDamage = useCallback((localId: string) => {
+    setStates(held => {
+      const state = held.get(localId)
+      if (!state || state.offer) return held
+      return new Map(held).set(localId, { ...state, offer: true })
+    })
+  }, [])
   return {
     send,
     sendDamage,
@@ -560,6 +575,7 @@ export function useTableRolls(
     sendInspiration,
     sendTransfer,
     sendAsk,
+    offerDamage,
     states,
     /** Whether the game takes any of the player's rolls now. */
     available: kinds.length > 0,
@@ -978,6 +994,8 @@ export function toRollRequest(
           : [],
       ),
     ],
+    // Its player typed its dice in, from their own, from module 0.32.0.
+    ...(check.typed && { typed: true as const }),
   }
 }
 
@@ -1016,6 +1034,7 @@ export function toFormulaRequest(
         ? [{ faces: term.sides, results: rolled.terms[index]?.values ?? [] }]
         : [],
     ),
+    ...(rolled.typed && { typed: true as const }),
   }
 }
 
@@ -1037,6 +1056,7 @@ export function toHitDiceRequest(
       faces: Number(denomination.slice(1)),
       results: rolled.terms[index]?.values ?? [],
     })),
+    ...(rolled.typed && { typed: true as const }),
   }
 }
 
@@ -1056,6 +1076,7 @@ export function toHitDieRequests(
       explicit: false,
       extras: [],
       dice: [{ faces: Number(denomination.slice(1)), results: [value] }],
+      ...(rolled.typed && { typed: true as const }),
     })),
   )
 }
@@ -1122,6 +1143,9 @@ export function damageRollOf(
   const types = type ? typesFor(damage, type) : undefined
   const marked = marksTaken(damage)
   const kept = takenModifiers(damage, modifiers)
+  const rolls = damage.rolls.map(roll =>
+    damage.plannable ? termsOf(roll, marked) : { terms: [], read: true },
+  )
   return {
     label: `${label} ${healing ? 'healing' : 'damage'}`,
     critical: damage.critical,
@@ -1132,9 +1156,12 @@ export function damageRollOf(
     ...(kept && changes(kept) && { modifiers: kept }),
     perDie: damage.rolls[0]?.perDie ?? 1,
     ...(damage.plannable && changedAt(damage) < 0 && { fixed: true as const }),
+    // A formula whose numbers the app can't read, as one a module writes in a way of its own for
+    // a critical hit, adds up as the game says, rather than as its bare dice.
+    ...(rolls.some(({ read }) => !read) && { gameTotal: true as const }),
     parts: damage.rolls.map((roll, index) => ({
       type: chosenLabel(roll, types?.[index]) ?? roll.type,
-      terms: damage.plannable ? termsOf(roll, marked) : [],
+      terms: rolls[index].terms,
     })),
   }
 }
@@ -1146,14 +1173,18 @@ export function choicesOf(damage: DamagePreview) {
 
 /**
  * Whether a roll's damage is due: an attack the game made, whose damage is still to roll, or a use
- * whose damage or healing waits for its kind to be chosen, as any other use's is rolled at once.
- * The tray offers that damage to roll while it is, after a miss too, for what deals damage on one.
+ * whose damage or healing waits for its kind to be chosen, or, while its player types in their own
+ * dice, for them to roll it, as any other use's is rolled at once. The tray offers that damage to
+ * roll while it is, after a miss too, for what deals damage on one.
  */
 export function damageDue(roll: LocalRoll, state?: TableRollState): boolean {
   if (state?.status !== 'done' || !state.damage || state.damaged) return false
   if (!state.requestId) return false
   if (roll.kind === 'check') return true
-  return roll.kind === 'use' && choicesOf(state.damage).length > 0
+  return (
+    roll.kind === 'use' &&
+    (choicesOf(state.damage).length > 0 || state.offer === true)
+  )
 }
 
 /**
@@ -1202,13 +1233,14 @@ function chosenLabel(
  * signs, each die with what Foundry does with it, such as 2d6r<=2's reroll; otherwise its dice
  * alone. Either way, its dice have their signs, as the game marks them,
  * or as its formula has them for a module before 0.21.0; and the dice of a critical hit's critical
- * damage are marked added, as the game marks them, so that none is ever its first die.
+ * damage are marked added, as the game marks them, so that none is ever its first die. Whether its
+ * formula was read, `read`: not where its dice alone are left, its numbers lost.
  * @param marked - Whether the game marks the dice the damage takes away.
  */
 function termsOf(
   roll: DamagePreview['rolls'][number],
   marked: boolean,
-): ExtraTerm[] {
+): { terms: ExtraTerm[]; read: boolean } {
   const dice = signedDice(roll, marked).map(
     ({ faces, number, added, subtracted }) => ({
       sign: subtracted ? (-1 as const) : (1 as const),
@@ -1218,7 +1250,7 @@ function termsOf(
     }),
   )
   const terms = formulaTerms(roll.formula)
-  if (!terms) return dice
+  if (!terms) return { terms: dice, read: false }
   const thrown = terms.filter(term => 'sides' in term)
   const same =
     thrown.length === dice.length &&
@@ -1228,14 +1260,17 @@ function termsOf(
         term.count === dice[index].count &&
         term.sides === dice[index].sides,
     )
-  if (!same) return dice
+  if (!same) return { terms: dice, read: false }
   // Its terms of dice are its dice, in order.
   let index = 0
-  return terms.map(term => {
-    if (!('sides' in term)) return term
-    const { added } = dice[index++]
-    return added ? { ...term, added } : term
-  })
+  return {
+    terms: terms.map(term => {
+      if (!('sides' in term)) return term
+      const { added } = dice[index++]
+      return added ? { ...term, added } : term
+    }),
+    read: true,
+  }
 }
 
 function modeOf(advantage: LocalCheck['advantage']): -1 | 0 | 1 {

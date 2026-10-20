@@ -20,6 +20,7 @@ export function playerSeat(character: Character, userId: string): SheetSeat {
     campaignId: character.campaignId,
     actorId: character.actorId,
     chatReadAt: character.chatReadAt,
+    manualDice: character.manualDice,
     role: 'player',
     userId,
     characterId: character.id,

@@ -14,6 +14,7 @@ const select = {
   campaignId: true,
   actorId: true,
   chatReadAt: true,
+  manualDice: true,
   campaign: { select: { title: true, origin: true } },
 } as const
 
@@ -156,5 +157,17 @@ export async function markChatRead(
       OR: [{ chatReadAt: null }, { chatReadAt: { lt: readAt } }],
     },
     data: { chatReadAt: readAt },
+  })
+}
+
+/** Remember whether a player types in their own dice for one of their characters. */
+export async function setCharacterManualDice(
+  userId: string,
+  characterId: string,
+  on: boolean,
+): Promise<void> {
+  await prisma.character.updateMany({
+    where: { id: characterId, userId },
+    data: { manualDice: on },
   })
 }

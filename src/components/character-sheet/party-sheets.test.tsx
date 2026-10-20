@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { computeAccessibleName } from 'dom-accessibility-api'
 import { PartySheetList } from './party-sheets'
 import type { TableGroup } from '@/types/party'
 
@@ -26,8 +27,12 @@ describe('components/character-sheet/party-sheets', () => {
     render(<PartySheetList groups={[scouts]} onOpen={onOpen} />)
 
     const section = screen.getByRole('region', { name: 'Party' })
-    const row = within(section).getByRole('button', { name: 'Party: Scouts' })
-    expect(row).toHaveTextContent('ScoutsParty sheet')
+    // Named by what it shows, starting with its words (PR #44's review).
+    const row = within(section).getByRole('button', {
+      name: 'Scouts Party sheet',
+    })
+    expect(row).not.toHaveAttribute('aria-label')
+    expect(row).toHaveTextContent(/^Scouts Party sheet$/)
 
     await user.click(row)
     expect(onOpen).toHaveBeenCalledWith('scouts')
@@ -40,11 +45,12 @@ describe('components/character-sheet/party-sheets', () => {
 
     const section = screen.getByRole('region', { name: 'Parties' })
     const rows = within(section).getAllByRole('button')
-    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual([
-      'Party: The Company',
-      'Party: Scouts',
+    expect(rows.map(row => computeAccessibleName(row))).toEqual([
+      'The Company Primary party',
+      'Scouts Party sheet',
     ])
-    expect(rows[0]).toHaveTextContent('The CompanyPrimary party')
+    for (const row of rows) expect(row).not.toHaveAttribute('aria-label')
+    expect(rows[0]).toHaveTextContent(/^The Company Primary party$/)
     expect(rows[0]?.querySelector('img')).toHaveAttribute(
       'src',
       company.portrait,

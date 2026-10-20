@@ -18,9 +18,10 @@ import type {
 
 /*
  * One move of items or coins (module 0.31.0), asked in a dialog of its own: an item, or coins,
- * taken from a party, or given to a party or another of the campaign's characters. It says what
- * moves, to whom, and how many, and that the game's chat will say so; and it's sent at once, the
- * dialog closing as it is, as where it stands is told where the sheet tells it.
+ * taken from a party, or given to a party or another of the campaign's characters; and from module
+ * 0.32.0, a party's sent to anyone but itself, or coins given into the party whose sheet it's on.
+ * It says what moves, to whom, and how many, and that the game's chat will say so; and it's sent
+ * at once, the dialog closing as it is, as where it stands is told where the sheet tells it.
  */
 
 /** An end of a move: a party, or a character. */
@@ -34,17 +35,17 @@ export type MoveEnd = {
 export type MoveDialogProps = {
   open: boolean
   onClose: () => void
-  mode: 'take' | 'give'
+  mode: 'take' | 'give' | 'send'
   /** Who moves it, as the summary says: "You" for a player; the character's name for the GM. */
   mover: string
   what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
-  /** Take: the party it's taken from. */
+  /** Take and send: the party it's taken or sent from. */
   from?: MoveEnd
-  /** Take with a set receiver. */
+  /** Take, or a give into a party, with a set receiver: no To list. */
   into?: MoveEnd
   /** Take on the GM's party page: picked here. */
   receivers?: MoveEnd[]
-  /** Give: where it may go. */
+  /** Give and send: where it may go. */
   recipients?: { parties: MoveEnd[]; characters: MoveEnd[] }
   onMove: (move: {
     to: string
@@ -54,7 +55,14 @@ export type MoveDialogProps = {
   }) => void
 }
 
-/** What the dialog is titled, and under that, where it's taken from, if it's taken. */
+/** What each kind of move is called, as its title and button say it. */
+const VERBS: Record<MoveDialogProps['mode'], string> = {
+  take: 'Take',
+  give: 'Give',
+  send: 'Send',
+}
+
+/** What the dialog is titled, and under that, where it's from, if it's taken or sent. */
 function headingOf({
   mode,
   what,
@@ -63,9 +71,9 @@ function headingOf({
   title: string
   subtitle?: string
 } {
-  const verb = mode === 'take' ? 'Take' : 'Give'
+  const verb = VERBS[mode]
   const title = 'item' in what ? `${verb} ${what.item.name}` : `${verb} coins`
-  return mode === 'take' && from
+  return mode !== 'give' && from
     ? { title, subtitle: `From ${from.name}` }
     : { title }
 }
@@ -121,13 +129,17 @@ function MoveForm({
   const item = 'item' in what ? what.item : undefined
   const currency = 'coins' in what ? what.coins : undefined
   const take = mode === 'take'
-  // Who it may go to, where that's chosen here: a give's parties and characters, or on the
-  // Gamemaster's party page, the characters it may be taken into.
+  const send = mode === 'send'
+  // Who it may go to, where that's chosen here: a give's or a send's parties and characters, or on
+  // the Gamemaster's party page, the characters it may be taken into.
   const choices = take
     ? receivers
     : recipients && [...recipients.parties, ...recipients.characters]
+  // A give goes to the primary party unless said; a send, from a party, to no one until chosen.
   const [chosen, setChosen] = useState<string | undefined>(() =>
-    take ? undefined : recipients?.parties.find(({ primary }) => primary)?.id,
+    mode === 'give'
+      ? recipients?.parties.find(({ primary }) => primary)?.id
+      : undefined,
   )
   const [count, setCount] = useState('1')
   const [coins, setCoins] = useState<Record<string, string>>({})
@@ -140,7 +152,7 @@ function MoveForm({
   const tooMany = !!item && !counted && item.quantity > MOST_MOVED
   let recipient: MoveEnd | undefined
   if (choices) recipient = choices.find(({ id }) => id === chosen)
-  else if (take) recipient = into
+  else recipient = into
   let quantity: number | undefined
   if (item && !tooMany) {
     quantity = counted ? amountOf(count, max) : item.quantity
@@ -169,12 +181,16 @@ function MoveForm({
   else if (things === undefined) summary = 'Choose how many.'
   else {
     const you = speaker === 'You'
-    summary = take
-      ? `${speaker} ${you ? 'take' : 'takes'} ${things} from ${from?.name ?? ''}.`
-      : `${speaker} ${you ? 'give' : 'gives'} ${things} to ${recipient.name}.`
+    if (take) {
+      summary = `${speaker} ${you ? 'take' : 'takes'} ${things} from ${from?.name ?? ''}.`
+    } else if (send) {
+      summary = `${speaker} ${you ? 'send' : 'sends'} ${things} from ${from?.name ?? ''} to ${recipient.name}.`
+    } else {
+      summary = `${speaker} ${you ? 'give' : 'gives'} ${things} to ${recipient.name}.`
+    }
   }
 
-  let label = take ? 'Take' : 'Give'
+  let label = VERBS[mode]
   if (currency) label = `${label} coins`
   else if (quantity !== undefined && quantity > 1) {
     label = `${label} ${quantity.toLocaleString('en')}`
@@ -187,6 +203,7 @@ function MoveForm({
       verb: mode,
       things,
       other: take ? (from?.name ?? '') : recipient.name,
+      ...(send && { source: from?.name ?? '' }),
       ...(item && { item: item.id }),
       ...(gm && speaker && { mover: speaker }),
     }

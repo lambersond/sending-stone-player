@@ -23,25 +23,46 @@ export function thingsWords(parts: MovedPart[]): string {
 }
 
 /**
+ * Who shares a distribution, as the module's line lists them in English: "Bram, Lia, Thorin, and
+ * Vex".
+ */
+export function namesWords(names: string[]): string {
+  return new Intl.ListFormat('en', { type: 'conjunction' }).format(names)
+}
+
+/**
  * What a move is called on the Gamemaster's page, for the character's player to be shown it by
- * among the Gamemaster's rolls: such as "Give 5 gp to Vex" or "Take 1 Rope from The Iron Company".
+ * among the Gamemaster's rolls: such as "Give 5 gp to Vex" or "Take 1 Rope from The Iron Company",
+ * and from module 0.32.0 "Send 1 Rope from The Iron Company to Vex" or "Distribute 4 pp from The
+ * Iron Company among Bram, Lia, Thorin, and Vex".
  */
 export function moveLabel(move: LocalMove): string {
-  return move.verb === 'give'
-    ? `Give ${move.things} to ${move.other}`
-    : `Take ${move.things} from ${move.other}`
+  switch (move.verb) {
+    case 'give': {
+      return `Give ${move.things} to ${move.other}`
+    }
+    case 'take': {
+      return `Take ${move.things} from ${move.other}`
+    }
+    case 'send': {
+      return `Send ${move.things} from ${move.source ?? ''} to ${move.other}`
+    }
+    case 'distribute': {
+      return `Distribute ${move.things} from ${move.other} among ${move.among ?? ''}`
+    }
+  }
 }
 
 /**
  * Why a move wasn't made, in words, as the seat at the sheet reads it: its player or the
- * Gamemaster. Of too few to move, whose they are: the party's, for a take; the player's own, or the
- * character's, for the Gamemaster, for a give or a send.
+ * Gamemaster. Of too few to move, whose they are: the party's, for a take, a send or a
+ * distribution; the player's own, or the character's, for the Gamemaster, for a give.
  */
 export function moveReasons(
   role: SeatRole,
   verb: LocalMove['verb'],
 ): Readonly<Record<string, string>> {
-  return verb === 'give' ? WORDS_BY_ROLE[role].give : WORDS_BY_ROLE[role].take
+  return WORDS_BY_ROLE[role][verb]
 }
 
 function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
@@ -66,6 +87,8 @@ function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
     container: 'a container moves whole, with everything in it',
     nested: 'it moves with its container already',
     deep: 'it holds containers too deep to move from here',
+    members: 'the party’s members have changed. Try again',
+    split: 'there isn’t a whole coin for each of them',
     error: 'something went wrong',
     timeout: `${game} took too long. The sheet shows whether it moved`,
     lost: `no answer from ${game}. The sheet shows whether it moved`,
@@ -74,16 +97,20 @@ function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
   }
 }
 
+/** Each seat's words, for each kind of move. */
+function wordsFor(role: SeatRole) {
+  return {
+    give: reasonsFor(role, 'give'),
+    take: reasonsFor(role, 'take'),
+    send: reasonsFor(role, 'send'),
+    distribute: reasonsFor(role, 'distribute'),
+  }
+}
+
 const WORDS_BY_ROLE: Record<
   SeatRole,
   Record<LocalMove['verb'], Readonly<Record<string, string>>>
-> = {
-  player: {
-    give: reasonsFor('player', 'give'),
-    take: reasonsFor('player', 'take'),
-  },
-  gm: { give: reasonsFor('gm', 'give'), take: reasonsFor('gm', 'take') },
-}
+> = { player: wordsFor('player'), gm: wordsFor('gm') }
 
 /** Whether the game says it moved any of it before it failed. */
 function partly(state: Pick<TableRollState, 'transfer'>): boolean {
@@ -92,6 +119,39 @@ function partly(state: Pick<TableRollState, 'transfer'>): boolean {
     !!moved &&
     (moved.items.length > 0 || Object.keys(moved.currency ?? {}).length > 0)
   )
+}
+
+/** How each kind of move is told: being made, made, and not made, or made in part. */
+const VERBS: Record<
+  LocalMove['verb'],
+  { making: string; not: string; partly: string }
+> = {
+  give: { making: 'Giving', not: 'Not given', partly: 'Partly given' },
+  take: { making: 'Taking', not: 'Not taken', partly: 'Partly taken' },
+  send: { making: 'Sending', not: 'Not sent', partly: 'Partly sent' },
+  distribute: {
+    making: 'Distributing',
+    not: 'Not distributed',
+    partly: 'Partly distributed',
+  },
+}
+
+/** What was done, as the line after who did it says it: "gave 5 gp to Vex". */
+function doneWords(move: LocalMove): string {
+  switch (move.verb) {
+    case 'give': {
+      return `gave ${move.things} to ${move.other}`
+    }
+    case 'take': {
+      return `took ${move.things} from ${move.other}`
+    }
+    case 'send': {
+      return `sent ${move.things} from ${move.source ?? ''} to ${move.other}`
+    }
+    case 'distribute': {
+      return `distributed ${move.things} among ${move.among ?? ''} (${move.each ?? ''} each)`
+    }
+  }
 }
 
 /**
@@ -107,19 +167,17 @@ export function moveWords(
   role: SeatRole,
   fallback: Readonly<Record<string, string>> = {},
 ): string {
-  const give = move.verb === 'give'
   const { game } = seatWords(role)
+  const verb = VERBS[move.verb]
   switch (state.status) {
     case 'sending': {
       return `Sending to ${game}…`
     }
     case 'rolling': {
-      return `${give ? 'Giving' : 'Taking'} it in ${game}…`
+      return `${verb.making} it in ${game}…`
     }
     case 'done': {
-      const done = give
-        ? `gave ${move.things} to ${move.other}`
-        : `took ${move.things} from ${move.other}`
+      const done = doneWords(move)
       return move.mover
         ? `${move.mover} ${done}`
         : `${done[0].toUpperCase()}${done.slice(1)}`
@@ -127,10 +185,8 @@ export function moveWords(
     default: {
       const key = state.reason ?? state.status
       const reason = moveReasons(role, move.verb)[key] ?? fallback[key]
-      let made = give ? 'Not given' : 'Not taken'
-      if (state.status === 'failed' && partly(state)) {
-        made = give ? 'Partly given' : 'Partly taken'
-      }
+      const made =
+        state.status === 'failed' && partly(state) ? verb.partly : verb.not
       return reason ? `${made}: ${reason}` : made
     }
   }

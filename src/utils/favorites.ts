@@ -392,6 +392,8 @@ function activityAction(
       // The check it asks for, and what it spends where it uses another activity.
       ...(favorite.check && { check: favorite.check }),
       ...(favorite.forward && { forward: favorite.forward }),
+      // A third d20 with advantage, where dnd5e gives its attack Elven Accuracy.
+      ...(favorite.elvenAccuracy && { elvenAccuracy: true as const }),
       uses: favorite.uses,
       level: spell?.level ?? action?.level ?? null,
       // A spell the item casts is cast from it.

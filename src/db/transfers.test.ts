@@ -73,6 +73,7 @@ type Held = {
  */
 const given = ({
   transfersEnabled = true,
+  transferFeatures = [] as string[],
   bridgePolledAt = ago(5000) as Date | null,
   rollFeatures = [] as string[],
   inFlight = 0,
@@ -82,6 +83,7 @@ const given = ({
 } = {}) => {
   prismaMock.campaign.findUnique.mockResolvedValue({
     transfersEnabled,
+    transferFeatures,
     bridgePolledAt,
     rollsEnabled: false,
     rollKinds: [],
@@ -189,6 +191,7 @@ describe('db/transfers, createTransferRequest', () => {
       where: { id: 'c1' },
       select: {
         transfersEnabled: true,
+        transferFeatures: true,
         bridgePolledAt: true,
         characters: true,
         groups: true,
@@ -436,5 +439,157 @@ describe('db/transfers, createTransferRequest', () => {
         id: 'req-move',
       })
     })
+  })
+})
+
+describe('db/transfers, a party’s things sent and distributed, from module 0.32.0', () => {
+  const ON = ['partySends', 'distribute']
+  /** The Iron Company's members, Thorin and Vex its characters, and its 103 gp and 1 cp. */
+  const company = () =>
+    prismaMock.groupSheet.findUnique.mockResolvedValue({
+      data: {
+        members: [
+          { id: THORIN, name: 'Thorin', character: true },
+          { id: VEX, name: 'Vex', character: true },
+          { id: 'grumble', name: 'Grumble', character: false },
+        ],
+        inventory: {
+          ...partyStash(),
+          currency: [
+            { id: 'gp', label: 'Gold', abbreviation: 'gp', value: 103 },
+            { id: 'cp', label: 'Copper', abbreviation: 'cp', value: 1 },
+          ],
+        },
+      },
+    } as any)
+  const distribute = (among = [THORIN, VEX], currency = { gp: 103 }) =>
+    move({ from: COMPANY, among, currency })
+  const send = (to = VEX) => move({ from: COMPANY, to, currency: { gp: 2 } })
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    for (const mock of [
+      prismaMock.campaign.findUnique,
+      prismaMock.groupSheet.findUnique,
+      prismaMock.actorSheet.findUnique,
+      prismaMock.rollRequest.count,
+      prismaMock.rollRequest.findMany,
+      prismaMock.rollRequest.create,
+      prismaMock.rollRequest.deleteMany,
+    ]) {
+      mock.mockReset()
+    }
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('refuses a distribution while the module shares no party’s coin, for either seat', async () => {
+    for (const transferFeatures of [[], ['partySends']]) {
+      for (const seat of [thorin, gm(VEX)]) {
+        given({ transferFeatures })
+        company()
+        await expect(
+          createTransferRequest(seat, distribute()),
+        ).resolves.toEqual({ status: 409, reason: 'unavailable' })
+      }
+    }
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('takes a distribution as it’s sent, made as the seat’s character', async () => {
+    given({ transferFeatures: ON })
+    company()
+
+    await expect(createTransferRequest(thorin, distribute())).resolves.toEqual({
+      id: 'req-move',
+    })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actorId: THORIN,
+          kind: 'transfer',
+          payload: distribute(),
+        }),
+      }),
+    )
+  })
+
+  it('takes a party’s send to another character only with partySends, made as the seat’s, which is no end of it', async () => {
+    given({ transferFeatures: [] })
+    await expect(createTransferRequest(thorin, send())).resolves.toEqual({
+      status: 422,
+      reason: 'not-yours',
+    })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+
+    given({ transferFeatures: ON })
+    await expect(createTransferRequest(thorin, send())).resolves.toEqual({
+      id: 'req-move',
+    })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ actorId: THORIN, payload: send() }),
+      }),
+    )
+  })
+
+  it('refuses a distribution among others than the party’s characters as its sheet has them, before what it holds', async () => {
+    given({ transferFeatures: ON })
+    company()
+    for (const input of [
+      distribute([THORIN]),
+      // Short too: who it's shared among is checked first.
+      distribute([THORIN], { gp: 104 }),
+    ]) {
+      await expect(createTransferRequest(thorin, input)).resolves.toEqual({
+        status: 422,
+        reason: 'members',
+      })
+    }
+    // A sheet with none: the module's not sent one yet.
+    prismaMock.groupSheet.findUnique.mockResolvedValue(null)
+    await expect(createTransferRequest(thorin, distribute())).resolves.toEqual({
+      status: 422,
+      reason: 'members',
+    })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses a distribution of more than the party holds as short, then too few for each as split', async () => {
+    given({ transferFeatures: ON })
+    company()
+    await expect(
+      createTransferRequest(thorin, distribute(undefined, { gp: 104 })),
+    ).resolves.toEqual({ status: 422, reason: 'short' })
+    await expect(
+      createTransferRequest(thorin, distribute(undefined, { cp: 1 })),
+    ).resolves.toEqual({ status: 422, reason: 'split' })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses a distribution while another move of the party’s coins is on its way, and a coins move while one is', async () => {
+    given({
+      transferFeatures: ON,
+      held: [pending({ from: COMPANY, to: VEX, currency: { gp: 2 } })],
+    })
+    company()
+    await expect(createTransferRequest(thorin, distribute())).resolves.toEqual({
+      status: 409,
+      reason: 'moving',
+    })
+
+    given({
+      transferFeatures: ON,
+      held: [
+        pending({ from: COMPANY, among: [THORIN, VEX], currency: { gp: 103 } }),
+      ],
+    })
+    await expect(createTransferRequest(thorin, send())).resolves.toEqual({
+      status: 409,
+      reason: 'moving',
+    })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 })

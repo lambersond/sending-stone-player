@@ -1556,3 +1556,192 @@ describe('moves of items and coins, from module 0.31.0', () => {
     ).toBe(true)
   })
 })
+
+describe('dice typed in, and Elven Accuracy, from module 0.32.0', () => {
+  const save = {
+    kind: 'save',
+    key: 'dex',
+    mode: 1,
+    explicit: true,
+    extras: [],
+    dice: [{ faces: 20, results: [4, 15] }],
+  }
+
+  it.each([
+    ['a skill check', perception],
+    ['an attack', attack],
+    ['damage', damage],
+    ['hit dice', hitDice],
+  ])('takes %s its player typed in', (_name, base) => {
+    const parsed = parseKind(base, { typed: true })
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toMatchObject({ typed: true })
+  })
+
+  it.each([false, 'yes', 1, null])('refuses typed: %p', typed => {
+    expect(parseKind(perception, { typed }).success).toBe(false)
+  })
+
+  it('takes three d20s for an attack with advantage, for Elven Accuracy, and two still', () => {
+    for (const results of [
+      [3, 18, 7],
+      [3, 18],
+    ]) {
+      expect(
+        parseKind(attack, { mode: 1, dice: [{ faces: 20, results }] }).success,
+      ).toBe(true)
+    }
+  })
+
+  it.each([
+    ['an attack rolled normally', attack, 0],
+    ['an attack with disadvantage', attack, -1],
+    ['a save with advantage', save, 1],
+  ])('refuses three d20s for %s', (_name, base, mode) => {
+    expect(
+      issuesOf(base, { mode, dice: [{ faces: 20, results: [3, 18, 7] }] }),
+    ).toEqual([['dice', 'The dice are not those the roll throws']])
+  })
+
+  it('refuses four d20s for an attack with advantage', () => {
+    expect(
+      issuesOf(attack, {
+        mode: 1,
+        dice: [{ faces: 20, results: [3, 18, 7, 9] }],
+      }),
+    ).toEqual([['dice', 'The dice are not those the roll throws']])
+  })
+
+  it('still counts the dice the player added after three d20s', () => {
+    const extras = [{ sign: 1, count: 1, sides: 4 }]
+    expect(
+      parseKind(attack, {
+        mode: 1,
+        extras,
+        dice: [
+          { faces: 20, results: [3, 18, 7] },
+          { faces: 4, results: [2] },
+        ],
+      }).success,
+    ).toBe(true)
+    expect(
+      parseKind(attack, {
+        mode: 1,
+        extras,
+        dice: [
+          { faces: 20, results: [3, 18, 7] },
+          { faces: 4, results: [2, 3] },
+        ],
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('a party’s coin distributed, from module 0.32.0', () => {
+  /** 103 gp of the party's shared among its four characters. */
+  const distributing = {
+    ...moving,
+    transfer: {
+      from: 'groupIronCo01',
+      among: ['actorBram001', 'actorLia0001', 'actorThorin1', 'actorVex0001'],
+      currency: { gp: 103 },
+    },
+  }
+  const shares = (transfer: object) =>
+    parseKind(distributing, {
+      transfer: { ...distributing.transfer, ...transfer },
+    })
+
+  it('takes a distribution, and a party’s send to anyone', () => {
+    expect(parseKind(distributing, {}).success).toBe(true)
+    expect(shares({ among: ['actorVex0001'] }).success).toBe(true)
+    expect(
+      shares({
+        among: Array.from({ length: 20 }, (_, index) => `actor${index}`),
+      }).success,
+    ).toBe(true)
+    // A party's things sent to another party, as an Owner of both sends them.
+    expect(
+      parseKind(moving, {
+        transfer: {
+          from: 'groupIronCo01',
+          to: 'groupWarden1',
+          items: [{ id: 'rope00000001', quantity: 1 }],
+        },
+      }).success,
+    ).toBe(true)
+  })
+
+  it.each([
+    [
+      'both an end and those it’s shared among',
+      { to: 'actorThorin1' },
+      ['transfer.to', 'A move goes to one end, or is shared among characters'],
+    ],
+    [
+      'neither',
+      { among: undefined },
+      ['transfer.to', 'A move goes to one end, or is shared among characters'],
+    ],
+    ['no one to share among', { among: [] }, ['transfer.among']],
+    [
+      'more than twenty to share among',
+      { among: Array.from({ length: 21 }, (_, index) => `actor${index}`) },
+      ['transfer.among'],
+    ],
+    [
+      'a character given two shares',
+      { among: ['actorThorin1', 'actorThorin1'] },
+      ['transfer.among', 'Each character is given one share'],
+    ],
+    [
+      'the party sharing with itself',
+      { among: ['actorThorin1', 'groupIronCo01'] },
+      ['transfer.among', "A party doesn't share with itself"],
+    ],
+    [
+      'items shared',
+      { items: [{ id: 'rope00000001', quantity: 1 }] },
+      ['transfer.items', 'Only coins are shared'],
+    ],
+    [
+      'two kinds of coin',
+      { currency: { gp: 103, sp: 8 } },
+      ['transfer.currency', 'One kind of coin is shared at a time'],
+    ],
+    [
+      'no kind of coin',
+      { currency: {} },
+      ['transfer.currency', 'One kind of coin is shared at a time'],
+    ],
+    [
+      'no coins at all',
+      { currency: undefined },
+      ['transfer.currency', 'One kind of coin is shared at a time'],
+    ],
+    ['an id not an id', { among: ['the dwarf'] }, ['transfer.among.0']],
+  ])('refuses %s', (_name, fields, [path, message]) => {
+    const parsed = shares(fields)
+    expect(parsed.success).toBe(false)
+    const issues = parsed.error!.issues.map(issue => [
+      issue.path.join('.'),
+      issue.message,
+    ])
+    expect(issues).toContainEqual(
+      message === undefined ? [path, expect.any(String)] : [path, message],
+    )
+  })
+
+  it('asks a move with an end for what it moves, and never to the same end, as 0.31.0 does', () => {
+    expect(
+      issuesOf(moving, {
+        transfer: { from: 'groupIronCo01', to: 'actorThorin1' },
+      }),
+    ).toEqual([['transfer.items', 'A move moves an item or coins']])
+    expect(
+      issuesOf(moving, {
+        transfer: { ...moving.transfer, to: 'groupIronCo01' },
+      }),
+    ).toEqual([['transfer.to', 'A move goes from one end to another']])
+  })
+})

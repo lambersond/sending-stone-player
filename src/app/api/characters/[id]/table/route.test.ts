@@ -53,6 +53,7 @@ describe('app/api/characters/[id]/table', () => {
       rollsToTable: [],
       rollFeatures: [],
       moves: false,
+      typed: false,
     })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
@@ -90,6 +91,7 @@ describe('app/api/characters/[id]/table', () => {
       rollsToTable: ['skill', 'save'],
       rollFeatures: [],
       moves: false,
+      typed: false,
     })
     const withRolls = await get('?version=7&live=1&rolls=skill,save')
     expect(withRolls.status).toBe(204)
@@ -100,6 +102,7 @@ describe('app/api/characters/[id]/table', () => {
       rollsToTable: ['skill', 'damage'],
       rollFeatures: ['modifiers'],
       moves: false,
+      typed: false,
     })
     const withFeatures = await get(
       `?version=7&live=1&rolls=${encodeURIComponent('skill,damage;modifiers')}`,
@@ -117,6 +120,7 @@ describe('app/api/characters/[id]/table', () => {
       rollsToTable: [],
       rollFeatures: [],
       moves: false,
+      typed: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -154,6 +158,7 @@ describe('app/api/characters/[id]/table', () => {
         rollsToTable,
         rollFeatures: [],
         moves: false,
+        typed: false,
       })
       const response = await get(query)
 
@@ -167,6 +172,7 @@ describe('app/api/characters/[id]/table', () => {
       live: true,
       rollsToTable: [],
       rollFeatures: [],
+      typed: false,
     }
     jest.mocked(getCampaignStatus).mockResolvedValue({ ...status, moves: true })
     const answers = [
@@ -257,5 +263,47 @@ describe('app/api/characters/[id]/table', () => {
     const response = await get()
 
     expect(response.status).toBe(404)
+  })
+})
+
+describe('app/api/characters/[id]/table, typing in their own dice, from module 0.32.0', () => {
+  const status = {
+    version: 7,
+    live: true,
+    rollsToTable: [],
+    rollFeatures: [],
+    moves: false,
+  }
+
+  beforeEach(() => {
+    jest.mocked(getCurrentUser).mockResolvedValue({ id: 'user-1' } as any)
+    jest.mocked(getCharacter).mockResolvedValue({
+      ...character,
+      manualDice: true,
+    })
+    jest.mocked(getTableView).mockResolvedValue(view)
+  })
+
+  it("has nothing new only while the viewer has the player's choice as it's stored, so another device's change reaches it", async () => {
+    jest.mocked(getCampaignStatus).mockResolvedValue({ ...status, typed: true })
+    const answers = [
+      await get('?version=7&live=1&typed=1'),
+      // Turned on on another device, with no new version.
+      await get('?version=7&live=1'),
+    ]
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, typed: false })
+    answers.push(
+      await get('?version=7&live=1'),
+      // Turned off on another device.
+      await get('?version=7&live=1&typed=1'),
+    )
+
+    expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
+    expect(getCampaignStatus).toHaveBeenCalledWith({
+      ...seat,
+      manualDice: true,
+    })
   })
 })

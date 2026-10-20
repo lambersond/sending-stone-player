@@ -12,6 +12,8 @@ export type Character = {
   actorId: string | null
   /** When its player last had the chat in view, as an ISO timestamp. Unset until they have. */
   chatReadAt?: string
+  /** Whether its player types in their own dice for it, on every device. Unset reads as off. */
+  manualDice?: boolean
 }
 
 /**
@@ -21,7 +23,13 @@ export type Character = {
  */
 export type SheetSeat = Pick<
   Character,
-  'name' | 'gameUrl' | 'campaignTitle' | 'campaignId' | 'actorId' | 'chatReadAt'
+  | 'name'
+  | 'gameUrl'
+  | 'campaignTitle'
+  | 'campaignId'
+  | 'actorId'
+  | 'chatReadAt'
+  | 'manualDice'
 > & {
   role: 'player' | 'gm'
   /** The signed-in user at the sheet. */

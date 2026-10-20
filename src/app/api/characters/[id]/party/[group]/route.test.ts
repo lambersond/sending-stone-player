@@ -37,6 +37,7 @@ const held = (access: object = groupEntry().access, version = 7) =>
     lastSeenAt: new Date(Date.now() - 30_000),
     ownerId: 'gm-1',
     groups: [groupEntry({ access: access as any })],
+    transferFeatures: [],
   } as any)
 
 const get = (query = '', group = 'company') =>
@@ -112,6 +113,7 @@ describe('app/api/characters/[id]/party/[group]', () => {
         ownerId: 'gm-1',
         groups: [groupEntry({ access: access as any })],
         transfersEnabled: enabled,
+        transferFeatures: [],
         bridgePolledAt: polled,
       } as any)
     const owner = { [PARTY.vex]: 'owner' }

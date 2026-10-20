@@ -48,7 +48,8 @@ export const MESSAGE_LIMIT = 100
  * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
  * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
  * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
- * taking moves or not changes with no new version.
+ * taking moves or not changes with no new version; and from module 0.32.0, whether the player
+ * types in their own dice for it, which another of their devices may change.
  */
 export type CampaignStatus = {
   version: number
@@ -58,6 +59,7 @@ export type CampaignStatus = {
   gm?: { rolls: GmRolls }
   gmRollsKey?: string
   moves: boolean
+  typed: boolean
 }
 
 /**
@@ -196,12 +198,15 @@ function seatRolls(
 export async function getCampaignStatus(
   seat: SheetSeat,
 ): Promise<CampaignStatus> {
+  // The seat is read from the player's Character on every request, so their choice is as stored.
+  const typed = seat.role === 'player' && seat.manualDice === true
   if (!seat.campaignId) {
     return {
       version: 0,
       live: false,
       ...seatRolls(seat),
       moves: false,
+      typed,
     }
   }
   const now = Date.now()
@@ -228,6 +233,7 @@ export async function getCampaignStatus(
     ...(gmRollsKeyNow && { gmRollsKey: gmRollsKeyNow }),
     // Whether the character is in the roster, which the view reads too, changes the version.
     moves: !!seat.actorId && !!campaign && transfersAvailable(campaign, now),
+    typed,
   }
 }
 
@@ -418,5 +424,15 @@ export async function getTableView(
     }),
     ...(groups.length > 0 && { groups }),
     ...(moves && { moves }),
+    // Whether the player may type in their own dice follows what the game said last, stored,
+    // never whether it polled lately, so a gap in polling never changes how they roll.
+    ...(seat.role === 'player' && {
+      manualDice: {
+        offered:
+          roster.find(({ id }) => id === viewer.actorId)?.manualDice === true &&
+          campaign.rollFeatures.includes('manualDice'),
+        on: seat.manualDice === true,
+      },
+    }),
   }
 }

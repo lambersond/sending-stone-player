@@ -6,6 +6,7 @@ import type {
   CombatantSummary,
   CommandResult,
   CombatSnapshot,
+  ConnectedCharacter,
   SerializedMessage,
   SheetAbility,
   SheetAction,
@@ -18,7 +19,7 @@ import type {
   SheetUse,
   SheetUses,
 } from '@/types/sending-stone'
-import type { TableMoves } from '@/types/table'
+import type { TableMoves, TableView } from '@/types/table'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
 
@@ -2202,6 +2203,138 @@ export function movedResult(
         },
       ],
       currency: null,
+    },
+    ...fields,
+  }
+}
+
+// Module 0.32.0: players typing in what their own dice show.
+
+/** Thorin's table view as his player has it, with whether they may type in their own dice. */
+export function manualDiceView(
+  manualDice: NonNullable<TableView['manualDice']>,
+  fields: Partial<TableView> = {},
+): TableView {
+  return {
+    version: 7,
+    live: true,
+    campaign: { title: 'The Lonely Mountain' },
+    connected: true,
+    messages: [],
+    rollsToTable: ['skill', 'attack', 'damage'],
+    rollFeatures: ['manualDice'],
+    manualDice,
+    ...fields,
+  }
+}
+
+/** The game lets Thorin's player type in their own dice, which they haven't chosen to. */
+export const offeredDiceView = (fields: Partial<TableView> = {}) =>
+  manualDiceView({ offered: true, on: false }, fields)
+
+/** Thorin's player chose to type in their own dice, which the game no longer lets them. */
+export const storedDiceView = (fields: Partial<TableView> = {}) =>
+  manualDiceView({ offered: false, on: true }, fields)
+
+/** A finesse rapier dnd5e gives Elven Accuracy, as its sheet says from module 0.32.0. */
+export function rapierAction(fields: Partial<SheetAction> = {}): SheetAction {
+  return sheetAction({
+    id: 'rapierThorin',
+    name: 'Rapier',
+    type: 'weapon',
+    toHit: 7,
+    attackId: 'rapierAttack',
+    damage: [{ formula: '1d8 + 3', type: 'Piercing', healing: false }],
+    elvenAccuracy: true,
+    ...fields,
+  })
+}
+
+/** A greataxe swung with Strength, which Elven Accuracy is never for. */
+export function greataxeAction(fields: Partial<SheetAction> = {}): SheetAction {
+  return sheetAction({
+    id: 'greataxeThor',
+    name: 'Greataxe',
+    type: 'weapon',
+    toHit: 5,
+    attackId: 'greataxeAttack',
+    damage: [{ formula: '1d12 + 3', type: 'Slashing', healing: false }],
+    ...fields,
+  })
+}
+
+/** Thorin in a hello's roster, whose player may type in their own dice, as module 0.32.0 says. */
+export function typingRosterEntry(
+  fields: Partial<ConnectedCharacter> = {},
+): ConnectedCharacter {
+  return { id: 'actorThorin1', name: 'Thorin', manualDice: true, ...fields }
+}
+
+// Module 0.32.0: a party's things sent elsewhere by its Owner, and its coin distributed.
+
+/** What a hello from module 0.32.0 says of moves, on, under dnd5e. */
+export const SENDING_TRANSFERS = {
+  enabled: true,
+  kinds: ['transfer'],
+  reason: null,
+  partySends: true,
+  distribute: true,
+} as const
+
+/** The Iron Company's members that are the campaign's characters, in its sheet's order. */
+export const COMPANY_CHARACTERS = [
+  { id: 'actorBram001', name: 'Bram' },
+  { id: 'actorLia0001', name: 'Lia' },
+  { id: 'actorThorin1', name: 'Thorin' },
+  { id: 'actorVex0001', name: 'Vex' },
+]
+
+/**
+ * The Iron Company's sheet view, as Thorin's player has it from module 0.32.0: its things may be
+ * sent to the Wardens of the Vale, which he owns too, or any of the campaign's characters, his own
+ * included; its coin distributed among its four characters; and his own 65 gp given it.
+ */
+export function sendingPartyView(fields: Partial<PartyView> = {}): PartyView {
+  return movingPartyView({
+    moves: {
+      send: {
+        parties: [
+          { id: 'groupWarden1', name: 'Wardens of the Vale', primary: false },
+        ],
+        characters: [
+          { id: 'actorThorin1', name: 'Thorin' },
+          { id: 'actorVex0001', name: 'Vex' },
+          { id: 'actorBram001', name: 'Bram' },
+          { id: 'actorLia0001', name: 'Lia' },
+        ],
+      },
+      distribute: COMPANY_CHARACTERS,
+      give: {
+        currency: [{ id: 'gp', label: 'Gold', abbreviation: 'gp', value: 65 }],
+      },
+    },
+    ...fields,
+  })
+}
+
+/** 100 gp of The Iron Company's distributed among its four characters, 25 gp each. */
+export function distributedResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-move',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: 'm-line',
+    visible: true,
+    rolls: [],
+    transfer: {
+      from: 'groupIronCo01',
+      to: null,
+      items: [],
+      currency: { gp: 100 },
+      among: COMPANY_CHARACTERS.map(({ id }) => id),
     },
     ...fields,
   }

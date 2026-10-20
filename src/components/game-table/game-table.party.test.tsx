@@ -105,10 +105,16 @@ const respond = (status: number, body?: unknown) =>
     json: async () => body,
   } as Response)
 
+/** A party's row, by what it shows: its name, then "Primary party" or "Party sheet". */
+const partyRow = (name: string) =>
+  new RegExp(
+    `^${name.replaceAll(/[$()*+.?[\\\]^{|}]/g, '\\$&')} (Primary party|Party sheet)$`,
+  )
+
 /** Opens a party's sheet from the character's Inventory tab. */
 const openParty = async (user: UserEvent, name: string) => {
   await user.click(screen.getByRole('tab', { name: 'Inventory' }))
-  await user.click(screen.getByRole('button', { name: `Party: ${name}` }))
+  await user.click(screen.getByRole('button', { name: partyRow(name) }))
 }
 
 /** What was posted to be moved, and where. */
@@ -143,9 +149,11 @@ describe('components/game-table, party sheets', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Inventory' }))
     const parties = screen.getByRole('region', { name: 'Party' })
-    expect(parties).toHaveTextContent('The CompanyPrimary party')
+    expect(parties).toHaveTextContent('The Company Primary party')
     expect(
-      within(parties).getByRole('button', { name: 'Party: The Company' }),
+      within(parties).getByRole('button', {
+        name: 'The Company Primary party',
+      }),
     ).toBeInTheDocument()
   })
 

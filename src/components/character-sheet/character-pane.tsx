@@ -51,6 +51,7 @@ import {
   type Picking,
 } from './use-picker'
 import { Charging, type ChargeActions } from './uses-button'
+import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
@@ -118,6 +119,11 @@ type Props = {
   actorId?: string
   /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */
   parties?: PartySheets
+  /**
+   * Whether the player types in their own dice here, where the game lets them, from module
+   * 0.32.0.
+   */
+  manualDice?: { on: boolean; onChange: (on: boolean) => void }
 }
 
 /**
@@ -194,11 +200,41 @@ function RollingSheet({
   moves,
   actorId,
   parties,
+  manualDice,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
+  // While the player types in what their own dice show, each roll asks for them, in place of the
+  // app's dice.
+  const typing = manualDice?.on === true
+  const entry = useDiceEntry()
   const role = useTableRole()
   // What the game asks, and what Midi-QOL is doing with what it asked, or did a moment ago.
   const waiting = useShownPrompts(prompts)
+  // An answer to what the game asks, while its dice are typed in, until when the game waits for
+  // it, dnd5e's and Midi-QOL's alike, as the app refuses either after; and how it's told that it
+  // was answered or closed elsewhere: rolled in Foundry, answered from the other seat, or left to
+  // Midi-QOL, its dialog then closing, as nothing here could answer it any more.
+  const answers = useRef(new Map<string, AbortController>())
+  useEffect(() => {
+    for (const [id, controller] of answers.current) {
+      const prompt = waiting.find(each => each.id === id)
+      if (prompt && !prompt.closed) continue
+      controller.abort()
+      answers.current.delete(id)
+    }
+  }, [waiting])
+  const answering = (request: SheetRoll): SheetRoll => {
+    const { source } = request
+    const id = source && 'prompt' in source ? source.prompt : undefined
+    const prompt = id ? waiting.find(each => each.id === id) : undefined
+    if (!prompt) return request
+    let controller = answers.current.get(prompt.id)
+    if (!controller) {
+      controller = new AbortController()
+      answers.current.set(prompt.id, controller)
+    }
+    return { ...request, until: prompt.expiresAt, signal: controller.signal }
+  }
   // Once the player answers what the game asked, or rolls from a description, the tray shows its
   // roll whichever tab is open, Effects and Biography among them.
   const [prompted, setPrompted] = useState(false)
@@ -217,7 +253,12 @@ function RollingSheet({
     logAsk,
     rolls,
     rolling,
-  } = useSheetRoller(table.send, table.sendDamage, table.sendFormula)
+  } = useSheetRoller(
+    table.send,
+    table.sendDamage,
+    table.sendFormula,
+    typing ? entry.enter : undefined,
+  )
   // Give, on the Inventory tab, from module 0.31.0: its dialog is held here, so that it outlives
   // the row it was opened from, and the controls going, as when the game stops taking moves.
   const giving = useGiveControls({
@@ -272,15 +313,21 @@ function RollingSheet({
   const belongings = useMemo(() => belongingsOf(sheet), [sheet])
   // An attack the game makes is made at a combatant the player picks first, in a combat, and with
   // the slot, ammunition or mode they choose, where there's more than one.
-  const onRoll = (request: SheetRoll) => {
-    const { source } = request
-    const action =
-      source?.kind === 'attack' && table.takes('attack')
+  const onRoll = (asked: SheetRoll) => {
+    const { source } = asked
+    const attack =
+      source?.kind === 'attack'
         ? sheetActions(sheet, entries).find(
             ({ id, attackId }) =>
               id === source.item && attackId === source.activity,
           )
         : undefined
+    // Where dnd5e gives the attack Elven Accuracy, a third d20 with advantage, typed in, whatever
+    // the table takes.
+    const request: SheetRoll = attack?.elvenAccuracy
+      ? { ...asked, elvenAccuracy: true }
+      : asked
+    const action = table.takes('attack') ? attack : undefined
     const asking: Picking | undefined = action && {
       kind: 'attack',
       action,
@@ -413,19 +460,26 @@ function RollingSheet({
     void rollDamage(damageRollOf(name, due, type, modifiers ?? due.modifiers))
   }
   // A use's damage or healing is rolled as soon as the game says it's due, once; unless its kind
-  // is to be chosen first, in the tray.
+  // is to be chosen first, in the tray; or, while the player types in their own dice, offered there
+  // for them to roll it, rather than asking for their dice by itself. Either way only once, so
+  // that turning typing off after never rolls it by itself.
   const rolledFor = useRef(new Set<string>())
+  const { offerDamage } = table
   useEffect(() => {
-    for (const state of table.states.values()) {
+    for (const [id, state] of table.states) {
       const { name, requestId, damage } = state
       if (!name || state.status !== 'done' || !requestId || !damage) continue
       if (state.damaged || rolledFor.current.has(requestId)) continue
       if (choicesOf(damage).length > 0) continue
       rolledFor.current.add(requestId)
+      if (typing) {
+        offerDamage(id)
+        continue
+      }
       const { modifiers } = state
       void rollDamage(damageRollOf(name, { use: requestId, damage, modifiers }))
     }
-  }, [table.states, rollDamage])
+  }, [table.states, rollDamage, typing, offerDamage])
   const onRollDamage = (request: SheetDamageRoll) => {
     const due = request.source && table.dueFor(request.source)
     if (due) {
@@ -669,9 +723,8 @@ function RollingSheet({
                 ? { on: table.sending, onChange: table.setSending }
                 : undefined
             }
-            // While the campaign's game says players may enter their dice's results, from module
-            // 0.26.0, which is coming.
-            manualDice={rollFeatures?.includes('manualDice') === true}
+            // Where the game lets the player type in their own dice, from module 0.32.0.
+            manualDice={manualDice}
             toasts={{ on: toasting, onChange: setToasting }}
             layouts={
               actionsLayout.offered.length > 1 && sheet.actions.length > 0
@@ -692,7 +745,7 @@ function RollingSheet({
           onSend={() => table.setSending(true)}
           onRoll={request => {
             setPrompted(true)
-            onRoll(request)
+            onRoll(answering(request))
           }}
         />
       )}
@@ -792,6 +845,7 @@ function RollingSheet({
         onClose={() => setPicking(undefined)}
       />
       {giving.dialog}
+      {entry.dialog}
       {conditions.panel}
     </SheetContext>
   )

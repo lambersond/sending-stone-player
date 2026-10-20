@@ -6,6 +6,7 @@ import {
   EVENTS,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  MOST_AMONG,
   MOST_HIT_DICE,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
@@ -403,6 +404,12 @@ const rollFields = {
   // From module 0.21.0: the check an activity asks for, and what one that uses another spends.
   check: checkSchema,
   forward: forwardSchema,
+  // From module 0.32.0: dnd5e gives its attack Elven Accuracy.
+  elvenAccuracy: z
+    .literal(true)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
 }
 
 /**
@@ -455,6 +462,8 @@ const itemRollFields = {
   // From module 0.21.0, for a check activity, and one that uses another.
   check: rollFields.check,
   forward: rollFields.forward,
+  // From module 0.32.0, for an attack dnd5e gives Elven Accuracy.
+  elvenAccuracy: rollFields.elvenAccuracy,
   activities: activitiesSchema,
 }
 
@@ -974,8 +983,9 @@ const characterSchema = z.looseObject({
   // From module 0.22.0: why its sheet is null, where the module held it back, such as for its
   // size. Left out where it can't be read.
   sheetWithheld: sheetWithheldSchema,
-  // From module 0.26.0, in a hello's roster: whether the character enters its own dice's results.
-  // Left out, as sent, by an older module; false where it can't be read.
+  // From module 0.26.0, in a hello's roster, and from 0.32.0 in an update too: whether its player
+  // may enter its dice results here, as the module says from 0.32.0; always false before. Left
+  // out, as sent, by an older module; false where it can't be read.
   manualDice: z.boolean().optional().catch(false),
 })
 
@@ -1281,6 +1291,10 @@ const featuresSchema = z
         enabled: z.boolean().catch(false),
         kinds: z.array(z.string()).catch([]),
         reason: nullableString.optional().transform(reason => reason ?? null),
+        // From module 0.32.0: a party's things may be sent elsewhere by its Owner, and its coin
+        // distributed.
+        partySends: z.boolean().optional().catch(false),
+        distribute: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -1557,7 +1571,8 @@ const commandResultSchema = z.object({
   transfer: z
     .object({
       from: z.string().min(1).max(64),
-      to: z.string().min(1).max(64),
+      // None for a distribution, from module 0.32.0, which lists who was given a share in `among`.
+      to: z.string().min(1).max(64).nullable(),
       items: z
         .array(
           z.object({
@@ -1573,6 +1588,8 @@ const commandResultSchema = z.object({
         // As many kinds of coin as a move may name.
         .refine(coins => Object.keys(coins).length <= 10)
         .nullable(),
+      // A distribution's characters that were given their share, in order (module 0.32.0).
+      among: z.array(z.string().min(1).max(64)).max(MOST_AMONG).optional(),
     })
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk

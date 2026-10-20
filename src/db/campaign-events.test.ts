@@ -132,6 +132,7 @@ describe('db/campaign-events', () => {
         rollKinds: [],
         rollFeatures: [],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -170,6 +171,7 @@ describe('db/campaign-events', () => {
         rollKinds: [],
         rollFeatures: [],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -209,6 +211,7 @@ describe('db/campaign-events', () => {
         // their game asks of them.
         rollFeatures: ['modifiers', 'prompts'],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -232,6 +235,7 @@ describe('db/campaign-events', () => {
         rollKinds: [],
         rollFeatures: [],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -330,6 +334,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['attack', 'hitDie', 'formula'],
         rollFeatures: ['prompts', 'areaAttacks'],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -352,6 +357,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['attack', 'hitDie', 'formula'],
         rollFeatures: ['modifiers'],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -382,6 +388,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['skill', 'tool', 'ability', 'use'],
         rollFeatures: ['modifiers', 'activityChecks'],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -404,6 +411,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['skill', 'tool', 'ability', 'use'],
         rollFeatures: [],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -439,6 +447,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['damage', 'textDamage'],
         rollFeatures: ['modifiers', 'activityChecks', 'signedDice'],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -463,6 +472,7 @@ describe('db/campaign-events', () => {
           rollKinds: ['damage', 'textDamage'],
           rollFeatures: ['modifiers'],
           transfersEnabled: false,
+          transferFeatures: [],
           foundry: { receivedAt: SENT },
         },
       })
@@ -490,6 +500,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['use'],
         rollFeatures: ['signedDice', 'selfTargets'],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -676,6 +687,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['skill', 'initiative', 'hitDie', 'hitDice', 'formula'],
         rollFeatures: [],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -705,6 +717,7 @@ describe('db/campaign-events', () => {
         rollKinds: ['attack', 'use', 'damage', 'endEnchantment'],
         rollFeatures: [],
         transfersEnabled: false,
+        transferFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -732,6 +745,7 @@ describe('db/campaign-events', () => {
           rollKinds: [],
           rollFeatures: [],
           transfersEnabled: false,
+          transferFeatures: [],
           foundry: { receivedAt: SENT },
         },
       })
@@ -1684,5 +1698,72 @@ describe('db/campaign-events', () => {
 
       expect(order.map(({ id }) => id)).toEqual(['f', 'c', 'd', 'b', 'e', 'a'])
     })
+  })
+})
+
+describe('db/campaign-events, what else the module does with moves, from module 0.32.0', () => {
+  const rolls = { enabled: true, kinds: ['skill'], reason: null }
+  const on = { enabled: true, kinds: ['transfer'], reason: null }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+  })
+
+  it('keeps a party’s sends and distributions from the hello, in their order', async () => {
+    await expect(
+      stored({
+        rolls,
+        transfers: { ...on, partySends: true, distribute: true },
+      }),
+    ).resolves.toMatchObject({
+      transfersEnabled: true,
+      transferFeatures: ['partySends', 'distribute'],
+    })
+  })
+
+  it.each([
+    ['sends alone', { partySends: true }, ['partySends']],
+    ['distributions alone', { distribute: true }, ['distribute']],
+    ['neither', { partySends: false, distribute: false }, []],
+  ])('keeps %s', async (_name, features, kept) => {
+    await expect(
+      stored({ rolls, transfers: { ...on, ...features } }),
+    ).resolves.toMatchObject({ transferFeatures: kept })
+  })
+
+  it('keeps none while moves are off, whatever the hello says of them', async () => {
+    await expect(
+      stored({
+        rolls,
+        transfers: {
+          enabled: false,
+          kinds: [],
+          reason: 'off',
+          partySends: true,
+          distribute: true,
+        },
+      }),
+    ).resolves.toMatchObject({ transfersEnabled: false, transferFeatures: [] })
+  })
+
+  it('is cleared by a hello from module 0.31.0, which says nothing of them', async () => {
+    await stored({
+      rolls,
+      transfers: { ...on, partySends: true, distribute: true },
+    })
+    await expect(stored({ rolls, transfers: on })).resolves.toMatchObject({
+      transfersEnabled: true,
+      transferFeatures: [],
+    })
+    await expect(stored(null)).resolves.toMatchObject({ transferFeatures: [] })
+  })
+
+  it('reads anything but true as false', async () => {
+    await expect(
+      stored({
+        rolls,
+        transfers: { ...on, partySends: 'yes', distribute: 1 },
+      }),
+    ).resolves.toMatchObject({ transfersEnabled: true, transferFeatures: [] })
   })
 })

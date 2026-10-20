@@ -6,6 +6,7 @@ import {
   chooseActor,
   deleteCharacterAndLeave,
   markChatReadUpTo,
+  setManualDice,
 } from '../actions'
 import CharacterPage, { generateMetadata } from './page'
 import { getCampaignChoice } from '@/db/campaigns'
@@ -23,6 +24,7 @@ jest.mock('../actions', () => ({
   chooseActor: jest.fn(),
   deleteCharacterAndLeave: jest.fn(),
   markChatReadUpTo: jest.fn(),
+  setManualDice: jest.fn(),
 }))
 jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -36,8 +38,12 @@ jest.mock('@/components/game-table', () => ({
     chooseActor,
     deleteCharacter,
     markChatRead,
+    setManualDice,
   }: any) => (
     <>
+      <button type='button' onClick={() => setManualDice(true)}>
+        Type dice
+      </button>
       <button type='button' onClick={() => deleteCharacter()}>
         Delete
       </button>
@@ -133,6 +139,15 @@ describe('app/characters/[id]/page', () => {
       'char-1',
       '2026-10-04T19:02:00.000Z',
     )
+  })
+
+  it('remembers whether the player types in their own dice for this character, from module 0.32.0', async () => {
+    jest.mocked(getCharacter).mockResolvedValue(thorin)
+    const user = userEvent.setup()
+    render(await CharacterPage(props('char-1')))
+
+    await user.click(screen.getByRole('button', { name: 'Type dice' }))
+    expect(setManualDice).toHaveBeenCalledWith('char-1', true)
   })
 
   it('is not found when the user has no such character', async () => {

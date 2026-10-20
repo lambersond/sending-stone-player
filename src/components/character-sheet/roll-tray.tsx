@@ -1674,7 +1674,14 @@ function byTheGame(roll: LocalDamage): boolean {
 function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'gm') return GM_WORDS_AFTER
   if (roll.kind === 'use') {
-    if (roll.move) return roll.move.verb === 'give' ? 'given' : 'taken'
+    if (roll.move) {
+      return {
+        give: 'given',
+        take: 'taken',
+        send: 'sent',
+        distribute: 'distributed',
+      }[roll.move.verb]
+    }
     if (roll.ending) return 'ended'
     if (roll.spent !== undefined) return `spent ${roll.spent}`
     if (roll.inspiration === 'gain') return 'gained'

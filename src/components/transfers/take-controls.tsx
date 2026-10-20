@@ -3,7 +3,10 @@
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
 import { MoveDialog, type MoveEnd } from '@/components/transfers/move-dialog'
-import type { TransferControls } from '@/components/transfers/transferring'
+import {
+  ROW_BUTTON,
+  type TransferControls,
+} from '@/components/transfers/transferring'
 import type { LocalMove } from '@/hooks/use-sheet-roller'
 import type { TableGroup } from '@/types/party'
 import type { TransferInput } from '@/types/roll'
@@ -38,10 +41,6 @@ export type Taking = {
   /** On the Gamemaster's party page, the characters to take into. */
   receivers?: MoveEnd[]
 }
-
-/** As End is, beside a concentration. */
-const TAKE_BUTTON =
-  'shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-semibold transition-colors hover:bg-primary/5 disabled:opacity-60'
 
 /** The Gamemaster's seat at a campaign's character, which a pick is taken through. */
 export function chosenApi(campaignId: string, actorId: string): string {
@@ -107,7 +106,7 @@ function TakeButton({
         event.stopPropagation()
         onTake()
       }}
-      className={clsx(TAKE_BUTTON, busy && 'inline-flex items-center gap-1')}
+      className={clsx(ROW_BUTTON, busy && 'inline-flex items-center gap-1')}
     >
       {busy && (
         <LoaderCircle

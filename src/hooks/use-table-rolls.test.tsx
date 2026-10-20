@@ -5,10 +5,12 @@ import {
   BUSY_WAIT,
   CHECK_EVERY,
   choicesOf,
+  damageDue,
   damageRollOf,
   FOLLOW_FOR,
   GM_SEND_KEY,
   LATE_FOLLOW,
+  needsPlayer,
   SEND_KEY,
   toFormulaRequest,
   toHitDiceRequest,
@@ -540,6 +542,8 @@ describe('hooks/use-table-rolls', () => {
         exact: true,
         use: 'req-1',
         perDie: 2,
+        // A formula the app can't read loses its numbers: its total is the game's (module 0.32.0).
+        gameTotal: true,
         parts: [
           {
             type: 'slashing',
@@ -3032,5 +3036,129 @@ describe('hooks/use-table-rolls, moving items and coins, from module 0.31.0', ()
       kind: 'transfer',
       label: 'Give 5 gp to Vex',
     })
+  })
+})
+
+describe('hooks/use-table-rolls, dice typed in, from module 0.32.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-1' }))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('says a d20 roll was typed in, where it was, and only then', () => {
+    const source = { kind: 'skill', key: 'prc' } as const
+    expect(
+      toRollRequest(perception, source, check({ typed: true })),
+    ).toMatchObject({ typed: true })
+    expect(toRollRequest(perception, source, check())).not.toHaveProperty(
+      'typed',
+    )
+  })
+
+  it("says a formula's, hit dice's and each hit die's dice were typed in, where they were, and only then", () => {
+    const source = hitDice.source as Extract<FormulaSource, { kind: 'hitDice' }>
+    const typed: LocalFormula = { ...spentThree(), typed: true }
+    expect(toHitDiceRequest(source, typed)).toMatchObject({ typed: true })
+    expect(toHitDiceRequest(source, spentThree())).not.toHaveProperty('typed')
+    const each = toHitDieRequests(source, typed)
+    expect(each).toHaveLength(3)
+    for (const request of each) expect(request).toMatchObject({ typed: true })
+    for (const request of toHitDieRequests(source, spentThree())) {
+      expect(request).not.toHaveProperty('typed')
+    }
+    const formula = {
+      kind: 'formula',
+      item: 'lantern',
+      activity: 'shine',
+    } as const
+    expect(
+      toFormulaRequest(lantern, formula, { ...shone, typed: true }),
+    ).toMatchObject({ typed: true })
+    expect(toFormulaRequest(lantern, formula, shone)).not.toHaveProperty(
+      'typed',
+    )
+  })
+
+  it("says an attack's damage and a description's were typed in, where they were, and only then", () => {
+    const { result } = render(['damage', 'textDamage'])
+    const due = { use: 'req-1', damage: preview() }
+    const described: SheetDamageRoll = {
+      label: 'Flame damage',
+      parts: [{ terms: [{ sign: 1, count: 1, sides: 8 }], type: 'fire' }],
+      text: { text: 'a'.repeat(16), link: 1 },
+    }
+
+    act(() =>
+      result.current.sendDamage(
+        damageRollOf('Longsword', due),
+        thrownDamage({ typed: true }),
+      ),
+    )
+    expect(sent()).toMatchObject({ kind: 'damage', typed: true })
+    act(() =>
+      result.current.sendDamage(damageRollOf('Longsword', due), thrownDamage()),
+    )
+    expect(sent()).not.toHaveProperty('typed')
+    act(() =>
+      result.current.sendDamage(described, {
+        ...thrownDamage({ typed: true }),
+        id: 'r3',
+        parts: [
+          {
+            type: 'fire',
+            total: 5,
+            terms: [{ text: '1d8', values: [5], value: 5 }],
+          },
+        ],
+      }),
+    )
+    expect(sent()).toMatchObject({ kind: 'textDamage', typed: true })
+    act(() =>
+      result.current.sendDamage(described, {
+        ...thrownDamage(),
+        id: 'r4',
+        parts: [
+          {
+            type: 'fire',
+            total: 5,
+            terms: [{ text: '1d8', values: [5], value: 5 }],
+          },
+        ],
+      }),
+    )
+    expect(sent()).toMatchObject({ kind: 'textDamage' })
+    expect(sent()).not.toHaveProperty('typed')
+  })
+
+  it("leaves a use's damage for its player to roll once offered, once, as one with a choice of kinds", () => {
+    const { result } = render(['use', 'damage'])
+    const used: LocalUse = {
+      kind: 'use',
+      id: 'u1',
+      label: 'Fireball',
+      spell: true,
+      at: 0,
+    }
+    const made = {
+      status: 'done' as const,
+      requestId: 'req-1',
+      damage: preview(),
+    }
+
+    expect(damageDue(used, made)).toBe(false)
+    expect(needsPlayer(used, made)).toBe(false)
+    expect(damageDue(used, { ...made, offer: true })).toBe(true)
+    expect(needsPlayer(used, { ...made, offer: true })).toBe(true)
+    expect(damageDue(used, { ...made, offer: true, damaged: true })).toBe(false)
+
+    // The state it marks: none for a roll it doesn't follow.
+    act(() => result.current.offerDamage('u1'))
+    expect(result.current.states.size).toBe(0)
   })
 })

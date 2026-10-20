@@ -42,8 +42,8 @@ export type ConnectedCharacter = {
   /** Why its sheet is null, where the module held it back. Module 0.22.0. */
   sheetWithheld?: SheetWithheld
   /**
-   * Whether the character enters its own dice's results, as a hello's roster says, which no
-   * character does yet: always false. Module 0.26.0.
+   * Whether its player may enter its dice results here, as the module says from 0.32.0; always
+   * false before. Module 0.26.0.
    */
   manualDice?: boolean
 }
@@ -387,6 +387,8 @@ export type SheetAction = {
    * game. Module 0.11.0; absent before, and null for an action that doesn't attack.
    */
   attackId?: string | null
+  /** dnd5e gives its attack Elven Accuracy: a third d20 with advantage. Module 0.32.0. */
+  elvenAccuracy?: true
   /**
    * What else it's used through in the Gamemaster's game, such as a saving throw or healing, and
    * whom at. Module 0.12.0; absent before, and null for an action with none.
@@ -685,6 +687,7 @@ export type SheetActivity = Pick<
   | 'check'
   | 'forward'
   | 'uses'
+  | 'elvenAccuracy'
 > & {
   /** The activity's id. */
   id: string
@@ -756,6 +759,7 @@ export type SheetRolls = Pick<
   | 'check'
   | 'forward'
   | 'activities'
+  | 'elvenAccuracy'
 >
 
 /** Actions taken with one kind of activation, such as Bonus Action. */
@@ -801,6 +805,7 @@ export type SheetActivityFavorite = Pick<
   | 'check'
   | 'forward'
   | 'uses'
+  | 'elvenAccuracy'
 > & {
   type: 'activity'
   /** The activity's. */
@@ -1199,7 +1204,8 @@ export type BridgeFeatures = {
     gmRollMessages?: boolean
     /**
      * Whether players may enter their own dice's results: where the campaign lets them, the Manual
-     * Dice module is on, and players' rolls are enabled. None may yet. Module 0.26.0.
+     * Dice module is on, and players' rolls are enabled; each character's player may where its
+     * own `manualDice` says so too. Module 0.26.0.
      */
     manualDice?: boolean
     /**
@@ -1217,6 +1223,12 @@ export type BridgeFeatures = {
     enabled: boolean
     kinds: string[]
     reason: string | null
+    /**
+     * From module 0.32.0: whether a party's Owner may send its items and coins elsewhere, and share
+     * its coin among its characters.
+     */
+    partySends?: boolean
+    distribute?: boolean
   } | null
 }
 

@@ -8,6 +8,7 @@ import {
   joinCampaign,
   listCharacters,
   markChatRead,
+  setCharacterManualDice,
 } from './characters'
 import { roster } from '@/mocks/sending-stone'
 
@@ -19,6 +20,7 @@ const select = {
   campaignId: true,
   actorId: true,
   chatReadAt: true,
+  manualDice: true,
   campaign: { select: { title: true, origin: true } },
 }
 const row = {
@@ -232,6 +234,28 @@ describe('db/characters', () => {
         OR: [{ chatReadAt: null }, { chatReadAt: { lt: readAt } }],
       },
       data: { chatReadAt: readAt },
+    })
+  })
+})
+
+describe('db/characters, typing in their own dice, from module 0.32.0', () => {
+  it("remembers the player's choice on their own character only", async () => {
+    await setCharacterManualDice('user-1', 'char-1', true)
+
+    expect(prismaMock.character.updateMany).toHaveBeenCalledWith({
+      where: { id: 'char-1', userId: 'user-1' },
+      data: { manualDice: true },
+    })
+  })
+
+  it('reads the choice back with the character', async () => {
+    prismaMock.character.findFirst.mockResolvedValue({
+      ...row,
+      manualDice: true,
+    } as any)
+
+    await expect(getCharacter('user-1', 'char-1')).resolves.toMatchObject({
+      manualDice: true,
     })
   })
 })

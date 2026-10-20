@@ -317,3 +317,42 @@ describe('hooks/use-table-view', () => {
     expect(result.current.connection).toBe('live')
   })
 })
+
+describe('hooks/use-table-view, typing in their own dice, from module 0.32.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    jest.mocked(useRouter).mockReturnValue({ refresh } as any)
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+  })
+
+  it("says the player's choice is on where the view it has says so, and only then", async () => {
+    const typing: TableView = {
+      ...initial,
+      manualDice: { offered: true, on: true },
+    }
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        respond(200, { ...typing, manualDice: { offered: true, on: false } }),
+      )
+      .mockResolvedValueOnce(respond(204))
+    renderHook(() => useTableView('/api/characters/char-1', typing))
+
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&typed=1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1',
+      expect.anything(),
+    )
+  })
+})

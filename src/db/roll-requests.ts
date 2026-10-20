@@ -35,6 +35,7 @@ import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
+  ConnectedCharacter,
 } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 
@@ -109,6 +110,7 @@ export async function createRollRequest(
       rollKinds: true,
       rollFeatures: true,
       bridgePolledAt: true,
+      characters: true,
     },
   })
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
@@ -269,7 +271,17 @@ export async function createRollRequest(
 
   // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is
   // kept, for the character's player to be shown it by; a player's own page never asks for theirs.
-  const { label, ...command } = input
+  const { label, typed, ...command } = input
+  const roster = campaign.characters as unknown as ConnectedCharacter[]
+  // Marked as typed in only where the player may type theirs, as the game said last: else the
+  // same dice, unmarked.
+  const typedHere =
+    typed === true &&
+    seat.role === 'player' &&
+    command.dice.length > 0 &&
+    campaign.rollFeatures.includes('manualDice') &&
+    roster.some(({ id, manualDice }) => id === actorId && manualDice === true)
+  const payload = typedHere ? { ...command, typed: true as const } : command
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,
@@ -279,7 +291,7 @@ export async function createRollRequest(
       actorId,
       kind: input.kind,
       ...(seat.role === 'gm' && label !== undefined && { label }),
-      payload: command as unknown as Prisma.InputJsonValue,
+      payload: payload as unknown as Prisma.InputJsonValue,
       useId: damage,
       createdAt: new Date(now),
     },

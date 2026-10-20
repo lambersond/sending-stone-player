@@ -467,3 +467,118 @@ describe('components/transfers/move-dialog', () => {
     expect(submit('Take')).toBeInTheDocument()
   })
 })
+
+describe('components/transfers/move-dialog, a party’s send and a give into it, from module 0.32.0', () => {
+  const wardens = { id: 'groupWarden1', name: 'Wardens of the Vale' }
+  const send = (props: Partial<MoveDialogProps> = {}) => ({
+    mode: 'send' as const,
+    from: party,
+    into: undefined,
+    recipients: { parties: [wardens], characters: [thorin, vex] },
+    ...props,
+  })
+
+  it('is titled Send, from the party, with To listing parties then characters, none chosen', () => {
+    const { unmount } = renderDialog(send({ what: { item: rope } }))
+    const dialog = screen.getByRole('dialog', { name: 'Send Rope' })
+    expect(within(dialog).getByText('From The Iron Company')).toBeVisible()
+    expect(
+      within(dialog)
+        .getAllByRole('radio')
+        .map(radio => [
+          radio.getAttribute('value'),
+          (radio as HTMLInputElement).checked,
+        ]),
+    ).toEqual([
+      ['groupWarden1', false],
+      ['actorThorin1', false],
+      ['actorVex0001', false],
+    ])
+    expect(summary()).toHaveTextContent('Choose who gets it.')
+    expect(submit('Send')).toHaveAttribute('aria-disabled', 'true')
+    unmount()
+
+    renderDialog(send({ what: { coins } }))
+    const sendingCoins = screen.getByRole('dialog', { name: 'Send coins' })
+    expect(
+      within(sendingCoins).getByText('From The Iron Company'),
+    ).toBeVisible()
+  })
+
+  it('sends what’s chosen, saying who sends it from where to whom', async () => {
+    const user = userEvent.setup()
+    const { onMove, onClose } = renderDialog(send())
+
+    await user.click(screen.getByRole('radio', { name: 'Vex' }))
+    await user.clear(screen.getByRole('textbox', { name: 'How many' }))
+    await user.type(screen.getByRole('textbox', { name: 'How many' }), '2')
+    expect(summary()).toHaveTextContent(
+      'You send 2 Potion of Healing from The Iron Company to Vex.',
+    )
+    expect(screen.getByText('Foundry’s chat will say so.')).toBeVisible()
+    await user.click(submit('Send 2'))
+    expect(onMove).toHaveBeenCalledWith({
+      to: 'actorVex0001',
+      items: [{ id: 'potionHeal01', quantity: 2 }],
+      words: {
+        verb: 'send',
+        things: '2 Potion of Healing',
+        other: 'Vex',
+        source: 'The Iron Company',
+        item: 'potionHeal01',
+      },
+    })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('says the Gamemaster’s send in the character’s name, and sends coins as Send coins', async () => {
+    const user = userEvent.setup()
+    const { onMove } = renderDialog(
+      send({ mover: 'Thorin', what: { coins } }),
+      'gm',
+    )
+
+    await user.click(screen.getByRole('radio', { name: 'Wardens of the Vale' }))
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '20')
+    expect(summary()).toHaveTextContent(
+      'Thorin sends 20 gp from The Iron Company to Wardens of the Vale.',
+    )
+    await user.click(submit('Send coins'))
+    expect(onMove).toHaveBeenCalledWith({
+      to: 'groupWarden1',
+      currency: { gp: 20 },
+      words: {
+        verb: 'send',
+        things: '20 gp',
+        other: 'Wardens of the Vale',
+        source: 'The Iron Company',
+        mover: 'Thorin',
+      },
+    })
+  })
+
+  it('gives coins into the party with no To, from the character’s own', async () => {
+    const user = userEvent.setup()
+    const { onMove } = renderDialog({
+      mode: 'give',
+      from: undefined,
+      into: party,
+      what: {
+        coins: [{ id: 'gp', label: 'Gold', abbreviation: 'gp', value: 65 }],
+      },
+    })
+
+    const dialog = screen.getByRole('dialog', { name: 'Give coins' })
+    expect(within(dialog).queryByRole('radio')).toBeNull()
+    expect(within(dialog).queryByText(/^From /)).toBeNull()
+    expect(within(dialog).getByText(/of 65 gp/)).toBeVisible()
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '15')
+    expect(summary()).toHaveTextContent('You give 15 gp to The Iron Company.')
+    await user.click(submit('Give coins'))
+    expect(onMove).toHaveBeenCalledWith({
+      to: 'groupIronCo01',
+      currency: { gp: 15 },
+      words: { verb: 'give', things: '15 gp', other: 'The Iron Company' },
+    })
+  })
+})

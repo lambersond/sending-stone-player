@@ -53,6 +53,7 @@ describe('db/table', () => {
         rollsToTable: [],
         rollFeatures: [],
         moves: false,
+        typed: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -80,6 +81,7 @@ describe('db/table', () => {
         rollsToTable: [],
         rollFeatures: [],
         moves: false,
+        typed: false,
       })
     })
 
@@ -92,6 +94,7 @@ describe('db/table', () => {
         rollsToTable: [],
         rollFeatures: [],
         moves: false,
+        typed: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -102,6 +105,7 @@ describe('db/table', () => {
         rollsToTable: [],
         rollFeatures: [],
         moves: false,
+        typed: false,
       })
     })
 
@@ -581,6 +585,8 @@ describe('db/table', () => {
         rollsToTable: [],
         rollFeatures: [],
         prompts: [],
+        // The player's own choice of typing in their dice, from module 0.32.0: offered nowhere.
+        manualDice: { offered: false, on: false },
       })
       expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
       expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
@@ -652,6 +658,7 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       rollFeatures: ['prompts'],
       gm: { rolls: 'made' },
       moves: false,
+      typed: false,
     })
   })
 
@@ -1342,5 +1349,85 @@ describe('db/table, moving items and coins, from module 0.31.0', () => {
     await expect(
       getCampaignStatus({ ...character, actorId: null }),
     ).resolves.toMatchObject({ moves: false })
+  })
+})
+
+describe('db/table, typing in their own dice, from module 0.32.0', () => {
+  /** Thorin, as the game said last of whether his player may type in his dice. */
+  const listed = (manualDice?: boolean) => [
+    { ...roster[0], ...(manualDice !== undefined && { manualDice }) },
+    roster[1],
+  ]
+  /** A game that let players type in theirs, as stored, though its module last polled long ago. */
+  const stored = (features: string[], manualDice?: boolean) => ({
+    ...taking(features),
+    characters: listed(manualDice),
+    bridgePolledAt: new Date(Date.now() - 3_600_000),
+  })
+  const thorin = { ...character, actorId: roster[0].id }
+
+  it('offers it to the player where the game lets players and says theirs may, as it said last, however long ago it polled', async () => {
+    givenCampaign(stored(['manualDice'], true))
+    const view = await getTableView(thorin)
+    expect(view.manualDice).toEqual({ offered: true, on: false })
+    // Its rolls, though, wait for its module.
+    expect(view.rollFeatures).toEqual([])
+  })
+
+  it.each([
+    ["the game doesn't let players", stored([], true)],
+    ['the game says this player may not', stored(['manualDice'], false)],
+    ['the game says nothing of this player', stored(['manualDice'])],
+  ])('offers it nowhere where %s', async (_name, found) => {
+    givenCampaign(found)
+    await expect(getTableView(thorin)).resolves.toMatchObject({
+      manualDice: { offered: false, on: false },
+    })
+  })
+
+  it("says whether the player chose to, from their character's row, offered or not", async () => {
+    givenCampaign(stored([], true))
+    await expect(
+      getTableView({ ...thorin, manualDice: true }),
+    ).resolves.toMatchObject({ manualDice: { offered: false, on: true } })
+    givenCampaign(stored(['manualDice'], true))
+    await expect(
+      getTableView({ ...thorin, manualDice: true }),
+    ).resolves.toMatchObject({ manualDice: { offered: true, on: true } })
+  })
+
+  it("never offers it at the Gamemaster's seat, which has nowhere to keep it", async () => {
+    givenCampaign(stored(['manualDice', 'gmRolls'], true))
+    const view = await getTableView({
+      ...thorin,
+      role: 'gm',
+      userId: 'gm-1',
+      characterId: null,
+    })
+    expect(view).not.toHaveProperty('manualDice')
+  })
+
+  it("tells, cheaply, whether the player's choice is on, for another of their devices to see it change", async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      version: 7,
+      lastSeenAt: recently(),
+    } as any)
+    await expect(getCampaignStatus(thorin)).resolves.toMatchObject({
+      typed: false,
+    })
+    await expect(
+      getCampaignStatus({ ...thorin, manualDice: true }),
+    ).resolves.toMatchObject({ typed: true })
+    await expect(
+      getCampaignStatus({ ...thorin, manualDice: true, campaignId: null }),
+    ).resolves.toMatchObject({ typed: true })
+    await expect(
+      getCampaignStatus({
+        ...thorin,
+        manualDice: true,
+        role: 'gm',
+        characterId: null,
+      }),
+    ).resolves.toMatchObject({ typed: false })
   })
 })

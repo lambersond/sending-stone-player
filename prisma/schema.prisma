@@ -129,6 +129,9 @@ model Character {
   // few, the character is open in the app, and the Gamemaster's module waits for its answers to
   // what Midi-QOL asks of it (module 0.27.0). Never the Gamemaster's page's.
   tableSeenAt   DateTime?
+  // Whether its player types in what their own dice show for its rolls, on every device, as they
+  // set it in the sheet's settings: offered only while its campaign's game lets them (module 0.32.0).
+  manualDice    Boolean       @default(false)
   userId        String
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime      @default(now())
@@ -187,6 +190,9 @@ model Campaign {
   // Whether the Gamemaster lets the campaign's players move items and coins from here, from module
   // 0.31.0's hello: apart from the rolls.
   transfersEnabled Boolean       @default(false)
+  // What else the module does with moves, from module 0.32.0's hello: a party's things sent
+  // elsewhere by its Owner, and a party's coin distributed among its characters.
+  transferFeatures String[]      @default([])
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt   DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,

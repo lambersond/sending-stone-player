@@ -63,6 +63,7 @@ const stored = {
   rollsEnabled: false,
   rollKinds: [],
   rollFeatures: [],
+  transferFeatures: [],
   bridgePolledAt: null,
   foundry: foundrySnapshot(),
 }

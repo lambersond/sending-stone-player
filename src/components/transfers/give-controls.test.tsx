@@ -112,6 +112,13 @@ const renderGive = async ({
   }
 }
 
+/** The Currency row's Send to, from module 0.32.0's feedback: the button that gives coins. */
+const coinsButton = () =>
+  within(screen.getByRole('group', { name: 'Currency' })).getByRole('button', {
+    name: 'Send to',
+  })
+const queryCoinsButton = () => screen.queryByRole('button', { name: 'Send to' })
+
 const respond = (status: number, body?: unknown) =>
   ({
     status,
@@ -211,8 +218,8 @@ describe('components/transfers/give-controls', () => {
 
   it('gives coins from beside them, while there’s a whole one to give', async () => {
     const { unmount } = await renderGive()
-    const coins = screen.getByRole('button', { name: 'Give coins' })
-    expect(coins).toHaveTextContent(/^Give…$/)
+    const coins = coinsButton()
+    expect(coins).toHaveTextContent(/^Send to$/)
     expect(coins.closest('dd')).not.toBeNull()
     expect(screen.getByText('Currency')).toHaveTextContent(/^Currency$/)
     unmount()
@@ -222,7 +229,7 @@ describe('components/transfers/give-controls', () => {
         { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 0.5 },
       ]),
     })
-    expect(screen.queryByRole('button', { name: 'Give coins' })).toBeNull()
+    expect(queryCoinsButton()).toBeNull()
   })
 
   it('gives nothing while the game takes no moves, or there’s no one to give to', async () => {
@@ -301,7 +308,7 @@ describe('components/transfers/give-controls', () => {
     expect(handaxe).toHaveAttribute('aria-busy', 'true')
     expect(handaxe.querySelector('svg')).toHaveClass('motion-safe:animate-spin')
     // The rest stay as they were.
-    const coins = screen.getByRole('button', { name: 'Give coins' })
+    const coins = coinsButton()
     expect(coins).toBeEnabled()
     expect(coins).not.toHaveAttribute('aria-busy')
 
@@ -309,7 +316,7 @@ describe('components/transfers/give-controls', () => {
     const giving = screen.getByRole('dialog', { name: 'Give coins' })
     await user.type(within(giving).getByRole('textbox', { name: 'Gold' }), '5')
     await user.click(within(giving).getByRole('button', { name: 'Give coins' }))
-    expect(screen.getByRole('button', { name: 'Give coins' })).toBeDisabled()
+    expect(coinsButton()).toBeDisabled()
     expect(posts()).toHaveLength(2)
     expect(posts()[1].body.transfer).toEqual({
       from: 'actorThorin1',
@@ -440,7 +447,7 @@ describe('components/transfers/give-controls', () => {
         }),
       )
     const { user } = await renderGive({ seat: GM_SEAT })
-    await user.click(screen.getByRole('button', { name: 'Give coins' }))
+    await user.click(coinsButton())
     const dialog = screen.getByRole('dialog', { name: 'Give coins' })
     await user.click(within(dialog).getByRole('radio', { name: 'Vex' }))
     await user.type(within(dialog).getByRole('textbox', { name: 'Gold' }), '5')
@@ -535,7 +542,7 @@ describe('components/transfers/give-controls', () => {
 
     it('gives from the character at the table, through its seat, while it’s in the game', async () => {
       const user = await renderTable(tableView())
-      await user.click(screen.getByRole('button', { name: 'Give coins' }))
+      await user.click(coinsButton())
       const dialog = screen.getByRole('dialog', { name: 'Give coins' })
       await user.click(within(dialog).getByRole('button', { name: 'All Gold' }))
       await user.click(
@@ -556,12 +563,12 @@ describe('components/transfers/give-controls', () => {
 
     it('gives nothing from a character no longer in the game', async () => {
       await renderTable(tableView({ connected: false }))
-      expect(screen.queryByRole('button', { name: 'Give coins' })).toBeNull()
+      expect(queryCoinsButton()).toBeNull()
     })
 
     it('gives through the Gamemaster’s seat at the character, in its name', async () => {
       const user = await renderTable(tableView(), GM_SEAT)
-      await user.click(screen.getByRole('button', { name: 'Give coins' }))
+      await user.click(coinsButton())
       const dialog = screen.getByRole('dialog', { name: 'Give coins' })
       await user.type(
         within(dialog).getByRole('textbox', { name: 'Platinum' }),
