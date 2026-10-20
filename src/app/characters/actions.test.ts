@@ -7,12 +7,14 @@ import {
   markChatReadUpTo,
   openInvite,
   removeCharacter,
+  setManualDice,
 } from './actions'
 import {
   chooseCharacter,
   deleteCharacter,
   joinCampaign,
   markChatRead,
+  setCharacterManualDice,
 } from '@/db/characters'
 import { requireUser } from '@/lib/session'
 
@@ -27,6 +29,7 @@ jest.mock('@/db/characters', () => ({
   deleteCharacter: jest.fn(),
   joinCampaign: jest.fn(),
   markChatRead: jest.fn(),
+  setCharacterManualDice: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 
@@ -193,4 +196,49 @@ describe('app/characters/actions', () => {
       expect(markChatRead).toHaveBeenCalledTimes(1)
     })
   })
+})
+
+describe('app/characters/actions, typing in their own dice, from module 0.32.0', () => {
+  beforeEach(() => {
+    jest.mocked(requireUser).mockReset()
+    jest.mocked(setCharacterManualDice).mockReset()
+  })
+
+  it("remembers the signed-in player's choice for their character", async () => {
+    jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+
+    await setManualDice('char-1', true)
+    await setManualDice('char-1', false)
+
+    expect(setCharacterManualDice).toHaveBeenNthCalledWith(
+      1,
+      'user-1',
+      'char-1',
+      true,
+    )
+    expect(setCharacterManualDice).toHaveBeenNthCalledWith(
+      2,
+      'user-1',
+      'char-1',
+      false,
+    )
+  })
+
+  it('needs someone signed in', async () => {
+    jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+
+    await expect(setManualDice('char-1', true)).rejects.toThrow('NEXT_REDIRECT')
+    expect(setCharacterManualDice).not.toHaveBeenCalled()
+  })
+
+  it.each(['true', 1, undefined, {}])(
+    'ignores %p, which is no choice',
+    async on => {
+      jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+
+      await setManualDice('char-1', on as any)
+
+      expect(setCharacterManualDice).not.toHaveBeenCalled()
+    },
+  )
 })

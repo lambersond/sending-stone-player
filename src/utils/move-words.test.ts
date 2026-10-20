@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
-import { moveLabel, moveReasons, moveWords, thingsWords } from './move-words'
+import {
+  moveLabel,
+  moveReasons,
+  moveWords,
+  namesWords,
+  thingsWords,
+} from './move-words'
 import type { LocalMove } from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
 
@@ -208,5 +214,133 @@ describe('utils/move-words', () => {
         }),
       ).toBe('Not taken: it was called off in the game')
     })
+  })
+})
+
+describe('utils/move-words, a party’s sends and distributions, from module 0.32.0', () => {
+  const send: LocalMove = {
+    verb: 'send',
+    things: '2 gp',
+    other: 'Vex',
+    source: 'The Iron Company',
+  }
+  const distribute: LocalMove = {
+    verb: 'distribute',
+    things: '100 gp',
+    other: 'The Iron Company',
+    among: 'Bram, Lia, Thorin, and Vex',
+    each: '25 gp',
+  }
+  const gm = (move: LocalMove): LocalMove => ({ ...move, mover: 'Thorin' })
+
+  it('lists who shares a distribution as the module’s line does', () => {
+    expect(namesWords(['Bram', 'Lia', 'Thorin', 'Vex'])).toBe(
+      'Bram, Lia, Thorin, and Vex',
+    )
+    expect(namesWords(['Bram', 'Lia'])).toBe('Bram and Lia')
+    expect(namesWords(['Bram'])).toBe('Bram')
+  })
+
+  it('calls each kind of move what the Gamemaster’s page calls it', () => {
+    expect(moveLabel({ verb: 'give', things: '5 gp', other: 'Vex' })).toBe(
+      'Give 5 gp to Vex',
+    )
+    expect(
+      moveLabel({ verb: 'take', things: '1 Rope', other: 'The Iron Company' }),
+    ).toBe('Take 1 Rope from The Iron Company')
+    expect(moveLabel(send)).toBe('Send 2 gp from The Iron Company to Vex')
+    expect(moveLabel(distribute)).toBe(
+      'Distribute 100 gp from The Iron Company among Bram, Lia, Thorin, and Vex',
+    )
+  })
+
+  it.each([
+    ['player', 'your Gamemaster’s game'],
+    ['gm', 'your game'],
+  ] as const)('says where each stands for the %s', (role, game) => {
+    expect(moveWords(send, { status: 'sending' }, role)).toBe(
+      `Sending to ${game}…`,
+    )
+    expect(moveWords(distribute, { status: 'sending' }, role)).toBe(
+      `Sending to ${game}…`,
+    )
+    expect(moveWords(send, { status: 'rolling' }, role)).toBe(
+      `Sending it in ${game}…`,
+    )
+    expect(moveWords(distribute, { status: 'rolling' }, role)).toBe(
+      `Distributing it in ${game}…`,
+    )
+    expect(moveWords(send, state({ reason: 'unknown' }), role)).toBe(
+      'Not sent: that isn’t in the campaign any more',
+    )
+    expect(moveWords(distribute, state({ reason: 'not-owner' }), role)).toBe(
+      'Not distributed: you need Owner on the party in Foundry',
+    )
+    expect(moveWords(send, state({ reason: 'mystery' }), role)).toBe('Not sent')
+    expect(moveWords(distribute, state({ reason: 'mystery' }), role)).toBe(
+      'Not distributed',
+    )
+  })
+
+  it('says what was made, and who made it on the Gamemaster’s page', () => {
+    expect(moveWords(send, { status: 'done' }, 'player')).toBe(
+      'Sent 2 gp from The Iron Company to Vex',
+    )
+    expect(moveWords(distribute, { status: 'done' }, 'player')).toBe(
+      'Distributed 100 gp among Bram, Lia, Thorin, and Vex (25 gp each)',
+    )
+    expect(moveWords(gm(send), { status: 'done' }, 'gm')).toBe(
+      'Thorin sent 2 gp from The Iron Company to Vex',
+    )
+    expect(moveWords(gm(distribute), { status: 'done' }, 'gm')).toBe(
+      'Thorin distributed 100 gp among Bram, Lia, Thorin, and Vex (25 gp each)',
+    )
+  })
+
+  it('says a send or distribution made in part', () => {
+    const moved = {
+      from: 'groupIronCo01',
+      to: null,
+      items: [],
+      currency: { gp: 25 },
+      among: ['actorBram001'],
+    }
+    expect(
+      moveWords(
+        distribute,
+        state({ reason: 'error', transfer: moved }),
+        'player',
+      ),
+    ).toBe('Partly distributed: something went wrong')
+    expect(
+      moveWords(
+        send,
+        state({ reason: 'error', transfer: { ...moved, to: 'actorVex0001' } }),
+        'player',
+      ),
+    ).toBe('Partly sent: something went wrong')
+  })
+
+  it.each(['give', 'take', 'send', 'distribute'] as const)(
+    'says members and split for a %s, for either seat',
+    verb => {
+      for (const role of ['player', 'gm'] as const) {
+        expect(moveReasons(role, verb)).toMatchObject({
+          members: 'the party’s members have changed. Try again',
+          split: 'there isn’t a whole coin for each of them',
+        })
+      }
+    },
+  )
+
+  it('says the party has too few for a take, a send or a distribution, and the giver for a give', () => {
+    for (const verb of ['take', 'send', 'distribute'] as const) {
+      expect(moveReasons('player', verb).short).toBe(
+        'the party hasn’t that many',
+      )
+      expect(moveReasons('gm', verb).short).toBe('the party hasn’t that many')
+    }
+    expect(moveReasons('player', 'give').short).toBe('you haven’t that many')
+    expect(moveReasons('gm', 'give').short).toBe('they haven’t that many')
   })
 })

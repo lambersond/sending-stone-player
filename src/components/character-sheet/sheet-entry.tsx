@@ -4,8 +4,10 @@ import { Fragment, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { FavoriteStar, useFavorite } from './favorite-mark'
+import { usePressMenu } from './press-menu'
 import { SheetText } from './sheet-text'
 import type { DescriptionOrigin } from './description-actions'
+import type { MenuPoint } from './roll-menu'
 
 type Props = {
   characterId: string
@@ -38,6 +40,11 @@ type Props = {
   muted?: boolean
   /** What it's listed by among favorites, such as "item:<id>", to be marked if it's one. */
   favoriteKey?: string
+  /**
+   * Opens what else is done with it, such as Send to…: on a right-click, a long-press, or the
+   * keyboard's context menu key.
+   */
+  onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
 }
 
 /**
@@ -60,9 +67,11 @@ export function SheetEntry({
   children,
   muted = false,
   favoriteKey,
+  onMenu,
 }: Readonly<Props>) {
   const [open, setOpen] = useState(false)
   const favorite = useFavorite(favoriteKey)
+  const press = usePressMenu(onMenu)
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
@@ -89,7 +98,7 @@ export function SheetEntry({
   if (!text && !meta && facts.length === 0 && !lead && !children) {
     return (
       <li>
-        <div className={rowClass}>
+        <div className={clsx(rowClass, press.className)} {...press.props}>
           {row}
           <span aria-hidden className='size-4 shrink-0' />
         </div>
@@ -103,7 +112,9 @@ export function SheetEntry({
           className={clsx(
             rowClass,
             'cursor-pointer list-none transition-colors hover:bg-primary/5 [&::-webkit-details-marker]:hidden',
+            press.className,
           )}
+          {...press.props}
         >
           {row}
           {/* By its own state: an entry can sit open inside another, such as a pouch in a

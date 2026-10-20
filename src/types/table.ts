@@ -295,6 +295,11 @@ export type TableView = {
    * the campaign lets them be moved, its game is taking moves, and the character is in its roster.
    */
   moves?: TableMoves
+  /**
+   * For the player's seat only, from module 0.32.0: whether they may type in their own dice for
+   * this character here, and whether they chose to. Unset for the Gamemaster's seat.
+   */
+  manualDice?: { offered: boolean; on: boolean }
 }
 
 /** Where a seat may move its character's items and coins to. Never anyone's access. */

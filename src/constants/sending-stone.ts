@@ -148,6 +148,9 @@ export const MAX_SPEND = 999
 export const MOST_MOVED = 10_000_000
 export const MOST_MOVED_ITEMS = 10
 
+/** The most characters one distribution shares a coin among, from module 0.32.0. */
+export const MOST_AMONG = 20
+
 /**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
  * player changed, with more dice, another die or every die at its highest, and from module 0.19.0
@@ -160,7 +163,7 @@ export const MOST_MOVED_ITEMS = 10
  * request's `self` asks (module 0.22.0); and make the rolls a campaign's Gamemaster makes here as
  * one of its characters, marked as theirs (module 0.23.0), which only the Gamemaster's view reads;
  * and let players enter their own dice's results, as the Manual Dice module does (module 0.26.0),
- * which no one may yet, so that the sheet's settings only say it's coming.
+ * each character's player where its roster entry says they may too (module 0.32.0).
  */
 export const ROLL_FEATURES = [
   'modifiers',
@@ -207,6 +210,15 @@ export const FOUNDRY_SETTINGS = 1
  * fetches moves alone, with rolls off, only then.
  */
 export const TRANSFERS = 1
+
+/**
+ * What else the Gamemaster's module does with moves, as its hello says, from module 0.32.0: send a
+ * party's items and coins elsewhere, by a player whose Foundry user owns it, to any of the
+ * campaign's characters or another party they own, and party to party (`partySends`); and share a
+ * party's coin of one kind among its members that are the campaign's characters (`distribute`).
+ */
+export const TRANSFER_FEATURES = ['partySends', 'distribute'] as const
+export type TransferFeature = (typeof TRANSFER_FEATURES)[number]
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

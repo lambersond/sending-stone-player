@@ -30,16 +30,16 @@ import { Charging } from '@/components/character-sheet/uses-button'
 import { EmptyState } from '@/components/game-table/empty-state'
 import { MoveStatus } from '@/components/transfers/move-status'
 import {
-  TakeDialog,
-  takeControls,
-  type TakeInto,
-  type Taking,
-} from '@/components/transfers/take-controls'
+  partyControls,
+  PartyMoveDialog,
+  type PartyMoving,
+} from '@/components/transfers/party-controls'
 import { NO_TRANSFERS, Transferring } from '@/components/transfers/transferring'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { useTransfers } from '@/hooks/use-transfers'
 import { megabytes } from '@/utils/format-amount'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
+import type { TakeInto } from '@/components/transfers/take-controls'
 import type { PartyState } from '@/hooks/use-party-sheet'
 import type { TableSeat } from '@/types/character'
 import type { PartyView } from '@/types/party'
@@ -51,7 +51,9 @@ import type { PartyView } from '@/types/party'
  * by itself, wherever it's placed: nothing in it spends, stars, ends or rolls, and its
  * descriptions load through the party's own API. From module 0.31.0, a seat that may take from it
  * takes items and coins from its stash, into the character it's given, through that character's
- * API: never a character's own Give, which it resets as it resets the rest.
+ * API: never a character's own Give, which it resets as it resets the rest. From module 0.32.0's
+ * feedback, the seat at a character may also send its things to anyone but itself, give it the
+ * character's coins, and share one of its coins among its characters, each made as that character.
  */
 
 type Props = {
@@ -86,26 +88,48 @@ export function PartySheet({
   const transfers = useTransfers({ role })
   // Held here, not in the row, so that a dialog open stays open as its row changes, or its Take
   // goes, as when the game stops taking moves: what's sent then says why it wasn't taken. What it
-  // was opened for is kept as it closes, as it's closed rather than removed.
-  const [taking, setTaking] = useState<Taking>()
+  // was opened for, and with whom, is kept as it closes, as it's closed rather than removed: a
+  // distribution sent after the party's members changed is refused, never shared among others
+  // than the dialog said.
+  const [moving, setMoving] = useState<PartyMoving>()
   const [open, setOpen] = useState(false)
   const { group } = view
   const takes = !!view.moves && !!takeInto
+  // What else a seat at a character may do with it, from module 0.32.0; the Gamemaster's own
+  // party page takes alone.
+  const own = takeInto?.kind === 'own'
   const receivers = view.moves?.characters
+  const recipients = view.moves?.send
+  const sends =
+    takes &&
+    own &&
+    !!recipients &&
+    recipients.parties.length + recipients.characters.length > 0
+  const among = useMemo(
+    () => (takes && own ? (view.moves?.distribute ?? []) : []),
+    [takes, own, view.moves?.distribute],
+  )
+  const gives =
+    takes && own && role === 'player' ? view.moves?.give?.currency : undefined
   const { pending, take } = transfers
   const controls = useMemo(
     () =>
       takes
-        ? takeControls({
+        ? partyControls({
             group,
             pending,
-            onTake: what => {
-              setTaking({ what, ...(receivers && { receivers }) })
+            sends,
+            ...(recipients && { recipients }),
+            ...(receivers && { receivers }),
+            ...(gives && { gives }),
+            among,
+            onOpen: opened => {
+              setMoving(opened)
               setOpen(true)
             },
           })
         : NO_TRANSFERS,
-    [takes, group, pending, receivers],
+    [takes, group, pending, sends, recipients, receivers, gives, among],
   )
   const close = useCallback(() => setOpen(false), [])
   // A move sent closes its dialog on a Take that waits for it, which can't be given focus back:
@@ -149,12 +173,13 @@ export function PartySheet({
                         }
                         dialog={
                           takeInto && (
-                            <TakeDialog
+                            <PartyMoveDialog
                               open={open}
-                              taking={taking}
+                              moving={moving}
                               takeInto={takeInto}
                               group={group}
                               role={role}
+                              view={view}
                               onClose={close}
                               onSend={send}
                             />
@@ -321,7 +346,11 @@ function PartyContents({
                     <Holdings inventory={inventory} />
                   )}
                   {/* Without rows, nothing in it rolls or is used. */}
-                  <InventoryList characterId={textsKey} inventory={inventory} />
+                  <InventoryList
+                    characterId={textsKey}
+                    inventory={inventory}
+                    idPrefix={`${ids}-inventory`}
+                  />
                 </>
               ) : (
                 <Description

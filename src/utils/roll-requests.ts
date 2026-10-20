@@ -79,7 +79,9 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * (`not-owner`); an item isn't held there any more, or a coin isn't on the sheet (`gone`); there
  * isn't as much of it there (`short`); part of a container that holds anything is asked for, as a
  * container moves whole (`container`); or an item is asked for with the container it's in
- * (`nested`).
+ * (`nested`). From module 0.32.0, for a distribution of a party's coin: those it's shared among
+ * aren't the party's members that are the campaign's characters (`members`), or there isn't a
+ * whole coin for each of them (`split`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -114,6 +116,8 @@ export type RollRefusal =
   | 'not-owner'
   | 'container'
   | 'nested'
+  | 'members'
+  | 'split'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -387,6 +391,10 @@ function checkAttack(
       id === input.item && !!attackId && attackId === input.activity,
   )
   if (!action || !action.identified) return 'unknown'
+  // A third d20 only where dnd5e gives the attack Elven Accuracy, as its sheet says.
+  if (input.dice[0]?.results.length === 3 && action.elvenAccuracy !== true) {
+    return 'dice'
+  }
   const casts = castIndex(sheet)
   const slot = checkSlot(input, action, sheet, casts)
   if (slot) return slot

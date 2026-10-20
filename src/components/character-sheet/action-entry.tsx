@@ -49,6 +49,7 @@ import {
 } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { NONE_LEFT } from './hit-dice'
+import { usePressMenu } from './press-menu'
 import { RollButton } from './roll-button'
 import { REASONS } from './roll-tray'
 import { EntryIcon, joinParts } from './sheet-entry'
@@ -183,6 +184,11 @@ export type EntryLook = {
   uses?: SheetUses | null
   /** Shown once it's open, after its enchantments, such as Give… */
   moves?: ReactNode
+  /**
+   * Opens what else is done with it, such as Send to…: on a right-click, a long-press, or the
+   * keyboard's context menu key.
+   */
+  onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
 }
 
 /**
@@ -427,6 +433,8 @@ export function ActionEntry({
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
+  // Its name opens its own menu, where it has one; what it rolls keeps the roll's.
+  const press = usePressMenu(look.onMenu)
   const view = viewOf(action, rows.spellbook, rows.use)
   const cast = castOf(action, rows.casts)
   const others = otherActivities(action, rows.spellbook)
@@ -455,6 +463,7 @@ export function ActionEntry({
           aria-expanded={open}
           aria-controls={open ? body : undefined}
           onClick={() => setOpen(!open)}
+          {...press.props}
           className={clsx(
             'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
             (view.spent ||
@@ -462,6 +471,7 @@ export function ActionEntry({
               cast?.short ||
               action.forward?.short) &&
               'opacity-60',
+            press.className,
           )}
         >
           <EntryIcon

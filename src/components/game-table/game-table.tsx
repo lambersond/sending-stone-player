@@ -24,16 +24,16 @@ import { CombatTracker } from './combat-tracker'
 import { EmptyState } from './empty-state'
 import { FullscreenButton } from './fullscreen-button'
 import { LiveStatus, type LiveState } from './live-status'
-import { PartyButton } from './party-button'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
+import { PartySheetList } from '@/components/character-sheet/party-sheets'
 import { ConfirmDialog } from '@/components/modal'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
 import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { TableApiContext } from '@/hooks/use-table-api'
-import { useTableView } from '@/hooks/use-table-view'
+import { POLL_INTERVAL, useTableView } from '@/hooks/use-table-view'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { megabytes } from '@/utils/format-amount'
 import { gameHost } from '@/utils/game-host'
@@ -81,6 +81,11 @@ type Props = {
    * page only: the Gamemaster never moves their place in it.
    */
   markChatRead?: (readAt: string) => Promise<void>
+  /**
+   * Remembers whether the player types in their own dice for this character, on every device. A
+   * player's page only.
+   */
+  setManualDice?: (on: boolean) => Promise<void>
 }
 
 /**
@@ -97,6 +102,7 @@ export function GameTable({
   chooseActor,
   deleteCharacter,
   markChatRead,
+  setManualDice,
 }: Readonly<Props>) {
   const role = given?.role ?? 'player'
   const api = given?.api ?? `/api/characters/${character.id}`
@@ -161,6 +167,39 @@ export function GameTable({
     markChatRead(seenUpTo).catch(() => {})
   }, [gm, seenUpTo, markChatRead])
 
+  // Whether the player types in their own dice, as they chose on any device (module 0.32.0): the
+  // player's change, until a view agrees with it; one that disagrees, coming a poll after the
+  // save settled, is another device's later choice.
+  const [diceChoice, setDiceChoice] = useState<{
+    on: boolean
+    settled?: number
+  }>()
+  const stored = view.manualDice?.on === true
+  const typing = diceChoice?.on ?? stored
+  useEffect(() => {
+    const told = view.manualDice?.on === true
+    setDiceChoice(held => {
+      if (!held || held.on === told) return
+      // A view polled before the save settled may still say what was stored before it.
+      const later =
+        held.settled !== undefined && Date.now() - held.settled > POLL_INTERVAL
+      return later ? undefined : held
+    })
+  }, [view])
+  const onManualDice = (next: boolean) => {
+    if (!setManualDice) return
+    const made = { on: next }
+    setDiceChoice(made)
+    setManualDice(next).then(
+      () =>
+        setDiceChoice(held =>
+          held === made ? { ...made, settled: Date.now() } : held,
+        ),
+      // Not saved: the switch shows what's stored again.
+      () => setDiceChoice(held => (held === made ? undefined : held)),
+    )
+  }
+
   const myTurn = isMyTurn(view.combat)
   // The saves the game asks of the character, which its tab marks while they wait.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
@@ -208,6 +247,11 @@ export function GameTable({
     )
   } else {
     const hasSheet = view.sheet !== undefined
+    // The party sheets open from the sheet's Inventory tab, or, with no sheet, from under why
+    // there's none: either way the Character pane shows on a wide screen too.
+    const parties =
+      view.groups && view.groups.length > 0 ? view.groups : undefined
+    const paneShown = hasSheet || parties !== undefined
     table = (
       <div className='flex min-h-0 flex-1'>
         {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
@@ -216,7 +260,7 @@ export function GameTable({
           label='Character'
           className={clsx(
             tab === 'character' ? 'flex' : 'hidden',
-            hasSheet ? 'lg:flex' : 'lg:hidden',
+            paneShown ? 'lg:flex' : 'lg:hidden',
           )}
         >
           {view.sheet ? (
@@ -234,6 +278,17 @@ export function GameTable({
               // Nor its items and coins moved there (module 0.31.0), by either seat.
               moves={view.connected ? view.moves : undefined}
               actorId={character.actorId ?? undefined}
+              // The party sheets it may open, on its Inventory tab (module 0.30.0).
+              parties={
+                view.groups && { groups: view.groups, onOpen: setPartyOpen }
+              }
+              // Whether its player types in their own dice, where the game lets them (module
+              // 0.32.0): never on the Gamemaster's page, which has nowhere to remember it.
+              manualDice={
+                view.connected && view.manualDice?.offered && setManualDice
+                  ? { on: typing, onChange: onManualDice }
+                  : undefined
+              }
             />
           ) : (
             <Scroller>
@@ -243,6 +298,11 @@ export function GameTable({
                 told={words.told}
                 coming={words.noSheet}
               />
+              {parties && (
+                <div className='mx-auto w-full max-w-md px-4 pb-8'>
+                  <PartySheetList groups={parties} onOpen={setPartyOpen} />
+                </div>
+              )}
             </Scroller>
           )}
         </Pane>
@@ -252,7 +312,7 @@ export function GameTable({
           className={clsx(
             'min-h-0 min-w-0 flex-1 flex-col lg:flex',
             tab === 'character' ? 'hidden' : 'flex',
-            hasSheet &&
+            paneShown &&
               'lg:w-[clamp(320px,40%,500px)] lg:flex-none lg:border-l lg:border-border',
           )}
         >
@@ -380,9 +440,6 @@ export function GameTable({
             </div>
             <div className='flex shrink-0 items-center gap-1'>
               <LiveStatus state={liveState(playing, view, connection)} />
-              {view.groups && view.groups.length > 0 && (
-                <PartyButton groups={view.groups} onOpen={setPartyOpen} />
-              )}
               <FullscreenButton />
               {!gm && deleteCharacter && (
                 <ConfirmDialog

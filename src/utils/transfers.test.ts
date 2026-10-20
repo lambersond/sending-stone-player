@@ -1,5 +1,10 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { checkEnds, checkHoldings, transfersAvailable } from './transfers'
+import {
+  checkAmong,
+  checkEnds,
+  checkHoldings,
+  transfersAvailable,
+} from './transfers'
 import { ironCompany, partyStash, sheetItem } from '@/mocks/sending-stone'
 
 const THORIN = 'actorThorin1'
@@ -331,6 +336,206 @@ describe('utils/transfers', () => {
           stash,
         ),
       ).toBe('short')
+    })
+  })
+})
+
+describe('utils/transfers, from module 0.32.0', () => {
+  /** Thorin's player owns The Iron Company and the Wardens, and only observes the Watch. */
+  const WARDENS = 'groupWarden1'
+  const WATCH = 'groupWatch01'
+  const sending = [
+    ...groups,
+    ironCompany({
+      id: WARDENS,
+      name: 'Wardens of the Vale',
+      primary: false,
+      access: { [THORIN]: 'owner', [VEX]: 'owner' },
+    }),
+    ironCompany({
+      id: WATCH,
+      name: 'The Night Watch',
+      primary: false,
+      access: { [THORIN]: 'observer' },
+    }),
+  ]
+  const ON = ['partySends', 'distribute'] as const
+  const move = (
+    seat: ReturnType<typeof player> | ReturnType<typeof gm>,
+    transfer: { from: string; to?: string; among?: string[] },
+    features: readonly string[] = ON,
+  ) => checkEnds(seat, transfer, roster, sending, features)
+
+  describe('checkEnds', () => {
+    it('lets an Owner send a party’s things to another character with partySends, as 0.31.0 never did', () => {
+      expect(move(player(), { from: COMPANY, to: VEX })).toBeUndefined()
+      expect(move(player(), { from: COMPANY, to: BALIN })).toBeUndefined()
+      expect(move(player(), { from: COMPANY, to: VEX }, [])).toBe('not-yours')
+    })
+
+    it('lets an Owner of both send party to party with partySends, and refuses it without', () => {
+      expect(move(player(), { from: COMPANY, to: WARDENS })).toBeUndefined()
+      expect(move(player(), { from: WARDENS, to: COMPANY })).toBeUndefined()
+      expect(move(player(), { from: COMPANY, to: WARDENS }, [])).toBe(
+        'not-yours',
+      )
+    })
+
+    it('needs Owner on the party it goes to as on the one it comes from', () => {
+      // Row 9: the Watch, which Thorin's player only observes.
+      expect(move(player(), { from: COMPANY, to: WATCH })).toBe('not-owner')
+      expect(move(player(), { from: THORIN, to: WATCH })).toBe('not-owner')
+      // Row 8: from one they only observe.
+      expect(move(player(), { from: WATCH, to: THORIN })).toBe('not-owner')
+      expect(move(player(VEX), { from: COMPANY, to: VEX })).toBe('not-owner')
+    })
+
+    it("says a party the player can't see isn't there, as an end or among, whatever else", () => {
+      expect(move(player(), { from: COMPANY, to: ORDER })).toBe('unknown')
+      expect(move(player(), { from: ORDER, to: THORIN })).toBe('unknown')
+      expect(move(player(), { from: COMPANY, to: madeUp(ORDER) })).toBe(
+        'unknown',
+      )
+    })
+
+    it('takes a distribution from a party the player owns, among characters alone', () => {
+      expect(
+        move(player(), { from: COMPANY, among: [THORIN, VEX, BALIN] }),
+      ).toBeUndefined()
+      expect(move(player(), { from: WATCH, among: [THORIN] })).toBe('not-owner')
+      expect(move(player(VEX), { from: COMPANY, among: [THORIN] })).toBe(
+        'not-owner',
+      )
+    })
+
+    it('answers a party, seen or not, or an NPC, among those shared among as unknown alike, for every seat', () => {
+      for (const seat of [player(), gm(VEX)]) {
+        for (const odd of [WARDENS, ORDER, madeUp(ORDER), 'actorGrumble']) {
+          expect(move(seat, { from: COMPANY, among: [THORIN, odd] })).toBe(
+            'unknown',
+          )
+        }
+      }
+    })
+
+    it('shares only from a party', () => {
+      expect(move(player(), { from: THORIN, among: [VEX] })).toBe('not-yours')
+      expect(move(gm(), { from: THORIN, among: [VEX] })).toBe('not-yours')
+    })
+
+    it('makes a move only as one of the campaign’s characters', () => {
+      expect(move(player(COMPANY), { from: THORIN, to: VEX })).toBe('not-yours')
+      expect(move(gm(COMPANY), { from: COMPANY, to: THORIN })).toBe('not-yours')
+      expect(move(gm('actorStranger'), { from: COMPANY, to: THORIN })).toBe(
+        'not-yours',
+      )
+      expect(move(player(null), { from: THORIN, to: VEX })).toBe('not-yours')
+    })
+
+    it('moves a character’s things only as one of its ends, the Gamemaster’s too, with or without partySends', () => {
+      // Row 4: the Gamemaster on Vex's page, moving Thorin's coins to Balin.
+      for (const features of [ON, []]) {
+        expect(move(gm(VEX), { from: THORIN, to: BALIN }, features)).toBe(
+          'not-yours',
+        )
+        expect(move(player(VEX), { from: THORIN, to: BALIN }, features)).toBe(
+          'not-yours',
+        )
+      }
+      // Row 7: a player's from their own alone, even into it.
+      expect(move(player(), { from: VEX, to: THORIN })).toBe('not-yours')
+    })
+
+    it('lets the Gamemaster send a party’s things anywhere, as any character, with partySends', () => {
+      expect(move(gm(VEX), { from: COMPANY, to: ORDER })).toBeUndefined()
+      expect(move(gm(VEX), { from: COMPANY, to: THORIN })).toBeUndefined()
+      expect(move(gm(VEX), { from: ORDER, among: [THORIN] })).toBeUndefined()
+      // 0.31.0's rules without it.
+      expect(move(gm(VEX), { from: COMPANY, to: ORDER }, [])).toBe('not-yours')
+      expect(move(gm(VEX), { from: COMPANY, to: THORIN }, [])).toBe('not-yours')
+      expect(move(gm(VEX), { from: COMPANY, to: VEX }, [])).toBeUndefined()
+    })
+
+    it('answers every move as 0.31.0 did without partySends', () => {
+      for (const seat of [player(), player(VEX), gm(), gm(VEX)]) {
+        for (const [from, to] of [
+          [COMPANY, THORIN],
+          [THORIN, COMPANY],
+          [THORIN, VEX],
+          [VEX, BALIN],
+          [COMPANY, VEX],
+          [COMPANY, ORDER],
+          [ORDER, THORIN],
+        ]) {
+          expect(checkEnds(seat, { from, to }, roster, groups, [])).toBe(
+            checkEnds(seat, { from, to }, roster, groups),
+          )
+        }
+      }
+    })
+  })
+
+  describe('checkAmong', () => {
+    const sheet = {
+      members: [
+        { id: VEX, character: true },
+        { id: THORIN, character: true },
+        { id: 'grumble', character: false },
+      ],
+    }
+
+    it('takes the party’s members that are the campaign’s characters, in any order', () => {
+      expect(checkAmong({ among: [THORIN, VEX] }, sheet)).toBeUndefined()
+      expect(checkAmong({ among: [VEX, THORIN] }, sheet)).toBeUndefined()
+    })
+
+    it.each([
+      ['missing one', [THORIN]],
+      ['with one more', [THORIN, VEX, BALIN]],
+      ['with a member that is no campaign character', [THORIN, VEX, 'grumble']],
+      ['one in place of another', [THORIN, BALIN]],
+    ])('refuses them %s as members', (_name, among) => {
+      expect(checkAmong({ among }, sheet)).toBe('members')
+    })
+
+    it('refuses any without the party’s sheet', () => {
+      // eslint-disable-next-line unicorn/no-useless-undefined -- no sheet, as the module sent none
+      expect(checkAmong({ among: [THORIN] }, undefined)).toBe('members')
+      expect(checkAmong({ among: [THORIN] }, {})).toBe('members')
+    })
+  })
+
+  describe('checkHoldings, a distribution', () => {
+    const stash = {
+      inventory: {
+        ...partyStash(),
+        currency: [
+          { id: 'gp', label: 'Gold', abbreviation: 'gp', value: 103 },
+          { id: 'cp', label: 'Copper', abbreviation: 'cp', value: 3 },
+        ],
+      },
+    }
+    const four = [THORIN, VEX, BALIN, 'actorBram001']
+
+    it('takes a whole coin or more for each', () => {
+      expect(
+        checkHoldings({ among: four, currency: { gp: 103 } }, stash),
+      ).toBeUndefined()
+      expect(
+        checkHoldings({ among: four.slice(0, 3), currency: { cp: 3 } }, stash),
+      ).toBeUndefined()
+    })
+
+    it('refuses fewer coins than those it’s shared among as split, after short', () => {
+      expect(checkHoldings({ among: four, currency: { cp: 3 } }, stash)).toBe(
+        'split',
+      )
+      expect(checkHoldings({ among: four, currency: { gp: 104 } }, stash)).toBe(
+        'short',
+      )
+      expect(checkHoldings({ among: four, currency: { cp: 4 } }, stash)).toBe(
+        'short',
+      )
     })
   })
 })

@@ -90,6 +90,8 @@ export function activityAction(
     // The check it asks for, and what one that uses another spends.
     ...(activity.check && { check: activity.check }),
     ...(activity.forward && { forward: activity.forward }),
+    // A third d20 with advantage, where dnd5e gives its attack Elven Accuracy.
+    ...(activity.elvenAccuracy && { elvenAccuracy: true as const }),
     ...(activity.activationType !== undefined && {
       activationType: activity.activationType,
     }),
@@ -259,6 +261,8 @@ function rollsOf(
     // The check it asks for, and what it spends where it uses another activity.
     ...(entry.check && { check: entry.check }),
     ...(entry.forward && { forward: entry.forward }),
+    // A third d20 with advantage, where dnd5e gives its attack Elven Accuracy.
+    ...(entry.elvenAccuracy && { elvenAccuracy: true as const }),
     // Each of its activities, for one with more than one, made in the game only while it may be.
     ...(activities.length > 1 && {
       activities: inGame

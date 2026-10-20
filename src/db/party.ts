@@ -1,4 +1,5 @@
 import prisma from '@/clients/prisma'
+import { MOST_AMONG } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
 import { inventoryView, portraitUrl } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
@@ -10,7 +11,7 @@ import type {
   PartyView,
   TableGroup,
 } from '@/types/party'
-import type { ConnectedCharacter } from '@/types/sending-stone'
+import type { ConnectedCharacter, SheetInventory } from '@/types/sending-stone'
 import type { TableMoves } from '@/types/table'
 
 // Who may see a campaign's party sheets (module 0.30.0), as Foundry shows them: a player whose
@@ -164,6 +165,7 @@ const campaignSelect = {
   ownerId: true,
   groups: true,
   transfersEnabled: true,
+  transferFeatures: true,
   bridgePolledAt: true,
 } as const
 
@@ -256,15 +258,37 @@ export async function getGroupView(
   const sheetVersion = held?.updatedAt.toISOString()
   const withheld = entry.sheetWithheld
   // Who the Gamemaster may take into, from module 0.31.0: any of the campaign's characters, which
-  // only their view reads.
+  // only their view reads; and from module 0.32.0, who the party's things may be sent to, any of
+  // them too. A player's view gives their character's coins, which they may give the party.
   const moves = takes(seat, campaign, entry)
-  const roster =
-    moves && seat.role === 'gm'
-      ? await prisma.campaign.findUnique({
+  const sends = campaign.transferFeatures.includes('partySends')
+  const shares = campaign.transferFeatures.includes('distribute')
+  const ownActor = seat.role === 'player' ? seat.actorId : undefined
+  const [roster, ownSheet] = await Promise.all([
+    moves && (seat.role === 'gm' || sends)
+      ? prisma.campaign.findUnique({
           where: { id: campaign.id },
           select: { characters: true },
         })
+      : undefined,
+    moves && ownActor
+      ? prisma.actorSheet.findUnique({
+          where: {
+            campaignActor: { campaignId: campaign.id, actorId: ownActor },
+          },
+          select: { data: true },
+        })
+      : undefined,
+  ])
+  const characters =
+    roster && characterEnds(characterRoster(roster.characters), campaign.origin)
+  const among =
+    shares && held
+      ? distributeAmong(held.data as unknown as GroupSheet, campaign.origin)
       : undefined
+  const coins = (
+    ownSheet?.data as unknown as { inventory?: SheetInventory } | null
+  )?.inventory?.currency
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -292,16 +316,65 @@ export async function getGroupView(
         private: true as const,
       }),
     ...(moves && {
-      moves: roster
-        ? {
-            characters: characterEnds(
-              characterRoster(roster.characters),
-              campaign.origin,
-            ),
-          }
-        : {},
+      moves: {
+        ...(seat.role === 'gm' && characters && { characters }),
+        ...(sends &&
+          characters && {
+            send: {
+              parties: sendParties(
+                seat,
+                campaign.groups,
+                entry,
+                campaign.origin,
+              ),
+              characters,
+            },
+          }),
+        ...(among && { distribute: among }),
+        ...(coins && { give: { currency: coins } }),
+      },
     }),
   }
+}
+
+/**
+ * The other parties a party's things may be sent to, from module 0.32.0: for a player, those
+ * their Foundry user owns; for the Gamemaster, every other one listed; the primary first. Never
+ * the party itself, nor anyone's access.
+ */
+function sendParties(
+  seat: PartySeat,
+  groups: unknown,
+  entry: GroupEntry,
+  origin: string,
+): TableGroup[] {
+  return groupRoster(groups)
+    .filter(
+      other =>
+        other.id !== entry.id &&
+        (seat.role === 'gm' || owns(other, seat.actorId)),
+    )
+    .toSorted((a, b) => Number(b.primary === true) - Number(a.primary === true))
+    .map(other => tableGroup(other, origin))
+}
+
+/**
+ * Who a party's coin is distributed among, from module 0.32.0: its members that are the campaign's
+ * characters, as its sheet was last sent, in its order, by name and portrait only; none where it
+ * has none, or more than one distribution shares among.
+ */
+function distributeAmong(
+  sheet: GroupSheet,
+  origin: string,
+): TableMoves['characters'] | undefined {
+  const members = (sheet.members ?? []).filter(
+    ({ character }) => character === true,
+  )
+  if (members.length === 0 || members.length > MOST_AMONG) return
+  return members.map(({ id, name, img }) => {
+    const portrait = portraitUrl(img, origin)
+    return { id, name, ...(portrait && { portrait }) }
+  })
 }
 
 /** A campaign's characters, as its hello listed them: none where there's nothing to read. */

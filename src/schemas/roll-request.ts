@@ -8,6 +8,7 @@ import {
   MAX_ROLL_LABEL,
   MAX_SPEND,
   MAX_USE_TARGETS,
+  MOST_AMONG,
   MOST_HIT_DICE,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
@@ -115,12 +116,18 @@ const MOST_COINS = 10
 /**
  * Items and coins moved, from module 0.31.0: from one end to another, each a campaign character
  * or party by its Foundry id, one to ten items, each once and by how many, or one to ten kinds of
- * coin, or both. A coin of none isn't sent.
+ * coin, or both. A coin of none isn't sent. From module 0.32.0, or a distribution: one kind of a
+ * party's coin shared among its characters, `among`, in place of `to`.
  */
 const transferSchema = z
   .strictObject({
     from: z.string().regex(FOUNDRY_ID),
-    to: z.string().regex(FOUNDRY_ID),
+    to: z.string().regex(FOUNDRY_ID).optional(),
+    among: z
+      .array(z.string().regex(FOUNDRY_ID))
+      .min(1)
+      .max(MOST_AMONG)
+      .optional(),
     items: z
       .array(
         z.strictObject({
@@ -136,7 +143,45 @@ const transferSchema = z
       .optional(),
   })
   .superRefine((transfer, context) => {
-    if (transfer.from === transfer.to) {
+    const { to, among } = transfer
+    if ((to === undefined) === (among === undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['to'],
+        message: 'A move goes to one end, or is shared among characters',
+      })
+    }
+    if (among) {
+      if (new Set(among).size < among.length) {
+        context.addIssue({
+          code: 'custom',
+          path: ['among'],
+          message: 'Each character is given one share',
+        })
+      }
+      if (among.includes(transfer.from)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['among'],
+          message: "A party doesn't share with itself",
+        })
+      }
+      if (transfer.items !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['items'],
+          message: 'Only coins are shared',
+        })
+      }
+      if (Object.keys(transfer.currency ?? {}).length !== 1) {
+        context.addIssue({
+          code: 'custom',
+          path: ['currency'],
+          message: 'One kind of coin is shared at a time',
+        })
+      }
+    }
+    if (to !== undefined && transfer.from === to) {
       context.addIssue({
         code: 'custom',
         path: ['to'],
@@ -159,7 +204,11 @@ const transferSchema = z
         message: 'From one to ten kinds of coin',
       })
     }
-    if (transfer.items === undefined && transfer.currency === undefined) {
+    if (
+      to !== undefined &&
+      transfer.items === undefined &&
+      transfer.currency === undefined
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['items'],
@@ -238,7 +287,9 @@ const rolledDiceSchema = z.strictObject({
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
  * all, and throw those of each size together, in the same order; a feature's own
  * formula names its item and activity, and throws the dice its formula does, which are checked
- * against it when it's asked for.
+ * against it when it's asked for. Any roll with dice may say its player typed them in from their
+ * own dice, `typed`, from module 0.32.0; an attack with advantage may throw three d20s, for Elven
+ * Accuracy.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -293,6 +344,7 @@ export const rollRequestSchema = z
     inspiration: z.enum(['use', 'gain']).optional(),
     transfer: transferSchema.optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
+    typed: z.literal(true).optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
@@ -570,14 +622,18 @@ export const rollRequestSchema = z
       }
       return
     }
-    const expected = expectedDice(request.mode, request.extras as ExtraTerm[])
+    const expected = expectedDice(
+      request.mode,
+      request.extras as ExtraTerm[],
+      request.kind,
+    )
     const { dice } = request
     const matches =
       dice.length === expected.length &&
       dice.every(
         ({ faces, results }, index) =>
           faces === expected[index].faces &&
-          results.length === expected[index].count &&
+          expected[index].counts.includes(results.length) &&
           results.every(result => result >= 1 && result <= faces),
       )
     if (!matches) {
@@ -615,15 +671,22 @@ function throwsHitDice(
   )
 }
 
-/** The dice a roll throws, in order: its d20s, then each added term's. */
+/**
+ * The dice a roll throws, in order, with how many of each it may: its d20s, then each added term's.
+ * An attack with advantage may throw a third d20, for Elven Accuracy, which its action is checked
+ * for when it's taken.
+ */
 function expectedDice(
   mode: -1 | 0 | 1,
   extras: ExtraTerm[],
-): { faces: number; count: number }[] {
+  kind: RollRequestInput['kind'],
+): { faces: number; counts: number[] }[] {
+  let d20s = [mode === 0 ? 1 : 2]
+  if (kind === 'attack' && mode === 1) d20s = [2, 3]
   return [
-    { faces: 20, count: mode === 0 ? 1 : 2 },
+    { faces: 20, counts: d20s },
     ...extras.flatMap(term =>
-      'sides' in term ? [{ faces: term.sides, count: term.count }] : [],
+      'sides' in term ? [{ faces: term.sides, counts: [term.count] }] : [],
     ),
   ]
 }

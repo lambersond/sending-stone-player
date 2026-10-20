@@ -8,6 +8,7 @@ import {
   deleteCharacter,
   joinCampaign,
   markChatRead,
+  setCharacterManualDice,
   type ChoiceProblem,
 } from '@/db/characters'
 import { requireUser } from '@/lib/session'
@@ -100,4 +101,14 @@ export async function markChatReadUpTo(
   const at = Date.parse(readAt)
   if (Number.isNaN(at)) return
   await markChatRead(user.id, characterId, new Date(Math.min(at, Date.now())))
+}
+
+/** Remember whether the player types in what their own dice show for this character, everywhere. */
+export async function setManualDice(
+  characterId: string,
+  on: boolean,
+): Promise<void> {
+  const user = await requireUser()
+  if (typeof on !== 'boolean') return
+  await setCharacterManualDice(user.id, characterId, on)
 }

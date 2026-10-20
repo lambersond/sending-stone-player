@@ -27,10 +27,10 @@ type Props = {
   /** Whether this device sends the player's rolls to the table, while the game takes any. */
   send?: { on: boolean; onChange: (on: boolean) => void }
   /**
-   * Whether the campaign's game lets players enter their own dice's results, as its module says
-   * from 0.26.0, which no one may yet: the setting is shown, off, as coming.
+   * Whether the player types in what their own dice show, where the campaign's game lets them,
+   * from module 0.32.0: the setting is shown only then.
    */
-  manualDice?: boolean
+  manualDice?: { on: boolean; onChange: (on: boolean) => void }
   /** Whether the player's rolls pop up as toasts on this device, or stay in the banner. */
   toasts?: { on: boolean; onChange: (on: boolean) => void }
   /** The Actions tab's layouts, where the sheet is wide enough for more than one. */
@@ -40,7 +40,7 @@ type Props = {
 /**
  * The sheet's settings, behind a cog beside its tabs, so that they're at hand from every tab
  * without taking room from them: whether this device sends the player's rolls to the table; where
- * the game lets players, entering their dice's results, which is coming; whether rolls show as
+ * the game lets them, typing in what their own dice show; whether rolls show as
  * toasts or in a banner, the theme, and how the Actions tab is laid out. It opens as
  * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
  * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
@@ -48,7 +48,7 @@ type Props = {
  */
 export function SheetSettings({
   send,
-  manualDice = false,
+  manualDice,
   toasts,
   layouts,
 }: Readonly<Props>) {
@@ -117,13 +117,11 @@ export function SheetSettings({
                   {...send}
                 />
               )}
-              {/* Coming: off, and nothing to change yet. */}
               {manualDice && (
                 <SwitchSetting
                   label='Enter dice results manually'
                   hint='Type in what your own dice show, instead of rolling here.'
-                  on={false}
-                  soon
+                  {...manualDice}
                 />
               )}
               {toasts && <ResultsSetting {...toasts} />}
@@ -147,38 +145,27 @@ export function SheetSettings({
   )
 }
 
-/**
- * A setting turned on or off by a switch, said more of beneath it; or, one that's coming
- * (`soon`), a switch that can't be turned yet, marked "Coming soon" before what's said of it.
- */
+/** A setting turned on or off by a switch, said more of beneath it. */
 function SwitchSetting({
   label,
   hint,
   on,
   onChange,
-  soon = false,
 }: Readonly<{
   label: string
   hint: string
   on: boolean
-  onChange?: (on: boolean) => void
-  soon?: boolean
+  onChange: (on: boolean) => void
 }>) {
   const hintId = useId()
   return (
     <div className='flex flex-col gap-1 border-t border-border pt-3'>
-      <label
-        className={clsx(
-          'flex items-center gap-3 text-sm font-medium',
-          soon ? 'cursor-not-allowed' : 'cursor-pointer',
-        )}
-      >
+      <label className='flex cursor-pointer items-center gap-3 text-sm font-medium'>
         <input
           type='checkbox'
           role='switch'
           checked={on}
-          disabled={soon}
-          onChange={event => onChange?.(event.target.checked)}
+          onChange={event => onChange(event.target.checked)}
           aria-describedby={hintId}
           className='peer sr-only'
         />
@@ -187,7 +174,6 @@ function SwitchSetting({
           className={clsx(
             'relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
             on ? 'bg-primary' : 'bg-border',
-            soon && 'opacity-50',
           )}
         >
           <span
@@ -200,16 +186,6 @@ function SwitchSetting({
         {label}
       </label>
       <p id={hintId} className='pl-12 text-xs text-text-secondary'>
-        {/* Said first, apart from what follows, as screen readers read it too. In the light
-            theme, the accent's deeper shade: the accent on its own tint falls short of WCAG AA
-            this small. */}
-        {soon && (
-          <>
-            <span className='mr-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-text'>
-              Coming soon
-            </span>{' '}
-          </>
-        )}
         {hint}
       </p>
     </div>

@@ -8,23 +8,33 @@ import {
 } from '@/constants/sending-stone'
 import { groupRoster } from '@/db/party'
 import { ago, madeBy, type RollRejection } from '@/db/roll-requests'
-import { checkEnds, checkHoldings, transfersAvailable } from '@/utils/transfers'
+import {
+  checkAmong,
+  checkEnds,
+  checkHoldings,
+  transfersAvailable,
+} from '@/utils/transfers'
 import type { SheetSeat } from '@/types/character'
+import type { GroupSheet } from '@/types/party'
 import type { RollRequestInput, TransferInput } from '@/types/roll'
 import type { SheetInventory } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 
 // A move of items and coins (module 0.31.0) rides the same way to the game as a roll: held here as
 // a RollRequest of the kind `transfer`, for the seat's character, which the module fetches at most
-// once. It has its own switch, apart from the rolls, which gates the Gamemaster's moves too.
+// once. It has its own switch, apart from the rolls, which gates the Gamemaster's moves too. From
+// module 0.32.0, a party's coin distributed among its characters is one too, as a move with
+// `among` in place of `to`.
 
 /**
  * Take a move of items and coins for the Gamemaster's game to make, from a character's player or
  * the campaign's Gamemaster as it: while the campaign lets them be moved and its module is
- * fetching moves, and the seat isn't sending too many, of rolls and moves together; where the seat
- * may make it, by the campaign's roster and its groups' access; where what's moved is on the sheet
- * it's moved from, as last sent; and where none of it is on its way already, from the same end, as
- * from a retry, or a second tap.
+ * fetching moves, and a distribution only where its module shares a party's coin (module 0.32.0),
+ * and the seat isn't sending too many, of rolls and moves together; where the seat may make it, by
+ * the campaign's roster, its groups' access and what its module does with moves; a distribution
+ * only among the party's characters, as its sheet was last sent; where what's moved is on the
+ * sheet it's moved from, as last sent; and where none of it is on its way already, from the same
+ * end, as from a retry, or a second tap.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The move's id, or why it wasn't taken.
  */
@@ -41,12 +51,17 @@ export async function createTransferRequest(
     where: { id: campaignId },
     select: {
       transfersEnabled: true,
+      transferFeatures: true,
       bridgePolledAt: true,
       characters: true,
       groups: true,
     },
   })
   if (!campaign || !transfersAvailable(campaign)) {
+    return { status: 409, reason: 'unavailable' }
+  }
+  // A distribution needs a module that shares a party's coin.
+  if (transfer.among && !campaign.transferFeatures.includes('distribute')) {
     return { status: 409, reason: 'unavailable' }
   }
 
@@ -66,7 +81,13 @@ export async function createTransferRequest(
     ? (campaign.characters as unknown as { id: string }[])
     : []
   const groups = groupRoster(campaign.groups)
-  const ends = checkEnds(seat, transfer, roster, groups)
+  const ends = checkEnds(
+    seat,
+    transfer,
+    roster,
+    groups,
+    campaign.transferFeatures,
+  )
   if (ends) return { status: 422, reason: ends }
 
   const fromGroup = groups.some(({ id }) => id === transfer.from)
@@ -87,6 +108,14 @@ export async function createTransferRequest(
       take: ROLLS_IN_FLIGHT,
     }),
   ])
+  // A distribution is shared among the party's characters as its sheet has them, no others.
+  const members =
+    transfer.among &&
+    checkAmong(
+      transfer,
+      sheet?.data as unknown as Partial<GroupSheet> | undefined,
+    )
+  if (members) return { status: 422, reason: members }
   const holdings = checkHoldings(
     transfer,
     sheet?.data as unknown as { inventory?: SheetInventory } | undefined,

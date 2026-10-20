@@ -24,6 +24,9 @@ function seenOf(view: TableView) {
     gmRolls: view.gmRollsKey,
     // From module 0.31.0: whether the seat may move its character's items and coins.
     moves: view.moves !== undefined,
+    // From module 0.32.0: whether the player types in their own dice, which another of their
+    // devices may change.
+    typed: view.manualDice?.on === true,
   }
 }
 
@@ -49,8 +52,16 @@ export function useTableView(api: string, initial: TableView) {
 
     const poll = async () => {
       try {
-        const { version, live, sheetVersion, rolls, gm, gmRolls, moves } =
-          seen.current
+        const {
+          version,
+          live,
+          sheetVersion,
+          rolls,
+          gm,
+          gmRolls,
+          moves,
+          typed,
+        } = seen.current
         const query = new URLSearchParams({
           version: String(version),
           live: live ? '1' : '0',
@@ -58,6 +69,7 @@ export function useTableView(api: string, initial: TableView) {
           ...(gm && { gm }),
           ...(gmRolls && { gmrolls: gmRolls }),
           ...(moves && { moves: '1' }),
+          ...(typed && { typed: '1' }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(`${api}/table?${query}`, {

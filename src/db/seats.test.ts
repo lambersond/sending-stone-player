@@ -93,3 +93,29 @@ describe('db/seats', () => {
     })
   })
 })
+
+describe('db/seats, typing in their own dice, from module 0.32.0', () => {
+  it("carries the player's choice, from their character", () => {
+    const seat = playerSeat(
+      {
+        id: 'char-1',
+        name: 'Thorin',
+        gameUrl: 'https://my-game.forge-vtt.com',
+        campaignTitle: 'The Lonely Mountain',
+        campaignId: 'c1',
+        actorId: 'actor-thorin',
+        manualDice: true,
+      },
+      'user-1',
+    )
+    expect(seat.manualDice).toBe(true)
+  })
+
+  it("never carries one for the Gamemaster's seat, which has nowhere to keep it", async () => {
+    prismaMock.campaign.findFirst.mockResolvedValue(campaign as any)
+
+    const seat = await getGmSeat('gm-1', 'c1', 'vex')
+    expect(seat).toBeDefined()
+    expect(seat).not.toHaveProperty('manualDice')
+  })
+})

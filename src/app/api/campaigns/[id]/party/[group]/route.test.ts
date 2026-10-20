@@ -37,6 +37,7 @@ describe('app/api/campaigns/[id]/party/[group]', () => {
       lastSeenAt: null,
       ownerId: 'gm-1',
       groups: [groupEntry(), hidden],
+      transferFeatures: [],
     } as any)
     prismaMock.groupSheet.findUnique.mockResolvedValue({
       data: groupSheet(),
@@ -83,6 +84,7 @@ describe('app/api/campaigns/[id]/party/[group]', () => {
       ownerId: 'gm-1',
       groups: [groupEntry(), hidden],
       transfersEnabled: true,
+      transferFeatures: [],
       bridgePolledAt: new Date(Date.now() - 5000),
     }
     // The roster is read apart, for the Gamemaster alone.

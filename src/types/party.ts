@@ -1,4 +1,8 @@
-import type { SheetInventory, SheetWithheld } from '@/types/sending-stone'
+import type {
+  SheetCurrency,
+  SheetInventory,
+  SheetWithheld,
+} from '@/types/sending-stone'
 import type { TableMoves } from '@/types/table'
 
 /*
@@ -79,7 +83,26 @@ export type PartyView = {
    * coins be moved and its game is taking moves, for a player whose Foundry user has Owner on it,
    * and for the Gamemaster, with the campaign's characters to take into. Never anyone's access.
    */
-  moves?: { characters?: TableMoves['characters'] }
+  moves?: {
+    /** The Gamemaster's: the campaign's characters to take into (module 0.31.0). */
+    characters?: TableMoves['characters']
+    /**
+     * From module 0.32.0: where the party's items and coins may be sent, never the party itself:
+     * for a player, the other parties their Foundry user owns and every campaign character, their
+     * own included; for the Gamemaster, every other listed party and every character.
+     */
+    send?: TableMoves
+    /**
+     * From module 0.32.0: its members that are the campaign's characters, in its sheet's order,
+     * which Distribute shares a coin among; at most MOST_AMONG.
+     */
+    distribute?: TableMoves['characters']
+    /**
+     * A player's seat, from module 0.32.0: their character's coins, as last sent, which Give
+     * gives.
+     */
+    give?: { currency: SheetCurrency[] }
+  }
 }
 
 /** A group a seat has been let see, by the access check, for its descriptions to be served by. */

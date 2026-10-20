@@ -23,6 +23,8 @@ import {
   enchantment,
   enchantUse,
   fullerSheet,
+  greataxeAction,
+  rapierAction,
   sheetAction,
   sheetFavorites,
   sheetItem,
@@ -5145,4 +5147,104 @@ describe('utils/roll-requests for concentration, charges and Heroic Inspiration,
       ).toBe(label)
     },
   )
+})
+
+/** Thorin's sheet, with his rapier, which dnd5e gives Elven Accuracy, and his greataxe. */
+const elven = (rapier = rapierAction()) =>
+  characterSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Action',
+        actions: [rapier, greataxeAction()],
+      },
+    ],
+  })
+
+/** An attack with advantage, its d20s these. */
+const withAdvantage = (item: string, activity: string, d20s: number[]) =>
+  request({
+    kind: 'attack',
+    key: undefined,
+    item,
+    activity,
+    target: null,
+    mode: 1,
+    explicit: true,
+    dice: [{ faces: 20, results: d20s }],
+  })
+
+describe('utils/roll-requests, an attack with Elven Accuracy, from module 0.32.0', () => {
+  it('takes three d20s only for an attack whose action dnd5e gives Elven Accuracy', () => {
+    expect(
+      checkSheet(
+        withAdvantage('rapierThorin', 'rapierAttack', [3, 18, 7]),
+        elven(),
+      ),
+    ).toBeUndefined()
+    expect(
+      checkSheet(
+        withAdvantage('greataxeThor', 'greataxeAttack', [3, 18, 7]),
+        elven(),
+      ),
+    ).toBe('dice')
+    expect(
+      checkSheet(
+        withAdvantage('rapierThorin', 'rapierAttack', [3, 18, 7]),
+        elven(rapierAction({ elvenAccuracy: undefined })),
+      ),
+    ).toBe('dice')
+  })
+
+  it('still takes two d20s with advantage, Elven Accuracy or not', () => {
+    expect(
+      checkSheet(
+        withAdvantage('rapierThorin', 'rapierAttack', [3, 18]),
+        elven(),
+      ),
+    ).toBeUndefined()
+    expect(
+      checkSheet(
+        withAdvantage('greataxeThor', 'greataxeAttack', [3, 18]),
+        elven(),
+      ),
+    ).toBeUndefined()
+  })
+})
+
+describe('toRollRequestView for a distribution, from module 0.32.0', () => {
+  const transfer = {
+    from: 'groupIronCo01',
+    to: null,
+    items: [],
+    currency: { gp: 25 },
+    among: ['actorBram001'],
+  }
+  const shared = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
+    toRollRequestView(
+      held({
+        kind: 'transfer',
+        status,
+        claimedAt: ago(500),
+        result: {
+          id: 'req-1',
+          status,
+          reason: null,
+          error: null,
+          messageId: 'm-line',
+          visible: true,
+          rolls: [],
+          transfer,
+          ...fields,
+        },
+      }),
+      NOW,
+    )
+
+  it('passes on who was given their share, made or failed part way', () => {
+    expect(shared({}, 'done')).toMatchObject({ status: 'done', transfer })
+    expect(
+      shared({ status: 'failed', reason: 'error', error: 'refused' }, 'failed'),
+    ).toEqual({ id: 'req-1', status: 'failed', reason: 'error', transfer })
+  })
 })

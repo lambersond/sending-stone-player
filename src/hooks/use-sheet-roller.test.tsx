@@ -104,7 +104,7 @@ describe('hooks/use-sheet-roller', () => {
     })
     const { result } = renderHook(() => useSheetRoller())
 
-    let rolled: Promise<void> | undefined
+    let rolled: Promise<boolean> | undefined
     act(() => {
       rolled = result.current.roll({ label: 'Perception check', modifier: 5 })
     })
@@ -146,7 +146,7 @@ describe('hooks/use-sheet-roller', () => {
       explicit: true,
     }
 
-    let rolled: Promise<void> | undefined
+    let rolled: Promise<boolean> | undefined
     act(() => {
       rolled = result.current.roll(request)
     })
@@ -933,7 +933,7 @@ describe('hooks/use-sheet-roller', () => {
       source: { kind: 'formula', item: 'lantern', activity: 'shine' },
     }
 
-    let rolled: Promise<void> | undefined
+    let rolled: Promise<boolean> | undefined
     act(() => {
       rolled = result.current.rollFormula(request)
     })
@@ -1155,7 +1155,7 @@ describe('hooks/use-sheet-roller', () => {
     renderer({ roll: jest.fn(() => new Promise<number[]>(() => {})) })
     const { result } = renderHook(() => useSheetRoller())
 
-    let rolled: Promise<void> | undefined
+    let rolled: Promise<boolean> | undefined
     act(() => {
       rolled = result.current.roll({ label: 'Arcana check', modifier: 2 })
     })
@@ -1181,7 +1181,7 @@ describe('hooks/use-sheet-roller', () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(1000)
     const { result } = renderHook(() => useSheetRoller())
 
-    let healed: Promise<void> | undefined
+    let healed: Promise<boolean> | undefined
     act(() => {
       healed = result.current.rollDamage({
         label: 'Cure Wounds healing',
@@ -1190,7 +1190,7 @@ describe('hooks/use-sheet-roller', () => {
       })
     })
     now.mockReturnValue(2000)
-    let attacked: Promise<void> | undefined
+    let attacked: Promise<boolean> | undefined
     act(() => {
       attacked = result.current.roll({
         label: 'Witch Bolt attack',

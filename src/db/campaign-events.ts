@@ -88,6 +88,11 @@ async function apply(
       // The campaign's full current state. It carries no chat, so the chat log is kept.
       const { characters, features, prompts = [], groups = [] } = event.data
       const { module, foundry, system, settings } = event.data
+      // Whether its players may move items and coins from here, from module 0.31.0, apart from
+      // the rolls. A module before it says nothing of them, which clears it.
+      const transfersOn =
+        features?.transfers?.enabled === true &&
+        (features.transfers.kinds ?? []).includes('transfer')
       await tx.campaign.update({
         where: { id: campaignId },
         data: {
@@ -129,11 +134,19 @@ async function apply(
             ...(features?.rolls?.manualDice === true ? ['manualDice'] : []),
             ...(features?.rolls?.midiPrompts === true ? ['midiPrompts'] : []),
           ],
-          // Whether its players may move items and coins from here, from module 0.31.0, apart
-          // from the rolls. A module before it says nothing of them, which clears it.
-          transfersEnabled:
-            features?.transfers?.enabled === true &&
-            (features.transfers.kinds ?? []).includes('transfer'),
+          transfersEnabled: transfersOn,
+          // What else it does with moves, from module 0.32.0; nothing while moves are off, and a
+          // module before it says nothing, which clears them.
+          transferFeatures: transfersOn
+            ? [
+                ...(features?.transfers?.partySends === true
+                  ? ['partySends']
+                  : []),
+                ...(features?.transfers?.distribute === true
+                  ? ['distribute']
+                  : []),
+              ]
+            : [],
           // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
           // module before 0.30.0, which reports no settings, clears those an earlier one sent.
           foundry: toJson({

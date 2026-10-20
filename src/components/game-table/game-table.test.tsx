@@ -1319,15 +1319,10 @@ describe('components/game-table, full screen', () => {
     groups: [{ id: 'company', name: 'The Company', primary: true }],
   }
 
-  it('sits in the header after whether the game is live and the party, before deleting the character', () => {
+  it('sits in the header after whether the game is live, before deleting the character, with no party there', () => {
     renderTable(view(party))
 
-    expect(cluster()).toEqual([
-      'status',
-      'Party: The Company',
-      'Full screen',
-      'Delete Thorin',
-    ])
+    expect(cluster()).toEqual(['status', 'Full screen', 'Delete Thorin'])
   })
 
   it('stays in the header on every tab, and fills the screen with the whole page', async () => {
@@ -1365,6 +1360,6 @@ describe('components/game-table, full screen', () => {
       />,
     )
 
-    expect(cluster()).toEqual(['status', 'Party: The Company', 'Full screen'])
+    expect(cluster()).toEqual(['status', 'Full screen'])
   })
 })

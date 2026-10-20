@@ -26,6 +26,8 @@ import {
   type ExtraDice,
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
+import { d20Count, d20Label, typedResult } from '@/utils/typed-dice'
+import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
   FormulaSource,
   RollKind,
@@ -80,6 +82,15 @@ export type SheetRoll = {
    * item offers, rather than with a spell slot.
    */
   itemCast?: boolean
+  /**
+   * dnd5e gives this attack Elven Accuracy, as its sheet says: a third d20 with advantage, typed
+   * in.
+   */
+  elvenAccuracy?: true
+  /** For an answer to what the game asks, when it stops waiting, as an ISO time. */
+  until?: string
+  /** For an answer to what the game asks, aborted once it's answered or closed elsewhere. */
+  signal?: AbortSignal
 }
 
 /** Damage or healing from the character's sheet, such as a weapon's. */
@@ -127,6 +138,8 @@ export type SheetDamageRoll = {
    * rules make one, or as dnd5e does by default where none are given.
    */
   criticalAdds?: CriticalAdds
+  /** The game's total counts, once it says, as where its formula couldn't be read. */
+  gameTotal?: true
 }
 
 /**
@@ -192,6 +205,8 @@ export type LocalCheck = {
   verdict?: 'save' | 'check'
   /** Rolled from a link in a description. */
   described?: boolean
+  /** The player typed its dice in. */
+  typed?: true
   at: number
 }
 
@@ -219,6 +234,8 @@ export type LocalDamage = {
    * itself: its total is the game's, once it says.
    */
   gameTotal?: boolean
+  /** The player typed its dice in. */
+  typed?: true
   at: number
 }
 
@@ -258,17 +275,33 @@ export type LocalUse = {
   at: number
 }
 
-/** Items or coins moved, as a page keeps the move: given, or taken, and between whom. */
+/**
+ * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
+ * party or distributed among its characters, and between whom.
+ */
 export type LocalMove = {
-  verb: 'give' | 'take'
-  /** As the chat line says it, such as "2 Potion of Healing". */
+  verb: 'give' | 'take' | 'send' | 'distribute'
+  /**
+   * As the chat line says it, such as "2 Potion of Healing", or for a distribution, all it shares,
+   * "100 gp".
+   */
   things: string
-  /** The other end's name. */
+  /**
+   * The other end's name: who it's given or sent to, or the party it's taken or distributed from.
+   */
   other: string
   /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */
   mover?: string
   /** The item moved, if one, to disable its control while pending. */
   item?: string
+  /** A send's: the party it's sent from, from module 0.32.0. */
+  source?: string
+  /**
+   * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex".
+   */
+  among?: string
+  /** A distribution's: each one's share, such as "25 gp". */
+  each?: string
 }
 
 /** A hit die spent, or a formula rolled, as this page keeps it. */
@@ -297,6 +330,8 @@ export type LocalFormula = {
    * game's, once it says.
    */
   gameTotal?: boolean
+  /** The player typed its dice in. */
+  typed?: true
   at: number
 }
 
@@ -346,25 +381,35 @@ let uses = 0
 /**
  * Rolls checks, saves, attacks and damage from the player's character sheet, tumbling 3D dice
  * across the screen. Each result is revealed once the dice land on it, and kept on this page, as
- * are the spells and features used, which throw no dice. Must be used within a
- * DiceRendererProvider.
+ * are the spells and features used, which throw no dice. While the player types in their own
+ * dice (module 0.32.0), each roll asks for them once its dice are known, in place of throwing any,
+ * and is kept at once, with nothing to animate. Must be used within a DiceRendererProvider.
  * @param onThrown - Told of each check or save as its dice are thrown, before they land, with
  * what they came to: to have the Gamemaster's game make it too.
  * @param onDamageThrown - The same, for damage.
  * @param onFormulaThrown - The same, for a hit die or a formula.
+ * @returns With `roll`, `rollDamage` and `rollFormula`, each resolving true once its roll is kept,
+ * or false where the player cancelled typing its dice in.
  */
 export function useSheetRoller(
   onThrown?: (roll: SheetRoll, check: LocalCheck) => void,
   onDamageThrown?: (roll: SheetDamageRoll, damage: LocalDamage) => void,
   onFormulaThrown?: (roll: SheetFormulaRoll, rolled: LocalFormula) => void,
+  /** While the player types in their own dice: asks for them, once a roll's dice are known. */
+  enter?: EnterDice,
 ) {
   const renderer = useDiceRenderer()
   const [rolls, setRolls] = useState<LocalRoll[]>([])
   const [inFlight, setInFlight] = useState(0)
 
-  // Throws the dice already rolled, then keeps what they came to.
+  // Throws the dice already rolled, then keeps what they came to; or, for dice the player typed
+  // in, which they threw themselves, keeps it at once.
   const land = useCallback(
-    async (thrown: RollResult, kept: LocalRoll) => {
+    async (thrown: RollResult, kept: LocalRoll, animate = true) => {
+      if (!animate) {
+        setRolls(earlier => keeping(earlier, kept))
+        return
+      }
       setInFlight(count => count + 1)
       try {
         // The animation is only decoration: if it fails or never settles, the result stands.
@@ -385,27 +430,65 @@ export function useSheetRoller(
   )
 
   const roll = useCallback(
-    async (request: SheetRoll) => {
+    async (request: SheetRoll): Promise<boolean> => {
       const { label, modifier, advantage, extras = [] } = request
-      const result = executeRoll({
-        pools: [{ sides: 20, count: 1 }],
-        modifier,
-        advantage,
-      })
       // Extra dice are rolled on their own, since advantage applies only to the check's d20,
       // and thrown with it.
       const dice = extras.filter(term => 'sides' in term)
-      const extra =
-        dice.length > 0
-          ? executeRoll({
-              pools: dice.map(({ count, sides }) => ({ count, sides })),
-              modifier: 0,
-            })
-          : undefined
+      const pools = dice.map(({ count, sides }) => ({ count, sides }))
+      let result: RollResult
+      let extra: RollResult | undefined
+      let typed = false
+      if (enter) {
+        // The player's own d20s: a third with advantage, where dnd5e gives the attack Elven
+        // Accuracy; then each die they added. The d20s typed so far count for what the higher
+        // of them shows, or the lower, and nothing while none is.
+        const count = d20Count(advantage, request.elvenAccuracy)
+        const typedCheck = (values: number[][]) => {
+          const [d20s = [], ...added] = values
+          return {
+            result: typedResult([{ sides: 20, count: 1 }], [d20s], {
+              advantage,
+              modifier,
+            }),
+            extra: pools.length > 0 ? typedResult(pools, added) : undefined,
+          }
+        }
+        const values = await enter({
+          title: label,
+          terms: [
+            { sides: 20, count, label: d20Label(advantage, count) },
+            ...dice.map(term => ({
+              sides: term.sides,
+              count: term.count,
+              label: formatExtraTerm(term),
+            })),
+          ],
+          total: values => {
+            const [d20s = [], ...added] = typedSoFar(values)
+            const shown = typedCheck([d20s.length > 0 ? d20s : [0], ...added])
+            return toLocalRoll(label, shown.result, extras, shown.extra).total
+          },
+          until: request.until,
+          signal: request.signal,
+        })
+        if (!values) return false
+        ;({ result, extra } = typedCheck(values))
+        typed = true
+      } else {
+        result = executeRoll({
+          pools: [{ sides: 20, count: 1 }],
+          modifier,
+          advantage,
+        })
+        extra =
+          pools.length > 0 ? executeRoll({ pools, modifier: 0 }) : undefined
+      }
       const thrown = extra
         ? { ...result, pools: [...result.pools, ...extra.pools] }
         : result
       const check = toLocalRoll(label, result, extras, extra)
+      if (typed) check.typed = true
       const { source } = request
       if (request.dc !== undefined) check.dc = request.dc
       if (source && 'text' in source && source.text) {
@@ -423,13 +506,14 @@ export function useSheetRoller(
         check.verdict = 'check'
       }
       onThrown?.(request, check)
-      await land(thrown, check)
+      await land(thrown, check, !typed)
+      return true
     },
-    [land, onThrown],
+    [land, onThrown, enter],
   )
 
   const rollDamage = useCallback(
-    async (request: SheetDamageRoll) => {
+    async (request: SheetDamageRoll): Promise<boolean> => {
       const {
         label,
         critical = false,
@@ -459,111 +543,99 @@ export function useSheetRoller(
         terms.filter(term => 'sides' in term),
       )
       const maximized = modifiers?.maximize === true
+      const pools = dice.map(({ count, sides }) => ({
+        count: doubled ? count * 2 : count,
+        sides,
+      }))
+      const flags = { critical, healing, doubled, maximized }
+      // The player's own dice, every one the app would throw; but none at their highest, which the
+      // game makes so itself, nor of damage whose dice only the game knows.
+      if (enter && !maximized && dice.length > 0) {
+        const typedDamage = (values: number[][]) => {
+          const none = noRethrows()
+          const result = typedResult(pools, values)
+          const damage = toLocalDamage(label, parts, result, flags, none.more)
+          return { result, damage, asked: none.asked }
+        }
+        const values = await enter({
+          title: label,
+          terms: damageEntryTerms(parts, doubled),
+          total: values => typedDamage(typedSoFar(values)).damage.total,
+        })
+        if (!values) return false
+        const { result, damage, asked } = typedDamage(values)
+        damage.typed = true
+        if (request.text) damage.described = true
+        if (rule?.altered || asked() || request.gameTotal) {
+          damage.gameTotal = true
+        }
+        onDamageThrown?.({ ...request, parts }, damage)
+        await land(result, damage, false)
+        return true
+      }
       const options = maximized ? { rng: HIGHEST } : undefined
-      const result = executeRoll(
-        {
-          pools: dice.map(({ count, sides }) => ({
-            count: doubled ? count * 2 : count,
-            sides,
-          })),
-          modifier: 0,
-        },
-        options,
-      )
+      const result = executeRoll({ pools, modifier: 0 }, options)
       // The dice Foundry would throw again, rerolled or exploded, thrown after the first throw.
       const again = rethrows(options)
-      const damage = toLocalDamage(
-        label,
-        parts,
-        result,
-        { critical, healing, doubled, maximized },
-        again.more,
-      )
+      const damage = toLocalDamage(label, parts, result, flags, again.more)
       if (request.text) damage.described = true
-      if (rule?.altered || damage.parts.some(part => rethrown(part.terms))) {
+      if (
+        rule?.altered ||
+        damage.parts.some(part => rethrown(part.terms)) ||
+        request.gameTotal
+      ) {
         damage.gameTotal = true
       }
       onDamageThrown?.({ ...request, parts }, damage)
       await land(again.with(result), damage)
+      return true
     },
-    [land, onDamageThrown],
+    [land, onDamageThrown, enter],
   )
 
   const rollFormula = useCallback(
-    async (request: SheetFormulaRoll) => {
-      const { label, healing = false, minimum } = request
+    async (request: SheetFormulaRoll): Promise<boolean> => {
       // A formula is a set of one, thrown once.
       const sets = request.sets ?? [{ terms: request.terms, times: 1 }]
       // Every set's dice in one throw, each set's terms' dice thrown as many times as it is.
-      const result = executeRoll({
-        pools: sets.flatMap(({ terms, times }) =>
-          terms.flatMap(term =>
-            'sides' in term
-              ? [{ count: term.count * times, sides: term.sides }]
-              : [],
-          ),
+      const pools = sets.flatMap(({ terms, times }) =>
+        terms.flatMap(term =>
+          'sides' in term
+            ? [{ count: term.count * times, sides: term.sides }]
+            : [],
         ),
-        modifier: 0,
-      })
-      // The dice's pools are in the order their sets and terms were written, each with every
-      // time's dice, the first's first.
-      const pools = [...result.pools]
-      const thrown = sets.map(({ terms }) =>
-        terms.map(term => ('sides' in term ? (pools.shift()?.kept ?? []) : [])),
       )
+      // The player's own dice, each set's as many times as it's thrown.
+      if (enter && pools.length > 0) {
+        const typedFormula = (values: number[][]) => {
+          const none = noRethrows()
+          const result = typedResult(pools, values)
+          const rolled = toLocalFormula(request, sets, result, none.more)
+          return { result, rolled, asked: none.asked }
+        }
+        const values = await enter({
+          title: request.label,
+          terms: formulaEntryTerms(request, sets),
+          total: values => typedFormula(typedSoFar(values)).rolled.total,
+        })
+        if (!values) return false
+        const { result, rolled, asked } = typedFormula(values)
+        rolled.typed = true
+        if (asked()) rolled.gameTotal = true
+        onFormulaThrown?.(request, rolled)
+        await land(result, rolled, false)
+        return true
+      }
+      const result = executeRoll({ pools, modifier: 0 })
       // The dice Foundry would throw again, rerolled or exploded, thrown after the first throw:
       // only a formula thrown once has any, never hit dice.
       const again = rethrows()
-      const kept: LocalExtra[] = request.sets
-        ? setTerms(sets, thrown)
-        : request.terms.map((term, index) => {
-            const text = damageTerm(term, {
-              first: index === 0,
-              doubled: false,
-            })
-            if (!('sides' in term)) {
-              return { text, values: [], value: term.sign * term.flat }
-            }
-            const done = landTerm(term, thrown[0][index], again.more)
-            return { text, ...done.extra, value: term.sign * done.amount }
-          })
-      const sum = kept.reduce((total, { value }) => total + value, 0)
-      // What each time each set is thrown came to, at least its least.
-      const totals = request.sets
-        ? sets.flatMap(({ terms, times }, set) =>
-            Array.from({ length: times }, (_, time) => {
-              let sum = 0
-              for (const [index, term] of terms.entries()) {
-                const amount =
-                  'sides' in term
-                    ? thrown[set][index]
-                        .slice(time * term.count, (time + 1) * term.count)
-                        .reduce((sum, value) => sum + value, 0)
-                    : term.flat
-                sum += term.sign * amount
-              }
-              return minimum === undefined ? sum : Math.max(minimum, sum)
-            }),
-          )
-        : [minimum === undefined ? sum : Math.max(minimum, sum)]
-      const total = totals.reduce((all, each) => all + each, 0)
-      const rolled: LocalFormula = {
-        kind: 'formula',
-        id: result.id,
-        label,
-        total,
-        healing,
-        terms: kept,
-        ...(total !== sum && { minimum }),
-        ...(totals.length > 1 && { times: totals.length }),
-        ...(request.source?.kind === 'textRoll' && { described: true }),
-        ...(rethrown(kept) && { gameTotal: true }),
-        at: result.at,
-      }
+      const rolled = toLocalFormula(request, sets, result, again.more)
       onFormulaThrown?.(request, rolled)
       await land(again.with(result), rolled)
+      return true
     },
-    [land, onFormulaThrown],
+    [land, onFormulaThrown, enter],
   )
 
   // Keeps a spell or feature used, first among the rolls.
@@ -694,10 +766,173 @@ function toLocalRoll(
 }
 
 /**
+ * A hit die spent, or a formula rolled, as this page keeps it, from its dice as thrown: each set's
+ * pools in the order their sets and terms were written, each with every time's dice, the first's
+ * first.
+ * @param more - Throws the dice Foundry would throw again, rerolled or exploded.
+ */
+function toLocalFormula(
+  request: SheetFormulaRoll,
+  sets: NonNullable<SheetFormulaRoll['sets']>,
+  result: RollResult,
+  more: More,
+): LocalFormula {
+  const { label, healing = false, minimum } = request
+  const pools = [...result.pools]
+  const thrown = sets.map(({ terms }) =>
+    terms.map(term => ('sides' in term ? (pools.shift()?.kept ?? []) : [])),
+  )
+  // Only a formula thrown once has dice thrown again, never hit dice.
+  const kept: LocalExtra[] = request.sets
+    ? setTerms(sets, thrown)
+    : request.terms.map((term, index) => {
+        const text = damageTerm(term, {
+          first: index === 0,
+          doubled: false,
+        })
+        if (!('sides' in term)) {
+          return { text, values: [], value: term.sign * term.flat }
+        }
+        const done = landTerm(term, thrown[0][index], more)
+        return { text, ...done.extra, value: term.sign * done.amount }
+      })
+  const sum = kept.reduce((total, { value }) => total + value, 0)
+  const totals = request.sets
+    ? formulaTotals(sets, thrown, minimum)
+    : [minimum === undefined ? sum : Math.max(minimum, sum)]
+  const total = totals.reduce((all, each) => all + each, 0)
+  return {
+    kind: 'formula',
+    id: result.id,
+    label,
+    total,
+    healing,
+    terms: kept,
+    ...(total !== sum && { minimum }),
+    ...(totals.length > 1 && { times: totals.length }),
+    ...(request.source?.kind === 'textRoll' && { described: true }),
+    ...(rethrown(kept) && { gameTotal: true }),
+    at: result.at,
+  }
+}
+
+/**
+ * What each time each set is thrown came to, at least its least, as hit dice spent at once each
+ * give back at least 1.
+ * @param thrown - Each set's dice, term by term, every time's together, the first's first.
+ */
+function formulaTotals(
+  sets: NonNullable<SheetFormulaRoll['sets']>,
+  thrown: number[][][],
+  minimum: number | undefined,
+): number[] {
+  return sets.flatMap(({ terms, times }, set) =>
+    Array.from({ length: times }, (_, time) => {
+      let sum = 0
+      for (const [index, term] of terms.entries()) {
+        const amount =
+          'sides' in term
+            ? thrown[set][index]
+                .slice(time * term.count, (time + 1) * term.count)
+                .reduce((sum, value) => sum + value, 0)
+            : term.flat
+        sum += term.sign * amount
+      }
+      return minimum === undefined ? sum : Math.max(minimum, sum)
+    }),
+  )
+}
+
+/** What's typed in so far, each term's dice as typed, those not yet left out. */
+function typedSoFar(values: (number | undefined)[][]): number[][] {
+  return values.map(term =>
+    term.filter((value): value is number => value !== undefined),
+  )
+}
+
+/**
+ * Damage's dice for the player to type in: each term's, its count doubled where the app doubles
+ * it, named as the tray writes it, with its part's kind, such as "2d6 Slashing" or "−1d4".
+ */
+function damageEntryTerms(
+  parts: SheetDamageRoll['parts'],
+  doubled: boolean,
+): DiceEntryTerm[] {
+  let first = true
+  return parts.flatMap(({ terms, type }) =>
+    terms.flatMap(term => {
+      const text = damageTerm(term, { first, doubled })
+      first = false
+      if (!('sides' in term)) return []
+      return [
+        {
+          sides: term.sides,
+          count: doubled ? term.count * 2 : term.count,
+          label: type ? `${text} ${type}` : text,
+        },
+      ]
+    }),
+  )
+}
+
+/**
+ * A formula's dice for the player to type in: each term's, as the tray writes it; or, thrown in
+ * sets, as hit dice spent at once are, each set's term's every time's together, such as "2d10".
+ */
+function formulaEntryTerms(
+  request: SheetFormulaRoll,
+  sets: NonNullable<SheetFormulaRoll['sets']>,
+): DiceEntryTerm[] {
+  if (!request.sets) {
+    return request.terms.flatMap((term, index) =>
+      'sides' in term
+        ? [
+            {
+              sides: term.sides,
+              count: term.count,
+              label: damageTerm(term, { first: index === 0, doubled: false }),
+            },
+          ]
+        : [],
+    )
+  }
+  const terms: DiceEntryTerm[] = []
+  for (const { terms: each, times } of sets) {
+    for (const term of each) {
+      if (!('sides' in term)) continue
+      const count = term.count * times
+      terms.push({
+        sides: term.sides,
+        count,
+        label: damageTerm(
+          { ...term, count },
+          { first: terms.length === 0, doubled: false },
+        ),
+      })
+    }
+  }
+  return terms
+}
+
+/**
  * Throws so many more of a die, for one Foundry rerolls or explodes, which `throwTerm` asks for one
  * at a time.
  */
 type More = (sides: DieSides) => (count: number) => number[]
+
+/**
+ * No dice thrown again: the player's are typed in, and Foundry throws its rerolls itself. Whether
+ * any was asked for says the game's total counts, once it says.
+ */
+function noRethrows() {
+  let asked = false
+  const none = (): number[] => {
+    asked = true
+    return []
+  }
+  const more: More = () => none
+  return { more, asked: () => asked }
+}
 
 /**
  * The dice thrown again, rerolled or exploded, after the first throw: `more` throws them, as the

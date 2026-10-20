@@ -24,7 +24,9 @@ import {
   fullerSheet,
   sheetAction,
   TEXTS,
+  typingRosterEntry,
 } from '@/mocks/sending-stone'
+import { toCommand } from '@/utils/roll-requests'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -215,6 +217,7 @@ describe('db/roll-requests', () => {
           rollKinds: true,
           rollFeatures: true,
           bridgePolledAt: true,
+          characters: true,
         },
       })
       expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
@@ -2484,6 +2487,129 @@ describe('db/roll-requests, concentration, charges and Heroic Inspiration, from 
       reason: 'unavailable',
     })
     expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+})
+
+/** What was stored to send the game, as the module is sent it. */
+const stored = () => {
+  const [[{ data }]] = prismaMock.rollRequest.create.mock.calls as any
+  return data.payload
+}
+
+describe('db/roll-requests, dice typed in, from module 0.32.0', () => {
+  const typed = { ...perception, typed: true as const }
+  const inspiring = {
+    kind: 'inspiration',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    inspiration: 'use',
+    typed: true,
+  } as RollRequestInput
+
+  /** A game that lets players type in their dice, and Thorin's player, as it said last. */
+  const givenTyping = ({
+    features = ['manualDice', 'gmRolls'] as string[],
+    characters = [typingRosterEntry({ id: 'actor-thorin' })] as object[],
+    polled = 5000,
+  } = {}) => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...takingRolls,
+      rollKinds: [...takingRolls.rollKinds, 'inspiration'],
+      rollFeatures: features,
+      bridgePolledAt: ago(polled),
+      characters,
+    } as any)
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: chargingSheet({ inspiration: true }),
+    } as any)
+    prismaMock.rollRequest.count.mockResolvedValue(0)
+    prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('marks the dice typed in where the player may type theirs, as the game said last', async () => {
+    givenTyping()
+
+    await expect(createRollRequest(character, typed)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(stored()).toEqual(typed)
+    expect(
+      toCommand({
+        id: 'req-1',
+        actorId: 'actor-thorin',
+        role: 'player',
+        kind: 'skill',
+        payload: stored(),
+        status: 'pending',
+        result: null,
+        createdAt: ago(0),
+        claimedAt: null,
+      }),
+    ).toEqual({ ...typed, id: 'req-1', actorId: 'actor-thorin' })
+  })
+
+  it.each<[string, Parameters<typeof givenTyping>[0], SheetSeat?]>([
+    ['the Gamemaster', {}, gm()],
+    ["a game that doesn't let players", { features: ['gmRolls'] }],
+    [
+      'a character whose player may not',
+      {
+        characters: [
+          typingRosterEntry({ id: 'actor-thorin', manualDice: false }),
+        ],
+      },
+    ],
+    [
+      'a character the game no longer lists',
+      { characters: [typingRosterEntry({ id: 'actor-vex' })] },
+    ],
+  ])(
+    'takes the same dice unmarked from %s, refusing nothing',
+    async (_name, given, seat = character) => {
+      givenTyping(given)
+
+      await expect(createRollRequest(seat, typed)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(stored()).toEqual(perception)
+      expect(stored()).not.toHaveProperty('typed')
+    },
+  )
+
+  it('never marks what throws no dice', async () => {
+    givenTyping()
+
+    await expect(createRollRequest(character, inspiring)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(stored()).not.toHaveProperty('typed')
+  })
+
+  it('reads whether the player may from what the game said last, not when its module last polled; the roll itself still needs it', async () => {
+    givenTyping({ polled: 40_000 })
+    await expect(createRollRequest(character, typed)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(stored()).toEqual(typed)
+
+    fresh()
+    givenTyping({ polled: 120_000 })
+    await expect(createRollRequest(character, typed)).resolves.toEqual({
+      status: 409,
+      reason: 'unavailable',
+    })
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 })

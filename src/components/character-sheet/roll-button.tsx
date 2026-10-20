@@ -130,7 +130,7 @@ export function RollButton<T = RollTarget>({
 }
 
 /** Where a pointer is on the button, or nothing when it's off it. */
-function pointWithin(
+export function pointWithin(
   button: HTMLElement,
   { clientX, clientY }: { clientX: number; clientY: number },
   touch: boolean,

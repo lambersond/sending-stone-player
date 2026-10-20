@@ -23,6 +23,8 @@ import {
   type TableDamage,
 } from './action-entry'
 import { enchantedEntry } from './enchantments'
+import { useItemMenu } from './item-menu'
+import { PartySheetList, type PartySheets } from './party-sheets'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -56,7 +58,7 @@ import type { DamageModifiers } from '@/utils/damage-modifiers'
  * beside it, as on the Actions tab, whether it's equipped or not: each a button that rolls it, or
  * uses it in the Gamemaster's game while the game takes items' uses. From module 0.31.0, its items
  * and coins may be moved from here, with the controls given: on this tab alone, never among the
- * favorites.
+ * favorites. The party sheets the seat may open are under the coin, each opening in its side panel.
  */
 export function InventoryTab({
   characterId,
@@ -68,6 +70,7 @@ export function InventoryTab({
   onUse,
   tableDamage,
   transfers,
+  parties,
 }: Readonly<{
   characterId: string
   sheet: TableSheet
@@ -83,6 +86,8 @@ export function InventoryTab({
   tableDamage?: TableDamage
   /** How its items and coins are moved, while the game takes moves. */
   transfers?: TransferControls
+  /** The party sheets the seat may open, from module 0.30.0. */
+  parties?: PartySheets
 }>) {
   const { rows, dialogs } = useActionRows({
     characterId,
@@ -102,6 +107,7 @@ export function InventoryTab({
         {(currency.length > 0 || encumbrance || attunement) && (
           <Holdings inventory={inventory} />
         )}
+        {parties && <PartySheetList {...parties} />}
         <InventoryList
           characterId={characterId}
           inventory={inventory}
@@ -122,10 +128,16 @@ export function InventoryList({
   characterId,
   inventory,
   rows,
+  idPrefix = 'inventory',
 }: Readonly<{
   characterId: string
   inventory: SheetInventory
   rows?: ActionRows
+  /**
+   * What its sections' headings' ids start with, unique on the page: a party's stash, in its
+   * panel over the character's Inventory, has its own.
+   */
+  idPrefix?: string
 }>) {
   const empty =
     inventory.sections.length === 0 && inventory.containers.length === 0
@@ -134,10 +146,10 @@ export function InventoryList({
       {inventory.sections.map(section => (
         <section
           key={section.id}
-          aria-labelledby={`inventory-${section.id}`}
+          aria-labelledby={`${idPrefix}-${section.id}`}
           className='flex flex-col gap-2'
         >
-          <SheetHeading id={`inventory-${section.id}`}>
+          <SheetHeading id={`${idPrefix}-${section.id}`}>
             {section.label}
           </SheetHeading>
           {/* A container, so that each row fits the list it's in. */}
@@ -156,10 +168,10 @@ export function InventoryList({
 
       {inventory.containers.length > 0 && (
         <section
-          aria-labelledby='inventory-containers'
+          aria-labelledby={`${idPrefix}-containers`}
           className='flex flex-col gap-2'
         >
-          <SheetHeading id='inventory-containers'>Containers</SheetHeading>
+          <SheetHeading id={`${idPrefix}-containers`}>Containers</SheetHeading>
           <ul className='@container rounded-2xl border border-border bg-card p-1.5'>
             {inventory.containers.map(container => (
               <ItemEntry
@@ -181,8 +193,8 @@ export function InventoryList({
 }
 
 /**
- * Coin, how much the character carries, and how many items they are attuned to; beside the coin,
- * how it's moved, where the sheet gives it a way (module 0.31.0).
+ * Coin, how much the character carries, and how many items they are attuned to; on the coin's
+ * label's row, how it's moved, where the sheet gives it a way (module 0.31.0).
  */
 export function Holdings({
   inventory,
@@ -248,11 +260,17 @@ function CoinAmount({ coin }: Readonly<{ coin: Coin }>) {
   return <ExactAmount short={short} coin={coin} />
 }
 
-/** An amount and the coin's abbreviation after it, smaller, as in "41 GP". */
+/**
+ * An amount and the coin's abbreviation after it, smaller, as in "41 GP", half a space apart, from
+ * module 0.32.0's feedback.
+ */
 function CoinText({ amount, coin }: Readonly<{ amount: string; coin: Coin }>) {
   return (
     <>
-      <span className='font-semibold tabular-nums'>{amount}</span>{' '}
+      <span className='font-semibold tabular-nums'>{amount}</span>
+      {/* Half a space: half the room between an amount and its coin, which still reads as a
+          space. */}
+      <span className='text-[0.5em]'> </span>
       <span className='text-xs'>{coin.abbreviation}</span>
     </>
   )
@@ -372,7 +390,8 @@ function Load({
 /**
  * An item, or a container that opens to what it holds. Given the rows actions are in, one that
  * rolls shows what it rolls beside it, as an action does. Where the sheet gives a way to move it
- * (module 0.31.0), and there's any of it, that's beside it or in it once open.
+ * (module 0.31.0), and there's any of it, that's beside it or in it once open; and from module
+ * 0.32.0's feedback, "Send to…" in its own menu, on a right-click or long-press of its row.
  */
 export function ItemEntry({
   characterId,
@@ -385,6 +404,8 @@ export function ItemEntry({
 }>) {
   const transfers = useTransferring()
   const moves = item.quantity >= 1 ? transfers.item?.(item) : undefined
+  const send = item.quantity >= 1 ? transfers.send?.(item) : undefined
+  const { onMenu, menu } = useItemMenu(item.name, send)
   const container = 'contents' in item ? item : undefined
   const { weight, uses } = item
   const capacity = container?.capacity
@@ -421,18 +442,22 @@ export function ItemEntry({
   const action = rows && !container ? itemAction(item) : undefined
   if (rows && action) {
     return (
-      <ActionEntry
-        action={action}
-        rows={rows}
-        look={{
-          // What it is to carry, rather than how it's used, which it opens to; or nothing.
-          detail: detail ?? '',
-          marks: quantity,
-          meta,
-          facts,
-          moves: moves?.body,
-        }}
-      />
+      <>
+        <ActionEntry
+          action={action}
+          rows={rows}
+          look={{
+            // What it is to carry, rather than how it's used, which it opens to; or nothing.
+            detail: detail ?? '',
+            marks: quantity,
+            meta,
+            facts,
+            moves: moves?.body,
+            onMenu,
+          }}
+        />
+        {menu}
+      </>
     )
   }
   // Only something to open makes it open.
@@ -445,30 +470,34 @@ export function ItemEntry({
     </>
   )
   return (
-    <SheetEntry
-      characterId={characterId}
-      name={item.name}
-      img={item.img}
-      fallback={container ? Backpack : Package}
-      favoriteKey={`item:${item.id}`}
-      detail={detail}
-      aside={
-        (item.quantity !== 1 || uses || moves?.aside) && (
-          <span className='flex shrink-0 items-center gap-1.5'>
-            {quantity}
-            {uses && <UsesButton uses={uses} name={item.name} />}
-            {moves?.aside}
-          </span>
-        )
-      }
-      meta={meta}
-      facts={facts}
-      text={item.text}
-      origin={{ name: item.name, item: item.id }}
-      {...enchantedEntry(item)}
-    >
-      {opened || undefined}
-    </SheetEntry>
+    <>
+      <SheetEntry
+        characterId={characterId}
+        name={item.name}
+        img={item.img}
+        fallback={container ? Backpack : Package}
+        favoriteKey={`item:${item.id}`}
+        onMenu={onMenu}
+        detail={detail}
+        aside={
+          (item.quantity !== 1 || uses || moves?.aside) && (
+            <span className='flex shrink-0 items-center gap-1.5'>
+              {quantity}
+              {uses && <UsesButton uses={uses} name={item.name} />}
+              {moves?.aside}
+            </span>
+          )
+        }
+        meta={meta}
+        facts={facts}
+        text={item.text}
+        origin={{ name: item.name, item: item.id }}
+        {...enchantedEntry(item)}
+      >
+        {opened || undefined}
+      </SheetEntry>
+      {menu}
+    </>
   )
 }
 

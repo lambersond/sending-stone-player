@@ -4,6 +4,7 @@ import {
   chooseActor,
   deleteCharacterAndLeave,
   markChatReadUpTo,
+  setManualDice,
 } from '../actions'
 import { GameTable } from '@/components/game-table'
 import { getCampaignChoice } from '@/db/campaigns'
@@ -48,6 +49,7 @@ export default async function CharacterPage({ params }: Props) {
       chooseActor={chooseActor.bind(undefined, character.id)}
       deleteCharacter={deleteCharacterAndLeave.bind(undefined, character.id)}
       markChatRead={markChatReadUpTo.bind(undefined, character.id)}
+      setManualDice={setManualDice.bind(undefined, character.id)}
     />
   )
 }

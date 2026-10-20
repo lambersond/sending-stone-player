@@ -4,7 +4,12 @@ import { useMemo, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
 import { MoveDialog, type MoveEnd } from './move-dialog'
-import { NO_TRANSFERS, type TransferControls } from './transferring'
+import {
+  ITEM_BUTTON,
+  NO_TRANSFERS,
+  ROW_BUTTON,
+  type TransferControls,
+} from './transferring'
 import type { LocalMove, LocalUse } from '@/hooks/use-sheet-roller'
 import type { useTableRolls } from '@/hooks/use-table-rolls'
 import type {
@@ -16,15 +21,13 @@ import type { TableMoves } from '@/types/table'
 import type { SeatRole } from '@/utils/seat-words'
 
 /*
- * Give, on a character's Inventory tab (module 0.31.0): in each item once it's opened, and beside
- * its coin, while the game takes moves, to a party its player owns in Foundry or another of the
- * campaign's characters; for the Gamemaster, to any of the campaign's parties or characters. Each
- * opens the move's dialog, and what's given is followed in the tray and the toasts, as a use is.
+ * Give, on a character's Inventory tab (module 0.31.0): in each item once it's opened, and on its
+ * Currency row, while the game takes moves, to a party its player owns in Foundry or another of
+ * the campaign's characters; for the Gamemaster, to any of the campaign's parties or characters.
+ * From module 0.32.0's feedback, the Currency row's reads "Send to", and "Send to…" in an item's
+ * own menu gives it too. Each opens the move's dialog, and what's given is followed in the tray
+ * and the toasts, as a use is.
  */
-
-/** A pill in the opened item, on a line of its own, apart from the row's own buttons. */
-const GIVE_BUTTON =
-  'self-start rounded-full border border-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary/5 disabled:opacity-60'
 
 /** What's pending, for coins rather than an item. */
 const COINS = 'coins'
@@ -96,19 +99,27 @@ export function useGiveControls({
         body: (
           <GiveButton
             label={`Give ${item.name}`}
+            className={ITEM_BUTTON}
             busy={pending.has(item.id)}
             onGive={() => give({ item })}
-          />
+          >
+            Give…
+          </GiveButton>
         ),
       }),
+      // On the Currency row, its words are its name, in the group the row's label names.
       coins: currency =>
         anyCoins(currency) && (
           <GiveButton
-            label='Give coins'
+            className={ROW_BUTTON}
             busy={pending.has(COINS)}
             onGive={() => give({ coins: currency })}
-          />
+          >
+            Send to
+          </GiveButton>
         ),
+      // What "Send to…" in an item's own menu opens: the dialog its Give… opens.
+      send: item => (item.quantity >= 1 ? () => give({ item }) : undefined),
     }
   }, [actorId, moves, pending])
 
@@ -136,9 +147,18 @@ export function useGiveControls({
 
 function GiveButton({
   label,
+  className,
   busy,
   onGive,
-}: Readonly<{ label: string; busy: boolean; onGive: () => void }>) {
+  children,
+}: Readonly<{
+  /** Its name, where its words alone don't say what it gives. */
+  label?: string
+  className: string
+  busy: boolean
+  onGive: () => void
+  children: ReactNode
+}>) {
   return (
     <button
       type='button'
@@ -147,7 +167,7 @@ function GiveButton({
       disabled={busy}
       aria-busy={busy || undefined}
       onClick={onGive}
-      className={clsx(GIVE_BUTTON, busy && 'inline-flex items-center gap-1')}
+      className={clsx(className, busy && 'inline-flex items-center gap-1')}
     >
       {busy && (
         <LoaderCircle
@@ -155,7 +175,7 @@ function GiveButton({
           className='size-3.5 motion-safe:animate-spin'
         />
       )}
-      Give…
+      {children}
     </button>
   )
 }

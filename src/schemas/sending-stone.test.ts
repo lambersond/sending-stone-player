@@ -5,6 +5,7 @@ import {
   characterSheet,
   checkingSheet,
   combat,
+  distributedResult,
   enchantingSheet,
   enchantUse,
   fullerSheet,
@@ -12,11 +13,15 @@ import {
   LOCK_CHECK,
   MAZE_CHECK,
   roster,
+  SENDING_TRANSFERS,
   sheetAction,
   sheetFavorites,
+  sheetItem,
+  sheetSpell,
   SLEIGHT_CHECK,
   TEXTS,
 } from '@/mocks/sending-stone'
+import { slimQuillSheet } from '@/mocks/slim-sheet'
 import type {
   SheetAction,
   SheetActivityFavorite,
@@ -3827,5 +3832,167 @@ describe('concentration, counters and outcomes, from module 0.29.0', () => {
         readers: readerIds(201),
       }),
     ).toBeUndefined()
+  })
+})
+
+/**
+ * An attack's rolls, as one dnd5e gives Elven Accuracy says them, with these fields: junk among
+ * them, as sent.
+ */
+const rapier = (fields: object = {}): any => ({
+  toHit: 7,
+  attackId: 'rapierAttack',
+  damage: [{ formula: '1d8 + 3', type: 'Piercing', healing: false }],
+  elvenAccuracy: true,
+  ...fields,
+})
+
+describe('Elven Accuracy, from module 0.32.0', () => {
+  it("keeps it on an action, its activities and a favorite activity, and leaves out what isn't true", () => {
+    for (const read of readRolls(rapier())) {
+      expect(read.elvenAccuracy).toBe(true)
+    }
+    for (const elvenAccuracy of [false, 'yes', 1, null]) {
+      for (const read of readRolls(rapier({ elvenAccuracy }))) {
+        // Left out, as junk: never anything but true.
+        expect(read.elvenAccuracy).toBeUndefined()
+        expect(read.attackId).toBe('rapierAttack')
+      }
+    }
+    for (const read of readRolls(rapier({ elvenAccuracy: undefined }))) {
+      expect(read.elvenAccuracy).toBeUndefined()
+    }
+  })
+
+  it("keeps it on an inventory item's, a spell's and a feature's rolls", () => {
+    const read = readSheet(
+      characterSheet({
+        inventory: {
+          sections: [
+            {
+              id: 'weapons',
+              label: 'Weapons',
+              items: [
+                sheetItem({
+                  id: 'rapier',
+                  name: 'Rapier',
+                  type: 'weapon',
+                  ...rapier(),
+                }),
+              ],
+            },
+          ],
+          containers: [],
+          currency: [],
+          encumbrance: null,
+          attunement: null,
+        },
+        spells: [
+          {
+            id: 'spell0',
+            label: 'Cantrips',
+            slots: null,
+            spells: [
+              sheetSpell({
+                id: 'bolt',
+                name: 'Fire Bolt',
+                level: 0,
+                ...rapier({ attackId: 'boltAttack' }),
+              }),
+            ],
+          },
+        ],
+        features: [
+          {
+            id: 'race',
+            label: 'Elf Features',
+            text: null,
+            features: [
+              {
+                id: 'thorns',
+                name: 'Thorn Lash',
+                img: null,
+                kind: 'Feature',
+                requirements: null,
+                activation: '1 Action',
+                passive: false,
+                uses: null,
+                text: null,
+                ...rapier({ attackId: 'lashAttack', elvenAccuracy: 'yes' }),
+              },
+            ],
+          },
+        ],
+      }),
+    ) as any
+    expect(read.inventory.sections[0].items[0].elvenAccuracy).toBe(true)
+    expect(read.spells[0].spells[0].elvenAccuracy).toBe(true)
+    expect(read.features[0].features[0].elvenAccuracy).toBeUndefined()
+    expect(read.features[0].features[0].attackId).toBe('lashAttack')
+  })
+
+  it('keeps it on a slim action by reference, as the action has it, whatever its row says', () => {
+    const slim = slimQuillSheet() as any
+    const [staff] = slim.actions[0].actions
+    slim.actions[0].actions[0] = { ...staff, elvenAccuracy: true }
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: slim },
+    }) as any
+
+    const [read, next] = event.data.character.sheet.actions[0].actions
+    expect(read.id).toBe('staff')
+    expect(read.elvenAccuracy).toBe(true)
+    expect(next.elvenAccuracy).toBeUndefined()
+  })
+})
+
+/** What a hello's features say of moves, as read. */
+const transfers = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { transfers: sent },
+    })?.data as { features?: { transfers?: unknown } }
+  ).features?.transfers
+
+describe('schemas/sending-stone, a party’s things sent and distributed, from module 0.32.0', () => {
+  it('reads features.transfers’ sends and distributions, and reads junk as false', () => {
+    expect(transfers(SENDING_TRANSFERS)).toEqual(SENDING_TRANSFERS)
+    expect(
+      transfers({ ...SENDING_TRANSFERS, partySends: 'yes', distribute: 1 }),
+    ).toEqual({ ...SENDING_TRANSFERS, partySends: false, distribute: false })
+    // Module 0.31.0 says neither.
+    expect(
+      transfers({ enabled: true, kinds: ['transfer'], reason: null }),
+    ).toEqual({ enabled: true, kinds: ['transfer'], reason: null })
+  })
+
+  it('reads a distribution’s result: no end, and those given their share, in order', () => {
+    const read = (fields: object) => {
+      const { transfer, ...result } = distributedResult()
+      return parseGameEvent('command.result', {
+        ...result,
+        transfer: { ...transfer, ...fields },
+      })?.data as { transfer?: unknown; messageId: string | null }
+    }
+    expect(read({}).transfer).toEqual(distributedResult().transfer)
+    expect(read({ among: [] }).transfer).toMatchObject({ among: [] })
+    expect(
+      read({
+        among: Array.from({ length: 20 }, (_, index) => `actor${index}`),
+      }).transfer,
+    ).toMatchObject({ to: null })
+    // More than one distribution shares among, or what isn't an id: the move left out, the rest
+    // kept.
+    for (const among of [
+      Array.from({ length: 21 }, (_, index) => `actor${index}`),
+      [''],
+      'everyone',
+    ]) {
+      const data = read({ among })
+      expect(data.transfer).toBeUndefined()
+      expect(data.messageId).toBe('m-line')
+    }
   })
 })
