@@ -442,30 +442,34 @@ describe('db/transfers, createTransferRequest', () => {
   })
 })
 
+/** The Iron Company's 103 gp, all of its gold. */
+const ALL_GOLD = { gp: 103 }
+/** The Iron Company's members, Thorin and Vex its characters, and its 103 gp and 1 cp. */
+const company = () =>
+  prismaMock.groupSheet.findUnique.mockResolvedValue({
+    data: {
+      members: [
+        { id: THORIN, name: 'Thorin', character: true },
+        { id: VEX, name: 'Vex', character: true },
+        { id: 'grumble', name: 'Grumble', character: false },
+      ],
+      inventory: {
+        ...partyStash(),
+        currency: [
+          { id: 'gp', label: 'Gold', abbreviation: 'gp', value: 103 },
+          { id: 'cp', label: 'Copper', abbreviation: 'cp', value: 1 },
+        ],
+      },
+    },
+  } as any)
+const distribute = (
+  among = [THORIN, VEX],
+  currency: Record<string, number> = ALL_GOLD,
+) => move({ from: COMPANY, among, currency })
+const send = (to = VEX) => move({ from: COMPANY, to, currency: { gp: 2 } })
+
 describe('db/transfers, a party’s things sent and distributed, from module 0.32.0', () => {
   const ON = ['partySends', 'distribute']
-  /** The Iron Company's members, Thorin and Vex its characters, and its 103 gp and 1 cp. */
-  const company = () =>
-    prismaMock.groupSheet.findUnique.mockResolvedValue({
-      data: {
-        members: [
-          { id: THORIN, name: 'Thorin', character: true },
-          { id: VEX, name: 'Vex', character: true },
-          { id: 'grumble', name: 'Grumble', character: false },
-        ],
-        inventory: {
-          ...partyStash(),
-          currency: [
-            { id: 'gp', label: 'Gold', abbreviation: 'gp', value: 103 },
-            { id: 'cp', label: 'Copper', abbreviation: 'cp', value: 1 },
-          ],
-        },
-      },
-    } as any)
-  const distribute = (among = [THORIN, VEX], currency = { gp: 103 }) =>
-    move({ from: COMPANY, among, currency })
-  const send = (to = VEX) => move({ from: COMPANY, to, currency: { gp: 2 } })
-
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW })
     for (const mock of [

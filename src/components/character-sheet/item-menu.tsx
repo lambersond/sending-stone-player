@@ -32,7 +32,13 @@ export function useItemMenu(
     (anchor: HTMLElement, point?: MenuPoint) => setOpened({ anchor, point }),
     [],
   )
-  if (!send) return { menu: undefined }
+  if (!send) {
+    // Nothing to send, as while the game takes no moves or once the last of it has gone: a menu
+    // left open closes, rather than opening again by itself, at a row that may be gone, and taking
+    // focus, once there is again.
+    if (opened) setOpened(undefined)
+    return { menu: undefined }
+  }
   const menu = opened && (
     <ChoiceMenu
       anchor={opened.anchor}

@@ -493,8 +493,8 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
   })
 
   describe('formulas and hit dice', () => {
-    it("asks for a formula's dice, term by term", async () => {
-      renderer()
+    it("asks for a formula's dice, term by term, and never animates", async () => {
+      const fake = renderer()
       const { enter, asked } = typing([[3], [5]])
       const { result, onFormulaThrown } = setUp(enter)
       const light: SheetFormulaRoll = {
@@ -519,10 +519,13 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
       expect(onFormulaThrown).toHaveBeenCalledWith(light, formula)
       expect(asked[0].total([[3], [5]])).toBe(formula.total)
       expect(asked[0].total([[undefined], [5]])).toBe(7)
+      // Kept at once, as typed: no dice thrown on screen.
+      expect(fake.roll).not.toHaveBeenCalled()
+      expect(result.current.rolling).toBe(false)
     })
 
-    it('asks for hit dice spent at once a box each, each time at least its least', async () => {
-      renderer()
+    it('asks for hit dice spent at once a box each, each time at least its least, never animated', async () => {
+      const fake = renderer()
       const { enter, asked } = typing([[1, 7], [2]])
       const { result } = setUp(enter)
       const spent: SheetFormulaRoll = {
@@ -562,10 +565,12 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
       expect(asked[0].total([[1, 7], [2]])).toBe(formula.total)
       // A time with nothing typed yet still gives back its least.
       expect(asked[0].total([[undefined, undefined], [undefined]])).toBe(3)
+      expect(fake.roll).not.toHaveBeenCalled()
+      expect(result.current.rolling).toBe(false)
     })
 
-    it('takes a d100 typed as one number', async () => {
-      renderer()
+    it('takes a d100 typed as one number, never animated', async () => {
+      const fake = renderer()
       const { enter, asked } = typing([[100]])
       const { result } = setUp(enter)
 
@@ -583,6 +588,8 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
         typed: true,
         described: true,
       })
+      expect(fake.roll).not.toHaveBeenCalled()
+      expect(result.current.rolling).toBe(false)
     })
 
     it('keeps nothing when the player cancels', async () => {
@@ -601,22 +608,24 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
   })
 
   describe('the critical guard (decision 5)', () => {
+    /** Midi-QOL's critical, whose numbers the app can't read: only its die. */
+    const unread: DamagePreview = {
+      critical: true,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d6mx2 + 4',
+          type: 'Slashing',
+          dice: [{ faces: 6, number: 1 }],
+          perDie: 1,
+        },
+      ],
+    }
+
     it("J1 counts the game's total of damage whose formula the app can't read, as Midi-QOL's 1d6mx2 + 4", async () => {
       renderer()
       jest.spyOn(Math, 'random').mockReturnValue(4.5 / 6)
       const { result } = setUp()
-      const unread: DamagePreview = {
-        critical: true,
-        plannable: true,
-        rolls: [
-          {
-            formula: '1d6mx2 + 4',
-            type: 'Slashing',
-            dice: [{ faces: 6, number: 1 }],
-            perDie: 1,
-          },
-        ],
-      }
 
       await rolled(() =>
         result.current.rollDamage(
@@ -629,6 +638,28 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
       expect(
         shownTotal(damage, { status: 'done', visible: true, total: 14 }),
       ).toBe(14)
+    })
+
+    it("J1 counts the game's total of it typed in too, not the bare die typed", async () => {
+      const fake = renderer()
+      const { enter, asked } = typing([[5]])
+      const { result } = setUp(enter)
+
+      await rolled(() =>
+        result.current.rollDamage(
+          damageRollOf('Longsword', { use: 'req-1', damage: unread }),
+        ),
+      )
+
+      expect(asked[0].terms).toEqual([
+        { sides: 6, count: 1, label: '1d6 Slashing' },
+      ])
+      const [damage] = result.current.rolls as LocalDamage[]
+      expect(damage).toMatchObject({ total: 5, typed: true, gameTotal: true })
+      expect(
+        shownTotal(damage, { status: 'done', visible: true, total: 14 }),
+      ).toBe(14)
+      expect(fake.roll).not.toHaveBeenCalled()
     })
   })
 })

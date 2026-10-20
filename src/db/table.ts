@@ -198,15 +198,14 @@ function seatRolls(
 export async function getCampaignStatus(
   seat: SheetSeat,
 ): Promise<CampaignStatus> {
-  // The seat is read from the player's Character on every request, so their choice is as stored.
-  const typed = seat.role === 'player' && seat.manualDice === true
   if (!seat.campaignId) {
     return {
       version: 0,
       live: false,
       ...seatRolls(seat),
       moves: false,
-      typed,
+      // As the view, which has no campaign to say it in: a campaign removed leaves it stored.
+      typed: false,
     }
   }
   const now = Date.now()
@@ -233,7 +232,9 @@ export async function getCampaignStatus(
     ...(gmRollsKeyNow && { gmRollsKey: gmRollsKeyNow }),
     // Whether the character is in the roster, which the view reads too, changes the version.
     moves: !!seat.actorId && !!campaign && transfersAvailable(campaign, now),
-    typed,
+    // The seat is read from the player's Character on every request, so their choice is as
+    // stored; told only where the view tells it, with its campaign.
+    typed: seat.role === 'player' && seat.manualDice === true && !!campaign,
   }
 }
 

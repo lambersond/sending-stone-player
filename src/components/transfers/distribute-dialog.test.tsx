@@ -1,6 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { computeAccessibleDescription } from 'dom-accessibility-api'
 import {
   DistributeDialog,
   type DistributeDialogProps,
@@ -55,12 +54,8 @@ describe('components/transfers/distribute-dialog', () => {
     const coin = within(
       within(dialog).getByRole('group', { name: 'Coin' }),
     ).getAllByRole('radio')
-    expect(coin.map(radio => radio.getAttribute('aria-label') ?? '')).toEqual([
-      '',
-      '',
-      '',
-      '',
-    ])
+    // Named by their words, as "Gold 103 gp".
+    for (const radio of coin) expect(radio).not.toHaveAttribute('aria-label')
     expect(
       within(dialog)
         .getAllByRole('radio')
@@ -71,9 +66,7 @@ describe('components/transfers/distribute-dialog', () => {
     }
     const copper = screen.getByRole('radio', { name: 'Copper 3 cp' })
     expect(copper).toBeDisabled()
-    expect(computeAccessibleDescription(copper)).toBe(
-      'Too few to share among 4',
-    )
+    expect(copper).toHaveAccessibleDescription('Too few to share among 4')
     // None is chosen at first.
     expect(
       within(dialog)

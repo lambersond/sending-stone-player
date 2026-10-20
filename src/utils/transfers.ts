@@ -119,7 +119,7 @@ export function checkAmong(
       .filter(({ character }) => character === true)
       .map(({ id }) => id),
   )
-  const among = new Set(transfer.among ?? [])
+  const among = new Set(transfer.among)
   return members.size === among.size && [...among].every(id => members.has(id))
     ? undefined
     : 'members'

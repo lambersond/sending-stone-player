@@ -3946,16 +3946,18 @@ describe('Elven Accuracy, from module 0.32.0', () => {
   })
 })
 
+/** What a hello's features say of moves, as read. */
+const transfers = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { transfers: sent },
+    })?.data as { features?: { transfers?: unknown } }
+  ).features?.transfers
+
 describe('schemas/sending-stone, a party’s things sent and distributed, from module 0.32.0', () => {
   it('reads features.transfers’ sends and distributions, and reads junk as false', () => {
-    const transfers = (sent: unknown) =>
-      (
-        parseGameEvent('bridge.hello', {
-          characters: [],
-          combats: [],
-          features: { transfers: sent },
-        })?.data as { features?: { transfers?: unknown } }
-      ).features?.transfers
     expect(transfers(SENDING_TRANSFERS)).toEqual(SENDING_TRANSFERS)
     expect(
       transfers({ ...SENDING_TRANSFERS, partySends: 'yes', distribute: 1 }),

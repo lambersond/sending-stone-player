@@ -1419,9 +1419,6 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
       getCampaignStatus({ ...thorin, manualDice: true }),
     ).resolves.toMatchObject({ typed: true })
     await expect(
-      getCampaignStatus({ ...thorin, manualDice: true, campaignId: null }),
-    ).resolves.toMatchObject({ typed: true })
-    await expect(
       getCampaignStatus({
         ...thorin,
         manualDice: true,
@@ -1430,4 +1427,29 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
       }),
     ).resolves.toMatchObject({ typed: false })
   })
+
+  // A campaign removed leaves its characters, and their players' choices, stored. Each row as long
+  // as the rest: jest takes a last parameter a row lacks for `done`.
+  it.each<[string, { campaignId?: null }, object | null | undefined]>([
+    [
+      'in no campaign, as once its campaign is removed',
+      { campaignId: null },
+      undefined,
+    ],
+    ['whose campaign is gone', {}, null],
+    ['in its campaign', {}, stored(['manualDice'], true)],
+  ])(
+    'tells the poll that nothing changed as the view it had says, for a character %s',
+    async (_name, fields, found) => {
+      givenCampaign(found as object)
+      const seat = { ...thorin, manualDice: true, ...fields }
+      const view = await getTableView(seat)
+
+      // What the page sends back of the view it has, as `typed=1`.
+      const seen = view.manualDice?.on === true
+      await expect(getCampaignStatus(seat)).resolves.toMatchObject({
+        typed: seen,
+      })
+    },
+  )
 })

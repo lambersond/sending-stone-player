@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { Shield } from 'lucide-react'
 import { usePressMenu } from './press-menu'
 import { LONG_PRESS } from './roll-button'
 import { SheetEntry } from './sheet-entry'
@@ -128,7 +129,7 @@ describe('components/character-sheet/press-menu', () => {
         button: -1,
       }),
     )
-    expect(onMenu).toHaveBeenCalledWith(row, undefined)
+    expect(onMenu.mock.lastCall).toEqual([row])
     fireEvent(
       row,
       new PointerEvent('contextmenu', {
@@ -137,7 +138,7 @@ describe('components/character-sheet/press-menu', () => {
         pointerType: '',
       }),
     )
-    expect(onMenu).toHaveBeenLastCalledWith(row, undefined)
+    expect(onMenu.mock.lastCall).toEqual([row])
 
     // After Escape, Enter on the row clicks it, as a key sends no pointer down: nothing is
     // swallowed.
@@ -161,6 +162,53 @@ describe('components/character-sheet/press-menu', () => {
     expect(onMenu).toHaveBeenCalledWith(row, { x: 100, y: 30, touch: true })
     fireEvent.click(row)
     expect(details.open).toBe(false)
+  })
+
+  it('lets the next tap open the row after a touch screen’s own long-press menu that no click followed', () => {
+    const { row, details, onMenu } = renderRow()
+
+    // Chrome on Android sends no click after a long-press's contextmenu.
+    fireEvent(
+      row,
+      new PointerEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'touch',
+        clientX: 200,
+        clientY: 80,
+      }),
+    )
+    expect(onMenu).toHaveBeenCalledTimes(1)
+    fireEvent.pointerDown(row, touch)
+    fireEvent.pointerUp(row, touch)
+    fireEvent.click(row)
+    expect(details.open).toBe(true)
+  })
+
+  it('lets the next tap open the row after a long-press the browser took over, such as for a scroll', () => {
+    const { row, details, onMenu } = renderRow()
+
+    fireEvent.pointerDown(row, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS))
+    expect(onMenu).toHaveBeenCalledTimes(1)
+    // A press the browser takes over ends in pointercancel, and no click.
+    fireEvent.pointerCancel(row, touch)
+    fireEvent.pointerDown(row, touch)
+    fireEvent.pointerUp(row, touch)
+    fireEvent.click(row)
+    expect(details.open).toBe(true)
+  })
+
+  it.each([
+    ['the browser takes the touch over, as for a scroll', 'pointerCancel'],
+    ['it leaves the row', 'pointerLeave'],
+  ] as const)('opens nothing once %s', (_, end) => {
+    const { row, onMenu } = renderRow()
+
+    fireEvent.pointerDown(row, touch)
+    fireEvent[end](row, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS))
+    expect(onMenu).not.toHaveBeenCalled()
   })
 
   it('leaves a press on a control inside the row to it: no menu, and the browser’s own', () => {
@@ -209,7 +257,7 @@ describe('components/character-sheet/press-menu', () => {
           <SheetEntry
             characterId='char-1'
             name='Cloak of Protection'
-            fallback={() => null}
+            fallback={Shield}
             aside={
               <UsesButton
                 uses={counted(2, 3, { item: 'cloak' })}

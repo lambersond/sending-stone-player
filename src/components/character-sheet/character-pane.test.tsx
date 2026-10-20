@@ -4789,5 +4789,37 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
         expect(posted).toEqual([])
       },
     )
+
+    it("closes at once for Midi-QOL's rolled in Foundry, though the game still lists it, to say so", async () => {
+      const prompt = save({
+        id: 'k3y-thorin',
+        abilities: ['wis'],
+        label: 'Hold Person',
+        expiresAt: new Date(Date.now() + 42_000).toISOString(),
+        source: 'midi',
+      })
+      const user = userEvent.setup()
+      const posted = answering({})
+      const { rerender } = render(pane([prompt]))
+
+      const banner = screen.getByRole('region', {
+        name: 'Your Gamemaster asks',
+      })
+      await user.click(within(banner).getAllByRole('button')[0])
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      const [asked] = mockEntries
+      expect(asked.signal?.aborted).toBe(false)
+
+      // Listed a few seconds more, closed, for the banner to say what became of it: an answer from
+      // here now would be refused, so the dialog goes before its time is up, with nothing sent.
+      rerender(pane([{ ...prompt, closed: 'rolled' }]))
+      expect(asked.signal?.aborted).toBe(true)
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(
+        screen.getByRole('region', { name: 'Your Gamemaster asks' }),
+      ).toHaveTextContent('Rolled in Foundry')
+      await act(async () => {})
+      expect(posted).toEqual([])
+    })
   })
 })

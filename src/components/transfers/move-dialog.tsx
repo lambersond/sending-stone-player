@@ -150,9 +150,7 @@ function MoveForm({
   // A stack that moves whole, of more than the game moves at once, can't be moved from here at
   // all: what may hold anything is never split.
   const tooMany = !!item && !counted && item.quantity > MOST_MOVED
-  let recipient: MoveEnd | undefined
-  if (choices) recipient = choices.find(({ id }) => id === chosen)
-  else recipient = into
+  const recipient = choices ? choices.find(({ id }) => id === chosen) : into
   let quantity: number | undefined
   if (item && !tooMany) {
     quantity = counted ? amountOf(count, max) : item.quantity

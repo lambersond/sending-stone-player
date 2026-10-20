@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
 import { DistributeDialog } from './distribute-dialog'
@@ -17,6 +16,7 @@ import type { PartyView, TableGroup } from '@/types/party'
 import type { TransferInput } from '@/types/roll'
 import type { SheetCurrency } from '@/types/sending-stone'
 import type { SeatRole } from '@/utils/seat-words'
+import type { ReactNode } from 'react'
 
 /*
  * What a party's sheet does with its stash and coin: Take (module 0.31.0), and from module

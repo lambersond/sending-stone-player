@@ -3,7 +3,11 @@ import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
-import { characterSheet, movingPartyView } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  fullerSheet,
+  movingPartyView,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
@@ -108,7 +112,7 @@ const respond = (status: number, body?: unknown) =>
 /** A party's row, by what it shows: its name, then "Primary party" or "Party sheet". */
 const partyRow = (name: string) =>
   new RegExp(
-    `^${name.replaceAll(/[$()*+.?[\\\]^{|}]/g, '\\$&')} (Primary party|Party sheet)$`,
+    `^${name.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`)} (Primary party|Party sheet)$`,
   )
 
 /** Opens a party's sheet from the character's Inventory tab. */
@@ -343,5 +347,127 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
     expect(screen.queryByRole('tab', { name: 'Inventory' })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Part(y|ies)/ })).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+/** Thorin's view without his sheet: withheld as too large, or not yet arrived. */
+const noSheet = (groups?: TableGroup[], withheld = true): TableView => {
+  const seen = view(groups)
+  delete seen.sheet
+  delete seen.sheetVersion
+  return {
+    ...seen,
+    ...(withheld && {
+      sheetWithheld: {
+        reason: 'tooLarge' as const,
+        bytes: 5_000_000,
+        limit: 4_000_000,
+      },
+    }),
+  }
+}
+/** The Character pane, and the column of combat and the chat beside it on a wide screen. */
+const pane = () => document.querySelector('#character-pane') as HTMLElement
+const column = () => pane().nextElementSibling as HTMLElement
+
+describe('components/game-table, the party list where there’s no sheet (PR #44’s review)', () => {
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => respond(200, party)) as typeof fetch
+    jest.mocked(useRouter).mockReturnValue({ refresh: jest.fn() } as any)
+  })
+
+  it.each([
+    ['withheld as too large', true, "Thorin's sheet is too large to send"],
+    ['not yet arrived', false, "Thorin's sheet hasn't arrived"],
+  ])(
+    'opens the party sheets from under why there’s no sheet, %s',
+    async (_name, withheld, title) => {
+      const user = userEvent.setup()
+      renderTable(noSheet([company], withheld))
+
+      expect(screen.getByText(title)).toBeVisible()
+      const parties = screen.getByRole('region', { name: 'Party' })
+      await user.click(
+        within(parties).getByRole('button', {
+          name: 'The Company Primary party',
+        }),
+      )
+      expect(
+        screen.getByRole('dialog', { name: 'The Company' }),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it('shows the Character pane on a wide screen with parties and no sheet, and not with neither', () => {
+    const { unmount } = renderTable(noSheet([company]))
+    expect(pane()).toHaveClass('lg:flex')
+    expect(pane()).not.toHaveClass('lg:hidden')
+    expect(column()).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
+    unmount()
+
+    renderTable(noSheet())
+    expect(pane()).toHaveClass('lg:hidden')
+    expect(column()).not.toHaveClass('lg:w-[clamp(320px,40%,500px)]')
+    expect(screen.queryByRole('region', { name: /^Part(y|ies)$/ })).toBeNull()
+  })
+
+  it('keeps the side column narrow with a sheet, as ever', () => {
+    renderTable(view([company]))
+    expect(pane()).toHaveClass('lg:flex')
+    expect(column()).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
+  })
+
+  it('leaves an opener once the sheet is withdrawn while the panel is open, and it closes', async () => {
+    const user = userEvent.setup()
+    const { showing } = renderTable(view([company]))
+
+    await openParty(user, 'The Company')
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    showing(noSheet([company]))
+    await user.click(within(panel).getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('dialog', { name: 'The Company' })).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'The Company Primary party' }),
+    ).toBeInTheDocument()
+  })
+
+  it('lists the parties once, under the sheet’s Inventory or why there’s none, never both', async () => {
+    const user = userEvent.setup()
+    renderTable(view([company, scouts]))
+    await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+
+    expect(screen.getAllByRole('region', { name: 'Parties' })).toHaveLength(1)
+    expect(document.querySelectorAll('[id="inventory-parties"]')).toHaveLength(
+      1,
+    )
+  })
+
+  it('gives the party panel over the Inventory ids of its own, which its labels resolve inside it', async () => {
+    globalThis.fetch = jest.fn(() =>
+      respond(200, movingPartyView({ group: company })),
+    ) as typeof fetch
+    const user = userEvent.setup()
+    renderTable({
+      ...view([company]),
+      sheet: toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com'),
+    })
+
+    await openParty(user, 'The Company')
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    const containers = await within(panel).findByRole('region', {
+      name: 'Containers',
+    })
+    const ids = [...document.querySelectorAll('[id]')].map(({ id }) => id)
+    expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([])
+    const label = document.querySelector(
+      `#${CSS.escape(containers.getAttribute('aria-labelledby') ?? '')}`,
+    )
+    expect(panel.contains(label)).toBe(true)
+    // The character's own keep theirs.
+    expect(document.querySelector('#inventory-containers')).not.toBeNull()
+    expect(
+      panel.contains(document.querySelector('#inventory-containers')),
+    ).toBe(false)
   })
 })

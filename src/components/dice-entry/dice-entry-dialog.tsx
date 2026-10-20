@@ -347,7 +347,9 @@ function Entry({
                       onChange={event => put(at, digitsOf(event.target.value))}
                       className={clsx(
                         'h-11 w-12 rounded-xl border bg-page text-center text-base tabular-nums outline-none',
-                        invalid ? 'border-danger' : 'border-border',
+                        // An empty box shows nothing but its edge, so it's drawn at 3:1 or more
+                        // against the dialog in either theme, as the app's fainter border isn't.
+                        invalid ? 'border-danger' : 'border-text-secondary/80',
                         at === current && 'ring-2 ring-primary',
                       )}
                     />

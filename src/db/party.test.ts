@@ -570,6 +570,12 @@ describe('db/party, taking from a party, from module 0.31.0', () => {
   })
 })
 
+/** What the seat's view of the party says may be moved. */
+const movesOf = async (seat: PartySeat, group: string) => {
+  const view = await getGroupView(seat, group)
+  return view?.moves
+}
+
 describe('db/party, a party’s things sent and distributed, from module 0.32.0', () => {
   /** Wardens of the Vale, which Thorin's player owns too, and Vex's observes. */
   const wardens = groupEntry({
@@ -663,6 +669,14 @@ describe('db/party, a party’s things sent and distributed, from module 0.32.0'
     ])
   })
 
+  it('lists no party a player only observes, though every character', async () => {
+    sending()
+
+    // Vex's player owns the Scouts, and only observes the Company and the Wardens.
+    const moves = await movesOf(player(PARTY.vex), 'scouts')
+    expect(moves?.send).toEqual({ parties: [], characters })
+  })
+
   it('tells the Gamemaster every other party and every character, and gives them none of a player’s coins', async () => {
     sending()
 
@@ -696,28 +710,22 @@ describe('db/party, a party’s things sent and distributed, from module 0.32.0'
   it('sends neither where the module does neither, though a player’s give is 0.31.0’s', async () => {
     sending([])
 
-    expect((await getGroupView(player(), 'company'))?.moves).toEqual({
+    expect(await movesOf(player(), 'company')).toEqual({
       give: { currency: COINS },
     })
-    expect((await getGroupView(gm(), 'company'))?.moves).toEqual({
+    expect(await movesOf(gm(), 'company')).toEqual({
       characters,
     })
     sending(['partySends'])
-    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
-      'distribute',
-    )
+    expect(await movesOf(player(), 'company')).not.toHaveProperty('distribute')
     sending(['distribute'])
-    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
-      'send',
-    )
+    expect(await movesOf(player(), 'company')).not.toHaveProperty('send')
   })
 
   it('shares among none without the party’s sheet, with no characters in it, or with more than one distribution may', async () => {
     sending()
     prismaMock.groupSheet.findUnique.mockResolvedValue(null)
-    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
-      'distribute',
-    )
+    expect(await movesOf(player(), 'company')).not.toHaveProperty('distribute')
 
     sheetHeld(
       groupSheet({
@@ -727,9 +735,7 @@ describe('db/party, a party’s things sent and distributed, from module 0.32.0'
         })),
       }),
     )
-    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
-      'distribute',
-    )
+    expect(await movesOf(player(), 'company')).not.toHaveProperty('distribute')
 
     sheetHeld(
       groupSheet({
@@ -742,18 +748,14 @@ describe('db/party, a party’s things sent and distributed, from module 0.32.0'
         })),
       }),
     )
-    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
-      'distribute',
-    )
+    expect(await movesOf(player(), 'company')).not.toHaveProperty('distribute')
   })
 
   it('gives none of their coins without their sheet', async () => {
     sending()
     prismaMock.actorSheet.findUnique.mockResolvedValue(null)
 
-    expect((await getGroupView(player(), 'company'))?.moves).not.toHaveProperty(
-      'give',
-    )
+    expect(await movesOf(player(), 'company')).not.toHaveProperty('give')
   })
 
   it('tells one who only observes the party none of it, and reads no sheet of theirs', async () => {

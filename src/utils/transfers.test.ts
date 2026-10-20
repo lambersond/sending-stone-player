@@ -499,6 +499,7 @@ describe('utils/transfers, from module 0.32.0', () => {
     })
 
     it('refuses any without the party’s sheet', () => {
+      // eslint-disable-next-line unicorn/no-useless-undefined -- no sheet, as the module sent none
       expect(checkAmong({ among: [THORIN] }, undefined)).toBe('members')
       expect(checkAmong({ among: [THORIN] }, {})).toBe('members')
     })

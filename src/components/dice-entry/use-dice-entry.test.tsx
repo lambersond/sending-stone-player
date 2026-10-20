@@ -138,6 +138,20 @@ describe('components/dice-entry/use-dice-entry', () => {
     await expect(waiting).resolves.toBeUndefined()
   })
 
+  it("opens in the page's body, never where the sheet puts it, which may be a tab hidden", () => {
+    const { container } = render(
+      <div className='hidden'>
+        <Sheet />
+      </div>,
+    )
+    enter(entry('Perception check'))
+
+    const shown = dialog()
+    expect(shown).not.toBeNull()
+    expect(container.contains(shown)).toBe(false)
+    expect(shown?.closest('.hidden')).toBeNull()
+  })
+
   it('asks through the same function every time', () => {
     const { rerender } = render(<Sheet />)
     rerender(<Sheet />)

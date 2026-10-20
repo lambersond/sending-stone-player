@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DiceEntryDialog } from './dice-entry-dialog'
@@ -50,12 +52,91 @@ const open = (
 const box = (name: string) => screen.getByRole('textbox', { name })
 const key = (name: string) => screen.getByRole('button', { name })
 const total = () => screen.getByRole('status')
+/** The block of the total, the keypad and Done, kept in view as the dice scroll. */
+const keptInView = () =>
+  screen.getByRole('group', { name: 'Keypad' }).parentElement as HTMLElement
+/** The Modal's scroller, the dice scrolling in it. */
+const scroller = () =>
+  screen.getByRole('dialog').querySelector('form')?.parentElement as HTMLElement
+
+/**
+ * The one box the keypad types into: marked current, and ringed, which is all that shows which it
+ * is while focus is on a key or Done. Every other box neither.
+ */
+const expectCurrent = (name: string) => {
+  const current = box(name)
+  expect(current).toHaveAttribute('aria-current', 'true')
+  expect(current).toHaveClass('ring-2', 'ring-primary')
+  for (const each of screen.getAllByRole('textbox')) {
+    if (each === current) continue
+    expect(each).not.toHaveAttribute('aria-current')
+    expect(each).not.toHaveClass('ring-2')
+    expect(each).not.toHaveClass('ring-primary')
+  }
+}
+
+// The theme's colours, as globals.css sets them, to measure a box's edge as WCAG measures it.
+const css = readFileSync(
+  path.join(process.cwd(), 'src/app/globals.css'),
+  'utf8',
+)
+
+/** The colour tokens one block of the stylesheet sets, by name. */
+const tokens = (start: string): Record<string, string> => {
+  const from = css.indexOf(start)
+  const block = css.slice(from, css.indexOf('\n}', from))
+  return Object.fromEntries(
+    [...block.matchAll(/--color-([\w-]+):\s*(#[\da-f]{6});/gi)].map(
+      ([, name, value]) => [name, value],
+    ),
+  )
+}
+
+const LIGHT = tokens('@theme {')
+const DARK = { ...LIGHT, ...tokens('.dark {') }
+
+const rgb = (hex: string) =>
+  [1, 3, 5].map(at => Number.parseInt(hex.slice(at, at + 2), 16))
+
+const luminance = (channels: number[]) => {
+  const [r, g, b] = channels.map(channel => {
+    const c = channel / 255
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** WCAG's contrast ratio between two colours. */
+const contrast = (one: number[], other: number[]) => {
+  const [lighter, darker] = [luminance(one), luminance(other)].toSorted(
+    (a, b) => b - a,
+  )
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+/** A short screen, such as a phone held sideways. */
+const onShortScreen = () =>
+  jest.spyOn(globalThis, 'matchMedia').mockImplementation(
+    query =>
+      ({
+        matches: query === '(max-height: 30rem)',
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList,
+  )
 
 const ADVANTAGE_AND_BLESS = entry({
   terms: [
     { sides: 20, count: 2, label: 'd20, advantage' },
     { sides: 4, count: 1, label: '+1d4' },
   ],
+})
+
+/** A critical hit's 20d6, its dice doubled: forty boxes, more than a short screen shows. */
+const CRITICAL_20D6 = entry({
+  title: 'Fireball damage',
+  terms: [{ sides: 6, count: 40, label: '40d6 Fire' }],
 })
 
 describe('components/dice-entry/dice-entry-dialog', () => {
@@ -111,6 +192,36 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       }
     })
 
+    it.each([
+      ['light', LIGHT],
+      ['dark', DARK],
+    ])(
+      'draws an empty box’s edge at 3:1 or more against the dialog, in the %s theme',
+      (_, theme) => {
+        open(ADVANTAGE_AND_BLESS)
+        // Empty and not the one typed into: nothing but its edge shows where it is.
+        const empty = box('d20 2 of 2')
+        expect(empty).toHaveClass('border', 'bg-page')
+        const edges = [...empty.classList].flatMap(name => {
+          const [, token, percent] =
+            /^border-([a-z-]+?)(?:\/(\d+))?$/.exec(name) ?? []
+          return token && theme[token] ? [{ token, percent }] : []
+        })
+        expect(edges).toHaveLength(1)
+        const [{ token, percent = '100' }] = edges
+        // Drawn over the box's own fill, as a box's background reaches under its border.
+        const alpha = Number(percent) / 100
+        const below = rgb(theme.page)
+        const edge = rgb(theme[token]).map(
+          (channel, at) => channel * alpha + below[at] * (1 - alpha),
+        )
+
+        expect(contrast(edge, rgb(theme.card))).toBeGreaterThanOrEqual(3)
+        // As the app's own border, the inputs' elsewhere, isn't.
+        expect(contrast(rgb(theme.border), rgb(theme.card))).toBeLessThan(3)
+      },
+    )
+
     it('focuses the first box a frame after it opens, though a menu closing as it opened took focus back', () => {
       render(
         <>
@@ -127,7 +238,7 @@ describe('components/dice-entry/dice-entry-dialog', () => {
 
       runFrames()
       expect(box('d20 1 of 2')).toHaveFocus()
-      expect(box('d20 1 of 2')).toHaveAttribute('aria-current', 'true')
+      expectCurrent('d20 1 of 2')
     })
 
     it('focuses the first box over the browser’s own focus on the dialog’s first button', () => {
@@ -190,8 +301,7 @@ describe('components/dice-entry/dice-entry-dialog', () => {
 
       expect(box('d6 1 of 2')).toHaveValue('4')
       expect(box('d6 2 of 2')).toHaveFocus()
-      expect(box('d6 2 of 2')).toHaveAttribute('aria-current', 'true')
-      expect(box('d6 1 of 2')).not.toHaveAttribute('aria-current')
+      expectCurrent('d6 2 of 2')
     })
 
     it('waits on a d20’s 1, which may be 10 to 19, until Next die', async () => {
@@ -269,12 +379,17 @@ describe('components/dice-entry/dice-entry-dialog', () => {
 
     it('focuses Done once the last box is whole, the last box staying current', async () => {
       const user = userEvent.setup()
-      open(entry({ terms: [{ sides: 6, count: 1, label: '1d6' }] }))
+      open(entry({ terms: [{ sides: 6, count: 2, label: '2d6' }] }))
 
       await user.click(key('4'))
+      await user.click(key('5'))
 
       expect(key('Done')).toHaveFocus()
-      expect(box('d6')).toHaveAttribute('aria-current', 'true')
+      // Its ring is all that shows a key tapped now would type into it, in place of its 5.
+      expectCurrent('d6 2 of 2')
+      await user.click(key('2'))
+      expect(box('d6 2 of 2')).toHaveValue('2')
+      expect(box('d6 1 of 2')).toHaveValue('4')
     })
 
     it('moves from the last box to Done with Next die', async () => {
@@ -305,6 +420,59 @@ describe('components/dice-entry/dice-entry-dialog', () => {
 
       await user.keyboard('{Backspace}{Backspace}')
       expect(box('d20 1 of 2')).toHaveValue('')
+
+      // The keyboard's own Delete too.
+      await user.keyboard('25{Delete}')
+      expect(box('d20 1 of 2')).toHaveValue('2')
+    })
+
+    it('stays on a box whose digit taken off leaves a whole face, by keyboard or keypad', async () => {
+      const user = userEvent.setup()
+      open(ADVANTAGE_AND_BLESS)
+
+      // A d20's 35 comes only from a paste, as typing its 3 would move on; with its 5 taken off,
+      // its 3 is whole, and the player is still on it.
+      for (const takeOff of [
+        () => user.keyboard('{Backspace}'),
+        () => user.keyboard('{Delete}'),
+        () => user.click(key('Delete')),
+      ]) {
+        await user.paste('35')
+        expect(box('d20 1 of 2')).toHaveValue('35')
+        await takeOff()
+
+        expect(box('d20 1 of 2')).toHaveValue('3')
+        expect(box('d20 1 of 2')).toHaveFocus()
+        expectCurrent('d20 1 of 2')
+      }
+    })
+
+    it('starts a box holding three digits again, as it holds no more', async () => {
+      const user = userEvent.setup()
+      open(ADVANTAGE_AND_BLESS)
+
+      // As its maxLength holds back only what the browser types itself, not what the dialog puts.
+      await user.keyboard('253')
+      expect(box('d20 1 of 2')).toHaveValue('253')
+      expect(box('d20 1 of 2')).toHaveAttribute('aria-invalid', 'true')
+
+      await user.keyboard('4')
+      expect(box('d20 1 of 2')).toHaveValue('4')
+      expect(box('d20 1 of 2')).not.toHaveAttribute('aria-invalid')
+      expect(box('d20 2 of 2')).toHaveFocus()
+    })
+
+    it('leaves a key held with Ctrl, Cmd or Alt to the browser, such as a paste', () => {
+      open(ADVANTAGE_AND_BLESS)
+      const first = box('d20 1 of 2')
+
+      // fireEvent says false where the key's own action was prevented, as a plain letter's is.
+      expect(fireEvent.keyDown(first, { key: 'v' })).toBe(false)
+      for (const held of ['ctrlKey', 'metaKey', 'altKey']) {
+        expect(fireEvent.keyDown(first, { key: 'v', [held]: true })).toBe(true)
+        expect(fireEvent.keyDown(first, { key: '1', [held]: true })).toBe(true)
+      }
+      expect(first).toHaveValue('')
     })
 
     it('drops anything typed but digits, and keeps a paste’s digits, three at most', async () => {
@@ -367,14 +535,14 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       await user.keyboard('{Enter}')
 
       expect(box('d6 1 of 3')).toHaveValue('4')
-      // The next box is current, focus left on the key.
-      expect(box('d6 2 of 3')).toHaveAttribute('aria-current', 'true')
+      // The next box is current, and ringed as it is, focus left on the key.
+      expectCurrent('d6 2 of 3')
       expect(key('4')).toHaveFocus()
 
       act(() => key('2').focus())
       await user.keyboard(' ')
       expect(box('d6 2 of 3')).toHaveValue('2')
-      expect(box('d6 3 of 3')).toHaveAttribute('aria-current', 'true')
+      expectCurrent('d6 3 of 3')
     })
 
     it('scrolls the box moved on to clear of the keypad kept over the dice', async () => {
@@ -689,15 +857,7 @@ describe('components/dice-entry/dice-entry-dialog', () => {
 
   describe('layout', () => {
     it('sits the dice beside a five-column keypad on a short screen', () => {
-      jest.spyOn(globalThis, 'matchMedia').mockImplementation(
-        query =>
-          ({
-            matches: query === '(max-height: 30rem)',
-            media: query,
-            addEventListener: () => {},
-            removeEventListener: () => {},
-          }) as unknown as MediaQueryList,
-      )
+      onShortScreen()
       open(ADVANTAGE_AND_BLESS)
 
       expect(screen.getByRole('group', { name: 'Keypad' })).toHaveClass(
@@ -709,6 +869,27 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       expect(key('Done')).toHaveClass('h-9')
     })
 
+    it('keeps the keypad and Done in view beside many dice on a short screen, as the dice scroll', () => {
+      onShortScreen()
+      open(CRITICAL_20D6)
+      const form = screen.getByRole('dialog').querySelector('form')
+
+      // The dice on the left, the keypad and Done on the right.
+      expect(form?.children[0]).toContainElement(box('d6 40 of 40'))
+      expect(form?.children[1]).toBe(keptInView())
+      // Only as tall as itself, not stretched to the dice's height, so it has somewhere to stick.
+      expect(form).toHaveClass('grid-cols-2', 'items-start')
+      // Stuck at the scroller's top, over its padding: without the inset it scrolls away.
+      expect(scroller()).toHaveClass('overflow-y-auto', 'p-5')
+      expect(keptInView()).toHaveClass(
+        'sticky',
+        '-top-5',
+        '-mt-5',
+        'pt-5',
+        'bg-card',
+      )
+    })
+
     it('keeps the keypad and Done below the dice otherwise, three columns', () => {
       open(ADVANTAGE_AND_BLESS)
 
@@ -718,9 +899,19 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       expect(screen.getByRole('dialog').querySelector('form')).not.toHaveClass(
         'grid-cols-2',
       )
-      expect(
-        screen.getByRole('group', { name: 'Keypad' }).parentElement,
-      ).toHaveClass('sticky', 'bg-card')
+      // Stuck at the scroller's foot, over its padding: without the inset it scrolls away with
+      // the dice, Done out of view below forty of them.
+      expect(scroller()).toHaveClass('overflow-y-auto', 'p-5')
+      expect(keptInView()).toHaveClass(
+        'sticky',
+        '-bottom-5',
+        '-mx-5',
+        '-mb-5',
+        'px-5',
+        'pb-5',
+        'bg-card',
+      )
+      expect(keptInView()).not.toHaveClass('-top-5')
     })
   })
 })

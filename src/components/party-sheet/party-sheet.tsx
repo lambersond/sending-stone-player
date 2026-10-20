@@ -34,12 +34,12 @@ import {
   PartyMoveDialog,
   type PartyMoving,
 } from '@/components/transfers/party-controls'
-import type { TakeInto } from '@/components/transfers/take-controls'
 import { NO_TRANSFERS, Transferring } from '@/components/transfers/transferring'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { useTransfers } from '@/hooks/use-transfers'
 import { megabytes } from '@/utils/format-amount'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
+import type { TakeInto } from '@/components/transfers/take-controls'
 import type { PartyState } from '@/hooks/use-party-sheet'
 import type { TableSeat } from '@/types/character'
 import type { PartyView } from '@/types/party'

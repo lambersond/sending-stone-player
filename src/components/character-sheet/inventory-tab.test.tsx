@@ -833,3 +833,104 @@ describe('moving items and coins, from module 0.31.0', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('the Currency row and coin spacing, from module 0.32.0’s feedback', () => {
+  const sendTo: TransferControls = {
+    coins: () => (
+      <button type='button' aria-haspopup='dialog'>
+        Send to
+      </button>
+    ),
+  }
+
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  it('puts the coin’s controls on its label’s row, in a group the label names, before the coins', () => {
+    render(
+      <InventoryTab
+        characterId='char-1'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        transfers={sendTo}
+      />,
+    )
+
+    const label = screen.getAllByRole('term')[0]
+    expect(label).toHaveTextContent(/^Currency$/)
+    const group = screen.getByRole('group', { name: 'Currency' })
+    expect(group).toHaveAttribute('aria-labelledby', label.id)
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map(button => button.textContent),
+    ).toEqual(['Send to'])
+    // Label, then its controls, then the coins, in one card, the controls pushed right.
+    const card = label.parentElement as HTMLElement
+    expect(card).toHaveClass('flex-wrap', 'justify-between')
+    expect(group.closest('dd')).toHaveClass('ml-auto')
+    const coins = screen.getByTitle('Gold').closest('dd') as HTMLElement
+    expect(coins).toHaveClass('basis-full')
+    expect([...card.children]).toEqual([label, group.closest('dd'), coins])
+  })
+
+  it('names no group where the coin has no control', () => {
+    renderTab()
+
+    expect(screen.getByText('Currency')).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Currency' })).toBeNull()
+  })
+
+  it('puts half a space between a coin’s amount and its abbreviation, which still reads as one', async () => {
+    const user = userEvent.setup()
+    render(
+      <InventoryTab
+        characterId='char-1'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        sheet={toTableSheet(
+          withInventory({
+            currency: [
+              { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 41 },
+              {
+                id: 'pp',
+                label: 'Platinum',
+                abbreviation: 'PP',
+                value: 12_877,
+              },
+            ],
+          }),
+          'https://my-game.forge-vtt.com',
+        )}
+      />,
+    )
+
+    const plain = screen.getByTitle('Gold')
+    expect(plain).toHaveTextContent(/^41 GP$/)
+    const spaced = (scope: HTMLElement) => {
+      const parts = [...scope.querySelectorAll(':scope > span')]
+      expect(parts.map(part => part.textContent)).toEqual([
+        expect.any(String),
+        ' ',
+        expect.any(String),
+      ])
+      expect(parts[1]).toHaveClass('text-[0.5em]')
+    }
+    spaced(plain)
+
+    // The shortened amount's button, and its exact amount, alike.
+    const button = screen.getByRole('button', {
+      name: '12.8k PP, exact amount',
+    })
+    expect(button).toHaveTextContent(/^12\.8k PP$/)
+    spaced(button)
+    await user.click(button)
+    const exact = screen.getByRole('dialog', { name: '12,877 PP' })
+    const amount = within(exact).getByText('12,877')
+      .parentElement as HTMLElement
+    expect(amount).toHaveTextContent(/^12,877 PP$/)
+    spaced(amount)
+  })
+})

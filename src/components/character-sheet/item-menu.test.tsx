@@ -24,8 +24,11 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 
 const GAME = 'https://my-game.forge-vtt.com'
 
-/** Thorin's things: a handaxe that rolls, a plain ring, a cloak with uses, and the ring a favorite. */
-const sheet = (): CharacterSheet => {
+/**
+ * Thorin's things: a handaxe that rolls, a plain ring, a cloak, and the ring a favorite too.
+ * @param rings - How many of the ring he has.
+ */
+const sheet = (rings = 1): CharacterSheet => {
   const fuller = fullerSheet()
   const [weapons, equipment] = fuller.inventory.sections
   return fullerSheet({
@@ -58,7 +61,9 @@ const sheet = (): CharacterSheet => {
         {
           ...equipment,
           items: [
-            ...equipment.items,
+            ...equipment.items.map(item =>
+              item.id === 'ring' ? { ...item, quantity: rings } : item,
+            ),
             sheetItem({ id: 'torch', name: 'Torch', quantity: 0 }),
           ],
         },
@@ -67,16 +72,19 @@ const sheet = (): CharacterSheet => {
   })
 }
 
+/** Thorin's pane, with these moves, and this many of his ring. */
+const pane = (moves: TableMoves | undefined, rings = 1) => (
+  <CharacterPane
+    characterId='char-1'
+    name='Thorin Oakenshield'
+    sheet={toTableSheet(sheet(rings), GAME)}
+    moves={moves}
+    actorId='actorThorin1'
+  />
+)
+
 const renderPane = (moves: TableMoves | undefined = tableMoves()) =>
-  render(
-    <CharacterPane
-      characterId='char-1'
-      name='Thorin Oakenshield'
-      sheet={toTableSheet(sheet(), GAME)}
-      moves={moves}
-      actorId='actorThorin1'
-    />,
-  )
+  render(pane(moves))
 
 /** The row of an item in a section of the Inventory tab, by its name. */
 const rowOf = (section: string, name: string) =>
@@ -119,17 +127,16 @@ describe('components/character-sheet/item-menu, on the character’s Inventory',
     expect(row.closest('details')).not.toHaveAttribute('open')
 
     // The row has focus as the dialog opens, for the browser to give it back to it as it closes.
-    let focused: Element | null = null
-    const showModal = HTMLDialogElement.prototype.showModal
-    jest
-      .spyOn(HTMLDialogElement.prototype, 'showModal')
-      .mockImplementation(function (this: HTMLDialogElement) {
-        focused = document.activeElement
-        showModal.call(this)
-      })
+    const focus = jest.spyOn(HTMLElement.prototype, 'focus')
+    const showModal = jest.spyOn(HTMLDialogElement.prototype, 'showModal')
     await user.click(within(menu).getByRole('menuitem', { name: 'Send to…' }))
     expect(screen.queryByRole('menu')).toBeNull()
-    expect(focused).toBe(row)
+    const focused = focus.mock.contexts.indexOf(row)
+    expect(focused).toBeGreaterThanOrEqual(0)
+    expect(focus.mock.invocationCallOrder[focused]).toBeLessThan(
+      showModal.mock.invocationCallOrder[0],
+    )
+    expect(row).toHaveFocus()
     const dialog = screen.getByRole('dialog', { name: 'Give Plain Ring' })
     expect(
       within(dialog)
@@ -233,6 +240,29 @@ describe('components/character-sheet/item-menu, on the character’s Inventory',
     expect(fireEvent.contextMenu(ring, { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('closes a menu left open once the item can’t be sent, and never opens it again by itself', async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderPane()
+    await user.click(screen.getByRole('tab', { name: /^Inventory/ }))
+
+    // Another player takes the last of it, then it's given back.
+    fireEvent.contextMenu(rowOf('Equipment', 'Plain Ring'), { button: 2 })
+    expect(screen.getByRole('menu', { name: 'Plain Ring' })).toBeVisible()
+    rerender(pane(tableMoves(), 0))
+    expect(screen.queryByRole('menu')).toBeNull()
+    rerender(pane(tableMoves()))
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    // The game stops taking moves a while, as when the bridge hasn't polled, then takes them again.
+    fireEvent.contextMenu(rowOf('Equipment', 'Plain Ring'), { button: 2 })
+    expect(screen.getByRole('menu', { name: 'Plain Ring' })).toBeVisible()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- no moves
+    rerender(pane(undefined))
+    expect(screen.queryByRole('menu')).toBeNull()
+    rerender(pane(tableMoves()))
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
 })
 
 describe('components/character-sheet/item-menu, on a party’s sheet', () => {
@@ -244,15 +274,15 @@ describe('components/character-sheet/item-menu, on a party’s sheet', () => {
     jest.useRealTimers()
   })
 
-  const renderParty = () =>
-    render(
-      <PartySheet
-        api='/api/characters/char-1/party/groupIronCo01'
-        role='player'
-        view={sendingPartyView()}
-        takeInto={own}
-      />,
-    )
+  const party = (view = sendingPartyView()) => (
+    <PartySheet
+      api='/api/characters/char-1/party/groupIronCo01'
+      role='player'
+      view={view}
+      takeInto={own}
+    />
+  )
+  const renderParty = () => render(party())
 
   it('opens Send to… for the party’s item, whose To lacks the party', async () => {
     const user = userEvent.setup()
@@ -278,6 +308,18 @@ describe('components/character-sheet/item-menu, on a party’s sheet', () => {
     expect(radios.some(radio => radio.getAttribute('checked') !== null)).toBe(
       false,
     )
+  })
+
+  it('closes a menu left open while the party’s things can’t be sent, and never opens it again by itself', async () => {
+    const { rerender } = renderParty()
+
+    fireEvent.contextMenu(rowOf('Loot', 'Rope'), { button: 2 })
+    expect(screen.getByRole('menu', { name: 'Rope' })).toBeVisible()
+    // The bridge hasn't polled a while, or Owner was taken away in Foundry: no moves, then back.
+    rerender(party({ ...sendingPartyView(), moves: undefined }))
+    expect(screen.queryByRole('menu')).toBeNull()
+    rerender(party())
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('lets a slow tap on Take open Take, and no item menu', async () => {
