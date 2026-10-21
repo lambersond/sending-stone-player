@@ -20,9 +20,17 @@
 // (`itemMenu(row, how)`) and the half space between a coin's amount and its abbreviation
 // (`halfSpace(li)`). A group's members change by `changeMembers`, and coins in Foundry alone by
 // `coinsInFoundry`. Since module 0.33.0: SKEW=032 is module 0.32.0; an item's quantity changes in
-// Foundry alone by `quantityInFoundry`.
-import { mkdirSync, readFileSync } from 'node:fs'
+// Foundry alone by `quantityInFoundry`. Since module 0.34.0 (its contract §13.1): Foundry's journals,
+// the harness's own stand-in (fvtt/journal-core.mjs), so every world has them, as every Foundry does;
+// SKEW=033 is module 0.33.0; a book's journal by `journal(kind, actorId, campaignId)`, and its pages
+// changed, added, duplicated or deleted in Foundry as a user there (`editInFoundry`, `addPageInFoundry`,
+// `duplicateInFoundry`, `deleteInFoundry`); the Gamemaster gone and back (`gmAway`, `gmBack`); the
+// module's fetches for commands held, as with Foundry closed (`stopFetching`, `startFetching`); the
+// Foundry page reloaded, its module afresh (`reloadFoundry`); and what was posted (`lastHello`, `books`).
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
+import * as J from './fvtt/journal-core.mjs'
 import { JSDOM } from 'jsdom'
 import { chromium, devices } from 'playwright'
 export { chromium, devices }
@@ -40,6 +48,8 @@ export const SKEW030 = process.env.SKEW === '030'
 export const SKEW031 = process.env.SKEW === '031'
 /** Module 0.32.0, from before 0.33.0, against this round's app: no removals. */
 export const SKEW032 = process.env.SKEW === '032'
+/** Module 0.33.0, from before 0.34.0, against this round's app: no journal notes. */
+export const SKEW033 = process.env.SKEW === '033'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -50,7 +60,7 @@ if (SHOTS_031) mkdirSync(SHOTS_031, { recursive: true })
 /** Module 0.33.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_033 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-033`
 if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -101,6 +111,16 @@ export const relay = { answerAs: null, lose: null }
 export let browser
 let gmTab
 let fetches = 0
+/**
+ * The module's fetches for commands, held while Foundry is "closed" (`stopFetching`): the fetch
+ * under way given up on, and every one after it waiting, unanswered, until `startFetching`; and the
+ * sessions of Foundry pages reloaded since (`reloadFoundry`), whose module is gone with its page, so
+ * nothing it posts or fetches arrives anywhere.
+ */
+const gate = { held: null, release: null, inFlight: new Map() }
+const deadSessions = new Set()
+/** The game's page in the browser, where the module's requests are made from: Foundry's own. */
+export const foundryTab = () => gmTab
 export async function launch(game) {
   browser = await chromium.launch()
   const foundryContext = await browser.newContext()
@@ -110,12 +130,23 @@ export async function launch(game) {
   await gmTab.goto(`${game}/game`)
   globalThis.fetch = async (url, init) => {
     const sent = JSON.parse(init.body)
+    // A reloaded page's module is gone: what it sends goes nowhere, and is never answered.
+    if (deadSessions.has(sent.session)) {
+      return new Promise((resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new DOMException('The fetch was given up on', 'AbortError')), { once: true })
+      })
+    }
     if (relay.lose?.(sent)) {
-      posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, status: 400, body: '', lost: true })
+      posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, campaign: sent.campaign?.id ?? null, session: sent.session, status: 400, body: '', lost: true })
       return { ok: false, status: 400, statusText: 'Bad Request', headers: new Headers(), json: async () => ({}), text: async () => '' }
     }
+    // Foundry "closed": the fetch for commands waits, unanswered, until it's open again, whatever
+    // the module's own timer says, as a fetch with no network does.
+    const commands = String(url).endsWith('/api/bridge/commands')
+    while (commands && gate.held) await gate.held
     // Made from the game's page, and given up on there when the module gives it up.
     const id = ++fetches
+    if (commands) gate.inFlight.set(id, sent.campaign?.id ?? null)
     init.signal?.addEventListener('abort', () => {
       void gmTab.evaluate(id => globalThis.__aborts?.[id]?.abort(), id).catch(() => {})
     }, { once: true })
@@ -131,9 +162,12 @@ export async function launch(game) {
         delete globalThis.__aborts[id]
       }
     }, { id, url: String(url), init: { method: init.method, headers: init.headers, body: init.body, mode: init.mode, credentials: init.credentials, cache: init.cache } })
+      .finally(() => gate.inFlight.delete(id))
     if (error) throw new DOMException('The fetch was given up on', error)
+    // Its page reloaded while it was on its way: its answer reaches no one.
+    if (deadSessions.has(sent.session)) return new Promise(() => {})
     const told = (relay.answerAs && body && sent.type) ? relay.answerAs(body, sent) : body
-    posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, bytes: Buffer.byteLength(init.body), status, body, told })
+    posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, campaign: sent.campaign?.id ?? null, session: sent.session, bytes: Buffer.byteLength(init.body), status, body, told })
     if (status >= 300) problems.push(`${sent.type ?? url} → ${status}`)
     return {
       ok: status >= 200 && status < 300, status, statusText,
@@ -680,9 +714,10 @@ export let midiCritical = null
  * "Hit/miss and save results in the app", "foundry" or "always", left at its default unset. With
  * MIDI=1, `midiCritical` (`{ gm, player }`) puts Midi-QOL's rules for critical hits in place of
  * dnd5e's (fvtt/midi-critical.mjs), as Midi wraps dnd5e at its init, after the module's scripts load.
+ * `module`, another module's checkout than MODULE, as one updated later by `reloadFoundry` (0.34.0).
  */
-export async function startModule({ campaigns, secrets, gmContent = false, results, midiCritical: rules }) {
-  await import(`${MODULE}/scripts/module.mjs`)
+export async function startModule({ campaigns, secrets, gmContent = false, results, midiCritical: rules, module = MODULE }) {
+  await import(`${module}/scripts/module.mjs`)
   if (MIDI && rules) {
     const stand = await import('./fvtt/midi-critical.mjs')
     stand.installMidiCritical(CONFIG.Dice.DamageRoll)
@@ -810,10 +845,110 @@ export const call = (page, path, { method = 'GET', body } = {}) => page.evaluate
   try { json = JSON.parse(text) } catch {}
   return { status: response.status, text, json }
 }, { path, method, body })
+// ---- Journals (module 0.34.0) ----
+export const { LEVELS, FORMATS, hold, refuse, clearFaults, as, pagesOf, pageById, noCleaner, withCleaner } = J
+/** Every write made to the stand-in's journals, in order: `[what, id, data, options]`. */
+export const journalWrites = J.writes
+/**
+ * A book's journal in the stand-in Foundry, for one of the module's campaigns: the earliest that
+ * claims it by flag, as the module finds it; null where there's none. Its pages in Foundry's order
+ * are `pagesOf(entry)`.
+ */
+export const journal = (kind, actorId, campaignId) => J.journalOf(kind, actorId, campaignId)
+const pageOf = page => {
+  const found = (typeof page === 'string') ? J.pageById(page) : page
+  if (!found) throw new Error(`No journal page ${page} in Foundry`)
+  return found
+}
+/**
+ * A page changed in Foundry by a user there (`gm`, `alice`, `bob`…), as from its sheet: `name`,
+ * `level`, `markdown` in the Markdown editor, or `html` in the rich-text one, which clears the
+ * Markdown. The page by itself or by its id.
+ */
+export const editInFoundry = (userId, page, changes) => J.editPage(userId, pageOf(page), changes)
+/** A page added to a journal (itself or its id) in Foundry: a text page at Foundry's default level 1 unless said. */
+export const addPageInFoundry = (userId, entry, page = {}) => J.addPage(userId, (typeof entry === 'string') ? game.journal.get(entry) : entry, page)
+/** A page, or a whole journal, duplicated in Foundry, as its Duplicate does: new ids, the same flags. */
+export const duplicateInFoundry = (userId, doc) => ((doc?.documentName === 'JournalEntry') ? J.duplicateJournal(userId, doc) : J.duplicatePage(userId, pageOf(doc)))
+/**
+ * Deleted in Foundry by a user there: a page, by itself or its id; a journal, itself; or `'journal'`,
+ * a book's journal, `{ kind, actorId, campaignId }`.
+ */
+export function deleteInFoundry(userId, target, book) {
+  if (target === 'journal') {
+    const entry = J.journalOf(book.kind, book.actorId, book.campaignId)
+    if (!entry) throw new Error(`No journal for ${JSON.stringify(book)} in Foundry`)
+    return J.deleteJournal(userId, entry)
+  }
+  if (target?.documentName === 'JournalEntry') return J.deleteJournal(userId, target)
+  return J.deletePage(userId, pageOf(target))
+}
+/** The Gamemaster leaves Foundry, so nothing is sent or fetched; and comes back, the bridge again, with a hello. */
+export const gmAway = () => J.bridgeOff()
+export const gmBack = () => J.bridgeOn()
+/**
+ * Foundry "closed", as far as the app's commands go: the module's fetch for them under way given up
+ * on, so the app hands it nothing more, and every fetch after it held, unanswered, until
+ * `startFetching()`; the posts still go. `age`, a campaign's id in the app or a list of them: as if
+ * it had been closed a while, the app last heard it fetch ten minutes ago, so the notes there wait
+ * at once (BRIDGE_POLLED_WITHIN is 45 seconds).
+ */
+export async function stopFetching({ age = [] } = {}) {
+  if (!gate.held) gate.held = new Promise(resolve => { gate.release = resolve })
+  const under = [...gate.inFlight.keys()]
+  await gmTab.evaluate(ids => { for (const id of ids) globalThis.__aborts?.[id]?.abort() }, under).catch(() => {})
+  agePolls(age)
+}
+/**
+ * As if the module had last fetched for these campaigns (their ids in the app) ten minutes ago, as
+ * after Foundry has been closed a while: the app counts their games as not taking notes now.
+ */
+export function agePolls(...ids) {
+  for (const id of ids.flat()) sql(`update campaign set "bridgePolledAt" = now() - interval '10 minutes' where id = '${id}'`)
+}
+/** Foundry open again: the held fetches for commands go on to the app. */
+export function startFetching() {
+  const release = gate.release
+  gate.held = null
+  gate.release = null
+  release?.()
+}
+const reloads = []
+/**
+ * The game's page reloaded, as the Gamemaster's browser does: the module there is gone with it,
+ * whatever it was doing (a write held in Foundry stays held, and is never made), and what it sends
+ * or fetches from then on goes nowhere; then the module starts again in the new page, afresh, as
+ * Foundry starts it, with its settings as stored, and a new session. `module`, another module, as a
+ * Gamemaster updating it does: `version`, as its module.json says.
+ */
+export async function reloadFoundry({ module = MODULE, version } = {}) {
+  for (const p of posted) if (p.session) deadSessions.add(p.session)
+  await gmTab.evaluate(() => { for (const controller of Object.values(globalThis.__aborts ?? {})) controller.abort() }).catch(() => {})
+  // A copy of its files, so that every one of its scripts is loaded anew, as a page load does.
+  const dir = mkdtempSync(`${tmpdir()}/sending-stone-reload-`)
+  reloads.push(dir)
+  for (const part of ['module.json', 'scripts', 'lang', 'templates']) {
+    try { cpSync(`${module}/${part}`, `${dir}/${part}`, { recursive: true }) } catch (error) { if (error.code !== 'ENOENT') throw error }
+  }
+  game.modules.get('sending-stone').version = version ?? JSON.parse(readFileSync(`${module}/module.json`, 'utf8')).version
+  const before = postsOf('bridge.hello').length
+  await import(`${dir}/scripts/module.mjs`)
+  await Hooks.callAll('init')
+  await Hooks.callAll('ready')
+  await until(() => postsOf('bridge.hello').length > before, "the reloaded module's hello")
+  return dir
+}
+/** The last hello the module posted, for one of its campaigns if said. */
+export const lastHello = campaignId => postsOf('bridge.hello').filter(p => !campaignId || (p.campaign === campaignId)).at(-1)
+/** The books posted (`journal.updated`), in order, for one of the module's campaigns, and a book's kind and actor if said. */
+export const books = (campaignId, kind, actorId) => postsOf('journal.updated')
+  .filter(p => (!campaignId || (p.campaign === campaignId)) && (!kind || (p.data.kind === kind)) && (!actorId || (p.data.actorId === actorId)))
+
 /** Close everything, and say whether anything went wrong. */
 export async function finish() {
   console.log('problems:', problems)
   check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors, and the app took everything the module sent')
+  for (const dir of reloads) rmSync(dir, { recursive: true, force: true })
   await browser.close()
   process.exit(0)
 }

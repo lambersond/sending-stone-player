@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 36 suites, 67 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 39 suites, 71 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.
@@ -131,7 +131,7 @@ Everything a pass writes is under `e2e/.out/`, which git ignores:
 
 | file | does |
 |---|---|
-| `*-e2e.mjs` | the suites; `world-030.mjs` is the world eight of them share |
+| `*-e2e.mjs` | the suites; `world-030.mjs` is the world eleven of them share, with Foundry's journals (the module's `test/fvtt/journal-core.mjs`) since module 0.34.0 |
 | `env.mjs` | what every suite takes from the environment: `BASE`, `dbUrl` and `sql()`, `authSecret` and `cookieFor()`, `MODULE` |
 | `regress.sh` | every run: `run name want VARS…` |
 | `reset-db.sh`, `seed.sql` | a run's fresh data |

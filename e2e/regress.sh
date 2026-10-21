@@ -102,3 +102,9 @@ run givetake 19 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 run removals 81 SHOTS=$O/shots-033
 run removals 47 DND5E6=1 SHOTS=$O/shots-033
 run removals 9 SKEW=032 MODULE=$O/module-0.32.0 SHOTS=$O/shots-033
+# Module 0.34.0: journal notes, personal and party (chapters, the editor, Foundry's edits, privacy),
+# kept in the app while Foundry is closed and synced after; and module 0.33.0 (no notes).
+run notes 0 SHOTS=$O/shots-034
+run notes 9 SKEW=033 MODULE=$O/module-0.33.0 SHOTS=$O/shots-034
+run partynotes 52 SHOTS=$O/shots-034
+run notesoffline 34 TIMEOUT=600 SHOTS=$O/shots-034

@@ -60,7 +60,9 @@ check(!(await isDark(page)), 'device light + System -> light')
 await page.getByRole('radio', { name: 'Dark' }).click()
 check(await isDark(page), 'Dark applies on a light device')
 await page.goto(BASE + '/characters/' + (await page.getByRole('link', { name: /Thorin/ }).getAttribute('href')).split('/').pop())
-await page.getByRole('heading', { name: 'Thorin Oakenshield' }).waitFor()
+// The page's own heading: since 0.34.0 the Character pane shows on a wide screen with no sheet too,
+// with its "Thorin Oakenshield's sheet hasn't arrived".
+await page.getByRole('heading', { level: 1, name: 'Thorin Oakenshield', exact: true }).waitFor()
 check(await isDark(page) && await page.evaluate(() => window.__classAtMain.includes('dark')), 'Dark kept on the next page with no flash')
 // A character's page has no app bar, and this Thorin no sheet, so no settings: the theme is one
 // tap back, on the characters list.

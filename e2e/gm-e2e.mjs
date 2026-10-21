@@ -282,7 +282,17 @@ const desktop = await gmContext.newPage(); watch(desktop, 'alice-desktop')
 const vexId = sql(`select id from character where "actorId" = 'vex'`)
 await desktop.goto(`${BASE}/characters/${vexId}`)
 await desktop.getByRole('region', { name: 'Combat' }).getByRole('heading', { name: 'Initiative' }).waitFor()
-check(!(await desktop.getByRole('navigation', { name: 'Table' }).isVisible()) && await desktop.getByRole('region', { name: 'Combat' }).getByRole('heading', { name: 'Initiative' }).isVisible() && !(await desktop.getByRole('region', { name: 'Character' }).isVisible()), 'on a wide screen without a sheet, combat takes the width, without the bottom tabs')
+// From module 0.34.0 a seat at a character always has its notes, so the Character pane shows with no sheet too.
+await desktop.getByRole('region', { name: 'Character', exact: true }).getByRole('region', { name: 'Notes', exact: true }).waitFor({ timeout: 15_000 })
+const wideNoSheet = await desktop.evaluate(() => {
+  const pane = document.getElementById('character-pane')
+  const column = pane?.nextElementSibling
+  return { column: column?.getBoundingClientRect().width ?? 0, holdsCombat: Boolean(column?.querySelector('section[aria-label="Combat"]')) }
+})
+check(!(await desktop.getByRole('navigation', { name: 'Table' }).isVisible()) && await desktop.getByRole('region', { name: 'Combat' }).getByRole('heading', { name: 'Initiative' }).isVisible()
+  && await desktop.getByRole('region', { name: 'Character', exact: true }).isVisible() && await desktop.getByRole('region', { name: 'Character', exact: true }).getByRole('region', { name: 'Notes', exact: true }).isVisible()
+  && wideNoSheet.holdsCombat && wideNoSheet.column >= 320 && wideNoSheet.column <= 500,
+  `on a wide screen without a sheet, the Character pane, with why there's no sheet and the Notes section, beside combat, without the bottom tabs (${JSON.stringify(wideNoSheet)})`)
 await desktop.getByRole('tab', { name: /^Chat/ }).click()
 check(await desktop.getByRole('region', { name: 'Chat' }).isVisible() && !(await desktop.getByRole('region', { name: 'Combat' }).isVisible()), 'and the chat is a tab away')
 check(await desktop.evaluate(() => document.scrollingElement.scrollHeight === document.scrollingElement.clientHeight), 'and only the panes scroll, not the page')
