@@ -7,6 +7,7 @@ import {
   PROTOCOL_VERSION,
   EVENTS,
   REFUSAL,
+  REMOVALS,
   SLIM_SHEETS,
   TRANSFERS,
 } from '@/constants/sending-stone'
@@ -220,7 +221,8 @@ export async function POST(request: Request) {
  * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0); and
  * the campaign's groups in this format, which the module sends only then too (0.30.0).
  * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0);
- * and moves of items and coins, from module 0.31.0.
+ * moves of items and coins, from module 0.31.0; and removals of a character's items, from module
+ * 0.33.0.
  */
 const FEATURES = {
   commands: true,
@@ -230,6 +232,7 @@ const FEATURES = {
   groups: GROUPS,
   settings: FOUNDRY_SETTINGS,
   transfers: TRANSFERS,
+  removals: REMOVALS,
 }
 
 /**

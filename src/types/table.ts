@@ -296,6 +296,12 @@ export type TableView = {
    */
   moves?: TableMoves
   /**
+   * From module 0.33.0: whether the seat may remove the character's items, its player's or the
+   * Gamemaster's at its page: set only while the game removes them, its module is fetching, and the
+   * character is in its roster.
+   */
+  removes?: true
+  /**
    * For the player's seat only, from module 0.32.0: whether they may type in their own dice for
    * this character here, and whether they chose to. Unset for the Gamemaster's seat.
    */

@@ -14,6 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { createRemoveRequest } from '@/db/removals'
 import { createTransferRequest } from '@/db/transfers'
 import { sheetLinks } from '@/lib/sheet-html'
 import { changes } from '@/utils/damage-modifiers'
@@ -79,7 +80,9 @@ export function madeBy(seat: SheetSeat): Prisma.RollRequestWhereInput {
 
 /**
  * Why a roll wasn't taken, with the HTTP status that says so; for a move of items and coins, from
- * module 0.31.0, also that the seat has a move of the same on its way already (`moving`).
+ * module 0.31.0, also that the seat has a move of the same on its way already (`moving`), and for
+ * a removal, from module 0.33.0, a move or removal of the item, of anything in it, or of a
+ * container it's in.
  */
 export type RollRejection = {
   status: 409 | 422 | 429
@@ -92,7 +95,8 @@ export type RollRejection = {
  * at all, the sheet allows it, and the seat isn't sending too many, nor asking the table too often.
  * One from a link in a description is checked against that description, as held here. A move of
  * items and coins, from module 0.31.0, is no roll, and has a switch of its own: it's checked by
- * `createTransferRequest` alone.
+ * `createTransferRequest` alone. A removal of an item, from module 0.33.0, likewise:
+ * `createRemoveRequest` alone.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -101,6 +105,7 @@ export async function createRollRequest(
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
   if (input.kind === 'transfer') return createTransferRequest(seat, input)
+  if (input.kind === 'remove') return createRemoveRequest(seat, input)
   const { campaignId, actorId } = seat
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
@@ -329,7 +334,8 @@ export async function getRollRequestView(
  * (#156) go only to the session whose hello said it makes them, `gmRolls`, and only those of the
  * campaign's owner: a module before 0.23.0 would make them unmarked, as the player's. Others stay
  * waiting, and run out. From module 0.31.0, a move of items or coins goes only to the session whose
- * hello said it takes them, the Gamemaster's as a player's.
+ * hello said it takes them, the Gamemaster's as a player's. From module 0.33.0, a removal likewise,
+ * only to the session whose hello said it takes them.
  * @param session - The module session that fetched them.
  */
 export async function claimRollRequests(
@@ -344,6 +350,7 @@ export async function claimRollRequests(
       rollFeatures: true,
       ownerId: true,
       transfersEnabled: true,
+      removalsEnabled: true,
     },
   })
   const ownerId = campaign?.ownerId
@@ -351,21 +358,32 @@ export async function claimRollRequests(
   const gmRolls =
     !!ownerId && current && campaign.rollFeatures.includes('gmRolls')
   // Moves go only to the session whose hello said it takes them, and the Gamemaster's need no
-  // `gmRolls`, which the module says only while rolls are on.
+  // `gmRolls`, which the module says only while rolls are on. Removals, from module 0.33.0, as
+  // moves do.
   const transfers = current && campaign?.transfersEnabled === true
-  const notMove = { kind: { not: 'transfer' } }
+  const removals = current && campaign?.removalsEnabled === true
+  // A row of a kind the session doesn't take now waits, and runs out.
+  const withheld = [
+    ...(transfers ? [] : ['transfer']),
+    ...(removals ? [] : ['remove']),
+  ]
+  const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
+  const notOwn = { kind: { notIn: ['transfer', 'remove'] } }
   const waiting = await prisma.rollRequest.findMany({
     where: {
       campaignId,
       status: 'pending',
       createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
       OR: [
-        { role: 'player', ...(transfers ? {} : notMove) },
+        { role: 'player', ...notWithheld },
         ...(gmRolls
-          ? [{ role: 'gm' as const, requestedById: ownerId, ...notMove }]
+          ? [{ role: 'gm' as const, requestedById: ownerId, ...notOwn }]
           : []),
         ...(transfers && ownerId
           ? [{ role: 'gm' as const, requestedById: ownerId, kind: 'transfer' }]
+          : []),
+        ...(removals && ownerId
+          ? [{ role: 'gm' as const, requestedById: ownerId, kind: 'remove' }]
           : []),
       ],
     },
@@ -463,24 +481,32 @@ export async function recordCommandResult(
 
 /**
  * Note that the module is fetching players' rolls, which also says its game is connected.
- * @returns Whether the campaign takes players' rolls, and from module 0.31.0 their moves of items
- * and coins, and whether any of its players have their table open, so that one may be coming.
+ * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
+ * coins, and from module 0.33.0 removals of their characters' items, and whether any of its
+ * players have their table open, so that one may be coming.
  */
 export async function markBridgePolled(campaignId: string): Promise<{
   rollsEnabled: boolean
   transfersEnabled: boolean
+  removalsEnabled: boolean
   playersPresent: boolean
 }> {
   const now = new Date()
   const campaign = await prisma.campaign.update({
     where: { id: campaignId },
     data: { bridgePolledAt: now, lastSeenAt: now },
-    select: { rollsEnabled: true, transfersEnabled: true, playersSeenAt: true },
+    select: {
+      rollsEnabled: true,
+      transfersEnabled: true,
+      removalsEnabled: true,
+      playersSeenAt: true,
+    },
   })
   const seen = campaign.playersSeenAt?.getTime()
   return {
     rollsEnabled: campaign.rollsEnabled,
     transfersEnabled: campaign.transfersEnabled,
+    removalsEnabled: campaign.removalsEnabled,
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }

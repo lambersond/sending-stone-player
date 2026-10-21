@@ -27,6 +27,20 @@ export type TransferControls = {
    * right-click or long-press of its row. Unset where it can't be sent from here.
    */
   send?: (item: SheetItem | SheetContainer) => (() => void) | undefined
+  /**
+   * From module 0.33.0: "Remove…" in an item's own menu, on a character's sheet: what opens its
+   * confirmation, and whether it waits, as while a move or a removal of it is on its way. Unset
+   * where nothing is removed from here, as on a party's sheet.
+   */
+  remove?: (
+    item: SheetItem | SheetContainer,
+  ) => { open: () => void; waiting: boolean } | undefined
+  /**
+   * From module 0.33.0's feedback, on a party's sheet: what's on its way, by item id and `coins`,
+   * said by one spinner beside the Currency label or the item's name, its buttons disabled with
+   * none of their own. Unset on a character's sheet, whose buttons say it themselves.
+   */
+  waiting?: ReadonlySet<string>
 }
 
 /** A move's button on a Currency row, or beside an item, as End is beside a concentration. */

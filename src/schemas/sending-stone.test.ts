@@ -12,6 +12,10 @@ import {
   MAGIC_WEAPON_PROFILES,
   LOCK_CHECK,
   MAZE_CHECK,
+  movedResult,
+  NOT_REMOVING,
+  removedResult,
+  REMOVING,
   roster,
   SENDING_TRANSFERS,
   sheetAction,
@@ -3994,5 +3998,76 @@ describe('schemas/sending-stone, a party’s things sent and distributed, from m
       expect(data.transfer).toBeUndefined()
       expect(data.messageId).toBe('m-line')
     }
+  })
+})
+
+/** What a hello's features say of removals, as read. */
+const removals = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { removals: sent },
+    })?.data as { features?: { removals?: unknown } }
+  ).features?.removals
+
+describe('schemas/sending-stone, an item removed from a character, from module 0.33.0', () => {
+  it('reads features.removals, on and off, and junk as off or nothing', () => {
+    expect(removals(REMOVING)).toEqual(REMOVING)
+    expect(removals(NOT_REMOVING)).toEqual(NOT_REMOVING)
+    expect(removals({ enabled: 'yes', kinds: 'remove' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+    })
+    expect(removals('on')).toBeNull()
+    // Module 0.32.0 says nothing of them.
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          features: { transfers: SENDING_TRANSFERS },
+        })?.data as { features?: object }
+      ).features,
+    ).not.toHaveProperty('removals')
+  })
+
+  it('reads what a removal removed, keeping the rest of a result whose removal it can’t read', () => {
+    const read = (removed: unknown) =>
+      parseGameEvent('command.result', { ...removedResult(), removed })
+        ?.data as { removed?: unknown; messageId: string | null }
+    expect(read({ item: 'potionThorin', quantity: 2 }).removed).toEqual({
+      item: 'potionThorin',
+      quantity: 2,
+    })
+    expect(read({ item: 'arrowsThorin', quantity: 0 }).removed).toEqual({
+      item: 'arrowsThorin',
+      quantity: 0,
+    })
+    // A name, or anything else, is left out.
+    expect(
+      read({ item: 'potionThorin', quantity: 2, name: 'Potion of Healing' })
+        .removed,
+    ).toEqual({ item: 'potionThorin', quantity: 2 })
+    for (const junk of [
+      { item: '', quantity: 1 },
+      { item: 'x'.repeat(65), quantity: 1 },
+      { item: 'potionThorin', quantity: -1 },
+      { item: 'potionThorin', quantity: 1.5 },
+      { item: 'potionThorin', quantity: 10_000_001 },
+      { item: 'potionThorin', quantity: '2' },
+      { item: 'potionThorin' },
+      'removed',
+      null,
+    ]) {
+      const data = read(junk)
+      expect(data.removed).toBeUndefined()
+      expect(data.messageId).toBe('m-line')
+    }
+    // Left out by an older module, and by any other command.
+    expect(
+      parseGameEvent('command.result', movedResult())?.data,
+    ).not.toHaveProperty('removed')
   })
 })

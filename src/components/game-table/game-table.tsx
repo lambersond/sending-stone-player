@@ -277,6 +277,8 @@ export function GameTable({
               header={header}
               // Nor its items and coins moved there (module 0.31.0), by either seat.
               moves={view.connected ? view.moves : undefined}
+              // Nor its items removed there (module 0.33.0), by either seat.
+              removes={view.connected && view.removes === true}
               actorId={character.actorId ?? undefined}
               // The party sheets it may open, on its Inventory tab (module 0.30.0).
               parties={

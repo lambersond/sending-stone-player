@@ -48,6 +48,8 @@ const FEATURES = {
   settings: 1,
   // From module 0.31.0: moves of items and coins.
   transfers: 1,
+  // From module 0.33.0: removals of characters' items, fetched for with rolls and moves off.
+  removals: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }

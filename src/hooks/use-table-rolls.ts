@@ -33,6 +33,7 @@ import type {
   FormulaSource,
   GmRollView,
   InspirationSource,
+  RemoveInput,
   RolledDice,
   RollFeature,
   RollKind,
@@ -131,7 +132,10 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
    * hit's, as there are no dice of it here to say.
    */
   critical?: GmRollView['critical']
-  /** For a move of items and coins, from module 0.31.0, what moved and between whom. */
+  /**
+   * For a move of items and coins, from module 0.31.0, what moved and between whom; and for a
+   * removal, from module 0.33.0, what was removed and from whom.
+   */
   move?: LocalMove
   /**
    * For a use, its damage waits for the player to roll it, as one with a choice of kinds does,
@@ -533,6 +537,23 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * Remove an item from the character, from module 0.33.0. No switch of this device's holds it
+   * back: a removal has no version made here instead.
+   */
+  const sendRemove = useCallback(
+    (removed: LocalUse, remove: RemoveInput) => {
+      if (!removed.move) return
+      start(
+        removed.id,
+        { kind: 'remove', remove, ...PLAIN },
+        { move: removed.move },
+        moveLabel(removed.move),
+      )
+    },
+    [start],
+  )
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -574,6 +595,7 @@ export function useTableRolls(
     sendSpend,
     sendInspiration,
     sendTransfer,
+    sendRemove,
     sendAsk,
     offerDamage,
     states,

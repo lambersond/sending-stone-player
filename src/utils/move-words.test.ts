@@ -344,3 +344,143 @@ describe('utils/move-words, a party’s sends and distributions, from module 0.3
     expect(moveReasons('gm', 'give').short).toBe('they haven’t that many')
   })
 })
+
+describe('utils/move-words, an item removed, from module 0.33.0', () => {
+  const remove: LocalMove = {
+    verb: 'remove',
+    things: '2 Potion of Healing',
+    other: 'Thorin',
+    item: 'potionThorin',
+  }
+  const gmRemove: LocalMove = { ...remove, mover: 'Thorin' }
+
+  it('calls it what the Gamemaster’s page calls it', () => {
+    expect(moveLabel(remove)).toBe('Remove 2 Potion of Healing')
+    expect(moveLabel({ ...remove, things: '1 Rope' })).toBe('Remove 1 Rope')
+  })
+
+  it('says where it stands, for either seat', () => {
+    expect(moveWords(remove, state({ status: 'sending' }), 'player')).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(moveWords(gmRemove, state({ status: 'sending' }), 'gm')).toBe(
+      'Sending to your game…',
+    )
+    expect(moveWords(remove, state({ status: 'rolling' }), 'player')).toBe(
+      'Removing it in your Gamemaster’s game…',
+    )
+    expect(moveWords(gmRemove, state({ status: 'rolling' }), 'gm')).toBe(
+      'Removing it in your game…',
+    )
+    expect(moveWords(remove, state({ status: 'done' }), 'player')).toBe(
+      'Removed 2 Potion of Healing',
+    )
+    expect(moveWords(gmRemove, state({ status: 'done' }), 'gm')).toBe(
+      'Thorin removed 2 Potion of Healing',
+    )
+  })
+
+  it.each([
+    ['moving', 'it’s on its way already', 'it’s on its way already'],
+    ['short', 'you haven’t that many', 'they haven’t that many'],
+    [
+      'changed',
+      'how many there are has changed. Try again',
+      'how many there are has changed. Try again',
+    ],
+    [
+      'unavailable',
+      'your Gamemaster’s game can’t remove items now',
+      'your game can’t remove items now',
+    ],
+    [
+      'off',
+      'your Gamemaster’s game can’t remove items now',
+      'your game can’t remove items now',
+    ],
+    [
+      'invalid',
+      'your Gamemaster’s game couldn’t remove it',
+      'your game couldn’t remove it',
+    ],
+    ['gone', 'it isn’t there any more', 'it isn’t there any more'],
+    [
+      'unknown',
+      'that isn’t in the campaign any more',
+      'that isn’t in the campaign any more',
+    ],
+    [
+      'busy',
+      'too many at once. Wait a moment',
+      'too many at once. Wait a moment',
+    ],
+    ['error', 'something went wrong', 'something went wrong'],
+    [
+      'timeout',
+      'your Gamemaster’s game took too long. The sheet shows whether it was removed',
+      'your game took too long. The sheet shows whether it was removed',
+    ],
+    [
+      'lost',
+      'no answer from your Gamemaster’s game. The sheet shows whether it was removed',
+      'no answer from your game. The sheet shows whether it was removed',
+    ],
+    [
+      'network',
+      'Sending Stone couldn’t be reached',
+      'Sending Stone couldn’t be reached',
+    ],
+    [
+      'expired',
+      'your Gamemaster’s game didn’t pick it up',
+      'your game didn’t pick it up',
+    ],
+  ])('says why it wasn’t removed: %s', (reason, player, gm) => {
+    expect(moveWords(remove, state({ reason }), 'player')).toBe(
+      `Not removed: ${player}`,
+    )
+    expect(moveWords(gmRemove, state({ reason }), 'gm')).toBe(
+      `Not removed: ${gm}`,
+    )
+  })
+
+  it('says it was removed in part where the game says the item itself changed', () => {
+    expect(
+      moveWords(
+        remove,
+        state({
+          reason: 'error',
+          removed: { item: 'backpackThor', quantity: 1 },
+        }),
+        'player',
+      ),
+    ).toBe('Partly removed: something went wrong')
+    expect(moveWords(remove, state({ reason: 'error' }), 'player')).toBe(
+      'Not removed: something went wrong',
+    )
+    // Refused, not failed, is never in part.
+    expect(
+      moveWords(
+        remove,
+        state({
+          status: 'refused',
+          reason: 'moving',
+          removed: { item: 'backpackThor', quantity: 1 },
+        }),
+        'player',
+      ),
+    ).toBe('Not removed: it’s on its way already')
+  })
+
+  it('says a move’s stack changed in the same words, and its own words otherwise', () => {
+    expect(moveReasons('player', 'give').changed).toBe(
+      'how many there are has changed. Try again',
+    )
+    expect(moveReasons('player', 'give').timeout).toBe(
+      'your Gamemaster’s game took too long. The sheet shows whether it moved',
+    )
+    expect(moveReasons('gm', 'take').unavailable).toBe(
+      'your game isn’t taking moves now',
+    )
+  })
+})

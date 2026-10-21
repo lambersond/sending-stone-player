@@ -157,6 +157,22 @@ export type TransferMoved = {
   among?: string[]
 }
 
+/** An item removed from the character, from module 0.33.0. */
+export type RemoveInput = {
+  /** Its Foundry id: at the top of the inventory, or in a container. */
+  item: string
+  /** How many of its stack: from 1 to all of it, which deletes it; 0 only for a stack of none. */
+  quantity: number
+  /**
+   * How many of it the sheet showed as it was chosen: the game removes it only while it still
+   * holds that many, so that part of it is never taken for all of it.
+   */
+  held: number
+}
+
+/** What a removal removed, as the game says it: by id and count alone. Module 0.33.0. */
+export type RemovedItem = { item: string; quantity: number }
+
 /**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
@@ -231,6 +247,8 @@ export type RollRequestInput = {
   inspiration?: 'use' | 'gain'
   /** For a move of items and coins, from module 0.31.0, its ends and what moves. */
   transfer?: TransferInput
+  /** For a removal, from module 0.33.0, what it removes. */
+  remove?: RemoveInput
   /** For an attack, the ammunition and attack mode chosen. */
   ammunition?: string
   attackMode?: string
@@ -328,6 +346,11 @@ export type RollRequestView = {
    * or the parts made before it failed.
    */
   transfer?: TransferMoved
+  /**
+   * For a removal, from module 0.33.0, what it removed: when it was made, or where it failed after
+   * the item itself changed.
+   */
+  removed?: RemovedItem
 }
 
 /**

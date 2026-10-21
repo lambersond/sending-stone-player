@@ -3,7 +3,8 @@ import type { LocalMove } from '@/hooks/use-sheet-roller'
 import type { TableRollState } from '@/hooks/use-table-rolls'
 
 // How a move of items and coins (module 0.31.0) is told, in English: what moved, as the game's
-// chat line says it, where it stands on its way to the game, and why it wasn't made.
+// chat line says it, where it stands on its way to the game, and why it wasn't made. From module
+// 0.33.0, a removal of the character's item is told the same way.
 
 /** A part of a move, as it's told: an item and how many of it, or a coin and how many. */
 export type MovedPart =
@@ -34,7 +35,7 @@ export function namesWords(names: string[]): string {
  * What a move is called on the Gamemaster's page, for the character's player to be shown it by
  * among the Gamemaster's rolls: such as "Give 5 gp to Vex" or "Take 1 Rope from The Iron Company",
  * and from module 0.32.0 "Send 1 Rope from The Iron Company to Vex" or "Distribute 4 pp from The
- * Iron Company among Bram, Lia, Thorin, and Vex".
+ * Iron Company among Bram, Lia, Thorin, and Vex", and from module 0.33.0 "Remove 1 Rope".
  */
 export function moveLabel(move: LocalMove): string {
   switch (move.verb) {
@@ -50,13 +51,17 @@ export function moveLabel(move: LocalMove): string {
     case 'distribute': {
       return `Distribute ${move.things} from ${move.other} among ${move.among ?? ''}`
     }
+    case 'remove': {
+      return `Remove ${move.things}`
+    }
   }
 }
 
 /**
  * Why a move wasn't made, in words, as the seat at the sheet reads it: its player or the
  * Gamemaster. Of too few to move, whose they are: the party's, for a take, a send or a
- * distribution; the player's own, or the character's, for the Gamemaster, for a give.
+ * distribution; the player's own, or the character's, for the Gamemaster, for a give or, from
+ * module 0.33.0, a removal, whose words say it's removed rather than moved.
  */
 export function moveReasons(
   role: SeatRole,
@@ -67,18 +72,25 @@ export function moveReasons(
 
 function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
   const { game } = seatWords(role)
-  const notTaking = `${game} isn’t taking moves now`
+  const removing = verb === 'remove'
+  const notTaking = removing
+    ? `${game} can’t remove items now`
+    : `${game} isn’t taking moves now`
   let short = 'the party hasn’t that many'
-  if (verb === 'give') {
+  if (verb === 'give' || removing) {
     short = role === 'gm' ? 'they haven’t that many' : 'you haven’t that many'
   }
+  // Whether it moved, or for a removal whether it was removed, is the sheet's to show.
+  const happened = removing ? 'whether it was removed' : 'whether it moved'
   return {
     unavailable: notTaking,
     off: notTaking,
     'transfers-off': notTaking,
     busy: 'too many at once. Wait a moment',
     moving: 'it’s on its way already',
-    invalid: `${game} couldn’t move it`,
+    invalid: removing
+      ? `${game} couldn’t remove it`
+      : `${game} couldn’t move it`,
     unknown: 'that isn’t in the campaign any more',
     'not-yours': 'that isn’t this character’s to move',
     'not-owner': 'you need Owner on the party in Foundry',
@@ -89,9 +101,11 @@ function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
     deep: 'it holds containers too deep to move from here',
     members: 'the party’s members have changed. Try again',
     split: 'there isn’t a whole coin for each of them',
+    // From module 0.33.0: a removal's stack isn't as many as the page showed.
+    changed: 'how many there are has changed. Try again',
     error: 'something went wrong',
-    timeout: `${game} took too long. The sheet shows whether it moved`,
-    lost: `no answer from ${game}. The sheet shows whether it moved`,
+    timeout: `${game} took too long. The sheet shows ${happened}`,
+    lost: `no answer from ${game}. The sheet shows ${happened}`,
     network: 'Sending Stone couldn’t be reached',
     expired: `${game} didn’t pick it up`,
   }
@@ -104,6 +118,7 @@ function wordsFor(role: SeatRole) {
     take: reasonsFor(role, 'take'),
     send: reasonsFor(role, 'send'),
     distribute: reasonsFor(role, 'distribute'),
+    remove: reasonsFor(role, 'remove'),
   }
 }
 
@@ -112,8 +127,15 @@ const WORDS_BY_ROLE: Record<
   Record<LocalMove['verb'], Readonly<Record<string, string>>>
 > = { player: wordsFor('player'), gm: wordsFor('gm') }
 
-/** Whether the game says it moved any of it before it failed. */
-function partly(state: Pick<TableRollState, 'transfer'>): boolean {
+/**
+ * Whether the game says it moved any of it before it failed; or for a removal, from module 0.33.0,
+ * that the item itself was lowered or deleted before it did.
+ */
+function partly(
+  move: LocalMove,
+  state: Pick<TableRollState, 'transfer' | 'removed'>,
+): boolean {
+  if (move.verb === 'remove') return state.removed !== undefined
   const moved = state.transfer
   return (
     !!moved &&
@@ -134,6 +156,7 @@ const VERBS: Record<
     not: 'Not distributed',
     partly: 'Partly distributed',
   },
+  remove: { making: 'Removing', not: 'Not removed', partly: 'Partly removed' },
 }
 
 /** What was done, as the line after who did it says it: "gave 5 gp to Vex". */
@@ -151,6 +174,9 @@ function doneWords(move: LocalMove): string {
     case 'distribute': {
       return `distributed ${move.things} among ${move.among ?? ''} (${move.each ?? ''} each)`
     }
+    case 'remove': {
+      return `removed ${move.things}`
+    }
   }
 }
 
@@ -163,7 +189,7 @@ function doneWords(move: LocalMove): string {
  */
 export function moveWords(
   move: LocalMove,
-  state: Pick<TableRollState, 'status' | 'reason' | 'transfer'>,
+  state: Pick<TableRollState, 'status' | 'reason' | 'transfer' | 'removed'>,
   role: SeatRole,
   fallback: Readonly<Record<string, string>> = {},
 ): string {
@@ -186,7 +212,9 @@ export function moveWords(
       const key = state.reason ?? state.status
       const reason = moveReasons(role, move.verb)[key] ?? fallback[key]
       const made =
-        state.status === 'failed' && partly(state) ? verb.partly : verb.not
+        state.status === 'failed' && partly(move, state)
+          ? verb.partly
+          : verb.not
       return reason ? `${made}: ${reason}` : made
     }
   }

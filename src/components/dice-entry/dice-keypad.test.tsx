@@ -69,6 +69,99 @@ describe('components/dice-entry/dice-keypad', () => {
     expect(screen.getByRole('button', { name: '5' })).not.toHaveClass('h-11')
   })
 
+  it('without Next die, on the last box, lays its other twelve keys out in four full rows of three', () => {
+    render(<DiceKeypad onKey={jest.fn()} d100={false} next={false} />)
+
+    const pad = screen.getByRole('group', { name: 'Keypad' })
+    expect(pad).toHaveClass('grid-cols-3')
+    expect(names()).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      'Delete',
+      '0',
+      '00',
+    ])
+    expect(screen.queryByRole('button', { name: 'Next die' })).toBeNull()
+    // Every key one column wide: nothing spans into where Next die was.
+    for (const key of within(pad).getAllByRole('button')) {
+      expect(key.className).not.toMatch(/col-span-/)
+    }
+  })
+
+  it('compact, without Next die, widens Delete into its place, its three rows kept', () => {
+    render(<DiceKeypad onKey={jest.fn()} d100={false} compact next={false} />)
+
+    expect(screen.getByRole('group', { name: 'Keypad' })).toHaveClass(
+      'grid-cols-5',
+    )
+    expect(names()).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '0',
+      '00',
+      'Delete',
+    ])
+    expect(screen.queryByRole('button', { name: 'Next die' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass(
+      'col-span-4',
+    )
+    expect(screen.getByRole('button', { name: '00' }).className).not.toMatch(
+      /col-span-/,
+    )
+  })
+
+  it('widens Delete only in place of Next die, in five columns', () => {
+    const { rerender } = render(
+      <DiceKeypad onKey={jest.fn()} d100={false} compact />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Delete' }).className,
+    ).not.toMatch(/col-span-/)
+
+    rerender(<DiceKeypad onKey={jest.fn()} d100={false} next={false} />)
+    expect(
+      screen.getByRole('button', { name: 'Delete' }).className,
+    ).not.toMatch(/col-span-/)
+  })
+
+  it('marks each key by what it is, as the dialog reads it', () => {
+    render(<DiceKeypad onKey={jest.fn()} d100={false} />)
+
+    expect(
+      within(screen.getByRole('group', { name: 'Keypad' }))
+        .getAllByRole('button')
+        .map(key => key.dataset.key),
+    ).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      'delete',
+      '0',
+      '00',
+      'next',
+    ])
+  })
+
   it('says which key was pressed: each digit, Delete and Next die', async () => {
     const user = userEvent.setup()
     const onKey = jest.fn()

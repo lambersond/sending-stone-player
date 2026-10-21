@@ -29,8 +29,9 @@ const MAX_ROLL_BYTES = 16_384
  * for the Gamemaster's seat where their rolls go, as `&gm=made`, and for the player's the
  * Gamemaster's rolls as their character as last seen, as `&gmrolls=` and the view's `gmRollsKey`;
  * from module 0.31.0, `&moves=1` where the view last seen let the seat move items and coins; from
- * module 0.32.0, `&typed=1` where the view last seen had the player's typed dice on; and the
- * sheet's version as `&sheet=` to have an unchanged sheet left out.
+ * module 0.32.0, `&typed=1` where the view last seen had the player's typed dice on; from module
+ * 0.33.0, `&removes=1` where the view last seen let the seat remove items; and the sheet's version
+ * as `&sheet=` to have an unchanged sheet left out.
  */
 export async function tableResponse(
   request: NextRequest,
@@ -65,6 +66,7 @@ export async function tableResponse(
       gmRollsKey,
       moves,
       typed,
+      removes,
     } = await getCampaignStatus(seat)
     if (
       Number(known.get('version')) === version &&
@@ -73,7 +75,8 @@ export async function tableResponse(
       (known.get('gm') ?? undefined) === gm?.rolls &&
       (known.get('gmrolls') ?? undefined) === gmRollsKey &&
       (known.get('moves') === '1') === moves &&
-      (known.get('typed') === '1') === typed
+      (known.get('typed') === '1') === typed &&
+      (known.get('removes') === '1') === removes
     ) {
       return new Response(undefined, { status: 204, headers })
     }

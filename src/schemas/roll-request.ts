@@ -218,9 +218,28 @@ const transferSchema = z
   })
 
 /**
+ * An item removed from the character, from module 0.33.0: by its Foundry id, how many of its
+ * stack, from 1 to all of it, and how many the sheet showed, which the game checks it still has;
+ * 0 only of a stack of none, which removes it whole.
+ */
+const removeSchema = z
+  .strictObject({
+    item: z.string().regex(FOUNDRY_ID),
+    quantity: z.int().min(0).max(MOST_MOVED),
+    held: z.int().min(0).max(MOST_MOVED),
+  })
+  .refine(
+    ({ quantity, held }) => quantity <= held && (quantity > 0 || held === 0),
+    {
+      path: ['quantity'],
+      message: 'From 1 to as many as there are, or none of a stack of none',
+    },
+  )
+
+/**
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
- * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; and from
- * module 0.31.0, a move what moves.
+ * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
+ * module 0.31.0, a move what moves; and from module 0.33.0, a removal what it removes.
  */
 const OWN_FIELDS = {
   endConcentration: {
@@ -239,6 +258,10 @@ const OWN_FIELDS = {
     field: 'transfer',
     message: 'A move, and only that, names what moves',
   },
+  remove: {
+    field: 'remove',
+    message: 'A removal, and only that, names what it removes',
+  },
 } as const
 
 /** What each of those, and ending an enchantment, is said not to throw. */
@@ -249,6 +272,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   spend: 'Spending throws no dice',
   inspiration: 'Heroic Inspiration throws no dice',
   transfer: 'Moving throws no dice',
+  remove: 'Removing throws no dice',
 }
 
 const rolledDiceSchema = z.strictObject({
@@ -280,8 +304,9 @@ const rolledDiceSchema = z.strictObject({
  * throws no dice; and from module 0.29.0, a concentration ended names its effect, charges spent
  * directly their counter and how many, 1 to 999, and Heroic Inspiration whether it's used or
  * gained, each that and nothing else, and none throws dice; and from module 0.31.0, a move of items
- * and coins names its ends and what moves, and nothing else, and throws no dice. Any roll may say
- * what the page that sent it calls it, its `label`, which only
+ * and coins names its ends and what moves, and nothing else, and throws no dice; and from module
+ * 0.33.0, a removal names the item it removes and how many, and nothing else, and throws no dice.
+ * Any roll may say what the page that sent it calls it, its `label`, which only
  * the Gamemaster's page sends (#156), for the character's player to be shown it by. A hit die
  * names its size, and throws its one die;
  * several hit dice spent at once name how many of each size, each size once, no more than 20 in
@@ -343,6 +368,7 @@ export const rollRequestSchema = z
     count: z.int().min(1).max(MAX_SPEND).optional(),
     inspiration: z.enum(['use', 'gain']).optional(),
     transfer: transferSchema.optional(),
+    remove: removeSchema.optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
     typed: z.literal(true).optional(),
   })
@@ -554,9 +580,9 @@ export const rollRequestSchema = z
         message: 'An enchantment ended, and only that, names the enchantment',
       })
     }
-    // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, and a move
-    // from module 0.31.0, each name what they're of, and nothing else does; charges, how many,
-    // which nothing else says.
+    // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
+    // from module 0.31.0 and a removal from module 0.33.0, each name what they're of, and nothing
+    // else does; charges, how many, which nothing else says.
     for (const [kind, { field, message }] of Object.entries(OWN_FIELDS)) {
       if ((request.kind === kind) !== (request[field] !== undefined)) {
         context.addIssue({ code: 'custom', path: [field], message })

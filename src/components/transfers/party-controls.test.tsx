@@ -1,6 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PartySheet } from '@/components/party-sheet/party-sheet'
+import { CHECK_EVERY } from '@/hooks/use-table-rolls'
 import {
   COMPANY_CHARACTERS,
   movingPartyView,
@@ -61,6 +62,14 @@ const respond = (status: number, body?: unknown) =>
     ok: status >= 200 && status < 300,
     json: async () => body,
   }) as Response
+
+/** The spinners inside a part of the page. */
+const spinnersIn = (scope: HTMLElement) => [
+  ...scope.querySelectorAll(String.raw`svg.motion-safe\:animate-spin`),
+]
+/** The Currency fact's label. */
+const currencyTerm = () =>
+  screen.getByText('Currency').closest('dt') as HTMLElement
 
 /** What was posted, and where. */
 const posts = () =>
@@ -224,7 +233,106 @@ describe('components/transfers/party-controls', () => {
       for (const button of within(group).getAllByRole('button')) {
         expect(button).toBeDisabled()
         expect(button).toHaveAttribute('aria-busy', 'true')
+        // From module 0.33.0's feedback: no spinner of its own, the row's one by its label.
+        expect(button.querySelector('svg')).toBeNull()
       }
+      // Busy, and still named by its label alone, as the spinner is hidden from screen readers.
+      expect(group).toHaveAttribute('aria-busy', 'true')
+      expect(group).toHaveAccessibleName('Currency')
+      const term = currencyTerm()
+      expect(term).toHaveTextContent(/^Currency$/)
+      const spinners = spinnersIn(term)
+      expect(spinners).toHaveLength(1)
+      // Right of its text.
+      expect(spinners[0].previousElementSibling).toHaveTextContent(/^Currency$/)
+      expect(spinners[0]).toHaveAttribute('aria-hidden', 'true')
+      // The one spinner on its row: none inside the coins either.
+      expect(spinnersIn(term.parentElement as HTMLElement)).toEqual(spinners)
+    })
+
+    it('shows its spinner by the label only while the coins are on their way', async () => {
+      jest.useFakeTimers()
+      try {
+        globalThis.fetch = jest.fn(() =>
+          Promise.resolve(respond(202, { id: 'req-move' })),
+        ) as typeof fetch
+        const user = userEvent.setup({
+          advanceTimers: jest.advanceTimersByTime,
+        })
+        render(sheetOf(viewWith()))
+        expect(spinnersIn(currencyTerm())).toEqual([])
+        expect(
+          screen.getByRole('group', { name: 'Currency' }),
+        ).not.toHaveAttribute('aria-busy')
+
+        await user.click(screen.getByRole('button', { name: 'Give' }))
+        const dialog = screen.getByRole('dialog', { name: 'Give coins' })
+        await user.type(
+          within(dialog).getByRole('textbox', { name: 'Gold' }),
+          '5',
+        )
+        await user.click(
+          within(dialog).getByRole('button', { name: 'Give coins' }),
+        )
+        expect(spinnersIn(currencyTerm())).toHaveLength(1)
+
+        jest.mocked(fetch).mockResolvedValue(
+          respond(200, {
+            id: 'req-move',
+            status: 'done',
+            visible: true,
+            rolls: [],
+          }),
+        )
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(CHECK_EVERY)
+        })
+
+        expect(spinnersIn(currencyTerm())).toEqual([])
+        const group = screen.getByRole('group', { name: 'Currency' })
+        expect(group).not.toHaveAttribute('aria-busy')
+        for (const button of within(group).getAllByRole('button')) {
+          expect(button).toBeEnabled()
+        }
+      } finally {
+        jest.useRealTimers()
+      }
+    })
+
+    it('shows one spinner by an item’s name while it’s on its way, its Take and Send to… none', async () => {
+      globalThis.fetch = jest.fn(() => new Promise(() => {})) as typeof fetch
+      const user = userEvent.setup()
+      render(sheetOf(viewWith()))
+
+      await user.click(screen.getByText('Rope'))
+      await user.click(screen.getByRole('button', { name: 'Send to…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Send Rope' })
+      await user.click(within(dialog).getByRole('radio', { name: 'Vex' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Send' }))
+
+      const take = screen.getByRole('button', { name: 'Take Rope' })
+      const row = take.closest('li') as HTMLElement
+      expect(row).toHaveAttribute('aria-busy', 'true')
+      for (const button of [
+        take,
+        within(row).getByRole('button', { name: 'Send to…' }),
+      ]) {
+        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('aria-busy', 'true')
+        expect(button.querySelector('svg')).toBeNull()
+      }
+      const spinners = spinnersIn(row)
+      expect(spinners).toHaveLength(1)
+      expect(spinners[0].previousElementSibling).toHaveTextContent(/^Rope$/)
+      // Its name, as a screen reader has it, unchanged.
+      expect(row.querySelector('summary')).toHaveTextContent(/^Rope/)
+      // Nothing else waits.
+      const potion = screen.getByRole('button', {
+        name: 'Take Potion of Healing',
+      })
+      expect(potion).toBeEnabled()
+      expect(potion.closest('li')).not.toHaveAttribute('aria-busy')
+      expect(spinnersIn(currencyTerm())).toEqual([])
     })
   })
 

@@ -388,16 +388,17 @@ describe('db/transfers, createTransferRequest', () => {
         status: 409,
         reason: 'moving',
       })
+      // Its removals too, from module 0.33.0.
       expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
         where: {
           characterId: 'char-1',
-          kind: 'transfer',
+          kind: { in: ['transfer', 'remove'] },
           OR: [
             { status: 'pending', createdAt: { gt: ago(30_000) } },
             { status: 'claimed', claimedAt: { gt: ago(75_000) } },
           ],
         },
-        select: { payload: true },
+        select: { kind: true, payload: true },
         take: 3,
       })
       expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
@@ -595,5 +596,123 @@ describe('db/transfers, a party’s things sent and distributed, from module 0.3
       reason: 'moving',
     })
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+})
+
+const give = (id: string) =>
+  move({ from: THORIN, to: VEX, items: [{ id, quantity: 1 }] })
+
+describe('db/transfers, a move beside a removal on its way, from module 0.33.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    for (const mock of [
+      prismaMock.campaign.findUnique,
+      prismaMock.actorSheet.findUnique,
+      prismaMock.rollRequest.count,
+      prismaMock.rollRequest.findMany,
+      prismaMock.rollRequest.create,
+      prismaMock.rollRequest.deleteMany,
+    ]) {
+      mock.mockReset()
+    }
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Thorin's things: a Potion of Healing, and a Backpack holding a Rope. */
+  const inventory = {
+    ...partyStash(),
+    sections: [
+      {
+        id: 'consumable',
+        label: 'Consumables',
+        items: [
+          sheetItem({
+            id: 'potionThorin',
+            name: 'Potion of Healing',
+            quantity: 1,
+          }),
+        ],
+      },
+    ],
+    containers: [
+      {
+        ...sheetItem({ id: 'backpack0001', name: 'Backpack', quantity: 1 }),
+        type: 'container',
+        capacity: null,
+        contents: [
+          sheetItem({ id: 'rope00000001', name: 'Rope', quantity: 1 }),
+        ],
+      },
+    ],
+  }
+  /** Thorin's removals on their way, of these items, as found by the query. */
+  const removing = (...items: string[]) => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      transfersEnabled: true,
+      transferFeatures: [],
+      bridgePolledAt: ago(5000),
+      characters: [
+        { id: THORIN, name: 'Thorin' },
+        { id: VEX, name: 'Vex' },
+      ],
+      groups: [ironCompany()],
+    } as any)
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: characterSheet({ inventory }),
+    } as any)
+    prismaMock.rollRequest.count.mockResolvedValue(0)
+    prismaMock.rollRequest.findMany.mockResolvedValue(
+      items.map(item => ({
+        kind: 'remove',
+        payload: {
+          kind: 'remove',
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+          remove: { item, quantity: 1, held: 1 },
+        },
+      })) as any,
+    )
+    prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-move' } as any)
+  }
+  it('refuses a give of the item being removed, from the same seat', async () => {
+    removing('potionThorin')
+    await expect(
+      createTransferRequest(thorin, give('potionThorin')),
+    ).resolves.toEqual({ status: 409, reason: 'moving' })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses a give of what a container being removed holds, and of the container something in it is being removed from', async () => {
+    removing('backpack0001')
+    await expect(
+      createTransferRequest(thorin, give('rope00000001')),
+    ).resolves.toEqual({ status: 409, reason: 'moving' })
+    removing('rope00000001')
+    await expect(
+      createTransferRequest(thorin, give('backpack0001')),
+    ).resolves.toEqual({ status: 409, reason: 'moving' })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('takes a give of another item', async () => {
+    removing('backpack0001')
+    await expect(
+      createTransferRequest(thorin, give('potionThorin')),
+    ).resolves.toEqual({ id: 'req-move' })
+  })
+
+  it('stores a move sent as typed in without it: nothing is typed in for a move', async () => {
+    removing()
+    await expect(
+      createTransferRequest(thorin, { ...give('potionThorin'), typed: true }),
+    ).resolves.toEqual({ id: 'req-move' })
+    const { payload } = prismaMock.rollRequest.create.mock.calls[0][0].data
+    expect(payload).toEqual(give('potionThorin'))
+    expect(payload).not.toHaveProperty('typed')
   })
 })

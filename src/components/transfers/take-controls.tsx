@@ -1,7 +1,5 @@
 'use client'
 
-import clsx from 'clsx'
-import { LoaderCircle } from 'lucide-react'
 import { MoveDialog, type MoveEnd } from '@/components/transfers/move-dialog'
 import {
   ROW_BUTTON,
@@ -88,6 +86,7 @@ export function takeControls({
   }
 }
 
+/** Take: while what it takes is on its way, disabled, the spinner by the item's name. */
 function TakeButton({
   label,
   busy,
@@ -106,14 +105,8 @@ function TakeButton({
         event.stopPropagation()
         onTake()
       }}
-      className={clsx(ROW_BUTTON, busy && 'inline-flex items-center gap-1')}
+      className={ROW_BUTTON}
     >
-      {busy && (
-        <LoaderCircle
-          aria-hidden
-          className='size-3.5 motion-safe:animate-spin'
-        />
-      )}
       Take
     </button>
   )

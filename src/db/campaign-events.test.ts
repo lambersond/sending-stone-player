@@ -8,6 +8,8 @@ import {
   combat,
   combatant,
   fullerSheet,
+  NOT_REMOVING,
+  REMOVING,
   roster,
   TEXTS,
 } from '@/mocks/sending-stone'
@@ -133,6 +135,7 @@ describe('db/campaign-events', () => {
         rollFeatures: [],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -172,6 +175,7 @@ describe('db/campaign-events', () => {
         rollFeatures: [],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -212,6 +216,7 @@ describe('db/campaign-events', () => {
         rollFeatures: ['modifiers', 'prompts'],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -236,6 +241,7 @@ describe('db/campaign-events', () => {
         rollFeatures: [],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -335,6 +341,7 @@ describe('db/campaign-events', () => {
         rollFeatures: ['prompts', 'areaAttacks'],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -358,6 +365,7 @@ describe('db/campaign-events', () => {
         rollFeatures: ['modifiers'],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -389,6 +397,7 @@ describe('db/campaign-events', () => {
         rollFeatures: ['modifiers', 'activityChecks'],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -412,6 +421,7 @@ describe('db/campaign-events', () => {
         rollFeatures: [],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -448,6 +458,7 @@ describe('db/campaign-events', () => {
         rollFeatures: ['modifiers', 'activityChecks', 'signedDice'],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -473,6 +484,7 @@ describe('db/campaign-events', () => {
           rollFeatures: ['modifiers'],
           transfersEnabled: false,
           transferFeatures: [],
+          removalsEnabled: false,
           foundry: { receivedAt: SENT },
         },
       })
@@ -501,6 +513,7 @@ describe('db/campaign-events', () => {
         rollFeatures: ['signedDice', 'selfTargets'],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -688,6 +701,7 @@ describe('db/campaign-events', () => {
         rollFeatures: [],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -718,6 +732,7 @@ describe('db/campaign-events', () => {
         rollFeatures: [],
         transfersEnabled: false,
         transferFeatures: [],
+        removalsEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -746,6 +761,7 @@ describe('db/campaign-events', () => {
           rollFeatures: [],
           transfersEnabled: false,
           transferFeatures: [],
+          removalsEnabled: false,
           foundry: { receivedAt: SENT },
         },
       })
@@ -1765,5 +1781,56 @@ describe('db/campaign-events, what else the module does with moves, from module 
         transfers: { ...on, partySends: 'yes', distribute: 1 },
       }),
     ).resolves.toMatchObject({ transfersEnabled: true, transferFeatures: [] })
+  })
+})
+
+describe('db/campaign-events, removals of characters’ items, from module 0.33.0', () => {
+  const rolls = { enabled: false, kinds: [], reason: 'off' }
+  const transfers = { enabled: false, kinds: [], reason: 'off' }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+  })
+
+  it('keeps that the game removes items, with no switch: rolls and moves off', async () => {
+    await expect(
+      stored({ rolls, transfers, removals: REMOVING }),
+    ).resolves.toMatchObject({
+      rollsEnabled: false,
+      transfersEnabled: false,
+      removalsEnabled: true,
+    })
+  })
+
+  it.each([
+    ['says it doesn’t', { ...REMOVING, enabled: false }],
+    ['is under another system', NOT_REMOVING],
+    ['names no remove among its kinds', { ...REMOVING, kinds: ['transfer'] }],
+    ['says so in junk', { ...REMOVING, enabled: 'yes' }],
+    ['says nothing readable', 'on'],
+  ])('is off where the module %s', async (_name, removals) => {
+    await expect(stored({ rolls, transfers, removals })).resolves.toMatchObject(
+      { removalsEnabled: false },
+    )
+  })
+
+  it('is cleared by a hello from module 0.32.0, which says nothing of them', async () => {
+    await stored({ rolls, transfers, removals: REMOVING })
+    await expect(stored({ rolls, transfers })).resolves.toMatchObject({
+      removalsEnabled: false,
+    })
+    await expect(stored(null)).resolves.toMatchObject({
+      removalsEnabled: false,
+    })
+  })
+
+  it("never takes a removal as one of the rolls, even where the module's rolls name it", async () => {
+    await expect(
+      stored({
+        rolls: { enabled: true, kinds: ['skill', 'remove'], reason: null },
+        transfers,
+        removals: REMOVING,
+      }),
+    ).resolves.toMatchObject({ rollKinds: ['skill'], removalsEnabled: true })
   })
 })

@@ -51,6 +51,10 @@ const open = (
 
 const box = (name: string) => screen.getByRole('textbox', { name })
 const key = (name: string) => screen.getByRole('button', { name })
+const keypad = () => screen.getByRole('group', { name: 'Keypad' })
+/** The keypad's Next die, which isn't there on the last box. */
+const queryNext = () =>
+  within(keypad()).queryByRole('button', { name: 'Next die' })
 const total = () => screen.getByRole('status')
 /** The block of the total, the keypad and Done, kept in view as the dice scroll. */
 const keptInView = () =>
@@ -392,15 +396,23 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       expect(box('d6 1 of 2')).toHaveValue('4')
     })
 
-    it('moves from the last box to Done with Next die', async () => {
+    it('has no Next die on its last box, a single die’s too', async () => {
       const user = userEvent.setup()
-      open()
+      const { onDone } = open()
 
+      expect(queryNext()).toBeNull()
+      expect(key('Done')).toBeVisible()
       await user.click(key('1'))
-      await user.click(key('Next die'))
-
-      expect(key('Done')).toHaveFocus()
+      // A d20's 1 may be 10 to 19: still no Next die, which would say there's more to type in.
+      expect(queryNext()).toBeNull()
       expect(box('d20')).toHaveValue('1')
+      expect(box('d20')).toHaveFocus()
+      await user.click(key('7'))
+      expect(queryNext()).toBeNull()
+      expect(key('Done')).toHaveFocus()
+
+      await user.click(key('Done'))
+      expect(onDone).toHaveBeenCalledWith([[17]])
     })
 
     it('takes off the last digit with Delete and Backspace, without moving on', async () => {
@@ -707,7 +719,8 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       await user.click(key('0'))
       expect(box('d10 2 of 2')).toHaveFocus()
       await user.click(key('1'))
-      await user.click(key('Next die'))
+      // Its second box is the last: no Next die, and Done takes what's there.
+      expect(queryNext()).toBeNull()
       await user.click(key('Done'))
 
       expect(onDone).toHaveBeenCalledWith([[10, 1]])
@@ -855,6 +868,133 @@ describe('components/dice-entry/dice-entry-dialog', () => {
     })
   })
 
+  describe('Next die', () => {
+    const TWO_D6 = entry({ terms: [{ sides: 6, count: 2, label: '2d6' }] })
+
+    it('is there while an earlier box is current, gone at the last, and back on an earlier one', async () => {
+      const user = userEvent.setup()
+      open(TWO_D6)
+
+      expectCurrent('d6 1 of 2')
+      expect(queryNext()).toBeInTheDocument()
+      await user.click(key('4'))
+      expectCurrent('d6 2 of 2')
+      expect(queryNext()).toBeNull()
+
+      await user.click(box('d6 1 of 2'))
+      expectCurrent('d6 1 of 2')
+      expect(queryNext()).toBeInTheDocument()
+    })
+
+    it('is there at each box of advantage’s two d20s, and gone at Bless’s d4, the last', async () => {
+      const user = userEvent.setup()
+      open(ADVANTAGE_AND_BLESS)
+
+      expect(queryNext()).toBeInTheDocument()
+      await user.keyboard('17')
+      expectCurrent('d20 2 of 2')
+      expect(queryNext()).toBeInTheDocument()
+      await user.keyboard('15')
+      expectCurrent('d4')
+      expect(queryNext()).toBeNull()
+      // Back by keyboard, as a Shift+Tab would.
+      act(() => box('d20 2 of 2').focus())
+      expect(queryNext()).toBeInTheDocument()
+    })
+
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' '],
+    ])(
+      'gives the last box focus where it was pressed by keyboard, with %s, as it goes',
+      async (_, press) => {
+        const user = userEvent.setup()
+        open(TWO_D6)
+        await user.keyboard('2')
+        await user.click(box('d6 1 of 2'))
+        // Tabbed to by a keyboard or reached by a screen reader.
+        act(() => key('Next die').focus())
+
+        await user.keyboard(press)
+
+        expect(queryNext()).toBeNull()
+        expect(box('d6 2 of 2')).toHaveFocus()
+        expect(document.activeElement).not.toBe(document.body)
+        expectCurrent('d6 2 of 2')
+        // What a keyboard types next goes into it.
+        await user.keyboard('5')
+        expect(box('d6 2 of 2')).toHaveValue('5')
+        expect(box('d6 1 of 2')).toHaveValue('2')
+      },
+    )
+
+    it('gives the last box focus where Next die had it as a key tapped completes the box before', async () => {
+      const user = userEvent.setup()
+      open(TWO_D6)
+      act(() => key('Next die').focus())
+
+      // A tap or a click leaves focus where it was, on Next die, which then goes.
+      await user.click(key('4'))
+
+      expect(box('d6 1 of 2')).toHaveValue('4')
+      expect(queryNext()).toBeNull()
+      expect(box('d6 2 of 2')).toHaveFocus()
+      expect(document.activeElement).not.toBe(document.body)
+    })
+
+    it('leaves focus on Next die moving to a box before the last, where it stays', async () => {
+      const user = userEvent.setup()
+      open(entry({ terms: [{ sides: 6, count: 3, label: '3d6' }] }))
+      act(() => key('Next die').focus())
+
+      await user.keyboard('{Enter}')
+
+      expectCurrent('d6 2 of 3')
+      expect(key('Next die')).toHaveFocus()
+    })
+
+    it('leaves focus on any other key as the last box comes, as that key stays', async () => {
+      const user = userEvent.setup()
+      open(TWO_D6)
+      act(() => key('4').focus())
+
+      await user.keyboard('{Enter}')
+
+      expect(box('d6 1 of 2')).toHaveValue('4')
+      expectCurrent('d6 2 of 2')
+      expect(queryNext()).toBeNull()
+      expect(key('4')).toHaveFocus()
+    })
+
+    it('still focuses Done once the last box is whole, and Enter there still submits', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(TWO_D6)
+
+      await user.keyboard('45')
+      expect(key('Done')).toHaveFocus()
+      expect(queryNext()).toBeNull()
+
+      await user.click(box('d6 2 of 2'))
+      await user.keyboard('{Enter}')
+      expect(onDone).toHaveBeenCalledWith([[4, 5]])
+    })
+
+    it('comes back with Done finding an earlier box empty, which it makes current', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(TWO_D6)
+      await user.click(box('d6 2 of 2'))
+      await user.keyboard('3')
+      expect(queryNext()).toBeNull()
+
+      await user.click(key('Done'))
+
+      expect(onDone).not.toHaveBeenCalled()
+      expectCurrent('d6 1 of 2')
+      expect(box('d6 1 of 2')).toHaveFocus()
+      expect(queryNext()).toBeInTheDocument()
+    })
+  })
+
   describe('layout', () => {
     it('sits the dice beside a five-column keypad on a short screen', () => {
       onShortScreen()
@@ -888,6 +1028,34 @@ describe('components/dice-entry/dice-entry-dialog', () => {
         'pt-5',
         'bg-card',
       )
+    })
+
+    it('widens Delete into Next die’s place at the last box on a short screen', async () => {
+      const user = userEvent.setup()
+      onShortScreen()
+      open(entry({ terms: [{ sides: 6, count: 2, label: '2d6' }] }))
+      expect(key('Delete').className).not.toMatch(/col-span-/)
+
+      await user.click(key('4'))
+
+      expect(keypad()).toHaveClass('grid-cols-5')
+      expect(queryNext()).toBeNull()
+      expect(key('Delete')).toHaveClass('col-span-4')
+      expect(key('00').className).not.toMatch(/col-span-/)
+    })
+
+    it('has twelve keys of one column each at the last box in three columns, a row fewer', async () => {
+      const user = userEvent.setup()
+      open(entry({ terms: [{ sides: 6, count: 2, label: '2d6' }] }))
+
+      await user.click(key('4'))
+
+      expect(keypad()).toHaveClass('grid-cols-3')
+      const keys = within(keypad()).getAllByRole('button')
+      expect(keys).toHaveLength(12)
+      for (const each of keys) expect(each.className).not.toMatch(/col-span-/)
+      // Done where it was, in the row after the keypad.
+      expect(keptInView().lastElementChild).toContainElement(key('Done'))
     })
 
     it('keeps the keypad and Done below the dice otherwise, three columns', () => {

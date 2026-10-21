@@ -3536,3 +3536,99 @@ describe('items and coins moved, from module 0.31.0', () => {
     ).toBeInTheDocument()
   })
 })
+
+const removed = (move: Partial<NonNullable<LocalUse['move']>> = {}) =>
+  moved({
+    verb: 'remove',
+    things: '2 Potion of Healing',
+    other: 'Thorin',
+    item: 'potionThorin',
+    ...move,
+  })
+describe('an item removed, from module 0.33.0', () => {
+  const done: TableRollState = { status: 'done', visible: true, rolls: [] }
+  /** The Gamemaster's removal as the character, on its player's page. */
+  const gm = {
+    kind: 'gm' as const,
+    id: 'gm:req-remove',
+    label: 'Remove 1 Rope',
+    rolled: 'remove' as const,
+    at: 0,
+  }
+
+  it('reads what was removed, and why not, in a removal’s own words', () => {
+    render(
+      <RollTray
+        rolls={[removed()]}
+        rolling={false}
+        table={{
+          states: new Map([['u-move', done]]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '2 Potion of HealingRemoved 2 Potion of Healing',
+    )
+    expect(
+      briefOf(removed(), { status: 'refused', reason: 'changed' }).table?.text,
+    ).toBe('Not removed: how many there are has changed. Try again')
+    expect(
+      briefOf(removed(), {
+        status: 'failed',
+        reason: 'error',
+        removed: { item: 'potionThorin', quantity: 2 },
+      }).table?.text,
+    ).toBe('Partly removed: something went wrong')
+  })
+
+  it('toasts it as a use, and lists it among the earlier rolls as removed', async () => {
+    expect(briefOf(removed(), done)).toMatchObject({
+      label: '2 Potion of Healing',
+      badge: 'use',
+      table: { tone: 'made', text: 'Removed 2 Potion of Healing' },
+    })
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          removed({ things: '1 Rope' }),
+          { ...removed(), id: 'u-2', label: '1 Rope' },
+        ]}
+        rolling={false}
+        table={{ states: new Map(), available: true, sending: true }}
+      />,
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['1 Roperemoved'])
+  })
+
+  it("reads the Gamemaster's removal as the character, on its player's page, by its label", () => {
+    expect(briefOf(gm, { status: 'rolling' }).table?.text).toBe(
+      'Removing it in your Gamemaster’s game…',
+    )
+    expect(briefOf(gm, done)).toMatchObject({
+      label: 'Remove 1 Rope',
+      badge: 'use',
+      table: { text: 'Removed at the table' },
+    })
+  })
+
+  it('says nothing of rolls reaching the game, or not, beneath removals alone', () => {
+    render(
+      <RollTray
+        rolls={[removed(), gm]}
+        rolling={false}
+        table={{
+          states: new Map([['u-move', done]]),
+          available: false,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.queryByText(/Only you see these rolls/)).toBeNull()
+  })
+})

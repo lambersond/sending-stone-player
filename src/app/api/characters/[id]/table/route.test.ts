@@ -54,6 +54,7 @@ describe('app/api/characters/[id]/table', () => {
       rollFeatures: [],
       moves: false,
       typed: false,
+      removes: false,
     })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
@@ -92,6 +93,7 @@ describe('app/api/characters/[id]/table', () => {
       rollFeatures: [],
       moves: false,
       typed: false,
+      removes: false,
     })
     const withRolls = await get('?version=7&live=1&rolls=skill,save')
     expect(withRolls.status).toBe(204)
@@ -103,6 +105,7 @@ describe('app/api/characters/[id]/table', () => {
       rollFeatures: ['modifiers'],
       moves: false,
       typed: false,
+      removes: false,
     })
     const withFeatures = await get(
       `?version=7&live=1&rolls=${encodeURIComponent('skill,damage;modifiers')}`,
@@ -121,6 +124,7 @@ describe('app/api/characters/[id]/table', () => {
       rollFeatures: [],
       moves: false,
       typed: false,
+      removes: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -159,6 +163,7 @@ describe('app/api/characters/[id]/table', () => {
         rollFeatures: [],
         moves: false,
         typed: false,
+        removes: false,
       })
       const response = await get(query)
 
@@ -173,6 +178,7 @@ describe('app/api/characters/[id]/table', () => {
       rollsToTable: [],
       rollFeatures: [],
       typed: false,
+      removes: false,
     }
     jest.mocked(getCampaignStatus).mockResolvedValue({ ...status, moves: true })
     const answers = [
@@ -187,6 +193,35 @@ describe('app/api/characters/[id]/table', () => {
       await get('?version=7&live=1'),
       // Its module stopped fetching them.
       await get('?version=7&live=1&moves=1'),
+    )
+
+    expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
+  })
+
+  it('sends the view to a viewer who missed the game removing items, or no longer removing them (module 0.33.0)', async () => {
+    const status = {
+      version: 7,
+      live: true,
+      rollsToTable: [],
+      rollFeatures: [],
+      moves: false,
+      typed: false,
+    }
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, removes: true })
+    const answers = [
+      await get('?version=7&live=1&removes=1'),
+      // Its module began fetching, with no new version.
+      await get('?version=7&live=1'),
+    ]
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, removes: false })
+    answers.push(
+      await get('?version=7&live=1'),
+      // Its module stopped fetching.
+      await get('?version=7&live=1&removes=1'),
     )
 
     expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
@@ -273,6 +308,7 @@ describe('app/api/characters/[id]/table, typing in their own dice, from module 0
     rollsToTable: [],
     rollFeatures: [],
     moves: false,
+    removes: false,
   }
 
   beforeEach(() => {

@@ -54,6 +54,7 @@ import { Charging, type ChargeActions } from './uses-button'
 import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
+import { useRemoveControls } from '@/components/transfers/remove-controls'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
 import {
   useSheetRoller,
@@ -115,6 +116,11 @@ type Props = {
    * takes moves: from the Inventory tab, through the seat's own API.
    */
   moves?: TableMoves
+  /**
+   * Whether the seat may remove the character's items there, from module 0.33.0, as its game takes
+   * them.
+   */
+  removes?: boolean
   /** The character's Foundry actor, which what's given is given from. */
   actorId?: string
   /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */
@@ -198,6 +204,7 @@ function RollingSheet({
   gmRolls,
   header,
   moves,
+  removes,
   actorId,
   parties,
   manualDice,
@@ -270,6 +277,23 @@ function RollingSheet({
     logMove,
     setActed,
   })
+  const removing = useRemoveControls({
+    removes: removes === true,
+    inventory: sheet.inventory,
+    table,
+    role,
+    name,
+    logMove,
+    setActed,
+  })
+  // Remove…, from module 0.33.0, beside Send to…: with moves off too.
+  const transfers = useMemo(
+    () =>
+      removing.remove
+        ? { ...giving.controls, remove: removing.remove }
+        : giving.controls,
+    [giving.controls, removing.remove],
+  )
   // The Gamemaster's rolls as the character (#156) among the player's own, wherever they're shown,
   // with nothing to roll after them; their area attacks' targets named as this page's own combat
   // names them, which never holds one hidden from players.
@@ -782,7 +806,7 @@ function RollingSheet({
                 sheet={sheet}
                 {...handlers}
                 favorites={strip}
-                transfers={giving.controls}
+                transfers={transfers}
                 parties={parties}
               />
             )}
@@ -845,6 +869,7 @@ function RollingSheet({
         onClose={() => setPicking(undefined)}
       />
       {giving.dialog}
+      {removing.dialog}
       {entry.dialog}
       {conditions.panel}
     </SheetContext>

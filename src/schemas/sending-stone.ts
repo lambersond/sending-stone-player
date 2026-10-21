@@ -1299,6 +1299,17 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.33.0: whether an item may be removed from a character here, under dnd5e, with
+    // no switch of its own.
+    removals: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -1590,6 +1601,15 @@ const commandResultSchema = z.object({
         .nullable(),
       // A distribution's characters that were given their share, in order (module 0.32.0).
       among: z.array(z.string().min(1).max(64)).max(MOST_AMONG).optional(),
+    })
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // From module 0.33.0, for an item removed: it, and how many of its stack, where it changed.
+  removed: z
+    .object({
+      item: z.string().min(1).max(64),
+      quantity: z.int().min(0).max(MOST_MOVED),
     })
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk

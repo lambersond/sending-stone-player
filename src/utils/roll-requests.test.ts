@@ -5136,6 +5136,8 @@ describe('utils/roll-requests for concentration, charges and Heroic Inspiration,
     ['inspiration', 'Heroic Inspiration'],
     // From module 0.31.0.
     ['transfer', 'Items or coins moved'],
+    // From module 0.33.0.
+    ['remove', 'An item removed'],
   ])(
     "calls the Gamemaster's %s from a page that didn't say %p",
     (kind, label) => {
@@ -5246,5 +5248,65 @@ describe('toRollRequestView for a distribution, from module 0.32.0', () => {
     expect(
       shared({ status: 'failed', reason: 'error', error: 'refused' }, 'failed'),
     ).toEqual({ id: 'req-1', status: 'failed', reason: 'error', transfer })
+  })
+})
+
+describe('toRollRequestView for an item removed, from module 0.33.0', () => {
+  const removed = { item: 'potionThorin', quantity: 2 }
+  const removal = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
+    toRollRequestView(
+      held({
+        kind: 'remove',
+        status,
+        claimedAt: ago(500),
+        result: {
+          id: 'req-1',
+          status,
+          reason: null,
+          error: null,
+          messageId: 'm-line',
+          visible: true,
+          rolls: [],
+          removed,
+          ...fields,
+        },
+      }),
+      NOW,
+    )
+
+  it('passes on what was removed, once made, seen or not', () => {
+    expect(removal({}, 'done')).toEqual({
+      id: 'req-1',
+      status: 'done',
+      visible: true,
+      total: undefined,
+      rolls: [],
+      removed,
+    })
+    expect(removal({ visible: false }, 'done')).toEqual({
+      id: 'req-1',
+      status: 'done',
+      visible: false,
+      removed,
+    })
+  })
+
+  it('passes on what was removed before it failed, and nothing where the item itself was kept', () => {
+    expect(
+      removal(
+        {
+          status: 'failed',
+          reason: 'error',
+          error: 'Not every item was deleted',
+        },
+        'failed',
+      ),
+    ).toEqual({ id: 'req-1', status: 'failed', reason: 'error', removed })
+    expect(
+      removal(
+        { status: 'failed', reason: 'changed', removed: undefined },
+        'failed',
+      ),
+    ).toEqual({ id: 'req-1', status: 'failed', reason: 'changed' })
   })
 })

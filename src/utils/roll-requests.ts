@@ -81,7 +81,8 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * container moves whole (`container`); or an item is asked for with the container it's in
  * (`nested`). From module 0.32.0, for a distribution of a party's coin: those it's shared among
  * aren't the party's members that are the campaign's characters (`members`), or there isn't a
- * whole coin for each of them (`split`).
+ * whole coin for each of them (`split`). From module 0.33.0, for an item removed: the stack holds
+ * as many as asked, but not as many as the page showed, as after a potion was drunk (`changed`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -118,6 +119,7 @@ export type RollRefusal =
   | 'nested'
   | 'members'
   | 'split'
+  | 'changed'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -956,10 +958,20 @@ export function toRollRequestView(
   const spent = result?.spent ? { spent: result.spent } : {}
   // What a move moved, from module 0.31.0: all of it, or what it moved before it failed.
   const moved = result?.transfer ? { transfer: result.transfer } : {}
+  // What a removal removed, from module 0.33.0: when it was made, or where the item itself
+  // changed before it failed.
+  const removed = result?.removed ? { removed: result.removed } : {}
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
-      return { id: request.id, status, reason, ...cardless(result), ...moved }
+      return {
+        id: request.id,
+        status,
+        reason,
+        ...cardless(result),
+        ...moved,
+        ...removed,
+      }
     }
     if (!result.visible) {
       return {
@@ -969,6 +981,7 @@ export function toRollRequestView(
         visible: false,
         ...spent,
         ...moved,
+        ...removed,
       }
     }
     const rolls = result.rolls.map(roll => toTableRoll(roll))
@@ -982,6 +995,7 @@ export function toRollRequestView(
       ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
       ...spent,
       ...moved,
+      ...removed,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
@@ -1001,6 +1015,7 @@ export function toRollRequestView(
       ...damage,
       ...enchantment,
       ...moved,
+      ...removed,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -1019,6 +1034,7 @@ export function toRollRequestView(
     ...enchantment,
     ...spent,
     ...moved,
+    ...removed,
   }
 }
 
@@ -1047,6 +1063,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   spend: 'Charges spent',
   inspiration: 'Heroic Inspiration',
   transfer: 'Items or coins moved',
+  remove: 'An item removed',
 }
 
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */

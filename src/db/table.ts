@@ -9,6 +9,7 @@ import {
 import { isLive } from '@/db/campaigns'
 import { groupRoster, tableGroups, tableMoves } from '@/db/party'
 import { toTablePrompts } from '@/utils/prompts'
+import { removalsAvailable } from '@/utils/removals'
 import {
   availableRollFeatures,
   availableRollKinds,
@@ -49,7 +50,9 @@ export const MESSAGE_LIMIT = 100
  * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
  * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
  * taking moves or not changes with no new version; and from module 0.32.0, whether the player
- * types in their own dice for it, which another of their devices may change.
+ * types in their own dice for it, which another of their devices may change; and from module
+ * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
+ * changes with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -60,6 +63,7 @@ export type CampaignStatus = {
   gmRollsKey?: string
   moves: boolean
   typed: boolean
+  removes: boolean
 }
 
 /**
@@ -151,8 +155,8 @@ const gmRollStateSelect = {
 } as const
 
 /**
- * What says which rolls a campaign's game takes from players, and from module 0.31.0 whether it
- * takes their moves of items and coins.
+ * What says which rolls a campaign's game takes from players, from module 0.31.0 whether it takes
+ * their moves of items and coins, and from module 0.33.0 whether it removes their items.
  */
 const rollsSelect = {
   rollsEnabled: true,
@@ -160,6 +164,7 @@ const rollsSelect = {
   rollFeatures: true,
   bridgePolledAt: true,
   transfersEnabled: true,
+  removalsEnabled: true,
 } as const
 
 /**
@@ -206,6 +211,7 @@ export async function getCampaignStatus(
       moves: false,
       // As the view, which has no campaign to say it in: a campaign removed leaves it stored.
       typed: false,
+      removes: false,
     }
   }
   const now = Date.now()
@@ -235,6 +241,8 @@ export async function getCampaignStatus(
     // The seat is read from the player's Character on every request, so their choice is as
     // stored; told only where the view tells it, with its campaign.
     typed: seat.role === 'player' && seat.manualDice === true && !!campaign,
+    // Whether the seat may remove its character's items, from module 0.33.0, as `moves`.
+    removes: !!seat.actorId && !!campaign && removalsAvailable(campaign, now),
   }
 }
 
@@ -386,6 +394,10 @@ export async function getTableView(
     connected && !!seat.actorId && transfersAvailable(campaign, now)
       ? tableMoves(seat, listed, roster, campaign.origin)
       : undefined
+  // Whether the seat may remove the character's items, from module 0.33.0, with no switch: with
+  // moves off too.
+  const removes =
+    connected && !!seat.actorId && removalsAvailable(campaign, now)
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -425,6 +437,7 @@ export async function getTableView(
     }),
     ...(groups.length > 0 && { groups }),
     ...(moves && { moves }),
+    ...(removes && { removes: true as const }),
     // Whether the player may type in their own dice follows what the game said last, stored,
     // never whether it polled lately, so a gap in polling never changes how they roll.
     ...(seat.role === 'player' && {

@@ -277,17 +277,19 @@ export type LocalUse = {
 
 /**
  * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
- * party or distributed among its characters, and between whom.
+ * party or distributed among its characters, and between whom; or from module 0.33.0 removed from
+ * the character.
  */
 export type LocalMove = {
-  verb: 'give' | 'take' | 'send' | 'distribute'
+  verb: 'give' | 'take' | 'send' | 'distribute' | 'remove'
   /**
    * As the chat line says it, such as "2 Potion of Healing", or for a distribution, all it shares,
    * "100 gp".
    */
   things: string
   /**
-   * The other end's name: who it's given or sent to, or the party it's taken or distributed from.
+   * The other end's name: who it's given or sent to, or the party it's taken or distributed from;
+   * for a removal, the character it's removed from.
    */
   other: string
   /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */

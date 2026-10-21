@@ -82,6 +82,22 @@ const advance = (ms: number) =>
     await jest.advanceTimersByTimeAsync(ms)
   })
 
+/** The spinners inside a part of the page. */
+const spinnersIn = (scope: HTMLElement) => [
+  ...scope.querySelectorAll(String.raw`svg.motion-safe\:animate-spin`),
+]
+/** The spinner right after a text, such as an item's name: what follows it at once. */
+const spinnerBy = (scope: HTMLElement, text: string) => {
+  const next = within(scope).getByText(text).nextElementSibling
+  expect(next?.tagName.toLowerCase()).toBe('svg')
+  expect(next).toHaveClass('motion-safe:animate-spin')
+  expect(next).toHaveAttribute('aria-hidden', 'true')
+  return next
+}
+/** The Currency fact's label. */
+const currencyTerm = () =>
+  screen.getByText('Currency').closest('dt') as HTMLElement
+
 describe('components/transfers/take-controls', () => {
   beforeEach(() => {
     made = undefined
@@ -341,17 +357,24 @@ describe('components/transfers/take-controls', () => {
       })
       expect(potion).toBeDisabled()
       expect(potion).toHaveAttribute('aria-busy', 'true')
-      expect(potion.querySelector('svg')).toHaveClass(
-        'size-3.5',
-        'motion-safe:animate-spin',
-      )
+      // From module 0.33.0's feedback, the spinner is the row's, by the item's name: none of
+      // Take's own.
+      expect(potion.querySelector('svg')).toBeNull()
+      const row = potion.closest('li') as HTMLElement
+      expect(row).toHaveAttribute('aria-busy', 'true')
+      expect(spinnersIn(row)).toEqual([spinnerBy(row, 'Potion of Healing')])
+      expect(spinnerBy(row, 'Potion of Healing')).toHaveClass('size-3.5')
       // Another item, or the coin, may still be taken.
-      expect(screen.getByRole('button', { name: 'Take Rope' })).toBeEnabled()
+      const rope = screen.getByRole('button', { name: 'Take Rope' })
+      expect(rope).toBeEnabled()
+      expect(rope.closest('li')).not.toHaveAttribute('aria-busy')
+      expect(spinnersIn(rope.closest('li') as HTMLElement)).toEqual([])
       expect(
         screen.getByRole('button', {
           name: 'Take coins from The Iron Company',
         }),
       ).toBeEnabled()
+      expect(spinnersIn(currencyTerm())).toEqual([])
 
       jest.mocked(fetch).mockResolvedValue(
         respond(200, {
@@ -370,6 +393,8 @@ describe('components/transfers/take-controls', () => {
       )
       expect(potion).toBeEnabled()
       expect(potion).not.toHaveAttribute('aria-busy')
+      expect(row).not.toHaveAttribute('aria-busy')
+      expect(spinnersIn(row)).toEqual([])
       expect(
         screen.getByRole('button', { name: 'Dismiss' }),
       ).toBeInTheDocument()
@@ -453,7 +478,18 @@ describe('components/transfers/take-controls', () => {
       })
       expect(coins).toBeDisabled()
       expect(coins).toHaveAttribute('aria-busy', 'true')
-      expect(screen.getByRole('button', { name: 'Take Rope' })).toBeEnabled()
+      // From module 0.33.0's feedback, the spinner is the row's, by its label: none of Take's own.
+      expect(coins.querySelector('svg')).toBeNull()
+      expect(screen.getByRole('group', { name: 'Currency' })).toHaveAttribute(
+        'aria-busy',
+        'true',
+      )
+      expect(spinnersIn(currencyTerm())).toEqual([
+        spinnerBy(currencyTerm(), 'Currency'),
+      ])
+      const rope = screen.getByRole('button', { name: 'Take Rope' })
+      expect(rope).toBeEnabled()
+      expect(spinnersIn(rope.closest('li') as HTMLElement)).toEqual([])
     })
 
     it("takes, on the Gamemaster's party page, into the character picked, saying so and naming the move", async () => {

@@ -54,6 +54,7 @@ describe('db/table', () => {
         rollFeatures: [],
         moves: false,
         typed: false,
+        removes: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -65,6 +66,7 @@ describe('db/table', () => {
           rollFeatures: true,
           bridgePolledAt: true,
           transfersEnabled: true,
+          removalsEnabled: true,
         },
       })
     })
@@ -82,6 +84,7 @@ describe('db/table', () => {
         rollFeatures: [],
         moves: false,
         typed: false,
+        removes: false,
       })
     })
 
@@ -95,6 +98,7 @@ describe('db/table', () => {
         rollFeatures: [],
         moves: false,
         typed: false,
+        removes: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -106,6 +110,7 @@ describe('db/table', () => {
         rollFeatures: [],
         moves: false,
         typed: false,
+        removes: false,
       })
     })
 
@@ -181,6 +186,7 @@ describe('db/table', () => {
           rollFeatures: true,
           bridgePolledAt: true,
           transfersEnabled: true,
+          removalsEnabled: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -659,6 +665,7 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       gm: { rolls: 'made' },
       moves: false,
       typed: false,
+      removes: false,
     })
   })
 
@@ -1452,4 +1459,76 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
       })
     },
   )
+})
+
+/** The campaign, its game removing items as given, and fetching as lately as given. */
+const removing = (
+  removalsEnabled = true,
+  bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+) =>
+  givenCampaign({
+    ...campaign,
+    groups: [],
+    rollsEnabled: false,
+    rollKinds: [],
+    rollFeatures: [],
+    transfersEnabled: false,
+    removalsEnabled,
+    bridgePolledAt,
+  })
+
+describe('db/table, removing items, from module 0.33.0', () => {
+  /** The Gamemaster at Thorin's sheet. */
+  const gm = {
+    ...character,
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+  it('lets the seat remove the character’s items while its game removes them, rolls and moves off, the Gamemaster’s seat too', async () => {
+    removing()
+
+    const view = await getTableView(character)
+    expect(view.removes).toBe(true)
+    expect(view).not.toHaveProperty('moves')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      moves: false,
+      removes: true,
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({ removes: true })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      removes: true,
+    })
+  })
+
+  it.each([
+    ['its game removes none, as before module 0.33.0', () => removing(false)],
+    [
+      'its module stopped fetching',
+      () => removing(true, new Date(Date.now() - 46_000)),
+    ],
+    ['its module never fetched', () => removing(true, null)],
+  ])('lets no one remove while %s', async (_name, arrange) => {
+    arrange()
+
+    expect(await getTableView(character)).not.toHaveProperty('removes')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      removes: false,
+    })
+  })
+
+  it('lets no one remove from a character no longer in the roster, nor from a seat without one', async () => {
+    removing()
+
+    const gone = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(gone).not.toHaveProperty('removes')
+    const none = await getTableView({ ...character, actorId: null })
+    expect(none).not.toHaveProperty('removes')
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ removes: false })
+    await expect(
+      getCampaignStatus({ ...character, campaignId: null }),
+    ).resolves.toMatchObject({ removes: false })
+  })
 })

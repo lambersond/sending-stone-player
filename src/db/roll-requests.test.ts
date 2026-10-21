@@ -513,8 +513,9 @@ describe('db/roll-requests', () => {
           campaignId: 'c1',
           status: 'pending',
           createdAt: { gt: ago(30_000) },
-          // No move of items and coins, from module 0.31.0, to a session not known to take them.
-          OR: [{ role: 'player', kind: { not: 'transfer' } }],
+          // No move of items and coins, from module 0.31.0, nor removal, from module 0.33.0, to a
+          // session not known to take them.
+          OR: [{ role: 'player', kind: { notIn: ['transfer', 'remove'] } }],
         },
         orderBy: { createdAt: 'asc' },
         take: 10,
@@ -1732,12 +1733,14 @@ describe('db/roll-requests', () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: true,
         transfersEnabled: false,
+        removalsEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
       await expect(markBridgePolled('c1')).resolves.toEqual({
         rollsEnabled: true,
         transfersEnabled: false,
+        removalsEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
@@ -1746,8 +1749,25 @@ describe('db/roll-requests', () => {
         select: {
           rollsEnabled: true,
           transfersEnabled: true,
+          removalsEnabled: true,
           playersSeenAt: true,
         },
+      })
+    })
+
+    it('tells whether the game removes characters’ items, from module 0.33.0, with rolls and moves off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: true,
+        playersPresent: false,
       })
     })
 
@@ -1755,12 +1775,14 @@ describe('db/roll-requests', () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
         transfersEnabled: true,
+        removalsEnabled: false,
         playersSeenAt: null,
       } as any)
 
       await expect(markBridgePolled('c1')).resolves.toEqual({
         rollsEnabled: false,
         transfersEnabled: true,
+        removalsEnabled: false,
         playersPresent: false,
       })
     })
@@ -1772,12 +1794,14 @@ describe('db/roll-requests', () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
         transfersEnabled: false,
+        removalsEnabled: false,
         playersSeenAt,
       } as any)
 
       await expect(markBridgePolled('c1')).resolves.toEqual({
         rollsEnabled: false,
         transfersEnabled: false,
+        removalsEnabled: false,
         playersPresent: false,
       })
     })
@@ -2215,7 +2239,7 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
       if (key === 'id') return value.in.includes(row.id)
       if (key === 'claimToken') return true
       if (key === 'kind' && typeof value === 'object') {
-        return (row.kind ?? 'skill') !== value.not
+        return !value.notIn.includes(row.kind ?? 'skill')
       }
       if (key === 'kind') return (row.kind ?? 'skill') === value
       return (row as any)[key] === value
@@ -2316,7 +2340,7 @@ describe('db/roll-requests, handing over moves of items and coins, from module 0
       if (key === 'OR') return value.some((each: any) => matches(row, each))
       if (key === 'createdAt') return row.createdAt > value.gt
       if (key === 'kind' && typeof value === 'object')
-        return row.kind !== value.not
+        return !value.notIn.includes(row.kind)
       return (row as any)[key] === value
     })
   /** What a fetch for this session takes, from a campaign as given. */
@@ -2611,5 +2635,147 @@ describe('db/roll-requests, dice typed in, from module 0.32.0', () => {
       reason: 'unavailable',
     })
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('db/roll-requests, handing over removals of items, from module 0.33.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Waiting, as held: a player's roll, move and removal, and the Gamemaster's roll and removal. */
+  const waiting = [
+    {
+      id: 'roll-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'skill',
+    },
+    {
+      id: 'move-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'transfer',
+    },
+    {
+      id: 'remove-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'remove',
+    },
+    { id: 'roll-gm', role: 'gm', requestedById: 'gm-1', kind: 'skill' },
+    { id: 'remove-gm', role: 'gm', requestedById: 'gm-1', kind: 'remove' },
+    {
+      id: 'remove-other-gm',
+      role: 'gm',
+      requestedById: 'gm-2',
+      kind: 'remove',
+    },
+  ].map((row, index) => ({
+    ...row,
+    campaignId: 'c1',
+    status: 'pending',
+    createdAt: ago(5000 - index),
+  }))
+  /** Whether a row is one a `where` asks for, as far as a fetch's asks. */
+  const matches = (row: (typeof waiting)[number], where: any): boolean =>
+    Object.entries(where).every(([key, value]: [string, any]) => {
+      if (key === 'OR') return value.some((each: any) => matches(row, each))
+      if (key === 'createdAt') return row.createdAt > value.gt
+      if (key === 'kind' && typeof value === 'object')
+        return !value.notIn.includes(row.kind)
+      return (row as any)[key] === value
+    })
+  /** What a fetch for this session takes, from a campaign as given. */
+  const fetched = async (campaign: object | null, session = 'session-1') => {
+    prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+    prismaMock.rollRequest.findMany.mockImplementation((({ where }: any) =>
+      Promise.resolve(
+        where.claimToken
+          ? waiting
+              .filter(row => where.id.in.includes(row.id))
+              .map(row => held(row.id, { role: row.role }))
+          : waiting
+              .filter(row => matches(row, where))
+              .map(({ id }) => ({ id })),
+      )) as any)
+    const commands = await claimRollRequests('c1', session)
+    return commands.map(({ id }) => id)
+  }
+  /** Removals taken, rolls and moves off: the module sends gmRolls only while rolls are on. */
+  const removing = {
+    helloSession: 'session-1',
+    rollFeatures: [],
+    ownerId: 'gm-1',
+    transfersEnabled: false,
+    removalsEnabled: true,
+  }
+
+  it("hands a removal over only to the hello's session, the Gamemaster's needing no gmRolls, and only its owner's", async () => {
+    await expect(fetched(removing)).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'remove-gm',
+    ])
+    await expect(fetched(removing, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+  })
+
+  it('withholds every removal while the game takes none, with moves on or off', async () => {
+    await expect(
+      fetched({ ...removing, removalsEnabled: false }),
+    ).resolves.toEqual(['roll-player'])
+    await expect(
+      fetched({ ...removing, removalsEnabled: false, transfersEnabled: true }),
+    ).resolves.toEqual(['roll-player', 'move-player'])
+    await expect(fetched(null)).resolves.toEqual(['roll-player'])
+  })
+
+  it("still hands moves over as before, and never a removal as one of the Gamemaster's rolls", async () => {
+    await expect(
+      fetched({ ...removing, transfersEnabled: true }),
+    ).resolves.toEqual([
+      'roll-player',
+      'move-player',
+      'remove-player',
+      'remove-gm',
+    ])
+    await expect(
+      fetched({
+        ...removing,
+        rollFeatures: ['gmRolls'],
+        removalsEnabled: false,
+      }),
+    ).resolves.toEqual(['roll-player', 'roll-gm'])
+    await expect(
+      fetched({ ...removing, rollFeatures: ['gmRolls'] }),
+    ).resolves.toEqual(['roll-player', 'remove-player', 'roll-gm', 'remove-gm'])
+  })
+
+  it('hands a removal over as the module is sent it, the Gamemaster’s saying so', async () => {
+    const removal = {
+      kind: 'remove',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      remove: { item: 'rope', quantity: 1, held: 1 },
+    }
+    prismaMock.campaign.findUnique.mockResolvedValue(removing as any)
+    prismaMock.rollRequest.findMany
+      .mockResolvedValueOnce([{ id: 'remove-gm' }] as any)
+      .mockResolvedValueOnce([
+        held('remove-gm', { role: 'gm', kind: 'remove', payload: removal }),
+      ] as any)
+
+    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+      { ...removal, id: 'remove-gm', actorId: 'actor-thorin', by: 'gm' },
+    ])
   })
 })

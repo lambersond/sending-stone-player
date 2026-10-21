@@ -1,7 +1,7 @@
 import type { PROMPT_SOURCES } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
 import type { GroupEntry, GroupSheet } from '@/types/party'
-import type { TransferMoved } from '@/types/roll'
+import type { RemovedItem, TransferMoved } from '@/types/roll'
 
 /**
  * What the fvtt-sending-stone module sends, as far as this app reads it. Payloads may carry more
@@ -1230,6 +1230,11 @@ export type BridgeFeatures = {
     partySends?: boolean
     distribute?: boolean
   } | null
+  /**
+   * Whether the module removes characters' items for the app, `"remove"` among its kinds; or not,
+   * and why, `"system"`. Module 0.33.0.
+   */
+  removals?: { enabled: boolean; kinds: string[]; reason: string | null } | null
 }
 
 /**
@@ -1330,6 +1335,11 @@ export type CommandResult = {
    * made, or the parts made before it failed. Module 0.31.0.
    */
   transfer?: TransferMoved
+  /**
+   * For an item removed from the character, it and how many of its stack, by id and count alone:
+   * when it was made, or where it failed after the item itself changed. Module 0.33.0.
+   */
+  removed?: RemovedItem
 }
 
 /**

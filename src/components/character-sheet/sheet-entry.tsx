@@ -2,7 +2,7 @@
 
 import { Fragment, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { ChevronDown, type LucideIcon } from 'lucide-react'
+import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { usePressMenu } from './press-menu'
 import { SheetText } from './sheet-text'
@@ -45,6 +45,11 @@ type Props = {
    * keyboard's context menu key.
    */
   onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
+  /**
+   * From module 0.33.0's feedback, on a party's sheet: while it's on its way, one spinner right of
+   * its name, and its row busy, in place of one on each of its buttons.
+   */
+  busy?: boolean
 }
 
 /**
@@ -68,6 +73,7 @@ export function SheetEntry({
   muted = false,
   favoriteKey,
   onMenu,
+  busy = false,
 }: Readonly<Props>) {
   const [open, setOpen] = useState(false)
   const favorite = useFavorite(favoriteKey)
@@ -78,6 +84,12 @@ export function SheetEntry({
       <span className='min-w-0 flex-1'>
         <span className='flex items-center gap-1'>
           <span className='truncate font-medium'>{name}</span>
+          {busy && (
+            <LoaderCircle
+              aria-hidden
+              className='size-3.5 shrink-0 text-text-secondary motion-safe:animate-spin'
+            />
+          )}
           {favorite && <FavoriteStar />}
           {badge}
         </span>
@@ -97,8 +109,14 @@ export function SheetEntry({
 
   if (!text && !meta && facts.length === 0 && !lead && !children) {
     return (
-      <li>
-        <div className={clsx(rowClass, press.className)} {...press.props}>
+      <li aria-busy={busy || undefined}>
+        <div
+          className={clsx(rowClass, press.className)}
+          // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
+          // on a row that opens (module 0.33.0).
+          tabIndex={onMenu ? 0 : undefined}
+          {...press.props}
+        >
           {row}
           <span aria-hidden className='size-4 shrink-0' />
         </div>
@@ -106,7 +124,7 @@ export function SheetEntry({
     )
   }
   return (
-    <li>
+    <li aria-busy={busy || undefined}>
       <details onToggle={event => setOpen(event.currentTarget.open)}>
         <summary
           className={clsx(

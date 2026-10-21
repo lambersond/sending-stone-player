@@ -209,17 +209,17 @@ export function RollHistory({
 }
 
 /**
- * Whether all the tray lists is items and coins moved, from module 0.31.0, the player's or the
- * Gamemaster's as the character: each is sent to the game, and made or turned down there, whatever
- * the game takes of the player's rolls and whether this device sends them, so that what's said of
- * rolls reaching it, or not, isn't said of them.
+ * Whether all the tray lists is items and coins moved, from module 0.31.0, or items removed, from
+ * module 0.33.0, the player's or the Gamemaster's as the character: each is sent to the game, and
+ * made or turned down there, whatever the game takes of the player's rolls and whether this device
+ * sends them, so that what's said of rolls reaching it, or not, isn't said of them.
  */
 function movesAlone(rolls: readonly LocalRoll[]): boolean {
   return (
     rolls.length > 0 &&
     rolls.every(roll =>
       roll.kind === 'gm'
-        ? roll.rolled === 'transfer'
+        ? roll.rolled === 'transfer' || roll.rolled === 'remove'
         : roll.kind === 'use' && !!roll.move,
     )
   )
@@ -1389,8 +1389,9 @@ export function GmPill() {
 function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
   if (roll.rolled === 'use' || roll.rolled === 'ask') return roll.rolled
   if (roll.rolled === 'spend' || roll.rolled === 'inspiration') return 'use'
-  // Items and coins moved, from module 0.31.0, have no total either.
-  if (roll.rolled === 'transfer') return 'use'
+  // Items and coins moved, from module 0.31.0, and items removed, from module 0.33.0, have no
+  // total either.
+  if (roll.rolled === 'transfer' || roll.rolled === 'remove') return 'use'
   if (roll.rolled === 'damage' || roll.rolled === 'textDamage') return 'damage'
   return 'check'
 }
@@ -1398,12 +1399,13 @@ function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
 /**
  * What's said of a use of the Gamemaster's as the character as it goes, and once done: of charges
  * spent, that they were; of Heroic Inspiration, which their page doesn't say was used or gained,
- * that it changed; of items or coins moved, from module 0.31.0, that they were; of anything else,
- * that it was used.
+ * that it changed; of items or coins moved, from module 0.31.0, that they were; of an item
+ * removed, from module 0.33.0, that it was; of anything else, that it was used.
  */
 function gmVerbs(roll: LocalGmRoll): { doing: string; done: string } {
   if (roll.rolled === 'spend') return { doing: 'Spending', done: 'Spent' }
   if (roll.rolled === 'transfer') return { doing: 'Moving', done: 'Moved' }
+  if (roll.rolled === 'remove') return { doing: 'Removing', done: 'Removed' }
   if (roll.rolled === 'inspiration') {
     return { doing: 'Changing', done: 'Changed' }
   }
@@ -1680,6 +1682,7 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
         take: 'taken',
         send: 'sent',
         distribute: 'distributed',
+        remove: 'removed',
       }[roll.move.verb]
     }
     if (roll.ending) return 'ended'
