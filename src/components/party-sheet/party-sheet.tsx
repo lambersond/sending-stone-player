@@ -28,6 +28,7 @@ import { EntryIcon } from '@/components/character-sheet/sheet-entry'
 import { SheetText } from '@/components/character-sheet/sheet-text'
 import { Charging } from '@/components/character-sheet/uses-button'
 import { EmptyState } from '@/components/game-table/empty-state'
+import { NotesSection } from '@/components/notes'
 import { MoveStatus } from '@/components/transfers/move-status'
 import {
   partyControls,
@@ -35,6 +36,7 @@ import {
   type PartyMoving,
 } from '@/components/transfers/party-controls'
 import { NO_TRANSFERS, Transferring } from '@/components/transfers/transferring'
+import { hasDraft } from '@/hooks/use-notes'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { useTransfers } from '@/hooks/use-transfers'
 import { megabytes } from '@/utils/format-amount'
@@ -65,6 +67,11 @@ type Props = {
   ownSheetHref?: string
   /** Where it takes into, where the seat may take from it (module 0.31.0). */
   takeInto?: TakeInto
+  /**
+   * Whether it shows the party's journal notes (module 0.34.0), through its own API: first on its
+   * Description tab, or under why there's no sheet.
+   */
+  notes?: boolean
 }
 
 /** What nothing in a party's sheet does: none of a character's actions are given it. */
@@ -80,6 +87,7 @@ export function PartySheet({
   view,
   ownSheetHref,
   takeInto,
+  notes = false,
 }: Readonly<Props>) {
   const seat = useMemo<TableSeat>(
     () => ({ role, api, key: `party:${view.group.id}` }),
@@ -161,6 +169,9 @@ export function PartySheet({
                   <Transferring controls={controls}>
                     {view.sheet ? (
                       <PartyContents
+                        api={api}
+                        role={role}
+                        notes={notes}
                         view={view}
                         sheet={view.sheet}
                         ownSheetHref={ownSheetHref}
@@ -187,7 +198,12 @@ export function PartySheet({
                         }
                       />
                     ) : (
-                      <NoPartySheet role={role} view={view} />
+                      <NoPartySheet
+                        api={api}
+                        role={role}
+                        notes={notes}
+                        view={view}
+                      />
                     )}
                   </Transferring>
                 </Charging>
@@ -202,7 +218,8 @@ export function PartySheet({
 
 /**
  * The party's sheet as its hook has it: while it's first fetched, once it's no longer the seat's
- * to see, or else the sheet. Its page and its side panel each show it so.
+ * to see, or else the sheet, with the party's journal notes. Its page and its side panel each show
+ * it so.
  */
 export function PartySheetFor({
   api,
@@ -238,6 +255,7 @@ export function PartySheetFor({
       view={view}
       ownSheetHref={ownSheetHref}
       takeInto={takeInto}
+      notes
     />
   )
 }
@@ -250,12 +268,19 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 function PartyContents({
+  api,
+  role,
+  notes,
   view,
   sheet,
   ownSheetHref,
   status,
   dialog,
 }: Readonly<{
+  api: string
+  role: SeatRole
+  /** Whether its Description tab starts with the party's journal notes. */
+  notes: boolean
   view: PartyView
   sheet: NonNullable<PartyView['sheet']>
   ownSheetHref?: string
@@ -264,7 +289,11 @@ function PartyContents({
   /** The dialog a Take opens, after the tabs. */
   dialog?: ReactNode
 }>) {
-  const [tab, setTab] = useState<Tab>('inventory')
+  // It opens on the stash; on Description where a note is being written there, as when it was
+  // started under why there was no sheet, or before the panel was closed.
+  const [tab, setTab] = useState<Tab>(() =>
+    notes && hasDraft(api) ? 'description' : 'inventory',
+  )
   const ids = useId()
   const membersId = `${ids}-members`
   // Its descriptions are kept apart from any character's on the page.
@@ -353,11 +382,24 @@ function PartyContents({
                   />
                 </>
               ) : (
-                <Description
-                  textsKey={textsKey}
-                  hash={sheet.description}
-                  name={view.group.name}
-                />
+                <>
+                  {notes && (
+                    <NotesSection
+                      kind='party'
+                      look='party'
+                      api={api}
+                      role={role}
+                      name={view.group.name}
+                      active
+                    />
+                  )}
+                  <Description
+                    textsKey={textsKey}
+                    hash={sheet.description}
+                    name={view.group.name}
+                    headingId={notes ? `${ids}-description` : undefined}
+                  />
+                </>
               ))}
           </div>
         ))}
@@ -367,22 +409,53 @@ function PartyContents({
   )
 }
 
+/**
+ * The party's description; under a heading of its own where the notes come before it, so the two
+ * read apart.
+ */
 function Description({
   textsKey,
   hash,
   name,
-}: Readonly<{ textsKey: string; hash: string | null; name: string }>) {
-  if (!hash) {
-    return <p className='text-sm text-text-secondary'>No description.</p>
-  }
-  return <SheetText characterId={textsKey} hash={hash} origin={{ name }} />
+  headingId,
+}: Readonly<{
+  textsKey: string
+  hash: string | null
+  name: string
+  /** Its heading's id, where it has one. */
+  headingId?: string
+}>) {
+  const text = hash ? (
+    <SheetText characterId={textsKey} hash={hash} origin={{ name }} />
+  ) : (
+    <p className='text-sm text-text-secondary'>No description.</p>
+  )
+  if (!headingId) return text
+  return (
+    <section aria-labelledby={headingId} className='flex flex-col gap-2'>
+      <h2 id={headingId} className='text-sm font-semibold'>
+        Description
+      </h2>
+      {text}
+    </section>
+  )
 }
 
-/** Why there's no sheet to show: no one may see it, it's too large, or it's on its way. */
+/**
+ * Why there's no sheet to show: no one may see it, it's too large, or it's on its way; and under
+ * it the party's journal notes, which need no sheet.
+ */
 function NoPartySheet({
+  api,
   role,
+  notes,
   view,
-}: Readonly<{ role: SeatRole; view: PartyView }>) {
+}: Readonly<{
+  api: string
+  role: SeatRole
+  notes: boolean
+  view: PartyView
+}>) {
   const { name } = view.group
   let title = `${name}'s party sheet hasn't arrived`
   let body: ReactNode =
@@ -404,9 +477,23 @@ function NoPartySheet({
       </>
     )
   }
-  return (
+  const why = (
     <EmptyState icon={Users} title={title}>
       {body}
     </EmptyState>
+  )
+  if (!notes) return why
+  return (
+    <div className='flex flex-col gap-2'>
+      {why}
+      <NotesSection
+        kind='party'
+        look='party'
+        api={api}
+        role={role}
+        name={name}
+        active
+      />
+    </div>
   )
 }

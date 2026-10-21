@@ -29,6 +29,7 @@ import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
 import { PartySheetList } from '@/components/character-sheet/party-sheets'
 import { ConfirmDialog } from '@/components/modal'
+import { NotesSection, type NotesPlace } from '@/components/notes'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
 import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -232,6 +233,16 @@ export function GameTable({
   }
 
   const playing = view.campaign !== undefined && character.actorId !== null
+  // The character's own journal notes (module 0.34.0), on the sheet's Biography tab, or under why
+  // there's no sheet: polled while the Character pane is in view, as it is on a wide screen or as
+  // its tab, and no party sheet is open over it. On one pane it stays mounted, hidden, behind
+  // combat or the chat.
+  const notes: NotesPlace = {
+    api: seat.api,
+    role: seat.role,
+    name: character.name,
+    active: (tab === 'character' || sideBySide) && party === undefined,
+  }
   let table: ReactNode
   if (!view.campaign || (!character.actorId && !choice)) {
     table = (
@@ -248,10 +259,11 @@ export function GameTable({
   } else {
     const hasSheet = view.sheet !== undefined
     // The party sheets open from the sheet's Inventory tab, or, with no sheet, from under why
-    // there's none: either way the Character pane shows on a wide screen too.
+    // there's none: either way the Character pane shows on a wide screen too. So it does at a
+    // character, with no sheet, for its notes there.
     const parties =
       view.groups && view.groups.length > 0 ? view.groups : undefined
-    const paneShown = hasSheet || parties !== undefined
+    const paneShown = hasSheet || parties !== undefined || playing
     table = (
       <div className='flex min-h-0 flex-1'>
         {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
@@ -291,6 +303,7 @@ export function GameTable({
                   ? { on: typing, onChange: onManualDice }
                   : undefined
               }
+              notes={notes}
             />
           ) : (
             <Scroller>
@@ -305,11 +318,17 @@ export function GameTable({
                   <PartySheetList groups={parties} onOpen={setPartyOpen} />
                 </div>
               )}
+              {/* The notes, which need no sheet, nor Foundry. */}
+              {playing && (
+                <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
+                  <NotesSection kind='personal' look='sheet' {...notes} />
+                </div>
+              )}
             </Scroller>
           )}
         </Pane>
         {/* Combat and the chat: tabs on a narrower screen. On a wide one they share a narrow
-            column beside the sheet, or the whole width until a sheet arrives. */}
+            column beside the sheet, or beside why there's none and the notes. */}
         <div
           className={clsx(
             'min-h-0 min-w-0 flex-1 flex-col lg:flex',

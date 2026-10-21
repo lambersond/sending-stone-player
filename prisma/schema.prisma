@@ -27,6 +27,36 @@ enum RollRole {
   gm
 }
 
+// Whose journal of notes, from module 0.34.0: a character's own, or a party's.
+enum JournalKind {
+  personal
+  party
+}
+
+// A journal note: a chapter, a level 1 heading in Foundry's journal, or an entry under one, a level 2.
+enum NoteRole {
+  chapter
+  entry
+}
+
+// What a change made here asks of Foundry.
+enum NoteOp {
+  create
+  update
+  delete
+}
+
+// Where a change made here stands: waiting for the module, fetched, refused because the note was
+// changed or deleted in Foundry meanwhile, refused otherwise, or made (kept an hour, for the
+// seat's limit, and then deleted).
+enum NoteWriteStatus {
+  pending
+  claimed
+  conflict
+  failed
+  made
+}
+
 // -----------------------
 // User model
 // -----------------------
@@ -196,6 +226,8 @@ model Campaign {
   // Whether the module removes characters' items for the app, from module 0.33.0's hello: under
   // dnd5e, with no switch of its own, apart from the rolls and the moves.
   removalsEnabled  Boolean       @default(false)
+  // Whether the module keeps journal notes for the app, from module 0.34.0's hello, with no switch.
+  notesEnabled     Boolean       @default(false)
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt   DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,
@@ -221,6 +253,7 @@ model Campaign {
   players          Character[]
   rollRequests     RollRequest[]
   rollPrompts      RollPrompt[]
+  journalBooks     JournalBook[]
 
   @@unique([origin, foundryId], name: "originCampaign")
   @@index([ownerId])
@@ -382,4 +415,110 @@ model RollPrompt {
   @@unique([campaignId, promptId], name: "campaignPrompt")
   @@index([campaignId, actorId, closedAt])
   @@map("roll_prompt")
+}
+
+// A character's or a party's journal of notes, from module 0.34.0: the app's mirror of Foundry's
+// journal, and the changes made here waiting for it. Keyed on the actor, never the Character, so a
+// player leaving deletes none of it.
+model JournalBook {
+  id          String         @id @default(cuid())
+  campaignId  String
+  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kind        JournalKind
+  // The character's actor, or the party's Group actor.
+  actorId     String
+  // Bumped on every change to its notes or its changes waiting, here or from Foundry.
+  version     Int            @default(0)
+  // Foundry's journal, as the module last said: unset while it has none.
+  journalId   String?
+  journalName String?
+  // Why Foundry last sent no notes: { reason: 'private' } or { reason: 'tooLarge', bytes, limit }.
+  withheld    Json?
+  syncedAt    DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  notes       JournalNote[]
+  writes      JournalWrite[]
+
+  @@unique([campaignId, kind, actorId], name: "campaignBook")
+  @@map("journal_book")
+}
+
+// A note as Foundry last held it: never changed here but from what the module sends.
+model JournalNote {
+  bookId        String
+  book          JournalBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  noteId        String
+  role          NoteRole
+  chapterId     String?
+  title         String
+  // 2 for Markdown, 1 for HTML written in Foundry's own editor.
+  format        Int
+  // Its Markdown; for format 1, empty.
+  body          String
+  // As drawn here: rendered and sanitised for its book (secrets kept in a personal one only).
+  html          String
+  cut           Boolean     @default(false)
+  // A party page Foundry sent as HTML for the secret its Markdown holds: changed only in Foundry.
+  secret        Boolean     @default(false)
+  // Who wrote it from the app: a character, or the Gamemaster; none for one written in Foundry.
+  authorActorId String?
+  authorGm      Boolean     @default(false)
+  authorName    String?
+  createdAt     DateTime
+  modifiedAt    DateTime
+  modifiedBy    String
+  // 'app' or 'foundry'.
+  modifiedIn    String
+  revision      String
+
+  @@id([bookId, noteId])
+  @@map("journal_note")
+}
+
+// A change made here to a note, waiting for the module to make it in Foundry: at most one per note.
+// Nothing about it expires while it waits. Made, it's kept an hour, then deleted.
+model JournalWrite {
+  id            String          @id
+  // Bumped by every change to it; the command's id is `<id>.<seq>`, and the page's stamp names it.
+  seq           Int             @default(0)
+  campaignId    String
+  bookId        String
+  book          JournalBook     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  noteId        String
+  op            NoteOp
+  role          NoteRole
+  chapterId     String?
+  title         String
+  body          String
+  html          String
+  // The note's author and when it was created: for a create, the seat and now; else the note's.
+  authorActorId String?
+  authorGm      Boolean         @default(false)
+  authorName    String
+  noteCreatedAt DateTime
+  // Who made this change: the character's player or the campaign's Gamemaster, and as which
+  // character (none for the Gamemaster). Not a foreign key: a write outlives nothing it names.
+  seat          RollRole        @default(player)
+  requestedById String
+  writerActorId String?
+  modifiedAt    DateTime
+  modifiedBy    String
+  // The revision it was made from; unset for a create.
+  base          String?
+  status        NoteWriteStatus @default(pending)
+  // Why the module refused it, for a conflict or a failure.
+  reason        String?
+  claimToken    String?
+  claimSession  String?
+  claimedAt     DateTime?
+  // When this note's change was first queued: the claim's order. Kept by folds.
+  queuedAt      DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([bookId, noteId])
+  @@index([campaignId, status, queuedAt])
+  @@index([requestedById, updatedAt])
+  @@map("journal_write")
 }

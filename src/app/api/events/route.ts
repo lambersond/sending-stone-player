@@ -4,6 +4,7 @@ import {
   GROUPS,
   MAX_ENVELOPE_BYTES,
   MIDI_PROMPTS,
+  NOTES,
   PROTOCOL_VERSION,
   EVENTS,
   REFUSAL,
@@ -221,8 +222,9 @@ export async function POST(request: Request) {
  * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0); and
  * the campaign's groups in this format, which the module sends only then too (0.30.0).
  * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0);
- * moves of items and coins, from module 0.31.0; and removals of a character's items, from module
- * 0.33.0.
+ * moves of items and coins, from module 0.31.0; removals of a character's items, from module
+ * 0.33.0; and journal notes, from module 0.34.0, which the module fetches for, and sends journals
+ * of, only then.
  */
 const FEATURES = {
   commands: true,
@@ -233,6 +235,7 @@ const FEATURES = {
   settings: FOUNDRY_SETTINGS,
   transfers: TRANSFERS,
   removals: REMOVALS,
+  notes: NOTES,
 }
 
 /**

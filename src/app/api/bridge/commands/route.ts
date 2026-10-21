@@ -6,6 +6,7 @@ import {
   REFUSAL,
 } from '@/constants/sending-stone'
 import { findEventCampaign } from '@/db/campaigns'
+import { claimNoteWrites, type NoteCommand } from '@/db/note-sync'
 import {
   claimRollRequests,
   markBridgePolled,
@@ -74,7 +75,11 @@ export async function POST(request: Request) {
    * The commands fetched, the characters open in the app, and how long to wait before fetching
    * again; none for at once.
    */
-  const answer = (commands: RollCommand[], open: string[], wait?: number) =>
+  const answer = (
+    commands: (RollCommand | NoteCommand)[],
+    open: string[],
+    wait?: number,
+  ) =>
     Response.json(
       wait === undefined ? { commands, open } : { commands, wait, open },
       { headers },
@@ -159,19 +164,24 @@ export async function POST(request: Request) {
     )
   const began = await readOpen()
   if (!began) return unavailable()
-  // Moves of items and coins, from module 0.31.0, and removals of characters' items, from module
-  // 0.33.0, are fetched with rolls off too.
+  // Moves of items and coins, from module 0.31.0, removals of characters' items, from module
+  // 0.33.0, and journal notes, from module 0.34.0, are fetched with rolls off too.
   if (
     !polled.rollsEnabled &&
     !polled.transfersEnabled &&
-    !polled.removalsEnabled
+    !polled.removalsEnabled &&
+    !polled.notesEnabled
   ) {
     return answer([], began, COMMANDS_OFF_WAIT)
   }
 
+  // Notes written here, from module 0.34.0, are handed over after the rolls.
   const claim = () =>
     attempt(
-      () => claimRollRequests(found.id, session),
+      async () => [
+        ...(await claimRollRequests(found.id, session)),
+        ...(await claimNoteWrites(found.id, session)),
+      ],
       'Failed to hand over players’ rolls',
     )
   if (!polled.playersPresent) {

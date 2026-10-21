@@ -18,6 +18,7 @@ import {
   chatMessage,
   foundrySettings,
   groupEntry,
+  mockJournalUpdated,
   roster,
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
@@ -50,6 +51,8 @@ const FEATURES = {
   transfers: 1,
   // From module 0.33.0: removals of characters' items, fetched for with rolls and moves off.
   removals: 1,
+  // From module 0.34.0: journal notes, fetched for with rolls, moves and removals off.
+  notes: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -550,6 +553,35 @@ describe('app/api/events', () => {
         data: { settings: undefined },
       })
       expect(recordRefusal).not.toHaveBeenCalled()
+    })
+
+    it('applies a journal of notes as Foundry holds it, from module 0.34.0, answering nothing more, and refuses one it can’t read', async () => {
+      const book = mockJournalUpdated('party')
+
+      const applied = await post(envelope('journal.updated', book))
+      expect(applied.status).toBe(204)
+      expect(jest.mocked(applyCampaignEvent).mock.calls[0][3]).toEqual({
+        type: 'journal.updated',
+        data: book,
+      })
+
+      // One note it can't read fails the whole book, which the module doesn't send again.
+      const refused = await post(
+        envelope('journal.updated', {
+          ...book,
+          journal: {
+            ...book.journal,
+            notes: [{ ...book.journal!.notes[0], title: '' }],
+          },
+        }),
+      )
+      await expectRefusal(refused, 400, {
+        reason: 'malformed',
+        message: 'Malformed journal.updated',
+        type: 'journal.updated',
+        detail: expect.any(String),
+      })
+      expect(applyCampaignEvent).toHaveBeenCalledTimes(1)
     })
 
     describe('command.result', () => {

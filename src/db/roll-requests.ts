@@ -14,6 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { recordNoteResult } from '@/db/note-sync'
 import { createRemoveRequest } from '@/db/removals'
 import { createTransferRequest } from '@/db/transfers'
 import { sheetLinks } from '@/lib/sheet-html'
@@ -449,9 +450,11 @@ export async function recordCommandResult(
       completedAt: new Date(),
     },
   })
+  // No roll of that id: from module 0.34.0, a note command's, which is no roll.
+  if (count === 0) return recordNoteResult(campaignId, result)
   const listed = result.messages ?? []
   const answers = made || result.reason === 'prompt'
-  if (count === 0 || (!answers && listed.length === 0)) return
+  if (!answers && listed.length === 0) return
   const request = await prisma.rollRequest.findFirst({
     where: { id: result.id, campaignId },
     select: { payload: true, role: true },
@@ -482,13 +485,14 @@ export async function recordCommandResult(
 /**
  * Note that the module is fetching players' rolls, which also says its game is connected.
  * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
- * coins, and from module 0.33.0 removals of their characters' items, and whether any of its
- * players have their table open, so that one may be coming.
+ * coins, from module 0.33.0 removals of their characters' items, and from module 0.34.0 journal
+ * notes, and whether any of its players have their table open, so that one may be coming.
  */
 export async function markBridgePolled(campaignId: string): Promise<{
   rollsEnabled: boolean
   transfersEnabled: boolean
   removalsEnabled: boolean
+  notesEnabled: boolean
   playersPresent: boolean
 }> {
   const now = new Date()
@@ -499,6 +503,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
       rollsEnabled: true,
       transfersEnabled: true,
       removalsEnabled: true,
+      notesEnabled: true,
       playersSeenAt: true,
     },
   })
@@ -507,6 +512,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
     rollsEnabled: campaign.rollsEnabled,
     transfersEnabled: campaign.transfersEnabled,
     removalsEnabled: campaign.removalsEnabled,
+    notesEnabled: campaign.notesEnabled,
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }

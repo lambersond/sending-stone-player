@@ -17,6 +17,32 @@ import type { TableView } from '@/types/table'
 // side panel over the sheet, through the seat's own way in.
 
 jest.mock('@/hooks/use-table-view', () => ({ useTableView: jest.fn() }))
+// The Notes section (module 0.34.0), now under why there's no sheet too, is tested beside it: here
+// its book is an empty one, ready, so nothing of it is fetched and no banner or loading line shows.
+jest.mock('@/hooks/use-notes', () => ({
+  hasDraft: () => false,
+  useNotes: (api: string) => ({
+    view: {
+      version: 1,
+      kind: api.includes('/party/') ? 'party' : 'personal',
+      // eslint-disable-next-line unicorn/no-null -- a book with no journal in Foundry yet
+      journal: null,
+      live: true,
+      enabled: true,
+      connected: true,
+      canAdd: true,
+      chapters: [],
+      entries: [],
+    },
+    state: 'ready',
+    create: jest.fn(),
+    change: jest.fn(),
+    remove: jest.fn(),
+    resolve: jest.fn(),
+    preview: jest.fn(),
+    setDraft: jest.fn(),
+  }),
+}))
 jest.mock('next/navigation', () => ({
   ...jest.requireActual('next/navigation'),
   useRouter: jest.fn(),
@@ -398,17 +424,22 @@ describe('components/game-table, the party list where there’s no sheet (PR #44
     },
   )
 
-  it('shows the Character pane on a wide screen with parties and no sheet, and not with neither', () => {
+  it('shows the Character pane on a wide screen with parties and no sheet, and with neither, for the notes', () => {
     const { unmount } = renderTable(noSheet([company]))
     expect(pane()).toHaveClass('lg:flex')
     expect(pane()).not.toHaveClass('lg:hidden')
     expect(column()).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
     unmount()
 
+    // A character's notes need no sheet and no party (module 0.34.0).
     renderTable(noSheet())
-    expect(pane()).toHaveClass('lg:hidden')
-    expect(column()).not.toHaveClass('lg:w-[clamp(320px,40%,500px)]')
+    expect(pane()).toHaveClass('lg:flex')
+    expect(pane()).not.toHaveClass('lg:hidden')
+    expect(column()).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
     expect(screen.queryByRole('region', { name: /^Part(y|ies)$/ })).toBeNull()
+    expect(
+      within(pane()).getByRole('region', { name: 'Notes' }),
+    ).toBeInTheDocument()
   })
 
   it('keeps the side column narrow with a sheet, as ever', () => {

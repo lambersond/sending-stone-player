@@ -55,6 +55,7 @@ import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
 import { useRemoveControls } from '@/components/transfers/remove-controls'
+import { hasDraft } from '@/hooks/use-notes'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
 import {
   useSheetRoller,
@@ -79,6 +80,7 @@ import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { PartySheets } from './party-sheets'
+import type { NotesPlace } from '@/components/notes'
 import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type {
@@ -130,6 +132,11 @@ type Props = {
    * 0.32.0.
    */
   manualDice?: { on: boolean; onChange: (on: boolean) => void }
+  /**
+   * Where the character's own journal notes are read and written, from module 0.34.0: shown on
+   * the Biography tab alone.
+   */
+  notes?: NotesPlace
 }
 
 /**
@@ -208,6 +215,7 @@ function RollingSheet({
   actorId,
   parties,
   manualDice,
+  notes,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   // While the player types in what their own dice show, each roll asks for them, in place of the
@@ -309,7 +317,11 @@ function RollingSheet({
   // An attack or a use made at the table, while its player picks whom at, and with what.
   const [picking, setPicking] = useState<Picking>()
   const [lastTarget, setLastTarget] = useState<string>()
-  const [chosen, setTab] = useState<SheetTab>('character')
+  // The sheet opens on the character; on Biography where a note is being written there, as when
+  // it was started under why there was no sheet, before this one arrived.
+  const [chosen, setTab] = useState<SheetTab>(() =>
+    notes && hasDraft(notes.api) ? 'biography' : 'character',
+  )
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
   // The row of tabs, and the game's prompts beneath it while it asks any, which the rolls' toasts
@@ -837,6 +849,7 @@ function RollingSheet({
                 characterId={characterId}
                 name={name}
                 sheet={sheet}
+                notes={notes}
               />
             )}
           </div>

@@ -3,14 +3,17 @@
  */
 import { OPTIONS, POST } from './route'
 import { findEventCampaign } from '@/db/campaigns'
+import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
+import { mockNoteCommand } from '@/mocks/sending-stone'
 import type { RollCommand } from '@/utils/roll-requests'
 
 jest.mock('@/db/campaigns', () => ({ findEventCampaign: jest.fn() }))
+jest.mock('@/db/note-sync', () => ({ claimNoteWrites: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
   claimRollRequests: jest.fn(),
   markBridgePolled: jest.fn(),
@@ -73,18 +76,21 @@ const UNAVAILABLE = {
 
 /**
  * The players' rolls as the campaign's game is ready for them, from module 0.31.0 their moves of
- * items and coins, and from module 0.33.0 removals of their characters' items.
+ * items and coins, from module 0.33.0 removals of their characters' items, and from module 0.34.0
+ * journal notes.
  */
 const given = (
   rollsEnabled: boolean,
   playersPresent: boolean,
   transfersEnabled = false,
   removalsEnabled = false,
+  notesEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
     transfersEnabled,
     removalsEnabled,
+    notesEnabled,
     playersPresent,
   })
 
@@ -95,6 +101,7 @@ describe('app/api/bridge/commands', () => {
       .mockResolvedValue({ id: 'c1', helloSession: 's1' })
     given(true, false)
     jest.mocked(claimRollRequests).mockResolvedValue([])
+    jest.mocked(claimNoteWrites).mockResolvedValue([])
     // Thorin's player has his sheet open.
     jest.mocked(openActorIds).mockResolvedValue(['thorin'])
   })
@@ -219,8 +226,67 @@ describe('app/api/bridge/commands', () => {
     })
   })
 
-  it('answers at once, with the minute’s wait, only while the game takes no rolls, moves nor removals', async () => {
-    given(false, true, false, false)
+  describe('journal notes, from module 0.34.0', () => {
+    const note = mockNoteCommand()
+
+    it('hands over notes written here with rolls, moves and removals off, holding the fetch open as for a roll', async () => {
+      given(false, false, false, false, true)
+      jest.mocked(claimNoteWrites).mockResolvedValue([note])
+
+      const cold = await post()
+
+      await expect(cold.json()).resolves.toEqual({
+        commands: [note],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+      expect(claimNoteWrites).toHaveBeenCalledWith('c1', 's1')
+
+      jest.useFakeTimers()
+      given(false, true, false, false, true)
+      jest
+        .mocked(claimNoteWrites)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([note])
+      let answered: Response | undefined
+      void post().then(response => (answered = response))
+
+      await jest.advanceTimersByTimeAsync(500)
+      expect(answered).toBeUndefined()
+      await jest.advanceTimersByTimeAsync(1000)
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [note],
+        open: ['thorin'],
+      })
+    })
+
+    it('hands notes over after the rolls, in one answer', async () => {
+      given(true, false, false, false, true)
+      jest.mocked(claimRollRequests).mockResolvedValue([command])
+      jest.mocked(claimNoteWrites).mockResolvedValue([note])
+
+      const response = await post()
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [command, note],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+    })
+
+    it('asks for a retry, handing over nothing, when notes cannot be handed over', async () => {
+      given(false, false, false, false, true)
+      jest.mocked(claimNoteWrites).mockRejectedValue(new Error('down'))
+      jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const response = await post()
+
+      await expectRefusal(response, 500, UNAVAILABLE)
+    })
+  })
+
+  it('answers at once, with the minute’s wait, only while the game takes no rolls, moves, removals nor notes', async () => {
+    given(false, true, false, false, false)
 
     const response = await post()
 
@@ -230,6 +296,7 @@ describe('app/api/bridge/commands', () => {
       open: ['thorin'],
     })
     expect(claimRollRequests).not.toHaveBeenCalled()
+    expect(claimNoteWrites).not.toHaveBeenCalled()
   })
 
   it('says no one is open, where no character is', async () => {

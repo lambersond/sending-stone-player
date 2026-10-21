@@ -12,8 +12,10 @@ import {
   MAGIC_WEAPON_PROFILES,
   LOCK_CHECK,
   MAZE_CHECK,
+  mockJournalUpdated,
   movedResult,
   NOT_REMOVING,
+  NOTE_IDS,
   removedResult,
   REMOVING,
   roster,
@@ -4069,5 +4071,248 @@ describe('schemas/sending-stone, an item removed from a character, from module 0
     expect(
       parseGameEvent('command.result', movedResult())?.data,
     ).not.toHaveProperty('removed')
+  })
+})
+
+/** What a hello's features say of journal notes, as read. */
+const notes = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { removals: REMOVING, notes: sent },
+    })?.data as { features?: { notes?: unknown } }
+  ).features?.notes
+
+/** A note at every limit the app takes, as the module sends one. */
+const longest = (n: number) => ({
+  id: `${'N'.repeat(12)}${n.toString().padStart(4, '0')}`,
+  role: 'entry' as const,
+  chapter: 'C'.repeat(16),
+  title: 't'.repeat(200),
+  format: 2 as const,
+  markdown: 'm'.repeat(100_000),
+  cut: true as const,
+  createdAt: 0,
+  modifiedAt: Number.MAX_SAFE_INTEGER,
+  modifiedBy: 'b'.repeat(200),
+  modifiedIn: 'foundry' as const,
+  author: { actorId: 'a'.repeat(64), gm: false, name: 'n'.repeat(200) },
+  rev: 'abcdef01234567',
+})
+
+describe('schemas/sending-stone, journal notes, from module 0.34.0', () => {
+  const KEEPING = {
+    enabled: true,
+    kinds: ['personal', 'party'],
+    reason: null,
+    journals: [
+      { kind: 'personal', actorId: 'thorin' },
+      { kind: 'party', actorId: 'company' },
+    ],
+  }
+
+  it('reads features.notes, and junk as off or nothing', () => {
+    expect(notes(KEEPING)).toEqual(KEEPING)
+    expect(notes({ ...KEEPING, journals: [] })).toEqual({
+      ...KEEPING,
+      journals: [],
+    })
+    expect(notes({ enabled: 'yes', kinds: 'personal' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+      journals: [],
+    })
+    // A journal list that can't be read is taken as none, never as some.
+    for (const journals of [
+      [{ kind: 'shared', actorId: 'thorin' }],
+      [{ kind: 'personal', actorId: 'thor-in' }],
+      Array.from({ length: 2001 }, () => ({ kind: 'personal', actorId: 'a' })),
+      'all',
+    ]) {
+      expect(notes({ ...KEEPING, journals })).toEqual({
+        ...KEEPING,
+        journals: [],
+      })
+    }
+    expect(notes('on')).toBeNull()
+    // Module 0.33.0 says nothing of them.
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          features: { removals: REMOVING },
+        })?.data as { features?: object }
+      ).features,
+    ).not.toHaveProperty('notes')
+  })
+
+  it('reads a book as the module sends it, personal or a party’s', () => {
+    for (const kind of ['personal', 'party'] as const) {
+      const event = mockJournalUpdated(kind)
+      expect(parseGameEvent('journal.updated', event)).toEqual({
+        type: 'journal.updated',
+        data: event,
+      })
+    }
+  })
+
+  it('reads a book held back, or with no journal', () => {
+    for (const data of [
+      {
+        kind: 'party',
+        actorId: 'company',
+        journal: null,
+        withheld: { reason: 'private' },
+      },
+      {
+        kind: 'personal',
+        actorId: 'thorin',
+        journal: null,
+        withheld: { reason: 'tooLarge', bytes: 1_200_000, limit: 1_000_000 },
+      },
+      { kind: 'personal', actorId: 'thorin', journal: null },
+    ]) {
+      expect(parseGameEvent('journal.updated', data)?.data).toEqual(data)
+    }
+  })
+
+  it('takes a module-shaped book with every field at its limit', () => {
+    const data = {
+      kind: 'party',
+      actorId: 'g'.repeat(64),
+      journal: {
+        id: 'j'.repeat(64),
+        name: 'n'.repeat(200),
+        notes: [
+          ...Array.from({ length: 399 }, (_, n) => longest(n)),
+          {
+            ...longest(399),
+            format: 1,
+            markdown: undefined,
+            html: 'h'.repeat(100_000),
+            secret: true,
+          },
+        ],
+      },
+    }
+
+    const read = parseGameEvent('journal.updated', data)?.data as {
+      journal: { notes: unknown[] }
+    }
+    expect(read.journal.notes).toHaveLength(400)
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['an id of 15', { id: 'N'.repeat(15) }],
+    ['an id of 17', { id: 'N'.repeat(17) }],
+    ['an id with a dash', { id: 'NNNNNNNN-NNNNNNN' }],
+    ['a chapter of another shape', { chapter: 'a b' }],
+    ['an empty title', { title: '' }],
+    ['a title of 201', { title: 't'.repeat(201) }],
+    ['another format', { format: 3 }],
+    ['Markdown with no Markdown', { markdown: undefined }],
+    ['Markdown marked secret', { secret: true }],
+    ['HTML with no HTML', { format: 1, markdown: undefined }],
+    ['Markdown of 100,001', { markdown: 'm'.repeat(100_001) }],
+    ['a time before 1970', { createdAt: -1 }],
+    ['a time in parts', { modifiedAt: 1.5 }],
+    ['a time as text', { createdAt: '0' }],
+    ['a name of 201', { modifiedBy: 'b'.repeat(201) }],
+    ['another place', { modifiedIn: 'elsewhere' }],
+    [
+      'an author named at 201',
+      { author: { actorId: null, gm: true, name: 'n'.repeat(201) } },
+    ],
+    [
+      'an author of another shape',
+      { author: { actorId: 'a b', gm: false, name: 'n' } },
+    ],
+    ['a revision in capitals', { rev: 'ABCDEF01234567' }],
+    ['a revision of 13', { rev: 'abcdef0123456' }],
+  ])(
+    'refuses a book with a note with %s, as one bad note fails it',
+    (_name, junk) => {
+      const data = {
+        kind: 'personal',
+        actorId: 'thorin',
+        journal: {
+          id: 'thorinJournal001',
+          name: "Thorin's notes",
+          notes: [{ ...longest(1), ...junk }],
+        },
+      }
+
+      expect(() => parseGameEvent('journal.updated', data)).toThrow()
+    },
+  )
+
+  it.each<[string, Record<string, unknown>]>([
+    ['another kind', { kind: 'shared' }],
+    ['an actor of another shape', { actorId: 'thor-in' }],
+    [
+      'a journal named at 201',
+      { journal: { id: 'j', name: 'n'.repeat(201), notes: [] } },
+    ],
+    [
+      '401 notes',
+      {
+        journal: {
+          id: 'j',
+          name: 'n',
+          notes: Array.from({ length: 401 }, (_, n) => longest(n)),
+        },
+      },
+    ],
+    [
+      'held back for another reason',
+      { journal: null, withheld: { reason: 'lost' } },
+    ],
+  ])('refuses a book with %s', (_name, junk) => {
+    expect(() =>
+      parseGameEvent('journal.updated', {
+        kind: 'personal',
+        actorId: 'thorin',
+        journal: null,
+        ...junk,
+      }),
+    ).toThrow()
+  })
+
+  it('reads what a note command did, never more, keeping the rest of a result it can’t read', () => {
+    const read = (note: unknown) =>
+      parseGameEvent('command.result', { ...removedResult(), note })?.data as {
+        note?: unknown
+        messageId: string | null
+      }
+    expect(read({ id: NOTE_IDS.cave, rev: 'abcdef01234567' }).note).toEqual({
+      id: NOTE_IDS.cave,
+      rev: 'abcdef01234567',
+    })
+    expect(read({ id: NOTE_IDS.cave, rev: null, deleted: true }).note).toEqual({
+      id: NOTE_IDS.cave,
+      rev: null,
+      deleted: true,
+    })
+    // Its title or text, or anything else, is left out.
+    expect(
+      read({ id: NOTE_IDS.cave, rev: null, title: 'The goblin cave' }).note,
+    ).toEqual({ id: NOTE_IDS.cave, rev: null })
+    for (const junk of [
+      { id: 'short', rev: null },
+      { id: NOTE_IDS.cave, rev: 'ABCDEF01234567' },
+      { id: NOTE_IDS.cave, rev: null, deleted: false },
+      { id: NOTE_IDS.cave },
+      'note',
+    ]) {
+      const data = read(junk)
+      expect(data.note).toBeUndefined()
+      expect(data.messageId).toBe('m-line')
+    }
+    expect(
+      parseGameEvent('command.result', movedResult())?.data,
+    ).not.toHaveProperty('note')
   })
 })

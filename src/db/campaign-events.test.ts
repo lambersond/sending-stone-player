@@ -8,6 +8,7 @@ import {
   combat,
   combatant,
   fullerSheet,
+  mockJournalUpdated,
   NOT_REMOVING,
   REMOVING,
   roster,
@@ -136,6 +137,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -176,6 +178,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -217,6 +220,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -242,6 +246,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -342,6 +347,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -366,6 +372,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -398,6 +405,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -422,6 +430,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -459,6 +468,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -485,6 +495,7 @@ describe('db/campaign-events', () => {
           transfersEnabled: false,
           transferFeatures: [],
           removalsEnabled: false,
+          notesEnabled: false,
           foundry: { receivedAt: SENT },
         },
       })
@@ -514,6 +525,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -702,6 +714,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -733,6 +746,7 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        notesEnabled: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -762,6 +776,7 @@ describe('db/campaign-events', () => {
           transfersEnabled: false,
           transferFeatures: [],
           removalsEnabled: false,
+          notesEnabled: false,
           foundry: { receivedAt: SENT },
         },
       })
@@ -1832,5 +1847,112 @@ describe('db/campaign-events, removals of characters’ items, from module 0.33.
         removals: REMOVING,
       }),
     ).resolves.toMatchObject({ rollKinds: ['skill'], removalsEnabled: true })
+  })
+})
+
+describe('db/campaign-events, journal notes, from module 0.34.0', () => {
+  const rolls = { enabled: false, kinds: [], reason: 'off' }
+  const KEEPING = {
+    enabled: true,
+    kinds: ['personal', 'party'],
+    reason: null,
+    journals: [{ kind: 'personal', actorId: 'actor-thorin' }],
+  }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+    prismaMock.journalBook.findMany.mockResolvedValue([])
+  })
+
+  it('keeps that the game keeps journal notes, under any system, with no switch', async () => {
+    await expect(stored({ rolls, notes: KEEPING })).resolves.toMatchObject({
+      rollsEnabled: false,
+      notesEnabled: true,
+    })
+  })
+
+  it.each([
+    ['says it doesn’t', { ...KEEPING, enabled: false }],
+    ['names no personal books', { ...KEEPING, kinds: ['party'] }],
+    ['says so in junk', { ...KEEPING, enabled: 'yes' }],
+    ['says nothing readable', 'on'],
+  ])('is off where the module %s', async (_name, notes) => {
+    await expect(stored({ rolls, notes })).resolves.toMatchObject({
+      notesEnabled: false,
+    })
+  })
+
+  it('is cleared by a hello from module 0.33.0, which says nothing of them, and reconciles nothing', async () => {
+    await stored({ rolls, notes: KEEPING })
+    expect(prismaMock.journalBook.findMany).toHaveBeenCalledTimes(1)
+    prismaMock.journalBook.findMany.mockClear()
+
+    await expect(stored({ rolls, removals: REMOVING })).resolves.toMatchObject({
+      notesEnabled: false,
+    })
+    expect(prismaMock.journalBook.findMany).not.toHaveBeenCalled()
+  })
+
+  it('reconciles the hello’s books in its transaction: a journal it doesn’t list is gone', async () => {
+    prismaMock.journalBook.findMany.mockResolvedValue([
+      { id: 'b-thorin', kind: 'personal', actorId: 'thorin' },
+      { id: 'b-vex', kind: 'personal', actorId: 'vex' },
+    ] as any)
+
+    await apply(
+      parseGameEvent('bridge.hello', {
+        characters: [
+          { id: 'thorin', name: 'Thorin' },
+          { id: 'vex', name: 'Vex' },
+        ],
+        combats: [],
+        features: {
+          rolls,
+          notes: {
+            ...KEEPING,
+            journals: [{ kind: 'personal', actorId: 'thorin' }],
+          },
+        },
+      }) as GameEvent,
+    )
+
+    expect(prismaMock.journalNote.deleteMany.mock.calls).toEqual([
+      [{ where: { bookId: 'b-vex' } }],
+    ])
+  })
+
+  it('applies a book as Foundry holds it, leaving the campaign’s version alone', async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      origin: 'https://my-game.forge-vtt.com',
+      characters: [{ id: 'thorin' }],
+      groups: [],
+    } as any)
+    prismaMock.journalBook.upsert.mockResolvedValue({
+      id: 'book-1',
+      journalId: null,
+      journalName: null,
+      withheld: null,
+      notes: [],
+    } as any)
+
+    await apply(
+      parseGameEvent('journal.updated', mockJournalUpdated()) as GameEvent,
+    )
+
+    expect(prismaMock.journalNote.create).toHaveBeenCalledTimes(5)
+    expect(prismaMock.journalBook.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ version: { increment: 1 } }),
+      }),
+    )
+    expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+      where: { id: 'c1' },
+      data: expect.not.objectContaining({ version: expect.anything() }),
+    })
+    // It still says the game is connected.
+    expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+      where: { id: 'c1' },
+      data: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
+    })
   })
 })
