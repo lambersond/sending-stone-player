@@ -42,3 +42,7 @@ next-env.d.ts
 
 # 3d dice textures and sounds, copied from @lambersond/3d-dice-engine on install
 /public/3d-dice
+
+# end-to-end: the link to the module checkout's stand-ins, and every pass's output (e2e/README.md)
+/e2e/fvtt
+/e2e/.out/
