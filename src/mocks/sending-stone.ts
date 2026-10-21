@@ -11,9 +11,11 @@ import type {
   SheetAbility,
   SheetAction,
   SheetActivity,
+  SheetContainer,
   SheetCounter,
   SheetEnchantment,
   SheetFavorite,
+  SheetInventory,
   SheetItem,
   SheetSpell,
   SheetUse,
@@ -2337,5 +2339,126 @@ export function distributedResult(
       among: COMPANY_CHARACTERS.map(({ id }) => id),
     },
     ...fields,
+  }
+}
+
+// Module 0.33.0: an item removed from a character.
+
+/** What a hello from module 0.33.0 says of removals under dnd5e, with no switch: on. */
+export const REMOVING = {
+  enabled: true,
+  kinds: ['remove'],
+  reason: null,
+} as const
+
+/** What a hello from module 0.33.0 says of removals under another system: off, and why. */
+export const NOT_REMOVING = {
+  enabled: false,
+  kinds: [],
+  reason: 'system',
+} as const
+
+/** Two of Thorin's three Potions of Healing removed. */
+export function removedResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-remove',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: 'm-line',
+    visible: true,
+    rolls: [],
+    removed: { item: 'potionThorin', quantity: 2 },
+    ...fields,
+  }
+}
+
+/** Thorin's table view as his player has it while the game removes his items, moves off. */
+export function removingTableView(fields: Partial<TableView> = {}): TableView {
+  return {
+    version: 7,
+    live: true,
+    campaign: { title: 'The Lonely Mountain' },
+    connected: true,
+    messages: [],
+    removes: true,
+    ...fields,
+  }
+}
+
+/** A container of the sheet's, as sheetItem makes an item: holding these, or something secret. */
+export function sheetContainer(
+  fields: Partial<SheetContainer> &
+    Pick<SheetContainer, 'id' | 'name' | 'contents'>,
+): SheetContainer {
+  return {
+    ...sheetItem({ type: 'container', ...fields }),
+    capacity: null,
+    ...fields,
+  }
+}
+
+/**
+ * Thorin's things, as his sheet lists them, for removing them: 3 Potions of Healing, a Rope, an
+ * unidentified Strange Vial, 0 Arrows; a Backpack holding a Bedroll and a Pouch holding a Gem; and
+ * a Sealed Chest whose contents are secret.
+ */
+export function removalInventory(): SheetInventory {
+  return {
+    sections: [
+      {
+        id: 'consumable',
+        label: 'Consumables',
+        items: [
+          sheetItem({
+            id: 'potionThorin',
+            name: 'Potion of Healing',
+            type: 'consumable',
+            quantity: 3,
+          }),
+          sheetItem({
+            id: 'vialThorin01',
+            name: 'Strange Vial',
+            type: 'consumable',
+            identified: false,
+          }),
+          sheetItem({
+            id: 'arrowsThorin',
+            name: 'Arrows',
+            type: 'consumable',
+            quantity: 0,
+          }),
+        ],
+      },
+      {
+        id: 'loot',
+        label: 'Loot',
+        items: [sheetItem({ id: 'ropeThorin01', name: 'Rope' })],
+      },
+    ],
+    containers: [
+      sheetContainer({
+        id: 'backpackThor',
+        name: 'Backpack',
+        contents: [
+          sheetItem({ id: 'bedrollThorn', name: 'Bedroll' }),
+          sheetContainer({
+            id: 'pouchThorin1',
+            name: 'Pouch',
+            contents: [sheetItem({ id: 'gemThorin001', name: 'Gem' })],
+          }),
+        ],
+      }),
+      sheetContainer({
+        id: 'chestThorin1',
+        name: 'Sealed Chest',
+        contents: null,
+      }),
+    ],
+    currency: [{ id: 'gp', label: 'Gold', abbreviation: 'gp', value: 15 }],
+    encumbrance: null,
+    attunement: null,
   }
 }

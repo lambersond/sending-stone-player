@@ -72,17 +72,21 @@ const UNAVAILABLE = {
 }
 
 /**
- * The players' rolls as the campaign's game is ready for them, and from module 0.31.0 their moves
- * of items and coins.
+ * The players' rolls as the campaign's game is ready for them, from module 0.31.0 their moves of
+ * items and coins, and from module 0.33.0 removals of their characters' items.
  */
 const given = (
   rollsEnabled: boolean,
   playersPresent: boolean,
   transfersEnabled = false,
+  removalsEnabled = false,
 ) =>
-  jest
-    .mocked(markBridgePolled)
-    .mockResolvedValue({ rollsEnabled, transfersEnabled, playersPresent })
+  jest.mocked(markBridgePolled).mockResolvedValue({
+    rollsEnabled,
+    transfersEnabled,
+    removalsEnabled,
+    playersPresent,
+  })
 
 describe('app/api/bridge/commands', () => {
   beforeEach(() => {
@@ -172,6 +176,60 @@ describe('app/api/bridge/commands', () => {
       commands: [command],
       open: ['thorin'],
     })
+  })
+
+  it('hands over removals of items with rolls and moves off, from module 0.33.0, holding the fetch open as for a roll', async () => {
+    const removal: RollCommand = {
+      id: 'req-remove',
+      actorId: 'actor-thorin',
+      kind: 'remove',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      remove: { item: 'rope', quantity: 1, held: 1 },
+    }
+    given(false, false, false, true)
+    jest.mocked(claimRollRequests).mockResolvedValue([removal])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [removal],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+
+    jest.useFakeTimers()
+    given(false, true, false, true)
+    jest
+      .mocked(claimRollRequests)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([removal])
+    let answered: Response | undefined
+    void post().then(response => (answered = response))
+
+    await jest.advanceTimersByTimeAsync(500)
+    expect(answered).toBeUndefined()
+    await jest.advanceTimersByTimeAsync(1000)
+    await expect(answered?.json()).resolves.toEqual({
+      commands: [removal],
+      open: ['thorin'],
+    })
+  })
+
+  it('answers at once, with the minute’s wait, only while the game takes no rolls, moves nor removals', async () => {
+    given(false, true, false, false)
+
+    const response = await post()
+
+    await expect(response.json()).resolves.toEqual({
+      commands: [],
+      wait: 60_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).not.toHaveBeenCalled()
   })
 
   it('says no one is open, where no character is', async () => {

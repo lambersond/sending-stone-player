@@ -102,12 +102,13 @@ async function apply(
           // Whether its players may roll in the game from here. A module before 0.10.0 can't
           // make their rolls, and says nothing of them.
           rollsEnabled: features?.rolls?.enabled === true,
-          // A move of items and coins is never one of the rolls, even where a module says so: it
-          // has a switch of its own.
+          // A move of items and coins, or a removal, is never one of the rolls, even where a
+          // module says so: each has its own feature.
           rollKinds: (features?.rolls?.kinds ?? []).filter(
             kind =>
               (ROLL_KINDS as readonly string[]).includes(kind) &&
-              kind !== 'transfer',
+              kind !== 'transfer' &&
+              kind !== 'remove',
           ),
           // What else it can do with them: from module 0.13.0, take damage a player changed, and
           // ask players for the saves their game asks of them; from module 0.16.0, make area
@@ -147,6 +148,11 @@ async function apply(
                   : []),
               ]
             : [],
+          // Whether the module removes characters' items for the app, from module 0.33.0, with no
+          // switch: a module before it says nothing of them, which clears it.
+          removalsEnabled:
+            features?.removals?.enabled === true &&
+            (features.removals.kinds ?? []).includes('remove'),
           // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
           // module before 0.30.0, which reports no settings, clears those an earlier one sent.
           foundry: toJson({

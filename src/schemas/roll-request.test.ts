@@ -1745,3 +1745,108 @@ describe('a party’s coin distributed, from module 0.32.0', () => {
     ).toEqual([['transfer.to', 'A move goes from one end to another']])
   })
 })
+
+/** Two of three Potions of Healing removed from the character, as Remove… sends them. */
+const removing = {
+  kind: 'remove',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  remove: { item: 'potionHeal01', quantity: 2, held: 3 },
+}
+
+/** A removal's own fields, the rest as `removing` has them. */
+const removes = (remove: object) =>
+  parseKind(removing, { remove: { ...removing.remove, ...remove } })
+
+describe('removals of items, from module 0.33.0', () => {
+  it('takes part of a stack, all of it, and none of a stack of none', () => {
+    expect(parseKind(removing, {}).success).toBe(true)
+    expect(removes({ quantity: 3 }).success).toBe(true)
+    expect(removes({ quantity: 0, held: 0 }).success).toBe(true)
+    expect(removes({ quantity: 10_000_000, held: 10_000_000 }).success).toBe(
+      true,
+    )
+  })
+
+  it.each([
+    ['-1 of it', { quantity: -1 }, 'remove.quantity'],
+    ['part of one', { quantity: 1.5 }, 'remove.quantity'],
+    ['more than the most', { quantity: 10_000_001 }, 'remove.quantity'],
+    ['a count as text', { quantity: '2' }, 'remove.quantity'],
+    ['-1 shown', { held: -1 }, 'remove.held'],
+    ['part of one shown', { held: 1.5 }, 'remove.held'],
+    ['more than the most shown', { held: 10_000_001 }, 'remove.held'],
+    ['no count shown', { held: undefined }, 'remove.held'],
+    ['no item', { item: undefined }, 'remove.item'],
+    ['an id not an id', { item: 'potion heal' }, 'remove.item'],
+    ['anything else of it', { label: 'Remove' }, 'remove'],
+  ])('refuses %s', (_name, fields, path) => {
+    const parsed = removes(fields)
+    expect(parsed.success).toBe(false)
+    expect(parsed.error!.issues.map(issue => issue.path.join('.'))).toContain(
+      path,
+    )
+  })
+
+  it.each([
+    ['more than were shown', { quantity: 3, held: 2 }],
+    ['none of a stack of some', { quantity: 0, held: 2 }],
+  ])('refuses %s, as the page can’t have asked it', (_name, fields) => {
+    expect(
+      issuesOf(removing, { remove: { ...removing.remove, ...fields } }),
+    ).toEqual([
+      [
+        'remove.quantity',
+        'From 1 to as many as there are, or none of a stack of none',
+      ],
+    ])
+  })
+
+  it('takes a removal only as a remove, and a remove only with one', () => {
+    expect(issuesOf(perception, { remove: removing.remove })).toEqual([
+      ['remove', 'A removal, and only that, names what it removes'],
+    ])
+    expect(issuesOf(moving, { remove: removing.remove })).toEqual([
+      ['remove', 'A removal, and only that, names what it removes'],
+    ])
+    expect(issuesOf(removing, { remove: undefined })).toEqual([
+      ['remove', 'A removal, and only that, names what it removes'],
+    ])
+  })
+
+  it('refuses a removal naming a move too', () => {
+    expect(issuesOf(removing, { transfer: moving.transfer })).toContainEqual([
+      'transfer',
+      'A move, and only that, names what moves',
+    ])
+  })
+
+  it.each([
+    ['an item', { item: 'potionHeal01' }],
+    ['targets', { targets: [] }],
+    ['a key', { key: 'prc' }],
+    ['a prompt', { prompt: 'card1-actor1' }],
+    ['a slot', { slot: 'spell2' }],
+  ])('refuses a removal with %s, a roll’s field', (_name, fields) => {
+    expect(parseKind(removing, fields).success).toBe(false)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a removal with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(removing, fields)).toEqual([
+      ['dice', 'Removing throws no dice'],
+    ])
+  })
+
+  it("keeps the Gamemaster's label, as for any roll", () => {
+    expect(
+      parseKind(removing, { label: 'Remove 2 Potion of Healing' }).success,
+    ).toBe(true)
+  })
+})

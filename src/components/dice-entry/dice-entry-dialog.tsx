@@ -191,13 +191,18 @@ function Entry({
 
   /**
    * On to the next die: the next box, the next term's first after a term's last, or from the last
-   * to Done. Focus goes along only where a box had it, so a keyboard on the keypad stays there.
+   * to Done. Focus goes along only where a box had it, so a keyboard on the keypad stays there; and
+   * where Next die had focus as the last box comes, which it goes with, the last box takes it.
    */
   const moveOn = (index: number) => {
     const focused = inBox()
+    // Next die goes as the last box becomes current: where it had focus, the last box takes it, so
+    // that focus never falls to the page, and what a keyboard types goes into the last box.
+    const fromNext =
+      (document.activeElement as HTMLElement | null)?.dataset?.key === 'next'
     if (index < last) {
       setCurrent(index + 1)
-      if (focused) focusBox(index + 1)
+      if (focused || (fromNext && index + 1 === last)) focusBox(index + 1)
     } else if (focused) done.current?.focus()
   }
 
@@ -387,6 +392,7 @@ function Entry({
           onKey={press}
           d100={boxes[current]?.sides === 100}
           compact={compact}
+          next={current < last}
         />
         {notice && (
           <p id={`${ids}-notice`} role='alert' className='text-sm text-danger'>

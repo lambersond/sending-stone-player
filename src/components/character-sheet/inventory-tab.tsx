@@ -201,6 +201,9 @@ export function Holdings({
 }: Readonly<{ inventory: SheetInventory }>) {
   const { currency, encumbrance, attunement } = inventory
   const moves = useTransferring().coins?.(currency)
+  // On a party's sheet, from module 0.33.0's feedback: one spinner by the label while its coins
+  // are on their way, its buttons disabled without their own.
+  const waiting = useTransferring().waiting?.has('coins') === true
   return (
     // On a phone, coin across the top, and load and attunement side by side under it.
     <dl className='grid grid-cols-2 gap-2 @xl:grid-cols-3'>
@@ -209,6 +212,7 @@ export function Holdings({
           label='Currency'
           className='col-span-2 @xl:col-span-1'
           action={moves}
+          busy={waiting}
         >
           <ul className='flex flex-wrap gap-x-3 gap-y-1'>
             {currency.map(coin => (
@@ -391,7 +395,8 @@ function Load({
  * An item, or a container that opens to what it holds. Given the rows actions are in, one that
  * rolls shows what it rolls beside it, as an action does. Where the sheet gives a way to move it
  * (module 0.31.0), and there's any of it, that's beside it or in it once open; and from module
- * 0.32.0's feedback, "Send to…" in its own menu, on a right-click or long-press of its row.
+ * 0.32.0's feedback, "Send to…" in its own menu, on a right-click or long-press of its row, beside
+ * "Remove…" from module 0.33.0.
  */
 export function ItemEntry({
   characterId,
@@ -405,7 +410,9 @@ export function ItemEntry({
   const transfers = useTransferring()
   const moves = item.quantity >= 1 ? transfers.item?.(item) : undefined
   const send = item.quantity >= 1 ? transfers.send?.(item) : undefined
-  const { onMenu, menu } = useItemMenu(item.name, send)
+  // From module 0.33.0, a stack of none too, which goes whole.
+  const remove = transfers.remove?.(item)
+  const { onMenu, menu } = useItemMenu(item.name, { send, remove })
   const container = 'contents' in item ? item : undefined
   const { weight, uses } = item
   const capacity = container?.capacity
@@ -460,6 +467,9 @@ export function ItemEntry({
       </>
     )
   }
+  // On a party's sheet, from module 0.33.0's feedback: one spinner by its name while it's on its
+  // way, its buttons disabled without their own.
+  const waiting = transfers.waiting?.has(item.id) === true
   // Only something to open makes it open.
   const opened = (moves?.body || container) && (
     <>
@@ -478,6 +488,7 @@ export function ItemEntry({
         fallback={container ? Backpack : Package}
         favoriteKey={`item:${item.id}`}
         onMenu={onMenu}
+        busy={waiting}
         detail={detail}
         aside={
           (item.quantity !== 1 || uses || moves?.aside) && (

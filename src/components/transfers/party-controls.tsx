@@ -1,7 +1,5 @@
 'use client'
 
-import clsx from 'clsx'
-import { LoaderCircle } from 'lucide-react'
 import { DistributeDialog } from './distribute-dialog'
 import { MoveDialog, type MoveEnd } from './move-dialog'
 import {
@@ -152,10 +150,14 @@ export function partyControls({
       ? item => () =>
           onOpen({ mode: 'send', what: { item }, recipients: sending })
       : undefined,
+    waiting: pending,
   }
 }
 
-/** One of the party's moves' buttons: its words are its name, and it waits while coins do. */
+/**
+ * One of the party's moves' buttons: its words are its name, and it waits, disabled, while coins
+ * do; the spinner is the row's.
+ */
 function PartyButton({
   className,
   busy,
@@ -179,14 +181,8 @@ function PartyButton({
         event.stopPropagation()
         onOpen()
       }}
-      className={clsx(className, busy && 'inline-flex items-center gap-1')}
+      className={className}
     >
-      {busy && (
-        <LoaderCircle
-          aria-hidden
-          className='size-3.5 motion-safe:animate-spin'
-        />
-      )}
       {children}
     </button>
   )

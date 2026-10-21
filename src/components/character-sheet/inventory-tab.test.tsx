@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { InventoryTab, ItemEntry } from './inventory-tab'
+import { SheetFact } from './sheet-fact'
 import { Modal } from '@/components/modal'
 import {
   Transferring,
@@ -786,7 +787,8 @@ describe('moving items and coins, from module 0.31.0', () => {
 
     const coins = screen.getByRole('button', { name: 'Coins pp gp sp' })
     expect(coins.closest('dd')).not.toBeNull()
-    const currency = screen.getByText('Currency')
+    // Its text in its own span, which a party's sheet's spinner sits beside (module 0.33.0).
+    const currency = screen.getByText('Currency').parentElement as HTMLElement
     expect(currency.tagName).toBe('DT')
     expect(currency).toHaveTextContent(/^Currency$/)
     expect(coins.closest('dd')?.previousElementSibling).toBe(currency)
@@ -932,5 +934,133 @@ describe('the Currency row and coin spacing, from module 0.32.0’s feedback', (
       .parentElement as HTMLElement
     expect(amount).toHaveTextContent(/^12,877 PP$/)
     spaced(amount)
+  })
+})
+
+/** Buttons that wait, as a party's do while what they move is on its way. */
+const waitingControls = (waiting?: ReadonlySet<string>): TransferControls => ({
+  item: item => ({
+    aside: (
+      <button
+        type='button'
+        disabled={waiting?.has(item.id)}
+      >{`Take ${item.name}`}</button>
+    ),
+  }),
+  coins: () => (
+    <button type='button' disabled={waiting?.has('coins')}>
+      Take coins
+    </button>
+  ),
+  ...(waiting && { waiting }),
+})
+const renderWaiting = (waiting?: ReadonlySet<string>) =>
+  render(
+    <InventoryTab
+      characterId='char-1'
+      onRoll={jest.fn()}
+      onRollDamage={jest.fn()}
+      sheet={toTableSheet(movingSheet(), 'https://my-game.forge-vtt.com')}
+      transfers={waitingControls(waiting)}
+    />,
+  )
+/** The spinners inside a part of the page. */
+const spinnersIn = (scope: Element) => [
+  ...scope.querySelectorAll(String.raw`svg.motion-safe\:animate-spin`),
+]
+/** The Currency fact's label. */
+const currencyTerm = () =>
+  screen.getByText('Currency').closest('dt') as HTMLElement
+/** An item's row, by its name. */
+const itemRow = (name: string) =>
+  screen.getByText(name).closest('li') as HTMLElement
+
+describe('one spinner on a party’s sheet, from module 0.33.0’s feedback', () => {
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  it('shows one spinner right of the Currency label while its coins wait, its group busy and still named Currency', () => {
+    renderWaiting(new Set(['coins']))
+
+    const [spinner, ...more] = spinnersIn(currencyTerm())
+    expect(more).toEqual([])
+    expect(spinner.previousElementSibling).toBe(screen.getByText('Currency'))
+    expect(spinner).toHaveAttribute('aria-hidden', 'true')
+    expect(spinner).toHaveClass('size-3.5', 'shrink-0')
+    expect(currencyTerm()).toHaveTextContent(/^Currency$/)
+    expect(currencyTerm()).toHaveClass('flex', 'items-center', 'gap-1.5')
+    expect(screen.getByText('Currency')).toHaveClass('min-w-0', 'truncate')
+    const group = screen.getByRole('group', { name: 'Currency' })
+    expect(group).toHaveAttribute('aria-busy', 'true')
+    expect(group).toHaveAttribute('aria-labelledby', currencyTerm().id)
+    // No item waits.
+    for (const row of screen.getAllByRole('listitem')) {
+      expect(row).not.toHaveAttribute('aria-busy')
+    }
+  })
+
+  it('shows one right of an item’s name while it waits, its row busy, inside a container too', async () => {
+    const user = userEvent.setup()
+    renderWaiting(new Set(['ring', 'rope']))
+
+    const ring = itemRow('Plain Ring')
+    expect(ring).toHaveAttribute('aria-busy', 'true')
+    const [spinner, ...more] = spinnersIn(ring)
+    expect(more).toEqual([])
+    expect(spinner.previousElementSibling).toBe(screen.getByText('Plain Ring'))
+    // Its name unchanged: the spinner is hidden from screen readers.
+    expect(spinner).toHaveAttribute('aria-hidden', 'true')
+    expect(spinnersIn(currencyTerm())).toEqual([])
+    expect(screen.getByRole('group', { name: 'Currency' })).not.toHaveAttribute(
+      'aria-busy',
+    )
+
+    await user.click(screen.getByText('Backpack'))
+    const rope = itemRow('Hempen Rope')
+    expect(rope).toHaveAttribute('aria-busy', 'true')
+    expect(spinnersIn(rope)).toHaveLength(1)
+    // Its container doesn't wait, though the rope inside it does.
+    const backpack = itemRow('Backpack')
+    expect(backpack).not.toHaveAttribute('aria-busy')
+    expect(
+      spinnersIn(backpack.querySelector('summary') as HTMLElement),
+    ).toEqual([])
+  })
+
+  it('gives a row that rolls none, as a party’s stash has no rows', () => {
+    renderWaiting(new Set(['handaxe']))
+
+    const handaxe = screen
+      .getAllByText('Handaxe')
+      .map(name => name.closest('li') as HTMLElement)
+    expect(handaxe.length).toBeGreaterThan(0)
+    for (const row of handaxe) {
+      expect(row).not.toHaveAttribute('aria-busy')
+      expect(spinnersIn(row)).toEqual([])
+    }
+  })
+
+  it('shows none where nothing waits, as on a character’s sheet', () => {
+    renderWaiting()
+
+    expect(document.querySelector('[aria-busy]')).toBeNull()
+    expect(spinnersIn(document.body)).toEqual([])
+  })
+
+  it('takes busy on a fact only beside what’s done with it', () => {
+    render(
+      <dl>
+        <SheetFact label='Encumbrance' busy>
+          12 lb
+        </SheetFact>
+      </dl>,
+    )
+
+    expect(screen.queryByRole('group')).toBeNull()
+    expect(spinnersIn(document.body)).toEqual([])
+    expect(document.querySelector('[aria-busy]')).toBeNull()
+    // Its label as it always was, its text its own.
+    expect(screen.getByText('Encumbrance').tagName).toBe('DT')
   })
 })

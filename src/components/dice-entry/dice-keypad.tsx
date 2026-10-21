@@ -21,7 +21,8 @@ export type DiceKey =
   | 'next'
 
 // Three columns as a phone's own number pad has them, Next die across the foot; or, on a short
-// screen, five, so the keypad takes three rows and fits beside the dice.
+// screen, five, so the keypad takes three rows and fits beside the dice. Without Next die, on the
+// last box, the three columns are four full rows, and in five Delete takes its place.
 const KEYS: DiceKey[] = [
   '1',
   '2',
@@ -60,18 +61,24 @@ const keepFocus = (event: MouseEvent | PointerEvent) => event.preventDefault()
 
 /**
  * The dice entry dialog's own number keys, for typing in what a die shows without the phone's
- * keyboard: the digits, 00 for a percentile die, Delete and Next die.
+ * keyboard: the digits, 00 for a percentile die, Delete and, but on the last box, Next die.
  */
 export function DiceKeypad({
   onKey,
   d100,
   compact = false,
+  next = true,
 }: Readonly<{
   onKey: (key: DiceKey) => void
   /** Whether the box being typed in is a d100's, which takes 00. */
   d100: boolean
   /** Five columns, for a short screen. */
   compact?: boolean
+  /**
+   * Whether Next die is shown: not while the box typed into is the last, a single die's too, so
+   * that nothing says there's more to type in (0.33.0's feedback).
+   */
+  next?: boolean
 }>): ReactNode {
   return (
     <div
@@ -79,31 +86,36 @@ export function DiceKeypad({
       aria-label='Keypad'
       className={clsx('grid gap-1.5', compact ? 'grid-cols-5' : 'grid-cols-3')}
     >
-      {(compact ? COMPACT_KEYS : KEYS).map(key => {
-        const off = key === '00' && !d100
-        return (
-          <button
-            key={key}
-            type='button'
-            aria-label={key === 'delete' ? 'Delete' : undefined}
-            aria-disabled={off || undefined}
-            onMouseDown={keepFocus}
-            onPointerDown={keepFocus}
-            onClick={() => {
-              if (!off) onKey(key)
-            }}
-            className={clsx(
-              'flex touch-manipulation items-center justify-center rounded-xl border border-border bg-page font-semibold tabular-nums transition-colors select-none hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-page',
-              compact ? 'h-9' : 'h-11 [@media(max-height:40rem)]:h-10',
-              key === 'next' ? 'col-span-3 text-sm' : 'text-lg',
-            )}
-          >
-            {key === 'delete' && <Delete aria-hidden className='size-5' />}
-            {key === 'next' && 'Next die'}
-            {key !== 'delete' && key !== 'next' && key}
-          </button>
-        )
-      })}
+      {(compact ? COMPACT_KEYS : KEYS)
+        .filter(key => next || key !== 'next')
+        .map(key => {
+          const off = key === '00' && !d100
+          return (
+            <button
+              key={key}
+              type='button'
+              // Read by the dialog, to know Next die had focus as it goes.
+              data-key={key}
+              aria-label={key === 'delete' ? 'Delete' : undefined}
+              aria-disabled={off || undefined}
+              onMouseDown={keepFocus}
+              onPointerDown={keepFocus}
+              onClick={() => {
+                if (!off) onKey(key)
+              }}
+              className={clsx(
+                'flex touch-manipulation items-center justify-center rounded-xl border border-border bg-page font-semibold tabular-nums transition-colors select-none hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-page',
+                compact ? 'h-9' : 'h-11 [@media(max-height:40rem)]:h-10',
+                key === 'next' ? 'col-span-3 text-sm' : 'text-lg',
+                compact && !next && key === 'delete' && 'col-span-4',
+              )}
+            >
+              {key === 'delete' && <Delete aria-hidden className='size-5' />}
+              {key === 'next' && 'Next die'}
+              {key !== 'delete' && key !== 'next' && key}
+            </button>
+          )
+        })}
     </div>
   )
 }

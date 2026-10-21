@@ -1,6 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { placing, RollMenu, type MenuPoint } from './roll-menu'
+import { Send, Trash2 } from 'lucide-react'
+import {
+  ChoiceMenu,
+  placing,
+  RollMenu,
+  type MenuItem,
+  type MenuPoint,
+} from './roll-menu'
 import { Modal } from '@/components/modal'
 
 const renderMenu = (point?: MenuPoint) => {
@@ -196,5 +203,67 @@ describe('components/character-sheet/roll-menu', () => {
       defaultPrevented: true,
     })
     globalThis.removeEventListener('keydown', keep, true)
+  })
+})
+
+describe('components/character-sheet/roll-menu, a menu with nothing to choose, from module 0.33.0', () => {
+  /** A menu at a row, of these items. */
+  const renderChoices = (items: MenuItem<'send' | 'remove'>[]) => {
+    render(
+      <button type='button' className='row'>
+        Rope
+      </button>,
+    )
+    const onClose = jest.fn()
+    render(
+      <ChoiceMenu
+        anchor={screen.getByRole('button', { name: 'Rope' })}
+        title='Rope'
+        items={items}
+        onChoose={jest.fn()}
+        onClose={onClose}
+      />,
+    )
+    return { onClose }
+  }
+  const remove: MenuItem<'remove'> = {
+    id: 'remove',
+    label: 'Remove…',
+    icon: Trash2,
+    disabled: 'It’s on its way already',
+  }
+  const send: MenuItem<'send'> = { id: 'send', label: 'Send to…', icon: Send }
+
+  it('says why on the menu itself where nothing in it can be chosen, as focus is on the menu', async () => {
+    const user = userEvent.setup()
+    const { onClose } = renderChoices([remove])
+    const menu = screen.getByRole('menu', { name: 'Rope' })
+
+    expect(menu).toHaveAccessibleDescription('It’s on its way already')
+    const item = screen.getByRole('menuitem', { name: 'Remove…' })
+    expect(item).toBeDisabled()
+    expect(item).toHaveAccessibleDescription('It’s on its way already')
+    await waitFor(() =>
+      expect(menu.contains(document.activeElement)).toBe(true),
+    )
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('says each reason where several can’t be chosen', () => {
+    renderChoices([{ ...send, disabled: 'Nowhere to send it' }, remove])
+    expect(
+      screen.getByRole('menu', { name: 'Rope' }),
+    ).toHaveAccessibleDescription('Nowhere to send it It’s on its way already')
+  })
+
+  it('says nothing more on a menu with something to choose', () => {
+    renderChoices([send, remove])
+    const menu = screen.getByRole('menu', { name: 'Rope' })
+    expect(menu).not.toHaveAttribute('aria-describedby')
+    expect(menu).toHaveAccessibleDescription('')
+    expect(
+      screen.getByRole('menuitem', { name: 'Remove…' }),
+    ).toHaveAccessibleDescription('It’s on its way already')
   })
 })

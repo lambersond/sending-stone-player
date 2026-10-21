@@ -27,6 +27,8 @@ function seenOf(view: TableView) {
     // From module 0.32.0: whether the player types in their own dice, which another of their
     // devices may change.
     typed: view.manualDice?.on === true,
+    // From module 0.33.0: whether the seat may remove its character's items.
+    removes: view.removes === true,
   }
 }
 
@@ -61,6 +63,7 @@ export function useTableView(api: string, initial: TableView) {
           gmRolls,
           moves,
           typed,
+          removes,
         } = seen.current
         const query = new URLSearchParams({
           version: String(version),
@@ -70,6 +73,7 @@ export function useTableView(api: string, initial: TableView) {
           ...(gmRolls && { gmrolls: gmRolls }),
           ...(moves && { moves: '1' }),
           ...(typed && { typed: '1' }),
+          ...(removes && { removes: '1' }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(`${api}/table?${query}`, {

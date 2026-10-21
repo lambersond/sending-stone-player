@@ -193,6 +193,9 @@ model Campaign {
   // What else the module does with moves, from module 0.32.0's hello: a party's things sent
   // elsewhere by its Owner, and a party's coin distributed among its characters.
   transferFeatures String[]      @default([])
+  // Whether the module removes characters' items for the app, from module 0.33.0's hello: under
+  // dnd5e, with no switch of its own, apart from the rolls and the moves.
+  removalsEnabled  Boolean       @default(false)
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt   DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,

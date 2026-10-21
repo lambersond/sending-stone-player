@@ -159,8 +159,13 @@ export async function POST(request: Request) {
     )
   const began = await readOpen()
   if (!began) return unavailable()
-  // Moves of items and coins, from module 0.31.0, are fetched with rolls off too.
-  if (!polled.rollsEnabled && !polled.transfersEnabled) {
+  // Moves of items and coins, from module 0.31.0, and removals of characters' items, from module
+  // 0.33.0, are fetched with rolls off too.
+  if (
+    !polled.rollsEnabled &&
+    !polled.transfersEnabled &&
+    !polled.removalsEnabled
+  ) {
     return answer([], began, COMMANDS_OFF_WAIT)
   }
 

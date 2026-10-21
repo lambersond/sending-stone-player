@@ -136,3 +136,104 @@ describe('components/character-sheet/sheet-entry', () => {
     expect(document.querySelector('img')).toHaveClass('object-cover')
   })
 })
+
+describe('components/character-sheet/sheet-entry, a plain row with a menu, from module 0.33.0', () => {
+  it('takes focus, so the keyboard opens its menu, below it', () => {
+    const onMenu = jest.fn()
+    render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Pebble'
+          fallback={Sparkles}
+          text={null}
+          onMenu={onMenu}
+        />
+      </ul>,
+    )
+    const row = screen.getByRole('listitem').firstElementChild as HTMLElement
+    expect(document.querySelector('details')).toBeNull()
+    expect(row).toHaveAttribute('tabindex', '0')
+    row.focus()
+    expect(row).toHaveFocus()
+
+    // Shift+F10, or the context menu key, as Chrome sends it: no button.
+    expect(fireEvent.contextMenu(row, { button: -1 })).toBe(false)
+    expect(onMenu).toHaveBeenCalledWith(row, undefined)
+  })
+
+  it('takes no focus without a menu, as before', () => {
+    render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Pebble'
+          fallback={Sparkles}
+          text={null}
+        />
+      </ul>,
+    )
+    const row = screen.getByRole('listitem').firstElementChild as HTMLElement
+    expect(row).not.toHaveAttribute('tabindex')
+  })
+})
+
+/** The spinners inside a part of the page. */
+const spinners = (scope: Element) => [
+  ...scope.querySelectorAll(String.raw`svg.motion-safe\:animate-spin`),
+]
+
+describe('components/character-sheet/sheet-entry, busy on a party’s sheet, from module 0.33.0’s feedback', () => {
+  it.each([
+    ['opens', 'Class Feature'],
+    ['doesn’t open', undefined],
+  ])(
+    'shows one spinner right after its name, and its row busy, where it %s',
+    (_, meta) => {
+      render(
+        <ul>
+          <SheetEntry
+            characterId='char-1'
+            name='Rope'
+            fallback={Sparkles}
+            meta={meta}
+            text={null}
+            aside={<button type='button'>Take</button>}
+            busy
+          />
+        </ul>,
+      )
+
+      const row = screen.getByRole('listitem')
+      expect(row).toHaveAttribute('aria-busy', 'true')
+      const [spinner, ...more] = spinners(row)
+      expect(more).toEqual([])
+      expect(spinner.previousElementSibling).toBe(screen.getByText('Rope'))
+      expect(spinner).toHaveAttribute('aria-hidden', 'true')
+      expect(spinner).toHaveClass('size-3.5', 'shrink-0', 'text-text-secondary')
+      // Its text, and so its name, unchanged.
+      expect(
+        (row.querySelector('summary') ?? row.firstElementChild)?.textContent,
+      ).toBe('RopeTake')
+      expect(screen.getByRole('button', { name: 'Take' })).toBeInTheDocument()
+    },
+  )
+
+  it('shows none, and isn’t busy, otherwise', () => {
+    render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Rope'
+          fallback={Sparkles}
+          meta='Loot'
+          text={null}
+        />
+      </ul>,
+    )
+
+    const row = screen.getByRole('listitem')
+    expect(row).not.toHaveAttribute('aria-busy')
+    expect(spinners(row)).toEqual([])
+  })
+})

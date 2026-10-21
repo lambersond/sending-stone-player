@@ -325,6 +325,27 @@ describe('components/transfers/give-controls', () => {
     })
   })
 
+  it('keeps the spinner on its own buttons, none by the Currency label, unlike a party’s sheet (module 0.33.0)', async () => {
+    const { user } = await renderGive()
+
+    await user.click(coinsButton())
+    const giving = screen.getByRole('dialog', { name: 'Give coins' })
+    await user.type(within(giving).getByRole('textbox', { name: 'Gold' }), '5')
+    await user.click(within(giving).getByRole('button', { name: 'Give coins' }))
+
+    const coins = coinsButton()
+    expect(coins).toBeDisabled()
+    expect(coins.querySelector('svg')).toHaveClass('motion-safe:animate-spin')
+    const group = screen.getByRole('group', { name: 'Currency' })
+    expect(group).not.toHaveAttribute('aria-busy')
+    const term = screen.getByText('Currency').closest('dt') as HTMLElement
+    expect(term.querySelector('svg')).toBeNull()
+    // The item rows too: no spinner by a name, nor a row busy.
+    for (const row of screen.getAllByRole('listitem')) {
+      expect(row).not.toHaveAttribute('aria-busy')
+    }
+  })
+
   it('waits while the game is giving it, until it’s given', async () => {
     jest.useFakeTimers()
     try {

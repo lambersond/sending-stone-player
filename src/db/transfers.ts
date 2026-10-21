@@ -8,6 +8,7 @@ import {
 } from '@/constants/sending-stone'
 import { groupRoster } from '@/db/party'
 import { ago, madeBy, type RollRejection } from '@/db/roll-requests'
+import { relatedItems } from '@/utils/removals'
 import {
   checkAmong,
   checkEnds,
@@ -34,7 +35,8 @@ import type { Prisma } from '@prisma/client'
  * the campaign's roster, its groups' access and what its module does with moves; a distribution
  * only among the party's characters, as its sheet was last sent; where what's moved is on the
  * sheet it's moved from, as last sent; and where none of it is on its way already, from the same
- * end, as from a retry, or a second tap.
+ * end, as from a retry, or a second tap, nor, from module 0.33.0, being removed from the seat's
+ * character, nor in or around an item that is.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The move's id, or why it wasn't taken.
  */
@@ -103,8 +105,12 @@ export async function createTransferRequest(
           select: { data: true },
         }),
     prisma.rollRequest.findMany({
-      where: { ...madeBy(seat), kind: 'transfer', ...onItsWay(now) },
-      select: { payload: true },
+      where: {
+        ...madeBy(seat),
+        kind: { in: ['transfer', 'remove'] },
+        ...onItsWay(now),
+      },
+      select: { kind: true, payload: true },
       take: ROLLS_IN_FLIGHT,
     }),
   ])
@@ -116,22 +122,33 @@ export async function createTransferRequest(
       sheet?.data as unknown as Partial<GroupSheet> | undefined,
     )
   if (members) return { status: 422, reason: members }
-  const holdings = checkHoldings(
-    transfer,
-    sheet?.data as unknown as { inventory?: SheetInventory } | undefined,
-  )
+  const data = sheet?.data as unknown as
+    { inventory?: SheetInventory } | undefined
+  const holdings = checkHoldings(transfer, data)
   if (holdings) return { status: 422, reason: holdings }
   if (
-    moving.some(({ payload }) =>
-      overlaps((payload as RollRequestInput | null)?.transfer, transfer),
-    )
+    moving.some(({ kind, payload }) => {
+      const earlier = payload as RollRequestInput | null
+      // A removal of the seat's character's item, from module 0.33.0, keeps it, what's in it and
+      // any container it's in from being moved from it meanwhile.
+      if (kind === 'remove') {
+        const related = relatedItems(data, earlier?.remove?.item ?? '')
+        return (
+          transfer.from === seat.actorId &&
+          (transfer.items ?? []).some(({ id }) => related.has(id))
+        )
+      }
+      return overlaps(earlier?.transfer, transfer)
+    })
   ) {
     return { status: 409, reason: 'moving' }
   }
 
   // What it's called is the app's alone, as for a roll: the Gamemaster's is kept for the
-  // character's player to be shown it by.
+  // character's player to be shown it by. Nothing is typed in for a move, so nothing says so: a
+  // `typed` would badge its line "Entered by hand".
   const { label, ...command } = input
+  delete command.typed
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,
@@ -152,8 +169,11 @@ export async function createTransferRequest(
   return { id }
 }
 
-/** A seat's rolls and moves on their way: waiting to be fetched, or fetched and not answered. */
-function onItsWay(now: number): Prisma.RollRequestWhereInput {
+/**
+ * A seat's rolls and moves on their way: waiting to be fetched, or fetched and not answered. Its
+ * removals too, from module 0.33.0.
+ */
+export function onItsWay(now: number): Prisma.RollRequestWhereInput {
   return {
     OR: [
       { status: 'pending', createdAt: { gt: ago(now, ROLL_PENDING_FOR) } },

@@ -109,7 +109,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * and from module 0.29.0, a concentration of the character's ended, a feature's, an item's or a
  * resource's charges spent directly, or Heroic Inspiration used or gained, none of them a roll;
  * and from module 0.31.0, items and coins moved between the character and a party or another
- * character, none of them a roll.
+ * character, none of them a roll; and from module 0.33.0, an item removed from the character, no
+ * roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -132,6 +133,7 @@ export const ROLL_KINDS = [
   'spend',
   'inspiration',
   'transfer',
+  'remove',
 ] as const
 
 /**
@@ -219,6 +221,13 @@ export const TRANSFERS = 1
  */
 export const TRANSFER_FEATURES = ['partySends', 'distribute'] as const
 export type TransferFeature = (typeof TRANSFER_FEATURES)[number]
+
+/**
+ * The format of removals of a character's items this app takes, as it tells the module
+ * (`removals`): from module 0.33.0, the `remove` command and the hello's `features.removals`. The
+ * module fetches for them with rolls and moves off, only then.
+ */
+export const REMOVALS = 1
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

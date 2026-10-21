@@ -201,6 +201,12 @@ export function ChoiceMenu<T extends string>({
     0,
     items.findIndex(item => !item.disabled),
   )
+  // Where nothing can be chosen, focus stays on the menu itself, and arrow keys reach no item, so
+  // the menu says why of each, as "Remove…" waiting alone does (module 0.33.0).
+  const nothing =
+    items.length > 0 && items.every(item => item.disabled !== undefined)
+      ? items.map((_item, index) => `${reasons}-${index}`).join(' ')
+      : undefined
 
   return (
     <FloatingPortal root={root}>
@@ -211,6 +217,7 @@ export function ChoiceMenu<T extends string>({
           aria-label={title}
           className='z-50 flex max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] min-w-56 flex-col overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-1 text-text-primary shadow-xl'
           {...getFloatingProps()}
+          {...(nothing && { 'aria-describedby': nothing })}
         >
           <p
             aria-hidden
