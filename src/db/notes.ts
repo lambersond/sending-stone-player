@@ -1,6 +1,11 @@
 /* eslint-disable unicorn/no-null -- Prisma and the view use null for an absent value */
-import { randomUUID } from 'node:crypto'
-import { Prisma, type JournalNote, type JournalWrite } from '@prisma/client'
+import { createHash, randomUUID } from 'node:crypto'
+import {
+  Prisma,
+  type JournalNote,
+  type JournalOrder,
+  type JournalWrite,
+} from '@prisma/client'
 import prisma from '@/clients/prisma'
 import {
   MOST_BOOK_TEXT,
@@ -23,6 +28,10 @@ import type {
   NoteBookKind,
   NoteChapterView,
   NoteEntryView,
+  NoteGroupView,
+  NoteLastChange,
+  NoteOrder,
+  NoteOrderResolve,
   NoteReason,
   NoteRefusal,
   NoteRole,
@@ -37,6 +46,12 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
 // may change it, what it says and how much there is. Each book holds the module's latest word of
 // its journal (`JournalNote`) and, beside it, at most one change waiting per note (`JournalWrite`),
 // whose every change is compare-and-set, so two saves at once never both land.
+//
+// From module 0.35.0 (round 0.35.0 §7) each group of a book's notes, a chapter's or those in none,
+// has an order: Foundry's, kept in the mirror as each note's place, and at most one new order made
+// here and waiting for it (`JournalOrder`), which anyone who may write the book makes, whoever
+// wrote the notes. And the book keeps its last change that leaves no note to show it: a delete, an
+// order, or a refused change sent again, here or in Foundry.
 
 /**
  * Who is at a book of notes, as its route resolved them from the session and the address alone:
@@ -78,6 +93,7 @@ export type NoteRights = {
   canRename: boolean
   canEdit: boolean
   canDelete: boolean
+  canReorder: boolean
 }
 
 /** The name the Gamemaster writes as, in both books (Q5). */
@@ -97,9 +113,9 @@ function waiting(write: JournalWrite | undefined): write is Waiting {
  * Whether a change handed to the module has gone unanswered past the time a fetched roll is (§4.3),
  * as when Foundry closed before its result came. It's handed over again when the game is back, and
  * meanwhile is no longer waited for: a late result for that hand-over changes nothing once the
- * change has moved on.
+ * change has moved on. An order of a group's notes likewise (round 0.35.0 §4.2).
  */
-function lost(write: JournalWrite): boolean {
+function lost(write: Pick<JournalWrite, 'status' | 'claimedAt'>): boolean {
   return (
     write.status === 'claimed' &&
     !!write.claimedAt &&
@@ -117,6 +133,19 @@ function openFrom(write: JournalWrite): Prisma.JournalWriteWhereInput {
     : { status: { in: ['pending', 'failed'] } }
 }
 
+/**
+ * Where a change to an order may start from (round 0.35.0 §4.2): the status it was read in, or a
+ * claim still thought lost.
+ */
+function orderFrom(order: JournalOrder): Prisma.JournalOrderWhereInput {
+  return lost(order)
+    ? {
+        status: 'claimed',
+        claimedAt: { lt: new Date(Date.now() - ROLL_ANSWER_WITHIN) },
+      }
+    : { status: order.status }
+}
+
 /** What a book holds, as read for a seat, with what decides what the seat may do in it. */
 type Held = {
   book: NotesBook
@@ -129,6 +158,12 @@ type Held = {
   }
   notes: Map<string, JournalNote>
   writes: Map<string, JournalWrite>
+  /** Each group's order made here, by its chapter's id, '' for the notes in no chapter. */
+  orders: Map<string, JournalOrder>
+  /** The book's last change that leaves no note to show it, where one was made. */
+  changed?: { at: Date; by: string }
+  /** The campaign's module takes orders, as its latest hello said (module 0.35.0). */
+  takesOrders: boolean
   /** The book's actor is still in the campaign: else nothing in it can be changed. */
   connected: boolean
   live: boolean
@@ -147,6 +182,7 @@ async function readBook(book: NotesBook): Promise<Held | undefined> {
         origin: true,
         characters: true,
         notesEnabled: true,
+        noteFeatures: true,
         bridgePolledAt: true,
       },
     }),
@@ -163,8 +199,11 @@ async function readBook(book: NotesBook): Promise<Held | undefined> {
         version: true,
         journalName: true,
         withheld: true,
+        changedAt: true,
+        changedBy: true,
         notes: true,
         writes: true,
+        orders: true,
       },
     }),
   ])
@@ -187,6 +226,11 @@ async function readBook(book: NotesBook): Promise<Held | undefined> {
     }),
     notes: new Map((row?.notes ?? []).map(note => [note.noteId, note])),
     writes: new Map((row?.writes ?? []).map(write => [write.noteId, write])),
+    orders: new Map((row?.orders ?? []).map(order => [order.chapterId, order])),
+    ...(row?.changedAt && {
+      changed: { at: row.changedAt, by: row.changedBy ?? '' },
+    }),
+    takesOrders: campaign.noteFeatures.includes('orders'),
     connected:
       book.kind === 'party' || roster.some(({ id }) => id === book.actorId),
     live:
@@ -204,6 +248,8 @@ async function readBook(book: NotesBook): Promise<Held | undefined> {
  * still the campaign's and, for a party, one its characters may see; rename any chapter; and
  * change or delete an entry in a character's own book, or in a party's the Gamemaster any, a
  * player only those their character wrote, never one written in Foundry. No chapter is deleted.
+ * And put the notes of any chapter, or of none, in order, whoever wrote them (module 0.35.0), as
+ * the book takes notes.
  */
 export function noteRights(
   book: { kind: NoteBookKind; private: boolean; connected: boolean },
@@ -221,6 +267,7 @@ export function noteRights(
     canRename: true,
     canEdit: mayChange,
     canDelete: mayChange,
+    canReorder: book.connected && !book.private,
   }
 }
 
@@ -485,10 +532,12 @@ function withheldOf(held: Held): NotesView['withheld'] {
 }
 
 /**
- * A book as a seat sees it (§8.8): its chapters and its entries, oldest first, each as Foundry
+ * A book as a seat sees it (§8.8): its chapters, oldest first, and its entries, each as Foundry
  * holds it or as changed here and waiting, with where it stands, what the seat may do with it, and
- * its Markdown only for a seat that may change it. A book never written in is empty, at version 0;
- * reading it never makes it.
+ * its Markdown only for a seat that may change it. From module 0.35.0 (round 0.35.0 §7.9) its
+ * entries are grouped, the notes in no chapter first, each group's in its order, and each group
+ * says where its order stands; and the book says who last changed anything in it the seat sees. A
+ * book never written in is empty, at version 0; reading it never makes it.
  * @returns Undefined where the campaign isn't there.
  */
 export async function getNotesView(
@@ -497,6 +546,146 @@ export async function getNotesView(
 ): Promise<NotesView | undefined> {
   const held = await readBook(book)
   if (!held) return undefined
+  return viewOf(held, seat).view
+}
+
+/** A group's key, as an order names it: its chapter's id, or '' for the notes in no chapter. */
+const groupKey = (chapterId: string | null) => chapterId ?? ''
+
+/** A group as a seat sees it, with what decides a change to its order. */
+type Grouped = {
+  /** Its notes as the seat sees them, in the order shown. */
+  ids: string[]
+  /** Its notes as the seat sees them, in Foundry's order and as what waits will make it. */
+  base: string[]
+  /** Its order made here, where there is one. */
+  order?: JournalOrder
+  view: NoteGroupView
+}
+
+/**
+ * What a seat was shown of a group's order (§7.9): the order shown, and a refused order's panel
+ * where it's shown one, never the order's every step. So a note added or gone, a reorder in
+ * Foundry, a new order by anyone and a refusal shown each change it; an order of the seat's going
+ * from waiting to made as asked doesn't.
+ * @param panel - The refused order shown, as `<id>.<seq>`; null where none is.
+ */
+function groupStamp(panel: string | null, ids: string[]): string {
+  const hash = createHash('sha256').update(JSON.stringify([panel, ids]))
+  return `g:${hash.digest('hex').slice(0, 16)}`
+}
+
+/** An order waiting for the game, or on its way to it: the order every seat is shown. */
+function ordering(
+  order?: JournalOrder,
+): order is JournalOrder & { status: 'pending' | 'claimed' } {
+  return order?.status === 'pending' || order?.status === 'claimed'
+}
+
+/** A group's order with an order waiting: its notes the order lists first, in its order. */
+function ordered(base: string[], order?: JournalOrder): string[] {
+  if (!ordering(order)) return base
+  const inGroup = new Set(base)
+  const listed = order.ids.filter(id => inGroup.has(id))
+  const first = new Set(listed)
+  return [...listed, ...base.filter(id => !first.has(id))]
+}
+
+/**
+ * A group's order as Foundry holds it, or will once what waits is made (§2.5): its notes the
+ * mirror holds in it, by their place there, then by when each was written, then id; then those
+ * that wait to come into it, made here or moved in, in the order the module will make them, each
+ * landing last.
+ */
+function baseOrder(
+  held: Held,
+  entries: NoteEntryView[],
+  group: string | null,
+  shown: ReadonlySet<string>,
+): string[] {
+  const shownChapter = (id: string | null) => (id && shown.has(id) ? id : null)
+  const placed: NoteEntryView[] = []
+  const coming: NoteEntryView[] = []
+  for (const entry of entries) {
+    const note = held.notes.get(entry.id)
+    const inMirror =
+      note?.role === 'entry' && shownChapter(note.chapterId) === group
+    ;(inMirror ? placed : coming).push(entry)
+  }
+  const place = (entry: NoteEntryView) => held.notes.get(entry.id)!.place
+  const queued = (entry: NoteEntryView) => {
+    const write = held.writes.get(entry.id)
+    return waiting(write)
+      ? write.queuedAt.getTime()
+      : Date.parse(entry.createdAt)
+  }
+  return [
+    ...placed.toSorted((a, b) => place(a) - place(b) || byAge(a, b)),
+    ...coming.toSorted(
+      (a, b) => queued(a) - queued(b) || a.id.localeCompare(b.id),
+    ),
+  ].map(({ id }) => id)
+}
+
+/** A group's order as a seat is shown it, where its order stands, and its stamp (§7.9). */
+function groupOf(
+  held: Held,
+  seat: NotesSeat,
+  group: string | null,
+  base: string[],
+): Grouped {
+  const order = held.orders.get(groupKey(group))
+  const ids = ordered(base, order)
+  const refused = order?.status === 'conflict' || order?.status === 'failed'
+  // A refused order is its own seat's to settle, and the Gamemaster's: anyone else is shown
+  // Foundry's order, as for a note.
+  const panel =
+    refused && (seat.role === 'gm' || order.requestedById === seat.userId)
+  const view: NoteGroupView = {
+    chapterId: group,
+    state: 'synced',
+    stamp: groupStamp(panel ? `${order.id}.${order.seq}` : null, ids),
+  }
+  if (ordering(order)) {
+    view.state = held.live && held.takesOrders ? 'saving' : 'waiting'
+  } else if (panel) {
+    const inGroup = new Set(base)
+    view.state = order.status === 'conflict' ? 'conflict' : 'failed'
+    view.reason =
+      order.status === 'conflict' ? 'changed' : noteReason(order.reason)
+    view.mine = {
+      ids: order.ids.filter(id => inGroup.has(id)),
+      ...(order.requestedById !== seat.userId && { by: order.modifiedBy }),
+    }
+  }
+  return { ids, base, ...(order && { order }), view }
+}
+
+/**
+ * The journal's last change a seat may be told of (§2.6): the latest of its chapters' and entries'
+ * own, as the seat sees them, and of the book's record; the book's where they're at one time.
+ */
+function lastChangeOf(
+  held: Held,
+  seen: { modifiedAt: string; modifiedBy: string }[],
+): NoteLastChange | undefined {
+  let latest: { at: number; by: string } | undefined
+  for (const { modifiedAt, modifiedBy } of seen) {
+    const at = Date.parse(modifiedAt)
+    if (!latest || at > latest.at) latest = { at, by: modifiedBy }
+  }
+  if (held.changed && (!latest || held.changed.at.getTime() >= latest.at)) {
+    latest = { at: held.changed.at.getTime(), by: held.changed.by }
+  }
+  return latest && { by: latest.by, at: new Date(latest.at).toISOString() }
+}
+
+/** A book as a seat sees it, with each of its groups by key, for a change to their order. */
+function viewOf(
+  held: Held,
+  seat: NotesSeat,
+): { view: NotesView; groups: Map<string, Grouped> } {
+  const { book } = held
   const chapters: NoteChapterView[] = []
   const entries: NoteEntryView[] = []
   for (const id of noteIds(held)) {
@@ -554,28 +743,47 @@ export async function getNotesView(
       }),
     })
   }
+  const sortedChapters = chapters.toSorted(byAge)
   const shown = new Set(chapters.map(({ id }) => id))
+  // An entry in a chapter the seat isn't shown is in none, as it reads it.
+  const placedEntries = entries.map(entry =>
+    entry.chapterId && !shown.has(entry.chapterId)
+      ? { ...entry, chapterId: null }
+      : entry,
+  )
+  const byId = new Map(placedEntries.map(entry => [entry.id, entry]))
+  const groups = new Map<string, Grouped>()
+  for (const group of [null, ...sortedChapters.map(({ id }) => id)]) {
+    const members = placedEntries.filter(entry => entry.chapterId === group)
+    const base = baseOrder(held, members, group, shown)
+    groups.set(groupKey(group), groupOf(held, seat, group, base))
+  }
+  const rights = noteRights(
+    { kind: book.kind, private: book.private, connected: held.connected },
+    seat,
+  )
   const withheld = withheldOf(held)
+  const lastChange = lastChangeOf(held, [...chapters, ...entries])
   return {
-    version: held.row?.version ?? 0,
-    kind: book.kind,
-    journal: held.row?.journalName ?? null,
-    live: held.live,
-    enabled: held.enabled,
-    canAdd: noteRights(
-      { kind: book.kind, private: book.private, connected: held.connected },
-      seat,
-    ).canAdd,
-    connected: held.connected,
-    ...(withheld && { withheld }),
-    chapters: chapters.toSorted(byAge),
-    entries: entries
-      .map(entry =>
-        entry.chapterId && !shown.has(entry.chapterId)
-          ? { ...entry, chapterId: null }
-          : entry,
-      )
-      .toSorted(byAge),
+    view: {
+      version: held.row?.version ?? 0,
+      kind: book.kind,
+      journal: held.row?.journalName ?? null,
+      live: held.live,
+      enabled: held.enabled,
+      canAdd: rights.canAdd,
+      connected: held.connected,
+      canReorder: rights.canReorder,
+      orders: held.takesOrders,
+      ...(lastChange && { lastChange }),
+      ...(withheld && { withheld }),
+      chapters: sortedChapters,
+      groups: [...groups.values()].map(({ view }) => view),
+      entries: [...groups.values()].flatMap(({ ids }) =>
+        ids.map(id => byId.get(id)!),
+      ),
+    },
+    groups,
   }
 }
 
@@ -660,14 +868,17 @@ async function takes(
   if (!limited) return
   // The seat's own changes, by when it made them: made ones count too, kept an hour for it, and
   // each note's folded changes once. The module's claims and answers touch the rows, not this, so
-  // a backlog made at once when the game comes back costs the seat nothing.
-  const changes = await prisma.journalWrite.count({
-    where: {
-      requestedById: seat.userId,
-      modifiedAt: { gte: new Date(Date.now() - 60_000) },
-    },
-  })
-  if (changes >= NOTES_PER_MINUTE) {
+  // a backlog made at once when the game comes back costs the seat nothing. From module 0.35.0 its
+  // orders count with its notes' changes, each group's refolds once.
+  const mine = {
+    requestedById: seat.userId,
+    modifiedAt: { gte: new Date(Date.now() - 60_000) },
+  }
+  const [notes, orders] = await Promise.all([
+    prisma.journalWrite.count({ where: mine }),
+    prisma.journalOrder.count({ where: mine }),
+  ])
+  if (notes + orders >= NOTES_PER_MINUTE) {
     return { ok: false, status: 429, reason: 'busy' }
   }
 }
@@ -735,10 +946,29 @@ const isTaken = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2002'
 
-/** The book's row, made where it has none, its version bumped for what changes now. */
+/**
+ * The book's last change that leaves no note to show it (round 0.35.0 §2.6): who, when, and
+ * where, here or in Foundry.
+ */
+type BookChange = {
+  changedAt: Date
+  changedBy: string
+  changedIn: 'app' | 'foundry'
+}
+
+/** A change made here by a seat, now, as the book records it. */
+function changedHere(held: Held, seat: NotesSeat, at: Date): BookChange {
+  return { changedAt: at, changedBy: writerName(held, seat), changedIn: 'app' }
+}
+
+/**
+ * The book's row, made where it has none, its version bumped for what changes now; and where the
+ * change leaves no note to show it, the book's record of it.
+ */
 async function bumpBook(
   tx: Prisma.TransactionClient,
   book: NotesBook,
+  changed?: BookChange,
 ): Promise<string> {
   const { id } = await tx.journalBook.upsert({
     where: {
@@ -753,8 +983,9 @@ async function bumpBook(
       kind: book.kind,
       actorId: book.actorId,
       version: 1,
+      ...changed,
     },
-    update: { version: { increment: 1 } },
+    update: { version: { increment: 1 }, ...changed },
     select: { id: true },
   })
   return id
@@ -1041,8 +1272,10 @@ export async function deleteNote(
     return { ok: false, status: 409, reason: 'conflict' }
   }
   // A create thought lost on its way is dropped too: if Foundry made its page after all, the page
-  // comes back with the journal, as Foundry's.
+  // comes back with the journal, as Foundry's. It's on the journal's line only where every seat
+  // saw it: a failed one only its seat and the Gamemaster see (round 0.35.0 §2.6).
   if (write && waiting(write) && write.op === 'create') {
+    const seen = write.status === 'pending' || write.status === 'claimed'
     return guarded(() =>
       prisma.$transaction(async tx => {
         changedOne(
@@ -1050,7 +1283,11 @@ export async function deleteNote(
             where: { id: write.id, seq: write.seq, ...openFrom(write) },
           }),
         )
-        await bumpBook(tx, book)
+        await bumpBook(
+          tx,
+          book,
+          seen ? changedHere(held, seat, new Date()) : undefined,
+        )
         return { ok: true as const, stamp: `n:${note?.revision ?? ''}` }
       }),
     )
@@ -1060,7 +1297,7 @@ export async function deleteNote(
   const at = new Date()
   return guarded(() =>
     prisma.$transaction(async tx => {
-      await bumpBook(tx, book)
+      await bumpBook(tx, book, changedHere(held, seat, at))
       const seq = await saveChange(tx, held, noteId, note, write, {
         content: changedBy(held, seat, at),
         op: 'delete',
@@ -1136,7 +1373,8 @@ export async function resolveNote(
           },
         }),
       )
-      await bumpBook(tx, book)
+      // Sent again, it's a change to the journal by whoever chose it (round 0.35.0 §2.6).
+      await bumpBook(tx, book, changedHere(held, seat, new Date()))
       return { ok: true as const, stamp: `w:${write.id}.${write.seq + 1}` }
     }),
   )
@@ -1160,6 +1398,172 @@ function sentAgain(
     ? (write.foundryRev ?? note?.revision)
     : (note?.revision ?? write.foundryRev)
   return { base: now ?? write.base }
+}
+
+/**
+ * A group's order as the mirror holds it (round 0.35.0 §7.7): its notes as Foundry last sent them
+ * in it, by their place there, then by when each was written, then id. What an order is made from,
+ * so that the module can tell whether Foundry's order of those notes changed since.
+ */
+function mirrorOrder(held: Held, chapterId: string | null): string[] {
+  const group = groupKey(chapterId)
+  return [...held.notes.values()]
+    .filter(note => note.role === 'entry' && groupKey(note.chapterId) === group)
+    .toSorted(
+      (a, b) =>
+        a.place - b.place ||
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.noteId.localeCompare(b.noteId),
+    )
+    .map(({ noteId }) => noteId)
+}
+
+/**
+ * Put the notes of a chapter, or of none, in a new order (round 0.35.0 §4.2, §7.7), from what the
+ * page last saw of the group: by anyone who may write the book, whoever wrote the notes, as it
+ * changes no note's title, text or chapter. Stored at once, whatever Foundry's state, and shown to
+ * everyone at once: folded into the group's order waiting, where there is one, else an order of its
+ * own, made from the mirror's order of the group now.
+ * @returns The group's stamp now, or why not.
+ */
+export async function reorderNotes(
+  seat: NotesSeat,
+  book: NotesBook,
+  { chapterId, ids, stamp }: NoteOrder,
+): Promise<NoteAnswer> {
+  const held = await readBook(book)
+  const group = held && viewOf(held, seat).groups.get(groupKey(chapterId))
+  if (!held || !group) return { ok: false, status: 404, reason: 'gone' }
+  const refused = await takes(held, seat, { limited: false })
+  if (refused) return refused
+  if (stamp !== group.view.stamp) {
+    return { ok: false, status: 409, reason: 'changed' }
+  }
+  // Every note of the group the seat sees, once: none it doesn't, and none left out.
+  const members = new Set(group.ids)
+  if (ids.length !== members.size || ids.some(id => !members.has(id))) {
+    return { ok: false, status: 409, reason: 'changed' }
+  }
+  const { order } = group
+  if (order?.status === 'claimed' && !lost(order)) {
+    return { ok: false, status: 409, reason: 'saving' }
+  }
+  if (ids.every((id, n) => id === group.ids[n])) return { ok: true, stamp }
+  const limited = await takes(held, seat, { limited: true })
+  if (limited) return limited
+  const now = new Date()
+  // Every fold queues it again, so that a note it places, made after it was first queued, reaches
+  // Foundry before it does.
+  const fields = {
+    ids,
+    ...changedBy(held, seat, now),
+    status: 'pending' as const,
+    reason: null,
+    queuedAt: now,
+  }
+  return guarded(() =>
+    prisma.$transaction(async tx => {
+      const bookId = await bumpBook(tx, book, changedHere(held, seat, now))
+      if (!order) {
+        await tx.journalOrder.create({
+          data: {
+            id: randomUUID(),
+            seq: 0,
+            campaignId: book.campaignId,
+            bookId,
+            chapterId: groupKey(chapterId),
+            was: mirrorOrder(held, chapterId),
+            ...fields,
+          },
+        })
+        return { ok: true as const, stamp: groupStamp(null, ids) }
+      }
+      // One waiting, or thought lost on its way, keeps the order in Foundry it was first made
+      // from. One refused or made is made afresh from Foundry's order now, which every seat but
+      // its own and the Gamemaster was shown, and the new order was made from.
+      const afresh = !ordering(order)
+      changedOne(
+        await tx.journalOrder.updateMany({
+          where: { id: order.id, seq: order.seq, ...orderFrom(order) },
+          data: {
+            ...fields,
+            seq: { increment: 1 },
+            ...(afresh && { was: mirrorOrder(held, chapterId) }),
+            ...(order.status === 'made' && {
+              claimToken: null,
+              claimSession: null,
+              claimedAt: null,
+            }),
+          },
+        }),
+      )
+      return { ok: true as const, stamp: groupStamp(null, ids) }
+    }),
+  )
+}
+
+/**
+ * Settle an order the game didn't take (round 0.35.0 §4.3, §7.7): the seat's own, or for the
+ * Gamemaster anyone's. Theirs drops it, Foundry's order staying, as it does one thought lost on its
+ * way; mine sends it again, where Foundry's order changed meanwhile from Foundry's order now.
+ * @returns The group's stamp now, or why not.
+ */
+export async function resolveOrder(
+  seat: NotesSeat,
+  book: NotesBook,
+  { chapterId, resolve, stamp }: NoteOrderResolve,
+): Promise<NoteAnswer> {
+  const held = await readBook(book)
+  const group = held && viewOf(held, seat).groups.get(groupKey(chapterId))
+  if (!held || !group) return { ok: false, status: 404, reason: 'gone' }
+  const { order } = group
+  const settles =
+    order?.status === 'conflict' ||
+    order?.status === 'failed' ||
+    (resolve === 'theirs' && !!order && lost(order))
+  if (!order || !settles) return { ok: false, status: 409, reason: 'changed' }
+  if (seat.role !== 'gm' && order.requestedById !== seat.userId) {
+    return { ok: false, status: 403, reason: 'not-yours' }
+  }
+  if (stamp !== group.view.stamp) {
+    return { ok: false, status: 409, reason: 'changed' }
+  }
+  const where = { id: order.id, seq: order.seq, ...orderFrom(order) }
+  if (resolve === 'theirs') {
+    // Keeping Foundry's order changes nothing in the journal: no one's change to record.
+    return guarded(() =>
+      prisma.$transaction(async tx => {
+        changedOne(await tx.journalOrder.deleteMany({ where }))
+        await bumpBook(tx, book)
+        return { ok: true as const, stamp: groupStamp(null, group.base) }
+      }),
+    )
+  }
+  const now = new Date()
+  return guarded(() =>
+    prisma.$transaction(async tx => {
+      changedOne(
+        await tx.journalOrder.updateMany({
+          where,
+          data: {
+            ...(order.status === 'conflict' && {
+              was: mirrorOrder(held, chapterId),
+            }),
+            status: 'pending',
+            reason: null,
+            seq: { increment: 1 },
+            queuedAt: now,
+          },
+        }),
+      )
+      await bumpBook(tx, book, changedHere(held, seat, now))
+      const again = { ...order, status: 'pending' as const }
+      return {
+        ok: true as const,
+        stamp: groupStamp(null, ordered(group.base, again)),
+      }
+    }),
+  )
 }
 
 /**

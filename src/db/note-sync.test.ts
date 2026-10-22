@@ -2,13 +2,19 @@
  * @jest-environment node
  */
 /* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
-import { Prisma, type JournalNote, type JournalWrite } from '@prisma/client'
+import {
+  Prisma,
+  type JournalNote,
+  type JournalOrder,
+  type JournalWrite,
+} from '@prisma/client'
 import { prismaMock } from '../../jest.setup'
 import {
   applyJournalUpdated,
   claimNoteWrites,
   drawJournal,
   MADE_KEPT_FOR,
+  placesOf,
   reconcileJournals,
   recordNoteResult,
 } from './note-sync'
@@ -20,6 +26,8 @@ const ago = (ms: number) => new Date(NOW - ms)
 const ORIGIN = 'https://my-game.forge-vtt.com'
 const W1 = '11111111-1111-4111-8111-111111111111'
 const W2 = '22222222-2222-4222-8222-222222222222'
+const O1 = '99999999-9999-4999-8999-999999999999'
+const O2 = '88888888-8888-4888-8888-888888888888'
 const tx = prismaMock as unknown as Prisma.TransactionClient
 
 /** A change made here, as the claim reads it. */
@@ -59,8 +67,45 @@ function write(fields: Partial<JournalWrite> = {}): JournalWrite {
   }
 }
 
-/** A note as the mirror holds it. */
-function held(page: JournalPage, html = 'drawn'): JournalNote {
+/** An order of a group's notes made here, as the claim reads it: Thorin's of Session 1. */
+function order(fields: Partial<JournalOrder> = {}): JournalOrder {
+  return {
+    id: O1,
+    seq: 0,
+    campaignId: 'c1',
+    bookId: 'book-1',
+    chapterId: NOTE_IDS.session,
+    ids: [NOTE_IDS.rumour, NOTE_IDS.cave],
+    was: [NOTE_IDS.cave, NOTE_IDS.rumour],
+    seat: 'player',
+    requestedById: 'user-1',
+    writerActorId: PARTY.thorin,
+    modifiedAt: ago(30_000),
+    modifiedBy: 'Thorin',
+    status: 'pending',
+    reason: null,
+    claimToken: null,
+    claimSession: null,
+    claimedAt: null,
+    queuedAt: ago(300_000),
+    createdAt: ago(300_000),
+    updatedAt: ago(30_000),
+    ...fields,
+  }
+}
+
+/** Each mock journal's notes' places in their groups, as Foundry sends them. */
+const PLACES = new Map([
+  ...placesOf(mockJournalUpdated('personal').journal!.notes),
+  ...placesOf(mockJournalUpdated('party').journal!.notes),
+])
+
+/** A note as the mirror holds it: at its place in the mock journal, unless said. */
+function held(
+  page: JournalPage,
+  html = 'drawn',
+  place = PLACES.get(page.id) ?? 0,
+): JournalNote {
   return {
     bookId: 'book-1',
     noteId: page.id,
@@ -80,6 +125,7 @@ function held(page: JournalPage, html = 'drawn'): JournalNote {
     modifiedBy: page.modifiedBy,
     modifiedIn: page.modifiedIn,
     revision: page.rev,
+    place,
   }
 }
 
@@ -127,6 +173,7 @@ const claimCampaign = (fields: object = {}) =>
   prismaMock.campaign.findUnique.mockResolvedValue({
     helloSession: 's1',
     notesEnabled: true,
+    noteFeatures: [],
     ownerId: 'gm-1',
     ...fields,
   } as any)
@@ -140,6 +187,42 @@ const waitingRows = (rows: Partial<JournalWrite>[]) =>
       rows.map(row => ({
         ...write(row),
         book: { kind: 'personal', actorId: PARTY.thorin },
+      })) as any,
+    )
+
+/** A page of a journal, by id, role and chapter, for its place in its group. */
+const pageOf = (
+  id: string,
+  role: 'chapter' | 'entry',
+  chapter: string | null = null,
+) =>
+  ({
+    ...mockJournalUpdated('personal').journal!.notes[0],
+    id,
+    role,
+    chapter,
+  }) as JournalPage
+
+/** The personal mock's notes as the mirror holds them, drawn as they would be. */
+const mirrored = (event = mockJournalUpdated('personal')) =>
+  event.journal!.notes.map(page =>
+    held(
+      page,
+      page.format === 1
+        ? '<p><strong>North</strong> of the river.</p>'
+        : 'drawn',
+    ),
+  )
+
+/** The orders the claim finds, then the same as it hands them over, with their book. */
+const waitingOrders = (rows: Partial<JournalOrder>[]) =>
+  prismaMock.journalOrder.findMany
+    .mockReset()
+    .mockResolvedValueOnce(rows.map(row => order(row)) as any)
+    .mockResolvedValueOnce(
+      rows.map(row => ({
+        ...order(row),
+        book: { kind: 'party', actorId: 'company' },
       })) as any,
     )
 
@@ -246,6 +329,7 @@ describe('db/note-sync', () => {
         modifiedBy: 'Thorin',
         modifiedIn: 'app',
         revision: event.journal!.notes[1].rev,
+        place: 0,
       })
       // Foundry's HTML is drawn, not kept; a note cut short is said so.
       expect(madeNotes()).toContainEqual(
@@ -610,7 +694,13 @@ describe('db/note-sync', () => {
         },
         orderBy: { queuedAt: 'asc' },
         take: 5,
-        select: { id: true, seq: true, title: true, body: true },
+        select: {
+          id: true,
+          seq: true,
+          title: true,
+          body: true,
+          queuedAt: true,
+        },
       })
       expect(prismaMock.journalWrite.updateMany).toHaveBeenCalledWith({
         where: { OR: [{ id: W1, seq: 0 }], AND: [due] },
@@ -852,6 +942,10 @@ describe('db/note-sync', () => {
       )
       prismaMock.journalNote.findUnique.mockResolvedValue({
         revision: 'abcdef00000001',
+        chapterId: NOTE_IDS.session,
+      } as any)
+      prismaMock.journalNote.aggregate.mockResolvedValue({
+        _max: { place: 3 },
       } as any)
     })
 
@@ -1029,5 +1123,598 @@ describe('db/note-sync', () => {
         expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
       },
     )
+  })
+
+  describe('the order of a group’s notes, from module 0.35.0', () => {
+    it('places each note in its group as Foundry sends the journal: the chapters, and each group’s notes, counted apart', () => {
+      const places = placesOf([
+        pageOf('looseNote0000001', 'entry'),
+        pageOf('chapterOne000001', 'chapter'),
+        pageOf('inOne00000000001', 'entry', 'chapterOne000001'),
+        pageOf('looseNote0000002', 'entry'),
+        pageOf('chapterTwo000001', 'chapter'),
+        pageOf('inOne00000000002', 'entry', 'chapterOne000001'),
+        pageOf('inTwo00000000001', 'entry', 'chapterTwo000001'),
+      ])
+
+      expect(Object.fromEntries(places)).toEqual({
+        looseNote0000001: 0,
+        chapterOne000001: 0,
+        inOne00000000001: 0,
+        looseNote0000002: 1,
+        chapterTwo000001: 1,
+        inOne00000000002: 1,
+        inTwo00000000001: 0,
+      })
+    })
+
+    describe('kept from journal.updated', () => {
+      beforeEach(() => {
+        eventCampaign()
+      })
+
+      it('keeps a reorder made in Foundry as new places, and the book’s version one more', async () => {
+        const event = mockJournalUpdated('personal')
+        eventBook({ notes: mirrored() })
+        // The Gamemaster dragged A rumour above The goblin cave in Foundry.
+        const [chapter, cave, rumour, ...rest] = event.journal!.notes
+        event.journal!.notes = [chapter, rumour, cave, ...rest]
+
+        await applyJournalUpdated(tx, 'c1', event)
+
+        expect(
+          prismaMock.journalNote.update.mock.calls.map(([args]) => [
+            args.where,
+            args.data.place,
+          ]),
+        ).toEqual([
+          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+          [{ bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.rumour } }, 0],
+          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+          [{ bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.cave } }, 1],
+        ])
+        expect(prismaMock.journalBook.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ version: { increment: 1 } }),
+          }),
+        )
+      })
+
+      it('records who last deleted or reordered a page in Foundry, where it’s later than the book’s record', async () => {
+        const event = mockJournalUpdated('personal')
+        const at = Date.parse('2026-10-22T11:59:00Z')
+        event.journal!.changed = { what: 'delete', by: 'Gamemaster', at }
+
+        for (const changedAt of [null, new Date(at - 1)]) {
+          prismaMock.journalBook.update.mockClear()
+          eventBook({ notes: mirrored(), changedAt })
+
+          await applyJournalUpdated(tx, 'c1', event)
+
+          expect(prismaMock.journalBook.update).toHaveBeenCalledWith({
+            where: { id: 'book-1' },
+            data: {
+              journalId: 'thorinJournal001',
+              journalName: "Thorin's notes (Erebor)",
+              withheld: Prisma.DbNull,
+              syncedAt: new Date(NOW),
+              changedAt: new Date(at),
+              changedBy: 'Gamemaster',
+              changedIn: 'foundry',
+              version: { increment: 1 },
+            },
+          })
+        }
+      })
+
+      it('records nothing older than the book’s record, or none at all, bumping nothing', async () => {
+        const event = mockJournalUpdated('personal')
+        const at = Date.parse('2026-10-22T11:59:00Z')
+
+        for (const [changed, changedAt] of [
+          [{ what: 'order', by: 'Gamemaster', at }, new Date(at)],
+          [{ what: 'order', by: 'Gamemaster', at }, new Date(at + 60_000)],
+          [undefined, new Date(at)],
+          [undefined, null],
+        ] as const) {
+          prismaMock.journalBook.update.mockClear()
+          event.journal!.changed = changed
+          eventBook({ notes: mirrored(), changedAt })
+
+          await applyJournalUpdated(tx, 'c1', event)
+
+          expect(prismaMock.journalBook.update).toHaveBeenCalledWith({
+            where: { id: 'book-1' },
+            data: {
+              journalId: 'thorinJournal001',
+              journalName: "Thorin's notes (Erebor)",
+              withheld: Prisma.DbNull,
+              syncedAt: new Date(NOW),
+            },
+          })
+        }
+      })
+    })
+
+    describe('handed over with the notes’ changes', () => {
+      beforeEach(() => {
+        claimCampaign({ noteFeatures: ['orders'] })
+        prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
+        prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 1 })
+      })
+
+      it('deletes made orders past their hour, first, as made changes are', async () => {
+        waitingRows([])
+        waitingOrders([])
+
+        await claimNoteWrites('c1', 's1')
+
+        expect(prismaMock.journalOrder.deleteMany).toHaveBeenCalledWith({
+          where: {
+            campaignId: 'c1',
+            status: 'made',
+            updatedAt: { lt: ago(MADE_KEPT_FOR) },
+          },
+        })
+      })
+
+      it('hands orders over only to a module whose hello says it takes them', async () => {
+        claimCampaign({ noteFeatures: [] })
+        waitingRows([{}])
+        waitingOrders([{}])
+
+        const commands = await claimNoteWrites('c1', 's1')
+
+        expect(prismaMock.journalOrder.findMany).not.toHaveBeenCalled()
+        expect(prismaMock.journalOrder.updateMany).not.toHaveBeenCalled()
+        expect(commands.map(({ id }) => id)).toEqual([`${W1}.0`])
+      })
+
+      it('finds those waiting, and those unanswered past 75 seconds, the Gamemaster’s only the owner’s, and claims them with the changes’ token', async () => {
+        waitingRows([{}])
+        waitingOrders([{}])
+
+        await claimNoteWrites('c1', 's1')
+
+        const due = {
+          OR: [
+            { status: 'pending' },
+            { status: 'claimed', claimedAt: { lt: ago(75_000) } },
+          ],
+        }
+        expect(prismaMock.journalOrder.findMany).toHaveBeenNthCalledWith(1, {
+          where: {
+            campaignId: 'c1',
+            AND: [
+              due,
+              {
+                OR: [{ seat: 'player' }, { seat: 'gm', requestedById: 'gm-1' }],
+              },
+            ],
+          },
+          orderBy: { queuedAt: 'asc' },
+          take: 5,
+          select: { id: true, seq: true, queuedAt: true },
+        })
+        const token =
+          prismaMock.journalWrite.updateMany.mock.calls[0][0].data.claimToken
+        expect(prismaMock.journalOrder.updateMany).toHaveBeenCalledWith({
+          where: { OR: [{ id: O1, seq: 0 }], AND: [due] },
+          data: {
+            status: 'claimed',
+            claimToken: token,
+            claimSession: 's1',
+            claimedAt: new Date(NOW),
+          },
+        })
+        expect(prismaMock.journalOrder.findMany).toHaveBeenNthCalledWith(2, {
+          where: { claimToken: token },
+          orderBy: { queuedAt: 'asc' },
+          include: { book: { select: { kind: true, actorId: true } } },
+        })
+      })
+
+      it('hands changes and orders over oldest first across both, a change before an order queued with it', async () => {
+        waitingRows([
+          { id: W1, queuedAt: ago(600_000) },
+          { id: W2, queuedAt: ago(100_000) },
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            queuedAt: ago(200_000),
+          },
+        ])
+        waitingOrders([
+          { id: O1, queuedAt: ago(300_000) },
+          { id: O2, queuedAt: ago(200_000) },
+        ])
+
+        const commands = await claimNoteWrites('c1', 's1')
+
+        expect(commands.map(({ id }) => id)).toEqual([
+          `${W1}.0`,
+          `${O1}.0`,
+          '33333333-3333-4333-8333-333333333333.0',
+          `${O2}.0`,
+          `${W2}.0`,
+        ])
+      })
+
+      it('hands at most five over across both, and counts an order’s characters as none', async () => {
+        waitingRows(
+          ['1', '2', '3', '4'].map((n, at) => ({
+            id: `${n.repeat(8)}-1111-4111-8111-111111111111`,
+            queuedAt: ago(600_000 - at),
+          })),
+        )
+        waitingOrders([
+          { id: O1, queuedAt: ago(700_000) },
+          { id: O2, queuedAt: ago(1000) },
+        ])
+
+        await claimNoteWrites('c1', 's1')
+
+        expect(
+          prismaMock.journalWrite.updateMany.mock.calls[0][0].where?.OR,
+        ).toHaveLength(4)
+        expect(
+          prismaMock.journalOrder.updateMany.mock.calls[0][0].where?.OR,
+        ).toEqual([{ id: O1, seq: 0 }])
+
+        // A change of 300,000 characters, an order, and another: the order costs nothing, the
+        // second change is one too many.
+        prismaMock.journalWrite.updateMany.mockClear()
+        prismaMock.journalOrder.updateMany.mockClear()
+        waitingRows([
+          { id: W1, body: 'a'.repeat(300_000), queuedAt: ago(600_000) },
+          { id: W2, body: 'b'.repeat(300_000), queuedAt: ago(100_000) },
+        ])
+        waitingOrders([{ id: O1, queuedAt: ago(300_000) }])
+        await claimNoteWrites('c1', 's1')
+        expect(
+          prismaMock.journalWrite.updateMany.mock.calls[0][0].where?.OR,
+        ).toEqual([{ id: W1, seq: 0 }])
+        expect(
+          prismaMock.journalOrder.updateMany.mock.calls[0][0].where?.OR,
+        ).toEqual([{ id: O1, seq: 0 }])
+      })
+
+      it('hands an order over alone, where no change waits', async () => {
+        waitingRows([])
+        waitingOrders([{}])
+
+        const commands = await claimNoteWrites('c1', 's1')
+
+        expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
+        expect(commands.map(({ id }) => id)).toEqual([`${O1}.0`])
+      })
+
+      it('hands each order over as the module’s note command, with exactly its fields', async () => {
+        waitingRows([])
+        waitingOrders([
+          { seq: 3 },
+          {
+            id: O2,
+            chapterId: '',
+            ids: [NOTE_IDS.long, NOTE_IDS.map],
+            was: [],
+            seat: 'gm',
+            requestedById: 'gm-1',
+            writerActorId: null,
+            modifiedBy: 'Gamemaster',
+            queuedAt: ago(100_000),
+          },
+        ])
+
+        const commands = await claimNoteWrites('c1', 's1')
+
+        const common = { mode: 0, explicit: false, extras: [], dice: [] }
+        expect(commands).toEqual([
+          {
+            id: `${O1}.3`,
+            actorId: 'company',
+            kind: 'note',
+            note: {
+              book: 'party',
+              op: 'order',
+              chapter: NOTE_IDS.session,
+              ids: [NOTE_IDS.rumour, NOTE_IDS.cave],
+              was: [NOTE_IDS.cave, NOTE_IDS.rumour],
+              writer: PARTY.thorin,
+              at: NOW - 30_000,
+            },
+            ...common,
+          },
+          {
+            id: `${O2}.0`,
+            actorId: 'company',
+            kind: 'note',
+            by: 'gm',
+            note: {
+              book: 'party',
+              op: 'order',
+              chapter: null,
+              ids: [NOTE_IDS.long, NOTE_IDS.map],
+              was: [],
+              writer: null,
+              at: NOW - 30_000,
+            },
+            ...common,
+          },
+        ])
+        expect(commands[0]).not.toHaveProperty('by')
+      })
+    })
+
+    describe('what became of an order', () => {
+      /** An order's result, as the module posts it. */
+      const ordered = (fields: Partial<CommandResult> = {}): CommandResult => ({
+        id: `${O1}.2`,
+        status: 'done',
+        reason: null,
+        error: null,
+        messageId: null,
+        visible: false,
+        rolls: [],
+        order: {
+          chapter: NOTE_IDS.session,
+          ids: [NOTE_IDS.rumour, NOTE_IDS.cave],
+        },
+        ...fields,
+      })
+      const where = { id: O1, seq: 2, campaignId: 'c1', status: 'claimed' }
+
+      beforeEach(() => {
+        // No change of a note has that id: it's an order's.
+        prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 0 })
+        prismaMock.journalOrder.findUnique.mockResolvedValue({
+          bookId: 'book-1',
+          chapterId: NOTE_IDS.session,
+        } as any)
+        prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 1 })
+        prismaMock.journalOrder.deleteMany.mockResolvedValue({ count: 1 })
+        prismaMock.journalNote.findMany.mockResolvedValue([])
+      })
+
+      it('marks the order handed over under that id and number made, by id, number and campaign, and bumps its book', async () => {
+        await recordNoteResult('c1', ordered())
+
+        expect(prismaMock.journalOrder.updateMany).toHaveBeenCalledWith({
+          where,
+          data: { status: 'made', reason: null },
+        })
+        expect(prismaMock.journalBook.update).toHaveBeenCalledWith({
+          where: { id: 'book-1' },
+          data: { version: { increment: 1 } },
+        })
+      })
+
+      it('sets the mirror’s places of the group from the order made, where the book’s post was lost', async () => {
+        prismaMock.journalNote.findMany.mockResolvedValue([
+          {
+            noteId: NOTE_IDS.cave,
+            role: 'entry',
+            chapterId: NOTE_IDS.session,
+            place: 0,
+          },
+          {
+            noteId: NOTE_IDS.rumour,
+            role: 'entry',
+            chapterId: NOTE_IDS.session,
+            place: 1,
+          },
+          // Moved out of the group since, and a chapter: neither is placed.
+          { noteId: NOTE_IDS.map, role: 'entry', chapterId: null, place: 0 },
+        ] as any)
+
+        await recordNoteResult(
+          'c1',
+          ordered({
+            order: {
+              chapter: NOTE_IDS.session,
+              ids: [
+                NOTE_IDS.rumour,
+                NOTE_IDS.map,
+                NOTE_IDS.cave,
+                NOTE_IDS.long,
+              ],
+            },
+          }),
+        )
+
+        expect(prismaMock.journalNote.findMany).toHaveBeenCalledWith({
+          where: {
+            bookId: 'book-1',
+            noteId: {
+              in: [NOTE_IDS.rumour, NOTE_IDS.map, NOTE_IDS.cave, NOTE_IDS.long],
+            },
+          },
+          select: { noteId: true, role: true, chapterId: true, place: true },
+        })
+        expect(prismaMock.journalNote.update.mock.calls).toEqual([
+          [
+            {
+              where: {
+                // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+                bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.rumour },
+              },
+              data: { place: 0 },
+            },
+          ],
+          [
+            {
+              where: {
+                // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+                bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.cave },
+              },
+              data: { place: 1 },
+            },
+          ],
+        ])
+      })
+
+      it('moves no place where the book came first, as it does', async () => {
+        prismaMock.journalNote.findMany.mockResolvedValue([
+          {
+            noteId: NOTE_IDS.rumour,
+            role: 'entry',
+            chapterId: NOTE_IDS.session,
+            place: 0,
+          },
+          {
+            noteId: NOTE_IDS.cave,
+            role: 'entry',
+            chapterId: NOTE_IDS.session,
+            place: 1,
+          },
+        ] as any)
+
+        await recordNoteResult('c1', ordered())
+        await recordNoteResult('c1', ordered({ order: undefined }))
+
+        expect(prismaMock.journalNote.update).not.toHaveBeenCalled()
+        expect(prismaMock.journalNote.findMany).toHaveBeenCalledTimes(1)
+      })
+
+      it.each([
+        ['changed', 'conflict', 'changed'],
+        ['not-member', 'failed', 'not-member'],
+        ['off', 'failed', 'off'],
+        ['invalid', 'failed', 'invalid'],
+        ['unknown', 'failed', 'unknown'],
+        ['private', 'failed', 'private'],
+        ['error', 'failed', 'error'],
+        ['strange', 'failed', 'error'],
+        [null, 'failed', 'error'],
+      ])('keeps a refusal for %s as %s', async (reason, status, kept) => {
+        await recordNoteResult(
+          'c1',
+          ordered({ status: 'failed', reason, order: undefined }),
+        )
+
+        expect(prismaMock.journalOrder.updateMany).toHaveBeenCalledWith({
+          where,
+          data: { status, reason: kept },
+        })
+        expect(prismaMock.journalOrder.deleteMany).not.toHaveBeenCalled()
+        expect(prismaMock.journalNote.update).not.toHaveBeenCalled()
+        expect(prismaMock.journalBook.update).toHaveBeenCalledTimes(1)
+      })
+
+      it('drops an order whose chapter is gone, with nothing to choose', async () => {
+        await recordNoteResult(
+          'c1',
+          ordered({ status: 'failed', reason: 'gone' }),
+        )
+
+        expect(prismaMock.journalOrder.deleteMany).toHaveBeenCalledWith({
+          where,
+        })
+        expect(prismaMock.journalOrder.updateMany).not.toHaveBeenCalled()
+        expect(prismaMock.journalBook.update).toHaveBeenCalledWith({
+          where: { id: 'book-1' },
+          data: { version: { increment: 1 } },
+        })
+      })
+
+      it('changes nothing for a result for an earlier hand-over, the order since moved on', async () => {
+        prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 0 })
+        prismaMock.journalOrder.deleteMany.mockResolvedValue({ count: 0 })
+
+        await recordNoteResult('c1', ordered())
+        await recordNoteResult(
+          'c1',
+          ordered({ status: 'failed', reason: 'gone' }),
+        )
+
+        expect(prismaMock.journalNote.findMany).not.toHaveBeenCalled()
+        expect(prismaMock.journalBook.update).not.toHaveBeenCalled()
+      })
+
+      it('changes nothing for a result neither a change nor an order has, nor for a timeout', async () => {
+        prismaMock.journalOrder.findUnique.mockResolvedValue(null)
+        await recordNoteResult('c1', ordered())
+        expect(prismaMock.journalOrder.updateMany).not.toHaveBeenCalled()
+
+        await recordNoteResult(
+          'c1',
+          ordered({ status: 'failed', reason: 'timeout' }),
+        )
+        expect(prismaMock.journalOrder.findUnique).toHaveBeenCalledTimes(1)
+        expect(prismaMock.journalBook.update).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('a note made where the book’s post was lost', () => {
+      beforeEach(() => {
+        prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
+        prismaMock.journalNote.aggregate.mockResolvedValue({
+          _max: { place: 3 },
+        } as any)
+      })
+
+      it('lands a new note last in its group', async () => {
+        prismaMock.journalWrite.findUnique.mockResolvedValue(write({ seq: 2 }))
+        prismaMock.journalNote.findUnique.mockResolvedValue(null)
+
+        await recordNoteResult('c1', result())
+
+        expect(prismaMock.journalNote.aggregate).toHaveBeenCalledWith({
+          where: {
+            bookId: 'book-1',
+            role: 'entry',
+            chapterId: NOTE_IDS.session,
+            noteId: { not: NOTE_IDS.cave },
+          },
+          _max: { place: true },
+        })
+        const { create, update } =
+          prismaMock.journalNote.upsert.mock.calls[0][0]
+        expect(create).toMatchObject({ place: 4 })
+        expect(update).toMatchObject({ place: 4 })
+      })
+
+      it('lands a note moved last in its new group, the first there at 0, and leaves one that stays where it is', async () => {
+        prismaMock.journalWrite.findUnique.mockResolvedValue(
+          write({
+            seq: 2,
+            op: 'update',
+            base: 'abcdef00000001',
+            chapterId: null,
+          }),
+        )
+        prismaMock.journalNote.findUnique.mockResolvedValue({
+          revision: 'abcdef00000001',
+          chapterId: NOTE_IDS.session,
+        } as any)
+        prismaMock.journalNote.aggregate.mockResolvedValue({
+          _max: { place: null },
+        } as any)
+
+        await recordNoteResult('c1', result())
+
+        expect(prismaMock.journalNote.aggregate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ chapterId: null }),
+          }),
+        )
+        expect(
+          prismaMock.journalNote.upsert.mock.calls[0][0].update,
+        ).toMatchObject({
+          place: 0,
+        })
+
+        // Changed in place: its place stays.
+        prismaMock.journalNote.aggregate.mockClear()
+        prismaMock.journalNote.upsert.mockClear()
+        prismaMock.journalWrite.findUnique.mockResolvedValue(
+          write({ seq: 2, op: 'update', base: 'abcdef00000001' }),
+        )
+        await recordNoteResult('c1', result())
+        expect(prismaMock.journalNote.aggregate).not.toHaveBeenCalled()
+        expect(
+          prismaMock.journalNote.upsert.mock.calls[0][0].update,
+        ).not.toHaveProperty('place')
+      })
+    })
   })
 })

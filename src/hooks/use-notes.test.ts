@@ -2,9 +2,15 @@
 import { createElement } from 'react'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
-import { forgetNotes, hasDraft, useNotes, type NoteDraft } from './use-notes'
+import {
+  forgetNotes,
+  hasDraft,
+  journalOpen,
+  useNotes,
+  type NoteDraft,
+} from './use-notes'
 import { POLL_INTERVAL } from './use-table-view'
-import { NotesSection } from '@/components/notes'
+import { JournalCard } from '@/components/notes'
 import { mockNotesView } from '@/mocks/sending-stone'
 import type { NotesView } from '@/types/notes'
 
@@ -446,6 +452,65 @@ describe('hooks/use-notes', () => {
     })
   })
 
+  it('sends a new order of a group’s notes, and a choice on a refused one, at the order’s address, then reads the book again', async () => {
+    serve({}, async () => respond(200, { stamp: 'g:0123456789abcdef' }))
+    const { result } = renderHook(() => useNotes(API, { active: true }))
+    await pass()
+    await act(async () => {
+      await expect(
+        result.current.reorder({
+          chapterId: 'sessionChapter01',
+          ids: ['wolvesNote000001', 'goblinCaveNote01'],
+          stamp: 'g:fedcba9876543210',
+        }),
+      ).resolves.toEqual({ ok: true, stamp: 'g:0123456789abcdef' })
+    })
+    expect(reads()).toHaveLength(2)
+    await act(async () => {
+      await result.current.resolveOrder({
+        chapterId: null,
+        resolve: 'theirs',
+        stamp: 'g:0123456789abcdef',
+      })
+    })
+    expect(reads()).toHaveLength(3)
+    const writes = jest
+      .mocked(fetch)
+      .mock.calls.filter(([, init]) => init?.method)
+      .map(([url, init]) => [url, init?.method, init?.body])
+    expect(writes).toEqual([
+      [
+        `${API}/notes/order`,
+        'PUT',
+        JSON.stringify({
+          chapterId: 'sessionChapter01',
+          ids: ['wolvesNote000001', 'goblinCaveNote01'],
+          stamp: 'g:fedcba9876543210',
+        }),
+      ],
+      [
+        `${API}/notes/order`,
+        'PATCH',
+        JSON.stringify({
+          chapterId: null,
+          resolve: 'theirs',
+          stamp: 'g:0123456789abcdef',
+        }),
+      ],
+    ])
+  })
+
+  it('answers an order refused, with why', async () => {
+    serve({}, () => respond(409, { reason: 'changed' }))
+    const { result } = renderHook(() => useNotes(API, { active: true }))
+    await pass()
+    await act(async () => {
+      await expect(
+        result.current.reorder({ chapterId: null, ids: ['a'], stamp: 'g:1' }),
+      ).resolves.toEqual({ ok: false, reason: 'changed' })
+    })
+  })
+
   it.each([
     [
       422,
@@ -526,6 +591,61 @@ describe('hooks/use-notes', () => {
       expect(hasDraft(API)).toBe(false)
     })
 
+    it('keeps the journal open, and what its reader shows, across an unmount', async () => {
+      serve()
+      const { result, unmount } = renderHook(() =>
+        useNotes(API, { active: true }),
+      )
+      await pass()
+      expect(result.current.open).toBeUndefined()
+      expect(journalOpen(API)).toBe(false)
+      // A pick never opens it.
+      act(() => result.current.setPick({ note: 'goblinCaveNote01' }))
+      expect(result.current.open).toBeUndefined()
+
+      act(() => result.current.setOpen(true))
+      expect(result.current.open).toEqual({})
+      expect(journalOpen(API)).toBe(true)
+      expect(journalOpen(OTHER)).toBe(false)
+      act(() => result.current.setPick({ note: 'goblinCaveNote01' }))
+      act(() => result.current.setPick({ group: null }))
+      unmount()
+
+      const again = renderHook(() => useNotes(API, { active: false }))
+      expect(again.result.current.open).toEqual({ pick: { group: null } })
+      // Opened afresh, from the card's button, it holds no pick.
+      act(() => again.result.current.setOpen(true))
+      expect(again.result.current.open).toEqual({})
+      act(() => again.result.current.setOpen(false))
+      expect(again.result.current.open).toBeUndefined()
+      expect(journalOpen(API)).toBe(false)
+      // Closing what's closed is nothing.
+      act(() => again.result.current.setOpen(false))
+      expect(journalOpen(API)).toBe(false)
+    })
+
+    it('keeps a book that’s only open, with no view or draft yet', () => {
+      serve()
+      const { result } = renderHook(() => useNotes(API, { active: false }))
+      act(() => result.current.setOpen(true))
+      expect(journalOpen(API)).toBe(true)
+      act(() => result.current.setOpen(false))
+      expect(journalOpen(API)).toBe(false)
+    })
+
+    it('forgets the journal open, and its pick, on a 404', async () => {
+      const server = serve()
+      const { result } = renderHook(() => useNotes(API, { active: true }))
+      await pass()
+      act(() => result.current.setOpen(true))
+      act(() => result.current.setPick({ note: 'goblinCaveNote01' }))
+      server.status = 404
+      await pass(POLL_INTERVAL)
+      expect(result.current.state).toBe('gone')
+      expect(result.current.open).toBeUndefined()
+      expect(journalOpen(API)).toBe(false)
+    })
+
     it('writes nothing to the browser’s storage', async () => {
       const setItem = jest.spyOn(Storage.prototype, 'setItem')
       try {
@@ -581,7 +701,7 @@ describe('hooks/use-notes', () => {
       jest.useRealTimers()
       serve()
       const html = renderToString(
-        createElement(NotesSection, {
+        createElement(JournalCard, {
           api: API,
           role: 'player',
           kind: 'personal',
@@ -592,6 +712,7 @@ describe('hooks/use-notes', () => {
       )
       expect(html).toContain('Loading notes…')
       expect(hasDraft(API)).toBe(false)
+      expect(journalOpen(API)).toBe(false)
       expect(fetch).not.toHaveBeenCalled()
       // Nothing kept of a book: mounted in the browser after, it starts from nothing.
       const { result } = renderHook(() => useNotes(API, { active: false }))

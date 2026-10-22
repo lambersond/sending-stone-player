@@ -116,6 +116,16 @@ async function apply(
       const transfersOn =
         features?.transfers?.enabled === true &&
         (features.transfers.kinds ?? []).includes('transfer')
+      // What else the module does with journal notes, from module 0.35.0: 'orders' where it takes
+      // the app's orders of a group's notes. A module before it says nothing, which clears it.
+      const noteFeatures =
+        features?.notes?.enabled === true && features.notes.orders === true
+          ? ['orders']
+          : []
+      const before = await tx.campaign.findUnique({
+        where: { id: campaignId },
+        select: { noteFeatures: true },
+      })
       await tx.campaign.update({
         where: { id: campaignId },
         data: {
@@ -181,6 +191,7 @@ async function apply(
           notesEnabled:
             features?.notes?.enabled === true &&
             (features.notes.kinds ?? []).includes('personal'),
+          noteFeatures,
           // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
           // module before 0.30.0, which reports no settings, clears those an earlier one sent.
           foundry: toJson({
@@ -204,6 +215,14 @@ async function apply(
       })
       for (const prompt of prompts) {
         await savePrompt(tx, campaignId, prompt, sentAt)
+      }
+      // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
+      // does: every book of the campaign is new where what the module does with notes changed.
+      if (before && before.noteFeatures.join(',') !== noteFeatures.join(',')) {
+        await tx.journalBook.updateMany({
+          where: { campaignId },
+          data: { version: { increment: 1 } },
+        })
       }
       // The books whose journal Foundry no longer has, from module 0.34.0, which lists those it
       // has; an older module lists none, and nothing is reconciled.

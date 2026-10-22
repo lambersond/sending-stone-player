@@ -11,10 +11,12 @@ import type { Character } from '@/types/character'
 import type { TableCombat, TableMessage, TableView } from '@/types/table'
 
 jest.mock('@/hooks/use-table-view', () => ({ useTableView: jest.fn() }))
-// The Notes section (module 0.34.0), now under why there's no sheet too, is tested beside it: here
-// its book is an empty one, ready, so nothing of it is fetched and no banner or loading line shows.
+// The Journal card (module 0.35.0), under why there's no sheet too, is tested beside it: here its
+// book is an empty one, ready and closed, so nothing of it is fetched and no banner or loading line
+// shows.
 jest.mock('@/hooks/use-notes', () => ({
   hasDraft: () => false,
+  journalOpen: () => false,
   useNotes: (api: string) => ({
     view: {
       version: 1,
@@ -24,7 +26,10 @@ jest.mock('@/hooks/use-notes', () => ({
       enabled: true,
       connected: true,
       canAdd: true,
+      canReorder: true,
+      orders: true,
       chapters: [],
+      groups: [],
       entries: [],
     },
     state: 'ready',
@@ -32,8 +37,11 @@ jest.mock('@/hooks/use-notes', () => ({
     change: jest.fn(),
     remove: jest.fn(),
     resolve: jest.fn(),
+    reorder: jest.fn(),
+    resolveOrder: jest.fn(),
     preview: jest.fn(),
     setDraft: jest.fn(),
+    setOpen: jest.fn(),
   }),
 }))
 // The 3D dice need WebGL; the sheet rolls without them.
@@ -774,7 +782,7 @@ describe('components/game-table/game-table', () => {
       expect(pane).toHaveClass('lg:flex')
       expect(pane).not.toHaveClass('lg:hidden')
       expect(
-        within(pane).getByRole('region', { name: 'Notes' }),
+        within(pane).getByRole('region', { name: 'Journal' }),
       ).toBeInTheDocument()
       const column = screen.getByRole('region', { name: 'Combat' })
         .parentElement as HTMLElement

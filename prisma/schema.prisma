@@ -228,6 +228,9 @@ model Campaign {
   removalsEnabled  Boolean       @default(false)
   // Whether the module keeps journal notes for the app, from module 0.34.0's hello, with no switch.
   notesEnabled     Boolean       @default(false)
+  // What else the module does with journal notes, from module 0.35.0's hello: 'orders' where it
+  // takes the app's orders of a group's notes. A module before it says nothing, which clears it.
+  noteFeatures     String[]      @default([])
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt   DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,
@@ -435,10 +438,17 @@ model JournalBook {
   // Why Foundry last sent no notes: { reason: 'private' } or { reason: 'tooLarge', bytes, limit }.
   withheld    Json?
   syncedAt    DateTime?
+  // The journal's last change that leaves no note to show it, from module 0.35.0: a note deleted,
+  // or a group's notes put in order, here or in Foundry; by whom, when, and where, 'app' or
+  // 'foundry'. Unset until one is made.
+  changedAt   DateTime?
+  changedBy   String?
+  changedIn   String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   notes       JournalNote[]
   writes      JournalWrite[]
+  orders      JournalOrder[]
 
   @@unique([campaignId, kind, actorId], name: "campaignBook")
   @@map("journal_book")
@@ -471,6 +481,9 @@ model JournalNote {
   // 'app' or 'foundry'.
   modifiedIn    String
   revision      String
+  // Its place in its group as Foundry last sent the journal, from 0 (module 0.35.0): a chapter's
+  // among the chapters, a note's among the notes of its chapter, or of none.
+  place         Int         @default(0)
 
   @@id([bookId, noteId])
   @@map("journal_note")
@@ -525,4 +538,44 @@ model JournalWrite {
   // The seat's limit counts its own changes by when it made them, not when the module answered.
   @@index([requestedById, modifiedAt])
   @@map("journal_write")
+}
+
+// A new order of one group's notes, a chapter's or those in no chapter, made here and waiting for
+// the module to make it in Foundry (module 0.35.0): at most one per group, whoever made it.
+// Nothing about it expires while it waits. Made, it's kept an hour, then deleted.
+model JournalOrder {
+  id            String          @id
+  // Bumped by every change to it; the command's id is `<id>.<seq>`.
+  seq           Int             @default(0)
+  campaignId    String
+  bookId        String
+  book          JournalBook     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  // The group: the chapter's note id, or '' for the notes in no chapter.
+  chapterId     String
+  // The notes' ids in the new order, as the seat who made it saw them.
+  ids           String[]
+  // The group's order in Foundry it was made from, as the mirror held it: the module refuses it
+  // where those notes were reordered there since.
+  was           String[]
+  // Who made it, as a note's change records it.
+  seat          RollRole        @default(player)
+  requestedById String
+  writerActorId String?
+  modifiedAt    DateTime
+  modifiedBy    String
+  status        NoteWriteStatus @default(pending)
+  reason        String?
+  claimToken    String?
+  claimSession  String?
+  claimedAt     DateTime?
+  // When it was last changed: the claim's order. Set again by every fold (round 0.35.0 §4.2),
+  // so the changes of the notes it lists, queued before it, are made first.
+  queuedAt      DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([bookId, chapterId])
+  @@index([campaignId, status, queuedAt])
+  @@index([requestedById, modifiedAt])
+  @@map("journal_order")
 }

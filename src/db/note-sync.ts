@@ -1,6 +1,11 @@
 /* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
 import { randomUUID } from 'node:crypto'
-import { Prisma, type JournalNote } from '@prisma/client'
+import {
+  Prisma,
+  type JournalNote,
+  type JournalOrder,
+  type JournalWrite,
+} from '@prisma/client'
 import prisma from '@/clients/prisma'
 import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
@@ -17,6 +22,11 @@ import type {
 // here, handed to the module to make there. Each change is handed over until a result answers it,
 // as Foundry may be closed for days, and the module makes it at most once in effect. Nothing here
 // decides between a change made here and one made in Foundry: the module does, as it makes each.
+//
+// From module 0.35.0 (round 0.35.0 §7.8-§7.10) the mirror keeps each note's place in its group,
+// as Foundry sends the journal in its page order; an order of a group's notes made here is handed
+// over with the notes' changes, oldest first across both; and the book keeps who last deleted or
+// reordered its pages in Foundry, and when, as the module says.
 
 type Tx = Prisma.TransactionClient
 
@@ -24,7 +34,7 @@ type Tx = Prisma.TransactionClient
 export const MADE_KEPT_FOR = 3_600_000
 
 /** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
-export type NoteCommand = {
+export type NotePageCommand = {
   id: string
   actorId: string
   kind: 'note'
@@ -47,6 +57,26 @@ export type NoteCommand = {
   extras: []
   dice: []
 }
+
+/**
+ * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
+ * ids in the new order, and in Foundry's order it was made from.
+ */
+export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
+  note: {
+    book: NoteBookKind
+    op: 'order'
+    /** The group: a chapter's page, or null for the notes in no chapter. */
+    chapter: string | null
+    ids: string[]
+    was: string[]
+    writer: string | null
+    at: number
+  }
+}
+
+/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
+export type NoteCommand = NotePageCommand | NoteOrderCommand
 
 /**
  * On each hello from module 0.34.0 (§4.6): the books whose journal it no longer lists are emptied,
@@ -96,7 +126,10 @@ function bodyOf(page: JournalPage): string {
 }
 
 /** A journal's note as the mirror keeps it, but for how it's drawn. */
-function fieldsOf(page: JournalPage): Omit<JournalNote, 'bookId' | 'html'> {
+function fieldsOf(
+  page: JournalPage,
+  place: number,
+): Omit<JournalNote, 'bookId' | 'html'> {
   return {
     noteId: page.id,
     role: page.role,
@@ -114,7 +147,26 @@ function fieldsOf(page: JournalPage): Omit<JournalNote, 'bookId' | 'html'> {
     modifiedBy: page.modifiedBy,
     modifiedIn: page.modifiedIn,
     revision: page.rev,
+    place,
   }
+}
+
+/**
+ * Each note's place in its group (round 0.35.0 §2.4), from 0, as Foundry sends the journal in its
+ * page order: a chapter's among the chapters, an entry's among the entries of its chapter, or of
+ * none. So a reorder in Foundry changes the places, and a note added at a group's end no other's.
+ */
+export function placesOf(pages: JournalPage[]): Map<string, number> {
+  const counted = new Map<string, number>()
+  const places = new Map<string, number>()
+  for (const page of pages) {
+    const group =
+      page.role === 'chapter' ? 'chapters' : `entries:${page.chapter ?? ''}`
+    const place = counted.get(group) ?? 0
+    places.set(page.id, place)
+    counted.set(group, place + 1)
+  }
+  return places
 }
 
 /** A journal's note as its book draws it: a personal book keeps its secrets, a party's never. */
@@ -248,6 +300,7 @@ export async function applyJournalUpdated(
       journalId: true,
       journalName: true,
       withheld: true,
+      changedAt: true,
       notes: true,
     },
   })
@@ -273,6 +326,7 @@ export async function applyJournalUpdated(
   const draw = (page: JournalPage) =>
     ahead?.get(page.id) ?? drawn(page, campaign.origin, event.kind)
   const held = new Map(book.notes.map(note => [note.noteId, note]))
+  const places = placesOf(pages)
   const sent = new Set(pages.map(({ id }) => id))
   const gone = book.notes.filter(({ noteId }) => !sent.has(noteId))
   if (gone.length > 0) {
@@ -288,7 +342,7 @@ export async function applyJournalUpdated(
   const made: Prisma.JournalNoteCreateManyInput[] = []
   for (const page of pages) {
     const before = held.get(page.id)
-    const fields = fieldsOf(page)
+    const fields = fieldsOf(page, places.get(page.id) ?? 0)
     if (!before) {
       made.push({ bookId: book.id, ...fields, html: draw(page) })
       continue
@@ -311,6 +365,12 @@ export async function applyJournalUpdated(
     book.journalId !== journalId ||
     book.journalName !== journalName ||
     book.withheld !== null
+  // Who last deleted or reordered its pages in Foundry, from module 0.35.0, where it's later than
+  // the book's last such change: the latest by time wins, so a late post never moves it back.
+  const told = journal?.changed
+  const later =
+    !!told && (!book.changedAt || told.at > book.changedAt.getTime())
+  changed ||= later
   await tx.journalBook.update({
     where: { id: book.id },
     data: {
@@ -318,6 +378,11 @@ export async function applyJournalUpdated(
       journalName,
       withheld: Prisma.DbNull,
       syncedAt: now,
+      ...(later && {
+        changedAt: new Date(told.at),
+        changedBy: told.by,
+        changedIn: 'foundry',
+      }),
       ...(changed && { version: { increment: 1 } }),
     },
   })
@@ -328,12 +393,40 @@ function commandId(write: { id: string; seq: number }): string {
   return `${write.id}.${write.seq}`
 }
 
+/** A change or an order the claim may hand over, oldest first across both. */
+type Due = {
+  table: 'write' | 'order'
+  id: string
+  seq: number
+  queuedAt: Date
+  /** Characters of title and text: an order's are none. */
+  size: number
+}
+
+/** Which table goes first of a change and an order queued at the same time: the change. */
+const TABLE_FIRST = { write: 0, order: 1 } as const
+
+/** Oldest first, a note's change before an order queued at the same time, then by id. */
+function byQueue(
+  a: { table: 'write' | 'order'; id: string; queuedAt: Date },
+  b: { table: 'write' | 'order'; id: string; queuedAt: Date },
+): number {
+  return (
+    a.queuedAt.getTime() - b.queuedAt.getTime() ||
+    TABLE_FIRST[a.table] - TABLE_FIRST[b.table] ||
+    a.id.localeCompare(b.id)
+  )
+}
+
 /**
  * Hand the module the changes waiting for its game (§4.3, §8.9), oldest first: those waiting, and
  * those handed over but unanswered past the time a fetched roll is, which are handed over again
  * under the same command id. Only to the session whose hello the app holds, and only while it takes
  * notes; the Gamemaster's only where they're the campaign's owner. At most a few at once, and so
- * many characters of titles and text, but always one. Made changes past their hour go first.
+ * many characters of titles and text, but always one. Made changes past their hour go first. From
+ * module 0.35.0, where its hello says it takes them, the orders of groups' notes go with the
+ * changes, oldest first across both (round 0.35.0 §7.10), so that a note an order places, made
+ * before the order last changed, reaches Foundry first.
  * @param session - The module session that fetched them.
  */
 export async function claimNoteWrites(
@@ -341,16 +434,21 @@ export async function claimNoteWrites(
   session: string,
 ): Promise<NoteCommand[]> {
   const now = Date.now()
-  await prisma.journalWrite.deleteMany({
-    where: {
-      campaignId,
-      status: 'made',
-      updatedAt: { lt: new Date(now - MADE_KEPT_FOR) },
-    },
-  })
+  const stale = {
+    campaignId,
+    status: 'made' as const,
+    updatedAt: { lt: new Date(now - MADE_KEPT_FOR) },
+  }
+  await prisma.journalWrite.deleteMany({ where: stale })
+  await prisma.journalOrder.deleteMany({ where: stale })
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    select: { helloSession: true, notesEnabled: true, ownerId: true },
+    select: {
+      helloSession: true,
+      notesEnabled: true,
+      noteFeatures: true,
+      ownerId: true,
+    },
   })
   if (
     !campaign ||
@@ -359,7 +457,7 @@ export async function claimNoteWrites(
   ) {
     return []
   }
-  const due: Prisma.JournalWriteWhereInput = {
+  const due: Prisma.JournalWriteWhereInput & Prisma.JournalOrderWhereInput = {
     OR: [
       { status: 'pending' },
       {
@@ -368,7 +466,7 @@ export async function claimNoteWrites(
       },
     ],
   }
-  const whose: Prisma.JournalWriteWhereInput = {
+  const whose: Prisma.JournalWriteWhereInput & Prisma.JournalOrderWhereInput = {
     OR: [
       { seat: 'player' },
       ...(campaign.ownerId
@@ -376,68 +474,169 @@ export async function claimNoteWrites(
         : []),
     ],
   }
-  const found = await prisma.journalWrite.findMany({
-    where: { campaignId, AND: [due, whose] },
-    orderBy: { queuedAt: 'asc' },
-    take: NOTE_CLAIM_LIMIT,
-    select: { id: true, seq: true, title: true, body: true },
-  })
-  const taken: typeof found = []
+  const [found, queued] = await Promise.all([
+    prisma.journalWrite.findMany({
+      where: { campaignId, AND: [due, whose] },
+      orderBy: { queuedAt: 'asc' },
+      take: NOTE_CLAIM_LIMIT,
+      select: { id: true, seq: true, title: true, body: true, queuedAt: true },
+    }),
+    // A module before 0.35.0 refuses an order it can't read: they wait for one that takes them.
+    campaign.noteFeatures.includes('orders')
+      ? prisma.journalOrder.findMany({
+          where: { campaignId, AND: [due, whose] },
+          orderBy: { queuedAt: 'asc' },
+          take: NOTE_CLAIM_LIMIT,
+          select: { id: true, seq: true, queuedAt: true },
+        })
+      : [],
+  ])
+  const waiting: Due[] = [
+    ...found.map(({ id, seq, queuedAt, title, body }) => ({
+      table: 'write' as const,
+      id,
+      seq,
+      queuedAt,
+      size: title.length + body.length,
+    })),
+    ...queued.map(({ id, seq, queuedAt }) => ({
+      table: 'order' as const,
+      id,
+      seq,
+      queuedAt,
+      size: 0,
+    })),
+  ]
+    .toSorted(byQueue)
+    .slice(0, NOTE_CLAIM_LIMIT)
+  const taken: Due[] = []
   let chars = 0
-  for (const write of found) {
-    const size = write.title.length + write.body.length
-    if (taken.length > 0 && chars + size > NOTE_CLAIM_CHARS) break
-    taken.push(write)
-    chars += size
+  for (const next of waiting) {
+    if (taken.length > 0 && chars + next.size > NOTE_CLAIM_CHARS) break
+    taken.push(next)
+    chars += next.size
   }
   if (taken.length === 0) return []
   const claimToken = randomUUID()
-  await prisma.journalWrite.updateMany({
-    where: {
-      OR: taken.map(({ id, seq }) => ({ id, seq })),
-      AND: [due],
+  const claim = {
+    status: 'claimed' as const,
+    claimToken,
+    claimSession: session,
+    claimedAt: new Date(now),
+  }
+  const of = (table: Due['table']) =>
+    taken
+      .filter(next => next.table === table)
+      .map(({ id, seq }) => ({ id, seq }))
+  const writes = of('write')
+  const orders = of('order')
+  if (writes.length > 0) {
+    await prisma.journalWrite.updateMany({
+      where: { OR: writes, AND: [due] },
+      data: claim,
+    })
+  }
+  if (orders.length > 0) {
+    await prisma.journalOrder.updateMany({
+      where: { OR: orders, AND: [due] },
+      data: claim,
+    })
+  }
+  const book = { book: { select: { kind: true, actorId: true } } }
+  const [claimedWrites, claimedOrders] = await Promise.all([
+    writes.length > 0
+      ? prisma.journalWrite.findMany({
+          where: { claimToken },
+          orderBy: { queuedAt: 'asc' },
+          include: book,
+        })
+      : [],
+    orders.length > 0
+      ? prisma.journalOrder.findMany({
+          where: { claimToken },
+          orderBy: { queuedAt: 'asc' },
+          include: book,
+        })
+      : [],
+  ])
+  return [
+    ...claimedWrites.map(write => ({
+      table: 'write' as const,
+      id: write.id,
+      queuedAt: write.queuedAt,
+      command: pageCommand(write),
+    })),
+    ...claimedOrders.map(order => ({
+      table: 'order' as const,
+      id: order.id,
+      queuedAt: order.queuedAt,
+      command: orderCommand(order),
+    })),
+  ]
+    .toSorted(byQueue)
+    .map(({ command }) => command)
+}
+
+/** A change to one page as the module's note command (round 0.34.0 §3.4). */
+function pageCommand(
+  write: JournalWrite & { book: { kind: NoteBookKind; actorId: string } },
+): NotePageCommand {
+  const entry = write.role === 'entry'
+  const { writer, gm } = handedAs(write)
+  return {
+    id: commandId(write),
+    actorId: write.book.actorId,
+    kind: 'note',
+    ...(gm && { by: 'gm' as const }),
+    note: {
+      book: write.book.kind,
+      op: write.op,
+      id: write.noteId,
+      role: write.role,
+      base: write.op === 'create' ? null : write.base,
+      writer,
+      at: write.modifiedAt.getTime(),
+      ...(write.op !== 'delete' && { title: write.title }),
+      ...(write.op !== 'delete' &&
+        entry && { markdown: write.body, chapter: write.chapterId }),
+      ...(write.op === 'create' && {
+        createdAt: write.noteCreatedAt.getTime(),
+      }),
     },
-    data: {
-      status: 'claimed',
-      claimToken,
-      claimSession: session,
-      claimedAt: new Date(now),
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+  }
+}
+
+/**
+ * An order of a group's notes as the module's note command (round 0.35.0 §3.4): as whoever last
+ * made it, exactly its fields, and nothing a roll names.
+ */
+function orderCommand(
+  order: JournalOrder & { book: { kind: NoteBookKind; actorId: string } },
+): NoteOrderCommand {
+  const gm = order.seat === 'gm'
+  return {
+    id: commandId(order),
+    actorId: order.book.actorId,
+    kind: 'note',
+    ...(gm && { by: 'gm' as const }),
+    note: {
+      book: order.book.kind,
+      op: 'order',
+      chapter: order.chapterId || null,
+      ids: order.ids,
+      was: order.was,
+      writer: gm ? null : order.writerActorId,
+      at: order.modifiedAt.getTime(),
     },
-  })
-  const claimed = await prisma.journalWrite.findMany({
-    where: { claimToken },
-    orderBy: { queuedAt: 'asc' },
-    include: { book: { select: { kind: true, actorId: true } } },
-  })
-  return claimed.map(write => {
-    const entry = write.role === 'entry'
-    const { writer, gm } = handedAs(write)
-    return {
-      id: commandId(write),
-      actorId: write.book.actorId,
-      kind: 'note',
-      ...(gm && { by: 'gm' as const }),
-      note: {
-        book: write.book.kind,
-        op: write.op,
-        id: write.noteId,
-        role: write.role,
-        base: write.op === 'create' ? null : write.base,
-        writer,
-        at: write.modifiedAt.getTime(),
-        ...(write.op !== 'delete' && { title: write.title }),
-        ...(write.op !== 'delete' &&
-          entry && { markdown: write.body, chapter: write.chapterId }),
-        ...(write.op === 'create' && {
-          createdAt: write.noteCreatedAt.getTime(),
-        }),
-      },
-      mode: 0,
-      explicit: false,
-      extras: [],
-      dice: [],
-    }
-  })
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+  }
 }
 
 /**
@@ -536,7 +735,11 @@ export async function recordNoteResult(
           ? { status, reason }
           : { status, reason, foundryRev: result.note?.rev ?? null },
     })
-    if (count === 0) return
+    // No change of that id and number on its way: from module 0.35.0, an order's, perhaps.
+    if (count === 0) {
+      await recordOrderResult(tx, campaignId, id, seq, result)
+      return
+    }
     const write = await tx.journalWrite.findUnique({ where: { id } })
     if (!write) return
     if (status === 'made') {
@@ -548,9 +751,13 @@ export async function recordNoteResult(
         const rev = result.note.rev
         const held = await tx.journalNote.findUnique({
           where: noteKey(write.bookId, write.noteId),
-          select: { revision: true },
+          select: { revision: true, chapterId: true },
         })
         if (held?.revision !== rev) {
+          // A note new to its group lands last in it, as the module makes it (round 0.35.0
+          // §2.3); one that stays keeps its place. The next book sets each right.
+          const comes = !held || held.chapterId !== write.chapterId
+          const place = comes ? await lastPlace(tx, write) : undefined
           const mirror = {
             role: write.role,
             chapterId: write.chapterId,
@@ -568,6 +775,7 @@ export async function recordNoteResult(
             modifiedBy: write.modifiedBy,
             modifiedIn: 'app',
             revision: rev,
+            ...(place !== undefined && { place }),
           }
           await tx.journalNote.upsert({
             where: noteKey(write.bookId, write.noteId),
@@ -585,4 +793,102 @@ export async function recordNoteResult(
       data: { version: { increment: 1 } },
     })
   })
+}
+
+/** The place after the last of a note's group in the mirror, itself left out. */
+async function lastPlace(
+  tx: Tx,
+  write: Pick<JournalWrite, 'bookId' | 'noteId' | 'role' | 'chapterId'>,
+): Promise<number> {
+  const { _max: last } = await tx.journalNote.aggregate({
+    where: {
+      bookId: write.bookId,
+      role: write.role,
+      chapterId: write.role === 'entry' ? write.chapterId : null,
+      noteId: { not: write.noteId },
+    },
+    _max: { place: true },
+  })
+  return (last.place ?? -1) + 1
+}
+
+/**
+ * What became of an order of a group's notes (round 0.35.0 §7.10): only for the order handed over
+ * under that id and number, still on its way, so a late result for an earlier hand-over changes
+ * nothing. Made, it's kept an hour as made, and where the module's post of the book was lost, the
+ * mirror's places follow the group's order the result says. Refused because the same notes were
+ * reordered in Foundry, it waits for its seat to choose; refused because its chapter is gone, it's
+ * dropped, its notes now in none; refused otherwise, it's failed.
+ */
+async function recordOrderResult(
+  tx: Tx,
+  campaignId: string,
+  id: string,
+  seq: number,
+  result: CommandResult,
+): Promise<void> {
+  const order = await tx.journalOrder.findUnique({
+    where: { id },
+    select: { bookId: true, chapterId: true },
+  })
+  if (!order) return
+  const where = { id, seq, campaignId, status: 'claimed' as const }
+  const reason = result.reason ?? 'error'
+  const { count } =
+    result.status === 'failed' && reason === 'gone'
+      ? await tx.journalOrder.deleteMany({ where })
+      : await tx.journalOrder.updateMany({ where, data: orderOutcome(result) })
+  if (count === 0) return
+  if (result.status === 'done' && result.order) {
+    await placeAsOrdered(tx, order, result.order.ids)
+  }
+  await tx.journalBook.update({
+    where: { id: order.bookId },
+    data: { version: { increment: 1 } },
+  })
+}
+
+/** Where an order stands once the module answered it, but for a chapter gone. */
+function orderOutcome(result: CommandResult): {
+  status: 'made' | 'conflict' | 'failed'
+  reason: string | null
+} {
+  if (result.status === 'done') return { status: 'made', reason: null }
+  const reason = result.reason ?? 'error'
+  if (reason === 'changed') return { status: 'conflict', reason }
+  return {
+    status: 'failed',
+    reason: KEPT_REASONS.has(reason) ? reason : 'error',
+  }
+}
+
+/**
+ * The mirror's places of a group as an order made them, where the book's post was lost: the notes
+ * it names that the mirror holds in that group, 0, 1, 2… in its order, only those that move
+ * written. Where the book came first, as it does, nothing moves.
+ */
+async function placeAsOrdered(
+  tx: Tx,
+  order: { bookId: string; chapterId: string },
+  ids: string[],
+): Promise<void> {
+  const notes = await tx.journalNote.findMany({
+    where: { bookId: order.bookId, noteId: { in: ids } },
+    select: { noteId: true, role: true, chapterId: true, place: true },
+  })
+  const held = new Map(notes.map(note => [note.noteId, note]))
+  let place = 0
+  for (const id of ids) {
+    const note = held.get(id)
+    if (note?.role !== 'entry' || (note.chapterId ?? '') !== order.chapterId) {
+      continue
+    }
+    if (note.place !== place) {
+      await tx.journalNote.update({
+        where: noteKey(order.bookId, id),
+        data: { place },
+      })
+    }
+    place += 1
+  }
 }

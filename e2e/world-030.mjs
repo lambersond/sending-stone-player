@@ -27,6 +27,9 @@
 // `duplicateInFoundry`, `deleteInFoundry`); the Gamemaster gone and back (`gmAway`, `gmBack`); the
 // module's fetches for commands held, as with Foundry closed (`stopFetching`, `startFetching`); the
 // Foundry page reloaded, its module afresh (`reloadFoundry`); and what was posted (`lastHello`, `books`).
+// Since module 0.35.0 (its contract §13.1): SKEW=034 is module 0.34.0; pages reordered in Foundry as
+// a user there (`dragInFoundry`); and the notes format the module keeps from the app's answers
+// (`notesFormat`).
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -50,6 +53,8 @@ export const SKEW031 = process.env.SKEW === '031'
 export const SKEW032 = process.env.SKEW === '032'
 /** Module 0.33.0, from before 0.34.0, against this round's app: no journal notes. */
 export const SKEW033 = process.env.SKEW === '033'
+/** Module 0.34.0, from before 0.35.0, against this round's app: no orders, nor who changed a journal. */
+export const SKEW034 = process.env.SKEW === '034'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -60,7 +65,7 @@ if (SHOTS_031) mkdirSync(SHOTS_031, { recursive: true })
 /** Module 0.33.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_033 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-033`
 if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -882,6 +887,24 @@ export function deleteInFoundry(userId, target, book) {
   }
   if (target?.documentName === 'JournalEntry') return J.deleteJournal(userId, target)
   return J.deletePage(userId, pageOf(target))
+}
+/**
+ * Pages reordered in Foundry by a user there, as a drag in its sidebar does (module 0.35.0): the
+ * listed pages, by themselves or their ids, take in that order the sorts of the places they hold
+ * now, in one write. Their journal is the first page's.
+ */
+export function dragInFoundry(userId, list) {
+  const listed = list.map(pageOf)
+  return J.dragPages(userId, listed[0].parent, listed.map(page => page.id))
+}
+/**
+ * The notes format the running module keeps for one of its campaigns (its id there), from the app's
+ * answers: 2 where the app reads who changed a journal (module 0.35.0); null for a module that keeps
+ * none (0.34.0 keeps only whether it reads notes).
+ */
+export async function notesFormat(campaignId, module = MODULE) {
+  const journals = await import(`${module}/scripts/journals.mjs`)
+  return (typeof journals.notesFormat === 'function') ? journals.notesFormat(campaignId) : null
 }
 /** The Gamemaster leaves Foundry, so nothing is sent or fetched; and comes back, the bridge again, with a hello. */
 export const gmAway = () => J.bridgeOff()

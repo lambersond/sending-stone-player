@@ -18,8 +18,9 @@ import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
 import type { TableView } from '@/types/table'
 
-// The character's own journal notes at its table (module 0.34.0): on the sheet's Biography tab,
-// or under why there's no sheet, and polled only while in view.
+// The character's own journal at its table: its card (module 0.35.0) on the sheet's Biography tab,
+// or under why there's no sheet, polled only while in view or open; the journal it opens kept open
+// as the sheet arrives or is held back.
 
 jest.mock('@/hooks/use-table-view', () => ({
   ...jest.requireActual('@/hooks/use-table-view'),
@@ -142,7 +143,16 @@ const reads = (api = API) =>
         (!init?.method || init.method === 'GET'),
     )
 
-const notesRegion = () => screen.getByRole('region', { name: 'Notes' })
+const notesRegion = () => screen.getByRole('region', { name: 'Journal' })
+/** The journal, opened from its card. */
+const openJournal = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(
+    await within(notesRegion()).findByRole('button', {
+      name: 'Open My Journal',
+    }),
+  )
+  return screen.findByRole('dialog', { name: 'My Journal' })
+}
 /** Does b come after a in the page? */
 const follows = (a: Node, b: Node) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -187,11 +197,11 @@ describe('components/game-table, notes', () => {
       'Only Thorin’s player and you see these.',
     ],
   ])(
-    'gives the sheet’s Biography tab the notes through the seat’s API, for %s',
+    'gives the sheet’s Biography tab the journal’s card through the seat’s API, for %s',
     async (_, seat, api, words) => {
       const user = userEvent.setup()
       renderTable(view(), { seat })
-      expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+      expect(screen.queryByRole('region', { name: 'Journal' })).toBeNull()
       await user.click(screen.getByRole('tab', { name: 'Biography' }))
 
       expect(await within(notesRegion()).findByText(words)).toBeInTheDocument()
@@ -207,7 +217,7 @@ describe('components/game-table, notes', () => {
       "Thorin's sheet is too large to send",
     ],
   ])(
-    'shows the notes under why there’s no sheet, %s, after the party list',
+    'shows the journal’s card under why there’s no sheet, %s, after the party list',
     async (_, sheet, title) => {
       renderTable(view(sheet, [company]))
       const why = screen.getByRole('heading', { name: title })
@@ -216,8 +226,9 @@ describe('components/game-table, notes', () => {
       expect(follows(why, parties)).toBe(true)
       expect(follows(parties, notes)).toBe(true)
       expect(notes.parentElement).toHaveClass('max-w-2xl', 'px-4', 'pb-8')
+      expect(await within(notes).findByText('No notes yet')).toBeInTheDocument()
       expect(
-        await within(notes).findByRole('button', { name: 'New note' }),
+        within(notes).getByRole('button', { name: 'Open My Journal' }),
       ).toBeInTheDocument()
     },
   )
@@ -242,7 +253,7 @@ describe('components/game-table, notes', () => {
     expect(
       screen.getByRole('heading', { name: "Thorin's sheet hasn't arrived" }),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Journal' })).toBeNull()
     expect(reads()).toEqual([])
   })
 
@@ -354,11 +365,12 @@ describe('components/game-table, notes', () => {
     })
   })
 
-  it('keeps a note half written under why there’s no sheet as the sheet arrives, and as it’s held back again, the caret where it was', async () => {
+  it('keeps the journal open with a note half written under why there’s no sheet as the sheet arrives, and as it’s held back again, the caret where it was', async () => {
     const user = userEvent.setup()
     const { showing } = renderTable(view('none'))
+    const dialog = await openJournal(user)
     await user.click(
-      await within(notesRegion()).findByRole('button', { name: 'New note' }),
+      await within(dialog).findByRole('button', { name: 'New note' }),
     )
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
     const typed = noteField()
@@ -368,11 +380,19 @@ describe('components/game-table, notes', () => {
 
     showing(view())
 
-    // The sheet opens on Biography, where the note is.
+    // The sheet opens on Biography, where the journal's card is, the journal open again.
     expect(screen.getByRole('tab', { name: 'Biography' })).toHaveAttribute(
       'aria-selected',
       'true',
     )
+    const reopened = await screen.findByRole('dialog', { name: 'My Journal' })
+    expect(
+      within(document.querySelector('#sheet-panel') as HTMLElement).getByRole(
+        'region',
+        { name: 'Journal' },
+      ),
+    ).toContainElement(reopened)
+    await waitFor(() => expect(noteField()).toHaveFocus())
     const note = noteField()
     expect(note).not.toBe(typed)
     expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
@@ -390,6 +410,8 @@ describe('components/game-table, notes', () => {
         name: "Thorin's sheet is too large to send",
       }),
     ).toBeInTheDocument()
+    await screen.findByRole('dialog', { name: 'My Journal' })
+    await waitFor(() => expect(noteField()).toHaveFocus())
     const again = noteField()
     expect(again).toHaveValue('Three ! them.')
     expect(again).toHaveFocus()
@@ -400,14 +422,17 @@ describe('components/game-table, notes', () => {
   it('saves a note under why there’s no sheet', async () => {
     const user = userEvent.setup()
     renderTable(view('tooLarge'))
+    const dialog = await openJournal(user)
     await user.click(
-      await within(notesRegion()).findByRole('button', { name: 'New note' }),
+      await within(dialog).findByRole('button', { name: 'New note' }),
     )
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
-      expect(within(notesRegion()).getByText('Saved.')).toBeInTheDocument(),
+      expect(within(dialog).getByText('Saved.')).toBeInTheDocument(),
     )
+    // The table's one status is still the live state.
+    expect(screen.getByRole('status')).toHaveTextContent('Live')
     expect(server.sent).toEqual([
       {
         url: `${API}/notes`,

@@ -8,7 +8,7 @@ import { fullerSheet } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 
-// The character's own journal notes on the sheet's Biography tab (module 0.34.0).
+// The character's own journal on the sheet's Biography tab: its card (module 0.35.0).
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock('@lambersond/3d-dice-react', () => ({
@@ -51,13 +51,13 @@ describe('components/character-sheet/character-pane, notes', () => {
     act(() => forgetNotes())
   })
 
-  it('shows the notes on the Biography tab, and on no other', async () => {
+  it('shows the journal’s card on the Biography tab, and on no other', async () => {
     const user = userEvent.setup()
     render(pane())
 
     for (const tab of tabs().getAllByRole('tab')) {
       await user.click(tab)
-      const shown = screen.queryByRole('region', { name: 'Notes' })
+      const shown = screen.queryByRole('region', { name: 'Journal' })
       if (tab.textContent === 'Biography') {
         expect(shown).toBeInTheDocument()
         expect(screen.getByRole('tabpanel')).toContainElement(shown)
@@ -88,29 +88,37 @@ describe('components/character-sheet/character-pane, notes', () => {
     const user = userEvent.setup()
     render(pane(false))
     await user.click(tabs().getByRole('tab', { name: 'Biography' }))
-    expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Journal' })).toBeNull()
     expect(fetch).not.toHaveBeenCalledWith(
       expect.stringContaining('/notes'),
       expect.anything(),
     )
   })
 
-  it('keeps an open editor’s text across another tab and back', async () => {
+  it('keeps an editor’s text, the journal closed, across another tab and back', async () => {
     const user = userEvent.setup()
     render(pane())
     await user.click(tabs().getByRole('tab', { name: 'Biography' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Open My Journal' }),
+    )
     await user.click(await screen.findByRole('button', { name: 'New note' }))
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
     await user.type(
       screen.getByRole('textbox', { name: 'Note' }),
       'Three of them.',
     )
+    await user.click(screen.getByRole('button', { name: 'Close' }))
 
     await user.click(tabs().getByRole('tab', { name: 'Inventory' }))
     expect(screen.queryByRole('form')).toBeNull()
     await user.click(tabs().getByRole('tab', { name: 'Biography' }))
+    expect(screen.getByText('Unsaved: Wolves')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open My Journal' }))
 
-    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue(
+      'Wolves',
+    )
     expect(screen.getByRole('textbox', { name: 'Note' })).toHaveValue(
       'Three of them.',
     )
@@ -144,8 +152,23 @@ describe('components/character-sheet/character-pane, notes', () => {
       'aria-selected',
       'true',
     )
-    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue(
-      'Wolves',
+    // The journal never opens by itself: the draft waits on the card.
+    expect(await screen.findByText('Unsaved: Wolves')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens on Biography where the journal is open, as under why there was no sheet, the journal open there', async () => {
+    const { result } = renderHook(() => useNotes(API, { active: false }))
+    act(() => result.current.setOpen(true))
+    expect(hasDraft(API)).toBe(false)
+
+    render(pane())
+    expect(tabs().getByRole('tab', { name: 'Biography' })).toHaveAttribute(
+      'aria-selected',
+      'true',
     )
+    expect(
+      await screen.findByRole('dialog', { name: 'My Journal' }),
+    ).toBeInTheDocument()
   })
 })

@@ -233,9 +233,10 @@ export const REMOVALS = 1
 /**
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
  * the `note` command, `journal.updated` and the hello's `features.notes`. The module fetches for
- * them, and sends journals, only then.
+ * them, and sends journals, only then. From module 0.35.0, 2: it reads who changed a journal in
+ * Foundry, `journal.changed`, and sends orders of a group's notes, `op: "order"`.
  */
-export const NOTES = 1
+export const NOTES = 2
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

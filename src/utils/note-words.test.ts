@@ -1,5 +1,8 @@
 /* eslint-disable unicorn/no-null -- a book with no journal in Foundry has null for it */
 import {
+  choicesWords,
+  journalCounts,
+  journalTitle,
   noteChoiceRefusalWords,
   noteReasonWords,
   noteRefusalWords,
@@ -7,6 +10,7 @@ import {
   noteStateWords,
   savedWords,
   whoSeesNotes,
+  whoSeesShort,
 } from './note-words'
 import { mockNotesView } from '@/mocks/sending-stone'
 import type { NoteReason, NoteRefusal, NoteState } from '@/types/notes'
@@ -230,6 +234,85 @@ describe('utils/note-words', () => {
     ).toBe(
       'No player can see The Iron Company in Foundry, so its notes aren’t shared.',
     )
+  })
+
+  describe('an order kept for a module that takes notes but not orders (module 0.35.0)', () => {
+    const waiting = {
+      orders: false,
+      groups: [{ chapterId: null, state: 'waiting' as const, stamp: 'g:1' }],
+    }
+
+    it('says so, after the banners for a character gone and a module too old to take notes, before the rest', () => {
+      const words = { role: 'player' as const, name: 'Thorin' }
+      const kept =
+        'The new order is kept here for now. It reaches Foundry once your Gamemaster’s game connects with Sending Stone 0.35.0 or later.'
+      expect(
+        notesBanner(
+          mockNotesView({ ...waiting, withheld: { reason: 'tooLarge' } }),
+          words,
+        ),
+      ).toBe(kept)
+      expect(
+        notesBanner(
+          mockNotesView({ ...waiting, withheld: { reason: 'private' } }),
+          words,
+        ),
+      ).toBe(kept)
+      expect(
+        notesBanner(mockNotesView({ ...waiting, enabled: false }), words),
+      ).toMatch(/^Notes are kept here for now/)
+      expect(
+        notesBanner(mockNotesView({ ...waiting, connected: false }), words),
+      ).toMatch(/is no longer one of the campaign’s characters/)
+      expect(
+        notesBanner(mockNotesView(waiting), { role: 'gm', name: 'Thorin' }),
+      ).toBe(
+        'The new order is kept here for now. It reaches Foundry once your game connects with Sending Stone 0.35.0 or later.',
+      )
+    })
+
+    it('says nothing of orders for a module that takes them, or with none waiting', () => {
+      const words = { role: 'player' as const, name: 'Thorin' }
+      expect(
+        notesBanner(mockNotesView({ ...waiting, orders: true }), words),
+      ).toBeUndefined()
+      expect(
+        notesBanner(
+          mockNotesView({
+            orders: false,
+            groups: [{ chapterId: null, state: 'saving', stamp: 'g:1' }],
+          }),
+          words,
+        ),
+      ).toBeUndefined()
+    })
+  })
+
+  it.each([
+    ['personal', 'player', 'My Journal', 'You and your Gamemaster'],
+    ['personal', 'gm', 'Thorin’s Journal', 'Thorin’s player and you'],
+    ['party', 'player', 'Thorin’s Journal', 'Everyone in Thorin'],
+    ['party', 'gm', 'Thorin’s Journal', 'Everyone in Thorin'],
+  ] as const)(
+    'names a %s journal for a %s, and who sees it in short',
+    (kind, role, title, who) => {
+      expect(journalTitle({ kind, role, name: 'Thorin' })).toBe(title)
+      expect(whoSeesShort({ kind, role, name: 'Thorin' })).toBe(who)
+    },
+  )
+
+  it.each([
+    [0, 0, 'No notes yet'],
+    [0, 3, '0 chapters · 3 notes'],
+    [1, 1, '1 chapter · 1 note'],
+    [2, 0, '2 chapters · 0 notes'],
+  ])('counts %i chapters and %i notes', (chapters, notes, words) => {
+    expect(journalCounts(chapters, notes)).toBe(words)
+  })
+
+  it('counts what waits on a choice', () => {
+    expect(choicesWords(1)).toBe('1 needs a choice')
+    expect(choicesWords(3)).toBe('3 need a choice')
   })
 
   it('says a note is saved, and when it reaches Foundry while the game is closed', () => {

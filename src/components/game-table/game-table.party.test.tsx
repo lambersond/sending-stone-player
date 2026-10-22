@@ -17,10 +17,12 @@ import type { TableView } from '@/types/table'
 // side panel over the sheet, through the seat's own way in.
 
 jest.mock('@/hooks/use-table-view', () => ({ useTableView: jest.fn() }))
-// The Notes section (module 0.34.0), now under why there's no sheet too, is tested beside it: here
-// its book is an empty one, ready, so nothing of it is fetched and no banner or loading line shows.
+// The Journal card (module 0.35.0), under why there's no sheet too, is tested beside it: here its
+// book is an empty one, ready and closed, so nothing of it is fetched and no banner or loading line
+// shows.
 jest.mock('@/hooks/use-notes', () => ({
   hasDraft: () => false,
+  journalOpen: () => false,
   useNotes: (api: string) => ({
     view: {
       version: 1,
@@ -31,7 +33,10 @@ jest.mock('@/hooks/use-notes', () => ({
       enabled: true,
       connected: true,
       canAdd: true,
+      canReorder: true,
+      orders: true,
       chapters: [],
+      groups: [],
       entries: [],
     },
     state: 'ready',
@@ -39,8 +44,11 @@ jest.mock('@/hooks/use-notes', () => ({
     change: jest.fn(),
     remove: jest.fn(),
     resolve: jest.fn(),
+    reorder: jest.fn(),
+    resolveOrder: jest.fn(),
     preview: jest.fn(),
     setDraft: jest.fn(),
+    setOpen: jest.fn(),
   }),
 }))
 jest.mock('next/navigation', () => ({
@@ -438,7 +446,7 @@ describe('components/game-table, the party list where there’s no sheet (PR #44
     expect(column()).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
     expect(screen.queryByRole('region', { name: /^Part(y|ies)$/ })).toBeNull()
     expect(
-      within(pane()).getByRole('region', { name: 'Notes' }),
+      within(pane()).getByRole('region', { name: 'Journal' }),
     ).toBeInTheDocument()
   })
 

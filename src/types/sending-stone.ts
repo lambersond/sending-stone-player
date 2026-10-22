@@ -1246,6 +1246,12 @@ export type BridgeFeatures = {
     kinds: string[]
     reason: string | null
     journals: { kind: NoteBookKind; actorId: string }[]
+    /**
+     * Module 0.35.0: it takes orders of a group's notes, and says who changed a journal in
+     * Foundry.
+     */
+    orders?: boolean
+    changes?: boolean
   } | null
 }
 
@@ -1257,7 +1263,16 @@ export type JournalUpdated = {
   kind: NoteBookKind
   /** The character's actor, or the party's Group actor. */
   actorId: string
-  journal: { id: string; name: string; notes: JournalPage[] } | null
+  journal: {
+    id: string
+    name: string
+    notes: JournalPage[]
+    /**
+     * Who last deleted or reordered a page in Foundry, and when, module 0.35.0, to an app that
+     * answers `notes: 2`.
+     */
+    changed?: { what: 'delete' | 'order'; by: string; at: number }
+  } | null
   withheld?:
     { reason: 'private' } | { reason: 'tooLarge'; bytes: number; limit: number }
 }
@@ -1396,6 +1411,11 @@ export type CommandResult = {
    * or where the page is hidden from the app. Module 0.34.0.
    */
   note?: { id: string; rev: string | null; deleted?: true }
+  /**
+   * For an order of a group's notes, the group's order in Foundry after it, or on a refusal its
+   * order then, by the notes' ids alone. Module 0.35.0.
+   */
+  order?: { chapter: string | null; ids: string[] }
 }
 
 /**
