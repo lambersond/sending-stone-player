@@ -113,6 +113,19 @@ describe('lib/note-html', () => {
       expect(drawn).toContain('rope')
     })
 
+    it('draws ~~strike~~ as Foundry renders it, struck through', () => {
+      expect(noteHtml({ format: 2, body: 'a ~~strike~~ b' }, GAME, true)).toBe(
+        '<p>a <s>strike</s> b</p>',
+      )
+      expect(
+        noteHtml(
+          { format: 1, body: '<p><del>x</del> <strike>y</strike></p>' },
+          GAME,
+          false,
+        ),
+      ).toBe('<p><s>x</s> <s>y</s></p>')
+    })
+
     it('draws Foundry’s HTML with its links as their labels', () => {
       expect(
         noteHtml(

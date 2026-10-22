@@ -38,6 +38,12 @@ export type NoteDraft = {
    * Where focus was, inside the editor, as it unmounted: put back once it's mounted again (§9.6).
    */
   focus?: { field: 'chapter' | 'title' | 'body'; start?: number; end?: number }
+  /**
+   * Sent, and not yet answered: its fields hold still and Cancel waits till then, so what's kept is
+   * what was typed. Kept here rather than in the editor, so an editor mounted again meanwhile, as
+   * when another tab is chosen and this one again, can't send it a second time.
+   */
+  saving?: true
 }
 
 /**
@@ -196,6 +202,40 @@ async function answerOf(response: Response): Promise<NoteWriteAnswer> {
     ...(typeof body.field === 'string' && { field: body.field }),
     ...(lines && { lines }),
   }
+}
+
+/** The ids of a book's notes and chapters, as a view holds them. */
+function idsOf(view: NotesView | undefined): Set<string> {
+  return new Set([
+    ...(view?.chapters ?? []).map(({ id }) => id),
+    ...(view?.entries ?? []).map(({ id }) => id),
+  ])
+}
+
+/**
+ * The note or chapter a create made, where its answer was lost: one in the book now that wasn't
+ * as it was sent, that the seat may change, holding just what was sent.
+ */
+function madeFrom(
+  view: NotesView | undefined,
+  input: NoteInput,
+  before: Set<string>,
+): { id: string; stamp: string } | undefined {
+  const title = input.title.trim()
+  if (input.role === 'chapter') {
+    return view?.chapters.find(
+      chapter =>
+        !before.has(chapter.id) && chapter.canRename && chapter.title === title,
+    )
+  }
+  return view?.entries.find(
+    entry =>
+      !before.has(entry.id) &&
+      entry.canEdit &&
+      entry.title === title &&
+      entry.body === (input.body ?? '') &&
+      (entry.chapterId ?? undefined) === (input.chapterId ?? undefined),
+  )
 }
 
 /**
@@ -359,7 +399,10 @@ export function useNotes(
         })
         answer = await answerOf(response)
       } catch {
-        return { ok: false, reason: 'network' }
+        answer = { ok: false, reason: 'network' }
+        // A change or a delete is kept as it was sent or not at all, so it's simply sent again. A
+        // create answered by nothing may have made its note all the same, which only a read tells.
+        if (method !== 'POST') return answer
       }
       // Kept or refused, the book is read again at once, so the list shows what's there now.
       await refresh.current?.()
@@ -369,8 +412,17 @@ export function useNotes(
   )
 
   const create = useCallback(
-    (input: NoteInput) => write('', 'POST', input),
-    [write],
+    async (input: NoteInput): Promise<NoteWriteAnswer> => {
+      const before = idsOf(books.get(api)?.view)
+      const answer = await write('', 'POST', input)
+      if (answer.ok || answer.reason !== 'network') return answer
+      // Its answer lost on the way back, it may have been kept all the same, and as the server
+      // names a note itself, sending it again would make a second. The book has been read again
+      // since: one there now that wasn't as it was sent, just as it was sent, is this one.
+      const made = madeFrom(books.get(api)?.view, input, before)
+      return made ? { ok: true, id: made.id, stamp: made.stamp } : answer
+    },
+    [api, write],
   )
   const change = useCallback(
     (id: string, made: NoteChange) =>

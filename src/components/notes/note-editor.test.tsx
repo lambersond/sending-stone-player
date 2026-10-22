@@ -13,6 +13,7 @@ import { headingHint, NoteEditor } from './note-editor'
 import { NotesSection } from './notes-section'
 import {
   forgetNotes,
+  hasDraft,
   type DraftChange,
   type NoteDraft,
 } from '@/hooks/use-notes'
@@ -23,6 +24,7 @@ import {
   noteEntry,
   serveNotes,
 } from '@/mocks/notes-server'
+import { bigHeadings } from '@/utils/note-headings'
 import type { NoteChapterView, NoteWriteAnswer } from '@/types/notes'
 
 const API = '/api/characters/char-1'
@@ -88,6 +90,8 @@ const title = () =>
 const body = () =>
   screen.getByRole('textbox', { name: 'Note' }) as HTMLTextAreaElement
 const save = () => screen.getByRole('button', { name: 'Save' })
+const cancelButton = () => screen.getByRole('button', { name: 'Cancel' })
+const chapterField = () => screen.getByRole('combobox', { name: 'Chapter' })
 
 describe('components/notes/note-editor', () => {
   beforeEach(() => {
@@ -190,10 +194,16 @@ describe('components/notes/note-editor', () => {
       )
     })
 
-    it('words an under-ruled heading by its rule', () => {
-      expect(headingHint('Title\n-', [1])).toBe(
-        'Line 2 is under-ruled with = or -, which makes the line above it a heading. Leave a blank line between them.',
-      )
+    it('names an under-ruled heading by its own line, as the scanner and a refusal number it', () => {
+      for (const [text, line] of [
+        ['Title\n-', 1],
+        ['one\ntwo\n=', 2],
+      ] as const) {
+        expect(bigHeadings(text)).toEqual([line])
+        expect(headingHint(text, bigHeadings(text))).toBe(
+          `Line ${line} has = or - on the line below it, which makes it a heading. Leave a blank line between them.`,
+        )
+      }
       expect(headingHint('> ## quoted', [1])).toMatch(/^Line 1 is a # or ##/)
       expect(headingHint('- # in a list', [1])).toMatch(/^Line 1 is a # or ##/)
       expect(headingHint('', [])).toBe('')
@@ -276,6 +286,45 @@ describe('components/notes/note-editor', () => {
       )
       await act(async () => answer?.({ ok: true }))
       expect(save()).toBeEnabled()
+    })
+
+    it('holds its fields still, with Cancel off, till what was sent is answered, the mark in the draft', async () => {
+      const user = userEvent.setup()
+      let answer: ((answered: NoteWriteAnswer) => void) | undefined
+      const onSave = jest.fn(
+        () =>
+          new Promise<NoteWriteAnswer>(resolve => {
+            answer = resolve
+          }),
+      )
+      render(
+        <Harness
+          initial={draftOf({ title: 'Wolves', body: 'Three.' })}
+          chapters={[noteChapter()]}
+          onSave={onSave}
+        />,
+      )
+      await user.click(save())
+      expect(held?.saving).toBe(true)
+      expect(title()).toHaveAttribute('readonly')
+      expect(body()).toHaveAttribute('readonly')
+      expect(chapterField()).toBeDisabled()
+      expect(cancelButton()).toBeDisabled()
+      await user.type(body(), ' And a fourth.')
+      expect(body()).toHaveValue('Three.')
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'Three.' }),
+      )
+
+      // Refused, it's open again with the text as it was sent.
+      await act(async () => answer?.({ ok: false, reason: 'busy' }))
+      expect(held?.saving).toBeUndefined()
+      expect(title()).not.toHaveAttribute('readonly')
+      expect(body()).not.toHaveAttribute('readonly')
+      expect(chapterField()).toBeEnabled()
+      expect(cancelButton()).toBeEnabled()
+      await user.type(body(), ' And a fourth.')
+      expect(body()).toHaveValue('Three. And a fourth.')
     })
 
     it('keeps the editor open with the text as typed where it’s refused, saying why', async () => {
@@ -619,6 +668,50 @@ const rowOf = (name: string) =>
   screen.getByText(name, { selector: 'h4' }).closest('details') as HTMLElement
 const notesHeading = () =>
   screen.getByRole('heading', { level: 2, name: 'Notes' })
+/** The creates the server was sent. */
+const posts = (server: ReturnType<typeof serveNotes>) =>
+  server.sent.filter(({ method }) => method === 'POST')
+
+/** Holds the book's writes till they're let go, as a slow phone's are; reads pass. */
+const holdWrites = () => {
+  const served = globalThis.fetch
+  const waiting: (() => void)[] = []
+  globalThis.fetch = jest.fn(async (url: string, init: RequestInit = {}) => {
+    if ((init.method ?? 'GET') !== 'GET') {
+      await new Promise<void>(resolve => waiting.push(resolve))
+    }
+    return served(url, init)
+  }) as typeof fetch
+  return {
+    waiting,
+    letGo: () =>
+      act(async () => {
+        for (const go of waiting.splice(0)) go()
+      }),
+  }
+}
+
+/** A chapter deleted in Foundry, then the book read again, as a poll reads it. */
+const deleteChapter = async (server: ReturnType<typeof serveNotes>) => {
+  const stored = server.books[API]
+  stored.chapters = stored.chapters.filter(
+    ({ id }) => id !== 'sessionChapter01',
+  )
+  stored.version += 1
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(POLL_INTERVAL)
+  })
+}
+
+/** Sends each create on, then loses its answer, or loses it before it's kept. */
+const loseCreates = (kept: boolean) => {
+  const served = globalThis.fetch
+  globalThis.fetch = jest.fn(async (url: string, init: RequestInit = {}) => {
+    if (init.method !== 'POST') return served(url, init)
+    if (kept) await served(url, init)
+    throw new TypeError('Failed to fetch')
+  }) as typeof fetch
+}
 
 describe('components/notes/note-editor, in its section', () => {
   beforeEach(() => {
@@ -851,5 +944,171 @@ describe('components/notes/note-editor, in its section', () => {
     } finally {
       jest.useRealTimers()
     }
+  })
+
+  describe('while it saves', () => {
+    it('holds what was sent still, so nothing typed meanwhile is lost, and offers no Discard till it’s answered', async () => {
+      const user = userEvent.setup()
+      const server = serveNotes({ [API]: emptyBook() })
+      const writes = holdWrites()
+      renderSection()
+      await user.click(await screen.findByRole('button', { name: 'New note' }))
+      await user.type(title(), 'Wolves')
+      await user.type(body(), 'Three.')
+      await user.click(save())
+      await waitFor(() => expect(writes.waiting).toHaveLength(1))
+
+      await user.type(body(), ' And a fourth, typed while it saved.')
+      expect(body()).toHaveValue('Three.')
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+
+      await writes.letGo()
+      await waitFor(() => expect(screen.queryByRole('form')).toBeNull())
+      expect(posts(server).map(({ body: sent }) => sent)).toEqual([
+        { role: 'entry', title: 'Wolves', body: 'Three.', chapterId: null },
+      ])
+      expect(hasDraft(API)).toBe(false)
+    })
+
+    it('sends it once, though the section is mounted again meanwhile, as when another tab is chosen and this one again', async () => {
+      const user = userEvent.setup()
+      const server = serveNotes({ [API]: emptyBook() })
+      const writes = holdWrites()
+      const { unmount } = renderSection()
+      await user.click(await screen.findByRole('button', { name: 'New note' }))
+      await user.type(title(), 'Fifth')
+      await user.click(save())
+      await waitFor(() => expect(writes.waiting).toHaveLength(1))
+
+      unmount()
+      renderSection()
+      expect(save()).toBeDisabled()
+      expect(title()).toHaveAttribute('readonly')
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      await user.click(save())
+      await act(async () => {
+        fireEvent.keyDown(title(), { key: 'Enter', ctrlKey: true })
+      })
+
+      await writes.letGo()
+      await waitFor(() => expect(screen.queryByRole('form')).toBeNull())
+      expect(posts(server)).toHaveLength(1)
+      expect(server.books[API].entries.map(entry => entry.title)).toEqual([
+        'Fifth',
+      ])
+      expect(hasDraft(API)).toBe(false)
+    })
+  })
+
+  describe('a chapter deleted meanwhile, as in Foundry', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it.each([
+      [
+        'one of two',
+        [
+          noteChapter({ createdAt: '2026-10-21T10:00:00.000Z' }),
+          noteChapter({
+            id: 'secondChapter001',
+            title: 'Session 2',
+            createdAt: '2026-10-21T11:00:00.000Z',
+          }),
+        ],
+      ],
+      ['its only one', [noteChapter()]],
+    ])(
+      'puts the note in no chapter, as it then shows, and saves it so: %s',
+      async (_, chapters) => {
+        const user = userEvent.setup({
+          advanceTimers: jest.advanceTimersByTime,
+        })
+        const server = serveNotes({ [API]: emptyBook({ chapters }) })
+        renderSection()
+        await user.click(
+          await screen.findByRole('button', { name: 'New note in Session 1' }),
+        )
+        await user.type(title(), 'Wolves')
+        await deleteChapter(server)
+
+        const chapter = screen.queryByRole('combobox', { name: 'Chapter' })
+        if (chapters.length > 1) expect(chapter).toHaveValue('')
+        else expect(chapter).toBeNull()
+        await user.click(save())
+        expect(posts(server).at(-1)?.body).toEqual({
+          role: 'entry',
+          title: 'Wolves',
+          body: '',
+          chapterId: null,
+        })
+      },
+    )
+
+    it('closes at once on Cancel with nothing typed: the book moved the note, not the player', async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+      const server = serveNotes({
+        [API]: emptyBook({ chapters: [noteChapter()] }),
+      })
+      renderSection()
+      await user.click(
+        await screen.findByRole('button', { name: 'New note in Session 1' }),
+      )
+      await deleteChapter(server)
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(screen.queryByRole('form')).toBeNull()
+    })
+  })
+
+  describe('a note whose answer was lost on its way back', () => {
+    it('is taken as saved where it was kept, so it’s never made twice', async () => {
+      const user = userEvent.setup()
+      const server = serveNotes({ [API]: book() })
+      loseCreates(true)
+      renderSection()
+      await user.click(await screen.findByRole('button', { name: 'New note' }))
+      await user.selectOptions(
+        screen.getByRole('combobox', { name: 'Chapter' }),
+        'No chapter',
+      )
+      await user.type(title(), 'Wolves')
+      await user.type(body(), 'Three of them.')
+      await user.click(save())
+
+      await waitFor(() =>
+        expect(rowOf('Wolves').querySelector('summary')).toHaveFocus(),
+      )
+      expect(screen.queryByRole('form')).toBeNull()
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(
+        server.books[API].entries.filter(
+          ({ title: named }) => named === 'Wolves',
+        ),
+      ).toHaveLength(1)
+      expect(hasDraft(API)).toBe(false)
+    })
+
+    it('keeps the editor open, saying so, where it wasn’t kept', async () => {
+      const user = userEvent.setup()
+      const server = serveNotes({ [API]: book() })
+      loseCreates(false)
+      renderSection()
+      await user.click(await screen.findByRole('button', { name: 'New note' }))
+      await user.type(title(), 'Wolves')
+      await user.type(body(), 'Three of them.')
+      await user.click(save())
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Sending Stone couldn’t be reached. Your text is still here.',
+      )
+      expect(body()).toHaveValue('Three of them.')
+      expect(save()).toBeEnabled()
+      expect(server.books[API].entries).toHaveLength(2)
+    })
   })
 })

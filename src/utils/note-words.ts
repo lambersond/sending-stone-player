@@ -138,6 +138,33 @@ export function noteRefusalWords(
   }
 }
 
+/**
+ * Why the app refused a Delete or a problem panel's choice, or couldn't send it, as the section's
+ * status line says it: the editor's words, but where those speak of text still being edited, as
+ * none is then, they say how things stand. The book is read again after a refusal, so the list
+ * already shows it as it is now.
+ * @param name - The book's character, for one no longer in the campaign.
+ */
+export function noteChoiceRefusalWords(
+  refusal: NoteRefusal | 'network',
+  name: string,
+): string {
+  switch (refusal) {
+    case 'changed': {
+      return 'It changed meanwhile: here’s how it stands now.'
+    }
+    case 'saving': {
+      return 'Its last change is still on its way to the game. Try again in a moment.'
+    }
+    case 'network': {
+      return 'Sending Stone couldn’t be reached. Try again in a moment.'
+    }
+    default: {
+      return noteRefusalWords(refusal, name)
+    }
+  }
+}
+
 /** Who sees a book, under its heading (§9.4 item 1). */
 export function whoSeesNotes({
   kind,

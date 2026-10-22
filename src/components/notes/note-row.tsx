@@ -58,8 +58,12 @@ export function NoteRow({
     () => (entry.html ? readDescription(entry.html) : undefined),
     [entry.html],
   )
-  const edits = writable && entry.canEdit && !entry.foundryOnly
-  const deletes = writable && entry.canDelete && entry.state !== 'deleting'
+  // Changed or deleted in Foundry while a change waited, it's settled first, by the problem
+  // panel's choices: the server refuses any other change or delete till then.
+  const settling = entry.state === 'conflict' || entry.state === 'gone'
+  const edits = writable && entry.canEdit && !entry.foundryOnly && !settling
+  const deletes =
+    writable && entry.canDelete && entry.state !== 'deleting' && !settling
   return (
     <details
       open={open}

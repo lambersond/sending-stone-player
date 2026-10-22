@@ -175,15 +175,14 @@ export async function POST(request: Request) {
     return answer([], began, COMMANDS_OFF_WAIT)
   }
 
-  // Notes written here, from module 0.34.0, are handed over after the rolls.
+  // Notes written here, from module 0.34.0, are handed over after the rolls, but claimed first: a
+  // note handed to an answer that's lost is handed over again, and a roll never is, so a failure
+  // claiming the notes must come before any roll is taken.
   const claim = () =>
-    attempt(
-      async () => [
-        ...(await claimRollRequests(found.id, session)),
-        ...(await claimNoteWrites(found.id, session)),
-      ],
-      'Failed to hand over players’ rolls',
-    )
+    attempt(async () => {
+      const notes = await claimNoteWrites(found.id, session)
+      return [...(await claimRollRequests(found.id, session)), ...notes]
+    }, 'Failed to hand over players’ rolls')
   if (!polled.playersPresent) {
     const commands = await claim()
     return commands

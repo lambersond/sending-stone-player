@@ -88,6 +88,7 @@ CREATE TABLE "journal_write" (
     "base" TEXT,
     "status" "NoteWriteStatus" NOT NULL DEFAULT 'pending',
     "reason" TEXT,
+    "foundryRev" TEXT,
     "claimToken" TEXT,
     "claimSession" TEXT,
     "claimedAt" TIMESTAMP(3),
@@ -107,8 +108,8 @@ CREATE UNIQUE INDEX "journal_book_campaignId_kind_actorId_key" ON "journal_book"
 CREATE INDEX "journal_write_campaignId_status_queuedAt_idx" ON "journal_write"("campaignId", "status", "queuedAt");
 
 -- CreateIndex
--- A seat's changes in the last minute, for its limit.
-CREATE INDEX "journal_write_requestedById_updatedAt_idx" ON "journal_write"("requestedById", "updatedAt");
+-- A seat's changes in the last minute, by when it made them, for its limit.
+CREATE INDEX "journal_write_requestedById_modifiedAt_idx" ON "journal_write"("requestedById", "modifiedAt");
 
 -- CreateIndex
 -- At most one change waiting per note.

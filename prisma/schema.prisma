@@ -509,6 +509,9 @@ model JournalWrite {
   status        NoteWriteStatus @default(pending)
   // Why the module refused it, for a conflict or a failure.
   reason        String?
+  // The page's revision as the module refused it against: what "Use yours" goes again from where
+  // the mirror can't say Foundry's revision now, in a book Foundry holds back as too large.
+  foundryRev    String?
   claimToken    String?
   claimSession  String?
   claimedAt     DateTime?
@@ -519,6 +522,7 @@ model JournalWrite {
 
   @@unique([bookId, noteId])
   @@index([campaignId, status, queuedAt])
-  @@index([requestedById, updatedAt])
+  // The seat's limit counts its own changes by when it made them, not when the module answered.
+  @@index([requestedById, modifiedAt])
   @@map("journal_write")
 }

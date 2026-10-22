@@ -283,6 +283,19 @@ describe('app/api/bridge/commands', () => {
 
       await expectRefusal(response, 500, UNAVAILABLE)
     })
+
+    it('claims the notes before any roll, so that failing to claim them loses no roll', async () => {
+      given(true, false, false, false, true)
+      jest.mocked(claimRollRequests).mockResolvedValue([command])
+      jest.mocked(claimNoteWrites).mockRejectedValue(new Error('down'))
+      jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const response = await post()
+
+      await expectRefusal(response, 500, UNAVAILABLE)
+      // A roll claimed and then not answered would never be handed over again.
+      expect(claimRollRequests).not.toHaveBeenCalled()
+    })
   })
 
   it('answers at once, with the minute’s wait, only while the game takes no rolls, moves, removals nor notes', async () => {

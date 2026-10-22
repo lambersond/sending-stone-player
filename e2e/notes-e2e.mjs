@@ -126,6 +126,8 @@ async function biography(who) {
   await who.tab('Biography')
   await notesOf(who).waitFor({ timeout: 15_000 })
   await notesOf(who).getByText(/^(No notes yet|Only|Everyone)/).first().waitFor({ timeout: 15_000 })
+  // Who sees them is said while the notes still load: the notes themselves, once read.
+  await notesOf(who).getByText(/^(Loading notes…|Notes couldn’t be loaded)/).waitFor({ state: 'hidden', timeout: 15_000 })
 }
 /** A note written from the section, by its New note or a chapter's New note in…, and saved. */
 async function writeNote(who, { title, body = '', chapter, from } = {}) {
@@ -366,8 +368,8 @@ part('4. headings')
   check(await alert.textContent() === 'Use ### or more for headings: # and ## are the journal’s chapters and notes.' && await form.isVisible() && await body.inputValue() === 'First line\n#loot',
     `saved, the editor stays open with its text, saying "${await alert.textContent()}"`)
   await body.fill('Title\n-')
-  await until(async () => (await hint.textContent()).includes('under-ruled'), 'the under-rule hint', 5_000)
-  check(await hint.textContent() === 'Line 2 is under-ruled with = or -, which makes the line above it a heading. Leave a blank line between them.',
+  await until(async () => (await hint.textContent()).includes('on the line below it'), 'the under-rule hint', 5_000)
+  check(await hint.textContent() === 'Line 1 has = or - on the line below it, which makes it a heading. Leave a blank line between them.',
     `"Title" over "-": "${await hint.textContent()}"`)
   await button(form, 'Cancel').click()
   await button(alice.page.getByRole('dialog', { name: 'Discard your changes?' }), 'Discard').click()

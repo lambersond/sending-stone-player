@@ -2,6 +2,7 @@
 'use client'
 
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -80,8 +81,12 @@ export function NoteEditor({
   const title = useRef<HTMLInputElement>(null)
   const body = useRef<HTMLTextAreaElement>(null)
   const [tab, setTab] = useState<'write' | 'preview'>('write')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string>()
+  const { saving, error, send } = useDraftSave({
+    draft,
+    setDraft,
+    onSave,
+    name,
+  })
   const [asking, setAsking] = useState(false)
   const [shown, setShown] = useState<Shown>()
   const writeTab = useRef<HTMLButtonElement>(null)
@@ -107,14 +112,31 @@ export function NoteEditor({
   const canSave =
     draft.title.trim() !== '' && count <= MOST_NOTE_BODY && !saving
   const save = async () => {
-    if (!canSave) return
-    setSaving(true)
-    setError(undefined)
-    const answer = await onSave(draft)
-    setSaving(false)
-    // Kept, the section closes it; refused, it stays open with the text as typed.
-    if (!answer.ok) setError(noteRefusalWords(answer.reason, name))
+    if (canSave) await send()
   }
+  // A chapter deleted meanwhile, as in Foundry, is no longer one to choose, and one sent is
+  // refused: the note goes in no chapter, as the list of chapters then shows, so what's shown is
+  // what's saved. The book made that change, not the player, so what it started as has it too.
+  const lostChapter =
+    draft.chapterId !== null &&
+    !chapters.some(({ id }) => id === draft.chapterId)
+      ? draft.chapterId
+      : undefined
+  useEffect(() => {
+    if (lostChapter === undefined || saving) return
+    setDraft(held =>
+      held?.key === draft.key && held.chapterId === lostChapter
+        ? {
+            ...held,
+            chapterId: null,
+            started:
+              held.started.chapterId === lostChapter
+                ? { ...held.started, chapterId: null }
+                : held.started,
+          }
+        : held,
+    )
+  }, [lostChapter, saving, draft.key, setDraft])
   // Ctrl+Enter or ⌘+Enter saves from the fields, as Save does, for Save comes before them.
   const saveKey = (event: KeyboardEvent<HTMLElement>) => {
     const { isComposing, keyCode } = event.nativeEvent
@@ -178,6 +200,7 @@ export function NoteEditor({
           Chapter
           <select
             ref={chapter}
+            disabled={saving}
             value={draft.chapterId ?? ''}
             onChange={event =>
               update({ chapterId: event.target.value || null })
@@ -202,6 +225,7 @@ export function NoteEditor({
           maxLength={MOST_NOTE_TITLE}
           enterKeyHint='next'
           autoComplete='off'
+          readOnly={saving}
           value={draft.title}
           onChange={event => update({ title: event.target.value })}
           onKeyDown={event => {
@@ -255,6 +279,7 @@ export function NoteEditor({
             ref={body}
             id={`${ids}-body`}
             rows={12}
+            readOnly={saving}
             value={draft.body}
             aria-describedby={`${helpId} ${hintId}`}
             onChange={event => update({ body: event.target.value })}
@@ -336,10 +361,12 @@ export function EditorHeader({
       >
         {heading}
       </h3>
+      {/* Off while it's saving: what's sent is kept or refused, and only then can it be left. */}
       <button
         type='button'
+        disabled={saving}
         onClick={onCancel}
-        className='min-h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
+        className='min-h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-60'
       >
         Cancel
       </button>
@@ -379,6 +406,39 @@ export function DiscardModal({
       <p>What you wrote here isn’t saved.</p>
     </ConfirmModal>
   )
+}
+
+/**
+ * Save, for the editor and the chapter form: the draft is marked in the store as it's sent, so
+ * its fields hold still and Cancel waits till it's answered, in an editor mounted again meanwhile
+ * too, as one there could otherwise send it again; once answered, the mark goes from a draft still
+ * held, and a refusal says why.
+ */
+export function useDraftSave({
+  draft,
+  setDraft,
+  onSave,
+  name,
+}: {
+  draft: NoteDraft
+  setDraft: (change: DraftChange) => void
+  onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
+  /** The book's character or party, as a refusal names it. */
+  name: string
+}): { saving: boolean; error?: string; send: () => Promise<void> } {
+  const [error, setError] = useState<string>()
+  const { key } = draft
+  const send = async () => {
+    setError(undefined)
+    setDraft(held => (held?.key === key ? { ...held, saving: true } : held))
+    const answer = await onSave(draft)
+    // Kept, the section has let the draft go; refused, it's open again with the text as typed.
+    setDraft(held =>
+      held?.key === key && held.saving ? { ...held, saving: undefined } : held,
+    )
+    if (!answer.ok) setError(noteRefusalWords(answer.reason, name))
+  }
+  return { saving: draft.saving === true, error, send }
 }
 
 /**
@@ -535,8 +595,9 @@ function Preview({ shown }: Readonly<{ shown?: Shown }>) {
 
 /**
  * The editor's hint for the lines that would be the journal's own headings, one sentence a line,
- * at most three, then how many more: the scanner's lines, from 1, as showdown makes them h1 or h2.
- * A line it found under-ruled is the one above the rule, which the hint names.
+ * at most three, then how many more: the scanner's lines, from 1, as showdown makes them h1 or h2,
+ * and as a refusal's lines number them. A line it found under-ruled is the text above the rule,
+ * which the hint names, as the rule makes it the heading.
  */
 export function headingHint(markdown: string, lines: number[]): string {
   if (lines.length === 0) return ''
@@ -548,7 +609,7 @@ export function headingHint(markdown: string, lines: number[]): string {
       .trimStart()
     return text.startsWith('#')
       ? String.raw`Line ${line} is a # or ## heading. Use ### or more, or put a \ before the #.`
-      : `Line ${line + 1} is under-ruled with = or -, which makes the line above it a heading. Leave a blank line between them.`
+      : `Line ${line} has = or - on the line below it, which makes it a heading. Leave a blank line between them.`
   })
   const more = lines.length - said.length
   return more > 0 ? `${said.join(' ')} …and ${more} more` : said.join(' ')

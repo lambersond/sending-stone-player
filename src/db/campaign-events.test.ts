@@ -2,6 +2,7 @@
 import { prismaMock } from '../../jest.setup'
 import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
 import { recordCommandResult } from './roll-requests'
+import { noteHtml } from '@/lib/note-html'
 import {
   characterSheet,
   chatMessage,
@@ -17,6 +18,12 @@ import {
 import { parseGameEvent } from '@/schemas/sending-stone'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import type { CommandResult, GameEvent } from '@/types/sending-stone'
+
+// Drawn as ever, and watched for when: a journal's notes are drawn before its transaction.
+jest.mock('@/lib/note-html', () => {
+  const actual = jest.requireActual('@/lib/note-html')
+  return { ...actual, noteHtml: jest.fn(actual.noteHtml) }
+})
 
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -1939,7 +1946,9 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
       parseGameEvent('journal.updated', mockJournalUpdated()) as GameEvent,
     )
 
-    expect(prismaMock.journalNote.create).toHaveBeenCalledTimes(5)
+    expect(
+      prismaMock.journalNote.createMany.mock.calls[0][0]?.data,
+    ).toHaveLength(5)
     expect(prismaMock.journalBook.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ version: { increment: 1 } }),
@@ -1954,5 +1963,35 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
       where: { id: 'c1' },
       data: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
     })
+  })
+
+  it('draws a book’s notes before its transaction, which a large book’s drawing would outlast', async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      origin: 'https://my-game.forge-vtt.com',
+      characters: [{ id: 'thorin' }],
+      groups: [],
+    } as any)
+    prismaMock.journalBook.upsert.mockResolvedValue({
+      id: 'book-1',
+      journalId: null,
+      journalName: null,
+      withheld: null,
+      notes: [],
+    } as any)
+
+    await apply(
+      parseGameEvent('journal.updated', mockJournalUpdated()) as GameEvent,
+    )
+
+    const draws = jest.mocked(noteHtml).mock.invocationCallOrder
+    expect(draws).toHaveLength(5)
+    // Every note drawn before the transaction began, and none in it.
+    const began = prismaMock.$transaction.mock.invocationCallOrder[0]
+    expect(Math.max(...draws)).toBeLessThan(began)
+    expect(
+      (prismaMock.journalNote.createMany.mock.calls[0][0]?.data as any[]).map(
+        ({ html }) => html,
+      ),
+    ).toEqual(jest.mocked(noteHtml).mock.results.map(({ value }) => value))
   })
 })

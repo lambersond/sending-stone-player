@@ -4,7 +4,12 @@ import {
   ROLL_ANSWER_WITHIN,
   ROLL_KINDS,
 } from '@/constants/sending-stone'
-import { applyJournalUpdated, reconcileJournals } from '@/db/note-sync'
+import {
+  applyJournalUpdated,
+  drawJournal,
+  reconcileJournals,
+  type JournalDrawings,
+} from '@/db/note-sync'
 import { groupRoster } from '@/db/party'
 import {
   keepOnlySheetTexts,
@@ -51,8 +56,20 @@ export async function applyCampaignEvent(
   session: string,
   sentAt: string,
 ): Promise<{ lacksTexts: boolean }> {
+  // A journal's notes are drawn first: a large book's drawing would outlast the transaction.
+  const drawings =
+    event.type === 'journal.updated'
+      ? await drawJournal(campaignId, event.data)
+      : undefined
   return prisma.$transaction(async tx => {
-    const lacksTexts = await apply(tx, campaignId, event, session, sentAt)
+    const lacksTexts = await apply(
+      tx,
+      campaignId,
+      event,
+      session,
+      sentAt,
+      drawings,
+    )
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -87,6 +104,7 @@ async function apply(
   event: GameEvent,
   session: string,
   sentAt: string,
+  drawings?: JournalDrawings,
 ): Promise<boolean> {
   switch (event.type) {
     case 'bridge.hello': {
@@ -307,7 +325,7 @@ async function apply(
       return false
     }
     case 'journal.updated': {
-      await applyJournalUpdated(tx, campaignId, event.data)
+      await applyJournalUpdated(tx, campaignId, event.data, drawings)
       return false
     }
   }

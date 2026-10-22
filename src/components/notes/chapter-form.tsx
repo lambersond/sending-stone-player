@@ -2,14 +2,19 @@
 
 import { useId, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { DiscardModal, EditorHeader, FIELD, useDraftFocus } from './note-editor'
+import {
+  DiscardModal,
+  EditorHeader,
+  FIELD,
+  useDraftFocus,
+  useDraftSave,
+} from './note-editor'
 import { MOST_NOTE_TITLE } from '@/constants/notes'
 import {
   draftChanged,
   type DraftChange,
   type NoteDraft,
 } from '@/hooks/use-notes'
-import { noteRefusalWords } from '@/utils/note-words'
 import type { NoteWriteAnswer } from '@/types/notes'
 
 /**
@@ -39,19 +44,18 @@ export function ChapterForm({
   const headingId = `${ids}-heading`
   const form = useRef<HTMLFormElement>(null)
   const title = useRef<HTMLInputElement>(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string>()
+  const { saving, error, send } = useDraftSave({
+    draft,
+    setDraft,
+    onSave,
+    name,
+  })
   const [asking, setAsking] = useState(false)
   useDraftFocus({ draft, setDraft, opened, form, fields: { title } })
 
   const canSave = draft.title.trim() !== '' && !saving
   const save = async () => {
-    if (!canSave) return
-    setSaving(true)
-    setError(undefined)
-    const answer = await onSave(draft)
-    setSaving(false)
-    if (!answer.ok) setError(noteRefusalWords(answer.reason, name))
+    if (canSave) await send()
   }
   const heading =
     draft.key === 'new-chapter'
@@ -87,6 +91,7 @@ export function ChapterForm({
           maxLength={MOST_NOTE_TITLE}
           enterKeyHint='done'
           autoComplete='off'
+          readOnly={saving}
           value={draft.title}
           onChange={event => {
             const typed = event.target.value

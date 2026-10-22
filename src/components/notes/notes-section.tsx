@@ -21,7 +21,7 @@ import { ConfirmModal } from '@/components/modal'
 import { SearchField } from '@/components/search-field'
 import { useNotes, type NoteDraft } from '@/hooks/use-notes'
 import {
-  noteRefusalWords,
+  noteChoiceRefusalWords,
   notesBanner,
   savedWords,
   whoSeesNotes,
@@ -194,7 +194,8 @@ export function NotesSection({
         ))
     if (!answer.ok) return answer
     const id = answer.id ?? made.key
-    setDraft(held => (held?.key === made.key ? undefined : held))
+    // Only the draft sent, as it was sent: never one opened or typed in since.
+    setDraft(held => (isSent(held, made) ? undefined : held))
     if (entry) {
       setToggled(held => ({ ...held, [id]: true }))
       setFocusTo({ summary: id })
@@ -225,7 +226,7 @@ export function NotesSection({
       stamp: note.stamp,
     })
     setBusy(undefined)
-    if (!answer.ok) say(noteRefusalWords(answer.reason, name))
+    if (!answer.ok) say(noteChoiceRefusalWords(answer.reason, name))
   }
 
   const banner = view && notesBanner(view, { role, name })
@@ -415,7 +416,7 @@ export function NotesSection({
             say('Deleted.')
             setFocusTo(next)
           } else {
-            say(noteRefusalWords(answer.reason, name))
+            say(noteChoiceRefusalWords(answer.reason, name))
             setFocusTo({ summary: deleting.id })
           }
         }}
@@ -426,6 +427,17 @@ export function NotesSection({
         </p>
       </ConfirmModal>
     </section>
+  )
+}
+
+/** Is the draft held now the one on its way, just as it was sent? */
+function isSent(held: NoteDraft | undefined, made: NoteDraft): boolean {
+  return (
+    held?.saving === true &&
+    held.key === made.key &&
+    held.title === made.title &&
+    held.body === made.body &&
+    held.chapterId === made.chapterId
   )
 }
 

@@ -4,7 +4,7 @@
 /* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
 import { Prisma, type JournalNote, type JournalWrite } from '@prisma/client'
 import { prismaMock } from '../../jest.setup'
-import { recordNoteResult } from './note-sync'
+import { claimNoteWrites, recordNoteResult } from './note-sync'
 import {
   changeNote,
   createNote,
@@ -113,6 +113,7 @@ function write(fields: Partial<JournalWrite> = {}): JournalWrite {
     base: REV,
     status: 'pending',
     reason: null,
+    foundryRev: null,
     claimToken: null,
     claimSession: null,
     claimedAt: null,
@@ -185,6 +186,27 @@ const aChange = (fields: object = {}) => ({
   stamp: `n:${REV}`,
   ...fields,
 })
+
+/** A change's row as the last compare-and-set left it. */
+const after = (row: JournalWrite) =>
+  ({
+    ...row,
+    ...(prismaMock.journalWrite.updateMany.mock.calls.at(-1)![0]
+      .data as object),
+    seq: row.seq + 1,
+  }) as JournalWrite
+
+/** A change's row handed over, as the module fetches it from a party's book. */
+const handed = async (row: JournalWrite) => {
+  heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
+  prismaMock.journalWrite.findMany
+    .mockResolvedValueOnce([row] as any)
+    .mockResolvedValueOnce([
+      { ...row, book: { kind: 'party', actorId: 'company' } },
+    ] as any)
+  const [command] = await claimNoteWrites('c1', 's1')
+  return command
+}
 
 describe('db/notes', () => {
   beforeEach(() => {
@@ -769,7 +791,7 @@ describe('db/notes', () => {
         createNote(thorin, personal, { role: 'entry', title: 'a' }),
       ).resolves.toEqual({ ok: false, status: 429, reason: 'busy' })
       expect(prismaMock.journalWrite.count).toHaveBeenCalledWith({
-        where: { requestedById: 'user-1', updatedAt: { gte: ago(60_000) } },
+        where: { requestedById: 'user-1', modifiedAt: { gte: ago(60_000) } },
       })
     })
 
@@ -869,6 +891,32 @@ describe('db/notes', () => {
           body: 'b'.repeat(51),
         }),
       ).resolves.toEqual({ ok: false, status: 422, reason: 'full' })
+    })
+
+    it('still takes changes in a full book: a change adds no note, as the module counts only creates', async () => {
+      const entries = Array.from({ length: 300 }, (_, n) =>
+        mirror({ noteId: `entry${String(n).padStart(11, '0')}` }),
+      )
+      heldBook({ notes: entries })
+      await expect(
+        changeNote(thorin, personal, entries[0].noteId, aChange()),
+      ).resolves.toMatchObject({ ok: true })
+      expect(prismaMock.journalWrite.create).toHaveBeenCalled()
+
+      const chapters = Array.from({ length: 50 }, (_, n) =>
+        mirror({
+          noteId: `chapter${String(n).padStart(9, '0')}`,
+          role: 'chapter',
+          body: '',
+        }),
+      )
+      heldBook({ notes: chapters })
+      await expect(
+        changeNote(vex, party, chapters[0].noteId, {
+          title: 'Session one',
+          stamp: `n:${REV}`,
+        }),
+      ).resolves.toMatchObject({ ok: true })
     })
   })
 
@@ -1463,6 +1511,81 @@ describe('db/notes', () => {
       ).resolves.toEqual({ ok: false, status: 409, reason: 'changed' })
     })
 
+    it('never drops a waiting change the game hasn’t refused for theirs, 409 changed', async () => {
+      for (const change of [
+        write(),
+        write({ op: 'create', base: null }),
+        write({ status: 'claimed', claimedAt: ago(10_000) }),
+      ]) {
+        heldBook({ notes: [mirror()], writes: [change] })
+        for (const seat of [thorin, gm]) {
+          await expect(
+            resolveNote(seat, personal, CAVE, {
+              resolve: 'theirs',
+              stamp: `w:${W1}.2`,
+            }),
+          ).resolves.toEqual({ ok: false, status: 409, reason: 'changed' })
+        }
+      }
+      expect(prismaMock.journalWrite.deleteMany).not.toHaveBeenCalled()
+    })
+
+    it('sends Use yours and Delete anyway from the revision the refusal said, in a book Foundry holds back', async () => {
+      // Foundry changed the note after its book grew too large to send: only the refusal says so.
+      const claimed = write({ status: 'claimed', claimedAt: ago(1000) })
+      await recordNoteResult('c1', {
+        id: `${W1}.2`,
+        status: 'failed',
+        reason: 'changed',
+        error: null,
+        messageId: null,
+        visible: false,
+        rolls: [],
+        note: { id: CAVE, rev: 'abcdef0000000b' },
+      })
+      const refused = {
+        ...claimed,
+        ...(prismaMock.journalWrite.updateMany.mock.calls[0][0].data as object),
+      } as JournalWrite
+      expect(refused).toMatchObject({ status: 'conflict', reason: 'changed' })
+      const tooLarge = {
+        reason: 'tooLarge',
+        bytes: 4_100_000,
+        limit: 4_000_000,
+      }
+      const mine = { resolve: 'mine' as const, stamp: `w:${W1}.2` }
+
+      for (const change of [refused, { ...refused, op: 'delete' as const }]) {
+        prismaMock.journalWrite.updateMany.mockClear()
+        heldBook({ withheld: tooLarge, notes: [mirror()], writes: [change] })
+        await expect(
+          resolveNote(thorin, personal, CAVE, mine),
+        ).resolves.toEqual({ ok: true, stamp: `w:${W1}.3` })
+        expect(prismaMock.journalWrite.updateMany).toHaveBeenCalledWith({
+          where: { id: W1, seq: 2, status: 'conflict' },
+          data: {
+            base: 'abcdef0000000b',
+            status: 'pending',
+            reason: null,
+            seq: { increment: 1 },
+          },
+        })
+      }
+
+      // A book Foundry sends has its revision now in the mirror, newer than any refusal's.
+      prismaMock.journalWrite.updateMany.mockClear()
+      heldBook({
+        notes: [mirror({ revision: 'abcdef0000000c' })],
+        writes: [refused],
+      })
+      await resolveNote(thorin, personal, CAVE, mine)
+      expect(prismaMock.journalWrite.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ base: 'abcdef0000000c' }),
+        }),
+      )
+    })
+
     it('lets the Gamemaster settle anyone’s, a player only their own or one on a note they may change', async () => {
       const stuck = write({
         status: 'failed',
@@ -1513,6 +1636,161 @@ describe('db/notes', () => {
     })
   })
 
+  describe('a change thought lost on its way, as when Foundry closed before its result came', () => {
+    /** Handed over two days ago, and never answered. */
+    const lostClaim = (fields: Partial<JournalWrite> = {}) =>
+      write({ status: 'claimed', claimedAt: ago(2 * 86_400_000), ...fields })
+    const lostFrom = { status: 'claimed', claimedAt: { lt: ago(75_000) } }
+
+    it('takes a change or a delete as one waiting, compare-and-set on the claim still lost', async () => {
+      heldBook({ notes: [mirror()], writes: [lostClaim()] })
+
+      await expect(
+        changeNote(thorin, personal, CAVE, aChange({ stamp: `w:${W1}.2` })),
+      ).resolves.toEqual({ ok: true, stamp: `w:${W1}.3` })
+      expect(prismaMock.journalWrite.updateMany).toHaveBeenLastCalledWith({
+        where: { id: W1, seq: 2, ...lostFrom },
+        data: expect.objectContaining({
+          op: 'update',
+          status: 'pending',
+          seq: { increment: 1 },
+        }),
+      })
+
+      await expect(
+        deleteNote(gm, personal, CAVE, `w:${W1}.2`),
+      ).resolves.toEqual({ ok: true, stamp: `w:${W1}.3` })
+      expect(prismaMock.journalWrite.updateMany).toHaveBeenLastCalledWith({
+        where: { id: W1, seq: 2, ...lostFrom },
+        data: expect.objectContaining({ op: 'delete', status: 'pending' }),
+      })
+    })
+
+    it('still waits for one handed over just now, 409 saving', async () => {
+      heldBook({
+        notes: [mirror()],
+        writes: [write({ status: 'claimed', claimedAt: ago(10_000) })],
+      })
+
+      await expect(
+        changeNote(thorin, personal, CAVE, aChange({ stamp: `w:${W1}.2` })),
+      ).resolves.toEqual({ ok: false, status: 409, reason: 'saving' })
+      await expect(
+        deleteNote(thorin, personal, CAVE, `w:${W1}.2`),
+      ).resolves.toEqual({ ok: false, status: 409, reason: 'saving' })
+    })
+
+    it('waits for a create however long, but drops it for a delete or theirs: what Foundry made of it comes back', async () => {
+      heldBook({ writes: [lostClaim({ op: 'create', base: null })] })
+
+      await expect(
+        changeNote(thorin, personal, CAVE, aChange({ stamp: `w:${W1}.2` })),
+      ).resolves.toEqual({ ok: false, status: 409, reason: 'saving' })
+      await expect(
+        resolveNote(gm, personal, CAVE, {
+          resolve: 'mine',
+          stamp: `w:${W1}.2`,
+        }),
+      ).resolves.toEqual({ ok: false, status: 409, reason: 'changed' })
+
+      await expect(
+        deleteNote(thorin, personal, CAVE, `w:${W1}.2`),
+      ).resolves.toEqual({ ok: true, stamp: 'n:' })
+      expect(prismaMock.journalWrite.deleteMany).toHaveBeenLastCalledWith({
+        where: { id: W1, seq: 2, ...lostFrom },
+      })
+
+      // The Gamemaster clears a player's stuck chapter, which no one may delete.
+      heldBook({
+        writes: [
+          lostClaim({
+            noteId: SESSION,
+            op: 'create',
+            role: 'chapter',
+            body: '',
+            base: null,
+          }),
+        ],
+      })
+      await expect(
+        resolveNote(gm, personal, SESSION, {
+          resolve: 'theirs',
+          stamp: `w:${W1}.2`,
+        }),
+      ).resolves.toEqual({ ok: true, stamp: 'n:' })
+      expect(prismaMock.journalWrite.deleteMany).toHaveBeenLastCalledWith({
+        where: { id: W1, seq: 2, ...lostFrom },
+      })
+    })
+
+    it('lets Keep it drop a delete thought lost', async () => {
+      heldBook({ notes: [mirror()], writes: [lostClaim({ op: 'delete' })] })
+
+      await expect(
+        resolveNote(thorin, personal, CAVE, {
+          resolve: 'theirs',
+          stamp: `w:${W1}.2`,
+        }),
+      ).resolves.toEqual({ ok: true, stamp: `n:${REV}` })
+    })
+  })
+
+  describe('a member’s note the Gamemaster changed, still the member’s in Foundry (§3.4)', () => {
+    const vexWrote = {
+      authorActorId: VEX,
+      authorName: 'Vex',
+      requestedById: 'user-2',
+      writerActorId: VEX,
+      modifiedBy: 'Vex',
+    }
+
+    it('hands a waiting note the Gamemaster fixed over as its author’s, who may still change it', async () => {
+      const waiting = write({ ...vexWrote, op: 'create', base: null })
+      heldBook({ writes: [waiting] })
+
+      await expect(
+        changeNote(gm, party, CAVE, aChange({ stamp: `w:${W1}.2` })),
+      ).resolves.toMatchObject({ ok: true })
+      const fixed = after(waiting)
+      expect(fixed).toMatchObject({ op: 'create', seat: 'gm' })
+
+      const command = await handed(fixed)
+      expect(command).not.toHaveProperty('by')
+      expect(command.note).toMatchObject({ op: 'create', writer: VEX })
+
+      heldBook({ writes: [fixed] })
+      const view = await getNotesView(vex, party)
+      expect(view?.entries[0]).toMatchObject({
+        author: { name: 'Vex' },
+        canEdit: true,
+        canDelete: true,
+      })
+    })
+
+    it('makes a member’s note again as theirs where Foundry deleted it while the Gamemaster’s change waited', async () => {
+      const gone = write({
+        ...vexWrote,
+        seat: 'gm',
+        requestedById: 'gm-1',
+        writerActorId: null,
+        modifiedBy: 'Gamemaster',
+        status: 'conflict',
+        reason: 'gone',
+      })
+      heldBook({ writes: [gone] })
+
+      await expect(
+        resolveNote(vex, party, CAVE, { resolve: 'mine', stamp: `w:${W1}.2` }),
+      ).resolves.toMatchObject({ ok: true })
+      const again = after(gone)
+      expect(again).toMatchObject({ op: 'create', base: null })
+
+      const command = await handed(again)
+      expect(command).not.toHaveProperty('by')
+      expect(command.note).toMatchObject({ op: 'create', writer: VEX })
+    })
+  })
+
   it('previews a note as its book draws it, its secrets as the book keeps them', async () => {
     const body =
       '### Loot\n\n<section class="secret">\n\nkey\n\n</section>\n\n#x'
@@ -1546,13 +1824,13 @@ describe('db/notes', () => {
       prismaMock.journalWrite.count.mockImplementation((({
         where,
       }: {
-        where: { requestedById: string; updatedAt: { gte: Date } }
+        where: { requestedById: string; modifiedAt: { gte: Date } }
       }) =>
         Promise.resolve(
           rows.filter(
             row =>
               row.requestedById === where.requestedById &&
-              row.updatedAt >= where.updatedAt.gte,
+              row.modifiedAt >= where.modifiedAt.gte,
           ).length,
         )) as any)
       prismaMock.journalWrite.updateMany.mockImplementation((({
@@ -1617,6 +1895,43 @@ describe('db/notes', () => {
       jest.setSystemTime(NOW + 61_000)
       await expect(
         createNote(thorin, personal, { role: 'entry', title: 'One more' }),
+      ).resolves.toMatchObject({ ok: true })
+    })
+
+    it('counts only what the seat changed in the minute: thirty notes written an hour ago and made now cost nothing', async () => {
+      // Written while Foundry was closed...
+      jest.setSystemTime(NOW - 3_600_000)
+      for (let n = 0; n < 30; n++) {
+        await createNote(thorin, personal, {
+          role: 'entry',
+          title: `Note ${n}`,
+        })
+      }
+      // ...and handed over and made at once when the game came back, which touches every row.
+      jest.setSystemTime(NOW)
+      for (const row of rows) {
+        row.status = 'claimed'
+        await recordNoteResult('c1', {
+          id: `${row.id}.0`,
+          status: 'done',
+          reason: null,
+          error: null,
+          messageId: null,
+          visible: false,
+          rolls: [],
+          note: { id: row.noteId, rev: null },
+        })
+      }
+      expect(rows).toHaveLength(30)
+      expect(
+        rows.every(
+          ({ status, updatedAt }) =>
+            status === 'made' && updatedAt.getTime() === NOW,
+        ),
+      ).toBe(true)
+
+      await expect(
+        createNote(thorin, personal, { role: 'entry', title: 'Back' }),
       ).resolves.toMatchObject({ ok: true })
     })
   })

@@ -209,6 +209,24 @@ describe('components/notes/note-list', () => {
     ).toBeInTheDocument()
   })
 
+  it.each([
+    ['renamed in Foundry while a rename waited', 'conflict' as const],
+    ['deleted in Foundry while a rename waited', 'gone' as const],
+  ])(
+    'offers no rename where it was %s, as the server refuses one till the problem is settled',
+    (_, state) => {
+      renderList({
+        chapters: [
+          chapter({ state, reason: 'changed', mine: { title: 'Session One' } }),
+        ],
+      })
+      expect(screen.queryByRole('button', { name: /^Rename/ })).toBeNull()
+      expect(
+        screen.getByRole('button', { name: 'New note in Session 1' }),
+      ).toBeInTheDocument()
+    },
+  )
+
   it('offers no rename nor new note in a book that takes no change', () => {
     renderList({ writable: false })
     expect(screen.queryByRole('button', { name: /^Rename/ })).toBeNull()

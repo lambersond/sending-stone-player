@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- a book with no journal in Foundry has null for it */
 import {
+  noteChoiceRefusalWords,
   noteReasonWords,
   noteRefusalWords,
   notesBanner,
@@ -121,6 +122,24 @@ describe('utils/note-words', () => {
   ])('says why the app refused a change at once, %s', (refusal, words) => {
     expect(noteRefusalWords(refusal, 'Thorin')).toBe(words)
   })
+
+  it.each<[NoteRefusal | 'network', string]>([
+    ['changed', 'It changed meanwhile: here’s how it stands now.'],
+    [
+      'saving',
+      'Its last change is still on its way to the game. Try again in a moment.',
+    ],
+    ['network', 'Sending Stone couldn’t be reached. Try again in a moment.'],
+    ['conflict', 'It was changed in Foundry too. Choose which to keep first.'],
+    ['not-yours', 'Only its author can change it.'],
+    ['unknown', 'Thorin is no longer one of the campaign’s characters.'],
+    ['busy', 'Too many changes at once. Wait a moment.'],
+  ])(
+    'says why a delete or a choice was refused, %s, in words for no text being edited',
+    (refusal, words) => {
+      expect(noteChoiceRefusalWords(refusal, 'Thorin')).toBe(words)
+    },
+  )
 
   it('says who sees a book', () => {
     expect(

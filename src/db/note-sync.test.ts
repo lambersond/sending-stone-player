@@ -7,6 +7,7 @@ import { prismaMock } from '../../jest.setup'
 import {
   applyJournalUpdated,
   claimNoteWrites,
+  drawJournal,
   MADE_KEPT_FOR,
   reconcileJournals,
   recordNoteResult,
@@ -47,6 +48,7 @@ function write(fields: Partial<JournalWrite> = {}): JournalWrite {
     base: null,
     status: 'pending',
     reason: null,
+    foundryRev: null,
     claimToken: null,
     claimSession: null,
     claimedAt: null,
@@ -80,6 +82,12 @@ function held(page: JournalPage, html = 'drawn'): JournalNote {
     revision: page.rev,
   }
 }
+
+/** The notes `journal.updated` made, all at once. */
+const madeNotes = () =>
+  prismaMock.journalNote.createMany.mock.calls.flatMap(
+    ([args]) => args?.data as Prisma.JournalNoteCreateManyInput[],
+  )
 
 /** A note command's result, as the module posts it. */
 const result = (fields: Partial<CommandResult> = {}): CommandResult => ({
@@ -215,41 +223,42 @@ describe('db/note-sync', () => {
           update: {},
         }),
       )
-      expect(prismaMock.journalNote.create).toHaveBeenCalledTimes(5)
-      expect(prismaMock.journalNote.create).toHaveBeenCalledWith({
-        data: {
-          bookId: 'book-1',
-          noteId: NOTE_IDS.cave,
-          role: 'entry',
-          chapterId: NOTE_IDS.session,
-          title: 'The goblin cave',
-          format: 2,
-          body: '### Loot\n- 30 gp\n- a *strange* key',
-          html: '<h5>Loot</h5>\n<ul>\n<li>30 gp</li>\n<li>a <em>strange</em> key</li>\n</ul>',
-          cut: false,
-          secret: false,
-          authorActorId: PARTY.thorin,
-          authorGm: false,
-          authorName: 'Thorin',
-          createdAt: new Date(event.journal!.notes[1].createdAt),
-          modifiedAt: new Date(event.journal!.notes[1].modifiedAt),
-          modifiedBy: 'Thorin',
-          modifiedIn: 'app',
-          revision: event.journal!.notes[1].rev,
-        },
+      // In one go.
+      expect(prismaMock.journalNote.createMany).toHaveBeenCalledTimes(1)
+      expect(prismaMock.journalNote.create).not.toHaveBeenCalled()
+      expect(madeNotes()).toHaveLength(5)
+      expect(madeNotes()).toContainEqual({
+        bookId: 'book-1',
+        noteId: NOTE_IDS.cave,
+        role: 'entry',
+        chapterId: NOTE_IDS.session,
+        title: 'The goblin cave',
+        format: 2,
+        body: '### Loot\n- 30 gp\n- a *strange* key',
+        html: '<h5>Loot</h5>\n<ul>\n<li>30 gp</li>\n<li>a <em>strange</em> key</li>\n</ul>',
+        cut: false,
+        secret: false,
+        authorActorId: PARTY.thorin,
+        authorGm: false,
+        authorName: 'Thorin',
+        createdAt: new Date(event.journal!.notes[1].createdAt),
+        modifiedAt: new Date(event.journal!.notes[1].modifiedAt),
+        modifiedBy: 'Thorin',
+        modifiedIn: 'app',
+        revision: event.journal!.notes[1].rev,
       })
       // Foundry's HTML is drawn, not kept; a note cut short is said so.
-      expect(prismaMock.journalNote.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(madeNotes()).toContainEqual(
+        expect.objectContaining({
           noteId: NOTE_IDS.map,
           format: 1,
           body: '',
           html: '<p><strong>North</strong> of the river.</p>',
         }),
-      })
-      expect(prismaMock.journalNote.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ noteId: NOTE_IDS.long, cut: true }),
-      })
+      )
+      expect(madeNotes()).toContainEqual(
+        expect.objectContaining({ noteId: NOTE_IDS.long, cut: true }),
+      )
       expect(prismaMock.journalBook.update).toHaveBeenCalledWith({
         where: { id: 'book-1' },
         data: {
@@ -290,7 +299,9 @@ describe('db/note-sync', () => {
         }),
       })
       // The long note was never held: it's added.
-      expect(prismaMock.journalNote.create).toHaveBeenCalledTimes(1)
+      expect(madeNotes()).toEqual([
+        expect.objectContaining({ noteId: NOTE_IDS.long }),
+      ])
     })
 
     it('replaces a note whose author’s name changed, without drawing it again', async () => {
@@ -324,7 +335,7 @@ describe('db/note-sync', () => {
       await applyJournalUpdated(tx, 'c1', event)
 
       expect(prismaMock.journalNote.update).not.toHaveBeenCalled()
-      expect(prismaMock.journalNote.create).not.toHaveBeenCalled()
+      expect(prismaMock.journalNote.createMany).not.toHaveBeenCalled()
       expect(prismaMock.journalBook.update).toHaveBeenCalledWith({
         where: { id: 'book-1' },
         data: expect.not.objectContaining({ version: expect.anything() }),
@@ -346,31 +357,31 @@ describe('db/note-sync', () => {
       }
 
       await applyJournalUpdated(tx, 'c1', page('party'))
-      expect(prismaMock.journalNote.create).toHaveBeenLastCalledWith({
-        data: expect.objectContaining({
+      expect(madeNotes().at(-1)).toEqual(
+        expect.objectContaining({
           html: expect.not.stringContaining('traitor'),
         }),
-      })
+      )
 
       await applyJournalUpdated(tx, 'c1', page('personal'))
-      expect(prismaMock.journalNote.create).toHaveBeenLastCalledWith({
-        data: expect.objectContaining({
+      expect(madeNotes().at(-1)).toEqual(
+        expect.objectContaining({
           html: expect.stringContaining('traitor'),
         }),
-      })
+      )
     })
 
     it('keeps a party page sent as HTML for its secret marked so', async () => {
       await applyJournalUpdated(tx, 'c1', mockJournalUpdated('party'))
 
-      expect(prismaMock.journalNote.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(madeNotes()).toContainEqual(
+        expect.objectContaining({
           noteId: NOTE_IDS.traitor,
           format: 1,
           secret: true,
           html: '<p>Keep watch at night.</p>',
         }),
-      })
+      )
     })
 
     it('keeps the notes of a book held back, marking it so', async () => {
@@ -425,7 +436,7 @@ describe('db/note-sync', () => {
       await applyJournalUpdated(tx, 'c1', mockJournalUpdated('party'))
 
       expect(prismaMock.journalBook.upsert).not.toHaveBeenCalled()
-      expect(prismaMock.journalNote.create).not.toHaveBeenCalled()
+      expect(prismaMock.journalNote.createMany).not.toHaveBeenCalled()
     })
 
     it('never touches a change waiting', async () => {
@@ -433,6 +444,125 @@ describe('db/note-sync', () => {
 
       expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
       expect(prismaMock.journalWrite.deleteMany).not.toHaveBeenCalled()
+    })
+
+    it('keeps the notes drawn ahead, drawing in the transaction only what wasn’t', async () => {
+      const event = mockJournalUpdated('personal')
+      const [chapter, cave] = event.journal!.notes
+      eventBook({ notes: [held({ ...cave, rev: 'ffffffffffffff' }, 'stale')] })
+      const drawings = {
+        origin: ORIGIN,
+        html: new Map([
+          [chapter.id, 'chapter drawn ahead'],
+          [cave.id, 'cave drawn ahead'],
+        ]),
+      }
+
+      await applyJournalUpdated(tx, 'c1', event, drawings)
+
+      expect(prismaMock.journalNote.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ html: 'cave drawn ahead' }),
+        }),
+      )
+      expect(madeNotes()).toContainEqual(
+        expect.objectContaining({
+          noteId: chapter.id,
+          html: 'chapter drawn ahead',
+        }),
+      )
+      // One not drawn ahead is drawn here.
+      expect(madeNotes()).toContainEqual(
+        expect.objectContaining({
+          noteId: NOTE_IDS.map,
+          html: '<p><strong>North</strong> of the river.</p>',
+        }),
+      )
+
+      // Drawn for another origin, as when the campaign's game moved meanwhile: drawn again.
+      prismaMock.journalNote.createMany.mockClear()
+      eventBook()
+      await applyJournalUpdated(tx, 'c1', event, {
+        ...drawings,
+        origin: 'https://elsewhere.example',
+      })
+      expect(madeNotes()).toContainEqual(
+        expect.objectContaining({
+          noteId: chapter.id,
+          html: expect.not.stringContaining('ahead'),
+        }),
+      )
+    })
+  })
+
+  describe('drawJournal, before the transaction', () => {
+    it('draws what the mirror as it is would draw again: new notes, changed ones, and Foundry’s HTML', async () => {
+      const event = mockJournalUpdated('personal')
+      const [chapter, cave, rumour, map] = event.journal!.notes
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        origin: ORIGIN,
+      } as any)
+      prismaMock.journalBook.findUnique.mockResolvedValue({
+        notes: [
+          held(chapter),
+          held({ ...cave, rev: 'ffffffffffffff' }),
+          held(rumour),
+          held(map),
+        ],
+      } as any)
+
+      const drawings = await drawJournal('c1', event)
+
+      expect(prismaMock.journalBook.findUnique).toHaveBeenCalledWith({
+        where: {
+          campaignBook: {
+            campaignId: 'c1',
+            kind: 'personal',
+            actorId: PARTY.thorin,
+          },
+        },
+        select: {
+          notes: {
+            select: {
+              noteId: true,
+              revision: true,
+              format: true,
+              body: true,
+              secret: true,
+            },
+          },
+        },
+      })
+      expect(drawings?.origin).toBe(ORIGIN)
+      expect([...drawings!.html.keys()].toSorted()).toEqual(
+        [cave.id, map.id, NOTE_IDS.long].toSorted(),
+      )
+      expect(drawings!.html.get(cave.id)).toContain('<h5>Loot</h5>')
+    })
+
+    it('draws nothing for a book held back, or with no journal, or a campaign gone', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        origin: ORIGIN,
+      } as any)
+      await expect(
+        drawJournal('c1', {
+          kind: 'party',
+          actorId: 'company',
+          journal: null,
+          withheld: { reason: 'private' },
+        }),
+      ).resolves.toBeUndefined()
+      await expect(
+        drawJournal('c1', {
+          kind: 'personal',
+          actorId: PARTY.thorin,
+          journal: null,
+        }),
+      ).resolves.toBeUndefined()
+      prismaMock.campaign.findUnique.mockResolvedValue(null)
+      await expect(
+        drawJournal('c1', mockJournalUpdated('personal')),
+      ).resolves.toBeUndefined()
     })
   })
 
@@ -546,6 +676,64 @@ describe('db/note-sync', () => {
       expect(
         prismaMock.journalWrite.updateMany.mock.calls[1][0].where,
       ).toMatchObject({ OR: [{ id: W1, seq: 0 }] })
+    })
+
+    it('hands a create over as its author, whoever changed it since: the module makes its writer its author', async () => {
+      waitingRows([
+        // A member's party note still waiting, which the Gamemaster fixed.
+        {
+          seat: 'gm',
+          requestedById: 'gm-1',
+          writerActorId: null,
+          authorActorId: PARTY.vex,
+          authorName: 'Vex',
+          modifiedBy: 'Gamemaster',
+        },
+        // The Gamemaster's note in Thorin's book, which Thorin's player changed.
+        {
+          id: W2,
+          authorActorId: null,
+          authorGm: true,
+          authorName: 'Gamemaster',
+        },
+        // A note first written in Foundry, made again after Foundry deleted it: no author to keep.
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          authorActorId: null,
+          authorName: '',
+          seat: 'gm',
+          requestedById: 'gm-1',
+          writerActorId: null,
+        },
+        {
+          id: '44444444-4444-4444-8444-444444444444',
+          authorActorId: null,
+          authorName: '',
+        },
+        // A change is the changer's own: the Gamemaster's of Vex's note goes as the Gamemaster's.
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          op: 'update',
+          base: 'abcdef00000001',
+          seat: 'gm',
+          requestedById: 'gm-1',
+          writerActorId: null,
+          authorActorId: PARTY.vex,
+        },
+      ])
+
+      const commands = await claimNoteWrites('c1', 's1')
+
+      expect(
+        commands.map(command => [command.by, command.note.writer]),
+      ).toEqual([
+        [undefined, PARTY.vex],
+        ['gm', null],
+        ['gm', null],
+        [undefined, PARTY.thorin],
+        ['gm', null],
+      ])
+      expect(commands[0]).not.toHaveProperty('by')
     })
 
     it('hands each over as the module’s note command, with exactly its fields', async () => {
@@ -709,6 +897,37 @@ describe('db/note-sync', () => {
       })
     })
 
+    it('keeps a chapter’s own text from Foundry, where a rename’s book post was lost', async () => {
+      prismaMock.journalWrite.findUnique.mockResolvedValue(
+        write({
+          seq: 2,
+          op: 'update',
+          noteId: NOTE_IDS.session,
+          role: 'chapter',
+          chapterId: null,
+          title: 'Session one',
+          body: '',
+          html: '',
+          base: 'abcdef00000001',
+        }),
+      )
+
+      await recordNoteResult(
+        'c1',
+        result({ note: { id: NOTE_IDS.session, rev: 'abcdef00000009' } }),
+      )
+
+      const { update } = prismaMock.journalNote.upsert.mock.calls[0][0]
+      expect(update).toMatchObject({
+        title: 'Session one',
+        revision: 'abcdef00000009',
+        modifiedIn: 'app',
+      })
+      // The text the Gamemaster wrote under it in Foundry stays.
+      expect(update.html).toBeUndefined()
+      expect(update.body).toBeUndefined()
+    })
+
     it('sets no mirror where the page’s revision isn’t known', async () => {
       prismaMock.journalNote.findUnique.mockResolvedValue(null)
 
@@ -755,9 +974,29 @@ describe('db/note-sync', () => {
 
       expect(prismaMock.journalWrite.updateMany).toHaveBeenCalledWith({
         where: { id: W1, seq: 2, campaignId: 'c1', status: 'claimed' },
-        data: { status, reason: kept },
+        data: { status, reason: kept, foundryRev: null },
       })
       expect(prismaMock.journalNote.upsert).not.toHaveBeenCalled()
+    })
+
+    it('keeps the page’s revision a refusal says, for Use yours where the mirror can’t say it', async () => {
+      await recordNoteResult(
+        'c1',
+        result({
+          status: 'failed',
+          reason: 'changed',
+          note: { id: NOTE_IDS.cave, rev: 'abcdef0000000b' },
+        }),
+      )
+
+      expect(prismaMock.journalWrite.updateMany).toHaveBeenCalledWith({
+        where: { id: W1, seq: 2, campaignId: 'c1', status: 'claimed' },
+        data: {
+          status: 'conflict',
+          reason: 'changed',
+          foundryRev: 'abcdef0000000b',
+        },
+      })
     })
 
     it('leaves a change the module took too long with to be handed over again', async () => {

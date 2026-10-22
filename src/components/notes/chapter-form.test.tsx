@@ -224,5 +224,46 @@ describe('components/notes/chapter-form', () => {
         ).toHaveFocus(),
       )
     })
+
+    it('holds the title still while it saves, with Cancel off, so what was typed is what’s kept', async () => {
+      const user = userEvent.setup()
+      const server = serveNotes({
+        [API]: emptyBook({ chapters: [noteChapter()] }),
+      })
+      const served = globalThis.fetch
+      const waiting: (() => void)[] = []
+      globalThis.fetch = jest.fn(
+        async (url: string, init: RequestInit = {}) => {
+          if ((init.method ?? 'GET') !== 'GET') {
+            await new Promise<void>(resolve => waiting.push(resolve))
+          }
+          return served(url, init)
+        },
+      ) as typeof fetch
+      renderSection()
+      await user.click(
+        await screen.findByRole('button', { name: 'Rename Session 1' }),
+      )
+      await user.clear(input())
+      await user.type(input(), 'The first night{Enter}')
+      await waitFor(() => expect(waiting).toHaveLength(1))
+
+      expect(input()).toHaveAttribute('readonly')
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      await user.type(input(), ' and the second')
+      expect(input()).toHaveValue('The first night')
+
+      await act(async () => {
+        for (const go of waiting.splice(0)) go()
+      })
+      await waitFor(() =>
+        expect(
+          screen.getByRole('heading', { level: 3, name: /^The first night/ }),
+        ).toHaveFocus(),
+      )
+      expect(server.sent.map(({ method, body }) => [method, body])).toEqual([
+        ['PATCH', { title: 'The first night', stamp: 'n:0000000000000b' }],
+      ])
+    })
   })
 })

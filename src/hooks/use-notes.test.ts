@@ -70,6 +70,22 @@ const pass = (ms = 0) =>
     await jest.advanceTimersByTimeAsync(ms)
   })
 
+/** Sends a note, Wolves, answered as the server answers it. */
+const createWolves = async (result: {
+  current: ReturnType<typeof useNotes>
+}) => {
+  let answer: unknown
+  await act(async () => {
+    answer = await result.current.create({
+      role: 'entry',
+      title: 'Wolves',
+      body: 'Three.',
+      chapterId: null,
+    })
+  })
+  return answer
+}
+
 const leaving = () => {
   const event = new Event('beforeunload', { cancelable: true })
   globalThis.dispatchEvent(event)
@@ -286,6 +302,83 @@ describe('hooks/use-notes', () => {
     })
     expect(reads().at(-1)).toBe(`${API}/notes?version=3&live=1`)
     expect(result.current.view?.version).toBe(4)
+  })
+
+  describe('a create whose answer is lost on its way back', () => {
+    const wolves = {
+      ...mockNotesView().entries[0],
+      id: 'madeAfterAll0001',
+      chapterId: null,
+      title: 'Wolves',
+      body: 'Three.',
+      html: '<p>Three.</p>',
+      stamp: 'w:made.0',
+    }
+    it('answers it made, with its id, where the book read again holds it, so it isn’t sent twice', async () => {
+      const server = serve({}, async () => {
+        // Kept, then the answer lost, as on a phone that drops the network.
+        const held = server.view
+        server.view = mockNotesView({
+          version: held.version + 1,
+          entries: [...held.entries, wolves],
+        })
+        throw new TypeError('Failed to fetch')
+      })
+      const { result } = renderHook(() => useNotes(API, { active: true }))
+      await pass()
+      expect(await createWolves(result)).toEqual({
+        ok: true,
+        id: 'madeAfterAll0001',
+        stamp: 'w:made.0',
+      })
+      expect(reads()).toHaveLength(2)
+    })
+
+    it.each([
+      ['wasn’t kept', (view: NotesView) => view],
+      [
+        'was there already, as it was sent',
+        (view: NotesView) => view,
+        [wolves],
+      ],
+      [
+        'holds something else',
+        (view: NotesView) => ({
+          ...view,
+          version: view.version + 1,
+          entries: [...view.entries, { ...wolves, body: 'Four.' }],
+        }),
+      ],
+    ])(
+      'answers that it couldn’t be reached where the note %s',
+      async (_, after, before: (typeof wolves)[] = []) => {
+        const server = serve(
+          { entries: [...mockNotesView().entries, ...before] },
+          async () => {
+            server.view = after(server.view)
+            throw new TypeError('Failed to fetch')
+          },
+        )
+        const { result } = renderHook(() => useNotes(API, { active: true }))
+        await pass()
+        expect(await createWolves(result)).toEqual({
+          ok: false,
+          reason: 'network',
+        })
+      },
+    )
+
+    it('sends a change or a delete answered by nothing again, rather than reading the book first', async () => {
+      serve({}, () => Promise.reject(new TypeError('Failed to fetch')))
+      const { result } = renderHook(() => useNotes(API, { active: true }))
+      await pass()
+      await act(async () => {
+        await expect(
+          result.current.remove('goblinCaveNote01', 'n:1'),
+        ).resolves.toEqual({ ok: false, reason: 'network' })
+      })
+      expect(reads()).toHaveLength(1)
+    })
   })
 
   it('changes, deletes and settles notes, and previews one, each at its own address', async () => {

@@ -10,7 +10,10 @@ import {
   MOST_NOTE_TITLE,
   NOTES_PER_MINUTE,
 } from '@/constants/notes'
-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
+import {
+  BRIDGE_POLLED_WITHIN,
+  ROLL_ANSWER_WITHIN,
+} from '@/constants/sending-stone'
 import { noteHtml } from '@/lib/note-html'
 import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
 import { checkChange } from '@/schemas/notes'
@@ -88,6 +91,30 @@ type Waiting = JournalWrite & {
 /** A change to a note that still means something: one not yet made. */
 function waiting(write: JournalWrite | undefined): write is Waiting {
   return !!write && write.status !== 'made'
+}
+
+/**
+ * Whether a change handed to the module has gone unanswered past the time a fetched roll is (§4.3),
+ * as when Foundry closed before its result came. It's handed over again when the game is back, and
+ * meanwhile is no longer waited for: a late result for that hand-over changes nothing once the
+ * change has moved on.
+ */
+function lost(write: JournalWrite): boolean {
+  return (
+    write.status === 'claimed' &&
+    !!write.claimedAt &&
+    write.claimedAt.getTime() < Date.now() - ROLL_ANSWER_WITHIN
+  )
+}
+
+/** Where a change to a write may start from, as its compare-and-set's `where` says it. */
+function openFrom(write: JournalWrite): Prisma.JournalWriteWhereInput {
+  return lost(write)
+    ? {
+        status: 'claimed',
+        claimedAt: { lt: new Date(Date.now() - ROLL_ANSWER_WITHIN) },
+      }
+    : { status: { in: ['pending', 'failed'] } }
 }
 
 /** What a book holds, as read for a seat, with what decides what the seat may do in it. */
@@ -631,11 +658,13 @@ async function takes(
   if (!held.connected) return { ok: false, status: 409, reason: 'unknown' }
   if (held.book.private) return { ok: false, status: 409, reason: 'private' }
   if (!limited) return
-  // Made changes count too, kept an hour for it, and each note's folded changes once.
+  // The seat's own changes, by when it made them: made ones count too, kept an hour for it, and
+  // each note's folded changes once. The module's claims and answers touch the rows, not this, so
+  // a backlog made at once when the game comes back costs the seat nothing.
   const changes = await prisma.journalWrite.count({
     where: {
       requestedById: seat.userId,
-      updatedAt: { gte: new Date(Date.now() - 60_000) },
+      modifiedAt: { gte: new Date(Date.now() - 60_000) },
     },
   })
   if (changes >= NOTES_PER_MINUTE) {
@@ -847,7 +876,9 @@ export async function changeNote(
   if (change.stamp !== stampOf(note, write)) {
     return { ok: false, status: 409, reason: 'changed' }
   }
-  if (write?.status === 'claimed') {
+  // On its way: waited for, unless it's thought lost. A create is waited for however long, as made
+  // again with new text it could find its page already made, which keeps the old.
+  if (write?.status === 'claimed' && (write.op === 'create' || !lost(write))) {
     return { ok: false, status: 409, reason: 'saving' }
   }
   if (write?.status === 'conflict') {
@@ -917,11 +948,7 @@ async function saveChange(
   if (write && waiting(write)) {
     changedOne(
       await tx.journalWrite.updateMany({
-        where: {
-          id: write.id,
-          seq: write.seq,
-          status: { in: ['pending', 'failed'] },
-        },
+        where: { id: write.id, seq: write.seq, ...openFrom(write) },
         data: {
           ...content,
           op: foldedOp(write.op, op),
@@ -959,7 +986,7 @@ async function saveChange(
     changedOne(
       await tx.journalWrite.updateMany({
         where: { id: write.id, seq: write.seq, status: 'made' },
-        data: { ...fresh, seq: { increment: 1 } },
+        data: { ...fresh, foundryRev: null, seq: { increment: 1 } },
       }),
     )
     return { id: write.id, seq: write.seq + 1 }
@@ -1007,22 +1034,20 @@ export async function deleteNote(
   if (stamp !== stampOf(note, write)) {
     return { ok: false, status: 409, reason: 'changed' }
   }
-  if (write?.status === 'claimed') {
+  if (write?.status === 'claimed' && !lost(write)) {
     return { ok: false, status: 409, reason: 'saving' }
   }
   if (write?.status === 'conflict') {
     return { ok: false, status: 409, reason: 'conflict' }
   }
+  // A create thought lost on its way is dropped too: if Foundry made its page after all, the page
+  // comes back with the journal, as Foundry's.
   if (write && waiting(write) && write.op === 'create') {
     return guarded(() =>
       prisma.$transaction(async tx => {
         changedOne(
           await tx.journalWrite.deleteMany({
-            where: {
-              id: write.id,
-              seq: write.seq,
-              status: { in: ['pending', 'failed'] },
-            },
+            where: { id: write.id, seq: write.seq, ...openFrom(write) },
           }),
         )
         await bumpBook(tx, book)
@@ -1065,12 +1090,14 @@ export async function resolveNote(
   if (!held || (!note && !waiting(write))) {
     return { ok: false, status: 404, reason: 'gone' }
   }
+  // Theirs also drops a change thought lost on its way, as the Gamemaster clears a stuck one (Q5):
+  // whatever Foundry made of it comes back with the journal.
   const settles =
     write?.status === 'conflict' ||
     write?.status === 'failed' ||
     (resolve === 'theirs' &&
-      write?.status === 'pending' &&
-      write.op === 'delete')
+      !!write &&
+      ((write.status === 'pending' && write.op === 'delete') || lost(write)))
   if (!write || !settles) return { ok: false, status: 409, reason: 'changed' }
   const rights = rightsFor(held, seat, note, write)
   const may =
@@ -1081,7 +1108,11 @@ export async function resolveNote(
   if (stamp !== stampOf(note, write)) {
     return { ok: false, status: 409, reason: 'changed' }
   }
-  const where = { id: write.id, seq: write.seq, status: write.status }
+  const where = {
+    id: write.id,
+    seq: write.seq,
+    ...(lost(write) ? openFrom(write) : { status: write.status }),
+  }
   if (resolve === 'theirs') {
     return guarded(() =>
       prisma.$transaction(async tx => {
@@ -1091,7 +1122,7 @@ export async function resolveNote(
       }),
     )
   }
-  const again = sentAgain(write, note)
+  const again = sentAgain(write, note, !!held.row?.withheld)
   return guarded(() =>
     prisma.$transaction(async tx => {
       changedOne(
@@ -1114,14 +1145,21 @@ export async function resolveNote(
 /**
  * A change the game didn't take, sent again as the seat's (§4.5): the note made again where Foundry
  * deleted it; made from Foundry's revision now where Foundry changed it; else as it was.
+ * @param withheld - Foundry holds the book back, so the mirror can't say its revision now.
  */
 function sentAgain(
   write: JournalWrite,
   note: JournalNote | undefined,
+  withheld: boolean,
 ): Partial<Pick<JournalWrite, 'op' | 'base'>> {
   if (write.status !== 'conflict') return {}
   if (write.reason === 'gone') return { op: 'create', base: null }
-  return { base: note?.revision ?? write.base }
+  // Foundry's revision now is the mirror's, which every journal.updated keeps up; but in a book
+  // Foundry holds back nothing does, and the refusal's own revision is the latest word of it.
+  const now = withheld
+    ? (write.foundryRev ?? note?.revision)
+    : (note?.revision ?? write.foundryRev)
+  return { base: now ?? write.base }
 }
 
 /**

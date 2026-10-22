@@ -187,3 +187,8 @@ body {
 .note-text :where(h5) {
   font-size: 1rem;
 }
+/* A note's table keeps each word in its cells whole, so one too wide for the note scrolls inside
+   the row's overflow-x-auto wrapper rather than breaking its words letter by letter. */
+.note-text :where(th, td) {
+  overflow-wrap: normal;
+}

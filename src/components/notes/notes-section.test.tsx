@@ -428,10 +428,122 @@ describe('components/notes/notes-section', () => {
     )
     expect(
       await within(section()).findByText(
-        'Your last change is still on its way to the game. Try again in a moment.',
+        'Its last change is still on its way to the game. Try again in a moment.',
       ),
     ).toBeInTheDocument()
     expect(screen.getByText('A rumour')).toBeInTheDocument()
+  })
+
+  it.each([
+    [
+      'changed',
+      { status: 409, body: { reason: 'changed' } },
+      'It changed meanwhile: here’s how it stands now.',
+    ],
+    [
+      'deleted meanwhile',
+      { status: 404, body: { reason: 'gone' } },
+      'It changed meanwhile: here’s how it stands now.',
+    ],
+    [
+      'unreachable',
+      { status: 503 },
+      'Sending Stone couldn’t be reached. Try again in a moment.',
+    ],
+  ])(
+    'says how things stand where a delete or a choice was refused, %s, never the editor’s words',
+    async (_, refusal, words) => {
+      const user = userEvent.setup()
+      const server = serveNotes({
+        [API]: book({
+          entries: [
+            noteEntry(),
+            noteEntry({
+              id: 'deletedHere00001',
+              title: 'Deleted here',
+              state: 'deleting',
+              stamp: 'w:abc.4',
+            }),
+          ],
+        }),
+      })
+      server.answer = () => refusal
+      renderSection()
+      await user.click(await screen.findByText('The goblin cave'))
+      await user.click(
+        within(row('The goblin cave')).getByRole('button', { name: 'Delete' }),
+      )
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: 'Delete',
+        }),
+      )
+      const line = section().querySelector('[aria-live="polite"]:not([id])')
+      await waitFor(() => expect(line).toHaveTextContent(words))
+
+      await user.click(screen.getByRole('button', { name: 'Keep it' }))
+      await waitFor(() =>
+        expect(server.sent.at(-1)?.body).toEqual({
+          resolve: 'theirs',
+          stamp: 'w:abc.4',
+        }),
+      )
+      await waitFor(() => expect(line).toHaveTextContent(words))
+      expect(line?.textContent).not.toMatch(/still here|cancel/)
+    },
+  )
+
+  it('gives focus after a delete to the next note in its place, else its chapter, else New note', async () => {
+    const user = userEvent.setup()
+    serveNotes({
+      [API]: book({
+        entries: [
+          noteEntry({
+            id: 'firstInChapter01',
+            title: 'First',
+            chapterId: 'sessionChapter01',
+            createdAt: '2026-10-21T10:00:00.000Z',
+          }),
+          noteEntry({
+            id: 'secondInChapter1',
+            title: 'Second',
+            chapterId: 'sessionChapter01',
+            createdAt: '2026-10-21T11:00:00.000Z',
+          }),
+          noteEntry({ id: 'looseNoteOnly001', title: 'Loose' }),
+        ],
+      }),
+    })
+    renderSection()
+    const remove = async (title: string) => {
+      if (!row(title).hasAttribute('open'))
+        await user.click(screen.getByText(title))
+      await user.click(
+        within(row(title)).getByRole('button', { name: 'Delete' }),
+      )
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: 'Delete',
+        }),
+      )
+      await waitFor(() => expect(screen.queryByText(title)).toBeNull())
+    }
+
+    await screen.findByText('First')
+    await remove('First')
+    await waitFor(() =>
+      expect(row('Second').querySelector('summary')).toHaveFocus(),
+    )
+    await remove('Second')
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { level: 3, name: /^Session 1/ }),
+      ).toHaveFocus(),
+    )
+    await remove('Loose')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'New note' })).toHaveFocus(),
+    )
   })
 
   it('settles a change the game didn’t take, as the seat chooses', async () => {

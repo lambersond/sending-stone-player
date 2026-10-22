@@ -129,6 +129,39 @@ describe('components/notes/note-row', () => {
   })
 
   it.each([
+    [
+      'changed in Foundry while a change waited',
+      'conflict' as const,
+      'Changed in Foundry',
+      ['Show yours', 'Use yours', 'Keep Foundry’s'],
+    ],
+    [
+      'deleted in Foundry while a change waited',
+      'gone' as const,
+      'Deleted in Foundry',
+      ['Add it again', 'Discard yours'],
+    ],
+  ])(
+    'offers no Edit or Delete where it was %s, only the choices that settle it, as the server refuses any other change till then',
+    (_, state, chip, choices) => {
+      renderRow({
+        state,
+        reason: 'changed',
+        mine: {
+          title: 'Mine',
+          html: '<p>mine</p>',
+          body: 'mine',
+          chapterId: null,
+        },
+      })
+      expect(
+        screen.getAllByRole('button').map(button => button.textContent),
+      ).toEqual(choices)
+      expect(screen.getByRole('group', { name: chip })).toBeInTheDocument()
+    },
+  )
+
+  it.each([
     ['html' as const, 'Written in Foundry’s own editor: change it there.'],
     ['long' as const, 'Too long to change here: change it in Foundry.'],
     [

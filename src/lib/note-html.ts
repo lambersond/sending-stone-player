@@ -74,6 +74,8 @@ function withoutHidden(html: string, secrets: boolean): string {
   return sanitizeHtml(html, {
     allowedTags: SHEET_TAGS,
     allowedAttributes: false,
+    // Showdown draws ~~strike~~ as del, which the page's tags don't keep: drawn as s instead.
+    transformTags: { del: 's', strike: 's' },
     exclusiveFilter: frame =>
       (!secrets &&
         frame.tag === 'section' &&

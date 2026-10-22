@@ -90,6 +90,11 @@ export async function reconcileJournals(
   }
 }
 
+/** A journal's note's Markdown as the mirror keeps it: Foundry's HTML is only drawn, never kept. */
+function bodyOf(page: JournalPage): string {
+  return page.format === 2 ? (page.markdown ?? '') : ''
+}
+
 /** A journal's note as the mirror keeps it, but for how it's drawn. */
 function fieldsOf(page: JournalPage): Omit<JournalNote, 'bookId' | 'html'> {
   return {
@@ -98,8 +103,7 @@ function fieldsOf(page: JournalPage): Omit<JournalNote, 'bookId' | 'html'> {
     chapterId: page.role === 'entry' ? page.chapter : null,
     title: page.title,
     format: page.format,
-    // Foundry's HTML is only drawn, never changed here, so only Markdown is kept.
-    body: page.format === 2 ? (page.markdown ?? '') : '',
+    body: bodyOf(page),
     cut: page.cut === true,
     secret: page.secret === true,
     authorActorId: page.author?.actorId ?? null,
@@ -124,6 +128,74 @@ function drawn(page: JournalPage, origin: string, kind: NoteBookKind): string {
   )
 }
 
+/**
+ * Whether a note held is drawn again from what Foundry now says of it: where what it says may have
+ * changed, by its revision, its form or its text (a chapter's own text isn't in its revision); and
+ * each time for Foundry's HTML, which isn't kept. A new name alone keeps its drawing.
+ */
+function redrawn(
+  held: Pick<JournalNote, 'revision' | 'format' | 'body' | 'secret'>,
+  page: JournalPage,
+): boolean {
+  return (
+    held.revision !== page.rev ||
+    held.format !== page.format ||
+    held.body !== bodyOf(page) ||
+    held.secret !== (page.secret === true) ||
+    page.format === 1
+  )
+}
+
+/** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
+export type JournalDrawings = { origin: string; html: Map<string, string> }
+
+/**
+ * Draw a `journal.updated`'s notes ahead (§8.9), before the transaction that keeps them: a large
+ * book's Markdown takes seconds to draw, longer than a transaction may stay open. Only those the
+ * mirror, as it was just now, would draw again are drawn; the keeping draws any other itself, as
+ * where the mirror changed meanwhile.
+ * @returns Undefined where nothing is to be drawn.
+ */
+export async function drawJournal(
+  campaignId: string,
+  event: JournalUpdated,
+): Promise<JournalDrawings | undefined> {
+  const pages = event.journal?.notes ?? []
+  if (event.withheld || pages.length === 0) return
+  const [campaign, book] = await Promise.all([
+    prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { origin: true },
+    }),
+    prisma.journalBook.findUnique({
+      where: {
+        campaignBook: { campaignId, kind: event.kind, actorId: event.actorId },
+      },
+      select: {
+        notes: {
+          select: {
+            noteId: true,
+            revision: true,
+            format: true,
+            body: true,
+            secret: true,
+          },
+        },
+      },
+    }),
+  ])
+  if (!campaign) return
+  const held = new Map(book?.notes.map(note => [note.noteId, note]))
+  const html = new Map<string, string>()
+  for (const page of pages) {
+    const before = held.get(page.id)
+    if (!before || redrawn(before, page)) {
+      html.set(page.id, drawn(page, campaign.origin, event.kind))
+    }
+  }
+  return { origin: campaign.origin, html }
+}
+
 /** Whether anything kept of a note differs from what Foundry now says of it. */
 function differs(
   held: JournalNote,
@@ -143,11 +215,13 @@ function differs(
  * keeps the notes as they were; no journal, which empties the mirror; or a journal, whose notes the
  * mirror becomes, each one changed drawn again. The book of an actor the campaign doesn't have is
  * ignored. Changes waiting here are never touched: the module decides each as it makes it.
+ * @param drawings - Its notes drawn ahead, outside the transaction (`drawJournal`).
  */
 export async function applyJournalUpdated(
   tx: Tx,
   campaignId: string,
   event: JournalUpdated,
+  drawings?: JournalDrawings,
 ): Promise<void> {
   const campaign = await tx.campaign.findUnique({
     where: { id: campaignId },
@@ -195,6 +269,9 @@ export async function applyJournalUpdated(
 
   const { journal } = event
   const pages = journal?.notes ?? []
+  const ahead = drawings?.origin === campaign.origin ? drawings.html : undefined
+  const draw = (page: JournalPage) =>
+    ahead?.get(page.id) ?? drawn(page, campaign.origin, event.kind)
   const held = new Map(book.notes.map(note => [note.noteId, note]))
   const sent = new Set(pages.map(({ id }) => id))
   const gone = book.notes.filter(({ noteId }) => !sent.has(noteId))
@@ -207,37 +284,26 @@ export async function applyJournalUpdated(
       },
     })
   }
+  // New notes are made in one go, so that a book's first post costs one query, not one a note.
+  const made: Prisma.JournalNoteCreateManyInput[] = []
   for (const page of pages) {
     const before = held.get(page.id)
     const fields = fieldsOf(page)
     if (!before) {
-      changed = true
-      await tx.journalNote.create({
-        data: {
-          bookId: book.id,
-          ...fields,
-          html: drawn(page, campaign.origin, event.kind),
-        },
-      })
+      made.push({ bookId: book.id, ...fields, html: draw(page) })
       continue
     }
-    // Drawn again only where what it says may have changed: its revision, its form or its text,
-    // as a chapter's own text isn't in its revision; and Foundry's HTML, which isn't kept, each
-    // time, kept only where it draws otherwise now. A new name alone keeps its drawing.
-    const html =
-      before.revision !== page.rev ||
-      before.format !== fields.format ||
-      before.body !== fields.body ||
-      before.secret !== fields.secret ||
-      page.format === 1
-        ? drawn(page, campaign.origin, event.kind)
-        : before.html
+    const html = redrawn(before, page) ? draw(page) : before.html
     if (!differs(before, fields) && html === before.html) continue
     changed = true
     await tx.journalNote.update({
       where: noteKey(book.id, page.id),
       data: { ...fields, html },
     })
+  }
+  if (made.length > 0) {
+    changed = true
+    await tx.journalNote.createMany({ data: made })
   }
   const journalId = journal?.id ?? null
   const journalName = journal?.name ?? null
@@ -345,18 +411,19 @@ export async function claimNoteWrites(
   })
   return claimed.map(write => {
     const entry = write.role === 'entry'
+    const { writer, gm } = handedAs(write)
     return {
       id: commandId(write),
       actorId: write.book.actorId,
       kind: 'note',
-      ...(write.seat === 'gm' && { by: 'gm' as const }),
+      ...(gm && { by: 'gm' as const }),
       note: {
         book: write.book.kind,
         op: write.op,
         id: write.noteId,
         role: write.role,
         base: write.op === 'create' ? null : write.base,
-        writer: write.writerActorId,
+        writer,
         at: write.modifiedAt.getTime(),
         ...(write.op !== 'delete' && { title: write.title }),
         ...(write.op !== 'delete' &&
@@ -371,6 +438,29 @@ export async function claimNoteWrites(
       dice: [],
     }
   })
+}
+
+/**
+ * Who a change is handed over as (§3.4). A create goes as its author, whoever changed it since: the
+ * module makes a create's writer its author, and a party member owns, in Foundry and here, only the
+ * pages they wrote. So a member's note the Gamemaster fixed while it waited, or made again after
+ * Foundry deleted it, stays the member's. A note first written in Foundry has no author to keep,
+ * and goes as whoever made it again; any other change goes as whoever made it.
+ */
+function handedAs(write: {
+  op: 'create' | 'update' | 'delete'
+  seat: 'player' | 'gm'
+  writerActorId: string | null
+  authorActorId: string | null
+  authorGm: boolean
+}): { writer: string | null; gm: boolean } {
+  if (write.op === 'create' && write.authorActorId) {
+    return { writer: write.authorActorId, gm: false }
+  }
+  if (write.op === 'create' && write.authorGm) return { writer: null, gm: true }
+  return write.seat === 'gm'
+    ? { writer: null, gm: true }
+    : { writer: write.writerActorId, gm: false }
 }
 
 /** The reasons a note command may be refused for, kept as they are; any other is an error. */
@@ -439,7 +529,12 @@ export async function recordNoteResult(
   await prisma.$transaction(async tx => {
     const { count } = await tx.journalWrite.updateMany({
       where: { id, seq, campaignId, status: 'claimed' },
-      data: { status, reason },
+      // A refusal says the page's revision now, kept for where the mirror can't say it: a book
+      // Foundry holds back as too large sends no notes, so Use yours goes again from this.
+      data:
+        status === 'made'
+          ? { status, reason }
+          : { status, reason, foundryRev: result.note?.rev ?? null },
     })
     if (count === 0) return
     const write = await tx.journalWrite.findUnique({ where: { id } })

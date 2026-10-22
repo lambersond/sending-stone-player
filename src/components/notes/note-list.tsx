@@ -168,7 +168,13 @@ function Chapter({
     [chapter.html],
   )
   const titleId = `${id}-title`
-  const renames = writable && chapter.canRename
+  // Renamed in Foundry, or deleted there, while a rename waited, it's settled first, by the problem
+  // panel's choices: the server refuses another rename till then.
+  const renames =
+    writable &&
+    chapter.canRename &&
+    chapter.state !== 'conflict' &&
+    chapter.state !== 'gone'
   return (
     // Named by its title alone, so it's found by it.
     <section aria-labelledby={titleId} className='flex flex-col gap-2'>
