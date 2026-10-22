@@ -1,23 +1,28 @@
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SheetText } from './sheet-text'
+import { NotesSection, type NotesPlace } from '@/components/notes'
 import type { SheetDetails } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
 /**
  * Who the character is, as dnd5e's Biography tab tells it: alignment, age and the like, their
  * experience, their personality and appearance, and their story. A roll in their story is named
- * for the character, as the game names it.
+ * for the character, as the game names it. From module 0.34.0, their own journal notes come
+ * first, as the one part of the tab the player writes in, and during play.
  */
 export function BiographyTab({
   characterId,
   name,
   sheet,
+  notes,
 }: Readonly<{
   characterId: string
   /** The character's name. */
   name: string
   sheet: TableSheet
+  /** Where the character's own notes are read and written, at the table. */
+  notes?: NotesPlace
 }>) {
   const { about, personality, appearance, xp, biography } = sheet.details
   const empty =
@@ -28,6 +33,8 @@ export function BiographyTab({
     !biography
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {notes && <NotesSection kind='personal' look='sheet' {...notes} />}
+
       {(xp || about.length > 0) && (
         <section
           aria-labelledby='details-heading'
@@ -97,7 +104,7 @@ export function BiographyTab({
 
       {empty && (
         <p className='text-sm text-text-secondary'>
-          Nothing has been written about this character yet.
+          Nothing is written about {name} in Foundry yet.
         </p>
       )}
     </div>

@@ -88,6 +88,7 @@ export const EVENTS = {
   PROMPT_CLOSED: 'roll.prompt.closed',
   GROUP_UPDATED: 'group.updated',
   GROUP_REMOVED: 'group.removed',
+  JOURNAL_UPDATED: 'journal.updated',
   BRIDGE_SETTINGS: 'bridge.settings',
 } as const
 
@@ -228,6 +229,13 @@ export type TransferFeature = (typeof TRANSFER_FEATURES)[number]
  * module fetches for them with rolls and moves off, only then.
  */
 export const REMOVALS = 1
+
+/**
+ * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
+ * the `note` command, `journal.updated` and the hello's `features.notes`. The module fetches for
+ * them, and sends journals, only then.
+ */
+export const NOTES = 1
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

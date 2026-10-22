@@ -181,3 +181,14 @@ body {
     border-color: var(--color-border);
   }
 }
+
+/* A journal note's text (module 0.34.0), drawn as a description is, under its entry's h4: its own
+   headings come two levels down, and a ### keeps the size a heading of its own has. */
+.note-text :where(h5) {
+  font-size: 1rem;
+}
+/* A note's table keeps each word in its cells whole, so one too wide for the note scrolls inside
+   the row's overflow-x-auto wrapper rather than breaking its words letter by letter. */
+.note-text :where(th, td) {
+  overflow-wrap: normal;
+}

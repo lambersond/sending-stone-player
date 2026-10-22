@@ -1,5 +1,7 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+import type { NoteCommand } from '@/db/note-sync'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
+import type { NotesView } from '@/types/notes'
 import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
 import type {
   CharacterSheet,
@@ -7,6 +9,7 @@ import type {
   CommandResult,
   CombatSnapshot,
   ConnectedCharacter,
+  JournalUpdated,
   SerializedMessage,
   SheetAbility,
   SheetAction,
@@ -2460,5 +2463,271 @@ export function removalInventory(): SheetInventory {
     currency: [{ id: 'gp', label: 'Gold', abbreviation: 'gp', value: 15 }],
     encumbrance: null,
     attunement: null,
+  }
+}
+
+/**
+ * Journal notes' ids, from module 0.34.0: 16 letters and digits, as Foundry's pages' are and
+ * the app makes them.
+ */
+export const NOTE_IDS = {
+  session: 'sessionChapter01',
+  cave: 'goblinCaveNote01',
+  rumour: 'rumourInFoundry1',
+  map: 'mapInHtmlEditor1',
+  long: 'longFoundryPage1',
+  road: 'roadToEreborCh01',
+  wolves: 'wolvesEntryVex01',
+  traitor: 'traitorSecretGm1',
+} as const
+
+/** A page's revision, 14 hexadecimal digits, one for each. */
+const rev = (n: number) => n.toString(16).padStart(14, '0')
+
+/** When the notes were written: from 21 October 2026, a minute apart. */
+const written = (minutes: number) =>
+  Date.parse('2026-10-21T19:00:00Z') + minutes * 60_000
+
+/**
+ * A journal of notes as module 0.34.0 sends it: Thorin's own in Erebor, a chapter with an entry
+ * written in the app, one written in Foundry, one in Foundry's HTML editor and one cut short; or
+ * The Iron Company's, a chapter with Vex's entry, and a page of the Gamemaster's sent as HTML for
+ * its secret.
+ */
+export function mockJournalUpdated(
+  kind: 'personal' | 'party' = 'personal',
+  fields: Partial<JournalUpdated> = {},
+): JournalUpdated {
+  if (kind === 'party') {
+    return {
+      kind: 'party',
+      actorId: 'company',
+      journal: {
+        id: 'companyJournal01',
+        name: 'The Iron Company: party notes',
+        notes: [
+          {
+            id: NOTE_IDS.road,
+            role: 'chapter',
+            chapter: null,
+            title: 'Road to Erebor',
+            format: 2,
+            markdown: '',
+            createdAt: written(0),
+            modifiedAt: written(0),
+            modifiedBy: 'Vex',
+            modifiedIn: 'app',
+            author: { actorId: PARTY.vex, gm: false, name: 'Vex' },
+            rev: rev(1),
+          },
+          {
+            id: NOTE_IDS.wolves,
+            role: 'entry',
+            chapter: NOTE_IDS.road,
+            title: 'Wolves',
+            format: 2,
+            markdown: 'Three of them, *hungry*.',
+            createdAt: written(1),
+            modifiedAt: written(1),
+            modifiedBy: 'Vex',
+            modifiedIn: 'app',
+            author: { actorId: PARTY.vex, gm: false, name: 'Vex' },
+            rev: rev(2),
+          },
+          {
+            id: NOTE_IDS.traitor,
+            role: 'entry',
+            chapter: NOTE_IDS.road,
+            title: 'Who to trust',
+            format: 1,
+            html: '<p>Keep watch at night.</p>',
+            secret: true,
+            createdAt: written(2),
+            modifiedAt: written(3),
+            modifiedBy: 'Gamemaster',
+            modifiedIn: 'foundry',
+            author: null,
+            rev: rev(3),
+          },
+        ],
+      },
+      ...fields,
+    }
+  }
+  return {
+    kind: 'personal',
+    actorId: PARTY.thorin,
+    journal: {
+      id: 'thorinJournal001',
+      name: "Thorin's notes (Erebor)",
+      notes: [
+        {
+          id: NOTE_IDS.session,
+          role: 'chapter',
+          chapter: null,
+          title: 'Session 1',
+          format: 2,
+          markdown: '',
+          createdAt: written(0),
+          modifiedAt: written(0),
+          modifiedBy: 'Thorin',
+          modifiedIn: 'app',
+          author: { actorId: PARTY.thorin, gm: false, name: 'Thorin' },
+          rev: rev(11),
+        },
+        {
+          id: NOTE_IDS.cave,
+          role: 'entry',
+          chapter: NOTE_IDS.session,
+          title: 'The goblin cave',
+          format: 2,
+          markdown: '### Loot\n- 30 gp\n- a *strange* key',
+          createdAt: written(1),
+          modifiedAt: written(2),
+          modifiedBy: 'Thorin',
+          modifiedIn: 'app',
+          author: { actorId: PARTY.thorin, gm: false, name: 'Thorin' },
+          rev: rev(12),
+        },
+        {
+          id: NOTE_IDS.rumour,
+          role: 'entry',
+          chapter: NOTE_IDS.session,
+          title: 'A rumour',
+          format: 2,
+          markdown: 'Written in Foundry.',
+          createdAt: written(3),
+          modifiedAt: written(4),
+          modifiedBy: 'Gamemaster',
+          modifiedIn: 'foundry',
+          author: null,
+          rev: rev(13),
+        },
+        {
+          id: NOTE_IDS.map,
+          role: 'entry',
+          chapter: null,
+          title: 'The map',
+          format: 1,
+          html: '<p><strong>North</strong> of the river.</p>',
+          createdAt: written(5),
+          modifiedAt: written(6),
+          modifiedBy: 'Thorin',
+          modifiedIn: 'foundry',
+          author: null,
+          rev: rev(14),
+        },
+        {
+          id: NOTE_IDS.long,
+          role: 'entry',
+          chapter: null,
+          title: 'The long tale',
+          format: 2,
+          markdown: 'Once upon a time…',
+          cut: true,
+          createdAt: written(7),
+          modifiedAt: written(7),
+          modifiedBy: 'Gamemaster',
+          modifiedIn: 'foundry',
+          author: null,
+          rev: rev(15),
+        },
+      ],
+    },
+    ...fields,
+  }
+}
+
+/**
+ * A book of notes as its page is sent it, from module 0.34.0: Thorin's own, a chapter with an entry
+ * of his synced and one waiting for the game.
+ */
+export function mockNotesView(fields: Partial<NotesView> = {}): NotesView {
+  return {
+    version: 3,
+    kind: 'personal',
+    journal: "Thorin's notes (Erebor)",
+    live: true,
+    enabled: true,
+    canAdd: true,
+    connected: true,
+    chapters: [
+      {
+        id: NOTE_IDS.session,
+        title: 'Session 1',
+        html: '',
+        createdAt: '2026-10-21T19:00:00.000Z',
+        modifiedAt: '2026-10-21T19:00:00.000Z',
+        modifiedBy: 'Thorin',
+        modifiedIn: 'app',
+        state: 'synced',
+        canRename: true,
+        stamp: `n:${rev(11)}`,
+      },
+    ],
+    entries: [
+      {
+        id: NOTE_IDS.cave,
+        chapterId: NOTE_IDS.session,
+        title: 'The goblin cave',
+        html: '<h5>Loot</h5><ul><li>30 gp</li><li>a <em>strange</em> key</li></ul>',
+        body: '### Loot\n- 30 gp\n- a *strange* key',
+        createdAt: '2026-10-21T19:01:00.000Z',
+        author: { name: 'Thorin' },
+        modifiedAt: '2026-10-21T19:02:00.000Z',
+        modifiedBy: 'Thorin',
+        modifiedIn: 'app',
+        state: 'synced',
+        canEdit: true,
+        canDelete: true,
+        stamp: `n:${rev(12)}`,
+      },
+      {
+        id: 'waitingNote00001',
+        chapterId: NOTE_IDS.session,
+        title: 'Waiting',
+        html: '<p>Not yet in Foundry.</p>',
+        body: 'Not yet in Foundry.',
+        createdAt: '2026-10-21T19:05:00.000Z',
+        author: { name: 'Thorin' },
+        modifiedAt: '2026-10-21T19:05:00.000Z',
+        modifiedBy: 'Thorin',
+        modifiedIn: 'app',
+        state: 'waiting',
+        canEdit: true,
+        canDelete: true,
+        stamp: 'w:7d2c3f5e-1b0a-4c8e-9f6d-2a1b3c4d5e6f.0',
+      },
+    ],
+    ...fields,
+  }
+}
+
+/** A note command as the module fetches it, from module 0.34.0: Thorin's player adding an entry. */
+export function mockNoteCommand(
+  fields: Partial<NoteCommand['note']> = {},
+): NoteCommand {
+  return {
+    id: '7d2c3f5e-1b0a-4c8e-9f6d-2a1b3c4d5e6f.0',
+    actorId: PARTY.thorin,
+    kind: 'note',
+    note: {
+      book: 'personal',
+      op: 'create',
+      id: NOTE_IDS.cave,
+      role: 'entry',
+      base: null,
+      writer: PARTY.thorin,
+      at: written(1),
+      title: 'The goblin cave',
+      markdown: '### Loot',
+      chapter: NOTE_IDS.session,
+      createdAt: written(1),
+      ...fields,
+    },
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
   }
 }

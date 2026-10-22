@@ -18,6 +18,53 @@ const LINK_ATTRIBUTE_NAMES = [
 ]
 
 /**
+ * The tags a description from Foundry keeps, which the page draws: formatting, headings, tables,
+ * links, images and sections. A journal note keeps the same (lib/note-html).
+ */
+export const SHEET_TAGS = [
+  'p',
+  'br',
+  'hr',
+  'strong',
+  'b',
+  'em',
+  'i',
+  'u',
+  's',
+  'sub',
+  'sup',
+  'small',
+  'blockquote',
+  'ul',
+  'ol',
+  'li',
+  'dl',
+  'dt',
+  'dd',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'table',
+  'caption',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'th',
+  'td',
+  'a',
+  'img',
+  'span',
+  'div',
+  'section',
+  'figure',
+  'figcaption',
+]
+
+/**
  * A description from Foundry, made safe to show on a sheet. Foundry enriches it before sending:
  * links to its documents and rolls arrive as its own markup, which only works inside Foundry. They
  * become plain spans here: `ref` for a link to a document, and `roll` for a roll, keeping its
@@ -33,48 +80,7 @@ const LINK_ATTRIBUTE_NAMES = [
 export function sanitizeSheetHtml(html: string, origin: string): string {
   const walk = linkWalk()
   return sanitizeHtml(html, {
-    allowedTags: [
-      'p',
-      'br',
-      'hr',
-      'strong',
-      'b',
-      'em',
-      'i',
-      'u',
-      's',
-      'sub',
-      'sup',
-      'small',
-      'blockquote',
-      'ul',
-      'ol',
-      'li',
-      'dl',
-      'dt',
-      'dd',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'table',
-      'caption',
-      'thead',
-      'tbody',
-      'tfoot',
-      'tr',
-      'th',
-      'td',
-      'a',
-      'img',
-      'span',
-      'div',
-      'section',
-      'figure',
-      'figcaption',
-    ],
+    allowedTags: SHEET_TAGS,
     allowedAttributes: {
       a: ['href', 'target', 'rel'],
       img: ['src', 'alt', 'width', 'height'],
@@ -232,7 +238,7 @@ function linkOrSpan(
  * worlds/erebor/map.webp, relative to the game's address. Only web addresses and email links are
  * kept.
  */
-function gameUrl(
+export function gameUrl(
   value: string | undefined,
   origin: string,
 ): string | undefined {

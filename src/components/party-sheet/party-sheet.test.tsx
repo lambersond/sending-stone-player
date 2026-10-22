@@ -14,9 +14,16 @@ import {
 import { Enchanting } from '@/components/character-sheet/enchantments'
 import { FavoriteMarks } from '@/components/character-sheet/favorite-mark'
 import { Charging } from '@/components/character-sheet/uses-button'
+import { forgetNotes } from '@/hooks/use-notes'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { POLL_INTERVAL } from '@/hooks/use-table-view'
 import { fakeFullscreen } from '@/mocks/fullscreen'
+import {
+  emptyBook,
+  noteChapter,
+  noteEntry,
+  serveNotes,
+} from '@/mocks/notes-server'
 import {
   enchantment,
   GROUP_TEXTS,
@@ -591,5 +598,226 @@ describe('components/party-sheet', () => {
         }
       },
     )
+  })
+})
+
+/** The server: the party's book, its view, and its descriptions. */
+const serveParty = (
+  party: PartyView = view(),
+  book = emptyBook({ kind: 'party' }),
+) =>
+  serveNotes({ [API]: book, [GM_API]: book }, async url => {
+    if (url.includes('/texts/')) {
+      return respond({
+        html: `<p>Text ${url.slice(url.lastIndexOf('/') + 1)}</p>`,
+      })
+    }
+    return respond(party)
+  })
+const notesRegion = () => screen.getByRole('region', { name: 'Notes' })
+
+describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
+  beforeEach(() => {
+    forgetNotes()
+    jest.mocked(useRouter).mockReturnValue(router as any)
+  })
+
+  afterEach(() => {
+    act(() => forgetNotes())
+  })
+
+  it('keeps its tabs, and opens Description on the notes, then the description under its heading', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    render(
+      <PartySheetFor api={API} role='player' view={view()} state='ready' />,
+    )
+
+    expect(
+      within(screen.getByRole('tablist', { name: 'Party sheet' }))
+        .getAllByRole('tab')
+        .map(tab => tab.textContent),
+    ).toEqual(['Inventory', 'Description'])
+    expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+
+    await user.click(screen.getByRole('tab', { name: 'Description' }))
+    const panel = screen.getByRole('tabpanel', { name: 'Description' })
+    const [first, second] = within(panel).getAllByRole('region')
+    expect(first).toHaveAccessibleName('Notes')
+    expect(second).toHaveAccessibleName('Description')
+    expect(
+      within(second).getByRole('heading', { level: 2, name: 'Description' }),
+    ).toHaveClass('text-sm', 'font-semibold')
+    expect(
+      await within(second).findByText(`Text ${GROUP_TEXTS.description}`),
+    ).toBeInTheDocument()
+    expect(
+      await within(first).findByText(
+        'Everyone in The Company sees these, here and in Foundry.',
+      ),
+    ).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(`${API}/notes`, expect.anything())
+  })
+
+  it('says so, under its heading, of a party with no description', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    const none = view()
+    none.sheet = { ...none.sheet!, description: null }
+    render(<PartySheetFor api={API} role='player' view={none} state='ready' />)
+    await user.click(screen.getByRole('tab', { name: 'Description' }))
+    expect(
+      within(screen.getByRole('region', { name: 'Description' })).getByText(
+        'No description.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('shows no notes in the sheet alone, as before', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    render(<PartySheet api={API} role='player' view={view()} />)
+    await user.click(screen.getByRole('tab', { name: 'Description' }))
+    expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Description' })).toBeNull()
+  })
+
+  it.each([
+    ["hasn't arrived", {}, "The Company's party sheet hasn't arrived"],
+    [
+      'is too large to send',
+      { withheld: { reason: 'tooLarge' as const } },
+      'The Company is too large to send',
+    ],
+  ])(
+    'shows the notes under why there’s no sheet, where it %s',
+    async (_, fields, title) => {
+      serveParty()
+      render(
+        <PartySheetFor
+          api={API}
+          role='player'
+          view={view({ sheet: undefined, sheetVersion: undefined, ...fields })}
+          state='ready'
+        />,
+      )
+      const why = screen.getByRole('heading', { name: title })
+      expect(
+        why.compareDocumentPosition(notesRegion()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+      expect(
+        await within(notesRegion()).findByRole('button', { name: 'New note' }),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it('shows a private party’s notes on the Gamemaster’s page, read only, saying why', async () => {
+    const user = userEvent.setup()
+    serveParty(
+      view(),
+      emptyBook({
+        kind: 'party',
+        canAdd: false,
+        withheld: { reason: 'private' },
+        chapters: [noteChapter()],
+        entries: [noteEntry({ chapterId: 'sessionChapter01' })],
+      }),
+    )
+    render(
+      <PartySheetFor
+        api={GM_API}
+        role='gm'
+        view={view({
+          sheet: undefined,
+          sheetVersion: undefined,
+          private: true,
+        })}
+        state='ready'
+      />,
+    )
+    expect(
+      screen.getByRole('heading', {
+        name: 'Not shared with any player in Foundry',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      await within(notesRegion()).findByText(
+        'No player can see The Company in Foundry, so its notes aren’t shared.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(screen.getByText('The goblin cave'))
+    for (const name of [
+      /^New note/,
+      'New chapter',
+      /^Rename/,
+      'Edit',
+      'Delete',
+    ]) {
+      expect(screen.queryAllByRole('button', { name })).toEqual([])
+    }
+  })
+
+  it('keeps a note half written under why there’s no sheet as the sheet arrives, on Description', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    const { rerender } = render(
+      <PartySheetFor
+        api={API}
+        role='player'
+        view={view({ sheet: undefined, sheetVersion: undefined })}
+        state='ready'
+      />,
+    )
+    await user.click(
+      await within(notesRegion()).findByRole('button', { name: 'New note' }),
+    )
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'Three.')
+
+    rerender(
+      <PartySheetFor api={API} role='player' view={view()} state='ready' />,
+    )
+
+    expect(screen.getByRole('tab', { name: 'Description' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
+    expect(screen.getByRole('textbox', { name: 'Note' })).toHaveValue('Three.')
+  })
+
+  it('keeps a note half written across Inventory and back, and across the panel closed and opened again', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    const panel = (open: boolean) => (
+      <PartyPanel
+        group={open ? view().group : undefined}
+        api={API}
+        pageHref='/characters/char-1/party/company'
+        role='player'
+        onClose={jest.fn()}
+      />
+    )
+    const { rerender } = render(panel(true))
+    await user.click(await screen.findByRole('tab', { name: 'Description' }))
+    await user.click(
+      await within(notesRegion()).findByRole('button', { name: 'New note' }),
+    )
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
+
+    await user.click(screen.getByRole('tab', { name: 'Inventory' }))
+    expect(screen.queryByRole('textbox', { name: 'Title' })).toBeNull()
+    await user.click(screen.getByRole('tab', { name: 'Description' }))
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
+
+    rerender(panel(false))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    rerender(panel(true))
+
+    // It opens on Description, with the note as it was.
+    const description = await screen.findByRole('tab', { name: 'Description' })
+    expect(description).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
   })
 })

@@ -214,6 +214,36 @@ export async function allowedGroup(
 }
 
 /**
+ * A party's journal of notes as the seat may reach it now, from module 0.34.0: whether no campaign
+ * character may see the party in Foundry, which only the Gamemaster is ever told, as only they may
+ * open it then; and who a player writes as, their character, or no one for the Gamemaster. Checked
+ * on every request, as the sheet is, so a player whose access was taken away reaches nothing.
+ * @returns Undefined where the seat may not see the party, or it isn't there.
+ */
+export async function partyNotesAccess(
+  seat: PartySeat,
+  groupId: string,
+): Promise<
+  | {
+      campaignId: string
+      groupId: string
+      private: boolean
+      writer: string | null
+    }
+  | undefined
+> {
+  const found = await access(seat, groupId)
+  if (!found) return undefined
+  return {
+    campaignId: found.campaign.id,
+    groupId: found.entry.id,
+    private: Object.keys(found.entry.access ?? {}).length === 0,
+    // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
+    writer: seat.role === 'player' ? seat.actorId : null,
+  }
+}
+
+/**
  * Whether anything is new on a party sheet the seat may see now: the campaign's version, whether
  * its game is live, and from module 0.31.0 whether the seat may take from it, which its game's
  * taking moves or not changes with no new version. Checked before anything is said to be

@@ -1,5 +1,6 @@
 import type { PROMPT_SOURCES } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
+import type { NoteBookKind, NoteRole } from '@/types/notes'
 import type { GroupEntry, GroupSheet } from '@/types/party'
 import type { RemovedItem, TransferMoved } from '@/types/roll'
 
@@ -1235,6 +1236,56 @@ export type BridgeFeatures = {
    * and why, `"system"`. Module 0.33.0.
    */
   removals?: { enabled: boolean; kinds: string[]; reason: string | null } | null
+  /**
+   * Whether the module keeps journal notes for the app, under any system, `"personal"` and
+   * `"party"` among its kinds; and which of the campaign's characters and parties have a journal of
+   * them in Foundry for this campaign. Module 0.34.0.
+   */
+  notes?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+    journals: { kind: NoteBookKind; actorId: string }[]
+  } | null
+}
+
+/**
+ * A character's or a party's journal of notes as Foundry holds it, whole, for one campaign: none
+ * where it has no journal, or why it isn't sent. Module 0.34.0.
+ */
+export type JournalUpdated = {
+  kind: NoteBookKind
+  /** The character's actor, or the party's Group actor. */
+  actorId: string
+  journal: { id: string; name: string; notes: JournalPage[] } | null
+  withheld?:
+    { reason: 'private' } | { reason: 'tooLarge'; bytes: number; limit: number }
+}
+
+/** One of a journal's notes as Foundry holds it: a chapter or an entry, by its page's id. */
+export type JournalPage = {
+  id: string
+  role: NoteRole
+  /** An entry's chapter, by its page's id; null for none, and for a chapter. */
+  chapter: string | null
+  title: string
+  /** 2 for Markdown; 1 for HTML, from Foundry's own editor or for a party's secret. */
+  format: 1 | 2
+  markdown?: string
+  html?: string
+  /** The title or the text was cut short. */
+  cut?: true
+  /** A party's page sent as HTML for a secret its Markdown holds. */
+  secret?: true
+  /** When it was written, and last changed, in milliseconds. */
+  createdAt: number
+  modifiedAt: number
+  modifiedBy: string
+  modifiedIn: 'app' | 'foundry'
+  /** Who wrote it from the app; none for one written in Foundry. */
+  author: { actorId: string | null; gm: boolean; name: string } | null
+  /** Its revision, 14 hexadecimal digits. */
+  rev: string
 }
 
 /**
@@ -1340,6 +1391,11 @@ export type CommandResult = {
    * when it was made, or where it failed after the item itself changed. Module 0.33.0.
    */
   removed?: RemovedItem
+  /**
+   * For a note command, the note and its page's revision now: none for a delete, which says so,
+   * or where the page is hidden from the app. Module 0.34.0.
+   */
+  note?: { id: string; rev: string | null; deleted?: true }
 }
 
 /**
@@ -1497,3 +1553,4 @@ export type GameEvent =
     }
   | { type: 'group.removed'; data: { id: string } }
   | { type: 'bridge.settings'; data: { settings?: FoundrySettings } }
+  | { type: 'journal.updated'; data: JournalUpdated }

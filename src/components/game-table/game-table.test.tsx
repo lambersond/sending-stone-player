@@ -11,6 +11,31 @@ import type { Character } from '@/types/character'
 import type { TableCombat, TableMessage, TableView } from '@/types/table'
 
 jest.mock('@/hooks/use-table-view', () => ({ useTableView: jest.fn() }))
+// The Notes section (module 0.34.0), now under why there's no sheet too, is tested beside it: here
+// its book is an empty one, ready, so nothing of it is fetched and no banner or loading line shows.
+jest.mock('@/hooks/use-notes', () => ({
+  hasDraft: () => false,
+  useNotes: (api: string) => ({
+    view: {
+      version: 1,
+      kind: api.includes('/party/') ? 'party' : 'personal',
+      journal: null,
+      live: true,
+      enabled: true,
+      connected: true,
+      canAdd: true,
+      chapters: [],
+      entries: [],
+    },
+    state: 'ready',
+    create: jest.fn(),
+    change: jest.fn(),
+    remove: jest.fn(),
+    resolve: jest.fn(),
+    preview: jest.fn(),
+    setDraft: jest.fn(),
+  }),
+}))
 // The 3D dice need WebGL; the sheet rolls without them.
 jest.mock('@lambersond/3d-dice-react', () => ({
   DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
@@ -742,15 +767,18 @@ describe('components/game-table/game-table', () => {
       ).toBeInTheDocument()
     })
 
-    it('gives combat and the chat the whole width until a sheet arrives', () => {
+    it('shows the Character pane until a sheet arrives, with why and the notes, beside a narrow column of combat and the chat', () => {
       renderTable()
 
-      expect(screen.getByRole('region', { name: 'Character' })).toHaveClass(
-        'lg:hidden',
-      )
+      const pane = screen.getByRole('region', { name: 'Character' })
+      expect(pane).toHaveClass('lg:flex')
+      expect(pane).not.toHaveClass('lg:hidden')
+      expect(
+        within(pane).getByRole('region', { name: 'Notes' }),
+      ).toBeInTheDocument()
       const column = screen.getByRole('region', { name: 'Combat' })
         .parentElement as HTMLElement
-      expect(column).not.toHaveClass('lg:w-[clamp(320px,40%,500px)]')
+      expect(column).toHaveClass('lg:w-[clamp(320px,40%,500px)]')
     })
   })
 

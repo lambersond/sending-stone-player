@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { z } from 'zod'
 import { ABILITIES } from '@/constants/dnd5e'
+import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
 import {
   DAMAGE_TYPE,
   EVENTS,
@@ -15,6 +16,7 @@ import {
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
 import { MAX_CHECKS } from '@/utils/description-links'
+import { NOTE_ID } from '@/utils/note-id'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import { expandSheet } from '@/utils/slim-sheet'
 import type { GameEvent } from '@/types/sending-stone'
@@ -82,6 +84,9 @@ const MAX_GM_ROLL_MESSAGES = 20
 
 /** A Foundry document's id, as a command names one. */
 const DOCUMENT_ID = /^[\dA-Za-z]{1,64}$/
+
+/** An actor's id as the roster keeps it: a character's, or a Group actor's. */
+const ACTOR_ID = /^[\dA-Za-z]{1,64}$/
 
 /** The most ways an enchant activity may enchant, items it may enchant, and enchantments kept. */
 const MAX_PROFILES = 20
@@ -1310,10 +1315,91 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.34.0: whether journal notes are kept here, under any system, with no switch,
+    // and which of the campaign's characters and parties have a journal of them in Foundry.
+    notes: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+        journals: z
+          .array(
+            z.object({
+              kind: z.enum(['personal', 'party']),
+              actorId: z.string().regex(ACTOR_ID),
+            }),
+          )
+          .max(2000)
+          .catch([]),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
   .catch(null)
+
+/** A journal page's revision, as the module computes one: 14 hexadecimal digits. */
+const NOTE_REV = /^[\da-f]{14}$/
+
+/**
+ * One of a journal's notes as Foundry holds it, from module 0.34.0. The module sends only what
+ * this takes (round 0.34.0 §2.8), as one that can't be read fails the whole event.
+ */
+const journalPageSchema = z
+  .object({
+    id: z.string().regex(NOTE_ID),
+    role: z.enum(['chapter', 'entry']),
+    chapter: z.string().regex(NOTE_ID).nullable(),
+    title: z.string().min(1).max(MOST_NOTE_TITLE),
+    format: z.union([z.literal(1), z.literal(2)]),
+    markdown: z.string().max(MOST_NOTE_TEXT).optional(),
+    html: z.string().max(MOST_NOTE_TEXT).optional(),
+    cut: z.literal(true).optional(),
+    secret: z.literal(true).optional(),
+    createdAt: z.int().min(0),
+    modifiedAt: z.int().min(0),
+    modifiedBy: z.string().max(200),
+    modifiedIn: z.enum(['app', 'foundry']),
+    author: z
+      .object({
+        actorId: z.string().regex(ACTOR_ID).nullable(),
+        gm: z.boolean(),
+        name: z.string().max(200),
+      })
+      .nullable(),
+    rev: z.string().regex(NOTE_REV),
+  })
+  // Its text in the form it's in, and a secret only on a page sent as HTML.
+  .refine(page =>
+    page.format === 2
+      ? page.markdown !== undefined && page.secret === undefined
+      : page.html !== undefined,
+  )
+
+/** A character's or a party's journal of notes as Foundry holds it, from module 0.34.0. */
+const journalUpdatedSchema = z.looseObject({
+  kind: z.enum(['personal', 'party']),
+  actorId: z.string().regex(ACTOR_ID),
+  journal: z
+    .object({
+      id: z.string().regex(DOCUMENT_ID),
+      name: z.string().max(200),
+      notes: z.array(journalPageSchema).max(MOST_NOTES),
+    })
+    .nullable(),
+  withheld: z
+    .discriminatedUnion('reason', [
+      z.object({ reason: z.literal('private') }),
+      z.object({
+        reason: z.literal('tooLarge'),
+        bytes: z.int().min(0),
+        limit: z.int().min(0),
+      }),
+    ])
+    .optional(),
+})
 
 /** What a prompt may be rolled with: an ability's key, such as "dex", or a skill's, as "ath". */
 const promptKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
@@ -1614,6 +1700,16 @@ const commandResultSchema = z.object({
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),
+  // From module 0.34.0, for a note command: the note, and its page's revision now, never its text.
+  note: z
+    .object({
+      id: z.string().regex(NOTE_ID),
+      rev: z.string().regex(NOTE_REV).nullable(),
+      deleted: z.literal(true).optional(),
+    })
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
 })
 
 const hitPointsSchema = z
@@ -1827,6 +1923,9 @@ export function parseGameEvent(
           })
           .parse(data),
       }
+    }
+    case EVENTS.JOURNAL_UPDATED: {
+      return { type, data: journalUpdatedSchema.parse(data) }
     }
     default: {
       return undefined

@@ -1,6 +1,8 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { BiographyTab } from './biography-tab'
+import { forgetNotes } from '@/hooks/use-notes'
+import { emptyBook, serveNotes } from '@/mocks/notes-server'
 import { characterSheet, fullerSheet, TEXTS } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet, SheetDetails } from '@/types/sending-stone'
@@ -105,7 +107,9 @@ describe('components/character-sheet/biography-tab', () => {
     expect(screen.queryByRole('region', { name: 'Biography' })).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
     expect(
-      screen.queryByText('Nothing has been written about this character yet.'),
+      screen.queryByText(
+        'Nothing is written about Thorin Oakenshield in Foundry yet.',
+      ),
     ).toBeNull()
   })
 
@@ -113,8 +117,81 @@ describe('components/character-sheet/biography-tab', () => {
     renderTab(characterSheet())
 
     expect(
-      screen.getByText('Nothing has been written about this character yet.'),
+      screen.getByText(
+        'Nothing is written about Thorin Oakenshield in Foundry yet.',
+      ),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading')).toBeNull()
+  })
+})
+
+describe('components/character-sheet/biography-tab, with the character’s notes (module 0.34.0)', () => {
+  const notes = {
+    api: '/api/characters/char-1',
+    role: 'player' as const,
+    name: 'Thorin Oakenshield',
+    active: true,
+  }
+  const renderWithNotes = (sheet: CharacterSheet = fullerSheet()) =>
+    render(
+      <BiographyTab
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+        notes={notes}
+      />,
+    )
+
+  beforeEach(() => {
+    forgetNotes()
+    serveNotes(
+      { [notes.api]: emptyBook() },
+      // The biography loads in the test that looks for it.
+      () => new Promise<Response>(() => {}),
+    )
+  })
+
+  afterEach(() => {
+    act(() => forgetNotes())
+  })
+
+  it('puts the notes first, then Details, Personality, Appearance and Biography in dnd5e’s order', async () => {
+    renderWithNotes()
+    await screen.findByText(/^No notes yet\./)
+
+    // The tab's own sections, in order: the notes' chapters would be inside the first.
+    const tab = document.body.firstElementChild
+      ?.firstElementChild as HTMLElement
+    expect(
+      [...tab.children]
+        .filter(child => child.tagName === 'SECTION')
+        .map(
+          section =>
+            within(section as HTMLElement).getAllByRole('heading')[0]
+              .textContent,
+        ),
+    ).toEqual(['Notes', 'Details', 'Personality', 'Appearance', 'Biography'])
+    expect(
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Notes', 'Details', 'Personality', 'Appearance', 'Biography'])
+    expect(screen.getByRole('region', { name: 'Notes' })).toHaveTextContent(
+      'Only you and your Gamemaster see these.',
+    )
+  })
+
+  it('says, after the notes, that nothing is written of the character in Foundry', async () => {
+    renderWithNotes(characterSheet())
+    await screen.findByText(/^No notes yet\./)
+    const line = screen.getByText(
+      'Nothing is written about Thorin Oakenshield in Foundry yet.',
+    )
+    const notesRegion = screen.getByRole('region', { name: 'Notes' })
+    expect(
+      notesRegion.compareDocumentPosition(line) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1)
   })
 })

@@ -4,6 +4,12 @@ import {
   ROLL_ANSWER_WITHIN,
   ROLL_KINDS,
 } from '@/constants/sending-stone'
+import {
+  applyJournalUpdated,
+  drawJournal,
+  reconcileJournals,
+  type JournalDrawings,
+} from '@/db/note-sync'
 import { groupRoster } from '@/db/party'
 import {
   keepOnlySheetTexts,
@@ -50,8 +56,20 @@ export async function applyCampaignEvent(
   session: string,
   sentAt: string,
 ): Promise<{ lacksTexts: boolean }> {
+  // A journal's notes are drawn first: a large book's drawing would outlast the transaction.
+  const drawings =
+    event.type === 'journal.updated'
+      ? await drawJournal(campaignId, event.data)
+      : undefined
   return prisma.$transaction(async tx => {
-    const lacksTexts = await apply(tx, campaignId, event, session, sentAt)
+    const lacksTexts = await apply(
+      tx,
+      campaignId,
+      event,
+      session,
+      sentAt,
+      drawings,
+    )
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -61,8 +79,12 @@ export async function applyCampaignEvent(
         worldId: world.id,
         worldTitle: world.title,
         // Descriptions change nothing anyone sees until a sheet refers to them, and Foundry's
-        // settings only the Gamemaster's campaign card shows, which no table page watches.
-        ...(!['character.texts', 'bridge.settings'].includes(event.type) && {
+        // settings only the Gamemaster's campaign card shows, which no table page watches. A
+        // journal of notes (module 0.34.0) has its own version, as no table or party view shows
+        // notes.
+        ...(!['character.texts', 'bridge.settings', 'journal.updated'].includes(
+          event.type,
+        ) && {
           version: { increment: 1 },
         }),
         lastEventAt: now,
@@ -82,6 +104,7 @@ async function apply(
   event: GameEvent,
   session: string,
   sentAt: string,
+  drawings?: JournalDrawings,
 ): Promise<boolean> {
   switch (event.type) {
     case 'bridge.hello': {
@@ -153,6 +176,11 @@ async function apply(
           removalsEnabled:
             features?.removals?.enabled === true &&
             (features.removals.kinds ?? []).includes('remove'),
+          // Whether the module keeps journal notes for the app, from module 0.34.0, with no
+          // switch: a module before it says nothing of them, which clears it.
+          notesEnabled:
+            features?.notes?.enabled === true &&
+            (features.notes.kinds ?? []).includes('personal'),
           // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
           // module before 0.30.0, which reports no settings, clears those an earlier one sent.
           foundry: toJson({
@@ -176,6 +204,17 @@ async function apply(
       })
       for (const prompt of prompts) {
         await savePrompt(tx, campaignId, prompt, sentAt)
+      }
+      // The books whose journal Foundry no longer has, from module 0.34.0, which lists those it
+      // has; an older module lists none, and nothing is reconciled.
+      if (features?.notes) {
+        await reconcileJournals(
+          tx,
+          campaignId,
+          characters.map(({ id }) => id),
+          groups.map(({ id }) => id),
+          features.notes.journals,
+        )
       }
       await tx.combat.deleteMany({ where: { campaignId } })
       await tx.combat.createMany({
@@ -283,6 +322,10 @@ async function apply(
       if (event.data.settings) {
         await saveFoundrySettings(tx, campaignId, event.data.settings, sentAt)
       }
+      return false
+    }
+    case 'journal.updated': {
+      await applyJournalUpdated(tx, campaignId, event.data, drawings)
       return false
     }
   }

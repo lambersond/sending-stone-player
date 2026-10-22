@@ -5,6 +5,7 @@ import {
   getGroupView,
   getPartyStatus,
   groupRoster,
+  partyNotesAccess,
   partySeat,
   tableGroups,
   type PartySeat,
@@ -480,6 +481,67 @@ describe('db/party', () => {
 
       expect(view).not.toHaveProperty('groups')
     })
+  })
+})
+
+describe('db/party, a party’s journal of notes, from module 0.34.0', () => {
+  beforeEach(() => {
+    held()
+  })
+
+  it('lets a player who may see the party reach its notes, as their character', async () => {
+    await expect(
+      partyNotesAccess(player(PARTY.vex), 'company'),
+    ).resolves.toEqual({
+      campaignId: 'c1',
+      groupId: 'company',
+      private: false,
+      writer: PARTY.vex,
+    })
+  })
+
+  it('lets the campaign’s Gamemaster reach any party’s, as no character, a private one too', async () => {
+    await expect(partyNotesAccess(gm(), 'company')).resolves.toEqual({
+      campaignId: 'c1',
+      groupId: 'company',
+      private: false,
+      writer: null,
+    })
+    await expect(partyNotesAccess(gm(), 'hidden')).resolves.toEqual({
+      campaignId: 'c1',
+      groupId: 'hidden',
+      private: true,
+      writer: null,
+    })
+  })
+
+  it('lets no one else reach them: Limited, another Gamemaster, a private party, no such party', async () => {
+    await expect(
+      partyNotesAccess(player(PARTY.balin), 'company'),
+    ).resolves.toBeUndefined()
+    await expect(
+      partyNotesAccess(gm('gm-2'), 'company'),
+    ).resolves.toBeUndefined()
+    await expect(
+      partyNotesAccess(player(PARTY.vex), 'hidden'),
+    ).resolves.toBeUndefined()
+    await expect(
+      partyNotesAccess(player(PARTY.vex), 'nowhere'),
+    ).resolves.toBeUndefined()
+    await expect(
+      partyNotesAccess(player(PARTY.vex), 'com-pany'),
+    ).resolves.toBeUndefined()
+  })
+
+  it('is checked again each time, so access taken away in Foundry is gone at once', async () => {
+    await expect(
+      partyNotesAccess(player(PARTY.vex), 'company'),
+    ).resolves.toBeDefined()
+    held({ groups: [groupEntry({ access: { [PARTY.thorin]: 'owner' } })] })
+
+    await expect(
+      partyNotesAccess(player(PARTY.vex), 'company'),
+    ).resolves.toBeUndefined()
   })
 })
 

@@ -149,5 +149,7 @@ export default [
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // The end-to-end suites and their scripts (e2e/README.md), written in another style:
+    'e2e/**',
   ]),
 ].filter(Boolean)

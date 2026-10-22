@@ -1487,6 +1487,50 @@ describe('db/roll-requests', () => {
       prismaMock.rollRequest.updateMany.mockResolvedValue({ count: 1 })
     })
 
+    describe('a note command’s, from module 0.34.0', () => {
+      const WRITE = '7d2c3f5e-1b0a-4c8e-9f6d-2a1b3c4d5e6f'
+      const noteResult = {
+        id: `${WRITE}.2`,
+        status: 'done' as const,
+        reason: null,
+        error: null,
+        messageId: null,
+        visible: false,
+        rolls: [],
+        note: { id: 'goblinCaveNote01', rev: null },
+      }
+
+      beforeEach(() => {
+        prismaMock.rollRequest.updateMany.mockResolvedValue({ count: 0 })
+        prismaMock.$transaction.mockImplementation((run: any) =>
+          run(prismaMock),
+        )
+        prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
+        prismaMock.journalWrite.findUnique.mockResolvedValue({
+          id: WRITE,
+          bookId: 'book-1',
+          noteId: 'goblinCaveNote01',
+          op: 'update',
+        } as any)
+      })
+
+      it('is no roll: it reaches the change handed over under its id and number', async () => {
+        await recordCommandResult('c1', noteResult)
+
+        expect(prismaMock.journalWrite.updateMany).toHaveBeenCalledWith({
+          where: { id: WRITE, seq: 2, campaignId: 'c1', status: 'claimed' },
+          data: { status: 'made', reason: null },
+        })
+        expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+      })
+
+      it('leaves notes alone for a roll answered already, whose id names no change', async () => {
+        await recordCommandResult('c1', { ...noteResult, id: 'req-1' })
+
+        expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
+      })
+    })
+
     it("records what became of a fetched roll of the campaign's", async () => {
       const result = {
         id: 'req-1',
@@ -1729,11 +1773,30 @@ describe('db/roll-requests', () => {
   })
 
   describe('markBridgePolled', () => {
+    it('tells whether the game keeps journal notes, from module 0.34.0, with rolls, moves and removals off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: true,
+        playersPresent: false,
+      })
+    })
+
     it('notes the fetch, and tells whether players are about', async () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: true,
         transfersEnabled: false,
         removalsEnabled: false,
+        notesEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
@@ -1741,6 +1804,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: true,
         transfersEnabled: false,
         removalsEnabled: false,
+        notesEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
@@ -1750,6 +1814,7 @@ describe('db/roll-requests', () => {
           rollsEnabled: true,
           transfersEnabled: true,
           removalsEnabled: true,
+          notesEnabled: true,
           playersSeenAt: true,
         },
       })
@@ -1760,6 +1825,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: false,
         transfersEnabled: false,
         removalsEnabled: true,
+        notesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1767,6 +1833,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: false,
         transfersEnabled: false,
         removalsEnabled: true,
+        notesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1776,6 +1843,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: false,
         transfersEnabled: true,
         removalsEnabled: false,
+        notesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1783,6 +1851,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: false,
         transfersEnabled: true,
         removalsEnabled: false,
+        notesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1795,6 +1864,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: false,
         transfersEnabled: false,
         removalsEnabled: false,
+        notesEnabled: false,
         playersSeenAt,
       } as any)
 
@@ -1802,6 +1872,7 @@ describe('db/roll-requests', () => {
         rollsEnabled: false,
         transfersEnabled: false,
         removalsEnabled: false,
+        notesEnabled: false,
         playersPresent: false,
       })
     })
