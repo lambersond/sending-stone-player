@@ -125,7 +125,7 @@ describe('components/character-sheet/biography-tab', () => {
   })
 })
 
-describe('components/character-sheet/biography-tab, with the character’s notes (module 0.34.0)', () => {
+describe('components/character-sheet/biography-tab, with the character’s journal (module 0.35.0)', () => {
   const notes = {
     api: '/api/characters/char-1',
     role: 'player' as const,
@@ -155,11 +155,11 @@ describe('components/character-sheet/biography-tab, with the character’s notes
     act(() => forgetNotes())
   })
 
-  it('puts the notes first, then Details, Personality, Appearance and Biography in dnd5e’s order', async () => {
+  it('puts the journal’s card first, its h2 before Details’, then Personality, Appearance and Biography in dnd5e’s order', async () => {
     renderWithNotes()
-    await screen.findByText(/^No notes yet\./)
+    await screen.findByText('No notes yet')
 
-    // The tab's own sections, in order: the notes' chapters would be inside the first.
+    // The tab's own sections, in order.
     const tab = document.body.firstElementChild
       ?.firstElementChild as HTMLElement
     expect(
@@ -170,24 +170,26 @@ describe('components/character-sheet/biography-tab, with the character’s notes
             within(section as HTMLElement).getAllByRole('heading')[0]
               .textContent,
         ),
-    ).toEqual(['Notes', 'Details', 'Personality', 'Appearance', 'Biography'])
+    ).toEqual(['Journal', 'Details', 'Personality', 'Appearance', 'Biography'])
     expect(
       screen
         .getAllByRole('heading', { level: 2 })
         .map(({ textContent }) => textContent),
-    ).toEqual(['Notes', 'Details', 'Personality', 'Appearance', 'Biography'])
-    expect(screen.getByRole('region', { name: 'Notes' })).toHaveTextContent(
-      'Only you and your Gamemaster see these.',
-    )
+    ).toEqual(['Journal', 'Details', 'Personality', 'Appearance', 'Biography'])
+    const card = screen.getByRole('region', { name: 'Journal' })
+    expect(card).toHaveTextContent('Only you and your Gamemaster see these.')
+    expect(
+      within(card).getByRole('button', { name: 'Open My Journal' }),
+    ).toBeInTheDocument()
   })
 
-  it('says, after the notes, that nothing is written of the character in Foundry', async () => {
+  it('says, after the journal’s card, that nothing is written of the character in Foundry', async () => {
     renderWithNotes(characterSheet())
-    await screen.findByText(/^No notes yet\./)
+    await screen.findByText('No notes yet')
     const line = screen.getByText(
       'Nothing is written about Thorin Oakenshield in Foundry yet.',
     )
-    const notesRegion = screen.getByRole('region', { name: 'Notes' })
+    const notesRegion = screen.getByRole('region', { name: 'Journal' })
     expect(
       notesRegion.compareDocumentPosition(line) &
         Node.DOCUMENT_POSITION_FOLLOWING,

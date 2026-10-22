@@ -224,7 +224,8 @@ export async function POST(request: Request) {
  * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0);
  * moves of items and coins, from module 0.31.0; removals of a character's items, from module
  * 0.33.0; and journal notes, from module 0.34.0, which the module fetches for, and sends journals
- * of, only then.
+ * of, only then, and from module 0.35.0 orders of a group's notes and who changed a journal in
+ * Foundry.
  */
 const FEATURES = {
   commands: true,

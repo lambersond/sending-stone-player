@@ -5,6 +5,8 @@
 import { NextRequest } from 'next/server'
 import {
   noteDeleteResponse,
+  noteOrderResolveResponse,
+  noteOrderResponse,
   notePatchResponse,
   notePreviewResponse,
   notesPostResponse,
@@ -20,7 +22,9 @@ import {
   getNotesStatus,
   getNotesView,
   previewNote,
+  reorderNotes,
   resolveNote,
+  resolveOrder,
 } from '@/db/notes'
 import { partyNotesAccess } from '@/db/party'
 import { notePlayersSeen } from '@/db/roll-requests'
@@ -46,7 +50,9 @@ jest.mock('@/db/notes', () => ({
   getNotesStatus: jest.fn(),
   getNotesView: jest.fn(),
   previewNote: jest.fn(),
+  reorderNotes: jest.fn(),
   resolveNote: jest.fn(),
+  resolveOrder: jest.fn(),
 }))
 
 const URL = 'https://player.example/api/characters/char-1/notes'
@@ -627,5 +633,146 @@ describe('lib/notes-routes', () => {
         notePreviewResponse(request({ body: 'a' }), place),
       ).resolves.toHaveProperty('status', 404)
     })
+  })
+
+  describe('noteOrderResponse and noteOrderResolveResponse (module 0.35.0)', () => {
+    const CHAPTER = 'sessionChapter01'
+    const ORDER = {
+      chapterId: CHAPTER,
+      ids: [NOTE, 'rumourInFoundry1'],
+      stamp: 'g:0123456789abcdef',
+    }
+    const CHOICE = {
+      chapterId: null,
+      resolve: 'mine',
+      stamp: 'g:0123456789abcdef',
+    }
+
+    it('puts a group’s notes in a new order from the stamp the page saw, 200 with the group’s stamp now', async () => {
+      jest
+        .mocked(reorderNotes)
+        .mockResolvedValue({ ok: true, stamp: 'g:fedcba9876543210' })
+
+      const answer = await read(
+        await noteOrderResponse(request(ORDER, { method: 'PUT' }), place),
+      )
+
+      expect(answer).toEqual({
+        status: 200,
+        body: { stamp: 'g:fedcba9876543210' },
+        cached: false,
+      })
+      expect(reorderNotes).toHaveBeenCalledWith(place.seat, place.book, ORDER)
+    })
+
+    it('settles an order the game didn’t take, as the seat chose', async () => {
+      jest.mocked(resolveOrder).mockResolvedValue({ ok: true, stamp: 'g:1' })
+
+      const answer = await read(
+        await noteOrderResolveResponse(
+          request(CHOICE, { method: 'PATCH' }),
+          gmPlace,
+        ),
+      )
+
+      expect(answer).toEqual({
+        status: 200,
+        body: { stamp: 'g:1' },
+        cached: false,
+      })
+      expect(resolveOrder).toHaveBeenCalledWith(
+        gmPlace.seat,
+        gmPlace.book,
+        CHOICE,
+      )
+      expect(reorderNotes).not.toHaveBeenCalled()
+    })
+
+    it('answers 415 for anything but JSON, 413 for too much, and 400 with the field for what isn’t an order', async () => {
+      for (const respond of [noteOrderResponse, noteOrderResolveResponse]) {
+        expect(
+          await read(
+            await respond(request(ORDER, { type: 'text/plain' }), place),
+          ),
+        ).toMatchObject({ status: 415 })
+        expect(
+          await read(
+            await respond(
+              request({ ...ORDER, pad: 'a'.repeat(70_000) }),
+              place,
+            ),
+          ),
+        ).toEqual({ status: 413, body: { reason: 'invalid' }, cached: false })
+        expect(
+          await read(await respond(request('{"chapterId":'), place)),
+        ).toEqual({ status: 400, body: { reason: 'invalid' }, cached: false })
+      }
+      for (const [body, field] of [
+        [{ ...ORDER, ids: [] }, 'ids'],
+        [{ ...ORDER, ids: [NOTE, NOTE] }, 'ids'],
+        [{ ...ORDER, chapterId: 'a b' }, 'chapterId'],
+        [{ ...ORDER, stamp: undefined }, 'stamp'],
+        [{ ...ORDER, resolve: 'mine' }, undefined],
+      ] as const) {
+        expect(
+          await read(await noteOrderResponse(request(body), place)),
+        ).toEqual({
+          status: 400,
+          body: { reason: 'invalid', ...(field && { field }) },
+          cached: false,
+        })
+      }
+      expect(
+        await read(
+          await noteOrderResolveResponse(
+            request({ ...CHOICE, resolve: 'both' }),
+            place,
+          ),
+        ),
+      ).toEqual({
+        status: 400,
+        body: { reason: 'invalid', field: 'resolve' },
+        cached: false,
+      })
+      expect(reorderNotes).not.toHaveBeenCalled()
+      expect(resolveOrder).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      [404, 'gone'],
+      [409, 'unknown'],
+      [409, 'private'],
+      [409, 'changed'],
+      [409, 'saving'],
+      [429, 'busy'],
+    ] as const)(
+      'answers an order refused %s %s as the db said',
+      async (status, reason) => {
+        jest
+          .mocked(reorderNotes)
+          .mockResolvedValue({ ok: false, status, reason })
+
+        expect(
+          await read(await noteOrderResponse(request(ORDER), place)),
+        ).toEqual({ status, body: { reason }, cached: false })
+      },
+    )
+
+    it.each([
+      [404, 'gone'],
+      [409, 'changed'],
+      [403, 'not-yours'],
+    ] as const)(
+      'answers a choice refused %s %s as the db said',
+      async (status, reason) => {
+        jest
+          .mocked(resolveOrder)
+          .mockResolvedValue({ ok: false, status, reason })
+
+        expect(
+          await read(await noteOrderResolveResponse(request(CHOICE), place)),
+        ).toEqual({ status, body: { reason }, cached: false })
+      },
+    )
   })
 })

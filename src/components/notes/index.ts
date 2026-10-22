@@ -1,6 +1,6 @@
 import type { SeatRole } from '@/utils/seat-words'
 
-export { NotesSection } from './notes-section'
+export { JournalCard } from './journal-card'
 
 /**
  * Where a character's own notes are shown, as the table hands them to its sheet (round 0.34.0

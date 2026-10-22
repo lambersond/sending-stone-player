@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { MOST_NOTE_BODY, MOST_NOTE_TITLE } from '@/constants/notes'
+import { MOST_NOTE_BODY, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
 import { NOTE_ID } from '@/utils/note-id'
 
 // What a page sends to write journal notes (round 0.34.0 §8.3), from module 0.34.0: each is strict,
@@ -82,3 +82,24 @@ export function checkChange(
   if (change.body !== undefined) return { field: 'body' }
   if (change.chapterId !== undefined) return { field: 'chapterId' }
 }
+
+/** A group's notes, each once, in a new order: at most as many as a journal holds. */
+const orderIds = z
+  .array(z.string().regex(NOTE_ID))
+  .min(1)
+  .max(MOST_NOTES)
+  .refine(ids => new Set(ids).size === ids.length, { message: 'Each once' })
+
+/** A new order of a group's notes, from what the page last saw of it (module 0.35.0). */
+export const noteOrderSchema = z.strictObject({
+  chapterId,
+  ids: orderIds,
+  stamp: z.string().min(1).max(80),
+})
+
+/** The seat's choice where the game didn't take a group's order. */
+export const noteOrderResolveSchema = z.strictObject({
+  chapterId,
+  resolve: z.enum(['mine', 'theirs']),
+  stamp: z.string().min(1).max(80),
+})

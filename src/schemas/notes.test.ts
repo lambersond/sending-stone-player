@@ -6,11 +6,17 @@ import {
   checkChange,
   noteChangeSchema,
   noteInputSchema,
+  noteOrderResolveSchema,
+  noteOrderSchema,
   notePreviewSchema,
   noteResolveSchema,
 } from './notes'
 
 const CHAPTER = 'sessionChapter01'
+
+/** A note's id, 16 letters and digits, by its number. */
+const id = (n: number) => `note${String(n).padStart(12, '0')}`
+const ids = (count: number) => Array.from({ length: count }, (_, n) => id(n))
 
 describe('schemas/notes', () => {
   describe('noteInputSchema', () => {
@@ -147,5 +153,64 @@ describe('schemas/notes', () => {
     expect(notePreviewSchema.safeParse({ body: 'a', role: 'x' }).success).toBe(
       false,
     )
+  })
+
+  describe('noteOrderSchema (module 0.35.0)', () => {
+    /** The first field a refused order names. */
+    const field = (order: unknown) => {
+      const parsed = noteOrderSchema.safeParse(order)
+      return parsed.success ? undefined : parsed.error.issues[0]?.path[0]
+    }
+
+    it('takes a group’s notes in a new order, one to 400 of them, a chapter’s or those in none', () => {
+      for (const [chapterId, count] of [
+        [CHAPTER, 1],
+        [null, 400],
+      ] as const) {
+        const order = {
+          chapterId,
+          ids: ids(count),
+          stamp: 'g:0123456789abcdef',
+        }
+        expect(noteOrderSchema.parse(order)).toEqual(order)
+      }
+    })
+
+    it.each([
+      ['no notes', { ids: [] }, 'ids'],
+      ['401 notes', { ids: ids(401) }, 'ids'],
+      ['a note twice', { ids: [id(1), id(2), id(1)] }, 'ids'],
+      ['a 15-character id', { ids: [id(1), 'note00000000000'] }, 'ids'],
+      ['another field', { title: 'Wolves' }, undefined],
+      ['no chapter said', { chapterId: undefined }, 'chapterId'],
+      ['a chapter that’s no note’s id', { chapterId: 'a b' }, 'chapterId'],
+      ['no stamp', { stamp: '' }, 'stamp'],
+    ])('refuses %s, naming its field', (_name, fields, named) => {
+      const order = {
+        chapterId: CHAPTER,
+        ids: [id(1), id(2)],
+        stamp: 'g:0123456789abcdef',
+        ...fields,
+      }
+      expect(noteOrderSchema.safeParse(order).success).toBe(false)
+      expect(field(order)).toBe(named)
+    })
+
+    it('takes the seat’s choice on a refused order, and nothing more', () => {
+      const choice = {
+        chapterId: null,
+        resolve: 'theirs',
+        stamp: 'g:0123456789abcdef',
+      }
+      expect(noteOrderResolveSchema.parse(choice)).toEqual(choice)
+      for (const wrong of [
+        { ...choice, resolve: 'both' },
+        { ...choice, chapterId: undefined },
+        { ...choice, stamp: 's'.repeat(81) },
+        { ...choice, ids: [id(1)] },
+      ]) {
+        expect(noteOrderResolveSchema.safeParse(wrong).success).toBe(false)
+      }
+    })
   })
 })

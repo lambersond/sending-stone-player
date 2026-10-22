@@ -29,7 +29,7 @@ import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
 import { PartySheetList } from '@/components/character-sheet/party-sheets'
 import { ConfirmDialog } from '@/components/modal'
-import { NotesSection, type NotesPlace } from '@/components/notes'
+import { JournalCard, type NotesPlace } from '@/components/notes'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
 import { Scroller } from '@/components/scroller'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -318,10 +318,10 @@ export function GameTable({
                   <PartySheetList groups={parties} onOpen={setPartyOpen} />
                 </div>
               )}
-              {/* The notes, which need no sheet, nor Foundry. */}
+              {/* The journal, which needs no sheet, nor Foundry. */}
               {playing && (
                 <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
-                  <NotesSection kind='personal' look='sheet' {...notes} />
+                  <JournalCard kind='personal' look='sheet' {...notes} />
                 </div>
               )}
             </Scroller>

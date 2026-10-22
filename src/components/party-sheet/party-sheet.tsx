@@ -28,7 +28,7 @@ import { EntryIcon } from '@/components/character-sheet/sheet-entry'
 import { SheetText } from '@/components/character-sheet/sheet-text'
 import { Charging } from '@/components/character-sheet/uses-button'
 import { EmptyState } from '@/components/game-table/empty-state'
-import { NotesSection } from '@/components/notes'
+import { JournalCard } from '@/components/notes'
 import { MoveStatus } from '@/components/transfers/move-status'
 import {
   partyControls,
@@ -36,7 +36,7 @@ import {
   type PartyMoving,
 } from '@/components/transfers/party-controls'
 import { NO_TRANSFERS, Transferring } from '@/components/transfers/transferring'
-import { hasDraft } from '@/hooks/use-notes'
+import { hasDraft, journalOpen } from '@/hooks/use-notes'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { useTransfers } from '@/hooks/use-transfers'
 import { megabytes } from '@/utils/format-amount'
@@ -289,10 +289,10 @@ function PartyContents({
   /** The dialog a Take opens, after the tabs. */
   dialog?: ReactNode
 }>) {
-  // It opens on the stash; on Description where a note is being written there, as when it was
-  // started under why there was no sheet, or before the panel was closed.
+  // It opens on the stash; on Description where a note is being written there, or the journal is
+  // open, as when either was under why there was no sheet, or before the panel was closed.
   const [tab, setTab] = useState<Tab>(() =>
-    notes && hasDraft(api) ? 'description' : 'inventory',
+    notes && (hasDraft(api) || journalOpen(api)) ? 'description' : 'inventory',
   )
   const ids = useId()
   const membersId = `${ids}-members`
@@ -384,7 +384,7 @@ function PartyContents({
               ) : (
                 <>
                   {notes && (
-                    <NotesSection
+                    <JournalCard
                       kind='party'
                       look='party'
                       api={api}
@@ -486,7 +486,7 @@ function NoPartySheet({
   return (
     <div className='flex flex-col gap-2'>
       {why}
-      <NotesSection
+      <JournalCard
         kind='party'
         look='party'
         api={api}

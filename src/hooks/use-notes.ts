@@ -9,6 +9,8 @@ import { POLL_INTERVAL } from '@/hooks/use-table-view'
 import type {
   NoteChange,
   NoteInput,
+  NoteOrder,
+  NoteOrderResolve,
   NoteRefusal,
   NoteResolve,
   NoteRole,
@@ -57,18 +59,28 @@ export type DraftChange =
 
 export type NotesState = 'loading' | 'ready' | 'gone' | 'failed'
 
-/** What a page holds of one book: what it last saw of it, and what's being written in it. */
-type Book = { view?: NotesView; draft?: NoteDraft }
+/** What the journal's reader shows: a note, or a group's page, the loose group's as null. */
+export type NotePick = { note: string } | { group: string | null }
+
+/**
+ * What a page holds of one book: what it last saw of it, what's being written in it, and whether
+ * its journal is open, with what its reader shows (round 0.35.0 §8.2).
+ */
+type Book = {
+  view?: NotesView
+  draft?: NoteDraft
+  open?: { pick?: NotePick }
+}
 
 /*
  * The page's store of books, by the seat's API base, for as long as the page is loaded: in memory
  * only, never in the browser's storage, as a note's text never goes there. An API base is one
  * user's, as its routes answer only them, so nothing of one user's is shown another. The Biography
  * tab and the party's Description unmount whenever another tab is chosen, the sheet arriving moves
- * the section to another place, and the party panel unmounts as it closes: the store is what keeps
- * the list in view and an open editor's text across all of them. It's written only on the client,
- * in effects and event handlers, so a server render, which shares the module with every request,
- * never holds a book.
+ * the journal's card to another place, and the party panel unmounts as it closes: the store is what
+ * keeps the book in view, an open editor's text, and the journal open, across all of them. It's
+ * written only on the client, in effects and event handlers, so a server render, which shares the
+ * module with every request, never holds a book.
  */
 const books = new Map<string, Book>()
 const listeners = new Map<string, Set<() => void>>()
@@ -85,7 +97,12 @@ function subscribe(api: string, listener: () => void): () => void {
 
 /** Keeps what a page holds of a book, or forgets it, and tells each section showing it. */
 function put(api: string, book?: Book): void {
-  if (book && (book.view !== undefined || book.draft !== undefined)) {
+  if (
+    book &&
+    (book.view !== undefined ||
+      book.draft !== undefined ||
+      book.open !== undefined)
+  ) {
     books.set(api, book)
   } else {
     books.delete(api)
@@ -136,6 +153,14 @@ function onServer(): Book | undefined {
  */
 export function hasDraft(api: string): boolean {
   return books.get(api)?.draft !== undefined
+}
+
+/**
+ * Is this book's journal open? A host reads it to choose the tab it opens on, so a journal open
+ * where the card was is open again where the card is now (round 0.35.0 §8.2-§8.3).
+ */
+export function journalOpen(api: string): boolean {
+  return books.get(api)?.open !== undefined
 }
 
 /** Forgets every book the page holds, as a reload does. */
@@ -243,7 +268,9 @@ function madeFrom(
  * polled every POLL_INTERVAL while active and the page is visible, with ?version=&live= for 204
  * while nothing changed; at once after each change sent. 404 is 'gone'. Backs off on failures as
  * useTableView does. What it last held of the book, and what's being written in it, are kept in
- * the page's store by book, so a section mounted again starts from them.
+ * the page's store by book, so a card mounted again starts from them; and so is whether its journal
+ * is open, with what its reader shows, so a card mounted again, as when the sheet arrives, shows it
+ * open again where it was.
  */
 export function useNotes(
   api: string,
@@ -255,12 +282,22 @@ export function useNotes(
   change(id: string, change: NoteChange): Promise<NoteWriteAnswer>
   remove(id: string, stamp: string): Promise<NoteWriteAnswer>
   resolve(id: string, choice: NoteResolve): Promise<NoteWriteAnswer>
+  /** Sends a new order of a group's notes (module 0.35.0). */
+  reorder(order: NoteOrder): Promise<NoteWriteAnswer>
+  /** Sends the seat's choice where the game didn't take a group's order (module 0.35.0). */
+  resolveOrder(choice: NoteOrderResolve): Promise<NoteWriteAnswer>
   preview(
     body: string,
   ): Promise<{ html: string; headings: number[] } | undefined>
   /** What's being written in this book, if anything: one thing at a time. */
   draft?: NoteDraft
   setDraft(draft: DraftChange): void
+  /** The journal open, and what its reader shows; none while it's closed. */
+  open?: { pick?: NotePick }
+  /** Opens the journal afresh, its reader on nothing picked yet, or closes it. */
+  setOpen(open: boolean): void
+  /** What the reader shows, kept while the journal is open, so a card mounted again shows it. */
+  setPick(pick: NotePick): void
 } {
   const book = useSyncExternalStore(
     useCallback(listener => subscribe(api, listener), [api]),
@@ -384,7 +421,7 @@ export function useNotes(
   const write = useCallback(
     async (
       path: string,
-      method: 'POST' | 'PATCH' | 'DELETE',
+      method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
       body?: unknown,
     ): Promise<NoteWriteAnswer> => {
       let answer: NoteWriteAnswer
@@ -442,6 +479,14 @@ export function useNotes(
       write(`/${encodeURIComponent(id)}`, 'PATCH', choice),
     [write],
   )
+  const reorder = useCallback(
+    (order: NoteOrder) => write('/order', 'PUT', order),
+    [write],
+  )
+  const resolveOrder = useCallback(
+    (choice: NoteOrderResolve) => write('/order', 'PATCH', choice),
+    [write],
+  )
   const preview = useCallback(
     async (body: string) => {
       try {
@@ -475,6 +520,23 @@ export function useNotes(
     },
     [api],
   )
+  const setOpen = useCallback(
+    (open: boolean) => {
+      const held = books.get(api)
+      if (!open && held?.open === undefined) return
+      put(api, { ...held, open: open ? {} : undefined })
+    },
+    [api],
+  )
+  const setPick = useCallback(
+    (pick: NotePick) => {
+      const held = books.get(api)
+      // Only while it's open: a pick never opens it.
+      if (!held?.open) return
+      put(api, { ...held, open: { pick } })
+    },
+    [api],
+  )
 
   const view = gone ? undefined : book?.view
   let state: NotesState = 'loading'
@@ -488,8 +550,13 @@ export function useNotes(
     change,
     remove,
     resolve,
+    reorder,
+    resolveOrder,
     preview,
     draft: gone ? undefined : book?.draft,
     setDraft,
+    open: gone ? undefined : book?.open,
+    setOpen,
+    setPick,
   }
 }

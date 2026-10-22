@@ -105,6 +105,12 @@ const stored = async (features: unknown) => {
   return prismaMock.campaign.update.mock.calls[0][0].data as any
 }
 
+// What the campaign held before an event is each test's own: a hello reads what the module did with
+// notes before it, so one test's campaign never leaks into the next.
+beforeEach(() => {
+  prismaMock.campaign.findUnique.mockReset()
+})
+
 describe('db/campaign-events', () => {
   beforeEach(() => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
@@ -145,6 +151,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -186,6 +193,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -228,6 +236,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -254,6 +263,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -355,6 +365,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -380,6 +391,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -413,6 +425,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -438,6 +451,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -476,6 +490,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -503,6 +518,7 @@ describe('db/campaign-events', () => {
           transferFeatures: [],
           removalsEnabled: false,
           notesEnabled: false,
+          noteFeatures: [],
           foundry: { receivedAt: SENT },
         },
       })
@@ -533,6 +549,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -722,6 +739,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -754,6 +772,7 @@ describe('db/campaign-events', () => {
         transferFeatures: [],
         removalsEnabled: false,
         notesEnabled: false,
+        noteFeatures: [],
         foundry: { receivedAt: SENT },
       },
     })
@@ -784,6 +803,7 @@ describe('db/campaign-events', () => {
           transferFeatures: [],
           removalsEnabled: false,
           notesEnabled: false,
+          noteFeatures: [],
           foundry: { receivedAt: SENT },
         },
       })
@@ -1898,6 +1918,61 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
       notesEnabled: false,
     })
     expect(prismaMock.journalBook.findMany).not.toHaveBeenCalled()
+  })
+
+  describe('orders of a group’s notes, from module 0.35.0', () => {
+    const ORDERING = { ...KEEPING, orders: true, changes: true }
+
+    it('keeps that the module takes orders, from its hello, and clears it for one that doesn’t say so', async () => {
+      await expect(stored({ rolls, notes: ORDERING })).resolves.toMatchObject({
+        notesEnabled: true,
+        noteFeatures: ['orders'],
+      })
+      for (const notes of [
+        KEEPING,
+        { ...ORDERING, orders: false },
+        { ...ORDERING, orders: 'yes' },
+        { ...ORDERING, enabled: false },
+      ]) {
+        await expect(stored({ rolls, notes })).resolves.toMatchObject({
+          noteFeatures: [],
+        })
+      }
+      await expect(
+        stored({ rolls, removals: REMOVING }),
+      ).resolves.toMatchObject({ noteFeatures: [] })
+    })
+
+    it('makes every book of the campaign new where what the module does with notes changed, and only then', async () => {
+      const held = (noteFeatures: string[]) =>
+        prismaMock.campaign.findUnique.mockResolvedValue({
+          noteFeatures,
+        } as any)
+
+      held([])
+      await stored({ rolls, notes: ORDERING })
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        select: { noteFeatures: true },
+      })
+      expect(prismaMock.journalBook.updateMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1' },
+        data: { version: { increment: 1 } },
+      })
+
+      // Module 0.34.0 again, as when it's rolled back: the orders kept here wait again.
+      prismaMock.journalBook.updateMany.mockClear()
+      held(['orders'])
+      await stored({ rolls, notes: KEEPING })
+      expect(prismaMock.journalBook.updateMany).toHaveBeenCalledTimes(1)
+
+      prismaMock.journalBook.updateMany.mockClear()
+      held(['orders'])
+      await stored({ rolls, notes: ORDERING })
+      held([])
+      await stored({ rolls, notes: KEEPING })
+      expect(prismaMock.journalBook.updateMany).not.toHaveBeenCalled()
+    })
   })
 
   it('reconciles the hello’s books in its transaction: a journal it doesn’t list is gone', async () => {

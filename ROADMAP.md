@@ -8,33 +8,24 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.33.0 and its app.
+Released: module v0.34.0 and its app.
 
-## v0.34 (in progress)
+## v0.35 (in progress)
 
-1. **Personal journal notes:** players add and edit journal notes from the app, visible only to
-   them: no other player sees them. The Gamemaster can, as Foundry's Gamemaster always can.
-   Visibility follows Owner access on the Foundry character.
-2. **Party journal notes:** players add and edit notes attached to their party.
-   - **Who:** the members who can view the party in the app. In Foundry the Gamemaster may give
-     the journal to more players, such as table players who don't use the app.
-   - **Editing:** a party member updates and deletes their own notes.
-   - **Listing:** sorted by when they were created, each showing who last changed it and when.
-   - **Chapters:** a chapter is a level 1 heading and an entry a level 2 heading; an entry's text is
-     anything Foundry's journal Markdown supports, apart from those two heading levels. Chapters
-     can be added and edited from the app, and deleted only in Foundry.
-   - **Edits made in Foundry:** a change made to the journal in Foundry can upset this layout.
-     Basic safeguards only.
-3. **Notes while Foundry is offline:** players add or update notes while Foundry is closed, and the
-   notes reach Foundry once it's running again.
-   - Notes are kept in the app first and synced to Foundry, with a rule for a note changed in both
-     places while Foundry was closed. Notes written in Foundry show in the app.
-4. **Tests in the repositories:** the module's test harness and the end-to-end suites move into the
-   repositories.
+1. **The journal, redesigned:** a Journal card on the character's Biography tab and the party's
+   Description tab opens the journal in its own window, full screen on a phone and up to
+   960 × 880 elsewhere: the contents on the left, one note or a chapter's notes on the right, and
+   the journal's last change in its header. The sheet no longer grows with the notes.
+2. **Move to a chapter:** a note goes into a chapter, or out of one, from a menu.
+3. **Reordering:** anyone in the party reorders the notes in a chapter, and the notes in no
+   chapter, by dragging or with the arrows. Foundry keeps the order, and a reorder made there
+   shows in the app. New and moved notes go last.
+4. **The journal's last change:** "Last changed by …" counts notes deleted and reordered, in the
+   app or in Foundry.
 
-Patch releases (0.34.x) are expected as beta use turns up things to tweak.
+Patch releases (0.35.x) are expected as beta use turns up things to tweak.
 
-## v0.35
+## v0.36
 
 1. **Companions, sidekicks and familiars:** show them and trigger their actions.
    - Wild Shape comes later because of its complexity. Built well, the companions view could be
@@ -91,3 +82,5 @@ Open questions:
 - When typing in dice, dice Foundry adds itself (Bless's d4, rerolls) are still rolled by Foundry,
   and Elven Accuracy's third d20 is asked for only on attacks the sheet marks.
 - Moving several items at once, and summon activities, aren't scheduled.
+- Notes deleted or reordered in Foundry while no Gamemaster is connected don't move the journal's
+  "Last changed by" line.

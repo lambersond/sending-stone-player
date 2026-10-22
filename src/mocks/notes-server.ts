@@ -31,7 +31,10 @@ export function emptyBook(fields: Partial<NotesView> = {}): NotesView {
     enabled: true,
     connected: true,
     canAdd: true,
+    canReorder: true,
+    orders: true,
     chapters: [],
+    groups: [],
     entries: [],
     ...fields,
   }
@@ -130,6 +133,22 @@ export function serveNotes(
         body: { html: `<p>${String(body.body)}</p>`, headings: [] },
       })
     }
+    if (rest === '/order') {
+      // A new order of a group's notes (round 0.35.0 §7.6): the book's notes as asked, the group's
+      // in its order, after the others, as each group is read in its notes' order.
+      if (method === 'PUT') {
+        const moved = new Set<string>(body.ids)
+        const ordered = body.ids
+          .map((id: string) => book.entries.find(note => note.id === id))
+          .filter(Boolean)
+        book.entries = [
+          ...book.entries.filter(note => !moved.has(note.id)),
+          ...ordered,
+        ]
+      }
+      bump(book)
+      return respond({ status: 200, body: { stamp: `g:${book.version}` } })
+    }
     const id = decodeURIComponent(rest.slice(1))
     if (method === 'POST') {
       made += 1
@@ -164,12 +183,17 @@ export function serveNotes(
     const chapter = book.chapters.find(note => note.id === id)
     if (method === 'PATCH' && body && !('resolve' in body)) {
       if (entry) {
+        const from = entry.chapterId
         Object.assign(entry, {
           title: body.title,
           body: body.body ?? entry.body,
           html: `<p>${String(body.body ?? entry.body)}</p>`,
           chapterId: body.chapterId ?? null,
         })
+        // Moved to another chapter, it's last in it (round 0.35.0 §2.3).
+        if (entry.chapterId !== from) {
+          book.entries = [...book.entries.filter(note => note !== entry), entry]
+        }
       } else if (chapter) {
         chapter.title = body.title
       } else {

@@ -1529,6 +1529,34 @@ describe('db/roll-requests', () => {
 
         expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
       })
+
+      it('is no roll for an order of a group’s notes either, from module 0.35.0: it reaches the order under its id and number', async () => {
+        const ORDER = '99999999-9999-4999-8999-999999999999'
+        prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 0 })
+        prismaMock.journalOrder.findUnique.mockResolvedValue({
+          bookId: 'book-1',
+          chapterId: '',
+        } as any)
+        prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 1 })
+        prismaMock.journalNote.findMany.mockResolvedValue([])
+
+        await recordCommandResult('c1', {
+          id: `${ORDER}.3`,
+          status: 'done',
+          reason: null,
+          error: null,
+          messageId: null,
+          visible: false,
+          rolls: [],
+          order: { chapter: null, ids: ['looseNote0000001'] },
+        })
+
+        expect(prismaMock.journalOrder.updateMany).toHaveBeenCalledWith({
+          where: { id: ORDER, seq: 3, campaignId: 'c1', status: 'claimed' },
+          data: { status: 'made', reason: null },
+        })
+        expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+      })
     })
 
     it("records what became of a fetched roll of the campaign's", async () => {

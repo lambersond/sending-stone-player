@@ -3,7 +3,7 @@ import { useCallback, useReducer, useRef } from 'react'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChapterForm } from './chapter-form'
-import { NotesSection } from './notes-section'
+import { JournalCard } from './journal-card'
 import {
   forgetNotes,
   type DraftChange,
@@ -52,7 +52,6 @@ function Harness({
       name='Thorin'
       onSave={async () => ({ ok: true })}
       onCancel={() => {}}
-      opened={false}
       {...props}
     />
   )
@@ -64,7 +63,6 @@ const input = () =>
 describe('components/notes/chapter-form', () => {
   beforeEach(() => {
     held = undefined
-    HTMLElement.prototype.scrollIntoView = jest.fn()
   })
 
   it('heads a new chapter, and a rename by the chapter’s title', () => {
@@ -92,16 +90,36 @@ describe('components/notes/chapter-form', () => {
     expect(input()).toHaveValue('Session 1')
   })
 
-  it('has one field, 16px, of 200 characters at most, and says nothing of deleting', () => {
+  it('has one field, 16px, of 200 characters at most, and says chapters are deleted only in Foundry', () => {
     render(<Harness initial={draftOf()} />)
     expect(input()).toHaveClass('text-base')
     expect(input()).toHaveAttribute('maxLength', '200')
     expect(screen.getAllByRole('textbox')).toHaveLength(1)
-    expect(screen.getByRole('form')).not.toHaveTextContent(/delet/i)
-    // Its Cancel and Save are in the editor's sticky row.
     expect(
-      screen.getByRole('button', { name: 'Save' }).parentElement,
-    ).toHaveClass('sticky', 'top-0')
+      screen.getByText(
+        'A chapter is a level 1 heading in Foundry’s journal. Chapters are deleted only in Foundry.',
+      ),
+    ).toHaveClass('text-xs')
+    expect(screen.queryByRole('button', { name: /delete/i })).toBeNull()
+  })
+
+  it('keeps Cancel and Save in a footer below its field, saying Enter saves from 640 px', () => {
+    render(<Harness initial={draftOf()} />)
+    const form = screen.getByRole('form')
+    const footer = form.lastElementChild as HTMLElement
+    expect(footer).toHaveClass('border-t', 'bg-card')
+    expect(
+      within(footer)
+        .getAllByRole('button')
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Cancel', 'Save'])
+    expect(within(footer).getByText('Enter saves.')).toHaveClass(
+      'hidden',
+      '@min-[640px]:block',
+    )
+    const order = [...form.querySelectorAll('input, button')]
+    expect(order.at(-1)).toBe(screen.getByRole('button', { name: 'Save' }))
+    expect(order[0]).toBe(input())
   })
 
   it('saves on Enter, its only field, once it has a title', async () => {
@@ -149,7 +167,7 @@ describe('components/notes/chapter-form', () => {
   it('takes focus opened by a button, and puts it back mounted again', async () => {
     const user = userEvent.setup()
     const { rerender } = render(
-      <Harness initial={draftOf({ focus: { field: 'title' } })} opened />,
+      <Harness initial={draftOf({ focus: { field: 'title' } })} />,
     )
     expect(input()).toHaveFocus()
     await user.keyboard('Sess')
@@ -160,7 +178,7 @@ describe('components/notes/chapter-form', () => {
     expect(input()).toHaveValue('Sess')
   })
 
-  describe('in its section', () => {
+  describe('in the journal', () => {
     beforeEach(() => {
       forgetNotes()
     })
@@ -169,9 +187,10 @@ describe('components/notes/chapter-form', () => {
       act(() => forgetNotes())
     })
 
-    const renderSection = () =>
+    /** The card, its journal opened. */
+    const renderSection = async () => {
       render(
-        <NotesSection
+        <JournalCard
           api={API}
           role='player'
           kind='personal'
@@ -180,11 +199,16 @@ describe('components/notes/chapter-form', () => {
           look='sheet'
         />,
       )
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Open My Journal' }),
+      )
+      await screen.findByRole('dialog', { name: 'My Journal' })
+    }
 
-    it('adds a chapter, then gives focus to its heading', async () => {
+    it('adds a chapter, then shows its page, with focus on its title, and says so', async () => {
       const user = userEvent.setup()
       const server = serveNotes({ [API]: emptyBook() })
-      renderSection()
+      await renderSection()
       await user.click(
         await screen.findByRole('button', { name: 'New chapter' }),
       )
@@ -197,9 +221,11 @@ describe('components/notes/chapter-form', () => {
       })
       await waitFor(() =>
         expect(
-          screen.getByRole('heading', { level: 3, name: /^Session 1/ }),
+          screen.getByRole('heading', { level: 3, name: 'Session 1' }),
         ).toHaveFocus(),
       )
+      expect(screen.getByText('Chapter 1 of 1')).toBeInTheDocument()
+      expect(screen.getByText('Saved.')).toBeInTheDocument()
     })
 
     it('renames a chapter from the stamp it started at', async () => {
@@ -207,7 +233,7 @@ describe('components/notes/chapter-form', () => {
       const server = serveNotes({
         [API]: emptyBook({ chapters: [noteChapter()] }),
       })
-      renderSection()
+      await renderSection()
       await user.click(
         await screen.findByRole('button', { name: 'Rename Session 1' }),
       )
@@ -220,7 +246,7 @@ describe('components/notes/chapter-form', () => {
       })
       await waitFor(() =>
         expect(
-          screen.getByRole('heading', { level: 3, name: /^The first night/ }),
+          screen.getByRole('heading', { level: 3, name: 'The first night' }),
         ).toHaveFocus(),
       )
     })
@@ -240,7 +266,7 @@ describe('components/notes/chapter-form', () => {
           return served(url, init)
         },
       ) as typeof fetch
-      renderSection()
+      await renderSection()
       await user.click(
         await screen.findByRole('button', { name: 'Rename Session 1' }),
       )
@@ -258,7 +284,7 @@ describe('components/notes/chapter-form', () => {
       })
       await waitFor(() =>
         expect(
-          screen.getByRole('heading', { level: 3, name: /^The first night/ }),
+          screen.getByRole('heading', { level: 3, name: 'The first night' }),
         ).toHaveFocus(),
       )
       expect(server.sent.map(({ method, body }) => [method, body])).toEqual([

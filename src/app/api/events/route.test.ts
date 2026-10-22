@@ -51,8 +51,9 @@ const FEATURES = {
   transfers: 1,
   // From module 0.33.0: removals of characters' items, fetched for with rolls and moves off.
   removals: 1,
-  // From module 0.34.0: journal notes, fetched for with rolls, moves and removals off.
-  notes: 1,
+  // From module 0.34.0: journal notes, fetched for with rolls, moves and removals off; 2 from
+  // module 0.35.0, as the app reads who changed a journal in Foundry and sends orders of notes.
+  notes: 2,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }

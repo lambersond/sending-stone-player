@@ -1,7 +1,7 @@
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SheetText } from './sheet-text'
-import { NotesSection, type NotesPlace } from '@/components/notes'
+import { JournalCard, type NotesPlace } from '@/components/notes'
 import type { SheetDetails } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
@@ -9,7 +9,8 @@ import type { TableSheet } from '@/types/table'
  * Who the character is, as dnd5e's Biography tab tells it: alignment, age and the like, their
  * experience, their personality and appearance, and their story. A roll in their story is named
  * for the character, as the game names it. From module 0.34.0, their own journal notes come
- * first, as the one part of the tab the player writes in, and during play.
+ * first, as the one part of the tab the player writes in, and during play: from 0.35.0, a card
+ * that opens the journal, so the tab doesn't grow with it.
  */
 export function BiographyTab({
   characterId,
@@ -33,7 +34,7 @@ export function BiographyTab({
     !biography
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
-      {notes && <NotesSection kind='personal' look='sheet' {...notes} />}
+      {notes && <JournalCard kind='personal' look='sheet' {...notes} />}
 
       {(xp || about.length > 0) && (
         <section

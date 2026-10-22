@@ -1331,6 +1331,12 @@ const featuresSchema = z
           )
           .max(2000)
           .catch([]),
+        // From module 0.35.0: it takes the app's orders of a group's notes, and says who changed a
+        // journal in Foundry. Anything but a boolean is read as unsaid.
+        // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
+        orders: z.boolean().optional().catch(undefined),
+        // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
+        changes: z.boolean().optional().catch(undefined),
       })
       .nullable()
       .optional()
@@ -1387,6 +1393,17 @@ const journalUpdatedSchema = z.looseObject({
       id: z.string().regex(DOCUMENT_ID),
       name: z.string().max(200),
       notes: z.array(journalPageSchema).max(MOST_NOTES),
+      // From module 0.35.0, to an app that answers `notes: 2`: who last deleted or reordered a
+      // page the app is sent, in Foundry, and when. An odd one is dropped, never the book.
+      changed: z
+        .object({
+          what: z.enum(['delete', 'order']),
+          by: z.string().max(200),
+          at: z.int().min(0),
+        })
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+        .catch(undefined),
     })
     .nullable(),
   withheld: z
@@ -1706,6 +1723,16 @@ const commandResultSchema = z.object({
       id: z.string().regex(NOTE_ID),
       rev: z.string().regex(NOTE_REV).nullable(),
       deleted: z.literal(true).optional(),
+    })
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // From module 0.35.0, for an order of a group's notes: the group's order in Foundry after it, or
+  // on a refusal its order then, by the notes' ids alone.
+  order: z
+    .object({
+      chapter: z.string().regex(NOTE_ID).nullable(),
+      ids: z.array(z.string().regex(NOTE_ID)).max(MOST_NOTES),
     })
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk

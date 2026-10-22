@@ -7,7 +7,9 @@ import {
   getNotesStatus,
   getNotesView,
   previewNote,
+  reorderNotes,
   resolveNote,
+  resolveOrder,
   type NoteAnswer,
   type NotesBook,
   type NotesSeat,
@@ -20,6 +22,8 @@ import { getCurrentUser } from '@/lib/session'
 import {
   noteChangeSchema,
   noteInputSchema,
+  noteOrderResolveSchema,
+  noteOrderSchema,
   notePreviewSchema,
   noteResolveSchema,
 } from '@/schemas/notes'
@@ -277,6 +281,35 @@ export async function noteDeleteResponse(
     return refused(400, { reason: 'invalid', field: 'stamp' })
   }
   return answered(await deleteNote(seat, book, noteId, stamp), 200)
+}
+
+/**
+ * A new order of a chapter's notes, or of those in no chapter (round 0.35.0 §7.6), `{chapterId,
+ * ids, stamp}`, from the stamp the page last saw of the group: 200 with the group's stamp now, or
+ * why not. By anyone who may write the book, whoever wrote the notes.
+ */
+export async function noteOrderResponse(
+  request: NextRequest,
+  { seat, book }: NotesPlace,
+): Promise<Response> {
+  return answering(async () => {
+    const order = parsed(noteOrderSchema, await readBody(request))
+    return answered(await reorderNotes(seat, book, order), 200)
+  })
+}
+
+/**
+ * Settle an order of a group's notes the game didn't take (round 0.35.0 §7.6), `{chapterId,
+ * resolve, stamp}`: 200 with the group's stamp now, or why not.
+ */
+export async function noteOrderResolveResponse(
+  request: NextRequest,
+  { seat, book }: NotesPlace,
+): Promise<Response> {
+  return answering(async () => {
+    const choice = parsed(noteOrderResolveSchema, await readBody(request))
+    return answered(await resolveOrder(seat, book, choice), 200)
+  })
 }
 
 /**

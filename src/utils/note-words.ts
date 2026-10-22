@@ -8,9 +8,10 @@ import type {
 } from '@/types/notes'
 
 /*
- * What the Notes section says of a book and its notes (round 0.34.0 §9.4-§9.7), in words, never
- * in colour alone: who sees them, why they can't reach Foundry now, where each note stands, why
- * the game refused a change, and why the app refused one at once.
+ * What the journal says of a book and its notes (round 0.34.0 §9.4-§9.7; its card and modal,
+ * round 0.35.0 §8.3-§8.5), in words, never in colour alone: whose it is and who sees it, why it
+ * can't reach Foundry now, where each note stands, why the game refused a change, and why the app
+ * refused one at once.
  */
 
 /** A note's state, as its chip says it; nothing for one the same here and in Foundry. */
@@ -189,8 +190,8 @@ export function whoSeesNotes({
 
 /**
  * The one banner a book shows, the first that applies (§9.4 item 2): its character gone from the
- * campaign, a module too old to take notes, a journal too large to send, or a party no player may
- * see.
+ * campaign, a module too old to take notes, or too old to take a new order of them (round 0.35.0
+ * §8.5), a journal too large to send, or a party no player may see.
  */
 export function notesBanner(
   view: NotesView,
@@ -201,6 +202,10 @@ export function notesBanner(
   }
   if (!view.enabled) {
     return `Notes are kept here for now. They reach Foundry once ${seatWords(role).game} connects with Sending Stone 0.34.0 or later.`
+  }
+  // A module that takes notes but not orders keeps a new order waiting (round 0.35.0 §8.5).
+  if (!view.orders && view.groups.some(({ state }) => state === 'waiting')) {
+    return `The new order is kept here for now. It reaches Foundry once ${seatWords(role).game} connects with Sending Stone 0.35.0 or later.`
   }
   if (view.withheld?.reason === 'tooLarge') {
     // Foundry may hold a journal back before the app has ever been told its name.
@@ -218,4 +223,51 @@ export function savedWords(live: boolean, role: SeatRole): string {
   return live
     ? 'Saved.'
     : `Saved. It goes to Foundry when ${seatWords(role).game} is next open.`
+}
+
+/**
+ * A journal's name, on its card and over its modal (round 0.35.0 §8.3): the player's own is theirs;
+ * the Gamemaster reads a character's by its name, and anyone a party's.
+ * @param name - The book's character or party.
+ */
+export function journalTitle({
+  kind,
+  role,
+  name,
+}: {
+  kind: NoteBookKind
+  role: SeatRole
+  name: string
+}): string {
+  if (kind === 'personal' && role !== 'gm') return 'My Journal'
+  return `${name}’s Journal`
+}
+
+/**
+ * Who sees a journal, in short, in its modal's header (round 0.35.0 §8.5); the whole sentence,
+ * `whoSeesNotes`, is its title.
+ * @param name - The book's character or party.
+ */
+export function whoSeesShort({
+  kind,
+  role,
+  name,
+}: {
+  kind: NoteBookKind
+  role: SeatRole
+  name: string
+}): string {
+  if (kind === 'party') return `Everyone in ${name}`
+  return role === 'gm' ? `${name}’s player and you` : 'You and your Gamemaster'
+}
+
+/** How much a journal holds, on its card: "No notes yet", or "2 chapters · 1 note". */
+export function journalCounts(chapters: number, notes: number): string {
+  if (chapters === 0 && notes === 0) return 'No notes yet'
+  return `${chapters} ${chapters === 1 ? 'chapter' : 'chapters'} · ${notes} ${notes === 1 ? 'note' : 'notes'}`
+}
+
+/** How many notes, chapters and orders wait on the seat's choice, on the journal's card. */
+export function choicesWords(count: number): string {
+  return `${count} ${count === 1 ? 'needs' : 'need'} a choice`
 }

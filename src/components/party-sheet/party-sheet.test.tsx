@@ -614,9 +614,18 @@ const serveParty = (
     }
     return respond(party)
   })
-const notesRegion = () => screen.getByRole('region', { name: 'Notes' })
+const notesRegion = () => screen.getByRole('region', { name: 'Journal' })
+/** The party's journal, opened from its card. */
+const openJournal = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(
+    await within(notesRegion()).findByRole('button', {
+      name: 'Open The Company’s Journal',
+    }),
+  )
+  return screen.findByRole('dialog', { name: 'The Company’s Journal' })
+}
 
-describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
+describe('components/party-sheet, the party’s journal (module 0.35.0)', () => {
   beforeEach(() => {
     forgetNotes()
     jest.mocked(useRouter).mockReturnValue(router as any)
@@ -626,7 +635,7 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
     act(() => forgetNotes())
   })
 
-  it('keeps its tabs, and opens Description on the notes, then the description under its heading', async () => {
+  it('keeps its tabs, and opens Description on the journal’s card, then the description under its heading', async () => {
     const user = userEvent.setup()
     serveParty()
     render(
@@ -638,12 +647,15 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
         .getAllByRole('tab')
         .map(tab => tab.textContent),
     ).toEqual(['Inventory', 'Description'])
-    expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Journal' })).toBeNull()
 
     await user.click(screen.getByRole('tab', { name: 'Description' }))
     const panel = screen.getByRole('tabpanel', { name: 'Description' })
     const [first, second] = within(panel).getAllByRole('region')
-    expect(first).toHaveAccessibleName('Notes')
+    expect(first).toHaveAccessibleName('Journal')
+    expect(
+      within(first).getByRole('heading', { level: 2, name: 'Journal' }),
+    ).toHaveClass('text-sm', 'font-semibold')
     expect(second).toHaveAccessibleName('Description')
     expect(
       within(second).getByRole('heading', { level: 2, name: 'Description' }),
@@ -656,6 +668,7 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
         'Everyone in The Company sees these, here and in Foundry.',
       ),
     ).toBeInTheDocument()
+    expect(within(first).getByText('The Company’s Journal')).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith(`${API}/notes`, expect.anything())
   })
 
@@ -673,12 +686,12 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows no notes in the sheet alone, as before', async () => {
+  it('shows no journal in the sheet alone, as before', async () => {
     const user = userEvent.setup()
     serveParty()
     render(<PartySheet api={API} role='player' view={view()} />)
     await user.click(screen.getByRole('tab', { name: 'Description' }))
-    expect(screen.queryByRole('region', { name: 'Notes' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Journal' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Description' })).toBeNull()
   })
 
@@ -690,7 +703,7 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
       'The Company is too large to send',
     ],
   ])(
-    'shows the notes under why there’s no sheet, where it %s',
+    'shows the journal’s card under why there’s no sheet, where it %s',
     async (_, fields, title) => {
       serveParty()
       render(
@@ -707,21 +720,27 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy()
       expect(
-        await within(notesRegion()).findByRole('button', { name: 'New note' }),
+        await within(notesRegion()).findByRole('button', {
+          name: 'Open The Company’s Journal',
+        }),
       ).toBeInTheDocument()
     },
   )
 
-  it('shows a private party’s notes on the Gamemaster’s page, read only, saying why', async () => {
+  it('shows a private party’s journal on the Gamemaster’s page, read only, saying why', async () => {
     const user = userEvent.setup()
     serveParty(
       view(),
       emptyBook({
         kind: 'party',
         canAdd: false,
+        canReorder: false,
         withheld: { reason: 'private' },
         chapters: [noteChapter()],
-        entries: [noteEntry({ chapterId: 'sessionChapter01' })],
+        entries: [
+          noteEntry({ chapterId: 'sessionChapter01' }),
+          noteEntry({ id: 'wolvesNote000001', title: 'Wolves' }),
+        ],
       }),
     )
     render(
@@ -741,24 +760,38 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
         name: 'Not shared with any player in Foundry',
       }),
     ).toBeInTheDocument()
+    const dialog = await openJournal(user)
     expect(
-      await within(notesRegion()).findByText(
+      await within(dialog).findByText(
         'No player can see The Company in Foundry, so its notes aren’t shared.',
       ),
     ).toBeInTheDocument()
-    await user.click(screen.getByText('The goblin cave'))
-    for (const name of [
-      /^New note/,
-      'New chapter',
-      /^Rename/,
-      'Edit',
-      'Delete',
-    ]) {
-      expect(screen.queryAllByRole('button', { name })).toEqual([])
+    expect(within(dialog).getByText('Read only')).toBeInTheDocument()
+    const nobody = async () => {
+      for (const name of [
+        /^New note/,
+        'New chapter',
+        /^Rename/,
+        /^Edit/,
+        /^Delete/,
+        /^Move/,
+        'Reorder',
+      ]) {
+        expect(within(dialog).queryAllByRole('button', { name })).toEqual([])
+      }
     }
+    const contents = within(
+      within(dialog).getByRole('navigation', { name: 'Contents' }),
+    )
+    await user.click(contents.getByRole('button', { name: 'The goblin cave' }))
+    await nobody()
+    await user.click(contents.getByRole('button', { name: 'Session 1' }))
+    await nobody()
+    await user.click(contents.getByRole('button', { name: 'Not in a chapter' }))
+    await nobody()
   })
 
-  it('keeps a note half written under why there’s no sheet as the sheet arrives, on Description', async () => {
+  it('opens the journal again, its draft with it, under why there’s no sheet as the sheet arrives, on Description', async () => {
     const user = userEvent.setup()
     serveParty()
     const { rerender } = render(
@@ -769,8 +802,9 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
         state='ready'
       />,
     )
+    const dialog = await openJournal(user)
     await user.click(
-      await within(notesRegion()).findByRole('button', { name: 'New note' }),
+      await within(dialog).findByRole('button', { name: 'New note' }),
     )
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
     await user.type(screen.getByRole('textbox', { name: 'Note' }), 'Three.')
@@ -783,11 +817,40 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
       'aria-selected',
       'true',
     )
-    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
+    await screen.findByRole('dialog', { name: 'The Company’s Journal' })
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue(
+      'Wolves',
+    )
     expect(screen.getByRole('textbox', { name: 'Note' })).toHaveValue('Three.')
   })
 
-  it('keeps a note half written across Inventory and back, and across the panel closed and opened again', async () => {
+  it('keeps the journal open, no draft in it, as the sheet arrives, on Description', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    const { rerender } = render(
+      <PartySheetFor
+        api={API}
+        role='player'
+        view={view({ sheet: undefined, sheetVersion: undefined })}
+        state='ready'
+      />,
+    )
+    await openJournal(user)
+
+    rerender(
+      <PartySheetFor api={API} role='player' view={view()} state='ready' />,
+    )
+
+    expect(screen.getByRole('tab', { name: 'Description' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(
+      await screen.findByRole('dialog', { name: 'The Company’s Journal' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps a note half written, the journal closed, across Inventory and back, and across the panel closed and opened again', async () => {
     const user = userEvent.setup()
     serveParty()
     const panel = (open: boolean) => (
@@ -801,23 +864,52 @@ describe('components/party-sheet, the party’s notes (module 0.34.0)', () => {
     )
     const { rerender } = render(panel(true))
     await user.click(await screen.findByRole('tab', { name: 'Description' }))
+    const dialog = await openJournal(user)
     await user.click(
-      await within(notesRegion()).findByRole('button', { name: 'New note' }),
+      await within(dialog).findByRole('button', { name: 'New note' }),
     )
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Wolves')
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
 
     await user.click(screen.getByRole('tab', { name: 'Inventory' }))
-    expect(screen.queryByRole('textbox', { name: 'Title' })).toBeNull()
+    expect(screen.queryByText('Unsaved: Wolves')).toBeNull()
     await user.click(screen.getByRole('tab', { name: 'Description' }))
-    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
+    expect(screen.getByText('Unsaved: Wolves')).toBeInTheDocument()
 
     rerender(panel(false))
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(panel(true))
 
-    // It opens on Description, with the note as it was.
+    // It opens on Description, the draft waiting on the card.
     const description = await screen.findByRole('tab', { name: 'Description' })
     expect(description).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Unsaved: Wolves')).toBeInTheDocument()
+    await openJournal(user)
     expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Wolves')
+  })
+
+  it('opens the journal over the party panel, a dialog over that dialog, and leaves the panel open as it closes', async () => {
+    const user = userEvent.setup()
+    serveParty()
+    const onClose = jest.fn()
+    render(
+      <PartyPanel
+        group={view().group}
+        api={API}
+        pageHref='/characters/char-1/party/company'
+        role='player'
+        onClose={onClose}
+      />,
+    )
+    await user.click(await screen.findByRole('tab', { name: 'Description' }))
+    const dialog = await openJournal(user)
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    expect(panel).toContainElement(dialog)
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(
+      screen.queryByRole('dialog', { name: 'The Company’s Journal' }),
+    ).toBeNull()
+    expect(panel).toHaveAttribute('open')
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

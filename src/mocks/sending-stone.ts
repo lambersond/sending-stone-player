@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import type { NoteCommand } from '@/db/note-sync'
+import type { NotePageCommand } from '@/db/note-sync'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type { NotesView } from '@/types/notes'
 import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
@@ -2492,7 +2492,7 @@ const written = (minutes: number) =>
  * A journal of notes as module 0.34.0 sends it: Thorin's own in Erebor, a chapter with an entry
  * written in the app, one written in Foundry, one in Foundry's HTML editor and one cut short; or
  * The Iron Company's, a chapter with Vex's entry, and a page of the Gamemaster's sent as HTML for
- * its secret.
+ * its secret, which from module 0.35.0 says the Gamemaster last deleted a page of it in Foundry.
  */
 export function mockJournalUpdated(
   kind: 'personal' | 'party' = 'personal',
@@ -2550,6 +2550,7 @@ export function mockJournalUpdated(
             rev: rev(3),
           },
         ],
+        changed: { what: 'delete', by: 'Gamemaster', at: written(10) },
       },
       ...fields,
     }
@@ -2640,10 +2641,11 @@ export function mockJournalUpdated(
 
 /**
  * A book of notes as its page is sent it, from module 0.34.0: Thorin's own, a chapter with an entry
- * of his synced and one waiting for the game.
+ * of his synced and one waiting for the game. From module 0.35.0 each of its groups, the notes in
+ * no chapter first, has its order synced, unless the fields give them.
  */
 export function mockNotesView(fields: Partial<NotesView> = {}): NotesView {
-  return {
+  const view: Omit<NotesView, 'groups'> = {
     version: 3,
     kind: 'personal',
     journal: "Thorin's notes (Erebor)",
@@ -2651,6 +2653,8 @@ export function mockNotesView(fields: Partial<NotesView> = {}): NotesView {
     enabled: true,
     canAdd: true,
     connected: true,
+    canReorder: true,
+    orders: true,
     chapters: [
       {
         id: NOTE_IDS.session,
@@ -2701,12 +2705,22 @@ export function mockNotesView(fields: Partial<NotesView> = {}): NotesView {
     ],
     ...fields,
   }
+  return {
+    ...view,
+    groups:
+      fields.groups ??
+      [null, ...view.chapters.map(({ id }) => id)].map(chapterId => ({
+        chapterId,
+        state: 'synced',
+        stamp: 'g:0000000000000000',
+      })),
+  }
 }
 
 /** A note command as the module fetches it, from module 0.34.0: Thorin's player adding an entry. */
 export function mockNoteCommand(
-  fields: Partial<NoteCommand['note']> = {},
-): NoteCommand {
+  fields: Partial<NotePageCommand['note']> = {},
+): NotePageCommand {
   return {
     id: '7d2c3f5e-1b0a-4c8e-9f6d-2a1b3c4d5e6f.0',
     actorId: PARTY.thorin,

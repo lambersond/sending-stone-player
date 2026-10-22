@@ -2,7 +2,12 @@
  * @jest-environment node
  */
 /* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
-import { Prisma, type JournalNote, type JournalWrite } from '@prisma/client'
+import {
+  Prisma,
+  type JournalNote,
+  type JournalOrder,
+  type JournalWrite,
+} from '@prisma/client'
 import { prismaMock } from '../../jest.setup'
 import { claimNoteWrites, recordNoteResult } from './note-sync'
 import {
@@ -13,7 +18,9 @@ import {
   getNotesView,
   noteRights,
   previewNote,
+  reorderNotes,
   resolveNote,
+  resolveOrder,
   type NotesBook,
   type NotesSeat,
 } from './notes'
@@ -83,6 +90,7 @@ function mirror(fields: Partial<JournalNote> = {}): JournalNote {
     modifiedBy: 'Thorin',
     modifiedIn: 'app',
     revision: REV,
+    place: 0,
     ...fields,
   }
 }
@@ -133,6 +141,7 @@ const heldCampaign = (fields: object = {}) =>
       { id: VEX, name: 'Vex' },
     ],
     notesEnabled: true,
+    noteFeatures: ['orders'],
     bridgePolledAt: ago(5000),
     ...fields,
   } as any)
@@ -199,6 +208,7 @@ const after = (row: JournalWrite) =>
 /** A change's row handed over, as the module fetches it from a party's book. */
 const handed = async (row: JournalWrite) => {
   heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
+  prismaMock.journalOrder.findMany.mockResolvedValue([])
   prismaMock.journalWrite.findMany
     .mockResolvedValueOnce([row] as any)
     .mockResolvedValueOnce([
@@ -206,6 +216,196 @@ const handed = async (row: JournalWrite) => {
     ] as any)
   const [command] = await claimNoteWrites('c1', 's1')
   return command
+}
+
+// The Iron Company's Session 1 holds Thorin's note, Vex's, the Gamemaster's and one written in
+// Foundry, in that order in Foundry, though written in another; and two notes in no chapter.
+const A = 'aThorinNote00001'
+const B = 'bVexNote00000001'
+const C = 'cGmNote000000001'
+const D = 'dFoundryNote0001'
+const L1 = 'looseNote0000001'
+const L2 = 'looseNote0000002'
+const O1 = '99999999-9999-4999-8999-999999999999'
+const MIRRORED = [A, B, C, D]
+
+const chapter = (fields: Partial<JournalNote> = {}) =>
+  mirror({
+    noteId: SESSION,
+    role: 'chapter',
+    title: 'Session 1',
+    body: '',
+    html: '',
+    createdAt: ago(86_400_000),
+    modifiedAt: ago(86_400_000),
+    ...fields,
+  })
+const partyNotes = () => [
+  chapter(),
+  mirror({
+    noteId: A,
+    chapterId: SESSION,
+    place: 0,
+    createdAt: ago(10_000),
+  }),
+  mirror({
+    noteId: B,
+    chapterId: SESSION,
+    place: 1,
+    authorActorId: VEX,
+    authorName: 'Vex',
+    modifiedBy: 'Vex',
+    createdAt: ago(40_000),
+  }),
+  mirror({
+    noteId: C,
+    chapterId: SESSION,
+    place: 2,
+    authorActorId: null,
+    authorGm: true,
+    authorName: 'Gamemaster',
+    modifiedBy: 'Gamemaster',
+    createdAt: ago(30_000),
+  }),
+  mirror({
+    noteId: D,
+    chapterId: SESSION,
+    place: 3,
+    authorActorId: null,
+    authorName: null,
+    modifiedBy: 'Gamemaster',
+    modifiedIn: 'foundry',
+    createdAt: ago(20_000),
+  }),
+  mirror({ noteId: L1, place: 0, createdAt: ago(50_000) }),
+  mirror({ noteId: L2, place: 1, createdAt: ago(60_000) }),
+]
+
+/** Thorin's order of Session 1, made here: Foundry's note first. */
+function order(fields: Partial<JournalOrder> = {}): JournalOrder {
+  return {
+    id: O1,
+    seq: 1,
+    campaignId: 'c1',
+    bookId: 'book-1',
+    chapterId: SESSION,
+    ids: [D, C, B, A],
+    was: MIRRORED,
+    seat: 'player',
+    requestedById: 'user-1',
+    writerActorId: THORIN,
+    modifiedAt: ago(60_000),
+    modifiedBy: 'Thorin',
+    status: 'pending',
+    reason: null,
+    claimToken: null,
+    claimSession: null,
+    claimedAt: null,
+    queuedAt: ago(60_000),
+    createdAt: ago(120_000),
+    updatedAt: ago(60_000),
+    ...fields,
+  }
+}
+
+/** The company's book, with these orders and changes. */
+const held = ({
+  orders = [] as JournalOrder[],
+  notes = partyNotes(),
+  writes = [] as JournalWrite[],
+  ...fields
+}: {
+  orders?: JournalOrder[]
+  notes?: JournalNote[]
+  writes?: JournalWrite[]
+  [field: string]: unknown
+} = {}) => heldBook({ notes, writes, orders, ...fields })
+
+/** A group as a seat sees it now: Session 1, unless said. */
+const groupOf = async (seat: NotesSeat, chapterId: string | null = SESSION) => {
+  const view = await getNotesView(seat, party)
+  return {
+    group: view!.groups.find(group => group.chapterId === chapterId)!,
+    ids: view!.entries
+      .filter(entry => entry.chapterId === chapterId)
+      .map(({ id }) => id),
+  }
+}
+
+/** A new order of a group from what the seat sees of it now. */
+const reorder = async (
+  seat: NotesSeat,
+  ids: string[],
+  chapterId: string | null = SESSION,
+) => {
+  const { group } = await groupOf(seat, chapterId)
+  return reorderNotes(seat, party, { chapterId, ids, stamp: group.stamp })
+}
+
+/** What the book's row was last bumped with, made or updated. */
+const bumped = () => prismaMock.journalBook.upsert.mock.calls.at(-1)![0]
+
+/** A group's stamp as a seat sees it now: Session 1's. */
+async function stampOf(seat: NotesSeat = thorin) {
+  const { group } = await groupOf(seat)
+  return group.stamp
+}
+
+/** What the last compare-and-set of an order was. */
+const folded = () => prismaMock.journalOrder.updateMany.mock.calls.at(-1)![0]
+
+/** Thorin's order of Session 1 refused, as Foundry's notes were reordered meanwhile. */
+const refused = (fields: Partial<JournalOrder> = {}) =>
+  held({
+    orders: [order({ status: 'conflict', reason: 'changed', ...fields })],
+  })
+
+/** A seat's choice on a group's refused order, from what it sees of the group now. */
+async function choose(
+  seat: NotesSeat,
+  resolve: 'mine' | 'theirs',
+  chapterId: string | null = SESSION,
+) {
+  const view = await getNotesView(seat, party)
+  const stamp =
+    view?.groups.find(group => group.chapterId === chapterId)?.stamp ?? 'g:0'
+  return resolveOrder(seat, party, { chapterId, resolve, stamp })
+}
+
+/** A group's notes as a seat sees them now, in the order shown: Session 1's, unless said. */
+async function shownIds(seat: NotesSeat, chapterId: string | null = SESSION) {
+  const { ids } = await groupOf(seat, chapterId)
+  return ids
+}
+
+/** A group's view for a seat now: Session 1's, unless said. */
+async function groupView(seat: NotesSeat, chapterId: string | null = SESSION) {
+  const { group } = await groupOf(seat, chapterId)
+  return group
+}
+
+/**
+ * A read-only book refusing a seat's order of Session 1: a new order, and the order already shown,
+ * which would write nothing, refused all the same, before the stamp or the notes are looked at
+ * (§7.7 step 3).
+ */
+async function refusesReadOnly(
+  seat: NotesSeat,
+  book: NotesBook,
+  reason: string,
+) {
+  const view = await getNotesView(seat, book)
+  expect(view?.canReorder).toBe(false)
+  const { stamp } = view!.groups.find(group => group.chapterId === SESSION)!
+  const shown = view!.entries
+    .filter(entry => entry.chapterId === SESSION)
+    .map(({ id }) => id)
+  expect(shown).toEqual(MIRRORED)
+  for (const ids of [[D, C, B, A], shown]) {
+    await expect(
+      reorderNotes(seat, book, { chapterId: SESSION, ids, stamp }),
+    ).resolves.toEqual({ ok: false, status: 409, reason })
+  }
 }
 
 describe('db/notes', () => {
@@ -216,6 +416,7 @@ describe('db/notes', () => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
     prismaMock.journalBook.upsert.mockResolvedValue({ id: 'book-1' } as any)
     prismaMock.journalWrite.count.mockResolvedValue(0)
+    prismaMock.journalOrder.count.mockResolvedValue(0)
     prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.journalWrite.deleteMany.mockResolvedValue({ count: 1 })
   })
@@ -238,6 +439,7 @@ describe('db/notes', () => {
           canRename: true,
           canEdit: true,
           canDelete: true,
+          canReorder: true,
         })
       }
     })
@@ -251,6 +453,7 @@ describe('db/notes', () => {
         canRename: true,
         canEdit: false,
         canDelete: false,
+        canReorder: true,
       })
       expect(noteRights(company, gm, entry(THORIN)).canDelete).toBe(true)
       expect(noteRights(company, thorin, entry(null)).canEdit).toBe(false)
@@ -268,6 +471,7 @@ describe('db/notes', () => {
         canRename: true,
         canEdit: false,
         canDelete: false,
+        canReorder: true,
       })
     })
 
@@ -276,6 +480,21 @@ describe('db/notes', () => {
         noteRights({ ...book, kind: 'party', private: true }, gm).canAdd,
       ).toBe(false)
       expect(noteRights({ ...book, connected: false }, thorin).canAdd).toBe(
+        false,
+      )
+    })
+
+    it('lets every seat at a book put any group’s notes in order, whoever wrote them, while it takes notes (module 0.35.0)', () => {
+      const company = { ...book, kind: 'party' as const }
+      for (const seat of [thorin, vex, gm]) {
+        for (const author of [THORIN, VEX, null]) {
+          expect(noteRights(company, seat, entry(author)).canReorder).toBe(true)
+        }
+      }
+      expect(
+        noteRights({ ...company, private: true }, gm, entry(null)).canReorder,
+      ).toBe(false)
+      expect(noteRights({ ...book, connected: false }, thorin).canReorder).toBe(
         false,
       )
     })
@@ -293,7 +512,16 @@ describe('db/notes', () => {
         enabled: true,
         canAdd: true,
         connected: true,
+        canReorder: true,
+        orders: true,
         chapters: [],
+        groups: [
+          {
+            chapterId: null,
+            state: 'synced',
+            stamp: expect.stringMatching(/^g:[\da-f]{16}$/),
+          },
+        ],
         entries: [],
       })
       expect(prismaMock.journalBook.upsert).not.toHaveBeenCalled()
@@ -1933,6 +2161,908 @@ describe('db/notes', () => {
       await expect(
         createNote(thorin, personal, { role: 'entry', title: 'Back' }),
       ).resolves.toMatchObject({ ok: true })
+    })
+  })
+
+  describe('orders of a group’s notes (round 0.35.0)', () => {
+    beforeEach(() => {
+      held()
+      prismaMock.journalOrder.create.mockResolvedValue({} as any)
+      prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.journalOrder.deleteMany.mockResolvedValue({ count: 1 })
+    })
+
+    describe('the view (§2.5, §7.9)', () => {
+      it('orders each group by Foundry’s places, not by when its notes were written; the notes in no chapter first', async () => {
+        const view = await getNotesView(thorin, party)
+
+        expect(view?.groups.map(({ chapterId }) => chapterId)).toEqual([
+          null,
+          SESSION,
+        ])
+        expect(view?.entries.map(({ id }) => id)).toEqual([L1, L2, ...MIRRORED])
+      })
+
+      it('lists every chapter’s group, oldest chapter first, with notes or none, and each in its own order', async () => {
+        const LATER = 'laterChapter0001'
+        const E = 'eLaterNote000001'
+        held({
+          notes: [
+            ...partyNotes(),
+            chapter({ noteId: LATER, title: 'Later', createdAt: ago(1000) }),
+            chapter({ noteId: 'emptyChapter0001', createdAt: ago(500) }),
+            mirror({ noteId: E, chapterId: LATER, place: 0 }),
+          ],
+        })
+
+        const view = await getNotesView(thorin, party)
+
+        expect(view?.groups.map(({ chapterId }) => chapterId)).toEqual([
+          null,
+          SESSION,
+          LATER,
+          'emptyChapter0001',
+        ])
+        expect(view?.entries.map(({ id }) => id)).toEqual([
+          L1,
+          L2,
+          ...MIRRORED,
+          E,
+        ])
+      })
+
+      it('puts notes waiting to come into a group after its notes in Foundry, in the order they’ll be made: last', async () => {
+        const NEW1 = 'newNoteWaiting01'
+        const NEW2 = 'newNoteWaiting02'
+        held({
+          writes: [
+            // Two notes written here, the later written first in Foundry's queue.
+            write({
+              id: '11111111-1111-4111-8111-111111111111',
+              noteId: NEW1,
+              op: 'create',
+              chapterId: SESSION,
+              noteCreatedAt: ago(5000),
+              queuedAt: ago(4000),
+            }),
+            write({
+              id: '22222222-2222-4222-8222-222222222222',
+              noteId: NEW2,
+              op: 'create',
+              chapterId: SESSION,
+              noteCreatedAt: ago(90_000),
+              queuedAt: ago(3000),
+            }),
+            // A note in no chapter moved into Session 1, the oldest of them all.
+            write({
+              id: '33333333-3333-4333-8333-333333333333',
+              noteId: L2,
+              op: 'update',
+              chapterId: SESSION,
+              noteCreatedAt: ago(60_000),
+              queuedAt: ago(2000),
+            }),
+          ],
+        })
+
+        const { ids } = await groupOf(thorin)
+
+        expect(ids).toEqual([...MIRRORED, NEW1, NEW2, L2])
+        expect(await shownIds(thorin, null)).toEqual([L1])
+      })
+
+      it('shows an order waiting, its notes first, and a note added since after them', async () => {
+        const NEW = 'newNoteWaiting01'
+        held({
+          orders: [order({ ids: [D, C, A] })],
+          writes: [
+            write({
+              noteId: NEW,
+              op: 'create',
+              chapterId: SESSION,
+              queuedAt: ago(1000),
+            }),
+          ],
+        })
+
+        for (const seat of [thorin, vex, gm]) {
+          // B came back meanwhile: it's after the order's notes, as Foundry will place it.
+          expect(await shownIds(seat)).toEqual([D, C, A, B, NEW])
+        }
+      })
+
+      it('shows of an order waiting only its notes still in the group as the seat sees it: not one moved out since, nor one hidden from the seat', async () => {
+        const HIDDEN = 'vexFailedCreate1'
+        held({
+          orders: [order({ ids: [B, HIDDEN, D, C, A] })],
+          writes: [
+            // Vex moves her note out of Session 1 while the order waits (§4.4).
+            write({
+              noteId: B,
+              op: 'update',
+              chapterId: null,
+              requestedById: 'user-2',
+              writerActorId: VEX,
+              authorActorId: VEX,
+              authorName: 'Vex',
+              modifiedBy: 'Vex',
+              queuedAt: ago(1000),
+            }),
+            // Vex's own failed note, which Thorin never sees (§5.3).
+            write({
+              id: '22222222-2222-4222-8222-222222222222',
+              noteId: HIDDEN,
+              op: 'create',
+              status: 'failed',
+              reason: 'not-member',
+              chapterId: SESSION,
+              requestedById: 'user-2',
+              writerActorId: VEX,
+              authorActorId: VEX,
+            }),
+          ],
+        })
+
+        // B once, last in no chapter where it's going; an id shown that the seat has no note for
+        // would be no entry at all.
+        const view = await getNotesView(thorin, party)
+        expect(view?.entries.map(entry => entry?.id)).toEqual([
+          L1,
+          L2,
+          B,
+          D,
+          C,
+          A,
+        ])
+        // Those who see Vex's failed note see it where the order puts it, with B skipped.
+        for (const seat of [vex, gm]) {
+          expect(await shownIds(seat)).toEqual([HIDDEN, D, C, A])
+        }
+      })
+
+      it('says where each group’s order stands, the same to every seat while it waits or saves', async () => {
+        for (const [status, fields, state] of [
+          ['pending', {}, 'saving'],
+          ['claimed', {}, 'saving'],
+          ['pending', { bridgePolledAt: ago(60_000) }, 'waiting'],
+          ['pending', { noteFeatures: [] }, 'waiting'],
+          ['made', {}, 'synced'],
+        ] as const) {
+          heldCampaign(fields)
+          held({ orders: [order({ status })] })
+          for (const seat of [thorin, vex, gm]) {
+            const { group } = await groupOf(seat)
+            expect(group).toEqual({
+              chapterId: SESSION,
+              state,
+              stamp: expect.stringMatching(/^g:[\da-f]{16}$/),
+            })
+          }
+        }
+        heldCampaign()
+        held()
+        await expect(groupView(vex, null)).resolves.toMatchObject({
+          state: 'synced',
+        })
+      })
+
+      it('shows a refused order to its own seat and the Gamemaster, Foundry’s order to anyone else', async () => {
+        for (const [status, reason, shown] of [
+          ['conflict', 'changed', 'changed'],
+          ['failed', 'not-member', 'not-member'],
+          ['failed', 'strange', 'error'],
+        ] as const) {
+          held({ orders: [order({ status, reason })] })
+
+          const own = await groupOf(thorin)
+          expect(own.group).toEqual({
+            chapterId: SESSION,
+            state: status,
+            reason: shown,
+            stamp: expect.any(String),
+            mine: { ids: [D, C, B, A] },
+          })
+          expect(own.ids).toEqual(MIRRORED)
+          expect(await groupView(gm)).toMatchObject({
+            state: status,
+            mine: { ids: [D, C, B, A], by: 'Thorin' },
+          })
+          const other = await groupOf(vex)
+          expect(other.group).toEqual({
+            chapterId: SESSION,
+            state: 'synced',
+            stamp: expect.any(String),
+          })
+          expect(other.ids).toEqual(MIRRORED)
+        }
+      })
+
+      it('names in a refused order only the notes the seat sees in the group', async () => {
+        const HIDDEN = 'vexFailedCreate1'
+        held({
+          orders: [
+            order({
+              status: 'conflict',
+              reason: 'changed',
+              ids: [HIDDEN, D, 'goneFromFoundry1', A],
+            }),
+          ],
+          writes: [
+            // Vex's own failed note, which Thorin never sees.
+            write({
+              noteId: HIDDEN,
+              op: 'create',
+              status: 'failed',
+              reason: 'not-member',
+              chapterId: SESSION,
+              requestedById: 'user-2',
+              writerActorId: VEX,
+              authorActorId: VEX,
+            }),
+          ],
+        })
+
+        await expect(groupView(thorin)).resolves.toMatchObject({
+          mine: { ids: [D, A] },
+        })
+        await expect(groupView(thorin)).resolves.not.toHaveProperty('mine.by')
+        await expect(groupView(gm)).resolves.toMatchObject({
+          mine: { ids: [HIDDEN, D, A], by: 'Thorin' },
+        })
+      })
+
+      it('says whether the seat may reorder, and whether the module takes orders', async () => {
+        await expect(getNotesView(vex, party)).resolves.toMatchObject({
+          canReorder: true,
+          orders: true,
+        })
+        heldCampaign({ noteFeatures: [] })
+        await expect(getNotesView(vex, party)).resolves.toMatchObject({
+          canReorder: true,
+          orders: false,
+        })
+        await expect(
+          getNotesView(gm, { ...party, private: true }),
+        ).resolves.toMatchObject({ canReorder: false })
+      })
+
+      describe('a group’s stamp: what the seat was shown', () => {
+        it('stays while nothing shown changes: a poll, a title, the seat’s own order on its way and made as asked, a made order gone after its hour', async () => {
+          const before = await stampOf()
+          expect(await stampOf()).toBe(before)
+
+          const titled = partyNotes()
+          titled[1] = { ...titled[1], title: 'Renamed' }
+          held({ notes: titled })
+          expect(await stampOf()).toBe(before)
+
+          held({ orders: [order()] })
+          const pending = await stampOf()
+          expect(pending).not.toBe(before)
+          held({ orders: [order({ status: 'claimed', claimedAt: ago(1000) })] })
+          expect(await stampOf()).toBe(pending)
+          // Made, Foundry's book follows: the order it shows is the same.
+          const made = partyNotes().map(note =>
+            note.chapterId === SESSION
+              ? { ...note, place: [D, C, B, A].indexOf(note.noteId) }
+              : note,
+          )
+          held({ orders: [order({ status: 'made', seq: 2 })], notes: made })
+          expect(await stampOf()).toBe(pending)
+          held({ notes: made })
+          expect(await stampOf()).toBe(pending)
+        })
+
+        it('moves with what’s shown: another’s new order, a note added, a reorder in Foundry, a refusal shown', async () => {
+          const seen = new Set([await stampOf()])
+          const shows = async () => {
+            const now = await stampOf()
+            expect(seen.has(now)).toBe(false)
+            seen.add(now)
+          }
+
+          held({ orders: [order({ ids: [B, A, C, D] })] })
+          await shows()
+          held({ orders: [order({ ids: [B, A, D, C], seq: 2 })] })
+          await shows()
+          held({
+            writes: [
+              write({
+                noteId: 'newNoteWaiting01',
+                op: 'create',
+                chapterId: SESSION,
+              }),
+            ],
+          })
+          await shows()
+          // The Gamemaster dragged the Gamemaster's note above Vex's in Foundry.
+          const swapped = partyNotes()
+          swapped[2] = { ...swapped[2], place: 2 }
+          swapped[3] = { ...swapped[3], place: 1 }
+          held({ notes: swapped })
+          await shows()
+          held({ orders: [order({ status: 'conflict', reason: 'changed' })] })
+          await shows()
+          // To anyone not shown the refusal, it's Foundry's order.
+          expect(await stampOf(vex)).toBe(await stampOf(vex))
+          held()
+          const plain = await stampOf(vex)
+          held({ orders: [order({ status: 'conflict', reason: 'changed' })] })
+          expect(await stampOf(vex)).toBe(plain)
+        })
+      })
+
+      describe('the journal’s last change (§2.6)', () => {
+        it('is the latest of its notes’, its chapters’ and the book’s own record, the book’s at a tie', async () => {
+          const notes = partyNotes()
+          notes[3] = {
+            ...notes[3],
+            modifiedAt: ago(1000),
+            modifiedBy: 'Gamemaster',
+          }
+          held({ notes })
+          await expect(getNotesView(thorin, party)).resolves.toMatchObject({
+            lastChange: { by: 'Gamemaster', at: ago(1000).toISOString() },
+          })
+
+          notes[0] = { ...notes[0], modifiedAt: ago(500), modifiedBy: 'Vex' }
+          held({ notes })
+          await expect(getNotesView(thorin, party)).resolves.toMatchObject({
+            lastChange: { by: 'Vex', at: ago(500).toISOString() },
+          })
+
+          held({ notes, changedAt: ago(500), changedBy: 'Thorin' })
+          await expect(getNotesView(thorin, party)).resolves.toMatchObject({
+            lastChange: { by: 'Thorin', at: ago(500).toISOString() },
+          })
+          held({ notes, changedAt: ago(100), changedBy: 'Gamemaster' })
+          await expect(getNotesView(thorin, party)).resolves.toMatchObject({
+            lastChange: { by: 'Gamemaster', at: ago(100).toISOString() },
+          })
+        })
+
+        it('never names a change the seat isn’t shown: another member’s refused note', async () => {
+          held({
+            writes: [
+              write({
+                noteId: 'vexFailedCreate1',
+                op: 'create',
+                status: 'failed',
+                reason: 'not-member',
+                requestedById: 'user-2',
+                writerActorId: VEX,
+                authorActorId: VEX,
+                modifiedBy: 'Vex',
+                modifiedAt: ago(10),
+              }),
+            ],
+          })
+
+          await expect(getNotesView(thorin, party)).resolves.toMatchObject({
+            lastChange: { by: 'Thorin' },
+          })
+          await expect(getNotesView(gm, party)).resolves.toMatchObject({
+            lastChange: { by: 'Vex', at: ago(10).toISOString() },
+          })
+        })
+
+        it('is none in a journal with nothing in it', async () => {
+          prismaMock.journalBook.findUnique.mockResolvedValue(null)
+
+          await expect(getNotesView(thorin, party)).resolves.not.toHaveProperty(
+            'lastChange',
+          )
+        })
+      })
+    })
+
+    describe('reorderNotes (§7.7)', () => {
+      it('takes any member’s order of notes written by another, the Gamemaster and Foundry, stored at once from the mirror’s order', async () => {
+        const answer = await reorder(vex, [D, C, A, B])
+
+        expect(answer).toEqual({
+          ok: true,
+          stamp: expect.stringMatching(/^g:/),
+        })
+        expect(prismaMock.journalOrder.create).toHaveBeenCalledWith({
+          data: {
+            id: expect.stringMatching(/^[\da-f-]{36}$/),
+            seq: 0,
+            campaignId: 'c1',
+            bookId: 'book-1',
+            chapterId: SESSION,
+            was: MIRRORED,
+            ids: [D, C, A, B],
+            seat: 'player',
+            requestedById: 'user-2',
+            writerActorId: VEX,
+            modifiedAt: new Date(NOW),
+            modifiedBy: 'Vex',
+            status: 'pending',
+            reason: null,
+            queuedAt: new Date(NOW),
+          },
+        })
+        // On the journal's line, by whoever reordered it.
+        expect(bumped().update).toEqual({
+          version: { increment: 1 },
+          changedAt: new Date(NOW),
+          changedBy: 'Vex',
+          changedIn: 'app',
+        })
+        // The stamp is what every seat is now shown.
+        held({
+          orders: [
+            order({ ids: [D, C, A, B], seq: 0, requestedById: 'user-2' }),
+          ],
+        })
+        expect(await stampOf(vex)).toBe(answer.ok ? answer.stamp : undefined)
+      })
+
+      it('orders the notes in no chapter as the group ’’, as the Gamemaster', async () => {
+        await expect(reorder(gm, [L2, L1], null)).resolves.toMatchObject({
+          ok: true,
+        })
+        expect(prismaMock.journalOrder.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            chapterId: '',
+            was: [L1, L2],
+            seat: 'gm',
+            writerActorId: null,
+            modifiedBy: 'Gamemaster',
+          }),
+        })
+      })
+
+      it('answers 404 for a group the seat isn’t shown, or a campaign gone', async () => {
+        for (const chapterId of ['noSuchChapter001', A]) {
+          await expect(
+            reorderNotes(thorin, party, { chapterId, ids: [A], stamp: 'g:0' }),
+          ).resolves.toEqual({ ok: false, status: 404, reason: 'gone' })
+        }
+        prismaMock.campaign.findUnique.mockResolvedValue(null)
+        await expect(
+          reorderNotes(thorin, party, {
+            chapterId: null,
+            ids: [L1],
+            stamp: 'g:0',
+          }),
+        ).resolves.toEqual({ ok: false, status: 404, reason: 'gone' })
+      })
+
+      it('refuses a read-only book, 409: a private party, or a character no longer in the campaign', async () => {
+        await refusesReadOnly(gm, { ...party, private: true }, 'private')
+        // Thorin's own book, his character gone from the campaign: a party's is always its own.
+        heldCampaign({ characters: [{ id: VEX, name: 'Vex' }] })
+        await refusesReadOnly(thorin, personal, 'unknown')
+        expect(prismaMock.$transaction).not.toHaveBeenCalled()
+      })
+
+      it('refuses an order made from what the seat no longer sees, 409 changed: a stale stamp, a note left out, one not in the group', async () => {
+        const { group } = await groupOf(thorin)
+        for (const [ids, stamp] of [
+          [[D, C, B, A], 'g:0000000000000000'],
+          [[D, C, B], group.stamp],
+          [[D, C, B, A, L1], group.stamp],
+          [[D, C, B, L1], group.stamp],
+        ] as const) {
+          await expect(
+            reorderNotes(thorin, party, {
+              chapterId: SESSION,
+              ids: [...ids],
+              stamp,
+            }),
+          ).resolves.toEqual({ ok: false, status: 409, reason: 'changed' })
+        }
+        expect(prismaMock.$transaction).not.toHaveBeenCalled()
+      })
+
+      it('waits for an order on its way, 409 saving, unless it’s thought lost', async () => {
+        held({ orders: [order({ status: 'claimed', claimedAt: ago(5000) })] })
+        await expect(reorder(thorin, [A, B, C, D])).resolves.toEqual({
+          ok: false,
+          status: 409,
+          reason: 'saving',
+        })
+        held({ orders: [order({ status: 'claimed', claimedAt: ago(80_000) })] })
+        await expect(reorder(thorin, [A, B, C, D])).resolves.toMatchObject({
+          ok: true,
+        })
+      })
+
+      it('writes nothing for the order already shown', async () => {
+        held({ orders: [order()] })
+        const { group } = await groupOf(thorin)
+
+        await expect(
+          reorderNotes(thorin, party, {
+            chapterId: SESSION,
+            ids: [D, C, B, A],
+            stamp: group.stamp,
+          }),
+        ).resolves.toEqual({ ok: true, stamp: group.stamp })
+        expect(prismaMock.$transaction).not.toHaveBeenCalled()
+      })
+
+      it('counts toward the seat’s 30 changes a minute, with its notes’ changes: 429 busy', async () => {
+        prismaMock.journalWrite.count.mockResolvedValue(29)
+        await expect(reorder(thorin, [D, C, B, A])).resolves.toMatchObject({
+          ok: true,
+        })
+        prismaMock.journalOrder.count.mockResolvedValue(1)
+        await expect(reorder(thorin, [B, C, D, A])).resolves.toEqual({
+          ok: false,
+          status: 429,
+          reason: 'busy',
+        })
+        await expect(
+          createNote(thorin, party, { role: 'entry', title: 'One more' }),
+        ).resolves.toEqual({ ok: false, status: 429, reason: 'busy' })
+        const mine = {
+          where: {
+            requestedById: 'user-1',
+            modifiedAt: { gte: new Date(NOW - 60_000) },
+          },
+        }
+        expect(prismaMock.journalWrite.count).toHaveBeenLastCalledWith(mine)
+        expect(prismaMock.journalOrder.count).toHaveBeenLastCalledWith(mine)
+      })
+
+      describe('folded into the group’s order (§4.2), compare-and-set', () => {
+        it.each([
+          ['waiting', { status: 'pending' }, { status: 'pending' }],
+          [
+            'thought lost on its way',
+            { status: 'claimed', claimedAt: ago(80_000) },
+            { status: 'claimed', claimedAt: { lt: ago(75_000) } },
+          ],
+        ] as const)(
+          'keeps the order in Foundry it was first made from, %s',
+          async (_name, fields, from) => {
+            held({ orders: [order({ ...fields, was: [B, A, C, D] })] })
+
+            await expect(reorder(vex, [A, B, C, D])).resolves.toMatchObject({
+              ok: true,
+            })
+            expect(folded()).toEqual({
+              where: { id: O1, seq: 1, ...from },
+              data: {
+                ids: [A, B, C, D],
+                seat: 'player',
+                requestedById: 'user-2',
+                writerActorId: VEX,
+                modifiedAt: new Date(NOW),
+                modifiedBy: 'Vex',
+                status: 'pending',
+                reason: null,
+                queuedAt: new Date(NOW),
+                seq: { increment: 1 },
+              },
+            })
+          },
+        )
+
+        it.each([
+          [
+            'refused for Foundry’s order',
+            { status: 'conflict', reason: 'changed' },
+          ],
+          ['failed', { status: 'failed', reason: 'not-member' }],
+        ] as const)(
+          'makes one %s afresh, from Foundry’s order now',
+          async (_name, fields) => {
+            held({ orders: [order({ ...fields, was: [B, A, C, D] })] })
+
+            await expect(reorder(vex, [A, C, B, D])).resolves.toMatchObject({
+              ok: true,
+            })
+            expect(folded()).toEqual({
+              where: { id: O1, seq: 1, status: fields.status },
+              data: expect.objectContaining({
+                ids: [A, C, B, D],
+                was: MIRRORED,
+                requestedById: 'user-2',
+                status: 'pending',
+                reason: null,
+                queuedAt: new Date(NOW),
+              }),
+            })
+          },
+        )
+
+        it('uses a made order’s row again as a new order, from Foundry’s order now, its claim cleared', async () => {
+          held({
+            orders: [
+              order({
+                status: 'made',
+                claimToken: 'token',
+                claimSession: 's1',
+                claimedAt: ago(70_000),
+                was: [B, A, C, D],
+              }),
+            ],
+          })
+
+          await expect(reorder(thorin, [B, A, C, D])).resolves.toMatchObject({
+            ok: true,
+          })
+          expect(folded()).toEqual({
+            where: { id: O1, seq: 1, status: 'made' },
+            data: expect.objectContaining({
+              ids: [B, A, C, D],
+              was: MIRRORED,
+              status: 'pending',
+              claimToken: null,
+              claimSession: null,
+              claimedAt: null,
+              seq: { increment: 1 },
+            }),
+          })
+        })
+
+        it('queues it again with every fold, so a note it places, written after it was first queued, reaches Foundry first', async () => {
+          const NEW = 'newNoteWaiting01'
+          const note = write({
+            noteId: NEW,
+            op: 'create',
+            chapterId: SESSION,
+            queuedAt: ago(30_000),
+          })
+          held({ orders: [order({ queuedAt: ago(60_000) })], writes: [note] })
+
+          await expect(
+            reorder(thorin, [NEW, D, C, B, A]),
+          ).resolves.toMatchObject({ ok: true })
+          const { queuedAt } = folded().data as { queuedAt: Date }
+          expect(queuedAt).toEqual(new Date(NOW))
+
+          // Handed over oldest first: the note, then the order that places it.
+          heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
+          const refolded = order({ seq: 2, ids: [NEW, D, C, B, A], queuedAt })
+          prismaMock.journalWrite.findMany
+            .mockResolvedValueOnce([note] as any)
+            .mockResolvedValueOnce([
+              { ...note, book: { kind: 'party', actorId: 'company' } },
+            ] as any)
+          prismaMock.journalOrder.findMany
+            .mockResolvedValueOnce([refolded] as any)
+            .mockResolvedValueOnce([
+              { ...refolded, book: { kind: 'party', actorId: 'company' } },
+            ] as any)
+          const commands = await claimNoteWrites('c1', 's1')
+          expect(commands.map(({ note }) => note.op)).toEqual([
+            'create',
+            'order',
+          ])
+        })
+      })
+
+      describe('two orders at once', () => {
+        it('lands only the first of two from the same stamp: the second is told 409 changed', async () => {
+          held({ orders: [order()] })
+          prismaMock.journalOrder.updateMany
+            .mockResolvedValueOnce({ count: 1 })
+            .mockResolvedValueOnce({ count: 0 })
+          const { group } = await groupOf(thorin)
+          const send = (ids: string[]) =>
+            reorderNotes(thorin, party, {
+              chapterId: SESSION,
+              ids,
+              stamp: group.stamp,
+            })
+
+          const [first, second] = await Promise.all([
+            send([A, B, C, D]),
+            send([B, A, C, D]),
+          ])
+
+          expect(first).toMatchObject({ ok: true })
+          expect(second).toEqual({ ok: false, status: 409, reason: 'changed' })
+        })
+
+        it('answers the second of two first orders of a group 409 changed, never 500', async () => {
+          prismaMock.journalOrder.create
+            .mockResolvedValueOnce({} as any)
+            .mockRejectedValueOnce(taken())
+
+          const [first, second] = await Promise.all([
+            reorder(thorin, [B, A, C, D]),
+            reorder(vex, [D, A, B, C]),
+          ])
+
+          expect(first).toMatchObject({ ok: true })
+          expect(second).toEqual({ ok: false, status: 409, reason: 'changed' })
+        })
+      })
+    })
+
+    describe('resolveOrder (§4.3, §7.7)', () => {
+      it('sends the seat’s refused order again from Foundry’s order now, on the journal’s line', async () => {
+        refused({ was: [B, A, C, D] })
+
+        const answer = await choose(thorin, 'mine')
+
+        expect(answer).toEqual({
+          ok: true,
+          stamp: expect.stringMatching(/^g:/),
+        })
+        expect(prismaMock.journalOrder.updateMany).toHaveBeenCalledWith({
+          where: { id: O1, seq: 1, status: 'conflict' },
+          data: {
+            was: MIRRORED,
+            status: 'pending',
+            reason: null,
+            seq: { increment: 1 },
+            queuedAt: new Date(NOW),
+          },
+        })
+        expect(bumped().update).toEqual({
+          version: { increment: 1 },
+          changedAt: new Date(NOW),
+          changedBy: 'Thorin',
+          changedIn: 'app',
+        })
+        held({ orders: [order({ seq: 2 })] })
+        expect(await stampOf(thorin)).toBe(answer.ok ? answer.stamp : undefined)
+      })
+
+      it('tries a failed order again as it was, the Gamemaster another seat’s', async () => {
+        refused({ status: 'failed', reason: 'error' })
+
+        await expect(choose(gm, 'mine')).resolves.toMatchObject({ ok: true })
+        expect(prismaMock.journalOrder.updateMany).toHaveBeenCalledWith({
+          where: { id: O1, seq: 1, status: 'failed' },
+          data: {
+            status: 'pending',
+            reason: null,
+            seq: { increment: 1 },
+            queuedAt: new Date(NOW),
+          },
+        })
+        expect(bumped().update).toMatchObject({ changedBy: 'Gamemaster' })
+      })
+
+      it('drops it for theirs, Foundry’s order staying, recording no change', async () => {
+        refused()
+
+        const answer = await choose(thorin, 'theirs')
+
+        expect(prismaMock.journalOrder.deleteMany).toHaveBeenCalledWith({
+          where: { id: O1, seq: 1, status: 'conflict' },
+        })
+        expect(bumped().update).toEqual({ version: { increment: 1 } })
+        held()
+        expect(await stampOf(thorin)).toBe(answer.ok ? answer.stamp : undefined)
+      })
+
+      it('drops an order thought lost on its way for theirs, never for mine', async () => {
+        held({ orders: [order({ status: 'claimed', claimedAt: ago(80_000) })] })
+
+        await expect(choose(thorin, 'mine')).resolves.toEqual({
+          ok: false,
+          status: 409,
+          reason: 'changed',
+        })
+        await expect(choose(thorin, 'theirs')).resolves.toMatchObject({
+          ok: true,
+        })
+        expect(prismaMock.journalOrder.deleteMany).toHaveBeenCalledWith({
+          where: {
+            id: O1,
+            seq: 1,
+            status: 'claimed',
+            claimedAt: { lt: ago(75_000) },
+          },
+        })
+      })
+
+      it('refuses: a group not shown 404, nothing refused 409, another member’s 403, a stale stamp 409, one settled meanwhile 409', async () => {
+        await expect(
+          choose(thorin, 'mine', 'noSuchChapter001'),
+        ).resolves.toEqual({ ok: false, status: 404, reason: 'gone' })
+        await expect(choose(thorin, 'theirs')).resolves.toEqual({
+          ok: false,
+          status: 409,
+          reason: 'changed',
+        })
+        held({ orders: [order()] })
+        await expect(choose(thorin, 'theirs')).resolves.toEqual({
+          ok: false,
+          status: 409,
+          reason: 'changed',
+        })
+        refused()
+        await expect(choose(vex, 'mine')).resolves.toEqual({
+          ok: false,
+          status: 403,
+          reason: 'not-yours',
+        })
+        await expect(
+          resolveOrder(thorin, party, {
+            chapterId: SESSION,
+            resolve: 'mine',
+            stamp: 'g:0000000000000000',
+          }),
+        ).resolves.toEqual({ ok: false, status: 409, reason: 'changed' })
+        prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 0 })
+        await expect(choose(thorin, 'mine')).resolves.toEqual({
+          ok: false,
+          status: 409,
+          reason: 'changed',
+        })
+        expect(prismaMock.journalOrder.deleteMany).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('the journal’s line, from changes that leave no note (§2.6)', () => {
+      it('records a delete by its seat', async () => {
+        await expect(
+          deleteNote(thorin, party, A, `n:${REV}`),
+        ).resolves.toMatchObject({ ok: true })
+        expect(bumped().update).toEqual({
+          version: { increment: 1 },
+          changedAt: new Date(NOW),
+          changedBy: 'Thorin',
+          changedIn: 'app',
+        })
+      })
+
+      it('records a note dropped before it reached Foundry only where every seat saw it', async () => {
+        const NEW = 'newNoteWaiting01'
+        for (const [status, recorded] of [
+          ['pending', true],
+          ['claimed', true],
+          ['failed', false],
+        ] as const) {
+          prismaMock.journalBook.upsert.mockClear()
+          held({
+            writes: [
+              write({
+                noteId: NEW,
+                op: 'create',
+                status,
+                claimedAt: status === 'claimed' ? ago(80_000) : null,
+              }),
+            ],
+          })
+
+          await expect(
+            deleteNote(thorin, party, NEW, `w:${W1}.2`),
+          ).resolves.toMatchObject({ ok: true })
+          expect(bumped().update).toEqual(
+            recorded
+              ? {
+                  version: { increment: 1 },
+                  changedAt: new Date(NOW),
+                  changedBy: 'Thorin',
+                  changedIn: 'app',
+                }
+              : { version: { increment: 1 } },
+          )
+        }
+      })
+
+      it('records a refused change sent again, mine, and never theirs', async () => {
+        held({
+          writes: [write({ noteId: A, status: 'conflict', reason: 'changed' })],
+        })
+
+        await expect(
+          resolveNote(thorin, party, A, {
+            resolve: 'mine',
+            stamp: `w:${W1}.2`,
+          }),
+        ).resolves.toMatchObject({ ok: true })
+        expect(bumped().update).toMatchObject({ changedBy: 'Thorin' })
+
+        await expect(
+          resolveNote(thorin, party, A, {
+            resolve: 'theirs',
+            stamp: `w:${W1}.2`,
+          }),
+        ).resolves.toMatchObject({ ok: true })
+        expect(bumped().update).toEqual({ version: { increment: 1 } })
+      })
     })
   })
 })

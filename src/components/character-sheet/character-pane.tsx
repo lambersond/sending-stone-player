@@ -55,7 +55,7 @@ import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
 import { useRemoveControls } from '@/components/transfers/remove-controls'
-import { hasDraft } from '@/hooks/use-notes'
+import { hasDraft, journalOpen } from '@/hooks/use-notes'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
 import {
   useSheetRoller,
@@ -317,10 +317,12 @@ function RollingSheet({
   // An attack or a use made at the table, while its player picks whom at, and with what.
   const [picking, setPicking] = useState<Picking>()
   const [lastTarget, setLastTarget] = useState<string>()
-  // The sheet opens on the character; on Biography where a note is being written there, as when
-  // it was started under why there was no sheet, before this one arrived.
+  // The sheet opens on the character; on Biography where a note is being written there, or the
+  // journal is open, as when either was under why there was no sheet, before this one arrived.
   const [chosen, setTab] = useState<SheetTab>(() =>
-    notes && hasDraft(notes.api) ? 'biography' : 'character',
+    notes && (hasDraft(notes.api) || journalOpen(notes.api))
+      ? 'biography'
+      : 'character',
   )
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)

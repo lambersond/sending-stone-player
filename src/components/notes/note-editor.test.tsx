@@ -9,8 +9,8 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { JournalCard } from './journal-card'
 import { headingHint, NoteEditor } from './note-editor'
-import { NotesSection } from './notes-section'
 import {
   forgetNotes,
   hasDraft,
@@ -79,7 +79,6 @@ function Harness({
       preview={noPreview}
       onSave={async () => ({ ok: true })}
       onCancel={() => {}}
-      opened={false}
       {...props}
     />
   )
@@ -96,7 +95,6 @@ const chapterField = () => screen.getByRole('combobox', { name: 'Chapter' })
 describe('components/notes/note-editor', () => {
   beforeEach(() => {
     held = undefined
-    HTMLElement.prototype.scrollIntoView = jest.fn()
   })
 
   it('heads a new note, and a change by the note’s title, cut to one line', () => {
@@ -125,15 +123,34 @@ describe('components/notes/note-editor', () => {
     expect(heading).toHaveAttribute('title', 'Edit The goblin cave')
   })
 
-  it('keeps Cancel and Save in a row of their own that sticks to the top of what scrolls', () => {
+  it('keeps Cancel and Save in a footer below the fields, after them in Tab order, its heading in the bar', () => {
     render(<Harness initial={draftOf()} />)
-    const row = save().parentElement as HTMLElement
-    expect(row).toHaveClass('sticky', 'top-0', 'z-10', 'rounded-xl', 'bg-card')
-    expect(within(row).getByRole('button', { name: 'Cancel' })).toBe(
-      row.querySelector('button'),
-    )
-    // First in the form, so first in Tab order.
-    expect(row).toBe(screen.getByRole('form').firstElementChild)
+    const form = screen.getByRole('form')
+    const [bar, fields, footer] = form.children
+    expect(bar).toContainElement(screen.getByRole('heading', { level: 3 }))
+    expect(fields).toContainElement(body())
+    expect(footer).toHaveClass('border-t', 'bg-card', 'shrink-0')
+    expect(within(footer as HTMLElement).getAllByRole('button')).toEqual([
+      cancelButton(),
+      save(),
+    ])
+    expect(save()).toHaveAttribute('type', 'submit')
+    // In the order Tab reaches them: the fields first, then Cancel and Save.
+    const order = [...form.querySelectorAll('input, select, textarea, button')]
+    expect(order.indexOf(save())).toBe(order.length - 1)
+    expect(order.indexOf(cancelButton())).toBeGreaterThan(order.indexOf(body()))
+  })
+
+  it('says which keys save, from 640 px of the modal', () => {
+    render(<Harness initial={draftOf()} />)
+    const hint = screen.getByText('Ctrl+Enter or ⌘+Enter saves.')
+    expect(hint).toHaveClass('hidden', '@min-[640px]:block')
+  })
+
+  it('lets the note fill the pane, never resized by hand', () => {
+    render(<Harness initial={draftOf()} />)
+    expect(body()).toHaveClass('min-h-56', 'flex-1', 'resize-none')
+    expect(body()).not.toHaveClass('resize-y')
   })
 
   it('offers the book’s chapters, and no chapter, where it has any', async () => {
@@ -169,8 +186,7 @@ describe('components/notes/note-editor', () => {
     expect(title()).toHaveClass('text-base')
     expect(title()).toHaveAttribute('maxLength', '200')
     expect(title()).toHaveAttribute('enterKeyHint', 'next')
-    expect(body()).toHaveClass('text-base', 'resize-y')
-    expect(body()).toHaveAttribute('rows', '12')
+    expect(body()).toHaveClass('text-base', 'resize-none')
     expect(body()).toHaveAccessibleDescription(
       expect.stringContaining(
         'Foundry’s Markdown: **bold**, *italic*, ### Heading, - list, > quote, | table |, ~~strike~~. # and ## are the journal’s chapters and notes, so headings start at ###.',
@@ -556,17 +572,9 @@ describe('components/notes/note-editor', () => {
   })
 
   describe('focus', () => {
-    it('opened by a button, it comes into view with focus in its title', () => {
-      render(
-        <Harness initial={draftOf({ focus: { field: 'title' } })} opened />,
-      )
+    it('opened by a button, its title takes focus', () => {
+      render(<Harness initial={draftOf({ focus: { field: 'title' } })} />)
       expect(title()).toHaveFocus()
-      expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({
-        block: 'start',
-      })
-      expect(
-        jest.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts[0],
-      ).toBe(screen.getByRole('form'))
       // What it noted is spent.
       expect(held?.focus).toBeUndefined()
     })
@@ -580,7 +588,6 @@ describe('components/notes/note-editor', () => {
       expect(title()).toHaveValue('Wolves')
       expect(body()).toHaveValue('Three of them.')
       expect(document.body).toHaveFocus()
-      expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled()
     })
 
     it('puts focus and the caret back in the note where it unmounted with them there', async () => {
@@ -636,7 +643,10 @@ const book = () =>
   emptyBook({
     chapters: [noteChapter()],
     entries: [
-      noteEntry({ chapterId: 'sessionChapter01' }),
+      noteEntry({
+        chapterId: 'sessionChapter01',
+        modifiedAt: new Date(Date.now() + 1000).toISOString(),
+      }),
       noteEntry({
         id: 'refusedEntry0001',
         title: 'Refused',
@@ -653,9 +663,9 @@ const book = () =>
     ],
   })
 
-const renderSection = () =>
+const renderCard = () =>
   render(
-    <NotesSection
+    <JournalCard
       api={API}
       role='player'
       kind='personal'
@@ -664,10 +674,18 @@ const renderSection = () =>
       look='sheet'
     />,
   )
-const rowOf = (name: string) =>
-  screen.getByText(name, { selector: 'h4' }).closest('details') as HTMLElement
-const notesHeading = () =>
-  screen.getByRole('heading', { level: 2, name: 'Notes' })
+/** The card, and its journal opened, its contents listed. */
+const renderJournal = async (user: ReturnType<typeof userEvent.setup>) => {
+  const rendered = renderCard()
+  await user.click(
+    await screen.findByRole('button', { name: 'Open My Journal' }),
+  )
+  const dialog = await screen.findByRole('dialog', { name: 'My Journal' })
+  await within(dialog).findByRole('navigation', { name: 'Contents' })
+  return { dialog, ...rendered }
+}
+const contents = () => screen.getByRole('navigation', { name: 'Contents' })
+const readerHeading = () => screen.getAllByRole('heading', { level: 3 })[0]
 /** The creates the server was sent. */
 const posts = (server: ReturnType<typeof serveNotes>) =>
   server.sent.filter(({ method }) => method === 'POST')
@@ -713,29 +731,29 @@ const loseCreates = (kept: boolean) => {
   }) as typeof fetch
 }
 
-describe('components/notes/note-editor, in its section', () => {
+describe('components/notes/note-editor, in the journal', () => {
   beforeEach(() => {
     forgetNotes()
-    HTMLElement.prototype.scrollIntoView = jest.fn()
   })
 
   afterEach(() => {
     act(() => forgetNotes())
   })
 
-  it('replaces the list, the search and New note while it’s open', async () => {
+  it('fills the reader while it’s open, the contents locked', async () => {
     const user = userEvent.setup()
     serveNotes({ [API]: book() })
-    renderSection()
-    await user.click(await screen.findByRole('button', { name: 'New note' }))
-    expect(screen.queryByRole('searchbox')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'New note' })).toBeNull()
-    expect(screen.queryByRole('region', { name: 'Session 1' })).toBeNull()
+    const { dialog } = await renderJournal(user)
+    await user.click(within(dialog).getByRole('button', { name: 'New note' }))
     expect(title()).toHaveFocus()
-    expect(screen.getByRole('form')).toHaveClass('max-w-3xl')
+    expect(
+      within(dialog).getByText('Save or cancel to read another note.'),
+    ).toBeInTheDocument()
+    expect(contents().closest('[inert]')).not.toBeNull()
+    expect(screen.getByRole('form', { name: 'New note' })).toHaveClass('flex-1')
   })
 
-  it('starts a note from New note in the newest chapter, and from a chapter in that one', async () => {
+  it('starts a note from the contents’ New note in the open note’s chapter, and from a chapter’s page in that one', async () => {
     const user = userEvent.setup()
     serveNotes({
       [API]: emptyBook({
@@ -747,31 +765,28 @@ describe('components/notes/note-editor, in its section', () => {
             createdAt: '2026-10-21T11:00:00.000Z',
           }),
         ],
+        entries: [noteEntry({ chapterId: 'sessionChapter01' })],
       }),
     })
-    renderSection()
-    await user.click(await screen.findByRole('button', { name: 'New note' }))
-    expect(screen.getByRole('combobox', { name: 'Chapter' })).toHaveValue(
-      'secondChapter001',
-    )
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    const { dialog } = await renderJournal(user)
+    await user.click(within(dialog).getByRole('button', { name: 'New note' }))
+    expect(chapterField()).toHaveValue('sessionChapter01')
+    await user.click(cancelButton())
     await user.click(
-      screen.getByRole('button', { name: 'New note in Session 1' }),
+      within(contents()).getByRole('button', { name: 'Session 2' }),
     )
-    expect(screen.getByRole('combobox', { name: 'Chapter' })).toHaveValue(
-      'sessionChapter01',
+    await user.click(
+      within(dialog).getByRole('button', { name: 'New note in Session 2' }),
     )
+    expect(chapterField()).toHaveValue('secondChapter001')
   })
 
-  it('saves a new note, then shows it opened, with focus on it', async () => {
+  it('saves a new note, then the reader shows it, with focus on its title, and says so', async () => {
     const user = userEvent.setup()
     const server = serveNotes({ [API]: book() })
-    renderSection()
-    await user.click(await screen.findByRole('button', { name: 'New note' }))
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Chapter' }),
-      'No chapter',
-    )
+    const { dialog } = await renderJournal(user)
+    await user.click(within(dialog).getByRole('button', { name: 'New note' }))
+    await user.selectOptions(chapterField(), 'No chapter')
     await user.type(title(), '  Wolves  ')
     await user.type(body(), 'Three of them.')
     await user.click(save())
@@ -786,22 +801,19 @@ describe('components/notes/note-editor, in its section', () => {
         chapterId: null,
       },
     })
-    const summary = await waitFor(() => {
-      const found = rowOf('Wolves').querySelector('summary') as HTMLElement
-      expect(found).toHaveFocus()
-      return found
-    })
-    expect(summary.parentElement).toHaveAttribute('open')
+    await waitFor(() => expect(readerHeading()).toHaveTextContent('Wolves'))
+    await waitFor(() => expect(readerHeading()).toHaveFocus())
     expect(screen.queryByRole('form')).toBeNull()
+    expect(within(dialog).getByText('Saved.')).toBeInTheDocument()
+    expect(hasDraft(API)).toBe(false)
   })
 
   it('saves a change from the stamp it started at', async () => {
     const user = userEvent.setup()
     const server = serveNotes({ [API]: book() })
-    renderSection()
-    await user.click(await screen.findByText('The goblin cave'))
+    const { dialog } = await renderJournal(user)
     await user.click(
-      within(rowOf('The goblin cave')).getByRole('button', { name: 'Edit' }),
+      within(dialog).getByRole('button', { name: 'Edit The goblin cave' }),
     )
     expect(title()).toHaveValue('The goblin cave')
     expect(body()).toHaveValue('30 gp')
@@ -819,15 +831,19 @@ describe('components/notes/note-editor, in its section', () => {
       },
     })
     await waitFor(() =>
-      expect(rowOf('Goblin cave').querySelector('summary')).toHaveFocus(),
+      expect(readerHeading()).toHaveTextContent('Goblin cave'),
     )
+    await waitFor(() => expect(readerHeading()).toHaveFocus())
   })
 
   it('changes a refused change from what it was', async () => {
     const user = userEvent.setup()
     serveNotes({ [API]: book() })
-    renderSection()
-    const problem = await screen.findByRole('group', {
+    await renderJournal(user)
+    await user.click(
+      within(contents()).getByRole('button', { name: 'Refused' }),
+    )
+    const problem = screen.getByRole('group', {
       name: 'Not saved to the game',
     })
     await user.click(within(problem).getByRole('button', { name: 'Edit' }))
@@ -837,46 +853,49 @@ describe('components/notes/note-editor, in its section', () => {
 
   it.each([
     [
-      'New note',
+      'the contents’ New note',
       async (user: ReturnType<typeof userEvent.setup>) =>
         user.click(screen.getByRole('button', { name: 'New note' })),
       () => screen.getByRole('button', { name: 'New note' }),
     ],
     [
-      'a chapter’s New note in',
-      async (user: ReturnType<typeof userEvent.setup>) =>
-        user.click(
+      'a chapter page’s New note in',
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(
+          within(contents()).getByRole('button', { name: 'Session 1' }),
+        )
+        await user.click(
           screen.getByRole('button', { name: 'New note in Session 1' }),
-        ),
+        )
+      },
       () => screen.getByRole('button', { name: 'New note in Session 1' }),
     ],
     [
-      'New chapter',
+      'the contents’ New chapter',
       async (user: ReturnType<typeof userEvent.setup>) =>
         user.click(screen.getByRole('button', { name: 'New chapter' })),
       () => screen.getByRole('button', { name: 'New chapter' }),
     ],
     [
       'a note’s Edit',
-      async (user: ReturnType<typeof userEvent.setup>) => {
-        await user.click(screen.getByText('The goblin cave'))
-        await user.click(
-          within(rowOf('The goblin cave')).getByRole('button', {
-            name: 'Edit',
-          }),
-        )
-      },
-      () =>
-        within(rowOf('The goblin cave')).getByRole('button', { name: 'Edit' }),
+      async (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(
+          screen.getByRole('button', { name: 'Edit The goblin cave' }),
+        ),
+      () => screen.getByRole('button', { name: 'Edit The goblin cave' }),
     ],
     [
       'the problem panel’s Edit',
-      async (user: ReturnType<typeof userEvent.setup>) =>
-        user.click(
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(
+          within(contents()).getByRole('button', { name: 'Refused' }),
+        )
+        await user.click(
           within(
             screen.getByRole('group', { name: 'Not saved to the game' }),
           ).getByRole('button', { name: 'Edit' }),
-        ),
+        )
+      },
       () =>
         within(
           screen.getByRole('group', { name: 'Not saved to the game' }),
@@ -884,20 +903,26 @@ describe('components/notes/note-editor, in its section', () => {
     ],
     [
       'a chapter’s Rename',
-      async (user: ReturnType<typeof userEvent.setup>) =>
-        user.click(screen.getByRole('button', { name: 'Rename Session 1' })),
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(
+          within(contents()).getByRole('button', { name: 'Session 1' }),
+        )
+        await user.click(
+          screen.getByRole('button', { name: 'Rename Session 1' }),
+        )
+      },
       () => screen.getByRole('button', { name: 'Rename Session 1' }),
     ],
   ])(
-    'gives focus back to %s after Cancel, found again in the list drawn anew',
+    'gives focus back to %s after Cancel, the reader as it was',
     async (_, opening, opener) => {
       const user = userEvent.setup()
       serveNotes({ [API]: book() })
-      renderSection()
-      await screen.findByText('The goblin cave')
+      await renderJournal(user)
       await opening(user)
-      expect(screen.getByRole('form')).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      const shown = screen.getByRole('form')
+      expect(shown).toBeInTheDocument()
+      await user.click(cancelButton())
       expect(screen.queryByRole('form')).toBeNull()
       await waitFor(() => expect(opener()).toHaveFocus())
     },
@@ -906,44 +931,63 @@ describe('components/notes/note-editor, in its section', () => {
   it('gives focus back after Discard, before any dialog could take it', async () => {
     const user = userEvent.setup()
     serveNotes({ [API]: book() })
-    renderSection()
-    await user.click(await screen.findByRole('button', { name: 'New note' }))
+    await renderJournal(user)
+    await user.click(screen.getByRole('button', { name: 'New note' }))
     await user.type(title(), 'Wolves')
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(cancelButton())
     await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', {
-        name: 'Discard',
-      }),
+      within(
+        screen.getByRole('dialog', { name: 'Discard your changes?' }),
+      ).getByRole('button', { name: 'Discard' }),
     )
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'New note' })).toHaveFocus(),
     )
   })
 
-  it('gives focus to the section’s heading where what opened it is gone', async () => {
+  it('gives focus to the reader’s title where what opened it is gone', async () => {
     jest.useFakeTimers()
     try {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
       const server = serveNotes({ [API]: book() })
-      renderSection()
-      await user.click(await screen.findByText('The goblin cave'))
+      await renderJournal(user)
       await user.click(
-        within(rowOf('The goblin cave')).getByRole('button', { name: 'Edit' }),
+        screen.getByRole('button', { name: 'Edit The goblin cave' }),
       )
       // Deleted meanwhile, as in Foundry.
-      const held = server.books[API]
-      held.entries = held.entries.filter(({ id }) => id !== 'goblinCaveNote01')
-      held.version += 1
+      const stored = server.books[API]
+      stored.entries = stored.entries.filter(
+        ({ id }) => id !== 'goblinCaveNote01',
+      )
+      stored.version += 1
       await act(async () => {
         await jest.advanceTimersByTimeAsync(POLL_INTERVAL)
       })
-      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      await user.click(cancelButton())
       await act(async () => {})
-      expect(notesHeading()).toHaveFocus()
-      expect(notesHeading()).toHaveAttribute('tabindex', '-1')
+      expect(readerHeading()).toHaveTextContent('Refused')
+      expect(readerHeading()).toHaveFocus()
     } finally {
       jest.useRealTimers()
     }
+  })
+
+  it('gives focus back to the editor and its caret where the card is mounted again meanwhile', async () => {
+    const user = userEvent.setup()
+    serveNotes({ [API]: book() })
+    const { unmount } = await renderJournal(user)
+    await user.click(screen.getByRole('button', { name: 'New note' }))
+    await user.type(title(), 'Wolves')
+    await user.click(body())
+    await user.keyboard('Three of them.')
+    act(() => body().setSelectionRange(3, 3))
+    unmount()
+
+    renderCard()
+    await screen.findByRole('dialog', { name: 'My Journal' })
+    await waitFor(() => expect(body()).toHaveFocus())
+    expect(body()).toHaveValue('Three of them.')
+    expect(body().selectionStart).toBe(3)
   })
 
   describe('while it saves', () => {
@@ -951,7 +995,10 @@ describe('components/notes/note-editor, in its section', () => {
       const user = userEvent.setup()
       const server = serveNotes({ [API]: emptyBook() })
       const writes = holdWrites()
-      renderSection()
+      renderCard()
+      await user.click(
+        await screen.findByRole('button', { name: 'Open My Journal' }),
+      )
       await user.click(await screen.findByRole('button', { name: 'New note' }))
       await user.type(title(), 'Wolves')
       await user.type(body(), 'Three.')
@@ -960,7 +1007,7 @@ describe('components/notes/note-editor, in its section', () => {
 
       await user.type(body(), ' And a fourth, typed while it saved.')
       expect(body()).toHaveValue('Three.')
-      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      expect(cancelButton()).toBeDisabled()
 
       await writes.letGo()
       await waitFor(() => expect(screen.queryByRole('form')).toBeNull())
@@ -970,21 +1017,25 @@ describe('components/notes/note-editor, in its section', () => {
       expect(hasDraft(API)).toBe(false)
     })
 
-    it('sends it once, though the section is mounted again meanwhile, as when another tab is chosen and this one again', async () => {
+    it('sends it once, though the journal is mounted again meanwhile, as when the sheet arrives', async () => {
       const user = userEvent.setup()
       const server = serveNotes({ [API]: emptyBook() })
       const writes = holdWrites()
-      const { unmount } = renderSection()
+      const { unmount } = renderCard()
+      await user.click(
+        await screen.findByRole('button', { name: 'Open My Journal' }),
+      )
       await user.click(await screen.findByRole('button', { name: 'New note' }))
       await user.type(title(), 'Fifth')
       await user.click(save())
       await waitFor(() => expect(writes.waiting).toHaveLength(1))
 
       unmount()
-      renderSection()
-      expect(save()).toBeDisabled()
+      renderCard()
+      await screen.findByRole('dialog', { name: 'My Journal' })
+      await waitFor(() => expect(save()).toBeDisabled())
       expect(title()).toHaveAttribute('readonly')
-      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      expect(cancelButton()).toBeDisabled()
       await user.click(save())
       await act(async () => {
         fireEvent.keyDown(title(), { key: 'Enter', ctrlKey: true })
@@ -1029,9 +1080,12 @@ describe('components/notes/note-editor, in its section', () => {
           advanceTimers: jest.advanceTimersByTime,
         })
         const server = serveNotes({ [API]: emptyBook({ chapters }) })
-        renderSection()
+        await renderJournal(user)
         await user.click(
-          await screen.findByRole('button', { name: 'New note in Session 1' }),
+          within(contents()).getByRole('button', { name: 'Session 1' }),
+        )
+        await user.click(
+          screen.getByRole('button', { name: 'New note in Session 1' }),
         )
         await user.type(title(), 'Wolves')
         await deleteChapter(server)
@@ -1052,15 +1106,23 @@ describe('components/notes/note-editor, in its section', () => {
     it('closes at once on Cancel with nothing typed: the book moved the note, not the player', async () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
       const server = serveNotes({
-        [API]: emptyBook({ chapters: [noteChapter()] }),
+        [API]: emptyBook({
+          chapters: [noteChapter()],
+          entries: [noteEntry()],
+        }),
       })
-      renderSection()
+      await renderJournal(user)
       await user.click(
-        await screen.findByRole('button', { name: 'New note in Session 1' }),
+        within(contents()).getByRole('button', { name: 'Session 1' }),
+      )
+      await user.click(
+        screen.getByRole('button', { name: 'New note in Session 1' }),
       )
       await deleteChapter(server)
-      await user.click(screen.getByRole('button', { name: 'Cancel' }))
-      expect(screen.queryByRole('dialog')).toBeNull()
+      await user.click(cancelButton())
+      expect(
+        screen.queryByRole('dialog', { name: 'Discard your changes?' }),
+      ).toBeNull()
       expect(screen.queryByRole('form')).toBeNull()
     })
   })
@@ -1070,19 +1132,14 @@ describe('components/notes/note-editor, in its section', () => {
       const user = userEvent.setup()
       const server = serveNotes({ [API]: book() })
       loseCreates(true)
-      renderSection()
-      await user.click(await screen.findByRole('button', { name: 'New note' }))
-      await user.selectOptions(
-        screen.getByRole('combobox', { name: 'Chapter' }),
-        'No chapter',
-      )
+      await renderJournal(user)
+      await user.click(screen.getByRole('button', { name: 'New note' }))
+      await user.selectOptions(chapterField(), 'No chapter')
       await user.type(title(), 'Wolves')
       await user.type(body(), 'Three of them.')
       await user.click(save())
 
-      await waitFor(() =>
-        expect(rowOf('Wolves').querySelector('summary')).toHaveFocus(),
-      )
+      await waitFor(() => expect(readerHeading()).toHaveTextContent('Wolves'))
       expect(screen.queryByRole('form')).toBeNull()
       expect(screen.queryByRole('alert')).toBeNull()
       expect(
@@ -1093,19 +1150,22 @@ describe('components/notes/note-editor, in its section', () => {
       expect(hasDraft(API)).toBe(false)
     })
 
-    it('keeps the editor open, saying so, where it wasn’t kept', async () => {
+    it('keeps the editor open, saying so in its footer, where it wasn’t kept', async () => {
       const user = userEvent.setup()
       const server = serveNotes({ [API]: book() })
       loseCreates(false)
-      renderSection()
-      await user.click(await screen.findByRole('button', { name: 'New note' }))
+      await renderJournal(user)
+      await user.click(screen.getByRole('button', { name: 'New note' }))
       await user.type(title(), 'Wolves')
       await user.type(body(), 'Three of them.')
       await user.click(save())
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent(
         'Sending Stone couldn’t be reached. Your text is still here.',
       )
+      // Above Cancel and Save, in the footer.
+      expect(alert.nextElementSibling).toContainElement(save())
       expect(body()).toHaveValue('Three of them.')
       expect(save()).toBeEnabled()
       expect(server.books[API].entries).toHaveLength(2)

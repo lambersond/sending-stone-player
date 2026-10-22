@@ -4316,3 +4316,113 @@ describe('schemas/sending-stone, journal notes, from module 0.34.0', () => {
     ).not.toHaveProperty('note')
   })
 })
+
+describe('schemas/sending-stone, orders and who changed a journal, from module 0.35.0', () => {
+  const KEEPING = {
+    enabled: true,
+    kinds: ['personal', 'party'],
+    reason: null,
+    journals: [{ kind: 'personal', actorId: 'thorin' }],
+  }
+
+  it('reads whether the module takes orders and says who changed a journal, and a 0.34.0 hello without them', () => {
+    expect(notes({ ...KEEPING, orders: true, changes: true })).toEqual({
+      ...KEEPING,
+      orders: true,
+      changes: true,
+    })
+    expect(notes({ ...KEEPING, orders: false, changes: false })).toEqual({
+      ...KEEPING,
+      orders: false,
+      changes: false,
+    })
+    // Module 0.34.0 says nothing of them: nothing is made up.
+    const old = notes(KEEPING) as object
+    expect(old).toEqual(KEEPING)
+    expect(old).not.toHaveProperty('orders')
+    expect(old).not.toHaveProperty('changes')
+    // Junk is read as unsaid, never as true, and the rest is kept.
+    const junk = notes({ ...KEEPING, orders: 'yes', changes: 1 }) as {
+      orders?: unknown
+      changes?: unknown
+    }
+    expect(junk).toMatchObject(KEEPING)
+    expect(junk.orders).toBeUndefined()
+    expect(junk.changes).toBeUndefined()
+  })
+
+  it('reads who last deleted or reordered a page in Foundry, and drops an odd one, never the book', () => {
+    const book = mockJournalUpdated('party')
+    expect(book.journal?.changed).toEqual({
+      what: 'delete',
+      by: 'Gamemaster',
+      at: expect.any(Number),
+    })
+    expect(parseGameEvent('journal.updated', book)?.data).toEqual(book)
+    const ordered = {
+      ...book,
+      journal: {
+        ...book.journal!,
+        changed: { what: 'order', by: 'b'.repeat(200), at: 0 },
+      },
+    }
+    expect(parseGameEvent('journal.updated', ordered)?.data).toEqual(ordered)
+
+    for (const changed of [
+      { what: 'rename', by: 'Gamemaster', at: 1 },
+      { what: 'delete', by: 'b'.repeat(201), at: 1 },
+      { what: 'delete', by: 'Gamemaster', at: -1 },
+      { what: 'delete', by: 'Gamemaster', at: 1.5 },
+      { what: 'delete', at: 1 },
+      'deleted',
+    ]) {
+      const read = parseGameEvent('journal.updated', {
+        ...book,
+        journal: { ...book.journal!, changed },
+      })?.data as { journal: { changed?: unknown; notes: unknown[] } }
+      expect(read.journal.changed).toBeUndefined()
+      expect(read.journal.notes).toHaveLength(book.journal!.notes.length)
+    }
+    // A book from module 0.34.0 says nothing of it.
+    expect(
+      (
+        parseGameEvent('journal.updated', mockJournalUpdated('personal'))
+          ?.data as { journal: object }
+      ).journal,
+    ).not.toHaveProperty('changed')
+  })
+
+  it('reads the order an order of a group made, by ids alone, and drops an odd one, keeping the result', () => {
+    const read = (order: unknown) =>
+      parseGameEvent('command.result', { ...removedResult(), order })?.data as {
+        order?: unknown
+        messageId: string | null
+      }
+    const ids = Array.from(
+      { length: 400 },
+      (_, n) => `note${String(n).padStart(12, '0')}`,
+    )
+    expect(read({ chapter: NOTE_IDS.session, ids }).order).toEqual({
+      chapter: NOTE_IDS.session,
+      ids,
+    })
+    expect(read({ chapter: null, ids: [] }).order).toEqual({
+      chapter: null,
+      ids: [],
+    })
+    for (const junk of [
+      { chapter: 'a b', ids: [] },
+      { chapter: null, ids: [...ids, 'note000000000400'] },
+      { chapter: null, ids: ['short'] },
+      { ids: [] },
+      'order',
+    ]) {
+      const data = read(junk)
+      expect(data.order).toBeUndefined()
+      expect(data.messageId).toBe('m-line')
+    }
+    expect(
+      parseGameEvent('command.result', movedResult())?.data,
+    ).not.toHaveProperty('order')
+  })
+})
