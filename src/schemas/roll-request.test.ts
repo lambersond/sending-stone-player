@@ -1850,3 +1850,118 @@ describe('removals of items, from module 0.33.0', () => {
     ).toBe(true)
   })
 })
+
+describe('schemas/roll-request, damage on its own and recharges, from module 0.36.0', () => {
+  /** A Bite's damage on its own, 1d8 + 3 slashing, as the game said it throws. */
+  const alone = {
+    kind: 'itemDamage',
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 8, results: [5] }],
+  }
+  /** A Frost Breath's recharge, its one d6. */
+  const recharge = {
+    kind: 'recharge',
+    item: 'frostBreath',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 6, results: [5] }],
+  }
+  const parseAlone = (fields: object) =>
+    rollRequestSchema.safeParse({ ...alone, ...fields })
+  const parseRecharge = (fields: object) =>
+    rollRequestSchema.safeParse({ ...recharge, ...fields })
+
+  it('takes damage on its own with its item and activity, as a critical hit’s, kinds chosen and changed', () => {
+    expect(parseAlone({}).data).toEqual(alone)
+    const critical = {
+      critical: true,
+      dice: [{ faces: 8, results: [5, 2] }],
+      types: [null],
+      modifiers: { extra: 1, maximize: false },
+      typed: true,
+    }
+    expect(parseAlone(critical).data).toEqual({ ...alone, ...critical })
+  })
+
+  it.each([
+    ['a use it follows', { use: 'req-1' }],
+    ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }] }],
+    ['a target', { target: { combatId: 'cmbt1', combatantId: 'goblin' } }],
+    ['a slot', { slot: 'spell1' }],
+    ['ammunition', { ammunition: 'arrows' }],
+    ['an attack mode', { attackMode: 'thrown' }],
+    ['a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
+    ['its user', { self: true }],
+    ['how it enchants', { enchant: { profile: 'plus1' } }],
+    ['a key', { key: 'prc' }],
+    ['a combat', { combatId: 'cmbt1' }],
+    ['what the game asks', { prompt: 'm1-actor' }],
+    ['no activity', { activity: undefined }],
+    ['no item', { item: undefined }],
+    ['no dice', { dice: [] }],
+    ['a d20 thrown as advantage', { mode: 1 }],
+    ['terms added', { extras: [{ sign: 1, flat: 2 }] }],
+  ])('refuses damage on its own with %s', (_, fields) => {
+    expect(parseAlone(fields).success).toBe(false)
+  })
+
+  it('takes a critical hit’s only for a description’s damage or an action’s on its own', () => {
+    expect(parseAlone({ critical: true }).success).toBe(true)
+    const damage = {
+      kind: 'damage',
+      use: 'req-1',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [5] }],
+    }
+    expect(
+      rollRequestSchema.safeParse({ ...damage, critical: true }).success,
+    ).toBe(false)
+    expect(rollRequestSchema.safeParse(damage).success).toBe(true)
+  })
+
+  it('takes a recharge of an item’s own uses, or one of its activities’, with its one d6', () => {
+    expect(parseRecharge({}).data).toEqual(recharge)
+    expect(parseRecharge({ activity: 'frostSave' }).data).toEqual({
+      ...recharge,
+      activity: 'frostSave',
+    })
+    expect(parseRecharge({ typed: true }).success).toBe(true)
+  })
+
+  it.each([
+    ['two dice', { dice: [{ faces: 6, results: [5, 6] }] }],
+    [
+      'two rolls',
+      {
+        dice: [
+          { faces: 6, results: [5] },
+          { faces: 6, results: [1] },
+        ],
+      },
+    ],
+    ['a d8', { dice: [{ faces: 8, results: [5] }] }],
+    ['a result no d6 throws', { dice: [{ faces: 6, results: [7] }] }],
+    ['no dice', { dice: [] }],
+    ['kinds of damage', { types: ['fire'] }],
+    ['changes', { modifiers: { maximize: true } }],
+    ['a critical hit', { critical: true }],
+    ['a use', { use: 'req-1' }],
+    ['a key', { key: 'prc' }],
+    ['a combat', { combatId: 'cmbt1' }],
+    ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }] }],
+    ['a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
+    ['no item', { item: undefined }],
+    ['an activity alone', { item: undefined, activity: 'frostSave' }],
+    ['advantage', { mode: 1 }],
+    ['the player choosing how', { explicit: true }],
+  ])('refuses a recharge with %s', (_, fields) => {
+    expect(parseRecharge(fields).success).toBe(false)
+  })
+})

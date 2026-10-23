@@ -54,6 +54,9 @@ const FEATURES = {
   // From module 0.34.0: journal notes, fetched for with rolls, moves and removals off; 2 from
   // module 0.35.0, as the app reads who changed a journal in Foundry and sends orders of notes.
   notes: 2,
+  // Changed on purpose (round 0.36.0 §7.12): from module 0.36.0, the campaign's characters'
+  // companions.
+  companions: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -250,7 +253,14 @@ describe('app/api/events', () => {
         campaign,
         {
           type: 'bridge.hello',
-          data: { characters: [], combats: [], prompts: [], groups: [] },
+          // Changed on purpose (round 0.36.0 §7.12): no companions.
+          data: {
+            characters: [],
+            combats: [],
+            prompts: [],
+            groups: [],
+            companions: [],
+          },
         },
         's1',
         TIME,
@@ -398,6 +408,61 @@ describe('app/api/events', () => {
       )
     })
 
+    it("answers a companion's sheet with what it does too, as the module sends it slim and sizes it by that, but not a list of them, from module 0.36.0", async () => {
+      jest.mocked(applyCampaignEvent).mockResolvedValue({ lacksTexts: false })
+      const companion = {
+        key: 'wolfBrakka',
+        of: ['thorin'],
+        kind: 'owned',
+        actorId: 'wolfBrakka',
+        tokenId: null,
+        sceneId: null,
+        uuid: 'Actor.wolfBrakka',
+        name: 'Wolf',
+        img: null,
+        summon: null,
+      }
+
+      const sheet = await post(
+        envelope('companion.updated', { companion, sheet: null }),
+      )
+
+      expect(sheet.status).toBe(200)
+      expect(sheet.headers.get('Access-Control-Allow-Origin')).toBe(GAME)
+      await expect(sheet.json()).resolves.toEqual({ features: FEATURES })
+      expect(applyCampaignEvent).toHaveBeenCalledWith(
+        'c1',
+        world,
+        campaign,
+        {
+          type: 'companion.updated',
+          data: {
+            companion: expect.objectContaining({ key: 'wolfBrakka' }),
+            sheet: null,
+          },
+        },
+        's1',
+        TIME,
+      )
+
+      // A sheet that refers to a description not held asks for everything again, as a
+      // character's does.
+      jest.mocked(applyCampaignEvent).mockResolvedValue({ lacksTexts: true })
+      const lacking = await post(
+        envelope('companion.updated', { companion, sheet: null }),
+      )
+      await expect(lacking.json()).resolves.toEqual({
+        resend: 'hello',
+        features: FEATURES,
+      })
+
+      jest.mocked(applyCampaignEvent).mockResolvedValue({ lacksTexts: false })
+      const listed = await post(
+        envelope('companions.listed', { companions: [companion] }),
+      )
+      expect(listed.status).toBe(204)
+    })
+
     it('asks for no hello in answer to one whose sheets follow it, from module 0.22.0', async () => {
       const characters = [
         {
@@ -434,6 +499,8 @@ describe('app/api/events', () => {
             combats: [],
             prompts: [],
             groups: [],
+            // Changed on purpose (round 0.36.0 §7.12).
+            companions: [],
           },
         },
         's1',

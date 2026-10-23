@@ -90,6 +90,8 @@ export const EVENTS = {
   GROUP_REMOVED: 'group.removed',
   JOURNAL_UPDATED: 'journal.updated',
   BRIDGE_SETTINGS: 'bridge.settings',
+  COMPANIONS_LISTED: 'companions.listed',
+  COMPANION_UPDATED: 'companion.updated',
 } as const
 
 /**
@@ -111,7 +113,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * resource's charges spent directly, or Heroic Inspiration used or gained, none of them a roll;
  * and from module 0.31.0, items and coins moved between the character and a party or another
  * character, none of them a roll; and from module 0.33.0, an item removed from the character, no
- * roll either.
+ * roll either; and from module 0.36.0, an action's damage or healing on its own, and a spent
+ * recharge rolled.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -129,6 +132,8 @@ export const ROLL_KINDS = [
   'ask',
   'textDamage',
   'textRoll',
+  'itemDamage',
+  'recharge',
   'endEnchantment',
   'endConcentration',
   'spend',
@@ -237,6 +242,41 @@ export const REMOVALS = 1
  * Foundry, `journal.changed`, and sends orders of a group's notes, `op: "order"`.
  */
 export const NOTES = 2
+
+/**
+ * The format of companions this app takes, as it tells the module (`companions`): from module
+ * 0.36.0, the hello's `companions`, `companions.listed` and `companion.updated`.
+ */
+export const COMPANIONS = 1
+
+/**
+ * A companion's key, as the module lists it, from module 0.36.0: its actor's id, or for a token's
+ * creature `<sceneId>-<tokenId>`. Never a campaign character's actor id.
+ */
+export const COMPANION_KEY = /^[\dA-Za-z]{1,64}(?:-[\dA-Za-z]{1,64})?$/
+
+/** The most companions a campaign's list holds, from module 0.36.0. */
+export const MOST_COMPANIONS = 50
+
+/**
+ * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
+ * edits it rather than acting, as charges spent by hand. The module's list has `note` too, which
+ * isn't a roll here.
+ */
+export const COMPANION_UNTAKEN = [
+  'inspiration',
+  'hitDie',
+  'hitDice',
+  'spend',
+  'transfer',
+  'remove',
+] as const
+
+/**
+ * How a campaign's companions enter initiative, as the module's hello says (module 0.36.0): each
+ * its own roll, or right after its character.
+ */
+export const COMPANION_INITIATIVE = ['own', 'after'] as const
 
 /**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a

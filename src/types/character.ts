@@ -1,3 +1,5 @@
+import type { CompanionEntry } from '@/types/sending-stone'
+
 export type Character = {
   id: string
   name: string
@@ -36,6 +38,11 @@ export type SheetSeat = Pick<
   userId: string
   /** The player's character; null for the Gamemaster's seat. */
   characterId: string | null
+  /**
+   * At a companion's sheet (module 0.36.0): the campaign character it's a companion of, whose
+   * player, chat and limits the seat's are; `actorId` is then the companion's key.
+   */
+  companion?: { of: string; entry: CompanionEntry }
 }
 
 /**

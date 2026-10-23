@@ -11,6 +11,7 @@ import {
   castingSheet,
   checkingSheet,
   fullerSheet,
+  mockTableDamage,
   sheetAction,
   sheetFavorites,
   sheetSpell,
@@ -586,6 +587,49 @@ describe('utils/favorites', () => {
       activity: null,
       toHit: 6,
     })
+  })
+
+  it('keeps an activity favorite’s damage on its own only while the game may make it, from module 0.36.0', () => {
+    const sheet = fullerSheet()
+    const [cantrips, ...spellbook] = sheet.spells
+    const plan = mockTableDamage()
+    const ray = {
+      type: 'activity' as const,
+      id: 'rayshot',
+      itemId: 'ray',
+      itemType: 'spell',
+      itemName: 'Ray of Frost',
+      name: 'Ray of Frost',
+      img: null,
+      activation: '1 Action',
+      range: null,
+      target: null,
+      toHit: 6,
+      attackId: 'rayshot',
+      save: null,
+      damage: [{ formula: '1d8', type: 'Cold', healing: false }],
+      tableDamage: plan,
+      uses: null,
+    }
+    const entriesWith = (prepared: 0 | 1) =>
+      favoriteEntries({
+        ...sheet,
+        spells: [
+          {
+            ...cantrips,
+            spells: [sheetSpell({ id: 'ray', name: 'Ray of Frost', prepared })],
+          },
+          ...spellbook,
+        ],
+        favorites: [ray],
+      })
+
+    const [made] = entriesWith(1)
+    expect(made.kind === 'action' && made.action.tableDamage).toBe(plan)
+    const [here] = entriesWith(0)
+    expect(here.kind === 'action' && here.action).not.toHaveProperty(
+      'tableDamage',
+    )
   })
 
   describe('favoriteKeys', () => {

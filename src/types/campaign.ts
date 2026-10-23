@@ -39,12 +39,18 @@ export type OwnedCampaign = {
    * turned on in Foundry, and whether the game is fetching moves now.
    */
   transfers: { enabled: boolean; reaching: boolean }
-  /** Each with who plays it, and their character's id, once a player has chosen it. */
+  /**
+   * Each with who plays it, and their character's id, once a player has chosen it; and from module
+   * 0.36.0 its companions, as the module lists them, by name and kind, a summoned one with the
+   * item it was summoned with: none for none. The app always gives them; optional so that a card
+   * given none, as one from before module 0.36.0, still draws.
+   */
   characters: {
     id: string
     name: string
     player?: string
     characterId?: string
+    companions?: { name: string; kind: 'owned' | 'summoned'; from?: string }[]
   }[]
   /**
    * Its Group actors, such as its party, from module 0.30.0: whether each is dnd5e's primary

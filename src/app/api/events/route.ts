@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  COMPANIONS,
   FOUNDRY_SETTINGS,
   GROUPS,
   MAX_ENVELOPE_BYTES,
@@ -225,7 +226,8 @@ export async function POST(request: Request) {
  * moves of items and coins, from module 0.31.0; removals of a character's items, from module
  * 0.33.0; and journal notes, from module 0.34.0, which the module fetches for, and sends journals
  * of, only then, and from module 0.35.0 orders of a group's notes and who changed a journal in
- * Foundry.
+ * Foundry; and from module 0.36.0 the campaign's characters' companions, which the module sends,
+ * and marks its combats and chat with, only then.
  */
 const FEATURES = {
   commands: true,
@@ -237,19 +239,21 @@ const FEATURES = {
   transfers: TRANSFERS,
   removals: REMOVALS,
   notes: NOTES,
+  companions: COMPANIONS,
 }
 
 /**
  * The events answered with them: a hello and a heartbeat, and from module 0.22.0 a sheet's post,
  * as the module sends each sheet slim or in full, and sizes it, by the latest answer, so that it
  * follows this app being rolled back or deployed again without waiting for a heartbeat; a group's
- * sheet too, from module 0.30.0.
+ * sheet too, from module 0.30.0, and a companion's, from module 0.36.0.
  */
 const ANSWERED_WITH_FEATURES: ReadonlySet<string> = new Set([
   EVENTS.HELLO,
   EVENTS.HEARTBEAT,
   EVENTS.CHARACTER_UPDATED,
   EVENTS.GROUP_UPDATED,
+  EVENTS.COMPANION_UPDATED,
 ])
 
 const CHECK_FAILED = 'Failed to check a Sending Stone event'

@@ -12,6 +12,7 @@ import {
   hashSecret,
   verifySecret,
 } from '@/lib/campaign-secret'
+import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
 import { availableRollKinds } from '@/utils/roll-requests'
 import { transfersAvailable } from '@/utils/transfers'
@@ -110,6 +111,7 @@ export async function listOwnedCampaigns(
       helloSession: true,
       characters: true,
       groups: true,
+      companions: true,
       rollsEnabled: true,
       rollKinds: true,
       rollFeatures: true,
@@ -131,6 +133,7 @@ export async function listOwnedCampaigns(
     )
     const refusal = refusalOf(campaign)
     const foundry = foundryOf(campaign.foundry)
+    const companions = companionRoster(campaign.companions)
     return {
       id: campaign.id,
       title: campaign.title,
@@ -157,7 +160,24 @@ export async function listOwnedCampaigns(
       },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
-        return { id, name, player: player?.user.name, characterId: player?.id }
+        return {
+          id,
+          name,
+          player: player?.user.name,
+          characterId: player?.id,
+          // Its companions, from module 0.36.0, in the module's order: whose they are, by name.
+          companions: companions
+            .filter(entry => entry.of.includes(id))
+            .map(entry => {
+              const from =
+                entry.kind === 'summoned' ? entry.summon?.item : undefined
+              return {
+                name: entry.name,
+                kind: entry.kind,
+                ...(from && { from }),
+              }
+            }),
+        }
       }),
       // Its party sheets, each saying whether any of its players may see it in Foundry: never who.
       groups: groupsOf(campaign.groups).map(

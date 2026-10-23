@@ -12,6 +12,11 @@ import {
   mockJournalUpdated,
   NOT_REMOVING,
   REMOVING,
+  biteAction,
+  PARTY,
+  mockCompanionEntry,
+  mockCompanionSheet,
+  mockSummonedEntry,
   roster,
   TEXTS,
 } from '@/mocks/sending-stone'
@@ -109,6 +114,9 @@ const stored = async (features: unknown) => {
 // notes before it, so one test's campaign never leaks into the next.
 beforeEach(() => {
   prismaMock.campaign.findUnique.mockReset()
+  // Changed on purpose (round 0.36.0 §7.12): a hello counts the descriptions of the companions'
+  // sheets it keeps, of which there are none unless a test says.
+  prismaMock.companionSheet.findMany.mockResolvedValue([])
 })
 
 describe('db/campaign-events', () => {
@@ -152,6 +160,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -194,6 +206,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -237,6 +253,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -264,6 +284,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -366,6 +390,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -392,6 +420,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -426,6 +458,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -452,6 +488,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -491,6 +531,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -519,6 +563,10 @@ describe('db/campaign-events', () => {
           removalsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
+          // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+          companions: [],
+          companionKinds: [],
+          companionInitiative: 'own',
           foundry: { receivedAt: SENT },
         },
       })
@@ -550,6 +598,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -740,6 +792,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -773,6 +829,10 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+        companions: [],
+        companionKinds: [],
+        companionInitiative: 'own',
         foundry: { receivedAt: SENT },
       },
     })
@@ -804,6 +864,10 @@ describe('db/campaign-events', () => {
           removalsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
+          // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
+          companions: [],
+          companionKinds: [],
+          companionInitiative: 'own',
           foundry: { receivedAt: SENT },
         },
       })
@@ -2068,5 +2132,280 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
         ({ html }) => html,
       ),
     ).toEqual(jest.mocked(noteHtml).mock.results.map(({ value }) => value))
+  })
+})
+
+const event = (type: string, data: unknown) =>
+  applyCampaignEvent(
+    'c1',
+    world,
+    campaign,
+    parseGameEvent(type, data) as GameEvent,
+    'session-1',
+    SENT,
+  )
+
+/** What the hello stored of the campaign. */
+const storedHello = () =>
+  prismaMock.campaign.update.mock.calls[0][0].data as any
+
+describe('db/campaign-events, companions, from module 0.36.0', () => {
+  /** The party, by Foundry ids, as a companion's characters are named. */
+  const party = [
+    { id: PARTY.thorin, name: 'Thorin' },
+    { id: PARTY.vex, name: 'Vex' },
+  ]
+  const wolf = mockCompanionEntry()
+  const imp = mockSummonedEntry()
+  /** The campaign, listing the wolf and the imp. */
+  const listed = () =>
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      companions: [wolf, imp],
+    } as any)
+  /** The wolf's sheet, its Bite described. */
+  const wolfSheet = mockCompanionSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [biteAction({ text: 'b17e0000000001' })],
+      },
+    ],
+  })
+  /** The imp's, its biography described. */
+  const impSheet = mockCompanionSheet({
+    details: {
+      about: [],
+      personality: [],
+      appearance: null,
+      xp: null,
+      biography: '1a90000000000f',
+    },
+  })
+
+  /** What a hello from module 0.36.0 says of companions, by default. */
+  const companionFeatures = {
+    rolls: {
+      enabled: true,
+      kinds: ['attack', 'damage', 'spend', 'inspiration', 'itemDamage'],
+      reason: null,
+    },
+    companions: {
+      kinds: ['attack', 'damage', 'spend', 'inspiration', 'itemDamage', 'fly'],
+      initiative: 'after',
+    },
+  }
+  /** A hello whose sheets follow it. */
+  const apart = { sheetsApart: true }
+
+  /** A hello from module 0.36.0 with these companions and what it says of them. */
+  const hello = (
+    companions: unknown[] | undefined,
+    features: unknown = companionFeatures,
+    fields: object = apart,
+  ) =>
+    applyCampaignEvent(
+      'c1',
+      world,
+      campaign,
+      parseGameEvent('bridge.hello', {
+        characters: party,
+        combats: [],
+        ...(companions && { companions }),
+        features,
+        ...fields,
+      }) as GameEvent,
+      'session-1',
+      SENT,
+    )
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+    prismaMock.actorSheet.findMany.mockResolvedValue([])
+    prismaMock.groupSheet.findMany.mockResolvedValue([])
+  })
+
+  it('keeps the hello’s companions as listed, the kinds a companion’s rolls may be, and how they enter initiative', async () => {
+    await hello([wolf, imp])
+
+    const data = storedHello()
+    expect(data.companions).toEqual([wolf, imp])
+    // Never a kind a companion's roll never is, nor one this app doesn't know.
+    expect(data.companionKinds).toEqual(['attack', 'damage', 'itemDamage'])
+    expect(data.companionInitiative).toBe('after')
+    // Never a character.
+    expect(data.characters).toEqual(party)
+  })
+
+  it('keeps its own roll where the hello says so, or says anything else', async () => {
+    for (const initiative of ['own', 'later']) {
+      prismaMock.campaign.update.mockClear()
+      await hello([wolf], {
+        rolls: { enabled: true, kinds: ['attack'], reason: null },
+        companions: { kinds: ['attack'], initiative },
+      })
+      expect(storedHello().companionInitiative).toBe('own')
+    }
+  })
+
+  it('never takes a companion as a character, even one listed under a character’s id', async () => {
+    const thorin = { ...wolf, key: PARTY.thorin, actorId: PARTY.thorin }
+    await hello([thorin])
+
+    expect(storedHello().characters).toEqual(party)
+    expect(storedHello().companions).toEqual([thorin])
+    expect(prismaMock.actorSheet.upsert).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['whose sheets follow it', { sheetsApart: true }],
+    ['from a module before 0.22.0, its sheets in it', {}],
+  ])(
+    'drops the sheets of companions a hello %s no longer lists',
+    async (_, fields) => {
+      prismaMock.sheetText.count.mockResolvedValue(0)
+      await hello([wolf], undefined, fields)
+
+      expect(prismaMock.companionSheet.deleteMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', key: { notIn: ['wolfBrakka'] } },
+      })
+    },
+  )
+
+  it.each([
+    ['whose sheets follow it', { sheetsApart: true }],
+    ['from a module before 0.22.0, its sheets in it', {}],
+  ])(
+    'keeps the descriptions of the companions’ sheets it keeps, and only theirs, by a hello %s',
+    async (_, fields) => {
+      // As the database holds them: the imp's sheet goes once the hello drops it.
+      let held = [{ data: wolfSheet }, { data: impSheet }]
+      prismaMock.companionSheet.deleteMany.mockImplementation((async () => {
+        held = held.filter(({ data }) => data === wolfSheet)
+        return { count: 1 }
+      }) as any)
+      prismaMock.companionSheet.findMany.mockImplementation(
+        (async () => held) as any,
+      )
+      prismaMock.sheetText.count.mockResolvedValue(1)
+
+      await hello([wolf], undefined, fields)
+
+      const { hash } = prismaMock.sheetText.deleteMany.mock.calls[0][0]!
+        .where as { hash: { notIn: string[] } }
+      expect(hash.notIn).toContain('b17e0000000001')
+      expect(hash.notIn).not.toContain('1a90000000000f')
+    },
+  )
+
+  it('clears companions, their kinds and their sheets by a hello from module 0.35.0, and their initiative back to their own roll', async () => {
+    await hello(undefined, {
+      rolls: { enabled: true, kinds: ['attack'], reason: null },
+    })
+
+    const data = storedHello()
+    expect(data.companions).toEqual([])
+    expect(data.companionKinds).toEqual([])
+    expect(data.companionInitiative).toBe('own')
+    expect(prismaMock.companionSheet.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1', key: { notIn: [] } },
+    })
+  })
+
+  it('replaces the companions by companions.listed, dropping the sheets of those it no longer lists, and moves the version', async () => {
+    await expect(
+      event('companions.listed', { companions: [imp] }),
+    ).resolves.toEqual({ lacksTexts: false })
+
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { companions: [imp] },
+    })
+    expect(prismaMock.companionSheet.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1', key: { notIn: [imp.key] } },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+      where: { id: 'c1' },
+      data: expect.objectContaining({ version: { increment: 1 } }),
+    })
+  })
+
+  describe('companion.updated', () => {
+    it('leaves a companion not listed alone', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        companions: [imp],
+      } as any)
+
+      await expect(
+        event('companion.updated', { companion: wolf, sheet: wolfSheet }),
+      ).resolves.toEqual({ lacksTexts: false })
+
+      expect(prismaMock.companionSheet.upsert).not.toHaveBeenCalled()
+      expect(prismaMock.companionSheet.deleteMany).not.toHaveBeenCalled()
+      expect(prismaMock.campaign.update).toHaveBeenCalledTimes(1)
+      expect(
+        prismaMock.campaign.update.mock.calls[0][0].data,
+      ).not.toHaveProperty('companions')
+    })
+
+    it('keeps a listed companion’s sheet apart, replacing its entry, and moves the version', async () => {
+      listed()
+      prismaMock.sheetText.count.mockResolvedValue(1)
+      const renamed = { ...wolf, name: 'Brakka', img: null }
+
+      await expect(
+        event('companion.updated', { companion: renamed, sheet: wolfSheet }),
+      ).resolves.toEqual({ lacksTexts: false })
+
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { companions: [renamed, imp] },
+      })
+      expect(prismaMock.companionSheet.upsert).toHaveBeenCalledWith({
+        where: { campaignCompanion: { campaignId: 'c1', key: 'wolfBrakka' } },
+        create: { campaignId: 'c1', key: 'wolfBrakka', data: wolfSheet },
+        update: { data: wolfSheet },
+      })
+      expect(prismaMock.actorSheet.upsert).not.toHaveBeenCalled()
+      expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+        where: { id: 'c1' },
+        data: expect.objectContaining({ version: { increment: 1 } }),
+      })
+    })
+
+    it('drops a listed companion’s sheet sent as none, keeping why it was withheld', async () => {
+      listed()
+      const withheld = {
+        ...wolf,
+        sheetWithheld: {
+          reason: 'tooLarge',
+          bytes: 5_000_000,
+          limit: 4_000_000,
+        },
+      }
+
+      await event('companion.updated', { companion: withheld, sheet: null })
+
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { companions: [withheld, imp] },
+      })
+      expect(prismaMock.companionSheet.deleteMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', key: 'wolfBrakka' },
+      })
+      expect(prismaMock.companionSheet.upsert).not.toHaveBeenCalled()
+    })
+
+    it('asks for the hello again where a description its sheet refers to is missing', async () => {
+      listed()
+      prismaMock.sheetText.count.mockResolvedValue(0)
+
+      await expect(
+        event('companion.updated', { companion: wolf, sheet: wolfSheet }),
+      ).resolves.toEqual({ lacksTexts: true })
+      expect(prismaMock.sheetText.count).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', hash: { in: ['b17e0000000001'] } },
+      })
+    })
   })
 })

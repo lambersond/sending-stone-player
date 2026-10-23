@@ -314,7 +314,10 @@ const rolledDiceSchema = z.strictObject({
  * formula names its item and activity, and throws the dice its formula does, which are checked
  * against it when it's asked for. Any roll with dice may say its player typed them in from their
  * own dice, `typed`, from module 0.32.0; an attack with advantage may throw three d20s, for Elven
- * Accuracy.
+ * Accuracy. From module 0.36.0, an action's damage or healing on its own names its item and
+ * activity, and may be a critical hit's, with kinds chosen and changes, as damage may, and throws
+ * one to twenty dice; and a spent recharge names its item, and may name its activity, and throws
+ * its one d6. Neither names anything else a roll does.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -378,16 +381,23 @@ export const rollRequestSchema = z
     const formula = request.kind === 'formula'
     const hitDie = request.kind === 'hitDie'
     const hitDice = request.kind === 'hitDice'
+    // From module 0.36.0: an action's damage or healing on its own, and a spent recharge.
+    const alone = request.kind === 'itemDamage'
+    const recharge = request.kind === 'recharge'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
     // A check may be one an activity asks for, from module 0.21.0, which names both.
     const checked = ACTIVITY_CHECKS.has(request.kind)
-    if (attack || use || formula ? !both : named && !(checked && both)) {
+    // A recharge names its item, and its activity where the uses are the activity's own.
+    let unnamed = named && !(checked && both)
+    if (attack || use || formula || alone) unnamed = !both
+    else if (recharge) unnamed = request.item === undefined
+    if (unnamed) {
       context.addIssue({
         code: 'custom',
         path: ['activity'],
         message:
-          'An attack, a use or a formula, and only those or a check an activity asks for, is made with an item',
+          'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
       })
     }
     if (
@@ -485,7 +495,8 @@ export const rollRequestSchema = z
         message: 'Only an attack is made with ammunition, in a mode',
       })
     }
-    const damaging = request.kind === 'damage' || request.kind === 'textDamage'
+    const damaging =
+      request.kind === 'damage' || request.kind === 'textDamage' || alone
     if (!damaging && request.types !== undefined) {
       context.addIssue({
         code: 'custom',
@@ -500,12 +511,16 @@ export const rollRequestSchema = z
         message: 'Only damage is changed so',
       })
     }
-    if (request.kind !== 'textDamage' && request.critical !== undefined) {
+    if (
+      request.kind !== 'textDamage' &&
+      !alone &&
+      request.critical !== undefined
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['critical'],
         message:
-          "Only a description's damage is rolled as a critical hit's here",
+          "Only a description's damage, or an action's on its own, is rolled as a critical hit's here",
       })
     }
     if (!ANSWERS.has(request.kind) && request.prompt !== undefined) {
@@ -621,9 +636,33 @@ export const rollRequestSchema = z
       }
       return
     }
-    if (damaging || hitDie || formula || request.kind === 'textRoll') {
+    // A recharge throws its one d6, and nothing more.
+    if (recharge) {
       const plain =
         request.mode === 0 && !request.explicit && request.extras.length === 0
+      const [die] = request.dice
+      const one =
+        request.dice.length === 1 &&
+        die.faces === 6 &&
+        die.results.length === 1 &&
+        die.results[0] >= 1 &&
+        die.results[0] <= 6
+      if (!plain || !one) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dice'],
+          message: 'A recharge throws its one d6, and nothing more',
+        })
+      }
+      return
+    }
+    if (damaging || hitDie || formula || request.kind === 'textRoll') {
+      const plain =
+        request.mode === 0 &&
+        !request.explicit &&
+        request.extras.length === 0 &&
+        // Damage on its own throws the dice the game said, one at least.
+        (!alone || request.dice.length > 0)
       const dice = request.dice.every(
         ({ faces, results }) =>
           (DIE_SIDES as readonly number[]).includes(faces) &&

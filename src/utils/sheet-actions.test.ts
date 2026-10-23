@@ -18,6 +18,7 @@ import {
   sheetFavorites,
   sheetItem,
   sheetSpell,
+  mockTableDamage,
   SLEIGHT_CHECK,
 } from '@/mocks/sending-stone'
 import type {
@@ -880,5 +881,71 @@ describe('utils/sheet-actions, Elven Accuracy, from module 0.32.0', () => {
         }),
       ),
     ).not.toHaveProperty('elvenAccuracy')
+  })
+})
+
+describe('utils/sheet-actions, damage on its own, from module 0.36.0', () => {
+  const plan = mockTableDamage()
+  const bite = {
+    toHit: 4,
+    attackId: 'biteAttack',
+    damage: [{ formula: '1d8 + 3', type: 'Slashing', healing: false }],
+    tableDamage: plan,
+  }
+
+  it("carries an activity's damage on its own to its own action, and only where it has some", () => {
+    const jaws = sheetAction({ id: 'jaws', name: 'Jaws', ...bite })
+    expect(
+      activityAction(jaws, activity({ tableDamage: plan })).tableDamage,
+    ).toBe(plan)
+    expect(activityAction(jaws, activity())).not.toHaveProperty('tableDamage')
+  })
+
+  it("keeps it on an item's, a spell's and a feature's action the game may make, never on one it can't", () => {
+    expect(
+      itemAction(
+        sheetItem({ id: 'jaws', name: 'Jaws', type: 'weapon', ...bite }),
+      )?.tableDamage,
+    ).toBe(plan)
+    expect(
+      spellAction(
+        sheetSpell({ id: 'bolt', name: 'Fire Bolt', prepared: 1, ...bite }),
+      )?.tableDamage,
+    ).toBe(plan)
+    // Not prepared, it's rolled here only, so its damage never goes on its own.
+    expect(
+      spellAction(
+        sheetSpell({
+          id: 'bolt',
+          name: 'Fire Bolt',
+          prepared: 0,
+          ...bite,
+          activities: [
+            activity({ tableDamage: plan }),
+            activity({ id: 'blaze', tableDamage: plan }),
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      activities: [{ tableDamage: null }, { tableDamage: null }],
+    })
+    expect(
+      spellAction(
+        sheetSpell({ id: 'bolt', name: 'Fire Bolt', prepared: 0, ...bite }),
+      ),
+    ).not.toHaveProperty('tableDamage')
+    const feature = {
+      id: 'lash',
+      name: 'Thorn Lash',
+      img: null,
+      kind: 'Feature',
+      requirements: null,
+      activation: '1 Action',
+      passive: false,
+      uses: null,
+      text: null,
+      ...bite,
+    } as SheetFeature
+    expect(featureAction(feature)?.tableDamage).toBe(plan)
   })
 })

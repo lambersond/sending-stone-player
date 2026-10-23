@@ -181,6 +181,13 @@ export type TableCombatant = {
   stance?: 'ally' | 'neutral'
   /** Only for the party; a creature's hit points stay with the Gamemaster. */
   hp?: { value: number; max: number | null; temp: number }
+  /**
+   * One of the viewer's own creatures, other than the one they're at: their character, or a
+   * companion of it.
+   */
+  yours?: true
+  /** For one of the viewer's character's companions, its key, for its tab. */
+  companion?: string
 }
 
 export type TableCombat = {
@@ -291,6 +298,11 @@ export type TableView = {
    */
   groups?: TableGroup[]
   /**
+   * The seat's character's companions, as the module lists them, for their tabs. Module 0.36.0;
+   * unset for none.
+   */
+  companions?: TableCompanion[]
+  /**
    * Where the seat may move the character's items and coins to, from module 0.31.0: set only while
    * the campaign lets them be moved, its game is taking moves, and the character is in its roster.
    */
@@ -321,3 +333,52 @@ export type TableMoves = {
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
 export type GmRolls = 'made' | 'update' | 'off'
+
+/** One of the seat's character's companions, for its tab beside the character (module 0.36.0). */
+export type TableCompanion = {
+  key: string
+  name: string
+  portrait?: string
+  kind: 'owned' | 'summoned'
+  /** For a summoned one, the item it was summoned with, such as "Find Familiar". */
+  from?: string
+}
+
+/**
+ * What the creature view says of whose a creature is: a companion now; a wild-shaped form later.
+ */
+export type CreatureRelation =
+  | { kind: 'owned'; of: string }
+  | { kind: 'summoned'; of: string; from?: string }
+
+/** A creature's pane's facts (module 0.36.0): its name, and whose it is. */
+export type CreatureFacts = { name: string; relation: CreatureRelation }
+
+/**
+ * A companion's own view, for its pane to poll (module 0.36.0): its sheet, the encounter seen from
+ * it, and the rolls it can have made. Its chat is its character's.
+ */
+export type CompanionView = {
+  version: number
+  live: boolean
+  /** It's still one of the seat's character's companions, as the module last listed them. */
+  connected: boolean
+  companion?: TableCompanion
+  sheet?: TableSheet
+  sheetVersion?: string
+  sheetWithheld?: SheetWithheld
+  combat?: TableCombat
+  rollsToTable?: RollKind[]
+  rollFeatures?: RollFeature[]
+  gm?: { rolls: GmRolls }
+  gmRolls?: GmRollView[]
+  gmRollsKey?: string
+  /** Its character's: the companion's dice are typed in as the character's are. */
+  manualDice?: { offered: boolean; on: boolean }
+  /**
+   * How it enters initiative, as its campaign's Gamemaster sets it in Foundry (module 0.36.0): its
+   * own roll, or right after its character. `after` names that character while it's in the combat
+   * shown: its initiative is then the game's to set, and nothing is rolled for it here.
+   */
+  initiative: { mode: 'own' | 'after'; after?: string }
+}

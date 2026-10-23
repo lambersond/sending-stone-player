@@ -26,6 +26,12 @@ import {
   sheetSpell,
   SLEIGHT_CHECK,
   TEXTS,
+  biteAction,
+  mockCompanionEntry,
+  mockCompanionSheet,
+  mockCreature,
+  mockSummonedEntry,
+  mockTableDamage,
 } from '@/mocks/sending-stone'
 import { slimQuillSheet } from '@/mocks/slim-sheet'
 import type {
@@ -332,8 +338,8 @@ describe('schemas/sending-stone', () => {
     expect(parseGameEvent('bridge.hello', data)).toEqual({
       type: 'bridge.hello',
       // None of the saves the game asks for, as from a module before 0.13.0, nor groups, as
-      // before 0.30.0.
-      data: { ...data, prompts: [], groups: [] },
+      // before 0.30.0; nor companions, as before 0.36.0 (changed on purpose, round 0.36.0 §7.12).
+      data: { ...data, prompts: [], groups: [], companions: [] },
     })
   })
 
@@ -468,7 +474,14 @@ describe('schemas/sending-stone', () => {
         combats: [],
         prompts: 'none',
       })?.data,
-    ).toEqual({ characters: [], combats: [], prompts: [], groups: [] })
+    ).toEqual({
+      characters: [],
+      combats: [],
+      prompts: [],
+      groups: [],
+      // Changed on purpose (round 0.36.0 §7.12).
+      companions: [],
+    })
 
     // Its label and DC are only shown, so an odd one is taken as none.
     expect(
@@ -1141,7 +1154,14 @@ describe('schemas/sending-stone', () => {
       parseGameEvent('bridge.hello', { characters: [character], combats: [] }),
     ).toEqual({
       type: 'bridge.hello',
-      data: { characters: [character], combats: [], prompts: [], groups: [] },
+      // Changed on purpose (round 0.36.0 §7.12): no companions.
+      data: {
+        characters: [character],
+        combats: [],
+        prompts: [],
+        groups: [],
+        companions: [],
+      },
     })
     expect(parseGameEvent('character.updated', { character })).toEqual({
       type: 'character.updated',
@@ -1174,6 +1194,8 @@ describe('schemas/sending-stone', () => {
           combats: [],
           prompts: [],
           groups: [],
+          // Changed on purpose (round 0.36.0 §7.12).
+          companions: [],
         },
       })
       expect((hello?.data as any).characters[0]).not.toHaveProperty('sheet')
@@ -1191,6 +1213,8 @@ describe('schemas/sending-stone', () => {
         combats: [],
         prompts: [],
         groups: [],
+        // Changed on purpose (round 0.36.0 §7.12).
+        companions: [],
       })
       expect(hello?.data).not.toHaveProperty('sheetsApart')
     })
@@ -4424,5 +4448,326 @@ describe('schemas/sending-stone, orders and who changed a journal, from module 0
     expect(
       parseGameEvent('command.result', movedResult())?.data,
     ).not.toHaveProperty('order')
+  })
+})
+
+/** A hello from module 0.36.0 with these companions, and what it says of them. */
+const hello = (companions: unknown, features?: unknown) =>
+  parseGameEvent('bridge.hello', {
+    characters: roster,
+    combats: [],
+    companions,
+    features,
+  })?.data as any
+
+/** A sheet's first action, with these fields, as read. */
+const actionWith = (fields: object) =>
+  (
+    parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: characterSheet({
+          actions: [
+            {
+              id: 'action',
+              label: 'Actions',
+              actions: [{ ...biteAction(), ...fields } as SheetAction],
+            },
+          ],
+        }),
+      },
+    }) as any
+  ).data.character.sheet.actions[0].actions[0]
+
+const creatureOf = (creature: unknown) =>
+  (
+    parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: { ...characterSheet(), creature } },
+    }) as any
+  ).data.character.sheet.creature
+
+const usesOf = (recharge: unknown) =>
+  actionWith({
+    uses: { value: 0, max: 1, recovery: 'Recharge [5+]', recharge },
+  }).uses
+
+const combatantOf = (companion: unknown) =>
+  (
+    parseGameEvent('combat.combatant.added', {
+      combatId: 'cmbt1',
+      combatant: { id: 'c-wolf', name: 'Wolf', companion },
+    }) as any
+  ).data.combatant.companion
+
+const messageOf = (companion: unknown) =>
+  (
+    parseGameEvent('chat.message.created', {
+      message: {
+        id: 'm1',
+        timestamp: 1,
+        audience: { public: true, characters: [] },
+        companion,
+      },
+    }) as any
+  ).data.message.companion
+
+describe('schemas/sending-stone, companions, from module 0.36.0', () => {
+  const wolf = mockCompanionEntry()
+  const imp = mockSummonedEntry()
+
+  it('reads a hello listing companions, with what the campaign takes for them', () => {
+    const data = hello([wolf, imp], {
+      rolls: { enabled: true, kinds: ['attack', 'damage'], reason: null },
+      companions: { kinds: ['attack', 'damage'], initiative: 'own' },
+    })
+
+    expect(data.companions).toEqual([wolf, imp])
+    expect(data.features.companions).toEqual({
+      kinds: ['attack', 'damage'],
+      initiative: 'own',
+    })
+    // Never among its characters.
+    expect(data.characters).toEqual(roster)
+  })
+
+  it('reads a hello from module 0.35.0, which lists none, as none', () => {
+    const data = hello(undefined, {
+      rolls: { enabled: true, kinds: ['attack'], reason: null },
+    })
+
+    expect(data.companions).toEqual([])
+    expect(data.features.companions).toBeUndefined()
+  })
+
+  it('drops an entry that can’t be read, keeping the hello and the rest', () => {
+    const data = hello([
+      { ...wolf, key: 'wolf.brakka' },
+      { ...wolf, key: 'wolfA', of: [] },
+      { ...wolf, key: 'wolfB', kind: 'pet' },
+      { ...wolf, key: 'wolfC', tokenId: 'a b' },
+      'wolf',
+      imp,
+    ])
+
+    expect(data.companions).toEqual([imp])
+    expect(data.characters).toEqual(roster)
+  })
+
+  it('cuts a long name, and reads a long portrait or a broken summon as none, keeping the entry', () => {
+    const [read] = hello([
+      {
+        ...imp,
+        name: 'I'.repeat(300),
+        img: `worlds/${'i'.repeat(3000)}.webp`,
+        summon: { ...imp.summon, item: 'F'.repeat(300) },
+      },
+    ]).companions
+    expect(read.name).toBe('I'.repeat(200))
+    expect(read.img).toBeNull()
+    expect(read.summon.item).toBe('F'.repeat(200))
+
+    const [unsummoned] = hello([
+      { ...imp, summon: { item: 'Find Familiar' } },
+    ]).companions
+    expect(unsummoned.summon).toBeNull()
+    expect(unsummoned.key).toBe(imp.key)
+  })
+
+  it('keeps one entry per key, and no more than fifty', () => {
+    const many = Array.from({ length: 60 }, (_, index) =>
+      mockCompanionEntry({ key: `wolf${index}`, actorId: `wolf${index}` }),
+    )
+    expect(hello([wolf, { ...wolf, name: 'Again' }, imp]).companions).toEqual([
+      wolf,
+      imp,
+    ])
+    const kept = hello(many).companions
+    expect(kept).toHaveLength(50)
+    expect(kept[49].key).toBe('wolf49')
+  })
+
+  it('reads how companions enter initiative, anything but "after" as their own roll', () => {
+    const initiative = (said: unknown) =>
+      hello([], { companions: { kinds: [], initiative: said } }).features
+        .companions.initiative
+    expect(initiative('after')).toBe('after')
+    expect(initiative('own')).toBe('own')
+    for (const junk of ['After', 'first', 1, null, undefined]) {
+      expect(initiative(junk)).toBe('own')
+    }
+    expect(
+      hello([], { companions: { kinds: 'attack', initiative: 'after' } })
+        .features.companions,
+    ).toEqual({ kinds: [], initiative: 'after' })
+  })
+
+  it('reads companions.listed, dropping what it can’t read', () => {
+    expect(
+      parseGameEvent('companions.listed', {
+        companions: [wolf, { key: 'x' }, imp],
+      }),
+    ).toEqual({ type: 'companions.listed', data: { companions: [wolf, imp] } })
+    expect(parseGameEvent('companions.listed', {})?.data).toEqual({
+      companions: [],
+    })
+  })
+
+  it('reads companion.updated with its sheet, a slim one made whole, or none', () => {
+    const sheet = mockCompanionSheet()
+    expect(
+      parseGameEvent('companion.updated', { companion: wolf, sheet }),
+    ).toEqual({ type: 'companion.updated', data: { companion: wolf, sheet } })
+
+    const withheld = {
+      ...wolf,
+      sheetWithheld: { reason: 'tooLarge', bytes: 5_000_000, limit: 4_000_000 },
+    }
+    expect(
+      parseGameEvent('companion.updated', { companion: withheld, sheet: null })
+        ?.data,
+    ).toEqual({ companion: withheld, sheet: null })
+    // A sheet that can't be read is none; one left out is none too.
+    expect(
+      (
+        parseGameEvent('companion.updated', {
+          companion: wolf,
+          sheet: 'x',
+        }) as any
+      ).data.sheet,
+    ).toBeNull()
+    expect(
+      (parseGameEvent('companion.updated', { companion: wolf }) as any).data
+        .sheet,
+    ).toBeNull()
+
+    const slim = parseGameEvent('companion.updated', {
+      companion: wolf,
+      sheet: slimQuillSheet(),
+    }) as any
+    expect(slim.data.sheet).not.toHaveProperty('slim')
+    expect(slim.data.sheet.actions[0].actions[0]).toMatchObject({
+      id: 'staff',
+      name: expect.any(String),
+    })
+    // A companion that can't be read fails the event.
+    expect(() =>
+      parseGameEvent('companion.updated', { companion: { key: 'x' }, sheet }),
+    ).toThrow()
+  })
+
+  it("reads an NPC's sheet's creature, a part that can't be read as none, and junk as no creature", () => {
+    const dragon = mockCreature({
+      cr: 17,
+      type: 'Dragon',
+      size: 'Huge',
+      alignment: 'Chaotic Evil',
+      important: true,
+      legendary: { value: 4, max: 4 },
+      resistance: { value: 3, max: 4 },
+      lair: { inside: true, initiative: 20 },
+      hitDice: { denomination: 'd12', value: 17, max: 17 },
+    })
+    expect(creatureOf(dragon)).toEqual(dragon)
+    expect(creatureOf(mockCreature())).toEqual(mockCreature())
+    expect(
+      creatureOf({
+        ...dragon,
+        cr: '17',
+        legendary: { value: 'four', max: 4 },
+        lair: 'yes',
+        hitDice: { denomination: '12', value: 1, max: 1 },
+        important: 'yes',
+      }),
+    ).toEqual({
+      ...dragon,
+      cr: null,
+      legendary: null,
+      lair: null,
+      hitDice: null,
+      important: false,
+    })
+    expect(creatureOf('dragon')).toBeUndefined()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+    expect(creatureOf(undefined)).toBeUndefined()
+  })
+
+  it('reads the d6 that recharges uses, leaving out one it can’t read', () => {
+    expect(usesOf(5).recharge).toBe(5)
+    expect(usesOf(6).recharge).toBe(6)
+    for (const junk of [1, 7, 5.5, '5', null]) {
+      const uses = usesOf(junk)
+      expect(uses.recharge).toBeUndefined()
+      expect(uses.value).toBe(0)
+    }
+  })
+
+  it('reads damage on its own wherever a row has damage, leaving out a plan it can’t read', () => {
+    const plan = mockTableDamage()
+    expect(actionWith({}).tableDamage).toEqual(plan)
+    expect(actionWith({ tableDamage: null }).tableDamage).toBeNull()
+    expect(
+      actionWith({ tableDamage: { ...plan, critical: null } }).tableDamage,
+    ).toEqual({ ...plan, critical: null })
+    for (const junk of [
+      'damage',
+      { normal: plan.normal },
+      { normal: { ...plan.normal, rolls: 'x' }, critical: null },
+    ]) {
+      const read = actionWith({ tableDamage: junk })
+      expect(read.tableDamage).toBeUndefined()
+      expect(read.damage).toHaveLength(1)
+    }
+    // An activity's, and a spell's.
+    const activity = actionWith({
+      activities: [
+        { ...biteAction(), id: 'biteAttack', name: 'Bite', type: 'attack' },
+        {
+          ...biteAction(),
+          id: 'pounce',
+          name: 'Pounce',
+          type: 'attack',
+          tableDamage: { ...plan, critical: null },
+        },
+      ],
+    }).activities[1]
+    expect(activity.tableDamage).toEqual({ ...plan, critical: null })
+    const spell = (
+      parseGameEvent('character.updated', {
+        character: {
+          ...roster[0],
+          sheet: characterSheet({
+            spells: [
+              {
+                id: 'spell1',
+                label: '1st Level',
+                slots: null,
+                spells: [
+                  sheetSpell({
+                    id: 'thunderwave',
+                    name: 'Thunderwave',
+                    damage: [
+                      { formula: '2d8', type: 'Thunder', healing: false },
+                    ],
+                    tableDamage: { ...plan, critical: null },
+                  }),
+                ],
+              },
+            ],
+          }),
+        },
+      }) as any
+    ).data.character.sheet.spells[0].spells[0]
+    expect(spell.tableDamage).toEqual({ ...plan, critical: null })
+  })
+
+  it('reads which listed companion a combatant and a message are, as junk none', () => {
+    expect(combatantOf('wolfBrakka')).toBe('wolfBrakka')
+    expect(combatantOf('sceneFrost-tokenImp')).toBe('sceneFrost-tokenImp')
+    expect(combatantOf(null)).toBeNull()
+    expect(combatantOf('a.b')).toBeNull()
+    expect(combatantOf(7)).toBeNull()
+
+    expect(messageOf('sceneFrost-tokenImp')).toBe('sceneFrost-tokenImp')
+    expect(messageOf('a b')).toBeNull()
   })
 })

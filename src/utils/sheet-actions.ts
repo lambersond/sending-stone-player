@@ -83,6 +83,8 @@ export function activityAction(
     ammunition: activity.ammunition ?? null,
     save: activity.save,
     damage: activity.damage,
+    // Its damage on its own, as the game would roll it, from module 0.36.0.
+    ...(activity.tableDamage && { tableDamage: activity.tableDamage }),
     ...(activity.consumesSlot === false && { consumesSlot: false }),
     ...(activity.cast && { cast: activity.cast }),
     ...(activity.rollFormula && { rollFormula: activity.rollFormula }),
@@ -252,6 +254,8 @@ function rollsOf(
     ammunition: entry.ammunition ?? null,
     save: entry.save ?? null,
     damage: entry.damage ?? [],
+    // Its damage on its own, from module 0.36.0, only while the game may make it, as its use.
+    ...(inGame && entry.tableDamage && { tableDamage: entry.tableDamage }),
     ...(entry.consumesSlot === false && { consumesSlot: false }),
     ...(entry.cast && { cast: entry.cast }),
     // For a Cast, its spell's copy, whose other activities are used beneath it.
@@ -271,6 +275,7 @@ function rollsOf(
             ...activity,
             attackId: null,
             activity: null,
+            tableDamage: null,
           })),
     }),
   }

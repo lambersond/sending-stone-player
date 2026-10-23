@@ -51,6 +51,7 @@ const CLAIM_LIMIT = 10
 const heldSelect = {
   id: true,
   actorId: true,
+  ofActorId: true,
   role: true,
   kind: true,
   payload: true,
@@ -61,12 +62,23 @@ const heldSelect = {
 } as const
 
 /**
+ * Whose rolls are asked after: a seat's (#156), as a sheet's routes resolve it; or, from module
+ * 0.36.0, one following the rolls it sent for one of its character's companions, which needs only
+ * whose companion that is, so that a roll sent a moment before the module stopped listing it is
+ * still answered (`companionRollSeat`, APP src/db/companions.ts).
+ */
+export type RollSeat = Pick<
+  SheetSeat,
+  'role' | 'userId' | 'campaignId' | 'actorId' | 'characterId'
+> & { companion?: Pick<NonNullable<SheetSeat['companion']>, 'of'> }
+
+/**
  * The rolls a seat sent (#156): its player's, by their character; or the Gamemaster's as this
  * character in this campaign, by them. Never only `characterId: null`, which every Gamemaster's
  * roll has, of every campaign. The two seats' rolls are apart, so each has its own limits, and
  * damage follows only its own seat's attack or use.
  */
-export function madeBy(seat: SheetSeat): Prisma.RollRequestWhereInput {
+export function madeBy(seat: RollSeat): Prisma.RollRequestWhereInput {
   if (seat.role === 'gm') {
     return {
       // A Gamemaster's seat always has both; '' matches no row should one be missing.
@@ -97,7 +109,12 @@ export type RollRejection = {
  * One from a link in a description is checked against that description, as held here. A move of
  * items and coins, from module 0.31.0, is no roll, and has a switch of its own: it's checked by
  * `createTransferRequest` alone. A removal of an item, from module 0.33.0, likewise:
- * `createRemoveRequest` alone.
+ * `createRemoveRequest` alone. From module 0.36.0, at a companion's seat: of the kinds the game
+ * takes for companions, never a move or a removal, which a companion has none of, nor an answer to
+ * what the game asks, which it asks of no companion; a death saving throw only where it's an
+ * important NPC; and its initiative not where it acts right after its character, who's in that
+ * combat. It's checked against its own sheet, typed in as its character's player types theirs,
+ * and kept as its key, with its character's id, for the module to make it as the companion.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -105,6 +122,12 @@ export async function createRollRequest(
   seat: SheetSeat,
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
+  // A companion's seat moves and removes nothing: it has no items of the character's to move, and
+  // the schema takes the kinds, so they're refused here first, before either is looked at.
+  const { companion } = seat
+  if (companion && (input.kind === 'transfer' || input.kind === 'remove')) {
+    return { status: 422, reason: 'unknown' }
+  }
   if (input.kind === 'transfer') return createTransferRequest(seat, input)
   if (input.kind === 'remove') return createRemoveRequest(seat, input)
   const { campaignId, actorId } = seat
@@ -117,6 +140,8 @@ export async function createRollRequest(
       rollFeatures: true,
       bridgePolledAt: true,
       characters: true,
+      companionKinds: true,
+      companionInitiative: true,
     },
   })
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
@@ -132,6 +157,12 @@ export async function createRollRequest(
   if (!campaign || !availableRollKinds(campaign).includes(input.kind)) {
     return { status: 409, reason: 'unavailable' }
   }
+  // A companion's rolls are only those the game takes for companions, as its view offers them.
+  if (companion && !campaign.companionKinds.includes(input.kind)) {
+    return { status: 409, reason: 'unavailable' }
+  }
+  // The game asks a companion nothing, and only an important NPC makes death saving throws.
+  if (companion && input.prompt) return { status: 422, reason: 'prompt' }
   // Damage a player changed goes only to a game that can roll it so, an answer to what the game
   // asked only to one that asks, an area attack only to one that makes it at those picked, and a
   // check an activity asks for only to one that makes it against the activity.
@@ -170,10 +201,16 @@ export async function createRollRequest(
     described,
     asks,
   ] = await Promise.all([
-    prisma.actorSheet.findUnique({
-      where: { campaignActor: { campaignId, actorId } },
-      select: { data: true },
-    }),
+    // A companion's own sheet, kept apart from the characters'.
+    companion
+      ? prisma.companionSheet.findUnique({
+          where: { campaignCompanion: { campaignId, key: actorId } },
+          select: { data: true },
+        })
+      : prisma.actorSheet.findUnique({
+          where: { campaignActor: { campaignId, actorId } },
+          select: { data: true },
+        }),
     combatId
       ? prisma.combat.findMany({
           where: { campaignId, combatId },
@@ -262,12 +299,15 @@ export async function createRollRequest(
   ) {
     return { status: 429, reason: 'busy' }
   }
+  const held = sheet?.data as unknown as CharacterSheet | undefined
+  const fights = combats.map(({ data }) => data as unknown as CombatSnapshot)
   const refusal = damage
-    ? checkDamage(input, use, others, now)
-    : (checkRoll(
+    ? checkDamage(input, use, others, now, actorId)
+    : (companionRefusal(input, companion, held, fights, campaign) ??
+      checkRoll(
         input,
-        sheet?.data as unknown as CharacterSheet | undefined,
-        combats.map(({ data }) => data as unknown as CombatSnapshot),
+        held,
+        fights,
         actorId,
         described ? sheetLinks(described.html) : undefined,
         campaign.rollFeatures,
@@ -280,13 +320,14 @@ export async function createRollRequest(
   const { label, typed, ...command } = input
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   // Marked as typed in only where the player may type theirs, as the game said last: else the
-  // same dice, unmarked.
+  // same dice, unmarked. A companion's are typed as its character's are.
+  const typer = companion?.of ?? actorId
   const typedHere =
     typed === true &&
     seat.role === 'player' &&
     command.dice.length > 0 &&
     campaign.rollFeatures.includes('manualDice') &&
-    roster.some(({ id, manualDice }) => id === actorId && manualDice === true)
+    roster.some(({ id, manualDice }) => id === typer && manualDice === true)
   const payload = typedHere ? { ...command, typed: true as const } : command
   const { id } = await prisma.rollRequest.create({
     data: {
@@ -295,6 +336,8 @@ export async function createRollRequest(
       role: seat.role,
       requestedById: seat.userId,
       actorId,
+      // A companion's, made as it, names its character (module 0.36.0).
+      ...(companion && { ofActorId: companion.of }),
       kind: input.kind,
       ...(seat.role === 'gm' && label !== undefined && { label }),
       payload: payload as unknown as Prisma.InputJsonValue,
@@ -314,15 +357,52 @@ export async function createRollRequest(
 }
 
 /**
- * A roll a seat sent, as it is told of it.
+ * Why a companion can't make this roll, from module 0.36.0, before it's checked as any roll is: a
+ * death saving throw of a creature that makes none, as only an important NPC does; or its
+ * initiative where its campaign has companions act right after their character and one of its
+ * characters is a combatant of that combat, whose initiative the game sets for it. Nothing for a
+ * character's own roll.
+ */
+function companionRefusal(
+  input: RollRequestInput,
+  companion: SheetSeat['companion'],
+  sheet: CharacterSheet | undefined,
+  combats: CombatSnapshot[],
+  campaign: { companionInitiative: string },
+): RollRefusal | undefined {
+  if (!companion) return undefined
+  if (input.kind === 'death' && sheet?.creature?.important !== true) {
+    return 'not-dying'
+  }
+  if (input.kind === 'initiative' && campaign.companionInitiative === 'after') {
+    const combat = combats.find(({ id }) => id === input.combatId)
+    const follows = combat?.combatants.some(
+      ({ character }) => !!character && companion.entry.of.includes(character),
+    )
+    if (follows) return 'follows'
+  }
+  return undefined
+}
+
+/**
+ * A roll a seat sent, as it is told of it. At a companion's, from module 0.36.0, only one the seat
+ * sent for that companion from that character's seat: never the character's own, nor another
+ * companion's, which a player's rolls, all kept by their Character, would otherwise match.
  * @returns Undefined for a roll that isn't the seat's: another character's, or the other seat's.
  */
 export async function getRollRequestView(
-  seat: SheetSeat,
+  seat: RollSeat,
   requestId: string,
 ): Promise<RollRequestView | undefined> {
   const request = await prisma.rollRequest.findFirst({
-    where: { id: requestId, ...madeBy(seat) },
+    where: {
+      id: requestId,
+      ...madeBy(seat),
+      ...(seat.companion && {
+        actorId: seat.actorId ?? '',
+        ofActorId: seat.companion.of,
+      }),
+    },
     select: heldSelect,
   })
   return request ? toRollRequestView(request as HeldRollRequest) : undefined

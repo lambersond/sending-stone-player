@@ -61,6 +61,8 @@ describe("db/campaign-events, Foundry's settings (module 0.30.0)", () => {
     prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
     prismaMock.actorSheet.findMany.mockResolvedValue([])
     prismaMock.groupSheet.findMany.mockResolvedValue([])
+    // Changed on purpose (round 0.36.0 §7.12): and the companions' sheets it keeps, none.
+    prismaMock.companionSheet.findMany.mockResolvedValue([])
   })
 
   it('keeps what a hello says of Foundry, with its settings, as of when it was sent', async () => {

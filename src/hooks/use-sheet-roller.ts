@@ -34,7 +34,7 @@ import type {
   RollSource,
   TextLink,
 } from '@/types/roll'
-import type { CriticalRule } from '@/types/sending-stone'
+import type { CriticalRule, TableDamagePlan } from '@/types/sending-stone'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -140,6 +140,16 @@ export type SheetDamageRoll = {
   criticalAdds?: CriticalAdds
   /** The game's total counts, once it says, as where its formula couldn't be read. */
   gameTotal?: true
+  /**
+   * Damage or healing on its own (module 0.36.0): its item and activity, the game's plan of its
+   * dice, and whether this is a critical hit's.
+   */
+  alone?: {
+    item: string
+    activity: string
+    plan?: TableDamagePlan
+    critical?: boolean
+  }
 }
 
 /**

@@ -8,6 +8,7 @@ import type {
   CombatantSummary,
   CommandResult,
   CombatSnapshot,
+  CompanionEntry,
   ConnectedCharacter,
   JournalUpdated,
   SerializedMessage,
@@ -16,6 +17,7 @@ import type {
   SheetActivity,
   SheetContainer,
   SheetCounter,
+  SheetCreature,
   SheetEnchantment,
   SheetFavorite,
   SheetInventory,
@@ -23,8 +25,9 @@ import type {
   SheetSpell,
   SheetUse,
   SheetUses,
+  TableDamagePlan,
 } from '@/types/sending-stone'
-import type { TableMoves, TableView } from '@/types/table'
+import type { CompanionView, TableMoves, TableView } from '@/types/table'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
 
@@ -2743,5 +2746,254 @@ export function mockNoteCommand(
     explicit: false,
     extras: [],
     dice: [],
+  }
+}
+
+// Module 0.36.0: a character's companions, damage on its own, and recharges.
+
+/** Brakka, a wolf Thorin's player owns in Foundry, linked: an owned companion. */
+export function mockCompanionEntry(
+  fields: Partial<CompanionEntry> = {},
+): CompanionEntry {
+  return {
+    key: 'wolfBrakka',
+    of: [PARTY.thorin],
+    kind: 'owned',
+    actorId: 'wolfBrakka',
+    tokenId: null,
+    sceneId: null,
+    uuid: 'Actor.wolfBrakka',
+    name: 'Wolf',
+    img: 'worlds/frost-road/wolf.webp',
+    summon: null,
+    ...fields,
+  }
+}
+
+/** An imp Thorin summoned with Find Familiar, on the active scene: a token's creature. */
+export function mockSummonedEntry(
+  fields: Partial<CompanionEntry> = {},
+): CompanionEntry {
+  return {
+    key: 'sceneFrost-tokenImp',
+    of: [PARTY.thorin],
+    kind: 'summoned',
+    actorId: 'impTemplate',
+    tokenId: 'tokenImp',
+    sceneId: 'sceneFrost',
+    uuid: 'Scene.sceneFrost.Token.tokenImp.Actor.impTemplate',
+    name: 'Imp',
+    img: 'worlds/frost-road/imp.webp',
+    summon: {
+      itemId: 'findFamiliar',
+      item: 'Find Familiar',
+      activityId: 'summonFamiliar',
+    },
+    ...fields,
+  }
+}
+
+/** What a wolf's sheet says of it as a creature: a CR 1/4 beast. */
+export function mockCreature(
+  fields: Partial<SheetCreature> = {},
+): SheetCreature {
+  return {
+    cr: 0.25,
+    type: 'Beast',
+    size: 'Medium',
+    alignment: 'Unaligned',
+    important: false,
+    legendary: null,
+    resistance: null,
+    lair: null,
+    hitDice: { denomination: 'd8', value: 2, max: 2 },
+    ...fields,
+  }
+}
+
+/** A Bite's damage on its own, 1d8 + 3 slashing, and a critical hit's, 2d8 + 3. */
+export function mockTableDamage(
+  fields: Partial<TableDamagePlan> = {},
+): TableDamagePlan {
+  return {
+    normal: {
+      critical: false,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d8 + 3',
+          type: 'Slashing',
+          dice: [{ faces: 8, number: 1 }],
+          perDie: 1,
+        },
+      ],
+    },
+    critical: {
+      critical: true,
+      plannable: true,
+      rolls: [
+        {
+          formula: '2d8 + 3',
+          type: 'Slashing',
+          dice: [{ faces: 8, number: 2 }],
+          perDie: 2,
+        },
+      ],
+    },
+    ...fields,
+  }
+}
+
+/** The wolf's Bite, an attack whose damage may go on its own. */
+export function biteAction(fields: Partial<SheetAction> = {}): SheetAction {
+  return sheetAction({
+    id: 'wolfBite',
+    name: 'Bite',
+    type: 'weapon',
+    toHit: 4,
+    attackId: 'biteAttack',
+    damage: [{ formula: '1d8 + 3', type: 'Slashing', healing: false }],
+    tableDamage: mockTableDamage(),
+    ...fields,
+  })
+}
+
+/**
+ * A breath of frost, a save whose damage may go on its own, never a critical hit's, and whose
+ * uses recharge on a 5 or 6, spent.
+ */
+export function frostBreathAction(
+  fields: Partial<SheetAction> = {},
+): SheetAction {
+  const damage = {
+    critical: false,
+    plannable: true,
+    rolls: [
+      {
+        formula: '2d6',
+        type: 'Cold',
+        dice: [{ faces: 6, number: 2 }],
+        perDie: 1,
+      },
+    ],
+  }
+  return sheetAction({
+    id: 'frostBreath',
+    name: 'Frost Breath',
+    activity: {
+      id: 'frostSave',
+      type: 'save',
+      targets: {
+        self: false,
+        area: true,
+        count: null,
+        perLevel: null,
+        affects: null,
+      },
+    },
+    save: { ability: 'DEX', dc: 12 },
+    damage: [{ formula: '2d6', type: 'Cold', healing: false }],
+    tableDamage: { normal: damage, critical: null },
+    uses: {
+      value: 0,
+      max: 1,
+      recovery: 'Recharge [5+]',
+      recharge: 5,
+      counter: { item: 'frostBreath' },
+    },
+    ...fields,
+  })
+}
+
+/** The wolf's sheet, as module 0.36.0 sends an NPC's: its creature, its Bite and Frost Breath. */
+export function mockCompanionSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  return characterSheet({
+    img: 'worlds/frost-road/wolf.webp',
+    level: null,
+    classes: [],
+    species: null,
+    background: null,
+    hp: { value: 11, max: 11, temp: 0 },
+    ac: 13,
+    proficiency: 2,
+    initiative: 2,
+    creature: mockCreature(),
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [biteAction(), frostBreathAction()],
+      },
+    ],
+    ...fields,
+  })
+}
+
+/** A table view of Thorin's, as the app serves it, with no sheet unless given. */
+export function mockTableView(fields: Partial<TableView> = {}): TableView {
+  return {
+    version: 7,
+    live: true,
+    campaign: { title: 'The Frost Road' },
+    connected: true,
+    messages: [],
+    ...fields,
+  }
+}
+
+/** The wolf's own view, for its pane, each its own roll unless given. */
+export function mockCompanionView(
+  fields: Partial<CompanionView> = {},
+): CompanionView {
+  return {
+    version: 7,
+    live: true,
+    connected: true,
+    companion: { key: 'wolfBrakka', name: 'Wolf', kind: 'owned' },
+    rollsToTable: ['attack', 'damage', 'use', 'itemDamage', 'recharge'],
+    rollFeatures: ['modifiers'],
+    initiative: { mode: 'own' },
+    ...fields,
+  }
+}
+
+/** Thorin's player's Character in The Frost Road, by his Foundry id, as his companions name him. */
+export const FROST_THORIN = {
+  id: 'char-1',
+  name: 'Thorin',
+  gameUrl: 'https://my-game.forge-vtt.com',
+  campaignTitle: 'The Frost Road',
+  campaignId: 'c1',
+  actorId: PARTY.thorin,
+}
+
+/**
+ * The Frost Road as held, for a companion's routes: Thorin and Vex, Thorin's wolf and imp listed,
+ * its game taking their attacks and damage, each rolling its own initiative.
+ */
+export function mockCompanionCampaign(fields: object = {}) {
+  return {
+    id: 'c1',
+    title: 'The Frost Road',
+    origin: 'https://my-game.forge-vtt.com',
+    ownerId: 'gm-1',
+    version: 7,
+    lastSeenAt: new Date(Date.now() - 5000),
+    characters: [
+      { id: PARTY.thorin, name: 'Thorin' },
+      { id: PARTY.vex, name: 'Vex' },
+    ],
+    companions: [mockCompanionEntry(), mockSummonedEntry()],
+    companionKinds: ['attack', 'damage'],
+    companionInitiative: 'own',
+    rollsEnabled: true,
+    rollKinds: ['skill', 'attack', 'damage'],
+    rollFeatures: [] as string[],
+    bridgePolledAt: new Date(Date.now() - 5000),
+    transfersEnabled: false,
+    removalsEnabled: false,
+    ...fields,
   }
 }

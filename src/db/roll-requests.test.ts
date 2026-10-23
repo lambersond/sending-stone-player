@@ -21,7 +21,12 @@ import {
   checkingSheet,
   combat,
   combatant,
+  biteAction,
+  frostBreathAction,
   fullerSheet,
+  mockCompanionEntry,
+  mockCompanionSheet,
+  mockCreature,
   sheetAction,
   TEXTS,
   typingRosterEntry,
@@ -218,6 +223,9 @@ describe('db/roll-requests', () => {
           rollFeatures: true,
           bridgePolledAt: true,
           characters: true,
+          // Changed on purpose (round 0.36.0 §7.12): what a companion's roll is checked by.
+          companionKinds: true,
+          companionInitiative: true,
         },
       })
       expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
@@ -500,6 +508,45 @@ describe('db/roll-requests', () => {
       await expect(
         getRollRequestView(character, 'req-9'),
       ).resolves.toBeUndefined()
+    })
+
+    it("reads at a companion's seat only a roll sent for it from that character's", async () => {
+      prismaMock.rollRequest.findFirst.mockResolvedValue(null)
+      const atWolf = {
+        ...character,
+        actorId: 'wolfBrakka',
+        companion: { of: 'actor-thorin' },
+      }
+
+      await expect(
+        getRollRequestView(atWolf, 'req-thorin'),
+      ).resolves.toBeUndefined()
+      // Never the character's own, nor another companion's, which share his player's Character.
+      expect(prismaMock.rollRequest.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'req-thorin',
+          characterId: 'char-1',
+          actorId: 'wolfBrakka',
+          ofActorId: 'actor-thorin',
+        },
+        select: expect.objectContaining({ ofActorId: true }),
+      })
+
+      await getRollRequestView(
+        { ...atWolf, role: 'gm', userId: 'gm-1', characterId: null },
+        'req-gm',
+      )
+      expect(prismaMock.rollRequest.findFirst).toHaveBeenLastCalledWith({
+        where: {
+          id: 'req-gm',
+          campaignId: 'c1',
+          actorId: 'wolfBrakka',
+          role: 'gm',
+          requestedById: 'gm-1',
+          ofActorId: 'actor-thorin',
+        },
+        select: expect.objectContaining({ ofActorId: true }),
+      })
     })
   })
 
@@ -2876,5 +2923,555 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
     await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
       { ...removal, id: 'remove-gm', actorId: 'actor-thorin', by: 'gm' },
     ])
+  })
+})
+
+/**
+ * The campaign, taking a companion's attacks, damage, initiative and the rest, and Thorin's
+ * skills.
+ */
+const companionCampaign = (fields: object = {}) => ({
+  ...takingRolls,
+  rollKinds: [
+    'skill',
+    'death',
+    'initiative',
+    'attack',
+    'damage',
+    'inspiration',
+    'itemDamage',
+    'recharge',
+  ],
+  rollFeatures: ['manualDice'],
+  characters: [{ id: 'actor-thorin', name: 'Thorin', manualDice: true }],
+  companionKinds: [
+    'death',
+    'initiative',
+    'attack',
+    'damage',
+    'itemDamage',
+    'recharge',
+  ],
+  companionInitiative: 'own',
+  ...fields,
+})
+
+/** The wolf's campaign and sheet, the fights it's in, and its rolls on their way. */
+const given = ({
+  campaign = companionCampaign() as object,
+  sheet = mockCompanionSheet() as object | null,
+  combats = [] as object[],
+  inFlight = 0,
+} = {}) => {
+  prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+  prismaMock.companionSheet.findUnique.mockResolvedValue(
+    sheet ? ({ data: sheet } as any) : null,
+  )
+  prismaMock.combat.findMany.mockResolvedValue(
+    combats.map(data => ({ data })) as any,
+  )
+  // None left over from a test refused before its rolls were counted.
+  prismaMock.rollRequest.count.mockReset()
+  prismaMock.rollRequest.count
+    .mockResolvedValueOnce(inFlight)
+    .mockResolvedValueOnce(0)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+}
+
+const refusal = (status: number, reason: string) => ({ status, reason })
+
+const down = (important: boolean) =>
+  mockCompanionSheet({
+    hp: { value: 0, max: 11, temp: 0 },
+    deathSaves: { success: 0, failure: 0 },
+    creature: mockCreature({ important }),
+  })
+
+const breathing = (uses: object) =>
+  mockCompanionSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          frostBreathAction({
+            uses: {
+              value: 0,
+              max: 1,
+              recovery: 'Recharge [5+]',
+              recharge: 5,
+              counter: { item: 'frostBreath' },
+              ...uses,
+            },
+          }),
+        ],
+      },
+    ],
+  })
+
+/** A fight with Thorin and his wolf, neither rolled yet; or with the wolf alone. */
+const fight = (withThorin = true) =>
+  combat({
+    combatants: [
+      ...(withThorin
+        ? [
+            combatant({
+              id: 'c-thorin',
+              character: 'actor-thorin',
+              initiative: null,
+            }),
+          ]
+        : []),
+      combatant({
+        id: 'c-wolf',
+        companion: 'wolfBrakka',
+        initiative: null,
+      }),
+    ],
+  })
+
+describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
+  const wolf = mockCompanionEntry({ of: ['actor-thorin'] })
+  /** Thorin's player at his wolf's sheet: his own seat, the wolf in place of his actor. */
+  const atWolf: SheetSeat = {
+    ...character,
+    actorId: 'wolfBrakka',
+    name: 'Wolf',
+    companion: { of: 'actor-thorin', entry: wolf },
+  }
+
+  /** The wolf's Bite on its own: 1d8 + 3. */
+  const alone: RollRequestInput = {
+    kind: 'itemDamage',
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 8, results: [5] }],
+  }
+  /** Its Frost Breath's recharge, a 5. */
+  const recharge: RollRequestInput = {
+    kind: 'recharge',
+    item: 'frostBreath',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 6, results: [5] }],
+  }
+  const bite: RollRequestInput = {
+    ...swing,
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    target: null,
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('keeps a companion’s roll as its key, naming its character, checked against its own sheet', async () => {
+    given()
+
+    await expect(createRollRequest(atWolf, bite)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(prismaMock.companionSheet.findUnique).toHaveBeenCalledWith({
+      where: { campaignCompanion: { campaignId: 'c1', key: 'wolfBrakka' } },
+      select: { data: true },
+    })
+    expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+    const { data } = prismaMock.rollRequest.create.mock.calls[0][0]
+    expect(data).toMatchObject({
+      characterId: 'char-1',
+      role: 'player',
+      actorId: 'wolfBrakka',
+      ofActorId: 'actor-thorin',
+      kind: 'attack',
+    })
+    // The module is sent it as the companion's, naming its character.
+    expect(
+      toCommand({
+        ...held('req-1', { kind: 'attack', payload: bite }),
+        actorId: 'wolfBrakka',
+        ofActorId: 'actor-thorin',
+        role: 'player',
+      } as any),
+    ).toEqual({
+      ...bite,
+      id: 'req-1',
+      actorId: 'wolfBrakka',
+      of: 'actor-thorin',
+    })
+    // A character's own names none.
+    expect(
+      toCommand({ ...held('req-2'), role: 'player', ofActorId: null } as any),
+    ).not.toHaveProperty('of')
+  })
+
+  it('takes none of the rolls the game takes for the character but not for companions', async () => {
+    for (const roll of [
+      perception,
+      {
+        ...perception,
+        kind: 'inspiration',
+        key: undefined,
+        dice: [],
+        inspiration: 'use',
+      },
+    ] as RollRequestInput[]) {
+      given()
+      await expect(createRollRequest(atWolf, roll)).resolves.toEqual(
+        refusal(409, 'unavailable'),
+      )
+    }
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses a companion’s moves and removals before any is looked at', async () => {
+    const transfer = {
+      kind: 'transfer',
+      transfer: {
+        from: 'wolfBrakka',
+        to: 'actor-vex',
+        items: [{ id: 'bone', quantity: 1 }],
+      },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    } as RollRequestInput
+    const remove = {
+      kind: 'remove',
+      remove: { item: 'bone', quantity: 1, held: 1 },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    } as RollRequestInput
+
+    await expect(createRollRequest(atWolf, transfer)).resolves.toEqual(
+      refusal(422, 'unknown'),
+    )
+    await expect(createRollRequest(atWolf, remove)).resolves.toEqual(
+      refusal(422, 'unknown'),
+    )
+    // Neither a move's nor a removal's checks read the campaign.
+    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('refuses an answer to what the game asks, which it asks of no companion', async () => {
+    given({ campaign: companionCampaign({ rollFeatures: ['prompts'] }) })
+
+    await expect(
+      createRollRequest(atWolf, { ...initiative, prompt: 'msg1-wolfBrakka' }),
+    ).resolves.toEqual(refusal(422, 'prompt'))
+  })
+
+  it('takes a death saving throw only of an important NPC', async () => {
+    const death: RollRequestInput = {
+      kind: 'death',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [12] }],
+    }
+
+    given({ sheet: down(false) })
+    await expect(createRollRequest(atWolf, death)).resolves.toEqual(
+      refusal(422, 'not-dying'),
+    )
+    given({ sheet: down(true) })
+    await expect(createRollRequest(atWolf, death)).resolves.toEqual({
+      id: 'req-1',
+    })
+  })
+
+  it('marks a companion’s dice typed in as its character’s player types theirs', async () => {
+    given()
+    await createRollRequest(atWolf, { ...bite, typed: true })
+    expect(
+      prismaMock.rollRequest.create.mock.calls[0][0].data.payload,
+    ).toMatchObject({ typed: true })
+
+    given({
+      campaign: companionCampaign({
+        characters: [{ id: 'actor-thorin', name: 'Thorin' }],
+      }),
+    })
+    prismaMock.rollRequest.create.mockClear()
+    await createRollRequest(atWolf, { ...bite, typed: true })
+    expect(
+      prismaMock.rollRequest.create.mock.calls[0][0].data.payload,
+    ).not.toHaveProperty('typed')
+  })
+
+  it("counts a companion's rolls with its character's, three on their way at once", async () => {
+    given({ inFlight: 3 })
+
+    await expect(createRollRequest(atWolf, bite)).resolves.toEqual(
+      refusal(429, 'busy'),
+    )
+    expect(prismaMock.rollRequest.count.mock.calls[0][0]?.where).toMatchObject({
+      characterId: 'char-1',
+    })
+  })
+
+  it("refuses a wolf's damage following its character's attack, or another wolf's", async () => {
+    given()
+    // Thorin's warhammer, made in the game: his player's, but not the wolf's.
+    prismaMock.rollRequest.findFirst.mockResolvedValue(madeSwing() as any)
+    prismaMock.rollRequest.findMany.mockResolvedValue([])
+
+    await expect(createRollRequest(atWolf, smash)).resolves.toEqual(
+      refusal(422, 'gone'),
+    )
+
+    given()
+    prismaMock.rollRequest.findFirst.mockResolvedValue(
+      madeSwing({ actorId: 'wolfOther' }) as any,
+    )
+    await expect(createRollRequest(atWolf, smash)).resolves.toEqual(
+      refusal(422, 'gone'),
+    )
+
+    // Its own attack's damage follows it.
+    given()
+    prismaMock.rollRequest.findFirst.mockResolvedValue(
+      madeSwing({ actorId: 'wolfBrakka' }) as any,
+    )
+    await expect(createRollRequest(atWolf, smash)).resolves.toEqual({
+      id: 'req-1',
+    })
+  })
+
+  it("refuses the character's damage following a companion's attack", async () => {
+    given({ campaign: companionCampaign() })
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: fullerSheet(),
+    } as any)
+    prismaMock.rollRequest.findFirst.mockResolvedValue(
+      madeSwing({ actorId: 'wolfBrakka' }) as any,
+    )
+    prismaMock.rollRequest.findMany.mockResolvedValue([])
+
+    await expect(createRollRequest(character, smash)).resolves.toEqual(
+      refusal(422, 'gone'),
+    )
+  })
+
+  describe('damage on its own', () => {
+    it('takes an action’s damage on its own, as a critical hit’s where the game makes one', async () => {
+      given()
+      await expect(createRollRequest(atWolf, alone)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollRequest.create.mock.calls[0][0].data).toMatchObject(
+        { kind: 'itemDamage', useId: undefined, payload: alone },
+      )
+
+      given()
+      await expect(
+        createRollRequest(atWolf, {
+          ...alone,
+          critical: true,
+          dice: [{ faces: 8, results: [5, 2] }],
+        }),
+      ).resolves.toEqual({ id: 'req-1' })
+    })
+
+    it.each([
+      ['an action the sheet has none of', { item: 'claw' }, 'gone'],
+      ['an activity it isn’t', { activity: 'pounce' }, 'gone'],
+      [
+        'a critical hit where the game makes none',
+        {
+          item: 'frostBreath',
+          activity: 'frostSave',
+          critical: true,
+          dice: [{ faces: 6, results: [2, 3] }],
+        },
+        'critical',
+      ],
+      ['dice it doesn’t throw', { dice: [{ faces: 6, results: [5] }] }, 'dice'],
+      [
+        'a critical hit’s dice where it’s not',
+        { dice: [{ faces: 8, results: [5, 2] }] },
+        'dice',
+      ],
+      ['a kind of damage it doesn’t offer', { types: ['fire'] }, 'type'],
+    ])('refuses %s', async (_, fields, reason) => {
+      given()
+      await expect(
+        createRollRequest(atWolf, { ...alone, ...fields } as RollRequestInput),
+      ).resolves.toEqual(refusal(422, reason))
+    })
+
+    it('refuses one whose damage can’t go on its own', async () => {
+      given({
+        sheet: mockCompanionSheet({
+          actions: [
+            {
+              id: 'action',
+              label: 'Actions',
+              actions: [biteAction({ tableDamage: null })],
+            },
+          ],
+        }),
+      })
+      await expect(createRollRequest(atWolf, alone)).resolves.toEqual(
+        refusal(422, 'no-damage'),
+      )
+    })
+
+    it('takes it from the character too, of the kinds the game takes', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(
+        companionCampaign() as any,
+      )
+      prismaMock.actorSheet.findUnique.mockResolvedValue({
+        data: mockCompanionSheet(),
+      } as any)
+      prismaMock.rollRequest.count.mockResolvedValue(0)
+      prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+
+      await expect(createRollRequest(character, alone)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(
+        prismaMock.rollRequest.create.mock.calls[0][0].data,
+      ).not.toHaveProperty('ofActorId')
+    })
+  })
+
+  describe('recharges', () => {
+    it('takes a recharge of spent uses, whether some or all are spent', async () => {
+      given()
+      await expect(createRollRequest(atWolf, recharge)).resolves.toEqual({
+        id: 'req-1',
+      })
+      given({ sheet: breathing({ value: 1, max: 2 }) })
+      await expect(createRollRequest(atWolf, recharge)).resolves.toEqual({
+        id: 'req-1',
+      })
+    })
+
+    it('refuses one of uses that aren’t spent, as dnd5e rolls none', async () => {
+      given({ sheet: breathing({ value: 1, max: 1 }) })
+      await expect(createRollRequest(atWolf, recharge)).resolves.toEqual(
+        refusal(422, 'charged'),
+      )
+    })
+
+    it('refuses one of uses that don’t recharge, or aren’t there', async () => {
+      given()
+      await expect(
+        createRollRequest(atWolf, { ...recharge, item: 'wolfBite' }),
+      ).resolves.toEqual(refusal(422, 'gone'))
+      given()
+      await expect(
+        createRollRequest(atWolf, { ...recharge, activity: 'frostSave' }),
+      ).resolves.toEqual(refusal(422, 'gone'))
+      given({ sheet: breathing({ recharge: undefined }) })
+      await expect(createRollRequest(atWolf, recharge)).resolves.toEqual(
+        refusal(422, 'gone'),
+      )
+    })
+  })
+
+  describe('right after its character, in initiative', () => {
+    const after = companionCampaign({ companionInitiative: 'after' })
+
+    it('refuses the companion’s own roll while its character is in the fight', async () => {
+      given({ campaign: after, combats: [fight()] })
+
+      await expect(createRollRequest(atWolf, initiative)).resolves.toEqual(
+        refusal(422, 'follows'),
+      )
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+
+      // Said before it's checked as any roll is: not that it has rolled, once the game set its
+      // initiative right after its character's.
+      const set = fight()
+      set.combatants[0].initiative = 15
+      set.combatants[1].initiative = 15
+      given({ campaign: after, combats: [set] })
+      await expect(createRollRequest(atWolf, initiative)).resolves.toEqual(
+        refusal(422, 'follows'),
+      )
+    })
+
+    it('refuses a shared companion’s own roll while any of its characters is in the fight, not only the seat’s', async () => {
+      // A wolf of Thorin's and of Vex's, at Thorin's seat, in a fight Vex is in and Thorin isn't:
+      // the game sets its initiative right after Vex's, so the app takes none for it.
+      const shared: SheetSeat = {
+        ...atWolf,
+        companion: {
+          of: 'actor-thorin',
+          entry: mockCompanionEntry({ of: ['actor-thorin', 'actor-vex'] }),
+        },
+      }
+      const withVex = combat({
+        combatants: [
+          combatant({ id: 'c-vex', character: 'actor-vex', initiative: null }),
+          combatant({
+            id: 'c-wolf',
+            companion: 'wolfBrakka',
+            initiative: null,
+          }),
+        ],
+      })
+      given({ campaign: after, combats: [withVex] })
+
+      await expect(createRollRequest(shared, initiative)).resolves.toEqual(
+        refusal(422, 'follows'),
+      )
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+
+      // Under its own roll, the same fight takes it.
+      given({ combats: [withVex] })
+      await expect(createRollRequest(shared, initiative)).resolves.toEqual({
+        id: 'req-1',
+      })
+    })
+
+    it('takes it where its character isn’t in the fight, as its own combatant', async () => {
+      given({ campaign: after, combats: [fight(false)] })
+      await expect(createRollRequest(atWolf, initiative)).resolves.toEqual({
+        id: 'req-1',
+      })
+
+      // Its own combatant, by its key, has rolled already.
+      const rolled = fight(false)
+      rolled.combatants[0].initiative = 12
+      given({ campaign: after, combats: [rolled] })
+      await expect(createRollRequest(atWolf, initiative)).resolves.toEqual(
+        refusal(422, 'already-rolled'),
+      )
+    })
+
+    it('takes it under its own roll, its character in the fight or not', async () => {
+      given({ combats: [fight()] })
+      await expect(createRollRequest(atWolf, initiative)).resolves.toEqual({
+        id: 'req-1',
+      })
+    })
+
+    it("never refuses the character's own", async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(after as any)
+      prismaMock.actorSheet.findUnique.mockResolvedValue({
+        data: fullerSheet(),
+      } as any)
+      prismaMock.combat.findMany.mockResolvedValue([{ data: fight() }] as any)
+      prismaMock.rollRequest.count.mockResolvedValue(0)
+      prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+
+      await expect(createRollRequest(character, initiative)).resolves.toEqual({
+        id: 'req-1',
+      })
+    })
   })
 })

@@ -8,37 +8,24 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.34.0 and its app.
+Released: module v0.35.0 and its app.
 
-## v0.35 (in progress)
+## v0.36 (in progress)
 
-1. **The journal, redesigned:** a Journal card on the character's Biography tab and the party's
-   Description tab opens the journal in its own window, full screen on a phone and up to
-   960 × 880 elsewhere: the contents on the left, one note or a chapter's notes on the right, and
-   the journal's last change in its header. The sheet no longer grows with the notes.
-2. **Move to a chapter:** a note goes into a chapter, or out of one, from a menu.
-3. **Reordering:** anyone in the party reorders the notes in a chapter, and the notes in no
-   chapter, by dragging or with the arrows. Foundry keeps the order, and a reorder made there
-   shows in the app. New and moved notes go last.
-4. **The journal's last change:** "Last changed by …" counts notes deleted and reordered, in the
-   app or in Foundry.
+1. **Companions, sidekicks and familiars:** the creatures a character summons in Foundry, such as
+   a familiar, while they're on the active scene, and the NPCs its player owns there, show beside
+   the character in the app, a tab each, with their own sheets. Their attacks, spells, checks,
+   saves and recharges are made in Foundry from the app, as the character's are. Summoning,
+   dismissing and changing them stay in Foundry. The Gamemaster chooses whether each rolls its
+   own initiative or acts right after its character.
+   - Wild Shape comes later: the creature view is built to show the form a character takes.
+   - Polymorph transformations are not on the roadmap.
+2. **Damage on its own:** a setting sends damage rolls to Foundry with no attack roll or saving
+   throw made there, as dnd5e's damage card with no targets, for the Gamemaster to select tokens
+   and apply as normal; with Midi-QOL too, outside its workflow.
+3. **Recharges:** a spent "Recharge 5–6" is rolled from the app.
 
-Patch releases (0.35.x) are expected as beta use turns up things to tweak.
-
-## v0.36
-
-1. **Companions, sidekicks and familiars:** show them and trigger their actions.
-   - Wild Shape comes later because of its complexity. Built well, the companions view could be
-     reused for the creature a character wild-shapes into.
-   - Polymorph transformations are not on the roadmap: they're too complex and open-ended.
-2. **Damage rolls to the table:** a setting that sends damage rolls without an attack roll or
-   saving throw. The Gamemaster selects targets in Foundry and applies the damage as normal.
-
-Open questions:
-- Find Familiar and Summon Beast are dnd5e summon activities, which the app leaves to Foundry today.
-  Companions likely need them, and a way to tell owned companions from summoned creatures.
-- Wild Shape uses a transform activity that swaps the actor, so one creature view could serve both.
-- Under Midi-QOL, a damage roll with no attack may start Midi's workflow with the player's targets.
+Patch releases (0.36.x) are expected as beta use turns up things to tweak.
 
 ## v1.0
 
@@ -82,5 +69,9 @@ Open questions:
 - When typing in dice, dice Foundry adds itself (Bless's d4, rerolls) are still rolled by Foundry,
   and Elven Accuracy's third d20 is asked for only on attacks the sheet marks.
 - Moving several items at once, and summon activities, aren't scheduled.
+- The saves the game asks of a companion are rolled in Foundry.
+- Companions show while on the active scene; a linked NPC its player owns shows always.
+- Damage on its own is rolled at a spell's own level, in a weapon's first mode, without ammunition;
+  Cast it, or attack, for the rest.
 - Notes deleted or reordered in Foundry while no Gamemaster is connected don't move the journal's
   "Last changed by" line.

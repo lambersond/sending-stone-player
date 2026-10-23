@@ -2,8 +2,10 @@
 import {
   availableRollKinds,
   checkDamage,
+  checkDamageDice,
   checkRoll,
   isDying,
+  isSeatCombatant,
   rollStatus,
   sameCounter,
   toCommand,
@@ -22,8 +24,11 @@ import {
   enchantingSheet,
   enchantment,
   enchantUse,
+  frostBreathAction,
   fullerSheet,
   greataxeAction,
+  mockCompanionSheet,
+  mockTableDamage,
   rapierAction,
   sheetAction,
   sheetFavorites,
@@ -5308,5 +5313,266 @@ describe('toRollRequestView for an item removed, from module 0.33.0', () => {
         'failed',
       ),
     ).toEqual({ id: 'req-1', status: 'failed', reason: 'changed' })
+  })
+})
+
+const alone = (fields: Partial<RollRequestInput> = {}) =>
+  request({
+    kind: 'itemDamage',
+    key: undefined,
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    dice: [{ faces: 8, results: [5] }],
+    ...fields,
+  })
+
+const recharge = (fields: Partial<RollRequestInput> = {}) =>
+  request({
+    kind: 'recharge',
+    key: undefined,
+    item: 'frostBreath',
+    dice: [{ faces: 6, results: [5] }],
+    ...fields,
+  })
+
+const breathing = (uses: object) =>
+  mockCompanionSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          frostBreathAction({
+            uses: {
+              value: 0,
+              max: 1,
+              recovery: 'Recharge [5+]',
+              recharge: 5,
+              counter: { item: 'frostBreath' },
+              ...uses,
+            },
+          }),
+        ],
+      },
+    ],
+  })
+
+const check = (
+  sheet: CharacterSheet | undefined,
+  fields: Partial<RollRequestInput> = {},
+) => checkRoll(recharge(fields), sheet, [], 'wolfBrakka')
+
+describe('utils/roll-requests for companions, from module 0.36.0', () => {
+  /** A fight with Thorin, his wolf and a goblin, the wolf yet to roll. */
+  const fight = combat({
+    combatants: [
+      combatant({ id: 'c-thorin', character: 'actor-thorin', initiative: 18 }),
+      combatant({ id: 'c-wolf', companion: 'wolfBrakka', initiative: null }),
+      combatant({ id: 'c-goblin', name: 'Goblin' }),
+    ],
+  })
+
+  it('takes the seat’s own combatant as its character’s, or the companion’s by its key', () => {
+    const [thorin, wolf, goblin] = fight.combatants
+    expect(isSeatCombatant(thorin, 'actor-thorin')).toBe(true)
+    expect(isSeatCombatant(wolf, 'wolfBrakka')).toBe(true)
+    expect(isSeatCombatant(wolf, 'actor-thorin')).toBe(false)
+    expect(isSeatCombatant(goblin, 'wolfBrakka')).toBe(false)
+    expect(isSeatCombatant(thorin, 'wolfBrakka')).toBe(false)
+  })
+
+  it("rolls a companion's initiative as its own combatant's, by its key", () => {
+    const initiative = request({
+      kind: 'initiative',
+      key: undefined,
+      combatId: 'cmbt1',
+    })
+    expect(
+      checkRoll(initiative, mockCompanionSheet(), [fight], 'wolfBrakka'),
+    ).toBeUndefined()
+    // Thorin rolled his already.
+    expect(checkRoll(initiative, fullerSheet(), [fight], 'actor-thorin')).toBe(
+      'already-rolled',
+    )
+    // One not in the fight rolls none.
+    expect(
+      checkRoll(
+        initiative,
+        mockCompanionSheet(),
+        [fight],
+        'sceneFrost-tokenImp',
+      ),
+    ).toBe('not-in-combat')
+  })
+
+  it("takes a companion's use at itself, by its own combatant, as one of those picked", () => {
+    const atSelf = { self: true as const }
+    const check = (at: string[], actorId: string) =>
+      checkRoll(
+        useRequest('bless', 'blessing', at, atSelf),
+        cleric(),
+        [fight],
+        actorId,
+        undefined,
+        ['selfTargets'],
+      )
+    // Its own combatant picked too, by its key, is its user twice.
+    expect(check(['c-wolf'], 'wolfBrakka')).toBe('target')
+    expect(check(['c-thorin'], 'wolfBrakka')).toBeUndefined()
+    expect(check(['c-wolf'], 'actor-thorin')).toBeUndefined()
+  })
+
+  describe('damage on its own', () => {
+    const check = (
+      fields: Partial<RollRequestInput> = {},
+      sheet: CharacterSheet | null = mockCompanionSheet(),
+    ) => checkRoll(alone(fields), sheet ?? undefined, [], 'wolfBrakka')
+
+    it('takes an attack’s, as the game plans it, and its critical hit’s', () => {
+      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+      expect(check(undefined)).toBeUndefined()
+      expect(
+        check({ critical: true, dice: [{ faces: 8, results: [5, 2] }] }),
+      ).toBeUndefined()
+      // A save's, by its use's activity.
+      expect(
+        check({
+          item: 'frostBreath',
+          activity: 'frostSave',
+          dice: [{ faces: 6, results: [3, 4] }],
+        }),
+      ).toBeUndefined()
+    })
+
+    it.each([
+      ['no sheet', {}, 'gone', null],
+      ['an item it hasn’t', { item: 'claw' }, 'gone', mockCompanionSheet()],
+      [
+        'an activity its row isn’t',
+        { activity: 'frostSave' },
+        'gone',
+        mockCompanionSheet(),
+      ],
+      [
+        'a critical hit of a save’s',
+        {
+          item: 'frostBreath',
+          activity: 'frostSave',
+          critical: true,
+          dice: [{ faces: 6, results: [3, 4, 5, 6] }],
+        },
+        'critical',
+        mockCompanionSheet(),
+      ],
+      [
+        'the wrong dice',
+        { dice: [{ faces: 8, results: [5, 2] }] },
+        'dice',
+        mockCompanionSheet(),
+      ],
+      [
+        'a kind it doesn’t offer',
+        { types: ['fire'] },
+        'type',
+        mockCompanionSheet(),
+      ],
+    ])('refuses one with %s', (_, fields, reason, sheet) => {
+      expect(check(fields as Partial<RollRequestInput>, sheet)).toBe(reason)
+    })
+
+    it('refuses one whose damage can’t go alone', () => {
+      const plain = mockCompanionSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [frostBreathAction({ tableDamage: null })],
+          },
+        ],
+      })
+      expect(
+        check(
+          {
+            item: 'frostBreath',
+            activity: 'frostSave',
+            dice: [{ faces: 6, results: [3, 4] }],
+          },
+          plain,
+        ),
+      ).toBe('no-damage')
+    })
+
+    it('checks its dice as an attack’s due damage is checked', () => {
+      const { normal } = mockTableDamage()
+      expect(checkDamageDice(alone(), normal)).toBeUndefined()
+      expect(
+        checkDamageDice(
+          alone({
+            dice: [{ faces: 8, results: [5, 6] }],
+            modifiers: { extra: 1 },
+          }),
+          normal,
+        ),
+      ).toBeUndefined()
+      expect(checkDamageDice(alone({ modifiers: { extra: 1 } }), normal)).toBe(
+        'dice',
+      )
+      expect(checkDamageDice(alone({ types: [null] }), normal)).toBeUndefined()
+      expect(checkDamageDice(alone({ types: ['cold'] }), normal)).toBe('type')
+    })
+  })
+
+  describe('recharges', () => {
+    it('takes one of uses that recharge with some spent, an item’s or an activity’s own', () => {
+      expect(check(breathing({}))).toBeUndefined()
+      expect(check(breathing({ value: 1, max: 2 }))).toBeUndefined()
+      expect(
+        check(
+          breathing({
+            counter: { item: 'frostBreath', activity: 'frostSave' },
+          }),
+          { activity: 'frostSave' },
+        ),
+      ).toBeUndefined()
+    })
+
+    it('refuses one of uses not spent', () => {
+      expect(check(breathing({ value: 1, max: 1 }))).toBe('charged')
+      expect(check(breathing({ value: 3, max: 2 }))).toBe('charged')
+    })
+
+    it('refuses one of uses that don’t recharge, or aren’t its', () => {
+      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+      expect(check(undefined)).toBe('gone')
+      expect(check(breathing({ recharge: undefined }))).toBe('gone')
+      expect(check(breathing({}), { item: 'wolfBite' })).toBe('gone')
+      // The item's own, not one of its activities'.
+      expect(check(breathing({}), { activity: 'frostSave' })).toBe('gone')
+    })
+  })
+
+  it('names, totals and tells healing of damage on its own as damage, and a recharge as one', () => {
+    const made = held({
+      kind: 'itemDamage',
+      role: 'gm',
+      status: 'done',
+      result: {
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        rolls: [
+          { formula: '2d6', total: 7, dice: [], damageType: 'healing' },
+          { formula: '1d4', total: 2, dice: [], damageType: 'healing' },
+        ],
+      } as unknown as CommandResult,
+    })
+    expect(toRollRequestView(made, NOW).total).toBe(9)
+    expect(toGmRollView({ ...made, label: null }, NOW)).toMatchObject({
+      label: 'Damage',
+      healing: true,
+    })
+    expect(
+      toGmRollView({ ...held({ kind: 'recharge' }), label: null }, NOW).label,
+    ).toBe('A recharge')
   })
 })

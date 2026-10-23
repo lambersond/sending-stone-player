@@ -59,6 +59,55 @@ export type SheetWithheld = {
   limit: number | null
 }
 
+/**
+ * One of a campaign's characters' companions, as the module lists it (module 0.36.0): a creature
+ * the character summoned in Foundry, on the active scene, or an NPC its player owns there.
+ */
+export type CompanionEntry = {
+  /** Its actor's id, or for a token's creature `<sceneId>-<tokenId>`. */
+  key: string
+  /** The campaign characters it's a companion of, by actor id: at least one. */
+  of: string[]
+  kind: 'owned' | 'summoned'
+  actorId: string
+  tokenId: string | null
+  sceneId: string | null
+  uuid: string
+  name: string
+  img: string | null
+  /** For a summoned one: the item that summoned it, and its activity. */
+  summon: { itemId: string; item: string; activityId: string | null } | null
+  sheetWithheld?: SheetWithheld
+}
+
+/** What an NPC's sheet says of it as a creature (module 0.36.0). */
+export type SheetCreature = {
+  /** Its challenge rating, such as 0.25; null for none. */
+  cr: number | null
+  /** Such as "Beast" or "Fey (Shapechanger)". */
+  type: string | null
+  /** Such as "Medium". */
+  size: string | null
+  alignment: string | null
+  /** dnd5e's Important NPC, or one with class levels: it makes death saving throws. */
+  important: boolean
+  /** Its legendary actions, as dnd5e prepares them: one more in its lair. */
+  legendary: { value: number; max: number } | null
+  resistance: { value: number; max: number } | null
+  lair: { inside: boolean; initiative: number | null } | null
+  /** Such as `{ denomination: 'd8', value: 3, max: 4 }`. */
+  hitDice: { denomination: string; value: number; max: number } | null
+}
+
+/**
+ * The dice an action's damage or healing throws on its own, as the game will roll it (module
+ * 0.36.0): as dnd5e builds it, and as a critical hit's where one is allowed.
+ */
+export type TableDamagePlan = {
+  normal: DamagePreview
+  critical: DamagePreview | null
+}
+
 /** Whether a roll is made with advantage (1), disadvantage (-1), or neither (0). */
 export type RollMode = -1 | 0 | 1
 
@@ -146,6 +195,8 @@ export type SheetUses = {
    * only using it should spend, nor an unidentified item's.
    */
   spendable?: true
+  /** For uses that recharge, the lowest d6 that recharges them, 2 to 6. Module 0.36.0. */
+  recharge?: number
 }
 
 /**
@@ -402,6 +453,11 @@ export type SheetAction = {
   /** The saving throw it calls for: the ability's abbreviation, such as "DEX", and the DC. */
   save: { ability: string; dc: number | null } | null
   damage: SheetDamage[]
+  /**
+   * Its damage on its own, as the game would roll it; null or absent where it can't go alone.
+   * Module 0.36.0.
+   */
+  tableDamage?: TableDamagePlan | null
   /**
    * False for a spell's activity used after it's cast without spending a spell slot, such as Hex's
    * Bonus Hex Damage: it's used at the level chosen, whether any slot is left or not. Module
@@ -681,6 +737,7 @@ export type SheetActivity = Pick<
   | 'ammunition'
   | 'save'
   | 'damage'
+  | 'tableDamage'
   | 'consumesSlot'
   | 'cast'
   | 'rollFormula'
@@ -752,6 +809,7 @@ export type SheetRolls = Pick<
   | 'ammunition'
   | 'save'
   | 'damage'
+  | 'tableDamage'
   | 'consumesSlot'
   | 'cast'
   | 'spellId'
@@ -798,6 +856,7 @@ export type SheetActivityFavorite = Pick<
   | 'ammunition'
   | 'save'
   | 'damage'
+  | 'tableDamage'
   | 'consumesSlot'
   | 'cast'
   | 'spellId'
@@ -981,6 +1040,8 @@ export type CharacterSheet = {
   traits: SheetTrait[]
   deathSaves: { success: number; failure: number } | null
   details: SheetDetails
+  /** For an NPC, what it is as a creature. Module 0.36.0. */
+  creature?: SheetCreature
   actions: SheetActionSection[]
   /** In the order dnd5e shows them: resources first, then in the player's order. */
   favorites: SheetFavorite[]
@@ -1133,6 +1194,8 @@ export type SerializedMessage = {
    * Module 0.23.0.
    */
   gmRoll?: string
+  /** The listed companion it is, by key. Module 0.36.0, to an app that reads companions. */
+  companion?: string | null
 }
 
 export type CombatantSummary = {
@@ -1152,6 +1215,8 @@ export type CombatantSummary = {
    * disposition players aren't shown, such as a secret or hidden token, or one with no token.
    */
   disposition?: 'friendly' | 'neutral' | 'hostile' | null
+  /** The listed companion it is, by key. Module 0.36.0, to an app that reads companions. */
+  companion?: string | null
 }
 
 export type CombatSnapshot = {
@@ -1253,6 +1318,20 @@ export type BridgeFeatures = {
     orders?: boolean
     changes?: boolean
   } | null
+  /**
+   * The kinds a companion's rolls may be, as the campaign takes them now, and how its companions
+   * enter initiative, as its Gamemaster sets it. Module 0.36.0; absent before.
+   */
+  companions?: { kinds: string[]; initiative: 'own' | 'after' }
+}
+
+/** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
+export type CompanionsListed = { companions: CompanionEntry[] }
+
+/** One of the campaign's characters' companions' sheets (module 0.36.0). */
+export type CompanionUpdated = {
+  companion: CompanionEntry
+  sheet: CharacterSheet | null
 }
 
 /**
@@ -1517,6 +1596,11 @@ export type GameEvent =
         characters: ConnectedCharacter[]
         /** The campaign's Group actors, without their sheets, which follow it. Module 0.30.0. */
         groups?: GroupEntry[]
+        /**
+         * The campaign's characters' companions, without their sheets, which follow it. Module
+         * 0.36.0.
+         */
+        companions?: CompanionEntry[]
         combats: CombatSnapshot[]
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */
@@ -1574,3 +1658,5 @@ export type GameEvent =
   | { type: 'group.removed'; data: { id: string } }
   | { type: 'bridge.settings'; data: { settings?: FoundrySettings } }
   | { type: 'journal.updated'; data: JournalUpdated }
+  | { type: 'companions.listed'; data: CompanionsListed }
+  | { type: 'companion.updated'; data: CompanionUpdated }
