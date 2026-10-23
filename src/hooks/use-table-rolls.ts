@@ -88,7 +88,8 @@ export const GM_SEND_KEY = `${SEND_KEY}:gm`
 export const ALONE_KEY = 'sending-stone:send-damage'
 export const GM_ALONE_KEY = `${ALONE_KEY}:gm`
 
-const SEND_CHOICES = ['on', 'off'] as const
+/** What each of those switches is: on or off. End Turn reads Send's too (module 0.36.0). */
+export const SEND_CHOICES = ['on', 'off'] as const
 
 /**
  * A spent recharge rolled (module 0.36.0): what it's called, and the uses it recharges, as the

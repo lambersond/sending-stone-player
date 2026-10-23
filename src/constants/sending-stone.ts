@@ -114,7 +114,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * and from module 0.31.0, items and coins moved between the character and a party or another
  * character, none of them a roll; and from module 0.33.0, an item removed from the character, no
  * roll either; and from module 0.36.0, an action's damage or healing on its own, and a spent
- * recharge rolled.
+ * recharge rolled, and the current turn ended, the character's or one of its companions', no roll
+ * either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -136,6 +137,7 @@ export const ROLL_KINDS = [
   'recharge',
   'endEnchantment',
   'endConcentration',
+  'endTurn',
   'spend',
   'inspiration',
   'transfer',
@@ -260,8 +262,9 @@ export const MOST_COMPANIONS = 50
 
 /**
  * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
- * edits it rather than acting, as charges spent by hand. The module's list has `note` too, which
- * isn't a roll here.
+ * edits it rather than acting, as charges spent by hand, and ending a turn, which the character's
+ * page does for its companions' turns too. The module's list has `note` too, which isn't a roll
+ * here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
@@ -270,6 +273,7 @@ export const COMPANION_UNTAKEN = [
   'spend',
   'transfer',
   'remove',
+  'endTurn',
 ] as const
 
 /**

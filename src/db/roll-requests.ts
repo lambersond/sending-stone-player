@@ -18,11 +18,13 @@ import { recordNoteResult } from '@/db/note-sync'
 import { createRemoveRequest } from '@/db/removals'
 import { createTransferRequest } from '@/db/transfers'
 import { sheetLinks } from '@/lib/sheet-html'
+import { companionRoster } from '@/utils/companions'
 import { changes } from '@/utils/damage-modifiers'
 import { checkPrompt } from '@/utils/prompts'
 import {
   availableRollKinds,
   checkDamage,
+  checkEndTurn,
   checkRoll,
   GM_UNSENT,
   toCommand,
@@ -114,7 +116,10 @@ export type RollRejection = {
  * what the game asks, which it asks of no companion; a death saving throw only where it's an
  * important NPC; and its initiative not where it acts right after its character, who's in that
  * combat. It's checked against its own sheet, typed in as its character's player types theirs,
- * and kept as its key, with its character's id, for the module to make it as the companion.
+ * and kept as its key, with its character's id, for the module to make it as the companion. And a
+ * turn ended, from module 0.36.0, only by the character's player at its own seat, never at a
+ * companion's or the Gamemaster's, is checked against the combat it names alone, as last heard of,
+ * with or without a sheet, and counted with the seat's rolls.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -140,14 +145,15 @@ export async function createRollRequest(
       rollFeatures: true,
       bridgePolledAt: true,
       characters: true,
+      companions: true,
       companionKinds: true,
       companionInitiative: true,
     },
   })
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
-  // and ending an enchantment or a concentration is no roll, and posts nothing, so it would leave
-  // no mark: the Gamemaster ends one in Foundry. Charges spent and Heroic Inspiration post a line
-  // marked as theirs, so they're the Gamemaster's to send too.
+  // and ending an enchantment, a concentration or from module 0.36.0 a turn is no roll, and posts
+  // nothing, so it would leave no mark: the Gamemaster ends one in Foundry. Charges spent and
+  // Heroic Inspiration post a line marked as theirs, so they're the Gamemaster's to send too.
   if (
     seat.role === 'gm' &&
     (!campaign?.rollFeatures.includes('gmRolls') || GM_UNSENT.has(input.kind))
@@ -182,11 +188,12 @@ export async function createRollRequest(
 
   const now = Date.now()
   const damage = input.kind === 'damage' && input.use ? input.use : undefined
-  // The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in.
-  const combatId =
-    input.kind === 'initiative'
-      ? input.combatId
-      : (input.target?.combatId ?? input.targets?.[0]?.combatId)
+  // The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in;
+  // or from module 0.36.0, the one whose turn is ended.
+  const ending = input.kind === 'endTurn'
+  let combatId = input.target?.combatId ?? input.targets?.[0]?.combatId
+  if (input.kind === 'initiative') combatId = input.combatId
+  else if (ending) combatId = input.turn?.combatId
   const prompt = input.prompt
   const text = input.text
   const [
@@ -301,9 +308,21 @@ export async function createRollRequest(
   }
   const held = sheet?.data as unknown as CharacterSheet | undefined
   const fights = combats.map(({ data }) => data as unknown as CombatSnapshot)
-  const refusal = damage
-    ? checkDamage(input, use, others, now, actorId)
-    : (companionRefusal(input, companion, held, fights, campaign) ??
+  // A turn ended, from module 0.36.0, is checked against the combat alone, with a sheet or none:
+  // the turn the page was shown, still the current one, and the character's or a companion's.
+  let refusal: RollRefusal | undefined
+  if (ending) {
+    refusal = checkEndTurn(
+      input.turn,
+      fights,
+      actorId,
+      companionRoster(campaign.companions),
+    )
+  } else if (damage) {
+    refusal = checkDamage(input, use, others, now, actorId)
+  } else {
+    refusal =
+      companionRefusal(input, companion, held, fights, campaign) ??
       checkRoll(
         input,
         held,
@@ -312,7 +331,8 @@ export async function createRollRequest(
         described ? sheetLinks(described.html) : undefined,
         campaign.rollFeatures,
       ) ??
-      (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined))
+      (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined)
+  }
   if (refusal) return { status: 422, reason: refusal }
 
   // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is

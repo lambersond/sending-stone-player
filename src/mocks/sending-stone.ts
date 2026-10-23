@@ -27,7 +27,12 @@ import type {
   SheetUses,
   TableDamagePlan,
 } from '@/types/sending-stone'
-import type { CompanionView, TableMoves, TableView } from '@/types/table'
+import type {
+  CompanionView,
+  TableCombat,
+  TableMoves,
+  TableView,
+} from '@/types/table'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
 
@@ -2994,6 +2999,64 @@ export function mockCompanionCampaign(fields: object = {}) {
     bridgePolledAt: new Date(Date.now() - 5000),
     transfersEnabled: false,
     removalsEnabled: false,
+    ...fields,
+  }
+}
+
+/**
+ * A fight as Thorin's page shows it (module 0.36.0, End Turn): started, in round 1, Thorin first,
+ * then his wolf Brakka, a goblin, Vex, and Vex's own wolf; Thorin's turn unless another is given.
+ */
+export function mockTurnCombat(fields: Partial<TableCombat> = {}): TableCombat {
+  return {
+    id: 'cmbt1',
+    name: null,
+    started: true,
+    round: 1,
+    currentId: 'c-thorin',
+    combatants: [
+      {
+        id: 'c-thorin',
+        name: 'Thorin',
+        initiative: 20,
+        defeated: false,
+        side: 'me',
+        hp: { value: 31, max: 44, temp: 0 },
+      },
+      {
+        id: 'c-brakka',
+        name: 'Brakka',
+        initiative: 18,
+        defeated: false,
+        side: 'party',
+        hp: { value: 11, max: 11, temp: 0 },
+        yours: true,
+        companion: 'wolfBrakka',
+      },
+      {
+        id: 'c-goblin',
+        name: 'Goblin',
+        initiative: 12,
+        defeated: false,
+        side: 'other',
+      },
+      {
+        id: 'c-vex',
+        name: 'Vex',
+        initiative: 10,
+        defeated: false,
+        side: 'party',
+        hp: { value: 20, max: 27, temp: 0 },
+      },
+      {
+        id: 'c-vex-wolf',
+        name: 'Wolf',
+        initiative: 8,
+        defeated: false,
+        side: 'party',
+        hp: { value: 11, max: 11, temp: 0 },
+      },
+    ],
     ...fields,
   }
 }

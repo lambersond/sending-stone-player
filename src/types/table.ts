@@ -1,5 +1,5 @@
 import type { TableGroup } from '@/types/party'
-import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
+import type { EndedTurn, GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type {
   AskedCheck,
   CharacterSheet,
@@ -198,6 +198,17 @@ export type TableCombat = {
   /** Whose turn it is. Unset before the start, or while a hidden combatant acts. */
   currentId?: string
   combatants: TableCombatant[]
+}
+
+/**
+ * A turn the seat may end from the table (module 0.36.0): its character's, or one of its
+ * companions', as the page last saw the combat.
+ */
+export type EndableTurn = EndedTurn & {
+  /**
+   * For one of its companions' turns: its key and name, for words such as "Ending Brakka’s turn".
+   */
+  companion?: { key: string; name: string }
 }
 
 /**

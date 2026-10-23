@@ -76,6 +76,16 @@ const targetSchema = z.strictObject({
   combatantId: z.string().regex(FOUNDRY_ID),
 })
 
+/**
+ * A turn ended, from module 0.36.0, as its player was shown it: its combat, its round and its
+ * current combatant, never a turn index, which the app isn't sent.
+ */
+const turnSchema = z.strictObject({
+  combatId: z.string().regex(FOUNDRY_ID),
+  round: z.int().min(1).max(100_000),
+  combatantId: z.string().regex(FOUNDRY_ID),
+})
+
 /** How a player changed damage: more of its first die, another size of it, its highest. */
 const modifiersSchema = z.strictObject({
   extra: z.int().min(0).max(MOST_DICE).optional(),
@@ -239,7 +249,8 @@ const removeSchema = z
 /**
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
  * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
- * module 0.31.0, a move what moves; and from module 0.33.0, a removal what it removes.
+ * module 0.31.0, a move what moves; from module 0.33.0, a removal what it removes; and from module
+ * 0.36.0, a turn ended which turn.
  */
 const OWN_FIELDS = {
   endConcentration: {
@@ -262,6 +273,10 @@ const OWN_FIELDS = {
     field: 'remove',
     message: 'A removal, and only that, names what it removes',
   },
+  endTurn: {
+    field: 'turn',
+    message: 'A turn ended, and only that, names the turn',
+  },
 } as const
 
 /** What each of those, and ending an enchantment, is said not to throw. */
@@ -273,6 +288,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   inspiration: 'Heroic Inspiration throws no dice',
   transfer: 'Moving throws no dice',
   remove: 'Removing throws no dice',
+  endTurn: 'Ending a turn throws no dice',
 }
 
 const rolledDiceSchema = z.strictObject({
@@ -317,7 +333,8 @@ const rolledDiceSchema = z.strictObject({
  * Accuracy. From module 0.36.0, an action's damage or healing on its own names its item and
  * activity, and may be a critical hit's, with kinds chosen and changes, as damage may, and throws
  * one to twenty dice; and a spent recharge names its item, and may name its activity, and throws
- * its one d6. Neither names anything else a roll does.
+ * its one d6. Neither names anything else a roll does. From module 0.36.0, a turn ended names its
+ * combat, round and current combatant, and nothing else, and throws no dice.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -372,6 +389,7 @@ export const rollRequestSchema = z
     inspiration: z.enum(['use', 'gain']).optional(),
     transfer: transferSchema.optional(),
     remove: removeSchema.optional(),
+    turn: turnSchema.optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
     typed: z.literal(true).optional(),
   })
@@ -596,8 +614,8 @@ export const rollRequestSchema = z
       })
     }
     // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
-    // from module 0.31.0 and a removal from module 0.33.0, each name what they're of, and nothing
-    // else does; charges, how many, which nothing else says.
+    // from module 0.31.0, a removal from module 0.33.0 and a turn ended from module 0.36.0, each
+    // name what they're of, and nothing else does; charges, how many, which nothing else says.
     for (const [kind, { field, message }] of Object.entries(OWN_FIELDS)) {
       if ((request.kind === kind) !== (request[field] !== undefined)) {
         context.addIssue({ code: 'custom', path: [field], message })

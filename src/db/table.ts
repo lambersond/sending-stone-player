@@ -177,8 +177,8 @@ export const rollsSelect = {
  * the game does with them. A player's never name `gmRolls`, which only the Gamemaster's view
  * reads, so their views, and what tells them apart, are as before it. The Gamemaster's (#156) are
  * none while the game doesn't make their rolls as the character's, marked as theirs, and never an
- * end of an enchantment or a concentration, which is no roll and posts nothing (`GM_UNSENT`); with
- * where their rolls go: made in the game, kept here
+ * end of an enchantment, a concentration or from module 0.36.0 a turn, which is no roll and posts
+ * nothing (`GM_UNSENT`); with where their rolls go: made in the game, kept here
  * until its module is updated, or kept here while it takes no rolls.
  */
 export function seatRolls(

@@ -223,7 +223,9 @@ describe('db/roll-requests', () => {
           rollFeatures: true,
           bridgePolledAt: true,
           characters: true,
-          // Changed on purpose (round 0.36.0 §7.12): what a companion's roll is checked by.
+          // Changed on purpose (round 0.36.0 §7.12): what a companion's roll is checked by, and
+          // (v4) whose companions' turns the character's player may end.
+          companions: true,
           companionKinds: true,
           companionInitiative: true,
         },
@@ -3473,5 +3475,224 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
         id: 'req-1',
       })
     })
+  })
+})
+
+/** A fight as last heard of, from module 0.36.0, on whose turn it is, in round 2. */
+const turnFight = (combatantId: string) =>
+  combat({
+    round: 2,
+    combatantId,
+    combatants: [
+      combatant({ id: 'c-thorin', character: 'actor-thorin' }),
+      combatant({ id: 'c-brakka', companion: 'wolfBrakka' }),
+      combatant({ id: 'c-vex', character: 'actor-vex' }),
+      combatant({ id: 'c-vex-wolf', companion: 'wolfVex' }),
+      combatant({ id: 'c-shared', companion: 'wolfShared' }),
+      combatant({ id: 'c-goblin', name: 'Goblin' }),
+    ],
+  })
+
+describe('db/roll-requests, a turn ended, from module 0.36.0', () => {
+  const plain = { mode: 0 as const, explicit: false, extras: [], dice: [] }
+  /** The turn the page was shown, ended. */
+  const ending = (combatantId: string, round = 2): RollRequestInput => ({
+    kind: 'endTurn',
+    turn: { combatId: 'cmbt1', round, combatantId },
+    ...plain,
+  })
+  const brakka = mockCompanionEntry({ of: ['actor-thorin'] })
+  const vexWolf = mockCompanionEntry({ key: 'wolfVex', of: ['actor-vex'] })
+  /** A wolf of both, listed as Vex's first, so that Thorin is the second of its characters. */
+  const sharedWolf = mockCompanionEntry({
+    key: 'wolfShared',
+    of: ['actor-vex', 'actor-thorin'],
+  })
+  /** The campaign, its game taking End Turn, the fight on that turn, the rolls on their way. */
+  const givenTurn = ({
+    on = 'c-thorin',
+    inFlight = 0,
+    sheet = fullerSheet() as object | null,
+    features = ['gmRolls'] as string[],
+  } = {}) => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...takingRolls,
+      rollKinds: ['skill', 'attack', 'endConcentration', 'endTurn'],
+      rollFeatures: features,
+      characters: [{ id: 'actor-thorin', name: 'Thorin' }],
+      companions: [brakka, vexWolf, sharedWolf],
+      companionKinds: ['attack'],
+      companionInitiative: 'own',
+    } as any)
+    prismaMock.actorSheet.findUnique.mockResolvedValue(
+      sheet ? ({ data: sheet } as any) : null,
+    )
+    prismaMock.companionSheet.findUnique.mockResolvedValue({
+      data: mockCompanionSheet(),
+    } as any)
+    prismaMock.combat.findMany.mockResolvedValue([
+      { data: turnFight(on) },
+    ] as any)
+    prismaMock.rollRequest.count
+      .mockResolvedValueOnce(inFlight)
+      .mockResolvedValueOnce(0)
+    prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+    prismaMock.combat.findMany.mockReset()
+    prismaMock.companionSheet.findUnique.mockReset()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("takes the player's End Turn on their character's turn, kept as the character's, and reads the combat it names", async () => {
+    givenTurn()
+
+    await expect(
+      createRollRequest(character, ending('c-thorin')),
+    ).resolves.toEqual({ id: 'req-1' })
+    expect(prismaMock.combat.findMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1', combatId: 'cmbt1' },
+      select: { data: true },
+    })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: {
+        campaignId: 'c1',
+        characterId: 'char-1',
+        role: 'player',
+        requestedById: 'user-1',
+        actorId: 'actor-thorin',
+        kind: 'endTurn',
+        payload: ending('c-thorin'),
+        createdAt: new Date(NOW),
+      },
+      select: { id: true },
+    })
+    const { data } = prismaMock.rollRequest.create.mock.calls[0][0]
+    expect(data).not.toHaveProperty('ofActorId')
+    expect((data.payload as RollRequestInput).turn).toEqual({
+      combatId: 'cmbt1',
+      round: 2,
+      combatantId: 'c-thorin',
+    })
+  })
+
+  it("takes it on one of the character's companions' turns, from the character's own seat", async () => {
+    givenTurn({ on: 'c-brakka' })
+
+    await expect(
+      createRollRequest(character, ending('c-brakka')),
+    ).resolves.toEqual({ id: 'req-1' })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: 'actor-thorin',
+        kind: 'endTurn',
+      }),
+      select: { id: true },
+    })
+  })
+
+  it("takes it on the turn of a companion of two characters, from the second's seat", async () => {
+    givenTurn({ on: 'c-shared' })
+
+    await expect(
+      createRollRequest(character, ending('c-shared')),
+    ).resolves.toEqual({ id: 'req-1' })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: 'actor-thorin',
+        kind: 'endTurn',
+        payload: ending('c-shared'),
+      }),
+      select: { id: true },
+    })
+  })
+
+  it('takes it for a character with no sheet held, as nothing of the sheet is checked', async () => {
+    givenTurn({ sheet: null })
+
+    await expect(
+      createRollRequest(character, ending('c-thorin')),
+    ).resolves.toEqual({ id: 'req-1' })
+  })
+
+  it("refuses it on another player's companion's turn, or anyone else's", async () => {
+    for (const on of ['c-vex-wolf', 'c-vex', 'c-goblin']) {
+      givenTurn({ on })
+      await expect(createRollRequest(character, ending(on))).resolves.toEqual(
+        refusal(422, 'not-turn'),
+      )
+    }
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses a stale one: its round, or its turn, moved on', async () => {
+    givenTurn()
+    await expect(
+      createRollRequest(character, ending('c-thorin', 1)),
+    ).resolves.toEqual(refusal(422, 'moved'))
+    givenTurn({ on: 'c-brakka' })
+    await expect(
+      createRollRequest(character, ending('c-thorin')),
+    ).resolves.toEqual(refusal(422, 'moved'))
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses it in a combat not held', async () => {
+    givenTurn()
+    prismaMock.combat.findMany.mockReset()
+    prismaMock.combat.findMany.mockResolvedValue([])
+    await expect(
+      createRollRequest(character, ending('c-thorin')),
+    ).resolves.toEqual(refusal(422, 'not-in-combat'))
+  })
+
+  it("never takes the Gamemaster's, who ends turns in Foundry, nor counts it", async () => {
+    givenTurn()
+
+    await expect(createRollRequest(gm(), ending('c-thorin'))).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("never takes one at a companion's seat, whose kinds never have it", async () => {
+    givenTurn({ on: 'c-brakka' })
+    const atBrakka: SheetSeat = {
+      ...character,
+      actorId: 'wolfBrakka',
+      name: 'Wolf',
+      companion: { of: 'actor-thorin', entry: brakka },
+    }
+
+    await expect(
+      createRollRequest(atBrakka, ending('c-brakka')),
+    ).resolves.toEqual(refusal(409, 'unavailable'))
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('counts it with the seat’s rolls: refused while three are on their way', async () => {
+    givenTurn({ inFlight: 3 })
+
+    await expect(
+      createRollRequest(character, ending('c-thorin')),
+    ).resolves.toEqual(refusal(429, 'busy'))
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('sends the module the character’s End Turn as it is, naming no companion', async () => {
+    expect(
+      toCommand({
+        ...held('req-1', { kind: 'endTurn', payload: ending('c-brakka') }),
+        role: 'player',
+        ofActorId: null,
+      } as any),
+    ).toEqual({ ...ending('c-brakka'), id: 'req-1', actorId: 'actor-thorin' })
   })
 })

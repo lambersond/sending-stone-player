@@ -199,6 +199,12 @@ export type ActivityRef = { item: string; activity: string }
 /** The combatant an attack, or a use, is made at, in the combat its player sees. */
 export type AttackTarget = { combatId: string; combatantId: string }
 
+/**
+ * A turn as the page was shown it, for ending it (module 0.36.0): its combat, its round and its
+ * current combatant. Never a turn index, which the app isn't sent.
+ */
+export type EndedTurn = { combatId: string; round: number; combatantId: string }
+
 /** The dice of one roll of a kind of die, in the order they were thrown. */
 export type RolledDice = { faces: number; results: number[] }
 
@@ -249,6 +255,8 @@ export type RollRequestInput = {
   transfer?: TransferInput
   /** For a removal, from module 0.33.0, what it removes. */
   remove?: RemoveInput
+  /** For a turn ended, from module 0.36.0: which. */
+  turn?: EndedTurn
   /** For an attack, the ammunition and attack mode chosen. */
   ammunition?: string
   attackMode?: string

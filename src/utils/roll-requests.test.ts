@@ -3,6 +3,7 @@ import {
   availableRollKinds,
   checkDamage,
   checkDamageDice,
+  checkEndTurn,
   checkRoll,
   isDying,
   isSeatCombatant,
@@ -27,6 +28,7 @@ import {
   frostBreathAction,
   fullerSheet,
   greataxeAction,
+  mockCompanionEntry,
   mockCompanionSheet,
   mockTableDamage,
   rapierAction,
@@ -5143,6 +5145,8 @@ describe('utils/roll-requests for concentration, charges and Heroic Inspiration,
     ['transfer', 'Items or coins moved'],
     // From module 0.33.0.
     ['remove', 'An item removed'],
+    // From module 0.36.0, though the Gamemaster never sends one.
+    ['endTurn', 'A turn ended'],
   ])(
     "calls the Gamemaster's %s from a page that didn't say %p",
     (kind, label) => {
@@ -5574,5 +5578,164 @@ describe('utils/roll-requests for companions, from module 0.36.0', () => {
     expect(
       toGmRollView({ ...held({ kind: 'recharge' }), label: null }, NOW).label,
     ).toBe('A recharge')
+  })
+})
+
+/**
+ * A fight as last heard of, from module 0.36.0: Thorin, his wolf, a goblin, Vex and her wolf, a
+ * wolf of both, and an imp named a companion that isn't listed; Thorin's turn in round 2 unless
+ * said.
+ */
+const turnFight = (fields: object = {}) =>
+  combat({
+    round: 2,
+    combatantId: 'c-thorin',
+    combatants: [
+      combatant({ id: 'c-thorin', character: 'actor-thorin' }),
+      combatant({ id: 'c-brakka', companion: 'wolfBrakka' }),
+      combatant({ id: 'c-goblin', name: 'Goblin' }),
+      combatant({ id: 'c-vex', character: 'actor-vex' }),
+      combatant({ id: 'c-vex-wolf', companion: 'wolfVex' }),
+      combatant({ id: 'c-shared', companion: 'wolfShared' }),
+      combatant({ id: 'c-imp', companion: 'sceneFrost-tokenImp' }),
+    ],
+    ...fields,
+  })
+
+/** A turn as the page was shown it: this combatant's, in round 2 unless said. */
+const turnOf = (combatantId: string, round = 2) => ({
+  combatId: 'cmbt1',
+  round,
+  combatantId,
+})
+
+describe('utils/roll-requests, a turn ended, from module 0.36.0', () => {
+  /**
+   * Thorin's wolf, Brakka, Vex's, and one of both, as the campaign lists them: the last Vex's
+   * first, so that Thorin is the second of its characters.
+   */
+  const roster = [
+    mockCompanionEntry({ key: 'wolfBrakka', of: ['actor-thorin'] }),
+    mockCompanionEntry({ key: 'wolfVex', of: ['actor-vex'] }),
+    mockCompanionEntry({
+      key: 'wolfShared',
+      of: ['actor-vex', 'actor-thorin'],
+    }),
+  ]
+  const fight = turnFight
+  /** On whose turn the combat is, the page naming that turn. */
+  const check = (
+    combatantId: string,
+    fields: object = {},
+    turn = turnOf(combatantId),
+  ) =>
+    checkEndTurn(
+      turn,
+      [fight({ combatantId, ...fields })],
+      'actor-thorin',
+      roster,
+    )
+
+  it("takes the character's own turn", () => {
+    expect(check('c-thorin')).toBeUndefined()
+  })
+
+  it("takes the turn of one of the character's listed companions, from the character's seat", () => {
+    expect(check('c-brakka')).toBeUndefined()
+  })
+
+  it("takes the turn of a companion of two characters from either one's seat, the second listed too", () => {
+    expect(check('c-shared')).toBeUndefined()
+    expect(
+      checkEndTurn(
+        turnOf('c-shared'),
+        [fight({ combatantId: 'c-shared' })],
+        'actor-vex',
+        roster,
+      ),
+    ).toBeUndefined()
+  })
+
+  it("refuses the turn of another character's companion, which isn't the seat's", () => {
+    expect(check('c-vex-wolf')).toBe('not-turn')
+  })
+
+  it('refuses the turn of a creature named a companion that the campaign doesn’t list', () => {
+    expect(check('c-imp')).toBe('not-turn')
+  })
+
+  it('refuses anyone else’s turn', () => {
+    expect(check('c-goblin')).toBe('not-turn')
+    expect(check('c-vex')).toBe('not-turn')
+  })
+
+  it('refuses a turn of a combat not held, or none named', () => {
+    expect(checkEndTurn(turnOf('c-thorin'), [], 'actor-thorin', roster)).toBe(
+      'not-in-combat',
+    )
+    expect(
+      checkEndTurn(
+        { ...turnOf('c-thorin'), combatId: 'cmbt2' },
+        [fight()],
+        'actor-thorin',
+        roster,
+      ),
+    ).toBe('not-in-combat')
+    expect(checkEndTurn(undefined, [fight()], 'actor-thorin', roster)).toBe(
+      'not-in-combat',
+    )
+  })
+
+  it('refuses a turn of a combat not started', () => {
+    expect(check('c-thorin', { started: false })).toBe('not-started')
+  })
+
+  it('refuses a turn that has moved on: another round, or another combatant now', () => {
+    // Round 2 is Thorin's, as the page last saw it; the game is on round 3.
+    expect(check('c-thorin', { round: 3 })).toBe('moved')
+    // The page was shown Thorin's turn; the game has gone on to his wolf's, also his.
+    expect(check('c-brakka', {}, turnOf('c-thorin'))).toBe('moved')
+    // Or no one is current, as while a hidden combatant acts.
+    expect(check('c-thorin', { combatantId: null })).toBe('moved')
+  })
+
+  it('refuses a current combatant that is hidden, or the combat has no row of', () => {
+    const hidden = fight({
+      combatants: [
+        combatant({ id: 'c-thorin', character: 'actor-thorin', hidden: true }),
+      ],
+    })
+    expect(
+      checkEndTurn(turnOf('c-thorin'), [hidden], 'actor-thorin', roster),
+    ).toBe('moved')
+    expect(
+      checkEndTurn(
+        turnOf('c-thorin'),
+        [fight({ combatants: [] })],
+        'actor-thorin',
+        roster,
+      ),
+    ).toBe('moved')
+  })
+
+  it('sends the module a turn ended as it is, the character’s, with no companion named', () => {
+    const payload = {
+      kind: 'endTurn' as const,
+      turn: turnOf('c-brakka'),
+      mode: 0 as const,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    const command = toCommand(
+      held({ kind: 'endTurn', payload, ofActorId: null }),
+    )
+    expect(command).toEqual({
+      ...payload,
+      id: 'req-1',
+      actorId: 'actor-thorin',
+    })
+    expect(command).not.toHaveProperty('of')
+    expect(command).not.toHaveProperty('by')
   })
 })

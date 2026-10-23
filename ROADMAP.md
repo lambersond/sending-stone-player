@@ -24,6 +24,8 @@ Released: module v0.35.0 and its app.
    throw made there, as dnd5e's damage card with no targets, for the Gamemaster to select tokens
    and apply as normal; with Midi-QOL too, outside its workflow.
 3. **Recharges:** a spent "Recharge 5–6" is rolled from the app.
+4. **End Turn:** a player ends their turn, or a companion's, from the app: the turn panel's End
+   Turn button, or the Combat tab held for a second and a half. It's Foundry's own Next Turn.
 
 Patch releases (0.36.x) are expected as beta use turns up things to tweak.
 
@@ -73,5 +75,7 @@ Open questions:
 - Companions show while on the active scene; a linked NPC its player owns shows always.
 - Damage on its own is rolled at a spell's own level, in a weapon's first mode, without ammunition;
   Cast it, or attack, for the rest.
+- End Turn isn't offered while a character is transformed, as by Wild Shape: end the turn in
+  Foundry then.
 - Notes deleted or reordered in Foundry while no Gamemaster is connected don't move the journal's
   "Last changed by" line.

@@ -23,6 +23,7 @@ import { damageKinds, healingRolls, toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
   AttackTarget,
+  EndedTurn,
   GmRollView,
   RollFeature,
   RollKind,
@@ -34,6 +35,7 @@ import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
+  CompanionEntry,
   DamagePreview,
   SheetAction,
   SheetCounter,
@@ -86,7 +88,10 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * as many as asked, but not as many as the page showed, as after a potion was drunk (`changed`).
  * From module 0.36.0: an action's damage on its own asked for as a critical hit's where the game
  * would make none (`critical`); a recharge of uses that aren't spent (`charged`); and a companion's
- * initiative where it acts right after its character, who's in that combat (`follows`).
+ * initiative where it acts right after its character, who's in that combat (`follows`). From module
+ * 0.36.0, for a turn ended: the combat hasn't started (`not-started`); its round or current
+ * combatant isn't the one the page showed, or that one is hidden (`moved`); or it's neither the
+ * character's turn nor one of its companions' (`not-turn`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -127,6 +132,9 @@ export type RollRefusal =
   | 'critical'
   | 'charged'
   | 'follows'
+  | 'not-started'
+  | 'moved'
+  | 'not-turn'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -174,11 +182,13 @@ export function isSeatCombatant(
 /**
  * What the campaign's Gamemaster never sends as a character (#156): an end of an enchantment or,
  * from module 0.29.0, of a concentration, which post nothing in the game, so would leave no mark of
- * theirs. Charges spent and Heroic Inspiration post a line marked as theirs.
+ * theirs; and from module 0.36.0 a turn ended, which posts nothing either: the Gamemaster ends one
+ * in Foundry. Charges spent and Heroic Inspiration post a line marked as theirs.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
   'endConcentration',
+  'endTurn',
 ])
 
 /**
@@ -347,6 +357,43 @@ export function checkRoll(
       return sheet?.inspiration === false ? undefined : 'inspired'
     }
   }
+}
+
+/**
+ * Can the seat end this turn, from module 0.36.0, as the combat was last heard of: the turn the
+ * page was shown, still the current one, of a started combat, and the seat's character's, or one of
+ * its companions', by the campaign's stored list. Checked alone, with or without a sheet; the game
+ * checks it again as it stands before it ends anything, since a turn can move on in between.
+ * @param turn - The turn the page was shown: its combat, round and current combatant.
+ * @param actorId - The seat's character: a companion's turn is ended from its character's page.
+ * @param roster - The campaign's companions, as stored.
+ * @returns Why not, or nothing when it can.
+ */
+export function checkEndTurn(
+  turn: EndedTurn | undefined,
+  combats: CombatSnapshot[],
+  actorId: string,
+  roster: CompanionEntry[],
+): RollRefusal | undefined {
+  const combat = turn && combats.find(({ id }) => id === turn.combatId)
+  if (!turn || !combat) return 'not-in-combat'
+  if (!combat.started) return 'not-started'
+  // The page names the turn by its round and current combatant, so that a stale or second press
+  // ends nothing more once the turn has moved on.
+  if (combat.round !== turn.round || combat.combatantId !== turn.combatantId) {
+    return 'moved'
+  }
+  // The page is never shown a hidden combatant as the current one.
+  const current = combat.combatants.find(({ id }) => id === turn.combatantId)
+  if (!current || current.hidden === true) return 'moved'
+  // Not isSeatCombatant, whose companion is a companion's own seat's: here it's any of those the
+  // stored list gives the character.
+  const yours =
+    current.character === actorId ||
+    roster.some(
+      ({ key, of }) => key === current.companion && of.includes(actorId),
+    )
+  return yours ? undefined : 'not-turn'
 }
 
 /**
@@ -1159,6 +1206,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   inspiration: 'Heroic Inspiration',
   transfer: 'Items or coins moved',
   remove: 'An item removed',
+  endTurn: 'A turn ended',
 }
 
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */

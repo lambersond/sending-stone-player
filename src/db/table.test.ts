@@ -688,6 +688,23 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
     })
   })
 
+  it('offers the player End Turn, from module 0.36.0, but never the Gamemaster, who ends turns in Foundry', async () => {
+    const kinds = ['skill', 'endConcentration', 'endTurn', 'spend']
+    givenCampaign(taking(['gmRolls'], kinds))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend'],
+    })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend'],
+    })
+  })
+
   it('tells the player and the Gamemaster at the sheet that players may enter their dice results, from module 0.26.0, while the game takes rolls', async () => {
     givenCampaign(taking(['gmRolls', 'manualDice']))
     await expect(getTableView(character)).resolves.toMatchObject({
