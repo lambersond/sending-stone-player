@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { useDamageMenu } from './damage-menu'
 import { RollButton } from './roll-button'
+import { useCreature } from '@/hooks/use-creature'
+import { useRollsLocked } from '@/hooks/use-rolls-locked'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
@@ -63,6 +65,17 @@ export type TableRolls = {
   modifies?: boolean
 }
 
+/** The creature a pane is for, where it isn't the character (module 0.36.0). */
+type Creature = NonNullable<ReturnType<typeof useCreature>>
+
+/**
+ * What a pane's rolls are called, as its tray, its rolls' button and its popover name them: the
+ * player's own at the character's pane, a creature's at its own (module 0.36.0).
+ */
+export function rollsName(creature?: Creature): string {
+  return creature ? `${creature.name}’s rolls` : 'Your rolls'
+}
+
 /** Roll the damage the game waits for, as the kind chosen, changed as chosen. */
 export type RollDue = (
   name: string,
@@ -86,9 +99,10 @@ export function RollTray({
   table?: TableRolls
   announce?: boolean
 }>) {
+  const creature = useCreature()
   return (
     <section
-      aria-label='Your rolls'
+      aria-label={rollsName(creature)}
       className='shrink-0 border-t border-border bg-card px-4 py-3 md:px-8'
     >
       <RollHistory
@@ -170,7 +184,9 @@ export function RollHistory({
                 className='flex items-baseline justify-between gap-3'
               >
                 <span className='flex min-w-0 items-baseline gap-1.5'>
-                  <span className='truncate'>{roll.label}</span>
+                  <span className='truncate'>
+                    {rechargeTitle(roll, table?.states.get(roll.id))}
+                  </span>
                   {roll.kind === 'gm' && <GmPill />}
                 </span>
                 <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
@@ -395,6 +411,11 @@ function reasonsOf(role: SeatRole): Record<string, string> {
     short: 'you haven’t that many left',
     'not-inspired': 'you have no Heroic Inspiration to use',
     inspired: 'you have Heroic Inspiration already',
+    // A creature's legendary action its pool can't pay, a recharge with nothing spent, and a
+    // critical hit asked of damage on its own that has none, from module 0.36.0.
+    legendary: 'it has too few legendary actions left',
+    charged: 'it’s charged already',
+    critical: 'that damage can’t be a critical hit’s',
   }
 }
 
@@ -438,22 +459,50 @@ const ENCHANT_REASONS: Record<string, string> = {
   enchant: 'it was used, but the enchantment wasn’t applied',
 }
 
-/** Why a roll, an attack or a use wasn't made, in words, if it's one the player is told of. */
-function reasonOf(state: TableRollState, role: SeatRole): string | undefined {
+/**
+ * Why a creature's roll wasn't made, at its own pane (module 0.36.0), where it differs from why
+ * the character's wasn't: it's no longer one of the character's companions, or it acts right
+ * after the character in initiative, which it doesn't roll. Made for each call, by its name.
+ */
+function creatureReasons(
+  creature: Creature,
+  role: SeatRole,
+): Record<string, string> {
+  const { game } = seatWords(role)
+  return {
+    unknown: `${creature.name} isn’t one of ${creature.character}’s companions in ${game} now`,
+    follows: `it acts right after ${creature.character} in ${game}`,
+  }
+}
+
+/**
+ * Why a roll, an attack or a use wasn't made, in words, if it's one the player is told of: at a
+ * creature's pane, as its own (module 0.36.0).
+ */
+function reasonOf(
+  state: TableRollState,
+  role: SeatRole,
+  creature?: Creature,
+): string | undefined {
   const key = state.reason ?? state.status
   const own =
     // A move of items and coins, from module 0.31.0, has words of its own.
     (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
-    (state.card === false ? ENCHANT_REASONS[key] : undefined)
+    (state.card === false ? ENCHANT_REASONS[key] : undefined) ??
+    (creature ? creatureReasons(creature, role)[key] : undefined)
   return own ?? reasons(role)[key]
 }
 
 /** Why the table wasn't asked, in words, where it differs from why a roll wasn't made. */
-function askReasons(role: SeatRole): Record<string, string> {
+function askReasons(
+  role: SeatRole,
+  creature?: Creature,
+): Record<string, string> {
   return {
     ...reasons(role),
+    ...(creature && creatureReasons(creature, role)),
     busy: 'the table was asked a moment ago. Wait a little before asking again',
   }
 }
@@ -499,7 +548,9 @@ function TableStatus({
   verdict?: LocalCheck['verdict']
 }>) {
   const role = useTableRole()
+  const creature = useCreature()
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
+  const outcome = outcomeOf(state, role, dc, verdict)
   switch (state.status) {
     case 'sending':
     case 'rolling': {
@@ -525,10 +576,10 @@ function TableStatus({
               <span className='font-semibold text-text-primary tabular-nums'>
                 {state.total ?? '?'}
               </span>
-              {outcomeOf(state, dc, verdict) && (
+              {outcome && (
                 <span className='font-semibold text-text-primary'>
                   {' · '}
-                  {outcomeOf(state, dc, verdict)}
+                  {outcome}
                 </span>
               )}
             </span>
@@ -543,7 +594,7 @@ function TableStatus({
       )
     }
     default: {
-      const reason = reasonOf(state, role)
+      const reason = reasonOf(state, role, creature)
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
@@ -591,12 +642,19 @@ function PartlyMade({
 /**
  * What came at the table of an attack, or a save the game asked for or made against a DC, or a
  * check made against one, as the game shows players: against a DC it doesn't say of, by its total.
+ * From module 0.36.0, a recharge's, whose outcome is never a save's, and damage on its own's, for
+ * the Gamemaster to apply, as the seat reads it.
  */
 function outcomeOf(
   state: TableRollState,
+  role: SeatRole,
   dc?: number,
   verdict?: LocalCheck['verdict'],
 ): string | undefined {
+  if (state.recharge) return rechargeWord(state)
+  if (state.alone) {
+    return `on its own, for ${role === 'gm' ? 'you' : 'your Gamemaster'} to apply`
+  }
   const saved = savedAt(state, dc)
   if (saved !== undefined) return verdictWord(saved, verdict)
   if (state.healed !== undefined) return `${state.healed} HP regained`
@@ -612,6 +670,29 @@ function outcomeOf(
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
   if (attack.outcome === 'miss') return 'Miss'
   return attack.critical ? 'Critical hit' : undefined
+}
+
+/** Whether a recharge's d6 recharged its uses, as the game says, in words (module 0.36.0). */
+function rechargeWord(state: TableRollState): string | undefined {
+  if (state.outcome === 'success') return 'recharged'
+  if (state.outcome === 'failure') return 'didn’t recharge'
+  return undefined
+}
+
+/**
+ * What a roll is called where it's shown: a recharge's d6 (module 0.36.0) by whether it recharged,
+ * once the game says, such as "Fire Breath recharged"; any other by its label.
+ */
+export function rechargeTitle(roll: LocalRoll, state?: TableRollState): string {
+  if (roll.kind !== 'formula' || !roll.recharge) return roll.label
+  const { name } = roll.recharge
+  if (state?.status === 'done' && state.outcome === 'success') {
+    return `${name} recharged`
+  }
+  if (state?.status === 'done' && state.outcome === 'failure') {
+    return `${name} didn’t recharge`
+  }
+  return roll.label
 }
 
 /**
@@ -636,8 +717,9 @@ function areaTold(state: TableRollState) {
 function gmOutcomeOf(
   roll: LocalGmRoll,
   state: TableRollState,
+  role: SeatRole,
 ): string | undefined {
-  const said = outcomeOf(state)
+  const said = outcomeOf(state, role)
   // Said wherever it's gold, and only there: never of healing.
   if (
     gmShape(roll) === 'damage' &&
@@ -762,6 +844,8 @@ function DamageButton({
   onTint: boolean
 }>) {
   const { open, dialogs } = useDamageMenu()
+  // A gone companion's pane rolls nothing, its due damage among it (module 0.36.0).
+  const locked = useRollsLocked()
   const { damage, requestId } = state
   // Whether it's due is `damageDue`'s to say; these are only what rolling it takes.
   if (!damage || !requestId) return
@@ -828,8 +912,12 @@ function DamageButton({
       <button
         type='button'
         aria-label={label}
+        disabled={locked}
         onClick={() => roll(type)}
-        className={className}
+        className={clsx(
+          className,
+          'disabled:cursor-not-allowed disabled:opacity-50',
+        )}
       >
         <Icon aria-hidden className='size-4' />
         {text}
@@ -898,11 +986,14 @@ function TableMark({
     }
     const saved = state.visible ? savedAt(state, dcOf(roll)) : undefined
     const verdict = roll.kind === 'check' ? roll.verdict : undefined
+    // A recharge's, and damage on its own's, from module 0.36.0, in place of a save's word.
+    let word = saved === undefined ? undefined : verdictWord(saved, verdict)
+    if (state.recharge) word = state.visible ? rechargeWord(state) : undefined
+    else if (state.alone && state.visible) word = 'on its own'
     return (
       <span className='ml-1.5'>
         {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
-        {saved !== undefined &&
-          `, ${verdictWord(saved, verdict).toLowerCase()}`}
+        {word !== undefined && `, ${word.toLowerCase()}`}
       </span>
     )
   }
@@ -1108,7 +1199,7 @@ function FormulaResult({
         {shownTotal(roll, state)}
       </span>
       <div className='min-w-0'>
-        <p className='truncate font-semibold'>{roll.label}</p>
+        <p className='truncate font-semibold'>{rechargeTitle(roll, state)}</p>
         <p className='text-xs text-text-secondary tabular-nums'>
           <Terms terms={roll.terms} firstThrow={again} />
           {roll.minimum !== undefined && ` · ${leastOf(roll)}`}
@@ -1207,6 +1298,7 @@ function UseStatus({
   state,
 }: Readonly<{ roll: LocalUse; state: TableRollState }>) {
   const role = useTableRole()
+  const creature = useCreature()
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   switch (state.status) {
     case 'sending':
@@ -1217,7 +1309,7 @@ function UseStatus({
             aria-hidden
             className='size-3.5 shrink-0 motion-safe:animate-spin'
           />
-          {usedWords(roll, state, role)}
+          {usedWords(roll, state, role, creature)}
         </p>
       )
     }
@@ -1225,7 +1317,7 @@ function UseStatus({
       return (
         <p className={clsx(line, 'text-text-secondary')}>
           <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
-          <span>{usedWords(roll, state, role)}</span>
+          <span>{usedWords(roll, state, role, creature)}</span>
         </p>
       )
     }
@@ -1233,7 +1325,7 @@ function UseStatus({
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-          {usedWords(roll, state, role)}
+          {usedWords(roll, state, role, creature)}
         </p>
       )
     }
@@ -1249,6 +1341,7 @@ function usedWords(
   roll: LocalUse,
   state: TableRollState,
   role: SeatRole,
+  creature?: Creature,
 ): string {
   if (roll.move) return moveWords(roll.move, state, role, reasons(role))
   let verb = roll.spell ? 'Cast' : 'Used'
@@ -1278,7 +1371,7 @@ function usedWords(
       ].join('')
     }
     default: {
-      const reason = reasonOf(state, role)
+      const reason = reasonOf(state, role, creature)
       return `Not ${verb.toLowerCase()} at the table${reason ? `: ${reason}` : ''}`
     }
   }
@@ -1309,6 +1402,7 @@ function AskResult({
 /** Where an ask is on its way to the game's chat, or why it isn't there. */
 function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
   const role = useTableRole()
+  const creature = useCreature()
   const line = 'mt-1 flex items-center gap-1.5 text-xs'
   switch (state?.status) {
     case 'sending':
@@ -1319,7 +1413,7 @@ function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
             aria-hidden
             className='size-3.5 shrink-0 motion-safe:animate-spin'
           />
-          {askedWords(state, role)}
+          {askedWords(state, role, creature)}
         </p>
       )
     }
@@ -1327,7 +1421,7 @@ function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
       return (
         <p className={clsx(line, 'text-text-secondary')}>
           <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
-          {askedWords(state, role)}
+          {askedWords(state, role, creature)}
         </p>
       )
     }
@@ -1335,7 +1429,7 @@ function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
       return (
         <p className={clsx(line, 'text-warning')}>
           <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-          {askedWords(state, role)}
+          {askedWords(state, role, creature)}
         </p>
       )
     }
@@ -1343,7 +1437,11 @@ function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
 }
 
 /** Where an ask is on its way to the game's chat, or why it isn't there, in words. */
-function askedWords(state: TableRollState | undefined, role: SeatRole): string {
+function askedWords(
+  state: TableRollState | undefined,
+  role: SeatRole,
+  creature?: Creature,
+): string {
   switch (state?.status) {
     case 'sending':
     case 'rolling': {
@@ -1353,7 +1451,8 @@ function askedWords(state: TableRollState | undefined, role: SeatRole): string {
       return 'Posted to the table’s chat'
     }
     default: {
-      const reason = state && askReasons(role)[state.reason ?? state.status]
+      const reason =
+        state && askReasons(role, creature)[state.reason ?? state.status]
       return `Not posted to the table${reason ? `: ${reason}` : ''}`
     }
   }
@@ -1381,6 +1480,13 @@ export function GmPill() {
   )
 }
 
+/** The kinds of roll that are damage or healing, as the Gamemaster's are told. */
+const DAMAGE_KINDS: ReadonlySet<RollKind> = new Set<RollKind>([
+  'damage',
+  'textDamage',
+  'itemDamage',
+])
+
 /**
  * What a roll of the Gamemaster's as the character is told as (#156): a use or an ask, as the
  * player's own are, charges spent or Heroic Inspiration as a use, from module 0.29.0, as they have
@@ -1392,7 +1498,8 @@ function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
   // Items and coins moved, from module 0.31.0, and items removed, from module 0.33.0, have no
   // total either.
   if (roll.rolled === 'transfer' || roll.rolled === 'remove') return 'use'
-  if (roll.rolled === 'damage' || roll.rolled === 'textDamage') return 'damage'
+  // Damage on its own too, from module 0.36.0.
+  if (DAMAGE_KINDS.has(roll.rolled)) return 'damage'
   return 'check'
 }
 
@@ -1433,6 +1540,7 @@ function gmLine(
   roll: LocalGmRoll,
   state: TableRollState | undefined,
   role: SeatRole,
+  creature?: Creature,
 ): RollBrief['table'] {
   if (!state) return undefined
   const tone = toneOf(state)
@@ -1455,12 +1563,12 @@ function gmLine(
       }
       if (shape === 'ask') return { tone, text: 'Posted to the table’s chat' }
       if (!state.visible) return { tone, text: seatWords(role).hidden }
-      const outcome = gmOutcomeOf(roll, state)
+      const outcome = gmOutcomeOf(roll, state, role)
       const total = `At the table: ${state.total ?? '?'}`
       return { tone, text: outcome ? `${total} · ${outcome}` : total }
     }
     default: {
-      const reason = reasonOf(state, role)
+      const reason = reasonOf(state, role, creature)
       const { together } = state
       let made = 'Not made at the table'
       if (shape === 'use') {
@@ -1552,15 +1660,16 @@ function GmResult({
   state,
 }: Readonly<{ roll: LocalGmRoll; state?: TableRollState }>) {
   const role = useTableRole()
+  const creature = useCreature()
   const { badge, total } = gmBadge(roll, state)
   const Icon = BADGE_ICONS[badge]
-  const line = gmLine(roll, state, role)
+  const line = gmLine(roll, state, role, creature)
   const shape = gmShape(roll)
   const told =
     state?.status === 'done' &&
     state.visible &&
     ['check', 'damage'].includes(shape)
-  const outcome = told ? gmOutcomeOf(roll, state) : undefined
+  const outcome = told ? gmOutcomeOf(roll, state, role) : undefined
   let icon = <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
   if (line?.tone === 'pending') {
     icon = (
@@ -1765,16 +1874,18 @@ export type RollBrief = {
 /**
  * A roll in brief, for its toast: what the tray says of it, in words, but for the d20 that didn't
  * count; and the colour its toast takes. The targets of an area attack, and the damage to roll
- * that follows a roll, the toast shows as the tray does.
+ * that follows a roll, the toast shows as the tray does. At a creature's pane, why one wasn't made
+ * is said as its own (module 0.36.0).
  */
 export function briefOf(
   roll: LocalRoll,
   state?: TableRollState,
   role: SeatRole = 'player',
+  creature?: Creature,
 ): RollBrief {
-  const table = tableLine(roll, state, role)
+  const table = tableLine(roll, state, role, creature)
   const brief = {
-    label: roll.label,
+    label: rechargeTitle(roll, state),
     table,
     accent: accentOf(roll, state, table),
   }
@@ -1913,14 +2024,17 @@ function tableLine(
   roll: LocalRoll,
   state: TableRollState | undefined,
   role: SeatRole,
+  creature?: Creature,
 ): RollBrief['table'] {
   if (roll.kind === 'ask') {
-    return { tone: toneOf(state), text: askedWords(state, role) }
+    return { tone: toneOf(state), text: askedWords(state, role, creature) }
   }
-  if (roll.kind === 'gm') return gmLine(roll, state, role)
+  if (roll.kind === 'gm') return gmLine(roll, state, role, creature)
   if (!state) return undefined
   const tone = toneOf(state)
-  if (roll.kind === 'use') return { tone, text: usedWords(roll, state, role) }
+  if (roll.kind === 'use') {
+    return { tone, text: usedWords(roll, state, role, creature) }
+  }
   switch (state.status) {
     case 'sending':
     case 'rolling': {
@@ -1930,14 +2044,14 @@ function tableLine(
       if (!state.visible) return { tone, text: seatWords(role).hidden }
       const outcome =
         roll.kind === 'check'
-          ? outcomeOf(state, roll.dc, roll.verdict)
-          : outcomeOf(state)
+          ? outcomeOf(state, role, roll.dc, roll.verdict)
+          : outcomeOf(state, role)
       const total = `At the table: ${state.total ?? '?'}`
       return { tone, text: outcome ? `${total} · ${outcome}` : total }
     }
     default: {
       const { together, healed } = state
-      const reason = reasonOf(state, role)
+      const reason = reasonOf(state, role, creature)
       const healing = healed === undefined ? '' : ` · ${healed} HP regained`
       const made = together?.made
         ? `${together.made} of ${together.count} made at the table${healing}. Not the rest`

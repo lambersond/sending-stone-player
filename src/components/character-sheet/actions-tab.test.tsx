@@ -10,6 +10,8 @@ import userEvent from '@testing-library/user-event'
 import { castNote, verbOf } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { FavoriteMarks } from './favorite-mark'
+import { SheetIdPrefix } from '@/hooks/use-sheet-ids'
+import { fireBreath, lightningBreath, spiritSheet } from '@/mocks/alone'
 import {
   castingSheet,
   characterSheet,
@@ -1241,7 +1243,14 @@ describe('components/character-sheet/actions-tab', () => {
           onRoll={jest.fn()}
           onRollDamage={jest.fn()}
           onUse={jest.fn()}
-          tableDamage={{ modifies: true, dueFor: jest.fn() }}
+          // Changed on purpose (round 0.36.0 §12): `TableDamage` says whether damage goes on its
+          // own and recharges are taken, neither here.
+          tableDamage={{
+            modifies: true,
+            dueFor: jest.fn(),
+            sendsAlone: false,
+            recharges: false,
+          }}
         />,
       )
 
@@ -2812,5 +2821,119 @@ describe('components/character-sheet/actions-tab', () => {
         name: /^Warhammer\s*, favorite/,
       }),
     ).toBeInTheDocument()
+  })
+})
+
+describe('components/character-sheet/actions-tab: a recharge in the table, from module 0.36.0', () => {
+  afterEach(cleanup)
+
+  const renderTable = (recharges: boolean) =>
+    render(
+      <ActionsTab
+        characterId='spirit'
+        sheet={toTableSheet(
+          spiritSheet([fireBreath(), lightningBreath()]),
+          'https://my-game.forge-vtt.com',
+        )}
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        onRollFormula={jest.fn()}
+        tableDamage={{
+          modifies: true,
+          dueFor: jest.fn(),
+          sendsAlone: false,
+          recharges,
+        }}
+        layout='table'
+      />,
+    )
+
+  it('puts the Recharge chip in the Uses cell, left of the count', () => {
+    renderTable(true)
+
+    const row = screen
+      .getByRole('button', { name: /^Fire Breath/, expanded: false })
+      .closest('tr') as HTMLElement
+    const cell = within(row).getAllByRole('cell').at(-1) as HTMLElement
+    const recharge = within(cell).getByRole('button', {
+      name: 'Roll Fire Breath’s recharge: 5 or more on a d6',
+    })
+    const count = within(cell).getByText('0 of 1 uses left')
+    expect(recharge.compareDocumentPosition(count)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(recharge.parentElement).toHaveClass(
+      'flex',
+      'items-center',
+      'justify-end',
+      'gap-1',
+    )
+    expect(
+      within(
+        screen
+          .getByRole('button', { name: /^Lightning Breath/, expanded: false })
+          .closest('tr') as HTMLElement,
+      ).getByRole('button', {
+        name: 'Roll Lightning Breath’s recharge: a 6 on a d6',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows no Recharge chip where the game takes none from here', () => {
+    renderTable(false)
+
+    expect(screen.queryByRole('button', { name: /recharge/ })).toBeNull()
+    expect(screen.getByText('0 of 1 uses left')).toBeInTheDocument()
+  })
+
+  it('begins its sections’ ids with its pane’s prefix, a companion’s (module 0.36.0)', () => {
+    const sheet = toTableSheet(
+      characterSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: [sheetAction({ id: 'rend', name: 'Rend' })],
+          },
+          {
+            id: 'legendary',
+            label: 'Legendary Actions',
+            actions: [sheetAction({ id: 'wing', name: 'Wing Attack' })],
+          },
+        ],
+      }),
+      'https://my-game.forge-vtt.com',
+    )
+    render(
+      <SheetIdPrefix value='creature-drake-'>
+        <ActionsTab
+          characterId='char-1'
+          sheet={sheet}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+        />
+      </SheetIdPrefix>,
+    )
+    const legendary = screen.getByRole('region', { name: 'Legendary Actions' })
+    expect(legendary).toHaveAttribute(
+      'aria-labelledby',
+      'creature-drake-actions-1',
+    )
+    expect(
+      within(legendary).getByRole('heading', { name: 'Legendary Actions' }),
+    ).toHaveAttribute('id', 'creature-drake-actions-1')
+    cleanup()
+    // At the character's own pane, as ever.
+    render(
+      <ActionsTab
+        characterId='char-1'
+        sheet={sheet}
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+      />,
+    )
+    expect(
+      screen.getByRole('region', { name: 'Legendary Actions' }),
+    ).toHaveAttribute('aria-labelledby', 'actions-1')
   })
 })

@@ -97,8 +97,9 @@ if (SKEW) {
 }
 {
   const campaignRows = await read('This campaign')
+  // Changed on purpose (round 0.36.0 §13.4): how its characters' companions enter initiative, after the moves switch.
   check(same(campaignRows, ['Players roll in the app: On', 'Attacks, spells and features: Off', 'Save and concentration prompts: Off',
-    'Allow Players to enter dice results manually: Off', 'Players move items and coins: Off', 'Party sheets: The Iron Company']),
+    'Allow Players to enter dice results manually: Off', 'Players move items and coins: Off', "Companions' initiative: Its own roll", 'Party sheets: The Iron Company']),
     `the campaign's own switches by their labels in Manage Campaigns, and its party sheets: ${JSON.stringify(campaignRows)}`)
   const world = await read('Sending Stone, for every campaign')
   check(same(world, ['Chat messages: On', 'Which messages: All its players can read', "Hit/miss and save results in the app: Follow Foundry's visibility settings",

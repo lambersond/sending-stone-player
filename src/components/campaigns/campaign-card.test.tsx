@@ -272,6 +272,43 @@ describe('components/campaigns/campaign-card', () => {
     }
   })
 
+  it('lists each character’s companions under its name, numbered as a row numbers them (module 0.36.0)', () => {
+    renderCard({
+      characters: [
+        {
+          id: 'thorin',
+          name: 'Thorin',
+          player: 'Alice',
+          characterId: 'char-1',
+          companions: [
+            { name: 'Brakka', kind: 'owned' },
+            { name: 'Bat', kind: 'summoned', from: 'Find Familiar' },
+            { name: 'Bat', kind: 'summoned', from: 'Find Familiar' },
+            { name: 'Drake', kind: 'summoned', from: 'Summon Dragon' },
+          ],
+        },
+        { id: 'balin', name: 'Balin', companions: [] },
+        { id: 'vex', name: 'Vex' },
+      ],
+    })
+
+    const line = screen.getByText(
+      'Companions: Brakka, Bat 1 (summoned), Bat 2 (summoned), Drake (summoned)',
+    )
+    expect(line).toHaveClass('text-xs', 'text-text-secondary')
+    const thorin = screen.getByRole('link', { name: "Open Thorin's sheet" })
+    expect(line.parentElement).toContainElement(thorin)
+    expect(line.parentElement).toHaveClass('flex', 'min-w-0', 'flex-col')
+    expect(thorin.closest('li')).toHaveClass('py-1.5')
+    // Names only, no links of their own.
+    expect(within(line).queryByRole('link')).toBeNull()
+    // None for a character without companions, whose row is as it was.
+    expect(screen.getAllByText(/^Companions:/)).toHaveLength(1)
+    const balin = screen.getByRole('link', { name: "Open Balin's sheet" })
+    expect(balin.closest('li')).toHaveClass('py-1')
+    expect(balin.parentElement).toBe(balin.closest('li'))
+  })
+
   it('offers no sheet to open before the campaign has characters', () => {
     renderCard({ characters: [] })
 

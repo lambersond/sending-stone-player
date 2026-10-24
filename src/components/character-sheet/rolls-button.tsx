@@ -20,9 +20,11 @@ import {
   DamageDue,
   offersDamage,
   RollHistory,
+  rollsName,
   type TableRolls,
 } from './roll-tray'
 import { InPortalRoot, usePortalRoot } from '@/components/modal'
+import { useCreature } from '@/hooks/use-creature'
 import { needsPlayer } from '@/hooks/use-table-rolls'
 import type { LocalRoll } from '@/hooks/use-sheet-roller'
 
@@ -46,6 +48,8 @@ export function RollsButton({
   const [open, setOpen] = useState(false)
   const title = useId()
   const root = usePortalRoot()
+  // A creature's own, at its pane (module 0.36.0).
+  const named = rollsName(useCreature())
   // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
   const [inside, setInside] = useState<HTMLDivElement | null>(null)
   const { refs, floatingStyles, context } = useFloating({
@@ -105,12 +109,12 @@ export function RollsButton({
       <button
         ref={refs.setReference}
         type='button'
-        title='Your rolls'
+        title={named}
         className='relative rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'
         {...getReferenceProps()}
       >
         <History aria-hidden className='size-4' />
-        <span className='sr-only'>Your rolls</span>
+        <span className='sr-only'>{named}</span>
         {waiting.length > 0 && (
           <span className='absolute top-1 right-1 size-1.5 rounded-full bg-primary'>
             <span className='sr-only'>, damage to roll</span>
@@ -134,7 +138,7 @@ export function RollsButton({
                   id={title}
                   className='text-xs font-semibold text-text-secondary'
                 >
-                  Your rolls
+                  {named}
                 </p>
                 <InPortalRoot root={inside}>
                   {/* Named each by its roll, as their buttons all say "Roll damage". */}

@@ -2,6 +2,7 @@ import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SheetText } from './sheet-text'
 import { JournalCard, type NotesPlace } from '@/components/notes'
+import { useSheetId } from '@/hooks/use-sheet-ids'
 import type { SheetDetails } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
@@ -32,16 +33,18 @@ export function BiographyTab({
     !appearance &&
     !xp &&
     !biography
+  // Unique on the page, where a companion's pane is mounted beside its character's.
+  const detailsId = useSheetId('details-heading')
+  const personalityId = useSheetId('personality-heading')
+  const appearanceId = useSheetId('appearance-heading')
+  const biographyId = useSheetId('biography-heading')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {notes && <JournalCard kind='personal' look='sheet' {...notes} />}
 
       {(xp || about.length > 0) && (
-        <section
-          aria-labelledby='details-heading'
-          className='flex flex-col gap-2'
-        >
-          <SheetHeading id='details-heading'>Details</SheetHeading>
+        <section aria-labelledby={detailsId} className='flex flex-col gap-2'>
+          <SheetHeading id={detailsId}>Details</SheetHeading>
           <dl className='grid grid-cols-2 gap-2 @xl:grid-cols-4'>
             {xp && (
               <SheetFact label='Experience' className='col-span-2'>
@@ -61,10 +64,10 @@ export function BiographyTab({
 
       {personality.length > 0 && (
         <section
-          aria-labelledby='personality-heading'
+          aria-labelledby={personalityId}
           className='flex flex-col gap-2'
         >
-          <SheetHeading id='personality-heading'>Personality</SheetHeading>
+          <SheetHeading id={personalityId}>Personality</SheetHeading>
           <dl className='grid gap-2 @2xl:grid-cols-2'>
             {personality.map(detail => (
               <SheetFact key={detail.id} label={detail.label}>
@@ -76,11 +79,8 @@ export function BiographyTab({
       )}
 
       {appearance && (
-        <section
-          aria-labelledby='appearance-heading'
-          className='flex flex-col gap-2'
-        >
-          <SheetHeading id='appearance-heading'>Appearance</SheetHeading>
+        <section aria-labelledby={appearanceId} className='flex flex-col gap-2'>
+          <SheetHeading id={appearanceId}>Appearance</SheetHeading>
           <p className='rounded-2xl border border-border bg-card px-4 py-3 whitespace-pre-line'>
             {appearance}
           </p>
@@ -88,11 +88,8 @@ export function BiographyTab({
       )}
 
       {biography && (
-        <section
-          aria-labelledby='biography-heading'
-          className='flex flex-col gap-2'
-        >
-          <SheetHeading id='biography-heading'>Biography</SheetHeading>
+        <section aria-labelledby={biographyId} className='flex flex-col gap-2'>
+          <SheetHeading id={biographyId}>Biography</SheetHeading>
           <div className='rounded-2xl border border-border bg-card px-4 py-3'>
             <SheetText
               characterId={characterId}

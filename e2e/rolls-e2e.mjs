@@ -154,7 +154,8 @@ await Hooks.callAll('ready')
 await until(() => posted.some(p => p.url.endsWith('/api/bridge/commands')), "the module's first fetch")
 const stored = () => sql(`select "rollsEnabled", array_to_string("rollKinds", ','), "bridgePolledAt" is not null from campaign where title = 'Ashlands'`)
 // From module 0.29.0, ending a concentration too, wherever players' rolls are made.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,textRoll|t', `the app keeps that the game takes players' rolls, hit dice and formulas among them, and the module is fetching them (${stored()})`)
+// Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn too, wherever players' rolls are made.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,textRoll|t', `the app keeps that the game takes players' rolls, hit dice and formulas among them, and the module is fetching them (${stored()})`)
 const hello = posted.find(p => p.type === 'bridge.hello')
 check(JSON.parse(hello.body).features?.commands === true, 'the app tells the module, answering its hello, that it has rolls to fetch')
 
@@ -541,7 +542,8 @@ await mixedPopover.waitFor()
 await mixedPopover.getByRole('button', { name: 'One d8 more' }).click()
 const requestsBeforeEach = requests()
 await watchKeepOpen()
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,formula,endConcentration,textRoll|t', `the app has it the game takes a hit die at a time, not several at once (${stored()})`)
+// Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn too, wherever players' rolls are made.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,formula,endConcentration,endTurn,textRoll|t', `the app has it the game takes a hit die at a time, not several at once (${stored()})`)
 // The game takes three seconds over each, as a busy one may: the tray asks to keep the page open
 // only while it waits on the game once its own dice have settled, which a game making both within
 // half a second never has it do.
@@ -563,7 +565,8 @@ await eachStatus.getByText(/At the table: \d+ · \d+ HP regained/).waitFor({ tim
 const eachText = await eachStatus.textContent()
 check(eachText.includes('Hit dice (1d10 + 1d8)') && (await saidKeepOpen()), `the tray shows one roll of both, and asked to keep the page open while they were sent: "${eachText}"`)
 sql(`update campaign set "rollKinds" = string_to_array('${kindsHeld}', ',') where title = 'Ashlands'`)
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,textRoll|t', `the app has it again that the game takes several at once (${stored()})`)
+// Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn too, wherever players' rolls are made.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,textRoll|t', `the app has it again that the game takes several at once (${stored()})`)
 
 // ---- No more than twenty at once ----
 // A barbarian's level gives Thorin a d12, and a boon twenty more besides, as dnd5e counts a class's

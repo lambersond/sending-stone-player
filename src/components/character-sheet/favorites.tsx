@@ -38,6 +38,7 @@ import { UsesButton } from './uses-button'
 import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
+import { rechargeWords } from '@/utils/creature-words'
 import { resourceNote, type FavoriteEntry } from '@/utils/favorites'
 import { formatModifier } from '@/utils/format-modifier'
 import { spendable } from '@/utils/formulas'
@@ -333,7 +334,12 @@ function FavoriteRow({
           characterId={characterId}
           name={resource.name}
           fallback={CircleGauge}
-          detail={resource.uses?.recovery ?? undefined}
+          detail={
+            // As dnd5e's stat block says a recharge, from module 0.36.0.
+            (resource.uses?.recharge
+              ? rechargeWords(resource.uses.recharge)
+              : resource.uses?.recovery) ?? undefined
+          }
           aside={
             resource.uses && (
               <UsesButton uses={resource.uses} name={resource.name} />

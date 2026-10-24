@@ -3,17 +3,30 @@ import {
   cleanup,
   fireEvent,
   render,
+  renderHook,
   screen,
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { forwardNote } from './action-entry'
+import {
+  forwardNote,
+  useDamageRolls,
+  type DamageTarget,
+  type TableDamage,
+} from './action-entry'
 import { ActionsTab } from './actions-tab'
 import {
   DescriptionLinks,
   sheetTools,
   type DescriptionActions,
 } from './description-actions'
+import { RollsLocked } from '@/hooks/use-rolls-locked'
+import {
+  fireBreath,
+  lightningBreath,
+  longsword,
+  spiritSheet,
+} from '@/mocks/alone'
 import {
   characterSheet,
   checkingSheet,
@@ -727,9 +740,13 @@ describe('action-entry: formulas with what Foundry does with their dice', () => 
           sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
           onRoll={jest.fn()}
           onRollDamage={jest.fn()}
+          // Changed on purpose (round 0.36.0 §12): `TableDamage` says whether damage goes on its
+          // own and recharges are taken, neither here.
           tableDamage={{
             modifies: true,
             dueFor: () => ({ use: 'req-1', damage }),
+            sendsAlone: false,
+            recharges: false,
           }}
         />,
       )
@@ -765,5 +782,580 @@ describe('action-entry: formulas with what Foundry does with their dice', () => 
       label: 'Holy Symbol: Radiance',
       terms: [{ sign: 1, count: 2, sides: 6 }],
     })
+  })
+})
+
+/** What the game does with damage: here, it sends it on its own, unless given otherwise. */
+const tableOf = (fields: Partial<TableDamage> = {}): TableDamage => ({
+  modifies: true,
+  dueFor: jest.fn(),
+  sendsAlone: true,
+  recharges: false,
+  ...fields,
+})
+
+/** A chip, by its accessible name. */
+const chip = (name: string) => screen.getByRole('button', { name })
+
+/** The Draconic Spirit's Actions tab, its spells and features used in the game. */
+const renderSpirit = ({
+  table = tableOf(),
+  sheet = spiritSheet(),
+  layout,
+  locked = false,
+}: {
+  table?: TableDamage
+  sheet?: CharacterSheet
+  layout?: Layout
+  locked?: boolean
+} = {}) => {
+  const onRollDamage = jest.fn()
+  const onRollFormula = jest.fn()
+  const onUse = jest.fn()
+  const tab = (shown: TableDamage) => (
+    <RollsLocked value={locked}>
+      <ActionsTab
+        characterId='spirit'
+        sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+        onRoll={jest.fn()}
+        onRollDamage={onRollDamage}
+        onRollFormula={onRollFormula}
+        onUse={onUse}
+        tableDamage={shown}
+        layout={layout}
+      />
+    </RollsLocked>
+  )
+  const { rerender } = render(tab(table))
+  return {
+    onRollDamage,
+    onRollFormula,
+    onUse,
+    rerender: (next: TableDamage) => rerender(tab(next)),
+  }
+}
+
+/** The ways a chip's menu offers, as named. */
+const menuOf = (name: string) => {
+  fireEvent.contextMenu(chip(name))
+  const menu = screen.queryByRole('menu')
+  const items = menu
+    ? within(menu)
+        .getAllByRole('menuitem')
+        .map(item => item.textContent)
+    : undefined
+  if (menu) fireEvent.keyDown(menu, { key: 'Escape' })
+  return items
+}
+
+describe('action-entry: damage on its own and recharges, from module 0.36.0', () => {
+  afterEach(cleanup)
+
+  it('rolls a save activity’s damage on its own, rather than using it, its save chip still using it', async () => {
+    const user = userEvent.setup()
+    const { onRollDamage, onUse } = renderSpirit()
+
+    await user.click(
+      chip('Fire Breath damage, 2d6, goes to the table on its own'),
+    )
+    expect(onUse).not.toHaveBeenCalled()
+    expect(onRollDamage).toHaveBeenCalledTimes(1)
+    expect(onRollDamage).toHaveBeenCalledWith({
+      label: 'Fire Breath damage',
+      critical: false,
+      healing: false,
+      exact: true,
+      perDie: 1,
+      parts: [{ type: 'Fire', terms: [{ sign: 1, count: 2, sides: 6 }] }],
+      alone: { item: 'fireBreath', activity: 'breathSave', critical: false },
+    })
+
+    await user.click(chip('Fire Breath, DEX saving throw DC 14'))
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'fireBreath' }),
+    )
+    expect(onRollDamage).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses a save activity from its damage chip while damage doesn’t go on its own, as ever', async () => {
+    const user = userEvent.setup()
+    const { onRollDamage, onUse } = renderSpirit({
+      table: tableOf({ sendsAlone: false }),
+    })
+
+    await user.click(chip('Fire Breath damage, 2d6'))
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'fireBreath' }),
+    )
+    expect(onRollDamage).not.toHaveBeenCalled()
+  })
+
+  it('rolls a heal activity’s healing on its own', async () => {
+    const user = userEvent.setup()
+    const { onRollDamage, onUse } = renderSpirit()
+
+    await user.click(
+      chip('Second Wind healing, 1d10 + 5, goes to the table on its own'),
+    )
+    expect(onUse).not.toHaveBeenCalled()
+    expect(onRollDamage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Second Wind healing',
+        healing: true,
+        alone: { item: 'secondWind', activity: 'windHeal', critical: false },
+      }),
+    )
+  })
+
+  it("rolls an attack's damage on its own as the game's plan, a critical hit's from its menu", async () => {
+    const user = userEvent.setup()
+    const { onRollDamage } = renderSpirit()
+
+    await user.click(
+      chip('Longsword damage, 1d8 + 4, goes to the table on its own'),
+    )
+    expect(onRollDamage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        label: 'Longsword damage',
+        critical: false,
+        parts: [
+          {
+            type: 'Slashing',
+            terms: [
+              { sign: 1, count: 1, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+          },
+        ],
+        alone: {
+          item: 'longsword',
+          activity: 'longswordAttack',
+          critical: false,
+        },
+      }),
+    )
+    // Never named twice over.
+    expect(onRollDamage.mock.lastCall?.[0].label).toBe('Longsword damage')
+
+    fireEvent.contextMenu(
+      chip('Longsword damage, 1d8 + 4, goes to the table on its own'),
+    )
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+    )
+    expect(onRollDamage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        label: 'Longsword damage',
+        critical: true,
+        perDie: 2,
+        parts: [
+          {
+            type: 'Slashing',
+            terms: [
+              { sign: 1, count: 2, sides: 8 },
+              { sign: 1, flat: 4 },
+            ],
+          },
+        ],
+        alone: {
+          item: 'longsword',
+          activity: 'longswordAttack',
+          critical: true,
+        },
+      }),
+    )
+  })
+
+  it.each<[string, boolean, string, string[] | undefined]>([
+    [
+      "an attack's: critical, then the changes",
+      true,
+      'Longsword damage, 1d8 + 4, goes to the table on its own',
+      ['Roll critical damage', 'Roll maximum damage', 'Modify damage…'],
+    ],
+    [
+      "a save's: no critical, which it has none of",
+      true,
+      'Fire Breath damage, 2d6, goes to the table on its own',
+      ['Roll maximum damage', 'Modify damage…'],
+    ],
+    [
+      "a heal's: no critical",
+      true,
+      'Second Wind healing, 1d10 + 5, goes to the table on its own',
+      ['Roll maximum healing', 'Modify healing…'],
+    ],
+    [
+      "an attack's where the game takes no damage changed: critical only",
+      false,
+      'Longsword damage, 1d8 + 4, goes to the table on its own',
+      ['Roll critical damage'],
+    ],
+    [
+      "a save's where the game takes no damage changed: none",
+      false,
+      'Fire Breath damage, 2d6, goes to the table on its own',
+      undefined,
+    ],
+  ])('offers in its menu, for %s', (_, modifies, name, items) => {
+    renderSpirit({ table: tableOf({ modifies }) })
+
+    expect(menuOf(name)).toEqual(items)
+  })
+
+  it('asks the kind first from the chip, where the plan offers a choice, and sends the one chosen', async () => {
+    const user = userEvent.setup()
+    const { onRollDamage } = renderSpirit()
+    const orb = chip('Chromatic Orb damage, 3d8, goes to the table on its own')
+
+    await user.click(orb)
+    expect(onRollDamage).not.toHaveBeenCalled()
+    const menu = screen.getByRole('menu', { name: 'Chromatic Orb 3d8' })
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual(['Roll Fire damage', 'Roll Cold damage'])
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Roll Cold damage' }),
+    )
+
+    expect(onRollDamage).toHaveBeenCalledTimes(1)
+    expect(onRollDamage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Chromatic Orb damage',
+        types: ['cold'],
+        parts: [{ type: 'Cold', terms: [{ sign: 1, count: 3, sides: 8 }] }],
+        alone: { item: 'orb', activity: 'orbAttack', critical: false },
+      }),
+    )
+
+    // A critical hit's from its menu, then its kind, said so.
+    fireEvent.contextMenu(orb)
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll critical damage' }),
+    )
+    const kinds = screen.getByRole('menu', {
+      name: 'Chromatic Orb 3d8 · Critical hit',
+    })
+    await user.click(
+      within(kinds).getByRole('menuitem', {
+        name: 'Roll critical Fire damage',
+      }),
+    )
+    expect(onRollDamage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        critical: true,
+        types: ['fire'],
+        parts: [{ type: 'Fire', terms: [{ sign: 1, count: 6, sides: 8 }] }],
+        alone: { item: 'orb', activity: 'orbAttack', critical: true },
+      }),
+    )
+  })
+
+  it('says only where it will go on its own, never with its damage due, which goes on its attack', async () => {
+    const user = userEvent.setup()
+    const due = {
+      use: 'req-1',
+      damage: longsword().tableDamage!.normal,
+    }
+    const { onRollDamage, rerender } = renderSpirit({
+      table: tableOf({ sendsAlone: false }),
+    })
+    const look = chip('Longsword damage, 1d8 + 4').className
+
+    rerender(tableOf({ sendsAlone: true }))
+    // Its look the same, whichever way it goes: its name says so.
+    expect(
+      chip('Longsword damage, 1d8 + 4, goes to the table on its own'),
+    ).toHaveProperty('className', look)
+
+    rerender(
+      tableOf({
+        sendsAlone: true,
+        dueFor: source => (source.item === 'longsword' ? due : undefined),
+      }),
+    )
+    const longswordChip = chip('Longsword damage, 1d8 + 4')
+    expect(
+      screen.getByRole('button', {
+        name: 'Fire Breath damage, 2d6, goes to the table on its own',
+      }),
+    ).toBeInTheDocument()
+    await user.click(longswordChip)
+    // For the pane to roll on its attack, as it's due: no way of its own.
+    expect(onRollDamage).toHaveBeenCalledWith({
+      label: 'Longsword damage',
+      parts: [
+        {
+          type: 'Slashing',
+          terms: [
+            { sign: 1, count: 1, sides: 8 },
+            { sign: 1, flat: 4 },
+          ],
+        },
+      ],
+      healing: false,
+      critical: false,
+      source: { item: 'longsword', activity: 'longswordAttack' },
+    })
+  })
+
+  it('rolls a chip the game plans nothing of as ever, and says nothing of going on its own', async () => {
+    const user = userEvent.setup()
+    const { onRollDamage, onUse } = renderSpirit({
+      sheet: spiritSheet([
+        longsword({ tableDamage: null }),
+        fireBreath({ tableDamage: null }),
+      ]),
+    })
+
+    await user.click(chip('Longsword damage, 1d8 + 4'))
+    expect(onRollDamage).toHaveBeenCalledWith(
+      expect.not.objectContaining({ alone: expect.anything() }),
+    )
+    // A save activity's damage uses it, as it can't go on its own.
+    await user.click(chip('Fire Breath damage, 2d6'))
+    expect(onUse).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'fireBreath' }),
+    )
+  })
+
+  it('goes on its own only where there is a plan', () => {
+    const { result } = renderHook(() =>
+      useDamageRolls(jest.fn(), tableOf(), {
+        open: jest.fn(),
+        modify: jest.fn(),
+        damage: jest.fn(),
+      }),
+    )
+    const target: DamageTarget = {
+      label: 'Longsword damage',
+      parts: [],
+      formula: '1d8 + 4',
+      alone: { item: 'longsword', activity: 'longswordAttack' },
+    }
+
+    expect(result.current.actions.goesAlone(target)).toBe(false)
+    expect(
+      result.current.actions.goesAlone({
+        ...target,
+        alone: { ...target.alone!, plan: longsword().tableDamage! },
+      }),
+    ).toBe(true)
+  })
+
+  it('says what recharges its uses last on the row, as dnd5e’s stat block says it', () => {
+    renderSpirit()
+
+    expect(rowOf('Fire Breath')).toHaveTextContent(
+      '30 ft cone · Fire · Recharge 5–6',
+    )
+    expect(rowOf('Lightning Breath')).toHaveTextContent(
+      'Lightning · Recharge 6',
+    )
+    expect(rowOf('Fire Breath')).not.toHaveTextContent('[5+]')
+  })
+
+  it('opens to its uses as dnd5e says its recharge', async () => {
+    const user = userEvent.setup()
+    renderSpirit()
+
+    const row = rowOf('Fire Breath')
+    await user.click(toggle('Fire Breath'))
+    expect(row).toHaveTextContent('0 of 1 left, Recharge 5–6')
+  })
+
+  it('puts the Recharge chip first, left of the uses count, which shows with it in a narrow list', () => {
+    renderSpirit({ table: tableOf({ recharges: true }) })
+
+    const recharge = within(rowOf('Fire Breath')).getByRole('button', {
+      name: 'Roll Fire Breath’s recharge: 5 or more on a d6',
+    })
+    const count = within(rowOf('Fire Breath')).getByText('0 of 1 uses left')
+    const uses = count.closest('[data-uses]') as HTMLElement
+    expect(recharge.compareDocumentPosition(uses)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    // Before every other chip of the row.
+    const chips = recharge.parentElement as HTMLElement
+    expect(chips.querySelector('button')).toBe(recharge)
+    expect(uses).not.toHaveClass('hidden')
+  })
+
+  it('shows the Recharge chip with uses spent, not at full, and not where the game takes no recharge from here', () => {
+    const { rerender } = renderSpirit({
+      table: tableOf({ recharges: true }),
+      sheet: spiritSheet([
+        fireBreath({
+          uses: { ...fireBreath().uses!, value: 1, max: 1 },
+        }),
+        lightningBreath(),
+      ]),
+    })
+    expect(
+      within(rowOf('Fire Breath')).queryByRole('button', { name: /recharge/ }),
+    ).toBeNull()
+    // One of two left: something spent.
+    expect(
+      within(rowOf('Lightning Breath')).getByRole('button', {
+        name: 'Roll Lightning Breath’s recharge: a 6 on a d6',
+      }),
+    ).toBeInTheDocument()
+
+    rerender(tableOf({ recharges: false }))
+    expect(screen.queryByRole('button', { name: /recharge/ })).toBeNull()
+    // Its uses fold away in a narrow list again, as a save's do.
+    expect(
+      within(rowOf('Lightning Breath'))
+        .getByText('1 of 2 uses left')
+        .closest('[data-uses]'),
+    ).toHaveClass('hidden', '@md:inline')
+  })
+
+  it('wraps a row’s chips under its name where both don’t fit, its name at least 8.5 rem', () => {
+    renderSpirit({ table: tableOf({ recharges: true }) })
+
+    const name = toggle('Fire Breath')
+    expect(name).toHaveClass('min-w-[8.5rem]', 'flex-1')
+    expect(name).not.toHaveClass('min-w-0')
+    expect(name.parentElement).toHaveClass(
+      'flex',
+      'flex-wrap',
+      'items-center',
+      'gap-x-2',
+      'gap-y-0',
+      'rounded-xl',
+      'py-1.5',
+      'pr-1.5',
+      'pl-1',
+    )
+    const chips = within(rowOf('Fire Breath')).getByRole('button', {
+      name: /recharge/,
+    }).parentElement
+    expect(chips).toHaveClass(
+      'ml-auto',
+      'flex',
+      'max-w-full',
+      'shrink-0',
+      'flex-wrap',
+      'items-center',
+      'justify-end',
+      'gap-1',
+    )
+    expect(chips?.parentElement).toBe(name.parentElement)
+  })
+
+  it("disables an activity's own formula and own check while the pane's rolls are locked", () => {
+    const sheet = checkingSheet()
+    render(
+      <RollsLocked value>
+        <ActionsTab
+          characterId='char-rook'
+          sheet={toTableSheet(
+            {
+              ...sheet,
+              actions: [
+                ...sheet.actions,
+                {
+                  id: 'other',
+                  label: 'Other',
+                  actions: [
+                    sheetAction({
+                      id: 'symbol',
+                      name: 'Holy Symbol',
+                      rollFormula: { formula: '2d6', name: 'Radiance' },
+                    }),
+                  ],
+                },
+              ],
+            },
+            'https://my-game.forge-vtt.com',
+          )}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          onRollFormula={jest.fn()}
+        />
+      </RollsLocked>,
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Roll Holy Symbol: Radiance, 2d6' }),
+    ).toBeDisabled()
+    expect(
+      within(rowOf("Thieves' Tools")).getByRole('button', {
+        name: "Thieves' Tools, DC 15 Dexterity (Thieves' Tools) check",
+      }),
+    ).toBeDisabled()
+  })
+
+  it('disables the Recharge chip while the pane’s rolls are locked', () => {
+    renderSpirit({ table: tableOf({ recharges: true }), locked: true })
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Roll Fire Breath’s recharge: 5 or more on a d6',
+      }),
+    ).toBeDisabled()
+  })
+})
+
+describe('an attack’s chips in a pane whose rolls are locked (module 0.36.0)', () => {
+  it('disables its attack and damage, which roll nothing, its row still opening', async () => {
+    const user = userEvent.setup()
+    const onRoll = jest.fn()
+    const onRollDamage = jest.fn()
+    render(
+      <RollsLocked value>
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(
+            characterSheet({
+              actions: [
+                {
+                  id: 'action',
+                  label: 'Actions',
+                  actions: [
+                    sheetAction({
+                      id: 'bite',
+                      name: 'Bite',
+                      type: 'weapon',
+                      toHit: 4,
+                      damage: [
+                        {
+                          formula: '1d8 + 3',
+                          type: 'Piercing',
+                          healing: false,
+                        },
+                      ],
+                    }),
+                  ],
+                },
+              ],
+            }),
+            'https://my-game.forge-vtt.com',
+          )}
+          onRoll={onRoll}
+          onRollDamage={onRollDamage}
+        />
+      </RollsLocked>,
+    )
+    const attack = screen.getByRole('button', { name: 'Bite attack, +4' })
+    const damage = screen.getByRole('button', { name: /^Bite damage/ })
+    for (const chip of [attack, damage]) {
+      expect(chip).toBeDisabled()
+      expect(chip).toHaveClass('cursor-not-allowed', 'opacity-50')
+      fireEvent.click(chip)
+      fireEvent.contextMenu(chip, { button: 2 })
+    }
+    expect(onRoll).not.toHaveBeenCalled()
+    expect(onRollDamage).not.toHaveBeenCalled()
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: /^Bite/, expanded: false }),
+    )
+    expect(
+      screen.getByRole('button', { name: /^Bite/, expanded: true }),
+    ).toBeInTheDocument()
   })
 })

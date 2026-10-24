@@ -295,3 +295,37 @@ describe('components/character-sheet/features-tab', () => {
     ).toEqual(['Darkvision, favoritePassive'])
   })
 })
+
+describe('components/character-sheet/features-tab: recharges, from module 0.36.0', () => {
+  it('says what recharges a feature’s uses as dnd5e’s stat block says it', () => {
+    const sheet = fullerSheet()
+    renderTab({
+      ...sheet,
+      features: sheet.features.map(section => ({
+        ...section,
+        features: section.features.map(feature =>
+          feature.id === 'action-surge'
+            ? {
+                ...feature,
+                uses: {
+                  value: 0,
+                  max: 1,
+                  recovery: 'Recharge [5+]',
+                  recharge: 5,
+                  counter: { item: 'action-surge' },
+                },
+              }
+            : feature,
+        ),
+      })),
+    })
+
+    const surge = screen.getByText('Action Surge').closest('li') as HTMLElement
+    expect(surge).toHaveTextContent('Special · Recharge 5–6')
+    expect(surge).not.toHaveTextContent('[5+]')
+    // Any other's as the sheet says it.
+    expect(
+      screen.getByText('Second Wind').closest('li') as HTMLElement,
+    ).toHaveTextContent('Short Rest, Long Rest')
+  })
+})

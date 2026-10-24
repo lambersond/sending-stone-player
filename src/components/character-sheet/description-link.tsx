@@ -36,6 +36,7 @@ import {
 } from './roll-menu'
 import { Modal, usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ABILITIES } from '@/constants/dnd5e'
+import { useRollsLocked } from '@/hooks/use-rolls-locked'
 import {
   changes,
   criticalOffered,
@@ -181,6 +182,9 @@ export function useLinkMenus(actions?: DescriptionActions): {
 const PILL =
   'max-w-full touch-manipulation rounded-md px-[0.3em] text-left font-semibold whitespace-normal transition-colors select-none [-webkit-touch-callout:none]'
 
+/** A link that rolls, greyed where its pane's rolls are locked, as a gone companion's (0.36.0). */
+const LOCKED = 'cursor-not-allowed opacity-50'
+
 /**
  * A link in a description, as the sheet acts on it: by what `actions` do, or with none, as only
  * its text.
@@ -313,6 +317,7 @@ function SaveButton({
     mode: ability.saveMode,
     source: { kind: 'save', key: ability.id, text: hash, link: link.n },
   })
+  const locked = useRollsLocked()
   const roll = (target: RollTarget, chosen?: 'adv' | 'dis') =>
     rollAgainst(actions, target, link.dc, chosen)
   const items: MenuItem<string>[] = [
@@ -347,6 +352,7 @@ function SaveButton({
     <button
       type='button'
       aria-haspopup='menu'
+      disabled={locked}
       onClick={event =>
         menus.open({
           anchor: event.currentTarget,
@@ -355,7 +361,11 @@ function SaveButton({
           onChoose: choose,
         })
       }
-      className={clsx(PILL, 'bg-primary/12 hover:bg-primary/20')}
+      className={clsx(
+        PILL,
+        'bg-primary/12 hover:bg-primary/20',
+        locked && LOCKED,
+      )}
     >
       {label}
     </button>
@@ -395,10 +405,12 @@ function CheckButton({
       ...(using && { using }),
     },
   )
+  const locked = useRollsLocked()
   return (
     <button
       type='button'
       aria-haspopup='menu'
+      disabled={locked}
       onClick={event =>
         menus.open({
           anchor: event.currentTarget,
@@ -424,7 +436,11 @@ function CheckButton({
           }),
         })
       }
-      className={clsx(PILL, 'bg-primary/12 hover:bg-primary/20')}
+      className={clsx(
+        PILL,
+        'bg-primary/12 hover:bg-primary/20',
+        locked && LOCKED,
+      )}
     >
       {label}
     </button>
@@ -685,6 +701,7 @@ function DamageButton({
   actions: DescriptionActions
   menus: LinkMenus
 }>) {
+  const locked = useRollsLocked()
   const terms = link.parts.map(part => formulaTerms(part.formula))
   const read = terms.flatMap(each => (each ? [each] : []))
   if (read.length !== link.parts.length) return label
@@ -784,8 +801,9 @@ function DamageButton({
         type='button'
         aria-label={props.label}
         {...(choice && { 'aria-haspopup': 'menu' as const })}
+        disabled={locked}
         onClick={event => rollFrom(event.currentTarget)}
-        className={props.className}
+        className={clsx(props.className, locked && LOCKED)}
       >
         {label}
       </button>
@@ -891,12 +909,14 @@ function FormulaButton({
   origin: DescriptionOrigin
   actions: DescriptionActions
 }>) {
+  const locked = useRollsLocked()
   const terms = formulaTerms(link.formula)
   if (!terms) return label
   return (
     <button
       type='button'
       aria-label={`${label}, roll it`}
+      disabled={locked}
       onClick={() =>
         actions.rollFormula({
           label: `${origin.name} roll`,
@@ -904,7 +924,11 @@ function FormulaButton({
           source: { kind: 'textRoll', text: hash, link: link.n },
         })
       }
-      className={clsx(PILL, 'bg-primary/12 hover:bg-primary/20')}
+      className={clsx(
+        PILL,
+        'bg-primary/12 hover:bg-primary/20',
+        locked && LOCKED,
+      )}
     >
       {label}
     </button>

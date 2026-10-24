@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { CombatTracker, formatInitiative } from './combat-tracker'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
@@ -46,6 +47,39 @@ const turnPanel = () =>
 /** A row's initiative box, coloured by whose side they're on. */
 const box = (row: HTMLElement) =>
   within(row).getByText('Initiative', { selector: '.sr-only' }).parentElement
+
+/** Thorin, his wolf Brakka, a goblin and Vex: Brakka's turn unless another is given. */
+const fight = (fields: Partial<TableCombat> = {}) =>
+  encounter({
+    currentId: 'brakka',
+    combatants: [
+      fighter({
+        id: 'brakka',
+        name: 'Brakka',
+        initiative: 18,
+        side: 'party',
+        yours: true,
+        companion: 'wolfBrakka',
+        hp: { value: 11, max: 11, temp: 0 },
+      }),
+      fighter({
+        id: 'thorin',
+        name: 'Thorin',
+        initiative: 17,
+        side: 'me',
+        hp: { value: 31, max: 44, temp: 0 },
+      }),
+      fighter({ id: 'goblin', name: 'Goblin', initiative: 14 }),
+      fighter({
+        id: 'vex',
+        name: 'Vex',
+        initiative: 12,
+        side: 'party',
+        hp: { value: 20, max: 38, temp: 0 },
+      }),
+    ],
+    ...fields,
+  })
 
 describe('components/game-table/combat-tracker', () => {
   it('says when there is no combat', () => {
@@ -203,5 +237,78 @@ describe('components/game-table/combat-tracker', () => {
     const row = screen.getByRole('listitem')
     expect(row).toHaveTextContent('Hit points 9')
     expect(within(row).queryByText('/', { exact: false })).toBeNull()
+  })
+
+  describe('companions (module 0.36.0)', () => {
+    it('reads a companion of the player’s own as Yours, drawn as the party, with its hit points', () => {
+      render(<CombatTracker combat={fight({ currentId: 'goblin' })} />)
+      const [brakka, thorin, , vex] = screen.getAllByRole('listitem')
+      expect(brakka).toHaveTextContent('Yours')
+      expect(brakka).toHaveTextContent('Hit points 11')
+      expect(box(brakka)).toHaveClass('bg-party/15', 'text-party')
+      expect(thorin).toHaveTextContent('You')
+      expect(vex).toHaveTextContent('Ally')
+    })
+
+    it('says a companion’s turn is the player’s, rolled for on its tab, which it opens', async () => {
+      const user = userEvent.setup()
+      const onOpen = jest.fn()
+      render(
+        <CombatTracker
+          combat={fight()}
+          onOpen={onOpen}
+          keys={new Set(['wolfBrakka'])}
+        />,
+      )
+      expect(turnPanel()).toHaveTextContent('Brakka’s turn')
+      expect(turnPanel()).toHaveClass('text-primary')
+      expect(turnPanel().closest('section')).toHaveClass('border-primary')
+      const line = screen.getByText((_, element) =>
+        element?.tagName === 'P'
+          ? element.textContent === 'Roll for it on its tab.'
+          : false,
+      )
+      const link = within(line).getByRole('button', { name: 'its tab' })
+      expect(link).toHaveClass('min-h-11', 'min-w-11')
+      await user.click(link)
+      expect(onOpen).toHaveBeenCalledWith('wolfBrakka')
+    })
+
+    it('words "its tab" plainly where its tab isn’t in the row', () => {
+      render(<CombatTracker combat={fight()} onOpen={jest.fn()} />)
+      expect(screen.getByText('Roll for it on its tab.')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'its tab' })).toBeNull()
+    })
+
+    it('says nothing of up next while one of the player’s own creatures acts', () => {
+      render(<CombatTracker combat={fight()} />)
+      expect(screen.getByText('Next: you')).toBeInTheDocument()
+      expect(screen.queryByText('You are up next.')).toBeNull()
+    })
+
+    it('says another’s companion is acting, not whose turn it is', () => {
+      render(
+        <CombatTracker
+          combat={fight({
+            combatants: fight().combatants.map(combatant =>
+              combatant.id === 'brakka'
+                ? { ...combatant, yours: undefined, companion: undefined }
+                : combatant,
+            ),
+          })}
+        />,
+      )
+      expect(turnPanel()).toHaveTextContent('Brakka is acting')
+      expect(turnPanel()).not.toHaveClass('text-primary')
+      expect(screen.queryByText('Roll for it on its tab.')).toBeNull()
+    })
+
+    it('marks nothing as the player’s before the start', () => {
+      render(<CombatTracker combat={fight({ started: false })} />)
+      expect(turnPanel()).toHaveTextContent('Getting ready')
+      expect(turnPanel()).not.toHaveClass('text-primary')
+      expect(turnPanel().closest('section')).toHaveClass('border-border')
+      expect(screen.queryByText('Roll for it on its tab.')).toBeNull()
+    })
   })
 })

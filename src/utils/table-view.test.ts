@@ -1233,6 +1233,23 @@ describe('utils/table-view', () => {
     })
   })
 
+  describe('damage on its own (round 0.36.0 §20)', () => {
+    it('says a damage or healing card was made on its own where the message does, and nowhere else', () => {
+      const alone = {
+        ...dnd5eDamage([piercing]),
+        id: 'alone',
+        alone: true as const,
+      }
+      expect(toTableMessage(alone, viewer).alone).toBe(true)
+      expect(toTableMessages([alone], viewer)[0].alone).toBe(true)
+
+      expect(
+        toTableMessage(dnd5eDamage([piercing]), viewer),
+      ).not.toHaveProperty('alone')
+      expect(toTableMessage(chatMessage(), viewer)).not.toHaveProperty('alone')
+    })
+  })
+
   describe('roll request cards', () => {
     it("shows the module's ask, with a line of text without its DC for pages that don't read it", () => {
       expect(

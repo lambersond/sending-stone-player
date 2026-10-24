@@ -1196,6 +1196,8 @@ export type SerializedMessage = {
   gmRoll?: string
   /** The listed companion it is, by key. Module 0.36.0, to an app that reads companions. */
   companion?: string | null
+  /** A damage or healing card made on its own (module 0.36.0). */
+  alone?: true
 }
 
 export type CombatantSummary = {

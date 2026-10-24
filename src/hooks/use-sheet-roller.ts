@@ -173,6 +173,8 @@ export type SheetFormulaRoll = {
   minimum?: number
   /** What it is, for the Gamemaster's game to make it too. */
   source?: FormulaSource
+  /** A recharge's d6 (module 0.36.0): the uses it recharges. */
+  recharge?: { item: string; activity?: string }
 }
 
 /** Something the player added to a roll, or a term of a damage roll, and what it came to. */
@@ -344,6 +346,8 @@ export type LocalFormula = {
   gameTotal?: boolean
   /** The player typed its dice in. */
   typed?: true
+  /** A recharge's d6 (module 0.36.0): what it recharges, for its titles. */
+  recharge?: { name: string }
   at: number
 }
 
@@ -824,6 +828,10 @@ function toLocalFormula(
     ...(totals.length > 1 && { times: totals.length }),
     ...(request.source?.kind === 'textRoll' && { described: true }),
     ...(rethrown(kept) && { gameTotal: true }),
+    // Thrown or typed in, a recharge's d6 is titled by what it recharges, as the game answers.
+    ...(request.recharge && {
+      recharge: { name: request.label.replace(/ recharge$/, '') },
+    }),
     at: result.at,
   }
 }

@@ -14,6 +14,7 @@ import { SheetText } from './sheet-text'
 import { UsesButton } from './uses-button'
 import { Modal } from '@/components/modal'
 import { ordinal, poolName, type SlotPool } from '@/utils/action-groups'
+import { rechargeWords } from '@/utils/creature-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { itemSpellOf } from '@/utils/sheet-actions'
 import type {
@@ -261,6 +262,7 @@ export function Facts({
   const { save } = action
   const healing =
     action.damage.length > 0 && action.damage.every(part => part.healing)
+  const recovery = uses && recoveryOf(uses)
   const facts: [string, ReactNode][] = [
     [
       casting || action.type === 'spell' ? 'Casting time' : 'Activation',
@@ -292,7 +294,7 @@ export function Facts({
       'Uses',
       uses && (
         <>
-          {`${uses.value} of ${uses.max} left${uses.recovery ? `, ${uses.recovery}` : ''}`}
+          {`${uses.value} of ${uses.max} left${recovery ? `, ${recovery}` : ''}`}
           {/* Only where the row's count is folded away, which is shown beside it otherwise. */}
           {spending && (
             <UsesButton
@@ -419,4 +421,12 @@ export function chargesOf(count: number): string {
 /** Why the item a spell is cast from can't cast it now: it needs attuning, or else it can't. */
 export function whyNot(castFrom: SheetCastFrom): string {
   return castFrom.attune ? 'Needs attuning' : 'Can’t be cast now'
+}
+
+/**
+ * When uses come back, as their facts say it: a recharge as dnd5e's stat block says it, from
+ * module 0.36.0, such as "Recharge 5–6", in place of "Recharge [5+]"; else as the sheet has it.
+ */
+function recoveryOf(uses: SheetUses): string | null {
+  return uses.recharge ? rechargeWords(uses.recharge) : uses.recovery
 }

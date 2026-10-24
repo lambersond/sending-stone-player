@@ -11,6 +11,7 @@ import {
   FOLLOW_FOR,
   GM_ALONE_KEY,
   GM_SEND_KEY,
+  gmRollsOf,
   LATE_FOLLOW,
   needsPlayer,
   SEND_KEY,
@@ -42,6 +43,7 @@ import type {
 } from './use-sheet-roller'
 import type {
   FormulaSource,
+  GmRollView,
   RollFeature,
   RollKind,
   RollSource,
@@ -3200,6 +3202,16 @@ const recharged = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
   ...fields,
 })
 
+/** A roll the Gamemaster made as the character, of this kind, made. */
+const gmView = (id: string, kind: RollKind): GmRollView => ({
+  id,
+  kind,
+  status: 'done',
+  visible: true,
+  label: id,
+  at: '2026-10-23T12:00:00.000Z',
+})
+
 describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.36.0', () => {
   const bite = {
     item: 'wolfBite',
@@ -3302,7 +3314,11 @@ describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.
       extras: [],
       dice: [{ faces: 8, results: [5] }],
     })
-    expect(result.current.states.get('b1')).toEqual({ status: 'sending' })
+    // Changed on purpose (round 0.36.0 §20): marked sent on its own.
+    expect(result.current.states.get('b1')).toEqual({
+      status: 'sending',
+      alone: true,
+    })
   })
 
   it("says a critical hit's, the kinds chosen, the changes made and dice typed in, each only where so", () => {
@@ -3447,7 +3463,11 @@ describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.
       extras: [],
       dice: [{ faces: 6, results: [5] }],
     })
-    expect(result.current.states.get('f9')).toEqual({ status: 'sending' })
+    // Changed on purpose (round 0.36.0 §20): marked a recharge.
+    expect(result.current.states.get('f9')).toEqual({
+      status: 'sending',
+      recharge: true,
+    })
 
     act(() =>
       result.current.sendRecharge(
@@ -3480,5 +3500,88 @@ describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.
     act(() => unsent.result.current.setSending(false))
     act(() => unsent.result.current.sendRecharge(breath, recharged()))
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('marks damage on its own and a recharge in every state they are followed through, and neither a due damage nor a formula (round 0.36.0 §20)', async () => {
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const { result } = render(['damage', 'formula', 'itemDamage', 'recharge'])
+
+    act(() => result.current.sendDamage(alone(), bitten()))
+    act(() => result.current.sendRecharge(breath, recharged()))
+    act(() =>
+      result.current.sendDamage(
+        damageRollOf('Longsword', { use: 'req-1', damage: preview() }),
+        thrownDamage(),
+      ),
+    )
+    act(() => result.current.sendFormula(lantern, shone))
+    await advance(0)
+    expect(result.current.states.get('b1')).toMatchObject({ alone: true })
+    expect(result.current.states.get('f9')).toMatchObject({ recharge: true })
+
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-9',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        outcome: 'success',
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('b1')).toMatchObject({
+      status: 'done',
+      requestId: 'req-9',
+      alone: true,
+    })
+    expect(result.current.states.get('b1')).not.toHaveProperty('recharge')
+    expect(result.current.states.get('f9')).toMatchObject({
+      status: 'done',
+      outcome: 'success',
+      recharge: true,
+    })
+    expect(result.current.states.get('f9')).not.toHaveProperty('alone')
+    for (const id of ['r2', 'f2']) {
+      const state = result.current.states.get(id)
+      expect(state).toMatchObject({ status: 'done' })
+      expect(state).not.toHaveProperty('alone')
+      expect(state).not.toHaveProperty('recharge')
+    }
+
+    // And as the app refuses one.
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(respond(422, { reason: 'attacks-off' }))
+    act(() => result.current.sendDamage(alone(), bitten({ id: 'b3' })))
+    act(() => result.current.sendRecharge(breath, recharged({ id: 'f11' })))
+    await advance(0)
+    expect(result.current.states.get('b3')).toEqual({
+      status: 'refused',
+      reason: 'attacks-off',
+      alone: true,
+    })
+    expect(result.current.states.get('f11')).toEqual({
+      status: 'refused',
+      reason: 'attacks-off',
+      recharge: true,
+    })
+  })
+
+  it("marks the Gamemaster's recharges and damage on its own by their kind, as the player's own are", () => {
+    const { states } = gmRollsOf([
+      gmView('req-r', 'recharge'),
+      gmView('req-a', 'itemDamage'),
+      gmView('req-d', 'damage'),
+      gmView('req-f', 'formula'),
+    ])
+
+    expect(states.get('gm:req-r')).toMatchObject({ recharge: true })
+    expect(states.get('gm:req-r')).not.toHaveProperty('alone')
+    expect(states.get('gm:req-a')).toMatchObject({ alone: true })
+    expect(states.get('gm:req-a')).not.toHaveProperty('recharge')
+    for (const id of ['gm:req-d', 'gm:req-f']) {
+      expect(states.get(id)).not.toHaveProperty('alone')
+      expect(states.get(id)).not.toHaveProperty('recharge')
+    }
   })
 })

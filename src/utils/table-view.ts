@@ -221,6 +221,7 @@ export function toTableMessage(
     ...(summary && { summary }),
     ...(ask && { ask }),
     ...(byGm && { byGm: true as const }),
+    ...(message.alone && { alone: true as const }),
   }
 }
 

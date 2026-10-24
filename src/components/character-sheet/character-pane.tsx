@@ -1,6 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
 import {
@@ -55,10 +63,14 @@ import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
 import { useRemoveControls } from '@/components/transfers/remove-controls'
+import { CreatureContext } from '@/hooks/use-creature'
 import { hasDraft, journalOpen } from '@/hooks/use-notes'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
+import { RollsLocked } from '@/hooks/use-rolls-locked'
+import { SheetIdPrefix } from '@/hooks/use-sheet-ids'
 import {
   useSheetRoller,
+  type LocalFormula,
   type SheetDamageRoll,
   type SheetFormulaRoll,
   type SheetRoll,
@@ -67,6 +79,8 @@ import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
   damageRollOf,
+  needsPlayer,
+  SETTLED,
   useGmRolls,
   useTableRolls,
   withGmRolls,
@@ -84,6 +98,7 @@ import type { NotesPlace } from '@/components/notes'
 import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type {
+  CreatureFacts,
   TableCombat,
   TableMoves,
   TablePrompt,
@@ -137,6 +152,49 @@ type Props = {
    * the Biography tab alone.
    */
   notes?: NotesPlace
+  /**
+   * A creature's pane rather than the character's (module 0.36.0): its header is the creature's,
+   * and it offers nothing an NPC lacks (Heroic Inspiration, give, remove, parties, the journal).
+   */
+  creature?: CreatureFacts
+  /**
+   * Whether the pane is the one shown, where several share the Character pane (module 0.36.0):
+   * a pane not shown neither pops toasts nor rolls damage by itself, but offers it in its tray,
+   * and says so through `onPending`. Shown when absent.
+   */
+  shown?: boolean
+  onPending?: (pending: boolean) => void
+  /**
+   * (v5, critic) Told whether any of the pane's rolls is on its way to the game (its state not yet
+   * in `SETTLED`), so that the page never unmounts it then, which would abort its follows.
+   */
+  onBusy?: (busy: boolean) => void
+  /**
+   * Whether the pane throws its dice with a renderer its page provides, shared by every creature's
+   * pane, rather than one of its own (module 0.36.0). Its own when absent.
+   */
+  sharedDice?: boolean
+  /**
+   * At a companion's pane under "Right after its character", while its character is in the combat
+   * (module 0.36.0): that character's name. Its Initiative tile then says it acts after it, and
+   * offers no roll (§8.10).
+   */
+  follows?: string
+  /**
+   * (v5) A companion no longer the seat's character's (module 0.36.0): its sheet shows as it was,
+   * and nothing on it rolls (§8.3; Q 16).
+   */
+  locked?: boolean
+  /**
+   * (v5) What the ids of its tabs and their panel begin with, so that no two panes on one page
+   * share one: none at the character's own pane, `creature-<key>-` at a companion's.
+   */
+  idPrefix?: string
+  /**
+   * What's said of the sheet under its tab row, above everything else, as a gone companion's note
+   * (module 0.36.0).
+   */
+  note?: ReactNode
 }
 
 /**
@@ -190,9 +248,12 @@ const FAVORITES_COLUMN = 360
 
 /**
  * The character's sheet, rolling 3D dice across the screen. The dice and their textures load
- * once the sheet is shown, and leave with it.
+ * once the sheet is shown, and leave with it. Where its page shows a companion's pane beside it,
+ * every pane throws its dice on the page's one renderer (`sharedDice`), so they land over whichever
+ * is shown (module 0.36.0).
  */
 export function CharacterPane(props: Readonly<Props>) {
+  if (props.sharedDice) return <RollingSheet {...props} />
   return (
     <DiceRendererProvider>
       <RollingSheet {...props} />
@@ -216,8 +277,22 @@ function RollingSheet({
   parties,
   manualDice,
   notes,
+  creature,
+  shown: paneShown = true,
+  onPending,
+  onBusy,
+  follows,
+  locked = false,
+  idPrefix = '',
+  note,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
+  // Whether its rolls are locked now, as a gone companion's are (module 0.36.0), for what was
+  // opened before it went, such as a description's menu, to roll nothing after.
+  const lockedNow = useRef(locked)
+  useLayoutEffect(() => {
+    lockedNow.current = locked
+  }, [locked])
   // While the player types in what their own dice show, each roll asks for them, in place of the
   // app's dice.
   const typing = manualDice?.on === true
@@ -257,6 +332,18 @@ function RollingSheet({
   // And once they end a concentration, or spend a counter's charges, which they may from Effects
   // too, a favorite's among them, or give an item or coin, as that rolls nothing.
   const [acted, setActed] = useState(false)
+  // A recharge's d6, from module 0.36.0, goes to the game as one; any other formula as ever.
+  const { sendFormula, sendRecharge } = table
+  const formulaThrown = useCallback(
+    (thrown: SheetFormulaRoll, rolled: LocalFormula) => {
+      if (thrown.recharge) {
+        sendRecharge({ label: thrown.label, counter: thrown.recharge }, rolled)
+      } else {
+        sendFormula(thrown, rolled)
+      }
+    },
+    [sendFormula, sendRecharge],
+  )
   const {
     roll,
     rollDamage,
@@ -271,7 +358,7 @@ function RollingSheet({
   } = useSheetRoller(
     table.send,
     table.sendDamage,
-    table.sendFormula,
+    formulaThrown,
     typing ? entry.enter : undefined,
   )
   // Give, on the Inventory tab, from module 0.31.0: its dialog is held here, so that it outlives
@@ -310,12 +397,29 @@ function RollingSheet({
     () => withGmRolls(rolls, table.states, fromGm),
     [rolls, table.states, fromGm],
   )
+  // Where several panes share the Character pane (module 0.36.0): whether any of its rolls waits
+  // for its player, as damage to roll, which its tab marks while it's hidden; and whether any is
+  // still on its way to the game, while the page must keep it mounted, so as not to lose it.
+  const pending = shown.rolls.some(roll =>
+    needsPlayer(roll, shown.states.get(roll.id)),
+  )
+  const busy = [...table.states.values()].some(
+    ({ status }) => !SETTLED.has(status),
+  )
+  useEffect(() => {
+    onPending?.(pending)
+  }, [pending, onPending])
+  useEffect(() => {
+    onBusy?.(busy)
+  }, [busy, onBusy])
   // Whether the rolls pop up as toasts, with the rest a button away, or stay in the banner: one or
   // the other, never both.
   const [toasting, setToasting] = useToastSetting()
   const conditions = useConditionsPanel(sheet.conditions)
-  // An attack or a use made at the table, while its player picks whom at, and with what.
+  // An attack or a use made at the table, while its player picks whom at, and with what. One open
+  // as the pane's rolls lock, as a companion's that has gone, closes: nothing it picks is made.
   const [picking, setPicking] = useState<Picking>()
+  if (locked && picking) setPicking(undefined)
   const [lastTarget, setLastTarget] = useState<string>()
   // The sheet opens on the character; on Biography where a note is being written there, or the
   // journal is open, as when either was under why there was no sheet, before this one arrived.
@@ -340,7 +444,10 @@ function RollingSheet({
   const casts =
     sheet.spellcasting !== null ||
     sheet.spells.some(section => section.spells.length > 0)
-  const tabs = TABS.filter(({ id }) => id !== 'spells' || casts)
+  // A creature's tabs, from module 0.36.0, only where its sheet has something for them.
+  const tabs = TABS.filter(
+    ({ id }) => (id !== 'spells' || casts) && (!creature || hasFor(sheet, id)),
+  )
   // A tab the sheet no longer has, such as Spells for a character who lost theirs, shows the
   // character.
   const tab = tabs.some(({ id }) => id === chosen) ? chosen : 'character'
@@ -352,6 +459,8 @@ function RollingSheet({
   // An attack the game makes is made at a combatant the player picks first, in a combat, and with
   // the slot, ammunition or mode they choose, where there's more than one.
   const onRoll = (asked: SheetRoll) => {
+    // Nothing rolls at a gone companion's pane, should a control have missed it (module 0.36.0).
+    if (lockedNow.current) return
     const { source } = asked
     const attack =
       source?.kind === 'attack'
@@ -445,6 +554,8 @@ function RollingSheet({
   const pick = (picked: Picked) => {
     const asked = picking
     setPicking(undefined)
+    // Nothing picked at a pane whose rolls have locked since is made (module 0.36.0).
+    if (lockedNow.current) return
     if (asked?.kind === 'use') {
       use(asked.action, picked, asked.modifiers)
       return
@@ -495,12 +606,16 @@ function RollingSheet({
     type?: string,
     modifiers?: DamageModifiers,
   ) => {
+    if (lockedNow.current) return
     void rollDamage(damageRollOf(name, due, type, modifiers ?? due.modifiers))
   }
   // A use's damage or healing is rolled as soon as the game says it's due, once; unless its kind
   // is to be chosen first, in the tray; or, while the player types in their own dice, offered there
-  // for them to roll it, rather than asking for their dice by itself. Either way only once, so
-  // that turning typing off after never rolls it by itself.
+  // for them to roll it, rather than asking for their dice by itself; and so too while the pane
+  // isn't the one shown (module 0.36.0), whose dice would land over another's, or while its rolls
+  // are locked, as a gone companion's are, whose use made before it went may still come back with
+  // its damage. Either way only once, so that turning typing off after, or showing the pane, never
+  // rolls it by itself.
   const rolledFor = useRef(new Set<string>())
   const { offerDamage } = table
   useEffect(() => {
@@ -510,15 +625,16 @@ function RollingSheet({
       if (state.damaged || rolledFor.current.has(requestId)) continue
       if (choicesOf(damage).length > 0) continue
       rolledFor.current.add(requestId)
-      if (typing) {
+      if (typing || !paneShown || lockedNow.current) {
         offerDamage(id)
         continue
       }
       const { modifiers } = state
       void rollDamage(damageRollOf(name, { use: requestId, damage, modifiers }))
     }
-  }, [table.states, rollDamage, typing, offerDamage])
+  }, [table.states, rollDamage, typing, paneShown, offerDamage])
   const onRollDamage = (request: SheetDamageRoll) => {
+    if (lockedNow.current) return
     const due = request.source && table.dueFor(request.source)
     if (due) {
       rollDue(
@@ -529,6 +645,9 @@ function RollingSheet({
       )
       return
     }
+    // Damage on its own, from module 0.36.0, is rolled as its row gave it: its dice the game's
+    // plan, a critical hit's where chosen, as the kind chosen; sent as such, unless the switch went
+    // off since, when it's the player's alone. Any other is rolled here, as ever.
     void rollDamage(request)
   }
   // The features resources stand for are marked as favorites too, as their entries say.
@@ -548,12 +667,24 @@ function RollingSheet({
       : width,
   )
   const using = table.takes('use') ? onUse : undefined
-  // While the game takes damage: which it waits for, and whether it takes it changed.
-  const tableDamage: TableDamage | undefined = table.takes('damage')
-    ? { modifies: table.modifies, dueFor: table.dueFor }
-    : undefined
+  // While the game takes damage, or damage on its own or recharges from module 0.36.0: which it
+  // waits for, whether it takes it changed, whether it goes on its own, and whether a recharge is
+  // rolled here. A game may take recharges and not damage, as with Midi-QOL's activities and the
+  // module's integration off, whatever this device's switch for damage on its own.
+  const tableDamage: TableDamage | undefined =
+    table.takes('damage') || table.sendsAlone || table.takes('recharge')
+      ? {
+          modifies: table.modifies,
+          dueFor: table.dueFor,
+          sendsAlone: table.sendsAlone,
+          recharges: table.takes('recharge'),
+        }
+      : undefined
   // Hit dice spent, or a formula rolled, such as a light's radius.
-  const onRollFormula = (request: SheetFormulaRoll) => void rollFormula(request)
+  const onRollFormula = (request: SheetFormulaRoll) => {
+    if (lockedNow.current) return
+    void rollFormula(request)
+  }
   const favorites = {
     characterId,
     sheet,
@@ -594,14 +725,17 @@ function RollingSheet({
   // and the table asked, shows in the tray, whichever tab it's on.
   const descriptions: DescriptionActions = {
     roll: request => {
+      if (lockedNow.current) return
       setDescribed(true)
       onRoll(request)
     },
     rollDamage: request => {
+      if (lockedNow.current) return
       setDescribed(true)
       void rollDamage(request)
     },
     rollFormula: request => {
+      if (lockedNow.current) return
       setDescribed(true)
       void rollFormula(request)
     },
@@ -617,7 +751,7 @@ function RollingSheet({
       },
     }),
     ask: ({ label, text, link }) => {
-      if (!table.takes('ask')) return
+      if (lockedNow.current || !table.takes('ask')) return
       setDescribed(true)
       table.sendAsk(logAsk(label), { text, link })
     },
@@ -687,7 +821,7 @@ function RollingSheet({
     else show('effects')
   }
 
-  return (
+  const pane = (
     <SheetContext
       marks={marks}
       showConditions={conditions.show}
@@ -715,12 +849,12 @@ function RollingSheet({
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              id={`sheet-tab-${id}`}
+              id={`${idPrefix}sheet-tab-${id}`}
               type='button'
               role='tab'
               title={label}
               aria-selected={tab === id}
-              aria-controls='sheet-panel'
+              aria-controls={`${idPrefix}sheet-panel`}
               onClick={() => show(id)}
               className={clsx(
                 'flex shrink-0 items-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors',
@@ -761,6 +895,16 @@ function RollingSheet({
                 ? { on: table.sending, onChange: table.setSending }
                 : undefined
             }
+            // Where the game takes damage on its own, from module 0.36.0: this device's switch.
+            alone={
+              table.aloneOffered
+                ? {
+                    on: table.aloneOn,
+                    onChange: table.setAlone,
+                    disabled: !table.sending,
+                  }
+                : undefined
+            }
             // Where the game lets the player type in their own dice, from module 0.32.0.
             manualDice={manualDice}
             toasts={{ on: toasting, onChange: setToasting }}
@@ -772,6 +916,7 @@ function RollingSheet({
           />
         </div>
       </div>
+      {note}
       {/* What the game asks of the character, above every tab, while the game takes the answer. */}
       {waiting.length > 0 && table.available && (
         <PromptBanner
@@ -791,9 +936,9 @@ function RollingSheet({
         {beside && <FavoritesColumn {...favorites} />}
         <Scroller ref={scroller}>
           <div
-            id='sheet-panel'
+            id={`${idPrefix}sheet-panel`}
             role='tabpanel'
-            aria-labelledby={`sheet-tab-${tab}`}
+            aria-labelledby={`${idPrefix}sheet-tab-${tab}`}
           >
             {tab === 'character' && (
               <CharacterSheet
@@ -803,6 +948,9 @@ function RollingSheet({
                 onRoll={onRoll}
                 onRollFormula={onRollFormula}
                 onShowConditions={showCondition}
+                creature={creature}
+                follows={follows}
+                idPrefix={idPrefix}
               />
             )}
             {tab === 'actions' && (
@@ -861,10 +1009,12 @@ function RollingSheet({
         <RollTray rolls={shown.rolls} rolling={rolling} table={trayTable} />
       )}
       {/* On every tab, as a roll's way to the game may end on another. */}
+      {/* Mounted while the pane is hidden too, and off, so that what it meets meanwhile is kept
+          quiet rather than popping up as it's shown again (module 0.36.0). */}
       <RollToasts
         rolls={shown.rolls}
         states={shown.states}
-        on={toasting}
+        on={toasting && paneShown}
         rollDamage={rollDue}
         modifies={table.modifies}
         tabs={tabRow}
@@ -889,6 +1039,74 @@ function RollingSheet({
       {conditions.panel}
     </SheetContext>
   )
+  return (
+    <PaneContext creature={creature} locked={locked} idPrefix={idPrefix}>
+      {pane}
+    </PaneContext>
+  )
+}
+
+/**
+ * What every part of a pane inside knows of whose it is (module 0.36.0): at a companion's, the
+ * creature and its character, for the words it says; whether its rolls are locked, as a gone
+ * companion's are; and what its ids begin with. Its toasts, portalled, know it too.
+ */
+function PaneContext({
+  creature,
+  locked,
+  idPrefix,
+  children,
+}: Readonly<{
+  creature?: CreatureFacts
+  locked: boolean
+  idPrefix: string
+  children: ReactNode
+}>) {
+  return (
+    <CreatureContext
+      value={creature && { ...creature, character: creature.relation.of }}
+    >
+      <RollsLocked value={locked}>
+        <SheetIdPrefix value={idPrefix}>{children}</SheetIdPrefix>
+      </RollsLocked>
+    </CreatureContext>
+  )
+}
+
+/**
+ * Whether a creature's sheet has something for one of its tabs (module 0.36.0): Inventory where it
+ * lists an item or a container, or has a coin, as the module lists every coin, at none too;
+ * Effects where it has an effect or a condition; Biography where it has more than its alignment,
+ * which the creature line already says. The rest always, Spells as a character's.
+ */
+function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
+  const { inventory, details } = sheet
+  switch (tab) {
+    case 'inventory': {
+      return (
+        inventory.sections.length > 0 ||
+        inventory.containers.length > 0 ||
+        inventory.currency.some(({ value }) => value > 0)
+      )
+    }
+    case 'effects': {
+      return (
+        sheet.effects.some(({ effects }) => effects.length > 0) ||
+        sheet.conditions.length > 0
+      )
+    }
+    case 'biography': {
+      return (
+        Boolean(details.biography) ||
+        Boolean(details.appearance) ||
+        details.personality.length > 0 ||
+        details.about.some(({ id }) => id !== 'alignment')
+      )
+    }
+    default: {
+      return true
+    }
+  }
 }
 
 /**

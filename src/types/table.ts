@@ -92,6 +92,8 @@ export type TableMessage = {
   ask?: TableAsk
   /** Made for a roll the campaign's Gamemaster made here as a character, as this app knows. */
   byGm?: true
+  /** A damage or healing card made on its own, for the Gamemaster to apply (module 0.36.0). */
+  alone?: true
 }
 
 /**

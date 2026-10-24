@@ -111,3 +111,21 @@ run partynotes 58 SHOTS=$O/shots-035
 run notesoffline 47 TIMEOUT=600 SHOTS=$O/shots-035
 run notesorder 66 SHOTS=$O/shots-035
 run notesorder 9 SKEW=034 MODULE=$O/module-0.34.0 SHOTS=$O/shots-035
+# Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
+# shown beside the character and acting from the app; damage on its own and recharges; and
+# module 0.35.0 (neither).
+run companions 124 SHOTS=$O/shots-036
+run companions 125 MIDI=1 SHOTS=$O/shots-036
+run companions 124 DND5E6=1 SHOTS=$O/shots-036
+run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036
+run alone 71 SHOTS=$O/shots-036
+run alone 72 MIDI=1 SHOTS=$O/shots-036
+run alone 71 DND5E6=1 SHOTS=$O/shots-036
+run alone 7 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036
+# Module 0.36.0: ending a turn from the app, the character's or a companion's: the turn panel's
+# End Turn and the Combat tab held; and module 0.35.0 (neither). For now the steps that need no End
+# Turn screen; its button, hold and toast wait for the user's prototype (decisions Q 13).
+run endturn 11 SHOTS=$O/shots-036
+run endturn 11 MIDI=1 SHOTS=$O/shots-036
+run endturn 11 DND5E6=1 SHOTS=$O/shots-036
+run endturn 3 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036

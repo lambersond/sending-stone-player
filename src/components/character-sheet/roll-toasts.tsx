@@ -15,6 +15,7 @@ import {
   type RollDue,
 } from './roll-tray'
 import { InPortalRoot } from '@/components/modal'
+import { useCreature } from '@/hooks/use-creature'
 import { useHydrated } from '@/hooks/use-hydrated'
 import { useRollToasts, useToastTop } from '@/hooks/use-roll-toasts'
 import { useTableRole } from '@/hooks/use-table-api'
@@ -82,8 +83,10 @@ export function RollToasts({
   const { shown, dismiss } = useRollToasts(rolls, states, on)
   const top = useToastTop(on, tabs, header, prompts)
   const hydrated = useHydrated()
-  // In the tray's words for the seat at the sheet: the Gamemaster's game is their own (#156).
+  // In the tray's words for the seat at the sheet: the Gamemaster's game is their own (#156); and
+  // at a creature's pane, why its rolls weren't made as its own (module 0.36.0).
   const role = useTableRole()
+  const creature = useCreature()
   if (!on || !hydrated) return
   const toasts = shown.flatMap(toast => {
     const roll = rolls.find(({ id }) => id === toast.id)
@@ -114,7 +117,7 @@ export function RollToasts({
               key={`${id}:${poppedAt}`}
               roll={roll}
               state={state}
-              brief={briefOf(roll, state, role)}
+              brief={briefOf(roll, state, role, creature)}
               leaving={leaving}
               waits={needsPlayer(roll, state)}
               onDismiss={() => dismiss(id)}

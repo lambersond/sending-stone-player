@@ -1,32 +1,32 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
-import {
-  CircleAlert,
-  Dices,
-  Footprints,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Star,
-  Zap,
-} from 'lucide-react'
-import { ConcentrationChip } from './concentration'
+import { Shield, ShieldCheck, Sparkles, Star } from 'lucide-react'
 import { useD20Rolls, type RollActions } from './d20-rolls'
-import { conditionDetail } from './effects-tab'
 import { useFavorite } from './favorite-mark'
 import { HitDiceList, hitDieSpending, type HitDieSpending } from './hit-dice'
 import { RollButton } from './roll-button'
 import { SheetHeading } from './sheet-heading'
+import {
+  Conditions,
+  DeathSavesStat,
+  HitPoints,
+  InitiativeStat,
+  isShowingDeathSaves,
+  Portrait,
+  Stat,
+  WalkingSpeed,
+} from './sheet-tiles'
 import { useCharging } from './uses-button'
+import { CreatureHeader } from '@/components/companions/creature-header'
 import { ConfirmModal } from '@/components/modal'
+import { useSheetId } from '@/hooks/use-sheet-ids'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
-import { isDying } from '@/utils/roll-requests'
 import type { SheetFormulaRoll, SheetRoll } from '@/hooks/use-sheet-roller'
 import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
-import type { TableCombat, TableSheet } from '@/types/table'
+import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
 
 type Props = {
   name: string
@@ -38,6 +38,18 @@ type Props = {
   onRollFormula?: (roll: SheetFormulaRoll) => void
   /** Shows one of the character's conditions in full, with its rules, by its id. */
   onShowConditions?: (id: string) => void
+  /**
+   * A creature's sheet rather than the character's (module 0.36.0), such as a companion's: its
+   * header is the creature's.
+   */
+  creature?: CreatureFacts
+  /**
+   * The character a companion acts right after in initiative, while it's in the combat (module
+   * 0.36.0): its Initiative tile says so, and rolls nothing.
+   */
+  follows?: string
+  /** What the ids of its pane begin with, as a companion's pane's do (module 0.36.0). */
+  idPrefix?: string
 }
 
 /**
@@ -52,32 +64,53 @@ export function CharacterSheet({
   onRoll,
   onRollFormula,
   onShowConditions,
+  creature,
+  follows,
+  idPrefix,
 }: Readonly<Props>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
   const abbreviation = (id: string) =>
     sheet.abilities.find(ability => ability.id === id)?.abbreviation ??
     id.toUpperCase()
-  // The character's place in the encounter, while it has no initiative yet.
-  const waiting = combat?.combatants.some(
-    ({ side, initiative }) => side === 'me' && initiative === null,
-  )
+  // The character's place in the encounter, while it has no initiative yet; not a companion's that
+  // acts right after its character, which rolls none.
+  const waiting =
+    !follows &&
+    combat?.combatants.some(
+      ({ side, initiative }) => side === 'me' && initiative === null,
+    )
+  const combatId = waiting ? combat?.id : undefined
+  const abilitiesId = useSheetId('abilities-heading')
+  const skillsId = useSheetId('skills-heading')
+  const traitsId = useSheetId('traits-heading')
 
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
-      <SheetHeader
-        name={name}
-        sheet={sheet}
-        actions={actions}
-        combatId={waiting ? combat?.id : undefined}
-        onShowConditions={onShowConditions}
-        spending={hitDieSpending(sheet, onRollFormula)}
-      />
+      {creature ? (
+        <CreatureHeader
+          name={name}
+          sheet={sheet}
+          facts={creature}
+          actions={actions}
+          combatId={combatId}
+          follows={follows}
+          onShowConditions={onShowConditions}
+          idPrefix={idPrefix}
+        />
+      ) : (
+        <SheetHeader
+          name={name}
+          sheet={sheet}
+          actions={actions}
+          combatId={combatId}
+          follows={follows}
+          onShowConditions={onShowConditions}
+          spending={hitDieSpending(sheet, onRollFormula)}
+        />
+      )}
 
-      <section
-        aria-labelledby='abilities-heading'
-        className='flex flex-col gap-3'
-      >
-        <SheetHeading id='abilities-heading'>Abilities</SheetHeading>
+      <section aria-labelledby={abilitiesId} className='flex flex-col gap-3'>
+        <SheetHeading id={abilitiesId}>Abilities</SheetHeading>
         <ul className='grid grid-cols-3 gap-2 @xl:grid-cols-6'>
           {sheet.abilities.map(ability => (
             <AbilityTile key={ability.id} ability={ability} {...actions} />
@@ -86,12 +119,9 @@ export function CharacterSheet({
       </section>
 
       {sheet.skills.length > 0 && (
-        <section
-          aria-labelledby='skills-heading'
-          className='flex flex-col gap-2'
-        >
+        <section aria-labelledby={skillsId} className='flex flex-col gap-2'>
           <div className='flex items-baseline justify-between gap-2 px-1'>
-            <SheetHeading id='skills-heading'>Skills</SheetHeading>
+            <SheetHeading id={skillsId}>Skills</SheetHeading>
             <span aria-hidden className='text-xs text-text-secondary'>
               Modifier · Passive
             </span>
@@ -110,11 +140,8 @@ export function CharacterSheet({
       )}
 
       {sheet.traits.length > 0 && (
-        <section
-          aria-labelledby='traits-heading'
-          className='flex flex-col gap-2'
-        >
-          <SheetHeading id='traits-heading'>Traits</SheetHeading>
+        <section aria-labelledby={traitsId} className='flex flex-col gap-2'>
+          <SheetHeading id={traitsId}>Traits</SheetHeading>
           <dl className='grid gap-x-4 rounded-2xl border border-border bg-card p-1.5 @2xl:grid-cols-2'>
             {sheet.traits.map(trait => (
               <div
@@ -143,6 +170,7 @@ function SheetHeader({
   sheet,
   actions,
   combatId,
+  follows,
   onShowConditions,
   spending,
 }: Readonly<{
@@ -151,17 +179,15 @@ function SheetHeader({
   actions: RollActions
   /** The combat the character waits to roll initiative in. */
   combatId?: string
+  /** The character it acts right after in initiative, while that one's in the combat. */
+  follows?: string
   onShowConditions?: (id: string) => void
   /** How a hit die is spent; their counts alone without. */
   spending?: HitDieSpending
 }>) {
   const identity = [sheet.species, sheet.background].filter(Boolean)
   const pools = hitDicePools(sheet.classes)
-  const { deathSaves } = sheet
-  // dnd5e's sheet shows them while the character is down, as do we; and while any are marked.
-  const dying =
-    deathSaves !== null &&
-    (sheet.hp?.value === 0 || deathSaves.success > 0 || deathSaves.failure > 0)
+  const dying = isShowingDeathSaves(sheet)
   return (
     <header className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'>
       <div className='flex items-center gap-4'>
@@ -176,44 +202,10 @@ function SheetHeader({
           <Inspiration inspired={sheet.inspiration} />
         </div>
       </div>
-      {sheet.conditions.length > 0 && (
-        <ul aria-label='Conditions' className='flex flex-wrap gap-1.5'>
-          {sheet.conditions.map(condition => {
-            const chip = (
-              <>
-                <StatusIcon src={condition.img} />
-                {condition.name}
-                {conditionDetail(condition) && (
-                  <span className='font-normal text-text-secondary'>
-                    {conditionDetail(condition)}
-                  </span>
-                )}
-              </>
-            )
-            const opener = (
-              <button
-                type='button'
-                onClick={() => onShowConditions?.(condition.id)}
-                className={CHIP}
-              >
-                {chip}
-              </button>
-            )
-            return (
-              <li key={condition.id}>
-                {/* Concentrating has no rules here to open: it ends what's concentrated on. */}
-                {condition.id === CONCENTRATING ? (
-                  <ConcentrationChip className={CHIP} fallback={opener}>
-                    {chip}
-                  </ConcentrationChip>
-                ) : (
-                  opener
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <Conditions
+        conditions={sheet.conditions}
+        onShowConditions={onShowConditions}
+      />
       {/* The hit points and the hit dice side by side, however wide the sheet; while the
           character is dying, the death saves on a row of their own; then the numbers after them,
           two to a row on a phone, and four wider. Only where the sheet is as wide as it gets do
@@ -241,29 +233,7 @@ function SheetHeader({
             <HitDiceList pools={pools} spending={spending} />
           </Stat>
         )}
-        {dying && (
-          <Stat label='Death saves' wide='row'>
-            <span className='flex items-center justify-between gap-2'>
-              <DeathSaves saves={deathSaves} />
-              {isDying(sheet) && (
-                <RollButton
-                  target={{
-                    label: 'Death saving throw',
-                    modifier: 0,
-                    mode: 0,
-                    source: { kind: 'death' },
-                  }}
-                  {...actions}
-                  label='Death saving throw'
-                  className='inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-semibold transition-colors hover:border-primary hover:bg-primary/5 focus-visible:border-primary'
-                >
-                  <Dices aria-hidden className='size-4 text-primary' />
-                  Roll
-                </RollButton>
-              )}
-            </span>
-          </Stat>
-        )}
+        <DeathSavesStat sheet={sheet} actions={actions} />
         {sheet.ac !== null && (
           <Stat label='Armor class' short='AC'>
             <span className='inline-flex items-center gap-1'>
@@ -278,50 +248,16 @@ function SheetHeader({
           </Stat>
         )}
         {sheet.initiative !== null && (
-          <Stat label='Initiative' short='Init'>
-            <RollButton
-              target={{
-                label: 'Initiative',
-                modifier: sheet.initiative,
-                mode: 0,
-                source: combatId ? { kind: 'initiative', combatId } : undefined,
-              }}
-              {...actions}
-              label={`Initiative, ${formatModifier(sheet.initiative)}${combatId ? ', to roll for the combat' : ''}`}
-              // Its Roll badge goes under the number in a tile too narrow for both, rather than
-              // under the tile beside it.
-              className='-mx-1 inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-lg px-1 transition-colors hover:bg-primary/10 focus-visible:bg-primary/10'
-            >
-              <Zap
-                aria-hidden
-                className={clsx(
-                  'size-4',
-                  combatId ? 'text-primary' : 'text-text-secondary',
-                )}
-              />
-              {formatModifier(sheet.initiative)}
-              {combatId && (
-                <span
-                  aria-hidden
-                  className='rounded bg-primary px-1 text-[10px] font-bold tracking-wide text-on-primary uppercase'
-                >
-                  Roll
-                </span>
-              )}
-            </RollButton>
-          </Stat>
+          <InitiativeStat
+            modifier={sheet.initiative}
+            combatId={combatId}
+            follows={follows}
+            actions={actions}
+          />
         )}
         {sheet.speed && (
           <Stat label='Speed'>
-            <span className='inline-flex items-center gap-1'>
-              <Footprints aria-hidden className='size-4 text-text-secondary' />
-              {sheet.speed.value}
-              {sheet.speed.units && (
-                <span className='text-sm font-normal text-text-secondary'>
-                  {sheet.speed.units}
-                </span>
-              )}
-            </span>
+            <WalkingSpeed speed={sheet.speed} />
           </Stat>
         )}
       </dl>
@@ -388,190 +324,6 @@ function Inspiration({ inspired }: Readonly<{ inspired: boolean }>) {
         <p>Foundry’s chat will say so.</p>
       </ConfirmModal>
     </div>
-  )
-}
-
-/** The look of a condition's chip in the header. */
-const CHIP =
-  'inline-flex items-center gap-1.5 rounded-full border border-border bg-page py-1 pr-2.5 pl-1 text-xs font-semibold transition-colors hover:border-primary hover:bg-primary/5'
-
-/** dnd5e's status of a character concentrating, as the sheet's conditions name it. */
-const CONCENTRATING = 'concentrating'
-
-/**
- * A condition's icon. The game's status icons are white, made for its dark token controls, so they
- * sit on a dark disc.
- */
-function StatusIcon({ src }: Readonly<{ src: string | null }>) {
-  const [failed, setFailed] = useState<string>()
-  if (!src || failed === src) {
-    return (
-      <span
-        aria-hidden
-        className='flex size-5 items-center justify-center rounded-full bg-ruby/15 text-ruby'
-      >
-        <CircleAlert className='size-3.5' />
-      </span>
-    )
-  }
-  return (
-    // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=''
-      className='size-5 rounded-full bg-[#23232f] p-0.5'
-      onError={() => setFailed(src)}
-    />
-  )
-}
-
-function Portrait({ name, src }: Readonly<{ name: string; src?: string }>) {
-  const [failed, setFailed] = useState(false)
-  const box =
-    'size-16 shrink-0 overflow-hidden rounded-2xl border border-border bg-primary/10'
-  if (!src || failed) {
-    return (
-      <span
-        aria-hidden
-        className={clsx(
-          box,
-          'flex items-center justify-center text-lg font-bold text-primary-text',
-        )}
-      >
-        {initials(name)}
-      </span>
-    )
-  }
-  return (
-    // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=''
-      className={clsx(box, 'object-cover object-top')}
-      onError={() => setFailed(true)}
-    />
-  )
-}
-
-/**
- * One of the sheet's vital numbers. Each box is a container, so a label with a short form, such as
- * Prof for Proficiency, can use it when its box is too narrow for the whole word: the longest,
- * Armor class, needs 114 pixels. What it shows fills the box's height, which a taller box beside
- * it on its row may stretch, for the hit points' bar to sit at its foot.
- * @param wide - For one of a pair, such as the hit points beside the hit dice, a column on a
- * phone, where there are two, and two where there are more; two columns however many there are,
- * as the hit points with no hit dice beside them; or a row of its own, up to four columns.
- */
-function Stat({
-  label,
-  short,
-  wide,
-  children,
-}: Readonly<{
-  label: string
-  short?: string
-  wide?: 'pair' | 'double' | 'row'
-  children: ReactNode
-}>) {
-  return (
-    <div
-      className={clsx(
-        '@container flex min-w-0 flex-col gap-0.5 rounded-xl bg-page py-2',
-        wide === 'pair' && '@lg:col-span-2',
-        wide === 'double' && 'col-span-2',
-        wide === 'row' && 'col-span-2 @lg:col-span-4',
-      )}
-    >
-      <dt className='truncate px-3 text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
-        {short ? (
-          <>
-            <span className='@max-[116px]:hidden'>{label}</span>
-            <abbr
-              title={label}
-              className='hidden no-underline @max-[116px]:inline'
-            >
-              {short}
-            </abbr>
-          </>
-        ) : (
-          label
-        )}
-      </dt>
-      <dd className='flex-1 px-3 text-lg font-bold tabular-nums'>{children}</dd>
-    </div>
-  )
-}
-
-/**
- * The character's hit points, of how many, and any temporary ones, over a bar of how many are left;
- * the bar at the foot of the tile, should the hit dice beside it make it taller.
- */
-function HitPoints({ hp }: Readonly<{ hp: NonNullable<TableSheet['hp']> }>) {
-  const ratio = hp.max ? Math.max(0, Math.min(1, hp.value / hp.max)) : 1
-  let bar = 'bg-primary'
-  if (ratio <= 0.25) bar = 'bg-danger'
-  else if (ratio <= 0.5) bar = 'bg-warning'
-  return (
-    <span className='flex h-full flex-col justify-between gap-1'>
-      <span className='flex flex-wrap items-baseline gap-x-1'>
-        <span>{hp.value}</span>
-        {hp.max !== null && (
-          <span className='font-normal text-text-secondary'> / {hp.max}</span>
-        )}
-        {hp.temp > 0 && (
-          <span className='text-sm text-party'> +{hp.temp} temp</span>
-        )}
-      </span>
-      {hp.max !== null && (
-        <span
-          aria-hidden
-          className='block h-1.5 w-full overflow-hidden rounded-full bg-border'
-        >
-          <span
-            className={clsx('block h-full rounded-full', bar)}
-            style={{ width: `${ratio * 100}%` }}
-          />
-        </span>
-      )}
-    </span>
-  )
-}
-
-/** Death saving throws made: successes and failures, three of either ending them. */
-function DeathSaves({
-  saves,
-}: Readonly<{ saves: { success: number; failure: number } }>) {
-  return (
-    <span className='flex flex-col gap-1 text-xs font-semibold'>
-      <SaveMarks label='Successes' count={saves.success} mark='bg-primary' />
-      <SaveMarks label='Failures' count={saves.failure} mark='bg-danger' />
-    </span>
-  )
-}
-
-function SaveMarks({
-  label,
-  count,
-  mark,
-}: Readonly<{ label: string; count: number; mark: string }>) {
-  return (
-    <span className='flex items-center gap-2'>
-      <span className='w-16 text-text-secondary'>{label}</span>
-      <span aria-hidden className='flex gap-1'>
-        {[0, 1, 2].map(index => (
-          <span
-            key={index}
-            className={clsx(
-              'size-3 rounded-full border-2 border-border',
-              index < count && clsx('border-transparent', mark),
-            )}
-          />
-        ))}
-      </span>
-      <span className='sr-only'>{Math.min(count, 3)} of 3</span>
-    </span>
   )
 }
 
@@ -753,13 +505,4 @@ export function classLine(sheet: TableSheet): string {
   return subclasses.length > 0
     ? `${classes} · ${subclasses.join(' / ')}`
     : classes
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(word => word[0].toUpperCase())
-    .join('')
 }

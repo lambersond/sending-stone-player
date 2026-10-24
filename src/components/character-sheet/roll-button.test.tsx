@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { LONG_PRESS, RollButton } from './roll-button'
+import { RollsLocked } from '@/hooks/use-rolls-locked'
 
 const target = { label: 'Perception check', modifier: 7, mode: 0 as const }
 
@@ -207,6 +208,33 @@ describe('components/character-sheet/roll-button', () => {
     fireEvent.pointerDown(button, touch)
     act(() => jest.advanceTimersByTime(LONG_PRESS))
 
+    expect(onRoll).not.toHaveBeenCalled()
+    expect(onMenu).not.toHaveBeenCalled()
+  })
+
+  it('is disabled, greyed, and rolls and offers nothing, in a pane whose rolls are locked (module 0.36.0)', () => {
+    const onRoll = jest.fn()
+    const onMenu = jest.fn()
+    render(
+      <RollsLocked value>
+        <RollButton
+          target={target}
+          onRoll={onRoll}
+          onMenu={onMenu}
+          label='Perception check, +7'
+          className='rounded'
+        >
+          Perception
+        </RollButton>
+      </RollsLocked>,
+    )
+    const button = screen.getByRole('button', { name: 'Perception check, +7' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveClass('rounded', 'cursor-not-allowed', 'opacity-50')
+    fireEvent.click(button)
+    fireEvent.contextMenu(button, { button: 2 })
+    fireEvent.pointerDown(button, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS))
     expect(onRoll).not.toHaveBeenCalled()
     expect(onMenu).not.toHaveBeenCalled()
   })

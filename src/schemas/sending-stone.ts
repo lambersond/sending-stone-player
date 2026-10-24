@@ -1420,6 +1420,13 @@ const messageSchema = z.looseObject({
     .catch(undefined),
   // From module 0.36.0, to an app that reads companions: the listed companion that spoke it.
   companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
+  // From module 0.36.0, to every app: a damage or healing card made on its own. A claim, as any
+  // user may flag a message of theirs, shown only as words that apply nothing.
+  alone: z
+    .literal(true)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- not on its own, where unreadable
+    .catch(undefined),
 })
 
 /**

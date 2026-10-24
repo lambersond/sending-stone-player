@@ -10,6 +10,15 @@ import {
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { ALONE_KEY } from '@/hooks/use-table-rolls'
+import {
+  chromaticOrb,
+  fireBreath,
+  lightningBreath,
+  longsword,
+  spiritSheet,
+  usedBy,
+} from '@/mocks/alone'
 import {
   castingSheet,
   characterSheet,
@@ -4821,5 +4830,321 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
       await act(async () => {})
       expect(posted).toEqual([])
     })
+  })
+})
+
+/** The spirit's sheet, with a holy symbol whose radiance is a formula the game rolls too. */
+const spiritWithSymbol = () =>
+  spiritSheet([
+    longsword(),
+    fireBreath(),
+    chromaticOrb(),
+    lightningBreath(),
+    sheetAction({
+      id: 'symbol',
+      name: 'Holy Symbol',
+      rollFormula: { formula: '2d6', name: 'Radiance' },
+      activity: usedBy('symbolUse', 'utility'),
+    }),
+  ])
+
+/** A die thrown, whatever it came up. */
+const die = (faces: number, count = 1) => ({
+  faces,
+  results: Array.from({ length: count }, () => expect.any(Number)),
+})
+
+describe('components/character-sheet/character-pane, damage on its own and recharges (module 0.36.0)', () => {
+  /** What the game takes from the player, damage on its own and recharges among it. */
+  const KINDS: RollKind[] = [
+    'attack',
+    'damage',
+    'use',
+    'formula',
+    'itemDamage',
+    'recharge',
+  ]
+
+  const renderSpirit = () =>
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(spiritWithSymbol(), GAME)}
+        rollsToTable={KINDS}
+        rollFeatures={['modifiers']}
+      />,
+    )
+
+  beforeEach(() => {
+    clearStorage()
+    localStorage.setItem(ALONE_KEY, 'on')
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it('sends a damage chip tapped on its own as itemDamage, exactly, its toast named once and saying so', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(TOASTS_KEY, 'on')
+    const posted = answering({
+      'req-1': { status: 'done', visible: true, total: 9 },
+    })
+    renderSpirit()
+    await show('Actions')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Longsword damage, 1d8 + 4, goes to the table on its own',
+      }),
+    )
+
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      kind: 'itemDamage',
+      item: 'longsword',
+      activity: 'longswordAttack',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(8)],
+    })
+    const label = await within(toasts()).findByText('Longsword damage')
+    expect(screen.queryByText(/damage damage/)).toBeNull()
+    const toast = label.closest('[data-roll-toast]') as HTMLElement
+    await waitFor(
+      () =>
+        expect(toast).toHaveTextContent(
+          'At the table: 9 · on its own, for your Gamemaster to apply',
+        ),
+      { timeout: 3000 },
+    )
+  })
+
+  it("rolls a due attack's damage on its use, whatever the switch, never on its own", async () => {
+    const user = userEvent.setup()
+    const preview = longsword().tableDamage!.normal
+    const posted = answering({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        total: 19,
+        attack: { critical: false, fumble: false, outcome: 'hit' },
+        damage: preview,
+      },
+      'req-2': { status: 'done', visible: true, total: 9 },
+    })
+    renderSpirit()
+    await show('Actions')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Longsword attack, +7' }),
+    )
+    await waitFor(() => expect(posted).toHaveLength(1))
+    // Its damage is due: its chip says nothing of going on its own.
+    const chip = await screen.findByRole(
+      'button',
+      { name: 'Longsword damage, 1d8 + 4' },
+      { timeout: 3000 },
+    )
+    await user.click(chip)
+
+    await waitFor(() => expect(posted).toHaveLength(2))
+    expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+    expect(posted.map(({ kind }) => kind)).not.toContain('itemDamage')
+  })
+
+  it('rolls it here alone with the switch off, posting nothing', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(ALONE_KEY, 'off')
+    answering({})
+    renderSpirit()
+    await show('Actions')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Longsword damage, 1d8 + 4' }),
+    )
+
+    expect(
+      await within(
+        screen.getByRole('region', { name: 'Your rolls' }),
+      ).findByText('Longsword damage'),
+    ).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('asks the kind first, from the chip, where the plan offers a choice, and sends the one chosen', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    renderSpirit()
+    await show('Actions')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Chromatic Orb damage, 3d8, goes to the table on its own',
+      }),
+    )
+    expect(fetch).not.toHaveBeenCalled()
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Chromatic Orb 3d8' })).getByRole(
+        'menuitem',
+        { name: 'Roll Cold damage' },
+      ),
+    )
+
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      kind: 'itemDamage',
+      item: 'orb',
+      activity: 'orbAttack',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(8, 3)],
+      types: ['cold'],
+    })
+  })
+
+  it('sends a recharge’s d6 as a recharge, saying what came of it, and any other formula as before', async () => {
+    const user = userEvent.setup()
+    const posted = answering({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        total: 5,
+        outcome: 'success',
+      },
+    })
+    renderSpirit()
+    await show('Actions')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Roll Fire Breath’s recharge: 5 or more on a d6',
+      }),
+    )
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      kind: 'recharge',
+      item: 'fireBreath',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(6)],
+    })
+    const tray = screen.getByRole('region', { name: 'Your rolls' })
+    await waitFor(
+      () => expect(tray).toHaveTextContent('At the table: 5 · recharged'),
+      { timeout: 3000 },
+    )
+    expect(within(tray).getByText('Fire Breath recharged')).toBeInTheDocument()
+    expect(tray).not.toHaveTextContent('Saved')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Roll Lightning Breath’s recharge: a 6 on a d6',
+      }),
+    )
+    await waitFor(() => expect(posted).toHaveLength(2))
+    expect(posted[1]).toEqual({
+      kind: 'recharge',
+      item: 'lightningBreath',
+      activity: 'lightningSave',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(6)],
+    })
+
+    await user.click(
+      screen.getByRole('button', { name: 'Roll Holy Symbol: Radiance, 2d6' }),
+    )
+    await waitFor(() => expect(posted).toHaveLength(3))
+    expect(posted[2]).toMatchObject({
+      kind: 'formula',
+      item: 'symbol',
+      activity: 'symbolUse',
+    })
+  })
+
+  it('offers a recharge where the game takes it but not damage, whatever the switch, until Send to the table is off', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(ALONE_KEY, 'off')
+    const posted = answering({})
+    // As the module offers with Midi-QOL's activities and its integration off: no attack, use or
+    // damage, but damage on its own and recharges.
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(spiritWithSymbol(), GAME)}
+        rollsToTable={[
+          'skill',
+          'save',
+          'formula',
+          'spend',
+          'inspiration',
+          'textDamage',
+          'itemDamage',
+          'recharge',
+        ]}
+        rollFeatures={['modifiers']}
+      />,
+    )
+    await show('Actions')
+    const recharge = { name: 'Roll Fire Breath’s recharge: 5 or more on a d6' }
+
+    await user.click(screen.getByRole('button', recharge))
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      kind: 'recharge',
+      item: 'fireBreath',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(6)],
+    })
+    // Damage still rolls here, the switch off.
+    expect(
+      screen.getByRole('button', { name: 'Longsword damage, 1d8 + 4' }),
+    ).toBeInTheDocument()
+
+    const settings = await openSettings(user)
+    await user.click(
+      within(settings).getByRole('switch', { name: 'Send to the table' }),
+    )
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
+    expect(screen.queryByRole('button', recharge)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Longsword damage, 1d8 + 4' }),
+    ).toBeInTheDocument()
+  })
+
+  it('offers the switch under Send to the table, the device’s, disabled while Send is off', async () => {
+    const user = userEvent.setup()
+    answering({})
+    renderSpirit()
+
+    const settings = await openSettings(user)
+    const alone = within(settings).getByRole('switch', {
+      name: 'Damage on its own',
+    })
+    expect(alone).toBeChecked()
+    await user.click(alone)
+    expect(localStorage.getItem(ALONE_KEY)).toBe('off')
+    await user.click(alone)
+    expect(localStorage.getItem(ALONE_KEY)).toBe('on')
+
+    await user.click(
+      within(settings).getByRole('switch', { name: 'Send to the table' }),
+    )
+    expect(alone).toBeDisabled()
+    expect(alone).not.toBeChecked()
+    expect(alone).toHaveAccessibleDescription(
+      'Turn on Send to the table first.',
+    )
+    expect(localStorage.getItem(ALONE_KEY)).toBe('on')
   })
 })

@@ -17,6 +17,7 @@ import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesLeft } from './uses-left'
 import { SearchField } from '@/components/search-field'
+import { useSheetId } from '@/hooks/use-sheet-ids'
 import { formatModifier } from '@/utils/format-modifier'
 import { matchesSearch, searchKey } from '@/utils/search'
 import { spellAction } from '@/utils/sheet-actions'
@@ -77,6 +78,8 @@ export function SpellsTab({
     onUse,
     tableDamage,
   })
+  // Unique on the page, where a companion's pane is mounted beside its character's.
+  const sectionId = useSheetId('spells-')
   const [query, setQuery] = useState('')
   const count = sheet.spells.reduce(
     (total, section) => total + section.spells.length,
@@ -124,11 +127,11 @@ export function SpellsTab({
       {sections.map(section => (
         <section
           key={section.id}
-          aria-labelledby={`spells-${section.id}`}
+          aria-labelledby={`${sectionId}${section.id}`}
           className='flex flex-col gap-2'
         >
           <div className='flex items-center justify-between gap-3'>
-            <SheetHeading id={`spells-${section.id}`}>
+            <SheetHeading id={`${sectionId}${section.id}`}>
               {section.label}
             </SheetHeading>
             {section.slots && section.slots.max > 0 && (
@@ -186,13 +189,11 @@ function Spellcasting({
   spellcasting,
 }: Readonly<{ spellcasting: SheetSpellcasting }>) {
   const { ability, dc, attack, classes } = spellcasting
+  const headingId = useSheetId('spellcasting-heading')
   if (ability === null && dc === null && attack === null) return
   return (
-    <section
-      aria-labelledby='spellcasting-heading'
-      className='flex flex-col gap-2'
-    >
-      <SheetHeading id='spellcasting-heading'>Spellcasting</SheetHeading>
+    <section aria-labelledby={headingId} className='flex flex-col gap-2'>
+      <SheetHeading id={headingId}>Spellcasting</SheetHeading>
       <dl className='grid grid-cols-2 gap-2 @lg:grid-cols-3'>
         {ability && (
           <SheetFact label='Ability' className='col-span-2 @lg:col-span-1'>

@@ -253,7 +253,9 @@ await until(() => stored().includes('attack'), 'the app to hear the game takes a
 // From module 0.21.0, ending an enchantment with them.
 // From module 0.29.0, ending a concentration, wherever players' rolls are made; and spending
 // charges and Heroic Inspiration, wherever they may attack and cast.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,attack,use,damage,endEnchantment,spend,inspiration,textRoll,textDamage|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
+// Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn wherever players' rolls
+// are made, and damage on its own and recharges wherever they may attack and cast.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,attack,use,damage,endEnchantment,spend,inspiration,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
 check(sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`).split(',').includes('areaAttacks'), 'and that it makes area attacks at the targets players pick')
 // From module 0.21.0, changing only a die damage adds, never one it takes away.
 check(sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`).split(',').includes('signedDice'), 'and that it changes only a die damage adds, never one it takes away')

@@ -7,11 +7,13 @@ import {
   Dices,
   FlaskConical,
   Hammer,
+  HeartPulse,
   Info,
   Search,
   Shield,
   Sparkles,
   Sword,
+  Swords,
   Wand,
   type LucideIcon,
 } from 'lucide-react'
@@ -27,7 +29,7 @@ import {
   type UsesSpending,
 } from './action-info'
 import { useD20Rolls, type RollActions } from './d20-rolls'
-import { useDamageMenu, type DamageChoice } from './damage-menu'
+import { useDamageMenu } from './damage-menu'
 import {
   spellOrigin,
   useDescriptionActions,
@@ -50,12 +52,18 @@ import {
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { NONE_LEFT } from './hit-dice'
 import { usePressMenu } from './press-menu'
+import { RechargeChip, rechargeable } from './recharge-chip'
 import { RollButton } from './roll-button'
 import { REASONS } from './roll-tray'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
 import { spendsToo, UsesButton } from './uses-button'
-import { damageRollOf, type DueDamage } from '@/hooks/use-table-rolls'
+import { useRollsLocked } from '@/hooks/use-rolls-locked'
+import {
+  choicesOf,
+  damageRollOf,
+  type DueDamage,
+} from '@/hooks/use-table-rolls'
 import {
   defaultPool,
   ordinal,
@@ -64,6 +72,8 @@ import {
   type SlotPool,
 } from '@/utils/action-groups'
 import { castIndex, castOf, type CastIndex } from '@/utils/casts'
+import { rechargeWords } from '@/utils/creature-words'
+import { aloneRollOf, type AloneChoice } from '@/utils/damage-alone'
 import {
   changes,
   damageChanges,
@@ -106,7 +116,8 @@ import type {
 export type DamageTarget = SheetDamageRoll & { formula: string }
 
 export type DamageActions = {
-  onRoll: (target: DamageTarget) => void
+  /** Rolls it, from the chip tapped, which a choice of its kind opens from where one's asked. */
+  onRoll: (target: DamageTarget, anchor: HTMLElement) => void
   /**
    * Offers other ways to roll it; or, for the damage of a spell or feature used in the game, to
    * use it with its damage changed.
@@ -117,6 +128,11 @@ export type DamageActions = {
     point?: MenuPoint,
     use?: DamageUse,
   ) => void
+  /**
+   * Whether it will go to the table on its own, from module 0.36.0, for its chip to say so: this
+   * device sends damage so, the game plans it, and no attack of its own waits for it.
+   */
+  goesAlone: (target: DamageTarget) => boolean
 }
 
 /** A spell or feature used in the game, its damage to follow, as its damage chip's menu uses it. */
@@ -130,6 +146,11 @@ export type DamageUse = {
 export type UseActions = {
   /** Uses it, its damage changed as the player chose, if they did. */
   onUse: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /**
+   * Whether damage rolled here goes to the table on its own, from module 0.36.0: a damage or
+   * healing chip then rolls it so, rather than using its spell or feature.
+   */
+  sendsAlone: boolean
 }
 
 /** What the Gamemaster's game does with damage rolled from the sheet, while it takes damage. */
@@ -138,6 +159,10 @@ export type TableDamage = {
   modifies: boolean
   /** An attack's or a use's damage due at the table, if it's waiting for it. */
   dueFor: (source: { item: string; activity: string }) => DueDamage | undefined
+  /** Whether damage rolled here goes to it on its own, from module 0.36.0. */
+  sendsAlone: boolean
+  /** Whether it takes a spent recharge rolled here, from module 0.36.0. */
+  recharges: boolean
 }
 
 /**
@@ -158,6 +183,11 @@ export type ActionRows = {
   about: (info: ActivityInfo) => void
   /** Opens the menu of a check an activity asks for, as a description's check opens its own. */
   menus: LinkMenus
+  /**
+   * Whether the game takes a spent recharge rolled from here, from module 0.36.0, for a row's
+   * Recharge chip to show.
+   */
+  recharges?: boolean
 }
 
 /**
@@ -222,13 +252,15 @@ export function useActionRows({
   const spellbook = sheet.spells
   const casts = useMemo(() => castIndex(sheet), [sheet])
   const { actions: d20, dialogs } = useD20Rolls(onRoll)
+  // A check an activity asks for rolls as a description's does, against its DC; and damage on its
+  // own asks its kind from its chip, as a description's damage does.
+  const { menus, dialogs: checks } = useLinkMenus(useDescriptionActions())
   const { actions: damage, dialogs: damageMenu } = useDamageRolls(
     onRollDamage,
     tableDamage,
+    menus,
   )
   const { show: about, dialog: info } = useActionInfo(characterId, spellbook)
-  // A check an activity asks for rolls as a description's does, against its DC.
-  const { menus, dialogs: checks } = useLinkMenus(useDescriptionActions())
   return {
     rows: {
       characterId,
@@ -236,10 +268,13 @@ export function useActionRows({
       casts,
       d20,
       damage,
-      ...(onUse && { use: { onUse } }),
+      ...(onUse && {
+        use: { onUse, sendsAlone: tableDamage?.sendsAlone === true },
+      }),
       ...(onRollFormula && { formula: onRollFormula }),
       about,
       menus,
+      recharges: tableDamage?.recharges === true,
     },
     dialogs: (
       <>
@@ -276,29 +311,77 @@ const KINDS: Record<string, string> = {
  * it takes a die away; or with its dice changed first, more of them or another size, where it has a
  * first die to change. For damage the Gamemaster's game is waiting for, the game decides a critical
  * hit, and the rest is offered where it takes them. A spell or feature the game uses offers to use
- * it so, its damage to follow. A menu that would offer nothing isn't opened. The menu and its
- * dialog are in `dialogs`, to be put on the page.
+ * it so, its damage to follow. From module 0.36.0, damage this device sends on its own, where no
+ * attack of its own waits for it, is rolled from the dice the game said it throws, asking first
+ * which kind where it offers a choice, and offers a critical hit's only where the game makes one
+ * of it. A menu that would offer nothing isn't opened. The menu and its dialog are in `dialogs`,
+ * to be put on the page.
+ * @param menus - Where a choice of its kind is asked, from the chip.
  */
 export function useDamageRolls(
   onRollDamage: (roll: SheetDamageRoll) => void,
-  table?: TableDamage,
+  table: TableDamage | undefined,
+  menus: LinkMenus,
 ): {
   actions: DamageActions
   dialogs: ReactNode
 } {
   const { open, dialogs } = useDamageMenu()
+  // Damage due on an attack made at the table goes on that attack, whatever the switch.
+  const dueOf = (target: DamageTarget) =>
+    target.source && table?.dueFor(target.source)
+  const goesAlone = (target: DamageTarget) =>
+    !!target.alone?.plan && !!table?.sendsAlone && !dueOf(target)
   const roll = (
     target: DamageTarget,
-    { critical = false, modifiers }: DamageChoice = {},
-  ) =>
-    onRollDamage({
+    choice: AloneChoice,
+    anchor: HTMLElement,
+  ): void => {
+    const { critical = false, modifiers } = choice
+    const request: SheetDamageRoll = {
       label: target.label,
       parts: target.parts,
       healing: target.healing,
       critical,
       ...(target.source && { source: target.source }),
       ...(modifiers && changes(modifiers) && { modifiers }),
-    })
+    }
+    const { alone } = target
+    // Due damage first, which the pane rolls on its attack whatever the switch; then damage on
+    // its own; else as ever, rolled here, or using its spell or feature.
+    if (dueOf(target) || !alone?.plan || !table?.sendsAlone) {
+      onRollDamage(request)
+      return
+    }
+    // As the action's name, which the roll's label adds "damage" or "healing" to again.
+    const name = target.label.replace(/ (damage|healing)$/, '')
+    const kinds = choicesOf(alone.plan.normal)
+    if (kinds.length > 0 && !choice.type) {
+      const maximum = modifiers?.maximize === true
+      const how = [critical && 'Critical hit', maximum && 'Maximum']
+        .filter(Boolean)
+        .map(word => ` · ${word}`)
+        .join('')
+      let adjective = ''
+      if (critical) adjective = 'critical '
+      else if (maximum) adjective = 'maximum '
+      menus.open({
+        anchor,
+        title: `${name} ${target.formula}${how}`,
+        items: kinds.map(({ key, label }) => ({
+          id: key,
+          label: target.healing
+            ? `Roll ${adjective}${label}`
+            : `Roll ${adjective}${label} damage`,
+          icon: target.healing ? HeartPulse : Swords,
+          tint: target.healing ? 'text-primary' : 'text-damage',
+        })),
+        onChoose: type => roll(target, { ...choice, type }, anchor),
+      })
+      return
+    }
+    onRollDamage(aloneRollOf(name, alone, choice) ?? request)
+  }
   const onMenu: DamageActions['onMenu'] = (anchor, target, point, use) => {
     const subject = {
       label: target.label,
@@ -321,7 +404,7 @@ export function useDamageRolls(
       )
       return
     }
-    const due = target.source && table?.dueFor(target.source)
+    const due = dueOf(target)
     if (due) {
       if (!table?.modifies) return
       // As the game will throw it: a critical hit's dice as it doubled them; damage it rolls itself
@@ -340,7 +423,39 @@ export function useDamageRolls(
           parts: game.parts,
           perDie: game.perDie,
           choices,
-          onChoose: choice => roll(target, choice),
+          onChoose: choice => roll(target, choice, anchor),
+        },
+        point,
+      )
+      return
+    }
+    const plan = target.alone?.plan
+    if (target.alone && plan && goesAlone(target)) {
+      // As the game will throw it: a critical hit's only where it makes one, never of healing; its
+      // highest and its dice changed only where it takes damage changed.
+      const game = aloneRollOf(
+        target.label.replace(/ (damage|healing)$/, ''),
+        target.alone,
+      )
+      const choices: RollChoice[] = [
+        ...(plan.critical && !target.healing ? (['critical'] as const) : []),
+        ...(table?.modifies && game
+          ? damageChanges(
+              game.parts,
+              game.fixed,
+              diceTakenAway(plan.normal) || unmaximizable(plan.normal),
+            )
+          : []),
+      ]
+      if (!game || choices.length === 0) return
+      open(
+        anchor,
+        {
+          ...subject,
+          parts: game.parts,
+          perDie: game.perDie,
+          choices,
+          onChoose: choice => roll(target, choice, anchor),
         },
         point,
       )
@@ -356,12 +471,19 @@ export function useDamageRolls(
         ...subject,
         parts: target.parts,
         choices,
-        onChoose: choice => roll(target, choice),
+        onChoose: choice => roll(target, choice, anchor),
       },
       point,
     )
   }
-  return { actions: { onRoll: target => roll(target), onMenu }, dialogs }
+  return {
+    actions: {
+      onRoll: (target, anchor) => roll(target, {}, anchor),
+      onMenu,
+      goesAlone,
+    },
+    dialogs,
+  }
 }
 
 /**
@@ -383,12 +505,14 @@ export function viewOf(
     using && action.activity && action.identified ? action.activity : undefined
   const save = !!use && use.type === 'save' && !!action.save
   // An enchant activity is used through a chip of its own, as a utility is, its damage rolled here.
+  // Damage this device sends on its own, from module 0.36.0, goes so rather than using it.
   const damage =
     !!use &&
     use.type !== 'utility' &&
     use.type !== 'enchant' &&
     !!formula &&
-    !action.attackId
+    !action.attackId &&
+    !(using?.sendsAlone && action.tableDamage)
   const onUse =
     using &&
     ((modifiers?: DamageModifiers) =>
@@ -440,6 +564,8 @@ export function ActionEntry({
   const others = otherActivities(action, rows.spellbook)
   const { name } = action
   const uses = look.uses === undefined ? action.uses : look.uses
+  // A spent recharge rolled from here, from module 0.36.0, where the game takes it.
+  const recharge = rechargeOf(rows, uses)
   const detail =
     look.detail ??
     joinParts(
@@ -453,11 +579,15 @@ export function ActionEntry({
       view.spent && 'No slots left',
       firstInFoundry(action) && 'Used in Foundry',
       !open && moreNote(others.length),
+      // What recharges its uses, as dnd5e's stat block says it, in place of "Recharge [5+]".
+      uses?.recharge ? rechargeWords(uses.recharge) : undefined,
     )
 
   return (
     <li>
-      <div className='flex items-center gap-2 rounded-xl py-1.5 pr-1.5 pl-1'>
+      {/* Where its chips don't fit beside its name, they wrap under it, rather than cutting the
+          name short, as on a narrow phone. */}
+      <div className='flex flex-wrap items-center gap-x-2 gap-y-0 rounded-xl py-1.5 pr-1.5 pl-1'>
         <button
           type='button'
           aria-expanded={open}
@@ -465,7 +595,7 @@ export function ActionEntry({
           onClick={() => setOpen(!open)}
           {...press.props}
           className={clsx(
-            'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
+            'flex min-w-[8.5rem] flex-1 items-center gap-3 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-primary/5',
             (view.spent ||
               look.muted ||
               cast?.short ||
@@ -494,16 +624,26 @@ export function ActionEntry({
             )}
           </span>
         </button>
-        {look.marks}
-        {uses && (
-          <ChipUses
-            uses={uses}
-            view={view}
-            action={action}
-            always={look.uses !== undefined}
-          />
-        )}
-        <ActionChips action={action} view={view} rows={rows} uses={uses} />
+        <span className='ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1'>
+          {look.marks}
+          {/* First of its chips, beside its uses, which show with it however narrow the list. */}
+          {uses && recharge && (
+            <RechargeChip
+              name={usesName(action, uses)}
+              uses={uses}
+              onRoll={recharge}
+            />
+          )}
+          {uses && (
+            <ChipUses
+              uses={uses}
+              view={view}
+              action={action}
+              always={look.uses !== undefined || !!recharge}
+            />
+          )}
+          <ActionChips action={action} view={view} rows={rows} uses={uses} />
+        </span>
       </div>
       {open && (
         <div id={body} className='flex flex-col gap-2 pb-3'>
@@ -571,14 +711,16 @@ function ActivityEntry({
   const view = viewOf(action, rows.spellbook, rows.use)
   const cast = castOf(action, rows.casts)
   const uses = ownUses(activity, parent)
+  const recharge = rechargeOf(rows, uses)
   const detail = joinParts(
     ...activityDetail(activity, parent, view.spent, { section, cast }),
   )
   return (
-    <li className='flex items-center gap-2 py-0.5 pr-1.5'>
+    // Its chips wrap under its name where both don't fit, as an action's row's do.
+    <li className='flex flex-wrap items-center gap-x-2 gap-y-0 py-0.5 pr-1.5'>
       <span
         className={clsx(
-          'min-w-0 flex-1 py-0.5',
+          'min-w-[8.5rem] flex-1 py-0.5',
           (view.spent || muted || dimmed(activity, cast)) && 'opacity-60',
         )}
       >
@@ -598,8 +740,24 @@ function ActivityEntry({
           </span>
         )}
       </span>
-      {uses && <ChipUses uses={uses} view={view} action={action} />}
-      <ActionChips action={action} view={view} rows={rows} uses={uses} />
+      <span className='ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1'>
+        {uses && recharge && (
+          <RechargeChip
+            name={usesName(action, uses)}
+            uses={uses}
+            onRoll={recharge}
+          />
+        )}
+        {uses && (
+          <ChipUses
+            uses={uses}
+            view={view}
+            action={action}
+            always={!!recharge}
+          />
+        )}
+        <ActionChips action={action} view={view} rows={rows} uses={uses} />
+      </span>
     </li>
   )
 }
@@ -760,6 +918,18 @@ export function ownUses(
 }
 
 /**
+ * How a row's spent recharge is rolled, from module 0.36.0, where its Recharge chip shows: uses
+ * that recharge, something spent of them, and the game taking a recharge rolled from here. None
+ * otherwise, as with Send to the table off, or at a gone companion's pane, which takes nothing.
+ */
+export function rechargeOf(
+  rows: Pick<ActionRows, 'recharges' | 'formula'>,
+  uses: SheetUses | null | undefined,
+): ((roll: SheetFormulaRoll) => void) | undefined {
+  return rows.recharges && rechargeable(uses) ? rows.formula : undefined
+}
+
+/**
  * What a spell cast from an item costs, as `castOf` says how it's cast, such as "1 charge"; for one
  * cast higher for more, what it may cost of what's left, such as "1–3 charges"; or that the item
  * hasn't enough left. Nothing for one that costs none, or a formula.
@@ -906,7 +1076,7 @@ function ChipUses({
   return (
     // Beside what the action rolls, in a narrow list, its uses would leave its name too little
     // room; they're listed when it opens. A count shown always cuts the name short instead.
-    <span className={clsx('shrink-0', folds && 'hidden @md:inline')}>
+    <span data-uses className={clsx('shrink-0', folds && 'hidden @md:inline')}>
       <UsesButton
         uses={uses}
         name={usesName(action, uses)}
@@ -1342,6 +1512,8 @@ export function CheckChip({
   onUse?: (modifiers?: DamageModifiers) => void
 }>) {
   const actions = useDescriptionActions()
+  // A gone companion's pane rolls nothing, its own check among them (module 0.36.0).
+  const locked = useRollsLocked()
   const name = actionTitle(action)
   const dc = check.dc ?? undefined
   const title = checkTitle(
@@ -1399,10 +1571,11 @@ export function CheckChip({
         aria-haspopup='menu'
         aria-label={named}
         title={title}
+        disabled={locked}
         onClick={event => open(event.currentTarget)}
         className={clsx(
           chip,
-          'bg-primary/10 text-primary-text transition-colors hover:bg-primary/20',
+          'bg-primary/10 text-primary-text transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary/10',
         )}
       >
         {content}
@@ -1471,6 +1644,8 @@ export function FormulaChip({
   action: SheetAction
   onRoll?: (roll: SheetFormulaRoll) => void
 }>) {
+  // A gone companion's pane rolls nothing (module 0.36.0).
+  const locked = useRollsLocked()
   const own = action.rollFormula
   if (!own) return
   const roll = formulaRollOf(action)
@@ -1495,8 +1670,12 @@ export function FormulaChip({
       type='button'
       aria-label={`Roll ${roll.label}, ${own.formula}`}
       title={title}
+      disabled={locked}
       onClick={() => onRoll(roll)}
-      className={clsx(chip, 'transition-colors hover:bg-primary/5')}
+      className={clsx(
+        chip,
+        'transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent',
+      )}
     >
       {content}
     </button>
@@ -1533,7 +1712,8 @@ export function formulaRollOf(
  * long-press offers other ways to roll: as a critical hit's, at its highest, or changed. A formula
  * the app can't read is shown, but not rolled. While the Gamemaster's game takes the spell or
  * feature it's of, it uses it there, and its damage or healing follows; its menu then uses it
- * with its damage changed.
+ * with its damage changed. Where it will go to the table on its own, from module 0.36.0, it looks
+ * the same, but its name says so.
  */
 export function DamageChip({
   name,
@@ -1557,7 +1737,8 @@ export function DamageChip({
     'max-w-36 shrink-0 truncate rounded-lg px-2 py-1 text-sm font-semibold tabular-nums',
     healing ? 'bg-primary/10 text-primary-text' : 'bg-damage/15 text-damage',
   )
-  const label = `${name} ${healing ? 'healing' : 'damage'}, ${formula}`
+  const alone = !!target && damage.goesAlone(target)
+  const label = `${name} ${healing ? 'healing' : 'damage'}, ${formula}${alone ? ', goes to the table on its own' : ''}`
   const hover = clsx(
     'transition-colors',
     healing ? 'hover:bg-primary/20' : 'hover:bg-damage/25',
@@ -1600,7 +1781,8 @@ export function DamageChip({
   return (
     <RollButton
       target={target}
-      {...damage}
+      onRoll={damage.onRoll}
+      onMenu={damage.onMenu}
       label={label}
       className={clsx(chip, hover)}
     >
@@ -1754,7 +1936,8 @@ function kindOf(action: SheetAction): string | undefined {
 /**
  * An action's damage or healing, read for rolling: each part's formula as dice and numbers, its
  * dice with what Foundry does with them, such as Great Weapon Fighting's 2d6r<=2. Unset when
- * there's none, or a formula is beyond reading, such as one with a function in it.
+ * there's none, or a formula is beyond reading, such as one with a function in it. From module
+ * 0.36.0, where the game plans it on its own, its item and activity and that plan too.
  */
 function damageTarget(
   action: SheetAction,
@@ -1768,6 +1951,8 @@ function damageTarget(
     if (!terms) return undefined
     parts.push({ terms, type: part.type })
   }
+  // Its attack's activity, or else the one its row uses.
+  const activity = action.attackId ?? action.activity?.id
   return {
     label: `${actionTitle(action)} ${healing ? 'healing' : 'damage'}`,
     parts,
@@ -1776,5 +1961,9 @@ function damageTarget(
     ...(action.attackId && {
       source: { item: action.id, activity: action.attackId },
     }),
+    ...(action.tableDamage &&
+      activity && {
+        alone: { item: action.id, activity, plan: action.tableDamage },
+      }),
   }
 }

@@ -32,7 +32,22 @@ const STANCES: Record<
   },
 }
 
-export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
+/**
+ * The encounter as the character's player sees it: whose turn it is, above the initiative order.
+ * From module 0.36.0, the character's companions are the player's own, and on a companion's turn
+ * its panel says to roll for it on its tab, which it opens.
+ * @param onOpen - Shows a companion's tab, by its key.
+ * @param keys - The companions whose tabs the page shows.
+ */
+export function CombatTracker({
+  combat,
+  onOpen,
+  keys,
+}: Readonly<{
+  combat?: TableCombat
+  onOpen?: (key: string) => void
+  keys?: ReadonlySet<string>
+}>) {
   const { noCombat } = seatWords(useTableRole())
   if (!combat) {
     return (
@@ -48,7 +63,7 @@ export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
   return (
     <div className='mx-auto flex w-full max-w-3xl flex-col'>
       <div className='sticky top-0 z-10 bg-page px-4 pt-4 pb-3 @xl:px-8 @xl:pt-6'>
-        <TurnPanel combat={combat} />
+        <TurnPanel combat={combat} onOpen={onOpen} keys={keys} />
       </div>
       <section
         aria-labelledby='initiative-heading'
@@ -93,7 +108,10 @@ function CombatantRow({
 }: Readonly<{ combatant: TableCombatant; current: boolean }>) {
   const { name, initiative, defeated, side, hp } = combatant
   const stance = combatant.stance && STANCES[combatant.stance]
-  const role = stance ? stance.role : ROLE[side]
+  // One of the player's own creatures, as a companion of their character's (module 0.36.0).
+  let role = ROLE[side]
+  if (stance) role = stance.role
+  else if (combatant.yours) role = 'Yours'
   return (
     <li
       aria-current={current ? 'step' : undefined}
@@ -178,15 +196,28 @@ function HitPoints({
   )
 }
 
-function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
+function TurnPanel({
+  combat,
+  onOpen,
+  keys,
+}: Readonly<{
+  combat: TableCombat
+  onOpen?: (key: string) => void
+  keys?: ReadonlySet<string>
+}>) {
   const { settingUp } = seatWords(useTableRole())
   const current = combat.combatants.find(({ id }) => id === combat.currentId)
   const next = nextUp(combat)
-  const myTurn = current?.side === 'me'
+  // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
+  // its companions', which is rolled for on its own tab.
+  const companion = current?.yours ? current.companion : undefined
+  const mine =
+    combat.started && (current?.side === 'me' || companion !== undefined)
 
   let heading = 'Waiting for the next turn'
   if (!combat.started) heading = 'Getting ready'
-  else if (myTurn) heading = 'Your turn'
+  else if (current?.side === 'me') heading = 'Your turn'
+  else if (current && companion) heading = `${current.name}’s turn`
   else if (current) heading = `${current.name} is acting`
 
   return (
@@ -194,7 +225,7 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
       aria-labelledby='turn-heading'
       className={clsx(
         'flex flex-col gap-2 rounded-2xl border bg-card p-4',
-        myTurn ? 'border-primary' : 'border-border',
+        mine ? 'border-primary' : 'border-border',
       )}
     >
       <div className='flex items-baseline justify-between gap-2 text-xs text-text-secondary'>
@@ -212,7 +243,7 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
         aria-live='polite'
         className={clsx(
           'text-2xl font-semibold tracking-tight',
-          myTurn && 'text-primary',
+          mine && 'text-primary',
         )}
       >
         {heading}
@@ -220,7 +251,24 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
       {!combat.started && (
         <p className='text-sm text-text-secondary'>{settingUp}</p>
       )}
-      {!myTurn && next?.side === 'me' && (
+      {mine && companion && (
+        <p className='text-sm text-text-secondary'>
+          Roll for it on{' '}
+          {onOpen && keys?.has(companion) ? (
+            <button
+              type='button'
+              onClick={() => onOpen(companion)}
+              className='inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-primary-text underline underline-offset-2'
+            >
+              its tab
+            </button>
+          ) : (
+            'its tab'
+          )}
+          .
+        </p>
+      )}
+      {!mine && next?.side === 'me' && (
         <p className='text-sm text-text-secondary'>You are up next.</p>
       )}
     </section>

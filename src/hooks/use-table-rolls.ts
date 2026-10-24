@@ -160,6 +160,10 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
    * while they type in their own dice.
    */
   offer?: true
+  /** Damage or healing sent on its own (module 0.36.0). */
+  alone?: true
+  /** A recharge rolled (module 0.36.0). */
+  recharge?: true
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -367,7 +371,8 @@ export function useTableRolls(
             ...(modifiers && changes(modifiers) && { modifiers }),
             ...(damage.typed && { typed: true as const }),
           },
-          {},
+          // So that the tray words it as on its own, its kind not being in its state.
+          { alone: true },
           roll.label,
         )
         return
@@ -644,7 +649,8 @@ export function useTableRolls(
           dice: [{ faces: 6, results: rolled.terms[0]?.values ?? [] }],
           ...(rolled.typed && { typed: true as const }),
         },
-        {},
+        // So that the tray words its outcome as a recharge's, not a save's.
+        { recharge: true },
         roll.label,
       )
     },
@@ -812,6 +818,9 @@ export function gmRollsOf(
         // Hit dice the game stopped spending part way, which it made some of, say how many.
         ...(status === 'failed' &&
           (spent?.made ?? 0) > 0 && { together: spent }),
+        // Worded as the player's own recharges and damage on its own are, from module 0.36.0.
+        ...(view.kind === 'recharge' && { recharge: true as const }),
+        ...(view.kind === 'itemDamage' && { alone: true as const }),
         requestId: view.id,
       }
       return [`gm:${view.id}`, state] as const

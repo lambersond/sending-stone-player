@@ -5,6 +5,7 @@ import { concentrationLead, useConcentrating } from './concentration'
 import { useConditionsPanel, useShowConditions } from './conditions-panel'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
+import { useSheetId } from '@/hooks/use-sheet-ids'
 import type { SheetCondition, SheetEffect } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { ReactNode } from 'react'
@@ -27,15 +28,15 @@ export function EffectsTab({
   const shared = useShowConditions()
   const own = useConditionsPanel(sheet.conditions)
   const showConditions = shared ?? own.show
+  // Unique on the page, where a companion's pane is mounted beside its character's.
+  const conditionsId = useSheetId('conditions-heading')
+  const sectionId = useSheetId('effects-')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
-      <section
-        aria-labelledby='conditions-heading'
-        className='flex flex-col gap-2'
-      >
+      <section aria-labelledby={conditionsId} className='flex flex-col gap-2'>
         <div className='flex items-center gap-1'>
-          <SheetHeading id='conditions-heading'>Conditions</SheetHeading>
+          <SheetHeading id={conditionsId}>Conditions</SheetHeading>
           <button
             type='button'
             aria-haspopup='dialog'
@@ -69,10 +70,10 @@ export function EffectsTab({
       {sheet.effects.map(section => (
         <section
           key={section.id}
-          aria-labelledby={`effects-${section.id}`}
+          aria-labelledby={`${sectionId}${section.id}`}
           className='flex flex-col gap-2'
         >
-          <SheetHeading id={`effects-${section.id}`}>
+          <SheetHeading id={`${sectionId}${section.id}`}>
             {section.label}
           </SheetHeading>
           <ul className='rounded-2xl border border-border bg-card p-1.5'>

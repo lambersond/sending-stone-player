@@ -4511,6 +4511,19 @@ const messageOf = (companion: unknown) =>
     }) as any
   ).data.message.companion
 
+/** Whether a message says it's a damage or healing card made on its own, as read. */
+const aloneOf = (alone?: unknown) =>
+  (
+    parseGameEvent('chat.message.created', {
+      message: {
+        id: 'm1',
+        timestamp: 1,
+        audience: { public: true, characters: [] },
+        ...(alone !== undefined && { alone }),
+      },
+    }) as any
+  ).data.message.alone
+
 describe('schemas/sending-stone, companions, from module 0.36.0', () => {
   const wolf = mockCompanionEntry()
   const imp = mockSummonedEntry()
@@ -4769,5 +4782,13 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
 
     expect(messageOf('sceneFrost-tokenImp')).toBe('sceneFrost-tokenImp')
     expect(messageOf('a b')).toBeNull()
+  })
+
+  it('reads a damage card made on its own, and nothing else as one (round 0.36.0 §20)', () => {
+    expect(aloneOf(true)).toBe(true)
+    for (const junk of [false, 'true', 1, null, {}]) {
+      expect(aloneOf(junk)).toBeUndefined()
+    }
+    expect(aloneOf()).toBeUndefined()
   })
 })
