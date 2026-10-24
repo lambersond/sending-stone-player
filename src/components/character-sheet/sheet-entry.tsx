@@ -6,6 +6,7 @@ import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { usePressMenu } from './press-menu'
 import { SheetText } from './sheet-text'
+import { useImageFallback } from '@/hooks/use-image-fallback'
 import type { DescriptionOrigin } from './description-actions'
 import type { MenuPoint } from './roll-menu'
 
@@ -189,9 +190,9 @@ export function EntryIcon({
   src,
   fallback: Fallback,
 }: Readonly<{ src?: string | null; fallback: LucideIcon }>) {
-  const [failed, setFailed] = useState<string>()
+  const { shown, ref, onError } = useImageFallback(src)
   const box = 'size-8 shrink-0 rounded-lg border border-border'
-  if (!src || failed === src) {
+  if (!src || !shown) {
     return (
       <span
         aria-hidden
@@ -208,6 +209,7 @@ export function EntryIcon({
     // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={ref}
       src={src}
       alt=''
       className={clsx(
@@ -216,7 +218,7 @@ export function EntryIcon({
         // controls.
         isSvg(src) ? 'bg-[#23232f] p-1' : 'bg-card object-cover',
       )}
-      onError={() => setFailed(src)}
+      onError={onError}
     />
   )
 }

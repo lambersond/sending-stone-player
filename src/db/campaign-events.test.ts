@@ -2267,6 +2267,30 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
     expect(data.companionKinds).toEqual(['attack', 'endConcentration'])
   })
 
+  it('keeps Undo of an End Turn among the rolls the game takes, after End Turn, and never among a companion’s', async () => {
+    await hello([wolf], {
+      rolls: {
+        enabled: true,
+        kinds: ['attack', 'endConcentration', 'endTurn', 'undoEndTurn'],
+        reason: null,
+      },
+      companions: {
+        kinds: ['attack', 'endTurn', 'undoEndTurn'],
+        initiative: 'own',
+      },
+    })
+
+    const data = storedHello()
+    expect(data.rollKinds).toEqual([
+      'attack',
+      'endConcentration',
+      'endTurn',
+      'undoEndTurn',
+    ])
+    // A companion's turn is taken back from its character's page, by the character's.
+    expect(data.companionKinds).toEqual(['attack'])
+  })
+
   it('never takes a companion as a character, even one listed under a character’s id', async () => {
     const thorin = { ...wolf, key: PARTY.thorin, actorId: PARTY.thorin }
     await hello([thorin])

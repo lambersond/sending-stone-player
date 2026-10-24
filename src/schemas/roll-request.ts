@@ -250,9 +250,19 @@ const removeSchema = z
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
  * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
  * module 0.31.0, a move what moves; from module 0.33.0, a removal what it removes; and from module
- * 0.36.0, a turn ended which turn.
+ * 0.36.0, a turn ended which turn, and a turn taken back the End Turn it takes back and the turn
+ * that End Turn left. A field more than one kind names lists them all, `kinds`.
  */
-const OWN_FIELDS = {
+const OWN_FIELDS: Readonly<
+  Record<
+    string,
+    {
+      field: keyof RollRequestInput
+      kinds?: readonly RollRequestInput['kind'][]
+      message: string
+    }
+  >
+> = {
   endConcentration: {
     field: 'concentration',
     message: 'A concentration ended, and only that, names the concentration',
@@ -275,9 +285,15 @@ const OWN_FIELDS = {
   },
   endTurn: {
     field: 'turn',
-    message: 'A turn ended, and only that, names the turn',
+    kinds: ['endTurn', 'undoEndTurn'],
+    message: 'A turn ended or taken back, and only that, names the turn',
   },
-} as const
+  undoEndTurn: {
+    field: 'undo',
+    message:
+      'A turn taken back, and only that, names the End Turn it takes back',
+  },
+}
 
 /** What each of those, and ending an enchantment, is said not to throw. */
 const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
@@ -289,6 +305,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   transfer: 'Moving throws no dice',
   remove: 'Removing throws no dice',
   endTurn: 'Ending a turn throws no dice',
+  undoEndTurn: 'Taking a turn back throws no dice',
 }
 
 const rolledDiceSchema = z.strictObject({
@@ -334,7 +351,9 @@ const rolledDiceSchema = z.strictObject({
  * activity, and may be a critical hit's, with kinds chosen and changes, as damage may, and throws
  * one to twenty dice; and a spent recharge names its item, and may name its activity, and throws
  * its one d6. Neither names anything else a roll does. From module 0.36.0, a turn ended names its
- * combat, round and current combatant, and nothing else, and throws no dice.
+ * combat, round and current combatant, and nothing else, and throws no dice; and a turn taken back
+ * names the End Turn it takes back and where it left the combat, and nothing else, and throws no
+ * dice either.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -390,6 +409,7 @@ export const rollRequestSchema = z
     transfer: transferSchema.optional(),
     remove: removeSchema.optional(),
     turn: turnSchema.optional(),
+    undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
     typed: z.literal(true).optional(),
   })
@@ -614,10 +634,14 @@ export const rollRequestSchema = z
       })
     }
     // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
-    // from module 0.31.0, a removal from module 0.33.0 and a turn ended from module 0.36.0, each
-    // name what they're of, and nothing else does; charges, how many, which nothing else says.
-    for (const [kind, { field, message }] of Object.entries(OWN_FIELDS)) {
-      if ((request.kind === kind) !== (request[field] !== undefined)) {
+    // from module 0.31.0, a removal from module 0.33.0 and a turn ended or taken back from module
+    // 0.36.0, each name what they're of, and nothing else does; charges, how many, which nothing
+    // else says.
+    for (const [kind, { field, kinds, message }] of Object.entries(
+      OWN_FIELDS,
+    )) {
+      const own = (kinds ?? [kind]).includes(request.kind)
+      if (own !== (request[field] !== undefined)) {
         context.addIssue({ code: 'custom', path: [field], message })
       }
     }

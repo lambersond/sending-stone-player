@@ -5,6 +5,7 @@ import {
   checkDamageDice,
   checkEndTurn,
   checkRoll,
+  checkUndoTurn,
   isDying,
   isSeatCombatant,
   rollStatus,
@@ -12,6 +13,7 @@ import {
   toCommand,
   toGmRollView,
   toRollRequestView,
+  type HeldEndTurn,
   type HeldRollRequest,
 } from './roll-requests'
 import {
@@ -5147,6 +5149,7 @@ describe('utils/roll-requests for concentration, charges and Heroic Inspiration,
     ['remove', 'An item removed'],
     // From module 0.36.0, though the Gamemaster never sends one.
     ['endTurn', 'A turn ended'],
+    ['undoEndTurn', 'A turn taken back'],
   ])(
     "calls the Gamemaster's %s from a page that didn't say %p",
     (kind, label) => {
@@ -5729,6 +5732,239 @@ describe('utils/roll-requests, a turn ended, from module 0.36.0', () => {
     }
     const command = toCommand(
       held({ kind: 'endTurn', payload, ofActorId: null }),
+    )
+    expect(command).toEqual({
+      ...payload,
+      id: 'req-1',
+      actorId: 'actor-thorin',
+    })
+    expect(command).not.toHaveProperty('of')
+    expect(command).not.toHaveProperty('by')
+  })
+})
+
+/**
+ * An End Turn of the seat's, from module 0.36.0, for this turn, as held: made 5 s ago unless
+ * said.
+ */
+const ended = (
+  turn = turnOf('c-thorin'),
+  fields: Partial<{ status: string; completedAt: Date | null }> = {},
+): HeldEndTurn => ({
+  status: 'done',
+  completedAt: new Date(NOW - 5000),
+  payload: {
+    kind: 'endTurn',
+    turn,
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+  },
+  ...fields,
+})
+
+/** That End Turn, made this long ago. */
+const endedAgo = (ago: number) =>
+  ended(undefined, { completedAt: new Date(NOW - ago) })
+
+describe('utils/roll-requests, a turn taken back, from module 0.36.0', () => {
+  /** Thorin's wolf, Brakka, and Vex's, as the campaign lists them. */
+  const roster = [
+    mockCompanionEntry({ key: 'wolfBrakka', of: ['actor-thorin'] }),
+    mockCompanionEntry({ key: 'wolfVex', of: ['actor-vex'] }),
+  ]
+  /**
+   * Thorin's End Turn taken back from the turn it left, Brakka's, the combat on that turn unless
+   * said.
+   */
+  const check = ({
+    left = turnOf('c-brakka'),
+    held = ended() as HeldEndTurn | null,
+    fights = [turnFight({ combatantId: 'c-brakka' })],
+    actorId = 'actor-thorin',
+    now = NOW,
+  } = {}) => checkUndoTurn(left, held, fights, actorId, roster, now)
+
+  it("takes back the character's own turn from the turn it left", () => {
+    expect(check()).toBeUndefined()
+  })
+
+  it("takes back a listed companion's turn, from the character's seat", () => {
+    expect(
+      check({
+        held: ended(turnOf('c-brakka')),
+        left: turnOf('c-goblin'),
+        fights: [turnFight({ combatantId: 'c-goblin' })],
+      }),
+    ).toBeUndefined()
+  })
+
+  it('takes it back across a round, to the turn that ended it', () => {
+    // Brakka's End Turn began round 3 on Thorin's turn.
+    expect(
+      check({
+        held: ended(turnOf('c-brakka')),
+        left: turnOf('c-thorin', 3),
+        fights: [turnFight({ round: 3, combatantId: 'c-thorin' })],
+      }),
+    ).toBeUndefined()
+  })
+
+  it('takes it back across a round onto the same combatant: Thorin alone to act, his turn again', () => {
+    // Thorin's End Turn in round 2 began round 3 on his own turn: not the turn it ended.
+    expect(
+      check({
+        held: ended(turnOf('c-thorin', 2)),
+        left: turnOf('c-thorin', 3),
+        fights: [turnFight({ round: 3, combatantId: 'c-thorin' })],
+      }),
+    ).toBeUndefined()
+  })
+
+  it('refuses an End Turn not held as the seat’s', () => {
+    expect(check({ held: null })).toBe('not-undoable')
+  })
+
+  it('refuses an End Turn the game hasn’t made, or didn’t', () => {
+    for (const status of ['pending', 'claimed', 'failed']) {
+      expect(check({ held: ended(undefined, { status }) })).toBe('not-undoable')
+    }
+    expect(check({ held: ended(undefined, { completedAt: null }) })).toBe(
+      'not-undoable',
+    )
+  })
+
+  it('refuses one made too long ago, but takes one made 30 s ago', () => {
+    expect(check({ held: endedAgo(31_000) })).toBe('not-undoable')
+    expect(check({ held: endedAgo(30_001) })).toBe('not-undoable')
+    expect(check({ held: endedAgo(30_000) })).toBeUndefined()
+  })
+
+  it('refuses one of another combat, or one naming no turn', () => {
+    expect(
+      check({ held: ended({ ...turnOf('c-thorin'), combatId: 'cmbt2' }) }),
+    ).toBe('not-undoable')
+    expect(check({ held: { ...ended(), payload: { kind: 'endTurn' } } })).toBe(
+      'not-undoable',
+    )
+  })
+
+  it('refuses it in a combat not held, or not started', () => {
+    expect(check({ fights: [] })).toBe('not-in-combat')
+    expect(
+      check({
+        fights: [turnFight({ combatantId: 'c-brakka', started: false })],
+      }),
+    ).toBe('not-started')
+  })
+
+  it('refuses it once the combat has moved on from the turn the page shows: another round, or another combatant', () => {
+    expect(
+      check({ fights: [turnFight({ round: 3, combatantId: 'c-brakka' })] }),
+    ).toBe('moved')
+    // The page shows Brakka's turn; the game has gone on to the goblin's.
+    expect(check({ fights: [turnFight({ combatantId: 'c-goblin' })] })).toBe(
+      'moved',
+    )
+    expect(check({ fights: [turnFight({ combatantId: null })] })).toBe('moved')
+  })
+
+  it('refuses it while the one acting is hidden, or the combat has no row of them', () => {
+    const hidden = turnFight({
+      combatantId: 'c-brakka',
+      combatants: [
+        combatant({ id: 'c-thorin', character: 'actor-thorin' }),
+        combatant({ id: 'c-brakka', companion: 'wolfBrakka', hidden: true }),
+      ],
+    })
+    expect(check({ fights: [hidden] })).toBe('moved')
+    expect(
+      check({
+        fights: [
+          turnFight({
+            combatantId: 'c-brakka',
+            combatants: [
+              combatant({ id: 'c-thorin', character: 'actor-thorin' }),
+            ],
+          }),
+        ],
+      }),
+    ).toBe('moved')
+  })
+
+  it('refuses it where the turn is back on the turn it ended already', () => {
+    expect(
+      check({
+        left: turnOf('c-thorin'),
+        fights: [turnFight({ combatantId: 'c-thorin' })],
+      }),
+    ).toBe('moved')
+  })
+
+  it('refuses it where the turn it ended is of a combatant gone, or hidden now', () => {
+    expect(
+      check({
+        fights: [
+          turnFight({
+            combatantId: 'c-brakka',
+            combatants: [
+              combatant({ id: 'c-brakka', companion: 'wolfBrakka' }),
+            ],
+          }),
+        ],
+      }),
+    ).toBe('not-undoable')
+    expect(
+      check({
+        fights: [
+          turnFight({
+            combatantId: 'c-brakka',
+            combatants: [
+              combatant({
+                id: 'c-thorin',
+                character: 'actor-thorin',
+                hidden: true,
+              }),
+              combatant({ id: 'c-brakka', companion: 'wolfBrakka' }),
+            ],
+          }),
+        ],
+      }),
+    ).toBe('not-undoable')
+  })
+
+  it('refuses it where the turn it ended is no longer the seat’s: a companion not listed now, or another’s', () => {
+    // An imp the campaign no longer lists as anyone's companion.
+    expect(
+      check({
+        held: ended(turnOf('c-imp')),
+        left: turnOf('c-brakka'),
+      }),
+    ).toBe('not-turn')
+    // Vex's wolf, as Thorin's seat would have it.
+    expect(
+      check({
+        held: ended(turnOf('c-vex-wolf')),
+        left: turnOf('c-brakka'),
+      }),
+    ).toBe('not-turn')
+    // Thorin's own turn, named from Vex's seat.
+    expect(check({ actorId: 'actor-vex' })).toBe('not-turn')
+  })
+
+  it('sends the module a turn taken back as it is, the character’s, with no companion named', () => {
+    const payload = {
+      kind: 'undoEndTurn' as const,
+      undo: 'req-0',
+      turn: turnOf('c-brakka'),
+      mode: 0 as const,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    const command = toCommand(
+      held({ kind: 'undoEndTurn', payload, ofActorId: null }),
     )
     expect(command).toEqual({
       ...payload,

@@ -26,6 +26,7 @@ import {
   checkDamage,
   checkEndTurn,
   checkRoll,
+  checkUndoTurn,
   GM_UNSENT,
   toCommand,
   toRollRequestView,
@@ -119,7 +120,8 @@ export type RollRejection = {
  * and kept as its key, with its character's id, for the module to make it as the companion. And a
  * turn ended, from module 0.36.0, only by the character's player at its own seat, never at a
  * companion's or the Gamemaster's, is checked against the combat it names alone, as last heard of,
- * with or without a sheet, and counted with the seat's rolls.
+ * with or without a sheet, and counted with the seat's rolls; and so is a turn ended taken back,
+ * only from the seat that ended it, and only for a moment after (`checkUndoTurn`).
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -151,9 +153,10 @@ export async function createRollRequest(
     },
   })
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
-  // and ending an enchantment, a concentration or from module 0.36.0 a turn is no roll, and posts
-  // nothing, so it would leave no mark: the Gamemaster ends one in Foundry. Charges spent and
-  // Heroic Inspiration post a line marked as theirs, so they're the Gamemaster's to send too.
+  // and ending an enchantment, a concentration or from module 0.36.0 a turn, or taking one back, is
+  // no roll, and posts nothing, so it would leave no mark: the Gamemaster ends one in Foundry.
+  // Charges spent and Heroic Inspiration post a line marked as theirs, so they're the Gamemaster's
+  // to send too.
   if (
     seat.role === 'gm' &&
     (!campaign?.rollFeatures.includes('gmRolls') || GM_UNSENT.has(input.kind))
@@ -189,8 +192,9 @@ export async function createRollRequest(
   const now = Date.now()
   const damage = input.kind === 'damage' && input.use ? input.use : undefined
   // The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in;
-  // or from module 0.36.0, the one whose turn is ended.
-  const ending = input.kind === 'endTurn'
+  // or from module 0.36.0, the one whose turn is ended, or taken back.
+  const undoing = input.kind === 'undoEndTurn'
+  const ending = input.kind === 'endTurn' || undoing
   let combatId = input.target?.combatId ?? input.targets?.[0]?.combatId
   if (input.kind === 'initiative') combatId = input.combatId
   else if (ending) combatId = input.turn?.combatId
@@ -207,6 +211,7 @@ export async function createRollRequest(
     answers,
     described,
     asks,
+    ended,
   ] = await Promise.all([
     // A companion's own sheet, kept apart from the characters'.
     companion
@@ -298,6 +303,19 @@ export async function createRollRequest(
           },
         })
       : 0,
+    // The End Turn a turn taken back names: only this seat's, for this character. '' matches no
+    // row, should it name none.
+    undoing
+      ? prisma.rollRequest.findFirst({
+          where: {
+            id: input.undo ?? '',
+            kind: 'endTurn',
+            actorId,
+            ...madeBy(seat),
+          },
+          select: { status: true, completedAt: true, payload: true },
+        })
+      : undefined,
   ])
   if (
     inFlight >= ROLLS_IN_FLIGHT ||
@@ -309,9 +327,19 @@ export async function createRollRequest(
   const held = sheet?.data as unknown as CharacterSheet | undefined
   const fights = combats.map(({ data }) => data as unknown as CombatSnapshot)
   // A turn ended, from module 0.36.0, is checked against the combat alone, with a sheet or none:
-  // the turn the page was shown, still the current one, and the character's or a companion's.
+  // the turn the page was shown, still the current one, and the character's or a companion's. One
+  // taken back, against the End Turn it names too, and the combat where that left it.
   let refusal: RollRefusal | undefined
-  if (ending) {
+  if (undoing) {
+    refusal = checkUndoTurn(
+      input.turn,
+      ended,
+      fights,
+      actorId,
+      companionRoster(campaign.companions),
+      now,
+    )
+  } else if (ending) {
     refusal = checkEndTurn(
       input.turn,
       fights,

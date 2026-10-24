@@ -255,8 +255,13 @@ export type RollRequestInput = {
   transfer?: TransferInput
   /** For a removal, from module 0.33.0, what it removes. */
   remove?: RemoveInput
-  /** For a turn ended, from module 0.36.0: which. */
+  /**
+   * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
+   * left, as the page shows it now.
+   */
   turn?: EndedTurn
+  /** For a turn taken back, from module 0.36.0: the End Turn it takes back, by its id. */
+  undo?: string
   /** For an attack, the ammunition and attack mode chosen. */
   ammunition?: string
   attackMode?: string

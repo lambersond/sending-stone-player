@@ -15,6 +15,7 @@ import {
 import { EmptyState } from './empty-state'
 import { LocalTime } from './local-time'
 import { Chevron } from '@/components/character-sheet/action-entry'
+import { useImageFallback } from '@/hooks/use-image-fallback'
 import { useTableRole } from '@/hooks/use-table-api'
 import { askTitle } from '@/utils/table-view'
 import type {
@@ -749,17 +750,18 @@ function SpeakerAvatar({
   src,
   className,
 }: Readonly<{ name: string; src?: string; className: string }>) {
-  const [failed, setFailed] = useState<string>()
+  const { shown, ref, onError } = useImageFallback(src)
   const box = 'size-9 shrink-0 rounded-[10px]'
-  if (src && failed !== src) {
+  if (shown) {
     return (
       // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
       // eslint-disable-next-line @next/next/no-img-element
       <img
+        ref={ref}
         src={src}
         alt=''
         className={clsx(box, 'border border-border object-cover object-top')}
-        onError={() => setFailed(src)}
+        onError={onError}
       />
     )
   }

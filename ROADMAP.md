@@ -16,16 +16,20 @@ Released: module v0.35.0 and its app.
    a familiar, while they're on the active scene, and the NPCs its player owns there, show beside
    the character in the app, a tab each, with their own sheets. Their attacks, spells, checks,
    saves and recharges are made in Foundry from the app, as the character's are. Summoning,
-   dismissing and changing them stay in Foundry. The Gamemaster chooses whether each rolls its
-   own initiative or acts right after its character.
+   dismissing and changing them stay in Foundry.
+   - **Companions' initiative:** the Gamemaster chooses, per campaign in Manage Campaigns, whether
+     each rolls its own initiative or acts right after its character.
    - Wild Shape comes later: the creature view is built to show the form a character takes.
    - Polymorph transformations are not on the roadmap.
 2. **Damage on its own:** a setting sends damage rolls to Foundry with no attack roll or saving
    throw made there, as dnd5e's damage card with no targets, for the Gamemaster to select tokens
    and apply as normal; with Midi-QOL too, outside its workflow.
-3. **Recharges:** a spent "Recharge 5–6" is rolled from the app.
+3. **Recharges:** a spent "Recharge 5–6" is rolled from the app, a character's or a companion's.
 4. **End Turn:** a player ends their turn, or a companion's, from the app: the turn panel's End
-   Turn button, or the Combat tab held for a second and a half. It's Foundry's own Next Turn.
+   turn button, or the Combat tab held for a second, from any tab. It's Foundry's own Next Turn.
+   Undo, in the toast that says so, takes it back for a few seconds.
+5. **Pictures:** a portrait, avatar or icon from Foundry that won't load shows initials or an
+   icon, on a page loaded fresh too.
 
 Patch releases (0.36.x) are expected as beta use turns up things to tweak.
 
@@ -77,5 +81,10 @@ Open questions:
   Cast it, or attack, for the rest.
 - End Turn isn't offered while a character is transformed, as by Wild Shape: end the turn in
   Foundry then.
+- Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
+  tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
+  recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,
+  initiative Midi-QOL rerolled at a new round), and so does whatever the next to act did meanwhile.
+- Undo isn't offered when the next to act is hidden from players.
 - Notes deleted or reordered in Foundry while no Gamemaster is connected don't move the journal's
   "Last changed by" line.

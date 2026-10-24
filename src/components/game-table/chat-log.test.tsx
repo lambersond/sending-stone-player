@@ -117,6 +117,24 @@ const ask = (fields: Partial<TableMessage> = {}) =>
     ...fields,
   })
 
+/**
+ * Every image as a page drawn on the server has it: done loading and broken before React
+ * hydrates, so its error never reaches `onError`, and it has nothing to decode.
+ */
+const brokenBeforeMount = () => {
+  jest
+    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+    .mockReturnValue(true)
+  jest
+    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+    .mockReturnValue(0)
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+    configurable: true,
+    writable: true,
+    value: () => Promise.reject(new Error('EncodingError')),
+  })
+}
+
 describe('components/game-table/chat-log', () => {
   it('says when there are no messages', () => {
     render(<ChatLog messages={[]} />)
@@ -175,6 +193,30 @@ describe('components/game-table/chat-log', () => {
     fireEvent.error(portrait)
     expect(container.querySelector('img')).toBeNull()
     expect(screen.getByText('V')).toBeInTheDocument()
+  })
+
+  describe('a portrait that failed before it was mounted, from module 0.36.0’s round', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      Reflect.deleteProperty(HTMLImageElement.prototype, 'decode')
+    })
+
+    it("shows the speaker's initials, its error never heard", async () => {
+      brokenBeforeMount()
+      const { container } = render(
+        <ChatLog
+          messages={[
+            message({
+              speaker: 'Vex',
+              avatar: 'https://game.example/vex.webp',
+            }),
+          ]}
+        />,
+      )
+
+      expect(await screen.findByText('V')).toBeInTheDocument()
+      expect(container.querySelector('img')).toBeNull()
+    })
   })
 
   it("puts the player's own messages on the other side", () => {

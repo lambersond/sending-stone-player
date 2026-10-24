@@ -448,6 +448,41 @@ describe('utils/slim-sheet', () => {
         expect(action).not.toHaveProperty('drop')
       })
 
+      it("takes its row's damage on its own (module 0.36.0) but where it has its own, or drops it", () => {
+        const tableDamage = {
+          normal: {
+            critical: false,
+            plannable: true,
+            rolls: [
+              { formula: '1d6', type: null, dice: [{ faces: 6, number: 1 }] },
+            ],
+          },
+          critical: null,
+        }
+        const inventory = {
+          ...characterSheet().inventory,
+          sections: [
+            { id: 'loot', label: 'Loot', items: [{ ...wand, tableDamage }] },
+          ],
+        }
+        const sheet = sheetWith(
+          [
+            { id: 'wand', ref: true },
+            { id: 'wand', ref: true, tableDamage: null },
+            { id: 'wand', ref: true, drop: ['tableDamage'] },
+          ],
+          { inventory },
+        )
+        const [taken, own, dropped] = sheet.actions[0].actions
+
+        expect(taken.tableDamage).toEqual(tableDamage)
+        expect(taken.tableDamage).not.toBe(
+          sheet.inventory.sections[0].items[0].tableDamage,
+        )
+        expect(own.tableDamage).toBeNull()
+        expect(dropped).not.toHaveProperty('tableDamage')
+      })
+
       it('copies what it takes, never sharing it with its row', () => {
         const sheet = sheetWith([{ id: 'wand', ref: true }])
         const [action] = sheet.actions[0].actions

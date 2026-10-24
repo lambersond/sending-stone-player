@@ -114,8 +114,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * and from module 0.31.0, items and coins moved between the character and a party or another
  * character, none of them a roll; and from module 0.33.0, an item removed from the character, no
  * roll either; and from module 0.36.0, an action's damage or healing on its own, and a spent
- * recharge rolled, and the current turn ended, the character's or one of its companions', no roll
- * either.
+ * recharge rolled, and the current turn ended, the character's or one of its companions', and a
+ * turn ended taken back, neither of them a roll.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -138,6 +138,7 @@ export const ROLL_KINDS = [
   'endEnchantment',
   'endConcentration',
   'endTurn',
+  'undoEndTurn',
   'spend',
   'inspiration',
   'transfer',
@@ -262,9 +263,9 @@ export const MOST_COMPANIONS = 50
 
 /**
  * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
- * edits it rather than acting, as charges spent by hand, and ending a turn, which the character's
- * page does for its companions' turns too. The module's list has `note` too, which isn't a roll
- * here.
+ * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
+ * which the character's page does for its companions' turns too. The module's list has `note` too,
+ * which isn't a roll here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
@@ -274,6 +275,7 @@ export const COMPANION_UNTAKEN = [
   'transfer',
   'remove',
   'endTurn',
+  'undoEndTurn',
 ] as const
 
 /**
@@ -371,6 +373,13 @@ export const ROLL_PENDING_FOR = 30_000
  * to give up on one, a minute, as when a module stops it to ask the Gamemaster something.
  */
 export const ROLL_ANSWER_WITHIN = 75_000
+
+/**
+ * How long after a turn ended from the page it may be taken back, in milliseconds, from when the
+ * game said it was ended (module 0.36.0): the toast offers it for 8 seconds; the module allows a
+ * minute, as a command may wait to be fetched.
+ */
+export const UNDO_TURN_WITHIN = 30_000
 
 /** How long a character's rolls are kept, once made. */
 export const ROLLS_KEPT_FOR = 86_400_000

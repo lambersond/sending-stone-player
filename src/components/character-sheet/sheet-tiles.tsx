@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { CircleAlert, Dices, Footprints, Zap } from 'lucide-react'
 import { ConcentrationChip } from './concentration'
 import { conditionDetail } from './effects-tab'
 import { RollButton } from './roll-button'
+import { useImageFallback } from '@/hooks/use-image-fallback'
 import { afterWords } from '@/utils/creature-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { isDying } from '@/utils/roll-requests'
 import type { RollActions } from './d20-rolls'
 import type { TableSheet } from '@/types/table'
+import type { ReactNode } from 'react'
 
 /*
  * The tiles and chips at the top of a sheet, a character's and, from module 0.36.0, a creature's:
@@ -216,8 +217,8 @@ const CONCENTRATING = 'concentrating'
  * sit on a dark disc.
  */
 function StatusIcon({ src }: Readonly<{ src: string | null }>) {
-  const [failed, setFailed] = useState<string>()
-  if (!src || failed === src) {
+  const { shown, ref, onError } = useImageFallback(src)
+  if (!src || !shown) {
     return (
       <span
         aria-hidden
@@ -231,10 +232,11 @@ function StatusIcon({ src }: Readonly<{ src: string | null }>) {
     // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={ref}
       src={src}
       alt=''
       className='size-5 rounded-full bg-[#23232f] p-0.5'
-      onError={() => setFailed(src)}
+      onError={onError}
     />
   )
 }
@@ -244,10 +246,10 @@ export function Portrait({
   name,
   src,
 }: Readonly<{ name: string; src?: string }>) {
-  const [failed, setFailed] = useState(false)
+  const { shown, ref, onError } = useImageFallback(src)
   const box =
     'size-16 shrink-0 overflow-hidden rounded-2xl border border-border bg-primary/10'
-  if (!src || failed) {
+  if (!shown) {
     return (
       <span
         aria-hidden
@@ -264,10 +266,11 @@ export function Portrait({
     // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={ref}
       src={src}
       alt=''
       className={clsx(box, 'object-cover object-top')}
-      onError={() => setFailed(true)}
+      onError={onError}
     />
   )
 }

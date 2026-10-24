@@ -338,8 +338,9 @@ part('1. the hello and the answer')
   check(same((data.companions ?? []).map(c => [c.key, c.kind, c.name, c.of]), [['brakka', 'owned', 'Brakka', ['thorin']]]),
     `the hello lists Brakka, owned, Thorin's (${JSON.stringify(data.companions)})`)
   const features = data.features.companions
-  check(!!features && !features.kinds.includes('inspiration') && !features.kinds.includes('spend') && !features.kinds.includes('endTurn') && features.initiative === 'own',
-    `its features.companions: kinds without inspiration, spend or endTurn, initiative "own" (${JSON.stringify(features)})`)
+  // Changed on purpose (round 0.36.0 §13.4, v6): nor taking back a turn ended, the character's to do.
+  check(!!features && !features.kinds.includes('inspiration') && !features.kinds.includes('spend') && !features.kinds.includes('endTurn') && !features.kinds.includes('undoEndTurn') && features.initiative === 'own',
+    `its features.companions: kinds without inspiration, spend, endTurn or undoEndTurn, initiative "own" (${JSON.stringify(features)})`)
   check(JSON.parse(hello().body ?? '{}').features?.companions === 1, `the app answers companions: 1 (${hello().body})`)
   const order = posted.map(p => `${p.type}:${p.data?.character?.id ?? p.data?.companion?.key ?? ''}`)
   const thorinAt = order.indexOf('character.updated:thorin')
@@ -408,6 +409,144 @@ for (const [width] of WIDTHS) {
     await choose(view, 'self')
   }
   check(await sideways(view.page) === 0, `no horizontal page scroll at ${width}`)
+}
+
+// =================================================================================================
+// 2c. Pictures drawn with the page (round 0.36.0 §8.12, v6)
+// =================================================================================================
+part('2c. pictures drawn with the page')
+{
+  // Thorin poisoned, its icon on the game's address as every picture here, which answers no image;
+  // and a line of his in the chat, for its speaker's avatar.
+  const POISONED = 'systems/dnd5e/icons/svg/statuses/poisoned.svg'
+  CONFIG.statusEffects.push({ id: 'poisoned', name: 'Poisoned', img: POISONED })
+  const poisoned = {
+    id: 'dnd5epoisoned000', documentName: 'ActiveEffect', uuid: 'Actor.thorin.ActiveEffect.dnd5epoisoned000', name: 'Poisoned', img: POISONED,
+    parent: thorin, type: 'base', origin: null, description: '', disabled: false, isSuppressed: false, isTemporary: false,
+    statuses: new Set(['poisoned']), duration: { remaining: null, label: '', value: null }, updateDuration() {}, flags: {}, system: {},
+    getFlag() { return undefined },
+  }
+  thorin.effects.push(poisoned)
+  await Hooks.callAll('createActiveEffect', poisoned, {}, 'gm')
+  await ChatMessage.create({ author: 'alice', speaker: ChatMessage.getSpeaker({ actor: thorin }), content: '<p>On to the Ashlands.</p>' })
+  let shown = null
+  await until(async () => {
+    shown = (await call(alice.page, `${API}/table`)).json
+    return shown?.sheet?.conditions?.some(c => c.id === 'poisoned' && c.img) && shown?.messages?.some(m => /On to the Ashlands/.test(JSON.stringify(m)))
+  }, "Thorin's condition and his line in the app", 20_000)
+  // One picture the test serves, a pixel, for one item of his gear: drawn as an image, so that the
+  // check can't pass by falling back everywhere.
+  const gear = (shown.sheet.inventory?.sections ?? []).flatMap(section => section.items).filter(it => typeof it.img === 'string' && it.img)
+  const served = gear[0]
+  check(!!served && gear.length >= 2, `Thorin's gear keeps its pictures, on the game's address (${JSON.stringify(gear.map(it => [it.name, it.img]))})`)
+  const servedPath = `/${served.img.replace(/^[a-z]+:\/\/[^/]+\//i, '').replace(/^\//, '')}`
+  const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  /** Every picture on the page that's broken, an image inside a description or a note excepted. */
+  const brokenOf = who => who.page.evaluate(() => [...document.images]
+    .filter(img => !img.closest('.sheet-text') && img.complete && img.naturalWidth === 0).map(img => img.getAttribute('src')))
+  /** The sheet header's portrait and conditions, the chat's avatars, as drawn: in Thorin's or a companion's pane. */
+  const picturesOf = (who, key) => who.page.evaluate(key => {
+    // The character's sheet header, or a companion's creature header.
+    const header = document.querySelector(key === 'self' ? '#creature-panel-self header' : `#creature-panel-${key} section[aria-labelledby="creature-${key}-creature-name"]`)
+    const face = header?.querySelector('.size-16')
+    const condition = [...(header?.querySelectorAll('ul[aria-label="Conditions"] li') ?? [])].find(li => /Poisoned/.test(li.textContent))
+    const icon = condition?.querySelector('img, span[aria-hidden]')
+    const avatars = [...document.querySelectorAll('[aria-label="Chat log"] [data-side]')].filter(bubble => /On to the Ashlands/.test(bubble.textContent))
+      .map(bubble => { const pic = bubble.querySelector('img.size-9, span.size-9'); return pic ? `${pic.tagName}:${pic.textContent}` : 'none' })
+    return {
+      portrait: face ? `${face.tagName}:${face.textContent}` : 'none',
+      condition: icon ? `${icon.tagName}:${icon.className.includes('bg-ruby/15') && !!icon.querySelector('svg')}` : 'none',
+      avatars,
+    }
+  }, key)
+  /** The Inventory tab's entries' icons: the served one's, and the rest. */
+  const entryIcons = (who, src) => who.page.evaluate(src => {
+    const panel = document.querySelector('#creature-panel-self #sheet-panel') ?? document.querySelector('#sheet-panel')
+    const icons = [...panel.querySelectorAll('img.size-8, span.size-8[aria-hidden]')]
+    return icons.map(el => (el.tagName === 'IMG' ? `img:${el.getAttribute('src').endsWith(src)}:${el.naturalWidth > 0}` : `icon:${!!el.querySelector('svg')}`))
+  }, src)
+  const KEYS = ['self', 'brakka', BAT1, BAT2, DRAKE]
+  for (const [width, height] of [[390, 844], [1280, 800]]) {
+    for (const held of [true, false]) {
+      const what = `at ${width}, ${held ? 'its scripts held back a second' : 'as it comes'}`
+      const view = await browse({ width, height, toasts: false })
+      const asked = []
+      await view.page.route(url => url.pathname.endsWith(servedPath), route => {
+        asked.push(route.request().url())
+        return route.fulfill({ contentType: 'image/png', body: PIXEL })
+      })
+      if (held) {
+        const from = Date.now()
+        await view.page.route('**/_next/static/chunks/**', async route => {
+          const left = from + 1000 - Date.now()
+          if (left > 0) await wait(left)
+          await route.continue().catch(() => {})
+        })
+      }
+      const polled = view.page.waitForRequest(request => new URL(request.url()).pathname === `${API}/table`, { timeout: 30_000 })
+      await view.page.goto(`${BASE}/characters/sheet-thorin`)
+      await polled
+      await wait(1000)
+      const broken = await brokenOf(view)
+      const drawn = await picturesOf(view, 'self')
+      const tabs = Object.fromEntries(await Promise.all(KEYS.map(async key => [key, await avatarOf(view, key)])))
+      check(broken.length === 0 && drawn.portrait === 'SPAN:T' && drawn.condition === 'SPAN:true' && drawn.avatars.length > 0 && drawn.avatars.every(a => a === 'SPAN:T')
+        && Object.values(tabs).every(t => t === 'initials'),
+        `${what}: no picture broken; Thorin's portrait his initials in its box, the condition's icon the ruby disc, his chat avatar his initials, the switcher's tabs initials (${JSON.stringify({ broken, drawn, tabs })})`)
+      await openSheetTab(view, 'self', 'inventory')
+      await until(async () => (await entryIcons(view, servedPath)).length >= gear.length, `${what}: the Inventory tab's entries`, 15_000)
+      await until(async () => (await entryIcons(view, servedPath)).includes('img:true:true'), `${what}: the served picture drawn`, 10_000).catch(() => {})
+      const icons = await entryIcons(view, servedPath)
+      check(icons.filter(i => i === 'img:true:true').length >= 1 && icons.every(i => i === 'img:true:true' || i === 'icon:true') && icons.some(i => i === 'icon:true')
+        && asked.length > 0 && (await brokenOf(view)).length === 0,
+        `${what}: the Inventory tab's entries their lucide icons, and the one picture served drawn as an image (${JSON.stringify(icons)}; served ${asked.length})`)
+      if (!held) await shootBoth(view, 'companions-pictures')
+      await choose(view, 'brakka')
+      await view.page.locator('#creature-panel-brakka section[aria-labelledby="creature-brakka-creature-name"]').waitFor({ timeout: 20_000 })
+      await wait(500)
+      const creature = await picturesOf(view, 'brakka')
+      check(creature.portrait === 'SPAN:B' && (await brokenOf(view)).length === 0, `${what}: Brakka's creature header his initials (${JSON.stringify(creature)})`)
+      await choose(view, 'self')
+      // The sheet's header is its Character tab's.
+      await openSheetTab(view, 'self', 'character')
+      if (width === 1280 && !held) {
+        // The Gamemaster gives Thorin a new portrait, one the game answers no image for either: it's
+        // tried, and the header shows his initials within a poll, never a broken image.
+        const NEW = 'icons/thorin-anew.webp'
+        const tried = []
+        view.page.on('request', request => { if (request.url().endsWith(NEW)) tried.push(request.url()) })
+        await view.page.evaluate(() => {
+          const look = window.__portraitLook = { frames: 0, broken: 0, run: 0, longest: 0 }
+          const step = () => {
+            const face = document.querySelector('#creature-panel-self header .size-16')
+            const bad = face?.tagName === 'IMG' && face.complete && face.naturalWidth === 0
+            look.frames++
+            look.run = bad ? look.run + 1 : 0
+            look.longest = Math.max(look.longest, look.run)
+            if (!look.stop) requestAnimationFrame(step)
+          }
+          requestAnimationFrame(step)
+        })
+        thorin.img = NEW
+        await thorin.update({ img: NEW })
+        await until(() => tried.length > 0, 'the new portrait tried', 10_000)
+        let last = null
+        await until(async () => (last = await view.page.evaluate(() => {
+          const face = document.querySelector('#creature-panel-self header .size-16')
+          return face ? `${face.tagName}:${face.tagName === 'IMG' ? `${face.getAttribute('src')}:${face.complete}:${face.naturalWidth}` : face.textContent}` : 'none'
+        })) === 'SPAN:T', 'his initials again', 10_000).catch(() => {})
+        await wait(1000)
+        const look = await view.page.evaluate(() => { window.__portraitLook.stop = true; return window.__portraitLook })
+        const after = await picturesOf(view, 'self')
+        check(tried.length > 0 && after.portrait === 'SPAN:T' && look.longest < 2 && (await brokenOf(view)).length === 0,
+          `a portrait changed in Foundry after one failed: the new address tried afresh, then his initials, never a broken image drawn (${JSON.stringify({ tried, after, last, look })})`)
+      }
+      await view.view.close()
+    }
+  }
+  // Thorin well again, for the steps after.
+  thorin.effects.splice(thorin.effects.indexOf(poisoned), 1)
+  await Hooks.callAll('deleteActiveEffect', poisoned, {}, 'gm')
 }
 
 // =================================================================================================

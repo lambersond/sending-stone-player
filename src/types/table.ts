@@ -214,6 +214,22 @@ export type EndableTurn = EndedTurn & {
 }
 
 /**
+ * An End Turn this page sent that may be taken back now (module 0.36.0): its id, the turn it
+ * ended, with the companion's words where it was a companion's, and the turn it left the combat on,
+ * as the page shows it, with who acts now.
+ */
+export type TurnUndo = {
+  requestId: string
+  turn: EndableTurn
+  left: EndedTurn & {
+    /** Who acts now, as the page names them. */
+    name: string
+    /** Whether that's the viewer's own character. */
+    mine: boolean
+  }
+}
+
+/**
  * A saving throw the Gamemaster's game asks of the player's character, to roll here: such as a
  * concentration check after damage, or a save a spell targeting them calls for; or from module
  * 0.27.0, what Midi-QOL asks of them, which may be an ability or skill check, and which it rolls

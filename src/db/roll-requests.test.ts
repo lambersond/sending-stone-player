@@ -3478,7 +3478,10 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
   })
 })
 
-/** A fight as last heard of, from module 0.36.0, on whose turn it is, in round 2. */
+/**
+ * A fight as last heard of, from module 0.36.0, on whose turn it is, in round 2; the Bat after
+ * the goblin, a companion the campaign doesn't list.
+ */
 const turnFight = (combatantId: string) =>
   combat({
     round: 2,
@@ -3490,6 +3493,7 @@ const turnFight = (combatantId: string) =>
       combatant({ id: 'c-vex-wolf', companion: 'wolfVex' }),
       combatant({ id: 'c-shared', companion: 'wolfShared' }),
       combatant({ id: 'c-goblin', name: 'Goblin' }),
+      combatant({ id: 'c-bat', companion: 'scene1-batToken' }),
     ],
   })
 
@@ -3694,5 +3698,243 @@ describe('db/roll-requests, a turn ended, from module 0.36.0', () => {
         ofActorId: null,
       } as any),
     ).toEqual({ ...ending('c-brakka'), id: 'req-1', actorId: 'actor-thorin' })
+  })
+})
+
+/** A turn as the page shows it, from module 0.36.0, in round 2. */
+const turnAt = (combatantId: string) => ({
+  combatId: 'cmbt1',
+  round: 2,
+  combatantId,
+})
+
+describe('db/roll-requests, a turn taken back, from module 0.36.0', () => {
+  const plain = { mode: 0 as const, explicit: false, extras: [], dice: [] }
+  /** Thorin's End Turn, req-0, taken back from the turn it left, Brakka's unless said. */
+  const undoing = (
+    combatantId = 'c-brakka',
+    undo = 'req-0',
+  ): RollRequestInput => ({
+    kind: 'undoEndTurn',
+    undo,
+    turn: turnAt(combatantId),
+    ...plain,
+  })
+  const brakka = mockCompanionEntry({ of: ['actor-thorin'] })
+  /** Thorin's player's End Turn of his own turn, as held: made in the game 5 s ago unless said. */
+  const thorinsEnd = (fields: object = {}) => ({
+    id: 'req-0',
+    kind: 'endTurn',
+    actorId: 'actor-thorin',
+    characterId: 'char-1',
+    status: 'done',
+    completedAt: ago(5000),
+    payload: { kind: 'endTurn', turn: turnAt('c-thorin'), ...plain },
+    ...fields,
+  })
+  /** Vex's player, at hers. */
+  const vex = playerSeat(
+    {
+      id: 'char-vex',
+      name: 'Vex',
+      gameUrl: 'https://my-game.forge-vtt.com',
+      campaignTitle: 'The Lonely Mountain',
+      campaignId: 'c1',
+      actorId: 'actor-vex',
+    },
+    'user-2',
+  )
+  /** Another player, at Thorin once his first player gave him up, as a Character of their own. */
+  const nextThorin = playerSeat(
+    {
+      id: 'char-2',
+      name: 'Thorin Oakenshield',
+      gameUrl: 'https://my-game.forge-vtt.com',
+      campaignTitle: 'The Lonely Mountain',
+      campaignId: 'c1',
+      actorId: 'actor-thorin',
+    },
+    'user-3',
+  )
+  /**
+   * The campaign, its game taking End Turn and Undo, the fight on that turn, the End Turns held,
+   * each read only where every field asked for matches, and the rolls on their way.
+   */
+  const givenUndo = ({
+    on = 'c-brakka',
+    rows = [thorinsEnd()] as object[],
+    inFlight = 0,
+  } = {}) => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...takingRolls,
+      rollKinds: ['skill', 'attack', 'endTurn', 'undoEndTurn'],
+      rollFeatures: ['gmRolls'],
+      characters: [{ id: 'actor-thorin', name: 'Thorin' }],
+      companions: [brakka],
+      companionKinds: ['attack'],
+      companionInitiative: 'own',
+    } as any)
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: fullerSheet(),
+    } as any)
+    prismaMock.combat.findMany.mockResolvedValue([
+      { data: turnFight(on) },
+    ] as any)
+    prismaMock.rollRequest.findFirst.mockImplementation((({ where }: any) =>
+      Promise.resolve(
+        rows.find(row =>
+          Object.entries(where).every(
+            ([key, value]) => (row as Record<string, unknown>)[key] === value,
+          ),
+        ) ?? null,
+      )) as any)
+    prismaMock.rollRequest.count
+      .mockResolvedValueOnce(inFlight)
+      .mockResolvedValueOnce(0)
+    prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+    prismaMock.combat.findMany.mockReset()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("takes back the player's own End Turn from the turn it left, kept as the character's, reading the End Turn it names as the seat's", async () => {
+    givenUndo()
+
+    await expect(createRollRequest(character, undoing())).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(prismaMock.rollRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'req-0',
+        kind: 'endTurn',
+        actorId: 'actor-thorin',
+        characterId: 'char-1',
+      },
+      select: { status: true, completedAt: true, payload: true },
+    })
+    expect(prismaMock.combat.findMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1', combatId: 'cmbt1' },
+      select: { data: true },
+    })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: {
+        campaignId: 'c1',
+        characterId: 'char-1',
+        role: 'player',
+        requestedById: 'user-1',
+        actorId: 'actor-thorin',
+        kind: 'undoEndTurn',
+        payload: undoing(),
+        createdAt: new Date(NOW),
+      },
+      select: { id: true },
+    })
+    const { data } = prismaMock.rollRequest.create.mock.calls[0][0]
+    expect(data).not.toHaveProperty('ofActorId')
+  })
+
+  it("takes back a companion's turn, ended from the character's seat", async () => {
+    givenUndo({
+      on: 'c-goblin',
+      rows: [
+        thorinsEnd({
+          payload: { kind: 'endTurn', turn: turnAt('c-brakka'), ...plain },
+        }),
+      ],
+    })
+
+    await expect(
+      createRollRequest(character, undoing('c-goblin')),
+    ).resolves.toEqual({ id: 'req-1' })
+  })
+
+  it("refuses another player's seat naming Thorin's End Turn", async () => {
+    givenUndo()
+
+    await expect(createRollRequest(vex, undoing())).resolves.toEqual(
+      refusal(422, 'not-undoable'),
+    )
+    // Nor the player at Thorin now, whose End Turn it wasn't.
+    givenUndo()
+    await expect(createRollRequest(nextThorin, undoing())).resolves.toEqual(
+      refusal(422, 'not-undoable'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses an End Turn not made yet, or not one at all', async () => {
+    givenUndo({ rows: [thorinsEnd({ status: 'claimed', completedAt: null })] })
+    await expect(createRollRequest(character, undoing())).resolves.toEqual(
+      refusal(422, 'not-undoable'),
+    )
+    givenUndo({ rows: [thorinsEnd({ kind: 'skill' })] })
+    await expect(createRollRequest(character, undoing())).resolves.toEqual(
+      refusal(422, 'not-undoable'),
+    )
+    givenUndo()
+    await expect(
+      createRollRequest(character, undoing('c-brakka', 'req-9')),
+    ).resolves.toEqual(refusal(422, 'not-undoable'))
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses one made 31 s ago', async () => {
+    givenUndo({ rows: [thorinsEnd({ completedAt: ago(31_000) })] })
+
+    await expect(createRollRequest(character, undoing())).resolves.toEqual(
+      refusal(422, 'not-undoable'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses it once the stored combat has moved on, to the Bat’s turn', async () => {
+    givenUndo({ on: 'c-bat' })
+
+    await expect(createRollRequest(character, undoing())).resolves.toEqual(
+      refusal(422, 'moved'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("never takes the Gamemaster's, who goes back a turn in Foundry, nor reads anything", async () => {
+    givenUndo()
+
+    await expect(createRollRequest(gm(), undoing())).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.count).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("never takes one at a companion's seat, whose kinds never have it", async () => {
+    givenUndo()
+    const atBrakka: SheetSeat = {
+      ...character,
+      actorId: 'wolfBrakka',
+      name: 'Wolf',
+      companion: { of: 'actor-thorin', entry: brakka },
+    }
+
+    await expect(createRollRequest(atBrakka, undoing())).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('counts it with the seat’s rolls: refused while three are on their way', async () => {
+    givenUndo({ inFlight: 3 })
+
+    await expect(createRollRequest(character, undoing())).resolves.toEqual(
+      refusal(429, 'busy'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 })

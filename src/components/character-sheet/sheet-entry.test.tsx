@@ -1,7 +1,25 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { joinParts, SheetEntry } from './sheet-entry'
+
+/**
+ * Every image as a page drawn on the server has it: done loading and broken before React
+ * hydrates, so its error never reaches `onError`, and it has nothing to decode.
+ */
+const brokenBeforeMount = () => {
+  jest
+    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+    .mockReturnValue(true)
+  jest
+    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+    .mockReturnValue(0)
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+    configurable: true,
+    writable: true,
+    value: () => Promise.reject(new Error('EncodingError')),
+  })
+}
 
 describe('components/character-sheet/sheet-entry', () => {
   it("doesn't open without a description or details", () => {
@@ -39,6 +57,32 @@ describe('components/character-sheet/sheet-entry', () => {
     fireEvent.error(icon)
     expect(document.querySelector('img')).toBeNull()
     expect(document.querySelector('details svg')).toBeInTheDocument()
+  })
+
+  describe('an icon that failed before it was mounted, from module 0.36.0’s round', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      Reflect.deleteProperty(HTMLImageElement.prototype, 'decode')
+    })
+
+    it('shows the fallback, its error never heard', async () => {
+      brokenBeforeMount()
+      render(
+        <ul>
+          <SheetEntry
+            characterId='char-1'
+            name='Second Wind'
+            img='https://my-game.forge-vtt.com/icons/heart.webp'
+            fallback={Sparkles}
+            meta='Class Feature'
+            text={null}
+          />
+        </ul>,
+      )
+
+      await waitFor(() => expect(document.querySelector('img')).toBeNull())
+      expect(document.querySelector('details svg')).toBeInTheDocument()
+    })
   })
 
   it('opens to its details without loading anything when it has no description', () => {

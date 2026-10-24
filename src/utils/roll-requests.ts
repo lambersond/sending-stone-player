@@ -5,6 +5,7 @@ import {
   ROLL_FEATURES,
   ROLL_KINDS,
   ROLL_PENDING_FOR,
+  UNDO_TURN_WITHIN,
 } from '@/constants/sending-stone'
 import { outOfSlots, slotPools } from '@/utils/action-groups'
 import { castAtLevel, castIndex, castOf, type CastIndex } from '@/utils/casts'
@@ -91,7 +92,9 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * initiative where it acts right after its character, who's in that combat (`follows`). From module
  * 0.36.0, for a turn ended: the combat hasn't started (`not-started`); its round or current
  * combatant isn't the one the page showed, or that one is hidden (`moved`); or it's neither the
- * character's turn nor one of its companions' (`not-turn`).
+ * character's turn nor one of its companions' (`not-turn`); and for a turn taken back, that the End
+ * Turn named can't be (`not-undoable`): not this seat's, not ended, too long ago, or its turn's
+ * combatant gone.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -135,6 +138,7 @@ export type RollRefusal =
   | 'not-started'
   | 'moved'
   | 'not-turn'
+  | 'not-undoable'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -182,13 +186,15 @@ export function isSeatCombatant(
 /**
  * What the campaign's Gamemaster never sends as a character (#156): an end of an enchantment or,
  * from module 0.29.0, of a concentration, which post nothing in the game, so would leave no mark of
- * theirs; and from module 0.36.0 a turn ended, which posts nothing either: the Gamemaster ends one
- * in Foundry. Charges spent and Heroic Inspiration post a line marked as theirs.
+ * theirs; and from module 0.36.0 a turn ended, or taken back, which posts nothing either: the
+ * Gamemaster ends one, or goes back to it, in Foundry. Charges spent and Heroic Inspiration post a
+ * line marked as theirs.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
   'endConcentration',
   'endTurn',
+  'undoEndTurn',
 ])
 
 /**
@@ -386,14 +392,95 @@ export function checkEndTurn(
   // The page is never shown a hidden combatant as the current one.
   const current = combat.combatants.find(({ id }) => id === turn.combatantId)
   if (!current || current.hidden === true) return 'moved'
-  // Not isSeatCombatant, whose companion is a companion's own seat's: here it's any of those the
-  // stored list gives the character.
-  const yours =
-    current.character === actorId ||
+  return isTurnOf(current, actorId, roster) ? undefined : 'not-turn'
+}
+
+/**
+ * Is this combatant's turn one the seat's character may end, or take back (module 0.36.0): the
+ * character's own, or one of its companions', by the campaign's stored list. Not isSeatCombatant,
+ * whose companion is a companion's own seat's: here it's any of those the list gives the character.
+ */
+function isTurnOf(
+  combatant: Pick<
+    CombatSnapshot['combatants'][number],
+    'character' | 'companion'
+  >,
+  actorId: string,
+  roster: CompanionEntry[],
+): boolean {
+  return (
+    combatant.character === actorId ||
     roster.some(
-      ({ key, of }) => key === current.companion && of.includes(actorId),
+      ({ key, of }) => key === combatant.companion && of.includes(actorId),
     )
-  return yours ? undefined : 'not-turn'
+  )
+}
+
+/** An End Turn as it's held, for taking it back (module 0.36.0): how far it got, and when. */
+export type HeldEndTurn = {
+  status: string
+  completedAt: Date | null
+  payload: unknown
+}
+
+/**
+ * Can the seat take back the turn this End Turn of its own ended, from module 0.36.0, as the combat
+ * was last heard of: the End Turn the game said it made, a moment ago, in this combat; the combat
+ * still started, and where that End Turn left it, the turn the page shows now, not hidden, and not
+ * the ended turn back already; and the ended turn's combatant still in it, shown, and still the
+ * character's or one of its companions'. The game checks it all again against its own memory of
+ * that End Turn, and the combat as it stands, before it moves anything back.
+ * @param turn - The turn the page shows now, which that End Turn left: its combat, round and
+ *   current combatant.
+ * @param ended - The End Turn named, read as this seat's and this character's only; none where it
+ *   isn't.
+ * @param actorId - The seat's character, whose End Turn it was, for a companion's turn too.
+ * @param roster - The campaign's companions, as stored.
+ * @param now - When it's asked, in milliseconds.
+ * @returns Why not, or nothing when it can.
+ */
+export function checkUndoTurn(
+  turn: EndedTurn | undefined,
+  ended: HeldEndTurn | null | undefined,
+  combats: CombatSnapshot[],
+  actorId: string,
+  roster: CompanionEntry[],
+  now: number,
+): RollRefusal | undefined {
+  // Only an End Turn the game made, and only for a moment after, as the toast offers it.
+  const endedTurn = (ended?.payload as Partial<RollRequestInput> | undefined)
+    ?.turn
+  if (
+    !turn ||
+    !ended ||
+    ended.status !== 'done' ||
+    !ended.completedAt ||
+    now - ended.completedAt.getTime() > UNDO_TURN_WITHIN ||
+    !endedTurn ||
+    endedTurn.combatId !== turn.combatId
+  ) {
+    return 'not-undoable'
+  }
+  const combat = combats.find(({ id }) => id === turn.combatId)
+  if (!combat) return 'not-in-combat'
+  if (!combat.started) return 'not-started'
+  // The combat where that End Turn left it, as the page shows it: else it has moved on since, or
+  // it's back on the ended turn already, and taking it back would move it somewhere else.
+  if (combat.round !== turn.round || combat.combatantId !== turn.combatantId) {
+    return 'moved'
+  }
+  const current = combat.combatants.find(({ id }) => id === turn.combatantId)
+  if (!current || current.hidden === true) return 'moved'
+  if (
+    endedTurn.round === turn.round &&
+    endedTurn.combatantId === turn.combatantId
+  ) {
+    return 'moved'
+  }
+  // The turn it ended: still in the combat, shown to the page, and still the seat's to end.
+  const back = combat.combatants.find(({ id }) => id === endedTurn.combatantId)
+  if (!back || back.hidden === true) return 'not-undoable'
+  return isTurnOf(back, actorId, roster) ? undefined : 'not-turn'
 }
 
 /**
@@ -1207,6 +1294,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   transfer: 'Items or coins moved',
   remove: 'An item removed',
   endTurn: 'A turn ended',
+  undoEndTurn: 'A turn taken back',
 }
 
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */

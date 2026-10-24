@@ -107,7 +107,10 @@ const ROLL_GROUPS: Record<RowKind, string[]> = {
   feature: ['range', 'target', 'concentration', ...ROLLS],
 }
 
-/** What an action by reference takes from its row, unless it has its own, or drops it. */
+/**
+ * What an action by reference takes from its row, unless it has its own, or drops it: since module
+ * 0.36.0 its damage on its own too, which goes once, with its row, not again with each action.
+ */
 const ACTION_KEYS = [
   'name',
   'img',
@@ -119,6 +122,7 @@ const ACTION_KEYS = [
   'target',
   ...ROLLS,
   'damage',
+  'tableDamage',
   'attackArea',
   'rollFormula',
   'check',

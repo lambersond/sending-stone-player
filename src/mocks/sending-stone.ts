@@ -3005,7 +3005,8 @@ export function mockCompanionCampaign(fields: object = {}) {
 
 /**
  * A fight as Thorin's page shows it (module 0.36.0, End Turn): started, in round 1, Thorin first,
- * then his wolf Brakka, a goblin, Vex, and Vex's own wolf; Thorin's turn unless another is given.
+ * then his wolf Brakka, a goblin, Vex, Vex's own wolf, and the Bat Thorin summoned, for a turn
+ * after Brakka's that's his too (Undo); Thorin's turn unless another is given.
  */
 export function mockTurnCombat(fields: Partial<TableCombat> = {}): TableCombat {
   return {
@@ -3055,6 +3056,16 @@ export function mockTurnCombat(fields: Partial<TableCombat> = {}): TableCombat {
         defeated: false,
         side: 'party',
         hp: { value: 11, max: 11, temp: 0 },
+      },
+      {
+        id: 'c-bat',
+        name: 'Bat',
+        initiative: 6,
+        defeated: false,
+        side: 'party',
+        hp: { value: 1, max: 1, temp: 0 },
+        yours: true,
+        companion: 'scene1-batToken',
       },
     ],
     ...fields,

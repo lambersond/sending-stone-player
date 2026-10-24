@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react'
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
@@ -25,6 +26,12 @@ import { CombatTracker } from './combat-tracker'
 import { EmptyState } from './empty-state'
 import { FullscreenButton } from './fullscreen-button'
 import { LiveStatus, type LiveState } from './live-status'
+import {
+  newlyNotMade,
+  refusalKey,
+  TurnToast,
+  TurnToastContext,
+} from './turn-toast'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
@@ -39,22 +46,32 @@ import { JournalCard, type NotesPlace } from '@/components/notes'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
 import { Scroller } from '@/components/scroller'
 import { useCreatureChoice } from '@/hooks/use-creature-choice'
+import { useEndTurn } from '@/hooks/use-end-turn'
+import { useHold } from '@/hooks/use-hold'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { POLL_INTERVAL, useTableView } from '@/hooks/use-table-view'
+import { useTurnUndo } from '@/hooks/use-turn-undo'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import {
   companionRow,
   numberedNames,
   type RowCompanion,
 } from '@/utils/companion-row'
+import {
+  END_TURN_QUIET_CLICKS,
+  holdDescription,
+  turnKey,
+} from '@/utils/end-turn'
 import { megabytes } from '@/utils/format-amount'
 import { gameHost } from '@/utils/game-host'
 import { seatWords } from '@/utils/seat-words'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
 import type { TableGroup } from '@/types/party'
+import type { RollKind } from '@/types/roll'
 import type {
+  EndableTurn,
   GmRolls,
   TableCombat,
   TableCompanion,
@@ -81,6 +98,9 @@ const MOST_PANES = 4
 
 /** No keys, the same each time. */
 const NO_KEYS: ReadonlySet<string> = new Set()
+
+/** No rolls the game takes from here, the same each time. */
+const NO_KINDS: readonly RollKind[] = []
 
 type Props = {
   character: Character
@@ -224,6 +244,54 @@ export function GameTable({
   }
 
   const myTurn = isMyTurn(view.combat)
+  // End Turn (module 0.36.0): the seat's turn, its character's or a companion's, ended from the
+  // turn panel's button or the Combat tab held, with Undo in the toast that follows; wherever the
+  // game takes it from here. A character no longer in its campaign's game ends no turn.
+  const kinds = (view.connected && view.rollsToTable) || NO_KINDS
+  const ending = useEndTurn({ api: seat.api, gm, combat: view.combat, kinds })
+  const undoing = useTurnUndo({
+    api: seat.api,
+    gm,
+    combat: view.combat,
+    kinds,
+    sent: ending.sent,
+  })
+  // How the last End Turn was sent, by the button or by a hold.
+  const [via, setVia] = useState<'button' | 'hold'>()
+  // Why the last End Turn wasn't made, which the turn panel says while it shows that turn: by
+  // the turn and its way's reason, as a refusal by this app's own server has no id.
+  const [refused, setRefused] = useState<{ turn: EndableTurn; key: string }>()
+  const lastSent = useRef(ending.sent)
+  useEffect(() => {
+    const was = lastSent.current
+    lastSent.current = ending.sent
+    if (newlyNotMade(was, ending.sent)) {
+      setRefused({ turn: ending.sent.turn, key: refusalKey(ending.sent.way) })
+    }
+  }, [ending.sent])
+  const turnShown = ending.turn && turnKey(ending.turn)
+  if (refused && turnShown !== turnKey(refused.turn)) setRefused(undefined)
+  const endTurn = (turn: EndableTurn, how: 'button' | 'hold') => {
+    setVia(how)
+    setRefused(undefined)
+    ending.end(turn)
+  }
+  // Whether a hold of the Combat tab is past half a second, which its toast says.
+  const [held, setHeld] = useState(false)
+  // Once a hold has ended the turn, the page's tabs ignore clicks for a moment, so that the click
+  // that ends the press, wherever it lands, opens nothing.
+  const quietUntil = useRef(0)
+  const quiet = () => performance.now() < quietUntil.current
+  const hold = useHold({
+    key: ending.offered && ending.turn ? turnKey(ending.turn) : undefined,
+    onToast: () => setHeld(true),
+    onEnd: () => {
+      quietUntil.current = performance.now() + END_TURN_QUIET_CLICKS
+      setHeld(false)
+      if (ending.turn) endTurn(ending.turn, 'hold')
+    },
+    onCancel: () => setHeld(false),
+  })
   // The saves the game asks of the character, which its tab marks while they wait.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
 
@@ -304,6 +372,8 @@ export function GameTable({
   // The header, which the sheet's roll toasts start below while its tabs aren't shown.
   // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
   const [header, setHeader] = useState<HTMLElement | null>(null)
+  // Where the turn's toast ends while one shows, which the roll toasts start below.
+  const [toastFoot, setToastFoot] = useState<number>()
 
   // Keep the chat pinned to the newest message unless the player has scrolled up to read.
   const chatScroller = useRef<HTMLDivElement>(null)
@@ -327,6 +397,34 @@ export function GameTable({
     if (next !== 'character') setAside(next)
     setTab(next)
   }
+  // Whether the combat pane is shown: Combat chosen in one pane, or beside the sheet.
+  const combatShown = sideBySide ? aside === 'combat' : tab === 'combat'
+  // The Combat tab of each layout: the bottom bar's or rail's, and the column's.
+  const barCombat = useRef<HTMLButtonElement>(null)
+  const columnCombat = useRef<HTMLButtonElement>(null)
+  // Focus, where the control under it goes, as Undo does: to the turn panel's heading where the
+  // combat pane is shown, else to the Combat tab of the layout shown, never the page's body.
+  const focusTurn = () => {
+    const heading = document.querySelector<HTMLElement>('#turn-heading')
+    if (combatShown && heading) {
+      heading.focus({ preventScroll: true })
+      return
+    }
+    const combatTab = sideBySide ? columnCombat : barCombat
+    combatTab.current?.focus()
+  }
+  // The Combat tab held to end the turn, on the layout shown: its handlers on it always, which do
+  // nothing with no turn to end; while one may be ended, its fill and what it's described as.
+  const offeredTurn = ending.offered ? ending.turn : undefined
+  const holdOf = (id: string, shown: boolean): TabHold => ({
+    handlers: hold.handlers,
+    holding: shown && hold.holding,
+    touch: shown && (offeredTurn !== undefined || hold.pressed),
+    offer:
+      shown && offeredTurn
+        ? { fill: hold.fill, id, description: holdDescription(offeredTurn) }
+        : undefined,
+  })
   // A companion's tab, from the turn panel's "its tab" (module 0.36.0): chosen, shown, focused.
   const openCompanion = (key: string) => {
     choose(key)
@@ -353,6 +451,8 @@ export function GameTable({
       chosen === 'self',
   }
   let table: ReactNode
+  // Whether the sheet's pane is beside the combat and chat column on a wide screen.
+  let beside = false
   if (!view.campaign || (!character.actorId && !choice)) {
     table = (
       <Scroller>
@@ -375,6 +475,7 @@ export function GameTable({
     // From module 0.36.0, the character's companions, each with a tab above the sheet.
     const switching = row.length > 0
     const paneShown = hasSheet || parties !== undefined || playing || switching
+    beside = paneShown
     // Whether its player types in their own dice, where the game lets them (module 0.32.0): never
     // on the Gamemaster's page, which has nowhere to remember it. Their companions' are the same.
     const diceSwitch =
@@ -546,14 +647,18 @@ export function GameTable({
               className='flex shrink-0 gap-1'
             >
               <PaneTab
+                ref={columnCombat}
                 icon={Swords}
                 label='Combat'
                 pane='combat-pane'
                 selected={aside === 'combat'}
-                onClick={() => show('combat')}
+                onClick={() => {
+                  if (!quiet()) show('combat')
+                }}
+                hold={holdOf('combat-hold-pane', sideBySide)}
               >
                 {myTurn && aside !== 'combat' && (
-                  <span className='size-2 rounded-full bg-primary'>
+                  <span className='relative size-2 rounded-full bg-primary'>
                     <span className='sr-only'>, your turn</span>
                   </span>
                 )}
@@ -563,7 +668,9 @@ export function GameTable({
                 label='Chat'
                 pane='chat-pane'
                 selected={aside === 'chat'}
-                onClick={() => show('chat')}
+                onClick={() => {
+                  if (!quiet()) show('chat')
+                }}
               >
                 {unread > 0 && (
                   <span className='flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary'>
@@ -590,6 +697,11 @@ export function GameTable({
                 combat={view.combat}
                 onOpen={openCompanion}
                 keys={new Set(rowKeys)}
+                ending={ending}
+                via={via}
+                refused={refused}
+                onEnd={turn => endTurn(turn, 'button')}
+                focusTurn={focusTurn}
               />
             </Scroller>
           </Pane>
@@ -694,7 +806,7 @@ export function GameTable({
               addBack={words.addBack}
             />
           )}
-          {table}
+          <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
         </div>
         <nav
           aria-label='Table'
@@ -704,7 +816,11 @@ export function GameTable({
             icon={UserRound}
             label='Character'
             active={tab === 'character'}
-            onClick={() => show('character')}
+            onClick={() => {
+              if (quiet()) return
+              setRefused(undefined)
+              show('character')
+            }}
           >
             {asked.length > 0 && tab !== 'character' && (
               <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
@@ -713,13 +829,19 @@ export function GameTable({
             )}
           </TabButton>
           <TabButton
+            ref={barCombat}
             icon={Swords}
             label='Combat'
             active={tab === 'combat'}
-            onClick={() => show('combat')}
+            onClick={() => {
+              if (quiet()) return
+              setRefused(undefined)
+              show('combat')
+            }}
+            hold={holdOf('combat-hold-bar', !sideBySide)}
           >
             {myTurn && tab !== 'combat' && (
-              <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
+              <span className='absolute top-2 right-[calc(50%-1.25rem)] z-[1] size-2.5 rounded-full bg-primary ring-2 ring-card'>
                 <span className='sr-only'>, your turn</span>
               </span>
             )}
@@ -728,7 +850,11 @@ export function GameTable({
             icon={MessageSquare}
             label='Chat'
             active={tab === 'chat'}
-            onClick={() => show('chat')}
+            onClick={() => {
+              if (quiet()) return
+              setRefused(undefined)
+              show('chat')
+            }}
           >
             {unread > 0 && (
               <span className='absolute top-1 right-[calc(50%-1.75rem)] flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary ring-2 ring-card'>
@@ -757,6 +883,19 @@ export function GameTable({
               : undefined
           }
           onClose={() => setPartyOpen(undefined)}
+        />
+        {/* End Turn's toast, with Undo (module 0.36.0): there, empty, from the start. */}
+        <TurnToast
+          ending={ending}
+          undoing={undoing}
+          via={via}
+          held={held}
+          combatShown={combatShown}
+          focusTurn={focusTurn}
+          combat={view.combat}
+          header={header}
+          beside={beside}
+          onFoot={setToastFoot}
         />
       </div>
     </TableApiContext>
@@ -852,6 +991,60 @@ function Pane({
   )
 }
 
+/**
+ * The Combat tab held to end the turn (module 0.36.0): the hold's handlers, on it always; whether
+ * a press is held, and whether the tab takes a held touch; and while a turn may be ended, its
+ * fill and what it's described as, by the id of the words that say so.
+ */
+type TabHold = {
+  handlers: ReturnType<typeof useHold>['handlers']
+  holding: boolean
+  touch: boolean
+  offer?: {
+    fill: RefObject<HTMLSpanElement | null>
+    id: string
+    description: string
+  }
+}
+
+/** What a tab held to end the turn takes on its button: its handlers, classes and description. */
+function holdProps(hold?: TabHold) {
+  return {
+    ...hold?.handlers,
+    'aria-describedby': hold?.offer?.id,
+    className: clsx(
+      // A held touch neither selects the label nor opens iOS's callout, and the fill keeps inside.
+      hold?.touch &&
+        'touch-manipulation overflow-hidden select-none [-webkit-touch-callout:none]',
+    ),
+  }
+}
+
+/**
+ * The fill of a tab held to end the turn, from the left, and its description: hidden words, so
+ * that they describe the tab without being its name. The hook draws the fill each frame.
+ */
+function HoldFill({ hold }: Readonly<{ hold?: TabHold }>) {
+  if (!hold?.offer) return
+  return (
+    <span
+      ref={hold.offer.fill}
+      aria-hidden
+      className='pointer-events-none absolute inset-0 origin-left rounded-[inherit] bg-primary/22'
+      style={{ transform: 'scaleX(0)' }}
+    />
+  )
+}
+
+function HoldDescription({ hold }: Readonly<{ hold?: TabHold }>) {
+  if (!hold?.offer) return
+  return (
+    <span id={hold.offer.id} hidden>
+      {hold.offer.description}
+    </span>
+  )
+}
+
 /** Choosing whether combat or the chat sits beside the sheet on a wide screen. */
 function PaneTab({
   icon: Icon,
@@ -859,6 +1052,8 @@ function PaneTab({
   pane,
   selected,
   onClick,
+  hold,
+  ref,
   children,
 }: Readonly<{
   icon: LucideIcon
@@ -866,29 +1061,39 @@ function PaneTab({
   pane: string
   selected: boolean
   onClick: () => void
+  /** From module 0.36.0, the Combat tab held to end the turn. */
+  hold?: TabHold
+  ref?: RefObject<HTMLButtonElement | null>
   /** What draws the eye to it, such as unread messages. */
   children?: ReactNode
 }>) {
+  const { className, ...holding } = holdProps(hold)
   return (
     <button
+      ref={ref}
       type='button'
       role='tab'
       aria-selected={selected}
       aria-controls={pane}
       onClick={onClick}
+      {...holding}
       className={clsx(
-        'relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors',
-        selected
-          ? 'bg-primary/10 text-text-primary'
+        'relative inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors',
+        selected || hold?.holding
+          ? 'text-text-primary'
           : 'text-text-secondary hover:text-text-primary',
+        selected && 'bg-primary/10',
+        className,
       )}
     >
+      <HoldFill hold={hold} />
       <Icon
         aria-hidden
-        className={clsx('size-4', selected && 'text-primary')}
+        className={clsx('relative size-4', selected && 'text-primary')}
       />
-      {label}
+      <span className='relative'>{label}</span>
       {children}
+      <HoldDescription hold={hold} />
     </button>
   )
 }
@@ -898,29 +1103,44 @@ function TabButton({
   label,
   active,
   onClick,
+  hold,
+  ref,
   children,
 }: Readonly<{
   icon: LucideIcon
   label: string
   active: boolean
   onClick: () => void
+  /** From module 0.36.0, the Combat tab held to end the turn. */
+  hold?: TabHold
+  ref?: RefObject<HTMLButtonElement | null>
   children?: ReactNode
 }>) {
+  const { className, ...holding } = holdProps(hold)
   return (
     <button
+      ref={ref}
       type='button'
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
+      {...holding}
       className={clsx(
         'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold transition-colors md:min-h-18 md:w-full md:flex-none',
-        active
-          ? 'bg-primary/10 text-text-primary'
+        active || hold?.holding
+          ? 'text-text-primary'
           : 'text-text-secondary hover:text-text-primary',
+        active && 'bg-primary/10',
+        className,
       )}
     >
-      <Icon aria-hidden className={clsx('size-6', active && 'text-primary')} />
-      {label}
+      <HoldFill hold={hold} />
+      <Icon
+        aria-hidden
+        className={clsx('relative size-6', active && 'text-primary')}
+      />
+      <span className='relative'>{label}</span>
       {children}
+      <HoldDescription hold={hold} />
     </button>
   )
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -11,6 +10,7 @@ import {
 import clsx from 'clsx'
 import { CircleOff, PawPrint, Sparkles } from 'lucide-react'
 import { initials } from '@/components/game-table/chat-log'
+import { useImageFallback } from '@/hooks/use-image-fallback'
 import { tintOf } from '@/utils/companion-row'
 import { relationWords } from '@/utils/creature-words'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
@@ -434,22 +434,13 @@ export function CreatureAvatar({
   /** 28 pixels on a tab, 32 as an avatar. */
   size?: 'size-7' | 'size-8'
 }>): ReactNode {
-  const [failed, setFailed] = useState<string>()
-  // A portrait drawn with the page can fail before React is there to hear it, its error never
-  // reaching `onError`: so once it's mounted, one done loading with nothing it can decode has
-  // failed too. One without a size of its own, as an SVG may be, decodes, and stays.
-  const image = useRef<HTMLImageElement>(null)
-  useEffect(() => {
-    const img = image.current
-    if (!portrait || !img?.complete || img.naturalWidth > 0) return
-    img.decode().catch(() => setFailed(portrait))
-  }, [portrait])
-  if (portrait && failed !== portrait) {
+  const { shown, ref, onError } = useImageFallback(portrait)
+  if (shown) {
     return (
       // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        ref={image}
+        ref={ref}
         src={portrait}
         alt=''
         className={clsx(
@@ -457,7 +448,7 @@ export function CreatureAvatar({
           size,
           gone && 'opacity-60',
         )}
-        onError={() => setFailed(portrait)}
+        onError={onError}
       />
     )
   }

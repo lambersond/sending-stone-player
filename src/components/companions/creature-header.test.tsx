@@ -63,6 +63,24 @@ const tiles = () =>
     .getAllByRole('term')
     .map(term => term.querySelector('span')?.textContent ?? term.textContent)
 
+/**
+ * Every image as a page drawn on the server has it: done loading and broken before React
+ * hydrates, so its error never reaches `onError`, and it has nothing to decode.
+ */
+const brokenBeforeMount = () => {
+  jest
+    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+    .mockReturnValue(true)
+  jest
+    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+    .mockReturnValue(0)
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+    configurable: true,
+    writable: true,
+    value: () => Promise.reject(new Error('EncodingError')),
+  })
+}
+
 /** The creature's own stats, each label and value. */
 const stats = () => {
   const list = screen.queryByLabelText('Creature stats')
@@ -223,6 +241,20 @@ describe('CreatureHeader', () => {
     expect(
       screen.getByRole('button', { name: 'Death saving throw' }),
     ).toBeInTheDocument()
+  })
+
+  describe('a portrait that won’t load, from module 0.36.0’s round', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      Reflect.deleteProperty(HTMLImageElement.prototype, 'decode')
+    })
+
+    it('shows its initials where it failed before it was mounted, its error never heard', async () => {
+      brokenBeforeMount()
+      renderHeader()
+      expect(await screen.findByText('B')).toHaveClass('size-16')
+      expect(document.querySelector('img')).toBeNull()
+    })
   })
 })
 
