@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, renderHook } from '@testing-library/react'
 import {
+  ALONE_KEY,
   BUSY_FOR,
   BUSY_WAIT,
   CHECK_EVERY,
@@ -8,7 +9,9 @@ import {
   damageDue,
   damageRollOf,
   FOLLOW_FOR,
+  GM_ALONE_KEY,
   GM_SEND_KEY,
+  gmRollsOf,
   LATE_FOLLOW,
   needsPlayer,
   SEND_KEY,
@@ -19,6 +22,8 @@ import {
   useTableRolls,
 } from './use-table-rolls'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { mockTableDamage } from '@/mocks/sending-stone'
+import { aloneRollOf } from '@/utils/damage-alone'
 import {
   firstDie,
   modifiedDice,
@@ -38,6 +43,7 @@ import type {
 } from './use-sheet-roller'
 import type {
   FormulaSource,
+  GmRollView,
   RollFeature,
   RollKind,
   RollSource,
@@ -3160,5 +3166,422 @@ describe('hooks/use-table-rolls, dice typed in, from module 0.32.0', () => {
     // The state it marks: none for a roll it doesn't follow.
     act(() => result.current.offerDamage('u1'))
     expect(result.current.states.size).toBe(0)
+  })
+})
+
+/** The wolf's Bite, 1d8 + 3, as thrown. */
+const bitten = (fields: Partial<LocalDamage> = {}): LocalDamage => ({
+  kind: 'damage',
+  id: 'b1',
+  label: 'Bite damage',
+  total: 8,
+  critical: false,
+  healing: false,
+  parts: [
+    {
+      type: 'Slashing',
+      total: 8,
+      terms: [
+        { text: '1d8', values: [5], value: 5 },
+        { text: '+3', values: [], value: 3 },
+      ],
+    },
+  ],
+  at: 0,
+  ...fields,
+})
+
+const recharged = (fields: Partial<LocalFormula> = {}): LocalFormula => ({
+  kind: 'formula',
+  id: 'f9',
+  label: 'Frost Breath recharge',
+  total: 5,
+  healing: false,
+  terms: [{ text: '1d6', values: [5], value: 5 }],
+  at: 0,
+  ...fields,
+})
+
+/** A roll the Gamemaster made as the character, of this kind, made. */
+const gmView = (id: string, kind: RollKind): GmRollView => ({
+  id,
+  kind,
+  status: 'done',
+  visible: true,
+  label: id,
+  at: '2026-10-23T12:00:00.000Z',
+})
+
+describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.36.0', () => {
+  const bite = {
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    plan: mockTableDamage(),
+  }
+  const alone = () => aloneRollOf('Bite', bite) as SheetDamageRoll
+  const breath = {
+    label: 'Frost Breath recharge',
+    counter: { item: 'frostBreath' },
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-9' }))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('sends damage on its own only with Send to the table on, the switch on, and the game taking it', () => {
+    const { result, rerender } = render(['damage', 'itemDamage'])
+    // Off until the player turns it on.
+    expect(result.current).toMatchObject({
+      sendsAlone: false,
+      aloneOffered: true,
+      aloneOn: false,
+    })
+
+    act(() => result.current.setAlone(true))
+    expect(result.current).toMatchObject({ sendsAlone: true, aloneOn: true })
+
+    act(() => result.current.setSending(false))
+    expect(result.current).toMatchObject({ sendsAlone: false, aloneOn: true })
+    act(() => result.current.setSending(true))
+    expect(result.current.sendsAlone).toBe(true)
+
+    rerender({ kinds: ['damage'], features: [] })
+    expect(result.current).toMatchObject({
+      sendsAlone: false,
+      aloneOffered: false,
+      aloneOn: true,
+    })
+  })
+
+  it("keeps the switch on this device, the Gamemaster's apart from the player's", () => {
+    expect(ALONE_KEY).toBe('sending-stone:send-damage')
+    expect(GM_ALONE_KEY).toBe('sending-stone:send-damage:gm')
+    const player = render(['itemDamage'])
+    act(() => player.result.current.setAlone(true))
+    expect(globalThis.localStorage.getItem(ALONE_KEY)).toBe('on')
+
+    const gm = renderHook(
+      () => useTableRolls('gm:c1:thorin', ['itemDamage'], []),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <TableApiContext
+            value={{
+              role: 'gm',
+              api: '/api/campaigns/c1/characters/thorin',
+              key: 'gm:c1:thorin',
+            }}
+          >
+            {children}
+          </TableApiContext>
+        ),
+      },
+    )
+    // Off by default at the Gamemaster's seat too, whatever the player's is.
+    expect(gm.result.current).toMatchObject({
+      aloneOn: false,
+      sendsAlone: false,
+    })
+    act(() => gm.result.current.setAlone(true))
+    expect(globalThis.localStorage.getItem(GM_ALONE_KEY)).toBe('on')
+    act(() => player.result.current.setAlone(false))
+    expect(globalThis.localStorage.getItem(ALONE_KEY)).toBe('off')
+    expect(gm.result.current.aloneOn).toBe(true)
+  })
+
+  it("sends an action's damage on its own as its item and activity, with the dice thrown", () => {
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const { result } = render(['itemDamage'])
+
+    act(() => result.current.sendDamage(alone(), bitten()))
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(sent()).toEqual({
+      kind: 'itemDamage',
+      item: 'wolfBite',
+      activity: 'biteAttack',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [5] }],
+    })
+    // Changed on purpose (round 0.36.0 §20): marked sent on its own.
+    expect(result.current.states.get('b1')).toEqual({
+      status: 'sending',
+      alone: true,
+    })
+  })
+
+  it("says a critical hit's, the kinds chosen, the changes made and dice typed in, each only where so", () => {
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const { result } = render(['itemDamage'], ['modifiers'])
+
+    act(() =>
+      result.current.sendDamage(
+        aloneRollOf('Bite', bite, { critical: true }) as SheetDamageRoll,
+        bitten({
+          critical: true,
+          typed: true,
+          parts: [
+            {
+              type: 'Slashing',
+              total: 12,
+              terms: [
+                { text: '2d8', values: [5, 4], value: 9 },
+                { text: '+3', values: [], value: 3 },
+              ],
+            },
+          ],
+        }),
+      ),
+    )
+    expect(sent()).toEqual({
+      kind: 'itemDamage',
+      item: 'wolfBite',
+      activity: 'biteAttack',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [5, 4] }],
+      critical: true,
+      typed: true,
+    })
+
+    const orb = {
+      item: 'orb',
+      activity: 'orbAttack',
+      plan: {
+        normal: {
+          critical: false,
+          plannable: true,
+          rolls: [
+            {
+              formula: '1d8',
+              type: 'Acid',
+              types: [
+                { key: 'acid', label: 'Acid' },
+                { key: 'cold', label: 'Cold' },
+              ],
+              dice: [{ faces: 8, number: 1 }],
+            },
+          ],
+        },
+        critical: null,
+      },
+    }
+    act(() =>
+      result.current.sendDamage(
+        aloneRollOf('Chromatic Orb', orb, {
+          type: 'cold',
+          modifiers: { maximize: true },
+        }) as SheetDamageRoll,
+        bitten({
+          id: 'b2',
+          maximized: true,
+          parts: [
+            {
+              type: 'Cold',
+              total: 8,
+              terms: [{ text: '1d8', values: [8], value: 8 }],
+            },
+          ],
+        }),
+      ),
+    )
+    expect(sent()).toEqual({
+      kind: 'itemDamage',
+      item: 'orb',
+      activity: 'orbAttack',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [8] }],
+      types: ['cold'],
+      modifiers: { maximize: true },
+    })
+  })
+
+  it('sends nothing on its own without the switch, Send to the table, or the kind taken', () => {
+    const off = render(['damage', 'itemDamage'])
+    act(() => off.result.current.sendDamage(alone(), bitten()))
+    expect(fetch).not.toHaveBeenCalled()
+
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const untaken = render(['damage'])
+    act(() => untaken.result.current.sendDamage(alone(), bitten()))
+    expect(fetch).not.toHaveBeenCalled()
+
+    const unsent = render(['damage', 'itemDamage'])
+    act(() => unsent.result.current.setSending(false))
+    act(() => unsent.result.current.sendDamage(alone(), bitten()))
+    expect(fetch).not.toHaveBeenCalled()
+    expect(unsent.result.current.states.size).toBe(0)
+  })
+
+  it("sends an attack's due damage as it always has, the switch on", () => {
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const { result } = render(['damage', 'itemDamage'])
+
+    act(() =>
+      result.current.sendDamage(
+        damageRollOf('Longsword', { use: 'req-1', damage: preview() }),
+        thrownDamage(),
+      ),
+    )
+
+    expect(sent()).toEqual({
+      kind: 'damage',
+      use: 'req-1',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [
+        { faces: 8, results: [5] },
+        { faces: 6, results: [6] },
+      ],
+    })
+  })
+
+  it("sends a recharge's d6 for an item's uses or an activity's, typed where it was", () => {
+    const { result } = render(['recharge'])
+
+    act(() => result.current.sendRecharge(breath, recharged()))
+    expect(sent()).toEqual({
+      kind: 'recharge',
+      item: 'frostBreath',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 6, results: [5] }],
+    })
+    // Changed on purpose (round 0.36.0 §20): marked a recharge.
+    expect(result.current.states.get('f9')).toEqual({
+      status: 'sending',
+      recharge: true,
+    })
+
+    act(() =>
+      result.current.sendRecharge(
+        { ...breath, counter: { item: 'frostBreath', activity: 'frostSave' } },
+        recharged({
+          id: 'f10',
+          typed: true,
+          terms: [{ text: '1d6', values: [2], value: 2 }],
+        }),
+      ),
+    )
+    expect(sent()).toEqual({
+      kind: 'recharge',
+      item: 'frostBreath',
+      activity: 'frostSave',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 6, results: [2] }],
+      typed: true,
+    })
+  })
+
+  it('sends no recharge where the game takes none, or Send to the table is off', () => {
+    const untaken = render(['damage'])
+    act(() => untaken.result.current.sendRecharge(breath, recharged()))
+    expect(fetch).not.toHaveBeenCalled()
+
+    const unsent = render(['recharge'])
+    act(() => unsent.result.current.setSending(false))
+    act(() => unsent.result.current.sendRecharge(breath, recharged()))
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('marks damage on its own and a recharge in every state they are followed through, and neither a due damage nor a formula (round 0.36.0 §20)', async () => {
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const { result } = render(['damage', 'formula', 'itemDamage', 'recharge'])
+
+    act(() => result.current.sendDamage(alone(), bitten()))
+    act(() => result.current.sendRecharge(breath, recharged()))
+    act(() =>
+      result.current.sendDamage(
+        damageRollOf('Longsword', { use: 'req-1', damage: preview() }),
+        thrownDamage(),
+      ),
+    )
+    act(() => result.current.sendFormula(lantern, shone))
+    await advance(0)
+    expect(result.current.states.get('b1')).toMatchObject({ alone: true })
+    expect(result.current.states.get('f9')).toMatchObject({ recharge: true })
+
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-9',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        outcome: 'success',
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('b1')).toMatchObject({
+      status: 'done',
+      requestId: 'req-9',
+      alone: true,
+    })
+    expect(result.current.states.get('b1')).not.toHaveProperty('recharge')
+    expect(result.current.states.get('f9')).toMatchObject({
+      status: 'done',
+      outcome: 'success',
+      recharge: true,
+    })
+    expect(result.current.states.get('f9')).not.toHaveProperty('alone')
+    for (const id of ['r2', 'f2']) {
+      const state = result.current.states.get(id)
+      expect(state).toMatchObject({ status: 'done' })
+      expect(state).not.toHaveProperty('alone')
+      expect(state).not.toHaveProperty('recharge')
+    }
+
+    // And as the app refuses one.
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(respond(422, { reason: 'attacks-off' }))
+    act(() => result.current.sendDamage(alone(), bitten({ id: 'b3' })))
+    act(() => result.current.sendRecharge(breath, recharged({ id: 'f11' })))
+    await advance(0)
+    expect(result.current.states.get('b3')).toEqual({
+      status: 'refused',
+      reason: 'attacks-off',
+      alone: true,
+    })
+    expect(result.current.states.get('f11')).toEqual({
+      status: 'refused',
+      reason: 'attacks-off',
+      recharge: true,
+    })
+  })
+
+  it("marks the Gamemaster's recharges and damage on its own by their kind, as the player's own are", () => {
+    const { states } = gmRollsOf([
+      gmView('req-r', 'recharge'),
+      gmView('req-a', 'itemDamage'),
+      gmView('req-d', 'damage'),
+      gmView('req-f', 'formula'),
+    ])
+
+    expect(states.get('gm:req-r')).toMatchObject({ recharge: true })
+    expect(states.get('gm:req-r')).not.toHaveProperty('alone')
+    expect(states.get('gm:req-a')).toMatchObject({ alone: true })
+    expect(states.get('gm:req-a')).not.toHaveProperty('recharge')
+    for (const id of ['gm:req-d', 'gm:req-f']) {
+      expect(states.get(id)).not.toHaveProperty('alone')
+      expect(states.get(id)).not.toHaveProperty('recharge')
+    }
   })
 })

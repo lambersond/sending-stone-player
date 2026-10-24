@@ -7,7 +7,9 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react'
+import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
 import {
   ArrowLeft,
@@ -24,27 +26,55 @@ import { CombatTracker } from './combat-tracker'
 import { EmptyState } from './empty-state'
 import { FullscreenButton } from './fullscreen-button'
 import { LiveStatus, type LiveState } from './live-status'
+import {
+  newlyNotMade,
+  refusalKey,
+  TurnToast,
+  TurnToastContext,
+} from './turn-toast'
 import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
 import { PartySheetList } from '@/components/character-sheet/party-sheets'
+import { CompanionPane } from '@/components/companions/companion-pane'
+import {
+  CreatureSwitcher,
+  type SwitcherCreature,
+} from '@/components/companions/creature-switcher'
 import { ConfirmDialog } from '@/components/modal'
 import { JournalCard, type NotesPlace } from '@/components/notes'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
 import { Scroller } from '@/components/scroller'
+import { useCreatureChoice } from '@/hooks/use-creature-choice'
+import { useEndTurn } from '@/hooks/use-end-turn'
+import { useHold } from '@/hooks/use-hold'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { POLL_INTERVAL, useTableView } from '@/hooks/use-table-view'
+import { useTurnUndo } from '@/hooks/use-turn-undo'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
+import {
+  companionRow,
+  numberedNames,
+  type RowCompanion,
+} from '@/utils/companion-row'
+import {
+  END_TURN_QUIET_CLICKS,
+  holdDescription,
+  turnKey,
+} from '@/utils/end-turn'
 import { megabytes } from '@/utils/format-amount'
 import { gameHost } from '@/utils/game-host'
 import { seatWords } from '@/utils/seat-words'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
 import type { TableGroup } from '@/types/party'
+import type { RollKind } from '@/types/roll'
 import type {
+  EndableTurn,
   GmRolls,
   TableCombat,
+  TableCompanion,
   TableMessage,
   TableView,
 } from '@/types/table'
@@ -59,6 +89,18 @@ const NOTHING_READ = new Date(0).toISOString()
 
 /** From Tailwind's lg width, the sheet and the combat or chat column sit side by side. */
 const SIDE_BY_SIDE = '(min-width: 64rem)'
+
+/**
+ * At most this many companions' panes stay mounted at once (module 0.36.0): the least recently
+ * shown goes as another is chosen, unless it has damage to roll or a roll on its way.
+ */
+const MOST_PANES = 4
+
+/** No keys, the same each time. */
+const NO_KEYS: ReadonlySet<string> = new Set()
+
+/** No rolls the game takes from here, the same each time. */
+const NO_KINDS: readonly RollKind[] = []
 
 type Props = {
   character: Character
@@ -202,12 +244,136 @@ export function GameTable({
   }
 
   const myTurn = isMyTurn(view.combat)
+  // End Turn (module 0.36.0): the seat's turn, its character's or a companion's, ended from the
+  // turn panel's button or the Combat tab held, with Undo in the toast that follows; wherever the
+  // game takes it from here. A character no longer in its campaign's game ends no turn.
+  const kinds = (view.connected && view.rollsToTable) || NO_KINDS
+  const ending = useEndTurn({ api: seat.api, gm, combat: view.combat, kinds })
+  const undoing = useTurnUndo({
+    api: seat.api,
+    gm,
+    combat: view.combat,
+    kinds,
+    sent: ending.sent,
+  })
+  // How the last End Turn was sent, by the button or by a hold.
+  const [via, setVia] = useState<'button' | 'hold'>()
+  // Why the last End Turn wasn't made, which the turn panel says while it shows that turn: by
+  // the turn and its way's reason, as a refusal by this app's own server has no id.
+  const [refused, setRefused] = useState<{ turn: EndableTurn; key: string }>()
+  const lastSent = useRef(ending.sent)
+  useEffect(() => {
+    const was = lastSent.current
+    lastSent.current = ending.sent
+    if (newlyNotMade(was, ending.sent)) {
+      setRefused({ turn: ending.sent.turn, key: refusalKey(ending.sent.way) })
+    }
+  }, [ending.sent])
+  const turnShown = ending.turn && turnKey(ending.turn)
+  if (refused && turnShown !== turnKey(refused.turn)) setRefused(undefined)
+  const endTurn = (turn: EndableTurn, how: 'button' | 'hold') => {
+    setVia(how)
+    setRefused(undefined)
+    ending.end(turn)
+  }
+  // Whether a hold of the Combat tab is past half a second, which its toast says.
+  const [held, setHeld] = useState(false)
+  // Once a hold has ended the turn, the page's tabs ignore clicks for a moment, so that the click
+  // that ends the press, wherever it lands, opens nothing.
+  const quietUntil = useRef(0)
+  const quiet = () => performance.now() < quietUntil.current
+  const hold = useHold({
+    key: ending.offered && ending.turn ? turnKey(ending.turn) : undefined,
+    onToast: () => setHeld(true),
+    onEnd: () => {
+      quietUntil.current = performance.now() + END_TURN_QUIET_CLICKS
+      setHeld(false)
+      if (ending.turn) endTurn(ending.turn, 'hold')
+    },
+    onCancel: () => setHeld(false),
+  })
   // The saves the game asks of the character, which its tab marks while they wait.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
+
+  // The character's companions (module 0.36.0), as the row of tabs above the sheet shows them:
+  // those the module lists, and those it no longer lists, kept until the player has seen they've
+  // gone; each name numbered where the row repeats it, each number kept while it does.
+  const [companions, setCompanions] = useState(() =>
+    nextRow(NO_ROW, view.companions, NO_KEYS),
+  )
+  // Those whose panes were told they're gone (404) while the page still listed them, as one that
+  // leaves and comes back between two of the page's polls: mounted afresh as a later view lists
+  // them, since a pane told so asks no more.
+  const [lost, setLost] = useState<ReadonlySet<string>>(NO_KEYS)
+  let shownRow = companions
+  if (companions.listed !== view.companions) {
+    shownRow = nextRow(companions, view.companions, companions.dismissed, lost)
+    setCompanions(shownRow)
+    if (lost.size > 0) setLost(NO_KEYS)
+  }
+  const { row, names, numbers, generations } = shownRow
+  const rowKeys = row.map(({ key }) => key)
+  const [chosen, chooseKept] = useCreatureChoice(seat.key, rowKeys)
+  const goneKeys = new Set(row.flatMap(({ key, gone }) => (gone ? [key] : [])))
+  // A gone companion's tab goes once it has been shown and another is chosen.
+  const choose = (next: string) => {
+    if (next !== chosen && goneKeys.has(chosen)) {
+      setCompanions(held =>
+        nextRow(held, held.listed, new Set(held.dismissed).add(chosen)),
+      )
+    }
+    chooseKept(next)
+  }
+  // What each companion's pane says of itself: damage to roll, which its tab marks while it's
+  // hidden, and a roll on its way, while the page must keep it.
+  const [paneMarks, setPaneMarks] = useState<ReadonlyMap<string, PaneMarks>>(
+    () => new Map(),
+  )
+  const [reporters] = useState(() => new Map<string, PaneReporters>())
+  const reportersOf = (key: string): PaneReporters => {
+    let held = reporters.get(key)
+    if (!held) {
+      held = {
+        onPending: pending =>
+          setPaneMarks(marks => withMark(marks, key, { pending })),
+        onBusy: busy => setPaneMarks(marks => withMark(marks, key, { busy })),
+        onLost: () =>
+          setLost(keys => (keys.has(key) ? keys : new Set(keys).add(key))),
+      }
+      reporters.set(key, held)
+    }
+    return held
+  }
+  // The companions' panes mounted, most recently shown first: each as it's first chosen, kept as
+  // others are, at most four, the least recently shown with nothing to roll or on its way going.
+  // One whose tab has gone goes with it, and with it what it said of itself.
+  const [mounted, setMounted] = useState<readonly string[]>([])
+  let panes = mounted.filter(key => rowKeys.includes(key))
+  if (chosen !== 'self' && panes[0] !== chosen) {
+    panes = [chosen, ...panes.filter(key => key !== chosen)]
+    while (panes.length > MOST_PANES) {
+      const spare = panes.findLast(key => {
+        const marks = paneMarks.get(key)
+        return key !== chosen && !marks?.pending && !marks?.busy
+      })
+      if (spare === undefined) break
+      panes = panes.filter(key => key !== spare)
+    }
+  }
+  if (panes.join('|') !== mounted.join('|')) {
+    setMounted(panes)
+    if ([...paneMarks.keys()].some(key => !panes.includes(key))) {
+      setPaneMarks(
+        new Map([...paneMarks].filter(([key]) => panes.includes(key))),
+      )
+    }
+  }
 
   // The header, which the sheet's roll toasts start below while its tabs aren't shown.
   // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
   const [header, setHeader] = useState<HTMLElement | null>(null)
+  // Where the turn's toast ends while one shows, which the roll toasts start below.
+  const [toastFoot, setToastFoot] = useState<number>()
 
   // Keep the chat pinned to the newest message unless the player has scrolled up to read.
   const chatScroller = useRef<HTMLDivElement>(null)
@@ -231,6 +397,44 @@ export function GameTable({
     if (next !== 'character') setAside(next)
     setTab(next)
   }
+  // Whether the combat pane is shown: Combat chosen in one pane, or beside the sheet.
+  const combatShown = sideBySide ? aside === 'combat' : tab === 'combat'
+  // The Combat tab of each layout: the bottom bar's or rail's, and the column's.
+  const barCombat = useRef<HTMLButtonElement>(null)
+  const columnCombat = useRef<HTMLButtonElement>(null)
+  // Focus, where the control under it goes, as Undo does: to the turn panel's heading where the
+  // combat pane is shown, else to the Combat tab of the layout shown, never the page's body.
+  const focusTurn = () => {
+    const heading = document.querySelector<HTMLElement>('#turn-heading')
+    if (combatShown && heading) {
+      heading.focus({ preventScroll: true })
+      return
+    }
+    const combatTab = sideBySide ? columnCombat : barCombat
+    combatTab.current?.focus()
+  }
+  // The Combat tab held to end the turn, on the layout shown: its handlers on it always, which do
+  // nothing with no turn to end; while one may be ended, its fill and what it's described as.
+  const offeredTurn = ending.offered ? ending.turn : undefined
+  const holdOf = (id: string, shown: boolean): TabHold => ({
+    handlers: hold.handlers,
+    holding: shown && hold.holding,
+    touch: shown && (offeredTurn !== undefined || hold.pressed),
+    offer:
+      shown && offeredTurn
+        ? { fill: hold.fill, id, description: holdDescription(offeredTurn) }
+        : undefined,
+  })
+  // A companion's tab, from the turn panel's "its tab" (module 0.36.0): chosen, shown, focused.
+  const openCompanion = (key: string) => {
+    choose(key)
+    show('character')
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(`#${CSS.escape(`creature-tab-${key}`)}`)
+        ?.focus(),
+    )
+  }
 
   const playing = view.campaign !== undefined && character.actorId !== null
   // The character's own journal notes (module 0.34.0), on the sheet's Biography tab, or under why
@@ -241,9 +445,14 @@ export function GameTable({
     api: seat.api,
     role: seat.role,
     name: character.name,
-    active: (tab === 'character' || sideBySide) && party === undefined,
+    active:
+      (tab === 'character' || sideBySide) &&
+      party === undefined &&
+      chosen === 'self',
   }
   let table: ReactNode
+  // Whether the sheet's pane is beside the combat and chat column on a wide screen.
+  let beside = false
   if (!view.campaign || (!character.actorId && !choice)) {
     table = (
       <Scroller>
@@ -263,20 +472,83 @@ export function GameTable({
     // character, with no sheet, for its notes there.
     const parties =
       view.groups && view.groups.length > 0 ? view.groups : undefined
-    const paneShown = hasSheet || parties !== undefined || playing
-    table = (
-      <div className='flex min-h-0 flex-1'>
-        {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
-        <Pane
-          id='character-pane'
-          label='Character'
+    // From module 0.36.0, the character's companions, each with a tab above the sheet.
+    const switching = row.length > 0
+    const paneShown = hasSheet || parties !== undefined || playing || switching
+    beside = paneShown
+    // Whether its player types in their own dice, where the game lets them (module 0.32.0): never
+    // on the Gamemaster's page, which has nowhere to remember it. Their companions' are the same.
+    const diceSwitch =
+      view.connected && view.manualDice?.offered && setManualDice
+        ? { on: typing, onChange: onManualDice }
+        : undefined
+    const creatures: SwitcherCreature[] = [
+      {
+        key: 'self',
+        name: character.name,
+        portrait: view.sheet?.portrait,
+        news: [
+          asked.length > 0 && words.asksForRoll,
+          isTurnOf(view.combat, ({ side }) => side === 'me') && ', your turn',
+        ]
+          .filter(Boolean)
+          .join(''),
+      },
+      ...row.map(
+        ({ key, name, portrait, kind, from, gone }): SwitcherCreature => ({
+          key,
+          name,
+          number: numbers.get(key),
+          portrait,
+          kind,
+          from,
+          gone,
+          news: gone
+            ? ''
+            : [
+                isTurnOf(
+                  view.combat,
+                  combatant => combatant.companion === key,
+                ) && ', its turn',
+                paneMarks.get(key)?.pending && ', damage to roll',
+              ]
+                .filter(Boolean)
+                .join(''),
+        }),
+      ),
+    ]
+    const selfShown = chosen === 'self'
+    // The character's own pane, and the companions' mounted, in the row's order; dice thrown on
+    // one renderer for them all, which stays as companions come and go, so that the character's
+    // pane keeps its tray and its damage to roll.
+    const sheets = (
+      <>
+        {switching && (
+          <CreatureSwitcher
+            creatures={creatures}
+            chosen={chosen}
+            onChoose={choose}
+            mounted={new Set(panes)}
+            character={character.name}
+            role={seat.role}
+          />
+        )}
+        <div
+          id='creature-panel-self'
+          {...(switching && {
+            role: 'tabpanel',
+            'aria-labelledby': 'creature-tab-self',
+          })}
+          hidden={switching && !selfShown}
           className={clsx(
-            tab === 'character' ? 'flex' : 'hidden',
-            paneShown ? 'lg:flex' : 'lg:hidden',
+            'min-h-0 min-w-0 flex-1 flex-col',
+            switching && !selfShown ? 'hidden' : 'flex',
           )}
         >
           {view.sheet ? (
             <CharacterPane
+              shown={selfShown}
+              sharedDice
               characterId={seat.key}
               name={character.name}
               sheet={view.sheet}
@@ -296,13 +568,7 @@ export function GameTable({
               parties={
                 view.groups && { groups: view.groups, onOpen: setPartyOpen }
               }
-              // Whether its player types in their own dice, where the game lets them (module
-              // 0.32.0): never on the Gamemaster's page, which has nowhere to remember it.
-              manualDice={
-                view.connected && view.manualDice?.offered && setManualDice
-                  ? { on: typing, onChange: onManualDice }
-                  : undefined
-              }
+              manualDice={diceSwitch}
               notes={notes}
             />
           ) : (
@@ -326,6 +592,43 @@ export function GameTable({
               )}
             </Scroller>
           )}
+        </div>
+        {row
+          .filter(({ key }) => panes.includes(key))
+          .map(companion => (
+            <CompanionPane
+              // Mounted afresh when it comes back after it had gone, as its view stops for good.
+              key={`${companion.key}:${generations.get(companion.key) ?? 0}`}
+              seat={seat}
+              companion={companion}
+              name={names.get(companion.key) ?? companion.name}
+              character={character.name}
+              shown={chosen === companion.key}
+              gone={companion.gone === true}
+              {...reportersOf(companion.key)}
+              header={header}
+              manualDice={diceSwitch}
+            />
+          ))}
+      </>
+    )
+    table = (
+      <div className='flex min-h-0 flex-1'>
+        {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
+        <Pane
+          id='character-pane'
+          label='Character'
+          className={clsx(
+            tab === 'character' ? 'flex' : 'hidden',
+            paneShown ? 'lg:flex' : 'lg:hidden',
+          )}
+        >
+          {/* The sheet's renderer, which every creature's pane throws its dice on. */}
+          {hasSheet || switching ? (
+            <DiceRendererProvider>{sheets}</DiceRendererProvider>
+          ) : (
+            sheets
+          )}
         </Pane>
         {/* Combat and the chat: tabs on a narrower screen. On a wide one they share a narrow
             column beside the sheet, or beside why there's none and the notes. */}
@@ -344,14 +647,18 @@ export function GameTable({
               className='flex shrink-0 gap-1'
             >
               <PaneTab
+                ref={columnCombat}
                 icon={Swords}
                 label='Combat'
                 pane='combat-pane'
                 selected={aside === 'combat'}
-                onClick={() => show('combat')}
+                onClick={() => {
+                  if (!quiet()) show('combat')
+                }}
+                hold={holdOf('combat-hold-pane', sideBySide)}
               >
                 {myTurn && aside !== 'combat' && (
-                  <span className='size-2 rounded-full bg-primary'>
+                  <span className='relative size-2 rounded-full bg-primary'>
                     <span className='sr-only'>, your turn</span>
                   </span>
                 )}
@@ -361,7 +668,9 @@ export function GameTable({
                 label='Chat'
                 pane='chat-pane'
                 selected={aside === 'chat'}
-                onClick={() => show('chat')}
+                onClick={() => {
+                  if (!quiet()) show('chat')
+                }}
               >
                 {unread > 0 && (
                   <span className='flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary'>
@@ -383,7 +692,17 @@ export function GameTable({
             className={aside === 'combat' ? 'flex' : 'hidden'}
           >
             <Scroller>
-              <CombatTracker combat={view.combat} />
+              {/* The character's view of it, whichever creature is chosen (module 0.36.0). */}
+              <CombatTracker
+                combat={view.combat}
+                onOpen={openCompanion}
+                keys={new Set(rowKeys)}
+                ending={ending}
+                via={via}
+                refused={refused}
+                onEnd={turn => endTurn(turn, 'button')}
+                focusTurn={focusTurn}
+              />
             </Scroller>
           </Pane>
           <Pane
@@ -487,7 +806,7 @@ export function GameTable({
               addBack={words.addBack}
             />
           )}
-          {table}
+          <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
         </div>
         <nav
           aria-label='Table'
@@ -497,7 +816,11 @@ export function GameTable({
             icon={UserRound}
             label='Character'
             active={tab === 'character'}
-            onClick={() => show('character')}
+            onClick={() => {
+              if (quiet()) return
+              setRefused(undefined)
+              show('character')
+            }}
           >
             {asked.length > 0 && tab !== 'character' && (
               <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
@@ -506,13 +829,19 @@ export function GameTable({
             )}
           </TabButton>
           <TabButton
+            ref={barCombat}
             icon={Swords}
             label='Combat'
             active={tab === 'combat'}
-            onClick={() => show('combat')}
+            onClick={() => {
+              if (quiet()) return
+              setRefused(undefined)
+              show('combat')
+            }}
+            hold={holdOf('combat-hold-bar', !sideBySide)}
           >
             {myTurn && tab !== 'combat' && (
-              <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
+              <span className='absolute top-2 right-[calc(50%-1.25rem)] z-[1] size-2.5 rounded-full bg-primary ring-2 ring-card'>
                 <span className='sr-only'>, your turn</span>
               </span>
             )}
@@ -521,7 +850,11 @@ export function GameTable({
             icon={MessageSquare}
             label='Chat'
             active={tab === 'chat'}
-            onClick={() => show('chat')}
+            onClick={() => {
+              if (quiet()) return
+              setRefused(undefined)
+              show('chat')
+            }}
           >
             {unread > 0 && (
               <span className='absolute top-1 right-[calc(50%-1.75rem)] flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary ring-2 ring-card'>
@@ -550,6 +883,19 @@ export function GameTable({
               : undefined
           }
           onClose={() => setPartyOpen(undefined)}
+        />
+        {/* End Turn's toast, with Undo (module 0.36.0): there, empty, from the start. */}
+        <TurnToast
+          ending={ending}
+          undoing={undoing}
+          via={via}
+          held={held}
+          combatShown={combatShown}
+          focusTurn={focusTurn}
+          combat={view.combat}
+          header={header}
+          beside={beside}
+          onFoot={setToastFoot}
         />
       </div>
     </TableApiContext>
@@ -645,6 +991,60 @@ function Pane({
   )
 }
 
+/**
+ * The Combat tab held to end the turn (module 0.36.0): the hold's handlers, on it always; whether
+ * a press is held, and whether the tab takes a held touch; and while a turn may be ended, its
+ * fill and what it's described as, by the id of the words that say so.
+ */
+type TabHold = {
+  handlers: ReturnType<typeof useHold>['handlers']
+  holding: boolean
+  touch: boolean
+  offer?: {
+    fill: RefObject<HTMLSpanElement | null>
+    id: string
+    description: string
+  }
+}
+
+/** What a tab held to end the turn takes on its button: its handlers, classes and description. */
+function holdProps(hold?: TabHold) {
+  return {
+    ...hold?.handlers,
+    'aria-describedby': hold?.offer?.id,
+    className: clsx(
+      // A held touch neither selects the label nor opens iOS's callout, and the fill keeps inside.
+      hold?.touch &&
+        'touch-manipulation overflow-hidden select-none [-webkit-touch-callout:none]',
+    ),
+  }
+}
+
+/**
+ * The fill of a tab held to end the turn, from the left, and its description: hidden words, so
+ * that they describe the tab without being its name. The hook draws the fill each frame.
+ */
+function HoldFill({ hold }: Readonly<{ hold?: TabHold }>) {
+  if (!hold?.offer) return
+  return (
+    <span
+      ref={hold.offer.fill}
+      aria-hidden
+      className='pointer-events-none absolute inset-0 origin-left rounded-[inherit] bg-primary/22'
+      style={{ transform: 'scaleX(0)' }}
+    />
+  )
+}
+
+function HoldDescription({ hold }: Readonly<{ hold?: TabHold }>) {
+  if (!hold?.offer) return
+  return (
+    <span id={hold.offer.id} hidden>
+      {hold.offer.description}
+    </span>
+  )
+}
+
 /** Choosing whether combat or the chat sits beside the sheet on a wide screen. */
 function PaneTab({
   icon: Icon,
@@ -652,6 +1052,8 @@ function PaneTab({
   pane,
   selected,
   onClick,
+  hold,
+  ref,
   children,
 }: Readonly<{
   icon: LucideIcon
@@ -659,29 +1061,39 @@ function PaneTab({
   pane: string
   selected: boolean
   onClick: () => void
+  /** From module 0.36.0, the Combat tab held to end the turn. */
+  hold?: TabHold
+  ref?: RefObject<HTMLButtonElement | null>
   /** What draws the eye to it, such as unread messages. */
   children?: ReactNode
 }>) {
+  const { className, ...holding } = holdProps(hold)
   return (
     <button
+      ref={ref}
       type='button'
       role='tab'
       aria-selected={selected}
       aria-controls={pane}
       onClick={onClick}
+      {...holding}
       className={clsx(
-        'relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors',
-        selected
-          ? 'bg-primary/10 text-text-primary'
+        'relative inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors',
+        selected || hold?.holding
+          ? 'text-text-primary'
           : 'text-text-secondary hover:text-text-primary',
+        selected && 'bg-primary/10',
+        className,
       )}
     >
+      <HoldFill hold={hold} />
       <Icon
         aria-hidden
-        className={clsx('size-4', selected && 'text-primary')}
+        className={clsx('relative size-4', selected && 'text-primary')}
       />
-      {label}
+      <span className='relative'>{label}</span>
       {children}
+      <HoldDescription hold={hold} />
     </button>
   )
 }
@@ -691,29 +1103,44 @@ function TabButton({
   label,
   active,
   onClick,
+  hold,
+  ref,
   children,
 }: Readonly<{
   icon: LucideIcon
   label: string
   active: boolean
   onClick: () => void
+  /** From module 0.36.0, the Combat tab held to end the turn. */
+  hold?: TabHold
+  ref?: RefObject<HTMLButtonElement | null>
   children?: ReactNode
 }>) {
+  const { className, ...holding } = holdProps(hold)
   return (
     <button
+      ref={ref}
       type='button'
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
+      {...holding}
       className={clsx(
         'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold transition-colors md:min-h-18 md:w-full md:flex-none',
-        active
-          ? 'bg-primary/10 text-text-primary'
+        active || hold?.holding
+          ? 'text-text-primary'
           : 'text-text-secondary hover:text-text-primary',
+        active && 'bg-primary/10',
+        className,
       )}
     >
-      <Icon aria-hidden className={clsx('size-6', active && 'text-primary')} />
-      {label}
+      <HoldFill hold={hold} />
+      <Icon
+        aria-hidden
+        className={clsx('relative size-6', active && 'text-primary')}
+      />
+      <span className='relative'>{label}</span>
       {children}
+      <HoldDescription hold={hold} />
     </button>
   )
 }
@@ -825,13 +1252,111 @@ function liveState(
   return view.live ? 'live' : 'offline'
 }
 
+/**
+ * Whether it's the player's turn: their character's, or from module 0.36.0 one of its companions',
+ * as the combat names it. Not a gone companion's, which no longer has its key.
+ */
 function isMyTurn(combat?: TableCombat): boolean {
+  return isTurnOf(
+    combat,
+    ({ side, yours, companion }) =>
+      side === 'me' || (yours === true && companion !== undefined),
+  )
+}
+
+/** Whether the combat has started and its current combatant is one that `is` picks. */
+function isTurnOf(
+  combat: TableCombat | undefined,
+  is: (combatant: TableCombat['combatants'][number]) => boolean,
+): boolean {
   return (
     combat?.started === true &&
     combat.combatants.some(
-      ({ id, side }) => id === combat.currentId && side === 'me',
+      combatant => combatant.id === combat.currentId && is(combatant),
     )
   )
+}
+
+/**
+ * The row of companions as the page keeps it (module 0.36.0): as last listed, which it was worked
+ * out from; the gone ones whose tabs have been left; the row; each one's name and number where
+ * the row repeats a name; and how many times each has come back after it had gone, which its pane
+ * is mounted afresh for.
+ */
+type RowState = {
+  listed?: TableCompanion[]
+  dismissed: ReadonlySet<string>
+  row: RowCompanion[]
+  names: ReadonlyMap<string, string>
+  numbers: ReadonlyMap<string, number>
+  generations: ReadonlyMap<string, number>
+}
+
+/** The row before any companion's been listed. */
+const NO_ROW: RowState = {
+  dismissed: NO_KEYS,
+  row: [],
+  names: new Map(),
+  numbers: new Map(),
+  generations: new Map(),
+}
+
+/**
+ * The row as it is now, from the row as it was: the companions listed now and those gone, kept
+ * until dismissed, as `companionRow` keeps them. One listed again is no longer dismissed, and if
+ * it had gone, or its pane was told it had, its pane is mounted afresh. Names are numbered as
+ * `numberedNames` numbers them, the numbers given before kept.
+ * @param listed - The companions the module lists now.
+ * @param dismissed - The gone ones whose tabs have been shown and left.
+ * @param lost - Those whose panes were told they're gone while the row still listed them.
+ */
+function nextRow(
+  held: RowState,
+  listed: TableCompanion[] | undefined,
+  dismissed: ReadonlySet<string>,
+  lost: ReadonlySet<string> = NO_KEYS,
+): RowState {
+  const keys = new Set((listed ?? []).map(({ key }) => key))
+  const left = [...dismissed].some(key => keys.has(key))
+    ? new Set([...dismissed].filter(key => !keys.has(key)))
+    : dismissed
+  const row = companionRow(held.row, listed ?? [], left)
+  let generations = held.generations
+  for (const { key, gone } of held.row) {
+    if ((gone || lost.has(key)) && keys.has(key)) {
+      generations = new Map(generations).set(
+        key,
+        (generations.get(key) ?? 0) + 1,
+      )
+    }
+  }
+  const { names, kept } = numberedNames(row, held.numbers)
+  return { listed, dismissed: left, row, names, numbers: kept, generations }
+}
+
+/** What a companion's pane says of itself: damage to roll, and a roll on its way. */
+type PaneMarks = { pending?: boolean; busy?: boolean }
+
+/**
+ * How a companion's pane tells the page so, and that its route said it's gone, the same each time
+ * for its key.
+ */
+type PaneReporters = {
+  onPending: (pending: boolean) => void
+  onBusy: (busy: boolean) => void
+  onLost: () => void
+}
+
+/** A pane's marks, with one changed: the same map where it's unchanged. */
+function withMark(
+  marks: ReadonlyMap<string, PaneMarks>,
+  key: string,
+  change: PaneMarks,
+): ReadonlyMap<string, PaneMarks> {
+  const held = marks.get(key) ?? {}
+  const next = { ...held, ...change }
+  if (next.pending === held.pending && next.busy === held.busy) return marks
+  return new Map(marks).set(key, next)
 }
 
 /** The header's line under the character's name: what is happening in the tab shown. */

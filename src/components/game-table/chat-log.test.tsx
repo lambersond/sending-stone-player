@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChatLog, initials } from './chat-log'
+import { TableApiContext } from '@/hooks/use-table-api'
 import type {
   TableDamage,
   TableDamageKind,
@@ -116,6 +117,24 @@ const ask = (fields: Partial<TableMessage> = {}) =>
     ...fields,
   })
 
+/**
+ * Every image as a page drawn on the server has it: done loading and broken before React
+ * hydrates, so its error never reaches `onError`, and it has nothing to decode.
+ */
+const brokenBeforeMount = () => {
+  jest
+    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+    .mockReturnValue(true)
+  jest
+    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+    .mockReturnValue(0)
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+    configurable: true,
+    writable: true,
+    value: () => Promise.reject(new Error('EncodingError')),
+  })
+}
+
 describe('components/game-table/chat-log', () => {
   it('says when there are no messages', () => {
     render(<ChatLog messages={[]} />)
@@ -174,6 +193,30 @@ describe('components/game-table/chat-log', () => {
     fireEvent.error(portrait)
     expect(container.querySelector('img')).toBeNull()
     expect(screen.getByText('V')).toBeInTheDocument()
+  })
+
+  describe('a portrait that failed before it was mounted, from module 0.36.0’s round', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      Reflect.deleteProperty(HTMLImageElement.prototype, 'decode')
+    })
+
+    it("shows the speaker's initials, its error never heard", async () => {
+      brokenBeforeMount()
+      const { container } = render(
+        <ChatLog
+          messages={[
+            message({
+              speaker: 'Vex',
+              avatar: 'https://game.example/vex.webp',
+            }),
+          ]}
+        />,
+      )
+
+      expect(await screen.findByText('V')).toBeInTheDocument()
+      expect(container.querySelector('img')).toBeNull()
+    })
   })
 
   it("puts the player's own messages on the other side", () => {
@@ -1157,5 +1200,81 @@ describe('components/game-table/chat-log hits, misses and saves, from module 0.2
     expect(screen.getAllByText('Hit 1 of 2')).toHaveLength(1)
     expect(screen.getAllByText('Hit 1 of 2 · 0 of 1 saved')).toHaveLength(1)
     expect(screen.getAllByText('1 of 1 saved')).toHaveLength(1)
+  })
+})
+
+describe('components/game-table/chat-log: damage made on its own, from module 0.36.0', () => {
+  const NOTE = 'On its own, for the Gamemaster to apply'
+
+  it('notes it under the damage card, on the bubble’s side', () => {
+    render(
+      <ChatLog
+        messages={[
+          damaged([corvin()], {
+            id: 'mine',
+            speaker: 'Thorin',
+            side: 'me',
+            alone: true,
+          }),
+          damaged([corvin()], {
+            id: 'theirs',
+            speaker: 'Vex',
+            side: 'party',
+            alone: true,
+          }),
+        ]}
+      />,
+    )
+
+    const [mine, theirs] = screen.getAllByText(NOTE)
+    expect(mine).toHaveClass('text-xs', 'text-text-secondary', 'self-end')
+    expect(theirs).toHaveClass('text-xs', 'text-text-secondary')
+    expect(theirs).not.toHaveClass('self-end')
+    // After the damage card it's of.
+    const card = within(mine.closest('article') as HTMLElement).getByText(
+      /12/,
+      { selector: 'summary *' },
+    )
+    expect(card.compareDocumentPosition(mine)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
+
+  it("says, at the Gamemaster's seat, that they apply it", () => {
+    render(
+      <TableApiContext
+        value={{
+          role: 'gm',
+          api: '/api/campaigns/c1/characters/a1',
+          key: 'gm:c1:a1',
+        }}
+      >
+        <ChatLog messages={[damaged([corvin()], { alone: true })]} />
+      </TableApiContext>,
+    )
+
+    expect(screen.getByText('On its own, for you to apply')).toBeInTheDocument()
+    expect(screen.queryByText(NOTE)).toBeNull()
+  })
+
+  it('says nothing of a damage card not made so, nor of a text message that says it is', () => {
+    render(
+      <ChatLog
+        messages={[
+          damaged([corvin()], { id: 'plain' }),
+          message({ id: 'text', alone: true, text: 'Take that!' }),
+          message({
+            id: 'roll',
+            kind: 'roll',
+            text: undefined,
+            rolls: [roll()],
+            alone: true,
+          }),
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('Take that!')).toBeInTheDocument()
+    expect(screen.queryByText(/On its own/)).toBeNull()
   })
 })

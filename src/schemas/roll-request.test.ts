@@ -1850,3 +1850,317 @@ describe('removals of items, from module 0.33.0', () => {
     ).toBe(true)
   })
 })
+
+describe('schemas/roll-request, damage on its own and recharges, from module 0.36.0', () => {
+  /** A Bite's damage on its own, 1d8 + 3 slashing, as the game said it throws. */
+  const alone = {
+    kind: 'itemDamage',
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 8, results: [5] }],
+  }
+  /** A Frost Breath's recharge, its one d6. */
+  const recharge = {
+    kind: 'recharge',
+    item: 'frostBreath',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 6, results: [5] }],
+  }
+  const parseAlone = (fields: object) =>
+    rollRequestSchema.safeParse({ ...alone, ...fields })
+  const parseRecharge = (fields: object) =>
+    rollRequestSchema.safeParse({ ...recharge, ...fields })
+
+  it('takes damage on its own with its item and activity, as a critical hit’s, kinds chosen and changed', () => {
+    expect(parseAlone({}).data).toEqual(alone)
+    const critical = {
+      critical: true,
+      dice: [{ faces: 8, results: [5, 2] }],
+      types: [null],
+      modifiers: { extra: 1, maximize: false },
+      typed: true,
+    }
+    expect(parseAlone(critical).data).toEqual({ ...alone, ...critical })
+  })
+
+  it.each([
+    ['a use it follows', { use: 'req-1' }],
+    ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }] }],
+    ['a target', { target: { combatId: 'cmbt1', combatantId: 'goblin' } }],
+    ['a slot', { slot: 'spell1' }],
+    ['ammunition', { ammunition: 'arrows' }],
+    ['an attack mode', { attackMode: 'thrown' }],
+    ['a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
+    ['its user', { self: true }],
+    ['how it enchants', { enchant: { profile: 'plus1' } }],
+    ['a key', { key: 'prc' }],
+    ['a combat', { combatId: 'cmbt1' }],
+    ['what the game asks', { prompt: 'm1-actor' }],
+    ['no activity', { activity: undefined }],
+    ['no item', { item: undefined }],
+    ['no dice', { dice: [] }],
+    ['a d20 thrown as advantage', { mode: 1 }],
+    ['terms added', { extras: [{ sign: 1, flat: 2 }] }],
+  ])('refuses damage on its own with %s', (_, fields) => {
+    expect(parseAlone(fields).success).toBe(false)
+  })
+
+  it('takes a critical hit’s only for a description’s damage or an action’s on its own', () => {
+    expect(parseAlone({ critical: true }).success).toBe(true)
+    const damage = {
+      kind: 'damage',
+      use: 'req-1',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [5] }],
+    }
+    expect(
+      rollRequestSchema.safeParse({ ...damage, critical: true }).success,
+    ).toBe(false)
+    expect(rollRequestSchema.safeParse(damage).success).toBe(true)
+  })
+
+  it('takes a recharge of an item’s own uses, or one of its activities’, with its one d6', () => {
+    expect(parseRecharge({}).data).toEqual(recharge)
+    expect(parseRecharge({ activity: 'frostSave' }).data).toEqual({
+      ...recharge,
+      activity: 'frostSave',
+    })
+    expect(parseRecharge({ typed: true }).success).toBe(true)
+  })
+
+  it.each([
+    ['two dice', { dice: [{ faces: 6, results: [5, 6] }] }],
+    [
+      'two rolls',
+      {
+        dice: [
+          { faces: 6, results: [5] },
+          { faces: 6, results: [1] },
+        ],
+      },
+    ],
+    ['a d8', { dice: [{ faces: 8, results: [5] }] }],
+    ['a result no d6 throws', { dice: [{ faces: 6, results: [7] }] }],
+    ['no dice', { dice: [] }],
+    ['kinds of damage', { types: ['fire'] }],
+    ['changes', { modifiers: { maximize: true } }],
+    ['a critical hit', { critical: true }],
+    ['a use', { use: 'req-1' }],
+    ['a key', { key: 'prc' }],
+    ['a combat', { combatId: 'cmbt1' }],
+    ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }] }],
+    ['a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
+    ['no item', { item: undefined }],
+    ['an activity alone', { item: undefined, activity: 'frostSave' }],
+    ['advantage', { mode: 1 }],
+    ['the player choosing how', { explicit: true }],
+  ])('refuses a recharge with %s', (_, fields) => {
+    expect(parseRecharge(fields).success).toBe(false)
+  })
+})
+
+/** Thorin's turn ended, as the page was shown it. */
+const endingTurn = {
+  kind: 'endTurn',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  turn: { combatId: 'cmbt1', round: 1, combatantId: 'cThorin' },
+}
+
+describe('schemas/roll-request, a turn ended, from module 0.36.0', () => {
+  it('takes the turn the page was shown, by its combat, round and combatant, with no dice', () => {
+    expect(parseKind(endingTurn, {}).success).toBe(true)
+    expect(
+      parseKind(endingTurn, {
+        turn: { combatId: 'cmbt2', round: 100_000, combatantId: 'cBrakka' },
+      }).success,
+    ).toBe(true)
+  })
+
+  it('names the turn, and only it does', () => {
+    // Changed on purpose (round 0.36.0 §12, v6): a turn taken back names it too.
+    expect(issuesOf(endingTurn, { turn: undefined })).toEqual([
+      ['turn', 'A turn ended or taken back, and only that, names the turn'],
+    ])
+    const { turn } = endingTurn
+    expect(issuesOf(perception, { turn })).toEqual([
+      ['turn', 'A turn ended or taken back, and only that, names the turn'],
+    ])
+    expect(
+      parseKind(
+        { ...perception, kind: 'initiative', key: undefined },
+        { combatId: 'cmbt1', turn },
+      ).success,
+    ).toBe(false)
+  })
+
+  it.each([
+    ['round 0', { round: 0 }],
+    ['a round of a part', { round: 1.5 }],
+    ['a round too far', { round: 100_001 }],
+    ['no round', { round: undefined }],
+    ['no combatant', { combatantId: undefined }],
+    ['no combat', { combatId: undefined }],
+    ['a combatant not an id', { combatantId: 'c thorin' }],
+    ['a combat not an id', { combatId: 'cmbt.1' }],
+    ['a turn index', { turn: 0 }],
+    ['anything else of the turn', { name: 'Thorin' }],
+  ])('refuses a turn with %s', (_name, fields) => {
+    expect(
+      parseKind(endingTurn, { turn: { ...endingTurn.turn, ...fields } })
+        .success,
+    ).toBe(false)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a turn ended with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(endingTurn, fields)).toEqual([
+      ['dice', 'Ending a turn throws no dice'],
+    ])
+  })
+
+  it.each([
+    ['an item', { item: 'warhammer' }],
+    ['an item and activity', { item: 'warhammer', activity: 'swing01' }],
+    ['a combat of its own', { combatId: 'cmbt1' }],
+    ['a target', { target: { combatId: 'cmbt1', combatantId: 'cGoblin' } }],
+    ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'cGoblin' }] }],
+    ['at its user', { self: true }],
+    ['a slot', { slot: 'spell2' }],
+    ['a key', { key: 'prc' }],
+    ['a use', { use: 'req-1' }],
+    ['kinds of damage', { types: ['fire'] }],
+    ['changes', { modifiers: { maximize: true } }],
+    ['a critical hit', { critical: true }],
+    ['a prompt', { prompt: 'card1-actor1' }],
+    ['a link', { text: 'a3b4c5d6e7f809', link: 0 }],
+    ['a concentration', { concentration: { effect: 'concBless0001' } }],
+    ['a companion', { of: 'actorThorin1' }],
+    ['the Gamemaster', { by: 'gm' }],
+  ])('refuses a turn ended with %s', (_name, fields) => {
+    expect(parseKind(endingTurn, fields).success).toBe(false)
+  })
+})
+
+/** Thorin's End Turn taken back, from Brakka's turn, where it left the combat. */
+const undoingTurn = {
+  kind: 'undoEndTurn',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  undo: 'cmx1end2turn3',
+  turn: { combatId: 'cmbt1', round: 1, combatantId: 'cBrakka' },
+}
+
+describe('schemas/roll-request, a turn taken back, from module 0.36.0', () => {
+  it('takes the End Turn it takes back and the turn that left, with no dice', () => {
+    expect(parseKind(undoingTurn, {}).success).toBe(true)
+    expect(parseKind(undoingTurn, { undo: 'a'.repeat(64) }).success).toBe(true)
+    expect(parseKind(undoingTurn, { undo: 'req_1-b' }).success).toBe(true)
+  })
+
+  it('names the End Turn it takes back, and only it does', () => {
+    expect(issuesOf(undoingTurn, { undo: undefined })).toEqual([
+      [
+        'undo',
+        'A turn taken back, and only that, names the End Turn it takes back',
+      ],
+    ])
+    expect(issuesOf(endingTurn, { undo: 'cmx1end2turn3' })).toEqual([
+      [
+        'undo',
+        'A turn taken back, and only that, names the End Turn it takes back',
+      ],
+    ])
+    expect(issuesOf(perception, { undo: 'cmx1end2turn3' })).toEqual([
+      [
+        'undo',
+        'A turn taken back, and only that, names the End Turn it takes back',
+      ],
+    ])
+  })
+
+  it('names the turn, as a turn ended does, and nothing else does still', () => {
+    expect(issuesOf(undoingTurn, { turn: undefined })).toEqual([
+      ['turn', 'A turn ended or taken back, and only that, names the turn'],
+    ])
+    const { turn } = undoingTurn
+    expect(
+      parseKind(
+        { ...perception, kind: 'initiative', key: undefined },
+        { combatId: 'cmbt1', turn },
+      ).success,
+    ).toBe(false)
+    expect(
+      issuesOf(
+        { ...perception, kind: 'initiative', key: undefined },
+        { combatId: 'cmbt1', turn },
+      ),
+    ).toEqual([
+      ['turn', 'A turn ended or taken back, and only that, names the turn'],
+    ])
+  })
+
+  it.each([
+    ['of 65 characters', 'a'.repeat(65)],
+    ['with a space', 'a b'],
+    ['empty', ''],
+    ['with a dot', 'req.1'],
+  ])('refuses an End Turn named by an id %s', (_name, undo) => {
+    expect(parseKind(undoingTurn, { undo }).success).toBe(false)
+  })
+
+  it.each([
+    ['round 0', { round: 0 }],
+    ['no combatant', { combatantId: undefined }],
+    ['a combatant not an id', { combatantId: 'c brakka' }],
+    ['anything else of the turn', { name: 'Brakka' }],
+    ['the turn it ended', { ended: 'cThorin' }],
+  ])('refuses a turn with %s', (_name, fields) => {
+    expect(
+      parseKind(undoingTurn, { turn: { ...undoingTurn.turn, ...fields } })
+        .success,
+    ).toBe(false)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])(
+    'refuses a turn taken back with %s, as it throws no dice',
+    (_name, fields) => {
+      expect(issuesOf(undoingTurn, fields)).toEqual([
+        ['dice', 'Taking a turn back throws no dice'],
+      ])
+    },
+  )
+
+  it.each([
+    ['an item', { item: 'warhammer' }],
+    ['a combat of its own', { combatId: 'cmbt1' }],
+    ['a target', { target: { combatId: 'cmbt1', combatantId: 'cGoblin' } }],
+    ['a use', { use: 'req-1' }],
+    ['a key', { key: 'prc' }],
+    ['a concentration', { concentration: { effect: 'concBless0001' } }],
+    ['a companion', { of: 'actorThorin1' }],
+    ['the Gamemaster', { by: 'gm' }],
+  ])('refuses a turn taken back with %s', (_name, fields) => {
+    expect(parseKind(undoingTurn, fields).success).toBe(false)
+  })
+})

@@ -1,5 +1,6 @@
 import prisma from '@/clients/prisma'
 import {
+  COMPANION_UNTAKEN,
   MIDI_PROMPT_WAIT,
   ROLL_ANSWER_WITHIN,
   ROLL_KINDS,
@@ -16,6 +17,7 @@ import {
   lacksSheetTexts,
   saveSheetTexts,
 } from '@/db/sheet-texts'
+import { companionRoster } from '@/utils/companions'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type { GroupEntry, GroupSheet } from '@/types/party'
 import type {
@@ -24,6 +26,8 @@ import type {
   CombatantSummary,
   CombatSnapshot,
   CommandResult,
+  CompanionEntry,
+  CompanionUpdated,
   ConnectedCharacter,
   GamePrompt,
   GameEvent,
@@ -110,6 +114,9 @@ async function apply(
     case 'bridge.hello': {
       // The campaign's full current state. It carries no chat, so the chat log is kept.
       const { characters, features, prompts = [], groups = [] } = event.data
+      // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
+      // older module, which clears them.
+      const { companions = [] } = event.data
       const { module, foundry, system, settings } = event.data
       // Whether its players may move items and coins from here, from module 0.31.0, apart from
       // the rolls. A module before it says nothing of them, which clears it.
@@ -192,6 +199,19 @@ async function apply(
             features?.notes?.enabled === true &&
             (features.notes.kinds ?? []).includes('personal'),
           noteFeatures,
+          // Its characters' companions, from module 0.36.0, each as listed, never its sheet; the
+          // kinds a companion's rolls may be, never one no companion's is, nor one this app
+          // doesn't know; and how they enter initiative, each its own roll unless the module says
+          // otherwise. A module before it says nothing of them, which clears the first two and
+          // sets the third back to its own roll.
+          companions: companions.map(entry => toJson(entry)),
+          companionKinds: (features?.companions?.kinds ?? []).filter(
+            kind =>
+              (ROLL_KINDS as readonly string[]).includes(kind) &&
+              !(COMPANION_UNTAKEN as readonly string[]).includes(kind),
+          ),
+          companionInitiative:
+            features?.companions?.initiative === 'after' ? 'after' : 'own',
           // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
           // module before 0.30.0, which reports no settings, clears those an earlier one sent.
           foundry: toJson({
@@ -248,6 +268,9 @@ async function apply(
       await tx.groupSheet.deleteMany({
         where: { campaignId, actorId: { notIn: groups.map(({ id }) => id) } },
       })
+      // A companion it no longer lists has gone, with its sheet, before the descriptions kept are
+      // counted, so that only those listed keep theirs (module 0.36.0).
+      await dropUnlistedCompanions(tx, campaignId, companions)
       if (event.data.sheetsApart === true) {
         return keepRosterSheets(tx, campaignId, characters)
       }
@@ -257,10 +280,11 @@ async function apply(
           sheet ? [{ campaignId, actorId: id, data: toJson(sheet) }] : [],
         ),
       })
-      // Its descriptions came first; any no sheet refers to any more go.
+      // Its descriptions came first; any no sheet refers to any more go, its companions' kept.
       const sheets = characters.flatMap(({ sheet }) => (sheet ? [sheet] : []))
-      await keepOnlySheetTexts(tx, campaignId, sheets)
-      return lacksSheetTexts(tx, campaignId, sheets)
+      const companionSheets = await keptCompanionSheets(tx, campaignId)
+      await keepOnlySheetTexts(tx, campaignId, sheets, [], companionSheets)
+      return lacksSheetTexts(tx, campaignId, sheets, [], companionSheets)
     }
     case 'character.updated': {
       const { sheet } = event.data.character
@@ -347,8 +371,86 @@ async function apply(
       await applyJournalUpdated(tx, campaignId, event.data, drawings)
       return false
     }
+    case 'companions.listed': {
+      const { companions } = event.data
+      await tx.campaign.update({
+        where: { id: campaignId },
+        data: { companions: companions.map(entry => toJson(entry)) },
+      })
+      await dropUnlistedCompanions(tx, campaignId, companions)
+      return false
+    }
+    case 'companion.updated': {
+      return saveCompanion(tx, campaignId, event.data)
+    }
   }
   return false
+}
+
+/**
+ * The sheets of the companions no longer listed go (module 0.36.0): those of every companion, for
+ * a list of none, as from a module before 0.36.0.
+ */
+async function dropUnlistedCompanions(
+  tx: Tx,
+  campaignId: string,
+  companions: CompanionEntry[],
+) {
+  await tx.companionSheet.deleteMany({
+    where: { campaignId, key: { notIn: companions.map(({ key }) => key) } },
+  })
+}
+
+/** The campaign's companions' sheets held, for the descriptions they refer to. */
+async function keptCompanionSheets(
+  tx: Tx,
+  campaignId: string,
+): Promise<CharacterSheet[]> {
+  const kept = await tx.companionSheet.findMany({
+    where: { campaignId },
+    select: { data: true },
+  })
+  return kept.map(({ data }) => data as unknown as CharacterSheet)
+}
+
+/**
+ * One of the campaign's characters' companions as it now stands (module 0.36.0), only where the
+ * campaign lists it: its entry replaced, as the module sends it with its sheet, or why its sheet
+ * was held back; and its sheet, kept apart from the characters', or none. A key not listed, as one
+ * whose list hasn't come yet, is left alone: its sheet follows the list that names it.
+ * @returns Whether the campaign lacks a description its sheet refers to.
+ */
+async function saveCompanion(
+  tx: Tx,
+  campaignId: string,
+  { companion, sheet }: CompanionUpdated,
+): Promise<boolean> {
+  const held = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { companions: true },
+  })
+  const listed = companionRoster(held?.companions)
+  if (!listed.some(({ key }) => key === companion.key)) return false
+  await tx.campaign.update({
+    where: { id: campaignId },
+    data: {
+      companions: listed.map(entry =>
+        toJson(entry.key === companion.key ? companion : entry),
+      ),
+    },
+  })
+  const { key } = companion
+  if (!sheet) {
+    await tx.companionSheet.deleteMany({ where: { campaignId, key } })
+    return false
+  }
+  const data = toJson(sheet)
+  await tx.companionSheet.upsert({
+    where: { campaignCompanion: { campaignId, key } },
+    create: { campaignId, key, data },
+    update: { data },
+  })
+  return lacksSheetTexts(tx, campaignId, [], [], [sheet])
 }
 
 /**
@@ -431,17 +533,19 @@ async function keepRosterSheets(
   await tx.actorSheet.deleteMany({
     where: { campaignId, actorId: { notIn: characters.map(({ id }) => id) } },
   })
-  // Its descriptions come after it: those the sheets kept don't refer to go, its characters' or
-  // its groups'.
-  const [kept, keptGroups] = await Promise.all([
+  // Its descriptions come after it: those the sheets kept don't refer to go, its characters', its
+  // groups' or, from module 0.36.0, its companions'.
+  const [kept, keptGroups, keptCompanions] = await Promise.all([
     tx.actorSheet.findMany({ where: { campaignId }, select: { data: true } }),
     tx.groupSheet.findMany({ where: { campaignId }, select: { data: true } }),
+    keptCompanionSheets(tx, campaignId),
   ])
   await keepOnlySheetTexts(
     tx,
     campaignId,
     kept.map(({ data }) => data as unknown as CharacterSheet),
     keptGroups.map(({ data }) => data as unknown as GroupSheet),
+    keptCompanions,
   )
   return false
 }

@@ -27,6 +27,12 @@ type Props = {
   /** Whether this device sends the player's rolls to the table, while the game takes any. */
   send?: { on: boolean; onChange: (on: boolean) => void }
   /**
+   * Whether damage rolled here goes to the table on its own, from module 0.36.0, where the game
+   * takes it: this device's, so every pane's cog says the same. Disabled while Send to the table
+   * is off, as nothing goes then.
+   */
+  alone?: { on: boolean; onChange: (on: boolean) => void; disabled: boolean }
+  /**
    * Whether the player types in what their own dice show, where the campaign's game lets them,
    * from module 0.32.0: the setting is shown only then.
    */
@@ -39,8 +45,9 @@ type Props = {
 
 /**
  * The sheet's settings, behind a cog beside its tabs, so that they're at hand from every tab
- * without taking room from them: whether this device sends the player's rolls to the table; where
- * the game lets them, typing in what their own dice show; whether rolls show as
+ * without taking room from them: whether this device sends the player's rolls to the table, and
+ * beneath it, where the game takes it, whether their damage goes there on its own; where the game
+ * lets them, typing in what their own dice show; whether rolls show as
  * toasts or in a banner, the theme, and how the Actions tab is laid out. It opens as
  * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
  * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
@@ -48,11 +55,13 @@ type Props = {
  */
 export function SheetSettings({
   send,
+  alone,
   manualDice,
   toasts,
   layouts,
 }: Readonly<Props>) {
-  const { game } = seatWords(useTableRole())
+  const role = useTableRole()
+  const { game } = seatWords(role)
   const [open, setOpen] = useState(false)
   const title = useId()
   const root = usePortalRoot()
@@ -117,6 +126,19 @@ export function SheetSettings({
                   {...send}
                 />
               )}
+              {/* Under Send to the table, as what it sends rides on it. */}
+              {alone && (
+                <SwitchSetting
+                  label='Damage on its own'
+                  hint={
+                    alone.disabled
+                      ? 'Turn on Send to the table first.'
+                      : `Damage you roll goes to ${game} with no attack or saving throw made there, for ${role === 'gm' ? 'you' : 'your Gamemaster'} to apply.`
+                  }
+                  {...alone}
+                  child
+                />
+              )}
               {manualDice && (
                 <SwitchSetting
                   label='Enter dice results manually'
@@ -145,26 +167,49 @@ export function SheetSettings({
   )
 }
 
-/** A setting turned on or off by a switch, said more of beneath it. */
+/**
+ * A setting turned on or off by a switch, said more of beneath it; one that rides on the setting
+ * above it set in beneath it, its `child`. A disabled one is drawn and announced off, whatever's
+ * stored, which comes back once it's enabled again.
+ */
 function SwitchSetting({
   label,
   hint,
   on,
   onChange,
+  child = false,
+  disabled = false,
 }: Readonly<{
   label: string
   hint: string
   on: boolean
   onChange: (on: boolean) => void
+  child?: boolean
+  disabled?: boolean
 }>) {
   const hintId = useId()
+  const shown = on && !disabled
   return (
-    <div className='flex flex-col gap-1 border-t border-border pt-3'>
-      <label className='flex cursor-pointer items-center gap-3 text-sm font-medium'>
+    <div
+      className={clsx(
+        'flex flex-col gap-1',
+        child
+          ? 'ml-1 border-l border-border pl-4'
+          : 'border-t border-border pt-3',
+      )}
+    >
+      {/* A 44-pixel target, as the switch inside it is small. */}
+      <label
+        className={clsx(
+          'flex min-h-11 items-center gap-3 text-sm font-medium',
+          disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+        )}
+      >
         <input
           type='checkbox'
           role='switch'
-          checked={on}
+          checked={shown}
+          disabled={disabled}
           onChange={event => onChange(event.target.checked)}
           aria-describedby={hintId}
           className='peer sr-only'
@@ -173,13 +218,13 @@ function SwitchSetting({
           aria-hidden
           className={clsx(
             'relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
-            on ? 'bg-primary' : 'bg-border',
+            shown ? 'bg-primary' : 'bg-border',
           )}
         >
           <span
             className={clsx(
               'absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]',
-              on ? 'left-4.5' : 'left-0.5',
+              shown ? 'left-4.5' : 'left-0.5',
             )}
           />
         </span>

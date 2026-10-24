@@ -2,8 +2,13 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LONG_PRESS } from './roll-button'
+import { RollToasts } from './roll-toasts'
 import { briefOf, RollTray, type RollBrief, type TableRolls } from './roll-tray'
+import { RollsButton } from './rolls-button'
+import { CreatureContext } from '@/hooks/use-creature'
+import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { gmRollsOf, type TableRollState } from '@/hooks/use-table-rolls'
 import type {
   LocalAsk,
   LocalCheck,
@@ -11,7 +16,7 @@ import type {
   LocalFormula,
   LocalUse,
 } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import type { GmRollView } from '@/types/roll'
 
 const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
   kind: 'check',
@@ -3630,5 +3635,393 @@ describe('an item removed, from module 0.33.0', () => {
       />,
     )
     expect(screen.queryByText(/Only you see these rolls/)).toBeNull()
+  })
+})
+
+/** A recharge's d6, Fire Breath's, which came up as given. */
+const recharge = (
+  value: number,
+  fields: Partial<LocalFormula> = {},
+): LocalFormula => ({
+  kind: 'formula',
+  id: 'f1',
+  label: 'Fire Breath recharge',
+  total: value,
+  healing: false,
+  terms: [{ text: '1d6', values: [value], value }],
+  recharge: { name: 'Fire Breath' },
+  at: 0,
+  ...fields,
+})
+
+describe('components/character-sheet/roll-tray: damage on its own, recharges and companions, from module 0.36.0', () => {
+  const table = (
+    states: [string, TableRollState][] = [],
+    fields: Partial<TableRolls> = {},
+  ): TableRolls => ({
+    states: new Map(states),
+    available: true,
+    sending: true,
+    ...fields,
+  })
+
+  /** The game's answer to a recharge, as the page keeps it, marked as one. */
+  const recharged = (
+    total: number,
+    outcome: 'success' | 'failure',
+  ): TableRollState => ({
+    status: 'done',
+    visible: true,
+    total,
+    outcome,
+    recharge: true,
+  })
+
+  /** Damage made on its own, as the page keeps the game's answer. */
+  const ownWay: TableRollState = {
+    status: 'done',
+    visible: true,
+    total: 9,
+    alone: true,
+  }
+
+  /** The Bat, the second of two, a familiar Thorin summoned, at its own pane. */
+  const bat = {
+    name: 'Bat 2',
+    relation: {
+      kind: 'summoned' as const,
+      of: 'Thorin',
+      from: 'Find Familiar',
+    },
+    character: 'Thorin',
+  }
+
+  const GM = {
+    role: 'gm' as const,
+    api: '/api/campaigns/c1/characters/a1',
+    key: 'gm:c1:a1',
+  }
+
+  it.each<[string, number, 'success' | 'failure', string, string]>([
+    [
+      'recharged',
+      5,
+      'success',
+      'Fire Breath recharged',
+      'At the table: 5 · recharged',
+    ],
+    [
+      'didn’t recharge',
+      3,
+      'failure',
+      'Fire Breath didn’t recharge',
+      'At the table: 3 · didn’t recharge',
+    ],
+  ])(
+    'says a recharge %s, titled so, and never as a save',
+    (_, value, outcome, title, line) => {
+      render(
+        <RollTray
+          rolls={[recharge(value)]}
+          rolling={false}
+          table={table([['f1', recharged(value, outcome)]])}
+        />,
+      )
+
+      const status = screen.getByRole('status')
+      expect(within(status).getByText(title)).toBeInTheDocument()
+      expect(status).toHaveTextContent(line)
+      expect(status).not.toHaveTextContent(/Saved|Failed/)
+    },
+  )
+
+  it('titles a recharge as such until the game says, by its own name', () => {
+    render(
+      <RollTray
+        rolls={[recharge(5)]}
+        rolling={false}
+        table={table([['f1', { status: 'sending' }]])}
+      />,
+    )
+
+    expect(
+      within(screen.getByRole('status')).getByText('Fire Breath recharge'),
+    ).toBeInTheDocument()
+  })
+
+  it.each<[string, typeof GM | undefined, string]>([
+    [
+      "the player's",
+      undefined,
+      'At the table: 9 · on its own, for your Gamemaster to apply',
+    ],
+    ["the Gamemaster's", GM, 'At the table: 9 · on its own, for you to apply'],
+  ])('says damage went on its own at %s seat', (_, seat, line) => {
+    render(
+      <TableApiContext value={seat}>
+        <RollTray
+          rolls={[damage({ total: 9 })]}
+          rolling={false}
+          table={table([['d1', ownWay]])}
+        />
+      </TableApiContext>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(line)
+  })
+
+  it.each<[string, string]>([
+    [
+      'legendary',
+      'Not made at the table: it has too few legendary actions left',
+    ],
+    ['charged', 'Not made at the table: it’s charged already'],
+    [
+      'critical',
+      'Not made at the table: that damage can’t be a critical hit’s',
+    ],
+  ])('says why it was refused %s', (reason, line) => {
+    render(
+      <RollTray
+        rolls={[damage()]}
+        rolling={false}
+        table={table([['d1', { status: 'refused', reason }]])}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(line)
+  })
+
+  it("names a companion and its character where it's no longer one, at its pane, and nowhere else", () => {
+    const states = table([['d1', { status: 'refused', reason: 'unknown' }]])
+    const { unmount } = render(
+      <CreatureContext value={bat}>
+        <RollTray rolls={[damage()]} rolling={false} table={states} />
+      </CreatureContext>,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Not made at the table: Bat 2 isn’t one of Thorin’s companions in your Gamemaster’s game now',
+    )
+    unmount()
+
+    render(<RollTray rolls={[damage()]} rolling={false} table={states} />)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Not made at the table: your character in the game can’t make it',
+    )
+  })
+
+  it('says a companion acts right after its character, at its pane', () => {
+    render(
+      <CreatureContext value={bat}>
+        <RollTray
+          rolls={[roll({ label: 'Initiative' })]}
+          rolling={false}
+          table={table([['r1', { status: 'refused', reason: 'follows' }]])}
+        />
+      </CreatureContext>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Not made at the table: it acts right after Thorin in your Gamemaster’s game',
+    )
+  })
+
+  it("says it in the Gamemaster's words at their seat, at a companion's pane", () => {
+    render(
+      <TableApiContext value={GM}>
+        <CreatureContext value={bat}>
+          <RollTray
+            rolls={[damage()]}
+            rolling={false}
+            table={table([['d1', { status: 'refused', reason: 'unknown' }]])}
+          />
+        </CreatureContext>
+      </TableApiContext>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Not made at the table: Bat 2 isn’t one of Thorin’s companions in your game now',
+    )
+  })
+
+  it('marks an earlier recharge with what came of it, never a save’s word, and damage on its own as such', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          roll({ id: 'latest', at: 3 }),
+          recharge(5, { id: 'f1', at: 2 }),
+          recharge(2, { id: 'f2', at: 1 }),
+          damage({ id: 'd1', total: 9, at: 0 }),
+        ]}
+        rolling={false}
+        table={table([
+          ['f1', recharged(5, 'success')],
+          ['f2', recharged(2, 'failure')],
+          ['d1', ownWay],
+        ])}
+      />,
+    )
+    await user.click(screen.getByText(/Earlier rolls/))
+
+    const [first, second, third] = within(
+      screen.getByRole('list'),
+    ).getAllByRole('listitem')
+    expect(first).toHaveTextContent('Fire Breath recharged')
+    expect(first).toHaveTextContent('· table 5, recharged')
+    expect(second).toHaveTextContent('Fire Breath didn’t recharge')
+    expect(second).toHaveTextContent('· table 2, didn’t recharge')
+    expect(third).toHaveTextContent('· table 9, on its own')
+    for (const item of [first, second]) {
+      expect(item).not.toHaveTextContent(/saved|failed/)
+    }
+  })
+
+  it("reads the Gamemaster's recharge and damage on its own as a companion's, by their kind", () => {
+    const views: GmRollView[] = [
+      {
+        id: 'g1',
+        kind: 'recharge',
+        label: 'Fire Breath recharge',
+        at: '2026-10-23T12:00:00.000Z',
+        status: 'done',
+        visible: true,
+        total: 6,
+        outcome: 'success',
+      },
+      {
+        id: 'g2',
+        kind: 'itemDamage',
+        label: 'Bite damage',
+        at: '2026-10-23T11:59:00.000Z',
+        status: 'done',
+        visible: true,
+        total: 7,
+      },
+    ]
+    const { rolls, states } = gmRollsOf(views)
+    render(
+      <CreatureContext value={bat}>
+        <RollTray
+          rolls={rolls}
+          rolling={false}
+          table={{ ...table(), states }}
+        />
+      </CreatureContext>,
+    )
+
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('At the table: 6 · recharged')
+    expect(status).not.toHaveTextContent(/Saved/)
+    const [toastOfRecharge, toastOfBite] = rolls.map(each =>
+      briefOf(each, states.get(each.id), 'player', bat),
+    )
+    expect(toastOfRecharge.table?.text).toBe('At the table: 6 · recharged')
+    expect(toastOfBite.table?.text).toBe(
+      'At the table: 7 · on its own, for your Gamemaster to apply',
+    )
+    expect(toastOfBite.badge).toBe('damage')
+  })
+
+  it("titles a recharge's toast by what came of it, and says why a companion's wasn't made in its own words", () => {
+    expect(briefOf(recharge(5), recharged(5, 'success')).label).toBe(
+      'Fire Breath recharged',
+    )
+    expect(briefOf(recharge(2), recharged(2, 'failure')).label).toBe(
+      'Fire Breath didn’t recharge',
+    )
+    expect(briefOf(recharge(5), { status: 'sending' }).label).toBe(
+      'Fire Breath recharge',
+    )
+
+    render(
+      <CreatureContext value={bat}>
+        <RollToasts
+          rolls={[damage()]}
+          states={new Map([['d1', { status: 'refused', reason: 'unknown' }]])}
+          on
+        />
+      </CreatureContext>,
+    )
+    expect(screen.getByRole('log', { name: 'Roll results' })).toHaveTextContent(
+      'Not made at the table: Bat 2 isn’t one of Thorin’s companions in your Gamemaster’s game now',
+    )
+  })
+
+  it("names the rolls a companion's at its pane, the player's own at the character's", async () => {
+    const user = userEvent.setup()
+    const brakka = {
+      name: 'Brakka',
+      relation: { kind: 'owned' as const, of: 'Thorin' },
+      character: 'Thorin',
+    }
+    const { unmount } = render(
+      <CreatureContext value={brakka}>
+        <RollTray rolls={[]} rolling={false} />
+        <RollsButton rolls={[]} rolling={false} table={table()} />
+      </CreatureContext>,
+    )
+    expect(
+      screen.getByRole('region', { name: 'Brakka’s rolls' }),
+    ).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: 'Brakka’s rolls' })
+    expect(button).toHaveAttribute('title', 'Brakka’s rolls')
+    await user.click(button)
+    expect(
+      screen.getByRole('dialog', { name: 'Brakka’s rolls' }),
+    ).toBeInTheDocument()
+    unmount()
+
+    render(
+      <>
+        <RollTray rolls={[]} rolling={false} />
+        <RollsButton rolls={[]} rolling={false} table={table()} />
+      </>,
+    )
+    expect(
+      screen.getByRole('region', { name: 'Your rolls' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Your rolls' })).toHaveAttribute(
+      'title',
+      'Your rolls',
+    )
+  })
+
+  it("disables the damage to roll while the pane's rolls are locked", () => {
+    const attack = roll({ id: 'a1', label: 'Bite attack' })
+    const due: TableRollState = {
+      status: 'done',
+      visible: true,
+      total: 15,
+      requestId: 'req-1',
+      source: { item: 'bite', activity: 'biteAttack' },
+      attack: { outcome: 'hit', critical: false, fumble: false },
+      damage: {
+        critical: false,
+        plannable: true,
+        rolls: [
+          {
+            formula: '1d8 + 3',
+            type: 'Piercing',
+            dice: [{ faces: 8, number: 1 }],
+          },
+        ],
+      },
+    }
+    const rollDamage = jest.fn()
+    render(
+      <RollsLocked value>
+        <RollTray
+          rolls={[attack]}
+          rolling={false}
+          table={table([['a1', due]], { rollDamage, modifies: false })}
+        />
+      </RollsLocked>,
+    )
+
+    const button = screen.getByRole('button', { name: 'Roll damage' })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(rollDamage).not.toHaveBeenCalled()
   })
 })

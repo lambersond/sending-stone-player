@@ -76,6 +76,16 @@ const targetSchema = z.strictObject({
   combatantId: z.string().regex(FOUNDRY_ID),
 })
 
+/**
+ * A turn ended, from module 0.36.0, as its player was shown it: its combat, its round and its
+ * current combatant, never a turn index, which the app isn't sent.
+ */
+const turnSchema = z.strictObject({
+  combatId: z.string().regex(FOUNDRY_ID),
+  round: z.int().min(1).max(100_000),
+  combatantId: z.string().regex(FOUNDRY_ID),
+})
+
 /** How a player changed damage: more of its first die, another size of it, its highest. */
 const modifiersSchema = z.strictObject({
   extra: z.int().min(0).max(MOST_DICE).optional(),
@@ -239,9 +249,20 @@ const removeSchema = z
 /**
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
  * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
- * module 0.31.0, a move what moves; and from module 0.33.0, a removal what it removes.
+ * module 0.31.0, a move what moves; from module 0.33.0, a removal what it removes; and from module
+ * 0.36.0, a turn ended which turn, and a turn taken back the End Turn it takes back and the turn
+ * that End Turn left. A field more than one kind names lists them all, `kinds`.
  */
-const OWN_FIELDS = {
+const OWN_FIELDS: Readonly<
+  Record<
+    string,
+    {
+      field: keyof RollRequestInput
+      kinds?: readonly RollRequestInput['kind'][]
+      message: string
+    }
+  >
+> = {
   endConcentration: {
     field: 'concentration',
     message: 'A concentration ended, and only that, names the concentration',
@@ -262,7 +283,17 @@ const OWN_FIELDS = {
     field: 'remove',
     message: 'A removal, and only that, names what it removes',
   },
-} as const
+  endTurn: {
+    field: 'turn',
+    kinds: ['endTurn', 'undoEndTurn'],
+    message: 'A turn ended or taken back, and only that, names the turn',
+  },
+  undoEndTurn: {
+    field: 'undo',
+    message:
+      'A turn taken back, and only that, names the End Turn it takes back',
+  },
+}
 
 /** What each of those, and ending an enchantment, is said not to throw. */
 const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
@@ -273,6 +304,8 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   inspiration: 'Heroic Inspiration throws no dice',
   transfer: 'Moving throws no dice',
   remove: 'Removing throws no dice',
+  endTurn: 'Ending a turn throws no dice',
+  undoEndTurn: 'Taking a turn back throws no dice',
 }
 
 const rolledDiceSchema = z.strictObject({
@@ -314,7 +347,13 @@ const rolledDiceSchema = z.strictObject({
  * formula names its item and activity, and throws the dice its formula does, which are checked
  * against it when it's asked for. Any roll with dice may say its player typed them in from their
  * own dice, `typed`, from module 0.32.0; an attack with advantage may throw three d20s, for Elven
- * Accuracy.
+ * Accuracy. From module 0.36.0, an action's damage or healing on its own names its item and
+ * activity, and may be a critical hit's, with kinds chosen and changes, as damage may, and throws
+ * one to twenty dice; and a spent recharge names its item, and may name its activity, and throws
+ * its one d6. Neither names anything else a roll does. From module 0.36.0, a turn ended names its
+ * combat, round and current combatant, and nothing else, and throws no dice; and a turn taken back
+ * names the End Turn it takes back and where it left the combat, and nothing else, and throws no
+ * dice either.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -369,6 +408,8 @@ export const rollRequestSchema = z
     inspiration: z.enum(['use', 'gain']).optional(),
     transfer: transferSchema.optional(),
     remove: removeSchema.optional(),
+    turn: turnSchema.optional(),
+    undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
     typed: z.literal(true).optional(),
   })
@@ -378,16 +419,23 @@ export const rollRequestSchema = z
     const formula = request.kind === 'formula'
     const hitDie = request.kind === 'hitDie'
     const hitDice = request.kind === 'hitDice'
+    // From module 0.36.0: an action's damage or healing on its own, and a spent recharge.
+    const alone = request.kind === 'itemDamage'
+    const recharge = request.kind === 'recharge'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
     // A check may be one an activity asks for, from module 0.21.0, which names both.
     const checked = ACTIVITY_CHECKS.has(request.kind)
-    if (attack || use || formula ? !both : named && !(checked && both)) {
+    // A recharge names its item, and its activity where the uses are the activity's own.
+    let unnamed = named && !(checked && both)
+    if (attack || use || formula || alone) unnamed = !both
+    else if (recharge) unnamed = request.item === undefined
+    if (unnamed) {
       context.addIssue({
         code: 'custom',
         path: ['activity'],
         message:
-          'An attack, a use or a formula, and only those or a check an activity asks for, is made with an item',
+          'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
       })
     }
     if (
@@ -485,7 +533,8 @@ export const rollRequestSchema = z
         message: 'Only an attack is made with ammunition, in a mode',
       })
     }
-    const damaging = request.kind === 'damage' || request.kind === 'textDamage'
+    const damaging =
+      request.kind === 'damage' || request.kind === 'textDamage' || alone
     if (!damaging && request.types !== undefined) {
       context.addIssue({
         code: 'custom',
@@ -500,12 +549,16 @@ export const rollRequestSchema = z
         message: 'Only damage is changed so',
       })
     }
-    if (request.kind !== 'textDamage' && request.critical !== undefined) {
+    if (
+      request.kind !== 'textDamage' &&
+      !alone &&
+      request.critical !== undefined
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['critical'],
         message:
-          "Only a description's damage is rolled as a critical hit's here",
+          "Only a description's damage, or an action's on its own, is rolled as a critical hit's here",
       })
     }
     if (!ANSWERS.has(request.kind) && request.prompt !== undefined) {
@@ -581,10 +634,14 @@ export const rollRequestSchema = z
       })
     }
     // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
-    // from module 0.31.0 and a removal from module 0.33.0, each name what they're of, and nothing
-    // else does; charges, how many, which nothing else says.
-    for (const [kind, { field, message }] of Object.entries(OWN_FIELDS)) {
-      if ((request.kind === kind) !== (request[field] !== undefined)) {
+    // from module 0.31.0, a removal from module 0.33.0 and a turn ended or taken back from module
+    // 0.36.0, each name what they're of, and nothing else does; charges, how many, which nothing
+    // else says.
+    for (const [kind, { field, kinds, message }] of Object.entries(
+      OWN_FIELDS,
+    )) {
+      const own = (kinds ?? [kind]).includes(request.kind)
+      if (own !== (request[field] !== undefined)) {
         context.addIssue({ code: 'custom', path: [field], message })
       }
     }
@@ -621,9 +678,33 @@ export const rollRequestSchema = z
       }
       return
     }
-    if (damaging || hitDie || formula || request.kind === 'textRoll') {
+    // A recharge throws its one d6, and nothing more.
+    if (recharge) {
       const plain =
         request.mode === 0 && !request.explicit && request.extras.length === 0
+      const [die] = request.dice
+      const one =
+        request.dice.length === 1 &&
+        die.faces === 6 &&
+        die.results.length === 1 &&
+        die.results[0] >= 1 &&
+        die.results[0] <= 6
+      if (!plain || !one) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dice'],
+          message: 'A recharge throws its one d6, and nothing more',
+        })
+      }
+      return
+    }
+    if (damaging || hitDie || formula || request.kind === 'textRoll') {
+      const plain =
+        request.mode === 0 &&
+        !request.explicit &&
+        request.extras.length === 0 &&
+        // Damage on its own throws the dice the game said, one at least.
+        (!alone || request.dice.length > 0)
       const dice = request.dice.every(
         ({ faces, results }) =>
           (DIE_SIDES as readonly number[]).includes(faces) &&

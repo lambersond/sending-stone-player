@@ -12,6 +12,8 @@ import { hitDiceText } from './hit-dice'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesButton } from './uses-button'
+import { useSheetId } from '@/hooks/use-sheet-ids'
+import { rechargeWords } from '@/utils/creature-words'
 import { featureAction } from '@/utils/sheet-actions'
 import type {
   SheetDamageRoll,
@@ -63,14 +65,14 @@ export function FeaturesTab({
     onUse,
     tableDamage,
   })
+  // Unique on the page, where a companion's pane is mounted beside its character's.
+  const classesId = useSheetId('classes-heading')
+  const sectionId = useSheetId('features-')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {sheet.classes.length > 0 && (
-        <section
-          aria-labelledby='classes-heading'
-          className='flex flex-col gap-2'
-        >
-          <SheetHeading id='classes-heading'>Classes</SheetHeading>
+        <section aria-labelledby={classesId} className='flex flex-col gap-2'>
+          <SheetHeading id={classesId}>Classes</SheetHeading>
           <ul className='grid gap-2 @xl:grid-cols-2'>
             {sheet.classes.map(entry => (
               <ClassCard key={entry.id ?? entry.name} entry={entry} />
@@ -82,10 +84,10 @@ export function FeaturesTab({
       {sheet.features.map(section => (
         <section
           key={section.id}
-          aria-labelledby={`features-${section.id}`}
+          aria-labelledby={`${sectionId}${section.id}`}
           className='flex flex-col gap-2'
         >
-          <SheetHeading id={`features-${section.id}`}>
+          <SheetHeading id={`${sectionId}${section.id}`}>
             {section.label}
           </SheetHeading>
           {/* A container, so that each row fits the list it's in. */}
@@ -169,7 +171,10 @@ export function FeatureEntry({
       detail={joinParts(
         note,
         feature.activation ?? (feature.passive ? 'Passive' : undefined),
-        feature.uses?.recovery,
+        // As dnd5e's stat block says a recharge, from module 0.36.0, not "Recharge [5+]".
+        feature.uses?.recharge
+          ? rechargeWords(feature.uses.recharge)
+          : feature.uses?.recovery,
       )}
       aside={shown && <UsesButton uses={shown} name={feature.name} />}
       meta={meta}

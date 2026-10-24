@@ -80,7 +80,25 @@ export const SEND_KEY = 'sending-stone:send-rolls'
 /** And whether to send the Gamemaster's, at a character's sheet (#156): a switch of its own. */
 export const GM_SEND_KEY = `${SEND_KEY}:gm`
 
-const SEND_CHOICES = ['on', 'off'] as const
+/**
+ * Where this browser keeps whether damage the player rolls goes to the table on its own, with no
+ * attack or use made there (module 0.36.0): off until they turn it on; and the Gamemaster's, at a
+ * character's sheet, a switch of its own.
+ */
+export const ALONE_KEY = 'sending-stone:send-damage'
+export const GM_ALONE_KEY = `${ALONE_KEY}:gm`
+
+/** What each of those switches is: on or off. End Turn reads Send's too (module 0.36.0). */
+export const SEND_CHOICES = ['on', 'off'] as const
+
+/**
+ * A spent recharge rolled (module 0.36.0): what it's called, and the uses it recharges, as the
+ * sheet names them: an item's own, or one of its activities'.
+ */
+export type RechargeRoll = {
+  label: string
+  counter: { item: string; activity?: string }
+}
 
 /** An attack's or a use's item and activity, by which its damage is found. */
 export type AttackSource = { item: string; activity: string }
@@ -142,6 +160,10 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
    * while they type in their own dice.
    */
   offer?: true
+  /** Damage or healing sent on its own (module 0.36.0). */
+  alone?: true
+  /** A recharge rolled (module 0.36.0). */
+  recharge?: true
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -189,10 +211,17 @@ export function useTableRolls(
     'on',
   )
   const on = choice === 'on'
+  // Damage on its own, from module 0.36.0: off until the player turns it on, on this device.
+  const [alone, chooseAlone] = useStoredChoice(
+    gm ? GM_ALONE_KEY : ALONE_KEY,
+    SEND_CHOICES,
+    'off',
+  )
+  const sendsAlone = on && alone === 'on' && kinds.includes('itemDamage')
   // As the latest render has them, for `send` to stay the same function.
-  const latest = useRef({ api, kinds, features, on, gm })
+  const latest = useRef({ api, kinds, features, on, gm, sendsAlone })
   useEffect(() => {
-    latest.current = { api, kinds, features, on, gm }
+    latest.current = { api, kinds, features, on, gm, sendsAlone }
   })
   const running = useRef(new Set<AbortController>())
   useEffect(() => {
@@ -320,8 +349,34 @@ export function useTableRolls(
 
   const sendDamage = useCallback(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
-      const { use, types, modifiers, text } = roll
+      const { use, types, modifiers, text, alone } = roll
       const { kinds, on } = latest.current
+      // An action's damage or healing on its own, from module 0.36.0, where the player sends it so:
+      // no attack or use made, for the Gamemaster to apply from dnd5e's card. Otherwise, it's the
+      // player's alone.
+      if (alone) {
+        if (!latest.current.sendsAlone) return
+        start(
+          damage.id,
+          {
+            kind: 'itemDamage',
+            item: alone.item,
+            activity: alone.activity,
+            mode: 0,
+            explicit: false,
+            extras: [],
+            dice: damageDice(roll, damage),
+            ...(types?.some(type => type !== null) && { types }),
+            ...(alone.critical && { critical: true as const }),
+            ...(modifiers && changes(modifiers) && { modifiers }),
+            ...(damage.typed && { typed: true as const }),
+          },
+          // So that the tray words it as on its own, its kind not being in its state.
+          { alone: true },
+          roll.label,
+        )
+        return
+      }
       // A description's damage or healing, which the game reads from its own copy of it: changed
       // as the player chose, and a critical hit's, as the world's rules make one, where one is
       // offered, with what it adds. One with its dice doubled here, not made so, or not offered
@@ -573,9 +628,42 @@ export function useTableRolls(
     )
   }, [])
 
+  /**
+   * Roll a spent recharge in the game, from module 0.36.0: dnd5e's own, with the player's d6, for
+   * an item's own uses or one of its activities'.
+   */
+  const sendRecharge = useCallback(
+    (roll: RechargeRoll, rolled: LocalFormula) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('recharge')) return
+      const { item, activity } = roll.counter
+      start(
+        rolled.id,
+        {
+          kind: 'recharge',
+          item,
+          ...(activity && { activity }),
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [{ faces: 6, results: rolled.terms[0]?.values ?? [] }],
+          ...(rolled.typed && { typed: true as const }),
+        },
+        // So that the tray words its outcome as a recharge's, not a save's.
+        { recharge: true },
+        roll.label,
+      )
+    },
+    [start],
+  )
+
   const setSending = useCallback(
     (next: boolean) => choose(next ? 'on' : 'off'),
     [choose],
+  )
+  const setAlone = useCallback(
+    (next: boolean) => chooseAlone(next ? 'on' : 'off'),
+    [chooseAlone],
   )
   // A use's damage left for the player to roll, while they type in their own dice: once.
   const offerDamage = useCallback((localId: string) => {
@@ -597,6 +685,7 @@ export function useTableRolls(
     sendTransfer,
     sendRemove,
     sendAsk,
+    sendRecharge,
     offerDamage,
     states,
     /** Whether the game takes any of the player's rolls now. */
@@ -604,6 +693,16 @@ export function useTableRolls(
     /** Whether the player sends their rolls from this device. */
     sending: on,
     setSending,
+    /**
+     * Whether damage the player rolls goes to the game on its own from this device now, from
+     * module 0.36.0: with Send to the table on, their switch on, and the game taking it.
+     */
+    sendsAlone,
+    /** Whether the game takes damage on its own, for the player's switch to show. */
+    aloneOffered: kinds.includes('itemDamage'),
+    /** Whether the player's switch for damage on its own is on, on this device. */
+    aloneOn: alone === 'on',
+    setAlone,
     /** Whether the game takes this kind of roll from this device now. */
     takes: (kind: RollKind) => on && kinds.includes(kind),
     /** Whether the game takes damage the player changed from this device now. */
@@ -719,6 +818,9 @@ export function gmRollsOf(
         // Hit dice the game stopped spending part way, which it made some of, say how many.
         ...(status === 'failed' &&
           (spent?.made ?? 0) > 0 && { together: spent }),
+        // Worded as the player's own recharges and damage on its own are, from module 0.36.0.
+        ...(view.kind === 'recharge' && { recharge: true as const }),
+        ...(view.kind === 'itemDamage' && { alone: true as const }),
         requestId: view.id,
       }
       return [`gm:${view.id}`, state] as const

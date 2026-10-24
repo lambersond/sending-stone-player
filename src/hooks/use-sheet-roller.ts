@@ -34,7 +34,7 @@ import type {
   RollSource,
   TextLink,
 } from '@/types/roll'
-import type { CriticalRule } from '@/types/sending-stone'
+import type { CriticalRule, TableDamagePlan } from '@/types/sending-stone'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -140,6 +140,16 @@ export type SheetDamageRoll = {
   criticalAdds?: CriticalAdds
   /** The game's total counts, once it says, as where its formula couldn't be read. */
   gameTotal?: true
+  /**
+   * Damage or healing on its own (module 0.36.0): its item and activity, the game's plan of its
+   * dice, and whether this is a critical hit's.
+   */
+  alone?: {
+    item: string
+    activity: string
+    plan?: TableDamagePlan
+    critical?: boolean
+  }
 }
 
 /**
@@ -163,6 +173,8 @@ export type SheetFormulaRoll = {
   minimum?: number
   /** What it is, for the Gamemaster's game to make it too. */
   source?: FormulaSource
+  /** A recharge's d6 (module 0.36.0): the uses it recharges. */
+  recharge?: { item: string; activity?: string }
 }
 
 /** Something the player added to a roll, or a term of a damage roll, and what it came to. */
@@ -334,6 +346,8 @@ export type LocalFormula = {
   gameTotal?: boolean
   /** The player typed its dice in. */
   typed?: true
+  /** A recharge's d6 (module 0.36.0): what it recharges, for its titles. */
+  recharge?: { name: string }
   at: number
 }
 
@@ -814,6 +828,10 @@ function toLocalFormula(
     ...(totals.length > 1 && { times: totals.length }),
     ...(request.source?.kind === 'textRoll' && { described: true }),
     ...(rethrown(kept) && { gameTotal: true }),
+    // Thrown or typed in, a recharge's d6 is titled by what it recharges, as the game answers.
+    ...(request.recharge && {
+      recharge: { name: request.label.replace(/ recharge$/, '') },
+    }),
     at: result.at,
   }
 }

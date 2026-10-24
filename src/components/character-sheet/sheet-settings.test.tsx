@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useTheme } from 'next-themes'
 import { LAYOUTS } from './actions-layout'
 import { SheetSettings } from './sheet-settings'
+import { TableApiContext } from '@/hooks/use-table-api'
 
 jest.mock('next-themes', () => ({ useTheme: jest.fn() }))
 
@@ -19,6 +20,13 @@ const manualSwitch = () =>
   within(settings()).getByRole('switch', {
     name: 'Enter dice results manually',
   })
+
+/** The switch for damage on its own, among the settings. */
+const aloneSwitch = () =>
+  within(settings()).getByRole('switch', { name: 'Damage on its own' })
+
+/** A switch's track, which draws it on or off. */
+const trackOf = (input: HTMLElement) => input.nextElementSibling as HTMLElement
 
 /** The choice of how rolls show, among the settings. */
 const results = () =>
@@ -324,6 +332,143 @@ describe('components/character-sheet/sheet-settings', () => {
           within(results()).getByRole('radio', { name: 'Toasts' }),
         ).toHaveFocus(),
       )
+    })
+  })
+
+  describe('damage on its own, from module 0.36.0', () => {
+    const HINT =
+      'Damage you roll goes to your Gamemaster’s game with no attack or saving throw made there, for your Gamemaster to apply.'
+    const GM_HINT =
+      'Damage you roll goes to your game with no attack or saving throw made there, for you to apply.'
+
+    it('shows only with `alone`, right after Send to the table and before Enter dice results manually, a child of it', async () => {
+      const user = userEvent.setup()
+      const onChange = jest.fn()
+      const { rerender } = render(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          manualDice={{ on: false, onChange: jest.fn() }}
+        />,
+      )
+      await user.click(cog())
+      expect(
+        within(settings()).queryByRole('switch', { name: 'Damage on its own' }),
+      ).toBeNull()
+
+      rerender(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          alone={{ on: false, onChange, disabled: false }}
+          manualDice={{ on: false, onChange: jest.fn() }}
+          toasts={{ on: true, onChange: jest.fn() }}
+        />,
+      )
+      const send = within(settings()).getByRole('switch', {
+        name: 'Send to the table',
+      })
+      expect(within(settings()).getAllByRole('switch')).toEqual([
+        send,
+        aloneSwitch(),
+        manualSwitch(),
+      ])
+      expect(aloneSwitch()).toHaveAccessibleName('Damage on its own')
+      expect(aloneSwitch()).toHaveAccessibleDescription(HINT)
+      expect(aloneSwitch()).toBeEnabled()
+      expect(aloneSwitch()).not.toBeChecked()
+      // Set in beneath Send to the table, with no rule of its own above it.
+      const box = aloneSwitch().closest('label')?.parentElement as HTMLElement
+      expect(box).toHaveClass('ml-1', 'border-l', 'border-border', 'pl-4')
+      expect(box).not.toHaveClass('border-t', 'pt-3')
+      expect(send.closest('label')?.parentElement as HTMLElement).toHaveClass(
+        'border-t',
+        'pt-3',
+      )
+
+      await user.click(aloneSwitch())
+      expect(onChange).toHaveBeenCalledWith(true)
+      expect(settings()).toBeInTheDocument()
+    })
+
+    it("says, at the Gamemaster's seat, that they apply it", async () => {
+      const user = userEvent.setup()
+      render(
+        <TableApiContext
+          value={{
+            role: 'gm',
+            api: '/api/campaigns/c1/characters/a1',
+            key: 'gm:c1:a1',
+          }}
+        >
+          <SheetSettings
+            send={{ on: true, onChange: jest.fn() }}
+            alone={{ on: true, onChange: jest.fn(), disabled: false }}
+          />
+        </TableApiContext>,
+      )
+      await user.click(cog())
+
+      expect(aloneSwitch()).toBeChecked()
+      expect(aloneSwitch()).toHaveAccessibleDescription(GM_HINT)
+    })
+
+    it('is drawn and announced off while Send to the table is off, though it is stored on, saying why', async () => {
+      const user = userEvent.setup()
+      const onChange = jest.fn()
+      const { rerender } = render(
+        <SheetSettings
+          send={{ on: false, onChange: jest.fn() }}
+          alone={{ on: true, onChange, disabled: true }}
+        />,
+      )
+      await user.click(cog())
+
+      expect(aloneSwitch()).toBeDisabled()
+      expect(aloneSwitch()).not.toBeChecked()
+      expect(aloneSwitch()).toHaveAccessibleDescription(
+        'Turn on Send to the table first.',
+      )
+      expect(aloneSwitch().closest('label')).toHaveClass(
+        'cursor-not-allowed',
+        'opacity-60',
+      )
+      expect(aloneSwitch().closest('label')).not.toHaveClass('cursor-pointer')
+      expect(trackOf(aloneSwitch())).toHaveClass('bg-border')
+      expect(trackOf(aloneSwitch())).not.toHaveClass('bg-primary')
+      expect(trackOf(aloneSwitch()).firstElementChild).toHaveClass('left-0.5')
+      await user.click(aloneSwitch())
+      expect(onChange).not.toHaveBeenCalled()
+
+      // The stored choice comes back once Send to the table is on.
+      rerender(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          alone={{ on: true, onChange, disabled: false }}
+        />,
+      )
+      expect(aloneSwitch()).toBeEnabled()
+      expect(aloneSwitch()).toBeChecked()
+      expect(aloneSwitch()).toHaveAccessibleDescription(HINT)
+      expect(aloneSwitch().closest('label')).toHaveClass('cursor-pointer')
+      expect(trackOf(aloneSwitch())).toHaveClass('bg-primary')
+      expect(trackOf(aloneSwitch()).firstElementChild).toHaveClass('left-4.5')
+    })
+
+    it('gives every switch a label 44 pixels tall', async () => {
+      const user = userEvent.setup()
+      render(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          alone={{ on: false, onChange: jest.fn(), disabled: false }}
+          manualDice={{ on: false, onChange: jest.fn() }}
+        />,
+      )
+      await user.click(cog())
+
+      const switches = within(settings()).getAllByRole('switch')
+      expect(switches).toHaveLength(3)
+      for (const each of switches) {
+        expect(each.closest('label')).toHaveClass('min-h-11')
+      }
     })
   })
 })

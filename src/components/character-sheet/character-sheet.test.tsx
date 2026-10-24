@@ -1,8 +1,14 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterSheet, classLine } from './character-sheet'
-import { characterSheet } from '@/mocks/sending-stone'
+import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet as Sheet } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
@@ -62,6 +68,24 @@ const term = (label: string) =>
 
 /** The Hit dice tile's description. */
 const tile = () => term('Hit dice')?.nextSibling as HTMLElement
+
+/**
+ * Every image as a page drawn on the server has it: done loading and broken before React
+ * hydrates, so its error never reaches `onError`, and it has nothing to decode.
+ */
+const brokenBeforeMount = () => {
+  jest
+    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+    .mockReturnValue(true)
+  jest
+    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+    .mockReturnValue(0)
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+    configurable: true,
+    writable: true,
+    value: () => Promise.reject(new Error('EncodingError')),
+  })
+}
 
 /** The grid of the sheet's vital numbers, and the columns each of its tiles takes. */
 const grid = () => {
@@ -663,6 +687,57 @@ describe('components/character-sheet/character-sheet', () => {
 
     renderSheet({ img: null })
     expect(screen.getByText('TO')).toBeInTheDocument()
+  })
+
+  describe('a picture that failed before it was mounted, from module 0.36.0’s round', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+      Reflect.deleteProperty(HTMLImageElement.prototype, 'decode')
+    })
+
+    it('shows the initials in place of the portrait', async () => {
+      brokenBeforeMount()
+      const { container } = render(
+        <CharacterSheet
+          name='Thorin Oakenshield'
+          sheet={sheetOf()}
+          onRoll={jest.fn()}
+        />,
+      )
+      expect(await screen.findByText('TO')).toBeInTheDocument()
+      expect(container.querySelector('img')).toBeNull()
+    })
+
+    it('shows the ruby disc in place of each condition’s icon', async () => {
+      brokenBeforeMount()
+      renderSheet({ img: null, conditions: fullerSheet().conditions })
+      const conditions = screen.getByRole('list', { name: 'Conditions' })
+      await waitFor(() => expect(conditions.querySelector('img')).toBeNull())
+      expect(
+        conditions.querySelectorAll(String.raw`.bg-ruby\/15`),
+      ).toHaveLength(3)
+    })
+  })
+
+  it('draws a portrait given a new address after one failed', () => {
+    const sheet = (img: string) => (
+      <CharacterSheet
+        name='Thorin Oakenshield'
+        sheet={sheetOf({ img })}
+        onRoll={jest.fn()}
+      />
+    )
+    const { container, rerender } = render(sheet('worlds/erebor/thorin.webp'))
+    fireEvent.error(container.querySelector('img') as HTMLImageElement)
+    expect(container.querySelector('img')).toBeNull()
+
+    // Changed in the game since: its new portrait is tried afresh.
+    rerender(sheet('worlds/erebor/thorin-2.webp'))
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://my-game.forge-vtt.com/worlds/erebor/thorin-2.webp',
+    )
+    expect(screen.queryByText('TO')).toBeNull()
   })
 
   it('rolls an ability check or a saving throw', async () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -14,11 +14,14 @@ import {
   type RollBrief,
   type RollDue,
 } from './roll-tray'
+import { TurnToastContext } from '@/components/game-table/turn-toast'
 import { InPortalRoot } from '@/components/modal'
+import { useCreature } from '@/hooks/use-creature'
 import { useHydrated } from '@/hooks/use-hydrated'
 import { useRollToasts, useToastTop } from '@/hooks/use-roll-toasts'
 import { useTableRole } from '@/hooks/use-table-api'
 import { needsPlayer, type TableRollState } from '@/hooks/use-table-rolls'
+import { TOAST_GAP } from '@/utils/roll-toasts'
 import type { LocalRoll } from '@/hooks/use-sheet-roller'
 
 /**
@@ -80,10 +83,16 @@ export function RollToasts({
   header?: HTMLElement | null
 }>) {
   const { shown, dismiss } = useRollToasts(rolls, states, on)
-  const top = useToastTop(on, tabs, header, prompts)
+  const own = useToastTop(on, tabs, header, prompts)
+  // From module 0.36.0, below the turn's toast while it shows, which sits under the header.
+  const turnFoot = useContext(TurnToastContext)
+  const top =
+    turnFoot === undefined ? own : Math.max(own ?? 0, turnFoot + TOAST_GAP)
   const hydrated = useHydrated()
-  // In the tray's words for the seat at the sheet: the Gamemaster's game is their own (#156).
+  // In the tray's words for the seat at the sheet: the Gamemaster's game is their own (#156); and
+  // at a creature's pane, why its rolls weren't made as its own (module 0.36.0).
   const role = useTableRole()
+  const creature = useCreature()
   if (!on || !hydrated) return
   const toasts = shown.flatMap(toast => {
     const roll = rolls.find(({ id }) => id === toast.id)
@@ -114,7 +123,7 @@ export function RollToasts({
               key={`${id}:${poppedAt}`}
               roll={roll}
               state={state}
-              brief={briefOf(roll, state, role)}
+              brief={briefOf(roll, state, role, creature)}
               leaving={leaving}
               waits={needsPlayer(roll, state)}
               onDismiss={() => dismiss(id)}

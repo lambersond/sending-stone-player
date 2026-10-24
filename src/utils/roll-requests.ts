@@ -5,6 +5,7 @@ import {
   ROLL_FEATURES,
   ROLL_KINDS,
   ROLL_PENDING_FOR,
+  UNDO_TURN_WITHIN,
 } from '@/constants/sending-stone'
 import { outOfSlots, slotPools } from '@/utils/action-groups'
 import { castAtLevel, castIndex, castOf, type CastIndex } from '@/utils/casts'
@@ -23,6 +24,7 @@ import { damageKinds, healingRolls, toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
 import type {
   AttackTarget,
+  EndedTurn,
   GmRollView,
   RollFeature,
   RollKind,
@@ -34,6 +36,8 @@ import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
+  CompanionEntry,
+  DamagePreview,
   SheetAction,
   SheetCounter,
   SheetEnchantment,
@@ -83,6 +87,14 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * aren't the party's members that are the campaign's characters (`members`), or there isn't a
  * whole coin for each of them (`split`). From module 0.33.0, for an item removed: the stack holds
  * as many as asked, but not as many as the page showed, as after a potion was drunk (`changed`).
+ * From module 0.36.0: an action's damage on its own asked for as a critical hit's where the game
+ * would make none (`critical`); a recharge of uses that aren't spent (`charged`); and a companion's
+ * initiative where it acts right after its character, who's in that combat (`follows`). From module
+ * 0.36.0, for a turn ended: the combat hasn't started (`not-started`); its round or current
+ * combatant isn't the one the page showed, or that one is hidden (`moved`); or it's neither the
+ * character's turn nor one of its companions' (`not-turn`); and for a turn taken back, that the End
+ * Turn named can't be (`not-undoable`): not this seat's, not ended, too long ago, or its turn's
+ * combatant gone.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -120,6 +132,13 @@ export type RollRefusal =
   | 'members'
   | 'split'
   | 'changed'
+  | 'critical'
+  | 'charged'
+  | 'follows'
+  | 'not-started'
+  | 'moved'
+  | 'not-turn'
+  | 'not-undoable'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -133,27 +152,49 @@ export type HeldRollRequest = {
   result: unknown
   createdAt: Date
   claimedAt: Date | null
+  /** For a companion's roll, from module 0.36.0: the character whose companion `actorId` is. */
+  ofActorId?: string | null
 }
 
 /**
  * A roll as the module is sent it: whose, what, how, and the dice to make it with; and from module
  * 0.23.0, `by: 'gm'` for one the campaign's Gamemaster made as the character, which the module
- * marks as theirs. A player's has no `by`.
+ * marks as theirs. A player's has no `by`. From module 0.36.0, a companion's names its character,
+ * `of`, its `actorId` being the companion's key.
  */
 export type RollCommand = RollRequestInput & {
   id: string
   actorId: string
+  of?: string
   by?: 'gm'
+}
+
+/**
+ * Is this combatant the seat's own: its character, or from module 0.36.0 the companion the seat is
+ * at, which the module marks by its key?
+ */
+export function isSeatCombatant(
+  combatant: Pick<
+    CombatSnapshot['combatants'][number],
+    'character' | 'companion'
+  >,
+  actorId: string,
+): boolean {
+  return combatant.character === actorId || combatant.companion === actorId
 }
 
 /**
  * What the campaign's Gamemaster never sends as a character (#156): an end of an enchantment or,
  * from module 0.29.0, of a concentration, which post nothing in the game, so would leave no mark of
- * theirs. Charges spent and Heroic Inspiration post a line marked as theirs.
+ * theirs; and from module 0.36.0 a turn ended, or taken back, which posts nothing either: the
+ * Gamemaster ends one, or goes back to it, in Foundry. Charges spent and Heroic Inspiration post a
+ * line marked as theirs.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
   'endConcentration',
+  'endTurn',
+  'undoEndTurn',
 ])
 
 /**
@@ -269,8 +310,8 @@ export function checkRoll(
     }
     case 'initiative': {
       const combat = combats.find(({ id }) => id === input.combatId)
-      const combatant = combat?.combatants.find(
-        ({ character }) => character === actorId,
+      const combatant = combat?.combatants.find(each =>
+        isSeatCombatant(each, actorId),
       )
       if (!combatant) return 'not-in-combat'
       return combatant.initiative === null ? undefined : 'already-rolled'
@@ -296,6 +337,12 @@ export function checkRoll(
     case 'damage': {
       return undefined
     }
+    case 'itemDamage': {
+      return checkItemDamage(input, sheet)
+    }
+    case 'recharge': {
+      return checkRecharge(input, sheet)
+    }
     case 'endEnchantment': {
       return checkEnding(input, sheet)
     }
@@ -316,6 +363,124 @@ export function checkRoll(
       return sheet?.inspiration === false ? undefined : 'inspired'
     }
   }
+}
+
+/**
+ * Can the seat end this turn, from module 0.36.0, as the combat was last heard of: the turn the
+ * page was shown, still the current one, of a started combat, and the seat's character's, or one of
+ * its companions', by the campaign's stored list. Checked alone, with or without a sheet; the game
+ * checks it again as it stands before it ends anything, since a turn can move on in between.
+ * @param turn - The turn the page was shown: its combat, round and current combatant.
+ * @param actorId - The seat's character: a companion's turn is ended from its character's page.
+ * @param roster - The campaign's companions, as stored.
+ * @returns Why not, or nothing when it can.
+ */
+export function checkEndTurn(
+  turn: EndedTurn | undefined,
+  combats: CombatSnapshot[],
+  actorId: string,
+  roster: CompanionEntry[],
+): RollRefusal | undefined {
+  const combat = turn && combats.find(({ id }) => id === turn.combatId)
+  if (!turn || !combat) return 'not-in-combat'
+  if (!combat.started) return 'not-started'
+  // The page names the turn by its round and current combatant, so that a stale or second press
+  // ends nothing more once the turn has moved on.
+  if (combat.round !== turn.round || combat.combatantId !== turn.combatantId) {
+    return 'moved'
+  }
+  // The page is never shown a hidden combatant as the current one.
+  const current = combat.combatants.find(({ id }) => id === turn.combatantId)
+  if (!current || current.hidden === true) return 'moved'
+  return isTurnOf(current, actorId, roster) ? undefined : 'not-turn'
+}
+
+/**
+ * Is this combatant's turn one the seat's character may end, or take back (module 0.36.0): the
+ * character's own, or one of its companions', by the campaign's stored list. Not isSeatCombatant,
+ * whose companion is a companion's own seat's: here it's any of those the list gives the character.
+ */
+function isTurnOf(
+  combatant: Pick<
+    CombatSnapshot['combatants'][number],
+    'character' | 'companion'
+  >,
+  actorId: string,
+  roster: CompanionEntry[],
+): boolean {
+  return (
+    combatant.character === actorId ||
+    roster.some(
+      ({ key, of }) => key === combatant.companion && of.includes(actorId),
+    )
+  )
+}
+
+/** An End Turn as it's held, for taking it back (module 0.36.0): how far it got, and when. */
+export type HeldEndTurn = {
+  status: string
+  completedAt: Date | null
+  payload: unknown
+}
+
+/**
+ * Can the seat take back the turn this End Turn of its own ended, from module 0.36.0, as the combat
+ * was last heard of: the End Turn the game said it made, a moment ago, in this combat; the combat
+ * still started, and where that End Turn left it, the turn the page shows now, not hidden, and not
+ * the ended turn back already; and the ended turn's combatant still in it, shown, and still the
+ * character's or one of its companions'. The game checks it all again against its own memory of
+ * that End Turn, and the combat as it stands, before it moves anything back.
+ * @param turn - The turn the page shows now, which that End Turn left: its combat, round and
+ *   current combatant.
+ * @param ended - The End Turn named, read as this seat's and this character's only; none where it
+ *   isn't.
+ * @param actorId - The seat's character, whose End Turn it was, for a companion's turn too.
+ * @param roster - The campaign's companions, as stored.
+ * @param now - When it's asked, in milliseconds.
+ * @returns Why not, or nothing when it can.
+ */
+export function checkUndoTurn(
+  turn: EndedTurn | undefined,
+  ended: HeldEndTurn | null | undefined,
+  combats: CombatSnapshot[],
+  actorId: string,
+  roster: CompanionEntry[],
+  now: number,
+): RollRefusal | undefined {
+  // Only an End Turn the game made, and only for a moment after, as the toast offers it.
+  const endedTurn = (ended?.payload as Partial<RollRequestInput> | undefined)
+    ?.turn
+  if (
+    !turn ||
+    !ended ||
+    ended.status !== 'done' ||
+    !ended.completedAt ||
+    now - ended.completedAt.getTime() > UNDO_TURN_WITHIN ||
+    !endedTurn ||
+    endedTurn.combatId !== turn.combatId
+  ) {
+    return 'not-undoable'
+  }
+  const combat = combats.find(({ id }) => id === turn.combatId)
+  if (!combat) return 'not-in-combat'
+  if (!combat.started) return 'not-started'
+  // The combat where that End Turn left it, as the page shows it: else it has moved on since, or
+  // it's back on the ended turn already, and taking it back would move it somewhere else.
+  if (combat.round !== turn.round || combat.combatantId !== turn.combatantId) {
+    return 'moved'
+  }
+  const current = combat.combatants.find(({ id }) => id === turn.combatantId)
+  if (!current || current.hidden === true) return 'moved'
+  if (
+    endedTurn.round === turn.round &&
+    endedTurn.combatantId === turn.combatantId
+  ) {
+    return 'moved'
+  }
+  // The turn it ended: still in the combat, shown to the page, and still the seat's to end.
+  const back = combat.combatants.find(({ id }) => id === endedTurn.combatantId)
+  if (!back || back.hidden === true) return 'not-undoable'
+  return isTurnOf(back, actorId, roster) ? undefined : 'not-turn'
 }
 
 /**
@@ -482,13 +647,58 @@ function checkSelf(
   if (!features.includes('selfTargets') || action.activity?.targets.self) {
     return true
   }
-  return targets.some(
-    target =>
-      combats
-        .find(({ id }) => id === target.combatId)
-        ?.combatants.find(({ id }) => id === target.combatantId)?.character ===
-      actorId,
+  return targets.some(target => {
+    const combatant = combats
+      .find(({ id }) => id === target.combatId)
+      ?.combatants.find(({ id }) => id === target.combatantId)
+    return !!combatant && isSeatCombatant(combatant, actorId)
+  })
+}
+
+/**
+ * Can this action's damage or healing go on its own, from module 0.36.0: is it one of the sheet's
+ * actions, favorites, spells, features or inventory items, by its item and its attack's or use's
+ * activity, whose damage the game would roll on its own; as a critical hit's only where the game
+ * makes one of it; and are its dice those the game said it throws, changed as the player chose,
+ * each kind chosen one it offers? Not once only: it follows no attack or use.
+ */
+function checkItemDamage(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  if (!sheet) return 'gone'
+  const action = sheetActions(sheet).find(
+    ({ id, attackId, activity }) =>
+      id === input.item &&
+      (attackId === input.activity || activity?.id === input.activity),
   )
+  if (!action) return 'gone'
+  const plan = action.tableDamage
+  if (!plan) return 'no-damage'
+  const preview = input.critical ? plan.critical : plan.normal
+  if (!preview) return 'critical'
+  return checkDamageDice(input, preview)
+}
+
+/**
+ * Can these uses be recharged, from module 0.36.0: are they a counter the sheet shows, an item's
+ * own or one of its activities', as named, that recharges, with some of them spent, as dnd5e rolls
+ * a recharge only then? Its one d6 the request's schema checked.
+ */
+function checkRecharge(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  if (!sheet || !input.item) return 'gone'
+  const counter = {
+    item: input.item,
+    ...(input.activity && { activity: input.activity }),
+  }
+  const uses = sheetUses(sheet).find(
+    shown => sameCounter(shown.counter, counter) && !!shown.recharge,
+  )
+  if (!uses) return 'gone'
+  return uses.value >= uses.max ? 'charged' : undefined
 }
 
 /**
@@ -865,15 +1075,19 @@ function checkTargets(
  * rerolled on its highest face; and is each kind of damage chosen one its roll offers?
  * @param use - The attack or use, if it's the character's.
  * @param others - The other damage asked for the same attack or use.
+ * @param actorId - The seat's actor: from module 0.36.0, damage follows only that actor's own
+ *   attack or use, never its character's or another companion's, whose seats share a player.
  */
 export function checkDamage(
   input: RollRequestInput,
   use: HeldRollRequest | null | undefined,
   others: Pick<HeldRollRequest, 'status' | 'createdAt' | 'claimedAt'>[],
   now = Date.now(),
+  actorId?: string,
 ): RollRefusal | undefined {
   const follows = use?.kind === 'attack' || use?.kind === 'use'
   if (!use || !follows || use.status !== 'done') return 'gone'
+  if (actorId !== undefined && use.actorId !== actorId) return 'gone'
   if (now - use.createdAt.getTime() > DAMAGE_WITHIN) return 'gone'
   const damage = (use.result as CommandResult | null)?.damage
   if (!damage) return 'no-damage'
@@ -881,6 +1095,19 @@ export function checkDamage(
     ['sending', 'rolling', 'done'].includes(rollStatus(other, now)),
   )
   if (taken) return 'damaged'
+  return checkDamageDice(input, damage)
+}
+
+/**
+ * Are damage's dice those the game said it throws, in order, each die's first throw, changed as
+ * the player chose, if they did, never at its highest where it takes a die away, or a die explodes
+ * or is rerolled on its highest face; and is each kind of damage chosen one its roll offers? For an
+ * attack's or a use's damage, and from module 0.36.0 an action's on its own.
+ */
+export function checkDamageDice(
+  input: RollRequestInput,
+  damage: DamagePreview,
+): RollRefusal | undefined {
   // Never at its highest where it takes a die away, nor where a die explodes, or is rerolled on its
   // highest face, whose highest isn't known.
   if (
@@ -1057,6 +1284,8 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   formula: 'A roll',
   textRoll: 'A roll',
   textDamage: 'Damage',
+  itemDamage: 'Damage',
+  recharge: 'A recharge',
   ask: 'A roll asked of the table',
   endEnchantment: 'An enchantment ended',
   endConcentration: 'Concentration ended',
@@ -1064,6 +1293,8 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   inspiration: 'Heroic Inspiration',
   transfer: 'Items or coins moved',
   remove: 'An item removed',
+  endTurn: 'A turn ended',
+  undoEndTurn: 'A turn taken back',
 }
 
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */
@@ -1100,7 +1331,7 @@ export function toGmRollView(
   let d20: GmRollView['d20']
   if (D20_KINDS.has(kind) && first?.critical) d20 = 'critical'
   else if (D20_KINDS.has(kind) && first?.fumble) d20 = 'fumble'
-  const damage = kind === 'damage' || kind === 'textDamage'
+  const damage = DAMAGE_KINDS.has(kind)
   const healing = damage && (heals || healingRolls(view.rolls ?? []))
   const critical =
     damage && !!view.visible && !!view.rolls?.some(roll => roll.critical)
@@ -1140,7 +1371,14 @@ function cardless(result: CommandResult | null): { card?: false } {
  * The rolls whose total is all of their rolls' added up: damage's parts, as dnd5e's card adds
  * damage up, or hit dice's cards.
  */
-const SUMMED = new Set(['damage', 'textDamage', 'hitDice'])
+const SUMMED = new Set(['damage', 'textDamage', 'itemDamage', 'hitDice'])
+
+/** The kinds that are damage or healing: from module 0.36.0, an action's on its own too. */
+const DAMAGE_KINDS: ReadonlySet<string> = new Set([
+  'damage',
+  'textDamage',
+  'itemDamage',
+])
 
 /**
  * Damage's total, or hit dice's, when the game said each of its rolls': hit dice's added up; and
@@ -1153,7 +1391,7 @@ function sumOf(
 ): number | undefined {
   if (rolls.length === 0 || rolls.some(roll => roll.total === null))
     return undefined
-  if (kind !== 'damage' && kind !== 'textDamage') {
+  if (!DAMAGE_KINDS.has(kind)) {
     return rolls.reduce((sum, roll) => sum + (roll.total ?? 0), 0)
   }
   // Each kind as the chat's damage card counts it, but every kind added, Midi-QOL's none and each
@@ -1167,6 +1405,8 @@ export function toCommand(request: HeldRollRequest): RollCommand {
     ...(request.payload as RollRequestInput),
     id: request.id,
     actorId: request.actorId,
+    // A companion's names its character (module 0.36.0).
+    ...(request.ofActorId ? { of: request.ofActorId } : {}),
     ...(request.role === 'gm' ? { by: 'gm' as const } : {}),
   }
 }

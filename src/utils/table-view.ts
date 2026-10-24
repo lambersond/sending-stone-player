@@ -28,6 +28,7 @@ import type {
   TableAsk,
   TableCheckAsk,
   TableCombat,
+  TableCombatant,
   TableDamage,
   TableDamageKind,
   TableMessage,
@@ -38,22 +39,73 @@ import type {
 
 /**
  * Who is looking: their character's actor id, if chosen, and the party's actor ids, with the
- * party's portraits by actor id.
+ * party's portraits by actor id. From module 0.36.0, the campaign's characters' companions, by
+ * key, with the characters each is a companion of; and at a companion's own view, its key in
+ * place of the character's actor id, with the character whose companion it is (`of`).
  */
 export type Viewer = {
   actorId: string | undefined
   party: Set<string>
   portraits?: Map<string, string>
+  companions?: Map<string, { of: string[]; portrait?: string; name: string }>
+  of?: string
 }
 
+/**
+ * Whose side a combatant or a message is on, from the viewer's point of view, and whether it's one
+ * of the viewer's own creatures other than the one they're at (`yours`): from module 0.36.0, the
+ * companion it is, where it's one listed, is the viewer's own where they're at it, else the
+ * party's, and theirs where it's their character's companion; and at a companion's view, its
+ * character is the party's, and theirs.
+ * @param companion - The listed companion it is, by key, where the module says.
+ */
 function sideOf(
   viewer: Viewer,
   actorId: string | null,
   playerOwned = false,
-): Side {
-  if (actorId && actorId === viewer.actorId) return 'me'
-  if ((actorId && viewer.party.has(actorId)) || playerOwned) return 'party'
-  return 'other'
+  companion?: string | null,
+): { side: Side; yours?: true } {
+  const character = viewer.of ?? viewer.actorId
+  const listed = companion ? viewer.companions?.get(companion) : undefined
+  if (companion && listed) {
+    if (companion === viewer.actorId) return { side: 'me' }
+    return character && listed.of.includes(character)
+      ? { side: 'party', yours: true }
+      : { side: 'party' }
+  }
+  if (actorId && actorId === viewer.actorId) return { side: 'me' }
+  if (actorId && viewer.of && actorId === viewer.of) {
+    return { side: 'party', yours: true }
+  }
+  if ((actorId && viewer.party.has(actorId)) || playerOwned) {
+    return { side: 'party' }
+  }
+  return { side: 'other' }
+}
+
+/**
+ * Is this the listed companion of the viewer's character, by key, from module 0.36.0: for its
+ * tab, the one they're at among them?
+ */
+function companionOfViewer(
+  viewer: Viewer,
+  companion: string | null | undefined,
+): string | undefined {
+  const character = viewer.of ?? viewer.actorId
+  const listed = companion ? viewer.companions?.get(companion) : undefined
+  return companion && listed && character && listed.of.includes(character)
+    ? companion
+    : undefined
+}
+
+/**
+ * A message's side, from module 0.36.0 by the companion that spoke it, where it's one listed: one
+ * of the viewer's character's companions is the viewer's own, as their character's is, so that
+ * it's never unread; another's, the party's.
+ */
+function messageSide(viewer: Viewer, message: SerializedMessage): Side {
+  if (companionOfViewer(viewer, message.companion)) return 'me'
+  return sideOf(viewer, message.character, false, message.companion).side
 }
 
 /* -------------------------------------------- */
@@ -149,10 +201,13 @@ export function toTableMessage(
     id: message.id,
     sentAt: new Date(message.timestamp).toISOString(),
     speaker,
-    side: sideOf(viewer, message.character),
-    avatar: viewer.portraits?.get(
-      message.character ?? message.speaker.actorId ?? '',
-    ),
+    side: messageSide(viewer, message),
+    // A companion's portrait, where it spoke it, from module 0.36.0.
+    avatar:
+      (message.companion
+        ? viewer.companions?.get(message.companion)?.portrait
+        : undefined) ??
+      viewer.portraits?.get(message.character ?? message.speaker.actorId ?? ''),
     whisper: !message.audience.public,
     kind,
     label: messageLabel(message, damage !== undefined),
@@ -166,6 +221,7 @@ export function toTableMessage(
     ...(summary && { summary }),
     ...(ask && { ask }),
     ...(byGm && { byGm: true as const }),
+    ...(message.alone && { alone: true as const }),
   }
 }
 
@@ -979,9 +1035,19 @@ export function toTableCombat(
   }
 }
 
-function toTableCombatant(combatant: CombatantSummary, viewer: Viewer) {
-  const side = sideOf(viewer, combatant.character, combatant.playerOwned)
+function toTableCombatant(
+  combatant: CombatantSummary,
+  viewer: Viewer,
+): TableCombatant {
+  const { side, yours } = sideOf(
+    viewer,
+    combatant.character,
+    combatant.playerOwned,
+    combatant.companion,
+  )
   const stance = stanceOf(combatant, side)
+  // One of the viewer's character's companions, by key, for its tab (module 0.36.0).
+  const companion = companionOfViewer(viewer, combatant.companion)
   return {
     id: combatant.id,
     name: combatant.name,
@@ -990,6 +1056,8 @@ function toTableCombatant(combatant: CombatantSummary, viewer: Viewer) {
     side,
     ...(stance && { stance }),
     hp: side === 'other' ? undefined : (combatant.hp ?? undefined),
+    ...(yours && { yours }),
+    ...(companion && { companion }),
   }
 }
 

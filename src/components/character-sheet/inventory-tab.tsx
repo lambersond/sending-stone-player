@@ -36,6 +36,7 @@ import {
   useTransferring,
   type TransferControls,
 } from '@/components/transfers/transferring'
+import { useSheetId } from '@/hooks/use-sheet-ids'
 import { compactAmount } from '@/utils/format-amount'
 import { itemAction } from '@/utils/sheet-actions'
 import type {
@@ -100,6 +101,8 @@ export function InventoryTab({
   })
   const { inventory } = sheet
   const { currency, encumbrance, attunement } = inventory
+  // Unique on the page, where a companion's pane is mounted beside its character's.
+  const idPrefix = useSheetId('inventory')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {favorites}
@@ -112,6 +115,7 @@ export function InventoryTab({
           characterId={characterId}
           inventory={inventory}
           rows={rows}
+          idPrefix={idPrefix}
         />
       </Transferring>
       {dialogs}

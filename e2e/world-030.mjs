@@ -29,7 +29,11 @@
 // Foundry page reloaded, its module afresh (`reloadFoundry`); and what was posted (`lastHello`, `books`).
 // Since module 0.35.0 (its contract §13.1): SKEW=034 is module 0.34.0; pages reordered in Foundry as
 // a user there (`dragInFoundry`); and the notes format the module keeps from the app's answers
-// (`notesFormat`).
+// (`notesFormat`). Since module 0.36.0 (its contract §13.1): SKEW=035 is module 0.35.0; scenes, tokens
+// and companions, the module's own stand-ins (fvtt/token-core.mjs), loaded by `sceneWorld()` after
+// `foundryWorld()` only in a world that has them, so no other world has scenes; a companion's world
+// actor (`companion`), the active scene (`activeScene`), a token placed on it (`place`) and a token
+// summoned with a character's item (`summoned`).
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -55,6 +59,8 @@ export const SKEW032 = process.env.SKEW === '032'
 export const SKEW033 = process.env.SKEW === '033'
 /** Module 0.34.0, from before 0.35.0, against this round's app: no orders, nor who changed a journal. */
 export const SKEW034 = process.env.SKEW === '034'
+/** Module 0.35.0, from before 0.36.0, against this round's app: no companions, no damage on its own, no recharges. */
+export const SKEW035 = process.env.SKEW === '035'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -65,7 +71,7 @@ if (SHOTS_031) mkdirSync(SHOTS_031, { recursive: true })
 /** Module 0.33.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_033 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-033`
 if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -744,6 +750,65 @@ export async function startModule({ campaigns, secrets, gmContent = false, resul
 export async function changeSetting(namespace, key, value) {
   settings.set(key, value)
   await Hooks.callAll('updateSetting', { key: `${namespace}.${key}`, value }, { value }, {}, 'gm')
+}
+
+// ---- Scenes, tokens and companions (module 0.36.0) ----
+let T = null
+/**
+ * Foundry's scenes and tokens, and the module's companions on them: fvtt/token-core.mjs, loaded
+ * after `foundryWorld()`, so that its uuids are found before the world's own. Only a world that has
+ * companions loads it: every other has no `game.scenes`, as every world before 0.36.0's had none.
+ * @returns {Promise<object>} token-core's exports, `faults`, `combatOf` and `changeDelta` among them.
+ */
+export async function sceneWorld() {
+  T ??= await import('./fvtt/token-core.mjs')
+  return T
+}
+const tokenCore = () => {
+  if (!T) throw new Error('sceneWorld() before scenes, tokens and companions')
+  return T
+}
+/**
+ * A companion's world actor: an NPC whose players are given Owner by user id, linked unless said,
+ * with its armour class and gear as `equip` gives them; `npc`, what else it has: `spec` (Actor5e's
+ * mods, hp, skills, prof and npc hit dice), `system` merged into its system (its details, resources
+ * and traits), `flags` and `img`.
+ */
+export function companion(id, name, { owners = [], linked = true, ac, gear = {}, npc: { spec = {}, system = {}, flags = {}, img = `icons/${id}.webp`, ownership } = {} } = {}) {
+  const actor = tokenCore().companionActor(id, name, {
+    owners, linked, spec, system, flags, img, ...(ownership && { ownership }),
+    gear: { ...gear, ...(ac !== undefined && { ac }) },
+  })
+  actor.prototypeToken = { ...actor.prototypeToken, texture: { src: `tokens/${id}.webp` } }
+  return actor
+}
+/** A scene of Foundry's, made the active one, as the Gamemaster's Activate does. */
+export async function activeScene(id) {
+  const made = tokenCore().scene(id, { name: id })
+  await tokenCore().activate(made)
+  return made
+}
+/**
+ * A token placed on a scene: `id`, its own; linked or not (`actorLink`); `name`, its token's; and
+ * `delta`, an unlinked token's own data over its actor's. With `tell`, placed as core places one
+ * after the world is up, firing `createToken`; else as the world was before the module was ready.
+ * Midi-QOL's stand-in finds it among the canvas's placeables.
+ */
+export async function place(on, actor, { tell = true, ...opts } = {}) {
+  const token = tell ? await tokenCore().createToken(on, actor, opts) : tokenCore().placeToken(on, actor, opts)
+  token.disposition = actor.type === 'npc' ? -1 : 1
+  W.placeables.set(token.id, token.object)
+  if (MIDI) canvas.scene.tokens.size = W.placeables.size
+  return token
+}
+/**
+ * A token summoned with a character's item, as dnd5e's summoning makes one: unlinked, its delta's
+ * `flags.dnd5e.summon` naming the item it was summoned with; its own hit points and the rest in
+ * `delta`, over its template's.
+ */
+export function summoned(on, base, character, itemId, { delta = {}, activity, ...opts } = {}) {
+  const summon = { origin: `Actor.${character.id}.Item.${itemId}`, ...(activity && { activity }) }
+  return place(on, base, { actorLink: false, ...opts, delta: { ...delta, flags: foundry.utils.mergeObject(foundry.utils.deepClone(delta.flags ?? {}), { dnd5e: { summon } }) } })
 }
 
 // ---- The players' pages ----

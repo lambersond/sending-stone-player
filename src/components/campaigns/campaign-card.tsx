@@ -14,6 +14,7 @@ import { SecretForm } from './secret-form'
 import { CopyField } from '@/components/copy-button'
 import { LocalTime } from '@/components/game-table/local-time'
 import { ConfirmDialog } from '@/components/modal'
+import { numberedNames } from '@/utils/companion-row'
 import { gameHost } from '@/utils/game-host'
 import type {
   CampaignRefusal,
@@ -117,12 +118,10 @@ export function CampaignCard({
         )}
         {campaign.characters.length > 0 ? (
           <ul className='grid gap-1.5 text-sm'>
-            {campaign.characters.map(character => (
-              <li
-                key={character.id}
-                className='flex min-h-10 items-center justify-between gap-3 rounded-lg bg-page py-1 pr-1 pl-3'
-              >
-                {/* Its sheet, as its player sees it, claimed or not (#156). */}
+            {campaign.characters.map(character => {
+              const companions = companionsLine(character.companions)
+              // Its sheet, as its player sees it, claimed or not (#156).
+              const link = (
                 <Link
                   href={`/campaigns/${campaign.id}/characters/${character.id}`}
                   aria-label={`Open ${character.name}'s sheet`}
@@ -130,40 +129,61 @@ export function CampaignCard({
                 >
                   {character.name}
                 </Link>
-                <span className='flex shrink-0 items-center gap-1'>
-                  <span
-                    className={clsx(
-                      'text-xs',
-                      character.player
-                        ? 'font-semibold text-primary'
-                        : 'pr-2 text-text-secondary',
-                    )}
-                  >
-                    {character.player ?? 'Not chosen yet'}
-                  </span>
-                  {character.player && character.characterId && (
-                    <ConfirmDialog
-                      trigger={<UserMinus aria-hidden className='size-4' />}
-                      triggerLabel={`Remove ${character.player} as ${character.name}`}
-                      triggerClassName='rounded-md p-1.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
-                      title={`Remove ${character.player} as ${character.name}?`}
-                      confirmLabel='Remove'
-                      onConfirm={removePlayer.bind(
-                        undefined,
-                        character.characterId,
-                      )}
-                      danger
-                    >
-                      <p>
-                        {character.player} stops following {campaign.title} as{' '}
-                        {character.name}, and {character.name} can be chosen
-                        again from the invite link.
-                      </p>
-                    </ConfirmDialog>
+              )
+              return (
+                <li
+                  key={character.id}
+                  className={clsx(
+                    'flex min-h-10 items-center justify-between gap-3 rounded-lg bg-page pr-1 pl-3',
+                    companions ? 'py-1.5' : 'py-1',
                   )}
-                </span>
-              </li>
-            ))}
+                >
+                  {/* Its companions under its name, as listed (module 0.36.0). */}
+                  {companions ? (
+                    <div className='flex min-w-0 flex-col gap-0.5'>
+                      {link}
+                      <p className='text-xs text-text-secondary'>
+                        {companions}
+                      </p>
+                    </div>
+                  ) : (
+                    link
+                  )}
+                  <span className='flex shrink-0 items-center gap-1'>
+                    <span
+                      className={clsx(
+                        'text-xs',
+                        character.player
+                          ? 'font-semibold text-primary'
+                          : 'pr-2 text-text-secondary',
+                      )}
+                    >
+                      {character.player ?? 'Not chosen yet'}
+                    </span>
+                    {character.player && character.characterId && (
+                      <ConfirmDialog
+                        trigger={<UserMinus aria-hidden className='size-4' />}
+                        triggerLabel={`Remove ${character.player} as ${character.name}`}
+                        triggerClassName='rounded-md p-1.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+                        title={`Remove ${character.player} as ${character.name}?`}
+                        confirmLabel='Remove'
+                        onConfirm={removePlayer.bind(
+                          undefined,
+                          character.characterId,
+                        )}
+                        danger
+                      >
+                        <p>
+                          {character.player} stops following {campaign.title} as{' '}
+                          {character.name}, and {character.name} can be chosen
+                          again from the invite link.
+                        </p>
+                      </ConfirmDialog>
+                    )}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         ) : (
           <p className='text-sm text-text-secondary'>
@@ -389,4 +409,24 @@ function FoundryStatus({ campaign }: Readonly<{ campaign: OwnedCampaign }>) {
       )}
     </span>
   )
+}
+
+/**
+ * A character's companions as its card lists them (module 0.36.0): "Companions: Brakka, Bat 1
+ * (summoned), Bat 2 (summoned)", in the module's order, a repeated name numbered as a fresh row of
+ * tabs numbers it. None where it has none.
+ */
+function companionsLine(
+  companions: OwnedCampaign['characters'][number]['companions'] = [],
+): string | undefined {
+  if (companions.length === 0) return undefined
+  const { names } = numberedNames(
+    companions.map(({ name }, index) => ({ key: String(index), name })),
+    new Map(),
+  )
+  const listed = companions.map(
+    ({ kind }, index) =>
+      `${names.get(String(index))}${kind === 'summoned' ? ' (summoned)' : ''}`,
+  )
+  return `Companions: ${listed.join(', ')}`
 }

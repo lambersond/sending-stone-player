@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
+import { useRollsLocked } from '@/hooks/use-rolls-locked'
 import type { MenuPoint } from './roll-menu'
 import type { RollSource } from '@/types/roll'
 import type { RollMode } from '@/types/sending-stone'
@@ -44,7 +45,8 @@ type Props<T> = {
 /**
  * A part of the sheet that rolls when tapped or clicked, and offers other ways to roll on a
  * right-click, a long-press on a touch screen, or the keyboard's context menu key, or Shift+F10,
- * which browsers take for it.
+ * which browsers take for it. Disabled, and greyed, in a pane whose rolls are locked, as a
+ * companion's that has gone (module 0.36.0).
  */
 export function RollButton<T = RollTarget>({
   target,
@@ -54,9 +56,11 @@ export function RollButton<T = RollTarget>({
   className,
   children,
   popup = 'menu',
-  disabled,
   title,
+  disabled: unavailable,
 }: Readonly<Props<T>>) {
+  const locked = useRollsLocked()
+  const disabled = unavailable || locked
   const press = useRef({
     x: 0,
     y: 0,
@@ -77,6 +81,7 @@ export function RollButton<T = RollTarget>({
         // A held touch opens the menu, not the browser's text selection or callout.
         'touch-manipulation select-none [-webkit-touch-callout:none]',
         className,
+        locked && 'cursor-not-allowed opacity-50',
       )}
       onClick={event => {
         if (press.current.opened) {

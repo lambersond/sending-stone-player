@@ -383,6 +383,9 @@ function activityAction(
       ammunition: favorite.ammunition ?? null,
       save: favorite.save,
       damage: favorite.damage,
+      // Its damage on its own, from module 0.36.0, only while the game may make it, as its use.
+      ...(inGame &&
+        favorite.tableDamage && { tableDamage: favorite.tableDamage }),
       ...(favorite.consumesSlot === false && { consumesSlot: false }),
       ...(favorite.cast && { cast: favorite.cast }),
       // For a Cast, its spell's copy, whose other activities are used beneath it.

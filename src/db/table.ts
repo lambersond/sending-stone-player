@@ -8,6 +8,11 @@ import {
 } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
 import { groupRoster, tableGroups, tableMoves } from '@/db/party'
+import {
+  companionRoster,
+  companionsByKey,
+  tableCompanion,
+} from '@/utils/companions'
 import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
 import {
@@ -71,7 +76,7 @@ export type CampaignStatus = {
  * beside their own: those of the character's actor in its campaign, of those kept. None for the
  * Gamemaster's own seat, whose page has them already, nor for a character in no campaign.
  */
-function gmRollsOf(
+export function gmRollsOf(
   seat: SheetSeat,
   now: number,
 ): Prisma.RollRequestWhereInput | undefined {
@@ -88,7 +93,7 @@ function gmRollsOf(
  * What changes whenever any of the Gamemaster's rolls a player is shown does: its status, as time
  * moves it too, or what the game said of it. None for none.
  */
-function gmRollsKey(
+export function gmRollsKey(
   rolls: (Pick<HeldRollRequest, 'id' | 'status' | 'createdAt' | 'claimedAt'> & {
     completedAt: Date | null
   })[],
@@ -112,7 +117,7 @@ function gmRollsKey(
  * its damage; else looked up, among the Gamemaster's as the same character, whose damage follows
  * only their own.
  */
-async function healingUses(
+export async function healingUses(
   made: (Pick<HeldRollRequest, 'id' | 'kind' | 'result'> & {
     useId: string | null
   })[],
@@ -146,7 +151,7 @@ async function healingUses(
 }
 
 /** What says where each of the Gamemaster's rolls a player is shown stands. */
-const gmRollStateSelect = {
+export const gmRollStateSelect = {
   id: true,
   status: true,
   createdAt: true,
@@ -158,7 +163,7 @@ const gmRollStateSelect = {
  * What says which rolls a campaign's game takes from players, from module 0.31.0 whether it takes
  * their moves of items and coins, and from module 0.33.0 whether it removes their items.
  */
-const rollsSelect = {
+export const rollsSelect = {
   rollsEnabled: true,
   rollKinds: true,
   rollFeatures: true,
@@ -172,11 +177,11 @@ const rollsSelect = {
  * the game does with them. A player's never name `gmRolls`, which only the Gamemaster's view
  * reads, so their views, and what tells them apart, are as before it. The Gamemaster's (#156) are
  * none while the game doesn't make their rolls as the character's, marked as theirs, and never an
- * end of an enchantment or a concentration, which is no roll and posts nothing (`GM_UNSENT`); with
- * where their rolls go: made in the game, kept here
+ * end of an enchantment, a concentration or from module 0.36.0 a turn, which is no roll and posts
+ * nothing (`GM_UNSENT`); with where their rolls go: made in the game, kept here
  * until its module is updated, or kept here while it takes no rolls.
  */
-function seatRolls(
+export function seatRolls(
   seat: SheetSeat,
   campaign?: Parameters<typeof availableRollFeatures>[0] | null,
 ): Pick<CampaignStatus, 'rollsToTable' | 'rollFeatures' | 'gm'> {
@@ -250,8 +255,8 @@ export async function getCampaignStatus(
  * Why the module held a character's sheet back, as its entry in the roster keeps it, from module
  * 0.22.0: only what the player is told.
  */
-function withheld(
-  entry: ConnectedCharacter | undefined,
+export function withheld(
+  entry: Pick<ConnectedCharacter, 'sheetWithheld'> | undefined,
 ): SheetWithheld | undefined {
   const held = entry?.sheetWithheld
   return held && { reason: held.reason, bytes: held.bytes, limit: held.limit }
@@ -280,6 +285,7 @@ export async function getTableView(
           lastSeenAt: true,
           characters: true,
           groups: true,
+          companions: true,
           ...rollsSelect,
         },
       })
@@ -289,6 +295,8 @@ export async function getTableView(
   }
 
   const roster = campaign.characters as unknown as ConnectedCharacter[]
+  // The campaign's characters' companions, from module 0.36.0: whose side each is on.
+  const companions = companionRoster(campaign.companions)
   const viewer: Viewer = {
     actorId: seat.actorId ?? undefined,
     party: new Set(roster.map(({ id }) => id)),
@@ -298,6 +306,7 @@ export async function getTableView(
         return url ? [[id, url] as const] : []
       }),
     ),
+    companions: companionsByKey(companions, campaign.origin),
   }
 
   // The saves the game asks of the character, while it takes their answers.
@@ -387,6 +396,13 @@ export async function getTableView(
   )
   // The party sheets the seat may open, from module 0.30.0: never who else may.
   const listed = groupRoster(campaign.groups)
+  // The character's own companions, for their tabs, from module 0.36.0: never another's, and none
+  // at a companion's own seat, which has its own view.
+  const own = seat.companion
+    ? []
+    : companions.filter(
+        entry => !!seat.actorId && entry.of.includes(seat.actorId),
+      )
   const groups = tableGroups(seat, listed, campaign.origin)
   const connected = roster.some(({ id }) => id === viewer.actorId)
   // Where the seat may move the character's items and coins to, from module 0.31.0.
@@ -436,6 +452,9 @@ export async function getTableView(
       gmRollsKey: gmRollsKey(made, now),
     }),
     ...(groups.length > 0 && { groups }),
+    ...(own.length > 0 && {
+      companions: own.map(entry => tableCompanion(entry, campaign.origin)),
+    }),
     ...(moves && { moves }),
     ...(removes && { removes: true as const }),
     // Whether the player may type in their own dice follows what the game said last, stored,

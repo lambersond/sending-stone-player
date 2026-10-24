@@ -39,44 +39,55 @@ export async function saveSheetTexts(
   }
 }
 
-/** What a campaign's characters' sheets and its groups' sheets refer to, together. */
-function refsOf(sheets: CharacterSheet[], groups: GroupSheet[]): string[] {
+/**
+ * What a campaign's characters' sheets and its groups' sheets refer to, together; and from module
+ * 0.36.0 its characters' companions' sheets, which are a character's in shape.
+ */
+function refsOf(
+  sheets: CharacterSheet[],
+  groups: GroupSheet[],
+  companions: CharacterSheet[],
+): string[] {
   return [
     ...new Set([
       ...sheets.flatMap(sheet => sheetTextRefs(sheet)),
       ...groups.flatMap(group => groupTextRefs(group)),
+      ...companions.flatMap(sheet => sheetTextRefs(sheet)),
     ]),
   ]
 }
 
 /**
- * Drop the campaign's descriptions that none of these sheets refers to, its characters' or its
- * groups': for a hello, which carries all of a campaign's sheets, or keeps those held.
+ * Drop the campaign's descriptions that none of these sheets refers to, its characters', its
+ * groups' or its companions': for a hello, which carries all of a campaign's sheets, or keeps
+ * those held.
  */
 export async function keepOnlySheetTexts(
   tx: Tx,
   campaignId: string,
   sheets: CharacterSheet[],
   groups: GroupSheet[] = [],
+  companions: CharacterSheet[] = [],
 ): Promise<void> {
-  const refs = refsOf(sheets, groups)
+  const refs = refsOf(sheets, groups, companions)
   await tx.sheetText.deleteMany({
     where: { campaignId, hash: { notIn: refs } },
   })
 }
 
 /**
- * Whether the campaign lacks any description these sheets refer to, its characters' or its
- * groups', which means one went missing on its way, since each is sent before the sheet that
- * refers to it.
+ * Whether the campaign lacks any description these sheets refer to, its characters', its groups'
+ * or its companions', which means one went missing on its way, since each is sent before the
+ * sheet that refers to it.
  */
 export async function lacksSheetTexts(
   tx: Tx,
   campaignId: string,
   sheets: CharacterSheet[],
   groups: GroupSheet[] = [],
+  companions: CharacterSheet[] = [],
 ): Promise<boolean> {
-  const refs = refsOf(sheets, groups)
+  const refs = refsOf(sheets, groups, companions)
   if (refs.length === 0) return false
   const held = await tx.sheetText.count({
     where: { campaignId, hash: { in: refs } },

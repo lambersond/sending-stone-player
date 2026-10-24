@@ -90,6 +90,8 @@ export const EVENTS = {
   GROUP_REMOVED: 'group.removed',
   JOURNAL_UPDATED: 'journal.updated',
   BRIDGE_SETTINGS: 'bridge.settings',
+  COMPANIONS_LISTED: 'companions.listed',
+  COMPANION_UPDATED: 'companion.updated',
 } as const
 
 /**
@@ -111,7 +113,9 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * resource's charges spent directly, or Heroic Inspiration used or gained, none of them a roll;
  * and from module 0.31.0, items and coins moved between the character and a party or another
  * character, none of them a roll; and from module 0.33.0, an item removed from the character, no
- * roll either.
+ * roll either; and from module 0.36.0, an action's damage or healing on its own, and a spent
+ * recharge rolled, and the current turn ended, the character's or one of its companions', and a
+ * turn ended taken back, neither of them a roll.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -129,8 +133,12 @@ export const ROLL_KINDS = [
   'ask',
   'textDamage',
   'textRoll',
+  'itemDamage',
+  'recharge',
   'endEnchantment',
   'endConcentration',
+  'endTurn',
+  'undoEndTurn',
   'spend',
   'inspiration',
   'transfer',
@@ -239,6 +247,44 @@ export const REMOVALS = 1
 export const NOTES = 2
 
 /**
+ * The format of companions this app takes, as it tells the module (`companions`): from module
+ * 0.36.0, the hello's `companions`, `companions.listed` and `companion.updated`.
+ */
+export const COMPANIONS = 1
+
+/**
+ * A companion's key, as the module lists it, from module 0.36.0: its actor's id, or for a token's
+ * creature `<sceneId>-<tokenId>`. Never a campaign character's actor id.
+ */
+export const COMPANION_KEY = /^[\dA-Za-z]{1,64}(?:-[\dA-Za-z]{1,64})?$/
+
+/** The most companions a campaign's list holds, from module 0.36.0. */
+export const MOST_COMPANIONS = 50
+
+/**
+ * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
+ * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
+ * which the character's page does for its companions' turns too. The module's list has `note` too,
+ * which isn't a roll here.
+ */
+export const COMPANION_UNTAKEN = [
+  'inspiration',
+  'hitDie',
+  'hitDice',
+  'spend',
+  'transfer',
+  'remove',
+  'endTurn',
+  'undoEndTurn',
+] as const
+
+/**
+ * How a campaign's companions enter initiative, as the module's hello says (module 0.36.0): each
+ * its own roll, or right after its character.
+ */
+export const COMPANION_INITIATIVE = ['own', 'after'] as const
+
+/**
  * Where what the game asks of a character comes from, for one Midi-QOL asks (module 0.27.0): a
  * save or check in one of its workflows, a concentration check, or a save or check an effect
  * calls for at the start or end of a turn. What a chat card asks says none.
@@ -327,6 +373,13 @@ export const ROLL_PENDING_FOR = 30_000
  * to give up on one, a minute, as when a module stops it to ask the Gamemaster something.
  */
 export const ROLL_ANSWER_WITHIN = 75_000
+
+/**
+ * How long after a turn ended from the page it may be taken back, in milliseconds, from when the
+ * game said it was ended (module 0.36.0): the toast offers it for 8 seconds; the module allows a
+ * minute, as a command may wait to be fetched.
+ */
+export const UNDO_TURN_WITHIN = 30_000
 
 /** How long a character's rolls are kept, once made. */
 export const ROLLS_KEPT_FOR = 86_400_000

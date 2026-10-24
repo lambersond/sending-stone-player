@@ -3,6 +3,7 @@ import {
   getRollRequestView,
   notePlayersSeen,
   noteTableOpen,
+  type RollSeat,
 } from '@/db/roll-requests'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCampaignStatus, getTableView } from '@/db/table'
@@ -132,9 +133,12 @@ export async function rollPostResponse(
   return Response.json({ id: created.id }, { status: 202, headers })
 }
 
-/** Where a roll the seat sent to the Gamemaster's game stands, and what the game made of it. */
+/**
+ * Where a roll the seat sent to the Gamemaster's game stands, and what the game made of it; from
+ * module 0.36.0, also one it sent for one of its character's companions, listed now or not.
+ */
 export async function rollGetResponse(
-  seat: SheetSeat,
+  seat: RollSeat,
   roll: string,
 ): Promise<Response> {
   const view = await getRollRequestView(seat, roll)

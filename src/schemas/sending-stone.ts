@@ -3,11 +3,15 @@ import { z } from 'zod'
 import { ABILITIES } from '@/constants/dnd5e'
 import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
 import {
+  COMPANION_INITIATIVE,
+  COMPANION_KEY,
   DAMAGE_TYPE,
   EVENTS,
+  HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
   MOST_AMONG,
+  MOST_COMPANIONS,
   MOST_HIT_DICE,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
@@ -178,6 +182,76 @@ const counterSchema = z.union([
   z.strictObject({ resource: z.enum(['primary', 'secondary', 'tertiary']) }),
 ])
 
+/**
+ * The dice an attack's or a use's damage or healing will throw in the game, as the game will make
+ * up its rolls: a result's, and from module 0.36.0 a sheet's action's on its own. Damage throwing
+ * more dice than a player may send is rolled by the game.
+ */
+const damagePreviewSchema = z
+  .object({
+    critical: z.boolean().catch(false),
+    plannable: z.boolean().catch(false),
+    // From module 0.12.0.
+    healing: z.boolean().optional().catch(false),
+    rolls: z
+      .array(
+        z.object({
+          formula: z.string().max(500),
+          type: z.string().max(64).nullable().catch(null),
+          // From module 0.12.0: the kinds of damage its roller chooses among.
+          types: z
+            .array(
+              z.object({
+                key: z.string().regex(DAMAGE_TYPE),
+                label: z.string().max(64),
+              }),
+            )
+            .max(20)
+            .nullable()
+            .optional()
+            .catch(null),
+          dice: z
+            .array(
+              z.object({
+                faces: z.int().min(2).max(100),
+                number: z
+                  .int()
+                  .min(1)
+                  .max(MAX_DICE * 2),
+                // From module 0.20.0: dice of a critical hit's critical damage, never its first
+                // die; anything else is left out, and the preview still read.
+                added: z
+                  .literal(true)
+                  .optional()
+                  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+                  .catch(undefined),
+                // From module 0.21.0: dice the damage takes away, never its first die; anything
+                // else is left out, and the preview still read.
+                subtracted: z
+                  .literal(true)
+                  .optional()
+                  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+                  .catch(undefined),
+              }),
+            )
+            .max(MAX_DAMAGE_TERMS),
+          // From module 0.13.0: how many dice it throws for each die of its own; one, as
+          // before, when it can't be read.
+          perDie: z.int().min(1).max(10).optional().catch(1),
+        }),
+      )
+      .max(10),
+  })
+  .transform(damage =>
+    damage.rolls.flatMap(roll => roll.dice).length > MAX_DAMAGE_TERMS
+      ? {
+          ...damage,
+          plannable: false,
+          rolls: damage.rolls.map(roll => ({ ...roll, dice: [] })),
+        }
+      : damage,
+  )
+
 /** The most counters an activity is said to spend as it's used. */
 const MAX_SPENDS = 20
 
@@ -239,6 +313,9 @@ const usesSchema = z
     counter: counterSchema.optional().catch(undefined),
     // eslint-disable-next-line unicorn/no-useless-undefined -- as for the counter
     spendable: z.literal(true).optional().catch(undefined),
+    // From module 0.36.0: the lowest d6 that recharges them, for uses that recharge.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    recharge: z.int().min(2).max(6).optional().catch(undefined),
   })
   .nullable()
   .catch(null)
@@ -350,6 +427,17 @@ const rollFields = {
       healing: z.boolean().catch(false),
     }),
   ),
+  // From module 0.36.0: its damage on its own, as the game would roll it, and as a critical hit's
+  // where one is allowed; left out where it can't be read, so that it can't go alone.
+  tableDamage: z
+    .object({
+      normal: damagePreviewSchema,
+      critical: damagePreviewSchema.nullable(),
+    })
+    .nullable()
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
   // From module 0.14.0: false for a spell's activity that spends no slot; anything else spends one.
   consumesSlot: z.boolean().optional().catch(true),
   // From module 0.15.0: how a spell an item casts is cast, for a Cast activity.
@@ -458,6 +546,8 @@ const itemRollFields = {
   ammunition: rollFields.ammunition,
   save: rollFields.save.optional(),
   damage: rollFields.damage.optional(),
+  // From module 0.36.0, for one whose damage may go on its own.
+  tableDamage: rollFields.tableDamage,
   consumesSlot: rollFields.consumesSlot,
   attackArea: rollFields.attackArea,
   rollFormula: rollFields.rollFormula,
@@ -763,6 +853,40 @@ const favoriteSchema = z.discriminatedUnion('type', [
   }),
 ])
 
+/** A pool of an NPC's, such as its legendary actions, as dnd5e prepares it; none if malformed. */
+const poolSchema = z
+  .object({ value: z.number(), max: z.number() })
+  .nullable()
+  .catch(null)
+
+/**
+ * What an NPC's sheet says of it as a creature, from module 0.36.0: its challenge rating, type,
+ * size and alignment, whether it's important, its legendary actions and resistances, its lair and
+ * its hit dice. A part that can't be read is none; the whole, where it isn't an object, is left
+ * out, as for a character.
+ */
+const creatureSchema = z.looseObject({
+  cr: nullableNumber,
+  type: nullableString,
+  size: nullableString,
+  alignment: nullableString,
+  important: z.boolean().catch(false),
+  legendary: poolSchema,
+  resistance: poolSchema,
+  lair: z
+    .object({ inside: z.boolean().catch(false), initiative: nullableNumber })
+    .nullable()
+    .catch(null),
+  hitDice: z
+    .object({
+      denomination: z.string().regex(HIT_DIE),
+      value: z.number(),
+      max: z.number(),
+    })
+    .nullable()
+    .catch(null),
+})
+
 // A sheet that can't be read is dropped rather than failing the event that carries it.
 const sheetSchema = z
   .looseObject({
@@ -950,6 +1074,9 @@ const sheetSchema = z
         xp: null,
         biography: null,
       }),
+    // From module 0.36.0, for an NPC: what it is as a creature.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    creature: creatureSchema.optional().catch(undefined),
     // Sent from module 0.8.0.
     actions: listOf(
       z.looseObject({
@@ -1038,6 +1165,49 @@ const groupSheetSchema = z.preprocess(
       inventory: inventorySchema,
     })
     .nullable(),
+)
+
+/** A name or label kept to this many characters: cut, never refused for its length. */
+const cutTo = (most: number) =>
+  z.string().transform(text => text.slice(0, most))
+
+/**
+ * One of a campaign's characters' companions, from module 0.36.0: its key, the campaign characters
+ * it's a companion of, at least one, its kind, its actor, token and scene, its name, cut, and its
+ * portrait, which costs the entry nothing where it can't be read, as what summoned it doesn't.
+ */
+const companionEntrySchema = z.looseObject({
+  key: z.string().regex(COMPANION_KEY),
+  of: z.array(z.string().regex(ACTOR_ID)).min(1).max(20),
+  kind: z.enum(['owned', 'summoned']),
+  actorId: z.string().regex(ACTOR_ID),
+  tokenId: z.string().regex(DOCUMENT_ID).nullable(),
+  sceneId: z.string().regex(DOCUMENT_ID).nullable(),
+  uuid: z.string().max(200),
+  name: cutTo(200),
+  img: z.string().max(2000).nullable().catch(null),
+  summon: z
+    .looseObject({
+      itemId: z.string().regex(DOCUMENT_ID),
+      item: cutTo(200),
+      activityId: z.string().regex(DOCUMENT_ID).nullable().catch(null),
+    })
+    .nullable()
+    .catch(null),
+  sheetWithheld: sheetWithheldSchema,
+})
+
+/**
+ * A campaign's companions, as the module lists them: one that can't be read is dropped, as is one
+ * listed again under the same key, and no more than the most a list holds are kept.
+ */
+const companionsSchema = listOf(companionEntrySchema).transform(entries =>
+  entries
+    .filter(
+      (entry, index) =>
+        entries.findIndex(({ key }) => key === entry.key) === index,
+    )
+    .slice(0, MOST_COMPANIONS),
 )
 
 export const rollSchema = z.looseObject({
@@ -1248,6 +1418,15 @@ const messageSchema = z.looseObject({
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- no claim, where it can't be read
     .catch(undefined),
+  // From module 0.36.0, to an app that reads companions: the listed companion that spoke it.
+  companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
+  // From module 0.36.0, to every app: a damage or healing card made on its own. A claim, as any
+  // user may flag a message of theirs, shown only as words that apply nothing.
+  alone: z
+    .literal(true)
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- not on its own, where unreadable
+    .catch(undefined),
 })
 
 /**
@@ -1341,6 +1520,16 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.36.0: the kinds a companion's rolls may be, and how companions enter
+    // initiative, where anything but "after" is each its own roll.
+    companions: z
+      .looseObject({
+        kinds: z.array(z.string()).catch([]),
+        initiative: z.enum(COMPANION_INITIATIVE).catch('own'),
+      })
+      .optional()
+      // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
+      .catch(undefined),
   })
   .nullable()
   .optional()
@@ -1604,74 +1793,7 @@ const commandResultSchema = z.object({
     .nullable()
     .optional()
     .catch(null),
-  damage: z
-    .object({
-      critical: z.boolean().catch(false),
-      plannable: z.boolean().catch(false),
-      // From module 0.12.0.
-      healing: z.boolean().optional().catch(false),
-      rolls: z
-        .array(
-          z.object({
-            formula: z.string().max(500),
-            type: z.string().max(64).nullable().catch(null),
-            // From module 0.12.0: the kinds of damage its roller chooses among.
-            types: z
-              .array(
-                z.object({
-                  key: z.string().regex(DAMAGE_TYPE),
-                  label: z.string().max(64),
-                }),
-              )
-              .max(20)
-              .nullable()
-              .optional()
-              .catch(null),
-            dice: z
-              .array(
-                z.object({
-                  faces: z.int().min(2).max(100),
-                  number: z
-                    .int()
-                    .min(1)
-                    .max(MAX_DICE * 2),
-                  // From module 0.20.0: dice of a critical hit's critical damage, never its first
-                  // die; anything else is left out, and the preview still read.
-                  added: z
-                    .literal(true)
-                    .optional()
-                    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
-                    .catch(undefined),
-                  // From module 0.21.0: dice the damage takes away, never its first die; anything
-                  // else is left out, and the preview still read.
-                  subtracted: z
-                    .literal(true)
-                    .optional()
-                    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
-                    .catch(undefined),
-                }),
-              )
-              .max(MAX_DAMAGE_TERMS),
-            // From module 0.13.0: how many dice it throws for each die of its own; one, as
-            // before, when it can't be read.
-            perDie: z.int().min(1).max(10).optional().catch(1),
-          }),
-        )
-        .max(10),
-    })
-    // Damage throwing more dice than a player may send is rolled by the game.
-    .transform(damage =>
-      damage.rolls.flatMap(roll => roll.dice).length > MAX_DAMAGE_TERMS
-        ? {
-            ...damage,
-            plannable: false,
-            rolls: damage.rolls.map(roll => ({ ...roll, dice: [] })),
-          }
-        : damage,
-    )
-    .nullable()
-    .optional()
-    .catch(null),
+  damage: damagePreviewSchema.nullable().optional().catch(null),
   // From module 0.25.0, for the Gamemaster's roll as a character: the ids of the chat messages it
   // made, which alone are marked as theirs. Anything else is ignored, as from an older module.
   messages: z
@@ -1765,6 +1887,8 @@ export const combatantSchema = z.looseObject({
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),
+  // From module 0.36.0, to an app that reads companions: the listed companion it is.
+  companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
 })
 
 const combatSchema = z.looseObject({
@@ -1803,6 +1927,8 @@ export function parseGameEvent(
             characters: z.array(characterSchema),
             // From module 0.30.0; none from an older module. One that can't be read is dropped.
             groups: listOf(groupEntrySchema),
+            // From module 0.36.0, as `groups` are: none from an older module, which clears them.
+            companions: companionsSchema,
             combats: z.array(combatSchema),
             // Sent from module 0.10.0.
             features: featuresSchema,
@@ -1953,6 +2079,27 @@ export function parseGameEvent(
     }
     case EVENTS.JOURNAL_UPDATED: {
       return { type, data: journalUpdatedSchema.parse(data) }
+    }
+    case EVENTS.COMPANIONS_LISTED: {
+      return {
+        type,
+        data: z.looseObject({ companions: companionsSchema }).parse(data),
+      }
+    }
+    case EVENTS.COMPANION_UPDATED: {
+      return {
+        type,
+        data: z
+          .looseObject({
+            companion: companionEntrySchema,
+            // Made whole first where it comes slim, as a character's is; none where it can't be
+            // read.
+            sheet: z
+              .preprocess(expandSheet, sheetSchema)
+              .transform(sheet => sheet ?? null),
+          })
+          .parse(data),
+      }
     }
     default: {
       return undefined

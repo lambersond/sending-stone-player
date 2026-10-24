@@ -8,6 +8,9 @@ import {
   combat,
   combatant,
   groupEntry,
+  mockCompanionEntry,
+  mockSummonedEntry,
+  PARTY,
   roster,
 } from '@/mocks/sending-stone'
 
@@ -181,6 +184,8 @@ describe('db/table', () => {
           lastSeenAt: true,
           characters: true,
           groups: true,
+          // Changed on purpose (round 0.36.0 §7.12): the character's companions.
+          companions: true,
           rollsEnabled: true,
           rollKinds: true,
           rollFeatures: true,
@@ -680,6 +685,40 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
     })
     await expect(getCampaignStatus(gm)).resolves.toMatchObject({
       rollsToTable: ['skill', 'spend', 'inspiration'],
+    })
+  })
+
+  it('offers the player End Turn, from module 0.36.0, but never the Gamemaster, who ends turns in Foundry', async () => {
+    const kinds = ['skill', 'endConcentration', 'endTurn', 'spend']
+    givenCampaign(taking(['gmRolls'], kinds))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend'],
+    })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend'],
+    })
+  })
+
+  it('offers the player Undo of an End Turn, from module 0.36.0, but never the Gamemaster', async () => {
+    const kinds = ['skill', 'endTurn', 'undoEndTurn', 'spend']
+    givenCampaign(taking(['gmRolls'], kinds))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend'],
+    })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend'],
     })
   })
 
@@ -1530,5 +1569,174 @@ describe('db/table, removing items, from module 0.33.0', () => {
     await expect(
       getCampaignStatus({ ...character, campaignId: null }),
     ).resolves.toMatchObject({ removes: false })
+  })
+})
+
+describe('db/table, companions, from module 0.36.0', () => {
+  const ORIGIN = 'https://my-game.forge-vtt.com'
+  /** Thorin's player at his sheet, by his Foundry id, as a companion's characters name him. */
+  const thorin = playerSeat(
+    {
+      id: 'char-1',
+      name: 'Thorin',
+      gameUrl: ORIGIN,
+      campaignTitle: 'The Frost Road',
+      campaignId: 'c1',
+      actorId: PARTY.thorin,
+    },
+    'user-1',
+  )
+  const vex = { ...thorin, actorId: PARTY.vex, characterId: 'char-2' }
+  const wolf = mockCompanionEntry()
+  const imp = mockSummonedEntry()
+  /** Vex's own hound. */
+  const hound = mockCompanionEntry({
+    key: 'houndVex',
+    actorId: 'houndVex',
+    name: 'Hound',
+    img: null,
+    of: [PARTY.vex],
+  })
+
+  const held = (fields: object = {}) =>
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...campaign,
+      origin: ORIGIN,
+      characters: [
+        { id: PARTY.thorin, name: 'Thorin' },
+        { id: PARTY.vex, name: 'Vex' },
+      ],
+      companions: [wolf, imp, hound],
+      ...fields,
+    } as any)
+
+  beforeEach(() => {
+    prismaMock.chatMessage.findMany.mockResolvedValue([])
+    prismaMock.combat.findMany.mockResolvedValue([])
+    prismaMock.actorSheet.findUnique.mockResolvedValue(null)
+  })
+
+  it("lists the character's own companions, in the module's order, for their tabs, with or without a sheet", async () => {
+    held()
+
+    const view = await getTableView(thorin)
+    expect(view.companions).toEqual([
+      {
+        key: 'wolfBrakka',
+        name: 'Wolf',
+        portrait: `${ORIGIN}/worlds/frost-road/wolf.webp`,
+        kind: 'owned',
+      },
+      {
+        key: 'sceneFrost-tokenImp',
+        name: 'Imp',
+        portrait: `${ORIGIN}/worlds/frost-road/imp.webp`,
+        kind: 'summoned',
+        from: 'Find Familiar',
+      },
+    ])
+    expect(view.sheet).toBeUndefined()
+
+    held()
+    await expect(getTableView(vex)).resolves.toMatchObject({
+      companions: [{ key: 'houndVex', name: 'Hound', kind: 'owned' }],
+    })
+  })
+
+  it('lists none for a character with none, and none from a module before 0.36.0', async () => {
+    held({ companions: [wolf, imp] })
+    expect(await getTableView(vex)).not.toHaveProperty('companions')
+
+    held({ companions: [] })
+    expect(await getTableView(thorin)).not.toHaveProperty('companions')
+  })
+
+  it("never lists companions at a companion's own seat", async () => {
+    held()
+    const atWolf = {
+      ...thorin,
+      actorId: 'wolfBrakka',
+      companion: { of: PARTY.thorin, entry: wolf },
+    }
+
+    expect(await getTableView(atWolf)).not.toHaveProperty('companions')
+  })
+
+  it("marks the character's companions in the fight as the player's, with their hit points; another's as the party's", async () => {
+    held()
+    prismaMock.combat.findMany.mockResolvedValue([
+      {
+        data: combat({
+          combatants: [
+            combatant({ id: 'c-thorin', character: PARTY.thorin }),
+            combatant({
+              id: 'c-wolf',
+              companion: 'wolfBrakka',
+              hp: { value: 11, max: 11, temp: 0 },
+            }),
+            combatant({
+              id: 'c-hound',
+              companion: 'houndVex',
+              hp: { value: 9, max: 9, temp: 0 },
+            }),
+            combatant({
+              id: 'c-stray',
+              companion: 'strayGone',
+              hp: { value: 4, max: 4, temp: 0 },
+            }),
+          ],
+        }),
+      },
+    ] as any)
+
+    const { combat: shown } = await getTableView(thorin)
+    const [me, wolfRow, houndRow, stray] = shown!.combatants
+    expect(me).toMatchObject({ side: 'me' })
+    expect(me).not.toHaveProperty('yours')
+    expect(wolfRow).toMatchObject({
+      side: 'party',
+      yours: true,
+      companion: 'wolfBrakka',
+      hp: { value: 11, max: 11, temp: 0 },
+    })
+    expect(houndRow).toMatchObject({
+      side: 'party',
+      hp: { value: 9, max: 9, temp: 0 },
+    })
+    expect(houndRow).not.toHaveProperty('yours')
+    expect(houndRow).not.toHaveProperty('companion')
+    // One no longer listed is no one's.
+    expect(stray).toMatchObject({ side: 'other' })
+    expect(stray.hp).toBeUndefined()
+  })
+
+  it("shows the character's companion's messages as the player's own, with its portrait; another's as the party's", async () => {
+    held()
+    prismaMock.chatMessage.findMany.mockResolvedValue([
+      {
+        data: chatMessage({
+          id: 'm2',
+          companion: 'houndVex',
+          speaker: { alias: 'Hound', actorId: 'houndVex' },
+        }),
+      },
+      {
+        data: chatMessage({
+          id: 'm1',
+          companion: 'sceneFrost-tokenImp',
+          speaker: { alias: 'Imp', actorId: 'impTemplate' },
+        }),
+      },
+    ] as any)
+
+    const { messages } = await getTableView(thorin)
+    expect(messages[0]).toMatchObject({
+      id: 'm1',
+      side: 'me',
+      speaker: 'Imp',
+      avatar: `${ORIGIN}/worlds/frost-road/imp.webp`,
+    })
+    expect(messages[1]).toMatchObject({ id: 'm2', side: 'party' })
+    expect(messages[1].avatar).toBeUndefined()
   })
 })

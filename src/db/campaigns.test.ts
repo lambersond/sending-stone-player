@@ -17,7 +17,12 @@ import {
 } from './campaigns'
 import { WAITING_SECRET_CHECKS } from '@/constants/sending-stone'
 import { verifySecret } from '@/lib/campaign-secret'
-import { groupEntry, roster } from '@/mocks/sending-stone'
+import {
+  groupEntry,
+  mockCompanionEntry,
+  mockSummonedEntry,
+  roster,
+} from '@/mocks/sending-stone'
 
 jest.mock('@/lib/campaign-secret', () => ({
   generateInviteCode: () => 'fresh-invite-code',
@@ -187,12 +192,15 @@ describe('db/campaigns', () => {
               name: 'Thorin Oakenshield',
               player: 'Alice',
               characterId: 'char-1',
+              // Changed on purpose (round 0.36.0 §7.12): none listed.
+              companions: [],
             },
             {
               id: 'actor-vex',
               name: 'Vex',
               player: undefined,
               characterId: undefined,
+              companions: [],
             },
           ],
           groups: [],
@@ -256,6 +264,60 @@ describe('db/campaigns', () => {
       await expect(listed({ groups: undefined })).resolves.toHaveProperty(
         'groups',
         [],
+      )
+    })
+
+    it("lists each character's companions under it, in the module's order, with what summoned one, from module 0.36.0", async () => {
+      const campaign = await listed({
+        characters: [
+          { id: 'thorin', name: 'Thorin' },
+          { id: 'vex', name: 'Vex' },
+          { id: 'balin', name: 'Balin' },
+        ],
+        companions: [
+          mockCompanionEntry(),
+          mockSummonedEntry(),
+          // Shared: Thorin's and Vex's both.
+          mockCompanionEntry({
+            key: 'muleBessie',
+            of: ['thorin', 'vex'],
+            name: 'Bessie',
+          }),
+          // Summoned, with what summoned it unknown.
+          mockSummonedEntry({
+            key: 'sceneFrost-tokenSpirit',
+            of: ['vex'],
+            name: 'Spirit',
+            summon: null,
+          }),
+          { key: 'broken' },
+        ],
+      })
+
+      expect(
+        campaign.characters.map(({ id, companions }) => ({ id, companions })),
+      ).toEqual([
+        {
+          id: 'thorin',
+          companions: [
+            { name: 'Wolf', kind: 'owned' },
+            { name: 'Imp', kind: 'summoned', from: 'Find Familiar' },
+            { name: 'Bessie', kind: 'owned' },
+          ],
+        },
+        {
+          id: 'vex',
+          companions: [
+            { name: 'Bessie', kind: 'owned' },
+            { name: 'Spirit', kind: 'summoned' },
+          ],
+        },
+        { id: 'balin', companions: [] },
+      ])
+      expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ companions: true }),
+        }),
       )
     })
 

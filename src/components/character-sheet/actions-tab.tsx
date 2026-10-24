@@ -22,6 +22,7 @@ import {
   moreNote,
   otherActivities,
   ownUses,
+  rechargeOf,
   SaveChip,
   useActionRows,
   usesName,
@@ -34,10 +35,12 @@ import {
 } from './action-entry'
 import { EnchantedMark } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
+import { RechargeChip } from './recharge-chip'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesButton } from './uses-button'
+import { useSheetId } from '@/hooks/use-sheet-ids'
 import { useStoredSet } from '@/hooks/use-stored'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
 import { castOf } from '@/utils/casts'
@@ -47,7 +50,12 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
-import type { SheetAction, SheetActionSection } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetActionSection,
+  SheetSpend,
+  SheetUses,
+} from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 
@@ -128,6 +136,7 @@ export function ActionsTab({
       rows={rows}
       closed={closed}
       onToggle={toggleGroup}
+      legendary={sheet.creature?.legendary ?? undefined}
     />
   ))
 
@@ -178,35 +187,50 @@ type Groups = {
   toggle: (group: ActionGroup) => void
 }
 
-/** A section of actions, such as Bonus Actions, in a list or a table. */
+/**
+ * A section of actions, such as Bonus Actions, in a list or a table; a creature's Legendary Actions
+ * with how many it has left beside their heading (module 0.36.0), as words: the game spends them.
+ * @param legendary - A creature's legendary actions, as they stand.
+ */
 function ActionSection({
   section,
   layout,
   rows,
   closed,
   onToggle,
+  legendary,
 }: Readonly<{
   section: GroupedSection
   layout: Layout
   rows: ActionRows
   closed: ReadonlySet<string>
   onToggle: (name: string) => void
+  legendary?: { value: number; max: number }
 }>) {
   const name = (group: ActionGroup) => `${section.id}/${group.id}`
   const groups: Groups = {
     isOpen: group => !closed.has(name(group)),
     toggle: group => onToggle(name(group)),
   }
+  // Unique on the page, where a companion's pane is mounted beside its character's.
+  const headingId = useSheetId(section.headingId)
+  const heading = <SheetHeading id={headingId}>{section.label}</SheetHeading>
   return (
-    <section
-      aria-labelledby={section.headingId}
-      className='flex flex-col gap-2'
-    >
-      <SheetHeading id={section.headingId}>{section.label}</SheetHeading>
+    <section aria-labelledby={headingId} className='flex flex-col gap-2'>
+      {section.id === 'legendary' && legendary ? (
+        <div className='flex items-baseline justify-between gap-2'>
+          {heading}
+          <span className='text-xs text-text-secondary tabular-nums'>
+            {legendary.value} of {legendary.max} left
+          </span>
+        </div>
+      ) : (
+        heading
+      )}
       {layout === 'table' ? (
         <ActionTable
           groups={section.groups}
-          labelledBy={section.headingId}
+          labelledBy={headingId}
           rows={rows}
           state={groups}
           section={section.id}
@@ -529,13 +553,12 @@ function ActionTableRow({
         </td>
         <td className='py-0.5 pr-4 pl-2'>
           {uses && (
-            <span className='flex justify-end'>
-              <UsesButton
-                uses={uses}
-                name={usesName(action, uses)}
-                spends={action.activity?.spends}
-              />
-            </span>
+            <UsesCell
+              name={usesName(action, uses)}
+              uses={uses}
+              rows={rows}
+              spends={action.activity?.spends}
+            />
           )}
         </td>
       </tr>
@@ -667,15 +690,38 @@ function ActivityTableRow({
       </td>
       <td className='py-0.5 pr-4 pl-2'>
         {uses && (
-          <span className='flex justify-end'>
-            <UsesButton
-              uses={uses}
-              name={actionTitle(action)}
-              spends={action.activity?.spends}
-            />
-          </span>
+          <UsesCell
+            name={actionTitle(action)}
+            uses={uses}
+            rows={rows}
+            spends={action.activity?.spends}
+          />
         )}
       </td>
     </tr>
+  )
+}
+
+/**
+ * A row's uses in a table's last column; and where they're spent and the game takes a recharge
+ * rolled from here, from module 0.36.0, the Recharge chip on their left, as in a list's row.
+ */
+function UsesCell({
+  name,
+  uses,
+  rows,
+  spends,
+}: Readonly<{
+  name: string
+  uses: SheetUses
+  rows: ActionRows
+  spends?: SheetSpend[]
+}>) {
+  const recharge = rechargeOf(rows, uses)
+  return (
+    <span data-uses className='flex items-center justify-end gap-1'>
+      {recharge && <RechargeChip name={name} uses={uses} onRoll={recharge} />}
+      <UsesButton uses={uses} name={name} spends={spends} />
+    </span>
   )
 }

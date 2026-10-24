@@ -15,6 +15,8 @@ import {
 import { EmptyState } from './empty-state'
 import { LocalTime } from './local-time'
 import { Chevron } from '@/components/character-sheet/action-entry'
+import { useImageFallback } from '@/hooks/use-image-fallback'
+import { useTableRole } from '@/hooks/use-table-api'
 import { askTitle } from '@/utils/table-view'
 import type {
   DamagePool,
@@ -137,6 +139,7 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
   } = message
   // The player's own messages sit on the other side, as in a messaging app.
   const mine = side === 'me'
+  const gm = useTableRole() === 'gm'
   return (
     <article
       data-side={side}
@@ -260,6 +263,17 @@ function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
               />
             ))}
           </>
+        )}
+        {/* Damage or healing made on its own, from module 0.36.0, which applies nothing by itself.
+            Only under a damage card, as anyone in Foundry may mark a message of theirs so. */}
+        {message.alone && (message.damage?.length ?? 0) > 0 && (
+          <p
+            className={clsx('text-xs text-text-secondary', mine && 'self-end')}
+          >
+            {gm
+              ? 'On its own, for you to apply'
+              : 'On its own, for the Gamemaster to apply'}
+          </p>
         )}
         {kind === 'text' && targets.length > 0 && (
           <div className={clsx(mine && 'self-end')}>
@@ -736,17 +750,18 @@ function SpeakerAvatar({
   src,
   className,
 }: Readonly<{ name: string; src?: string; className: string }>) {
-  const [failed, setFailed] = useState<string>()
+  const { shown, ref, onError } = useImageFallback(src)
   const box = 'size-9 shrink-0 rounded-[10px]'
-  if (src && failed !== src) {
+  if (shown) {
     return (
       // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
       // eslint-disable-next-line @next/next/no-img-element
       <img
+        ref={ref}
         src={src}
         alt=''
         className={clsx(box, 'border border-border object-cover object-top')}
-        onError={() => setFailed(src)}
+        onError={onError}
       />
     )
   }

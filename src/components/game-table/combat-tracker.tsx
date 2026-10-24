@@ -1,9 +1,26 @@
+'use client'
+
+import { useLayoutEffect, useRef } from 'react'
 import clsx from 'clsx'
-import { Swords } from 'lucide-react'
+import { Swords, TriangleAlert } from 'lucide-react'
 import { EmptyState } from './empty-state'
+import { EndTurnButton } from './end-turn-button'
+import { turnFragment } from './turn-toast'
 import { useTableRole } from '@/hooks/use-table-api'
+import {
+  END_TURN_HINT,
+  TURN_OVER,
+  turnKey,
+  turnRefusedLine,
+} from '@/utils/end-turn'
 import { seatWords } from '@/utils/seat-words'
-import type { Side, TableCombat, TableCombatant } from '@/types/table'
+import type { useEndTurn } from '@/hooks/use-end-turn'
+import type {
+  EndableTurn,
+  Side,
+  TableCombat,
+  TableCombatant,
+} from '@/types/table'
 
 const INITIATIVE: Record<Side, string> = {
   me: 'bg-primary text-on-primary',
@@ -32,7 +49,40 @@ const STANCES: Record<
   },
 }
 
-export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
+/**
+ * End Turn, as the turn panel offers it (module 0.36.0): the turn the seat may end and its way, as
+ * `useEndTurn` has them; how the last End Turn was sent; why the last one wasn't made, by the turn
+ * it was for and its way's reason, else its status; what ends a turn from the panel; and the page's
+ * own place for focus on the turn, where the panel's heading has gone too.
+ */
+export type PanelEnding = {
+  ending?: ReturnType<typeof useEndTurn>
+  via?: 'button' | 'hold'
+  refused?: { turn: EndableTurn; key: string }
+  onEnd?: (turn: EndableTurn) => void
+  focusTurn?: () => void
+}
+
+/**
+ * The encounter as the character's player sees it: whose turn it is, above the initiative order.
+ * From module 0.36.0, the character's companions are the player's own, and on a companion's turn
+ * its panel says to roll for it on its tab, which it opens. And on the seat's turn, the panel
+ * offers End Turn.
+ * @param onOpen - Shows a companion's tab, by its key.
+ * @param keys - The companions whose tabs the page shows.
+ */
+export function CombatTracker({
+  combat,
+  onOpen,
+  keys,
+  ...ending
+}: Readonly<
+  {
+    combat?: TableCombat
+    onOpen?: (key: string) => void
+    keys?: ReadonlySet<string>
+  } & PanelEnding
+>) {
   const { noCombat } = seatWords(useTableRole())
   if (!combat) {
     return (
@@ -48,7 +98,7 @@ export function CombatTracker({ combat }: Readonly<{ combat?: TableCombat }>) {
   return (
     <div className='mx-auto flex w-full max-w-3xl flex-col'>
       <div className='sticky top-0 z-10 bg-page px-4 pt-4 pb-3 @xl:px-8 @xl:pt-6'>
-        <TurnPanel combat={combat} />
+        <TurnPanel combat={combat} onOpen={onOpen} keys={keys} {...ending} />
       </div>
       <section
         aria-labelledby='initiative-heading'
@@ -93,7 +143,10 @@ function CombatantRow({
 }: Readonly<{ combatant: TableCombatant; current: boolean }>) {
   const { name, initiative, defeated, side, hp } = combatant
   const stance = combatant.stance && STANCES[combatant.stance]
-  const role = stance ? stance.role : ROLE[side]
+  // One of the player's own creatures, as a companion of their character's (module 0.36.0).
+  let role = ROLE[side]
+  if (stance) role = stance.role
+  else if (combatant.yours) role = 'Yours'
   return (
     <li
       aria-current={current ? 'step' : undefined}
@@ -178,23 +231,93 @@ function HitPoints({
   )
 }
 
-function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
-  const { settingUp } = seatWords(useTableRole())
+function TurnPanel({
+  combat,
+  onOpen,
+  keys,
+  ending,
+  via,
+  refused,
+  onEnd,
+  focusTurn,
+}: Readonly<
+  {
+    combat: TableCombat
+    onOpen?: (key: string) => void
+    keys?: ReadonlySet<string>
+  } & PanelEnding
+>) {
+  const role = useTableRole()
+  const { settingUp } = seatWords(role)
   const current = combat.combatants.find(({ id }) => id === combat.currentId)
   const next = nextUp(combat)
-  const myTurn = current?.side === 'me'
+  // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
+  // its companions', which is rolled for on its own tab.
+  const companion = current?.yours ? current.companion : undefined
+  const mine =
+    combat.started && (current?.side === 'me' || companion !== undefined)
 
   let heading = 'Waiting for the next turn'
   if (!combat.started) heading = 'Getting ready'
-  else if (myTurn) heading = 'Your turn'
+  else if (current?.side === 'me') heading = 'Your turn'
+  else if (current && companion) heading = `${current.name}’s turn`
   else if (current) heading = `${current.name} is acting`
+
+  // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
+  const turn =
+    ending?.turn && ending.turn.combatantId === current?.id
+      ? ending.turn
+      : undefined
+  const shown = turn && turnKey(turn)
+  // Why the last End Turn wasn't made, while the panel still shows its turn.
+  let line: string | undefined
+  if (refused && shown === turnKey(refused.turn)) {
+    const { key } = refused
+    line = turnRefusedLine(
+      refused.turn,
+      turnFragment(key, role),
+      !TURN_OVER.has(key),
+    )
+  }
+  // The button's End Turn made, and the panel showing the turn moved on: focus on the button, or
+  // lost to the page, goes to the heading, whoever acts now, never resting on an End Turn for the
+  // next turn.
+  const titled = useRef<HTMLHeadingElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
+  const sent = ending?.sent
+  const now =
+    combat.started && current
+      ? `${combat.id}:${combat.round}:${current.id}`
+      : ''
+  const moved =
+    via === 'button' &&
+    sent?.way.status === 'done' &&
+    now !== turnKey(sent.turn)
+      ? sent.way.requestId
+      : undefined
+  const handed = useRef<string>(undefined)
+  useLayoutEffect(() => {
+    if (moved === undefined || handed.current === moved) return
+    handed.current = moved
+    const active = document.activeElement
+    if (!active || active === document.body || active === button.current) {
+      titled.current?.focus({ preventScroll: true })
+    }
+  }, [moved])
+  // The button gone from under focus: to the heading where the panel stays, else, as the encounter
+  // ends and the panel goes with it, to the page's own place for the turn, never the page's body.
+  const handOn = () => {
+    const heading = titled.current
+    if (heading?.isConnected) heading.focus({ preventScroll: true })
+    else focusTurn?.()
+  }
 
   return (
     <section
       aria-labelledby='turn-heading'
       className={clsx(
         'flex flex-col gap-2 rounded-2xl border bg-card p-4',
-        myTurn ? 'border-primary' : 'border-border',
+        mine ? 'border-primary' : 'border-border',
       )}
     >
       <div className='flex items-baseline justify-between gap-2 text-xs text-text-secondary'>
@@ -207,20 +330,61 @@ function TurnPanel({ combat }: Readonly<{ combat: TableCombat }>) {
           </span>
         )}
       </div>
-      <h2
-        id='turn-heading'
-        aria-live='polite'
-        className={clsx(
-          'text-2xl font-semibold tracking-tight',
-          myTurn && 'text-primary',
+      <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-2'>
+        <h2
+          ref={titled}
+          id='turn-heading'
+          tabIndex={-1}
+          aria-live='polite'
+          className={clsx(
+            'text-2xl font-semibold tracking-tight outline-none',
+            mine && 'text-primary',
+          )}
+        >
+          {heading}
+        </h2>
+        {turn && ending && (
+          <EndTurnButton
+            ref={button}
+            turn={turn}
+            offered={ending.offered}
+            way={ending.way}
+            onEnd={given => onEnd?.(given)}
+            onGone={handOn}
+          />
         )}
-      >
-        {heading}
-      </h2>
+      </div>
+      {line && (
+        <p
+          role='alert'
+          className='flex items-start gap-1.5 text-[13px] text-warning'
+        >
+          <TriangleAlert aria-hidden className='mt-0.5 size-4 shrink-0' />
+          <span>{line}</span>
+        </p>
+      )}
+      {turn && <p className='text-xs text-text-secondary'>{END_TURN_HINT}</p>}
       {!combat.started && (
         <p className='text-sm text-text-secondary'>{settingUp}</p>
       )}
-      {!myTurn && next?.side === 'me' && (
+      {mine && companion && (
+        <p className='text-sm text-text-secondary'>
+          Roll for it on{' '}
+          {onOpen && keys?.has(companion) ? (
+            <button
+              type='button'
+              onClick={() => onOpen(companion)}
+              className='inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-primary-text underline underline-offset-2'
+            >
+              its tab
+            </button>
+          ) : (
+            'its tab'
+          )}
+          .
+        </p>
+      )}
+      {!mine && next?.side === 'me' && (
         <p className='text-sm text-text-secondary'>You are up next.</p>
       )}
     </section>

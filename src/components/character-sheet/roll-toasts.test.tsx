@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 import { RollToasts } from './roll-toasts'
 import { RollTray } from './roll-tray'
+import { TurnToastContext } from '@/components/game-table/turn-toast'
 import {
   gmRollsOf,
   useGmRolls,
@@ -298,6 +299,31 @@ describe('components/character-sheet/roll-toasts', () => {
     )
     expect(region.parentElement).toBe(document.body)
     expect(container).not.toContainElement(log())
+  })
+
+  it('starts below the turn’s toast while one shows, from module 0.36.0', () => {
+    const header = document.createElement('header')
+    document.body.append(header)
+    jest
+      .spyOn(header, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 390, height: 56 }))
+    const toasts = (foot?: number) => (
+      <TurnToastContext value={foot}>
+        <RollToasts rolls={[strength]} states={NONE} on header={header} />
+      </TurnToastContext>
+    )
+    const { rerender } = render(toasts())
+    // Below the header, 56 pixels tall, by the gap.
+    expect(log().parentElement).toHaveStyle({ top: '64px' })
+    // The turn's toast ends 120 pixels down: below it, by the same gap.
+    rerender(toasts(120))
+    expect(log().parentElement).toHaveStyle({ top: '128px' })
+    // One that ends above their own top changes nothing.
+    rerender(toasts(30))
+    expect(log().parentElement).toHaveStyle({ top: '64px' })
+    rerender(toasts())
+    expect(log().parentElement).toHaveStyle({ top: '64px' })
+    header.remove()
   })
 
   it('C23 keeps a stack taller than the room below its top on the screen, scrolling it there, as on a phone turned sideways', () => {

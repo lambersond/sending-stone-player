@@ -18,6 +18,7 @@ import {
 import { LONG_PRESS } from './roll-button'
 import { SheetText } from './sheet-text'
 import { Modal } from '@/components/modal'
+import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { characterSheet, sheetFavorites } from '@/mocks/sending-stone'
 import type {
   CriticalRule,
@@ -2233,5 +2234,62 @@ describe('components/character-sheet/description-link', () => {
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByText('Prone')).toHaveClass('ref')
     await act(async () => {})
+  })
+
+  describe('in a pane whose rolls are locked, as a gone companion’s (module 0.36.0)', () => {
+    const locked = (text: React.ReactNode) => (
+      <RollsLocked value>{text}</RollsLocked>
+    )
+    const LINKS =
+      save('data-ability="dex" data-dc="15"') +
+      check('data-checks="skill:str:ath" data-dc="15"') +
+      '<p>Take <span class="ss-damage roll" data-n="1" data-formulas="2d6" data-types="fire">2d6 fire</span>.' +
+      ' Lucky: <span class="ss-roll roll" data-n="2" data-formula="1d4">1d4</span></p>'
+
+    it('disables its save, check, damage and formula, which open and roll nothing', async () => {
+      const user = userEvent.setup()
+      const { actions } = await renderText(LINKS, actionsFor(), locked)
+      for (const name of [
+        'DC 15 Dexterity',
+        'DC 15 Strength (Athletics)',
+        '2d6 fire, roll damage',
+        '1d4, roll it',
+      ]) {
+        const link = screen.getByRole('button', { name })
+        expect(link).toBeDisabled()
+        expect(link).toHaveClass('cursor-not-allowed', 'opacity-50')
+        await user.click(link)
+        fireEvent.contextMenu(link, { button: 2 })
+      }
+      expect(screen.queryByRole('menu')).toBeNull()
+      expect(actions.roll).not.toHaveBeenCalled()
+      expect(actions.rollDamage).not.toHaveBeenCalled()
+      expect(actions.rollFormula).not.toHaveBeenCalled()
+    })
+
+    it('disables damage with no other way to roll it', async () => {
+      const { actions } = await renderText(
+        '<p>Regain <span class="ss-damage roll" data-n="0" data-formulas="2d4 + 2" data-types="healing" data-healing="true">2d4 + 2</span> hit points.</p>',
+        actionsFor({ damage: { modifies: false } }),
+        locked,
+      )
+      const healing = screen.getByRole('button', {
+        name: '2d4 + 2, roll healing',
+      })
+      expect(healing).not.toHaveAttribute('aria-haspopup')
+      expect(healing).toBeDisabled()
+      fireEvent.click(healing)
+      expect(actions.rollDamage).not.toHaveBeenCalled()
+    })
+
+    it('rolls as ever where they aren’t', async () => {
+      const user = userEvent.setup()
+      const { actions } = await renderText(LINKS)
+      await user.click(screen.getByRole('button', { name: '1d4, roll it' }))
+      expect(actions.rollFormula).toHaveBeenCalled()
+      expect(
+        screen.getByRole('button', { name: 'DC 15 Strength (Athletics)' }),
+      ).toBeEnabled()
+    })
   })
 })
