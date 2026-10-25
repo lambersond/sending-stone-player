@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Something in Foundry
+    url: https://github.com/lambersond/fvtt-sending-stone/issues/new/choose
+    about: Sending Stone's settings window, chat cards, rolls made in Foundry, and Foundry's notifications. Report it, or suggest an idea, there.

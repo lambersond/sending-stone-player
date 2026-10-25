@@ -29,6 +29,8 @@ function seenOf(view: TableView) {
     typed: view.manualDice?.on === true,
     // From module 0.33.0: whether the seat may remove its character's items.
     removes: view.removes === true,
+    // From module 0.37.0: whether the player may change its character's favorites.
+    favorites: view.favorites === true,
   }
 }
 
@@ -64,6 +66,7 @@ export function useTableView(api: string, initial: TableView) {
           moves,
           typed,
           removes,
+          favorites,
         } = seen.current
         const query = new URLSearchParams({
           version: String(version),
@@ -74,6 +77,7 @@ export function useTableView(api: string, initial: TableView) {
           ...(moves && { moves: '1' }),
           ...(typed && { typed: '1' }),
           ...(removes && { removes: '1' }),
+          ...(favorites && { favorites: '1' }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(`${api}/table?${query}`, {

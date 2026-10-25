@@ -1,13 +1,21 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
+import { Favoriting } from './favoriting'
 import { SpellsTab } from './spells-tab'
 import {
   castingSheet,
   characterSheet,
   checkingSheet,
   fullerSheet,
+  offeringFavorites,
   sheetSpell,
   TEXTS,
 } from '@/mocks/sending-stone'
@@ -872,5 +880,67 @@ describe('components/character-sheet/spells-tab', () => {
           screen.getByRole('heading', { name: 'Spellcasting' }),
         ),
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+})
+
+/** A spell's row, by its name: its summary, its plain row, or its name's button. */
+const rowOf = (name: string) => {
+  const item = screen.getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.querySelector('button') ??
+    item.firstElementChild) as HTMLElement
+}
+
+describe('components/character-sheet/spells-tab, favorites, from module 0.37.0', () => {
+  /** The tab, inside a pane that offers favorites, Shield already one. */
+  const renderOffered = () => {
+    const offering = offeringFavorites(['item:shield'])
+    render(
+      <Favoriting value={offering.value}>
+        <SpellsTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        />
+      </Favoriting>,
+    )
+    return offering
+  }
+
+  it('offers Add of a spell that isn’t one, and Remove of one that is, as the spell', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    fireEvent.contextMenu(rowOf('Alarm'), { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Alarm' })).getByRole(
+        'menuitem',
+        { name: 'Add to favorites' },
+      ),
+    )
+    fireEvent.contextMenu(rowOf('Shield'), { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Shield' })).getByRole(
+        'menuitem',
+        { name: 'Remove from favorites' },
+      ),
+    )
+    expect(offering.chosen).toEqual([
+      { target: { type: 'item', id: 'alarm' }, name: 'Alarm', op: 'add' },
+      { target: { type: 'item', id: 'shield' }, name: 'Shield', op: 'remove' },
+    ])
+  })
+
+  it('opens it by Shift+F10 from a row that takes focus, and none without a pane offering it', () => {
+    renderOffered()
+    const alarm = rowOf('Alarm')
+    alarm.focus()
+    expect(fireEvent.contextMenu(alarm, { button: -1 })).toBe(false)
+    expect(screen.getByRole('menu', { name: 'Alarm' })).toBeVisible()
+    cleanup()
+
+    renderTab()
+    expect(fireEvent.contextMenu(rowOf('Alarm'), { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

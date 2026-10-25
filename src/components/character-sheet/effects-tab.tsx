@@ -6,6 +6,7 @@ import { useConditionsPanel, useShowConditions } from './conditions-panel'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { useSheetId } from '@/hooks/use-sheet-ids'
+import type { FavoriteTarget } from '@/types/roll'
 import type { SheetCondition, SheetEffect } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { ReactNode } from 'react'
@@ -107,11 +108,14 @@ export function EffectEntry({
   characterId,
   effect,
   suppressed = false,
+  favorite,
 }: Readonly<{
   characterId: string
   effect: SheetEffect
   /** Said of it where the section it's in doesn't say so, as among favorites. */
   suppressed?: boolean
+  /** What its row's favorites entry names, from module 0.37.0: the effect, unless said. */
+  favorite?: FavoriteTarget | null
 }>) {
   const concentration = useConcentrating()
   let state: string | undefined
@@ -124,6 +128,7 @@ export function EffectEntry({
       img={effect.img}
       fallback={Sparkles}
       favoriteKey={`effect:${effect.id}`}
+      favorite={favorite}
       detail={effectDetail(effect)}
       aside={
         state && (

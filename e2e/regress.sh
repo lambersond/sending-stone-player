@@ -129,3 +129,8 @@ run endturn 73 TIMEOUT=900 SHOTS=$O/shots-036f
 run endturn 77 MIDI=1 TIMEOUT=900
 run endturn 73 DND5E6=1 TIMEOUT=900
 run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
+# Module 0.37.0: favorites added and removed from the app by a right-click or long-press, as
+# dnd5e's own favorites; and module 0.36.0 (none).
+run favoriting 84 SHOTS=$O/shots-037
+run favoriting 51 DND5E6=1 SHOTS=$O/shots-037
+run favoriting 8 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037

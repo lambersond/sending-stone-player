@@ -1,8 +1,10 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
   favoriteEntries,
+  favoriteIndex,
   favoriteKeys,
   foldName,
+  linkedKeys,
   resourceNote,
   rollsAny,
 } from './favorites'
@@ -84,6 +86,28 @@ const activity = (id: string, name: string) => ({
   uses: null,
 })
 
+/** An activity made a favorite: one of an item's, by its own id and its item's. */
+const activityFavorite = (
+  itemId: string,
+  id: string,
+  name: string,
+): SheetFavorite => ({
+  type: 'activity',
+  id,
+  itemId,
+  itemType: 'weapon',
+  itemName: itemId,
+  name,
+  img: null,
+  activation: 'Action',
+  range: null,
+  target: null,
+  toHit: null,
+  save: null,
+  damage: [],
+  uses: null,
+})
+
 describe('utils/favorites', () => {
   describe('favoriteEntries', () => {
     it('finds what each favorite refers to on the sheet, in the order dnd5e shows them', () => {
@@ -93,7 +117,8 @@ describe('utils/favorites', () => {
       expect(entries.map(({ key, kind }) => [key, kind])).toEqual([
         ['resource:primary', 'resource'],
         ['item:warhammer', 'action'],
-        ['activity:cast-fireball', 'action'],
+        // Changed on purpose (round 0.37.0 §7.15): an activity is keyed by its item and its own id.
+        ['activity:staff.cast-fireball', 'action'],
         ['effect:blessed', 'effect'],
         ['skill:prc', 'check'],
         ['tool:thief', 'check'],
@@ -109,9 +134,13 @@ describe('utils/favorites', () => {
         kind: 'action',
         action: sheet.actions[0].actions[0],
         note: undefined,
+        // Changed on purpose (round 0.37.0 §7.15): what the app adds and removes.
+        target: { type: 'item', id: 'warhammer' },
       })
       expect(fireball).toEqual({
-        key: 'activity:cast-fireball',
+        // Changed on purpose (round 0.37.0 §7.15): the activity's key, and what's removed.
+        key: 'activity:staff.cast-fireball',
+        target: { type: 'activity', id: 'cast-fireball', item: 'staff' },
         kind: 'action',
         action: sheetAction({
           id: 'staff',
@@ -136,15 +165,21 @@ describe('utils/favorites', () => {
         kind: 'effect',
         effect: sheet.effects[0].effects[0],
         suppressed: false,
+        // Changed on purpose (round 0.37.0 §7.15): what the app adds and removes.
+        target: { type: 'effect', id: 'blessed' },
       })
       expect(perception).toEqual({
         key: 'skill:prc',
         kind: 'check',
         check: sheet.skills[1],
         source: { kind: 'skill', key: 'prc' },
+        // Changed on purpose (round 0.37.0 §7.15): a skill is made a favorite in Foundry.
+        target: null,
       })
       expect(tools).toEqual({
         key: 'tool:thief',
+        // Changed on purpose (round 0.37.0 §7.15): a tool is made a favorite in Foundry.
+        target: null,
         kind: 'check',
         check: {
           id: 'thief',
@@ -364,6 +399,8 @@ describe('utils/favorites', () => {
             text: null,
           },
           suppressed: true,
+          // Changed on purpose (round 0.37.0 §7.15): what the app removes.
+          target: { type: 'effect', id: 'dnd5epoisoned00' },
         },
       ])
     })
@@ -665,6 +702,8 @@ describe('utils/favorites', () => {
         kind: 'action',
         action: actionOf(sheet, 'second-wind'),
         resource: linked,
+        // Changed on purpose (round 0.37.0 §7.15): the resource's place is never changed here.
+        target: null,
       })
       expect(entry.kind === 'action' && entry.action).toBe(
         actionOf(sheet, 'second-wind'),
@@ -681,6 +720,8 @@ describe('utils/favorites', () => {
           kind: 'feature',
           feature: sheet.features[1].features[0],
           resource: linked,
+          // Changed on purpose (round 0.37.0 §7.15): the resource's place is never changed here.
+          target: null,
         },
       ])
     })
@@ -691,8 +732,19 @@ describe('utils/favorites', () => {
       const sheet = fullerSheet({ favorites: [none, stale] })
 
       expect(favoriteEntries(sheet)).toEqual([
-        { key: 'resource:secondary', kind: 'resource', resource: none },
-        { key: 'resource:tertiary', kind: 'resource', resource: stale },
+        // Changed on purpose (round 0.37.0 §7.15): a resource is never added or removed here.
+        {
+          key: 'resource:secondary',
+          kind: 'resource',
+          resource: none,
+          target: null,
+        },
+        {
+          key: 'resource:tertiary',
+          kind: 'resource',
+          resource: stale,
+          target: null,
+        },
       ])
     })
 
@@ -783,7 +835,8 @@ describe('utils/favorites', () => {
       ).toEqual([
         ['item:second-wind', 'secondary'],
         ['item:warhammer', false],
-        ['activity:breather', false],
+        // Changed on purpose (round 0.37.0 §7.15): an activity is keyed by its item and its own id.
+        ['activity:second-wind.breather', false],
       ])
     })
 
@@ -878,7 +931,8 @@ describe('utils/favorites', () => {
 
       expect(rollsAny(entries)).toBe(true)
       expect(rollsAny(kinds('skill:prc'))).toBe(true)
-      expect(rollsAny(kinds('activity:cast-fireball'))).toBe(true)
+      // Changed on purpose (round 0.37.0 §7.15): the activity's key.
+      expect(rollsAny(kinds('activity:staff.cast-fireball'))).toBe(true)
       expect(
         rollsAny(kinds('resource:primary', 'effect:blessed', 'slots:spell1')),
       ).toBe(false)
@@ -1004,5 +1058,76 @@ describe('utils/favorites', () => {
     expect(favoriteEntries(sheet)).toMatchObject([
       { kind: 'action', action: { text: TEXTS.fighter }, note: 'Darkvision' },
     ])
+  })
+
+  describe('what the app adds and removes, from module 0.37.0', () => {
+    it('lists two items’ activities of one id as two, as dnd5e gives migrated items the same', () => {
+      const sheet = fullerSheet({
+        favorites: [
+          activityFavorite('wandA', 'same', 'Zap'),
+          activityFavorite('wandB', 'same', 'Zap'),
+        ],
+      })
+
+      expect(
+        favoriteEntries(sheet).map(({ key, target }) => [key, target]),
+      ).toEqual([
+        [
+          'activity:wandA.same',
+          { type: 'activity', id: 'same', item: 'wandA' },
+        ],
+        [
+          'activity:wandB.same',
+          { type: 'activity', id: 'same', item: 'wandB' },
+        ],
+      ])
+    })
+
+    it('names each favorite by what it is: an item, as each row shows it, an activity or an effect', () => {
+      const sheet = fullerSheet({
+        favorites: [
+          item('warhammer', 'weapon'),
+          item('fighter', 'class'),
+          item('background-x', 'background'),
+          ...sheetFavorites().filter(({ type }) => type === 'slots'),
+        ],
+      })
+
+      expect(
+        favoriteEntries(sheet).map(({ kind, target }) => [kind, target]),
+      ).toEqual([
+        ['action', { type: 'item', id: 'warhammer' }],
+        ['class', { type: 'item', id: 'fighter' }],
+        ['other', { type: 'item', id: 'background-x' }],
+        // Spell slots are made favorites in Foundry.
+        ['slots', null],
+      ])
+    })
+
+    it('keys the features resources stand for, and only those', () => {
+      const linked = resource('secondary', 'Second Wind', 'second-wind')
+      const sheet = fullerSheet({
+        favorites: [
+          linked,
+          resource('tertiary', 'Nothing', null),
+          item('warhammer', 'weapon'),
+        ],
+      })
+
+      expect(linkedKeys(favoriteEntries(sheet))).toEqual(
+        new Set(['item:second-wind']),
+      )
+      expect(linkedKeys([])).toEqual(new Set())
+    })
+
+    it('indexes the sheet’s lists by id, for an Add to be checked against', () => {
+      const index = favoriteIndex(fullerSheet())
+
+      expect(index.actions.has('warhammer')).toBe(true)
+      expect(index.classes.has('fighter')).toBe(true)
+      expect(index.effects.has('blessed')).toBe(true)
+      expect(index.skills.has('prc')).toBe(true)
+      expect(index.items.has('nothing-here')).toBe(false)
+    })
   })
 })

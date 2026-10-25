@@ -1530,6 +1530,17 @@ const featuresSchema = z
       .optional()
       // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
       .catch(undefined),
+    // From module 0.37.0: whether favorites may be added and removed here, under dnd5e, with no
+    // switch of its own.
+    favorites: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -1839,6 +1850,10 @@ const commandResultSchema = z.object({
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),
+  // From module 0.37.0, for a favorite added or removed: whether it's one of the character's
+  // favorites now.
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  favorited: z.boolean().optional().catch(undefined),
   // From module 0.34.0, for a note command: the note, and its page's revision now, never its text.
   note: z
     .object({

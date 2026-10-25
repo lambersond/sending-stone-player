@@ -58,6 +58,8 @@ describe('db/table', () => {
         moves: false,
         typed: false,
         removes: false,
+        // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
+        favorites: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -70,6 +72,8 @@ describe('db/table', () => {
           bridgePolledAt: true,
           transfersEnabled: true,
           removalsEnabled: true,
+          // Changed on purpose (round 0.37.0 §7.15): whether its game takes favorites.
+          favoritesEnabled: true,
         },
       })
     })
@@ -88,6 +92,8 @@ describe('db/table', () => {
         moves: false,
         typed: false,
         removes: false,
+        // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
+        favorites: false,
       })
     })
 
@@ -102,6 +108,8 @@ describe('db/table', () => {
         moves: false,
         typed: false,
         removes: false,
+        // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
+        favorites: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -114,6 +122,8 @@ describe('db/table', () => {
         moves: false,
         typed: false,
         removes: false,
+        // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
+        favorites: false,
       })
     })
 
@@ -192,6 +202,8 @@ describe('db/table', () => {
           bridgePolledAt: true,
           transfersEnabled: true,
           removalsEnabled: true,
+          // Changed on purpose (round 0.37.0 §7.15): whether its game takes favorites.
+          favoritesEnabled: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -671,6 +683,8 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       moves: false,
       typed: false,
       removes: false,
+      // Changed on purpose (round 0.37.0 §7.15): never the Gamemaster's.
+      favorites: false,
     })
   })
 
@@ -1569,6 +1583,86 @@ describe('db/table, removing items, from module 0.33.0', () => {
     await expect(
       getCampaignStatus({ ...character, campaignId: null }),
     ).resolves.toMatchObject({ removes: false })
+  })
+})
+
+/** The campaign, its game taking favorites as given, and fetching as lately as given. */
+const favoriting = (
+  favoritesEnabled = true,
+  bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+) =>
+  givenCampaign({
+    ...campaign,
+    groups: [],
+    rollsEnabled: false,
+    rollKinds: [],
+    rollFeatures: [],
+    transfersEnabled: false,
+    removalsEnabled: false,
+    favoritesEnabled,
+    bridgePolledAt,
+  })
+
+describe('db/table, favorites, from module 0.37.0', () => {
+  /** The Gamemaster at Thorin's sheet. */
+  const gm = {
+    ...character,
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+
+  it('lets the player change the character’s favorites while its game takes them, everything else off', async () => {
+    favoriting()
+
+    const view = await getTableView(character)
+    expect(view.favorites).toBe(true)
+    expect(view).not.toHaveProperty('removes')
+    expect(view).not.toHaveProperty('moves')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      removes: false,
+      favorites: true,
+    })
+  })
+
+  it('never lets the Gamemaster’s seat, which would leave no mark of theirs', async () => {
+    favoriting()
+
+    expect(await getTableView(gm)).not.toHaveProperty('favorites')
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      favorites: false,
+    })
+  })
+
+  it.each([
+    ['its game takes none, as before module 0.37.0', () => favoriting(false)],
+    [
+      'its module stopped fetching',
+      () => favoriting(true, new Date(Date.now() - 46_000)),
+    ],
+    ['its module never fetched', () => favoriting(true, null)],
+  ])('lets no one change them while %s', async (_name, arrange) => {
+    arrange()
+
+    expect(await getTableView(character)).not.toHaveProperty('favorites')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      favorites: false,
+    })
+  })
+
+  it('lets no one change those of a character no longer in the roster, nor at a seat without one', async () => {
+    favoriting()
+
+    const gone = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(gone).not.toHaveProperty('favorites')
+    const none = await getTableView({ ...character, actorId: null })
+    expect(none).not.toHaveProperty('favorites')
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ favorites: false })
+    await expect(
+      getCampaignStatus({ ...character, campaignId: null }),
+    ).resolves.toMatchObject({ favorites: false })
   })
 })
 

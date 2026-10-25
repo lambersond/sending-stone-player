@@ -4,11 +4,14 @@ import { Fragment, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
 import { FavoriteStar, useFavorite } from './favorite-mark'
+import { useFavoriteChoice } from './favoriting'
+import { useItemMenu } from './item-menu'
 import { usePressMenu } from './press-menu'
 import { SheetText } from './sheet-text'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import type { DescriptionOrigin } from './description-actions'
 import type { MenuPoint } from './roll-menu'
+import type { FavoriteTarget } from '@/types/roll'
 
 type Props = {
   characterId: string
@@ -47,15 +50,30 @@ type Props = {
    */
   onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
   /**
+   * What its row's favorites entry adds or removes, from module 0.37.0, where it's given no menu:
+   * unless said, the item or effect `favoriteKey` names, and nothing for anything else; null for
+   * none.
+   */
+  favorite?: FavoriteTarget | null
+  /**
    * From module 0.33.0's feedback, on a party's sheet: while it's on its way, one spinner right of
    * its name, and its row busy, in place of one on each of its buttons.
    */
   busy?: boolean
 }
 
+/** What a row's favorites key names, as the app adds and removes it: an item or an effect alone. */
+function keyTarget(key: string | undefined): FavoriteTarget | undefined {
+  const [type, ...rest] = key?.split(':') ?? []
+  const id = rest.join(':')
+  if (!id) return undefined
+  return type === 'item' || type === 'effect' ? { type, id } : undefined
+}
+
 /**
  * A row on the sheet, such as a feature or an effect, that opens to show its description, loaded
- * only once it is opened. With nothing to show, it doesn't open.
+ * only once it is opened. With nothing to show, it doesn't open. From module 0.37.0, one given no
+ * menu has its own, Add to favorites or Remove from favorites, where the pane offers them.
  */
 export function SheetEntry({
   characterId,
@@ -74,11 +92,14 @@ export function SheetEntry({
   muted = false,
   favoriteKey,
   onMenu,
+  favorite: target = keyTarget(favoriteKey),
   busy = false,
 }: Readonly<Props>) {
   const [open, setOpen] = useState(false)
   const favorite = useFavorite(favoriteKey)
-  const press = usePressMenu(onMenu)
+  const own = useItemMenu(name, { favorite: useFavoriteChoice(target, name) })
+  const menu = onMenu ?? own.onMenu
+  const press = usePressMenu(menu)
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
@@ -115,12 +136,13 @@ export function SheetEntry({
           className={clsx(rowClass, press.className)}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
           // on a row that opens (module 0.33.0).
-          tabIndex={onMenu ? 0 : undefined}
+          tabIndex={menu ? 0 : undefined}
           {...press.props}
         >
           {row}
           <span aria-hidden className='size-4 shrink-0' />
         </div>
+        {!onMenu && own.menu}
       </li>
     )
   }
@@ -173,6 +195,7 @@ export function SheetEntry({
           </div>
         )}
       </details>
+      {!onMenu && own.menu}
     </li>
   )
 }

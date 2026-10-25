@@ -563,8 +563,14 @@ describe('db/roll-requests', () => {
           status: 'pending',
           createdAt: { gt: ago(30_000) },
           // No move of items and coins, from module 0.31.0, nor removal, from module 0.33.0, to a
-          // session not known to take them.
-          OR: [{ role: 'player', kind: { notIn: ['transfer', 'remove'] } }],
+          // session not known to take them; changed on purpose (round 0.37.0 §7.15): nor a
+          // favorite, from module 0.37.0.
+          OR: [
+            {
+              role: 'player',
+              kind: { notIn: ['transfer', 'remove', 'favorite'] },
+            },
+          ],
         },
         orderBy: { createdAt: 'asc' },
         take: 10,
@@ -1850,12 +1856,34 @@ describe('db/roll-requests', () => {
   })
 
   describe('markBridgePolled', () => {
+    // Changed on purpose (round 0.37.0 §7.15): each says whether the game takes favorites too.
+    it('tells whether the game takes favorites, from module 0.37.0, with everything else off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: true,
+        playersPresent: false,
+      })
+    })
+
     it('tells whether the game keeps journal notes, from module 0.34.0, with rolls, moves and removals off', async () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
         transfersEnabled: false,
         removalsEnabled: false,
         notesEnabled: true,
+        favoritesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1864,6 +1892,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: false,
         notesEnabled: true,
+        favoritesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1874,6 +1903,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: false,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
@@ -1882,6 +1912,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: false,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
@@ -1892,6 +1923,8 @@ describe('db/roll-requests', () => {
           transfersEnabled: true,
           removalsEnabled: true,
           notesEnabled: true,
+          // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+          favoritesEnabled: true,
           playersSeenAt: true,
         },
       })
@@ -1903,6 +1936,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: true,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1911,6 +1945,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: true,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1921,6 +1956,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: true,
         removalsEnabled: false,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1929,6 +1965,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: true,
         removalsEnabled: false,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1942,6 +1979,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: false,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersSeenAt,
       } as any)
 
@@ -1950,6 +1988,7 @@ describe('db/roll-requests', () => {
         transfersEnabled: false,
         removalsEnabled: false,
         notesEnabled: false,
+        favoritesEnabled: false,
         playersPresent: false,
       })
     })
@@ -2824,6 +2863,15 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       requestedById: 'gm-2',
       kind: 'remove',
     },
+    // From module 0.37.0: a player's favorite, and one the Gamemaster's seat should never have
+    // sent.
+    {
+      id: 'favorite-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'favorite',
+    },
+    { id: 'favorite-gm', role: 'gm', requestedById: 'gm-1', kind: 'favorite' },
   ].map((row, index) => ({
     ...row,
     campaignId: 'c1',
@@ -2901,6 +2949,43 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
         removalsEnabled: false,
       }),
     ).resolves.toEqual(['roll-player', 'roll-gm'])
+    await expect(
+      fetched({ ...removing, rollFeatures: ['gmRolls'] }),
+    ).resolves.toEqual(['roll-player', 'remove-player', 'roll-gm', 'remove-gm'])
+  })
+
+  it("hands a favorite over only to the hello's session, and only a player's, from module 0.37.0", async () => {
+    const favoriting = { ...removing, favoritesEnabled: true }
+    await expect(fetched(favoriting)).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'remove-gm',
+      'favorite-player',
+    ])
+    await expect(fetched(favoriting, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+    // Never the Gamemaster's, whose rolls go to the game, with moves and removals on too.
+    await expect(
+      fetched({
+        ...favoriting,
+        rollFeatures: ['gmRolls'],
+        transfersEnabled: true,
+      }),
+    ).resolves.toEqual([
+      'roll-player',
+      'move-player',
+      'remove-player',
+      'roll-gm',
+      'remove-gm',
+      'favorite-player',
+    ])
+  })
+
+  it('withholds every favorite while the game takes none', async () => {
+    await expect(
+      fetched({ ...removing, removalsEnabled: false, favoritesEnabled: false }),
+    ).resolves.toEqual(['roll-player'])
     await expect(
       fetched({ ...removing, rollFeatures: ['gmRolls'] }),
     ).resolves.toEqual(['roll-player', 'remove-player', 'roll-gm', 'remove-gm'])

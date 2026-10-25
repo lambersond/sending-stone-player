@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   COMPANIONS,
+  FAVORITES,
   FOUNDRY_SETTINGS,
   GROUPS,
   MAX_ENVELOPE_BYTES,
@@ -227,7 +228,8 @@ export async function POST(request: Request) {
  * 0.33.0; and journal notes, from module 0.34.0, which the module fetches for, and sends journals
  * of, only then, and from module 0.35.0 orders of a group's notes and who changed a journal in
  * Foundry; and from module 0.36.0 the campaign's characters' companions, which the module sends,
- * and marks its combats and chat with, only then.
+ * and marks its combats and chat with, only then; and from module 0.37.0 favorites added and
+ * removed, which the module fetches for only then.
  */
 const FEATURES = {
   commands: true,
@@ -240,6 +242,7 @@ const FEATURES = {
   removals: REMOVALS,
   notes: NOTES,
   companions: COMPANIONS,
+  favorites: FAVORITES,
 }
 
 /**

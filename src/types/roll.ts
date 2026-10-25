@@ -174,6 +174,18 @@ export type RemoveInput = {
 export type RemovedItem = { item: string; quantity: number }
 
 /**
+ * What a favorite is, as the sheet names it, from module 0.37.0: an item by its id, one of an
+ * item's activities by its own id and its item's, an effect by the sheet's id ("<id>", or
+ * "<itemId>.<id>" for an item's), and a skill, tool or pool of spell slots by its key.
+ */
+export type FavoriteTarget =
+  | { type: 'item' | 'effect' | 'skill' | 'tool' | 'slots'; id: string }
+  | { type: 'activity'; id: string; item: string }
+
+/** A favorite added to or removed from the character's, from module 0.37.0. */
+export type FavoriteInput = FavoriteTarget & { op: 'add' | 'remove' }
+
+/**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
  * formula, such as a light's radius; or a description's own roll, by its link.
@@ -255,6 +267,8 @@ export type RollRequestInput = {
   transfer?: TransferInput
   /** For a removal, from module 0.33.0, what it removes. */
   remove?: RemoveInput
+  /** For a favorite, from module 0.37.0: what, and whether it's added or removed. */
+  favorite?: FavoriteInput
   /**
    * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
    * left, as the page shows it now.
@@ -364,6 +378,11 @@ export type RollRequestView = {
    * the item itself changed.
    */
   removed?: RemovedItem
+  /**
+   * For a favorite, from module 0.37.0, once made: whether it's one of the character's favorites
+   * now, as the game says.
+   */
+  favorited?: boolean
 }
 
 /**

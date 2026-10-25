@@ -8,12 +8,15 @@ import {
   distributedResult,
   enchantingSheet,
   enchantUse,
+  FAVORITING,
+  favoritedResult,
   fullerSheet,
   MAGIC_WEAPON_PROFILES,
   LOCK_CHECK,
   MAZE_CHECK,
   mockJournalUpdated,
   movedResult,
+  NOT_FAVORITING,
   NOT_REMOVING,
   NOTE_IDS,
   removedResult,
@@ -4790,5 +4793,55 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
       expect(aloneOf(junk)).toBeUndefined()
     }
     expect(aloneOf()).toBeUndefined()
+  })
+})
+
+/** What a hello's features say of favorites, as read. */
+const favorites = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { favorites: sent },
+    })?.data as { features?: { favorites?: unknown } }
+  ).features?.favorites
+
+describe('schemas/sending-stone, favorites added and removed, from module 0.37.0', () => {
+  it('reads features.favorites, on and off, and junk as off or nothing', () => {
+    expect(favorites(FAVORITING)).toEqual(FAVORITING)
+    expect(favorites(NOT_FAVORITING)).toEqual(NOT_FAVORITING)
+    expect(favorites({ enabled: 'yes', kinds: 'favorite' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+    })
+    expect(favorites('on')).toBeNull()
+    // Module 0.36.0 says nothing of them.
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          features: { removals: REMOVING },
+        })?.data as { features?: object }
+      ).features,
+    ).not.toHaveProperty('favorites')
+  })
+
+  it('reads whether it is one of the favorites now, keeping the rest of a result where it can’t', () => {
+    const read = (favorited: unknown) =>
+      parseGameEvent('command.result', { ...favoritedResult(), favorited })
+        ?.data as { favorited?: unknown; status: string }
+    expect(read(true).favorited).toBe(true)
+    expect(read(false).favorited).toBe(false)
+    for (const junk of ['true', 1, null, {}]) {
+      const data = read(junk)
+      expect(data.favorited).toBeUndefined()
+      expect(data.status).toBe('done')
+    }
+    // Left out by an older module, and by any other command.
+    expect(
+      parseGameEvent('command.result', removedResult())?.data,
+    ).not.toHaveProperty('favorited')
   })
 })

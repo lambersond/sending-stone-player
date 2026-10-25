@@ -9,9 +9,11 @@ import {
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
+import { Favoriting } from './favoriting'
 import {
   castingSheet,
   fullerSheet,
+  offeringFavorites,
   sheetFavorites,
   sheetItem,
   sheetSpell,
@@ -972,5 +974,161 @@ describe('components/character-sheet/favorites', () => {
     expect(screen.getAllByRole('listitem')[0].querySelector('svg')).toHaveClass(
       'size-4',
     )
+  })
+})
+
+/** A menu's items, by their names. */
+const itemsOf = (menu: HTMLElement) =>
+  within(menu)
+    .getAllByRole('menuitem')
+    .map(item => item.textContent)
+
+/** A plain row's part that would open a menu, by its name. */
+const rowOf = (name: string) => {
+  const item = screen.getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.firstElementChild) as HTMLElement
+}
+
+describe('components/character-sheet/favorites, removed from the app, from module 0.37.0', () => {
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  /** The strip, inside a pane that offers favorites, each of these one. */
+  const renderOffered = (favorites: SheetFavorite[] = sheetFavorites()) => {
+    const offering = offeringFavorites([
+      'item:warhammer',
+      'activity:staff.cast-fireball',
+      'effect:blessed',
+    ])
+    render(
+      <Favoriting value={offering.value}>
+        <FavoritesStrip {...propsFor(withFavorites(favorites))} />
+      </Favoriting>,
+    )
+    return offering
+  }
+
+  it('offers Remove from favorites on an item among them, which removes the item', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: /^Warhammer/, expanded: false }),
+      { button: 2 },
+    )
+    const menu = screen.getByRole('menu', { name: 'Warhammer' })
+    expect(itemsOf(menu)).toEqual(['Remove from favorites'])
+    await user.click(within(menu).getByRole('menuitem'))
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'item', id: 'warhammer' },
+        name: 'Warhammer',
+        op: 'remove',
+      },
+    ])
+  })
+
+  it('removes an activity among them as the activity, never its item', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: /^Cast Fireball/, expanded: false }),
+      { button: 2 },
+    )
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Cast Fireball' })).getByRole(
+        'menuitem',
+        { name: 'Remove from favorites' },
+      ),
+    )
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'activity', id: 'cast-fireball', item: 'staff' },
+        name: 'Cast Fireball',
+        op: 'remove',
+      },
+    ])
+  })
+
+  it.each([
+    ['a class', item('fighter', 'class'), 'Fighter 5'],
+    [
+      'anything else the sheet lists nowhere else',
+      item('soldier', 'background', 'Soldier'),
+      'Soldier',
+    ],
+  ])(
+    'offers Remove from favorites on %s among them, which removes it as its item',
+    async (_kind, favorite, name) => {
+      const user = userEvent.setup()
+      const offering = offeringFavorites([`item:${favorite.id}`])
+      render(
+        <Favoriting value={offering.value}>
+          <FavoritesStrip {...propsFor(withFavorites([favorite]))} />
+        </Favoriting>,
+      )
+      fireEvent.contextMenu(rowOf(name), { button: 2 })
+      const menu = screen.getByRole('menu', { name })
+      expect(itemsOf(menu)).toEqual(['Remove from favorites'])
+      await user.click(within(menu).getByRole('menuitem'))
+      expect(offering.chosen).toEqual([
+        { target: { type: 'item', id: favorite.id }, name, op: 'remove' },
+      ])
+    },
+  )
+
+  it('removes an effect among them as the effect', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    fireEvent.contextMenu(rowOf('Bless'), { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Bless' })).getByRole('menuitem'),
+    )
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'effect', id: 'blessed' },
+        name: 'Bless',
+        op: 'remove',
+      },
+    ])
+  })
+
+  it('offers none on a resource, spell slots, or a skill, which keeps its roll menu', () => {
+    renderOffered()
+    for (const name of ['Superiority Dice', '1st Level']) {
+      expect(fireEvent.contextMenu(rowOf(name), { button: 2 })).toBe(true)
+      expect(screen.queryByRole('menu')).toBeNull()
+    }
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: /^Perception check/ }),
+    )
+    expect(itemsOf(screen.getByRole('menu'))).toEqual([
+      'Roll with advantage',
+      'Roll with disadvantage',
+      'Modify roll…',
+    ])
+  })
+
+  it('offers none on a feature a resource stands for, whose place is the resource’s', () => {
+    renderOffered([resource('Second Wind', 'second-wind')])
+    const name = screen.getByRole('button', {
+      name: /^Second Wind/,
+      expanded: false,
+    })
+    expect(fireEvent.contextMenu(name, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('leaves an action’s chips their roll menus', () => {
+    renderOffered()
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
+    )
+    expect(screen.getByRole('menu')).not.toHaveAccessibleName('Warhammer')
   })
 })

@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 43 suites, 85 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 44 suites, 88 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.
@@ -131,7 +131,7 @@ Everything a pass writes is under `e2e/.out/`, which git ignores:
 
 | file | does |
 |---|---|
-| `*-e2e.mjs` | the suites; `world-030.mjs` is the world fifteen of them share, with Foundry's journals (the module's `test/fvtt/journal-core.mjs`) since module 0.34.0, and since module 0.36.0 scenes, tokens and companions (`sceneWorld()`, the module's `test/fvtt/token-core.mjs`) for the three that load them; `journal-ui.mjs`, how the four journal suites find the journal's card, modal, contents, reader, editor, Move and Reorder (module 0.35.0) |
+| `*-e2e.mjs` | the suites; `world-030.mjs` is the world sixteen of them share, with Foundry's journals (the module's `test/fvtt/journal-core.mjs`) since module 0.34.0, since module 0.36.0 scenes, tokens and companions (`sceneWorld()`, the module's `test/fvtt/token-core.mjs`) for the three that load them, and since module 0.37.0 dnd5e's favorites (`favoring()`, the module's `test/fvtt/favorites-core.mjs`); `journal-ui.mjs`, how the four journal suites find the journal's card, modal, contents, reader, editor, Move and Reorder (module 0.35.0) |
 | `env.mjs` | what every suite takes from the environment: `BASE`, `dbUrl` and `sql()`, `authSecret` and `cookieFor()`, `MODULE` |
 | `regress.sh` | every run: `run name want VARS…` |
 | `reset-db.sh`, `seed.sql` | a run's fresh data |

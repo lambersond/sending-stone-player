@@ -257,9 +257,11 @@ part('3. the item menu')
   const pointer = { x: box.x + 30, y: (await summaryEl.boundingBox()).y + box.height / 2 }
   const near = Math.min(Math.abs(at.y - pointer.y), Math.abs(at.y + at.height - pointer.y))
   // Module 0.33.0 removes items too, so its menu has "Remove…" after "Send to…"; module 0.31.0 doesn't.
-  const MENU = NEW ? ['Send to…', 'Remove…'] : ['Send to…']
+  // Changed on purpose (round 0.37.0 §12.3): his Rope is one of his favorites, which module 0.37.0
+  // removes from the app, first in its menu.
+  const MENU = NEW ? ['Remove from favorites', 'Send to…', 'Remove…'] : ['Send to…']
   check(same(items, MENU) && near < 60 && at.x <= pointer.x + 60 && at.x + at.width >= pointer.x - 60,
-    `a right-click on the Rope's name opens its menu, "Rope", at the pointer, with ${NEW ? '"Send to…" then "Remove…", as module 0.33.0 removes items' : '"Send to…" alone, as module 0.31.0 removes nothing'} (${JSON.stringify([items, pointer, at])})`)
+    `a right-click on the Rope's name opens its menu, "Rope", at the pointer, with ${NEW ? '"Remove from favorites", "Send to…" then "Remove…", as module 0.37.0 removes favorites and 0.33.0 items' : '"Send to…" alone, as module 0.31.0 removes nothing'} (${JSON.stringify([items, pointer, at])})`)
   await menu.getByRole('menuitem', { name: 'Send to…' }).click()
   dialog = alice.page.getByRole('dialog', { name: 'Give Rope' })
   await dialog.waitFor()
@@ -282,14 +284,25 @@ part('3. the item menu')
   await alice.page.keyboard.press('Escape')
   await menu.waitFor({ state: 'hidden' })
 }
-// The favorites strip's Rope: no menu.
+// The favorites strip's Rope: no menu under module 0.31.0; Remove from favorites alone under 0.37.0.
 {
   const strip = alice.page.getByRole('region', { name: 'Favorites' })
   if (await strip.count()) {
     await strip.getByText('Rope', { exact: true }).first().click({ button: 'right' })
-    await wait(500)
-    check(await alice.page.getByRole('menu').count() === 0, 'a right-click on the Rope among his favorites opens no menu')
-    await alice.page.keyboard.press('Escape')
+    if (NEW) {
+      const menu = alice.page.getByRole('menu', { name: 'Rope' })
+      await menu.waitFor({ timeout: 10_000 }).catch(() => {})
+      const items = await menu.getByRole('menuitem').allTextContents()
+      // Changed on purpose (round 0.37.0 §12.3): among his favorites, the Rope's menu removes it from them, and only that.
+      check(await alice.page.getByRole('menu').count() === 1 && same(items, ['Remove from favorites']),
+        `a right-click on the Rope among his favorites opens its menu, "Rope", "Remove from favorites" alone (${JSON.stringify(items)})`)
+      await alice.page.keyboard.press('Escape')
+      await menu.waitFor({ state: 'hidden' })
+    } else {
+      await wait(500)
+      check(await alice.page.getByRole('menu').count() === 0, 'a right-click on the Rope among his favorites opens no menu')
+      await alice.page.keyboard.press('Escape')
+    }
   } else note('no favorites strip on Inventory at 390')
 }
 // The keyboard, at 1280.
@@ -313,7 +326,10 @@ await desk.tab('Inventory')
     below: m.getBoundingClientRect().top >= summaryBox - 2, focused: document.activeElement?.textContent?.trim(),
     at: { row: Math.round(summaryBox), top: Math.round(m.getBoundingClientRect().top), bottom: Math.round(m.getBoundingClientRect().bottom), screen: innerHeight },
   }), (await rope.boundingBox()).y + (await rope.boundingBox()).height)
-  check(look.below && look.focused === 'Send to…', `Shift+F10 on the focused Rope row opens its menu below it, "Send to…" focused (${JSON.stringify(look)})`)
+  // Changed on purpose (round 0.37.0 §12.3): under module 0.37.0 the first item, "Remove from
+  // favorites", takes focus.
+  const FIRST = NEW ? 'Remove from favorites' : 'Send to…'
+  check(look.below && look.focused === FIRST, `Shift+F10 on the focused Rope row opens its menu below it, "${FIRST}" focused (${JSON.stringify(look)})`)
   await desk.page.keyboard.press('Escape')
   await menu.waitFor({ state: 'hidden' })
   const back = await rope.evaluate(el => document.activeElement === el)
@@ -326,7 +342,12 @@ await desk.tab('Inventory')
   await menu.waitFor()
   // The menu shows a frame before its first item takes focus (floating-ui focuses it on the next
   // animation frame): an Enter in between, as under three lanes' load, would reach the row instead.
-  await until(() => desk.page.evaluate(() => document.activeElement?.textContent?.trim() === 'Send to…'), '"Send to…" to take focus', 5_000)
+  await until(() => desk.page.evaluate(first => document.activeElement?.textContent?.trim() === first, FIRST), `"${FIRST}" to take focus`, 5_000)
+  // Changed on purpose (round 0.37.0 §12.3): the arrow key down to "Send to…", after "Remove from favorites".
+  if (NEW) {
+    await desk.page.keyboard.press('ArrowDown')
+    await until(() => desk.page.evaluate(() => document.activeElement?.textContent?.trim() === 'Send to…'), '"Send to…" to take focus', 5_000)
+  }
   await desk.page.keyboard.press('Enter')
   const give = desk.page.getByRole('dialog', { name: 'Give Rope' })
   await give.waitFor()

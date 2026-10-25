@@ -1,0 +1,130 @@
+name: Bug report
+description: Something in the Sending Stone app isn't working as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem with the Sending Stone app.
+
+        Is it something in Foundry instead, such as Sending Stone's settings window, chat cards, rolls made in Foundry or Foundry's notifications? Report it to the module: https://github.com/lambersond/fvtt-sending-stone/issues/new/choose. Not sure which? File it here; it can be moved.
+
+        **Never paste a campaign's secret or an invite link,** in any field or screenshot.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you saw, and what you expected to see instead.
+      placeholder: Tapping Longsword's attack showed "Sending to your Gamemaster's game…" and nothing more.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: As exactly as you can, from opening the app.
+      placeholder: |
+        1. Open the campaign's table.
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Were you the player or the Gamemaster?
+      options:
+        - A player
+        - The Gamemaster
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where in the app?
+      multiple: true
+      options:
+        - Signing in, or the home page
+        - Campaigns
+        - An invite, or choosing a character
+        - The character sheet
+        - Combat
+        - Chat
+        - A party's sheet
+        - The journal
+        - The settings (the cog)
+        - Somewhere else
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: iPhone 15, iPad Air, Windows laptop
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and its version
+      placeholder: Safari 18, Chrome 130
+    validations:
+      required: true
+  - type: dropdown
+    id: opened
+    attributes:
+      label: How was the app opened?
+      options:
+        - In the browser
+        - From the Home Screen
+  - type: dropdown
+    id: status
+    attributes:
+      label: The status at the top of the sheet, beside the character's name
+      description: A party's sheet has it beside the party's name. On the Campaigns page, each campaign's own status says Live, Offline or Waiting for Foundry instead; if that's the one you saw, say which in What happened.
+      options:
+        - Live
+        - Offline
+        - Reconnecting
+        - Waiting
+        - I didn't look
+  - type: checkboxes
+    id: settings
+    attributes:
+      label: Which of the sheet's settings (the cog) were on?
+      options:
+        - label: Send to the table
+        - label: Damage on its own
+        - label: Enter dice results manually
+  - type: dropdown
+    id: roll-results
+    attributes:
+      label: Roll results, in the sheet's settings
+      options:
+        - Toasts
+        - Banner
+        - I don't know
+  - type: input
+    id: module-version
+    attributes:
+      label: Sending Stone module version
+      description: The Gamemaster sees it on the campaign's card, under Foundry settings, Versions. Players, ask your Gamemaster, or say you don't know.
+      placeholder: "0.37.0"
+  - type: input
+    id: when
+    attributes:
+      label: When did it happen, and at which address?
+      description: The date, time and time zone, and the app's address if it isn't https://sending-stone.vercel.app.
+      placeholder: 24 October 2026 at 20:15 BST
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console
+      description: Any errors in the browser's console, if you can open it. Leave out anything that shows a secret.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here. Crop out any secret or invite link.

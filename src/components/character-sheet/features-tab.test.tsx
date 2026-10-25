@@ -1,9 +1,22 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
+import { Favoriting } from './favoriting'
 import { FeaturesTab } from './features-tab'
-import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
+import { LONG_PRESS } from './roll-button'
+import {
+  characterSheet,
+  fullerSheet,
+  offeringFavorites,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
 
@@ -327,5 +340,152 @@ describe('components/character-sheet/features-tab: recharges, from module 0.36.0
     expect(
       screen.getByText('Second Wind').closest('li') as HTMLElement,
     ).toHaveTextContent('Short Rest, Long Rest')
+  })
+})
+
+/** A feature's row, by its name: its summary, its plain row, or its name's button. */
+const rowOf = (name: string) => {
+  const item = screen.getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.querySelector('button') ??
+    item.firstElementChild) as HTMLElement
+}
+
+/** A class's card, by its name. */
+const cardOf = (name: string) =>
+  within(screen.getByRole('region', { name: 'Classes' }))
+    .getByText(new RegExp(`^${name}`))
+    .closest('li') as HTMLElement
+
+/** What a part pressed for its menu has, from a held touch's: no text selection or callout. */
+const UNSELECTED = /select-none|-webkit-touch-callout/
+
+describe('components/character-sheet/features-tab, favorites, from module 0.37.0', () => {
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** The tab, inside a pane that offers favorites. */
+  const renderOffered = (sheet: CharacterSheet = fullerSheet()) => {
+    const offering = offeringFavorites()
+    render(
+      <Favoriting value={offering.value}>
+        <FeaturesTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+        />
+      </Favoriting>,
+    )
+    return offering
+  }
+
+  it('offers a feature’s entry, as the feature', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    fireEvent.contextMenu(rowOf('Darkvision'), { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Darkvision' })).getByRole(
+        'menuitem',
+      ),
+    )
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'item', id: 'darkvision' },
+        name: 'Darkvision',
+        op: 'add',
+      },
+    ])
+  })
+
+  it('offers a class card’s, as the class, by a right-click, a held touch and Shift+F10 from a tab stop of its own', async () => {
+    jest.useFakeTimers()
+    const offering = renderOffered()
+    const card = cardOf('Fighter')
+    expect(card).toHaveAttribute('tabindex', '0')
+    // A held touch selects none of its words, nor brings up a phone's callout over its menu.
+    expect(card).toHaveClass('select-none', '[-webkit-touch-callout:none]')
+    const touch = { pointerType: 'touch', clientX: 10, clientY: 10 }
+
+    fireEvent.pointerDown(card, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS))
+    expect(screen.getByRole('menu', { name: 'Fighter' })).toBeVisible()
+    fireEvent.pointerUp(card, touch)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    jest.useRealTimers()
+
+    card.focus()
+    expect(fireEvent.contextMenu(card, { button: -1 })).toBe(false)
+    const user = userEvent.setup()
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Fighter' })).getByRole(
+        'menuitem',
+        { name: 'Add to favorites' },
+      ),
+    )
+    expect(offering.chosen).toEqual([
+      { target: { type: 'item', id: 'fighter' }, name: 'Fighter', op: 'add' },
+    ])
+  })
+
+  it('takes a held tap on an entry of a class card’s menu as the entry’s, never the card’s', () => {
+    jest.useFakeTimers()
+    const offering = renderOffered()
+    const card = cardOf('Fighter')
+    const touch = { pointerType: 'touch', clientX: 10, clientY: 10 }
+    fireEvent.pointerDown(card, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS))
+    fireEvent.pointerUp(card, touch)
+    fireEvent.click(card)
+    const entry = within(
+      screen.getByRole('menu', { name: 'Fighter' }),
+    ).getByRole('menuitem', { name: 'Add to favorites' })
+
+    // A right-click inside the menu is the menu's: the card doesn't open it again there.
+    expect(fireEvent.contextMenu(entry, { button: 2 })).toBe(true)
+    // A tap on the entry held a little long, as a phone's may be, chooses it, and the card's
+    // press neither opens its menu again nor takes the click that ends it.
+    fireEvent.pointerDown(entry, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS + 50))
+    fireEvent.pointerUp(entry, touch)
+    fireEvent.click(entry)
+    expect(offering.chosen).toEqual([
+      { target: { type: 'item', id: 'fighter' }, name: 'Fighter', op: 'add' },
+    ])
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('offers none on a class card the sheet names by no id, nor on a section’s About row, nor without a pane offering them', () => {
+    const sheet = fullerSheet()
+    renderOffered({
+      ...sheet,
+      classes: [{ ...sheet.classes[0], id: null }],
+      features: [{ ...sheet.features[0], text: 'about-fighter' }],
+    })
+    const card = cardOf('Fighter')
+    expect(card).not.toHaveAttribute('tabindex')
+    expect(card.className).not.toMatch(UNSELECTED)
+    expect(fireEvent.contextMenu(card, { button: 2 })).toBe(true)
+    expect(fireEvent.contextMenu(rowOf('About Fighter'), { button: 2 })).toBe(
+      true,
+    )
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    // Nor where the pane offers none: its words select as any others.
+    cleanup()
+    render(
+      <FeaturesTab
+        characterId='char-1'
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+        sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+      />,
+    )
+    const plain = cardOf('Fighter')
+    expect(plain).not.toHaveAttribute('tabindex')
+    expect(plain.className).not.toMatch(UNSELECTED)
+    expect(fireEvent.contextMenu(plain, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

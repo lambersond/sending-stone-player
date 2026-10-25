@@ -76,8 +76,8 @@ const UNAVAILABLE = {
 
 /**
  * The players' rolls as the campaign's game is ready for them, from module 0.31.0 their moves of
- * items and coins, from module 0.33.0 removals of their characters' items, and from module 0.34.0
- * journal notes.
+ * items and coins, from module 0.33.0 removals of their characters' items, from module 0.34.0
+ * journal notes, and from module 0.37.0 their characters' favorites.
  */
 const given = (
   rollsEnabled: boolean,
@@ -85,12 +85,14 @@ const given = (
   transfersEnabled = false,
   removalsEnabled = false,
   notesEnabled = false,
+  favoritesEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
     transfersEnabled,
     removalsEnabled,
     notesEnabled,
+    favoritesEnabled,
     playersPresent,
   })
 
@@ -222,6 +224,47 @@ describe('app/api/bridge/commands', () => {
     await jest.advanceTimersByTimeAsync(1000)
     await expect(answered?.json()).resolves.toEqual({
       commands: [removal],
+      open: ['thorin'],
+    })
+  })
+
+  it('hands over favorites with everything else off, from module 0.37.0, holding the fetch open as for a roll', async () => {
+    const favorite: RollCommand = {
+      id: 'req-favorite',
+      actorId: 'actor-thorin',
+      kind: 'favorite',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      favorite: { op: 'add', type: 'item', id: 'rope' },
+    }
+    given(false, false, false, false, false, true)
+    jest.mocked(claimRollRequests).mockResolvedValue([favorite])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [favorite],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+
+    jest.useFakeTimers()
+    given(false, true, false, false, false, true)
+    jest
+      .mocked(claimRollRequests)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([favorite])
+    let answered: Response | undefined
+    void post().then(response => (answered = response))
+
+    await jest.advanceTimersByTimeAsync(500)
+    expect(answered).toBeUndefined()
+    await jest.advanceTimersByTimeAsync(1000)
+    await expect(answered?.json()).resolves.toEqual({
+      commands: [favorite],
       open: ['thorin'],
     })
   })

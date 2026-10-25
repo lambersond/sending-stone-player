@@ -3045,6 +3045,66 @@ describe('hooks/use-table-rolls, moving items and coins, from module 0.31.0', ()
   })
 })
 
+describe('hooks/use-table-rolls, favorites added and removed, from module 0.37.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const added = used({ id: 'u-favorite', label: 'Rope', favorite: 'add' })
+  const favorite = { op: 'add' as const, type: 'item' as const, id: 'rope' }
+
+  it("sends a favorite as it is, whatever rolls the game takes or this device's switch says, and keeps what the game says of it", async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-favorite' }))
+    const { result } = render([])
+    act(() => result.current.setSending(false))
+
+    act(() => result.current.sendFavorite(added, favorite))
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(sent()).toEqual({
+      kind: 'favorite',
+      favorite,
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    })
+    expect(result.current.states.get('u-favorite')).toEqual({
+      status: 'sending',
+      favorite: 'add',
+    })
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-favorite',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        favorited: true,
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u-favorite')).toMatchObject({
+      status: 'done',
+      favorited: true,
+      favorite: 'add',
+    })
+  })
+
+  it('sends nothing for a use that is no favorite', () => {
+    const { result } = render([])
+    act(() => result.current.sendFavorite(used(), favorite))
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
 describe('hooks/use-table-rolls, dice typed in, from module 0.32.0', () => {
   beforeEach(() => {
     jest.useFakeTimers()

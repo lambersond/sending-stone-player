@@ -8,44 +8,38 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.35.0 and its app.
+Released: module v0.36.0 and its app.
 
-## v0.36 (in progress)
+## v0.37 (in progress)
 
-1. **Companions, sidekicks and familiars:** the creatures a character summons in Foundry, such as
-   a familiar, while they're on the active scene, and the NPCs its player owns there, show beside
-   the character in the app, a tab each, with their own sheets. Their attacks, spells, checks,
-   saves and recharges are made in Foundry from the app, as the character's are. Summoning,
-   dismissing and changing them stay in Foundry.
-   - **Companions' initiative:** the Gamemaster chooses, per campaign in Manage Campaigns, whether
-     each rolls its own initiative or acts right after its character.
-   - Wild Shape comes later: the creature view is built to show the form a character takes.
-   - Polymorph transformations are not on the roadmap.
-2. **Damage on its own:** a setting sends damage rolls to Foundry with no attack roll or saving
-   throw made there, as dnd5e's damage card with no targets, for the Gamemaster to select tokens
-   and apply as normal; with Midi-QOL too, outside its workflow.
-3. **Recharges:** a spent "Recharge 5–6" is rolled from the app, a character's or a companion's.
-4. **End Turn:** a player ends their turn, or a companion's, from the app: the turn panel's End
-   turn button, or the Combat tab held for a second, from any tab. It's Foundry's own Next Turn.
-   Undo, in the toast that says so, takes it back for a few seconds.
-5. **Pictures:** a portrait, avatar or icon from Foundry that won't load shows initials or an
-   icon, on a page loaded fresh too.
+1. **Favorites from the app:** players add items to their favorites and remove them in the app.
+   A right-click or long-press on an item, one of its activities or an effect opens a menu with
+   Add to favorites or Remove from favorites, and every one of those among the favorites offers
+   Remove. They're dnd5e's own favorites, so the character's sheet in Foundry shows them too; a
+   new one goes last.
+2. **Bug and feature templates** in both repositories, each pointing to the other.
+3. **Module names:** the Foundry modules are listed with the `illagria/` prefix, Sending Stone as
+   `illagria/sending-stone`. Its id, settings and links don't change.
 
-Patch releases (0.36.x) are expected as beta use turns up things to tweak.
+Patch releases (0.37.x) are expected as beta use turns up things to tweak.
+
+## v0.38 (planned next)
+
+1. **Dishes from the Magical Recipe Book:** a player links their character to the cookbook with a
+   code from the app; a dish they eat there reaches Foundry as a card for the Gamemaster, who
+   applies it to the characters who ate it, or sets it aside. Its effects last 24 in-game hours.
 
 ## v1.0
 
-1. Standardize names for the Foundry modules.
-2. Add bug and feature templates to the code repositories.
-3. Redesign the campaign page in the app.
-4. Refactor existing code to best practices.
-5. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
+1. Redesign the campaign page in the app.
+2. Refactor existing code to best practices.
+3. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
    to poll constantly.
 
 Open questions:
-- Repository names or titles are low risk. Changing the module's id (`sending-stone`) is breaking:
-  Foundry keeps the campaigns, their secrets and every flag under it, and installs follow its
-  manifest URL, so it would need a migration.
+- The module's title changed in v0.37; its id (`sending-stone`) didn't. Changing the id is
+  breaking: Foundry keeps the campaigns, their secrets and every flag under it, and installs follow
+  its manifest URL, so it would need a migration.
 - The refactor: write down what it should fix first, and go area by area, before the campaign page
   redesign, with the test harness and end-to-end suites as its safety net.
 - Polling: nothing polls while Foundry is closed, since Foundry does the asking, so the case to
@@ -88,3 +82,6 @@ Open questions:
 - Undo isn't offered when the next to act is hidden from players.
 - Notes deleted or reordered in Foundry while no Gamemaster is connected don't move the journal's
   "Last changed by" line.
+- Favorites are added and removed from the app, not reordered: a new one goes last; reorder them in
+  Foundry.
+- Skills, tools and spell slots are made favorites in Foundry.

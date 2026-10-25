@@ -1,5 +1,6 @@
 'use client'
 
+import clsx from 'clsx'
 import { BookOpen, Sparkles } from 'lucide-react'
 import {
   ActionEntry,
@@ -8,7 +9,10 @@ import {
   type TableDamage,
 } from './action-entry'
 import { enchantedEntry } from './enchantments'
+import { useFavoriteChoice } from './favoriting'
 import { hitDiceText } from './hit-dice'
+import { useItemMenu } from './item-menu'
+import { usePressMenu } from './press-menu'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesButton } from './uses-button'
@@ -20,6 +24,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
+import type { FavoriteTarget } from '@/types/roll'
 import type {
   SheetAction,
   SheetClass,
@@ -136,6 +141,7 @@ export function FeatureEntry({
   rows,
   uses,
   note,
+  favorite,
 }: Readonly<{
   characterId: string
   feature: SheetFeature
@@ -147,6 +153,11 @@ export function FeatureEntry({
   uses?: SheetUses | null
   /** What to say of it first, such as the name of the resource it stands for. */
   note?: string
+  /**
+   * What its row's favorites entry adds or removes, from module 0.37.0: the feature, unless said;
+   * null for none, as among the favorites for a resource's.
+   */
+  favorite?: FavoriteTarget | null
 }>) {
   const meta = joinParts(feature.kind, feature.requirements)
   const action = rows && featureAction(feature)
@@ -157,6 +168,7 @@ export function FeatureEntry({
         rows={rows}
         note={note}
         look={{ meta, uses }}
+        favorite={favorite}
       />
     )
   }
@@ -168,6 +180,7 @@ export function FeatureEntry({
       img={feature.img}
       fallback={Sparkles}
       favoriteKey={`item:${feature.id}`}
+      favorite={favorite}
       detail={joinParts(
         note,
         feature.activation ?? (feature.passive ? 'Passive' : undefined),
@@ -185,21 +198,47 @@ export function FeatureEntry({
   )
 }
 
-/** A class: its levels, then its subclass and hit dice. */
+/**
+ * A class: its levels, then its subclass and hit dice. From module 0.37.0, where the sheet names
+ * it by its id, a menu of its own, Add to favorites or Remove from favorites, where the pane offers
+ * them, and a tab stop then, for the keyboard to open it.
+ */
 function ClassCard({ entry }: Readonly<{ entry: SheetClass }>) {
   const { hitDice } = entry
   const detail = joinParts(entry.subclass, hitDice && hitDiceText(hitDice))
+  const { onMenu, menu } = useItemMenu(entry.name, {
+    favorite: useFavoriteChoice(
+      entry.id ? { type: 'item', id: entry.id } : undefined,
+      entry.name,
+    ),
+  })
+  const press = usePressMenu(onMenu)
   return (
-    <li className='rounded-2xl border border-border bg-card px-4 py-3'>
-      <span className='block truncate font-semibold'>
-        {entry.name}
-        {entry.levels !== null && ` ${entry.levels}`}
-      </span>
-      {/* Wrapping, not cut short, so a long subclass leaves the hit dice in sight. */}
-      {detail && (
-        <span className='block text-sm text-text-secondary'>{detail}</span>
-      )}
-    </li>
+    <>
+      <li
+        tabIndex={onMenu ? 0 : undefined}
+        {...press.props}
+        className={clsx(
+          'rounded-2xl border border-border bg-card px-4 py-3',
+          onMenu &&
+            'outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          press.className,
+        )}
+      >
+        <span className='block truncate font-semibold'>
+          {entry.name}
+          {entry.levels !== null && ` ${entry.levels}`}
+        </span>
+        {/* Wrapping, not cut short, so a long subclass leaves the hit dice in sight. */}
+        {detail && (
+          <span className='block text-sm text-text-secondary'>{detail}</span>
+        )}
+      </li>
+      {/* Beside the card, not in it: the menu's events reach what holds it in React's tree,
+          though it's drawn elsewhere, and the card's press would take a held tap on an entry as
+          its own. */}
+      {menu}
+    </>
   )
 }
 

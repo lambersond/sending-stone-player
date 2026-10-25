@@ -142,13 +142,14 @@ async function apply(
           // Whether its players may roll in the game from here. A module before 0.10.0 can't
           // make their rolls, and says nothing of them.
           rollsEnabled: features?.rolls?.enabled === true,
-          // A move of items and coins, or a removal, is never one of the rolls, even where a
-          // module says so: each has its own feature.
+          // A move of items and coins, a removal, or a favorite is never one of the rolls, even
+          // where a module says so: each has its own feature.
           rollKinds: (features?.rolls?.kinds ?? []).filter(
             kind =>
               (ROLL_KINDS as readonly string[]).includes(kind) &&
               kind !== 'transfer' &&
-              kind !== 'remove',
+              kind !== 'remove' &&
+              kind !== 'favorite',
           ),
           // What else it can do with them: from module 0.13.0, take damage a player changed, and
           // ask players for the saves their game asks of them; from module 0.16.0, make area
@@ -193,6 +194,11 @@ async function apply(
           removalsEnabled:
             features?.removals?.enabled === true &&
             (features.removals.kinds ?? []).includes('remove'),
+          // Whether the module adds and removes characters' favorites for the app, from module
+          // 0.37.0, with no switch: a module before it says nothing of them, which clears it.
+          favoritesEnabled:
+            features?.favorites?.enabled === true &&
+            (features.favorites.kinds ?? []).includes('favorite'),
           // Whether the module keeps journal notes for the app, from module 0.34.0, with no
           // switch: a module before it says nothing of them, which clears it.
           notesEnabled:

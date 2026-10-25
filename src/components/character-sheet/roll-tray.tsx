@@ -31,6 +31,7 @@ import {
   unmaximizable,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
+import { favoriteReasons } from '@/utils/favorite-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { moveReasons, moveWords } from '@/utils/move-words'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
@@ -486,7 +487,9 @@ function reasonOf(
 ): string | undefined {
   const key = state.reason ?? state.status
   const own =
-    // A move of items and coins, from module 0.31.0, has words of its own.
+    // A favorite added or removed, from module 0.37.0, and a move of items and coins, from module
+    // 0.31.0, have words of their own.
+    (state.favorite ? favoriteReasons(role)[key] : undefined) ??
     (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
@@ -1343,6 +1346,28 @@ function usedWords(
   role: SeatRole,
   creature?: Creature,
 ): string {
+  // A favorite added or removed, from module 0.37.0: where it is on its way, then whether it's
+  // done, as the game said, or why not.
+  if (roll.favorite) {
+    const adding = roll.favorite === 'add'
+    switch (state.status) {
+      case 'sending':
+      case 'rolling': {
+        return onItsWay(
+          state,
+          role,
+          adding ? 'Adding it to favorites' : 'Removing it from favorites',
+        )
+      }
+      case 'done': {
+        return adding ? 'Added to favorites' : 'Removed from favorites'
+      }
+      default: {
+        const reason = reasonOf(state, role, creature)
+        return `Not ${adding ? 'added to' : 'removed from'} favorites${reason ? `: ${reason}` : ''}`
+      }
+    }
+  }
   if (roll.move) return moveWords(roll.move, state, role, reasons(role))
   let verb = roll.spell ? 'Cast' : 'Used'
   let doing = roll.spell ? 'Casting it' : 'Using it'
@@ -1793,6 +1818,12 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
         distribute: 'distributed',
         remove: 'removed',
       }[roll.move.verb]
+    }
+    // A favorite added or removed, from module 0.37.0, as its line says it.
+    if (roll.favorite) {
+      return roll.favorite === 'add'
+        ? 'added to favorites'
+        : 'removed from favorites'
     }
     if (roll.ending) return 'ended'
     if (roll.spent !== undefined) return `spent ${roll.spent}`
