@@ -12,6 +12,7 @@ import {
   markSeen,
   recordRefusal,
 } from '@/db/campaigns'
+import { recordDishDecision } from '@/db/cookbook'
 import { recordCommandResult } from '@/db/roll-requests'
 import {
   characterSheet,
@@ -30,6 +31,7 @@ jest.mock('@/db/campaigns', () => ({
   markSeen: jest.fn(),
   recordRefusal: jest.fn(),
 }))
+jest.mock('@/db/cookbook', () => ({ recordDishDecision: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({ recordCommandResult: jest.fn() }))
 // The real parser, unless a test needs one that fails as no real event can.
 jest.mock('@/schemas/sending-stone', () => {
@@ -60,6 +62,9 @@ const FEATURES = {
   // Changed on purpose (round 0.37.0 §7.15): from module 0.37.0, favorites added and removed,
   // fetched for with everything else off.
   favorites: 1,
+  // Changed on purpose (round 0.38.0 §D9): from module 0.38.0, dishes from the Magical Recipe
+  // Book, fetched for with everything else off, and what the Gamemaster made of them.
+  dishes: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -733,6 +738,74 @@ describe('app/api/events', () => {
           expect.any(Error),
         )
         consoleError.mockRestore()
+      })
+    })
+
+    describe('dishes from the Magical Recipe Book, from module 0.38.0', () => {
+      const decided = {
+        dish: 'cmh9q2x7k0003ssdish0001',
+        id: 'cmh2k8q0n0001ab12cd34ef56',
+        card: 'Xy12ChatCardId00',
+        by: { userId: 'u-gm', name: 'Gamemaster' },
+        at: { time: '2026-10-24T20:15:00.000Z', worldTime: 1_234_567 },
+      }
+      const applied = {
+        ...decided,
+        outcome: 'boon',
+        characters: [
+          {
+            actorId: 'actor-thorin',
+            name: 'Thorin Oakenshield',
+            effectId: 'Ae0000dish000001',
+            replaced: null,
+            healed: 7,
+            exhaustion: 0,
+            skipped: [],
+          },
+        ],
+        rolled: [{ type: 'maxHitPoints', value: 7, formula: '3+1d6' }],
+      }
+
+      it.each([
+        ['dish.applied', applied],
+        ['dish.dismissed', { ...decided, reason: 'deleted' }],
+      ])(
+        'records %s apart from the campaign’s events, so its version stays',
+        async (type, data) => {
+          const response = await post(envelope(type, data))
+
+          expect(response.status).toBe(204)
+          expect(recordDishDecision).toHaveBeenCalledWith('c1', { type, data })
+          expect(markSeen).toHaveBeenCalledWith('c1')
+          expect(applyCampaignEvent).not.toHaveBeenCalled()
+        },
+      )
+
+      it('refuses a dish event without the dish’s id, recording it on the card', async () => {
+        const response = await post(
+          envelope('dish.dismissed', { ...decided, dish: 'a b' }),
+        )
+
+        await expectRefusal(response, 400, {
+          reason: 'malformed',
+          message: 'Malformed dish.dismissed',
+          type: 'dish.dismissed',
+          detail: expect.any(String),
+        })
+        expect(recordRefusal).toHaveBeenCalled()
+        expect(recordDishDecision).not.toHaveBeenCalled()
+      })
+
+      it('says it takes dishes after favorites, last', async () => {
+        jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+        const response = await post(
+          envelope('bridge.hello', { characters: [], combats: [] }),
+        )
+
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-2)).toEqual(['favorites', 'dishes'])
+        expect(features.dishes).toBe(1)
       })
     })
 

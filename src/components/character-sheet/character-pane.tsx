@@ -96,6 +96,7 @@ import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { PartySheets } from './party-sheets'
 import type { NotesPlace } from '@/components/notes'
+import type { CookbookPlace } from '@/types/cookbook'
 import type {
   FavoriteTarget,
   GmRollView,
@@ -163,6 +164,11 @@ type Props = {
    * the Biography tab alone.
    */
   notes?: NotesPlace
+  /**
+   * The player's Magical Recipe Book card, from module 0.38.0: shown on the Biography tab alone, at
+   * their own seat, never at a creature's pane.
+   */
+  cookbook?: CookbookPlace
   /**
    * A creature's pane rather than the character's (module 0.36.0): its header is the creature's,
    * and it offers nothing an NPC lacks (Heroic Inspiration, give, remove, parties, the journal).
@@ -289,6 +295,7 @@ function RollingSheet({
   parties,
   manualDice,
   notes,
+  cookbook,
   creature,
   shown: paneShown = true,
   onPending,
@@ -1034,6 +1041,7 @@ function RollingSheet({
                 name={name}
                 sheet={sheet}
                 notes={notes}
+                cookbook={creature ? undefined : cookbook}
               />
             )}
           </div>

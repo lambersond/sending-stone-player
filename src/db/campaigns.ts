@@ -117,16 +117,24 @@ export async function listOwnedCampaigns(
       rollFeatures: true,
       bridgePolledAt: true,
       transfersEnabled: true,
+      dishesEnabled: true,
       refusedAt: true,
       refusalReason: true,
       refusalStatus: true,
       refusalDetail: true,
       foundry: true,
       players: {
-        select: { id: true, actorId: true, user: { select: { name: true } } },
+        select: {
+          id: true,
+          actorId: true,
+          user: { select: { name: true } },
+          // Its player's link from the Magical Recipe Book, from module 0.38.0.
+          cookbookLink: { select: { actorId: true, campaignId: true } },
+        },
       },
     },
   })
+  const dishes = await countDishes(campaigns.map(({ id }) => id))
   return campaigns.map(campaign => {
     const players = new Map(
       campaign.players.map(player => [player.actorId, player]),
@@ -158,13 +166,27 @@ export async function listOwnedCampaigns(
         enabled: campaign.transfersEnabled,
         reaching: transfersAvailable(campaign),
       },
+      // Dishes from the Magical Recipe Book, from module 0.38.0: waiting for Foundry, queued or
+      // handed over unanswered, and in Foundry, waiting for the Gamemaster.
+      dishes: {
+        enabled: campaign.dishesEnabled,
+        waiting:
+          countOf(dishes, campaign.id, 'queued') +
+          countOf(dishes, campaign.id, 'claimed'),
+        inFoundry: countOf(dishes, campaign.id, 'delivered'),
+      },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
+        const link = player?.cookbookLink
         return {
           id,
           name,
           player: player?.user.name,
           characterId: player?.id,
+          // Linked only to this character in this campaign: a link made for its seat's earlier
+          // actor no longer sends.
+          cookbookLinked:
+            link?.actorId === id && link.campaignId === campaign.id,
           // Its companions, from module 0.36.0, in the module's order: whose they are, by name.
           companions: companions
             .filter(entry => entry.of.includes(id))
@@ -191,6 +213,25 @@ export async function listOwnedCampaigns(
     }
   })
 }
+
+/** A count of the Gamemaster's campaigns' dishes, by campaign and status. */
+type DishCounts = Map<string, number>
+
+/** Their campaigns' dishes, counted by status, in one query: none for no campaigns. */
+async function countDishes(campaignIds: string[]): Promise<DishCounts> {
+  if (campaignIds.length === 0) return new Map()
+  const groups = await prisma.cookbookDish.groupBy({
+    by: ['campaignId', 'status'],
+    where: { campaignId: { in: campaignIds } },
+    _count: true,
+  })
+  return new Map(
+    groups.map(group => [`${group.campaignId} ${group.status}`, group._count]),
+  )
+}
+
+const countOf = (counts: DishCounts, campaignId: string, status: string) =>
+  counts.get(`${campaignId} ${status}`) ?? 0
 
 /**
  * Set up a campaign for its Gamemaster. Its secret is kept only as a hash.

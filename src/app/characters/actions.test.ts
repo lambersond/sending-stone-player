@@ -4,9 +4,11 @@ import {
   chooseActor,
   deleteCharacterAndLeave,
   joinAsCharacter,
+  makeCookbookCode,
   markChatReadUpTo,
   openInvite,
   removeCharacter,
+  revokeCookbookCode,
   setManualDice,
 } from './actions'
 import {
@@ -16,6 +18,7 @@ import {
   markChatRead,
   setCharacterManualDice,
 } from '@/db/characters'
+import { makeCookbookLink, revokeCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 
 jest.mock('next/cache', () => ({ refresh: jest.fn() }))
@@ -30,6 +33,10 @@ jest.mock('@/db/characters', () => ({
   joinCampaign: jest.fn(),
   markChatRead: jest.fn(),
   setCharacterManualDice: jest.fn(),
+}))
+jest.mock('@/db/cookbook', () => ({
+  makeCookbookLink: jest.fn(),
+  revokeCookbookLink: jest.fn(),
 }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 
@@ -241,4 +248,49 @@ describe('app/characters/actions, typing in their own dice, from module 0.32.0',
       expect(setCharacterManualDice).not.toHaveBeenCalled()
     },
   )
+})
+
+describe('app/characters/actions, the Magical Recipe Book, from module 0.38.0', () => {
+  beforeEach(() => {
+    jest.mocked(requireUser).mockReset()
+    jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+  })
+
+  it("makes a link code for the signed-in player's character, shown once", async () => {
+    jest.mocked(makeCookbookLink).mockResolvedValue({
+      code: 'sscb_1gT6dhjwOQSMNgkDXiyDOPt2ltW_RKU4XDAdTsRU2d4',
+    })
+
+    await expect(makeCookbookCode('char-1')).resolves.toEqual({
+      code: 'sscb_1gT6dhjwOQSMNgkDXiyDOPt2ltW_RKU4XDAdTsRU2d4',
+    })
+    expect(makeCookbookLink).toHaveBeenCalledWith('user-1', 'char-1')
+    // The card reloads its own view.
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['missing', 'This character is no longer in a campaign.'],
+    ['not-playing', 'Choose which character you play first.'],
+  ] as const)('says why it made none, %s', async (problem, message) => {
+    jest.mocked(makeCookbookLink).mockResolvedValue(problem)
+
+    await expect(makeCookbookCode('char-1')).resolves.toEqual({ message })
+  })
+
+  it("revokes the signed-in player's link code", async () => {
+    await revokeCookbookCode('char-1')
+
+    expect(revokeCookbookLink).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('needs someone signed in', async () => {
+    jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+
+    await expect(makeCookbookCode('char-1')).rejects.toThrow('NEXT_REDIRECT')
+    await expect(revokeCookbookCode('char-1')).rejects.toThrow('NEXT_REDIRECT')
+    expect(makeCookbookLink).not.toHaveBeenCalled()
+    expect(revokeCookbookLink).not.toHaveBeenCalled()
+  })
 })

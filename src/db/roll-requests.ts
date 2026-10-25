@@ -14,6 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { recordDishResult } from '@/db/cookbook'
 import { createFavoriteRequest } from '@/db/favorites'
 import { recordNoteResult } from '@/db/note-sync'
 import { createRemoveRequest } from '@/db/removals'
@@ -566,6 +567,8 @@ export async function recordCommandResult(
   campaignId: string,
   result: CommandResult,
 ): Promise<void> {
+  // A dish from the Magical Recipe Book, from module 0.38.0, is no roll: its prefix says so.
+  if (result.id.startsWith('dish-')) return recordDishResult(campaignId, result)
   const made = result.status === 'done'
   // Late, but made after all, or some of them.
   const late = made || (result.spent?.made ?? 0) > 0
@@ -627,8 +630,9 @@ export async function recordCommandResult(
  * Note that the module is fetching players' rolls, which also says its game is connected.
  * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
  * coins, from module 0.33.0 removals of their characters' items, from module 0.34.0 journal
- * notes, and from module 0.37.0 their characters' favorites, and whether any of its players have
- * their table open, so that one may be coming.
+ * notes, from module 0.37.0 their characters' favorites, and from module 0.38.0 dishes from the
+ * Magical Recipe Book, and whether any of its players have their table open, so that one may be
+ * coming.
  */
 export async function markBridgePolled(campaignId: string): Promise<{
   rollsEnabled: boolean
@@ -636,6 +640,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
   removalsEnabled: boolean
   notesEnabled: boolean
   favoritesEnabled: boolean
+  dishesEnabled: boolean
   playersPresent: boolean
 }> {
   const now = new Date()
@@ -648,6 +653,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
       removalsEnabled: true,
       notesEnabled: true,
       favoritesEnabled: true,
+      dishesEnabled: true,
       playersSeenAt: true,
     },
   })
@@ -658,6 +664,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
     removalsEnabled: campaign.removalsEnabled,
     notesEnabled: campaign.notesEnabled,
     favoritesEnabled: campaign.favoritesEnabled,
+    dishesEnabled: campaign.dishesEnabled,
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }

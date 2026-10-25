@@ -134,3 +134,9 @@ run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 run favoriting 84 SHOTS=$O/shots-037
 run favoriting 51 DND5E6=1 SHOTS=$O/shots-037
 run favoriting 8 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
+# Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
+# code, a card for the Gamemaster in Foundry and an effect on each character chosen; dnd5e 6.0.5
+# (off); and module 0.37.0 (none).
+run cookbook 82 TIMEOUT=600 SHOTS=$O/shots-038
+run cookbook 9 DND5E6=1 SHOTS=$O/shots-038
+run cookbook 9 SKEW=037 MODULE=$O/module-0.37.0 SHOTS=$O/shots-038

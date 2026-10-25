@@ -181,6 +181,22 @@ describe('db/characters', () => {
       })
     })
 
+    it("ends the Magical Recipe Book's link to another actor in the same step (module 0.38.0)", async () => {
+      prismaMock.character.findFirst.mockResolvedValue(inCampaign as any)
+      prismaMock.character.update.mockReturnValue('update' as any)
+      prismaMock.cookbookLink.deleteMany.mockReturnValue('unlink' as any)
+
+      await expect(
+        chooseCharacter('user-1', 'char-1', 'actor-vex'),
+      ).resolves.toBe(true)
+
+      // A link made for this same actor stays: choosing it again keeps the link.
+      expect(prismaMock.cookbookLink.deleteMany).toHaveBeenCalledWith({
+        where: { characterId: 'char-1', actorId: { not: 'actor-vex' } },
+      })
+      expect(prismaMock.$transaction).toHaveBeenCalledWith(['update', 'unlink'])
+    })
+
     it('says why it could not', async () => {
       prismaMock.character.findFirst.mockResolvedValueOnce(null)
       await expect(chooseCharacter('user-1', 'x', 'actor-vex')).resolves.toBe(
@@ -198,12 +214,14 @@ describe('db/characters', () => {
         chooseCharacter('user-1', 'char-1', 'actor-smaug'),
       ).resolves.toBe('unknown-character')
 
-      prismaMock.character.update.mockRejectedValue(taken())
+      // Changed on purpose (round 0.38.0 §D9): the update runs in a transaction with the link's
+      // delete, which is what fails.
+      prismaMock.$transaction.mockRejectedValue(taken())
       await expect(
         chooseCharacter('user-1', 'char-1', 'actor-vex'),
       ).resolves.toBe('taken')
 
-      prismaMock.character.update.mockRejectedValue(new Error('db down'))
+      prismaMock.$transaction.mockRejectedValue(new Error('db down'))
       await expect(
         chooseCharacter('user-1', 'char-1', 'actor-vex'),
       ).rejects.toThrow('db down')

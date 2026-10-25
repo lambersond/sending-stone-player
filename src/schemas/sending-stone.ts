@@ -1541,6 +1541,18 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.38.0: whether the campaign takes dishes from the Magical Recipe Book, by its
+    // own switch, under dnd5e 5.x, and which cookbook body versions it reads.
+    dishes: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+        versions: z.array(z.number().int()).max(20).catch([]),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -1854,6 +1866,16 @@ const commandResultSchema = z.object({
   // favorites now.
   // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
   favorited: z.boolean().optional().catch(undefined),
+  // From module 0.38.0, for a dish from the Magical Recipe Book: its card in Foundry, and whether
+  // it's decided.
+  dish: z
+    .object({
+      card: z.string().max(64).nullable(),
+      state: z.enum(['waiting', 'applied', 'dismissed']),
+    })
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
   // From module 0.34.0, for a note command: the note, and its page's revision now, never its text.
   note: z
     .object({
@@ -1920,6 +1942,93 @@ const withCombat = z.looseObject({ combat: combatSchema })
 const withCombatant = z.looseObject({
   combatId: z.string(),
   combatant: combatantSchema,
+})
+
+/**
+ * A dish event's string as Postgres can store it, cut to at most `most` characters: U+0000
+ * dropped, and well formed again, as a cut (the module's at 200, or this one) may split a surrogate
+ * pair. Either would fail the event's every write, which the module sends again for 30 days.
+ */
+const storable = (value: string, most: number) =>
+  value.replaceAll('\u0000', '').slice(0, most).toWellFormed()
+
+/** A string cut to at most `most` characters; anything else reads as empty. */
+const cut = (most: number) =>
+  z
+    .string()
+    .catch('')
+    .transform(value => storable(value, most))
+
+/** As `cut`, or null for none. */
+const cutOrNull = (most: number) => cut(most).nullable().catch(null)
+
+/** A list whose malformed entries are dropped, cut to its first `count`. */
+const mostOf = <T extends z.ZodType>(entry: T, count: number) =>
+  listOf(entry).transform(entries => entries.slice(0, count))
+
+/**
+ * This app's id for a dish from the Magical Recipe Book, from the command's: the one field of a
+ * dish event that refuses it. The module never re-sends a refused event, so every other field is
+ * caught or cut, as one over-long actor name would otherwise lose the Gamemaster's choice for good.
+ */
+const dishRowId = z.string().regex(/^[\w-]{1,64}$/)
+
+/** Who decided what became of a dish, and when, in real and world time; null where unreadable. */
+const dishDecider = {
+  by: z
+    .looseObject({ userId: cut(64), name: cut(200) })
+    .nullable()
+    .catch(null),
+  at: z
+    .looseObject({ time: cut(40), worldTime: z.number().catch(0) })
+    .nullable()
+    .catch(null),
+}
+
+/** From module 0.38.0: a dish served, naming every character served it so far. */
+const dishAppliedSchema = z.looseObject({
+  dish: dishRowId,
+  id: cut(64),
+  card: cutOrNull(64),
+  outcome: cut(16),
+  characters: mostOf(
+    z.looseObject({
+      actorId: z.string().min(1).max(64),
+      name: cut(200),
+      effectId: cutOrNull(64),
+      replaced: z
+        .looseObject({ id: cut(64), recipe: cut(200) })
+        .nullable()
+        .catch(null),
+      healed: z.number().int().catch(0),
+      exhaustion: z.number().int().catch(0),
+      skipped: mostOf(z.looseObject({ type: cut(64), reason: cut(32) }), 100),
+    }),
+    200,
+  ),
+  rolled: mostOf(
+    z.looseObject({
+      type: cut(64),
+      value: z.number().int(),
+      formula: z
+        .string()
+        .transform(value => storable(value, 32))
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+        .catch(undefined),
+    }),
+    100,
+  ),
+  ...dishDecider,
+})
+
+/** From module 0.38.0: a dish set aside, or its card deleted undecided. */
+const dishDismissedSchema = z.looseObject({
+  dish: dishRowId,
+  id: cut(64),
+  card: cutOrNull(64),
+  reason: z.enum(['dismissed', 'deleted']).catch('dismissed'),
+  ...dishDecider,
 })
 
 /**
@@ -2115,6 +2224,12 @@ export function parseGameEvent(
           })
           .parse(data),
       }
+    }
+    case EVENTS.DISH_APPLIED: {
+      return { type, data: dishAppliedSchema.parse(data) }
+    }
+    case EVENTS.DISH_DISMISSED: {
+      return { type, data: dishDismissedSchema.parse(data) }
     }
     default: {
       return undefined

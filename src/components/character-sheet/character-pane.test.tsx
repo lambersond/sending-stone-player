@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
+import { forgetCookbook } from '@/hooks/use-cookbook-view'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { ALONE_KEY } from '@/hooks/use-table-rolls'
 import {
@@ -5232,5 +5233,89 @@ describe('components/character-sheet/character-pane, favorites added and removed
     await show('Effects')
     expect(fireEvent.contextMenu(effectRow('Bless'), { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+/** The Magical Recipe Book card's reads. */
+const cardReads = () =>
+  jest
+    .mocked(fetch)
+    .mock.calls.filter(([url]) => String(url).includes('/cookbook'))
+
+describe('components/character-sheet/character-pane, the player’s Magical Recipe Book card (module 0.38.0)', () => {
+  const cookbook = {
+    characterId: 'char-1',
+    active: true,
+    make: jest.fn(async () => ({ code: 'sscb_x' })),
+    revoke: jest.fn(async () => {}),
+  }
+  const renderWith = (creature?: { name: string }) =>
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(fullerSheet(), GAME)}
+        cookbook={cookbook}
+        {...(creature && {
+          creature: {
+            name: creature.name,
+            relation: { kind: 'owned' as const, of: 'Thorin Oakenshield' },
+          },
+        })}
+      />,
+    )
+
+  beforeEach(() => {
+    globalThis.localStorage.setItem(TOASTS_KEY, 'off')
+    globalThis.fetch = jest.fn(async (url: string) =>
+      url.startsWith('/api/characters/char-1/cookbook')
+        ? ({
+            status: 200,
+            ok: true,
+            json: async () => ({
+              version: 'abcdef012345',
+              enabled: true,
+              live: true,
+              link: null,
+              dishes: [],
+            }),
+          } as Response)
+        : new Promise<Response>(() => {}),
+    ) as typeof fetch
+  })
+
+  afterEach(() => {
+    act(() => forgetCookbook())
+  })
+
+  it('shows it on the Biography tab alone', async () => {
+    renderWith()
+    expect(
+      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+    ).toBeNull()
+    expect(cardReads()).toEqual([])
+
+    await show('Biography')
+    expect(
+      await screen.findByRole('region', { name: 'Magical Recipe Book' }),
+    ).toBeInTheDocument()
+    expect(cardReads()[0][0]).toBe('/api/characters/char-1/cookbook')
+
+    await show('Effects')
+    expect(
+      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+    ).toBeNull()
+  })
+
+  it('never shows it at a creature’s pane, given one or not', async () => {
+    renderWith({ name: 'Brakka' })
+    await show('Biography')
+    expect(
+      screen.getByRole('region', { name: 'Personality' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+    ).toBeNull()
+    expect(cardReads()).toEqual([])
   })
 })

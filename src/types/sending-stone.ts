@@ -1334,6 +1334,17 @@ export type BridgeFeatures = {
     kinds: string[]
     reason: string | null
   } | null
+  /**
+   * Whether the campaign takes dishes from the Magical Recipe Book, `"dish"` among its kinds, by
+   * its own switch under dnd5e 5, and which cookbook body versions it reads; or not, and why
+   * (`"off"`, `"system"`). Module 0.38.0.
+   */
+  dishes?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+    versions: number[]
+  } | null
 }
 
 /** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
@@ -1501,6 +1512,8 @@ export type CommandResult = {
    * Module 0.37.0.
    */
   favorited?: boolean
+  /** For a dish, from module 0.38.0: its card in Foundry, and whether it's decided. */
+  dish?: { card: string | null; state: 'waiting' | 'applied' | 'dismissed' }
   /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.
@@ -1604,6 +1617,56 @@ export type DamagePreviewRoll = {
 /** A kind of damage to choose, such as { key: "fire", label: "Fire" }. */
 export type DamageTypeChoice = { key: string; label: string }
 
+/**
+ * Who decided what became of a dish from the Magical Recipe Book, in Foundry, and when, in real
+ * and world time.
+ */
+export type DishDecider = {
+  by: { userId: string; name: string } | null
+  at: { time: string; worldTime: number } | null
+}
+
+/** One character the Gamemaster served a dish to, as the module tells of it. */
+export type DishEater = {
+  actorId: string
+  name: string
+  /** The dish's effect on it; null for a standard dish, which has none. */
+  effectId: string | null
+  /** The earlier dish whose effect this one replaced, or null. */
+  replaced: { id: string; recipe: string } | null
+  /** One-off changes: hit points healed, and levels of exhaustion added. */
+  healed: number
+  exhaustion: number
+  /** Each change not applied, and why. */
+  skipped: { type: string; reason: string }[]
+}
+
+/**
+ * A dish from the Magical Recipe Book served in Foundry, from module 0.38.0: `dish` is this app's
+ * row id, from the command's id; `id` the cookbook's; `card` the card's chat message id. It names
+ * every character served so far, so it overwrites what came before.
+ */
+export type DishApplied = DishDecider & {
+  dish: string
+  id: string
+  card: string | null
+  outcome: string
+  characters: DishEater[]
+  /** Every change that carried a formula, with the value applied to everyone. */
+  rolled: { type: string; value: number; formula?: string }[]
+}
+
+/**
+ * A dish from the Magical Recipe Book set aside in Foundry, or its card deleted undecided, from
+ * module 0.38.0.
+ */
+export type DishDismissed = DishDecider & {
+  dish: string
+  id: string
+  card: string | null
+  reason: 'dismissed' | 'deleted'
+}
+
 /** An event this app acts on, with its payload checked. */
 export type GameEvent =
   | {
@@ -1660,6 +1723,8 @@ export type GameEvent =
       data: { combatId: string; combatantId: string }
     }
   | { type: 'command.result'; data: CommandResult }
+  | { type: 'dish.applied'; data: DishApplied }
+  | { type: 'dish.dismissed'; data: DishDismissed }
   | { type: 'roll.prompt.opened'; data: { prompt: GamePrompt } }
   | { type: 'roll.prompt.closed'; data: { id: string; reason: string } }
   | {

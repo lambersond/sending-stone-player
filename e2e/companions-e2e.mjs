@@ -471,6 +471,10 @@ part('2c. pictures drawn with the page')
       const what = `at ${width}, ${held ? 'its scripts held back a second' : 'as it comes'}`
       const view = await browse({ width, height, toasts: false })
       const asked = []
+      // Every other picture on the game's address refused at once, as an unreachable game's are:
+      // left to the network, its failure (0.4 s when idle) once came after the check, under the
+      // lanes' load at the start of a pass, with an entry's picture still loading.
+      await view.page.route(url => url.host === new URL(GAME).host && !url.pathname.endsWith(servedPath), route => route.abort())
       await view.page.route(url => url.pathname.endsWith(servedPath), route => {
         asked.push(route.request().url())
         return route.fulfill({ contentType: 'image/png', body: PIXEL })

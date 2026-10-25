@@ -3,16 +3,20 @@
  */
 import { OPTIONS, POST } from './route'
 import { findEventCampaign } from '@/db/campaigns'
+import { claimDishes } from '@/db/cookbook'
 import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
+import { fireberryBoon } from '@/mocks/cookbook'
 import { mockNoteCommand } from '@/mocks/sending-stone'
+import type { DishCommand } from '@/types/cookbook'
 import type { RollCommand } from '@/utils/roll-requests'
 
 jest.mock('@/db/campaigns', () => ({ findEventCampaign: jest.fn() }))
+jest.mock('@/db/cookbook', () => ({ claimDishes: jest.fn() }))
 jest.mock('@/db/note-sync', () => ({ claimNoteWrites: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
   claimRollRequests: jest.fn(),
@@ -77,7 +81,8 @@ const UNAVAILABLE = {
 /**
  * The players' rolls as the campaign's game is ready for them, from module 0.31.0 their moves of
  * items and coins, from module 0.33.0 removals of their characters' items, from module 0.34.0
- * journal notes, and from module 0.37.0 their characters' favorites.
+ * journal notes, from module 0.37.0 their characters' favorites, and from module 0.38.0 dishes
+ * from the Magical Recipe Book. Changed on purpose (round 0.38.0 §D9): dishes too.
  */
 const given = (
   rollsEnabled: boolean,
@@ -86,6 +91,7 @@ const given = (
   removalsEnabled = false,
   notesEnabled = false,
   favoritesEnabled = false,
+  dishesEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
@@ -93,6 +99,7 @@ const given = (
     removalsEnabled,
     notesEnabled,
     favoritesEnabled,
+    dishesEnabled,
     playersPresent,
   })
 
@@ -104,6 +111,7 @@ describe('app/api/bridge/commands', () => {
     given(true, false)
     jest.mocked(claimRollRequests).mockResolvedValue([])
     jest.mocked(claimNoteWrites).mockResolvedValue([])
+    jest.mocked(claimDishes).mockResolvedValue([])
     // Thorin's player has his sheet open.
     jest.mocked(openActorIds).mockResolvedValue(['thorin'])
   })
@@ -341,6 +349,103 @@ describe('app/api/bridge/commands', () => {
     })
   })
 
+  describe('dishes from the Magical Recipe Book, from module 0.38.0', () => {
+    const dish: DishCommand = {
+      id: 'dish-row-1',
+      actorId: 'actor-thorin',
+      kind: 'dish',
+      dish: { queuedAt: 1_761_319_200_000, body: fireberryBoon },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    const note = mockNoteCommand()
+
+    it('hands over dishes with everything else off, holding the fetch open as for a roll', async () => {
+      given(false, false, false, false, false, false, true)
+      jest.mocked(claimDishes).mockResolvedValue([dish])
+
+      const cold = await post()
+
+      await expect(cold.json()).resolves.toEqual({
+        commands: [dish],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+      expect(claimDishes).toHaveBeenCalledWith('c1', 's1')
+
+      jest.useFakeTimers()
+      given(false, true, false, false, false, false, true)
+      jest
+        .mocked(claimDishes)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([dish])
+      let answered: Response | undefined
+      void post().then(response => (answered = response))
+
+      await jest.advanceTimersByTimeAsync(500)
+      expect(answered).toBeUndefined()
+      await jest.advanceTimersByTimeAsync(1000)
+      await expect(answered?.json()).resolves.toEqual({
+        commands: [dish],
+        open: ['thorin'],
+      })
+    })
+
+    it('claims dishes first, before notes and rolls, and lists them last', async () => {
+      given(true, false, false, false, true, false, true)
+      const claimed: string[] = []
+      jest.mocked(claimDishes).mockImplementation(async () => {
+        claimed.push('dishes')
+        return [dish]
+      })
+      jest.mocked(claimNoteWrites).mockImplementation(async () => {
+        claimed.push('notes')
+        return [note]
+      })
+      jest.mocked(claimRollRequests).mockImplementation(async () => {
+        claimed.push('rolls')
+        return [command]
+      })
+
+      const response = await post()
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [command, note, dish],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+      expect(claimed).toEqual(['dishes', 'notes', 'rolls'])
+    })
+
+    it('claims no dishes while the game takes none', async () => {
+      given(true, false, false, false, true)
+      jest.mocked(claimRollRequests).mockResolvedValue([command])
+
+      const response = await post()
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [command],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+      expect(claimDishes).not.toHaveBeenCalled()
+    })
+
+    it('claims the dishes before any roll, so that failing to claim them loses no roll', async () => {
+      given(true, false, false, false, false, false, true)
+      jest.mocked(claimRollRequests).mockResolvedValue([command])
+      jest.mocked(claimDishes).mockRejectedValue(new Error('down'))
+      jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const response = await post()
+
+      await expectRefusal(response, 500, UNAVAILABLE)
+      expect(claimRollRequests).not.toHaveBeenCalled()
+    })
+  })
+
   it('answers at once, with the minute’s wait, only while the game takes no rolls, moves, removals nor notes', async () => {
     given(false, true, false, false, false)
 
@@ -353,6 +458,7 @@ describe('app/api/bridge/commands', () => {
     })
     expect(claimRollRequests).not.toHaveBeenCalled()
     expect(claimNoteWrites).not.toHaveBeenCalled()
+    expect(claimDishes).not.toHaveBeenCalled()
   })
 
   it('says no one is open, where no character is', async () => {

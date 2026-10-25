@@ -52,6 +52,20 @@ const textOf = (note: HTMLElement) => {
   return { times, text: note.textContent }
 }
 
+/** dnd5e at this version, as a hello names it. */
+const dnd5e = (version: string) => ({ id: 'dnd5e', version })
+
+/** The card's Cookbook dishes section (module 0.38.0). */
+const dishesSection = () =>
+  screen.getByRole('heading', { name: 'Cookbook dishes' })
+    .parentElement as HTMLElement
+
+/** What the Cookbook dishes section says, line by line. */
+const dishesTexts = () =>
+  [...dishesSection().querySelectorAll('p')].map(
+    ({ textContent }) => textContent,
+  )
+
 describe('components/campaigns/campaign-card', () => {
   it.each([
     ['live', {}, 'Live'],
@@ -540,5 +554,221 @@ describe('components/campaigns/campaign-card', () => {
     renderCard()
 
     expect(screen.queryByRole('heading', { name: 'Party sheets' })).toBeNull()
+  })
+
+  describe('dishes from the Magical Recipe Book (module 0.38.0)', () => {
+    const ON =
+      'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches you as a card only Gamemasters see.'
+    const UPDATE =
+      'Your Sending Stone module doesn’t take dishes yet. Version 0.38.0 or later does.'
+    const SYSTEM = 'Off. Dishes need dnd5e 5.x in Foundry for now.'
+    const TICK =
+      'Off. To take dishes, tick Dishes from the Magical Recipe Book on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+    /** What Foundry said of itself: this module, under this system. */
+    const foundry = (
+      version: string | null,
+      system?: { id: string; version: string },
+    ): OwnedCampaign['foundry'] => ({
+      receivedAt: '2026-10-25T09:00:00.000Z',
+      module: { id: 'sending-stone', version },
+      ...(system && { system: { ...system, title: system.id } }),
+    })
+    const off = { enabled: false, waiting: 0, inFoundry: 0 }
+
+    it.each([
+      [
+        'on',
+        {
+          dishes: { ...off, enabled: true },
+          foundry: foundry('0.38.0', dnd5e('5.3.3')),
+        },
+        ON,
+      ],
+      [
+        'module 0.37.0, which has no switch',
+        { dishes: off, foundry: foundry('0.37.0', dnd5e('5.3.3')) },
+        UPDATE,
+      ],
+      [
+        'module 0.37.0 under dnd5e 6, told to update first',
+        { dishes: off, foundry: foundry('0.37.0', dnd5e('6.0.5')) },
+        UPDATE,
+      ],
+      [
+        'a module before 0.37.0',
+        { dishes: off, foundry: foundry('0.30.2', dnd5e('5.3.3')) },
+        UPDATE,
+      ],
+      [
+        'module 0.38.0 under dnd5e 6, its switch ticked or not',
+        { dishes: off, foundry: foundry('0.38.0', dnd5e('6.0.5')) },
+        SYSTEM,
+      ],
+      [
+        'module 0.38.0 under another system',
+        {
+          dishes: off,
+          foundry: foundry('0.38.0', { id: 'pf2e', version: '5.1.0' }),
+        },
+        SYSTEM,
+      ],
+      [
+        'module 0.38.0 under dnd5e 5, its switch off',
+        { dishes: off, foundry: foundry('0.38.0', dnd5e('5.3.3')) },
+        TICK,
+      ],
+      [
+        'a later module under dnd5e 5',
+        { dishes: off, foundry: foundry('1.2.0', dnd5e('5.0.0')) },
+        TICK,
+      ],
+      [
+        'a module that doesn’t say its version',
+        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+        { dishes: off, foundry: foundry(null, dnd5e('5.3.3')) },
+        TICK,
+      ],
+      ['given nothing of dishes, nor of Foundry', {}, TICK],
+    ] as const)('says whether the game takes dishes: %s', (_, fields, text) => {
+      renderCard(fields as Partial<OwnedCampaign>)
+
+      expect(dishesTexts()).toEqual([text])
+      // After the items and coins.
+      expect(
+        screen
+          .getByRole('heading', { name: 'Items and coins' })
+          .compareDocumentPosition(dishesSection()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it.each([
+      [
+        { waiting: 1, inFoundry: 2 },
+        '1 waiting for Foundry · 2 in Foundry for you',
+      ],
+      [
+        { waiting: 0, inFoundry: 3 },
+        '0 waiting for Foundry · 3 in Foundry for you',
+      ],
+      [
+        { waiting: 4, inFoundry: 0 },
+        '4 waiting for Foundry · 0 in Foundry for you',
+      ],
+    ])('counts the dishes waiting while any wait: %j', (counts, line) => {
+      renderCard({ dishes: { enabled: true, ...counts } })
+
+      expect(dishesTexts()).toEqual([ON, line])
+    })
+
+    it('counts nothing while none wait', () => {
+      renderCard({ dishes: { enabled: true, waiting: 0, inFoundry: 0 } })
+
+      expect(dishesTexts()).toEqual([ON])
+    })
+
+    const linked: OwnedCampaign['characters'] = [
+      {
+        id: 'actor-thorin',
+        name: 'Thorin',
+        player: 'Alice',
+        characterId: 'char-1',
+        cookbookLinked: true,
+      },
+      {
+        id: 'actor-vex',
+        name: 'Vex',
+        player: 'Bob',
+        characterId: 'char-2',
+        cookbookLinked: false,
+      },
+    ]
+
+    it('marks a character whose player’s cookbook is linked, and revokes its link, after asking', async () => {
+      const user = userEvent.setup()
+      const revokeCookbookLink = jest.fn<Promise<void>, [string]>(
+        async () => {},
+      )
+      render(
+        <CampaignCard
+          campaign={campaign({ characters: linked })}
+          inviteUrl='https://stone.example/join/code-1'
+          changeSecret={jest.fn()}
+          resetInvite={jest.fn()}
+          removePlayer={jest.fn()}
+          revokeCookbookLink={revokeCookbookLink}
+          remove={jest.fn()}
+        />,
+      )
+
+      const [thorin, vex] = screen.getAllByRole('listitem')
+      expect(within(thorin).getByText('Cookbook linked')).toBeInTheDocument()
+      expect(within(vex).queryByText('Cookbook linked')).toBeNull()
+      expect(
+        within(vex).queryByRole('button', { name: /cookbook link/ }),
+      ).toBeNull()
+      // The chip after the player's name, the revoke beside Remove.
+      expect(
+        [...(thorin.lastElementChild?.children ?? [])]
+          // Each dialog, closed, beside the button that opens it.
+          .filter(child => child.tagName !== 'DIALOG')
+          .map(child => child.textContent || child.getAttribute('aria-label')),
+      ).toEqual([
+        'Alice',
+        'Cookbook linked',
+        'Revoke Alice’s cookbook link for Thorin',
+        'Remove Alice as Thorin',
+      ])
+      // Its right group drops under the name where the row is too narrow for both.
+      expect(thorin).toHaveClass('flex', 'flex-wrap', 'justify-between')
+
+      await user.click(
+        within(thorin).getByRole('button', {
+          name: 'Revoke Alice’s cookbook link for Thorin',
+        }),
+      )
+      const dialog = screen.getByRole('dialog', {
+        name: 'Revoke Alice’s cookbook link for Thorin?',
+      })
+      expect(dialog).toHaveTextContent(
+        'Dishes from Alice’s Magical Recipe Book stop reaching The Lonely Mountain until they make a new link code.',
+      )
+      const confirm = within(dialog).getByRole('button', {
+        name: 'Revoke link',
+      })
+      expect(confirm).toHaveClass('bg-danger')
+      await user.click(confirm)
+
+      expect(revokeCookbookLink).toHaveBeenCalledWith('char-1')
+      expect(revokeCookbookLink).toHaveBeenCalledTimes(1)
+    })
+
+    it('offers no revoke without a way to revoke, still marking the link', () => {
+      renderCard({ characters: linked })
+
+      expect(screen.getByText('Cookbook linked')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /cookbook link/ })).toBeNull()
+      expect(
+        screen.getByRole('button', { name: 'Remove Alice as Thorin' }),
+      ).toBeInTheDocument()
+    })
+
+    it('keeps a linked row within the card on a phone: its right group no wider than the row, the player’s name wrapping before the chip', () => {
+      renderCard({ characters: linked })
+
+      const [thorin] = screen.getAllByRole('listitem')
+      const group = thorin.lastElementChild as HTMLElement
+      // Dropped under the name at 360-390 px, it shrinks with the row rather than run past it.
+      expect(group).toHaveClass('min-w-0')
+      expect(group).not.toHaveClass('shrink-0')
+      // The player's name wraps, even within a long word; the chip keeps its words on one line.
+      expect(within(group).getByText('Alice')).toHaveClass('wrap-anywhere')
+      expect(within(group).getByText('Cookbook linked')).toHaveClass('shrink-0')
+      // The card and its header no wider than the page's column, so the header's one-line
+      // details are cut rather than everything in the card laid out wider than the phone.
+      const card = screen.getByRole('article')
+      expect(card).toHaveClass('min-w-0')
+      expect(card.querySelector('header')).toHaveClass('min-w-0')
+    })
   })
 })

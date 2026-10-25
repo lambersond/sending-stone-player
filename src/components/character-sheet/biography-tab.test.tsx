@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { act, render, screen, within } from '@testing-library/react'
 import { BiographyTab } from './biography-tab'
+import { forgetCookbook } from '@/hooks/use-cookbook-view'
 import { forgetNotes } from '@/hooks/use-notes'
 import { emptyBook, serveNotes } from '@/mocks/notes-server'
 import { characterSheet, fullerSheet, TEXTS } from '@/mocks/sending-stone'
@@ -195,5 +196,100 @@ describe('components/character-sheet/biography-tab, with the character’s journ
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1)
+  })
+})
+
+describe('components/character-sheet/biography-tab, with the player’s Magical Recipe Book card (module 0.38.0)', () => {
+  const notes = {
+    api: '/api/characters/char-1',
+    role: 'player' as const,
+    name: 'Thorin Oakenshield',
+    active: true,
+  }
+  const cookbook = {
+    characterId: 'char-1',
+    active: true,
+    make: jest.fn(async () => ({ code: 'sscb_x' })),
+    revoke: jest.fn(async () => {}),
+  }
+
+  beforeEach(() => {
+    forgetNotes()
+    serveNotes({ [notes.api]: emptyBook() }, async url =>
+      url.startsWith('/api/characters/char-1/cookbook')
+        ? ({
+            status: 200,
+            ok: true,
+            json: async () => ({
+              version: 'abcdef012345',
+              enabled: true,
+              live: true,
+              link: null,
+              dishes: [],
+            }),
+          } as Response)
+        : // The biography loads in the test that looks for it.
+          new Promise<Response>(() => {}),
+    )
+  })
+
+  afterEach(() => {
+    act(() => {
+      forgetNotes()
+      forgetCookbook()
+    })
+  })
+
+  it('puts the card right after the journal’s, before Details', async () => {
+    render(
+      <BiographyTab
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        notes={notes}
+        cookbook={cookbook}
+      />,
+    )
+    const card = await screen.findByRole('region', {
+      name: 'Magical Recipe Book',
+    })
+    expect(card.previousElementSibling).toBe(
+      screen.getByRole('region', { name: 'Journal' }),
+    )
+    expect(card.nextElementSibling).toBe(
+      screen.getByRole('region', { name: 'Details' }),
+    )
+    expect(
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .map(({ textContent }) => textContent),
+    ).toEqual([
+      'Journal',
+      'Magical Recipe Book',
+      'Details',
+      'Personality',
+      'Appearance',
+      'Biography',
+    ])
+  })
+
+  it('has no card without one', async () => {
+    render(
+      <BiographyTab
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        notes={notes}
+      />,
+    )
+    await screen.findByText('No notes yet')
+    expect(
+      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+    ).toBeNull()
+    expect(
+      jest
+        .mocked(fetch)
+        .mock.calls.filter(([url]) => String(url).includes('/cookbook')),
+    ).toEqual([])
   })
 })

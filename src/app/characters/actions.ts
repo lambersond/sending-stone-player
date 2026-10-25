@@ -11,12 +11,14 @@ import {
   setCharacterManualDice,
   type ChoiceProblem,
 } from '@/db/characters'
+import { makeCookbookLink, revokeCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 import { toInviteCode } from '@/schemas/campaign'
 import type {
   ChooseCharacterFormState,
   InviteFormState,
 } from '@/types/campaign'
+import type { CookbookCodeAnswer } from '@/types/cookbook'
 
 const PROBLEMS: Record<ChoiceProblem, string> = {
   'invalid-invite':
@@ -111,4 +113,29 @@ export async function setManualDice(
   const user = await requireUser()
   if (typeof on !== 'boolean') return
   await setCharacterManualDice(user.id, characterId, on)
+}
+
+/**
+ * Make a link code for the Magical Recipe Book, from module 0.38.0: for the player's character,
+ * while it plays one of its campaign's characters, replacing any code before it. It's shown once
+ * and never kept, so the card that asked keeps it until its player is done.
+ */
+export async function makeCookbookCode(
+  characterId: string,
+): Promise<CookbookCodeAnswer> {
+  const user = await requireUser()
+  const made = await makeCookbookLink(user.id, characterId)
+  if (made === 'missing') {
+    return { message: 'This character is no longer in a campaign.' }
+  }
+  if (made === 'not-playing') {
+    return { message: 'Choose which character you play first.' }
+  }
+  return { code: made.code }
+}
+
+/** Revoke the player's link code for the Magical Recipe Book: its dishes stop reaching the game. */
+export async function revokeCookbookCode(characterId: string): Promise<void> {
+  const user = await requireUser()
+  await revokeCookbookLink(user.id, characterId)
 }

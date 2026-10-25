@@ -22,6 +22,7 @@ import {
   combat,
   combatant,
   biteAction,
+  dishResult,
   frostBreathAction,
   fullerSheet,
   mockCompanionEntry,
@@ -1542,6 +1543,21 @@ describe('db/roll-requests', () => {
       prismaMock.rollRequest.updateMany.mockResolvedValue({ count: 1 })
     })
 
+    it('routes a dish’s result, from module 0.38.0, by its prefix alone, never to a roll', async () => {
+      prismaMock.cookbookDish.updateMany.mockResolvedValue({ count: 1 })
+
+      await recordCommandResult('c1', dishResult({ id: 'dish-row-1' }))
+
+      expect(prismaMock.rollRequest.updateMany).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.findFirst).not.toHaveBeenCalled()
+      expect(prismaMock.cookbookDish.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'row-1', campaignId: 'c1' }),
+          data: expect.objectContaining({ status: 'delivered' }),
+        }),
+      )
+    })
+
     describe('a note command’s, from module 0.34.0', () => {
       const WRITE = '7d2c3f5e-1b0a-4c8e-9f6d-2a1b3c4d5e6f'
       const noteResult = {
@@ -1857,6 +1873,29 @@ describe('db/roll-requests', () => {
 
   describe('markBridgePolled', () => {
     // Changed on purpose (round 0.37.0 §7.15): each says whether the game takes favorites too.
+    // Changed on purpose (round 0.38.0 §D9): and dishes from the Magical Recipe Book.
+    it('tells whether the game takes dishes from the Magical Recipe Book, from module 0.38.0, with everything else off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: false,
+        dishesEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: false,
+        dishesEnabled: true,
+        playersPresent: false,
+      })
+    })
+
     it('tells whether the game takes favorites, from module 0.37.0, with everything else off', async () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
@@ -1864,6 +1903,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: true,
+        dishesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1873,6 +1913,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: true,
+        dishesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1884,6 +1925,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: true,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1893,6 +1935,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: true,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1904,6 +1947,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
@@ -1913,6 +1957,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
@@ -1925,6 +1970,8 @@ describe('db/roll-requests', () => {
           notesEnabled: true,
           // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
           favoritesEnabled: true,
+          // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
+          dishesEnabled: true,
           playersSeenAt: true,
         },
       })
@@ -1937,6 +1984,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: true,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1946,6 +1994,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: true,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1957,6 +2006,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1966,6 +2016,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersPresent: false,
       })
     })
@@ -1980,6 +2031,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersSeenAt,
       } as any)
 
@@ -1989,6 +2041,7 @@ describe('db/roll-requests', () => {
         removalsEnabled: false,
         notesEnabled: false,
         favoritesEnabled: false,
+        dishesEnabled: false,
         playersPresent: false,
       })
     })

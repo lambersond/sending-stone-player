@@ -3,6 +3,7 @@ import {
   removeCampaignAction,
   removePlayerAction,
   resetInviteAction,
+  revokeCookbookLinkAction,
   setUpCampaignAction,
 } from './actions'
 import {
@@ -62,6 +63,10 @@ export default async function CampaignsPage() {
                 changeSecret={changeSecretAction.bind(undefined, campaign.id)}
                 resetInvite={resetInviteAction.bind(undefined, campaign.id)}
                 removePlayer={removePlayerAction.bind(undefined, campaign.id)}
+                revokeCookbookLink={revokeCookbookLinkAction.bind(
+                  undefined,
+                  campaign.id,
+                )}
                 remove={removeCampaignAction.bind(undefined, campaign.id)}
               />
             ))}

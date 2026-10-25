@@ -33,6 +33,9 @@ jest.mock('@/lib/campaign-secret', () => ({
 }))
 
 const ORIGIN = 'https://my-game.forge-vtt.com'
+
+/** The dish count's mock: Prisma's groupBy is typed past what the deep mock's types can follow. */
+const groupBy = () => prismaMock.cookbookDish.groupBy as unknown as jest.Mock
 const ref = { id: 'camp-a', title: 'The Lonely Mountain' }
 
 /** What clears a campaign's recorded refusal. */
@@ -73,6 +76,7 @@ const listed = async (fields: object) => {
       refusalReason: null,
       refusalStatus: null,
       refusalDetail: null,
+      dishesEnabled: false,
       players: [],
       ...fields,
     },
@@ -111,6 +115,12 @@ const game = (ours: string[] = []) => {
     }) as any)
 }
 
+// Changed on purpose (round 0.38.0 §D9): the Gamemaster's list counts their campaigns' dishes from
+// the Magical Recipe Book, none unless a test says; the deep mock answers nothing otherwise.
+beforeEach(() => {
+  groupBy().mockResolvedValue([] as any)
+})
+
 describe('db/campaigns', () => {
   describe('isLive', () => {
     const now = Date.parse('2026-10-04T20:00:00Z')
@@ -142,6 +152,8 @@ describe('db/campaigns', () => {
           rollFeatures: ['modifiers', 'prompts'],
           bridgePolledAt: seen,
           transfersEnabled: true,
+          // Changed on purpose (round 0.38.0 §D9): from module 0.38.0.
+          dishesEnabled: false,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -162,6 +174,7 @@ describe('db/campaigns', () => {
           rollFeatures: [],
           bridgePolledAt: null,
           transfersEnabled: true,
+          dishesEnabled: false,
           players: [],
         },
       ] as any)
@@ -186,12 +199,16 @@ describe('db/campaigns', () => {
           },
           // From module 0.31.0: turned on, and the game fetching moves.
           transfers: { enabled: true, reaching: true },
+          // Changed on purpose (round 0.38.0 §D9): dishes from the Magical Recipe Book, none.
+          dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           characters: [
             {
               id: 'actor-thorin',
               name: 'Thorin Oakenshield',
               player: 'Alice',
               characterId: 'char-1',
+              // Changed on purpose (round 0.38.0 §D9): no Magical Recipe Book linked.
+              cookbookLinked: false,
               // Changed on purpose (round 0.36.0 §7.12): none listed.
               companions: [],
             },
@@ -200,6 +217,7 @@ describe('db/campaigns', () => {
               name: 'Vex',
               player: undefined,
               characterId: undefined,
+              cookbookLinked: false,
               companions: [],
             },
           ],
@@ -224,6 +242,7 @@ describe('db/campaigns', () => {
           },
           // Turned on, but the game isn't fetching moves.
           transfers: { enabled: true, reaching: false },
+          dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           characters: [],
           groups: [],
         },
@@ -319,6 +338,110 @@ describe('db/campaigns', () => {
           select: expect.objectContaining({ companions: true }),
         }),
       )
+    })
+
+    describe('dishes from the Magical Recipe Book, from module 0.38.0', () => {
+      const characters = [
+        { id: 'actor-thorin', name: 'Thorin Oakenshield' },
+        { id: 'actor-vex', name: 'Vex' },
+        { id: 'actor-balin', name: 'Balin' },
+      ]
+
+      it('counts what waits for Foundry, queued or handed over, and what waits in it', async () => {
+        groupBy().mockResolvedValue([
+          { campaignId: 'c1', status: 'queued', _count: 2 },
+          { campaignId: 'c1', status: 'claimed', _count: 1 },
+          { campaignId: 'c1', status: 'delivered', _count: 4 },
+          { campaignId: 'c1', status: 'applied', _count: 9 },
+          { campaignId: 'c2', status: 'queued', _count: 5 },
+        ] as any)
+
+        await expect(listed({ dishesEnabled: true })).resolves.toMatchObject({
+          dishes: { enabled: true, waiting: 3, inFoundry: 4 },
+        })
+        expect(groupBy()).toHaveBeenCalledWith({
+          by: ['campaignId', 'status'],
+          where: { campaignId: { in: ['c1'] } },
+          _count: true,
+        })
+        expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            select: expect.objectContaining({ dishesEnabled: true }),
+          }),
+        )
+      })
+
+      it('marks a character linked only where its player’s link names it, in this campaign', async () => {
+        const campaign = await listed({
+          characters,
+          players: [
+            {
+              id: 'char-1',
+              actorId: 'actor-thorin',
+              user: { name: 'Alice' },
+              cookbookLink: { actorId: 'actor-thorin', campaignId: 'c1' },
+            },
+            // A link made for the seat's earlier actor.
+            {
+              id: 'char-2',
+              actorId: 'actor-vex',
+              user: { name: 'Bob' },
+              cookbookLink: { actorId: 'actor-thorin', campaignId: 'c1' },
+            },
+            {
+              id: 'char-3',
+              actorId: 'actor-balin',
+              user: { name: 'Cara' },
+              cookbookLink: null,
+            },
+          ],
+        })
+
+        expect(
+          campaign.characters.map(({ id, cookbookLinked }) => ({
+            id,
+            cookbookLinked,
+          })),
+        ).toEqual([
+          { id: 'actor-thorin', cookbookLinked: true },
+          { id: 'actor-vex', cookbookLinked: false },
+          { id: 'actor-balin', cookbookLinked: false },
+        ])
+        expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            select: expect.objectContaining({
+              players: {
+                select: expect.objectContaining({
+                  cookbookLink: { select: { actorId: true, campaignId: true } },
+                }),
+              },
+            }),
+          }),
+        )
+      })
+
+      it('marks no link made in another campaign', async () => {
+        const campaign = await listed({
+          characters,
+          players: [
+            {
+              id: 'char-1',
+              actorId: 'actor-thorin',
+              user: { name: 'Alice' },
+              cookbookLink: { actorId: 'actor-thorin', campaignId: 'c9' },
+            },
+          ],
+        })
+
+        expect(campaign.characters[0].cookbookLinked).toBe(false)
+      })
+
+      it('counts nothing where the Gamemaster has no campaigns', async () => {
+        prismaMock.campaign.findMany.mockResolvedValue([])
+
+        await expect(listOwnedCampaigns('gm-1')).resolves.toEqual([])
+        expect(groupBy()).not.toHaveBeenCalled()
+      })
     })
 
     it('sets up a campaign, keeping only a hash of its secret', async () => {

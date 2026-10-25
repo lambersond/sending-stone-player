@@ -1,4 +1,5 @@
 import prisma from '@/clients/prisma'
+import { COOKBOOK_VERSIONS } from '@/constants/cookbook'
 import {
   COMPANION_UNTAKEN,
   MIDI_PROMPT_WAIT,
@@ -123,6 +124,11 @@ async function apply(
       const transfersOn =
         features?.transfers?.enabled === true &&
         (features.transfers.kinds ?? []).includes('transfer')
+      // Whether the campaign takes dishes from the Magical Recipe Book, from module 0.38.0, by its
+      // own switch under dnd5e 5.
+      const dishesOn =
+        features?.dishes?.enabled === true &&
+        (features.dishes.kinds ?? []).includes('dish')
       // What else the module does with journal notes, from module 0.35.0: 'orders' where it takes
       // the app's orders of a group's notes. A module before it says nothing, which clears it.
       const noteFeatures =
@@ -199,6 +205,15 @@ async function apply(
           favoritesEnabled:
             features?.favorites?.enabled === true &&
             (features.favorites.kinds ?? []).includes('favorite'),
+          // Whether the module takes dishes from the Magical Recipe Book for the app, and which
+          // body versions, from module 0.38.0, by its own switch under dnd5e 5: a module before it
+          // says nothing of dishes, which clears both.
+          dishesEnabled: dishesOn,
+          dishVersions: dishesOn
+            ? (features?.dishes?.versions ?? []).filter(version =>
+                (COOKBOOK_VERSIONS as readonly number[]).includes(version),
+              )
+            : [],
           // Whether the module keeps journal notes for the app, from module 0.34.0, with no
           // switch: a module before it says nothing of them, which clears it.
           notesEnabled:

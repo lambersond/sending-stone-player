@@ -5,7 +5,9 @@ import { notFound } from 'next/navigation'
 import {
   chooseActor,
   deleteCharacterAndLeave,
+  makeCookbookCode,
   markChatReadUpTo,
+  revokeCookbookCode,
   setManualDice,
 } from '../actions'
 import CharacterPage, { generateMetadata } from './page'
@@ -23,7 +25,9 @@ jest.mock('next/navigation', () => ({
 jest.mock('../actions', () => ({
   chooseActor: jest.fn(),
   deleteCharacterAndLeave: jest.fn(),
+  makeCookbookCode: jest.fn(),
   markChatReadUpTo: jest.fn(),
+  revokeCookbookCode: jest.fn(),
   setManualDice: jest.fn(),
 }))
 jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
@@ -39,8 +43,16 @@ jest.mock('@/components/game-table', () => ({
     deleteCharacter,
     markChatRead,
     setManualDice,
+    makeCookbookCode,
+    revokeCookbookCode,
   }: any) => (
     <>
+      <button type='button' onClick={() => makeCookbookCode()}>
+        Make a code
+      </button>
+      <button type='button' onClick={() => revokeCookbookCode()}>
+        Revoke the code
+      </button>
       <button type='button' onClick={() => setManualDice(true)}>
         Type dice
       </button>
@@ -148,6 +160,17 @@ describe('app/characters/[id]/page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Type dice' }))
     expect(setManualDice).toHaveBeenCalledWith('char-1', true)
+  })
+
+  it('makes and revokes the character’s link code for the Magical Recipe Book, from module 0.38.0', async () => {
+    jest.mocked(getCharacter).mockResolvedValue(thorin)
+    const user = userEvent.setup()
+    render(await CharacterPage(props('char-1')))
+
+    await user.click(screen.getByRole('button', { name: 'Make a code' }))
+    expect(makeCookbookCode).toHaveBeenCalledWith('char-1')
+    await user.click(screen.getByRole('button', { name: 'Revoke the code' }))
+    expect(revokeCookbookCode).toHaveBeenCalledWith('char-1')
   })
 
   it('is not found when the user has no such character', async () => {

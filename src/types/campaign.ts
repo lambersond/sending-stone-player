@@ -40,6 +40,11 @@ export type OwnedCampaign = {
    */
   transfers: { enabled: boolean; reaching: boolean }
   /**
+   * Dishes from the Magical Recipe Book, from module 0.38.0: whether the game takes them, and how
+   * many wait for Foundry or wait in it for the Gamemaster. None reads as off.
+   */
+  dishes?: { enabled: boolean; waiting: number; inFoundry: number }
+  /**
    * Each with who plays it, and their character's id, once a player has chosen it; and from module
    * 0.36.0 its companions, as the module lists them, by name and kind, a summoned one with the
    * item it was summoned with: none for none. The app always gives them; optional so that a card
@@ -51,6 +56,8 @@ export type OwnedCampaign = {
     player?: string
     characterId?: string
     companions?: { name: string; kind: 'owned' | 'summoned'; from?: string }[]
+    /** Whether its player's Magical Recipe Book is linked to it, from module 0.38.0. */
+    cookbookLinked?: boolean
   }[]
   /**
    * Its Group actors, such as its party, from module 0.30.0: whether each is dnd5e's primary

@@ -41,6 +41,7 @@ import {
   CreatureSwitcher,
   type SwitcherCreature,
 } from '@/components/companions/creature-switcher'
+import { CookbookCard } from '@/components/cookbook-card'
 import { ConfirmDialog } from '@/components/modal'
 import { JournalCard, type NotesPlace } from '@/components/notes'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
@@ -68,6 +69,7 @@ import { gameHost } from '@/utils/game-host'
 import { seatWords } from '@/utils/seat-words'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
+import type { CookbookCodeAnswer, CookbookPlace } from '@/types/cookbook'
 import type { TableGroup } from '@/types/party'
 import type { RollKind } from '@/types/roll'
 import type {
@@ -129,6 +131,13 @@ type Props = {
    * player's page only.
    */
   setManualDice?: (on: boolean) => Promise<void>
+  /**
+   * Makes a link code for the Magical Recipe Book for this character, from module 0.38.0,
+   * replacing any before it. A player's page only.
+   */
+  makeCookbookCode?: () => Promise<CookbookCodeAnswer>
+  /** Revokes this character's link code for the Magical Recipe Book. A player's page only. */
+  revokeCookbookCode?: () => Promise<void>
 }
 
 /**
@@ -146,6 +155,8 @@ export function GameTable({
   deleteCharacter,
   markChatRead,
   setManualDice,
+  makeCookbookCode,
+  revokeCookbookCode,
 }: Readonly<Props>) {
   const role = given?.role ?? 'player'
   const api = given?.api ?? `/api/characters/${character.id}`
@@ -450,6 +461,18 @@ export function GameTable({
       party === undefined &&
       chosen === 'self',
   }
+  // The player's Magical Recipe Book card (module 0.38.0), after the journal's, wherever it is:
+  // their own seat's alone, while their character plays one of the campaign's, polled as the
+  // journal is. The Gamemaster's page passes neither action, so never draws it.
+  const cookbook: CookbookPlace | undefined =
+    seat.role === 'player' && playing && makeCookbookCode && revokeCookbookCode
+      ? {
+          characterId: character.id,
+          active: notes.active,
+          make: makeCookbookCode,
+          revoke: revokeCookbookCode,
+        }
+      : undefined
   let table: ReactNode
   // Whether the sheet's pane is beside the combat and chat column on a wide screen.
   let beside = false
@@ -571,6 +594,7 @@ export function GameTable({
               }
               manualDice={diceSwitch}
               notes={notes}
+              cookbook={cookbook}
             />
           ) : (
             <Scroller>
@@ -589,6 +613,12 @@ export function GameTable({
               {playing && (
                 <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
                   <JournalCard kind='personal' look='sheet' {...notes} />
+                </div>
+              )}
+              {/* The Magical Recipe Book's card, which needs no sheet either. */}
+              {cookbook && (
+                <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
+                  <CookbookCard {...cookbook} />
                 </div>
               )}
             </Scroller>

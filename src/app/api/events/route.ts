@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   COMPANIONS,
+  DISHES,
   FAVORITES,
   FOUNDRY_SETTINGS,
   GROUPS,
@@ -21,6 +22,7 @@ import {
   markSeen,
   recordRefusal,
 } from '@/db/campaigns'
+import { recordDishDecision } from '@/db/cookbook'
 import { recordCommandResult } from '@/db/roll-requests'
 import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
@@ -179,6 +181,14 @@ export async function POST(request: Request) {
       // it closed, or the Gamemaster's messages it marks.
       await recordCommandResult(found.id, event.data)
       await markSeen(found.id)
+    } else if (
+      event?.type === EVENTS.DISH_APPLIED ||
+      event?.type === EVENTS.DISH_DISMISSED
+    ) {
+      // What the Gamemaster did with a dish from the Magical Recipe Book, from module 0.38.0. Only
+      // its sender's card shows it, so the campaign's version is left alone.
+      await recordDishDecision(found.id, event)
+      await markSeen(found.id)
     } else if (event) {
       applied = await applyCampaignEvent(
         found.id,
@@ -229,7 +239,8 @@ export async function POST(request: Request) {
  * of, only then, and from module 0.35.0 orders of a group's notes and who changed a journal in
  * Foundry; and from module 0.36.0 the campaign's characters' companions, which the module sends,
  * and marks its combats and chat with, only then; and from module 0.37.0 favorites added and
- * removed, which the module fetches for only then.
+ * removed, which the module fetches for only then; and from module 0.38.0 dishes from the Magical
+ * Recipe Book, which the module fetches, and reports the Gamemaster's choice of, only then.
  */
 const FEATURES = {
   commands: true,
@@ -243,6 +254,7 @@ const FEATURES = {
   notes: NOTES,
   companions: COMPANIONS,
   favorites: FAVORITES,
+  dishes: DISHES,
 }
 
 /**

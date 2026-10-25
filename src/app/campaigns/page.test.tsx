@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { revokeCookbookLinkAction } from './actions'
 import CampaignsPage from './page'
 import { listOwnedCampaigns } from '@/db/campaigns'
 import { appOrigin } from '@/lib/app-origin'
@@ -10,6 +11,7 @@ jest.mock('./actions', () => ({
   removeCampaignAction: jest.fn(),
   removePlayerAction: jest.fn(),
   resetInviteAction: jest.fn(),
+  revokeCookbookLinkAction: jest.fn(),
   setUpCampaignAction: jest.fn(),
 }))
 jest.mock('@/db/campaigns', () => ({ listOwnedCampaigns: jest.fn() }))
@@ -62,6 +64,41 @@ describe('app/campaigns/page', () => {
     expect(within(card).getByText('Live')).toBeInTheDocument()
     expect(within(card).getByText('Alice')).toBeInTheDocument()
     expect(within(card).getByText('Not chosen yet')).toBeInTheDocument()
+  })
+
+  it('revokes a player’s cookbook link from the campaign’s card, from module 0.38.0', async () => {
+    jest.mocked(listOwnedCampaigns).mockResolvedValue([
+      {
+        ...campaign,
+        characters: [
+          {
+            id: 'actor-thorin',
+            name: 'Thorin Oakenshield',
+            player: 'Alice',
+            characterId: 'char-1',
+            cookbookLinked: true,
+          },
+        ],
+      },
+    ])
+    const user = userEvent.setup()
+    render(await CampaignsPage())
+
+    const card = screen.getByRole('article', { name: 'The Lonely Mountain' })
+    expect(within(card).getByText('Cookbook linked')).toBeInTheDocument()
+    await user.click(
+      within(card).getByRole('button', {
+        name: 'Revoke Alice’s cookbook link for Thorin Oakenshield',
+      }),
+    )
+    await user.click(
+      within(
+        screen.getByRole('dialog', {
+          name: 'Revoke Alice’s cookbook link for Thorin Oakenshield?',
+        }),
+      ).getByRole('button', { name: 'Revoke link' }),
+    )
+    expect(revokeCookbookLinkAction).toHaveBeenCalledWith('c1', 'char-1')
   })
 
   it('helps a Gamemaster set up their first campaign and connect Foundry', async () => {

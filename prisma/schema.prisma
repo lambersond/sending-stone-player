@@ -57,6 +57,16 @@ enum NoteWriteStatus {
   made
 }
 
+// Where a dish from the Magical Recipe Book stands, on its way to Foundry and after.
+enum CookbookDishStatus {
+  queued // stored, waiting for the module to fetch it
+  claimed // handed to a module session, no answer yet
+  delivered // its card is in Foundry, waiting for the Gamemaster
+  applied // the Gamemaster served it to one or more characters
+  dismissed // the Gamemaster set it aside, or deleted its card undecided
+  failed // the module refused it for good, or it was handed over DISH_ATTEMPTS times
+}
+
 // -----------------------
 // User model
 // -----------------------
@@ -139,34 +149,36 @@ model Verification {
 // A character a user plays: one of a campaign's characters, chosen from its list after following
 // the Gamemaster's invite link.
 model Character {
-  id            String        @id @default(cuid())
+  id             String         @id @default(cuid())
   // The character's name in Foundry when it was chosen.
-  name          String
+  name           String
   // The game's origin, such as https://my-game.forge-vtt.com, and the campaign's title, when the
   // character was chosen.
-  gameUrl       String
-  campaignTitle String
+  gameUrl        String
+  campaignTitle  String
   // The campaign, and the Foundry actor in it, that this character is. Unset for a character made
   // before players chose from a campaign's characters, until its player chooses, and for one whose
   // campaign was removed.
-  campaignId    String?
-  campaign      Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  actorId       String?
+  campaignId     String?
+  campaign       Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  actorId        String?
   // When its player last had the chat in view, or another device of theirs did: messages sent
   // after it are unread.
-  chatReadAt    DateTime?
+  chatReadAt     DateTime?
   // When its player's page last asked for its table, at most every few seconds: within the last
   // few, the character is open in the app, and the Gamemaster's module waits for its answers to
   // what Midi-QOL asks of it (module 0.27.0). Never the Gamemaster's page's.
-  tableSeenAt   DateTime?
+  tableSeenAt    DateTime?
   // Whether its player types in what their own dice show for its rolls, on every device, as they
   // set it in the sheet's settings: offered only while its campaign's game lets them (module 0.32.0).
-  manualDice    Boolean       @default(false)
-  userId        String
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  rollRequests  RollRequest[]
+  manualDice     Boolean        @default(false)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  rollRequests   RollRequest[]
+  cookbookLink   CookbookLink?
+  cookbookDishes CookbookDish[]
 
   // One player per character.
   @@unique([campaignId, actorId], name: "campaignActor")
@@ -246,6 +258,11 @@ model Campaign {
   // What else the module does with journal notes, from module 0.35.0's hello: 'orders' where it
   // takes the app's orders of a group's notes. A module before it says nothing, which clears it.
   noteFeatures        String[]         @default([])
+  // Whether the module takes dishes from the Magical Recipe Book, from module 0.38.0's hello: its
+  // per-campaign switch, under dnd5e 5.x. A module before it says nothing, which clears it.
+  dishesEnabled       Boolean          @default(false)
+  // The cookbook body versions the module reads, from the same hello.
+  dishVersions        Int[]            @default([])
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt      DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,
@@ -273,6 +290,8 @@ model Campaign {
   rollRequests        RollRequest[]
   rollPrompts         RollPrompt[]
   journalBooks        JournalBook[]
+  cookbookLinks       CookbookLink[]
+  cookbookDishes      CookbookDish[]
 
   @@unique([origin, foundryId], name: "originCampaign")
   @@index([ownerId])
@@ -614,4 +633,61 @@ model JournalOrder {
   @@index([campaignId, status, queuedAt])
   @@index([requestedById, modifiedAt])
   @@map("journal_order")
+}
+
+// A player's link from the Magical Recipe Book to their seat: the cookbook sends its code with each
+// dish. Only a hash of the code is kept.
+model CookbookLink {
+  id          String         @id @default(cuid())
+  codeHash    String         @unique // sha256(code), hex
+  hint        String // the code's last 4 characters
+  characterId String         @unique
+  character   Character      @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  campaignId  String // the binding when the code was made
+  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  actorId     String
+  createdAt   DateTime       @default(now())
+  lastUsedAt  DateTime?
+  dishes      CookbookDish[]
+
+  @@index([campaignId])
+  @@map("cookbook_link")
+}
+
+// A dish from the Magical Recipe Book, queued for its campaign's Foundry and handed over until
+// answered, as a journal change is (JournalWrite).
+model CookbookDish {
+  id           String             @id @default(cuid())
+  campaignId   String
+  campaign     Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  characterId  String? // the sender's seat; SetNull so a dish outlives the player leaving
+  character    Character?         @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  linkId       String?
+  link         CookbookLink?      @relation(fields: [linkId], references: [id], onDelete: SetNull)
+  actorId      String // the cook's Foundry actor when it arrived
+  dishId       String // the cookbook's dish.id
+  version      Int // the body's version
+  recipe       String
+  outcome      String // boon | bane | standard
+  payload      Json // the validated body, the first one received
+  status       CookbookDishStatus @default(queued)
+  reason       String? // the module's reason, for failed or dismissed
+  error        String?
+  attempts     Int                @default(0)
+  claimToken   String?
+  claimSession String?
+  claimedAt    DateTime?
+  messageId    String? // its card in Foundry
+  appliedTo    Json? // dish.applied `characters`
+  rolled       Json? // dish.applied `rolled`
+  decidedAt    DateTime?
+  queuedAt     DateTime           @default(now())
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([campaignId, dishId], name: "campaignDish")
+  @@index([campaignId, status, queuedAt])
+  @@index([characterId, createdAt])
+  @@index([linkId, createdAt])
+  @@map("cookbook_dish")
 }
