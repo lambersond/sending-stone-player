@@ -171,7 +171,7 @@ settings.set('challengeVisibility', 'all')
 // The module's English, for its badge; anything else as its key, as before.
 const english = JSON.parse(readFileSync(`${MODULE}/lang/en.json`, 'utf8'))
 const lookup = text => String(text).split('.').reduce((o, part) => (o && typeof o === 'object') ? o[part] : undefined, english)
-const localize = game.i18n.localize
+const localize = game.i18n.localize.bind(game.i18n)
 game.i18n.localize = text => (typeof lookup(text) === 'string' ? lookup(text) : localize(text))
 
 const { Actor5e } = await import('./fvtt/actor5e.mjs')
