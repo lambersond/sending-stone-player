@@ -9,6 +9,7 @@ import {
   resetInviteCode,
   setUpCampaign,
 } from '@/db/campaigns'
+import { revokeCampaignCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 import { campaignSetupSchema, secretSchema } from '@/schemas/campaign'
 import type { CampaignSetupFormState, SecretFormState } from '@/types/campaign'
@@ -79,6 +80,19 @@ export async function removePlayerAction(
 ): Promise<void> {
   const user = await requireUser(PAGE)
   await removePlayer(user.id, campaignId, characterId)
+  refresh()
+}
+
+/**
+ * Revoke a player's link from the Magical Recipe Book to one of the campaign's characters, from
+ * module 0.38.0: its dishes stop reaching the game until its player makes a new code.
+ */
+export async function revokeCookbookLinkAction(
+  campaignId: string,
+  characterId: string,
+): Promise<void> {
+  const user = await requireUser(PAGE)
+  await revokeCampaignCookbookLink(user.id, campaignId, characterId)
   refresh()
 }
 

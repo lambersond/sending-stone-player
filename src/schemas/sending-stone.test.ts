@@ -5,6 +5,9 @@ import {
   characterSheet,
   checkingSheet,
   combat,
+  DISHES_OTHER_SYSTEM,
+  DISHES_SWITCHED_OFF,
+  dishResult,
   distributedResult,
   enchantingSheet,
   enchantUse,
@@ -28,6 +31,7 @@ import {
   sheetItem,
   sheetSpell,
   SLEIGHT_CHECK,
+  TAKING_DISHES,
   TEXTS,
   biteAction,
   mockCompanionEntry,
@@ -4844,4 +4848,219 @@ describe('schemas/sending-stone, favorites added and removed, from module 0.37.0
       parseGameEvent('command.result', removedResult())?.data,
     ).not.toHaveProperty('favorited')
   })
+})
+
+/** What a hello's features say of dishes, as read. */
+const dishes = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { dishes: sent },
+    })?.data as { features?: { dishes?: unknown } }
+  ).features?.dishes
+
+describe('schemas/sending-stone, dishes from the Magical Recipe Book, from module 0.38.0', () => {
+  const at = { time: '2026-10-24T20:15:00.000Z', worldTime: 1_234_567 }
+  const by = { userId: 'GmUser0000000001', name: 'Gamemaster' }
+  const thorin = {
+    actorId: 'kH2b9QeX1sZ4mN7p',
+    name: 'Thorin Oakenshield',
+    effectId: 'Ae0000dish000001',
+    replaced: { id: 'cmh1zzz0n0009ab12cd34ef56', recipe: 'Ashen Root Stew' },
+    healed: 7,
+    exhaustion: 0,
+    skipped: [],
+  }
+  const applied = (fields: object = {}) => ({
+    dish: 'cmh9q2x7k0003ssdish0001',
+    id: 'cmh2k8q0n0001ab12cd34ef56',
+    card: 'Xy12ChatCardId00',
+    outcome: 'boon',
+    characters: [thorin],
+    rolled: [{ type: 'maxHitPoints', value: 7, formula: '3+1d6' }],
+    by,
+    at,
+    ...fields,
+  })
+  const dismissed = (fields: object = {}) => ({
+    dish: 'cmh9q2x7k0003ssdish0001',
+    id: 'cmh2k8q0n0001ab12cd34ef56',
+    card: 'Xy12ChatCardId00',
+    reason: 'dismissed',
+    by,
+    at,
+    ...fields,
+  })
+
+  it('reads features.dishes, on and off, and junk as off or nothing', () => {
+    expect(dishes(TAKING_DISHES)).toEqual(TAKING_DISHES)
+    expect(dishes(DISHES_SWITCHED_OFF)).toEqual(DISHES_SWITCHED_OFF)
+    expect(dishes(DISHES_OTHER_SYSTEM)).toEqual(DISHES_OTHER_SYSTEM)
+    expect(dishes({ enabled: 'yes', kinds: 'dish', versions: 'all' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+      versions: [],
+    })
+    expect(
+      dishes({
+        ...TAKING_DISHES,
+        versions: Array.from({ length: 21 }, () => 1),
+      }),
+    ).toMatchObject({ versions: [] })
+    expect(dishes('on')).toBeNull()
+    // Module 0.37.0 says nothing of them.
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          features: { favorites: FAVORITING },
+        })?.data as { features?: object }
+      ).features,
+    ).not.toHaveProperty('dishes')
+  })
+
+  it('keeps a dish result’s card and state, and the rest of a result where it can’t', () => {
+    expect(parseGameEvent('command.result', dishResult())?.data).toEqual(
+      dishResult(),
+    )
+    for (const junk of [
+      'waiting',
+      { card: 'x', state: 'eaten' },
+      { card: 7 },
+    ]) {
+      const data = parseGameEvent(
+        'command.result',
+        dishResult({ dish: junk as any }),
+      )?.data as { dish?: unknown; status: string }
+      expect(data.dish).toBeUndefined()
+      expect(data.status).toBe('done')
+    }
+  })
+
+  it('reads dish.applied, cutting what is too long rather than refusing it', () => {
+    const many = Array.from({ length: 250 }, (_, n) => ({
+      ...thorin,
+      actorId: `actor${n}`,
+      name: 'T'.repeat(300),
+      skipped: Array.from({ length: 120 }, () => ({
+        type: 'tempHitPoints',
+        reason: 'kind',
+      })),
+    }))
+    const event = parseGameEvent('dish.applied', applied({ characters: many }))
+    if (event?.type !== 'dish.applied') throw new Error('not read')
+    expect(event.data.characters).toHaveLength(200)
+    expect(event.data.characters[0].name).toBe('T'.repeat(200))
+    expect(event.data.characters[0].skipped).toHaveLength(100)
+    expect(event.data.dish).toBe('cmh9q2x7k0003ssdish0001')
+    expect(event.data.rolled).toEqual([
+      { type: 'maxHitPoints', value: 7, formula: '3+1d6' },
+    ])
+  })
+
+  it('cleans what Postgres cannot store from a dish event, never refusing it', () => {
+    const left = `${'a'.repeat(199)}�`
+    const event = parseGameEvent(
+      'dish.applied',
+      applied({
+        characters: [
+          // An emoji at 199 and 200, split by this app's cut.
+          { ...thorin, name: `${'a'.repeat(199)}\u{1F600}b` },
+          // The same name as the module cuts it, at 200, its half arriving alone.
+          {
+            ...thorin,
+            actorId: 'actor2',
+            name: `${'a'.repeat(199)}\uD83D`,
+            replaced: { id: 'old\u0000dish', recipe: 'Ashen\u0000 Root Stew' },
+          },
+          { ...thorin, actorId: 'actor3', name: 'Tho\u0000rin\uDC00' },
+        ],
+        rolled: [
+          {
+            type: 'maxHitPoints',
+            value: 7,
+            formula: `${'1'.repeat(31)}\u{1F600}`,
+          },
+        ],
+        by: { userId: 'GmUser\u0000', name: 'Game\u0000master' },
+      }),
+    )
+    if (event?.type !== 'dish.applied') throw new Error('not read')
+    expect(event.data.characters.map(({ name }) => name)).toEqual([
+      left,
+      left,
+      'Thorin�',
+    ])
+    expect(event.data.characters[1].replaced).toEqual({
+      id: 'olddish',
+      recipe: 'Ashen Root Stew',
+    })
+    expect(event.data.rolled[0].formula).toBe(`${'1'.repeat(31)}�`)
+    expect(event.data.by).toEqual({ userId: 'GmUser', name: 'Gamemaster' })
+    expect(JSON.stringify(event.data)).not.toMatch(/\\u0000|\\ud[89a-f]/i)
+
+    const dismissal = parseGameEvent(
+      'dish.dismissed',
+      dismissed({ card: 'Xy12\u0000Card\uD800', by: { name: 'G\u0000M' } }),
+    )
+    expect(dismissal?.data).toMatchObject({
+      card: 'Xy12Card�',
+      by: { name: 'GM' },
+    })
+  })
+
+  it('reads every other field of dish.applied as best it can, dropping entries it can’t', () => {
+    const event = parseGameEvent(
+      'dish.applied',
+      applied({
+        card: 7,
+        characters: [thorin, { name: 'No actor' }, 'junk'],
+        rolled: [
+          { type: 'maxHitPoints', value: 7.5 },
+          { type: 'x', value: 2, formula: 9 },
+        ],
+        by: 'gm',
+        at: { time: 5 },
+      }),
+    )
+    if (event?.type !== 'dish.applied') throw new Error('not read')
+    expect(event.data.characters.map(({ name }) => name)).toEqual([
+      'Thorin Oakenshield',
+    ])
+    expect(event.data.rolled).toEqual([{ type: 'x', value: 2 }])
+    expect(event.data.by).toBeNull()
+    expect(event.data.at).toEqual({ time: '', worldTime: 0 })
+    expect(event.data.card).toBe('')
+  })
+
+  it('reads dish.dismissed, an unknown reason as set aside', () => {
+    const event = parseGameEvent(
+      'dish.dismissed',
+      dismissed({ reason: 'deleted' }),
+    )
+    expect(event).toEqual({
+      type: 'dish.dismissed',
+      data: dismissed({ reason: 'deleted' }),
+    })
+    const junk = parseGameEvent(
+      'dish.dismissed',
+      dismissed({ reason: 'eaten' }),
+    )
+    expect(junk?.data).toMatchObject({ reason: 'dismissed' })
+  })
+
+  it.each(['dish.applied', 'dish.dismissed'])(
+    'refuses %s without this app’s id for the dish, the one field that refuses',
+    type => {
+      const sent = type === 'dish.applied' ? applied : dismissed
+      expect(() => parseGameEvent(type, sent({ dish: undefined }))).toThrow()
+      expect(() => parseGameEvent(type, sent({ dish: 'a b' }))).toThrow()
+      expect(() =>
+        parseGameEvent(type, sent({ dish: 'x'.repeat(65) })),
+      ).toThrow()
+    },
+  )
 })

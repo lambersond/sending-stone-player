@@ -215,7 +215,8 @@ part('1. where it is')
   // Changed on purpose (round 0.35.0 §13.2): the hello also says it takes orders and says who changed a journal.
   // Changed on purpose (round 0.36.0 §13.4): and its features gain companions.
   // Changed on purpose (round 0.37.0 §12.3): and favorites, after companions.
-  check(same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites'])
+  // Changed on purpose (round 0.38.0 §D10.4): and dishes from the Magical Recipe Book, after favorites.
+  check(same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes'])
     && same(features.notes, { enabled: true, kinds: ['personal', 'party'], reason: null, journals: [], orders: true, changes: true }),
     `the hello says notes are kept here, with no journal yet, and that it takes orders and says who changed a journal (${JSON.stringify(features.notes)})`)
   await until(() => notesEnabled() === 't', 'the app to keep notes on', 15_000)

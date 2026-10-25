@@ -8,26 +8,18 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.36.0 and its app.
+Released: module v0.37.0 and its app.
 
-## v0.37 (in progress)
+## v0.38 (in progress)
 
-1. **Favorites from the app:** players add items to their favorites and remove them in the app.
-   A right-click or long-press on an item, one of its activities or an effect opens a menu with
-   Add to favorites or Remove from favorites, and every one of those among the favorites offers
-   Remove. They're dnd5e's own favorites, so the character's sheet in Foundry shows them too; a
-   new one goes last.
-2. **Bug and feature templates** in both repositories, each pointing to the other.
-3. **Module names:** the Foundry modules are listed with the `illagria/` prefix, Sending Stone as
-   `illagria/sending-stone`. Its id, settings and links don't change.
+1. **Dishes from the Magical Recipe Book:** a player links their character in the Magical Recipe
+   Book to their seat here with a link code, and each dish they eat there reaches their Gamemaster
+   in Foundry as a card only Gamemasters see. The Gamemaster chooses who ate it, and each of them
+   gets its effect for 24 hours of game time, one dish at a time, its dice rolled once in the
+   cookbook. The player's card here shows what became of each dish. Off until the Gamemaster turns
+   it on for the campaign, under dnd5e 5.
 
-Patch releases (0.37.x) are expected as beta use turns up things to tweak.
-
-## v0.38 (planned next)
-
-1. **Dishes from the Magical Recipe Book:** a player links their character to the cookbook with a
-   code from the app; a dish they eat there reaches Foundry as a card for the Gamemaster, who
-   applies it to the characters who ate it, or sets it aside. Its effects last 24 in-game hours.
+Patch releases (0.38.x) are expected as beta use turns up things to tweak.
 
 ## v1.0
 
@@ -85,3 +77,6 @@ Open questions:
 - Favorites are added and removed from the app, not reordered: a new one goes last; reorder them in
   Foundry.
 - Skills, tools and spell slots are made favorites in Foundry.
+- Dishes from the Magical Recipe Book need dnd5e 5 for now.
+- A dish's effect ends with world time: a table that never advances time keeps it until the next
+  dish replaces it or the Gamemaster deletes it.

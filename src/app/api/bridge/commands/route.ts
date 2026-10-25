@@ -6,6 +6,7 @@ import {
   REFUSAL,
 } from '@/constants/sending-stone'
 import { findEventCampaign } from '@/db/campaigns'
+import { claimDishes } from '@/db/cookbook'
 import { claimNoteWrites, type NoteCommand } from '@/db/note-sync'
 import {
   claimRollRequests,
@@ -16,6 +17,7 @@ import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
+import type { DishCommand } from '@/types/cookbook'
 import type { RollCommand } from '@/utils/roll-requests'
 
 // Where the Gamemaster's module fetches what players ask its game to do: for now, rolls made here,
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
    * again; none for at once.
    */
   const answer = (
-    commands: (RollCommand | NoteCommand)[],
+    commands: (RollCommand | NoteCommand | DishCommand)[],
     open: string[],
     wait?: number,
   ) =>
@@ -165,25 +167,34 @@ export async function POST(request: Request) {
   const began = await readOpen()
   if (!began) return unavailable()
   // Moves of items and coins, from module 0.31.0, removals of characters' items, from module
-  // 0.33.0, journal notes, from module 0.34.0, and favorites, from module 0.37.0, are fetched with
-  // rolls off too.
+  // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, and dishes from the
+  // Magical Recipe Book, from module 0.38.0, are fetched with rolls off too.
   if (
     !polled.rollsEnabled &&
     !polled.transfersEnabled &&
     !polled.removalsEnabled &&
     !polled.notesEnabled &&
-    !polled.favoritesEnabled
+    !polled.favoritesEnabled &&
+    !polled.dishesEnabled
   ) {
     return answer([], began, COMMANDS_OFF_WAIT)
   }
 
-  // Notes written here, from module 0.34.0, are handed over after the rolls, but claimed first: a
-  // note handed to an answer that's lost is handed over again, and a roll never is, so a failure
-  // claiming the notes must come before any roll is taken.
+  // Notes written here, from module 0.34.0, and dishes from the Magical Recipe Book, from module
+  // 0.38.0, are handed over after the rolls, but claimed first: each handed to an answer that's
+  // lost is handed over again, and a roll never is, so a failure claiming them must come before
+  // any roll is taken.
   const claim = () =>
     attempt(async () => {
+      const dishes = polled.dishesEnabled
+        ? await claimDishes(found.id, session)
+        : []
       const notes = await claimNoteWrites(found.id, session)
-      return [...(await claimRollRequests(found.id, session)), ...notes]
+      return [
+        ...(await claimRollRequests(found.id, session)),
+        ...notes,
+        ...dishes,
+      ]
     }, 'Failed to hand over players’ rolls')
   if (!polled.playersPresent) {
     const commands = await claim()

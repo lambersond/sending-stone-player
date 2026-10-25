@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation'
 import {
   chooseActor,
   deleteCharacterAndLeave,
+  makeCookbookCode,
   markChatReadUpTo,
+  revokeCookbookCode,
   setManualDice,
 } from '../actions'
 import { GameTable } from '@/components/game-table'
@@ -50,6 +52,8 @@ export default async function CharacterPage({ params }: Props) {
       deleteCharacter={deleteCharacterAndLeave.bind(undefined, character.id)}
       markChatRead={markChatReadUpTo.bind(undefined, character.id)}
       setManualDice={setManualDice.bind(undefined, character.id)}
+      makeCookbookCode={makeCookbookCode.bind(undefined, character.id)}
+      revokeCookbookCode={revokeCookbookCode.bind(undefined, character.id)}
     />
   )
 }

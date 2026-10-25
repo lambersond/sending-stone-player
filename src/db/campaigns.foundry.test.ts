@@ -16,6 +16,15 @@ import {
 
 const ORIGIN = 'https://my-game.forge-vtt.com'
 
+/** The dish count's mock: Prisma's groupBy is typed past what the deep mock's types can follow. */
+const groupBy = () => prismaMock.cookbookDish.groupBy as unknown as jest.Mock
+
+// Changed on purpose (round 0.38.0 §D9): the list counts the campaigns' dishes from the Magical
+// Recipe Book, of which there are none here; the deep mock answers nothing otherwise.
+beforeEach(() => {
+  groupBy().mockResolvedValue([] as any)
+})
+
 /** A Gamemaster's one campaign, as listed, stored with these fields. */
 const listed = async (fields: object) => {
   prismaMock.campaign.findMany.mockResolvedValue([

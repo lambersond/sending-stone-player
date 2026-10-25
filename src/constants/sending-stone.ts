@@ -92,6 +92,8 @@ export const EVENTS = {
   BRIDGE_SETTINGS: 'bridge.settings',
   COMPANIONS_LISTED: 'companions.listed',
   COMPANION_UPDATED: 'companion.updated',
+  DISH_APPLIED: 'dish.applied',
+  DISH_DISMISSED: 'dish.dismissed',
 } as const
 
 /**
@@ -252,6 +254,13 @@ export const FAVORITES = 1
  * made of it, in milliseconds: the sheet comes within a poll of its result (module 0.37.0).
  */
 export const FAVORITE_SETTLE = 10_000
+
+/**
+ * The format of dishes from the Magical Recipe Book this app takes, as it tells the module
+ * (`dishes`): from module 0.38.0, the `dish` command and the `dish.applied` and `dish.dismissed`
+ * events. The module fetches dishes, and reports what became of them, only then.
+ */
+export const DISHES = 1
 
 /**
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,

@@ -2496,6 +2496,47 @@ export function favoritedResult(
   }
 }
 
+// Module 0.38.0: dishes from the Magical Recipe Book.
+
+/** What a hello from module 0.38.0 says of dishes with the campaign's switch on, under dnd5e 5. */
+export const TAKING_DISHES = {
+  enabled: true,
+  kinds: ['dish'],
+  reason: null,
+  versions: [1],
+} as const
+
+/** What it says with the campaign's switch off, the default. */
+export const DISHES_SWITCHED_OFF = {
+  enabled: false,
+  kinds: [],
+  reason: 'off',
+  versions: [],
+} as const
+
+/** What it says with the switch on under another system, or under dnd5e 6. */
+export const DISHES_OTHER_SYSTEM = {
+  enabled: false,
+  kinds: [],
+  reason: 'system',
+  versions: [],
+} as const
+
+/** A dish's card posted in Foundry, waiting for the Gamemaster. */
+export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
+  return {
+    id: 'dish-cmh9q2x7k0003ssdish0001',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: 'Xy12ChatCardId00',
+    visible: false,
+    rolls: [],
+    dish: { card: 'Xy12ChatCardId00', state: 'waiting' },
+    ...fields,
+  }
+}
+
 /** A container of the sheet's, as sheetItem makes an item: holding these, or something secret. */
 export function sheetContainer(
   fields: Partial<SheetContainer> &

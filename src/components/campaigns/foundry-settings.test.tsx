@@ -242,7 +242,13 @@ describe('components/campaigns/foundry-settings', () => {
     expect(moves.parentElement?.previousElementSibling).toBe(
       rolls.parentElement,
     )
-    expect(details?.previousElementSibling).toBe(moves.parentElement)
+    // Changed on purpose (round 0.38.0 §D9): from module 0.38.0, the Cookbook dishes section sits
+    // between the items and coins and the Foundry settings.
+    const dishes = screen.getByRole('heading', { name: 'Cookbook dishes' })
+    expect(dishes.parentElement?.previousElementSibling).toBe(
+      moves.parentElement,
+    )
+    expect(details?.previousElementSibling).toBe(dishes.parentElement)
     expect(details?.nextElementSibling?.tagName).toBe('FOOTER')
   })
 })

@@ -110,10 +110,17 @@ export async function chooseCharacter(
   if (!actor) return 'unknown-character'
 
   try {
-    await prisma.character.update({
-      where: { id: characterId },
-      data: { actorId, name: actor.name },
-    })
+    // A link from the Magical Recipe Book (module 0.38.0) is bound to the actor it was made for,
+    // so another actor's ends it, in the same step: its dishes never reach the new one.
+    await prisma.$transaction([
+      prisma.character.update({
+        where: { id: characterId },
+        data: { actorId, name: actor.name },
+      }),
+      prisma.cookbookLink.deleteMany({
+        where: { characterId, actorId: { not: actorId } },
+      }),
+    ])
     return true
   } catch (error) {
     if (isTaken(error)) return 'taken'

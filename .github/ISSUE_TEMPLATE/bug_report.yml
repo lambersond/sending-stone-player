@@ -51,6 +51,7 @@ body:
         - Chat
         - A party's sheet
         - The journal
+        - The Magical Recipe Book card
         - The settings (the cog)
         - Somewhere else
     validations:

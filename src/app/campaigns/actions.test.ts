@@ -4,6 +4,7 @@ import {
   removeCampaignAction,
   removePlayerAction,
   resetInviteAction,
+  revokeCookbookLinkAction,
   setUpCampaignAction,
 } from './actions'
 import {
@@ -13,6 +14,7 @@ import {
   resetInviteCode,
   setUpCampaign,
 } from '@/db/campaigns'
+import { revokeCampaignCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 
 jest.mock('next/cache', () => ({ refresh: jest.fn() }))
@@ -23,6 +25,7 @@ jest.mock('@/db/campaigns', () => ({
   resetInviteCode: jest.fn(),
   setUpCampaign: jest.fn(),
 }))
+jest.mock('@/db/cookbook', () => ({ revokeCampaignCookbookLink: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 
 const formData = (values: Record<string, string>) => {
@@ -135,6 +138,18 @@ describe('app/campaigns/actions', () => {
     await removePlayerAction('c1', 'char-1')
 
     expect(removePlayer).toHaveBeenCalledWith('gm-1', 'c1', 'char-1')
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it("revokes a player's Magical Recipe Book link to the Gamemaster's campaign, from module 0.38.0", async () => {
+    await revokeCookbookLinkAction('c1', 'char-1')
+
+    expect(requireUser).toHaveBeenCalledWith('/campaigns')
+    expect(revokeCampaignCookbookLink).toHaveBeenCalledWith(
+      'gm-1',
+      'c1',
+      'char-1',
+    )
     expect(refresh).toHaveBeenCalled()
   })
 })

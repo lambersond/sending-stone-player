@@ -1,8 +1,10 @@
 import clsx from 'clsx'
 import {
   ArrowLeftRight,
+  CookingPot,
   Dices,
   KeyRound,
+  Link2Off,
   RefreshCw,
   Trash2,
   UserMinus,
@@ -32,6 +34,11 @@ type Props = {
   resetInvite: () => Promise<void>
   /** Remove the player's character with this id from the campaign. */
   removePlayer: (characterId: string) => Promise<void>
+  /**
+   * Revoke the link from its player's Magical Recipe Book to the character with this id, from
+   * module 0.38.0. Without it, the card offers no revoke.
+   */
+  revokeCookbookLink?: (characterId: string) => Promise<void>
   remove: () => Promise<void>
 }
 
@@ -49,6 +56,7 @@ export function CampaignCard({
   changeSecret,
   resetInvite,
   removePlayer,
+  revokeCookbookLink,
   remove,
 }: Readonly<Props>) {
   const details = [campaign.worldTitle, gameHost(campaign.gameUrl)].filter(
@@ -57,9 +65,11 @@ export function CampaignCard({
   return (
     <article
       aria-labelledby={`campaign-${campaign.id}`}
-      className='grid gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'
+      // No wider than the page's column, nor its header than the card, so the header's one-line
+      // details are cut rather than the page pushed sideways on a phone.
+      className='grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'
     >
-      <header className='flex flex-wrap items-start justify-between gap-3'>
+      <header className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
         <div className='min-w-0'>
           <h3
             id={`campaign-${campaign.id}`}
@@ -133,8 +143,9 @@ export function CampaignCard({
               return (
                 <li
                   key={character.id}
+                  // Its right group drops under its name where the row is too narrow for both.
                   className={clsx(
-                    'flex min-h-10 items-center justify-between gap-3 rounded-lg bg-page pr-1 pl-3',
+                    'flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-lg bg-page pr-1 pl-3',
                     companions ? 'py-1.5' : 'py-1',
                   )}
                 >
@@ -149,10 +160,11 @@ export function CampaignCard({
                   ) : (
                     link
                   )}
-                  <span className='flex shrink-0 items-center gap-1'>
+                  {/* No wider than the row, under the name: its player's name wraps first. */}
+                  <span className='flex min-w-0 items-center gap-1'>
                     <span
                       className={clsx(
-                        'text-xs',
+                        'text-xs wrap-anywhere',
                         character.player
                           ? 'font-semibold text-primary'
                           : 'pr-2 text-text-secondary',
@@ -160,6 +172,35 @@ export function CampaignCard({
                     >
                       {character.player ?? 'Not chosen yet'}
                     </span>
+                    {/* Its player's Magical Recipe Book linked to it (module 0.38.0). */}
+                    {character.cookbookLinked && (
+                      <span className='shrink-0 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary-text'>
+                        Cookbook linked
+                      </span>
+                    )}
+                    {character.cookbookLinked &&
+                      character.player &&
+                      character.characterId &&
+                      revokeCookbookLink && (
+                        <ConfirmDialog
+                          trigger={<Link2Off aria-hidden className='size-4' />}
+                          triggerLabel={`Revoke ${character.player}’s cookbook link for ${character.name}`}
+                          triggerClassName='rounded-md p-1.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+                          title={`Revoke ${character.player}’s cookbook link for ${character.name}?`}
+                          confirmLabel='Revoke link'
+                          onConfirm={revokeCookbookLink.bind(
+                            undefined,
+                            character.characterId,
+                          )}
+                          danger
+                        >
+                          <p>
+                            Dishes from {character.player}’s Magical Recipe Book
+                            stop reaching {campaign.title} until they make a new
+                            link code.
+                          </p>
+                        </ConfirmDialog>
+                      )}
                     {character.player && character.characterId && (
                       <ConfirmDialog
                         trigger={<UserMinus aria-hidden className='size-4' />}
@@ -210,6 +251,21 @@ export function CampaignCard({
           Items and coins
         </h4>
         <p className='text-sm text-text-secondary'>{movesText(campaign)}</p>
+      </section>
+
+      <section className='grid gap-1'>
+        <h4 className='flex items-center gap-1.5 text-sm font-medium'>
+          <CookingPot aria-hidden className='size-4 text-text-secondary' />
+          Cookbook dishes
+        </h4>
+        <p className='text-sm text-text-secondary'>{dishesText(campaign)}</p>
+        {campaign.dishes &&
+          (campaign.dishes.waiting > 0 || campaign.dishes.inFoundry > 0) && (
+            <p className='text-sm text-text-secondary'>
+              {campaign.dishes.waiting} waiting for Foundry ·{' '}
+              {campaign.dishes.inFoundry} in Foundry for you
+            </p>
+          )}
       </section>
 
       <FoundrySettingsSection campaign={campaign} />
@@ -299,6 +355,30 @@ function movesText({ transfers, foundry }: OwnedCampaign): string {
 
 /** The first Sending Stone in Foundry that moves items and coins: major, minor and patch. */
 const MOVES_FROM = [0, 31, 0] as const
+
+/**
+ * Whether the game takes dishes from the Magical Recipe Book, from module 0.38.0, and if not, why:
+ * a module before that, which has no such switch, says nothing of dishes; nor does one under
+ * another system than dnd5e 5, where the switch does nothing. The app keeps only whether they're
+ * on, so the system is read from the hello's own, which the snapshot keeps: without it, a switch
+ * ticked under dnd5e 6 would read as unticked.
+ */
+function dishesText({ dishes, foundry }: OwnedCampaign): string {
+  if (dishes?.enabled) {
+    return 'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches you as a card only Gamemasters see.'
+  }
+  if (before(foundry?.module?.version, DISHES_FROM)) {
+    return 'Your Sending Stone module doesn’t take dishes yet. Version 0.38.0 or later does.'
+  }
+  const system = foundry?.system
+  if (system && !(system.id === 'dnd5e' && system.version.startsWith('5.'))) {
+    return 'Off. Dishes need dnd5e 5.x in Foundry for now.'
+  }
+  return 'Off. To take dishes, tick Dishes from the Magical Recipe Book on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/** The first Sending Stone in Foundry that takes dishes from the Magical Recipe Book. */
+const DISHES_FROM = [0, 38, 0] as const
 
 /**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,
