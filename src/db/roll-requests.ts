@@ -14,6 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { createFavoriteRequest } from '@/db/favorites'
 import { recordNoteResult } from '@/db/note-sync'
 import { createRemoveRequest } from '@/db/removals'
 import { createTransferRequest } from '@/db/transfers'
@@ -112,16 +113,18 @@ export type RollRejection = {
  * One from a link in a description is checked against that description, as held here. A move of
  * items and coins, from module 0.31.0, is no roll, and has a switch of its own: it's checked by
  * `createTransferRequest` alone. A removal of an item, from module 0.33.0, likewise:
- * `createRemoveRequest` alone. From module 0.36.0, at a companion's seat: of the kinds the game
- * takes for companions, never a move or a removal, which a companion has none of, nor an answer to
- * what the game asks, which it asks of no companion; a death saving throw only where it's an
- * important NPC; and its initiative not where it acts right after its character, who's in that
- * combat. It's checked against its own sheet, typed in as its character's player types theirs,
- * and kept as its key, with its character's id, for the module to make it as the companion. And a
- * turn ended, from module 0.36.0, only by the character's player at its own seat, never at a
- * companion's or the Gamemaster's, is checked against the combat it names alone, as last heard of,
- * with or without a sheet, and counted with the seat's rolls; and so is a turn ended taken back,
- * only from the seat that ended it, and only for a moment after (`checkUndoTurn`).
+ * `createRemoveRequest` alone. A favorite added or removed, from module 0.37.0, likewise:
+ * `createFavoriteRequest` alone, its player's only. From module 0.36.0, at a companion's seat: of
+ * the kinds the game takes for companions, never a move, a removal or from module 0.37.0 a
+ * favorite, which a companion has none of, nor an answer to what the game asks, which it asks of no
+ * companion; a death saving throw only where it's an important NPC; and its initiative not where it
+ * acts right after its character, who's in that combat. It's checked against its own sheet, typed
+ * in as its character's player types theirs, and kept as its key, with its character's id, for the
+ * module to make it as the companion. And a turn ended, from module 0.36.0, only by the character's
+ * player at its own seat, never at a companion's or the Gamemaster's, is checked against the combat
+ * it names alone, as last heard of, with or without a sheet, and counted with the seat's rolls; and
+ * so is a turn ended taken back, only from the seat that ended it, and only for a moment after
+ * (`checkUndoTurn`).
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -129,14 +132,19 @@ export async function createRollRequest(
   seat: SheetSeat,
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
-  // A companion's seat moves and removes nothing: it has no items of the character's to move, and
-  // the schema takes the kinds, so they're refused here first, before either is looked at.
+  // A companion's seat moves, removes and favorites nothing: it has no items of the character's to
+  // move, nor favorites, and the schema takes the kinds, so they're refused here first, before any
+  // is looked at.
   const { companion } = seat
-  if (companion && (input.kind === 'transfer' || input.kind === 'remove')) {
+  if (
+    companion &&
+    (['transfer', 'remove', 'favorite'] as string[]).includes(input.kind)
+  ) {
     return { status: 422, reason: 'unknown' }
   }
   if (input.kind === 'transfer') return createTransferRequest(seat, input)
   if (input.kind === 'remove') return createRemoveRequest(seat, input)
+  if (input.kind === 'favorite') return createFavoriteRequest(seat, input)
   const { campaignId, actorId } = seat
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
@@ -464,7 +472,8 @@ export async function getRollRequestView(
  * campaign's owner: a module before 0.23.0 would make them unmarked, as the player's. Others stay
  * waiting, and run out. From module 0.31.0, a move of items or coins goes only to the session whose
  * hello said it takes them, the Gamemaster's as a player's. From module 0.33.0, a removal likewise,
- * only to the session whose hello said it takes them.
+ * only to the session whose hello said it takes them. From module 0.37.0, a favorite likewise, a
+ * player's only.
  * @param session - The module session that fetched them.
  */
 export async function claimRollRequests(
@@ -480,6 +489,7 @@ export async function claimRollRequests(
       ownerId: true,
       transfersEnabled: true,
       removalsEnabled: true,
+      favoritesEnabled: true,
     },
   })
   const ownerId = campaign?.ownerId
@@ -488,16 +498,19 @@ export async function claimRollRequests(
     !!ownerId && current && campaign.rollFeatures.includes('gmRolls')
   // Moves go only to the session whose hello said it takes them, and the Gamemaster's need no
   // `gmRolls`, which the module says only while rolls are on. Removals, from module 0.33.0, as
-  // moves do.
+  // moves do. Favorites, from module 0.37.0, as removals, but a player's alone: no Gamemaster's is
+  // ever taken, so none is handed over.
   const transfers = current && campaign?.transfersEnabled === true
   const removals = current && campaign?.removalsEnabled === true
+  const favorites = current && campaign?.favoritesEnabled === true
   // A row of a kind the session doesn't take now waits, and runs out.
   const withheld = [
     ...(transfers ? [] : ['transfer']),
     ...(removals ? [] : ['remove']),
+    ...(favorites ? [] : ['favorite']),
   ]
   const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
-  const notOwn = { kind: { notIn: ['transfer', 'remove'] } }
+  const notOwn = { kind: { notIn: ['transfer', 'remove', 'favorite'] } }
   const waiting = await prisma.rollRequest.findMany({
     where: {
       campaignId,
@@ -613,14 +626,16 @@ export async function recordCommandResult(
 /**
  * Note that the module is fetching players' rolls, which also says its game is connected.
  * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
- * coins, from module 0.33.0 removals of their characters' items, and from module 0.34.0 journal
- * notes, and whether any of its players have their table open, so that one may be coming.
+ * coins, from module 0.33.0 removals of their characters' items, from module 0.34.0 journal
+ * notes, and from module 0.37.0 their characters' favorites, and whether any of its players have
+ * their table open, so that one may be coming.
  */
 export async function markBridgePolled(campaignId: string): Promise<{
   rollsEnabled: boolean
   transfersEnabled: boolean
   removalsEnabled: boolean
   notesEnabled: boolean
+  favoritesEnabled: boolean
   playersPresent: boolean
 }> {
   const now = new Date()
@@ -632,6 +647,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
       transfersEnabled: true,
       removalsEnabled: true,
       notesEnabled: true,
+      favoritesEnabled: true,
       playersSeenAt: true,
     },
   })
@@ -641,6 +657,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
     transfersEnabled: campaign.transfersEnabled,
     removalsEnabled: campaign.removalsEnabled,
     notesEnabled: campaign.notesEnabled,
+    favoritesEnabled: campaign.favoritesEnabled,
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }

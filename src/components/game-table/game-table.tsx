@@ -563,6 +563,7 @@ export function GameTable({
               moves={view.connected ? view.moves : undefined}
               // Nor its items removed there (module 0.33.0), by either seat.
               removes={view.connected && view.removes === true}
+              favorites={view.connected && view.favorites === true}
               actorId={character.actorId ?? undefined}
               // The party sheets it may open, on its Inventory tab (module 0.30.0).
               parties={

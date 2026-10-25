@@ -6,6 +6,7 @@ import {
   checkEndTurn,
   checkRoll,
   checkUndoTurn,
+  GM_UNSENT,
   isDying,
   isSeatCombatant,
   rollStatus,
@@ -644,6 +645,26 @@ const castingStaves = () => {
   )
   return sheet
 }
+
+const favorited = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
+  toRollRequestView(
+    held({
+      kind: 'favorite',
+      status,
+      claimedAt: ago(500),
+      result: {
+        id: 'req-1',
+        status,
+        reason: null,
+        error: null,
+        messageId: null,
+        visible: true,
+        rolls: [],
+        ...fields,
+      },
+    }),
+    NOW,
+  )
 
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
@@ -3808,6 +3829,37 @@ describe('utils/roll-requests', () => {
           'failed',
         ),
       ).toEqual({ id: 'req-1', status: 'failed', reason: 'gone' })
+    })
+  })
+
+  describe('toRollRequestView for a favorite added or removed, from module 0.37.0', () => {
+    it('passes on whether it is one of the favorites now, as the game says', () => {
+      expect(favorited({ favorited: true }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        favorited: true,
+      })
+      expect(favorited({ favorited: false }, 'done')).toMatchObject({
+        status: 'done',
+        favorited: false,
+      })
+    })
+
+    it('says nothing of it where the game said nothing, as a refusal says nothing', () => {
+      expect(favorited({}, 'done')).not.toHaveProperty('favorited')
+      expect(favorited({ status: 'failed', reason: 'gone' }, 'failed')).toEqual(
+        { id: 'req-1', status: 'failed', reason: 'gone' },
+      )
+    })
+  })
+
+  describe('GM_UNSENT', () => {
+    it('holds a favorite, from module 0.37.0, which posts nothing to mark it theirs', () => {
+      expect(GM_UNSENT.has('favorite')).toBe(true)
+      expect(GM_UNSENT.has('remove')).toBe(false)
     })
   })
 

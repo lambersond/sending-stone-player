@@ -26,6 +26,7 @@ import {
   SaveChip,
   useActionRows,
   usesName,
+  useActivityMenu,
   UsingChip,
   verbOf,
   viewOf,
@@ -35,6 +36,9 @@ import {
 } from './action-entry'
 import { EnchantedMark } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
+import { useFavoriteChoice } from './favoriting'
+import { useItemMenu } from './item-menu'
+import { usePressMenu } from './press-menu'
 import { RechargeChip } from './recharge-chip'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
@@ -441,7 +445,8 @@ function ActionTable({
 /**
  * An action in a table: its name, opening to the rest below, and its range, what it rolls and its
  * uses, each in its column; once it's open, each of its other activities, in a row of its own, and
- * all there is to know of it.
+ * all there is to know of it. From module 0.37.0, its name opens a menu, Add to favorites or Remove
+ * from favorites, where the pane offers them.
  */
 function ActionTableRow({
   action,
@@ -471,6 +476,10 @@ function ActionTableRow({
     !open && moreNote(others.length),
   )
   const name = actionTitle(action)
+  const { onMenu, menu } = useItemMenu(action.name, {
+    favorite: useFavoriteChoice({ type: 'item', id: action.id }, action.name),
+  })
+  const press = usePressMenu(onMenu)
 
   return (
     <>
@@ -483,10 +492,12 @@ function ActionTableRow({
             aria-expanded={open}
             aria-controls={open ? body : undefined}
             onClick={() => setOpen(!open)}
+            {...press.props}
             className={clsx(
               'flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-primary/5',
               (view.spent || cast?.short || action.forward?.short) &&
                 'opacity-60',
+              press.className,
             )}
           >
             <EntryIcon
@@ -588,6 +599,7 @@ function ActionTableRow({
           </td>
         </tr>
       )}
+      {menu}
     </>
   )
 }
@@ -595,7 +607,8 @@ function ActionTableRow({
 /**
  * One of an action's other activities in a table, beneath it, such as Hex's Bonus Hex Damage: its
  * name, and its range, what it rolls and its uses, each in its column. One of an item's opens to
- * what there is to read of it from beside its name.
+ * what there is to read of it from beside its name. From module 0.37.0, its name opens a menu,
+ * adding the activity itself to the favorites or removing it, where the pane offers them.
  */
 function ActivityTableRow({
   other,
@@ -623,13 +636,20 @@ function ActivityTableRow({
       cast,
     }),
   )
+  const { onMenu, menu } = useActivityMenu(other)
+  const press = usePressMenu(onMenu)
   return (
     <tr hidden={hidden}>
       <td className='w-full max-w-0 py-0.5 pr-2 pl-[3.375rem]'>
         <span
+          tabIndex={onMenu ? 0 : undefined}
+          {...press.props}
           className={clsx(
             'block border-l border-border py-0.5 pl-2.5',
             (view.spent || dimmed(activity, cast)) && 'opacity-60',
+            onMenu &&
+              'rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary',
+            press.className,
           )}
         >
           <span className='flex items-center gap-1'>
@@ -697,6 +717,7 @@ function ActivityTableRow({
             spends={action.activity?.spends}
           />
         )}
+        {menu}
       </td>
     </tr>
   )

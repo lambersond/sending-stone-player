@@ -4025,3 +4025,91 @@ describe('components/character-sheet/roll-tray: damage on its own, recharges and
     expect(rollDamage).not.toHaveBeenCalled()
   })
 })
+
+const favorited = (op: 'add' | 'remove', label = 'Rope'): LocalUse => ({
+  kind: 'use',
+  id: `u-${op}`,
+  label,
+  spell: false,
+  favorite: op,
+  at: 0,
+})
+
+describe('a favorite added or removed, from module 0.37.0', () => {
+  const added = favorited('add')
+  const removed = favorited('remove', 'Bless')
+
+  it('reads it on its way, then done, as the game says', () => {
+    expect(briefOf(added, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(briefOf(added, { status: 'rolling' }).table?.text).toBe(
+      'Adding it to favorites in your Gamemaster’s game…',
+    )
+    expect(briefOf(removed, { status: 'rolling' }).table?.text).toBe(
+      'Removing it from favorites in your Gamemaster’s game…',
+    )
+    expect(
+      briefOf(added, { status: 'done', visible: true, favorited: true }),
+    ).toMatchObject({
+      label: 'Rope',
+      badge: 'use',
+      table: { tone: 'made', text: 'Added to favorites' },
+    })
+    expect(
+      briefOf(removed, { status: 'done', visible: true, favorited: false })
+        .table?.text,
+    ).toBe('Removed from favorites')
+  })
+
+  it.each([
+    ['refused', 'moving', 'it’s on its way already'],
+    [
+      'refused',
+      'unavailable',
+      'your Gamemaster’s game isn’t taking favorites now',
+    ],
+    ['failed', 'off', 'your Gamemaster’s game isn’t taking favorites now'],
+    ['refused', 'gone', 'it can’t be found in the game any more'],
+    ['failed', 'gone', 'it can’t be found in the game any more'],
+    ['failed', 'unknown', 'your character in the game can’t make it'],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['failed', 'timeout', 'the game took too long'],
+    ['failed', 'invalid', 'your Gamemaster’s game couldn’t make it'],
+  ] as const)(
+    'says why it was %s, %s, in its own words where they differ',
+    (status, reason, words) => {
+      // Its state keeps that it's a favorite's, as sendFavorite sends it.
+      expect(
+        briefOf(added, { status, reason, favorite: 'add' }).table?.text,
+      ).toBe(`Not added to favorites: ${words}`)
+      expect(
+        briefOf(removed, { status, reason, favorite: 'remove' }).table?.text,
+      ).toBe(`Not removed from favorites: ${words}`)
+    },
+  )
+
+  it('reads it in the tray under its name, and lists it among the earlier rolls so', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[added, { ...removed, id: 'u-2' }]}
+        rolling={false}
+        table={{
+          states: new Map([
+            ['u-add', { status: 'done', visible: true, favorited: true }],
+          ]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'RopeAdded to favorites',
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Blessremoved from favorites'])
+  })
+})

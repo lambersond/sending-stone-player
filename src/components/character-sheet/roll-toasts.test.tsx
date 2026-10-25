@@ -1296,6 +1296,40 @@ const shownOf = (...views: GmRollView[]) =>
     gmRollsOf(views),
   )
 
+describe('components/character-sheet/roll-toasts, favorites added and removed, from module 0.37.0', () => {
+  it('toasts a favorite as a use, titled by its row, saying how it went', () => {
+    const rope: LocalUse = {
+      kind: 'use',
+      id: 'f',
+      label: 'Rope',
+      spell: false,
+      favorite: 'add',
+      at: 2,
+    }
+    const { rerender } = render(
+      <RollToasts
+        rolls={[rope]}
+        states={ways(['f', { status: 'rolling', favorite: 'add' }])}
+        on
+      />,
+    )
+    expect(toast('f')).toHaveTextContent(
+      'RopeAdding it to favorites in your Gamemaster’s game…',
+    )
+    rerender(
+      <RollToasts
+        rolls={[rope]}
+        states={ways([
+          'f',
+          { status: 'done', visible: true, favorited: true, favorite: 'add' },
+        ])}
+        on
+      />,
+    )
+    expect(toast('f')).toHaveTextContent('RopeAdded to favorites')
+  })
+})
+
 describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the character (#156)", () => {
   const hit = view({
     status: 'done',

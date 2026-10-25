@@ -42,6 +42,7 @@ import { EffectsTab } from './effects-tab'
 import { Enchanting, type EnchantActions } from './enchantments'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
+import { Favoriting, useFavorites } from './favoriting'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
 import { PromptBanner } from './prompt-banner'
@@ -95,7 +96,12 @@ import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { PartySheets } from './party-sheets'
 import type { NotesPlace } from '@/components/notes'
-import type { GmRollView, RollFeature, RollKind } from '@/types/roll'
+import type {
+  FavoriteTarget,
+  GmRollView,
+  RollFeature,
+  RollKind,
+} from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 import type {
   CreatureFacts,
@@ -138,6 +144,11 @@ type Props = {
    * them.
    */
   removes?: boolean
+  /**
+   * Whether the seat's player may add to and remove from the character's favorites there, from
+   * module 0.37.0, as its game takes them: never at a creature's pane.
+   */
+  favorites?: boolean
   /** The character's Foundry actor, which what's given is given from. */
   actorId?: string
   /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */
@@ -273,6 +284,7 @@ function RollingSheet({
   header,
   moves,
   removes,
+  favorites: favoritesOn,
   actorId,
   parties,
   manualDice,
@@ -352,6 +364,7 @@ function RollingSheet({
     logEnd,
     logCharge,
     logMove,
+    logFavorite,
     logAsk,
     rolls,
     rolling,
@@ -452,6 +465,26 @@ function RollingSheet({
   // character.
   const tab = tabs.some(({ id }) => id === chosen) ? chosen : 'character'
   const entries = useMemo(() => favoriteEntries(sheet), [sheet])
+  // Favorites added and removed from a row's menu, from module 0.37.0: never at a creature's pane,
+  // whose NPC has none. A line among the rolls says how it went, on whichever tab it was chosen,
+  // Effects among them.
+  const { sendFavorite } = table
+  const sendFavoriteOf = useCallback(
+    (target: FavoriteTarget, op: 'add' | 'remove', label: string) => {
+      setActed(true)
+      const logged = logFavorite(label, op)
+      sendFavorite(logged, { ...target, op })
+      return logged.id
+    },
+    [logFavorite, sendFavorite],
+  )
+  const favoriting = useFavorites({
+    on: favoritesOn === true && !creature,
+    favorites: sheet.favorites,
+    entries,
+    states: table.states,
+    send: sendFavoriteOf,
+  })
   // How each spell an item casts is cast, and at which levels it may be.
   const itemCasts = useMemo(() => castIndex(sheet), [sheet])
   // What the character has that an enchantment may be put on.
@@ -824,6 +857,7 @@ function RollingSheet({
   const pane = (
     <SheetContext
       marks={marks}
+      favoriting={favoriting}
       showConditions={conditions.show}
       descriptions={descriptions}
       enchanting={enchanting}
@@ -1110,12 +1144,14 @@ function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
 }
 
 /**
- * What every part of the sheet inside knows of it: which of what it lists are favorites, how to
- * open its conditions panel, what the links in its descriptions do, how enchantments and
- * concentrations end, and how counters are spent and Heroic Inspiration changed.
+ * What every part of the sheet inside knows of it: which of what it lists are favorites, and from
+ * module 0.37.0 how they're added and removed, how to open its conditions panel, what the links in
+ * its descriptions do, how enchantments and concentrations end, and how counters are spent and
+ * Heroic Inspiration changed.
  */
 function SheetContext({
   marks,
+  favoriting,
   showConditions,
   descriptions,
   enchanting,
@@ -1124,6 +1160,7 @@ function SheetContext({
   children,
 }: Readonly<{
   marks: ReadonlySet<string>
+  favoriting: ReturnType<typeof useFavorites>
   showConditions: ShowConditions
   descriptions: DescriptionActions
   enchanting: EnchantActions
@@ -1133,15 +1170,17 @@ function SheetContext({
 }>) {
   return (
     <FavoriteMarks keys={marks}>
-      <ConditionsOpener show={showConditions}>
-        <DescriptionLinks actions={descriptions}>
-          <Enchanting actions={enchanting}>
-            <Concentrating actions={concentrating}>
-              <Charging actions={charging}>{children}</Charging>
-            </Concentrating>
-          </Enchanting>
-        </DescriptionLinks>
-      </ConditionsOpener>
+      <Favoriting value={favoriting}>
+        <ConditionsOpener show={showConditions}>
+          <DescriptionLinks actions={descriptions}>
+            <Enchanting actions={enchanting}>
+              <Concentrating actions={concentrating}>
+                <Charging actions={charging}>{children}</Charging>
+              </Concentrating>
+            </Enchanting>
+          </DescriptionLinks>
+        </ConditionsOpener>
+      </Favoriting>
     </FavoriteMarks>
   )
 }

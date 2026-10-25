@@ -33,11 +33,14 @@
 // and companions, the module's own stand-ins (fvtt/token-core.mjs), loaded by `sceneWorld()` after
 // `foundryWorld()` only in a world that has them, so no other world has scenes; a companion's world
 // actor (`companion`), the active scene (`activeScene`), a token placed on it (`place`) and a token
-// summoned with a character's item (`summoned`).
+// summoned with a character's item (`summoned`). Since module 0.37.0 (its contract §12.1): SKEW=036 is
+// module 0.36.0; a character given dnd5e's favorites, ported (fvtt/favorites-core.mjs), its effects
+// and its items' found by id (`favoring`).
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
 import * as J from './fvtt/journal-core.mjs'
+import { withFavorites } from './fvtt/favorites-core.mjs'
 import { JSDOM } from 'jsdom'
 import { chromium, devices } from 'playwright'
 export { chromium, devices }
@@ -61,6 +64,8 @@ export const SKEW033 = process.env.SKEW === '033'
 export const SKEW034 = process.env.SKEW === '034'
 /** Module 0.35.0, from before 0.36.0, against this round's app: no companions, no damage on its own, no recharges. */
 export const SKEW035 = process.env.SKEW === '035'
+/** Module 0.36.0, from before 0.37.0, against this round's app: no favorites added or removed from the app. */
+export const SKEW036 = process.env.SKEW === '036'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -71,7 +76,7 @@ if (SHOTS_031) mkdirSync(SHOTS_031, { recursive: true })
 /** Module 0.33.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_033 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-033`
 if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -669,6 +674,53 @@ export function quantityInFoundry(actor, itemId, quantity) {
   // The stand-in's own updateSource: stored and prepared again, with no write and no updateItem.
   W.Item5e.prototype.updateSource.call(actor.items.get(itemId), { 'system.quantity': quantity })
 }
+// ---- dnd5e's favorites (module 0.37.0) ----
+/** The actors `favoring()` was given, whose items' effects are found by id. */
+const favored = new Set()
+/** A list found by id as well, as Foundry's collections are: `get`, beside what it already does. */
+function byIdToo(list) {
+  if (list && (typeof list.get !== 'function')) Object.defineProperty(list, 'get', { configurable: true, value: id => list.find(each => each?.id === id) })
+  return list
+}
+/**
+ * An item's effects, as Foundry's ActiveEffect documents on it: each its item's, by id, from what
+ * its data gives (`effects`), as the item is prepared afresh.
+ */
+function itemEffects(item) {
+  if (!favored.has(item.actor ?? item.parent)) return
+  const source = item._source?.effects ?? []
+  item.effects = byIdToo(source.map(data => ({
+    documentName: 'ActiveEffect', origin: null, disabled: false, isSuppressed: false, isTemporary: false, transfer: true,
+    statuses: new Set(), duration: {}, description: '', system: {}, img: 'icons/effect.webp',
+    ...foundry.utils.deepClone(data), id: data._id ?? data.id, _id: data._id ?? data.id, parent: item,
+  })))
+  if (item.system?.activities) byIdToo(item.system.activities)
+}
+/**
+ * A character given dnd5e's favorites (round 0.37.0 §12.1), after `embedded()` where it's given
+ * that: `system.favorites`, these, and dnd5e's own hasFavorite, addFavorite and removeFavorite, as
+ * the module's harness ports them (fvtt/favorites-core.mjs), each of their updates firing
+ * updateActor, so the module sends the sheet again. What a favorite's relative UUID is read by is
+ * found by id, as Foundry's collections find it: the character's effects, its items' activities, and
+ * its items' own effects, from each item's `effects`, each the item's; and its effects are the
+ * character's and its items' (allApplicableEffects), as dnd5e's sheet lists them. Its port's
+ * `faults.throwOnAdd` makes addFavorite throw, and `updates` counts its updates.
+ */
+export function favoring(actor, favorites = []) {
+  favored.add(actor)
+  const at = W.itemPreparers.indexOf(itemEffects)
+  if (at >= 0) W.itemPreparers.splice(at, 1)
+  // Last, after what embedded() prepares of an item's effects.
+  W.itemPreparers.push(itemEffects)
+  for (const item of actor.items ?? []) itemEffects(item)
+  byIdToo(actor.effects)
+  actor.allApplicableEffects = function* () {
+    yield* actor.effects
+    for (const item of actor.items ?? []) yield* (item.effects ?? []).filter(effect => effect.transfer !== false)
+  }
+  return withFavorites(actor, { favorites })
+}
+
 /**
  * A group's members changed in Foundry: prepared as dnd5e prepares them, then, unless `tell` is
  * false, its update, every client's, so the module sends the group again and the app learns of it.

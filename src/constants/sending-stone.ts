@@ -115,7 +115,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * character, none of them a roll; and from module 0.33.0, an item removed from the character, no
  * roll either; and from module 0.36.0, an action's damage or healing on its own, and a spent
  * recharge rolled, and the current turn ended, the character's or one of its companions', and a
- * turn ended taken back, neither of them a roll.
+ * turn ended taken back, neither of them a roll; and from module 0.37.0, a favorite added or
+ * removed, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -143,6 +144,7 @@ export const ROLL_KINDS = [
   'inspiration',
   'transfer',
   'remove',
+  'favorite',
 ] as const
 
 /**
@@ -239,6 +241,19 @@ export type TransferFeature = (typeof TRANSFER_FEATURES)[number]
 export const REMOVALS = 1
 
 /**
+ * The format of favorites this app takes, as it tells the module (`favorites`): from module
+ * 0.37.0, the `favorite` command and the hello's `features.favorites`. The module fetches for
+ * them with everything else off, only then.
+ */
+export const FAVORITES = 1
+
+/**
+ * How long, from when it's sent, a favorite's menu entry waits for the sheet to say what the game
+ * made of it, in milliseconds: the sheet comes within a poll of its result (module 0.37.0).
+ */
+export const FAVORITE_SETTLE = 10_000
+
+/**
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
  * the `note` command, `journal.updated` and the hello's `features.notes`. The module fetches for
  * them, and sends journals, only then. From module 0.35.0, 2: it reads who changed a journal in
@@ -264,8 +279,8 @@ export const MOST_COMPANIONS = 50
 /**
  * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
  * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
- * which the character's page does for its companions' turns too. The module's list has `note` too,
- * which isn't a roll here.
+ * which the character's page does for its companions' turns too, nor favorites, which an NPC has
+ * none of. The module's list has `note` too, which isn't a roll here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
@@ -274,6 +289,7 @@ export const COMPANION_UNTAKEN = [
   'spend',
   'transfer',
   'remove',
+  'favorite',
   'endTurn',
   'undoEndTurn',
 ] as const

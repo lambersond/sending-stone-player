@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -10,12 +11,15 @@ import userEvent from '@testing-library/user-event'
 import { castNote, verbOf } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { FavoriteMarks } from './favorite-mark'
+import { Favoriting } from './favoriting'
+import { LONG_PRESS } from './roll-button'
 import { SheetIdPrefix } from '@/hooks/use-sheet-ids'
 import { fireBreath, lightningBreath, spiritSheet } from '@/mocks/alone'
 import {
   castingSheet,
   characterSheet,
   fullerSheet,
+  offeringFavorites,
   sheetAction,
   sheetSpell,
   TEXTS,
@@ -30,6 +34,8 @@ import type {
   SheetActivity,
   SheetSpell,
 } from '@/types/sending-stone'
+
+const GAME = 'https://my-game.forge-vtt.com'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet(), layout?: Layout) => {
   const onRoll = jest.fn()
@@ -2935,5 +2941,210 @@ describe('components/character-sheet/actions-tab: a recharge in the table, from 
     expect(
       screen.getByRole('region', { name: 'Legendary Actions' }),
     ).toHaveAttribute('aria-labelledby', 'actions-1')
+  })
+})
+
+/** A menu's items, by their names. */
+const itemsOf = (menu: HTMLElement) =>
+  within(menu)
+    .getAllByRole('menuitem')
+    .map(item => item.textContent)
+
+/** An activity's part beneath its action, by its name: what opens its menu. */
+const activityPart = (name: string) =>
+  screen.getByText(name).closest('[tabindex]') as HTMLElement
+
+/** What a part pressed for its menu has, from a held touch's: no text selection or callout. */
+const UNSELECTED = /select-none|-webkit-touch-callout/
+
+describe('components/character-sheet/actions-tab, favorites, from module 0.37.0', () => {
+  /** A staff that strikes, and zaps besides. */
+  const staff = sheetAction({
+    id: 'staff',
+    name: 'Staff',
+    type: 'weapon',
+    toHit: 5,
+    attackId: 'strike',
+    damage: [{ formula: '1d6 + 3', type: 'Bludgeoning', healing: false }],
+    activities: [
+      {
+        id: 'strike',
+        name: 'Strike',
+        type: 'attack',
+        activation: 'Action',
+        range: 'reach 5 ft',
+        target: null,
+        toHit: 5,
+        attackId: 'strike',
+        save: null,
+        damage: [{ formula: '1d6 + 3', type: 'Bludgeoning', healing: false }],
+        uses: null,
+      },
+      {
+        id: 'zap',
+        name: 'Zap',
+        type: 'utility',
+        activation: 'Bonus Action',
+        range: '30 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        save: null,
+        damage: [],
+        uses: null,
+      },
+    ],
+  })
+  /** The tab, inside a pane that offers favorites, Zap's already one. */
+  const renderOffered = (layout?: Layout) => {
+    const offering = offeringFavorites(['activity:staff.zap'])
+    render(
+      <Favoriting value={offering.value}>
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(withActions(staff), GAME)}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          layout={layout}
+        />
+      </Favoriting>,
+    )
+    return offering
+  }
+
+  it('opens an action’s menu from its name by a right-click, and Add to favorites adds its item', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    const name = toggle('Staff')
+
+    expect(fireEvent.contextMenu(name, { button: 2 })).toBe(false)
+    const menu = screen.getByRole('menu', { name: 'Staff' })
+    expect(itemsOf(menu)).toEqual(['Add to favorites'])
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Add to favorites' }),
+    )
+    expect(offering.chosen).toEqual([
+      { target: { type: 'item', id: 'staff' }, name: 'Staff', op: 'add' },
+    ])
+    expect(name).toHaveFocus()
+    // The name didn't open.
+    expect(name).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('opens it by a held touch of 500 ms, and by Shift+F10, below the name', () => {
+    jest.useFakeTimers()
+    renderOffered()
+    const name = toggle('Staff')
+    const touch = { pointerType: 'touch', clientX: 10, clientY: 10 }
+
+    fireEvent.pointerDown(name, touch)
+    act(() => jest.advanceTimersByTime(LONG_PRESS - 1))
+    expect(screen.queryByRole('menu')).toBeNull()
+    act(() => jest.advanceTimersByTime(1))
+    expect(screen.getByRole('menu', { name: 'Staff' })).toBeVisible()
+    fireEvent.pointerUp(name, touch)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    jest.useRealTimers()
+
+    name.focus()
+    expect(fireEvent.contextMenu(name, { button: -1 })).toBe(false)
+    expect(screen.getByRole('menu', { name: 'Staff' })).toBeVisible()
+  })
+
+  it('opens one of each other activity’s, by its item and its own id, from a tab stop of its own', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    await user.click(toggle('Staff'))
+    const zap = activityPart('Zap')
+    expect(zap).toHaveAttribute('tabindex', '0')
+
+    zap.focus()
+    fireEvent.contextMenu(zap, { button: -1 })
+    const menu = screen.getByRole('menu', { name: 'Zap' })
+    expect(itemsOf(menu)).toEqual(['Remove from favorites'])
+    await user.click(within(menu).getByRole('menuitem'))
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'activity', id: 'zap', item: 'staff' },
+        name: 'Zap',
+        op: 'remove',
+      },
+    ])
+    expect(zap).toHaveFocus()
+  })
+
+  it('opens them in the table too, from an action’s name and an activity’s', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered('table')
+    const table = screen.getByRole('table', { name: 'Actions' })
+    const name = within(table).getByRole('button', {
+      name: /^Staff/,
+      expanded: false,
+    })
+
+    fireEvent.contextMenu(name, { button: 2 })
+    const menu = screen.getByRole('menu', { name: 'Staff' })
+    expect(itemsOf(menu)).toEqual(['Add to favorites'])
+    // By the action's item's id, as the game knows it, never its name.
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Add to favorites' }),
+    )
+    expect(offering.chosen).toEqual([
+      { target: { type: 'item', id: 'staff' }, name: 'Staff', op: 'add' },
+    ])
+    await user.click(name)
+    const zap = activityPart('Zap')
+    // What holds its name and its info button.
+    expect(zap).toBe(screen.getByText('Zap').parentElement?.parentElement)
+    // A held touch selects none of its words, nor brings up a phone's callout over its menu.
+    expect(zap).toHaveClass('select-none', '[-webkit-touch-callout:none]')
+    fireEvent.contextMenu(zap, { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Zap' })).getByRole('menuitem', {
+        name: 'Remove from favorites',
+      }),
+    )
+    expect(offering.chosen).toEqual([
+      { target: { type: 'item', id: 'staff' }, name: 'Staff', op: 'add' },
+      {
+        target: { type: 'activity', id: 'zap', item: 'staff' },
+        name: 'Zap',
+        op: 'remove',
+      },
+    ])
+  })
+
+  it('leaves a chip its roll menu', () => {
+    renderOffered()
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Staff attack, +5' }),
+      { button: 2 },
+    )
+    const menu = screen.getByRole('menu')
+    expect(menu).not.toHaveAccessibleName('Staff')
+    expect(itemsOf(menu)).toContain('Roll with advantage')
+  })
+
+  it('opens none outside a pane that offers them, leaving the browser its own', async () => {
+    const user = userEvent.setup()
+    renderTab(withActions(staff))
+    expect(fireEvent.contextMenu(toggle('Staff'), { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.click(toggle('Staff'))
+    const zap = screen.getByText('Zap')
+    // No tab stop where there's nothing to open.
+    expect(zap.closest('[tabindex]')).toBeNull()
+    expect(fireEvent.contextMenu(zap, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    // Nor in the table, where its words select as any others.
+    cleanup()
+    renderTab(withActions(staff), 'table')
+    await user.click(toggle('Staff'))
+    const part = screen.getByText('Zap').parentElement?.parentElement
+    expect(part).not.toHaveAttribute('tabindex')
+    expect(part?.className).not.toMatch(UNSELECTED)
+    expect(fireEvent.contextMenu(part!, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

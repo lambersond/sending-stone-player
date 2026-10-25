@@ -1,6 +1,13 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import {
@@ -190,6 +197,18 @@ describe('a creature’s pane', () => {
     ).toBeNull()
     expect(screen.queryByText(/Journal/)).toBeNull()
     expect(tabNames()).toEqual(['Character', 'Actions', 'Features'])
+  })
+
+  it('offers no favorites, from module 0.37.0, even where its character’s pane would, as an NPC has none', async () => {
+    const user = userEvent.setup()
+    const sheet = wolf({
+      actions: [{ id: 'action', label: 'Actions', actions: [biteAction()] }],
+    })
+    render(pane({ sheet, favorites: true }))
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+    const name = screen.getByRole('button', { name: /^Bite/, expanded: false })
+    expect(fireEvent.contextMenu(name, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('has Inventory for an item it carries, and not for coins all at 0', () => {

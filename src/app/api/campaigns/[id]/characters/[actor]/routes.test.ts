@@ -108,6 +108,8 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
       moves: false,
       typed: false,
       removes: false,
+      // Changed on purpose (round 0.37.0 §7.15): never the Gamemaster's.
+      favorites: false,
     })
     jest.mocked(createRollRequest).mockResolvedValue({ id: 'req-gm' })
     jest

@@ -543,6 +543,14 @@ describe('db/companions', () => {
       })
     })
 
+    it('never offers its favorites, from module 0.37.0, as an NPC has none, while its character’s are', async () => {
+      const seat = await seatAt(thorin, 'wolfBrakka')
+      held({ favoritesEnabled: true, bridgePolledAt: recently() })
+
+      expect(await getCompanionStatus(seat)).not.toHaveProperty('favorites')
+      expect(await getCompanionView(seat)).not.toHaveProperty('favorites')
+    })
+
     it('says where the Gamemaster’s rolls go at their seat, and nothing to roll once it’s no longer listed', async () => {
       const gmAt = await seatAt(gm, 'wolfBrakka')
       held({ rollFeatures: ['gmRolls'] })

@@ -5148,3 +5148,89 @@ describe('components/character-sheet/character-pane, damage on its own and recha
     expect(localStorage.getItem(ALONE_KEY)).toBe('on')
   })
 })
+
+/** What the page posted, each as sent; nothing answers, so each stays on its way. */
+const posting = () => {
+  const posted: Record<string, unknown>[] = []
+  globalThis.fetch = jest.fn((_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+    }
+    return new Promise<Response>(() => {})
+  }) as typeof fetch
+  return posted
+}
+
+/** An effect's row on the Effects tab, by its name, outside the favorites. */
+const effectRow = (name: string) => {
+  const section = screen.getByRole('region', { name: 'Temporary Effects' })
+  const item = within(section).getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.firstElementChild) as HTMLElement
+}
+
+describe('components/character-sheet/character-pane, favorites added and removed, from module 0.37.0', () => {
+  /** Thorin's pane, its favorites but an effect and slots, so nothing among them rolls. */
+  const renderFavoriting = (props: { favorites?: boolean } = {}) =>
+    render(
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(
+          favored(
+            sheetFavorites().filter(
+              ({ type }) => type === 'effect' || type === 'slots',
+            ),
+          ),
+          GAME,
+        )}
+        {...props}
+      />,
+    )
+
+  beforeEach(() => {
+    // Roll results as the banner: Effects shows it only once the player has acted.
+    clearStorage()
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  it('offers them at a player’s seat whose game takes them, sends what’s chosen, and shows its line on Effects', async () => {
+    const posted = posting()
+    const user = userEvent.setup()
+    renderFavoriting({ favorites: true })
+    await show('Effects')
+    expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+
+    fireEvent.contextMenu(effectRow('Bless'), { button: 2 })
+    const menu = screen.getByRole('menu', { name: 'Bless' })
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Remove from favorites' }),
+    )
+
+    expect(posted).toEqual([
+      {
+        kind: 'favorite',
+        favorite: { type: 'effect', id: 'blessed', op: 'remove' },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      },
+    ])
+    const rolls = screen.getByRole('region', { name: 'Your rolls' })
+    expect(rolls).toHaveTextContent('Bless')
+    expect(rolls).toHaveTextContent('Sending to your Gamemaster’s game…')
+  })
+
+  it('offers none without it, leaving the browser its own menu', async () => {
+    posting()
+    renderFavoriting()
+    await show('Effects')
+    expect(fireEvent.contextMenu(effectRow('Bless'), { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})

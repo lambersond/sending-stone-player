@@ -13,6 +13,7 @@ import {
   companionsByKey,
   tableCompanion,
 } from '@/utils/companions'
+import { favoritesAvailable } from '@/utils/favorite-commands'
 import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
 import {
@@ -57,7 +58,8 @@ export const MESSAGE_LIMIT = 100
  * taking moves or not changes with no new version; and from module 0.32.0, whether the player
  * types in their own dice for it, which another of their devices may change; and from module
  * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
- * changes with no new version.
+ * changes with no new version; and from module 0.37.0 whether the player may change its
+ * character's favorites, which likewise changes with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -69,6 +71,7 @@ export type CampaignStatus = {
   moves: boolean
   typed: boolean
   removes: boolean
+  favorites: boolean
 }
 
 /**
@@ -217,6 +220,7 @@ export async function getCampaignStatus(
       // As the view, which has no campaign to say it in: a campaign removed leaves it stored.
       typed: false,
       removes: false,
+      favorites: false,
     }
   }
   const now = Date.now()
@@ -224,7 +228,12 @@ export async function getCampaignStatus(
   const [campaign, made] = await Promise.all([
     prisma.campaign.findUnique({
       where: { id: seat.campaignId },
-      select: { version: true, lastSeenAt: true, ...rollsSelect },
+      select: {
+        version: true,
+        lastSeenAt: true,
+        ...rollsSelect,
+        favoritesEnabled: true,
+      },
     }),
     gmRolls
       ? prisma.rollRequest.findMany({
@@ -248,6 +257,13 @@ export async function getCampaignStatus(
     typed: seat.role === 'player' && seat.manualDice === true && !!campaign,
     // Whether the seat may remove its character's items, from module 0.33.0, as `moves`.
     removes: !!seat.actorId && !!campaign && removalsAvailable(campaign, now),
+    // Whether the player may change its character's favorites, from module 0.37.0: theirs alone,
+    // never the Gamemaster's, whose page would leave no mark of it.
+    favorites:
+      seat.role === 'player' &&
+      !!seat.actorId &&
+      !!campaign &&
+      favoritesAvailable(campaign, now),
   }
 }
 
@@ -287,6 +303,7 @@ export async function getTableView(
           groups: true,
           companions: true,
           ...rollsSelect,
+          favoritesEnabled: true,
         },
       })
     : undefined
@@ -414,6 +431,13 @@ export async function getTableView(
   // moves off too.
   const removes =
     connected && !!seat.actorId && removalsAvailable(campaign, now)
+  // Whether the player may add to and remove from the character's favorites, from module 0.37.0,
+  // with no switch: theirs alone, at their own seat.
+  const favorites =
+    connected &&
+    seat.role === 'player' &&
+    !!seat.actorId &&
+    favoritesAvailable(campaign, now)
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -457,6 +481,7 @@ export async function getTableView(
     }),
     ...(moves && { moves }),
     ...(removes && { removes: true as const }),
+    ...(favorites && { favorites: true as const }),
     // Whether the player may type in their own dice follows what the game said last, stored,
     // never whether it polled lately, so a gap in polling never changes how they roll.
     ...(seat.role === 'player' && {

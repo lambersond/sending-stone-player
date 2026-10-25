@@ -633,3 +633,125 @@ describe('components/character-sheet/item-menu, Remove…, from module 0.33.0', 
     ])
   })
 })
+
+describe('components/character-sheet/item-menu, favorites, from module 0.37.0', () => {
+  const favoriting = ({
+    moves,
+    removes = false,
+    favorites = true,
+  }: { moves?: TableMoves; removes?: boolean; favorites?: boolean } = {}) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin'
+      sheet={toTableSheet(removalSheet(), GAME)}
+      moves={moves}
+      removes={removes}
+      favorites={favorites}
+      actorId='actorThorin1'
+    />
+  )
+  const renderFavoriting = async (
+    options: Parameters<typeof favoriting>[0] = {},
+  ) => {
+    const user = userEvent.setup()
+    const view = render(favoriting(options))
+    await user.click(screen.getByRole('tab', { name: /^Inventory/ }))
+    return { user, ...view }
+  }
+  beforeEach(() => {
+    // Nothing answers, unless a test says: what's sent stays on its way.
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('offers Add to favorites first, then Send to… and Remove…', async () => {
+    await renderFavoriting({ moves: tableMoves(), removes: true })
+    fireEvent.contextMenu(anyRow('Loot', 'Pebble'), { button: 2 })
+    const menu = screen.getByRole('menu', { name: 'Pebble' })
+    expect(itemsOf(menu)).toEqual(['Add to favorites', 'Send to…', 'Remove…'])
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Add to favorites' }),
+    ).toBeEnabled()
+  })
+
+  it('offers Remove from favorites of a favorite, as the favorites say, alone with moves and removals off', async () => {
+    await renderFavoriting()
+    fireEvent.contextMenu(anyRow('Loot', 'Rope'), { button: 2 })
+    expect(itemsOf(screen.getByRole('menu', { name: 'Rope' }))).toEqual([
+      'Remove from favorites',
+    ])
+  })
+
+  it('offers Remove from favorites alone among the favorites, where the star marks nothing', async () => {
+    await renderFavoriting({ moves: tableMoves(), removes: true })
+    const favorite = within(screen.getByRole('region', { name: 'Favorites' }))
+      .getByText('Rope')
+      .closest('li') as HTMLElement
+    const named = (favorite.querySelector('summary') ??
+      favorite.querySelector('div')) as HTMLElement
+    expect(fireEvent.contextMenu(named, { button: 2 })).toBe(false)
+    expect(itemsOf(screen.getByRole('menu', { name: 'Rope' }))).toEqual([
+      'Remove from favorites',
+    ])
+  })
+
+  it('sends it from the menu, then waits, saying why, with the rest of the menu as it was', async () => {
+    const { user } = await renderFavoriting({ removes: true })
+    const pebble = anyRow('Loot', 'Pebble')
+    fireEvent.contextMenu(pebble, { button: 2 })
+    await user.click(screen.getByRole('menuitem', { name: 'Add to favorites' }))
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(pebble).toHaveFocus()
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          kind: 'favorite',
+          favorite: { type: 'item', id: 'pebbleThorin', op: 'add' },
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+        }),
+      }),
+    )
+
+    fireEvent.contextMenu(pebble, { button: 2 })
+    const menu = screen.getByRole('menu', { name: 'Pebble' })
+    expect(itemsOf(menu)).toEqual(['Add to favorites', 'Remove…'])
+    const entry = within(menu).getByRole('menuitem', {
+      name: 'Add to favorites',
+    })
+    expect(entry).toBeDisabled()
+    expect(entry).toHaveAccessibleDescription('It’s on its way already')
+    // Remove… can still be chosen, so the menu itself says nothing.
+    expect(menu).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('opens none where nothing may be done, the favorites off too', async () => {
+    await renderFavoriting({ favorites: false })
+    expect(fireEvent.contextMenu(anyRow('Loot', 'Pebble'), { button: 2 })).toBe(
+      true,
+    )
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('offers an item that rolls its own entry once, from its name, as its row’s menu', async () => {
+    const { user } = await renderFavoriting()
+    const name = screen.getByRole('button', {
+      name: /^Handaxe/,
+      expanded: false,
+    })
+    fireEvent.contextMenu(name, { button: 2 })
+    expect(itemsOf(screen.getByRole('menu', { name: 'Handaxe' }))).toEqual([
+      'Add to favorites',
+    ])
+    await user.keyboard('{Escape}')
+    // Only one menu at once: the item's, not its action's as well.
+    expect(screen.queryAllByRole('menu')).toHaveLength(0)
+  })
+})

@@ -21,6 +21,10 @@ import {
   NO_MARKS,
 } from '@/components/character-sheet/favorite-mark'
 import {
+  Favoriting,
+  NO_FAVORITING,
+} from '@/components/character-sheet/favoriting'
+import {
   Holdings,
   InventoryList,
 } from '@/components/character-sheet/inventory-tab'
@@ -157,60 +161,63 @@ export function PartySheet({
     sent.current = false
     status.current?.focus()
   }, [open])
-  // Whatever it's placed in, such as a character's sheet, it's given nothing of that.
+  // Whatever it's placed in, such as a character's sheet, it's given nothing of that: from module
+  // 0.37.0, no favorites either, which a party has none of.
   return (
     <TableApiContext value={seat}>
       <FavoriteMarks keys={NO_MARKS}>
-        <ConditionsOpener show={undefined}>
-          <DescriptionLinks actions={undefined}>
-            <Enchanting actions={NO_ACTIONS}>
-              <Concentrating actions={NO_ACTIONS}>
-                <Charging actions={NO_ACTIONS}>
-                  <Transferring controls={controls}>
-                    {view.sheet ? (
-                      <PartyContents
-                        api={api}
-                        role={role}
-                        notes={notes}
-                        view={view}
-                        sheet={view.sheet}
-                        ownSheetHref={ownSheetHref}
-                        status={
-                          <MoveStatus
-                            ref={status}
-                            latest={transfers.latest}
-                            onDismiss={transfers.dismiss}
-                          />
-                        }
-                        dialog={
-                          takeInto && (
-                            <PartyMoveDialog
-                              open={open}
-                              moving={moving}
-                              takeInto={takeInto}
-                              group={group}
-                              role={role}
-                              view={view}
-                              onClose={close}
-                              onSend={send}
+        <Favoriting value={NO_FAVORITING}>
+          <ConditionsOpener show={undefined}>
+            <DescriptionLinks actions={undefined}>
+              <Enchanting actions={NO_ACTIONS}>
+                <Concentrating actions={NO_ACTIONS}>
+                  <Charging actions={NO_ACTIONS}>
+                    <Transferring controls={controls}>
+                      {view.sheet ? (
+                        <PartyContents
+                          api={api}
+                          role={role}
+                          notes={notes}
+                          view={view}
+                          sheet={view.sheet}
+                          ownSheetHref={ownSheetHref}
+                          status={
+                            <MoveStatus
+                              ref={status}
+                              latest={transfers.latest}
+                              onDismiss={transfers.dismiss}
                             />
-                          )
-                        }
-                      />
-                    ) : (
-                      <NoPartySheet
-                        api={api}
-                        role={role}
-                        notes={notes}
-                        view={view}
-                      />
-                    )}
-                  </Transferring>
-                </Charging>
-              </Concentrating>
-            </Enchanting>
-          </DescriptionLinks>
-        </ConditionsOpener>
+                          }
+                          dialog={
+                            takeInto && (
+                              <PartyMoveDialog
+                                open={open}
+                                moving={moving}
+                                takeInto={takeInto}
+                                group={group}
+                                role={role}
+                                view={view}
+                                onClose={close}
+                                onSend={send}
+                              />
+                            )
+                          }
+                        />
+                      ) : (
+                        <NoPartySheet
+                          api={api}
+                          role={role}
+                          notes={notes}
+                          view={view}
+                        />
+                      )}
+                    </Transferring>
+                  </Charging>
+                </Concentrating>
+              </Enchanting>
+            </DescriptionLinks>
+          </ConditionsOpener>
+        </Favoriting>
       </FavoriteMarks>
     </TableApiContext>
   )

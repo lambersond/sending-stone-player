@@ -284,6 +284,11 @@ export type LocalUse = {
    * line says it, is the label.
    */
   move?: LocalMove
+  /**
+   * A favorite added or removed, rather than anything used, from module 0.37.0: what it's of is the
+   * label.
+   */
+  favorite?: 'add' | 'remove'
   at: number
 }
 
@@ -720,6 +725,23 @@ export function useSheetRoller(
     return moved
   }, [])
 
+  // Keeps a favorite added or removed, from module 0.37.0, first among the rolls, as a use is.
+  const logFavorite = useCallback(
+    (label: string, op: 'add' | 'remove'): LocalUse => {
+      const favorited: LocalUse = {
+        kind: 'use',
+        id: `use-${Date.now()}-${++uses}`,
+        label,
+        spell: false,
+        favorite: op,
+        at: Date.now(),
+      }
+      setRolls(earlier => keeping(earlier, favorited))
+      return favorited
+    },
+    [],
+  )
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
@@ -740,6 +762,7 @@ export function useSheetRoller(
     logEnd,
     logCharge,
     logMove,
+    logFavorite,
     logAsk,
     rolls,
     rolling: inFlight > 0,

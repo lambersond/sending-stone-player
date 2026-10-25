@@ -23,6 +23,7 @@ import {
   type TableDamage,
 } from './action-entry'
 import { enchantedEntry } from './enchantments'
+import { useFavoriteChoice } from './favoriting'
 import { useItemMenu } from './item-menu'
 import { PartySheetList, type PartySheets } from './party-sheets'
 import { joinParts, SheetEntry } from './sheet-entry'
@@ -44,6 +45,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
+import type { FavoriteTarget } from '@/types/roll'
 import type {
   SheetAction,
   SheetContainer,
@@ -400,23 +402,31 @@ function Load({
  * rolls shows what it rolls beside it, as an action does. Where the sheet gives a way to move it
  * (module 0.31.0), and there's any of it, that's beside it or in it once open; and from module
  * 0.32.0's feedback, "Send to…" in its own menu, on a right-click or long-press of its row, beside
- * "Remove…" from module 0.33.0.
+ * "Remove…" from module 0.33.0, after "Add to favorites" or "Remove from favorites" from module
+ * 0.37.0. An item that holds activities offers each of them its own entry on the activity's row.
  */
 export function ItemEntry({
   characterId,
   item,
   rows,
+  favorite: target = { type: 'item', id: item.id },
 }: Readonly<{
   characterId: string
   item: SheetItem | SheetContainer
   rows?: ActionRows
+  /**
+   * What its favorites entry adds or removes, from module 0.37.0: the item, unless said; null for
+   * none, as among the favorites for a resource's feature.
+   */
+  favorite?: FavoriteTarget | null
 }>) {
   const transfers = useTransferring()
   const moves = item.quantity >= 1 ? transfers.item?.(item) : undefined
   const send = item.quantity >= 1 ? transfers.send?.(item) : undefined
   // From module 0.33.0, a stack of none too, which goes whole.
   const remove = transfers.remove?.(item)
-  const { onMenu, menu } = useItemMenu(item.name, { send, remove })
+  const favorite = useFavoriteChoice(target, item.name)
+  const { onMenu, menu } = useItemMenu(item.name, { send, remove, favorite })
   const container = 'contents' in item ? item : undefined
   const { weight, uses } = item
   const capacity = container?.capacity
@@ -454,9 +464,12 @@ export function ItemEntry({
   if (rows && action) {
     return (
       <>
+        {/* Its menu is the item's own, so its row's names none of its own. */}
         <ActionEntry
           action={action}
           rows={rows}
+          // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
+          favorite={null}
           look={{
             // What it is to carry, rather than how it's used, which it opens to; or nothing.
             detail: detail ?? '',
@@ -492,6 +505,8 @@ export function ItemEntry({
         fallback={container ? Backpack : Package}
         favoriteKey={`item:${item.id}`}
         onMenu={onMenu}
+        // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
+        favorite={null}
         busy={waiting}
         detail={detail}
         aside={

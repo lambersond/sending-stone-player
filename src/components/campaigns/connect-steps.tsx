@@ -8,7 +8,8 @@ export function ConnectSteps({
     <ol className='grid list-decimal gap-3 pl-5 text-sm text-text-secondary marker:text-text-primary'>
       <li>
         Install the Sending Stone module, version 0.24.0 or later, in your game
-        on The Forge, and open the game as Gamemaster.
+        on The Forge, and open the game as Gamemaster. From 0.37.0, Foundry
+        lists it as <em>illagria/sending-stone</em>.
       </li>
       <li>
         In <em>Configure Settings</em>, choose <em>Open Settings</em> under

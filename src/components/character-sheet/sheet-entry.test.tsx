@@ -1,7 +1,9 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
+import { Favoriting } from './favoriting'
 import { joinParts, SheetEntry } from './sheet-entry'
+import { offeringFavorites } from '@/mocks/sending-stone'
 
 /**
  * Every image as a page drawn on the server has it: done loading and broken before React
@@ -279,5 +281,66 @@ describe('components/character-sheet/sheet-entry, busy on a party’s sheet, fro
     const row = screen.getByRole('listitem')
     expect(row).not.toHaveAttribute('aria-busy')
     expect(spinners(row)).toEqual([])
+  })
+})
+
+/** Darkvision's row: its plain row, or its summary's. */
+const darkvisionRow = () =>
+  screen.getByText('Darkvision').closest('li')?.firstElementChild as HTMLElement
+
+describe('components/character-sheet/sheet-entry, favorites, from module 0.37.0', () => {
+  /** A row, inside a pane that offers favorites. */
+  const renderOffered = (props: Partial<Parameters<typeof SheetEntry>[0]>) => {
+    const offering = offeringFavorites()
+    render(
+      <Favoriting value={offering.value}>
+        <ul>
+          <SheetEntry
+            characterId='char-1'
+            name='Darkvision'
+            fallback={Sparkles}
+            {...props}
+          />
+        </ul>
+      </Favoriting>,
+    )
+    return offering
+  }
+
+  it.each([
+    ['an item', 'item:darkvision', { type: 'item', id: 'darkvision' }],
+    ['an effect', 'effect:cloak.ward', { type: 'effect', id: 'cloak.ward' }],
+  ])(
+    'offers its own menu for %s its favorites key names, and takes focus for the keyboard',
+    (_name, favoriteKey, target) => {
+      const offering = renderOffered({ favoriteKey })
+      expect(darkvisionRow()).toHaveAttribute('tabindex', '0')
+      fireEvent.contextMenu(darkvisionRow(), { button: -1 })
+      fireEvent.click(
+        screen.getByRole('menuitem', { name: 'Add to favorites' }),
+      )
+      expect(offering.chosen).toEqual([
+        { target, name: 'Darkvision', op: 'add' },
+      ])
+    },
+  )
+
+  it.each([
+    ['nothing its key names, as a skill', { favoriteKey: 'skill:prc' }],
+    ['no key', {}],
+    ['none, said', { favoriteKey: 'item:darkvision', favorite: null }],
+  ])('offers none for %s', (_name, props) => {
+    renderOffered(props)
+    expect(darkvisionRow()).not.toHaveAttribute('tabindex')
+    expect(fireEvent.contextMenu(darkvisionRow(), { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('opens the menu it’s given, never its own besides', () => {
+    const onMenu = jest.fn()
+    renderOffered({ favoriteKey: 'item:darkvision', onMenu })
+    fireEvent.contextMenu(darkvisionRow(), { button: 2 })
+    expect(onMenu).toHaveBeenCalled()
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

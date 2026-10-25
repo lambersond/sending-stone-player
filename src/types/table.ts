@@ -343,6 +343,12 @@ export type TableView = {
    */
   removes?: true
   /**
+   * From module 0.37.0: whether the seat may add to and remove from the character's favorites, its
+   * player's alone: set only while the game takes them, its module is fetching, and the character
+   * is in its roster.
+   */
+  favorites?: true
+  /**
    * For the player's seat only, from module 0.32.0: whether they may type in their own dice for
    * this character here, and whether they chose to. Unset for the Gamemaster's seat.
    */

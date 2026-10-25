@@ -57,6 +57,9 @@ const FEATURES = {
   // Changed on purpose (round 0.36.0 §7.12): from module 0.36.0, the campaign's characters'
   // companions.
   companions: 1,
+  // Changed on purpose (round 0.37.0 §7.15): from module 0.37.0, favorites added and removed,
+  // fetched for with everything else off.
+  favorites: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }

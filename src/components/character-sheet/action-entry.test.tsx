@@ -20,6 +20,7 @@ import {
   sheetTools,
   type DescriptionActions,
 } from './description-actions'
+import { Favoriting } from './favoriting'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import {
   fireBreath,
@@ -31,6 +32,7 @@ import {
   characterSheet,
   checkingSheet,
   MAZE_CHECK,
+  offeringFavorites,
   sheetAction,
   sheetSpell,
 } from '@/mocks/sending-stone'
@@ -1357,5 +1359,91 @@ describe('an attack’s chips in a pane whose rolls are locked (module 0.36.0)',
     expect(
       screen.getByRole('button', { name: /^Bite/, expanded: true }),
     ).toBeInTheDocument()
+  })
+})
+
+describe('components/character-sheet/action-entry, favorites, from module 0.37.0', () => {
+  it('gives one of an action’s other activities an entry of its own, by its item and its own id, beside its chips', async () => {
+    const user = userEvent.setup()
+    const sheet = checkingSheet()
+    const offering = offeringFavorites()
+    render(
+      <Favoriting value={offering.value}>
+        <DescriptionLinks actions={actionsFor(sheet)}>
+          <ActionsTab
+            characterId='char-rook'
+            sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+            onRoll={jest.fn()}
+            onRollDamage={jest.fn()}
+            onUse={jest.fn()}
+          />
+        </DescriptionLinks>
+      </Favoriting>,
+    )
+
+    await user.click(toggle('Bless'))
+    const [free] = within(
+      screen.getByRole('list', { name: 'Bless: its other activities' }),
+    ).getAllByRole('listitem')
+    const part = within(free)
+      .getByText('Cast (free casting)')
+      .closest('[tabindex]') as HTMLElement
+    // What holds its name and its info button.
+    expect(part).toBe(
+      within(free).getByText('Cast (free casting)').parentElement
+        ?.parentElement,
+    )
+    // A held touch selects none of its words, nor brings up a phone's callout over its menu.
+    expect(part).toHaveClass('select-none', '[-webkit-touch-callout:none]')
+    fireEvent.contextMenu(part, { button: 2 })
+    const menu = screen.getByRole('menu', { name: 'Cast (free casting)' })
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Add to favorites' }),
+    )
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'activity', id: 'bless-free', item: 'bless' },
+        name: 'Cast (free casting)',
+        op: 'add',
+      },
+    ])
+    // A press on its chip is the chip's.
+    expect(
+      fireEvent.contextMenu(
+        within(free).getByRole('button', {
+          name: 'Cast Bless (Cast (free casting))',
+        }),
+        { button: 2 },
+      ),
+    ).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('leaves an activity’s name as any other words where the pane offers no favorites: no tab stop, menu, or hold of its own', async () => {
+    const user = userEvent.setup()
+    const sheet = checkingSheet()
+    render(
+      <DescriptionLinks actions={actionsFor(sheet)}>
+        <ActionsTab
+          characterId='char-rook'
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          onUse={jest.fn()}
+        />
+      </DescriptionLinks>,
+    )
+
+    await user.click(toggle('Bless'))
+    const [free] = within(
+      screen.getByRole('list', { name: 'Bless: its other activities' }),
+    ).getAllByRole('listitem')
+    // Its name's part: what holds its name and its info button.
+    const part = within(free).getByText('Cast (free casting)').parentElement
+      ?.parentElement as HTMLElement
+    expect(part).not.toHaveAttribute('tabindex')
+    expect(part.className).not.toMatch(/select-none|-webkit-touch-callout/)
+    expect(fireEvent.contextMenu(part, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

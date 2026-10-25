@@ -48,7 +48,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
-import type { RollSource } from '@/types/roll'
+import type { FavoriteTarget, RollSource } from '@/types/roll'
 import type {
   SheetAbility,
   SheetAction,
@@ -238,6 +238,12 @@ function FavoritesList({
   )
 }
 
+/**
+ * A favorite, as the sheet shows it elsewhere. From module 0.37.0, its row's favorites entry is its
+ * own, never the star's: Remove from favorites, as it's one; an activity's, the activity's, never
+ * its item's; and none for a resource, the feature a resource stands for, a skill, a tool or spell
+ * slots.
+ */
 function FavoriteRow({
   entry,
   rows,
@@ -250,6 +256,7 @@ function FavoriteRow({
   spending?: HitDieSpending
 }>) {
   const { characterId } = rows
+  const { target } = entry
   switch (entry.kind) {
     case 'action': {
       const { action, resource } = entry
@@ -260,17 +267,28 @@ function FavoriteRow({
           rows={rows}
           note={joinParts(resourceNote(resource, action.name), entry.note)}
           look={resource && { uses: resource.uses }}
+          favorite={target}
         />
       )
     }
     case 'spell': {
       return (
-        <SpellEntry characterId={characterId} spell={entry.spell} rows={rows} />
+        <SpellEntry
+          characterId={characterId}
+          spell={entry.spell}
+          rows={rows}
+          favorite={target}
+        />
       )
     }
     case 'item': {
       return (
-        <ItemEntry characterId={characterId} item={entry.item} rows={rows} />
+        <ItemEntry
+          characterId={characterId}
+          item={entry.item}
+          rows={rows}
+          favorite={target}
+        />
       )
     }
     case 'feature': {
@@ -280,6 +298,7 @@ function FavoriteRow({
           characterId={characterId}
           feature={feature}
           rows={rows}
+          favorite={target}
           {...(resource && {
             uses: resource.uses,
             note: resourceNote(resource, feature.name),
@@ -293,6 +312,7 @@ function FavoriteRow({
           characterId={characterId}
           entry={entry.entry}
           spending={spending}
+          favorite={target}
         />
       )
     }
@@ -302,6 +322,7 @@ function FavoriteRow({
           characterId={characterId}
           effect={entry.effect}
           suppressed={entry.suppressed}
+          favorite={target}
         />
       )
     }
@@ -323,6 +344,7 @@ function FavoriteRow({
           name={slots.name}
           fallback={BookOpen}
           detail='Spell slots'
+          favorite={target}
           aside={<SpellSlots value={slots.value} max={slots.max} />}
         />
       )
@@ -357,6 +379,7 @@ function FavoriteRow({
           img={item.img}
           fallback={FALLBACKS[item.itemType] ?? Package}
           detail={ITEM_TYPES[item.itemType]}
+          favorite={target}
         />
       )
     }
@@ -374,10 +397,13 @@ function ClassEntry({
   characterId,
   entry,
   spending,
+  favorite,
 }: Readonly<{
   characterId: string
   entry: SheetClass
   spending?: HitDieSpending
+  /** What its row's favorites entry adds or removes, from module 0.37.0; none unless said. */
+  favorite?: FavoriteTarget | null
 }>) {
   const { hitDice } = entry
   return (
@@ -387,6 +413,7 @@ function ClassEntry({
         entry.levels === null ? entry.name : `${entry.name} ${entry.levels}`
       }
       fallback={ListChecks}
+      favorite={favorite}
       // The hit dice first, as a row this narrow cuts its end short.
       detail={joinParts(hitDice && hitDiceText(hitDice), entry.subclass)}
       aside={

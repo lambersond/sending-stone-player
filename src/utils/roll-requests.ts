@@ -187,14 +187,16 @@ export function isSeatCombatant(
  * What the campaign's Gamemaster never sends as a character (#156): an end of an enchantment or,
  * from module 0.29.0, of a concentration, which post nothing in the game, so would leave no mark of
  * theirs; and from module 0.36.0 a turn ended, or taken back, which posts nothing either: the
- * Gamemaster ends one, or goes back to it, in Foundry. Charges spent and Heroic Inspiration post a
- * line marked as theirs.
+ * Gamemaster ends one, or goes back to it, in Foundry; and from module 0.37.0 a favorite added or
+ * removed, which posts nothing either. Charges spent and Heroic Inspiration post a line marked as
+ * theirs.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
   'endConcentration',
   'endTurn',
   'undoEndTurn',
+  'favorite',
 ])
 
 /**
@@ -1188,6 +1190,11 @@ export function toRollRequestView(
   // What a removal removed, from module 0.33.0: when it was made, or where the item itself
   // changed before it failed.
   const removed = result?.removed ? { removed: result.removed } : {}
+  // Whether a favorite added or removed is one now, from module 0.37.0, as the game says.
+  const favorited =
+    typeof result?.favorited === 'boolean'
+      ? { favorited: result.favorited }
+      : {}
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
@@ -1198,6 +1205,7 @@ export function toRollRequestView(
         ...cardless(result),
         ...moved,
         ...removed,
+        ...favorited,
       }
     }
     if (!result.visible) {
@@ -1209,6 +1217,7 @@ export function toRollRequestView(
         ...spent,
         ...moved,
         ...removed,
+        ...favorited,
       }
     }
     const rolls = result.rolls.map(roll => toTableRoll(roll))
@@ -1223,6 +1232,7 @@ export function toRollRequestView(
       ...spent,
       ...moved,
       ...removed,
+      ...favorited,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
@@ -1243,6 +1253,7 @@ export function toRollRequestView(
       ...enchantment,
       ...moved,
       ...removed,
+      ...favorited,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -1262,6 +1273,7 @@ export function toRollRequestView(
     ...spent,
     ...moved,
     ...removed,
+    ...favorited,
   }
 }
 
@@ -1293,6 +1305,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   inspiration: 'Heroic Inspiration',
   transfer: 'Items or coins moved',
   remove: 'An item removed',
+  favorite: 'A favorite added or removed',
   endTurn: 'A turn ended',
   undoEndTurn: 'A turn taken back',
 }

@@ -1,10 +1,15 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConditionsOpener } from './conditions-panel'
 import { EffectsTab } from './effects-tab'
 import { FavoriteMarks } from './favorite-mark'
-import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
+import { Favoriting } from './favoriting'
+import {
+  characterSheet,
+  fullerSheet,
+  offeringFavorites,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
 
@@ -144,5 +149,55 @@ describe('components/character-sheet/effects-tab', () => {
     )
 
     expect(show).toHaveBeenCalledWith()
+  })
+})
+
+/** A row, by its name: its summary or its plain row. */
+const rowOf = (name: string) => {
+  const item = screen.getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.firstElementChild) as HTMLElement
+}
+
+describe('components/character-sheet/effects-tab, favorites, from module 0.37.0', () => {
+  it('offers an effect’s entry, as the effect, and none on a condition', async () => {
+    const user = userEvent.setup()
+    const offering = offeringFavorites(['effect:blessed'])
+    render(
+      <Favoriting value={offering.value}>
+        <EffectsTab
+          characterId='char-1'
+          sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
+        />
+      </Favoriting>,
+    )
+    const bless = within(
+      screen.getByRole('region', { name: 'Temporary Effects' }),
+    )
+      .getByText('Bless')
+      .closest('li') as HTMLElement
+    fireEvent.contextMenu(
+      (bless.querySelector('summary') ??
+        bless.firstElementChild) as HTMLElement,
+      { button: 2 },
+    )
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Bless' })).getByRole(
+        'menuitem',
+        { name: 'Remove from favorites' },
+      ),
+    )
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'effect', id: 'blessed' },
+        name: 'Bless',
+        op: 'remove',
+      },
+    ])
+
+    for (const condition of ['Exhaustion', 'Poisoned']) {
+      expect(fireEvent.contextMenu(rowOf(condition), { button: 2 })).toBe(true)
+    }
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

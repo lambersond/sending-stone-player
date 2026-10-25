@@ -2164,3 +2164,133 @@ describe('schemas/roll-request, a turn taken back, from module 0.36.0', () => {
     expect(parseKind(undoingTurn, fields).success).toBe(false)
   })
 })
+
+describe('schemas/roll-request, favorites added and removed, from module 0.37.0', () => {
+  /** The Rope added to Thorin's favorites, as its row's menu sends it. */
+  const favoriting = {
+    kind: 'favorite',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    favorite: { op: 'add', type: 'item', id: 'ropeThorin01' },
+  }
+  /** A favorite as given, the rest as `favoriting` has it. */
+  const favorite = (fields: object) =>
+    parseKind(favoriting, { favorite: fields })
+
+  it.each([
+    ['an item added', { op: 'add', type: 'item', id: 'ropeThorin01' }],
+    ['an item removed', { op: 'remove', type: 'item', id: 'ropeThorin01' }],
+    [
+      "one of an item's activities, by its item too",
+      { op: 'add', type: 'activity', id: 'same', item: 'wandA' },
+    ],
+    ["an effect of the actor's", { op: 'add', type: 'effect', id: 'bless01' }],
+    [
+      "an effect of an item's",
+      { op: 'remove', type: 'effect', id: 'cloak.protect01' },
+    ],
+    ['a skill', { op: 'add', type: 'skill', id: 'prc' }],
+    ['a tool', { op: 'add', type: 'tool', id: 'thief' }],
+    ['spell slots', { op: 'remove', type: 'slots', id: 'spell1' }],
+    ['pact slots', { op: 'add', type: 'slots', id: 'pact' }],
+  ])('takes %s', (_name, fields) => {
+    const parsed = favorite(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...favoriting, favorite: fields })
+  })
+
+  it.each([
+    [
+      'an old-style resource',
+      { op: 'remove', type: 'resource', id: 'primary' },
+    ],
+    ['a type dnd5e has none of', { op: 'add', type: 'spell', id: 'abc' }],
+    ['no op', { type: 'item', id: 'ropeThorin01' }],
+    ['another op', { op: 'toggle', type: 'item', id: 'ropeThorin01' }],
+    ['a key more', { op: 'add', type: 'item', id: 'ropeThorin01', sort: 100 }],
+    [
+      'an item on an item',
+      { op: 'add', type: 'item', id: 'ropeThorin01', item: 'ropeThorin01' },
+    ],
+    [
+      'an item on an effect',
+      { op: 'add', type: 'effect', id: 'bless01', item: 'cloak' },
+    ],
+    ['no item on an activity', { op: 'add', type: 'activity', id: 'same' }],
+    [
+      'an activity id not an id',
+      { op: 'add', type: 'activity', id: 'a.b', item: 'wandA' },
+    ],
+    ['an effect id of two dots', { op: 'add', type: 'effect', id: 'a.b.c' }],
+    ['an item id with a dot', { op: 'add', type: 'item', id: 'rope.x' }],
+    [
+      'a tool named as a resource',
+      { op: 'remove', type: 'tool', id: 'resources.primary' },
+    ],
+    ['a key beginning with a digit', { op: 'add', type: 'skill', id: '1prc' }],
+    ['a key too long', { op: 'add', type: 'slots', id: `s${'x'.repeat(32)}` }],
+    ['an id too long', { op: 'add', type: 'item', id: 'x'.repeat(65) }],
+  ])('refuses %s', (_name, fields) => {
+    expect(favorite(fields).success).toBe(false)
+  })
+
+  it('takes a favorite only as a favorite, and a favorite only with one', () => {
+    const message = 'A favorite added or removed, and only that, names what'
+    expect(issuesOf(perception, { favorite: favoriting.favorite })).toEqual([
+      ['favorite', message],
+    ])
+    expect(issuesOf(removing, { favorite: favoriting.favorite })).toEqual([
+      ['favorite', message],
+    ])
+    expect(issuesOf(favoriting, { favorite: undefined })).toEqual([
+      ['favorite', message],
+    ])
+  })
+
+  it.each([
+    [
+      'a removal',
+      { remove: removing.remove },
+      ['remove', 'A removal, and only that, names what it removes'],
+    ],
+    [
+      'a move',
+      { transfer: moving.transfer },
+      ['transfer', 'A move, and only that, names what moves'],
+    ],
+    [
+      'an item',
+      { item: 'ropeThorin01' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses a favorite naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(favoriting, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a favorite with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(favoriting, fields)).toEqual([
+      ['dice', 'A favorite throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is', () => {
+    expect(parseKind(favoriting, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(favoriting, { actorId: 'actorVex0001' }).success).toBe(
+      false,
+    )
+  })
+})

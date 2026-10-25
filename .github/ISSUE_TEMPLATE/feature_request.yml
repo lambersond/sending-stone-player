@@ -1,0 +1,51 @@
+name: Feature request
+description: An idea for the Sending Stone app.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Is it about what happens in Foundry? Suggest it to the module: https://github.com/lambersond/fvtt-sending-stone/issues/new/choose. An idea that needs both is welcome here.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: What's missing, or hard, today.
+      placeholder: On my phone, I'd like to see my spell slots without opening Spells.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: How it would work, as you picture it.
+    validations:
+      required: true
+  - type: dropdown
+    id: for-whom
+    attributes:
+      label: Who is it for?
+      options:
+        - Players
+        - The Gamemaster
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: On what?
+      multiple: true
+      options:
+        - A phone
+        - A tablet
+        - A laptop or desktop
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+  - type: textarea
+    id: sketches
+    attributes:
+      label: Sketches or screenshots
+      description: Drag images here.

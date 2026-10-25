@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { allItems } from '@/utils/sheet-texts'
+import type { FavoriteTarget } from '@/types/roll'
 import type {
   CharacterSheet,
   SheetAction,
@@ -56,11 +57,19 @@ export type FavoriteView =
   /** An item the sheet lists nowhere else, such as a background. */
   | { kind: 'other'; item: SheetItemFavorite }
 
-/** A favorite as it's shown, by a key unique among them. */
-export type FavoriteEntry = FavoriteView & { key: string }
+/**
+ * A favorite as it's shown, by a key unique among them, with what it is as the app adds and removes
+ * it, from module 0.37.0: none for a resource, nor for the feature a resource stands for, whose
+ * place among the favorites is the resource's, which the app never changes; nor for a skill, a tool
+ * or spell slots, which are made favorites in Foundry.
+ */
+export type FavoriteEntry = FavoriteView & {
+  key: string
+  target: FavoriteTarget | null
+}
 
 /** The sheet's lists, by id, to find what a favorite refers to. */
-type Index = {
+export type FavoriteIndex = {
   actions: Map<string, SheetAction>
   spells: Map<string, SheetSpell>
   items: Map<string, SheetItem | SheetContainer>
@@ -77,7 +86,8 @@ type Index = {
  * nothing the sheet has any longer, such as a skill a later system dropped, is left out, as is one
  * listed twice. A resource that stands for a feature is that feature's row, in the resource's
  * place, which dnd5e gives first: a favorite of the feature after it is left out, as it's shown,
- * but not one of its activities, which is a row of its own.
+ * but not one of its activities, which is a row of its own. An activity is keyed by its item and
+ * its own id, as dnd5e gives migrated items' activities the same id, so two such favorites are two.
  */
 export function favoriteEntries(
   sheet: Pick<
@@ -92,7 +102,7 @@ export function favoriteEntries(
     | 'favorites'
   >,
 ): FavoriteEntry[] {
-  const index = indexOf(sheet)
+  const index = favoriteIndex(sheet)
   const seen = new Set<string>()
   // The features resources stand for, each for one at most.
   const claimed = new Set<string>()
@@ -106,12 +116,49 @@ export function favoriteEntries(
       return [linked]
     }
     // A resource that stands for none, or for a feature already shown, is a counter.
-    const key = `${favorite.type}:${favorite.id}`
+    const key =
+      favorite.type === 'activity'
+        ? `activity:${favorite.itemId}.${favorite.id}`
+        : `${favorite.type}:${favorite.id}`
     if (seen.has(key)) return []
     seen.add(key)
     const entry = entryOf(favorite, index)
-    return entry ? [{ key, ...entry }] : []
+    return entry ? [{ key, ...entry, target: targetOf(favorite) }] : []
   })
+}
+
+/**
+ * What a favorite is, as the app adds and removes it, from module 0.37.0: an item, an activity by
+ * its item and its own id, or an effect; none for a resource, a skill, a tool or spell slots.
+ */
+function targetOf(favorite: SheetFavorite): FavoriteTarget | null {
+  switch (favorite.type) {
+    case 'item':
+    case 'effect': {
+      return { type: favorite.type, id: favorite.id }
+    }
+    case 'activity': {
+      return { type: 'activity', id: favorite.id, item: favorite.itemId }
+    }
+    default: {
+      return null
+    }
+  }
+}
+
+/**
+ * The keys of the entries that stand for a resource, each its feature's, "item:<featureId>": a row
+ * of that feature is offered neither Add nor Remove, as its place among the favorites is the
+ * resource's (module 0.37.0).
+ */
+export function linkedKeys(entries: FavoriteEntry[]): Set<string> {
+  return new Set(
+    entries.flatMap(entry =>
+      (entry.kind === 'action' || entry.kind === 'feature') && entry.resource
+        ? [entry.key]
+        : [],
+    ),
+  )
 }
 
 /** The kinds of favorite marked where the sheet lists them elsewhere. */
@@ -134,11 +181,7 @@ export function favoriteKeys(
     ...favorites.flatMap(({ type, id }) =>
       MARKED.has(type) ? [`${type}:${id}`] : [],
     ),
-    ...entries.flatMap(entry =>
-      (entry.kind === 'action' || entry.kind === 'feature') && entry.resource
-        ? [entry.key]
-        : [],
-    ),
+    ...linkedKeys(entries),
   ])
 }
 
@@ -217,7 +260,7 @@ function rolls(entry: Partial<SheetRolls>): boolean {
 
 function entryOf(
   favorite: SheetFavorite,
-  index: Index,
+  index: FavoriteIndex,
 ): FavoriteView | undefined {
   switch (favorite.type) {
     case 'item': {
@@ -280,7 +323,7 @@ function entryOf(
  */
 function linkedEntry(
   resource: SheetResourceFavorite,
-  index: Index,
+  index: FavoriteIndex,
   claimed: Set<string>,
 ): FavoriteEntry | undefined {
   const feature = resourceFeature(resource, index, claimed)
@@ -291,7 +334,7 @@ function linkedEntry(
     index,
   )
   if (view.kind !== 'action' && view.kind !== 'feature') return undefined
-  return { key: `item:${id}`, ...view, resource }
+  return { key: `item:${id}`, ...view, resource, target: null }
 }
 
 /**
@@ -300,7 +343,7 @@ function linkedEntry(
  */
 function resourceFeature(
   { name, itemId }: SheetResourceFavorite,
-  index: Index,
+  index: FavoriteIndex,
   claimed: Set<string>,
 ): SheetFeature | undefined {
   if (itemId === null) return undefined
@@ -320,7 +363,10 @@ function resourceFeature(
  * An item, as the sheet lists it: as an action if it's one, then as a spell, as something carried,
  * as a feature or as a class.
  */
-function itemEntry(favorite: SheetItemFavorite, index: Index): FavoriteView {
+function itemEntry(
+  favorite: SheetItemFavorite,
+  index: FavoriteIndex,
+): FavoriteView {
   const { id } = favorite
   const action = index.actions.get(id)
   const item = index.items.get(id)
@@ -358,7 +404,7 @@ function actionNote(
  */
 function activityAction(
   favorite: SheetActivityFavorite,
-  index: Index,
+  index: FavoriteIndex,
 ): { action: SheetAction; note?: string } {
   const { itemId } = favorite
   const action = index.actions.get(itemId)
@@ -445,7 +491,22 @@ function wholeActions(actions: SheetAction[]): Map<string, SheetAction> {
   return whole
 }
 
-function indexOf(sheet: Parameters<typeof favoriteEntries>[0]): Index {
+/**
+ * The sheet's lists, by id, to find what a favorite refers to, or, from module 0.37.0, whether
+ * what's added is on the sheet at all.
+ */
+export function favoriteIndex(
+  sheet: Pick<
+    CharacterSheet,
+    | 'actions'
+    | 'spells'
+    | 'inventory'
+    | 'features'
+    | 'classes'
+    | 'effects'
+    | 'skills'
+  >,
+): FavoriteIndex {
   const byId = <T extends { id: string }>(entries: T[]) =>
     new Map(entries.map(entry => [entry.id, entry]))
   const listed = sheet.features.flatMap(section => section.features)

@@ -26,6 +26,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
+import type { FavoriteTarget } from '@/types/roll'
 import type {
   SheetAction,
   SheetCastFrom,
@@ -262,7 +263,14 @@ export function SpellEntry({
   characterId,
   spell,
   rows,
-}: Readonly<{ characterId: string; spell: SheetSpell; rows?: ActionRows }>) {
+  favorite,
+}: Readonly<{
+  characterId: string
+  spell: SheetSpell
+  rows?: ActionRows
+  /** What its row's favorites entry adds or removes, from module 0.37.0: the spell, unless said. */
+  favorite?: FavoriteTarget | null
+}>) {
   const unprepared = spell.prepared === 0
   const components = componentsOf(spell)
   // A spell its item can't cast now is listed, but can't be cast, and says why: first, where a
@@ -282,6 +290,7 @@ export function SpellEntry({
       <ActionEntry
         action={action}
         rows={rows}
+        favorite={favorite}
         note={spell.castFrom ? fromNote(spell.castFrom) : undefined}
         look={{
           marks: marked && (
@@ -307,6 +316,7 @@ export function SpellEntry({
       img={spell.img}
       fallback={Wand}
       favoriteKey={`item:${spell.id}`}
+      favorite={favorite}
       detail={
         unusable
           ? joinParts(whyNot(unusable), fromNote(unusable), spell.activation)

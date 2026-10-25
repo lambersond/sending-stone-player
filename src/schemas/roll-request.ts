@@ -246,12 +246,48 @@ const removeSchema = z
     },
   )
 
+/** What may be done to a favorite, from module 0.37.0: added, or removed. */
+const favoriteOp = z.enum(['add', 'remove'])
+
+/**
+ * A favorite added to or removed from the character's, from module 0.37.0, by what it is: an item
+ * by its Foundry id; one of an item's activities by its own id and its item's, as two items may
+ * hold activities of one id; an effect by the sheet's id, the actor's "<id>" or an item's
+ * "<itemId>.<id>"; and a skill, tool or pool of spell slots by its key, which never has a dot, so
+ * no favorite ever names one of the old resources, whose removal in dnd5e zeroes its maximum.
+ * Nothing else: no other type, and no field its type doesn't name.
+ */
+const favoriteSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    op: favoriteOp,
+    type: z.enum(['item']),
+    id: z.string().regex(FOUNDRY_ID),
+  }),
+  z.strictObject({
+    op: favoriteOp,
+    type: z.literal('activity'),
+    id: z.string().regex(FOUNDRY_ID),
+    item: z.string().regex(FOUNDRY_ID),
+  }),
+  z.strictObject({
+    op: favoriteOp,
+    type: z.literal('effect'),
+    id: z.string().regex(/^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/),
+  }),
+  z.strictObject({
+    op: favoriteOp,
+    type: z.enum(['skill', 'tool', 'slots']),
+    id: z.string().regex(/^[A-Za-z][\w-]{0,31}$/),
+  }),
+])
+
 /**
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
  * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
- * module 0.31.0, a move what moves; from module 0.33.0, a removal what it removes; and from module
+ * module 0.31.0, a move what moves; from module 0.33.0, a removal what it removes; from module
  * 0.36.0, a turn ended which turn, and a turn taken back the End Turn it takes back and the turn
- * that End Turn left. A field more than one kind names lists them all, `kinds`.
+ * that End Turn left; and from module 0.37.0, a favorite added or removed what it is. A field more
+ * than one kind names lists them all, `kinds`.
  */
 const OWN_FIELDS: Readonly<
   Record<
@@ -283,6 +319,10 @@ const OWN_FIELDS: Readonly<
     field: 'remove',
     message: 'A removal, and only that, names what it removes',
   },
+  favorite: {
+    field: 'favorite',
+    message: 'A favorite added or removed, and only that, names what',
+  },
   endTurn: {
     field: 'turn',
     kinds: ['endTurn', 'undoEndTurn'],
@@ -304,6 +344,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   inspiration: 'Heroic Inspiration throws no dice',
   transfer: 'Moving throws no dice',
   remove: 'Removing throws no dice',
+  favorite: 'A favorite throws no dice',
   endTurn: 'Ending a turn throws no dice',
   undoEndTurn: 'Taking a turn back throws no dice',
 }
@@ -353,7 +394,8 @@ const rolledDiceSchema = z.strictObject({
  * its one d6. Neither names anything else a roll does. From module 0.36.0, a turn ended names its
  * combat, round and current combatant, and nothing else, and throws no dice; and a turn taken back
  * names the End Turn it takes back and where it left the combat, and nothing else, and throws no
- * dice either.
+ * dice either. From module 0.37.0, a favorite added or removed names what, and nothing else, and
+ * throws no dice.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -408,6 +450,7 @@ export const rollRequestSchema = z
     inspiration: z.enum(['use', 'gain']).optional(),
     transfer: transferSchema.optional(),
     remove: removeSchema.optional(),
+    favorite: favoriteSchema.optional(),
     turn: turnSchema.optional(),
     undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
@@ -634,9 +677,9 @@ export const rollRequestSchema = z
       })
     }
     // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
-    // from module 0.31.0, a removal from module 0.33.0 and a turn ended or taken back from module
-    // 0.36.0, each name what they're of, and nothing else does; charges, how many, which nothing
-    // else says.
+    // from module 0.31.0, a removal from module 0.33.0, a turn ended or taken back from module
+    // 0.36.0 and a favorite from module 0.37.0, each name what they're of, and nothing else does;
+    // charges, how many, which nothing else says.
     for (const [kind, { field, kinds, message }] of Object.entries(
       OWN_FIELDS,
     )) {

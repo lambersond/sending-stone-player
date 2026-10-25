@@ -50,7 +50,9 @@ import {
   useEnchanting,
 } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
+import { useFavoriteChoice } from './favoriting'
 import { NONE_LEFT } from './hit-dice'
+import { useItemMenu } from './item-menu'
 import { usePressMenu } from './press-menu'
 import { RechargeChip, rechargeable } from './recharge-chip'
 import { RollButton } from './roll-button'
@@ -92,7 +94,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
 } from '@/hooks/use-sheet-roller'
-import type { RollSource } from '@/types/roll'
+import type { FavoriteTarget, RollSource } from '@/types/roll'
 import type {
   CharacterSheet,
   SheetAction,
@@ -538,7 +540,9 @@ export function viewOf(
 /**
  * An action in a list: its name, how it's activated and its reach, opening to the rest; and
  * beside it what it rolls, each a button of its own. A note, such as the item an activity is one
- * of, comes first. A tab that lists it otherwise shows it as it shows the rest it lists.
+ * of, comes first. A tab that lists it otherwise shows it as it shows the rest it lists. From
+ * module 0.37.0, its name opens a menu of its own, Add to favorites or Remove from favorites, where
+ * the pane offers them and the tab gives it none of its own.
  */
 export function ActionEntry({
   action,
@@ -546,6 +550,7 @@ export function ActionEntry({
   note,
   look = {},
   section,
+  favorite: target = { type: 'item', id: action.id },
 }: Readonly<{
   action: SheetAction
   rows: ActionRows
@@ -553,16 +558,23 @@ export function ActionEntry({
   look?: EntryLook
   /** The section of the Actions tab it's listed in, whose kind of action goes without saying. */
   section?: string
+  /**
+   * What its row's favorites entry adds or removes, from module 0.37.0: its item, unless said; null
+   * for none on its own row, as where the tab's menu has its own, or among the favorites for a
+   * resource's feature. Its other activities keep theirs.
+   */
+  favorite?: FavoriteTarget | null
 }>) {
   const [open, setOpen] = useState(false)
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
+  const { name } = action
+  const own = useItemMenu(name, { favorite: useFavoriteChoice(target, name) })
   // Its name opens its own menu, where it has one; what it rolls keeps the roll's.
-  const press = usePressMenu(look.onMenu)
+  const press = usePressMenu(look.onMenu ?? own.onMenu)
   const view = viewOf(action, rows.spellbook, rows.use)
   const cast = castOf(action, rows.casts)
   const others = otherActivities(action, rows.spellbook)
-  const { name } = action
   const uses = look.uses === undefined ? action.uses : look.uses
   // A spent recharge rolled from here, from module 0.36.0, where the game takes it.
   const recharge = rechargeOf(rows, uses)
@@ -684,6 +696,7 @@ export function ActionEntry({
           </div>
         </div>
       )}
+      {!look.onMenu && own.menu}
     </li>
   )
 }
@@ -692,7 +705,9 @@ export function ActionEntry({
  * One of an action's other activities, beneath it, such as Hex's Bonus Hex Damage: its name, how
  * it differs from the action in how it's used and how far it reaches, and what it rolls beside it,
  * as an action's row has them. One the app can't use, such as a summoning, says so. One of an
- * item's opens to what there is to read of it from beside its name.
+ * item's opens to what there is to read of it from beside its name. From module 0.37.0, its name
+ * opens a menu of its own, adding the activity itself to the favorites or removing it, where the
+ * pane offers them, and is a tab stop then, for the keyboard to open it.
  */
 function ActivityEntry({
   other,
@@ -715,13 +730,20 @@ function ActivityEntry({
   const detail = joinParts(
     ...activityDetail(activity, parent, view.spent, { section, cast }),
   )
+  const { onMenu, menu } = useActivityMenu(other)
+  const press = usePressMenu(onMenu)
   return (
     // Its chips wrap under its name where both don't fit, as an action's row's do.
     <li className='flex flex-wrap items-center gap-x-2 gap-y-0 py-0.5 pr-1.5'>
       <span
+        tabIndex={onMenu ? 0 : undefined}
+        {...press.props}
         className={clsx(
           'min-w-[8.5rem] flex-1 py-0.5',
           (view.spent || muted || dimmed(activity, cast)) && 'opacity-60',
+          onMenu &&
+            'rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          press.className,
         )}
       >
         <span className='flex items-center gap-1'>
@@ -758,8 +780,26 @@ function ActivityEntry({
         )}
         <ActionChips action={action} view={view} rows={rows} uses={uses} />
       </span>
+      {menu}
     </li>
   )
+}
+
+/**
+ * The menu of one of an action's other activities, from module 0.37.0: adding the activity itself
+ * to the favorites, by its item and its own id, or removing it, where the pane offers them.
+ */
+export function useActivityMenu(
+  other: OtherActivity,
+): ReturnType<typeof useItemMenu> {
+  const target: FavoriteTarget = {
+    type: 'activity',
+    id: other.activity.id,
+    item: other.action.id,
+  }
+  return useItemMenu(other.name, {
+    favorite: useFavoriteChoice(target, other.name),
+  })
 }
 
 /**

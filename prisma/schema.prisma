@@ -238,6 +238,9 @@ model Campaign {
   // Whether the module removes characters' items for the app, from module 0.33.0's hello: under
   // dnd5e, with no switch of its own, apart from the rolls and the moves.
   removalsEnabled     Boolean          @default(false)
+  // Whether the module adds and removes characters' favorites for the app, from module 0.37.0's
+  // hello: under dnd5e, with no switch of its own.
+  favoritesEnabled    Boolean          @default(false)
   // Whether the module keeps journal notes for the app, from module 0.34.0's hello, with no switch.
   notesEnabled        Boolean          @default(false)
   // What else the module does with journal notes, from module 0.35.0's hello: 'orders' where it

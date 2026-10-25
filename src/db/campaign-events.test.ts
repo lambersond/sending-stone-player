@@ -8,8 +8,10 @@ import {
   chatMessage,
   combat,
   combatant,
+  FAVORITING,
   fullerSheet,
   mockJournalUpdated,
+  NOT_FAVORITING,
   NOT_REMOVING,
   REMOVING,
   biteAction,
@@ -158,6 +160,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -204,6 +208,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -251,6 +257,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -282,6 +290,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -388,6 +398,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -418,6 +430,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -456,6 +470,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -486,6 +502,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -529,6 +547,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -561,6 +581,8 @@ describe('db/campaign-events', () => {
           transfersEnabled: false,
           transferFeatures: [],
           removalsEnabled: false,
+          // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+          favoritesEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -596,6 +618,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -790,6 +814,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -827,6 +853,8 @@ describe('db/campaign-events', () => {
         transfersEnabled: false,
         transferFeatures: [],
         removalsEnabled: false,
+        // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+        favoritesEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -862,6 +890,8 @@ describe('db/campaign-events', () => {
           transfersEnabled: false,
           transferFeatures: [],
           removalsEnabled: false,
+          // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
+          favoritesEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -1938,6 +1968,62 @@ describe('db/campaign-events, removals of characters’ items, from module 0.33.
         removals: REMOVING,
       }),
     ).resolves.toMatchObject({ rollKinds: ['skill'], removalsEnabled: true })
+  })
+})
+
+describe('db/campaign-events, favorites added and removed, from module 0.37.0', () => {
+  const rolls = { enabled: false, kinds: [], reason: 'off' }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+  })
+
+  it('keeps that the game takes favorites, with no switch: rolls, moves and removals off', async () => {
+    await expect(
+      stored({ rolls, favorites: FAVORITING }),
+    ).resolves.toMatchObject({
+      rollsEnabled: false,
+      transfersEnabled: false,
+      removalsEnabled: false,
+      favoritesEnabled: true,
+    })
+  })
+
+  it.each([
+    ['says it doesn’t', { ...FAVORITING, enabled: false }],
+    ['is under another system', NOT_FAVORITING],
+    ['names no favorite among its kinds', { ...FAVORITING, kinds: ['remove'] }],
+    ['says so in junk', { ...FAVORITING, enabled: 'yes' }],
+    ['says nothing readable', 'on'],
+  ])('is off where the module %s', async (_name, favorites) => {
+    await expect(stored({ rolls, favorites })).resolves.toMatchObject({
+      favoritesEnabled: false,
+    })
+  })
+
+  it('is cleared by a hello from module 0.36.0, which says nothing of them', async () => {
+    await stored({ rolls, favorites: FAVORITING })
+    await expect(stored({ rolls, removals: REMOVING })).resolves.toMatchObject({
+      favoritesEnabled: false,
+      removalsEnabled: true,
+    })
+    await expect(stored(null)).resolves.toMatchObject({
+      favoritesEnabled: false,
+    })
+  })
+
+  it("never takes a favorite as one of the rolls, nor a companion's, even where the module's rolls name it", async () => {
+    await expect(
+      stored({
+        rolls: { enabled: true, kinds: ['skill', 'favorite'], reason: null },
+        companions: { kinds: ['skill', 'favorite'], initiative: 'own' },
+        favorites: FAVORITING,
+      }),
+    ).resolves.toMatchObject({
+      rollKinds: ['skill'],
+      companionKinds: ['skill'],
+      favoritesEnabled: true,
+    })
   })
 })
 

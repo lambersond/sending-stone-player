@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { PartyPage } from './party-page'
@@ -13,6 +13,7 @@ import {
 } from '@/components/character-sheet/description-actions'
 import { Enchanting } from '@/components/character-sheet/enchantments'
 import { FavoriteMarks } from '@/components/character-sheet/favorite-mark'
+import { Favoriting } from '@/components/character-sheet/favoriting'
 import { Charging } from '@/components/character-sheet/uses-button'
 import { forgetNotes } from '@/hooks/use-notes'
 import { TableApiContext } from '@/hooks/use-table-api'
@@ -28,7 +29,9 @@ import {
   enchantment,
   GROUP_TEXTS,
   groupSheet,
+  offeringFavorites,
   PARTY,
+  sendingPartyView,
 } from '@/mocks/sending-stone'
 import { inventoryView } from '@/utils/table-view'
 import type { PartyView } from '@/types/party'
@@ -911,5 +914,36 @@ describe('components/party-sheet, the party’s journal (module 0.35.0)', () => 
     ).toBeNull()
     expect(panel).toHaveAttribute('open')
     expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+describe('components/party-sheet, favorites, from module 0.37.0', () => {
+  it('offers no favorites entry on its items, even inside a pane that offers them, as a party has none', () => {
+    const offering = offeringFavorites()
+    render(
+      <Favoriting value={offering.value}>
+        <PartySheet
+          api='/api/characters/char-1/party/groupIronCo01'
+          role='player'
+          view={sendingPartyView()}
+          takeInto={{
+            kind: 'own',
+            actorId: 'actorThorin1',
+            name: 'Thorin',
+            api: '/api/characters/char-1',
+          }}
+        />
+      </Favoriting>,
+    )
+    const rope = within(screen.getByRole('region', { name: 'Loot' }))
+      .getByText('Rope')
+      .closest('summary') as HTMLElement
+    fireEvent.contextMenu(rope, { button: 2 })
+    expect(
+      within(screen.getByRole('menu', { name: 'Rope' }))
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual(['Send to…'])
+    expect(offering.chosen).toEqual([])
   })
 })

@@ -3,6 +3,7 @@ import type { NotePageCommand } from '@/db/note-sync'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type { NotesView } from '@/types/notes'
 import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
+import type { FavoriteTarget } from '@/types/roll'
 import type {
   CharacterSheet,
   CombatantSummary,
@@ -2395,6 +2396,102 @@ export function removingTableView(fields: Partial<TableView> = {}): TableView {
     connected: true,
     messages: [],
     removes: true,
+    ...fields,
+  }
+}
+
+// Module 0.37.0: a character's favorites added and removed from the app.
+
+/** What a hello from module 0.37.0 says of favorites under dnd5e, with no switch: on. */
+export const FAVORITING = {
+  enabled: true,
+  kinds: ['favorite'],
+  reason: null,
+} as const
+
+/** What a hello from module 0.37.0 says of favorites under another system: off, and why. */
+export const NOT_FAVORITING = {
+  enabled: false,
+  kinds: [],
+  reason: 'system',
+} as const
+
+/** Thorin's table view as his player has it while the game takes his favorites, rolls off. */
+export function favoritingTableView(
+  fields: Partial<TableView> = {},
+): TableView {
+  return {
+    version: 7,
+    live: true,
+    campaign: { title: 'The Lonely Mountain' },
+    connected: true,
+    messages: [],
+    favorites: true,
+    ...fields,
+  }
+}
+
+/** What a row's favorites entry was chosen for, as `offeringFavorites` notes it. */
+export type ChosenFavorite = {
+  target: FavoriteTarget
+  name: string
+  op: 'add' | 'remove'
+}
+
+/** A favorite's key, as `targetKey` makes it: "activity:<itemId>.<id>" or "<type>:<id>". */
+const favoriteKeyOf = (target: FavoriteTarget) =>
+  target.type === 'activity'
+    ? `activity:${target.item}.${target.id}`
+    : `${target.type}:${target.id}`
+
+/**
+ * What a pane offers of its character's favorites, for a row drawn alone, from module 0.37.0: each
+ * row's entry adds, but removes those keyed among `favorites`, as "item:<id>" or
+ * "activity:<itemId>.<id>", and waits for those among `waiting`. What's chosen is noted.
+ */
+export function offeringFavorites(
+  favorites: string[] = [],
+  waiting: string[] = [],
+): {
+  chosen: ChosenFavorite[]
+  value: {
+    choiceFor: (
+      target: FavoriteTarget,
+      name: string,
+    ) => { op: 'add' | 'remove'; waiting: boolean; choose: () => void }
+  }
+} {
+  const chosen: ChosenFavorite[] = []
+  return {
+    chosen,
+    value: {
+      choiceFor: (target, name) => {
+        const op = favorites.includes(favoriteKeyOf(target)) ? 'remove' : 'add'
+        return {
+          op,
+          waiting: waiting.includes(favoriteKeyOf(target)),
+          choose: () => {
+            chosen.push({ target, name, op })
+          },
+        }
+      },
+    },
+  }
+}
+
+/** A favorite added: it's one of Thorin's favorites now, nothing posted. */
+export function favoritedResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-favorite',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: null,
+    visible: true,
+    rolls: [],
+    favorited: true,
     ...fields,
   }
 }

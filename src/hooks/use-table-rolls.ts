@@ -30,6 +30,7 @@ import type {
 import type {
   ActivityRef,
   EndEnchantmentSource,
+  FavoriteInput,
   FormulaSource,
   GmRollView,
   InspirationSource,
@@ -164,6 +165,8 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   alone?: true
   /** A recharge rolled (module 0.36.0). */
   recharge?: true
+  /** A favorite added or removed (module 0.37.0). */
+  favorite?: 'add' | 'remove'
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -609,6 +612,23 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * Add to or remove from the character's favorites, from module 0.37.0. No switch of this device's
+   * holds it back: a favorite has no version made here instead.
+   */
+  const sendFavorite = useCallback(
+    (logged: LocalUse, favorite: FavoriteInput) => {
+      if (!logged.favorite) return
+      start(
+        logged.id,
+        { kind: 'favorite', favorite, ...PLAIN },
+        { favorite: logged.favorite },
+        logged.label,
+      )
+    },
+    [start],
+  )
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -684,6 +704,7 @@ export function useTableRolls(
     sendInspiration,
     sendTransfer,
     sendRemove,
+    sendFavorite,
     sendAsk,
     sendRecharge,
     offerDamage,

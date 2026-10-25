@@ -290,8 +290,9 @@ if (SKEW032) {
   const at = await menu.boundingBox()
   const pointer = { x: box.x + 30, y: (await rope.boundingBox()).y + box.height / 2 }
   const near = Math.min(Math.abs(at.y - pointer.y), Math.abs(at.y + at.height - pointer.y))
-  check(same(items, ['Remove…']) && near < 60 && at.x <= pointer.x + 60 && at.x + at.width >= pointer.x - 60,
-    `a right-click on the Rope's name opens its menu, "Rope", at the pointer, with "Remove…" alone (${JSON.stringify([items, pointer, at])})`)
+  // Changed on purpose (round 0.37.0 §12.3): his Rope is one of his favorites, so "Remove from favorites" first.
+  check(same(items, ['Remove from favorites', 'Remove…']) && near < 60 && at.x <= pointer.x + 60 && at.x + at.width >= pointer.x - 60,
+    `a right-click on the Rope's name opens its menu, "Rope", at the pointer, with "Remove from favorites" then "Remove…" (${JSON.stringify([items, pointer, at])})`)
   await shootBoth(alice, 'removals-menu')
   await alice.page.keyboard.press('Escape')
   await menu.waitFor({ state: 'hidden' })
@@ -304,19 +305,24 @@ if (SKEW032) {
   const menu = await alice.itemMenu(swordName.locator('xpath=ancestor::li[1]'), 'touch', 'Longsword')
   await menu.waitFor({ timeout: 5_000 })
   await wait(300)
-  check(await menu.isVisible() && same(await itemsOf(menu), ['Remove…']) && await swordName.getAttribute('aria-expanded') === 'false',
-    'a 600 ms held touch on the Longsword\'s name opens its menu, "Longsword", "Remove…"; let go, the row is still closed')
+  // Changed on purpose (round 0.37.0 §12.3): "Add to favorites" first.
+  check(await menu.isVisible() && same(await itemsOf(menu), ['Add to favorites', 'Remove…']) && await swordName.getAttribute('aria-expanded') === 'false',
+    'a 600 ms held touch on the Longsword\'s name opens its menu, "Longsword", "Add to favorites" then "Remove…"; let go, the row is still closed')
   await alice.page.keyboard.press('Escape')
   await menu.waitFor({ state: 'hidden' })
 }
-// The favorites strip's Rope: no menu.
+// The favorites strip's Rope: Remove from favorites alone.
 {
   const strip = alice.page.getByRole('region', { name: 'Favorites' })
   if (await strip.count()) {
     await strip.getByText('Rope', { exact: true }).first().click({ button: 'right' })
-    await wait(500)
-    check(await alice.page.getByRole('menu').count() === 0, 'a right-click on the Rope among his favorites opens no menu')
+    const menu = alice.page.getByRole('menu', { name: 'Rope' })
+    await menu.waitFor({ timeout: 10_000 }).catch(() => {})
+    // Changed on purpose (round 0.37.0 §12.3): among his favorites, the Rope's menu removes it from them, and only that.
+    check(await alice.page.getByRole('menu').count() === 1 && same(await itemsOf(menu), ['Remove from favorites']),
+      `a right-click on the Rope among his favorites opens its menu, "Rope", "Remove from favorites" alone (${JSON.stringify(await itemsOf(menu))})`)
     await alice.page.keyboard.press('Escape')
+    await menu.waitFor({ state: 'hidden' })
   } else note('no favorites strip on Inventory at 390')
 }
 // The Company's panel: no menu, moves off.
@@ -345,7 +351,8 @@ await desk.tab('Inventory')
   await menu.waitFor()
   const bottom = (await potion.boundingBox()).y + (await potion.boundingBox()).height
   const look = await menu.evaluate((m, under) => ({ below: m.getBoundingClientRect().top >= under - 2, focused: document.activeElement?.textContent?.trim() }), bottom)
-  check(look.below && look.focused === 'Remove…', `Shift+F10 on the focused Potion's name (its row rolls) opens its menu below it, "Remove…" focused (${JSON.stringify(look)})`)
+  // Changed on purpose (round 0.37.0 §12.3): the first item, "Add to favorites", takes focus.
+  check(look.below && look.focused === 'Add to favorites', `Shift+F10 on the focused Potion's name (its row rolls) opens its menu below it, "Add to favorites" focused (${JSON.stringify(look)})`)
   await desk.page.keyboard.press('Escape')
   await menu.waitFor({ state: 'hidden' })
   check(await potion.evaluate(el => document.activeElement === el), 'Escape closes it, focus back on the Potion\'s name')
@@ -372,7 +379,8 @@ await desk.tab('Inventory')
   await pebbleMenu.waitFor()
   const under = (await pebble.boundingBox()).y + (await pebble.boundingBox()).height
   const at = await pebbleMenu.evaluate((m, u) => m.getBoundingClientRect().top >= u - 2, under)
-  check(same(await itemsOf(pebbleMenu), ['Remove…']) && at, 'Shift+F10 on it opens "Pebble" below it, "Remove…" alone')
+  // Changed on purpose (round 0.37.0 §12.3): "Add to favorites" first.
+  check(same(await itemsOf(pebbleMenu), ['Add to favorites', 'Remove…']) && at, 'Shift+F10 on it opens "Pebble" below it, "Add to favorites" then "Remove…"')
   await desk.page.keyboard.press('Escape')
   await pebbleMenu.waitFor({ state: 'hidden' })
   check(await pebble.evaluate(el => document.activeElement === el), 'Escape gives focus back to the Pebble\'s row')
@@ -467,7 +475,8 @@ part('5. nested')
   await inPouch.waitFor({ timeout: 10_000 })
   const gem = rowOf(inPouch, 'Gem')
   const menu = await menuOf(alice, gem, 'Gem')
-  check(same(await itemsOf(menu), ['Remove…']), 'the Gem, in the Pouch in the Backpack: its own menu, "Remove…"')
+  // Changed on purpose (round 0.37.0 §12.3): "Add to favorites" first.
+  check(same(await itemsOf(menu), ['Add to favorites', 'Remove…']), 'the Gem, in the Pouch in the Backpack: its own menu, "Add to favorites" then "Remove…"')
   await menu.getByRole('menuitem', { name: 'Remove…' }).click()
   const dialog = alice.page.getByRole('dialog', { name: 'Remove Gem?' })
   await dialog.waitFor()
@@ -682,14 +691,18 @@ watchPosts(gmThorin)
     const said = ids => (ids ?? '').split(' ').filter(Boolean).map(id => document.getElementById(id)?.textContent.trim()).join(' ')
     // Each item's name: its words, without the reason said under a disabled one.
     const named = i => i.textContent.replace(said(i.getAttribute('aria-describedby')), '').trim()
+    const favorite = [...m.querySelectorAll('[role="menuitem"]')].find(i => i.textContent.includes('favorites'))
     return {
       items: [...m.querySelectorAll('[role="menuitem"]')].map(named),
       disabled: item?.getAttribute('aria-disabled') === 'true' || item?.disabled === true,
       reason: said(item?.getAttribute('aria-describedby')), menu: said(m.getAttribute('aria-describedby')), inside: m.contains(document.activeElement),
+      favorite: !!favorite && favorite.getAttribute('aria-disabled') !== 'true' && favorite.disabled !== true && !favorite.getAttribute('aria-describedby'),
     }
   })
-  check(same(look.items, ['Remove…']) && look.disabled && look.reason === 'It’s on its way already' && look.menu === 'It’s on its way already' && look.inside,
-    `while its removal is on its way: "Remove…" disabled, described "It’s on its way already"; the menu, whose only item it is, described so, focus inside it (${JSON.stringify(look)})`)
+  // Changed on purpose (round 0.37.0 §12.3): "Add to favorites" first, and enabled, so the menu, whose
+  // items aren't all waiting, isn't described by their reasons.
+  check(same(look.items, ['Add to favorites', 'Remove…']) && look.favorite && look.disabled && look.reason === 'It’s on its way already' && look.menu === '' && look.inside,
+    `while its removal is on its way: "Add to favorites" enabled, "Remove…" disabled, described "It’s on its way already"; the menu not described, focus inside it (${JSON.stringify(look)})`)
   await shootBoth(alice, 'removals-waiting', menu)
   await alice.page.keyboard.press('Escape')
   await menu.waitFor({ state: 'hidden' })
@@ -738,7 +751,8 @@ const giveHold = holdWrite((kind, target) => [target.id, target.actor?.id].some(
     const named = i => i.textContent.replace(said(i.getAttribute('aria-describedby')), '').trim()
     return { items: items.map(named), disabled: remove?.getAttribute('aria-disabled') === 'true' || remove?.disabled === true, reason: said(remove?.getAttribute('aria-describedby')) }
   })
-  check(same(look.items, ['Send to…', 'Remove…']) && look.disabled && look.reason === 'It’s on its way already',
+  // Changed on purpose (round 0.37.0 §12.3): "Add to favorites" first.
+  check(same(look.items, ['Add to favorites', 'Send to…', 'Remove…']) && look.disabled && look.reason === 'It’s on its way already',
     `moves on, with its give to Vex on its way: the menu ${JSON.stringify(look.items)}, "Remove…" disabled, "${look.reason}"`)
   await alice.page.keyboard.press('Escape')
   const refused = await crafted(alice, ALICE_API, { item: 'potion3', quantity: 3, held: 3 })

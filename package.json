@@ -2,6 +2,7 @@
   "name": "sending-stone-player",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://github.com/lambersond/sending-stone-player",
   "scripts": {
     "build": "next build",
     "db:setup": "prisma generate --no-engine && prisma migrate deploy && prisma db push",

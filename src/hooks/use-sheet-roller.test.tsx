@@ -1426,3 +1426,30 @@ describe('hooks/use-sheet-roller, items and coins moved, from module 0.31.0', ()
     expect(result.current.rolls).toHaveLength(2)
   })
 })
+
+describe('hooks/use-sheet-roller, favorites added and removed, from module 0.37.0', () => {
+  it('keeps a favorite first among the rolls, as a use, named for what it is', () => {
+    renderer()
+    const { result } = renderHook(() => useSheetRoller())
+
+    let added: ReturnType<typeof result.current.logFavorite> | undefined
+    let removed: ReturnType<typeof result.current.logFavorite> | undefined
+    act(() => {
+      added = result.current.logFavorite('Rope', 'add')
+      removed = result.current.logFavorite('Bless', 'remove')
+    })
+
+    expect(added).toEqual({
+      kind: 'use',
+      id: expect.stringMatching(/^use-/),
+      label: 'Rope',
+      spell: false,
+      favorite: 'add',
+      at: expect.any(Number),
+    })
+    expect(removed).toMatchObject({ label: 'Bless', favorite: 'remove' })
+    expect(removed?.id).not.toBe(added?.id)
+    expect(result.current.rolls[0]).toBe(removed)
+    expect(result.current.rolls[1]).toBe(added)
+  })
+})

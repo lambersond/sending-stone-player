@@ -1,7 +1,14 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
+import { Favoriting } from './favoriting'
 import { InventoryTab, ItemEntry } from './inventory-tab'
 import { SheetFact } from './sheet-fact'
 import { Modal } from '@/components/modal'
@@ -13,6 +20,7 @@ import {
   castingSheet,
   characterSheet,
   fullerSheet,
+  offeringFavorites,
   sheetItem,
   TEXTS,
 } from '@/mocks/sending-stone'
@@ -1062,5 +1070,128 @@ describe('one spinner on a party’s sheet, from module 0.33.0’s feedback', ()
     expect(document.querySelector('[aria-busy]')).toBeNull()
     // Its label as it always was, its text its own.
     expect(screen.getByText('Encumbrance').tagName).toBe('DT')
+  })
+})
+
+/** A menu's items, by their names. */
+const itemsOf = (menu: HTMLElement) =>
+  within(menu)
+    .getAllByRole('menuitem')
+    .map(item => item.textContent)
+
+describe('components/character-sheet/inventory-tab, favorites, from module 0.37.0', () => {
+  /** A staff carried, which strikes, and zaps besides. */
+  const staff = sheetItem({
+    id: 'staff',
+    name: 'Staff',
+    type: 'weapon',
+    activation: 'Action',
+    toHit: 5,
+    attackId: 'strike',
+    damage: [{ formula: '1d6 + 3', type: 'Bludgeoning', healing: false }],
+    activities: [
+      {
+        id: 'strike',
+        name: 'Strike',
+        type: 'attack',
+        activation: 'Action',
+        range: 'reach 5 ft',
+        target: null,
+        toHit: 5,
+        attackId: 'strike',
+        save: null,
+        damage: [{ formula: '1d6 + 3', type: 'Bludgeoning', healing: false }],
+        uses: null,
+      },
+      {
+        id: 'zap',
+        name: 'Zap',
+        type: 'utility',
+        activation: 'Bonus Action',
+        range: '30 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        save: null,
+        damage: [],
+        uses: null,
+      },
+    ],
+  })
+  const renderOffered = () => {
+    const offering = offeringFavorites(['item:ring'])
+    const sheet = fullerSheet()
+    const [weapons, ...rest] = sheet.inventory.sections
+    render(
+      <Favoriting value={offering.value}>
+        <InventoryTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={toTableSheet(
+            {
+              ...sheet,
+              inventory: {
+                ...sheet.inventory,
+                sections: [
+                  { ...weapons, items: [...weapons.items, staff] },
+                  ...rest,
+                ],
+              },
+            },
+            'https://my-game.forge-vtt.com',
+          )}
+        />
+      </Favoriting>,
+    )
+    return offering
+  }
+
+  it('offers an item’s entry on its row, as the item, Remove of a favorite', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    const ring = within(screen.getByRole('region', { name: 'Equipment' }))
+      .getByText('Plain Ring')
+      .closest('li') as HTMLElement
+    fireEvent.contextMenu(
+      (ring.querySelector('summary') ?? ring.firstElementChild) as HTMLElement,
+      { button: 2 },
+    )
+    const menu = screen.getByRole('menu', { name: 'Plain Ring' })
+    expect(itemsOf(menu)).toEqual(['Remove from favorites'])
+    await user.click(within(menu).getByRole('menuitem'))
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'item', id: 'ring' },
+        name: 'Plain Ring',
+        op: 'remove',
+      },
+    ])
+  })
+
+  it('offers an item that rolls its own entry once, from its name, and each other activity its own', async () => {
+    const user = userEvent.setup()
+    const offering = renderOffered()
+    const name = screen.getByRole('button', { name: /^Staff/, expanded: false })
+    fireEvent.contextMenu(name, { button: 2 })
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(itemsOf(screen.getByRole('menu', { name: 'Staff' }))).toEqual([
+      'Add to favorites',
+    ])
+    await user.keyboard('{Escape}')
+
+    await user.click(name)
+    const zap = screen.getByText('Zap').closest('[tabindex]') as HTMLElement
+    fireEvent.contextMenu(zap, { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Zap' })).getByRole('menuitem'),
+    )
+    expect(offering.chosen).toEqual([
+      {
+        target: { type: 'activity', id: 'zap', item: 'staff' },
+        name: 'Zap',
+        op: 'add',
+      },
+    ])
   })
 })

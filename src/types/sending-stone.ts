@@ -1325,6 +1325,15 @@ export type BridgeFeatures = {
    * enter initiative, as its Gamemaster sets it. Module 0.36.0; absent before.
    */
   companions?: { kinds: string[]; initiative: 'own' | 'after' }
+  /**
+   * Whether the module adds and removes characters' favorites for the app, `"favorite"` among its
+   * kinds, under dnd5e with no switch; or not, and why, `"system"`. Module 0.37.0.
+   */
+  favorites?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+  } | null
 }
 
 /** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
@@ -1487,6 +1496,11 @@ export type CommandResult = {
    * when it was made, or where it failed after the item itself changed. Module 0.33.0.
    */
   removed?: RemovedItem
+  /**
+   * For a favorite added or removed, on "done": whether it's one of the character's favorites now.
+   * Module 0.37.0.
+   */
+  favorited?: boolean
   /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.
