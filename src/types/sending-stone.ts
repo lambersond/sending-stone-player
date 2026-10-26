@@ -1,4 +1,4 @@
-import type { PROMPT_SOURCES } from '@/constants/sending-stone'
+import type { EffectOp, PROMPT_SOURCES } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
 import type { NoteBookKind, NoteRole } from '@/types/notes'
 import type { GroupEntry, GroupSheet } from '@/types/party'
@@ -250,6 +250,12 @@ export type SheetEffect = {
   /** The time it has left, such as "9 Rounds". */
   duration: string | null
   disabled: boolean
+  /**
+   * What its player may do to it from here, from module 0.39.0, where the campaign lets them
+   * (`features.effects`): turn it off, turn it back on, delete it, or nothing; none on a
+   * companion's sheet. Absent from an older module.
+   */
+  ops?: EffectOp[]
   text: string | null
 }
 
@@ -1345,6 +1351,16 @@ export type BridgeFeatures = {
     reason: string | null
     versions: number[]
   } | null
+  /**
+   * Whether the campaign lets its players turn off, turn on and delete their own characters'
+   * effects from here, `"effect"` among its kinds, by its own switch under dnd5e; or not, and why
+   * (`"off"`, `"system"`). Module 0.39.0.
+   */
+  effects?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+  } | null
 }
 
 /** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
@@ -1515,6 +1531,12 @@ export type CommandResult = {
   /** For a dish, from module 0.38.0: its card in Foundry, and whether it's decided. */
   dish?: { card: string | null; state: 'waiting' | 'applied' | 'dismissed' }
   /**
+   * For one of the character's own effects turned off, on or deleted, on "done": the effect, as
+   * the sheet names it, whether it's off now, null once deleted, and whether it was deleted, one
+   * already gone among them. Module 0.39.0.
+   */
+  effect?: EffectChange | null
+  /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.
    */
@@ -1524,6 +1546,13 @@ export type CommandResult = {
    * order then, by the notes' ids alone. Module 0.35.0.
    */
   order?: { chapter: string | null; ids: string[] }
+}
+
+/** What became of one of the character's own effects, from module 0.39.0. */
+export type EffectChange = {
+  id: string
+  disabled: boolean | null
+  deleted: boolean
 }
 
 /**

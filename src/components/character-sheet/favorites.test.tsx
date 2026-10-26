@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Effecting, useEffectControls } from './effect-controls'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { Favoriting } from './favoriting'
@@ -21,8 +22,10 @@ import {
 } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
 import { toTableSheet } from '@/utils/table-view'
+import type { EffectOp } from '@/constants/sending-stone'
 import type {
   CharacterSheet,
+  SheetEffect,
   SheetFavorite,
   SheetUses,
 } from '@/types/sending-stone'
@@ -407,6 +410,55 @@ describe('components/character-sheet/favorites', () => {
     )
 
     expect(rows()).toEqual(['RageOff', 'Bless9 RoundsUnavailable'])
+  })
+
+  it('gives an effect among them the controls its row on the Effects tab has, from module 0.39.0, and one drawn from the favorite’s own data none', async () => {
+    const user = userEvent.setup()
+    const sheet = withFavorites([
+      {
+        type: 'effect',
+        id: 'blessed',
+        name: 'Bless',
+        img: null,
+        disabled: false,
+        suppressed: false,
+      },
+      // None the Effects tab lists: drawn from the favorite alone.
+      {
+        type: 'effect',
+        id: 'rage',
+        name: 'Rage',
+        img: null,
+        disabled: true,
+        suppressed: false,
+      },
+    ])
+    function Pane() {
+      const props = propsFor(sheet)
+      const effects = useEffectControls({
+        on: true,
+        character: 'Thorin Oakenshield',
+        effects: props.sheet.effects,
+        states: new Map(),
+        send: () => 'use-1',
+      })
+      return (
+        <Effecting value={effects}>
+          <FavoritesStrip {...props} />
+        </Effecting>
+      )
+    }
+    render(<Pane />)
+    await user.click(screen.getByText('Bless'))
+    const bless = screen.getByText('Bless').closest('li') as HTMLElement
+    expect(
+      within(bless)
+        .getAllByRole('button')
+        .map(button => button.getAttribute('aria-label')),
+    ).toEqual(['Turn off Bless', 'Delete Bless'])
+    const rage = screen.getByText('Rage').closest('li') as HTMLElement
+    expect(rage.querySelector('details')).toBeNull()
+    expect(within(rage).queryByRole('button')).toBeNull()
   })
 
   it('opens a favorite to its description', async () => {
@@ -1096,6 +1148,42 @@ describe('components/character-sheet/favorites, removed from the app, from modul
         op: 'remove',
       },
     ])
+  })
+
+  it('offers an effect among them, after Remove from favorites, the Turn off and Delete… its row on the Effects tab has, from module 0.39.0', async () => {
+    const user = userEvent.setup()
+    const offering = offeringFavorites(['effect:blessed'])
+    const send = jest.fn<string, [SheetEffect, EffectOp]>(() => 'use-1')
+    const props = propsFor(withFavorites())
+    function Pane() {
+      const effects = useEffectControls({
+        on: true,
+        character: 'Thorin Oakenshield',
+        effects: props.sheet.effects,
+        states: new Map(),
+        send,
+      })
+      return (
+        <Favoriting value={offering.value}>
+          <Effecting value={effects}>
+            <FavoritesStrip {...props} />
+          </Effecting>
+        </Favoriting>
+      )
+    }
+    render(<Pane />)
+    fireEvent.contextMenu(rowOf('Bless'), { button: 2 })
+    const menu = screen.getByRole('menu', { name: 'Bless' })
+    expect(itemsOf(menu)).toEqual([
+      'Remove from favorites',
+      'Turn off',
+      'Delete…',
+    ])
+    await user.click(within(menu).getByRole('menuitem', { name: 'Turn off' }))
+    expect(send.mock.calls.map(([effect, op]) => [effect.id, op])).toEqual([
+      ['blessed', 'disable'],
+    ])
+    expect(offering.chosen).toEqual([])
   })
 
   it('offers none on a resource, spell slots, or a skill, which keeps its roll menu', () => {

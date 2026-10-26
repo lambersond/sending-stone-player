@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
+import { useItemMenu } from './item-menu'
 import { LONG_PRESS } from './roll-button'
 import { PartySheet } from '@/components/party-sheet/party-sheet'
 import { MOST_MOVED } from '@/constants/sending-stone'
@@ -20,6 +21,8 @@ import {
   tableMoves,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { EffectChoice } from './effect-controls'
+import type { FavoriteChoice } from './favoriting'
 import type { TakeInto } from '@/components/transfers/take-controls'
 import type { CharacterSheet } from '@/types/sending-stone'
 import type { TableMoves } from '@/types/table'
@@ -753,5 +756,98 @@ describe('components/character-sheet/item-menu, favorites, from module 0.37.0', 
     await user.keyboard('{Escape}')
     // Only one menu at once: the item's, not its action's as well.
     expect(screen.queryAllByRole('menu')).toHaveLength(0)
+  })
+})
+
+/** An effect's controls, as a pane gives a row them (module 0.39.0). */
+const effectChoice = (fields: Partial<EffectChoice> = {}): EffectChoice => ({
+  ops: ['disable', 'delete'],
+  waiting: false,
+  choose: jest.fn(),
+  ...fields,
+})
+
+/** Opens Bless's row's menu. */
+const openBless = () =>
+  fireEvent.click(screen.getByRole('button', { name: 'Bless’s row' }))
+
+describe('components/character-sheet/item-menu, one of the character’s own effects, from module 0.39.0', () => {
+  /** A row that opens its own menu from a button, as a press of its row would. */
+  function Row({
+    effect,
+    onDelete,
+    favorite,
+  }: Readonly<{
+    effect?: EffectChoice
+    onDelete?: () => void
+    favorite?: FavoriteChoice
+  }>) {
+    const { onMenu, menu } = useItemMenu('Bless', {
+      effect,
+      onDelete,
+      favorite,
+    })
+    return (
+      <>
+        <button type='button' onClick={event => onMenu?.(event.currentTarget)}>
+          Bless’s row
+        </button>
+        {menu}
+      </>
+    )
+  }
+
+  it('offers Turn off, then Delete… in the danger tint, after its favorites entry, labelled as the row’s buttons are', () => {
+    render(
+      <Row
+        effect={effectChoice()}
+        onDelete={jest.fn()}
+        favorite={{ op: 'add', waiting: false, choose: jest.fn() }}
+      />,
+    )
+    openBless()
+    const menu = screen.getByRole('menu', { name: 'Bless' })
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items.map(({ textContent }) => textContent)).toEqual([
+      'Add to favorites',
+      'Turn off',
+      'Delete…',
+    ])
+    expect(items[2].querySelector('svg')).toHaveClass('text-danger')
+  })
+
+  it('offers Turn on of one its player turned off', () => {
+    render(
+      <Row
+        effect={effectChoice({ ops: ['enable', 'delete'] })}
+        onDelete={jest.fn()}
+      />,
+    )
+    openBless()
+    expect(
+      within(screen.getByRole('menu', { name: 'Bless' }))
+        .getAllByRole('menuitem')
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Turn on', 'Delete…'])
+  })
+
+  it('says, while a change of it is on its way, that it is', () => {
+    render(
+      <Row effect={effectChoice({ waiting: true })} onDelete={jest.fn()} />,
+    )
+    openBless()
+    for (const name of ['Turn off', 'Delete…']) {
+      const item = within(
+        screen.getByRole('menu', { name: 'Bless' }),
+      ).getByRole('menuitem', { name })
+      expect(item).toBeDisabled()
+      expect(item).toHaveAccessibleDescription('It’s on its way already')
+    }
+  })
+
+  it('opens no menu where its `ops` give nothing and it has nothing else', () => {
+    render(<Row effect={effectChoice({ ops: [] })} onDelete={jest.fn()} />)
+    openBless()
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

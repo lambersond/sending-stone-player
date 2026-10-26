@@ -10,11 +10,14 @@ import {
   combatant,
   DISHES_OTHER_SYSTEM,
   DISHES_SWITCHED_OFF,
+  EFFECTS_OTHER_SYSTEM,
+  EFFECTS_SWITCHED_OFF,
   FAVORITING,
   fullerSheet,
   mockJournalUpdated,
   NOT_FAVORITING,
   TAKING_DISHES,
+  TAKING_EFFECTS,
   NOT_REMOVING,
   REMOVING,
   biteAction,
@@ -168,6 +171,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -219,6 +224,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -271,6 +278,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -307,6 +316,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -418,6 +429,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -453,6 +466,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -496,6 +511,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -531,6 +548,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -579,6 +598,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -616,6 +637,8 @@ describe('db/campaign-events', () => {
           // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
           dishesEnabled: false,
           dishVersions: [],
+          // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+          effectsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -656,6 +679,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -855,6 +880,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -897,6 +924,8 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
+        // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+        effectsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -937,6 +966,8 @@ describe('db/campaign-events', () => {
           // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
           dishesEnabled: false,
           dishVersions: [],
+          // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+          effectsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -2141,6 +2172,64 @@ describe('db/campaign-events, dishes from the Magical Recipe Book, from module 0
       rollKinds: ['skill'],
       companionKinds: ['skill'],
       dishesEnabled: true,
+    })
+  })
+})
+
+describe("db/campaign-events, a player's own effects, from module 0.39.0", () => {
+  const rolls = { enabled: false, kinds: [], reason: 'off' }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+  })
+
+  it('keeps that the campaign lets its players change their own effects, by its own switch: everything else off', async () => {
+    await expect(
+      stored({ rolls, effects: TAKING_EFFECTS }),
+    ).resolves.toMatchObject({
+      rollsEnabled: false,
+      transfersEnabled: false,
+      removalsEnabled: false,
+      favoritesEnabled: false,
+      notesEnabled: false,
+      dishesEnabled: false,
+      effectsEnabled: true,
+    })
+  })
+
+  it.each([
+    ['has its switch off', EFFECTS_SWITCHED_OFF],
+    ['is under another system', EFFECTS_OTHER_SYSTEM],
+    ['names no effect among its kinds', { ...TAKING_EFFECTS, kinds: ['dish'] }],
+    ['says so in junk', { ...TAKING_EFFECTS, enabled: 'yes' }],
+    ['says nothing readable', 'on'],
+  ])('is off where the module %s', async (_name, effects) => {
+    await expect(stored({ rolls, effects })).resolves.toMatchObject({
+      effectsEnabled: false,
+    })
+  })
+
+  it('is cleared by a hello from module 0.38.1, which says nothing of them', async () => {
+    await stored({ rolls, effects: TAKING_EFFECTS })
+    await expect(
+      stored({ rolls, dishes: TAKING_DISHES }),
+    ).resolves.toMatchObject({ effectsEnabled: false, dishesEnabled: true })
+    await expect(stored(null)).resolves.toMatchObject({
+      effectsEnabled: false,
+    })
+  })
+
+  it("never takes an effect changed as one of the rolls, nor a companion's, even where the module's rolls name it", async () => {
+    await expect(
+      stored({
+        rolls: { enabled: true, kinds: ['skill', 'effect'], reason: null },
+        companions: { kinds: ['skill', 'effect'], initiative: 'own' },
+        effects: TAKING_EFFECTS,
+      }),
+    ).resolves.toMatchObject({
+      rollKinds: ['skill'],
+      companionKinds: ['skill'],
+      effectsEnabled: true,
     })
   })
 })

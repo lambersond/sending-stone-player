@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Info, Plus } from 'lucide-react'
+import { useCampaignChoice } from './campaign-index'
 import { CampaignSetupForm } from './campaign-setup-form'
 import { ConnectSteps } from './connect-steps'
 import { Modal } from '@/components/modal'
@@ -15,12 +16,16 @@ type NewCampaignProps = {
   suggestedSecret: string
 }
 
-/** Opens the form for setting up a campaign. */
+/**
+ * Opens the form for setting up a campaign. Done chooses the campaign just set up, on the
+ * campaigns page (round 0.39.0), as its row would.
+ */
 export function NewCampaignButton({
   action,
   suggestedSecret,
 }: Readonly<NewCampaignProps>) {
   const [open, setOpen] = useState(false)
+  const { choose } = useCampaignChoice()
   return (
     <>
       <button
@@ -35,7 +40,10 @@ export function NewCampaignButton({
         <CampaignSetupForm
           action={action}
           suggestedSecret={suggestedSecret}
-          onDone={() => setOpen(false)}
+          onDone={id => {
+            setOpen(false)
+            choose(id)
+          }}
         />
       </Modal>
     </>

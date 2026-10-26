@@ -64,4 +64,64 @@ describe('components/copy-button', () => {
       'min-w-11',
     )
   })
+
+  it('shows its word beside its icon where asked, Copy, then Copied, as its name says, and tells its owner once copied (round 0.39.0)', async () => {
+    const user = userEvent.setup()
+    jest.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    const onCopied = jest.fn()
+    render(
+      <CopyField value={url} label='invite link' word onCopied={onCopied} />,
+    )
+
+    const button = screen.getByRole('button', { name: 'Copy invite link' })
+    expect(button).toHaveTextContent(/^Copy$/)
+    expect(button).toHaveClass('min-h-9')
+    expect(screen.getByText(url).tagName).toBe('CODE')
+    expect(onCopied).not.toHaveBeenCalled()
+
+    await user.click(button)
+    expect(screen.getByRole('button', { name: 'Copied' })).toHaveTextContent(
+      /^Copied$/,
+    )
+    expect(onCopied).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells its owner nothing where the clipboard refuses, and shows no word unless asked', async () => {
+    const user = userEvent.setup()
+    jest
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('denied'))
+    const onCopied = jest.fn()
+    render(<CopyField value={url} label='invite link' onCopied={onCopied} />)
+
+    const button = screen.getByRole('button', { name: 'Copy invite link' })
+    expect(button).toHaveTextContent(/^$/)
+    await user.click(button)
+    expect(onCopied).not.toHaveBeenCalled()
+  })
+
+  it('offers Copy again once its value changes, the new one not copied yet, and Copied for it once it is (round 0.39.0)', async () => {
+    const user = userEvent.setup()
+    const writeText = jest
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockResolvedValue()
+    const fresh = 'https://stone.example/join/def'
+    const { rerender } = render(
+      <CopyField value={url} label='invite link' word />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Copy invite link' }))
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
+
+    // Drawn again in place, as a refreshed page draws it, with a new value.
+    rerender(<CopyField value={fresh} label='invite link' word />)
+    const button = screen.getByRole('button', { name: 'Copy invite link' })
+    expect(button).toHaveTextContent(/^Copy$/)
+    expect(button).toHaveAttribute('title', 'Copy')
+
+    await user.click(button)
+    expect(writeText).toHaveBeenLastCalledWith(fresh)
+    expect(screen.getByRole('button', { name: 'Copied' })).toHaveTextContent(
+      /^Copied$/,
+    )
+  })
 })

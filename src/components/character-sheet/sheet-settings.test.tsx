@@ -4,6 +4,7 @@ import { useTheme } from 'next-themes'
 import { LAYOUTS } from './actions-layout'
 import { SheetSettings } from './sheet-settings'
 import { TableApiContext } from '@/hooks/use-table-api'
+import type { TableSeat } from '@/types/character'
 
 jest.mock('next-themes', () => ({ useTheme: jest.fn() }))
 
@@ -104,7 +105,10 @@ describe('components/character-sheet/sheet-settings', () => {
     const offered = LAYOUTS.filter(({ id }) => id !== 'columns')
     const { rerender } = render(<SheetSettings />)
     await user.click(cog())
-    expect(within(settings()).queryByRole('group')).toBeNull()
+    // Changed on purpose (round 0.39.0 §3.4): the cog has a Help group now, at its end.
+    expect(
+      within(settings()).queryByRole('group', { name: 'Actions layout' }),
+    ).toBeNull()
 
     rerender(
       <SheetSettings
@@ -470,5 +474,152 @@ describe('components/character-sheet/sheet-settings', () => {
         expect(each.closest('label')).toHaveClass('min-h-11')
       }
     })
+  })
+  describe('Configure Magical Cookbook (round 0.39.0)', () => {
+    it('is offered with `cookbook` alone, last among the settings, so the first still takes focus', async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <SheetSettings send={{ on: true, onChange: jest.fn() }} />,
+      )
+      await user.click(cog())
+      expect(
+        within(settings()).queryByRole('button', {
+          name: 'Configure Magical Cookbook',
+        }),
+      ).toBeNull()
+
+      rerender(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          layouts={{
+            offered: LAYOUTS.filter(({ id }) => id !== 'columns'),
+            layout: 'list',
+            choose: jest.fn(),
+          }}
+          cookbook={{ onOpen: jest.fn() }}
+        />,
+      )
+      const item = within(settings()).getByRole('button', {
+        name: 'Configure Magical Cookbook',
+      })
+      expect(item).toHaveAttribute('aria-haspopup', 'dialog')
+      expect(item).toHaveClass('min-h-11')
+      // After the Actions layout, and before Help, the settings' last.
+      const layout = within(settings()).getByRole('group', {
+        name: 'Actions layout',
+      })
+      const help = within(settings()).getByRole('group', { name: 'Help' })
+      expect(layout.compareDocumentPosition(item)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(item.compareDocumentPosition(help)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      await user.keyboard('{Escape}')
+      await user.click(cog())
+      await waitFor(() =>
+        expect(
+          within(settings()).getByRole('switch', { name: 'Send to the table' }),
+        ).toHaveFocus(),
+      )
+    })
+
+    it('gives the cog focus, closes the settings, then opens the book', async () => {
+      const user = userEvent.setup()
+      const onOpenChange = jest.fn()
+      const focused: unknown[] = []
+      const onOpen = jest.fn(() => {
+        // The cog has focus, and the settings have been told to close already, as it opens.
+        focused.push(document.activeElement, onOpenChange.mock.lastCall)
+      })
+      render(
+        <SheetSettings cookbook={{ onOpen }} onOpenChange={onOpenChange} />,
+      )
+      await user.click(cog())
+      expect(onOpenChange).toHaveBeenLastCalledWith(true)
+      await user.click(
+        within(settings()).getByRole('button', {
+          name: 'Configure Magical Cookbook',
+        }),
+      )
+      expect(onOpen).toHaveBeenCalledTimes(1)
+      expect(focused).toEqual([cog(), [false]])
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
+      expect(onOpenChange).toHaveBeenLastCalledWith(false)
+      expect(cog()).toHaveFocus()
+    })
+
+    it('tells its owner as it opens and closes, whether or not the book is offered', async () => {
+      const user = userEvent.setup()
+      const onOpenChange = jest.fn()
+      render(<SheetSettings onOpenChange={onOpenChange} />)
+      await user.click(cog())
+      expect(onOpenChange.mock.calls).toEqual([[true]])
+      await user.keyboard('{Escape}')
+      expect(onOpenChange.mock.calls).toEqual([[true], [false]])
+      await user.click(cog())
+      await user.click(cog())
+      expect(onOpenChange.mock.calls).toEqual([
+        [true],
+        [false],
+        [true],
+        [false],
+      ])
+    })
+  })
+
+  describe('Help (round 0.39.0)', () => {
+    it.each<[string, TableSeat | undefined]>([
+      ['a player’s', undefined],
+      [
+        'the Gamemaster’s',
+        { role: 'gm', api: '/api/campaigns/c1/characters/a1', key: 'gm:c1:a1' },
+      ],
+    ])(
+      'ends %s cog with Report a bug and Request a feature, each opening its form in a new tab',
+      async (_whose, seat) => {
+        const user = userEvent.setup()
+        render(
+          <TableApiContext value={seat}>
+            <SheetSettings
+              send={{ on: true, onChange: jest.fn() }}
+              cookbook={seat ? undefined : { onOpen: jest.fn() }}
+            />
+          </TableApiContext>,
+        )
+        await user.click(cog())
+        const help = within(settings()).getByRole('group', { name: 'Help' })
+        // Last of all.
+        expect(settings().lastElementChild).toBe(help)
+        expect(
+          within(help)
+            .getAllByRole('link')
+            .map(link => [
+              link.textContent,
+              link.getAttribute('href'),
+              link.getAttribute('target'),
+            ]),
+        ).toEqual([
+          [
+            'Report a bug (opens in a new tab)',
+            'https://github.com/lambersond/sending-stone-player/issues/new?template=bug_report.yml',
+            '_blank',
+          ],
+          [
+            'Request a feature (opens in a new tab)',
+            'https://github.com/lambersond/sending-stone-player/issues/new?template=feature_request.yml',
+            '_blank',
+          ],
+        ])
+        // The first setting still takes focus.
+        await waitFor(() =>
+          expect(
+            within(settings()).getByRole('switch', {
+              name: 'Send to the table',
+            }),
+          ).toHaveFocus(),
+        )
+      },
+    )
   })
 })

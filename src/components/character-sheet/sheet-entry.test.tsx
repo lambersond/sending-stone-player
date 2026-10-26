@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-react'
 import { Favoriting } from './favoriting'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { offeringFavorites } from '@/mocks/sending-stone'
+import type { EffectChoice } from './effect-controls'
 
 /**
  * Every image as a page drawn on the server has it: done loading and broken before React
@@ -342,5 +343,130 @@ describe('components/character-sheet/sheet-entry, favorites, from module 0.37.0'
     fireEvent.contextMenu(darkvisionRow(), { button: 2 })
     expect(onMenu).toHaveBeenCalled()
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+/** An effect's controls, as a pane gives a row them (module 0.39.0). */
+const effectChoice = (fields: Partial<EffectChoice> = {}): EffectChoice => ({
+  ops: ['disable', 'delete'],
+  waiting: false,
+  choose: jest.fn(),
+  ...fields,
+})
+
+describe('components/character-sheet/sheet-entry, one of the character’s own effects, from module 0.39.0', () => {
+  it('is opened and closed by its owner, where it keeps that', () => {
+    const onOpenChange = jest.fn()
+    const { rerender } = render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Bless'
+          fallback={Sparkles}
+          lead={<p>Its controls</p>}
+          open
+          onOpenChange={onOpenChange}
+        />
+      </ul>,
+    )
+    // Drawn open, as where it was open in another section.
+    expect(document.querySelector('details')).toHaveAttribute('open')
+    expect(screen.getByText('Its controls')).toBeInTheDocument()
+
+    rerender(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Bless'
+          fallback={Sparkles}
+          lead={<p>Its controls</p>}
+          open={false}
+          onOpenChange={onOpenChange}
+        />
+      </ul>,
+    )
+    expect(document.querySelector('details')).not.toHaveAttribute('open')
+    expect(screen.queryByText('Its controls')).toBeNull()
+    fireEvent.click(document.querySelector('summary') as HTMLElement)
+    return waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(true))
+  })
+
+  it('offers its favorites entry first in its menu, then Turn off or Turn on, then Delete…, each doing its own', () => {
+    const offering = offeringFavorites(['effect:blessed'])
+    const given = effectChoice()
+    const onDelete = jest.fn()
+    render(
+      <Favoriting value={offering.value}>
+        <ul>
+          <SheetEntry
+            characterId='char-1'
+            name='Bless'
+            fallback={Sparkles}
+            favoriteKey='effect:blessed'
+            lead={<p>Its controls</p>}
+            effectChoice={given}
+            onDelete={onDelete}
+            dialog={<dialog aria-label='Asked' />}
+          />
+        </ul>
+      </Favoriting>,
+    )
+    // Its dialog is the row's, outside what opens.
+    const asked = document.querySelector('dialog') as HTMLElement
+    expect(asked.closest('details')).toBeNull()
+    expect(asked.parentElement?.tagName).toBe('LI')
+
+    const summary = document.querySelector('summary') as HTMLElement
+    fireEvent.contextMenu(summary, { button: 2 })
+    const items = () =>
+      screen.getAllByRole('menuitem').map(({ textContent }) => textContent)
+    expect(items()).toEqual(['Remove from favorites', 'Turn off', 'Delete…'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Turn off' }))
+    expect(given.choose).toHaveBeenCalledWith('disable')
+    expect(onDelete).not.toHaveBeenCalled()
+    // The row had focus as the menu closed, for a dialog to give it back to.
+    expect(summary).toHaveFocus()
+
+    fireEvent.contextMenu(summary, { button: 2 })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }))
+    expect(onDelete).toHaveBeenCalledTimes(1)
+    expect(given.choose).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers Turn on of one off, and no Delete… where its `ops` give none, nor without a dialog to ask in', () => {
+    const { rerender } = render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Rage'
+          fallback={Sparkles}
+          lead={<p>Its controls</p>}
+          effectChoice={effectChoice({ ops: ['enable'] })}
+          onDelete={jest.fn()}
+        />
+      </ul>,
+    )
+    const summary = document.querySelector('summary') as HTMLElement
+    fireEvent.contextMenu(summary, { button: 2 })
+    expect(
+      screen.getAllByRole('menuitem').map(({ textContent }) => textContent),
+    ).toEqual(['Turn on'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+
+    rerender(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Rage'
+          fallback={Sparkles}
+          lead={<p>Its controls</p>}
+          effectChoice={effectChoice({ ops: ['disable', 'delete'] })}
+        />
+      </ul>,
+    )
+    fireEvent.contextMenu(summary, { button: 2 })
+    expect(
+      screen.getAllByRole('menuitem').map(({ textContent }) => textContent),
+    ).toEqual(['Turn off'])
   })
 })

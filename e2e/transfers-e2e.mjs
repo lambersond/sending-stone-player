@@ -174,8 +174,10 @@ async function openRow(who, name) {
   if (!(await details.evaluate(el => el.open))) await details.locator('summary').first().click()
   return scope
 }
+// Changed on purpose (round 0.39.0 §4.8): the campaign chosen in the address, which shows it on a
+// phone in the list's place; and its sections found by their headings' names, h3s now, one level up.
 const card = async who => {
-  await who.page.goto(`${BASE}/campaigns`)
+  await who.page.goto(`${BASE}/campaigns?campaign=${A}`)
   const article = who.page.getByRole('article', { name: TITLE })
   await article.waitFor()
   return article
@@ -183,7 +185,7 @@ const card = async who => {
 const MOVES_OFF = 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 const MOVES_OLD = 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
 const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.'
-const movesSection = article => article.locator('section').filter({ has: article.page().locator('h4', { hasText: 'Items and coins' }) })
+const movesSection = article => article.locator('section').filter({ has: article.page().getByRole('heading', { name: 'Items and coins' }) })
 
 // =================================================================================================
 // 1. Off by default

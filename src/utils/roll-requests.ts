@@ -94,7 +94,9 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * combatant isn't the one the page showed, or that one is hidden (`moved`); or it's neither the
  * character's turn nor one of its companions' (`not-turn`); and for a turn taken back, that the End
  * Turn named can't be (`not-undoable`): not this seat's, not ended, too long ago, or its turn's
- * combatant gone.
+ * combatant gone. From module 0.39.0, for one of the character's own effects turned off, on or
+ * deleted: it's there, but not its player's to change that way now (`effect`), as the sheet's `ops`
+ * say, or the game.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -139,6 +141,7 @@ export type RollRefusal =
   | 'moved'
   | 'not-turn'
   | 'not-undoable'
+  | 'effect'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -188,8 +191,9 @@ export function isSeatCombatant(
  * from module 0.29.0, of a concentration, which post nothing in the game, so would leave no mark of
  * theirs; and from module 0.36.0 a turn ended, or taken back, which posts nothing either: the
  * Gamemaster ends one, or goes back to it, in Foundry; and from module 0.37.0 a favorite added or
- * removed, which posts nothing either. Charges spent and Heroic Inspiration post a line marked as
- * theirs.
+ * removed, which posts nothing either; and from module 0.39.0 a character's own effect turned off,
+ * on or deleted, which posts nothing either. Charges spent and Heroic Inspiration post a line
+ * marked as theirs.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
@@ -197,6 +201,7 @@ export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endTurn',
   'undoEndTurn',
   'favorite',
+  'effect',
 ])
 
 /**
@@ -1195,6 +1200,8 @@ export function toRollRequestView(
     typeof result?.favorited === 'boolean'
       ? { favorited: result.favorited }
       : {}
+  // What became of one of the character's own effects, from module 0.39.0, as the game says.
+  const effect = result?.effect ? { effect: result.effect } : {}
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
@@ -1206,6 +1213,7 @@ export function toRollRequestView(
         ...moved,
         ...removed,
         ...favorited,
+        ...effect,
       }
     }
     if (!result.visible) {
@@ -1218,6 +1226,7 @@ export function toRollRequestView(
         ...moved,
         ...removed,
         ...favorited,
+        ...effect,
       }
     }
     const rolls = result.rolls.map(roll => toTableRoll(roll))
@@ -1233,6 +1242,7 @@ export function toRollRequestView(
       ...moved,
       ...removed,
       ...favorited,
+      ...effect,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
@@ -1254,6 +1264,7 @@ export function toRollRequestView(
       ...moved,
       ...removed,
       ...favorited,
+      ...effect,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -1274,6 +1285,7 @@ export function toRollRequestView(
     ...moved,
     ...removed,
     ...favorited,
+    ...effect,
   }
 }
 
@@ -1306,6 +1318,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   transfer: 'Items or coins moved',
   remove: 'An item removed',
   favorite: 'A favorite added or removed',
+  effect: 'An effect changed',
   endTurn: 'A turn ended',
   undoEndTurn: 'A turn taken back',
 }

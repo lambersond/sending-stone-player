@@ -51,7 +51,7 @@ body:
         - Chat
         - A party's sheet
         - The journal
-        - The Magical Recipe Book card
+        - The Magical Recipe Book (Configure Magical Cookbook, in the cog)
         - The settings (the cog)
         - Somewhere else
     validations:
@@ -108,7 +108,7 @@ body:
     id: module-version
     attributes:
       label: Sending Stone module version
-      description: The Gamemaster sees it on the campaign's card, under Foundry settings, Versions. Players, ask your Gamemaster, or say you don't know.
+      description: The Gamemaster sees it on the campaign's page, under Foundry settings, Versions. Players, ask your Gamemaster, or say you don't know.
       placeholder: "0.37.0"
   - type: input
     id: when

@@ -1169,9 +1169,10 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
     const pill = besideName() as HTMLElement
     expect(pill).toHaveTextContent('GM, Gamemaster view')
     expect(within(pill).getByText(', Gamemaster view')).toHaveClass('sr-only')
+    // Changed on purpose (round 0.39.0 §4.7): back to its campaign, chosen on the campaigns page.
     expect(
       screen.getByRole('link', { name: 'Your campaigns' }),
-    ).toHaveAttribute('href', '/campaigns')
+    ).toHaveAttribute('href', '/campaigns?campaign=c1')
     expect(screen.queryByRole('link', { name: 'All characters' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Delete/ })).toBeNull()
   })

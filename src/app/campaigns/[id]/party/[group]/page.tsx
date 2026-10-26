@@ -39,7 +39,11 @@ export default async function GmPartyPage({ params }: Props) {
       api={`/api/campaigns/${encodeURIComponent(id)}/party/${encodeURIComponent(group)}`}
       role='gm'
       initialView={view}
-      back={{ href: '/campaigns', label: 'Your campaigns' }}
+      // Back to its campaign, chosen on the campaigns page (round 0.39.0).
+      back={{
+        href: `/campaigns?campaign=${encodeURIComponent(id)}`,
+        label: 'Your campaigns',
+      }}
       // Taken into whichever of the campaign's characters is picked as it's taken (module
       // 0.31.0): only data, as the page that picks builds the way there itself.
       takeInto={{ kind: 'choose', campaignId: id }}

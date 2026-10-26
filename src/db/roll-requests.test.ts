@@ -565,11 +565,12 @@ describe('db/roll-requests', () => {
           createdAt: { gt: ago(30_000) },
           // No move of items and coins, from module 0.31.0, nor removal, from module 0.33.0, to a
           // session not known to take them; changed on purpose (round 0.37.0 §7.15): nor a
-          // favorite, from module 0.37.0.
+          // favorite, from module 0.37.0; changed on purpose (round 0.39.0 §1.10): nor an effect
+          // changed, from module 0.39.0.
           OR: [
             {
               role: 'player',
-              kind: { notIn: ['transfer', 'remove', 'favorite'] },
+              kind: { notIn: ['transfer', 'remove', 'favorite', 'effect'] },
             },
           ],
         },
@@ -1874,6 +1875,31 @@ describe('db/roll-requests', () => {
   describe('markBridgePolled', () => {
     // Changed on purpose (round 0.37.0 §7.15): each says whether the game takes favorites too.
     // Changed on purpose (round 0.38.0 §D9): and dishes from the Magical Recipe Book.
+    // Changed on purpose (round 0.39.0 §1.10): and a player's own effects.
+    it('tells whether the campaign lets its players change their own effects, from module 0.39.0, with everything else off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: false,
+        dishesEnabled: false,
+        effectsEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: false,
+        dishesEnabled: false,
+        effectsEnabled: true,
+        playersPresent: false,
+      })
+    })
+
     it('tells whether the game takes dishes from the Magical Recipe Book, from module 0.38.0, with everything else off', async () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
@@ -1882,6 +1908,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: true,
+        effectsEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1892,6 +1919,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: true,
+        effectsEnabled: false,
         playersPresent: false,
       })
     })
@@ -1904,6 +1932,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: true,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1914,6 +1943,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: true,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersPresent: false,
       })
     })
@@ -1926,6 +1956,7 @@ describe('db/roll-requests', () => {
         notesEnabled: true,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1936,6 +1967,7 @@ describe('db/roll-requests', () => {
         notesEnabled: true,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersPresent: false,
       })
     })
@@ -1948,6 +1980,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
@@ -1958,6 +1991,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
@@ -1972,6 +2006,8 @@ describe('db/roll-requests', () => {
           favoritesEnabled: true,
           // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
           dishesEnabled: true,
+          // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
+          effectsEnabled: true,
           playersSeenAt: true,
         },
       })
@@ -1985,6 +2021,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1995,6 +2032,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersPresent: false,
       })
     })
@@ -2007,6 +2045,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -2017,6 +2056,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersPresent: false,
       })
     })
@@ -2032,6 +2072,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersSeenAt,
       } as any)
 
@@ -2042,6 +2083,7 @@ describe('db/roll-requests', () => {
         notesEnabled: false,
         favoritesEnabled: false,
         dishesEnabled: false,
+        effectsEnabled: false,
         playersPresent: false,
       })
     })
@@ -2925,6 +2967,15 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       kind: 'favorite',
     },
     { id: 'favorite-gm', role: 'gm', requestedById: 'gm-1', kind: 'favorite' },
+    // From module 0.39.0: a player's change to an effect, and one the Gamemaster's seat should
+    // never have sent.
+    {
+      id: 'effect-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'effect',
+    },
+    { id: 'effect-gm', role: 'gm', requestedById: 'gm-1', kind: 'effect' },
   ].map((row, index) => ({
     ...row,
     campaignId: 'c1',
@@ -3042,6 +3093,84 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
     await expect(
       fetched({ ...removing, rollFeatures: ['gmRolls'] }),
     ).resolves.toEqual(['roll-player', 'remove-player', 'roll-gm', 'remove-gm'])
+  })
+
+  it("hands a change to an effect over only to the hello's session, and only a player's, from module 0.39.0", async () => {
+    const changing = { ...removing, effectsEnabled: true }
+    await expect(fetched(changing)).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'remove-gm',
+      'effect-player',
+    ])
+    // The campaign's own select names the switch, as the claim reads no field it doesn't ask for.
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      select: expect.objectContaining({ effectsEnabled: true }),
+    })
+    await expect(fetched(changing, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+    // Never the Gamemaster's, whose rolls go to the game, with everything else on too.
+    await expect(
+      fetched({
+        ...changing,
+        rollFeatures: ['gmRolls'],
+        transfersEnabled: true,
+        favoritesEnabled: true,
+      }),
+    ).resolves.toEqual([
+      'roll-player',
+      'move-player',
+      'remove-player',
+      'roll-gm',
+      'remove-gm',
+      'favorite-player',
+      'effect-player',
+    ])
+  })
+
+  it('withholds every change to an effect while the campaign lets none', async () => {
+    await expect(
+      fetched({ ...removing, removalsEnabled: false, effectsEnabled: false }),
+    ).resolves.toEqual(['roll-player'])
+    await expect(
+      fetched({
+        ...removing,
+        rollFeatures: ['gmRolls'],
+        favoritesEnabled: true,
+      }),
+    ).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'roll-gm',
+      'remove-gm',
+      'favorite-player',
+    ])
+  })
+
+  it('hands a change to an effect over as the module is sent it: the effect and the op, no dice', async () => {
+    const change = {
+      kind: 'effect',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      effect: { op: 'disable', id: 'blessed' },
+    }
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...removing,
+      effectsEnabled: true,
+    } as any)
+    prismaMock.rollRequest.findMany
+      .mockResolvedValueOnce([{ id: 'effect-player' }] as any)
+      .mockResolvedValueOnce([
+        held('effect-player', { kind: 'effect', payload: change }),
+      ] as any)
+
+    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+      { ...change, id: 'effect-player', actorId: 'actor-thorin' },
+    ])
   })
 
   it('hands a removal over as the module is sent it, the Gamemaster’s saying so', async () => {

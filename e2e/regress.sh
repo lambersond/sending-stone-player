@@ -26,8 +26,8 @@ run step3 39 X=1
 run step2 66 X=1
 run step1 36 X=1
 run sheet 60 X=1
-run gm 62 X=1 SHOTS=$O/shots-gm
-run gm 62 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
+run gm 65 X=1 SHOTS=$O/shots-gm
+run gm 65 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
 run conditions 22 X=1
 run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
@@ -52,7 +52,7 @@ run rolling 47 MIDI=1 SHOTS=$O/shots-022
 run sync 62 SHOTS=$O/shots-022
 run favres 21 SHOTS=$O/shots-023
 run toasts 149 TIMEOUT=900 SHOTS=$O/shots-026
-run gmerr 53 SHOTS=$O/shots-025
+run gmerr 58 SHOTS=$O/shots-025
 run gmroll 70 SHOTS=$O/shots-026
 run gmroll 6 SKEW=1 MODULE=$O/module-0.22.0 SHOTS=$O/shots-026
 run gmroll 70 SKEW=024 MODULE=$O/module-0.24.0 SHOTS=$O/shots-026
@@ -137,6 +137,13 @@ run favoriting 8 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
 # code, a card for the Gamemaster in Foundry and an effect on each character chosen; dnd5e 6.0.5
 # (off); and module 0.37.0 (none).
-run cookbook 82 TIMEOUT=600 SHOTS=$O/shots-038
-run cookbook 9 DND5E6=1 SHOTS=$O/shots-038
-run cookbook 9 SKEW=037 MODULE=$O/module-0.37.0 SHOTS=$O/shots-038
+run cookbook 92 TIMEOUT=600 SHOTS=$O/shots-038
+run cookbook 10 DND5E6=1 SHOTS=$O/shots-038
+run cookbook 10 SKEW=037 MODULE=$O/module-0.37.0 SHOTS=$O/shots-038
+# Module 0.39.0: a player's own effects turned off, on and deleted from the app, by the campaign's
+# switch; dnd5e 6.0.5; and module 0.38.1 (none).
+run effects 38 SHOTS=$O/shots-039
+run effects 18 DND5E6=1 SHOTS=$O/shots-039
+run effects 7 SKEW=038 MODULE=$O/module-0.38.1 SHOTS=$O/shots-039
+# The campaign page, option A (v0.39): the Gamemaster's campaigns as a list and the chosen one.
+run campaigns 52 SHOTS=$O/shots-039

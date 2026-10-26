@@ -3878,7 +3878,10 @@ describe('components/character-sheet/character-pane', () => {
 
       const settings = await openSettings(user)
 
-      expect(within(settings).queryByRole('group')).toBeNull()
+      // Changed on purpose (round 0.39.0 §3.4): the cog has a Help group now, at its end.
+      expect(
+        within(settings).queryByRole('group', { name: 'Actions layout' }),
+      ).toBeNull()
     })
 
     it('lay the Actions tab out as chosen there', async () => {
@@ -5236,16 +5239,170 @@ describe('components/character-sheet/character-pane, favorites added and removed
   })
 })
 
+/** Bless's row on the Effects tab, opened. */
+const openBless = async (user: User) => {
+  await user.click(effectRow('Bless'))
+  return effectRow('Bless').closest('li') as HTMLElement
+}
+
+describe('components/character-sheet/character-pane, a player’s own effects, from module 0.39.0', () => {
+  /** Thorin's pane, Bless among his effects, which its player may turn off or delete. */
+  const renderEffecting = (props: { effects?: true } = {}, seat?: TableSeat) =>
+    render(
+      <TableApiContext value={seat}>
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          {...props}
+        />
+      </TableApiContext>,
+    )
+
+  beforeEach(() => {
+    // Roll results as the banner: Effects shows it only once the player has acted.
+    clearStorage()
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  it('offers them at a player’s seat whose game takes them, Send to the table off too, sends what’s chosen, and shows its line on Effects', async () => {
+    // This device sends no rolls: that holds back no change of an effect, which has no version
+    // made here instead.
+    localStorage.setItem('sending-stone:send-rolls', 'off')
+    const posted = posting()
+    const user = userEvent.setup()
+    renderEffecting({ effects: true })
+    await show('Effects')
+    expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+
+    const bless = await openBless(user)
+    await user.click(
+      within(bless).getByRole('button', { name: 'Turn off Bless' }),
+    )
+
+    expect(posted).toEqual([
+      {
+        kind: 'effect',
+        effect: { op: 'disable', id: 'blessed' },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+        label: 'Bless',
+      },
+    ])
+    const rolls = screen.getByRole('region', { name: 'Your rolls' })
+    expect(rolls).toHaveTextContent('Bless')
+    expect(rolls).toHaveTextContent('Sending to your Gamemaster’s game…')
+    // Waiting, its button turning.
+    expect(
+      within(bless).getByRole('button', { name: 'Turn off Bless' }),
+    ).toBeDisabled()
+  })
+
+  it.each<[string, { effects?: true }, TableSeat | undefined]>([
+    ['without it', {}, undefined],
+    [
+      'at the Gamemaster’s page, given it',
+      { effects: true },
+      { role: 'gm', api: '/api/campaigns/c1/characters/a1', key: 'gm:c1:a1' },
+    ],
+  ])('offers none %s', async (_where, props, seat) => {
+    posting()
+    const user = userEvent.setup()
+    renderEffecting(props, seat)
+    await show('Effects')
+    const bless = await openBless(user)
+    expect(
+      within(bless).queryByRole('button', { name: /^Turn|^Delete/ }),
+    ).toBeNull()
+    // Rage, which has no text, has nothing to open to.
+    const rage = within(
+      screen.getByRole('region', { name: 'Temporary Effects' }),
+    )
+      .getByText('Rage')
+      .closest('li') as HTMLElement
+    expect(rage.querySelector('details')).toBeNull()
+  })
+
+  it('gives the Effects tab’s own panel focus once an effect deleted from the last row of its section has gone', async () => {
+    answering({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        effect: { id: 'shieldOfFaith', disabled: null, deleted: true },
+      },
+    })
+    const user = userEvent.setup()
+    const { rerender } = renderEffecting({ effects: true })
+    await show('Effects')
+    const shield = within(
+      screen.getByRole('region', { name: 'Inactive Effects' }),
+    )
+      .getByText('Shield of Faith')
+      .closest('li') as HTMLElement
+    await user.click(
+      shield.querySelector(':scope > details > summary') as HTMLElement,
+    )
+    await user.click(
+      within(shield).getByRole('button', { name: 'Delete Shield of Faith' }),
+    )
+    await user.click(
+      within(
+        screen.getByRole('dialog', { name: 'Delete Shield of Faith?' }),
+      ).getByRole('button', { name: 'Delete' }),
+    )
+
+    // Made in the game, the sheet not yet come: its row is still there.
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('region', { name: 'Your rolls' }),
+        ).toHaveTextContent('Deleted'),
+      { timeout: 3000 },
+    )
+    expect(shield).toBeInTheDocument()
+
+    // The sheet comes without it, and so without its section.
+    rerender(
+      <TableApiContext value={undefined}>
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(
+            fullerSheet({
+              effects: fullerSheet().effects.filter(
+                ({ id }) => id !== 'inactive',
+              ),
+            }),
+            GAME,
+          )}
+          effects
+        />
+      </TableApiContext>,
+    )
+    expect(
+      screen.queryByRole('region', { name: 'Inactive Effects' }),
+    ).toBeNull()
+    expect(screen.getByRole('tabpanel')).toHaveFocus()
+  })
+})
+
 /** The Magical Recipe Book card's reads. */
 const cardReads = () =>
   jest
     .mocked(fetch)
     .mock.calls.filter(([url]) => String(url).includes('/cookbook'))
 
-describe('components/character-sheet/character-pane, the player’s Magical Recipe Book card (module 0.38.0)', () => {
+// Changed on purpose (round 0.39.0 §2.10): the Magical Recipe Book opens from the cog, read as
+// the pane mounts, rather than drawn on the Biography tab.
+describe('components/character-sheet/character-pane, the player’s Magical Recipe Book (module 0.38.0), in the cog since round 0.39.0', () => {
   const cookbook = {
     characterId: 'char-1',
-    active: true,
     make: jest.fn(async () => ({ code: 'sscb_x' })),
     revoke: jest.fn(async () => {}),
   }
@@ -5288,33 +5445,46 @@ describe('components/character-sheet/character-pane, the player’s Magical Reci
     act(() => forgetCookbook())
   })
 
-  it('shows it on the Biography tab alone', async () => {
+  it('offers it in the cog alone, read once as the pane mounts, opening it in a modal; nothing on the Biography tab', async () => {
+    const user = userEvent.setup()
     renderWith()
-    expect(
-      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
-    ).toBeNull()
-    expect(cardReads()).toEqual([])
+    await waitFor(() => expect(cardReads()).toHaveLength(1))
+    expect(cardReads()[0][0]).toBe('/api/characters/char-1/cookbook')
 
     await show('Biography')
     expect(
-      await screen.findByRole('region', { name: 'Magical Recipe Book' }),
-    ).toBeInTheDocument()
-    expect(cardReads()[0][0]).toBe('/api/characters/char-1/cookbook')
-
-    await show('Effects')
-    expect(
       screen.queryByRole('region', { name: 'Magical Recipe Book' }),
     ).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const settings = screen.getByRole('dialog', { name: 'Settings' })
+    await user.click(
+      await within(settings).findByRole('button', {
+        name: 'Configure Magical Cookbook',
+      }),
+    )
+    const book = await screen.findByRole('dialog', {
+      name: 'Magical Recipe Book',
+    })
+    expect(
+      within(book).getByRole('button', { name: 'Make a link code' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
   })
 
-  it('never shows it at a creature’s pane, given one or not', async () => {
+  it('never offers it at a creature’s pane, given one or not, reading nothing', async () => {
+    const user = userEvent.setup()
     renderWith({ name: 'Brakka' })
     await show('Biography')
     expect(
       screen.getByRole('region', { name: 'Personality' }),
     ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
     expect(
-      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+      within(screen.getByRole('dialog', { name: 'Settings' })).queryByRole(
+        'button',
+        { name: 'Configure Magical Cookbook' },
+      ),
     ).toBeNull()
     expect(cardReads()).toEqual([])
   })

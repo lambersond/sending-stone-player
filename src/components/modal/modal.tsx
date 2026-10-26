@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, type ReactNode, type RefObject } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { InPortalRoot, useDialogRoot } from './portal-root'
@@ -14,6 +14,11 @@ type Props = {
   subtitle?: string
   /** On a phone, as wide as the screen, as the side panel is: for content that needs the room. */
   fullOnPhone?: boolean
+  /**
+   * What takes focus as it opens, such as a confirm's Cancel (round 0.39.0): without it, the
+   * browser gives focus to the first control in it, the header's Close.
+   */
+  initialFocus?: RefObject<HTMLElement | null>
   children: ReactNode
 }
 
@@ -28,11 +33,16 @@ export function Modal({
   title,
   subtitle,
   fullOnPhone = false,
+  initialFocus,
   children,
 }: Readonly<Props>) {
   const ref = useModalDialog(open)
   const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
+  // After the dialog's own effect has shown it, and the browser has focused its first control.
+  useEffect(() => {
+    if (open) initialFocus?.current?.focus()
+  }, [open, initialFocus])
 
   return (
     <dialog

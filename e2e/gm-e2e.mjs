@@ -104,7 +104,33 @@ await modal.getByRole('button', { name: 'Close' }).click()
 await setUp('Shadows of Mirkwood', SECRET_B, { open: true })
 await modal.getByRole('button', { name: 'Done' }).click()
 await gm.getByRole('article', { name: 'Shadows of Mirkwood' }).waitFor()
+// Changed on purpose (round 0.39.0 §4.8): the campaigns page lists the campaigns and shows one
+// beside the list, chosen in the address: each is chosen before its page is read, and "Waiting for
+// Foundry", which its row says too, is read on its page.
+// The Gamemaster's own: the seed's campaigns from before set-ups have no owner. Read again once
+// Foundry connects, as each set-up moves onto the campaign it was before.
+const idsNow = () => ({
+  lonely: sql(`select id from campaign where "ownerId" = 'e2e-user' and lower(title) = 'the lonely mountain'`),
+  mirkwood: sql(`select id from campaign where "ownerId" = 'e2e-user' and title = 'Shadows of Mirkwood'`),
+})
+let ids = idsNow()
+const rowOf = id => gm.locator(`[data-campaign="${id}"]`)
+const chosen = () => new URL(gm.url()).searchParams.get('campaign')
+/** A campaign chosen from its row, its page shown beside the list. */
+async function choose(id, article) {
+  await rowOf(id).click()
+  await article.waitFor()
+  await gm.waitForFunction(id => new URL(location.href).searchParams.get('campaign') === id, id)
+}
+await gm.waitForFunction(id => document.querySelector(`[data-campaign="${id}"]`)?.getAttribute('aria-current') === 'true', ids.mirkwood, { timeout: 5_000 }).catch(() => {})
+check(chosen() === ids.mirkwood && await rowOf(ids.mirkwood).getAttribute('aria-current') === 'true',
+  `Done shows the campaign just set up, chosen in the address and current in the list (${JSON.stringify({ url: gm.url(), ids, current: await gm.locator('[aria-current]').evaluateAll(all => all.map(el => el.dataset.campaign ?? el.textContent)) })})`)
 const lonely = gm.getByRole('article', { name: 'the lonely mountain' })
+const entries = await gm.evaluate(() => history.length)
+await choose(ids.lonely, lonely)
+check(await gm.evaluate(() => history.length) === entries && await rowOf(ids.lonely).getAttribute('aria-current') === 'true'
+  && await gm.getByRole('article', { name: 'Shadows of Mirkwood' }).count() === 0,
+  "another's row shows its page in the other's place, replacing the address rather than adding to the history")
 check(await lonely.getByText('Waiting for Foundry').isVisible(), 'a new campaign waits for Foundry')
 check(sql(`select count(*) from campaign where "secretHash" like 'scrypt$%' and "secretHash" not like '%-secret-%'`) === '2', 'secrets are stored only as scrypt hashes')
 
@@ -146,10 +172,14 @@ check(Object.fromEntries(out.map(p => [p.envelope.campaign.title, p.auth]))['Sha
 check(sql(`select count(*) from campaign`) === '2', 'each set-up moved onto the campaign it was before, rather than a copy')
 check(sql(`select count(*) from campaign where "ownerId" = 'e2e-user' and "foundryId" in ('camp-a', 'camp-b')`) === '2', 'both are now bound and owned by the Gamemaster')
 await gm.reload()
+// The address named the set-up's campaign, which the one it moved onto has taken the place of.
+ids = idsNow()
+await choose(ids.lonely, lonely)
 check(await lonely.getByText('Live').isVisible(), 'the Gamemaster sees the campaign live')
-const mirkwood = gm.getByRole('article', { name: 'Shadows of Mirkwood' })
-check(await mirkwood.getByText('Bard the Bowman').isVisible() && await mirkwood.getByText('Not chosen yet').isVisible(), "the campaign's characters arrived, Bard not yet chosen")
 check(await lonely.getByText('Alice Adventurer').isVisible(), "Thorin, from before invites, is still Alice's")
+const mirkwood = gm.getByRole('article', { name: 'Shadows of Mirkwood' })
+await choose(ids.mirkwood, mirkwood)
+check(await mirkwood.getByText('Bard the Bowman').isVisible() && await mirkwood.getByText('Not chosen yet').isVisible(), "the campaign's characters arrived, Bard not yet chosen")
 await gm.screenshot({ path: `${SHOTS}/gm-campaigns-live.png`, fullPage: true })
 
 // ---- 3. What the endpoint refuses ----
@@ -351,6 +381,9 @@ const deleteCampaign = gm.getByRole('dialog', { name: 'Delete Shadows of Mirkwoo
 await deleteCampaign.getByRole('button', { name: 'Delete campaign' }).click()
 await mirkwood.waitFor({ state: 'detached' })
 check(sql(`select count(*) from campaign where title = 'Shadows of Mirkwood'`) === '0', 'the Gamemaster deletes a campaign, after asking')
+await rowOf(ids.mirkwood).waitFor({ state: 'detached' })
+await gm.waitForFunction(() => !new URL(location.href).searchParams.has('campaign'))
+check(await rowOf(ids.lonely).count() === 1 && await lonely.isVisible(), 'its row is gone, the address names no campaign, and the other is shown beside the list')
 
 console.log('console problems:', JSON.stringify(problems, null, 1))
 await browser.close()

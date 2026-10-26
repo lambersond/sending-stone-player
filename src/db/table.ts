@@ -13,6 +13,7 @@ import {
   companionsByKey,
   tableCompanion,
 } from '@/utils/companions'
+import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
 import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
@@ -59,7 +60,9 @@ export const MESSAGE_LIMIT = 100
  * types in their own dice for it, which another of their devices may change; and from module
  * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
  * changes with no new version; and from module 0.37.0 whether the player may change its
- * character's favorites, which likewise changes with no new version.
+ * character's favorites, which likewise changes with no new version; and from module 0.39.0
+ * whether the player may change its character's own effects, which likewise changes with no new
+ * version.
  */
 export type CampaignStatus = {
   version: number
@@ -72,6 +75,7 @@ export type CampaignStatus = {
   typed: boolean
   removes: boolean
   favorites: boolean
+  effects: boolean
 }
 
 /**
@@ -221,6 +225,7 @@ export async function getCampaignStatus(
       typed: false,
       removes: false,
       favorites: false,
+      effects: false,
     }
   }
   const now = Date.now()
@@ -233,6 +238,7 @@ export async function getCampaignStatus(
         lastSeenAt: true,
         ...rollsSelect,
         favoritesEnabled: true,
+        effectsEnabled: true,
       },
     }),
     gmRolls
@@ -264,6 +270,13 @@ export async function getCampaignStatus(
       !!seat.actorId &&
       !!campaign &&
       favoritesAvailable(campaign, now),
+    // Whether the player may change its character's own effects, from module 0.39.0, by the
+    // campaign's switch: theirs alone, as favorites.
+    effects:
+      seat.role === 'player' &&
+      !!seat.actorId &&
+      !!campaign &&
+      effectsAvailable(campaign, now),
   }
 }
 
@@ -304,6 +317,7 @@ export async function getTableView(
           companions: true,
           ...rollsSelect,
           favoritesEnabled: true,
+          effectsEnabled: true,
         },
       })
     : undefined
@@ -438,6 +452,13 @@ export async function getTableView(
     seat.role === 'player' &&
     !!seat.actorId &&
     favoritesAvailable(campaign, now)
+  // Whether the player may turn off, turn on and delete the character's own effects, from module
+  // 0.39.0, by the campaign's switch: theirs alone, at their own seat, as favorites.
+  const effects =
+    connected &&
+    seat.role === 'player' &&
+    !!seat.actorId &&
+    effectsAvailable(campaign, now)
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -482,6 +503,7 @@ export async function getTableView(
     ...(moves && { moves }),
     ...(removes && { removes: true as const }),
     ...(favorites && { favorites: true as const }),
+    ...(effects && { effects: true as const }),
     // Whether the player may type in their own dice follows what the game said last, stored,
     // never whether it polled lately, so a gap in polling never changes how they roll.
     ...(seat.role === 'player' && {

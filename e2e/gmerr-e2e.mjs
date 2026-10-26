@@ -134,6 +134,36 @@ for (const [title, secret] of [['Erebor', SECRET], ['Mirkwood Forest', SECRET_B]
   await modal.getByRole('button', { name: 'Done' }).click()
 }
 await gm.getByRole('article', { name: 'Mirkwood Forest' }).waitFor()
+// Changed on purpose (round 0.39.0 §4.8): the campaigns page lists the campaigns, those that need
+// their Gamemaster first, and shows one beside the list on a wide screen, or in its place on a phone,
+// chosen in the address: Erebor and Mirkwood Forest are chosen in turn before each is read.
+const ids = {
+  erebor: sql(`select id from campaign where title = 'Erebor'`),
+  mirkwood: sql(`select id from campaign where title = 'Mirkwood Forest'`),
+}
+/** A campaign's row on a page of the campaigns page: its chip, its line saying what it needs, and the group it's in. */
+const rowOn = (page, id) => page.locator(`[data-campaign="${id}"]`)
+const rowState = (page, id) => rowOn(page, id).evaluate(row => ({
+  chip: row.querySelector('[data-state]')?.textContent ?? null,
+  text: row.textContent.replace(/\s+/g, ' ').trim(),
+  group: document.getElementById(row.closest('ul')?.getAttribute('aria-labelledby') ?? '')?.textContent ?? null,
+}))
+/** A campaign chosen from its row, its page shown beside the list. */
+async function choose(id, title) {
+  await rowOn(gm, id).click()
+  await gm.getByRole('article', { name: title }).waitFor()
+  await gm.waitForFunction(id => new URL(location.href).searchParams.get('campaign') === id, id)
+}
+/** The page's toasts, as each shows, from now until the page is loaded again. */
+const watchToasts = page => page.evaluate(() => {
+  globalThis.__toasts = []
+  new MutationObserver(() => {
+    for (const toast of document.querySelectorAll('[data-page-toast]')) {
+      if (globalThis.__toasts.at(-1) !== toast.textContent) globalThis.__toasts.push(toast.textContent)
+    }
+  }).observe(document.body, { childList: true, subtree: true, characterData: true })
+})
+const toastsOn = page => page.evaluate(() => globalThis.__toasts ?? [])
 
 // ---- Foundry, in English, with a Gamemaster, two players and their characters ----
 const english = JSON.parse(readFileSync(`${MODULE}/lang/en.json`, 'utf8'))
@@ -271,8 +301,21 @@ for (const [width, height] of [[390, 844], [768, 1024]]) {
   await view.addCookies([cookie])
   const page = await view.newPage()
   page.on('pageerror', e => problems.push(`${width} pageerror: ${e.message}`))
-  await page.goto(`${BASE}/campaigns`)
   const card = page.getByRole('article', { name: 'Mirkwood Forest' })
+  if (width === 390) {
+    // On a phone, the list alone: Mirkwood Forest's row under Needs you, refused, saying why; a tap
+    // shows its page in the list's place.
+    await page.goto(`${BASE}/campaigns`)
+    await rowOn(page, ids.mirkwood).waitFor()
+    const rows = { mirkwood: await rowState(page, ids.mirkwood), erebor: await rowState(page, ids.erebor) }
+    check(rows.mirkwood.group === 'Needs you' && rows.mirkwood.chip === 'Refused' && rows.mirkwood.text.includes('Foundry’s posts refused: title doesn’t match')
+      && rows.erebor.group === 'Campaigns' && rows.erebor.chip === 'Live' && await card.count() === 0,
+      `at 390, the list alone: Mirkwood Forest under Needs you, Refused, "Foundry’s posts refused: title doesn’t match"; Erebor, Live, under Campaigns (${JSON.stringify(rows)})`)
+    await shoot(page, 'errors-list-390')
+    await rowOn(page, ids.mirkwood).click()
+  } else {
+    await page.goto(`${BASE}/campaigns?campaign=${ids.mirkwood}`)
+  }
   const note = card.locator('[data-refusal=notSetUp]')
   await note.waitFor()
   const text = await note.textContent()
@@ -311,13 +354,25 @@ await gm.reload()
 const mirkwoodCard = gm.getByRole('article', { name: 'Mirkwood Forest' })
 await mirkwoodCard.getByText('Live').waitFor({ timeout: 10_000 })
 check(await mirkwoodCard.locator('[data-refusal]').count() === 0 && mirkwoodRefusal() === 'f', 'its card, reloaded, is Live, with no refusal: binding cleared it')
+{
+  const row = await rowState(gm, ids.mirkwood)
+  const needs = await gm.getByRole('heading', { name: 'Needs you' }).count()
+  check(row.chip === 'Live' && row.group === 'Campaigns' && needs === 0 && !row.text.includes('refused'),
+    `and its row is Live, no longer needing the Gamemaster: with none that does, no Needs you (${JSON.stringify({ ...row, needs })})`)
+}
 
 // ---- E4: a secret changed in the app: told once, and that it's taken again with the new one ----
 const ereborCard = gm.getByRole('article', { name: 'Erebor' })
+await choose(ids.erebor, 'Erebor')
+await watchToasts(gm)
 await ereborCard.getByText('Change secret').click()
 await ereborCard.getByLabel('New secret').fill(NEW_SECRET)
 await ereborCard.getByRole('button', { name: 'Save secret' }).click()
 await ereborCard.getByRole('status').filter({ hasText: 'Saved.' }).waitFor()
+await until(async () => (await toastsOn(gm)).includes('Secret changed. Enter it in Foundry too.'), 'the toast', 5_000).catch(() => {})
+check((await toastsOn(gm)).includes('Secret changed. Enter it in Foundry too.') && new URL(gm.url()).searchParams.get('campaign') === ids.erebor
+  && await gm.getByRole('article').getByRole('heading', { level: 2 }).first().textContent() === 'Erebor',
+  `Save secret says "Saved." where it stays, and in a toast "Secret changed. Enter it in Foundry too." (${JSON.stringify(await toastsOn(gm))}); Erebor still shown`)
 await beat()
 await beat()
 out = take()
@@ -336,6 +391,11 @@ let secretNote = gm.getByRole('article', { name: 'Erebor' }).locator('[data-refu
 await secretNote.waitFor()
 check((await secretNote.textContent()).includes('Sending Stone refused Foundry’s post for this campaign: the secret it came with isn’t this campaign’s.')
   && await secretNote.evaluate(el => el.classList.contains('border-danger/40')), `the Erebor card says so, boxed: "${await secretNote.textContent()}"`)
+{
+  const row = await rowState(gm, ids.erebor)
+  check(row.group === 'Needs you' && row.chip === 'Refused' && row.text.includes('Foundry’s posts refused: wrong secret'),
+    `its row, under Needs you: Refused, "Foundry’s posts refused: wrong secret" (${JSON.stringify(row)})`)
+}
 await game.settings.set('sending-stone', 'campaignSecrets', { 'camp-e': NEW_SECRET, 'camp-m': SECRET_B })
 await beat()
 out = take()
@@ -519,6 +579,11 @@ const malformedText = await malformedNote.textContent()
 check(malformedText.includes('Sending Stone couldn’t read what Foundry sent and dropped it: command.result') && malformedText.includes('Update the Sending Stone module; if it happens again, report it.')
   && await malformedNote.evaluate(el => el.classList.contains('border-danger/40')),
   `the Erebor card shows the malformed result it dropped, and what to do: "${malformedText}"`)
+{
+  const row = await rowState(gm, ids.erebor)
+  check(row.group === 'Needs you' && row.chip === 'Refused' && row.text.includes('Foundry’s posts refused: couldn’t read them'),
+    `its row: Refused, "Foundry’s posts refused: couldn’t read them" (${JSON.stringify(row)})`)
+}
 await shoot(gm, 'errors-card-malformed', { fullPage: true })
 
 const fetchBody = (campaign, extra = {}) => ({ protocol: 2, session: 'e2e-session', campaign: { id: campaign.id, title: campaign.title }, ...extra })

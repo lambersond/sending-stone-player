@@ -81,8 +81,9 @@ const UNAVAILABLE = {
 /**
  * The players' rolls as the campaign's game is ready for them, from module 0.31.0 their moves of
  * items and coins, from module 0.33.0 removals of their characters' items, from module 0.34.0
- * journal notes, from module 0.37.0 their characters' favorites, and from module 0.38.0 dishes
- * from the Magical Recipe Book. Changed on purpose (round 0.38.0 §D9): dishes too.
+ * journal notes, from module 0.37.0 their characters' favorites, from module 0.38.0 dishes from
+ * the Magical Recipe Book, and from module 0.39.0 their characters' own effects. Changed on
+ * purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round 0.39.0 §1.10): effects too.
  */
 const given = (
   rollsEnabled: boolean,
@@ -92,6 +93,7 @@ const given = (
   notesEnabled = false,
   favoritesEnabled = false,
   dishesEnabled = false,
+  effectsEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
@@ -100,6 +102,7 @@ const given = (
     notesEnabled,
     favoritesEnabled,
     dishesEnabled,
+    effectsEnabled,
     playersPresent,
   })
 
@@ -277,6 +280,48 @@ describe('app/api/bridge/commands', () => {
     })
   })
 
+  it('hands over a change to an effect with everything else off, from module 0.39.0, holding the fetch open as for a roll', async () => {
+    const effect: RollCommand = {
+      id: 'req-effect',
+      actorId: 'actor-thorin',
+      kind: 'effect',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      effect: { op: 'disable', id: 'blessed' },
+    }
+    given(false, false, false, false, false, false, false, true)
+    jest.mocked(claimRollRequests).mockResolvedValue([effect])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [effect],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimDishes).not.toHaveBeenCalled()
+
+    jest.useFakeTimers()
+    given(false, true, false, false, false, false, false, true)
+    jest
+      .mocked(claimRollRequests)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([effect])
+    let answered: Response | undefined
+    void post().then(response => (answered = response))
+
+    await jest.advanceTimersByTimeAsync(500)
+    expect(answered).toBeUndefined()
+    await jest.advanceTimersByTimeAsync(1000)
+    await expect(answered?.json()).resolves.toEqual({
+      commands: [effect],
+      open: ['thorin'],
+    })
+  })
+
   describe('journal notes, from module 0.34.0', () => {
     const note = mockNoteCommand()
 
@@ -447,7 +492,8 @@ describe('app/api/bridge/commands', () => {
   })
 
   it('answers at once, with the minute’s wait, only while the game takes no rolls, moves, removals nor notes', async () => {
-    given(false, true, false, false, false)
+    // Changed on purpose (round 0.39.0 §1.10): favorites, dishes and effects off too, said.
+    given(false, true, false, false, false, false, false, false)
 
     const response = await post()
 

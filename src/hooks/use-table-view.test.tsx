@@ -454,3 +454,61 @@ describe('hooks/use-table-view, favorites, from module 0.37.0', () => {
     )
   })
 })
+
+describe("hooks/use-table-view, a player's own effects, from module 0.39.0", () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    jest.mocked(useRouter).mockReturnValue({ refresh } as any)
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+  })
+
+  it('asks for news saying whether the player may change the effects, as it has it', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(200, { ...initial, effects: true }))
+      .mockResolvedValueOnce(respond(200, initial))
+      .mockResolvedValueOnce(respond(204))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
+
+    // Without it, a page answered 204 would go on offering the controls once its game stopped
+    // fetching, or its campaign's switch went off.
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&effects=1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1',
+      expect.anything(),
+    )
+  })
+
+  it('asks with favorites before effects, where the player may change both', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        respond(200, { ...initial, favorites: true, effects: true }),
+      )
+      .mockResolvedValueOnce(respond(204))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
+
+    await advance(POLL_INTERVAL)
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&favorites=1&effects=1',
+      expect.anything(),
+    )
+  })
+})

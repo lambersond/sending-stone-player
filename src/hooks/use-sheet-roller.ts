@@ -27,6 +27,7 @@ import {
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
 import { d20Count, d20Label, typedResult } from '@/utils/typed-dice'
+import type { EffectOp } from '@/constants/sending-stone'
 import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
   FormulaSource,
@@ -289,6 +290,11 @@ export type LocalUse = {
    * label.
    */
   favorite?: 'add' | 'remove'
+  /**
+   * One of the character's own effects turned off, on or deleted, rather than anything used, from
+   * module 0.39.0: which; the effect is the label.
+   */
+  effect?: EffectOp
   at: number
 }
 
@@ -742,6 +748,21 @@ export function useSheetRoller(
     [],
   )
 
+  // Keeps one of the character's own effects turned off, on or deleted, from module 0.39.0, first
+  // among the rolls, as a use is.
+  const logEffect = useCallback((label: string, op: EffectOp): LocalUse => {
+    const changed: LocalUse = {
+      kind: 'use',
+      id: `use-${Date.now()}-${++uses}`,
+      label,
+      spell: false,
+      effect: op,
+      at: Date.now(),
+    }
+    setRolls(earlier => keeping(earlier, changed))
+    return changed
+  }, [])
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
@@ -763,6 +784,7 @@ export function useSheetRoller(
     logCharge,
     logMove,
     logFavorite,
+    logEffect,
     logAsk,
     rolls,
     rolling: inFlight > 0,

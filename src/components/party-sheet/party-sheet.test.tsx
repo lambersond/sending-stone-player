@@ -507,14 +507,16 @@ describe('components/party-sheet', () => {
               live: false,
               group: { ...view().group, primary: false },
             })}
-            back={{ href: '/campaigns', label: 'Your campaigns' }}
+            // Changed on purpose (round 0.39.0 §4.7): the Gamemaster's page leads back to its
+            // campaign, chosen on the campaigns page.
+            back={{ href: '/campaigns?campaign=c1', label: 'Your campaigns' }}
           />,
         )
 
         const header = screen.getByRole('banner')
         expect(
           within(header).getByRole('link', { name: 'Your campaigns' }),
-        ).toHaveAttribute('href', '/campaigns')
+        ).toHaveAttribute('href', '/campaigns?campaign=c1')
         expect(
           within(header).getByRole('heading', {
             level: 1,

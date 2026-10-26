@@ -45,6 +45,11 @@ export type OwnedCampaign = {
    */
   dishes?: { enabled: boolean; waiting: number; inFoundry: number }
   /**
+   * Whether the campaign lets its players turn off, turn on and delete their own characters'
+   * effects from here, from module 0.39.0, as its last hello said. None reads as off.
+   */
+  effects?: { enabled: boolean }
+  /**
    * Each with who plays it, and their character's id, once a player has chosen it; and from module
    * 0.36.0 its companions, as the module lists them, by name and kind, a summoned one with the
    * item it was summoned with: none for none. The app always gives them; optional so that a card
@@ -112,8 +117,11 @@ export type CampaignSetupFormState = {
   values?: CampaignSetupInput
   errors?: Partial<Record<keyof CampaignSetupInput, string[]>>
   message?: string
-  /** The campaign just set up, with its secret to copy: it is not kept, so not shown again. */
-  saved?: { title: string; secret: string }
+  /**
+   * The campaign just set up, with its secret to copy: it is not kept, so not shown again; and its
+   * id, which the page chooses once Done is pressed.
+   */
+  saved?: { id: string; title: string; secret: string }
 }
 
 export type SecretFormState = {

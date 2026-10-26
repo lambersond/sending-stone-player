@@ -7,18 +7,24 @@
 // (fvtt/dish-core.mjs). Ashlands, on dnd5e 5.3.3, has one campaign, Erebor, with dishes on. Alice
 // plays Thorin Oakenshield at 1280 × 800 and on a phone at 390 × 844 (360 × 780 where said); Bob
 // plays Vex at 768 × 1024; the Gamemaster, Alice's own campaign, at Thorin's page and on the
-// campaigns page at 1280, 768, 390 and 360. The player's card on the Biography tab, after the journal's:
-// a link code made, shown once and wholly, copied, kept across tabs, made again and revoked, by the
-// player and by the Gamemaster; each dish's state as the module reports it, waiting, with the
-// Gamemaster, eaten, set aside and removed; the cookbook's refusals, every one JSON and never cached;
-// an unknown change listed on Foundry's card; enricher syntax made inert on the Effects tab; a link
-// whose seat moved; the switch off; the Gamemaster's section and counts; phones and both themes, and
-// Foundry's card in each state as a stand-in chat log draws it with the module's styles. DND5E6=1:
-// dnd5e 6.0.5, dishes off with the switch on. SKEW=037 with MODULE=module-0.37.0: no dishes at all,
-// and a dish queued by hand never handed over. Synthetic characters only. Run with --import
-// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// campaigns page at 1280, 768, 390 and 360. Since round 0.39.0 (its contract §2.11) the player's
+// Magical Recipe Book is a modal, opened by Configure Magical Cookbook in the sheet's cog, offered
+// while the game takes dishes or the character has a link, read as the cog opens; the Biography tab
+// draws none. In it: a link code made, shown once and wholly, copied, kept across a close, made
+// again and revoked, by the player and by the Gamemaster; each dish's state as the module reports
+// it, waiting, with the Gamemaster, eaten, set aside and removed; the cookbook's refusals, every one
+// JSON and never cached; an unknown change listed on Foundry's card; enricher syntax made inert on
+// the Effects tab; a link whose seat moved; the switch off, a revoke then, and back on; the
+// Gamemaster's section and counts, on the campaign the address chooses; phones and both themes. A
+// dish's card is whispered to the Gamemaster and the campaign's players, whose Foundry draws what
+// became of it and no button, and reaches their app's chat as text; Foundry's card in each state as
+// a stand-in chat log draws it with the module's styles. DND5E6=1: dnd5e 6.0.5, dishes off with the
+// switch on. SKEW=037 with MODULE=module-0.37.0: no dishes at all, and a dish queued by hand never
+// handed over. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 // The cookbook's server first: it keeps Node's own fetch, which the Foundry stand-ins replace.
 import { dishBody, linkCode, postDish, postRaw } from './cookbook-post.mjs'
+import { mkdirSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import {
   BOB, DND5E6, MODULE, SHOTS, SKEW037, VARIANT, W, browse, browser, call, character, check, finish, foundryWorld,
@@ -37,8 +43,9 @@ await launch(GAME)
 const { id: A, invite } = await newCampaign({ title: TITLE, address: ADDRESS, secret: SECRET })
 await foundryWorld()
 // A checkout's module.json says 0.1.0, which the Gamemaster's card reads as before dishes: the
-// version the release would stamp (round 0.38.0 D§10.1).
-game.modules.get('sending-stone').version = SKEW037 ? '0.37.0' : '0.38.0'
+// version the release would stamp (round 0.38.0 D§10.1). Changed on purpose (round 0.39.0 §2.11):
+// 0.39.0, since the card says players see a dish's card only from that version (0.38.x: GM only).
+game.modules.get('sending-stone').version = SKEW037 ? '0.37.0' : '0.39.0'
 
 // The module's harness's stand-ins for what a dish needs: the current checkout's under every
 // variant, module 0.37.0's included, which loads none of the module's dish code.
@@ -108,7 +115,8 @@ const MOVED = 'This link code is for a character you no longer play in Sending S
 const OFF_WORDS = 'Your Gamemaster hasn’t turned on dishes from the Magical Recipe Book for this game.'
 const NOT_TAKING = 'Your Gamemaster’s game isn’t taking dishes right now.'
 const COPY_NOW = 'Copy it now: Sending Stone keeps only a check of it, so it can’t be shown again. In the Magical Recipe Book, open this character’s menu and choose Link Sending Stone, or Sending Stone Link if it’s linked already. Paste it there.'
-const GM_ON = 'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches you as a card only Gamemasters see.'
+// Changed on purpose (round 0.39.0 §2.11): a dish's card is the campaign's players' to read too.
+const GM_ON = 'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches your game as a card its players see too; you choose who ate it.'
 const GM_BEFORE = 'Your Sending Stone module doesn’t take dishes yet. Version 0.38.0 or later does.'
 const GM_SYSTEM = 'Off. Dishes need dnd5e 5.x in Foundry for now.'
 const GM_OFF = 'Off. To take dishes, tick Dishes from the Magical Recipe Book on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
@@ -119,21 +127,84 @@ sql(`insert into "character" (id, name, "gameUrl", "campaignTitle", "campaignId"
   values ('sheet-thorin', 'Thorin Oakenshield', '${GAME}', '${TITLE}', '${A}', 'thorin', 'e2e-user', now())`)
 const desk = await browse({ width: 1280, height: 800, path: '/characters/sheet-thorin', toasts: false })
 await desk.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
-/** The player's card, by its heading. */
-const cardOf = who => who.page.getByRole('region', { name: 'Magical Recipe Book', exact: true })
+// Changed on purpose (round 0.39.0 §2.11): the player's Magical Recipe Book is a modal, opened by
+// Configure Magical Cookbook in the sheet's cog, which reads it as it opens; every part of it is read
+// inside the modal. The Biography tab draws none.
+const COG_ITEM = 'Configure Magical Cookbook'
+/** The sheet's cog, its own Settings button, and the item in its settings that opens the modal. */
+const cogOf = who => who.page.getByRole('button', { name: 'Settings', exact: true }).first()
+const cogItem = who => who.page.getByRole('button', { name: COG_ITEM, exact: true })
+/** The modal, by its title. */
+const cardOf = who => who.page.getByRole('dialog', { name: 'Magical Recipe Book', exact: true })
+const opened = async who => (await cardOf(who).count()) > 0 && cardOf(who).isVisible()
+/** A read of the player's book, as the page makes one. */
+const isRead = response => /\/api\/characters\/[^/]+\/cookbook(\?|$)/.test(new URL(response.url()).pathname + new URL(response.url()).search)
+  && response.request().method() === 'GET'
+/** The sheet in view, on a page that shows the table's panes one at a time. */
+async function sheetShown(who) {
+  if (await who.nav.isVisible()) await who.character()
+}
+/** The cog's settings opened, as a tap on it does: the book read again as they open. */
+async function openCog(who) {
+  await sheetShown(who)
+  if ((await cogOf(who).getAttribute('aria-expanded')) !== 'true') await cogOf(who).click()
+}
+async function closeCog(who) {
+  if ((await cogOf(who).getAttribute('aria-expanded')) === 'true') await cogOf(who).click()
+}
+/**
+ * What the cog offers once the read its opening makes has come back: whether Configure Magical
+ * Cookbook is among its settings. Left open.
+ */
+async function cogOffers(who) {
+  await closeCog(who)
+  await sheetShown(who)
+  const read = who.page.waitForResponse(isRead, { timeout: 15_000 })
+  await cogOf(who).click()
+  await read
+  await wait(500)
+  return (await cogItem(who).count()) > 0
+}
+/** The modal, opened from the cog where it isn't open already. */
+async function cookbook(who) {
+  if (await opened(who)) return cardOf(who)
+  await openCog(who)
+  await cogItem(who).waitFor({ timeout: 15_000 })
+  await cogItem(who).click()
+  await cardOf(who).waitFor({ timeout: 10_000 })
+  return cardOf(who)
+}
+/** The modal closed by its own Close, where it's open. */
+async function closeCookbook(who) {
+  if (await opened(who)) {
+    await cardOf(who).getByRole('button', { name: 'Close', exact: true }).first().click()
+    await cardOf(who).waitFor({ state: 'hidden', timeout: 5_000 })
+  }
+}
+/** The table's chat, shown: its tab beside the sheet on a wide page, else its pane. */
+async function chatOf(who) {
+  if (await who.nav.isVisible()) await who.chat()
+  else await who.page.getByRole('tab', { name: /^Chat/ }).click()
+  await who.log.waitFor({ timeout: 15_000 })
+  return who.log
+}
+/** What has focus: its name. */
+const focusedName = who => who.page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent.trim() ?? null)
 const journalOf = who => who.page.getByRole('region', { name: 'Journal', exact: true })
 /** The card's dishes, newest first: each its recipe, its chip and what became of it. */
 const shown = who => cardOf(who).getByRole('list', { name: 'Dishes sent' }).locator(':scope > li').evaluateAll(lis => lis.map(li => {
   const [head, state] = li.querySelectorAll(':scope > span')
   return { recipe: head?.children[0]?.textContent ?? null, chip: head?.children[1]?.textContent ?? null, state: state?.textContent ?? null }
 }))
-/** Until the newest dish on a page's card reads so. */
+/** Until the newest dish in a page's modal reads so: opened, as it reads while it's open. */
 const newestSays = (who, recipe, state, what) => until(async () => {
+  await cookbook(who)
   const [first] = await shown(who)
   return first?.recipe === recipe && first.state === state
 }, what, 30_000)
 /** The Biography tab, and the journal's card on it, drawn. */
 async function biography(who) {
+  await sheetShown(who)
   await who.tab('Biography')
   await journalOf(who).waitFor({ timeout: 15_000 })
 }
@@ -151,8 +222,8 @@ const freshOf = who => cardOf(who).getByRole('status').evaluate(block => {
     copy: [...block.querySelectorAll('button')].map(b => b.getAttribute('aria-label') ?? b.textContent.trim()),
   }
 })
-/** Every button on the card, by its name, and how tall it is. */
-const buttonsOf = who => cardOf(who).locator('button').evaluateAll(buttons => buttons.filter(b => b.checkVisibility())
+/** Every button in the modal, by its name, and how tall it is: its header's Close aside. */
+const buttonsOf = who => cardOf(who).locator('button').evaluateAll(buttons => buttons.filter(b => b.checkVisibility() && !b.closest('header'))
   .map(b => ({ name: b.getAttribute('aria-label') ?? b.textContent.trim(), height: b.getBoundingClientRect().height })))
 /** The linked line, as read. */
 const linkedLine = who => cardOf(who).getByText(/^Linked with a code ending /).textContent().then(flat)
@@ -166,7 +237,13 @@ const done = who => cardOf(who).getByRole('button', { name: 'Done', exact: true 
 /** A confirm dialog, named by its title, and its button. */
 const confirmIn = (who, title, label) => who.page.getByRole('dialog', { name: title, exact: true }).getByRole('button', { name: label, exact: true })
 
-// The Gamemaster's campaign card, its roster and its section on dishes.
+// The Gamemaster's campaign, its roster and its section on dishes. Changed on purpose (round 0.39.0
+// §4.8): the campaign chosen in the address, which shows it on a phone in the list's place, and
+// stays chosen across a reload.
+const GM_PAGE = `/campaigns?campaign=${A}`
+/** Round 0.39.0's pictures, beside the others, whatever folder a run's SHOTS is. */
+const SHOTS_039 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-039`
+if (SHOTS_039) mkdirSync(SHOTS_039, { recursive: true })
 const gmCard = who => who.page.getByRole('article', { name: TITLE })
 const gmSection = who => gmCard(who).locator('section').filter({ has: who.page.getByRole('heading', { name: 'Cookbook dishes', exact: true }) })
 const gmLines = async who => (await gmSection(who).locator('p').allTextContents()).map(flat)
@@ -235,28 +312,31 @@ if (!TAKING) {
   if (SKEW037) {
     check(!('dishes' in features), `module 0.37.0's hello says nothing of dishes (${JSON.stringify(Object.keys(features))})`)
   } else {
-    check(same(features.dishes, { enabled: false, kinds: [], reason: 'system', versions: [] }) && same(Object.keys(features).slice(-2), ['favorites', 'dishes']),
-      `under dnd5e 6.0.5, with the switch on, the hello says dishes are off for the system, after favorites (${JSON.stringify({ dishes: features.dishes, keys: Object.keys(features) })})`)
+    // Changed on purpose (round 0.39.0 §1.11): a player's own effects follow dishes.
+    check(same(features.dishes, { enabled: false, kinds: [], reason: 'system', versions: [] }) && same(Object.keys(features).slice(-3), ['favorites', 'dishes', 'effects']),
+      `under dnd5e 6.0.5, with the switch on, the hello says dishes are off for the system, after favorites, before effects (${JSON.stringify({ dishes: features.dishes, keys: Object.keys(features) })})`)
   }
   await wait(3000)
   check(enabled() === 'f|', `the app keeps dishes off, with no versions (${enabled()})`)
-  // Alice's card: read, and drawn as nothing.
-  let read = null
-  desk.page.on('response', response => { if (response.url().includes('/cookbook')) read = response.status() })
+  // Changed on purpose (round 0.39.0 §2.11): Alice's cog, read as it opens, offers no Magical Recipe
+  // Book; nor does her Biography tab.
+  const offered = await cogOffers(desk)
+  await closeCog(desk)
+  check(!offered, `with dishes off and no link, Alice's cog, read as it opens, offers no ${COG_ITEM}`)
   await biography(desk)
-  await until(() => read === 200, 'her card to be read', 20_000)
-  await wait(1000)
-  check(await cardOf(desk).count() === 0 && same((await regionsOf(desk)).slice(0, 1), ['Journal']),
-    `with dishes off and no link, Alice's Biography tab draws no Magical Recipe Book card (${JSON.stringify(await regionsOf(desk))})`)
+  check(same((await regionsOf(desk)).slice(0, 1), ['Journal']) && !(await regionsOf(desk)).includes('Magical Recipe Book'),
+    `and her Biography tab draws no Magical Recipe Book (${JSON.stringify(await regionsOf(desk))})`)
   const code = await linkCode('sheet-thorin', A, 'thorin')
   const refused = await post(code, dishBody({ recipe: 'Ember Skewers' }))
   check(refused.status === 409 && refused.body?.reason === 'off' && refused.words === OFF_WORDS,
     `a dish through a link made by hand is refused 409 off, the cookbook telling its player "${refused.words}"`)
-  await until(async () => (await cardOf(desk).count()) > 0, 'her card, once linked', 30_000)
+  await until(() => cogOffers(desk), `her cog to offer ${COG_ITEM}, once linked`, 30_000)
+  await cookbook(desk)
   const said = flat(await cardOf(desk).textContent())
   check(said.includes(`Linked with a code ending …${code.slice(-4)}`) && said.includes(NOT_TAKING) && said.includes('No dishes sent yet.'),
-    `linked, her card says so and that the game isn't taking dishes right now: "${said}"`)
-  const gm = await browse({ width: 1280, height: 800, path: '/campaigns', toasts: false })
+    `linked, her cog offers ${COG_ITEM}, whose modal says so and that the game isn't taking dishes right now: "${said}"`)
+  await closeCookbook(desk)
+  const gm = await browse({ width: 1280, height: 800, path: GM_PAGE, toasts: false })
   await gmSection(gm).waitFor({ timeout: 15_000 })
   const lines = await gmLines(gm)
   check(same(lines, [SKEW037 ? GM_BEFORE : GM_SYSTEM]), `the Gamemaster's card says "${lines.join(' / ')}"`)
@@ -285,9 +365,10 @@ if (!TAKING) {
 part('1. the hello and the answer')
 {
   const features = hello().data.features
+  // Changed on purpose (round 0.39.0 §1.11): a player's own effects follow dishes.
   check(same(features.dishes, { enabled: true, kinds: ['dish'], reason: null, versions: [1] })
-    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes']),
-  `the hello takes dishes, by the campaign's switch, version 1, its key last, after favorites (${JSON.stringify({ dishes: features.dishes, keys: Object.keys(features) })})`)
+    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects']),
+  `the hello takes dishes, by the campaign's switch, version 1, after favorites, before effects (${JSON.stringify({ dishes: features.dishes, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.dishes === 1, `the app answers dishes: 1 (${hello().body})`)
   await until(() => enabled() === 't|1', 'the app to keep dishes on', 15_000)
   check(enabled() === 't|1', 'the campaign row keeps dishesEnabled on, and dishVersions {1}')
@@ -296,16 +377,30 @@ part('1. the hello and the answer')
 // =================================================================================================
 // 2. Where the card is
 // =================================================================================================
-part('2. where the card is')
+// Changed on purpose (round 0.39.0 §2.11): in the cog, as a modal; no longer on the Biography tab.
+part('2. where it is')
 await biography(desk)
-await cardOf(desk).waitFor({ timeout: 20_000 })
 {
   const regions = await regionsOf(desk)
-  check(same(regions.slice(0, 2), ['Journal', 'Magical Recipe Book']) && await cardOf(desk).getByRole('button', { name: 'Make a link code', exact: true }).isVisible()
+  check(regions[0] === 'Journal' && !regions.includes('Magical Recipe Book') && await desk.page.getByRole('region', { name: 'Magical Recipe Book' }).count() === 0,
+    `Alice's Biography tab draws no Magical Recipe Book, the journal's card first (${JSON.stringify(regions)})`)
+}
+await openCog(desk)
+await cogItem(desk).waitFor({ timeout: 20_000 })
+{
+  const items = await desk.page.getByRole('dialog').filter({ has: cogItem(desk) }).locator('button, a').evaluateAll(all => all.map(el => el.textContent.replace(/\s+/g, ' ').trim()))
+  const help = items.indexOf('Report a bug (opens in a new tab)')
+  check(await cogItem(desk).getAttribute('aria-haspopup') === 'dialog' && help > 0 && items[help - 1] === COG_ITEM,
+    `Alice's cog offers "${COG_ITEM}", last among its settings, before its Help links (${JSON.stringify(items)})`)
+  await cogItem(desk).click()
+  await cardOf(desk).waitFor({ timeout: 10_000 })
+  check(await cogOf(desk).getAttribute('aria-expanded') !== 'true' && await cardOf(desk).getByRole('button', { name: 'Make a link code', exact: true }).isVisible()
     && await cardOf(desk).getByRole('list', { name: 'Dishes sent' }).count() === 0,
-  `on Alice's Biography tab, the Magical Recipe Book card comes right after the journal's, offering "Make a link code", no dishes listed (${JSON.stringify(regions)})`)
+    'pressed, the cog\'s settings close and the modal "Magical Recipe Book" opens, offering "Make a link code", no dishes listed')
   const words = flat(await cardOf(desk).locator('p').first().textContent())
   check(words === 'Send dishes you cook in the Magical Recipe Book to this game. Your Gamemaster chooses who ate them in Foundry.', `its words: "${words}"`)
+  await closeCookbook(desk)
+  check(await focusedName(desk) === 'Settings', `closed, focus is back on the cog's own Settings button (${await focusedName(desk)})`)
 }
 const bob = await browse({ width: 768, height: 1024, who: BOB, toasts: false })
 await bob.page.goto(invite)
@@ -314,18 +409,20 @@ await bob.page.getByRole('button', { name: 'Join as this character' }).click()
 await bob.page.waitForURL(/\/characters\/[\w-]+$/)
 await bob.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
 const BOB_SHEET = sql(`select id from "character" where "actorId" = 'vex' and "campaignId" = '${A}'`)
-await biography(bob)
-await cardOf(bob).waitFor({ timeout: 20_000 })
-check(await cardOf(bob).getByRole('button', { name: 'Make a link code', exact: true }).isVisible(), "Bob's Biography tab has his own card, offering him a code")
+await cookbook(bob)
+check(await cardOf(bob).getByRole('button', { name: 'Make a link code', exact: true }).isVisible(), `Bob's cog offers ${COG_ITEM} too, his own, offering him a code`)
+await closeCookbook(bob)
 {
   const gmSheet = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin`, toasts: false })
   const reads = []
   gmSheet.page.on('request', request => { if (request.url().includes('/cookbook')) reads.push(request.url()) })
   await gmSheet.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await biography(gmSheet)
+  await openCog(gmSheet)
+  await gmSheet.page.getByText('Help', { exact: true }).waitFor()
   await wait(3000)
-  check(await cardOf(gmSheet).count() === 0 && reads.length === 0,
-    `at Thorin's page as the Gamemaster, the Biography tab draws no card and reads none (${JSON.stringify({ regions: await regionsOf(gmSheet), reads })})`)
+  check(await cogItem(gmSheet).count() === 0 && await gmSheet.page.getByRole('region', { name: 'Magical Recipe Book' }).count() === 0 && reads.length === 0,
+    `at Thorin's page as the Gamemaster, the cog offers no ${COG_ITEM}, the Biography tab draws none, and nothing reads one (${JSON.stringify({ regions: await regionsOf(gmSheet), reads })})`)
   await gmSheet.view.close()
 }
 
@@ -335,12 +432,14 @@ check(await cardOf(bob).getByRole('button', { name: 'Make a link code', exact: t
 part('3. making a code at 390')
 const phone = await browse({ width: 390, height: 844, path: '/characters/sheet-thorin', toasts: false })
 await phone.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
-await biography(phone)
-await cardOf(phone).waitFor({ timeout: 20_000 })
+// Changed on purpose (round 0.39.0 §2.11): inside the modal, which fills a phone's width.
+await cookbook(phone)
 await shootBoth(phone, 'cookbook-unlinked', () => cardOf(phone))
 {
   const buttons = await buttonsOf(phone)
-  check(buttons.length === 1 && buttons.every(b => b.height >= 44), `unlinked, its one button is at least 44 px tall (${JSON.stringify(buttons)})`)
+  const width = await cardOf(phone).evaluate(dialog => dialog.getBoundingClientRect().width)
+  check(buttons.length === 1 && buttons.every(b => b.height >= 44) && width === 390,
+    `unlinked, its one button is at least 44 px tall, the modal as wide as the phone (${JSON.stringify({ buttons, width })})`)
 }
 const code = await makeCode(phone)
 {
@@ -353,13 +452,17 @@ const code = await makeCode(phone)
     'the app keeps only its hash, and its last four characters')
   await until(async () => (await buttonsOf(phone)).some(b => b.name === 'Make a new code'), 'the card to say it is linked', 15_000)
   const buttons = await buttonsOf(phone)
-  check(buttons.every(b => b.height >= 44), `every button on the card is at least 44 px tall (${JSON.stringify(buttons)})`)
+  check(buttons.every(b => b.height >= 44), `every button in the modal is at least 44 px tall (${JSON.stringify(buttons)})`)
   await shootBoth(phone, 'cookbook-code', () => cardOf(phone))
+  await shootBoth(phone, 'cookbook-modal', undefined, SHOTS_039)
 }
-await phone.tab('Effects')
-await phone.tab('Biography')
+// Changed on purpose (round 0.39.0 §2.11): closed with Escape and opened again, the code is still shown.
+await phone.page.keyboard.press('Escape')
+await cardOf(phone).waitFor({ state: 'hidden', timeout: 5_000 })
+check(await focusedName(phone) === 'Settings', `Escape closes the modal, focus back on the cog (${await focusedName(phone)})`)
+await cookbook(phone)
 await cardOf(phone).getByRole('status').waitFor({ timeout: 10_000 })
-check((await freshOf(phone)).code === code, 'to the Effects tab and back, the code is still shown')
+check((await freshOf(phone)).code === code, 'opened again from the cog, the code is still shown')
 await done(phone)
 await until(async () => (await cardOf(phone).getByRole('status').count()) === 0, 'the code to go', 5_000)
 await until(async () => (await linkedLine(phone)) === `Linked with a code ending …${code.slice(-4)}, made just now · not used yet`, 'the linked line', 10_000).catch(() => {})
@@ -367,8 +470,9 @@ await until(async () => (await linkedLine(phone)) === `Linked with a code ending
   const line = await linkedLine(phone)
   const focused = await phone.page.evaluate(() => document.activeElement?.textContent.trim())
   check(line === `Linked with a code ending …${code.slice(-4)}, made just now · not used yet` && focused === 'Make a new code',
-    `Done: "${line}", and the focus on "${focused}"`)
+    `Done: "${line}", and the focus on "${focused}", in the modal`)
 }
+await closeCookbook(phone)
 
 // =================================================================================================
 // 4-6. A dish, a repeat, and delivered
@@ -396,19 +500,40 @@ const emberCard = await delivered(EMBER, 'Ember Skewers')
   const flags = emberCard?.flags['sending-stone'].dish
   check(dishes.length === 1 && dishes[0].id === `dish-${EMBER}` && dishes[0].actorId === 'thorin' && sameJson(dishes[0].dish.body, ember),
     `the module was handed one dish, for Thorin, the body as sent (${JSON.stringify(dishes.map(c => c.id))})`)
-  check(dishCards().length === 1 && same(emberCard.whisper, ['gm']) && emberCard.author?.id === 'gm' && flags.state === 'waiting' && flags.app === EMBER && flags.campaignId === 'erebor',
-    `and posted one card, whispered to the Gamemaster alone, by the bridge's user, waiting (${JSON.stringify({ whisper: emberCard?.whisper, author: emberCard?.author?.id, state: flags?.state })})`)
+  // Changed on purpose (round 0.39.0 §2.11): whispered to the campaign's players too.
+  check(dishCards().length === 1 && same([...emberCard.whisper].sort(), ['alice', 'bob', 'gm']) && emberCard.author?.id === 'gm' && flags.state === 'waiting' && flags.app === EMBER && flags.campaignId === 'erebor',
+    `and posted one card, whispered to the Gamemaster and the campaign's players, by the bridge's user, waiting (${JSON.stringify({ whisper: emberCard?.whisper, author: emberCard?.author?.id, state: flags?.state })})`)
   // The app records the result before it answers it, so its post is listed a moment after.
   await until(() => postsOf('command.result').some(p => p.data?.id === `dish-${EMBER}`), 'the dish\'s result as posted', 10_000)
   const result = postsOf('command.result').find(p => p.data?.id === `dish-${EMBER}`)?.data
-  check(result?.status === 'done' && result.visible === false && same(result.rolls, []) && same(result.dish, { card: emberCard.id, state: 'waiting' }) && rowOf(EMBER).messageId === emberCard.id,
-    `its result: done, not visible, its card waiting (${JSON.stringify(result)})`)
+  // Changed on purpose (round 0.39.0 §2.11): visible, as the cook's player reads it.
+  check(result?.status === 'done' && result.visible === true && same(result.rolls, []) && same(result.dish, { card: emberCard.id, state: 'waiting' }) && rowOf(EMBER).messageId === emberCard.id,
+    `its result: done, visible, its card waiting (${JSON.stringify(result)})`)
   const gmView = await drawn(emberCard)
   const playerView = await drawn(emberCard, { asGm: false })
-  check(same(controlsOf(gmView), ['Apply…', 'Set aside']) && controlsOf(playerView).length === 0 && gmView.querySelector('.sending-stone-dish-badge'),
-    `drawn for a Gamemaster, the card offers ${JSON.stringify(controlsOf(gmView))} under its bowl badge; for a player, nothing`)
+  check(same(controlsOf(gmView), ['Apply…', 'Set aside']) && controlsOf(playerView).length === 0 && playerView.querySelectorAll('button').length === 0
+    && gmView.querySelector('.sending-stone-dish-badge') && playerView.querySelector('.sending-stone-dish-badge') && flat(playerView.textContent).includes('Ember Skewers'),
+    `drawn for a Gamemaster, the card offers ${JSON.stringify(controlsOf(gmView))} under its bowl badge; for a player, its text and badge, no button`)
   await foundryShots('waiting', emberCard)
   await foundryShots('player', emberCard, { asGm: false })
+}
+// New (round 0.39.0 §2.11, →Q9): the card reaches its readers' app chat as text, a whisper.
+part('6b. the app\'s chat')
+{
+  const desktopChat = await chatOf(desk)
+  const bobChat = await chatOf(bob)
+  const said = {}
+  for (const [name, log] of [['alice', desktopChat], ['bob', bobChat]]) {
+    const item = log.getByRole('listitem').filter({ hasText: 'Ember Skewers Boon' })
+    await item.first().waitFor({ timeout: 30_000 })
+    said[name] = {
+      text: flat(await item.first().textContent()), whisper: await item.first().getByText('Whisper', { exact: true }).count(),
+      buttons: await item.first().locator('button').count(),
+    }
+  }
+  check(Object.values(said).every(each => each.whisper === 1 && each.buttons === 0 && /Ember Skewers Boon Cooked by \S.* in the Magical Recipe Book/.test(each.text)),
+    `within a poll, Alice's chat and Bob's hold the card as text, marked Whisper, its blocks apart, with no button (${JSON.stringify(said)})`)
+  await shoot(desk, 'cookbook-chat', desktopChat.getByRole('listitem').filter({ hasText: 'Ember Skewers Boon' }).first())
 }
 await newestSays(desk, 'Ember Skewers', 'With your Gamemaster', 'Alice\'s card to say it\'s with her Gamemaster')
 check(same((await shown(desk))[0], { recipe: 'Ember Skewers', chip: 'Boon', state: 'With your Gamemaster' }), 'within a poll, Alice\'s card: Ember Skewers, Boon, "With your Gamemaster"')
@@ -430,14 +555,22 @@ part('7. applied')
   check(same(controlsOf(gmView), ['Eaten by Thorin Oakenshield, Vex', 'Thorin Oakenshield regained 7 HP', 'Vex regained 7 HP', 'Apply to others…']),
     `Foundry's card, for a Gamemaster: ${JSON.stringify(controlsOf(gmView))}`)
   await foundryShots('applied', emberCard)
+  // Changed on purpose (round 0.39.0 §2.11, →Q8): a player's Foundry draws what became of it, and no button.
+  const playerView = await drawn(emberCard, { asGm: false })
+  check(same(controlsOf(playerView), ['Eaten by Thorin Oakenshield, Vex', 'Thorin Oakenshield regained 7 HP', 'Vex regained 7 HP']) && playerView.querySelectorAll('button').length === 0,
+    `Foundry's card, for a player: ${JSON.stringify(controlsOf(playerView))}, and no button`)
+  await foundryShots('player-applied', emberCard, { asGm: false })
+  await closeCookbook(desk)
   await desk.tab('Effects')
   const temporary = desk.page.getByRole('region', { name: 'Temporary Effects' })
   await until(async () => (await temporary.count()) > 0 && (await temporary.textContent()).includes('Ember Skewers (Boon)'), 'the effect on Thorin\'s Effects tab', 30_000)
   check(true, 'Thorin\'s Effects tab lists "Ember Skewers (Boon)"')
-  await biography(desk)
   const bobsCard = (await call(bob.page, `/api/characters/${BOB_SHEET}/cookbook`)).json
+  await cookbook(bob)
+  await cardOf(bob).getByRole('button', { name: 'Make a link code', exact: true }).waitFor()
   check(bobsCard?.dishes?.length === 0 && bobsCard.link === null && await cardOf(bob).getByRole('list', { name: 'Dishes sent' }).count() === 0,
-    `Bob's card shows no dishes, though Vex ate it: only the sender's card shows a dish (${JSON.stringify(bobsCard)})`)
+    `Bob's modal shows no dishes, though Vex ate it: only the sender's shows a dish (${JSON.stringify(bobsCard)})`)
+  await closeCookbook(bob)
 }
 
 // =================================================================================================
@@ -454,7 +587,8 @@ let porridgeCard
   await cards.dismissDish(porridgeCard)
   await until(() => rowOf(answer.body.id).status === 'dismissed', 'the row to be set aside', 20_000)
   check(rowOf(answer.body.id).reason === 'dismissed', 'the app keeps it dismissed, set aside')
-  check(same(controlsOf(await drawn(porridgeCard)), ['Set aside by Gamemaster']), 'Foundry\'s card: "Set aside by Gamemaster"')
+  check(same(controlsOf(await drawn(porridgeCard)), ['Set aside by Gamemaster']) && same(controlsOf(await drawn(porridgeCard, { asGm: false })), ['Set aside by Gamemaster']),
+    'Foundry\'s card: "Set aside by Gamemaster", for a player too')
   await foundryShots('dismissed', porridgeCard)
   await newestSays(desk, 'Plain Porridge', 'Set aside by your Gamemaster', 'Alice\'s card to say it was set aside')
   check(true, 'within a poll, Alice\'s card: Plain Porridge "Set aside by your Gamemaster"')
@@ -480,10 +614,11 @@ part('9. deleted')
 // Her card, linked, with three dishes, at each width and in both themes.
 const tablet = await browse({ width: 768, height: 1024, path: '/characters/sheet-thorin', toasts: false })
 await tablet.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
-await biography(tablet)
 for (const who of [phone, tablet, desk]) {
+  await cookbook(who)
   await until(async () => (await shown(who)).length === 3, `her three dishes at ${who.width}`, 30_000)
   await shootBoth(who, 'cookbook-card', () => cardOf(who))
+  await shootBoth(who, 'cookbook-modal-dishes', undefined, SHOTS_039)
 }
 await tablet.view.close()
 
@@ -557,6 +692,7 @@ part('12. enricher strings')
 await room(LINK)
 {
   // The stand-in's own proof: Thorin's charm, whose roll reaches it whole, is a roll to click.
+  await closeCookbook(desk)
   await desk.tab('Effects')
   const temporary = desk.page.getByRole('region', { name: 'Temporary Effects' })
   const row = name => temporary.locator('li').filter({ hasText: name }).first()
@@ -581,13 +717,13 @@ await room(LINK)
   const rolls = await row('Ember Skewers (Boon)').getByRole('button', { name: /roll it$/ }).count()
   check(text.includes('roll [​[/r 1d20]​] for luck') && rolls === 0,
     `his Effects tab shows it as text, the zero-width spaces in it, with no roll to click (${JSON.stringify(text.slice(text.indexOf('roll')))}, ${rolls} rolls)`)
-  await biography(desk)
 }
 
 // =================================================================================================
 // 13-14. Revoke, and a new code
 // =================================================================================================
 part('13. revoke')
+await cookbook(desk)
 await cardOf(desk).getByRole('button', { name: 'Revoke', exact: true }).click()
 await confirmIn(desk, 'Revoke this link code?', 'Revoke').click()
 await cardOf(desk).getByRole('button', { name: 'Make a link code', exact: true }).waitFor({ timeout: 15_000 })
@@ -616,9 +752,9 @@ part('14. a new code')
   // 15. The Gamemaster's revoke
   // ===============================================================================================
   part('15. the Gamemaster\'s revoke')
-  const gmDesk = await browse({ width: 1280, height: 800, path: '/campaigns', toasts: false })
-  const gmTablet = await browse({ width: 768, height: 1024, path: '/campaigns', toasts: false })
-  const gmPhone = await browse({ width: 390, height: 844, path: '/campaigns', toasts: false })
+  const gmDesk = await browse({ width: 1280, height: 800, path: GM_PAGE, toasts: false })
+  const gmTablet = await browse({ width: 768, height: 1024, path: GM_PAGE, toasts: false })
+  const gmPhone = await browse({ width: 390, height: 844, path: GM_PAGE, toasts: false })
   for (const who of [gmDesk, gmTablet, gmPhone]) await gmSection(who).waitFor({ timeout: 15_000 })
   const LABEL = 'Revoke Alice Adventurer’s cookbook link for Thorin Oakenshield'
   check(await thorinRow(gmDesk).getByText('Cookbook linked', { exact: true }).isVisible() && await thorinRow(gmDesk).getByRole('button', { name: LABEL, exact: true }).isVisible()
@@ -682,7 +818,7 @@ part('14. a new code')
   const after = await post(b, dishBody({ recipe: 'Gloom Stew' }))
   check(after.status === 401 && after.body?.reason === 'unlinked' && linkRow() === '', `revoked by the Gamemaster, the code is refused: ${after.status} ${after.body?.reason}`)
   await cardOf(desk).getByRole('button', { name: 'Make a link code', exact: true }).waitFor({ timeout: 30_000 })
-  check(true, 'within a poll, Alice\'s card offers "Make a link code" again')
+  check(true, 'within a poll, Alice\'s modal offers "Make a link code" again')
   await gmTablet.view.close()
 
   // ===============================================================================================
@@ -715,29 +851,68 @@ part('14. a new code')
     const answer = await post(d, dishBody({ recipe: 'Gloom Stew' }))
     check(answer.status === 409 && answer.body?.reason === 'off' && answer.words === OFF_WORDS, `a dish now: ${answer.status} ${answer.body?.reason}, "${answer.words}"`)
   }
-  await until(async () => flat(await cardOf(desk).textContent()).includes(NOT_TAKING), 'Alice\'s card to say the game isn\'t taking dishes', 30_000)
-  check(flat(await linkedLine(desk)).startsWith(`Linked with a code ending …${d.slice(-4)}`), `within a poll, Alice's card is still linked, and says "${NOT_TAKING}"`)
+  await until(async () => flat(await cardOf(desk).textContent()).includes(NOT_TAKING), 'Alice\'s modal to say the game isn\'t taking dishes', 30_000)
+  check(flat(await linkedLine(desk)).startsWith(`Linked with a code ending …${d.slice(-4)}`), `within a poll, Alice's modal is still linked, and says "${NOT_TAKING}"`)
   await gmReload(gmDesk)
   check(same((await gmLines(gmDesk)).slice(0, 1), [GM_OFF]), `the Gamemaster's card: "${(await gmLines(gmDesk))[0]}"`)
+  // Changed on purpose (round 0.39.0 §2.11): linked, the cog still offers it while dishes are off;
+  // revoked then, the modal stays open on the off line, and once it's closed the cog offers nothing.
+  await closeCookbook(desk)
+  {
+    const offered = await cogOffers(desk)
+    await cogItem(desk).click()
+    await cardOf(desk).waitFor({ timeout: 10_000 })
+    check(offered && flat(await cardOf(desk).textContent()).includes(NOT_TAKING),
+      `linked, with dishes off, Alice's cog still offers ${COG_ITEM}, its modal saying "${NOT_TAKING}"`)
+  }
+  await cardOf(desk).getByRole('button', { name: 'Revoke', exact: true }).click()
+  await confirmIn(desk, 'Revoke this link code?', 'Revoke').click()
+  await until(() => linkRow() === '', 'the link to go', 15_000)
+  await until(async () => (await cardOf(desk).getByText(/^Linked with a code ending /).count()) === 0, 'the modal to drop the link', 15_000)
+  {
+    const said = flat(await cardOf(desk).textContent())
+    const inside = await desk.page.evaluate(() => Boolean(document.activeElement?.closest('dialog')))
+    check(await cardOf(desk).isVisible() && said.includes(NOT_TAKING) && await cardOf(desk).getByRole('button', { name: 'Make a link code', exact: true }).count() === 0 && inside,
+      `revoked while dishes are off, the modal stays open on "${NOT_TAKING}", with no Make a link code, focus kept in it (${await focusedName(desk)})`)
+    await shootBoth(desk, 'cookbook-modal-off', undefined, SHOTS_039)
+  }
+  await closeCookbook(desk)
+  {
+    const focused = await focusedName(desk)
+    const offered = await cogOffers(desk)
+    check(focused === 'Settings' && !offered, `closed, focus goes back to the cog's Settings button (${focused}), and the cog offers ${COG_ITEM} no longer`)
+    await closeCog(desk)
+  }
 
   // ===============================================================================================
-  // 18. The Gamemaster's section
+  // 18. Back on (round 0.39.0 §2.11, new)
   // ===============================================================================================
-  part('18. the Gamemaster\'s section')
+  part('18. back on')
   await game.settings.set('sending-stone', 'campaigns', [campaign({ dishes: true })])
   await until(() => enabled() === 't|1', 'the app to keep dishes on again', 20_000)
+  await until(() => cogOffers(desk), `Alice's cog to offer ${COG_ITEM} again`, 30_000)
+  check(true, `dishes on again in Foundry, Alice's cog, opened again, offers ${COG_ITEM} within a read, with no reload`)
+  await cogItem(desk).click()
+  await cardOf(desk).waitFor({ timeout: 10_000 })
+  const e = await makeCode(desk)
+  await done(desk)
+
+  // ===============================================================================================
+  // 19. The Gamemaster's section
+  // ===============================================================================================
+  part('19. the Gamemaster\'s section')
   await until(() => Number(sql(`select count(*) from cookbook_dish where "campaignId" = '${A}' and status in ('queued', 'claimed')`)) === 0, 'every dish so far to reach Foundry', 60_000)
   await gmReload(gmDesk)
   check((await gmLines(gmDesk))[0] === GM_ON, `the switch on again: "${(await gmLines(gmDesk))[0]}"`)
   await stopFetching()
   await room(linkRow())
-  const held = await post(d, dishBody({ recipe: 'Ink Risotto' }))
+  const held = await post(e, dishBody({ recipe: 'Ink Risotto' }))
   check(held.status === 202, `a dish while Foundry fetches nothing: ${held.status}`)
   const inFoundry = Number(sql(`select count(*) from cookbook_dish where "campaignId" = '${A}' and status = 'delivered'`))
   for (const who of [gmDesk, gmPhone]) await gmReload(who)
   const lines = await gmLines(gmDesk)
   check(inFoundry > 0 && same(lines, [GM_ON, `1 waiting for Foundry · ${inFoundry} in Foundry for you`]) && same(await gmLines(gmPhone), lines), `with it held, at 1280 and 390: ${JSON.stringify([lines, await gmLines(gmPhone)])}`)
-  const gmTablet2 = await browse({ width: 768, height: 1024, path: '/campaigns', toasts: false })
+  const gmTablet2 = await browse({ width: 768, height: 1024, path: GM_PAGE, toasts: false })
   await gmSection(gmTablet2).waitFor({ timeout: 15_000 })
   for (const who of [gmPhone, gmTablet2, gmDesk]) await shootBoth(who, 'cookbook-gm', () => gmSection(who))
   await gmTablet2.view.close()
@@ -751,9 +926,10 @@ part('14. a new code')
 }
 
 // =================================================================================================
-// 19. Phones and themes
+// 20. Phones and themes
 // =================================================================================================
-part('19. phones and themes')
+part('20. phones and themes')
+await cookbook(phone)
 for (const [width, height] of [[390, 844], [360, 780]]) {
   await phone.page.setViewportSize({ width, height })
   phone.width = width
@@ -761,12 +937,13 @@ for (const [width, height] of [[390, 844], [360, 780]]) {
   await until(async () => (await shown(phone)).length > 0, `her dishes at ${width}`, 30_000)
   const buttons = await buttonsOf(phone)
   check(await sideways(phone.page) === 0 && buttons.length >= 2 && buttons.every(b => b.height >= 44),
-    `at ${width}, the Biography tab doesn't scroll sideways, and every button on the card is at least 44 px tall (${JSON.stringify(buttons)})`)
+    `at ${width}, the page doesn't scroll sideways, and every button in the modal is at least 44 px tall (${JSON.stringify(buttons)})`)
 }
 await theme(phone, 'dark')
 check(await sideways(phone.page) === 0, 'and in the dark theme')
 await shoot(phone, 'cookbook-card', cardOf(phone))
 await theme(phone, 'light')
+await shootBoth(phone, 'cookbook-modal-dishes', undefined, SHOTS_039)
 check(notices.length === 0, `Foundry showed no error (${JSON.stringify(notices)})`)
 check(posted.filter(p => p.type?.startsWith('dish.')).every(p => p.status === 204 || p.status === 200),
   `the app took every dish event the module sent (${posted.filter(p => p.type?.startsWith('dish.')).map(p => `${p.type} ${p.status}`).join(', ')})`)

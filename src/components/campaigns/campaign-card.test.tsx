@@ -66,6 +66,32 @@ const dishesTexts = () =>
     ({ textContent }) => textContent,
   )
 
+/** A dialog as a browser shows it, which jsdom's doesn't: its first control focused. */
+class FocusingDialog extends HTMLDialogElement {
+  override showModal() {
+    this.open = true
+    this.querySelector('button')?.focus()
+  }
+}
+
+/** What Foundry said of itself for the players' effects (module 0.39.0). */
+const effectsFoundry = (
+  version: string | null,
+  system?: { id: string; version: string },
+): OwnedCampaign['foundry'] => ({
+  receivedAt: '2026-10-28T09:00:00.000Z',
+  module: { id: 'sending-stone', version },
+  ...(system && { system: { ...system, title: system.id } }),
+})
+/** The section's lines. */
+const effectsTexts = () =>
+  [
+    ...(
+      screen.getByRole('heading', { name: "Players' effects" })
+        .parentElement as HTMLElement
+    ).querySelectorAll('p'),
+  ].map(({ textContent }) => textContent)
+
 describe('components/campaigns/campaign-card', () => {
   it.each([
     ['live', {}, 'Live'],
@@ -178,13 +204,24 @@ describe('components/campaigns/campaign-card', () => {
       },
     )
 
-    it('sits between the header and the invite link', () => {
+    // Changed on purpose (round 0.39.0 §4.7): the page's head, the refusal box right under it,
+    // then its two columns, then its foot.
+    it('sits right under the head, before the columns and the foot', () => {
       const note = renderNote({
         refusal: { reason: 'wrongSecret', status: 401, at, current: true },
       })
 
       expect(note.previousElementSibling?.tagName).toBe('HEADER')
-      expect(note.nextElementSibling).toHaveTextContent(/^Invite link/)
+      const columns = note.nextElementSibling as HTMLElement
+      expect(columns.tagName).toBe('DIV')
+      expect(
+        within(columns).getByRole('heading', { name: 'Characters' }),
+      ).toBeInTheDocument()
+      expect(
+        within(columns).getByRole('heading', { name: 'Invite link' }),
+      ).toBeInTheDocument()
+      expect(columns.nextElementSibling?.tagName).toBe('FOOTER')
+      expect(columns.nextElementSibling?.nextElementSibling).toBeNull()
     })
 
     it('is muted once Foundry has reached the app since, saying when', () => {
@@ -282,7 +319,8 @@ describe('components/campaigns/campaign-card', () => {
       expect(link).toHaveAttribute('href', `/campaigns/c1/characters/${id}`)
       expect(link).toHaveTextContent(name)
       expect(link).toHaveClass('truncate')
-      expect(link.closest('li')).toHaveClass('min-h-10')
+      // Changed on purpose (round 0.39.0 §4.7): 44 px, as the design's rows.
+      expect(link.closest('li')).toHaveClass('min-h-11')
     }
   })
 
@@ -557,7 +595,11 @@ describe('components/campaigns/campaign-card', () => {
   })
 
   describe('dishes from the Magical Recipe Book (module 0.38.0)', () => {
+    // Changed on purpose (round 0.39.0 §4.7): from module 0.39.0 the card shows to the campaign's
+    // players too; before it, as the app ships first, only to Gamemasters, as v0.38 said.
     const ON =
+      'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches your game as a card its players see too; you choose who ate it.'
+    const ON_GM_ONLY =
       'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches you as a card only Gamemasters see.'
     const UPDATE =
       'Your Sending Stone module doesn’t take dishes yet. Version 0.38.0 or later does.'
@@ -580,9 +622,42 @@ describe('components/campaigns/campaign-card', () => {
         'on',
         {
           dishes: { ...off, enabled: true },
-          foundry: foundry('0.38.0', dnd5e('5.3.3')),
+          foundry: foundry('0.39.0', dnd5e('5.3.3')),
         },
         ON,
+      ],
+      [
+        'on, under a later module',
+        {
+          dishes: { ...off, enabled: true },
+          foundry: foundry('1.2.0', dnd5e('5.3.3')),
+        },
+        ON,
+      ],
+      [
+        'on, under a module that doesn’t say its version',
+        {
+          dishes: { ...off, enabled: true },
+          // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+          foundry: foundry(null, dnd5e('5.3.3')),
+        },
+        ON,
+      ],
+      [
+        'on, under module 0.38.1, whose cards only Gamemasters see',
+        {
+          dishes: { ...off, enabled: true },
+          foundry: foundry('0.38.1', dnd5e('5.3.3')),
+        },
+        ON_GM_ONLY,
+      ],
+      [
+        'on, under module 0.38.0',
+        {
+          dishes: { ...off, enabled: true },
+          foundry: foundry('0.38.0', dnd5e('5.3.3')),
+        },
+        ON_GM_ONLY,
       ],
       [
         'module 0.37.0, which has no switch',
@@ -770,5 +845,327 @@ describe('components/campaigns/campaign-card', () => {
       expect(card).toHaveClass('min-w-0')
       expect(card.querySelector('header')).toHaveClass('min-w-0')
     })
+  })
+
+  describe('as the index shows it (round 0.39.0)', () => {
+    it('is an article named by its title, a heading that takes focus and wraps, its world and host under it', () => {
+      renderCard({ title: 'The Lonely Mountain and the Long Road Home' })
+
+      const article = screen.getByRole('article', {
+        name: 'The Lonely Mountain and the Long Road Home',
+      })
+      const title = within(article).getByRole('heading', { level: 2 })
+      expect(title).toHaveAttribute('id', 'campaign-c1')
+      expect(title).toHaveAttribute('tabindex', '-1')
+      expect(title).toHaveClass('break-words')
+      expect(title).not.toHaveClass('truncate')
+      expect(title.nextElementSibling).toHaveTextContent(
+        /^Return to Erebor · my-game\.forge-vtt\.com$/,
+      )
+      expect(title.nextElementSibling).toHaveClass('wrap-anywhere')
+    })
+
+    it('says only the host before Foundry has named its world', () => {
+      renderCard({ worldTitle: undefined })
+
+      expect(
+        screen.getByRole('heading', { level: 2 }).nextElementSibling,
+      ).toHaveTextContent(/^my-game\.forge-vtt\.com$/)
+    })
+
+    it('heads each part of it one level under its title', () => {
+      renderCard({
+        groups: [
+          { id: 'company', name: 'The Company', primary: true, shared: true },
+        ],
+      })
+
+      expect(
+        screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent),
+      ).toEqual([
+        'Characters',
+        'Party sheets',
+        'Invite link',
+        // The straight apostrophe four end-to-end suites read.
+        "Players' rolls",
+        'Items and coins',
+        'Cookbook dishes',
+        "Players' effects",
+      ])
+      expect(screen.queryByRole('heading', { level: 4 })).toBeNull()
+    })
+
+    it('lays its characters and party sheets in one column, the rest in the other, side by side from 900 px of the index', () => {
+      renderCard({
+        groups: [
+          { id: 'company', name: 'The Company', primary: true, shared: true },
+        ],
+      })
+
+      const [left, right] = [
+        screen.getByRole('heading', { name: 'Characters' }),
+        screen.getByRole('heading', { name: 'Invite link' }),
+      ].map(heading => heading.parentElement?.parentElement as HTMLElement)
+      expect(left).not.toBe(right)
+      expect(left.parentElement).toBe(right.parentElement)
+      // Divs, never sections: a section is one part, such as Cookbook dishes.
+      expect(left.tagName).toBe('DIV')
+      expect(right.tagName).toBe('DIV')
+      expect(left.parentElement).toHaveClass(
+        '@min-[900px]/index:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]',
+      )
+      expect(
+        [...left.children].map(part => part.querySelector('h3')?.textContent),
+      ).toEqual(['Characters', 'Party sheets'])
+      expect(
+        [...right.children].map(
+          part =>
+            part.querySelector('h3')?.textContent ??
+            part.querySelector('summary')?.textContent,
+        ),
+      ).toEqual([
+        'Invite link',
+        "Players' rolls",
+        'Items and coins',
+        'Cookbook dishes',
+        "Players' effects",
+        'Foundry settings',
+      ])
+    })
+
+    it.each([
+      [
+        'Refused, while a refusal is current, even with Foundry live',
+        {
+          live: true,
+          refusal: {
+            reason: 'wrongSecret',
+            status: 401,
+            at: '2026-10-13T11:59:00.000Z',
+            current: true,
+          },
+        },
+        'Refused',
+        'refused',
+      ],
+      [
+        'Live, past a refusal',
+        {
+          live: true,
+          refusal: {
+            reason: 'wrongSecret',
+            status: 401,
+            at: '2026-10-13T11:59:00.000Z',
+            current: false,
+          },
+        },
+        'Live',
+        'live',
+      ],
+      [
+        'Waiting for Foundry',
+        { live: false, connected: false },
+        'Waiting for Foundry',
+        'waiting',
+      ],
+      ['Offline', { live: false }, 'Offline', 'offline'],
+    ] as const)('heads it with its chip: %s', (_, fields, label, state) => {
+      renderCard(fields as Partial<OwnedCampaign>)
+
+      const header = screen.getByRole('article').querySelector('header')
+      const chip = header?.querySelector('[data-state]')
+      expect(chip).toHaveTextContent(label)
+      expect(chip).toHaveAttribute('data-state', state)
+    })
+
+    it('words the invite link’s button, Copy, and names it as before', () => {
+      renderCard()
+
+      const button = screen.getByRole('button', { name: 'Copy invite link' })
+      expect(button).toHaveTextContent(/^Copy$/)
+      // Five end-to-end suites read the link from its code.
+      expect(
+        screen.getByRole('article').querySelector('code'),
+      ).toHaveTextContent('https://stone.example/join/code-1')
+    })
+
+    it('gives each character’s sheet link an id, for focus to go to once its player is removed', () => {
+      renderCard({
+        characters: [
+          {
+            id: 'thorin',
+            name: 'Thorin',
+            player: 'Alice',
+            characterId: 'char-1',
+          },
+        ],
+      })
+
+      expect(
+        screen.getByRole('link', { name: "Open Thorin's sheet" }),
+      ).toHaveAttribute('id', 'campaign-c1-sheet-thorin')
+    })
+
+    it('makes its buttons easy to tap: 40 px, its icon buttons 36', () => {
+      renderCard({
+        characters: [
+          {
+            id: 'thorin',
+            name: 'Thorin',
+            player: 'Alice',
+            characterId: 'char-1',
+          },
+        ],
+      })
+
+      for (const name of ['Reset link', 'Delete campaign']) {
+        expect(screen.getByRole('button', { name })).toHaveClass('min-h-10')
+      }
+      expect(screen.getByText('Change secret')).toHaveClass('min-h-10')
+      expect(
+        screen.getByRole('button', { name: 'Remove Alice as Thorin' }),
+      ).toHaveClass('size-9')
+    })
+
+    describe('its dialogs, each opening on Cancel', () => {
+      const showModal = HTMLDialogElement.prototype.showModal
+      beforeAll(() => {
+        HTMLDialogElement.prototype.showModal =
+          FocusingDialog.prototype.showModal
+      })
+      afterAll(() => {
+        HTMLDialogElement.prototype.showModal = showModal
+      })
+
+      it.each([
+        ['Reset link', 'Reset the invite link?'],
+        ['Remove Alice as Thorin', 'Remove Alice as Thorin?'],
+        [
+          'Revoke Alice’s cookbook link for Thorin',
+          'Revoke Alice’s cookbook link for Thorin?',
+        ],
+        ['Delete campaign', 'Delete The Lonely Mountain?'],
+      ])('%s', async (trigger, title) => {
+        const user = userEvent.setup()
+        render(
+          <CampaignCard
+            campaign={campaign({
+              characters: [
+                {
+                  id: 'thorin',
+                  name: 'Thorin',
+                  player: 'Alice',
+                  characterId: 'char-1',
+                  cookbookLinked: true,
+                },
+              ],
+            })}
+            inviteUrl='https://stone.example/join/code-1'
+            changeSecret={jest.fn()}
+            resetInvite={jest.fn()}
+            removePlayer={jest.fn()}
+            revokeCookbookLink={jest.fn()}
+            remove={jest.fn()}
+          />,
+        )
+
+        await user.click(screen.getByRole('button', { name: trigger }))
+        expect(
+          within(screen.getByRole('dialog', { name: title })).getByRole(
+            'button',
+            { name: 'Cancel' },
+          ),
+        ).toHaveFocus()
+      })
+    })
+  })
+
+  describe("players' effects (module 0.39.0)", () => {
+    const ON =
+      'On in Foundry. Your players turn off and delete the effects their party put on their own characters from here, and turn off an item’s temporary effect such as Rage: never one from a monster or one made on the sheet, a condition or a concentration.'
+    const UPDATE =
+      'Your Sending Stone module doesn’t let players change their effects yet. Version 0.39.0 or later does.'
+    const SYSTEM = 'Off. Players’ effects need D&D Fifth Edition in Foundry.'
+    const TICK =
+      'Off. To let them, tick Allow Players to disable & remove their own active effects on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+    it.each([
+      [
+        'on',
+        {
+          effects: { enabled: true },
+          foundry: effectsFoundry('0.39.0', dnd5e('5.3.3')),
+        },
+        ON,
+      ],
+      [
+        'on under dnd5e 6',
+        {
+          effects: { enabled: true },
+          foundry: effectsFoundry('0.39.0', dnd5e('6.0.5')),
+        },
+        ON,
+      ],
+      [
+        'module 0.38.1, which has no switch',
+        {
+          effects: { enabled: false },
+          foundry: effectsFoundry('0.38.1', dnd5e('5.3.3')),
+        },
+        UPDATE,
+      ],
+      [
+        'module 0.38.1 under another system, told to update first',
+        { foundry: effectsFoundry('0.38.1', { id: 'pf2e', version: '6.0.0' }) },
+        UPDATE,
+      ],
+      [
+        'module 0.39.0 under another system',
+        {
+          effects: { enabled: false },
+          foundry: effectsFoundry('0.39.0', { id: 'pf2e', version: '6.0.0' }),
+        },
+        SYSTEM,
+      ],
+      [
+        'module 0.39.0 under dnd5e 6, its switch off',
+        {
+          effects: { enabled: false },
+          foundry: effectsFoundry('0.39.0', dnd5e('6.0.5')),
+        },
+        TICK,
+      ],
+      [
+        'module 0.39.0 under dnd5e 5, its switch off',
+        {
+          effects: { enabled: false },
+          foundry: effectsFoundry('0.39.0', dnd5e('5.3.3')),
+        },
+        TICK,
+      ],
+      [
+        'a module that doesn’t say its version',
+        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+        { foundry: effectsFoundry(null, dnd5e('5.3.3')) },
+        TICK,
+      ],
+      ['given nothing of effects, nor of Foundry', {}, TICK],
+    ] as const)(
+      'says whether players change their effects: %s',
+      (_, fields, text) => {
+        renderCard(fields as Partial<OwnedCampaign>)
+
+        expect(effectsTexts()).toEqual([text])
+        // After the Cookbook dishes, before the Foundry settings.
+        const section = screen.getByRole('heading', {
+          name: "Players' effects",
+        }).parentElement as HTMLElement
+        expect(section.previousElementSibling).toBe(dishesSection())
+        expect(section.nextElementSibling?.tagName).toBe('DETAILS')
+        expect(section.querySelector('svg')).toHaveAttribute(
+          'aria-hidden',
+          'true',
+        )
+      },
+    )
   })
 })

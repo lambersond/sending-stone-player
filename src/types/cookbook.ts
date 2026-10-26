@@ -95,12 +95,11 @@ export type CookbookView = {
 export type CookbookCodeAnswer = { code: string } | { message: string }
 
 /**
- * Where a player's Magical Recipe Book card is drawn: their own seat's character, and its actions.
+ * Where a player's Magical Recipe Book is offered: their own seat's character, and its actions.
+ * Since round 0.39.0 it opens in a modal from the sheet's cog, whose owner holds whether it reads.
  */
 export type CookbookPlace = {
   characterId: string
-  /** Whether it's in view, and so polled: the journal's flag. */
-  active: boolean
   make: () => Promise<CookbookCodeAnswer>
   revoke: () => Promise<void>
 }

@@ -118,6 +118,7 @@ export async function listOwnedCampaigns(
       bridgePolledAt: true,
       transfersEnabled: true,
       dishesEnabled: true,
+      effectsEnabled: true,
       refusedAt: true,
       refusalReason: true,
       refusalStatus: true,
@@ -175,6 +176,9 @@ export async function listOwnedCampaigns(
           countOf(dishes, campaign.id, 'claimed'),
         inFoundry: countOf(dishes, campaign.id, 'delivered'),
       },
+      // Whether the campaign lets its players change their own characters' effects, from module
+      // 0.39.0, as its last hello said.
+      effects: { enabled: campaign.effectsEnabled },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
         const link = player?.cookbookLink

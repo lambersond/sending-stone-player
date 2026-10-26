@@ -1195,8 +1195,10 @@ part('13. the gamemaster')
   check(/^Companions: Brakka(, Bat \d \(summoned\))*, Drake \(summoned\)$/.test((await line.textContent()).trim()), `the campaign card says "${(await line.textContent()).trim()}", names only`)
   await shootBoth(cards, 'companions-gm-card', card)
   await cards.view.close()
+  // Changed on purpose (round 0.39.0 §4.8): at 390 and 768 the campaigns page shows the campaign the
+  // address chooses in its list's place.
   for (const [width, height] of [[390, 844], [768, 1024]]) {
-    const small = await browse({ width, height, path: '/campaigns' })
+    const small = await browse({ width, height, path: `/campaigns?campaign=${A}` })
     const smallCard = small.page.getByRole('article', { name: TITLE })
     await smallCard.getByText(/^Companions: /).first().waitFor({ timeout: 20_000 })
     await shootBoth(small, 'companions-gm-card', smallCard)

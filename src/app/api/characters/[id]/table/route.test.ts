@@ -57,6 +57,8 @@ describe('app/api/characters/[id]/table', () => {
       removes: false,
       // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
@@ -98,6 +100,8 @@ describe('app/api/characters/[id]/table', () => {
       removes: false,
       // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     })
     const withRolls = await get('?version=7&live=1&rolls=skill,save')
     expect(withRolls.status).toBe(204)
@@ -112,6 +116,8 @@ describe('app/api/characters/[id]/table', () => {
       removes: false,
       // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     })
     const withFeatures = await get(
       `?version=7&live=1&rolls=${encodeURIComponent('skill,damage;modifiers')}`,
@@ -133,6 +139,8 @@ describe('app/api/characters/[id]/table', () => {
       removes: false,
       // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -174,6 +182,8 @@ describe('app/api/characters/[id]/table', () => {
         removes: false,
         // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
         favorites: false,
+        // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+        effects: false,
       })
       const response = await get(query)
 
@@ -191,6 +201,8 @@ describe('app/api/characters/[id]/table', () => {
       removes: false,
       // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     }
     jest.mocked(getCampaignStatus).mockResolvedValue({ ...status, moves: true })
     const answers = [
@@ -220,6 +232,8 @@ describe('app/api/characters/[id]/table', () => {
       typed: false,
       // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -250,6 +264,8 @@ describe('app/api/characters/[id]/table', () => {
       moves: false,
       typed: false,
       removes: false,
+      // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+      effects: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -266,6 +282,37 @@ describe('app/api/characters/[id]/table', () => {
       await get('?version=7&live=1'),
       // Its module stopped fetching: the page would go on offering favorites.
       await get('?version=7&live=1&favorites=1'),
+    )
+
+    expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
+  })
+
+  it('sends the view to a viewer who missed the game taking effects, or no longer taking them (module 0.39.0)', async () => {
+    const status = {
+      version: 7,
+      live: true,
+      rollsToTable: [],
+      rollFeatures: [],
+      moves: false,
+      typed: false,
+      removes: false,
+      favorites: false,
+    }
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, effects: true })
+    const answers = [
+      await get('?version=7&live=1&effects=1'),
+      // Its campaign let its players, and its module began fetching, with no new version.
+      await get('?version=7&live=1'),
+    ]
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, effects: false })
+    answers.push(
+      await get('?version=7&live=1'),
+      // Its module stopped fetching: the page would go on offering its controls.
+      await get('?version=7&live=1&effects=1'),
     )
 
     expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
@@ -355,6 +402,8 @@ describe('app/api/characters/[id]/table, typing in their own dice, from module 0
     removes: false,
     // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
     favorites: false,
+    // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+    effects: false,
   }
 
   beforeEach(() => {

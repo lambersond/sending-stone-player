@@ -148,14 +148,16 @@ async function apply(
           // Whether its players may roll in the game from here. A module before 0.10.0 can't
           // make their rolls, and says nothing of them.
           rollsEnabled: features?.rolls?.enabled === true,
-          // A move of items and coins, a removal, or a favorite is never one of the rolls, even
-          // where a module says so: each has its own feature.
+          // A move of items and coins, a removal, a favorite, or from module 0.39.0 an effect
+          // changed, is never one of the rolls, even where a module says so: each has its own
+          // feature.
           rollKinds: (features?.rolls?.kinds ?? []).filter(
             kind =>
               (ROLL_KINDS as readonly string[]).includes(kind) &&
               kind !== 'transfer' &&
               kind !== 'remove' &&
-              kind !== 'favorite',
+              kind !== 'favorite' &&
+              kind !== 'effect',
           ),
           // What else it can do with them: from module 0.13.0, take damage a player changed, and
           // ask players for the saves their game asks of them; from module 0.16.0, make area
@@ -214,6 +216,12 @@ async function apply(
                 (COOKBOOK_VERSIONS as readonly number[]).includes(version),
               )
             : [],
+          // Whether the campaign lets its players turn off, turn on and delete their own
+          // characters' effects from here, from module 0.39.0, by its own switch under dnd5e: a
+          // module before it says nothing of them, which clears it.
+          effectsEnabled:
+            features?.effects?.enabled === true &&
+            (features.effects.kinds ?? []).includes('effect'),
           // Whether the module keeps journal notes for the app, from module 0.34.0, with no
           // switch: a module before it says nothing of them, which clears it.
           notesEnabled:

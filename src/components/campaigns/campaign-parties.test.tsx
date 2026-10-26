@@ -20,8 +20,9 @@ describe('components/campaigns/campaign-parties', () => {
       />,
     )
 
+    // Changed on purpose (round 0.39.0 §4.7): a section of the campaign's page, under its h2.
     expect(
-      screen.getByRole('heading', { level: 4, name: 'Party sheets' }),
+      screen.getByRole('heading', { level: 3, name: 'Party sheets' }),
     ).toBeInTheDocument()
     const [company, hidden] = screen.getAllByRole('listitem')
     expect(
@@ -38,6 +39,8 @@ describe('components/campaigns/campaign-parties', () => {
     ).toHaveAttribute('href', '/campaigns/c1/party/hidden')
     expect(hidden).toHaveTextContent('Not shared with any player in Foundry')
     expect(hidden).not.toHaveTextContent('Primary party')
+    // As tall as a character's row, easy to tap (round 0.39.0).
+    expect(company).toHaveClass('min-h-11')
   })
 
   it('is nothing without any', () => {

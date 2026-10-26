@@ -1,9 +1,18 @@
+import { useRef } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfirmDialog } from './confirm-dialog'
 import { Modal } from './modal'
 import { usePortalRoot, useTopmostEscape } from './portal-root'
 import { SidePanel } from '@/components/side-panel'
+
+/** A dialog as a browser shows it, which jsdom's doesn't: its first control focused. */
+class FocusingDialog extends HTMLDialogElement {
+  override showModal() {
+    this.open = true
+    this.querySelector('button')?.focus()
+  }
+}
 
 describe('components/modal', () => {
   it('opens and closes the dialog, rendering its content only while open', () => {
@@ -134,6 +143,37 @@ describe('components/modal', () => {
       'max-w-lg',
       'rounded-2xl',
     )
+  })
+
+  it('gives focus to what it is told to as it opens, after the browser has focused its first control (round 0.39.0)', () => {
+    function Asking({ open }: Readonly<{ open: boolean }>) {
+      const keep = useRef<HTMLButtonElement>(null)
+      return (
+        <Modal
+          open={open}
+          onClose={jest.fn()}
+          title='Delete Thorin?'
+          initialFocus={keep}
+        >
+          <button type='button'>Delete</button>
+          <button ref={keep} type='button'>
+            Keep
+          </button>
+        </Modal>
+      )
+    }
+    // As a browser's showModal() does, which jsdom's doesn't: the first control, Close, focused.
+    const showModal = jest
+      .spyOn(HTMLDialogElement.prototype, 'showModal')
+      .mockImplementation(FocusingDialog.prototype.showModal)
+    const { rerender } = render(<Asking open={false} />)
+    expect(document.body).toHaveFocus()
+
+    rerender(<Asking open />)
+    const dialog = screen.getByRole('dialog', { name: 'Delete Thorin?' })
+    expect(showModal).toHaveBeenCalledTimes(1)
+    expect(within(dialog).getByRole('button', { name: 'Keep' })).toHaveFocus()
+    showModal.mockRestore()
   })
 })
 

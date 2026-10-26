@@ -30,9 +30,12 @@ const pairs = (list: HTMLElement) =>
     [...row.children].map(({ textContent }) => textContent).join(': '),
   )
 
-/** A heading inside the section, and the list after it. */
+/**
+ * A heading inside the section, and the list after it. Changed on purpose (round 0.39.0 §4.7):
+ * one level under the campaign's page's sections.
+ */
 const listAfter = (name: string) =>
-  screen.getByRole('heading', { level: 5, name })
+  screen.getByRole('heading', { level: 4, name })
     .nextElementSibling as HTMLElement
 
 describe('components/campaigns/foundry-settings', () => {
@@ -203,7 +206,7 @@ describe('components/campaigns/foundry-settings', () => {
     )
   })
 
-  it("sits on the campaign's card after the players' rolls, before its footer", () => {
+  it("sits on the campaign's page last in its right column, after the players' rolls, before its footer", () => {
     const campaign: OwnedCampaign = {
       id: 'c1',
       title: 'The Lonely Mountain',
@@ -248,7 +251,17 @@ describe('components/campaigns/foundry-settings', () => {
     expect(dishes.parentElement?.previousElementSibling).toBe(
       moves.parentElement,
     )
-    expect(details?.previousElementSibling).toBe(dishes.parentElement)
-    expect(details?.nextElementSibling?.tagName).toBe('FOOTER')
+    // Changed on purpose (round 0.39.0 §4.7): from module 0.39.0 the players' effects come between
+    // the Cookbook dishes and the Foundry settings, last in the page's right column, whose foot
+    // runs under both columns.
+    const effects = screen.getByRole('heading', { name: "Players' effects" })
+    expect(effects.parentElement?.previousElementSibling).toBe(
+      dishes.parentElement,
+    )
+    expect(details?.previousElementSibling).toBe(effects.parentElement)
+    expect(details?.nextElementSibling).toBeNull()
+    const column = details?.parentElement as HTMLElement
+    expect(column.firstElementChild).toHaveTextContent(/^Invite link/)
+    expect(column.parentElement?.nextElementSibling?.tagName).toBe('FOOTER')
   })
 })

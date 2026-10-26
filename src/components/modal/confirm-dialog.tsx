@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, type ReactNode } from 'react'
+import { useRef, useState, useTransition, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
 import { Modal } from './modal'
@@ -14,6 +14,11 @@ type Asked = {
   cancelLabel?: string
   onConfirm: () => Promise<void>
   danger?: boolean
+  /**
+   * Has Cancel take focus as it opens, rather than the browser's first control, its Close: the
+   * campaign page's dialogs (round 0.39.0), so Enter keeps things as they are.
+   */
+  focusCancel?: boolean
 }
 
 type Props = Asked & {
@@ -62,8 +67,10 @@ export function ConfirmModal({
   cancelLabel = 'Cancel',
   onConfirm,
   danger = false,
+  focusCancel = false,
 }: Readonly<Asked & { open: boolean; onClose: () => void }>) {
   const [pending, startTransition] = useTransition()
+  const cancel = useRef<HTMLButtonElement>(null)
   const close = () => {
     if (!pending) onClose()
   }
@@ -74,11 +81,17 @@ export function ConfirmModal({
     })
 
   return (
-    <Modal open={open} onClose={close} title={title}>
+    <Modal
+      open={open}
+      onClose={close}
+      title={title}
+      initialFocus={focusCancel ? cancel : undefined}
+    >
       <div className='grid gap-6'>
         <div className='grid gap-2 text-sm text-text-secondary'>{children}</div>
         <div className='flex flex-wrap justify-end gap-2'>
           <button
+            ref={cancel}
             type='button'
             onClick={close}
             disabled={pending}

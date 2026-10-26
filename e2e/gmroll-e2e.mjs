@@ -418,7 +418,10 @@ await setup.close()
 // ---- E1, E2: on a tablet, Alice opens Balin's sheet from her campaign card ----
 const tablet = await browse({ width: 768, height: 1024, who: ALICE })
 let page = tablet.page
-await page.goto(`${BASE}/campaigns`)
+// Changed on purpose (round 0.39.0 §4.8): at 768 and 390 the campaigns page lists its campaigns,
+// and shows the one the address chooses in the list's place; the Gamemaster's sheet leads back to
+// it, and a sheet not found here to the list.
+await page.goto(`${BASE}/campaigns?campaign=${A}`)
 const card = page.getByRole('article', { name: 'Ashlands' })
 await card.waitFor()
 const links = await card.getByRole('link', { name: /^Open .*'s sheet$/ }).evaluateAll(all => all.map(a => [a.getAttribute('aria-label'), new URL(a.href).pathname]))
@@ -434,8 +437,8 @@ const MADE = "You're at Balin's sheet as the Gamemaster. What you roll here is m
 const back = page.getByRole('link', { name: 'Your campaigns' })
 check(await page.getByRole('heading', { level: 1, name: 'Balin', exact: true }).isVisible() && (await page.locator('h1 + span').textContent()) === 'GM, Gamemaster view'
   && await page.getByText(MADE).isVisible() && await page.getByRole('button', { name: 'Delete Balin' }).count() === 0
-  && await back.getAttribute('href') === '/campaigns' && await page.getByRole('banner').count() === 0,
-  "Balin's sheet: his name with a GM pill, a note that Alice's rolls are made in her game as his, marked hers, no Delete, a way back to her campaigns, no app bar")
+  && await back.getAttribute('href') === `/campaigns?campaign=${A}` && await page.getByRole('banner').count() === 0,
+  "Balin's sheet: his name with a GM pill, a note that Alice's rolls are made in her game as his, marked hers, no Delete, a way back to his campaign on her campaigns page, no app bar")
 await alice.tray.getByText(GM_REACH).waitFor({ timeout: 15_000 })
 check(true, `the tray says where her rolls go, in her words: "${GM_REACH}"`)
 check(await overflow(page) <= 0, "at 768, Balin's sheet scrolls not sideways")
@@ -506,7 +509,7 @@ await tablet.view.close()
 // ---- E4: on a phone, Alice opens Thorin's sheet, claimed by Bob, and rolls his Dexterity save ----
 const phone = await browse({ width: 390, height: 844, who: ALICE })
 page = phone.page
-await page.goto(`${BASE}/campaigns`)
+await page.goto(`${BASE}/campaigns?campaign=${A}`)
 await page.getByRole('article', { name: 'Ashlands' }).getByRole('link', { name: "Open Thorin's sheet" }).click()
 await page.waitForURL(`${BASE}${gmPath(A, 'thorin')}`)
 alice = sheetOf(page)
@@ -763,7 +766,7 @@ check(own.status === 404 && view.status === 200 && !/Balin of Mirkwood|Mirkwood 
 }
 
 // ---- E12: nothing scrolls sideways ----
-await page.goto(`${BASE}/campaigns`)
+await page.goto(`${BASE}/campaigns?campaign=${A}`)
 await page.getByRole('article', { name: 'Ashlands' }).waitFor()
 check(await overflow(page) <= 0 && await overflow(balinPage) <= 0, 'at 390, neither /campaigns nor a Gamemaster\'s sheet scrolls sideways')
 await shoot(page, 'gm-campaigns-phone')

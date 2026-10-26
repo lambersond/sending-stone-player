@@ -1,8 +1,14 @@
 /* eslint-disable unicorn/no-null -- the view uses null for an absent value */
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CookbookCard } from './cookbook-card'
-import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
+import { useCookbookEntry } from './cookbook-entry'
 import { forgetCookbook } from '@/hooks/use-cookbook-view'
 import type {
   CookbookCodeAnswer,
@@ -61,6 +67,33 @@ const show = (fields: Partial<Omit<CookbookView, 'version'>> = {}) => {
 const reads = () =>
   jest.mocked(fetch).mock.calls.filter(([url]) => String(url).startsWith(API))
 
+/**
+ * The player's book where it's opened from, as the sheet's cog opens it: a button standing for the
+ * cog's, and the modal it opens.
+ */
+function Opener({
+  make,
+  revoke,
+}: Readonly<{
+  make: () => Promise<CookbookCodeAnswer>
+  revoke: () => Promise<void>
+}>) {
+  const entry = useCookbookEntry({ characterId: 'char-1', make, revoke })
+  return (
+    <>
+      <button type='button' onClick={entry.open}>
+        Open the book
+      </button>
+      {entry.modal}
+    </>
+  )
+}
+
+/** The button the book is opened from. */
+const opener = () => screen.getByRole('button', { name: 'Open the book' })
+
+// Changed on purpose (round 0.39.0 §2.10): the card is the body of the modal the cog opens, here
+// opened at once.
 const renderCard = ({
   make = jest.fn<Promise<CookbookCodeAnswer>, []>(async () => {
     // The app links the character as it makes its code.
@@ -74,15 +107,26 @@ const renderCard = ({
   make?: () => Promise<CookbookCodeAnswer>
   revoke?: () => Promise<void>
 } = {}) => {
-  const card = () => (
-    <CookbookCard characterId='char-1' active make={make} revoke={revoke} />
-  )
-  const rendered = render(card())
-  return { ...rendered, make, revoke, card }
+  const rendered = render(<Opener make={make} revoke={revoke} />)
+  // As a press of it would, its button taking focus first.
+  opener().focus()
+  fireEvent.click(opener())
+  return { ...rendered, make, revoke }
 }
 
-const region = () =>
-  screen.findByRole('region', { name: 'Magical Recipe Book' })
+/** The book's modal, once its panel shows what it read. */
+const region = async () => {
+  await screen.findByText(/^Send dishes you cook in the Magical Recipe Book/)
+  return screen.getByRole('dialog', { name: 'Magical Recipe Book' })
+}
+
+/** Closes the book from its own Close. */
+const close = () =>
+  fireEvent.click(
+    within(
+      screen.getByRole('dialog', { name: 'Magical Recipe Book' }),
+    ).getByRole('button', { name: 'Close' }),
+  )
 
 /** Reads the card again, as at its next poll (here as the page shows again), its answer drawn. */
 const poll = async () => {
@@ -94,7 +138,7 @@ const poll = async () => {
   })
 }
 
-describe('components/cookbook-card/cookbook-card', () => {
+describe('components/cookbook-card/cookbook-card, the Magical Recipe Book’s panel in its modal (round 0.39.0)', () => {
   beforeEach(() => {
     shown = undefined
     globalThis.fetch = jest.fn(async (url: string) => {
@@ -109,38 +153,36 @@ describe('components/cookbook-card/cookbook-card', () => {
     jest.restoreAllMocks()
   })
 
-  it('draws nothing before its first answer', async () => {
-    const { container } = renderCard()
-    await waitFor(() => expect(reads()).toHaveLength(1))
-    expect(container).toBeEmptyDOMElement()
+  it('draws nothing of the book before its first answer', async () => {
+    renderCard()
+    await waitFor(() => expect(reads().length).toBeGreaterThan(0))
+    const book = screen.getByRole('dialog', { name: 'Magical Recipe Book' })
+    expect(book).not.toHaveTextContent('Send dishes')
+    expect(within(book).getAllByRole('button')).toHaveLength(1)
   })
 
-  it('draws nothing while the game takes no dishes and the character has no link, and shows once dishes are turned on', async () => {
-    jest.useFakeTimers()
-    try {
-      show({ enabled: false })
-      const { container } = renderCard()
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(0)
-      })
-      expect(reads()).toHaveLength(1)
-      expect(container).toBeEmptyDOMElement()
+  // Changed on purpose (round 0.39.0 §2.10, CA-3): inside the modal the panel never hides.
+  it('says, with no link while the game takes no dishes, that it isn’t taking them, offering no code, until it does', async () => {
+    show({ enabled: false })
+    renderCard()
+    const card = await region()
+    expect(card).toHaveTextContent(
+      'Your Gamemaster’s game isn’t taking dishes right now.',
+    )
+    expect(
+      within(card).queryByRole('button', { name: 'Make a link code' }),
+    ).toBeNull()
 
-      // Still asking, as that's how the Gamemaster turning dishes on shows up.
-      show({ enabled: true })
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(COOKBOOK_POLL_EVERY)
-      })
-      expect(reads()).toHaveLength(2)
-      expect(
-        screen.getByRole('button', { name: 'Make a link code' }),
-      ).toBeInTheDocument()
-    } finally {
-      jest.useRealTimers()
-    }
+    // Still asking while it's open, as that's how the Gamemaster turning dishes on shows up.
+    show({ enabled: true })
+    await poll()
+    expect(
+      within(card).getByRole('button', { name: 'Make a link code' }),
+    ).toBeInTheDocument()
+    expect(card).not.toHaveTextContent('isn’t taking dishes')
   })
 
-  it('is a region named by its h2, saying what it’s for, offering a link code to an unlinked character', async () => {
+  it('is a dialog named by its h2, Magical Recipe Book, saying what it’s for, offering a link code to an unlinked character', async () => {
     show()
     renderCard()
     const card = await region()
@@ -154,7 +196,7 @@ describe('components/cookbook-card/cookbook-card', () => {
       within(card)
         .getAllByRole('button')
         .map(button => button.textContent),
-    ).toEqual(['Make a link code'])
+    ).toEqual(['', 'Make a link code'])
     // Nothing sent, nothing linked: no list, and nothing said of it.
     expect(within(card).queryByRole('list')).toBeNull()
     expect(card).not.toHaveTextContent('No dishes sent yet.')
@@ -298,18 +340,20 @@ describe('components/cookbook-card/cookbook-card', () => {
     )
   })
 
-  it('keeps the code just made while the card is unmounted, as when another of the sheet’s tabs is chosen', async () => {
+  // Changed on purpose (round 0.39.0 §2.10): closed rather than unmounted.
+  it('keeps the code just made across a close, until Done, showing it again as it reopens', async () => {
     const user = userEvent.setup()
     show()
-    const { unmount, card: drawn } = renderCard()
+    renderCard()
     const card = await region()
     await user.click(
       within(card).getByRole('button', { name: 'Make a link code' }),
     )
     await within(card).findByRole('status')
-    unmount()
+    close()
+    expect(screen.queryByRole('status')).toBeNull()
 
-    render(drawn())
+    await user.click(opener())
     const again = await region()
     expect(within(again).getByRole('status')).toHaveTextContent(CODE)
   })
@@ -366,23 +410,29 @@ describe('components/cookbook-card/cookbook-card', () => {
   it('forgets the code just made when it’s revoked while the game takes no dishes, offering a code once it takes them again', async () => {
     const user = userEvent.setup()
     show()
-    const { container } = renderCard()
+    renderCard()
     const card = await region()
     await user.click(
       within(card).getByRole('button', { name: 'Make a link code' }),
     )
     await within(card).findByRole('status')
 
+    // Changed on purpose (round 0.39.0 §2.10, CA-3): the modal stays, saying so.
     show({ enabled: false, link: null })
     await poll()
-    expect(container).toBeEmptyDOMElement()
+    expect(within(card).queryByRole('status')).toBeNull()
+    expect(card).toHaveTextContent(
+      'Your Gamemaster’s game isn’t taking dishes right now.',
+    )
+    expect(
+      within(card).queryByRole('button', { name: 'Make a link code' }),
+    ).toBeNull()
 
     show({ enabled: true, link: null })
     await poll()
-    const again = await region()
-    expect(within(again).queryByRole('status')).toBeNull()
+    expect(within(card).queryByRole('status')).toBeNull()
     expect(
-      within(again).getByRole('button', { name: 'Make a link code' }),
+      within(card).getByRole('button', { name: 'Make a link code' }),
     ).toBeInTheDocument()
   })
 
@@ -405,13 +455,14 @@ describe('components/cookbook-card/cookbook-card', () => {
     show()
     const held = Promise.withResolvers<CookbookCodeAnswer>()
     renderCard({ make: jest.fn(() => held.promise) })
-    render(<textarea aria-label='A note' />)
     const card = await region()
     await user.click(
       within(card).getByRole('button', { name: 'Make a link code' }),
     )
-    const note = screen.getByRole('textbox', { name: 'A note' })
-    await user.click(note)
+    // Changed on purpose (round 0.39.0 §2.10): elsewhere in the modal, as the page behind it is
+    // inert.
+    const note = within(card).getByRole('button', { name: 'Close' })
+    note.focus()
 
     show({ link: { ...LINK, createdAt: new Date().toISOString() } })
     await act(async () => held.resolve({ code: CODE }))
@@ -419,10 +470,12 @@ describe('components/cookbook-card/cookbook-card', () => {
     expect(note).toHaveFocus()
   })
 
-  it('gives no focus to Make a link code once it shows again, after a revoke hid the card while the game took no dishes', async () => {
+  // Changed on purpose (round 0.39.0 §2.10, CA-3): the modal stays open after a revoke while the
+  // game takes no dishes, focus kept in it, until its player closes it.
+  it('stays open after a revoke while the game takes no dishes, on its off line with no Make button, focus on its Close; closing gives focus back to what opened it', async () => {
     const user = userEvent.setup()
     show({ enabled: false, link: LINK })
-    const { container } = renderCard({
+    renderCard({
       revoke: jest.fn(async () => {
         show({ enabled: false, link: null })
       }),
@@ -434,16 +487,30 @@ describe('components/cookbook-card/cookbook-card', () => {
         screen.getByRole('dialog', { name: 'Revoke this link code?' }),
       ).getByRole('button', { name: 'Revoke' }),
     )
-    await waitFor(() => expect(container).toBeEmptyDOMElement())
-    // Focus gone with the card, which has nothing to give it to.
-    expect(document.activeElement).toBe(document.body)
+    await waitFor(() => expect(card).not.toHaveTextContent('Linked with'))
+    expect(screen.getByRole('dialog', { name: 'Magical Recipe Book' })).toBe(
+      card,
+    )
+    expect(card).toHaveTextContent(
+      'Your Gamemaster’s game isn’t taking dishes right now.',
+    )
+    expect(
+      within(card).queryByRole('button', { name: 'Make a link code' }),
+    ).toBeNull()
+    await waitFor(() =>
+      expect(within(card).getByRole('button', { name: 'Close' })).toHaveFocus(),
+    )
 
+    // Offered again while it's open, its player has moved on: no focus taken.
     show({ enabled: true, link: null })
     await poll()
-    const button = within(await region()).getByRole('button', {
+    const button = within(card).getByRole('button', {
       name: 'Make a link code',
     })
     expect(button).not.toHaveFocus()
+
+    close()
+    expect(opener()).toHaveFocus()
   })
 
   it('says when the code linked was made and last used, each time as the journal says it', async () => {
@@ -462,7 +529,7 @@ describe('components/cookbook-card/cookbook-card', () => {
       within(card)
         .getAllByRole('button')
         .map(({ textContent }) => textContent),
-    ).toEqual(['Make a new code', 'Revoke'])
+    ).toEqual(['', 'Make a new code', 'Revoke'])
   })
 
   it('says when the last dish came through the link', async () => {
@@ -640,7 +707,8 @@ describe('components/cookbook-card/cookbook-card', () => {
     await user.click(first)
     await within(card).findByRole('status')
 
-    const buttons = within(card).getAllByRole('button')
+    // The modal's Close first, the panel's after.
+    const [, ...buttons] = within(card).getAllByRole('button')
     expect(buttons.map(({ textContent }) => textContent)).toEqual([
       '',
       'Done',

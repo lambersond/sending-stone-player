@@ -2294,3 +2294,119 @@ describe('schemas/roll-request, favorites added and removed, from module 0.37.0'
     )
   })
 })
+
+describe("schemas/roll-request, a player's own effects, from module 0.39.0", () => {
+  /** Bless turned off on Thorin, as its row's control sends it. */
+  const changing = {
+    kind: 'effect',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    effect: { op: 'disable', id: 'a8LkT3wPz0QcN5vB' },
+  }
+  /** An effect as given, the rest as `changing` has it. */
+  const effect = (fields: unknown) => parseKind(changing, { effect: fields })
+
+  it.each([
+    ['one turned off', { op: 'disable', id: 'a8LkT3wPz0QcN5vB' }],
+    ['one turned on', { op: 'enable', id: 'a8LkT3wPz0QcN5vB' }],
+    ['one deleted', { op: 'delete', id: 'a8LkT3wPz0QcN5vB' }],
+    [
+      "an item's, by its dotted id",
+      { op: 'disable', id: 'rageFeature0001.rageEffect00001' },
+    ],
+  ])('takes %s', (_name, fields) => {
+    const parsed = effect(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...changing, effect: fields })
+  })
+
+  it.each([
+    ['no op', { id: 'a8LkT3wPz0QcN5vB' }],
+    ['a toggle', { op: 'toggle', id: 'a8LkT3wPz0QcN5vB' }],
+    ['no id', { op: 'disable' }],
+    ['an id of two dots', { op: 'disable', id: 'a.b.c' }],
+    ['an id with a space', { op: 'disable', id: 'a8Lk T3' }],
+    ['an empty id', { op: 'delete', id: '' }],
+    ['an id too long', { op: 'delete', id: 'x'.repeat(65) }],
+    ['an item part too long', { op: 'delete', id: `a.${'x'.repeat(65)}` }],
+    ['a key more', { op: 'disable', id: 'a8LkT3wPz0QcN5vB', by: 'gm' }],
+    ['not an object', 'a8LkT3wPz0QcN5vB'],
+  ])('refuses %s', (_name, fields) => {
+    expect(effect(fields).success).toBe(false)
+  })
+
+  it('takes an effect changed only as one, and one only naming the effect', () => {
+    const message =
+      'An effect turned off, on or deleted, and only that, names the effect'
+    expect(issuesOf(perception, { effect: changing.effect })).toEqual([
+      ['effect', message],
+    ])
+    expect(issuesOf(removing, { effect: changing.effect })).toEqual([
+      ['effect', message],
+    ])
+    expect(issuesOf(changing, { effect: undefined })).toEqual([
+      ['effect', message],
+    ])
+  })
+
+  it.each([
+    [
+      'a favorite',
+      { favorite: { op: 'add', type: 'effect', id: 'a8LkT3wPz0QcN5vB' } },
+      ['favorite', 'A favorite added or removed, and only that, names what'],
+    ],
+    [
+      'a removal',
+      { remove: removing.remove },
+      ['remove', 'A removal, and only that, names what it removes'],
+    ],
+    [
+      'a concentration',
+      { concentration: { effect: 'a8LkT3wPz0QcN5vB' } },
+      [
+        'concentration',
+        'A concentration ended, and only that, names the concentration',
+      ],
+    ],
+    [
+      'an item',
+      { item: 'ropeThorin01' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses an effect changed naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(changing, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])(
+    'refuses an effect changed with %s, as it throws no dice',
+    (_name, fields) => {
+      expect(issuesOf(changing, fields)).toEqual([
+        ['dice', 'Changing an effect throws no dice'],
+      ])
+    },
+  )
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(changing, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(changing, { of: 'actorThorin1' }).success).toBe(false)
+    expect(parseKind(changing, { actorId: 'actorVex0001' }).success).toBe(false)
+  })
+
+  it('takes what the page calls it, which the server strips', () => {
+    expect(parseKind(changing, { label: 'Bless' }).success).toBe(true)
+  })
+})

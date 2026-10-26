@@ -13,6 +13,7 @@ import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import clsx from 'clsx'
 import {
   ArrowLeft,
+  CookingPot,
   MessageSquare,
   Swords,
   Ticket,
@@ -41,7 +42,10 @@ import {
   CreatureSwitcher,
   type SwitcherCreature,
 } from '@/components/companions/creature-switcher'
-import { CookbookCard } from '@/components/cookbook-card'
+import {
+  CONFIGURE_COOKBOOK,
+  useCookbookEntry,
+} from '@/components/cookbook-card'
 import { ConfirmDialog } from '@/components/modal'
 import { JournalCard, type NotesPlace } from '@/components/notes'
 import { PartyPanel } from '@/components/party-sheet/party-panel'
@@ -461,18 +465,19 @@ export function GameTable({
       party === undefined &&
       chosen === 'self',
   }
-  // The player's Magical Recipe Book card (module 0.38.0), after the journal's, wherever it is:
-  // their own seat's alone, while their character plays one of the campaign's, polled as the
-  // journal is. The Gamemaster's page passes neither action, so never draws it.
+  // The player's Magical Recipe Book (module 0.38.0): their own seat's alone, while their
+  // character plays one of the campaign's, opened from the sheet's cog (round 0.39.0). The
+  // Gamemaster's page passes neither action, so never offers it.
   const cookbook: CookbookPlace | undefined =
     seat.role === 'player' && playing && makeCookbookCode && revokeCookbookCode
       ? {
           characterId: character.id,
-          active: notes.active,
           make: makeCookbookCode,
           revoke: revokeCookbookCode,
         }
       : undefined
+  // With no sheet yet, and so no cog, a button in its place under why there's none opens it.
+  const noSheetCookbook = useCookbookEntry(view.sheet ? undefined : cookbook)
   let table: ReactNode
   // Whether the sheet's pane is beside the combat and chat column on a wide screen.
   let beside = false
@@ -587,6 +592,9 @@ export function GameTable({
               // Nor its items removed there (module 0.33.0), by either seat.
               removes={view.connected && view.removes === true}
               favorites={view.connected && view.favorites === true}
+              // Its own effects turned off, on and deleted (module 0.39.0): the player's alone, at
+              // the character's own pane, never a companion's.
+              effects={view.effects}
               actorId={character.actorId ?? undefined}
               // The party sheets it may open, on its Inventory tab (module 0.30.0).
               parties={
@@ -615,12 +623,22 @@ export function GameTable({
                   <JournalCard kind='personal' look='sheet' {...notes} />
                 </div>
               )}
-              {/* The Magical Recipe Book's card, which needs no sheet either. */}
-              {cookbook && (
+              {/* The Magical Recipe Book, which needs no sheet either: offered as the cog offers it
+                  (round 0.39.0). */}
+              {cookbook && noSheetCookbook.shown && (
                 <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
-                  <CookbookCard {...cookbook} />
+                  <button
+                    type='button'
+                    aria-haspopup='dialog'
+                    onClick={noSheetCookbook.open}
+                    className='inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
+                  >
+                    <CookingPot aria-hidden className='size-4 shrink-0' />
+                    {CONFIGURE_COOKBOOK}
+                  </button>
                 </div>
               )}
+              {noSheetCookbook.modal}
             </Scroller>
           )}
         </div>
@@ -762,7 +780,13 @@ export function GameTable({
           >
             <div className='flex min-w-0 items-center gap-2'>
               <Link
-                href={gm ? '/campaigns' : '/characters'}
+                // Back to the campaign it was opened from, chosen on the campaigns page (round
+                // 0.39.0).
+                href={
+                  gm
+                    ? `/campaigns?campaign=${encodeURIComponent(character.campaignId ?? '')}`
+                    : '/characters'
+                }
                 aria-label={gm ? 'Your campaigns' : 'All characters'}
                 className='-ml-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
               >

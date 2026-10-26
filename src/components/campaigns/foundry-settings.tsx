@@ -1,12 +1,9 @@
 import clsx from 'clsx'
 import { Eye, EyeOff, Settings2 } from 'lucide-react'
+import { QUIET_BUTTON } from './campaign-styles'
 import { LocalTime } from '@/components/game-table/local-time'
 import type { OwnedCampaign } from '@/types/campaign'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
-
-/** The card's quiet buttons' look, as its Change secret has. */
-const QUIET_BUTTON =
-  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
 
 /** What a version Foundry didn't say reads as. */
 const UNKNOWN = '—'
@@ -49,7 +46,7 @@ function Snapshot({ foundry }: Readonly<{ foundry: FoundrySnapshot }>) {
         As Foundry sent them at <LocalTime value={foundry.receivedAt} />
       </p>
       <section className='grid min-w-0 gap-1.5'>
-        <h5 className='font-medium'>Versions</h5>
+        <h4 className='font-medium'>Versions</h4>
         <dl className='grid min-w-0 gap-1'>
           <Row label='Foundry' text={foundry.foundry?.version ?? UNKNOWN} />
           {foundry.system && (
@@ -91,7 +88,7 @@ function Settings({ settings }: Readonly<{ settings: FoundrySettings }>) {
   return (
     <>
       <section className='grid min-w-0 gap-1.5'>
-        <h5 className='font-medium'>What players see in chat</h5>
+        <h4 className='font-medium'>What players see in chat</h4>
         <ul className='grid min-w-0 gap-1.5'>
           {settings.results.map(({ id, state, text }) => (
             <li key={id} data-state={state} className='flex min-w-0 gap-2'>
@@ -103,7 +100,7 @@ function Settings({ settings }: Readonly<{ settings: FoundrySettings }>) {
       </section>
       {settings.sections.map(section => (
         <section key={section.id} className='grid min-w-0 gap-1.5'>
-          <h5 className='font-medium wrap-anywhere'>{section.title}</h5>
+          <h4 className='font-medium wrap-anywhere'>{section.title}</h4>
           <dl className='grid min-w-0 gap-1'>
             {section.rows.map(({ id, label, text, note }) => (
               <Row key={id} label={label} text={text} note={note} />

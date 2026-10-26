@@ -8,32 +8,38 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.37.0 and its app.
+Released: module v0.38.1 and its app.
 
-## v0.38 (in progress)
+## v0.39 (in progress)
 
-1. **Dishes from the Magical Recipe Book:** a player links their character in the Magical Recipe
-   Book to their seat here with a link code, and each dish they eat there reaches their Gamemaster
-   in Foundry as a card only Gamemasters see. The Gamemaster chooses who ate it, and each of them
-   gets its effect for 24 hours of game time, one dish at a time, its dice rolled once in the
-   cookbook. The player's card here shows what became of each dish. Off until the Gamemaster turns
-   it on for the campaign, under dnd5e 5.
+1. **Players' own effects:** with **Allow Players to disable & remove their own active effects** on
+   for the campaign in Foundry, a player turns off and deletes, from the app's Effects tab, the
+   effects their party put on their own character, turns off an item's temporary effect such as
+   Rage, and turns back on what they turned off there: never a monster's effect, one made on the
+   sheet, a condition or a concentration.
+2. **The Magical Recipe Book in the cog:** **Configure Magical Cookbook** opens the link code and the
+   dishes sent in a modal. In Foundry a dish's card shows to the campaign's players too, with no
+   buttons for them, and **Apply to others…** serves whoever is ticked. (0.38.x's dialog served
+   only those ticked as it opened: check who ate each dish served then.)
+3. **Report a bug or request a feature:** links to each project's issue forms, in the app's cog and
+   footer, and in Sending Stone's settings in Foundry.
+4. **The campaign page:** the Gamemaster's campaigns as a list, what needs them first, the chosen one
+   beside it on a wide screen and opened from the list on a phone, with search from seven campaigns.
 
-Patch releases (0.38.x) are expected as beta use turns up things to tweak.
+Patch releases (0.39.x) are expected as beta use turns up things to tweak.
 
 ## v1.0
 
-1. Redesign the campaign page in the app.
-2. Refactor existing code to best practices.
-3. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
+1. Refactor existing code to best practices.
+2. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
    to poll constantly.
 
 Open questions:
 - The module's title changed in v0.37; its id (`sending-stone`) didn't. Changing the id is
   breaking: Foundry keeps the campaigns, their secrets and every flag under it, and installs follow
   its manifest URL, so it would need a migration.
-- The refactor: write down what it should fix first, and go area by area, before the campaign page
-  redesign, with the test harness and end-to-end suites as its safety net.
+- The refactor: write down what it should fix first, and go area by area, with the test harness and
+  end-to-end suites as its safety net.
 - Polling: nothing polls while Foundry is closed, since Foundry does the asking, so the case to
   handle is Foundry open with nobody in the app. Foundry must still pick up notes made offline as
   it connects.
@@ -80,3 +86,10 @@ Open questions:
 - Dishes from the Magical Recipe Book need dnd5e 5 for now.
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.
+- Players change only the effects their party put on their own character and their items' temporary
+  ones: never a monster's, one made on the sheet, a condition, a concentration (End ends that) or a
+  companion's.
+- A dish's card is whispered to the campaign's players as it's posted: a player who joins later
+  doesn't see earlier ones.
+- The campaign page says what was so when it loaded; reload it for the latest.
+- A party sheet has no Report a bug or Request a feature link.
