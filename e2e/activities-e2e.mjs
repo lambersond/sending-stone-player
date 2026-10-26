@@ -203,7 +203,7 @@ const translations = {
   'EFFECT.DND5E.StatusConcentrating': 'Concentrating', 'DND5E.FeaturesOther': 'Other Features',
   'TYPES.Item.weaponPl': 'Weapons', 'TYPES.Item.consumablePl': 'Consumables', 'TYPES.Item.toolPl': 'Tools',
 }
-const localize = game.i18n.localize
+const localize = game.i18n.localize.bind(game.i18n)
 game.i18n.localize = key => translations[key] ?? localize(key)
 // The kinds of item dnd5e lets be enchanted (data/item/*.mjs metadata).
 CONFIG.Item = {

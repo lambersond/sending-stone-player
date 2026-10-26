@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConditionsOpener } from './conditions-panel'
+import { Effecting, useEffectControls } from './effect-controls'
 import { EffectsTab } from './effects-tab'
 import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
@@ -40,16 +41,18 @@ describe('components/character-sheet/effects-tab', () => {
   it("groups effects in dnd5e's categories, with where each came from and the time it has left", () => {
     renderTab()
 
-    expect(
-      within(
-        screen.getByRole('region', { name: 'Temporary Effects' }),
-      ).getByRole('listitem'),
-    ).toHaveTextContent(/^Bless9 Rounds/)
-    const rage = within(
+    // Changed on purpose (round 0.39.0 §1.6): fullerSheet's Rage is on, on its feature, beside
+    // Bless; Shield of Faith is the one turned off.
+    const [bless, rage] = within(
+      screen.getByRole('region', { name: 'Temporary Effects' }),
+    ).getAllByRole('listitem')
+    expect(bless).toHaveTextContent(/^Bless9 Rounds/)
+    expect(rage).toHaveTextContent(/^Rage10 Rounds/)
+    const shield = within(
       screen.getByRole('region', { name: 'Inactive Effects' }),
     ).getByRole('listitem')
-    expect(rage).toHaveTextContent('RageOff')
-    expect(rage.firstElementChild).toHaveClass('opacity-60')
+    expect(shield).toHaveTextContent(/^Shield of Faith.*Off$/)
+    expect(shield.firstElementChild).toHaveClass('opacity-60')
   })
 
   it("names where an effect came from when that isn't its own name", () => {
@@ -107,8 +110,9 @@ describe('components/character-sheet/effects-tab', () => {
   })
 
   it('stars a favorite, and shows first what it is given, such as the favorites', () => {
+    // Changed on purpose (round 0.39.0 §1.6): fullerSheet's effect turned off is Shield of Faith.
     render(
-      <FavoriteMarks keys={new Set(['effect:rage'])}>
+      <FavoriteMarks keys={new Set(['effect:shieldOfFaith'])}>
         <EffectsTab
           characterId='char-1'
           sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
@@ -121,7 +125,7 @@ describe('components/character-sheet/effects-tab', () => {
       screen
         .getAllByText(', favorite')
         .map(star => star.closest('li')?.textContent),
-    ).toEqual(['Rage, favoriteOff'])
+    ).toEqual(['Shield of Faith, favorite10 MinutesOff'])
     expect(
       screen
         .getByText('Her favorites')
@@ -199,5 +203,101 @@ describe('components/character-sheet/effects-tab, favorites, from module 0.37.0'
       expect(fireEvent.contextMenu(rowOf(condition), { button: 2 })).toBe(true)
     }
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+/** An effect's row in a section of its own: what opens it, or the row itself. */
+const effectRow = (section: string, name: string) => {
+  const item = within(screen.getByRole('region', { name: section }))
+    .getByText(name)
+    .closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.firstElementChild) as HTMLElement
+}
+
+describe('components/character-sheet/effects-tab, a player’s own effects, from module 0.39.0', () => {
+  /** The tab inside a pane offering the character's favorites and effects. */
+  function Offering() {
+    const offering = offeringFavorites(['effect:blessed'])
+    const table = toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')
+    const effects = useEffectControls({
+      on: true,
+      character: 'Thorin Oakenshield',
+      effects: table.effects,
+      states: new Map(),
+      send: () => 'use-1',
+    })
+    return (
+      <Favoriting value={offering.value}>
+        <Effecting value={effects}>
+          <EffectsTab characterId='char-1' sheet={table} />
+        </Effecting>
+      </Favoriting>
+    )
+  }
+
+  beforeEach(() => {
+    // An opened row's description never comes.
+    globalThis.fetch = jest.fn(
+      () => new Promise<Response>(() => {}),
+    ) as typeof fetch
+  })
+
+  it('puts its controls inside the opened row, none on the row itself; a row with `ops` and no text opens to them', async () => {
+    const user = userEvent.setup()
+    render(<Offering />)
+    const bless = effectRow('Temporary Effects', 'Bless')
+    expect(bless.tagName).toBe('SUMMARY')
+    expect(within(bless).queryByRole('button')).toBeNull()
+    await user.click(bless)
+    const off = screen.getByRole('button', { name: 'Turn off Bless' })
+    expect(off.closest('summary')).toBeNull()
+    expect(off.closest('li')).toBe(bless.closest('li'))
+    // Before the description, which loads below.
+    expect(
+      off.compareDocumentPosition(screen.getByText('Loading…')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    // Rage, with no text of its own, opens all the same.
+    const rage = effectRow('Temporary Effects', 'Rage')
+    expect(rage.tagName).toBe('SUMMARY')
+    await user.click(rage)
+    expect(
+      screen.getByRole('button', { name: 'Turn off Rage' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps Add to or Remove from favorites first in a row’s menu, then Turn off or Turn on, then Delete…; and gives a condition none', async () => {
+    render(<Offering />)
+    fireEvent.contextMenu(effectRow('Temporary Effects', 'Bless'), {
+      button: 2,
+    })
+    expect(
+      within(screen.getByRole('menu', { name: 'Bless' }))
+        .getAllByRole('menuitem')
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Remove from favorites', 'Turn off', 'Delete…'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+
+    fireEvent.contextMenu(effectRow('Inactive Effects', 'Shield of Faith'), {
+      button: 2,
+    })
+    expect(
+      within(screen.getByRole('menu', { name: 'Shield of Faith' }))
+        .getAllByRole('menuitem')
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Add to favorites', 'Turn on', 'Delete…'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+
+    for (const condition of ['Exhaustion', 'Poisoned']) {
+      expect(fireEvent.contextMenu(rowOf(condition), { button: 2 })).toBe(true)
+    }
+    expect(
+      within(screen.getByRole('region', { name: 'Conditions' })).queryAllByRole(
+        'button',
+        { name: /^Turn|^Delete/ },
+      ),
+    ).toEqual([])
   })
 })

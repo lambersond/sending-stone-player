@@ -31,6 +31,7 @@ import {
   unmaximizable,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
+import { EFFECT_WORDS, effectReasons } from '@/utils/effect-words'
 import { favoriteReasons } from '@/utils/favorite-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { moveReasons, moveWords } from '@/utils/move-words'
@@ -487,9 +488,11 @@ function reasonOf(
 ): string | undefined {
   const key = state.reason ?? state.status
   const own =
-    // A favorite added or removed, from module 0.37.0, and a move of items and coins, from module
-    // 0.31.0, have words of their own.
+    // A favorite added or removed, from module 0.37.0, one of the character's own effects changed,
+    // from module 0.39.0, and a move of items and coins, from module 0.31.0, have words of their
+    // own.
     (state.favorite ? favoriteReasons(role)[key] : undefined) ??
+    (state.effect ? effectReasons(role)[key] : undefined) ??
     (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
@@ -1368,6 +1371,23 @@ function usedWords(
       }
     }
   }
+  // One of the character's own effects turned off, on or deleted, from module 0.39.0, the same way.
+  if (roll.effect) {
+    const words = EFFECT_WORDS[roll.effect]
+    switch (state.status) {
+      case 'sending':
+      case 'rolling': {
+        return onItsWay(state, role, words.doing)
+      }
+      case 'done': {
+        return words.done
+      }
+      default: {
+        const reason = reasonOf(state, role, creature)
+        return `Not ${words.short}${reason ? `: ${reason}` : ''}`
+      }
+    }
+  }
   if (roll.move) return moveWords(roll.move, state, role, reasons(role))
   let verb = roll.spell ? 'Cast' : 'Used'
   let doing = roll.spell ? 'Casting it' : 'Using it'
@@ -1825,6 +1845,8 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
         ? 'added to favorites'
         : 'removed from favorites'
     }
+    // One of the character's own effects changed, from module 0.39.0, as its line says it.
+    if (roll.effect) return EFFECT_WORDS[roll.effect].short
     if (roll.ending) return 'ended'
     if (roll.spent !== undefined) return `spent ${roll.spent}`
     if (roll.inspiration === 'gain') return 'gained'

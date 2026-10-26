@@ -21,6 +21,7 @@ import {
   toRollRequest,
   useTableRolls,
 } from './use-table-rolls'
+import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { mockTableDamage } from '@/mocks/sending-stone'
 import { aloneRollOf } from '@/utils/damage-alone'
@@ -3101,6 +3102,81 @@ describe('hooks/use-table-rolls, favorites added and removed, from module 0.37.0
   it('sends nothing for a use that is no favorite', () => {
     const { result } = render([])
     act(() => result.current.sendFavorite(used(), favorite))
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('hooks/use-table-rolls, a player’s own effects, from module 0.39.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const turnedOff = used({ id: 'u-effect', label: 'Bless', effect: 'disable' })
+  const bless = { id: 'blessed', name: 'Bless' }
+
+  it("sends a change of an effect as it is, named, whatever rolls the game takes or this device's switch says, and keeps what the game made of it apart from what was asked", async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-effect' }))
+    const { result } = render([])
+    act(() => result.current.setSending(false))
+    act(() => result.current.sendEffect(turnedOff, bless))
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(sent()).toEqual({
+      kind: 'effect',
+      effect: { op: 'disable', id: 'blessed' },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      label: 'Bless',
+    })
+    expect(result.current.states.get('u-effect')).toEqual({
+      status: 'sending',
+      effect: 'disable',
+    })
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-effect',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        effect: { id: 'blessed', disabled: true, deleted: false },
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u-effect')).toMatchObject({
+      status: 'done',
+      effect: 'disable',
+      changed: { id: 'blessed', disabled: true, deleted: false },
+    })
+  })
+
+  it('names it within the longest label the app takes', () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-effect' }))
+    const { result } = render([])
+    const long = 'Blessing of the Raven Queen '.repeat(10)
+    act(() =>
+      result.current.sendEffect(
+        used({ id: 'u-long', label: long, effect: 'delete' }),
+        { id: 'raven', name: long },
+      ),
+    )
+    const { label } = sent() as { label: string }
+    expect(label.length).toBeLessThanOrEqual(MAX_ROLL_LABEL)
+    expect(long.startsWith(label)).toBe(true)
+  })
+
+  it('sends nothing for a use that changes no effect', () => {
+    const { result } = render([])
+    act(() => result.current.sendEffect(used(), bless))
     expect(fetch).not.toHaveBeenCalled()
   })
 })

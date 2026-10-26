@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
+import { MAX_ROLL_LABEL, type EffectOp } from '@/constants/sending-stone'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableApi, useTableRole } from '@/hooks/use-table-api'
 import {
@@ -47,7 +47,11 @@ import type {
   TransferInput,
   UseSource,
 } from '@/types/roll'
-import type { DamagePreview } from '@/types/sending-stone'
+import type {
+  DamagePreview,
+  EffectChange,
+  SheetEffect,
+} from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
 
@@ -109,7 +113,10 @@ export type AttackSource = { item: string; activity: string }
  * when the app didn't take it for the game at all, saying why. An attack's or a use's also keeps
  * its id at the table and what it was made with, so that its damage can be rolled there too, once.
  */
-export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
+export type TableRollState = Omit<
+  RollRequestView,
+  'id' | 'status' | 'effect'
+> & {
   status: RollStatus | 'refused'
   /** Its id at the table, once the app has taken it. */
   requestId?: string
@@ -167,6 +174,13 @@ export type TableRollState = Omit<RollRequestView, 'id' | 'status'> & {
   recharge?: true
   /** A favorite added or removed (module 0.37.0). */
   favorite?: 'add' | 'remove'
+  /** One of the character's own effects turned off, on or deleted (module 0.39.0): which. */
+  effect?: EffectOp
+  /**
+   * What became of that effect, once made, as the game says (the view's `effect`): kept apart from
+   * what was asked, which the line is worded by.
+   */
+  changed?: EffectChange
 }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
@@ -629,6 +643,28 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * Turn one of the character's own effects off or on, or delete it, from module 0.39.0, named as
+   * the sheet names it. No switch of this device's holds it back, as with a favorite: it has no
+   * version made here instead.
+   */
+  const sendEffect = useCallback(
+    (logged: LocalUse, effect: Pick<SheetEffect, 'id' | 'name'>) => {
+      const op = logged.effect
+      if (!op) return
+      start(
+        logged.id,
+        labelled(
+          { kind: 'effect', effect: { op, id: effect.id }, ...PLAIN },
+          effect.name,
+        ),
+        { effect: op },
+        logged.label,
+      )
+    },
+    [start],
+  )
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -705,6 +741,7 @@ export function useTableRolls(
     sendTransfer,
     sendRemove,
     sendFavorite,
+    sendEffect,
     sendAsk,
     sendRecharge,
     offerDamage,
@@ -1057,8 +1094,10 @@ export async function follow(
       // A roll this page can't see any more, such as once signed out, is given up on.
       if (response.status === 401 || response.status === 404) break
       if (response.ok) {
-        const view = (await response.json()) as RollRequestView
-        update({ ...view, requestId: id })
+        // What became of an effect (module 0.39.0) is kept apart from the effect asked for.
+        const { effect: changed, ...view } =
+          (await response.json()) as RollRequestView
+        update({ ...view, ...(changed && { changed }), requestId: id })
         // A roll that took too long may still be made, once the Gamemaster answers; but not hit
         // dice the game says it made some of before it stopped, as it does once it had to.
         if (

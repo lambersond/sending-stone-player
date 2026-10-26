@@ -133,7 +133,8 @@ if (SKEW) {
   }
   await phone.page.goto(`${BASE}/characters/sheet-thorin/party/company`)
   check(await phone.page.getByText(NOT_FOUND).isVisible(), 'and the party page says it isn\'t open here')
-  await phone.page.goto(`${BASE}/campaigns`)
+  // Changed on purpose (round 0.39.0 §4.8): on a phone, the campaign chosen in the address.
+  await phone.page.goto(`${BASE}/campaigns?campaign=${A}`)
   await phone.page.getByRole('article', { name: TITLE }).waitFor()
   check(await phone.page.getByRole('heading', { name: 'Party sheets' }).count() === 0, 'the campaign card lists no party sheets')
   await finish()
@@ -250,22 +251,25 @@ await bobs.page.goto(`${BASE}/characters/${vexSheet}`)
 // 4. The Gamemaster
 // =================================================================================================
 part('5. the Gamemaster')
-const gm = await browse({ width: 390, height: 844, path: '/campaigns' })
+// Changed on purpose (round 0.39.0 §4.8): on a phone, the campaign chosen in the address; its
+// sections' headings h3s, one level up; and a party's page leads back to its campaign.
+const gm = await browse({ width: 390, height: 844, path: `/campaigns?campaign=${A}` })
 const card = gm.page.getByRole('article', { name: TITLE })
 await card.getByRole('heading', { name: 'Party sheets' }).waitFor({ timeout: 15_000 })
 {
-  const rows = await card.locator('h4:has-text("Party sheets") + ul > li').evaluateAll(lis => lis.map(li => li.textContent))
+  const rows = await card.locator('h3:has-text("Party sheets") + ul > li').evaluateAll(lis => lis.map(li => li.textContent))
   check(await card.getByRole('link', { name: "Open The Iron Company's party sheet" }).getAttribute('href') === `/campaigns/${A}/party/company`
     && rows.length === 2 && !rows[0].includes('Not shared') && rows[1].includes('Not shared with any player in Foundry'),
     `the campaign card lists "Party sheets", the Hidden Hand "Not shared with any player in Foundry" (${JSON.stringify(rows)})`)
 }
-await shootBoth(gm, 'gm-campaigns-party', card.locator('h4:has-text("Party sheets")').locator('xpath=..'))
+await shootBoth(gm, 'gm-campaigns-party', card.locator('h3:has-text("Party sheets")').locator('xpath=..'))
 await card.getByRole('link', { name: "Open The Hidden Hand's party sheet" }).click()
 await gm.page.waitForURL(`${BASE}/campaigns/${A}/party/hidden`)
 await gm.page.getByText('Not shared with any player in Foundry').waitFor({ timeout: 15_000 })
 check(await gm.page.getByText('No player in this campaign has Observer or Owner on The Hidden Hand in Foundry').isVisible()
-  && await gm.page.getByRole('link', { name: 'Your campaigns' }).isVisible() && await gm.page.locator('header p').first().textContent() === `Party · ${TITLE}`,
-  'its own page says no player may see it, and why')
+  && await gm.page.getByRole('link', { name: 'Your campaigns' }).isVisible() && await gm.page.locator('header p').first().textContent() === `Party · ${TITLE}`
+  && await gm.page.getByRole('link', { name: 'Your campaigns' }).getAttribute('href') === `/campaigns?campaign=${A}`,
+  'its own page says no player may see it, and why, and leads back to its campaign')
 await shootBoth(gm, 'party-private')
 await gm.page.goto(`${BASE}/campaigns/${A}/characters/vex`)
 await gm.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })

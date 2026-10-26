@@ -77,6 +77,8 @@ const listed = async (fields: object) => {
       refusalStatus: null,
       refusalDetail: null,
       dishesEnabled: false,
+      // Changed on purpose (round 0.39.0 §1.10): from module 0.39.0.
+      effectsEnabled: false,
       players: [],
       ...fields,
     },
@@ -154,6 +156,8 @@ describe('db/campaigns', () => {
           transfersEnabled: true,
           // Changed on purpose (round 0.38.0 §D9): from module 0.38.0.
           dishesEnabled: false,
+          // Changed on purpose (round 0.39.0 §1.10): from module 0.39.0.
+          effectsEnabled: true,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -175,6 +179,7 @@ describe('db/campaigns', () => {
           bridgePolledAt: null,
           transfersEnabled: true,
           dishesEnabled: false,
+          effectsEnabled: false,
           players: [],
         },
       ] as any)
@@ -201,6 +206,8 @@ describe('db/campaigns', () => {
           transfers: { enabled: true, reaching: true },
           // Changed on purpose (round 0.38.0 §D9): dishes from the Magical Recipe Book, none.
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
+          // Changed on purpose (round 0.39.0 §1.10): its players may change their own effects.
+          effects: { enabled: true },
           characters: [
             {
               id: 'actor-thorin',
@@ -243,6 +250,7 @@ describe('db/campaigns', () => {
           // Turned on, but the game isn't fetching moves.
           transfers: { enabled: true, reaching: false },
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
+          effects: { enabled: false },
           characters: [],
           groups: [],
         },
@@ -336,6 +344,25 @@ describe('db/campaigns', () => {
       expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.objectContaining({ companions: true }),
+        }),
+      )
+    })
+
+    it("says whether the campaign lets its players change their own effects, from module 0.39.0, as its hello said, and draws no player's picture", async () => {
+      await expect(listed({ effectsEnabled: true })).resolves.toMatchObject({
+        effects: { enabled: true },
+      })
+      await expect(listed({})).resolves.toMatchObject({
+        effects: { enabled: false },
+      })
+      const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
+      expect(select).toMatchObject({ effectsEnabled: true })
+      // The seats draw two letters of a player's name, never their sign-in picture.
+      expect(select.players.select.user).toEqual({ select: { name: true } })
+      // The page sorts; the list keeps the database's order.
+      expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ title: 'asc' }, { createdAt: 'asc' }],
         }),
       )
     })

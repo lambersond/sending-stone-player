@@ -51,8 +51,15 @@ export async function setUpCampaignAction(
   }
 
   refresh()
-  // The secret is only kept as a hash, so this is the last chance to copy it.
-  return { saved: { title: parsed.data.title, secret: parsed.data.secret } }
+  // The secret is only kept as a hash, so this is the last chance to copy it. The new campaign's
+  // id lets the page choose it once Done is pressed.
+  return {
+    saved: {
+      id: created.id,
+      title: parsed.data.title,
+      secret: parsed.data.secret,
+    },
+  }
 }
 
 export async function changeSecretAction(
@@ -64,6 +71,9 @@ export async function changeSecretAction(
   const parsed = secretSchema.safeParse(formData.get('secret') ?? '')
   if (!parsed.success) return { error: parsed.error.issues[0].message }
   await changeCampaignSecret(user.id, campaignId, parsed.data)
+  // A refusal the old secret drew is cleared with it, so the page drops its box at once; the
+  // campaign shown stays shown.
+  refresh()
   return { saved: true }
 }
 

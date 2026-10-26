@@ -263,6 +263,10 @@ model Campaign {
   dishesEnabled       Boolean          @default(false)
   // The cookbook body versions the module reads, from the same hello.
   dishVersions        Int[]            @default([])
+  // Whether the campaign lets its players turn off, turn on and delete their own characters'
+  // effects from the app, from module 0.39.0's bridge.hello: by the campaign's own switch, under
+  // dnd5e. A module before it says nothing, which clears it.
+  effectsEnabled      Boolean          @default(false)
   // When the module last fetched players' rolls: whether it is fetching them now.
   bridgePolledAt      DateTime?
   // When one of the campaign's players last had their table open: whether a roll may be coming,

@@ -739,7 +739,21 @@ export function fullerSheet(
             source: 'Bless',
             duration: '9 Rounds',
             disabled: false,
+            // Module 0.39.0: an ally's spell, which its player may turn off and delete.
+            ops: ['disable', 'delete'],
             text: TEXTS.bless,
+          },
+          // Module 0.39.0: Rage on its feature, turned on, which its player may turn off, never
+          // delete, as dnd5e keeps it on the feature (round 0.39.0 §1.6, CM-1).
+          {
+            id: 'rage.raging',
+            name: 'Rage',
+            img: null,
+            source: 'Rage',
+            duration: '10 Rounds',
+            disabled: false,
+            ops: ['disable'],
+            text: null,
           },
         ],
       },
@@ -747,13 +761,16 @@ export function fullerSheet(
         id: 'inactive',
         label: 'Inactive Effects',
         effects: [
+          // Module 0.39.0: an ally's spell its player turned off from the app, which they may turn
+          // back on, or delete.
           {
-            id: 'rage',
-            name: 'Rage',
+            id: 'shieldOfFaith',
+            name: 'Shield of Faith',
             img: null,
-            source: null,
-            duration: null,
+            source: 'Shield of Faith',
+            duration: '10 Minutes',
             disabled: true,
+            ops: ['enable', 'delete'],
             text: null,
           },
         ],
@@ -2533,6 +2550,46 @@ export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
     visible: false,
     rolls: [],
     dish: { card: 'Xy12ChatCardId00', state: 'waiting' },
+    ...fields,
+  }
+}
+
+// Module 0.39.0: a player's own effects.
+
+/** What a hello from module 0.39.0 says of effects with the campaign's switch on, under dnd5e. */
+export const TAKING_EFFECTS = {
+  enabled: true,
+  kinds: ['effect'],
+  reason: null,
+} as const
+
+/** What it says with the campaign's switch off, the default. */
+export const EFFECTS_SWITCHED_OFF = {
+  enabled: false,
+  kinds: [],
+  reason: 'off',
+} as const
+
+/** What it says with the switch on under another system. */
+export const EFFECTS_OTHER_SYSTEM = {
+  enabled: false,
+  kinds: [],
+  reason: 'system',
+} as const
+
+/** Bless turned off from the app: off now, its sheet sent first, nothing posted. */
+export function effectResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-effect',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: null,
+    visible: true,
+    rolls: [],
+    effect: { id: 'blessed', disabled: true, deleted: false },
     ...fields,
   }
 }

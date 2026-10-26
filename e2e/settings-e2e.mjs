@@ -67,7 +67,11 @@ function sameShape(object, keys) { return same(Object.keys(object).sort(), Objec
 
 // ---- The Gamemaster's campaign card ----
 part('2. the card')
-const gm = await browse({ width: 390, height: 844, path: '/campaigns' })
+// Changed on purpose (round 0.39.0 §4.8): on a phone the campaigns page lists its campaigns, and shows
+// one chosen in the address in the list's place; its sections' headings one level up, Foundry
+// settings' own h4s.
+const CHOSEN = `/campaigns?campaign=${A}`
+const gm = await browse({ width: 390, height: 844, path: CHOSEN })
 const card = gm.page.getByRole('article', { name: TITLE })
 await card.waitFor()
 const section = card.locator('details').filter({ has: gm.page.locator('summary', { hasText: 'Foundry settings' }) })
@@ -77,7 +81,7 @@ await shootSection('gm-campaigns-settings-closed')
 await section.locator('summary').click()
 await section.getByRole('heading', { name: 'Versions' }).waitFor()
 /** A list of rows under a heading: each "label: value", and its note. */
-const rowsUnder = heading => section.locator('h5', { hasText: heading }).first().locator('xpath=following-sibling::dl[1]/div')
+const rowsUnder = heading => section.locator('h4', { hasText: heading }).first().locator('xpath=following-sibling::dl[1]/div')
   .evaluateAll(divs => divs.map(div => [div.querySelector('dt').textContent, div.querySelector('dd').textContent, div.querySelectorAll('dd')[1]?.textContent ?? null]))
 const read = async heading => (await rowsUnder(heading)).map(([label, value, note]) => `${label}: ${value}${note ? ` (${note})` : ''}`)
 {
@@ -99,8 +103,10 @@ if (SKEW) {
   const campaignRows = await read('This campaign')
   // Changed on purpose (round 0.36.0 §13.4): how its characters' companions enter initiative, after the moves switch.
   // Changed on purpose (round 0.38.0 §D10.4): dishes from the Magical Recipe Book, after the moves switch.
+  // Changed on purpose (round 0.39.0 §1.11): a player's own effects, after dishes.
   check(same(campaignRows, ['Players roll in the app: On', 'Attacks, spells and features: Off', 'Save and concentration prompts: Off',
     'Allow Players to enter dice results manually: Off', 'Players move items and coins: Off', 'Dishes from the Magical Recipe Book: Off',
+    'Allow Players to disable & remove their own active effects: Off',
     "Companions' initiative: Its own roll", 'Party sheets: The Iron Company']),
     `the campaign's own switches by their labels in Manage Campaigns, and its party sheets: ${JSON.stringify(campaignRows)}`)
   const world = await read('Sending Stone, for every campaign')
@@ -124,7 +130,7 @@ const RESULTS_MIDI = [
   ['hidden', "Saves on Midi-QOL's cards: hidden (Auto check Saves: Off; Challenge Visibility: Show only from other players)"],
   ['shown', "The Gamemaster's rolls on Midi-QOL's cards: shown (GM Attack Roll Display: Full Roll; GM Damage Roll Display: Full Roll)"],
 ]
-const resultsShown = () => section.locator('h5', { hasText: 'What players see in chat' }).locator('xpath=following-sibling::ul[1]/li')
+const resultsShown = () => section.locator('h4', { hasText: 'What players see in chat' }).locator('xpath=following-sibling::ul[1]/li')
   .evaluateAll(lis => lis.map(li => [li.dataset.state, li.textContent]))
 {
   const lines = await resultsShown()
@@ -217,7 +223,7 @@ part('3b. results always')
       await section.screenshot({ path: `${SHOTS_031}/gm-campaigns-settings-always-390-${scheme}${VARIANT}.png` })
     }
     await theme(gm, 'light')
-    const tablet = await browse({ width: 768, height: 1024, path: '/campaigns' })
+    const tablet = await browse({ width: 768, height: 1024, path: CHOSEN })
     const wide = tablet.page.getByRole('article', { name: TITLE })
     await wide.locator('summary', { hasText: 'Foundry settings' }).click()
     await wide.getByRole('heading', { name: 'What players see in chat' }).waitFor()
@@ -252,7 +258,7 @@ async function widths() {
   }
   await theme(gm, 'light')
   // And on a tablet, 768 px.
-  const tablet = await browse({ width: 768, height: 1024, path: '/campaigns' })
+  const tablet = await browse({ width: 768, height: 1024, path: CHOSEN })
   const wide = tablet.page.getByRole('article', { name: TITLE })
   await wide.locator('summary', { hasText: 'Foundry settings' }).click()
   await wide.getByRole('heading', { name: 'Versions' }).waitFor()

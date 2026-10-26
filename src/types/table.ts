@@ -349,6 +349,12 @@ export type TableView = {
    */
   favorites?: true
   /**
+   * From module 0.39.0: whether the seat may turn off, turn on and delete the character's own
+   * effects, its player's alone, as each effect's `ops` say: set only while the campaign lets them,
+   * its module is fetching, and the character is in its roster.
+   */
+  effects?: true
+  /**
    * For the player's seat only, from module 0.32.0: whether they may type in their own dice for
    * this character here, and whether they chose to. Unset for the Gamemaster's seat.
    */

@@ -167,15 +167,17 @@ export async function POST(request: Request) {
   const began = await readOpen()
   if (!began) return unavailable()
   // Moves of items and coins, from module 0.31.0, removals of characters' items, from module
-  // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, and dishes from the
-  // Magical Recipe Book, from module 0.38.0, are fetched with rolls off too.
+  // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, dishes from the
+  // Magical Recipe Book, from module 0.38.0, and effects, from module 0.39.0, are fetched with
+  // rolls off too.
   if (
     !polled.rollsEnabled &&
     !polled.transfersEnabled &&
     !polled.removalsEnabled &&
     !polled.notesEnabled &&
     !polled.favoritesEnabled &&
-    !polled.dishesEnabled
+    !polled.dishesEnabled &&
+    !polled.effectsEnabled
   ) {
     return answer([], began, COMMANDS_OFF_WAIT)
   }

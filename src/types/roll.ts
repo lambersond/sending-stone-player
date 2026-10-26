@@ -1,7 +1,12 @@
-import type { ROLL_FEATURES, ROLL_KINDS } from '@/constants/sending-stone'
+import type {
+  EffectOp,
+  ROLL_FEATURES,
+  ROLL_KINDS,
+} from '@/constants/sending-stone'
 import type {
   AttackOutcome,
   DamagePreview,
+  EffectChange,
   EnchantmentOutcome,
   SaveOutcome,
   SheetCounter,
@@ -186,6 +191,12 @@ export type FavoriteTarget =
 export type FavoriteInput = FavoriteTarget & { op: 'add' | 'remove' }
 
 /**
+ * One of the character's own effects turned off, turned on or deleted, from module 0.39.0: the
+ * state wanted, never a toggle, and the effect as the sheet names it, "<id>" or "<itemId>.<id>".
+ */
+export type EffectInput = { op: EffectOp; id: string }
+
+/**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
  * formula, such as a light's radius; or a description's own roll, by its link.
@@ -269,6 +280,11 @@ export type RollRequestInput = {
   remove?: RemoveInput
   /** For a favorite, from module 0.37.0: what, and whether it's added or removed. */
   favorite?: FavoriteInput
+  /**
+   * For one of the character's own effects, from module 0.39.0: which, as the sheet names it, and
+   * whether it's turned off, turned on or deleted.
+   */
+  effect?: EffectInput
   /**
    * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
    * left, as the page shows it now.
@@ -383,6 +399,11 @@ export type RollRequestView = {
    * now, as the game says.
    */
   favorited?: boolean
+  /**
+   * For one of the character's own effects turned off, on or deleted, from module 0.39.0, once
+   * made: whether it's off now, null once deleted, and whether it was deleted, as the game says.
+   */
+  effect?: EffectChange
 }
 
 /**

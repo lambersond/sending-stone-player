@@ -3,6 +3,8 @@ import { z } from 'zod'
 import {
   ATTACK_MODE,
   DAMAGE_TYPE,
+  EFFECT_ID,
+  EFFECT_OPS,
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_ROLL_LABEL,
@@ -286,7 +288,8 @@ const favoriteSchema = z.discriminatedUnion('type', [
  * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
  * module 0.31.0, a move what moves; from module 0.33.0, a removal what it removes; from module
  * 0.36.0, a turn ended which turn, and a turn taken back the End Turn it takes back and the turn
- * that End Turn left; and from module 0.37.0, a favorite added or removed what it is. A field more
+ * that End Turn left; and from module 0.37.0, a favorite added or removed what it is; and from
+ * module 0.39.0, one of the character's own effects turned off, on or deleted which. A field more
  * than one kind names lists them all, `kinds`.
  */
 const OWN_FIELDS: Readonly<
@@ -323,6 +326,11 @@ const OWN_FIELDS: Readonly<
     field: 'favorite',
     message: 'A favorite added or removed, and only that, names what',
   },
+  effect: {
+    field: 'effect',
+    message:
+      'An effect turned off, on or deleted, and only that, names the effect',
+  },
   endTurn: {
     field: 'turn',
     kinds: ['endTurn', 'undoEndTurn'],
@@ -345,6 +353,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   transfer: 'Moving throws no dice',
   remove: 'Removing throws no dice',
   favorite: 'A favorite throws no dice',
+  effect: 'Changing an effect throws no dice',
   endTurn: 'Ending a turn throws no dice',
   undoEndTurn: 'Taking a turn back throws no dice',
 }
@@ -395,7 +404,8 @@ const rolledDiceSchema = z.strictObject({
  * combat, round and current combatant, and nothing else, and throws no dice; and a turn taken back
  * names the End Turn it takes back and where it left the combat, and nothing else, and throws no
  * dice either. From module 0.37.0, a favorite added or removed names what, and nothing else, and
- * throws no dice.
+ * throws no dice. From module 0.39.0, one of the character's own effects turned off, on or deleted
+ * names the effect, as the sheet does, and which of those, and nothing else, and throws no dice.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -451,6 +461,12 @@ export const rollRequestSchema = z
     transfer: transferSchema.optional(),
     remove: removeSchema.optional(),
     favorite: favoriteSchema.optional(),
+    effect: z
+      .strictObject({
+        op: z.enum(EFFECT_OPS),
+        id: z.string().regex(EFFECT_ID),
+      })
+      .optional(),
     turn: turnSchema.optional(),
     undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
@@ -678,8 +694,8 @@ export const rollRequestSchema = z
     }
     // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
     // from module 0.31.0, a removal from module 0.33.0, a turn ended or taken back from module
-    // 0.36.0 and a favorite from module 0.37.0, each name what they're of, and nothing else does;
-    // charges, how many, which nothing else says.
+    // 0.36.0, a favorite from module 0.37.0 and an effect changed from module 0.39.0, each name
+    // what they're of, and nothing else does; charges, how many, which nothing else says.
     for (const [kind, { field, kinds, message }] of Object.entries(
       OWN_FIELDS,
     )) {

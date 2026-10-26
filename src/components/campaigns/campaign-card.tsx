@@ -4,20 +4,25 @@ import {
   CookingPot,
   Dices,
   KeyRound,
-  Link2Off,
-  RefreshCw,
-  Trash2,
-  UserMinus,
+  Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
+import {
+  DeleteCampaign,
+  InviteLink,
+  RemovePlayer,
+  ResetLink,
+  RevokeCookbookLink,
+} from './campaign-controls'
+import { campaignHeadingId, sheetLinkId } from './campaign-ids'
 import { CampaignParties } from './campaign-parties'
+import { subOf } from './campaign-row'
+import { FoundryStatus } from './campaign-status'
+import { QUIET_BUTTON } from './campaign-styles'
 import { FoundrySettingsSection } from './foundry-settings'
 import { SecretForm } from './secret-form'
-import { CopyField } from '@/components/copy-button'
 import { LocalTime } from '@/components/game-table/local-time'
-import { ConfirmDialog } from '@/components/modal'
 import { numberedNames } from '@/utils/companion-row'
-import { gameHost } from '@/utils/game-host'
 import type {
   CampaignRefusal,
   OwnedCampaign,
@@ -42,13 +47,12 @@ type Props = {
   remove: () => Promise<void>
 }
 
-const QUIET_BUTTON =
-  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
-const DANGER_BUTTON =
-  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
-
 /**
- * One of a Gamemaster's campaigns: whether Foundry is connected, its invite link and its players.
+ * One of a Gamemaster's campaigns, as its page shows it beside the index or in its place (round
+ * 0.39.0): its head, why Foundry's posts were refused if they were, then its characters and party
+ * sheets in one column, and its invite link and what the game lets its players do in the other,
+ * side by side from 900 px of the index; and at its foot, Change secret and Delete campaign. The
+ * server draws it, every campaign's for the index to show by id; its controls are the client's.
  */
 export function CampaignCard({
   campaign,
@@ -59,26 +63,24 @@ export function CampaignCard({
   revokeCookbookLink,
   remove,
 }: Readonly<Props>) {
-  const details = [campaign.worldTitle, gameHost(campaign.gameUrl)].filter(
-    Boolean,
-  )
   return (
     <article
-      aria-labelledby={`campaign-${campaign.id}`}
-      // No wider than the page's column, nor its header than the card, so the header's one-line
-      // details are cut rather than the page pushed sideways on a phone.
+      aria-labelledby={campaignHeadingId(campaign.id)}
+      // No wider than the page's column, so nothing in it pushes the page sideways on a phone.
       className='grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'
     >
       <header className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
         <div className='min-w-0'>
-          <h3
-            id={`campaign-${campaign.id}`}
-            className='truncate text-lg font-semibold'
+          <h2
+            id={campaignHeadingId(campaign.id)}
+            // Focused as it opens on a phone.
+            tabIndex={-1}
+            className='text-xl font-semibold tracking-tight break-words outline-none'
           >
             {campaign.title}
-          </h3>
-          <p className='truncate text-sm text-text-secondary'>
-            {details.join(' · ')}
+          </h2>
+          <p className='text-sm text-text-secondary wrap-anywhere'>
+            {subOf(campaign)}
           </p>
         </div>
         <FoundryStatus campaign={campaign} />
@@ -92,183 +94,81 @@ export function CampaignCard({
         />
       )}
 
-      <section className='grid gap-1.5'>
-        <h4 className='text-sm font-medium'>Invite link</h4>
-        <CopyField value={inviteUrl} label='invite link' />
-        <div className='flex flex-wrap items-center justify-between gap-2'>
-          <p className='text-sm text-text-secondary'>
-            Share it with your players. They sign in and choose their character.
-          </p>
-          <ConfirmDialog
-            trigger={
-              <>
-                <RefreshCw aria-hidden className='size-4' />
-                Reset link
-              </>
-            }
-            triggerClassName={QUIET_BUTTON}
-            title='Reset the invite link?'
-            confirmLabel='Reset link'
-            onConfirm={resetInvite}
-          >
-            <p>
-              The current link to {campaign.title} stops working and a new one
-              takes its place. Players who already joined keep their characters.
-            </p>
-          </ConfirmDialog>
+      {/* Columns as divs, never sections: a section is a part of the campaign, such as its Cookbook
+          dishes, which a reader finds by its heading. */}
+      <div className='grid min-w-0 gap-5 @min-[900px]/index:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] @min-[900px]/index:items-start'>
+        <div className='grid min-w-0 gap-5'>
+          <Characters
+            campaign={campaign}
+            removePlayer={removePlayer}
+            revokeCookbookLink={revokeCookbookLink}
+          />
+          <CampaignParties campaign={campaign} />
         </div>
-      </section>
 
-      <section className='grid gap-2'>
-        <h4 className='text-sm font-medium'>Characters</h4>
-        {campaign.characters.length > 0 && (
-          <p className='-mt-1 text-xs text-text-secondary'>
-            Open one to see its sheet and roll as it.
-          </p>
-        )}
-        {campaign.characters.length > 0 ? (
-          <ul className='grid gap-1.5 text-sm'>
-            {campaign.characters.map(character => {
-              const companions = companionsLine(character.companions)
-              // Its sheet, as its player sees it, claimed or not (#156).
-              const link = (
-                <Link
-                  href={`/campaigns/${campaign.id}/characters/${character.id}`}
-                  aria-label={`Open ${character.name}'s sheet`}
-                  className='truncate font-medium text-text-primary underline-offset-2 hover:text-primary hover:underline'
-                >
-                  {character.name}
-                </Link>
-              )
-              return (
-                <li
-                  key={character.id}
-                  // Its right group drops under its name where the row is too narrow for both.
-                  className={clsx(
-                    'flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-lg bg-page pr-1 pl-3',
-                    companions ? 'py-1.5' : 'py-1',
-                  )}
-                >
-                  {/* Its companions under its name, as listed (module 0.36.0). */}
-                  {companions ? (
-                    <div className='flex min-w-0 flex-col gap-0.5'>
-                      {link}
-                      <p className='text-xs text-text-secondary'>
-                        {companions}
-                      </p>
-                    </div>
-                  ) : (
-                    link
-                  )}
-                  {/* No wider than the row, under the name: its player's name wraps first. */}
-                  <span className='flex min-w-0 items-center gap-1'>
-                    <span
-                      className={clsx(
-                        'text-xs wrap-anywhere',
-                        character.player
-                          ? 'font-semibold text-primary'
-                          : 'pr-2 text-text-secondary',
-                      )}
-                    >
-                      {character.player ?? 'Not chosen yet'}
-                    </span>
-                    {/* Its player's Magical Recipe Book linked to it (module 0.38.0). */}
-                    {character.cookbookLinked && (
-                      <span className='shrink-0 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary-text'>
-                        Cookbook linked
-                      </span>
-                    )}
-                    {character.cookbookLinked &&
-                      character.player &&
-                      character.characterId &&
-                      revokeCookbookLink && (
-                        <ConfirmDialog
-                          trigger={<Link2Off aria-hidden className='size-4' />}
-                          triggerLabel={`Revoke ${character.player}’s cookbook link for ${character.name}`}
-                          triggerClassName='rounded-md p-1.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
-                          title={`Revoke ${character.player}’s cookbook link for ${character.name}?`}
-                          confirmLabel='Revoke link'
-                          onConfirm={revokeCookbookLink.bind(
-                            undefined,
-                            character.characterId,
-                          )}
-                          danger
-                        >
-                          <p>
-                            Dishes from {character.player}’s Magical Recipe Book
-                            stop reaching {campaign.title} until they make a new
-                            link code.
-                          </p>
-                        </ConfirmDialog>
-                      )}
-                    {character.player && character.characterId && (
-                      <ConfirmDialog
-                        trigger={<UserMinus aria-hidden className='size-4' />}
-                        triggerLabel={`Remove ${character.player} as ${character.name}`}
-                        triggerClassName='rounded-md p-1.5 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
-                        title={`Remove ${character.player} as ${character.name}?`}
-                        confirmLabel='Remove'
-                        onConfirm={removePlayer.bind(
-                          undefined,
-                          character.characterId,
-                        )}
-                        danger
-                      >
-                        <p>
-                          {character.player} stops following {campaign.title} as{' '}
-                          {character.name}, and {character.name} can be chosen
-                          again from the invite link.
-                        </p>
-                      </ConfirmDialog>
-                    )}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        ) : (
-          <p className='text-sm text-text-secondary'>
-            {campaign.rosterReceived
-              ? 'Foundry sent no characters for this campaign. Add them on the campaign’s Players tab in Sending Stone’s settings in Foundry.'
-              : 'The campaign’s characters appear here once Foundry sends them. Reloading the game in Foundry sends them at once.'}
-          </p>
-        )}
-      </section>
+        <div className='grid min-w-0 gap-5'>
+          <section className='grid gap-1.5'>
+            <h3 className='text-sm font-medium'>Invite link</h3>
+            <InviteLink url={inviteUrl} />
+            <div className='flex flex-wrap items-center justify-between gap-2'>
+              <p className='text-sm text-text-secondary'>
+                Share it with your players. They sign in and choose their
+                character.
+              </p>
+              <ResetLink title={campaign.title} reset={resetInvite} />
+            </div>
+          </section>
 
-      <CampaignParties campaign={campaign} />
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <Dices aria-hidden className='size-4 text-text-secondary' />
+              Players&apos; rolls
+            </h3>
+            <p className='text-sm text-text-secondary'>{rollsText(campaign)}</p>
+          </section>
 
-      <section className='grid gap-1'>
-        <h4 className='flex items-center gap-1.5 text-sm font-medium'>
-          <Dices aria-hidden className='size-4 text-text-secondary' />
-          Players&apos; rolls
-        </h4>
-        <p className='text-sm text-text-secondary'>{rollsText(campaign)}</p>
-      </section>
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <ArrowLeftRight
+                aria-hidden
+                className='size-4 text-text-secondary'
+              />
+              Items and coins
+            </h3>
+            <p className='text-sm text-text-secondary'>{movesText(campaign)}</p>
+          </section>
 
-      <section className='grid gap-1'>
-        <h4 className='flex items-center gap-1.5 text-sm font-medium'>
-          <ArrowLeftRight aria-hidden className='size-4 text-text-secondary' />
-          Items and coins
-        </h4>
-        <p className='text-sm text-text-secondary'>{movesText(campaign)}</p>
-      </section>
-
-      <section className='grid gap-1'>
-        <h4 className='flex items-center gap-1.5 text-sm font-medium'>
-          <CookingPot aria-hidden className='size-4 text-text-secondary' />
-          Cookbook dishes
-        </h4>
-        <p className='text-sm text-text-secondary'>{dishesText(campaign)}</p>
-        {campaign.dishes &&
-          (campaign.dishes.waiting > 0 || campaign.dishes.inFoundry > 0) && (
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <CookingPot aria-hidden className='size-4 text-text-secondary' />
+              Cookbook dishes
+            </h3>
             <p className='text-sm text-text-secondary'>
-              {campaign.dishes.waiting} waiting for Foundry ·{' '}
-              {campaign.dishes.inFoundry} in Foundry for you
+              {dishesText(campaign)}
             </p>
-          )}
-      </section>
+            {campaign.dishes &&
+              (campaign.dishes.waiting > 0 ||
+                campaign.dishes.inFoundry > 0) && (
+                <p className='text-sm text-text-secondary'>
+                  {campaign.dishes.waiting} waiting for Foundry ·{' '}
+                  {campaign.dishes.inFoundry} in Foundry for you
+                </p>
+              )}
+          </section>
 
-      <FoundrySettingsSection campaign={campaign} />
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <Sparkles aria-hidden className='size-4 text-text-secondary' />
+              Players&apos; effects
+            </h3>
+            <p className='text-sm text-text-secondary'>
+              {effectsText(campaign)}
+            </p>
+          </section>
+
+          <FoundrySettingsSection campaign={campaign} />
+        </div>
+      </div>
 
       <footer className='flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4'>
         <details className='group min-w-0 flex-1'>
@@ -280,30 +180,116 @@ export function CampaignCard({
             <SecretForm action={changeSecret} />
           </div>
         </details>
-        <ConfirmDialog
-          trigger={
-            <>
-              <Trash2 aria-hidden className='size-4' />
-              Delete campaign
-            </>
-          }
-          triggerClassName={DANGER_BUTTON}
-          title={`Delete ${campaign.title}?`}
-          confirmLabel='Delete campaign'
-          onConfirm={remove}
-          danger
-        >
-          <p>
-            Its chat and combats are deleted, and its players&apos; characters
-            stop following it. This can&apos;t be undone.
-          </p>
-          <p>
-            To set it up again, you would need a new invite link for your
-            players.
-          </p>
-        </ConfirmDialog>
+        <DeleteCampaign title={campaign.title} remove={remove} />
       </footer>
     </article>
+  )
+}
+
+/**
+ * A campaign's characters: each a link to its sheet, its companions under its name, and who plays
+ * it, with their cookbook link and its revoke, and Remove; else why there are none yet.
+ */
+function Characters({
+  campaign,
+  removePlayer,
+  revokeCookbookLink,
+}: Readonly<Pick<Props, 'campaign' | 'removePlayer' | 'revokeCookbookLink'>>) {
+  return (
+    <section className='grid gap-2'>
+      <h3 className='text-sm font-medium'>Characters</h3>
+      {campaign.characters.length > 0 && (
+        <p className='-mt-1 text-xs text-text-secondary'>
+          Open one to see its sheet and roll as it.
+        </p>
+      )}
+      {campaign.characters.length > 0 ? (
+        <ul className='grid gap-1.5 text-sm'>
+          {campaign.characters.map(character => {
+            const companions = companionsLine(character.companions)
+            // Its sheet, as its player sees it, claimed or not (#156).
+            const link = (
+              <Link
+                id={sheetLinkId(campaign.id, character.id)}
+                href={`/campaigns/${campaign.id}/characters/${character.id}`}
+                aria-label={`Open ${character.name}'s sheet`}
+                className='truncate font-medium text-text-primary underline-offset-2 hover:text-primary hover:underline'
+              >
+                {character.name}
+              </Link>
+            )
+            // What its controls act on, once a player has chosen it.
+            const control =
+              character.player && character.characterId
+                ? {
+                    campaignId: campaign.id,
+                    campaignTitle: campaign.title,
+                    actorId: character.id,
+                    name: character.name,
+                    player: character.player,
+                    characterId: character.characterId,
+                  }
+                : undefined
+            return (
+              <li
+                key={character.id}
+                // Its right group drops under its name where the row is too narrow for both.
+                className={clsx(
+                  'flex min-h-11 flex-wrap items-center justify-between gap-3 rounded-lg bg-page pr-1 pl-3',
+                  companions ? 'py-1.5' : 'py-1',
+                )}
+              >
+                {/* Its companions under its name, as listed (module 0.36.0). */}
+                {companions ? (
+                  <div className='flex min-w-0 flex-col gap-0.5'>
+                    {link}
+                    <p className='text-xs text-text-secondary'>{companions}</p>
+                  </div>
+                ) : (
+                  link
+                )}
+                {/* No wider than the row, under the name: its player's name wraps first. */}
+                <span className='flex min-w-0 items-center gap-1'>
+                  <span
+                    className={clsx(
+                      'text-xs wrap-anywhere',
+                      character.player
+                        ? 'font-semibold text-primary'
+                        : 'pr-2 text-text-secondary',
+                    )}
+                  >
+                    {character.player ?? 'Not chosen yet'}
+                  </span>
+                  {/* Its player's Magical Recipe Book linked to it (module 0.38.0). */}
+                  {character.cookbookLinked && (
+                    <span className='shrink-0 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary-text'>
+                      Cookbook linked
+                    </span>
+                  )}
+                  {character.cookbookLinked &&
+                    control &&
+                    revokeCookbookLink && (
+                      <RevokeCookbookLink
+                        {...control}
+                        revoke={revokeCookbookLink}
+                      />
+                    )}
+                  {control && (
+                    <RemovePlayer {...control} remove={removePlayer} />
+                  )}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className='text-sm text-text-secondary'>
+          {campaign.rosterReceived
+            ? 'Foundry sent no characters for this campaign. Add them on the campaign’s Players tab in Sending Stone’s settings in Foundry.'
+            : 'The campaign’s characters appear here once Foundry sends them. Reloading the game in Foundry sends them at once.'}
+        </p>
+      )}
+    </section>
   )
 }
 
@@ -361,11 +347,15 @@ const MOVES_FROM = [0, 31, 0] as const
  * a module before that, which has no such switch, says nothing of dishes; nor does one under
  * another system than dnd5e 5, where the switch does nothing. The app keeps only whether they're
  * on, so the system is read from the hello's own, which the snapshot keeps: without it, a switch
- * ticked under dnd5e 6 would read as unticked.
+ * ticked under dnd5e 6 would read as unticked. Which players see a dish's card is the module's
+ * doing too: before 0.39.0 only Gamemasters do, and the app ships first.
  */
 function dishesText({ dishes, foundry }: OwnedCampaign): string {
-  if (dishes?.enabled) {
+  if (dishes?.enabled && before(foundry?.module?.version, DISHES_SHOWN_FROM)) {
     return 'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches you as a card only Gamemasters see.'
+  }
+  if (dishes?.enabled) {
+    return 'On in Foundry. Players send dishes from the Magical Recipe Book, and each reaches your game as a card its players see too; you choose who ate it.'
   }
   if (before(foundry?.module?.version, DISHES_FROM)) {
     return 'Your Sending Stone module doesn’t take dishes yet. Version 0.38.0 or later does.'
@@ -379,6 +369,30 @@ function dishesText({ dishes, foundry }: OwnedCampaign): string {
 
 /** The first Sending Stone in Foundry that takes dishes from the Magical Recipe Book. */
 const DISHES_FROM = [0, 38, 0] as const
+
+/** The first Sending Stone in Foundry that shows a dish's card to the campaign's players too. */
+const DISHES_SHOWN_FROM = [0, 39, 0] as const
+
+/**
+ * Whether the campaign lets its players turn off and delete their own characters' effects from
+ * here, from module 0.39.0, and if not, why: a module before that has no such switch; under
+ * another system than D&D Fifth Edition the switch does nothing, which the hello's own system says.
+ */
+function effectsText({ effects, foundry }: OwnedCampaign): string {
+  if (effects?.enabled) {
+    return 'On in Foundry. Your players turn off and delete the effects their party put on their own characters from here, and turn off an item’s temporary effect such as Rage: never one from a monster or one made on the sheet, a condition or a concentration.'
+  }
+  if (before(foundry?.module?.version, EFFECTS_FROM)) {
+    return 'Your Sending Stone module doesn’t let players change their effects yet. Version 0.39.0 or later does.'
+  }
+  if (foundry?.system && foundry.system.id !== 'dnd5e') {
+    return 'Off. Players’ effects need D&D Fifth Edition in Foundry.'
+  }
+  return 'Off. To let them, tick Allow Players to disable & remove their own active effects on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/** The first Sending Stone in Foundry that lets players change their own effects. */
+const EFFECTS_FROM = [0, 39, 0] as const
 
 /**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,
@@ -464,30 +478,6 @@ function RefusalNote({
         </>
       )}
     </p>
-  )
-}
-
-function FoundryStatus({ campaign }: Readonly<{ campaign: OwnedCampaign }>) {
-  let label = 'Waiting for Foundry'
-  let dot = 'bg-text-secondary'
-  if (campaign.live) {
-    label = 'Live'
-    dot = 'bg-primary motion-safe:animate-pulse'
-  } else if (campaign.connected) {
-    label = 'Offline'
-  }
-  return (
-    <span className='inline-flex shrink-0 flex-col items-end gap-0.5'>
-      <span className='inline-flex items-center gap-2 rounded-full border border-border px-2.5 py-1 text-xs font-semibold'>
-        <span aria-hidden className={clsx('size-2 rounded-full', dot)} />
-        {label}
-      </span>
-      {!campaign.live && campaign.lastSeenAt && (
-        <span className='text-xs text-text-secondary'>
-          Last heard <LocalTime value={campaign.lastSeenAt} />
-        </span>
-      )}
-    </span>
   )
 }
 

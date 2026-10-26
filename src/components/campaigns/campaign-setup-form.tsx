@@ -27,8 +27,8 @@ type Props = {
   ) => Promise<CampaignSetupFormState>
   /** A random secret to start from. */
   suggestedSecret: string
-  /** Called when the Gamemaster is done with the campaign just set up. */
-  onDone: () => void
+  /** Called when the Gamemaster is done with the campaign just set up, with its id. */
+  onDone: (id: string) => void
 }
 
 export function CampaignSetupForm({
@@ -42,22 +42,22 @@ export function CampaignSetupForm({
     if (secret.current) secret.current.value = randomSecret()
   }
 
-  if (state.saved) {
+  const { saved } = state
+  if (saved) {
     return (
       <div role='status' className='grid gap-4 text-sm'>
         <p>
-          <strong>{state.saved.title}</strong> is set up. Copy its secret now:
-          Sending Stone keeps only a check of it, so it can&apos;t be shown
-          again.
+          <strong>{saved.title}</strong> is set up. Copy its secret now: Sending
+          Stone keeps only a check of it, so it can&apos;t be shown again.
         </p>
-        <CopyField value={state.saved.secret} label='secret' />
+        <CopyField value={saved.secret} label='secret' />
         <p className='text-text-secondary'>
           In Foundry, enter it on the campaign’s Connection tab in Sending
           Stone’s settings, under the same title.
         </p>
         <button
           type='button'
-          onClick={onDone}
+          onClick={() => onDone(saved.id)}
           className='inline-flex h-11 items-center justify-center justify-self-end rounded-xl bg-primary px-5 font-medium text-on-primary transition-colors hover:bg-primary-hover'
         >
           Done

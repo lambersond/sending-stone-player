@@ -1,10 +1,8 @@
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SheetText } from './sheet-text'
-import { CookbookCard } from '@/components/cookbook-card'
 import { JournalCard, type NotesPlace } from '@/components/notes'
 import { useSheetId } from '@/hooks/use-sheet-ids'
-import type { CookbookPlace } from '@/types/cookbook'
 import type { SheetDetails } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
@@ -13,15 +11,14 @@ import type { TableSheet } from '@/types/table'
  * experience, their personality and appearance, and their story. A roll in their story is named
  * for the character, as the game names it. From module 0.34.0, their own journal notes come
  * first, as the one part of the tab the player writes in, and during play: from 0.35.0, a card
- * that opens the journal, so the tab doesn't grow with it. From 0.38.0, the player's Magical Recipe
- * Book card follows it, at their own seat.
+ * that opens the journal, so the tab doesn't grow with it. The player's Magical Recipe Book, which
+ * followed it from 0.38.0, opens from the sheet's cog since round 0.39.0.
  */
 export function BiographyTab({
   characterId,
   name,
   sheet,
   notes,
-  cookbook,
 }: Readonly<{
   characterId: string
   /** The character's name. */
@@ -29,8 +26,6 @@ export function BiographyTab({
   sheet: TableSheet
   /** Where the character's own notes are read and written, at the table. */
   notes?: NotesPlace
-  /** The player's Magical Recipe Book card, at their own seat. */
-  cookbook?: CookbookPlace
 }>) {
   const { about, personality, appearance, xp, biography } = sheet.details
   const empty =
@@ -47,7 +42,6 @@ export function BiographyTab({
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
       {notes && <JournalCard kind='personal' look='sheet' {...notes} />}
-      {cookbook && <CookbookCard {...cookbook} />}
 
       {(xp || about.length > 0) && (
         <section aria-labelledby={detailsId} className='flex flex-col gap-2'>

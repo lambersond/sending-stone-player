@@ -36,7 +36,7 @@
 // summoned with a character's item (`summoned`). Since module 0.37.0 (its contract §12.1): SKEW=036 is
 // module 0.36.0; a character given dnd5e's favorites, ported (fvtt/favorites-core.mjs), its effects
 // and its items' found by id (`favoring`). Since module 0.38.0 (its contract D§10.1): SKEW=037 is
-// module 0.37.0.
+// module 0.37.0. Since module 0.39.0 (its contract §1.11): SKEW=038 is module 0.38.1.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -69,6 +69,8 @@ export const SKEW035 = process.env.SKEW === '035'
 export const SKEW036 = process.env.SKEW === '036'
 /** Module 0.37.0, from before 0.38.0, against this round's app: no dishes from the Magical Recipe Book. */
 export const SKEW037 = process.env.SKEW === '037'
+/** Module 0.38.1, from before 0.39.0, against this round's app: no player's own effects changed from the app. */
+export const SKEW038 = process.env.SKEW === '038'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -79,7 +81,7 @@ if (SHOTS_031) mkdirSync(SHOTS_031, { recursive: true })
 /** Module 0.33.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_033 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-033`
 if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }

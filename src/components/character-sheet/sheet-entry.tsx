@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode, type Ref } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
 import { FavoriteStar, useFavorite } from './favorite-mark'
@@ -10,6 +10,7 @@ import { usePressMenu } from './press-menu'
 import { SheetText } from './sheet-text'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import type { DescriptionOrigin } from './description-actions'
+import type { EffectChoice } from './effect-controls'
 import type { MenuPoint } from './roll-menu'
 import type { FavoriteTarget } from '@/types/roll'
 
@@ -60,6 +61,25 @@ type Props = {
    * its name, and its row busy, in place of one on each of its buttons.
    */
   busy?: boolean
+  /**
+   * Whether it's open, where its owner keeps that, as one of the character's own effects does
+   * (module 0.39.0), so that it opens again wherever it's drawn next; its own otherwise.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /**
+   * In its own menu, after its favorites entry, from module 0.39.0: what may be done to one of the
+   * character's own effects, Turn off or Turn on, and Delete…, which `onDelete` asks about.
+   */
+  effectChoice?: EffectChoice
+  onDelete?: () => void
+  /**
+   * A dialog it opens, held in its row but outside what opens, so that its menu opens it from a
+   * closed row too, such as an effect's Delete… (module 0.39.0).
+   */
+  dialog?: ReactNode
+  /** The row itself, which opens it, or takes focus for its menu: for focus to be given back. */
+  rowRef?: Ref<HTMLElement>
 }
 
 /** What a row's favorites key names, as the app adds and removes it: an item or an effect alone. */
@@ -94,10 +114,22 @@ export function SheetEntry({
   onMenu,
   favorite: target = keyTarget(favoriteKey),
   busy = false,
+  open: held,
+  onOpenChange,
+  effectChoice,
+  onDelete,
+  dialog,
+  rowRef,
 }: Readonly<Props>) {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = held ?? ownOpen
+  const setOpen = onOpenChange ?? setOwnOpen
   const favorite = useFavorite(favoriteKey)
-  const own = useItemMenu(name, { favorite: useFavoriteChoice(target, name) })
+  const own = useItemMenu(name, {
+    favorite: useFavoriteChoice(target, name),
+    effect: effectChoice,
+    onDelete,
+  })
   const menu = onMenu ?? own.onMenu
   const press = usePressMenu(menu)
   const row = (
@@ -133,6 +165,7 @@ export function SheetEntry({
     return (
       <li aria-busy={busy || undefined}>
         <div
+          ref={rowRef as Ref<HTMLDivElement>}
           className={clsx(rowClass, press.className)}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
           // on a row that opens (module 0.33.0).
@@ -143,13 +176,21 @@ export function SheetEntry({
           <span aria-hidden className='size-4 shrink-0' />
         </div>
         {!onMenu && own.menu}
+        {dialog}
       </li>
     )
   }
   return (
     <li aria-busy={busy || undefined}>
-      <details onToggle={event => setOpen(event.currentTarget.open)}>
+      <details
+        open={open}
+        onToggle={event => {
+          const now = event.currentTarget.open
+          if (now !== open) setOpen(now)
+        }}
+      >
         <summary
+          ref={rowRef}
           className={clsx(
             rowClass,
             'cursor-pointer list-none transition-colors hover:bg-primary/5 [&::-webkit-details-marker]:hidden',
@@ -196,6 +237,7 @@ export function SheetEntry({
         )}
       </details>
       {!onMenu && own.menu}
+      {dialog}
     </li>
   )
 }

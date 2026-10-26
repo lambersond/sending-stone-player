@@ -65,6 +65,9 @@ const FEATURES = {
   // Changed on purpose (round 0.38.0 §D9): from module 0.38.0, dishes from the Magical Recipe
   // Book, fetched for with everything else off, and what the Gamemaster made of them.
   dishes: 1,
+  // Changed on purpose (round 0.39.0 §1.10): from module 0.39.0, a player's own effects turned
+  // off, on and deleted, fetched for with everything else off.
+  effects: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -804,9 +807,40 @@ describe('app/api/events', () => {
         )
 
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-2)).toEqual(['favorites', 'dishes'])
+        // Changed on purpose (round 0.39.0 §1.10): effects follow them.
+        expect(Object.keys(features).slice(-3)).toEqual([
+          'favorites',
+          'dishes',
+          'effects',
+        ])
         expect(features.dishes).toBe(1)
       })
+    })
+
+    it("says it takes a player's own effects, from module 0.39.0, after dishes, last", async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      const response = await post(
+        envelope('bridge.hello', { characters: [], combats: [] }),
+      )
+
+      const { features } = await response.json()
+      expect(Object.keys(features)).toEqual([
+        'commands',
+        'slimSheets',
+        'maxBytes',
+        'midiPrompts',
+        'groups',
+        'settings',
+        'transfers',
+        'removals',
+        'notes',
+        'companions',
+        'favorites',
+        'dishes',
+        'effects',
+      ])
+      expect(features.effects).toBe(1)
     })
 
     it('refuses an event sent to no campaign', async () => {

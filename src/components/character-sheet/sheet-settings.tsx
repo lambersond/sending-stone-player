@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, type ReactNode } from 'react'
+import { useCallback, useId, useRef, useState, type ReactNode } from 'react'
 import {
   autoUpdate,
   flip,
@@ -16,8 +16,10 @@ import {
   useRole,
 } from '@floating-ui/react'
 import clsx from 'clsx'
-import { PanelBottom, PanelTop, Settings } from 'lucide-react'
+import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
 import { LayoutPicker, type ActionsLayout } from './actions-layout'
+import { CONFIGURE_COOKBOOK } from '@/components/cookbook-card'
+import { HelpLinks } from '@/components/help-links'
 import { usePortalRoot, useTopmostEscape } from '@/components/modal'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useTableRole } from '@/hooks/use-table-api'
@@ -41,6 +43,16 @@ type Props = {
   toasts?: { on: boolean; onChange: (on: boolean) => void }
   /** The Actions tab's layouts, where the sheet is wide enough for more than one. */
   layouts?: ActionsLayout
+  /**
+   * Told as the settings open and close (round 0.39.0), as the player's Magical Recipe Book is read
+   * again each time they open, to know whether to offer it.
+   */
+  onOpenChange?: (open: boolean) => void
+  /**
+   * The player's Magical Recipe Book, at their own seat, while the game takes dishes or the
+   * character has a link (round 0.39.0): Configure Magical Cookbook opens it in a modal of its own.
+   */
+  cookbook?: { onOpen: () => void }
 }
 
 /**
@@ -48,7 +60,9 @@ type Props = {
  * without taking room from them: whether this device sends the player's rolls to the table, and
  * beneath it, where the game takes it, whether their damage goes there on its own; where the game
  * lets them, typing in what their own dice show; whether rolls show as
- * toasts or in a banner, the theme, and how the Actions tab is laid out. It opens as
+ * toasts or in a banner, the theme, and how the Actions tab is laid out; and since round 0.39.0,
+ * at the player's own seat, Configure Magical Cookbook, which opens their Magical Recipe Book in a
+ * modal, and last, in every cog, Help: Report a bug and Request a feature. It opens as
  * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
  * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
  * change, for several to be changed at once.
@@ -59,16 +73,27 @@ export function SheetSettings({
   manualDice,
   toasts,
   layouts,
+  onOpenChange,
+  cookbook,
 }: Readonly<Props>) {
   const role = useTableRole()
   const { game } = seatWords(role)
   const [open, setOpen] = useState(false)
+  const change = useCallback(
+    (next: boolean) => {
+      setOpen(next)
+      onOpenChange?.(next)
+    },
+    [onOpenChange],
+  )
   const title = useId()
+  const helpId = useId()
+  const cog = useRef<HTMLButtonElement>(null)
   const root = usePortalRoot()
   useTopmostEscape(open)
   const { refs, floatingStyles, context } = useFloating({
     open,
-    onOpenChange: setOpen,
+    onOpenChange: change,
     placement: 'bottom-end',
     whileElementsMounted: autoUpdate,
     middleware: [
@@ -93,7 +118,10 @@ export function SheetSettings({
     <>
       {/* A little tighter in the row of tabs on a phone under 390 pixels, as the rolls' button. */}
       <button
-        ref={refs.setReference}
+        ref={node => {
+          refs.setReference(node)
+          cog.current = node
+        }}
         type='button'
         aria-label='Settings'
         title='Settings'
@@ -159,6 +187,40 @@ export function SheetSettings({
                   />
                 </Setting>
               )}
+              {/* Last among the settings, so the first keeps taking focus as they open. */}
+              {cookbook && (
+                <div className='border-t border-border pt-3'>
+                  <button
+                    type='button'
+                    aria-haspopup='dialog'
+                    onClick={() => {
+                      // The cog has focus as the modal opens, so that the browser gives it back
+                      // to the cog, not to this button, gone with the settings, once it closes.
+                      cog.current?.focus({ preventScroll: true })
+                      change(false)
+                      cookbook.onOpen()
+                    }}
+                    className='flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm font-medium transition-colors hover:bg-primary/5'
+                  >
+                    <CookingPot aria-hidden className='size-4 shrink-0' />
+                    {CONFIGURE_COOKBOOK}
+                  </button>
+                </div>
+              )}
+              {/* In every cog, at the end: the app's own issue forms. */}
+              <div
+                role='group'
+                aria-labelledby={helpId}
+                className='flex flex-col gap-1 border-t border-border pt-3'
+              >
+                <p
+                  id={helpId}
+                  className='text-xs font-semibold text-text-secondary'
+                >
+                  Help
+                </p>
+                <HelpLinks />
+              </div>
             </div>
           </FloatingFocusManager>
         </FloatingPortal>

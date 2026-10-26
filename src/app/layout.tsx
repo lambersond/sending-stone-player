@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 import { Geist, Geist_Mono } from 'next/font/google'
 import { FullscreenGuard } from '@/components/game-table/fullscreen-guard'
+import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { ThemeProvider } from '@/components/theme-provider'
 import type { Metadata, Viewport } from 'next'
@@ -45,6 +46,8 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           <FullscreenGuard />
           <SiteHeader />
           <main className='flex flex-1 flex-col'>{children}</main>
+          {/* At the foot of the body's column, as the main part grows to fill it. */}
+          <SiteFooter />
         </ThemeProvider>
       </body>
     </html>

@@ -118,7 +118,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * roll either; and from module 0.36.0, an action's damage or healing on its own, and a spent
  * recharge rolled, and the current turn ended, the character's or one of its companions', and a
  * turn ended taken back, neither of them a roll; and from module 0.37.0, a favorite added or
- * removed, no roll either.
+ * removed, no roll either; and from module 0.39.0, one of the character's own effects turned off,
+ * on or deleted, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -147,6 +148,7 @@ export const ROLL_KINDS = [
   'transfer',
   'remove',
   'favorite',
+  'effect',
 ] as const
 
 /**
@@ -256,11 +258,38 @@ export const FAVORITES = 1
 export const FAVORITE_SETTLE = 10_000
 
 /**
+ * How long, from when it's sent, an effect's control waits for the sheet to say what the game made
+ * of it, in milliseconds: the sheet comes before its result (module 0.39.0), within a poll.
+ */
+export const EFFECT_SETTLE = 10_000
+
+/**
  * The format of dishes from the Magical Recipe Book this app takes, as it tells the module
  * (`dishes`): from module 0.38.0, the `dish` command and the `dish.applied` and `dish.dismissed`
  * events. The module fetches dishes, and reports what became of them, only then.
  */
 export const DISHES = 1
+
+/**
+ * The format of a player's own effects this app takes, as it tells the module (`effects`): from
+ * module 0.39.0, a player's own effects turned off, on and deleted, the `effect` command and the
+ * hello's `features.effects`, which the module fetches for only then.
+ */
+export const EFFECTS = 1
+
+/**
+ * What a player may do to one of their character's effects from here, from module 0.39.0, as the
+ * module lists it on each of the sheet's effects (`ops`) and the `effect` command asks it: turn it
+ * off, turn it back on, or delete it; the state wanted, never a toggle.
+ */
+export const EFFECT_OPS = ['disable', 'enable', 'delete'] as const
+export type EffectOp = (typeof EFFECT_OPS)[number]
+
+/**
+ * An effect as the sheet names it, from module 0.39.0's `effect` command: the character's own by
+ * its Foundry id, "<id>", or one of its items' as "<itemId>.<id>".
+ */
+export const EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
 
 /**
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
@@ -289,7 +318,8 @@ export const MOST_COMPANIONS = 50
  * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
  * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
  * which the character's page does for its companions' turns too, nor favorites, which an NPC has
- * none of. The module's list has `note` too, which isn't a roll here.
+ * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes.
+ * The module's list has `note` and `dish` too, which aren't rolls here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
@@ -299,6 +329,7 @@ export const COMPANION_UNTAKEN = [
   'transfer',
   'remove',
   'favorite',
+  'effect',
   'endTurn',
   'undoEndTurn',
 ] as const

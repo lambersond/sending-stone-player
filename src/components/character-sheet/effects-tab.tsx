@@ -1,15 +1,17 @@
 'use client'
 
+import { useState, type ReactNode } from 'react'
 import { CircleAlert, Info, Sparkles } from 'lucide-react'
 import { concentrationLead, useConcentrating } from './concentration'
 import { useConditionsPanel, useShowConditions } from './conditions-panel'
+import { EffectButtons, useEffectChoice } from './effect-controls'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
+import { ConfirmModal } from '@/components/modal'
 import { useSheetId } from '@/hooks/use-sheet-ids'
 import type { FavoriteTarget } from '@/types/roll'
 import type { SheetCondition, SheetEffect } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { ReactNode } from 'react'
 
 /**
  * The character's conditions, with their rules, and effects, grouped as dnd5e's Effects tab
@@ -102,7 +104,10 @@ export function EffectsTab({
  * An effect: where it came from and the time it has left, muted while it's off, or unavailable
  * for now, as an unequipped item's effect is; opening to its description. One of the character's
  * concentrations opens to what's concentrated on too, and a button that ends it, while the game
- * takes that from here: inside the opened row, never on the row itself, which opens it.
+ * takes that from here: inside the opened row, never on the row itself, which opens it. From
+ * module 0.39.0, where the campaign lets its player change it, as its `ops` say, it opens to Turn
+ * off or Turn on, and Delete…, which its menu offers too; Delete… asks first, in a dialog of the
+ * row's own, outside what opens, so that the menu opens it from a closed row.
  */
 export function EffectEntry({
   characterId,
@@ -118,9 +123,16 @@ export function EffectEntry({
   favorite?: FavoriteTarget | null
 }>) {
   const concentration = useConcentrating()
+  // Among the favorites, a row of its own, apart from the Effects tab's.
+  const { choice, character, open, setOpen, row } = useEffectChoice(
+    effect,
+    favorite === undefined ? 'effects' : 'favorites',
+  )
+  const [deleting, setDeleting] = useState(false)
   let state: string | undefined
   if (effect.disabled) state = 'Off'
   else if (suppressed) state = 'Unavailable'
+  const askDelete = () => setDeleting(true)
   return (
     <SheetEntry
       characterId={characterId}
@@ -129,6 +141,28 @@ export function EffectEntry({
       fallback={Sparkles}
       favoriteKey={`effect:${effect.id}`}
       favorite={favorite}
+      open={open}
+      onOpenChange={setOpen}
+      rowRef={row}
+      effectChoice={choice}
+      onDelete={askDelete}
+      dialog={
+        choice && (
+          <ConfirmModal
+            open={deleting}
+            onClose={() => setDeleting(false)}
+            title={`Delete ${effect.name}?`}
+            confirmLabel='Delete'
+            cancelLabel='Keep'
+            danger
+            onConfirm={async () => choice.choose('delete')}
+          >
+            <p>
+              It’s removed from {character} in Foundry, and can’t be undone.
+            </p>
+          </ConfirmModal>
+        )
+      }
       detail={effectDetail(effect)}
       aside={
         state && (
@@ -138,7 +172,16 @@ export function EffectEntry({
         )
       }
       muted={state !== undefined}
-      lead={concentrationLead(effect.id, concentration)}
+      lead={
+        concentrationLead(effect.id, concentration) ??
+        (choice && (
+          <EffectButtons
+            name={effect.name}
+            choice={choice}
+            onDelete={askDelete}
+          />
+        ))
+      }
       text={effect.text}
     />
   )

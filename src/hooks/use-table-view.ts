@@ -31,6 +31,8 @@ function seenOf(view: TableView) {
     removes: view.removes === true,
     // From module 0.37.0: whether the player may change its character's favorites.
     favorites: view.favorites === true,
+    // From module 0.39.0: whether the player may change its character's own effects.
+    effects: view.effects === true,
   }
 }
 
@@ -67,6 +69,7 @@ export function useTableView(api: string, initial: TableView) {
           typed,
           removes,
           favorites,
+          effects,
         } = seen.current
         const query = new URLSearchParams({
           version: String(version),
@@ -78,6 +81,7 @@ export function useTableView(api: string, initial: TableView) {
           ...(typed && { typed: '1' }),
           ...(removes && { removes: '1' }),
           ...(favorites && { favorites: '1' }),
+          ...(effects && { effects: '1' }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(`${api}/table?${query}`, {

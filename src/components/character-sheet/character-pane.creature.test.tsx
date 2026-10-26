@@ -211,6 +211,43 @@ describe('a creature’s pane', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
+  it('offers no controls of its effects, from module 0.39.0, even given `effects` and an effect whose `ops` say so', async () => {
+    const user = userEvent.setup()
+    const sheet = wolf({
+      effects: [
+        {
+          id: 'temporary',
+          label: 'Temporary Effects',
+          effects: [
+            {
+              id: 'blessed',
+              name: 'Bless',
+              img: null,
+              source: 'Bless',
+              duration: '9 Rounds',
+              disabled: false,
+              ops: ['disable', 'delete'],
+              text: null,
+            },
+          ],
+        },
+      ],
+    })
+    render(pane({ sheet, effects: true }))
+    await user.click(screen.getByRole('tab', { name: 'Effects' }))
+    const region = screen.getByRole('region', { name: 'Temporary Effects' })
+    // With nothing to open to, the row doesn't open; and it has no menu either.
+    const row = within(region).getByText('Bless').closest('li') as HTMLElement
+    expect(row.querySelector('details')).toBeNull()
+    expect(within(region).queryByRole('button')).toBeNull()
+    expect(
+      fireEvent.contextMenu(row.firstElementChild as HTMLElement, {
+        button: 2,
+      }),
+    ).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
   it('has Inventory for an item it carries, and not for coins all at 0', () => {
     const { rerender } = render(pane())
     expect(tabNames()).not.toContain('Inventory')

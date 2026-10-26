@@ -60,6 +60,8 @@ describe('db/table', () => {
         removes: false,
         // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
         favorites: false,
+        // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+        effects: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -74,6 +76,9 @@ describe('db/table', () => {
           removalsEnabled: true,
           // Changed on purpose (round 0.37.0 §7.15): whether its game takes favorites.
           favoritesEnabled: true,
+          // Changed on purpose (round 0.39.0 §1.10): whether the campaign lets its players change
+          // their effects.
+          effectsEnabled: true,
         },
       })
     })
@@ -94,6 +99,8 @@ describe('db/table', () => {
         removes: false,
         // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
         favorites: false,
+        // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+        effects: false,
       })
     })
 
@@ -110,6 +117,8 @@ describe('db/table', () => {
         removes: false,
         // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
         favorites: false,
+        // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+        effects: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -124,6 +133,8 @@ describe('db/table', () => {
         removes: false,
         // Changed on purpose (round 0.37.0 §7.15): whether the player may change its favorites.
         favorites: false,
+        // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
+        effects: false,
       })
     })
 
@@ -204,6 +215,9 @@ describe('db/table', () => {
           removalsEnabled: true,
           // Changed on purpose (round 0.37.0 §7.15): whether its game takes favorites.
           favoritesEnabled: true,
+          // Changed on purpose (round 0.39.0 §1.10): whether the campaign lets its players change
+          // their effects.
+          effectsEnabled: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -685,6 +699,8 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       removes: false,
       // Changed on purpose (round 0.37.0 §7.15): never the Gamemaster's.
       favorites: false,
+      // Changed on purpose (round 0.39.0 §1.10): never the Gamemaster's either.
+      effects: false,
     })
   })
 
@@ -1663,6 +1679,90 @@ describe('db/table, favorites, from module 0.37.0', () => {
     await expect(
       getCampaignStatus({ ...character, campaignId: null }),
     ).resolves.toMatchObject({ favorites: false })
+  })
+})
+
+/** The campaign, letting its players change their effects as given, and fetching as lately. */
+const changingEffects = (
+  effectsEnabled = true,
+  bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+) =>
+  givenCampaign({
+    ...campaign,
+    groups: [],
+    rollsEnabled: false,
+    rollKinds: [],
+    rollFeatures: [],
+    transfersEnabled: false,
+    removalsEnabled: false,
+    favoritesEnabled: false,
+    effectsEnabled,
+    bridgePolledAt,
+  })
+
+describe("db/table, a player's own effects, from module 0.39.0", () => {
+  /** The Gamemaster at Thorin's sheet. */
+  const gm = {
+    ...character,
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+
+  it('lets the player change the character’s own effects while the campaign lets them, everything else off', async () => {
+    changingEffects()
+
+    const view = await getTableView(character)
+    expect(view.effects).toBe(true)
+    expect(view).not.toHaveProperty('favorites')
+    expect(view).not.toHaveProperty('removes')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      favorites: false,
+      effects: true,
+    })
+  })
+
+  it('never lets the Gamemaster’s seat, which would leave no mark of theirs', async () => {
+    changingEffects()
+
+    expect(await getTableView(gm)).not.toHaveProperty('effects')
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      effects: false,
+    })
+  })
+
+  it.each([
+    [
+      'the campaign lets none, as before module 0.39.0',
+      () => changingEffects(false),
+    ],
+    [
+      'its module stopped fetching',
+      () => changingEffects(true, new Date(Date.now() - 46_000)),
+    ],
+    ['its module never fetched', () => changingEffects(true, null)],
+  ])('lets no one change them while %s', async (_name, arrange) => {
+    arrange()
+
+    expect(await getTableView(character)).not.toHaveProperty('effects')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      effects: false,
+    })
+  })
+
+  it('lets no one change those of a character no longer in the roster, nor at a seat without one', async () => {
+    changingEffects()
+
+    const gone = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(gone).not.toHaveProperty('effects')
+    const none = await getTableView({ ...character, actorId: null })
+    expect(none).not.toHaveProperty('effects')
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ effects: false })
+    await expect(
+      getCampaignStatus({ ...character, campaignId: null }),
+    ).resolves.toMatchObject({ effects: false })
   })
 })
 

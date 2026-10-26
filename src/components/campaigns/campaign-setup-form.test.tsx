@@ -6,7 +6,11 @@ describe('components/campaigns/campaign-setup-form', () => {
   it('submits the title, game and secret, then shows the secret to copy', async () => {
     const onDone = jest.fn()
     const action = jest.fn().mockResolvedValue({
-      saved: { title: 'The Lonely Mountain', secret: 'suggested-secret-1' },
+      saved: {
+        id: 'c9',
+        title: 'The Lonely Mountain',
+        secret: 'suggested-secret-1',
+      },
     })
     const user = userEvent.setup()
     render(
@@ -41,7 +45,8 @@ describe('components/campaigns/campaign-setup-form', () => {
     expect(screen.queryByLabelText('Campaign title')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Done' }))
-    expect(onDone).toHaveBeenCalled()
+    // Changed on purpose (round 0.39.0 §4.7): with the new campaign's id, for the page to choose.
+    expect(onDone).toHaveBeenCalledWith('c9')
   })
 
   it('generates another secret', async () => {

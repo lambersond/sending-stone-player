@@ -73,9 +73,10 @@ describe('app/campaigns/[id]/party/[group]/page', () => {
       { role: 'gm', campaignId: 'c1', userId: 'gm-1' },
       'hidden',
     )
+    // Changed on purpose (round 0.39.0 §4.7): back to its campaign, chosen on the campaigns page.
     expect(
       screen.getByText(
-        'The Hidden Hand through /api/campaigns/c1/party/hidden as gm, back to /campaigns as Your campaigns',
+        'The Hidden Hand through /api/campaigns/c1/party/hidden as gm, back to /campaigns?campaign=c1 as Your campaigns',
       ),
     ).toBeInTheDocument()
     await expect(generateMetadata(props('c1', 'hidden'))).resolves.toEqual({
@@ -106,6 +107,7 @@ describe('app/campaigns/[id]/party/[group]/page', () => {
         name: "This party sheet isn't open here. Its group may have left the campaign.",
       }),
     ).toBeInTheDocument()
+    // The campaign perhaps gone with it, the list of them (round 0.39.0).
     expect(
       screen.getByRole('link', { name: 'Your campaigns' }),
     ).toHaveAttribute('href', '/campaigns')

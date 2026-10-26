@@ -12,15 +12,15 @@ export function CampaignParties({
   if (campaign.groups.length === 0) return
   return (
     <section className='grid gap-2'>
-      <h4 className='flex items-center gap-1.5 text-sm font-medium'>
+      <h3 className='flex items-center gap-1.5 text-sm font-medium'>
         <Users aria-hidden className='size-4 text-text-secondary' />
         Party sheets
-      </h4>
+      </h3>
       <ul className='grid gap-1.5 text-sm'>
         {campaign.groups.map(group => (
           <li
             key={group.id}
-            className='flex min-h-10 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-lg bg-page px-3 py-1'
+            className='flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-lg bg-page px-3 py-1'
           >
             <Link
               href={`/campaigns/${campaign.id}/party/${group.id}`}

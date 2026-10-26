@@ -666,6 +666,26 @@ const favorited = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
     NOW,
   )
 
+const changed = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
+  toRollRequestView(
+    held({
+      kind: 'effect',
+      status,
+      claimedAt: ago(500),
+      result: {
+        id: 'req-1',
+        status,
+        reason: null,
+        error: null,
+        messageId: null,
+        visible: true,
+        rolls: [],
+        ...fields,
+      },
+    }),
+    NOW,
+  )
+
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
     const campaign = {
@@ -3856,10 +3876,44 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('toRollRequestView for an effect turned off, on or deleted, from module 0.39.0', () => {
+    it('passes on what became of the effect, as the game says', () => {
+      const off = { id: 'blessed', disabled: true, deleted: false }
+      expect(changed({ effect: off }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        effect: off,
+      })
+      const gone = { id: 'blessed', disabled: null, deleted: true }
+      expect(changed({ effect: gone }, 'done')).toMatchObject({
+        status: 'done',
+        effect: gone,
+      })
+    })
+
+    it('says nothing of it where the game said nothing, as a refusal says nothing', () => {
+      expect(changed({}, 'done')).not.toHaveProperty('effect')
+      expect(changed({ effect: null }, 'done')).not.toHaveProperty('effect')
+      expect(
+        changed({ status: 'failed', reason: 'cancelled' }, 'failed'),
+      ).toEqual({ id: 'req-1', status: 'failed', reason: 'cancelled' })
+      expect(changed({ status: 'failed', reason: 'effect' }, 'failed')).toEqual(
+        { id: 'req-1', status: 'failed', reason: 'effect' },
+      )
+    })
+  })
+
   describe('GM_UNSENT', () => {
     it('holds a favorite, from module 0.37.0, which posts nothing to mark it theirs', () => {
       expect(GM_UNSENT.has('favorite')).toBe(true)
       expect(GM_UNSENT.has('remove')).toBe(false)
+    })
+
+    it('holds an effect changed, from module 0.39.0, which posts nothing either', () => {
+      expect(GM_UNSENT.has('effect')).toBe(true)
     })
   })
 

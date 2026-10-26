@@ -46,11 +46,16 @@ describe('app/campaigns/actions', () => {
   })
 
   describe('setUpCampaignAction', () => {
-    it('sets up the campaign and hands back its secret to copy', async () => {
+    it('sets up the campaign and hands back its secret to copy, and its id for the page to choose', async () => {
       jest.mocked(setUpCampaign).mockResolvedValue({ id: 'c1' })
 
+      // Changed on purpose (round 0.39.0 §4.7): the new campaign's id, which Done chooses.
       await expect(setUpCampaignAction({}, formData(values))).resolves.toEqual({
-        saved: { title: 'The Lonely Mountain', secret: 'hunter2-hunter2' },
+        saved: {
+          id: 'c1',
+          title: 'The Lonely Mountain',
+          secret: 'hunter2-hunter2',
+        },
       })
       expect(requireUser).toHaveBeenCalledWith('/campaigns')
       expect(setUpCampaign).toHaveBeenCalledWith('gm-1', {
@@ -102,7 +107,7 @@ describe('app/campaigns/actions', () => {
   })
 
   describe('changeSecretAction', () => {
-    it('saves a new secret', async () => {
+    it('saves a new secret, and refreshes the page so that a refusal it cleared goes at once', async () => {
       await expect(
         changeSecretAction('c1', {}, formData({ secret: ' new-secret-123 ' })),
       ).resolves.toEqual({ saved: true })
@@ -111,6 +116,11 @@ describe('app/campaigns/actions', () => {
         'c1',
         'new-secret-123',
       )
+      // Changed on purpose (round 0.39.0 §4.7): refreshed, after the secret is saved.
+      expect(refresh).toHaveBeenCalledTimes(1)
+      expect(
+        jest.mocked(changeCampaignSecret).mock.invocationCallOrder[0],
+      ).toBeLessThan(jest.mocked(refresh).mock.invocationCallOrder[0])
     })
 
     it('refuses a short one', async () => {
@@ -121,6 +131,7 @@ describe('app/campaigns/actions', () => {
         changeSecretAction('c1', {}, new FormData()),
       ).resolves.toMatchObject({ error: expect.any(String) })
       expect(changeCampaignSecret).not.toHaveBeenCalled()
+      expect(refresh).not.toHaveBeenCalled()
     })
   })
 

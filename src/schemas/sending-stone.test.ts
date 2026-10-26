@@ -9,6 +9,9 @@ import {
   DISHES_SWITCHED_OFF,
   dishResult,
   distributedResult,
+  EFFECTS_OTHER_SYSTEM,
+  EFFECTS_SWITCHED_OFF,
+  effectResult,
   enchantingSheet,
   enchantUse,
   FAVORITING,
@@ -32,6 +35,7 @@ import {
   sheetSpell,
   SLEIGHT_CHECK,
   TAKING_DISHES,
+  TAKING_EFFECTS,
   TEXTS,
   biteAction,
   mockCompanionEntry,
@@ -5063,4 +5067,124 @@ describe('schemas/sending-stone, dishes from the Magical Recipe Book, from modul
       ).toThrow()
     },
   )
+})
+
+/** What a hello's features say of a player's own effects, as read. */
+const effects = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { effects: sent },
+    })?.data as { features?: { effects?: unknown } }
+  ).features?.effects
+
+/** Bless, as fullerSheet has it, with these ops, as read from a sheet. */
+const blessWith = (ops: unknown) => {
+  const sheet = fullerSheet()
+  const [temporary, ...rest] = sheet.effects
+  const [bless, ...others] = temporary.effects
+  return readSheet({
+    ...sheet,
+    effects: [
+      { ...temporary, effects: [{ ...bless, ops }, ...others] },
+      ...rest,
+    ],
+  }).effects[0].effects[0]
+}
+
+describe("schemas/sending-stone, a player's own effects, from module 0.39.0", () => {
+  it("reads each effect's ops, as the module lists them", () => {
+    expect(blessWith(['disable', 'delete']).ops).toEqual(['disable', 'delete'])
+    expect(blessWith(['enable']).ops).toEqual(['enable'])
+    expect(blessWith(['disable', 'enable', 'delete']).ops).toEqual([
+      'disable',
+      'enable',
+      'delete',
+    ])
+    expect(blessWith([]).ops).toEqual([])
+    // Every row of the sheet keeps its own.
+    expect(
+      readSheet(fullerSheet()).effects.flatMap(({ effects }: any) =>
+        effects.map(({ id, ops }: any) => [id, ops]),
+      ),
+    ).toEqual([
+      ['blessed', ['disable', 'delete']],
+      ['rage.raging', ['disable']],
+      ['shieldOfFaith', ['enable', 'delete']],
+    ])
+  })
+
+  it.each([
+    ['an op this app doesn’t know', ['disable', 'toggle']],
+    ['more than three', ['disable', 'enable', 'delete', 'delete']],
+    ['not a list', 'disable'],
+    ['null', null],
+  ])('reads %s as no ops, so no control, keeping the effect', (_name, ops) => {
+    const bless = blessWith(ops)
+    expect(bless).not.toHaveProperty('ops', expect.anything())
+    expect(bless.ops).toBeUndefined()
+    expect(bless).toMatchObject({ id: 'blessed', name: 'Bless' })
+  })
+
+  it('reads an effect from a module before 0.39.0 as having no ops', () => {
+    const sheet = fullerSheet()
+    const [temporary, ...rest] = sheet.effects
+    const bless = { ...temporary.effects[0] }
+    delete bless.ops
+    const read = readSheet({
+      ...sheet,
+      effects: [{ ...temporary, effects: [bless] }, ...rest],
+    }).effects[0].effects[0]
+    expect(read).not.toHaveProperty('ops')
+  })
+
+  it('reads features.effects, on and off, and junk as off or nothing', () => {
+    expect(effects(TAKING_EFFECTS)).toEqual(TAKING_EFFECTS)
+    expect(effects(EFFECTS_SWITCHED_OFF)).toEqual(EFFECTS_SWITCHED_OFF)
+    expect(effects(EFFECTS_OTHER_SYSTEM)).toEqual(EFFECTS_OTHER_SYSTEM)
+    expect(effects({ enabled: 'yes', kinds: 'effect' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+    })
+    expect(effects('on')).toBeNull()
+    // Module 0.38.1 says nothing of them.
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          features: { dishes: TAKING_DISHES },
+        })?.data as { features?: object }
+      ).features,
+    ).not.toHaveProperty('effects')
+  })
+
+  it('keeps what became of an effect, and the rest of a result where it can’t', () => {
+    expect(parseGameEvent('command.result', effectResult())?.data).toEqual(
+      effectResult(),
+    )
+    const deleted = effectResult({
+      effect: { id: 'rage.raging', disabled: null, deleted: true },
+    })
+    expect(parseGameEvent('command.result', deleted)?.data).toEqual(deleted)
+    for (const junk of [
+      'blessed',
+      { id: 'blessed', disabled: true },
+      { id: 'a b', disabled: true, deleted: false },
+      { id: 'blessed', disabled: 'no', deleted: false },
+    ]) {
+      const data = parseGameEvent(
+        'command.result',
+        effectResult({ effect: junk as any }),
+      )?.data as { effect?: unknown; status: string }
+      expect(data.effect).toBeUndefined()
+      expect(data.status).toBe('done')
+    }
+    // Left out by an older module, and by any other command.
+    expect(
+      parseGameEvent('command.result', favoritedResult())?.data,
+    ).not.toHaveProperty('effect')
+  })
 })

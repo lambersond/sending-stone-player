@@ -38,6 +38,7 @@ import {
   sheetTools,
   type DescriptionActions,
 } from './description-actions'
+import { Effecting, useEffectControls } from './effect-controls'
 import { EffectsTab } from './effects-tab'
 import { Enchanting, type EnchantActions } from './enchantments'
 import { FavoriteMarks } from './favorite-mark'
@@ -60,6 +61,7 @@ import {
   type Picking,
 } from './use-picker'
 import { Charging, type ChargeActions } from './uses-button'
+import { useCookbookEntry } from '@/components/cookbook-card'
 import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
@@ -96,6 +98,7 @@ import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { PartySheets } from './party-sheets'
 import type { NotesPlace } from '@/components/notes'
+import type { EffectOp } from '@/constants/sending-stone'
 import type { CookbookPlace } from '@/types/cookbook'
 import type {
   FavoriteTarget,
@@ -103,7 +106,7 @@ import type {
   RollFeature,
   RollKind,
 } from '@/types/roll'
-import type { SheetAction } from '@/types/sending-stone'
+import type { SheetAction, SheetEffect } from '@/types/sending-stone'
 import type {
   CreatureFacts,
   TableCombat,
@@ -150,6 +153,12 @@ type Props = {
    * module 0.37.0, as its game takes them: never at a creature's pane.
    */
   favorites?: boolean
+  /**
+   * Whether the seat's player may turn off, turn on and delete the character's own effects there,
+   * from module 0.39.0, as the campaign lets them and each effect's `ops` say: never at a
+   * creature's pane, nor the Gamemaster's page.
+   */
+  effects?: true
   /** The character's Foundry actor, which what's given is given from. */
   actorId?: string
   /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */
@@ -165,8 +174,8 @@ type Props = {
    */
   notes?: NotesPlace
   /**
-   * The player's Magical Recipe Book card, from module 0.38.0: shown on the Biography tab alone, at
-   * their own seat, never at a creature's pane.
+   * The player's Magical Recipe Book, from module 0.38.0: since round 0.39.0 opened from the cog,
+   * Configure Magical Cookbook, at their own seat, never at a creature's pane.
    */
   cookbook?: CookbookPlace
   /**
@@ -291,6 +300,7 @@ function RollingSheet({
   moves,
   removes,
   favorites: favoritesOn,
+  effects: effectsOn,
   actorId,
   parties,
   manualDice,
@@ -372,6 +382,7 @@ function RollingSheet({
     logCharge,
     logMove,
     logFavorite,
+    logEffect,
     logAsk,
     rolls,
     rolling,
@@ -436,6 +447,10 @@ function RollingSheet({
   // the other, never both.
   const [toasting, setToasting] = useToastSetting()
   const conditions = useConditionsPanel(sheet.conditions)
+  // The player's Magical Recipe Book, from the cog (round 0.39.0): read as the pane mounts and as
+  // the cog opens, offered while the game takes dishes or the character has a link.
+  const cookbookPlace = creature ? undefined : cookbook
+  const cookbookEntry = useCookbookEntry(cookbookPlace)
   // An attack or a use made at the table, while its player picks whom at, and with what. One open
   // as the pane's rolls lock, as a companion's that has gone, closes: nothing it picks is made.
   const [picking, setPicking] = useState<Picking>()
@@ -491,6 +506,26 @@ function RollingSheet({
     entries,
     states: table.states,
     send: sendFavoriteOf,
+  })
+  // The character's own effects turned off, on and deleted, from module 0.39.0, where the campaign
+  // lets its player: never at a creature's pane, nor the Gamemaster's page. A line among the rolls
+  // says how it went, as for a favorite.
+  const { sendEffect } = table
+  const sendEffectOf = useCallback(
+    (effect: SheetEffect, op: EffectOp) => {
+      setActed(true)
+      const logged = logEffect(effect.name, op)
+      sendEffect(logged, effect)
+      return logged.id
+    },
+    [logEffect, sendEffect],
+  )
+  const effecting = useEffectControls({
+    on: effectsOn === true && !creature && role === 'player',
+    character: name,
+    effects: sheet.effects,
+    states: table.states,
+    send: sendEffectOf,
   })
   // How each spell an item casts is cast, and at which levels it may be.
   const itemCasts = useMemo(() => castIndex(sheet), [sheet])
@@ -865,6 +900,7 @@ function RollingSheet({
     <SheetContext
       marks={marks}
       favoriting={favoriting}
+      effecting={effecting}
       showConditions={conditions.show}
       descriptions={descriptions}
       enchanting={enchanting}
@@ -954,7 +990,15 @@ function RollingSheet({
                 ? actionsLayout
                 : undefined
             }
+            onOpenChange={
+              cookbookPlace ? cookbookEntry.onCogOpenChange : undefined
+            }
+            cookbook={
+              cookbookEntry.shown ? { onOpen: cookbookEntry.open } : undefined
+            }
           />
+          {/* Beside the cog, never in its settings, which close as it opens. */}
+          {cookbookEntry.modal}
         </div>
       </div>
       {note}
@@ -976,10 +1020,13 @@ function RollingSheet({
       <div ref={body} className='flex min-h-0 flex-1'>
         {beside && <FavoritesColumn {...favorites} />}
         <Scroller ref={scroller}>
+          {/* It takes focus once an effect deleted from its last row has gone (module 0.39.0). */}
           <div
             id={`${idPrefix}sheet-panel`}
             role='tabpanel'
             aria-labelledby={`${idPrefix}sheet-tab-${tab}`}
+            tabIndex={-1}
+            className='outline-none'
           >
             {tab === 'character' && (
               <CharacterSheet
@@ -1041,7 +1088,6 @@ function RollingSheet({
                 name={name}
                 sheet={sheet}
                 notes={notes}
-                cookbook={creature ? undefined : cookbook}
               />
             )}
           </div>
@@ -1153,13 +1199,14 @@ function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
 
 /**
  * What every part of the sheet inside knows of it: which of what it lists are favorites, and from
- * module 0.37.0 how they're added and removed, how to open its conditions panel, what the links in
- * its descriptions do, how enchantments and concentrations end, and how counters are spent and
- * Heroic Inspiration changed.
+ * module 0.37.0 how they're added and removed, and from module 0.39.0 how its own effects are
+ * changed, how to open its conditions panel, what the links in its descriptions do, how
+ * enchantments and concentrations end, and how counters are spent and Heroic Inspiration changed.
  */
 function SheetContext({
   marks,
   favoriting,
+  effecting,
   showConditions,
   descriptions,
   enchanting,
@@ -1169,6 +1216,7 @@ function SheetContext({
 }: Readonly<{
   marks: ReadonlySet<string>
   favoriting: ReturnType<typeof useFavorites>
+  effecting: ReturnType<typeof useEffectControls>
   showConditions: ShowConditions
   descriptions: DescriptionActions
   enchanting: EnchantActions
@@ -1179,15 +1227,17 @@ function SheetContext({
   return (
     <FavoriteMarks keys={marks}>
       <Favoriting value={favoriting}>
-        <ConditionsOpener show={showConditions}>
-          <DescriptionLinks actions={descriptions}>
-            <Enchanting actions={enchanting}>
-              <Concentrating actions={concentrating}>
-                <Charging actions={charging}>{children}</Charging>
-              </Concentrating>
-            </Enchanting>
-          </DescriptionLinks>
-        </ConditionsOpener>
+        <Effecting value={effecting}>
+          <ConditionsOpener show={showConditions}>
+            <DescriptionLinks actions={descriptions}>
+              <Enchanting actions={enchanting}>
+                <Concentrating actions={concentrating}>
+                  <Charging actions={charging}>{children}</Charging>
+                </Concentrating>
+              </Enchanting>
+            </DescriptionLinks>
+          </ConditionsOpener>
+        </Effecting>
       </Favoriting>
     </FavoriteMarks>
   )

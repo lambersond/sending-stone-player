@@ -15,9 +15,10 @@ import type { Character, TableSeat } from '@/types/character'
 import type { CookbookView } from '@/types/cookbook'
 import type { TableView } from '@/types/table'
 
-// The player's Magical Recipe Book card at their table (module 0.38.0): on the sheet's Biography
-// tab after the journal's card, or under why there's no sheet after the journal's there; at their
-// own seat alone, while their character plays, given both of its actions.
+// The player's Magical Recipe Book at their table (module 0.38.0): since round 0.39.0 offered in
+// the sheet's cog, Configure Magical Cookbook, or, with no sheet yet, by a button under why there's
+// none, after the journal's card; at their own seat alone, while their character plays, given both
+// of its actions. Changed on purpose (round 0.39.0 §2.10) from the card on the Biography tab.
 
 jest.mock('@/hooks/use-table-view', () => ({
   ...jest.requireActual('@/hooks/use-table-view'),
@@ -107,6 +108,14 @@ const renderTable = (
   )
 }
 
+/** The card's route answering with the book as the test holds it at each read, in place of CARD. */
+const serveBook = (book: () => CookbookView) =>
+  serveNotes({ [API]: emptyBook(), [GM_API]: emptyBook() }, async url =>
+    url === `${API}/cookbook` || url.startsWith(`${API}/cookbook?`)
+      ? respond(200, book())
+      : new Promise<Response>(() => {}),
+  )
+
 /** The card's reads, at any character's route. */
 const cardReads = () =>
   jest
@@ -117,7 +126,13 @@ const cardReads = () =>
 const follows = (a: Node, b: Node) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-describe('components/game-table, the Magical Recipe Book card (module 0.38.0)', () => {
+/** Opens the sheet's cog, its settings, as shown. */
+const openCog = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: 'Settings' }))
+  return screen.getByRole('dialog', { name: 'Settings' })
+}
+
+describe('components/game-table, the Magical Recipe Book (module 0.38.0), from the cog since round 0.39.0', () => {
   beforeEach(() => {
     forgetNotes()
     globalThis.localStorage.clear()
@@ -137,57 +152,136 @@ describe('components/game-table, the Magical Recipe Book card (module 0.38.0)', 
     })
   })
 
-  it('puts it on the sheet’s Biography tab, right after the journal’s card, for the playing player, with their actions', async () => {
+  it('offers it in the self pane’s cog for the playing player, read as the pane mounts, opening it with their actions; never on the Biography tab', async () => {
     const user = userEvent.setup()
     const given = actions()
     renderTable(view(), { given })
+    await waitFor(() => expect(cardReads()).toHaveLength(1))
+    expect(cardReads()[0][0]).toBe('/api/characters/char-1/cookbook')
+    await user.click(screen.getByRole('tab', { name: 'Biography' }))
+    await screen.findByRole('region', { name: 'Journal' })
     expect(
       screen.queryByRole('region', { name: 'Magical Recipe Book' }),
     ).toBeNull()
-    expect(cardReads()).toEqual([])
-    await user.click(screen.getByRole('tab', { name: 'Biography' }))
 
-    const card = await screen.findByRole('region', {
+    const settings = await openCog(user)
+    await user.click(
+      await within(settings).findByRole('button', {
+        name: 'Configure Magical Cookbook',
+      }),
+    )
+    const book = await screen.findByRole('dialog', {
       name: 'Magical Recipe Book',
     })
-    const journal = screen.getByRole('region', { name: 'Journal' })
-    expect(card.previousElementSibling).toBe(journal)
-    expect(cardReads()[0][0]).toBe('/api/characters/char-1/cookbook')
-
     await user.click(
-      within(card).getByRole('button', { name: 'Make a link code' }),
+      await within(book).findByRole('button', { name: 'Make a link code' }),
     )
     expect(given.makeCookbookCode).toHaveBeenCalledTimes(1)
   })
 
-  it('puts it under why there’s no sheet, after the journal’s card, in a column of its own', async () => {
+  it('offers it under why there’s no sheet, after the journal’s card, in a column of its own, opening the same modal', async () => {
+    const user = userEvent.setup()
     renderTable(view(false))
-    const card = await screen.findByRole('region', {
-      name: 'Magical Recipe Book',
+    const button = await screen.findByRole('button', {
+      name: 'Configure Magical Cookbook',
     })
+    expect(button).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(button).toHaveClass('min-h-11')
     const journal = screen.getByRole('region', { name: 'Journal' })
-    expect(follows(journal, card)).toBe(true)
-    expect(card.parentElement).toHaveClass(
+    expect(follows(journal, button)).toBe(true)
+    expect(button.parentElement).toHaveClass(
       'mx-auto',
       'w-full',
       'max-w-2xl',
       'px-4',
       'pb-8',
     )
-    expect(card.parentElement?.previousElementSibling).toBe(
+    expect(button.parentElement?.previousElementSibling).toBe(
       journal.parentElement,
     )
+    await user.click(button)
+    const book = await screen.findByRole('dialog', {
+      name: 'Magical Recipe Book',
+    })
+    expect(
+      await within(book).findByRole('button', { name: 'Make a link code' }),
+    ).toBeInTheDocument()
   })
 
-  it('never draws it at the Gamemaster’s seat, given the actions or not', async () => {
+  it('offers no button under why there’s no sheet while the game takes no dishes and the character has no link', async () => {
+    serveBook(() => ({ ...CARD, enabled: false }))
+    renderTable(view(false))
+    await screen.findByRole('region', { name: 'Journal' })
+    await waitFor(() => expect(cardReads()).toHaveLength(1))
+    // Its answer read, and drawn.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+    expect(
+      screen.queryByRole('button', { name: 'Configure Magical Cookbook' }),
+    ).toBeNull()
+  })
+
+  it('keeps the modal the no-sheet button opens open after a revoke while the game takes no dishes, on its off line with no Make button', async () => {
+    const user = userEvent.setup()
+    // Linked while the game takes no dishes: offered, for the link.
+    let book: CookbookView = {
+      ...CARD,
+      enabled: false,
+      link: {
+        hint: 'U2d4',
+        createdAt: '2026-10-24T18:00:00.000Z',
+        lastUsedAt: null,
+      },
+    }
+    serveBook(() => book)
+    const given = {
+      ...actions(),
+      revokeCookbookCode: jest.fn(async () => {
+        book = { ...book, version: 'bcdef0123456', link: null }
+      }),
+    }
+    renderTable(view(false), { given })
+    await user.click(
+      await screen.findByRole('button', { name: 'Configure Magical Cookbook' }),
+    )
+    const modal = await screen.findByRole('dialog', {
+      name: 'Magical Recipe Book',
+    })
+    await user.click(
+      await within(modal).findByRole('button', { name: 'Revoke' }),
+    )
+    await user.click(
+      within(
+        screen.getByRole('dialog', { name: 'Revoke this link code?' }),
+      ).getByRole('button', { name: 'Revoke' }),
+    )
+    expect(given.revokeCookbookCode).toHaveBeenCalledTimes(1)
+
+    await waitFor(() => expect(modal).not.toHaveTextContent('Linked with'))
+    expect(screen.getByRole('dialog', { name: 'Magical Recipe Book' })).toBe(
+      modal,
+    )
+    expect(modal).toHaveTextContent(
+      'Your Gamemaster’s game isn’t taking dishes right now.',
+    )
+    expect(
+      within(modal).queryByRole('button', { name: 'Make a link code' }),
+    ).toBeNull()
+  })
+
+  it('never offers it at the Gamemaster’s seat, given the actions or not, reading nothing', async () => {
     const user = userEvent.setup()
     renderTable(view(), {
       seat: { role: 'gm', api: GM_API, key: 'gm:c1:thorin' },
     })
     await user.click(screen.getByRole('tab', { name: 'Biography' }))
     await screen.findByRole('region', { name: 'Journal' })
+    const settings = await openCog(user)
     expect(
-      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+      within(settings).queryByRole('button', {
+        name: 'Configure Magical Cookbook',
+      }),
     ).toBeNull()
     expect(cardReads()).toEqual([])
   })
@@ -197,18 +291,18 @@ describe('components/game-table, the Magical Recipe Book card (module 0.38.0)', 
     ['only making one', { makeCookbookCode: actions().makeCookbookCode }],
     ['only revoking one', { revokeCookbookCode: actions().revokeCookbookCode }],
   ])(
-    'never draws it without both actions: %s',
+    'never offers it without both actions: %s',
     async (_name, given: Partial<ReturnType<typeof actions>>) => {
       renderTable(view(false), { given })
       await screen.findByRole('region', { name: 'Journal' })
       expect(
-        screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+        screen.queryByRole('button', { name: 'Configure Magical Cookbook' }),
       ).toBeNull()
       expect(cardReads()).toEqual([])
     },
   )
 
-  it('never draws it for a character not playing one of its campaign’s characters', async () => {
+  it('never offers it for a character not playing one of its campaign’s characters', async () => {
     const choice: CampaignChoice = {
       id: 'c1',
       title: 'The Lonely Mountain',
@@ -224,32 +318,52 @@ describe('components/game-table, the Magical Recipe Book card (module 0.38.0)', 
     ).toBeInTheDocument()
     await waitFor(() => expect(cardReads()).toEqual([]))
     expect(
-      screen.queryByRole('region', { name: 'Magical Recipe Book' }),
+      screen.queryByRole('button', { name: 'Configure Magical Cookbook' }),
     ).toBeNull()
   })
 
-  it('polls it only while in view, as the journal is: not behind combat on one pane', async () => {
+  it('reads it once as the pane mounts and again as the cog opens, polling it only while its modal is open', async () => {
     jest.useFakeTimers()
     try {
       const user = userEvent.setup({
         advanceTimers: jest.advanceTimersByTime,
       })
-      renderTable(view(false))
+      renderTable(view())
       await act(async () => {
         await jest.advanceTimersByTimeAsync(0)
       })
       expect(cardReads()).toHaveLength(1)
-
-      await user.click(
-        within(screen.getByRole('navigation', { name: 'Table' })).getByRole(
-          'button',
-          { name: 'Combat' },
-        ),
-      )
       await act(async () => {
         await jest.advanceTimersByTimeAsync(60_000)
       })
       expect(cardReads()).toHaveLength(1)
+
+      const settings = await openCog(user)
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0)
+      })
+      expect(cardReads()).toHaveLength(2)
+
+      await user.click(
+        within(settings).getByRole('button', {
+          name: 'Configure Magical Cookbook',
+        }),
+      )
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60_000)
+      })
+      const open = cardReads().length
+      expect(open).toBeGreaterThan(2)
+
+      await user.click(
+        within(
+          screen.getByRole('dialog', { name: 'Magical Recipe Book' }),
+        ).getByRole('button', { name: 'Close' }),
+      )
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60_000)
+      })
+      expect(cardReads()).toHaveLength(open)
     } finally {
       jest.useRealTimers()
     }

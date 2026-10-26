@@ -32,10 +32,11 @@ const MAX_ROLL_BYTES = 16_384
  * from module 0.31.0, `&moves=1` where the view last seen let the seat move items and coins; from
  * module 0.32.0, `&typed=1` where the view last seen had the player's typed dice on; from module
  * 0.33.0, `&removes=1` where the view last seen let the seat remove items; from module 0.37.0
- * `&favorites=1` where the view last seen let the seat change the character's favorites; and the
- * sheet's version as `&sheet=` to have an unchanged sheet left out. Without the last, a page
- * answered 204 would keep offering favorites once its Gamemaster's Foundry stopped fetching, as
- * nothing bumps the version then.
+ * `&favorites=1` where the view last seen let the seat change the character's favorites; from
+ * module 0.39.0 `&effects=1` where it let the player change the character's own effects; and the
+ * sheet's version as `&sheet=` to have an unchanged sheet left out. Without the favorites' and
+ * effects' keys, a page answered 204 would keep offering them once its Gamemaster's Foundry stopped
+ * fetching, as nothing bumps the version then.
  */
 export async function tableResponse(
   request: NextRequest,
@@ -72,6 +73,7 @@ export async function tableResponse(
       typed,
       removes,
       favorites,
+      effects,
     } = await getCampaignStatus(seat)
     if (
       Number(known.get('version')) === version &&
@@ -82,7 +84,8 @@ export async function tableResponse(
       (known.get('moves') === '1') === moves &&
       (known.get('typed') === '1') === typed &&
       (known.get('removes') === '1') === removes &&
-      (known.get('favorites') === '1') === favorites
+      (known.get('favorites') === '1') === favorites &&
+      (known.get('effects') === '1') === effects
     ) {
       return new Response(undefined, { status: 204, headers })
     }

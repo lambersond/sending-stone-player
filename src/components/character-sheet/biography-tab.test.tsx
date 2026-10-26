@@ -199,18 +199,14 @@ describe('components/character-sheet/biography-tab, with the character’s journ
   })
 })
 
-describe('components/character-sheet/biography-tab, with the player’s Magical Recipe Book card (module 0.38.0)', () => {
+// Changed on purpose (round 0.39.0 §2.10): the Magical Recipe Book opens from the sheet's cog, and
+// the Biography tab draws no card of it.
+describe('components/character-sheet/biography-tab, and the player’s Magical Recipe Book (module 0.38.0)', () => {
   const notes = {
     api: '/api/characters/char-1',
     role: 'player' as const,
     name: 'Thorin Oakenshield',
     active: true,
-  }
-  const cookbook = {
-    characterId: 'char-1',
-    active: true,
-    make: jest.fn(async () => ({ code: 'sscb_x' })),
-    revoke: jest.fn(async () => {}),
   }
 
   beforeEach(() => {
@@ -240,40 +236,7 @@ describe('components/character-sheet/biography-tab, with the player’s Magical 
     })
   })
 
-  it('puts the card right after the journal’s, before Details', async () => {
-    render(
-      <BiographyTab
-        characterId='char-1'
-        name='Thorin Oakenshield'
-        sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
-        notes={notes}
-        cookbook={cookbook}
-      />,
-    )
-    const card = await screen.findByRole('region', {
-      name: 'Magical Recipe Book',
-    })
-    expect(card.previousElementSibling).toBe(
-      screen.getByRole('region', { name: 'Journal' }),
-    )
-    expect(card.nextElementSibling).toBe(
-      screen.getByRole('region', { name: 'Details' }),
-    )
-    expect(
-      screen
-        .getAllByRole('heading', { level: 2 })
-        .map(({ textContent }) => textContent),
-    ).toEqual([
-      'Journal',
-      'Magical Recipe Book',
-      'Details',
-      'Personality',
-      'Appearance',
-      'Biography',
-    ])
-  })
-
-  it('has no card without one', async () => {
+  it('has no Magical Recipe Book card on the Biography tab, the journal’s card followed by Details, reading none', async () => {
     render(
       <BiographyTab
         characterId='char-1'
@@ -286,6 +249,14 @@ describe('components/character-sheet/biography-tab, with the player’s Magical 
     expect(
       screen.queryByRole('region', { name: 'Magical Recipe Book' }),
     ).toBeNull()
+    expect(
+      screen.getByRole('region', { name: 'Journal' }).nextElementSibling,
+    ).toBe(screen.getByRole('region', { name: 'Details' }))
+    expect(
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Journal', 'Details', 'Personality', 'Appearance', 'Biography'])
     expect(
       jest
         .mocked(fetch)

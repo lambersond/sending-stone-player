@@ -171,6 +171,62 @@ describe('ending concentration, from module 0.29.0', () => {
     )
   })
 
+  it('keeps End alone, by its exact name, on a concentration’s row with the player’s own effects offered (module 0.39.0)', async () => {
+    const user = userEvent.setup()
+    answering()
+    const [temporary] = chargingSheet().effects
+    const sheet = chargingSheet({
+      effects: [
+        {
+          ...temporary,
+          effects: [
+            // A concentration: no `ops`, as the module gives none, End ending it.
+            { ...temporary.effects[0], ops: [] },
+            {
+              id: 'mageArmor001',
+              name: 'Mage Armor',
+              img: null,
+              source: 'Mage Armor',
+              duration: '8 Hours',
+              disabled: false,
+              ops: ['disable', 'delete'],
+              text: null,
+            },
+          ],
+        },
+      ],
+    })
+    render(
+      <CharacterPane
+        characterId='char-ember'
+        name='Ember'
+        sheet={toTableSheet(sheet, GAME)}
+        rollsToTable={KINDS}
+        effects
+      />,
+    )
+    await show(user, 'Effects')
+    const row = screen.getByText('Concentrating: Bless').closest('li')!
+    await user.click(within(row).getByText('Concentrating: Bless'))
+    expect(
+      within(row)
+        .getAllByRole('button')
+        .map(button => button.getAttribute('aria-label')),
+    ).toEqual(['End concentration on Bless'])
+    // Another effect, beside it, has its own.
+    const armor = screen.getByText('Mage Armor').closest('li')!
+    await user.click(within(armor).getByText('Mage Armor'))
+    expect(
+      within(armor)
+        .getAllByRole('button')
+        .map(button => button.getAttribute('aria-label')),
+    ).toEqual(['Turn off Mage Armor', 'Delete Mage Armor'])
+    // In the opened row, as End is, never on its summary.
+    for (const button of within(armor).getAllByRole('button')) {
+      expect(button.closest('summary')).toBeNull()
+    }
+  })
+
   it('gives a favorite of the effect the same End', async () => {
     const user = userEvent.setup()
     answering()

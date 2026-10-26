@@ -6,6 +6,8 @@ import {
   COMPANION_INITIATIVE,
   COMPANION_KEY,
   DAMAGE_TYPE,
+  EFFECT_ID,
+  EFFECT_OPS,
   EVENTS,
   HIT_DIE,
   MAX_DAMAGE_TERMS,
@@ -785,6 +787,10 @@ const effectSchema = z.looseObject({
   source: nullableString,
   duration: nullableString,
   disabled: z.boolean().catch(false),
+  // From module 0.39.0: what its player may do to it from here, where the campaign lets them.
+  // Anything else, such as an unknown op or more than three, is read as unsaid, so no control.
+  // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
+  ops: z.array(z.enum(EFFECT_OPS)).max(3).optional().catch(undefined),
   text: textRef,
 })
 
@@ -1553,6 +1559,17 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.39.0: whether the campaign lets its players turn off, turn on and delete their
+    // own characters' effects here, by its own switch, under dnd5e.
+    effects: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -1873,6 +1890,18 @@ const commandResultSchema = z.object({
       card: z.string().max(64).nullable(),
       state: z.enum(['waiting', 'applied', 'dismissed']),
     })
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // From module 0.39.0, for one of the character's own effects turned off, on or deleted: the
+  // effect, whether it's off now, null once deleted, and whether it was deleted.
+  effect: z
+    .object({
+      id: z.string().regex(EFFECT_ID),
+      disabled: z.boolean().nullable(),
+      deleted: z.boolean(),
+    })
+    .nullable()
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),

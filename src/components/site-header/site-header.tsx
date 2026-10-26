@@ -11,8 +11,9 @@ export function SiteHeader() {
     <NotOnCharacterPage>
       <header className='h-14 border-b border-border bg-card/80 backdrop-blur'>
         {/* On a phone the gaps close up, and the name gets smaller below 390px and goes below
-            360px, so the account's buttons keep their size and nothing runs off the side. */}
-        <div className='mx-auto flex h-full w-full max-w-3xl items-center justify-between gap-2 px-4 sm:gap-4'>
+            360px, so the account's buttons keep their size and nothing runs off the side. As wide
+            as the campaigns page's box (round 0.39.0), so their edges meet. */}
+        <div className='mx-auto flex h-full w-full max-w-[70rem] items-center justify-between gap-2 px-4 sm:gap-4'>
           <Link
             href='/'
             className='inline-flex shrink-0 items-center gap-2 font-semibold tracking-tight'

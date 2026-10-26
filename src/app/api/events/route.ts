@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   COMPANIONS,
   DISHES,
+  EFFECTS,
   FAVORITES,
   FOUNDRY_SETTINGS,
   GROUPS,
@@ -240,7 +241,9 @@ export async function POST(request: Request) {
  * Foundry; and from module 0.36.0 the campaign's characters' companions, which the module sends,
  * and marks its combats and chat with, only then; and from module 0.37.0 favorites added and
  * removed, which the module fetches for only then; and from module 0.38.0 dishes from the Magical
- * Recipe Book, which the module fetches, and reports the Gamemaster's choice of, only then.
+ * Recipe Book, which the module fetches, and reports the Gamemaster's choice of, only then; and
+ * from module 0.39.0 a player's own effects turned off, on and deleted, which the module fetches
+ * for only then.
  */
 const FEATURES = {
   commands: true,
@@ -255,6 +258,7 @@ const FEATURES = {
   companions: COMPANIONS,
   favorites: FAVORITES,
   dishes: DISHES,
+  effects: EFFECTS,
 }
 
 /**

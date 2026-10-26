@@ -9,6 +9,7 @@ import { CreatureContext } from '@/hooks/use-creature'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { gmRollsOf, type TableRollState } from '@/hooks/use-table-rolls'
+import type { EffectOp } from '@/constants/sending-stone'
 import type {
   LocalAsk,
   LocalCheck,
@@ -4111,5 +4112,125 @@ describe('a favorite added or removed, from module 0.37.0', () => {
     expect(
       screen.getAllByRole('listitem').map(item => item.textContent),
     ).toEqual(['Blessremoved from favorites'])
+  })
+})
+
+const changedEffect = (op: EffectOp, label = 'Bless'): LocalUse => ({
+  kind: 'use',
+  id: `u-${op}`,
+  label,
+  spell: false,
+  effect: op,
+  at: 0,
+})
+
+describe('one of the character’s own effects turned off, on or deleted, from module 0.39.0', () => {
+  const off = changedEffect('disable')
+  const on = changedEffect('enable', 'Shield of Faith')
+  const deleted = changedEffect('delete', 'Invisibility')
+
+  it('reads it on its way, then done, by its name, as the game says', () => {
+    expect(briefOf(off, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(
+      [off, on, deleted].map(
+        roll => briefOf(roll, { status: 'rolling' }).table?.text,
+      ),
+    ).toEqual([
+      'Turning it off in your Gamemaster’s game…',
+      'Turning it on in your Gamemaster’s game…',
+      'Deleting it in your Gamemaster’s game…',
+    ])
+    expect(
+      briefOf(off, {
+        status: 'done',
+        visible: true,
+        changed: { id: 'blessed', disabled: true, deleted: false },
+      }),
+    ).toMatchObject({
+      label: 'Bless',
+      badge: 'use',
+      table: { tone: 'made', text: 'Turned off' },
+    })
+    expect(
+      [on, deleted].map(
+        roll => briefOf(roll, { status: 'done', visible: true }).table?.text,
+      ),
+    ).toEqual(['Turned on', 'Deleted'])
+  })
+
+  it.each([
+    ['refused', 'moving', 'it’s on its way already'],
+    [
+      'refused',
+      'unavailable',
+      'your Gamemaster’s game isn’t taking changes to effects now',
+    ],
+    [
+      'failed',
+      'off',
+      'your Gamemaster’s game isn’t taking changes to effects now',
+    ],
+    ['refused', 'effect', 'that effect can’t be changed from here'],
+    ['failed', 'effect', 'that effect can’t be changed from here'],
+    ['refused', 'gone', 'it can’t be found in the game any more'],
+    ['failed', 'gone', 'it can’t be found in the game any more'],
+    ['failed', 'cancelled', 'it was called off in the game'],
+    ['refused', 'unknown', 'your character in the game can’t make it'],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['failed', 'timeout', 'the game took too long'],
+    ['failed', 'error', undefined],
+    ['refused', 'network', 'Sending Stone couldn’t be reached'],
+    ['expired', undefined, 'your Gamemaster’s game didn’t pick it up'],
+    ['lost', undefined, 'no answer from your Gamemaster’s game'],
+    ['failed', 'invalid', 'your Gamemaster’s game couldn’t make it'],
+  ] as const)(
+    'says why it was %s, %s, in its own words where they differ',
+    (status, reason, words) => {
+      const why = words ? `: ${words}` : ''
+      // Its state keeps which change it was, as sendEffect sends it.
+      expect(
+        briefOf(off, { status, reason, effect: 'disable' }).table?.text,
+      ).toBe(`Not turned off${why}`)
+      expect(
+        briefOf(on, { status, reason, effect: 'enable' }).table?.text,
+      ).toBe(`Not turned on${why}`)
+      expect(
+        briefOf(deleted, { status, reason, effect: 'delete' }).table?.text,
+      ).toBe(`Not deleted${why}`)
+    },
+  )
+
+  it('says the game’s own name for it, as the seat reads it', () => {
+    expect(
+      briefOf(
+        off,
+        { status: 'refused', reason: 'off', effect: 'disable' },
+        'gm',
+      ).table?.text,
+    ).toBe('Not turned off: your game isn’t taking changes to effects now')
+  })
+
+  it('reads it in the tray under its name, and lists it among the earlier rolls in short', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[off, { ...on, id: 'u-2' }, { ...deleted, id: 'u-3' }]}
+        rolling={false}
+        table={{
+          states: new Map([
+            ['u-disable', { status: 'done', visible: true, effect: 'disable' }],
+          ]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('BlessTurned off')
+    await user.click(screen.getByText('Earlier rolls (2)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Shield of Faithturned on', 'Invisibilitydeleted'])
   })
 })
