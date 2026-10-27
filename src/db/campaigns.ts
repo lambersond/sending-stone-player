@@ -119,6 +119,7 @@ export async function listOwnedCampaigns(
       transfersEnabled: true,
       dishesEnabled: true,
       effectsEnabled: true,
+      wildShapeEnabled: true,
       refusedAt: true,
       refusalReason: true,
       refusalStatus: true,
@@ -179,6 +180,9 @@ export async function listOwnedCampaigns(
       // Whether the campaign lets its players change their own characters' effects, from module
       // 0.39.0, as its last hello said.
       effects: { enabled: campaign.effectsEnabled },
+      // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, as
+      // its last hello said.
+      wildShape: { enabled: campaign.wildShapeEnabled },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
         const link = player?.cookbookLink

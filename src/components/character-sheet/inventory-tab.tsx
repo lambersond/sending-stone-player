@@ -30,6 +30,7 @@ import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { UsesButton } from './uses-button'
+import { WildShapeNote } from './wild-shape'
 import { usePortalRoot, useTopmostEscape } from '@/components/modal'
 import {
   NO_TRANSFERS,
@@ -107,6 +108,8 @@ export function InventoryTab({
   const idPrefix = useSheetId('inventory')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {/* While transformed, as by Wild Shape (module 0.40.0): the form's, not the character's. */}
+      <WildShapeNote tab='inventory' />
       {favorites}
       <Transferring controls={transfers ?? NO_TRANSFERS}>
         {(currency.length > 0 || encumbrance || attunement) && (

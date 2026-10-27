@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfirmDialog } from './confirm-dialog'
 import { Modal } from './modal'
@@ -11,6 +11,15 @@ class FocusingDialog extends HTMLDialogElement {
   override showModal() {
     this.open = true
     this.querySelector('button')?.focus()
+  }
+}
+
+/** A dialog as a browser closes it, which jsdom's stand-in doesn't: its close event only after. */
+class LaterClosingDialog extends HTMLDialogElement {
+  override close() {
+    if (!this.open) return
+    this.open = false
+    setTimeout(() => this.dispatchEvent(new Event('close')))
   }
 }
 
@@ -87,6 +96,45 @@ describe('components/modal', () => {
       new Event('close'),
     )
     expect(outer).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells its owner nothing of a close it asked for, which a browser fires only after, and still of Escape (round 0.40.0 e2e)', async () => {
+    // As a browser closes a dialog, which jsdom's stand-in doesn't: its close event after, as a
+    // task of its own, by when its owner may have moved focus elsewhere.
+    const close = jest
+      .spyOn(HTMLDialogElement.prototype, 'close')
+      .mockImplementation(LaterClosingDialog.prototype.close)
+    const fired = async () =>
+      act(async () => {
+        await new Promise(resolve => setTimeout(resolve))
+      })
+    const onClose = jest.fn()
+    const { rerender } = render(
+      <Modal open onClose={onClose} title='Wild Shape'>
+        <p>Forms</p>
+      </Modal>,
+    )
+    const dialog = document.querySelector('dialog') as HTMLDialogElement
+
+    rerender(
+      <Modal open={false} onClose={onClose} title='Wild Shape'>
+        <p>Forms</p>
+      </Modal>,
+    )
+    await fired()
+    expect(dialog.open).toBe(false)
+    expect(onClose).not.toHaveBeenCalled()
+
+    // Open again, the browser closes it itself on Escape: its owner is told, once.
+    rerender(
+      <Modal open onClose={onClose} title='Wild Shape'>
+        <p>Forms</p>
+      </Modal>,
+    )
+    act(() => dialog.close())
+    await fired()
+    expect(onClose).toHaveBeenCalledTimes(1)
+    close.mockRestore()
   })
 
   it('says under its title what it is given, such as where its content comes from', () => {
@@ -174,6 +222,118 @@ describe('components/modal', () => {
     expect(showModal).toHaveBeenCalledTimes(1)
     expect(within(dialog).getByRole('button', { name: 'Keep' })).toHaveFocus()
     showModal.mockRestore()
+  })
+})
+
+describe('components/modal, as a sheet with a footer and a Back (round 0.40.0)', () => {
+  it('rises from the bottom of a phone’s screen as a sheet, and is a centred dialog up to 640 pixels wide from sm', () => {
+    render(
+      <Modal open onClose={jest.fn()} title='Wild Shape' placement='sheet'>
+        <p>Forms</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Wild Shape' })
+
+    expect(dialog).toHaveClass(
+      'open:flex',
+      'open:flex-col',
+      'max-sm:mt-auto',
+      'max-sm:mb-0',
+      'max-sm:max-h-[92dvh]',
+      'max-sm:w-full',
+      'max-sm:max-w-none',
+      'max-sm:rounded-t-[20px]',
+      'max-sm:rounded-b-none',
+      'sm:m-auto',
+      'sm:max-w-160',
+      'sm:rounded-2xl',
+    )
+    // Not the centred dialog's, which would hold it in the middle of a phone's screen.
+    expect(dialog).not.toHaveClass('m-auto', 'max-w-lg')
+    // Its content scrolls between its header and whatever is under it.
+    const body = screen.getByText('Forms').parentElement as HTMLElement
+    expect(body).toHaveClass('overflow-y-auto', 'min-h-0', 'flex-1')
+    expect(body).not.toHaveClass('max-h-[calc(100dvh-9rem)]')
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveClass(
+      'min-h-11',
+      'min-w-11',
+    )
+  })
+
+  it('keeps its footer under its content, outside what scrolls', () => {
+    render(
+      <Modal
+        open
+        onClose={jest.fn()}
+        title='Wild Shape'
+        placement='sheet'
+        footer={<button type='button'>Become a Wolf</button>}
+      >
+        <p>Forms</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Wild Shape' })
+    const body = screen.getByText('Forms').parentElement as HTMLElement
+    const footer = dialog.querySelector('footer') as HTMLElement
+
+    expect(footer).toContainElement(
+      within(dialog).getByRole('button', { name: 'Become a Wolf' }),
+    )
+    expect(body).not.toContainElement(footer)
+    expect(body.nextElementSibling).toBe(footer)
+    expect(footer).toHaveClass('shrink-0', 'border-t')
+  })
+
+  it('offers its Back before its title, named for where it goes, and goes there on a click', async () => {
+    const user = userEvent.setup()
+    const back = jest.fn()
+    const onClose = jest.fn()
+    render(
+      <Modal
+        open
+        onClose={onClose}
+        title='Known forms'
+        placement='sheet'
+        back={{ label: 'Back to Wild Shape', onClick: back }}
+      >
+        <p>Forms</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Known forms' })
+    const button = within(dialog).getByRole('button', {
+      name: 'Back to Wild Shape',
+    })
+
+    expect(button).toHaveTextContent('Back')
+    const header = dialog.querySelector('header') as HTMLElement
+    expect(header.firstElementChild).toBe(button)
+    expect(
+      button.compareDocumentPosition(
+        within(dialog).getByRole('heading', { name: 'Known forms' }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await user.click(button)
+    expect(back).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('is as ever centred, with no footer or Back unless given them', () => {
+    render(
+      <Modal open onClose={jest.fn()} title='Help'>
+        <p>Steps</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Help' })
+
+    expect(dialog).toHaveClass('m-auto', 'max-w-lg', 'rounded-2xl')
+    expect(dialog.className).not.toMatch(/open:flex|max-sm:|sm:max-w-160/)
+    expect(dialog.querySelector('footer')).toBeNull()
+    expect(within(dialog).getAllByRole('button')).toHaveLength(1)
+    expect(screen.getByText('Steps').parentElement).toHaveClass(
+      'overflow-y-auto',
+      'max-h-[calc(100dvh-9rem)]',
+    )
   })
 })
 

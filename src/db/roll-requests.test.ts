@@ -566,11 +566,20 @@ describe('db/roll-requests', () => {
           // No move of items and coins, from module 0.31.0, nor removal, from module 0.33.0, to a
           // session not known to take them; changed on purpose (round 0.37.0 §7.15): nor a
           // favorite, from module 0.37.0; changed on purpose (round 0.39.0 §1.10): nor an effect
-          // changed, from module 0.39.0.
+          // changed, from module 0.39.0; changed on purpose (round 0.40.0 §10.3): nor Wild Shape,
+          // from module 0.40.0.
           OR: [
             {
               role: 'player',
-              kind: { notIn: ['transfer', 'remove', 'favorite', 'effect'] },
+              kind: {
+                notIn: [
+                  'transfer',
+                  'remove',
+                  'favorite',
+                  'effect',
+                  'wildShape',
+                ],
+              },
             },
           ],
         },
@@ -1876,6 +1885,33 @@ describe('db/roll-requests', () => {
     // Changed on purpose (round 0.37.0 §7.15): each says whether the game takes favorites too.
     // Changed on purpose (round 0.38.0 §D9): and dishes from the Magical Recipe Book.
     // Changed on purpose (round 0.39.0 §1.10): and a player's own effects.
+    // Changed on purpose (round 0.40.0 §10.3): and Wild Shape.
+    it('tells whether the campaign lets its players use Wild Shape, from module 0.40.0, with everything else off', async () => {
+      prismaMock.campaign.update.mockResolvedValue({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: false,
+        dishesEnabled: false,
+        effectsEnabled: false,
+        wildShapeEnabled: true,
+        playersSeenAt: null,
+      } as any)
+
+      await expect(markBridgePolled('c1')).resolves.toEqual({
+        rollsEnabled: false,
+        transfersEnabled: false,
+        removalsEnabled: false,
+        notesEnabled: false,
+        favoritesEnabled: false,
+        dishesEnabled: false,
+        effectsEnabled: false,
+        wildShapeEnabled: true,
+        playersPresent: false,
+      })
+    })
+
     it('tells whether the campaign lets its players change their own effects, from module 0.39.0, with everything else off', async () => {
       prismaMock.campaign.update.mockResolvedValue({
         rollsEnabled: false,
@@ -1885,6 +1921,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: true,
+        wildShapeEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1896,6 +1933,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: true,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -1909,6 +1947,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: true,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1920,6 +1959,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: true,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -1933,6 +1973,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: true,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1944,6 +1985,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: true,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -1957,6 +1999,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -1968,6 +2011,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -1981,6 +2025,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt: ago(60_000),
       } as any)
 
@@ -1992,6 +2037,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: true,
       })
       expect(prismaMock.campaign.update).toHaveBeenCalledWith({
@@ -2008,6 +2054,8 @@ describe('db/roll-requests', () => {
           dishesEnabled: true,
           // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
           effectsEnabled: true,
+          // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+          wildShapeEnabled: true,
           playersSeenAt: true,
         },
       })
@@ -2022,6 +2070,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -2033,6 +2082,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -2046,6 +2096,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt: null,
       } as any)
 
@@ -2057,6 +2108,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -2073,6 +2125,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersSeenAt,
       } as any)
 
@@ -2084,6 +2137,7 @@ describe('db/roll-requests', () => {
         favoritesEnabled: false,
         dishesEnabled: false,
         effectsEnabled: false,
+        wildShapeEnabled: false,
         playersPresent: false,
       })
     })
@@ -2976,6 +3030,20 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       kind: 'effect',
     },
     { id: 'effect-gm', role: 'gm', requestedById: 'gm-1', kind: 'effect' },
+    // From module 0.40.0: a player's Wild Shape, and one the Gamemaster's seat should never have
+    // sent.
+    {
+      id: 'wildshape-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'wildShape',
+    },
+    {
+      id: 'wildshape-gm',
+      role: 'gm',
+      requestedById: 'gm-1',
+      kind: 'wildShape',
+    },
   ].map((row, index) => ({
     ...row,
     campaignId: 'c1',
@@ -3170,6 +3238,90 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
 
     await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
       { ...change, id: 'effect-player', actorId: 'actor-thorin' },
+    ])
+  })
+
+  it("hands Wild Shape over only to the hello's session, and only a player's, from module 0.40.0", async () => {
+    const shaping = { ...removing, wildShapeEnabled: true }
+    await expect(fetched(shaping)).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'remove-gm',
+      'wildshape-player',
+    ])
+    // The campaign's own select names the switch, as the claim reads no field it doesn't ask for.
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      select: expect.objectContaining({ wildShapeEnabled: true }),
+    })
+    // A session the hello didn't come from is handed none: a module before 0.40.0 never is.
+    await expect(fetched(shaping, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+    // Never the Gamemaster's, whose rolls go to the game, with everything else on too.
+    await expect(
+      fetched({
+        ...shaping,
+        rollFeatures: ['gmRolls'],
+        transfersEnabled: true,
+        favoritesEnabled: true,
+        effectsEnabled: true,
+      }),
+    ).resolves.toEqual([
+      'roll-player',
+      'move-player',
+      'remove-player',
+      'roll-gm',
+      'remove-gm',
+      'favorite-player',
+      'effect-player',
+      'wildshape-player',
+    ])
+  })
+
+  it('withholds every Wild Shape while the campaign lets none, as a module before 0.40.0 says', async () => {
+    await expect(
+      fetched({ ...removing, removalsEnabled: false, wildShapeEnabled: false }),
+    ).resolves.toEqual(['roll-player'])
+    // With the rest on, as a module 0.39.0 hello leaves it.
+    await expect(
+      fetched({
+        ...removing,
+        rollFeatures: ['gmRolls'],
+        favoritesEnabled: true,
+        effectsEnabled: true,
+      }),
+    ).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'roll-gm',
+      'remove-gm',
+      'favorite-player',
+      'effect-player',
+    ])
+  })
+
+  it('hands Wild Shape over as the module is sent it: its op and form, no dice', async () => {
+    const change = {
+      kind: 'wildShape',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      wildShape: { op: 'transform', form: 'Kp3vQ8mZr2LdW0aB' },
+    }
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...removing,
+      wildShapeEnabled: true,
+    } as any)
+    prismaMock.rollRequest.findMany
+      .mockResolvedValueOnce([{ id: 'wildshape-player' }] as any)
+      .mockResolvedValueOnce([
+        held('wildshape-player', { kind: 'wildShape', payload: change }),
+      ] as any)
+
+    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+      { ...change, id: 'wildshape-player', actorId: 'actor-thorin' },
     ])
   })
 

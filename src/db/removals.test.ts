@@ -84,6 +84,9 @@ const given = ({
   prismaMock.actorSheet.findUnique.mockResolvedValue({
     data: characterSheet({ inventory }),
   } as any)
+  // Changed on purpose (round 0.40.0 §10.3): createRollRequest asks first whether the character,
+  // or a move's other end, is transformed; none is.
+  prismaMock.actorSheet.findMany.mockResolvedValue([])
   prismaMock.rollRequest.count.mockImplementation((({ where }: any) =>
     Promise.resolve(where.OR ? inFlight : lastMinute)) as any)
   prismaMock.rollRequest.findMany.mockImplementation((({ where }: any) =>

@@ -104,9 +104,10 @@ if (SKEW) {
   // Changed on purpose (round 0.36.0 §13.4): how its characters' companions enter initiative, after the moves switch.
   // Changed on purpose (round 0.38.0 §D10.4): dishes from the Magical Recipe Book, after the moves switch.
   // Changed on purpose (round 0.39.0 §1.11): a player's own effects, after dishes.
+  // Changed on purpose (round 0.40.0 §10.4): Wild Shape from the app, after effects.
   check(same(campaignRows, ['Players roll in the app: On', 'Attacks, spells and features: Off', 'Save and concentration prompts: Off',
     'Allow Players to enter dice results manually: Off', 'Players move items and coins: Off', 'Dishes from the Magical Recipe Book: Off',
-    'Allow Players to disable & remove their own active effects: Off',
+    'Allow Players to disable & remove their own active effects: Off', 'Allow Players to use Wild Shape from the app: Off',
     "Companions' initiative: Its own roll", 'Party sheets: The Iron Company']),
     `the campaign's own switches by their labels in Manage Campaigns, and its party sheets: ${JSON.stringify(campaignRows)}`)
   const world = await read('Sending Stone, for every campaign')

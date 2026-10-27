@@ -12,13 +12,20 @@ import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
 import { FeaturesTab } from './features-tab'
 import { LONG_PRESS } from './roll-button'
+import { useWildShape, WildShaping } from './wild-shape'
 import {
   characterSheet,
+  druidSheet,
   fullerSheet,
+  moonBlock,
   offeringFavorites,
+  shapedSheet,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
+import type { TableSheet } from '@/types/table'
+import type { SeatRole } from '@/utils/seat-words'
+import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
@@ -487,5 +494,128 @@ describe('components/character-sheet/features-tab, favorites, from module 0.37.0
     expect(plain.className).not.toMatch(UNSELECTED)
     expect(fireEvent.contextMenu(plain, { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+/** The Wild Shape row, its list item (module 0.40.0). */
+const wildRow = () =>
+  screen
+    .getAllByText('Wild Shape')
+    .map(each => each.closest('li'))
+    .find(Boolean) as HTMLElement
+
+describe('components/character-sheet/features-tab, Wild Shape, from module 0.40.0', () => {
+  /** Elowen's Wild Shape, as her own pane gives it to the tab inside, at the seat given. */
+  function Shaping({
+    sheet,
+    role = 'player',
+    effects = true,
+    children,
+  }: Readonly<{
+    sheet: TableSheet
+    role?: SeatRole
+    effects?: boolean
+    children: ReactNode
+  }>) {
+    const value = useWildShape({
+      on: role === 'player',
+      pane: true,
+      role,
+      name: 'Elowen',
+      sheet,
+      characterId: 'char-1',
+      effects,
+      states: new Map(),
+      send: () => 'use-1',
+      read: () => new Promise(() => {}),
+      panel: () => document.querySelector<HTMLElement>('#sheet-panel'),
+    })
+    return <WildShaping value={value}>{children}</WildShaping>
+  }
+  const renderShaped = (
+    sheet: CharacterSheet = druidSheet(),
+    role: SeatRole = 'player',
+  ) => {
+    const table = toTableSheet(sheet, 'https://my-game.forge-vtt.com')
+    return render(
+      <Shaping sheet={table} role={role}>
+        <FeaturesTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={table}
+        />
+      </Shaping>,
+    )
+  }
+
+  it('draws the Wild Shape row as an action’s, with Change and Known forms… beside its uses, never inside what opens it', () => {
+    renderShaped()
+
+    const row = wildRow()
+    const change = within(row).getByRole('button', { name: 'Change' })
+    const known = within(row).getByRole('button', { name: 'Known forms…' })
+    expect(change).toBeVisible()
+    expect(known).toBeVisible()
+    expect(row.querySelector('summary')).toBeNull()
+    const opener = within(row).getByRole('button', {
+      name: /^Wild Shape/,
+      expanded: false,
+    })
+    expect(opener).not.toContainElement(change)
+    expect(row).toHaveTextContent('Change into a known Beast form for 2 hours.')
+  })
+
+  it('says in its description what Wild Shape allows Elowen now, the Moon’s floor too', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderShaped()
+
+    await user.click(
+      within(wildRow()).getByRole('button', {
+        name: /^Wild Shape/,
+        expanded: false,
+      }),
+    )
+    expect(
+      within(wildRow()).getByText(
+        'Bonus Action. 6 known forms, up to CR 1/2, none with a Fly Speed. Lasts 2 hours. Elowen gains 5 temporary hit points.',
+      ),
+    ).toBeVisible()
+    unmount()
+
+    renderShaped(druidSheet({ wildShape: moonBlock() }))
+    await user.click(
+      within(wildRow()).getByRole('button', {
+        name: /^Wild Shape/,
+        expanded: false,
+      }),
+    )
+    expect(
+      within(wildRow()).getByText(
+        'Bonus Action. 6 known forms, up to CR 1, none with a Fly Speed. Lasts 2 hours. Elowen gains 15 temporary hit points. AC at least 16.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('offers Return beside Change while shaped, and nothing at the Gamemaster’s page', () => {
+    const { unmount } = renderShaped(shapedSheet())
+    expect(
+      within(wildRow()).getByRole('button', { name: 'Return' }),
+    ).toBeVisible()
+    unmount()
+
+    renderShaped(shapedSheet(), 'gm')
+    for (const name of ['Return', 'Change', 'Known forms…'])
+      expect(screen.queryByRole('button', { name })).toBeNull()
+  })
+
+  it('draws the row as ever where the sheet has no Wild Shape', () => {
+    const sheet = druidSheet()
+    renderShaped({ ...sheet, wildShape: undefined })
+
+    expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+    expect(screen.queryByText(/Change into a known Beast form/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Known forms…' })).toBeNull()
+    expect(screen.getAllByText('Wild Shape').length).toBeGreaterThan(0)
   })
 })

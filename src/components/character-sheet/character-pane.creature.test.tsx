@@ -13,9 +13,13 @@ import { CharacterPane } from './character-pane'
 import {
   biteAction,
   characterSheet,
+  druidSheet,
   mockCreature,
+  shapedSheet,
   sheetAction,
   sheetItem,
+  wildShapeBlock,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
@@ -246,6 +250,41 @@ describe('a creature’s pane', () => {
       }),
     ).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('offers nothing of Wild Shape, from module 0.40.0, even given `wildShape` and a sheet with a Wild Shape and a form', async () => {
+    const user = userEvent.setup()
+    const shaped = shapedSheet()
+    const sheet = wolf({
+      actions: shaped.actions,
+      features: shaped.features,
+      wildShape: wildShapeBlock(),
+      form: wolfForm(),
+    })
+    render(pane({ sheet, wildShape: true }))
+
+    expect(screen.queryByRole('region', { name: 'Wild Shape' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: /as a Wolf/ })).toBeNull()
+    expect(screen.queryByText(/the rest are/)).toBeNull()
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+    expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
+    for (const name of [/^Return/, 'Change', 'Known forms…'])
+      expect(screen.queryByRole('button', { name })).toBeNull()
+
+    // Nor at an unshaped one's, its row as any other.
+    render(
+      pane({
+        sheet: wolf({
+          actions: druidSheet().actions,
+          wildShape: wildShapeBlock(),
+        }),
+        wildShape: true,
+        characterId: 'seat-1:c:fern',
+        idPrefix: 'creature-fern-',
+      }),
+    )
+    expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+    expect(screen.queryByText(/Change into a known Beast form/)).toBeNull()
   })
 
   it('has Inventory for an item it carries, and not for coins all at 0', () => {

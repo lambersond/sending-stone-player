@@ -8,25 +8,21 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.38.1 and its app.
+Released: module v0.39.0 and its app.
 
-## v0.39 (in progress)
+## v0.40 (in progress)
 
-1. **Players' own effects:** with **Allow Players to disable & remove their own active effects** on
-   for the campaign in Foundry, a player turns off and deletes, from the app's Effects tab, the
-   effects their party put on their own character, turns off an item's temporary effect such as
-   Rage, and turns back on what they turned off there: never a monster's effect, one made on the
-   sheet, a condition or a concentration.
-2. **The Magical Recipe Book in the cog:** **Configure Magical Cookbook** opens the link code and the
-   dishes sent in a modal. In Foundry a dish's card shows to the campaign's players too, with no
-   buttons for them, and **Apply to others…** serves whoever is ticked. (0.38.x's dialog served
-   only those ticked as it opened: check who ate each dish served then.)
-3. **Report a bug or request a feature:** links to each project's issue forms, in the app's cog and
-   footer, and in Sending Stone's settings in Foundry.
-4. **The campaign page:** the Gamemaster's campaigns as a list, what needs them first, the chosen one
-   beside it on a wide screen and opened from the list on a phone, with search from seven campaigns.
+1. **Wild Shape:** with **Allow Players to use Wild Shape from the app** on for the campaign in
+   Foundry, a 2024 druid's player chooses the Beasts their druid knows, within the rules, one
+   replaced after each Long Rest, and changes into one from the app and back: the sheet becomes the
+   beast's, with a strip to return and the time left, and her own mind and hit points carry over.
+   Wild Shape ends when its hours run out, at 0 hit points or Incapacitated. Known forms are kept on
+   the druid's own Wild Shape, so dnd5e's sheet offers the same ones.
+2. **Transformations followed:** a character transformed in Foundry, by Wild Shape, Polymorph or the
+   Gamemaster, shows as the form in the app, and its turns, chat and saves stay the character's, so
+   End Turn works while transformed.
 
-Patch releases (0.39.x) are expected as beta use turns up things to tweak.
+Patch releases (0.40.x) are expected as beta use turns up things to tweak.
 
 ## v1.0
 
@@ -52,8 +48,6 @@ Open questions:
 2. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
    actual hit points (off by default, as it gives information away).
 3. Bug fixes and polish.
-4. Wild Shape.
-5. **Basic transformation indicators,** such as "You've been transformed into a boot!"
 
 ## v2.0
 
@@ -71,8 +65,6 @@ Open questions:
 - Companions show while on the active scene; a linked NPC its player owns shows always.
 - Damage on its own is rolled at a spell's own level, in a weapon's first mode, without ammunition;
   Cast it, or attack, for the rest.
-- End Turn isn't offered while a character is transformed, as by Wild Shape: end the turn in
-  Foundry then.
 - Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
   tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
   recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,
@@ -93,3 +85,18 @@ Open questions:
   doesn't see earlier ones.
 - The campaign page says what was so when it loaded; reload it for the latest.
 - A party sheet has no Report a bug or Request a feature link.
+- Only the 2024 Wild Shape is used from the app: a 2014 druid's Wild Shape is used in Foundry, and
+  the app follows the form.
+- Effects gained or ended in Wild Shape, other than conditions and concentration, aren't carried
+  back: dnd5e's return keeps the character's own effects as they were at the change, so a Bless
+  cast on the wolf ends with the form. Conditions gained in form are put on the character, and
+  conditions and concentration that ended in form are taken off.
+- Bonus Actions aren't counted: Change and Return say they take one.
+- A dish served while a character is in Wild Shape goes on the character's own actor: its effect
+  waits for the return; its healing, and any other change to the character's own hit points
+  meanwhile, is kept on the return, added to what the form took.
+- Uses spent by a module's consumption hooks, such as Midi-QOL's, aren't run for a change from the
+  app, which spends the use itself.
+- A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
+  outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
+  Polymorphing and the source's permissions apply.

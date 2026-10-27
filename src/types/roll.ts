@@ -11,6 +11,7 @@ import type {
   SaveOutcome,
   SheetCounter,
   UseOutcome,
+  WildShapeOutcome,
 } from '@/types/sending-stone'
 import type { TableRoll } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
@@ -197,6 +198,18 @@ export type FavoriteInput = FavoriteTarget & { op: 'add' | 'remove' }
 export type EffectInput = { op: EffectOp; id: string }
 
 /**
+ * Wild Shape from the app, from module 0.40.0: a change into one of the druid's known forms, by its
+ * profile's id; a return to herself; a Beast learned from the campaign's compendiums, by its uuid,
+ * into an empty place or in place of a known form after a Long Rest; or the Beasts she may learn
+ * listed, which writes nothing.
+ */
+export type WildShapeInput =
+  | { op: 'transform'; form: string }
+  | { op: 'revert' }
+  | { op: 'learn'; uuid: string; replace: string | null }
+  | { op: 'forms' }
+
+/**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
  * formula, such as a light's radius; or a description's own roll, by its link.
@@ -285,6 +298,8 @@ export type RollRequestInput = {
    * whether it's turned off, turned on or deleted.
    */
   effect?: EffectInput
+  /** For Wild Shape, from module 0.40.0: which op, and of which form or Beast. */
+  wildShape?: WildShapeInput
   /**
    * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
    * left, as the page shows it now.
@@ -404,6 +419,11 @@ export type RollRequestView = {
    * made: whether it's off now, null once deleted, and whether it was deleted, as the game says.
    */
   effect?: EffectChange
+  /**
+   * For Wild Shape, from module 0.40.0, once made: the form taken or left, the form learned, or the
+   * Beasts to learn, as the game says.
+   */
+  wildShape?: WildShapeOutcome
 }
 
 /**

@@ -12,6 +12,7 @@ import type {
   CompanionEntry,
   ConnectedCharacter,
   JournalUpdated,
+  KnownForm,
   SerializedMessage,
   SheetAbility,
   SheetAction,
@@ -21,11 +22,14 @@ import type {
   SheetCreature,
   SheetEnchantment,
   SheetFavorite,
+  SheetFeature,
+  SheetForm,
   SheetInventory,
   SheetItem,
   SheetSpell,
   SheetUse,
   SheetUses,
+  SheetWildShape,
   TableDamagePlan,
 } from '@/types/sending-stone'
 import type {
@@ -2592,6 +2596,593 @@ export function effectResult(
     effect: { id: 'blessed', disabled: true, deleted: false },
     ...fields,
   }
+}
+
+// Module 0.40.0: Wild Shape.
+
+/** What a hello from module 0.40.0 says of Wild Shape, its campaign's switch on, under dnd5e. */
+export const TAKING_WILD_SHAPE = {
+  enabled: true,
+  kinds: ['wildShape'],
+  reason: null,
+} as const
+
+/** What it says with the campaign's switch off, the default. */
+export const WILD_SHAPE_SWITCHED_OFF = {
+  enabled: false,
+  kinds: [],
+  reason: 'off',
+} as const
+
+/** What it says with the switch on under another system. */
+export const WILD_SHAPE_OTHER_SYSTEM = {
+  enabled: false,
+  kinds: [],
+  reason: 'system',
+} as const
+
+/**
+ * Elowen's Wild Shape feature's id, its row's on her sheet and on her form's, which dnd5e copies
+ * with her items' ids.
+ */
+export const WILD_SHAPE_ITEM = 'phbdrdWildShape0'
+
+/** The ids of the profiles of the forms Elowen knows, as dnd5e makes them. */
+export const FORM_IDS = {
+  wolf: 'Kp3vQ8mZr2LdW0aB',
+  blackBear: 'Bb4wR9nAs3MeX1cC',
+  panther: 'Pn5xS0oBt4NfY2dD',
+  giantBadger: 'Gb6yT1pCu5OgZ3eE',
+  crocodile: 'Cr7zU2qDv6PhA4fF',
+  reefShark: 'Rs8aV3rEw7QiB5gG',
+  brownBear: 'Br9bW4sFx8RjC6hH',
+  direWolf: 'Dw0cX5tGy9SkD7iI',
+} as const
+
+/** A Beast of dnd5e's 2024 Actors, by its uuid. */
+export const actors24 = (id: string) => `Compendium.dnd5e.actors24.Actor.${id}`
+
+/** One of a druid's known forms, from the campaign's compendiums and within the rules, as given. */
+export function knownForm(
+  fields: Partial<KnownForm> & Pick<KnownForm, 'id' | 'name'>,
+): KnownForm {
+  return {
+    uuid: actors24(`mm${fields.name.replaceAll(' ', '')}`.padEnd(16, '0')),
+    img: null,
+    size: 'Medium',
+    cr: 0.25,
+    ac: 12,
+    speeds: ['Walk 30 ft'],
+    attack: null,
+    pool: true,
+    fits: true,
+    ...fields,
+  }
+}
+
+/** The Beasts Elowen may know, with their statistics as the game summarises them. */
+export const KNOWN_FORMS = {
+  wolf: knownForm({
+    id: FORM_IDS.wolf,
+    name: 'Wolf',
+    img: 'systems/dnd5e/tokens/beast/Wolf.webp',
+    speeds: ['Walk 40 ft'],
+    attack: { name: 'Bite', toHit: 4, damage: '1d6 + 2' },
+  }),
+  blackBear: knownForm({
+    id: FORM_IDS.blackBear,
+    name: 'Black Bear',
+    cr: 0.5,
+    ac: 11,
+    speeds: ['Walk 30 ft', 'Climb 30 ft', 'Swim 30 ft'],
+    attack: { name: 'Rend', toHit: 4, damage: '1d6 + 2' },
+  }),
+  panther: knownForm({
+    id: FORM_IDS.panther,
+    name: 'Panther',
+    ac: 13,
+    speeds: ['Walk 50 ft', 'Climb 40 ft'],
+    attack: { name: 'Rend', toHit: 5, damage: '1d6 + 3' },
+  }),
+  giantBadger: knownForm({
+    id: FORM_IDS.giantBadger,
+    name: 'Giant Badger',
+    ac: 13,
+    speeds: ['Walk 30 ft', 'Burrow 10 ft'],
+    attack: { name: 'Bite', toHit: 3, damage: '2d4 + 1' },
+  }),
+  crocodile: knownForm({
+    id: FORM_IDS.crocodile,
+    name: 'Crocodile',
+    size: 'Large',
+    cr: 0.5,
+    speeds: ['Walk 20 ft', 'Swim 30 ft'],
+    attack: { name: 'Bite', toHit: 4, damage: '1d8 + 2' },
+  }),
+  reefShark: knownForm({
+    id: FORM_IDS.reefShark,
+    name: 'Reef Shark',
+    cr: 0.5,
+    speeds: ['Walk 5 ft', 'Swim 30 ft'],
+    attack: { name: 'Bite', toHit: 4, damage: '2d4 + 2' },
+  }),
+  brownBear: knownForm({
+    id: FORM_IDS.brownBear,
+    name: 'Brown Bear',
+    size: 'Large',
+    cr: 1,
+    ac: 11,
+    speeds: ['Walk 40 ft', 'Climb 30 ft'],
+    attack: { name: 'Bite', toHit: 5, damage: '1d8 + 3' },
+  }),
+  direWolf: knownForm({
+    id: FORM_IDS.direWolf,
+    name: 'Dire Wolf',
+    size: 'Large',
+    cr: 1,
+    ac: 14,
+    speeds: ['Walk 50 ft'],
+    attack: { name: 'Bite', toHit: 5, damage: '1d10 + 3' },
+  }),
+} as const
+
+/**
+ * Elowen's Wild Shape, a druid 5 with Wild Resurgence, 2 of 2 uses, knowing six forms (the
+ * design's): up to CR 1/2, none with a Fly Speed, for 2 hours, with 5 temporary hit points.
+ */
+export function wildShapeBlock(
+  fields: Partial<SheetWildShape> = {},
+): SheetWildShape {
+  return {
+    item: WILD_SHAPE_ITEM,
+    uses: { value: 2, max: 2 },
+    level: 5,
+    circle: null,
+    limits: { count: 6, cr: 0.5, fly: false },
+    hours: 2,
+    temp: 5,
+    acFloor: null,
+    known: [
+      KNOWN_FORMS.wolf,
+      KNOWN_FORMS.blackBear,
+      KNOWN_FORMS.panther,
+      KNOWN_FORMS.giantBadger,
+      KNOWN_FORMS.crocodile,
+      KNOWN_FORMS.reefShark,
+    ],
+    swap: false,
+    resurgence: true,
+    ended: null,
+    ...fields,
+  }
+}
+
+/**
+ * Elowen's Wild Shape were she of the Circle of the Moon at level 5, as the design draws her: up to
+ * CR 1, 15 temporary hit points, an AC of at least 13 + her Wisdom modifier, six forms still.
+ */
+export function moonBlock(
+  fields: Partial<SheetWildShape> = {},
+): SheetWildShape {
+  return wildShapeBlock({
+    circle: 'moon',
+    limits: { count: 6, cr: 1, fly: false },
+    temp: 15,
+    acFloor: 16,
+    known: [
+      KNOWN_FORMS.brownBear,
+      KNOWN_FORMS.direWolf,
+      KNOWN_FORMS.wolf,
+      KNOWN_FORMS.blackBear,
+      KNOWN_FORMS.panther,
+      KNOWN_FORMS.crocodile,
+    ],
+    ...fields,
+  })
+}
+
+/** Elowen's Wild Shape row, as Features lists it, with its uses. */
+function wildShapeFeature(uses: { value: number; max: number }): SheetFeature {
+  return {
+    id: WILD_SHAPE_ITEM,
+    name: 'Wild Shape',
+    img: 'icons/magic/nature/wolf-paw-glow-large-green.webp',
+    kind: 'Class Feature',
+    requirements: 'Druid 2',
+    activation: '1 Bonus Action',
+    passive: false,
+    uses: {
+      ...uses,
+      recovery: 'Short Rest, Long Rest',
+      counter: { item: WILD_SHAPE_ITEM },
+      spendable: true,
+    },
+    text: null,
+  }
+}
+
+/** Elowen's Wild Shape row, as Actions lists it among her Bonus Actions, with its uses. */
+function wildShapeAction(uses: { value: number; max: number }): SheetAction {
+  return sheetAction({
+    id: WILD_SHAPE_ITEM,
+    name: 'Wild Shape',
+    img: 'icons/magic/nature/wolf-paw-glow-large-green.webp',
+    activation: 'Bonus Action',
+    uses: {
+      ...uses,
+      recovery: 'Short Rest, Long Rest',
+      counter: { item: WILD_SHAPE_ITEM },
+      spendable: true,
+    },
+  })
+}
+
+/** Elowen's druid features: Wild Shape, with these uses, and Wild Resurgence. */
+function druidFeatures(uses: { value: number; max: number }) {
+  return {
+    id: 'druid',
+    label: 'Druid Features',
+    text: null,
+    features: [
+      wildShapeFeature(uses),
+      {
+        id: 'phbdrdWildResurg',
+        name: 'Wild Resurgence',
+        img: null,
+        kind: 'Class Feature',
+        requirements: 'Druid 5',
+        activation: null,
+        passive: true,
+        uses: null,
+        text: null,
+      },
+    ],
+  }
+}
+
+/** Elowen's spell slots, which wait while she's shaped. */
+const elowenSlots = (spells: boolean) => [
+  {
+    id: 'spell1',
+    label: '1st Level',
+    slots: { value: 4, max: 4, level: 1 },
+    spells: spells ? [sheetSpell({ id: 'goodberry', name: 'Goodberry' })] : [],
+  },
+  {
+    id: 'spell2',
+    label: '2nd Level',
+    slots: { value: 3, max: 3, level: 2 },
+    spells: spells
+      ? [
+          sheetSpell({
+            id: 'moonbeam',
+            name: 'Moonbeam',
+            level: 2,
+            concentration: true,
+          }),
+        ]
+      : [],
+  },
+]
+
+/**
+ * Elowen, Alice's druid 5, a Wood Elf, as module 0.40.0 sends her to an app that takes Wild Shape:
+ * her Wild Shape row among her Bonus Actions and Druid Features, Wild Resurgence, her slots and
+ * spells, and her Wild Shape (`wildShapeBlock`).
+ */
+export function druidSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  return characterSheet({
+    img: 'worlds/erebor/elowen.webp',
+    level: 5,
+    classes: [
+      {
+        id: 'druid',
+        identifier: 'druid',
+        name: 'Druid',
+        levels: 5,
+        subclass: null,
+        hitDice: { die: 'd8', value: 5, max: 5 },
+      },
+    ],
+    species: 'Wood Elf',
+    background: 'Guide',
+    hp: { value: 31, max: 38, temp: 0 },
+    ac: 14,
+    proficiency: 3,
+    initiative: 2,
+    speed: { value: 35, units: 'ft' },
+    abilities: [
+      ability('str', 'Strength', 10),
+      ability('dex', 'Dexterity', 14),
+      ability('con', 'Constitution', 14),
+      ability('int', 'Intelligence', 12, { save: 4, saveProficient: true }),
+      ability('wis', 'Wisdom', 17, { save: 6, saveProficient: true }),
+      ability('cha', 'Charisma', 10),
+    ],
+    skills: [
+      {
+        id: 'ani',
+        label: 'Animal Handling',
+        ability: 'wis',
+        total: 6,
+        passive: 16,
+        proficiency: 1,
+        mode: 0,
+      },
+      {
+        id: 'nat',
+        label: 'Nature',
+        ability: 'int',
+        total: 4,
+        passive: 14,
+        proficiency: 1,
+        mode: 0,
+      },
+      {
+        id: 'prc',
+        label: 'Perception',
+        ability: 'wis',
+        total: 3,
+        passive: 13,
+        proficiency: 0,
+        mode: 0,
+      },
+      {
+        id: 'ste',
+        label: 'Stealth',
+        ability: 'dex',
+        total: 2,
+        passive: 12,
+        proficiency: 0,
+        mode: 0,
+      },
+    ],
+    features: [druidFeatures({ value: 2, max: 2 })],
+    actions: [
+      {
+        id: 'bonus',
+        label: 'Bonus Actions',
+        actions: [wildShapeAction({ value: 2, max: 2 })],
+      },
+    ],
+    spellcasting: {
+      ability: 'wis',
+      dc: 14,
+      attack: 6,
+      classes: [{ name: 'Druid', ability: 'wis', dc: 14, attack: 6 }],
+    },
+    spells: elowenSlots(true),
+    traits: [{ id: 'senses', label: 'Senses', values: ['Darkvision 60 ft'] }],
+    wildShape: wildShapeBlock(),
+    ...fields,
+  })
+}
+
+/**
+ * What Elowen is as a Wolf, from module 0.40.0: her 2024 Wild Shape, taken as her known Wolf, with
+ * 1 h 58 m of its 2 hours left; the Wolf's Strength, Dexterity and Constitution, its Strength save,
+ * Perception and Stealth above her own.
+ */
+export function wolfForm(fields: Partial<SheetForm> = {}): SheetForm {
+  return {
+    kind: 'wildShape',
+    name: 'Wolf',
+    img: 'systems/dnd5e/tokens/beast/Wolf.webp',
+    size: 'Medium',
+    cr: 0.25,
+    type: 'Beast',
+    profile: FORM_IDS.wolf,
+    hours: 2,
+    minutesLeft: 118,
+    flooredAc: false,
+    beast: {
+      abilities: ['str', 'dex', 'con'],
+      saves: ['str'],
+      skills: ['prc', 'ste'],
+    },
+    ...fields,
+  }
+}
+
+/**
+ * Elowen as a Wolf, as module 0.40.0 sends her form's sheet under her own id: the Wolf's portrait,
+ * AC 12, Walk 40 ft and physical scores, her own hit points with its 5 temporary ones, her mind,
+ * class features and slots, its Bite and Pack Tactics, her Wild Shape with a use spent, and `form`
+ * (`wolfForm`). Its spells are none, as dnd5e gives a form none but the Moon's.
+ */
+export function shapedSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  const bite = sheetAction({
+    id: 'wolfBite0000000a',
+    name: 'Bite',
+    img: 'icons/creatures/abilities/mouth-teeth-long-red.webp',
+    type: 'weapon',
+    toHit: 4,
+    damage: [{ formula: '1d6 + 2', type: 'Piercing', healing: false }],
+  })
+  return druidSheet({
+    img: 'systems/dnd5e/tokens/beast/Wolf.webp',
+    hp: { value: 31, max: 38, temp: 5 },
+    ac: 12,
+    initiative: 2,
+    speed: { value: 40, units: 'ft' },
+    abilities: [
+      ability('str', 'Strength', 14),
+      ability('dex', 'Dexterity', 15),
+      ability('con', 'Constitution', 12),
+      ability('int', 'Intelligence', 12, { save: 4, saveProficient: true }),
+      ability('wis', 'Wisdom', 17, { save: 6, saveProficient: true }),
+      ability('cha', 'Charisma', 10),
+    ],
+    skills: [
+      {
+        id: 'ani',
+        label: 'Animal Handling',
+        ability: 'wis',
+        total: 6,
+        passive: 16,
+        proficiency: 1,
+        mode: 0,
+      },
+      {
+        id: 'nat',
+        label: 'Nature',
+        ability: 'int',
+        total: 4,
+        passive: 14,
+        proficiency: 1,
+        mode: 0,
+      },
+      {
+        id: 'prc',
+        label: 'Perception',
+        ability: 'wis',
+        total: 5,
+        passive: 15,
+        proficiency: 1,
+        mode: 0,
+      },
+      {
+        id: 'ste',
+        label: 'Stealth',
+        ability: 'dex',
+        total: 4,
+        passive: 14,
+        proficiency: 1,
+        mode: 0,
+      },
+    ],
+    features: [
+      druidFeatures({ value: 1, max: 2 }),
+      {
+        id: 'traits',
+        label: 'Traits',
+        text: null,
+        features: [
+          {
+            id: 'wolfPackTactics',
+            name: 'Pack Tactics',
+            img: null,
+            kind: null,
+            requirements: null,
+            activation: null,
+            passive: true,
+            uses: null,
+            text: null,
+          },
+        ],
+      },
+    ],
+    actions: [
+      { id: 'action', label: 'Actions', actions: [bite] },
+      {
+        id: 'bonus',
+        label: 'Bonus Actions',
+        actions: [wildShapeAction({ value: 1, max: 2 })],
+      },
+    ],
+    inventory: {
+      sections: [
+        {
+          id: 'weapons',
+          label: 'Weapons',
+          items: [
+            sheetItem({
+              id: bite.id,
+              name: 'Bite',
+              img: bite.img,
+              type: 'weapon',
+              equipped: true,
+            }),
+          ],
+        },
+      ],
+      containers: [],
+      currency: [],
+      encumbrance: null,
+      attunement: null,
+    },
+    spells: elowenSlots(false),
+    wildShape: wildShapeBlock({ uses: { value: 1, max: 2 } }),
+    form: wolfForm(),
+    ...fields,
+  })
+}
+
+/** Elowen changed into her known Wolf from the app: 5 temporary hit points, for 2 hours. */
+export function wildShapeResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-wildshape',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: null,
+    visible: true,
+    rolls: [],
+    wildShape: {
+      op: 'transform',
+      form: {
+        id: FORM_IDS.wolf,
+        name: 'Wolf',
+        uuid: KNOWN_FORMS.wolf.uuid ?? '',
+      },
+      temp: 5,
+      hours: 2,
+    },
+    ...fields,
+  }
+}
+
+/** A Beast the game lists to learn, from dnd5e's 2024 Actors. */
+const beast = (
+  name: string,
+  cr: number,
+  ac: number | null,
+  speeds: string[],
+  known = false,
+) => ({
+  uuid: actors24(`mm${name.replaceAll(' ', '')}`.padEnd(16, '0')),
+  name,
+  img: `systems/dnd5e/tokens/beast/${name.replaceAll(' ', '')}.webp`,
+  size: name === 'Crocodile' || name === 'Riding Horse' ? 'Large' : 'Medium',
+  cr,
+  ac,
+  speeds,
+  known,
+})
+
+/**
+ * The Beasts Elowen may learn, as the game lists them from dnd5e's 2024 Actors: up to CR 1/2, none
+ * with a Fly Speed, by CR then name, her six known forms among them.
+ */
+export function beastsResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return wildShapeResult({
+    id: 'req-beasts',
+    wildShape: {
+      op: 'forms',
+      forms: [
+        beast('Rat', 0, 10, ['Walk 20 ft', 'Climb 20 ft']),
+        beast('Spider', 0, 12, ['Walk 20 ft', 'Climb 20 ft']),
+        beast('Giant Badger', 0.25, 13, ['Walk 30 ft', 'Burrow 10 ft'], true),
+        beast('Panther', 0.25, 13, ['Walk 50 ft', 'Climb 40 ft'], true),
+        beast('Riding Horse', 0.25, 11, ['Walk 60 ft']),
+        beast('Wolf', 0.25, 12, ['Walk 40 ft'], true),
+        beast('Black Bear', 0.5, 11, ['Walk 30 ft', 'Climb 30 ft'], true),
+        beast('Crocodile', 0.5, 12, ['Walk 20 ft', 'Swim 30 ft'], true),
+        beast('Reef Shark', 0.5, 12, ['Walk 5 ft', 'Swim 30 ft'], true),
+      ],
+      more: false,
+      limits: { count: 6, cr: 0.5, fly: false },
+    },
+    ...fields,
+  })
 }
 
 /** A container of the sheet's, as sheetItem makes an item: holding these, or something secret. */

@@ -18,6 +18,12 @@ import {
   NOT_FAVORITING,
   TAKING_DISHES,
   TAKING_EFFECTS,
+  TAKING_WILD_SHAPE,
+  WILD_SHAPE_OTHER_SYSTEM,
+  WILD_SHAPE_SWITCHED_OFF,
+  shapedSheet,
+  wildShapeBlock,
+  wolfForm,
   NOT_REMOVING,
   REMOVING,
   biteAction,
@@ -173,6 +179,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -226,6 +234,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -280,6 +290,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -318,6 +330,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -431,6 +445,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -468,6 +484,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -513,6 +531,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -550,6 +570,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -600,6 +622,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -639,6 +663,8 @@ describe('db/campaign-events', () => {
           dishVersions: [],
           // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
           effectsEnabled: false,
+          // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+          wildShapeEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -681,6 +707,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -882,6 +910,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -926,6 +956,8 @@ describe('db/campaign-events', () => {
         dishVersions: [],
         // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
         effectsEnabled: false,
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+        wildShapeEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -968,6 +1000,8 @@ describe('db/campaign-events', () => {
           dishVersions: [],
           // Changed on purpose (round 0.39.0 §1.10): a player's own effects, from module 0.39.0.
           effectsEnabled: false,
+          // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
+          wildShapeEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -2231,6 +2265,99 @@ describe("db/campaign-events, a player's own effects, from module 0.39.0", () =>
       companionKinds: ['skill'],
       effectsEnabled: true,
     })
+  })
+})
+
+describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
+  const rolls = { enabled: false, kinds: [], reason: 'off' }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+  })
+
+  it('keeps that the campaign lets its players use Wild Shape, by its own switch: everything else off', async () => {
+    await expect(
+      stored({ rolls, wildShape: TAKING_WILD_SHAPE }),
+    ).resolves.toMatchObject({
+      rollsEnabled: false,
+      transfersEnabled: false,
+      removalsEnabled: false,
+      favoritesEnabled: false,
+      notesEnabled: false,
+      dishesEnabled: false,
+      effectsEnabled: false,
+      wildShapeEnabled: true,
+    })
+  })
+
+  it.each([
+    ['has its switch off', WILD_SHAPE_SWITCHED_OFF],
+    ['is under another system', WILD_SHAPE_OTHER_SYSTEM],
+    [
+      'names no Wild Shape among its kinds',
+      { ...TAKING_WILD_SHAPE, kinds: ['effect'] },
+    ],
+    ['says so in junk', { ...TAKING_WILD_SHAPE, enabled: 'yes' }],
+    ['says nothing readable', 'on'],
+  ])('is off where the module %s', async (_name, wildShape) => {
+    await expect(stored({ rolls, wildShape })).resolves.toMatchObject({
+      wildShapeEnabled: false,
+    })
+  })
+
+  it('is cleared by a hello from module 0.39.0, which says nothing of it', async () => {
+    await stored({ rolls, wildShape: TAKING_WILD_SHAPE })
+    await expect(
+      stored({ rolls, effects: TAKING_EFFECTS }),
+    ).resolves.toMatchObject({ wildShapeEnabled: false, effectsEnabled: true })
+    await expect(stored(null)).resolves.toMatchObject({
+      wildShapeEnabled: false,
+    })
+  })
+
+  it("never takes Wild Shape as one of the rolls, nor a companion's, even where the module's rolls name it", async () => {
+    await expect(
+      stored({
+        rolls: { enabled: true, kinds: ['skill', 'wildShape'], reason: null },
+        companions: { kinds: ['skill', 'wildShape'], initiative: 'own' },
+        wildShape: TAKING_WILD_SHAPE,
+      }),
+    ).resolves.toMatchObject({
+      rollKinds: ['skill'],
+      companionKinds: ['skill'],
+      wildShapeEnabled: true,
+    })
+  })
+
+  it("keeps a form's sheet, sent under the character's own id, as that character's: its roster entry replaced, never one added", async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      characters: roster,
+    } as any)
+    const event = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: shapedSheet() },
+    }) as GameEvent
+
+    await apply(event)
+
+    // The seat never moves: the roster is the same two characters, Thorin's entry his.
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { characters: roster },
+    })
+    expect(prismaMock.actorSheet.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          campaignActor: { campaignId: 'c1', actorId: 'actor-thorin' },
+        },
+        update: {
+          data: expect.objectContaining({
+            ac: 12,
+            form: wolfForm(),
+            wildShape: wildShapeBlock({ uses: { value: 1, max: 2 } }),
+          }),
+        },
+      }),
+    )
   })
 })
 

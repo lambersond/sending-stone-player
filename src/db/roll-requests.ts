@@ -20,6 +20,7 @@ import { createFavoriteRequest } from '@/db/favorites'
 import { recordNoteResult } from '@/db/note-sync'
 import { createRemoveRequest } from '@/db/removals'
 import { createTransferRequest } from '@/db/transfers'
+import { createWildShapeRequest, shapedRefusal } from '@/db/wild-shape'
 import { sheetLinks } from '@/lib/sheet-html'
 import { companionRoster } from '@/utils/companions'
 import { changes } from '@/utils/damage-modifiers'
@@ -117,10 +118,14 @@ export type RollRejection = {
  * `createTransferRequest` alone. A removal of an item, from module 0.33.0, likewise:
  * `createRemoveRequest` alone. A favorite added or removed, from module 0.37.0, likewise:
  * `createFavoriteRequest` alone, its player's only. One of the character's own effects turned off,
- * on or deleted, from module 0.39.0, likewise: `createEffectRequest` alone, its player's only. From
- * module 0.36.0, at a companion's seat: of the kinds the game takes for companions, never a move, a
- * removal, from module 0.37.0 a favorite, which a companion has none of, or from module 0.39.0 a
- * change to its effects, nor an answer to what the game asks, which it asks of no companion; a
+ * on or deleted, from module 0.39.0, likewise: `createEffectRequest` alone, its player's only. Wild
+ * Shape, from module 0.40.0, likewise: `createWildShapeRequest` alone, its player's only. And from
+ * module 0.40.0, while the character is transformed, as its sheet says, a favorite, an effect, a
+ * removal, or a move with a transformed character at either end, waits until it's back in its own
+ * form (`shapedRefusal`), before each kind's own checks. From module 0.36.0, at a companion's seat:
+ * of the kinds the game takes for companions, never a move, a removal, from module 0.37.0 a
+ * favorite, which a companion has none of, from module 0.39.0 a change to its effects, or from
+ * module 0.40.0 Wild Shape, nor an answer to what the game asks, which it asks of no companion; a
  * death saving throw only where it's an important NPC; and its initiative not where it acts right
  * after its character, who's in that combat. It's checked against its own sheet, typed
  * in as its character's player types theirs, and kept as its key, with its character's id, for the
@@ -136,22 +141,29 @@ export async function createRollRequest(
   seat: SheetSeat,
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
-  // A companion's seat moves, removes, favorites and changes no effects: it has no items of the
-  // character's to move, nor favorites, its effects are no player's to change, and the schema takes
-  // the kinds, so they're refused here first, before any is looked at.
+  // A companion's seat moves, removes, favorites, changes no effects and uses no Wild Shape: it has
+  // no items of the character's to move, nor favorites, its effects are no player's to change, it
+  // has no Wild Shape of a character's, and the schema takes the kinds, so they're refused here
+  // first, before any is looked at.
   const { companion } = seat
   if (
     companion &&
-    (['transfer', 'remove', 'favorite', 'effect'] as string[]).includes(
-      input.kind,
-    )
+    (
+      ['transfer', 'remove', 'favorite', 'effect', 'wildShape'] as string[]
+    ).includes(input.kind)
   ) {
     return { status: 422, reason: 'unknown' }
+  }
+  // While the character is transformed, what would change its own actor's things waits.
+  if (['transfer', 'remove', 'favorite', 'effect'].includes(input.kind)) {
+    const shaped = await shapedRefusal(seat, input)
+    if (shaped) return shaped
   }
   if (input.kind === 'transfer') return createTransferRequest(seat, input)
   if (input.kind === 'remove') return createRemoveRequest(seat, input)
   if (input.kind === 'favorite') return createFavoriteRequest(seat, input)
   if (input.kind === 'effect') return createEffectRequest(seat, input)
+  if (input.kind === 'wildShape') return createWildShapeRequest(seat, input)
   const { campaignId, actorId } = seat
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
@@ -481,7 +493,8 @@ export async function getRollRequestView(
  * hello said it takes them, the Gamemaster's as a player's. From module 0.33.0, a removal likewise,
  * only to the session whose hello said it takes them. From module 0.37.0, a favorite likewise, a
  * player's only. From module 0.39.0, a change to a character's own effects likewise, a player's
- * only, to the session whose hello said its campaign lets them.
+ * only, to the session whose hello said its campaign lets them. From module 0.40.0, Wild Shape
+ * likewise, a player's only, to the session whose hello said its campaign lets them.
  * @param session - The module session that fetched them.
  */
 export async function claimRollRequests(
@@ -499,6 +512,7 @@ export async function claimRollRequests(
       removalsEnabled: true,
       favoritesEnabled: true,
       effectsEnabled: true,
+      wildShapeEnabled: true,
     },
   })
   const ownerId = campaign?.ownerId
@@ -509,21 +523,24 @@ export async function claimRollRequests(
   // `gmRolls`, which the module says only while rolls are on. Removals, from module 0.33.0, as
   // moves do. Favorites, from module 0.37.0, as removals, but a player's alone: no Gamemaster's is
   // ever taken, so none is handed over. A character's own effects changed, from module 0.39.0, as
-  // favorites, by the campaign's own switch.
+  // favorites, by the campaign's own switch; and Wild Shape, from module 0.40.0, likewise, so a
+  // module before it, which says nothing of it, is never handed one.
   const transfers = current && campaign?.transfersEnabled === true
   const removals = current && campaign?.removalsEnabled === true
   const favorites = current && campaign?.favoritesEnabled === true
   const effects = current && campaign?.effectsEnabled === true
+  const wildShape = current && campaign?.wildShapeEnabled === true
   // A row of a kind the session doesn't take now waits, and runs out.
   const withheld = [
     ...(transfers ? [] : ['transfer']),
     ...(removals ? [] : ['remove']),
     ...(favorites ? [] : ['favorite']),
     ...(effects ? [] : ['effect']),
+    ...(wildShape ? [] : ['wildShape']),
   ]
   const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
   const notOwn = {
-    kind: { notIn: ['transfer', 'remove', 'favorite', 'effect'] },
+    kind: { notIn: ['transfer', 'remove', 'favorite', 'effect', 'wildShape'] },
   }
   const waiting = await prisma.rollRequest.findMany({
     where: {
@@ -644,8 +661,9 @@ export async function recordCommandResult(
  * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
  * coins, from module 0.33.0 removals of their characters' items, from module 0.34.0 journal
  * notes, from module 0.37.0 their characters' favorites, from module 0.38.0 dishes from the
- * Magical Recipe Book, and from module 0.39.0 changes to their characters' own effects, and whether
- * any of its players have their table open, so that one may be coming.
+ * Magical Recipe Book, from module 0.39.0 changes to their characters' own effects, and from
+ * module 0.40.0 Wild Shape, and whether any of its players have their table open, so that one may
+ * be coming.
  */
 export async function markBridgePolled(campaignId: string): Promise<{
   rollsEnabled: boolean
@@ -655,6 +673,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
   favoritesEnabled: boolean
   dishesEnabled: boolean
   effectsEnabled: boolean
+  wildShapeEnabled: boolean
   playersPresent: boolean
 }> {
   const now = new Date()
@@ -669,6 +688,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
       favoritesEnabled: true,
       dishesEnabled: true,
       effectsEnabled: true,
+      wildShapeEnabled: true,
       playersSeenAt: true,
     },
   })
@@ -681,6 +701,7 @@ export async function markBridgePolled(campaignId: string): Promise<{
     favoritesEnabled: campaign.favoritesEnabled,
     dishesEnabled: campaign.dishesEnabled,
     effectsEnabled: campaign.effectsEnabled,
+    wildShapeEnabled: campaign.wildShapeEnabled,
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }

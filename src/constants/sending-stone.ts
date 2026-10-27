@@ -119,7 +119,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * recharge rolled, and the current turn ended, the character's or one of its companions', and a
  * turn ended taken back, neither of them a roll; and from module 0.37.0, a favorite added or
  * removed, no roll either; and from module 0.39.0, one of the character's own effects turned off,
- * on or deleted, no roll either.
+ * on or deleted, no roll either; and from module 0.40.0, Wild Shape from the app, a change into a
+ * known form, a return, a form learned, or the Beasts to learn listed, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -149,6 +150,7 @@ export const ROLL_KINDS = [
   'remove',
   'favorite',
   'effect',
+  'wildShape',
 ] as const
 
 /**
@@ -264,6 +266,12 @@ export const FAVORITE_SETTLE = 10_000
 export const EFFECT_SETTLE = 10_000
 
 /**
+ * How long, from when it's sent, a Wild Shape control waits for the sheet to say what the game made
+ * of it, in milliseconds: the sheet comes before its result (module 0.40.0), within a poll.
+ */
+export const WILD_SHAPE_SETTLE = 10_000
+
+/**
  * The format of dishes from the Magical Recipe Book this app takes, as it tells the module
  * (`dishes`): from module 0.38.0, the `dish` command and the `dish.applied` and `dish.dismissed`
  * events. The module fetches dishes, and reports what became of them, only then.
@@ -292,6 +300,53 @@ export type EffectOp = (typeof EFFECT_OPS)[number]
 export const EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
 
 /**
+ * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
+ * 0.40.0, Wild Shape from the app and a shaped character's sheet, which the module sends and
+ * fetches for only then.
+ */
+export const WILD_SHAPE = 1
+
+/**
+ * What a player asks of their druid's Wild Shape from here, from module 0.40.0's `wildShape`
+ * command: a change into one of her known forms, a return to herself, a Beast learned as a known
+ * form, or the Beasts she may learn listed, which writes nothing.
+ */
+export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
+export type WildShapeOp = (typeof WILD_SHAPE_OPS)[number]
+
+/**
+ * A known form as the sheet names it, from module 0.40.0: the id of its profile on the druid's Wild
+ * Shape, as dnd5e makes one.
+ */
+export const PROFILE_ID = /^[\dA-Za-z]{16}$/
+
+/**
+ * A Beast to learn, from module 0.40.0: an Actor in one of the campaign's compendiums, by its uuid,
+ * `Compendium.<package>.<pack>.Actor.<id>`; never a world actor.
+ */
+export const FORM_UUID = /^Compendium\.[\w-]+\.[\w-]+\.Actor\.[\dA-Za-z]{16}$/
+
+/**
+ * The most Beasts to learn the game lists at once, from module 0.40.0: past it, it says there are
+ * more.
+ */
+export const MOST_FORMS = 200
+
+/**
+ * The statuses that leave a character Incapacitated, from module 0.40.0, as the module ends a Wild
+ * Shape at them: each a dnd5e condition that carries Incapacitated, or Incapacitated itself. With
+ * `dead`, or at 0 hit points, a character can't use Wild Shape.
+ */
+export const ENDING_STATUSES = [
+  'incapacitated',
+  'unconscious',
+  'paralyzed',
+  'petrified',
+  'stunned',
+  'sleeping',
+] as const
+
+/**
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
  * the `note` command, `journal.updated` and the hello's `features.notes`. The module fetches for
  * them, and sends journals, only then. From module 0.35.0, 2: it reads who changed a journal in
@@ -318,8 +373,9 @@ export const MOST_COMPANIONS = 50
  * The kinds a companion's roll is never, from module 0.36.0: what an NPC has none of, and what
  * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
  * which the character's page does for its companions' turns too, nor favorites, which an NPC has
- * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes.
- * The module's list has `note` and `dish` too, which aren't rolls here.
+ * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes,
+ * nor from module 0.40.0 Wild Shape, which only a character uses. The module's list has `note` and
+ * `dish` too, which aren't rolls here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
@@ -330,6 +386,7 @@ export const COMPANION_UNTAKEN = [
   'remove',
   'favorite',
   'effect',
+  'wildShape',
   'endTurn',
   'undoEndTurn',
 ] as const

@@ -4234,3 +4234,266 @@ describe('one of the character’s own effects turned off, on or deleted, from m
     ).toEqual(['Shield of Faithturned on', 'Invisibilitydeleted'])
   })
 })
+
+const wildShaped = (
+  wildShape: NonNullable<LocalUse['wildShape']>,
+  id = 'u-ws',
+): LocalUse => ({
+  kind: 'use',
+  id,
+  label: 'Wild Shape',
+  spell: false,
+  wildShape,
+  at: 0,
+})
+
+describe('Wild Shape from the app, from module 0.40.0', () => {
+  const change = wildShaped({
+    op: 'transform',
+    form: 'Wolf',
+    character: 'Elowen',
+  })
+  const back = wildShaped({
+    op: 'revert',
+    form: 'Ape',
+    character: 'Elowen',
+    temp: 5,
+  })
+  const learned = wildShaped({
+    op: 'learn',
+    form: 'Owl',
+    old: 'Elk',
+    character: 'Elowen',
+  })
+  const WOLF = { id: 'formWolf00000001', name: 'Wolf', uuid: 'Compendium.x' }
+
+  it('reads each on its way, then done, by the form’s name with its article', () => {
+    expect(briefOf(change, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(
+      [change, back, learned].map(
+        roll =>
+          briefOf(roll, { status: 'rolling', wildShape: roll.wildShape?.op })
+            .table?.text,
+      ),
+    ).toEqual([
+      'Changing into a Wolf in your Gamemaster’s game…',
+      'Returning to Elowen in your Gamemaster’s game…',
+      'Learning an Owl in your Gamemaster’s game…',
+    ])
+  })
+
+  it('says each as made in the tray, by the names the game gives, and in short among the earlier rolls', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[change, { ...back, id: 'u-2' }, { ...learned, id: 'u-3' }]}
+        rolling={false}
+        table={{
+          states: new Map([
+            [
+              'u-ws',
+              {
+                status: 'done',
+                visible: true,
+                wildShape: 'transform',
+                wildShaped: { op: 'transform', form: WOLF, temp: 5, hours: 2 },
+              },
+            ],
+          ]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Wild ShapeBecame a Wolf',
+    )
+    await user.click(screen.getByText('Earlier rolls (2)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Wild Shapereturned', 'Wild Shapelearned'])
+  })
+
+  it.each([
+    [
+      'a change',
+      change,
+      {
+        op: 'transform',
+        form: WOLF,
+        temp: 5,
+        hours: 2,
+      } as const,
+      'Elowen is a Wolf',
+      '5 temporary hit points · 2 hours',
+    ],
+    [
+      'a return, with what stays',
+      back,
+      { op: 'revert', form: { name: 'Ape' } } as const,
+      'Elowen is no longer an Ape',
+      '5 temporary hit points stay',
+    ],
+    [
+      'a return, with one that stays',
+      wildShaped({ op: 'revert', form: 'Wolf', character: 'Elowen', temp: 1 }),
+      { op: 'revert', form: { name: 'Wolf' } } as const,
+      'Elowen is no longer a Wolf',
+      '1 temporary hit point stays',
+    ],
+    [
+      'a return, with none',
+      wildShaped({ op: 'revert', form: 'Wolf', character: 'Elowen', temp: 0 }),
+      { op: 'revert', form: null } as const,
+      'Elowen is no longer a Wolf',
+      undefined,
+    ],
+    [
+      'a Beast learned in place of another',
+      learned,
+      {
+        op: 'learn',
+        form: { id: 'formOwl', name: 'Owl', uuid: 'Compendium.y' },
+        replaced: { id: 'formElk', name: 'Elk' },
+      } as const,
+      'Elowen knows an Owl in place of an Elk',
+      undefined,
+    ],
+  ])('toasts %s as what the character is now', (_, roll, made, title, line) => {
+    const brief = briefOf(roll, {
+      status: 'done',
+      visible: true,
+      wildShape: roll.wildShape?.op,
+      wildShaped: made,
+    })
+    expect(brief).toMatchObject({ label: title, badge: 'use' })
+    expect(brief.dice).toBe(line)
+    expect(brief.table).toBeUndefined()
+  })
+
+  it.each([
+    ['refused', 'off', 'your Gamemaster’s game isn’t taking Wild Shape now'],
+    [
+      'refused',
+      'unavailable',
+      'your Gamemaster’s game isn’t taking Wild Shape now',
+    ],
+    ['refused', 'form', 'that form can’t be taken now'],
+    ['refused', 'full', 'every place for a known form is taken'],
+    ['refused', 'swap', 'a known form is replaced only after a Long Rest'],
+    ['refused', 'consume', 'no uses of Wild Shape are left'],
+    [
+      'refused',
+      'incapacitated',
+      'an Incapacitated character can’t use Wild Shape',
+    ],
+    ['failed', 'not-shaped', 'your character isn’t in Wild Shape any more'],
+    ['refused', 'transformed', 'that form ends in Foundry'],
+    ['refused', 'moving', 'it’s on its way already'],
+    ['refused', 'gone', 'it can’t be found in the game any more'],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['failed', 'timeout', 'the game took too long'],
+    ['failed', 'cancelled', 'it was called off in the game'],
+    ['refused', 'network', 'Sending Stone couldn’t be reached'],
+    ['expired', undefined, 'your Gamemaster’s game didn’t pick it up'],
+    ['lost', undefined, 'no answer from your Gamemaster’s game'],
+    ['failed', 'invalid', 'your Gamemaster’s game couldn’t make it'],
+  ] as const)(
+    'says why a change was %s, %s, in its own words where they differ',
+    (status, reason, words) => {
+      expect(
+        briefOf(change, { status, reason, wildShape: 'transform' }).table?.text,
+      ).toBe(`Didn’t change: ${words}`)
+      expect(
+        briefOf(back, { status, reason, wildShape: 'revert' }).table?.text,
+      ).toBe(`Didn’t return: ${words}`)
+    },
+  )
+
+  it('says a Beast that can’t be learned in its own words, and a replace of the form she’s in', () => {
+    expect(
+      briefOf(learned, {
+        status: 'refused',
+        reason: 'form',
+        wildShape: 'learn',
+      }).table?.text,
+    ).toBe('Not learned: that Beast can’t be learned now')
+    expect(
+      briefOf(learned, {
+        status: 'refused',
+        reason: 'shaped',
+        wildShape: 'learn',
+      }).table?.text,
+    ).toBe('Not learned: the form your character is in now can’t be replaced')
+  })
+
+  it('says the game’s own name for it, as the seat reads it', () => {
+    expect(
+      briefOf(
+        change,
+        { status: 'refused', reason: 'off', wildShape: 'transform' },
+        'gm',
+      ).table?.text,
+    ).toBe('Didn’t change: your game isn’t taking Wild Shape now')
+  })
+})
+
+describe('a favorite, an effect, a removal and a move while transformed, from module 0.40.0', () => {
+  it('says each waits until the character is back, in its own words', () => {
+    const waits = 'that waits until your character is back in their own form'
+    expect(
+      briefOf(favorited('add'), {
+        status: 'refused',
+        reason: 'shaped',
+        favorite: 'add',
+      }).table?.text,
+    ).toBe(`Not added to favorites: ${waits}`)
+    expect(
+      briefOf(changedEffect('disable'), {
+        status: 'refused',
+        reason: 'shaped',
+        effect: 'disable',
+      }).table?.text,
+    ).toBe(`Not turned off: ${waits}`)
+    expect(
+      briefOf(removed(), {
+        status: 'refused',
+        reason: 'shaped',
+        move: {
+          verb: 'remove',
+          things: '2 Potion of Healing',
+          other: 'Thorin',
+        },
+      }).table?.text,
+    ).toBe(`Not removed: ${waits}`)
+  })
+
+  it('says a move can’t be made by or for a transformed character, either end', () => {
+    const words =
+      'a transformed character can’t give or take until back in their own form'
+    expect(
+      briefOf(moved(), {
+        status: 'refused',
+        reason: 'shaped',
+        move: {
+          verb: 'give',
+          things: '2 Potion of Healing',
+          other: 'The Iron Company',
+        },
+      }).table?.text,
+    ).toBe(`Not given: ${words}`)
+    expect(
+      briefOf(moved({ verb: 'take' }), {
+        status: 'refused',
+        reason: 'shaped',
+        move: {
+          verb: 'take',
+          things: '2 Potion of Healing',
+          other: 'The Iron Company',
+        },
+      }).table?.text,
+    ).toBe(`Not taken: ${words}`)
+  })
+})

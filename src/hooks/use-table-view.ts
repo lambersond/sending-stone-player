@@ -33,6 +33,8 @@ function seenOf(view: TableView) {
     favorites: view.favorites === true,
     // From module 0.39.0: whether the player may change its character's own effects.
     effects: view.effects === true,
+    // From module 0.40.0: whether the player may use Wild Shape.
+    wildShape: view.wildShape === true,
   }
 }
 
@@ -70,6 +72,7 @@ export function useTableView(api: string, initial: TableView) {
           removes,
           favorites,
           effects,
+          wildShape,
         } = seen.current
         const query = new URLSearchParams({
           version: String(version),
@@ -82,6 +85,7 @@ export function useTableView(api: string, initial: TableView) {
           ...(removes && { removes: '1' }),
           ...(favorites && { favorites: '1' }),
           ...(effects && { effects: '1' }),
+          ...(wildShape && { wildshape: '1' }),
           ...(sheetVersion && { sheet: sheetVersion }),
         })
         const response = await fetch(`${api}/table?${query}`, {

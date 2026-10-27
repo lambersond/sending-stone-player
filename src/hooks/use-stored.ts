@@ -57,6 +57,20 @@ export function useStoredChoice<T extends string>(
 }
 
 /**
+ * A word this browser remembers for something, such as the last form a druid took from this
+ * device (round 0.40.0): what it keeps, or `fallback` until it keeps one, and a way to keep
+ * another.
+ */
+export function useStoredText(
+  key: string,
+  fallback = '',
+): [string, (value: string) => void] {
+  const stored = useStored(key, fallback)
+  const keep = useCallback((value: string) => write(key, value), [key])
+  return [stored, keep]
+}
+
+/**
  * A set of names this browser remembers, such as the groups of a list that are closed, with a
  * toggle that adds a name or takes it out. It starts empty.
  */

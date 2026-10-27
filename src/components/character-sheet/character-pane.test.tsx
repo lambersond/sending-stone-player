@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
 import { forgetCookbook } from '@/hooks/use-cookbook-view'
 import { TableApiContext } from '@/hooks/use-table-api'
-import { ALONE_KEY } from '@/hooks/use-table-rolls'
+import { ALONE_KEY, SEND_KEY } from '@/hooks/use-table-rolls'
 import {
   chromaticOrb,
   fireBreath,
@@ -24,13 +24,19 @@ import {
   castingSheet,
   characterSheet,
   checkingSheet,
+  druidSheet,
+  FORM_IDS,
   fullerSheet,
+  moonBlock,
+  shapedSheet,
   sheetAction,
   sheetFavorites,
   sheetItem,
   sheetSpell,
+  tableMoves,
   TEXTS,
   WAND_LEVELS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
@@ -5487,5 +5493,276 @@ describe('components/character-sheet/character-pane, the player’s Magical Reci
       ),
     ).toBeNull()
     expect(cardReads()).toEqual([])
+  })
+})
+
+/** What Elowen's pane posts (module 0.40.0), each command answered as `answers` say. */
+const answeringShaped = (
+  answers: Record<string, Record<string, unknown>> = {},
+) => {
+  const posted: Record<string, unknown>[] = []
+  globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      return {
+        ok: true,
+        status: 202,
+        json: async () => ({ id: `req-${posted.length}` }),
+      } as Response
+    }
+    const id = String(url).split('/').at(-1) ?? ''
+    if (!String(url).includes('/rolls/')) return new Promise<Response>(() => {})
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ id, ...(answers[id] ?? { status: 'pending' }) }),
+    } as Response
+  }) as typeof fetch
+  return posted
+}
+
+/** A feature's row, as its menu opens from it: its summary. */
+const featureRow = (name: string) =>
+  (screen.getByText(name).closest('li') as HTMLElement).querySelector(
+    ':scope > details > summary',
+  ) as HTMLElement
+
+/** Elowen's pane, Wild Shape offered there or not. */
+const elowen = (
+  sheet: CharacterSheet = druidSheet(),
+  fields: Partial<Parameters<typeof CharacterPane>[0]> = {},
+) => (
+  <CharacterPane
+    characterId='char-1'
+    name='Elowen'
+    sheet={toTableSheet(sheet, GAME)}
+    wildShape
+    {...fields}
+  />
+)
+
+/** Elowen's pane with Give, Remove…, favorites and effects offered, as Thorin's sheet has them. */
+const offered = (sheet: CharacterSheet) =>
+  elowen(sheet, {
+    moves: tableMoves(),
+    removes: true,
+    favorites: true,
+    effects: true,
+    actorId: 'actorThorin1',
+  })
+
+/** An item's row on the Inventory tab, as its menu opens from it, by its section and name. */
+const itemRow = (section: string, name: string) => {
+  const item = within(screen.getByRole('region', { name: section }))
+    .getByText(name)
+    .closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.firstElementChild) as HTMLElement
+}
+
+describe('components/character-sheet/character-pane, Wild Shape, from module 0.40.0', () => {
+  beforeEach(() => {
+    clearStorage()
+    answeringShaped()
+  })
+
+  it('draws the ribbon above the tab row, across the pane, while the sheet is a form’s', () => {
+    render(elowen(shapedSheet()))
+
+    const ribbon = screen.getByRole('region', { name: 'Wild Shape' })
+    const tabs = screen.getByRole('tablist', { name: 'Character sheet' })
+    expect(ribbon.nextElementSibling).toBe(tabs.parentElement)
+    expect(
+      within(ribbon).getByRole('heading', { name: 'Wild Shape · Wolf' }),
+    ).toBeVisible()
+  })
+
+  it('keeps the tab chosen as the form’s sheet arrives, and as hers comes back', async () => {
+    const { rerender } = render(elowen())
+    await show('Features')
+
+    rerender(elowen(shapedSheet()))
+    expect(screen.getByRole('tab', { name: /^Features/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    rerender(elowen())
+    expect(screen.getByRole('tab', { name: /^Features/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+  })
+
+  it('hides Give, Remove…, favorites’ Add and Remove, and effects’ controls while the sheet is a form’s, and offers them again after', async () => {
+    const thorin = fullerSheet({ favorites: sheetFavorites() })
+    const { rerender } = render(offered({ ...thorin, form: wolfForm() }))
+
+    await show('Inventory')
+    expect(screen.queryByRole('button', { name: 'Send to' })).toBeNull()
+    // Neither Send to… nor Remove… (round 0.40.0 review): no menu at all, the browser's own.
+    expect(
+      fireEvent.contextMenu(itemRow('Equipment', 'Plain Ring'), { button: 2 }),
+    ).toBe(true)
+    expect(screen.queryByRole('menuitem', { name: 'Remove…' })).toBeNull()
+    expect(screen.queryByRole('menu')).toBeNull()
+    await show('Effects')
+    const bless = await openBless(userEvent.setup())
+    expect(
+      within(bless).queryByRole('button', { name: /^Turn off/ }),
+    ).toBeNull()
+    expect(
+      screen.getByText(
+        'Effects are changed from here again once Elowen is no longer a Wolf.',
+      ),
+    ).toBeVisible()
+    await show('Actions')
+    fireEvent.contextMenu(
+      within(screen.getByRole('region', { name: 'Favorites' })).getAllByRole(
+        'button',
+        { name: /^Warhammer/ },
+      )[0],
+      { button: 2 },
+    )
+    expect(
+      screen.queryByRole('menuitem', { name: 'Remove from favorites' }),
+    ).toBeNull()
+    await show('Features')
+    fireEvent.contextMenu(featureRow('Darkvision'), { button: 2 })
+    expect(
+      screen.queryByRole('menuitem', { name: 'Add to favorites' }),
+    ).toBeNull()
+
+    rerender(offered(thorin))
+    await show('Features')
+    fireEvent.contextMenu(featureRow('Darkvision'), { button: 2 })
+    expect(
+      screen.getByRole('menuitem', { name: 'Add to favorites' }),
+    ).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await show('Inventory')
+    expect(screen.getByRole('button', { name: 'Send to' })).toBeVisible()
+    fireEvent.contextMenu(itemRow('Equipment', 'Plain Ring'), { button: 2 })
+    expect(screen.getByRole('menuitem', { name: 'Remove…' })).toBeEnabled()
+    await userEvent.keyboard('{Escape}')
+    await show('Effects')
+    expect(
+      within(effectRow('Bless').closest('li') as HTMLElement).getByRole(
+        'button',
+        { name: 'Turn off Bless' },
+      ),
+    ).toBeVisible()
+    await show('Actions')
+    fireEvent.contextMenu(
+      within(screen.getByRole('region', { name: 'Favorites' })).getAllByRole(
+        'button',
+        { name: /^Warhammer/ },
+      )[0],
+      { button: 2 },
+    )
+    expect(
+      screen.getByRole('menuitem', { name: 'Remove from favorites' }),
+    ).toBeVisible()
+  })
+
+  it('says, while shaped, where Elowen’s gear is on Actions and Inventory, and which slots wait on Spells', async () => {
+    render(elowen(shapedSheet()))
+
+    await show('Actions')
+    expect(
+      screen.getByText(
+        'Elowen’s gear isn’t on this sheet. In the game it falls, merges into the Wolf, or is worn where your Gamemaster says a Wolf can wear it; what a Wolf can hold depends on its shape. A spell Elowen is concentrating on goes on.',
+      ),
+    ).toBeVisible()
+    await show('Inventory')
+    expect(
+      screen.getByText(
+        'Elowen’s own gear is back on this tab when Wild Shape ends.',
+      ),
+    ).toBeVisible()
+    await show('Spells')
+    expect(
+      screen.getByText(
+        'Elowen can’t cast spells as a Wolf. The spell slots wait: 4 of 4 1st level, 3 of 3 2nd level.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('says a Moon druid casts only the circle’s spells as the form', async () => {
+    render(elowen(shapedSheet({ wildShape: moonBlock() })))
+
+    await show('Spells')
+    expect(
+      screen.getByText(
+        'As a Wolf, Elowen can cast only Circle of the Moon spells.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('says none of it unshaped, nor at the Gamemaster’s page', async () => {
+    const { rerender } = render(elowen())
+    await show('Actions')
+    expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
+
+    rerender(
+      <TableApiContext
+        value={{
+          role: 'gm',
+          api: '/api/campaigns/c1/characters/actorElowen1',
+          key: 'gm:c1:actorElowen1',
+        }}
+      >
+        {elowen(shapedSheet(), { wildShape: undefined })}
+      </TableApiContext>,
+    )
+    expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+    expect(
+      within(screen.getByRole('region', { name: 'Wild Shape' })).getByText(
+        'It ends in Foundry.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('sends a change as Wild Shape, whatever Send to the table says, its way in the tray', async () => {
+    const user = userEvent.setup()
+    const posted = answeringShaped({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        rolls: [],
+        wildShape: {
+          op: 'transform',
+          form: { id: FORM_IDS.wolf, name: 'Wolf', uuid: 'x' },
+          temp: 5,
+          hours: 2,
+        },
+      },
+    })
+    globalThis.localStorage.setItem(SEND_KEY, 'off')
+    render(elowen())
+    await show('Actions')
+    await user.click(screen.getByRole('button', { name: 'Change' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Wild Shape' })).getByRole(
+        'button',
+        { name: 'Become a Wolf' },
+      ),
+    )
+    expect(posted).toEqual([
+      {
+        kind: 'wildShape',
+        wildShape: { op: 'transform', form: FORM_IDS.wolf },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+        label: 'Wild Shape',
+      },
+    ])
+    const tray = screen.getByRole('region', { name: 'Your rolls' })
+    expect(tray).toHaveTextContent('Wild Shape')
+    await waitFor(() => expect(tray).toHaveTextContent('Became a Wolf'), {
+      timeout: 3000,
+    })
   })
 })

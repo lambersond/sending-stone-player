@@ -108,6 +108,12 @@ function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
     lost: `no answer from ${game}. The sheet shows ${happened}`,
     network: 'Sending Stone couldn’t be reached',
     expired: `${game} didn’t pick it up`,
+    // From module 0.40.0: the giver or the recipient is transformed, as by Wild Shape. A removal
+    // has the roll's words for it, as a favorite's and an effect's are.
+    ...(!removing && {
+      shaped:
+        'a transformed character can’t give or take until back in their own form',
+    }),
   }
 }
 

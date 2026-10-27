@@ -9,14 +9,17 @@ import {
   EFFECT_ID,
   EFFECT_OPS,
   EVENTS,
+  FORM_UUID,
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
   MOST_AMONG,
   MOST_COMPANIONS,
+  MOST_FORMS,
   MOST_HIT_DICE,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
+  PROFILE_ID,
   PROMPT_ID,
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
@@ -893,6 +896,106 @@ const creatureSchema = z.looseObject({
     .catch(null),
 })
 
+/**
+ * What a character is transformed into now, from module 0.40.0, where its sheet is the form's: its
+ * kind, the source creature's name, picture and statistics, the known form it was taken as, its
+ * hours and the whole minutes left, whether its AC is Circle of the Moon's floor, and which of its
+ * numbers are the beast's. A kind this app doesn't know reads as another transformation, and hours
+ * or minutes it can't read as none, so no Return is offered for them; the whole, with no name, is
+ * left out, as `creature`.
+ */
+const formSchema = z.looseObject({
+  kind: z.enum(['wildShape', 'other']).catch('other'),
+  name: z.string().min(1),
+  img: nullableString,
+  size: nullableString,
+  cr: nullableNumber,
+  type: nullableString,
+  profile: z.string().regex(PROFILE_ID).nullable().catch(null),
+  hours: z.int().positive().nullable().catch(null),
+  minutesLeft: z.int().min(0).nullable().catch(null),
+  flooredAc: z.boolean().catch(false),
+  beast: z
+    .object({
+      abilities: listOf(abilityId),
+      saves: listOf(abilityId),
+      skills: listOf(checkKey),
+    })
+    .catch({ abilities: [], saves: [], skills: [] }),
+})
+
+/** How many known forms a druid may have, the highest CR, and whether a Fly Speed is allowed. */
+const formLimitsSchema = z.object({
+  count: z.int().min(0),
+  cr: z.number().min(0),
+  fly: z.boolean(),
+})
+
+/**
+ * One of a druid's known forms, from module 0.40.0, by its profile's id: one from the campaign's
+ * compendiums with its statistics, once loaded, and whether it fits the rules for her now, or not
+ * found; one from anywhere else by its name alone. A part that can't be read is none; whether it
+ * fits, or was found, read as not, so it's never offered for it. One with no id is left out. One
+ * with no name is kept, nameless: dnd5e writes none for a form dropped on her Wild Shape in
+ * Foundry, and the game counts it among her known forms all the same, so a place it fills is never
+ * offered here as empty.
+ */
+const knownFormSchema = z.looseObject({
+  id: z.string().regex(PROFILE_ID),
+  name: z.string().catch(''),
+  pool: z.boolean().catch(false),
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  uuid: z.string().min(1).optional().catch(undefined),
+  img: nullableString.optional(),
+  size: nullableString.optional(),
+  cr: nullableNumber.optional(),
+  ac: nullableNumber.optional(),
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  speeds: z.array(z.string()).max(10).optional().catch(undefined),
+  attack: z
+    .object({
+      name: z.string(),
+      toHit: nullableNumber,
+      damage: nullableString,
+    })
+    .nullable()
+    .optional()
+    .catch(null),
+  fits: z.boolean().optional().catch(false),
+  found: z.boolean().optional().catch(false),
+})
+
+/**
+ * A 2024 druid's Wild Shape, from module 0.40.0: its row, its uses, what the rules allow her now,
+ * what a change gives, her known forms, whether a replacement is free, and the last ending. Uses or
+ * limits that can't be read are none, so nothing is offered for them; an ending it can't read is
+ * none; the whole, with no row, is left out.
+ */
+const wildShapeSchema = z.looseObject({
+  item: z.string().min(1),
+  uses: z
+    .object({ value: z.number(), max: z.number() })
+    .catch({ value: 0, max: 0 }),
+  level: z.number().catch(0),
+  circle: z.literal('moon').nullable().catch(null),
+  limits: formLimitsSchema.catch({ count: 0, cr: 0, fly: false }),
+  hours: z.number().catch(0),
+  temp: z.number().catch(0),
+  acFloor: nullableNumber,
+  known: listOf(knownFormSchema),
+  swap: z.boolean().catch(false),
+  resurgence: z.boolean().catch(false),
+  ended: z
+    .object({
+      form: z.string(),
+      why: z.enum(['app', 'time', 'hp', 'incapacitated', 'foundry']),
+      at: z.number(),
+      formId: z.string(),
+    })
+    .nullable()
+    .catch(null),
+})
+
 // A sheet that can't be read is dropped rather than failing the event that carries it.
 const sheetSchema = z
   .looseObject({
@@ -1083,6 +1186,12 @@ const sheetSchema = z
     // From module 0.36.0, for an NPC: what it is as a creature.
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     creature: creatureSchema.optional().catch(undefined),
+    // From module 0.40.0, to an app that takes Wild Shape: what the character is transformed into
+    // now, and a 2024 druid's Wild Shape.
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    form: formSchema.optional().catch(undefined),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    wildShape: wildShapeSchema.optional().catch(undefined),
     // Sent from module 0.8.0.
     actions: listOf(
       z.looseObject({
@@ -1570,6 +1679,17 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.40.0: whether the campaign lets its players use Wild Shape here, by its own
+    // switch, under dnd5e.
+    wildShape: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -1732,6 +1852,28 @@ const midiPromptSchema = z
  * Midi-QOL asks, which says where it comes from. One that says so is only ever read as Midi-QOL's.
  */
 const promptSchema = z.union([midiPromptSchema, cardPromptSchema])
+
+/** A known form, as a Wild Shape command's result names it (module 0.40.0). */
+const formRefSchema = z.object({
+  id: z.string().regex(PROFILE_ID),
+  name: z.string(),
+  uuid: z.string(),
+})
+
+/**
+ * A Beast the druid may learn, as the game lists them (module 0.40.0): one this app couldn't ask
+ * for, by a uuid that isn't a compendium's Actor's, is left out.
+ */
+const beastSchema = z.object({
+  uuid: z.string().regex(FORM_UUID),
+  name: z.string().min(1),
+  img: nullableString,
+  size: nullableString,
+  cr: z.number(),
+  ac: nullableNumber,
+  speeds: z.array(z.string()).max(10).catch([]),
+  known: z.boolean().catch(false),
+})
 
 /**
  * What became of a command; one without its id, or an outcome, can't be recorded. It's kept as
@@ -1902,6 +2044,38 @@ const commandResultSchema = z.object({
       deleted: z.boolean(),
     })
     .nullable()
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // From module 0.40.0, for Wild Shape, by its op: the form taken, with its temporary hit points
+  // and hours; the form left, or none where the character wasn't shaped; the form learned and the
+  // one it replaced; or the Beasts to learn, no more than the game lists at once.
+  wildShape: z
+    .discriminatedUnion('op', [
+      z.object({
+        op: z.literal('transform'),
+        form: formRefSchema,
+        temp: z.number(),
+        hours: z.number(),
+      }),
+      z.object({
+        op: z.literal('revert'),
+        form: z.object({ name: z.string() }).nullable(),
+      }),
+      z.object({
+        op: z.literal('learn'),
+        form: formRefSchema,
+        replaced: z
+          .object({ id: z.string().regex(PROFILE_ID), name: z.string() })
+          .nullable(),
+      }),
+      z.object({
+        op: z.literal('forms'),
+        forms: z.array(z.unknown()).max(MOST_FORMS).pipe(listOf(beastSchema)),
+        more: z.boolean(),
+        limits: formLimitsSchema,
+      }),
+    ])
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),

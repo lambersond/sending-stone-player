@@ -16,6 +16,7 @@ import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesLeft } from './uses-left'
+import { WildShapeNote } from './wild-shape'
 import { SearchField } from '@/components/search-field'
 import { useSheetId } from '@/hooks/use-sheet-ids'
 import { formatModifier } from '@/utils/format-modifier'
@@ -107,6 +108,8 @@ export function SpellsTab({
     )
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {/* While transformed, as by Wild Shape (module 0.40.0): what the form may cast. */}
+      <WildShapeNote tab='spells' />
       {favorites}
       {sheet.spellcasting && <Spellcasting spellcasting={sheet.spellcasting} />}
       {searchable && (

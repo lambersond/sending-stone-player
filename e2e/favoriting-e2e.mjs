@@ -362,9 +362,10 @@ part('1. the hello and the answer')
   const features = hello().data.features
   // Changed on purpose (round 0.38.0 §D10.4): dishes from the Magical Recipe Book follow favorites, under dnd5e 6 too ("off").
   // Changed on purpose (round 0.39.0 §1.11): and a player's own effects follow dishes.
-  check(same(features.favorites, { enabled: true, kinds: ['favorite'], reason: null }) && same(Object.keys(features).slice(-4), ['companions', 'favorites', 'dishes', 'effects'])
+  // Changed on purpose (round 0.40.0 §10.4): and Wild Shape follows effects.
+  check(same(features.favorites, { enabled: true, kinds: ['favorite'], reason: null }) && same(Object.keys(features).slice(-5), ['companions', 'favorites', 'dishes', 'effects', 'wildShape'])
     && !(features.rolls?.kinds ?? []).includes('favorite') && !(features.companions?.kinds ?? []).includes('favorite'),
-  `the hello offers favorites, after companions, before dishes and effects, never among the rolls' nor a companion's kinds (${JSON.stringify({ favorites: features.favorites, keys: Object.keys(features) })})`)
+  `the hello offers favorites, after companions, before dishes, effects and Wild Shape, never among the rolls' nor a companion's kinds (${JSON.stringify({ favorites: features.favorites, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.favorites === 1, `the app answers favorites: 1 (${hello().body})`)
   await until(() => favoritesEnabled() === 't', 'the app to keep favorites on', 15_000)
   check(favoritesEnabled() === 't', 'the app keeps favoritesEnabled on in the campaign row')

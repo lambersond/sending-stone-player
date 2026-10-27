@@ -1,7 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
-import { CircleAlert, Dices, Footprints, Zap } from 'lucide-react'
+import { CircleAlert, Dices, Footprints, PawPrint, Zap } from 'lucide-react'
 import { ConcentrationChip } from './concentration'
 import { conditionDetail } from './effects-tab'
 import { RollButton } from './roll-button'
@@ -31,11 +31,14 @@ export function InitiativeStat({
   combatId,
   follows,
   actions,
+  tag,
 }: Readonly<{
   modifier: number
   combatId?: string
   follows?: string
   actions: RollActions
+  /** Whose it is, where it's a form's, from module 0.40.0 (`Stat`'s `tag`). */
+  tag?: string
 }>) {
   const shown = formatModifier(modifier)
   if (follows) {
@@ -54,7 +57,7 @@ export function InitiativeStat({
     )
   }
   return (
-    <Stat label='Initiative' short='Init'>
+    <Stat label='Initiative' short='Init' tag={tag}>
       <RollButton
         target={{
           label: 'Initiative',
@@ -276,6 +279,19 @@ export function Portrait({
 }
 
 /**
+ * Whose a number is on a shaped sheet (module 0.40.0), after its label: the form's name, or the
+ * Circle of the Moon's, in the wild colour, with a paw; its words read as they're written.
+ */
+export function StatTag({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <span className='ml-1.5 inline-flex items-center gap-0.5 text-[10px] tracking-wide text-wild'>
+      <PawPrint aria-hidden className='size-2.5 shrink-0' />
+      {children}
+    </span>
+  )
+}
+
+/**
  * One of the sheet's vital numbers. Each box is a container, so a label with a short form, such as
  * Prof for Proficiency, can use it when its box is too narrow for the whole word: the longest,
  * Armor class, needs 114 pixels. What it shows fills the box's height, which a taller box beside
@@ -291,12 +307,18 @@ export function Stat({
   short,
   wide,
   group,
+  tag,
   children,
 }: Readonly<{
   label: string
   short?: string
   wide?: 'pair' | 'double' | 'row'
   group?: string
+  /**
+   * Whose number it is, where it isn't the character's own, from module 0.40.0: the form's, such
+   * as "Wolf", or "Circle of the Moon" for an AC at that circle's floor. Words, after its label.
+   */
+  tag?: string
   children: ReactNode
 }>) {
   return (
@@ -322,6 +344,7 @@ export function Stat({
         ) : (
           label
         )}
+        {tag && <StatTag>{tag}</StatTag>}
       </dt>
       <dd className='flex-1 px-3 text-lg font-bold tabular-nums'>
         {group ? (

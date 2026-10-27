@@ -7,6 +7,7 @@ import { useConditionsPanel, useShowConditions } from './conditions-panel'
 import { EffectButtons, useEffectChoice } from './effect-controls'
 import { SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
+import { WildShapeNote } from './wild-shape'
 import { ConfirmModal } from '@/components/modal'
 import { useSheetId } from '@/hooks/use-sheet-ids'
 import type { FavoriteTarget } from '@/types/roll'
@@ -36,6 +37,8 @@ export function EffectsTab({
   const sectionId = useSheetId('effects-')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+      {/* While transformed, as by Wild Shape (module 0.40.0): its copies, changed here after. */}
+      <WildShapeNote tab='effects' />
       {favorites}
       <section aria-labelledby={conditionsId} className='flex flex-col gap-2'>
         <div className='flex items-center gap-1'>

@@ -311,6 +311,25 @@ describe('CreatureSwitcher', () => {
     expect(left.querySelector(dot)).toBeNull()
   })
 
+  it('says what the character is transformed into in its name, before its news, chosen or not (module 0.40.0)', () => {
+    const shaped = { ...thorin, shape: ', in Wild Shape as a Wolf' }
+    const { unmount } = renderSwitcher([
+      shaped,
+      { ...brakka, news: ', its turn' },
+    ])
+    expect(tabs()[0]).toHaveAccessibleName('Thorin, in Wild Shape as a Wolf')
+    unmount()
+
+    renderSwitcher([{ ...shaped, news: ', your turn' }, brakka], {
+      chosen: 'brakka',
+    })
+    expect(tabs()[0]).toHaveAccessibleName(
+      'Thorin, in Wild Shape as a Wolf, your turn',
+    )
+    // Its visible name is the character's alone.
+    expect(tabs()[0]).not.toHaveTextContent('Wolf')
+  })
+
   it('badges a repeated name’s number, and names, titles it so', () => {
     renderSwitcher([thorin, bat('b1', 1), bat('b2', 2)])
     const [, first, second] = tabs()

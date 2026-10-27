@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { CharacterPane } from './character-pane'
 import { Effecting, useEffectControls } from './effect-controls'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
@@ -19,6 +20,7 @@ import {
   sheetItem,
   sheetSpell,
   TEXTS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
 import { toTableSheet } from '@/utils/table-view'
@@ -29,6 +31,14 @@ import type {
   SheetFavorite,
   SheetUses,
 } from '@/types/sending-stone'
+
+// For the pane the favorites are shown in while shaped (module 0.40.0): without WebGL the renderer
+// is never ready, so rolls resolve at once, without dice.
+jest.mock('@lambersond/3d-dice-react', () => ({
+  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
+}))
 
 const GAME = 'https://my-game.forge-vtt.com'
 
@@ -1218,5 +1228,79 @@ describe('components/character-sheet/favorites, removed from the app, from modul
       screen.getByRole('button', { name: 'Warhammer damage, 1d8 + 4' }),
     )
     expect(screen.getByRole('menu')).not.toHaveAccessibleName('Warhammer')
+  })
+})
+
+/** Shows a tab of the sheet, in the pane. */
+const show = (name: string) =>
+  userEvent
+    .setup()
+    .click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }))
+
+/** A favorite in the pane's strip, as its menu opens from it, by its name. */
+const favoriteRow = (name: string) => {
+  const item = within(screen.getByRole('region', { name: 'Favorites' }))
+    .getByText(name)
+    .closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    within(item).getAllByRole('button', { expanded: false })[0]) as HTMLElement
+}
+
+/** A feature's row in the pane, as its menu opens from it: its summary. */
+const featureRow = (name: string) =>
+  (screen.getByText(name).closest('li') as HTMLElement).querySelector(
+    ':scope > details > summary',
+  ) as HTMLElement
+
+describe('components/character-sheet/favorites, while the sheet is a form’s, from module 0.40.0', () => {
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  /** Thorin's pane, its game taking favorites, as his sheet says: his own, or a form's. */
+  const pane = (sheet: CharacterSheet) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={toTableSheet(sheet, GAME)}
+      favorites
+    />
+  )
+
+  it('offers neither Remove from favorites on them nor Add to favorites elsewhere, and both again once the sheet is the character’s own (round 0.40.0 §5.9)', async () => {
+    const thorin = withFavorites()
+    const { rerender } = render(pane({ ...thorin, form: wolfForm() }))
+
+    await show('Actions')
+    // An item, an activity and an effect among them: no menu at all, the browser's own.
+    for (const name of ['Warhammer', 'Cast Fireball', 'Bless']) {
+      expect(fireEvent.contextMenu(favoriteRow(name), { button: 2 })).toBe(true)
+      expect(screen.queryByRole('menu')).toBeNull()
+    }
+    await show('Features')
+    expect(fireEvent.contextMenu(featureRow('Darkvision'), { button: 2 })).toBe(
+      true,
+    )
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    rerender(pane(thorin))
+    fireEvent.contextMenu(featureRow('Darkvision'), { button: 2 })
+    expect(itemsOf(screen.getByRole('menu', { name: 'Darkvision' }))).toEqual([
+      'Add to favorites',
+    ])
+    await userEvent.keyboard('{Escape}')
+    await show('Actions')
+    for (const name of ['Warhammer', 'Cast Fireball', 'Bless']) {
+      fireEvent.contextMenu(favoriteRow(name), { button: 2 })
+      expect(itemsOf(screen.getByRole('menu', { name }))).toEqual([
+        'Remove from favorites',
+      ])
+      await userEvent.keyboard('{Escape}')
+    }
   })
 })

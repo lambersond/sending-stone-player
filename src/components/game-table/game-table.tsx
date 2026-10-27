@@ -37,6 +37,7 @@ import { CharacterChooser } from '@/components/character-chooser'
 import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
 import { PartySheetList } from '@/components/character-sheet/party-sheets'
+import { WildShapeEnded } from '@/components/character-sheet/wild-shape'
 import { CompanionPane } from '@/components/companions/companion-pane'
 import {
   CreatureSwitcher,
@@ -71,6 +72,7 @@ import {
 import { megabytes } from '@/utils/format-amount'
 import { gameHost } from '@/utils/game-host'
 import { seatWords } from '@/utils/seat-words'
+import { headerLineOf, switcherWords } from '@/utils/wild-shape-words'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
 import type { CookbookCodeAnswer, CookbookPlace } from '@/types/cookbook'
@@ -515,6 +517,8 @@ export function GameTable({
         key: 'self',
         name: character.name,
         portrait: view.sheet?.portrait,
+        // What the character is transformed into, from module 0.40.0, as its name says it.
+        ...(view.sheet?.form && { shape: switcherWords(view.sheet.form) }),
         news: [
           asked.length > 0 && words.asksForRoll,
           isTurnOf(view.combat, ({ side }) => side === 'me') && ', your turn',
@@ -595,6 +599,9 @@ export function GameTable({
               // Its own effects turned off, on and deleted (module 0.39.0): the player's alone, at
               // the character's own pane, never a companion's.
               effects={view.effects}
+              // Wild Shape from here (module 0.40.0): the player's alone, at the character's own
+              // pane, never a companion's.
+              wildShape={view.wildShape}
               actorId={character.actorId ?? undefined}
               // The party sheets it may open, on its Inventory tab (module 0.30.0).
               parties={
@@ -814,7 +821,7 @@ export function GameTable({
                   )}
                   {playing && view.sheet && (
                     <p className='hidden min-w-0 truncate text-sm text-text-secondary lg:block'>
-                      {classLine(view.sheet)}
+                      {headerLine(view.sheet)}
                     </p>
                   )}
                 </div>
@@ -859,6 +866,14 @@ export function GameTable({
               name={character.name}
               campaign={view.campaign.title}
               addBack={words.addBack}
+            />
+          )}
+          {/* The game ended a Wild Shape (module 0.40.0): why, until dismissed. */}
+          {playing && (
+            <WildShapeEnded
+              sheet={view.sheet}
+              name={character.name}
+              seat={seat.key}
             />
           )}
           <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
@@ -927,8 +942,10 @@ export function GameTable({
           role={seat.role}
           ownSheetHref={gm ? undefined : `/characters/${character.id}`}
           // Taken into the character at this table, through this seat's own API (module 0.31.0).
+          // Never while the character is transformed, as by Wild Shape (module 0.40.0), its gear
+          // not on its form.
           takeInto={
-            character.actorId
+            character.actorId && !view.sheet?.form
               ? {
                   kind: 'own',
                   actorId: character.actorId,
@@ -1433,8 +1450,16 @@ function campaignAndGame(view: TableView, character: Character): string {
 
 /** Such as "Fighter 5 · Champion", or the campaign's title until the sheet arrives. */
 function sheetSummary(view: TableView): string {
-  if (view.sheet) return classLine(view.sheet)
+  if (view.sheet) return headerLine(view.sheet)
   return view.campaign?.title ?? 'No sheet yet'
+}
+
+/**
+ * The header's line about the character: its classes, or from module 0.40.0, while it's
+ * transformed, what into, "In Wild Shape · Wolf".
+ */
+function headerLine(sheet: NonNullable<TableView['sheet']>): string {
+  return sheet.form ? headerLineOf(sheet.form) : classLine(sheet)
 }
 
 function messageCount(count: number): string {

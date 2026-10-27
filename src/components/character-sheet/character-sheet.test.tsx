@@ -8,7 +8,13 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterSheet, classLine } from './character-sheet'
-import { characterSheet, fullerSheet } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  druidSheet,
+  fullerSheet,
+  shapedSheet,
+  wolfForm,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet as Sheet } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
@@ -967,5 +973,113 @@ describe('components/character-sheet/character-sheet', () => {
     ])('describes %o as %s', (fields, line) => {
       expect(classLine(sheetOf(fields))).toBe(line)
     })
+  })
+})
+
+/** A stat's term, by its label, whatever tag follows it. */
+const termOf = (label: string) =>
+  screen
+    .getAllByRole('term')
+    .find(term => term.textContent?.startsWith(label)) as HTMLElement
+
+describe('components/character-sheet/character-sheet, shaped, from module 0.40.0', () => {
+  /** Elowen's Character tab as the sheet arrives. */
+  const renderElowen = (sheet: Sheet = shapedSheet()) =>
+    render(
+      <CharacterSheet
+        name='Elowen'
+        sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+        onRoll={jest.fn()}
+      />,
+    )
+
+  it('heads the header with whom she is, as which form, and the form’s size, CR and senses in place of her classes', () => {
+    renderElowen()
+
+    const heading = screen.getByRole('heading', { name: 'Elowen as a Wolf' })
+    expect(heading).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByText('Medium · CR 1/4 · Darkvision 60 ft')).toBeVisible()
+    expect(screen.queryByText(/^Druid 5/)).toBeNull()
+    // Her species and background are hers still.
+    expect(screen.getByText('Wood Elf · Guide')).toBeVisible()
+  })
+
+  it('tags the form’s Armor class, Initiative and Speed, its every speed shown, and the Moon’s floor as the circle’s', () => {
+    const { unmount } = renderElowen(
+      shapedSheet({
+        traits: [
+          { id: 'senses', label: 'Senses', values: ['Darkvision 60 ft'] },
+          {
+            id: 'speeds',
+            label: 'Speeds',
+            values: ['Walk 40 ft', 'Swim 30 ft'],
+          },
+        ],
+      }),
+    )
+
+    for (const label of ['Armor class', 'Initiative', 'Speed'])
+      expect(termOf(label)).toHaveTextContent(/Wolf$/)
+    expect(termOf('Hit points')).not.toHaveTextContent('Wolf')
+    expect(termOf('Speed').nextSibling).toHaveTextContent('40ftswim 30 ft')
+    unmount()
+
+    renderElowen(shapedSheet({ ac: 15, form: wolfForm({ flooredAc: true }) }))
+    expect(termOf('Armor class')).toHaveTextContent(/Circle of the Moon$/)
+    expect(termOf('Speed')).toHaveTextContent(/Wolf$/)
+  })
+
+  it('marks the form’s scores, saves and skills, says whose the rest are, and how a skill’s bonus is chosen', () => {
+    renderElowen()
+
+    expect(screen.getByText('The Wolf’s; the rest are Elowen’s.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Strength check, +2, the Wolf’s' }),
+    ).toHaveClass('bg-wild-bg/55')
+    expect(
+      screen.getByRole('button', {
+        name: 'Strength saving throw, +2, the Wolf’s',
+      }),
+    ).toHaveClass('bg-wild-bg/55')
+    // Hers, unmarked: her mind's scores and saves, and the Wolf's Dexterity save.
+    expect(
+      screen.getByRole('button', {
+        name: 'Wisdom saving throw, +6, proficient',
+      }),
+    ).not.toHaveClass('bg-wild-bg/55')
+    expect(
+      screen.getByRole('button', { name: 'Dexterity saving throw, +2' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Wisdom check, +3' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', {
+        name: 'Perception check, +5 (proficient, passive 15), the Wolf’s',
+      }),
+    ).toHaveTextContent('Wolf’s')
+    expect(
+      screen.getByRole('button', {
+        name: 'Nature check, +4 (proficient, passive 14)',
+      }),
+    ).not.toHaveTextContent('Wolf’s')
+    expect(
+      screen.getByText(
+        'Each skill uses Elowen’s bonus or the Wolf’s, whichever is higher.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('is as ever unshaped: no heading, her classes, no tags, legend or note', () => {
+    renderElowen(druidSheet())
+
+    expect(screen.queryByRole('heading', { name: /^Elowen/ })).toBeNull()
+    expect(screen.getByText('Druid 5')).toBeVisible()
+    expect(screen.queryByText(/Wolf/)).toBeNull()
+    expect(screen.queryByText(/the rest are/)).toBeNull()
+    expect(screen.queryByText(/whichever is higher/)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Strength check, +0' }),
+    ).not.toHaveClass('bg-wild-bg/55')
   })
 })

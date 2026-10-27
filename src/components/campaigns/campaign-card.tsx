@@ -4,6 +4,7 @@ import {
   CookingPot,
   Dices,
   KeyRound,
+  PawPrint,
   Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -163,6 +164,16 @@ export function CampaignCard({
             </h3>
             <p className='text-sm text-text-secondary'>
               {effectsText(campaign)}
+            </p>
+          </section>
+
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <PawPrint aria-hidden className='size-4 text-text-secondary' />
+              Wild Shape
+            </h3>
+            <p className='text-sm text-text-secondary'>
+              {wildShapeText(campaign)}
             </p>
           </section>
 
@@ -393,6 +404,27 @@ function effectsText({ effects, foundry }: OwnedCampaign): string {
 
 /** The first Sending Stone in Foundry that lets players change their own effects. */
 const EFFECTS_FROM = [0, 39, 0] as const
+
+/**
+ * Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, and if not,
+ * why: a module before that has no such switch; under another system than D&D Fifth Edition the
+ * switch does nothing, which the hello's own system says.
+ */
+function wildShapeText({ wildShape, foundry }: OwnedCampaign): string {
+  if (wildShape?.enabled) {
+    return 'On in Foundry. Your players’ druids change from here into the Beasts they know and back, by the 2024 rules: a use each time, for half their druid level in hours. They choose their known forms here too, one replaced after each Long Rest.'
+  }
+  if (before(foundry?.module?.version, WILD_SHAPE_FROM)) {
+    return 'Your Sending Stone module doesn’t take Wild Shape yet. Version 0.40.0 or later does.'
+  }
+  if (foundry?.system && foundry.system.id !== 'dnd5e') {
+    return 'Off. Wild Shape needs D&D Fifth Edition in Foundry.'
+  }
+  return 'Off. To let them, tick Allow Players to use Wild Shape from the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/** The first Sending Stone in Foundry that takes Wild Shape from here. */
+const WILD_SHAPE_FROM = [0, 40, 0] as const
 
 /**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,

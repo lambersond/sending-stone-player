@@ -91,6 +91,14 @@ const effectsTexts = () =>
         .parentElement as HTMLElement
     ).querySelectorAll('p'),
   ].map(({ textContent }) => textContent)
+/** The Wild Shape section's lines (module 0.40.0). */
+const wildShapeTexts = () =>
+  [
+    ...(
+      screen.getByRole('heading', { name: 'Wild Shape' })
+        .parentElement as HTMLElement
+    ).querySelectorAll('p'),
+  ].map(({ textContent }) => textContent)
 
 describe('components/campaigns/campaign-card', () => {
   it.each([
@@ -890,7 +898,9 @@ describe('components/campaigns/campaign-card', () => {
         "Players' rolls",
         'Items and coins',
         'Cookbook dishes',
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows the players' effects.
         "Players' effects",
+        'Wild Shape',
       ])
       expect(screen.queryByRole('heading', { level: 4 })).toBeNull()
     })
@@ -928,7 +938,10 @@ describe('components/campaigns/campaign-card', () => {
         "Players' rolls",
         'Items and coins',
         'Cookbook dishes',
+        // Changed on purpose (round 0.40.0 §10.3): Wild Shape between the players' effects and
+        // the Foundry settings.
         "Players' effects",
+        'Wild Shape',
         'Foundry settings',
       ])
     })
@@ -1155,11 +1168,99 @@ describe('components/campaigns/campaign-card', () => {
         renderCard(fields as Partial<OwnedCampaign>)
 
         expect(effectsTexts()).toEqual([text])
-        // After the Cookbook dishes, before the Foundry settings.
+        // After the Cookbook dishes; changed on purpose (round 0.40.0 §10.3): before Wild Shape,
+        // which is before the Foundry settings.
         const section = screen.getByRole('heading', {
           name: "Players' effects",
         }).parentElement as HTMLElement
         expect(section.previousElementSibling).toBe(dishesSection())
+        expect(section.nextElementSibling).toBe(
+          screen.getByRole('heading', { name: 'Wild Shape' }).parentElement,
+        )
+        expect(section.nextElementSibling?.nextElementSibling?.tagName).toBe(
+          'DETAILS',
+        )
+        expect(section.querySelector('svg')).toHaveAttribute(
+          'aria-hidden',
+          'true',
+        )
+      },
+    )
+  })
+
+  describe('Wild Shape (module 0.40.0)', () => {
+    const ON =
+      'On in Foundry. Your players’ druids change from here into the Beasts they know and back, by the 2024 rules: a use each time, for half their druid level in hours. They choose their known forms here too, one replaced after each Long Rest.'
+    const UPDATE =
+      'Your Sending Stone module doesn’t take Wild Shape yet. Version 0.40.0 or later does.'
+    const SYSTEM = 'Off. Wild Shape needs D&D Fifth Edition in Foundry.'
+    const TICK =
+      'Off. To let them, tick Allow Players to use Wild Shape from the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+
+    it.each([
+      [
+        'on',
+        {
+          wildShape: { enabled: true },
+          foundry: effectsFoundry('0.40.0', dnd5e('5.3.3')),
+        },
+        ON,
+      ],
+      [
+        'on under dnd5e 6',
+        {
+          wildShape: { enabled: true },
+          foundry: effectsFoundry('0.40.0', dnd5e('6.0.5')),
+        },
+        ON,
+      ],
+      [
+        'module 0.39.0, which has no switch',
+        { foundry: effectsFoundry('0.39.0', dnd5e('5.3.3')) },
+        UPDATE,
+      ],
+      [
+        'module 0.39.0 under another system, told to update first',
+        {
+          foundry: effectsFoundry('0.39.0', { id: 'pf2e', version: '6.0.0' }),
+        },
+        UPDATE,
+      ],
+      [
+        'module 0.40.0 under another system',
+        {
+          foundry: effectsFoundry('0.40.0', { id: 'pf2e', version: '6.0.0' }),
+        },
+        SYSTEM,
+      ],
+      [
+        'module 0.40.0 under dnd5e 5, its switch off',
+        {
+          wildShape: { enabled: false },
+          foundry: effectsFoundry('0.40.0', dnd5e('5.3.3')),
+        },
+        TICK,
+      ],
+      [
+        'a module that doesn’t say its version',
+        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+        { foundry: effectsFoundry(null, dnd5e('5.3.3')) },
+        TICK,
+      ],
+      ['given nothing of Wild Shape, nor of Foundry', {}, TICK],
+    ] as const)(
+      'says whether players use Wild Shape: %s',
+      (_, fields, text) => {
+        renderCard(fields as Partial<OwnedCampaign>)
+
+        expect(wildShapeTexts()).toEqual([text])
+        // After the players' effects, before the Foundry settings, with a paw.
+        const section = screen.getByRole('heading', { name: 'Wild Shape' })
+          .parentElement as HTMLElement
+        expect(section.previousElementSibling).toBe(
+          screen.getByRole('heading', { name: "Players' effects" })
+            .parentElement,
+        )
         expect(section.nextElementSibling?.tagName).toBe('DETAILS')
         expect(section.querySelector('svg')).toHaveAttribute(
           'aria-hidden',

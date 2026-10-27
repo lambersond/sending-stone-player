@@ -7,6 +7,7 @@ import {
   characterSheet,
   fullerSheet,
   movingPartyView,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character, TableSeat } from '@/types/character'
@@ -371,6 +372,33 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
         },
       },
     ])
+  })
+
+  it('offers nothing to take into a character while it’s transformed, as by Wild Shape, and again once it’s itself (round 0.40.0 §5.9)', async () => {
+    const user = userEvent.setup()
+    const shaped: TableView = {
+      ...view([company]),
+      sheet: toTableSheet(
+        characterSheet({ form: wolfForm() }),
+        'https://my-game.forge-vtt.com',
+      ),
+    }
+    const { showing } = renderTable(shaped)
+
+    await openParty(user, 'The Company')
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    // The stash is drawn, with nothing to take from it into the Wolf.
+    await within(panel).findAllByText('Rope')
+    expect(
+      within(panel).queryByRole('button', { name: 'Take Rope' }),
+    ).toBeNull()
+
+    showing(view([company]))
+    expect(
+      await within(
+        screen.getByRole('dialog', { name: 'The Company' }),
+      ).findByRole('button', { name: 'Take Rope' }),
+    ).toBeVisible()
   })
 
   it("offers a character not in the campaign's roster no party sheet to take from", () => {

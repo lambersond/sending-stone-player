@@ -11,6 +11,7 @@ import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
 import { InventoryTab, ItemEntry } from './inventory-tab'
 import { SheetFact } from './sheet-fact'
+import { useWildShape, WildShaping } from './wild-shape'
 import { Modal } from '@/components/modal'
 import {
   Transferring,
@@ -19,13 +20,18 @@ import {
 import {
   castingSheet,
   characterSheet,
+  druidSheet,
   fullerSheet,
   offeringFavorites,
+  shapedSheet,
   sheetItem,
   TEXTS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet, SheetInventory } from '@/types/sending-stone'
+import type { TableSheet } from '@/types/table'
+import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
@@ -1193,5 +1199,88 @@ describe('components/character-sheet/inventory-tab, favorites, from module 0.37.
         op: 'add',
       },
     ])
+  })
+})
+
+describe('components/character-sheet/inventory-tab, Wild Shape, from module 0.40.0', () => {
+  /** Elowen's Wild Shape, as her own pane gives it to the tab inside, at the seat given. */
+  function Shaping({
+    sheet,
+    role = 'player',
+    effects = true,
+    children,
+  }: Readonly<{
+    sheet: TableSheet
+    role?: SeatRole
+    effects?: boolean
+    children: ReactNode
+  }>) {
+    const value = useWildShape({
+      on: role === 'player',
+      pane: true,
+      role,
+      name: 'Elowen',
+      sheet,
+      characterId: 'char-1',
+      effects,
+      states: new Map(),
+      send: () => 'use-1',
+      read: () => new Promise(() => {}),
+      panel: () => document.querySelector<HTMLElement>('#sheet-panel'),
+    })
+    return <WildShaping value={value}>{children}</WildShaping>
+  }
+  const renderShaped = (
+    sheet: CharacterSheet = shapedSheet(),
+    role: SeatRole = 'player',
+  ) => {
+    const table = toTableSheet(sheet, 'https://my-game.forge-vtt.com')
+    return render(
+      <Shaping sheet={table} role={role}>
+        <InventoryTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={table}
+        />
+      </Shaping>,
+    )
+  }
+
+  it('says first, while shaped, that Elowen’s own gear comes back to this tab', () => {
+    const { container } = renderShaped()
+
+    const note = screen.getByText(
+      'Elowen’s own gear is back on this tab when Wild Shape ends.',
+    )
+    expect((container.firstElementChild as HTMLElement).firstElementChild).toBe(
+      note,
+    )
+  })
+
+  it('says nothing of Wild Shape ending for another transformation, such as a Polymorph (round 0.40.0 review)', () => {
+    renderShaped(
+      shapedSheet({
+        form: wolfForm({
+          kind: 'other',
+          name: 'Giant Ape',
+          hours: null,
+          minutesLeft: null,
+          profile: null,
+        }),
+      }),
+    )
+
+    expect(screen.queryByText(/back on this tab/)).toBeNull()
+    expect(screen.queryByText(/when Wild Shape ends/)).toBeNull()
+  })
+
+  it('says nothing of it unshaped, nor at the Gamemaster’s page', () => {
+    const { unmount } = renderShaped(druidSheet())
+    expect(screen.queryByText(/back on this tab/)).toBeNull()
+    unmount()
+
+    renderShaped(shapedSheet(), 'gm')
+    expect(screen.queryByText(/back on this tab/)).toBeNull()
   })
 })
