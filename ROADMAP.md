@@ -42,18 +42,13 @@ Patch releases (0.40.x) are expected as beta use turns up things to tweak.
    Elven Accuracy's third d20 too, perhaps found from the character's effects. Rerolls stay at the
    table: the die typed in is the one kept after any reroll, such as Great Weapon Fighting's or a
    Halfling's reroll of a 1.
-2. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
-   to poll constantly.
 
-Open question:
-- Polling: nothing polls while Foundry is closed, since Foundry does the asking, so the case to
-  handle is Foundry open with nobody in the app. Foundry must still pick up notes made offline as
-  it connects.
-
-## v0.43
+## v0.43 (release candidate)
 
 1. Refactor existing code to best practices.
 2. **Supported versions:** a breakdown of which module versions each app version supports.
+
+v0.43 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
 
 Open question:
 - The refactor: write down what it should fix first, and go area by area, with the test harness and
@@ -61,7 +56,8 @@ Open question:
 
 ## v1.0
 
-The major release of the app and the module, once v0.43 holds up, before work starts on v1.x.
+The major release of the app and the module, once the v0.43 release candidate holds up, before
+work starts on v1.x.
 
 The module keeps its id, `sending-stone`, though its title changed in v0.37: Foundry keeps the
 campaigns, their secrets and every flag under it, and installs follow its manifest URL.
@@ -80,7 +76,11 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 6. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
    cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
    concentration.
-7. Bug fixes and polish.
+7. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
+   to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
+   case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
+   offline as it connects.
+8. Bug fixes and polish.
 
 ## v2.0
 
