@@ -55,7 +55,10 @@ Open questions:
    actual hit points (off by default, as it gives information away).
 3. **Summon activities** used from the app.
 4. **Favorites reordered** from the app.
-5. Bug fixes and polish.
+5. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
+   campaign's compendiums, such as another compendium or a world actor, used from the app too,
+   where its player could use it in Foundry.
+6. Bug fixes and polish.
 
 ## v2.0
 
@@ -63,6 +66,7 @@ Open questions:
    typed dice, removing items and party sheets. A known gap: the Gamemaster's "ask the table" save
    and check cards aren't read under dnd5e 6. If dnd5e 6 becomes the stable release sooner, this
    may move up.
+2. **Dishes under dnd5e 6:** the Magical Recipe Book's dishes, which need dnd5e 5 for now.
 
 ## Known limits
 
@@ -85,7 +89,7 @@ Open questions:
   Foundry (reordering from the app is planned for v1.x).
 - Skills, tools and spell slots are made favorites in Foundry, with no plan to change that unless
   it's asked for.
-- Dishes from the Magical Recipe Book need dnd5e 5 for now.
+- Dishes from the Magical Recipe Book need dnd5e 5 for now (dnd5e 6 is planned for v2.0).
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.
 - Players change only the effects their party put on their own character and their items' temporary
@@ -97,7 +101,7 @@ Open questions:
   it's asked for.
 - A party sheet has no Report a bug or Request a feature link. Kept as is unless it's asked for.
 - Only the 2024 Wild Shape is used from the app: a 2014 druid's Wild Shape is used in Foundry, and
-  the app follows the form.
+  the app follows the form. Kept as is.
 - Effects gained or ended in Wild Shape, other than conditions and concentration, aren't carried
   back: dnd5e's return keeps the character's own effects as they were at the change, so a Bless
   cast on the wolf ends with the form. Conditions gained in form are put on the character, and
@@ -110,4 +114,4 @@ Open questions:
   app, which spends the use itself.
 - A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
   outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
-  Polymorphing and the source's permissions apply.
+  Polymorphing and the source's permissions apply (from outside the compendiums: planned for v1.x).
