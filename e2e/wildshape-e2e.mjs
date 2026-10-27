@@ -889,10 +889,10 @@ part('12. 0 hit points')
   check(post.status === 422 && post.json?.reason === 'incapacitated', `a crafted transform: ${post.status} ${post.json?.reason} (before consume, though no use is left)`)
   await ended(desk).getByRole('button', { name: 'Dismiss' }).click()
   await ended(phone).getByRole('button', { name: 'Dismiss' }).click()
-  // Healed in Foundry, for what follows; and the page past its wait for the Panther's sheet
-  // (WILD_SHAPE_SETTLE, 10 s), which this ending came within, as a player's next step would be.
+  // Healed in Foundry, for what follows. The replacement comes at once, with no wait: this ending came
+  // within the Panther's settle (WILD_SHAPE_SETTLE, 10 s), and a change the game has ended since no
+  // longer holds the page's next step.
   await elowen.update({ 'system.attributes.hp.value': 38 })
-  await wait(10_000)
 }
 
 // =================================================================================================
@@ -973,8 +973,8 @@ part('22. deleted by hand')
   check(said === 'Wild Shape was ended in Foundry. Elowen is no longer a Black Bear.' && same(bothTokens(), ['elowen', 'elowen']) && elowen.system.attributes.hp.value === 25,
     `"Elowen (Black Bear)" deleted from the sidebar: within a poll her own sheet, the banner "${said}", both tokens hers, her hit points the form's (${elowen.system.attributes.hp.value})`)
   await ended(desk).getByRole('button', { name: 'Dismiss' }).click()
-  // The page past its wait for the Black Bear's sheet (WILD_SHAPE_SETTLE), which this came within.
-  await wait(10_000)
+  // Step 21's Return follows at once, with no wait, though this deletion came within the Black Bear's
+  // settle (WILD_SHAPE_SETTLE, 10 s).
 }
 
 // =================================================================================================
