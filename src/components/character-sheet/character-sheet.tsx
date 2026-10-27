@@ -16,16 +16,31 @@ import {
   isShowingDeathSaves,
   Portrait,
   Stat,
+  StatTag,
   WalkingSpeed,
 } from './sheet-tiles'
 import { useCharging } from './uses-button'
-import { CreatureHeader } from '@/components/companions/creature-header'
+import {
+  CreatureHeader,
+  otherSpeeds,
+} from '@/components/companions/creature-header'
 import { ConfirmModal } from '@/components/modal'
 import { useSheetId } from '@/hooks/use-sheet-ids'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
+import { articled } from '@/utils/wild-shape'
+import {
+  formLineOf,
+  legendWords,
+  skillsNoteWords,
+} from '@/utils/wild-shape-words'
 import type { SheetFormulaRoll, SheetRoll } from '@/hooks/use-sheet-roller'
-import type { RollMode, SheetAbility, SheetSkill } from '@/types/sending-stone'
+import type {
+  RollMode,
+  SheetAbility,
+  SheetForm,
+  SheetSkill,
+} from '@/types/sending-stone'
 import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
 
 type Props = {
@@ -83,6 +98,12 @@ export function CharacterSheet({
   const abilitiesId = useSheetId('abilities-heading')
   const skillsId = useSheetId('skills-heading')
   const traitsId = useSheetId('traits-heading')
+  // What the character is transformed into, from module 0.40.0, whose numbers some of these are:
+  // never at a creature's pane.
+  const form = creature ? undefined : sheet.form
+  const beast = form?.beast
+  const marked =
+    !!beast && (beast.abilities.length > 0 || beast.saves.length > 0)
 
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
@@ -111,9 +132,29 @@ export function CharacterSheet({
 
       <section aria-labelledby={abilitiesId} className='flex flex-col gap-3'>
         <SheetHeading id={abilitiesId}>Abilities</SheetHeading>
+        {form && marked && (
+          <p className='-mt-1 flex items-center gap-1.5 px-1 text-xs text-text-secondary'>
+            <span
+              aria-hidden
+              className='size-3 shrink-0 rounded-[3px] border border-wild/45 bg-wild-bg'
+            />
+            {legendWords(form.name, name)}
+          </p>
+        )}
         <ul className='grid grid-cols-3 gap-2 @xl:grid-cols-6'>
           {sheet.abilities.map(ability => (
-            <AbilityTile key={ability.id} ability={ability} {...actions} />
+            <AbilityTile
+              key={ability.id}
+              ability={ability}
+              {...actions}
+              {...(form && {
+                beast: {
+                  form: form.name,
+                  check: !!beast?.abilities.includes(ability.id),
+                  save: !!beast?.saves.includes(ability.id),
+                },
+              })}
+            />
           ))}
         </ul>
       </section>
@@ -133,9 +174,16 @@ export function CharacterSheet({
                 skill={skill}
                 ability={abbreviation(skill.ability)}
                 {...actions}
+                {...(form &&
+                  beast?.skills.includes(skill.id) && { beast: form.name })}
               />
             ))}
           </ul>
+          {form && (
+            <p className='px-1 text-xs text-text-secondary'>
+              {skillsNoteWords(form.name, name)}
+            </p>
+          )}
         </section>
       )}
 
@@ -188,12 +236,29 @@ function SheetHeader({
   const identity = [sheet.species, sheet.background].filter(Boolean)
   const pools = hitDicePools(sheet.classes)
   const dying = isShowingDeathSaves(sheet)
+  // What the character is transformed into, from module 0.40.0: its name heads the header, the
+  // form's size, CR and senses in the class line's place, as it keeps its own creature type.
+  const { form } = sheet
+  const senses = sheet.traits.find(({ id }) => id === 'senses')?.values ?? []
   return (
     <header className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'>
       <div className='flex items-center gap-4'>
         <Portrait name={name} src={sheet.portrait} />
         <div className='min-w-0'>
-          <p className='font-semibold'>{classLine(sheet)}</p>
+          {form && (
+            <h2
+              tabIndex={-1}
+              className='text-lg leading-tight font-semibold outline-none'
+            >
+              {name}
+              <span className='font-medium text-text-secondary'>
+                {` as ${articled(form.name)}`}
+              </span>
+            </h2>
+          )}
+          <p className='font-semibold'>
+            {form ? formLineOf(form, senses) : classLine(sheet)}
+          </p>
           {identity.length > 0 && (
             <p className='text-sm text-text-secondary'>
               {identity.join(' · ')}
@@ -235,7 +300,7 @@ function SheetHeader({
         )}
         <DeathSavesStat sheet={sheet} actions={actions} />
         {sheet.ac !== null && (
-          <Stat label='Armor class' short='AC'>
+          <Stat label='Armor class' short='AC' tag={acTag(form)}>
             <span className='inline-flex items-center gap-1'>
               <Shield aria-hidden className='size-4 text-text-secondary' />
               {sheet.ac}
@@ -253,11 +318,22 @@ function SheetHeader({
             combatId={combatId}
             follows={follows}
             actions={actions}
+            tag={form?.name}
           />
         )}
         {sheet.speed && (
-          <Stat label='Speed'>
+          <Stat label='Speed' tag={form?.name}>
             <WalkingSpeed speed={sheet.speed} />
+            {/* A form's every speed, as a creature's header shows them. */}
+            {form &&
+              otherSpeeds(sheet).map(speed => (
+                <span
+                  key={speed}
+                  className='block text-xs font-semibold text-text-secondary'
+                >
+                  {speed}
+                </span>
+              ))}
           </Stat>
         )}
       </dl>
@@ -333,11 +409,28 @@ function AbilityTile({
   ability,
   onRoll,
   onMenu,
-}: Readonly<{ ability: SheetAbility } & RollActions>) {
+  beast,
+}: Readonly<
+  {
+    ability: SheetAbility
+    /**
+     * On a shaped sheet, from module 0.40.0, which half of it is the form's: its check, its score
+     * the beast's, and its save, the beast's bonus above the character's own.
+     */
+    beast?: { form: string; check: boolean; save: boolean }
+  } & RollActions
+>) {
   const { label, abbreviation, score, check, save, saveProficient } = ability
   const SaveIcon = saveProficient ? ShieldCheck : Shield
+  const whose = (marked?: boolean) =>
+    marked && beast ? `, the ${beast.form}’s` : ''
   return (
-    <li className='flex flex-col overflow-hidden rounded-2xl border border-border bg-card'>
+    <li
+      className={clsx(
+        'flex flex-col overflow-hidden rounded-2xl border bg-card',
+        beast?.check || beast?.save ? 'border-wild/45' : 'border-border',
+      )}
+    >
       <RollButton
         target={{
           label: `${label} check`,
@@ -347,10 +440,18 @@ function AbilityTile({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${label} check, ${formatModifier(check)}${modeText(ability.checkMode)}`}
-        className='flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
+        label={`${label} check, ${formatModifier(check)}${modeText(ability.checkMode)}${whose(beast?.check)}`}
+        className={clsx(
+          'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
+          beast?.check && 'bg-wild-bg/55',
+        )}
       >
-        <span className='text-xs font-semibold tracking-wider text-text-secondary uppercase'>
+        <span
+          className={clsx(
+            'text-xs font-semibold tracking-wider uppercase',
+            beast?.check ? 'text-wild' : 'text-text-secondary',
+          )}
+        >
           {abbreviation}
         </span>
         <span className='text-2xl leading-none font-bold tabular-nums'>
@@ -374,8 +475,11 @@ function AbilityTile({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${label} saving throw, ${formatModifier(save)}${saveProficient ? ', proficient' : ''}${modeText(ability.saveMode)}`}
-        className='flex items-center justify-center gap-1 border-t border-border py-1.5 text-xs transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
+        label={`${label} saving throw, ${formatModifier(save)}${saveProficient ? ', proficient' : ''}${modeText(ability.saveMode)}${whose(beast?.save)}`}
+        className={clsx(
+          'flex items-center justify-center gap-1 border-t border-border py-1.5 text-xs transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
+          beast?.save && 'bg-wild-bg/55',
+        )}
       >
         <SaveIcon
           aria-hidden
@@ -406,7 +510,15 @@ function SkillRow({
   ability,
   onRoll,
   onMenu,
-}: Readonly<{ skill: SheetSkill; ability: string } & RollActions>) {
+  beast,
+}: Readonly<
+  {
+    skill: SheetSkill
+    ability: string
+    /** On a shaped sheet, from module 0.40.0, the form's name, where the bonus is the form's. */
+    beast?: string
+  } & RollActions
+>) {
   const favorite = useFavorite(`skill:${skill.id}`)
   const proficiency = PROFICIENCY[String(skill.proficiency)]
   const details = [
@@ -424,7 +536,7 @@ function SkillRow({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}${favorite ? ', favorite' : ''}`}
+        label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}${beast ? `, the ${beast}’s` : ''}${favorite ? ', favorite' : ''}`}
         className='flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
       >
         <ProficiencyMark value={skill.proficiency} />
@@ -433,6 +545,7 @@ function SkillRow({
         </span>
         <span className='flex min-w-0 flex-1 items-center gap-1'>
           <span className='truncate font-medium'>{skill.label}</span>
+          {beast && <StatTag>{`${beast}’s`}</StatTag>}
           {favorite && (
             <Star aria-hidden className='size-3 shrink-0 fill-gold text-gold' />
           )}
@@ -489,6 +602,15 @@ export function modeText(mode: RollMode): string {
   if (mode > 0) return ', with advantage'
   if (mode < 0) return ', with disadvantage'
   return ''
+}
+
+/**
+ * Whose the Armor class is on a shaped sheet (module 0.40.0): the form's, or the Circle of the
+ * Moon's where its floor is the AC.
+ */
+function acTag(form?: SheetForm): string | undefined {
+  if (!form) return undefined
+  return form.flooredAc ? 'Circle of the Moon' : form.name
 }
 
 /** Such as "Fighter 4 / Rogue 1 · Champion", or the level alone. */

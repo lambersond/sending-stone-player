@@ -261,9 +261,10 @@ if (SKEW038) {
 part('1. the hello and the answer')
 {
   const features = hello().data.features
+  // Changed on purpose (round 0.40.0 §10.4): Wild Shape follows effects.
   check(same(features.effects, { enabled: true, kinds: ['effect'], reason: null })
-    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects']),
-  `the hello takes effects, by the campaign's switch, its key last, after dishes (${JSON.stringify({ effects: features.effects, keys: Object.keys(features) })})`)
+    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape']),
+  `the hello takes effects, by the campaign's switch, after dishes, before Wild Shape (${JSON.stringify({ effects: features.effects, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.effects === 1, `the app answers effects: 1 (${hello().body})`)
   await until(() => effectsEnabled() === 't', 'the app to keep effects on', 15_000)
   check(effectsEnabled() === 't', 'the campaign row keeps effectsEnabled on')

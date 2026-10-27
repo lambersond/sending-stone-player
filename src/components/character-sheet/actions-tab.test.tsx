@@ -13,17 +13,21 @@ import { ActionsTab } from './actions-tab'
 import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
 import { LONG_PRESS } from './roll-button'
+import { useWildShape, WildShaping } from './wild-shape'
 import { SheetIdPrefix } from '@/hooks/use-sheet-ids'
 import { fireBreath, lightningBreath, spiritSheet } from '@/mocks/alone'
 import {
   castingSheet,
   characterSheet,
+  druidSheet,
   fullerSheet,
   offeringFavorites,
+  shapedSheet,
   sheetAction,
   sheetSpell,
   TEXTS,
   WAND_LEVELS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Layout } from './actions-layout'
@@ -34,6 +38,9 @@ import type {
   SheetActivity,
   SheetSpell,
 } from '@/types/sending-stone'
+import type { TableSheet } from '@/types/table'
+import type { SeatRole } from '@/utils/seat-words'
+import type { ReactNode } from 'react'
 
 const GAME = 'https://my-game.forge-vtt.com'
 
@@ -3146,5 +3153,123 @@ describe('components/character-sheet/actions-tab, favorites, from module 0.37.0'
     expect(part?.className).not.toMatch(UNSELECTED)
     expect(fireEvent.contextMenu(part!, { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('components/character-sheet/actions-tab, Wild Shape, from module 0.40.0', () => {
+  /** Elowen's Wild Shape, as her own pane gives it to the tab inside, at the seat given. */
+  function Shaping({
+    sheet,
+    role = 'player',
+    children,
+  }: Readonly<{ sheet: TableSheet; role?: SeatRole; children: ReactNode }>) {
+    const value = useWildShape({
+      on: role === 'player',
+      pane: true,
+      role,
+      name: 'Elowen',
+      sheet,
+      characterId: 'char-1',
+      effects: true,
+      states: new Map(),
+      send: () => 'use-1',
+      read: () => new Promise(() => {}),
+      panel: () => document.querySelector<HTMLElement>('#sheet-panel'),
+    })
+    return <WildShaping value={value}>{children}</WildShaping>
+  }
+  const renderShaped = (
+    sheet: CharacterSheet = shapedSheet(),
+    { layout, role }: { layout?: Layout; role?: SeatRole } = {},
+  ) => {
+    const table = toTableSheet(sheet, GAME)
+    return render(
+      <Shaping sheet={table} role={role}>
+        <ActionsTab
+          characterId='char-1'
+          sheet={table}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          layout={layout}
+        />
+      </Shaping>,
+    )
+  }
+  const NOTE =
+    'Elowen’s gear isn’t on this sheet. In the game it falls, merges into the Wolf, or is worn where your Gamemaster says a Wolf can wear it; what a Wolf can hold depends on its shape. A spell Elowen is concentrating on goes on.'
+
+  it('says first, while shaped, where Elowen’s gear is, and that her concentration goes on', () => {
+    const { container } = renderShaped()
+
+    const note = screen.getByText(NOTE)
+    expect(note).toBeVisible()
+    expect((container.firstElementChild as HTMLElement).firstElementChild).toBe(
+      note,
+    )
+    // The form's own actions, as the sheet sends them.
+    expect(
+      screen.getByRole('button', { name: /^Bite/, expanded: false }),
+    ).toBeVisible()
+  })
+
+  it('offers Return and Change at the end of the Wild Shape row, its line under it, in a list and in a table', () => {
+    const { unmount } = renderShaped()
+    const row = screen
+      .getAllByText('Wild Shape')
+      .map(each => each.closest('li'))
+      .find(Boolean) as HTMLElement
+    expect(within(row).getByRole('button', { name: 'Return' })).toBeVisible()
+    expect(within(row).getByRole('button', { name: 'Change' })).toBeVisible()
+    expect(row).toHaveTextContent(
+      'Elowen is a Wolf. Returning takes a Bonus Action.',
+    )
+    unmount()
+
+    renderShaped(shapedSheet(), { layout: 'table' })
+    const cells = (
+      screen
+        .getAllByText('Wild Shape')
+        .map(each => each.closest('tr'))
+        .find(Boolean) as HTMLElement
+    ).querySelectorAll('td')
+    expect(cells[0]).toHaveTextContent(
+      'Elowen is a Wolf. Returning takes a Bonus Action.',
+    )
+    const uses = cells.item(cells.length - 1)
+    expect(within(uses).getByRole('button', { name: 'Return' })).toBeVisible()
+    expect(within(uses).getByRole('button', { name: 'Change' })).toBeVisible()
+  })
+
+  it('says nothing of Wild Shape’s gear for another transformation, such as a Polymorph (round 0.40.0 review)', () => {
+    renderShaped(
+      shapedSheet({
+        form: wolfForm({
+          kind: 'other',
+          name: 'Giant Ape',
+          hours: null,
+          minutesLeft: null,
+          profile: null,
+        }),
+      }),
+    )
+
+    expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
+    expect(screen.queryByText(/merges into/)).toBeNull()
+    // Its sheet's own actions, as for any form.
+    expect(
+      screen.getByRole('button', { name: /^Bite/, expanded: false }),
+    ).toBeVisible()
+  })
+
+  it('says nothing of it unshaped, nor at the Gamemaster’s page, which has no controls', () => {
+    const { unmount } = renderShaped(druidSheet())
+    expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Change' })).toBeVisible()
+    unmount()
+
+    renderShaped(shapedSheet(), { role: 'gm' })
+    expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Return' })).toBeNull()
   })
 })

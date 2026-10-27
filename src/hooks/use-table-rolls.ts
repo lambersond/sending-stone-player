@@ -1,7 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MAX_ROLL_LABEL, type EffectOp } from '@/constants/sending-stone'
+import {
+  MAX_ROLL_LABEL,
+  type EffectOp,
+  type WildShapeOp,
+} from '@/constants/sending-stone'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableApi, useTableRole } from '@/hooks/use-table-api'
 import {
@@ -46,11 +50,14 @@ import type {
   TextLink,
   TransferInput,
   UseSource,
+  WildShapeInput,
 } from '@/types/roll'
 import type {
+  BeastEntry,
   DamagePreview,
   EffectChange,
   SheetEffect,
+  WildShapeOutcome,
 } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
@@ -115,7 +122,7 @@ export type AttackSource = { item: string; activity: string }
  */
 export type TableRollState = Omit<
   RollRequestView,
-  'id' | 'status' | 'effect'
+  'id' | 'status' | 'effect' | 'wildShape'
 > & {
   status: RollStatus | 'refused'
   /** Its id at the table, once the app has taken it. */
@@ -181,7 +188,26 @@ export type TableRollState = Omit<
    * what was asked, which the line is worded by.
    */
   changed?: EffectChange
+  /** Wild Shape from here (module 0.40.0): which op was asked. */
+  wildShape?: WildShapeOp
+  /**
+   * What the game made of it, once made (the view's `wildShape`): the form taken or left, or the
+   * Beast learned, kept apart from what was asked, as an effect's is.
+   */
+  wildShaped?: WildShapeOutcome
 }
+
+/**
+ * The Beasts the druid may learn, as the game lists them (module 0.40.0): those it sent, whether
+ * there are more than it sent, and the rules they were chosen by; or why it didn't list them.
+ */
+export type WildShapeForms =
+  | {
+      forms: BeastEntry[]
+      more: boolean
+      limits: { count: number; cr: number; fly: boolean }
+    }
+  | { reason: string }
 
 /** An attack or a use made at the table whose damage is still to roll there. */
 export type DueDamage = {
@@ -665,6 +691,55 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * Use Wild Shape from here, from module 0.40.0: a change into a known form, a return, or a Beast
+   * learned. No switch of this device's holds it back, as with an effect: it throws no dice, and
+   * has no version made here instead.
+   */
+  const sendWildShape = useCallback(
+    (logged: LocalUse, wildShape: Exclude<WildShapeInput, { op: 'forms' }>) => {
+      if (!logged.wildShape) return
+      start(
+        logged.id,
+        { kind: 'wildShape', wildShape, ...PLAIN, label: 'Wild Shape' },
+        { wildShape: wildShape.op },
+        logged.label,
+      )
+    },
+    [start],
+  )
+
+  /**
+   * The Beasts the druid may learn, from module 0.40.0, as the game lists them now: asked and
+   * followed as any request is, but apart from the rolls, logging nothing and drawing no line in
+   * the tray. Given up on as the page is left.
+   */
+  const readWildShapeForms = useCallback(async (): Promise<WildShapeForms> => {
+    const controller = new AbortController()
+    running.current.add(controller)
+    let last: TableRollState = { status: 'sending' }
+    try {
+      await follow(
+        latest.current.api,
+        { kind: 'wildShape', wildShape: { op: 'forms' }, ...PLAIN },
+        controller.signal,
+        state => {
+          last = state
+        },
+        () => {},
+      )
+    } finally {
+      running.current.delete(controller)
+    }
+    const listed = last.wildShaped
+    if (last.status === 'done' && listed?.op === 'forms') {
+      return { forms: listed.forms, more: listed.more, limits: listed.limits }
+    }
+    return {
+      reason: last.reason ?? (last.status === 'done' ? 'error' : last.status),
+    }
+  }, [])
+
   const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
     const { kinds, on } = latest.current
     if (!on || !kinds.includes('ask')) return
@@ -742,6 +817,8 @@ export function useTableRolls(
     sendRemove,
     sendFavorite,
     sendEffect,
+    sendWildShape,
+    readWildShapeForms,
     sendAsk,
     sendRecharge,
     offerDamage,
@@ -1094,10 +1171,19 @@ export async function follow(
       // A roll this page can't see any more, such as once signed out, is given up on.
       if (response.status === 401 || response.status === 404) break
       if (response.ok) {
-        // What became of an effect (module 0.39.0) is kept apart from the effect asked for.
-        const { effect: changed, ...view } =
-          (await response.json()) as RollRequestView
-        update({ ...view, ...(changed && { changed }), requestId: id })
+        // What became of an effect (module 0.39.0), or of Wild Shape (module 0.40.0), is kept
+        // apart from what was asked.
+        const {
+          effect: changed,
+          wildShape: wildShaped,
+          ...view
+        } = (await response.json()) as RollRequestView
+        update({
+          ...view,
+          ...(changed && { changed }),
+          ...(wildShaped && { wildShaped }),
+          requestId: id,
+        })
         // A roll that took too long may still be made, once the Gamemaster answers; but not hit
         // dice the game says it made some of before it stopped, as it does once it had to.
         if (

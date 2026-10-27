@@ -33,9 +33,10 @@ const MAX_ROLL_BYTES = 16_384
  * module 0.32.0, `&typed=1` where the view last seen had the player's typed dice on; from module
  * 0.33.0, `&removes=1` where the view last seen let the seat remove items; from module 0.37.0
  * `&favorites=1` where the view last seen let the seat change the character's favorites; from
- * module 0.39.0 `&effects=1` where it let the player change the character's own effects; and the
- * sheet's version as `&sheet=` to have an unchanged sheet left out. Without the favorites' and
- * effects' keys, a page answered 204 would keep offering them once its Gamemaster's Foundry stopped
+ * module 0.39.0 `&effects=1` where it let the player change the character's own effects; from
+ * module 0.40.0 `&wildshape=1` where it let the player use Wild Shape; and the sheet's version as
+ * `&sheet=` to have an unchanged sheet left out. Without the favorites', effects' and Wild Shape's
+ * keys, a page answered 204 would keep offering them once its Gamemaster's Foundry stopped
  * fetching, as nothing bumps the version then.
  */
 export async function tableResponse(
@@ -74,6 +75,7 @@ export async function tableResponse(
       removes,
       favorites,
       effects,
+      wildShape,
     } = await getCampaignStatus(seat)
     if (
       Number(known.get('version')) === version &&
@@ -85,7 +87,8 @@ export async function tableResponse(
       (known.get('typed') === '1') === typed &&
       (known.get('removes') === '1') === removes &&
       (known.get('favorites') === '1') === favorites &&
-      (known.get('effects') === '1') === effects
+      (known.get('effects') === '1') === effects &&
+      (known.get('wildshape') === '1') === wildShape
     ) {
       return new Response(undefined, { status: 204, headers })
     }

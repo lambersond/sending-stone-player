@@ -484,3 +484,44 @@ describe('utils/move-words, an item removed, from module 0.33.0', () => {
     )
   })
 })
+
+describe('utils/move-words, a transformed character, from module 0.40.0', () => {
+  const SHAPED =
+    'a transformed character can’t give or take until back in their own form'
+
+  it.each(['give', 'take', 'send', 'distribute'] as const)(
+    'says why a %s with a transformed end was refused, for either seat',
+    verb => {
+      expect(moveReasons('player', verb).shaped).toBe(SHAPED)
+      expect(moveReasons('gm', verb).shaped).toBe(SHAPED)
+    },
+  )
+
+  it('says it of a give whose giver or recipient is transformed', () => {
+    expect(
+      moveWords(give, state({ status: 'refused', reason: 'shaped' }), 'player'),
+    ).toBe(`Not given: ${SHAPED}`)
+    expect(
+      moveWords(take, state({ status: 'failed', reason: 'shaped' }), 'player'),
+    ).toBe(`Not taken: ${SHAPED}`)
+  })
+
+  it('leaves a removal to the roll’s words, which say it waits for the character’s own form', () => {
+    const remove: LocalMove = {
+      verb: 'remove',
+      things: '1 Rope',
+      other: 'Elowen',
+    }
+    expect(moveReasons('player', 'remove').shaped).toBeUndefined()
+    expect(
+      moveWords(
+        remove,
+        state({ status: 'refused', reason: 'shaped' }),
+        'player',
+        { shaped: 'that waits until your character is back in their own form' },
+      ),
+    ).toBe(
+      'Not removed: that waits until your character is back in their own form',
+    )
+  })
+})

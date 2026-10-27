@@ -34,6 +34,7 @@ import {
   type Viewer,
 } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
+import { wildShapeAvailable } from '@/utils/wild-shape'
 import type { SheetSeat } from '@/types/character'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type {
@@ -62,7 +63,8 @@ export const MESSAGE_LIMIT = 100
  * changes with no new version; and from module 0.37.0 whether the player may change its
  * character's favorites, which likewise changes with no new version; and from module 0.39.0
  * whether the player may change its character's own effects, which likewise changes with no new
- * version.
+ * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
+ * with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -76,6 +78,7 @@ export type CampaignStatus = {
   removes: boolean
   favorites: boolean
   effects: boolean
+  wildShape: boolean
 }
 
 /**
@@ -226,6 +229,7 @@ export async function getCampaignStatus(
       removes: false,
       favorites: false,
       effects: false,
+      wildShape: false,
     }
   }
   const now = Date.now()
@@ -239,6 +243,7 @@ export async function getCampaignStatus(
         ...rollsSelect,
         favoritesEnabled: true,
         effectsEnabled: true,
+        wildShapeEnabled: true,
       },
     }),
     gmRolls
@@ -277,6 +282,13 @@ export async function getCampaignStatus(
       !!seat.actorId &&
       !!campaign &&
       effectsAvailable(campaign, now),
+    // Whether the player may use Wild Shape, from module 0.40.0, by the campaign's switch: theirs
+    // alone, as effects.
+    wildShape:
+      seat.role === 'player' &&
+      !!seat.actorId &&
+      !!campaign &&
+      wildShapeAvailable(campaign, now),
   }
 }
 
@@ -318,6 +330,7 @@ export async function getTableView(
           ...rollsSelect,
           favoritesEnabled: true,
           effectsEnabled: true,
+          wildShapeEnabled: true,
         },
       })
     : undefined
@@ -459,6 +472,14 @@ export async function getTableView(
     seat.role === 'player' &&
     !!seat.actorId &&
     effectsAvailable(campaign, now)
+  // Whether the player may use Wild Shape, from module 0.40.0, by the campaign's switch: theirs
+  // alone, at their own seat, as effects. What the character is, and what Wild Shape gives, are on
+  // its sheet.
+  const wildShape =
+    connected &&
+    seat.role === 'player' &&
+    !!seat.actorId &&
+    wildShapeAvailable(campaign, now)
   return {
     version: campaign.version,
     live: isLive(campaign.lastSeenAt),
@@ -504,6 +525,7 @@ export async function getTableView(
     ...(removes && { removes: true as const }),
     ...(favorites && { favorites: true as const }),
     ...(effects && { effects: true as const }),
+    ...(wildShape && { wildShape: true as const }),
     // Whether the player may type in their own dice follows what the game said last, stored,
     // never whether it polled lately, so a gap in polling never changes how they roll.
     ...(seat.role === 'player' && {

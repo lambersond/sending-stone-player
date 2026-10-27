@@ -2,8 +2,13 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
-import { mockCompanionView, mockTurnCombat } from '@/mocks/sending-stone'
+import {
+  mockCompanionView,
+  mockTurnCombat,
+  shapedSheet,
+} from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
+import { toTableSheet } from '@/utils/table-view'
 import type { Character, TableSeat } from '@/types/character'
 import type { RollKind } from '@/types/roll'
 import type { TableCombat, TableCompanion, TableView } from '@/types/table'
@@ -516,6 +521,27 @@ describe('components/game-table/game-table, End Turn', () => {
     pointer(tab, 'pointerup')
     fireEvent.click(tab, { detail: 1 })
     onTab('Character')
+  })
+
+  it('ends the turn of the form the character is in, its combatant the seat’s character, from module 0.40.0', async () => {
+    const combat = mockTurnCombat()
+    renderTable(
+      view({
+        sheet: toTableSheet(shapedSheet(), 'https://my-game.forge-vtt.com'),
+        // The wolf's token's combatant, as the module says it is the character's.
+        combat: {
+          ...combat,
+          combatants: combat.combatants.map(combatant =>
+            combatant.id === 'c-thorin'
+              ? { ...combatant, name: 'Thorin (Wolf)' }
+              : combatant,
+          ),
+        },
+      }),
+    )
+    await endByButton()
+
+    expect(endTurns()).toEqual([expect.objectContaining({ turn: THORINS })])
   })
 
   it('offers no hold on a turn that isn’t the seat’s: no fill, no toast, no description', async () => {

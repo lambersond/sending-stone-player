@@ -79,6 +79,8 @@ const listed = async (fields: object) => {
       dishesEnabled: false,
       // Changed on purpose (round 0.39.0 §1.10): from module 0.39.0.
       effectsEnabled: false,
+      // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0.
+      wildShapeEnabled: false,
       players: [],
       ...fields,
     },
@@ -158,6 +160,8 @@ describe('db/campaigns', () => {
           dishesEnabled: false,
           // Changed on purpose (round 0.39.0 §1.10): from module 0.39.0.
           effectsEnabled: true,
+          // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0.
+          wildShapeEnabled: true,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -180,6 +184,7 @@ describe('db/campaigns', () => {
           transfersEnabled: true,
           dishesEnabled: false,
           effectsEnabled: false,
+          wildShapeEnabled: false,
           players: [],
         },
       ] as any)
@@ -208,6 +213,8 @@ describe('db/campaigns', () => {
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           // Changed on purpose (round 0.39.0 §1.10): its players may change their own effects.
           effects: { enabled: true },
+          // Changed on purpose (round 0.40.0 §10.3): its players may use Wild Shape.
+          wildShape: { enabled: true },
           characters: [
             {
               id: 'actor-thorin',
@@ -251,6 +258,7 @@ describe('db/campaigns', () => {
           transfers: { enabled: true, reaching: false },
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           effects: { enabled: false },
+          wildShape: { enabled: false },
           characters: [],
           groups: [],
         },
@@ -346,6 +354,17 @@ describe('db/campaigns', () => {
           select: expect.objectContaining({ companions: true }),
         }),
       )
+    })
+
+    it('says whether the campaign lets its players use Wild Shape, from module 0.40.0, as its hello said', async () => {
+      await expect(listed({ wildShapeEnabled: true })).resolves.toMatchObject({
+        wildShape: { enabled: true },
+      })
+      await expect(listed({})).resolves.toMatchObject({
+        wildShape: { enabled: false },
+      })
+      const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
+      expect(select).toMatchObject({ wildShapeEnabled: true })
     })
 
     it("says whether the campaign lets its players change their own effects, from module 0.39.0, as its hello said, and draws no player's picture", async () => {

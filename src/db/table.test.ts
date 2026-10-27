@@ -12,6 +12,9 @@ import {
   mockSummonedEntry,
   PARTY,
   roster,
+  shapedSheet,
+  wildShapeBlock,
+  wolfForm,
 } from '@/mocks/sending-stone'
 
 /** Thorin's player at his sheet. */
@@ -62,6 +65,8 @@ describe('db/table', () => {
         favorites: false,
         // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
         effects: false,
+        // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
+        wildShape: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -79,6 +84,9 @@ describe('db/table', () => {
           // Changed on purpose (round 0.39.0 §1.10): whether the campaign lets its players change
           // their effects.
           effectsEnabled: true,
+          // Changed on purpose (round 0.40.0 §10.3): whether the campaign lets its players use Wild
+          // Shape.
+          wildShapeEnabled: true,
         },
       })
     })
@@ -101,6 +109,8 @@ describe('db/table', () => {
         favorites: false,
         // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
         effects: false,
+        // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
+        wildShape: false,
       })
     })
 
@@ -119,6 +129,8 @@ describe('db/table', () => {
         favorites: false,
         // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
         effects: false,
+        // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
+        wildShape: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -135,6 +147,8 @@ describe('db/table', () => {
         favorites: false,
         // Changed on purpose (round 0.39.0 §1.10): whether the player may change its effects.
         effects: false,
+        // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
+        wildShape: false,
       })
     })
 
@@ -218,6 +232,9 @@ describe('db/table', () => {
           // Changed on purpose (round 0.39.0 §1.10): whether the campaign lets its players change
           // their effects.
           effectsEnabled: true,
+          // Changed on purpose (round 0.40.0 §10.3): whether the campaign lets its players use Wild
+          // Shape.
+          wildShapeEnabled: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -701,6 +718,8 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       favorites: false,
       // Changed on purpose (round 0.39.0 §1.10): never the Gamemaster's either.
       effects: false,
+      // Changed on purpose (round 0.40.0 §10.3): nor Wild Shape.
+      wildShape: false,
     })
   })
 
@@ -1763,6 +1782,112 @@ describe("db/table, a player's own effects, from module 0.39.0", () => {
     await expect(
       getCampaignStatus({ ...character, campaignId: null }),
     ).resolves.toMatchObject({ effects: false })
+  })
+})
+
+/** The campaign, letting its players use Wild Shape as given, and fetching as lately. */
+const shapingWild = (
+  wildShapeEnabled = true,
+  bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+) =>
+  givenCampaign({
+    ...campaign,
+    groups: [],
+    rollsEnabled: false,
+    rollKinds: [],
+    rollFeatures: [],
+    transfersEnabled: false,
+    removalsEnabled: false,
+    favoritesEnabled: false,
+    effectsEnabled: false,
+    wildShapeEnabled,
+    bridgePolledAt,
+  })
+
+describe('db/table, Wild Shape, from module 0.40.0', () => {
+  /** The Gamemaster at Thorin's sheet. */
+  const gm = {
+    ...character,
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+
+  it('lets the player use Wild Shape while the campaign lets them, everything else off', async () => {
+    shapingWild()
+
+    const view = await getTableView(character)
+    expect(view.wildShape).toBe(true)
+    expect(view).not.toHaveProperty('effects')
+    expect(view).not.toHaveProperty('favorites')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      effects: false,
+      wildShape: true,
+    })
+  })
+
+  it('never lets the Gamemaster’s seat, whose change would be the player’s in the game', async () => {
+    shapingWild()
+
+    expect(await getTableView(gm)).not.toHaveProperty('wildShape')
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      wildShape: false,
+    })
+  })
+
+  it.each([
+    [
+      'the campaign lets none, as before module 0.40.0',
+      () => shapingWild(false),
+    ],
+    [
+      'its module stopped fetching',
+      () => shapingWild(true, new Date(Date.now() - 46_000)),
+    ],
+    ['its module never fetched', () => shapingWild(true, null)],
+  ])('lets no one use it while %s', async (_name, arrange) => {
+    arrange()
+
+    expect(await getTableView(character)).not.toHaveProperty('wildShape')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      wildShape: false,
+    })
+  })
+
+  it('lets no one use it for a character no longer in the roster, nor at a seat without one', async () => {
+    shapingWild()
+
+    const gone = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(gone).not.toHaveProperty('wildShape')
+    const none = await getTableView({ ...character, actorId: null })
+    expect(none).not.toHaveProperty('wildShape')
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ wildShape: false })
+    await expect(
+      getCampaignStatus({ ...character, campaignId: null }),
+    ).resolves.toMatchObject({ wildShape: false })
+  })
+
+  it('serves a shaped sheet’s form and Wild Shape as the module sent them, under the character’s id', async () => {
+    shapingWild()
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: shapedSheet(),
+      updatedAt: new Date('2026-10-29T12:00:00Z'),
+    } as any)
+
+    const view = await getTableView(character)
+    expect(view.sheet?.form).toEqual(wolfForm())
+    expect(view.sheet?.wildShape).toEqual(
+      wildShapeBlock({ uses: { value: 1, max: 2 } }),
+    )
+    expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          campaignActor: { campaignId: 'c1', actorId: 'actor-thorin' },
+        },
+      }),
+    )
   })
 })
 

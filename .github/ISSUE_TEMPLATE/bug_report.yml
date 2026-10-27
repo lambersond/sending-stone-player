@@ -104,6 +104,13 @@ body:
         - Toasts
         - Banner
         - I don't know
+  - type: checkboxes
+    id: switches
+    attributes:
+      label: Which of the campaign's switches in Foundry were on?
+      description: The Gamemaster sets them on the campaign's Player actions tab in Sending Stone's settings in Foundry. Players, ask your Gamemaster, or leave them blank.
+      options:
+        - label: Allow Players to use Wild Shape from the app
   - type: input
     id: module-version
     attributes:

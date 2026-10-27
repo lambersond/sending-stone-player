@@ -34,6 +34,11 @@ export type SwitcherCreature = {
   /** No longer listed: kept until it has been shown and left (§8.3). */
   gone?: boolean
   /**
+   * For the character, what it's transformed into, from module 0.40.0, as its accessible name
+   * says it, chosen or not, before its news: ", in Wild Shape as a Wolf".
+   */
+  shape?: string
+  /**
    * Its marks' words, joined, as its accessible name ends: ", its turn" and the like; "" for none.
    */
   news: string
@@ -265,7 +270,7 @@ export function CreatureSwitcher({
               key === 'self' || mounted.has(key)
                 ? `creature-panel-${key}`
                 : undefined,
-            'aria-label': `${shown}${news}`,
+            'aria-label': `${shown}${creature.shape ?? ''}${news}`,
             'aria-describedby': kind ? `creature-desc-${key}` : undefined,
             onClick: () => onChoose(key),
           }

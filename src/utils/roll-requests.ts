@@ -96,7 +96,15 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * Turn named can't be (`not-undoable`): not this seat's, not ended, too long ago, or its turn's
  * combatant gone. From module 0.39.0, for one of the character's own effects turned off, on or
  * deleted: it's there, but not its player's to change that way now (`effect`), as the sheet's `ops`
- * say, or the game.
+ * say, or the game. From module 0.40.0, for Wild Shape, as the sheet last said: a change into a
+ * form that isn't one of the known forms usable from here, or the one the character is in, or a
+ * Beast learned in place of one that isn't a known form (`form`); a change or return from another
+ * kind of transformation, which ends in Foundry (`transformed`); a change while Incapacitated, at 0
+ * hit points or dead (`incapacitated`); a change with no use left (`consume`); a return while not
+ * shaped (`not-shaped`); a Beast learned with every place taken (`full`), in place of the form the
+ * character is in (`shaped`), or in place of another before a Long Rest (`swap`). And from module
+ * 0.40.0, a favorite, an effect, a move or a removal while its character, or a character at either
+ * end of a move, is transformed (`shaped`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -142,6 +150,14 @@ export type RollRefusal =
   | 'not-turn'
   | 'not-undoable'
   | 'effect'
+  | 'form'
+  | 'transformed'
+  | 'incapacitated'
+  | 'consume'
+  | 'not-shaped'
+  | 'full'
+  | 'swap'
+  | 'shaped'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -192,8 +208,9 @@ export function isSeatCombatant(
  * theirs; and from module 0.36.0 a turn ended, or taken back, which posts nothing either: the
  * Gamemaster ends one, or goes back to it, in Foundry; and from module 0.37.0 a favorite added or
  * removed, which posts nothing either; and from module 0.39.0 a character's own effect turned off,
- * on or deleted, which posts nothing either. Charges spent and Heroic Inspiration post a line
- * marked as theirs.
+ * on or deleted, which posts nothing either; and from module 0.40.0 Wild Shape, which the game
+ * would make as the player's, past dnd5e's own Allow Polymorphing: the Gamemaster changes a druid
+ * in Foundry. Charges spent and Heroic Inspiration post a line marked as theirs.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
@@ -202,6 +219,7 @@ export const GM_UNSENT: ReadonlySet<string> = new Set([
   'undoEndTurn',
   'favorite',
   'effect',
+  'wildShape',
 ])
 
 /**
@@ -1202,6 +1220,9 @@ export function toRollRequestView(
       : {}
   // What became of one of the character's own effects, from module 0.39.0, as the game says.
   const effect = result?.effect ? { effect: result.effect } : {}
+  // What a Wild Shape command made, from module 0.40.0, as the game says: the form taken or left,
+  // the form learned, or the Beasts to learn.
+  const wildShape = result?.wildShape ? { wildShape: result.wildShape } : {}
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
@@ -1214,6 +1235,7 @@ export function toRollRequestView(
         ...removed,
         ...favorited,
         ...effect,
+        ...wildShape,
       }
     }
     if (!result.visible) {
@@ -1227,6 +1249,7 @@ export function toRollRequestView(
         ...removed,
         ...favorited,
         ...effect,
+        ...wildShape,
       }
     }
     const rolls = result.rolls.map(roll => toTableRoll(roll))
@@ -1243,6 +1266,7 @@ export function toRollRequestView(
       ...removed,
       ...favorited,
       ...effect,
+      ...wildShape,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
@@ -1265,6 +1289,7 @@ export function toRollRequestView(
       ...removed,
       ...favorited,
       ...effect,
+      ...wildShape,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -1286,6 +1311,7 @@ export function toRollRequestView(
     ...removed,
     ...favorited,
     ...effect,
+    ...wildShape,
   }
 }
 
@@ -1319,6 +1345,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   remove: 'An item removed',
   favorite: 'A favorite added or removed',
   effect: 'An effect changed',
+  wildShape: 'Wild Shape',
   endTurn: 'A turn ended',
   undoEndTurn: 'A turn taken back',
 }

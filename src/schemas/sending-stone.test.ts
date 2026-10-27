@@ -1,4 +1,6 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { envelopeSchema, parseGameEvent } from './sending-stone'
 import {
   castingSheet,
@@ -36,6 +38,18 @@ import {
   SLEIGHT_CHECK,
   TAKING_DISHES,
   TAKING_EFFECTS,
+  TAKING_WILD_SHAPE,
+  WILD_SHAPE_OTHER_SYSTEM,
+  WILD_SHAPE_SWITCHED_OFF,
+  beastsResult,
+  druidSheet,
+  FORM_IDS,
+  KNOWN_FORMS,
+  moonBlock,
+  shapedSheet,
+  wildShapeBlock,
+  wildShapeResult,
+  wolfForm,
   TEXTS,
   biteAction,
   mockCompanionEntry,
@@ -5186,5 +5200,416 @@ describe("schemas/sending-stone, a player's own effects, from module 0.39.0", ()
     expect(
       parseGameEvent('command.result', favoritedResult())?.data,
     ).not.toHaveProperty('effect')
+  })
+})
+
+/** What a hello's features say of Wild Shape, as read. */
+const wildShapeFeature = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { wildShape: sent },
+    })?.data as { features?: { wildShape?: unknown } }
+  ).features?.wildShape
+/** A Wild Shape command's result, as read. */
+const wildShapeOf = (wildShape: unknown) =>
+  (
+    parseGameEvent('command.result', wildShapeResult({ wildShape } as any))
+      ?.data as { wildShape?: unknown; status: string }
+  ).wildShape
+
+describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
+  it("reads a shaped sheet's form and Wild Shape as the module sends them", () => {
+    const read = readSheet(shapedSheet())
+    expect(read.form).toEqual(wolfForm())
+    expect(read.wildShape).toEqual(
+      wildShapeBlock({ uses: { value: 1, max: 2 } }),
+    )
+    // The form's numbers are the sheet's own, read as any sheet's.
+    expect(read).toMatchObject({ ac: 12, speed: { value: 40, units: 'ft' } })
+    expect(readSheet(druidSheet({ wildShape: moonBlock() })).wildShape).toEqual(
+      moonBlock(),
+    )
+  })
+
+  it('reads a sheet from a module before 0.40.0, or of a character herself, as having neither', () => {
+    const read = readSheet(fullerSheet())
+    expect(read).not.toHaveProperty('form')
+    expect(read).not.toHaveProperty('wildShape')
+    expect(readSheet(druidSheet())).not.toHaveProperty('form')
+  })
+
+  it('reads a form from another transformation, or with no record, as the module says it', () => {
+    const polymorph = wolfForm({
+      kind: 'other',
+      name: 'Giant Ape',
+      img: null,
+      size: 'Huge',
+      cr: 7,
+      profile: null,
+      hours: null,
+      minutesLeft: null,
+      beast: { abilities: ['str', 'dex', 'con'], saves: [], skills: [] },
+    })
+    expect(readSheet(shapedSheet({ form: polymorph })).form).toEqual(polymorph)
+  })
+
+  it.each([
+    [
+      'a kind it doesn’t know, as another transformation',
+      { kind: 'curse' },
+      { kind: 'other' },
+    ],
+    [
+      'hours it can’t read, as none, so no Return',
+      { hours: '2' },
+      { hours: null },
+    ],
+    ['hours of 0, as none', { hours: 0 }, { hours: null }],
+    [
+      'minutes left it can’t read, as none',
+      { minutesLeft: 1.5 },
+      { minutesLeft: null },
+    ],
+    [
+      'minutes left below 0, as none',
+      { minutesLeft: -1 },
+      { minutesLeft: null },
+    ],
+    [
+      'a profile that isn’t a profile id, as none',
+      { profile: 'wolf' },
+      { profile: null },
+    ],
+    [
+      'a floor it can’t read, as none',
+      { flooredAc: 'yes' },
+      { flooredAc: false },
+    ],
+    [
+      'the beast’s numbers it can’t read, as none',
+      { beast: 'all' },
+      { beast: { abilities: [], saves: [], skills: [] } },
+    ],
+    [
+      'an ability it doesn’t know, leaving the rest',
+      {
+        beast: {
+          abilities: ['str', 'luck'],
+          saves: ['str'],
+          skills: ['prc', 7],
+        },
+      },
+      { beast: { abilities: ['str'], saves: ['str'], skills: ['prc'] } },
+    ],
+  ])('reads a form with %s', (_name, fields, read) => {
+    expect(
+      readSheet(shapedSheet({ form: wolfForm(fields as any) })).form,
+    ).toEqual(wolfForm(read as any))
+  })
+
+  it('leaves out a form with no name, or not an object, keeping the sheet', () => {
+    for (const form of [
+      wolfForm({ name: '' }),
+      { ...wolfForm(), name: undefined },
+      'Wolf',
+      7,
+    ]) {
+      const read = readSheet(shapedSheet({ form: form as any }))
+      expect(read).not.toHaveProperty('form', expect.anything())
+      expect(read.form).toBeUndefined()
+      expect(read.ac).toBe(12)
+    }
+  })
+
+  it('reads each known form as sent: one not loaded yet, one not found, one from elsewhere', () => {
+    const known = [
+      KNOWN_FORMS.wolf,
+      {
+        id: FORM_IDS.panther,
+        uuid: KNOWN_FORMS.panther.uuid,
+        name: 'Panther',
+        pool: true,
+        fits: true,
+      },
+      { ...KNOWN_FORMS.crocodile, found: false },
+      { id: 'Zq0Lm4Tn8Rb2Vc6X', name: 'Giant Elk', pool: false },
+    ]
+    expect(
+      readSheet(druidSheet({ wildShape: wildShapeBlock({ known }) })).wildShape
+        .known,
+    ).toEqual(known)
+  })
+
+  it.each([
+    ['fits it can’t read, as not fitting', { fits: 'yes' }, { fits: false }],
+    ['found it can’t read, as not found', { found: 1 }, { found: false }],
+    [
+      'pool it can’t read, as from elsewhere',
+      { pool: 'pack' },
+      { pool: false },
+    ],
+    ['an attack it can’t read, as none', { attack: 'Bite' }, { attack: null }],
+    [
+      'speeds it can’t read, as none',
+      { speeds: 'Walk 40 ft' },
+      { speeds: undefined },
+    ],
+  ])('reads a known form with %s', (_name, fields, read) => {
+    const [first] = readSheet(
+      druidSheet({
+        wildShape: wildShapeBlock({
+          known: [{ ...KNOWN_FORMS.wolf, ...fields } as any],
+        }),
+      }),
+    ).wildShape.known
+    expect(first).toEqual({ ...KNOWN_FORMS.wolf, ...read })
+  })
+
+  it('leaves out a known form with no profile id, keeping the others', () => {
+    const known = readSheet(
+      druidSheet({
+        wildShape: wildShapeBlock({
+          known: [
+            { ...KNOWN_FORMS.wolf, id: 'wolf' },
+            { ...KNOWN_FORMS.blackBear, id: undefined },
+            'Panther',
+            KNOWN_FORMS.crocodile,
+          ] as any,
+        }),
+      }),
+    ).wildShape.known
+    expect(known).toEqual([KNOWN_FORMS.crocodile])
+  })
+
+  it('keeps a known form with no name, as dnd5e leaves one dropped on her Wild Shape in Foundry, so all are counted as the game counts them', () => {
+    // The module sends the profile's own name, empty where dnd5e wrote none: for a form from
+    // elsewhere, for good; for a pool form, until the game loads it, or for good where it's gone.
+    const nameless = [
+      { id: 'Zq0Lm4Tn8Rb2Vc6X', name: '', pool: false },
+      {
+        id: FORM_IDS.crocodile,
+        uuid: KNOWN_FORMS.crocodile.uuid,
+        name: '',
+        pool: true,
+        fits: true,
+      },
+      {
+        id: FORM_IDS.reefShark,
+        uuid: KNOWN_FORMS.reefShark.uuid,
+        name: '',
+        pool: true,
+        fits: false,
+        found: false,
+      },
+    ]
+    const sent = [
+      KNOWN_FORMS.wolf,
+      KNOWN_FORMS.blackBear,
+      KNOWN_FORMS.panther,
+      ...nameless,
+    ]
+    const read = readSheet(
+      druidSheet({ wildShape: wildShapeBlock({ known: sent }) }),
+    ).wildShape
+    expect(read.known).toEqual(sent)
+    expect(read.known).toHaveLength(read.limits.count)
+    // A name that isn't one, or none at all, reads as none, the form kept.
+    expect(
+      readSheet(
+        druidSheet({
+          wildShape: wildShapeBlock({
+            known: [
+              { id: 'Zq0Lm4Tn8Rb2Vc6X', pool: false },
+              { ...KNOWN_FORMS.wolf, name: 7 },
+            ] as any,
+          }),
+        }),
+      ).wildShape.known,
+    ).toEqual([
+      { id: 'Zq0Lm4Tn8Rb2Vc6X', name: '', pool: false },
+      { ...KNOWN_FORMS.wolf, name: '' },
+    ])
+  })
+
+  it.each([
+    [
+      'uses it can’t read, as none left',
+      { uses: '2/2' },
+      { uses: { value: 0, max: 0 } },
+    ],
+    [
+      'limits it can’t read, as none',
+      { limits: { count: 'six', cr: 0.5, fly: false } },
+      { limits: { count: 0, cr: 0, fly: false } },
+    ],
+    ['a circle it doesn’t know, as none', { circle: 'land' }, { circle: null }],
+    ['a floor it can’t read, as none', { acFloor: '16' }, { acFloor: null }],
+    ['a replacement it can’t read, as none', { swap: 'yes' }, { swap: false }],
+    [
+      'an ending it can’t read, as none',
+      { ended: { form: 'Wolf', why: 'nap', at: 1, formId: 'x' } },
+      { ended: null },
+    ],
+  ])('reads Wild Shape with %s', (_name, fields, read) => {
+    expect(
+      readSheet(druidSheet({ wildShape: wildShapeBlock(fields as any) }))
+        .wildShape,
+    ).toEqual(wildShapeBlock(read as any))
+  })
+
+  it.each(['app', 'time', 'hp', 'incapacitated', 'foundry'] as const)(
+    'reads an ending of why %s',
+    why => {
+      const ended = {
+        form: 'Wolf',
+        why,
+        at: 1_793_000_000_000,
+        formId: 'formWolf00000001',
+      }
+      expect(
+        readSheet(druidSheet({ wildShape: wildShapeBlock({ ended }) }))
+          .wildShape.ended,
+      ).toEqual(ended)
+    },
+  )
+
+  it('leaves out Wild Shape with no row, or not an object, keeping the sheet', () => {
+    for (const wildShape of [
+      { ...wildShapeBlock(), item: '' },
+      'druid',
+      null,
+    ]) {
+      const read = readSheet(druidSheet({ wildShape: wildShape as any }))
+      expect(read.wildShape).toBeUndefined()
+      expect(read.ac).toBe(14)
+    }
+  })
+
+  it('reads features.wildShape, on and off, and junk as off or nothing', () => {
+    expect(wildShapeFeature(TAKING_WILD_SHAPE)).toEqual(TAKING_WILD_SHAPE)
+    expect(wildShapeFeature(WILD_SHAPE_SWITCHED_OFF)).toEqual(
+      WILD_SHAPE_SWITCHED_OFF,
+    )
+    expect(wildShapeFeature(WILD_SHAPE_OTHER_SYSTEM)).toEqual(
+      WILD_SHAPE_OTHER_SYSTEM,
+    )
+    expect(wildShapeFeature({ enabled: 'yes', kinds: 'wildShape' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+    })
+    expect(wildShapeFeature('on')).toBeNull()
+    // Module 0.39.0 says nothing of it.
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: [],
+          combats: [],
+          features: { effects: TAKING_EFFECTS },
+        })?.data as { features?: object }
+      ).features,
+    ).not.toHaveProperty('wildShape')
+  })
+
+  it('keeps what a Wild Shape command made, by its op', () => {
+    expect(parseGameEvent('command.result', wildShapeResult())?.data).toEqual(
+      wildShapeResult(),
+    )
+    for (const wildShape of [
+      { op: 'revert', form: { name: 'Wolf' } },
+      { op: 'revert', form: null },
+      {
+        op: 'learn',
+        form: { id: FORM_IDS.wolf, name: 'Wolf', uuid: KNOWN_FORMS.wolf.uuid },
+        replaced: null,
+      },
+      {
+        op: 'learn',
+        form: {
+          id: FORM_IDS.panther,
+          name: 'Riding Horse',
+          uuid: 'Compendium.dnd5e.actors24.Actor.mmRidingHorse000',
+        },
+        replaced: { id: FORM_IDS.panther, name: 'Panther' },
+      },
+    ]) {
+      expect(wildShapeOf(wildShape)).toEqual(wildShape)
+    }
+    expect(parseGameEvent('command.result', beastsResult())?.data).toEqual(
+      beastsResult(),
+    )
+  })
+
+  it('leaves out a Wild Shape result it can’t read, keeping the rest of the result', () => {
+    const { forms } = beastsResult().wildShape as { forms: object[] }
+    for (const junk of [
+      'transform',
+      { op: 'transform', form: { id: FORM_IDS.wolf, name: 'Wolf' } },
+      { op: 'shift', form: null },
+      { op: 'revert' },
+      {
+        op: 'learn',
+        form: { id: 'wolf', name: 'Wolf', uuid: 'x' },
+        replaced: null,
+      },
+      {
+        op: 'forms',
+        forms,
+        more: 'no',
+        limits: { count: 6, cr: 0.5, fly: false },
+      },
+      // More Beasts than the game ever lists at once.
+      {
+        op: 'forms',
+        forms: Array.from({ length: 201 }, () => forms[0]),
+        more: true,
+        limits: { count: 6, cr: 0.5, fly: false },
+      },
+    ]) {
+      const data = parseGameEvent(
+        'command.result',
+        wildShapeResult({ wildShape: junk } as any),
+      )?.data as { wildShape?: unknown; status: string }
+      expect(data.wildShape).toBeUndefined()
+      expect(data.status).toBe('done')
+    }
+  })
+
+  it('keeps 200 Beasts, and drops one whose uuid this app couldn’t ask to learn, keeping the rest', () => {
+    const { forms, limits } = beastsResult().wildShape as {
+      forms: { uuid: string }[]
+      limits: object
+    }
+    const many = Array.from({ length: 200 }, () => forms[0])
+    expect(
+      (wildShapeOf({ op: 'forms', forms: many, more: true, limits }) as any)
+        .forms,
+    ).toHaveLength(200)
+    const odd = [{ ...forms[0], uuid: 'Actor.hiddenOgre000000' }, forms[1]]
+    expect(
+      (wildShapeOf({ op: 'forms', forms: odd, more: false, limits }) as any)
+        .forms,
+    ).toEqual([forms[1]])
+  })
+
+  it('leaves Wild Shape out of any other command’s result', () => {
+    expect(
+      parseGameEvent('command.result', effectResult())?.data,
+    ).not.toHaveProperty('wildShape')
+  })
+
+  it('keeps each schema’s documentation on its own schema: the result’s on the result’s, none left stacked on another', () => {
+    const source = readFileSync(
+      path.join(process.cwd(), 'src/schemas/sending-stone.ts'),
+      'utf8',
+    )
+    // A doc comment followed by another documents nothing, and leaves the schema it was written for
+    // without one.
+    expect(source).not.toMatch(/\*\/\s*\n\s*\/\*\*/)
+    expect(source).toMatch(
+      /\/\*\*\n \* What became of a command;[^/]*\*\/\nconst commandResultSchema = /,
+    )
   })
 })

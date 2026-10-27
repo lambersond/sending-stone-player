@@ -61,6 +61,7 @@ import {
   type Picking,
 } from './use-picker'
 import { Charging, type ChargeActions } from './uses-button'
+import { useWildShape, WildShapeRibbon, WildShaping } from './wild-shape'
 import { useCookbookEntry } from '@/components/cookbook-card'
 import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
@@ -105,6 +106,7 @@ import type {
   GmRollView,
   RollFeature,
   RollKind,
+  WildShapeInput,
 } from '@/types/roll'
 import type { SheetAction, SheetEffect } from '@/types/sending-stone'
 import type {
@@ -115,6 +117,7 @@ import type {
   TableSheet,
 } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
+import type { WildShapeLogged } from '@/utils/wild-shape-words'
 
 type Props = {
   characterId: string
@@ -159,6 +162,11 @@ type Props = {
    * creature's pane, nor the Gamemaster's page.
    */
   effects?: true
+  /**
+   * Whether the seat's player may use Wild Shape there, from module 0.40.0, as the campaign lets
+   * them and the game takes it: never at a creature's pane, nor the Gamemaster's page.
+   */
+  wildShape?: true
   /** The character's Foundry actor, which what's given is given from. */
   actorId?: string
   /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */
@@ -301,6 +309,7 @@ function RollingSheet({
   removes,
   favorites: favoritesOn,
   effects: effectsOn,
+  wildShape: wildShapeOn,
   actorId,
   parties,
   manualDice,
@@ -383,6 +392,7 @@ function RollingSheet({
     logMove,
     logFavorite,
     logEffect,
+    logWildShape,
     logAsk,
     rolls,
     rolling,
@@ -392,10 +402,14 @@ function RollingSheet({
     formulaThrown,
     typing ? entry.enter : undefined,
   )
+  // While the character is transformed, as by Wild Shape (module 0.40.0), what its form's sheet
+  // can't keep, or its gear isn't on, isn't offered: favorites added or removed, effects changed,
+  // and its items given, removed or taken into it.
+  const shaped = sheet.form !== undefined
   // Give, on the Inventory tab, from module 0.31.0: its dialog is held here, so that it outlives
   // the row it was opened from, and the controls going, as when the game stops taking moves.
   const giving = useGiveControls({
-    moves,
+    moves: shaped ? undefined : moves,
     table,
     role,
     name,
@@ -404,7 +418,7 @@ function RollingSheet({
     setActed,
   })
   const removing = useRemoveControls({
-    removes: removes === true,
+    removes: removes === true && !shaped,
     inventory: sheet.inventory,
     table,
     role,
@@ -501,7 +515,7 @@ function RollingSheet({
     [logFavorite, sendFavorite],
   )
   const favoriting = useFavorites({
-    on: favoritesOn === true && !creature,
+    on: favoritesOn === true && !creature && !shaped,
     favorites: sheet.favorites,
     entries,
     states: table.states,
@@ -521,11 +535,46 @@ function RollingSheet({
     [logEffect, sendEffect],
   )
   const effecting = useEffectControls({
-    on: effectsOn === true && !creature && role === 'player',
+    on: effectsOn === true && !creature && role === 'player' && !shaped,
     character: name,
     effects: sheet.effects,
     states: table.states,
     send: sendEffectOf,
+  })
+  // Wild Shape from here, from module 0.40.0, the player's alone, at the character's own pane: a
+  // line among the rolls says how each went, on whichever tab; the Beasts to learn are read apart.
+  const { sendWildShape, readWildShapeForms } = table
+  const sendWildShapeOf = useCallback(
+    (
+      input: Exclude<WildShapeInput, { op: 'forms' }>,
+      logged: WildShapeLogged,
+    ) => {
+      setActed(true)
+      const line = logWildShape(logged)
+      sendWildShape(line, input)
+      return line.id
+    },
+    [logWildShape, sendWildShape],
+  )
+  const panelOf = useCallback(
+    () =>
+      document.querySelector<HTMLElement>(
+        `#${CSS.escape(`${idPrefix}sheet-panel`)}`,
+      ),
+    [idPrefix],
+  )
+  const wildShaping = useWildShape({
+    on: wildShapeOn === true && !creature && role === 'player',
+    pane: !creature,
+    role,
+    name,
+    sheet,
+    characterId,
+    effects: effectsOn === true,
+    states: table.states,
+    send: sendWildShapeOf,
+    read: readWildShapeForms,
+    panel: panelOf,
   })
   // How each spell an item casts is cast, and at which levels it may be.
   const itemCasts = useMemo(() => castIndex(sheet), [sheet])
@@ -901,6 +950,7 @@ function RollingSheet({
       marks={marks}
       favoriting={favoriting}
       effecting={effecting}
+      wildShaping={wildShaping}
       showConditions={conditions.show}
       descriptions={descriptions}
       enchanting={enchanting}
@@ -914,6 +964,8 @@ function RollingSheet({
           Effects, take 301 pixels, of the 302 beside both on a 390-pixel screen. Narrower, the
           tabs and the buttons are a little tighter, so that they take 277 of the 280 on a
           360-pixel one; narrower still, the tabs scroll. */}
+      {/* What the character is transformed into, above the tabs, on every tab (module 0.40.0). */}
+      <WildShapeRibbon />
       <div
         ref={setTabRow}
         className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'
@@ -1200,13 +1252,15 @@ function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
 /**
  * What every part of the sheet inside knows of it: which of what it lists are favorites, and from
  * module 0.37.0 how they're added and removed, and from module 0.39.0 how its own effects are
- * changed, how to open its conditions panel, what the links in its descriptions do, how
- * enchantments and concentrations end, and how counters are spent and Heroic Inspiration changed.
+ * changed, and from module 0.40.0 its Wild Shape, how to open its conditions panel, what the
+ * links in its descriptions do, how enchantments and concentrations end, and how counters are
+ * spent and Heroic Inspiration changed.
  */
 function SheetContext({
   marks,
   favoriting,
   effecting,
+  wildShaping,
   showConditions,
   descriptions,
   enchanting,
@@ -1217,6 +1271,7 @@ function SheetContext({
   marks: ReadonlySet<string>
   favoriting: ReturnType<typeof useFavorites>
   effecting: ReturnType<typeof useEffectControls>
+  wildShaping: ReturnType<typeof useWildShape>
   showConditions: ShowConditions
   descriptions: DescriptionActions
   enchanting: EnchantActions
@@ -1228,15 +1283,17 @@ function SheetContext({
     <FavoriteMarks keys={marks}>
       <Favoriting value={favoriting}>
         <Effecting value={effecting}>
-          <ConditionsOpener show={showConditions}>
-            <DescriptionLinks actions={descriptions}>
-              <Enchanting actions={enchanting}>
-                <Concentrating actions={concentrating}>
-                  <Charging actions={charging}>{children}</Charging>
-                </Concentrating>
-              </Enchanting>
-            </DescriptionLinks>
-          </ConditionsOpener>
+          <WildShaping value={wildShaping}>
+            <ConditionsOpener show={showConditions}>
+              <DescriptionLinks actions={descriptions}>
+                <Enchanting actions={enchanting}>
+                  <Concentrating actions={concentrating}>
+                    <Charging actions={charging}>{children}</Charging>
+                  </Concentrating>
+                </Enchanting>
+              </DescriptionLinks>
+            </ConditionsOpener>
+          </WildShaping>
         </Effecting>
       </Favoriting>
     </FavoriteMarks>

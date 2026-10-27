@@ -4,7 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { GameTable } from './game-table'
 import { useTableView, type Connection } from '@/hooks/use-table-view'
 import { fakeFullscreen } from '@/mocks/fullscreen'
-import { characterSheet } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  druidSheet,
+  shapedSheet,
+  wildShapeBlock,
+  wolfForm,
+} from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
@@ -1398,5 +1404,85 @@ describe('components/game-table, full screen', () => {
     )
 
     expect(cluster()).toEqual(['status', 'Full screen'])
+  })
+})
+
+describe('components/game-table/game-table, Wild Shape, from module 0.40.0', () => {
+  const GAME = 'https://my-game.forge-vtt.com'
+  /** Thorin's sheet as a form's, or his own, its Wild Shape last ended as given. */
+  const shaped = toTableSheet(shapedSheet(), GAME)
+  const ended = (why: 'hp' | 'app', at = Date.now() - 60_000) =>
+    toTableSheet(
+      druidSheet({
+        wildShape: wildShapeBlock({
+          ended: { form: 'Wolf', why, at, formId: 'formWolf00000001' },
+        }),
+      }),
+      GAME,
+    )
+
+  beforeEach(() => {
+    globalThis.localStorage.clear()
+    localStorage.setItem(TOASTS_KEY, 'off')
+  })
+  afterEach(() => jest.restoreAllMocks())
+
+  it('says in the header what the character is transformed into, in place of the class line', () => {
+    renderTable(view({ sheet: shaped, combat: undefined }))
+
+    expect(subtitle()).toHaveTextContent('In Wild Shape · Wolf')
+    expect(besideName()).toHaveTextContent('In Wild Shape · Wolf')
+    expect(screen.queryByText('Druid 5')).toBeNull()
+  })
+
+  it('says "Transformed" for another kind of form, and the class line once the character is back', () => {
+    const polymorphed = toTableSheet(
+      shapedSheet({
+        form: wolfForm({
+          kind: 'other',
+          name: 'Giant Ape',
+          size: 'Huge',
+          cr: 7,
+          profile: null,
+          hours: null,
+          minutesLeft: null,
+        }),
+      }),
+      GAME,
+    )
+    const { rerender } = renderTable(
+      view({ sheet: polymorphed, combat: undefined }),
+    )
+    expect(subtitle()).toHaveTextContent('Transformed · Giant Ape')
+
+    const back = view({
+      sheet: toTableSheet(druidSheet(), GAME),
+      combat: undefined,
+    })
+    showing({ view: back })
+    rerender(table(back))
+    expect(subtitle()).toHaveTextContent('Druid 5')
+  })
+
+  it('says under the header why the game ended it, until dismissed, focus then on the sheet’s panel', async () => {
+    const user = userEvent.setup()
+    renderTable(view({ sheet: ended('hp'), combat: undefined }))
+
+    const banner = screen
+      .getAllByRole('status')
+      .find(each => each.textContent?.includes('Wild Shape')) as HTMLElement
+    expect(banner).toHaveTextContent(
+      'Wild Shape ended in your game at 0 hit points. Thorin is no longer a Wolf.',
+    )
+    await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText(/Wild Shape ended in your game/)).toBeNull()
+    expect(document.querySelector('#sheet-panel')).toHaveFocus()
+  })
+
+  it('says nothing of one ended from the app', () => {
+    renderTable(view({ sheet: ended('app'), combat: undefined }))
+
+    expect(screen.queryByText(/Wild Shape ended/)).toBeNull()
+    expect(screen.queryByText(/no longer a Wolf/)).toBeNull()
   })
 })

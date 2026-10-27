@@ -5,7 +5,13 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expandSheet } from './slim-sheet'
-import { characterSheet, roster } from '@/mocks/sending-stone'
+import {
+  characterSheet,
+  roster,
+  shapedSheet,
+  wildShapeBlock,
+  wolfForm,
+} from '@/mocks/sending-stone'
 import { quillSheet, slimQuillSheet } from '@/mocks/slim-sheet'
 import { parseGameEvent } from '@/schemas/sending-stone'
 
@@ -88,6 +94,22 @@ describe('utils/slim-sheet', () => {
       for (const value of [null, undefined, 'sheet', 7, [{ slim: 1 }]]) {
         expect(expandSheet(value)).toBe(value)
       }
+    })
+
+    it("keeps a shaped sheet's form and a druid's Wild Shape as they come, from module 0.40.0", () => {
+      const sent = { ...shapedSheet(), slim: 1 }
+      const whole = expandSheet(sent) as Json
+
+      expect(whole.form).toEqual(wolfForm())
+      expect(whole.wildShape).toEqual(
+        wildShapeBlock({ uses: { value: 1, max: 2 } }),
+      )
+      expect(whole).not.toHaveProperty('slim')
+      const read = (readAs(sent) as { character: { sheet: Json } }).character
+      expect(read.sheet.form).toEqual(wolfForm())
+      expect(read.sheet.wildShape).toEqual(
+        wildShapeBlock({ uses: { value: 1, max: 2 } }),
+      )
     })
 
     it('reads a slim format it does not know as no sheet, never as the slim sheet', () => {

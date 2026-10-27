@@ -10,17 +10,25 @@ import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
 import { SpellsTab } from './spells-tab'
+import { useWildShape, WildShaping } from './wild-shape'
 import {
   castingSheet,
   characterSheet,
   checkingSheet,
+  druidSheet,
   fullerSheet,
+  moonBlock,
   offeringFavorites,
+  shapedSheet,
   sheetSpell,
   TEXTS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
+import type { TableSheet } from '@/types/table'
+import type { SeatRole } from '@/utils/seat-words'
+import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
@@ -942,5 +950,106 @@ describe('components/character-sheet/spells-tab, favorites, from module 0.37.0',
     renderTab()
     expect(fireEvent.contextMenu(rowOf('Alarm'), { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('components/character-sheet/spells-tab, Wild Shape, from module 0.40.0', () => {
+  /** Elowen's Wild Shape, as her own pane gives it to the tab inside, at the seat given. */
+  function Shaping({
+    sheet,
+    role = 'player',
+    effects = true,
+    children,
+  }: Readonly<{
+    sheet: TableSheet
+    role?: SeatRole
+    effects?: boolean
+    children: ReactNode
+  }>) {
+    const value = useWildShape({
+      on: role === 'player',
+      pane: true,
+      role,
+      name: 'Elowen',
+      sheet,
+      characterId: 'char-1',
+      effects,
+      states: new Map(),
+      send: () => 'use-1',
+      read: () => new Promise(() => {}),
+      panel: () => document.querySelector<HTMLElement>('#sheet-panel'),
+    })
+    return <WildShaping value={value}>{children}</WildShaping>
+  }
+  const renderShaped = (
+    sheet: CharacterSheet = shapedSheet(),
+    role: SeatRole = 'player',
+  ) => {
+    const table = toTableSheet(sheet, 'https://my-game.forge-vtt.com')
+    return render(
+      <Shaping sheet={table} role={role}>
+        <SpellsTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={table}
+        />
+      </Shaping>,
+    )
+  }
+
+  it('says first, in a dashed callout, that Elowen casts nothing as the form, and which slots wait', () => {
+    const { container } = renderShaped()
+
+    const note = screen.getByText(
+      'Elowen can’t cast spells as a Wolf. The spell slots wait: 4 of 4 1st level, 3 of 3 2nd level.',
+    )
+    expect(note).toHaveClass('border-dashed')
+    expect((container.firstElementChild as HTMLElement).firstElementChild).toBe(
+      note,
+    )
+  })
+
+  it('says a druid of the Circle of the Moon casts only that circle’s spells as the form', () => {
+    renderShaped(shapedSheet({ wildShape: moonBlock() }))
+
+    expect(
+      screen.getByText(
+        'As a Wolf, Elowen can cast only Circle of the Moon spells.',
+      ),
+    ).toBeVisible()
+    expect(screen.queryByText(/The spell slots wait/)).toBeNull()
+  })
+
+  it('says nothing of the Moon’s spells for another transformation, such as a Polymorph, as they’re Wild Shape’s (round 0.40.0 review)', () => {
+    renderShaped(
+      shapedSheet({
+        wildShape: moonBlock(),
+        form: wolfForm({
+          kind: 'other',
+          name: 'Giant Ape',
+          hours: null,
+          minutesLeft: null,
+          profile: null,
+        }),
+      }),
+    )
+
+    expect(screen.queryByText(/Circle of the Moon/)).toBeNull()
+    expect(
+      screen.getByText(
+        'Elowen can’t cast spells as a Giant Ape. The spell slots wait: 4 of 4 1st level, 3 of 3 2nd level.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('says nothing of it unshaped, nor at the Gamemaster’s page', () => {
+    const { unmount } = renderShaped(druidSheet())
+    expect(screen.queryByText(/as a Wolf/)).toBeNull()
+    expect(screen.getByText('Goodberry')).toBeVisible()
+    unmount()
+
+    renderShaped(shapedSheet(), 'gm')
+    expect(screen.queryByText(/can’t cast spells/)).toBeNull()
   })
 })

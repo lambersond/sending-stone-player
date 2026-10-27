@@ -147,3 +147,8 @@ run effects 18 DND5E6=1 SHOTS=$O/shots-039
 run effects 7 SKEW=038 MODULE=$O/module-0.38.1 SHOTS=$O/shots-039
 # The campaign page, option A (v0.39): the Gamemaster's campaigns as a list and the chosen one.
 run campaigns 52 SHOTS=$O/shots-039
+# Module 0.40.0: Wild Shape from the app, a 2024 druid's known forms, the shaped seat; dnd5e 6.0.5;
+# and module 0.39.0 (none).
+run wildshape 93 TIMEOUT=900 SHOTS=$O/shots-040
+run wildshape 32 DND5E6=1 SHOTS=$O/shots-040
+run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040

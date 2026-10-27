@@ -2410,3 +2410,176 @@ describe("schemas/roll-request, a player's own effects, from module 0.39.0", () 
     expect(parseKind(changing, { label: 'Bless' }).success).toBe(true)
   })
 })
+
+describe('schemas/roll-request, Wild Shape, from module 0.40.0', () => {
+  /** Elowen changing into her known Wolf, as the picker sends it. */
+  const shaping = {
+    kind: 'wildShape',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    wildShape: { op: 'transform', form: 'Kp3vQ8mZr2LdW0aB' },
+  }
+  /** Wild Shape as given, the rest as `shaping` has it. */
+  const wildShape = (fields: unknown) =>
+    parseKind(shaping, { wildShape: fields })
+  const WOLF = 'Compendium.dnd5e.actors24.Actor.mmWolf0000000000'
+
+  it.each([
+    [
+      'a change into a known form',
+      { op: 'transform', form: 'Kp3vQ8mZr2LdW0aB' },
+    ],
+    ['a return', { op: 'revert' }],
+    [
+      'a Beast learned into an empty place',
+      { op: 'learn', uuid: WOLF, replace: null },
+    ],
+    [
+      'a Beast learned in place of a known form',
+      { op: 'learn', uuid: WOLF, replace: 'Pn5xS0oBt4NfY2dD' },
+    ],
+    [
+      'a Beast of another pack, a module’s',
+      {
+        op: 'learn',
+        uuid: 'Compendium.my-beasts_2.beasts-of-the-north.Actor.abcdEFGH01234567',
+        replace: null,
+      },
+    ],
+    ['the Beasts to learn listed', { op: 'forms' }],
+  ])('takes %s', (_name, fields) => {
+    const parsed = wildShape(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...shaping, wildShape: fields })
+  })
+
+  it.each([
+    ['no op', { form: 'Kp3vQ8mZr2LdW0aB' }],
+    [
+      'an op the module has none of',
+      { op: 'forget', form: 'Kp3vQ8mZr2LdW0aB' },
+    ],
+    ['a change with no form', { op: 'transform' }],
+    [
+      'a change into a form id too short',
+      { op: 'transform', form: 'Kp3vQ8mZr2LdW0a' },
+    ],
+    [
+      'a change into a form id too long',
+      { op: 'transform', form: 'Kp3vQ8mZr2LdW0aBc' },
+    ],
+    [
+      'a change into a form id with a dot',
+      { op: 'transform', form: 'Kp3vQ8mZr2.dW0aB' },
+    ],
+    ['a change by uuid', { op: 'transform', form: WOLF }],
+    ['a return naming a form', { op: 'revert', form: 'Kp3vQ8mZr2LdW0aB' }],
+    ['a Beast learned with no uuid', { op: 'learn', replace: null }],
+    ['a Beast learned with replace left out', { op: 'learn', uuid: WOLF }],
+    [
+      'a world actor learned',
+      { op: 'learn', uuid: 'Actor.hiddenOgre000000', replace: null },
+    ],
+    [
+      'a world actor learned by a compendium-like uuid',
+      {
+        op: 'learn',
+        uuid: 'Compendium.world.secrets.Item.abcdEFGH01234567',
+        replace: null,
+      },
+    ],
+    [
+      'an actor id too short',
+      {
+        op: 'learn',
+        uuid: 'Compendium.dnd5e.actors24.Actor.mmWolf',
+        replace: null,
+      },
+    ],
+    [
+      'a uuid with more to it',
+      { op: 'learn', uuid: `${WOLF}.Item.biteWolf00000000`, replace: null },
+    ],
+    [
+      'a replace that isn’t a profile id',
+      { op: 'learn', uuid: WOLF, replace: 'wolf' },
+    ],
+    ['a list naming a form', { op: 'forms', form: 'Kp3vQ8mZr2LdW0aB' }],
+    ['a key more', { op: 'revert', by: 'gm' }],
+    ['not an object', 'transform'],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(wildShape(fields).success).toBe(false)
+  })
+
+  it('takes Wild Shape only as itself, and Wild Shape only naming its op', () => {
+    const message = 'Wild Shape, and only that, names its op and form'
+    expect(issuesOf(perception, { wildShape: shaping.wildShape })).toEqual([
+      ['wildShape', message],
+    ])
+    expect(issuesOf(removing, { wildShape: shaping.wildShape })).toEqual([
+      ['wildShape', message],
+    ])
+    expect(issuesOf(shaping, { wildShape: undefined })).toEqual([
+      ['wildShape', message],
+    ])
+  })
+
+  it.each([
+    [
+      'an effect',
+      { effect: { op: 'disable', id: 'blessed' } },
+      [
+        'effect',
+        'An effect turned off, on or deleted, and only that, names the effect',
+      ],
+    ],
+    [
+      'a favorite',
+      { favorite: { op: 'add', type: 'item', id: 'quarterstaff' } },
+      ['favorite', 'A favorite added or removed, and only that, names what'],
+    ],
+    [
+      'a removal',
+      { remove: removing.remove },
+      ['remove', 'A removal, and only that, names what it removes'],
+    ],
+    [
+      'an item',
+      { item: 'wildShapeItem01' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses Wild Shape naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(shaping, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses Wild Shape with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(shaping, fields)).toEqual([
+      ['dice', 'Wild Shape throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(shaping, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(shaping, { of: 'owlFamiliar1' }).success).toBe(false)
+    expect(parseKind(shaping, { actorId: 'actorThorin1' }).success).toBe(false)
+  })
+
+  it('takes what the page calls it, which the server strips', () => {
+    expect(parseKind(shaping, { label: 'Wild Shape' }).success).toBe(true)
+  })
+})

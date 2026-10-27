@@ -128,6 +128,9 @@ const given = ({
     held.map(effect => ({ payload: changing(effect) })) as any,
   )
   prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-effect' } as any)
+  // Changed on purpose (round 0.40.0 §10.3): createRollRequest asks first whether the character,
+  // or a move's other end, is transformed; none is.
+  prismaMock.actorSheet.findMany.mockResolvedValue([])
 }
 /** What was stored for the module to fetch. */
 const created = () => prismaMock.rollRequest.create.mock.calls[0][0].data

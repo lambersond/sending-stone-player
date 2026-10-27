@@ -231,4 +231,37 @@ describe('app/globals.css', () => {
       }
     }
   })
+
+  describe.each([
+    ['light', light],
+    ['dark', dark],
+  ])('Wild Shape (module 0.40.0), in the %s theme', (_, theme) => {
+    it("reads the wild colour as small text at WCAG AA on its own tint, the ribbon's, and on a card", () => {
+      for (const ground of [rgb(theme['wild-bg']), rgb(theme.card)]) {
+        expect(contrast(rgb(theme.wild), ground)).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+
+    it('reads it on a marked ability and a checked card, the tint over a card, and the page', () => {
+      for (const alpha of [0.55, 0.6]) {
+        const ground = stack(theme['wild-bg'], alpha, rgb(theme.card))
+        expect(contrast(rgb(theme.wild), ground)).toBeGreaterThanOrEqual(4.5)
+      }
+      expect(contrast(rgb(theme.wild), rgb(theme.page))).toBeGreaterThanOrEqual(
+        4.5,
+      )
+    })
+
+    it("reads a wild button's words at WCAG AA on it", () => {
+      expect(
+        contrast(rgb(theme['on-wild']), rgb(theme.wild)),
+      ).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it("reads the ribbon's and its notes' secondary text on its tint", () => {
+      expect(
+        contrast(rgb(theme['text-secondary']), rgb(theme['wild-bg'])),
+      ).toBeGreaterThanOrEqual(4.5)
+    })
+  })
 })

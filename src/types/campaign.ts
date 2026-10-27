@@ -50,6 +50,11 @@ export type OwnedCampaign = {
    */
   effects?: { enabled: boolean }
   /**
+   * Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, as its last
+   * hello said. None reads as off.
+   */
+  wildShape?: { enabled: boolean }
+  /**
    * Each with who plays it, and their character's id, once a player has chosen it; and from module
    * 0.36.0 its companions, as the module lists them, by name and kind, a summoned one with the
    * item it was summoned with: none for none. The app always gives them; optional so that a card

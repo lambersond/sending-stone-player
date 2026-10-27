@@ -44,6 +44,11 @@ import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { SpellSlots } from './spell-slots'
 import { UsesButton } from './uses-button'
+import {
+  WildShapeNote,
+  WildShapeRowControls,
+  WildShapeRowLine,
+} from './wild-shape'
 import { useSheetId } from '@/hooks/use-sheet-ids'
 import { useStoredSet } from '@/hooks/use-stored'
 import { groupActions, type ActionGroup } from '@/utils/action-groups'
@@ -151,6 +156,8 @@ export function ActionsTab({
         layout === 'columns' ? 'max-w-7xl' : 'max-w-5xl',
       )}
     >
+      {/* While transformed, as by Wild Shape (module 0.40.0): where the character's gear is. */}
+      <WildShapeNote tab='actions' />
       {favorites}
       {layout === 'columns' ? <Columns sections={shown} /> : shown}
 
@@ -518,6 +525,8 @@ function ActionTableRow({
               )}
             </span>
           </button>
+          {/* Wild Shape's row says what it does now (module 0.40.0). */}
+          <WildShapeRowLine id={action.id} />
         </td>
         <td className='px-2 text-xs whitespace-nowrap text-text-secondary'>
           {action.range && (
@@ -571,6 +580,10 @@ function ActionTableRow({
               spends={action.activity?.spends}
             />
           )}
+          {/* And its controls, beside its uses (module 0.40.0). */}
+          <span className='flex flex-wrap justify-end gap-1 empty:hidden'>
+            <WildShapeRowControls id={action.id} />
+          </span>
         </td>
       </tr>
       {/* Its other activities, folded away with the rest until it's opened. */}

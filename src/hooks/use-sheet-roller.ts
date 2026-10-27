@@ -36,6 +36,7 @@ import type {
   TextLink,
 } from '@/types/roll'
 import type { CriticalRule, TableDamagePlan } from '@/types/sending-stone'
+import type { WildShapeLogged } from '@/utils/wild-shape-words'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -295,6 +296,11 @@ export type LocalUse = {
    * module 0.39.0: which; the effect is the label.
    */
   effect?: EffectOp
+  /**
+   * Wild Shape used from here, rather than anything used, from module 0.40.0: a change into a
+   * known form, a return, or a Beast learned, and of which; "Wild Shape" is the label.
+   */
+  wildShape?: WildShapeLogged
   at: number
 }
 
@@ -763,6 +769,20 @@ export function useSheetRoller(
     return changed
   }, [])
 
+  // Keeps Wild Shape used from here, from module 0.40.0, first among the rolls, as a use is.
+  const logWildShape = useCallback((wildShape: WildShapeLogged): LocalUse => {
+    const shaped: LocalUse = {
+      kind: 'use',
+      id: `use-${Date.now()}-${++uses}`,
+      label: 'Wild Shape',
+      spell: false,
+      wildShape,
+      at: Date.now(),
+    }
+    setRolls(earlier => keeping(earlier, shaped))
+    return shaped
+  }, [])
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback((label: string): LocalAsk => {
     const asked: LocalAsk = {
@@ -785,6 +805,7 @@ export function useSheetRoller(
     logMove,
     logFavorite,
     logEffect,
+    logWildShape,
     logAsk,
     rolls,
     rolling: inFlight > 0,

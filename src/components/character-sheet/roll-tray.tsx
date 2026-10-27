@@ -36,6 +36,11 @@ import { favoriteReasons } from '@/utils/favorite-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { moveReasons, moveWords } from '@/utils/move-words'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
+import {
+  WILD_SHAPE_WORDS,
+  wildShapeReasons,
+  wildShapeToast,
+} from '@/utils/wild-shape-words'
 import type {
   LocalAsk,
   LocalCheck,
@@ -418,6 +423,8 @@ function reasonsOf(role: SeatRole): Record<string, string> {
     legendary: 'it has too few legendary actions left',
     charged: 'it’s charged already',
     critical: 'that damage can’t be a critical hit’s',
+    // A favorite, an effect or a removal while the character is transformed, from module 0.40.0.
+    shaped: 'that waits until your character is back in their own form',
   }
 }
 
@@ -489,10 +496,14 @@ function reasonOf(
   const key = state.reason ?? state.status
   const own =
     // A favorite added or removed, from module 0.37.0, one of the character's own effects changed,
-    // from module 0.39.0, and a move of items and coins, from module 0.31.0, have words of their
-    // own.
+    // from module 0.39.0, Wild Shape from module 0.40.0, and a move of items and coins, from module
+    // 0.31.0, have words of their own.
     (state.favorite ? favoriteReasons(role)[key] : undefined) ??
     (state.effect ? effectReasons(role)[key] : undefined) ??
+    // And Wild Shape from here, from module 0.40.0.
+    (state.wildShape
+      ? wildShapeReasons(role, state.wildShape)[key]
+      : undefined) ??
     (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
@@ -1388,6 +1399,23 @@ function usedWords(
       }
     }
   }
+  // Wild Shape from here, from module 0.40.0: a change, a return or a Beast learned, the same way.
+  if (roll.wildShape) {
+    const words = WILD_SHAPE_WORDS[roll.wildShape.op]
+    switch (state.status) {
+      case 'sending':
+      case 'rolling': {
+        return onItsWay(state, role, words.doing(roll.wildShape))
+      }
+      case 'done': {
+        return words.done(madeOf(roll.wildShape, state))
+      }
+      default: {
+        const reason = reasonOf(state, role, creature)
+        return `${words.not}${reason ? `: ${reason}` : ''}`
+      }
+    }
+  }
   if (roll.move) return moveWords(roll.move, state, role, reasons(role))
   let verb = roll.spell ? 'Cast' : 'Used'
   let doing = roll.spell ? 'Casting it' : 'Using it'
@@ -1827,6 +1855,24 @@ function byTheGame(roll: LocalDamage): boolean {
   return roll.parts.every(part => part.terms.length === 0)
 }
 
+/**
+ * What a Wild Shape command logged here did, as the game says it, once made: the form it took or
+ * left and the Beast it learned, by the names the game gives them, where it gives them.
+ */
+function madeOf(
+  logged: NonNullable<LocalUse['wildShape']>,
+  state: TableRollState,
+): NonNullable<LocalUse['wildShape']> {
+  const made = state.wildShaped
+  if (made?.op === 'transform' || made?.op === 'learn') {
+    return { ...logged, form: made.form.name }
+  }
+  if (made?.op === 'revert' && made.form) {
+    return { ...logged, form: made.form.name }
+  }
+  return logged
+}
+
 function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'gm') return GM_WORDS_AFTER
   if (roll.kind === 'use') {
@@ -1847,6 +1893,8 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
     }
     // One of the character's own effects changed, from module 0.39.0, as its line says it.
     if (roll.effect) return EFFECT_WORDS[roll.effect].short
+    // Wild Shape from here, from module 0.40.0, as its line says it.
+    if (roll.wildShape) return WILD_SHAPE_WORDS[roll.wildShape.op].short
     if (roll.ending) return 'ended'
     if (roll.spent !== undefined) return `spent ${roll.spent}`
     if (roll.inspiration === 'gain') return 'gained'
@@ -1975,6 +2023,20 @@ export function briefOf(
       }
     }
     case 'use': {
+      // Wild Shape made, from module 0.40.0, says what the character is now, and what it gave.
+      if (roll.wildShape && state?.status === 'done') {
+        const told = wildShapeToast(
+          madeOf(roll.wildShape, state),
+          state.wildShaped?.op === 'transform' ? state.wildShaped : undefined,
+        )
+        return {
+          ...brief,
+          label: told.title,
+          ...(told.line && { dice: told.line }),
+          table: undefined,
+          badge: 'use',
+        }
+      }
       return { ...brief, badge: 'use' }
     }
     case 'ask': {

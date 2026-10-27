@@ -951,7 +951,9 @@ describe('components/character-sheet/roll-toasts', () => {
         resized = callback
         return {
           observe: (element: Element) => watched.push(element),
-          unobserve: jest.fn(),
+          unobserve: (element: Element) => {
+            watched = watched.filter(one => one !== element)
+          },
           disconnect,
         }
       }) as unknown as typeof ResizeObserver
@@ -993,6 +995,44 @@ describe('components/character-sheet/roll-toasts', () => {
       at.set(tabs, { top: 104, bottom: 148 })
       act(() => resized())
       expect(top()).toBe('156px')
+    })
+
+    it('again as something comes above the row in the pane it tops, as the Wild Shape ribbon (module 0.40.0), wraps, and goes, though neither the row nor the pane changes size', async () => {
+      render(
+        <RollToasts
+          rolls={[strength]}
+          states={NONE}
+          on
+          tabs={tabs}
+          header={header}
+        />,
+      )
+      expect(top()).toBe('116px')
+
+      // Become: the ribbon comes before the row, which it pushes down inside a pane of the same
+      // height, as the e2e's 1280-pixel page lays it out.
+      const ribbon = laid('section')
+      at.set(ribbon, { top: 64, bottom: 117 })
+      at.set(tabs, { top: 117, bottom: 161 })
+      await act(async () => {
+        pane.prepend(ribbon)
+      })
+      expect(top()).toBe('169px')
+      expect(watched).toContain(ribbon)
+
+      // Its time wraps under its title, on a phone.
+      at.set(ribbon, { top: 64, bottom: 133 })
+      at.set(tabs, { top: 133, bottom: 177 })
+      act(() => resized())
+      expect(top()).toBe('185px')
+
+      // Return: it goes, no longer watched, and the toasts move back up.
+      at.set(tabs, { top: 64, bottom: 108 })
+      await act(async () => {
+        ribbon.remove()
+      })
+      expect(top()).toBe('116px')
+      expect(watched).toEqual([tabs, pane, header])
     })
 
     it('below the header while the row is not shown, as on a phone showing combat or the chat, and at the top of the screen with neither', () => {

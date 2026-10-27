@@ -686,6 +686,29 @@ const changed = (fields: Partial<CommandResult>, status: 'done' | 'failed') =>
     NOW,
   )
 
+const shapeChanged = (
+  fields: Partial<CommandResult>,
+  status: 'done' | 'failed',
+) =>
+  toRollRequestView(
+    held({
+      kind: 'wildShape',
+      status,
+      claimedAt: ago(500),
+      result: {
+        id: 'req-1',
+        status,
+        reason: null,
+        error: null,
+        messageId: null,
+        visible: true,
+        rolls: [],
+        ...fields,
+      },
+    }),
+    NOW,
+  )
+
 describe('utils/roll-requests', () => {
   describe('availableRollKinds', () => {
     const campaign = {
@@ -3906,7 +3929,93 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('toRollRequestView for Wild Shape, from module 0.40.0', () => {
+    it('passes on the form taken, as the game says', () => {
+      const wildShape = {
+        op: 'transform' as const,
+        form: {
+          id: 'Kp3vQ8mZr2LdW0aB',
+          name: 'Wolf',
+          uuid: 'Compendium.dnd5e.actors24.Actor.mmWolf0000000000',
+        },
+        temp: 5,
+        hours: 2,
+      }
+      expect(shapeChanged({ wildShape }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        wildShape,
+      })
+    })
+
+    it('passes on the form left, the form learned and the Beasts to learn, as the game says', () => {
+      for (const wildShape of [
+        { op: 'revert' as const, form: { name: 'Wolf' } },
+        { op: 'revert' as const, form: null },
+        {
+          op: 'learn' as const,
+          form: {
+            id: 'Kp3vQ8mZr2LdW0aB',
+            name: 'Riding Horse',
+            uuid: 'Compendium.dnd5e.actors24.Actor.mmRidingHorse000',
+          },
+          replaced: { id: 'Kp3vQ8mZr2LdW0aB', name: 'Panther' },
+        },
+        {
+          op: 'forms' as const,
+          forms: [
+            {
+              uuid: 'Compendium.dnd5e.actors24.Actor.mmRat00000000000',
+              name: 'Rat',
+              img: null,
+              size: 'Tiny',
+              cr: 0,
+              ac: 10,
+              speeds: ['Walk 20 ft'],
+              known: false,
+            },
+          ],
+          more: false,
+          limits: { count: 6, cr: 0.5, fly: false },
+        },
+      ]) {
+        expect(shapeChanged({ wildShape }, 'done')).toMatchObject({
+          status: 'done',
+          wildShape,
+        })
+      }
+    })
+
+    it('says nothing of it where the game said nothing, and passes on a refusal’s reason', () => {
+      expect(shapeChanged({}, 'done')).not.toHaveProperty('wildShape')
+      expect(
+        shapeChanged({ status: 'failed', reason: 'consume' }, 'failed'),
+      ).toEqual({ id: 'req-1', status: 'failed', reason: 'consume' })
+      for (const reason of [
+        'form',
+        'full',
+        'swap',
+        'incapacitated',
+        'transformed',
+        'shaped',
+      ]) {
+        expect(shapeChanged({ status: 'failed', reason }, 'failed')).toEqual({
+          id: 'req-1',
+          status: 'failed',
+          reason,
+        })
+      }
+    })
+  })
+
   describe('GM_UNSENT', () => {
+    it('holds Wild Shape, from module 0.40.0, which would be the player’s in the game', () => {
+      expect(GM_UNSENT.has('wildShape')).toBe(true)
+    })
+
     it('holds a favorite, from module 0.37.0, which posts nothing to mark it theirs', () => {
       expect(GM_UNSENT.has('favorite')).toBe(true)
       expect(GM_UNSENT.has('remove')).toBe(false)

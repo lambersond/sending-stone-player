@@ -4,6 +4,7 @@ import NotFound from './not-found'
 import CharacterPartyPage, { generateMetadata } from './page'
 import { getCharacter } from '@/db/characters'
 import { getGroupView } from '@/db/party'
+import { shapedRefusal } from '@/db/wild-shape'
 import { requireUser } from '@/lib/session'
 import type { PartyPage as RealPartyPage } from '@/components/party-sheet'
 import type { ComponentProps } from 'react'
@@ -18,6 +19,8 @@ jest.mock('@/db/party', () => ({
   ...jest.requireActual('@/db/party'),
   getGroupView: jest.fn(),
 }))
+// Whether the character is transformed (module 0.40.0): not, unless a test says so.
+jest.mock('@/db/wild-shape', () => ({ shapedRefusal: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 /** What the page gave the party's page, as it crosses from the server to the browser. */
 let given: ComponentProps<typeof RealPartyPage> | undefined
@@ -60,6 +63,8 @@ describe('app/characters/[id]/party/[group]/page', () => {
     jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
     jest.mocked(getCharacter).mockResolvedValue(character)
     jest.mocked(getGroupView).mockResolvedValue(view)
+    // Not transformed: no refusal.
+    jest.mocked(shapedRefusal).mockReset()
   })
 
   it("shows the player their party's sheet as its own page, as their character's player", async () => {
@@ -108,6 +113,32 @@ describe('app/characters/[id]/party/[group]/page', () => {
 
     render(await CharacterPartyPage(props('char-1', 'company')))
 
+    expect(given).toBeDefined()
+    expect(given?.takeInto).toBeUndefined()
+    expect(shapedRefusal).not.toHaveBeenCalled()
+  })
+
+  it('takes into no one while the character is transformed, as by Wild Shape, from module 0.40.0 (round 0.40.0 §5.9)', async () => {
+    jest
+      .mocked(shapedRefusal)
+      .mockResolvedValue({ status: 422, reason: 'shaped' })
+
+    render(await CharacterPartyPage(props('char-1', 'company')))
+
+    // Asked as the Take itself would be: from the party, into the character, at its seat.
+    expect(shapedRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'player',
+        userId: 'user-1',
+        campaignId: 'c1',
+        actorId: 'thorin',
+        characterId: 'char-1',
+      }),
+      expect.objectContaining({
+        kind: 'transfer',
+        transfer: { from: 'company', to: 'thorin' },
+      }),
+    )
     expect(given).toBeDefined()
     expect(given?.takeInto).toBeUndefined()
   })

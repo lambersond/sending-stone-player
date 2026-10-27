@@ -60,6 +60,7 @@ import { REASONS } from './roll-tray'
 import { EntryIcon, joinParts } from './sheet-entry'
 import { SheetText } from './sheet-text'
 import { spendsToo, UsesButton } from './uses-button'
+import { WildShapeRowControls, WildShapeRowLine } from './wild-shape'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
 import {
   choicesOf,
@@ -216,6 +217,13 @@ export type EntryLook = {
   uses?: SheetUses | null
   /** Shown once it's open, after its enchantments, such as Give… */
   moves?: ReactNode
+  /**
+   * Shown once it's open, before its facts, such as what Wild Shape gives on Features (module
+   * 0.40.0).
+   */
+  lead?: ReactNode
+  /** On Features, Wild Shape's row offers Known forms… too (module 0.40.0). */
+  knownForms?: boolean
   /**
    * Opens what else is done with it, such as Send to…: on a right-click, a long-press, or the
    * keyboard's context menu key.
@@ -655,8 +663,12 @@ export function ActionEntry({
             />
           )}
           <ActionChips action={action} view={view} rows={rows} uses={uses} />
+          {/* Wild Shape's Change, Return and Known forms…, from module 0.40.0. */}
+          <WildShapeRowControls id={action.id} knownForms={look.knownForms} />
         </span>
       </div>
+      {/* And what Wild Shape does now, under its name, in a line of its own. */}
+      <WildShapeRowLine id={action.id} />
       {open && (
         <div id={body} className='flex flex-col gap-2 pb-3'>
           {/* Its other activities, folded away with the rest until it's opened. */}
@@ -1882,6 +1894,7 @@ export function ActionDetails({
   return (
     <>
       {meta && <p className='text-xs text-text-secondary'>{meta}</p>}
+      {look.lead}
       <Facts
         action={spell ? castAs(action, spell) : action}
         uses={look.uses}

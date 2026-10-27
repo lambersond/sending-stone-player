@@ -16,6 +16,7 @@ import { usePressMenu } from './press-menu'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetHeading } from './sheet-heading'
 import { UsesButton } from './uses-button'
+import { useWildShapeRow, WildShapeAbout } from './wild-shape'
 import { useSheetId } from '@/hooks/use-sheet-ids'
 import { rechargeWords } from '@/utils/creature-words'
 import { featureAction } from '@/utils/sheet-actions'
@@ -114,6 +115,7 @@ export function FeaturesTab({
                 characterId={characterId}
                 feature={feature}
                 rows={rows}
+                knownForms
               />
             ))}
           </ul>
@@ -142,6 +144,7 @@ export function FeatureEntry({
   uses,
   note,
   favorite,
+  knownForms = false,
 }: Readonly<{
   characterId: string
   feature: SheetFeature
@@ -158,16 +161,30 @@ export function FeatureEntry({
    * null for none, as among the favorites for a resource's.
    */
   favorite?: FavoriteTarget | null
+  /** On Features, Wild Shape's row offers Known forms… too (module 0.40.0). */
+  knownForms?: boolean
 }>) {
   const meta = joinParts(feature.kind, feature.requirements)
-  const action = rows && featureAction(feature)
+  // A 2024 druid's Wild Shape, from module 0.40.0, is drawn as an action's row, rolling nothing,
+  // so that its controls sit at its end, never on what opens it, as they do on Actions.
+  const wild = useWildShapeRow(feature.id)
+  const action =
+    rows &&
+    (featureAction(feature) ?? (wild ? plainAction(feature) : undefined))
   if (rows && action) {
     return (
       <ActionEntry
         action={action}
         rows={rows}
         note={note}
-        look={{ meta, uses }}
+        look={{
+          meta,
+          uses,
+          ...(wild && {
+            lead: <WildShapeAbout id={feature.id} />,
+            knownForms,
+          }),
+        }}
         favorite={favorite}
       />
     )
@@ -196,6 +213,34 @@ export function FeatureEntry({
       {...enchantedEntry(feature)}
     />
   )
+}
+
+/** A feature as an action's row that rolls nothing, such as Wild Shape, its uses its own. */
+function plainAction(feature: SheetFeature): SheetAction {
+  /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+  return {
+    id: feature.id,
+    name: feature.name,
+    img: feature.img,
+    type: 'feat',
+    activation: feature.activation,
+    range: feature.range ?? null,
+    target: feature.target ?? null,
+    toHit: null,
+    attackId: null,
+    activity: null,
+    attackModes: null,
+    ammunition: null,
+    save: null,
+    damage: [],
+    uses: feature.uses,
+    level: null,
+    castFrom: null,
+    concentration: feature.concentration ?? false,
+    identified: true,
+    text: feature.text,
+  }
+  /* eslint-enable unicorn/no-null */
 }
 
 /**

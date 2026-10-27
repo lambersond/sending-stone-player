@@ -258,7 +258,13 @@ describe('components/campaigns/foundry-settings', () => {
     expect(effects.parentElement?.previousElementSibling).toBe(
       dishes.parentElement,
     )
-    expect(details?.previousElementSibling).toBe(effects.parentElement)
+    // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0 the Wild Shape section comes
+    // between the players' effects and the Foundry settings.
+    const wildShape = screen.getByRole('heading', { name: 'Wild Shape' })
+    expect(wildShape.parentElement?.previousElementSibling).toBe(
+      effects.parentElement,
+    )
+    expect(details?.previousElementSibling).toBe(wildShape.parentElement)
     expect(details?.nextElementSibling).toBeNull()
     const column = details?.parentElement as HTMLElement
     expect(column.firstElementChild).toHaveTextContent(/^Invite link/)

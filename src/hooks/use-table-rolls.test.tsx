@@ -23,7 +23,12 @@ import {
 } from './use-table-rolls'
 import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { TableApiContext } from '@/hooks/use-table-api'
-import { mockTableDamage } from '@/mocks/sending-stone'
+import {
+  beastsResult,
+  FORM_IDS,
+  mockTableDamage,
+  wildShapeResult,
+} from '@/mocks/sending-stone'
 import { aloneRollOf } from '@/utils/damage-alone'
 import {
   firstDie,
@@ -3719,5 +3724,146 @@ describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.
       expect(states.get(id)).not.toHaveProperty('alone')
       expect(states.get(id)).not.toHaveProperty('recharge')
     }
+  })
+})
+
+describe('hooks/use-table-rolls, Wild Shape from the app, from module 0.40.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const change = used({
+    id: 'u-ws',
+    label: 'Wild Shape',
+    wildShape: { op: 'transform', form: 'Wolf', character: 'Elowen' },
+  })
+
+  it('sends a change as it is, whatever rolls the game takes or this device’s switch says, and keeps what the game made of it apart from what was asked', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-ws' }))
+    const { result } = render([])
+    act(() => result.current.setSending(false))
+    act(() =>
+      result.current.sendWildShape(change, {
+        op: 'transform',
+        form: FORM_IDS.wolf,
+      }),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(sent()).toEqual({
+      kind: 'wildShape',
+      wildShape: { op: 'transform', form: FORM_IDS.wolf },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      label: 'Wild Shape',
+    })
+    expect(result.current.states.get('u-ws')).toEqual({
+      status: 'sending',
+      wildShape: 'transform',
+    })
+    const made = wildShapeResult().wildShape
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-ws',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        wildShape: made,
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u-ws')).toMatchObject({
+      status: 'done',
+      wildShape: 'transform',
+      wildShaped: made,
+    })
+  })
+
+  it('sends nothing for a use that is no Wild Shape', () => {
+    const { result } = render([])
+    act(() =>
+      result.current.sendWildShape(used(), {
+        op: 'transform',
+        form: FORM_IDS.wolf,
+      }),
+    )
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('reads the Beasts to learn while a roll is on its way, logging nothing, and gives the list', async () => {
+    const listed = beastsResult().wildShape
+    jest.mocked(fetch).mockImplementation(async (url, init) => {
+      const path = String(url)
+      if (init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { kind: string }
+        return respond(202, {
+          id: body.kind === 'wildShape' ? 'req-forms' : 'req-skill',
+        })
+      }
+      return path.endsWith('/req-forms')
+        ? respond(200, {
+            id: 'req-forms',
+            status: 'done',
+            visible: true,
+            rolls: [],
+            wildShape: listed,
+          })
+        : respond(200, { id: 'req-skill', status: 'pending' })
+    })
+    const { result } = render()
+    act(() => result.current.send(perception, check()))
+    let read: Promise<unknown> = Promise.resolve()
+    act(() => {
+      read = result.current.readWildShapeForms()
+    })
+    expect(sent()).toEqual({
+      kind: 'wildShape',
+      wildShape: { op: 'forms' },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    })
+    await advance(CHECK_EVERY)
+    await expect(read).resolves.toEqual(
+      listed?.op === 'forms'
+        ? { forms: listed.forms, more: listed.more, limits: listed.limits }
+        : undefined,
+    )
+    // The roll's way alone, as the tray draws it; none for the read.
+    expect([...result.current.states.keys()]).toEqual(['r1'])
+  })
+
+  it('says why the game couldn’t list them', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-forms' }))
+      .mockResolvedValue(
+        respond(200, {
+          id: 'req-forms',
+          status: 'refused',
+          reason: 'unavailable',
+          visible: true,
+          rolls: [],
+        }),
+      )
+    const { result } = render([])
+    let read: Promise<unknown> = Promise.resolve()
+    act(() => {
+      read = result.current.readWildShapeForms()
+    })
+    await advance(CHECK_EVERY)
+    await expect(read).resolves.toEqual({ reason: 'unavailable' })
+    expect(result.current.states.size).toBe(0)
   })
 })

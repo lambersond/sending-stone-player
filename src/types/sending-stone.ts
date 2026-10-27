@@ -100,6 +100,120 @@ export type SheetCreature = {
 }
 
 /**
+ * What a character is transformed into now, from module 0.40.0, to an app that takes Wild Shape:
+ * its sheet is then the form's, under the character's own id, and this says what the form is.
+ */
+export type SheetForm = {
+  /**
+   * dnd5e's Wild Shape on a druid; or any other transformation, or one the module never recorded.
+   */
+  kind: 'wildShape' | 'other'
+  /** The source creature's, such as "Wolf", never "Elowen (Wolf)". */
+  name: string
+  img: string | null
+  /** dnd5e's labels, such as "Medium" and "Beast". */
+  size: string | null
+  cr: number | null
+  type: string | null
+  /** The id of the known form's profile it was taken as, or null. */
+  profile: string | null
+  /**
+   * How many hours it lasts, where the 2024 rules time it; null for any other kind and a 2014 Wild
+   * Shape. Return is offered only where it's set.
+   */
+  hours: number | null
+  /**
+   * Whole minutes of world time left as of this sheet, never below 0, where the module times it and
+   * the campaign's switch is on; else null. Never counted down here: world time jumps.
+   */
+  minutesLeft: number | null
+  /** Whether its AC is Circle of the Moon's floor rather than the beast's own. */
+  flooredAc: boolean
+  /**
+   * Which numbers are the beast's: the abilities whose scores are, and the saves and skills whose
+   * bonus on the form is above the character's own, by their ids.
+   */
+  beast: { abilities: string[]; saves: string[]; skills: string[] }
+}
+
+/**
+ * One of a druid's known forms, from module 0.40.0, in her Wild Shape's order, by its profile's id.
+ * One from the campaign's compendiums (`pool`) carries its statistics once the game has loaded it,
+ * whether it fits the rules for her now (`fits`), and `found: false` where it no longer loads; one
+ * from anywhere else carries its name alone, and is used only in Foundry.
+ */
+export type KnownForm = {
+  id: string
+  /**
+   * Its profile's name, or the summary's once loaded; empty where none was written, as dnd5e
+   * leaves a form dropped on her Wild Shape in Foundry until the game loads it, or for good where
+   * it's from elsewhere or not found.
+   */
+  name: string
+  pool: boolean
+  uuid?: string
+  img?: string | null
+  size?: string | null
+  cr?: number | null
+  ac?: number | null
+  /** As dnd5e labels them, such as "Walk 40 ft". */
+  speeds?: string[]
+  /** Its first attack, such as `{ name: 'Bite', toHit: 4, damage: '1d6 + 2' }`. */
+  attack?: { name: string; toHit: number | null; damage: string | null } | null
+  fits?: boolean
+  found?: boolean
+}
+
+/** Why a Wild Shape last ended, from module 0.40.0, and when, the real time it was written. */
+export type WildShapeEnded = {
+  /** The form's name, such as "Wolf". */
+  form: string
+  why: 'app' | 'time' | 'hp' | 'incapacitated' | 'foundry'
+  /** Milliseconds since the epoch. */
+  at: number
+  formId: string
+}
+
+/**
+ * A 2024 druid's Wild Shape, from module 0.40.0, to an app that takes it, shaped or not, whatever
+ * the campaign's switch: its row, its uses, what the rules allow her now, what a change gives, her
+ * known forms, whether a replacement after the last Long Rest is free, and the last ending.
+ */
+export type SheetWildShape = {
+  /** The Wild Shape row's id on this sheet: the form's copy's while shaped. */
+  item: string
+  uses: { value: number; max: number }
+  /** Her druid level. */
+  level: number
+  circle: 'moon' | null
+  /** How many known forms, the highest Challenge Rating, and whether a Fly Speed is allowed. */
+  limits: { count: number; cr: number; fly: boolean }
+  /** What a change gives now: its hours, its temporary hit points, and the Moon's AC floor. */
+  hours: number
+  temp: number
+  acFloor: number | null
+  known: KnownForm[]
+  swap: boolean
+  /** Whether the sheet has Wild Resurgence. */
+  resurgence: boolean
+  /** The last ending; null since the last change. */
+  ended: WildShapeEnded | null
+}
+
+/** A Beast the druid may learn, as the game lists them from the campaign's compendiums (0.40.0). */
+export type BeastEntry = {
+  uuid: string
+  name: string
+  img: string | null
+  size: string | null
+  cr: number
+  ac: number | null
+  speeds: string[]
+  /** Whether it's one of her known forms already. */
+  known: boolean
+}
+
+/**
  * The dice an action's damage or healing throws on its own, as the game will roll it (module
  * 0.36.0): as dnd5e builds it, and as a critical hit's where one is allowed.
  */
@@ -1048,6 +1162,13 @@ export type CharacterSheet = {
   details: SheetDetails
   /** For an NPC, what it is as a creature. Module 0.36.0. */
   creature?: SheetCreature
+  /**
+   * What the character is transformed into now, where the sheet is its form's, under its own id.
+   * Module 0.40.0, to an app that says `wildShape`; absent while it's itself, and before.
+   */
+  form?: SheetForm
+  /** A 2024 druid's Wild Shape. Module 0.40.0, to an app that says `wildShape`; absent before. */
+  wildShape?: SheetWildShape
   actions: SheetActionSection[]
   /** In the order dnd5e shows them: resources first, then in the player's order. */
   favorites: SheetFavorite[]
@@ -1361,6 +1482,15 @@ export type BridgeFeatures = {
     kinds: string[]
     reason: string | null
   } | null
+  /**
+   * Whether the campaign lets its players use Wild Shape from here, `"wildShape"` among its kinds,
+   * by its own switch under dnd5e; or not, and why (`"off"`, `"system"`). Module 0.40.0.
+   */
+  wildShape?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+  } | null
 }
 
 /** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
@@ -1537,6 +1667,12 @@ export type CommandResult = {
    */
   effect?: EffectChange | null
   /**
+   * For Wild Shape, on "done": the form taken, with its temporary hit points and hours; the form
+   * left, or null where the character wasn't shaped; the form learned, and the one it replaced; or
+   * the Beasts to learn. Module 0.40.0.
+   */
+  wildShape?: WildShapeOutcome
+  /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.
    */
@@ -1554,6 +1690,28 @@ export type EffectChange = {
   disabled: boolean | null
   deleted: boolean
 }
+
+/** What a Wild Shape command made in the game, by its op, from module 0.40.0. */
+export type WildShapeOutcome =
+  | {
+      op: 'transform'
+      form: { id: string; name: string; uuid: string }
+      temp: number
+      hours: number
+    }
+  | { op: 'revert'; form: { name: string } | null }
+  | {
+      op: 'learn'
+      form: { id: string; name: string; uuid: string }
+      replaced: { id: string; name: string } | null
+    }
+  | {
+      op: 'forms'
+      forms: BeastEntry[]
+      /** Whether there are more than the list holds. */
+      more: boolean
+      limits: { count: number; cr: number; fly: boolean }
+    }
 
 /**
  * What an enchant activity did to the character's items: the enchantment it applied, such as

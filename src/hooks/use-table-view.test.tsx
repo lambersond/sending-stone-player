@@ -511,4 +511,48 @@ describe("hooks/use-table-view, a player's own effects, from module 0.39.0", () 
       expect.anything(),
     )
   })
+
+  it('asks for news saying whether the player may use Wild Shape, as it has it, from module 0.40.0', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(200, { ...initial, wildShape: true }))
+      .mockResolvedValueOnce(respond(200, initial))
+      .mockResolvedValueOnce(respond(204))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
+
+    // Without it, a page answered 204 would go on offering Change and Return once its game
+    // stopped fetching, or its campaign's switch went off.
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&wildshape=1',
+      expect.anything(),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1',
+      expect.anything(),
+    )
+  })
+
+  it('asks with effects before Wild Shape, where the player may use both', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        respond(200, { ...initial, effects: true, wildShape: true }),
+      )
+      .mockResolvedValueOnce(respond(204))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
+
+    await advance(POLL_INTERVAL)
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&effects=1&wildshape=1',
+      expect.anything(),
+    )
+  })
 })

@@ -6,13 +6,19 @@ import { Effecting, useEffectControls } from './effect-controls'
 import { EffectsTab } from './effects-tab'
 import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
+import { useWildShape, WildShaping } from './wild-shape'
 import {
   characterSheet,
+  druidSheet,
   fullerSheet,
   offeringFavorites,
+  shapedSheet,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet } from '@/types/sending-stone'
+import type { TableSheet } from '@/types/table'
+import type { SeatRole } from '@/utils/seat-words'
+import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
@@ -299,5 +305,70 @@ describe('components/character-sheet/effects-tab, a player’s own effects, from
         { name: /^Turn|^Delete/ },
       ),
     ).toEqual([])
+  })
+})
+
+describe('components/character-sheet/effects-tab, Wild Shape, from module 0.40.0', () => {
+  /** Elowen's Wild Shape, as her own pane gives it to the tab inside, at the seat given. */
+  function Shaping({
+    sheet,
+    role = 'player',
+    effects = true,
+    children,
+  }: Readonly<{
+    sheet: TableSheet
+    role?: SeatRole
+    effects?: boolean
+    children: ReactNode
+  }>) {
+    const value = useWildShape({
+      on: role === 'player',
+      pane: true,
+      role,
+      name: 'Elowen',
+      sheet,
+      characterId: 'char-1',
+      effects,
+      states: new Map(),
+      send: () => 'use-1',
+      read: () => new Promise(() => {}),
+      panel: () => document.querySelector<HTMLElement>('#sheet-panel'),
+    })
+    return <WildShaping value={value}>{children}</WildShaping>
+  }
+  const renderShaped = (
+    sheet: CharacterSheet = shapedSheet(),
+    { role, effects }: { role?: SeatRole; effects?: boolean } = {},
+  ) => {
+    const table = toTableSheet(sheet, 'https://my-game.forge-vtt.com')
+    return render(
+      <Shaping sheet={table} role={role} effects={effects}>
+        <EffectsTab characterId='char-1' sheet={table} />
+      </Shaping>,
+    )
+  }
+
+  it('says first, while shaped where the game takes her effects, when they’re changed from here again', () => {
+    const { container } = renderShaped()
+
+    const note = screen.getByText(
+      'Effects are changed from here again once Elowen is no longer a Wolf.',
+    )
+    expect((container.firstElementChild as HTMLElement).firstElementChild).toBe(
+      note,
+    )
+  })
+
+  it('says nothing of it where the game takes no effects from here, unshaped, nor at the Gamemaster’s page', () => {
+    const { unmount } = renderShaped(shapedSheet(), { effects: false })
+    expect(screen.queryByText(/Effects are changed from here/)).toBeNull()
+    unmount()
+
+    const again = renderShaped(druidSheet())
+    expect(screen.queryByText(/Effects are changed from here/)).toBeNull()
+    again.unmount()
+
+    renderShaped(shapedSheet(), { role: 'gm' })
+    expect(screen.queryByText(/Effects are changed from here/)).toBeNull()
   })
 })

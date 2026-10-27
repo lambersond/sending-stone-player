@@ -82,8 +82,9 @@ const UNAVAILABLE = {
  * The players' rolls as the campaign's game is ready for them, from module 0.31.0 their moves of
  * items and coins, from module 0.33.0 removals of their characters' items, from module 0.34.0
  * journal notes, from module 0.37.0 their characters' favorites, from module 0.38.0 dishes from
- * the Magical Recipe Book, and from module 0.39.0 their characters' own effects. Changed on
- * purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round 0.39.0 §1.10): effects too.
+ * the Magical Recipe Book, from module 0.39.0 their characters' own effects, and from module
+ * 0.40.0 Wild Shape. Changed on purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round
+ * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too.
  */
 const given = (
   rollsEnabled: boolean,
@@ -94,6 +95,7 @@ const given = (
   favoritesEnabled = false,
   dishesEnabled = false,
   effectsEnabled = false,
+  wildShapeEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
@@ -103,6 +105,7 @@ const given = (
     favoritesEnabled,
     dishesEnabled,
     effectsEnabled,
+    wildShapeEnabled,
     playersPresent,
   })
 
@@ -318,6 +321,48 @@ describe('app/api/bridge/commands', () => {
     await jest.advanceTimersByTimeAsync(1000)
     await expect(answered?.json()).resolves.toEqual({
       commands: [effect],
+      open: ['thorin'],
+    })
+  })
+
+  it('hands over Wild Shape with everything else off, from module 0.40.0, holding the fetch open as for a roll', async () => {
+    const shaping: RollCommand = {
+      id: 'req-wildshape',
+      actorId: 'actor-elowen',
+      kind: 'wildShape',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      wildShape: { op: 'transform', form: 'Kp3vQ8mZr2LdW0aB' },
+    }
+    given(false, false, false, false, false, false, false, false, true)
+    jest.mocked(claimRollRequests).mockResolvedValue([shaping])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [shaping],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimDishes).not.toHaveBeenCalled()
+
+    jest.useFakeTimers()
+    given(false, true, false, false, false, false, false, false, true)
+    jest
+      .mocked(claimRollRequests)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([shaping])
+    let answered: Response | undefined
+    void post().then(response => (answered = response))
+
+    await jest.advanceTimersByTimeAsync(500)
+    expect(answered).toBeUndefined()
+    await jest.advanceTimersByTimeAsync(1000)
+    await expect(answered?.json()).resolves.toEqual({
+      commands: [shaping],
       open: ['thorin'],
     })
   })

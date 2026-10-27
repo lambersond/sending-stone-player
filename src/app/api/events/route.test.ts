@@ -68,6 +68,9 @@ const FEATURES = {
   // Changed on purpose (round 0.39.0 §1.10): from module 0.39.0, a player's own effects turned
   // off, on and deleted, fetched for with everything else off.
   effects: 1,
+  // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0, Wild Shape from the app and a
+  // shaped character's sheet, fetched for with everything else off.
+  wildShape: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -807,17 +810,20 @@ describe('app/api/events', () => {
         )
 
         const { features } = await response.json()
-        // Changed on purpose (round 0.39.0 §1.10): effects follow them.
-        expect(Object.keys(features).slice(-3)).toEqual([
+        // Changed on purpose (round 0.39.0 §1.10): effects follow them; and (round 0.40.0
+        // §10.3) Wild Shape follows those.
+        expect(Object.keys(features).slice(-4)).toEqual([
           'favorites',
           'dishes',
           'effects',
+          'wildShape',
         ])
         expect(features.dishes).toBe(1)
       })
     })
 
-    it("says it takes a player's own effects, from module 0.39.0, after dishes, last", async () => {
+    // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows effects, last.
+    it("says it takes a player's own effects, from module 0.39.0, after dishes", async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       const response = await post(
@@ -825,7 +831,7 @@ describe('app/api/events', () => {
       )
 
       const { features } = await response.json()
-      expect(Object.keys(features)).toEqual([
+      expect(Object.keys(features).slice(0, -1)).toEqual([
         'commands',
         'slimSheets',
         'maxBytes',
@@ -841,6 +847,24 @@ describe('app/api/events', () => {
         'effects',
       ])
       expect(features.effects).toBe(1)
+    })
+
+    it('says it takes Wild Shape from the app and a shaped sheet, from module 0.40.0, after effects, last', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-2)).toEqual([
+          'effects',
+          'wildShape',
+        ])
+        expect(features.wildShape).toBe(1)
+        // The module reads it as a whole number, 1 or more, as it reads effects'.
+        expect(Number.isInteger(features.wildShape)).toBe(true)
+      }
     })
 
     it('refuses an event sent to no campaign', async () => {
