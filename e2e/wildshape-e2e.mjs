@@ -221,6 +221,16 @@ async function toastSays(who, words) {
   await toast.waitFor({ timeout: 20_000 })
   return (await toast.evaluate(el => el.innerText.replace(/\s+/g, ' ').trim()))
 }
+/**
+ * Where the toasts start, and where the sheet's row of tabs ends, in pixels from the top of the
+ * screen: the toasts start below the row, so that its tabs, the rolls' button and the cog stay to
+ * hand, wherever the ribbon above it has moved it to.
+ */
+const toastsAndTabs = who => who.page.evaluate(() => {
+  const log = document.querySelector('[role="log"][aria-label="Roll results"]')
+  const row = document.querySelector('[role="tablist"][aria-label="Character sheet"]')?.parentElement
+  return { toasts: log ? Math.round(log.getBoundingClientRect().top) : null, tabs: row ? Math.round(row.getBoundingClientRect().bottom) : null }
+})
 /** The banner when the game ends a Wild Shape. */
 const ended = who => who.page.locator('[role="status"]').filter({ hasText: /^Wild Shape (ended|was ended)/ })
 /** The column's Combat or Chat, at a width that has the column. */
@@ -512,7 +522,9 @@ let started
   check(header === 'In Wild Shape · Wolf' && r.includes('2 h 0 m left') && await ribbon(desk).getByRole('button', { name: 'Return to Elowen' }).count() === 1,
     `the header "${header}", the ribbon "${r}" with Return to Elowen`)
   const toast = await toastSays(desk, 'Elowen is a Wolf')
-  check(toast.includes('5 temporary hit points · 2 hours'), `the toast: "${toast}"`)
+  const place = await toastsAndTabs(desk)
+  check(toast.includes('5 temporary hit points · 2 hours') && place.tabs !== null && place.toasts >= place.tabs,
+    `the toast: "${toast}", below the sheet's row of tabs, which the ribbon moved down (${JSON.stringify(place)})`)
   await until(async () => (await focusOf(desk)).tag === 'h2', 'focus on the ribbon', 15_000).catch(() => {})
   const after = await focusOf(desk)
   const selected = await desk.page.getByRole('tablist', { name: 'Character sheet' }).getByRole('tab', { selected: true }).textContent()

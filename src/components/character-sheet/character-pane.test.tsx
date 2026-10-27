@@ -5577,6 +5577,46 @@ describe('components/character-sheet/character-pane, Wild Shape, from module 0.4
     ).toBeVisible()
   })
 
+  it('starts the toasts 8 pixels below the tab row wherever the ribbon puts it: lower as it comes, back up as it goes', async () => {
+    globalThis.localStorage.setItem(TOASTS_KEY, 'on')
+    const user = userEvent.setup()
+    const { rerender } = render(elowen())
+    const row = screen.getByRole('tablist').parentElement as HTMLElement
+    // As a browser lays the row out under a header 64 pixels tall, and under the ribbon, 53 tall,
+    // while it shows: the pane keeps its height, the panel below the row giving up the room.
+    row.getBoundingClientRect = () => {
+      const top = row.previousElementSibling?.matches(
+        'section[aria-label="Wild Shape"]',
+      )
+        ? 117
+        : 64
+      return { top, bottom: top + 44, width: 1280, height: 44 } as DOMRect
+    }
+    act(() => {
+      globalThis.dispatchEvent(new Event('resize'))
+    })
+    await user.click(screen.getByRole('button', { name: /^Strength check/ }))
+    await within(toasts()).findByText('Strength check')
+    expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+
+    // Become a Wolf: the form's sheet comes, and with it the ribbon above the row.
+    await act(async () => {
+      rerender(elowen(shapedSheet()))
+    })
+    expect(screen.getByRole('tablist').parentElement).toBe(row)
+    expect(
+      screen.getByRole('region', { name: 'Wild Shape' }).nextElementSibling,
+    ).toBe(row)
+    expect(toasts().parentElement).toHaveStyle({ top: '169px' })
+
+    // Return: her own sheet again, the ribbon gone.
+    await act(async () => {
+      rerender(elowen())
+    })
+    expect(screen.queryByRole('region', { name: 'Wild Shape' })).toBeNull()
+    expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+  })
+
   it('keeps the tab chosen as the form’s sheet arrives, and as hers comes back', async () => {
     const { rerender } = render(elowen())
     await show('Features')
