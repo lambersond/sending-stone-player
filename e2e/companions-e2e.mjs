@@ -499,7 +499,12 @@ part('2c. pictures drawn with the page')
         `${what}: no picture broken; Thorin's portrait his initials in its box, the condition's icon the ruby disc, his chat avatar his initials, the switcher's tabs initials (${JSON.stringify({ broken, drawn, tabs })})`)
       await openSheetTab(view, 'self', 'inventory')
       await until(async () => (await entryIcons(view, servedPath)).length >= gear.length, `${what}: the Inventory tab's entries`, 15_000)
-      await until(async () => (await entryIcons(view, servedPath)).includes('img:true:true'), `${what}: the served picture drawn`, 10_000).catch(() => {})
+      // The served picture drawn, and the refused one's error heard: under the lanes' load at the start
+      // of a pass the check once came between the two, the refused picture still an image (round 0.40.0).
+      await until(async () => {
+        const icons = await entryIcons(view, servedPath)
+        return icons.includes('img:true:true') && icons.every(i => i === 'img:true:true' || i === 'icon:true')
+      }, `${what}: the served picture drawn, the others their icons`, 10_000).catch(() => {})
       const icons = await entryIcons(view, servedPath)
       check(icons.filter(i => i === 'img:true:true').length >= 1 && icons.every(i => i === 'img:true:true' || i === 'icon:true') && icons.some(i => i === 'icon:true')
         && asked.length > 0 && (await brokenOf(view)).length === 0,
