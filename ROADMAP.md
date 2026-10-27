@@ -8,32 +8,22 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.39.0 and its app.
+Released: module v0.40.0 and its app.
 
-## v0.40 (in progress)
-
-1. **Wild Shape:** with **Allow Players to use Wild Shape from the app** on for the campaign in
-   Foundry, a 2024 druid's player chooses the Beasts their druid knows, within the rules, one
-   replaced after each Long Rest, and changes into one from the app and back: the sheet becomes the
-   beast's, with a strip to return and the time left, and the druid's own mind and hit points carry
-   over. Wild Shape ends when its hours run out, at 0 hit points or Incapacitated. Known forms are
-   kept on the druid's own Wild Shape, so dnd5e's sheet offers the same ones.
-2. **Transformations followed:** a character transformed in Foundry, by Wild Shape, Polymorph or the
-   Gamemaster, shows as the form in the app, and its turns, chat and saves stay the character's, so
-   End Turn works while transformed.
-
-Patch releases (0.40.x) are expected as beta use turns up things to tweak.
-
-## v0.41
+## v0.41 (in progress)
 
 1. **Wild Shape and Midi-QOL's Bonus Actions:** with Midi-QOL's **Enforce bonus actions** on, Wild
-   Shape from the app is refused once the character has used their Bonus Action, as every other
-   Bonus Action from the app already is, and marks the Bonus Action used when it changes them.
+   Shape from the app, changing and returning, is refused once the character has used their Bonus
+   Action in a fight, as every other Bonus Action from the app already is, and marks the Bonus
+   Action used when it changes them or brings them back.
 2. **Damage on its own, with its choices:** damage rolled with no attack or cast made in the app
    opens the same menu as damage after a hit, with the spell's level, the weapon's attack mode and
    its ammunition; for a spell slot or a consumable, a switch for whether to spend it.
-3. **Companions' saves:** the saves the game asks of a companion, answered from the app as a
-   character's are, rather than rolled in Foundry.
+3. **Companions' saves:** the saves the game asks of a companion, answered from the companion's own
+   sheet in the app as a character's are, its tab marked and the character's sheet pointing to it
+   while it's asked.
+
+Patch releases (0.41.x) are expected as beta use turns up things to tweak, Friday's session first.
 
 ## v0.42
 
@@ -97,10 +87,14 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   Elven Accuracy are planned for v0.42; rerolls stay at the table).
 - Moving several items at once isn't planned unless it's asked for.
 - Summon activities are used in Foundry (planned for v1.x).
-- The saves the game asks of a companion are rolled in Foundry (planned for v0.41).
+- A companion shared by several characters is asked a save card's save only where every one of
+  their players can read the card.
+- A Gamemaster's request for a save posted in chat asks the campaign's characters, not their
+  companions.
 - Companions show while on the active scene; a linked NPC its player owns shows always.
-- Damage on its own is rolled at a spell's own level, in a weapon's first mode, without ammunition;
-  Cast it, or attack, for the rest (its choices are planned for v0.41).
+- Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
+  it for its damage.
+- Damage on its own never spends the action itself, and with Spend off it counts nothing.
 - Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
   tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
   recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,
@@ -130,8 +124,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   cast on the wolf ends with the form. Conditions gained in form are put on the character, and
   conditions and concentration that ended in form are taken off (other effects are planned for
   v1.x).
-- Bonus Actions aren't counted: Change and Return say they take one (Midi-QOL's Enforce bonus
-  actions is planned for v0.41).
+- Bonus Actions are counted only under Midi-QOL's Enforce bonus actions, in a fight: elsewhere
+  Change and Return say they take one. A return or an ending made in Foundry isn't counted, as
+  Midi-QOL counts none.
 - A dish served while a character is in Wild Shape goes on the character's own actor: its effect
   waits for the return; its healing, and any other change to the character's own hit points
   meanwhile, is kept on the return, added to what the form took.

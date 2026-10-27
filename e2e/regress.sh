@@ -118,10 +118,14 @@ run companions 138 SHOTS=$O/shots-036f
 run companions 139 MIDI=1 SHOTS=$O/shots-036f
 run companions 138 DND5E6=1 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
-run alone 71 SHOTS=$O/shots-036
-run alone 72 MIDI=1 SHOTS=$O/shots-036
-run alone 71 DND5E6=1 SHOTS=$O/shots-036
+run alone 122 SHOTS=$O/shots-036
+run alone 127 MIDI=1 SHOTS=$O/shots-036
+run alone 122 DND5E6=1 SHOTS=$O/shots-036
 run alone 7 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036
+# Module 0.41.0: the runs above add part 17, damage on its own with its choices, a spell's level, a
+# weapon's mode and ammunition and the Spend switch (its pictures in shots-041); and module 0.40.0
+# (none).
+run alone 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
 # Module 0.36.0: ending a turn from the app, the character's or a companion's: the turn panel's
 # End turn and the Combat tab held, as the user's End Turn prototype draws them, with Undo; and
 # module 0.35.0 (neither). Its screenshots from the first run only.
@@ -152,3 +156,9 @@ run campaigns 52 SHOTS=$O/shots-039
 run wildshape 93 TIMEOUT=900 SHOTS=$O/shots-040
 run wildshape 32 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
+# Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
+# and module 0.40.0 (none).
+run companionsaves 44 SHOTS=$O/shots-041
+run companionsaves 46 MIDI=1 SHOTS=$O/shots-041
+run companionsaves 38 DND5E6=1 SHOTS=$O/shots-041
+run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041

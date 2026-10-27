@@ -31,6 +31,7 @@ import {
   sheetAction,
   TEXTS,
   typingRosterEntry,
+  aloneSheet,
 } from '@/mocks/sending-stone'
 import { toCommand } from '@/utils/roll-requests'
 import type { SheetSeat } from '@/types/character'
@@ -3451,6 +3452,21 @@ const fight = (withThorin = true) =>
     ],
   })
 
+/** The wolf's campaign asking companions their saves, as given, its prompt the wolf's. */
+const askingWolf = (features = ['prompts', 'companionPrompts']) => {
+  given({
+    campaign: companionCampaign({
+      rollKinds: ['save', 'initiative', 'attack', 'damage'],
+      rollFeatures: features,
+      companionKinds: ['save', 'initiative', 'attack', 'damage'],
+    }),
+  })
+  prismaMock.rollPrompt.findUnique.mockResolvedValue(
+    asked({ actorId: 'wolfBrakka' }) as any,
+  )
+  prismaMock.rollRequest.findMany.mockResolvedValue([])
+}
+
 describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
   const wolf = mockCompanionEntry({ of: ['actor-thorin'] })
   /** Thorin's player at his wolf's sheet: his own seat, the wolf in place of his actor. */
@@ -3585,12 +3601,82 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
   })
 
-  it('refuses an answer to what the game asks, which it asks of no companion', async () => {
+  // Changed on purpose (round 0.41.0 §8.3): refused only where the game doesn't ask companions.
+  it('refuses an answer to what the game asks of a companion before module 0.41.0, which asks it of none', async () => {
     given({ campaign: companionCampaign({ rollFeatures: ['prompts'] }) })
 
     await expect(
       createRollRequest(atWolf, { ...initiative, prompt: 'msg1-wolfBrakka' }),
     ).resolves.toEqual(refusal(422, 'prompt'))
+  })
+
+  describe('answering what the game asks of it, from module 0.41.0', () => {
+    /** A Dexterity saving throw answering the game's prompt of the wolf. */
+    const save: RollRequestInput = {
+      kind: 'save',
+      key: 'dex',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [12] }],
+      prompt: 'msg1-wolfBrakka',
+    }
+
+    it('takes its answer, by its key, where the game asks companions', async () => {
+      askingWolf()
+
+      await expect(createRollRequest(atWolf, save)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(prismaMock.rollPrompt.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaignPrompt: { campaignId: 'c1', promptId: 'msg1-wolfBrakka' },
+          },
+        }),
+      )
+      // Either seat's answers for the companion, by its key.
+      expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ actorId: 'wolfBrakka' }),
+        }),
+      )
+      expect(prismaMock.rollRequest.create.mock.calls[0][0].data).toMatchObject(
+        {
+          actorId: 'wolfBrakka',
+          ofActorId: 'actor-thorin',
+          kind: 'save',
+          payload: save,
+        },
+      )
+    })
+
+    it('refuses one where the game asks companions nothing, or asks for saves not at all', async () => {
+      askingWolf(['prompts'])
+      await expect(createRollRequest(atWolf, save)).resolves.toEqual(
+        refusal(422, 'prompt'),
+      )
+      askingWolf(['companionPrompts'])
+      await expect(createRollRequest(atWolf, save)).resolves.toEqual(
+        refusal(409, 'unavailable'),
+      )
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
+
+    it("refuses an answer to its character's prompt, or another companion's", async () => {
+      askingWolf()
+      prismaMock.rollPrompt.findUnique.mockResolvedValue(asked() as any)
+      await expect(createRollRequest(atWolf, save)).resolves.toEqual(
+        refusal(422, 'prompt'),
+      )
+      prismaMock.rollPrompt.findUnique.mockResolvedValue(
+        asked({ actorId: 'sceneFrost-tokenImp' }) as any,
+      )
+      await expect(createRollRequest(atWolf, save)).resolves.toEqual(
+        refusal(422, 'prompt'),
+      )
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    })
   })
 
   it('takes a death saving throw only of an important NPC', async () => {
@@ -4355,5 +4441,143 @@ describe('db/roll-requests, a turn taken back, from module 0.36.0', () => {
       refusal(429, 'busy'),
     )
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+})
+
+/** A game taking Thorin's damage on its own, with these features, and his sheet of choices. */
+const givenAlone = (features: string[]) => {
+  prismaMock.campaign.findUnique.mockResolvedValue({
+    ...takingRolls,
+    rollKinds: ['itemDamage'],
+    rollFeatures: features,
+  } as any)
+  prismaMock.actorSheet.findUnique.mockResolvedValue({
+    data: aloneSheet(),
+  } as any)
+  prismaMock.rollRequest.count.mockResolvedValue(0)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+}
+
+describe("db/roll-requests, damage on its own's choices, from module 0.41.0", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Thorin's Burning Hands on its own at 2nd level, spending the slot: 4d6. */
+  const hands: RollRequestInput = {
+    kind: 'itemDamage',
+    item: 'hands',
+    activity: 'handsSave',
+    slot: 'spell2',
+    consume: true,
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 6, results: [3, 5, 2, 6] }],
+  }
+
+  it('takes its slot, attack mode, ammunition and spend where the game takes them, as asked', async () => {
+    givenAlone(['aloneChoices'])
+
+    await expect(createRollRequest(character, hands)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(prismaMock.rollRequest.create.mock.calls[0][0].data).toMatchObject({
+      kind: 'itemDamage',
+      payload: hands,
+    })
+  })
+
+  it.each([
+    ['a slot', { consume: undefined }],
+    ['a spend', { slot: undefined, dice: [{ faces: 6, results: [3, 5, 2] }] }],
+    [
+      'an attack mode',
+      {
+        item: 'battleaxe',
+        activity: 'axeAttack',
+        slot: undefined,
+        consume: undefined,
+        attackMode: 'twoHanded',
+        dice: [{ faces: 10, results: [7] }],
+      },
+    ],
+    [
+      'ammunition',
+      {
+        item: 'longbow',
+        activity: 'bowAttack',
+        slot: undefined,
+        consume: undefined,
+        ammunition: 'arrowsFire',
+        dice: [
+          { faces: 8, results: [6] },
+          { faces: 4, results: [3] },
+        ],
+      },
+    ],
+  ])(
+    'refuses %s to a game that takes no choices, as before module 0.41.0, before any check',
+    async (_, fields) => {
+      givenAlone([])
+
+      await expect(
+        createRollRequest(character, {
+          ...hands,
+          ...fields,
+        } as RollRequestInput),
+      ).resolves.toEqual(refusal(409, 'unavailable'))
+      expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    },
+  )
+
+  it('takes damage on its own naming no choice from a game that takes none, as before', async () => {
+    givenAlone([])
+    const bare = { ...hands, slot: undefined, consume: undefined }
+    delete bare.slot
+    delete bare.consume
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: aloneSheet({
+        actions: [
+          {
+            id: 'action',
+            label: 'Actions',
+            actions: aloneSheet().actions[0].actions.map(action => ({
+              ...action,
+              tableDamage: action.tableDamage && {
+                normal: action.tableDamage.normal,
+                critical: action.tableDamage.critical,
+              },
+            })),
+          },
+        ],
+      }),
+    } as any)
+
+    await expect(
+      createRollRequest(character, {
+        ...bare,
+        dice: [{ faces: 6, results: [3, 5, 2] }],
+      }),
+    ).resolves.toEqual({ id: 'req-1' })
+  })
+
+  it("refuses a game's choice the sheet doesn't offer, as the check says", async () => {
+    givenAlone(['aloneChoices'])
+    await expect(
+      createRollRequest(character, { ...hands, slot: 'spell3' }),
+    ).resolves.toEqual(refusal(422, 'slot'))
+    givenAlone(['aloneChoices'])
+    await expect(
+      createRollRequest(character, {
+        ...hands,
+        dice: [{ faces: 6, results: [3, 5, 2] }],
+      }),
+    ).resolves.toEqual(refusal(422, 'dice'))
   })
 })

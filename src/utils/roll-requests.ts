@@ -8,6 +8,7 @@ import {
   UNDO_TURN_WITHIN,
 } from '@/constants/sending-stone'
 import { outOfSlots, slotPools } from '@/utils/action-groups'
+import { alonePicks, alonePlan } from '@/utils/alone-choices'
 import { castAtLevel, castIndex, castOf, type CastIndex } from '@/utils/casts'
 import {
   changes,
@@ -104,7 +105,12 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * shaped (`not-shaped`); a Beast learned with every place taken (`full`), in place of the form the
  * character is in (`shaped`), or in place of another before a Long Rest (`swap`). And from module
  * 0.40.0, a favorite, an effect, a move or a removal while its character, or a character at either
- * end of a move, is transformed (`shaped`).
+ * end of a move, is transformed (`shaped`). From module 0.41.0, for damage on its own: a slot, an
+ * attack mode, an ammunition or a spend named for a row the game sends no choices for (`slot`,
+ * `mode`, `ammo`, `consume`); a slot that isn't one of the spell's pools, or none where it's cast
+ * with one (`slot`), or none left of it where it's spent (`slots`); an attack mode that isn't the
+ * weapon's (`mode`); an ammunition that isn't its, or none left of it where it's spent (`ammo`);
+ * and a spend where using it spends nothing (`consume`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -685,7 +691,12 @@ function checkSelf(
  * actions, favorites, spells, features or inventory items, by its item and its attack's or use's
  * activity, whose damage the game would roll on its own; as a critical hit's only where the game
  * makes one of it; and are its dice those the game said it throws, changed as the player chose,
- * each kind chosen one it offers? Not once only: it follows no attack or use.
+ * each kind chosen one it offers? Not once only: it follows no attack or use. From module 0.41.0,
+ * its choices only where the game sends them for the row (`slot`, `mode`, `ammo`, `consume`): the
+ * slot always where the spell is cast with one, one of its pools, with one left where it spends
+ * one (`slots`); the attack mode one of the weapon's; the ammunition one of its, with some left
+ * where it's spent; spending only where its use spends anything; and its dice those of the plan
+ * its choices pick.
  */
 function checkItemDamage(
   input: RollRequestInput,
@@ -700,9 +711,69 @@ function checkItemDamage(
   if (!action) return 'gone'
   const plan = action.tableDamage
   if (!plan) return 'no-damage'
-  const preview = input.critical ? plan.critical : plan.normal
+  const choices =
+    plan.choices === undefined
+      ? checkUnchosen(input)
+      : checkAloneChoices(input, action, sheet, plan.spends ?? [])
+  if (choices) return choices
+  const picked = alonePlan(plan, alonePicks(action, sheet.spells, input))
+  const preview = input.critical ? picked.critical : picked.normal
   if (!preview) return 'critical'
   return checkDamageDice(input, preview)
+}
+
+/**
+ * Damage on its own of a row the game sends no choices for, as before module 0.41.0, or past its
+ * most: rolled at its own level, in its first mode, with no ammunition, spending nothing; so it
+ * names none.
+ */
+function checkUnchosen(input: RollRequestInput): RollRefusal | undefined {
+  if (input.slot !== undefined) return 'slot'
+  if (input.attackMode !== undefined) return 'mode'
+  if (input.ammunition !== undefined) return 'ammo'
+  if (input.consume !== undefined) return 'consume'
+  return undefined
+}
+
+/**
+ * Damage on its own's choices, from module 0.41.0, as the row's: the slot named wherever the spell
+ * is cast with one, so that the game rolls and spends at its level, one of its pools, with one left
+ * where it spends one; none for anything else; the attack mode one of the weapon's, which the
+ * sheet lists only where it has more than one; the ammunition one of its, with some left where it
+ * fires it spent; and spending only where its use would spend anything.
+ * @param spends - What the row says its use would spend.
+ */
+function checkAloneChoices(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+  spends: string[],
+): RollRefusal | undefined {
+  const consume = input.consume === true
+  const pools = slotPools(action, sheet.spells)
+  if (pools) {
+    const pool = pools.find(({ id }) => id === input.slot)
+    if (!pool) return 'slot'
+    if (consume && spends.includes('slot') && pool.value <= 0) return 'slots'
+  } else if (input.slot !== undefined) {
+    return 'slot'
+  }
+  const { attackMode, ammunition } = input
+  if (
+    attackMode !== undefined &&
+    !action.attackModes?.some(({ value }) => value === attackMode)
+  ) {
+    return 'mode'
+  }
+  if (ammunition !== undefined) {
+    const fired = action.ammunition?.find(({ id }) => id === ammunition)
+    if (!fired) return 'ammo'
+    if (consume && spends.includes('ammunition') && fired.quantity <= 0) {
+      return 'ammo'
+    }
+  }
+  if (consume && spends.length === 0) return 'consume'
+  return undefined
 }
 
 /**
@@ -1223,6 +1294,9 @@ export function toRollRequestView(
   // What a Wild Shape command made, from module 0.40.0, as the game says: the form taken or left,
   // the form learned, or the Beasts to learn.
   const wildShape = result?.wildShape ? { wildShape: result.wildShape } : {}
+  // What damage on its own that asked to spend spent, from module 0.41.0, as the game says, and
+  // whether concentration began.
+  const alone = result?.alone ? { alone: result.alone } : {}
   if (status === 'failed') {
     const reason = result?.reason ?? undefined
     if (!result?.spent || result.spent.made === 0) {
@@ -1236,6 +1310,7 @@ export function toRollRequestView(
         ...favorited,
         ...effect,
         ...wildShape,
+        ...alone,
       }
     }
     if (!result.visible) {
@@ -1250,6 +1325,7 @@ export function toRollRequestView(
         ...favorited,
         ...effect,
         ...wildShape,
+        ...alone,
       }
     }
     const rolls = result.rolls.map(roll => toTableRoll(roll))
@@ -1267,6 +1343,7 @@ export function toRollRequestView(
       ...favorited,
       ...effect,
       ...wildShape,
+      ...alone,
     }
   }
   if (status !== 'done' || !result) return { id: request.id, status }
@@ -1290,6 +1367,7 @@ export function toRollRequestView(
       ...favorited,
       ...effect,
       ...wildShape,
+      ...alone,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -1312,6 +1390,7 @@ export function toRollRequestView(
     ...favorited,
     ...effect,
     ...wildShape,
+    ...alone,
   }
 }
 

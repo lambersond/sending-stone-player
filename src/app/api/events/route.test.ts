@@ -57,8 +57,8 @@ const FEATURES = {
   // module 0.35.0, as the app reads who changed a journal in Foundry and sends orders of notes.
   notes: 2,
   // Changed on purpose (round 0.36.0 §7.12): from module 0.36.0, the campaign's characters'
-  // companions.
-  companions: 1,
+  // companions; and (round 0.41.0 §8.3) 2 from module 0.41.0, the saves the game asks of them.
+  companions: 2,
   // Changed on purpose (round 0.37.0 §7.15): from module 0.37.0, favorites added and removed,
   // fetched for with everything else off.
   favorites: 1,
@@ -71,6 +71,9 @@ const FEATURES = {
   // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0, Wild Shape from the app and a
   // shaped character's sheet, fetched for with everything else off.
   wildShape: 1,
+  // Changed on purpose (round 0.41.0 §8.3): from module 0.41.0, the plans of damage on its own at
+  // each level, in each attack mode and with each ammunition, and what it would spend.
+  aloneChoices: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -810,19 +813,21 @@ describe('app/api/events', () => {
         )
 
         const { features } = await response.json()
-        // Changed on purpose (round 0.39.0 §1.10): effects follow them; and (round 0.40.0
-        // §10.3) Wild Shape follows those.
-        expect(Object.keys(features).slice(-4)).toEqual([
+        // Changed on purpose (round 0.39.0 §1.10): effects follow them; (round 0.40.0 §10.3)
+        // Wild Shape follows those; and (round 0.41.0 §8.3) damage on its own's choices follow it.
+        expect(Object.keys(features).slice(-5)).toEqual([
           'favorites',
           'dishes',
           'effects',
           'wildShape',
+          'aloneChoices',
         ])
         expect(features.dishes).toBe(1)
       })
     })
 
-    // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows effects, last.
+    // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows effects; and (round 0.41.0
+    // §8.3) damage on its own's choices follow it, last.
     it("says it takes a player's own effects, from module 0.39.0, after dishes", async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
@@ -831,7 +836,7 @@ describe('app/api/events', () => {
       )
 
       const { features } = await response.json()
-      expect(Object.keys(features).slice(0, -1)).toEqual([
+      expect(Object.keys(features).slice(0, -2)).toEqual([
         'commands',
         'slimSheets',
         'maxBytes',
@@ -849,7 +854,26 @@ describe('app/api/events', () => {
       expect(features.effects).toBe(1)
     })
 
-    it('says it takes Wild Shape from the app and a shaped sheet, from module 0.40.0, after effects, last', async () => {
+    // Changed on purpose (round 0.41.0 §8.3): damage on its own's choices follow it, last.
+    it('says it takes Wild Shape from the app and a shaped sheet, from module 0.40.0, after effects', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-3, -1)).toEqual([
+          'effects',
+          'wildShape',
+        ])
+        expect(features.wildShape).toBe(1)
+        // The module reads it as a whole number, 1 or more, as it reads effects'.
+        expect(Number.isInteger(features.wildShape)).toBe(true)
+      }
+    })
+
+    it("says it takes damage on its own's choices and companions' saves, from module 0.41.0, after Wild Shape, last", async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {
@@ -858,12 +882,15 @@ describe('app/api/events', () => {
         )
         const { features } = await response.json()
         expect(Object.keys(features).slice(-2)).toEqual([
-          'effects',
           'wildShape',
+          'aloneChoices',
         ])
-        expect(features.wildShape).toBe(1)
-        // The module reads it as a whole number, 1 or more, as it reads effects'.
-        expect(Number.isInteger(features.wildShape)).toBe(true)
+        // The module reads each as a whole number: 1 or more for the plans of damage on its own
+        // at each level, mode and ammunition; 2 or more for companions' saves.
+        expect(features.aloneChoices).toBe(1)
+        expect(features.companions).toBe(2)
+        expect(Number.isInteger(features.aloneChoices)).toBe(true)
+        expect(Number.isInteger(features.companions)).toBe(true)
       }
     })
 

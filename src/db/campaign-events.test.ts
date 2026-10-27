@@ -803,6 +803,42 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it("bridge.hello keeps whether damage on its own takes its choices, and whether companions are asked their saves, after Midi-QOL's, from module 0.41.0", async () => {
+    const rolls = { enabled: true, kinds: ['save', 'itemDamage'], reason: null }
+    for (const [aloneChoices, companionPrompts, rollFeatures] of [
+      [
+        true,
+        true,
+        ['prompts', 'midiPrompts', 'aloneChoices', 'companionPrompts'],
+      ],
+      [true, undefined, ['prompts', 'midiPrompts', 'aloneChoices']],
+      [undefined, true, ['prompts', 'midiPrompts', 'companionPrompts']],
+      [1, 'yes', ['prompts', 'midiPrompts']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: {
+            rolls: {
+              ...rolls,
+              prompts: true,
+              midiPrompts: true,
+              aloneChoices,
+              companionPrompts,
+            },
+          },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
+  })
+
   it('bridge.hello keeps whether players may enter their own dice results, from module 0.26.0, and whether each character does, in its roster', async () => {
     const rolls = { enabled: true, kinds: ['skill'], reason: null }
     for (const [manualDice, rollFeatures] of [
@@ -1314,6 +1350,82 @@ describe('db/campaign-events', () => {
           )
         },
       )
+    })
+
+    describe('opened again, from module 0.41.0', () => {
+      /** A save the game asks of Thorin's first Bat, filed under its key. */
+      const bat = {
+        ...prompt,
+        id: 'msg1-bat1',
+        actorId: 'arena-bat1',
+      }
+
+      it('opens again one closed as gone, as a hello that left it out closes it, when the module opens it again', async () => {
+        await apply({ type: 'roll.prompt.opened', data: { prompt: bat } })
+
+        expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledWith({
+          where: {
+            campaignId: 'c1',
+            promptId: 'msg1-bat1',
+            closedReason: 'gone',
+          },
+          data: { closedAt: null, closedReason: null },
+        })
+        // Before it's kept as described.
+        const reopened =
+          prismaMock.rollPrompt.updateMany.mock.invocationCallOrder[0]
+        const kept = prismaMock.rollPrompt.upsert.mock.invocationCallOrder[0]
+        expect(reopened).toBeLessThan(kept)
+        expect(prismaMock.rollPrompt.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              campaignPrompt: { campaignId: 'c1', promptId: 'msg1-bat1' },
+            },
+            update: expect.objectContaining({ actorId: 'arena-bat1' }),
+          }),
+        )
+      })
+
+      it('opens again one a hello lists after an earlier hello closed it as gone, never one it leaves out', async () => {
+        await apply({
+          type: 'bridge.hello',
+          data: { characters: roster, combats: [], prompts: [bat] },
+        })
+
+        // Those it leaves out close as gone, first; then each listed, if gone, opens again.
+        expect(prismaMock.rollPrompt.updateMany).toHaveBeenNthCalledWith(1, {
+          where: {
+            campaignId: 'c1',
+            closedAt: null,
+            promptId: { notIn: ['msg1-bat1'] },
+          },
+          data: { closedAt: expect.any(Date), closedReason: 'gone' },
+        })
+        expect(prismaMock.rollPrompt.updateMany).toHaveBeenNthCalledWith(2, {
+          where: {
+            campaignId: 'c1',
+            promptId: 'msg1-bat1',
+            closedReason: 'gone',
+          },
+          data: { closedAt: null, closedReason: null },
+        })
+        expect(prismaMock.rollPrompt.updateMany).toHaveBeenCalledTimes(2)
+      })
+
+      it('leaves closed one answered, rolled or expired: only a gone one opens again', async () => {
+        await apply({ type: 'roll.prompt.opened', data: { prompt: bat } })
+
+        const reopenings = prismaMock.rollPrompt.updateMany.mock.calls.map(
+          ([query]) => query.where,
+        )
+        expect(reopenings).toEqual([
+          { campaignId: 'c1', promptId: 'msg1-bat1', closedReason: 'gone' },
+        ])
+        // Its upsert never clears how it closed.
+        const [[saved]] = prismaMock.rollPrompt.upsert.mock.calls as any
+        expect(saved.update).not.toHaveProperty('closedAt')
+        expect(saved.update).not.toHaveProperty('closedReason')
+      })
     })
 
     it('bridge.hello keeps those it says are open, and closes any other', async () => {

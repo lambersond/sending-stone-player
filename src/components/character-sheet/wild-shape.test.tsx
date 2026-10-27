@@ -674,6 +674,26 @@ describe('components/character-sheet/wild-shape: the picker, from module 0.40.0'
     )
   })
 
+  it('says a used Bonus Action in its own words, from module 0.41.0, without asking to try again', async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderPane()
+
+    const picker = await openPicker(user)
+    await user.click(
+      within(picker).getByRole('button', { name: 'Become a Wolf' }),
+    )
+    await rerender({
+      states: one({ status: 'failed', reason: 'bonus-action' }),
+    })
+    expect(within(picker).getByRole('alert')).toHaveTextContent(
+      /^Elowen didn’t change: your character has already used their Bonus Action\.$/,
+    )
+    // Not the roll's own words for a use's Bonus Action.
+    expect(within(picker).getByRole('alert')).not.toHaveTextContent(
+      'you’ve used your bonus action',
+    )
+  })
+
   it('stays open as the view stops offering Wild Shape, Become then saying so in its footer, sending nothing', async () => {
     const user = userEvent.setup()
     const { send, rerender } = renderPane()

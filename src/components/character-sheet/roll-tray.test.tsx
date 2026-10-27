@@ -4390,6 +4390,12 @@ describe('Wild Shape from the app, from module 0.40.0', () => {
       'an Incapacitated character can’t use Wild Shape',
     ],
     ['failed', 'not-shaped', 'your character isn’t in Wild Shape any more'],
+    // Midi-QOL's Enforce bonus actions, in a fight, from module 0.41.0 (round 0.41.0 §1.6).
+    [
+      'failed',
+      'bonus-action',
+      'your character has already used their Bonus Action',
+    ],
     ['refused', 'transformed', 'that form ends in Foundry'],
     ['refused', 'moving', 'it’s on its way already'],
     ['refused', 'gone', 'it can’t be found in the game any more'],
@@ -4495,5 +4501,129 @@ describe('a favorite, an effect, a removal and a move while transformed, from mo
         },
       }).table?.text,
     ).toBe(`Not taken: ${words}`)
+  })
+})
+
+describe('components/character-sheet/roll-tray: what damage on its own spent, from module 0.41.0 (round 0.41.0 §2.4.4)', () => {
+  const table = (states: [string, TableRollState][]): TableRolls => ({
+    states: new Map(states),
+    available: true,
+    sending: true,
+  })
+
+  /** Damage on its own made, as the page keeps the game's answer: spending as asked, if at all. */
+  const made = (fields: Partial<TableRollState> = {}): TableRollState => ({
+    status: 'done',
+    visible: true,
+    total: 14,
+    alone: true,
+    ...fields,
+  })
+
+  const GM = {
+    role: 'gm' as const,
+    api: '/api/campaigns/c1/characters/a1',
+    key: 'gm:c1:a1',
+  }
+
+  it.each<[string, Partial<TableRollState>, string]>([
+    [
+      'a spell slot',
+      { consumes: true, aloneSpent: ['slot'] },
+      'At the table: 14 · on its own, for your Gamemaster to apply; spell slot spent',
+    ],
+    [
+      'a spell slot and a use',
+      { consumes: true, aloneSpent: ['slot', 'uses'] },
+      'At the table: 14 · on its own, for your Gamemaster to apply; spell slot and use spent',
+    ],
+    [
+      'nothing, where nothing was left by then',
+      { consumes: true, aloneSpent: [] },
+      'At the table: 14 · on its own, for your Gamemaster to apply; nothing spent',
+    ],
+    [
+      'a spell slot, concentration begun',
+      { consumes: true, aloneSpent: ['slot'], concentrating: true },
+      'At the table: 14 · on its own, for your Gamemaster to apply; spell slot spent; concentrating',
+    ],
+    [
+      'an arrow fired',
+      { consumes: true, aloneSpent: ['ammunition'] },
+      'At the table: 14 · on its own, for your Gamemaster to apply; ammunition spent',
+    ],
+    [
+      'returning ammunition, which comes back',
+      { consumes: true, aloneSpent: [] },
+      'At the table: 14 · on its own, for your Gamemaster to apply; nothing spent',
+    ],
+    [
+      'a weapon thrown, and a use',
+      { consumes: true, aloneSpent: ['uses', 'thrown'] },
+      'At the table: 14 · on its own, for your Gamemaster to apply; use and thrown weapon spent',
+    ],
+    [
+      'nothing, where it didn’t ask to spend',
+      {},
+      'At the table: 14 · on its own, for your Gamemaster to apply',
+    ],
+  ])('says what was spent: %s', (_, fields, line) => {
+    render(
+      <RollTray
+        rolls={[damage({ total: 14 })]}
+        rolling={false}
+        table={table([['d1', made(fields)]])}
+      />,
+    )
+
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(line)
+    // Said last, after the outcome, nothing following it.
+    expect(status.textContent).toMatch(new RegExp(`${line.split('· ', 2)[1]}$`))
+  })
+
+  it('says nothing of spending until the game says what it spent', () => {
+    render(
+      <RollTray
+        rolls={[damage({ total: 14 })]}
+        rolling={false}
+        table={table([['d1', made({ consumes: true })]])}
+      />,
+    )
+
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+  })
+
+  it('says it in the Gamemaster’s words at their seat, and in the toast, the short line unchanged', async () => {
+    const user = userEvent.setup()
+    const states = table([
+      [
+        'd1',
+        made({ consumes: true, aloneSpent: ['slot'], concentrating: true }),
+      ],
+    ])
+    render(
+      <TableApiContext value={GM}>
+        <RollTray
+          rolls={[
+            roll({ id: 'latest', at: 1 }),
+            damage({ id: 'd1', total: 14, at: 0 }),
+          ]}
+          rolling={false}
+          table={states}
+        />
+      </TableApiContext>,
+    )
+    await user.click(screen.getByText(/Earlier rolls/))
+    const [earlier] = within(screen.getByRole('list')).getAllByRole('listitem')
+    // The short line, as ever.
+    expect(earlier).toHaveTextContent('· table 14, on its own')
+    expect(earlier).not.toHaveTextContent(/spent/)
+
+    expect(
+      briefOf(damage({ total: 14 }), states.states.get('d1'), 'gm').table?.text,
+    ).toBe(
+      'At the table: 14 · on its own, for you to apply; spell slot spent; concentrating',
+    )
   })
 })

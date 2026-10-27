@@ -182,7 +182,10 @@ export const MOST_AMONG = 20
  * request's `self` asks (module 0.22.0); and make the rolls a campaign's Gamemaster makes here as
  * one of its characters, marked as theirs (module 0.23.0), which only the Gamemaster's view reads;
  * and let players enter their own dice's results, as the Manual Dice module does (module 0.26.0),
- * each character's player where its roster entry says they may too (module 0.32.0).
+ * each character's player where its roster entry says they may too (module 0.32.0); and from
+ * module 0.41.0, roll damage on its own at the level, in the attack mode and with the ammunition
+ * chosen, spending what its use would where asked (`aloneChoices`), and ask companions for the
+ * saves their game asks of them (`companionPrompts`).
  */
 export const ROLL_FEATURES = [
   'modifiers',
@@ -193,6 +196,8 @@ export const ROLL_FEATURES = [
   'selfTargets',
   'gmRolls',
   'manualDice',
+  'aloneChoices',
+  'companionPrompts',
 ] as const
 
 /**
@@ -356,9 +361,30 @@ export const NOTES = 2
 
 /**
  * The format of companions this app takes, as it tells the module (`companions`): from module
- * 0.36.0, the hello's `companions`, `companions.listed` and `companion.updated`.
+ * 0.36.0, the hello's `companions`, `companions.listed` and `companion.updated`; and from module
+ * 0.41.0, 2: the saves the game asks of companions, which the module asks only then.
  */
-export const COMPANIONS = 1
+export const COMPANIONS = 2
+
+/**
+ * The format of damage on its own's choices this app takes, as it tells the module
+ * (`aloneChoices`): from module 0.41.0, the plans of damage on its own at each level, in each
+ * attack mode and with each ammunition, and what it would spend, which the module sends only then.
+ */
+export const ALONE_CHOICES = 1
+
+/**
+ * What damage on its own may spend, from module 0.41.0, where its player asks: as the sheet says it
+ * would, and as the game says it did, in this order: a spell slot, uses (its own or its item's, a
+ * consumable's quantity, a resource), the ammunition fired, and a thrown weapon.
+ */
+export const ALONE_SPENDS = ['slot', 'uses', 'ammunition', 'thrown'] as const
+
+/**
+ * The most plans of damage on its own a row is sent beside its own, from module 0.41.0: one with
+ * more is sent none, and rolls as before.
+ */
+export const MOST_ALONE_CHOICES = 64
 
 /**
  * A companion's key, as the module lists it, from module 0.36.0: its actor's id, or for a token's

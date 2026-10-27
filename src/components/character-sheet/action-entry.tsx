@@ -76,7 +76,14 @@ import {
 } from '@/utils/action-groups'
 import { castIndex, castOf, type CastIndex } from '@/utils/casts'
 import { rechargeWords } from '@/utils/creature-words'
-import { aloneRollOf, type AloneChoice } from '@/utils/damage-alone'
+import {
+  alonePicks,
+  alonePlan,
+  aloneRollOf,
+  aloneSelection,
+  type AloneChoice,
+  type AloneRow,
+} from '@/utils/damage-alone'
 import {
   changes,
   damageChanges,
@@ -115,8 +122,14 @@ import type {
  * button of its own.
  */
 
-/** An action's damage or healing, ready to roll, with its formula as dnd5e shows it. */
-export type DamageTarget = SheetDamageRoll & { formula: string }
+/**
+ * An action's damage or healing, ready to roll, with its formula as dnd5e shows it; and from module
+ * 0.41.0 the row it's of, for damage on its own's choices.
+ */
+export type DamageTarget = SheetDamageRoll & {
+  formula: string
+  action?: SheetAction
+}
 
 export type DamageActions = {
   /** Rolls it, from the chip tapped, which a choice of its kind opens from where one's asked. */
@@ -166,6 +179,25 @@ export type TableDamage = {
   sendsAlone: boolean
   /** Whether it takes a spent recharge rolled here, from module 0.36.0. */
   recharges: boolean
+  /**
+   * Where it takes damage on its own's choices, from module 0.41.0: asks the player for those of
+   * a row the game sends them for, where there's anything to ask, then goes on with what they
+   * picked; or at once, with nothing picked.
+   */
+  pickAlone?: (pick: AlonePick) => void
+}
+
+/**
+ * Damage on its own whose choices are asked, from module 0.41.0: the row it's of, whether it's
+ * healing, what the player chose of it already, as from its chip's menu, the chip it's rolled from,
+ * and how it goes on once they've picked.
+ */
+export type AlonePick = {
+  action: SheetAction
+  healing: boolean
+  choice: AloneChoice
+  anchor: HTMLElement
+  onPicked: (picks: AloneChoice) => void
 }
 
 /**
@@ -269,6 +301,7 @@ export function useActionRows({
     onRollDamage,
     tableDamage,
     menus,
+    spellbook,
   )
   const { show: about, dialog: info } = useActionInfo(characterId, spellbook)
   return {
@@ -325,13 +358,17 @@ const KINDS: Record<string, string> = {
  * attack of its own waits for it, is rolled from the dice the game said it throws, asking first
  * which kind where it offers a choice, and offers a critical hit's only where the game makes one
  * of it. A menu that would offer nothing isn't opened. The menu and its dialog are in `dialogs`,
- * to be put on the page.
+ * to be put on the page. From module 0.41.0, where the game takes damage on its own's choices and
+ * sends a row's, its choices are asked first, after the menu's where it was long-pressed, and it's
+ * rolled from the plan they pick, its kind asked from that plan.
  * @param menus - Where a choice of its kind is asked, from the chip.
+ * @param spellbook - The slots a spell's damage on its own may be rolled at.
  */
 export function useDamageRolls(
   onRollDamage: (roll: SheetDamageRoll) => void,
   table: TableDamage | undefined,
   menus: LinkMenus,
+  spellbook: SheetSpellSection[] = [],
 ): {
   actions: DamageActions
   dialogs: ReactNode
@@ -344,7 +381,7 @@ export function useDamageRolls(
     !!target.alone?.plan && !!table?.sendsAlone && !dueOf(target)
   const roll = (
     target: DamageTarget,
-    choice: AloneChoice,
+    choice: AloneChoice & { picked?: true },
     anchor: HTMLElement,
   ): void => {
     const { critical = false, modifiers } = choice
@@ -365,7 +402,39 @@ export function useDamageRolls(
     }
     // As the action's name, which the roll's label adds "damage" or "healing" to again.
     const name = target.label.replace(/ (damage|healing)$/, '')
-    const kinds = choicesOf(alone.plan.normal)
+    // Its choices, from module 0.41.0, where the game takes them and sends the row's: asked first,
+    // once, where there's anything to ask; then its plan is the one they pick (round 0.41.0
+    // §2.3.7-§2.3.9).
+    const row: AloneRow | undefined =
+      table.pickAlone && target.action && alone.plan.choices
+        ? { action: target.action, spells: spellbook }
+        : undefined
+    if (row && table.pickAlone && !choice.picked) {
+      table.pickAlone({
+        action: row.action,
+        healing: target.healing === true,
+        choice,
+        anchor,
+        onPicked: picks =>
+          roll(target, { ...choice, ...picks, picked: true }, anchor),
+      })
+      return
+    }
+    const plan = row
+      ? alonePlan(
+          alone.plan,
+          alonePicks(
+            row.action,
+            row.spells,
+            aloneSelection(alone.plan, row, choice),
+          ),
+        )
+      : alone.plan
+    // Its kinds, and the dice the menu names, are the plan's picked.
+    const formula = row
+      ? plan.normal.rolls.map(each => each.formula).join(' + ')
+      : target.formula
+    const kinds = choicesOf(plan.normal)
     if (kinds.length > 0 && !choice.type) {
       const maximum = modifiers?.maximize === true
       const how = [critical && 'Critical hit', maximum && 'Maximum']
@@ -377,7 +446,7 @@ export function useDamageRolls(
       else if (maximum) adjective = 'maximum '
       menus.open({
         anchor,
-        title: `${name} ${target.formula}${how}`,
+        title: `${name} ${formula}${how}`,
         items: kinds.map(({ key, label }) => ({
           id: key,
           label: target.healing
@@ -390,7 +459,7 @@ export function useDamageRolls(
       })
       return
     }
-    onRollDamage(aloneRollOf(name, alone, choice) ?? request)
+    onRollDamage(aloneRollOf(name, alone, choice, row) ?? request)
   }
   const onMenu: DamageActions['onMenu'] = (anchor, target, point, use) => {
     const subject = {
@@ -2017,6 +2086,8 @@ function damageTarget(
     ...(action.tableDamage &&
       activity && {
         alone: { item: action.id, activity, plan: action.tableDamage },
+        // Its row, for its choices, from module 0.41.0.
+        action,
       }),
   }
 }

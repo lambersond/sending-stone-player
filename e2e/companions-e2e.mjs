@@ -341,7 +341,8 @@ part('1. the hello and the answer')
   // Changed on purpose (round 0.36.0 §13.4, v6): nor taking back a turn ended, the character's to do.
   check(!!features && !features.kinds.includes('inspiration') && !features.kinds.includes('spend') && !features.kinds.includes('endTurn') && !features.kinds.includes('undoEndTurn') && features.initiative === 'own',
     `its features.companions: kinds without inspiration, spend, endTurn or undoEndTurn, initiative "own" (${JSON.stringify(features)})`)
-  check(JSON.parse(hello().body ?? '{}').features?.companions === 1, `the app answers companions: 1 (${hello().body})`)
+  // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0 the app reads companions' saves too.
+  check(JSON.parse(hello().body ?? '{}').features?.companions === 2, `the app answers companions: 2 (${hello().body})`)
   const order = posted.map(p => `${p.type}:${p.data?.character?.id ?? p.data?.companion?.key ?? ''}`)
   const thorinAt = order.indexOf('character.updated:thorin')
   const brakkaAt = order.indexOf('companion.updated:brakka')

@@ -1,6 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
-import { useShownPrompts, useWaitingPrompts } from './use-waiting-prompts'
-import type { TablePrompt } from '@/types/table'
+import {
+  useShownPrompts,
+  useWaitingCompanions,
+  useWaitingPrompts,
+} from './use-waiting-prompts'
+import type { CompanionAsked, TablePrompt } from '@/types/table'
 
 const NOW = Date.parse('2026-10-08T12:05:00Z')
 
@@ -116,6 +120,47 @@ describe('hooks/use-waiting-prompts, useShownPrompts', () => {
     act(() => jest.advanceTimersByTime(3900))
     expect(result.current).toEqual([{ ...midi, closed: 'rolled' }])
     act(() => jest.advanceTimersByTime(200))
+    expect(result.current).toEqual([])
+  })
+})
+
+/** A companion asked a Dexterity save, until then. */
+const asked = (key: string, expiresAt: string): CompanionAsked => ({
+  key,
+  label: 'Dexterity saving throw',
+  expiresAt,
+})
+
+describe('hooks/use-waiting-prompts, companions asked, from module 0.41.0 (round 0.41.0 §3.7)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('drops each companion as the soonest of its prompts runs out, with nothing new from the game, as the character’s own', () => {
+    const companions = [
+      asked('arena-bat1', '2026-10-08T12:06:00.000Z'),
+      asked('arena-bat2', '2026-10-08T12:08:00.000Z'),
+      asked('brakka', '2026-10-08T12:04:00.000Z'),
+    ]
+    const { result } = renderHook(() => useWaitingCompanions(companions))
+    expect(result.current.map(({ key }) => key)).toEqual([
+      'arena-bat1',
+      'arena-bat2',
+    ])
+
+    act(() => jest.advanceTimersByTime(60_100))
+    expect(result.current.map(({ key }) => key)).toEqual(['arena-bat2'])
+
+    act(() => jest.advanceTimersByTime(120_000))
+    expect(result.current).toEqual([])
+  })
+
+  it('is empty while the game asks no companion', () => {
+    const { result } = renderHook(() => useWaitingCompanions())
     expect(result.current).toEqual([])
   })
 })

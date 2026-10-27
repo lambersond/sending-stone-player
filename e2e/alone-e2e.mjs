@@ -14,23 +14,35 @@
 // Recharge chip left of its uses, rolled with a 5 and a 3, Twin Bolts' on a 6, refused at full.
 // MIDI=1: no workflow made, dnd5e's card. DND5E6=1: dnd5e 6.0.5's typed card, `system.targets` [].
 // SKEW=035 with MODULE=module-0.35.0: no switch, chips rolled here as before, no Recharge chip.
-// Every width in both themes. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs
+// Since module 0.41.0 (its contract §8.4.1, its weapons' steps from v1's §8.4.1), part 17, damage on
+// its own with its choices: the hello's and the app's aloneChoices; the use picker before a chip
+// that has anything to choose or spend, its At level chips, a battleaxe's modes, a longbow's
+// ammunition and the Spend switch, remembered per device for the character; Foundry's card at the
+// level, in the mode and with the ammunition picked, saying what was spent, and what dnd5e spends:
+// a spell slot, a Potion of Healing's use, an arrow; the kind menu and typed dice after the picker;
+// the Gamemaster's seat; the app's own refusals; under MIDI=1 Midi-QOL's Bonus Action refusing a
+// spend. Steps 6-8 open the picker first. SKEW=040 with MODULE=module-0.40.0: no choices, the chip
+// rolled at once. Every width in both themes. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs
 // --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { JSDOM } from 'jsdom'
 import {
-  BASE, DND5E6, MIDI, MODULE, SKEW035, W, browse, call, character, check, escapeRe, finish, foundryWorld, launch, manualDice,
-  newCampaign, note, npc, part, posted, same, sameJson, settled, shoot, shootBoth, sideways, sql, startModule, theme, until, wait,
+  BASE, DND5E6, MIDI, MODULE, SHOTS_041, SKEW035, SKEW040, W, browse, call, character, check, escapeRe, finish, foundryWorld, launch,
+  manualDice, newCampaign, note, npc, part, posted, same, sameJson, settled, shoot, shootBoth, sideways, sql, startModule, theme, until,
+  wait,
 } from './world-030.mjs'
 
 const GAME = 'https://ashlands-alone.forge-vtt.com'
 const SECRET = 'ashlands-alone-36'
 const TITLE = 'Ashlands'
 const NEW = !SKEW035
+/** The game takes damage on its own's choices, from module 0.41.0. */
+const CHOICES = NEW && !SKEW040
 await launch(GAME)
 const { id: A } = await newCampaign({ title: TITLE, address: 'ashlands-alone.forge-vtt.com', secret: SECRET })
 await foundryWorld({ dice6: DND5E6 })
 const { Activity, HealActivity, SaveActivity, port } = await import('./fvtt/activity5e.mjs')
-game.modules.get('sending-stone').version = SKEW035 ? '0.35.0' : '0.36.0'
+// Changed on purpose (round 0.41.0 §8.4): the module's own version.
+game.modules.get('sending-stone').version = SKEW035 ? '0.35.0' : (SKEW040 ? '0.40.0' : '0.41.0')
 manualDice('active')
 // Thorin's player is Trusted, whom Make Manual Rolls is given to out of the box.
 game.users.get('alice').role = 2
@@ -149,6 +161,28 @@ const thorin = character({ id: 'thorin', name: 'Thorin', owners: ['alice'], mods
       id: 'bolts', name: 'Twin Bolts', type: 'feat', system: { properties: [], uses: recharge(1, '6', 2) },
       activities: [{ id: 'loose', type: 'damage', activation: ACTION, damage: [{ number: 1, denomination: 10, types: ['thunder'] }], labels: { damage: [hits('1d10', 'thunder')] } }],
     },
+    // Module 0.41.0 (its contract §8.4.1): a Potion of Healing, a Bonus Action, its one use destroying
+    // it, two of them; a versatile Battleaxe; and a Longbow, with Arrows and Arrows of Fire.
+    {
+      id: 'potion', name: 'Potion of Healing', type: 'consumable', system: { properties: [], quantity: 2, type: { value: 'potion' }, uses: { max: 1, spent: 0, autoDestroy: true } },
+      activities: [{
+        id: 'quaff', type: 'heal', activation: { type: 'bonus', value: 1 }, consumption: [{ type: 'itemUses', value: '1' }],
+        healing: { number: 2, denomination: 4, bonus: '2', types: ['healing'] }, labels: { damage: [hits('2d4 + 2', 'healing')] },
+      }],
+    },
+    {
+      id: 'axe', name: 'Battleaxe', type: 'weapon', system: { properties: ['ver'], quantity: 1, attackType: 'melee', equipped: true },
+      activities: [{ id: 'chop', attack: { ability: 'str' }, versatile: 10, damage: [{ number: 1, denomination: 8, bonus: '@mod', types: ['slashing'] }], labels: { modifier: '+6', damage: [hits('1d8 + 4', 'slashing')] } }],
+    },
+    {
+      id: 'bow', name: 'Longbow', type: 'weapon', system: { properties: ['amm'], quantity: 1, attackType: 'ranged', equipped: true },
+      activities: [{ id: 'shot', attack: { ability: 'dex' }, damage: [{ number: 1, denomination: 8, bonus: '@mod', types: ['piercing'] }], labels: { modifier: '+3', damage: [hits('1d8 + 1', 'piercing')] } }],
+    },
+    { id: 'arrows', name: 'Arrows', type: 'consumable', system: { type: { value: 'ammo' }, quantity: 20, properties: [] }, activities: [] },
+    {
+      id: 'firearrows', name: 'Arrows of Fire', type: 'consumable',
+      system: { type: { value: 'ammo' }, quantity: 5, properties: [], damage: { base: { number: 1, denomination: 4, types: ['fire'] } } }, activities: [],
+    },
   ],
 })
 thorin.system.details = { level: 5 }
@@ -239,6 +273,13 @@ const watchPosts = who => {
 }
 watchPosts(alice)
 const postsBy = who => sentBy.get(who)
+/** Each POST of a roll a page's refused, noted, for a failure's report. */
+function watchRefusals(who) {
+  who.page.on('response', async response => {
+    if (response.request().method() === 'POST' && /\/rolls$/.test(response.url()) && response.status() !== 202) note(`refused: ${response.url().replace(BASE, '')} ${response.status()} ${await response.text().catch(() => '')} for ${response.request().postData()}`)
+  })
+}
+watchRefusals(alice)
 
 /** The page's cog, opened: its switches by their labels. */
 async function cog(who) {
@@ -289,9 +330,70 @@ async function menuOf(who, button, title) {
   return menu
 }
 const menuItems = menu => menu.getByRole('menuitem').allTextContents()
+/** The use picker damage on its own opens first, from module 0.41.0, by its title: the action's name. */
+const pickerOf = (who, title) => who.page.getByRole('dialog', { name: title })
+/**
+ * What the picker shows: its lead; each row of chips by its legend, each chip's name, text, whether
+ * it's picked or disabled, and its height; the Spend switch's name, state, hint and height; what its
+ * live region says; its buttons' names; and what has focus.
+ */
+const pickerLook = dialog => dialog.evaluate(el => {
+  const nameOf = node => node.getAttribute('aria-label') ?? node.textContent.replace(/\s+/g, ' ').trim()
+  const rows = Object.fromEntries([...el.querySelectorAll('fieldset')].map(set => [set.querySelector('legend')?.textContent.trim(),
+    [...set.querySelectorAll('[role=radio]')].map(chip => ({
+      name: nameOf(chip), text: chip.textContent.replace(/\s+/g, ' ').trim(), checked: chip.getAttribute('aria-checked') === 'true',
+      disabled: chip.disabled, height: chip.getBoundingClientRect().height,
+    }))]))
+  const input = el.querySelector('input[role=switch]')
+  const label = input?.closest('label')
+  const active = document.activeElement
+  return {
+    lead: [...el.querySelectorAll('p')].find(p => /^Its /.test(p.textContent.trim()))?.textContent.trim() ?? null,
+    rows,
+    spend: input ? {
+      name: label.textContent.trim(), checked: input.checked, hint: document.getElementById(input.getAttribute('aria-describedby'))?.textContent ?? null,
+      height: label.getBoundingClientRect().height,
+    } : null,
+    live: el.querySelector('[aria-live=polite]')?.textContent ?? null,
+    buttons: [...el.querySelectorAll('button:not([role=radio])')].map(nameOf),
+    focused: active === document.body ? 'body' : (active?.getAttribute('role') === 'switch' ? `switch ${active.closest('label')?.textContent.trim()}` : nameOf(active)),
+  }
+})
+/** The picker's Spend switch set on or off, as a finger does it: on its label. */
+async function setSpend(dialog, on) {
+  const input = dialog.getByRole('switch')
+  await input.waitFor({ state: 'attached', timeout: 10_000 })
+  if ((await input.isChecked()) === on) return
+  await input.locator('xpath=ancestor::label[1]').click()
+  await until(async () => (await input.isChecked()) === on, `the Spend switch ${on ? 'on' : 'off'}`, 5_000)
+}
+/**
+ * A chip's picker, opened once the page's sheet has what it's to show (`ready`, of its look), as the
+ * page hears of a change in Foundry at its next poll: closed and opened again until then.
+ */
+async function openPicker(who, rowChip, title, ready = () => true) {
+  const picker = pickerOf(who, title)
+  const end = Date.now() + 20_000
+  for (;;) {
+    await rowChip.click()
+    await picker.waitFor({ timeout: 10_000 })
+    if (ready(await pickerLook(picker)) || Date.now() > end) return picker
+    await who.page.keyboard.press('Escape')
+    await picker.waitFor({ state: 'hidden', timeout: 10_000 })
+    await wait(1000)
+  }
+}
+/** What has focus on a page, by its accessible name. */
+const focusedName = who => who.page.evaluate(() => {
+  const el = document.activeElement
+  return el === document.body ? 'body' : (el?.getAttribute('aria-label') ?? el?.textContent?.replace(/\s+/g, ' ').trim() ?? null)
+})
 const GAME_WORDS = 'your Gamemaster’s game'
-const HINT = `Damage you roll goes to ${GAME_WORDS} with no attack or saving throw made there, for your Gamemaster to apply.`
-const GM_HINT = 'Damage you roll goes to your game with no attack or saving throw made there, for you to apply.'
+// Changed on purpose (round 0.41.0 §8.4): from module 0.41.0 the hint says its choices are made as
+// it's rolled.
+const CHOOSING = CHOICES ? ' You choose a spell’s level, a weapon’s mode and its ammunition as you roll, and whether to spend what it uses.' : ''
+const HINT = `Damage you roll goes to ${GAME_WORDS} with no attack or saving throw made there, for your Gamemaster to apply.${CHOOSING}`
+const GM_HINT = `Damage you roll goes to your game with no attack or saving throw made there, for you to apply.${CHOOSING}`
 
 if (SKEW035) {
   // =================================================================================================
@@ -322,6 +424,46 @@ if (SKEW035) {
     check(await sideways(view.page) === 0, `no horizontal scroll at ${width}`)
     await view.view.close()
   }
+  await finish()
+}
+
+if (SKEW040) {
+  // =================================================================================================
+  // 18. Module 0.40.0 (round 0.41.0 §8.4.1)
+  // =================================================================================================
+  part('18. module 0.40.0')
+  const rolls = hello().data.features.rolls
+  check(rolls.kinds.includes('itemDamage') && !('aloneChoices' in rolls) && !('companionPrompts' in rolls),
+    `module 0.40.0's hello takes damage on its own and says nothing of its choices (${JSON.stringify(Object.keys(rolls))})`)
+  await until(() => stored().includes('itemDamage'), 'the app to keep the kinds', 15_000)
+  const features = sql(`select array_to_string("rollFeatures", ',') from campaign where id = '${A}'`).split(',')
+  check(!features.includes('aloneChoices') && JSON.parse(hello().body ?? '{}').features?.aloneChoices === 1,
+    `the app keeps no aloneChoices, though it answers aloneChoices: 1 (${features.join(',')}; ${hello().body})`)
+  await alice.tab('Actions')
+  await chip(alice, 'Longsword attack, +6').waitFor({ timeout: 15_000 })
+  const plan = (await call(alice.page, `${API}/table`)).json?.sheet?.actions?.flatMap(section => section.actions)
+    .find(action => action.id === 'hands' && action.tableDamage)?.tableDamage
+  check(!!plan && !('choices' in plan) && !('spends' in plan), `Burning Hands' plan as 0.40.0 sends it, without choices or spends (${JSON.stringify(Object.keys(plan ?? {}))})`)
+  {
+    const { alone } = await cog(alice)
+    await alone.waitFor({ timeout: 15_000 })
+    check((await switchLook(alone)).hint === HINT, `the cog's hint without its choices: "${(await switchLook(alone)).hint}"`)
+    await flip(alone)
+    await until(async () => (await switchLook(alone)).checked, 'the switch on', 5_000)
+    await closeCog(alice)
+  }
+  const hands = chip(alice, 'Burning Hands damage, 3d6, goes to the table on its own')
+  await hands.waitFor({ timeout: 10_000 })
+  await force(alice, 6, 3)
+  const { request, made } = await sent(() => hands.click(), 'Burning Hands\' damage alone')
+  await unforce(alice)
+  const card = madeFor(request.id)
+  check(await alice.page.getByRole('dialog').count() === 0 && request.kind === 'itemDamage' && !('slot' in request.payload) && !('consume' in request.payload)
+    && made.status === 'done' && card?.rolls[0].formula === '3d6' && thorin.system.spells.spell1.value === 2,
+    `Burning Hands' chip rolls 3d6 at once: no picker, nothing named, nothing spent (${JSON.stringify(request.payload)}; ${card?.rolls[0].formula})`)
+  await paced()
+  const crafted = await call(alice.page, `${API}/rolls`, { method: 'POST', body: { kind: 'itemDamage', item: 'hands', activity: 'flames', slot: 'spell1', mode: 0, explicit: false, extras: [], dice: [{ faces: 6, results: [3, 3, 3] }] } })
+  check(crafted.status === 409 && crafted.json?.reason === 'unavailable', `a crafted itemDamage naming a slot → 409 unavailable (${crafted.status} ${crafted.text})`)
   await finish()
 }
 
@@ -523,8 +665,23 @@ part('6. burning hands')
   await hands.waitFor()
   const before = messages()
   await force(alice, 6, 4)
-  const { request, made } = await sent(() => hands.click(), 'Burning Hands\' damage alone')
+  // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0 its chip opens the use picker first,
+  // its Spend switch alone with one pool of slots, turned off here, so nothing is spent.
+  let look = null
+  const { request, made } = await sent(async () => {
+    await hands.click()
+    if (!CHOICES) return
+    const picker = pickerOf(alice, 'Burning Hands')
+    await picker.waitFor({ timeout: 10_000 })
+    await setSpend(picker, false)
+    look = await pickerLook(picker)
+    await picker.getByRole('button', { name: 'Roll damage' }).click()
+  }, 'Burning Hands\' damage alone')
   await unforce(alice)
+  if (CHOICES) {
+    check(same(look?.rows, {}) && look.spend?.name === 'Spend a 1st-level spell slot' && !look.spend.checked && request.payload.slot === 'spell1' && !('consume' in request.payload),
+      `its chip opens the picker first: no chips with one pool of slots, "Spend a 1st-level spell slot" turned off; sent at its slot, spending nothing (${JSON.stringify({ look, payload: request.payload })})`)
+  }
   const card = madeFor(request.id)
   check(request.kind === 'itemDamage' && request.payload.item === 'hands' && request.payload.activity === 'flames' && made.status === 'done' && kindOf(card) === 'damage',
     `Burning Hands' damage chip sends its damage alone (${JSON.stringify(request.payload)})`)
@@ -566,7 +723,21 @@ part('7. second wind')
   const wind = chip(alice, `Second Wind healing, 1d10 + 5${ALONE}`)
   await wind.waitFor()
   const spent = thorin.items.get('wind').system.uses.spent
-  const { request, made } = await sent(() => wind.click(), 'Second Wind\'s healing alone')
+  // Changed on purpose (round 0.41.0 §8.4): the picker first, its switch spending a use, turned off.
+  let look = null
+  const { request, made } = await sent(async () => {
+    await wind.click()
+    if (!CHOICES) return
+    const picker = pickerOf(alice, 'Second Wind')
+    await picker.waitFor({ timeout: 10_000 })
+    await setSpend(picker, false)
+    look = await pickerLook(picker)
+    await picker.getByRole('button', { name: 'Roll healing' }).click()
+  }, 'Second Wind\'s healing alone')
+  if (CHOICES) {
+    check(same(look?.rows, {}) && look.spend?.name === 'Spend a use of Second Wind' && !look.spend.checked && !look.buttons.includes('Roll damage') && !('consume' in request.payload),
+      `the picker first: "Spend a use of Second Wind", turned off, and "Roll healing" (${JSON.stringify(look)})`)
+  }
   const card = madeFor(request.id)
   check(request.kind === 'itemDamage' && made.status === 'done' && kindOf(card) === 'healing' && card.flags['sending-stone']?.alone === true,
     `"Second Wind healing, 1d10 + 5${ALONE}" makes a healing card (${kindOf(card)})`)
@@ -581,6 +752,16 @@ part('8. a kind to choose')
   const orb = chip(alice, `Chromatic Orb damage, 3d8${ALONE}`)
   await orb.waitFor()
   await orb.click()
+  // Changed on purpose (round 0.41.0 §8.4): the picker first, its switch off, then the kind menu.
+  if (CHOICES) {
+    const picker = pickerOf(alice, 'Chromatic Orb')
+    await picker.waitFor({ timeout: 10_000 })
+    await setSpend(picker, false)
+    const look = await pickerLook(picker)
+    check(same(look.rows, {}) && look.spend?.name === 'Spend a 1st-level spell slot' && !look.spend.checked,
+      `the picker first, "Spend a 1st-level spell slot" turned off (${JSON.stringify(look)})`)
+    await picker.getByRole('button', { name: 'Roll damage' }).click()
+  }
   const menu = alice.page.getByRole('menu').filter({ hasText: /Roll fire damage/i })
   await menu.waitFor({ timeout: 10_000 })
   const items = (await menuItems(menu)).map(t => t.trim())
@@ -928,6 +1109,375 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     await shootBoth(view, 'alone-recharge-table', breathOf(view))
   }
   await view.view.close()
+}
+
+// =================================================================================================
+// 17. Choices (module 0.41.0, its contract §8.4.1; the weapons' steps from v1's §8.4.1)
+// =================================================================================================
+if (CHOICES) {
+  part('17. choices')
+  const spells = thorin.system.spells
+  const slotsOf = level => spells[`spell${level}`].value
+  const tableOf = async who => (await call(who.page, `${API}/table`)).json
+  const planOf = (view, id) => view?.sheet?.actions?.flatMap(section => section.actions).find(action => action.id === id && action.tableDamage)?.tableDamage
+  const formulasOf = preview => preview?.rolls?.map(roll => roll.formula)
+  const rollFeatures = () => sql(`select array_to_string("rollFeatures", ',') from campaign where id = '${A}'`).split(',')
+  const statusText = who => statusOf(who).textContent().catch(() => '')
+  const hands = chip(alice, `Burning Hands damage, 3d6${ALONE}`)
+  const handsPicker = pickerOf(alice, 'Burning Hands')
+  const potion = chip(alice, `Potion of Healing healing, 2d4 + 2${ALONE}`)
+  const potionPicker = pickerOf(alice, 'Potion of Healing')
+
+  // 1. The hello and what the app keeps; Thorin given a 2nd-level slot, his 1st-level ones back.
+  {
+    const rolls = hello().data.features.rolls
+    const keys = Object.keys(rolls)
+    check(rolls.aloneChoices === true && keys.indexOf('aloneChoices') === keys.indexOf('midiPrompts') + 1 && JSON.parse(hello().body ?? '{}').features?.aloneChoices === 1,
+      `the hello's rolls say aloneChoices, after midiPrompts, and the app answers aloneChoices: 1 (${JSON.stringify(keys)}; ${hello().body})`)
+    check(rollFeatures().includes('aloneChoices'), `the app keeps aloneChoices (${rollFeatures().join(',')})`)
+    spells.spell1.value = 2
+    Object.assign(spells.spell2, { value: 1, max: 1 })
+    await Hooks.callAll('updateActor', thorin, {}, {}, 'gm')
+    let plan = null
+    await until(async () => (plan = planOf(await tableOf(alice), 'hands'))?.choices?.length === 1, "Burning Hands' plan at 2nd in the app", 30_000).catch(() => {})
+    check(same(plan?.choices?.map(entry => [entry.level, formulasOf(entry.normal)]), [[2, ['4d6']]]) && same(plan.spends, ['slot']),
+      `the module's sheet for Thorin carries Burning Hands' choices, at 2nd 4d6, and what it spends, a slot (${JSON.stringify({ choices: plan?.choices, spends: plan?.spends })})`)
+    const view = await tableOf(alice)
+    const axe = planOf(view, 'axe')
+    const bow = planOf(view, 'bow')
+    const potionPlan = planOf(view, 'potion')
+    const sword = planOf(view, 'longsword')
+    check(same(axe?.choices?.map(entry => [entry.attackMode, formulasOf(entry.normal)]), [['twoHanded', ['1d10 + 4']]]) && same(axe?.spends, [])
+      && same(bow?.choices?.map(entry => [entry.ammunition, formulasOf(entry.normal)]), [['firearrows', ['1d8 + 1', '1d4']]]) && same(bow?.spends, ['ammunition'])
+      && same(potionPlan?.choices, []) && same(potionPlan?.spends, ['uses']) && same(sword?.choices, []) && same(sword?.spends, []),
+      `and the Battleaxe's two-handed 1d10 + 4, spending nothing; the Longbow's with Arrows of Fire, 1d8 + 1 and 1d4, spending ammunition, plain Arrows the same as its own; the Potion spending a use; the Longsword nothing (${JSON.stringify({ axe, bow: bow && { choices: bow.choices?.map(entry => entry.ammunition), spends: bow.spends }, potion: potionPlan && { choices: potionPlan.choices, spends: potionPlan.spends }, sword: sword && { choices: sword.choices, spends: sword.spends } })})`)
+  }
+
+  // 2. Burning Hands at 2nd, spent: once the page has Thorin's 2nd-level slot.
+  await hands.waitFor({ timeout: 15_000 })
+  await openPicker(alice, hands, 'Burning Hands', look => look.rows['At level']?.length === 2)
+  {
+    const opened = await pickerLook(handsPicker)
+    await setSpend(handsPicker, true)
+    let look = await pickerLook(handsPicker)
+    check(look.lead === `Its damage goes to ${GAME_WORDS} on its own, for your Gamemaster to apply.`, `its damage chip opens the dialog "Burning Hands", led "${look.lead}"`)
+    check(same(look.rows['At level']?.map(c => [c.name, c.text, c.checked, c.disabled]), [['1st Level, 2 slots left', '1st · 2 left', true, false], ['2nd Level, 1 slot left', '2nd · 1 left', false, false]])
+      && Object.keys(look.rows).length === 1,
+      `"At level": "1st · 2 left", picked, and "2nd · 1 left" (${JSON.stringify(look.rows)})`)
+    check(look.spend?.name === 'Spend a 1st-level spell slot' && look.spend.checked && look.spend.hint === 'Turn it off where it was spent in Foundry already.'
+      && look.buttons.includes('Roll damage'),
+      `the switch "Spend a 1st-level spell slot", on, hinted "${look.spend?.hint}"; "Roll damage"`)
+    later(/^1st Level/.test(opened.focused ?? ''), `as it opens, focus on the chip picked in its first row (${opened.focused})`)
+    check(look.rows['At level'].every(c => c.height >= 44) && look.spend.height >= 44, `at 390 its chips and switch 44 px tall (${JSON.stringify(look.rows['At level'].map(c => c.height))}, ${look.spend.height})`)
+    await shootBoth(alice, 'alone-choices-levels', handsPicker, SHOTS_041)
+    await handsPicker.getByRole('radio', { name: '2nd Level, 1 slot left' }).click()
+    await until(async () => (await pickerLook(handsPicker)).spend?.name === 'Spend a 2nd-level spell slot', 'the switch to name a 2nd-level slot', 5_000).catch(() => {})
+    look = await pickerLook(handsPicker)
+    check(look.spend?.name === 'Spend a 2nd-level spell slot' && look.live === 'Spend a 2nd-level spell slot',
+      `2nd picked: the switch "${look.spend?.name}", and the dialog's live region says so ("${look.live}")`)
+    const before = messages()
+    await force(alice, 6, 4)
+    const { request, made } = await sent(() => handsPicker.getByRole('button', { name: 'Roll damage' }).click(), 'Burning Hands at 2nd, spent').catch(async error => {
+      note(`the tray: ${await statusText(alice)}; the picker ${await handsPicker.isVisible() ? 'still open' : 'closed'}; posted: ${JSON.stringify(postsBy(alice).slice(-2))}`)
+      throw error
+    })
+    await unforce(alice)
+    await until(() => /spent$/.test(madeFor(request.id)?.flavor ?? ''), 'its card to say what was spent', 10_000).catch(() => {})
+    const card = madeFor(request.id)
+    check(request.kind === 'itemDamage' && request.payload.slot === 'spell2' && request.payload.consume === true && same(request.payload.dice, [{ faces: 6, results: [4, 4, 4, 4] }]),
+      `sent at the 2nd-level slot, to spend it, with four d6 (${JSON.stringify(request.payload)})`)
+    check(made.status === 'done' && kindOf(card) === 'damage' && card.rolls[0].formula === '4d6' && card.rolls[0].options.type === 'fire' && same(targetsOf(card), [])
+      && card.flavor === 'Burning Hands - Damage Roll · 2nd Level · spell slot spent' && sameJson(card.flags['sending-stone']?.chosen, { level: 2, consume: true, spent: ['slot'] }),
+      `Foundry's card: ${card?.rolls[0].formula} ${card?.rolls[0].options.type}, no targets, "${card?.flavor}", chosen ${JSON.stringify(card?.flags['sending-stone']?.chosen)}`)
+    check(slotsOf(2) === 0 && slotsOf(1) === 2 && !useCard(request.id) && messages() === before + 1 && same(made.result?.alone, { spent: ['slot'] }),
+      `the 2nd-level slot spent, 1 → 0, no usage card; the result's alone ${JSON.stringify(made.result?.alone)}`)
+    await statusOf(alice).getByText('At the table: 16 · on its own, for your Gamemaster to apply; spell slot spent').waitFor({ timeout: 30_000 })
+    check(true, 'the tray: "At the table: 16 · on its own, for your Gamemaster to apply; spell slot spent"')
+    const focused = await focusedName(alice)
+    later(focused === `Burning Hands damage, 3d6${ALONE}`, `the picker gone, focus back on the chip (${focused})`)
+    await shootBoth(alice, 'alone-choices-tray', trayOf(alice), SHOTS_041)
+  }
+
+  // 3. Again, the switch off.
+  {
+    await hands.click()
+    await handsPicker.waitFor({ timeout: 10_000 })
+    await setSpend(handsPicker, true)
+    let look = await pickerLook(handsPicker)
+    const second = look.rows['At level']?.find(c => /^2nd/.test(c.name))
+    check(second?.name === '2nd Level, 0 slots left' && second.text === '2nd · 0 left' && second.disabled && /^1st/.test(look.rows['At level'].find(c => c.checked)?.name ?? ''),
+      `again, the switch on: "2nd · 0 left" disabled, 1st picked (${JSON.stringify(look.rows)})`)
+    await setSpend(handsPicker, false)
+    look = await pickerLook(handsPicker)
+    check(same(look.rows['At level']?.map(c => [c.name, c.text, c.disabled]), [['1st Level', '1st', false], ['2nd Level', '2nd', false]]) && look.spend?.name === 'Spend a 1st-level spell slot' && !look.spend.checked,
+      `the switch off: both enabled, no "· N left" (${JSON.stringify(look.rows)})`)
+    await handsPicker.getByRole('radio', { name: '2nd Level' }).click()
+    await force(alice, 6, 2)
+    const { request, made } = await sent(() => handsPicker.getByRole('button', { name: 'Roll damage' }).click(), 'Burning Hands at 2nd, nothing spent')
+    await unforce(alice)
+    const card = madeFor(request.id)
+    check(request.payload.slot === 'spell2' && !('consume' in request.payload) && made.status === 'done' && card?.rolls[0].formula === '4d6' && slotsOf(2) === 0
+      && card.flavor === 'Burning Hands - Damage Roll · 2nd Level · nothing spent' && !made.result?.alone,
+      `rolled at 2nd with none left, nothing spent: ${card?.rolls[0].formula}, "${card?.flavor}" (${JSON.stringify(request.payload)})`)
+    await statusOf(alice).getByText('At the table: 8 · on its own').waitFor({ timeout: 30_000 })
+    const said = await statusText(alice)
+    check(/At the table: 8 · on its own, for your Gamemaster to apply/.test(said) && !/spent/.test(said), `the tray says nothing of spending: "${said}"`)
+    await alice.page.reload()
+    await alice.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    await alice.tab('Actions')
+    await hands.waitFor({ timeout: 15_000 })
+    await hands.click()
+    await handsPicker.waitFor({ timeout: 10_000 })
+    look = await pickerLook(handsPicker)
+    check(look.spend?.checked === false, 'the page reloaded, the switch still off for Thorin on this device')
+    await alice.page.keyboard.press('Escape')
+    await handsPicker.waitFor({ state: 'hidden', timeout: 10_000 })
+    const focused = await focusedName(alice)
+    later(focused === `Burning Hands damage, 3d6${ALONE}`, `Escape closes the picker, focus back on the chip (${focused})`)
+  }
+
+  // 4. The Potion, a use spent.
+  {
+    await potion.waitFor({ timeout: 10_000 })
+    await potion.click()
+    await potionPicker.waitFor({ timeout: 10_000 })
+    await setSpend(potionPicker, true)
+    const look = await pickerLook(potionPicker)
+    check(look.lead === `Its healing goes to ${GAME_WORDS} on its own, for your Gamemaster to apply.` && same(look.rows, {})
+      && look.spend?.name === 'Spend a use of Potion of Healing' && look.buttons.includes('Roll healing') && !look.buttons.includes('Roll damage'),
+      `the Potion's healing chip: "Its healing goes…", "Spend a use of Potion of Healing", "Roll healing" (${JSON.stringify(look)})`)
+    const { request, made } = await sent(() => potionPicker.getByRole('button', { name: 'Roll healing' }).click(), 'the Potion of Healing, spent')
+    await until(() => /spent$/.test(madeFor(request.id)?.flavor ?? ''), 'its card to say what was spent', 10_000).catch(() => {})
+    const card = madeFor(request.id)
+    check(request.payload.consume === true && !('slot' in request.payload) && made.status === 'done' && kindOf(card) === 'healing'
+      && thorin.items.get('potion')?.system.quantity === 1 && same(made.result?.alone, { spent: ['uses'] }) && / · use spent$/.test(card.flavor ?? ''),
+      `a healing card, "${card?.flavor}"; the Potions 2 → ${thorin.items.get('potion')?.system.quantity}; the result's alone ${JSON.stringify(made.result?.alone)}`)
+    await statusOf(alice).getByText('; use spent').waitFor({ timeout: 30_000 })
+    check(true, `the tray: "${await statusText(alice)}"`)
+  }
+
+  // 5. The Longsword: nothing to choose, nothing to spend.
+  {
+    const { request, made } = await sent(() => longsword.click(), 'the longsword\'s damage alone')
+    check(await alice.page.getByRole('dialog').count() === 0 && made.status === 'done' && !['slot', 'attackMode', 'ammunition', 'consume'].some(key => key in request.payload),
+      `the Longsword's chip rolls at once, no dialog, naming nothing (${JSON.stringify(request.payload)})`)
+  }
+
+  // 5b. The Battleaxe two-handed.
+  {
+    const axe = chip(alice, `Battleaxe damage, 1d8 + 4${ALONE}`)
+    const picker = pickerOf(alice, 'Battleaxe')
+    await axe.waitFor({ timeout: 10_000 })
+    await axe.click()
+    await picker.waitFor({ timeout: 10_000 })
+    const look = await pickerLook(picker)
+    check(same(look.rows.Mode?.map(c => [c.name, c.checked]), [['One-Handed', true], ['Two-Handed', false]]) && Object.keys(look.rows).length === 1 && look.spend === null,
+      `the Battleaxe's: "Mode" chips One-Handed, picked, and Two-Handed; no switch (${JSON.stringify(look)})`)
+    later(look.focused === 'One-Handed', `focus on the mode picked (${look.focused})`)
+    await picker.getByRole('radio', { name: 'Two-Handed' }).click()
+    await shootBoth(alice, 'alone-choices-modes', picker, SHOTS_041)
+    const flows = workflows()
+    await force(alice, 10, 7)
+    const { request, made } = await sent(() => picker.getByRole('button', { name: 'Roll damage' }).click(), 'the Battleaxe two-handed')
+    await unforce(alice)
+    const card = madeFor(request.id)
+    check(request.payload.attackMode === 'twoHanded' && !('consume' in request.payload) && same(request.payload.dice, [{ faces: 10, results: [7] }]) && made.status === 'done'
+      && card?.rolls[0].formula === '1d10 + 4' && card.rolls[0].total === 11 && card.flavor === 'Battleaxe - Damage Roll · Two-Handed · nothing spent',
+      `two-handed: a d10 thrown, Foundry's card ${card?.rolls[0].formula} = ${card?.rolls[0].total}, "${card?.flavor}" (${JSON.stringify(request.payload)})`)
+    if (MIDI) check(workflows() === flows, `under Midi-QOL, no workflow made, the mode kept (${workflows()} as before)`)
+  }
+
+  // 5c. The Longbow, an Arrow of Fire spent.
+  {
+    const bow = chip(alice, `Longbow damage, 1d8 + 1${ALONE}`)
+    const picker = pickerOf(alice, 'Longbow')
+    await bow.waitFor({ timeout: 10_000 })
+    await bow.click()
+    await picker.waitFor({ timeout: 10_000 })
+    await setSpend(picker, true)
+    let look = await pickerLook(picker)
+    check(same(look.rows.Ammunition?.map(c => [c.name, c.text, c.checked]), [['Arrows, 20 left', 'Arrows · 20', true], ['Arrows of Fire, 5 left', 'Arrows of Fire · 5', false]])
+      && Object.keys(look.rows).length === 1 && look.spend?.name === 'Spend an Arrows',
+      `the Longbow's: "Ammunition" chips "Arrows · 20", picked, and "Arrows of Fire · 5"; the switch "${look.spend?.name}" (${JSON.stringify(look.rows)})`)
+    await picker.getByRole('radio', { name: 'Arrows of Fire, 5 left' }).click()
+    await until(async () => (await pickerLook(picker)).spend?.name === 'Spend an Arrows of Fire', 'the switch to name the Arrows of Fire', 5_000).catch(() => {})
+    look = await pickerLook(picker)
+    check(look.spend?.name === 'Spend an Arrows of Fire' && look.live === 'Spend an Arrows of Fire', `Arrows of Fire picked: the switch "${look.spend?.name}", the live region "${look.live}"`)
+    await shootBoth(alice, 'alone-choices-ammo', picker, SHOTS_041)
+    await force(alice, 8, 5)
+    const { request, made } = await sent(() => picker.getByRole('button', { name: 'Roll damage' }).click(), 'the Longbow with an Arrow of Fire')
+    await unforce(alice)
+    await until(() => /spent$/.test(madeFor(request.id)?.flavor ?? ''), 'its card to say what was spent', 10_000).catch(() => {})
+    const card = madeFor(request.id)
+    check(request.payload.ammunition === 'firearrows' && request.payload.consume === true && !('attackMode' in request.payload) && same(request.payload.dice.map(dice => dice.faces), [8, 4]),
+      `sent with the Arrows of Fire, to spend one: a d8 and a d4 (${JSON.stringify(request.payload)})`)
+    check(made.status === 'done' && same(card?.rolls.map(roll => roll.formula), ['1d8 + 1', '1d4']) && card.rolls[1].options.type === 'fire'
+      && card.flavor === 'Longbow - Damage Roll · Arrows of Fire · ammunition spent',
+      `Foundry's card ${JSON.stringify(card?.rolls.map(roll => roll.formula))}, its 1d4 fire, "${card?.flavor}"`)
+    check(thorin.items.get('firearrows')?.system.quantity === 4 && thorin.items.get('arrows')?.system.quantity === 20 && same(made.result?.alone, { spent: ['ammunition'] }),
+      `the Arrows of Fire 5 → ${thorin.items.get('firearrows')?.system.quantity}, the Arrows 20 still; the result's alone ${JSON.stringify(made.result?.alone)}`)
+    await statusOf(alice).getByText('; ammunition spent').waitFor({ timeout: 30_000 })
+    check(true, `the tray: "${await statusText(alice)}"`)
+  }
+
+  // 6. The kind menu after the picker, from the plan picked.
+  {
+    const orb = chip(alice, `Chromatic Orb damage, 3d8${ALONE}`)
+    const picker = pickerOf(alice, 'Chromatic Orb')
+    await orb.click()
+    await picker.waitFor({ timeout: 10_000 })
+    await setSpend(picker, false)
+    await picker.getByRole('radio', { name: '2nd Level' }).click()
+    await picker.getByRole('button', { name: 'Roll damage' }).click()
+    const menu = alice.page.getByRole('menu', { name: 'Chromatic Orb 4d8' })
+    await menu.waitFor({ timeout: 10_000 })
+    const items = (await menuItems(menu)).map(text => text.trim())
+    check(items.some(text => /^Roll fire damage$/i.test(text)) && items.some(text => /^Roll cold damage$/i.test(text)),
+      `Chromatic Orb at 2nd: the picker, then the kind menu "Chromatic Orb 4d8" (${JSON.stringify(items)})`)
+    await force(alice, 8, 3)
+    const { request, made } = await sent(() => menu.getByRole('menuitem', { name: /^Roll cold damage$/i }).click(), 'the orb at 2nd, cold')
+    await unforce(alice)
+    const card = madeFor(request.id)
+    check(request.payload.slot === 'spell2' && same(request.payload.types, ['cold']) && request.payload.dice[0]?.results.length === 4 && made.status === 'done'
+      && card?.rolls[0].formula === '4d8' && card.rolls[0].options.type === 'cold',
+      `rolled cold at 2nd: ${card?.rolls[0].formula} ${card?.rolls[0].options.type} (${JSON.stringify(request.payload)})`)
+  }
+
+  // 7. Typed dice after the picker.
+  {
+    const { manual } = await cog(alice)
+    await flip(manual)
+    await until(async () => (await switchLook(manual)).checked, 'manual dice on', 5_000)
+    await closeCog(alice)
+    await hands.click()
+    await handsPicker.waitFor({ timeout: 10_000 })
+    await setSpend(handsPicker, false)
+    await handsPicker.getByRole('radio', { name: '2nd Level' }).click()
+    await handsPicker.getByRole('button', { name: 'Roll damage' }).click()
+    const entry = alice.page.getByRole('dialog').filter({ hasText: 'Type in what your dice show' })
+    await entry.waitFor({ timeout: 10_000 })
+    const boxes = entry.locator('input')
+    const count = await boxes.count()
+    check(count === 4, `with Enter dice results manually on, Burning Hands at 2nd asks for four d6 (${count} boxes)`)
+    for (let at = 0; at < count; at++) await boxes.nth(at).fill('3')
+    const { request, made } = await sent(() => entry.getByRole('button', { name: 'Done' }).click(), 'typed damage at 2nd')
+    const card = madeFor(request.id)
+    check(request.payload.typed === true && request.payload.slot === 'spell2' && same(request.payload.dice, [{ faces: 6, results: [3, 3, 3, 3] }]) && made.status === 'done'
+      && card?.rolls[0].formula === '4d6' && badgeOn(card) === 'Entered by hand on Sending Stone',
+      `typed, sent at 2nd and made so, marked entered by hand (${JSON.stringify(request.payload)}; ${badgeOn(card)})`)
+    const { manual: again } = await cog(alice)
+    await flip(again)
+    await until(async () => !(await switchLook(again)).checked, 'manual dice off', 5_000)
+    await closeCog(alice)
+  }
+
+  // 8. The Gamemaster's seat.
+  {
+    const gm = { ...alice, page: await alice.view.newPage() }
+    gm.page.on('pageerror', e => note(`gm pageerror: ${e.message}`))
+    await gm.page.goto(`${BASE}/campaigns/${A}/characters/thorin`)
+    await gm.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    await gm.page.getByRole('tablist', { name: 'Character sheet' }).getByRole('tab', { name: /^Actions\b/ }).click()
+    const { alone } = await cog(gm)
+    await alone.waitFor({ timeout: 15_000 })
+    if (!(await switchLook(alone)).checked) {
+      await flip(alone)
+      await until(async () => (await switchLook(alone)).checked, 'the Gamemaster\'s switch on', 5_000)
+    }
+    check((await switchLook(alone)).hint === GM_HINT, `the Gamemaster's cog hints its choices: "${(await switchLook(alone)).hint}"`)
+    await closeCog(gm)
+    const gmHands = gm.page.getByRole('tabpanel').first().getByRole('button', { name: `Burning Hands damage, 3d6${ALONE}`, exact: true })
+    await gmHands.waitFor({ timeout: 10_000 })
+    const picker = pickerOf(gm, 'Burning Hands')
+    await gmHands.click()
+    await picker.waitFor({ timeout: 10_000 })
+    await setSpend(picker, true)
+    const look = await pickerLook(picker)
+    check(look.lead === 'Its damage goes to your game on its own, for you to apply.' && look.rows['At level']?.find(c => c.checked)?.name === '1st Level, 2 slots left'
+      && look.spend?.name === 'Spend a 1st-level spell slot' && look.spend.checked,
+      `the Gamemaster's page of Thorin: "${look.lead}", 1st picked, "Spend a 1st-level spell slot" on`)
+    await shootBoth(gm, 'alone-choices-gm', picker, SHOTS_041)
+    const { request, made } = await sent(() => picker.getByRole('button', { name: 'Roll damage' }).click(), 'the Gamemaster\'s Burning Hands, spent')
+    check(request.role === 'gm' && request.payload.slot === 'spell1' && request.payload.consume === true && made.status === 'done' && slotsOf(1) === 1 && same(made.result?.alone, { spent: ['slot'] }),
+      `made at the Gamemaster's seat at 1st, a 1st-level slot spent, 2 → ${slotsOf(1)} (${JSON.stringify(request.payload)})`)
+    await gm.page.close()
+    // Alice's page shows the Gamemaster's roll once it hears of it, as its latest, which the next
+    // step's tray line is read after.
+    if (MIDI) await statusOf(alice).getByText(/Rolled by your Gamemaster/).waitFor({ timeout: 30_000 }).catch(() => {})
+  }
+
+  // 9. Crafted: the app's own refusals.
+  {
+    await until(async () => (await tableOf(alice))?.sheet?.spells?.find(section => section.id === 'spell2')?.slots?.value === 0, 'the app to have the 2nd-level slot spent', 15_000).catch(() => {})
+    await paced()
+    const body = { kind: 'itemDamage', item: 'hands', activity: 'flames', mode: 0, explicit: false, extras: [], dice: [{ faces: 6, results: [3, 3, 3, 3] }] }
+    const nine = await call(alice.page, `${API}/rolls`, { method: 'POST', body: { ...body, slot: 'spell9' } })
+    check(nine.status === 422 && nine.json?.reason === 'slot', `a crafted itemDamage at spell9 → 422 slot (${nine.status} ${nine.text})`)
+    const none = await call(alice.page, `${API}/rolls`, { method: 'POST', body: { ...body, slot: 'spell2', consume: true } })
+    check(none.status === 422 && none.json?.reason === 'slots', `one spending a 2nd-level slot, none left → 422 slots (${none.status} ${none.text})`)
+  }
+
+  // 10. Midi-QOL's Enforce bonus actions.
+  if (MIDI) {
+    Object.assign(W.midi.settings, { enforceBonusActions: 'all' })
+    W.midi.usedBonus.add('thorin')
+    const marks = W.midi.bonusMarks.length
+    const quantity = thorin.items.get('potion')?.system.quantity
+    await potion.click()
+    await potionPicker.waitFor({ timeout: 10_000 })
+    await setSpend(potionPicker, true)
+    const refused = await sent(() => potionPicker.getByRole('button', { name: 'Roll healing' }).click(), 'the Potion, its Bonus Action used')
+    check(refused.made.status === 'failed' && refused.made.result?.reason === 'bonus-action' && !madeFor(refused.request.id) && thorin.items.get('potion')?.system.quantity === quantity,
+      `Enforce bonus actions "all", Thorin in the fight with his Bonus Action used: the Potion with the switch on refused "bonus-action", nothing rolled or spent (${JSON.stringify(refused.made.result)})`)
+    await statusOf(alice).getByText(/Not made at the table/).waitFor({ timeout: 30_000 }).catch(() => {})
+    const said = await statusText(alice)
+    check(/Not made at the table: you’ve used your bonus action/.test(said), `the tray: "Not made at the table: you’ve used your bonus action" ("${said}")`)
+    await potion.click()
+    await potionPicker.waitFor({ timeout: 10_000 })
+    await setSpend(potionPicker, false)
+    const rolled = await sent(() => potionPicker.getByRole('button', { name: 'Roll healing' }).click(), 'the Potion, spending nothing')
+    check(rolled.made.status === 'done' && kindOf(madeFor(rolled.request.id)) === 'healing' && thorin.items.get('potion')?.system.quantity === quantity && W.midi.bonusMarks.length === marks,
+      `the switch off: rolled, nothing spent, nothing marked (${rolled.made.status})`)
+    W.midi.usedBonus.delete('thorin')
+    W.midi.settings.enforceBonusActions = 'none'
+  }
+
+  // 11. Widths and themes.
+  for (const [width, height] of [[360, 780], [1280, 800]]) {
+    const view = await browse({ width, height, path: '/characters/sheet-thorin', toasts: false })
+    await view.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    await view.tab('Actions')
+    const { alone } = await cog(view)
+    await alone.waitFor({ timeout: 15_000 })
+    if (!(await switchLook(alone)).checked) await flip(alone)
+    await until(async () => (await switchLook(alone)).checked, 'the switch on', 5_000)
+    await closeCog(view)
+    /** The picker of a row, opened from its chip: then whether it fits, and its pictures at 1280. */
+    const opened = async (name, title, shot) => {
+      const rowChip = chip(view, name)
+      await rowChip.waitFor({ timeout: 15_000 })
+      await rowChip.click()
+      const picker = pickerOf(view, title)
+      await picker.waitFor({ timeout: 10_000 })
+      if (title === 'Longbow') await setSpend(picker, true)
+      const box = await picker.evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom } })
+      const look = await pickerLook(picker)
+      const least = width < 640 ? 44 : 36
+      const heights = [...Object.values(look.rows).flat().map(c => c.height), ...(look.spend ? [look.spend.height] : [])]
+      check(box.left >= 0 && box.right <= width && box.top >= 0 && box.bottom <= height && await sideways(view.page) === 0 && heights.every(h => h >= least),
+        `at ${width} the ${title} picker fits, nothing sideways, its chips and switch ${least} px tall or more (${JSON.stringify({ box, heights })})`)
+      if (shot) await shootBoth(view, shot, picker, SHOTS_041)
+      await view.page.keyboard.press('Escape')
+      await picker.waitFor({ state: 'hidden', timeout: 10_000 })
+    }
+    await opened(`Burning Hands damage, 3d6${ALONE}`, 'Burning Hands', width === 1280 && 'alone-choices-levels')
+    if (width === 1280) {
+      await opened(`Battleaxe damage, 1d8 + 4${ALONE}`, 'Battleaxe', 'alone-choices-modes')
+      await opened(`Longbow damage, 1d8 + 1${ALONE}`, 'Longbow', 'alone-choices-ammo')
+      await opened(`Potion of Healing healing, 2d4 + 2${ALONE}`, 'Potion of Healing', 'alone-choices-potion')
+    }
+    await view.view.close()
+  }
 }
 
 part('deferred checks')

@@ -6,6 +6,7 @@ import {
   gmRollsOf,
   gmRollStateSelect,
   healingUses,
+  heldPrompts,
   rollsSelect,
   seatRolls,
   withheld,
@@ -15,6 +16,7 @@ import {
   companionsByKey,
   tableCompanion,
 } from '@/utils/companions'
+import { toTablePrompts } from '@/utils/prompts'
 import { toGmRollView } from '@/utils/roll-requests'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import {
@@ -159,7 +161,8 @@ function listedNow(
 /**
  * The rolls a companion can have made, and what else the game does with them: the seat's, as its
  * character's would be, of the kinds the game takes for its companions, none while it's no longer
- * listed as its character's; never what the game asks, which it asks of no companion.
+ * listed as its character's; and what the game asks of it only from module 0.41.0, which asks it
+ * of companions (`companionPrompts`), as of no companion before.
  */
 function companionRolls(
   seat: SheetSeat,
@@ -170,11 +173,12 @@ function companionRolls(
   const kinds = connected
     ? rolls.rollsToTable.filter(kind => campaign.companionKinds.includes(kind))
     : []
+  const asked = campaign.rollFeatures.includes('companionPrompts')
   return {
     rollsToTable: kinds,
     rollFeatures:
       kinds.length > 0
-        ? rolls.rollFeatures.filter(feature => feature !== 'prompts')
+        ? rolls.rollFeatures.filter(feature => asked || feature !== 'prompts')
         : [],
     ...(rolls.gm && { gm: rolls.gm }),
   }
@@ -228,9 +232,10 @@ export async function getCompanionStatus(
 /**
  * A companion's own view, for its pane to poll (module 0.36.0): its sheet, the encounter seen from
  * it, so that its own combatant is the viewer's and its character the party's, and theirs; the
- * rolls it can have made; the Gamemaster's rolls as it, at its player's seat; whether its dice
- * are typed in, as its character's are; and how it enters initiative. Its chat is its character's,
- * which its character's view has. The caller must already have resolved the companion seat.
+ * rolls it can have made; from module 0.41.0, the saves the game asks of it, by its key, never its
+ * character's; the Gamemaster's rolls as it, at its player's seat; whether its dice are typed in,
+ * as its character's are; and how it enters initiative. Its chat is its character's, which its
+ * character's view has. The caller must already have resolved the companion seat.
  * @param known - What the pane already has: the sheet of this version is left out.
  */
 export async function getCompanionView(
@@ -256,7 +261,13 @@ export async function getCompanionView(
   const { campaignId, actorId: key } = seat
   const now = Date.now()
   const gmRolls = gmRollsOf(seat, now)
-  const [combats, sheet, made] = await Promise.all([
+  // As the module lists it now, or else as the seat found it, a moment ago.
+  const current = listedNow(seat, campaign.companions)
+  const connected = !!current
+  const rolls = companionRolls(seat, campaign, connected)
+  // The saves the game asks of it, where it asks companions, as its character's view has its own.
+  const prompted = rolls.rollFeatures.includes('prompts')
+  const [combats, sheet, made, prompts] = await Promise.all([
     prisma.combat.findMany({
       where: { campaignId },
       orderBy: { updatedAt: 'desc' },
@@ -283,14 +294,12 @@ export async function getCompanionView(
           },
         })
       : [],
+    prompted ? heldPrompts(campaignId, key, now) : [],
   ])
   const heals = await healingUses(made, seat)
 
   const listed = companionRoster(campaign.companions)
-  // As the module lists it now, or else as the seat found it, a moment ago.
-  const current = listedNow(seat, campaign.companions)
   const entry = current ?? seat.companion?.entry
-  const connected = !!current
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   const viewer: Viewer = {
     actorId: key,
@@ -308,7 +317,6 @@ export async function getCompanionView(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
   )
   const sheetVersion = sheet?.updatedAt.toISOString()
-  const rolls = companionRolls(seat, campaign, connected)
   const character = roster.find(({ id }) => id === of)
   return {
     version: campaign.version,
@@ -327,6 +335,7 @@ export async function getCompanionView(
     ...(snapshot && { combat: toTableCombat(snapshot, viewer) }),
     rollsToTable: rolls.rollsToTable,
     rollFeatures: rolls.rollFeatures,
+    ...(prompted && { prompts: toTablePrompts(prompts, now) }),
     ...(rolls.gm && { gm: rolls.gm }),
     ...(made.length > 0 && {
       gmRolls: made.map(roll =>

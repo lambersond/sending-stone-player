@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { ABILITIES } from '@/constants/dnd5e'
 import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
 import {
+  ALONE_SPENDS,
+  ATTACK_MODE,
   COMPANION_INITIATIVE,
   COMPANION_KEY,
   DAMAGE_TYPE,
@@ -13,6 +15,7 @@ import {
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  MOST_ALONE_CHOICES,
   MOST_AMONG,
   MOST_COMPANIONS,
   MOST_FORMS,
@@ -398,6 +401,19 @@ function castLevelsFrom(levels: { level: number }[], level: number): boolean {
   )
 }
 
+/**
+ * One of damage on its own's plans, from module 0.41.0: named by the picks that change its dice, a
+ * slot's level above the spell's own, an attack mode, an ammunition's id, with its dice, and a
+ * critical hit's where one is allowed.
+ */
+const aloneChoiceSchema = z.object({
+  level: z.int().min(1).max(9).optional(),
+  attackMode: z.string().regex(ATTACK_MODE).optional(),
+  ammunition: z.string().min(1).max(64).optional(),
+  normal: damagePreviewSchema,
+  critical: damagePreviewSchema.nullable(),
+})
+
 /** What an action rolls, and what it's used through in the game. */
 const rollFields = {
   toHit: nullableNumber,
@@ -438,6 +454,20 @@ const rollFields = {
     .object({
       normal: damagePreviewSchema,
       critical: damagePreviewSchema.nullable(),
+      // From module 0.41.0, to an app that says `aloneChoices`: the plans that differ from those,
+      // as many as 64; left out where they can't be read, so that the row rolls as before.
+      choices: z
+        .array(aloneChoiceSchema)
+        .max(MOST_ALONE_CHOICES)
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+        .catch(undefined),
+      // From module 0.41.0: what spending its use would spend; left out where it can't be read.
+      spends: z
+        .array(z.enum(ALONE_SPENDS))
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+        .catch(undefined),
     })
     .nullable()
     .optional()
@@ -1579,6 +1609,12 @@ const featuresSchema = z
         manualDice: z.boolean().optional().catch(false),
         // From module 0.27.0: whether what Midi-QOL asks of characters is asked here too.
         midiPrompts: z.boolean().optional().catch(false),
+        // From module 0.41.0: whether damage on its own may name the slot, attack mode and
+        // ammunition it's rolled with, and spend what its use would.
+        aloneChoices: z.boolean().optional().catch(false),
+        // From module 0.41.0: whether the saves the game asks of companions are asked here too, of
+        // an app that says `companions: 2`.
+        companionPrompts: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -2076,6 +2112,20 @@ const commandResultSchema = z.object({
         limits: formLimitsSchema,
       }),
     ])
+    .optional()
+    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+    .catch(undefined),
+  // From module 0.41.0, for damage on its own that asked to spend what its use would: what dnd5e
+  // recorded as spent, in order, none where nothing was, and whether concentration began.
+  alone: z
+    .object({
+      spent: z.array(z.enum(ALONE_SPENDS)).catch([]),
+      concentrating: z
+        .literal(true)
+        .optional()
+        // eslint-disable-next-line unicorn/no-useless-undefined -- not begun, where unreadable
+        .catch(undefined),
+    })
     .optional()
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     .catch(undefined),

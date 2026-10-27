@@ -57,6 +57,13 @@ import {
   mockCreature,
   mockSummonedEntry,
   mockTableDamage,
+  aloneResult,
+  battleaxeAction,
+  burningHandsAction,
+  longbowAction,
+  mockCompanionPrompt,
+  potionAction,
+  TAKING_ALONE_CHOICES,
 } from '@/mocks/sending-stone'
 import { slimQuillSheet } from '@/mocks/slim-sheet'
 import type {
@@ -5611,5 +5618,147 @@ describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
     expect(source).toMatch(
       /\/\*\*\n \* What became of a command;[^/]*\*\/\nconst commandResultSchema = /,
     )
+  })
+})
+
+/** A plan of damage on its own as read from a row's sheet. */
+const tablePlanOf = (tableDamage: unknown) =>
+  actionWith({ tableDamage }).tableDamage
+
+describe("schemas/sending-stone, damage on its own's choices and companions' saves, from module 0.41.0", () => {
+  it("reads a row's plans at each level, mode and ammunition, and what it would spend", () => {
+    for (const action of [
+      burningHandsAction(),
+      battleaxeAction(),
+      longbowAction(),
+      potionAction(),
+    ]) {
+      expect(tablePlanOf(action.tableDamage)).toEqual(action.tableDamage)
+    }
+    // A plan of a module before 0.41.0, or to an app that said nothing of them, has neither.
+    const read = tablePlanOf(mockTableDamage())
+    expect(read).not.toHaveProperty('choices')
+    expect(read).not.toHaveProperty('spends')
+  })
+
+  it('leaves out choices it can’t read, keeping the row’s own plan, and spends likewise', () => {
+    const { tableDamage } = burningHandsAction()
+    const plan = tableDamage!
+    const [entry] = plan.choices!
+    for (const choices of [
+      'levels',
+      [{ ...entry, level: 0 }],
+      [{ ...entry, level: 10 }],
+      [{ ...entry, level: 2.5 }],
+      [{ ...entry, attackMode: 'two handed' }],
+      [{ ...entry, ammunition: '' }],
+      [{ ...entry, normal: 'dice' }],
+      [{ level: 2 }],
+    ]) {
+      const read = tablePlanOf({ ...plan, choices })
+      expect(read.choices).toBeUndefined()
+      expect(read).toMatchObject({ normal: plan.normal, spends: ['slot'] })
+    }
+    for (const spends of ['slot', ['slot', 'charges'], [3]]) {
+      const read = tablePlanOf({ ...plan, spends })
+      expect(read.spends).toBeUndefined()
+      expect(read.choices).toEqual(plan.choices)
+    }
+    // What the module would never send is left out of what it sends.
+    expect(
+      tablePlanOf({ ...plan, choices: [{ ...entry, extra: 1 }] }).choices,
+    ).toEqual([entry])
+  })
+
+  it('leaves out more than 64 plans, as the module sends none past them: 64 read, 65 and 70 not', () => {
+    const { tableDamage } = longbowAction()
+    const plan = tableDamage!
+    const [entry] = plan.choices!
+    const many = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...entry,
+        ammunition: `arrows${index}`,
+      }))
+    expect(tablePlanOf({ ...plan, choices: many(64) }).choices).toHaveLength(64)
+    for (const count of [65, 70]) {
+      const read = tablePlanOf({ ...plan, choices: many(count) })
+      expect(read.choices).toBeUndefined()
+      expect(read.normal).toEqual(plan.normal)
+    }
+  })
+
+  it("reads whether damage on its own takes its choices, and whether companions' saves are asked here", () => {
+    const rolls = { enabled: true, kinds: ['itemDamage', 'save'], reason: null }
+    expect(
+      helloWith({
+        rolls: {
+          ...rolls,
+          prompts: true,
+          aloneChoices: true,
+          companionPrompts: true,
+        },
+      }).features.rolls,
+    ).toEqual({
+      ...rolls,
+      prompts: true,
+      aloneChoices: true,
+      companionPrompts: true,
+    })
+    expect(helloWith({ rolls: TAKING_ALONE_CHOICES }).features.rolls).toEqual(
+      TAKING_ALONE_CHOICES,
+    )
+    expect(
+      helloWith({
+        rolls: { ...rolls, aloneChoices: 1, companionPrompts: 'yes' },
+      }).features.rolls,
+    ).toEqual({ ...rolls, aloneChoices: false, companionPrompts: false })
+    const before = helloWith({ rolls }).features.rolls
+    expect(before).not.toHaveProperty('aloneChoices')
+    expect(before).not.toHaveProperty('companionPrompts')
+  })
+
+  it('reads what damage on its own spent, and whether concentration began, as the game says', () => {
+    const resultOf = (alone: unknown) =>
+      (
+        parseGameEvent('command.result', {
+          ...aloneResult([]),
+          alone,
+        })?.data as any
+      ).alone
+    expect(
+      parseGameEvent('command.result', aloneResult(['slot']))?.data,
+    ).toEqual(aloneResult(['slot']))
+    expect(resultOf({ spent: ['slot', 'uses'], concentrating: true })).toEqual({
+      spent: ['slot', 'uses'],
+      concentrating: true,
+    })
+    expect(resultOf({ spent: ['ammunition'] })).toEqual({
+      spent: ['ammunition'],
+    })
+    expect(resultOf({ spent: [] })).toEqual({ spent: [] })
+    // What it can't read of it is read as nothing spent, and no concentration.
+    expect(resultOf({ spent: ['charges'], concentrating: 'yes' })).toEqual({
+      spent: [],
+    })
+    expect(resultOf('spent')).toBeUndefined()
+    expect(
+      parseGameEvent('command.result', effectResult())?.data,
+    ).not.toHaveProperty('alone')
+  })
+
+  it("reads a save the game asks of a companion, filed under its key, as a character's", () => {
+    const prompt = mockCompanionPrompt()
+    expect(parseGameEvent('roll.prompt.opened', { prompt })?.data).toEqual({
+      prompt,
+    })
+    expect(
+      (
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          prompts: [prompt],
+        })?.data as any
+      ).prompts,
+    ).toEqual([prompt])
   })
 })

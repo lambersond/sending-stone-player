@@ -24,9 +24,14 @@ import {
 import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { TableApiContext } from '@/hooks/use-table-api'
 import {
+  aloneResult,
+  aloneSpells,
   beastsResult,
+  burningHandsAction,
   FORM_IDS,
+  longbowAction,
   mockTableDamage,
+  potionAction,
   wildShapeResult,
 } from '@/mocks/sending-stone'
 import { aloneRollOf } from '@/utils/damage-alone'
@@ -3865,5 +3870,199 @@ describe('hooks/use-table-rolls, Wild Shape from the app, from module 0.40.0', (
     await advance(CHECK_EVERY)
     await expect(read).resolves.toEqual({ reason: 'unavailable' })
     expect(result.current.states.size).toBe(0)
+  })
+})
+
+/** Burning Hands' damage thrown, 4d6 fire. */
+const burnt = (fields: Partial<LocalDamage> = {}) =>
+  bitten({
+    label: 'Burning Hands damage',
+    parts: [
+      {
+        type: 'Fire',
+        total: 14,
+        terms: [{ text: '4d6', values: [3, 5, 2, 4], value: 14 }],
+      },
+    ],
+    ...fields,
+  })
+
+describe("hooks/use-table-rolls, damage on its own's choices, from module 0.41.0 (round 0.41.0 §2.10)", () => {
+  const hands = burningHandsAction()
+  const handsAlone = {
+    item: 'hands',
+    activity: 'handsSave',
+    plan: hands.tableDamage!,
+  }
+  /** Burning Hands' damage on its own, as picked: at 2nd level, spending the slot where asked. */
+  const handsAt = (choice: Parameters<typeof aloneRollOf>[2] = {}) =>
+    aloneRollOf('Burning Hands', handsAlone, choice, {
+      action: hands,
+      spells: aloneSpells(),
+    }) as SheetDamageRoll
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    globalThis.fetch = jest.fn()
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-9' }))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('says whether the game takes its choices: where it takes damage on its own and says aloneChoices', () => {
+    const { result, rerender } = render(['itemDamage'], ['aloneChoices'])
+    expect(result.current.aloneChoices).toBe(true)
+    rerender({ kinds: ['itemDamage'], features: [] })
+    expect(result.current.aloneChoices).toBe(false)
+    rerender({ kinds: ['damage'], features: ['aloneChoices'] })
+    expect(result.current.aloneChoices).toBe(false)
+  })
+
+  it('posts the slot picked and consume where the switch is on, and keeps that it asked to spend', () => {
+    const { result } = render(['itemDamage'], ['aloneChoices'])
+
+    act(() =>
+      result.current.sendDamage(
+        handsAt({ slot: 'spell2', consume: true }),
+        burnt(),
+      ),
+    )
+    expect(sent()).toEqual({
+      kind: 'itemDamage',
+      item: 'hands',
+      activity: 'handsSave',
+      slot: 'spell2',
+      consume: true,
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 6, results: [3, 5, 2, 4] }],
+    })
+    expect(result.current.states.get('b1')).toEqual({
+      status: 'sending',
+      alone: true,
+      consumes: true,
+    })
+
+    // Switch off: the slot it's rolled at, always named, and nothing spent.
+    act(() =>
+      result.current.sendDamage(
+        handsAt({ slot: 'spell2' }),
+        burnt({ id: 'b2' }),
+      ),
+    )
+    expect(sent()).toMatchObject({ slot: 'spell2' })
+    expect(sent()).not.toHaveProperty('consume')
+    expect(result.current.states.get('b2')).toEqual({
+      status: 'sending',
+      alone: true,
+    })
+  })
+
+  it('posts a weapon’s attack mode and ammunition as picked', () => {
+    const bow = longbowAction()
+    const { result } = render(['itemDamage'], ['aloneChoices'])
+
+    act(() =>
+      result.current.sendDamage(
+        aloneRollOf(
+          'Longbow',
+          { item: 'longbow', activity: 'bowAttack', plan: bow.tableDamage! },
+          { ammunition: 'arrowsFire', consume: true },
+          { action: bow, spells: [] },
+        ) as SheetDamageRoll,
+        bitten({ label: 'Longbow damage' }),
+      ),
+    )
+    expect(sent()).toMatchObject({
+      kind: 'itemDamage',
+      item: 'longbow',
+      activity: 'bowAttack',
+      ammunition: 'arrowsFire',
+      consume: true,
+    })
+    expect(sent()).not.toHaveProperty('slot')
+  })
+
+  it('posts none of its choices to a game that doesn’t take them, as before module 0.41.0', () => {
+    const { result } = render(['itemDamage'], [])
+
+    act(() =>
+      result.current.sendDamage(
+        handsAt({ slot: 'spell2', consume: true }),
+        burnt(),
+      ),
+    )
+    const posted = sent()
+    for (const key of ['slot', 'attackMode', 'ammunition', 'consume']) {
+      expect(posted).not.toHaveProperty(key)
+    }
+    expect(result.current.states.get('b1')).toEqual({
+      status: 'sending',
+      alone: true,
+    })
+  })
+
+  it('keeps what the game spent and whether concentration began apart from the hit dice a request spent', async () => {
+    const { result } = render(['itemDamage'], ['aloneChoices'])
+    act(() =>
+      result.current.sendDamage(
+        handsAt({ slot: 'spell2', consume: true }),
+        burnt(),
+      ),
+    )
+    await advance(0)
+    const { alone, ...made } = aloneResult(['slot', 'uses'], true)
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(200, { ...made, id: 'req-9', status: 'done', alone }),
+      )
+    await advance(CHECK_EVERY)
+
+    const state = result.current.states.get('b1')
+    expect(state).toMatchObject({
+      status: 'done',
+      alone: true,
+      consumes: true,
+      aloneSpent: ['slot', 'uses'],
+      concentrating: true,
+    })
+    expect(state).not.toHaveProperty('spent')
+  })
+
+  it('keeps nothing spent as none, and no concentration where none began', async () => {
+    const potion = potionAction()
+    const { result } = render(['itemDamage'], ['aloneChoices'])
+    act(() =>
+      result.current.sendDamage(
+        aloneRollOf(
+          'Potion of Healing',
+          {
+            item: 'potion',
+            activity: 'potionHeal',
+            plan: potion.tableDamage!,
+          },
+          { consume: true },
+          { action: potion, spells: [] },
+        ) as SheetDamageRoll,
+        bitten({ label: 'Potion of Healing healing' }),
+      ),
+    )
+    expect(sent()).toMatchObject({ consume: true })
+    await advance(0)
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(200, { id: 'req-9', status: 'done', alone: { spent: [] } }),
+      )
+    await advance(CHECK_EVERY)
+
+    const state = result.current.states.get('b1')
+    expect(state).toMatchObject({ aloneSpent: [], consumes: true })
+    expect(state).not.toHaveProperty('concentrating')
   })
 })

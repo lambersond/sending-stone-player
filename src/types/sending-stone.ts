@@ -1,4 +1,8 @@
-import type { EffectOp, PROMPT_SOURCES } from '@/constants/sending-stone'
+import type {
+  ALONE_SPENDS,
+  EffectOp,
+  PROMPT_SOURCES,
+} from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
 import type { NoteBookKind, NoteRole } from '@/types/notes'
 import type { GroupEntry, GroupSheet } from '@/types/party'
@@ -215,11 +219,46 @@ export type BeastEntry = {
 
 /**
  * The dice an action's damage or healing throws on its own, as the game will roll it (module
- * 0.36.0): as dnd5e builds it, and as a critical hit's where one is allowed.
+ * 0.36.0): as dnd5e builds it, and as a critical hit's where one is allowed. From module 0.41.0, to
+ * an app that says `aloneChoices`, also the plans that differ from those at a spell's higher
+ * levels, in a weapon's other attack modes and with its ammunition, and what spending its use would
+ * spend.
  */
 export type TableDamagePlan = {
   normal: DamagePreview
   critical: DamagePreview | null
+  /**
+   * The plans that differ from `normal` and `critical`, each by the picks that change its dice;
+   * absent from an older module, and where a row would have more than 64. Module 0.41.0.
+   */
+  choices?: AloneChoicePlan[]
+  /** What the Spend switch would spend on it, in this order; none for nothing. Module 0.41.0. */
+  spends?: AloneSpend[]
+}
+
+/** What damage on its own may spend, from module 0.41.0. */
+export type AloneSpend = (typeof ALONE_SPENDS)[number]
+
+/**
+ * One of damage on its own's plans, from module 0.41.0: named by the picks that change its dice, a
+ * slot's level above the spell's own, a weapon's attack mode, its ammunition's id, as many as it
+ * picks; its dice, and a critical hit's where one is allowed.
+ */
+export type AloneChoicePlan = {
+  level?: number
+  attackMode?: string
+  ammunition?: string
+  normal: DamagePreview
+  critical: DamagePreview | null
+}
+
+/**
+ * What damage on its own that asked to spend spent, from module 0.41.0, as the game recorded it,
+ * in the order of `AloneSpend`, none where nothing was; and whether concentration began.
+ */
+export type AloneOutcome = {
+  spent: AloneSpend[]
+  concentrating?: true
 }
 
 /** Whether a roll is made with advantage (1), disadvantage (-1), or neither (0). */
@@ -1409,6 +1448,17 @@ export type BridgeFeatures = {
      * on. Told to the app only; nothing turns on it yet. Module 0.27.0.
      */
     midiPrompts?: boolean
+    /**
+     * Whether damage on its own may name the spell slot, attack mode and ammunition it's rolled
+     * with, and spend what its use would, `consume`, on a row whose sheet sends its `choices`:
+     * wherever `"itemDamage"` is among its kinds. Module 0.41.0.
+     */
+    aloneChoices?: boolean
+    /**
+     * Whether the saves the game asks of the characters' companions are asked here too, of an app
+     * that says `companions: 2`: wherever `prompts` is. Module 0.41.0.
+     */
+    companionPrompts?: boolean
   } | null
   /**
    * Whether its players may move items and coins from here, apart from the rolls: on, with
@@ -1672,6 +1722,11 @@ export type CommandResult = {
    * the Beasts to learn. Module 0.40.0.
    */
   wildShape?: WildShapeOutcome
+  /**
+   * For damage on its own that asked to spend what its use would, on "done": what was spent, and
+   * whether concentration began. Module 0.41.0.
+   */
+  alone?: AloneOutcome
   /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.

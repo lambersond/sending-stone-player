@@ -332,6 +332,12 @@ export type TableView = {
    */
   companions?: TableCompanion[]
   /**
+   * Of those companions, each the game is asking a save of now, from module 0.41.0, where the
+   * game asks companions: its key, what its first prompt still open asks for, such as "Dexterity
+   * saving throw", and the earliest time one of them stops waiting. Unset for none.
+   */
+  companionPrompts?: CompanionAsked[]
+  /**
    * Where the seat may move the character's items and coins to, from module 0.31.0: set only while
    * the campaign lets them be moved, its game is taking moves, and the character is in its roster.
    */
@@ -381,6 +387,13 @@ export type TableMoves = {
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
 export type GmRolls = 'made' | 'update' | 'off'
 
+/**
+ * One of the seat's character's companions the game asks a save of, from module 0.41.0: its key,
+ * what it's asked for, in words, such as "Dexterity saving throw", and when the soonest of its
+ * prompts stops waiting.
+ */
+export type CompanionAsked = { key: string; label: string; expiresAt: string }
+
 /** One of the seat's character's companions, for its tab beside the character (module 0.36.0). */
 export type TableCompanion = {
   key: string
@@ -417,6 +430,11 @@ export type CompanionView = {
   combat?: TableCombat
   rollsToTable?: RollKind[]
   rollFeatures?: RollFeature[]
+  /**
+   * The saves the game is asking of it, oldest first, as a character's view has its own, from
+   * module 0.41.0, where the game asks companions; never its character's.
+   */
+  prompts?: TablePrompt[]
   gm?: { rolls: GmRolls }
   gmRolls?: GmRollView[]
   gmRollsKey?: string

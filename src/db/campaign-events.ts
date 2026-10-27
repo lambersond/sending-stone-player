@@ -167,8 +167,10 @@ async function apply(
           // die it adds; from module 0.22.0, make a use at its user; from module 0.23.0, make the
           // Gamemaster's rolls as a character, marked as theirs; from module 0.25.0, list the
           // messages each of those made in its result, which only this listener reads, never a
-          // viewer; from module 0.26.0, let players enter their own dice's results; and from
-          // module 0.27.0, ask here what Midi-QOL asks of characters, which nothing reads yet.
+          // viewer; from module 0.26.0, let players enter their own dice's results; from module
+          // 0.27.0, ask here what Midi-QOL asks of characters, which nothing reads yet; and from
+          // module 0.41.0, let damage on its own name its choices and spend what it uses, and ask
+          // companions for the saves the game asks of them.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -184,6 +186,10 @@ async function apply(
               : []),
             ...(features?.rolls?.manualDice === true ? ['manualDice'] : []),
             ...(features?.rolls?.midiPrompts === true ? ['midiPrompts'] : []),
+            ...(features?.rolls?.aloneChoices === true ? ['aloneChoices'] : []),
+            ...(features?.rolls?.companionPrompts === true
+              ? ['companionPrompts']
+              : []),
           ],
           transfersEnabled: transfersOn,
           // What else it does with moves, from module 0.32.0; nothing while moves are off, and a
@@ -748,12 +754,15 @@ async function madeForGm(
 
 /**
  * A save the game asks for, as the module now describes it. One that has closed stays closed: the
- * module never asks again on the same card. What Midi-QOL asks waits a minute at most, by the
- * game's clock, which may not be this app's: it's held here as waiting, from when it came, what was
- * left of its wait when it was sent, so that its player is shown how long they have; and it's never
- * moved by its later copies, as a hello's. A hello may be the first to carry one, after it has
- * waited a while, when the post that opened it was lost. The time an envelope is sent is when the
- * module queued it, so a post held up in its queue isn't counted.
+ * module never asks again on the same card; but from module 0.41.0, one closed as gone, as a hello
+ * that leaves it out closes it, is opened again when the module lists or opens it again, as it
+ * opens again a companion's it left out of a hello sent before the app's answer said it reads
+ * them. What Midi-QOL asks waits a minute at most, by the game's clock, which may not be this
+ * app's: it's held here as waiting, from when it came, what was left of its wait when it was sent,
+ * so that its player is shown how long they have; and it's never moved by its later copies, as a
+ * hello's. A hello may be the first to carry one, after it has waited a while, when the post that
+ * opened it was lost. The time an envelope is sent is when the module queued it, so a post held up
+ * in its queue isn't counted.
  * @param sentAt - When the module sent it, by the game's clock.
  */
 async function savePrompt(
@@ -784,6 +793,12 @@ async function savePrompt(
   const sent = Date.parse(sentAt)
   const from = Number.isNaN(sent) ? openedAt : Math.max(sent, openedAt)
   const left = expiresAt.getTime() - from
+  // Gone, then listed or opened again: open again. Answered, rolled or expired stays closed.
+  await tx.rollPrompt.updateMany({
+    where: { campaignId, promptId: prompt.id, closedReason: 'gone' },
+    // eslint-disable-next-line unicorn/no-null -- Prisma's value for an unset field
+    data: { closedAt: null, closedReason: null },
+  })
   await tx.rollPrompt.upsert({
     where: { campaignPrompt: { campaignId, promptId: prompt.id } },
     create: {

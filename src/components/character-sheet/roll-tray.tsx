@@ -52,6 +52,7 @@ import type {
   LocalUse,
 } from '@/hooks/use-sheet-roller'
 import type { RollKind } from '@/types/roll'
+import type { AloneSpend } from '@/types/sending-stone'
 
 /** The player's rolls' way to the Gamemaster's game. */
 export type TableRolls = {
@@ -351,7 +352,7 @@ function reachOf(table: TableRolls, role: SeatRole): string {
 }
 
 /** Words listed as a sentence has them: "a, b and c". */
-function listed(words: string[], last = 'and'): string {
+export function listed(words: readonly string[], last = 'and'): string {
   return words.length > 1
     ? `${words.slice(0, -1).join(', ')} ${last} ${words.at(-1)}`
     : words.join('')
@@ -670,7 +671,7 @@ function outcomeOf(
 ): string | undefined {
   if (state.recharge) return rechargeWord(state)
   if (state.alone) {
-    return `on its own, for ${role === 'gm' ? 'you' : 'your Gamemaster'} to apply`
+    return `on its own, for ${role === 'gm' ? 'you' : 'your Gamemaster'} to apply${spentWords(state)}`
   }
   const saved = savedAt(state, dc)
   if (saved !== undefined) return verdictWord(saved, verdict)
@@ -687,6 +688,28 @@ function outcomeOf(
   if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
   if (attack.outcome === 'miss') return 'Miss'
   return attack.critical ? 'Critical hit' : undefined
+}
+
+/** What damage on its own spent, in words, as Foundry's card says it (module 0.41.0). */
+const SPENT_WORDS: Record<AloneSpend, string> = {
+  slot: 'spell slot',
+  uses: 'use',
+  ammunition: 'ammunition',
+  thrown: 'thrown weapon',
+}
+
+/**
+ * What damage on its own that asked to spend what its use would spent, once the game says, from
+ * module 0.41.0 (round 0.41.0 §2.4.4), after its outcome: "; spell slot spent", "; spell slot and
+ * use spent", "; nothing spent", and "; concentrating" where concentration began. Nothing for one
+ * that didn't ask.
+ */
+function spentWords(state: TableRollState): string {
+  if (!state.consumes || !state.aloneSpent) return ''
+  const parts = state.aloneSpent.map(spent => SPENT_WORDS[spent] ?? spent)
+  const spent =
+    parts.length > 0 ? `; ${listed(parts)} spent` : '; nothing spent'
+  return `${spent}${state.concentrating ? '; concentrating' : ''}`
 }
 
 /** Whether a recharge's d6 recharged its uses, as the game says, in words (module 0.36.0). */

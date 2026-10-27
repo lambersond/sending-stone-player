@@ -546,3 +546,104 @@ describe('the Gamemaster’s seat', () => {
     ).toBeInTheDocument()
   })
 })
+
+/** Brakka's sheet, its own Dexterity save +4, not its character's. */
+const nimble = () => {
+  const sheet = mockCompanionSheet()
+  return toTableSheet(
+    mockCompanionSheet({
+      abilities: sheet.abilities.map(ability =>
+        ability.id === 'dex' ? { ...ability, save: 4 } : ability,
+      ),
+    }),
+    GAME,
+  )
+}
+
+/** Brakka's view, asked a Dexterity save as the game asks companions, from module 0.41.0. */
+const asked = (fields: Partial<CompanionView> = {}): CompanionView =>
+  brakkaView({
+    sheet: nimble(),
+    rollsToTable: ['ability', 'save', 'attack', 'damage'],
+    rollFeatures: ['prompts', 'companionPrompts'],
+    prompts: [
+      {
+        id: 'msg1-wolfBrakka',
+        type: 'save',
+        abilities: ['dex'],
+        dc: 13,
+        label: 'Burning Hands',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      },
+    ],
+    ...fields,
+  })
+
+describe('CompanionPane, the saves the game asks of it, from module 0.41.0 (round 0.41.0 §3.7)', () => {
+  it('asks on its own banner, with its own save modifier, and answers through its own routes', async () => {
+    const user = userEvent.setup()
+    const routed = routes([asked()])
+    render(pane())
+
+    const banner = await screen.findByRole('region', {
+      name: 'Your Gamemaster asks',
+    })
+    expect(banner).toHaveTextContent('Dexterity saving throw')
+    expect(banner).toHaveTextContent('DC 13 · Burning Hands')
+    // Its heading's id its pane's own, as the character's pane has one too.
+    expect(within(banner).getByRole('heading')).toHaveAttribute(
+      'id',
+      'creature-wolfBrakka-prompts-heading',
+    )
+    await user.click(
+      within(banner).getByRole('button', {
+        name: 'Roll Dexterity saving throw, +4',
+      }),
+    )
+
+    expect(posts(routed)).toEqual([
+      expect.objectContaining({
+        url: `${API}/rolls`,
+        body: expect.objectContaining({
+          kind: 'save',
+          key: 'dex',
+          prompt: 'msg1-wolfBrakka',
+        }),
+      }),
+    ])
+  })
+
+  it('has no banner without prompts, nor once it’s no longer its character’s', async () => {
+    routes([asked({ prompts: [] })])
+    const { unmount } = render(pane())
+    await screen.findByRole('button', { name: 'Strength check, +4' })
+    expect(
+      screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+    ).toBeNull()
+    unmount()
+
+    routes([asked()])
+    render(pane({ gone: true }))
+    await screen.findByRole('tablist', { name: 'Character sheet' })
+    expect(
+      screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
+    ).toBeNull()
+  })
+
+  it('says the game is the Gamemaster’s own at their seat', async () => {
+    routes([asked()])
+    render(
+      pane({
+        seat: {
+          role: 'gm',
+          api: '/api/characters/char-1',
+          key: 'gm:c1:char-1',
+        },
+      }),
+    )
+
+    expect(
+      await screen.findByRole('region', { name: 'Your game asks' }),
+    ).toBeInTheDocument()
+  })
+})
