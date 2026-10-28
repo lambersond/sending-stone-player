@@ -117,6 +117,20 @@ describe('hooks/use-spent-offers', () => {
     },
   )
 
+  // Round 0.42.1's review: a roll that took the game too long may still be made, as the page goes
+  // on following it, so its die isn't offered again meanwhile, which would add it twice.
+  it('holds its effect spent while a roll that took too long may still be made, and removes it once it is', () => {
+    const { spent, send, rerender } = setUp({
+      states: new Map([[SAVE.id, { ...state('failed'), reason: 'timeout' }]]),
+    })
+
+    expect([...spent.current]).toEqual(['inspired'])
+    expect(send).not.toHaveBeenCalled()
+
+    rerender({ states: new Map([[SAVE.id, state('done')]]) })
+    expect(send).toHaveBeenCalledWith(INSPIRED, 'delete', SAVE.at - 1)
+  })
+
   it('spends nothing of a roll nothing offered was added to', () => {
     const { spent } = setUp({ rolls: [PLAIN] })
 
@@ -178,6 +192,53 @@ describe('hooks/use-spent-offers', () => {
     })
 
     expect(send).not.toHaveBeenCalled()
+  })
+
+  // Round 0.42.1's review: the roller keeps only its newest 20 rolls, of every kind; a die spent
+  // stays spent while its effect is on the sheet, however many follow (§0.8.11).
+  it('holds its effect spent once the roller has let the roll go, while the effect stays on', () => {
+    const others = Array.from({ length: 20 }, (_, at): LocalCheck => ({
+      ...PLAIN,
+      id: `check-${at + 2}`,
+      at: 2000 + at,
+    }))
+    const { spent, send, rerender } = setUp({
+      states: new Map([[SAVE.id, state('done')]]),
+      ops: 'off',
+    })
+
+    rerender({
+      rolls: others,
+      states: new Map([[SAVE.id, state('done')]]),
+      ops: 'off',
+    })
+
+    expect([...spent.current]).toEqual(['inspired'])
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('removes the effect once made, though the roller let the roll go before', () => {
+    const { send, rerender } = setUp({
+      states: new Map([[SAVE.id, state('rolling')]]),
+    })
+
+    rerender({ rolls: [PLAIN], states: new Map([[SAVE.id, state('rolling')]]) })
+    expect(send).not.toHaveBeenCalled()
+    rerender({ rolls: [PLAIN], states: new Map([[SAVE.id, state('done')]]) })
+
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith(INSPIRED, 'delete', SAVE.at - 1)
+  })
+
+  it('lets a roll the roller let go of go too once its effect has left the sheet', () => {
+    const { spent, rerender } = setUp({ ops: 'off' })
+    expect([...spent.current]).toEqual(['inspired'])
+
+    rerender({ rolls: [PLAIN], effects: [], ops: 'off' })
+    expect(spent.current.size).toBe(0)
+    // Forgotten, as an Inspired given after is another effect: even the same one back isn't spent.
+    rerender({ rolls: [PLAIN], ops: 'off' })
+    expect(spent.current.size).toBe(0)
   })
 
   it.each([

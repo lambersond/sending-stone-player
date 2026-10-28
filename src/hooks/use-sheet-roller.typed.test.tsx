@@ -17,6 +17,7 @@ import { damageRollOf, toRollRequest } from './use-table-rolls'
 import { shownTotal } from '@/components/character-sheet/roll-tray'
 import { BANE_DIE, BLESS_DIE, INSPIRATION_DIE } from '@/mocks/sending-stone'
 import { MAX_EXTRAS } from '@/schemas/roll-request'
+import { ELVEN_LINE } from '@/utils/typed-dice'
 import type { DiceEntry, EnterDice } from '@/types/dice-entry'
 import type { DamagePreview, SheetEffectDie } from '@/types/sending-stone'
 import type { SheetOffer } from '@/utils/effect-dice'
@@ -147,10 +148,15 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
     })
 
     // Changed on purpose (round 0.42.1 §7.2): the third d20 on a line of its own after the two,
-    // with no Skip where the roll isn't sent; its value kept among the d20s.
+    // with no Skip where the roll isn't sent; its value kept among the d20s. With the switch off,
+    // 0.42.0's three boxes, one group.
     it('asks for a third d20 only with advantage where dnd5e gives the attack Elven Accuracy, on its own line', async () => {
       renderer()
-      const { enter, asked } = typing([[3, 18], [7]], [[3, 9]], [[11]])
+      const { enter, asked } = typing(
+        ELVEN_LINE ? [[3, 18], [7]] : [[3, 18, 7]],
+        [[3, 9]],
+        [[11]],
+      )
       const { result } = setUp(enter)
       const rapier: SheetRoll = {
         label: 'Rapier attack',
@@ -162,15 +168,19 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
       await rolled(() => result.current.roll({ ...rapier, advantage: 'dis' }))
       await rolled(() => result.current.roll(rapier))
 
-      expect(asked[0].terms).toEqual([
-        { sides: 20, count: 2, label: 'd20, advantage' },
-        {
-          sides: 20,
-          count: 1,
-          label: 'Elven Accuracy: third d20',
-          name: 'Elven Accuracy',
-        },
-      ])
+      expect(asked[0].terms).toEqual(
+        ELVEN_LINE
+          ? [
+              { sides: 20, count: 2, label: 'd20, advantage' },
+              {
+                sides: 20,
+                count: 1,
+                label: 'Elven Accuracy: third d20',
+                name: 'Elven Accuracy',
+              },
+            ]
+          : [{ sides: 20, count: 3, label: 'd20, advantage (Elven Accuracy)' }],
+      )
       expect(asked.slice(1).map(({ terms }) => terms)).toEqual([
         [{ sides: 20, count: 2, label: 'd20, disadvantage' }],
         [{ sides: 20, count: 1, label: 'd20' }],
@@ -867,10 +877,12 @@ describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from m
     })
 
     // Changed on purpose (round 0.42.1 §7.2): Elven Accuracy's third d20 on a line of its own,
-    // right after the two, the effects after it.
+    // right after the two, the effects after it. With the switch off, 0.42.0's three boxes.
     it('asks for Elven Accuracy’s third d20 on its own line after the two, the effects after', async () => {
       renderer()
-      const { enter, asked } = typing([[3, 18], [7], [4]])
+      const { enter, asked } = typing(
+        ELVEN_LINE ? [[3, 18], [7], [4]] : [[3, 18, 7], [4]],
+      )
       const { result } = setUpTyped(enter, [BLESS_DIE])
 
       await rolled(() =>
@@ -887,11 +899,18 @@ describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from m
         }),
       )
 
-      expect(asked[0].terms.map(({ label, count }) => [label, count])).toEqual([
-        ['d20, advantage', 2],
-        ['Elven Accuracy: third d20', 1],
-        ['Bless: +1d4', 1],
-      ])
+      expect(asked[0].terms.map(({ label, count }) => [label, count])).toEqual(
+        ELVEN_LINE
+          ? [
+              ['d20, advantage', 2],
+              ['Elven Accuracy: third d20', 1],
+              ['Bless: +1d4', 1],
+            ]
+          : [
+              ['d20, advantage (Elven Accuracy)', 3],
+              ['Bless: +1d4', 1],
+            ],
+      )
       const [roll] = result.current.rolls as LocalCheck[]
       expect(roll).toMatchObject({ d20s: [3, 18, 7], natural: 18 })
       expect(roll.total).toBe(18 + 7 + 4)
@@ -1056,6 +1075,14 @@ describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from m
 })
 
 describe('hooks/use-sheet-roller, Elven Accuracy’s third d20 on its own line, from 0.42.1', () => {
+  // Round 0.42.1 (§0.8.21): Elven Accuracy's line is dropped by its switch alone, so what asks for
+  // it is tested only while it's on; off, use-sheet-roller.elven-off.test.tsx asks 0.42.0's three
+  // boxes, and typed-dice.test.ts's pin is the one test to change.
+  if (!ELVEN_LINE) {
+    it.skip('asks for Elven Accuracy’s line only while ELVEN_LINE is on', () => {})
+    return
+  }
+
   afterEach(() => jest.restoreAllMocks())
 
   /**
@@ -1476,30 +1503,35 @@ describe('hooks/use-sheet-roller, the dice the sheet offers, from module 0.42.1'
     ])
   })
 
-  it('reads an offer after Elven Accuracy’s third d20 skipped, the offer never skipped', async () => {
-    renderer()
-    const { enter, asked } = typing([[3, 18], [], [5]])
-    const { result } = setUpOffers(enter, { offers: [VEX] })
-    const rapier: SheetRoll = {
-      label: 'Rapier attack',
-      modifier: 7,
-      advantage: 'adv',
-      elvenAccuracy: true,
-      source: { kind: 'attack', item: 'rapier', activity: 'rapierAttack' },
-    }
+  // Round 0.42.1 (§0.8.21): only while Elven Accuracy's line is on, its switch.
+  if (ELVEN_LINE) {
+    it('reads an offer after Elven Accuracy’s third d20 skipped, the offer never skipped', async () => {
+      renderer()
+      const { enter, asked } = typing([[3, 18], [], [5]])
+      const { result } = setUpOffers(enter, { offers: [VEX] })
+      const rapier: SheetRoll = {
+        label: 'Rapier attack',
+        modifier: 7,
+        advantage: 'adv',
+        elvenAccuracy: true,
+        source: { kind: 'attack', item: 'rapier', activity: 'rapierAttack' },
+      }
 
-    await rolled(() => result.current.roll(rapier))
+      await rolled(() => result.current.roll(rapier))
 
-    const [entry] = asked
-    expect(entry.terms.at(-1)).toEqual(OFFERED)
-    expect(entry.skippedWords?.([1])).toBe('not counting Elven Accuracy’s d20')
-    const [roll] = result.current.rolls as LocalCheck[]
-    expect(roll).toMatchObject({ d20s: [3, 18], total: 18 + 7 + 5 })
-    expect(roll.skipped).toBe(true)
-    expect(roll.extras).toEqual([
-      { text: 'Bardic Inspiration +1d6', values: [5], value: 5 },
-    ])
-  })
+      const [entry] = asked
+      expect(entry.terms.at(-1)).toEqual(OFFERED)
+      expect(entry.skippedWords?.([1])).toBe(
+        'not counting Elven Accuracy’s d20',
+      )
+      const [roll] = result.current.rolls as LocalCheck[]
+      expect(roll).toMatchObject({ d20s: [3, 18], total: 18 + 7 + 5 })
+      expect(roll.skipped).toBe(true)
+      expect(roll.extras).toEqual([
+        { text: 'Bardic Inspiration +1d6', values: [5], value: 5 },
+      ])
+    })
+  }
 
   it('offers no more than the roll’s extras leave room for, none at ten', async () => {
     renderer()

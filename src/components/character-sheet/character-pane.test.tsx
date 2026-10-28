@@ -44,6 +44,7 @@ import {
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import { ELVEN_LINE } from '@/utils/typed-dice'
 import type { TableSeat } from '@/types/character'
 import type {
   GmRollView,
@@ -4663,7 +4664,8 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
   })
 
   // Changed on purpose (round 0.42.1 §7.2): Elven Accuracy's third d20 on its own line after the
-  // two, with no Skip, as this attack goes to no game.
+  // two, with no Skip, as this attack goes to no game; with the switch off (§0.8.21), 0.42.0's
+  // three boxes as one group.
   it("asks for Elven Accuracy's third d20 on its own line, for an attack dnd5e gives it, with advantage, wherever it's rolled", async () => {
     const user = userEvent.setup()
     const sheet = fullerSheet()
@@ -4692,8 +4694,14 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
       within(dialog)
         .getAllByRole('listitem')
         .map(li => li.textContent),
-    ).toEqual(['d20, advantage ×2', 'Elven Accuracy: third d20 ×1'])
-    expect(mockEntries.at(-1)?.terms[1]).not.toHaveProperty('skippable')
+    ).toEqual(
+      ELVEN_LINE
+        ? ['d20, advantage ×2', 'Elven Accuracy: third d20 ×1']
+        : ['d20, advantage (Elven Accuracy) ×3'],
+    )
+    expect(mockEntries.at(-1)?.terms.some(({ skippable }) => skippable)).toBe(
+      false,
+    )
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
 
     // The handaxe has none: two.
@@ -6127,6 +6135,13 @@ const attackWithAdvantage = async (user: User) => {
 }
 
 describe('components/character-sheet/character-pane, Elven Accuracy’s third d20 on its own line, from 0.42.1', () => {
+  // Round 0.42.1 (§0.8.21): Elven Accuracy's line is dropped by its switch alone, so what asks for
+  // it is tested only while it's on; typed-dice.test.ts's pin is the one test to change.
+  if (!ELVEN_LINE) {
+    it.skip('asks for Elven Accuracy’s line only while ELVEN_LINE is on', () => {})
+    return
+  }
+
   const typing = { on: true, onChange: jest.fn() }
 
   beforeEach(() => {
@@ -6592,4 +6607,36 @@ describe('components/character-sheet/character-pane, Bardic Inspiration offered,
     expect(posted).toHaveLength(1)
     expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
   })
+
+  // Round 0.42.1's review: the roller keeps only its newest 20 rolls, but a die spent is offered
+  // no more on this page while its Inspired is on the sheet (§0.8.11), however many rolls follow.
+  it('offers it no more after more rolls than the roller keeps, Inspired left on where the player may not remove it', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE })
+    mockAdding = true
+    // The campaign's effects switch off, its default.
+    render(pane({ effects: undefined }))
+
+    await strengthSave(user)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+        ),
+      { timeout: 3000 },
+    )
+    mockAdding = false
+
+    // The save the die was added to, then 21 more: it's no longer among the roller's 20.
+    for (let save = 1; save <= 21; save++) {
+      await strengthSave(user)
+      expect(asked()).toEqual(['d20'])
+      await user.click(screen.getByRole('button', { name: 'Done' }))
+    }
+    expect(posted).toHaveLength(22)
+    expect(posted.slice(1)).toEqual(
+      Array.from({ length: 21 }, () => expect.objectContaining({ extras: [] })),
+    )
+  }, 30_000)
 })

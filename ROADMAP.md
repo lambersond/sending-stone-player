@@ -91,6 +91,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   bard who isn't a player's character) isn't offered again on that page until it's removed, but is
   once the page is reloaded; and a bard's Inspire given again before it's removed isn't offered, as
   dnd5e refreshes the same effect: the Gamemaster removes it first.
+- When typing in dice, Bardic Inspiration added to a roll the game took too long to make stays
+  spent until that roll is made, or until the page is reloaded: it isn't offered again meanwhile,
+  and nothing says it's spent until the roll is made.
 - When typing in dice in a world on the legacy (2014) rules, a Bardic Inspiration feature that
   doesn't say which rules it's for counts as 2014's and isn't offered; dnd5e's 2024 compendium
   feature, which says, is.

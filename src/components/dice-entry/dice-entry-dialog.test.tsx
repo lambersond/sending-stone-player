@@ -1641,11 +1641,100 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       expect(total()).toHaveTextContent(/^Total 5$/)
     })
 
-    it('keeps its row in the keypad’s column on a short screen', () => {
-      onShortScreen()
+    // Round 0.42.1's review: its words take the row's room, so that Add stays beside them and
+    // the row no taller than they are, as at 360 wide its line otherwise pushed Add under it, and
+    // the block kept in view over the first box.
+    it('keeps Add beside its words, which wrap in the room left', () => {
       open(OFFERED)
 
-      expect(keptInView()).toContainElement(add())
+      const words = add().previousElementSibling
+      expect(words).toHaveTextContent(`Bardic Inspiration: +1d6${LINE}`)
+      expect(words).toHaveClass('min-w-0', 'flex-1')
+    })
+
+    // Round 0.42.1's review: the first box takes the dialog's first focus, and where the block kept
+    // in view covers it, as with the offer's row at 360×640, it's scrolled clear, though the
+    // browser's own scrolling to it leaves it beneath.
+    it.each([
+      ['from the browser’s own focus on Close', () => key('Close').focus()],
+      [
+        'where the box took focus as it was drawn',
+        () => box('d20 1 of 2').focus(),
+      ],
+    ])(
+      'scrolls the first box clear of the block kept in view as the dialog opens, %s',
+      (_, focus) => {
+        open(entry({ terms: [{ ...D20, count: 2 }, OFFER] }), { drawn: false })
+        act(focus)
+        jest
+          .spyOn(keptInView(), 'getBoundingClientRect')
+          .mockReturnValue({ top: 400 } as DOMRect)
+        jest
+          .spyOn(HTMLInputElement.prototype, 'getBoundingClientRect')
+          .mockReturnValue({ bottom: 430 } as DOMRect)
+
+        runFrames()
+
+        expect(box('d20 1 of 2')).toHaveFocus()
+        expect(scroller().scrollTop).toBe(38)
+      },
+    )
+
+    it('scrolls nothing as the dialog opens where the first box is clear of the block', () => {
+      open(OFFERED, { drawn: false })
+      jest
+        .spyOn(keptInView(), 'getBoundingClientRect')
+        .mockReturnValue({ top: 400 } as DOMRect)
+      jest
+        .spyOn(HTMLInputElement.prototype, 'getBoundingClientRect')
+        .mockReturnValue({ bottom: 396 } as DOMRect)
+
+      runFrames()
+
+      expect(box('d20')).toHaveFocus()
+      expect(scroller().scrollTop).toBe(0)
+    })
+
+    // Changed on purpose (round 0.42.1's review): on a short screen its row was in the keypad's
+    // column, which then grew past the dialog's height, Add and Done below it. Beneath the dice,
+    // kept in view as they scroll, as the keypad is on a tall screen, the keypad's column is as
+    // it is without it.
+    it('keeps its row beneath the dice on a short screen, in view as they scroll, not in the keypad’s column', () => {
+      onShortScreen()
+      open(OFFERED)
+      const form = screen.getByRole('dialog').querySelector('form')
+      const row = add().parentElement as HTMLElement
+
+      expect(keptInView()).not.toContainElement(row)
+      expect(keptInView()).toContainElement(key('Done'))
+      expect(form?.children[0]).toContainElement(row)
+      expect(follows(box('d20'), row)).toBe(true)
+      expect(row.parentElement).toHaveClass(
+        'sticky',
+        '-bottom-5',
+        '-mb-5',
+        'pb-5',
+        'bg-card',
+      )
+      expect(add()).toHaveAccessibleDescription(LINE)
+    })
+
+    it('scrolls its box, once added on a short screen, clear of the rows kept beneath the dice', () => {
+      onShortScreen()
+      open(BLESSED_OFFER)
+      const rows = add().parentElement?.parentElement as HTMLElement
+      jest
+        .spyOn(rows, 'getBoundingClientRect')
+        .mockReturnValue({ top: 300 } as DOMRect)
+      jest
+        .spyOn(HTMLInputElement.prototype, 'getBoundingClientRect')
+        .mockReturnValue({ bottom: 330 } as DOMRect)
+
+      fireEvent.click(add())
+
+      const added = within(offerGroup() as HTMLElement).getByRole('textbox')
+      expect(added).toHaveFocus()
+      expect(scroller().scrollTop).toBe(38)
     })
 
     it('gives none for it on Done while it’s left out, its box never asked for', async () => {

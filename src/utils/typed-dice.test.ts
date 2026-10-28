@@ -32,6 +32,15 @@ describe('utils/typed-dice', () => {
     expect(ELVEN_DIE).toEqual({ name: 'Elven Accuracy', faces: 20, count: 1 })
   })
 
+  // Round 0.42.1's review: the switch is how Elven Accuracy is dropped (§0.8.21), so its off
+  // position must build as its on position does. Typed as its literal, `true`, turned off it
+  // narrowed what it gates to `false`, which the roller can't spread, and tsc failed; this line
+  // fails tsc while it's typed so.
+  it('keeps ELVEN_LINE a boolean, so turning it off compiles as on does', () => {
+    const flippable: boolean extends typeof ELVEN_LINE ? true : false = true
+    expect(flippable).toBe(true)
+  })
+
   it("keeps the typed d20s as the app's own throw does: the higher with advantage, the lower with disadvantage", () => {
     expect(
       typedResult([{ sides: 20, count: 1 }], [[4, 17, 9]], {

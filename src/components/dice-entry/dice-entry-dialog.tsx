@@ -174,6 +174,8 @@ function Entry({
   const [tried, setTried] = useState(false)
   const inputs = useRef<(HTMLInputElement | null)[]>([])
   const keys = useRef<HTMLDivElement>(null)
+  // On a short screen, the dice offered's rows, kept in view beneath the dice (module 0.42.1).
+  const offerBlock = useRef<HTMLDivElement>(null)
   const done = useRef<HTMLButtonElement>(null)
 
   // Closed by itself, once: its time running out, or what it answers answered or closed elsewhere.
@@ -196,29 +198,53 @@ function Entry({
     return () => signal.removeEventListener('abort', closed)
   }, [entry])
 
+  /**
+   * What's kept in view over the dice as they scroll: the keypad, below them; or on a short screen,
+   * where the keypad is beside them, the rows of any dice offered, below them.
+   */
+  const over = () => (compact ? offerBlock.current : keys.current)
+
+  /** Scroll what has focus, a box or a button, clear of what's kept over the dice. */
+  const keepClear = (element: HTMLElement) => {
+    const scroller = form.current?.parentElement
+    const kept = over()
+    if (!scroller || !kept) return
+    const hidden =
+      element.getBoundingClientRect().bottom +
+      8 -
+      kept.getBoundingClientRect().top
+    if (hidden > 0) scroller.scrollTop += hidden
+  }
+
+  /**
+   * The first box focused, unless focus is in the dice already, as where the box took it as it was
+   * drawn; and what has it, where what's kept over the dice covers it, scrolled clear, as the
+   * browser's own scrolling to it leaves it beneath: from module 0.42.1, a die offered's row beside
+   * Done can cover the first box on a phone (round 0.42.1's review).
+   */
+  const focusFirst = useEffectEvent(() => {
+    const focused = document.activeElement
+    const target = form.current?.contains(focused) ? focused : inputs.current[0]
+    if (!(target instanceof HTMLElement)) return
+    if (target !== focused) target.focus()
+    const kept = over()
+    if (
+      kept &&
+      target.getBoundingClientRect().bottom > kept.getBoundingClientRect().top
+    ) {
+      keepClear(target)
+    }
+  })
+
   // A frame after it opens, as the dialog is shown only after its content is drawn, and a menu or
   // dialog closing as this opens may hand focus back to what opened it, behind this one. The
   // browser's own focus, on the dialog's first button as it's shown, is no reason to leave it.
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      if (form.current?.contains(document.activeElement)) return
-      inputs.current[0]?.focus()
-    })
+    const frame = requestAnimationFrame(() => focusFirst())
     return () => cancelAnimationFrame(frame)
   }, [entry, form])
 
-  /** Scroll what has focus, a box or a button, clear of the keypad kept over the dice. */
-  const keepClear = (element: HTMLElement) => {
-    const scroller = form.current?.parentElement
-    if (compact || !scroller || !keys.current) return
-    const hidden =
-      element.getBoundingClientRect().bottom +
-      8 -
-      keys.current.getBoundingClientRect().top
-    if (hidden > 0) scroller.scrollTop += hidden
-  }
-
-  /** Focus a box, clear of the keypad kept over the dice as they scroll. */
+  /** Focus a box, clear of what's kept over the dice as they scroll. */
   const focusBox = (index: number) => {
     const input = inputs.current[index]
     if (!input) return
@@ -423,6 +449,55 @@ function Entry({
     .toSorted((a, b) => a - b)
   const caveat = skipped.length > 0 ? (entry.skippedWords?.(skipped) ?? '') : ''
 
+  // Each die offered, from module 0.42.1, kept in view however the dice scroll, so that the player
+  // finds it as their Gamemaster says the roll fails: beside Done, or on a short screen beneath
+  // the dice, as the keypad's column beside them has no room left to keep it and Done in view
+  // (round 0.42.1's review). Its button stays one element as it changes its words, so that focus
+  // stays on it.
+  const offerRows = offers.map(termAt => {
+    const term = entry.terms[termAt]
+    const isOut = out.has(termAt)
+    const line = `${ids}-${termAt}-offer`
+    const whose = whoseDice(term)
+    return (
+      // The words take the row's room and wrap in it, so that the button stays beside them, the
+      // row no taller than they are, before anything scrolls sideways.
+      <div
+        key={line}
+        className='flex flex-wrap items-center justify-between gap-2'
+      >
+        <div className='min-w-0 flex-1 text-sm'>
+          <p className='flex items-center gap-1.5'>
+            {term.sides !== 100 && (
+              <DieIcon
+                sides={term.sides}
+                className='size-4 shrink-0 text-text-secondary'
+              />
+            )}
+            {term.label}
+          </p>
+          {isOut && (
+            <p id={line} className='text-xs text-text-secondary'>
+              {OFFER_LINE}
+            </p>
+          )}
+        </div>
+        <button
+          ref={button => {
+            offerButtons.current[termAt] = button
+          }}
+          type='button'
+          aria-label={`${isOut ? 'Add' : 'Leave out'} ${whose}`}
+          aria-describedby={isOut ? line : undefined}
+          onClick={() => (isOut ? add(termAt) : leaveOut(termAt))}
+          className={SKIP}
+        >
+          {isOut ? 'Add' : 'Leave out'}
+        </button>
+      </div>
+    )
+  })
+
   return (
     <form
       ref={form}
@@ -575,6 +650,16 @@ function Entry({
             </div>
           )
         })}
+        {compact && offers.length > 0 && (
+          // Kept in view below the dice as they scroll, over the scroller's own padding, as the
+          // keypad is on a tall screen.
+          <div
+            ref={offerBlock}
+            className='sticky -bottom-5 -mb-5 grid gap-2 border-t border-border bg-card pt-3 pb-5'
+          >
+            {offerRows}
+          </div>
+        )}
       </div>
 
       <div
@@ -610,51 +695,7 @@ function Entry({
             Type in every die first.
           </p>
         )}
-        {/* Each die offered, from module 0.42.1, here beside Done, in view however the dice
-            scroll, so that the player finds it as their Gamemaster says the roll fails. Its
-            button stays one element as it changes its words, so that focus stays on it. */}
-        {offers.map(termAt => {
-          const term = entry.terms[termAt]
-          const isOut = out.has(termAt)
-          const line = `${ids}-${termAt}-offer`
-          const whose = whoseDice(term)
-          return (
-            // The button wraps under the words before anything scrolls sideways.
-            <div
-              key={line}
-              className='flex flex-wrap items-center justify-between gap-2'
-            >
-              <div className='min-w-0 text-sm'>
-                <p className='flex items-center gap-1.5'>
-                  {term.sides !== 100 && (
-                    <DieIcon
-                      sides={term.sides}
-                      className='size-4 shrink-0 text-text-secondary'
-                    />
-                  )}
-                  {term.label}
-                </p>
-                {isOut && (
-                  <p id={line} className='text-xs text-text-secondary'>
-                    {OFFER_LINE}
-                  </p>
-                )}
-              </div>
-              <button
-                ref={button => {
-                  offerButtons.current[termAt] = button
-                }}
-                type='button'
-                aria-label={`${isOut ? 'Add' : 'Leave out'} ${whose}`}
-                aria-describedby={isOut ? line : undefined}
-                onClick={() => (isOut ? add(termAt) : leaveOut(termAt))}
-                className={SKIP}
-              >
-                {isOut ? 'Add' : 'Leave out'}
-              </button>
-            </div>
-          )
-        })}
+        {!compact && offerRows}
         <div className='flex flex-wrap justify-end gap-2'>
           <button
             type='button'
