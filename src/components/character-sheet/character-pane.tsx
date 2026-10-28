@@ -709,19 +709,48 @@ function RollingSheet({
       choice: pick.choice,
     }
     if (!asks(asking, combat, sheet.spells)) {
-      pick.onPicked({})
+      pick.onPicked({}, { action: pick.action, spells: sheet.spells })
       return
     }
     aloneGoing.current = pick
     setPicking(asking)
   }
+  // Damage on its own's row as the sheet has it now, from module 0.41.0: the page's next poll may
+  // change it while its player picks, as a slot the Gamemaster gives brings the plan of that level,
+  // so the picker draws its chips from the row as it is now, and what's picked is rolled from that
+  // row. Where the sheet lists it more than once, the listing it was tapped on, by its name; as it
+  // was, where the sheet no longer plans it.
+  const aloneRow = useMemo(() => {
+    if (picking?.kind !== 'alone') return
+    const { action } = picking
+    const activity = action.attackId ?? action.activity?.id
+    const listed = sheetActions(sheet, entries).filter(
+      each =>
+        each.id === action.id &&
+        (each.attackId ?? each.activity?.id) === activity &&
+        !!each.tableDamage,
+    )
+    return (
+      listed.find(
+        each =>
+          each.name === action.name &&
+          each.activityName === action.activityName,
+      ) ??
+      listed[0] ??
+      action
+    )
+  }, [picking, sheet, entries])
+  const shownPicking: Picking | undefined =
+    picking?.kind === 'alone' && aloneRow
+      ? { ...picking, action: aloneRow }
+      : picking
   const closePicker = () => {
     returnTo.current = aloneGoing.current?.anchor
     aloneGoing.current = undefined
     setPicking(undefined)
   }
   const pick = (picked: Picked) => {
-    const asked = picking
+    const asked = shownPicking
     const going = aloneGoing.current
     aloneGoing.current = undefined
     setPicking(undefined)
@@ -729,12 +758,15 @@ function RollingSheet({
     if (lockedNow.current) return
     if (asked?.kind === 'alone') {
       const { slot, attackMode, ammunition, consume } = picked
-      going?.onPicked({
-        ...(slot && { slot }),
-        ...(attackMode && { attackMode }),
-        ...(ammunition && { ammunition }),
-        ...(consume && { consume }),
-      })
+      going?.onPicked(
+        {
+          ...(slot && { slot }),
+          ...(attackMode && { attackMode }),
+          ...(ammunition && { ammunition }),
+          ...(consume && { consume }),
+        },
+        { action: asked.action, spells: sheet.spells },
+      )
       return
     }
     if (asked?.kind === 'use') {
@@ -1225,7 +1257,7 @@ function RollingSheet({
         header={header}
       />
       <UsePicker
-        picking={picking}
+        picking={shownPicking}
         combat={combat}
         spellbook={sheet.spells}
         casts={itemCasts}

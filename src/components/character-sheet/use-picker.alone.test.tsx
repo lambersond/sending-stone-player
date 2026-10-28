@@ -133,6 +133,41 @@ const dagger = (spends: TableDamagePlan['spends'] = ['thrown']) =>
     tableDamage: plan({ spends }),
   })
 
+/**
+ * A Dart, as the game sends it: thrown, its one mode, so the sheet lists none, spending it; a
+ * returning one never.
+ */
+const dart = (spends: TableDamagePlan['spends'] = ['thrown']) =>
+  sheetAction({
+    id: 'dart',
+    name: 'Dart',
+    type: 'weapon',
+    toHit: 5,
+    attackId: 'dartAttack',
+    attackModes: null,
+    ammunition: null,
+    tableDamage: plan({ spends }),
+  })
+
+/**
+ * Burning Hands as a follow-up whose dice grow with its level but which spends no slot, as Flaming
+ * Sphere's Ram is: its levels sent, nothing spent.
+ */
+const slotless = () =>
+  burningHandsAction({
+    consumesSlot: false,
+    tableDamage: { ...burningHandsAction().tableDamage!, spends: [] },
+  })
+
+/** A Longbow whose first ammunition has none left, the second some. */
+const emptyFirst = () =>
+  longbowAction({
+    ammunition: [
+      { id: 'arrows', name: 'Arrows', quantity: 0 },
+      { id: 'arrowsFire', name: 'Arrows of Fire', quantity: 5 },
+    ],
+  })
+
 describe('components/character-sheet/use-picker, damage on its own, from module 0.41.0', () => {
   beforeEach(() => {
     globalThis.localStorage.clear()
@@ -344,6 +379,11 @@ describe('components/character-sheet/use-picker, damage on its own, from module 
     expect(ask(fireBolt)).toBe(false)
     // A thrown weapon's switch shows only in a thrown mode, its modes asking anyway.
     expect(ask(dagger())).toBe(true)
+    // A Dart, thrown in its one mode, has the switch alone to show; a returning one nothing.
+    expect(ask(dart())).toBe(true)
+    expect(ask(dart([]))).toBe(false)
+    // Levels that change its dice, though it spends no slot: asked, for its level.
+    expect(ask(slotless())).toBe(true)
     // One level and nothing spent: rolled at once, at its slot.
     expect(
       ask(
@@ -355,6 +395,25 @@ describe('components/character-sheet/use-picker, damage on its own, from module 
         [aloneSpells()[0]],
       ),
     ).toBe(false)
+  })
+
+  it('offers the levels of a spell whose dice they change though it spends no slot, with no count and no switch', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderPicker(slotless(), {
+      spellbook: aloneSpells(2, 0),
+    })
+
+    // Nothing spends a slot, so an empty pool can be chosen.
+    expect(chips('At level')).toEqual([
+      ['1st', 'true', false],
+      ['2nd', 'false', false],
+    ])
+    expect(within(dialog()).queryByRole('switch')).toBeNull()
+    expect(screen.getByRole('radio', { name: '1st Level' })).toHaveFocus()
+
+    await user.click(screen.getByRole('radio', { name: '2nd Level' }))
+    await user.click(screen.getByRole('button', { name: 'Roll damage' }))
+    expect(onPick).toHaveBeenCalledWith({ targets: [], slot: 'spell2' })
   })
 
   describe("a weapon's mode and ammunition (round 0.41.0 §2.11.2)", () => {
@@ -404,6 +463,55 @@ describe('components/character-sheet/use-picker, damage on its own, from module 
       })
     })
 
+    it('opens on the first ammunition with any left, past an empty first, the switch on', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(emptyFirst(), { spellbook: [] })
+
+      expect(chips('Ammunition')).toEqual([
+        ['Arrows · 0', 'false', true],
+        ['Arrows of Fire · 5', 'true', false],
+      ])
+      expect(spend()).toBeChecked()
+      expect(spend()).toHaveAccessibleName('Spend an Arrows of Fire')
+      expect(
+        screen.getByRole('radio', { name: 'Arrows of Fire, 5 left' }),
+      ).toHaveFocus()
+      await user.click(screen.getByRole('button', { name: 'Roll damage' }))
+      expect(onPick).toHaveBeenCalledWith({
+        targets: [],
+        ammunition: 'arrowsFire',
+        consume: true,
+      })
+    })
+
+    it('moves the pick off an empty ammunition as the switch is turned on, a screen reader told so', async () => {
+      const user = userEvent.setup()
+      const { onPick } = renderPicker(emptyFirst(), { spellbook: [] })
+
+      await user.click(spend())
+      await user.click(screen.getByRole('radio', { name: 'Arrows, 0 left' }))
+      expect(chips('Ammunition')).toEqual([
+        ['Arrows · 0', 'true', false],
+        ['Arrows of Fire · 5', 'false', false],
+      ])
+      expect(spend()).toHaveAccessibleName('Spend an Arrows')
+
+      // On again, the pick never rests on the empty one.
+      await user.click(spend())
+      expect(chips('Ammunition')).toEqual([
+        ['Arrows · 0', 'false', true],
+        ['Arrows of Fire · 5', 'true', false],
+      ])
+      expect(spend()).toHaveAccessibleName('Spend an Arrows of Fire')
+      expect(echo()).toBe('Spend an Arrows of Fire')
+      await user.click(screen.getByRole('button', { name: 'Roll damage' }))
+      expect(onPick).toHaveBeenCalledWith({
+        targets: [],
+        ammunition: 'arrowsFire',
+        consume: true,
+      })
+    })
+
     it('fires a bow’s one ammunition, named, with no chips', async () => {
       const user = userEvent.setup()
       const { onPick } = renderPicker(
@@ -443,6 +551,23 @@ describe('components/character-sheet/use-picker, damage on its own, from module 
 
       renderPicker(dagger([]), { spellbook: [] })
       await user.click(screen.getByRole('radio', { name: 'Thrown' }))
+      expect(within(dialog()).queryByRole('switch')).toBeNull()
+    })
+
+    it('spends a weapon thrown in its one mode, a Dart, with no mode to pick or name, and a returning one never', async () => {
+      const user = userEvent.setup()
+      const { onPick, unmount } = renderPicker(dart(), { spellbook: [] })
+
+      expect(within(dialog()).queryByRole('group')).toBeNull()
+      expect(spend()).toHaveAccessibleName('Spend the Dart')
+      expect(spend()).toBeChecked()
+      expect(spend()).toHaveFocus()
+      await user.click(screen.getByRole('button', { name: 'Roll damage' }))
+      // The game throws it in its one mode, none named.
+      expect(onPick).toHaveBeenCalledWith({ targets: [], consume: true })
+      unmount()
+
+      renderPicker(dart([]), { spellbook: [] })
       expect(within(dialog()).queryByRole('switch')).toBeNull()
     })
 

@@ -53,8 +53,8 @@ export type AloneChoice = {
  * damage" or "Cure Wounds healing". A critical hit's only where the game makes one of it: a plan
  * with none never makes one. None where the game said nothing of its dice. From module 0.41.0,
  * where the game sends the row's choices and the row is given, from the plan its choices pick,
- * naming them, the slot always where the spell is cast with one, as `aloneSelection` has it, and
- * spending what its use would where the player asks and it spends anything.
+ * naming them, the slot always where the spell has a pool to cast it with, as `aloneSelection` has
+ * it, and spending what its use would where the player asks and it spends anything.
  * @param name - What it's of, such as "Longsword".
  * @param alone - Its item and activity, and the game's plan of its dice.
  * @param row - The row it's of, and the spellbook, for its choices; none rolls the row's own plan.

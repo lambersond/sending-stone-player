@@ -88,12 +88,14 @@ export function alonePlan(plan: TableDamagePlan, picks: AlonePicks): AlonePlan {
 
 /**
  * What damage on its own is rolled with, as the player chose it or by default, where the game sends
- * its choices: the slot always where the spell is cast with one, the chosen pool, else the one
- * dnd5e would pick, else, none being left, its own level's, so that its dice and what it spends are
- * at that slot's level, never the spell's own by mistake; the attack mode chosen, if any, none
- * otherwise, which the game rolls in the weapon's first; the ammunition chosen, else the first with
- * any left, else the first, as the game fires none unnamed. Nothing where the game sends no choices
- * for the row, which rolls as before module 0.41.0.
+ * its choices: the slot always wherever the spell has a pool to cast it with, the chosen pool, else
+ * the one dnd5e would pick, else, none being left, its own level's, so that its dice and what it
+ * spends are at that slot's level, never the spell's own by mistake; none for a spell with no pool
+ * at or above its level, such as a Magic Initiate spell of a character with no slots, which the
+ * game rolls at its own level; the attack mode chosen, if any, none otherwise, which the game rolls
+ * in the weapon's first; the ammunition chosen, else the first with any left, else the first, as
+ * the game fires none unnamed. Nothing where the game sends no choices for the row, which rolls as
+ * before module 0.41.0.
  */
 export function aloneSelection(
   plan: TableDamagePlan,

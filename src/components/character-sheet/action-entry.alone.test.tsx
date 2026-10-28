@@ -108,6 +108,38 @@ const longsword = () =>
   })
 
 /**
+ * A Dart, as the game sends it: thrown, its one mode, so the sheet lists none, spending it as it's
+ * thrown.
+ */
+const dart = () =>
+  sheetAction({
+    id: 'dart',
+    name: 'Dart',
+    type: 'weapon',
+    toHit: 5,
+    attackId: 'dartAttack',
+    attackModes: null,
+    ammunition: null,
+    damage: [{ formula: '1d4 + 3', type: 'Piercing', healing: false }],
+    tableDamage: {
+      normal: {
+        critical: false,
+        plannable: true,
+        rolls: [
+          {
+            formula: '1d4 + 3',
+            type: 'Piercing',
+            dice: [{ faces: 4, number: 1 }],
+          },
+        ],
+      },
+      critical: null,
+      choices: [],
+      spends: ['thrown'],
+    },
+  })
+
+/**
  * A Longbow with 70 ammunitions, more plans than the game sends a row: it sends it none, as an
  * older module would, so it rolls as before (round 0.41.0 §0.7.15).
  */
@@ -149,6 +181,27 @@ const thorin = (actions: SheetAction[]): CharacterSheet =>
       },
     ],
   })
+
+/**
+ * Thorin with no 2nd-level slot, as before the Gamemaster gives him one, the game sending each row
+ * no plan at 2nd level.
+ */
+const withoutSecond = (actions: SheetAction[]): CharacterSheet => {
+  const sheet = thorin(
+    actions.map(action => ({
+      ...action,
+      tableDamage: { ...action.tableDamage!, choices: [] },
+    })),
+  )
+  return {
+    ...sheet,
+    spells: sheet.spells.map(section =>
+      section.id === 'spell2'
+        ? { ...section, slots: { value: 0, max: 0, level: 2 } }
+        : section,
+    ),
+  }
+}
 
 /** Everything posted to the game, in order; each roll it's asked after made as given. */
 const answering = (answers: Record<string, Record<string, unknown>> = {}) => {
@@ -462,6 +515,71 @@ describe('components/character-sheet/action-entry, damage on its own’s choices
     expect(posted[0]).not.toHaveProperty('consume')
   })
 
+  it('asks the level of a spell whose dice it changes though it spends no slot, as Flaming Sphere’s Ram, and sends it spending nothing', async () => {
+    const user = userEvent.setup()
+    const posted = answering()
+    const hands = burningHandsAction()
+    renderThorin({
+      actions: [
+        burningHandsAction({
+          consumesSlot: false,
+          tableDamage: { ...hands.tableDamage!, spends: [] },
+        }),
+      ],
+    })
+    await showActions()
+
+    await user.click(chip(HANDS))
+    const picker = screen.getByRole('dialog', { name: 'Burning Hands' })
+    expect(posted).toHaveLength(0)
+    expect(within(picker).queryByRole('switch')).toBeNull()
+    await user.click(within(picker).getByRole('radio', { name: '2nd Level' }))
+    await user.click(
+      within(picker).getByRole('button', { name: 'Roll damage' }),
+    )
+
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      kind: 'itemDamage',
+      item: 'hands',
+      activity: 'handsSave',
+      slot: 'spell2',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(6, 4)],
+    })
+  })
+
+  it('offers to spend a Dart, thrown in its one mode, and sends it spent with no mode named', async () => {
+    const user = userEvent.setup()
+    const posted = answering()
+    renderThorin({ actions: [dart()] })
+    await showActions()
+
+    await user.click(chip('Dart damage, 1d4 + 3, goes to the table on its own'))
+    const picker = screen.getByRole('dialog', { name: 'Dart' })
+    expect(posted).toHaveLength(0)
+    expect(within(picker).getByRole('switch')).toHaveAccessibleName(
+      'Spend the Dart',
+    )
+    await user.click(
+      within(picker).getByRole('button', { name: 'Roll damage' }),
+    )
+
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      kind: 'itemDamage',
+      item: 'dart',
+      activity: 'dartAttack',
+      consume: true,
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [die(4)],
+    })
+  })
+
   it('rolls a row with nothing to choose or spend at once, as ever', async () => {
     const user = userEvent.setup()
     const posted = answering()
@@ -595,5 +713,147 @@ describe('components/character-sheet/action-entry, damage on its own’s choices
     expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(posted).toHaveLength(2))
     expect(posted[1]).toMatchObject({ kind: 'damage', use: 'req-1' })
+  })
+
+  describe('a sheet that changes while the picker is open', () => {
+    /** Thorin's pane again, as the page's next poll brings his sheet. */
+    const pane = (sheet: CharacterSheet) => (
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(sheet, GAME)}
+        rollsToTable={KINDS}
+        rollFeatures={['modifiers', 'aloneChoices']}
+      />
+    )
+
+    it('rolls the plan of the level picked from the chips it offers then, as a 2nd-level slot the Gamemaster gives', async () => {
+      const user = userEvent.setup()
+      const posted = answering()
+      const { rerender } = renderThorin({
+        sheet: withoutSecond([burningHandsAction()]),
+      })
+      await showActions()
+
+      await user.click(chip(HANDS))
+      const picker = screen.getByRole('dialog', { name: 'Burning Hands' })
+      expect(within(picker).queryByRole('radio')).toBeNull()
+      // The Gamemaster gives Thorin one: the game sends its plan, 4d6, as the picker is open.
+      rerender(pane(thorin([burningHandsAction()])))
+      await user.click(
+        within(picker).getByRole('radio', { name: /^2nd Level/ }),
+      )
+      await user.click(
+        within(picker).getByRole('button', { name: 'Roll damage' }),
+      )
+
+      await waitFor(() => expect(posted).toHaveLength(1))
+      expect(posted[0]).toEqual({
+        kind: 'itemDamage',
+        item: 'hands',
+        activity: 'handsSave',
+        slot: 'spell2',
+        consume: true,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [die(6, 4)],
+      })
+    })
+
+    it('asks the kind from the plan picked then, and rolls that plan as the kind is chosen', async () => {
+      const user = userEvent.setup()
+      const posted = answering()
+      const { rerender } = renderThorin({ sheet: withoutSecond([orb()]) })
+      await showActions()
+
+      await user.click(chip(ORB))
+      const picker = screen.getByRole('dialog', { name: 'Chromatic Orb' })
+      rerender(pane(thorin([orb()])))
+      await user.click(
+        within(picker).getByRole('radio', { name: /^2nd Level/ }),
+      )
+      await user.click(
+        within(picker).getByRole('button', { name: 'Roll damage' }),
+      )
+      const kinds = screen.getByRole('menu', { name: 'Chromatic Orb 4d8' })
+      await user.click(
+        within(kinds).getByRole('menuitem', { name: 'Roll Fire damage' }),
+      )
+
+      await waitFor(() => expect(posted).toHaveLength(1))
+      expect(posted[0]).toMatchObject({
+        slot: 'spell2',
+        consume: true,
+        dice: [die(8, 4)],
+        types: ['fire'],
+      })
+    })
+
+    it('shows the row as the game has it now, the switch for what it now spends among it, and spends that', async () => {
+      const user = userEvent.setup()
+      const posted = answering()
+      // Before: Burning Hands' levels change its dice, but it spends nothing, so it has no switch.
+      const hands = burningHandsAction()
+      const { rerender } = renderThorin({
+        actions: [
+          burningHandsAction({
+            tableDamage: { ...hands.tableDamage!, spends: [] },
+          }),
+        ],
+      })
+      await showActions()
+
+      await user.click(chip(HANDS))
+      const picker = screen.getByRole('dialog', { name: 'Burning Hands' })
+      expect(within(picker).queryByRole('switch')).toBeNull()
+      // Then the game says it spends a slot.
+      rerender(pane(thorin([hands])))
+      expect(within(picker).getByRole('switch')).toHaveAccessibleName(
+        'Spend a 1st-level spell slot',
+      )
+      await user.click(
+        within(picker).getByRole('button', { name: 'Roll damage' }),
+      )
+
+      await waitFor(() => expect(posted).toHaveLength(1))
+      expect(posted[0]).toMatchObject({
+        slot: 'spell1',
+        consume: true,
+        dice: [die(6, 3)],
+      })
+    })
+
+    it('keeps to the listing tapped, of those the sheet lists it in', async () => {
+      const user = userEvent.setup()
+      answering()
+      const listed = thorin([potionAction()])
+      const sheet: CharacterSheet = {
+        ...listed,
+        actions: [
+          ...listed.actions,
+          {
+            id: 'bonus',
+            label: 'Bonus Actions',
+            actions: [potionAction({ activityName: 'Quaff' })],
+          },
+        ],
+      }
+      const { rerender } = renderThorin({ sheet })
+      await showActions()
+
+      await user.click(
+        chip(
+          'Potion of Healing (Quaff) healing, 2d4 + 2, goes to the table on its own',
+        ),
+      )
+      expect(
+        screen.getByRole('dialog', { name: 'Potion of Healing (Quaff)' }),
+      ).toBeInTheDocument()
+      rerender(pane(sheet))
+      expect(
+        screen.getByRole('dialog', { name: 'Potion of Healing (Quaff)' }),
+      ).toBeInTheDocument()
+    })
   })
 })

@@ -4,11 +4,13 @@ import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
 /*
  * The smaller sheet the module sends from 0.22.0, to a listener that says it reads one, made whole
  * again: the sheet the module built, exactly, so that everything reading a held sheet reads what
- * it always has. It leaves two things out (PROTOCOL.md, "Slim sheets"):
+ * it always has. It leaves these out (PROTOCOL.md, "Slim sheets"):
  * - an action listed in Spells, Inventory or Features too is sent by reference to that row, with
  *   only what differs from it, and the keys the row has that the action lacks named in `drop`;
  * - in those rows, their activities, whom they're used at and their damage, a key whose value is
- *   its default, as the tables below have them.
+ *   its default, as the tables below have them;
+ * - from module 0.41.0, in each choice of damage on its own, what it holds alike with its row's own
+ *   plans ("Choices' plans").
  */
 
 type Json = Record<string, unknown>
@@ -143,6 +145,15 @@ const ACTION_KEYS = [
 const ACTION_KEY_SET = new Set(['id', 'ref', 'drop', ...ACTION_KEYS])
 
 /**
+ * From module 0.41.0, the keys of a plan of damage on its own, and of each of its rolls, that a
+ * choice's plan leaves out where they hold what its row's own does, in the order the module builds
+ * them; and a choice's plans, which follow its picks, each left out where it is the row's own.
+ */
+const PLAN_KEYS = ['critical', 'plannable', 'healing', 'rolls']
+const ROLL_KEYS = ['formula', 'type', 'types', 'dice', 'perDie']
+const CHOICE_PLANS = new Set(['normal', 'critical'])
+
+/**
  * The most a sheet is let grow, in characters of JSON: a post of empty rows, or of references to
  * one wide row, stops here, rather than growing a hundredfold. The module's own add a third.
  */
@@ -237,6 +248,81 @@ function expand(raw: Json): Json {
     for (const entry of objectsIn(object.activities)) {
       fillUse(entry)
       fill(entry, FILLS.entry)
+    }
+  }
+
+  /** A copy of what a row's own damage on its own holds under a key, counted as added. */
+  const ownCopy = (key: string, value: unknown) => {
+    const json = JSON.stringify(value)
+    grow(JSON.stringify(key).length + json.length + 2)
+    return JSON.parse(json) as unknown
+  }
+  /** An object with each of these keys it lacks copied from its own, in order, then its others. */
+  const withOwn = (object: Json, own: Json, keys: string[]): Json => {
+    const entries: [string, unknown][] = []
+    for (const key of keys) {
+      if (Object.hasOwn(object, key)) entries.push([key, object[key]])
+      else if (Object.hasOwn(own, key))
+        entries.push([key, ownCopy(key, own[key])])
+    }
+    for (const [key, value] of Object.entries(object)) {
+      if (!keys.includes(key)) entries.push([key, value])
+    }
+    return Object.fromEntries(entries)
+  }
+  /**
+   * A choice of damage on its own made whole from its row's `tableDamage`: its picks, then each of
+   * its plans, the row's where it lacks one; and where both are plans, each plan key it lacks, and
+   * in each of its rolls each roll key it lacks, from the row's own roll at the same place.
+   */
+  const choiceBack = (choice: unknown, own: Json): unknown => {
+    if (!isObject(choice)) return choice
+    const entries = Object.entries(choice).filter(
+      ([key]) => !CHOICE_PLANS.has(key),
+    )
+    for (const key of CHOICE_PLANS) {
+      const plan = choice[key]
+      const ownPlan = own[key]
+      if (!Object.hasOwn(choice, key)) {
+        if (Object.hasOwn(own, key)) entries.push([key, ownCopy(key, ownPlan)])
+      } else if (isObject(plan) && isObject(ownPlan)) {
+        const whole = withOwn(plan, ownPlan, PLAN_KEYS)
+        const ownRolls = ownPlan.rolls
+        if (Array.isArray(plan.rolls) && Array.isArray(ownRolls)) {
+          whole.rolls = plan.rolls.map((roll: unknown, index: number) => {
+            const ownRoll: unknown = ownRolls[index]
+            return isObject(roll) && isObject(ownRoll)
+              ? withOwn(roll, ownRoll, ROLL_KEYS)
+              : roll
+          })
+        }
+        entries.push([key, whole])
+      } else entries.push([key, plan])
+    }
+    return Object.fromEntries(entries)
+  }
+
+  // From module 0.41.0, before the rest, so that an action by reference copies its row's choices
+  // whole: damage on its own's choices, wherever a tableDamage holds them, as the module walks the
+  // sheet to leave out what they hold alike with it. A list of what's left to look in, not
+  // recursion, so that a sheet nested deep can't run out of stack here.
+  const unwalked: unknown[] = [sheet]
+  while (unwalked.length > 0) {
+    const value = unwalked.pop()
+    if (Array.isArray(value)) {
+      for (const entry of value) unwalked.push(entry)
+    } else if (isObject(value)) {
+      for (const [key, child] of Object.entries(value)) {
+        if (
+          key === 'tableDamage' &&
+          isObject(child) &&
+          Array.isArray(child.choices)
+        ) {
+          child.choices = child.choices.map((choice: unknown) =>
+            choiceBack(choice, child),
+          )
+        } else unwalked.push(child)
+      }
     }
   }
 

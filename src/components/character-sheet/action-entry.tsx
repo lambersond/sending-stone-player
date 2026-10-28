@@ -190,14 +190,15 @@ export type TableDamage = {
 /**
  * Damage on its own whose choices are asked, from module 0.41.0: the row it's of, whether it's
  * healing, what the player chose of it already, as from its chip's menu, the chip it's rolled from,
- * and how it goes on once they've picked.
+ * and how it goes on once they've picked, from the row and the spellbook as the picker showed them
+ * then, which the sheet may have changed since the chip was tapped.
  */
 export type AlonePick = {
   action: SheetAction
   healing: boolean
   choice: AloneChoice
   anchor: HTMLElement
-  onPicked: (picks: AloneChoice) => void
+  onPicked: (picks: AloneChoice, shown: AloneRow) => void
 }
 
 /**
@@ -383,6 +384,9 @@ export function useDamageRolls(
     target: DamageTarget,
     choice: AloneChoice & { picked?: true },
     anchor: HTMLElement,
+    // The slots damage on its own may be rolled at: once its choices are picked, as the picker
+    // showed them.
+    spells: SheetSpellSection[] = spellbook,
   ): void => {
     const { critical = false, modifiers } = choice
     const request: SheetDamageRoll = {
@@ -407,7 +411,7 @@ export function useDamageRolls(
     // §2.3.7-§2.3.9).
     const row: AloneRow | undefined =
       table.pickAlone && target.action && alone.plan.choices
-        ? { action: target.action, spells: spellbook }
+        ? { action: target.action, spells }
         : undefined
     if (row && table.pickAlone && !choice.picked) {
       table.pickAlone({
@@ -415,8 +419,16 @@ export function useDamageRolls(
         healing: target.healing === true,
         choice,
         anchor,
-        onPicked: picks =>
-          roll(target, { ...choice, ...picks, picked: true }, anchor),
+        // Rolled from the row the picker showed as they picked, and its plans: the page's next
+        // poll may have changed both since the chip was tapped, as a slot the Gamemaster gives
+        // does, and the dice must be those of the level picked from the chips shown.
+        onPicked: (picks, shown) =>
+          roll(
+            pickedTarget(target, shown.action),
+            { ...choice, ...picks, picked: true },
+            anchor,
+            shown.spells,
+          ),
       })
       return
     }
@@ -455,7 +467,7 @@ export function useDamageRolls(
           icon: target.healing ? HeartPulse : Swords,
           tint: target.healing ? 'text-primary' : 'text-damage',
         })),
-        onChoose: type => roll(target, { ...choice, type }, anchor),
+        onChoose: type => roll(target, { ...choice, type }, anchor, spells),
       })
       return
     }
@@ -2090,4 +2102,15 @@ function damageTarget(
         action,
       }),
   }
+}
+
+/**
+ * Damage on its own as the row the picker showed has it once its choices are picked, from module
+ * 0.41.0: rolled from the plans the game sends for it then, as its chips were drawn from them; as
+ * it was where the row has none.
+ */
+function pickedTarget(target: DamageTarget, row: SheetAction): DamageTarget {
+  const plan = row.tableDamage
+  if (!target.alone || !plan) return target
+  return { ...target, action: row, alone: { ...target.alone, plan } }
 }

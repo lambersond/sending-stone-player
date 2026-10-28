@@ -106,11 +106,11 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * character is in (`shaped`), or in place of another before a Long Rest (`swap`). And from module
  * 0.40.0, a favorite, an effect, a move or a removal while its character, or a character at either
  * end of a move, is transformed (`shaped`). From module 0.41.0, for damage on its own: a slot, an
- * attack mode, an ammunition or a spend named for a row the game sends no choices for (`slot`,
- * `mode`, `ammo`, `consume`); a slot that isn't one of the spell's pools, or none where it's cast
- * with one (`slot`), or none left of it where it's spent (`slots`); an attack mode that isn't the
- * weapon's (`mode`); an ammunition that isn't its, or none left of it where it's spent (`ammo`);
- * and a spend where using it spends nothing (`consume`).
+ * attack mode, an ammunition or a spend named for a row the game sends no choices for, or to a game
+ * that takes none (`slot`, `mode`, `ammo`, `consume`); a slot that isn't one of the spell's pools,
+ * or none where it has a pool to be cast with (`slot`), or none left of it where it's spent
+ * (`slots`); an attack mode that isn't the weapon's (`mode`); an ammunition that isn't its, or none
+ * left of it where it's spent (`ammo`); and a spend where using it spends nothing (`consume`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -369,7 +369,7 @@ export function checkRoll(
       return undefined
     }
     case 'itemDamage': {
-      return checkItemDamage(input, sheet)
+      return checkItemDamage(input, sheet, features)
     }
     case 'recharge': {
       return checkRecharge(input, sheet)
@@ -692,15 +692,18 @@ function checkSelf(
  * activity, whose damage the game would roll on its own; as a critical hit's only where the game
  * makes one of it; and are its dice those the game said it throws, changed as the player chose,
  * each kind chosen one it offers? Not once only: it follows no attack or use. From module 0.41.0,
- * its choices only where the game sends them for the row (`slot`, `mode`, `ammo`, `consume`): the
- * slot always where the spell is cast with one, one of its pools, with one left where it spends
- * one (`slots`); the attack mode one of the weapon's; the ammunition one of its, with some left
- * where it's spent; spending only where its use spends anything; and its dice those of the plan
- * its choices pick.
+ * its choices only where the game sends them for the row and takes them (`slot`, `mode`, `ammo`,
+ * `consume`): the slot always where the spell has a pool to cast it with, one of its pools, with
+ * one left where it spends one (`slots`); the attack mode one of the weapon's; the ammunition one
+ * of its, with some left where it's spent; spending only where its use spends anything; and its
+ * dice those of the plan its choices pick.
+ * @param features - What else the campaign's game does with its players' rolls, as its hello said:
+ *   its choices only with `aloneChoices`.
  */
 function checkItemDamage(
   input: RollRequestInput,
   sheet: CharacterSheet | undefined,
+  features: readonly string[],
 ): RollRefusal | undefined {
   if (!sheet) return 'gone'
   const action = sheetActions(sheet).find(
@@ -711,8 +714,10 @@ function checkItemDamage(
   if (!action) return 'gone'
   const plan = action.tableDamage
   if (!plan) return 'no-damage'
+  // The sheet may still hold the choices of a game that no longer takes them, a module rolled back
+  // from 0.41.0, until that game sends it again: then it's the row's own plan, as the page rolls.
   const choices =
-    plan.choices === undefined
+    plan.choices === undefined || !features.includes('aloneChoices')
       ? checkUnchosen(input)
       : checkAloneChoices(input, action, sheet, plan.spends ?? [])
   if (choices) return choices
@@ -724,8 +729,8 @@ function checkItemDamage(
 
 /**
  * Damage on its own of a row the game sends no choices for, as before module 0.41.0, or past its
- * most: rolled at its own level, in its first mode, with no ammunition, spending nothing; so it
- * names none.
+ * most, or to a game that takes none: rolled at its own level, in its first mode, with no
+ * ammunition, spending nothing; so it names none.
  */
 function checkUnchosen(input: RollRequestInput): RollRefusal | undefined {
   if (input.slot !== undefined) return 'slot'
@@ -737,8 +742,9 @@ function checkUnchosen(input: RollRequestInput): RollRefusal | undefined {
 
 /**
  * Damage on its own's choices, from module 0.41.0, as the row's: the slot named wherever the spell
- * is cast with one, so that the game rolls and spends at its level, one of its pools, with one left
- * where it spends one; none for anything else; the attack mode one of the weapon's, which the
+ * has a pool to cast it with, so that the game rolls and spends at its level, one of its pools,
+ * with one left where it spends one; none for anything else, nor for a spell with no pool at or
+ * above its level, which the game rolls at its own; the attack mode one of the weapon's, which the
  * sheet lists only where it has more than one; the ammunition one of its, with some left where it
  * fires it spent; and spending only where its use would spend anything.
  * @param spends - What the row says its use would spend.
@@ -751,7 +757,10 @@ function checkAloneChoices(
 ): RollRefusal | undefined {
   const consume = input.consume === true
   const pools = slotPools(action, sheet.spells)
-  if (pools) {
+  // A spell its character has no slot of its level or higher for, such as a Fighter's Magic
+  // Initiate spell, has no pool to name: none named, the game rolls it at its own level, and finds
+  // none left where it's asked to spend one.
+  if (pools && pools.length > 0) {
     const pool = pools.find(({ id }) => id === input.slot)
     if (!pool) return 'slot'
     if (consume && spends.includes('slot') && pool.value <= 0) return 'slots'

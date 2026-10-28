@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PromptBanner } from './prompt-banner'
@@ -140,6 +142,28 @@ describe('PromptBanner', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send them' }))
     expect(onSend).toHaveBeenCalled()
+  })
+
+  it('keeps each of its doc comments whole, every line led by its asterisk, as an editor shows it', () => {
+    const source = readFileSync(
+      path.join(
+        process.cwd(),
+        'src/components/character-sheet/prompt-banner.tsx',
+      ),
+      'utf8',
+    )
+    const comments = [...source.matchAll(/\/\*\*[\s\S]*?\*\//g)].map(
+      ([comment]) => comment,
+    )
+    expect(comments.length).toBeGreaterThan(0)
+    // A line without one, even an empty one, splits the comment in two where it stands.
+    const bare = comments.flatMap(comment =>
+      comment
+        .split('\n')
+        .slice(1)
+        .filter(line => !line.trimStart().startsWith('*')),
+    )
+    expect(bare).toEqual([])
   })
 })
 

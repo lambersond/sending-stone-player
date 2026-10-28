@@ -388,7 +388,8 @@ function alonePicksOf(
  * (round 0.41.0 §2.4.1, §2.11.2), each only where the game says its use spends it: the slot chosen,
  * "a 2nd-level spell slot", or "a pact slot (3rd level)"; "a use of Second Wind"; the ammunition
  * fired, "an Arrow of Fire"; and the weapon itself thrown, in a thrown mode with no ammunition,
- * "the Dagger". None for a pick that spends nothing, which shows no switch.
+ * "the Dagger", or in its only mode where that one is thrown, "the Dart". None for a pick that
+ * spends nothing, which shows no switch.
  */
 function spendParts(
   action: SheetAction,
@@ -402,7 +403,12 @@ function spendParts(
   const ammunition = picks.ammunition
     ? action.ammunition?.find(({ id }) => id === picks.ammunition)
     : undefined
-  const thrown = !ammunition && !!picks.attackMode?.startsWith('thrown')
+  // A weapon of one mode, such as a Dart, has no mode to pick: the game says it spends it thrown
+  // only where that one mode is thrown, and throws it so with none named.
+  const thrown =
+    !ammunition &&
+    (!!picks.attackMode?.startsWith('thrown') ||
+      (spends.includes('thrown') && (action.attackModes?.length ?? 0) < 2))
   return [
     ...(spends.includes('slot') && pool ? [slotWords(pool)] : []),
     ...(spends.includes('uses') ? [`a use of ${action.name}`] : []),

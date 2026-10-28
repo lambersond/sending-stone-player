@@ -4444,11 +4444,14 @@ describe('db/roll-requests, a turn taken back, from module 0.36.0', () => {
   })
 })
 
-/** A game taking Thorin's damage on its own, with these features, and his sheet of choices. */
-const givenAlone = (features: string[]) => {
+/**
+ * A game taking Thorin's damage on its own, or the rolls given, with these features, and his sheet
+ * of choices.
+ */
+const givenAlone = (features: string[], kinds = ['itemDamage']) => {
   prismaMock.campaign.findUnique.mockResolvedValue({
     ...takingRolls,
-    rollKinds: ['itemDamage'],
+    rollKinds: kinds,
     rollFeatures: features,
   } as any)
   prismaMock.actorSheet.findUnique.mockResolvedValue({
@@ -4566,6 +4569,71 @@ describe("db/roll-requests, damage on its own's choices, from module 0.41.0", ()
       }),
     ).resolves.toEqual({ id: 'req-1' })
   })
+
+  it('takes damage on its own naming no choice from a game that takes none, its sheet still holding them', async () => {
+    // Module 0.41.0 rolled back to an earlier one, whose hello is in, and the sheet kept as 0.41.0
+    // sent it until the earlier one sends it again: rolled at the base, as that game rolls it.
+    givenAlone(['modifiers'])
+    const bare = { ...hands, slot: undefined, consume: undefined }
+    delete bare.slot
+    delete bare.consume
+
+    await expect(
+      createRollRequest(character, {
+        ...bare,
+        dice: [{ faces: 6, results: [3, 5, 2] }],
+      }),
+    ).resolves.toEqual({ id: 'req-1' })
+    expect(
+      prismaMock.rollRequest.create.mock.calls[0][0].data.payload,
+    ).not.toHaveProperty('slot')
+  })
+
+  it.each([
+    [
+      'a use naming its slot',
+      { kind: 'use', item: 'hands', activity: 'handsSave', slot: 'spell1' },
+    ],
+    [
+      'a use naming none, as the page sends it',
+      { kind: 'use', item: 'hands', activity: 'handsSave', slot: null },
+    ],
+    [
+      'an attack with its ammunition',
+      {
+        kind: 'attack',
+        item: 'longbow',
+        activity: 'bowAttack',
+        ammunition: 'arrowsFire',
+        dice: [{ faces: 20, results: [15] }],
+      },
+    ],
+    [
+      'an attack in an attack mode',
+      {
+        kind: 'attack',
+        item: 'battleaxe',
+        activity: 'axeAttack',
+        attackMode: 'twoHanded',
+        dice: [{ faces: 20, results: [15] }],
+      },
+    ],
+  ])(
+    'takes %s from a game that takes no choices of damage on its own, which are its alone',
+    async (_, fields) => {
+      givenAlone([], ['attack', 'use', 'itemDamage'])
+
+      await expect(
+        createRollRequest(character, {
+          mode: 0,
+          explicit: false,
+          extras: [],
+          dice: [],
+          ...fields,
+        } as RollRequestInput),
+      ).resolves.toEqual({ id: 'req-1' })
+    },
+  )
 
   it("refuses a game's choice the sheet doesn't offer, as the check says", async () => {
     givenAlone(['aloneChoices'])

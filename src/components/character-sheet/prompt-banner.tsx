@@ -21,7 +21,6 @@ type Ability = TableSheet['abilities'][number]
  * long-press for advantage, disadvantage or a modified roll; the game makes it with the same dice,
  * on the card that asked. Answered, it waits for the game; and where this device doesn't send the
  * player's rolls to the game, it says so. What Midi-QOL asks, from module 0.27.0, which may be an
-
  * ability or skill check too, is rolled only as Midi-QOL has it rolled, with a tap, before the
  * time it gives runs out; then Midi-QOL rolls it, as it says, or leaves it to Foundry. From module
  * 0.41.0, at the character's own pane, which of their companions the game asks too is said under
