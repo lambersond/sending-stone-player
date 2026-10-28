@@ -8,8 +8,10 @@ import {
   COMPANION_INITIATIVE,
   COMPANION_KEY,
   DAMAGE_TYPE,
+  EFFECT_DIE_FACES,
   EFFECT_ID,
   EFFECT_OPS,
+  EFFECT_TOKEN,
   EVENTS,
   FORM_UUID,
   HIT_DIE,
@@ -18,6 +20,7 @@ import {
   MOST_ALONE_CHOICES,
   MOST_AMONG,
   MOST_COMPANIONS,
+  MOST_EFFECT_DICE,
   MOST_FORMS,
   MOST_HIT_DICE,
   MOST_MOVED,
@@ -1026,6 +1029,42 @@ const wildShapeSchema = z.looseObject({
     .catch(null),
 })
 
+/**
+ * A die one of the character's effects adds to its d20 rolls, or takes from them, from module
+ * 0.42.0: named by its spell or item, by its effect as the sheet names it, never a d20, and on
+ * at most 60 rolls, each of a kind, or one by its key, as the module writes them. Only with the
+ * keys module 0.42.0 writes: one with any other, such as a later module's mark of a die the game
+ * doesn't add itself, may mean something this app can't tell, so it isn't read as a die the game
+ * adds, and is dropped.
+ */
+const effectDieSchema = z.strictObject({
+  name: z.string().min(1).max(100),
+  effect: z.string().regex(EFFECT_ID),
+  faces: z.literal(EFFECT_DIE_FACES),
+  count: z.int().min(1).max(MAX_DICE),
+  sign: z.union([z.literal(1), z.literal(-1)]),
+  on: z.array(z.string().regex(EFFECT_TOKEN)).min(1).max(60),
+})
+
+/**
+ * The dice the character's effects add to its d20 rolls, from module 0.42.0, at most 10: each read
+ * on its own, so that one that can't be read is dropped, and the rest still asked for; none where
+ * none can be, or the list itself can't be read, when the game rolls them all.
+ */
+const effectDiceSchema = z
+  .array(z.unknown())
+  .max(MOST_EFFECT_DICE)
+  .transform(entries => {
+    const dice = entries.flatMap(entry => {
+      const parsed = effectDieSchema.safeParse(entry)
+      return parsed.success ? [parsed.data] : []
+    })
+    return dice.length > 0 ? dice : undefined
+  })
+  .optional()
+  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+  .catch(undefined)
+
 // A sheet that can't be read is dropped rather than failing the event that carries it.
 const sheetSchema = z
   .looseObject({
@@ -1222,6 +1261,9 @@ const sheetSchema = z
     form: formSchema.optional().catch(undefined),
     // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
     wildShape: wildShapeSchema.optional().catch(undefined),
+    // From module 0.42.0, under dnd5e 5: the dice its effects add to its d20 rolls, for its player
+    // to type in, read only where the hello says `effectDice`.
+    effectDice: effectDiceSchema,
     // Sent from module 0.8.0.
     actions: listOf(
       z.looseObject({
@@ -1615,6 +1657,10 @@ const featuresSchema = z
         // From module 0.41.0: whether the saves the game asks of companions are asked here too, of
         // an app that says `companions: 2`.
         companionPrompts: z.boolean().optional().catch(false),
+        // From module 0.42.0: whether a typed d20 roll's effects' dice are its player's where they
+        // typed them, and whether a typed roll keeps the dice its player rerolled at the table.
+        effectDice: z.boolean().optional().catch(false),
+        keptRerolls: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()

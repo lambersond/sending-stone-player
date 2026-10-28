@@ -38,7 +38,7 @@
 // and its items' found by id (`favoring`). Since module 0.38.0 (its contract D§10.1): SKEW=037 is
 // module 0.37.0. Since module 0.39.0 (its contract §1.11): SKEW=038 is module 0.38.1. Since module
 // 0.40.0 (its contract §10.4): SKEW=039 is module 0.39.0. Since module 0.41.0 (its contract §8.4):
-// SKEW=040 is module 0.40.0.
+// SKEW=040 is module 0.40.0. Since module 0.42.0 (its contract §8.5): SKEW=041 is module 0.41.0.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -77,6 +77,8 @@ export const SKEW038 = process.env.SKEW === '038'
 export const SKEW039 = process.env.SKEW === '039'
 /** Module 0.40.0, from before 0.41.0, against this round's app: no choices for damage on its own, no companions' saves. */
 export const SKEW040 = process.env.SKEW === '040'
+/** Module 0.41.0, from before 0.42.0, against this round's app: no effects' dice typed, no rerolls kept at the table. */
+export const SKEW041 = process.env.SKEW === '041'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -90,7 +92,10 @@ if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
 /** Module 0.41.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_041 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-041`
 if (SHOTS_041) mkdirSync(SHOTS_041, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${SKEW039 ? '-skew039' : ''}${SKEW040 ? '-skew040' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+/** Module 0.42.0's pictures, beside the others, whatever folder a run's SHOTS is. */
+export const SHOTS_042 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-042`
+if (SHOTS_042) mkdirSync(SHOTS_042, { recursive: true })
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${SKEW039 ? '-skew039' : ''}${SKEW040 ? '-skew040' : ''}${SKEW041 ? '-skew041' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }

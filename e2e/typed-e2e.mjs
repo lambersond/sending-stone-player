@@ -9,7 +9,7 @@
 // thrown, the toast at once, `typed: true` on the request and the keyboard badge on Foundry's card);
 // advantage and disadvantage from the menu, and from Modify Roll, the first box focused once it closes;
 // Elven Accuracy's third d20 on the rapier (a finesse weapon, Dexterity over Strength), two on the
-// greataxe; Modify Roll's +1d4 its own box, and Bless's d4 Foundry's; the rapier's damage after a hit,
+// greataxe; Modify Roll's +1d4 its own box, and the rapier's own magic d4 Foundry's; the rapier's damage after a hit,
 // a typed natural 20 asking for the game's doubled 2d8, its card 2d8 + 3 (under Midi-QOL's "Double
 // Rolled Damage" for the Gamemaster too), more dice and another die changing the boxes, maximum asking
 // for none; Fireball at two foes, its damage offered and waiting for a tap, eight boxes, the tap made
@@ -29,14 +29,32 @@
 // attack through Midi's workflow takes the three typed d20s. DND5E6=1: the check, Elven Accuracy,
 // damage (Modify damage and Maximum offered, as under 5.3.3), the use's damage and hit dice under dnd5e
 // 6.0.5's dice. SKEW=031 with MODULE=module-0.31.0: no switch for anyone, two d20s thrown for Elven
-// Accuracy, and a crafted `typed` taken (202) and stripped. Synthetic characters only. Run with
+// Accuracy, and a crafted `typed` taken (202) and stripped. Since module 0.42.0 (its contract §8.5),
+// the dice Thorin's effects add, as the module's harness has effects (fvtt/effects-core.mjs): the
+// Gamemaster applies Vex's Bless, from his concentration, and within a poll Thorin's sheet lists it as
+// "Bless", never Vex; Perception asks no die for it, a Dexterity save asks "Bless: +1d4" with Skip,
+// typed (the card's d4 the typed one, the tray's total the table's) or skipped (the game's, said in the
+// total), then typed in again; Grukk, a goblin shaman, adds Bane, "Bane: −1d4", Grukk named nowhere in
+// the dialog; Bane alone, a lone −1d4; the rapier's Bless; Athletic Guidance on Athletics, not
+// Acrobatics; at 1280 from the keyboard, Skip to the next box, Next die past a skipped die, Enter on
+// the last box shown as Done; at 390×844, 360×640 and 844×390 the rapier's three d20s, Bless and Bane,
+// Skip and Type it in 44 px tall on a phone and clear of the keypad once focused, beside the dice in
+// the compact layout; dnd5e's concentration card asking a die only concentration adds. Rerolls at the
+// table: the greatsword's 2d6r<=2 typed 1 and 5 stands, without r<=2, the dialog's note said and the
+// tray's total at once; a Halfling's typed 1 stands; an exploding 1d6x, no note, Foundry's die more and
+// the game's total; screenshots to shots-042. MIDI=1 also: Midi's save asks Bless's die, and Midi's
+// concentration check, made with dnd5e's, asks the die only a concentration check adds too, its total
+// the game's. DND5E6=1: no effect's die, rerolls kept.
+// SKEW=041 with MODULE=module-0.41.0: no effect's die asked, a crafted effectDice and rerolls taken
+// (202) and stripped, and the greatsword's typed 1 rerolled by Foundry, the tray waiting for the
+// game's total. Synthetic characters only. Run with
 // --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import {
-  BOB, DND5E6, MIDI, MODULE, SHOTS, SHOTS_033, SKEW031, VARIANT, W, actors, browse, call, character, check, faces, finish, foundryWorld,
-  launch, manualDice, midiCritical, newCampaign, note, npc, part, posted, postsOf, same, setPermissions, settings, settled, shoot,
-  sideways, sql, startModule, theme, until, wait,
+  BOB, DND5E6, MIDI, MODULE, SHOTS, SHOTS_033, SHOTS_042, SKEW031, SKEW041, VARIANT, W, actors, browse, call, character, check, faces, finish, foundryWorld,
+  launch, manualDice, midiCritical, newCampaign, note, npc, part, posted, postsOf, same, sameJson, setPermissions, settings, settled, shoot,
+  shootBoth, sideways, sql, startModule, theme, until, wait,
 } from './world-030.mjs'
 import { combat, combatant, user } from './fvtt/stub.mjs'
 
@@ -63,14 +81,16 @@ const INLINE_ROLL = formula => `<a class="inline-roll roll" data-mode="roll" dat
 const DAMAGE_LINK = (formula, type, label) => `<a class="roll-link-group" data-action="roll" data-type="damage" data-formulas="${formula}" data-damage-types="${type}" data-roll-type="damage"><span class="roll-link">${ICON}${formula}</span> ${label}</a>`
 const SAVE_LINK = (ability, dc, label) => `<span class="roll-link-group" data-type="save" data-ability="${ability}" data-dc="${dc}"><a class="roll-link" data-action="roll">${ICON}${label}</a></span>`
 const JOURNAL = `<p>The page burns: roll ${INLINE_ROLL('1d100')} on the table, take ${wrap(DAMAGE_LINK('2d6', 'fire', 'Fire'))} damage, or make a ${SAVE_LINK('dex', 13, 'DC 13 Dexterity')} saving throw.</p>`
+const GWF = '2d6r<=2 + 1'
 const spell = (id, name, level, activity, system = {}) => ({
   id, name, type: 'spell', system: { level, method: 'spell', prepared: 1, canPrepare: true, properties: [], duration: { units: 'inst' }, ...system }, activities: [activity],
 })
 // Thorin, an elf with Elven Accuracy: Dexterity +3 over Strength +1, Wisdom +2; a ranger and a
-// cleric, three d10 hit dice and one d8; hurt.
+// cleric, three d10 hit dice and one d8; hurt. Changed on purpose (round 0.42.0 §8.5): Athletics and
+// Acrobatics too, for Guidance on the one and not the other.
 const thorin = character({
   id: 'thorin', name: 'Thorin', owners: ['alice'], mods: { str: 1, dex: 3, con: 2, wis: 2 }, flags: { elvenAccuracy: true },
-  skills: { prc: { ability: 'wis' } }, hp: { value: 20, max: 40, temp: 0 },
+  skills: { prc: { ability: 'wis' }, ath: { ability: 'str' }, acr: { ability: 'dex' } }, hp: { value: 20, max: 40, temp: 0 },
   classes: [{ identifier: 'ranger', denomination: 'd10', levels: 3 }, { identifier: 'cleric', denomination: 'd8', levels: 1 }],
 }, {
   ac: 15,
@@ -80,8 +100,9 @@ const thorin = character({
   },
   items: [
     // dnd5e's attack ability "" (attack-data.mjs:51-63): a finesse weapon's best of Strength and
-    // Dexterity, his Dexterity, which Elven Accuracy is for. Blessed: the game adds a d4 of its own
-    // to its attacks, as Bless adds one (the stand-in's magic bonus, a part of the attack's formula).
+    // Dexterity, his Dexterity, which Elven Accuracy is for. Changed on purpose (round 0.42.0 §8.5):
+    // its own magic d4, which the game throws itself, a part of the attack's formula (the stand-in's
+    // magic bonus), no effect's die: Bless, an effect, is step 5b's.
     {
       id: 'rapier', name: 'Rapier', type: 'weapon', system: { properties: ['fin'], quantity: 1, attackType: 'melee', equipped: true },
       activities: [{ id: 'lunge', attack: { ability: '' }, magic: '1d4', damage: [{ number: 1, denomination: 8, bonus: '@mod', types: ['piercing'] }], labels: { modifier: '+6', damage: [hits('1d8 + 3', 'piercing')] } }],
@@ -90,6 +111,12 @@ const thorin = character({
     {
       id: 'greataxe', name: 'Greataxe', type: 'weapon', system: { properties: ['hvy', 'two'], quantity: 1, attackType: 'melee', equipped: true },
       activities: [{ id: 'cleave', attack: { ability: 'str' }, damage: [{ number: 1, denomination: 12, bonus: '@mod', types: ['slashing'] }], labels: { modifier: '+4', damage: [hits('1d12 + 1', 'slashing')] } }],
+    },
+    // Module 0.42.0: a Great Weapon Fighter's greatsword, its d6s rerolled on a 1 or 2, as
+    // rolling-e2e.mjs writes it; Strength's.
+    {
+      id: 'greatsword', name: 'Greatsword', type: 'weapon', system: { properties: ['hvy', 'two'], quantity: 1, attackType: 'melee', equipped: true },
+      activities: [{ id: 'hew', attack: { ability: 'str' }, damage: [{ custom: GWF, types: ['slashing'] }], labels: { modifier: '+4', damage: [hits(GWF, 'slashing')] } }],
     },
     // A falling star's 20d6, whose critical hit's 40 dice fill the dialog.
     {
@@ -102,6 +129,8 @@ const thorin = character({
     }),
     // Light, whose glow rolls a formula of its own.
     spell('light', 'Light', 0, { id: 'glow', type: 'utility', affects: '', formula: '1d4', rollName: 'Glow' }),
+    // Module 0.42.0: a formula whose die explodes, which no feature rerolls.
+    spell('sparks', 'Wild Sparks', 0, { id: 'burst', type: 'utility', affects: '', formula: '1d6x', rollName: 'Burst' }),
     { id: 'journal', name: 'Burning Journal', type: 'equipment', system: { quantity: 1, equipped: false, description: { value: JOURNAL } } },
   ],
 })
@@ -109,6 +138,12 @@ thorin.system.details = { level: 4 }
 thorin.system.attributes.spellcasting = 'wis'
 thorin.system.attributes.spell = { dc: 13, attack: 5, mod: 2 }
 Object.assign(thorin.system.skills.prc, { total: 5, passive: 15 })
+// Athletics +4 and Acrobatics +6, and his Constitution save +5, proficient, as dnd5e prepares them,
+// for a concentration check's total (module 0.42.0).
+thorin.system.abilities.con.save.value = 5
+CONFIG.DND5E.skills.acr = { label: 'Acrobatics', ability: 'dex' }
+Object.assign(thorin.system.skills.ath, { total: 4, passive: 14 })
+Object.assign(thorin.system.skills.acr, { total: 6, passive: 16 })
 thorin.system.attributes.init.total = 3
 // dnd5e 5.3.3 and 6.0.5 give Elven Accuracy to attacks alone (attack.mjs:97-98, d20-roll.mjs:53):
 // the stand-in's skill and tool checks pass the flag on as well, so they're told it isn't theirs.
@@ -131,6 +166,74 @@ game.users.get('alice').character = thorin
 game.users.get('bob').character = vex
 const goblin = npc('goblin', 'Goblin', 12)
 const ogre = npc('ogre', 'Ogre', 11)
+
+// ---- Module 0.42.0: the effects that add dice to Thorin's d20 rolls (its contract §8.5) ----
+// Foundry's effects as the module's harness has them (fvtt/effects-core.mjs); and Foundry's
+// fromUuidSync over them too, as the module names an effect's die by where it came from: the
+// harness's for actors, their items and their effects, the world's for anything else.
+const E = await import('./fvtt/effects-core.mjs')
+E.installEffectsCore()
+{
+  const world = globalThis.fromUuidSync
+  globalThis.fromUuidSync = (uuid, options = {}) => E.fromUuidSync(uuid, { ...options, strict: false }) ?? world(uuid, options)
+}
+// Vex, a bard, concentrating on Bless and on Guidance; Grukk, a goblin shaman no player owns, on
+// Bane: each a concentration on the spell, as dnd5e makes one (effects-core.mjs's vexBlessConc).
+const grukk = npc('grukk', 'Grukk', 12)
+grukk.effects = []
+const concentrating = (actor, id, name) => {
+  const spell = E.itemOn(actor, { _id: id, name, type: 'spell' })
+  return E.concentrateOn(actor, E.effectOn(actor, {
+    _id: `${id}Conc`, name: `Concentrating: ${name}`, origin: spell.uuid, flags: { dnd5e: { item: { id, type: 'spell' } } },
+  }))
+}
+const vexBless = concentrating(vex, 'vexBless', 'Bless')
+const vexGuidance = concentrating(vex, 'vexGuidance', 'Guidance')
+const grukkBane = concentrating(grukk, 'grukkBane', 'Bane')
+// What each applies to Thorin, as dnd5e's Apply does: from the caster's concentration, the spell's
+// changes, each an ADD of one die (PK spells24/1st-level/bless.yml:96-119). Steady Mind, made on
+// his sheet, adds a d4 to his concentration checks alone.
+const ATTACK_KINDS = ['mwak', 'rwak', 'msak', 'rsak']
+const change = (key, value) => ({ key: `system.${key}`, type: 'add', value, phase: 'initial' })
+const SAVES_AND_ATTACKS = ['bonuses.abilities.save', ...ATTACK_KINDS.map(kind => `bonuses.${kind}.attack`)]
+const fromSpell = (id, name, concentration, changes) => ({
+  _id: id, name, origin: concentration.uuid, duration: { rounds: 10, value: 10, units: 'rounds', remaining: 10 }, system: { changes },
+})
+const BLESSED = fromSpell('thorinBlessed', 'Blessed', vexBless, SAVES_AND_ATTACKS.map(key => change(key, '1d4')))
+const BANED = fromSpell('thorinBane', 'Bane', grukkBane, SAVES_AND_ATTACKS.map(key => change(key, '-1d4')))
+const GUIDED = fromSpell('thorinGuidance', 'Athletic Guidance', vexGuidance, [change('skills.ath.bonuses.check', '1d4')])
+const STEADY = { _id: 'thorinSteady', name: 'Steady Mind', system: { changes: [change('attributes.concentration.bonuses.save', '1d4')] } }
+const ROUND_EFFECTS = [BLESSED, BANED, GUIDED, STEADY].map(effect => effect.name)
+const EFFECT_FIELDS = [...SAVES_AND_ATTACKS, 'skills.ath.bonuses.check', 'attributes.concentration.bonuses.save']
+/**
+ * Thorin's fields as dnd5e prepares them from his effects, which the stand-in doesn't apply: each
+ * field's ADDs in the effects' order, Bless's and Bane's "1d4 - 1d4", Bane's alone "-1d4" (D5
+ * data/fields/formula-field.mjs:63-68).
+ */
+function prepareThorin() {
+  const fields = {}
+  for (const effect of thorin.effects) {
+    for (const { key, value, type } of effect.system?.changes ?? []) {
+      if (type !== 'add') continue
+      const path = key.replace(/^system\./, '')
+      const negative = value.startsWith('-')
+      fields[path] = (fields[path] === undefined) ? value : `${fields[path]} ${negative ? '-' : '+'} ${negative ? value.slice(1) : value}`
+    }
+  }
+  for (const path of EFFECT_FIELDS) foundry.utils.setProperty(thorin.system, path, fields[path] ?? '')
+}
+/** The Gamemaster puts an effect on Thorin, or takes one off, and every client hears of it. */
+async function putOn(data) {
+  const effect = E.effectOn(thorin, data)
+  prepareThorin()
+  await Hooks.callAll('createActiveEffect', effect, {}, 'gm')
+  return effect
+}
+async function takeOff(effect) {
+  thorin.effects.splice(thorin.effects.indexOf(effect), 1)
+  prepareThorin()
+  await Hooks.callAll('deleteActiveEffect', effect, {}, 'gm')
+}
 // The tokens on the Gamemaster's canvas, and a fight.
 const tokenOf = {}
 for (const actor of [thorin, vex, goblin, ogre]) {
@@ -392,10 +495,16 @@ async function asked(who, tap, what, { clear = true } = {}) {
   await dialog.waitFor({ timeout: 15_000 })
   return { dialog, before, what }
 }
-/** Done, and the request it sent once the game made it. */
-async function done(who, { dialog, before, what }, { toast } = {}) {
+/**
+ * Done, and the request it sent once the game made it. Since module 0.42.0, `submit` sends it as
+ * otherwise as Done (Enter on a box), and `soon` reads what the page shows at once, before the game
+ * has made it.
+ */
+async function done(who, { dialog, before, what }, { toast, submit, soon } = {}) {
   const at = Date.now()
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  if (submit) await submit()
+  else await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  const shownSoon = soon ? await soon() : undefined
   // How soon its toast shows, where asked, watched from the tap.
   let toastIn = null
   if (toast) {
@@ -406,7 +515,7 @@ async function done(who, { dialog, before, what }, { toast } = {}) {
   await until(() => requests() > before.requests, `${what} to be sent`)
   const request = rollRow()
   await until(() => settledRow(rollRow(request.id)), `${what} to be made`, 30_000)
-  return { request, made: rollRow(request.id), message: madeFor(request.id), at, toastIn, body: sentBy.get(who)[before.posts] }
+  return { request, made: rollRow(request.id), message: madeFor(request.id), at, toastIn, body: sentBy.get(who)[before.posts], soon: shownSoon }
 }
 
 /** The badge the module puts on a message's card in Foundry, drawn as Foundry draws a chat card. */
@@ -431,6 +540,86 @@ const TYPED_BADGE = { className: 'sending-stone-badge sending-stone-typed', labe
 const sheet = who => who.page.getByRole('region', { name: 'Character', exact: true })
 const perception = who => sheet(who).getByRole('button', { name: /^Perception check/ }).first()
 const panel = who => who.page.getByRole('tabpanel')
+
+// ---- Module 0.42.0: the dice effects add, and rerolls kept at the table ----
+const REROLL_NOTE = 'Reroll at the table as your feature says, and type in the die you keep.'
+const dexSave = who => sheet(who).getByRole('button', { name: /^Dexterity saving throw/ }).first()
+const skillCheck = (who, name) => sheet(who).getByRole('button', { name: new RegExp(`^${name} check`) }).first()
+const storedSheet = () => JSON.parse(sql(`select coalesce((select data::text from actor_sheet where "campaignId" = '${A}' and "actorId" = 'thorin'), 'null')`))
+/** The dice Thorin's effects add, as the app keeps his sheet: null where it has no `effectDice`. */
+const storedDice = () => storedSheet()?.effectDice ?? null
+const storedEffects = () => (storedSheet()?.effects ?? []).flatMap(section => section.effects.map(row => row.name))
+const rollFeatures = () => sql(`select array_to_string("rollFeatures", ',') from campaign where id = '${A}'`).split(',')
+/** A roll's d4s as the game threw them: each term's results. */
+const d4sOf = roll => (roll?.dice ?? []).filter(die => die.faces === 4).map(die => die.results.map(r => r.result))
+/**
+ * Until the app keeps Thorin's sheet with these of the round's effects on him, and no other, and each
+ * page has it: its Effects tab listing them.
+ */
+async function sheetWith(pages, names) {
+  const listed = text => ROUND_EFFECTS.every(name => text.includes(name) === names.includes(name))
+  await until(() => listed(storedEffects()), `Thorin's sheet with ${names.join(', ') || 'none of the round\'s effects'}`, 20_000)
+  for (const who of pages) {
+    await who.tab('Effects')
+    await until(async () => listed(await panel(who).innerText()), `${who.width}'s Effects tab with ${names.join(', ') || 'none of them'}`, 20_000)
+  }
+}
+/** The tray's latest roll as shown: its total, and each line of it. */
+const trayLatest = who => tray(who).getByRole('status').first().evaluate(el => ({
+  total: el.querySelector('span')?.textContent.trim() ?? null,
+  lines: [...el.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g, ' ').trim()),
+}))
+/** Until the tray's latest roll says what the game made of it. */
+async function trayMade(who) {
+  await until(async () => (await trayLatest(who)).lines.some(line => line.startsWith('At the table:')), 'the tray to say what the game made', 20_000).catch(() => {})
+  return trayLatest(who)
+}
+const atTable = shown => shown.lines.map(line => /^At the table: (\S+)/.exec(line)?.[1]).find(Boolean) ?? null
+/** What has focus in the dialog: its name, and the heading of the die's group it's in. */
+const focusIn = dialog => dialog.evaluate(el => {
+  const active = document.activeElement
+  if (!el.contains(active)) return null
+  const group = active.closest('[role=group][aria-labelledby]')
+  return {
+    name: active.getAttribute('aria-label') ?? active.textContent.trim(),
+    group: group ? document.getElementById(group.getAttribute('aria-labelledby'))?.textContent.trim() : null,
+  }
+})
+/**
+ * Each Skip and Type it in as drawn: each Skip focused in turn, as a keyboard reaches it; then each
+ * pressed, and each Type it in focused. For each, its height, whether it's in view, and whether it's
+ * clear of the keypad: above it, or on a short screen beside it, in the dice column.
+ */
+const effectButtons = dialog => dialog.evaluate(async el => {
+  const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  const pad = el.querySelector('[aria-label="Keypad"]')
+  const form = el.querySelector('form')
+  const scroller = form.parentElement
+  const short = getComputedStyle(form).gridTemplateColumns.split(' ').length === 2
+  const buttons = () => [...el.querySelectorAll('button')].filter(b => /^(Skip|Type it in,) /.test(b.getAttribute('aria-label') ?? ''))
+  const seen = []
+  for (const round of ['Skip', 'Type it in']) {
+    for (const button of buttons()) {
+      button.focus()
+      await frames()
+      const b = button.getBoundingClientRect()
+      const p = pad.getBoundingClientRect()
+      const s = scroller.getBoundingClientRect()
+      seen.push({
+        name: button.getAttribute('aria-label'), height: Math.round(b.height), focused: document.activeElement === button,
+        inView: b.top >= Math.max(s.top, 0) - 1 && b.bottom <= Math.min(s.bottom, innerHeight) + 1 && b.left >= 0 && b.right <= innerWidth,
+        clear: short ? b.right <= p.left + 1 : b.bottom <= p.top + 1,
+      })
+    }
+    if (round === 'Skip') {
+      for (const button of buttons()) {
+        button.click()
+        await frames()
+      }
+    }
+  }
+  return { short, seen }
+})
 
 if (SKEW031) {
   // =================================================================================================
@@ -486,6 +675,69 @@ await tabletSwitch.waitFor({ timeout: 15_000 })
   check(await tabletSwitch.isChecked(), `her 768 page shows it on within a poll (${((Date.now() - at) / 1000).toFixed(1)} s)`)
   await closeCog(alice)
   await closeCog(tablet)
+}
+
+if (SKEW041) {
+  // =================================================================================================
+  // Module 0.41.0: no effect's die asked, no rerolls kept, a crafted effectDice and rerolls stripped
+  // =================================================================================================
+  part('22. module 0.41.0')
+  await resultsAs(alice, 'Banner')
+  const blessed = await putOn(BLESSED)
+  await sheetWith([alice], ['Blessed'])
+  {
+    const rolls = hello().data.features.rolls
+    check(storedDice() === null && !('effectDice' in rolls) && !('keptRerolls' in rolls) && !rollFeatures().includes('effectDice') && !rollFeatures().includes('keptRerolls'),
+      `Bless applied, module 0.41.0 lists no effectDice on Thorin's sheet, its hello says neither effectDice nor keptRerolls, and the app keeps neither (${JSON.stringify(Object.keys(rolls))}; ${rollFeatures().join(',')})`)
+  }
+  await alice.tab('Character')
+  faces.push(2)
+  let entry = await asked(alice, () => dexSave(alice).click(), 'a Dexterity save, Blessed, with module 0.41.0')
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }]) && await entry.dialog.getByRole('button', { name: /^Skip / }).count() === 0,
+    `a Dexterity save asks only its d20: no line for Bless, no Skip (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await keys(entry.dialog, '1', '2')
+  let made = await done(alice, entry)
+  check(!('effectDice' in (made.body ?? {})) && !('rerolls' in (made.body ?? {})) && !('effectDice' in made.request.payload) && same(d4sOf(made.message?.rolls[0]), [[2]]) && faces.length === 0,
+    `sent with neither effectDice nor rerolls (${JSON.stringify(made.body)}), Bless's d4 Foundry's, 2 (${made.message?.rolls[0]?.formula})`)
+  await paced()
+  const crafted = await call(alice.page, '/api/characters/sheet-thorin/rolls', {
+    method: 'POST',
+    body: { kind: 'save', key: 'dex', mode: 0, explicit: false, extras: [], dice: [{ faces: 20, results: [12] }], typed: true, rerolls: 'kept', effectDice: [{ faces: 4, sign: 1, results: [3] }] },
+  })
+  await until(() => settledRow(rollRow()), 'the crafted save to be made', 30_000)
+  {
+    const kept = rollRow()
+    const has = key => sql(`select (payload ? '${key}')::text from roll_request where id = '${kept.id}'`)
+    check(crafted.status === 202 && kept.payload.typed === true && has('effectDice') === 'false' && has('rerolls') === 'false' && kept.status === 'done',
+      `a crafted typed save with effectDice and rerolls kept is taken (${crafted.status}), and stored typed without either, module 0.41.0 taking neither (${JSON.stringify(kept.payload)})`)
+  }
+  await takeOff(blessed)
+  await sheetWith([alice], [])
+  // The greatsword's 2d6r<=2 typed 1 and 5: no rerolls sent, so Foundry rerolls the 1, as before 0.42.0.
+  await alice.tab('Actions')
+  const greatsword = panel(alice).getByRole('button', { name: 'Greatsword attack, +4' })
+  const picker = alice.page.getByRole('dialog', { name: 'Greatsword attack' })
+  entry = await asked(alice, async () => {
+    await greatsword.click()
+    await picker.waitFor()
+    await picker.getByRole('button', { name: /^Goblin/ }).click()
+  }, 'the greatsword')
+  await keys(entry.dialog, '1', '5')
+  await done(alice, entry)
+  await tray(alice).getByRole('button', { name: 'Roll damage' }).waitFor({ timeout: 30_000 })
+  entry = await asked(alice, () => tray(alice).getByRole('button', { name: 'Roll damage' }).click(), "the greatsword's damage")
+  const note = await entry.dialog.getByText(REROLL_NOTE).count()
+  await keys(entry.dialog, '1', '5')
+  faces.push(4)
+  made = await done(alice, entry)
+  const roll = MIDI ? W.midi.made.at(-1)?.damageRolls?.[0] : made.message?.rolls[0]
+  await until(async () => (await trayLatest(alice)).total === String(roll?.total), "the tray to show the game's total", 20_000).catch(() => {})
+  const later = await trayMade(alice)
+  check(note === 0 && made.request.payload.typed === true && !('rerolls' in made.request.payload) && !('rerolls' in (made.body ?? {}))
+    && same(roll?.dice[0].results.filter(r => r.rerolled).map(r => r.result), [1]) && roll.formula.includes('r<=2') && roll.total === 10 && faces.length === 0
+    && later.total === '10' && atTable(later) === '10',
+    `with module 0.41.0 the greatsword's damage has no note, is sent typed without rerolls, Foundry rerolls the typed 1 (a 4: ${roll?.formula} = ${roll?.total}), and the tray shows the game's total once made (${JSON.stringify(later)})`)
+  await finish()
 }
 
 // =================================================================================================
@@ -590,7 +842,8 @@ check(actionOf(sentSheet(), 'rapier'), "the sheet says the rapier's attack has E
 await alice.tab('Actions')
 const rapier = panel(alice).getByRole('button', { name: 'Rapier attack, +6' })
 const rapierPicker = alice.page.getByRole('dialog', { name: 'Rapier attack' })
-// Bless's d4, which the game throws itself: 3.
+// Changed on purpose (round 0.42.0 §8.5): the attack's own magic d4, which the game throws itself:
+// 3. Bless, an effect, is step 5b's.
 faces.push(3)
 entry = await asked(alice, async () => {
   await fromMenu(alice, rapier, 'Roll with advantage')
@@ -598,14 +851,14 @@ entry = await asked(alice, async () => {
   await rapierPicker.getByRole('button', { name: /^Goblin/ }).click()
 }, 'the rapier with advantage')
 check(same(await groupsOf(entry.dialog), [{ name: 'd20, advantage (Elven Accuracy)', boxes: ['d20 1 of 3', 'd20 2 of 3', 'd20 3 of 3'] }]),
-  `the rapier with advantage asks for three, "d20, advantage (Elven Accuracy)", and nothing for Bless's d4 (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  `the rapier with advantage asks for three, "d20, advantage (Elven Accuracy)", and nothing for the attack's own magic d4 (${JSON.stringify(await groupsOf(entry.dialog))})`)
 await keys(entry.dialog, '3', '1', '8', '7')
 made = await done(alice, entry)
 {
   const roll = MIDI ? W.midi.made.at(-1)?.attackRoll : made.message?.rolls[0]
   const d4 = roll?.dice?.find(d => d.faces === 4)?.results.map(r => r.result)
   check(same(made.request.payload.dice[0].results, [3, 18, 7]) && same(d20sOf(roll), [3, 18, 7]) && roll.dice[0].total === 18 && same(d4, [3]),
-    `the card's d20s are [3, 18, 7], 18 kept${MIDI ? ', through Midi-QOL\'s workflow' : ''}, and Bless's d4 is Foundry's own, 3 (${roll?.formula} = ${roll?.total})`)
+    `the card's d20s are [3, 18, 7], 18 kept${MIDI ? ', through Midi-QOL\'s workflow' : ''}, and the attack's own magic d4 is Foundry's, 3 (${roll?.formula} = ${roll?.total})`)
 }
 const greataxe = panel(alice).getByRole('button', { name: 'Greataxe attack, +4' })
 entry = await asked(alice, async () => {
@@ -618,6 +871,264 @@ check(same(await groupsOf(entry.dialog), [{ name: 'd20, advantage', boxes: ['d20
 await keys(entry.dialog, '6', '5')
 made = await done(alice, entry)
 check(same(made.request.payload.dice[0].results, [6, 5]), 'and sends two')
+
+// =================================================================================================
+// 5b. Module 0.42.0: the dice effects add (its contract §8.5)
+// =================================================================================================
+part("5b. effects' dice")
+const BLESS_ON = ['attack', 'save', 'death', 'concentration']
+const blessLine = { name: 'Bless: +1d4', boxes: ['d4'] }
+const baneLine = { name: 'Bane: −1d4', boxes: ['d4'] }
+const skipBless = dialog => dialog.getByRole('button', { name: 'Skip Bless’s d4', exact: true })
+// 1. The Gamemaster applies Vex's Bless to Thorin, as dnd5e's Apply does: from Vex's concentration.
+let blessed = await putOn(BLESSED)
+await sheetWith([alice], ['Blessed'])
+{
+  const dice = storedDice()
+  const rolls = hello().data.features.rolls
+  if (DND5E6) {
+    check(dice === null && rolls.effectDice === false && rolls.keptRerolls === true && !rollFeatures().includes('effectDice') && rollFeatures().includes('keptRerolls'),
+      `dnd5e 6.0.5: Bless applied, Thorin's sheet lists no effectDice; the hello says effectDice false and keptRerolls true, and the app keeps keptRerolls alone (${JSON.stringify(dice)}; ${rollFeatures().join(',')})`)
+  } else {
+    check(sameJson(dice, [{ name: 'Bless', effect: 'thorinBlessed', faces: 4, count: 1, sign: 1, on: BLESS_ON }]) && !/Vex|Grukk/.test(JSON.stringify(dice))
+      && rolls.effectDice === true && rolls.keptRerolls === true && rollFeatures().includes('effectDice') && rollFeatures().includes('keptRerolls'),
+      `Bless applied from Vex's concentration: within a poll the app keeps Thorin's sheet with effectDice naming "Bless", never Vex, a d4 on ${BLESS_ON.join(', ')}; the hello says effectDice and keptRerolls, and the app keeps both (${JSON.stringify(dice)})`)
+  }
+}
+// 2. Perception: Bless isn't on checks.
+await alice.tab('Character')
+entry = await asked(alice, () => perception(alice).click(), 'Perception, Blessed')
+check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }]), `Perception asks only its d20: Bless isn't on checks (${JSON.stringify(await groupsOf(entry.dialog))})`)
+await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+await entry.dialog.waitFor({ state: 'hidden' })
+// 3. A Dexterity save: Bless's d4 asked, typed.
+if (DND5E6) faces.push(2)
+entry = await asked(alice, () => dexSave(alice).click(), 'a Dexterity save, Blessed')
+{
+  const groups = await groupsOf(entry.dialog)
+  if (DND5E6) {
+    check(same(groups, [{ name: 'd20', boxes: ['d20'] }]) && await skipBless(entry.dialog).count() === 0, `dnd5e 6.0.5: a Dexterity save asks only its d20, no line for Bless (${JSON.stringify(groups)})`)
+    await keys(entry.dialog, '1', '2')
+    made = await done(alice, entry)
+    check(!('effectDice' in (made.body ?? {})) && !('effectDice' in made.request.payload) && same(d4sOf(made.message?.rolls[0]), [[2]]) && faces.length === 0,
+      `and sends no effectDice, Bless's d4 Foundry's, 2 (${made.message?.rolls[0]?.formula} = ${made.message?.rolls[0]?.total})`)
+  } else {
+    check(same(groups, [{ name: 'd20', boxes: ['d20'] }, blessLine]) && await skipBless(entry.dialog).isVisible() && await skipBless(entry.dialog).textContent() === 'Skip',
+      `a Dexterity save asks its d20 and "Bless: +1d4", a box and Skip ("Skip Bless’s d4") (${JSON.stringify(groups)})`)
+    await keys(entry.dialog, '1', '2', '3')
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    const roll = made.message?.rolls[0]
+    check(same(made.body?.effectDice, [{ faces: 4, sign: 1, results: [3] }]) && sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }])
+      && same(made.request.payload.dice, [{ faces: 20, results: [12] }]) && same(d4sOf(roll), [[3]]) && roll.total === 18 && total === 'Total 18',
+      `typed 12 and 3 ("${total}"): sent with effectDice [{ faces: 4, sign: 1, results: [3] }], its dice the d20 alone; the card's d4 is the 3 (${roll?.formula} = ${roll?.total})`)
+    const shown = await trayMade(alice)
+    check(shown.total === '18' && shown.lines.some(line => /Bless \+1d4 \(3\)$/.test(line)) && atTable(shown) === '18',
+      `the tray's breakdown ends with "Bless +1d4 (3)", and its 18 is the table's (${JSON.stringify(shown)})`)
+    // Crafted: an effect's d20, or rerolls kept on a roll not typed, refused by the app.
+    const before = requests()
+    const plain = { kind: 'save', key: 'dex', mode: 0, explicit: false, extras: [], dice: [{ faces: 20, results: [12] }] }
+    const twenty = await call(alice.page, '/api/characters/sheet-thorin/rolls', { method: 'POST', body: { ...plain, typed: true, effectDice: [{ faces: 20, sign: 1, results: [12] }] } })
+    const untyped = await call(alice.page, '/api/characters/sheet-thorin/rolls', { method: 'POST', body: { ...plain, rerolls: 'kept' } })
+    check(twenty.status === 400 && untyped.status === 400 && requests() === before,
+      `crafted, a d20 among a save's effectDice is refused (${twenty.status}), and rerolls kept on a roll not typed (${untyped.status}); nothing kept`)
+  }
+}
+if (!DND5E6) {
+  // 4. Skipped: the game's, said in the total; typed in again, its box back.
+  faces.push(2)
+  entry = await asked(alice, () => dexSave(alice).click(), 'a Dexterity save, Bless skipped')
+  await keys(entry.dialog, '1', '2')
+  await skipBless(entry.dialog).click()
+  {
+    const look = {
+      groups: await groupsOf(entry.dialog), said: await entry.dialog.getByText('The game rolls Bless’s d4.', { exact: true }).isVisible(),
+      total: await totalOf(entry.dialog), focus: await focusedBox(entry.dialog), typeIn: await entry.dialog.getByRole('button', { name: 'Type it in, Bless’s d4', exact: true }).textContent(),
+    }
+    check(same(look.groups, [{ name: 'd20', boxes: ['d20'] }, { name: 'Bless: +1d4', boxes: [] }]) && look.said && look.total === 'Total 15, not counting Bless’s d4' && look.focus === 'Done' && look.typeIn === 'Type it in',
+      `Skip: its box goes, "The game rolls Bless’s d4." and "Type it in" ("Type it in, Bless’s d4") in its place, the total "${look.total}", focus on Done (${JSON.stringify(look)})`)
+  }
+  await entry.dialog.getByRole('button', { name: 'Type it in, Bless’s d4', exact: true }).click()
+  {
+    const back = { groups: await groupsOf(entry.dialog), focus: await focusIn(entry.dialog), current: await currentBox(entry.dialog), total: await totalOf(entry.dialog) }
+    check(same(back.groups, [{ name: 'd20', boxes: ['d20'] }, blessLine]) && same(back.focus, { name: 'd4', group: 'Bless: +1d4' }) && back.current === 'd4' && back.total === 'Total 15',
+      `Type it in brings its box back, focused and current, the total "${back.total}" (${JSON.stringify(back)})`)
+  }
+  await skipBless(entry.dialog).click()
+  made = await done(alice, entry)
+  {
+    const roll = made.message?.rolls[0]
+    const shown = await trayMade(alice)
+    check(!('effectDice' in (made.body ?? {})) && !('effectDice' in made.request.payload) && same(d4sOf(roll), [[2]]) && roll.total === 17 && faces.length === 0
+      && shown.total === '15' && atTable(shown) === '17',
+      `skipped again and Done: no effectDice sent, the card's d4 Foundry's, 2 (${roll?.formula} = ${roll?.total}); the tray's own 15 leaves it out, the table's is 17 (${JSON.stringify(shown)})`)
+    const earlier = (await tray(alice).locator('details li').first().textContent()).replace(/\s+/g, ' ')
+    check(/^Dexterity saving throw ?12 \+3 \+3 = 18 ?· table 18$/.test(earlier), `among the earlier rolls, the typed one reads "${earlier}": Bless's +3 last, and its 18 the table's`)
+  }
+  // 5. Grukk's Bane too: both asked, by the spells' names, Grukk nowhere.
+  let bane = await putOn(BANED)
+  await sheetWith([alice], ['Blessed', 'Bane'])
+  await alice.tab('Character')
+  entry = await asked(alice, () => dexSave(alice).click(), 'a Dexterity save, Blessed and Baned')
+  {
+    const groups = await groupsOf(entry.dialog)
+    const text = await entry.dialog.innerText()
+    check(same(groups, [{ name: 'd20', boxes: ['d20'] }, blessLine, baneLine]) && !text.includes('Grukk') && sameJson(storedDice().map(die => [die.name, die.sign]), [['Bless', 1], ['Bane', -1]])
+      && !JSON.stringify(storedDice()).includes('Grukk'),
+      `Grukk's Bane added: "Bless: +1d4" and "Bane: −1d4", each with its box, and Grukk named nowhere in the dialog nor in the sheet's effectDice (${JSON.stringify(groups)})`)
+  }
+  await keys(entry.dialog, '1', '2', '4', '1')
+  {
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    const roll = made.message?.rolls[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [4] }, { faces: 4, sign: -1, results: [1] }]) && same(d4sOf(roll), [[4], [1]])
+      && /\+ 1d4 - 1d4$/.test(roll.formula) && roll.total === 18 && total === 'Total 18',
+      `typed 12, 4 and 1 ("${total}"): the card's d4s are 4, added, and 1, taken away (${roll?.formula} = ${roll?.total})`)
+  }
+  // 6. Bless gone, Bane alone: a lone −1d4.
+  await takeOff(blessed)
+  await sheetWith([alice], ['Bane'])
+  await alice.tab('Character')
+  entry = await asked(alice, () => dexSave(alice).click(), 'a Dexterity save, Bane alone')
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }, baneLine]), `Bless gone, Bane alone asks "Bane: −1d4" (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await keys(entry.dialog, '1', '2', '1')
+  {
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    const roll = made.message?.rolls[0]
+    const shown = await trayMade(alice)
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: -1, results: [1] }]) && same(d4sOf(roll), [[1]]) && /- 1d4$/.test(roll.formula) && roll.total === 14
+      && total === 'Total 14' && shown.total === '14' && atTable(shown) === '14',
+      `typed 12 and 1: the card's lone d4 is the 1, taken away (${roll?.formula} = ${roll?.total}), the tray's 14 the table's (${JSON.stringify(shown)})`)
+  }
+  // 7. The rapier, Blessed again: Bless's d4 asked, its value the attack's.
+  await takeOff(bane)
+  blessed = await putOn(BLESSED)
+  await sheetWith([alice], ['Blessed'])
+  await alice.tab('Actions')
+  // The rapier's own magic d4, Foundry's: 2.
+  faces.push(2)
+  entry = await asked(alice, async () => {
+    await rapier.click()
+    await rapierPicker.waitFor()
+    await rapierPicker.getByRole('button', { name: /^Goblin/ }).click()
+  }, 'the rapier, Blessed')
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }, blessLine]), `the rapier at the goblin asks its d20 and "Bless: +1d4" (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  {
+    const earlier = (await tray(alice).locator('details li').first().textContent()).replace(/\s+/g, ' ')
+    check(/^Dexterity saving throw ?12 \+3 \+4 −1 = 18 ?· table 18$/.test(earlier), `among the earlier rolls, Bless and Bane's reads "${earlier}": Bless's +4, then Bane's −1`)
+  }
+  await keys(entry.dialog, '1', '5', '3')
+  made = await done(alice, entry)
+  {
+    const roll = MIDI ? W.midi.made.at(-1)?.attackRoll : made.message?.rolls[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }]) && same(d20sOf(roll), [15]) && same(d4sOf(roll).flat().sort(), [2, 3]) && roll.total === 26 && faces.length === 0,
+      `typed 15 and 3: the attack's d4s are Bless's 3 and its own magic one, Foundry's 2${MIDI ? ", through Midi-QOL's workflow" : ''} (${roll?.formula} = ${roll?.total})`)
+  }
+  // 8. Athletic Guidance: on Athletics, not on Acrobatics.
+  const guided = await putOn(GUIDED)
+  await sheetWith([alice], ['Blessed', 'Athletic Guidance'])
+  await alice.tab('Character')
+  entry = await asked(alice, () => skillCheck(alice, 'Athletics').click(), 'Athletics, Guided')
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }, { name: 'Guidance: +1d4', boxes: ['d4'] }]),
+    `Athletics asks its d20 and "Guidance: +1d4", not Bless's (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await keys(entry.dialog, '1', '2', '3')
+  await shootBoth(alice, 'typed-guidance', entry.dialog, SHOTS_042)
+  {
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    const roll = made.message?.rolls[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }]) && same(d4sOf(roll), [[3]]) && roll.total === 19 && total === 'Total 19',
+      `typed 12 and 3 ("${total}"): the card's d4 is Guidance's 3 (${roll?.formula} = ${roll?.total})`)
+  }
+  entry = await asked(alice, () => skillCheck(alice, 'Acrobatics').click(), 'Acrobatics')
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }]), `Acrobatics asks only its d20 (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+  await entry.dialog.waitFor({ state: 'hidden' })
+  // 9. From the keyboard at 1280: Skip to the next box, Next die past the skipped die, Enter on the
+  // last box shown as Done. Bless and Bane again.
+  bane = await putOn(BANED)
+  var desk = await browse({ width: 1280, height: 800, path: '/characters/sheet-thorin' })
+  await desk.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  watchPosts(desk)
+  await sheetWith([alice, desk], ['Blessed', 'Bane', 'Athletic Guidance'])
+  await desk.tab('Character')
+  entry = await asked(desk, () => skillCheck(desk, 'Athletics').click(), 'Athletics at 1280')
+  await shootBoth(desk, 'typed-guidance', entry.dialog, SHOTS_042)
+  await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+  await entry.dialog.waitFor({ state: 'hidden' })
+  // Bless's d4 Foundry's: 2.
+  faces.push(2)
+  entry = await asked(desk, () => dexSave(desk).click(), 'a Dexterity save from the keyboard')
+  {
+    const { dialog } = entry
+    const keyboard = desk.page.keyboard
+    await firstFocused(dialog, 'd20')
+    await keyboard.press('1')
+    await keyboard.press('2')
+    const onBless = await focusIn(dialog)
+    await keyboard.press('Shift+Tab')
+    const onSkip = await focusIn(dialog)
+    await keyboard.press('Enter')
+    const afterSkip = await focusIn(dialog)
+    check(same(onBless, { name: 'd4', group: 'Bless: +1d4' }) && same(onSkip, { name: 'Skip Bless’s d4', group: 'Bless: +1d4' }) && same(afterSkip, { name: 'd4', group: 'Bane: −1d4' }),
+      `at 1280, 12 typed moves to Bless's box; Shift+Tab reaches its Skip, and Enter skips it, focus on to Bane's box (${JSON.stringify([onBless, onSkip, afterSkip])})`)
+    await shootBoth(desk, 'typed-effects', dialog, SHOTS_042)
+    await dialog.getByRole('textbox', { name: 'd20', exact: true }).focus()
+    await nextDie(dialog).focus()
+    await keyboard.press('Enter')
+    const afterNext = await focusIn(dialog)
+    check(same(afterNext, { name: 'd4', group: 'Bane: −1d4' }) && await currentBox(dialog) === 'd4' && await nextDie(dialog).count() === 0,
+      `from the d20's box, Enter on Next die passes the skipped Bless to Bane's box, the last shown: focused, current, no Next die (${JSON.stringify(afterNext)})`)
+    await keyboard.press('1')
+    await dialog.getByRole('group', { name: 'Bane: −1d4' }).getByRole('textbox').focus()
+    made = await done(desk, entry, { submit: () => keyboard.press('Enter') })
+    const roll = made.message?.rolls[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: -1, results: [1] }]) && same(made.request.payload.dice, [{ faces: 20, results: [12] }])
+      && same(d4sOf(roll), [[2], [1]]) && roll.total === 16 && faces.length === 0,
+      `Enter on Bane's box, the last shown, is Done: Bane's 1 sent, Bless's d4 Foundry's 2 (${roll?.formula} = ${roll?.total})`)
+  }
+  // 10. Phones: the rapier's three d20s (Elven Accuracy), Bless and Bane, at 390×844, 360×640 and 844×390.
+  const small = await browse({ width: 360, height: 640, path: '/characters/sheet-thorin' })
+  const wide = await browse({ width: 844, height: 390, path: '/characters/sheet-thorin' })
+  for (const who of [alice, small, wide]) {
+    if (who !== alice) await who.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    if (who.width < 1024) await who.character().catch(() => {})
+    await who.tab('Actions')
+    const picker = who.page.getByRole('dialog', { name: 'Rapier attack' })
+    const { dialog } = await asked(who, async () => {
+      await fromMenu(who, panel(who).getByRole('button', { name: 'Rapier attack, +6' }), 'Roll with advantage')
+      await picker.waitFor()
+      await picker.getByRole('button', { name: /^Goblin/ }).click()
+    }, `the rapier at ${who.width}`)
+    await wait(300)
+    const groups = await groupsOf(dialog)
+    const look = await effectButtons(dialog)
+    const sideways_ = await sideways(who.page)
+    const phone = who.width < 640
+    const { height } = who.page.viewportSize()
+    check(same(groups.map(g => g.name), ['d20, advantage (Elven Accuracy)', 'Bless: +1d4', 'Bane: −1d4']) && sideways_ === 0 && look.short === (height <= 480)
+      && same(look.seen.map(b => b.name), ['Skip Bless’s d4', 'Skip Bane’s d4', 'Type it in, Bless’s d4', 'Type it in, Bane’s d4'])
+      && look.seen.every(b => b.focused && b.inView && b.clear && (!phone || b.height >= 44)),
+      `at ${who.width}×${height}, the rapier's three d20s, Bless and Bane: nothing scrolls sideways; each Skip and Type it in, focused, is in view and ${look.short ? 'beside the keypad, in the dice column' : 'above the keypad'}${phone ? ', at least 44 px tall' : ''} (${JSON.stringify(look)})`)
+    if (who === alice) {
+      await dialog.getByRole('button', { name: 'Type it in, Bane’s d4', exact: true }).click()
+      await shootBoth(alice, 'typed-effects', dialog, SHOTS_042)
+    }
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    if (who !== alice) await who.view.close()
+  }
+  for (const effect of [blessed, bane, guided]) await takeOff(effect)
+  await sheetWith([alice, desk], [])
+  check(!('effectDice' in (storedSheet() ?? { effectDice: 0 })), "all three taken off, Thorin's sheet has no effectDice again")
+}
+if (DND5E6) {
+  await takeOff(blessed)
+  await sheetWith([alice], [])
+}
+await alice.tab('Actions')
 
 // ---- 7. Damage after a hit ----
 part('7. damage')
@@ -708,6 +1219,71 @@ await rapierPicker.waitFor()
     `its maximum opens no dialog, and sends it untyped, the game's every die at its highest (${JSON.stringify(max.payload)})`)
   await until(() => settledRow(rollRow(max.id)), 'the maximum damage to be made')
 }
+}
+
+// =================================================================================================
+// 7b. Module 0.42.0: rerolls at the table (its contract §8.5)
+// =================================================================================================
+part('7b. rerolls at the table')
+{
+  await alice.tab('Actions')
+  const greatsword = panel(alice).getByRole('button', { name: 'Greatsword attack, +4' })
+  const picker = alice.page.getByRole('dialog', { name: 'Greatsword attack' })
+  entry = await asked(alice, async () => {
+    await greatsword.click()
+    await picker.waitFor()
+    await picker.getByRole('button', { name: /^Goblin/ }).click()
+  }, 'the greatsword')
+  await keys(entry.dialog, '1', '5')
+  await done(alice, entry)
+  await rollDamage('Roll damage').waitFor({ timeout: 30_000 })
+  entry = await asked(alice, () => rollDamage('Roll damage').click(), "the greatsword's damage")
+  const groups = await groupsOf(entry.dialog)
+  check(same(groups, [{ name: '2d6r<=2 Slashing', boxes: ['d6 1 of 2', 'd6 2 of 2'] }]) && await entry.dialog.getByText(REROLL_NOTE, { exact: true }).isVisible(),
+    `the greatsword's damage asks for its 2d6r<=2 as written, two boxes, and says "${REROLL_NOTE}" (${JSON.stringify(groups)})`)
+  await shootBoth(alice, 'typed-reroll-note', entry.dialog, SHOTS_042)
+  await keys(entry.dialog, '1', '5')
+  const total = await totalOf(entry.dialog)
+  made = await done(alice, entry, { soon: () => trayLatest(alice) })
+  const roll = MIDI ? W.midi.made.at(-1)?.damageRolls?.[0] : made.message?.rolls[0]
+  check(made.request.payload.typed === true && made.request.payload.rerolls === 'kept' && made.body?.rerolls === 'kept' && same(made.request.payload.dice, [{ faces: 6, results: [1, 5] }])
+    && same(roll?.dice[0].results.map(r => [r.result, r.active !== false, r.rerolled === true]), [[1, true, false], [5, true, false]]) && !roll.formula.includes('r<=2') && roll.total === 7,
+    `typed 1 and 5: sent with rerolls "kept"; the card's d6s are the 1 and the 5, neither rerolled${MIDI ? ", through Midi-QOL's workflow" : ''}, its formula without r<=2 (${roll?.formula} = ${roll?.total})`)
+  check(total === 'Total 7' && made.soon?.total === '7', `the dialog said "${total}", and the tray says ${made.soon?.total} at once: the game's total, nothing to wait for`)
+  // A Halfling's 1, typed: it stands, as rerolled at the table.
+  thorin.flags.dnd5e.halflingLucky = true
+  await alice.tab('Character')
+  entry = await asked(alice, () => dexSave(alice).click(), "a Halfling's Dexterity save")
+  await keys(entry.dialog, '1')
+  made = await done(alice, entry)
+  thorin.flags.dnd5e.halflingLucky = false
+  const save = made.message?.rolls[0]
+  check(made.request.payload.rerolls === 'kept' && same(save?.dice[0].results.map(r => [r.result, r.rerolled === true]), [[1, false]]) && !save.formula.includes('r1=1') && save.total === 4,
+    `Thorin a Halfling, a typed 1 on a save, sent with rerolls "kept": the card's one d20, the 1, stands, its formula without r1=1 (${save?.formula} = ${save?.total})`)
+  // An exploding die: no note, Foundry's die more, the game's total.
+  await alice.tab('Spells')
+  faces.push(3)
+  entry = await asked(alice, () => panel(alice).getByRole('button', { name: 'Roll Wild Sparks: Burst, 1d6x' }).click(), 'the 1d6x formula')
+  const sparks = await groupsOf(entry.dialog)
+  const noted = await entry.dialog.getByText(REROLL_NOTE).count()
+  await keys(entry.dialog, '6')
+  made = await done(alice, entry)
+  const burst = made.message?.rolls[0]
+  await until(async () => (await trayLatest(alice)).total === String(burst?.total), "the tray to show the game's total", 20_000).catch(() => {})
+  const later = await trayMade(alice)
+  check(same(sparks, [{ name: '1d6x', boxes: ['d6'] }]) && noted === 0 && made.request.payload.rerolls === 'kept' && same(burst?.dice[0].results.map(r => r.result), [6, 3])
+    && burst.total === 9 && faces.length === 0 && later.total === '9' && atTable(later) === '9',
+    `Wild Sparks' 1d6x asks one d6 and says no note, as it doesn't reroll; typed 6, Foundry throws its die more, a 3 (${burst?.formula} = ${burst?.total}), and the tray shows the game's 9 once made (${JSON.stringify(later)})`)
+  // The note at 1280 too.
+  if (desk) {
+    await desk.tab('Actions')
+    entry = await asked(desk, () => panel(desk).getByRole('button', { name: /^Greatsword damage/ }).first().click(), "the greatsword's damage at 1280")
+    check(await entry.dialog.getByText(REROLL_NOTE, { exact: true }).isVisible(), `at 1280 the greatsword's damage says "${REROLL_NOTE}" too`)
+    await shootBoth(desk, 'typed-reroll-note', entry.dialog, SHOTS_042)
+    await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+    await entry.dialog.waitFor({ state: 'hidden' })
+    await desk.view.close()
+  }
 }
 
 // ---- 8. A use's damage: offered, waiting for a tap ----
@@ -879,6 +1455,29 @@ entry = await asked(alice, () => asks.getByRole('button', { name: /^Roll Dexteri
   check(made.request.payload.prompt === `${askedCard.id}-thorin` && made.request.payload.typed === true && made.message?.flags.dnd5e.originatingMessage === askedCard.id,
     'Done answers it, on the card that asked')
   await until(async () => (await asks.count()) === 0, 'the banner to go once answered', 15_000)
+  // ---- 12b. Module 0.42.0: dnd5e's concentration card asks the die only a concentration check adds ----
+  const steady = await putOn(STEADY)
+  const hex = thorin.concentrateOn('Hex')
+  await sheetWith([alice], ['Steady Mind'])
+  await alice.tab('Character')
+  const concCard = await W.cards.concentrationCardOf(thorin, { dc: 10 })
+  await asks.waitFor({ timeout: 15_000 })
+  entry = await asked(alice, () => asks.getByRole('button', { name: /^Roll Concentration check/ }).click(), 'the concentration check')
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }, { name: 'Steady Mind: +1d4', boxes: ['d4'] }]),
+    `dnd5e's concentration card asks its d20 and "Steady Mind: +1d4", a die only a concentration check adds (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await keys(entry.dialog, '1', '5', '3')
+  {
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    const roll = made.message?.rolls[0]
+    check(made.request.payload.prompt === `${concCard.id}-thorin` && sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }]) && same(d4sOf(roll), [[3]])
+      && total === `Total ${roll?.total}`,
+      `typed 15 and 3: it answers the card, and the game's concentration check takes the 3 ("${total}"; ${roll?.formula} = ${roll?.total})`)
+  }
+  await until(async () => (await asks.count()) === 0, 'the banner to go once answered', 15_000)
+  thorin.effects.splice(thorin.effects.indexOf(hex), 1)
+  await takeOff(steady)
+  await sheetWith([alice], [])
 }
 }
 const banner = alice.page.getByRole('region', { name: 'Your Gamemaster asks' })
@@ -1158,6 +1757,59 @@ if (MIDI) {
   check(requests() === before, 'rolled in Foundry while the dialog is open: the dialog closes, nothing posted')
   game.users.get('alice').active = false
   W.midi.settings.playerRollSaves = 'none'
+  // ---- 19b. Module 0.42.0: Midi's save asks Bless's die; its concentration check, made with
+  // dnd5e's, asks the die only a concentration check adds too ----
+  await game.settings.set('sending-stone', 'midiPromptWait', 60_000)
+  const blessedAgain = await putOn(BLESSED)
+  const steady = await putOn(STEADY)
+  await sheetWith([alice], ['Blessed', 'Steady Mind'])
+  await alice.tab('Character')
+  count = opened().length
+  const third = await monsterSpell()
+  await until(() => opened().length > count, "Midi's third prompt", 15_000)
+  const row3 = banner.getByRole('listitem').filter({ hasText: 'Hold Person' })
+  await row3.getByRole('button', { name: /^Roll Wisdom saving throw/ }).waitFor({ timeout: 15_000 })
+  entry = await asked(alice, () => row3.getByRole('button', { name: /^Roll Wisdom saving throw/ }).click(), "Midi's save, Blessed")
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }, { name: 'Bless: +1d4', boxes: ['d4'] }]),
+    `Midi's save asks its d20 and "Bless: +1d4" (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await keys(entry.dialog, '1', '2', '3')
+  {
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    await third.running
+    // The save Midi's workflow took for Thorin, which shows no card of its own here.
+    const roll = third.workflow.saveResults?.[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }]) && same(d4sOf(roll), [[3]]) && total === `Total ${roll?.total}`,
+      `typed 12 and 3: the save Midi's workflow takes has Bless's 3 ("${total}"; ${roll?.formula} = ${roll?.total})`)
+  }
+  const concentrationMode = W.midi.settings.doConcentrationCheck
+  W.midi.settings.doConcentrationCheck = 'item'
+  const hex = thorin.concentrateOn('Hex')
+  count = opened().length
+  const concentration = midiSaves.itemConcentrationCheck(thorin, tokenOf.thorin.object ?? W.placeables.get('tok-thorin'), 10)
+  await until(() => opened().length > count, "Midi's concentration check", 15_000)
+  const concRow = banner.getByRole('listitem').filter({ hasText: 'Hex' })
+  await concRow.getByRole('button', { name: /^Roll Concentration check/ }).waitFor({ timeout: 15_000 })
+  entry = await asked(alice, () => concRow.getByRole('button', { name: /^Roll Concentration check/ }).click(), "Midi's concentration check")
+  // Changed on purpose (round 0.42.0's review fixes, §2.1 and §8.5 amended): Midi's save for a
+  // concentration check is made as dnd5e's concentration check (its roll wrapper's redirect,
+  // fvtt/midi-saves.mjs), which adds concentration's own bonus, so Steady Mind's d4 is asked too.
+  check(same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }, { name: 'Bless: +1d4', boxes: ['d4'] }, { name: 'Steady Mind: +1d4', boxes: ['d4'] }]),
+    `Midi's concentration check, made with dnd5e's, asks its d20, "Bless: +1d4" and "Steady Mind: +1d4", a die only a concentration check adds (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await keys(entry.dialog, '1', '5', '3', '2')
+  {
+    const total = await totalOf(entry.dialog)
+    made = await done(alice, entry)
+    const roll = (await concentration).saveResults?.[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }, { faces: 4, sign: 1, results: [2] }])
+      && same(d4sOf(roll).flat().sort(), [2, 3]) && total === `Total ${roll?.total}`,
+      `typed 15, 3 and 2: the check Midi's workflow takes has Bless's 3 and Steady Mind's 2, and its total is the dialog's ("${total}"; ${roll?.formula} = ${roll?.total})`)
+  }
+  W.midi.settings.doConcentrationCheck = concentrationMode
+  thorin.effects.splice(thorin.effects.indexOf(hex), 1)
+  await takeOff(steady)
+  await takeOff(blessedAgain)
+  await sheetWith([alice], [])
 }
 
 check(midiCritical === null || midiCritical.gm === 'doubleDice', "Midi-QOL's rule for the Gamemaster stayed Double Rolled Damage throughout")

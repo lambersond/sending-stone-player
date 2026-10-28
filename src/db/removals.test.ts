@@ -227,6 +227,15 @@ describe('db/removals, createRemoveRequest', () => {
     expect(created()).not.toHaveProperty('label')
   })
 
+  it('stores no rerolls kept either, from module 0.42.0: nothing is rolled for a removal', async () => {
+    given()
+    await createRemoveRequest(
+      thorin,
+      removal('ropeThorin01', 1, 1, { typed: true, rerolls: 'kept' }),
+    )
+    expect(created().payload).toEqual(removal('ropeThorin01', 1))
+  })
+
   it('keeps the Gamemaster’s label, for the player to be shown it by', async () => {
     given()
     await expect(

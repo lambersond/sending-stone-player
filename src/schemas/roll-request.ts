@@ -3,6 +3,8 @@ import { z } from 'zod'
 import {
   ATTACK_MODE,
   DAMAGE_TYPE,
+  EFFECT_DICE_KINDS,
+  EFFECT_DIE_FACES,
   EFFECT_ID,
   EFFECT_OPS,
   FORM_UUID,
@@ -12,6 +14,7 @@ import {
   MAX_SPEND,
   MAX_USE_TARGETS,
   MOST_AMONG,
+  MOST_EFFECT_DICE,
   MOST_HIT_DICE,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
@@ -395,6 +398,18 @@ const rolledDiceSchema = z.strictObject({
 })
 
 /**
+ * A die an effect adds to a typed d20 roll, or takes from it, as its player typed it, from module
+ * 0.42.0: by its faces and sign, with what each of its dice showed.
+ */
+const effectDieSchema = z.strictObject({
+  faces: z
+    .int()
+    .refine(faces => (DIE_SIDES as readonly number[]).includes(faces)),
+  sign,
+  results: z.array(z.int()).min(1).max(MAX_DICE),
+})
+
+/**
  * A roll a player asks to have made in the Gamemaster's game, with the dice they rolled. The dice
  * must be exactly those the roll throws: its d20, or two of them with advantage or disadvantage,
  * then the dice of each term added, in order, each result one of the die's faces. The game uses
@@ -438,6 +453,10 @@ const rolledDiceSchema = z.strictObject({
  * learned and the known form it replaces, if any, and nothing else, and throws no dice. From module
  * 0.41.0, damage on its own may name the spell slot it's rolled at, never none as null, the attack
  * mode and the ammunition, and ask to spend what its use would, `consume`, which nothing else does.
+ * From module 0.42.0, a typed d20 roll may name the dice its effects add that its player typed in,
+ * `effectDice`, each by its faces, never a d20's, and its sign, at most 10, each result one of its
+ * faces; and any typed roll may say its player rerolled at the table, `rerolls`. Neither is said of
+ * a roll not typed in.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -506,6 +525,10 @@ export const rollRequestSchema = z
     undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
     typed: z.literal(true).optional(),
+    // From module 0.42.0: the dice a typed d20 roll's effects add, typed in, and that a typed
+    // roll's rerolls were made at the table.
+    effectDice: z.array(effectDieSchema).max(MOST_EFFECT_DICE).optional(),
+    rerolls: z.literal('kept').optional(),
   })
   .superRefine((request, context) => {
     const attack = request.kind === 'attack'
@@ -518,6 +541,40 @@ export const rollRequestSchema = z
     const recharge = request.kind === 'recharge'
     const named = request.item !== undefined || request.activity !== undefined
     const both = request.item !== undefined && request.activity !== undefined
+    // From module 0.42.0, a typed d20 roll names the dice its effects add that its player typed
+    // in, never a d20, each result one of its faces; and only a typed roll says its rerolls were
+    // made at the table.
+    if (request.effectDice !== undefined) {
+      const effects = (EFFECT_DICE_KINDS as readonly string[]).includes(
+        request.kind,
+      )
+      if (!effects || request.typed !== true) {
+        context.addIssue({
+          code: 'custom',
+          path: ['effectDice'],
+          message: 'Only a typed d20 roll names the dice its effects add',
+        })
+      } else if (
+        !request.effectDice.every(
+          ({ faces, results }) =>
+            (EFFECT_DIE_FACES as readonly number[]).includes(faces) &&
+            results.every(result => result >= 1 && result <= faces),
+        )
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['effectDice'],
+          message: 'The dice are not those the roll throws',
+        })
+      }
+    }
+    if (request.rerolls !== undefined && request.typed !== true) {
+      context.addIssue({
+        code: 'custom',
+        path: ['rerolls'],
+        message: 'Only a typed roll keeps its rerolls',
+      })
+    }
     // A check may be one an activity asks for, from module 0.21.0, which names both.
     const checked = ACTIVITY_CHECKS.has(request.kind)
     // A recharge names its item, and its activity where the uses are the activity's own.

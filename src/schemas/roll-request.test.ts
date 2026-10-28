@@ -2667,3 +2667,107 @@ describe('schemas/roll-request, Wild Shape, from module 0.40.0', () => {
     expect(parseKind(shaping, { label: 'Wild Shape' }).success).toBe(true)
   })
 })
+
+describe('the dice effects add, and rerolls kept, from module 0.42.0', () => {
+  /** A Dexterity save typed in, with Bless's d4 typed too. */
+  const save = {
+    kind: 'save',
+    key: 'dex',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [{ faces: 20, results: [12] }],
+    typed: true,
+  }
+  const bless = { faces: 4, sign: 1, results: [3] }
+  const bane = { faces: 4, sign: -1, results: [1] }
+
+  it.each([
+    ['a skill check', perception],
+    ['a tool check', { ...perception, kind: 'tool', key: 'thief' }],
+    ['an ability check', { ...perception, kind: 'ability', key: 'str' }],
+    ['a saving throw', save],
+    ['a death saving throw', { ...save, kind: 'death', key: undefined }],
+    [
+      'initiative',
+      { ...perception, kind: 'initiative', key: undefined, combatId: 'cmbt1' },
+    ],
+    ['an attack', attack],
+  ])('takes the dice effects add to %s typed in', (_name, base) => {
+    const parsed = parseKind(base, { typed: true, effectDice: [bless, bane] })
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toMatchObject({ effectDice: [bless, bane] })
+  })
+
+  it('takes two dice of one effect, of any size but a d20', () => {
+    for (const faces of [4, 6, 8, 10, 12, 100]) {
+      expect(
+        parseKind(save, {
+          effectDice: [{ faces, sign: 1, results: [1, faces] }],
+        }).success,
+      ).toBe(true)
+    }
+  })
+
+  it.each([
+    ['damage', damage],
+    ['hit dice', hitDice],
+    ['a hit die', hitDie],
+    ['a formula', formula],
+    ['a use', use],
+  ])('refuses the dice effects add to %s', (_name, base) => {
+    expect(issuesOf(base, { typed: true, effectDice: [bless] })).toContainEqual(
+      ['effectDice', 'Only a typed d20 roll names the dice its effects add'],
+    )
+  })
+
+  it('refuses them on a roll not typed in', () => {
+    expect(issuesOf(save, { typed: undefined, effectDice: [bless] })).toEqual([
+      ['effectDice', 'Only a typed d20 roll names the dice its effects add'],
+    ])
+  })
+
+  it.each([
+    ['a d20', { faces: 20, sign: 1, results: [12] }],
+    ['a result of 0', { faces: 4, sign: 1, results: [0] }],
+    ['a result past its faces', { faces: 4, sign: -1, results: [5] }],
+  ])('refuses %s among them', (_name, effect) => {
+    expect(issuesOf(save, { effectDice: [bless, effect] })).toEqual([
+      ['effectDice', 'The dice are not those the roll throws'],
+    ])
+  })
+
+  it.each([
+    ['not a list', bless],
+    ['a d3', [{ faces: 3, sign: 1, results: [2] }]],
+    ['a sign of 0', [{ faces: 4, sign: 0, results: [2] }]],
+    ['no results', [{ faces: 4, sign: 1, results: [] }]],
+    [
+      '21 results',
+      [{ faces: 4, sign: 1, results: Array.from({ length: 21 }, () => 1) }],
+    ],
+    ['a result not whole', [{ faces: 4, sign: 1, results: [2.5] }]],
+    ['a field more', [{ ...bless, name: 'Bless' }]],
+    ['11 of them', Array.from({ length: 11 }, () => bless)],
+  ])('refuses them as %s', (_name, effectDice) => {
+    expect(parseKind(save, { effectDice }).success).toBe(false)
+  })
+
+  it('takes rerolls kept on any roll typed in, damage among them', () => {
+    for (const base of [perception, attack, damage, hitDice, formula]) {
+      const parsed = parseKind(base, { typed: true, rerolls: 'kept' })
+      expect(parsed.success).toBe(true)
+      expect(parsed.data).toMatchObject({ rerolls: 'kept' })
+    }
+  })
+
+  it('refuses rerolls kept on a roll not typed in', () => {
+    expect(issuesOf(damage, { rerolls: 'kept' })).toEqual([
+      ['rerolls', 'Only a typed roll keeps its rerolls'],
+    ])
+  })
+
+  it.each(['other', true, null, 1])('refuses rerolls: %p', rerolls => {
+    expect(parseKind(damage, { typed: true, rerolls }).success).toBe(false)
+  })
+})

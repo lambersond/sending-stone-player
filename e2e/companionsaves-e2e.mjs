@@ -206,8 +206,10 @@ part('1. the hello and the answer')
   const data = hello().data
   const rolls = data.features.rolls
   const keys = Object.keys(rolls)
-  check(rolls.companionPrompts === true && rolls.prompts === true && keys.at(-1) === 'companionPrompts',
-    `features.rolls.companionPrompts true, as prompts is, and last (${JSON.stringify(keys)})`)
+  // Changed on purpose (round 0.42.0 §8.5): module 0.42.0's effectDice and keptRerolls come after
+  // it, the last of v0.41's flags.
+  check(rolls.companionPrompts === true && rolls.prompts === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls']),
+    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls after it (${JSON.stringify(keys)})`)
   check(JSON.parse(hello().body ?? '{}').features?.companions === 2, `the app answers companions: 2 (${hello().body})`)
   await until(() => features().includes('companionPrompts'), 'the app to keep companionPrompts', 15_000).catch(() => {})
   check(features().includes('companionPrompts'), `the app keeps companionPrompts (${features().join(',')})`)

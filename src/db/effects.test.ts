@@ -253,6 +253,15 @@ describe('db/effects, createEffectRequest, from module 0.39.0', () => {
     expect(created()).not.toHaveProperty('label')
   })
 
+  it('stores no rerolls kept either, from module 0.42.0: nothing is rolled for an effect', async () => {
+    given()
+    await createEffectRequest(
+      thorin,
+      changing(BLESS_OFF, { typed: true, rerolls: 'kept' }),
+    )
+    expect(created().payload).toEqual(changing(BLESS_OFF))
+  })
+
   it('refuses the Gamemaster’s seat, before anything is read, as nothing would mark it theirs', async () => {
     given()
     await expect(createEffectRequest(gm, changing(BLESS_OFF))).resolves.toEqual(

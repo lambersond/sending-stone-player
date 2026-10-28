@@ -316,6 +316,9 @@ function SaveButton({
     modifier: ability.save,
     mode: ability.saveMode,
     source: { kind: 'save', key: ability.id, text: hash, link: link.n },
+    // A concentration check, which dnd5e adds concentration's bonuses to, and so the dice
+    // effects add to one, from module 0.42.0.
+    ...(link.concentration && { ask: { type: 'concentration' as const } }),
   })
   const locked = useRollsLocked()
   const roll = (target: RollTarget, chosen?: 'adv' | 'dis') =>
@@ -1108,6 +1111,7 @@ function rollAgainst(
     source: target.source,
     explicit: chosen !== undefined,
     ...(dc !== undefined && { dc }),
+    ...(target.ask && { ask: target.ask }),
   })
 }
 

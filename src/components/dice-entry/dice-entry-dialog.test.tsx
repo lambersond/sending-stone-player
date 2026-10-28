@@ -3,6 +3,8 @@ import path from 'node:path'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DiceEntryDialog } from './dice-entry-dialog'
+import { BANE_DIE, BLESS_DIE } from '@/mocks/sending-stone'
+import { skippedWords } from '@/utils/effect-dice'
 import type { DiceEntry } from '@/types/dice-entry'
 
 /** Every die typed counting as itself, plus 5, as a check's modifier would. */
@@ -142,6 +144,13 @@ const CRITICAL_20D6 = entry({
   title: 'Fireball damage',
   terms: [{ sides: 6, count: 40, label: '40d6 Fire' }],
 })
+
+/** A term's group of boxes, by its heading. */
+const group = (name: string) => screen.getByRole('group', { name })
+
+/** The boxes of Bless's d4 and Bane's, as asked for a save below. */
+const blessBox = () => within(group('Bless: +1d4')).getByRole('textbox')
+const baneBox = () => within(group('Bane: −1d4')).getByRole('textbox')
 
 describe('components/dice-entry/dice-entry-dialog', () => {
   describe('structure', () => {
@@ -1080,6 +1089,333 @@ describe('components/dice-entry/dice-entry-dialog', () => {
         'bg-card',
       )
       expect(keptInView()).not.toHaveClass('-top-5')
+    })
+  })
+
+  describe('dice effects add, from module 0.42.0', () => {
+    /**
+     * A Dexterity save, Bless's d4 and Bane's after its d20, each counted with its sign, plus 5, as
+     * the roller counts them.
+     */
+    const BLESSED = entry({
+      title: 'Dexterity saving throw',
+      terms: [
+        { sides: 20, count: 1, label: 'd20' },
+        {
+          sides: 4,
+          count: 1,
+          label: 'Bless: +1d4',
+          skippable: true,
+          name: 'Bless',
+        },
+        {
+          sides: 4,
+          count: 1,
+          label: 'Bane: −1d4',
+          skippable: true,
+          name: 'Bane',
+        },
+      ],
+      total: values =>
+        values.reduce(
+          (sum, term, at) =>
+            sum +
+            (at === 2 ? -1 : 1) *
+              term.reduce<number>((all, value) => all + (value ?? 0), 0),
+          5,
+        ),
+      skippedWords: skipped =>
+        skippedWords(skipped.map(at => [BLESS_DIE, BANE_DIE][at - 1])),
+    })
+
+    it('heads each by its name and die, in a group of its own, with Skip named for it', () => {
+      open(BLESSED)
+
+      const bless = group('Bless: +1d4')
+      expect(within(bless).getByRole('textbox')).toHaveAccessibleName('d4')
+      const skip = within(bless).getByRole('button', {
+        name: 'Skip Bless’s d4',
+      })
+      expect(skip).toHaveTextContent(/^Skip$/)
+      // Its name starts with what it shows, so it's found by the words a voice says (WCAG 2.5.3).
+      expect(skip).toHaveAccessibleName(/^Skip\b/)
+      expect(skip).toHaveAttribute('type', 'button')
+      expect(skip).not.toHaveAttribute('aria-pressed')
+      expect(
+        within(group('Bane: −1d4')).getByRole('button', {
+          name: 'Skip Bane’s d4',
+        }),
+      ).toBeInTheDocument()
+      // The player's own dice have none.
+      expect(within(group('d20')).queryByRole('button')).toBeNull()
+    })
+
+    it('names two of a die by how many', () => {
+      open(
+        entry({
+          terms: [
+            { sides: 20, count: 1, label: 'd20' },
+            {
+              sides: 4,
+              count: 2,
+              label: 'Bless: +2d4',
+              skippable: true,
+              name: 'Bless',
+            },
+          ],
+        }),
+      )
+
+      expect(key('Skip Bless’s 2d4')).toBeInTheDocument()
+      fireEvent.click(key('Skip Bless’s 2d4'))
+      expect(group('Bless: +2d4')).toHaveTextContent(
+        'The game rolls Bless’s 2d4.',
+      )
+      expect(key('Type it in, Bless’s 2d4')).toBeInTheDocument()
+    })
+
+    it('says the game rolls one skipped, in plain words in its group, its box gone, offering Type it in', async () => {
+      const user = userEvent.setup()
+      open(BLESSED)
+
+      await user.click(key('Skip Bless’s d4'))
+
+      const bless = group('Bless: +1d4')
+      expect(within(bless).queryByRole('textbox')).toBeNull()
+      const line = within(bless).getByText('The game rolls Bless’s d4.')
+      expect(line).toHaveClass('text-text-secondary')
+      const typeIn = within(bless).getByRole('button', {
+        name: 'Type it in, Bless’s d4',
+      })
+      expect(typeIn).toHaveTextContent(/^Type it in$/)
+      // Review fix (round 0.42.0): its name starts with what it shows, as Skip's does, so a voice
+      // saying "Type it in" finds it (WCAG 2.5.3).
+      expect(typeIn).toHaveAccessibleName(/^Type it in\b/)
+      expect(typeIn).not.toHaveAttribute('aria-pressed')
+      expect(within(bless).queryByRole('button', { name: /^Skip/ })).toBeNull()
+      expect(screen.getAllByRole('textbox')).toHaveLength(2)
+    })
+
+    it('gives none for one skipped on Done, its box never asked for', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(BLESSED)
+
+      await user.keyboard('17')
+      await user.click(key('Skip Bless’s d4'))
+      await user.click(baneBox())
+      await user.keyboard('1')
+      await user.click(key('Done'))
+
+      expect(onDone).toHaveBeenCalledWith([[17], [], [1]])
+    })
+
+    it('asks only for the boxes shown, as Type in every die first says, and nothing once the rest are skipped', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(BLESSED)
+
+      await user.keyboard('17')
+      await user.click(key('Skip Bless’s d4'))
+      await user.click(key('Done'))
+
+      expect(onDone).not.toHaveBeenCalled()
+      expect(baneBox()).toHaveFocus()
+      expect(baneBox()).toHaveAttribute('aria-invalid', 'true')
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Type in every die first.',
+      )
+
+      await user.click(key('Skip Bane’s d4'))
+      expect(screen.queryByRole('alert')).toBeNull()
+      await user.click(key('Done'))
+      expect(onDone).toHaveBeenCalledWith([[17], [], []])
+    })
+
+    it('moves focus from Skip pressed by keyboard to the next box shown, or else Done', async () => {
+      const user = userEvent.setup()
+      open(BLESSED)
+
+      act(() => key('Skip Bless’s d4').focus())
+      await user.keyboard('{Enter}')
+      expect(baneBox()).toHaveFocus()
+      expect(baneBox()).toHaveAttribute('aria-current', 'true')
+
+      act(() => key('Skip Bane’s d4').focus())
+      await user.keyboard(' ')
+      expect(key('Done')).toHaveFocus()
+      expect(document.activeElement).not.toBe(document.body)
+    })
+
+    it('leaves focus where it was where Skip is pressed without taking it, and moves the keypad off a box gone', async () => {
+      const user = userEvent.setup()
+      open(BLESSED)
+      expect(box('d20')).toHaveFocus()
+
+      // As a tap on a phone, which leaves focus where it was.
+      fireEvent.click(key('Skip Bane’s d4'))
+      expect(box('d20')).toHaveFocus()
+      expectCurrent('d20')
+
+      // The keypad typing into Bless's box, which has focus: on to the box shown before it, Bane's
+      // gone, and focus, which never falls to the page from a box that's gone, to Done.
+      act(() => blessBox().focus())
+      expect(blessBox()).toHaveAttribute('aria-current', 'true')
+      fireEvent.click(key('Skip Bless’s d4'))
+      expect(key('Done')).toHaveFocus()
+      expectCurrent('d20')
+      await user.click(key('4'))
+      expect(box('d20')).toHaveValue('4')
+    })
+
+    it('brings one skipped back with Type it in, its box focused and current', async () => {
+      const user = userEvent.setup()
+      open(BLESSED)
+      await user.click(key('Skip Bless’s d4'))
+
+      act(() => key('Type it in, Bless’s d4').focus())
+      await user.keyboard('{Enter}')
+
+      expect(blessBox()).toHaveFocus()
+      expect(blessBox()).toHaveAttribute('aria-current', 'true')
+      expect(blessBox()).toHaveClass('ring-2')
+      expect(baneBox()).not.toHaveAttribute('aria-current')
+      expect(group('Bless: +1d4')).not.toHaveTextContent('The game rolls')
+      expect(key('Skip Bless’s d4')).toBeInTheDocument()
+      await user.keyboard('3')
+      expect(blessBox()).toHaveValue('3')
+    })
+
+    it('makes its box current with Type it in tapped, focus left where it was', () => {
+      open(BLESSED)
+      fireEvent.click(key('Skip Bless’s d4'))
+      expect(box('d20')).toHaveFocus()
+
+      fireEvent.click(key('Type it in, Bless’s d4'))
+
+      expect(box('d20')).toHaveFocus()
+      expect(blessBox()).toHaveAttribute('aria-current', 'true')
+    })
+
+    it('moves Next die past one skipped, gone at the last box shown, where Enter is Done', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(BLESSED)
+
+      await user.click(key('Skip Bless’s d4'))
+      await user.click(box('d20'))
+      await user.keyboard('1')
+      await user.click(key('Next die'))
+      expect(baneBox()).toHaveAttribute('aria-current', 'true')
+      expect(box('d20')).not.toHaveAttribute('aria-current')
+      expect(queryNext()).toBeNull()
+
+      await user.click(baneBox())
+      await user.keyboard('2')
+      expect(key('Done')).toHaveFocus()
+      await user.click(baneBox())
+      await user.keyboard('{Enter}')
+      expect(onDone).toHaveBeenCalledWith([[1], [], [2]])
+    })
+
+    it('has no Next die at Bless’s box with Bane’s skipped, the last shown', async () => {
+      const user = userEvent.setup()
+      open(BLESSED)
+
+      await user.click(key('Skip Bane’s d4'))
+      await user.click(blessBox())
+
+      expect(queryNext()).toBeNull()
+      await user.click(box('d20'))
+      expect(queryNext()).toBeInTheDocument()
+    })
+
+    it('says in the total’s own words what a die skipped leaves out, only while one is', async () => {
+      const user = userEvent.setup()
+      open(BLESSED)
+
+      expect(total()).toHaveTextContent(/^Total 5$/)
+      await user.click(key('Skip Bless’s d4'))
+      expect(total()).toHaveTextContent(/^Total 5, not counting Bless’s d4$/)
+      await user.click(key('Skip Bane’s d4'))
+      expect(total()).toHaveTextContent(
+        /^Total 5, not counting 2 dice the game rolls$/,
+      )
+      await user.click(key('Type it in, Bless’s d4'))
+      expect(total()).toHaveTextContent(/^Total 5, not counting Bane’s d4$/)
+      await user.click(key('Type it in, Bane’s d4'))
+      expect(total()).toHaveTextContent(/^Total 5$/)
+      expect(total().tagName).toBe('OUTPUT')
+      expect(total()).toHaveAttribute('aria-live', 'polite')
+    })
+
+    it('counts Bane’s die taken away, and none of one skipped', async () => {
+      const user = userEvent.setup()
+      const totals = jest.fn(BLESSED.total)
+      open({ ...BLESSED, total: totals })
+
+      await user.keyboard('17')
+      await user.keyboard('3')
+      await user.keyboard('1')
+      expect(total()).toHaveTextContent(/^Total 24$/)
+
+      await user.click(key('Skip Bless’s d4'))
+      expect(totals).toHaveBeenLastCalledWith([[17], [], [1]])
+      expect(total()).toHaveTextContent(/^Total 21, not counting Bless’s d4$/)
+    })
+
+    it('shows its note under the subtitle, and none without one', () => {
+      const note =
+        'Reroll at the table as your feature says, and type in the die you keep.'
+      const { unmount } = open(
+        entry({
+          title: 'Greatsword damage',
+          terms: [{ sides: 6, count: 2, label: '2d6r<=2 Slashing' }],
+          note,
+        }),
+      )
+
+      const dialog = screen.getByRole('dialog', { name: 'Greatsword damage' })
+      expect(dialog).toHaveTextContent('Type in what your dice show')
+      expect(within(dialog).getByText(note)).toHaveClass('text-text-secondary')
+      unmount()
+
+      open(BLESSED)
+      expect(screen.queryByText(note)).toBeNull()
+    })
+
+    it('makes Skip and Type it in as tall as a fingertip on a phone, as Cancel from a tablet up, beside their heading until they wrap', () => {
+      open(BLESSED)
+
+      const skip = key('Skip Bless’s d4')
+      expect(skip).toHaveClass('min-h-11', 'sm:min-h-9')
+      expect(skip.parentElement).toHaveClass(
+        'flex',
+        'flex-wrap',
+        'items-center',
+        'justify-between',
+        'gap-2',
+      )
+      expect(skip.parentElement).toContainElement(
+        screen.getByRole('heading', { name: 'Bless: +1d4' }),
+      )
+      fireEvent.click(skip)
+      expect(key('Type it in, Bless’s d4')).toHaveClass(
+        'min-h-11',
+        'sm:min-h-9',
+      )
+    })
+
+    it('scrolls a Skip focused clear of the keypad kept over the dice', () => {
+      open(BLESSED)
+      jest
+        .spyOn(keptInView(), 'getBoundingClientRect')
+        .mockReturnValue({ top: 500 } as DOMRect)
+      const skip = key('Skip Bane’s d4')
+      jest
+        .spyOn(skip, 'getBoundingClientRect')
+        .mockReturnValue({ bottom: 530 } as DOMRect)
+
+      act(() => skip.focus())
+
+      expect(scroller().scrollTop).toBe(38)
     })
   })
 })

@@ -84,6 +84,7 @@ import {
   type SheetDamageRoll,
   type SheetFormulaRoll,
   type SheetRoll,
+  type TypedRolls,
 } from '@/hooks/use-sheet-roller'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
@@ -99,6 +100,7 @@ import {
 import { useShownPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { castIndex, isItemCast } from '@/utils/casts'
+import { effectDiceFor } from '@/utils/effect-dice'
 import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
@@ -395,6 +397,23 @@ function RollingSheet({
     },
     [sendFormula, sendRecharge],
   )
+  // While the player types in their dice, from module 0.42.0, where the game takes them: the dice
+  // the character's effects add to each roll, such as Bless's d4, by its sheet, and what the roll
+  // answers, asked for after their own; and whether the dice typed are kept as rerolled at the
+  // table, as their feature says. The dice of effects only of a roll the game is sent: one this
+  // device keeps, a kind the game doesn't take, or a check an activity asks of a game that doesn't
+  // make it so, is the player's alone, and no game would roll a die skipped.
+  const { typedEffects, keptRerolls, sends } = table
+  const typedRolls = useMemo<TypedRolls | undefined>(() => {
+    if (!typing || (!typedEffects && !keptRerolls)) return
+    return {
+      effectsFor: typedEffects
+        ? request =>
+            sends(request.source) ? effectDiceFor(sheet, request, prompts) : []
+        : () => [],
+      keptRerolls,
+    }
+  }, [typing, typedEffects, keptRerolls, sends, sheet, prompts])
   const {
     roll,
     rollDamage,
@@ -414,6 +433,7 @@ function RollingSheet({
     table.sendDamage,
     formulaThrown,
     typing ? entry.enter : undefined,
+    typedRolls,
   )
   // While the character is transformed, as by Wild Shape (module 0.40.0), what its form's sheet
   // can't keep, or its gear isn't on, isn't offered: favorites added or removed, effects changed,

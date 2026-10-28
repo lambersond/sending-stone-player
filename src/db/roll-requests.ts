@@ -405,10 +405,12 @@ export async function createRollRequest(
 
   // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is
   // kept, for the character's player to be shown it by; a player's own page never asks for theirs.
-  const { label, typed, ...command } = input
+  const { label, typed, effectDice, rerolls, ...command } = input
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   // Marked as typed in only where the player may type theirs, as the game said last: else the
-  // same dice, unmarked. A companion's are typed as its character's are.
+  // same dice, unmarked. A companion's are typed as its character's are. And with it, the dice its
+  // effects add, and that its rerolls are its player's, where the game takes them (module 0.42.0);
+  // else the game rolls those.
   const typer = companion?.of ?? actorId
   const typedHere =
     typed === true &&
@@ -416,7 +418,17 @@ export async function createRollRequest(
     command.dice.length > 0 &&
     campaign.rollFeatures.includes('manualDice') &&
     roster.some(({ id, manualDice }) => id === typer && manualDice === true)
-  const payload = typedHere ? { ...command, typed: true as const } : command
+  const payload = typedHere
+    ? {
+        ...command,
+        typed: true as const,
+        ...(effectDice &&
+          effectDice.length > 0 &&
+          campaign.rollFeatures.includes('effectDice') && { effectDice }),
+        ...(rerolls === 'kept' &&
+          campaign.rollFeatures.includes('keptRerolls') && { rerolls }),
+      }
+    : command
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,

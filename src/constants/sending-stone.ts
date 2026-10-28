@@ -185,7 +185,9 @@ export const MOST_AMONG = 20
  * each character's player where its roster entry says they may too (module 0.32.0); and from
  * module 0.41.0, roll damage on its own at the level, in the attack mode and with the ammunition
  * chosen, spending what its use would where asked (`aloneChoices`), and ask companions for the
- * saves their game asks of them (`companionPrompts`).
+ * saves their game asks of them (`companionPrompts`); and from module 0.42.0, take the dice a
+ * typed roll's effects add (`effectDice`), and keep a typed roll's rerolls the player's where it
+ * says so (`keptRerolls`).
  */
 export const ROLL_FEATURES = [
   'modifiers',
@@ -198,7 +200,39 @@ export const ROLL_FEATURES = [
   'manualDice',
   'aloneChoices',
   'companionPrompts',
+  'effectDice',
+  'keptRerolls',
 ] as const
+
+/**
+ * The rolls a player typing in their dice may type the dice of their effects for too, from module
+ * 0.42.0: those of a d20, which is never one of them.
+ */
+export const EFFECT_DICE_KINDS = [
+  'skill',
+  'tool',
+  'ability',
+  'save',
+  'death',
+  'initiative',
+  'attack',
+] as const
+
+/** The most dice an effect adds that one roll names, or one sheet lists, from module 0.42.0. */
+export const MOST_EFFECT_DICE = 10
+
+/**
+ * The dice an effect may add for its player to type in, from module 0.42.0: never a d20, so that
+ * no value typed for an effect ever reaches one, the roll's own or one the game adds.
+ */
+export const EFFECT_DIE_FACES = [4, 6, 8, 10, 12, 100] as const
+
+/**
+ * The rolls a die an effect adds is on, as a sheet lists them from module 0.42.0: every roll of a
+ * kind, such as "save", or one of them, by its key, such as "save.dex" or "skill.ath".
+ */
+export const EFFECT_TOKEN =
+  /^(attack|check|save|skill|tool|initiative|death|concentration)(\.[\w-]{1,32})?$/
 
 /**
  * A saving throw the game asks for, as the module names it: its chat card's id and its

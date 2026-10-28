@@ -211,6 +211,15 @@ describe('db/favorites, createFavoriteRequest', () => {
     expect(created()).not.toHaveProperty('label')
   })
 
+  it('stores no rerolls kept either, from module 0.42.0: nothing is rolled for a favorite', async () => {
+    given()
+    await createFavoriteRequest(
+      thorin,
+      favoriting(ADD_ROPE, { typed: true, rerolls: 'kept' }),
+    )
+    expect(created().payload).toEqual(favoriting(ADD_ROPE))
+  })
+
   it('refuses the Gamemaster’s seat, before anything is read, as nothing would mark it theirs', async () => {
     given()
     await expect(

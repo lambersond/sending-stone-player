@@ -32,6 +32,7 @@ import {
   TEXTS,
   typingRosterEntry,
   aloneSheet,
+  blessedSheet,
 } from '@/mocks/sending-stone'
 import { toCommand } from '@/utils/roll-requests'
 import type { SheetSeat } from '@/types/character'
@@ -2975,6 +2976,127 @@ describe('db/roll-requests, dice typed in, from module 0.32.0', () => {
   })
 })
 
+describe("db/roll-requests, effects' dice and rerolls kept, from module 0.42.0", () => {
+  const bless = { faces: 4 as const, sign: 1 as const, results: [3] }
+  const bane = { faces: 4 as const, sign: -1 as const, results: [1] }
+  /** Perception typed in, with Bless's and Bane's dice and its rerolls kept. */
+  const full: RollRequestInput = {
+    ...perception,
+    typed: true,
+    effectDice: [bless, bane],
+    rerolls: 'kept',
+  }
+
+  /** A game that lets players type in their dice, and Thorin's player, taking these too. */
+  const givenTaking = ({
+    features = ['manualDice', 'gmRolls', 'effectDice', 'keptRerolls'],
+    characters = [typingRosterEntry({ id: 'actor-thorin' })] as object[],
+  } = {}) => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...takingRolls,
+      rollFeatures: features,
+      bridgePolledAt: ago(5000),
+      characters,
+    } as any)
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: blessedSheet(),
+    } as any)
+    prismaMock.rollRequest.count.mockResolvedValue(0)
+    prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('keeps the dice effects add and the rerolls kept beside the dice typed in, where the game takes each', async () => {
+    givenTaking()
+
+    await expect(createRollRequest(character, full)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(stored()).toEqual(full)
+    expect(
+      toCommand({
+        id: 'req-1',
+        actorId: 'actor-thorin',
+        role: 'player',
+        kind: 'skill',
+        payload: stored(),
+        status: 'pending',
+        result: null,
+        createdAt: ago(0),
+        claimedAt: null,
+      }),
+    ).toEqual({ ...full, id: 'req-1', actorId: 'actor-thorin' })
+  })
+
+  it.each([
+    [
+      'the dice effects add, where the game takes only rerolls kept',
+      ['manualDice', 'keptRerolls'],
+      { ...perception, typed: true, rerolls: 'kept' },
+    ],
+    [
+      'the rerolls kept, where the game takes only the dice effects add',
+      ['manualDice', 'effectDice'],
+      { ...perception, typed: true, effectDice: [bless, bane] },
+    ],
+    [
+      'both, from a game before module 0.42.0',
+      ['manualDice'],
+      { ...perception, typed: true },
+    ],
+  ])('strips %s, refusing nothing', async (_name, features, kept) => {
+    givenTaking({ features })
+
+    await expect(createRollRequest(character, full)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(stored()).toEqual(kept)
+  })
+
+  it.each<[string, Parameters<typeof givenTaking>[0], SheetSeat?]>([
+    ['the Gamemaster', {}, gm()],
+    [
+      "a game that doesn't let players type",
+      { features: ['gmRolls', 'effectDice', 'keptRerolls'] },
+    ],
+    [
+      'a character whose player may not',
+      {
+        characters: [
+          typingRosterEntry({ id: 'actor-thorin', manualDice: false }),
+        ],
+      },
+    ],
+  ])(
+    'strips both with the dice typed in from %s, refusing nothing',
+    async (_name, given, seat = character) => {
+      givenTaking(given)
+
+      await expect(createRollRequest(seat, full)).resolves.toEqual({
+        id: 'req-1',
+      })
+      expect(stored()).toEqual(perception)
+      expect(stored()).not.toHaveProperty('effectDice')
+      expect(stored()).not.toHaveProperty('rerolls')
+    },
+  )
+
+  it('sends no empty list of the dice effects add', async () => {
+    givenTaking()
+
+    await createRollRequest(character, { ...full, effectDice: [] })
+    expect(stored()).toEqual({ ...perception, typed: true, rerolls: 'kept' })
+  })
+})
+
 describe('db/roll-requests, handing over removals of items, from module 0.33.0', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW })
@@ -3696,6 +3818,41 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
     await expect(createRollRequest(atWolf, death)).resolves.toEqual({
       id: 'req-1',
     })
+  })
+
+  it('keeps the dice effects add to a companion’s typed roll, and its rerolls kept, as its character’s', async () => {
+    const typedBite = {
+      ...bite,
+      typed: true as const,
+      effectDice: [{ faces: 4 as const, sign: 1 as const, results: [2] }],
+      rerolls: 'kept' as const,
+    }
+    given({
+      campaign: companionCampaign({
+        rollFeatures: ['manualDice', 'effectDice', 'keptRerolls'],
+      }),
+    })
+    await createRollRequest(atWolf, typedBite)
+    expect(
+      prismaMock.rollRequest.create.mock.calls[0][0].data.payload,
+    ).toMatchObject({
+      typed: true,
+      effectDice: typedBite.effectDice,
+      rerolls: 'kept',
+    })
+
+    // Stripped with the mark, where its character's player may not type.
+    given({
+      campaign: companionCampaign({
+        rollFeatures: ['manualDice', 'effectDice', 'keptRerolls'],
+        characters: [{ id: 'actor-thorin', name: 'Thorin' }],
+      }),
+    })
+    prismaMock.rollRequest.create.mockClear()
+    await createRollRequest(atWolf, typedBite)
+    const payload = prismaMock.rollRequest.create.mock.calls[0][0].data.payload
+    expect(payload).not.toHaveProperty('effectDice')
+    expect(payload).not.toHaveProperty('rerolls')
   })
 
   it('marks a companion’s dice typed in as its character’s player types theirs', async () => {

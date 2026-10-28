@@ -6,6 +6,7 @@ import { useRollsLocked } from '@/hooks/use-rolls-locked'
 import type { MenuPoint } from './roll-menu'
 import type { RollSource } from '@/types/roll'
 import type { RollMode } from '@/types/sending-stone'
+import type { EffectAsk } from '@/utils/effect-dice'
 
 /** Something on the sheet that rolls: a check or save, its modifier, and the character's mode. */
 export type RollTarget = {
@@ -16,6 +17,11 @@ export type RollTarget = {
   mode: RollMode
   /** What it is, for the Gamemaster's game to make it too; unset for a roll it can't make. */
   source?: RollSource
+  /**
+   * For a saving throw a description's link calls for, what the link asks, such as a concentration
+   * check, for the dice effects add to it (module 0.42.0).
+   */
+  ask?: EffectAsk
 }
 
 /** How long a touch must be held to open the roll's menu, in milliseconds. */

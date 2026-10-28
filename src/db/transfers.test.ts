@@ -718,4 +718,15 @@ describe('db/transfers, a move beside a removal on its way, from module 0.33.0',
     expect(payload).toEqual(give('potionThorin'))
     expect(payload).not.toHaveProperty('typed')
   })
+
+  it('stores no rerolls kept with it either, from module 0.42.0: nothing is rolled for a move', async () => {
+    removing()
+    await createTransferRequest(thorin, {
+      ...give('potionThorin'),
+      typed: true,
+      rerolls: 'kept',
+    })
+    const { payload } = prismaMock.rollRequest.create.mock.calls[0][0].data
+    expect(payload).toEqual(give('potionThorin'))
+  })
 })

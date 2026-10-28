@@ -7,6 +7,7 @@ import type { FoundrySettings } from '@/types/foundry-settings'
 import type { NoteBookKind, NoteRole } from '@/types/notes'
 import type { GroupEntry, GroupSheet } from '@/types/party'
 import type { RemovedItem, TransferMoved } from '@/types/roll'
+import type { DieSides } from '@lambersond/3d-dice-core'
 
 /**
  * What the fvtt-sending-stone module sends, as far as this app reads it. Payloads may carry more
@@ -1152,6 +1153,26 @@ export type CriticalRule = {
   bonusDice?: 'rolled' | 'maximized' | 'ignored' | null
 }
 
+/**
+ * A die one of the character's effects adds to its d20 rolls, or takes from them, as dnd5e will add
+ * it, for its player to type in, from module 0.42.0, under dnd5e 5: such as Bless's d4. Named by
+ * the spell or item it comes from, never by an actor, but where two share a name, a party caster's
+ * added; the effect by the sheet's id for it; the die, never a d20; and the rolls it's on, every
+ * roll of a kind, such as "save", or one, by its key, such as "skill.ath".
+ */
+export type SheetEffectDie = {
+  /** Such as "Bless", or "Bless (Vex)" beside another Bless. */
+  name: string
+  /** As the sheet's effects name it, "<id>", or "<itemId>.<id>" for an item's. */
+  effect: string
+  faces: DieSides
+  count: number
+  /** 1 where it's added, -1 where it's taken away, as Bane's is. */
+  sign: 1 | -1
+  /** Such as ["attack", "save", "death", "concentration"], or ["skill.ath"]. */
+  on: string[]
+}
+
 export type CharacterSheet = {
   /** Relative to the game's address, or a full URL. */
   img: string | null
@@ -1208,6 +1229,12 @@ export type CharacterSheet = {
   form?: SheetForm
   /** A 2024 druid's Wild Shape. Module 0.40.0, to an app that says `wildShape`; absent before. */
   wildShape?: SheetWildShape
+  /**
+   * The dice its effects add to its d20 rolls, for its player to type in, at most 10. Module
+   * 0.42.0, under dnd5e 5, read only where its hello says `effectDice`; absent where there are
+   * none, and before.
+   */
+  effectDice?: SheetEffectDie[]
   actions: SheetActionSection[]
   /** In the order dnd5e shows them: resources first, then in the player's order. */
   favorites: SheetFavorite[]
@@ -1459,6 +1486,17 @@ export type BridgeFeatures = {
      * that says `companions: 2`: wherever `prompts` is. Module 0.41.0.
      */
     companionPrompts?: boolean
+    /**
+     * Whether a typed d20 roll's effects' dice, `effectDice`, are its player's where they typed
+     * them: where `manualDice` is, under dnd5e 5, its self-test passed. Module 0.42.0.
+     */
+    effectDice?: boolean
+    /**
+     * Whether a typed roll that says its rerolls were made at the table, `rerolls: "kept"`, keeps
+     * the dice typed, Foundry rerolling none of them: where `manualDice` is, its self-test passed.
+     * Module 0.42.0.
+     */
+    keptRerolls?: boolean
   } | null
   /**
    * Whether its players may move items and coins from here, apart from the rolls: on, with

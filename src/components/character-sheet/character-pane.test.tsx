@@ -21,6 +21,8 @@ import {
   usedBy,
 } from '@/mocks/alone'
 import {
+  BLESS_DIE,
+  blessedSheet,
   castingSheet,
   characterSheet,
   checkingSheet,
@@ -58,8 +60,10 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 }))
 
 // The dice entry dialog is APP-B's, tested beside it (module 0.32.0): here, one that says what
-// it asks for and types a 4 for every die, at most its highest face, or is cancelled.
+// it asks for and types a 4 for every die, at most its highest face, or is cancelled. While
+// `mockSkipping` is set, from module 0.42.0, it skips each die an effect adds, for the game.
 const mockEntries: import('@/types/dice-entry').DiceEntry[] = []
+let mockSkipping = false
 jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
   DiceEntryDialog: ({
     entry,
@@ -83,8 +87,10 @@ jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
           type='button'
           onClick={() =>
             onDone(
-              entry.terms.map(({ count, sides }) =>
-                Array.from({ length: count }, () => Math.min(sides, 4)),
+              entry.terms.map(({ count, sides, skippable }) =>
+                mockSkipping && skippable
+                  ? []
+                  : Array.from({ length: count }, () => Math.min(sides, 4)),
               ),
             )
           }
@@ -5804,5 +5810,275 @@ describe('components/character-sheet/character-pane, Wild Shape, from module 0.4
     await waitFor(() => expect(tray).toHaveTextContent('Became a Wolf'), {
       timeout: 3000,
     })
+  })
+})
+
+/** What the dice dialog asked for last, term by term. */
+const asked = () => mockEntries.at(-1)?.terms.map(({ label }) => label)
+
+/** dnd5e's concentration check, as its card asks it of Thorin. */
+const concentration = (fields: Partial<TablePrompt> = {}): TablePrompt => ({
+  id: 'msg2-thorin',
+  type: 'concentration',
+  abilities: ['con'],
+  label: 'Bless',
+  expiresAt: new Date(Date.now() + 600_000).toISOString(),
+  ...fields,
+})
+
+describe('components/character-sheet/character-pane, the dice effects add, from module 0.42.0', () => {
+  const typing = { on: true, onChange: jest.fn() }
+  const FEATURES: RollFeature[] = ['manualDice', 'effectDice', 'keptRerolls']
+
+  beforeEach(() => {
+    clearStorage()
+    mockEntries.length = 0
+    mockSkipping = false
+  })
+
+  const pane = (
+    fields: Partial<React.ComponentProps<typeof CharacterPane>> = {},
+  ) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={toTableSheet(blessedSheet(), GAME)}
+      rollsToTable={['save', 'skill']}
+      rollFeatures={FEATURES}
+      manualDice={typing}
+      {...fields}
+    />
+  )
+
+  it("asks a save typed in for Bless's and Bane's dice by name, after its d20, and sends them as typed", async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(pane())
+
+    await user.click(
+      screen.getByRole('button', { name: /^Dexterity saving throw/ }),
+    )
+    const dialog = screen.getByRole('dialog', {
+      name: 'Dexterity saving throw',
+    })
+    expect(asked()).toEqual(['d20', 'Bless: +1d4', 'Bane: −1d4'])
+    // Named by the spells, never by who cast them.
+    expect(dialog).not.toHaveTextContent(/Vex|Grukk/)
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'save',
+        key: 'dex',
+        dice: [{ faces: 20, results: [4] }],
+        typed: true,
+        rerolls: 'kept',
+        effectDice: [
+          { faces: 4, sign: 1, results: [4] },
+          { faces: 4, sign: -1, results: [4] },
+        ],
+      }),
+    ])
+  })
+
+  it('asks Athletics for Guidance alone, and Perception and Stealth for none', async () => {
+    const user = userEvent.setup()
+    answering({})
+    render(pane())
+
+    await user.click(screen.getByRole('button', { name: /^Athletics check/ }))
+    expect(asked()).toEqual(['d20', 'Guidance: +1d4'])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await user.click(screen.getByRole('button', { name: /^Perception check/ }))
+    expect(asked()).toEqual(['d20'])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await user.click(screen.getByRole('button', { name: /^Stealth check/ }))
+    expect(asked()).toEqual(['d20, disadvantage'])
+  })
+
+  it.each([
+    ['takes neither', ['manualDice'], undefined],
+    [
+      'keeps rerolls but takes no dice of effects',
+      ['manualDice', 'keptRerolls'],
+      'kept',
+    ],
+  ] as const)(
+    'asks for no die of an effect where the game %s',
+    async (_, features, rerolls) => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      render(pane({ rollFeatures: [...features] }))
+
+      await user.click(
+        screen.getByRole('button', { name: /^Dexterity saving throw/ }),
+      )
+      expect(asked()).toEqual(['d20'])
+      await user.click(screen.getByRole('button', { name: 'Done' }))
+
+      expect(posted).toHaveLength(1)
+      expect(posted[0]).not.toHaveProperty('effectDice')
+      expect(posted[0].rerolls).toBe(rerolls)
+    },
+  )
+
+  it("throws the app's own dice, asking for no die of an effect, while typing is off", async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(pane({ manualDice: { on: false, onChange: jest.fn() } }))
+
+    await user.click(
+      screen.getByRole('button', { name: /^Dexterity saving throw/ }),
+    )
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(posted).toHaveLength(1)
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    expect(posted[0]).not.toHaveProperty('rerolls')
+  })
+
+  it("asks a companion's save for its own sheet's Bless", async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(
+      pane({
+        characterId: 'seat:c:brakka',
+        name: 'Brakka',
+        sheet: toTableSheet(characterSheet({ effectDice: [BLESS_DIE] }), GAME),
+        creature: { name: 'Brakka', relation: { kind: 'owned', of: 'Thorin' } },
+        idPrefix: 'creature-brakka-',
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: /^Dexterity saving throw/ }),
+    )
+    expect(asked()).toEqual(['d20', 'Bless: +1d4'])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(posted).toEqual([
+      expect.objectContaining({
+        effectDice: [{ faces: 4, sign: 1, results: [4] }],
+      }),
+    ])
+  })
+
+  // Changed on purpose (round 0.42.0's review fixes, §2.1 amended): Midi-QOL's concentration
+  // check is made with dnd5e's own, which adds concentration's bonuses, so it asks for their dice.
+  it("asks a concentration check dnd5e's card asks, and one Midi-QOL asks, for the dice an effect adds to concentration", async () => {
+    const user = userEvent.setup()
+    answering({})
+    const focus = {
+      name: 'Ring of Focus',
+      effect: 'ringOfFocus',
+      faces: 6,
+      count: 1,
+      sign: 1,
+      on: ['concentration'],
+    } as const
+    const sheet = toTableSheet(
+      characterSheet({
+        effectDice: [BLESS_DIE, { ...focus, on: [...focus.on] }],
+      }),
+      GAME,
+    )
+    const { rerender } = render(
+      pane({
+        sheet,
+        rollFeatures: ['prompts', ...FEATURES],
+        prompts: [concentration()],
+      }),
+    )
+    const roll = () =>
+      user.click(
+        within(
+          screen.getByRole('region', { name: 'Your Gamemaster asks' }),
+        ).getByRole('button', { name: /^Roll Concentration check/ }),
+      )
+
+    await roll()
+    expect(asked()).toEqual(['d20', 'Bless: +1d4', 'Ring of Focus: +1d6'])
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    rerender(
+      pane({
+        sheet,
+        rollFeatures: ['prompts', ...FEATURES],
+        prompts: [concentration({ id: 'k9y-thorin', source: 'concentration' })],
+      }),
+    )
+    await roll()
+    // Midi-QOL has it made with dnd5e's concentration check too, which adds concentration's own.
+    expect(asked()).toEqual(['d20', 'Bless: +1d4', 'Ring of Focus: +1d6'])
+  })
+
+  // Review fix (round 0.42.0): a roll the game isn't sent is the player's alone, and no game would
+  // roll a die of an effect skipped, so none is asked: the total is theirs, and so is the verdict.
+  it.each([
+    ['from a device that sends none', 'off', ['save', 'skill']],
+    ["of a kind the game doesn't take", 'on', ['skill']],
+  ] as const)(
+    'asks a save for no die of an effect %s, as it goes to no game',
+    async (_, sending, kinds) => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      globalThis.localStorage.setItem(SEND_KEY, sending)
+      render(pane({ rollsToTable: [...kinds] }))
+
+      await user.click(
+        screen.getByRole('button', { name: /^Dexterity saving throw/ }),
+      )
+      expect(asked()).toEqual(['d20'])
+      expect(mockEntries.at(-1)).not.toHaveProperty('skippedWords')
+      await user.click(screen.getByRole('button', { name: 'Done' }))
+
+      expect(posted).toEqual([])
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^5Dexterity saving throwd20 4 \+1/,
+      )
+    },
+  )
+
+  it("asks an attack the game doesn't take for no die of an effect", async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    render(
+      pane({
+        sheet: toTableSheet(fullerSheet({ effectDice: [BLESS_DIE] }), GAME),
+      }),
+    )
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+    await user.click(
+      screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+    )
+    expect(asked()).toEqual(['d20'])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(posted).toEqual([])
+  })
+
+  it("says whether a description's save made its DC on a device that sends none, no die of an effect left to a game", async () => {
+    describing({ [TEXTS.secondWind]: SAVE })
+    globalThis.localStorage.setItem(SEND_KEY, 'off')
+    // The player skips every die of an effect they're asked for.
+    mockSkipping = true
+    render(
+      pane({
+        characterId: 'blessed-described',
+        sheet: toTableSheet(fullerSheet({ effectDice: [BLESS_DIE] }), GAME),
+      }),
+    )
+    const user = await openSecondWind()
+
+    await user.click(screen.getByRole('button', { name: 'DC 15 Strength' }))
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll my Strength save (+7)' }),
+    )
+    expect(asked()).toEqual(['d20'])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    // 4 and 7: no die skipped, so it says so itself, the game never asked.
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /^11Strength saving throwd20 4 \+7 · DC 15 · Failed/,
+    )
   })
 })

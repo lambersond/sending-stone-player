@@ -1087,6 +1087,9 @@ function savedHere(
   state?: TableRollState,
 ): string | undefined {
   if (roll.dc === undefined || (state && !NOT_MADE.has(state.status))) return
+  // A die its effects add skipped, for the game to roll, isn't in its total here, which can't say
+  // then whether it made it (module 0.42.0).
+  if (roll.skipped) return
   return verdictWord(roll.total >= roll.dc, roll.verdict)
 }
 
@@ -2129,6 +2132,8 @@ function madeIt(roll: LocalCheck, state?: TableRollState): boolean | undefined {
     return state.visible ? savedAt(state, roll.dc) : undefined
   }
   if (roll.dc === undefined || (state && !NOT_MADE.has(state.status))) return
+  // Nor by this roll where a die its effects add was skipped, which its total leaves out.
+  if (roll.skipped) return
   return roll.total >= roll.dc
 }
 

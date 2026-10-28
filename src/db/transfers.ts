@@ -146,9 +146,10 @@ export async function createTransferRequest(
 
   // What it's called is the app's alone, as for a roll: the Gamemaster's is kept for the
   // character's player to be shown it by. Nothing is typed in for a move, so nothing says so: a
-  // `typed` would badge its line "Entered by hand".
+  // `typed` would badge its line "Entered by hand"; nor that its rerolls were kept (module 0.42.0).
   const { label, ...command } = input
   delete command.typed
+  delete command.rerolls
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,

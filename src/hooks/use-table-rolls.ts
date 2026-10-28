@@ -380,14 +380,22 @@ export function useTableRolls(
     [],
   )
 
+  /**
+   * Whether a d20 roll from the sheet goes to the game from this device now: Send to the table on,
+   * the game taking its kind, and a check an activity asks for only where the game makes it against
+   * the activity, from module 0.21.0. Any other is the player's alone. As the latest render has it,
+   * for what's asked of a roll as it's made, such as the dice its effects add, to stay the same.
+   */
+  const sends = useCallback((source?: RollSource): source is RollSource => {
+    const { kinds, features, on } = latest.current
+    if (!on || !source || !kinds.includes(source.kind)) return false
+    return !activityCheck(source) || features.includes('activityChecks')
+  }, [])
+
   const send = useCallback(
     (roll: SheetRoll, check: LocalCheck) => {
       const { source } = roll
-      const { kinds, features, on } = latest.current
-      if (!on || !source || !kinds.includes(source.kind)) return
-      // A check an activity asks for goes only to a game that makes it against the activity, from
-      // module 0.21.0; to any other, it's the player's alone.
-      if (activityCheck(source) && !features.includes('activityChecks')) return
+      if (!sends(source)) return
       let kept: Partial<TableRollState> = {}
       if (source.kind === 'attack') {
         kept = {
@@ -400,7 +408,7 @@ export function useTableRolls(
       }
       start(check.id, toRollRequest(roll, source, check), kept, roll.label)
     },
-    [start],
+    [start, sends],
   )
 
   const sendDamage = useCallback(
@@ -436,6 +444,8 @@ export function useTableRolls(
             ...(alone.critical && { critical: true as const }),
             ...(modifiers && changes(modifiers) && { modifiers }),
             ...(damage.typed && { typed: true as const }),
+            ...(damage.typed &&
+              damage.rerolls === 'kept' && { rerolls: 'kept' as const }),
           },
           // So that the tray words it as on its own, its kind not being in its state, and says
           // what it spent where it asked to.
@@ -465,6 +475,8 @@ export function useTableRolls(
             ...(roll.critical && { critical: true as const }),
             ...(modifiers && changes(modifiers) && { modifiers }),
             ...(damage.typed && { typed: true as const }),
+            ...(damage.typed &&
+              damage.rerolls === 'kept' && { rerolls: 'kept' as const }),
           },
           {},
           roll.label,
@@ -492,6 +504,9 @@ export function useTableRolls(
           ...(types?.some(type => type !== null) && { types }),
           ...(modifiers && changes(modifiers) && { modifiers }),
           ...(damage.typed && { typed: true as const }),
+          // Its rerolls made at the table, as typed in, from module 0.42.0.
+          ...(damage.typed &&
+            damage.rerolls === 'kept' && { rerolls: 'kept' as const }),
         },
         {},
         roll.label,
@@ -803,6 +818,8 @@ export function useTableRolls(
           extras: [],
           dice: [{ faces: 6, results: rolled.terms[0]?.values ?? [] }],
           ...(rolled.typed && { typed: true as const }),
+          ...(rolled.typed &&
+            rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
         },
         // So that the tray words its outcome as a recharge's, not a save's.
         { recharge: true },
@@ -870,6 +887,11 @@ export function useTableRolls(
     setAlone,
     /** Whether the game takes this kind of roll from this device now. */
     takes: (kind: RollKind) => on && kinds.includes(kind),
+    /**
+     * Whether a d20 roll from the sheet goes to the game from this device now, as `send` sends it:
+     * the same function each render, read as the roll is made.
+     */
+    sends,
     /** Whether the game takes damage the player changed from this device now. */
     modifies: on && kinds.includes('damage') && features.includes('modifiers'),
     /**
@@ -883,6 +905,18 @@ export function useTableRolls(
      * before, on its first die whatever its sign.
      */
     signsText: features.includes('signedDice'),
+    /**
+     * Whether the game takes the dice a typed d20 roll's effects add, such as Bless's d4, as its
+     * player typed them, from module 0.42.0, from this device now: they're asked for, or skipped
+     * for the game to roll, only of a roll it's sent (`sends`). One the player keeps to themselves
+     * asks none, as no game would roll one skipped.
+     */
+    typedEffects: on && features.includes('effectDice'),
+    /**
+     * Whether the game keeps the dice of a typed roll as its player rerolled them at the table,
+     * rerolling none of them itself, from module 0.42.0.
+     */
+    keptRerolls: features.includes('keptRerolls'),
     /** Whether the game makes an area attack at the combatants picked, from this device now. */
     areas: on && kinds.includes('attack') && features.includes('areaAttacks'),
     /**
@@ -1300,6 +1334,12 @@ export function toRollRequest(
     ],
     // Its player typed its dice in, from their own, from module 0.32.0.
     ...(check.typed && { typed: true as const }),
+    // And from module 0.42.0, the dice its effects add that they typed in, after the dice of the
+    // terms they added, none skipped; and that they rerolled at the table, as their feature says.
+    ...(check.typed &&
+      check.effectDice?.length && { effectDice: check.effectDice }),
+    ...(check.typed &&
+      check.rerolls === 'kept' && { rerolls: 'kept' as const }),
   }
 }
 
@@ -1339,6 +1379,8 @@ export function toFormulaRequest(
         : [],
     ),
     ...(rolled.typed && { typed: true as const }),
+    ...(rolled.typed &&
+      rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
   }
 }
 
@@ -1361,6 +1403,8 @@ export function toHitDiceRequest(
       results: rolled.terms[index]?.values ?? [],
     })),
     ...(rolled.typed && { typed: true as const }),
+    ...(rolled.typed &&
+      rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
   }
 }
 
@@ -1381,6 +1425,8 @@ export function toHitDieRequests(
       extras: [],
       dice: [{ faces: Number(denomination.slice(1)), results: [value] }],
       ...(rolled.typed && { typed: true as const }),
+      ...(rolled.typed &&
+        rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
     })),
   )
 }
