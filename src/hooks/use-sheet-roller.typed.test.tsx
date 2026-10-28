@@ -143,9 +143,11 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
       expect(dis).toMatchObject({ d20s: [4, 15], natural: 4, total: 9 })
     })
 
-    it('asks for three d20s only with advantage where dnd5e gives the attack Elven Accuracy', async () => {
+    // Changed on purpose (round 0.42.1 §7.2): the third d20 on a line of its own after the two,
+    // with no Skip where the roll isn't sent; its value kept among the d20s.
+    it('asks for a third d20 only with advantage where dnd5e gives the attack Elven Accuracy, on its own line', async () => {
       renderer()
-      const { enter, asked } = typing([[3, 18, 7]], [[3, 9]], [[11]])
+      const { enter, asked } = typing([[3, 18], [7]], [[3, 9]], [[11]])
       const { result } = setUp(enter)
       const rapier: SheetRoll = {
         label: 'Rapier attack',
@@ -157,10 +159,18 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
       await rolled(() => result.current.roll({ ...rapier, advantage: 'dis' }))
       await rolled(() => result.current.roll(rapier))
 
-      expect(asked.map(({ terms }) => terms[0])).toEqual([
-        { sides: 20, count: 3, label: 'd20, advantage (Elven Accuracy)' },
-        { sides: 20, count: 2, label: 'd20, disadvantage' },
-        { sides: 20, count: 1, label: 'd20' },
+      expect(asked[0].terms).toEqual([
+        { sides: 20, count: 2, label: 'd20, advantage' },
+        {
+          sides: 20,
+          count: 1,
+          label: 'Elven Accuracy: third d20',
+          name: 'Elven Accuracy',
+        },
+      ])
+      expect(asked.slice(1).map(({ terms }) => terms)).toEqual([
+        [{ sides: 20, count: 2, label: 'd20, disadvantage' }],
+        [{ sides: 20, count: 1, label: 'd20' }],
       ])
       const [plain, dis, adv] = result.current.rolls as LocalCheck[]
       expect(adv).toMatchObject({ d20s: [3, 18, 7], natural: 18, total: 25 })
@@ -853,9 +863,11 @@ describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from m
       expect(two.asked[0].skippedWords?.([3])).toBe('not counting Bane’s 2d4')
     })
 
-    it('keeps the three boxes of Elven Accuracy as one group, the effects after', async () => {
+    // Changed on purpose (round 0.42.1 §7.2): Elven Accuracy's third d20 on a line of its own,
+    // right after the two, the effects after it.
+    it('asks for Elven Accuracy’s third d20 on its own line after the two, the effects after', async () => {
       renderer()
-      const { enter, asked } = typing([[3, 18, 7], [4]])
+      const { enter, asked } = typing([[3, 18], [7], [4]])
       const { result } = setUpTyped(enter, [BLESS_DIE])
 
       await rolled(() =>
@@ -873,7 +885,8 @@ describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from m
       )
 
       expect(asked[0].terms.map(({ label, count }) => [label, count])).toEqual([
-        ['d20, advantage (Elven Accuracy)', 3],
+        ['d20, advantage', 2],
+        ['Elven Accuracy: third d20', 1],
         ['Bless: +1d4', 1],
       ])
       const [roll] = result.current.rolls as LocalCheck[]
@@ -1036,5 +1049,204 @@ describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from m
       expect(asked[1]).not.toHaveProperty('note')
       expect(hit).toMatchObject({ total: 6, rerolls: 'kept' })
     })
+  })
+})
+
+describe('hooks/use-sheet-roller, Elven Accuracy’s third d20 on its own line, from 0.42.1', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  /**
+   * The roller as the pane makes it while typing: these effects' dice, and whether each roll goes
+   * to the game, unsaid as before 0.42.1.
+   */
+  function setUpElven(
+    enter: EnterDice,
+    {
+      effects = [],
+      sends,
+    }: { effects?: SheetEffectDie[]; sends?: boolean } = {},
+  ) {
+    const typedRolls: TypedRolls = {
+      effectsFor: () => effects,
+      keptRerolls: false,
+      ...(sends !== undefined && { sends: () => sends }),
+    }
+    const onThrown = jest.fn<void, [SheetRoll, LocalCheck]>()
+    const hook = renderHook(() =>
+      useSheetRoller(onThrown, undefined, undefined, enter, typedRolls),
+    )
+    return { ...hook, onThrown }
+  }
+
+  const ATTACK = {
+    kind: 'attack',
+    item: 'rapier',
+    activity: 'rapierAttack',
+  } as const
+  const rapier: SheetRoll = {
+    label: 'Rapier attack',
+    modifier: 7,
+    advantage: 'adv',
+    elvenAccuracy: true,
+    source: ATTACK,
+  }
+  const GROUP = { sides: 20, count: 2, label: 'd20, advantage' }
+  const ELVEN = {
+    sides: 20,
+    count: 1,
+    label: 'Elven Accuracy: third d20',
+    name: 'Elven Accuracy',
+  }
+
+  it('may skip the third d20 where the roll goes to the game, the two typed sent and the higher kept', async () => {
+    renderer()
+    const { enter, asked } = typing([[3, 18], []])
+    const { result, onThrown } = setUpElven(enter, { sends: true })
+
+    await rolled(() => result.current.roll(rapier))
+
+    const [entry] = asked
+    expect(entry.terms).toEqual([GROUP, { ...ELVEN, skippable: true }])
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(roll).toMatchObject({
+      d20s: [3, 18],
+      natural: 18,
+      total: 18 + 7,
+      skipped: true,
+      typed: true,
+      extras: [],
+    })
+    expect(roll).not.toHaveProperty('effectDice')
+    expect(onThrown).toHaveBeenCalledWith(rapier, roll)
+    const request = toRollRequest(rapier, ATTACK, roll)
+    expect(request.dice).toEqual([{ faces: 20, results: [3, 18] }])
+    expect(request).not.toHaveProperty('effectDice')
+    // The total says what it leaves out: the game's third d20.
+    expect(entry.total([[3, 18], []])).toBe(25)
+    expect(entry.skippedWords?.([1])).toBe('not counting Elven Accuracy’s d20')
+  })
+
+  it('keeps the highest of the three typed, the third among the d20s, as typed so far too', async () => {
+    renderer()
+    const { enter, asked } = typing([[3, 9], [19]])
+    const { result } = setUpElven(enter, { sends: true })
+
+    await rolled(() => result.current.roll(rapier))
+
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(roll).toMatchObject({ d20s: [3, 9, 19], natural: 19, total: 26 })
+    expect(roll).not.toHaveProperty('skipped')
+    expect(toRollRequest(rapier, ATTACK, roll).dice).toEqual([
+      { faces: 20, results: [3, 9, 19] },
+    ])
+    const [entry] = asked
+    expect(entry.total([[3, 9], [19]])).toBe(26)
+    // The third alone counts, typed before the two; none typed counts for nothing.
+    expect(entry.total([[undefined, undefined], [12]])).toBe(19)
+    expect(entry.total([[undefined, undefined], [undefined]])).toBe(7)
+  })
+
+  it("reads the player's own dice and the effects' after the third, wording each skipped by its place", async () => {
+    renderer()
+    const { enter, asked } = typing([[3, 18], [], [2], [4]], [[3, 18], [], []])
+    const { result } = setUpElven(enter, {
+      effects: [BLESS_DIE],
+      sends: true,
+    })
+    const plusD4: SheetRoll = { ...rapier, extras: [d(1, 4)] }
+
+    await rolled(() => result.current.roll(plusD4))
+    await rolled(() => result.current.roll(rapier))
+
+    const [own, plain] = asked
+    expect(own.terms.map(({ label }) => label)).toEqual([
+      'd20, advantage',
+      'Elven Accuracy: third d20',
+      '+1d4',
+      'Bless: +1d4',
+    ])
+    const [blessed, roll] = result.current.rolls as LocalCheck[]
+    // The +1d4's value is the player's own, the first of the extras and the request's second die.
+    expect(roll.extras).toEqual([
+      { text: '+1d4', values: [2], value: 2 },
+      { text: 'Bless +1d4', values: [4], value: 4 },
+    ])
+    expect(roll).toMatchObject({ d20s: [3, 18], total: 18 + 7 + 2 + 4 })
+    expect(roll.skipped).toBe(true)
+    const request = toRollRequest(plusD4, ATTACK, roll)
+    expect(request.dice).toEqual([
+      { faces: 20, results: [3, 18] },
+      { faces: 4, results: [2] },
+    ])
+    expect(request.effectDice).toEqual([{ faces: 4, sign: 1, results: [4] }])
+    expect(own.skippedWords?.([1])).toBe('not counting Elven Accuracy’s d20')
+    expect(own.skippedWords?.([3])).toBe('not counting Bless’s d4')
+    expect(own.skippedWords?.([1, 3])).toBe(
+      'not counting 2 dice the game rolls',
+    )
+
+    // Bless's die the third term without one of the player's own, both skipped.
+    expect(plain.skippedWords?.([2])).toBe('not counting Bless’s d4')
+    expect(plain.skippedWords?.([1, 2])).toBe(
+      'not counting 2 dice the game rolls',
+    )
+    expect(blessed).toMatchObject({ d20s: [3, 18], total: 25, skipped: true })
+    expect(blessed).not.toHaveProperty('effectDice')
+  })
+
+  it.each([
+    ['the roll goes to no game', false],
+    ["it's unsaid whether the roll goes to the game", undefined],
+  ])(
+    'asks the third d20 on its own line with no Skip where %s',
+    async (_, sends) => {
+      renderer()
+      const { enter, asked } = typing([[3, 18], [7]])
+      const { result } = setUpElven(enter, { sends })
+
+      await rolled(() => result.current.roll(rapier))
+
+      expect(asked[0].terms).toEqual([GROUP, ELVEN])
+      expect(asked[0]).not.toHaveProperty('skippedWords')
+      expect(result.current.rolls[0]).toMatchObject({ d20s: [3, 18, 7] })
+    },
+  )
+
+  it("offers no Skip where the roll adds a d20 of the player's own, whose value the game would give the third", async () => {
+    renderer()
+    const { enter, asked } = typing([[3, 18], [7], [11]])
+    const { result } = setUpElven(enter, { sends: true })
+    const plusD20: SheetRoll = { ...rapier, extras: [d(1, 20)] }
+
+    await rolled(() => result.current.roll(plusD20))
+
+    expect(asked[0].terms).toEqual([
+      GROUP,
+      ELVEN,
+      { sides: 20, count: 1, label: '+1d20' },
+    ])
+    expect(asked[0]).not.toHaveProperty('skippedWords')
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(toRollRequest(plusD20, ATTACK, roll).dice).toEqual([
+      { faces: 20, results: [3, 18, 7] },
+      { faces: 20, results: [11] },
+    ])
+  })
+
+  it('asks for no third d20 with disadvantage, or without the mark, though the roll goes to the game', async () => {
+    renderer()
+    const { enter, asked } = typing([[3, 9]], [[4, 15]])
+    const { result } = setUpElven(enter, { sends: true })
+
+    await rolled(() => result.current.roll({ ...rapier, advantage: 'dis' }))
+    await rolled(() =>
+      result.current.roll({ ...rapier, elvenAccuracy: undefined }),
+    )
+
+    expect(asked.map(({ terms }) => terms)).toEqual([
+      [{ sides: 20, count: 2, label: 'd20, disadvantage' }],
+      [GROUP],
+    ])
+    for (const entry of asked) expect(entry).not.toHaveProperty('skippedWords')
   })
 })

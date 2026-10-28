@@ -32,7 +32,14 @@ import {
   type ExtraDice,
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
-import { d20Count, d20Label, typedResult } from '@/utils/typed-dice'
+import {
+  d20Count,
+  d20Label,
+  ELVEN_DIE,
+  ELVEN_LABEL,
+  ELVEN_LINE,
+  typedResult,
+} from '@/utils/typed-dice'
 import type { EffectOp } from '@/constants/sending-stone'
 import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
@@ -104,7 +111,8 @@ export type SheetRoll = {
   itemCast?: boolean
   /**
    * dnd5e gives this attack Elven Accuracy, as its sheet says: a third d20 with advantage, typed
-   * in.
+   * in, from 0.42.1 on its own line, which may be skipped for the game to roll where the roll goes
+   * to the game.
    */
   elvenAccuracy?: true
   /** For an answer to what the game asks, when it stops waiting, as an ISO time. */
@@ -235,7 +243,10 @@ export type LocalCheck = {
   total: number
   modifier: number
   advantage?: Advantage
-  /** Every d20 thrown: two with advantage or disadvantage. */
+  /**
+   * Every d20 thrown: two with advantage or disadvantage, three with Elven Accuracy's, or two where
+   * its third was skipped for the game to roll.
+   */
   d20s: number[]
   /** The d20 that counts. */
   natural: number
@@ -258,8 +269,9 @@ export type LocalCheck = {
    */
   effectDice?: RollRequestInput['effectDice']
   /**
-   * A die its effects add was skipped, for the game to roll it, from module 0.42.0: its total here
-   * leaves that out, so it says neither saved nor failed by itself.
+   * A die its effects add was skipped, for the game to roll it, from module 0.42.0, or from 0.42.1
+   * Elven Accuracy's third d20: its total here leaves that out, so it says neither saved nor failed
+   * by itself.
    */
   skipped?: true
   /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
@@ -458,12 +470,18 @@ export type LocalRoll =
 /**
  * What the game takes of a roll typed in, from module 0.42.0: the dice the character's effects add
  * to it, or take from it, each asked for, or skipped for the game to roll; and whether the dice
- * typed are kept as the player rerolled them at the table.
+ * typed are kept as the player rerolled them at the table. From 0.42.1, whether the roll goes to
+ * the game at all, for Elven Accuracy's third d20 to be skipped for it to roll.
  */
 export type TypedRolls = {
   /** The dice effects add to this roll, to type in: none where the game takes none. */
   effectsFor: (request: SheetRoll) => SheetEffectDie[]
   keptRerolls: boolean
+  /**
+   * Whether this roll goes to the game from this device now, from 0.42.1: only then may Elven
+   * Accuracy's third d20 be skipped, for the game to roll. Left out, it doesn't.
+   */
+  sends?: (request: SheetRoll) => boolean
 }
 
 /** A die an effect adds, as the player typed it: no values where it was skipped. */
@@ -482,9 +500,10 @@ let uses = 0
  * what they came to: to have the Gamemaster's game make it too.
  * @param onDamageThrown - The same, for damage.
  * @param onFormulaThrown - The same, for a hit die or a formula.
- * @param typedRolls - While the player types in their own dice, where the game takes either, from
- * module 0.42.0: the dice effects add to each roll, asked for after the player's own, and whether
- * the dice typed are kept as rerolled at the table.
+ * @param typedRolls - While the player types in their own dice, from module 0.42.0: the dice
+ * effects add to each roll, asked for after the player's own, and whether the dice typed are kept
+ * as rerolled at the table; and from 0.42.1, whether each roll goes to the game, for Elven
+ * Accuracy's third d20 to be skipped.
  * @returns With `roll`, `rollDamage` and `rollFormula`, each resolving true once its roll is kept,
  * or false where the player cancelled typing its dice in.
  */
@@ -538,36 +557,74 @@ export function useSheetRoller(
       let extra: RollResult | undefined
       let typedEffects: TypedEffect[] = []
       let typed = false
+      // Elven Accuracy's third d20 skipped, from 0.42.1, for the game to roll.
+      let thirdSkipped = false
       if (enter) {
-        // The player's own d20s: a third with advantage, where dnd5e gives the attack Elven
-        // Accuracy; then each die they added. The d20s typed so far count for what the higher
-        // of them shows, or the lower, and nothing while none is. Then, from module 0.42.0, each
-        // die the character's effects add, or take away, such as Bless's d4, which they may skip
-        // for the game to roll.
-        const count = d20Count(advantage, request.elvenAccuracy)
+        // The player's own d20s; then, from 0.42.1, Elven Accuracy's third with advantage, where
+        // dnd5e gives the attack it, on a line of its own, which they may skip for the game to roll
+        // where the roll goes to the game, unless it adds a d20 of theirs, whose value the game
+        // would give the third throw; then each die they added. The d20s typed so far, the third
+        // among them, count for what the higher of them shows, or the lower, and nothing while
+        // none is. Then, from module 0.42.0, each die the character's effects add, or take away,
+        // such as Bless's d4, which they may skip for the game to roll.
+        const elven =
+          ELVEN_LINE && advantage === 'adv' && request.elvenAccuracy === true
+        const skips =
+          elven &&
+          (typedRolls?.sends?.(request) ?? false) &&
+          !dice.some(term => term.sides === 20)
+        const count = d20Count(
+          advantage,
+          request.elvenAccuracy === true && !ELVEN_LINE,
+        )
         const effects = typedRolls?.effectsFor(request) ?? []
-        const firstEffect = 1 + dice.length
-        const typedCheck = (values: number[][]) => {
-          const [d20s = [], ...rest] = values
+        // The terms by their places: the d20s, Elven Accuracy's third, the player's own dice, then
+        // the effects'.
+        const lead = elven ? 2 : 1
+        const firstEffect = lead + dice.length
+        // Each term's values as the roll's: Elven Accuracy's third among the d20s, as one more of
+        // them, or none where it's skipped; the player's own dice; the effects'.
+        const split = (values: number[][]) => {
+          const [group = [], ...after] = values
+          const third = elven ? (after.shift() ?? []) : []
           return {
-            result: typedResult([{ sides: 20, count: 1 }], [d20s], {
-              advantage,
-              modifier,
-            }),
-            extra:
-              pools.length > 0
-                ? typedResult(pools, rest.slice(0, dice.length))
-                : undefined,
+            d20s: [...group, ...third],
+            third,
+            own: after.slice(0, dice.length),
             effects: effects.map((die, at) => ({
               die,
-              values: rest[dice.length + at] ?? [],
+              values: after[dice.length + at] ?? [],
             })),
           }
         }
+        const typedCheck = ({
+          d20s,
+          own,
+          effects: typedOnes,
+        }: ReturnType<typeof split>) => ({
+          result: typedResult([{ sides: 20, count: 1 }], [d20s], {
+            advantage,
+            modifier,
+          }),
+          extra: pools.length > 0 ? typedResult(pools, own) : undefined,
+          effects: typedOnes,
+        })
+        const elvenTerm: DiceEntryTerm[] = elven
+          ? [
+              {
+                sides: 20,
+                count: 1,
+                label: ELVEN_LABEL,
+                name: ELVEN_DIE.name,
+                ...(skips && { skippable: true as const }),
+              },
+            ]
+          : []
         const values = await enter({
           title: label,
           terms: [
             { sides: 20, count, label: d20Label(advantage, count) },
+            ...elvenTerm,
             ...dice.map(term => ({
               sides: term.sides,
               count: term.count,
@@ -582,8 +639,11 @@ export function useSheetRoller(
             })),
           ],
           total: values => {
-            const [d20s = [], ...added] = typedSoFar(values)
-            const shown = typedCheck([d20s.length > 0 ? d20s : [0], ...added])
+            const soFar = split(typedSoFar(values))
+            const shown = typedCheck({
+              ...soFar,
+              d20s: soFar.d20s.length > 0 ? soFar.d20s : [0],
+            })
             return withEffects(
               toLocalRoll(label, shown.result, extras, shown.extra),
               shown.effects,
@@ -591,15 +651,23 @@ export function useSheetRoller(
           },
           until: request.until,
           signal: request.signal,
-          ...(effects.length > 0 && {
+          ...((effects.length > 0 || skips) && {
             skippedWords: (skipped: number[]) =>
               skippedWords(
-                skipped.flatMap(at => effects[at - firstEffect] ?? []),
+                skipped.flatMap(
+                  (at): Pick<SheetEffectDie, 'name' | 'faces' | 'count'>[] => {
+                    const die =
+                      elven && at === 1 ? ELVEN_DIE : effects[at - firstEffect]
+                    return die ? [die] : []
+                  },
+                ),
               ),
           }),
         })
         if (!values) return false
-        ;({ result, extra, effects: typedEffects } = typedCheck(values))
+        const kept = split(values)
+        ;({ result, extra, effects: typedEffects } = typedCheck(kept))
+        thirdSkipped = elven && kept.third.length === 0
         typed = true
       } else {
         result = executeRoll({
@@ -617,6 +685,9 @@ export function useSheetRoller(
         toLocalRoll(label, result, extras, extra),
         typedEffects,
       )
+      // Elven Accuracy's third d20 skipped is the game's, as an effect's die skipped is: the total
+      // here leaves it out.
+      if (thirdSkipped) check.skipped = true
       if (typed) check.typed = true
       // Its d20, as typed, is the one kept, such as a Halfling's 1 they rerolled at the table.
       if (typed && typedRolls?.keptRerolls) check.rerolls = 'kept'

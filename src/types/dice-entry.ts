@@ -15,11 +15,15 @@ export type DiceEntryTerm = {
    */
   label: string
   /**
-   * A die one of the character's effects adds, or takes away, from module 0.42.0: asked for, but
-   * the player may skip it, for the game to roll it.
+   * A die one of the character's effects adds, or takes away, from module 0.42.0, or, from 0.42.1,
+   * Elven Accuracy's third d20, which the game rolls where it's skipped: asked for, but the player
+   * may skip it, for the game to roll it.
    */
   skippable?: true
-  /** What adds it, such as "Bless", which its Skip and the words of its skipping name it by. */
+  /**
+   * What adds it, such as "Bless" or "Elven Accuracy", which its Skip and the words of its skipping
+   * name it by.
+   */
   name?: string
 }
 

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { DiceEntryDialog } from './dice-entry-dialog'
 import { BANE_DIE, BLESS_DIE } from '@/mocks/sending-stone'
 import { skippedWords } from '@/utils/effect-dice'
+import { ELVEN_DIE } from '@/utils/typed-dice'
 import type { DiceEntry } from '@/types/dice-entry'
 
 /** Every die typed counting as itself, plus 5, as a check's modifier would. */
@@ -151,6 +152,8 @@ const group = (name: string) => screen.getByRole('group', { name })
 /** The boxes of Bless's d4 and Bane's, as asked for a save below. */
 const blessBox = () => within(group('Bless: +1d4')).getByRole('textbox')
 const baneBox = () => within(group('Bane: −1d4')).getByRole('textbox')
+/** Elven Accuracy's third d20, on a line of its own from 0.42.1. */
+const elven = () => group('Elven Accuracy: third d20')
 
 describe('components/dice-entry/dice-entry-dialog', () => {
   describe('structure', () => {
@@ -1416,6 +1419,139 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       act(() => skip.focus())
 
       expect(scroller().scrollTop).toBe(38)
+    })
+  })
+
+  describe('Elven Accuracy’s third d20 on its own line, from 0.42.1', () => {
+    /**
+     * A rapier attack with advantage: its two d20s, then Elven Accuracy's third on a line of its
+     * own, then Bless's d4, each of the last two skippable, as the roller asks where the attack
+     * goes to the game.
+     */
+    const ELVEN = entry({
+      title: 'Rapier attack',
+      terms: [
+        { sides: 20, count: 2, label: 'd20, advantage' },
+        {
+          sides: 20,
+          count: 1,
+          label: 'Elven Accuracy: third d20',
+          skippable: true,
+          name: 'Elven Accuracy',
+        },
+        {
+          sides: 4,
+          count: 1,
+          label: 'Bless: +1d4',
+          skippable: true,
+          name: 'Bless',
+        },
+      ],
+      skippedWords: skipped =>
+        skippedWords(skipped.map(at => [ELVEN_DIE, BLESS_DIE][at - 1])),
+    })
+
+    it('heads the third d20 as a line of its own after the two, its box a d20, with Skip named for it', () => {
+      open(ELVEN)
+
+      const two = group('d20, advantage')
+      expect(
+        within(two)
+          .getAllByRole('textbox')
+          .map(each => each.getAttribute('aria-label')),
+      ).toEqual(['d20 1 of 2', 'd20 2 of 2'])
+      expect(within(two).queryByRole('button')).toBeNull()
+      expect(within(elven()).getByRole('textbox')).toHaveAccessibleName('d20')
+      // Its heading shows a d20, as the two's does.
+      const icon = (name: string) =>
+        screen.getByRole('heading', { name }).querySelector('svg')
+      expect(icon('Elven Accuracy: third d20')).not.toBeNull()
+      expect(icon('Elven Accuracy: third d20')?.getAttribute('viewBox')).toBe(
+        icon('d20, advantage')?.getAttribute('viewBox'),
+      )
+      const skip = within(elven()).getByRole('button', {
+        name: 'Skip Elven Accuracy’s d20',
+      })
+      expect(skip).toHaveTextContent(/^Skip$/)
+      expect(skip).toHaveClass('min-h-11', 'sm:min-h-9')
+      // The groups in turn, by their headings: the two, the third, then Bless's.
+      expect(
+        screen
+          .getAllByRole('heading', { level: 3 })
+          .map(each => each.textContent),
+      ).toEqual(['d20, advantage', 'Elven Accuracy: third d20', 'Bless: +1d4'])
+    })
+
+    it('says the game rolls it once skipped, its Type it in described by that line, as every skipped die’s is', async () => {
+      const user = userEvent.setup()
+      open(ELVEN)
+
+      await user.click(key('Skip Elven Accuracy’s d20'))
+
+      expect(within(elven()).queryByRole('textbox')).toBeNull()
+      const line = within(elven()).getByText(
+        'The game rolls Elven Accuracy’s d20.',
+      )
+      expect(line).toHaveClass('text-text-secondary')
+      const typeIn = within(elven()).getByRole('button', {
+        name: 'Type it in, Elven Accuracy’s d20',
+      })
+      expect(typeIn).toHaveTextContent(/^Type it in$/)
+      expect(typeIn).toHaveAccessibleDescription(
+        'The game rolls Elven Accuracy’s d20.',
+      )
+      expect(typeIn).toHaveClass('min-h-11', 'sm:min-h-9')
+      expect(total()).toHaveTextContent(
+        /^Total 5, not counting Elven Accuracy’s d20$/,
+      )
+
+      await user.click(key('Skip Bless’s d4'))
+      expect(key('Type it in, Bless’s d4')).toHaveAccessibleDescription(
+        'The game rolls Bless’s d4.',
+      )
+      expect(total()).toHaveTextContent(
+        /^Total 5, not counting 2 dice the game rolls$/,
+      )
+
+      // Typed in again by keyboard: its box back, focused and current.
+      act(() => key('Type it in, Elven Accuracy’s d20').focus())
+      await user.keyboard('{Enter}')
+      const third = within(elven()).getByRole('textbox')
+      expect(third).toHaveFocus()
+      expect(third).toHaveAttribute('aria-current', 'true')
+      expect(key('Skip Elven Accuracy’s d20')).toBeInTheDocument()
+    })
+
+    it('moves Next die from the second of the two to the third, and Skip by keyboard on to Bless’s', async () => {
+      const user = userEvent.setup()
+      open(ELVEN)
+
+      await user.click(box('d20 2 of 2'))
+      await user.click(key('Next die'))
+      expectCurrent('d20')
+      await user.keyboard('1')
+      expectCurrent('d20')
+      await user.keyboard('5')
+      expectCurrent('d4')
+
+      act(() => key('Skip Elven Accuracy’s d20').focus())
+      await user.keyboard('{Enter}')
+      expect(blessBox()).toHaveFocus()
+      expectCurrent('d4')
+    })
+
+    it('gives none for it on Done once skipped, its box never asked for', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(ELVEN)
+
+      await user.keyboard('17')
+      await user.keyboard('15')
+      await user.click(key('Skip Elven Accuracy’s d20'))
+      await user.click(blessBox())
+      await user.keyboard('3')
+      await user.click(key('Done'))
+
+      expect(onDone).toHaveBeenCalledWith([[17, 15], [], [3]])
     })
   })
 })

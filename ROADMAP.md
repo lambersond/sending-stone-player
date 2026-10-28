@@ -22,6 +22,13 @@ Next, 0.42.1, before Friday's session: Elven Accuracy's third d20 on its own lin
 the Bardic Inspiration a bard gave the character offered in the dice dialog, with a few more items
 to come. Patch releases (0.42.x) are expected as the session turns up things to tweak.
 
+## v0.42.1 (in progress)
+
+1. **Elven Accuracy's third d20 on its own line:** when typing in dice, typed in, or skipped for
+   Foundry to roll it.
+
+Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
+
 ## v0.43 (release candidate)
 
 1. Refactor existing code to best practices.

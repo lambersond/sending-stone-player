@@ -402,16 +402,19 @@ function RollingSheet({
   // answers, asked for after their own; and whether the dice typed are kept as rerolled at the
   // table, as their feature says. The dice of effects only of a roll the game is sent: one this
   // device keeps, a kind the game doesn't take, or a check an activity asks of a game that doesn't
-  // make it so, is the player's alone, and no game would roll a die skipped.
+  // make it so, is the player's alone, and no game would roll a die skipped. From 0.42.1, whether
+  // a roll goes to the game whatever the game takes of it, for Elven Accuracy's third d20 to be
+  // skipped, which every module since 0.32.0 throws itself where two are sent.
   const { typedEffects, keptRerolls, sends } = table
   const typedRolls = useMemo<TypedRolls | undefined>(() => {
-    if (!typing || (!typedEffects && !keptRerolls)) return
+    if (!typing) return
     return {
       effectsFor: typedEffects
         ? request =>
             sends(request.source) ? effectDiceFor(sheet, request, prompts) : []
         : () => [],
       keptRerolls,
+      sends: request => sends(request.source),
     }
   }, [typing, typedEffects, keptRerolls, sends, sheet, prompts])
   const {
@@ -637,7 +640,7 @@ function RollingSheet({
           )
         : undefined
     // Where dnd5e gives the attack Elven Accuracy, a third d20 with advantage, typed in, whatever
-    // the table takes.
+    // the table takes; from 0.42.1 on its own line, skipped for the game only where it's sent.
     const request: SheetRoll = attack?.elvenAccuracy
       ? { ...asked, elvenAccuracy: true }
       : asked

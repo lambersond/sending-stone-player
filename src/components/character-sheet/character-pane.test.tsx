@@ -49,7 +49,11 @@ import type {
   RollFeature,
   RollKind,
 } from '@/types/roll'
-import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SheetEffectDie,
+  SheetUse,
+} from '@/types/sending-stone'
 import type { TableCombat, TablePrompt } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
@@ -61,9 +65,10 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 
 // The dice entry dialog is APP-B's, tested beside it (module 0.32.0): here, one that says what
 // it asks for and types a 4 for every die, at most its highest face, or is cancelled. While
-// `mockSkipping` is set, from module 0.42.0, it skips each die an effect adds, for the game.
+// `mockSkipping` is set, from module 0.42.0, it skips each die an effect adds, for the game; or,
+// from 0.42.1, where it names them, only those, as Elven Accuracy's third d20 apart from Bless's.
 const mockEntries: import('@/types/dice-entry').DiceEntry[] = []
-let mockSkipping = false
+let mockSkipping: boolean | readonly string[] = false
 jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
   DiceEntryDialog: ({
     entry,
@@ -87,8 +92,10 @@ jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
           type='button'
           onClick={() =>
             onDone(
-              entry.terms.map(({ count, sides, skippable }) =>
-                mockSkipping && skippable
+              entry.terms.map(({ count, sides, skippable, name = '' }) =>
+                skippable &&
+                (mockSkipping === true ||
+                  (mockSkipping !== false && mockSkipping.includes(name)))
                   ? []
                   : Array.from({ length: count }, () => Math.min(sides, 4)),
               ),
@@ -4647,7 +4654,9 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
     expect(posted[0]).not.toHaveProperty('typed')
   })
 
-  it("asks for three d20s for an attack dnd5e gives Elven Accuracy, with advantage, wherever it's rolled", async () => {
+  // Changed on purpose (round 0.42.1 §7.2): Elven Accuracy's third d20 on its own line after the
+  // two, with no Skip, as this attack goes to no game.
+  it("asks for Elven Accuracy's third d20 on its own line, for an attack dnd5e gives it, with advantage, wherever it's rolled", async () => {
     const user = userEvent.setup()
     const sheet = fullerSheet()
     const [warhammer, ...rest] = sheet.actions[0].actions
@@ -4671,7 +4680,12 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
     const dialog = await screen.findByRole('dialog', {
       name: 'Warhammer attack',
     })
-    expect(dialog).toHaveTextContent('d20, advantage (Elven Accuracy) ×3')
+    expect(
+      within(dialog)
+        .getAllByRole('listitem')
+        .map(li => li.textContent),
+    ).toEqual(['d20, advantage ×2', 'Elven Accuracy: third d20 ×1'])
+    expect(mockEntries.at(-1)?.terms[1]).not.toHaveProperty('skippable')
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
 
     // The handaxe has none: two.
@@ -6081,4 +6095,151 @@ describe('components/character-sheet/character-pane, the dice effects add, from 
       /^11Strength saving throwd20 4 \+7 · DC 15 · Failed/,
     )
   })
+})
+
+/** Thorin, his warhammer given Elven Accuracy, with these effects' dice. */
+const elvenSheet = (effectDice: SheetEffectDie[] = []) => {
+  const sheet = fullerSheet({ effectDice })
+  const [warhammer, ...rest] = sheet.actions[0].actions
+  sheet.actions[0].actions = [{ ...warhammer, elvenAccuracy: true }, ...rest]
+  return toTableSheet(sheet, GAME)
+}
+
+/** The warhammer attacked with advantage, and the dice dialog's terms. */
+const attackWithAdvantage = async (user: User) => {
+  await user.click(screen.getByRole('tab', { name: 'Actions' }))
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+  )
+  await user.click(
+    screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+  )
+  await screen.findByRole('dialog', { name: 'Warhammer attack' })
+  return mockEntries.at(-1)?.terms ?? []
+}
+
+describe('components/character-sheet/character-pane, Elven Accuracy’s third d20 on its own line, from 0.42.1', () => {
+  const typing = { on: true, onChange: jest.fn() }
+
+  beforeEach(() => {
+    clearStorage()
+    mockEntries.length = 0
+    mockSkipping = false
+  })
+
+  const pane = (
+    fields: Partial<React.ComponentProps<typeof CharacterPane>> = {},
+  ) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={elvenSheet()}
+      rollsToTable={['attack']}
+      rollFeatures={['manualDice', 'effectDice', 'keptRerolls']}
+      manualDice={typing}
+      {...fields}
+    />
+  )
+
+  const ELVEN = {
+    sides: 20,
+    count: 1,
+    label: 'Elven Accuracy: third d20',
+    name: 'Elven Accuracy',
+  }
+
+  it('lets the player skip the third d20 of an attack sent to the game, the two typed posted', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    mockSkipping = ['Elven Accuracy']
+    render(pane())
+
+    const terms = await attackWithAdvantage(user)
+    expect(terms).toEqual([
+      { sides: 20, count: 2, label: 'd20, advantage' },
+      { ...ELVEN, skippable: true },
+    ])
+    expect(mockEntries.at(-1)?.skippedWords?.([1])).toBe(
+      'not counting Elven Accuracy’s d20',
+    )
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'attack',
+        item: 'warhammer',
+        mode: 1,
+        dice: [{ faces: 20, results: [4, 4] }],
+        typed: true,
+      }),
+    ])
+    expect(posted[0]).not.toHaveProperty('effectDice')
+  })
+
+  it("reads Bless's die after the third, skipped apart from it", async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    mockSkipping = ['Elven Accuracy']
+    render(pane({ sheet: elvenSheet([BLESS_DIE]) }))
+
+    const terms = await attackWithAdvantage(user)
+    expect(terms.map(({ label }) => label)).toEqual([
+      'd20, advantage',
+      'Elven Accuracy: third d20',
+      'Bless: +1d4',
+    ])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        dice: [{ faces: 20, results: [4, 4] }],
+        effectDice: [{ faces: 4, sign: 1, results: [4] }],
+      }),
+    ])
+  })
+
+  it('may skip it against module 0.41.0, which takes neither dice of effects nor kept rerolls', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    mockSkipping = true
+    render(pane({ rollFeatures: ['manualDice'] }))
+
+    const terms = await attackWithAdvantage(user)
+    expect(terms[1]).toEqual({ ...ELVEN, skippable: true })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({ dice: [{ faces: 20, results: [4, 4] }] }),
+    ])
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    expect(posted[0]).not.toHaveProperty('rerolls')
+  })
+
+  it.each([
+    ['from a device that sends none', 'off', ['attack']],
+    ["where the game doesn't take attacks", 'on', ['save']],
+  ] as const)(
+    'asks the third d20 on its own line with no Skip %s, as no game rolls it',
+    async (_, sending, kinds) => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      globalThis.localStorage.setItem(SEND_KEY, sending)
+      mockSkipping = true
+      render(pane({ rollsToTable: [...kinds] }))
+
+      const terms = await attackWithAdvantage(user)
+      expect(terms).toEqual([
+        { sides: 20, count: 2, label: 'd20, advantage' },
+        ELVEN,
+      ])
+      expect(mockEntries.at(-1)).not.toHaveProperty('skippedWords')
+      await user.click(screen.getByRole('button', { name: 'Done' }))
+
+      expect(posted).toEqual([])
+      // All three typed, the highest kept: 4, +7.
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^11Warhammer attack/,
+      )
+    },
+  )
 })

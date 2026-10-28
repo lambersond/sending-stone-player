@@ -370,6 +370,8 @@ function Entry({
         {entry.terms.map((term, termAt) => {
           const heading = `${ids}-${termAt}`
           const error = `${heading}-error`
+          // What a term skipped says, which describes its Type it in (0.42.1).
+          const outLine = `${heading}-out`
           const first = starts[termAt]
           const own = boxes.slice(first, first + term.count)
           const title = (
@@ -406,6 +408,7 @@ function Entry({
                     <button
                       type='button'
                       aria-label={`Type it in, ${whose}`}
+                      aria-describedby={outLine}
                       onFocus={event => keepClear(event.currentTarget)}
                       onClick={event =>
                         typeIn(
@@ -438,7 +441,7 @@ function Entry({
                 title
               )}
               {isOut ? (
-                <p className='text-sm text-text-secondary'>
+                <p id={outLine} className='text-sm text-text-secondary'>
                   The game rolls {whose}.
                 </p>
               ) : (
