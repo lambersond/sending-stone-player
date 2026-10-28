@@ -31,9 +31,15 @@ type Props = {
   /**
    * Whether damage rolled here goes to the table on its own, from module 0.36.0, where the game
    * takes it: this device's, so every pane's cog says the same. Disabled while Send to the table
-   * is off, as nothing goes then.
+   * is off, as nothing goes then. From module 0.41.0, whether the game takes its choices too,
+   * which its hint then says.
    */
-  alone?: { on: boolean; onChange: (on: boolean) => void; disabled: boolean }
+  alone?: {
+    on: boolean
+    onChange: (on: boolean) => void
+    disabled: boolean
+    choices?: boolean
+  }
   /**
    * Whether the player types in what their own dice show, where the campaign's game lets them,
    * from module 0.32.0: the setting is shown only then.
@@ -158,12 +164,10 @@ export function SheetSettings({
               {alone && (
                 <SwitchSetting
                   label='Damage on its own'
-                  hint={
-                    alone.disabled
-                      ? 'Turn on Send to the table first.'
-                      : `Damage you roll goes to ${game} with no attack or saving throw made there, for ${role === 'gm' ? 'you' : 'your Gamemaster'} to apply.`
-                  }
-                  {...alone}
+                  hint={aloneHint(game, role === 'gm', alone)}
+                  on={alone.on}
+                  onChange={alone.onChange}
+                  disabled={alone.disabled}
                   child
                 />
               )}
@@ -227,6 +231,24 @@ export function SheetSettings({
       )}
     </>
   )
+}
+
+/**
+ * What Damage on its own does, beneath its switch: that Send to the table must be on first, while
+ * it's off; else where it goes, and for whom to apply; and from module 0.41.0, where the game takes
+ * its choices, that they're made as it's rolled (round 0.41.0 §2.4.3).
+ * @param gm - At the Gamemaster's seat, who applies it.
+ */
+function aloneHint(
+  game: string,
+  gm: boolean,
+  { disabled, choices }: NonNullable<Props['alone']>,
+): string {
+  if (disabled) return 'Turn on Send to the table first.'
+  const goes = `Damage you roll goes to ${game} with no attack or saving throw made there, for ${gm ? 'you' : 'your Gamemaster'} to apply.`
+  return choices
+    ? `${goes} You choose a spell’s level, a weapon’s mode and its ammunition as you roll, and whether to spend what it uses.`
+    : goes
 }
 
 /**

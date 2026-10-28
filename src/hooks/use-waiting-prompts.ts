@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MIDI_PROMPT_GRACE, PROMPT_NOTICE_FOR } from '@/constants/sending-stone'
 import { shownPrompts, waitingPrompts } from '@/utils/prompts'
-import type { TablePrompt } from '@/types/table'
+import type { CompanionAsked, TablePrompt } from '@/types/table'
 
 /**
  * The saving throws the game asks of the character that still wait for their player: each until
@@ -15,6 +15,24 @@ export function useWaitingPrompts(
 ): TablePrompt[] {
   const [now, setNow] = useState(() => Date.now())
   const waiting = waitingPrompts(prompts, now)
+  useTick(
+    waiting.map(({ expiresAt }) => Date.parse(expiresAt)),
+    setNow,
+  )
+  return waiting
+}
+
+/**
+ * The character's companions the game asks a save of that still wait, from module 0.41.0 (round
+ * 0.41.0 §3.7): each until the soonest of its prompts runs out, when it's dropped, as the
+ * character's own are, though nothing new comes from the game.
+ * @param asked - As the table view last had them (`companionPrompts`).
+ */
+export function useWaitingCompanions(
+  asked: readonly CompanionAsked[] = [],
+): CompanionAsked[] {
+  const [now, setNow] = useState(() => Date.now())
+  const waiting = asked.filter(({ expiresAt }) => Date.parse(expiresAt) > now)
   useTick(
     waiting.map(({ expiresAt }) => Date.parse(expiresAt)),
     setNow,

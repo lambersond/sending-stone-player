@@ -21,7 +21,12 @@ import {
   UserRound,
   type LucideIcon,
 } from 'lucide-react'
-import { actionTitle, verbOf, type TableDamage } from './action-entry'
+import {
+  actionTitle,
+  verbOf,
+  type AlonePick,
+  type TableDamage,
+} from './action-entry'
 import { useActionsLayout } from './actions-layout'
 import { ActionsTab } from './actions-tab'
 import { BiographyTab } from './biography-tab'
@@ -53,6 +58,7 @@ import { RollsButton } from './rolls-button'
 import { SheetSettings } from './sheet-settings'
 import { SpellsTab } from './spells-tab'
 import {
+  ALONE_SPEND_KEY,
   asks,
   enchantPicks,
   selfPick,
@@ -229,6 +235,12 @@ type Props = {
    * (module 0.36.0).
    */
   note?: ReactNode
+  /**
+   * At the character's own pane, from module 0.41.0: which of their companions the game asks a
+   * save of, each said under the prompts' heading with a way to its tab (round 0.41.0 §3.1.3),
+   * as `CompanionAskNotice` lists them. Never at a companion's.
+   */
+  companionNotice?: ReactNode
 }
 
 /**
@@ -323,6 +335,7 @@ function RollingSheet({
   locked = false,
   idPrefix = '',
   note,
+  companionNotice,
 }: Readonly<Props>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
   // Whether its rolls are locked now, as a gone companion's are (module 0.36.0), for what was
@@ -469,6 +482,16 @@ function RollingSheet({
   // as the pane's rolls lock, as a companion's that has gone, closes: nothing it picks is made.
   const [picking, setPicking] = useState<Picking>()
   if (locked && picking) setPicking(undefined)
+  // Damage on its own whose choices are being picked, from module 0.41.0: how it goes on once
+  // they are, and the chip it was rolled from, which has focus back once the picker closes
+  // without a pick, as it does once the picker's dialog has closed.
+  const aloneGoing = useRef<AlonePick>(undefined)
+  const returnTo = useRef<HTMLElement>(undefined)
+  useEffect(() => {
+    if (picking || !returnTo.current) return
+    if (returnTo.current.isConnected) returnTo.current.focus()
+    returnTo.current = undefined
+  }, [picking])
   const [lastTarget, setLastTarget] = useState<string>()
   // The sheet opens on the character; on Biography where a note is being written there, or the
   // journal is open, as when either was under why there was no sheet, before this one arrived.
@@ -675,11 +698,77 @@ function RollingSheet({
       modifiers,
     )
   }
+  // Damage on its own's choices, from module 0.41.0, where the game takes them: picked first where
+  // there's anything to ask, as an attack's or a use's are, else it goes on at once.
+  const pickAlone = (pick: AlonePick) => {
+    if (lockedNow.current) return
+    const asking: Picking = {
+      kind: 'alone',
+      action: pick.action,
+      healing: pick.healing,
+      choice: pick.choice,
+    }
+    if (!asks(asking, combat, sheet.spells)) {
+      pick.onPicked({}, { action: pick.action, spells: sheet.spells })
+      return
+    }
+    aloneGoing.current = pick
+    setPicking(asking)
+  }
+  // Damage on its own's row as the sheet has it now, from module 0.41.0: the page's next poll may
+  // change it while its player picks, as a slot the Gamemaster gives brings the plan of that level,
+  // so the picker draws its chips from the row as it is now, and what's picked is rolled from that
+  // row. Where the sheet lists it more than once, the listing it was tapped on, by its name; as it
+  // was, where the sheet no longer plans it.
+  const aloneRow = useMemo(() => {
+    if (picking?.kind !== 'alone') return
+    const { action } = picking
+    const activity = action.attackId ?? action.activity?.id
+    const listed = sheetActions(sheet, entries).filter(
+      each =>
+        each.id === action.id &&
+        (each.attackId ?? each.activity?.id) === activity &&
+        !!each.tableDamage,
+    )
+    return (
+      listed.find(
+        each =>
+          each.name === action.name &&
+          each.activityName === action.activityName,
+      ) ??
+      listed[0] ??
+      action
+    )
+  }, [picking, sheet, entries])
+  const shownPicking: Picking | undefined =
+    picking?.kind === 'alone' && aloneRow
+      ? { ...picking, action: aloneRow }
+      : picking
+  const closePicker = () => {
+    returnTo.current = aloneGoing.current?.anchor
+    aloneGoing.current = undefined
+    setPicking(undefined)
+  }
   const pick = (picked: Picked) => {
-    const asked = picking
+    const asked = shownPicking
+    const going = aloneGoing.current
+    aloneGoing.current = undefined
     setPicking(undefined)
     // Nothing picked at a pane whose rolls have locked since is made (module 0.36.0).
     if (lockedNow.current) return
+    if (asked?.kind === 'alone') {
+      const { slot, attackMode, ammunition, consume } = picked
+      going?.onPicked(
+        {
+          ...(slot && { slot }),
+          ...(attackMode && { attackMode }),
+          ...(ammunition && { ammunition }),
+          ...(consume && { consume }),
+        },
+        { action: asked.action, spells: sheet.spells },
+      )
+      return
+    }
     if (asked?.kind === 'use') {
       use(asked.action, picked, asked.modifiers)
       return
@@ -802,6 +891,8 @@ function RollingSheet({
           dueFor: table.dueFor,
           sendsAlone: table.sendsAlone,
           recharges: table.takes('recharge'),
+          // Its choices, from module 0.41.0, where the game takes them.
+          ...(table.aloneChoices && { pickAlone }),
         }
       : undefined
   // Hit dice spent, or a formula rolled, such as a light's radius.
@@ -1031,6 +1122,8 @@ function RollingSheet({
                     on: table.aloneOn,
                     onChange: table.setAlone,
                     disabled: !table.sending,
+                    // Its choices, from module 0.41.0, which its hint says.
+                    choices: table.aloneChoices,
                   }
                 : undefined
             }
@@ -1054,11 +1147,13 @@ function RollingSheet({
         </div>
       </div>
       {note}
-      {/* What the game asks of the character, above every tab, while the game takes the answer. */}
-      {waiting.length > 0 && table.available && (
+      {/* What the game asks of the character, above every tab, while the game takes the answer;
+          and from module 0.41.0 which of their companions it asks, said under its heading. */}
+      {((waiting.length > 0 && table.available) || companionNotice) && (
         <PromptBanner
           ref={setPromptBanner}
-          prompts={waiting}
+          prompts={table.available ? waiting : []}
+          notice={companionNotice}
           sheet={sheet}
           answering={table.answering}
           sending={table.sending}
@@ -1162,7 +1257,7 @@ function RollingSheet({
         header={header}
       />
       <UsePicker
-        picking={picking}
+        picking={shownPicking}
         combat={combat}
         spellbook={sheet.spells}
         casts={itemCasts}
@@ -1170,8 +1265,10 @@ function RollingSheet({
         areas={table.areas}
         selfTargets={table.selfTargets}
         last={lastTarget}
+        // Damage on its own's Spend switch, kept on this device for the seat and this pane.
+        spendKey={`${ALONE_SPEND_KEY}:${role}:${characterId}`}
         onPick={pick}
-        onClose={() => setPicking(undefined)}
+        onClose={closePicker}
       />
       {giving.dialog}
       {removing.dialog}

@@ -144,13 +144,19 @@ export type SheetDamageRoll = {
   gameTotal?: true
   /**
    * Damage or healing on its own (module 0.36.0): its item and activity, the game's plan of its
-   * dice, and whether this is a critical hit's.
+   * dice, and whether this is a critical hit's; and from module 0.41.0, where the game sends its
+   * choices, the slot, attack mode and ammunition it's rolled with, and whether it spends what its
+   * use would.
    */
   alone?: {
     item: string
     activity: string
     plan?: TableDamagePlan
     critical?: boolean
+    slot?: string
+    attackMode?: string
+    ammunition?: string
+    consume?: true
   }
 }
 

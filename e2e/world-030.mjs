@@ -37,7 +37,8 @@
 // module 0.36.0; a character given dnd5e's favorites, ported (fvtt/favorites-core.mjs), its effects
 // and its items' found by id (`favoring`). Since module 0.38.0 (its contract D§10.1): SKEW=037 is
 // module 0.37.0. Since module 0.39.0 (its contract §1.11): SKEW=038 is module 0.38.1. Since module
-// 0.40.0 (its contract §10.4): SKEW=039 is module 0.39.0.
+// 0.40.0 (its contract §10.4): SKEW=039 is module 0.39.0. Since module 0.41.0 (its contract §8.4):
+// SKEW=040 is module 0.40.0.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -74,6 +75,8 @@ export const SKEW037 = process.env.SKEW === '037'
 export const SKEW038 = process.env.SKEW === '038'
 /** Module 0.39.0, from before 0.40.0, against this round's app: no Wild Shape from the app. */
 export const SKEW039 = process.env.SKEW === '039'
+/** Module 0.40.0, from before 0.41.0, against this round's app: no choices for damage on its own, no companions' saves. */
+export const SKEW040 = process.env.SKEW === '040'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -84,7 +87,10 @@ if (SHOTS_031) mkdirSync(SHOTS_031, { recursive: true })
 /** Module 0.33.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_033 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-033`
 if (SHOTS_033) mkdirSync(SHOTS_033, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${SKEW039 ? '-skew039' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+/** Module 0.41.0's pictures, beside the others, whatever folder a run's SHOTS is. */
+export const SHOTS_041 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-041`
+if (SHOTS_041) mkdirSync(SHOTS_041, { recursive: true })
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${SKEW039 ? '-skew039' : ''}${SKEW040 ? '-skew040' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -319,6 +325,9 @@ export async function foundryWorld({ system = DND5E6 ? '6.0.5' : '5.3.3', dice6 
     }
   }
   game.i18n.localize = k => words[k] ?? k
+  // dnd5e's spell levels, in words, as it preLocalizes them (D5 config.mjs:3256-3268), which the
+  // module names a level by on the card of damage on its own since 0.41.0.
+  CONFIG.DND5E.spellLevels = Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(level => [level, words[`DND5E.SpellLevel${level}`]]))
   game.i18n.has = k => Object.hasOwn(words, k)
   // Foundry's own shorthand for a translation (v13 and on), which dnd5e 6's dice call.
   globalThis._loc ??= (k, data) => (data ? game.i18n.format(k, data) : game.i18n.localize(k))

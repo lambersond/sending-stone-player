@@ -125,15 +125,17 @@ export type RollRejection = {
  * form (`shapedRefusal`), before each kind's own checks. From module 0.36.0, at a companion's seat:
  * of the kinds the game takes for companions, never a move, a removal, from module 0.37.0 a
  * favorite, which a companion has none of, from module 0.39.0 a change to its effects, or from
- * module 0.40.0 Wild Shape, nor an answer to what the game asks, which it asks of no companion; a
- * death saving throw only where it's an important NPC; and its initiative not where it acts right
- * after its character, who's in that combat. It's checked against its own sheet, typed
- * in as its character's player types theirs, and kept as its key, with its character's id, for the
- * module to make it as the companion. And a turn ended, from module 0.36.0, only by the character's
- * player at its own seat, never at a companion's or the Gamemaster's, is checked against the combat
- * it names alone, as last heard of, with or without a sheet, and counted with the seat's rolls; and
- * so is a turn ended taken back, only from the seat that ended it, and only for a moment after
- * (`checkUndoTurn`).
+ * module 0.40.0 Wild Shape, nor an answer to what the game asks, which it asks of no companion
+ * before module 0.41.0, which says `companionPrompts`; a death saving throw only where it's an
+ * important NPC; and its initiative not where it acts right after its character, who's in that
+ * combat. It's checked against its own sheet, typed in as its character's player types theirs,
+ * and kept as its key, with its character's id, for the module to make it as the companion. And a
+ * turn ended, from module 0.36.0, only by the character's player at its own seat, never at a
+ * companion's or the Gamemaster's, is checked against the combat it names alone, as last heard
+ * of, with or without a sheet, and counted with the seat's rolls; and so is a turn ended taken
+ * back, only from the seat that ended it, and only for a moment after (`checkUndoTurn`). From
+ * module 0.41.0, damage on its own names its slot, attack mode or ammunition, or spends what its
+ * use would, only where the game takes them (`aloneChoices`).
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The roll's id, or why it wasn't taken.
  */
@@ -197,14 +199,25 @@ export async function createRollRequest(
   if (companion && !campaign.companionKinds.includes(input.kind)) {
     return { status: 409, reason: 'unavailable' }
   }
-  // The game asks a companion nothing, and only an important NPC makes death saving throws.
-  if (companion && input.prompt) return { status: 422, reason: 'prompt' }
+  // The game asks a companion its saves only from module 0.41.0, and only an important NPC makes
+  // death saving throws.
+  if (
+    companion &&
+    input.prompt &&
+    !campaign.rollFeatures.includes('companionPrompts')
+  ) {
+    return { status: 422, reason: 'prompt' }
+  }
   // Damage a player changed goes only to a game that can roll it so, an answer to what the game
-  // asked only to one that asks, an area attack only to one that makes it at those picked, and a
-  // check an activity asks for only to one that makes it against the activity.
+  // asked only to one that asks, an area attack only to one that makes it at those picked, a check
+  // an activity asks for only to one that makes it against the activity, and from module 0.41.0
+  // damage on its own with its choices, or spending what it uses, only to one that takes them.
   if (
     (changes(input.modifiers) &&
       !campaign.rollFeatures.includes('modifiers')) ||
+    (input.kind === 'itemDamage' &&
+      namesAloneChoices(input) &&
+      !campaign.rollFeatures.includes('aloneChoices')) ||
     (input.prompt && !campaign.rollFeatures.includes('prompts')) ||
     (input.kind === 'attack' &&
       input.targets !== undefined &&
@@ -429,6 +442,19 @@ export async function createRollRequest(
     },
   })
   return { id }
+}
+
+/**
+ * Does damage on its own name any of its choices, from module 0.41.0: the slot it's rolled at, the
+ * attack mode, the ammunition, or spending what its use would?
+ */
+function namesAloneChoices(input: RollRequestInput): boolean {
+  return (
+    input.slot !== undefined ||
+    input.attackMode !== undefined ||
+    input.ammunition !== undefined ||
+    input.consume !== undefined
+  )
 }
 
 /**

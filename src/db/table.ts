@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import prisma from '@/clients/prisma'
+import { ABILITIES, SKILLS } from '@/constants/dnd5e'
 import {
   GM_ROLLS_SHOWN,
   MIDI_PROMPT_GRACE,
@@ -15,7 +16,7 @@ import {
 } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
-import { toTablePrompts } from '@/utils/prompts'
+import { toTablePrompts, type PromptData } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
 import {
   availableRollFeatures,
@@ -45,7 +46,7 @@ import type {
   SerializedMessage,
   SheetWithheld,
 } from '@/types/sending-stone'
-import type { GmRolls, TableView } from '@/types/table'
+import type { CompanionAsked, GmRolls, TableView } from '@/types/table'
 import type { Prisma } from '@prisma/client'
 
 /** The most recent chat messages shown. */
@@ -304,6 +305,100 @@ export function withheld(
 }
 
 /**
+ * The saves the game asks of one of a campaign's characters, or from module 0.41.0 of a companion
+ * by its key, as its view shows them: those still open, Midi-QOL's a while after their time runs
+ * out, and those that closed just now, for which only Midi-QOL's are shown; oldest first.
+ */
+export function heldPrompts(campaignId: string, actorId: string, now: number) {
+  return prisma.rollPrompt.findMany({
+    where: {
+      campaignId,
+      actorId,
+      OR: [
+        {
+          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+          closedAt: null,
+          expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
+        },
+        {
+          closedAt: { gt: new Date(now - PROMPT_NOTICE_FOR) },
+          closedReason: { in: ['rolled', 'expired'] },
+        },
+      ],
+    },
+    orderBy: { openedAt: 'asc' },
+    select: {
+      promptId: true,
+      data: true,
+      expiresAt: true,
+      closedAt: true,
+      closedReason: true,
+    },
+  })
+}
+
+/**
+ * The companions the game is asking a save of now, from module 0.41.0, each once, in the order
+ * first asked: what its first prompt still waiting asks for, in words, and when the soonest of
+ * those stops waiting. A prompt whose time has run out waits no more, though Midi-QOL may still be
+ * rolling it its own way: a companion with none other isn't asked.
+ * @param held - Its companions' prompts still open, oldest first.
+ */
+export function companionAsks(
+  held: { actorId: string; data: unknown; expiresAt: Date }[],
+  now = Date.now(),
+): CompanionAsked[] {
+  const asked = new Map<string, CompanionAsked>()
+  for (const prompt of held) {
+    if (prompt.expiresAt.getTime() <= now) continue
+    const expiresAt = prompt.expiresAt.toISOString()
+    const known = asked.get(prompt.actorId)
+    if (!known) {
+      asked.set(prompt.actorId, {
+        key: prompt.actorId,
+        label: askedFor(prompt.data as PromptData),
+        expiresAt,
+      })
+    } else if (expiresAt < known.expiresAt) {
+      known.expiresAt = expiresAt
+    }
+  }
+  return [...asked.values()]
+}
+
+/** Abilities or skills by their names, such as "Strength or Dexterity". */
+function either(keys: string[] = [], names: Record<string, string>): string {
+  return new Intl.ListFormat('en', { type: 'disjunction' }).format(
+    keys.map(key => names[key] ?? key),
+  )
+}
+
+/**
+ * What a save the game asks for asks, in words: such as "Dexterity saving throw", "Strength or
+ * Dexterity saving throw", "Concentration check", naming its ability where it isn't Constitution,
+ * or for Midi-QOL's checks "Athletics or Acrobatics check".
+ */
+function askedFor(data: PromptData): string {
+  const [ability] = data.abilities ?? []
+  switch (data.type) {
+    case 'concentration': {
+      return ability && ability !== 'con'
+        ? `Concentration check (${ABILITIES[ability] ?? ability})`
+        : 'Concentration check'
+    }
+    case 'check': {
+      return `${either(data.abilities, ABILITIES)} check`.trim()
+    }
+    case 'skill': {
+      return `${either(data.skills, SKILLS)} check`.trim()
+    }
+    default: {
+      return `${either(data.abilities, ABILITIES)} saving throw`.trim()
+    }
+  }
+}
+
+/**
  * A character's view of its campaign: the chat its player may read, the encounter under way, and
  * its own sheet. The Gamemaster at its sheet (#156) sees the same, as its player does, but never
  * their place in the chat. The caller must already have resolved the seat for the signed-in user.
@@ -353,12 +448,24 @@ export async function getTableView(
     companions: companionsByKey(companions, campaign.origin),
   }
 
-  // The saves the game asks of the character, while it takes their answers.
+  // The character's own companions, for their tabs, from module 0.36.0: never another's, and none
+  // at a companion's own seat, which has its own view.
+  const own = seat.companion
+    ? []
+    : companions.filter(
+        entry => !!seat.actorId && entry.of.includes(seat.actorId),
+      )
+  // The saves the game asks of the character, while it takes their answers; and from module
+  // 0.41.0, whether it asks any of its companions', which their own views show.
   const rolls = seatRolls(seat, campaign)
   const prompted = viewer.actorId && rolls.rollFeatures.includes('prompts')
+  const companionsAsked =
+    !!prompted &&
+    rolls.rollFeatures.includes('companionPrompts') &&
+    own.length > 0
   const now = Date.now()
   const gmRolls = gmRollsOf(seat, now)
-  const [messages, combats, sheet, prompts, made] = await Promise.all([
+  const [messages, combats, sheet, prompts, made, asked] = await Promise.all([
     prisma.chatMessage.findMany({
       where: {
         campaignId: campaign.id,
@@ -385,34 +492,8 @@ export async function getTableView(
           select: { data: true, updatedAt: true },
         })
       : undefined,
-    // Those Midi-QOL asks a while after their time runs out, and those that closed just now, for
-    // which only Midi-QOL's are shown.
-    prompted
-      ? prisma.rollPrompt.findMany({
-          where: {
-            campaignId: campaign.id,
-            actorId: viewer.actorId,
-            OR: [
-              {
-                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
-                closedAt: null,
-                expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
-              },
-              {
-                closedAt: { gt: new Date(now - PROMPT_NOTICE_FOR) },
-                closedReason: { in: ['rolled', 'expired'] },
-              },
-            ],
-          },
-          orderBy: { openedAt: 'asc' },
-          select: {
-            promptId: true,
-            data: true,
-            expiresAt: true,
-            closedAt: true,
-            closedReason: true,
-          },
-        })
+    prompted && viewer.actorId
+      ? heldPrompts(campaign.id, viewer.actorId, now)
       : [],
     gmRolls
       ? prisma.rollRequest.findMany({
@@ -431,22 +512,30 @@ export async function getTableView(
           },
         })
       : [],
+    // Its companions' still open, from module 0.41.0, oldest first, to mark each one asked.
+    companionsAsked
+      ? prisma.rollPrompt.findMany({
+          where: {
+            campaignId: campaign.id,
+            actorId: { in: own.map(({ key }) => key) },
+            // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+            closedAt: null,
+            expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
+          },
+          orderBy: { openedAt: 'asc' },
+          select: { actorId: true, data: true, expiresAt: true },
+        })
+      : [],
   ])
   const sheetVersion = sheet?.updatedAt.toISOString()
   const heals = await healingUses(made, seat)
+  const waiting = companionAsks(asked, now)
 
   const combat = pickCombat(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
   )
   // The party sheets the seat may open, from module 0.30.0: never who else may.
   const listed = groupRoster(campaign.groups)
-  // The character's own companions, for their tabs, from module 0.36.0: never another's, and none
-  // at a companion's own seat, which has its own view.
-  const own = seat.companion
-    ? []
-    : companions.filter(
-        entry => !!seat.actorId && entry.of.includes(seat.actorId),
-      )
   const groups = tableGroups(seat, listed, campaign.origin)
   const connected = roster.some(({ id }) => id === viewer.actorId)
   // Where the seat may move the character's items and coins to, from module 0.31.0.
@@ -521,6 +610,7 @@ export async function getTableView(
     ...(own.length > 0 && {
       companions: own.map(entry => tableCompanion(entry, campaign.origin)),
     }),
+    ...(waiting.length > 0 && { companionPrompts: waiting }),
     ...(moves && { moves }),
     ...(removes && { removes: true as const }),
     ...(favorites && { favorites: true as const }),

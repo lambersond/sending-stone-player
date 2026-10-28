@@ -435,7 +435,9 @@ const rolledDiceSchema = z.strictObject({
  * throws no dice. From module 0.39.0, one of the character's own effects turned off, on or deleted
  * names the effect, as the sheet does, and which of those, and nothing else, and throws no dice.
  * From module 0.40.0, Wild Shape names its op, and the known form changed into, or the Beast
- * learned and the known form it replaces, if any, and nothing else, and throws no dice.
+ * learned and the known form it replaces, if any, and nothing else, and throws no dice. From module
+ * 0.41.0, damage on its own may name the spell slot it's rolled at, never none as null, the attack
+ * mode and the ammunition, and ask to spend what its use would, `consume`, which nothing else does.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -452,6 +454,8 @@ export const rollRequestSchema = z
     targets: z.array(targetSchema).max(MAX_USE_TARGETS).optional(),
     self: z.literal(true).optional(),
     slot: z.string().regex(SPELL_SLOT).nullable().optional(),
+    // From module 0.41.0: damage on its own spends what its use would.
+    consume: z.literal(true).optional(),
     ammunition: z.string().regex(FOUNDRY_ID).optional(),
     attackMode: z.string().regex(ATTACK_MODE).optional(),
     use: z.string().regex(REQUEST_ID).optional(),
@@ -607,20 +611,31 @@ export const rollRequestSchema = z
           'A use or an attack is made at different combatants of one combat',
       })
     }
-    if (!attack && !use && request.slot !== undefined) {
+    // From module 0.41.0, damage on its own names the slot it's rolled at, the attack mode and the
+    // ammunition, and may spend what its use would; it never leaves the slot to the game, as null.
+    const slotted = alone ? request.slot !== null : attack || use
+    if (request.slot !== undefined && !slotted) {
       context.addIssue({
         code: 'custom',
         path: ['slot'],
-        message: 'Only an attack or a use casts a spell',
+        message: 'Only an attack, a use or damage on its own casts at a slot',
       })
     }
     const weapon =
       request.ammunition !== undefined || request.attackMode !== undefined
-    if (!attack && weapon) {
+    if (!attack && !alone && weapon) {
       context.addIssue({
         code: 'custom',
         path: ['attackMode'],
-        message: 'Only an attack is made with ammunition, in a mode',
+        message:
+          'Only an attack, or damage on its own, is made with ammunition, in a mode',
+      })
+    }
+    if (!alone && request.consume !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['consume'],
+        message: 'Only damage on its own spends what it uses',
       })
     }
     const damaging =

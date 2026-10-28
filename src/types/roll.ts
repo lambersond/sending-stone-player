@@ -4,6 +4,7 @@ import type {
   ROLL_KINDS,
 } from '@/constants/sending-stone'
 import type {
+  AloneOutcome,
   AttackOutcome,
   DamagePreview,
   EffectChange,
@@ -274,8 +275,16 @@ export type RollRequestInput = {
    * of a combat the character isn't in; its token, where the game finds one.
    */
   self?: true
-  /** For an attack or a use of a spell, the spell slot chosen. */
+  /**
+   * For an attack or a use of a spell, the spell slot chosen; and from module 0.41.0, for damage on
+   * its own, the slot it's rolled at, and spends where asked, never null.
+   */
   slot?: string | null
+  /**
+   * For damage on its own, from module 0.41.0: spend what using it would, after the roll, as the
+   * game would spend it.
+   */
+  consume?: true
   /** For a use of an enchant activity, from module 0.21.0, how it enchants, and what. */
   enchant?: EnchantChoice
   /** For an enchantment ended, from module 0.21.0, the item it's on, and its effect. */
@@ -307,7 +316,10 @@ export type RollRequestInput = {
   turn?: EndedTurn
   /** For a turn taken back, from module 0.36.0: the End Turn it takes back, by its id. */
   undo?: string
-  /** For an attack, the ammunition and attack mode chosen. */
+  /**
+   * For an attack, and from module 0.41.0 for damage on its own, the ammunition and attack mode
+   * chosen.
+   */
   ammunition?: string
   attackMode?: string
   /** For damage, the attack or use it follows. */
@@ -424,6 +436,11 @@ export type RollRequestView = {
    * Beasts to learn, as the game says.
    */
   wildShape?: WildShapeOutcome
+  /**
+   * For damage on its own that asked to spend what its use would, from module 0.41.0, once made:
+   * what the game spent, and whether concentration began.
+   */
+  alone?: AloneOutcome
 }
 
 /**

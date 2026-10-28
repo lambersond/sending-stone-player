@@ -170,6 +170,22 @@ const described = (entry: CompanionEntry = wolf) =>
     },
   })
 
+/** A save the game asks of the wolf, filed under its key, as held. */
+const wolfPrompt = (fields: object = {}) => ({
+  promptId: 'msg1-wolfBrakka',
+  data: {
+    type: 'save',
+    abilities: ['dex'],
+    dc: 13,
+    label: 'Burning Hands',
+    messageId: 'msg1',
+  },
+  expiresAt: new Date(Date.now() + 60_000),
+  closedAt: null,
+  closedReason: null,
+  ...fields,
+})
+
 describe('db/companions', () => {
   describe('companionRoster', () => {
     it('reads the companions held, dropping what it can’t', () => {
@@ -323,10 +339,13 @@ describe('db/companions', () => {
         sheetVersion: UPDATED.toISOString(),
         // Of those the game takes from the character's player, only a companion's.
         rollsToTable: ['initiative', 'attack', 'use', 'damage'],
-        // What the game asks is never asked of a companion.
+        // Changed on purpose (round 0.41.0 §8.3): what the game asks is asked of no companion
+        // before module 0.41.0, which says `companionPrompts`.
         rollFeatures: ['modifiers', 'manualDice'],
         initiative: { mode: 'own' },
       })
+      expect(view).not.toHaveProperty('prompts')
+      expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
       expect(prismaMock.companionSheet.findUnique).toHaveBeenCalledWith({
         where: { campaignCompanion: { campaignId: 'c1', key: 'wolfBrakka' } },
         select: { data: true, updatedAt: true },
@@ -349,6 +368,82 @@ describe('db/companions', () => {
           transfersEnabled: true,
           removalsEnabled: true,
         },
+      })
+    })
+
+    describe('the saves the game asks of it, from module 0.41.0', () => {
+      const asking = {
+        rollFeatures: [
+          'modifiers',
+          'prompts',
+          'manualDice',
+          'companionPrompts',
+        ],
+      }
+
+      it('gives them by its key, as a character’s view has its own, never its character’s', async () => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held(asking)
+        const waiting = wolfPrompt()
+        prismaMock.rollPrompt.findMany.mockResolvedValue([waiting] as any)
+
+        const view = await getCompanionView(seat)
+        // Changed on purpose (round 0.41.0 §8.3): 'prompts' kept where the game asks companions.
+        expect(view.rollFeatures).toEqual([
+          'modifiers',
+          'prompts',
+          'manualDice',
+          'companionPrompts',
+        ])
+        expect(view.prompts).toEqual([
+          {
+            id: 'msg1-wolfBrakka',
+            type: 'save',
+            abilities: ['dex'],
+            dc: 13,
+            label: 'Burning Hands',
+            expiresAt: waiting.expiresAt.toISOString(),
+          },
+        ])
+        const [[query]] = prismaMock.rollPrompt.findMany.mock.calls as any
+        expect(query.where).toMatchObject({
+          campaignId: 'c1',
+          actorId: 'wolfBrakka',
+        })
+        expect(query.where.actorId).not.toBe(PARTY.thorin)
+      })
+
+      it("gives them at the Gamemaster's seat of the character too, where their rolls are made", async () => {
+        const gmAt = await seatAt(gm, 'wolfBrakka')
+        held({ rollFeatures: [...asking.rollFeatures, 'gmRolls'] })
+        prismaMock.rollPrompt.findMany.mockResolvedValue([wolfPrompt()] as any)
+
+        const view = await getCompanionView(gmAt)
+        expect(view.prompts).toHaveLength(1)
+        expect(view.rollFeatures).toContain('prompts')
+      })
+
+      it('gives none where the game asks players for nothing, nor once it’s no longer listed', async () => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held({ rollFeatures: ['modifiers', 'companionPrompts'] })
+        expect(await getCompanionView(seat)).not.toHaveProperty('prompts')
+
+        held({ ...asking, companions: [imp] })
+        expect(await getCompanionView(seat)).not.toHaveProperty('prompts')
+        expect(prismaMock.rollPrompt.findMany).not.toHaveBeenCalled()
+      })
+
+      it('says so in what tells its pane whether anything changed', async () => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held(asking)
+        await expect(getCompanionStatus(seat)).resolves.toMatchObject({
+          rollFeatures: [
+            'modifiers',
+            'prompts',
+            'manualDice',
+            'companionPrompts',
+          ],
+        })
       })
     })
 

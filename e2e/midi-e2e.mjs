@@ -294,7 +294,9 @@ if (SKEW) {
   check(!('midiPrompts' in hello.data.features.rolls) && !features().split(',').includes('midiPrompts'),
     `module 0.26.0's hello says nothing of Midi's saves, and the app keeps nothing of them (${features()})`)
 } else {
-  check(hello.data.features.rolls.midiPrompts === true && features() === 'modifiers,prompts,areaAttacks,activityChecks,signedDice,selfTargets,gmRolls,gmRollMessages,midiPrompts',
+  // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0, damage on its own's choices wherever
+  // it's offered, and companions' saves wherever players are asked for theirs.
+  check(hello.data.features.rolls.midiPrompts === true && features() === 'modifiers,prompts,areaAttacks,activityChecks,signedDice,selfTargets,gmRolls,gmRollMessages,midiPrompts,aloneChoices,companionPrompts',
     `module 0.27.0's hello says Midi's saves are asked in the app, and the app keeps that (${features()})`)
 }
 

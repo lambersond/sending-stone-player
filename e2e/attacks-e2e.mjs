@@ -479,6 +479,9 @@ await status.getByText('At the table: 21 · Hit 1 of 2').waitFor({ timeout: 30_0
 const outcomes = await status.getByRole('list', { name: 'Targets' }).getByRole('listitem').allTextContents()
 check(JSON.stringify(outcomes) === JSON.stringify(['Goblin: Hit', 'Ogre: Miss']), `the tray says whom it hit: ${JSON.stringify(outcomes)}`)
 await shoot(page, 'phone-area-attack-made')
+// The goblin back to full first: Midi applied the longsword's two hits, and at their highest (11,
+// then 19) they leave it at 0, where Midi's damage (midi-fake.mjs, never below 0) takes no more off.
+goblin.actor.system.attributes.hp.value = goblin.actor.system.attributes.hp.max
 const goblinHp = goblin.actor.system.attributes.hp.value
 const ogreHp = ogre.actor.system.attributes.hp.value
 ;({ request, made } = await sent(() => tray.getByRole('button', { name: 'Roll damage' }).click(), "the area attack's damage"))

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  ALONE_CHOICES,
   COMPANIONS,
   DISHES,
   EFFECTS,
@@ -245,7 +246,10 @@ export async function POST(request: Request) {
  * Recipe Book, which the module fetches, and reports the Gamemaster's choice of, only then; and
  * from module 0.39.0 a player's own effects turned off, on and deleted, which the module fetches
  * for only then; and from module 0.40.0, Wild Shape from the app and a shaped character's sheet,
- * which the module sends and fetches for only then.
+ * which the module sends and fetches for only then; and from module 0.41.0 the saves the game asks
+ * of companions (`companions` 2), and the plans of damage on its own at each level, in each attack
+ * mode and with each ammunition, and what it would spend (`aloneChoices`), which the module sends
+ * only then.
  */
 const FEATURES = {
   commands: true,
@@ -262,6 +266,7 @@ const FEATURES = {
   dishes: DISHES,
   effects: EFFECTS,
   wildShape: WILD_SHAPE,
+  aloneChoices: ALONE_CHOICES,
 }
 
 /**

@@ -61,6 +61,84 @@ const timed = (sheet: unknown) => {
   return { result, ms: Date.now() - start }
 }
 
+/** One roll of a plan of damage on its own, in the full shape: so many d6s. */
+const choiceRoll = (formula: string, number: number, fields: Json = {}) => ({
+  formula,
+  type: 'Fire',
+  types: null,
+  dice: [{ faces: 6, number }],
+  perDie: 1,
+  ...fields,
+})
+
+/** A plan of damage on its own of these rolls, in the full shape, as the module builds it. */
+const choicePlan = (rolls: unknown, fields: Json = {}) => ({
+  critical: false,
+  plannable: true,
+  healing: false,
+  rolls,
+  ...fields,
+})
+
+/** Burning Hands' own plan, 3d6, a save's, so allowing no critical hit. */
+const handsOwn = () => ({
+  normal: choicePlan([choiceRoll('3d6', 3)]),
+  critical: null,
+})
+
+/** Burning Hands at 2nd level, whole. */
+const atSecond = () => ({
+  level: 2,
+  normal: choicePlan([choiceRoll('4d6', 4)]),
+  critical: null,
+})
+
+/** The same as module 0.41.0 sends it (PROTOCOL.md, "Choices' plans"). */
+const atSecondSent = () => ({
+  level: 2,
+  normal: { rolls: [{ formula: '4d6', dice: [{ faces: 6, number: 4 }] }] },
+})
+
+/** A slim sheet with Burning Hands among its spells, and among its actions by reference. */
+const handsSheet = (choices: unknown[]) =>
+  slim({
+    ...withSpells([
+      {
+        id: 'hands',
+        name: 'Burning Hands',
+        level: 1,
+        damage: [{ formula: '3d6', type: 'Fire' }],
+        tableDamage: { ...handsOwn(), choices, spends: ['slot'] },
+      },
+    ]),
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [{ id: 'hands', ref: true }],
+      },
+    ],
+  })
+
+/** A sheet as the app keeps it. */
+const keptOf = (sheet: unknown) =>
+  (readAs(sheet) as { character: { sheet: Json } }).character.sheet
+
+/** Burning Hands' damage on its own, at 2nd as the module sends it, spending a use. */
+const sentTableDamage = () => ({
+  ...handsOwn(),
+  choices: [atSecondSent()],
+  spends: ['uses'],
+})
+
+/** Damage on its own made whole, in a spell row of a slim sheet. */
+const choiceIn = (tableDamage: unknown) =>
+  (
+    expandSheet(
+      withSpells([{ id: 'hands', name: 'Hands', tableDamage }]),
+    ) as Json
+  ).spells[0].spells[0].tableDamage
+
 describe('utils/slim-sheet', () => {
   describe('expandSheet', () => {
     it('makes a slim sheet whole: the sheet the module built, read the same', () => {
@@ -598,6 +676,298 @@ describe('utils/slim-sheet', () => {
       })
     })
 
+    describe("damage on its own's choices, from module 0.41.0", () => {
+      it("puts each choice back from its row's own plan: the sheet the module built, key for key, kept the same", () => {
+        const whole = expandSheet(handsSheet([atSecond()])) as Json
+        const sent = handsSheet([atSecondSent()])
+        const as = JSON.stringify(sent)
+        const back = expandSheet(sent) as Json
+
+        expect(back).toEqual(whole)
+        expect(JSON.stringify(back)).toBe(JSON.stringify(whole))
+        expect(JSON.stringify(sent)).toBe(as)
+        expect(back.spells[0].spells[0].tableDamage.choices).toEqual([
+          atSecond(),
+        ])
+        // An action by reference takes its row's choices whole, a copy of them.
+        const [action] = back.actions[0].actions
+        expect(action.tableDamage.choices).toEqual([atSecond()])
+        expect(action.tableDamage.choices[0]).not.toBe(
+          back.spells[0].spells[0].tableDamage.choices[0],
+        )
+        // So the sheet kept from the slim post is the one kept from the full post, with Burning
+        // Hands at 2nd, 4d6, and its slot.
+        expect(readAs(sent)).toEqual(readAs(whole))
+        const kept = keptOf(sent).actions[0].actions[0].tableDamage
+        expect(
+          kept.choices.map((choice: Json) => [
+            choice.level,
+            choice.normal.rolls.map((each: Json) => each.formula),
+          ]),
+        ).toEqual([[2, ['4d6']]])
+        expect(kept.spends).toEqual(['slot'])
+      })
+
+      it("gives a choice each plan it lacks, and a plan each key it lacks, and each roll each key it lacks of the row's own roll at the same place, in the module's order", () => {
+        const normal = choicePlan([
+          choiceRoll('1d8 + 2', 1, { type: 'Piercing' }),
+        ])
+        const critical = choicePlan(
+          [choiceRoll('2d8 + 2', 2, { type: 'Piercing', perDie: 2 })],
+          { critical: true },
+        )
+        const fire = choiceRoll('1d4', 1)
+        const sheet = expandSheet(
+          slim({
+            inventory: {
+              ...characterSheet().inventory,
+              sections: [
+                {
+                  id: 'weapons',
+                  label: 'Weapons',
+                  items: [
+                    {
+                      id: 'bow',
+                      name: 'Longbow',
+                      damage: [],
+                      tableDamage: {
+                        normal,
+                        critical,
+                        choices: [
+                          // Arrows of Fire: the row's roll with another formula, and another
+                          // roll the row has none of at its place, sent whole.
+                          {
+                            ammunition: 'fire',
+                            normal: { rolls: [{ formula: '1d8 + 3' }, fire] },
+                          },
+                          // Its picks after its plans, and a plan of other keys.
+                          {
+                            critical: { plannable: false },
+                            attackMode: 'twoHanded',
+                          },
+                          // A plan's keys and a roll's out of order, and some of neither.
+                          {
+                            level: 3,
+                            normal: {
+                              later: 1,
+                              rolls: [
+                                {
+                                  also: 'kept',
+                                  dice: [{ faces: 8, number: 3 }],
+                                  formula: '3d8 + 2',
+                                },
+                              ],
+                              healing: true,
+                            },
+                          },
+                          // No critical hit where the row allows one, and rolls that aren't a list.
+                          {
+                            level: 4,
+                            normal: { rolls: 'many' },
+                            critical: null,
+                          },
+                        ],
+                        spends: ['ammunition'],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ) as Json
+        const own = sheet.inventory.sections[0].items[0].tableDamage
+        const [arrows, mode, keys, none] = own.choices
+
+        expect(arrows).toEqual({
+          ammunition: 'fire',
+          normal: choicePlan([
+            choiceRoll('1d8 + 3', 1, { type: 'Piercing' }),
+            fire,
+          ]),
+          critical,
+        })
+        expect(mode).toEqual({
+          attackMode: 'twoHanded',
+          normal,
+          critical: { ...critical, plannable: false },
+        })
+        expect(Object.keys(mode)).toEqual(['attackMode', 'normal', 'critical'])
+        expect(Object.keys(keys.normal)).toEqual([
+          'critical',
+          'plannable',
+          'healing',
+          'rolls',
+          'later',
+        ])
+        expect(keys.normal.healing).toBe(true)
+        expect(keys.normal.rolls).toEqual([
+          {
+            formula: '3d8 + 2',
+            type: 'Piercing',
+            types: null,
+            dice: [{ faces: 8, number: 3 }],
+            perDie: 1,
+            also: 'kept',
+          },
+        ])
+        expect(Object.keys(keys.normal.rolls[0])).toEqual([
+          'formula',
+          'type',
+          'types',
+          'dice',
+          'perDie',
+          'also',
+        ])
+        expect(Object.keys(keys)).toEqual(['level', 'normal', 'critical'])
+        expect(none).toEqual({
+          level: 4,
+          normal: choicePlan('many'),
+          critical: null,
+        })
+        // Each a copy, never the row's own.
+        arrows.critical.rolls[0].formula = '9d9'
+        mode.normal.rolls[0].dice[0].number = 9
+        expect(own.critical.rolls[0].formula).toBe('2d8 + 2')
+        expect(own.normal.rolls[0].dice[0].number).toBe(1)
+        expect(keys.critical).not.toBe(arrows.critical)
+      })
+
+      it('puts them back wherever a tableDamage holds them', () => {
+        const sheet = expandSheet(
+          slim({
+            inventory: {
+              ...characterSheet().inventory,
+              containers: [
+                {
+                  id: 'bag',
+                  name: 'Bag',
+                  type: 'container',
+                  contents: [
+                    {
+                      id: 'wand',
+                      name: 'Wand',
+                      damage: [],
+                      tableDamage: sentTableDamage(),
+                    },
+                  ],
+                },
+              ],
+            },
+            features: [
+              {
+                id: 'class',
+                label: 'Class',
+                text: null,
+                features: [
+                  {
+                    id: 'breath',
+                    name: 'Breath',
+                    activities: [
+                      {
+                        id: 'b',
+                        name: 'Breath',
+                        type: 'save',
+                        tableDamage: sentTableDamage(),
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+            actions: [
+              {
+                id: 'action',
+                label: 'Actions',
+                actions: [
+                  {
+                    id: 'whole',
+                    name: 'Whole',
+                    damage: [],
+                    tableDamage: sentTableDamage(),
+                  },
+                  // An action by reference with damage on its own of its own.
+                  { id: 'wand', ref: true, tableDamage: sentTableDamage() },
+                ],
+              },
+            ],
+            favorites: [
+              {
+                type: 'activity',
+                id: 'b',
+                itemId: 'breath',
+                name: 'Breath',
+                tableDamage: sentTableDamage(),
+              },
+            ],
+          }),
+        ) as Json
+        const found = [
+          sheet.inventory.containers[0].contents[0],
+          sheet.features[0].features[0].activities[0],
+          ...sheet.actions[0].actions,
+          sheet.favorites[0],
+        ].map(({ tableDamage }: Json) => tableDamage)
+
+        expect(found).toHaveLength(5)
+        for (const each of found) {
+          expect(each).toEqual({
+            ...handsOwn(),
+            choices: [atSecond()],
+            spends: ['uses'],
+          })
+        }
+      })
+
+      it("leaves what isn't a choice, or a plan, or a roll of the row's own, as it comes, and never throws", () => {
+        expect(choiceIn({ ...handsOwn(), choices: 'some' }).choices).toBe(
+          'some',
+        )
+        expect(
+          choiceIn({ ...handsOwn(), choices: [null, 7, 'x', [{ level: 2 }]] })
+            .choices,
+        ).toEqual([null, 7, 'x', [{ level: 2 }]])
+        // No plan of its own to take from.
+        expect(
+          choiceIn({ choices: [atSecondSent(), { level: 3 }] }).choices,
+        ).toEqual([atSecondSent(), { level: 3 }])
+        // A critical hit's where the row allows none, sent as it is; a row's plans of no shape.
+        const crit = { rolls: [{ formula: '8d6' }] }
+        expect(
+          choiceIn({ ...handsOwn(), choices: [{ level: 2, critical: crit }] })
+            .choices,
+        ).toEqual([{ level: 2, normal: handsOwn().normal, critical: crit }])
+        expect(
+          choiceIn({
+            normal: { rolls: 'many' },
+            critical: 'none',
+            choices: [{ level: 2, normal: { rolls: [{}] } }, { level: 3 }],
+          }).choices,
+        ).toEqual([
+          { level: 2, normal: { rolls: [{}] }, critical: 'none' },
+          { level: 3, normal: { rolls: 'many' }, critical: 'none' },
+        ])
+        // A roll is put back only from a roll of the row's own at its place.
+        expect(
+          choiceIn({
+            normal: choicePlan([null, choiceRoll('1d6', 1)]),
+            critical: null,
+            choices: [{ level: 2, normal: { rolls: [{}, {}, 'x', {}] } }],
+          }).choices,
+        ).toEqual([
+          {
+            level: 2,
+            normal: choicePlan([{}, choiceRoll('1d6', 1), 'x', {}]),
+            critical: null,
+          },
+        ])
+        expect(choiceIn(null)).toBeNull()
+        expect(() =>
+          choiceIn({ choices: [{ normal: [], critical: 7 }] }),
+        ).not.toThrow()
+      })
+    })
+
     describe('bounds', () => {
       it('stops a sheet of a million empty activities, as no sheet, quickly', () => {
         const { result, ms } = timed(
@@ -643,6 +1013,41 @@ describe('utils/slim-sheet', () => {
 
         expect(result).toBeNull()
         expect(ms).toBeLessThan(QUICKLY)
+      })
+
+      it("counts what it copies of a row's damage on its own into its choices: a wide plan in 200 choices stops, quickly", () => {
+        const formula = `1d6 + ${'1'.repeat(100_000)}`
+        const sheetOf = (count: number, choice: Json) =>
+          withSpells([
+            {
+              id: 'wide',
+              name: 'Wide',
+              tableDamage: {
+                normal: {
+                  critical: false,
+                  plannable: true,
+                  healing: false,
+                  rolls: [
+                    { formula, type: null, types: null, dice: [], perDie: 1 },
+                  ],
+                },
+                critical: null,
+                choices: Array.from({ length: count }, () => choice),
+              },
+            },
+          ])
+
+        // 50 copies of its 100 KB come to 5 MB, within the bound; 200 to 20 MB, past it, whether
+        // the plan is copied whole or a roll's formula.
+        expect(expandSheet(sheetOf(50, { level: 2 }))).not.toBeNull()
+        for (const choice of [
+          { level: 2 },
+          { level: 2, normal: { rolls: [{}] } },
+        ]) {
+          const { result, ms } = timed(sheetOf(200, choice))
+          expect(result).toBeNull()
+          expect(ms).toBeLessThan(QUICKLY)
+        }
       })
 
       it('stops a million empty rows', () => {

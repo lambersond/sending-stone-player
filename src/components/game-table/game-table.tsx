@@ -38,6 +38,7 @@ import { DeleteCharacterWarning } from '@/components/character-list'
 import { CharacterPane, classLine } from '@/components/character-sheet'
 import { PartySheetList } from '@/components/character-sheet/party-sheets'
 import { WildShapeEnded } from '@/components/character-sheet/wild-shape'
+import { CompanionAskNotice } from '@/components/companions/companion-ask-notice'
 import { CompanionPane } from '@/components/companions/companion-pane'
 import {
   CreatureSwitcher,
@@ -58,7 +59,10 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { POLL_INTERVAL, useTableView } from '@/hooks/use-table-view'
 import { useTurnUndo } from '@/hooks/use-turn-undo'
-import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
+import {
+  useWaitingCompanions,
+  useWaitingPrompts,
+} from '@/hooks/use-waiting-prompts'
 import {
   companionRow,
   numberedNames,
@@ -311,6 +315,10 @@ export function GameTable({
   })
   // The saves the game asks of the character, which its tab marks while they wait.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
+  // And from module 0.41.0 those it asks of their companions, which each one's tab marks.
+  const companionsAsked = useWaitingCompanions(
+    view.connected ? view.companionPrompts : undefined,
+  )
 
   // The character's companions (module 0.36.0), as the row of tabs above the sheet shows them:
   // those the module lists, and those it no longer lists, kept until the player has seen they've
@@ -330,6 +338,15 @@ export function GameTable({
   }
   const { row, names, numbers, generations } = shownRow
   const rowKeys = row.map(({ key }) => key)
+  // Those companions asked whose tabs the row shows, not gone, in the order first asked: the
+  // character's own banner says so, with a way to each one's tab (module 0.41.0).
+  const waiting = companionsAsked.flatMap(({ key, label }) => {
+    const shown = row.find(companion => companion.key === key)
+    return shown && !shown.gone
+      ? [{ key, label, name: names.get(key) ?? shown.name }]
+      : []
+  })
+  const waitingKeys = new Set(waiting.map(({ key }) => key))
   const [chosen, chooseKept] = useCreatureChoice(seat.key, rowKeys)
   const goneKeys = new Set(row.flatMap(({ key, gone }) => (gone ? [key] : [])))
   // A gone companion's tab goes once it has been shown and another is chosen.
@@ -538,6 +555,8 @@ export function GameTable({
           news: gone
             ? ''
             : [
+                // What the game asks of it, from module 0.41.0, as the character's own tab says.
+                waitingKeys.has(key) && words.asksForRoll,
                 isTurnOf(
                   view.combat,
                   combatant => combatant.companion === key,
@@ -610,6 +629,12 @@ export function GameTable({
               manualDice={diceSwitch}
               notes={notes}
               cookbook={cookbook}
+              // Which of its companions the game asks a save of, from module 0.41.0.
+              companionNotice={
+                waiting.length > 0 && (
+                  <CompanionAskNotice asked={waiting} onShow={openCompanion} />
+                )
+              }
             />
           ) : (
             <Scroller>
@@ -892,11 +917,12 @@ export function GameTable({
               show('character')
             }}
           >
-            {asked.length > 0 && tab !== 'character' && (
-              <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
-                <span className='sr-only'>{words.asksForRoll}</span>
-              </span>
-            )}
+            {(asked.length > 0 || waitingKeys.size > 0) &&
+              tab !== 'character' && (
+                <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
+                  <span className='sr-only'>{words.asksForRoll}</span>
+                </span>
+              )}
           </TabButton>
           <TabButton
             ref={barCombat}

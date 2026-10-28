@@ -431,6 +431,8 @@ export function wildShapeReasons(
     swap: 'a known form is replaced only after a Long Rest',
     consume: 'no uses of Wild Shape are left',
     incapacitated: 'an Incapacitated character can’t use Wild Shape',
+    // Midi-QOL's Enforce bonus actions, in a fight, from module 0.41.0 (round 0.41.0 §1.6).
+    'bonus-action': 'your character has already used their Bonus Action',
     'not-shaped': 'your character isn’t in Wild Shape any more',
     transformed: 'that form ends in Foundry',
     shaped: 'the form your character is in now can’t be replaced',

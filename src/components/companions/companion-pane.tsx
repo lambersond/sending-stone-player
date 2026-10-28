@@ -20,6 +20,8 @@ import type { RowCompanion } from '@/utils/companion-row'
  * shown. While its sheet hasn't come, or was too large to send, it says so, and takes focus itself,
  * handing it to its sheet's tabs once the sheet comes. Once the companion is no longer the
  * character's, its sheet stays as it was, a note under its tabs saying so, and nothing on it rolls.
+ * From module 0.41.0, the saves the game asks of it are asked on its own banner, as a character's
+ * are, with its own modifiers.
  * @param companion - As the row has it.
  * @param name - Its name as the row says it, numbered where repeated, such as "Bat 2".
  * @param character - The character's name.
@@ -108,6 +110,8 @@ export function CompanionPane({
         // A companion no longer the character's has nothing made in the game.
         rollsToTable={left ? undefined : view.rollsToTable}
         rollFeatures={left ? undefined : view.rollFeatures}
+        // The saves the game asks of it, from module 0.41.0, on its own banner, answered here.
+        prompts={left ? undefined : view.prompts}
         gmRolls={view.gmRolls}
         header={header}
         manualDice={view.manualDice?.offered ? manualDice : undefined}

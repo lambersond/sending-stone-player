@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useRef, useState, type ReactNode, type Ref } from 'react'
 import clsx from 'clsx'
 import {
   Check,
@@ -12,10 +12,12 @@ import {
 } from 'lucide-react'
 import { actionTitle, verbOf } from './action-entry'
 import { chargesOf } from './action-info'
+import { listed } from './roll-tray'
 import { EntryIcon } from './sheet-entry'
 import { Modal } from '@/components/modal'
 import { SearchField } from '@/components/search-field'
 import { MAX_USE_TARGETS } from '@/constants/sending-stone'
+import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   defaultPool,
@@ -25,6 +27,11 @@ import {
   type SlotPool,
 } from '@/utils/action-groups'
 import { castAtLevel, castOf, type CastIndex } from '@/utils/casts'
+import {
+  aloneSelection,
+  type AloneChoice,
+  type AloneSelection,
+} from '@/utils/damage-alone'
 import {
   enchantOf,
   offeredProfiles,
@@ -39,6 +46,7 @@ import {
   picksTargets,
   selfDefault,
 } from '@/utils/uses'
+import { articled } from '@/utils/wild-shape'
 import type { SheetRoll } from '@/hooks/use-sheet-roller'
 import type { EnchantChoice } from '@/types/roll'
 import type {
@@ -54,8 +62,19 @@ import type { DamageModifiers } from '@/utils/damage-modifiers'
 /*
  * What an attack or the use of a spell or feature is made with, chosen as it's made: whom at, and
  * with which spell slot, ammunition or attack mode, or at which level a spell an item casts is
- * cast, where there's a choice; and for one that enchants, how, and which item.
+ * cast, where there's a choice; and for one that enchants, how, and which item. And since module
+ * 0.41.0 damage on its own, at the level chosen, in the attack mode and with the ammunition chosen,
+ * and whether it spends what its use would.
  */
+
+/**
+ * Where this device keeps whether damage on its own spends what its use would, after the seat and
+ * the character's pane (module 0.41.0): on the first time, then as the player last left it there.
+ */
+export const ALONE_SPEND_KEY = 'sending-stone:alone-spend'
+
+/** What the Spend switch of damage on its own is: on or off. */
+const SPEND_CHOICES = ['on', 'off'] as const
 
 /** No spell an item casts, as for a sheet that lists none. */
 const NO_CASTS: CastIndex = new Map()
@@ -78,6 +97,15 @@ export type Picking =
       /** How the player chose to change the damage that follows it. */
       modifiers?: DamageModifiers
     }
+  | {
+      /** Damage on its own, from module 0.41.0, whose choices the game sends. */
+      kind: 'alone'
+      action: SheetAction
+      /** Healing rather than damage, as its chip is. */
+      healing: boolean
+      /** What the player chose of it already, as from its chip's menu. */
+      choice: AloneChoice
+    }
 
 /** What the player chose. */
 export type Picked = {
@@ -96,6 +124,8 @@ export type Picked = {
   attackMode?: string
   /** For a use of an enchant activity, how it enchants, and which item, if one. */
   enchant?: EnchantChoice
+  /** For damage on its own, from module 0.41.0: spend what its use would, as its switch says. */
+  consume?: true
 }
 
 /**
@@ -284,6 +314,7 @@ function choicesOf(
   casts: CastIndex,
 ) {
   const { action } = picking
+  if (picking.kind === 'alone') return aloneChoicesOf(action, spellbook)
   const levels = castOf(action, casts)?.levels ?? []
   const pools = levels.length > 0 ? [] : (slotPools(action, spellbook) ?? [])
   const attack = picking.kind === 'attack'
@@ -297,6 +328,103 @@ function choicesOf(
         ? action.attackModes!
         : [],
   }
+}
+
+/**
+ * The choices damage on its own offers, from module 0.41.0, where the game sends them (round 0.41.0
+ * §2.3.2, §2.11.2): the slots it may be rolled at, where there's more than one and the level or the
+ * slot matters, some plan of the game's being at a level or its use spending a slot; and for its
+ * weapon's attack, its ammunition and modes, where there's more than one. Never whom at.
+ */
+function aloneChoicesOf(action: SheetAction, spellbook: SheetSpellSection[]) {
+  const plan = action.tableDamage
+  const levelled =
+    !!plan?.choices?.some(({ level }) => level !== undefined) ||
+    !!plan?.spends?.includes('slot')
+  const pools = levelled ? (slotPools(action, spellbook) ?? []) : []
+  // A weapon's choices are its attack's, which its damage on its own is the damage of.
+  const attack = !!action.attackId
+  return {
+    pools: pools.length > 1 ? pools : [],
+    levels: [] as SheetCastLevel[],
+    ammunition:
+      attack && (action.ammunition?.length ?? 0) > 1 ? action.ammunition! : [],
+    modes:
+      attack && (action.attackModes?.length ?? 0) > 1
+        ? action.attackModes!
+        : [],
+  }
+}
+
+/**
+ * What damage on its own is rolled with before the player picks anything, as the game would have
+ * it (module 0.41.0): what they chose already, else its slot, as dnd5e would pick it, and its
+ * ammunition, the first with any left, as `aloneSelection` has them; and its weapon's first mode,
+ * where the picker offers its modes, as the attack picker presets it.
+ */
+function alonePicksOf(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+  choice: AloneChoice = {},
+): AloneSelection {
+  const plan = action.tableDamage
+  if (!plan) return {}
+  const { slot, ammunition } = aloneSelection(
+    plan,
+    { action, spells: spellbook },
+    choice,
+  )
+  const { modes } = aloneChoicesOf(action, spellbook)
+  const attackMode = choice.attackMode ?? modes[0]?.value
+  return {
+    ...(slot && { slot }),
+    ...(attackMode && { attackMode }),
+    ...(ammunition && { ammunition }),
+  }
+}
+
+/**
+ * What damage on its own would spend as picked, from module 0.41.0, as the Spend switch names it
+ * (round 0.41.0 §2.4.1, §2.11.2), each only where the game says its use spends it: the slot chosen,
+ * "a 2nd-level spell slot", or "a pact slot (3rd level)"; "a use of Second Wind"; the ammunition
+ * fired, "an Arrow of Fire"; and the weapon itself thrown, in a thrown mode with no ammunition,
+ * "the Dagger", or in its only mode where that one is thrown, "the Dart". None for a pick that
+ * spends nothing, which shows no switch.
+ */
+function spendParts(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+  picks: AloneSelection,
+): string[] {
+  const spends = action.tableDamage?.spends ?? []
+  const pool = picks.slot
+    ? slotPools(action, spellbook)?.find(({ id }) => id === picks.slot)
+    : undefined
+  const ammunition = picks.ammunition
+    ? action.ammunition?.find(({ id }) => id === picks.ammunition)
+    : undefined
+  // A weapon of one mode, such as a Dart, has no mode to pick: the game says it spends it thrown
+  // only where that one mode is thrown, and throws it so with none named.
+  const thrown =
+    !ammunition &&
+    (!!picks.attackMode?.startsWith('thrown') ||
+      (spends.includes('thrown') && (action.attackModes?.length ?? 0) < 2))
+  return [
+    ...(spends.includes('slot') && pool ? [slotWords(pool)] : []),
+    ...(spends.includes('uses') ? [`a use of ${action.name}`] : []),
+    ...(spends.includes('ammunition') && ammunition
+      ? [articled(ammunition.name)]
+      : []),
+    ...(spends.includes('thrown') && thrown ? [`the ${action.name}`] : []),
+  ]
+}
+
+/** A slot spent, in words: "a 2nd-level spell slot", or pact magic's "a pact slot (3rd level)". */
+function slotWords(pool: SlotPool): string {
+  if (pool.level === null) return 'a spell slot'
+  return pool.id === 'pact'
+    ? `a pact slot (${ordinal(pool.level)} level)`
+    : `a ${ordinal(pool.level)}-level spell slot`
 }
 
 /**
@@ -320,6 +448,20 @@ export function asks(
     spellbook,
     casts,
   )
+  // Damage on its own asks where it has chips to choose from, or a switch to show for what it'd
+  // spend as the game would preset it; never whom at.
+  if (picking.kind === 'alone') {
+    return (
+      pools.length > 0 ||
+      ammunition.length > 0 ||
+      modes.length > 0 ||
+      spendParts(
+        picking.action,
+        spellbook,
+        alonePicksOf(picking.action, spellbook, picking.choice),
+      ).length > 0
+    )
+  }
   const enchant =
     picking.kind === 'use' ? enchantOf(picking.action.activity) : undefined
   if (enchant) {
@@ -392,6 +534,7 @@ export function UsePicker({
   last,
   areas = false,
   selfTargets = false,
+  spendKey = ALONE_SPEND_KEY,
   onPick,
   onClose,
 }: Readonly<{
@@ -408,9 +551,17 @@ export function UsePicker({
   areas?: boolean
   /** Whether the game makes a use at its user as asked, from module 0.22.0. */
   selfTargets?: boolean
+  /**
+   * Where this device keeps the Spend switch of damage on its own for this character, from module
+   * 0.41.0: `ALONE_SPEND_KEY`, then its seat and pane.
+   */
+  spendKey?: string
   onPick: (picked: Picked) => void
   onClose: () => void
 }>) {
+  // Damage on its own's picker gives focus to the choice made in its first row of chips, or to
+  // its switch where it shows none (module 0.41.0).
+  const first = useRef<HTMLElement>(null)
   let title = ''
   if (picking) {
     title =
@@ -419,8 +570,22 @@ export function UsePicker({
         : actionTitle(picking.action)
   }
   return (
-    <Modal open={picking !== undefined} onClose={onClose} title={title}>
-      {picking && (
+    <Modal
+      open={picking !== undefined}
+      onClose={onClose}
+      title={title}
+      initialFocus={picking?.kind === 'alone' ? first : undefined}
+    >
+      {picking?.kind === 'alone' && (
+        <AloneChoices
+          picking={picking}
+          spellbook={spellbook}
+          spendKey={spendKey}
+          first={first}
+          onPick={onPick}
+        />
+      )}
+      {picking && picking.kind !== 'alone' && (
         <Choices
           picking={picking}
           combat={combat}
@@ -448,7 +613,7 @@ function Choices({
   selfTargets,
   onPick,
 }: Readonly<{
-  picking: Picking
+  picking: Exclude<Picking, { kind: 'alone' }>
   combat?: TableCombat
   spellbook: SheetSpellSection[]
   casts: CastIndex
@@ -733,6 +898,245 @@ function Choices({
   )
 }
 
+/**
+ * Damage on its own's choices, from module 0.41.0 (round 0.41.0 §2.3, §2.4, §2.11.2): said first
+ * where it goes and for whom to apply; the slots it may be rolled at, each with how many are left
+ * while the switch spends one, an empty one then not to be chosen; the ammunition, likewise, and
+ * the weapon's modes; then a switch to spend what its use would, named for what it spends as
+ * picked, kept on this device for the character, on the first time; and Roll damage, or Roll
+ * healing, which goes on with what was picked, the slot always where the spell is cast with one.
+ * A screen reader hears what the switch spends once a pick changes it, as its name changes out of
+ * focus.
+ * @param first - What takes focus as it opens: the choice made in its first row of chips, or the
+ *   switch where it shows none.
+ */
+function AloneChoices({
+  picking,
+  spellbook,
+  spendKey,
+  first,
+  onPick,
+}: Readonly<{
+  picking: Extract<Picking, { kind: 'alone' }>
+  spellbook: SheetSpellSection[]
+  spendKey: string
+  first: Ref<HTMLElement>
+  onPick: (picked: Picked) => void
+}>) {
+  const { action, healing, choice } = picking
+  const role = useTableRole()
+  const { game } = seatWords(role)
+  const spends = action.tableDamage?.spends ?? []
+  const { pools, ammunition, modes } = aloneChoicesOf(action, spellbook)
+  const [picks, setPicks] = useState(() =>
+    alonePicksOf(action, spellbook, choice),
+  )
+  const [stored, store] = useStoredChoice(spendKey, SPEND_CHOICES, 'on')
+  const on = stored === 'on'
+  const label = spendLabel(action, spellbook, picks)
+  // What the switch spends, said again where a pick changes it.
+  const [said, say] = useState('')
+  const choose = (next: AloneSelection) => {
+    const picked = { ...picks, ...next }
+    const now = spendLabel(action, spellbook, picked)
+    if (now && now !== label) say(now)
+    setPicks(picked)
+  }
+  // While it spends them, a slot or an ammunition with none left can't be chosen: turned on, the
+  // pick moves off one to the one dnd5e would choose with some left, where there is one.
+  const slotSpent = on && spends.includes('slot')
+  const ammoSpent = on && spends.includes('ammunition')
+  const turn = (next: boolean) => {
+    store(next ? 'on' : 'off')
+    if (!next) return
+    const moved: AloneSelection = {}
+    const pool = slotPools(action, spellbook)?.find(
+      ({ id }) => id === picks.slot,
+    )
+    if (spends.includes('slot') && pool && pool.value <= 0) {
+      const left = defaultPool(action, spellbook)
+      if (left) moved.slot = left.id
+    }
+    const fired = action.ammunition?.find(({ id }) => id === picks.ammunition)
+    if (spends.includes('ammunition') && fired && fired.quantity <= 0) {
+      const left = action.ammunition?.find(({ quantity }) => quantity > 0)
+      if (left) moved.ammunition = left.id
+    }
+    choose(moved)
+  }
+  const what = healing ? 'healing' : 'damage'
+  // The first row of chips shown takes focus as it opens, at its choice; else the switch.
+  const rows = [
+    pools.length > 0 && 'pools',
+    ammunition.length > 0 && 'ammunition',
+    modes.length > 0 && 'modes',
+  ].filter(Boolean)
+  const focusOf = (row: string, selected: boolean) =>
+    row === rows[0] && selected ? first : undefined
+  return (
+    <div className='flex flex-col gap-4'>
+      <p className='text-sm text-text-secondary'>
+        Its {what} goes to {game} on its own, for{' '}
+        {role === 'gm' ? 'you' : 'your Gamemaster'} to apply.
+      </p>
+      {pools.length > 0 && (
+        <ChipRow label='At level'>
+          {pools.map(pool => (
+            <Chip
+              key={pool.id}
+              ref={focusOf('pools', pool.id === picks.slot)}
+              tall
+              selected={pool.id === picks.slot}
+              disabled={slotSpent && pool.value <= 0}
+              onSelect={() => choose({ slot: pool.id })}
+              label={slotSpent ? poolLabel(pool) : pool.label}
+            >
+              {poolName(pool)}
+              {slotSpent && (
+                <span className='font-normal text-text-secondary'>
+                  {' '}
+                  · {pool.value} left
+                </span>
+              )}
+            </Chip>
+          ))}
+        </ChipRow>
+      )}
+      {ammunition.length > 0 && (
+        <ChipRow label='Ammunition'>
+          {ammunition.map(({ id, name, quantity }) => (
+            <Chip
+              key={id}
+              ref={focusOf('ammunition', id === picks.ammunition)}
+              tall
+              selected={id === picks.ammunition}
+              disabled={ammoSpent && quantity <= 0}
+              onSelect={() => choose({ ammunition: id })}
+              label={`${name}, ${quantity} left`}
+            >
+              {name}{' '}
+              <span className='font-normal text-text-secondary'>
+                · {quantity}
+              </span>
+            </Chip>
+          ))}
+        </ChipRow>
+      )}
+      {modes.length > 0 && (
+        <ChipRow label='Mode'>
+          {modes.map(({ value, label: name }) => (
+            <Chip
+              key={value}
+              ref={focusOf('modes', value === picks.attackMode)}
+              tall
+              selected={value === picks.attackMode}
+              onSelect={() => choose({ attackMode: value })}
+              label={name}
+            >
+              {name}
+            </Chip>
+          ))}
+        </ChipRow>
+      )}
+      {label && (
+        <SpendSwitch
+          ref={rows.length === 0 ? first : undefined}
+          label={label}
+          on={on}
+          onChange={turn}
+        />
+      )}
+      <p aria-live='polite' className='sr-only'>
+        {said}
+      </p>
+      <Go
+        label={healing ? 'Roll healing' : 'Roll damage'}
+        onGo={() =>
+          onPick({
+            targets: [],
+            ...(picks.slot && { slot: picks.slot }),
+            ...(modes.length > 0 &&
+              picks.attackMode && { attackMode: picks.attackMode }),
+            ...(picks.ammunition && { ammunition: picks.ammunition }),
+            // Only where the switch shows, and is on: no part, nothing to spend.
+            ...(label && on && { consume: true as const }),
+          })
+        }
+      />
+    </div>
+  )
+}
+
+/**
+ * What the Spend switch says as picked, such as "Spend a 2nd-level spell slot"; none where it
+ * spends nothing.
+ */
+function spendLabel(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+  picks: AloneSelection,
+): string | undefined {
+  const parts = spendParts(action, spellbook, picks)
+  return parts.length > 0 ? `Spend ${listed(parts)}` : undefined
+}
+
+/**
+ * Whether damage on its own spends what its use would, as the sheet's settings' switches are drawn:
+ * named for what it spends, which says more beneath it. Space or Enter turns it, as a tap does.
+ */
+function SpendSwitch({
+  ref,
+  label,
+  on,
+  onChange,
+}: Readonly<{
+  ref?: Ref<HTMLElement>
+  label: string
+  on: boolean
+  onChange: (on: boolean) => void
+}>) {
+  const hint = useId()
+  return (
+    <div className='flex flex-col gap-1'>
+      {/* A target as tall as a finger on a phone, as the switch inside it is small. */}
+      <label className='flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium sm:min-h-9'>
+        <input
+          ref={ref as Ref<HTMLInputElement>}
+          type='checkbox'
+          role='switch'
+          checked={on}
+          onChange={event => onChange(event.target.checked)}
+          onKeyDown={event => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            onChange(!on)
+          }}
+          aria-describedby={hint}
+          className='peer sr-only'
+        />
+        <span
+          aria-hidden
+          className={clsx(
+            'relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
+            on ? 'bg-primary' : 'bg-border',
+          )}
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]',
+              on ? 'left-4.5' : 'left-0.5',
+            )}
+          />
+        </span>
+        {label}
+      </label>
+      <p id={hint} className='pl-12 text-xs text-text-secondary'>
+        Turn it off where it was spent in Foundry already.
+      </p>
+    </div>
+  )
+}
+
 /** What to tick, and how many. */
 function leadFor(area: boolean, most: number): string {
   const limit = Number.isFinite(most) ? ` Up to ${most}.` : ''
@@ -775,13 +1179,21 @@ function ChipRow({
   )
 }
 
+/**
+ * A choice in a row of them. A `tall` one is as tall as a finger on a phone, as damage on its own's
+ * are (module 0.41.0).
+ */
 function Chip({
+  ref,
+  tall = false,
   selected,
   disabled = false,
   onSelect,
   label,
   children,
 }: Readonly<{
+  ref?: Ref<HTMLElement>
+  tall?: boolean
   selected: boolean
   disabled?: boolean
   onSelect: () => void
@@ -790,6 +1202,7 @@ function Chip({
 }>) {
   return (
     <button
+      ref={ref as Ref<HTMLButtonElement>}
       type='button'
       role='radio'
       aria-checked={selected}
@@ -798,6 +1211,7 @@ function Chip({
       onClick={onSelect}
       className={clsx(
         'max-w-full rounded-lg border px-2.5 py-1 text-sm font-semibold tabular-nums transition-colors disabled:opacity-40',
+        tall && 'min-h-11 sm:min-h-9',
         selected
           ? 'border-primary bg-primary/10 text-primary-text'
           : 'border-border hover:bg-primary/5',

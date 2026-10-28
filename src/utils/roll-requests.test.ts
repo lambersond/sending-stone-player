@@ -31,7 +31,13 @@ import {
   frostBreathAction,
   fullerSheet,
   greataxeAction,
+  aloneResult,
+  aloneSheet,
+  aloneSpells,
+  burningHandsAction,
+  hellishRebukeAction,
   mockCompanionEntry,
+  pactSpells,
   mockCompanionSheet,
   mockTableDamage,
   rapierAction,
@@ -6188,5 +6194,380 @@ describe('utils/roll-requests, a turn taken back, from module 0.36.0', () => {
     })
     expect(command).not.toHaveProperty('of')
     expect(command).not.toHaveProperty('by')
+  })
+})
+
+/** Damage on its own of one of Thorin's rows, with these dice and fields. */
+const choosing = (
+  item: string,
+  activity: string,
+  dice: { faces: number; results: number[] }[],
+  fields: Partial<RollRequestInput> = {},
+) =>
+  request({
+    kind: 'itemDamage',
+    key: undefined,
+    item,
+    activity,
+    dice,
+    ...fields,
+  })
+/** Burning Hands' fire: so many d6s. */
+const handsAlone = (count: number, fields: Partial<RollRequestInput> = {}) =>
+  choosing(
+    'hands',
+    'handsSave',
+    [{ faces: 6, results: Array.from({ length: count }, () => 3) }],
+    fields,
+  )
+/** The Battleaxe's slashing: one die of these faces, two for a critical hit's. */
+const axeAlone = (faces: number, fields: Partial<RollRequestInput> = {}) =>
+  choosing(
+    'battleaxe',
+    'axeAttack',
+    [{ faces, results: fields.critical ? [5, 2] : [5] }],
+    fields,
+  )
+/** The Longbow's piercing, and an Arrow of Fire's d4 where said. */
+const bowAlone = (fire: boolean, fields: Partial<RollRequestInput> = {}) =>
+  choosing(
+    'longbow',
+    'bowAttack',
+    [{ faces: 8, results: [6] }, ...(fire ? [{ faces: 4, results: [3] }] : [])],
+    fields,
+  )
+/**
+ * Is Thorin's damage on its own taken, as his sheet of choices has it, or this one, by a game that
+ * takes its choices, or does what else is given?
+ */
+const checkAlone = (
+  input: RollRequestInput,
+  sheet = aloneSheet(),
+  features: readonly string[] = ['aloneChoices'],
+) => checkRoll(input, sheet, [], 'actor-thorin', undefined, features)
+/** Burning Hands' plans, as module 0.41.0 sends them: 3d6, 4d6 at 2nd level, spending a slot. */
+const handsPlan = () => burningHandsAction().tableDamage!
+/** Thorin with this Burning Hands alone among his actions, and his slots as given. */
+const handsSheet = (
+  hands: SheetAction,
+  spells: CharacterSheet['spells'] = aloneSpells(),
+) =>
+  aloneSheet({
+    actions: [{ id: 'action', label: 'Actions', actions: [hands] }],
+    spells,
+  })
+/**
+ * A Fighter's Burning Hands from a 2024 origin feat, Magic Initiate, as module 0.41.0 sends it: the
+ * character has no spell slots, so its own level's section holds none of none, no pool to cast it
+ * with, and the row offers no level, though the spell spends a slot.
+ */
+const slotlessSheet = () =>
+  handsSheet(
+    burningHandsAction({ tableDamage: { ...handsPlan(), choices: [] } }),
+    [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 0, max: 0, level: 1 },
+        spells: [sheetSpell({ id: 'hands', name: 'Burning Hands' })],
+      },
+    ],
+  )
+/**
+ * A 1st-level wizard's Shatter, a 2nd-level spell copied into the spellbook: its section holds none
+ * of none, and the wizard's 1st-level slots are below it, so no pool casts it. 3d8 thunder.
+ */
+const shatterSheet = () =>
+  handsSheet(
+    burningHandsAction({
+      id: 'shatter',
+      name: 'Shatter',
+      level: 2,
+      activity: { ...burningHandsAction().activity!, id: 'shatterSave' },
+      save: { ability: 'CON', dc: 13 },
+      damage: [{ formula: '3d8', type: 'Thunder', healing: false }],
+      tableDamage: {
+        normal: {
+          critical: false,
+          plannable: true,
+          rolls: [
+            {
+              formula: '3d8',
+              type: 'Thunder',
+              dice: [{ faces: 8, number: 3 }],
+              perDie: 1,
+            },
+          ],
+        },
+        critical: null,
+        choices: [],
+        spends: ['slot'],
+      },
+    }),
+    [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 2, max: 2, level: 1 },
+        spells: [],
+      },
+      {
+        id: 'spell2',
+        label: '2nd Level',
+        slots: { value: 0, max: 0, level: 2 },
+        spells: [sheetSpell({ id: 'shatter', name: 'Shatter', level: 2 })],
+      },
+    ],
+  )
+/** Shatter's thunder: 3d8. */
+const shatterAlone = (fields: Partial<RollRequestInput> = {}) =>
+  choosing('shatter', 'shatterSave', [{ faces: 8, results: [4, 4, 4] }], fields)
+/** Hellish Rebuke's fire: so many d10s. */
+const rebukeAlone = (count: number, fields: Partial<RollRequestInput> = {}) =>
+  choosing(
+    'rebuke',
+    'rebukeSave',
+    [{ faces: 10, results: Array.from({ length: count }, () => 4) }],
+    fields,
+  )
+
+describe("utils/roll-requests, damage on its own's choices, from module 0.41.0", () => {
+  it('takes a level’s dice at its slot, and the spell’s own at its own', () => {
+    expect(checkAlone(handsAlone(4, { slot: 'spell2' }))).toBeUndefined()
+    expect(checkAlone(handsAlone(3, { slot: 'spell1' }))).toBeUndefined()
+    // With one spent: 2nd level's slot is spent, its own level's isn't.
+    expect(
+      checkAlone(handsAlone(4, { slot: 'spell2', consume: true })),
+    ).toBeUndefined()
+  })
+
+  it("refuses the row's own dice at a level whose dice differ, and a level's at its own", () => {
+    expect(checkAlone(handsAlone(3, { slot: 'spell2' }))).toBe('dice')
+    expect(checkAlone(handsAlone(4, { slot: 'spell1' }))).toBe('dice')
+  })
+
+  it('refuses a slot that isn’t one of its pools, and none named where it’s cast with one', () => {
+    expect(checkAlone(handsAlone(4, { slot: 'spell3' }))).toBe('slot')
+    expect(checkAlone(handsAlone(4, { slot: 'pact' }))).toBe('slot')
+    expect(checkAlone(handsAlone(3))).toBe('slot')
+    expect(checkAlone(handsAlone(3, { consume: true }))).toBe('slot')
+  })
+
+  it('refuses a spend with none left of the slot, and takes it with the switch off', () => {
+    const spent = aloneSheet({ spells: aloneSpells(2, 0) })
+    expect(
+      checkAlone(handsAlone(4, { slot: 'spell2', consume: true }), spent),
+    ).toBe('slots')
+    expect(checkAlone(handsAlone(4, { slot: 'spell2' }), spent)).toBeUndefined()
+  })
+
+  it('refuses a spend with none left of the slot only where the use spends a slot', () => {
+    // Its own uses spent and never a slot: the slot names its level alone, none left or some.
+    const unslotted = handsSheet(
+      burningHandsAction({
+        consumesSlot: false,
+        tableDamage: { ...handsPlan(), spends: ['uses'] },
+      }),
+      aloneSpells(0, 0),
+    )
+    expect(
+      checkAlone(handsAlone(3, { slot: 'spell1', consume: true }), unslotted),
+    ).toBeUndefined()
+    // Spending nothing, as Hex's Bonus Hex Damage: refused as that, not for the slot.
+    const free = handsSheet(
+      burningHandsAction({
+        consumesSlot: false,
+        tableDamage: { ...handsPlan(), spends: [] },
+      }),
+      aloneSpells(0, 0),
+    )
+    expect(
+      checkAlone(handsAlone(3, { slot: 'spell1', consume: true }), free),
+    ).toBe('consume')
+  })
+
+  it('rolls a spell with no pool to cast it with at its own level, naming no slot', () => {
+    // A Fighter's Magic Initiate spell: no slot at all.
+    const fighter = slotlessSheet()
+    expect(checkAlone(handsAlone(3), fighter)).toBeUndefined()
+    expect(checkAlone(handsAlone(4), fighter)).toBe('dice')
+    // No pool to name, so none named is one.
+    expect(checkAlone(handsAlone(3, { slot: 'spell1' }), fighter)).toBe('slot')
+    // Spending it goes to the game, which finds no slot left and says so.
+    expect(
+      checkAlone(handsAlone(3, { consume: true }), fighter),
+    ).toBeUndefined()
+    // A wizard's spell above the highest slot they have.
+    const wizard = shatterSheet()
+    expect(checkAlone(shatterAlone(), wizard)).toBeUndefined()
+    expect(checkAlone(shatterAlone({ consume: true }), wizard)).toBeUndefined()
+    expect(checkAlone(shatterAlone({ slot: 'spell1' }), wizard)).toBe('slot')
+    expect(checkAlone(shatterAlone({ slot: 'spell2' }), wizard)).toBe('slot')
+  })
+
+  it("rolls a pact slot's level, the spell's own refused", () => {
+    const warlock = aloneSheet({
+      actions: [
+        {
+          id: 'reaction',
+          label: 'Reactions',
+          actions: [hellishRebukeAction()],
+        },
+      ],
+      spells: pactSpells(),
+    })
+    expect(
+      checkAlone(rebukeAlone(4, { slot: 'pact', consume: true }), warlock),
+    ).toBeUndefined()
+    expect(checkAlone(rebukeAlone(2, { slot: 'pact' }), warlock)).toBe('dice')
+    expect(checkAlone(rebukeAlone(4), warlock)).toBe('slot')
+    const spent = { ...warlock, spells: pactSpells(0) }
+    expect(
+      checkAlone(rebukeAlone(4, { slot: 'pact', consume: true }), spent),
+    ).toBe('slots')
+  })
+
+  it("takes an attack mode's dice and its critical hit's, refusing a mode the weapon hasn't", () => {
+    expect(
+      checkAlone(axeAlone(10, { attackMode: 'twoHanded' })),
+    ).toBeUndefined()
+    expect(
+      checkAlone(axeAlone(10, { attackMode: 'twoHanded', critical: true })),
+    ).toBeUndefined()
+    expect(checkAlone(axeAlone(8, { attackMode: 'oneHanded' }))).toBeUndefined()
+    expect(checkAlone(axeAlone(8))).toBeUndefined()
+    expect(checkAlone(axeAlone(8, { attackMode: 'twoHanded' }))).toBe('dice')
+    expect(checkAlone(axeAlone(10, { attackMode: 'thrown' }))).toBe('mode')
+    // A slot for a weapon, which casts nothing.
+    expect(checkAlone(axeAlone(8, { slot: 'spell1' }))).toBe('slot')
+  })
+
+  it("takes an ammunition's dice of a single-mode bow, refusing one it hasn't, or none left of it spent", () => {
+    expect(
+      checkAlone(bowAlone(true, { ammunition: 'arrowsFire', consume: true })),
+    ).toBeUndefined()
+    expect(
+      checkAlone(bowAlone(false, { ammunition: 'arrows' })),
+    ).toBeUndefined()
+    expect(checkAlone(bowAlone(false, { ammunition: 'arrowsFire' }))).toBe(
+      'dice',
+    )
+    expect(checkAlone(bowAlone(true, { ammunition: 'arrows' }))).toBe('dice')
+    expect(checkAlone(bowAlone(false, { ammunition: 'bolts' }))).toBe('ammo')
+    // Plain arrows, none left: refused only where they're spent.
+    expect(
+      checkAlone(bowAlone(false, { ammunition: 'arrows', consume: true })),
+    ).toBe('ammo')
+    // A mode the bow, of one, doesn't list.
+    expect(checkAlone(bowAlone(false, { attackMode: 'twoHanded' }))).toBe(
+      'mode',
+    )
+  })
+
+  it('refuses a spend where using it spends nothing, and takes one where it spends uses', () => {
+    expect(
+      checkAlone(axeAlone(10, { attackMode: 'twoHanded', consume: true })),
+    ).toBe('consume')
+    const potion = choosing('potion', 'potionHeal', [
+      { faces: 4, results: [2, 3] },
+    ])
+    expect(checkAlone({ ...potion, consume: true })).toBeUndefined()
+    expect(checkAlone(potion)).toBeUndefined()
+  })
+
+  it('refuses any choice on a row the game sends no choices for, rolling it as before', () => {
+    const old = aloneSheet({
+      actions: [
+        {
+          id: 'action',
+          label: 'Actions',
+          actions: aloneSheet().actions[0].actions.map(action => ({
+            ...action,
+            tableDamage: action.tableDamage && {
+              normal: action.tableDamage.normal,
+              critical: action.tableDamage.critical,
+            },
+          })),
+        },
+      ],
+    })
+    expect(checkAlone(handsAlone(3), old)).toBeUndefined()
+    expect(checkAlone(handsAlone(4, { slot: 'spell2' }), old)).toBe('slot')
+    expect(checkAlone(handsAlone(3, { consume: true }), old)).toBe('consume')
+    expect(checkAlone(axeAlone(8, { attackMode: 'twoHanded' }), old)).toBe(
+      'mode',
+    )
+    expect(checkAlone(bowAlone(false, { ammunition: 'arrows' }), old)).toBe(
+      'ammo',
+    )
+    expect(checkAlone(bowAlone(false), old)).toBeUndefined()
+  })
+
+  it('rolls the row’s own plan, naming no choice, where the game takes none, though its sheet has them', () => {
+    // A sheet kept from module 0.41.0 rolled back to an earlier one, until that one sends it again.
+    for (const features of [[], ['modifiers', 'manualDice']]) {
+      expect(checkAlone(handsAlone(3), aloneSheet(), features)).toBeUndefined()
+      expect(checkAlone(handsAlone(4), aloneSheet(), features)).toBe('dice')
+      expect(
+        checkAlone(handsAlone(4, { slot: 'spell2' }), aloneSheet(), features),
+      ).toBe('slot')
+      expect(
+        checkAlone(handsAlone(3, { consume: true }), aloneSheet(), features),
+      ).toBe('consume')
+      expect(
+        checkAlone(
+          axeAlone(10, { attackMode: 'twoHanded' }),
+          aloneSheet(),
+          features,
+        ),
+      ).toBe('mode')
+    }
+  })
+
+  it('passes on what damage on its own spent, and whether concentration began, as the game says', () => {
+    const made = held({
+      kind: 'itemDamage',
+      status: 'done',
+      result: aloneResult(['slot', 'uses'], true),
+    })
+    expect(toRollRequestView(made, NOW)).toMatchObject({
+      status: 'done',
+      visible: true,
+      alone: { spent: ['slot', 'uses'], concentrating: true },
+    })
+    expect(
+      toRollRequestView(
+        held({
+          kind: 'itemDamage',
+          status: 'done',
+          result: aloneResult([], false, { visible: false }),
+        }),
+        NOW,
+      ),
+    ).toEqual({
+      id: 'req-1',
+      status: 'done',
+      visible: false,
+      alone: { spent: [] },
+    })
+    expect(
+      toRollRequestView(
+        held({
+          kind: 'itemDamage',
+          status: 'done',
+          result: aloneResult([], false, { alone: undefined }),
+        }),
+        NOW,
+      ),
+    ).not.toHaveProperty('alone')
+  })
+
+  it('sends the module the choices as they were asked for', () => {
+    const payload = handsAlone(4, { slot: 'spell2', consume: true })
+    expect(toCommand(held({ kind: 'itemDamage', payload }))).toEqual({
+      ...payload,
+      id: 'req-1',
+      actorId: 'actor-thorin',
+    })
   })
 })

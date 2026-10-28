@@ -1892,9 +1892,12 @@ describe('schemas/roll-request, damage on its own and recharges, from module 0.3
     ['a use it follows', { use: 'req-1' }],
     ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }] }],
     ['a target', { target: { combatId: 'cmbt1', combatantId: 'goblin' } }],
-    ['a slot', { slot: 'spell1' }],
-    ['ammunition', { ammunition: 'arrows' }],
-    ['an attack mode', { attackMode: 'thrown' }],
+    // Changed on purpose (round 0.41.0 §8.3): from module 0.41.0, it may name a slot, an attack
+    // mode and ammunition; never a slot left to the game.
+    ['a slot left to the game', { slot: null }],
+    ['a slot no pool is', { slot: 'spell10' }],
+    ['an attack mode not one', { attackMode: '!' }],
+    ['ammunition not an id', { ammunition: '' }],
     ['a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
     ['its user', { self: true }],
     ['how it enchants', { enchant: { profile: 'plus1' } }],
@@ -1924,6 +1927,83 @@ describe('schemas/roll-request, damage on its own and recharges, from module 0.3
       rollRequestSchema.safeParse({ ...damage, critical: true }).success,
     ).toBe(false)
     expect(rollRequestSchema.safeParse(damage).success).toBe(true)
+  })
+
+  it('takes damage on its own at a slot, in an attack mode, with ammunition, spending what it uses, from module 0.41.0', () => {
+    const chosen = {
+      slot: 'spell2',
+      attackMode: 'twoHanded',
+      ammunition: 'arrowsFire',
+      consume: true,
+    }
+    expect(parseAlone(chosen).data).toEqual({ ...alone, ...chosen })
+    expect(parseAlone({ slot: 'pact' }).data).toEqual({
+      ...alone,
+      slot: 'pact',
+    })
+  })
+
+  it.each([
+    ['false', false],
+    ['a word', 'yes'],
+    ['a number', 1],
+  ])('refuses spending what it uses as %s', (_, consume) => {
+    expect(issuesOf(alone, { consume })).toEqual([
+      ['consume', expect.any(String)],
+    ])
+  })
+
+  it('spends what it uses only for damage on its own', () => {
+    const use = {
+      kind: 'use',
+      item: 'cure',
+      activity: 'mend',
+      targets: [],
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    expect(parseKind(use, {}).success).toBe(true)
+    expect(issuesOf(use, { consume: true })).toEqual([
+      ['consume', 'Only damage on its own spends what it uses'],
+    ])
+    const attack = {
+      kind: 'attack',
+      item: 'longbow',
+      activity: 'bowAttack',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [12] }],
+    }
+    expect(issuesOf(attack, { consume: true })).toEqual([
+      ['consume', 'Only damage on its own spends what it uses'],
+    ])
+    expect(issuesOf(attack, { slot: null })).toEqual([])
+  })
+
+  it('casts at a slot only for an attack, a use or damage on its own, and fires ammunition, in a mode, for an attack or damage on its own', () => {
+    const save = {
+      kind: 'save',
+      key: 'dex',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 20, results: [12] }],
+    }
+    expect(issuesOf(save, { slot: 'spell2' })).toEqual([
+      ['slot', 'Only an attack, a use or damage on its own casts at a slot'],
+    ])
+    expect(issuesOf(save, { attackMode: 'twoHanded' })).toEqual([
+      [
+        'attackMode',
+        'Only an attack, or damage on its own, is made with ammunition, in a mode',
+      ],
+    ])
+    expect(issuesOf(alone, { slot: null })).toEqual([
+      ['slot', 'Only an attack, a use or damage on its own casts at a slot'],
+    ])
   })
 
   it('takes a recharge of an item’s own uses, or one of its activities’, with its one d6', () => {
@@ -1957,6 +2037,10 @@ describe('schemas/roll-request, damage on its own and recharges, from module 0.3
     ['a combat', { combatId: 'cmbt1' }],
     ['targets', { targets: [{ combatId: 'cmbt1', combatantId: 'goblin' }] }],
     ['a description', { text: '0f1a2b3c4d5e6f', link: 0 }],
+    ['a slot', { slot: 'spell1' }],
+    ['ammunition', { ammunition: 'arrows' }],
+    ['an attack mode', { attackMode: 'thrown' }],
+    ['what it spends', { consume: true }],
     ['no item', { item: undefined }],
     ['an activity alone', { item: undefined, activity: 'frostSave' }],
     ['advantage', { mode: 1 }],

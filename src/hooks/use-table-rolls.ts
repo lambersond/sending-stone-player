@@ -53,6 +53,7 @@ import type {
   WildShapeInput,
 } from '@/types/roll'
 import type {
+  AloneSpend,
   BeastEntry,
   DamagePreview,
   EffectChange,
@@ -122,7 +123,7 @@ export type AttackSource = { item: string; activity: string }
  */
 export type TableRollState = Omit<
   RollRequestView,
-  'id' | 'status' | 'effect' | 'wildShape'
+  'id' | 'status' | 'effect' | 'wildShape' | 'alone'
 > & {
   status: RollStatus | 'refused'
   /** Its id at the table, once the app has taken it. */
@@ -177,6 +178,18 @@ export type TableRollState = Omit<
   offer?: true
   /** Damage or healing sent on its own (module 0.36.0). */
   alone?: true
+  /**
+   * Damage on its own that asked to spend what its use would, from module 0.41.0 (round 0.41.0
+   * §2.10): its tray says what was spent, once the game says.
+   */
+  consumes?: true
+  /**
+   * What the game spent of it, once made (the view's `alone.spent`), none where it spent nothing;
+   * kept apart from the hit dice a request spent, `spent`.
+   */
+  aloneSpent?: AloneSpend[]
+  /** That concentration began as it was spent (the view's `alone.concentrating`). */
+  concentrating?: true
   /** A recharge rolled (module 0.36.0). */
   recharge?: true
   /** A favorite added or removed (module 0.37.0). */
@@ -393,18 +406,28 @@ export function useTableRolls(
   const sendDamage = useCallback(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
       const { use, types, modifiers, text, alone } = roll
-      const { kinds, on } = latest.current
+      const { kinds, features, on } = latest.current
       // An action's damage or healing on its own, from module 0.36.0, where the player sends it so:
       // no attack or use made, for the Gamemaster to apply from dnd5e's card. Otherwise, it's the
       // player's alone.
       if (alone) {
         if (!latest.current.sendsAlone) return
+        // Its slot, attack mode and ammunition, and whether it spends what its use would, from
+        // module 0.41.0, only to a game that takes them (round 0.41.0 §2.10).
+        const choosing = features.includes('aloneChoices')
+        const consume = choosing && alone.consume === true
         start(
           damage.id,
           {
             kind: 'itemDamage',
             item: alone.item,
             activity: alone.activity,
+            ...(choosing && alone.slot && { slot: alone.slot }),
+            ...(choosing &&
+              alone.attackMode && { attackMode: alone.attackMode }),
+            ...(choosing &&
+              alone.ammunition && { ammunition: alone.ammunition }),
+            ...(consume && { consume: true as const }),
             mode: 0,
             explicit: false,
             extras: [],
@@ -414,8 +437,9 @@ export function useTableRolls(
             ...(modifiers && changes(modifiers) && { modifiers }),
             ...(damage.typed && { typed: true as const }),
           },
-          // So that the tray words it as on its own, its kind not being in its state.
-          { alone: true },
+          // So that the tray words it as on its own, its kind not being in its state, and says
+          // what it spent where it asked to.
+          { alone: true, ...(consume && { consumes: true as const }) },
           roll.label,
         )
         return
@@ -835,6 +859,12 @@ export function useTableRolls(
     sendsAlone,
     /** Whether the game takes damage on its own, for the player's switch to show. */
     aloneOffered: kinds.includes('itemDamage'),
+    /**
+     * Whether the game takes damage on its own's choices, from module 0.41.0: its slot, attack
+     * mode and ammunition, and spending what its use would, on a row whose sheet sends them.
+     */
+    aloneChoices:
+      kinds.includes('itemDamage') && features.includes('aloneChoices'),
     /** Whether the player's switch for damage on its own is on, on this device. */
     aloneOn: alone === 'on',
     setAlone,
@@ -1172,16 +1202,20 @@ export async function follow(
       if (response.status === 401 || response.status === 404) break
       if (response.ok) {
         // What became of an effect (module 0.39.0), or of Wild Shape (module 0.40.0), is kept
-        // apart from what was asked.
+        // apart from what was asked; and so is what damage on its own spent (module 0.41.0),
+        // apart from the hit dice a request spent.
         const {
           effect: changed,
           wildShape: wildShaped,
+          alone: made,
           ...view
         } = (await response.json()) as RollRequestView
         update({
           ...view,
           ...(changed && { changed }),
           ...(wildShaped && { wildShaped }),
+          ...(made && { aloneSpent: made.spent }),
+          ...(made?.concentrating && { concentrating: true as const }),
           requestId: id,
         })
         // A roll that took too long may still be made, once the Gamemaster answers; but not hit

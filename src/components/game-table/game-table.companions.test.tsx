@@ -855,4 +855,172 @@ describe('components/game-table/game-table, with companions', () => {
   })
 })
 
+/** When a prompt this far off stops waiting. */
+const later = (ms = 600_000) => new Date(Date.now() + ms).toISOString()
+
+/** The notice on the character's own banner of the companions asked, if any. */
+const notice = () =>
+  within(panelOf('self') as HTMLElement).queryByRole('list', {
+    name: 'Companions asked',
+  })
+
+describe('components/game-table/game-table, companions’ saves, from module 0.41.0 (round 0.41.0 §3.7)', () => {
+  const BAT1 = summoned('arena-bat1')
+  const BAT2 = summoned('arena-bat2')
+
+  /** Thorin's page, Bat 1 asked a save, Bat 2 not, as the view says. */
+  const asking = (fields: Partial<TableView> = {}) =>
+    view({
+      companions: [BAT1, BAT2],
+      companionPrompts: [
+        {
+          key: 'arena-bat1',
+          label: 'Dexterity saving throw',
+          expiresAt: later(),
+        },
+      ],
+      ...fields,
+    })
+
+  it('marks an asked companion’s tab in the words the character’s own uses, and only its', () => {
+    renderTable(asking())
+
+    expect(creatureTab(/^Bat 1/)).toHaveAccessibleName(
+      'Bat 1, your Gamemaster asks for a roll',
+    )
+    expect(creatureTab(/^Bat 2/)).toHaveAccessibleName('Bat 2')
+    expect(creatureTab(/^Thorin/)).toHaveAccessibleName('Thorin')
+  })
+
+  it('says it in the Gamemaster’s words at their seat', () => {
+    current = { view: asking(), connection: 'live' }
+    jest.mocked(useTableView).mockImplementation(() => current)
+    render(
+      <GameTable
+        character={character}
+        initialView={current.view}
+        seat={{
+          role: 'gm',
+          api: '/api/campaigns/c1/characters/actor-thorin',
+          key: 'gm:c1:actor-thorin',
+        }}
+      />,
+    )
+
+    expect(creatureTab(/^Bat 1/)).toHaveAccessibleName(
+      'Bat 1, your game asks for a roll',
+    )
+  })
+
+  it('says on Thorin’s own banner which companion is asked, Show switching to its tab with nothing posted', async () => {
+    const user = userEvent.setup()
+    companionViews.set(BAT1.key, companionView(BAT1))
+    renderTable(asking())
+
+    const banner = within(panelOf('self') as HTMLElement).getByRole('region', {
+      name: 'Your Gamemaster asks',
+    })
+    const rows = within(banner).getAllByRole('listitem')
+    expect(rows.map(row => row.textContent)).toEqual([
+      'Bat 1 is asked for a Dexterity saving throw' + 'Show',
+    ])
+    const show = within(banner).getByRole('button', { name: 'Show Bat 1' })
+    await user.click(show)
+
+    expect(creatureTab(/^Bat 1/)).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(creatureTab(/^Bat 1/)).toHaveFocus())
+    expect(asked.filter(({ method }) => method === 'POST')).toEqual([])
+  })
+
+  it('shows the notice with the character’s own prompts, under the one heading', () => {
+    renderTable(
+      asking({
+        rollsToTable: ['ability', 'save'],
+        rollFeatures: ['prompts'],
+        prompts: [
+          {
+            id: 'msg2-actor-thorin',
+            type: 'save',
+            abilities: ['dex'],
+            dc: 13,
+            expiresAt: later(),
+          },
+        ],
+      }),
+    )
+
+    const self = within(panelOf('self') as HTMLElement)
+    expect(
+      self.getAllByRole('heading', { name: 'Your Gamemaster asks' }),
+    ).toHaveLength(1)
+    const banner = self.getByRole('region', { name: 'Your Gamemaster asks' })
+    expect(banner).toHaveTextContent(
+      'Bat 1 is asked for a Dexterity saving throw',
+    )
+    expect(banner).toHaveTextContent('Dexterity saving throw')
+    expect(
+      within(banner).getByRole('button', {
+        name: /^Roll Dexterity saving throw/,
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('marks the phone’s Character tab for a companion’s prompt alone, with Combat shown', async () => {
+    const user = userEvent.setup()
+    renderTable(asking())
+
+    await user.click(screen.getByRole('button', { name: 'Combat' }))
+    const tab = screen.getByRole('button', { name: /^Character/ })
+    expect(tab).toHaveTextContent('your Gamemaster asks for a roll')
+  })
+
+  it('marks nothing and says nothing once its time runs out, though the view still lists it', async () => {
+    jest.useFakeTimers()
+    try {
+      renderTable(
+        asking({
+          companionPrompts: [
+            {
+              key: 'arena-bat1',
+              label: 'Dexterity saving throw',
+              expiresAt: later(5000),
+            },
+          ],
+        }),
+      )
+      expect(notice()).not.toBeNull()
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5200)
+      })
+      expect(creatureTab(/^Bat 1/)).toHaveAccessibleName('Bat 1')
+      expect(notice()).toBeNull()
+      expect(
+        within(panelOf('self') as HTMLElement).queryByRole('region', {
+          name: 'Your Gamemaster asks',
+        }),
+      ).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('marks nothing for a companion the row doesn’t list, or a character’s view without companionPrompts', () => {
+    renderTable(
+      asking({
+        companions: [BAT2],
+        companionPrompts: [
+          {
+            key: 'arena-bat1',
+            label: 'Dexterity saving throw',
+            expiresAt: later(),
+          },
+        ],
+      }),
+    )
+    expect(notice()).toBeNull()
+    expect(creatureTab(/^Bat/)).toHaveAccessibleName('Bat')
+  })
+})
+
 void act

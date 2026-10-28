@@ -176,7 +176,9 @@ await until(() => posted.some(p => p.url.endsWith('/api/bridge/commands')), "the
 const features = () => sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`)
 // From module 0.21.0 the hello also says check activities' checks are made (dnd5e 5) and that more
 // dice change only a die damage adds, wherever players' rolls are made.
-check(features() === 'prompts,activityChecks,signedDice,gmRolls,gmRollMessages', `the app keeps that the game asks its players for their saves (${features()})`)
+// Changed on purpose (round 0.41.0 §8.4): from module 0.41.0, and of companions too, wherever it asks
+// for players' saves.
+check(features() === 'prompts,activityChecks,signedDice,gmRolls,gmRollMessages,companionPrompts', `the app keeps that the game asks its players for their saves (${features()})`)
 
 // The Gamemaster's card says so.
 await gm.reload()

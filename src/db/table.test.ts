@@ -1,7 +1,12 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { prismaMock } from '../../jest.setup'
 import { playerSeat } from './seats'
-import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
+import {
+  companionAsks,
+  getCampaignStatus,
+  getTableView,
+  MESSAGE_LIMIT,
+} from './table'
 import {
   characterSheet,
   chatMessage,
@@ -2057,5 +2062,208 @@ describe('db/table, companions, from module 0.36.0', () => {
     })
     expect(messages[1]).toMatchObject({ id: 'm2', side: 'party' })
     expect(messages[1].avatar).toBeUndefined()
+  })
+})
+
+/** The companions' prompts held, oldest first; the character's own, none. */
+const askingCompanions = (companions: object[]) =>
+  prismaMock.rollPrompt.findMany.mockImplementation(((query: any) =>
+    Promise.resolve(
+      typeof query.where.actorId === 'object' ? companions : [],
+    )) as any)
+
+/** What a companion's one prompt asks for, in words. */
+const wordsOf = (data: object) =>
+  companionAsks(
+    [
+      {
+        actorId: 'wolfBrakka',
+        data,
+        expiresAt: new Date('2026-10-08T12:10:00Z'),
+      },
+    ],
+    Date.parse('2026-10-08T12:05:00Z'),
+  )[0].label
+
+describe("db/table, the saves the game asks of the character's companions, from module 0.41.0", () => {
+  const ORIGIN = 'https://my-game.forge-vtt.com'
+  const thorin = playerSeat(
+    {
+      id: 'char-1',
+      name: 'Thorin',
+      gameUrl: ORIGIN,
+      campaignTitle: 'The Frost Road',
+      campaignId: 'c1',
+      actorId: PARTY.thorin,
+    },
+    'user-1',
+  )
+  const wolf = mockCompanionEntry()
+  const imp = mockSummonedEntry()
+  /** Vex's own hound, never Thorin's to be marked. */
+  const hound = mockCompanionEntry({
+    key: 'houndVex',
+    actorId: 'houndVex',
+    name: 'Hound',
+    of: [PARTY.vex],
+  })
+  const NOW = Date.parse('2026-10-08T12:05:00Z')
+  const at = (time: string) => new Date(`2026-10-08T${time}Z`)
+  /** A save, check or concentration check held as asked of a companion, as open. */
+  const asked = (actorId: string, data: object, expiresAt: Date) => ({
+    actorId,
+    data: { dc: 13, label: 'Burning Hands', messageId: 'msg1', ...data },
+    expiresAt,
+  })
+  const held = (features = ['prompts', 'companionPrompts']) =>
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      ...campaign,
+      origin: ORIGIN,
+      characters: [
+        { id: PARTY.thorin, name: 'Thorin' },
+        { id: PARTY.vex, name: 'Vex' },
+      ],
+      companions: [wolf, imp, hound],
+      rollsEnabled: true,
+      rollKinds: ['save'],
+      rollFeatures: features,
+      bridgePolledAt: new Date(NOW - 5000),
+    } as any)
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    prismaMock.chatMessage.findMany.mockResolvedValue([])
+    prismaMock.combat.findMany.mockResolvedValue([])
+    prismaMock.actorSheet.findUnique.mockResolvedValue(null)
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('marks each companion asked now, once, in the order first asked: what its first prompt still waiting asks for, and the soonest time one stops', async () => {
+    held()
+    askingCompanions([
+      // Midi-QOL's, its time run out a moment ago: it waits no more.
+      asked(
+        'sceneFrost-tokenImp',
+        { type: 'save', abilities: ['dex'], source: 'midi' },
+        at('12:04:55'),
+      ),
+      asked(
+        'wolfBrakka',
+        { type: 'save', abilities: ['dex', 'str'] },
+        at('12:10:00'),
+      ),
+      asked(
+        'sceneFrost-tokenImp',
+        {
+          type: 'skill',
+          abilities: [],
+          skills: ['ath', 'acr'],
+          source: 'overtime',
+        },
+        at('12:05:30'),
+      ),
+      asked(
+        'wolfBrakka',
+        { type: 'concentration', abilities: ['wis'] },
+        at('12:08:00'),
+      ),
+    ])
+
+    const view = await getTableView(thorin)
+    expect(view.companionPrompts).toEqual([
+      {
+        key: 'wolfBrakka',
+        label: 'Dexterity or Strength saving throw',
+        expiresAt: '2026-10-08T12:08:00.000Z',
+      },
+      {
+        key: 'sceneFrost-tokenImp',
+        label: 'Athletics or Acrobatics check',
+        expiresAt: '2026-10-08T12:05:30.000Z',
+      },
+    ])
+    // Only the character's own companions', still open, with Midi-QOL's a while after their time.
+    expect(prismaMock.rollPrompt.findMany).toHaveBeenCalledWith({
+      where: {
+        campaignId: 'c1',
+        actorId: { in: ['wolfBrakka', 'sceneFrost-tokenImp'] },
+        closedAt: null,
+        expiresAt: { gt: new Date(NOW - 15_000) },
+      },
+      orderBy: { openedAt: 'asc' },
+      select: { actorId: true, data: true, expiresAt: true },
+    })
+    // The character's own still read by its own actor, as ever.
+    expect(prismaMock.rollPrompt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ actorId: PARTY.thorin }),
+      }),
+    )
+  })
+
+  it('marks none where none of its companions is asked, or every prompt of theirs has run out', async () => {
+    held()
+    askingCompanions([])
+    expect(await getTableView(thorin)).not.toHaveProperty('companionPrompts')
+
+    held()
+    askingCompanions([
+      asked('wolfBrakka', { type: 'save', abilities: ['dex'] }, at('12:04:59')),
+    ])
+    expect(await getTableView(thorin)).not.toHaveProperty('companionPrompts')
+  })
+
+  it("asks after none where the game asks companions nothing, or players nothing, nor at a companion's seat", async () => {
+    for (const features of [['prompts'], ['companionPrompts']]) {
+      prismaMock.rollPrompt.findMany.mockReset()
+      held(features)
+      askingCompanions([
+        asked(
+          'wolfBrakka',
+          { type: 'save', abilities: ['dex'] },
+          at('12:10:00'),
+        ),
+      ])
+      expect(await getTableView(thorin)).not.toHaveProperty('companionPrompts')
+      const queries = prismaMock.rollPrompt.findMany.mock.calls as any[]
+      expect(
+        queries.some(([query]) => typeof query.where.actorId === 'object'),
+      ).toBe(false)
+    }
+
+    prismaMock.rollPrompt.findMany.mockReset()
+    held()
+    askingCompanions([
+      asked('wolfBrakka', { type: 'save', abilities: ['dex'] }, at('12:10:00')),
+    ])
+    const atWolf = {
+      ...thorin,
+      actorId: 'wolfBrakka',
+      companion: { of: PARTY.thorin, entry: wolf },
+    }
+    expect(await getTableView(atWolf)).not.toHaveProperty('companionPrompts')
+    const queries = prismaMock.rollPrompt.findMany.mock.calls as any[]
+    expect(
+      queries.some(([query]) => typeof query.where.actorId === 'object'),
+    ).toBe(false)
+  })
+
+  it('words what each asks for as the banner does', () => {
+    expect(wordsOf({ type: 'save', abilities: ['dex'] })).toBe(
+      'Dexterity saving throw',
+    )
+    expect(wordsOf({ type: 'concentration', abilities: ['con'] })).toBe(
+      'Concentration check',
+    )
+    expect(wordsOf({ type: 'concentration', abilities: ['wis'] })).toBe(
+      'Concentration check (Wisdom)',
+    )
+    expect(wordsOf({ type: 'check', abilities: ['str', 'dex'] })).toBe(
+      'Strength or Dexterity check',
+    )
+    expect(wordsOf({ type: 'save', abilities: [] })).toBe('saving throw')
   })
 })

@@ -5,12 +5,14 @@ import type { NotesView } from '@/types/notes'
 import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
 import type { FavoriteTarget } from '@/types/roll'
 import type {
+  AloneSpend,
   CharacterSheet,
   CombatantSummary,
   CommandResult,
   CombatSnapshot,
   CompanionEntry,
   ConnectedCharacter,
+  GamePrompt,
   JournalUpdated,
   KnownForm,
   SerializedMessage,
@@ -3183,6 +3185,338 @@ export function beastsResult(
     },
     ...fields,
   })
+}
+
+// Module 0.41.0: damage on its own's levels, modes and ammunition, companions' saves.
+
+/** One roll of damage on its own's plan, with its dice as the game will throw them. */
+const aloneRoll = (
+  formula: string,
+  type: string,
+  dice: { faces: number; number: number }[],
+  perDie = 1,
+) => ({ formula, type, dice, perDie })
+
+/** A plan of these rolls, a critical hit's where `critical` says so. */
+const alonePreview = (
+  rolls: ReturnType<typeof aloneRoll>[],
+  fields: { critical?: boolean; healing?: boolean } = {},
+) => ({
+  critical: fields.critical === true,
+  plannable: true,
+  ...(fields.healing && { healing: true }),
+  rolls,
+})
+
+/** Burning Hands' fire at a level: 3d6 at its own, 1st, and a d6 more each level higher. */
+const burning = (level: number) =>
+  alonePreview([
+    aloneRoll(`${level + 2}d6`, 'Fire', [{ faces: 6, number: level + 2 }]),
+  ])
+
+/**
+ * Thorin's Burning Hands, a 1st-level save whose damage goes on its own, as module 0.41.0 sends it
+ * to an app that says `aloneChoices`: 3d6, and 4d6 at 2nd level, never a critical hit's, spending
+ * a spell slot.
+ */
+export function burningHandsAction(
+  fields: Partial<SheetAction> = {},
+): SheetAction {
+  return sheetAction({
+    id: 'hands',
+    name: 'Burning Hands',
+    type: 'spell',
+    level: 1,
+    activity: {
+      id: 'handsSave',
+      type: 'save',
+      targets: {
+        self: false,
+        area: true,
+        count: null,
+        perLevel: null,
+        affects: 'creature',
+      },
+    },
+    save: { ability: 'DEX', dc: 13 },
+    damage: [{ formula: '3d6', type: 'Fire', healing: false }],
+    tableDamage: {
+      normal: burning(1),
+      critical: null,
+      choices: [{ level: 2, normal: burning(2), critical: null }],
+      spends: ['slot'],
+    },
+    ...fields,
+  })
+}
+
+/** Wren's Hellish Rebuke's fire at a level: 2d10 at 1st, and a d10 more each level higher. */
+const rebuking = (level: number) =>
+  alonePreview([
+    aloneRoll(`${level + 1}d10`, 'Fire', [{ faces: 10, number: level + 1 }]),
+  ])
+
+/**
+ * Hellish Rebuke of a warlock with pact magic only, its one pool at 3rd level: 2d10 at its own
+ * level, 4d10 at the pact slot's, spending it.
+ */
+export function hellishRebukeAction(
+  fields: Partial<SheetAction> = {},
+): SheetAction {
+  return sheetAction({
+    id: 'rebuke',
+    name: 'Hellish Rebuke',
+    type: 'spell',
+    level: 1,
+    activation: '1 Reaction',
+    activationType: 'reaction',
+    activity: {
+      id: 'rebukeSave',
+      type: 'save',
+      targets: {
+        self: false,
+        area: false,
+        count: 1,
+        perLevel: null,
+        affects: 'creature',
+      },
+    },
+    save: { ability: 'DEX', dc: 14 },
+    damage: [{ formula: '2d10', type: 'Fire', healing: false }],
+    tableDamage: {
+      normal: rebuking(1),
+      critical: null,
+      choices: [{ level: 3, normal: rebuking(3), critical: null }],
+      spends: ['slot'],
+    },
+    ...fields,
+  })
+}
+
+/** A Potion of Healing, 2d4 + 2, its one use spent as it's drunk. */
+export function potionAction(fields: Partial<SheetAction> = {}): SheetAction {
+  return sheetAction({
+    id: 'potion',
+    name: 'Potion of Healing',
+    type: 'consumable',
+    activation: '1 Bonus Action',
+    activationType: 'bonus',
+    activity: {
+      id: 'potionHeal',
+      type: 'heal',
+      targets: {
+        self: true,
+        area: false,
+        count: null,
+        perLevel: null,
+        affects: 'self',
+      },
+    },
+    damage: [{ formula: '2d4 + 2', type: 'Healing', healing: true }],
+    tableDamage: {
+      normal: alonePreview(
+        [aloneRoll('2d4 + 2', 'Healing', [{ faces: 4, number: 2 }])],
+        { healing: true },
+      ),
+      critical: null,
+      choices: [],
+      spends: ['uses'],
+    },
+    uses: { value: 1, max: 1, recovery: null },
+    consumable: true,
+    ...fields,
+  })
+}
+
+/** A versatile Battleaxe's slashing: one-handed, 1d8 + 3, or two-handed, 1d10 + 3. */
+const axe = (faces: number, critical = false) =>
+  alonePreview(
+    [
+      aloneRoll(
+        `${critical ? 2 : 1}d${faces} + 3`,
+        'Slashing',
+        [{ faces, number: critical ? 2 : 1 }],
+        critical ? 2 : 1,
+      ),
+    ],
+    { critical },
+  )
+
+/**
+ * A versatile Battleaxe: one-handed, its first mode, the row's own plan; two-handed, 1d10 + 3, the
+ * one choice, its critical hit's too. Spending it spends nothing.
+ */
+export function battleaxeAction(
+  fields: Partial<SheetAction> = {},
+): SheetAction {
+  return sheetAction({
+    id: 'battleaxe',
+    name: 'Battleaxe',
+    type: 'weapon',
+    toHit: 6,
+    attackId: 'axeAttack',
+    attackModes: [
+      { value: 'oneHanded', label: 'One-Handed' },
+      { value: 'twoHanded', label: 'Two-Handed' },
+    ],
+    damage: [{ formula: '1d8 + 3', type: 'Slashing', healing: false }],
+    tableDamage: {
+      normal: axe(8),
+      critical: axe(8, true),
+      choices: [
+        { attackMode: 'twoHanded', normal: axe(10), critical: axe(10, true) },
+      ],
+      spends: [],
+    },
+    ...fields,
+  })
+}
+
+/** A Longbow's damage: 1d8 + 2 piercing, with an Arrow of Fire's 1d4 fire. */
+const bow = (fire: boolean) =>
+  alonePreview([
+    aloneRoll('1d8 + 2', 'Piercing', [{ faces: 8, number: 1 }]),
+    ...(fire ? [aloneRoll('1d4', 'Fire', [{ faces: 4, number: 1 }])] : []),
+  ])
+
+/**
+ * A Longbow, one mode, with two ammunitions: 20 Arrows of Fire, which add 1d4 fire, its one
+ * choice, and plain Arrows, none left, which change nothing, so the game sends no plan of theirs.
+ * Spending it fires the ammunition.
+ */
+export function longbowAction(fields: Partial<SheetAction> = {}): SheetAction {
+  return sheetAction({
+    id: 'longbow',
+    name: 'Longbow',
+    type: 'weapon',
+    toHit: 5,
+    attackId: 'bowAttack',
+    ammunition: [
+      { id: 'arrowsFire', name: 'Arrows of Fire', quantity: 20 },
+      { id: 'arrows', name: 'Arrows', quantity: 0 },
+    ],
+    damage: [{ formula: '1d8 + 2', type: 'Piercing', healing: false }],
+    tableDamage: {
+      normal: bow(false),
+      critical: null,
+      choices: [
+        { ammunition: 'arrowsFire', normal: bow(true), critical: null },
+      ],
+      spends: ['ammunition'],
+    },
+    ...fields,
+  })
+}
+
+/**
+ * Thorin's spellbook for damage on its own: two 1st-level slots, Burning Hands among its spells,
+ * and one 2nd-level, as many left as said.
+ */
+export function aloneSpells(first = 2, second = 1): CharacterSheet['spells'] {
+  return [
+    {
+      id: 'spell1',
+      label: '1st Level',
+      slots: { value: first, max: 2, level: 1 },
+      spells: [sheetSpell({ id: 'hands', name: 'Burning Hands' })],
+    },
+    {
+      id: 'spell2',
+      label: '2nd Level',
+      slots: { value: second, max: 1, level: 2 },
+      spells: [],
+    },
+  ]
+}
+
+/**
+ * A warlock's spellbook: pact magic only, one slot at 3rd level, Hellish Rebuke among its spells.
+ */
+export function pactSpells(left = 1): CharacterSheet['spells'] {
+  return [
+    {
+      id: 'pact',
+      label: 'Pact Magic',
+      slots: { value: left, max: 1, level: 3 },
+      spells: [sheetSpell({ id: 'rebuke', name: 'Hellish Rebuke' })],
+    },
+  ]
+}
+
+/**
+ * Thorin as module 0.41.0 sends him to an app that says `aloneChoices`: Burning Hands, the
+ * Battleaxe, the Longbow and a Potion of Healing among his actions, with his slots as given.
+ */
+export function aloneSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  return characterSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          burningHandsAction(),
+          battleaxeAction(),
+          longbowAction(),
+          potionAction(),
+        ],
+      },
+    ],
+    spells: aloneSpells(),
+    ...fields,
+  })
+}
+
+/**
+ * What a hello from module 0.41.0 says of the rolls it takes, damage on its own's choices among
+ * them.
+ */
+export const TAKING_ALONE_CHOICES = {
+  enabled: true,
+  kinds: ['attack', 'use', 'damage', 'itemDamage'],
+  reason: null,
+  aloneChoices: true,
+} as const
+
+/** A save the game asks of Thorin's first Bat, a token's creature, filed under its key. */
+export function mockCompanionPrompt(
+  fields: Partial<GamePrompt> = {},
+): GamePrompt {
+  return {
+    id: 'msg1-bat1',
+    actorId: 'arena-bat1',
+    messageId: 'msg1',
+    type: 'save',
+    abilities: ['dex'],
+    dc: 13,
+    label: 'Burning Hands',
+    openedAt: '2026-10-27T19:00:00.000Z',
+    expiresAt: '2026-10-27T19:10:00.000Z',
+    ...fields,
+  }
+}
+
+/**
+ * What the game made of damage on its own that asked to spend what its use would: rolled, and these
+ * spent, concentration begun where said.
+ */
+export function aloneResult(
+  spent: AloneSpend[],
+  concentrating = false,
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-alone',
+    status: 'done',
+    reason: null,
+    error: null,
+    messageId: 'msg-alone',
+    visible: true,
+    rolls: [{ formula: '4d6', total: 14, dice: [], damageType: 'fire' }],
+    alone: { spent, ...(concentrating && { concentrating: true as const }) },
+    ...fields,
+  }
 }
 
 /** A container of the sheet's, as sheetItem makes an item: holding these, or something secret. */

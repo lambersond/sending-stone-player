@@ -393,6 +393,83 @@ describe('components/character-sheet/sheet-settings', () => {
       expect(settings()).toBeInTheDocument()
     })
 
+    it('says, where the game takes its choices from module 0.41.0, that they are made as it is rolled', async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          alone={{
+            on: true,
+            onChange: jest.fn(),
+            disabled: false,
+            choices: true,
+          }}
+        />,
+      )
+      await user.click(cog())
+      expect(aloneSwitch()).toHaveAccessibleDescription(
+        `${HINT} You choose a spell’s level, a weapon’s mode and its ammunition as you roll, and whether to spend what it uses.`,
+      )
+
+      // Without them, today's words.
+      rerender(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          alone={{
+            on: true,
+            onChange: jest.fn(),
+            disabled: false,
+            choices: false,
+          }}
+        />,
+      )
+      expect(aloneSwitch()).toHaveAccessibleDescription(HINT)
+
+      // And while Send to the table is off, only that it must be on first.
+      rerender(
+        <SheetSettings
+          send={{ on: false, onChange: jest.fn() }}
+          alone={{
+            on: true,
+            onChange: jest.fn(),
+            disabled: true,
+            choices: true,
+          }}
+        />,
+      )
+      expect(aloneSwitch()).toHaveAccessibleDescription(
+        'Turn on Send to the table first.',
+      )
+    })
+
+    it('says so in the Gamemaster’s words at their seat, with its choices', async () => {
+      const user = userEvent.setup()
+      render(
+        <TableApiContext
+          value={{
+            role: 'gm',
+            api: '/api/campaigns/c1/characters/a1',
+            key: 'gm:c1:a1',
+          }}
+        >
+          <SheetSettings
+            send={{ on: true, onChange: jest.fn() }}
+            alone={{
+              on: true,
+              onChange: jest.fn(),
+              disabled: false,
+              choices: true,
+            }}
+          />
+        </TableApiContext>,
+      )
+      await user.click(cog())
+
+      expect(aloneSwitch()).toHaveAccessibleDescription(
+        `${GM_HINT} You choose a spell’s level, a weapon’s mode and its ammunition as you roll, and whether to spend what it uses.`,
+      )
+    })
+
     it("says, at the Gamemaster's seat, that they apply it", async () => {
       const user = userEvent.setup()
       render(
