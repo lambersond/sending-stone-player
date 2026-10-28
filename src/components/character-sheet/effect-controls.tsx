@@ -59,12 +59,17 @@ type Focusing = {
 }
 
 /** What a pane knows of its character's own effects. */
-type Effects = {
+export type Effects = {
   /** The character's name, which Delete's dialog says it's removed from. */
   character?: string
   choiceFor: (effect: SheetEffect) => EffectChoice | undefined
-  /** Sends a change of an effect, where it may be sent now: its local id; none where it isn't. */
-  send: (effect: SheetEffect, op: EffectOp) => string | undefined
+  /** One of the character's effects, by the sheet's id for it, from 0.42.1: none once it's gone. */
+  effectOf: (id: string) => SheetEffect | undefined
+  /**
+   * Sends a change of an effect, where it may be sent now: its local id; none where it isn't. From
+   * 0.42.1, `at` is when its line among the rolls is kept, where a roll made it, before that roll.
+   */
+  send: (effect: SheetEffect, op: EffectOp, at?: number) => string | undefined
   /** Whether this change of an effect, by its local id, waits. */
   waitingOf: (effect: string, id: string, op: EffectOp) => boolean
   /** Whether the row drawn at this key is open; none where the pane keeps no rows' state. */
@@ -81,6 +86,8 @@ type Effects = {
 export const NO_EFFECTS: Effects = {
   // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
   choiceFor: () => undefined,
+  // eslint-disable-next-line unicorn/no-useless-undefined -- none known
+  effectOf: () => undefined,
   // eslint-disable-next-line unicorn/no-useless-undefined -- none sent
   send: () => undefined,
   waitingOf: () => false,
@@ -146,7 +153,8 @@ function rowControl(row: Element | undefined): HTMLElement | undefined {
  * sheet agrees: to the moved row, or after a delete to the row beside it.
  * @param on - Whether the pane offers them: its seat's player may, and it's no companion's.
  * @param character - The character's name, which Delete's dialog says it's removed from.
- * @param send - Sends one, and logs it among the rolls, returning its local id.
+ * @param send - Sends one, and logs it among the rolls, returning its local id: from 0.42.1, at a
+ *   time given, where a roll made it, so that its line is kept beneath that roll.
  */
 export function useEffectControls({
   on,
@@ -159,7 +167,7 @@ export function useEffectControls({
   character: string
   effects: SheetEffectSection[]
   states: ReadonlyMap<string, TableRollState>
-  send: (effect: SheetEffect, op: EffectOp) => string
+  send: (effect: SheetEffect, op: EffectOp, at?: number) => string
 }>): Effects {
   const [sent, setSent] = useState<ReadonlyMap<string, Sent>>(() => new Map())
   // The local ids of those sent long enough ago that the sheet should have come.
@@ -208,9 +216,10 @@ export function useEffectControls({
   )
 
   const sendChange = useCallback(
-    (effect: SheetEffect, op: EffectOp): string | undefined => {
+    (effect: SheetEffect, op: EffectOp, at?: number): string | undefined => {
       if (!on || !effect.ops?.includes(op) || waitingFor(effect.id)) return
-      const id = send(effect, op)
+      // A row's change logged as it's sent, as ever; one a roll made, at the time given.
+      const id = at === undefined ? send(effect, op) : send(effect, op, at)
       setSent(held => new Map(held).set(effect.id, { id, op }))
       const timer = setTimeout(() => {
         timers.current.delete(timer)
@@ -239,6 +248,8 @@ export function useEffectControls({
     },
     [on, waitingFor, sent, sendChange],
   )
+
+  const effectOf = useCallback((id: string) => index.get(id), [index])
 
   const openAt = useCallback(
     (key: string) => opened.get(key) === true,
@@ -272,14 +283,36 @@ export function useEffectControls({
     () => ({
       character,
       choiceFor,
+      effectOf,
       send: sendChange,
       waitingOf,
       openAt,
       setOpenAt,
       focusing,
     }),
-    [character, choiceFor, sendChange, waitingOf, openAt, setOpenAt],
+    [character, choiceFor, effectOf, sendChange, waitingOf, openAt, setOpenAt],
   )
+}
+
+/**
+ * What became of an effect a die offered spent, from module 0.42.1, such as the Inspired that
+ * Bardic Inspiration's die used up: gone from the sheet; or its removal on its way, or about to
+ * be, waiting on another change of it; or whether the player may remove it at all, which they
+ * can't where the campaign doesn't let them, at a companion's pane, or where its source isn't the
+ * party's.
+ */
+export type Spent = { gone: boolean; removing: boolean; removable: boolean }
+
+/** What became of each effect a die offered spent, by the sheet's id for it (module 0.42.1). */
+export function useSpent(): (id: string) => Spent {
+  const effects = use(EffectsContext)
+  return (id: string) => {
+    const effect = effects.effectOf(id)
+    if (!effect) return { gone: true, removing: false, removable: false }
+    const choice = effects.choiceFor(effect)
+    const removable = choice?.ops.includes('delete') === true
+    return { gone: false, removing: removable && !!choice?.waiting, removable }
+  }
 }
 
 /**

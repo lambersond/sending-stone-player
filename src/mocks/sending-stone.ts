@@ -3627,6 +3627,55 @@ export const EFFECT_DICE_FEATURES = {
   keptRerolls: true,
 } as const
 
+// Module 0.42.1: Bardic Inspiration offered.
+
+/**
+ * The 2024 Bardic Inspiration's d6, as module 0.42.1 offers it on the sheet of a character Vex
+ * inspired: by the feature's name, the effect it uses up Thorin's Inspired, on every kind of d20
+ * roll but initiative, which can't fail; never a die the game adds.
+ */
+export const INSPIRATION_DIE: SheetEffectDie = {
+  name: 'Bardic Inspiration',
+  effect: 'inspired',
+  faces: 6,
+  count: 1,
+  sign: 1,
+  on: ['attack', 'check', 'save', 'skill', 'tool', 'death', 'concentration'],
+  offer: true,
+}
+
+/**
+ * Thorin as module 0.42.1 sends him under dnd5e 5, inspired by Vex, a level 4 bard: Inspired as the
+ * Effects tab lists it, which his player may turn off and delete, its source as `sourceOf` names
+ * it; and the die it offers.
+ */
+export function inspiredSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  return characterSheet({
+    effects: [
+      {
+        id: 'temporary',
+        label: 'Temporary Effects',
+        effects: [
+          {
+            id: 'inspired',
+            name: 'Inspired',
+            img: null,
+            source: 'Vex',
+            duration: '1 Hour',
+            disabled: false,
+            ops: ['disable', 'delete'],
+            text: null,
+          },
+        ],
+      },
+    ],
+    effectDice: [INSPIRATION_DIE],
+    ...fields,
+  })
+}
+
 /** A container of the sheet's, as sheetItem makes an item: holding these, or something secret. */
 export function sheetContainer(
   fields: Partial<SheetContainer> &

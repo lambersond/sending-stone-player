@@ -2,6 +2,7 @@
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { act, renderHook } from '@testing-library/react'
 import {
+  MOST_EXTRAS,
   REROLL_NOTE,
   useSheetRoller,
   type LocalCheck,
@@ -14,9 +15,11 @@ import {
 } from './use-sheet-roller'
 import { damageRollOf, toRollRequest } from './use-table-rolls'
 import { shownTotal } from '@/components/character-sheet/roll-tray'
-import { BANE_DIE, BLESS_DIE } from '@/mocks/sending-stone'
+import { BANE_DIE, BLESS_DIE, INSPIRATION_DIE } from '@/mocks/sending-stone'
+import { MAX_EXTRAS } from '@/schemas/roll-request'
 import type { DiceEntry, EnterDice } from '@/types/dice-entry'
 import type { DamagePreview, SheetEffectDie } from '@/types/sending-stone'
+import type { SheetOffer } from '@/utils/effect-dice'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
 
@@ -1248,5 +1251,294 @@ describe('hooks/use-sheet-roller, Elven Accuracy’s third d20 on its own line, 
       [GROUP],
     ])
     for (const entry of asked) expect(entry).not.toHaveProperty('skippedWords')
+  })
+})
+
+describe('hooks/use-sheet-roller, the dice the sheet offers, from module 0.42.1', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  /** Vex's Bardic Inspiration, as `offersFor` gives it for Thorin's Inspired. */
+  const VEX: SheetOffer = {
+    die: INSPIRATION_DIE,
+    spends: {
+      effect: 'inspired',
+      name: 'Inspired',
+      offer: 'Bardic Inspiration',
+    },
+  }
+  /** Another bard's, a d8, named apart from Vex's. */
+  const MIRA: SheetOffer = {
+    die: {
+      ...INSPIRATION_DIE,
+      name: 'Bardic Inspiration (Mira)',
+      effect: 'inspiredMira',
+      faces: 8,
+    },
+    spends: {
+      effect: 'inspiredMira',
+      name: 'Inspired',
+      offer: 'Bardic Inspiration (Mira)',
+    },
+  }
+  const OFFERED = {
+    sides: 6,
+    count: 1,
+    label: 'Bardic Inspiration: +1d6',
+    name: 'Bardic Inspiration',
+    offered: true,
+  }
+
+  /**
+   * The roller as the pane makes it while the game takes dice of effects: these effects' dice and
+   * offers, each roll going to the game.
+   */
+  function setUpOffers(
+    enter: EnterDice,
+    {
+      effects = [],
+      offers = [],
+      offering = true,
+    }: {
+      effects?: SheetEffectDie[]
+      offers?: SheetOffer[]
+      offering?: boolean
+    } = {},
+  ) {
+    const typedRolls: TypedRolls = {
+      effectsFor: () => effects,
+      keptRerolls: false,
+      sends: () => true,
+      ...(offering && { offersFor: () => offers }),
+    }
+    const onThrown = jest.fn<void, [SheetRoll, LocalCheck]>()
+    const hook = renderHook(() =>
+      useSheetRoller(onThrown, undefined, undefined, enter, typedRolls),
+    )
+    return { ...hook, onThrown }
+  }
+
+  const SAVE = { kind: 'save', key: 'str' } as const
+  /** A Strength save, +2, with the player's own +1d4 added. */
+  const strSave: SheetRoll = {
+    label: 'Strength saving throw',
+    modifier: 2,
+    extras: [d(1, 4)],
+    source: SAVE,
+  }
+
+  it('asks for the offer last, left out, and sends the roll as asked where it stays out', async () => {
+    renderer()
+    const { enter, asked } = typing([[9], [2], []])
+    const { result, onThrown } = setUpOffers(enter, { offers: [VEX] })
+
+    await rolled(() => result.current.roll(strSave))
+
+    const [entry] = asked
+    expect(entry.terms).toEqual([
+      { sides: 20, count: 1, label: 'd20' },
+      { sides: 4, count: 1, label: '+1d4' },
+      OFFERED,
+    ])
+    // Nothing for the total to leave out: the offer is no die the game rolls.
+    expect(entry).not.toHaveProperty('skippedWords')
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(roll.extras).toEqual([{ text: '+1d4', values: [2], value: 2 }])
+    expect(roll.total).toBe(9 + 2 + 2)
+    expect(roll).not.toHaveProperty('spends')
+    expect(roll).not.toHaveProperty('skipped')
+    expect(onThrown.mock.calls[0][0]).toBe(strSave)
+    expect(toRollRequest(strSave, SAVE, roll).dice).toEqual([
+      { faces: 20, results: [9] },
+      { faces: 4, results: [2] },
+    ])
+  })
+
+  it('sends an offer added as the last of the extras, named by it, before the effects’ dice, spending its effect', async () => {
+    renderer()
+    const { enter, asked } = typing([[9], [2], [3], [5]])
+    const { result, onThrown } = setUpOffers(enter, {
+      effects: [BLESS_DIE],
+      offers: [VEX],
+    })
+
+    await rolled(() => result.current.roll(strSave))
+
+    const [entry] = asked
+    expect(entry.terms.map(({ label }) => label)).toEqual([
+      'd20',
+      '+1d4',
+      'Bless: +1d4',
+      'Bardic Inspiration: +1d6',
+    ])
+    const [roll] = result.current.rolls as LocalCheck[]
+    const [[request, sent]] = onThrown.mock.calls
+    expect(sent).toBe(roll)
+    expect(request).toEqual({
+      ...strSave,
+      extras: [d(1, 4), { sign: 1, count: 1, sides: 6 }],
+    })
+    expect(roll.extras).toEqual([
+      { text: '+1d4', values: [2], value: 2 },
+      { text: 'Bardic Inspiration +1d6', values: [5], value: 5 },
+      { text: 'Bless +1d4', values: [3], value: 3 },
+    ])
+    expect(roll.total).toBe(9 + 2 + 2 + 5 + 3)
+    expect(entry.total([[9], [2], [3], [5]])).toBe(roll.total)
+    expect(roll.spends).toEqual([
+      { effect: 'inspired', name: 'Inspired', offer: 'Bardic Inspiration' },
+    ])
+    expect(roll).not.toHaveProperty('skipped')
+    const wire = toRollRequest(request, SAVE, roll)
+    expect(wire.extras).toEqual([d(1, 4), { sign: 1, count: 1, sides: 6 }])
+    expect(wire.dice).toEqual([
+      { faces: 20, results: [9] },
+      { faces: 4, results: [2] },
+      { faces: 6, results: [5] },
+    ])
+    // Bless's die alone among the effects': never the offer's.
+    expect(wire.effectDice).toEqual([{ faces: 4, sign: 1, results: [3] }])
+    // Its place words nothing, as no game rolls it; Bless's does.
+    expect(entry.skippedWords?.([2])).toBe('not counting Bless’s d4')
+    expect(entry.skippedWords?.([3])).toBe('')
+  })
+
+  it('counts an offer added as typed so far, and one left out as nothing', async () => {
+    renderer()
+    const { enter, asked } = typing([[9], []])
+    const { result } = setUpOffers(enter, { offers: [VEX] })
+
+    await rolled(() =>
+      result.current.roll({ ...strSave, extras: undefined, modifier: 0 }),
+    )
+
+    const [entry] = asked
+    expect(entry.total([[9], []])).toBe(9)
+    expect(entry.total([[9], [undefined]])).toBe(9)
+    expect(entry.total([[9], [4]])).toBe(13)
+    expect(entry.total([[undefined], [4]])).toBe(4)
+  })
+
+  it('asks for as many of its die as the bard’s scale gives, each sent', async () => {
+    renderer()
+    const { enter, asked } = typing([[9], [4, 5]])
+    const two = { ...VEX, die: { ...VEX.die, count: 2 } }
+    const { result, onThrown } = setUpOffers(enter, { offers: [two] })
+    const plain: SheetRoll = { ...strSave, extras: undefined }
+
+    await rolled(() => result.current.roll(plain))
+
+    expect(asked[0].terms[1]).toEqual({
+      ...OFFERED,
+      count: 2,
+      label: 'Bardic Inspiration: +2d6',
+    })
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(roll.extras).toEqual([
+      { text: 'Bardic Inspiration +2d6', values: [4, 5], value: 9 },
+    ])
+    const [[request]] = onThrown.mock.calls
+    expect(request.extras).toEqual([{ sign: 1, count: 2, sides: 6 }])
+    expect(toRollRequest(request, SAVE, roll).dice).toEqual([
+      { faces: 20, results: [9] },
+      { faces: 6, results: [4, 5] },
+    ])
+  })
+
+  // CT 17: the offers' values are read after the effects', each by its own place.
+  it('reads the second of two offers after Bless’s die and the first, sending only the one added', async () => {
+    renderer()
+    const { enter, asked } = typing([[9], [3], [], [6]])
+    const { result, onThrown } = setUpOffers(enter, {
+      effects: [BLESS_DIE],
+      offers: [VEX, MIRA],
+    })
+    const plain: SheetRoll = { ...strSave, extras: undefined }
+
+    await rolled(() => result.current.roll(plain))
+
+    expect(asked[0].terms.map(({ label }) => label)).toEqual([
+      'd20',
+      'Bless: +1d4',
+      'Bardic Inspiration: +1d6',
+      'Bardic Inspiration (Mira): +1d8',
+    ])
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(roll.extras).toEqual([
+      { text: 'Bardic Inspiration (Mira) +1d8', values: [6], value: 6 },
+      { text: 'Bless +1d4', values: [3], value: 3 },
+    ])
+    expect(roll.spends).toEqual([MIRA.spends])
+    const [[request]] = onThrown.mock.calls
+    expect(request.extras).toEqual([{ sign: 1, count: 1, sides: 8 }])
+    expect(toRollRequest(request, SAVE, roll).dice).toEqual([
+      { faces: 20, results: [9] },
+      { faces: 8, results: [6] },
+    ])
+  })
+
+  it('reads an offer after Elven Accuracy’s third d20 skipped, the offer never skipped', async () => {
+    renderer()
+    const { enter, asked } = typing([[3, 18], [], [5]])
+    const { result } = setUpOffers(enter, { offers: [VEX] })
+    const rapier: SheetRoll = {
+      label: 'Rapier attack',
+      modifier: 7,
+      advantage: 'adv',
+      elvenAccuracy: true,
+      source: { kind: 'attack', item: 'rapier', activity: 'rapierAttack' },
+    }
+
+    await rolled(() => result.current.roll(rapier))
+
+    const [entry] = asked
+    expect(entry.terms.at(-1)).toEqual(OFFERED)
+    expect(entry.skippedWords?.([1])).toBe('not counting Elven Accuracy’s d20')
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(roll).toMatchObject({ d20s: [3, 18], total: 18 + 7 + 5 })
+    expect(roll.skipped).toBe(true)
+    expect(roll.extras).toEqual([
+      { text: 'Bardic Inspiration +1d6', values: [5], value: 5 },
+    ])
+  })
+
+  it('offers no more than the roll’s extras leave room for, none at ten', async () => {
+    renderer()
+    const nine = Array.from({ length: 9 }, () => flat(1))
+    const { enter, asked } = typing([[9], []], [[9], [], []])
+    const { result } = setUpOffers(enter, { offers: [VEX, MIRA] })
+
+    await rolled(() =>
+      result.current.roll({ ...strSave, extras: [...nine, flat(1)] }),
+    )
+    await rolled(() => result.current.roll({ ...strSave, extras: nine }))
+
+    expect(asked[0].terms.some(({ offered }) => offered)).toBe(false)
+    expect(
+      asked[1].terms.filter(({ offered }) => offered).map(({ label }) => label),
+    ).toEqual(['Bardic Inspiration: +1d6'])
+  })
+
+  it('holds the most extras as the roll request’s schema does', () => {
+    expect(MOST_EXTRAS).toBe(MAX_EXTRAS)
+  })
+
+  it.each([
+    ['offers none, as against module 0.41.0', true],
+    ["can't say what it offers", false],
+  ])('asks and sends as before where the game %s', async (_, offering) => {
+    renderer()
+    const { enter, asked } = typing([[9], [2]])
+    const { result, onThrown } = setUpOffers(enter, { offering })
+
+    await rolled(() => result.current.roll(strSave))
+
+    expect(asked[0].terms).toEqual([
+      { sides: 20, count: 1, label: 'd20' },
+      { sides: 4, count: 1, label: '+1d4' },
+    ])
+    const [roll] = result.current.rolls as LocalCheck[]
+    expect(onThrown).toHaveBeenCalledWith(strSave, roll)
+    expect(onThrown.mock.calls[0][0]).toBe(strSave)
+    expect(roll).not.toHaveProperty('spends')
   })
 })

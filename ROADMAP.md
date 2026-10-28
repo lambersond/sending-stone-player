@@ -8,24 +8,16 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.41.0 and its app.
-
-## v0.42 (in progress)
-
-1. **Typed dice for what effects add:** when typing in dice, a die an effect adds to a d20 roll or
-   takes from it, such as Bless's, Bane's or Guidance's, is asked for by the spell's name, or
-   skipped for Foundry to roll it.
-2. **Rerolls stay at the table:** the die typed in is the one kept after any reroll, such as Great
-   Weapon Fighting's or a Halfling's reroll of a 1: Foundry no longer rerolls it.
-
-Next, 0.42.1, before Friday's session: Elven Accuracy's third d20 on its own line, with Skip, and
-the Bardic Inspiration a bard gave the character offered in the dice dialog, with a few more items
-to come. Patch releases (0.42.x) are expected as the session turns up things to tweak.
+Released: module v0.42.0 and its app.
 
 ## v0.42.1 (in progress)
 
 1. **Elven Accuracy's third d20 on its own line:** when typing in dice, typed in, or skipped for
    Foundry to roll it.
+2. **Bardic Inspiration offered:** the 2024 Bardic Inspiration a bard gave the character is offered
+   beside Done in the dice dialog, left out until the player adds it once their Gamemaster says the
+   roll fails; once that roll is made, the app removes Inspired where the campaign lets players
+   remove their own effects, and it isn't offered again.
 
 Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
 
@@ -84,8 +76,24 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   bonus the table narrates without applying it, is rolled by Foundry, or added with Modify Roll.
 - When typing in dice, an effect's die on only some kinds of attack (melee or ranged, weapon or
   spell) is rolled by Foundry; Bless's and Bane's are on every attack.
-- Bardic Inspiration is added with Modify Roll's extra dice until 0.42.1, which offers the 2024
-  one; the 2014 one, which leaves no effect, stays so.
+- When typing in dice with Elven Accuracy's third d20 skipped, the app's own total, and its
+  "Natural 1" or "Natural 20", read the two d20s typed; the game's total, hit or miss are the
+  tray's "· table" ones.
+- When typing in dice, Bardic Inspiration's die is the bard's as the inspired character's sheet last
+  read it, not as it was when given; it follows the bard's within a turn in combat.
+- When typing in dice, Bardic Inspiration can't be added to a roll from the app once Done is
+  pressed: the Gamemaster adds it in Foundry.
+- When typing in dice with Bless's, Bane's or Elven Accuracy's die skipped, the dialog's total
+  leaves out a die only the game rolls, so whether the roll fails can't be told before Done: type
+  that die in to use Bardic Inspiration on the roll.
+- When typing in dice, a spent Bardic Inspiration's Inspired that the app may not remove (the
+  campaign doesn't let players remove their own effects, a companion, a druid in Wild Shape, or a
+  bard who isn't a player's character) isn't offered again on that page until it's removed, but is
+  once the page is reloaded; and a bard's Inspire given again before it's removed isn't offered, as
+  dnd5e refreshes the same effect: the Gamemaster removes it first.
+- When typing in dice in a world on the legacy (2014) rules, a Bardic Inspiration feature that
+  doesn't say which rules it's for counts as 2014's and isn't offered; dnd5e's 2024 compendium
+  feature, which says, is.
 - An exploding die typed in still has Foundry throw its extra die.
 - Midi-QOL's optional bonuses, its Bardic Inspiration among them, are offered on the Gamemaster's
   screen after the roll, with Foundry's dice.

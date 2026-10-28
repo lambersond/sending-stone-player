@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useDamageMenu } from './damage-menu'
+import { useSpent, type Spent } from './effect-controls'
 import { RollButton } from './roll-button'
 import { useCreature } from '@/hooks/use-creature'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
@@ -53,6 +54,7 @@ import type {
 } from '@/hooks/use-sheet-roller'
 import type { RollKind } from '@/types/roll'
 import type { AloneSpend } from '@/types/sending-stone'
+import type { OfferSpend } from '@/utils/effect-dice'
 
 /** The player's rolls' way to the Gamemaster's game. */
 export type TableRolls = {
@@ -1172,9 +1174,39 @@ function CheckResult({
           onRollDamage={onRollDamage}
           modifies={modifies}
         />
+        <SpentLines roll={roll} state={state} />
       </div>
     </div>
   )
+}
+
+/**
+ * What became of an effect a die offered spent, once the roll it was added to is made (module
+ * 0.42.1), in the player's words: removed, being removed, or theirs to ask the Gamemaster to
+ * remove, where they may not.
+ */
+export function spentLine(spend: OfferSpend, spent: Spent): string {
+  if (spent.gone) return `${spend.offer} spent: ${spend.name} removed.`
+  if (spent.removing) return `${spend.offer} spent: removing ${spend.name}…`
+  return `${spend.offer} spent. Ask your Gamemaster to remove ${spend.name}.`
+}
+
+/**
+ * Beneath a roll the player added a die offered to, such as Bardic Inspiration's (module 0.42.1),
+ * once the game has made it: a line for each, saying what became of the effect it spent. None for
+ * a roll still on its way, or not made, which spent nothing.
+ */
+export function SpentLines({
+  roll,
+  state,
+}: Readonly<{ roll: LocalRoll; state?: TableRollState }>) {
+  const spent = useSpent()
+  if (roll.kind !== 'check' || !roll.spends || state?.status !== 'done') return
+  return roll.spends.map(spend => (
+    <p key={spend.effect} className='mt-1 text-sm text-text-secondary'>
+      {spentLine(spend, spent(spend.effect))}
+    </p>
+  ))
 }
 
 /**

@@ -7,8 +7,10 @@ import type { TableAsk, TablePrompt } from '@/types/table'
 /*
  * The dice a character's effects add to its d20 rolls, or take from them, such as Bless's d4 or
  * Bane's, as module 0.42.0 lists them on its sheet: which of them a roll is asked for, for a player
- * typing in their dice, as dnd5e adds them to it; and the words the dice dialog says them in. And,
- * for a typed roll whose rerolls its player makes at the table, its terms without them.
+ * typing in their dice, as dnd5e adds them to it; and from module 0.42.1, the dice a player may add
+ * once a roll fails, as Bardic Inspiration's, offered apart; and the words the dice dialog says
+ * them in. And, for a typed roll whose rerolls its player makes at the table, its terms without
+ * them.
  */
 
 /** What a prompt a saving throw answers asks, as far as the dice effects add to it go. */
@@ -67,8 +69,9 @@ export function rollTokens(
 }
 
 /**
- * The keys module 0.42.0 writes on a die an effect adds. The sheet's schema drops an entry with any
- * other; one stored by a later build of this app, before it was rolled back, is passed over here.
+ * The keys module 0.42.1 writes on a die an effect adds, or offers. The sheet's schema drops an
+ * entry with any other; one stored by a later build of this app, before it was rolled back, is
+ * passed over here.
  */
 const EFFECT_DIE_KEYS = new Set([
   'name',
@@ -77,13 +80,19 @@ const EFFECT_DIE_KEYS = new Set([
   'count',
   'sign',
   'on',
+  'offer',
 ])
+
+/** Whether a die says nothing more than module 0.42.1 does. */
+const known = (die: SheetEffectDie) =>
+  Object.keys(die).every(key => EFFECT_DIE_KEYS.has(key))
 
 /**
  * The dice the character's effects add to this roll, or take from it, in the sheet's order: each
- * whose rolls are among those it is, and that says nothing more than module 0.42.0 does, as a later
- * module's die the game doesn't add itself would. None for a roll the game doesn't make, or a
- * sheet that lists none.
+ * whose rolls are among those it is, and that says nothing more than module 0.42.1 does, as a later
+ * module's die the game doesn't add itself would. Never a die the sheet offers, which the game
+ * doesn't add either, and which would otherwise be asked, to be skipped, on every roll it's on:
+ * those are `offersFor`'s. None for a roll the game doesn't make, or a sheet that lists none.
  * @param prompts - The prompts the table is asked, where the roll may answer one of them.
  */
 export function effectDiceFor(
@@ -103,9 +112,62 @@ export function effectDiceFor(
   )
   return dice.filter(
     die =>
-      Object.keys(die).every(key => EFFECT_DIE_KEYS.has(key)) &&
+      die.offer !== true &&
+      known(die) &&
       die.on.some(token => tokens.has(token)),
   )
+}
+
+/**
+ * What adding a die the sheet offers spends: the effect it uses up, by the sheet's id for it; that
+ * effect's own name, such as "Inspired"; and the offer's, such as "Bardic Inspiration", or "Bardic
+ * Inspiration (Vex)" beside another bard's.
+ */
+export type OfferSpend = { effect: string; name: string; offer: string }
+
+/**
+ * A die the sheet offers a roll, from module 0.42.1, which the game doesn't add, for its player to
+ * add once the roll fails, as the 2024 Bardic Inspiration's: the die, and what adding it spends.
+ */
+export type SheetOffer = { die: SheetEffectDie; spends: OfferSpend }
+
+/**
+ * The dice the sheet offers this roll, in the sheet's order, from module 0.42.1: each marked
+ * `offer`, whose rolls are among those it is, and that says nothing more than module 0.42.1 does.
+ * None for a roll the game doesn't make; nor for an answer to a prompt that isn't held, or that
+ * Midi-QOL asks, which refuses anything added to its roll; dnd5e's card's takes it.
+ * @param prompts - The prompts the table is asked, where the roll may answer one of them.
+ */
+export function offersFor(
+  sheet: Pick<CharacterSheet, 'effectDice' | 'effects'> | null | undefined,
+  request: EffectRoll,
+  prompts: readonly (EffectPrompt & Pick<TablePrompt, 'id'>)[] = [],
+): SheetOffer[] {
+  const { source } = request
+  const offered = (sheet?.effectDice ?? []).filter(
+    die => die.offer === true && known(die),
+  )
+  if (!source || offered.length === 0) return []
+  const prompt = 'prompt' in source ? source.prompt : undefined
+  const answers =
+    prompt === undefined ? undefined : prompts.find(({ id }) => id === prompt)
+  if (prompt !== undefined && (!answers || answers.source !== undefined)) {
+    return []
+  }
+  const tokens = new Set(
+    rollTokens(source, { prompt: answers, ask: request.ask }),
+  )
+  const effects = (sheet?.effects ?? []).flatMap(section => section.effects)
+  return offered
+    .filter(die => die.on.some(token => tokens.has(token)))
+    .map(die => ({
+      die,
+      spends: {
+        effect: die.effect,
+        name: effects.find(({ id }) => id === die.effect)?.name ?? die.name,
+        offer: die.name,
+      },
+    }))
 }
 
 /**

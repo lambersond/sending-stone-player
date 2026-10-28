@@ -86,6 +86,7 @@ import {
   type SheetRoll,
   type TypedRolls,
 } from '@/hooks/use-sheet-roller'
+import { useSpentOffers } from '@/hooks/use-spent-offers'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
@@ -100,7 +101,7 @@ import {
 import { useShownPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { castIndex, isItemCast } from '@/utils/casts'
-import { effectDiceFor } from '@/utils/effect-dice'
+import { effectDiceFor, offersFor } from '@/utils/effect-dice'
 import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
@@ -404,8 +405,12 @@ function RollingSheet({
   // device keeps, a kind the game doesn't take, or a check an activity asks of a game that doesn't
   // make it so, is the player's alone, and no game would roll a die skipped. From 0.42.1, whether
   // a roll goes to the game whatever the game takes of it, for Elven Accuracy's third d20 to be
-  // skipped, which every module since 0.32.0 throws itself where two are sent.
+  // skipped, which every module since 0.32.0 throws itself where two are sent. And from module
+  // 0.42.1, as the dice of effects are, the dice the sheet offers, such as Bardic Inspiration's,
+  // but none whose effect a roll of this page spent already (`useSpentOffers`), read as each roll
+  // is asked for, as the rolls come after this.
   const { typedEffects, keptRerolls, sends } = table
+  const spent = useRef<ReadonlySet<string>>(new Set())
   const typedRolls = useMemo<TypedRolls | undefined>(() => {
     if (!typing) return
     return {
@@ -415,6 +420,14 @@ function RollingSheet({
         : () => [],
       keptRerolls,
       sends: request => sends(request.source),
+      offersFor: typedEffects
+        ? request =>
+            sends(request.source)
+              ? offersFor(sheet, request, prompts).filter(
+                  ({ spends }) => !spent.current.has(spends.effect),
+                )
+              : []
+        : () => [],
     }
   }, [typing, typedEffects, keptRerolls, sends, sheet, prompts])
   const {
@@ -569,12 +582,12 @@ function RollingSheet({
   })
   // The character's own effects turned off, on and deleted, from module 0.39.0, where the campaign
   // lets its player: never at a creature's pane, nor the Gamemaster's page. A line among the rolls
-  // says how it went, as for a favorite.
+  // says how it went, as for a favorite; from 0.42.1, one a roll made, beneath it.
   const { sendEffect } = table
   const sendEffectOf = useCallback(
-    (effect: SheetEffect, op: EffectOp) => {
+    (effect: SheetEffect, op: EffectOp, at?: number) => {
       setActed(true)
-      const logged = logEffect(effect.name, op)
+      const logged = logEffect(effect.name, op, at)
       sendEffect(logged, effect)
       return logged.id
     },
@@ -587,6 +600,10 @@ function RollingSheet({
     states: table.states,
     send: sendEffectOf,
   })
+  // From module 0.42.1, the effects the dice offered that the player added spent, such as Bardic
+  // Inspiration's Inspired: never offered again, and once their rolls are made, removed where the
+  // controls above may remove them.
+  useSpentOffers({ spent, rolls, states: table.states, effecting })
   // Wild Shape from here, from module 0.40.0, the player's alone, at the character's own pane: a
   // line among the rolls says how each went, on whichever tab; the Beasts to learn are read apart.
   const { sendWildShape, readWildShapeForms } = table

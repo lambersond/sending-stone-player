@@ -1171,6 +1171,11 @@ export type SheetEffectDie = {
   sign: 1 | -1
   /** Such as ["attack", "save", "death", "concentration"], or ["skill.ath"]. */
   on: string[]
+  /**
+   * From module 0.42.1: a die the game doesn't add, which the player may add once the roll fails,
+   * as Bardic Inspiration's; `effect` is what adding it uses up.
+   */
+  offer?: true
 }
 
 export type CharacterSheet = {

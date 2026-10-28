@@ -10,8 +10,11 @@ import {
 import userEvent from '@testing-library/user-event'
 import {
   Effecting,
+  NO_EFFECTS,
   useEffectChoice,
   useEffectControls,
+  useSpent,
+  type Effects,
 } from './effect-controls'
 import { EffectsTab } from './effects-tab'
 import { fullerSheet } from '@/mocks/sending-stone'
@@ -596,5 +599,132 @@ describe('components/character-sheet/effect-controls, from module 0.39.0', () =>
     )
     await user.click(ask)
     expect(send).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('components/character-sheet/effect-controls, the effects a die offered spent, from module 0.42.1', () => {
+  /** What the controls give, as a pane's would, each effect's ops as Thorin's sheet has them. */
+  function setUp({
+    on = true,
+    states = new Map(),
+    sheet = fullerSheet(),
+  }: {
+    on?: boolean
+    states?: ReadonlyMap<string, TableRollState>
+    sheet?: CharacterSheet
+  } = {}) {
+    const send = jest.fn<string, [SheetEffect, EffectOp, number?]>(
+      () => 'use-1',
+    )
+    const got: {
+      effects?: Effects
+      spent?: ReturnType<ReturnType<typeof useSpent>>
+    } = {}
+    /** What it says of Bless, as though a roll had spent it, drawn as nothing. */
+    function Spent() {
+      got.spent = useSpent()(BLESS.id)
+      return false
+    }
+    function Pane(props: {
+      on: boolean
+      states: typeof states
+      sheet: typeof sheet
+    }) {
+      const value = useEffectControls({
+        on: props.on,
+        character: 'Thorin Oakenshield',
+        effects: toTableSheet(props.sheet, GAME).effects,
+        states: props.states,
+        send,
+      })
+      got.effects = value
+      return (
+        <Effecting value={value}>
+          <Spent />
+        </Effecting>
+      )
+    }
+    const rendered = render(<Pane on={on} states={states} sheet={sheet} />)
+    return {
+      got,
+      send,
+      rerender: (props: {
+        on?: boolean
+        states?: ReadonlyMap<string, TableRollState>
+        sheet?: CharacterSheet
+      }) =>
+        rendered.rerender(
+          <Pane
+            on={props.on ?? on}
+            states={props.states ?? states}
+            sheet={props.sheet ?? sheet}
+          />,
+        ),
+    }
+  }
+
+  it('finds an effect on the sheet by its id, and none gone or nowhere', () => {
+    const { got } = setUp()
+
+    expect(got.effects?.effectOf(BLESS.id)).toMatchObject({
+      id: BLESS.id,
+      name: 'Bless',
+    })
+    expect(got.effects?.effectOf(SHIELD.id)).toMatchObject({ id: SHIELD.id })
+    expect(got.effects?.effectOf('gone')).toBeUndefined()
+    expect(NO_EFFECTS.effectOf(BLESS.id)).toBeUndefined()
+  })
+
+  it('hands the pane the time a change is logged at, where one is given', () => {
+    const { got, send } = setUp()
+
+    act(() => {
+      got.effects?.send(
+        got.effects.effectOf(BLESS.id) as SheetEffect,
+        'delete',
+        999,
+      )
+    })
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ id: BLESS.id }),
+      'delete',
+      999,
+    )
+  })
+
+  it('says an effect spent may be removed, then is being removed, then is gone', () => {
+    const { got, rerender } = setUp()
+    expect(got.spent).toEqual({ gone: false, removing: false, removable: true })
+
+    act(() => {
+      got.effects?.send(
+        got.effects.effectOf(BLESS.id) as SheetEffect,
+        'delete',
+        999,
+      )
+    })
+    expect(got.spent).toEqual({ gone: false, removing: true, removable: true })
+
+    rerender({ sheet: withEffects([RAGE]) })
+    expect(got.spent).toEqual({ gone: true, removing: false, removable: false })
+  })
+
+  it('says one may not be removed where the controls are off, or its ops don’t delete', () => {
+    const off = setUp({ on: false })
+    expect(off.got.spent).toEqual({
+      gone: false,
+      removing: false,
+      removable: false,
+    })
+
+    const disabling = setUp({
+      sheet: withEffects([{ ...BLESS, ops: ['disable'] }]),
+    })
+    expect(disabling.got.spent).toEqual({
+      gone: false,
+      removing: false,
+      removable: false,
+    })
   })
 })

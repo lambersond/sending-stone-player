@@ -3,7 +3,7 @@ import path from 'node:path'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DiceEntryDialog } from './dice-entry-dialog'
-import { BANE_DIE, BLESS_DIE } from '@/mocks/sending-stone'
+import { BANE_DIE, BLESS_DIE, INSPIRATION_DIE } from '@/mocks/sending-stone'
 import { skippedWords } from '@/utils/effect-dice'
 import { ELVEN_DIE } from '@/utils/typed-dice'
 import type { DiceEntry } from '@/types/dice-entry'
@@ -154,6 +154,19 @@ const blessBox = () => within(group('Bless: +1d4')).getByRole('textbox')
 const baneBox = () => within(group('Bane: −1d4')).getByRole('textbox')
 /** Elven Accuracy's third d20, on a line of its own from 0.42.1. */
 const elven = () => group('Elven Accuracy: third d20')
+
+/** Bardic Inspiration's d6 offered, from module 0.42.1: its Add, and its group once added. */
+const add = () => key('Add Bardic Inspiration’s d6')
+const offerGroup = () =>
+  screen.queryByRole('group', { name: 'Bardic Inspiration: +1d6' })
+
+/** The dice's groups in turn, by their headings. */
+const headings = () =>
+  screen.getAllByRole('heading', { level: 3 }).map(each => each.textContent)
+
+/** Whether one element comes before another in the page. */
+const follows = (one: Element, other: Element) =>
+  (one.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
 
 describe('components/dice-entry/dice-entry-dialog', () => {
   describe('structure', () => {
@@ -1552,6 +1565,298 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       await user.click(key('Done'))
 
       expect(onDone).toHaveBeenCalledWith([[17, 15], [], [3]])
+    })
+  })
+
+  describe('a die offered, from module 0.42.1', () => {
+    /** Bardic Inspiration's d6, as the roller asks it, offered last. */
+    const OFFER = {
+      sides: 6,
+      count: 1,
+      label: 'Bardic Inspiration: +1d6',
+      name: 'Bardic Inspiration',
+      offered: true,
+    } as const
+    const LINE = 'Add it if your Gamemaster says the roll fails.'
+    const D20 = { sides: 20, count: 1, label: 'd20' } as const
+
+    /** A Strength save, its d20, then the offer. */
+    const OFFERED = entry({
+      title: 'Strength saving throw',
+      terms: [D20, OFFER],
+    })
+
+    /**
+     * The same with Bless's d4 between, which may be skipped; its words given every term skipped,
+     * the offer's too, so that they'd name the offer were they asked of it.
+     */
+    const BLESSED_OFFER = entry({
+      title: 'Strength saving throw',
+      terms: [
+        D20,
+        {
+          sides: 4,
+          count: 1,
+          label: 'Bless: +1d4',
+          skippable: true,
+          name: 'Bless',
+        },
+        OFFER,
+      ],
+      skippedWords: skipped =>
+        skippedWords(skipped.map(at => [BLESS_DIE, INSPIRATION_DIE][at - 1])),
+    })
+
+    it('starts left out, with no group among the dice, its row beside Done after the keypad, Add described by its line', () => {
+      open(OFFERED)
+
+      expect(offerGroup()).toBeNull()
+      expect(headings()).toEqual(['d20'])
+      expect(screen.getAllByRole('textbox')).toHaveLength(1)
+      const button = add()
+      expect(button).toHaveTextContent(/^Add$/)
+      expect(button).toHaveAccessibleDescription(LINE)
+      expect(button).toHaveClass('min-h-11', 'sm:min-h-9')
+      // In the block kept in view, after the keypad, before Cancel and Done.
+      const row = button.parentElement as HTMLElement
+      expect(row).toHaveClass(
+        'flex',
+        'flex-wrap',
+        'items-center',
+        'justify-between',
+        'gap-2',
+      )
+      expect(keptInView()).toContainElement(row)
+      expect(row).toHaveTextContent(`Bardic Inspiration: +1d6${LINE}Add`)
+      expect(row.querySelector('svg')).not.toBeNull()
+      expect(within(row).getByText(LINE)).toHaveClass(
+        'text-xs',
+        'text-text-secondary',
+      )
+      expect(follows(keypad(), row)).toBe(true)
+      expect(follows(row, key('Cancel'))).toBe(true)
+      expect(follows(row, key('Done'))).toBe(true)
+      // The first box still takes the dialog's first focus.
+      expect(box('d20')).toHaveFocus()
+      expect(total()).toHaveTextContent(/^Total 5$/)
+    })
+
+    it('keeps its row in the keypad’s column on a short screen', () => {
+      onShortScreen()
+      open(OFFERED)
+
+      expect(keptInView()).toContainElement(add())
+    })
+
+    it('gives none for it on Done while it’s left out, its box never asked for', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(OFFERED)
+
+      await user.keyboard('1')
+      await user.click(key('Done'))
+
+      expect(onDone).toHaveBeenCalledWith([[1], []])
+    })
+
+    it('moves focus from the last box shown, once whole, to Add, not Done', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(OFFERED)
+
+      await user.keyboard('9')
+
+      expect(add()).toHaveFocus()
+      expectCurrent('d20')
+      expect(onDone).not.toHaveBeenCalled()
+    })
+
+    it('moves focus to Add on Enter in the last box shown, without Done', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(OFFERED)
+
+      await user.keyboard('1{Enter}')
+
+      expect(add()).toHaveFocus()
+      expect(onDone).not.toHaveBeenCalled()
+    })
+
+    it('moves focus from a Skip with no box shown after it to Add', async () => {
+      const user = userEvent.setup()
+      open(BLESSED_OFFER)
+
+      act(() => key('Skip Bless’s d4').focus())
+      await user.keyboard('{Enter}')
+
+      expect(add()).toHaveFocus()
+    })
+
+    it('adds it last among the dice, its box current, focused and clear of the keypad though Add had no focus, the button now Leave out', () => {
+      open(BLESSED_OFFER)
+      jest
+        .spyOn(keptInView(), 'getBoundingClientRect')
+        .mockReturnValue({ top: 500 } as DOMRect)
+      jest
+        .spyOn(HTMLInputElement.prototype, 'getBoundingClientRect')
+        .mockReturnValue({ bottom: 530 } as DOMRect)
+      const button = add()
+      expect(box('d20')).toHaveFocus()
+
+      // As a tap on iOS, which gives the button no focus.
+      fireEvent.click(button)
+
+      expect(headings()).toEqual([
+        'd20',
+        'Bless: +1d4',
+        'Bardic Inspiration: +1d6',
+      ])
+      const added = within(offerGroup() as HTMLElement).getByRole('textbox')
+      expect(added).toHaveAccessibleName('d6')
+      expect(added).toHaveFocus()
+      expectCurrent('d6')
+      expect(scroller().scrollTop).toBe(38)
+      // The same button, its words changed, its line gone.
+      expect(button).toHaveAccessibleName('Leave out Bardic Inspiration’s d6')
+      expect(button).toHaveTextContent(/^Leave out$/)
+      expect(button).not.toHaveAttribute('aria-describedby')
+      expect(screen.queryByText(LINE)).toBeNull()
+      expect(button.parentElement).toHaveTextContent(
+        /^Bardic Inspiration: \+1d6Leave out$/,
+      )
+    })
+
+    it('leaves it out again, its group gone and focus kept on the button, which reads Add', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(OFFERED)
+      const button = add()
+      fireEvent.click(button)
+      expectCurrent('d6')
+
+      act(() => button.focus())
+      await user.keyboard('{Enter}')
+
+      expect(offerGroup()).toBeNull()
+      expect(button).toHaveFocus()
+      expect(button).toHaveAccessibleName('Add Bardic Inspiration’s d6')
+      expect(button).toHaveAccessibleDescription(LINE)
+      // The keypad types into the last box shown.
+      expectCurrent('d20')
+      await user.click(key('4'))
+      await user.click(key('Done'))
+      expect(onDone).toHaveBeenCalledWith([[4], []])
+    })
+
+    it('gives the button focus where it’s left out with focus in its own box, as a tap leaves it', () => {
+      open(OFFERED)
+      const button = add()
+      fireEvent.click(button)
+      expect(box('d6')).toHaveFocus()
+
+      fireEvent.click(button)
+
+      expect(offerGroup()).toBeNull()
+      expect(button).toHaveFocus()
+      expect(document.activeElement).not.toBe(document.body)
+    })
+
+    it('counts its value in the total once added, and nothing while it’s left out', async () => {
+      const user = userEvent.setup()
+      open(OFFERED)
+
+      await user.keyboard('9')
+      expect(total()).toHaveTextContent(/^Total 14$/)
+      await user.keyboard('{Enter}')
+      await user.keyboard('5')
+
+      expect(total()).toHaveTextContent(/^Total 19$/)
+    })
+
+    it('says only of a die skipped what the total leaves out, never of one offered and left out', async () => {
+      const user = userEvent.setup()
+      open(BLESSED_OFFER)
+
+      await user.click(key('Skip Bless’s d4'))
+
+      expect(total()).toHaveTextContent(/^Total 5, not counting Bless’s d4$/)
+      expect(total()).not.toHaveTextContent(/Bardic|2 dice/)
+    })
+
+    it('goes from its box, once whole, to Done, and an Enter there is Done, the d20 typed first', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(OFFERED)
+
+      await user.keyboard('9')
+      expect(add()).toHaveFocus()
+      await user.keyboard('{Enter}')
+      expect(box('d6')).toHaveFocus()
+      await user.keyboard('5')
+      expect(key('Done')).toHaveFocus()
+      expect(onDone).not.toHaveBeenCalled()
+
+      act(() => box('d6').focus())
+      await user.keyboard('{Enter}')
+
+      expect(onDone).toHaveBeenCalledWith([[9], [5]])
+    })
+
+    it('gives only the values of the one added of two offered, the other’s Add next', async () => {
+      const user = userEvent.setup()
+      const { onDone } = open(
+        entry({
+          title: 'Strength saving throw',
+          terms: [
+            D20,
+            {
+              ...OFFER,
+              label: 'Bardic Inspiration (Vex): +1d6',
+              name: 'Bardic Inspiration (Vex)',
+            },
+            {
+              sides: 8,
+              count: 1,
+              label: 'Bardic Inspiration (Mira): +1d8',
+              name: 'Bardic Inspiration (Mira)',
+              offered: true,
+            },
+          ],
+        }),
+      )
+      const vex = key('Add Bardic Inspiration (Vex)’s d6')
+      expect(vex.parentElement).toHaveTextContent(
+        /^Bardic Inspiration \(Vex\): \+1d6/,
+      )
+
+      await user.click(key('Add Bardic Inspiration (Mira)’s d8'))
+      await user.keyboard('7')
+      // Vex's still left out: its Add, not Done.
+      expect(vex).toHaveFocus()
+      act(() => box('d20').focus())
+      await user.keyboard('9')
+      expect(box('d8')).toHaveFocus()
+      await user.keyboard('{Enter}')
+      expect(vex).toHaveFocus()
+      await user.click(key('Done'))
+
+      expect(onDone).toHaveBeenCalledWith([[9], [], [7]])
+    })
+
+    it('names two of its die by how many, a box each', () => {
+      open(
+        entry({
+          terms: [
+            D20,
+            { ...OFFER, count: 2, label: 'Bardic Inspiration: +2d6' },
+          ],
+        }),
+      )
+
+      const button = key('Add Bardic Inspiration’s 2d6')
+      fireEvent.click(button)
+
+      expect(
+        within(group('Bardic Inspiration: +2d6'))
+          .getAllByRole('textbox')
+          .map(each => each.getAttribute('aria-label')),
+      ).toEqual(['d6 1 of 2', 'd6 2 of 2'])
+      expect(button).toHaveAccessibleName('Leave out Bardic Inspiration’s 2d6')
     })
   })
 })

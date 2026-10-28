@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Effecting, NO_EFFECTS, type Effects } from './effect-controls'
 import { LONG_PRESS } from './roll-button'
 import { RollToasts } from './roll-toasts'
 import { briefOf, RollTray, type RollBrief, type TableRolls } from './roll-tray'
@@ -18,6 +19,7 @@ import type {
   LocalUse,
 } from '@/hooks/use-sheet-roller'
 import type { GmRollView } from '@/types/roll'
+import type { SheetEffect } from '@/types/sending-stone'
 
 const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
   kind: 'check',
@@ -4734,6 +4736,120 @@ describe('components/character-sheet/roll-tray, the dice effects add, from modul
     expect(briefOf({ ...skipped, skipped: undefined }).accent).toBe('ruby')
     expect(briefOf({ ...skipped, skipped: undefined }).dice).toMatch(
       / · Failed$/,
+    )
+  })
+})
+
+describe('components/character-sheet/roll-tray, a die offered and spent, from module 0.42.1', () => {
+  /** Thorin's Inspired, which Vex's Bardic Inspiration put on him. */
+  const INSPIRED: SheetEffect = {
+    id: 'inspired',
+    name: 'Inspired',
+    img: null,
+    source: 'Vex',
+    duration: '1 Hour',
+    disabled: false,
+    ops: ['disable', 'delete'],
+    text: null,
+  }
+  /** A Strength save against DC 15, Bardic Inspiration's d6 added, as the roller keeps it. */
+  const inspired = roll({
+    id: 's1',
+    label: 'Strength saving throw',
+    modifier: 2,
+    d20s: [9],
+    natural: 9,
+    total: 16,
+    dc: 15,
+    described: true,
+    typed: true,
+    extras: [{ text: 'Bardic Inspiration +1d6', values: [5], value: 5 }],
+    spends: [
+      { effect: 'inspired', name: 'Inspired', offer: 'Bardic Inspiration' },
+    ],
+  })
+
+  /** The pane's effect controls, as they'd say Inspired is: gone, being removed, or neither. */
+  const controls = (
+    now: 'gone' | 'removing' | 'removable' | 'kept',
+  ): Effects => ({
+    ...NO_EFFECTS,
+    effectOf: id =>
+      now === 'gone' || id !== INSPIRED.id ? undefined : INSPIRED,
+    choiceFor: () =>
+      now === 'kept'
+        ? undefined
+        : {
+            ops: ['disable', 'delete'],
+            waiting: now === 'removing',
+            choose: () => {},
+          },
+  })
+
+  const tray = (
+    now: Parameters<typeof controls>[0],
+    state?: TableRollState,
+  ) => (
+    <Effecting value={controls(now)}>
+      <RollTray
+        rolls={[inspired]}
+        rolling={false}
+        table={followed(state ? [['s1', state]] : [])}
+      />
+    </Effecting>
+  )
+
+  it.each<[string, Parameters<typeof controls>[0], string]>([
+    ['gone', 'gone', 'Bardic Inspiration spent: Inspired removed.'],
+    [
+      'being removed',
+      'removing',
+      'Bardic Inspiration spent: removing Inspired…',
+    ],
+    [
+      'on the sheet, the player not to remove it',
+      'kept',
+      'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+    ],
+  ])(
+    'says, once the game has made the roll, what became of the effect it spent: %s',
+    (_, now, words) => {
+      const { rerender } = render(tray(now, { status: 'rolling' }))
+      expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+
+      rerender(tray(now, { status: 'done', visible: true, total: 16 }))
+
+      const line = within(screen.getByRole('status')).getByText(words)
+      expect(line).toHaveClass('text-sm', 'text-text-secondary')
+      // At the foot of the roll, after the way to the game.
+      expect(screen.getByRole('status')).toHaveTextContent(
+        new RegExp(`At the table: 16.*${words.replace('.', String.raw`\.`)}$`),
+      )
+    },
+  )
+
+  it.each<TableRollState>([
+    { status: 'refused', reason: 'gone' },
+    { status: 'failed', reason: 'gremlins' },
+    { status: 'sending' },
+  ])('says nothing spent of a roll not made: $status', state => {
+    render(tray('removable', state))
+
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+  })
+
+  it('names the die by what offered it among the dice, and says its verdict, the offer skipping nothing', () => {
+    render(
+      <Effecting value={controls('removable')}>
+        <RollTray rolls={[inspired]} rolling={false} />
+      </Effecting>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'd20 9 +2 Bardic Inspiration +1d6 (5) · DC 15 · Saved',
+    )
+    expect(briefOf(inspired).dice).toMatch(
+      /Bardic Inspiration \+1d6 \(5\) · DC 15 · Saved$/,
     )
   })
 })

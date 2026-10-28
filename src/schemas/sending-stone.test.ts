@@ -69,6 +69,8 @@ import {
   blessedSheet,
   EFFECT_DICE_FEATURES,
   GUIDANCE_DIE,
+  INSPIRATION_DIE,
+  inspiredSheet,
 } from '@/mocks/sending-stone'
 import { slimQuillSheet } from '@/mocks/slim-sheet'
 import type {
@@ -5819,36 +5821,33 @@ describe("schemas/sending-stone, effects' dice and rerolls kept, from module 0.4
     ])
   })
 
-  it("drops one with a key module 0.42.0 doesn't write, such as a later module's offer of a die the game doesn't add, and keeps the rest", () => {
-    // Module 0.42.1's Bardic Inspiration, as its contract shapes it (round 0.42.0 §11.2): on every
-    // d20 roll, for the player to add once the Gamemaster says the roll fails, which dnd5e never
-    // adds. Read as a die the game adds, it would be asked on every roll.
-    const inspiration = {
-      name: 'Bardic Inspiration',
-      effect: 'inspired01',
-      faces: 8,
-      count: 1,
-      sign: 1,
-      on: [
-        'attack',
-        'check',
-        'save',
-        'skill',
-        'tool',
-        'initiative',
-        'death',
-        'concentration',
-      ],
-      offer: true,
-    }
-    expect(effectDiceOf([BLESS_DIE, inspiration, GUIDANCE_DIE])).toEqual([
+  // Changed on purpose (round 0.42.1 §7.2): module 0.42.1's offer of a die the game doesn't add,
+  // marked so, is now kept, for the app to offer apart and never ask as one the game adds; one
+  // marked otherwise, or with any other key a later module may add, is still dropped.
+  it("keeps one module 0.42.1 offers, marked so, and drops one marked otherwise or with a key module 0.42.1 doesn't write, and keeps the rest", () => {
+    expect(readSheet(inspiredSheet()).effectDice).toEqual([INSPIRATION_DIE])
+    expect(effectDiceOf([BLESS_DIE, INSPIRATION_DIE, GUIDANCE_DIE])).toEqual([
       BLESS_DIE,
+      INSPIRATION_DIE,
       GUIDANCE_DIE,
     ])
-    expect(effectDiceOf([inspiration])).toBeUndefined()
+    expect(
+      effectDiceOf([{ ...INSPIRATION_DIE, offer: false }, BANE_DIE]),
+    ).toEqual([BANE_DIE])
+    expect(
+      effectDiceOf([{ ...INSPIRATION_DIE, offer: 'true' }, BANE_DIE]),
+    ).toEqual([BANE_DIE])
+    expect(effectDiceOf([{ ...INSPIRATION_DIE, offer: false }])).toBeUndefined()
+    expect(
+      effectDiceOf([{ ...INSPIRATION_DIE, spent: true }, BANE_DIE]),
+    ).toEqual([BANE_DIE])
     expect(effectDiceOf([{ ...BLESS_DIE, caster: 'Vex' }, BANE_DIE])).toEqual([
       BANE_DIE,
     ])
+    // An offer is read by the rules every die is.
+    expect(effectDiceOf([{ ...INSPIRATION_DIE, faces: 20 }, BANE_DIE])).toEqual(
+      [BANE_DIE],
+    )
   })
 
   it('reads none where none can be read, more than ten are sent, or the list is junk', () => {

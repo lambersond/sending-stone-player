@@ -1032,10 +1032,11 @@ const wildShapeSchema = z.looseObject({
 /**
  * A die one of the character's effects adds to its d20 rolls, or takes from them, from module
  * 0.42.0: named by its spell or item, by its effect as the sheet names it, never a d20, and on
- * at most 60 rolls, each of a kind, or one by its key, as the module writes them. Only with the
- * keys module 0.42.0 writes: one with any other, such as a later module's mark of a die the game
- * doesn't add itself, may mean something this app can't tell, so it isn't read as a die the game
- * adds, and is dropped.
+ * at most 60 rolls, each of a kind, or one by its key, as the module writes them; and from module
+ * 0.42.1, `offer`: a die the game doesn't add, which the player may add once the roll fails; its
+ * `effect` is what adding it uses up. Only with the keys module 0.42.1 writes: one with any other,
+ * such as a later module's mark of a die the game doesn't add itself, may mean something this app
+ * can't tell, so it isn't read as a die the game adds, and is dropped.
  */
 const effectDieSchema = z.strictObject({
   name: z.string().min(1).max(100),
@@ -1044,6 +1045,7 @@ const effectDieSchema = z.strictObject({
   count: z.int().min(1).max(MAX_DICE),
   sign: z.union([z.literal(1), z.literal(-1)]),
   on: z.array(z.string().regex(EFFECT_TOKEN)).min(1).max(60),
+  offer: z.literal(true).optional(),
 })
 
 /**

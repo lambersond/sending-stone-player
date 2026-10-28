@@ -26,6 +26,8 @@ import {
   skippedWords,
   withoutRerolls,
   type EffectAsk,
+  type OfferSpend,
+  type SheetOffer,
 } from '@/utils/effect-dice'
 import {
   formatExtraTerm,
@@ -68,6 +70,13 @@ export const ANIMATION_TIMEOUT = 15_000
 
 /** How many of this page's rolls are kept. */
 export const ROLL_HISTORY = 20
+
+/**
+ * The most terms a roll may add, as the roll request's schema holds them (`MAX_EXTRAS`), which the
+ * dice offered, from module 0.42.1, are added among: said again here, and pinned to it by a test,
+ * so that this page's bundle takes none of the server's schemas.
+ */
+export const MOST_EXTRAS = 10
 
 /** The rolls that are checks, which pass a DC, rather than save against it. */
 const CHECKS = new Set<RollSource['kind']>(['skill', 'tool', 'ability'])
@@ -271,9 +280,15 @@ export type LocalCheck = {
   /**
    * A die its effects add was skipped, for the game to roll it, from module 0.42.0, or from 0.42.1
    * Elven Accuracy's third d20: its total here leaves that out, so it says neither saved nor failed
-   * by itself.
+   * by itself. Never for a die offered, added or not.
    */
   skipped?: true
+  /**
+   * What each die offered that the player added spent, from module 0.42.1, such as Bardic
+   * Inspiration's Inspired: its die is among `extras`, after the player's own, as the game is sent
+   * it, and once the game has made the roll, its effect is removed where the player may remove it.
+   */
+  spends?: OfferSpend[]
   /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
   rerolls?: 'kept'
   at: number
@@ -471,7 +486,8 @@ export type LocalRoll =
  * What the game takes of a roll typed in, from module 0.42.0: the dice the character's effects add
  * to it, or take from it, each asked for, or skipped for the game to roll; and whether the dice
  * typed are kept as the player rerolled them at the table. From 0.42.1, whether the roll goes to
- * the game at all, for Elven Accuracy's third d20 to be skipped for it to roll.
+ * the game at all, for Elven Accuracy's third d20 to be skipped for it to roll; and from module
+ * 0.42.1, the dice the sheet offers it, for the player to add once it fails.
  */
 export type TypedRolls = {
   /** The dice effects add to this roll, to type in: none where the game takes none. */
@@ -482,10 +498,19 @@ export type TypedRolls = {
    * Accuracy's third d20 be skipped, for the game to roll. Left out, it doesn't.
    */
   sends?: (request: SheetRoll) => boolean
+  /**
+   * The dice the sheet offers this roll, from module 0.42.1, such as Bardic Inspiration's, which
+   * the player may add once the roll fails: none where the game takes none, or each is spent.
+   * Left out, none.
+   */
+  offersFor?: (request: SheetRoll) => SheetOffer[]
 }
 
 /** A die an effect adds, as the player typed it: no values where it was skipped. */
 type TypedEffect = { die: SheetEffectDie; values: number[] }
+
+/** A die offered, as the player typed it: no values where they left it out. */
+type TypedOffer = { offer: SheetOffer; values: number[] }
 
 /** How many uses and asks this page has kept, for their ids. */
 let uses = 0
@@ -503,7 +528,7 @@ let uses = 0
  * @param typedRolls - While the player types in their own dice, from module 0.42.0: the dice
  * effects add to each roll, asked for after the player's own, and whether the dice typed are kept
  * as rerolled at the table; and from 0.42.1, whether each roll goes to the game, for Elven
- * Accuracy's third d20 to be skipped.
+ * Accuracy's third d20 to be skipped, and the dice the sheet offers it, which the player may add.
  * @returns With `roll`, `rollDamage` and `rollFormula`, each resolving true once its roll is kept,
  * or false where the player cancelled typing its dice in.
  */
@@ -556,6 +581,8 @@ export function useSheetRoller(
       let result: RollResult
       let extra: RollResult | undefined
       let typedEffects: TypedEffect[] = []
+      // The dice offered that the player added, from module 0.42.1, in order.
+      let added: SheetOffer[] = []
       let typed = false
       // Elven Accuracy's third d20 skipped, from 0.42.1, for the game to roll.
       let thirdSkipped = false
@@ -566,7 +593,9 @@ export function useSheetRoller(
         // would give the third throw; then each die they added. The d20s typed so far, the third
         // among them, count for what the higher of them shows, or the lower, and nothing while
         // none is. Then, from module 0.42.0, each die the character's effects add, or take away,
-        // such as Bless's d4, which they may skip for the game to roll.
+        // such as Bless's d4, which they may skip for the game to roll. Last, from module 0.42.1,
+        // each die the sheet offers, such as Bardic Inspiration's, left out until they add it once
+        // the roll fails: as many as the roll's own extras leave room for, as it's sent among them.
         const elven =
           ELVEN_LINE && advantage === 'adv' && request.elvenAccuracy === true
         const skips =
@@ -578,12 +607,16 @@ export function useSheetRoller(
           request.elvenAccuracy === true && !ELVEN_LINE,
         )
         const effects = typedRolls?.effectsFor(request) ?? []
-        // The terms by their places: the d20s, Elven Accuracy's third, the player's own dice, then
-        // the effects'.
+        const offers = (typedRolls?.offersFor?.(request) ?? []).slice(
+          0,
+          Math.max(0, MOST_EXTRAS - extras.length),
+        )
+        // The terms by their places: the d20s, Elven Accuracy's third, the player's own dice, the
+        // effects', then the offers'.
         const lead = elven ? 2 : 1
         const firstEffect = lead + dice.length
         // Each term's values as the roll's: Elven Accuracy's third among the d20s, as one more of
-        // them, or none where it's skipped; the player's own dice; the effects'.
+        // them, or none where it's skipped; the player's own dice; the effects'; the offers'.
         const split = (values: number[][]) => {
           const [group = [], ...after] = values
           const third = elven ? (after.shift() ?? []) : []
@@ -595,20 +628,44 @@ export function useSheetRoller(
               die,
               values: after[dice.length + at] ?? [],
             })),
+            offers: offers.map((offer, at): TypedOffer => ({
+              offer,
+              values: after[dice.length + effects.length + at] ?? [],
+            })),
           }
         }
+        // An offer added is thrown as one more of the player's own dice, after theirs, as it's
+        // sent: so it's counted, and kept, as any die they add.
         const typedCheck = ({
           d20s,
           own,
           effects: typedOnes,
-        }: ReturnType<typeof split>) => ({
-          result: typedResult([{ sides: 20, count: 1 }], [d20s], {
-            advantage,
-            modifier,
-          }),
-          extra: pools.length > 0 ? typedResult(pools, own) : undefined,
-          effects: typedOnes,
-        })
+          offers: offered,
+        }: ReturnType<typeof split>) => {
+          const adding = offered.filter(({ values }) => values.length > 0)
+          const thrown = [
+            ...pools,
+            ...adding.map(({ offer }) => ({
+              count: offer.die.count,
+              sides: offer.die.faces,
+            })),
+          ]
+          return {
+            result: typedResult([{ sides: 20, count: 1 }], [d20s], {
+              advantage,
+              modifier,
+            }),
+            extra:
+              thrown.length > 0
+                ? typedResult(thrown, [
+                    ...own,
+                    ...adding.map(({ values }) => values),
+                  ])
+                : undefined,
+            effects: typedOnes,
+            added: adding.map(({ offer }) => offer),
+          }
+        }
         const elvenTerm: DiceEntryTerm[] = elven
           ? [
               {
@@ -637,6 +694,13 @@ export function useSheetRoller(
               skippable: true as const,
               name: die.name,
             })),
+            ...offers.map(({ die }) => ({
+              sides: die.faces,
+              count: die.count,
+              label: effectTermLabel(die),
+              name: die.name,
+              offered: true as const,
+            })),
           ],
           total: values => {
             const soFar = split(typedSoFar(values))
@@ -645,7 +709,12 @@ export function useSheetRoller(
               d20s: soFar.d20s.length > 0 ? soFar.d20s : [0],
             })
             return withEffects(
-              toLocalRoll(label, shown.result, extras, shown.extra),
+              toLocalRoll(
+                label,
+                shown.result,
+                [...extras, ...offerTerms(shown.added)],
+                shown.extra,
+              ),
               shown.effects,
             ).total
           },
@@ -666,7 +735,7 @@ export function useSheetRoller(
         })
         if (!values) return false
         const kept = split(values)
-        ;({ result, extra, effects: typedEffects } = typedCheck(kept))
+        ;({ result, extra, effects: typedEffects, added } = typedCheck(kept))
         thirdSkipped = elven && kept.third.length === 0
         typed = true
       } else {
@@ -681,10 +750,22 @@ export function useSheetRoller(
       const thrown = extra
         ? { ...result, pools: [...result.pools, ...extra.pools] }
         : result
+      // The dice offered that the player added, from module 0.42.1, go to the game as the last of
+      // the roll's extras, as Modify Roll's added dice do: kept so, named by what offers them.
+      const offered = offerTerms(added)
+      const asked: SheetRoll =
+        offered.length > 0
+          ? { ...request, extras: [...extras, ...offered] }
+          : request
       const check = withEffects(
-        toLocalRoll(label, result, extras, extra),
+        withOffers(
+          toLocalRoll(label, result, [...extras, ...offered], extra),
+          extras.length,
+          added,
+        ),
         typedEffects,
       )
+      if (added.length > 0) check.spends = added.map(({ spends }) => spends)
       // Elven Accuracy's third d20 skipped is the game's, as an effect's die skipped is: the total
       // here leaves it out.
       if (thirdSkipped) check.skipped = true
@@ -707,7 +788,7 @@ export function useSheetRoller(
       ) {
         check.verdict = 'check'
       }
-      onThrown?.(request, check)
+      onThrown?.(asked, check)
       await land(thrown, check, !typed)
       return true
     },
@@ -944,19 +1025,24 @@ export function useSheetRoller(
   )
 
   // Keeps one of the character's own effects turned off, on or deleted, from module 0.39.0, first
-  // among the rolls, as a use is.
-  const logEffect = useCallback((label: string, op: EffectOp): LocalUse => {
-    const changed: LocalUse = {
-      kind: 'use',
-      id: `use-${Date.now()}-${++uses}`,
-      label,
-      spell: false,
-      effect: op,
-      at: Date.now(),
-    }
-    setRolls(earlier => keeping(earlier, changed))
-    return changed
-  }, [])
+  // among the rolls, as a use is; or from 0.42.1, where it's made for a roll, as Inspired is once
+  // the roll its Bardic Inspiration was added to is made, at a time just before that roll's, so
+  // that it's kept beneath it, the roll still the latest.
+  const logEffect = useCallback(
+    (label: string, op: EffectOp, at = Date.now()): LocalUse => {
+      const changed: LocalUse = {
+        kind: 'use',
+        id: `use-${Date.now()}-${++uses}`,
+        label,
+        spell: false,
+        effect: op,
+        at,
+      }
+      setRolls(earlier => keeping(earlier, changed))
+      return changed
+    },
+    [],
+  )
 
   // Keeps Wild Shape used from here, from module 0.40.0, first among the rolls, as a use is.
   const logWildShape = useCallback((wildShape: WildShapeLogged): LocalUse => {
@@ -1028,6 +1114,38 @@ function withEffects(check: LocalCheck, effects: TypedEffect[]): LocalCheck {
       })),
     }),
     ...(typed.length < effects.length && { skipped: true as const }),
+  }
+}
+
+/** The dice offered that the player added, from module 0.42.1, as the roll's extras send them. */
+function offerTerms(added: readonly SheetOffer[]): ExtraTerm[] {
+  return added.map(({ die }) => ({
+    sign: 1,
+    count: die.count,
+    sides: die.faces,
+  }))
+}
+
+/**
+ * A d20 roll with the dice offered that the player added, from module 0.42.1, such as Bardic
+ * Inspiration's: among its extras already, after the player's own, as the game is sent them; each
+ * named by what offers it, as "Bardic Inspiration +1d6", as an effect's die is.
+ * @param from - Where they start among the extras: after the player's own.
+ */
+function withOffers(
+  check: LocalCheck,
+  from: number,
+  added: readonly SheetOffer[],
+): LocalCheck {
+  if (added.length === 0) return check
+  return {
+    ...check,
+    extras: check.extras.map((extra, at) => {
+      const offer = at >= from ? added[at - from] : undefined
+      return offer
+        ? { ...extra, text: `${offer.die.name} ${extra.text}` }
+        : extra
+    }),
   }
 }
 

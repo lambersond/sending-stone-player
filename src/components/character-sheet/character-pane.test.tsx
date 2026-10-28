@@ -23,6 +23,8 @@ import {
 import {
   BLESS_DIE,
   blessedSheet,
+  INSPIRATION_DIE,
+  inspiredSheet,
   castingSheet,
   characterSheet,
   checkingSheet,
@@ -67,8 +69,11 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 // it asks for and types a 4 for every die, at most its highest face, or is cancelled. While
 // `mockSkipping` is set, from module 0.42.0, it skips each die an effect adds, for the game; or,
 // from 0.42.1, where it names them, only those, as Elven Accuracy's third d20 apart from Bless's.
+// Changed on purpose (round 0.42.1 §7.2): a die offered, from module 0.42.1, is left out, as the
+// dialog starts it, unless `mockAdding` is set, as the player adds it.
 const mockEntries: import('@/types/dice-entry').DiceEntry[] = []
 let mockSkipping: boolean | readonly string[] = false
+let mockAdding = false
 jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
   DiceEntryDialog: ({
     entry,
@@ -92,12 +97,15 @@ jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
           type='button'
           onClick={() =>
             onDone(
-              entry.terms.map(({ count, sides, skippable, name = '' }) =>
-                skippable &&
-                (mockSkipping === true ||
-                  (mockSkipping !== false && mockSkipping.includes(name)))
-                  ? []
-                  : Array.from({ length: count }, () => Math.min(sides, 4)),
+              entry.terms.map(
+                ({ count, sides, skippable, offered, name = '' }) =>
+                  (skippable &&
+                    (mockSkipping === true ||
+                      (mockSkipping !== false &&
+                        mockSkipping.includes(name)))) ||
+                  (offered && !mockAdding)
+                    ? []
+                    : Array.from({ length: count }, () => Math.min(sides, 4)),
               ),
             )
           }
@@ -6242,4 +6250,346 @@ describe('components/character-sheet/character-pane, Elven Accuracy’s third d2
       )
     },
   )
+})
+
+/** Thorin's Strength save, from his sheet. */
+const strengthSave = (user: User) =>
+  user.click(screen.getByRole('button', { name: /^Strength saving throw/ }))
+
+describe('components/character-sheet/character-pane, Bardic Inspiration offered, spent and removed, from module 0.42.1', () => {
+  const typing = { on: true, onChange: jest.fn() }
+  const FEATURES: RollFeature[] = ['manualDice', 'effectDice', 'keptRerolls']
+  const OFFER = 'Bardic Inspiration: +1d6'
+
+  beforeEach(() => {
+    clearStorage()
+    mockEntries.length = 0
+    mockSkipping = false
+    mockAdding = false
+  })
+
+  afterEach(() => {
+    mockAdding = false
+  })
+
+  const pane = (
+    fields: Partial<React.ComponentProps<typeof CharacterPane>> = {},
+  ) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={toTableSheet(inspiredSheet(), GAME)}
+      rollsToTable={['save', 'skill', 'initiative']}
+      rollFeatures={FEATURES}
+      manualDice={typing}
+      effects
+      {...fields}
+    />
+  )
+
+  const MADE = { status: 'done', visible: true, total: 13 }
+  const DELETED = {
+    status: 'done',
+    visible: true,
+    effect: { id: 'inspired', disabled: null, deleted: true },
+  }
+
+  it('offers Vex’s die on a Strength save, left out, last, and sends none while it stays out', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE })
+    render(pane())
+
+    await strengthSave(user)
+    expect(mockEntries.at(-1)?.terms.at(-1)).toEqual({
+      sides: 6,
+      count: 1,
+      label: OFFER,
+      name: 'Bardic Inspiration',
+      offered: true,
+    })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'save',
+        key: 'str',
+        extras: [],
+        dice: [{ faces: 20, results: [4] }],
+      }),
+    ])
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('At the table: 13'),
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+    // Not spent: offered again.
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20', OFFER])
+  })
+
+  it('offers it on what dnd5e’s card asks, but not on what Midi-QOL asks', async () => {
+    const user = userEvent.setup()
+    answering({})
+    const { rerender } = render(
+      pane({
+        rollFeatures: ['prompts', ...FEATURES],
+        prompts: [save({ abilities: ['str'] })],
+      }),
+    )
+    const answer = () =>
+      user.click(
+        within(
+          screen.getByRole('region', { name: 'Your Gamemaster asks' }),
+        ).getAllByRole('button')[0],
+      )
+
+    await answer()
+    expect(asked()).toEqual(['d20', OFFER])
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    rerender(
+      pane({
+        rollFeatures: ['prompts', ...FEATURES],
+        prompts: [
+          save({ id: 'k3y-thorin', abilities: ['str'], source: 'midi' }),
+        ],
+      }),
+    )
+    await answer()
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it('offers none on initiative, which never fails', async () => {
+    const user = userEvent.setup()
+    answering({})
+    render(
+      pane({
+        combat: {
+          id: 'cmbt1',
+          name: null,
+          started: true,
+          round: 1,
+          combatants: [
+            {
+              id: 'thorin1',
+              name: 'Thorin Oakenshield',
+              initiative: null,
+              defeated: false,
+              side: 'me',
+            },
+          ],
+        },
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /^Initiative, .*to roll for the combat$/,
+      }),
+    )
+
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it.each<
+    [string, Partial<React.ComponentProps<typeof CharacterPane>>, string]
+  >([
+    [
+      'where the game takes no dice of effects',
+      { rollFeatures: ['manualDice'] },
+      'on',
+    ],
+    // CT 17: no game would take the die added.
+    ['from a device that sends no rolls', {}, 'off'],
+    ["where the game doesn't take saves", { rollsToTable: ['skill'] }, 'on'],
+  ])('offers none %s', async (_, fields, sending) => {
+    const user = userEvent.setup()
+    answering({})
+    globalThis.localStorage.setItem(SEND_KEY, sending)
+    render(pane(fields))
+
+    await strengthSave(user)
+
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it('sends an added die as the last of the extras, offers it no more, and removes Inspired beneath the save once made', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE, 'req-2': DELETED })
+    mockAdding = true
+    const { rerender } = render(pane())
+
+    await strengthSave(user)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted[0]).toEqual(
+      expect.objectContaining({
+        kind: 'save',
+        key: 'str',
+        extras: [{ sign: 1, count: 1, sides: 6 }],
+        dice: [
+          { faces: 20, results: [4] },
+          { faces: 6, results: [4] },
+        ],
+        typed: true,
+      }),
+    )
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    // Spent from the moment it's sent: the next save offers nothing.
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20'])
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    // Made, Inspired is deleted, as the Effects tab's Delete… would.
+    await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+    expect(posted[1]).toEqual({
+      kind: 'effect',
+      effect: { op: 'delete', id: 'inspired' },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      label: 'Inspired',
+    })
+    // Its line beneath the save, which is still the latest.
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(/^\d+Strength saving throw/)
+    expect(status).toHaveTextContent('Bardic Inspiration +1d6 (4)')
+    expect(status).toHaveTextContent(
+      'Bardic Inspiration spent: removing Inspired…',
+    )
+    const earlier = screen.getByText('Earlier rolls (1)')
+    await user.click(earlier)
+    expect(
+      within(earlier.closest('details') as HTMLElement).getByRole('listitem'),
+    ).toHaveTextContent(/^Inspired/)
+
+    // The sheet comes without it.
+    rerender(
+      pane({
+        sheet: toTableSheet(
+          inspiredSheet({ effects: [], effectDice: [INSPIRATION_DIE] }),
+          GAME,
+        ),
+      }),
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Bardic Inspiration spent: Inspired removed.',
+      ),
+    )
+    expect(posted).toHaveLength(2)
+  })
+
+  it('keeps Roll damage on an attack that hit with the die added, its Inspired removed beneath it', async () => {
+    const user = userEvent.setup()
+    const preview = {
+      critical: false,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d8 + 4',
+          type: 'bludgeoning',
+          dice: [{ faces: 8, number: 1 }],
+        },
+      ],
+    }
+    const posted = answering({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        total: 19,
+        attack: { critical: false, fumble: false, outcome: 'hit' },
+        damage: preview,
+      },
+      'req-2': DELETED,
+    })
+    mockAdding = true
+    const inspired = inspiredSheet()
+    render(
+      pane({
+        sheet: toTableSheet(
+          fullerSheet({
+            effects: [...fullerSheet().effects, ...inspired.effects],
+            effectDice: [INSPIRATION_DIE],
+          }),
+          GAME,
+        ),
+        rollsToTable: ['attack', 'damage'],
+      }),
+    )
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+    await user.click(
+      screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+    )
+    expect(asked()).toEqual(['d20', OFFER])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(posted[0]).toMatchObject({
+      kind: 'attack',
+      extras: [{ sign: 1, count: 1, sides: 6 }],
+    })
+
+    await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+    expect(posted[1]).toMatchObject({
+      kind: 'effect',
+      effect: { op: 'delete', id: 'inspired' },
+    })
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(/^\d+Warhammer attack/)
+    expect(
+      within(status).getByRole('button', { name: 'Roll damage' }),
+    ).toBeInTheDocument()
+    expect(status).toHaveTextContent('Bardic Inspiration spent:')
+  })
+
+  it("offers a companion's own Inspired, and after the roll says to ask the Gamemaster, sending nothing more", async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE })
+    mockAdding = true
+    render(
+      pane({
+        characterId: 'seat:c:brakka',
+        name: 'Brakka',
+        creature: { name: 'Brakka', relation: { kind: 'owned', of: 'Thorin' } },
+        idPrefix: 'creature-brakka-',
+      }),
+    )
+
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20', OFFER])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+        ),
+      { timeout: 3000 },
+    )
+    expect(posted).toHaveLength(1)
+    // Still spent, though still on the sheet.
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it('offers it again once the roll it was added to is refused', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': { status: 'refused', reason: 'gone' } })
+    mockAdding = true
+    render(pane())
+
+    await strengthSave(user)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Not made at the table',
+      ),
+    )
+
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20', OFFER])
+    expect(posted).toHaveLength(1)
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+  })
 })

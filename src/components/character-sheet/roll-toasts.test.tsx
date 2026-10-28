@@ -1949,3 +1949,60 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
     })
   })
 })
+
+/** A toast's dice line: the line after its label. */
+const diceLine = (id: string) =>
+  (toast(id) as HTMLElement).querySelector('p + p') as HTMLElement
+
+describe('components/character-sheet/roll-toasts, a die offered and spent, from module 0.42.1', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** A Strength save Bardic Inspiration's d6 was added to, its Inspired gone once it's made. */
+  const inspired = check('s1', {
+    label: 'Strength saving throw',
+    extras: [{ text: 'Bardic Inspiration +1d6', values: [5], value: 5 }],
+    spends: [
+      { effect: 'inspired', name: 'Inspired', offer: 'Bardic Inspiration' },
+    ],
+  })
+
+  it('gives its dice two lines, and says what became of Inspired once the roll is made', () => {
+    render(
+      <RollToasts
+        rolls={[inspired]}
+        states={ways(['s1', { status: 'done', visible: true, total: 22 }])}
+        on
+      />,
+    )
+
+    expect(diceLine('s1')).toHaveTextContent('Bardic Inspiration +1d6 (5)')
+    expect(diceLine('s1')).toHaveClass('line-clamp-2')
+    expect(diceLine('s1')).not.toHaveClass('truncate')
+    // No pane's controls here, so nothing on the sheet: gone.
+    expect(toast('s1')).toHaveTextContent(
+      'Bardic Inspiration spent: Inspired removed.',
+    )
+  })
+
+  it('keeps any other roll’s dice to one line, with nothing spent', () => {
+    render(
+      <RollToasts
+        rolls={[strength, check('s2', { ...inspired, id: 's2' })]}
+        states={ways(['s', { status: 'done', visible: true, total: 17 }])}
+        on
+      />,
+    )
+
+    expect(diceLine('s')).toHaveClass('truncate')
+    expect(diceLine('s')).not.toHaveClass('line-clamp-2')
+    expect(toast('s')).not.toHaveTextContent(/spent/)
+    // Still on its way, nothing said spent.
+    expect(toast('s2')).not.toHaveTextContent(/spent/)
+  })
+})
