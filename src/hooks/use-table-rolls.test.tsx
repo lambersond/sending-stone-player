@@ -4066,3 +4066,245 @@ describe("hooks/use-table-rolls, damage on its own's choices, from module 0.41.0
     expect(state).not.toHaveProperty('concentrating')
   })
 })
+
+/** Perception typed in, Bless's d4 typed 3 after the player's own terms. */
+const blessed = (fields: Partial<LocalCheck> = {}) =>
+  check({
+    typed: true,
+    total: 31,
+    extras: [...check().extras, { text: 'Bless +1d4', values: [3], value: 3 }],
+    effectDice: [{ faces: 4, sign: 1, results: [3] }],
+    ...fields,
+  })
+
+describe('hooks/use-table-rolls, the dice effects add, and rerolls kept, from module 0.42.0', () => {
+  const skill = { kind: 'skill', key: 'prc' } as const
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-1' }))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("sends a typed d20 roll's effect dice beside its dice, which are its own terms' alone", () => {
+    const request = toRollRequest(perception, skill, blessed())
+
+    expect(request.effectDice).toEqual([{ faces: 4, sign: 1, results: [3] }])
+    // Bless's d4 isn't among the dice of the terms the player added, read by their places.
+    expect(request.dice).toEqual([
+      { faces: 20, results: [17, 3] },
+      { faces: 4, results: [2] },
+      { faces: 6, results: [5, 1] },
+    ])
+    expect(request.extras).toEqual(perception.extras)
+  })
+
+  it('sends no effect dice where none was typed, nor of a roll not typed', () => {
+    expect(
+      toRollRequest(perception, skill, blessed({ effectDice: [] })),
+    ).not.toHaveProperty('effectDice')
+    expect(
+      toRollRequest(perception, skill, blessed({ effectDice: undefined })),
+    ).not.toHaveProperty('effectDice')
+    expect(
+      toRollRequest(perception, skill, blessed({ typed: undefined })),
+    ).not.toHaveProperty('effectDice')
+  })
+
+  it('says a d20 roll, a formula and hit dice kept their rerolls only where typed in and kept so', () => {
+    expect(
+      toRollRequest(perception, skill, check({ typed: true, rerolls: 'kept' })),
+    ).toMatchObject({ typed: true, rerolls: 'kept' })
+    expect(
+      toRollRequest(perception, skill, check({ typed: true })),
+    ).not.toHaveProperty('rerolls')
+    expect(
+      toRollRequest(perception, skill, check({ rerolls: 'kept' })),
+    ).not.toHaveProperty('rerolls')
+
+    const formula = {
+      kind: 'formula',
+      item: 'lantern',
+      activity: 'shine',
+    } as const
+    expect(
+      toFormulaRequest(lantern, formula, {
+        ...shone,
+        typed: true,
+        rerolls: 'kept',
+      }),
+    ).toMatchObject({ typed: true, rerolls: 'kept' })
+    expect(
+      toFormulaRequest(lantern, formula, { ...shone, rerolls: 'kept' }),
+    ).not.toHaveProperty('rerolls')
+
+    const source = hitDice.source as Extract<FormulaSource, { kind: 'hitDice' }>
+    const kept: LocalFormula = {
+      ...spentThree(),
+      typed: true,
+      rerolls: 'kept',
+    }
+    expect(toHitDiceRequest(source, kept)).toMatchObject({ rerolls: 'kept' })
+    expect(
+      toHitDiceRequest(source, { ...spentThree(), typed: true }),
+    ).not.toHaveProperty('rerolls')
+    for (const request of toHitDieRequests(source, kept)) {
+      expect(request).toMatchObject({ typed: true, rerolls: 'kept' })
+    }
+  })
+
+  it("says an attack's damage, a description's, damage on its own and a recharge kept their rerolls only where typed in and kept so", () => {
+    globalThis.localStorage.setItem(ALONE_KEY, 'on')
+    const { result } = render([
+      'damage',
+      'textDamage',
+      'itemDamage',
+      'recharge',
+    ])
+    const due = { use: 'req-1', damage: preview() }
+    const described: SheetDamageRoll = {
+      label: 'Flame damage',
+      parts: [{ terms: [{ sign: 1, count: 1, sides: 8 }], type: 'fire' }],
+      text: { text: 'a'.repeat(16), link: 1 },
+    }
+    const flame = {
+      parts: [
+        {
+          type: 'fire',
+          total: 5,
+          terms: [{ text: '1d8', values: [5], value: 5 }],
+        },
+      ],
+    }
+    const bite = {
+      item: 'wolfBite',
+      activity: 'biteAttack',
+      plan: mockTableDamage(),
+    }
+
+    act(() =>
+      result.current.sendDamage(
+        damageRollOf('Longsword', due),
+        thrownDamage({ typed: true, rerolls: 'kept' }),
+      ),
+    )
+    expect(sent()).toMatchObject({
+      kind: 'damage',
+      typed: true,
+      rerolls: 'kept',
+    })
+    act(() =>
+      result.current.sendDamage(
+        damageRollOf('Longsword', due),
+        thrownDamage({ id: 'r3', rerolls: 'kept' }),
+      ),
+    )
+    expect(sent()).not.toHaveProperty('rerolls')
+    act(() =>
+      result.current.sendDamage(described, {
+        ...thrownDamage({ id: 'r4', typed: true, rerolls: 'kept' }),
+        ...flame,
+      }),
+    )
+    expect(sent()).toMatchObject({ kind: 'textDamage', rerolls: 'kept' })
+    act(() =>
+      result.current.sendDamage(described, {
+        ...thrownDamage({ id: 'r5', typed: true }),
+        ...flame,
+      }),
+    )
+    expect(sent()).not.toHaveProperty('rerolls')
+    act(() =>
+      result.current.sendDamage(
+        aloneRollOf('Bite', bite) as SheetDamageRoll,
+        bitten({ typed: true, rerolls: 'kept' }),
+      ),
+    )
+    expect(sent()).toMatchObject({ kind: 'itemDamage', rerolls: 'kept' })
+    act(() =>
+      result.current.sendRecharge(
+        { label: 'Frost Breath recharge', counter: { item: 'frostBreath' } },
+        recharged({ typed: true, rerolls: 'kept' }),
+      ),
+    )
+    expect(sent()).toMatchObject({ kind: 'recharge', rerolls: 'kept' })
+    act(() =>
+      result.current.sendRecharge(
+        { label: 'Frost Breath recharge', counter: { item: 'frostBreath' } },
+        recharged({ id: 'f11', typed: true }),
+      ),
+    )
+    expect(sent()).not.toHaveProperty('rerolls')
+  })
+
+  it("says whether the game takes a typed roll's effect dice, and keeps its rerolls, each by its own feature", () => {
+    const { result, rerender } = render(['save'], ['manualDice'])
+    expect(result.current).toMatchObject({
+      typedEffects: false,
+      keptRerolls: false,
+    })
+
+    rerender({ kinds: ['save'], features: ['manualDice', 'effectDice'] })
+    expect(result.current).toMatchObject({
+      typedEffects: true,
+      keptRerolls: false,
+    })
+    rerender({ kinds: ['save'], features: ['manualDice', 'keptRerolls'] })
+    expect(result.current).toMatchObject({
+      typedEffects: false,
+      keptRerolls: true,
+    })
+    rerender({
+      kinds: ['save'],
+      features: ['manualDice', 'effectDice', 'keptRerolls'],
+    })
+    expect(result.current).toMatchObject({
+      typedEffects: true,
+      keptRerolls: true,
+    })
+  })
+
+  it('takes effect dice only from a device that sends, saying which rolls it sends as send does', () => {
+    const save = { kind: 'save', key: 'dex' } as const
+    const picked = {
+      kind: 'skill',
+      key: 'slt',
+      item: 'tools',
+      activity: 'pick',
+    } as const
+    const swing = { kind: 'attack', item: 'axe', activity: 'swing' } as const
+    const all: RollFeature[] = ['manualDice', 'effectDice', 'keptRerolls']
+    const { result, rerender } = render(
+      ['save', 'skill'],
+      [...all, 'activityChecks'],
+    )
+    const { sends } = result.current
+    expect(result.current.typedEffects).toBe(true)
+    expect(sends(save)).toBe(true)
+    expect(sends(picked)).toBe(true)
+    // Nor a roll of a kind the game doesn't take, nor one with nothing to send.
+    expect(sends(swing)).toBe(false)
+    expect(sends()).toBe(false)
+
+    // A check an activity asks for, of a game that doesn't make it so, is the player's alone.
+    rerender({ kinds: ['save', 'skill'], features: all })
+    expect(sends(picked)).toBe(false)
+    expect(sends({ kind: 'skill', key: 'slt' })).toBe(true)
+
+    // This device sending none: the dice of effects are no game's to roll, though rerolls kept
+    // still are the player's own as typed.
+    act(() => result.current.setSending(false))
+    expect(result.current).toMatchObject({
+      typedEffects: false,
+      keptRerolls: true,
+    })
+    expect(sends(save)).toBe(false)
+    // The same function each time, for what's made of it to stay.
+    expect(result.current.sends).toBe(sends)
+  })
+})

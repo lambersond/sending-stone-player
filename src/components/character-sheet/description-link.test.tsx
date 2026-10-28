@@ -346,6 +346,56 @@ describe('components/character-sheet/description-link', () => {
       )
     })
 
+    it('says a concentration check is one, rolled or modified first, for the dice effects add to it, and a save not (module 0.42.0)', async () => {
+      const user = userEvent.setup()
+      const { actions } = await renderText(
+        save(
+          'data-ability="con" data-dc="10" data-type="concentration"',
+          'DC 10 Concentration',
+        ),
+      )
+      const roll = jest.mocked(actions.roll)
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 10 Concentration' }),
+      )
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+      )
+      expect(roll).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          label: 'Concentration check',
+          advantage: 'adv',
+          ask: { type: 'concentration' },
+        }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 10 Concentration' }),
+      )
+      await user.click(screen.getByRole('menuitem', { name: 'Modify roll…' }))
+      const dialog = screen.getByRole('dialog', { name: 'Modify roll' })
+      await user.click(within(dialog).getByRole('button', { name: /^Roll/ }))
+      expect(roll).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          label: 'Concentration check',
+          explicit: true,
+          dc: 10,
+          ask: { type: 'concentration' },
+        }),
+      )
+      cleanup()
+
+      const plain = await renderText(save('data-ability="dex" data-dc="15"'))
+      await user.click(screen.getByRole('button', { name: 'DC 15 Dexterity' }))
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Roll my Dexterity save (+1)' }),
+      )
+      expect(plain.actions.roll).toHaveBeenCalledWith(
+        expect.not.objectContaining({ ask: expect.anything() }),
+      )
+    })
+
     it('says why the table can’t be asked, where it can’t, and asks nothing', async () => {
       const user = userEvent.setup()
       const { actions } = await renderText(

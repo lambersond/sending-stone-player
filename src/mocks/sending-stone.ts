@@ -22,6 +22,7 @@ import type {
   SheetContainer,
   SheetCounter,
   SheetCreature,
+  SheetEffectDie,
   SheetEnchantment,
   SheetFavorite,
   SheetFeature,
@@ -3518,6 +3519,113 @@ export function aloneResult(
     ...fields,
   }
 }
+
+// Module 0.42.0: effects' dice.
+
+/**
+ * Bless's d4, as module 0.42.0 lists it on the sheet of a character Vex blessed: by the spell's
+ * name, never Vex's, on every attack and saving throw, death saves and concentration among them.
+ */
+export const BLESS_DIE: SheetEffectDie = {
+  name: 'Bless',
+  effect: 'blessed',
+  faces: 4,
+  count: 1,
+  sign: 1,
+  on: ['attack', 'save', 'death', 'concentration'],
+}
+
+/** Bane's d4, taken away on the same rolls, cast by Grukk, a goblin shaman, never named for it. */
+export const BANE_DIE: SheetEffectDie = {
+  name: 'Bane',
+  effect: 'bane',
+  faces: 4,
+  count: 1,
+  sign: -1,
+  on: ['attack', 'save', 'death', 'concentration'],
+}
+
+/** The 2024 Guidance's d4, on Athletics alone, named by the spell, not its "Athletic Guidance". */
+export const GUIDANCE_DIE: SheetEffectDie = {
+  name: 'Guidance',
+  effect: 'athleticGuidance',
+  faces: 4,
+  count: 1,
+  sign: 1,
+  on: ['skill.ath'],
+}
+
+/**
+ * Thorin as module 0.42.0 sends him under dnd5e 5, blessed by Vex, baned by Grukk and guided on
+ * Athletics: the effects as the Effects tab lists them, their sources as `sourceOf` names them, and
+ * the dice they add, in their order.
+ */
+export function blessedSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  return characterSheet({
+    effects: [
+      {
+        id: 'temporary',
+        label: 'Temporary Effects',
+        effects: [
+          {
+            id: 'blessed',
+            name: 'Blessed',
+            img: null,
+            source: 'Vex',
+            duration: '9 Rounds',
+            disabled: false,
+            text: null,
+          },
+          {
+            id: 'bane',
+            name: 'Bane',
+            img: null,
+            source: 'Grukk',
+            duration: '9 Rounds',
+            disabled: false,
+            text: null,
+          },
+          {
+            id: 'athleticGuidance',
+            name: 'Athletic Guidance',
+            img: null,
+            source: 'Vex',
+            duration: '1 Minute',
+            disabled: false,
+            text: null,
+          },
+        ],
+      },
+    ],
+    effectDice: [BLESS_DIE, BANE_DIE, GUIDANCE_DIE],
+    ...fields,
+  })
+}
+
+/**
+ * What a hello from module 0.42.0 says of the rolls it takes, where its players may type in their
+ * dice, under dnd5e 5, both its self-tests passed: a typed d20 roll's effects' dice are its
+ * player's, and a typed roll's rerolls may be.
+ */
+export const EFFECT_DICE_FEATURES = {
+  enabled: true,
+  kinds: [
+    'skill',
+    'tool',
+    'ability',
+    'save',
+    'death',
+    'initiative',
+    'attack',
+    'damage',
+  ],
+  reason: null,
+  manualDice: true,
+  effectDice: true,
+  keptRerolls: true,
+} as const
 
 /** A container of the sheet's, as sheetItem makes an item: holding these, or something secret. */
 export function sheetContainer(

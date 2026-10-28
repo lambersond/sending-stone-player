@@ -17,6 +17,7 @@ import type {
 import type { TableRoll } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
 import type { ExtraTerm } from '@/utils/roll-modifiers'
+import type { DieSides } from '@lambersond/3d-dice-core'
 
 /**
  * Rolls a player makes here and has made in the Gamemaster's game, with the same dice, when the
@@ -360,6 +361,17 @@ export type RollRequestInput = {
   label?: string
   /** Its player typed its dice in from their own, from module 0.32.0: the game marks it so. */
   typed?: true
+  /**
+   * For a typed d20 roll, from module 0.42.0: the dice its effects add, or take away, that its
+   * player typed in, each by its faces and sign, never a d20, and never one they skipped, which
+   * the game rolls.
+   */
+  effectDice?: { faces: DieSides; sign: 1 | -1; results: number[] }[]
+  /**
+   * For a typed roll, from module 0.42.0: its player rerolled at the table, as their feature says,
+   * and typed the dice they kept, which the game then rerolls none of.
+   */
+  rerolls?: 'kept'
 }
 
 /**

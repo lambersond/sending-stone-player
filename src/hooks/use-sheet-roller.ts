@@ -22,6 +22,12 @@ import {
 } from '@/utils/damage-modifiers'
 import { throwTerm, type ThrownDie } from '@/utils/dice-modifiers'
 import {
+  effectTermLabel,
+  skippedWords,
+  withoutRerolls,
+  type EffectAsk,
+} from '@/utils/effect-dice'
+import {
   formatExtraTerm,
   type ExtraDice,
   type ExtraTerm,
@@ -32,10 +38,15 @@ import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
   FormulaSource,
   RollKind,
+  RollRequestInput,
   RollSource,
   TextLink,
 } from '@/types/roll'
-import type { CriticalRule, TableDamagePlan } from '@/types/sending-stone'
+import type {
+  CriticalRule,
+  SheetEffectDie,
+  TableDamagePlan,
+} from '@/types/sending-stone'
 import type { WildShapeLogged } from '@/utils/wild-shape-words'
 
 /** The dice, in the app's jade. */
@@ -56,6 +67,13 @@ const CHECKS = new Set<RollSource['kind']>(['skill', 'tool', 'ability'])
 
 /** A random source that lands every die on its highest face, for damage at its highest. */
 const HIGHEST = () => 1 - Number.EPSILON
+
+/**
+ * Said under the dice dialog's subtitle of damage or a formula whose dice reroll, where the game
+ * keeps the dice typed as the player kept them at the table (module 0.42.0).
+ */
+export const REROLL_NOTE =
+  'Reroll at the table as your feature says, and type in the die you keep.'
 
 /** A d20 roll from the character's sheet, such as a skill check or a saving throw. */
 export type SheetRoll = {
@@ -93,6 +111,12 @@ export type SheetRoll = {
   until?: string
   /** For an answer to what the game asks, aborted once it's answered or closed elsewhere. */
   signal?: AbortSignal
+  /**
+   * For a saving throw a description's link calls for, what the link asks: a concentration check,
+   * which dnd5e adds concentration's bonuses to, and so the dice effects add to one (module
+   * 0.42.0).
+   */
+  ask?: EffectAsk
 }
 
 /** Damage or healing from the character's sheet, such as a weapon's. */
@@ -227,6 +251,19 @@ export type LocalCheck = {
   described?: boolean
   /** The player typed its dice in. */
   typed?: true
+  /**
+   * The dice its effects add, or take away, that the player typed in, from module 0.42.0, each by
+   * its faces and sign, as the game is sent them; none skipped. Each is among `extras` too, after
+   * the player's own.
+   */
+  effectDice?: RollRequestInput['effectDice']
+  /**
+   * A die its effects add was skipped, for the game to roll it, from module 0.42.0: its total here
+   * leaves that out, so it says neither saved nor failed by itself.
+   */
+  skipped?: true
+  /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
+  rerolls?: 'kept'
   at: number
 }
 
@@ -256,6 +293,8 @@ export type LocalDamage = {
   gameTotal?: boolean
   /** The player typed its dice in. */
   typed?: true
+  /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
+  rerolls?: 'kept'
   at: number
 }
 
@@ -369,6 +408,8 @@ export type LocalFormula = {
   gameTotal?: boolean
   /** The player typed its dice in. */
   typed?: true
+  /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
+  rerolls?: 'kept'
   /** A recharge's d6 (module 0.36.0): what it recharges, for its titles. */
   recharge?: { name: string }
   at: number
@@ -414,6 +455,20 @@ export type LocalGmRoll = {
 export type LocalRoll =
   LocalCheck | LocalDamage | LocalUse | LocalFormula | LocalAsk | LocalGmRoll
 
+/**
+ * What the game takes of a roll typed in, from module 0.42.0: the dice the character's effects add
+ * to it, or take from it, each asked for, or skipped for the game to roll; and whether the dice
+ * typed are kept as the player rerolled them at the table.
+ */
+export type TypedRolls = {
+  /** The dice effects add to this roll, to type in: none where the game takes none. */
+  effectsFor: (request: SheetRoll) => SheetEffectDie[]
+  keptRerolls: boolean
+}
+
+/** A die an effect adds, as the player typed it: no values where it was skipped. */
+type TypedEffect = { die: SheetEffectDie; values: number[] }
+
 /** How many uses and asks this page has kept, for their ids. */
 let uses = 0
 
@@ -427,6 +482,9 @@ let uses = 0
  * what they came to: to have the Gamemaster's game make it too.
  * @param onDamageThrown - The same, for damage.
  * @param onFormulaThrown - The same, for a hit die or a formula.
+ * @param typedRolls - While the player types in their own dice, where the game takes either, from
+ * module 0.42.0: the dice effects add to each roll, asked for after the player's own, and whether
+ * the dice typed are kept as rerolled at the table.
  * @returns With `roll`, `rollDamage` and `rollFormula`, each resolving true once its roll is kept,
  * or false where the player cancelled typing its dice in.
  */
@@ -436,6 +494,7 @@ export function useSheetRoller(
   onFormulaThrown?: (roll: SheetFormulaRoll, rolled: LocalFormula) => void,
   /** While the player types in their own dice: asks for them, once a roll's dice are known. */
   enter?: EnterDice,
+  typedRolls?: TypedRolls,
 ) {
   const renderer = useDiceRenderer()
   const [rolls, setRolls] = useState<LocalRoll[]>([])
@@ -477,20 +536,32 @@ export function useSheetRoller(
       const pools = dice.map(({ count, sides }) => ({ count, sides }))
       let result: RollResult
       let extra: RollResult | undefined
+      let typedEffects: TypedEffect[] = []
       let typed = false
       if (enter) {
         // The player's own d20s: a third with advantage, where dnd5e gives the attack Elven
         // Accuracy; then each die they added. The d20s typed so far count for what the higher
-        // of them shows, or the lower, and nothing while none is.
+        // of them shows, or the lower, and nothing while none is. Then, from module 0.42.0, each
+        // die the character's effects add, or take away, such as Bless's d4, which they may skip
+        // for the game to roll.
         const count = d20Count(advantage, request.elvenAccuracy)
+        const effects = typedRolls?.effectsFor(request) ?? []
+        const firstEffect = 1 + dice.length
         const typedCheck = (values: number[][]) => {
-          const [d20s = [], ...added] = values
+          const [d20s = [], ...rest] = values
           return {
             result: typedResult([{ sides: 20, count: 1 }], [d20s], {
               advantage,
               modifier,
             }),
-            extra: pools.length > 0 ? typedResult(pools, added) : undefined,
+            extra:
+              pools.length > 0
+                ? typedResult(pools, rest.slice(0, dice.length))
+                : undefined,
+            effects: effects.map((die, at) => ({
+              die,
+              values: rest[dice.length + at] ?? [],
+            })),
           }
         }
         const values = await enter({
@@ -502,17 +573,33 @@ export function useSheetRoller(
               count: term.count,
               label: formatExtraTerm(term),
             })),
+            ...effects.map(die => ({
+              sides: die.faces,
+              count: die.count,
+              label: effectTermLabel(die),
+              skippable: true as const,
+              name: die.name,
+            })),
           ],
           total: values => {
             const [d20s = [], ...added] = typedSoFar(values)
             const shown = typedCheck([d20s.length > 0 ? d20s : [0], ...added])
-            return toLocalRoll(label, shown.result, extras, shown.extra).total
+            return withEffects(
+              toLocalRoll(label, shown.result, extras, shown.extra),
+              shown.effects,
+            ).total
           },
           until: request.until,
           signal: request.signal,
+          ...(effects.length > 0 && {
+            skippedWords: (skipped: number[]) =>
+              skippedWords(
+                skipped.flatMap(at => effects[at - firstEffect] ?? []),
+              ),
+          }),
         })
         if (!values) return false
-        ;({ result, extra } = typedCheck(values))
+        ;({ result, extra, effects: typedEffects } = typedCheck(values))
         typed = true
       } else {
         result = executeRoll({
@@ -526,8 +613,13 @@ export function useSheetRoller(
       const thrown = extra
         ? { ...result, pools: [...result.pools, ...extra.pools] }
         : result
-      const check = toLocalRoll(label, result, extras, extra)
+      const check = withEffects(
+        toLocalRoll(label, result, extras, extra),
+        typedEffects,
+      )
       if (typed) check.typed = true
+      // Its d20, as typed, is the one kept, such as a Halfling's 1 they rerolled at the table.
+      if (typed && typedRolls?.keptRerolls) check.rerolls = 'kept'
       const { source } = request
       if (request.dc !== undefined) check.dc = request.dc
       if (source && 'text' in source && source.text) {
@@ -548,7 +640,7 @@ export function useSheetRoller(
       await land(thrown, check, !typed)
       return true
     },
-    [land, onThrown, enter],
+    [land, onThrown, enter, typedRolls],
   )
 
   const rollDamage = useCallback(
@@ -588,22 +680,35 @@ export function useSheetRoller(
       }))
       const flags = { critical, healing, doubled, maximized }
       // The player's own dice, every one the app would throw; but none at their highest, which the
-      // game makes so itself, nor of damage whose dice only the game knows.
+      // game makes so itself, nor of damage whose dice only the game knows. From module 0.42.0,
+      // where the game keeps the dice typed as rerolled at the table, each die typed is the one
+      // kept: a reroll asks for nothing, and only a die exploded leaves its total to the game.
       if (enter && !maximized && dice.length > 0) {
+        const kept = typedRolls?.keptRerolls === true
         const typedDamage = (values: number[][]) => {
           const none = noRethrows()
           const result = typedResult(pools, values)
-          const damage = toLocalDamage(label, parts, result, flags, none.more)
+          const damage = toLocalDamage(
+            label,
+            parts,
+            result,
+            flags,
+            none.more,
+            kept,
+          )
           return { result, damage, asked: none.asked }
         }
         const values = await enter({
           title: label,
           terms: damageEntryTerms(parts, doubled),
           total: values => typedDamage(typedSoFar(values)).damage.total,
+          ...(kept &&
+            dice.some(term => rerolls(term)) && { note: REROLL_NOTE }),
         })
         if (!values) return false
         const { result, damage, asked } = typedDamage(values)
         damage.typed = true
+        if (kept) damage.rerolls = 'kept'
         if (request.text) damage.described = true
         if (rule?.altered || asked() || request.gameTotal) {
           damage.gameTotal = true
@@ -629,7 +734,7 @@ export function useSheetRoller(
       await land(again.with(result), damage)
       return true
     },
-    [land, onDamageThrown, enter],
+    [land, onDamageThrown, enter, typedRolls],
   )
 
   const rollFormula = useCallback(
@@ -644,22 +749,29 @@ export function useSheetRoller(
             : [],
         ),
       )
-      // The player's own dice, each set's as many times as it's thrown.
+      // The player's own dice, each set's as many times as it's thrown; from module 0.42.0, kept
+      // as rerolled at the table where the game keeps them so, as damage's are.
       if (enter && pools.length > 0) {
+        const kept = typedRolls?.keptRerolls === true
         const typedFormula = (values: number[][]) => {
           const none = noRethrows()
           const result = typedResult(pools, values)
-          const rolled = toLocalFormula(request, sets, result, none.more)
+          const rolled = toLocalFormula(request, sets, result, none.more, kept)
           return { result, rolled, asked: none.asked }
         }
+        const rerolling = sets.some(({ terms }) =>
+          terms.some(term => 'sides' in term && rerolls(term)),
+        )
         const values = await enter({
           title: request.label,
           terms: formulaEntryTerms(request, sets),
           total: values => typedFormula(typedSoFar(values)).rolled.total,
+          ...(kept && rerolling && { note: REROLL_NOTE }),
         })
         if (!values) return false
         const { result, rolled, asked } = typedFormula(values)
         rolled.typed = true
+        if (kept) rolled.rerolls = 'kept'
         if (asked()) rolled.gameTotal = true
         onFormulaThrown?.(request, rolled)
         await land(result, rolled, false)
@@ -674,7 +786,7 @@ export function useSheetRoller(
       await land(again.with(result), rolled)
       return true
     },
-    [land, onFormulaThrown, enter],
+    [land, onFormulaThrown, enter, typedRolls],
   )
 
   // Keeps a spell or feature used, first among the rolls.
@@ -818,6 +930,36 @@ export function useSheetRoller(
   }
 }
 
+/**
+ * A d20 roll with the dice its effects add that the player typed in, from module 0.42.0: each
+ * after the player's own extras, so that those keep their places, which the game's dice are read
+ * by, named by what adds it, such as "Bless +1d4", and added to the total, or taken from it, by
+ * its sign, as the app's own dice of the roll are all added; and the dice as the game is sent them.
+ * A die skipped is the game's: neither among them nor in the total, which says so.
+ */
+function withEffects(check: LocalCheck, effects: TypedEffect[]): LocalCheck {
+  if (effects.length === 0) return check
+  const typed = effects.filter(({ values }) => values.length > 0)
+  const added = typed.map(({ die, values }) => ({
+    text: `${die.name} ${formatExtraTerm({ sign: die.sign, count: die.count, sides: die.faces })}`,
+    values,
+    value: die.sign * values.reduce((sum, value) => sum + value, 0),
+  }))
+  return {
+    ...check,
+    extras: [...check.extras, ...added],
+    total: added.reduce((total, { value }) => total + value, check.total),
+    ...(typed.length > 0 && {
+      effectDice: typed.map(({ die, values }) => ({
+        faces: die.faces,
+        sign: die.sign,
+        results: values,
+      })),
+    }),
+    ...(typed.length < effects.length && { skipped: true as const }),
+  }
+}
+
 function toLocalRoll(
   label: string,
   result: RollResult,
@@ -858,12 +1000,14 @@ function toLocalRoll(
  * pools in the order their sets and terms were written, each with every time's dice, the first's
  * first.
  * @param more - Throws the dice Foundry would throw again, rerolled or exploded.
+ * @param rerollsKept - Its dice were typed as kept once rerolled at the table (module 0.42.0).
  */
 function toLocalFormula(
   request: SheetFormulaRoll,
   sets: NonNullable<SheetFormulaRoll['sets']>,
   result: RollResult,
   more: More,
+  rerollsKept = false,
 ): LocalFormula {
   const { label, healing = false, minimum } = request
   const pools = [...result.pools]
@@ -881,7 +1025,7 @@ function toLocalFormula(
         if (!('sides' in term)) {
           return { text, values: [], value: term.sign * term.flat }
         }
-        const done = landTerm(term, thrown[0][index], more)
+        const done = landTerm(term, thrown[0][index], more, rerollsKept)
         return { text, ...done.extra, value: term.sign * done.amount }
       })
   const sum = kept.reduce((total, { value }) => total + value, 0)
@@ -1053,23 +1197,33 @@ function rethrows(options?: ExecuteRollOptions) {
  * A term of dice as it landed: what its dice count for, as Foundry works out any modifiers they
  * have, such as 2d6r<=2's reroll, which throws more after; its first throw, and every die thrown
  * where it has modifiers.
+ * @param rerollsKept - Its dice were typed as kept once rerolled at the table, from module 0.42.0:
+ * without its rerolls, which the game drops too, and with the rest, as what it explodes or counts
+ * at least.
  */
 function landTerm(
   term: ExtraDice,
   values: number[],
   more: More,
+  rerollsKept = false,
 ): { amount: number; extra: Pick<LocalExtra, 'values' | 'thrown'> } {
-  if (!term.modifiers?.length) {
+  const landing = rerollsKept ? withoutRerolls(term) : term
+  if (!landing.modifiers?.length) {
     return {
       amount: values.reduce((sum, value) => sum + value, 0),
       extra: { values },
     }
   }
-  const thrown = throwTerm(term, values, more(term.sides))
+  const thrown = throwTerm(landing, values, more(term.sides))
   return {
     amount: thrown.total,
     extra: { values, thrown: thrown.dice },
   }
+}
+
+/** Does a term reroll any of its dice, such as 2d6r<=2? */
+function rerolls(term: ExtraDice): boolean {
+  return withoutRerolls(term) !== term
 }
 
 /** Was any die of these terms rerolled or exploded, which Foundry throws again itself? */
@@ -1095,6 +1249,7 @@ function toLocalDamage(
     maximized: boolean
   },
   more: More,
+  rerollsKept = false,
 ): LocalDamage {
   // The dice's pools are in the order their terms were written.
   const pools = [...result.pools]
@@ -1106,7 +1261,12 @@ function toLocalDamage(
       if (!('sides' in term)) {
         return { text, values: [], value: term.sign * term.flat }
       }
-      const landed = landTerm(term, pools.shift()?.kept ?? [], more)
+      const landed = landTerm(
+        term,
+        pools.shift()?.kept ?? [],
+        more,
+        rerollsKept,
+      )
       return { text, ...landed.extra, value: term.sign * landed.amount }
     })
     return {

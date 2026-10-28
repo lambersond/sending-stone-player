@@ -98,10 +98,11 @@ export async function createFavoriteRequest(
   }
 
   // What it's called is the app's alone, as for a roll; and nothing is typed in for a favorite, so
-  // nothing says so.
+  // nothing says so, nor that its rerolls were kept (module 0.42.0).
   const command = { ...input }
   delete command.label
   delete command.typed
+  delete command.rerolls
   const { id } = await prisma.rollRequest.create({
     data: {
       campaignId,

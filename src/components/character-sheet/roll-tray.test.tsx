@@ -4627,3 +4627,113 @@ describe('components/character-sheet/roll-tray: what damage on its own spent, fr
     )
   })
 })
+
+/** The table's way with each roll, by its id. */
+const followed = (states: [string, TableRollState][] = []): TableRolls => ({
+  states: new Map(states),
+  available: true,
+  sending: true,
+})
+describe('components/character-sheet/roll-tray, the dice effects add, from module 0.42.0', () => {
+  /** A Dexterity save typed in against DC 15, its own +1d4, then Bless's d4 and Bane's. */
+  const blessed = roll({
+    id: 's1',
+    label: 'Dexterity saving throw',
+    modifier: 1,
+    d20s: [13],
+    natural: 13,
+    total: 18,
+    dc: 15,
+    described: true,
+    typed: true,
+    extras: [
+      { text: '+1d4', values: [2], value: 2 },
+      { text: 'Bless +1d4', values: [3], value: 3 },
+      { text: 'Bane −1d4', values: [1], value: -1 },
+    ],
+    effectDice: [
+      { faces: 4, sign: 1, results: [3] },
+      { faces: 4, sign: -1, results: [1] },
+    ],
+  })
+  /** The same, Bless's skipped for the game to roll, so short of its DC here. */
+  const skipped = roll({
+    ...blessed,
+    total: 14,
+    extras: [blessed.extras[0], blessed.extras[2]],
+    effectDice: [{ faces: 4, sign: -1, results: [1] }],
+    skipped: true,
+  })
+
+  it("shows a typed check's dice of effects after the player's own, by name, each with what it came to", async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(
+      <RollTray
+        rolls={[blessed, roll({ id: 'r0' })]}
+        rolling={false}
+        table={followed([['s1', { status: 'done', visible: true, total: 18 }]])}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'd20 13 +1 +1d4 (2) Bless +1d4 (3) Bane −1d4 (1) · DC 15',
+    )
+    expect(latestTotal()).toHaveTextContent('18')
+    unmount()
+
+    // Among the earlier rolls, each by its value, the effects' last.
+    render(<RollTray rolls={[roll({ id: 'r9' }), blessed]} rolling={false} />)
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      /^Dexterity saving throw13 \+1 \+2 \+3 −1 = 18/,
+    )
+  })
+
+  it('says neither saved nor failed by itself where a die was skipped, the game not making it', () => {
+    const { rerender } = render(
+      <RollTray
+        rolls={[skipped]}
+        rolling={false}
+        table={followed([['s1', { status: 'refused', reason: 'gone' }]])}
+      />,
+    )
+
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('d20 13 +1 +1d4 (2) Bane −1d4 (1) · DC 15')
+    expect(status).not.toHaveTextContent(/Saved|Failed/)
+    expect(status).toHaveTextContent(
+      'Not made at the table: it can’t be found in the game any more',
+    )
+
+    // Nor where it wasn't sent at all; but as ever with none skipped.
+    rerender(<RollTray rolls={[skipped]} rolling={false} />)
+    expect(screen.getByRole('status')).not.toHaveTextContent(/Saved|Failed/)
+    rerender(
+      <RollTray rolls={[{ ...skipped, skipped: undefined }]} rolling={false} />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('· DC 15 · Failed')
+  })
+
+  it("says the game's verdict where it made one with a die skipped", () => {
+    render(
+      <RollTray
+        rolls={[skipped]}
+        rolling={false}
+        table={followed([['s1', { status: 'done', visible: true, total: 16 }]])}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'At the table: 16 · Saved',
+    )
+  })
+
+  it('colours a toast by no verdict of its own where a die was skipped', () => {
+    expect(briefOf(skipped).accent).toBe('primary')
+    expect(briefOf(skipped).dice).not.toMatch(/Saved|Failed/)
+    expect(briefOf({ ...skipped, skipped: undefined }).accent).toBe('ruby')
+    expect(briefOf({ ...skipped, skipped: undefined }).dice).toMatch(
+      / · Failed$/,
+    )
+  })
+})

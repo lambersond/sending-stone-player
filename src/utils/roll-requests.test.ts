@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
+  availableRollFeatures,
   availableRollKinds,
   checkDamage,
   checkDamageDice,
@@ -740,6 +741,47 @@ describe('utils/roll-requests', () => {
       ).toEqual([])
       expect(
         availableRollKinds({ ...campaign, bridgePolledAt: null }, NOW),
+      ).toEqual([])
+    })
+  })
+
+  describe('availableRollFeatures', () => {
+    const campaign = {
+      rollsEnabled: true,
+      rollKinds: ['save', 'damage'],
+      bridgePolledAt: ago(10_000),
+      // As stored, in the module's order, with what only the listener reads.
+      rollFeatures: [
+        'gmRollMessages',
+        'manualDice',
+        'midiPrompts',
+        'companionPrompts',
+        'effectDice',
+        'keptRerolls',
+      ],
+    }
+
+    it("offers what else the game does with the rolls, a typed roll's effects' dice and rerolls kept last, from module 0.42.0", () => {
+      expect(availableRollFeatures(campaign, NOW)).toEqual([
+        'manualDice',
+        'companionPrompts',
+        'effectDice',
+        'keptRerolls',
+      ])
+      expect(
+        availableRollFeatures(
+          { ...campaign, rollFeatures: ['keptRerolls', 'manualDice'] },
+          NOW,
+        ),
+      ).toEqual(['manualDice', 'keptRerolls'])
+    })
+
+    it('offers none while the game takes no rolls', () => {
+      expect(
+        availableRollFeatures({ ...campaign, rollsEnabled: false }, NOW),
+      ).toEqual([])
+      expect(
+        availableRollFeatures({ ...campaign, bridgePolledAt: null }, NOW),
       ).toEqual([])
     })
   })

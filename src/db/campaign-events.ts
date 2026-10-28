@@ -168,9 +168,10 @@ async function apply(
           // Gamemaster's rolls as a character, marked as theirs; from module 0.25.0, list the
           // messages each of those made in its result, which only this listener reads, never a
           // viewer; from module 0.26.0, let players enter their own dice's results; from module
-          // 0.27.0, ask here what Midi-QOL asks of characters, which nothing reads yet; and from
+          // 0.27.0, ask here what Midi-QOL asks of characters, which nothing reads yet; from
           // module 0.41.0, let damage on its own name its choices and spend what it uses, and ask
-          // companions for the saves the game asks of them.
+          // companions for the saves the game asks of them; and from module 0.42.0, take a typed
+          // roll's effects' dice, and keep its rerolls.
           rollFeatures: [
             ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
             ...(features?.rolls?.prompts === true ? ['prompts'] : []),
@@ -190,6 +191,8 @@ async function apply(
             ...(features?.rolls?.companionPrompts === true
               ? ['companionPrompts']
               : []),
+            ...(features?.rolls?.effectDice === true ? ['effectDice'] : []),
+            ...(features?.rolls?.keptRerolls === true ? ['keptRerolls'] : []),
           ],
           transfersEnabled: transfersOn,
           // What else it does with moves, from module 0.32.0; nothing while moves are off, and a

@@ -8,30 +8,19 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.40.0 and its app.
+Released: module v0.41.0 and its app.
 
-## v0.41 (in progress)
+## v0.42 (in progress)
 
-1. **Wild Shape and Midi-QOL's Bonus Actions:** with Midi-QOL's **Enforce bonus actions** on, Wild
-   Shape from the app, changing and returning, is refused once the character has used their Bonus
-   Action in a fight, as every other Bonus Action from the app already is, and marks the Bonus
-   Action used when it changes them or brings them back.
-2. **Damage on its own, with its choices:** damage rolled with no attack or cast made in the app
-   opens the same menu as damage after a hit, with the spell's level, the weapon's attack mode and
-   its ammunition; for a spell slot or a consumable, a switch for whether to spend it.
-3. **Companions' saves:** the saves the game asks of a companion, answered from the companion's own
-   sheet in the app as a character's are, its tab marked and the character's sheet pointing to it
-   while it's asked.
+1. **Typed dice for what effects add:** when typing in dice, a die an effect adds to a d20 roll or
+   takes from it, such as Bless's, Bane's or Guidance's, is asked for by the spell's name, or
+   skipped for Foundry to roll it.
+2. **Rerolls stay at the table:** the die typed in is the one kept after any reroll, such as Great
+   Weapon Fighting's or a Halfling's reroll of a 1: Foundry no longer rerolls it.
 
-Patch releases (0.41.x) are expected as beta use turns up things to tweak, Friday's session first.
-
-## v0.42
-
-1. **Typed dice for what effects add:** when typing in dice, a die an effect adds or takes away,
-   such as Bless's, Bane's or Bardic Inspiration's, is asked for, or skipped for Foundry to roll it;
-   Elven Accuracy's third d20 too, perhaps found from the character's effects. Rerolls stay at the
-   table: the die typed in is the one kept after any reroll, such as Great Weapon Fighting's or a
-   Halfling's reroll of a 1.
+Next, 0.42.1, before Friday's session: Elven Accuracy's third d20 on its own line, with Skip, and
+the Bardic Inspiration a bard gave the character offered in the dice dialog, with a few more items
+to come. Patch releases (0.42.x) are expected as the session turns up things to tweak.
 
 ## v0.43 (release candidate)
 
@@ -82,9 +71,17 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 
 ## Known limits
 
-- When typing in dice, dice Foundry adds itself (Bless's d4, rerolls) are still rolled by Foundry,
-  and Elven Accuracy's third d20 is asked for only on attacks the sheet marks (effects' dice and
-  Elven Accuracy are planned for v0.42; rerolls stay at the table).
+- When typing in dice, damage's dice an effect adds, such as Divine Favor's, are asked for among the
+  damage's own dice, unnamed, with no Skip.
+- When typing in dice, a die bonus no effect explains, typed into the character in Foundry, or a
+  bonus the table narrates without applying it, is rolled by Foundry, or added with Modify Roll.
+- When typing in dice, an effect's die on only some kinds of attack (melee or ranged, weapon or
+  spell) is rolled by Foundry; Bless's and Bane's are on every attack.
+- Bardic Inspiration is added with Modify Roll's extra dice until 0.42.1, which offers the 2024
+  one; the 2014 one, which leaves no effect, stays so.
+- An exploding die typed in still has Foundry throw its extra die.
+- Midi-QOL's optional bonuses, its Bardic Inspiration among them, are offered on the Gamemaster's
+  screen after the roll, with Foundry's dice.
 - Moving several items at once isn't planned unless it's asked for.
 - Summon activities are used in Foundry (planned for v1.x).
 - A companion shared by several characters is asked a save card's save only where every one of

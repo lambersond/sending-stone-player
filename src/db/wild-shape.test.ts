@@ -205,6 +205,16 @@ describe('db/wild-shape, createWildShapeRequest, from module 0.40.0', () => {
     expect(created()).not.toHaveProperty('label')
   })
 
+  it('strips that its rerolls were kept too, from module 0.42.0: nothing is rolled for Wild Shape', async () => {
+    given()
+    await createWildShapeRequest(
+      elowen,
+      shaping(INTO_WOLF, { typed: true, rerolls: 'kept' }),
+    )
+    expect(created().payload).not.toHaveProperty('rerolls')
+    expect(created().payload).not.toHaveProperty('typed')
+  })
+
   it.each([
     ['a change from her shape into another', INTO_BEAR, shapedSheet()],
     ['a return', RETURN, shapedSheet()],

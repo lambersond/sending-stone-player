@@ -2,6 +2,7 @@
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { act, renderHook } from '@testing-library/react'
 import {
+  REROLL_NOTE,
   useSheetRoller,
   type LocalCheck,
   type LocalDamage,
@@ -9,11 +10,13 @@ import {
   type SheetDamageRoll,
   type SheetFormulaRoll,
   type SheetRoll,
+  type TypedRolls,
 } from './use-sheet-roller'
-import { damageRollOf } from './use-table-rolls'
+import { damageRollOf, toRollRequest } from './use-table-rolls'
 import { shownTotal } from '@/components/character-sheet/roll-tray'
+import { BANE_DIE, BLESS_DIE } from '@/mocks/sending-stone'
 import type { DiceEntry, EnterDice } from '@/types/dice-entry'
-import type { DamagePreview } from '@/types/sending-stone'
+import type { DamagePreview, SheetEffectDie } from '@/types/sending-stone'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
 
@@ -660,6 +663,378 @@ describe('hooks/use-sheet-roller, typed dice (module 0.32.0)', () => {
         shownTotal(damage, { status: 'done', visible: true, total: 14 }),
       ).toBe(14)
       expect(fake.roll).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('hooks/use-sheet-roller, the dice effects add, and rerolls kept, from module 0.42.0', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  /** The roller as the pane makes it while the game takes either: these effects' dice, and so. */
+  function setUpTyped(
+    enter: EnterDice,
+    effects: SheetEffectDie[] = [],
+    keptRerolls = false,
+  ) {
+    const effectsFor = jest.fn<SheetEffectDie[], [SheetRoll]>(() => effects)
+    const typedRolls: TypedRolls = { effectsFor, keptRerolls }
+    const onThrown = jest.fn()
+    const onDamageThrown = jest.fn()
+    const onFormulaThrown = jest.fn()
+    const hook = renderHook(() =>
+      useSheetRoller(
+        onThrown,
+        onDamageThrown,
+        onFormulaThrown,
+        enter,
+        typedRolls,
+      ),
+    )
+    return { ...hook, effectsFor, onThrown, onDamageThrown }
+  }
+
+  /** A Dexterity save, +3, with the player's own +1d4 added. */
+  const dexSave: SheetRoll = {
+    label: 'Dexterity saving throw',
+    modifier: 3,
+    extras: [d(1, 4)],
+    source: { kind: 'save', key: 'dex' },
+  }
+
+  describe('a d20 roll', () => {
+    it("asks for its d20s, then the player's own dice, then each die its effects add, by its name, which may be skipped", async () => {
+      renderer()
+      const { enter, asked } = typing([[12], [2], [3], [1]])
+      const { result, effectsFor } = setUpTyped(enter, [BLESS_DIE, BANE_DIE])
+
+      await rolled(() => result.current.roll(dexSave))
+
+      expect(effectsFor).toHaveBeenCalledWith(dexSave)
+      expect(asked[0].terms).toEqual([
+        { sides: 20, count: 1, label: 'd20' },
+        { sides: 4, count: 1, label: '+1d4' },
+        {
+          sides: 4,
+          count: 1,
+          label: 'Bless: +1d4',
+          skippable: true,
+          name: 'Bless',
+        },
+        {
+          sides: 4,
+          count: 1,
+          label: 'Bane: −1d4',
+          skippable: true,
+          name: 'Bane',
+        },
+      ])
+      const [roll] = result.current.rolls as LocalCheck[]
+      // The player's own first, so that the dice the game is sent, read by their places, are as
+      // ever; then the effects', each by its name.
+      expect(roll.extras).toEqual([
+        { text: '+1d4', values: [2], value: 2 },
+        { text: 'Bless +1d4', values: [3], value: 3 },
+        { text: 'Bane −1d4', values: [1], value: -1 },
+      ])
+      expect(roll.effectDice).toEqual([
+        { faces: 4, sign: 1, results: [3] },
+        { faces: 4, sign: -1, results: [1] },
+      ])
+      expect(roll.total).toBe(12 + 3 + 2 + 3 - 1)
+      expect(roll).not.toHaveProperty('skipped')
+      expect(roll.typed).toBe(true)
+
+      const request = toRollRequest(dexSave, { kind: 'save', key: 'dex' }, roll)
+      expect(request.dice).toEqual([
+        { faces: 20, results: [12] },
+        { faces: 4, results: [2] },
+      ])
+      expect(request.extras).toEqual([d(1, 4)])
+      expect(request.effectDice).toEqual(roll.effectDice)
+    })
+
+    // Review fix (round 0.42.0): a number the player added asks for no box, so each effect's die is
+    // read after their own dice alone, not after every term they added.
+    it("reads each effect's die after the player's own dice, a number they added before them asking for none", async () => {
+      renderer()
+      const { enter, asked } = typing([[12], [2], [3], [1]])
+      const { result } = setUpTyped(enter, [BLESS_DIE, BANE_DIE])
+      const plusTwo: SheetRoll = { ...dexSave, extras: [flat(2), d(1, 4)] }
+
+      await rolled(() => result.current.roll(plusTwo))
+
+      const [entry] = asked
+      expect(entry.terms.map(({ label }) => label)).toEqual([
+        'd20',
+        '+1d4',
+        'Bless: +1d4',
+        'Bane: −1d4',
+      ])
+      const [roll] = result.current.rolls as LocalCheck[]
+      expect(roll.extras).toEqual([
+        { text: '+2', values: [], value: 2 },
+        { text: '+1d4', values: [2], value: 2 },
+        { text: 'Bless +1d4', values: [3], value: 3 },
+        { text: 'Bane −1d4', values: [1], value: -1 },
+      ])
+      expect(roll.effectDice).toEqual([
+        { faces: 4, sign: 1, results: [3] },
+        { faces: 4, sign: -1, results: [1] },
+      ])
+      expect(roll).not.toHaveProperty('skipped')
+      expect(roll.total).toBe(12 + 3 + 2 + 2 + 3 - 1)
+      expect(entry.total([[12], [2], [3], [1]])).toBe(roll.total)
+      const request = toRollRequest(plusTwo, { kind: 'save', key: 'dex' }, roll)
+      expect(request.dice).toEqual([
+        { faces: 20, results: [12] },
+        { faces: 4, results: [2] },
+      ])
+      expect(request.effectDice).toEqual(roll.effectDice)
+      // Its terms counted as the dialog has them: Bless's the third, Bane's the fourth.
+      expect(entry.skippedWords?.([2])).toBe('not counting Bless’s d4')
+      expect(entry.skippedWords?.([3])).toBe('not counting Bane’s d4')
+    })
+
+    it('never sends nor counts a die skipped, and says one was', async () => {
+      renderer()
+      const { enter } = typing([[12], [2], [], [1]], [[12], [2], [], []])
+      const { result } = setUpTyped(enter, [BLESS_DIE, BANE_DIE])
+
+      await rolled(() => result.current.roll(dexSave))
+      await rolled(() => result.current.roll(dexSave))
+
+      const [none, bane] = result.current.rolls as LocalCheck[]
+      expect(bane.effectDice).toEqual([{ faces: 4, sign: -1, results: [1] }])
+      expect(bane.extras.map(({ text }) => text)).toEqual(['+1d4', 'Bane −1d4'])
+      expect(bane.total).toBe(12 + 3 + 2 - 1)
+      expect(bane.skipped).toBe(true)
+      expect(none).not.toHaveProperty('effectDice')
+      expect(none.extras.map(({ text }) => text)).toEqual(['+1d4'])
+      expect(none.total).toBe(12 + 3 + 2)
+      expect(none.skipped).toBe(true)
+      expect(
+        toRollRequest(dexSave, { kind: 'save', key: 'dex' }, none),
+      ).not.toHaveProperty('effectDice')
+    })
+
+    it("takes a die an effect takes away from the total, as typed so far, and words what's skipped", async () => {
+      renderer()
+      const { enter, asked } = typing([[10], [3]], [[10], [3], [2]])
+      const { result } = setUpTyped(enter, [BANE_DIE])
+      const plain: SheetRoll = {
+        label: 'Wisdom saving throw',
+        modifier: 2,
+        source: { kind: 'save', key: 'wis' },
+      }
+
+      await rolled(() => result.current.roll(plain))
+
+      const [roll] = result.current.rolls as LocalCheck[]
+      expect(roll.total).toBe(10 + 2 - 3)
+      expect(roll.extras).toEqual([
+        { text: 'Bane −1d4', values: [3], value: -3 },
+      ])
+      const [entry] = asked
+      expect(entry.total([[10], [3]])).toBe(9)
+      expect(entry.total([[10], [undefined]])).toBe(12)
+      // Skipped, the dialog gives none for it.
+      expect(entry.total([[10], []])).toBe(12)
+      expect(entry.skippedWords?.([1])).toBe('not counting Bane’s d4')
+
+      // Two of them skipped, by how many dice; the player's own dice before them never are.
+      const two = typing([[10], [2], [], []])
+      const both = setUpTyped(two.enter, [BLESS_DIE, { ...BANE_DIE, count: 2 }])
+      await rolled(() =>
+        both.result.current.roll({ ...plain, extras: [d(1, 4)] }),
+      )
+      expect(two.asked[0].skippedWords?.([2, 3])).toBe(
+        'not counting 3 dice the game rolls',
+      )
+      expect(two.asked[0].skippedWords?.([3])).toBe('not counting Bane’s 2d4')
+    })
+
+    it('keeps the three boxes of Elven Accuracy as one group, the effects after', async () => {
+      renderer()
+      const { enter, asked } = typing([[3, 18, 7], [4]])
+      const { result } = setUpTyped(enter, [BLESS_DIE])
+
+      await rolled(() =>
+        result.current.roll({
+          label: 'Rapier attack',
+          modifier: 7,
+          advantage: 'adv',
+          elvenAccuracy: true,
+          source: {
+            kind: 'attack',
+            item: 'rapier',
+            activity: 'rapierAttack',
+          },
+        }),
+      )
+
+      expect(asked[0].terms.map(({ label, count }) => [label, count])).toEqual([
+        ['d20, advantage (Elven Accuracy)', 3],
+        ['Bless: +1d4', 1],
+      ])
+      const [roll] = result.current.rolls as LocalCheck[]
+      expect(roll).toMatchObject({ d20s: [3, 18, 7], natural: 18 })
+      expect(roll.total).toBe(18 + 7 + 4)
+    })
+
+    it("asks for no effect's die, and sends as ever, where the game takes none", async () => {
+      renderer()
+      const { enter, asked } = typing([[12], [2]], [[12], [2]])
+      const { result, onThrown } = setUp(enter)
+      const taken = setUpTyped(enter, [], false)
+
+      await rolled(() => result.current.roll(dexSave))
+      await rolled(() => taken.result.current.roll(dexSave))
+
+      for (const entry of asked) {
+        expect(entry.terms.map(({ label }) => label)).toEqual(['d20', '+1d4'])
+        expect(entry).not.toHaveProperty('skippedWords')
+      }
+      const [roll] = result.current.rolls as LocalCheck[]
+      const [other] = taken.result.current.rolls as LocalCheck[]
+      for (const each of [roll, other]) {
+        expect(each).not.toHaveProperty('effectDice')
+        expect(each).not.toHaveProperty('skipped')
+        expect(each).not.toHaveProperty('rerolls')
+      }
+      expect(onThrown).toHaveBeenCalledWith(dexSave, roll)
+    })
+
+    it('says its rerolls were kept at the table only where the game keeps them', async () => {
+      renderer()
+      const { enter } = typing([[1], [2]], [[1], [2]])
+      const kept = setUpTyped(enter, [], true)
+      const rerolled = setUpTyped(enter, [], false)
+
+      await rolled(() => kept.result.current.roll(dexSave))
+      await rolled(() => rerolled.result.current.roll(dexSave))
+
+      const [roll] = kept.result.current.rolls as LocalCheck[]
+      expect(roll).toMatchObject({ d20s: [1], rerolls: 'kept' })
+      expect(
+        toRollRequest(dexSave, { kind: 'save', key: 'dex' }, roll),
+      ).toMatchObject({ typed: true, rerolls: 'kept' })
+      expect(rerolled.result.current.rolls[0]).not.toHaveProperty('rerolls')
+    })
+  })
+
+  describe('damage and formulas, their rerolls kept at the table', () => {
+    const greatsword: SheetDamageRoll = {
+      label: 'Greatsword damage',
+      parts: [{ terms: [d(2, 6, 1, ['r<=2']), flat(4)], type: 'Slashing' }],
+    }
+
+    it("counts a reroll's die as typed, the game's total not waited for, and says to reroll at the table", async () => {
+      renderer()
+      const { enter, asked } = typing([[1, 5]])
+      const { result } = setUpTyped(enter, [], true)
+
+      await rolled(() => result.current.rollDamage(greatsword))
+
+      // Written as on the sheet, with the note.
+      expect(asked[0].terms).toEqual([
+        { sides: 6, count: 2, label: '2d6r<=2 Slashing' },
+      ])
+      expect(asked[0].note).toBe(REROLL_NOTE)
+      expect(REROLL_NOTE).toBe(
+        'Reroll at the table as your feature says, and type in the die you keep.',
+      )
+      const [damage] = result.current.rolls as LocalDamage[]
+      expect(damage.total).toBe(1 + 5 + 4)
+      expect(damage.gameTotal).toBeUndefined()
+      expect(damage.rerolls).toBe('kept')
+      expect(damage.parts[0].terms[0]).toMatchObject({
+        text: '2d6r<=2',
+        values: [1, 5],
+      })
+      expect(asked[0].total([[1, 5]])).toBe(damage.total)
+      expect(shownTotal(damage, { status: 'sending' })).toBe(10)
+    })
+
+    it("still leaves an exploded die's total to the game, and keeps what a die counts at least", async () => {
+      renderer()
+      const { enter, asked } = typing([[6]], [[2]], [[1, 5]])
+      const { result } = setUpTyped(enter, [], true)
+
+      await rolled(() =>
+        result.current.rollDamage({
+          label: 'Blast damage',
+          parts: [{ terms: [d(1, 6, 1, ['x'])], type: 'Fire' }],
+        }),
+      )
+      await rolled(() =>
+        result.current.rollDamage({
+          label: 'Blast damage',
+          parts: [{ terms: [d(1, 6, 1, ['x'])], type: 'Fire' }],
+        }),
+      )
+      await rolled(() =>
+        result.current.rollDamage({
+          label: 'Greatsword damage',
+          parts: [{ terms: [d(2, 6, 1, ['min3'])], type: 'Slashing' }],
+        }),
+      )
+
+      const [least, unexploded, exploded] = result.current
+        .rolls as LocalDamage[]
+      expect(exploded.gameTotal).toBe(true)
+      expect(exploded.rerolls).toBe('kept')
+      expect(unexploded.gameTotal).toBeUndefined()
+      expect(least.total).toBe(3 + 5)
+      expect(least.gameTotal).toBeUndefined()
+      // Neither rerolls: no note.
+      for (const entry of asked) expect(entry).not.toHaveProperty('note')
+    })
+
+    it("leaves a reroll's total to the game, as ever, where the game doesn't keep them", async () => {
+      renderer()
+      const { enter, asked } = typing([[1, 5]], [[1, 5]])
+      const { result } = setUpTyped(enter, [BLESS_DIE], false)
+      const plain = setUp(enter)
+
+      await rolled(() => result.current.rollDamage(greatsword))
+      await rolled(() => plain.result.current.rollDamage(greatsword))
+
+      for (const damage of [
+        ...(result.current.rolls as LocalDamage[]),
+        ...(plain.result.current.rolls as LocalDamage[]),
+      ]) {
+        expect(damage.gameTotal).toBe(true)
+        expect(damage).not.toHaveProperty('rerolls')
+      }
+      for (const entry of asked) expect(entry).not.toHaveProperty('note')
+    })
+
+    it("counts a formula's reroll as typed, with the note, and says hit dice's were kept too", async () => {
+      renderer()
+      const { enter, asked } = typing([[1], [3]], [[4]])
+      const { result } = setUpTyped(enter, [], true)
+
+      await rolled(() =>
+        result.current.rollFormula({
+          label: 'Lucky light',
+          terms: [d(1, 6, 1, ['r1']), d(1, 4), flat(1)],
+          source: { kind: 'formula', item: 'light', activity: 'radius' },
+        }),
+      )
+      await rolled(() =>
+        result.current.rollFormula({
+          label: 'Hit die (d8)',
+          terms: [d(1, 8), flat(2)],
+          source: { kind: 'hitDie', denomination: 'd8' },
+        }),
+      )
+
+      const [hit, light] = result.current.rolls as LocalFormula[]
+      expect(asked[0].note).toBe(REROLL_NOTE)
+      expect(light).toMatchObject({ total: 1 + 3 + 1, rerolls: 'kept' })
+      expect(light.gameTotal).toBeUndefined()
+      expect(asked[1]).not.toHaveProperty('note')
+      expect(hit).toMatchObject({ total: 6, rerolls: 'kept' })
     })
   })
 })

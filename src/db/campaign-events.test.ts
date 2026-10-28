@@ -27,6 +27,8 @@ import {
   NOT_REMOVING,
   REMOVING,
   biteAction,
+  blessedSheet,
+  EFFECT_DICE_FEATURES,
   PARTY,
   mockCompanionEntry,
   mockCompanionSheet,
@@ -837,6 +839,60 @@ describe('db/campaign-events', () => {
         }),
       )
     }
+  })
+
+  it("bridge.hello keeps whether a typed roll's effects' dice are its player's, and its rerolls kept, last, from module 0.42.0", async () => {
+    const rolls = { enabled: true, kinds: ['save', 'damage'], reason: null }
+    for (const [effectDice, keptRerolls, rollFeatures] of [
+      [true, true, ['manualDice', 'effectDice', 'keptRerolls']],
+      [true, undefined, ['manualDice', 'effectDice']],
+      [false, true, ['manualDice', 'keptRerolls']],
+      ['yes', 1, ['manualDice']],
+      [undefined, undefined, ['manualDice']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: {
+            rolls: { ...rolls, manualDice: true, effectDice, keptRerolls },
+          },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
+  })
+
+  it("bridge.hello keeps a sheet's dice its effects add, from module 0.42.0", async () => {
+    await apply(
+      parseGameEvent('bridge.hello', {
+        characters: [{ ...roster[0], sheet: blessedSheet() }],
+        combats: [],
+        features: { rolls: EFFECT_DICE_FEATURES },
+      }) as GameEvent,
+    )
+    expect(prismaMock.actorSheet.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          actorId: roster[0].id,
+          data: expect.objectContaining({
+            effectDice: blessedSheet().effectDice,
+          }),
+        }),
+      ],
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rollFeatures: ['manualDice', 'effectDice', 'keptRerolls'],
+        }),
+      }),
+    )
   })
 
   it('bridge.hello keeps whether players may enter their own dice results, from module 0.26.0, and whether each character does, in its roster', async () => {

@@ -59,10 +59,13 @@ run gmroll 70 SKEW=024 MODULE=$O/module-0.24.0 SHOTS=$O/shots-026
 # Module 0.32.0: players type in what their own dice show, and module 0.31.0 (no gate).
 run manualdice 29 SHOTS=$O/shots-032
 run manualdice 18 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
-run typed 89 SHOTS=$O/shots-032
-run typed 47 DND5E6=1 SHOTS=$O/shots-032
-run typed 90 MIDI=1 SHOTS=$O/shots-032
+run typed 124 SHOTS=$O/shots-032
+run typed 56 DND5E6=1 SHOTS=$O/shots-032
+run typed 127 MIDI=1 SHOTS=$O/shots-032
 run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
+# Module 0.42.0: the dice effects add, typed or skipped, and rerolls kept at the table;
+# and module 0.41.0 (none of it).
+run typed 12 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
 run theme 15 SHOTS=$O/shots-026
 # One damage card (module 0.28.0): plain dnd5e, Midi-QOL's card, and module 0.27.0 under Midi.
 run damagecard 31 SHOTS=$O/shots-028

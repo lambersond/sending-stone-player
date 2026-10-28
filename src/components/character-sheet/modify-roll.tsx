@@ -52,6 +52,7 @@ export function ModifyRoll({
       extras: parsed.terms,
       source: target.source,
       explicit: true,
+      ...(target.ask && { ask: target.ask }),
     })
   }
 

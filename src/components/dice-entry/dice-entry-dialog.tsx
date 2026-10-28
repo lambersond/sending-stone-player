@@ -14,10 +14,12 @@ import {
 } from 'react'
 import clsx from 'clsx'
 import { Timer } from 'lucide-react'
+import { flushSync } from 'react-dom'
 import { DiceKeypad, type DiceKey } from './dice-keypad'
 import { DieIcon } from '@/components/icons/die'
 import { Modal } from '@/components/modal/modal'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { dieWords } from '@/utils/effect-dice'
 import { faceComplete, faceOf, facePrefix, faceRule } from '@/utils/faces'
 import type { DiceEntry, DiceEntrySides } from '@/types/dice-entry'
 
@@ -108,8 +110,19 @@ function byTerm<T>(entry: DiceEntry, each: T[]): T[][] {
 const BUTTON = 'rounded-xl px-4 text-sm transition-colors'
 
 /**
+ * Skip and Type it in, beside a die an effect adds (module 0.42.0): as tall as a fingertip on a
+ * phone, the app's rule for new controls, and as Cancel from a tablet up.
+ */
+const SKIP = clsx(
+  BUTTON,
+  'min-h-11 shrink-0 border border-border font-medium hover:border-primary/50 hover:bg-primary/5 sm:min-h-9',
+)
+
+/**
  * One roll's dice, a box each, typed into by the dialog's keypad or a keyboard, the total as it
- * will be kept, and Done. It's made again for each roll, every box empty.
+ * will be kept, and Done. It's made again for each roll, every box empty. From module 0.42.0, a
+ * die an effect adds may be skipped, for the game to roll it: its boxes then leave the dialog, and
+ * what's typed, moved through and asked for, until it's typed in again.
  */
 function Entry({
   entry,
@@ -124,11 +137,17 @@ function Entry({
 }>) {
   const ids = useId()
   const compact = useMediaQuery(SHORT)
-  // Every die's box in turn, term by term: its place in its term, and its die.
-  const boxes = entry.terms.flatMap(({ sides, count }) =>
-    Array.from({ length: count }, (_, box) => ({ box, sides })),
+  // Every die's box in turn, term by term: its place in its term, its die, and its term.
+  const boxes = entry.terms.flatMap(({ sides, count }, term) =>
+    Array.from({ length: count }, (_, box) => ({ box, sides, term })),
   )
-  const last = boxes.length - 1
+  // The terms skipped, by their places, which the game rolls: their boxes aren't shown.
+  const [out, setOut] = useState<ReadonlySet<number>>(() => new Set())
+  // The boxes shown, in turn, which alone are typed into, moved through and asked for.
+  const shown = boxes.flatMap(({ term }, index) =>
+    out.has(term) ? [] : [index],
+  )
+  const last = shown.at(-1) ?? -1
   const [texts, setTexts] = useState<readonly string[]>(() =>
     boxes.map(() => ''),
   )
@@ -172,27 +191,33 @@ function Entry({
     return () => cancelAnimationFrame(frame)
   }, [entry, form])
 
+  /** Scroll what has focus, a box or a button, clear of the keypad kept over the dice. */
+  const keepClear = (element: HTMLElement) => {
+    const scroller = form.current?.parentElement
+    if (compact || !scroller || !keys.current) return
+    const hidden =
+      element.getBoundingClientRect().bottom +
+      8 -
+      keys.current.getBoundingClientRect().top
+    if (hidden > 0) scroller.scrollTop += hidden
+  }
+
   /** Focus a box, clear of the keypad kept over the dice as they scroll. */
   const focusBox = (index: number) => {
     const input = inputs.current[index]
     if (!input) return
     input.focus()
-    const scroller = form.current?.parentElement
-    if (compact || !scroller || !keys.current) return
-    const hidden =
-      input.getBoundingClientRect().bottom +
-      8 -
-      keys.current.getBoundingClientRect().top
-    if (hidden > 0) scroller.scrollTop += hidden
+    keepClear(input)
   }
 
   const inBox = () =>
     inputs.current.some(input => input && input === document.activeElement)
 
   /**
-   * On to the next die: the next box, the next term's first after a term's last, or from the last
-   * to Done. Focus goes along only where a box had it, so a keyboard on the keypad stays there; and
-   * where Next die had focus as the last box comes, which it goes with, the last box takes it.
+   * On to the next die: the next box shown, the next term's first after a term's last, past any
+   * skipped, or from the last to Done. Focus goes along only where a box had it, so a keyboard on
+   * the keypad stays there; and where Next die had focus as the last box comes, which it goes with,
+   * the last box takes it.
    */
   const moveOn = (index: number) => {
     const focused = inBox()
@@ -200,10 +225,55 @@ function Entry({
     // that focus never falls to the page, and what a keyboard types goes into the last box.
     const fromNext =
       (document.activeElement as HTMLElement | null)?.dataset?.key === 'next'
-    if (index < last) {
-      setCurrent(index + 1)
-      if (focused || (fromNext && index + 1 === last)) focusBox(index + 1)
+    const next = shown.find(at => at > index)
+    if (next !== undefined) {
+      setCurrent(next)
+      if (focused || (fromNext && next === last)) focusBox(next)
     } else if (focused) done.current?.focus()
+  }
+
+  // Where each term's boxes start, among every box in turn.
+  const starts = entry.terms.map((_, at) =>
+    entry.terms.slice(0, at).reduce((sum, { count }) => sum + count, 0),
+  )
+
+  /**
+   * Skip a die an effect adds, for the game to roll it. Where the keypad typed into its box, it
+   * types into the next box shown after it, or else the last before it; and where Skip had focus,
+   * which goes with it, the next box shown after it takes it, or Done: as it does where one of the
+   * die's own boxes had it, as a tap on a phone leaves it, so that focus never falls to the page.
+   * @param pressed - Whether Skip had focus as it was pressed.
+   */
+  const skip = (term: number, pressed: boolean) => {
+    const after = shown.find(index => boxes[index].term > term)
+    const before = shown.findLast(index => boxes[index].term < term)
+    const inIt = boxes.some(
+      (each, index) =>
+        each.term === term && inputs.current[index] === document.activeElement,
+    )
+    setOut(held => new Set(held).add(term))
+    if (boxes[current]?.term === term) setCurrent(after ?? before ?? current)
+    if (!pressed && !inIt) return
+    if (after === undefined) done.current?.focus()
+    else focusBox(after)
+  }
+
+  /**
+   * Type a skipped die in after all: its boxes come back, the first the one the keypad types
+   * into, and where Type it in had focus, which goes with it, the one focused.
+   * @param pressed - Whether Type it in had focus as it was pressed.
+   */
+  const typeIn = (term: number, pressed: boolean) => {
+    // Drawn at once, so that its first box is there to focus.
+    flushSync(() => {
+      setOut(held => {
+        const left = new Set(held)
+        left.delete(term)
+        return left
+      })
+      setCurrent(starts[term])
+    })
+    if (pressed) focusBox(starts[term])
   }
 
   /**
@@ -222,13 +292,16 @@ function Entry({
 
   const faces = boxes.map(({ sides }, index) => faceOf(texts[index], sides))
 
+  /** Each term's share of what's kept for every box in turn: none for a term skipped. */
+  const valuesOf = <T,>(each: T[]): T[][] =>
+    byTerm(entry, each).map((values, term) => (out.has(term) ? [] : values))
+
   const submit = (event?: FormEvent) => {
     event?.preventDefault()
-    const missing = faces.flatMap((face, index) =>
-      face === undefined ? [index] : [],
-    )
+    // Only the boxes shown: a die skipped is the game's.
+    const missing = shown.filter(index => faces[index] === undefined)
     if (missing.length === 0) {
-      onDone(byTerm(entry, faces as number[]))
+      onDone(valuesOf(faces as number[]))
       return
     }
     setMarked(new Set(missing))
@@ -239,7 +312,7 @@ function Entry({
 
   /** The keypad's keys, typed into the current box, wherever focus is. */
   const press = (key: DiceKey) => {
-    if (!boxes[current]) return
+    if (!boxes[current] || out.has(boxes[current].term)) return
     if (key === 'next') moveOn(current)
     else if (key === 'delete') put(current, texts[current].slice(0, -1), false)
     else put(current, typed(texts[current], key, boxes[current].sides))
@@ -273,13 +346,11 @@ function Entry({
     if (text === '' || faces[index] !== undefined) return false
     return marked.has(index) || !facePrefix(text, sides)
   })
-  const notice = tried && faces.includes(undefined)
-  const total = entry.total(byTerm(entry, faces))
-
-  // Where each term's boxes start, among every box in turn.
-  const starts = entry.terms.map((_, at) =>
-    entry.terms.slice(0, at).reduce((sum, { count }) => sum + count, 0),
-  )
+  const notice = tried && shown.some(index => faces[index] === undefined)
+  const total = entry.total(valuesOf(faces))
+  // What the total leaves out while a die is skipped, in its own words, so that it's heard with it.
+  const skipped = [...out].toSorted((a, b) => a - b)
+  const caveat = skipped.length > 0 ? (entry.skippedWords?.(skipped) ?? '') : ''
 
   return (
     <form
@@ -292,12 +363,32 @@ function Entry({
       )}
     >
       <div className='grid gap-4'>
+        {entry.note && (
+          <p className='text-sm text-text-secondary'>{entry.note}</p>
+        )}
         {entry.until && <Countdown until={entry.until} onOut={end} />}
         {entry.terms.map((term, termAt) => {
           const heading = `${ids}-${termAt}`
           const error = `${heading}-error`
           const first = starts[termAt]
           const own = boxes.slice(first, first + term.count)
+          const title = (
+            <h3
+              id={heading}
+              className='flex min-w-0 items-center gap-1.5 text-sm font-medium'
+            >
+              {term.sides !== 100 && (
+                <DieIcon
+                  sides={term.sides}
+                  className='size-4 shrink-0 text-text-secondary'
+                />
+              )}
+              {term.label}
+            </h3>
+          )
+          // A die an effect adds, such as Bless's: by its name, and its dice, "d4" or "2d4".
+          const whose = `${term.name ?? term.label}’s ${dieWords({ faces: term.sides, count: term.count })}`
+          const isOut = out.has(termAt)
           return (
             <div
               key={heading}
@@ -305,63 +396,102 @@ function Entry({
               aria-labelledby={heading}
               className='grid gap-2'
             >
-              <h3
-                id={heading}
-                className='flex items-center gap-1.5 text-sm font-medium'
-              >
-                {term.sides !== 100 && (
-                  <DieIcon
-                    sides={term.sides}
-                    className='size-4 shrink-0 text-text-secondary'
-                  />
-                )}
-                {term.label}
-              </h3>
-              <div className='flex flex-wrap gap-2'>
-                {own.map(({ box }) => {
-                  const at = first + box
-                  const invalid = ruled[at] || marked.has(at)
-                  let describedBy
-                  if (ruled[at]) describedBy = error
-                  else if (marked.has(at)) describedBy = `${ids}-notice`
-                  return (
-                    <input
-                      key={box}
-                      ref={input => {
-                        inputs.current[at] = input
-                      }}
-                      type='text'
-                      inputMode='none'
-                      autoComplete='off'
-                      maxLength={3}
-                      autoFocus={at === 0}
-                      aria-label={
-                        term.count === 1
-                          ? `d${term.sides}`
-                          : `d${term.sides} ${box + 1} of ${term.count}`
+              {term.skippable ? (
+                // The button wraps under the heading before anything scrolls sideways.
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  {title}
+                  {/* Each named by the words it shows first, then whose die, so a voice saying
+                      them finds it (WCAG 2.5.3). */}
+                  {isOut ? (
+                    <button
+                      type='button'
+                      aria-label={`Type it in, ${whose}`}
+                      onFocus={event => keepClear(event.currentTarget)}
+                      onClick={event =>
+                        typeIn(
+                          termAt,
+                          document.activeElement === event.currentTarget,
+                        )
                       }
-                      aria-current={at === current ? 'true' : undefined}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={describedBy}
-                      value={texts[at]}
-                      onFocus={() => setCurrent(at)}
-                      onKeyDown={event => onKeyDown(at, event)}
-                      onPaste={event => onPaste(at, event)}
-                      // What a keyboard's keys didn't type, such as a word chosen as it's
-                      // composed: its digits only.
-                      onChange={event => put(at, digitsOf(event.target.value))}
-                      className={clsx(
-                        'h-11 w-12 rounded-xl border bg-page text-center text-base tabular-nums outline-none',
-                        // An empty box shows nothing but its edge, so it's drawn at 3:1 or more
-                        // against the dialog in either theme, as the app's fainter border isn't.
-                        invalid ? 'border-danger' : 'border-text-secondary/80',
-                        at === current && 'ring-2 ring-primary',
-                      )}
-                    />
-                  )
-                })}
-              </div>
-              {own.some((_, offset) => ruled[first + offset]) && (
+                      className={SKIP}
+                    >
+                      Type it in
+                    </button>
+                  ) : (
+                    <button
+                      type='button'
+                      aria-label={`Skip ${whose}`}
+                      onFocus={event => keepClear(event.currentTarget)}
+                      onClick={event =>
+                        skip(
+                          termAt,
+                          document.activeElement === event.currentTarget,
+                        )
+                      }
+                      className={SKIP}
+                    >
+                      Skip
+                    </button>
+                  )}
+                </div>
+              ) : (
+                title
+              )}
+              {isOut ? (
+                <p className='text-sm text-text-secondary'>
+                  The game rolls {whose}.
+                </p>
+              ) : (
+                <div className='flex flex-wrap gap-2'>
+                  {own.map(({ box }) => {
+                    const at = first + box
+                    const invalid = ruled[at] || marked.has(at)
+                    let describedBy
+                    if (ruled[at]) describedBy = error
+                    else if (marked.has(at)) describedBy = `${ids}-notice`
+                    return (
+                      <input
+                        key={box}
+                        ref={input => {
+                          inputs.current[at] = input
+                        }}
+                        type='text'
+                        inputMode='none'
+                        autoComplete='off'
+                        maxLength={3}
+                        autoFocus={at === 0}
+                        aria-label={
+                          term.count === 1
+                            ? `d${term.sides}`
+                            : `d${term.sides} ${box + 1} of ${term.count}`
+                        }
+                        aria-current={at === current ? 'true' : undefined}
+                        aria-invalid={invalid || undefined}
+                        aria-describedby={describedBy}
+                        value={texts[at]}
+                        onFocus={() => setCurrent(at)}
+                        onKeyDown={event => onKeyDown(at, event)}
+                        onPaste={event => onPaste(at, event)}
+                        // What a keyboard's keys didn't type, such as a word chosen as it's
+                        // composed: its digits only.
+                        onChange={event =>
+                          put(at, digitsOf(event.target.value))
+                        }
+                        className={clsx(
+                          'h-11 w-12 rounded-xl border bg-page text-center text-base tabular-nums outline-none',
+                          // An empty box shows nothing but its edge, so it's drawn at 3:1 or more
+                          // against the dialog in either theme, as the app's fainter border isn't.
+                          invalid
+                            ? 'border-danger'
+                            : 'border-text-secondary/80',
+                          at === current && 'ring-2 ring-primary',
+                        )}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+              {!isOut && own.some((_, offset) => ruled[first + offset]) && (
                 <p id={error} role='alert' className='text-sm text-danger'>
                   {faceRule(term.sides)}
                 </p>
@@ -387,6 +517,11 @@ function Entry({
           className='text-lg font-semibold tabular-nums'
         >
           Total {total}
+          {caveat && (
+            <span className='text-sm font-normal text-text-secondary'>
+              , {caveat}
+            </span>
+          )}
         </output>
         <DiceKeypad
           onKey={press}

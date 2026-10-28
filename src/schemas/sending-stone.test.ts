@@ -64,6 +64,11 @@ import {
   mockCompanionPrompt,
   potionAction,
   TAKING_ALONE_CHOICES,
+  BANE_DIE,
+  BLESS_DIE,
+  blessedSheet,
+  EFFECT_DICE_FEATURES,
+  GUIDANCE_DIE,
 } from '@/mocks/sending-stone'
 import { slimQuillSheet } from '@/mocks/slim-sheet'
 import type {
@@ -5760,5 +5765,125 @@ describe("schemas/sending-stone, damage on its own's choices and companions' sav
         })?.data as any
       ).prompts,
     ).toEqual([prompt])
+  })
+})
+
+/** A sheet's dice its effects add, from module 0.42.0, as read. */
+const effectDiceOf = (effectDice: unknown) =>
+  readSheet(characterSheet({ effectDice } as any)).effectDice
+
+describe("schemas/sending-stone, effects' dice and rerolls kept, from module 0.42.0", () => {
+  it('reads the dice the effects add as the module lists them', () => {
+    expect(readSheet(blessedSheet()).effectDice).toEqual([
+      BLESS_DIE,
+      BANE_DIE,
+      GUIDANCE_DIE,
+    ])
+  })
+
+  it('reads a sheet without them, as one before, with none', () => {
+    expect(readSheet(characterSheet())).not.toHaveProperty('effectDice')
+  })
+
+  it('takes every size but a d20, two of a die, and a tool or skill by its key', () => {
+    const dice = [
+      { ...BLESS_DIE, faces: 100 },
+      { ...BLESS_DIE, faces: 12, count: 2 },
+      { ...GUIDANCE_DIE, on: ['tool.thieves_tools', 'skill.slt', 'check.str'] },
+      { ...BLESS_DIE, effect: 'cloak01.protect', on: ['save.dex'] },
+    ]
+    expect(effectDiceOf(dice)).toEqual(dice)
+  })
+
+  it.each([
+    ['a d20', { ...BLESS_DIE, faces: 20 }],
+    ['a d3', { ...BLESS_DIE, faces: 3 }],
+    ['no name', { ...BLESS_DIE, name: '' }],
+    ['a name too long', { ...BLESS_DIE, name: 'B'.repeat(101) }],
+    ['an effect no sheet names so', { ...BLESS_DIE, effect: 'blessed..x' }],
+    ['no dice', { ...BLESS_DIE, count: 0 }],
+    ['21 dice', { ...BLESS_DIE, count: 21 }],
+    ['a sign of 0', { ...BLESS_DIE, sign: 0 }],
+    ['no rolls', { ...BLESS_DIE, on: [] }],
+    ['a roll of no kind', { ...BLESS_DIE, on: ['damage'] }],
+    ['a key with other characters', { ...BLESS_DIE, on: ['skill.a b'] }],
+    [
+      '61 rolls',
+      { ...BLESS_DIE, on: Array.from({ length: 61 }, () => 'save') },
+    ],
+    ['junk', 'Bless'],
+  ])('drops one with %s, and keeps the rest', (_name, bad) => {
+    expect(effectDiceOf([BLESS_DIE, bad, GUIDANCE_DIE])).toEqual([
+      BLESS_DIE,
+      GUIDANCE_DIE,
+    ])
+  })
+
+  it("drops one with a key module 0.42.0 doesn't write, such as a later module's offer of a die the game doesn't add, and keeps the rest", () => {
+    // Module 0.42.1's Bardic Inspiration, as its contract shapes it (round 0.42.0 §11.2): on every
+    // d20 roll, for the player to add once the Gamemaster says the roll fails, which dnd5e never
+    // adds. Read as a die the game adds, it would be asked on every roll.
+    const inspiration = {
+      name: 'Bardic Inspiration',
+      effect: 'inspired01',
+      faces: 8,
+      count: 1,
+      sign: 1,
+      on: [
+        'attack',
+        'check',
+        'save',
+        'skill',
+        'tool',
+        'initiative',
+        'death',
+        'concentration',
+      ],
+      offer: true,
+    }
+    expect(effectDiceOf([BLESS_DIE, inspiration, GUIDANCE_DIE])).toEqual([
+      BLESS_DIE,
+      GUIDANCE_DIE,
+    ])
+    expect(effectDiceOf([inspiration])).toBeUndefined()
+    expect(effectDiceOf([{ ...BLESS_DIE, caster: 'Vex' }, BANE_DIE])).toEqual([
+      BANE_DIE,
+    ])
+  })
+
+  it('reads none where none can be read, more than ten are sent, or the list is junk', () => {
+    expect(effectDiceOf([{ ...BLESS_DIE, faces: 20 }, 'Bane'])).toBeUndefined()
+    expect(effectDiceOf([])).toBeUndefined()
+    expect(
+      effectDiceOf(Array.from({ length: 11 }, () => BLESS_DIE)),
+    ).toBeUndefined()
+    expect(
+      effectDiceOf(Array.from({ length: 10 }, () => BLESS_DIE)),
+    ).toHaveLength(10)
+    expect(effectDiceOf('Bless')).toBeUndefined()
+    expect(effectDiceOf(null)).toBeUndefined()
+  })
+
+  it('keeps them on a slim sheet, which leaves the keys it knows nothing of as they are', () => {
+    const slim = readSheet({ ...slimQuillSheet(), effectDice: [BLESS_DIE] })
+    expect(slim.effectDice).toEqual([BLESS_DIE])
+  })
+
+  it("reads whether a typed roll's effects' dice are its player's, and whether its rerolls may be", () => {
+    expect(helloWith({ rolls: EFFECT_DICE_FEATURES }).features.rolls).toEqual(
+      EFFECT_DICE_FEATURES,
+    )
+    const rolls = { enabled: true, kinds: ['save'], reason: null }
+    expect(
+      helloWith({ rolls: { ...rolls, effectDice: 'yes', keptRerolls: 1 } })
+        .features.rolls,
+    ).toEqual({ ...rolls, effectDice: false, keptRerolls: false })
+    expect(
+      helloWith({ rolls: { ...rolls, effectDice: false, keptRerolls: true } })
+        .features.rolls,
+    ).toEqual({ ...rolls, effectDice: false, keptRerolls: true })
+    const before = helloWith({ rolls }).features.rolls
+    expect(before).not.toHaveProperty('effectDice')
+    expect(before).not.toHaveProperty('keptRerolls')
   })
 })
