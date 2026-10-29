@@ -1542,7 +1542,9 @@ if (NEW) {
     layout = await slotsLayout(phone)
     check(fits(layout), `at 360 px, light: every dot still at least 28 × 44 px, nothing sideways, the dots beneath any heading they don't fit beside (${said(layout)})`)
     // The favorite's row: its dots on a line of their own, beneath its name, which keeps the width
-    // it has without them, measured with them taken out of the row a moment.
+    // it has without them, measured with them taken out of the row a moment; and the dots and their
+    // count within the row, which nine can run past, over the card's edge, inside the tab's padding,
+    // where nothing scrolls sideways to tell.
     const row = favoriteDots.locator('xpath=ancestor::li[1]/div[1]')
     await row.scrollIntoViewIfNeeded()
     const look = await row.evaluate(el => {
@@ -1550,13 +1552,18 @@ if (NEW) {
       const group = el.querySelector('[role="group"]')
       const aside = [...el.children].find(child => child.contains(group))
       const [nameBox, groupBox] = [name.getBoundingClientRect(), group.getBoundingClientRect()]
+      // The dots with their count, and each of them, but the words only screen readers have.
+      const counted = group.parentElement
+      const parts = [counted, ...counted.querySelectorAll(':scope > :not(.sr-only), [role="group"] button')]
+      const reach = Math.max(...parts.map(part => part.getBoundingClientRect().right))
+      const ends = { row: el.getBoundingClientRect().right, card: el.closest('.rounded-2xl').getBoundingClientRect().right }
       aside.style.display = 'none'
       const without = name.getBoundingClientRect().width
       aside.style.display = ''
-      return { below: groupBox.top >= nameBox.bottom - 0.5, width: nameBox.width, without }
+      return { below: groupBox.top >= nameBox.bottom - 0.5, width: nameBox.width, without, reach, ...ends }
     })
-    check(look.below && Math.abs(look.width - look.without) < 1 && (await slotsLayout(phone)).sideways <= 0,
-      `at 360 px, the Favorites strip's spell-slots row has its dots on a line below its name, the name as wide as without them (${Math.round(look.width)} px, ${Math.round(look.without)} without), nothing sideways`)
+    check(look.below && Math.abs(look.width - look.without) < 1 && look.reach <= look.row + 0.5 && (await slotsLayout(phone)).sideways <= 0,
+      `at 360 px, the Favorites strip's spell-slots row has its dots on a line below its name, the name as wide as without them (${Math.round(look.width)} px, ${Math.round(look.without)} without), the dots and their count within the row (to ${Math.round(look.reach)} px, the row to ${Math.round(look.row)}, the card to ${Math.round(look.card)}), nothing sideways`)
     await shoot(phone, 'slots-favorite', row)
     await theme(phone, 'dark')
     await pactLevel.scrollIntoViewIfNeeded()
@@ -1572,8 +1579,16 @@ if (NEW) {
     const tabletShown = await dotsRead(dotsOf(tabletPact, 'Pact Magic slots (3rd level)'), slotNames(PACT, 2, 4))
     await tabletPact.scrollIntoViewIfNeeded()
     const wide = await slotsLayout(tablet)
-    check(tabletShown && wide.dots.length === 25 && wide.dots.every(dot => Math.round(dot.width) === 24 && Math.round(dot.height) === 24) && wide.sideways <= 0,
-      `on the tablet, 768 px, dark, every dot is 24 × 24 px (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])})`)
+    // Its Favorites strip in two lists side by side, Bardic Inspiration's, an old-style resource,
+    // in the first and the spell slots' in the second: the slots row's name keeps room to be read
+    // beside its nine dots, or above them.
+    const tabletStrip = tablet.panel.getByRole('region', { name: 'Favorites', exact: true })
+    const tabletName = await dotsOf(tabletStrip, '1st-level spell slots').locator('xpath=ancestor::li[1]/div[1]')
+      .evaluate(el => el.querySelector(':scope > span.min-w-0.flex-1').getBoundingClientRect().width, undefined, { timeout: 5000 }).catch(() => 0)
+    const tabletLists = await tabletStrip.getByRole('list').count()
+    check(tabletShown && wide.dots.length === 25 && wide.dots.every(dot => Math.round(dot.width) === 24 && Math.round(dot.height) === 24) && wide.sideways <= 0
+      && tabletLists === 2 && tabletName >= 48,
+      `on the tablet, 768 px, dark, every dot is 24 × 24 px (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])}); in the Favorites strip's ${tabletLists} lists, the spell-slots row's name at least 48 px wide (${Math.round(tabletName)} px)`)
     await shoot(tablet, 'slots')
     await tablet.tab('Character')
   }
