@@ -385,7 +385,8 @@ function FavoriteRow({
 
 /**
  * A pool of spell slots made a favorite, its dots as the Spells tab's are: from module 0.42.1,
- * where they spend and restore its slots, beneath its name on a phone, with room for nine.
+ * where they spend and restore its slots, beneath its name in a narrow list, as on a phone or in
+ * the desk's column, with room for nine.
  */
 function SlotsEntry({
   characterId,

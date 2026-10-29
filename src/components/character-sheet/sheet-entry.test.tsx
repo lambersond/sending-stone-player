@@ -474,7 +474,7 @@ describe('components/character-sheet/sheet-entry, one of the character’s own e
 /** The row of the one entry rendered. */
 const row = () => screen.getByRole('listitem').firstElementChild as HTMLElement
 
-describe('components/character-sheet/sheet-entry, its aside beneath its name on a phone (round 0.42.1 §U.1.1.11)', () => {
+describe('components/character-sheet/sheet-entry, its aside beneath its name in a narrow list (round 0.42.1 §U.1.1.11)', () => {
   const entry = (fields: Partial<Parameters<typeof SheetEntry>[0]> = {}) =>
     render(
       <ul>
@@ -489,19 +489,22 @@ describe('components/character-sheet/sheet-entry, its aside beneath its name on 
       </ul>,
     )
 
-  it('wraps under sm, the aside on its own line past the icon, after the spacer', () => {
+  // Changed on purpose (round 0.42.1 review): by the list's width, a container under 28rem, not the
+  // screen's, so that a desk's Favorites column and a tablet's two lists put it beneath too.
+  it('wraps in a list under 28rem wide, the aside on its own line past the icon, after the spacer', () => {
     entry({ asideBelow: true })
 
     expect(row()).toHaveClass(
       'flex',
       'items-center',
       'gap-3',
-      'max-sm:flex-wrap',
+      '@max-md:flex-wrap',
     )
+    expect(row().className).not.toMatch(/max-sm:/)
     const own = screen.getByTestId('aside').parentElement as HTMLElement
     expect(own.parentElement).toBe(row())
     expect(own.className).toBe(
-      'max-sm:order-last max-sm:basis-full max-sm:pl-11',
+      '@max-md:order-last @max-md:basis-full @max-md:pl-11',
     )
     // The spacer stays beside the name, so the name keeps its width.
     expect(row().lastElementChild).toHaveClass('size-4', 'shrink-0')
@@ -520,7 +523,7 @@ describe('components/character-sheet/sheet-entry, its aside beneath its name on 
     entry({ asideBelow: true, meta: 'Spell slots' })
 
     const summary = document.querySelector('summary') as HTMLElement
-    expect(summary).not.toHaveClass('max-sm:flex-wrap')
+    expect(summary).not.toHaveClass('@max-md:flex-wrap')
     expect(screen.getByTestId('aside').parentElement).toBe(summary)
   })
 })

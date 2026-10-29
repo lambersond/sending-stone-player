@@ -1460,12 +1460,13 @@ describe('spell slots spent and restored from the dots, from module 0.42.1 (roun
     expect(
       within(firstLevel()).getByText('3 of 4 spell slots left'),
     ).toBeVisible()
-    // Its favorite's row as before, the pictures beside the name.
+    // Its favorite's row as before, the pictures beside the name. Changed on purpose (round 0.42.1
+    // review): the classes that would put them beneath it go by the list's width.
     const row = within(screen.getByRole('region', { name: 'Favorites' }))
       .getByText('Spell slots')
       .closest('li')?.firstElementChild
-    expect(row).not.toHaveClass('max-sm:flex-wrap')
-    expect(row?.querySelector(String.raw`.max-sm\:basis-full`)).toBeNull()
+    expect(row).not.toHaveClass('@max-md:flex-wrap')
+    expect(row?.querySelector(String.raw`.\@max-md\:basis-full`)).toBeNull()
   })
 
   it("keeps a companion's dots pictures, as the app never lists spell slots among a companion's kinds", async () => {
@@ -1565,7 +1566,7 @@ describe('spell slots spent and restored from the dots, from module 0.42.1 (roun
     },
   )
 
-  it("makes a spell-slots favorite's dots buttons on the Actions tab, beneath its name on a phone, while the Actions tab's own heading keeps its pictures", async () => {
+  it("makes a spell-slots favorite's dots buttons on the Actions tab, beneath its name in a narrow list, while the Actions tab's own heading keeps its pictures", async () => {
     const user = userEvent.setup()
     const posted = answering()
     render(pane(favoredSheet(), SLOT_KINDS))
@@ -1574,9 +1575,12 @@ describe('spell slots spent and restored from the dots, from module 0.42.1 (roun
     const favorites = screen.getByRole('region', { name: 'Favorites' })
     const dots = dotsOf(favorites)
     expect(dots).toHaveLength(4)
+    // Changed on purpose (round 0.42.1 review): by the width of the list it's in, a container, as
+    // on a phone, in a desk's column or in each of a tablet's two lists.
     expect(dots[0].closest('li')?.firstElementChild).toHaveClass(
-      'max-sm:flex-wrap',
+      '@max-md:flex-wrap',
     )
+    expect(dots[0].closest('ul')).toHaveClass('@container')
     // The Actions tab's own heading of the level: the count alone, a tap opening or closing it.
     const level = screen.getByRole('group', { name: '1st Level' })
     expect(within(level).queryByRole('button', { name: DOT })).toBeNull()
@@ -1612,6 +1616,49 @@ describe('spell slots spent and restored from the dots, from module 0.42.1 (roun
     ).toHaveLength(4)
     expect(dotsOf(firstLevel())).toHaveLength(4)
   })
+
+  // The Effects tab rolls nothing, and a favorite of spell slots rolls nothing either, so there the
+  // rolls show only once a slot is spent, which is the one place that says how it went (round
+  // 0.42.1 review).
+  it.each([
+    ['made', true, '1st-level spell slotSpent at the table'],
+    [
+      'refused',
+      false,
+      '1st-level spell slotNot spent at the table: the slots changed in Foundry; look again',
+    ],
+  ] as const)(
+    "shows a spell-slots favorite's line among the rolls on the Effects tab once one is spent there, %s",
+    async (_how, taken, words) => {
+      const user = userEvent.setup()
+      const posted = taken
+        ? answering({ 'req-1': DONE })
+        : following({ current: {} }, false)
+      render(pane(favoredSheet(), SLOT_KINDS))
+      await show(user, 'Effects')
+      expect(screen.queryByRole('status')).toBeNull()
+
+      await user.click(
+        dotsOf(screen.getByRole('region', { name: 'Favorites' }))[0],
+      )
+      await user.click(
+        within(
+          screen.getByRole('dialog', { name: 'Spend a 1st-level spell slot?' }),
+        ).getByRole('button', { name: 'Spend' }),
+      )
+      expect(posted).toEqual([
+        {
+          kind: 'spellSlot',
+          spellSlot: { op: 'spend', id: 'spell1', from: 3 },
+          ...PLAIN,
+        },
+      ])
+      await waitFor(
+        () => expect(screen.getByRole('status')).toHaveTextContent(words),
+        { timeout: 5000 },
+      )
+    },
+  )
 
   describe('waiting for the game, as an effect does (round 0.42.1 §U.0.8.12)', () => {
     beforeEach(() => {

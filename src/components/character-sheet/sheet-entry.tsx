@@ -27,8 +27,10 @@ type Props = {
   /** At the end of the row, such as uses left. */
   aside?: ReactNode
   /**
-   * Under sm, the aside on a line of its own beneath the name, as a spell-slots favorite's live
-   * dots are, round 0.42.1 §U.
+   * In a narrow list, the aside on a line of its own beneath the name, as a spell-slots favorite's
+   * live dots are, round 0.42.1 §U: where the list it's in, a container, is under 28rem wide, as a
+   * phone's Favorites strip, a desk's Favorites column and each of a tablet's two lists are, so
+   * that many dots never squeeze the name to nothing.
    */
   asideBelow?: boolean
   /** Shown above the description when open, such as the kind of feature. */
@@ -167,10 +169,11 @@ export function SheetEntry({
           </span>
         )}
       </span>
-      {/* Beneath the name on a phone, lined up with it past the icon, so that the name keeps the
-          width it has without the aside; its spacer stays beside the name. */}
+      {/* Beneath the name in a narrow list, by the list's width rather than the screen's, lined up
+          with it past the icon, so that the name keeps the width it has without the aside; its
+          spacer stays beside the name. */}
       {below ? (
-        <span className='max-sm:order-last max-sm:basis-full max-sm:pl-11'>
+        <span className='@max-md:order-last @max-md:basis-full @max-md:pl-11'>
           {aside}
         </span>
       ) : (
@@ -190,7 +193,7 @@ export function SheetEntry({
           ref={rowRef as Ref<HTMLDivElement>}
           className={clsx(
             rowClass,
-            below && 'max-sm:flex-wrap',
+            below && '@max-md:flex-wrap',
             press.className,
           )}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as

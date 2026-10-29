@@ -158,7 +158,8 @@ function LiveSlots({
  * slot, filled for each left, which spends one, hollow for each used, which restores one; with
  * more left than the pool's maximum, as dnd5e's temporary slots, each filled. Each a finger's
  * height on a phone, smaller from `sm`. Dimmed while what was sent waits for the game, when a tap
- * does nothing.
+ * does nothing. Where there isn't room for them all, as nine beneath a favorite's name on a narrow
+ * phone, they wrap onto another line, the count beside them, rather than running past the card.
  */
 function SlotDots({
   value,
@@ -178,7 +179,7 @@ function SlotDots({
       role='group'
       aria-label={slotsName(pool)}
       aria-busy={waiting || undefined}
-      className='flex gap-0'
+      className='flex flex-wrap gap-0'
     >
       {Array.from({ length: max }, (_, index) => {
         const filled = index < value

@@ -115,6 +115,21 @@ describe('components/character-sheet/spell-slots', () => {
     ])
   })
 
+  it('wraps its dots onto another line where nine have no room, the count beside them, never past the card (round 0.42.1 review)', () => {
+    // Nine 28 px dots and their count need 282 px; a favorite's line beneath its name on a 360 px
+    // phone has 250.
+    const { container } = renderSlots(9, 9)
+
+    const group = screen.getByRole('group', { name: '1st-level spell slots' })
+    expect(dots()).toHaveLength(9)
+    expect(group).toHaveClass('flex', 'flex-wrap', 'gap-0')
+    // The count stays on the dots' line: only the dots wrap, and the pictures' markup is as ever.
+    expect(group.parentElement?.className).toBe(
+      'flex shrink-0 items-center gap-2',
+    )
+    expect(container.querySelectorAll('.flex-wrap')).toHaveLength(1)
+  })
+
   it('names pact magic’s as its heading does', () => {
     renderSlots(1, 2, PACT)
 
