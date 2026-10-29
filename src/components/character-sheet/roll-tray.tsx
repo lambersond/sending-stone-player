@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useDamageMenu } from './damage-menu'
+import { useSpent, type Spent } from './effect-controls'
 import { RollButton } from './roll-button'
 import { useCreature } from '@/hooks/use-creature'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
@@ -35,6 +36,7 @@ import { EFFECT_WORDS, effectReasons } from '@/utils/effect-words'
 import { favoriteReasons } from '@/utils/favorite-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { moveReasons, moveWords } from '@/utils/move-words'
+import { PREPARE_WORDS, prepareReasons } from '@/utils/prepare-words'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import {
   WILD_SHAPE_WORDS,
@@ -53,6 +55,7 @@ import type {
 } from '@/hooks/use-sheet-roller'
 import type { RollKind } from '@/types/roll'
 import type { AloneSpend } from '@/types/sending-stone'
+import type { OfferSpend } from '@/utils/effect-dice'
 
 /** The player's rolls' way to the Gamemaster's game. */
 export type TableRolls = {
@@ -453,6 +456,18 @@ const ITEM_CAST_REASONS: Record<string, string> = {
 }
 
 /**
+ * Why a spell slot wasn't spent or restored from the dots, from module 0.42.1, in words, where it
+ * differs from why a roll wasn't made: of a pool, not a cast, and made only from the count the dots
+ * showed. The player's line and the Gamemaster's on the player's page alike.
+ */
+const SLOT_REASONS: Record<string, string> = {
+  slots: 'none is left',
+  full: 'none is used',
+  slot: 'there are no such spell slots',
+  changed: 'the slots changed in Foundry; look again',
+}
+
+/**
  * Why hit dice spent at once, sent as one, weren't all spent, in words, where it differs from why a
  * hit die wasn't: they're refused where fewer of a size are left than are spent, not only none.
  */
@@ -501,11 +516,15 @@ function reasonOf(
     // 0.31.0, have words of their own.
     (state.favorite ? favoriteReasons(role)[key] : undefined) ??
     (state.effect ? effectReasons(role)[key] : undefined) ??
+    // A spell prepared or unprepared, from module 0.42.1.
+    (state.prepare ? prepareReasons(role)[key] : undefined) ??
     // And Wild Shape from here, from module 0.40.0.
     (state.wildShape
       ? wildShapeReasons(role, state.wildShape)[key]
       : undefined) ??
     (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
+    // A spell slot spent or restored from the dots, from module 0.42.1.
+    (state.spellSlot ? SLOT_REASONS[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
     (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
     (state.card === false ? ENCHANT_REASONS[key] : undefined) ??
@@ -1172,9 +1191,39 @@ function CheckResult({
           onRollDamage={onRollDamage}
           modifies={modifies}
         />
+        <SpentLines roll={roll} state={state} />
       </div>
     </div>
   )
+}
+
+/**
+ * What became of an effect a die offered spent, once the roll it was added to is made (module
+ * 0.42.1), in the player's words: removed, being removed, or theirs to ask the Gamemaster to
+ * remove, where they may not.
+ */
+export function spentLine(spend: OfferSpend, spent: Spent): string {
+  if (spent.gone) return `${spend.offer} spent: ${spend.name} removed.`
+  if (spent.removing) return `${spend.offer} spent: removing ${spend.name}…`
+  return `${spend.offer} spent. Ask your Gamemaster to remove ${spend.name}.`
+}
+
+/**
+ * Beneath a roll the player added a die offered to, such as Bardic Inspiration's (module 0.42.1),
+ * once the game has made it: a line for each, saying what became of the effect it spent. None for
+ * a roll still on its way, or not made, which spent nothing.
+ */
+export function SpentLines({
+  roll,
+  state,
+}: Readonly<{ roll: LocalRoll; state?: TableRollState }>) {
+  const spent = useSpent()
+  if (roll.kind !== 'check' || !roll.spends || state?.status !== 'done') return
+  return roll.spends.map(spend => (
+    <p key={spend.effect} className='mt-1 text-sm text-text-secondary'>
+      {spentLine(spend, spent(spend.effect))}
+    </p>
+  ))
 }
 
 /**
@@ -1425,6 +1474,23 @@ function usedWords(
       }
     }
   }
+  // A spell prepared or unprepared, from module 0.42.1, the same way.
+  if (roll.prepare) {
+    const words = PREPARE_WORDS[roll.prepare]
+    switch (state.status) {
+      case 'sending':
+      case 'rolling': {
+        return onItsWay(state, role, words.doing)
+      }
+      case 'done': {
+        return words.done
+      }
+      default: {
+        const reason = reasonOf(state, role, creature)
+        return `${words.not}${reason ? `: ${reason}` : ''}`
+      }
+    }
+  }
   // Wild Shape from here, from module 0.40.0: a change, a return or a Beast learned, the same way.
   if (roll.wildShape) {
     const words = WILD_SHAPE_WORDS[roll.wildShape.op]
@@ -1449,6 +1515,9 @@ function usedWords(
   if (roll.inspiration === 'gain') [verb, doing] = ['Gained', 'Gaining it']
   if (roll.spent !== undefined)
     [verb, doing] = ['Spent', `Spending ${roll.spent}`]
+  // A spell slot from the dots, from module 0.42.1: spent or restored, one at a time.
+  if (roll.slot === 'spend') [verb, doing] = ['Spent', 'Spending it']
+  if (roll.slot === 'restore') [verb, doing] = ['Restored', 'Restoring it']
   switch (state.status) {
     case 'sending':
     case 'rolling': {
@@ -1594,6 +1663,8 @@ const DAMAGE_KINDS: ReadonlySet<RollKind> = new Set<RollKind>([
 function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
   if (roll.rolled === 'use' || roll.rolled === 'ask') return roll.rolled
   if (roll.rolled === 'spend' || roll.rolled === 'inspiration') return 'use'
+  // A spell slot spent or restored, from module 0.42.1, has no total either.
+  if (roll.rolled === 'spellSlot') return 'use'
   // Items and coins moved, from module 0.31.0, and items removed, from module 0.33.0, have no
   // total either.
   if (roll.rolled === 'transfer' || roll.rolled === 'remove') return 'use'
@@ -1610,6 +1681,14 @@ function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
  */
 function gmVerbs(roll: LocalGmRoll): { doing: string; done: string } {
   if (roll.rolled === 'spend') return { doing: 'Spending', done: 'Spent' }
+  // A spell slot, from module 0.42.1, as their page asked: spent or restored.
+  if (roll.rolled === 'spellSlot') {
+    if (roll.slotOp === 'spend') return { doing: 'Spending', done: 'Spent' }
+    if (roll.slotOp === 'restore') {
+      return { doing: 'Restoring', done: 'Restored' }
+    }
+    return { doing: 'Changing', done: 'Changed' }
+  }
   if (roll.rolled === 'transfer') return { doing: 'Moving', done: 'Moved' }
   if (roll.rolled === 'remove') return { doing: 'Removing', done: 'Removed' }
   if (roll.rolled === 'inspiration') {
@@ -1667,7 +1746,12 @@ function gmLine(
       return { tone, text: outcome ? `${total} · ${outcome}` : total }
     }
     default: {
-      const reason = reasonOf(state, role, creature)
+      // A spell slot's in the words the player's own is told in, from module 0.42.1.
+      const slot =
+        roll.rolled === 'spellSlot'
+          ? SLOT_REASONS[state.reason ?? state.status]
+          : undefined
+      const reason = slot ?? reasonOf(state, role, creature)
       const { together } = state
       let made = 'Not made at the table'
       if (shape === 'use') {
@@ -1919,9 +2003,13 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
     }
     // One of the character's own effects changed, from module 0.39.0, as its line says it.
     if (roll.effect) return EFFECT_WORDS[roll.effect].short
+    // A spell prepared or unprepared, from module 0.42.1, as its line says it.
+    if (roll.prepare) return PREPARE_WORDS[roll.prepare].short
     // Wild Shape from here, from module 0.40.0, as its line says it.
     if (roll.wildShape) return WILD_SHAPE_WORDS[roll.wildShape.op].short
     if (roll.ending) return 'ended'
+    // A spell slot from the dots, from module 0.42.1, as its line says it.
+    if (roll.slot) return roll.slot === 'spend' ? 'spent' : 'restored'
     if (roll.spent !== undefined) return `spent ${roll.spent}`
     if (roll.inspiration === 'gain') return 'gained'
     return roll.spell ? 'cast' : 'used'

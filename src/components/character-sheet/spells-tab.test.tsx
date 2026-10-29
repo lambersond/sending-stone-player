@@ -9,6 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
+import { Preparing, usePreparing } from './preparing'
 import { SpellsTab } from './spells-tab'
 import { useWildShape, WildShaping } from './wild-shape'
 import {
@@ -22,10 +23,16 @@ import {
   shapedSheet,
   sheetSpell,
   TEXTS,
+  utilityUse,
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
+import type { TableRollState } from '@/hooks/use-table-rolls'
+import type {
+  CharacterSheet,
+  SheetSpellcasting,
+  SheetUse,
+} from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
@@ -1051,5 +1058,410 @@ describe('components/character-sheet/spells-tab, Wild Shape, from module 0.40.0'
 
     renderShaped(shapedSheet(), 'gm')
     expect(screen.queryByText(/can’t cast spells/)).toBeNull()
+  })
+})
+
+/**
+ * Thorin's spells, as `rolling` has them, with Bless besides: a utility, so a row that rolls
+ * nothing while it isn't prepared, and an action's once it is, as the game may cast it then.
+ */
+const preparing = (
+  { witch = 0, bless = 0 }: { witch?: 0 | 1; bless?: 0 | 1 } = {},
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet => {
+  const sheet = rolling()
+  return {
+    ...sheet,
+    ...fields,
+    spells: sheet.spells.map(section => ({
+      ...section,
+      spells: [
+        ...section.spells.map(spell =>
+          spell.id === 'witch' ? { ...spell, prepared: witch } : spell,
+        ),
+        ...(section.id === 'spell1'
+          ? [
+              sheetSpell({
+                id: 'bless',
+                name: 'Bless',
+                concentration: true,
+                prepared: bless,
+                activity: utilityUse('blessUse'),
+              }),
+            ]
+          : []),
+      ],
+    })),
+  }
+}
+
+/** A spell's name button, as a spell that rolls is drawn: its menu opens from it. */
+const nameOf = (name: string) =>
+  screen.getByRole('button', {
+    name: new RegExp(`^${name}`),
+    expanded: false,
+  })
+
+/** What a spell's row's menu offers, opened by a right-click; none for no menu. */
+const menuOf = async (anchor: HTMLElement, name: string) => {
+  fireEvent.contextMenu(anchor, { button: 2 })
+  const menu = screen.queryByRole('menu', { name })
+  const items = menu
+    ? within(menu)
+        .getAllByRole('menuitem')
+        .map(item => item.textContent)
+    : undefined
+  if (menu) await userEvent.keyboard('{Escape}')
+  return items
+}
+
+describe('components/character-sheet/spells-tab, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  /** The tab inside a pane that prepares its spells, as the pane does, by the states given. */
+  function Preparer({
+    sheet,
+    states,
+    send,
+  }: Readonly<{
+    sheet: TableSheet
+    states: ReadonlyMap<string, TableRollState>
+    send: () => string
+  }>) {
+    const value = usePreparing({
+      on: true,
+      spells: sheet.spells,
+      states,
+      send,
+    })
+    return (
+      <Preparing value={value}>
+        <SpellsTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={sheet}
+        />
+      </Preparing>
+    )
+  }
+
+  const renderPreparing = (sheet: CharacterSheet = preparing()) => {
+    const send = jest.fn(() => 'use-1')
+    const table = (next: CharacterSheet) =>
+      toTableSheet(next, 'https://my-game.forge-vtt.com')
+    const view = render(
+      <Preparer sheet={table(sheet)} states={new Map()} send={send} />,
+    )
+    const redraw = (
+      next: CharacterSheet,
+      states: ReadonlyMap<string, TableRollState>,
+    ) =>
+      view.rerender(
+        <Preparer sheet={table(next)} states={states} send={send} />,
+      )
+    return { send, redraw }
+  }
+
+  it('offers Prepare of a spell not prepared, and Unprepare of one prepared, whichever row draws it', async () => {
+    renderPreparing(preparing({ witch: 0 }))
+    // A spell that rolls, from its name; one that rolls nothing, from its row.
+    expect(await menuOf(nameOf('Witch Bolt'), 'Witch Bolt')).toEqual([
+      'Prepare',
+    ])
+    expect(await menuOf(rowOf('Alarm'), 'Alarm')).toEqual(['Prepare'])
+    expect(await menuOf(rowOf('Shield'), 'Shield')).toEqual(['Unprepare'])
+    cleanup()
+
+    renderPreparing(preparing({ witch: 1 }))
+    expect(await menuOf(nameOf('Witch Bolt'), 'Witch Bolt')).toEqual([
+      'Unprepare',
+    ])
+  })
+
+  it('offers neither of one always prepared, a cantrip, one at will, or one an item casts', async () => {
+    renderPreparing()
+    expect(await menuOf(nameOf('Cure Wounds'), 'Cure Wounds')).toBeUndefined()
+    expect(await menuOf(nameOf('Fire Bolt'), 'Fire Bolt')).toBeUndefined()
+    expect(await menuOf(rowOf('Misty Step'), 'Misty Step')).toBeUndefined()
+    cleanup()
+
+    renderPreparing(castingSheet())
+    expect(
+      await menuOf(nameOf('Magic Missile'), 'Magic Missile'),
+    ).toBeUndefined()
+  })
+
+  it('sends what is chosen, and goes on waiting by the spell’s id as the sheet redraws a utility’s row as an action’s', async () => {
+    const user = userEvent.setup()
+    const { send, redraw } = renderPreparing()
+    const sending = new Map([['use-1', { status: 'rolling' }]]) as ReadonlyMap<
+      string,
+      TableRollState
+    >
+
+    // Bless rolls nothing while it isn't prepared: its row's menu.
+    expect(screen.getByText('Bless').closest('summary')).not.toBeNull()
+    fireEvent.contextMenu(rowOf('Bless'), { button: 2 })
+    await user.click(screen.getByRole('menuitem', { name: 'Prepare' }))
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'bless' }),
+      'prepare',
+    )
+
+    redraw(preparing(), sending)
+    fireEvent.contextMenu(rowOf('Bless'), { button: 2 })
+    expect(screen.getByRole('menuitem', { name: 'Prepare' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+
+    // The sheet comes before the game's answer: prepared, it's an action's row now, which waits.
+    redraw(preparing({ bless: 1 }), sending)
+    expect(screen.getByText('Bless').closest('summary')).toBeNull()
+    fireEvent.contextMenu(nameOf('Bless'), { button: 2 })
+    const entry = screen.getByRole('menuitem', { name: 'Unprepare' })
+    expect(entry).toBeDisabled()
+    expect(entry).toHaveAccessibleDescription('It’s on its way already')
+    await user.keyboard('{Escape}')
+
+    // Made, as the sheet already says.
+    redraw(
+      preparing({ bless: 1 }),
+      new Map([['use-1', { status: 'done', visible: true }]]),
+    )
+    fireEvent.contextMenu(nameOf('Bless'), { button: 2 })
+    expect(screen.getByRole('menuitem', { name: 'Unprepare' })).toBeEnabled()
+  })
+
+  it('offers neither outside a pane that prepares spells, the menus as they were', async () => {
+    renderTab(preparing({ witch: 1 }))
+    expect(await menuOf(nameOf('Witch Bolt'), 'Witch Bolt')).toBeUndefined()
+    expect(await menuOf(rowOf('Alarm'), 'Alarm')).toBeUndefined()
+  })
+
+  it('says “Not prepared” in words on a closed row of a spell not prepared, however it’s drawn, and nothing of one prepared', () => {
+    renderTab(preparing({ witch: 0, bless: 1 }))
+
+    for (const name of ['Alarm', 'Witch Bolt']) {
+      const item = screen.getByText(name).closest('li') as HTMLElement
+      const mark = within(item).getByText('Not prepared')
+      expect(mark).not.toHaveClass('sr-only')
+      expect(mark).toHaveClass('border', 'border-border', 'uppercase')
+      // Changed on purpose (round 0.42.1 §P review): in the text's own colour, as the other marks'
+      // grey, faded with its row, reads at 2.7:1 in light and 3.4:1 in dark (4.7:1 and 6.1:1 now).
+      expect(mark).toHaveClass('text-[10px]', 'text-text-primary')
+      expect(mark).not.toHaveClass('text-text-secondary')
+      expect(mark).toBeVisible()
+    }
+    // Alarm rolls nothing: its whole row is faded, the mark with it, which is why it's darker.
+    expect(within(rowOf('Alarm')).getByText('Not prepared')).toHaveClass(
+      'text-text-primary',
+    )
+    // The other marks are as they were.
+    expect(within(rowOf('Alarm')).getByTitle('Ritual')).toHaveClass(
+      'text-text-secondary',
+    )
+    for (const name of ['Shield', 'Bless', 'Cure Wounds']) {
+      const item = screen.getByText(name).closest('li') as HTMLElement
+      expect(within(item).queryByText('Not prepared')).toBeNull()
+    }
+    // Its text, and the row's, as the unseen mark read before.
+    expect(rowOf('Alarm')).toHaveTextContent(
+      'Alarm1 Action · SelfNot preparedRRitual',
+    )
+    // Still faded, as before.
+    expect(rowOf('Alarm')).toHaveClass('opacity-60')
+  })
+
+  // Round 0.42.1 §P review: beside the name, the mark, about 96 px, cut it short on a phone, as
+  // "Detect …" for Detect Magic at 360 px, and in the desk's Favorites column.
+  it('puts the marks of a spell not prepared that rolls nothing beneath its name in a narrow list, and leaves the others beside it', () => {
+    renderTab(preparing({ witch: 0, bless: 0 }))
+
+    for (const name of ['Alarm', 'Bless']) {
+      const summary = rowOf(name)
+      expect(summary.tagName).toBe('SUMMARY')
+      expect(summary).toHaveClass('@max-md:flex-wrap')
+      // The marks' own line, past the icon, with every mark the row has.
+      const below = within(summary).getByText('Not prepared').parentElement
+        ?.parentElement as HTMLElement
+      expect(below.parentElement).toBe(summary)
+      expect(below.className).toBe(
+        '@max-md:order-last @max-md:basis-full @max-md:pl-11',
+      )
+      // The chevron stays beside the name.
+      expect(summary.lastElementChild?.tagName).toBe('svg')
+    }
+    expect(
+      within(rowOf('Alarm')).getByTitle('Ritual').parentElement?.parentElement,
+    ).toHaveClass('@max-md:basis-full')
+
+    cleanup()
+
+    // Rows with only their short marks, or uses left, keep them beside the name.
+    renderTab()
+    for (const name of ['Cure Wounds', 'Guidance', 'Misty Step']) {
+      const summary = rowOf(name)
+      expect(summary.tagName).toBe('SUMMARY')
+      expect(summary).not.toHaveClass('@max-md:flex-wrap')
+      expect(summary.querySelector('[class*="@max-md:basis-full"]')).toBeNull()
+    }
+  })
+})
+
+/** How the character casts, as the Spells tab shows it first. */
+const castingRegion = () =>
+  within(screen.getByRole('region', { name: 'Spellcasting' }))
+
+/** The facts of how the character casts, by their labels. */
+const castingFacts = () =>
+  castingRegion()
+    .getAllByRole('term')
+    .map(term => term.textContent)
+
+describe('components/character-sheet/spells-tab, how many are prepared, from module 0.42.1 (round 0.42.1 §P amendment)', () => {
+  type Classes = SheetSpellcasting['classes']
+  const cleric: Classes[number] = {
+    name: 'Cleric',
+    ability: 'Wisdom',
+    dc: 13,
+    attack: 5,
+  }
+  const casting = (classes: Classes): SheetSpellcasting => ({
+    ability: 'Wisdom',
+    dc: 13,
+    attack: 5,
+    classes,
+  })
+
+  it('says how many of a lone class’s spells are prepared, of how many, beside its other facts', () => {
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([{ ...cleric, prepared: { value: 5, max: 6 } }]),
+      }),
+    )
+    expect(castingFacts()).toEqual([
+      'Ability',
+      'Spell save DC',
+      'Spell attack',
+      'Prepared',
+    ])
+    const value = castingRegion()
+      .getAllByRole('definition')
+      .at(-1) as HTMLElement
+    expect(value).toHaveTextContent('5 / 65 of 6')
+    // Seen as dnd5e shows it, and read in words.
+    expect(within(value).getByText('5 / 6')).toHaveAttribute('aria-hidden')
+    expect(within(value).getByText('5 of 6')).toHaveClass('sr-only')
+  })
+
+  it('shows past the limit as it is, as dnd5e never refuses one more, and the count alone with no limit', () => {
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([{ ...cleric, prepared: { value: 7, max: 6 } }]),
+      }),
+    )
+    const over = castingRegion()
+      .getAllByRole('definition')
+      .at(-1) as HTMLElement
+    // No colour of its own, nor any warning.
+    expect(within(over).getByText('7 / 6').className).toBe(
+      'text-lg font-bold tabular-nums',
+    )
+    expect(within(over).getByText('7 of 6')).toBeInTheDocument()
+    cleanup()
+
+    // A homebrew class that may prepare none, with some prepared.
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([{ ...cleric, prepared: { value: 5, max: 0 } }]),
+      }),
+    )
+    const bare = castingRegion()
+      .getAllByRole('definition')
+      .at(-1) as HTMLElement
+    expect(bare).toHaveTextContent(/^55$/)
+    expect(
+      within(bare).getByText('5', { selector: '.sr-only' }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows nothing where the class counts none, or an older module doesn’t say', () => {
+    renderTab(fullerSheet({ spellcasting: casting([cleric]) }))
+    expect(castingFacts()).toEqual(['Ability', 'Spell save DC', 'Spell attack'])
+    cleanup()
+
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([{ ...cleric, prepared: { value: 0, max: 0 } }]),
+      }),
+    )
+    expect(castingFacts()).toEqual(['Ability', 'Spell save DC', 'Spell attack'])
+    expect(screen.queryByText(/Prepared/)).toBeNull()
+  })
+
+  it('says each class’s own on its row for a character with more than one, and none of its own on top', () => {
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([
+          { ...cleric, prepared: { value: 5, max: 6 } },
+          {
+            name: 'Wizard',
+            ability: 'Intelligence',
+            dc: 14,
+            attack: 6,
+            prepared: { value: 7, max: 6 },
+          },
+          { name: 'Sorcerer', ability: 'Charisma', dc: 13, attack: 5 },
+        ]),
+      }),
+    )
+    expect(castingFacts()).toEqual(['Ability', 'Spell save DC', 'Spell attack'])
+    const classes = within(screen.getByRole('list', { name: 'By class' }))
+    expect(
+      classes.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual([
+      'ClericWisdomDC 13+5 to hitPrepared 5 / 6Prepared 5 of 6',
+      'WizardIntelligenceDC 14+6 to hitPrepared 7 / 6Prepared 7 of 6',
+      'SorcererCharismaDC 13+5 to hit',
+    ])
+    expect(classes.getByText('Prepared 5 of 6')).toHaveClass('sr-only')
+    expect(classes.getByText('5 / 6')).toHaveClass('font-semibold')
+  })
+
+  // Round 0.42.1 §P review: with the count beside its other facts, a class's name was cut short
+  // on a phone, as "Warlo…" at 360 px with "10 / 11".
+  it('lets a class’s facts go beneath its name where they don’t fit beside it, rather than cut the name short', () => {
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([
+          {
+            name: 'Warlock',
+            ability: 'Charisma',
+            dc: 16,
+            attack: 8,
+            prepared: { value: 10, max: 11 },
+          },
+          { name: 'Wizard', ability: null, dc: null, attack: null },
+        ]),
+      }),
+    )
+    const [warlock, wizard] = within(
+      screen.getByRole('list', { name: 'By class' }),
+    ).getAllByRole('listitem')
+    expect(warlock).toHaveClass('flex', 'flex-wrap', 'items-center')
+    // The name grows from its own width, not from none, so the facts wrap before they squeeze it.
+    const name = within(warlock).getByText('Warlock')
+      .parentElement as HTMLElement
+    expect(name.parentElement).toBe(warlock)
+    expect(name).toHaveClass('min-w-0', 'flex-auto')
+    expect(name).not.toHaveClass('flex-1')
+    // The facts together, at the row's end on whichever line they're on.
+    const facts = within(warlock).getByText('Prepared 10 of 11').parentElement
+      ?.parentElement as HTMLElement
+    expect(facts.parentElement).toBe(warlock)
+    expect(facts).toHaveClass('ml-auto', 'flex', 'flex-wrap', 'justify-end')
+    expect(facts).toHaveTextContent(
+      /^DC 16\+8 to hitPrepared 10 \/ 11Prepared 10 of 11$/,
+    )
+    // A class with none has nothing but its name.
+    expect(wizard.children).toHaveLength(1)
   })
 })

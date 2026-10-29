@@ -26,6 +26,7 @@ import {
   checkingSheet,
   combat,
   combatant,
+  druidSheet,
   enchantingSheet,
   enchantment,
   enchantUse,
@@ -46,9 +47,11 @@ import {
   sheetFavorites,
   sheetItem,
   sheetSpell,
+  shapedSheet,
   SLEIGHT_CHECK,
   TEXTS,
   WAND_LEVELS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { quillSheet, slimQuillSheet } from '@/mocks/slim-sheet'
 import { parseGameEvent } from '@/schemas/sending-stone'
@@ -6607,6 +6610,454 @@ describe("utils/roll-requests, damage on its own's choices, from module 0.41.0",
   it('sends the module the choices as they were asked for', () => {
     const payload = handsAlone(4, { slot: 'spell2', consume: true })
     expect(toCommand(held({ kind: 'itemDamage', payload }))).toEqual({
+      ...payload,
+      id: 'req-1',
+      actorId: 'actor-thorin',
+    })
+  })
+})
+
+/** Thorin's spellbook: 1st-level slots `first` of 4, and Pact Magic's at 3rd level, `pact` of 2. */
+const slotted = (first = 3, pact = 1, fields: Partial<CharacterSheet> = {}) =>
+  characterSheet({
+    spells: [
+      {
+        id: 'spell0',
+        label: 'Cantrips',
+        slots: null,
+        spells: [sheetSpell({ id: 'light', name: 'Light', level: 0 })],
+      },
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: first, max: 4, level: 1 },
+        spells: [sheetSpell({ id: 'shield', name: 'Shield' })],
+      },
+      {
+        id: 'spell2',
+        label: '2nd Level',
+        slots: { value: 0, max: 0, level: 2 },
+        spells: [],
+      },
+      {
+        id: 'pact',
+        label: 'Pact Magic',
+        slots: { value: pact, max: 2, level: 3 },
+        spells: [],
+      },
+    ],
+    ...fields,
+  })
+
+/**
+ * A spell slot of this pool spent or restored, from the count shown, as the sheet stands; with no
+ * sheet, for null.
+ */
+const slotCheck = (
+  op: 'spend' | 'restore',
+  id: string,
+  from: number,
+  sheet: CharacterSheet | null = slotted(),
+) =>
+  checkRoll(
+    {
+      kind: 'spellSlot',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      spellSlot: { op, id, from },
+    },
+    sheet ?? undefined,
+    [],
+    'actor-thorin',
+  )
+
+/** The Gamemaster's spell slot, spent or restored, as held, with what their page called it. */
+const gmSlot = (payload: unknown, label: string | null = null) =>
+  toGmRollView(
+    {
+      ...held({
+        kind: 'spellSlot',
+        role: 'gm',
+        status: 'done',
+        payload,
+        result: {
+          status: 'done',
+          messageId: 'msg-1',
+          visible: true,
+          rolls: [],
+        },
+      }),
+      label,
+    },
+    NOW,
+  )
+
+describe('utils/roll-requests, a spell slot spent or restored, from module 0.42.1', () => {
+  describe('checkRoll', () => {
+    it('lets the player spend one of the slots left, from the count the page showed', () => {
+      expect(slotCheck('spend', 'spell1', 3)).toBeUndefined()
+      expect(slotCheck('spend', 'spell1', 1, slotted(1))).toBeUndefined()
+    })
+
+    it('lets the player restore one that’s used, from the count the page showed', () => {
+      expect(slotCheck('restore', 'spell1', 3)).toBeUndefined()
+      expect(slotCheck('restore', 'spell1', 0, slotted(0))).toBeUndefined()
+    })
+
+    it('spends and restores Pact Magic’s alike', () => {
+      expect(slotCheck('spend', 'pact', 1)).toBeUndefined()
+      expect(slotCheck('restore', 'pact', 1)).toBeUndefined()
+      expect(slotCheck('spend', 'pact', 0, slotted(3, 0))).toBe('slots')
+      expect(slotCheck('restore', 'pact', 2, slotted(3, 2))).toBe('full')
+    })
+
+    it('refuses one from a count that isn’t the sheet’s any more, either way', () => {
+      expect(slotCheck('spend', 'spell1', 4)).toBe('changed')
+      expect(slotCheck('spend', 'spell1', 2)).toBe('changed')
+      expect(slotCheck('restore', 'spell1', 2)).toBe('changed')
+      expect(slotCheck('restore', 'pact', 0)).toBe('changed')
+    })
+
+    it('refuses spending with none left, and restoring with none used', () => {
+      expect(slotCheck('spend', 'spell1', 0, slotted(0))).toBe('slots')
+      expect(slotCheck('restore', 'spell1', 4, slotted(4))).toBe('full')
+    })
+
+    it('spends a pool above its maximum, as dnd5e’s temporary slots leave it, but never restores one', () => {
+      expect(slotCheck('spend', 'spell1', 5, slotted(5))).toBeUndefined()
+      expect(slotCheck('restore', 'spell1', 5, slotted(5))).toBe('full')
+    })
+
+    it.each([
+      ['a pool the spellbook doesn’t have', 'spell9'],
+      ['cantrips, which have no slots', 'spell0'],
+      ['a pool with a maximum of 0', 'spell2'],
+    ])('refuses %s as no such spell slots', (_name, id) => {
+      expect(slotCheck('spend', id, 0)).toBe('slot')
+      expect(slotCheck('restore', id, 0)).toBe('slot')
+    })
+
+    it('refuses any with no sheet, or one naming no slot', () => {
+      expect(slotCheck('spend', 'spell1', 3, null)).toBe('slot')
+      expect(
+        checkRoll(
+          { kind: 'spellSlot', mode: 0, explicit: false, extras: [], dice: [] },
+          slotted(),
+          [],
+          'actor-thorin',
+        ),
+      ).toBe('slot')
+    })
+
+    it('says no such pool before a count that changed, and a changed count before none left', () => {
+      expect(slotCheck('spend', 'spell9', 3)).toBe('slot')
+      expect(slotCheck('spend', 'spell1', 1, slotted(0))).toBe('changed')
+      expect(slotCheck('restore', 'spell1', 3, slotted(4))).toBe('changed')
+    })
+
+    it('refuses any while the character is transformed, whose slots wait, before anything else', () => {
+      const shaped = shapedSheet()
+      expect(shaped.spells.find(({ id }) => id === 'spell1')?.slots).toEqual({
+        value: 4,
+        max: 4,
+        level: 1,
+      })
+      expect(slotCheck('spend', 'spell1', 4, shaped)).toBe('shaped')
+      expect(slotCheck('spend', 'spell9', 0, shaped)).toBe('shaped')
+      // Back in her own form, hers again.
+      expect(slotCheck('spend', 'spell1', 4, druidSheet())).toBeUndefined()
+    })
+  })
+
+  it('is no roll the Gamemaster never sends: their page spends and restores one, marked theirs', () => {
+    expect(GM_UNSENT.has('spellSlot')).toBe(false)
+  })
+
+  it('keeps it among the rolls a game takes, where it lists it, and not where it doesn’t', () => {
+    const campaign = {
+      rollsEnabled: true,
+      rollKinds: ['skill', 'spend', 'inspiration', 'spellSlot'],
+      bridgePolledAt: ago(5000),
+    }
+    expect(availableRollKinds(campaign, NOW)).toEqual([
+      'skill',
+      'spend',
+      'inspiration',
+      'spellSlot',
+    ])
+    expect(
+      availableRollKinds(
+        { ...campaign, rollKinds: ['skill', 'spend', 'inspiration'] },
+        NOW,
+      ),
+    ).not.toContain('spellSlot')
+  })
+
+  it('is sent to the game as it came, the Gamemaster’s marked theirs', () => {
+    const payload = {
+      kind: 'spellSlot',
+      ...plain,
+      spellSlot: { op: 'restore', id: 'pact', from: 0 },
+    }
+    expect(toCommand(held({ kind: 'spellSlot', role: 'gm', payload }))).toEqual(
+      { ...payload, id: 'req-1', actorId: 'actor-thorin', by: 'gm' },
+    )
+    expect(toCommand(held({ kind: 'spellSlot', payload }))).toEqual({
+      ...payload,
+      id: 'req-1',
+      actorId: 'actor-thorin',
+    })
+  })
+
+  describe('toGmRollView', () => {
+    const spent = {
+      kind: 'spellSlot',
+      ...plain,
+      spellSlot: { op: 'spend', id: 'spell1', from: 3 },
+    }
+
+    it('says whether the Gamemaster spent one or restored one, for their line on the player’s page', () => {
+      expect(gmSlot(spent, '1st-level spell slot')).toMatchObject({
+        kind: 'spellSlot',
+        label: '1st-level spell slot',
+        status: 'done',
+        slotOp: 'spend',
+      })
+      expect(
+        gmSlot({ ...spent, spellSlot: { ...spent.spellSlot, op: 'restore' } }),
+      ).toMatchObject({ slotOp: 'restore' })
+    })
+
+    it('calls one from a page that didn’t say by its kind', () => {
+      expect(gmSlot(spent).label).toBe('A spell slot spent or restored')
+    })
+
+    it.each([
+      ['no spell slot', { kind: 'spellSlot', ...plain }],
+      ['an op it doesn’t know', { ...spent, spellSlot: { op: 'set' } }],
+      ['a spell slot that isn’t an object', { ...spent, spellSlot: 'spell1' }],
+      ['nothing', null],
+    ])('says neither for a payload with %s', (_name, payload) => {
+      expect(gmSlot(payload)).not.toHaveProperty('slotOp')
+    })
+
+    it('says neither for another kind, whatever its payload holds', () => {
+      const view = toGmRollView(
+        {
+          ...held({
+            kind: 'spend',
+            role: 'gm',
+            status: 'done',
+            payload: spent,
+          }),
+          label: null,
+        },
+        NOW,
+      )
+      expect(view.label).toBe('Charges spent')
+      expect(view).not.toHaveProperty('slotOp')
+    })
+  })
+})
+
+/**
+ * Thorin's spellbook, as module 0.42.1 sends it: Light, a cantrip; Witch Bolt not prepared, Bless
+ * prepared and Sanctuary always prepared; Misty Step cast innately; and a wand's Magic Missile,
+ * which an item casts.
+ */
+const spellbook = (fields: Partial<CharacterSheet> = {}) =>
+  characterSheet({
+    spells: [
+      {
+        id: 'spell0',
+        label: 'Cantrips',
+        slots: null,
+        spells: [sheetSpell({ id: 'light', name: 'Light', level: 0 })],
+      },
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 3, max: 4, level: 1 },
+        spells: [
+          sheetSpell({ id: 'witch', name: 'Witch Bolt', prepared: 0 }),
+          sheetSpell({ id: 'bless', name: 'Bless', prepared: 1 }),
+          sheetSpell({ id: 'sanctuary', name: 'Sanctuary', prepared: 2 }),
+        ],
+      },
+      {
+        id: 'innate',
+        label: 'Innate',
+        slots: null,
+        spells: [sheetSpell({ id: 'misty', name: 'Misty Step', level: 2 })],
+      },
+      {
+        id: 'item',
+        label: 'Item Spells',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'mm',
+            name: 'Magic Missile',
+            castFrom: { id: 'wand', name: 'Wand of Magic Missiles' },
+          }),
+        ],
+      },
+    ],
+    ...fields,
+  })
+
+/** A preparation, as its row's menu sends it, with these fields. */
+const preparing = (
+  fields: Partial<RollRequestInput> = {},
+): RollRequestInput => ({
+  kind: 'prepare',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  ...fields,
+})
+
+/** A spell of this id prepared or unprepared, as the sheet stands; with no sheet, for null. */
+const prepareCheck = (
+  op: 'prepare' | 'unprepare',
+  id: string,
+  sheet: CharacterSheet | null = spellbook(),
+) =>
+  checkRoll(
+    preparing({ prepare: { op, id } }),
+    sheet ?? undefined,
+    [],
+    'actor-thorin',
+  )
+
+describe('utils/roll-requests, a spell prepared or unprepared, from module 0.42.1', () => {
+  describe('checkRoll', () => {
+    it('lets the player prepare or unprepare a spell they prepare, either way, already so or not', () => {
+      expect(prepareCheck('prepare', 'witch')).toBeUndefined()
+      expect(prepareCheck('unprepare', 'bless')).toBeUndefined()
+      // Already so: the game says so, and writes nothing.
+      expect(prepareCheck('unprepare', 'witch')).toBeUndefined()
+      expect(prepareCheck('prepare', 'bless')).toBeUndefined()
+    })
+
+    it.each([
+      ['one always prepared', 'sanctuary'],
+      ['a cantrip', 'light'],
+      ['one cast innately', 'misty'],
+      ['one an item casts', 'mm'],
+    ])('refuses %s, either way, as not one they prepare', (_name, id) => {
+      expect(prepareCheck('prepare', id)).toBe('prepare')
+      expect(prepareCheck('unprepare', id)).toBe('prepare')
+    })
+
+    it('refuses one the sheet doesn’t list, or with no sheet, as gone', () => {
+      expect(prepareCheck('prepare', 'nope')).toBe('gone')
+      expect(prepareCheck('prepare', 'spell1')).toBe('gone')
+      expect(prepareCheck('prepare', 'witch', null)).toBe('gone')
+      expect(checkRoll(preparing(), spellbook(), [], 'actor-thorin')).toBe(
+        'gone',
+      )
+    })
+
+    it('finds the spell in any section of the spellbook', () => {
+      const pact = spellbook({
+        spells: [
+          {
+            id: 'pact',
+            label: 'Pact Magic',
+            slots: { value: 1, max: 2, level: 3 },
+            spells: [sheetSpell({ id: 'hex', name: 'Hex', prepared: 0 })],
+          },
+        ],
+      })
+      expect(prepareCheck('prepare', 'hex', pact)).toBeUndefined()
+      expect(prepareCheck('prepare', 'witch', pact)).toBe('gone')
+    })
+
+    it('refuses any while the character is transformed, whose spells are then the form’s, before anything else', () => {
+      const own = [
+        {
+          id: 'spell1',
+          label: '1st Level',
+          slots: { value: 4, max: 4, level: 1 },
+          spells: [
+            sheetSpell({ id: 'goodberry', name: 'Goodberry', prepared: 0 }),
+          ],
+        },
+      ]
+      // Thorin's spellbook in the mocks' Wolf form, not the spell slots' druid sheets, so that
+      // these stand with the spell slots taken out.
+      const form = wolfForm()
+      // The form lists none of hers: shaped, not gone.
+      expect(
+        prepareCheck('prepare', 'goodberry', spellbook({ form, spells: [] })),
+      ).toBe('shaped')
+      // Even one its sheet lists as one she prepares.
+      expect(
+        prepareCheck('prepare', 'goodberry', spellbook({ form, spells: own })),
+      ).toBe('shaped')
+      // Back in her own form, hers again.
+      expect(
+        prepareCheck('prepare', 'goodberry', spellbook({ spells: own })),
+      ).toBeUndefined()
+    })
+  })
+
+  it('is never sent by the Gamemaster, as it posts nothing, and is called so on the player’s page all the same', () => {
+    expect(GM_UNSENT.has('prepare')).toBe(true)
+    const view = toGmRollView(
+      {
+        ...held({
+          kind: 'prepare',
+          role: 'gm',
+          status: 'done',
+          payload: preparing({ prepare: { op: 'prepare', id: 'witch' } }),
+          result: {
+            status: 'done',
+            messageId: null,
+            visible: true,
+            rolls: [],
+          },
+        }),
+        label: null,
+      },
+      NOW,
+    )
+    expect(view.label).toBe('A spell prepared or unprepared')
+    expect(view).not.toHaveProperty('slotOp')
+  })
+
+  it('keeps it among the rolls a game takes, where it lists it, and not where it doesn’t', () => {
+    // No spell slots among them: preparing holds with the spell slots taken out.
+    const campaign = {
+      rollsEnabled: true,
+      rollKinds: ['skill', 'spend', 'inspiration', 'prepare'],
+      bridgePolledAt: ago(5000),
+    }
+    expect(availableRollKinds(campaign, NOW)).toEqual([
+      'skill',
+      'spend',
+      'inspiration',
+      'prepare',
+    ])
+    expect(
+      availableRollKinds(
+        { ...campaign, rollKinds: ['skill', 'spend', 'inspiration'] },
+        NOW,
+      ),
+    ).not.toContain('prepare')
+  })
+
+  it('is sent to the game as it came', () => {
+    const payload = {
+      kind: 'prepare',
+      ...plain,
+      prepare: { op: 'unprepare', id: 'bless' },
+    }
+    expect(toCommand(held({ kind: 'prepare', payload }))).toEqual({
       ...payload,
       id: 'req-1',
       actorId: 'actor-thorin',

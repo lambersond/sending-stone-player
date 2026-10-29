@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
+import { ROLL_KINDS } from '@/constants/sending-stone'
 import { forgetCookbook } from '@/hooks/use-cookbook-view'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { ALONE_KEY, SEND_KEY } from '@/hooks/use-table-rolls'
@@ -23,6 +24,8 @@ import {
 import {
   BLESS_DIE,
   blessedSheet,
+  INSPIRATION_DIE,
+  inspiredSheet,
   castingSheet,
   characterSheet,
   checkingSheet,
@@ -42,6 +45,7 @@ import {
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import { ELVEN_LINE } from '@/utils/typed-dice'
 import type { TableSeat } from '@/types/character'
 import type {
   GmRollView,
@@ -49,7 +53,11 @@ import type {
   RollFeature,
   RollKind,
 } from '@/types/roll'
-import type { CharacterSheet, SheetUse } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SheetEffectDie,
+  SheetUse,
+} from '@/types/sending-stone'
 import type { TableCombat, TablePrompt } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
@@ -61,9 +69,13 @@ jest.mock('@lambersond/3d-dice-react', () => ({
 
 // The dice entry dialog is APP-B's, tested beside it (module 0.32.0): here, one that says what
 // it asks for and types a 4 for every die, at most its highest face, or is cancelled. While
-// `mockSkipping` is set, from module 0.42.0, it skips each die an effect adds, for the game.
+// `mockSkipping` is set, from module 0.42.0, it skips each die an effect adds, for the game; or,
+// from 0.42.1, where it names them, only those, as Elven Accuracy's third d20 apart from Bless's.
+// Changed on purpose (round 0.42.1 §7.2): a die offered, from module 0.42.1, is left out, as the
+// dialog starts it, unless `mockAdding` is set, as the player adds it.
 const mockEntries: import('@/types/dice-entry').DiceEntry[] = []
-let mockSkipping = false
+let mockSkipping: boolean | readonly string[] = false
+let mockAdding = false
 jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
   DiceEntryDialog: ({
     entry,
@@ -87,10 +99,15 @@ jest.mock('@/components/dice-entry/dice-entry-dialog', () => ({
           type='button'
           onClick={() =>
             onDone(
-              entry.terms.map(({ count, sides, skippable }) =>
-                mockSkipping && skippable
-                  ? []
-                  : Array.from({ length: count }, () => Math.min(sides, 4)),
+              entry.terms.map(
+                ({ count, sides, skippable, offered, name = '' }) =>
+                  (skippable &&
+                    (mockSkipping === true ||
+                      (mockSkipping !== false &&
+                        mockSkipping.includes(name)))) ||
+                  (offered && !mockAdding)
+                    ? []
+                    : Array.from({ length: count }, () => Math.min(sides, 4)),
               ),
             )
           }
@@ -4647,7 +4664,10 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
     expect(posted[0]).not.toHaveProperty('typed')
   })
 
-  it("asks for three d20s for an attack dnd5e gives Elven Accuracy, with advantage, wherever it's rolled", async () => {
+  // Changed on purpose (round 0.42.1 §7.2): Elven Accuracy's third d20 on its own line after the
+  // two, with no Skip, as this attack goes to no game; with the switch off (§0.8.21), 0.42.0's
+  // three boxes as one group.
+  it("asks for Elven Accuracy's third d20 on its own line, for an attack dnd5e gives it, with advantage, wherever it's rolled", async () => {
     const user = userEvent.setup()
     const sheet = fullerSheet()
     const [warhammer, ...rest] = sheet.actions[0].actions
@@ -4671,7 +4691,18 @@ describe('components/character-sheet/character-pane, typing in their own dice (m
     const dialog = await screen.findByRole('dialog', {
       name: 'Warhammer attack',
     })
-    expect(dialog).toHaveTextContent('d20, advantage (Elven Accuracy) ×3')
+    expect(
+      within(dialog)
+        .getAllByRole('listitem')
+        .map(li => li.textContent),
+    ).toEqual(
+      ELVEN_LINE
+        ? ['d20, advantage ×2', 'Elven Accuracy: third d20 ×1']
+        : ['d20, advantage (Elven Accuracy) ×3'],
+    )
+    expect(mockEntries.at(-1)?.terms.some(({ skippable }) => skippable)).toBe(
+      false,
+    )
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
 
     // The handaxe has none: two.
@@ -6080,5 +6111,807 @@ describe('components/character-sheet/character-pane, the dice effects add, from 
     expect(screen.getByRole('status')).toHaveTextContent(
       /^11Strength saving throwd20 4 \+7 · DC 15 · Failed/,
     )
+  })
+})
+
+/** Thorin, his warhammer given Elven Accuracy, with these effects' dice. */
+const elvenSheet = (effectDice: SheetEffectDie[] = []) => {
+  const sheet = fullerSheet({ effectDice })
+  const [warhammer, ...rest] = sheet.actions[0].actions
+  sheet.actions[0].actions = [{ ...warhammer, elvenAccuracy: true }, ...rest]
+  return toTableSheet(sheet, GAME)
+}
+
+/** The warhammer attacked with advantage, and the dice dialog's terms. */
+const attackWithAdvantage = async (user: User) => {
+  await user.click(screen.getByRole('tab', { name: 'Actions' }))
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+  )
+  await user.click(
+    screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+  )
+  await screen.findByRole('dialog', { name: 'Warhammer attack' })
+  return mockEntries.at(-1)?.terms ?? []
+}
+
+describe('components/character-sheet/character-pane, Elven Accuracy’s third d20 on its own line, from 0.42.1', () => {
+  // Round 0.42.1 (§0.8.21): Elven Accuracy's line is dropped by its switch alone, so what asks for
+  // it is tested only while it's on; typed-dice.test.ts's pin is the one test to change.
+  if (!ELVEN_LINE) {
+    it.skip('asks for Elven Accuracy’s line only while ELVEN_LINE is on', () => {})
+    return
+  }
+
+  const typing = { on: true, onChange: jest.fn() }
+
+  beforeEach(() => {
+    clearStorage()
+    mockEntries.length = 0
+    mockSkipping = false
+  })
+
+  const pane = (
+    fields: Partial<React.ComponentProps<typeof CharacterPane>> = {},
+  ) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={elvenSheet()}
+      rollsToTable={['attack']}
+      rollFeatures={['manualDice', 'effectDice', 'keptRerolls']}
+      manualDice={typing}
+      {...fields}
+    />
+  )
+
+  const ELVEN = {
+    sides: 20,
+    count: 1,
+    label: 'Elven Accuracy: third d20',
+    name: 'Elven Accuracy',
+  }
+
+  it('lets the player skip the third d20 of an attack sent to the game, the two typed posted', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    mockSkipping = ['Elven Accuracy']
+    render(pane())
+
+    const terms = await attackWithAdvantage(user)
+    expect(terms).toEqual([
+      { sides: 20, count: 2, label: 'd20, advantage' },
+      { ...ELVEN, skippable: true },
+    ])
+    expect(mockEntries.at(-1)?.skippedWords?.([1])).toBe(
+      'not counting Elven Accuracy’s d20',
+    )
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'attack',
+        item: 'warhammer',
+        mode: 1,
+        dice: [{ faces: 20, results: [4, 4] }],
+        typed: true,
+      }),
+    ])
+    expect(posted[0]).not.toHaveProperty('effectDice')
+  })
+
+  it("reads Bless's die after the third, skipped apart from it", async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    mockSkipping = ['Elven Accuracy']
+    render(pane({ sheet: elvenSheet([BLESS_DIE]) }))
+
+    const terms = await attackWithAdvantage(user)
+    expect(terms.map(({ label }) => label)).toEqual([
+      'd20, advantage',
+      'Elven Accuracy: third d20',
+      'Bless: +1d4',
+    ])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        dice: [{ faces: 20, results: [4, 4] }],
+        effectDice: [{ faces: 4, sign: 1, results: [4] }],
+      }),
+    ])
+  })
+
+  it('may skip it against module 0.41.0, which takes neither dice of effects nor kept rerolls', async () => {
+    const user = userEvent.setup()
+    const posted = answering({})
+    mockSkipping = true
+    render(pane({ rollFeatures: ['manualDice'] }))
+
+    const terms = await attackWithAdvantage(user)
+    expect(terms[1]).toEqual({ ...ELVEN, skippable: true })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({ dice: [{ faces: 20, results: [4, 4] }] }),
+    ])
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    expect(posted[0]).not.toHaveProperty('rerolls')
+  })
+
+  it.each([
+    ['from a device that sends none', 'off', ['attack']],
+    ["where the game doesn't take attacks", 'on', ['save']],
+  ] as const)(
+    'asks the third d20 on its own line with no Skip %s, as no game rolls it',
+    async (_, sending, kinds) => {
+      const user = userEvent.setup()
+      const posted = answering({})
+      globalThis.localStorage.setItem(SEND_KEY, sending)
+      mockSkipping = true
+      render(pane({ rollsToTable: [...kinds] }))
+
+      const terms = await attackWithAdvantage(user)
+      expect(terms).toEqual([
+        { sides: 20, count: 2, label: 'd20, advantage' },
+        ELVEN,
+      ])
+      expect(mockEntries.at(-1)).not.toHaveProperty('skippedWords')
+      await user.click(screen.getByRole('button', { name: 'Done' }))
+
+      expect(posted).toEqual([])
+      // All three typed, the highest kept: 4, +7.
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^11Warhammer attack/,
+      )
+    },
+  )
+})
+
+/** Thorin's Strength save, from his sheet. */
+const strengthSave = (user: User) =>
+  user.click(screen.getByRole('button', { name: /^Strength saving throw/ }))
+
+describe('components/character-sheet/character-pane, Bardic Inspiration offered, spent and removed, from module 0.42.1', () => {
+  const typing = { on: true, onChange: jest.fn() }
+  const FEATURES: RollFeature[] = ['manualDice', 'effectDice', 'keptRerolls']
+  const OFFER = 'Bardic Inspiration: +1d6'
+
+  beforeEach(() => {
+    clearStorage()
+    mockEntries.length = 0
+    mockSkipping = false
+    mockAdding = false
+  })
+
+  afterEach(() => {
+    mockAdding = false
+  })
+
+  const pane = (
+    fields: Partial<React.ComponentProps<typeof CharacterPane>> = {},
+  ) => (
+    <CharacterPane
+      characterId='char-1'
+      name='Thorin Oakenshield'
+      sheet={toTableSheet(inspiredSheet(), GAME)}
+      rollsToTable={['save', 'skill', 'initiative']}
+      rollFeatures={FEATURES}
+      manualDice={typing}
+      effects
+      {...fields}
+    />
+  )
+
+  const MADE = { status: 'done', visible: true, total: 13 }
+  const DELETED = {
+    status: 'done',
+    visible: true,
+    effect: { id: 'inspired', disabled: null, deleted: true },
+  }
+
+  it('offers Vex’s die on a Strength save, left out, last, and sends none while it stays out', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE })
+    render(pane())
+
+    await strengthSave(user)
+    expect(mockEntries.at(-1)?.terms.at(-1)).toEqual({
+      sides: 6,
+      count: 1,
+      label: OFFER,
+      name: 'Bardic Inspiration',
+      offered: true,
+    })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'save',
+        key: 'str',
+        extras: [],
+        dice: [{ faces: 20, results: [4] }],
+      }),
+    ])
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('At the table: 13'),
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+    // Not spent: offered again.
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20', OFFER])
+  })
+
+  it('offers it on what dnd5e’s card asks, but not on what Midi-QOL asks', async () => {
+    const user = userEvent.setup()
+    answering({})
+    const { rerender } = render(
+      pane({
+        rollFeatures: ['prompts', ...FEATURES],
+        prompts: [save({ abilities: ['str'] })],
+      }),
+    )
+    const answer = () =>
+      user.click(
+        within(
+          screen.getByRole('region', { name: 'Your Gamemaster asks' }),
+        ).getAllByRole('button')[0],
+      )
+
+    await answer()
+    expect(asked()).toEqual(['d20', OFFER])
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    rerender(
+      pane({
+        rollFeatures: ['prompts', ...FEATURES],
+        prompts: [
+          save({ id: 'k3y-thorin', abilities: ['str'], source: 'midi' }),
+        ],
+      }),
+    )
+    await answer()
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it('offers none on initiative, which never fails', async () => {
+    const user = userEvent.setup()
+    answering({})
+    render(
+      pane({
+        combat: {
+          id: 'cmbt1',
+          name: null,
+          started: true,
+          round: 1,
+          combatants: [
+            {
+              id: 'thorin1',
+              name: 'Thorin Oakenshield',
+              initiative: null,
+              defeated: false,
+              side: 'me',
+            },
+          ],
+        },
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /^Initiative, .*to roll for the combat$/,
+      }),
+    )
+
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it.each<
+    [string, Partial<React.ComponentProps<typeof CharacterPane>>, string]
+  >([
+    [
+      'where the game takes no dice of effects',
+      { rollFeatures: ['manualDice'] },
+      'on',
+    ],
+    // CT 17: no game would take the die added.
+    ['from a device that sends no rolls', {}, 'off'],
+    ["where the game doesn't take saves", { rollsToTable: ['skill'] }, 'on'],
+  ])('offers none %s', async (_, fields, sending) => {
+    const user = userEvent.setup()
+    answering({})
+    globalThis.localStorage.setItem(SEND_KEY, sending)
+    render(pane(fields))
+
+    await strengthSave(user)
+
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it('sends an added die as the last of the extras, offers it no more, and removes Inspired beneath the save once made', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE, 'req-2': DELETED })
+    mockAdding = true
+    const { rerender } = render(pane())
+
+    await strengthSave(user)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(posted[0]).toEqual(
+      expect.objectContaining({
+        kind: 'save',
+        key: 'str',
+        extras: [{ sign: 1, count: 1, sides: 6 }],
+        dice: [
+          { faces: 20, results: [4] },
+          { faces: 6, results: [4] },
+        ],
+        typed: true,
+      }),
+    )
+    expect(posted[0]).not.toHaveProperty('effectDice')
+    // Spent from the moment it's sent: the next save offers nothing.
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20'])
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    // Made, Inspired is deleted, as the Effects tab's Delete… would.
+    await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+    expect(posted[1]).toEqual({
+      kind: 'effect',
+      effect: { op: 'delete', id: 'inspired' },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      label: 'Inspired',
+    })
+    // Its line beneath the save, which is still the latest.
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(/^\d+Strength saving throw/)
+    expect(status).toHaveTextContent('Bardic Inspiration +1d6 (4)')
+    expect(status).toHaveTextContent(
+      'Bardic Inspiration spent: removing Inspired…',
+    )
+    const earlier = screen.getByText('Earlier rolls (1)')
+    await user.click(earlier)
+    expect(
+      within(earlier.closest('details') as HTMLElement).getByRole('listitem'),
+    ).toHaveTextContent(/^Inspired/)
+
+    // The sheet comes without it.
+    rerender(
+      pane({
+        sheet: toTableSheet(
+          inspiredSheet({ effects: [], effectDice: [INSPIRATION_DIE] }),
+          GAME,
+        ),
+      }),
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Bardic Inspiration spent: Inspired removed.',
+      ),
+    )
+    expect(posted).toHaveLength(2)
+  })
+
+  it('keeps Roll damage on an attack that hit with the die added, its Inspired removed beneath it', async () => {
+    const user = userEvent.setup()
+    const preview = {
+      critical: false,
+      plannable: true,
+      rolls: [
+        {
+          formula: '1d8 + 4',
+          type: 'bludgeoning',
+          dice: [{ faces: 8, number: 1 }],
+        },
+      ],
+    }
+    const posted = answering({
+      'req-1': {
+        status: 'done',
+        visible: true,
+        total: 19,
+        attack: { critical: false, fumble: false, outcome: 'hit' },
+        damage: preview,
+      },
+      'req-2': DELETED,
+    })
+    mockAdding = true
+    const inspired = inspiredSheet()
+    render(
+      pane({
+        sheet: toTableSheet(
+          fullerSheet({
+            effects: [...fullerSheet().effects, ...inspired.effects],
+            effectDice: [INSPIRATION_DIE],
+          }),
+          GAME,
+        ),
+        rollsToTable: ['attack', 'damage'],
+      }),
+    )
+    await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+    await user.click(
+      screen.getByRole('button', { name: 'Warhammer attack, +7' }),
+    )
+    expect(asked()).toEqual(['d20', OFFER])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(posted[0]).toMatchObject({
+      kind: 'attack',
+      extras: [{ sign: 1, count: 1, sides: 6 }],
+    })
+
+    await waitFor(() => expect(posted).toHaveLength(2), { timeout: 3000 })
+    expect(posted[1]).toMatchObject({
+      kind: 'effect',
+      effect: { op: 'delete', id: 'inspired' },
+    })
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(/^\d+Warhammer attack/)
+    expect(
+      within(status).getByRole('button', { name: 'Roll damage' }),
+    ).toBeInTheDocument()
+    expect(status).toHaveTextContent('Bardic Inspiration spent:')
+  })
+
+  it("offers a companion's own Inspired, and after the roll says to ask the Gamemaster, sending nothing more", async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE })
+    mockAdding = true
+    render(
+      pane({
+        characterId: 'seat:c:brakka',
+        name: 'Brakka',
+        creature: { name: 'Brakka', relation: { kind: 'owned', of: 'Thorin' } },
+        idPrefix: 'creature-brakka-',
+      }),
+    )
+
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20', OFFER])
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+        ),
+      { timeout: 3000 },
+    )
+    expect(posted).toHaveLength(1)
+    // Still spent, though still on the sheet.
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20'])
+  })
+
+  it('offers it again once the roll it was added to is refused', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': { status: 'refused', reason: 'gone' } })
+    mockAdding = true
+    render(pane())
+
+    await strengthSave(user)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Not made at the table',
+      ),
+    )
+
+    await strengthSave(user)
+    expect(asked()).toEqual(['d20', OFFER])
+    expect(posted).toHaveLength(1)
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+  })
+
+  // Round 0.42.1's review: the roller keeps only its newest 20 rolls, but a die spent is offered
+  // no more on this page while its Inspired is on the sheet (§0.8.11), however many rolls follow.
+  it('offers it no more after more rolls than the roller keeps, Inspired left on where the player may not remove it', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': MADE })
+    mockAdding = true
+    // The campaign's effects switch off, its default.
+    render(pane({ effects: undefined }))
+
+    await strengthSave(user)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+        ),
+      { timeout: 3000 },
+    )
+    mockAdding = false
+
+    // The save the die was added to, then 21 more: it's no longer among the roller's 20.
+    for (let save = 1; save <= 21; save++) {
+      await strengthSave(user)
+      expect(asked()).toEqual(['d20'])
+      await user.click(screen.getByRole('button', { name: 'Done' }))
+    }
+    expect(posted).toHaveLength(22)
+    expect(posted.slice(1)).toEqual(
+      Array.from({ length: 21 }, () => expect.objectContaining({ extras: [] })),
+    )
+  }, 30_000)
+})
+
+/** A spell's row on the Spells tab, outside the favorites, by its name: what opens its menu. */
+const spellRowOf = (name: string) => {
+  const section = screen.getByRole('region', { name: '1st Level' })
+  const item = within(section).getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    within(item).getAllByRole('button', {
+      expanded: false,
+    })[0]) as HTMLElement
+}
+
+/** A favorite's row, by its name: what opens its menu. */
+const favoriteRowOf = (name: string) => {
+  const item = within(screen.getByRole('region', { name: 'Favorites' }))
+    .getByText(name)
+    .closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    within(item).getAllByRole('button', {
+      expanded: false,
+    })[0]) as HTMLElement
+}
+
+/** What a row's menu offers, opened by a right-click; none where it opens none. */
+const rowMenuOf = async (row: HTMLElement, name: string) => {
+  fireEvent.contextMenu(row, { button: 2 })
+  const menu = screen.queryByRole('menu', { name })
+  if (!menu) return
+  const items = within(menu)
+    .getAllByRole('menuitem')
+    .map(item => item.textContent)
+  await userEvent.keyboard('{Escape}')
+  return items
+}
+
+describe('components/character-sheet/character-pane, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  /** What a game with module 0.42.1 lists where players attack and cast: the charges, and it. */
+  const KINDS: RollKind[] = [
+    'use',
+    'spend',
+    'inspiration',
+    'spellSlot',
+    'prepare',
+  ]
+  /** As a game before module 0.42.1 lists them, with spell slots but no prepare. */
+  const BEFORE: RollKind[] = ['use', 'spend', 'inspiration', 'spellSlot']
+
+  const witchBolt = {
+    name: 'Witch Bolt',
+    toHit: 4,
+    attackId: 'witchAttack',
+    damage: [{ formula: '1d12', type: 'Lightning', healing: false }],
+  }
+
+  /**
+   * Thorin's sheet: Alarm not prepared, Shield prepared, Cure Wounds always, and Witch Bolt
+   * prepared and on his Actions tab, as the module lists a spell that attacks; Alarm a favorite.
+   */
+  const preparingSheet = (): CharacterSheet => {
+    const sheet = fullerSheet({
+      favorites: [
+        {
+          type: 'item',
+          id: 'alarm',
+          itemType: 'spell',
+          name: 'Alarm',
+          img: null,
+        },
+      ],
+    })
+    const [cantrips, first, ...spellbook] = sheet.spells
+    return {
+      ...sheet,
+      actions: [
+        ...sheet.actions,
+        {
+          id: 'spells',
+          label: 'Spells',
+          actions: [
+            sheetAction({ id: 'witch', type: 'spell', level: 1, ...witchBolt }),
+          ],
+        },
+      ],
+      spells: [
+        cantrips,
+        {
+          ...first,
+          spells: [
+            ...first.spells,
+            sheetSpell({ id: 'witch', prepared: 1, ...witchBolt }),
+          ],
+        },
+        ...spellbook,
+      ],
+    }
+  }
+
+  const pane = (
+    sheet: CharacterSheet,
+    kinds: RollKind[] = KINDS,
+    seat?: TableSeat,
+  ) => (
+    <TableApiContext value={seat}>
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(sheet, GAME)}
+        rollsToTable={kinds}
+      />
+    </TableApiContext>
+  )
+
+  beforeEach(() => {
+    clearStorage()
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  it('offers it at the player’s pane whose game lists it, Send to the table off too, and sends what’s chosen with a line named for the spell', async () => {
+    // This device sends no rolls: that holds back no spell prepared, which has no version made
+    // here instead.
+    localStorage.setItem(SEND_KEY, 'off')
+    const posted = posting()
+    const user = userEvent.setup()
+    render(pane(preparingSheet()))
+    await show('Spells')
+
+    expect(await rowMenuOf(spellRowOf('Shield'), 'Shield')).toEqual([
+      'Unprepare',
+    ])
+    expect(
+      await rowMenuOf(spellRowOf('Cure Wounds'), 'Cure Wounds'),
+    ).toBeUndefined()
+    fireEvent.contextMenu(spellRowOf('Alarm'), { button: 2 })
+    await user.click(screen.getByRole('menuitem', { name: 'Prepare' }))
+
+    expect(posted).toEqual([
+      {
+        kind: 'prepare',
+        prepare: { op: 'prepare', id: 'alarm' },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      },
+    ])
+    const rolls = screen.getByRole('region', { name: 'Your rolls' })
+    expect(rolls).toHaveTextContent('Alarm')
+    expect(rolls).toHaveTextContent('Sending to your Gamemaster’s game…')
+  })
+
+  it('waits on every row of the spell once it’s chosen on one, the Spells tab’s and its favorite’s', async () => {
+    posting()
+    const user = userEvent.setup()
+    render(pane(preparingSheet()))
+    await show('Spells')
+
+    expect(await rowMenuOf(favoriteRowOf('Alarm'), 'Alarm')).toEqual([
+      'Prepare',
+    ])
+    fireEvent.contextMenu(spellRowOf('Alarm'), { button: 2 })
+    await user.click(screen.getByRole('menuitem', { name: 'Prepare' }))
+
+    for (const row of [favoriteRowOf('Alarm'), spellRowOf('Alarm')]) {
+      fireEvent.contextMenu(row, { button: 2 })
+      const entry = screen.getByRole('menuitem', { name: 'Prepare' })
+      expect(entry).toBeDisabled()
+      expect(entry).toHaveAccessibleDescription('It’s on its way already')
+      await user.keyboard('{Escape}')
+    }
+    // Another spell doesn't wait for it.
+    fireEvent.contextMenu(spellRowOf('Shield'), { button: 2 })
+    expect(screen.getByRole('menuitem', { name: 'Unprepare' })).toBeEnabled()
+  })
+
+  it('offers Unprepare of a prepared spell on the Actions tab’s own row', async () => {
+    const posted = posting()
+    const user = userEvent.setup()
+    render(pane(preparingSheet()))
+    await show('Actions')
+
+    const section = screen.getByRole('region', { name: 'Spells' })
+    const name = within(section).getByRole('button', {
+      name: /^Witch Bolt/,
+      expanded: false,
+    })
+    fireEvent.contextMenu(name, { button: 2 })
+    expect(
+      within(screen.getByRole('menu', { name: 'Witch Bolt' }))
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual(['Unprepare'])
+    await user.click(screen.getByRole('menuitem', { name: 'Unprepare' }))
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'prepare',
+        prepare: { op: 'unprepare', id: 'witch' },
+      }),
+    ])
+  })
+
+  it('offers none where the game doesn’t list it, as a module before 0.42.1', async () => {
+    posting()
+    render(pane(preparingSheet(), BEFORE))
+    await show('Spells')
+    for (const name of ['Alarm', 'Shield']) {
+      expect(await rowMenuOf(spellRowOf(name), name)).toBeUndefined()
+    }
+  })
+
+  it('offers none at the Gamemaster’s page, as it posts nothing to say they did it', async () => {
+    posting()
+    render(
+      pane(preparingSheet(), KINDS, {
+        role: 'gm',
+        api: '/api/campaigns/c1/characters/a1',
+        key: 'gm:c1:a1',
+      }),
+    )
+    await show('Spells')
+    for (const name of ['Alarm', 'Shield']) {
+      expect(await rowMenuOf(spellRowOf(name), name)).toBeUndefined()
+    }
+  })
+
+  it('offers none at a companion’s pane, whatever its kinds', async () => {
+    posting()
+    render(
+      <CharacterPane
+        characterId='seat-1:c:imp'
+        name='Quill'
+        sheet={toTableSheet(preparingSheet(), GAME)}
+        rollsToTable={[...ROLL_KINDS]}
+        creature={{ name: 'Quill', relation: { kind: 'owned', of: 'Thorin' } }}
+        idPrefix='creature-quill-'
+      />,
+    )
+    await show('Spells')
+    for (const name of ['Alarm', 'Shield']) {
+      expect(await rowMenuOf(spellRowOf(name), name)).toBeUndefined()
+    }
+  })
+
+  it('offers none while the character is transformed, and again once she’s back', async () => {
+    posting()
+    // The Moon's spells, which a form of hers may cast, as her spellbook lists them.
+    const spells = [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 4, max: 4, level: 1 },
+        spells: [
+          sheetSpell({ id: 'goodberry', name: 'Goodberry', prepared: 0 }),
+          sheetSpell({ id: 'moonbeam', name: 'Moonbeam', prepared: 1 }),
+        ],
+      },
+    ]
+    const { rerender } = render(pane(shapedSheet({ spells })))
+    await show('Spells')
+    expect(
+      await rowMenuOf(spellRowOf('Goodberry'), 'Goodberry'),
+    ).toBeUndefined()
+
+    rerender(pane(druidSheet({ spells })))
+    expect(await rowMenuOf(spellRowOf('Goodberry'), 'Goodberry')).toEqual([
+      'Prepare',
+    ])
+    expect(await rowMenuOf(spellRowOf('Moonbeam'), 'Moonbeam')).toEqual([
+      'Unprepare',
+    ])
   })
 })

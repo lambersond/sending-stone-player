@@ -23,6 +23,7 @@ import {
 import { toTableSheet } from '@/utils/table-view'
 import type { EffectChoice } from './effect-controls'
 import type { FavoriteChoice } from './favoriting'
+import type { PrepareChoice } from './preparing'
 import type { TakeInto } from '@/components/transfers/take-controls'
 import type { CharacterSheet } from '@/types/sending-stone'
 import type { TableMoves } from '@/types/table'
@@ -848,6 +849,167 @@ describe('components/character-sheet/item-menu, one of the character’s own eff
   it('opens no menu where its `ops` give nothing and it has nothing else', () => {
     render(<Row effect={effectChoice({ ops: [] })} onDelete={jest.fn()} />)
     openBless()
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+/** A spell's Prepare or Unprepare, as a pane gives a row it (module 0.42.1). */
+const prepareChoice = (fields: Partial<PrepareChoice> = {}): PrepareChoice => ({
+  op: 'prepare',
+  waiting: false,
+  choose: jest.fn(),
+  ...fields,
+})
+
+/** Opens Witch Bolt's row's menu. */
+const openWitch = () =>
+  fireEvent.click(screen.getByRole('button', { name: 'Witch Bolt’s row' }))
+
+/** What Witch Bolt's menu offers, in order. */
+const witchItems = () =>
+  within(screen.getByRole('menu', { name: 'Witch Bolt' }))
+    .getAllByRole('menuitem')
+    .map(({ textContent }) => textContent)
+
+describe('components/character-sheet/item-menu, a spell prepared or unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  /** A row that opens its own menu from a button, as a press of its row would. */
+  function Row({
+    prepare,
+    favorite,
+    send,
+    remove,
+    effect,
+  }: Readonly<{
+    prepare?: PrepareChoice
+    favorite?: FavoriteChoice
+    send?: () => void
+    remove?: { open: () => void; waiting: boolean }
+    effect?: EffectChoice
+  }>) {
+    const { onMenu, menu } = useItemMenu('Witch Bolt', {
+      prepare,
+      favorite,
+      send,
+      remove,
+      effect,
+      onDelete: effect && jest.fn(),
+    })
+    return (
+      <>
+        <button type='button' onClick={event => onMenu?.(event.currentTarget)}>
+          Witch Bolt’s row
+        </button>
+        {menu}
+      </>
+    )
+  }
+
+  it('offers Prepare after the favorites entry, before Send to… and Remove…, in the sun’s tint', () => {
+    render(
+      <Row
+        prepare={prepareChoice()}
+        favorite={{ op: 'add', waiting: false, choose: jest.fn() }}
+        send={jest.fn()}
+        remove={{ open: jest.fn(), waiting: false }}
+      />,
+    )
+    openWitch()
+    expect(witchItems()).toEqual([
+      'Add to favorites',
+      'Prepare',
+      'Send to…',
+      'Remove…',
+    ])
+    const entry = within(
+      screen.getByRole('menu', { name: 'Witch Bolt' }),
+    ).getByRole('menuitem', { name: 'Prepare' })
+    expect(entry).toBeEnabled()
+    expect(entry.querySelector('svg')).toHaveClass('text-primary')
+    expect(entry.querySelector('svg')).toHaveClass('lucide-sun')
+  })
+
+  it('offers Unprepare of a prepared spell, dimmed, before an effect’s entries', () => {
+    render(
+      <Row
+        prepare={prepareChoice({ op: 'unprepare' })}
+        favorite={{ op: 'remove', waiting: false, choose: jest.fn() }}
+        effect={effectChoice()}
+      />,
+    )
+    openWitch()
+    expect(witchItems()).toEqual([
+      'Remove from favorites',
+      'Unprepare',
+      'Turn off',
+      'Delete…',
+    ])
+    const icon = within(screen.getByRole('menu', { name: 'Witch Bolt' }))
+      .getByRole('menuitem', { name: 'Unprepare' })
+      .querySelector('svg')
+    expect(icon).toHaveClass('text-text-secondary')
+    expect(icon).toHaveClass('lucide-sun-dim')
+  })
+
+  it('opens with it alone, where nothing else is offered', () => {
+    render(<Row prepare={prepareChoice()} />)
+    openWitch()
+    expect(witchItems()).toEqual(['Prepare'])
+  })
+
+  it('says, while one is on its way, that it is, and can’t be chosen', () => {
+    const choose = jest.fn()
+    render(
+      <Row
+        prepare={prepareChoice({ op: 'unprepare', waiting: true, choose })}
+        favorite={{ op: 'add', waiting: false, choose: jest.fn() }}
+      />,
+    )
+    openWitch()
+    const entry = within(
+      screen.getByRole('menu', { name: 'Witch Bolt' }),
+    ).getByRole('menuitem', { name: 'Unprepare' })
+    expect(entry).toBeDisabled()
+    expect(entry).toHaveAccessibleDescription('It’s on its way already')
+    fireEvent.click(entry)
+    expect(choose).not.toHaveBeenCalled()
+    // The favorites entry can still be chosen.
+    expect(
+      within(screen.getByRole('menu', { name: 'Witch Bolt' })).getByRole(
+        'menuitem',
+        { name: 'Add to favorites' },
+      ),
+    ).toBeEnabled()
+  })
+
+  it.each(['prepare', 'unprepare'] as const)(
+    'chooses %s once, closing the menu, and turns no effect off or on',
+    op => {
+      const choose = jest.fn()
+      const effect = effectChoice()
+      render(<Row prepare={prepareChoice({ op, choose })} effect={effect} />)
+      openWitch()
+      const row = screen.getByRole('button', { name: 'Witch Bolt’s row' })
+      fireEvent.click(
+        screen.getByRole('menuitem', {
+          name: op === 'prepare' ? 'Prepare' : 'Unprepare',
+        }),
+      )
+      expect(choose).toHaveBeenCalledTimes(1)
+      expect(effect.choose).not.toHaveBeenCalled()
+      expect(screen.queryByRole('menu')).toBeNull()
+      expect(row).toHaveFocus()
+    },
+  )
+
+  it('offers the menu as it was without one', () => {
+    const { unmount } = render(
+      <Row favorite={{ op: 'add', waiting: false, choose: jest.fn() }} />,
+    )
+    openWitch()
+    expect(witchItems()).toEqual(['Add to favorites'])
+    unmount()
+    render(<Row />)
+    openWitch()
     expect(screen.queryByRole('menu')).toBeNull()
   })
 })

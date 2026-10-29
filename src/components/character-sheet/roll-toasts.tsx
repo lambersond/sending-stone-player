@@ -11,6 +11,7 @@ import {
   briefOf,
   DamageDue,
   GmPill,
+  SpentLines,
   type RollBrief,
   type RollDue,
 } from './roll-tray'
@@ -187,8 +188,17 @@ function Toast({
           </span>
           {brief.gm && <GmPill />}
         </p>
+        {/* One line, but two for a roll a die offered was added to, from module 0.42.1, so that
+            its last term, such as "Bardic Inspiration +1d6 (5)", isn't cut off on a phone. */}
         {brief.dice && (
-          <p className='truncate text-sm text-text-secondary tabular-nums'>
+          <p
+            className={clsx(
+              'text-sm text-text-secondary tabular-nums',
+              roll.kind === 'check' && roll.spends
+                ? 'line-clamp-2'
+                : 'truncate',
+            )}
+          >
             {brief.dice}
           </p>
         )}
@@ -223,6 +233,7 @@ function Toast({
             </InPortalRoot>
           </div>
         )}
+        <SpentLines roll={roll} state={state} />
       </div>
       {waits && (
         <button

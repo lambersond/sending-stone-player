@@ -346,6 +346,57 @@ describe('components/character-sheet/sheet-entry, favorites, from module 0.37.0'
   })
 })
 
+/** The summary of the one entry rendered, a row that opens, or null for a row that doesn't. */
+const summaryRow = () => document.querySelector('summary') as HTMLElement
+
+// Round 0.42.1 §P review: a spell's "Not prepared" mark cut its name short beside it on a phone.
+// Its own prop, apart from the spell-slots favorite's, so that each item reverts alone.
+describe('components/character-sheet/sheet-entry, a row that opens wrapping in a narrow list (round 0.42.1 §P review)', () => {
+  const entry = (fields: Partial<Parameters<typeof SheetEntry>[0]> = {}) =>
+    render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='Detect Magic'
+          fallback={Sparkles}
+          detail='Action · Self'
+          aside={<span data-testid='aside'>Not prepared</span>}
+          meta='Level 1'
+          {...fields}
+        />
+      </ul>,
+    )
+
+  it('wraps its summary under 28rem wide, the aside as given and the chevron last', () => {
+    entry({ wraps: true })
+
+    expect(summaryRow()).toHaveClass(
+      'flex',
+      'items-center',
+      '@max-md:flex-wrap',
+    )
+    // The aside goes beneath by its own classes, as a spell's marks do; the row only lets it.
+    expect(screen.getByTestId('aside').parentElement).toBe(summaryRow())
+    expect(summaryRow().lastElementChild?.tagName).toBe('svg')
+    expect(summaryRow().lastElementChild).toHaveClass('size-4', 'shrink-0')
+  })
+
+  it('keeps its summary as before without it', () => {
+    entry()
+
+    expect(summaryRow()).not.toHaveClass('@max-md:flex-wrap')
+    expect(screen.getByTestId('aside').parentElement).toBe(summaryRow())
+  })
+
+  it('leaves a row that doesn’t open as it is', () => {
+    entry({ wraps: true, meta: undefined })
+
+    expect(summaryRow()).toBeNull()
+    const own = screen.getByRole('listitem').firstElementChild as HTMLElement
+    expect(own.className).toBe('flex items-center gap-3 rounded-xl px-2.5 py-2')
+  })
+})
+
 /** An effect's controls, as a pane gives a row them (module 0.39.0). */
 const effectChoice = (fields: Partial<EffectChoice> = {}): EffectChoice => ({
   ops: ['disable', 'delete'],
@@ -468,5 +519,62 @@ describe('components/character-sheet/sheet-entry, one of the character’s own e
     expect(
       screen.getAllByRole('menuitem').map(({ textContent }) => textContent),
     ).toEqual(['Turn off'])
+  })
+})
+
+/** The row of the one entry rendered. */
+const row = () => screen.getByRole('listitem').firstElementChild as HTMLElement
+
+describe('components/character-sheet/sheet-entry, its aside beneath its name in a narrow list (round 0.42.1 §U.1.1.11)', () => {
+  const entry = (fields: Partial<Parameters<typeof SheetEntry>[0]> = {}) =>
+    render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='1st Level'
+          fallback={Sparkles}
+          detail='Spell slots'
+          aside={<span data-testid='aside'>dots</span>}
+          {...fields}
+        />
+      </ul>,
+    )
+
+  // Changed on purpose (round 0.42.1 review): by the list's width, a container under 28rem, not the
+  // screen's, so that a desk's Favorites column and a tablet's two lists put it beneath too.
+  it('wraps in a list under 28rem wide, the aside on its own line past the icon, after the spacer', () => {
+    entry({ asideBelow: true })
+
+    expect(row()).toHaveClass(
+      'flex',
+      'items-center',
+      'gap-3',
+      '@max-md:flex-wrap',
+    )
+    expect(row().className).not.toMatch(/max-sm:/)
+    const own = screen.getByTestId('aside').parentElement as HTMLElement
+    expect(own.parentElement).toBe(row())
+    expect(own.className).toBe(
+      '@max-md:order-last @max-md:basis-full @max-md:pl-11',
+    )
+    // The spacer stays beside the name, so the name keeps its width.
+    expect(row().lastElementChild).toHaveClass('size-4', 'shrink-0')
+  })
+
+  it('keeps the row as before without it', () => {
+    entry()
+
+    expect(row().className).toBe(
+      'flex items-center gap-3 rounded-xl px-2.5 py-2',
+    )
+    expect(screen.getByTestId('aside').parentElement).toBe(row())
+  })
+
+  it('keeps a row that opens as before, its aside in its summary', () => {
+    entry({ asideBelow: true, meta: 'Spell slots' })
+
+    const summary = document.querySelector('summary') as HTMLElement
+    expect(summary).not.toHaveClass('@max-md:flex-wrap')
+    expect(screen.getByTestId('aside').parentElement).toBe(summary)
   })
 })

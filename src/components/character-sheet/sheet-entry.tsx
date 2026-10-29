@@ -11,6 +11,7 @@ import { SheetText } from './sheet-text'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import type { DescriptionOrigin } from './description-actions'
 import type { EffectChoice } from './effect-controls'
+import type { PrepareChoice } from './preparing'
 import type { MenuPoint } from './roll-menu'
 import type { FavoriteTarget } from '@/types/roll'
 
@@ -25,6 +26,13 @@ type Props = {
   detail?: string
   /** At the end of the row, such as uses left. */
   aside?: ReactNode
+  /**
+   * In a narrow list, the aside on a line of its own beneath the name, as a spell-slots favorite's
+   * live dots are, round 0.42.1 §U: where the list it's in, a container, is under 28rem wide, as a
+   * phone's Favorites strip, a desk's Favorites column and each of a tablet's two lists are, so
+   * that many dots never squeeze the name to nothing.
+   */
+  asideBelow?: boolean
   /** Shown above the description when open, such as the kind of feature. */
   meta?: string
   /** Shown above the description when open, each with its label, such as a spell's range. */
@@ -72,6 +80,15 @@ type Props = {
    * character's own effects, Turn off or Turn on, and Delete…, which `onDelete` asks about.
    */
   effectChoice?: EffectChoice
+  /** For a spell's row, from module 0.42.1: its own menu's Prepare or Unprepare. */
+  prepareChoice?: PrepareChoice
+  /**
+   * For a row that opens, in a narrow list, where the list it's in, a container, is under 28rem
+   * wide: its summary wraps, so that an aside that puts itself on a line of its own there goes
+   * beneath the name, its chevron staying beside the name, as a spell's "Not prepared" mark does
+   * (round 0.42.1 §P review).
+   */
+  wraps?: boolean
   onDelete?: () => void
   /**
    * A dialog it opens, held in its row but outside what opens, so that its menu opens it from a
@@ -102,6 +119,7 @@ export function SheetEntry({
   fallback,
   detail,
   aside,
+  asideBelow = false,
   meta,
   facts = [],
   text,
@@ -117,6 +135,8 @@ export function SheetEntry({
   open: held,
   onOpenChange,
   effectChoice,
+  prepareChoice,
+  wraps = false,
   onDelete,
   dialog,
   rowRef,
@@ -127,11 +147,15 @@ export function SheetEntry({
   const favorite = useFavorite(favoriteKey)
   const own = useItemMenu(name, {
     favorite: useFavoriteChoice(target, name),
+    prepare: prepareChoice,
     effect: effectChoice,
     onDelete,
   })
   const menu = onMenu ?? own.onMenu
   const press = usePressMenu(menu)
+  const opens = !!text || !!meta || facts.length > 0 || !!lead || !!children
+  // Only a row that doesn't open, as a favorite of spell slots, puts its aside beneath its name.
+  const below = asideBelow && !opens
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
@@ -153,7 +177,16 @@ export function SheetEntry({
           </span>
         )}
       </span>
-      {aside}
+      {/* Beneath the name in a narrow list, by the list's width rather than the screen's, lined up
+          with it past the icon, so that the name keeps the width it has without the aside; its
+          spacer stays beside the name. */}
+      {below ? (
+        <span className='@max-md:order-last @max-md:basis-full @max-md:pl-11'>
+          {aside}
+        </span>
+      ) : (
+        aside
+      )}
     </>
   )
   const rowClass = clsx(
@@ -161,12 +194,16 @@ export function SheetEntry({
     muted && 'opacity-60',
   )
 
-  if (!text && !meta && facts.length === 0 && !lead && !children) {
+  if (!opens) {
     return (
       <li aria-busy={busy || undefined}>
         <div
           ref={rowRef as Ref<HTMLDivElement>}
-          className={clsx(rowClass, press.className)}
+          className={clsx(
+            rowClass,
+            below && '@max-md:flex-wrap',
+            press.className,
+          )}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
           // on a row that opens (module 0.33.0).
           tabIndex={menu ? 0 : undefined}
@@ -194,6 +231,7 @@ export function SheetEntry({
           className={clsx(
             rowClass,
             'cursor-pointer list-none transition-colors hover:bg-primary/5 [&::-webkit-details-marker]:hidden',
+            wraps && '@max-md:flex-wrap',
             press.className,
           )}
           {...press.props}

@@ -53,6 +53,7 @@ import { FavoriteStar, useFavorite } from './favorite-mark'
 import { useFavoriteChoice } from './favoriting'
 import { NONE_LEFT } from './hit-dice'
 import { useItemMenu } from './item-menu'
+import { usePrepareChoice } from './preparing'
 import { usePressMenu } from './press-menu'
 import { RechargeChip, rechargeable } from './recharge-chip'
 import { RollButton } from './roll-button'
@@ -631,7 +632,8 @@ export function viewOf(
  * beside it what it rolls, each a button of its own. A note, such as the item an activity is one
  * of, comes first. A tab that lists it otherwise shows it as it shows the rest it lists. From
  * module 0.37.0, its name opens a menu of its own, Add to favorites or Remove from favorites, where
- * the pane offers them and the tab gives it none of its own.
+ * the pane offers them and the tab gives it none of its own. From module 0.42.1, a spell's menu
+ * prepares or unprepares it, where the pane offers that, however the spell is listed.
  */
 export function ActionEntry({
   action,
@@ -658,7 +660,11 @@ export function ActionEntry({
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const { name } = action
-  const own = useItemMenu(name, { favorite: useFavoriteChoice(target, name) })
+  const own = useItemMenu(name, {
+    favorite: useFavoriteChoice(target, name),
+    // A spell's, by its id, whichever tab or favorite lists it as an action (module 0.42.1).
+    prepare: usePrepareChoice(action.type === 'spell' ? action.id : undefined),
+  })
   // Its name opens its own menu, where it has one; what it rolls keeps the roll's.
   const press = usePressMenu(look.onMenu ?? own.onMenu)
   const view = viewOf(action, rows.spellbook, rows.use)

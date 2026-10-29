@@ -15,11 +15,20 @@ export type DiceEntryTerm = {
    */
   label: string
   /**
-   * A die one of the character's effects adds, or takes away, from module 0.42.0: asked for, but
-   * the player may skip it, for the game to roll it.
+   * A die one of the character's effects adds, or takes away, from module 0.42.0, or, from 0.42.1,
+   * Elven Accuracy's third d20, which the game rolls where it's skipped: asked for, but the player
+   * may skip it, for the game to roll it.
    */
   skippable?: true
-  /** What adds it, such as "Bless", which its Skip and the words of its skipping name it by. */
+  /**
+   * A die the player may add, from module 0.42.1, such as Bardic Inspiration's: left out until they
+   * add it, its control beside Done.
+   */
+  offered?: true
+  /**
+   * What adds it, such as "Bless" or "Elven Accuracy", which its Skip and the words of its skipping
+   * name it by; or what offers it, such as "Bardic Inspiration", which its Add and Leave out do.
+   */
   name?: string
 }
 
@@ -44,13 +53,14 @@ export type DiceEntry = {
   note?: string
   /**
    * What the total leaves out while these terms, by their places, are skipped, said after it, such
-   * as "not counting Bless’s d4", from module 0.42.0.
+   * as "not counting Bless’s d4", from module 0.42.0. Never asked of a die offered and left out,
+   * which no game rolls.
    */
   skippedWords?: (skipped: number[]) => string
 }
 
 /**
- * Ask for a roll's dice, term by term, a term skipped giving `[]`; undefined when the player
- * cancelled, or it closed by itself.
+ * Ask for a roll's dice, term by term, a term skipped, or a die offered and left out, giving `[]`;
+ * undefined when the player cancelled, or it closed by itself.
  */
 export type EnterDice = (entry: DiceEntry) => Promise<number[][] | undefined>

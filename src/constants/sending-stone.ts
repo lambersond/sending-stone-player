@@ -120,7 +120,9 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * turn ended taken back, neither of them a roll; and from module 0.37.0, a favorite added or
  * removed, no roll either; and from module 0.39.0, one of the character's own effects turned off,
  * on or deleted, no roll either; and from module 0.40.0, Wild Shape from the app, a change into a
- * known form, a return, a form learned, or the Beasts to learn listed, no roll either.
+ * known form, a return, a form learned, or the Beasts to learn listed, no roll either; and from
+ * module 0.42.1, one of the character's spell slots spent or restored, no roll either.
+ * And from module 0.42.1, one of the character's spells prepared or unprepared, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -146,11 +148,13 @@ export const ROLL_KINDS = [
   'undoEndTurn',
   'spend',
   'inspiration',
+  'spellSlot',
   'transfer',
   'remove',
   'favorite',
   'effect',
   'wildShape',
+  'prepare',
 ] as const
 
 /**
@@ -311,6 +315,13 @@ export const EFFECT_SETTLE = 10_000
 export const WILD_SHAPE_SETTLE = 10_000
 
 /**
+ * How long, from when it's sent, a spell's Prepare or Unprepare waits for the sheet to say what the
+ * game made of it, in milliseconds: the sheet comes before its result (module 0.42.1), within a
+ * poll.
+ */
+export const PREPARE_SETTLE = 10_000
+
+/**
  * The format of dishes from the Magical Recipe Book this app takes, as it tells the module
  * (`dishes`): from module 0.38.0, the `dish` command and the `dish.applied` and `dish.dismissed`
  * events. The module fetches dishes, and reports what became of them, only then.
@@ -337,6 +348,13 @@ export type EffectOp = (typeof EFFECT_OPS)[number]
  * its Foundry id, "<id>", or one of its items' as "<itemId>.<id>".
  */
 export const EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
+
+/**
+ * What a player may do to one of their character's spells from here, from module 0.42.1's
+ * `prepare` command, as dnd5e's sheet's Prepare and Unprepare do: the state wanted, never a toggle.
+ */
+export const PREPARE_OPS = ['prepare', 'unprepare'] as const
+export type PrepareOp = (typeof PREPARE_OPS)[number]
 
 /**
  * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
@@ -434,19 +452,23 @@ export const MOST_COMPANIONS = 50
  * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
  * which the character's page does for its companions' turns too, nor favorites, which an NPC has
  * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes,
- * nor from module 0.40.0 Wild Shape, which only a character uses. The module's list has `note` and
- * `dish` too, which aren't rolls here.
+ * nor from module 0.40.0 Wild Shape, which only a character uses, nor from module 0.42.1 a spell
+ * slot spent or restored, which an NPC's sheet changes in Foundry, nor from module 0.42.1 a spell
+ * prepared, which an NPC has prepared already. The module's list has `note` and `dish` too, which
+ * aren't rolls here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
   'hitDie',
   'hitDice',
   'spend',
+  'spellSlot',
   'transfer',
   'remove',
   'favorite',
   'effect',
   'wildShape',
+  'prepare',
   'endTurn',
   'undoEndTurn',
 ] as const
@@ -505,6 +527,13 @@ export const MOST_HIT_DICE = 20
 
 /** A spell slot's pool, as dnd5e keys it, such as "spell3" or "pact". */
 export const SPELL_SLOT = /^(spell[1-9]|pact)$/
+
+/**
+ * What a player may do to one of their character's spell slots from here, from module 0.42.1's
+ * `spellSlot` command: spend one, as a cast would, or restore one that's used; one at a time.
+ */
+export const SPELL_SLOT_OPS = ['spend', 'restore'] as const
+export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
 
 /** A weapon's attack mode, as dnd5e keys it, such as "twoHanded" or "thrown-offhand". */
 export const ATTACK_MODE = /^[A-Za-z][\w-]{0,31}$/

@@ -18,11 +18,13 @@ import {
   MOST_HIT_DICE,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
+  PREPARE_OPS,
   PROFILE_ID,
   PROMPT_ID,
   PROTOCOL_VERSION,
   ROLL_KINDS,
   SPELL_SLOT,
+  SPELL_SLOT_OPS,
 } from '@/constants/sending-stone'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import { DIE_SIZES, MOST_DICE } from '@/utils/damage-modifiers'
@@ -315,7 +317,9 @@ const wildShapeSchema = z.discriminatedUnion('op', [
  * 0.36.0, a turn ended which turn, and a turn taken back the End Turn it takes back and the turn
  * that End Turn left; and from module 0.37.0, a favorite added or removed what it is; and from
  * module 0.39.0, one of the character's own effects turned off, on or deleted which; and from
- * module 0.40.0, Wild Shape its op and form. A field more than one kind names lists them all,
+ * module 0.40.0, Wild Shape its op and form; and from module 0.42.1, a spell slot spent or restored
+ * its pool, which, and the count it was made from; and from module 0.42.1 a spell prepared or
+ * unprepared which spell, and which of those. A field more than one kind names lists them all,
  * `kinds`.
  */
 const OWN_FIELDS: Readonly<
@@ -340,6 +344,11 @@ const OWN_FIELDS: Readonly<
     field: 'inspiration',
     message: 'Heroic Inspiration, and only that, says whether it’s used',
   },
+  spellSlot: {
+    field: 'spellSlot',
+    message:
+      'A spell slot spent or restored, and only that, names the pool, which, and the count it was made from',
+  },
   transfer: {
     field: 'transfer',
     message: 'A move, and only that, names what moves',
@@ -361,6 +370,11 @@ const OWN_FIELDS: Readonly<
     field: 'wildShape',
     message: 'Wild Shape, and only that, names its op and form',
   },
+  prepare: {
+    field: 'prepare',
+    message:
+      'A spell prepared or unprepared, and only that, names the spell and which',
+  },
   endTurn: {
     field: 'turn',
     kinds: ['endTurn', 'undoEndTurn'],
@@ -380,11 +394,13 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   endConcentration: 'Ending concentration throws no dice',
   spend: 'Spending throws no dice',
   inspiration: 'Heroic Inspiration throws no dice',
+  spellSlot: 'A spell slot spent or restored throws no dice',
   transfer: 'Moving throws no dice',
   remove: 'Removing throws no dice',
   favorite: 'A favorite throws no dice',
   effect: 'Changing an effect throws no dice',
   wildShape: 'Wild Shape throws no dice',
+  prepare: 'Preparing a spell throws no dice',
   endTurn: 'Ending a turn throws no dice',
   undoEndTurn: 'Taking a turn back throws no dice',
 }
@@ -456,7 +472,10 @@ const effectDieSchema = z.strictObject({
  * From module 0.42.0, a typed d20 roll may name the dice its effects add that its player typed in,
  * `effectDice`, each by its faces, never a d20's, and its sign, at most 10, each result one of its
  * faces; and any typed roll may say its player rerolled at the table, `rerolls`. Neither is said of
- * a roll not typed in.
+ * a roll not typed in. From module 0.42.1, a spell slot spent or restored names which, its pool, as
+ * a cast's slot is named, and the count of that pool the page showed, 0 to 999, and nothing else,
+ * and throws no dice. From module 0.42.1 too, a spell prepared or unprepared names the spell, by
+ * its id, and the state wanted, and nothing else, and throws no dice.
  */
 export const rollRequestSchema = z
   .strictObject({
@@ -511,6 +530,14 @@ export const rollRequestSchema = z
     counter: counterSchema.optional(),
     count: z.int().min(1).max(MAX_SPEND).optional(),
     inspiration: z.enum(['use', 'gain']).optional(),
+    // From module 0.42.1: one spell slot spent or restored, from the count the page showed.
+    spellSlot: z
+      .strictObject({
+        op: z.enum(SPELL_SLOT_OPS),
+        id: z.string().regex(SPELL_SLOT),
+        from: z.int().min(0).max(999),
+      })
+      .optional(),
     transfer: transferSchema.optional(),
     remove: removeSchema.optional(),
     favorite: favoriteSchema.optional(),
@@ -521,6 +548,13 @@ export const rollRequestSchema = z
       })
       .optional(),
     wildShape: wildShapeSchema.optional(),
+    // From module 0.42.1: one of the character's spells prepared or unprepared, the state wanted.
+    prepare: z
+      .strictObject({
+        op: z.enum(PREPARE_OPS),
+        id: z.string().regex(FOUNDRY_ID),
+      })
+      .optional(),
     turn: turnSchema.optional(),
     undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
@@ -797,9 +831,10 @@ export const rollRequestSchema = z
     }
     // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
     // from module 0.31.0, a removal from module 0.33.0, a turn ended or taken back from module
-    // 0.36.0, a favorite from module 0.37.0, an effect changed from module 0.39.0 and Wild Shape
-    // from module 0.40.0, each name what they're of, and nothing else does; charges, how many,
-    // which nothing else says.
+    // 0.36.0, a favorite from module 0.37.0, an effect changed from module 0.39.0, Wild Shape
+    // from module 0.40.0 and a spell slot spent or restored from module 0.42.1, each name what
+    // they're of, and nothing else does; charges, how many, which nothing else says. And from
+    // module 0.42.1, a spell prepared or unprepared names its spell, and nothing else does.
     for (const [kind, { field, kinds, message }] of Object.entries(
       OWN_FIELDS,
     )) {

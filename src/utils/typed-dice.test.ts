@@ -1,4 +1,11 @@
-import { d20Count, d20Label, typedResult } from './typed-dice'
+import {
+  d20Count,
+  d20Label,
+  ELVEN_DIE,
+  ELVEN_LABEL,
+  ELVEN_LINE,
+  typedResult,
+} from './typed-dice'
 
 describe('utils/typed-dice', () => {
   it('asks for one d20, two with advantage or disadvantage, and three only for Elven Accuracy with advantage', () => {
@@ -15,6 +22,23 @@ describe('utils/typed-dice', () => {
     expect(d20Label('adv', 2)).toBe('d20, advantage')
     expect(d20Label('dis', 2)).toBe('d20, disadvantage')
     expect(d20Label('adv', 3)).toBe('d20, advantage (Elven Accuracy)')
+  })
+
+  // Round 0.42.1 §1.2: Elven Accuracy's third d20 on its own line, the switch on; the branches
+  // above still ask 0.42.0's three-box group where it's turned off.
+  it("asks Elven Accuracy's third d20 on its own line, from 0.42.1", () => {
+    expect(ELVEN_LINE).toBe(true)
+    expect(ELVEN_LABEL).toBe('Elven Accuracy: third d20')
+    expect(ELVEN_DIE).toEqual({ name: 'Elven Accuracy', faces: 20, count: 1 })
+  })
+
+  // Round 0.42.1's review: the switch is how Elven Accuracy is dropped (§0.8.21), so its off
+  // position must build as its on position does. Typed as its literal, `true`, turned off it
+  // narrowed what it gates to `false`, which the roller can't spread, and tsc failed; this line
+  // fails tsc while it's typed so.
+  it('keeps ELVEN_LINE a boolean, so turning it off compiles as on does', () => {
+    const flippable: boolean extends typeof ELVEN_LINE ? true : false = true
+    expect(flippable).toBe(true)
   })
 
   it("keeps the typed d20s as the app's own throw does: the higher with advantage, the lower with disadvantage", () => {

@@ -8,9 +8,32 @@ import type {
 // A roll's dice as the player typed them in from their own physical dice (module 0.32.0), in the
 // shape the app's own throw gives them, so that everything after keeps them as it keeps its own.
 
+// Typed a boolean, not the literal it's set to, so that turning it off type-checks as turning it
+// on does: as the literal `false`, what it gates would narrow to `false` and no longer compile.
+/**
+ * From 0.42.1, Elven Accuracy's third d20 asked on its own line, which may be skipped for the game
+ * to roll; false asks it with the other two, as 0.42.0 did.
+ */
+export const ELVEN_LINE: boolean = true
+
+/** Elven Accuracy's third d20, as its own line in the dice dialog is headed and named. */
+export const ELVEN_LABEL = 'Elven Accuracy: third d20'
+
+/**
+ * Elven Accuracy's third d20 as the dice dialog words it once it's skipped, as an effect's die is:
+ * "not counting Elven Accuracy’s d20". It never goes to the game as an effect's die: its value is
+ * among the d20s.
+ */
+export const ELVEN_DIE = {
+  name: 'Elven Accuracy',
+  faces: 20,
+  count: 1,
+} as const
+
 /**
  * How many d20s a check, save or attack throws: two with advantage or disadvantage, and three
- * with advantage where dnd5e gives the attack Elven Accuracy.
+ * with advantage where dnd5e gives the attack Elven Accuracy and its third is asked with the other
+ * two (`ELVEN_LINE` false).
  */
 export function d20Count(
   advantage?: Advantage,

@@ -110,19 +110,30 @@ function byTerm<T>(entry: DiceEntry, each: T[]): T[][] {
 const BUTTON = 'rounded-xl px-4 text-sm transition-colors'
 
 /**
- * Skip and Type it in, beside a die an effect adds (module 0.42.0): as tall as a fingertip on a
- * phone, the app's rule for new controls, and as Cancel from a tablet up.
+ * Skip and Type it in, beside a die an effect adds (module 0.42.0), and from module 0.42.1 Add and
+ * Leave out, beside a die offered: as tall as a fingertip on a phone, the app's rule for new
+ * controls, and as Cancel from a tablet up.
  */
 const SKIP = clsx(
   BUTTON,
   'min-h-11 shrink-0 border border-border font-medium hover:border-primary/50 hover:bg-primary/5 sm:min-h-9',
 )
 
+/** Said under a die offered while it's left out, from module 0.42.1, which describes its Add. */
+const OFFER_LINE = 'Add it if your Gamemaster says the roll fails.'
+
+/** A term's die by what adds it, or offers it, and its dice: such as "Bless’s d4" or "2d4". */
+function whoseDice(term: DiceEntry['terms'][number]): string {
+  return `${term.name ?? term.label}’s ${dieWords({ faces: term.sides, count: term.count })}`
+}
+
 /**
  * One roll's dice, a box each, typed into by the dialog's keypad or a keyboard, the total as it
  * will be kept, and Done. It's made again for each roll, every box empty. From module 0.42.0, a
  * die an effect adds may be skipped, for the game to roll it: its boxes then leave the dialog, and
- * what's typed, moved through and asked for, until it's typed in again.
+ * what's typed, moved through and asked for, until it's typed in again. From module 0.42.1, a die
+ * offered, such as Bardic Inspiration's, starts left out the same way, with Add beside Done, in
+ * view whatever scrolls, for the player to add it once their Gamemaster says the roll fails.
  */
 function Entry({
   entry,
@@ -141,8 +152,13 @@ function Entry({
   const boxes = entry.terms.flatMap(({ sides, count }, term) =>
     Array.from({ length: count }, (_, box) => ({ box, sides, term })),
   )
-  // The terms skipped, by their places, which the game rolls: their boxes aren't shown.
-  const [out, setOut] = useState<ReadonlySet<number>>(() => new Set())
+  // The dice offered, from module 0.42.1, by their places, each with its Add or Leave out beside
+  // Done.
+  const offers = entry.terms.flatMap(({ offered }, at) => (offered ? [at] : []))
+  const offerButtons = useRef<(HTMLButtonElement | null)[]>([])
+  // The terms skipped, by their places, which the game rolls, and the dice offered and left out,
+  // as each starts, which no one rolls: their boxes aren't shown.
+  const [out, setOut] = useState<ReadonlySet<number>>(() => new Set(offers))
   // The boxes shown, in turn, which alone are typed into, moved through and asked for.
   const shown = boxes.flatMap(({ term }, index) =>
     out.has(term) ? [] : [index],
@@ -158,6 +174,8 @@ function Entry({
   const [tried, setTried] = useState(false)
   const inputs = useRef<(HTMLInputElement | null)[]>([])
   const keys = useRef<HTMLDivElement>(null)
+  // On a short screen, the dice offered's rows, kept in view beneath the dice (module 0.42.1).
+  const offerBlock = useRef<HTMLDivElement>(null)
   const done = useRef<HTMLButtonElement>(null)
 
   // Closed by itself, once: its time running out, or what it answers answered or closed elsewhere.
@@ -180,29 +198,53 @@ function Entry({
     return () => signal.removeEventListener('abort', closed)
   }, [entry])
 
+  /**
+   * What's kept in view over the dice as they scroll: the keypad, below them; or on a short screen,
+   * where the keypad is beside them, the rows of any dice offered, below them.
+   */
+  const over = () => (compact ? offerBlock.current : keys.current)
+
+  /** Scroll what has focus, a box or a button, clear of what's kept over the dice. */
+  const keepClear = (element: HTMLElement) => {
+    const scroller = form.current?.parentElement
+    const kept = over()
+    if (!scroller || !kept) return
+    const hidden =
+      element.getBoundingClientRect().bottom +
+      8 -
+      kept.getBoundingClientRect().top
+    if (hidden > 0) scroller.scrollTop += hidden
+  }
+
+  /**
+   * The first box focused, unless focus is in the dice already, as where the box took it as it was
+   * drawn; and what has it, where what's kept over the dice covers it, scrolled clear, as the
+   * browser's own scrolling to it leaves it beneath: from module 0.42.1, a die offered's row beside
+   * Done can cover the first box on a phone (round 0.42.1's review).
+   */
+  const focusFirst = useEffectEvent(() => {
+    const focused = document.activeElement
+    const target = form.current?.contains(focused) ? focused : inputs.current[0]
+    if (!(target instanceof HTMLElement)) return
+    if (target !== focused) target.focus()
+    const kept = over()
+    if (
+      kept &&
+      target.getBoundingClientRect().bottom > kept.getBoundingClientRect().top
+    ) {
+      keepClear(target)
+    }
+  })
+
   // A frame after it opens, as the dialog is shown only after its content is drawn, and a menu or
   // dialog closing as this opens may hand focus back to what opened it, behind this one. The
   // browser's own focus, on the dialog's first button as it's shown, is no reason to leave it.
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      if (form.current?.contains(document.activeElement)) return
-      inputs.current[0]?.focus()
-    })
+    const frame = requestAnimationFrame(() => focusFirst())
     return () => cancelAnimationFrame(frame)
   }, [entry, form])
 
-  /** Scroll what has focus, a box or a button, clear of the keypad kept over the dice. */
-  const keepClear = (element: HTMLElement) => {
-    const scroller = form.current?.parentElement
-    if (compact || !scroller || !keys.current) return
-    const hidden =
-      element.getBoundingClientRect().bottom +
-      8 -
-      keys.current.getBoundingClientRect().top
-    if (hidden > 0) scroller.scrollTop += hidden
-  }
-
-  /** Focus a box, clear of the keypad kept over the dice as they scroll. */
+  /** Focus a box, clear of what's kept over the dice as they scroll. */
   const focusBox = (index: number) => {
     const input = inputs.current[index]
     if (!input) return
@@ -214,10 +256,23 @@ function Entry({
     inputs.current.some(input => input && input === document.activeElement)
 
   /**
+   * What takes focus after the last box shown: the first die offered and left out's Add, from
+   * module 0.42.1, so that the player hears of it before Done, which an Enter there would press;
+   * else Done.
+   */
+  const afterLast = () => {
+    const offer = offers.find(at => out.has(at))
+    return (
+      (offer === undefined ? undefined : offerButtons.current[offer]) ??
+      done.current
+    )
+  }
+
+  /**
    * On to the next die: the next box shown, the next term's first after a term's last, past any
-   * skipped, or from the last to Done. Focus goes along only where a box had it, so a keyboard on
-   * the keypad stays there; and where Next die had focus as the last box comes, which it goes with,
-   * the last box takes it.
+   * skipped, or from the last to a die offered and left out, else Done. Focus goes along only where
+   * a box had it, so a keyboard on the keypad stays there; and where Next die had focus as the last
+   * box comes, which it goes with, the last box takes it.
    */
   const moveOn = (index: number) => {
     const focused = inBox()
@@ -229,7 +284,7 @@ function Entry({
     if (next !== undefined) {
       setCurrent(next)
       if (focused || (fromNext && next === last)) focusBox(next)
-    } else if (focused) done.current?.focus()
+    } else if (focused) afterLast()?.focus()
   }
 
   // Where each term's boxes start, among every box in turn.
@@ -240,8 +295,9 @@ function Entry({
   /**
    * Skip a die an effect adds, for the game to roll it. Where the keypad typed into its box, it
    * types into the next box shown after it, or else the last before it; and where Skip had focus,
-   * which goes with it, the next box shown after it takes it, or Done: as it does where one of the
-   * die's own boxes had it, as a tap on a phone leaves it, so that focus never falls to the page.
+   * which goes with it, the next box shown after it takes it, or a die offered and left out's Add,
+   * or Done: as it does where one of the die's own boxes had it, as a tap on a phone leaves it, so
+   * that focus never falls to the page.
    * @param pressed - Whether Skip had focus as it was pressed.
    */
   const skip = (term: number, pressed: boolean) => {
@@ -254,8 +310,44 @@ function Entry({
     setOut(held => new Set(held).add(term))
     if (boxes[current]?.term === term) setCurrent(after ?? before ?? current)
     if (!pressed && !inIt) return
-    if (after === undefined) done.current?.focus()
+    if (after === undefined) afterLast()?.focus()
     else focusBox(after)
+  }
+
+  /**
+   * Add a die offered, from module 0.42.1: its boxes come, last among the dice, its first the one
+   * the keypad types into, focused and clear of the keypad however Add was pressed, as a tap on
+   * iOS gives a button no focus to move on from.
+   */
+  const add = (term: number) => {
+    // Drawn at once, so that its first box is there to focus.
+    flushSync(() => {
+      setOut(held => {
+        const left = new Set(held)
+        left.delete(term)
+        return left
+      })
+      setCurrent(starts[term])
+    })
+    focusBox(starts[term])
+  }
+
+  /**
+   * Leave a die offered out again, from module 0.42.1: its boxes go, and where the keypad typed
+   * into one, it types into the last box shown. Focus stays on its button, which reads Add again;
+   * where one of its boxes had it, as a tap on a phone leaves it, the button takes it, so that it
+   * never falls to the page.
+   */
+  const leaveOut = (term: number) => {
+    const inIt = boxes.some(
+      (each, index) =>
+        each.term === term && inputs.current[index] === document.activeElement,
+    )
+    setOut(held => new Set(held).add(term))
+    if (inIt) offerButtons.current[term]?.focus()
+    if (boxes[current]?.term !== term) return
+    const left = shown.filter(index => boxes[index].term !== term)
+    setCurrent(left.at(-1) ?? current)
   }
 
   /**
@@ -328,8 +420,10 @@ function Entry({
     } else if (key === 'Backspace' || key === 'Delete') {
       put(index, texts[index].slice(0, -1), false)
     } else if (key === 'Enter') {
-      if (index === last) submit()
-      else moveOn(index)
+      // Done from the last box, but where a die offered is left out, its Add first.
+      if (index !== last) moveOn(index)
+      else if (offers.some(at => out.has(at))) afterLast()?.focus()
+      else submit()
     } else if (key.length !== 1) return
     event.preventDefault()
   }
@@ -348,9 +442,61 @@ function Entry({
   })
   const notice = tried && shown.some(index => faces[index] === undefined)
   const total = entry.total(valuesOf(faces))
-  // What the total leaves out while a die is skipped, in its own words, so that it's heard with it.
-  const skipped = [...out].toSorted((a, b) => a - b)
+  // What the total leaves out while a die is skipped, in its own words, so that it's heard with it:
+  // never a die offered and left out, which no game rolls.
+  const skipped = [...out]
+    .filter(at => entry.terms[at]?.skippable)
+    .toSorted((a, b) => a - b)
   const caveat = skipped.length > 0 ? (entry.skippedWords?.(skipped) ?? '') : ''
+
+  // Each die offered, from module 0.42.1, kept in view however the dice scroll, so that the player
+  // finds it as their Gamemaster says the roll fails: beside Done, or on a short screen beneath
+  // the dice, as the keypad's column beside them has no room left to keep it and Done in view
+  // (round 0.42.1's review). Its button stays one element as it changes its words, so that focus
+  // stays on it.
+  const offerRows = offers.map(termAt => {
+    const term = entry.terms[termAt]
+    const isOut = out.has(termAt)
+    const line = `${ids}-${termAt}-offer`
+    const whose = whoseDice(term)
+    return (
+      // The words take the row's room and wrap in it, so that the button stays beside them, the
+      // row no taller than they are, before anything scrolls sideways.
+      <div
+        key={line}
+        className='flex flex-wrap items-center justify-between gap-2'
+      >
+        <div className='min-w-0 flex-1 text-sm'>
+          <p className='flex items-center gap-1.5'>
+            {term.sides !== 100 && (
+              <DieIcon
+                sides={term.sides}
+                className='size-4 shrink-0 text-text-secondary'
+              />
+            )}
+            {term.label}
+          </p>
+          {isOut && (
+            <p id={line} className='text-xs text-text-secondary'>
+              {OFFER_LINE}
+            </p>
+          )}
+        </div>
+        <button
+          ref={button => {
+            offerButtons.current[termAt] = button
+          }}
+          type='button'
+          aria-label={`${isOut ? 'Add' : 'Leave out'} ${whose}`}
+          aria-describedby={isOut ? line : undefined}
+          onClick={() => (isOut ? add(termAt) : leaveOut(termAt))}
+          className={SKIP}
+        >
+          {isOut ? 'Add' : 'Leave out'}
+        </button>
+      </div>
+    )
+  })
 
   return (
     <form
@@ -368,8 +514,12 @@ function Entry({
         )}
         {entry.until && <Countdown until={entry.until} onOut={end} />}
         {entry.terms.map((term, termAt) => {
+          // A die offered and left out has no place among the dice, only its row beside Done.
+          if (term.offered && out.has(termAt)) return
           const heading = `${ids}-${termAt}`
           const error = `${heading}-error`
+          // What a term skipped says, which describes its Type it in (0.42.1).
+          const outLine = `${heading}-out`
           const first = starts[termAt]
           const own = boxes.slice(first, first + term.count)
           const title = (
@@ -387,7 +537,7 @@ function Entry({
             </h3>
           )
           // A die an effect adds, such as Bless's: by its name, and its dice, "d4" or "2d4".
-          const whose = `${term.name ?? term.label}’s ${dieWords({ faces: term.sides, count: term.count })}`
+          const whose = whoseDice(term)
           const isOut = out.has(termAt)
           return (
             <div
@@ -406,6 +556,7 @@ function Entry({
                     <button
                       type='button'
                       aria-label={`Type it in, ${whose}`}
+                      aria-describedby={outLine}
                       onFocus={event => keepClear(event.currentTarget)}
                       onClick={event =>
                         typeIn(
@@ -438,7 +589,7 @@ function Entry({
                 title
               )}
               {isOut ? (
-                <p className='text-sm text-text-secondary'>
+                <p id={outLine} className='text-sm text-text-secondary'>
                   The game rolls {whose}.
                 </p>
               ) : (
@@ -499,6 +650,16 @@ function Entry({
             </div>
           )
         })}
+        {compact && offers.length > 0 && (
+          // Kept in view below the dice as they scroll, over the scroller's own padding, as the
+          // keypad is on a tall screen.
+          <div
+            ref={offerBlock}
+            className='sticky -bottom-5 -mb-5 grid gap-2 border-t border-border bg-card pt-3 pb-5'
+          >
+            {offerRows}
+          </div>
+        )}
       </div>
 
       <div
@@ -534,6 +695,7 @@ function Entry({
             Type in every die first.
           </p>
         )}
+        {!compact && offerRows}
         <div className='flex flex-wrap justify-end gap-2'>
           <button
             type='button'

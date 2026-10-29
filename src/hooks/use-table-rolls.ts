@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_ROLL_LABEL,
   type EffectOp,
+  type PrepareOp,
+  type SpellSlotOp,
   type WildShapeOp,
 } from '@/constants/sending-stone'
 import { useStoredChoice } from '@/hooks/use-stored'
@@ -38,6 +40,7 @@ import type {
   FormulaSource,
   GmRollView,
   InspirationSource,
+  PrepareInput,
   RemoveInput,
   RolledDice,
   RollFeature,
@@ -46,6 +49,7 @@ import type {
   RollRequestView,
   RollSource,
   RollStatus,
+  SpellSlotInput,
   SpendSource,
   TextLink,
   TransferInput,
@@ -196,6 +200,10 @@ export type TableRollState = Omit<
   favorite?: 'add' | 'remove'
   /** One of the character's own effects turned off, on or deleted (module 0.39.0): which. */
   effect?: EffectOp
+  /** A spell prepared or unprepared (module 0.42.1): which. */
+  prepare?: PrepareOp
+  /** A spell slot spent or restored (module 0.42.1): which. */
+  spellSlot?: SpellSlotOp
   /**
    * What became of that effect, once made, as the game says (the view's `effect`): kept apart from
    * what was asked, which the line is worded by.
@@ -658,6 +666,24 @@ export function useTableRolls(
   )
 
   /**
+   * Spend one of the character's spell slots, or restore one, from module 0.42.1, from the count
+   * of its pool the dots showed: no roll, as charges spent aren't, but its way kept as which.
+   */
+  const sendSpellSlot = useCallback(
+    (changed: LocalUse, spellSlot: SpellSlotInput) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('spellSlot')) return
+      start(
+        changed.id,
+        { kind: 'spellSlot', spellSlot, ...PLAIN },
+        { spellSlot: spellSlot.op },
+        changed.label,
+      )
+    },
+    [start],
+  )
+
+  /**
    * Move items or coins between the character and a party or another character, from module
    * 0.31.0. No switch of this device's holds it back: a move has no version made here instead.
    */
@@ -724,6 +750,24 @@ export function useTableRolls(
           effect.name,
         ),
         { effect: op },
+        logged.label,
+      )
+    },
+    [start],
+  )
+
+  /**
+   * Prepare one of the character's spells, or unprepare it, from module 0.42.1, by its id on the
+   * sheet. No switch of this device's holds it back, as with a favorite: it has no version made
+   * here instead; the app answers one the game no longer takes.
+   */
+  const sendPrepare = useCallback(
+    (logged: LocalUse, prepare: PrepareInput) => {
+      if (!logged.prepare) return
+      start(
+        logged.id,
+        { kind: 'prepare', prepare, ...PLAIN },
+        { prepare: logged.prepare },
         logged.label,
       )
     },
@@ -854,10 +898,12 @@ export function useTableRolls(
     sendEndConcentration,
     sendSpend,
     sendInspiration,
+    sendSpellSlot,
     sendTransfer,
     sendRemove,
     sendFavorite,
     sendEffect,
+    sendPrepare,
     sendWildShape,
     readWildShapeForms,
     sendAsk,
@@ -887,6 +933,11 @@ export function useTableRolls(
     setAlone,
     /** Whether the game takes this kind of roll from this device now. */
     takes: (kind: RollKind) => on && kinds.includes(kind),
+    /**
+     * Whether the game takes this kind at all, whatever this device's Send to the table: for what
+     * has no version made here, as a spell prepared (module 0.42.1).
+     */
+    lists: (kind: RollKind) => kinds.includes(kind),
     /**
      * Whether a d20 roll from the sheet goes to the game from this device now, as `send` sends it:
      * the same function each render, read as the roll is made.
@@ -995,6 +1046,8 @@ export function gmRollsOf(
     rolled: view.kind,
     at: heard?.get(view.id) ?? Date.parse(view.at),
     ...(view.healing && { healing: true }),
+    // A spell slot's, from module 0.42.1, says whether it was spent or restored.
+    ...(view.slotOp && { slotOp: view.slotOp }),
   }))
   const states = new Map(
     views.map(view => {

@@ -38,6 +38,7 @@ import { EnchantedMark } from './enchantments'
 import { FavoriteStar, useFavorite } from './favorite-mark'
 import { useFavoriteChoice } from './favoriting'
 import { useItemMenu } from './item-menu'
+import { usePrepareChoice } from './preparing'
 import { usePressMenu } from './press-menu'
 import { RechargeChip } from './recharge-chip'
 import { EntryIcon, joinParts } from './sheet-entry'
@@ -453,7 +454,7 @@ function ActionTable({
  * An action in a table: its name, opening to the rest below, and its range, what it rolls and its
  * uses, each in its column; once it's open, each of its other activities, in a row of its own, and
  * all there is to know of it. From module 0.37.0, its name opens a menu, Add to favorites or Remove
- * from favorites, where the pane offers them.
+ * from favorites, where the pane offers them, and, for a spell, from module 0.42.1, Unprepare.
  */
 function ActionTableRow({
   action,
@@ -485,6 +486,8 @@ function ActionTableRow({
   const name = actionTitle(action)
   const { onMenu, menu } = useItemMenu(action.name, {
     favorite: useFavoriteChoice({ type: 'item', id: action.id }, action.name),
+    // A spell listed here can be cast, so it's prepared: Unprepare, or none if always (0.42.1).
+    prepare: usePrepareChoice(action.type === 'spell' ? action.id : undefined),
   })
   const press = usePressMenu(onMenu)
 

@@ -1,12 +1,23 @@
 'use client'
 
 import { useCallback, useState, type ReactNode } from 'react'
-import { Power, PowerOff, Send, Star, StarOff, Trash2 } from 'lucide-react'
+import {
+  Power,
+  PowerOff,
+  Send,
+  Star,
+  StarOff,
+  Sun,
+  SunDim,
+  Trash2,
+} from 'lucide-react'
 import { ChoiceMenu, type MenuItem, type MenuPoint } from './roll-menu'
 import { EFFECT_WORDS } from '@/utils/effect-words'
+import { PREPARE_WORDS } from '@/utils/prepare-words'
 import type { EffectChoice } from './effect-controls'
 import type { FavoriteChoice } from './favoriting'
-import type { EffectOp } from '@/constants/sending-stone'
+import type { PrepareChoice } from './preparing'
+import type { EffectOp, PrepareOp } from '@/constants/sending-stone'
 
 /** Add to favorites, in a row's menu, from module 0.37.0. */
 const ADD_FAVORITE: MenuItem<'favorite'> = {
@@ -21,6 +32,22 @@ const REMOVE_FAVORITE: MenuItem<'favorite'> = {
   id: 'favorite',
   label: 'Remove from favorites',
   icon: StarOff,
+  tint: 'text-text-secondary',
+}
+
+/** Prepare, in the menu of a spell the character hasn't prepared: from module 0.42.1. */
+const PREPARE: MenuItem<'prepare'> = {
+  id: 'prepare',
+  label: PREPARE_WORDS.prepare.menu,
+  icon: Sun,
+  tint: 'text-primary',
+}
+
+/** Unprepare, in the menu of a spell the character has prepared: from module 0.42.1. */
+const UNPREPARE: MenuItem<'unprepare'> = {
+  id: 'unprepare',
+  label: PREPARE_WORDS.unprepare.menu,
+  icon: SunDim,
   tint: 'text-text-secondary',
 }
 
@@ -90,12 +117,14 @@ type Opened = { anchor: HTMLElement; point?: MenuPoint }
 
 /**
  * A row's own menu: what else is done with it, opened on a right-click or long-press of its row:
- * from module 0.37.0 Add to favorites or Remove from favorites, then for an item Send to…, and from
- * module 0.33.0 Remove…, and for one of the character's own effects from module 0.39.0 Turn off or
- * Turn on, then Delete…, each where it may be done. Nothing where none may.
+ * from module 0.37.0 Add to favorites or Remove from favorites, then for a spell from module 0.42.1
+ * Prepare or Unprepare, then for an item Send to…, and from module 0.33.0 Remove…, and for one of
+ * the character's own effects from module 0.39.0 Turn off or Turn on, then Delete…, each where it
+ * may be done. Nothing where none may.
  * @param send - Opens Send to… for it.
  * @param remove - Opens Remove… for it, and whether it waits, as while it's on its way.
  * @param favorite - Adds it to the favorites, or removes it, and whether it waits.
+ * @param prepare - Prepares the spell, or unprepares it, and whether it waits, from module 0.42.1.
  * @param effect - Turns the effect off or on, as its `ops` say, and whether it waits.
  * @param onDelete - Opens the effect's Delete… confirmation, where its `ops` offer it.
  */
@@ -105,12 +134,15 @@ export function useItemMenu(
     send,
     remove,
     favorite,
+    prepare,
     effect,
     onDelete,
   }: Readonly<{
     send?: () => void
     remove?: { open: () => void; waiting: boolean }
     favorite?: FavoriteChoice
+    /** Prepares the spell, or unprepares it, and whether it waits, from module 0.42.1. */
+    prepare?: PrepareChoice
     effect?: EffectChoice
     onDelete?: () => void
   }>,
@@ -124,14 +156,16 @@ export function useItemMenu(
     [],
   )
   const effects = effectItems(effect, onDelete)
-  if (!send && !remove && !favorite && effects.length === 0) {
+  if (!send && !remove && !favorite && !prepare && effects.length === 0) {
     // Nothing to do with it, as while the game takes none of it or once the last of it has gone:
     // a menu left open closes, rather than opening again by itself, at a row that may be gone, and
     // taking focus, once there is again.
     if (opened) setOpened(undefined)
     return { menu: undefined }
   }
-  const items: MenuItem<'favorite' | 'send' | 'remove' | EffectOp>[] = [
+  const items: MenuItem<
+    'favorite' | PrepareOp | 'send' | 'remove' | EffectOp
+  >[] = [
     // First, as the one that changes nothing in the game but where the sheet lists it; while it's
     // on its way, it waits, saying why.
     ...(favorite
@@ -139,6 +173,16 @@ export function useItemMenu(
           {
             ...(favorite.op === 'add' ? ADD_FAVORITE : REMOVE_FAVORITE),
             ...(favorite.waiting && { disabled: ON_ITS_WAY }),
+          },
+        ]
+      : []),
+    // A spell's, from module 0.42.1, after its favorites entry: Prepare or Unprepare, as the sheet
+    // has it now, waiting the same way.
+    ...(prepare
+      ? [
+          {
+            ...(prepare.op === 'prepare' ? PREPARE : UNPREPARE),
+            ...(prepare.waiting && { disabled: ON_ITS_WAY }),
           },
         ]
       : []),
@@ -178,6 +222,11 @@ export function useItemMenu(
           }
           case 'delete': {
             onDelete?.()
+            break
+          }
+          case 'prepare':
+          case 'unprepare': {
+            prepare?.choose()
             break
           }
           default: {

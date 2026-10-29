@@ -3,12 +3,15 @@ import {
   BLESS_DIE,
   blessedSheet,
   GUIDANCE_DIE,
+  INSPIRATION_DIE,
+  inspiredSheet,
 } from '@/mocks/sending-stone'
 import { throwTerm } from '@/utils/dice-modifiers'
 import {
   dieWords,
   effectDiceFor,
   effectTermLabel,
+  offersFor,
   rollTokens,
   skippedWords,
   withoutRerolls,
@@ -34,6 +37,13 @@ const die = (fields: Partial<SheetEffectDie> = {}): SheetEffectDie => ({
 })
 
 const names = (dice: SheetEffectDie[]) => dice.map(({ name }) => name)
+
+/** A roll of this kind, by its key, answering the prompt with this id. */
+const answeringAs =
+  (kind: 'save' | 'skill', key: string) =>
+  (id: string): { source: RollSource } => ({
+    source: { kind, key, prompt: id },
+  })
 
 describe('utils/effect-dice', () => {
   describe('rollTokens', () => {
@@ -230,22 +240,43 @@ describe('utils/effect-dice', () => {
       ).toEqual([])
     })
 
-    it("passes over a die stored with a key module 0.42.0 doesn't write, as a later build's offer, which the game doesn't add", () => {
-      // Stored by a later build of the app, before it was rolled back, so never read by this
-      // build's schema (round 0.42.0 §4.8, §11.2).
+    // Changed on purpose (round 0.42.1 §7.2): this build reads module 0.42.1's offer, and offers
+    // it apart, never asking it as a die the game adds; a key no module writes still passes a die
+    // over.
+    it("never asks a die the sheet offers, which the game doesn't add, nor one stored with a key module 0.42.1 doesn't write", () => {
       const inspiration = {
         ...die({ name: 'Bardic Inspiration', effect: 'inspired01', faces: 8 }),
         on: ['attack', 'save', 'skill'],
         offer: true,
       } as SheetEffectDie
       const inspired = blessedSheet({ effectDice: [BLESS_DIE, inspiration] })
-      expect(
-        names(
-          effectDiceFor(inspired, { source: { kind: 'save', key: 'dex' } }),
-        ),
-      ).toEqual(['Bless'])
+      const save = { source: { kind: 'save' as const, key: 'dex' } }
+      expect(names(effectDiceFor(inspired, save))).toEqual(['Bless'])
       expect(
         effectDiceFor(inspired, { source: { kind: 'skill', key: 'ath' } }),
+      ).toEqual([])
+      expect(offersFor(inspired, save).map(({ die }) => die)).toEqual([
+        inspiration,
+      ])
+      // Stored by a later build of the app, before it was rolled back, so never read by this
+      // build's schema (round 0.42.0 §4.8).
+      const later = { ...BLESS_DIE, caster: 'Vex' } as SheetEffectDie
+      const offered = { ...inspiration, spent: true } as SheetEffectDie
+      const stored = blessedSheet({ effectDice: [later, offered, BANE_DIE] })
+      expect(names(effectDiceFor(stored, save))).toEqual(['Bane'])
+      expect(offersFor(stored, save)).toEqual([])
+    })
+
+    it('never asks Bardic Inspiration, which the sheet offers, beside Bless on any roll', () => {
+      const sheet = inspiredSheet({ effectDice: [BLESS_DIE, INSPIRATION_DIE] })
+      expect(
+        names(effectDiceFor(sheet, { source: { kind: 'save', key: 'str' } })),
+      ).toEqual(['Bless'])
+      expect(
+        effectDiceFor(sheet, { source: { kind: 'ability', key: 'str' } }),
+      ).toEqual([])
+      expect(
+        effectDiceFor(inspiredSheet(), { source: { kind: 'death' } }),
       ).toEqual([])
     })
 
@@ -258,6 +289,167 @@ describe('utils/effect-dice', () => {
       expect(effectDiceFor(null, save)).toEqual([])
       expect(effectDiceFor(undefined, save)).toEqual([])
       expect(effectDiceFor(sheet, {})).toEqual([])
+    })
+  })
+
+  describe('offersFor', () => {
+    const sheet = inspiredSheet()
+    const spends = {
+      effect: 'inspired',
+      name: 'Inspired',
+      offer: 'Bardic Inspiration',
+    }
+    const offered = [{ die: INSPIRATION_DIE, spends }]
+
+    it.each<[string, RollSource]>([
+      ['a saving throw', { kind: 'save', key: 'str' }],
+      ['an attack', { kind: 'attack', item: 'rapier', activity: 'attack' }],
+      ['an ability check', { kind: 'ability', key: 'str' }],
+      ['a death saving throw', { kind: 'death' }],
+      ['a skill check', { kind: 'skill', key: 'prc' }],
+      ['a tool check', { kind: 'tool', key: 'thieves_tools' }],
+    ])(
+      'offers Bardic Inspiration on %s, and what adding it spends',
+      (_, source) => {
+        expect(offersFor(sheet, { source })).toEqual(offered)
+      },
+    )
+
+    it('offers it on a concentration check, and none on initiative, which never fails', () => {
+      const linked = {
+        source: {
+          kind: 'save' as const,
+          key: 'con',
+          text: '0f1a2b3c4d5e6f',
+          link: 1,
+        },
+        ask: { type: 'concentration' as const },
+      }
+      expect(offersFor(sheet, linked)).toEqual(offered)
+      expect(
+        offersFor(sheet, { source: { kind: 'initiative', combatId: 'fight' } }),
+      ).toEqual([])
+    })
+
+    it('offers a die on some rolls only on those', () => {
+      const strength = { ...INSPIRATION_DIE, on: ['save.str', 'check'] }
+      const some = inspiredSheet({ effectDice: [strength] })
+      expect(offersFor(some, { source: { kind: 'save', key: 'str' } })).toEqual(
+        [{ die: strength, spends }],
+      )
+      expect(
+        offersFor(some, { source: { kind: 'ability', key: 'dex' } }),
+      ).toHaveLength(1)
+      expect(offersFor(some, { source: { kind: 'save', key: 'dex' } })).toEqual(
+        [],
+      )
+      expect(
+        offersFor(some, {
+          source: { kind: 'attack', item: 'rapier', activity: 'attack' },
+        }),
+      ).toEqual([])
+    })
+
+    it("offers it on the answer to dnd5e's card's prompt, and none on Midi-QOL's, which refuses anything added, nor on one no longer held", () => {
+      const prompts = [
+        prompt({ id: 'card1-thorin', type: 'save', abilities: ['str'] }),
+        prompt({ id: 'card2-thorin', type: 'concentration' }),
+        prompt({ id: 'midi1', type: 'save', source: 'midi' }),
+        prompt({ id: 'midi2', type: 'concentration', source: 'concentration' }),
+      ]
+      const answering = answeringAs('save', 'str')
+      expect(offersFor(sheet, answering('card1-thorin'), prompts)).toEqual(
+        offered,
+      )
+      expect(offersFor(sheet, answering('card2-thorin'), prompts)).toEqual(
+        offered,
+      )
+      expect(offersFor(sheet, answering('midi1'), prompts)).toEqual([])
+      expect(offersFor(sheet, answering('midi2'), prompts)).toEqual([])
+      expect(offersFor(sheet, answering('gone1'), prompts)).toEqual([])
+      expect(offersFor(sheet, answering('card1-thorin'))).toEqual([])
+      // A check Midi-QOL asks, or dnd5e's card does, likewise.
+      const checks = [
+        prompt({ id: 'card3-thorin', type: 'skill', skills: ['ath'] }),
+        prompt({ id: 'midi3', type: 'skill', skills: ['ath'], source: 'midi' }),
+      ]
+      const skill = answeringAs('skill', 'ath')
+      expect(offersFor(sheet, skill('card3-thorin'), checks)).toEqual(offered)
+      expect(offersFor(sheet, skill('midi3'), checks)).toEqual([])
+    })
+
+    it('offers none for a roll the game doesn’t make, without the sheet’s list or a sheet, or where it offers nothing', () => {
+      const save = { source: { kind: 'save' as const, key: 'str' } }
+      expect(offersFor(sheet, {})).toEqual([])
+      expect(offersFor(inspiredSheet({ effectDice: undefined }), save)).toEqual(
+        [],
+      )
+      // eslint-disable-next-line unicorn/no-null -- a seat with no sheet yet
+      expect(offersFor(null, save)).toEqual([])
+      expect(offersFor(undefined, save)).toEqual([])
+      expect(offersFor(blessedSheet(), save)).toEqual([])
+    })
+
+    it('spends the effect by its id, named as the sheet’s effects name it, else as the die is, and names the offer as the sheet does', () => {
+      const vex = { ...INSPIRATION_DIE, name: 'Bardic Inspiration (Vex)' }
+      const mira = {
+        ...INSPIRATION_DIE,
+        name: 'Bardic Inspiration (Mira)',
+        effect: 'inspiredMira',
+        faces: 8 as const,
+      }
+      const two = inspiredSheet({ effectDice: [vex, BLESS_DIE, mira] })
+      expect(offersFor(two, { source: { kind: 'save', key: 'str' } })).toEqual([
+        {
+          die: vex,
+          spends: {
+            effect: 'inspired',
+            name: 'Inspired',
+            offer: 'Bardic Inspiration (Vex)',
+          },
+        },
+        {
+          die: mira,
+          spends: {
+            effect: 'inspiredMira',
+            name: 'Bardic Inspiration (Mira)',
+            offer: 'Bardic Inspiration (Mira)',
+          },
+        },
+      ])
+    })
+
+    it("finds the effect it spends in any of the sheet's sections, an item's among them", () => {
+      const onItem = { ...INSPIRATION_DIE, effect: 'cloak01.inspired' }
+      const [inspired] = inspiredSheet().effects[0].effects
+      const sheet = inspiredSheet({
+        effects: [
+          { id: 'temporary', label: 'Temporary Effects', effects: [] },
+          {
+            id: 'passive',
+            label: 'Passive Effects',
+            effects: [
+              {
+                ...inspired,
+                id: 'cloak01.inspired',
+                name: 'Inspired by the Cloak',
+              },
+            ],
+          },
+        ],
+        effectDice: [onItem],
+      })
+      expect(
+        offersFor(sheet, { source: { kind: 'death' } }).map(
+          ({ spends }) => spends,
+        ),
+      ).toEqual([
+        {
+          effect: 'cloak01.inspired',
+          name: 'Inspired by the Cloak',
+          offer: 'Bardic Inspiration',
+        },
+      ])
     })
   })
 

@@ -4308,3 +4308,252 @@ describe('hooks/use-table-rolls, the dice effects add, and rerolls kept, from mo
     expect(result.current.sends).toBe(sends)
   })
 })
+
+/** A spell slot spent from the dots, as the page logs it. */
+const slotUsed = (fields: Partial<LocalUse> = {}) =>
+  used({ id: 'u1', label: '1st-level spell slot', slot: 'spend', ...fields })
+
+describe('hooks/use-table-rolls, spell slots from the dots, from module 0.42.1 (round 0.42.1 §U.1)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const plain = { mode: 0, explicit: false, extras: [], dice: [] }
+
+  it('spends or restores one, from the count shown, keeping which under its line, and follows it', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-1' }))
+    const { result } = render(['spend', 'inspiration', 'spellSlot'])
+
+    act(() =>
+      result.current.sendSpellSlot(slotUsed(), {
+        op: 'spend',
+        id: 'spell1',
+        from: 3,
+      }),
+    )
+    expect(sent()).toEqual({
+      kind: 'spellSlot',
+      spellSlot: { op: 'spend', id: 'spell1', from: 3 },
+      ...plain,
+    })
+    expect(result.current.states.get('u1')).toEqual({
+      status: 'sending',
+      spellSlot: 'spend',
+    })
+    act(() =>
+      result.current.sendSpellSlot(slotUsed({ id: 'u2', slot: 'restore' }), {
+        op: 'restore',
+        id: 'pact',
+        from: 0,
+      }),
+    )
+    expect(sent()).toEqual({
+      kind: 'spellSlot',
+      spellSlot: { op: 'restore', id: 'pact', from: 0 },
+      ...plain,
+    })
+    expect(result.current.states.get('u2')).toMatchObject({
+      spellSlot: 'restore',
+    })
+
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(200, { id: 'req-1', status: 'done', visible: true, rolls: [] }),
+      )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u1')).toMatchObject({
+      status: 'done',
+      spellSlot: 'spend',
+      requestId: 'req-1',
+    })
+  })
+
+  it('keeps which on a refusal too, for its words', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(respond(422, { error: 'full', reason: 'full' }))
+    const { result } = render(['spellSlot'])
+
+    act(() =>
+      result.current.sendSpellSlot(slotUsed({ slot: 'restore' }), {
+        op: 'restore',
+        id: 'spell1',
+        from: 4,
+      }),
+    )
+    await advance(0)
+    expect(result.current.states.get('u1')).toMatchObject({
+      status: 'refused',
+      spellSlot: 'restore',
+    })
+  })
+
+  it("sends none where the game doesn't take it, as a module before 0.42.1, or from a device that doesn't send", () => {
+    // A module before 0.42.1 lists charges and Heroic Inspiration, never spell slots.
+    const { result, rerender } = render(['spend', 'inspiration'])
+    const send = () =>
+      act(() =>
+        result.current.sendSpellSlot(slotUsed(), {
+          op: 'spend',
+          id: 'spell1',
+          from: 3,
+        }),
+      )
+    send()
+    expect(result.current.takes('spellSlot')).toBe(false)
+    rerender({ kinds: ['spend', 'inspiration', 'spellSlot'], features: [] })
+    expect(result.current.takes('spellSlot')).toBe(true)
+    act(() => result.current.setSending(false))
+    expect(result.current.takes('spellSlot')).toBe(false)
+    send()
+
+    expect(fetch).not.toHaveBeenCalled()
+    expect(result.current.states.size).toBe(0)
+  })
+
+  it("says the Gamemaster's page spent a slot or restored one, for its player's line, and nothing for another kind", () => {
+    const { rolls } = gmRollsOf([
+      { ...gmView('req-s', 'spellSlot'), slotOp: 'spend' },
+      { ...gmView('req-r', 'spellSlot'), slotOp: 'restore' },
+      gmView('req-x', 'spellSlot'),
+      gmView('req-p', 'spend'),
+    ])
+
+    expect(rolls.map(roll => roll.slotOp)).toEqual([
+      'spend',
+      'restore',
+      undefined,
+      undefined,
+    ])
+    expect(rolls[2]).not.toHaveProperty('slotOp')
+    expect(rolls[3]).not.toHaveProperty('slotOp')
+  })
+})
+
+const prepared = (fields: Partial<LocalUse> = {}) =>
+  used({
+    id: 'u-prepare',
+    label: 'Witch Bolt',
+    prepare: 'prepare',
+    ...fields,
+  })
+
+describe('hooks/use-table-rolls, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("sends it as it is, under its line's id, keeping which, and follows it", async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-prepare' }))
+    const { result } = render(['spend', 'inspiration', 'spellSlot', 'prepare'])
+
+    act(() =>
+      result.current.sendPrepare(prepared(), { op: 'prepare', id: 'witch' }),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/characters/char-1/rolls',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(sent()).toEqual({
+      kind: 'prepare',
+      prepare: { op: 'prepare', id: 'witch' },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    })
+    expect(result.current.states.get('u-prepare')).toEqual({
+      status: 'sending',
+      prepare: 'prepare',
+    })
+
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-prepare',
+        status: 'done',
+        visible: true,
+        rolls: [],
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('u-prepare')).toMatchObject({
+      status: 'done',
+      prepare: 'prepare',
+      requestId: 'req-prepare',
+    })
+  })
+
+  it('sends an unprepare the same way, with Send to the table off on this device', () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-prepare' }))
+    const { result } = render(['prepare'])
+    act(() => result.current.setSending(false))
+
+    act(() =>
+      result.current.sendPrepare(prepared({ prepare: 'unprepare' }), {
+        op: 'unprepare',
+        id: 'bless',
+      }),
+    )
+    expect(sent()).toMatchObject({
+      kind: 'prepare',
+      prepare: { op: 'unprepare', id: 'bless' },
+    })
+    expect(result.current.states.get('u-prepare')).toEqual({
+      status: 'sending',
+      prepare: 'unprepare',
+    })
+  })
+
+  it("sends it where the game's kinds lack it, as a race with a module before 0.42.1, and keeps the app's refusal under its line", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(409, { error: 'unavailable', reason: 'unavailable' }),
+      )
+    // A module before 0.42.1 lists charges, Heroic Inspiration and spell slots, never prepare.
+    const { result } = render(['spend', 'inspiration', 'spellSlot'])
+
+    act(() =>
+      result.current.sendPrepare(prepared(), { op: 'prepare', id: 'witch' }),
+    )
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await advance(0)
+    expect(result.current.states.get('u-prepare')).toMatchObject({
+      status: 'refused',
+      reason: 'unavailable',
+      prepare: 'prepare',
+    })
+  })
+
+  it('sends nothing for a use that prepares nothing', () => {
+    const { result } = render(['prepare'])
+    act(() => result.current.sendPrepare(used(), { op: 'prepare', id: 'x' }))
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("lists it where the game's kinds have it, whatever this device's switch, which `takes` follows", () => {
+    const { result, rerender } = render(['spend', 'inspiration', 'spellSlot'])
+    expect(result.current.lists('prepare')).toBe(false)
+    rerender({
+      kinds: ['spend', 'inspiration', 'spellSlot', 'prepare'],
+      features: [],
+    })
+    expect(result.current.lists('prepare')).toBe(true)
+    act(() => result.current.setSending(false))
+    expect(result.current.lists('prepare')).toBe(true)
+    expect(result.current.takes('prepare')).toBe(false)
+  })
+})

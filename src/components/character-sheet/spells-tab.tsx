@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import clsx from 'clsx'
 import { Wand } from 'lucide-react'
 import {
   ActionEntry,
@@ -11,6 +12,7 @@ import {
 import { componentsOf, whyNot } from './action-info'
 import { spellOrigin } from './description-actions'
 import { enchantedEntry } from './enchantments'
+import { usePrepareChoice } from './preparing'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -134,12 +136,20 @@ export function SpellsTab({
           aria-labelledby={`${sectionId}${section.id}`}
           className='flex flex-col gap-2'
         >
-          <div className='flex items-center justify-between gap-3'>
+          {/* The dots go beneath the heading before anything scrolls sideways: from module 0.42.1
+              each is a button a finger wide, and nine of them beside "Pact Magic — 3rd Level"
+              don't fit a phone. */}
+          <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
             <SheetHeading id={`${sectionId}${section.id}`}>
               {section.label}
             </SheetHeading>
             {section.slots && section.slots.max > 0 && (
-              <SpellSlots value={section.slots.value} max={section.slots.max} />
+              <SpellSlots
+                value={section.slots.value}
+                max={section.slots.max}
+                // eslint-disable-next-line unicorn/no-null -- as the sheet says a level unknown
+                pool={{ id: section.id, level: section.slots.level ?? null }}
+              />
             )}
           </div>
           {section.spells.length > 0 ? (
@@ -187,14 +197,18 @@ function foundOf(sections: TableSheet['spells']): string {
 
 /**
  * How the character casts: their spellcasting ability, spell save DC and spell attack bonus, and
- * each spellcasting class's when they have more than one.
+ * each spellcasting class's when they have more than one. From module 0.42.1, how many spells each
+ * class has prepared, of how many, as dnd5e's sheet shows it: the class's own where there's one,
+ * else on each class's row.
  */
 function Spellcasting({
   spellcasting,
 }: Readonly<{ spellcasting: SheetSpellcasting }>) {
   const { ability, dc, attack, classes } = spellcasting
   const headingId = useSheetId('spellcasting-heading')
-  if (ability === null && dc === null && attack === null) return
+  const prepared =
+    classes.length === 1 ? preparedCount(classes[0].prepared) : undefined
+  if (ability === null && dc === null && attack === null && !prepared) return
   return (
     <section aria-labelledby={headingId} className='flex flex-col gap-2'>
       <SheetHeading id={headingId}>Spellcasting</SheetHeading>
@@ -216,6 +230,14 @@ function Spellcasting({
             </span>
           </SheetFact>
         )}
+        {prepared && (
+          <SheetFact label='Prepared' className='col-span-2 @lg:col-span-1'>
+            <span aria-hidden className='text-lg font-bold tabular-nums'>
+              {prepared.shown}
+            </span>
+            <span className='sr-only'>{prepared.said}</span>
+          </SheetFact>
+        )}
       </dl>
       {classes.length > 1 && (
         <ul
@@ -225,9 +247,9 @@ function Spellcasting({
           {classes.map(entry => (
             <li
               key={entry.name}
-              className='flex items-center gap-3 rounded-xl px-2.5 py-2'
+              className='flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-2.5 py-2'
             >
-              <span className='min-w-0 flex-1'>
+              <span className='min-w-0 flex-auto'>
                 <span className='block truncate font-medium'>{entry.name}</span>
                 {entry.ability && (
                   <span className='block truncate text-xs text-text-secondary'>
@@ -235,18 +257,29 @@ function Spellcasting({
                   </span>
                 )}
               </span>
-              {entry.dc !== null && (
-                <span className='shrink-0 text-sm'>
-                  <span className='text-text-secondary'>DC </span>
-                  <span className='font-semibold tabular-nums'>{entry.dc}</span>
-                </span>
-              )}
-              {entry.attack !== null && (
-                <span className='shrink-0 text-sm'>
-                  <span className='font-semibold tabular-nums'>
-                    {formatModifier(entry.attack)}
-                  </span>
-                  <span className='text-text-secondary'> to hit</span>
+              {/* Beside the name where they fit, else beneath it at the row's end, so that the
+                  prepared count, from module 0.42.1, never cuts the name short on a phone. */}
+              {(entry.dc !== null ||
+                entry.attack !== null ||
+                !!preparedCount(entry.prepared)) && (
+                <span className='ml-auto flex flex-wrap items-center justify-end gap-x-3'>
+                  {entry.dc !== null && (
+                    <span className='shrink-0 text-sm'>
+                      <span className='text-text-secondary'>DC </span>
+                      <span className='font-semibold tabular-nums'>
+                        {entry.dc}
+                      </span>
+                    </span>
+                  )}
+                  {entry.attack !== null && (
+                    <span className='shrink-0 text-sm'>
+                      <span className='font-semibold tabular-nums'>
+                        {formatModifier(entry.attack)}
+                      </span>
+                      <span className='text-text-secondary'> to hit</span>
+                    </span>
+                  )}
+                  <ClassPrepared prepared={entry.prepared} />
                 </span>
               )}
             </li>
@@ -258,9 +291,46 @@ function Spellcasting({
 }
 
 /**
+ * How many of a class's spells are prepared, of how many it may prepare, as dnd5e's sheet shows it
+ * (module 0.42.1): "5 / 6", read "5 of 6", and past the limit as it is, "7 / 6", as dnd5e never
+ * refuses one more; the count alone where the class may prepare none, as a homebrew one; nothing
+ * where it counts none, as a 2014 Sorcerer, or the module doesn't say.
+ */
+function preparedCount(
+  prepared: SheetSpellcasting['classes'][number]['prepared'],
+): { shown: string; said: string } | undefined {
+  if (!prepared || (prepared.value === 0 && prepared.max === 0)) return
+  const { value, max } = prepared
+  return max > 0
+    ? { shown: `${value} / ${max}`, said: `${value} of ${max}` }
+    : { shown: String(value), said: String(value) }
+}
+
+/**
+ * How many of a class's spells are prepared, on its row, where the character has more than one
+ * spellcasting class (module 0.42.1): "Prepared 5 / 6", read "Prepared 5 of 6".
+ */
+function ClassPrepared({
+  prepared,
+}: Readonly<{ prepared: SheetSpellcasting['classes'][number]['prepared'] }>) {
+  const count = preparedCount(prepared)
+  if (!count) return
+  return (
+    <span className='shrink-0 text-sm'>
+      <span aria-hidden>
+        <span className='text-text-secondary'>Prepared </span>
+        <span className='font-semibold tabular-nums'>{count.shown}</span>
+      </span>
+      <span className='sr-only'>Prepared {count.said}</span>
+    </span>
+  )
+}
+
+/**
  * A spell: when and how it is cast, marked for concentration, ritual or always prepared. One not
- * prepared is muted. Given the rows actions are in, one that rolls shows what it rolls beside it,
- * as an action does: one not prepared is rolled here only, as the game would have it prepared.
+ * prepared is muted, and says so. Given the rows actions are in, one that rolls shows what it rolls
+ * beside it, as an action does: one not prepared is rolled here only, as the game would have it
+ * prepared. From module 0.42.1, its menu prepares it or unprepares it, where the pane offers that.
  */
 export function SpellEntry({
   characterId,
@@ -274,6 +344,8 @@ export function SpellEntry({
   /** What its row's favorites entry adds or removes, from module 0.37.0: the spell, unless said. */
   favorite?: FavoriteTarget | null
 }>) {
+  // Asked whichever it's drawn as, before either is returned; an action's row asks it itself.
+  const prepare = usePrepareChoice(spell.id)
   const unprepared = spell.prepared === 0
   const components = componentsOf(spell)
   // A spell its item can't cast now is listed, but can't be cast, and says why: first, where a
@@ -312,6 +384,12 @@ export function SpellEntry({
       />
     )
   }
+  const aside = (marked || spell.uses) && (
+    <span className='flex shrink-0 items-center gap-1'>
+      <Marks spell={spell} />
+      {spell.uses && <UsesLeft uses={spell.uses} />}
+    </span>
+  )
   return (
     <SheetEntry
       characterId={characterId}
@@ -320,6 +398,7 @@ export function SpellEntry({
       fallback={Wand}
       favoriteKey={`item:${spell.id}`}
       favorite={favorite}
+      prepareChoice={prepare}
       detail={
         unusable
           ? joinParts(whyNot(unusable), fromNote(unusable), spell.activation)
@@ -329,14 +408,10 @@ export function SpellEntry({
               spell.castFrom && fromNote(spell.castFrom),
             )
       }
-      aside={
-        (marked || spell.uses) && (
-          <span className='flex shrink-0 items-center gap-1'>
-            <Marks spell={spell} />
-            {spell.uses && <UsesLeft uses={spell.uses} />}
-          </span>
-        )
-      }
+      aside={unprepared ? <BelowName>{aside}</BelowName> : aside}
+      // Its "Not prepared" mark is wider than the others: in a narrow list, as on a phone or in the
+      // desk's Favorites column, beneath the name rather than cutting it short.
+      wraps={unprepared}
       meta={meta}
       facts={factsOf([
         ['Casting time', spell.activation],
@@ -358,11 +433,18 @@ function fromNote(castFrom: SheetCastFrom): string {
   return `From ${castFrom.name}`
 }
 
-/** A spell's marks: for concentration, ritual or always prepared, and not prepared, unseen. */
+/** A spell's marks: for concentration, ritual or always prepared, and not prepared. */
 function Marks({ spell }: Readonly<{ spell: SheetSpell }>) {
   return (
     <>
-      {spell.prepared === 0 && <span className='sr-only'>Not prepared</span>}
+      {/* In words, from 0.42.1, as the row's fade alone says other things too, as no slots left;
+          its text is its name. In the text's own colour rather than the other marks' grey, which
+          the row's fade would leave too faint to read. */}
+      {spell.prepared === 0 && (
+        <span className={clsx(MARK_BOX, 'whitespace-nowrap text-text-primary')}>
+          Not prepared
+        </span>
+      )}
       {spell.concentration && <Mark short='C' label='Concentration' />}
       {spell.ritual && <Mark short='R' label='Ritual' />}
       {spell.prepared === 2 && <Mark short='Always' label='Always prepared' />}
@@ -379,15 +461,32 @@ function factsOf(
   )
 }
 
+/** How a spell's mark is drawn: small, bordered and in capitals. */
+const MARK_BOX =
+  'rounded border border-border px-1 text-[10px] leading-4 font-bold tracking-wide uppercase'
+
+/** How a spell's mark looks: as drawn, in grey. */
+const MARK = `${MARK_BOX} text-text-secondary`
+
 /** A spell's mark, such as C for concentration, spelled out for screen readers. */
 function Mark({ short, label }: Readonly<{ short: string; label: string }>) {
   return (
-    <span
-      title={label}
-      className='rounded border border-border px-1 text-[10px] leading-4 font-bold tracking-wide text-text-secondary uppercase'
-    >
+    <span title={label} className={MARK}>
       <span aria-hidden>{short}</span>
       <span className='sr-only'>{label}</span>
+    </span>
+  )
+}
+
+/**
+ * A spell row's marks on a line of their own beneath its name in a narrow list, where the list
+ * it's in, a container, is under 28rem wide, lined up with the name past the icon: for a row given
+ * `wraps`, which lets them go there (round 0.42.1 §P review).
+ */
+function BelowName({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <span className='@max-md:order-last @max-md:basis-full @max-md:pl-11'>
+      {children}
     </span>
   )
 }

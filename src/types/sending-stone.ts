@@ -495,6 +495,14 @@ export type SheetSpellcasting = {
     ability: string | null
     dc: number | null
     attack: number | null
+    /**
+     * From module 0.42.1, how many of the class's spells are prepared, and how many it may prepare,
+     * as dnd5e's sheet shows "Prepared 5 / 6": the subclass's where it has a progression of its
+     * own. The count may pass the limit, as dnd5e never refuses one more, and the limit may be 0
+     * with spells prepared. Left out for a class that counts none, such as a 2014 Sorcerer's, and
+     * by an older module.
+     */
+    prepared?: { value: number; max: number }
   }[]
 }
 
@@ -1171,6 +1179,11 @@ export type SheetEffectDie = {
   sign: 1 | -1
   /** Such as ["attack", "save", "death", "concentration"], or ["skill.ath"]. */
   on: string[]
+  /**
+   * From module 0.42.1: a die the game doesn't add, which the player may add once the roll fails,
+   * as Bardic Inspiration's; `effect` is what adding it uses up.
+   */
+  offer?: true
 }
 
 export type CharacterSheet = {

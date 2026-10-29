@@ -45,11 +45,35 @@
 // the game's total; screenshots to shots-042. MIDI=1 also: Midi's save asks Bless's die, and Midi's
 // concentration check, made with dnd5e's, asks the die only a concentration check adds too, its total
 // the game's. DND5E6=1: no effect's die, rerolls kept.
+// Since app 0.42.1 (round 0.42.1 §7.4): Elven Accuracy's third d20 on a line of its own, "Elven
+// Accuracy: third d20", after the two of "d20, advantage", with Skip where the roll goes to the game:
+// typed, the card's d20s the three typed; skipped, "The game rolls Elven Accuracy’s d20." and the total
+// "not counting" it, Type it in bringing its box back, two d20s sent and the card's third Foundry's,
+// the tray's table total the card's; no Skip with Send to the table off; at 390×844, 360×640 and
+// 844×390 its Skip and Type it in beside Bless's and Bane's. Since module 0.42.1, step 5c: Vex, a
+// level 4 bard, has the 2024 Bardic Inspiration, its Inspired effect and a d6 on his scale; the
+// Gamemaster applies Inspired to Thorin, and within a poll his sheet offers "Bardic Inspiration", a d6,
+// on every kind but initiative. A Strength save asks no die for it, but has the offer's row in the
+// dialog's sticky block, "Add it if your Gamemaster says the roll fails." and Add, left out: Done
+// sends nothing more, and nothing is spent. At 1280 from the keyboard: the typed d20 moves focus to
+// Add, Enter adds its d6 box last among the dice, Leave out and Add again, the d6 typed, Done: sent as
+// one of the roll's extras, the card's d6 the typed one, the tray's "Bardic Inspiration +1d6 (5)";
+// once made, Inspired removed from the app, its line logged beneath the save, which stays the latest,
+// and nothing offered after. The rapier's hit keeps Roll damage with Inspired removed beneath it. With
+// the campaign's effects switch off, "Ask your Gamemaster to remove Inspired.", nothing sent, and the
+// spent die not offered again on that page. As toasts, the save's toast says its die whole and the
+// spent line, and Inspired's toast pops. Vex's scale a d8, a world-time tick re-sends Thorin, and the
+// offer is a d8. MIDI=1: Midi-QOL's save prompt asks Bless's die but offers nothing. At 390×844 and
+// 360×640, Add in view in the sticky block with focus in the first box, 44 px tall, that box whole
+// above the block, its d6 box above the keypad once tapped; at 844×390 (round 0.42.1's review) the
+// offer's row in a sticky block at the foot of the dice column, Add, Done and the first box whole in
+// view, Add's d6 box above that row. Screenshots to shots-0421. DND5E6=1: no offer. SKEW=041: the Elven line with
+// Skip, two d20s sent and the card's third Foundry's, and no offer.
 // SKEW=041 with MODULE=module-0.41.0: no effect's die asked, a crafted effectDice and rerolls taken
 // (202) and stripped, and the greatsword's typed 1 rerolled by Foundry, the tray waiting for the
 // game's total. Synthetic characters only. Run with
 // --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import {
   BOB, DND5E6, MIDI, MODULE, SHOTS, SHOTS_033, SHOTS_042, SKEW031, SKEW041, VARIANT, W, actors, browse, call, character, check, faces, finish, foundryWorld,
@@ -62,6 +86,9 @@ const GAME = 'https://dice-hollow.forge-vtt.com'
 const SECRET = 'dice-hollow-typed-32'
 const TITLE = 'Dice Hollow'
 const NEW = !SKEW031
+/** Round 0.42.1's pictures, beside the others, whatever folder a run's SHOTS is. */
+const SHOTS_0421 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-0421`
+if (SHOTS_0421) mkdirSync(SHOTS_0421, { recursive: true })
 await launch(GAME)
 const { id: A, invite } = await newCampaign({ title: TITLE, address: 'dice-hollow.forge-vtt.com', secret: SECRET })
 await foundryWorld({ dice6: DND5E6 })
@@ -203,7 +230,25 @@ const BLESSED = fromSpell('thorinBlessed', 'Blessed', vexBless, SAVES_AND_ATTACK
 const BANED = fromSpell('thorinBane', 'Bane', grukkBane, SAVES_AND_ATTACKS.map(key => change(key, '-1d4')))
 const GUIDED = fromSpell('thorinGuidance', 'Athletic Guidance', vexGuidance, [change('skills.ath.bonuses.check', '1d4')])
 const STEADY = { _id: 'thorinSteady', name: 'Steady Mind', system: { changes: [change('attributes.concentration.bonuses.save', '1d4')] } }
-const ROUND_EFFECTS = [BLESSED, BANED, GUIDED, STEADY].map(effect => effect.name)
+// Round 0.42.1 §7.4: Vex, a level 4 bard, with the 2024 Bardic Inspiration as dnd5e's compendium
+// has it (PK classes24/bard/class-features/bardic-inspiration.yml): the feature by its identifier,
+// for the 2024 rules; its Inspire effect, Inspired, with no change and not transferred; and the
+// class's scale die, a d6 at his level, `number` null. The stand-in's item has no identifier of its
+// own, so the module reads the feature's `system.identifier`, as dnd5e's getter falls back to.
+const vexInspire = E.itemOn(vex, { _id: 'vexInspire', name: 'Bardic Inspiration' })
+Object.assign(vexInspire.system, { identifier: 'bardic-inspiration', source: { rules: '2024' } })
+const vexInspiredSource = E.effectOnItem(vexInspire, { _id: 'vexInspired', name: 'Inspired', transfer: false, system: { changes: [] } })
+vex.system.scale = { bard: { inspiration: { number: null, faces: 6 } } }
+/**
+ * What dnd5e's Apply puts on Thorin from Vex's Inspire: Inspired, its origin the feature's effect,
+ * for an hour. A new one each time, as Foundry gives an effect applied again after it was deleted a
+ * new id, and the app keeps a die it spent by its effect's id.
+ */
+let inspirations = 0
+const inspiring = () => ({
+  _id: `thorinInspired${++inspirations}`, name: 'Inspired', origin: vexInspiredSource.uuid, duration: { seconds: 3600 }, system: { changes: [] },
+})
+const ROUND_EFFECTS = [BLESSED, BANED, GUIDED, STEADY, { name: 'Inspired' }].map(effect => effect.name)
 const EFFECT_FIELDS = [...SAVES_AND_ATTACKS, 'skills.ath.bonuses.check', 'attributes.concentration.bonuses.save']
 /**
  * Thorin's fields as dnd5e prepares them from his effects, which the stand-in doesn't apply: each
@@ -234,6 +279,22 @@ async function takeOff(effect) {
   prepareThorin()
   await Hooks.callAll('deleteActiveEffect', effect, {}, 'gm')
 }
+// Round 0.42.1: one of Thorin's own effects deleted from the app (v0.39's delete, the module's
+// effect.delete()), as Foundry deletes one through its actor: gone from him, his fields prepared
+// again, and every client's hook; the world's stand-in deletes only items.
+{
+  const deleteItems = thorin.deleteEmbeddedDocuments
+  thorin.deleteEmbeddedDocuments = async (type, ids, options = {}) => {
+    if (type !== 'ActiveEffect') return deleteItems(type, ids, options)
+    for (const id of ids) {
+      const effect = thorin.effects.find(each => each.id === id)
+      if (!effect) throw new Error(`ActiveEffect ${id} does not exist`)
+      thorin.effects.splice(thorin.effects.indexOf(effect), 1)
+      prepareThorin()
+      await Hooks.callAll('deleteActiveEffect', effect, options, game.user?.id ?? 'gm')
+    }
+  }
+}
 // The tokens on the Gamemaster's canvas, and a fight.
 const tokenOf = {}
 for (const actor of [thorin, vex, goblin, ogre]) {
@@ -254,8 +315,11 @@ if (MIDI) {
   midiSaves = saves
   Object.assign(W.midi.settings, { autoCheckSaves: 'all', requiresTargets: 'none', gmAutoFastForward: ['save'] })
 }
+// Changed on purpose (round 0.42.1 §7.4): the campaign lets players remove their own effects, as
+// effects-e2e's does, for the Inspired a spent Bardic Inspiration leaves (step 5c).
+const CAMPAIGN = changes => ({ id: 'camp-dice', title: TITLE, characters: ['thorin', 'vex'], groups: [], rolls: true, attacks: true, prompts: true, manualDice: true, effects: true, ...changes })
 await startModule({
-  campaigns: [{ id: 'camp-dice', title: TITLE, characters: ['thorin', 'vex'], groups: [], rolls: true, attacks: true, prompts: true, manualDice: true }],
+  campaigns: [CAMPAIGN()],
   secrets: { 'camp-dice': SECRET },
   midiCritical: { gm: 'doubleDice', player: 'default' },
 })
@@ -621,6 +685,127 @@ const effectButtons = dialog => dialog.evaluate(async el => {
   return { short, seen }
 })
 
+// ---- Round 0.42.1: Elven Accuracy's own line, and the 2024 Bardic Inspiration offered ----
+/** The rapier with advantage's d20s, from app 0.42.1: two, then Elven Accuracy's third on its own line. */
+const ELVEN_GROUPS = [{ name: 'd20, advantage', boxes: ['d20 1 of 2', 'd20 2 of 2'] }, { name: 'Elven Accuracy: third d20', boxes: ['d20'] }]
+const skipElven = dialog => dialog.getByRole('button', { name: 'Skip Elven Accuracy’s d20', exact: true })
+const typeElven = dialog => dialog.getByRole('button', { name: 'Type it in, Elven Accuracy’s d20', exact: true })
+const ELVEN_OUT = 'The game rolls Elven Accuracy’s d20.'
+/** Every button in a dialog whose name starts "Skip ", as a reader lists them. */
+const skips = dialog => dialog.evaluate(el => [...el.querySelectorAll('button')].map(b => b.getAttribute('aria-label') ?? '').filter(name => name.startsWith('Skip ')))
+/** A button's description, as a reader hears it after its name. */
+const describedBy = button => button.evaluate(el => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent.trim() ?? null)
+const strSave = who => sheet(who).getByRole('button', { name: /^Strength saving throw/ }).first()
+/** The kinds the module offers Bardic Inspiration on: every d20 roll's but initiative. */
+const OFFER_ON = ['attack', 'check', 'save', 'skill', 'tool', 'death', 'concentration']
+const OFFER_LINE = 'Add it if your Gamemaster says the roll fails.'
+const offered = (effect, faces = 6) => ({ name: 'Bardic Inspiration', effect, faces, count: 1, sign: 1, on: OFFER_ON, offer: true })
+/** The dice Thorin's sheet offers, as the app keeps it. */
+const storedOffers = () => (storedDice() ?? []).filter(die => die.offer === true)
+/**
+ * The die offered, as the dialog draws it (round 0.42.1 §2.5): its row's lines; its button's name,
+ * words and description; whether the row is in the sticky block, after the keypad and before Done;
+ * whether the button is in view, its top at or below the keypad's, and how tall it is; and how far
+ * the dice have scrolled. Null where nothing is offered.
+ */
+const offerLook = dialog => dialog.evaluate(el => {
+  const button = [...el.querySelectorAll('button')].find(b => /^(Add|Leave out) /.test(b.getAttribute('aria-label') ?? ''))
+  if (!button) return null
+  const form = el.querySelector('form')
+  const pad = el.querySelector('[aria-label="Keypad"]')
+  const done = [...el.querySelectorAll('button')].find(b => b.textContent === 'Done')
+  const b = button.getBoundingClientRect()
+  const p = pad.getBoundingClientRect()
+  const follows = (a, z) => !!(a.compareDocumentPosition(z) & Node.DOCUMENT_POSITION_FOLLOWING)
+  return {
+    lines: [...button.parentElement.querySelectorAll('p')].map(line => line.textContent.trim()),
+    name: button.getAttribute('aria-label'),
+    text: button.textContent.trim(),
+    described: document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent.trim() ?? null,
+    inBlock: form.lastElementChild.contains(button) && follows(pad, button) && follows(button, done),
+    inView: b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth,
+    belowKeypadTop: b.top >= p.top - 1,
+    height: Math.round(b.height),
+    scrolled: Math.round(form.parentElement.scrollTop),
+  }
+})
+/**
+ * The die offered on a short screen (844×390; round 0.42.1's review): whether the dialog is in its
+ * two columns; whether the offer's row is in a sticky block at the foot of the dice column, not in
+ * the keypad's; whether Add and Done are each whole inside the dice's scroller and the viewport, and
+ * the first box whole above the offer's rows; and how far the dice have scrolled. Null where nothing
+ * is offered.
+ */
+const shortOfferLook = dialog => dialog.evaluate(el => {
+  const button = [...el.querySelectorAll('button')].find(b => /^(Add|Leave out) /.test(b.getAttribute('aria-label') ?? ''))
+  if (!button) return null
+  const form = el.querySelector('form')
+  const scroller = form.parentElement
+  const rows = button.parentElement.parentElement
+  const done = [...el.querySelectorAll('button')].find(b => b.textContent === 'Done')
+  const s = scroller.getBoundingClientRect()
+  const whole = node => {
+    const b = node.getBoundingClientRect()
+    return b.width > 0 && b.top >= Math.max(s.top, 0) - 0.5 && b.bottom <= Math.min(s.bottom, innerHeight) + 0.5 && b.left >= 0 && b.right <= innerWidth
+  }
+  const box = el.querySelector('input').getBoundingClientRect()
+  return {
+    name: button.getAttribute('aria-label'),
+    short: getComputedStyle(form).gridTemplateColumns.split(' ').length === 2,
+    inDiceColumn: form.firstElementChild.contains(button) && !form.lastElementChild.contains(button),
+    sticky: getComputedStyle(rows).position === 'sticky',
+    add: whole(button), done: !!done && whole(done),
+    box: box.height > 0 && box.top >= Math.max(s.top, 0) - 0.5 && box.bottom <= rows.getBoundingClientRect().top + 0.5,
+    scrolled: Math.round(scroller.scrollTop),
+  }
+})
+/**
+ * The die offered once added: its group's place among the dice, its first box's name, whether that
+ * box has focus and is current, and whether it's in view above what's kept over the dice: the
+ * keypad's top, or on a short screen (since round 0.42.1's review) the offer's rows beneath them.
+ */
+const addedLook = dialog => dialog.evaluate(el => {
+  const groups = [...el.querySelectorAll('[role=group][aria-labelledby]')]
+  const at = groups.findIndex(group => document.getElementById(group.getAttribute('aria-labelledby'))?.textContent.trim().startsWith('Bardic Inspiration'))
+  const box = groups[at]?.querySelector('input')
+  if (!box) return null
+  const b = box.getBoundingClientRect()
+  const form = el.querySelector('form')
+  const short = getComputedStyle(form).gridTemplateColumns.split(' ').length === 2
+  const button = [...el.querySelectorAll('button')].find(node => /^(Add|Leave out) /.test(node.getAttribute('aria-label') ?? ''))
+  const over = (short ? button?.parentElement.parentElement : el.querySelector('[aria-label="Keypad"]'))?.getBoundingClientRect()
+  const s = form.parentElement.getBoundingClientRect()
+  return {
+    last: at === groups.length - 1, box: box.getAttribute('aria-label'), focused: document.activeElement === box,
+    current: box.getAttribute('aria-current') === 'true', clear: !!over && b.top >= Math.max(s.top, 0) - 1 && b.bottom <= over.top + 1,
+  }
+})
+/** The changes to Thorin's effects the app kept: each its status and what it asked. */
+const effectCommands = () => JSON.parse(sql(`select coalesce(json_agg(json_build_object('status', status, 'effect', payload->'effect') order by "createdAt")::text, '[]') from roll_request where kind = 'effect'`))
+const SPENT = {
+  removed: 'Bardic Inspiration spent: Inspired removed.',
+  removing: 'Bardic Inspiration spent: removing Inspired…',
+  ask: 'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+}
+const spentLines = lines => lines.filter(line => line.startsWith('Bardic Inspiration spent'))
+/** Until the tray's latest roll says what became of the Inspired it spent, as `line`. */
+async function traySpent(who, line) {
+  await until(async () => (await trayLatest(who)).lines.includes(line), `the tray to say "${line}"`, 30_000).catch(() => {})
+  return trayLatest(who)
+}
+/** Whether the effect is on Thorin in Foundry, by its id. */
+const onThorin = id => thorin.effects.some(effect => effect.id === id)
+/**
+ * The campaign's "Allow Players to disable & remove their own active effects" set in Foundry, and
+ * kept so by the app, and Alice's page told so: its seat's view, then two of the page's polls.
+ */
+async function effectsSwitch(on) {
+  await game.settings.set('sending-stone', 'campaigns', [CAMPAIGN({ effects: on })])
+  await until(() => sql(`select "effectsEnabled" from campaign where id = '${A}'`) === (on ? 't' : 'f'), `the app to keep effects ${on ? 'on' : 'off'}`, 20_000)
+  await until(async () => ((await call(alice.page, '/api/characters/sheet-thorin/table')).json?.effects === true) === on, `the seat's view with effects ${on ? 'on' : 'off'}`, 20_000)
+  await wait(7_000)
+}
+
 if (SKEW031) {
   // =================================================================================================
   // Module 0.31.0: no gate, so no one types; three d20s are never sent, and `typed` is stripped
@@ -737,6 +922,39 @@ if (SKEW041) {
     && same(roll?.dice[0].results.filter(r => r.rerolled).map(r => r.result), [1]) && roll.formula.includes('r<=2') && roll.total === 10 && faces.length === 0
     && later.total === '10' && atTable(later) === '10',
     `with module 0.41.0 the greatsword's damage has no note, is sent typed without rerolls, Foundry rerolls the typed 1 (a 4: ${roll?.formula} = ${roll?.total}), and the tray shows the game's total once made (${JSON.stringify(later)})`)
+  // Round 0.42.1 §7.4: Elven Accuracy's third d20 on its own line, with Skip, against module 0.41.0,
+  // which throws the third itself where two are sent, as every module from 0.32.0 does.
+  const rapierPicker = alice.page.getByRole('dialog', { name: 'Rapier attack' })
+  // The third d20, Foundry's: 19; then the rapier's own magic d4: 3.
+  faces.push(19, 3)
+  entry = await asked(alice, async () => {
+    await fromMenu(alice, panel(alice).getByRole('button', { name: 'Rapier attack, +6' }), 'Roll with advantage')
+    await rapierPicker.waitFor()
+    await rapierPicker.getByRole('button', { name: /^Goblin/ }).click()
+  }, 'the rapier with advantage, with module 0.41.0')
+  check(same(await groupsOf(entry.dialog), ELVEN_GROUPS) && await skipElven(entry.dialog).isVisible(),
+    `with module 0.41.0, the rapier with advantage asks "d20, advantage" and "Elven Accuracy: third d20", with "Skip Elven Accuracy’s d20" (${JSON.stringify(await groupsOf(entry.dialog))})`)
+  await skipElven(entry.dialog).click()
+  await keys(entry.dialog, '3', '1', '8')
+  made = await done(alice, entry)
+  {
+    const roll = MIDI ? W.midi.made.at(-1)?.attackRoll : made.message?.rolls[0]
+    check(same(made.request.payload.dice[0].results, [3, 18]) && made.request.payload.typed === true && same(d20sOf(roll), [3, 18, 19]) && roll.dice[0].total === 19 && faces.length === 0,
+      `Elven Accuracy's d20 skipped: sent as two d20s, [3, 18], and module 0.41.0's card has three, Foundry's 19 the third and kept (${roll?.formula} = ${roll?.total})`)
+  }
+  // And Inspired on Thorin: module 0.41.0 lists no effectDice, so nothing is offered.
+  const inspired = await putOn(inspiring())
+  await sheetWith([alice], ['Inspired'])
+  await alice.tab('Character')
+  entry = await asked(alice, () => strSave(alice).click(), 'a Strength save, Inspired, with module 0.41.0')
+  {
+    const look = await offerLook(entry.dialog)
+    check(storedDice() === null && look === null && await entry.dialog.getByText(OFFER_LINE).count() === 0 && same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }]),
+      `Vex's Inspired on Thorin, module 0.41.0's sheet lists no effectDice, and a Strength save offers nothing: no Add, no "${OFFER_LINE}" (${JSON.stringify(look)})`)
+  }
+  await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+  await entry.dialog.waitFor({ state: 'hidden' })
+  await takeOff(inspired)
   await finish()
 }
 
@@ -845,20 +1063,59 @@ const rapierPicker = alice.page.getByRole('dialog', { name: 'Rapier attack' })
 // Changed on purpose (round 0.42.0 §8.5): the attack's own magic d4, which the game throws itself:
 // 3. Bless, an effect, is step 5b's.
 faces.push(3)
-entry = await asked(alice, async () => {
+const rapierWithAdvantage = what => asked(alice, async () => {
   await fromMenu(alice, rapier, 'Roll with advantage')
   await rapierPicker.waitFor()
   await rapierPicker.getByRole('button', { name: /^Goblin/ }).click()
-}, 'the rapier with advantage')
-check(same(await groupsOf(entry.dialog), [{ name: 'd20, advantage (Elven Accuracy)', boxes: ['d20 1 of 3', 'd20 2 of 3', 'd20 3 of 3'] }]),
-  `the rapier with advantage asks for three, "d20, advantage (Elven Accuracy)", and nothing for the attack's own magic d4 (${JSON.stringify(await groupsOf(entry.dialog))})`)
+}, what)
+entry = await rapierWithAdvantage('the rapier with advantage')
+// Changed on purpose (round 0.42.1 §7.4): Elven Accuracy's third d20 on its own line, after the two
+// of "d20, advantage", with Skip, as the attack goes to the game.
+check(same(await groupsOf(entry.dialog), ELVEN_GROUPS) && await skipElven(entry.dialog).isVisible() && await skipElven(entry.dialog).textContent() === 'Skip',
+  `the rapier with advantage asks for two, "d20, advantage", then "Elven Accuracy: third d20", one box, with Skip ("Skip Elven Accuracy’s d20"), and nothing for the attack's own magic d4 (${JSON.stringify(await groupsOf(entry.dialog))})`)
+await shootBoth(alice, 'typed-elven', entry.dialog, SHOTS_0421)
 await keys(entry.dialog, '3', '1', '8', '7')
 made = await done(alice, entry)
 {
   const roll = MIDI ? W.midi.made.at(-1)?.attackRoll : made.message?.rolls[0]
   const d4 = roll?.dice?.find(d => d.faces === 4)?.results.map(r => r.result)
   check(same(made.request.payload.dice[0].results, [3, 18, 7]) && same(d20sOf(roll), [3, 18, 7]) && roll.dice[0].total === 18 && same(d4, [3]),
-    `the card's d20s are [3, 18, 7], 18 kept${MIDI ? ', through Midi-QOL\'s workflow' : ''}, and the attack's own magic d4 is Foundry's, 3 (${roll?.formula} = ${roll?.total})`)
+    `typed 3, 18 and the third 7: the card's d20s are [3, 18, 7], 18 kept${MIDI ? ', through Midi-QOL\'s workflow' : ''}, and the attack's own magic d4 is Foundry's, 3 (${roll?.formula} = ${roll?.total})`)
+}
+// New (round 0.42.1 §7.4): the third skipped, for the game to roll; typed in again, its box back;
+// skipped again and sent with two d20s, the card's third Foundry's.
+entry = await rapierWithAdvantage('the rapier with advantage, its third skipped')
+{
+  const { dialog } = entry
+  await skipElven(dialog).click()
+  const look = {
+    groups: await groupsOf(dialog), said: await dialog.getByText(ELVEN_OUT, { exact: true }).isVisible(), total: await totalOf(dialog),
+    typeIn: await typeElven(dialog).textContent(), described: await describedBy(typeElven(dialog)),
+  }
+  check(same(look.groups, [ELVEN_GROUPS[0], { name: 'Elven Accuracy: third d20', boxes: [] }]) && look.said && /^Total \d+, not counting Elven Accuracy’s d20$/.test(look.total)
+    && look.typeIn === 'Type it in' && look.described === ELVEN_OUT,
+    `Skip: its box goes, "${ELVEN_OUT}" in its place, the total "${look.total}", and "Type it in" ("Type it in, Elven Accuracy’s d20") described by that line (${JSON.stringify(look)})`)
+  await shootBoth(alice, 'typed-elven-skipped', dialog, SHOTS_0421)
+  await typeElven(dialog).click()
+  const back = { groups: await groupsOf(dialog), focus: await focusIn(dialog), current: await currentBox(dialog) }
+  check(same(back.groups, ELVEN_GROUPS) && same(back.focus, { name: 'd20', group: 'Elven Accuracy: third d20' }) && back.current === 'd20',
+    `Type it in brings its box back, focused and current (${JSON.stringify(back)})`)
+  await skipElven(dialog).click()
+  // Typed from the first box: the two of "d20, advantage".
+  await dialog.getByRole('textbox', { name: 'd20 1 of 2', exact: true }).click()
+  await keys(dialog, '3', '1', '8')
+  const total = await totalOf(dialog)
+  // The third d20, Foundry's: 19; then the rapier's own magic d4: 3.
+  faces.push(19, 3)
+  made = await done(alice, entry)
+  const roll = MIDI ? W.midi.made.at(-1)?.attackRoll : made.message?.rolls[0]
+  const own = Number(/^Total (\d+),/.exec(total)?.[1])
+  const shown = await trayMade(alice)
+  check(same(made.request.payload.dice[0].results, [3, 18]) && same(made.body?.dice?.[0]?.results, [3, 18]) && made.request.payload.mode === 1
+    && same(d20sOf(roll), [3, 18, 19]) && roll.dice[0].total === 19 && faces.length === 0,
+    `skipped again and typed 3 and 18 ("${total}"): sent with two d20s, [3, 18], and the card's d20s are [3, 18, 19], Foundry's third 19 kept${MIDI ? ", through Midi-QOL's workflow" : ''} (${roll?.formula} = ${roll?.total})`)
+  check(shown.total === String(own) && atTable(shown) === String(roll?.total),
+    `the tray's own ${shown.total} leaves the third out, as the dialog's did, and its table total is the card's ${roll?.total} (${JSON.stringify(shown)})`)
 }
 const greataxe = panel(alice).getByRole('button', { name: 'Greataxe attack, +4' })
 entry = await asked(alice, async () => {
@@ -1090,6 +1347,8 @@ if (!DND5E6) {
       `Enter on Bane's box, the last shown, is Done: Bane's 1 sent, Bless's d4 Foundry's 2 (${roll?.formula} = ${roll?.total})`)
   }
   // 10. Phones: the rapier's three d20s (Elven Accuracy), Bless and Bane, at 390×844, 360×640 and 844×390.
+  // Changed on purpose (round 0.42.1 §7.4): Elven Accuracy's third on its own line, its Skip and Type
+  // it in beside Bless's and Bane's.
   const small = await browse({ width: 360, height: 640, path: '/characters/sheet-thorin' })
   const wide = await browse({ width: 844, height: 390, path: '/characters/sheet-thorin' })
   for (const who of [alice, small, wide]) {
@@ -1108,10 +1367,10 @@ if (!DND5E6) {
     const sideways_ = await sideways(who.page)
     const phone = who.width < 640
     const { height } = who.page.viewportSize()
-    check(same(groups.map(g => g.name), ['d20, advantage (Elven Accuracy)', 'Bless: +1d4', 'Bane: −1d4']) && sideways_ === 0 && look.short === (height <= 480)
-      && same(look.seen.map(b => b.name), ['Skip Bless’s d4', 'Skip Bane’s d4', 'Type it in, Bless’s d4', 'Type it in, Bane’s d4'])
+    check(same(groups.map(g => g.name), ['d20, advantage', 'Elven Accuracy: third d20', 'Bless: +1d4', 'Bane: −1d4']) && sideways_ === 0 && look.short === (height <= 480)
+      && same(look.seen.map(b => b.name), ['Skip Elven Accuracy’s d20', 'Skip Bless’s d4', 'Skip Bane’s d4', 'Type it in, Elven Accuracy’s d20', 'Type it in, Bless’s d4', 'Type it in, Bane’s d4'])
       && look.seen.every(b => b.focused && b.inView && b.clear && (!phone || b.height >= 44)),
-      `at ${who.width}×${height}, the rapier's three d20s, Bless and Bane: nothing scrolls sideways; each Skip and Type it in, focused, is in view and ${look.short ? 'beside the keypad, in the dice column' : 'above the keypad'}${phone ? ', at least 44 px tall' : ''} (${JSON.stringify(look)})`)
+      `at ${who.width}×${height}, the rapier's two d20s, Elven Accuracy's third, Bless and Bane: nothing scrolls sideways; each Skip and Type it in, Elven Accuracy's among them, focused, is in view and ${look.short ? 'beside the keypad, in the dice column' : 'above the keypad'}${phone ? ', at least 44 px tall' : ''} (${JSON.stringify(look)})`)
     if (who === alice) {
       await dialog.getByRole('button', { name: 'Type it in, Bane’s d4', exact: true }).click()
       await shootBoth(alice, 'typed-effects', dialog, SHOTS_042)
@@ -1127,6 +1386,377 @@ if (!DND5E6) {
 if (DND5E6) {
   await takeOff(blessed)
   await sheetWith([alice], [])
+}
+
+// =================================================================================================
+// 5c. Module 0.42.1: the 2024 Bardic Inspiration offered, spent and removed (round 0.42.1 §7.4)
+// =================================================================================================
+part('5c. bardic inspiration')
+{
+  /** Thorin's effect as the app keeps his sheet, by its name: its row, with its `ops`. */
+  const storedEffect = name => (storedSheet()?.effects ?? []).flatMap(section => section.effects).find(row => row.name === name)
+  const ADDED = [{ sign: 1, count: 1, sides: 6 }]
+  const add = dialog => dialog.getByRole('button', { name: 'Add Bardic Inspiration’s d6', exact: true })
+  const cancel = async dialog => {
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await dialog.waitFor({ state: 'hidden' })
+  }
+  // 1. The Gamemaster applies Vex's Inspired to Thorin, as dnd5e's Apply does: from his feature's effect.
+  let inspired = await putOn(inspiring())
+  await sheetWith([alice], ['Inspired'])
+  if (DND5E6) {
+    check(storedDice() === null, `dnd5e 6.0.5: Vex's Inspired on Thorin, his sheet lists no effectDice, so nothing is offered (${JSON.stringify(storedSheet()?.effectDice)})`)
+    await takeOff(inspired)
+    await sheetWith([alice], [])
+  } else {
+    check(sameJson(storedDice(), [offered(inspired.id)]) && !JSON.stringify(storedDice()).includes('Vex') && same(storedEffect('Inspired')?.ops, ['disable', 'delete']),
+      `Vex's Inspired applied: within a poll the app keeps Thorin's sheet offering {name "Bardic Inspiration", a d6, count 1, sign 1, on ${OFFER_ON.join(', ')}, offer true}, its effect Inspired, Vex named nowhere; and Inspired his to turn off or delete (${JSON.stringify(storedDice())}; ${JSON.stringify(storedEffect('Inspired')?.ops)})`)
+
+    // 2. A Strength save: no die asked for it, its row beside Done, left out; Done sends nothing more.
+    await alice.tab('Character')
+    entry = await asked(alice, () => strSave(alice).click(), 'a Strength save, Inspired')
+    {
+      const { dialog } = entry
+      const focused = await firstFocused(dialog, 'd20')
+      const groups = await groupsOf(dialog)
+      const look = await offerLook(dialog)
+      check(focused === 'd20' && same(groups, [{ name: 'd20', boxes: ['d20'] }]) && same(look?.lines, ['Bardic Inspiration: +1d6', OFFER_LINE])
+        && look.name === 'Add Bardic Inspiration’s d6' && look.text === 'Add' && look.described === OFFER_LINE && look.inBlock && look.inView,
+        `a Strength save asks only its d20, no group for Bardic Inspiration; with focus still in its box, the row "Bardic Inspiration: +1d6", "${OFFER_LINE}" and Add ("Add Bardic Inspiration’s d6", described by that line) are in the dialog's sticky block, after the keypad and before Done, in view (${JSON.stringify({ groups, look })})`)
+      await keys(dialog, '9')
+      const total = await totalOf(dialog)
+      made = await done(alice, entry)
+      const shown = await trayMade(alice)
+      check((made.body?.extras ?? []).length === 0 && (made.request.payload.extras ?? []).length === 0 && same(made.request.payload.dice, [{ faces: 20, results: [9] }])
+        && !('effectDice' in made.request.payload) && spentLines(shown.lines).length === 0 && atTable(shown) === String(made.message?.rolls[0]?.total) && onThorin(inspired.id),
+        `typed 9 ("${total}") and Done, the die left out: sent with no extras, its one d20; once made, no spent line, and Inspired still on Thorin (${JSON.stringify(shown)})`)
+    }
+
+    // 3. From the keyboard at 1280: the typed d20 to Add; Add, Leave out and Add again; the d6
+    // typed; Done. Sent as one of the roll's extras; once made, Inspired removed beneath the save.
+    await resultsAs(desk, 'Banner')
+    await sheetWith([desk], ['Inspired'])
+    await desk.tab('Character')
+    let commandsBefore = effectCommands().length
+    entry = await asked(desk, () => strSave(desk).click(), 'a Strength save from the keyboard, Inspired')
+    {
+      const { dialog } = entry
+      const keyboard = desk.page.keyboard
+      await firstFocused(dialog, 'd20')
+      await keyboard.press('9')
+      const onAdd = await focusIn(dialog)
+      await keyboard.press('Enter')
+      const added = { groups: await groupsOf(dialog), focus: await focusIn(dialog), current: await currentBox(dialog) }
+      check(same(onAdd, { name: 'Add Bardic Inspiration’s d6', group: null }) && same(added.groups, [{ name: 'd20', boxes: ['d20'] }, { name: 'Bardic Inspiration: +1d6', boxes: ['d6'] }])
+        && same(added.focus, { name: 'd6', group: 'Bardic Inspiration: +1d6' }) && added.current === 'd6',
+        `at 1280, 9 typed moves focus to "Add Bardic Inspiration’s d6", not Done; Enter adds "Bardic Inspiration: +1d6" last among the dice, its box d6 focused and current (${JSON.stringify({ onAdd, added })})`)
+      await dialog.getByRole('button', { name: 'Leave out Bardic Inspiration’s d6', exact: true }).focus()
+      await keyboard.press('Enter')
+      const out = { groups: await groupsOf(dialog), focus: await focusIn(dialog) }
+      check(same(out.groups, [{ name: 'd20', boxes: ['d20'] }]) && same(out.focus, { name: 'Add Bardic Inspiration’s d6', group: null }),
+        `Leave out, from the keyboard: its group goes, and focus stays on the button, Add again (${JSON.stringify(out)})`)
+      await keyboard.press('Enter')
+      const again = await focusIn(dialog)
+      await keyboard.press('5')
+      const onDone = await focusIn(dialog)
+      const total = await totalOf(dialog)
+      check(same(again, { name: 'd6', group: 'Bardic Inspiration: +1d6' }) && same(onDone, { name: 'Done', group: null }),
+        `Enter on Add again focuses its d6; 5 typed there moves focus to Done ("${total}") (${JSON.stringify([again, onDone])})`)
+      made = await done(desk, entry, { submit: () => keyboard.press('Enter') })
+      const roll = made.message?.rolls[0]
+      const d6 = roll?.dice?.find(die => die.faces === 6)?.results.map(r => r.result)
+      check(sameJson(made.request.payload.extras, ADDED) && same(made.body?.extras, ADDED)
+        && same(made.request.payload.dice, [{ faces: 20, results: [9] }, { faces: 6, results: [5] }]) && !('effectDice' in made.request.payload) && !('effectDice' in (made.body ?? {}))
+        && same(d20sOf(roll), [9]) && same(d6, [5]) && total === `Total ${roll?.total}`,
+        `Enter on Done: sent with the extras [{ sign: 1, count: 1, sides: 6 }] and the dice [9] and [5], no effectDice; the card's d6 is the typed 5, its total the dialog's "${total}" (${roll?.formula} = ${roll?.total})`)
+      const shown = await trayMade(desk)
+      check(shown.lines.some(line => /Bardic Inspiration \+1d6 \(5\)/.test(line)) && shown.total === String(roll?.total) && atTable(shown) === String(roll?.total),
+        `the tray's breakdown has "Bardic Inspiration +1d6 (5)", and its ${shown.total} is the table's (${JSON.stringify(shown)})`)
+      const later = await traySpent(desk, SPENT.removed)
+      // Inspired's line, beneath the save, once the game has said it's deleted.
+      const LOGGED = /^Inspired ?deleted ?· at the table$/
+      const earlierLine = async () => (await tray(desk).locator('details li').first().textContent()).replace(/\s+/g, ' ')
+      await until(async () => LOGGED.test(await earlierLine()), "Inspired's line to say it's deleted at the table", 15_000).catch(() => {})
+      const earlier = await earlierLine()
+      const sent = effectCommands().slice(commandsBefore)
+      check(later.lines.includes(SPENT.removed) && /^Strength saving throw/.test(later.lines[0] ?? '') && LOGGED.test(earlier)
+        && sameJson(sent, [{ status: 'done', effect: { op: 'delete', id: inspired.id } }]) && !onThorin(inspired.id),
+        `once made, the app removes Inspired itself: "${SPENT.removed}" in the tray's latest, still the save; Inspired's line logged beneath it ("${earlier}"); one delete sent, and Inspired gone from Thorin in Foundry (${JSON.stringify({ later, sent })})`)
+    }
+    entry = await asked(desk, () => strSave(desk).click(), 'the next Strength save, Inspired gone')
+    {
+      const look = await offerLook(entry.dialog)
+      check(look === null && storedOffers().length === 0, `the next Strength save offers nothing (${JSON.stringify(look)})`)
+    }
+    await cancel(entry.dialog)
+
+    // 4. An attack: Inspired put on again; the rapier, a hit with the die added: once made, Inspired
+    // removed beneath it, and its damage still due in the tray's latest, and rolled. First, Alice's
+    // page has the Inspired the desk spent gone, as within a poll it does: her Effects tab lists
+    // effects by name, so a page a poll behind, still listing that one, would pass for having the
+    // new one, and her rapier would be offered, and spend, the die of the one already removed.
+    await sheetWith([alice], [])
+    inspired = await putOn(inspiring())
+    await sheetWith([alice], ['Inspired'])
+    await alice.tab('Actions')
+    // The rapier's own magic d4, Foundry's: 2.
+    faces.push(2)
+    entry = await asked(alice, async () => {
+      await rapier.click()
+      await rapierPicker.waitFor()
+      await rapierPicker.getByRole('button', { name: /^Goblin/ }).click()
+    }, 'the rapier, Inspired')
+    {
+      const { dialog } = entry
+      const groups = await groupsOf(dialog)
+      await keys(dialog, '1', '5')
+      const onAdd = await focusIn(dialog)
+      await add(dialog).click()
+      await keys(dialog, '4')
+      const total = await totalOf(dialog)
+      made = await done(alice, entry)
+      const roll = MIDI ? W.midi.made.at(-1)?.attackRoll : made.message?.rolls[0]
+      const d6 = roll?.dice?.find(die => die.faces === 6)?.results.map(r => r.result)
+      check(same(groups, [{ name: 'd20', boxes: ['d20'] }]) && onAdd?.name === 'Add Bardic Inspiration’s d6' && sameJson(made.request.payload.extras, ADDED)
+        && same(made.request.payload.dice, [{ faces: 20, results: [15] }, { faces: 6, results: [4] }]) && same(d20sOf(roll), [15]) && same(d6, [4]) && faces.length === 0,
+        `the rapier at the goblin offers the die too: 15 typed moves focus to Add; added, 4 typed ("${total}"): sent among its extras, the card's d6 the 4${MIDI ? ", through Midi-QOL's workflow" : ''} (${roll?.formula} = ${roll?.total})`)
+      const damage = tray(alice).getByRole('button', { name: 'Roll damage' })
+      await damage.waitFor({ timeout: 30_000 })
+      const later = await traySpent(alice, SPENT.removed)
+      check(/^Rapier/.test(later.lines[0] ?? '') && later.lines.includes(SPENT.removed) && await damage.isVisible() && !onThorin(inspired.id),
+        `a hit: once made, "${SPENT.removed}" and Inspired gone, and the tray's latest is still the attack, its Roll damage there (${JSON.stringify(later)})`)
+      entry = await asked(alice, () => damage.click(), "the rapier's damage, Inspired removed")
+      check(same(await groupsOf(entry.dialog), [{ name: '1d8 Piercing', boxes: ['d8'] }]), `Roll damage asks for "1d8 Piercing" (${JSON.stringify(await groupsOf(entry.dialog))})`)
+      await keys(entry.dialog, '5')
+      made = await done(alice, entry)
+      check(made.made?.status === 'done' && same(made.request.payload.dice, [{ faces: 8, results: [5] }]), `and its damage is made, the typed 5 (${made.made?.status})`)
+    }
+
+    // 5. Spent where the app may not remove it: the campaign's effects switch off.
+    await effectsSwitch(false)
+    inspired = await putOn(inspiring())
+    await sheetWith([alice], ['Inspired'])
+    await alice.tab('Character')
+    commandsBefore = effectCommands().length
+    entry = await asked(alice, () => strSave(alice).click(), "a Strength save, Inspired, the campaign's switch off")
+    await keys(entry.dialog, '8')
+    await add(entry.dialog).click()
+    await keys(entry.dialog, '3')
+    made = await done(alice, entry)
+    {
+      const later = await traySpent(alice, SPENT.ask)
+      await wait(3_000)
+      check(sameJson(made.request.payload.extras, ADDED) && later.lines.includes(SPENT.ask) && effectCommands().length === commandsBefore && onThorin(inspired.id),
+        `with the campaign's effects switch off, the die added and the save made: "${SPENT.ask}", no delete sent, Inspired still on Thorin (${JSON.stringify(later)})`)
+    }
+    entry = await asked(alice, () => strSave(alice).click(), 'the next Strength save, Inspired still on')
+    {
+      const look = await offerLook(entry.dialog)
+      check(look === null && sameJson(storedOffers(), [offered(inspired.id)]),
+        `the next Strength save offers nothing, its die spent on this page, though Inspired is still on Thorin and his sheet still offers it (${JSON.stringify(look)})`)
+    }
+    await cancel(entry.dialog)
+    await takeOff(inspired)
+    await sheetWith([alice], [])
+    await effectsSwitch(true)
+
+    // 6. As toasts: the save's toast says its die whole and the spent line; Inspired's pops.
+    await clearToasts(alice)
+    await resultsAs(alice, 'Toasts')
+    inspired = await putOn(inspiring())
+    await sheetWith([alice], ['Inspired'])
+    await alice.tab('Character')
+    entry = await asked(alice, () => strSave(alice).click(), 'a Strength save, Inspired, as toasts')
+    await keys(entry.dialog, '1', '1')
+    await add(entry.dialog).click()
+    await keys(entry.dialog, '5')
+    made = await done(alice, entry)
+    {
+      const saveToast = toasts(alice).filter({ hasText: 'Strength saving throw' }).first()
+      const SAID = /Bardic Inspiration spent: (removing Inspired…|Inspired removed\.)/
+      await until(async () => (await saveToast.count()) > 0 && SAID.test(await saveToast.textContent()), "the save's toast to say its die is spent", 20_000).catch(() => {})
+      const look = await saveToast.evaluate(el => {
+        const lines = [...el.querySelectorAll('p')]
+        const dice = lines.find(p => p.textContent.includes('Bardic Inspiration +1d6'))
+        return {
+          dice: dice?.textContent.trim() ?? null, clamped: dice?.classList.contains('line-clamp-2') ?? false, whole: !!dice && dice.scrollHeight <= dice.clientHeight + 1,
+          spent: lines.map(p => p.textContent.trim()).filter(text => text.startsWith('Bardic Inspiration spent')),
+        }
+      }).catch(() => null)
+      const inspiredToast = toasts(alice).filter({ hasText: 'Inspired' }).filter({ hasNotText: 'saving throw' }).first()
+      const popped = await inspiredToast.waitFor({ timeout: 15_000 }).then(() => true, () => false)
+      await until(() => !onThorin(inspired.id), 'Inspired to go', 20_000).catch(() => {})
+      check(look?.dice?.includes('Bardic Inspiration +1d6 (5)') && look.clamped && look.whole && look.spent.length === 1 && SAID.test(look.spent[0]) && popped && !onThorin(inspired.id),
+        `as toasts, the save's toast says "${look?.dice}" whole, on two lines at most, and "${look?.spent?.[0]}"; Inspired's own toast pops, and Inspired is gone (${JSON.stringify(look)})`)
+    }
+    await clearToasts(alice)
+    await resultsAs(alice, 'Banner')
+
+    // 7. Vex's scale a d8: a world-time tick sends Thorin's sheet again, and the offer is a d8.
+    inspired = await putOn(inspiring())
+    await sheetWith([alice], ['Inspired'])
+    await alice.tab('Character')
+    {
+      const before = storedOffers().map(die => die.faces)
+      vex.system.scale.bard.inspiration.faces = 8
+      await Hooks.callAll('updateWorldTime', 3_600, 6)
+      await until(() => storedOffers()[0]?.faces === 8, "Thorin's sheet sent again with Vex's d8", 20_000).catch(() => {})
+      await until(async () => JSON.stringify((await call(alice.page, '/api/characters/sheet-thorin/table')).json?.sheet?.effectDice ?? null).includes('"faces":8'), "the seat's view with the d8", 20_000).catch(() => {})
+      await wait(4_000)
+      entry = await asked(alice, () => strSave(alice).click(), 'a Strength save, Vex a d8')
+      const look = await offerLook(entry.dialog)
+      check(same(before, [6]) && sameJson(storedOffers(), [offered(inspired.id, 8)]) && same(look?.lines, ['Bardic Inspiration: +1d8', OFFER_LINE]) && look.name === 'Add Bardic Inspiration’s d8',
+        `Vex's scale a d8 and a world-time tick: Thorin's sheet goes again, offering a d8 for the d6 it offered, and the next save's row is "Bardic Inspiration: +1d8" with "Add Bardic Inspiration’s d8" (${JSON.stringify(look)})`)
+      await cancel(entry.dialog)
+    }
+    await takeOff(inspired)
+    vex.system.scale.bard.inspiration.faces = 6
+    await sheetWith([alice], [])
+
+    // 8. Midi-QOL's save prompt: Bless's die asked, nothing offered, as Midi-QOL's own answers take
+    // nothing added.
+    if (MIDI) {
+      await game.settings.set('sending-stone', 'midiPromptWait', 60_000)
+      const blessing = await putOn(BLESSED)
+      inspired = await putOn(inspiring())
+      await sheetWith([alice], ['Blessed', 'Inspired'])
+      await alice.tab('Character')
+      const opened = () => postsOf('roll.prompt.opened').map(p => p.data.prompt)
+      const count = opened().length
+      const item = { id: 'charm5c', name: 'Charm Person', type: 'spell', uuid: 'Actor.goblin.Item.charm5c', flags: {}, system: { description: { value: '' } } }
+      const workflow = await midiSaves.saveWorkflow({
+        actor: goblin, item, activity: midiSaves.saveActivity({ item, abilities: ['wis'], dc: 14 }), targets: [tokenOf.thorin.object ?? W.placeables.get('tok-thorin')], token: W.placeables.get('tok-goblin'),
+      })
+      const running = midiSaves.runSaves(workflow)
+      await until(() => opened().length > count, "Midi's prompt", 15_000)
+      const asks = alice.page.getByRole('region', { name: 'Your Gamemaster asks' })
+      const row = asks.getByRole('listitem').filter({ hasText: 'Charm Person' })
+      await row.getByRole('button', { name: /^Roll Wisdom saving throw/ }).waitFor({ timeout: 15_000 })
+      entry = await asked(alice, () => row.getByRole('button', { name: /^Roll Wisdom saving throw/ }).click(), "Midi's save, Blessed and Inspired")
+      {
+        const groups = await groupsOf(entry.dialog)
+        const look = await offerLook(entry.dialog)
+        check(same(groups, [{ name: 'd20', boxes: ['d20'] }, blessLine]) && look === null && await entry.dialog.getByText(OFFER_LINE).count() === 0,
+          `Midi-QOL's save asks its d20 and "Bless: +1d4", and offers no Bardic Inspiration (${JSON.stringify({ groups, look })})`)
+      }
+      await keys(entry.dialog, '1', '2', '3')
+      made = await done(alice, entry)
+      await running
+      await until(async () => (await asks.count()) === 0, 'the banner to go once answered', 15_000).catch(() => {})
+      await takeOff(blessing)
+      await takeOff(inspired)
+      await sheetWith([alice], [])
+    }
+
+    // 9. Phones and a computer: the rapier with advantage, Elven Accuracy's line, Bless, Bane and the
+    // offer, Add in view with focus in the first box; and at 360×640 a Strength save with Bless and Bane.
+    inspired = await putOn(inspiring())
+    const blessing = await putOn(BLESSED)
+    const baning = await putOn(BANED)
+    await sheetWith([alice, desk], ['Blessed', 'Bane', 'Inspired'])
+    const small = await browse({ width: 360, height: 640, path: '/characters/sheet-thorin' })
+    await small.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    /** Add, with focus in the first box, and then pressed as the page's device does. */
+    async function offerShown(who, dialog, first, groupsWanted, what) {
+      const focused = await firstFocused(dialog, first)
+      await wait(300)
+      const groups = (await groupsOf(dialog)).map(g => g.name)
+      const look = await offerLook(dialog)
+      const across = await sideways(who.page)
+      const phone = who.width < 640
+      const { height } = who.page.viewportSize()
+      // How much of the dice shows above the sticky block, and of the first box, focused.
+      const strip = await dialog.evaluate(el => {
+        const form = el.querySelector('form')
+        const s = form.parentElement.getBoundingClientRect()
+        const block = form.lastElementChild.getBoundingClientRect()
+        const box = el.querySelector('input').getBoundingClientRect()
+        return {
+          dice: Math.round(block.top - s.top), box: Math.round(Math.max(0, Math.min(box.bottom, block.top) - Math.max(box.top, s.top))), of: Math.round(box.height),
+          gap: Math.round(block.top - box.bottom),
+        }
+      })
+      note(`at ${who.width}×${height}, ${what}: ${strip.dice} px of the dice show above the sticky block, and ${strip.box} of the focused first box's ${strip.of} px`)
+      // Changed on purpose (round 0.42.1's review): the focused first box whole above the sticky block
+      // too (§6.5), which was only noted while the offer's row hid it at 360×640; and the dice
+      // scrolled as the dialog opens only as far as keeps that box clear, 8 px above the block, as the
+      // dialog now does where the block would cover it. The player never scrolls to find Add.
+      check(same(groups, groupsWanted) && focused === first && across === 0 && look?.name === 'Add Bardic Inspiration’s d6'
+        && look.inBlock && look.inView && look.belowKeypadTop && (look.scrolled === 0 || near(strip.gap, 8)) && (!phone || look.height >= 44)
+        && strip.of > 0 && strip.of - strip.box <= 1,
+        `at ${who.width}×${height}, ${what}: nothing scrolls sideways; with focus in the first box, Add is found without scrolling, in view in the sticky block, at or below the keypad's top${phone ? `, ${look?.height} px tall` : ''}; and that box whole above the block (${strip.box} of ${strip.of} px), the dice ${look?.scrolled ? `scrolled ${look.scrolled} px to keep it ${strip.gap} px clear` : 'not scrolled'} (${JSON.stringify({ groups, look })})`)
+      return phone
+    }
+    async function added(who, dialog, phone, what) {
+      if (phone) await add(dialog).tap()
+      else await add(dialog).click()
+      await until(async () => (await addedLook(dialog))?.clear === true, 'the d6 box clear of what is kept over the dice', 5_000).catch(() => {})
+      const look = await addedLook(dialog)
+      const button = await offerLook(dialog)
+      check(look?.last && look.box === 'd6' && look.focused && look.current && look.clear && button?.name === 'Leave out Bardic Inspiration’s d6' && button.text === 'Leave out',
+        `${what}: Add ${phone ? 'tapped' : 'clicked'} brings "Bardic Inspiration: +1d6" last among the dice, its d6 focused, current and in view above the ${who.page.viewportSize().height <= 480 ? "offer's rows" : "keypad's top"}; the button reads Leave out (${JSON.stringify({ look, button })})`)
+    }
+    for (const who of [alice, small, desk]) {
+      if (who.width < 1024) await who.character().catch(() => {})
+      await who.tab('Actions')
+      const picker = who.page.getByRole('dialog', { name: 'Rapier attack' })
+      const { dialog } = await asked(who, async () => {
+        await fromMenu(who, panel(who).getByRole('button', { name: 'Rapier attack, +6' }), 'Roll with advantage')
+        await picker.waitFor()
+        await picker.getByRole('button', { name: /^Goblin/ }).click()
+      }, `the rapier with advantage at ${who.width}, Inspired`)
+      const what = 'the rapier with advantage, its two d20s, Elven Accuracy\'s third with Skip, Bless, Bane and the offer'
+      const phone = await offerShown(who, dialog, 'd20 1 of 2', ['d20, advantage', 'Elven Accuracy: third d20', 'Bless: +1d4', 'Bane: −1d4'], what)
+      await shootBoth(who, 'typed-offer', dialog, SHOTS_0421)
+      // Elven Accuracy's line and its Skip, as a keyboard reaches it: scrolled clear of the keypad.
+      await skipElven(dialog).focus()
+      await shootBoth(who, 'typed-elven-skip', dialog, SHOTS_0421)
+      await added(who, dialog, phone, `at ${who.width}, the rapier`)
+      await shootBoth(who, 'typed-offer-added', dialog, SHOTS_0421)
+      await cancel(dialog)
+    }
+    await small.tab('Character')
+    {
+      const { dialog } = await asked(small, () => strSave(small).click(), 'a Strength save at 360×640, Blessed and Inspired')
+      await offerShown(small, dialog, 'd20', ['d20', 'Bless: +1d4', 'Bane: −1d4'], 'a Strength save, Bless, Bane and the offer')
+      await added(small, dialog, true, 'at 360, the save')
+      await cancel(dialog)
+    }
+    await small.view.close()
+    // 9b. A short screen, 844×390 (round 0.42.1's review): the keypad's column has no room left for
+    // the offer's row and Done, so the row sits in a sticky block at the foot of the dice column;
+    // Add, Done and the focused first box each whole in view, and Add's d6 box clear of that row.
+    {
+      const wide = await browse({ width: 844, height: 390, path: '/characters/sheet-thorin' })
+      await wide.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+      await wide.character().catch(() => {})
+      await wide.tab('Actions')
+      const picker = wide.page.getByRole('dialog', { name: 'Rapier attack' })
+      const { dialog } = await asked(wide, async () => {
+        await fromMenu(wide, panel(wide).getByRole('button', { name: 'Rapier attack, +6' }), 'Roll with advantage')
+        await picker.waitFor()
+        await picker.getByRole('button', { name: /^Goblin/ }).click()
+      }, 'the rapier with advantage at 844×390, Inspired')
+      const focused = await firstFocused(dialog, 'd20 1 of 2')
+      await wait(300)
+      const groups = (await groupsOf(dialog)).map(g => g.name)
+      const look = await shortOfferLook(dialog)
+      const across = await sideways(wide.page)
+      check(same(groups, ['d20, advantage', 'Elven Accuracy: third d20', 'Bless: +1d4', 'Bane: −1d4']) && focused === 'd20 1 of 2' && across === 0
+        && look?.name === 'Add Bardic Inspiration’s d6' && look.short && look.inDiceColumn && look.sticky && look.add && look.done && look.box,
+        `at 844×390, the rapier with advantage, Elven Accuracy's third, Bless, Bane and the offer: nothing scrolls sideways; the offer's row in a sticky block at the foot of the dice column, not the keypad's; with focus in the first box, Add, Done and that box each whole in view (${JSON.stringify({ groups, look })})`)
+      await shootBoth(wide, 'typed-offer', dialog, SHOTS_0421)
+      await added(wide, dialog, false, 'at 844×390, the rapier')
+      await shootBoth(wide, 'typed-offer-added', dialog, SHOTS_0421)
+      await cancel(dialog)
+      await wide.view.close()
+    }
+    for (const effect of [inspired, blessing, baning]) await takeOff(effect)
+    await sheetWith([alice, desk], [])
+    // 10. As every later step's dialog asks: Inspired off, the switch on, Banner, Vex's d6.
+    check(!onThorin(inspired.id) && storedOffers().length === 0 && vex.system.scale.bard.inspiration.faces === 6,
+      "5c ends with Inspired off Thorin, nothing offered, the campaign's effects switch on, results in the banner, and Vex's scale a d6")
+  }
 }
 await alice.tab('Actions')
 
@@ -1540,6 +2170,25 @@ part('15. send off')
   const said = await tray(alice).textContent()
   check(requests() === before && said.includes('Perception check') && /Only you see th(is roll|ese rolls)/.test(said),
     `with Send to the table off the dialog still opens, nothing is posted, and the tray marks it Alice's alone: "${said}"`)
+  // Round 0.42.1 §7.4: the rapier with advantage kept to Alice: Elven Accuracy's line, but no Skip,
+  // as no game rolls its third.
+  await alice.tab('Actions')
+  entry = await asked(alice, async () => {
+    await fromMenu(alice, rapier, 'Roll with advantage')
+    // Its targets asked, where an attack kept to the player still asks them: the picker, which the
+    // dice dialog, named by the roll too, isn't.
+    await Promise.race([rapierPicker.waitFor({ timeout: 15_000 }), entryOf(alice).waitFor({ timeout: 15_000 })])
+    if (!(await entryOf(alice).isVisible())) await rapierPicker.getByRole('button', { name: /^Goblin/ }).click()
+  }, 'the rapier with advantage, kept here')
+  {
+    const look = { groups: await groupsOf(entry.dialog), skips: await skips(entry.dialog) }
+    check(same(look.groups, ELVEN_GROUPS) && look.skips.length === 0,
+      `with Send to the table off, the rapier with advantage asks Elven Accuracy's third on its own line, but offers no Skip (${JSON.stringify(look)})`)
+  }
+  await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+  await entry.dialog.waitFor({ state: 'hidden' })
+  await wait(500)
+  check(requests() === before, 'cancelled, nothing posted')
   // ---- 17. With 40 boxes: Starfall's critical, doubled here ----
   part('17a. many dice')
   await alice.tab('Actions')

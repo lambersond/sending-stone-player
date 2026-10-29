@@ -51,6 +51,7 @@ import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { Favoriting, useFavorites } from './favoriting'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
+import { Preparing, usePreparing } from './preparing'
 import { PromptBanner } from './prompt-banner'
 import { RollToasts } from './roll-toasts'
 import { reasons, RollTray, type TableRolls } from './roll-tray'
@@ -73,6 +74,12 @@ import { useDiceEntry } from '@/components/dice-entry'
 import { Scroller } from '@/components/scroller'
 import { useGiveControls } from '@/components/transfers/give-controls'
 import { useRemoveControls } from '@/components/transfers/remove-controls'
+import {
+  EFFECT_SETTLE,
+  type EffectOp,
+  type PrepareOp,
+  type SpellSlotOp,
+} from '@/constants/sending-stone'
 import { CreatureContext } from '@/hooks/use-creature'
 import { hasDraft, journalOpen } from '@/hooks/use-notes'
 import { useToastSetting } from '@/hooks/use-roll-toasts'
@@ -86,6 +93,7 @@ import {
   type SheetRoll,
   type TypedRolls,
 } from '@/hooks/use-sheet-roller'
+import { useSpentOffers } from '@/hooks/use-spent-offers'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   choicesOf,
@@ -96,18 +104,20 @@ import {
   useTableRolls,
   withGmRolls,
   type DueDamage,
+  type TableRollState,
 } from '@/hooks/use-table-rolls'
 import { useShownPrompts } from '@/hooks/use-waiting-prompts'
 import { useWidth } from '@/hooks/use-width'
 import { castIndex, isItemCast } from '@/utils/casts'
-import { effectDiceFor } from '@/utils/effect-dice'
+import { effectDiceFor, offersFor } from '@/utils/effect-dice'
 import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
+import { slotName } from '@/utils/slot-words'
+import { capitalized, type WildShapeLogged } from '@/utils/wild-shape-words'
 import type { PartySheets } from './party-sheets'
 import type { NotesPlace } from '@/components/notes'
-import type { EffectOp } from '@/constants/sending-stone'
 import type { CookbookPlace } from '@/types/cookbook'
 import type {
   FavoriteTarget,
@@ -116,7 +126,11 @@ import type {
   RollKind,
   WildShapeInput,
 } from '@/types/roll'
-import type { SheetAction, SheetEffect } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetEffect,
+  SheetSpell,
+} from '@/types/sending-stone'
 import type {
   CreatureFacts,
   TableCombat,
@@ -125,7 +139,6 @@ import type {
   TableSheet,
 } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
-import type { WildShapeLogged } from '@/utils/wild-shape-words'
 
 type Props = {
   characterId: string
@@ -402,16 +415,31 @@ function RollingSheet({
   // answers, asked for after their own; and whether the dice typed are kept as rerolled at the
   // table, as their feature says. The dice of effects only of a roll the game is sent: one this
   // device keeps, a kind the game doesn't take, or a check an activity asks of a game that doesn't
-  // make it so, is the player's alone, and no game would roll a die skipped.
+  // make it so, is the player's alone, and no game would roll a die skipped. From 0.42.1, whether
+  // a roll goes to the game whatever the game takes of it, for Elven Accuracy's third d20 to be
+  // skipped, which every module since 0.32.0 throws itself where two are sent. And from module
+  // 0.42.1, as the dice of effects are, the dice the sheet offers, such as Bardic Inspiration's,
+  // but none whose effect a roll of this page spent already (`useSpentOffers`), read as each roll
+  // is asked for, as the rolls come after this.
   const { typedEffects, keptRerolls, sends } = table
+  const spent = useRef<ReadonlySet<string>>(new Set())
   const typedRolls = useMemo<TypedRolls | undefined>(() => {
-    if (!typing || (!typedEffects && !keptRerolls)) return
+    if (!typing) return
     return {
       effectsFor: typedEffects
         ? request =>
             sends(request.source) ? effectDiceFor(sheet, request, prompts) : []
         : () => [],
       keptRerolls,
+      sends: request => sends(request.source),
+      offersFor: typedEffects
+        ? request =>
+            sends(request.source)
+              ? offersFor(sheet, request, prompts).filter(
+                  ({ spends }) => !spent.current.has(spends.effect),
+                )
+              : []
+        : () => [],
     }
   }, [typing, typedEffects, keptRerolls, sends, sheet, prompts])
   const {
@@ -423,6 +451,7 @@ function RollingSheet({
     logCharge,
     logMove,
     logFavorite,
+    logPrepare,
     logEffect,
     logWildShape,
     logAsk,
@@ -564,14 +593,34 @@ function RollingSheet({
     states: table.states,
     send: sendFavoriteOf,
   })
+  // The character's spells prepared and unprepared from a row's menu, from module 0.42.1, where the
+  // game takes it, whatever this device's Send to the table, as it has no version made here: the
+  // player's alone, at the character's own pane, never while transformed, whose spells are the
+  // form's. A line among the rolls says how it went, as for a favorite.
+  const { sendPrepare } = table
+  const sendPrepareOf = useCallback(
+    (spell: SheetSpell, op: PrepareOp) => {
+      setActed(true)
+      const logged = logPrepare(spell.name, op)
+      sendPrepare(logged, { op, id: spell.id })
+      return logged.id
+    },
+    [logPrepare, sendPrepare],
+  )
+  const preparing = usePreparing({
+    on: table.lists('prepare') && !creature && role === 'player' && !shaped,
+    spells: sheet.spells,
+    states: table.states,
+    send: sendPrepareOf,
+  })
   // The character's own effects turned off, on and deleted, from module 0.39.0, where the campaign
   // lets its player: never at a creature's pane, nor the Gamemaster's page. A line among the rolls
-  // says how it went, as for a favorite.
+  // says how it went, as for a favorite; from 0.42.1, one a roll made, beneath it.
   const { sendEffect } = table
   const sendEffectOf = useCallback(
-    (effect: SheetEffect, op: EffectOp) => {
+    (effect: SheetEffect, op: EffectOp, at?: number) => {
       setActed(true)
-      const logged = logEffect(effect.name, op)
+      const logged = logEffect(effect.name, op, at)
       sendEffect(logged, effect)
       return logged.id
     },
@@ -584,6 +633,10 @@ function RollingSheet({
     states: table.states,
     send: sendEffectOf,
   })
+  // From module 0.42.1, the effects the dice offered that the player added spent, such as Bardic
+  // Inspiration's Inspired: never offered again, and once their rolls are made, removed where the
+  // controls above may remove them.
+  useSpentOffers({ spent, rolls, states: table.states, effecting })
   // Wild Shape from here, from module 0.40.0, the player's alone, at the character's own pane: a
   // line among the rolls says how each went, on whichever tab; the Beasts to learn are read apart.
   const { sendWildShape, readWildShapeForms } = table
@@ -637,7 +690,7 @@ function RollingSheet({
           )
         : undefined
     // Where dnd5e gives the attack Elven Accuracy, a third d20 with advantage, typed in, whatever
-    // the table takes.
+    // the table takes; from 0.42.1 on its own line, skipped for the game only where it's sent.
     const request: SheetRoll = attack?.elvenAccuracy
       ? { ...asked, elvenAccuracy: true }
       : asked
@@ -1030,6 +1083,10 @@ function RollingSheet({
       },
     }),
   }
+  // From module 0.42.1, one of the character's spell slots spent or restored from the dots, while
+  // the game takes it from here, never while transformed, as the slots wait then: a line among the
+  // rolls says how it went, on whichever tab, and each pool waits for the game once one is sent.
+  const slotWaits = useSlotWaits(table.states, sheet.spells)
   // A counter's charges spent directly, and Heroic Inspiration used or gained, while the game takes
   // them from here: each posts a line in the game's chat, the Gamemaster's marked as theirs.
   const charging: ChargeActions = {
@@ -1049,6 +1106,17 @@ function RollingSheet({
           inspiration,
         ),
     }),
+    ...(table.takes('spellSlot') &&
+      !shaped && {
+        slot: (pool, op, from) => {
+          if (slotWaits.waiting(pool.id)) return
+          setActed(true)
+          const logged = logCharge(capitalized(slotName(pool)), { slot: op })
+          table.sendSpellSlot(logged, { op, id: pool.id, from })
+          slotWaits.sent(pool.id, { id: logged.id, op, from })
+        },
+        slotWaiting: slotWaits.waiting,
+      }),
   }
   // A condition's chip opens its rules, where the app has them; else its place in Effects.
   const showCondition = (id: string) => {
@@ -1060,6 +1128,7 @@ function RollingSheet({
     <SheetContext
       marks={marks}
       favoriting={favoriting}
+      preparing={preparing}
       effecting={effecting}
       wildShaping={wildShaping}
       showConditions={conditions.show}
@@ -1371,11 +1440,12 @@ function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
  * module 0.37.0 how they're added and removed, and from module 0.39.0 how its own effects are
  * changed, and from module 0.40.0 its Wild Shape, how to open its conditions panel, what the
  * links in its descriptions do, how enchantments and concentrations end, and how counters are
- * spent and Heroic Inspiration changed.
+ * spent and Heroic Inspiration changed; and from module 0.42.1 how its spells are prepared.
  */
 function SheetContext({
   marks,
   favoriting,
+  preparing,
   effecting,
   wildShaping,
   showConditions,
@@ -1387,6 +1457,7 @@ function SheetContext({
 }: Readonly<{
   marks: ReadonlySet<string>
   favoriting: ReturnType<typeof useFavorites>
+  preparing: ReturnType<typeof usePreparing>
   effecting: ReturnType<typeof useEffectControls>
   wildShaping: ReturnType<typeof useWildShape>
   showConditions: ShowConditions
@@ -1405,7 +1476,9 @@ function SheetContext({
               <DescriptionLinks actions={descriptions}>
                 <Enchanting actions={enchanting}>
                   <Concentrating actions={concentrating}>
-                    <Charging actions={charging}>{children}</Charging>
+                    <Charging actions={charging}>
+                      <Preparing value={preparing}>{children}</Preparing>
+                    </Charging>
                   </Concentrating>
                 </Enchanting>
               </DescriptionLinks>
@@ -1415,6 +1488,60 @@ function SheetContext({
       </Favoriting>
     </FavoriteMarks>
   )
+}
+
+/** A spell slot sent from the dots (module 0.42.1): its line's id, which, and its count then. */
+type SentSlot = { id: string; op: SpellSlotOp; from: number }
+
+/**
+ * Whether each pool of the character's spell slots waits for the game, by the pool's id, from
+ * module 0.42.1, as one of their effects' controls waits (`useEffectControls`): once one of its
+ * slots is sent, while nothing is heard of it, for up to `EFFECT_SETTLE` from the send; while it's
+ * on its way to the game, however long that takes; once made, until the sheet shows the pool at
+ * another count than the one it was sent from, for up to `EFFECT_SETTLE` from the send; and never
+ * once it was refused, failed or lost, so that it can be tried again.
+ * @param spells - The sheet's spellbook, whose sections hold each pool's count.
+ */
+function useSlotWaits(
+  states: ReadonlyMap<string, TableRollState>,
+  spells: TableSheet['spells'],
+) {
+  const [sent, setSent] = useState<ReadonlyMap<string, SentSlot>>(
+    () => new Map(),
+  )
+  // The local ids of those sent long enough ago that the sheet should have come.
+  const [settled, setSettled] = useState<ReadonlySet<string>>(() => new Set())
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
+  useEffect(() => {
+    const running = timers.current
+    return () => {
+      for (const timer of running) clearTimeout(timer)
+    }
+  }, [])
+  const waiting = useCallback(
+    (pool: string): boolean => {
+      const last = sent.get(pool)
+      if (!last) return false
+      const state = states.get(last.id)
+      // Sent, its way not yet heard of: as on its way, for as long as the sheet might take.
+      if (!state) return !settled.has(last.id)
+      if (state.status === 'sending' || state.status === 'rolling') return true
+      const now = spells.find(({ id }) => id === pool)?.slots?.value
+      return (
+        state.status === 'done' && !settled.has(last.id) && now === last.from
+      )
+    },
+    [sent, states, settled, spells],
+  )
+  const sentFrom = useCallback((pool: string, slot: SentSlot) => {
+    setSent(held => new Map(held).set(pool, slot))
+    const timer = setTimeout(() => {
+      timers.current.delete(timer)
+      setSettled(held => new Set(held).add(slot.id))
+    }, EFFECT_SETTLE)
+    timers.current.add(timer)
+  }, [])
+  return { waiting, sent: sentFrom }
 }
 
 /**

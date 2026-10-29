@@ -5,7 +5,9 @@ import {
   ROLL_FEATURES,
   ROLL_KINDS,
   ROLL_PENDING_FOR,
+  SPELL_SLOT_OPS,
   UNDO_TURN_WITHIN,
+  type SpellSlotOp,
 } from '@/constants/sending-stone'
 import { outOfSlots, slotPools } from '@/utils/action-groups'
 import { alonePicks, alonePlan } from '@/utils/alone-choices'
@@ -23,6 +25,7 @@ import { sheetActions } from '@/utils/sheet-actions'
 import { allItems, sheetTextRefs } from '@/utils/sheet-texts'
 import { damageKinds, healingRolls, toTableRoll } from '@/utils/table-view'
 import { mostTargets } from '@/utils/uses'
+import { isShaped } from '@/utils/wild-shape'
 import type {
   AttackTarget,
   EndedTurn,
@@ -111,6 +114,12 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * or none where it has a pool to be cast with (`slot`), or none left of it where it's spent
  * (`slots`); an attack mode that isn't the weapon's (`mode`); an ammunition that isn't its, or none
  * left of it where it's spent (`ammo`); and a spend where using it spends nothing (`consume`).
+ * From module 0.42.1, for a spell slot spent or restored: no such pool with slots (`slot`), its
+ * count not the one shown (`changed`), none left to spend (`slots`) or none used to restore
+ * (`full`); and while the character is transformed, as the sheet last said (`shaped`).
+ * From module 0.42.1, a spell prepared or unprepared that isn't one the character prepares: a
+ * cantrip, one always prepared, one cast at will, innately, as a ritual or from an item
+ * (`prepare`); one the sheet doesn't list is `gone`.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -164,6 +173,7 @@ export type RollRefusal =
   | 'full'
   | 'swap'
   | 'shaped'
+  | 'prepare'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -216,7 +226,9 @@ export function isSeatCombatant(
  * removed, which posts nothing either; and from module 0.39.0 a character's own effect turned off,
  * on or deleted, which posts nothing either; and from module 0.40.0 Wild Shape, which the game
  * would make as the player's, past dnd5e's own Allow Polymorphing: the Gamemaster changes a druid
- * in Foundry. Charges spent and Heroic Inspiration post a line marked as theirs.
+ * in Foundry. Charges spent and Heroic Inspiration post a line marked as theirs, as from module
+ * 0.42.1 a spell slot spent or restored does. From module 0.42.1, a spell prepared or unprepared
+ * isn't sent either: it posts nothing.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
@@ -226,6 +238,7 @@ export const GM_UNSENT: ReadonlySet<string> = new Set([
   'favorite',
   'effect',
   'wildShape',
+  'prepare',
 ])
 
 /**
@@ -384,6 +397,9 @@ export function checkRoll(
       )
       return kept ? undefined : 'concentration'
     }
+    case 'prepare': {
+      return checkPrepare(input, sheet)
+    }
     case 'spend': {
       return checkSpend(input, sheet)
     }
@@ -392,6 +408,9 @@ export function checkRoll(
         return sheet?.inspiration === true ? undefined : 'not-inspired'
       }
       return sheet?.inspiration === false ? undefined : 'inspired'
+    }
+    case 'spellSlot': {
+      return checkSpellSlot(input, sheet)
     }
   }
 }
@@ -515,6 +534,26 @@ export function checkUndoTurn(
 }
 
 /**
+ * Can this spell be prepared or unprepared from here, from module 0.42.1, as the sheet last showed
+ * it: not while the character is transformed, whose sheet is then its form's; one the sheet lists,
+ * at 0 or 1. Already so passes: the game says so.
+ */
+function checkPrepare(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  // Read as the pane reads it, not by `isShaped`, so that preparing needs nothing of the spell
+  // slots' own check: either can be taken out alone.
+  if (sheet?.form) return 'shaped'
+  const id = input.prepare?.id
+  const spell = (sheet?.spells ?? [])
+    .flatMap(({ spells }) => spells)
+    .find(each => each.id === id)
+  if (!spell) return 'gone'
+  return spell.prepared === 0 || spell.prepared === 1 ? undefined : 'prepare'
+}
+
+/**
  * Can these charges be spent directly, from module 0.29.0: are they of a counter the sheet shows,
  * as a row's, an activity's or a favorite's uses, that it says the player may spend so, with as
  * many left? The game reads the counter again as it stands, and spends it so.
@@ -530,6 +569,30 @@ function checkSpend(
   )
   if (!shown) return 'uses'
   return count <= shown.value ? undefined : 'short'
+}
+
+/**
+ * Can one of the character's spell slots be spent or restored, from module 0.42.1, as the sheet
+ * last showed them: not while the character is transformed, whose sheet is then its form's; a pool
+ * of its spellbook's with slots; still at the count the page showed, so that a slot spent in
+ * Foundry meanwhile is never spent again, nor a cast there undone, by a page that hadn't heard of
+ * it; and one left to spend, or one used to restore. A pool above its maximum, as dnd5e's temporary
+ * slots leave it, can be spent, never restored. The game reads the pool again as it stands, and
+ * checks the same.
+ */
+function checkSpellSlot(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  const { spellSlot } = input
+  if (isShaped(sheet)) return 'shaped'
+  const slots =
+    spellSlot &&
+    (sheet?.spells ?? []).find(({ id }) => id === spellSlot.id)?.slots
+  if (!spellSlot || !slots || !(slots.max > 0)) return 'slot'
+  if (slots.value !== spellSlot.from) return 'changed'
+  if (spellSlot.op === 'spend') return slots.value > 0 ? undefined : 'slots'
+  return slots.value < slots.max ? undefined : 'full'
 }
 
 /**
@@ -1429,11 +1492,13 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   endConcentration: 'Concentration ended',
   spend: 'Charges spent',
   inspiration: 'Heroic Inspiration',
+  spellSlot: 'A spell slot spent or restored',
   transfer: 'Items or coins moved',
   remove: 'An item removed',
   favorite: 'A favorite added or removed',
   effect: 'An effect changed',
   wildShape: 'Wild Shape',
+  prepare: 'A spell prepared or unprepared',
   endTurn: 'A turn ended',
   undoEndTurn: 'A turn taken back',
 }
@@ -1476,6 +1541,7 @@ export function toGmRollView(
   const healing = damage && (heals || healingRolls(view.rolls ?? []))
   const critical =
     damage && !!view.visible && !!view.rolls?.some(roll => roll.critical)
+  const slotOp = kind === 'spellSlot' ? slotOpOf(request.payload) : undefined
   return {
     id: view.id,
     kind,
@@ -1493,7 +1559,17 @@ export function toGmRollView(
     ...(d20 && { d20 }),
     ...(critical && { critical }),
     ...(healing && { healing }),
+    ...(slotOp && { slotOp }),
   }
+}
+
+/**
+ * Whether a spell slot's request, from module 0.42.1, spent one or restored one, as held: for its
+ * player's page to say which of the Gamemaster's it was. None where the payload doesn't say.
+ */
+function slotOpOf(payload: unknown): SpellSlotOp | undefined {
+  const op = (payload as { spellSlot?: { op?: unknown } } | null)?.spellSlot?.op
+  return SPELL_SLOT_OPS.find(each => each === op)
 }
 
 /**

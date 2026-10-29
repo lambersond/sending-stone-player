@@ -12,10 +12,12 @@ import { Effecting, useEffectControls } from './effect-controls'
 import { FavoriteMarks } from './favorite-mark'
 import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { Favoriting } from './favoriting'
+import { Preparing, usePreparing } from './preparing'
 import {
   castingSheet,
   fullerSheet,
   offeringFavorites,
+  sheetAction,
   sheetFavorites,
   sheetItem,
   sheetSpell,
@@ -1302,5 +1304,130 @@ describe('components/character-sheet/favorites, while the sheet is a form’s, f
       ])
       await userEvent.keyboard('{Escape}')
     }
+  })
+})
+
+/** What a favorite's menu offers, opened by a right-click on what opens it. */
+const favoriteMenuOf = async (name: string) => {
+  fireEvent.contextMenu(favoriteRow(name), { button: 2 })
+  const items = itemsOf(screen.getByRole('menu', { name }))
+  await userEvent.keyboard('{Escape}')
+  return items
+}
+
+describe('components/character-sheet/favorites, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  const witchBolt = {
+    name: 'Witch Bolt',
+    toHit: 4,
+    attackId: 'witchAttack',
+    damage: [{ formula: '1d12', type: 'Lightning', healing: false }],
+  }
+
+  /**
+   * Thorin's sheet, Witch Bolt and Alarm his favorites: Witch Bolt prepared or not, and once
+   * prepared listed among his actions, as the module lists a spell that attacks, so drawn as one.
+   */
+  const preparing = (witch: 0 | 1): CharacterSheet => {
+    const sheet = withFavorites([
+      item('witch', 'spell', 'Witch Bolt'),
+      item('alarm', 'spell', 'Alarm'),
+    ])
+    const [cantrips, first, ...spellbook] = sheet.spells
+    return {
+      ...sheet,
+      actions:
+        witch === 1
+          ? [
+              {
+                id: 'action',
+                label: 'Actions',
+                actions: [
+                  sheetAction({
+                    id: 'witch',
+                    type: 'spell',
+                    level: 1,
+                    ...witchBolt,
+                  }),
+                ],
+              },
+            ]
+          : [],
+      spells: [
+        cantrips,
+        {
+          ...first,
+          spells: [
+            ...first.spells,
+            sheetSpell({ id: 'witch', prepared: witch, ...witchBolt }),
+          ],
+        },
+        ...spellbook,
+      ],
+    }
+  }
+
+  /** The strip inside a pane that offers favorites and prepares spells, as the pane does. */
+  function Preparer({ sheet }: Readonly<{ sheet: CharacterSheet }>) {
+    const props = propsFor(sheet)
+    const value = usePreparing({
+      on: true,
+      spells: props.sheet.spells,
+      states: new Map(),
+      send: () => 'use-1',
+    })
+    return (
+      <Favoriting value={offeringFavorites(['item:witch', 'item:alarm']).value}>
+        <Preparing value={value}>
+          <FavoritesStrip {...props} />
+        </Preparing>
+      </Favoriting>
+    )
+  }
+
+  it('offers Prepare after Remove from favorites on a spell not prepared, drawn as a spell', async () => {
+    render(<Preparer sheet={preparing(0)} />)
+    expect(await favoriteMenuOf('Witch Bolt')).toEqual([
+      'Remove from favorites',
+      'Prepare',
+    ])
+    // One that rolls nothing, by its row.
+    expect(await favoriteMenuOf('Alarm')).toEqual([
+      'Remove from favorites',
+      'Prepare',
+    ])
+  })
+
+  it('offers Unprepare after Remove from favorites on a prepared spell drawn as an action, as the Actions tab lists it', async () => {
+    const { rerender } = render(<Preparer sheet={preparing(0)} />)
+    rerender(<Preparer sheet={preparing(1)} />)
+    // The same favorite, an action's row now: its name has no summary.
+    expect(
+      screen.getByRole('button', { name: /^Witch Bolt/, expanded: false }),
+    ).toBeInTheDocument()
+    expect(await favoriteMenuOf('Witch Bolt')).toEqual([
+      'Remove from favorites',
+      'Unprepare',
+    ])
+  })
+
+  it('offers neither outside a pane that prepares spells', async () => {
+    render(
+      <Favoriting value={offeringFavorites(['item:witch', 'item:alarm']).value}>
+        <FavoritesStrip {...propsFor(preparing(1))} />
+      </Favoriting>,
+    )
+    expect(await favoriteMenuOf('Witch Bolt')).toEqual([
+      'Remove from favorites',
+    ])
+    expect(await favoriteMenuOf('Alarm')).toEqual(['Remove from favorites'])
   })
 })

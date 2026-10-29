@@ -1,7 +1,9 @@
 import type {
   EffectOp,
+  PrepareOp,
   ROLL_FEATURES,
   ROLL_KINDS,
+  SpellSlotOp,
 } from '@/constants/sending-stone'
 import type {
   AloneOutcome,
@@ -128,6 +130,12 @@ export type InspirationSource = {
 }
 
 /**
+ * One of the character's spell slots spent, or one restored, from module 0.42.1: which, its pool,
+ * such as `spell1` or `pact`, and the count the app showed, made only where it still is.
+ */
+export type SpellSlotInput = { op: SpellSlotOp; id: string; from: number }
+
+/**
  * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
  * the character's, and what moves, each item by its id and how many of it, and each coin by its
  * key, such as "gp", and how many.
@@ -210,6 +218,12 @@ export type WildShapeInput =
   | { op: 'revert' }
   | { op: 'learn'; uuid: string; replace: string | null }
   | { op: 'forms' }
+
+/**
+ * One of the character's spells prepared or unprepared, from module 0.42.1: the state wanted, and
+ * the spell, by its id on the sheet.
+ */
+export type PrepareInput = { op: PrepareOp; id: string }
 
 /**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
@@ -297,6 +311,11 @@ export type RollRequestInput = {
   count?: number
   /** For Heroic Inspiration, from module 0.29.0, whether it's used or gained. */
   inspiration?: 'use' | 'gain'
+  /**
+   * For a spell slot, from module 0.42.1: whether one is spent or restored, of which pool, and the
+   * count of it the app showed.
+   */
+  spellSlot?: SpellSlotInput
   /** For a move of items and coins, from module 0.31.0, its ends and what moves. */
   transfer?: TransferInput
   /** For a removal, from module 0.33.0, what it removes. */
@@ -310,6 +329,11 @@ export type RollRequestInput = {
   effect?: EffectInput
   /** For Wild Shape, from module 0.40.0: which op, and of which form or Beast. */
   wildShape?: WildShapeInput
+  /**
+   * For a spell prepared or unprepared, from module 0.42.1: the state wanted, and which spell, by
+   * its id on the sheet.
+   */
+  prepare?: PrepareInput
   /**
    * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
    * left, as the page shows it now.
@@ -496,4 +520,6 @@ export type GmRollView = Pick<
    * as the chat tells healing.
    */
   healing?: true
+  /** For a spell slot of the Gamemaster's, from module 0.42.1: spent or restored. */
+  slotOp?: SpellSlotOp
 }

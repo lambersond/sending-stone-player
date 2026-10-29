@@ -8,19 +8,28 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.41.0 and its app.
+Released: module v0.42.0 and its app.
 
-## v0.42 (in progress)
+## v0.42.1 (in progress)
 
-1. **Typed dice for what effects add:** when typing in dice, a die an effect adds to a d20 roll or
-   takes from it, such as Bless's, Bane's or Guidance's, is asked for by the spell's name, or
-   skipped for Foundry to roll it.
-2. **Rerolls stay at the table:** the die typed in is the one kept after any reroll, such as Great
-   Weapon Fighting's or a Halfling's reroll of a 1: Foundry no longer rerolls it.
+1. **Elven Accuracy's third d20 on its own line:** when typing in dice, typed in, or skipped for
+   Foundry to roll it.
+2. **Bardic Inspiration offered:** the 2024 Bardic Inspiration a bard gave the character is offered
+   beside Done in the dice dialog, left out until the player adds it once their Gamemaster says the
+   roll fails; once that roll is made, the app removes Inspired where the campaign lets players
+   remove their own effects, and it isn't offered again.
+3. **Spell slots from the dots:** a tap on a spell slot's dot, on the Spells tab or a spell-slots
+   favorite, asks to spend one, or to restore one where it's used, then changes it in Foundry, its
+   line in chat. Pact Magic too.
+4. **Spells prepared from the row menus:** a right-click or a held touch on a spell, on the Spells
+   tab or among the favorites, offers Prepare or Unprepare (on the Actions tab, Unprepare), then
+   changes it in Foundry as its sheet's own menu does. A spell not prepared now says so on its row.
+   A prepared spell casts from the app, and shows on the Actions tab if it attacks, deals damage,
+   is a bonus action or reaction, or lasts a round or a minute. Nothing is posted in chat. The
+   Spells tab shows how many spells each class has prepared, of how many, as Foundry's sheet does
+   ("Prepared 5 / 6").
 
-Next, 0.42.1, before Friday's session: Elven Accuracy's third d20 on its own line, with Skip, and
-the Bardic Inspiration a bard gave the character offered in the dice dialog, with a few more items
-to come. Patch releases (0.42.x) are expected as the session turns up things to tweak.
+Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
 
 ## v0.43 (release candidate)
 
@@ -77,8 +86,27 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   bonus the table narrates without applying it, is rolled by Foundry, or added with Modify Roll.
 - When typing in dice, an effect's die on only some kinds of attack (melee or ranged, weapon or
   spell) is rolled by Foundry; Bless's and Bane's are on every attack.
-- Bardic Inspiration is added with Modify Roll's extra dice until 0.42.1, which offers the 2024
-  one; the 2014 one, which leaves no effect, stays so.
+- When typing in dice with Elven Accuracy's third d20 skipped, the app's own total, and its
+  "Natural 1" or "Natural 20", read the two d20s typed; the game's total, hit or miss are the
+  tray's "· table" ones.
+- When typing in dice, Bardic Inspiration's die is the bard's as the inspired character's sheet last
+  read it, not as it was when given; it follows the bard's within a turn in combat.
+- When typing in dice, Bardic Inspiration can't be added to a roll from the app once Done is
+  pressed: the Gamemaster adds it in Foundry.
+- When typing in dice with Bless's, Bane's or Elven Accuracy's die skipped, the dialog's total
+  leaves out a die only the game rolls, so whether the roll fails can't be told before Done: type
+  that die in to use Bardic Inspiration on the roll.
+- When typing in dice, a spent Bardic Inspiration's Inspired that the app may not remove (the
+  campaign doesn't let players remove their own effects, a companion, a druid in Wild Shape, or a
+  bard who isn't a player's character) isn't offered again on that page until it's removed, but is
+  once the page is reloaded; and a bard's Inspire given again before it's removed isn't offered, as
+  dnd5e refreshes the same effect: the Gamemaster removes it first.
+- When typing in dice, Bardic Inspiration added to a roll the game took too long to make stays
+  spent until that roll is made, or until the page is reloaded: it isn't offered again meanwhile,
+  and nothing says it's spent until the roll is made.
+- When typing in dice in a world on the legacy (2014) rules, a Bardic Inspiration feature that
+  doesn't say which rules it's for counts as 2014's and isn't offered; dnd5e's 2024 compendium
+  feature, which says, is.
 - An exploding die typed in still has Foundry throw its extra die.
 - Midi-QOL's optional bonuses, its Bardic Inspiration among them, are offered on the Gamemaster's
   screen after the roll, with Foundry's dice.
@@ -92,6 +120,14 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
 - Damage on its own never spends the action itself, and with Spend off it counts nothing.
+- Damage rolled with no attack asks whether to spend its spell slot, uses or charges only with
+  "Damage on its own" on (in the cog; off on each device until it's turned on). Off, a spell's,
+  potion's or feature's damage or healing chip that the game uses casts or uses it in Foundry,
+  spending as a use does, without asking; an attack's damage is rolled in the app alone. On, a save
+  spell's damage chip rolls its damage only: cast it with its save chip or Use.
+- Damage on its own's Spend switch calls a charge or a potion "a use of" its row, such as "Spend a
+  use of Potion of Healing", where "a charge of" the item, or "a Potion of Healing", would read
+  better (polish).
 - Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
   tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
   recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,
@@ -103,6 +139,42 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   Foundry (reordering from the app is planned for v1.x).
 - Skills, tools and spell slots are made favorites in Foundry, with no plan to change that unless
   it's asked for.
+- Spell slots are spent and restored from the app one at a time: several are several taps, each
+  asked first.
+- A spell slot's dots can be tapped on the Spells tab and on a spell-slots favorite only: the
+  Actions tab's spell-level headings show the count, and a tap there opens or closes the level; a
+  companion's sheet, a pool of more than nine slots and a pool a module adds under a key of its own
+  show the count only.
+- Spell slots can't be changed from the app while Send to the table is off on that device, with a
+  module before 0.42.1, where the Gamemaster doesn't let players attack and cast from the app, or
+  while the character is in Wild Shape: the slots wait, as the Spells tab's note says.
+- A spell slot is spent or restored from the app only from the count its dots showed: where Foundry
+  changed it meanwhile, it's refused ("the slots changed in Foundry; look again"). The confirm shows
+  the counts as the dots showed them when it opened.
+- Nothing stops a character preparing more spells than a class may, as Foundry's own menu doesn't:
+  the count then reads past the limit, such as "Prepared 7 / 6", as Foundry's sheet does. A class
+  that counts none, such as a 2014 Sorcerer's, shows no count.
+- On the Actions tab a spell's menu offers Unprepare only, as the tab lists only spells that can be
+  cast: a spell is prepared on the Spells tab or among the favorites. One unprepared on the Actions
+  tab leaves it with the next sheet.
+- Cantrips, always-prepared spells, spells cast at will, innately or as rituals, and spells an item
+  casts aren't prepared or unprepared from the app.
+- Spells are prepared and unprepared from the player's own sheet only, with module 0.42.1, where
+  the Gamemaster has players' rolls and Attacks, spells and features on and the dice check has
+  passed: never from the Gamemaster's page or a companion's sheet, nor while the character is in
+  Wild Shape. Where any of these is missing the menu simply lacks Prepare and Unprepare, with no
+  word why.
+- Spells are prepared from the app only while the Gamemaster has the game open in Foundry, as every
+  roll from the app is made there: between sessions they're changed in Foundry.
+- Only spells already on the character's sheet are prepared from the app. dnd5e keeps no class
+  spell list on the character: a cleric's, druid's or paladin's whole list, or a spell a wizard has
+  just copied into the book, is added in Foundry first, and "Always prepared" stays a setting there.
+  A wizard's book works as it is. A 2014 domain spell added by hand comes in not prepared, is
+  offered Prepare, and counts toward the cleric's prepared spells once prepared.
+- After Prepare or Unprepare, where the next sheet draws the spell's row anew (a utility spell such
+  as Bless, a favorite that turns from a spell's row to an action's, or a spell unprepared on the
+  Actions tab, which leaves it), keyboard focus goes to the page, as after Remove from favorites
+  among the favorites.
 - Dishes from the Magical Recipe Book need dnd5e 5 for now (dnd5e 6 is planned for v2.0).
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.

@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Effecting, NO_EFFECTS, type Effects } from './effect-controls'
 import { LONG_PRESS } from './roll-button'
 import { RollToasts } from './roll-toasts'
 import { briefOf, RollTray, type RollBrief, type TableRolls } from './roll-tray'
@@ -18,6 +19,7 @@ import type {
   LocalUse,
 } from '@/hooks/use-sheet-roller'
 import type { GmRollView } from '@/types/roll'
+import type { SheetEffect } from '@/types/sending-stone'
 
 const roll = (fields: Partial<LocalCheck> = {}): LocalCheck => ({
   kind: 'check',
@@ -4735,5 +4737,416 @@ describe('components/character-sheet/roll-tray, the dice effects add, from modul
     expect(briefOf({ ...skipped, skipped: undefined }).dice).toMatch(
       / · Failed$/,
     )
+  })
+})
+
+describe('components/character-sheet/roll-tray, a die offered and spent, from module 0.42.1', () => {
+  /** Thorin's Inspired, which Vex's Bardic Inspiration put on him. */
+  const INSPIRED: SheetEffect = {
+    id: 'inspired',
+    name: 'Inspired',
+    img: null,
+    source: 'Vex',
+    duration: '1 Hour',
+    disabled: false,
+    ops: ['disable', 'delete'],
+    text: null,
+  }
+  /** A Strength save against DC 15, Bardic Inspiration's d6 added, as the roller keeps it. */
+  const inspired = roll({
+    id: 's1',
+    label: 'Strength saving throw',
+    modifier: 2,
+    d20s: [9],
+    natural: 9,
+    total: 16,
+    dc: 15,
+    described: true,
+    typed: true,
+    extras: [{ text: 'Bardic Inspiration +1d6', values: [5], value: 5 }],
+    spends: [
+      { effect: 'inspired', name: 'Inspired', offer: 'Bardic Inspiration' },
+    ],
+  })
+
+  /** The pane's effect controls, as they'd say Inspired is: gone, being removed, or neither. */
+  const controls = (
+    now: 'gone' | 'removing' | 'removable' | 'kept',
+  ): Effects => ({
+    ...NO_EFFECTS,
+    effectOf: id =>
+      now === 'gone' || id !== INSPIRED.id ? undefined : INSPIRED,
+    choiceFor: () =>
+      now === 'kept'
+        ? undefined
+        : {
+            ops: ['disable', 'delete'],
+            waiting: now === 'removing',
+            choose: () => {},
+          },
+  })
+
+  const tray = (
+    now: Parameters<typeof controls>[0],
+    state?: TableRollState,
+  ) => (
+    <Effecting value={controls(now)}>
+      <RollTray
+        rolls={[inspired]}
+        rolling={false}
+        table={followed(state ? [['s1', state]] : [])}
+      />
+    </Effecting>
+  )
+
+  it.each<[string, Parameters<typeof controls>[0], string]>([
+    ['gone', 'gone', 'Bardic Inspiration spent: Inspired removed.'],
+    [
+      'being removed',
+      'removing',
+      'Bardic Inspiration spent: removing Inspired…',
+    ],
+    [
+      'on the sheet, the player not to remove it',
+      'kept',
+      'Bardic Inspiration spent. Ask your Gamemaster to remove Inspired.',
+    ],
+  ])(
+    'says, once the game has made the roll, what became of the effect it spent: %s',
+    (_, now, words) => {
+      const { rerender } = render(tray(now, { status: 'rolling' }))
+      expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+
+      rerender(tray(now, { status: 'done', visible: true, total: 16 }))
+
+      const line = within(screen.getByRole('status')).getByText(words)
+      expect(line).toHaveClass('text-sm', 'text-text-secondary')
+      // At the foot of the roll, after the way to the game.
+      expect(screen.getByRole('status')).toHaveTextContent(
+        new RegExp(`At the table: 16.*${words.replace('.', String.raw`\.`)}$`),
+      )
+    },
+  )
+
+  it.each<TableRollState>([
+    { status: 'refused', reason: 'gone' },
+    { status: 'failed', reason: 'gremlins' },
+    { status: 'sending' },
+  ])('says nothing spent of a roll not made: $status', state => {
+    render(tray('removable', state))
+
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+  })
+
+  it('names the die by what offered it among the dice, and says its verdict, the offer skipping nothing', () => {
+    render(
+      <Effecting value={controls('removable')}>
+        <RollTray rolls={[inspired]} rolling={false} />
+      </Effecting>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'd20 9 +2 Bardic Inspiration +1d6 (5) · DC 15 · Saved',
+    )
+    expect(briefOf(inspired).dice).toMatch(
+      /Bardic Inspiration \+1d6 \(5\) · DC 15 · Saved$/,
+    )
+  })
+})
+
+/** A spell slot spent or restored from the dots (module 0.42.1). */
+const slotted = (
+  slot: 'spend' | 'restore',
+  label = '1st-level spell slot',
+): LocalUse => ({
+  kind: 'use',
+  id: `u-${slot}`,
+  label,
+  spell: false,
+  slot,
+  at: 0,
+})
+
+/** A spell slot the Gamemaster's page spent or restored, as the player's view tells it. */
+const slotView = (
+  fields: Partial<GmRollView> = {},
+  slotOp?: 'spend' | 'restore',
+): GmRollView => ({
+  id: `req-${slotOp}`,
+  kind: 'spellSlot',
+  status: 'done',
+  visible: true,
+  label: '2nd-level spell slot',
+  at: '2026-10-29T03:00:00.000Z',
+  ...(slotOp && { slotOp }),
+  ...fields,
+})
+/** Each in brief, as its toast says it, each by an id of its own. */
+const slotBriefs = (views: GmRollView[]) => {
+  const { rolls, states } = gmRollsOf(
+    views.map((each, index) => ({ ...each, id: `req-${index}` })),
+  )
+  return rolls.map(each => briefOf(each, states.get(each.id)))
+}
+
+describe('a spell slot spent or restored from the dots, from module 0.42.1 (round 0.42.1 §U.1.2)', () => {
+  const spent = slotted('spend')
+  const restored = slotted('restore', 'Pact slot (3rd level)')
+  const done: TableRollState = { status: 'done', visible: true, rolls: [] }
+
+  it('reads it on its way, then done, under the slot’s name', () => {
+    expect(briefOf(spent, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(
+      briefOf(spent, { status: 'rolling', spellSlot: 'spend' }).table?.text,
+    ).toBe('Spending it in your Gamemaster’s game…')
+    expect(
+      briefOf(restored, { status: 'rolling', spellSlot: 'restore' }).table
+        ?.text,
+    ).toBe('Restoring it in your Gamemaster’s game…')
+    expect(briefOf(spent, { ...done, spellSlot: 'spend' })).toMatchObject({
+      label: '1st-level spell slot',
+      badge: 'use',
+      table: { tone: 'made', text: 'Spent at the table' },
+    })
+    expect(briefOf(restored, { ...done, spellSlot: 'restore' })).toMatchObject({
+      label: 'Pact slot (3rd level)',
+      table: { tone: 'made', text: 'Restored at the table' },
+    })
+  })
+
+  it.each([
+    ['refused', 'slots', 'none is left'],
+    ['failed', 'slots', 'none is left'],
+    ['refused', 'full', 'none is used'],
+    ['failed', 'full', 'none is used'],
+    ['refused', 'slot', 'there are no such spell slots'],
+    ['failed', 'slot', 'there are no such spell slots'],
+    ['refused', 'changed', 'the slots changed in Foundry; look again'],
+    ['failed', 'changed', 'the slots changed in Foundry; look again'],
+    [
+      'failed',
+      'shaped',
+      'that waits until your character is back in their own form',
+    ],
+    ['refused', 'unavailable', 'your Gamemaster’s game isn’t taking rolls now'],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['failed', 'attacks-off', 'your Gamemaster’s game isn’t taking attacks'],
+    ['failed', 'unknown', 'your character in the game can’t make it'],
+  ] as const)(
+    'says why it was %s, %s, in the slots’ own words where they differ',
+    (status, reason, words) => {
+      expect(
+        briefOf(spent, { status, reason, spellSlot: 'spend' }).table?.text,
+      ).toBe(`Not spent at the table: ${words}`)
+      expect(
+        briefOf(restored, { status, reason, spellSlot: 'restore' }).table?.text,
+      ).toBe(`Not restored at the table: ${words}`)
+    },
+  )
+
+  it('reads it in the tray, and lists it among the earlier rolls by what became of it', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[spent, restored]}
+        rolling={false}
+        table={{
+          states: new Map([['u-spend', { ...done, spellSlot: 'spend' }]]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '1st-level spell slotSpent at the table',
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Pact slot (3rd level)restored'])
+  })
+
+  it('reads the short word of each', () => {
+    render(
+      <RollTray
+        rolls={[slotted('restore', 'Later'), spent]}
+        rolling={false}
+        table={{ states: new Map(), available: true, sending: true }}
+      />,
+    )
+    act(() => screen.getByText('Earlier rolls (1)').click())
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      '1st-level spell slotspent',
+    )
+  })
+
+  describe("the Gamemaster's on the player's page", () => {
+    it('says Spending or Restoring, then Spent or Restored, by what their page asked', () => {
+      expect(
+        slotBriefs([
+          slotView({ status: 'rolling' }, 'spend'),
+          slotView({ status: 'rolling' }, 'restore'),
+          slotView({}, 'spend'),
+          slotView({}, 'restore'),
+        ]).map(({ label, badge, table }) => [label, badge, table?.text]),
+      ).toEqual([
+        [
+          '2nd-level spell slot',
+          'use',
+          'Spending it in your Gamemaster’s game…',
+        ],
+        [
+          '2nd-level spell slot',
+          'use',
+          'Restoring it in your Gamemaster’s game…',
+        ],
+        ['2nd-level spell slot', 'use', 'Spent at the table'],
+        ['2nd-level spell slot', 'use', 'Restored at the table'],
+      ])
+      // One whose page didn't say which, as none does, says only that it changed.
+      expect(slotBriefs([slotView()])[0].table?.text).toBe(
+        'Changed at the table',
+      )
+    })
+
+    it('says why one was refused in the slots’ own words', () => {
+      expect(
+        slotBriefs([
+          slotView({ status: 'failed', reason: 'full' }, 'restore'),
+          slotView({ status: 'failed', reason: 'slots' }, 'spend'),
+          slotView({ status: 'failed', reason: 'changed' }, 'spend'),
+          slotView({ status: 'failed', reason: 'slot' }, 'spend'),
+          slotView({ status: 'failed', reason: 'attacks-off' }, 'spend'),
+        ]).map(({ table }) => table?.text),
+      ).toEqual([
+        'Not restored at the table: none is used',
+        'Not spent at the table: none is left',
+        'Not spent at the table: the slots changed in Foundry; look again',
+        'Not spent at the table: there are no such spell slots',
+        'Not spent at the table: your Gamemaster’s game isn’t taking attacks',
+      ])
+    })
+  })
+})
+
+const prepared = (
+  op: 'prepare' | 'unprepare',
+  label = 'Witch Bolt',
+): LocalUse => ({
+  kind: 'use',
+  id: `u-${op}`,
+  label,
+  spell: false,
+  prepare: op,
+  at: 0,
+})
+
+describe('a spell prepared or unprepared, from module 0.42.1 (round 0.42.1 §P.1.3)', () => {
+  const preparing = prepared('prepare')
+  const unpreparing = prepared('unprepare', 'Bless')
+
+  it('reads it on its way, then made, as the game says', () => {
+    expect(briefOf(preparing, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(briefOf(preparing, { status: 'rolling' }).table?.text).toBe(
+      'Preparing it in your Gamemaster’s game…',
+    )
+    expect(briefOf(unpreparing, { status: 'rolling' }).table?.text).toBe(
+      'Unpreparing it in your Gamemaster’s game…',
+    )
+    expect(
+      briefOf(preparing, { status: 'done', visible: true, prepare: 'prepare' }),
+    ).toMatchObject({
+      label: 'Witch Bolt',
+      badge: 'use',
+      table: { tone: 'made', text: 'Prepared' },
+    })
+    expect(
+      briefOf(unpreparing, { status: 'done', visible: true }).table?.text,
+    ).toBe('Unprepared')
+  })
+
+  it.each([
+    [
+      'refused',
+      'prepare',
+      'that spell can’t be prepared or unprepared from here',
+    ],
+    [
+      'refused',
+      'unavailable',
+      'your Gamemaster’s game isn’t taking changes to prepared spells now',
+    ],
+    [
+      'failed',
+      'off',
+      'your Gamemaster’s game isn’t taking changes to prepared spells now',
+    ],
+    [
+      'failed',
+      'attacks-off',
+      'your Gamemaster’s game isn’t taking changes to prepared spells now',
+    ],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['refused', 'gone', 'it can’t be found in the game any more'],
+    [
+      'refused',
+      'shaped',
+      'that waits until your character is back in their own form',
+    ],
+    ['failed', 'cancelled', 'it was called off in the game'],
+    ['failed', 'invalid', 'your Gamemaster’s game couldn’t make it'],
+  ] as const)(
+    'says why it was %s, %s, in its own words where they differ',
+    (status, reason, words) => {
+      // Its state keeps that it's a spell prepared, as sendPrepare sends it.
+      expect(
+        briefOf(preparing, { status, reason, prepare: 'prepare' }).table?.text,
+      ).toBe(`Couldn’t prepare it: ${words}`)
+      expect(
+        briefOf(unpreparing, { status, reason, prepare: 'unprepare' }).table
+          ?.text,
+      ).toBe(`Couldn’t unprepare it: ${words}`)
+    },
+  )
+
+  it('says the game’s own name for it at the Gamemaster’s view, as a seat reads it', () => {
+    expect(
+      briefOf(
+        preparing,
+        { status: 'refused', reason: 'unavailable', prepare: 'prepare' },
+        'gm',
+      ).table?.text,
+    ).toBe(
+      'Couldn’t prepare it: your game isn’t taking changes to prepared spells now',
+    )
+  })
+
+  it('reads it in the tray under the spell’s name, and lists it among the earlier rolls so', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[preparing, unpreparing]}
+        rolling={false}
+        table={{
+          states: new Map([
+            [
+              'u-prepare',
+              { status: 'done', visible: true, prepare: 'prepare' },
+            ],
+          ]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Witch BoltPrepared')
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Blessunprepared'])
   })
 })

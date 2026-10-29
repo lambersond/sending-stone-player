@@ -2771,3 +2771,259 @@ describe('the dice effects add, and rerolls kept, from module 0.42.0', () => {
     expect(parseKind(damage, { typed: true, rerolls }).success).toBe(false)
   })
 })
+
+describe('schemas/roll-request, a spell slot spent or restored, from module 0.42.1', () => {
+  /** One of Thorin's 1st-level slots spent, at 3 of 4, as a filled dot's confirm sends it. */
+  const slotting = {
+    kind: 'spellSlot',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    spellSlot: { op: 'spend', id: 'spell1', from: 3 },
+  }
+  /** A spell slot as given, the rest as `slotting` has it. */
+  const slot = (fields: unknown) => parseKind(slotting, { spellSlot: fields })
+  const message =
+    'A spell slot spent or restored, and only that, names the pool, which, and the count it was made from'
+
+  it.each([
+    ['a 1st-level slot spent', { op: 'spend', id: 'spell1', from: 3 }],
+    ['a 9th-level slot restored', { op: 'restore', id: 'spell9', from: 0 }],
+    ['a pact slot spent', { op: 'spend', id: 'pact', from: 2 }],
+    ['a pact slot restored', { op: 'restore', id: 'pact', from: 0 }],
+    [
+      'one from the most a count may be',
+      { op: 'spend', id: 'spell1', from: 999 },
+    ],
+  ])('takes %s, as it is', (_name, fields) => {
+    const parsed = slot(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...slotting, spellSlot: fields })
+  })
+
+  it('takes what the Gamemaster’s page calls it, which the server keeps apart', () => {
+    expect(parseKind(slotting, { label: '1st-level spell slot' }).success).toBe(
+      true,
+    )
+  })
+
+  it.each([
+    ['no op', { id: 'spell1', from: 3 }],
+    ['an op of its own', { op: 'set', id: 'spell1', from: 3 }],
+    ['a toggle', { op: 'toggle', id: 'spell1', from: 3 }],
+    ['no pool', { op: 'spend', from: 3 }],
+    ['an empty pool', { op: 'spend', id: '', from: 3 }],
+    ['cantrips', { op: 'spend', id: 'spell0', from: 3 }],
+    ['a 10th level', { op: 'spend', id: 'spell10', from: 3 }],
+    ['a level by its name', { op: 'spend', id: '1st', from: 3 }],
+    ['a pool a module adds', { op: 'spend', id: 'arcane1', from: 3 }],
+    ['an own key of every object', { op: 'spend', id: 'constructor', from: 3 }],
+    ['a pool as a number', { op: 'spend', id: 7, from: 3 }],
+    ['no count', { op: 'spend', id: 'spell1' }],
+    ['a count below 0', { op: 'spend', id: 'spell1', from: -1 }],
+    ['a count of a part', { op: 'spend', id: 'spell1', from: 1.5 }],
+    ['a count over 999', { op: 'restore', id: 'spell1', from: 1000 }],
+    ['a count as text', { op: 'spend', id: 'spell1', from: '2' }],
+    ['a key more', { op: 'spend', id: 'spell1', from: 3, count: 1 }],
+    ['who sent it', { op: 'spend', id: 'spell1', from: 3, by: 'gm' }],
+    ['not an object', 'spell1'],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(slot(fields).success).toBe(false)
+  })
+
+  it('takes a spell slot only as one, and one only naming its slot', () => {
+    expect(issuesOf(perception, { spellSlot: slotting.spellSlot })).toEqual([
+      ['spellSlot', message],
+    ])
+    expect(issuesOf(spending, { spellSlot: slotting.spellSlot })).toEqual([
+      ['spellSlot', message],
+    ])
+    expect(issuesOf(inspiring, { spellSlot: slotting.spellSlot })).toEqual([
+      ['spellSlot', message],
+    ])
+    expect(issuesOf(slotting, { spellSlot: undefined })).toEqual([
+      ['spellSlot', message],
+    ])
+  })
+
+  it.each([
+    [
+      'charges',
+      { counter: { item: 'sorcery' }, count: 1 },
+      ['counter', 'Charges spent, and only those, name their counter'],
+    ],
+    [
+      'Heroic Inspiration',
+      { inspiration: 'use' },
+      [
+        'inspiration',
+        'Heroic Inspiration, and only that, says whether it’s used',
+      ],
+    ],
+    [
+      'a cast’s slot',
+      { slot: 'spell1' },
+      ['slot', 'Only an attack, a use or damage on its own casts at a slot'],
+    ],
+    [
+      'spending what a use would',
+      { consume: true },
+      ['consume', 'Only damage on its own spends what it uses'],
+    ],
+    [
+      'an item',
+      { item: 'bless', activity: 'cast' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses a spell slot naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(slotting, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a spell slot with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(slotting, fields)).toEqual([
+      ['dice', 'A spell slot spent or restored throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(slotting, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(slotting, { of: 'actorThorin1' }).success).toBe(false)
+    expect(parseKind(slotting, { actorId: 'actorVex0001' }).success).toBe(false)
+  })
+})
+
+describe('schemas/roll-request, a spell prepared or unprepared, from module 0.42.1', () => {
+  /** Witch Bolt prepared, as its row's menu sends it. */
+  const preparing = {
+    kind: 'prepare',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    prepare: { op: 'prepare', id: 'witch' },
+  }
+  /** A preparation as given, the rest as `preparing` has it. */
+  const prepare = (fields: unknown) => parseKind(preparing, { prepare: fields })
+  const message =
+    'A spell prepared or unprepared, and only that, names the spell and which'
+
+  it.each([
+    ['a spell prepared', { op: 'prepare', id: 'witch' }],
+    ['a spell unprepared', { op: 'unprepare', id: 'bless' }],
+    ['an id of 64 letters and digits', { op: 'prepare', id: 'a1'.repeat(32) }],
+  ])('takes %s, as it is', (_name, fields) => {
+    const parsed = prepare(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...preparing, prepare: fields })
+  })
+
+  it.each([
+    ['no op', { id: 'witch' }],
+    ['a toggle', { op: 'toggle', id: 'witch' }],
+    ['always prepared', { op: 'always', id: 'witch' }],
+    ['no spell', { op: 'prepare' }],
+    ['an empty id', { op: 'prepare', id: '' }],
+    ['an id with a dot', { op: 'prepare', id: 'a.b' }],
+    ['an id of 65 letters', { op: 'prepare', id: 'x'.repeat(65) }],
+    ['an id as a number', { op: 'prepare', id: 7 }],
+    ['a key more', { op: 'prepare', id: 'witch', from: 0 }],
+    ['who sent it', { op: 'prepare', id: 'witch', by: 'gm' }],
+    ['not an object', 'witch'],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(prepare(fields).success).toBe(false)
+  })
+
+  it('takes a preparation only as one, and one only naming its spell', () => {
+    expect(issuesOf(perception, { prepare: preparing.prepare })).toEqual([
+      ['prepare', message],
+    ])
+    expect(issuesOf(spending, { prepare: preparing.prepare })).toEqual([
+      ['prepare', message],
+    ])
+    expect(issuesOf(inspiring, { prepare: preparing.prepare })).toEqual([
+      ['prepare', message],
+    ])
+    expect(issuesOf(preparing, { prepare: undefined })).toEqual([
+      ['prepare', message],
+    ])
+  })
+
+  it.each([
+    [
+      'an effect',
+      { effect: { op: 'disable', id: 'blessed' } },
+      [
+        'effect',
+        'An effect turned off, on or deleted, and only that, names the effect',
+      ],
+    ],
+    [
+      'a favorite',
+      { favorite: { op: 'add', type: 'item', id: 'witch' } },
+      ['favorite', 'A favorite added or removed, and only that, names what'],
+    ],
+    [
+      'a move',
+      { transfer: moving.transfer },
+      ['transfer', 'A move, and only that, names what moves'],
+    ],
+    [
+      'charges',
+      { counter: { item: 'sorcery' }, count: 1 },
+      ['counter', 'Charges spent, and only those, name their counter'],
+    ],
+    [
+      'a cast’s slot',
+      { slot: 'spell1' },
+      ['slot', 'Only an attack, a use or damage on its own casts at a slot'],
+    ],
+    [
+      'an item',
+      { item: 'witch', activity: 'cast' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses a preparation naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(preparing, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a preparation with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(preparing, fields)).toEqual([
+      ['dice', 'Preparing a spell throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(preparing, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(preparing, { of: 'actorThorin1' }).success).toBe(false)
+    expect(parseKind(preparing, { actorId: 'actorVex0001' }).success).toBe(
+      false,
+    )
+  })
+})
