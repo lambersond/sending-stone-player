@@ -125,6 +125,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   potion's or feature's damage or healing chip that the game uses casts or uses it in Foundry,
   spending as a use does, without asking; an attack's damage is rolled in the app alone. On, a save
   spell's damage chip rolls its damage only: cast it with its save chip or Use.
+- Damage on its own's Spend switch calls a charge or a potion "a use of" its row, such as "Spend a
+  use of Potion of Healing", where "a charge of" the item, or "a Potion of Healing", would read
+  better (polish).
 - Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
   tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
   recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,
