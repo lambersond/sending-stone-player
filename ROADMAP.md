@@ -113,6 +113,11 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
 - Damage on its own never spends the action itself, and with Spend off it counts nothing.
+- Damage rolled with no attack asks whether to spend its spell slot, uses or charges only with
+  "Damage on its own" on (in the cog; off on each device until it's turned on). Off, a spell's,
+  potion's or feature's damage or healing chip that the game uses casts or uses it in Foundry,
+  spending as a use does, without asking; an attack's damage is rolled in the app alone. On, a save
+  spell's damage chip rolls its damage only: cast it with its save chip or Use.
 - Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
   tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
   recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,
