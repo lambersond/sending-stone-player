@@ -1491,7 +1491,11 @@ part('5c. bardic inspiration')
     await cancel(entry.dialog)
 
     // 4. An attack: Inspired put on again; the rapier, a hit with the die added: once made, Inspired
-    // removed beneath it, and its damage still due in the tray's latest, and rolled.
+    // removed beneath it, and its damage still due in the tray's latest, and rolled. First, Alice's
+    // page has the Inspired the desk spent gone, as within a poll it does: her Effects tab lists
+    // effects by name, so a page a poll behind, still listing that one, would pass for having the
+    // new one, and her rapier would be offered, and spend, the die of the one already removed.
+    await sheetWith([alice], [])
     inspired = await putOn(inspiring())
     await sheetWith([alice], ['Inspired'])
     await alice.tab('Actions')
