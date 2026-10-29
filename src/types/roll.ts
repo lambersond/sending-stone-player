@@ -1,5 +1,6 @@
 import type {
   EffectOp,
+  PrepareOp,
   ROLL_FEATURES,
   ROLL_KINDS,
   SpellSlotOp,
@@ -219,6 +220,12 @@ export type WildShapeInput =
   | { op: 'forms' }
 
 /**
+ * One of the character's spells prepared or unprepared, from module 0.42.1: the state wanted, and
+ * the spell, by its id on the sheet.
+ */
+export type PrepareInput = { op: PrepareOp; id: string }
+
+/**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
  * formula, such as a light's radius; or a description's own roll, by its link.
@@ -322,6 +329,11 @@ export type RollRequestInput = {
   effect?: EffectInput
   /** For Wild Shape, from module 0.40.0: which op, and of which form or Beast. */
   wildShape?: WildShapeInput
+  /**
+   * For a spell prepared or unprepared, from module 0.42.1: the state wanted, and which spell, by
+   * its id on the sheet.
+   */
+  prepare?: PrepareInput
   /**
    * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
    * left, as the page shows it now.

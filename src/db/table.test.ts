@@ -776,6 +776,23 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
     })
   })
 
+  it('offers the player a spell prepared or unprepared, from module 0.42.1, but never the Gamemaster, as it posts nothing', async () => {
+    const kinds = ['skill', 'spend', 'inspiration', 'spellSlot', 'prepare']
+    givenCampaign(taking(['gmRolls'], kinds))
+    await expect(getTableView(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      rollsToTable: kinds,
+    })
+    await expect(getTableView(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend', 'inspiration', 'spellSlot'],
+    })
+    await expect(getCampaignStatus(gm)).resolves.toMatchObject({
+      rollsToTable: ['skill', 'spend', 'inspiration', 'spellSlot'],
+    })
+  })
+
   it('tells the player and the Gamemaster at the sheet that players may enter their dice results, from module 0.26.0, while the game takes rolls', async () => {
     givenCampaign(taking(['gmRolls', 'manualDice']))
     await expect(getTableView(character)).resolves.toMatchObject({

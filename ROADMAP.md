@@ -21,6 +21,13 @@ Released: module v0.42.0 and its app.
 3. **Spell slots from the dots:** a tap on a spell slot's dot, on the Spells tab or a spell-slots
    favorite, asks to spend one, or to restore one where it's used, then changes it in Foundry, its
    line in chat. Pact Magic too.
+4. **Spells prepared from the row menus:** a right-click or a held touch on a spell, on the Spells
+   tab or among the favorites, offers Prepare or Unprepare (on the Actions tab, Unprepare), then
+   changes it in Foundry as its sheet's own menu does. A spell not prepared now says so on its row.
+   A prepared spell casts from the app, and shows on the Actions tab if it attacks, deals damage,
+   is a bonus action or reaction, or lasts a round or a minute. Nothing is posted in chat. The
+   Spells tab shows how many spells each class has prepared, of how many, as Foundry's sheet does
+   ("Prepared 5 / 6").
 
 Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
 
@@ -141,6 +148,30 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - A spell slot is spent or restored from the app only from the count its dots showed: where Foundry
   changed it meanwhile, it's refused ("the slots changed in Foundry; look again"). The confirm shows
   the counts as the dots showed them when it opened.
+- Nothing stops a character preparing more spells than a class may, as Foundry's own menu doesn't:
+  the count then reads past the limit, such as "Prepared 7 / 6", as Foundry's sheet does. A class
+  that counts none, such as a 2014 Sorcerer's, shows no count.
+- On the Actions tab a spell's menu offers Unprepare only, as the tab lists only spells that can be
+  cast: a spell is prepared on the Spells tab or among the favorites. One unprepared on the Actions
+  tab leaves it with the next sheet.
+- Cantrips, always-prepared spells, spells cast at will, innately or as rituals, and spells an item
+  casts aren't prepared or unprepared from the app.
+- Spells are prepared and unprepared from the player's own sheet only, with module 0.42.1, where
+  the Gamemaster has players' rolls and Attacks, spells and features on and the dice check has
+  passed: never from the Gamemaster's page or a companion's sheet, nor while the character is in
+  Wild Shape. Where any of these is missing the menu simply lacks Prepare and Unprepare, with no
+  word why.
+- Spells are prepared from the app only while the Gamemaster has the game open in Foundry, as every
+  roll from the app is made there: between sessions they're changed in Foundry.
+- Only spells already on the character's sheet are prepared from the app. dnd5e keeps no class
+  spell list on the character: a cleric's, druid's or paladin's whole list, or a spell a wizard has
+  just copied into the book, is added in Foundry first, and "Always prepared" stays a setting there.
+  A wizard's book works as it is. A 2014 domain spell added by hand comes in not prepared, is
+  offered Prepare, and counts toward the cleric's prepared spells once prepared.
+- After Prepare or Unprepare, where the next sheet draws the spell's row anew (a utility spell such
+  as Bless, a favorite that turns from a spell's row to an action's, or a spell unprepared on the
+  Actions tab, which leaves it), keyboard focus goes to the page, as after Remove from favorites
+  among the favorites.
 - Dishes from the Magical Recipe Book need dnd5e 5 for now (dnd5e 6 is planned for v2.0).
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.

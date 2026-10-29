@@ -2905,3 +2905,133 @@ describe('schemas/roll-request, a spell slot spent or restored, from module 0.42
     expect(parseKind(slotting, { actorId: 'actorVex0001' }).success).toBe(false)
   })
 })
+
+describe('schemas/roll-request, a spell prepared or unprepared, from module 0.42.1', () => {
+  /** Witch Bolt prepared, as its row's menu sends it. */
+  const preparing = {
+    kind: 'prepare',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    prepare: { op: 'prepare', id: 'witch' },
+  }
+  /** A preparation as given, the rest as `preparing` has it. */
+  const prepare = (fields: unknown) => parseKind(preparing, { prepare: fields })
+  const message =
+    'A spell prepared or unprepared, and only that, names the spell and which'
+
+  it.each([
+    ['a spell prepared', { op: 'prepare', id: 'witch' }],
+    ['a spell unprepared', { op: 'unprepare', id: 'bless' }],
+    ['an id of 64 letters and digits', { op: 'prepare', id: 'a1'.repeat(32) }],
+  ])('takes %s, as it is', (_name, fields) => {
+    const parsed = prepare(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...preparing, prepare: fields })
+  })
+
+  it.each([
+    ['no op', { id: 'witch' }],
+    ['a toggle', { op: 'toggle', id: 'witch' }],
+    ['always prepared', { op: 'always', id: 'witch' }],
+    ['no spell', { op: 'prepare' }],
+    ['an empty id', { op: 'prepare', id: '' }],
+    ['an id with a dot', { op: 'prepare', id: 'a.b' }],
+    ['an id of 65 letters', { op: 'prepare', id: 'x'.repeat(65) }],
+    ['an id as a number', { op: 'prepare', id: 7 }],
+    ['a key more', { op: 'prepare', id: 'witch', from: 0 }],
+    ['who sent it', { op: 'prepare', id: 'witch', by: 'gm' }],
+    ['not an object', 'witch'],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(prepare(fields).success).toBe(false)
+  })
+
+  it('takes a preparation only as one, and one only naming its spell', () => {
+    expect(issuesOf(perception, { prepare: preparing.prepare })).toEqual([
+      ['prepare', message],
+    ])
+    expect(issuesOf(spending, { prepare: preparing.prepare })).toEqual([
+      ['prepare', message],
+    ])
+    expect(issuesOf(inspiring, { prepare: preparing.prepare })).toEqual([
+      ['prepare', message],
+    ])
+    expect(issuesOf(preparing, { prepare: undefined })).toEqual([
+      ['prepare', message],
+    ])
+  })
+
+  it.each([
+    [
+      'an effect',
+      { effect: { op: 'disable', id: 'blessed' } },
+      [
+        'effect',
+        'An effect turned off, on or deleted, and only that, names the effect',
+      ],
+    ],
+    [
+      'a spell slot',
+      { spellSlot: { op: 'spend', id: 'spell1', from: 3 } },
+      [
+        'spellSlot',
+        'A spell slot spent or restored, and only that, names the pool, which, and the count it was made from',
+      ],
+    ],
+    [
+      'a favorite',
+      { favorite: { op: 'add', type: 'item', id: 'witch' } },
+      ['favorite', 'A favorite added or removed, and only that, names what'],
+    ],
+    [
+      'a move',
+      { transfer: moving.transfer },
+      ['transfer', 'A move, and only that, names what moves'],
+    ],
+    [
+      'charges',
+      { counter: { item: 'sorcery' }, count: 1 },
+      ['counter', 'Charges spent, and only those, name their counter'],
+    ],
+    [
+      'a cast’s slot',
+      { slot: 'spell1' },
+      ['slot', 'Only an attack, a use or damage on its own casts at a slot'],
+    ],
+    [
+      'an item',
+      { item: 'witch', activity: 'cast' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses a preparation naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(preparing, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses a preparation with %s, as it throws no dice', (_name, fields) => {
+    expect(issuesOf(preparing, fields)).toEqual([
+      ['dice', 'Preparing a spell throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(preparing, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(preparing, { of: 'actorThorin1' }).success).toBe(false)
+    expect(parseKind(preparing, { actorId: 'actorVex0001' }).success).toBe(
+      false,
+    )
+  })
+})

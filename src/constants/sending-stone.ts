@@ -122,6 +122,7 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * on or deleted, no roll either; and from module 0.40.0, Wild Shape from the app, a change into a
  * known form, a return, a form learned, or the Beasts to learn listed, no roll either; and from
  * module 0.42.1, one of the character's spell slots spent or restored, no roll either.
+ * And from module 0.42.1, one of the character's spells prepared or unprepared, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -153,6 +154,7 @@ export const ROLL_KINDS = [
   'favorite',
   'effect',
   'wildShape',
+  'prepare',
 ] as const
 
 /**
@@ -313,6 +315,13 @@ export const EFFECT_SETTLE = 10_000
 export const WILD_SHAPE_SETTLE = 10_000
 
 /**
+ * How long, from when it's sent, a spell's Prepare or Unprepare waits for the sheet to say what the
+ * game made of it, in milliseconds: the sheet comes before its result (module 0.42.1), within a
+ * poll.
+ */
+export const PREPARE_SETTLE = 10_000
+
+/**
  * The format of dishes from the Magical Recipe Book this app takes, as it tells the module
  * (`dishes`): from module 0.38.0, the `dish` command and the `dish.applied` and `dish.dismissed`
  * events. The module fetches dishes, and reports what became of them, only then.
@@ -339,6 +348,13 @@ export type EffectOp = (typeof EFFECT_OPS)[number]
  * its Foundry id, "<id>", or one of its items' as "<itemId>.<id>".
  */
 export const EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
+
+/**
+ * What a player may do to one of their character's spells from here, from module 0.42.1's
+ * `prepare` command, as dnd5e's sheet's Prepare and Unprepare do: the state wanted, never a toggle.
+ */
+export const PREPARE_OPS = ['prepare', 'unprepare'] as const
+export type PrepareOp = (typeof PREPARE_OPS)[number]
 
 /**
  * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
@@ -437,8 +453,9 @@ export const MOST_COMPANIONS = 50
  * which the character's page does for its companions' turns too, nor favorites, which an NPC has
  * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes,
  * nor from module 0.40.0 Wild Shape, which only a character uses, nor from module 0.42.1 a spell
- * slot spent or restored, which an NPC's sheet changes in Foundry. The module's list has `note` and
- * `dish` too, which aren't rolls here.
+ * slot spent or restored, which an NPC's sheet changes in Foundry, nor from module 0.42.1 a spell
+ * prepared, which an NPC has prepared already. The module's list has `note` and `dish` too, which
+ * aren't rolls here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
@@ -451,6 +468,7 @@ export const COMPANION_UNTAKEN = [
   'favorite',
   'effect',
   'wildShape',
+  'prepare',
   'endTurn',
   'undoEndTurn',
 ] as const

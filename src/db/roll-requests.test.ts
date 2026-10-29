@@ -33,6 +33,8 @@ import {
   typingRosterEntry,
   aloneSheet,
   blessedSheet,
+  sheetSpell,
+  shapedSheet,
 } from '@/mocks/sending-stone'
 import { toCommand } from '@/utils/roll-requests'
 import type { SheetSeat } from '@/types/character'
@@ -5040,5 +5042,206 @@ describe('db/roll-requests, a spell slot spent or restored, from module 0.42.1',
     ])
     const [[{ where }]] = prismaMock.rollRequest.findMany.mock.calls as any
     expect(JSON.stringify(where)).not.toContain('spellSlot')
+  })
+})
+
+/** Thorin's spells: Witch Bolt not prepared, Bless prepared and Sanctuary always prepared. */
+const preparingThorin = () =>
+  characterSheet({
+    spells: [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 3, max: 4, level: 1 },
+        spells: [
+          sheetSpell({ id: 'witch', name: 'Witch Bolt', prepared: 0 }),
+          sheetSpell({ id: 'bless', name: 'Bless', prepared: 1 }),
+          sheetSpell({ id: 'sanctuary', name: 'Sanctuary', prepared: 2 }),
+        ],
+      },
+    ],
+  })
+
+/**
+ * A game that takes these kinds, by default as module 0.42.1 lists them where players may attack
+ * and cast, the Gamemaster's rolls too, holding this sheet of Thorin's, with these on their way.
+ */
+const givenPreparing = ({
+  kinds = ['skill', 'spend', 'inspiration', 'spellSlot', 'prepare'],
+  sheet = preparingThorin() as object,
+  inFlight = 0,
+} = {}) => {
+  prismaMock.campaign.findUnique.mockResolvedValue({
+    ...takingRolls,
+    rollKinds: kinds,
+    rollFeatures: ['gmRolls'],
+  } as any)
+  prismaMock.actorSheet.findUnique.mockResolvedValue({ data: sheet } as any)
+  prismaMock.rollRequest.count.mockImplementation(((args: any) =>
+    Promise.resolve(args.where.OR ? inFlight : 0)) as any)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-1' } as any)
+}
+
+describe('db/roll-requests, a spell prepared or unprepared, from module 0.42.1', () => {
+  /** Witch Bolt prepared, as its row's menu sends it. */
+  const prepareWitch: RollRequestInput = {
+    kind: 'prepare',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    prepare: { op: 'prepare', id: 'witch' },
+  }
+  /** Bless unprepared. */
+  const unprepareBless: RollRequestInput = {
+    ...prepareWitch,
+    prepare: { op: 'unprepare', id: 'bless' },
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it("takes the player's, either way, stored for the game as it came", async () => {
+    givenPreparing()
+
+    await expect(createRollRequest(character, prepareWitch)).resolves.toEqual({
+      id: 'req-1',
+    })
+    expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        role: 'player',
+        actorId: 'actor-thorin',
+        kind: 'prepare',
+        payload: prepareWitch,
+      }),
+      select: { id: true },
+    })
+    await expect(createRollRequest(character, unprepareBless)).resolves.toEqual(
+      { id: 'req-1' },
+    )
+  })
+
+  it('takes one already so: the game says so, and writes nothing', async () => {
+    givenPreparing()
+
+    await expect(
+      createRollRequest(character, {
+        ...prepareWitch,
+        prepare: { op: 'prepare', id: 'bless' },
+      }),
+    ).resolves.toEqual({ id: 'req-1' })
+  })
+
+  it.each([
+    ['one always prepared', 'sanctuary', 'prepare'],
+    ['one the sheet doesn’t list', 'nope', 'gone'],
+  ] as const)(
+    'refuses %s, as the held sheet says',
+    async (_name, id, reason) => {
+      givenPreparing()
+
+      await expect(
+        createRollRequest(character, {
+          ...prepareWitch,
+          prepare: { op: 'prepare', id },
+        }),
+      ).resolves.toEqual(refusal(422, reason))
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    },
+  )
+
+  it('refuses any while the character is transformed, as the held sheet says', async () => {
+    givenPreparing({ sheet: shapedSheet() })
+
+    await expect(
+      createRollRequest(character, {
+        ...prepareWitch,
+        prepare: { op: 'prepare', id: 'goodberry' },
+      }),
+    ).resolves.toEqual(refusal(422, 'shaped'))
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("never takes the Gamemaster's, though their rolls are made, as it posts nothing", async () => {
+    givenPreparing()
+
+    await expect(createRollRequest(gm(), prepareWitch)).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses one to a game whose kinds lack it, as module 0.42.0’s, though they list charges, Heroic Inspiration and spell slots', async () => {
+    givenPreparing({ kinds: ['skill', 'spend', 'inspiration', 'spellSlot'] })
+
+    await expect(createRollRequest(character, prepareWitch)).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("refuses one at a companion's seat: a companion's kinds never have it", async () => {
+    const wolf = mockCompanionEntry({ of: ['actor-thorin'] })
+    const atWolf: SheetSeat = {
+      ...character,
+      actorId: 'wolfBrakka',
+      name: 'Wolf',
+      companion: { of: 'actor-thorin', entry: wolf },
+    }
+    given({
+      campaign: companionCampaign({
+        rollKinds: ['skill', 'attack', 'spend', 'inspiration', 'prepare'],
+      }),
+    })
+
+    await expect(createRollRequest(atWolf, prepareWitch)).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('counts it with the seat’s rolls: refused while three are on their way', async () => {
+    givenPreparing({ inFlight: 3 })
+
+    await expect(createRollRequest(character, prepareWitch)).resolves.toEqual(
+      refusal(429, 'busy'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("hands the module the player's, withheld by no switch, as it came", async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      helloSession: 'session-1',
+      rollFeatures: [],
+      ownerId: 'gm-1',
+      transfersEnabled: false,
+      removalsEnabled: false,
+      favoritesEnabled: false,
+      effectsEnabled: false,
+      wildShapeEnabled: false,
+    } as any)
+    prismaMock.rollRequest.findMany
+      .mockResolvedValueOnce([{ id: 'prep-1' }] as any)
+      .mockResolvedValueOnce([
+        held('prep-1', {
+          kind: 'prepare',
+          role: 'player',
+          payload: prepareWitch,
+        }),
+      ] as any)
+
+    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+      { ...prepareWitch, id: 'prep-1', actorId: 'actor-thorin' },
+    ])
+    const [[{ where }]] = prismaMock.rollRequest.findMany.mock.calls as any
+    expect(JSON.stringify(where)).not.toContain('prepare')
   })
 })

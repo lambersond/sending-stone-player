@@ -1183,6 +1183,16 @@ const sheetSchema = z
             ability: nullableString,
             dc: nullableNumber,
             attack: nullableNumber,
+            // From module 0.42.1: how many of the class's spells are prepared, of how many it may
+            // prepare. Left out where it can't be read, rather than shown wrong.
+            prepared: z
+              .object({
+                value: z.int().min(0).max(999),
+                max: z.int().min(0).max(999),
+              })
+              .optional()
+              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
+              .catch(undefined),
           }),
         ),
       })

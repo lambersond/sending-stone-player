@@ -117,6 +117,9 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * From module 0.42.1, for a spell slot spent or restored: no such pool with slots (`slot`), its
  * count not the one shown (`changed`), none left to spend (`slots`) or none used to restore
  * (`full`); and while the character is transformed, as the sheet last said (`shaped`).
+ * From module 0.42.1, a spell prepared or unprepared that isn't one the character prepares: a
+ * cantrip, one always prepared, one cast at will, innately, as a ritual or from an item
+ * (`prepare`); one the sheet doesn't list is `gone`.
  */
 export type RollRefusal =
   | 'unavailable'
@@ -170,6 +173,7 @@ export type RollRefusal =
   | 'full'
   | 'swap'
   | 'shaped'
+  | 'prepare'
 
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
@@ -223,7 +227,8 @@ export function isSeatCombatant(
  * on or deleted, which posts nothing either; and from module 0.40.0 Wild Shape, which the game
  * would make as the player's, past dnd5e's own Allow Polymorphing: the Gamemaster changes a druid
  * in Foundry. Charges spent and Heroic Inspiration post a line marked as theirs, as from module
- * 0.42.1 a spell slot spent or restored does.
+ * 0.42.1 a spell slot spent or restored does. From module 0.42.1, a spell prepared or unprepared
+ * isn't sent either: it posts nothing.
  */
 export const GM_UNSENT: ReadonlySet<string> = new Set([
   'endEnchantment',
@@ -233,6 +238,7 @@ export const GM_UNSENT: ReadonlySet<string> = new Set([
   'favorite',
   'effect',
   'wildShape',
+  'prepare',
 ])
 
 /**
@@ -391,6 +397,9 @@ export function checkRoll(
       )
       return kept ? undefined : 'concentration'
     }
+    case 'prepare': {
+      return checkPrepare(input, sheet)
+    }
     case 'spend': {
       return checkSpend(input, sheet)
     }
@@ -522,6 +531,24 @@ export function checkUndoTurn(
   const back = combat.combatants.find(({ id }) => id === endedTurn.combatantId)
   if (!back || back.hidden === true) return 'not-undoable'
   return isTurnOf(back, actorId, roster) ? undefined : 'not-turn'
+}
+
+/**
+ * Can this spell be prepared or unprepared from here, from module 0.42.1, as the sheet last showed
+ * it: not while the character is transformed, whose sheet is then its form's; one the sheet lists,
+ * at 0 or 1. Already so passes: the game says so.
+ */
+function checkPrepare(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  if (isShaped(sheet)) return 'shaped'
+  const id = input.prepare?.id
+  const spell = (sheet?.spells ?? [])
+    .flatMap(({ spells }) => spells)
+    .find(each => each.id === id)
+  if (!spell) return 'gone'
+  return spell.prepared === 0 || spell.prepared === 1 ? undefined : 'prepare'
 }
 
 /**
@@ -1469,6 +1496,7 @@ const GM_ROLL_KINDS: Record<RollKind, string> = {
   favorite: 'A favorite added or removed',
   effect: 'An effect changed',
   wildShape: 'Wild Shape',
+  prepare: 'A spell prepared or unprepared',
   endTurn: 'A turn ended',
   undoEndTurn: 'A turn taken back',
 }

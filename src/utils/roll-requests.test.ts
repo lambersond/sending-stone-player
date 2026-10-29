@@ -6860,3 +6860,204 @@ describe('utils/roll-requests, a spell slot spent or restored, from module 0.42.
     })
   })
 })
+
+/**
+ * Thorin's spellbook, as module 0.42.1 sends it: Light, a cantrip; Witch Bolt not prepared, Bless
+ * prepared and Sanctuary always prepared; Misty Step cast innately; and a wand's Magic Missile,
+ * which an item casts.
+ */
+const spellbook = (fields: Partial<CharacterSheet> = {}) =>
+  characterSheet({
+    spells: [
+      {
+        id: 'spell0',
+        label: 'Cantrips',
+        slots: null,
+        spells: [sheetSpell({ id: 'light', name: 'Light', level: 0 })],
+      },
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 3, max: 4, level: 1 },
+        spells: [
+          sheetSpell({ id: 'witch', name: 'Witch Bolt', prepared: 0 }),
+          sheetSpell({ id: 'bless', name: 'Bless', prepared: 1 }),
+          sheetSpell({ id: 'sanctuary', name: 'Sanctuary', prepared: 2 }),
+        ],
+      },
+      {
+        id: 'innate',
+        label: 'Innate',
+        slots: null,
+        spells: [sheetSpell({ id: 'misty', name: 'Misty Step', level: 2 })],
+      },
+      {
+        id: 'item',
+        label: 'Item Spells',
+        slots: null,
+        spells: [
+          sheetSpell({
+            id: 'mm',
+            name: 'Magic Missile',
+            castFrom: { id: 'wand', name: 'Wand of Magic Missiles' },
+          }),
+        ],
+      },
+    ],
+    ...fields,
+  })
+
+/** A preparation, as its row's menu sends it, with these fields. */
+const preparing = (
+  fields: Partial<RollRequestInput> = {},
+): RollRequestInput => ({
+  kind: 'prepare',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  ...fields,
+})
+
+/** A spell of this id prepared or unprepared, as the sheet stands; with no sheet, for null. */
+const prepareCheck = (
+  op: 'prepare' | 'unprepare',
+  id: string,
+  sheet: CharacterSheet | null = spellbook(),
+) =>
+  checkRoll(
+    preparing({ prepare: { op, id } }),
+    sheet ?? undefined,
+    [],
+    'actor-thorin',
+  )
+
+describe('utils/roll-requests, a spell prepared or unprepared, from module 0.42.1', () => {
+  describe('checkRoll', () => {
+    it('lets the player prepare or unprepare a spell they prepare, either way, already so or not', () => {
+      expect(prepareCheck('prepare', 'witch')).toBeUndefined()
+      expect(prepareCheck('unprepare', 'bless')).toBeUndefined()
+      // Already so: the game says so, and writes nothing.
+      expect(prepareCheck('unprepare', 'witch')).toBeUndefined()
+      expect(prepareCheck('prepare', 'bless')).toBeUndefined()
+    })
+
+    it.each([
+      ['one always prepared', 'sanctuary'],
+      ['a cantrip', 'light'],
+      ['one cast innately', 'misty'],
+      ['one an item casts', 'mm'],
+    ])('refuses %s, either way, as not one they prepare', (_name, id) => {
+      expect(prepareCheck('prepare', id)).toBe('prepare')
+      expect(prepareCheck('unprepare', id)).toBe('prepare')
+    })
+
+    it('refuses one the sheet doesn’t list, or with no sheet, as gone', () => {
+      expect(prepareCheck('prepare', 'nope')).toBe('gone')
+      expect(prepareCheck('prepare', 'spell1')).toBe('gone')
+      expect(prepareCheck('prepare', 'witch', null)).toBe('gone')
+      expect(checkRoll(preparing(), spellbook(), [], 'actor-thorin')).toBe(
+        'gone',
+      )
+    })
+
+    it('finds the spell in any section of the spellbook', () => {
+      const pact = spellbook({
+        spells: [
+          {
+            id: 'pact',
+            label: 'Pact Magic',
+            slots: { value: 1, max: 2, level: 3 },
+            spells: [sheetSpell({ id: 'hex', name: 'Hex', prepared: 0 })],
+          },
+        ],
+      })
+      expect(prepareCheck('prepare', 'hex', pact)).toBeUndefined()
+      expect(prepareCheck('prepare', 'witch', pact)).toBe('gone')
+    })
+
+    it('refuses any while the character is transformed, whose spells are then the form’s, before anything else', () => {
+      const own = [
+        {
+          id: 'spell1',
+          label: '1st Level',
+          slots: { value: 4, max: 4, level: 1 },
+          spells: [
+            sheetSpell({ id: 'goodberry', name: 'Goodberry', prepared: 0 }),
+          ],
+        },
+      ]
+      // The form lists none of hers: shaped, not gone.
+      expect(prepareCheck('prepare', 'goodberry', shapedSheet())).toBe('shaped')
+      // Even one its sheet lists as one she prepares.
+      expect(
+        prepareCheck('prepare', 'goodberry', shapedSheet({ spells: own })),
+      ).toBe('shaped')
+      // Back in her own form, hers again.
+      expect(
+        prepareCheck('prepare', 'goodberry', druidSheet({ spells: own })),
+      ).toBeUndefined()
+    })
+  })
+
+  it('is never sent by the Gamemaster, as it posts nothing, and is called so on the player’s page all the same', () => {
+    expect(GM_UNSENT.has('prepare')).toBe(true)
+    const view = toGmRollView(
+      {
+        ...held({
+          kind: 'prepare',
+          role: 'gm',
+          status: 'done',
+          payload: preparing({ prepare: { op: 'prepare', id: 'witch' } }),
+          result: {
+            status: 'done',
+            messageId: null,
+            visible: true,
+            rolls: [],
+          },
+        }),
+        label: null,
+      },
+      NOW,
+    )
+    expect(view.label).toBe('A spell prepared or unprepared')
+    expect(view).not.toHaveProperty('slotOp')
+  })
+
+  it('keeps it among the rolls a game takes, where it lists it, and not where it doesn’t', () => {
+    const campaign = {
+      rollsEnabled: true,
+      rollKinds: ['skill', 'spend', 'inspiration', 'spellSlot', 'prepare'],
+      bridgePolledAt: ago(5000),
+    }
+    expect(availableRollKinds(campaign, NOW)).toEqual([
+      'skill',
+      'spend',
+      'inspiration',
+      'spellSlot',
+      'prepare',
+    ])
+    expect(
+      availableRollKinds(
+        {
+          ...campaign,
+          rollKinds: ['skill', 'spend', 'inspiration', 'spellSlot'],
+        },
+        NOW,
+      ),
+    ).not.toContain('prepare')
+  })
+
+  it('is sent to the game as it came', () => {
+    const payload = {
+      kind: 'prepare',
+      ...plain,
+      prepare: { op: 'unprepare', id: 'bless' },
+    }
+    expect(toCommand(held({ kind: 'prepare', payload }))).toEqual({
+      ...payload,
+      id: 'req-1',
+      actorId: 'actor-thorin',
+    })
+  })
+})

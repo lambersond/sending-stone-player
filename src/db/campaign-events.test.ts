@@ -2904,6 +2904,39 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
     expect(data.companionKinds).toEqual(['attack'])
   })
 
+  it('keeps a spell prepared or unprepared among the rolls the game takes, from module 0.42.1, right after the charge kinds, and never among a companion’s', async () => {
+    await hello([wolf], {
+      rolls: {
+        enabled: true,
+        kinds: [
+          'attack',
+          'spend',
+          'inspiration',
+          'spellSlot',
+          'prepare',
+          'textRoll',
+        ],
+        reason: null,
+      },
+      companions: {
+        kinds: ['attack', 'prepare'],
+        initiative: 'own',
+      },
+    })
+
+    const data = storedHello()
+    expect(data.rollKinds).toEqual([
+      'attack',
+      'spend',
+      'inspiration',
+      'spellSlot',
+      'prepare',
+      'textRoll',
+    ])
+    // An NPC's spells are prepared already, whatever the module lists.
+    expect(data.companionKinds).toEqual(['attack'])
+  })
+
   it('never takes a companion as a character, even one listed under a character’s id', async () => {
     const thorin = { ...wolf, key: PARTY.thorin, actorId: PARTY.thorin }
     await hello([thorin])

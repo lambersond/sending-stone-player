@@ -5886,3 +5886,127 @@ describe("schemas/sending-stone, effects' dice and rerolls kept, from module 0.4
     expect(before).not.toHaveProperty('keptRerolls')
   })
 })
+
+/** A cleric's spellcasting, as module 0.42.1 sends it, her class's count as given. */
+const clericCasting = (prepared?: unknown) => ({
+  ability: 'Wisdom',
+  dc: 14,
+  attack: 6,
+  classes: [
+    {
+      name: 'Cleric',
+      ability: 'Wisdom',
+      dc: 14,
+      attack: 6,
+      ...(prepared === undefined ? {} : { prepared }),
+    },
+  ],
+})
+
+/** The first class's count, as read from a sheet with that spellcasting. */
+const preparedOf = (prepared?: unknown) =>
+  readSheet(characterSheet({ spellcasting: clericCasting(prepared) as any }))
+    .spellcasting.classes[0]
+
+describe('schemas/sending-stone, how many spells each class has prepared, from module 0.42.1', () => {
+  it.each([
+    ['five of six', { value: 5, max: 6 }],
+    ['all six', { value: 6, max: 6 }],
+    [
+      'a seventh past the limit, as dnd5e never refuses one',
+      { value: 7, max: 6 },
+    ],
+    ['some with no limit, as a homebrew class may', { value: 2, max: 0 }],
+    ['none of six', { value: 0, max: 6 }],
+    ['the most it reads', { value: 999, max: 999 }],
+  ])('reads %s', (_name, prepared) => {
+    expect(preparedOf(prepared)).toEqual({
+      name: 'Cleric',
+      ability: 'Wisdom',
+      dc: 14,
+      attack: 6,
+      prepared,
+    })
+  })
+
+  it('reads none from an older module, or for a class that counts none, such as a 2014 Sorcerer’s', () => {
+    const read = preparedOf()
+    expect(read).toEqual({
+      name: 'Cleric',
+      ability: 'Wisdom',
+      dc: 14,
+      attack: 6,
+    })
+    expect(read).not.toHaveProperty('prepared')
+  })
+
+  it.each([
+    ['a count below 0', { value: -1, max: 6 }],
+    ['a limit below 0', { value: 5, max: -1 }],
+    ['a count of a part', { value: 1.5, max: 6 }],
+    ['a count over 999', { value: 1000, max: 6 }],
+    ['a limit over 999', { value: 5, max: 1000 }],
+    ['a count as text', { value: '5', max: 6 }],
+    ['no limit', { value: 5 }],
+    ['no count', { max: 6 }],
+    ['no number at all', { value: null, max: null }],
+    ['text', '5 / 6'],
+    ['null', null],
+  ])('drops one with %s, keeping the class', (_name, prepared) => {
+    const read = preparedOf(prepared)
+    expect(read).toEqual({
+      name: 'Cleric',
+      ability: 'Wisdom',
+      dc: 14,
+      attack: 6,
+    })
+    expect(read.prepared).toBeUndefined()
+  })
+
+  it('keeps only the count and the limit', () => {
+    expect(preparedOf({ value: 5, max: 6, of: 'cleric' }).prepared).toEqual({
+      value: 5,
+      max: 6,
+    })
+  })
+
+  it('reads each class’s own, for a character with more than one', () => {
+    const read = readSheet(
+      characterSheet({
+        spellcasting: {
+          ability: 'Wisdom',
+          dc: 14,
+          attack: 6,
+          classes: [
+            {
+              name: 'Cleric',
+              ability: 'Wisdom',
+              dc: 14,
+              attack: 6,
+              prepared: { value: 6, max: 6 },
+            },
+            {
+              name: 'Wizard',
+              ability: 'Intelligence',
+              dc: 13,
+              attack: 5,
+              prepared: { value: 3, max: 4 },
+            },
+            { name: 'Sorcerer', ability: 'Charisma', dc: 12, attack: 4 },
+          ],
+        },
+      }),
+    )
+    expect(
+      read.spellcasting.classes.map(({ prepared }: any) => prepared),
+    ).toEqual([{ value: 6, max: 6 }, { value: 3, max: 4 }, undefined])
+  })
+
+  it('keeps it on a slim sheet, which leaves spellcasting as it is', () => {
+    const slim = readSheet({
+      ...slimQuillSheet(),
+      spellcasting: clericCasting({ value: 5, max: 6 }),
+    })
+    expect(slim.spellcasting.classes[0].prepared).toEqual({ value: 5, max: 6 })
+  })
+})
