@@ -77,9 +77,10 @@ run damagecard 42 SKEW=027 MODULE=$O/module-0.27.0 SHOTS=$O/shots-028
 # The feedback round (module 0.29.0): ending concentration, spending charges, Heroic Inspiration,
 # allies and search in the target picker, the tracker's colours, and hits, misses and saves on chat
 # cards; plain dnd5e, Midi-QOL, and module 0.28.0 (no new controls, no new pills).
-run feedback 113 SHOTS=$O/shots-029
-run feedback 122 MIDI=1 SHOTS=$O/shots-029
-run feedback 46 SKEW=028 MODULE=$O/module-0.28.0 SHOTS=$O/shots-029
+# Round 0.42.1: spell slots spent and restored from the dots (§U), its pictures in shots-029.
+run feedback 144 SHOTS=$O/shots-029
+run feedback 153 MIDI=1 SHOTS=$O/shots-029
+run feedback 48 SKEW=028 MODULE=$O/module-0.28.0 SHOTS=$O/shots-029
 # Module 0.30.0: party sheets, full screen, the Foundry settings section and chat results matching
 # Foundry; plain dnd5e, Midi-QOL, dnd5e 6.0.5, and module 0.29.0 (no Party list on Inventory, no settings, 0.29.0 results).
 run party 64 SHOTS=$O/shots-030

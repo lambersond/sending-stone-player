@@ -12,7 +12,12 @@
 // Sorcery Points from their count's popover, the line "Spends 2 · Sorcery Points" in Foundry's chat
 // and the app's, and the count moved; more than are left is turned down, by the app and by the
 // game; a feature's charges, Replicate Magic Item's, and an old-style resource, Bardic Inspiration;
-// Lucky's Use greyed at none left. He gains Heroic Inspiration and uses it, each with its line. On
+// Lucky's Use greyed at none left. He gains Heroic Inspiration and uses it, each with its line.
+// Since module 0.42.1 (round 0.42.1 §U.1), a tap on one of his spell slots' dots, on the Spells tab
+// or a spell-slots favorite, asks first, then spends one or restores one in Foundry, its line in
+// chat: the app turning down what the count it showed no longer allows, the Gamemaster's page too,
+// her tablet's toast, a desk's keyboard, and the dots on phones in both themes, Pact Magic's and
+// nine of them among them; with Send to the table off, the dots as before. On
 // Vex's sheet as the Gamemaster, Alice spends a Channel Divinity and gains Vex Heroic Inspiration,
 // each line marked GM in Foundry and in the app, and each shown on Bob's page as hers; she finds no
 // End there. Then hits, misses and saves on chat cards: dnd5e's Attack
@@ -24,8 +29,9 @@
 // cards' verdicts, an NPC's withheld under "player" and sent under "all", and a concentration check
 // Midi asks in the app, which ending the concentration from the app leaves as it is.
 // SKEW=028 with MODULE (or MODULE_DIR) set to module 0.28.0: no End, no spending, no inspiration
-// control, no greyed Use, no Neutral pill and no wire pills; the sections, the Ally and You pills,
-// search and the AC fallback, the app's alone, still there. OLDAPP=1 against the app at 1323970,
+// control, no spell-slot dots to tap, no greyed Use, no Neutral pill and no wire pills; the
+// sections, the Ally and You pills, search and the AC fallback, the app's alone, still there.
+// OLDAPP=1 against the app at 1323970,
 // served in this one's place, with module 0.29.0: the new kinds dropped, every new field ignored,
 // everything the module sends taken. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
@@ -300,7 +306,13 @@ const thorin = character({
   skills: { prc: { ability: 'wis', value: 1 } }, hp: { value: 30, max: 38, temp: 0 },
 }, {
   ac: 16,
-  spells: { spell1: { value: 3, max: 4, level: 1 }, spell2: { value: 2, max: 3, level: 2 } },
+  // Labelled and typed as dnd5e prepares a spell level's pool (spellcasting-model.mjs:427-433): the
+  // label names it in the line a slot spent or restored posts since module 0.42.1, the type the
+  // method a spell-slots favorite is named by.
+  spells: {
+    spell1: { value: 3, max: 4, level: 1, label: '1st Level', type: 'spell' },
+    spell2: { value: 2, max: 3, level: 2, label: '2nd Level', type: 'spell' },
+  },
   items: [
     {
       id: 'rapier', name: 'Rapier', type: 'weapon',
@@ -550,8 +562,9 @@ const latestMessage = () => game.messages.contents.at(-1)
 const lineOf = id => { const m = messages.get(id); return m && { content: m.content, author: m.author?.id, actor: m.speaker?.actor, flags: m.flags?.['sending-stone'], whisper: m.whisper } }
 
 // ---- Alice's phone and tablet, and Bob's phone ----
-async function browse({ width, height, scheme, who = ALICE, path = '/characters/sheet-thorin', toasts = false }) {
-  const view = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true, colorScheme: scheme })
+// A phone or tablet, unless `mobile` is false, as a desk with a keyboard is.
+async function browse({ width, height, scheme, who = ALICE, path = '/characters/sheet-thorin', toasts = false, mobile = true }) {
+  const view = await browser.newContext({ viewport: { width, height }, isMobile: mobile, hasTouch: mobile, colorScheme: scheme })
   await view.addCookies([who])
   if (toasts) await view.addInitScript(() => { try { localStorage.setItem('sending-stone:roll-toasts', 'on') } catch {} })
   await view.route(`${GAME}/**`, route => route.fulfill({ contentType: 'text/html', body: '' }))
@@ -1180,6 +1193,426 @@ if (NEW) {
   await phone.page.getByText('Inspired', { exact: true }).waitFor({ timeout: 15_000 })
   check(await inspiration(phone).count() === 0, 'inspired, it says so, a label and no button, as before')
   await thorin.update({ 'system.attributes.inspiration': false })
+}
+
+// =================================================================================================
+// Spell slots from the dots (round 0.42.1 §U.1)
+// =================================================================================================
+// Module 0.42.1's `spellSlot`: a dot of a pool of spell slots, on the Spells tab's headings or a
+// spell-slots favorite, asks first, then has the game spend one or restore one, only from the count
+// it showed, which the app checks against the sheet it holds before the game does.
+const SPELL1 = '1st-level spell slot'
+const SPELL2 = '2nd-level spell slot'
+const PACT = 'pact slot (3rd level)'
+/** A spell level of the Spells tab, by its heading. */
+const levelOf = (who, name) => who.panel.getByRole('region', { name, exact: true })
+/** A pool's dots, by the name of their group. */
+const dotsOf = (scope, name) => scope.getByRole('group', { name, exact: true })
+/** A group's dots: each one's name, title and size, and whether it waits. */
+const dotsIn = group => group.getByRole('button').evaluateAll(buttons => buttons.map(button => {
+  const box = button.getBoundingClientRect()
+  return { name: button.getAttribute('aria-label'), title: button.title, width: box.width, height: box.height, waiting: button.getAttribute('aria-disabled') === 'true' }
+}))
+/** A pool's dots as they're named: a Spend for each slot left, then a Restore for each used. */
+const slotNames = (slot, value, max) => Array.from({ length: max }, (_, index) => `${index < value ? 'Spend' : 'Restore'} a ${slot}, ${value} of ${max} left`)
+/** Whether a group's dots come to be named so, none of them waiting, within 20 seconds. */
+const dotsRead = (group, names) => until(async () => {
+  const dots = await dotsIn(group).catch(() => [])
+  return same(dots.map(dot => dot.name), names) && !dots.some(dot => dot.waiting)
+    && (await group.getAttribute('aria-busy', { timeout: 1000 }).catch(() => 'gone')) === null
+}, 'the dots', 20_000).then(() => true, () => false)
+/** The same, as what's needed before going on. */
+async function dotsReady(group, names, what) {
+  if (!(await dotsRead(group, names))) throw new Error(`Timed out waiting for ${what}`)
+}
+/** What a spell level tells screen readers of its slots. */
+const slotsLeftIn = region => region.locator('.sr-only').filter({ hasText: 'slots left' }).allTextContents()
+/** A dot's confirm, by its title. */
+const confirmNamed = (who, title) => who.page.getByRole('dialog', { name: title, exact: true })
+const focused = locator => locator.evaluate(el => el === document.activeElement, undefined, { timeout: 2000 }).catch(() => false)
+/** A pool as the app keeps Thorin's sheet: how many are left, of how many. */
+const keptSlots = id => sheetOf('thorin')?.spells?.find(section => section.id === id)?.slots ?? null
+/** The line a slot spent or restored posted, as Foundry's chat has it. */
+const slotLine = made => lineOf(made?.result?.messageId)
+/** Whether a page's tray says each of these, now. */
+const traySays = async (who, ...words) => {
+  const text = await who.status.textContent({ timeout: 2000 }).catch(() => '')
+  return words.every(word => text.includes(word))
+}
+/** A spell level's dots as pictures: buttons named for its slots, rings, and the counts beside them. */
+const picturesOf = async region => ({
+  buttons: await region.getByRole('button', { name: /spell slot/ }).count(),
+  rings: await region.locator('.rounded-full.border-2').count(),
+  counts: await region.locator('span[aria-hidden="true"]').allTextContents(),
+})
+/**
+ * The Spells tab's dots as laid out: each one's size; how far the page, or the tab within it,
+ * scrolls sideways; and the headings whose dots overlap them, of how many with dots.
+ */
+const slotsLayout = who => who.panel.evaluate(panel => {
+  const dots = [...panel.querySelectorAll('button[aria-label]')]
+    .filter(button => /^(Spend|Restore) a .*slot/.test(button.getAttribute('aria-label')))
+    .map(button => { const box = button.getBoundingClientRect(); return { width: box.width, height: box.height } })
+  const root = document.documentElement
+  const scroller = panel.parentElement
+  const sideways = Math.max(root.scrollWidth - root.clientWidth, scroller.scrollWidth - scroller.clientWidth)
+  const rows = [...panel.querySelectorAll('h2[id]')].flatMap(heading => {
+    const group = heading.parentElement.querySelector(':scope > span > [role="group"]')
+    if (!group) return []
+    const [a, b] = [heading.getBoundingClientRect(), group.getBoundingClientRect()]
+    return [{ heading: heading.textContent, over: (a.left < b.right - 0.5) && (b.left < a.right - 0.5) && (a.top < b.bottom - 0.5) && (b.top < a.bottom - 0.5) }]
+  })
+  return { dots, sideways, rows: rows.length, overlaps: rows.filter(row => row.over).map(row => row.heading) }
+})
+// dnd5e's Pact Magic, as its SingleLevelSpellcasting has it (spellcasting-model.mjs:242-257,
+// :337-341, config.mjs:3093-3098): for step 9 alone, which gives Thorin its slots.
+const PACT_MAGIC = {
+  key: 'pact', slots: true, order: 10, exclusive: { spells: false, slots: false },
+  getAvailableLevels: actor => (actor.system.spells.pact?.max ? [actor.system.spells.pact.level] : []),
+  getSpellSlotKey: level => (level === 0 ? 'spell0' : 'pact'),
+  getLabel: ({ level } = {}) => (level ? `Pact Magic — ${ordinal(level)}` : 'Pact Magic'),
+}
+
+// 1. The kind, wherever the Gamemaster lets players attack and cast; never a companion's.
+{
+  const features = posted.filter(p => p.type === 'bridge.hello').at(-1).data.features
+  const listed = features.rolls.kinds
+  const stored = kinds()
+  const after = (list, kind) => list[list.indexOf(kind) + 1]
+  if (NEW) {
+    const companion = features.companions?.kinds
+    check(after(listed, 'inspiration') === 'spellSlot' && after(stored, 'inspiration') === 'spellSlot'
+      && Array.isArray(companion) && companion.length > 0 && !companion.includes('spellSlot'),
+      `module 0.42.1's hello lists a spell slot spent or restored, "spellSlot", right after Heroic Inspiration, and the app keeps it there; never among a companion's kinds (${listed.join(',')})`)
+  } else if (SKEW) {
+    check(!listed.includes('spellSlot') && !stored.includes('spellSlot'), `module 0.28.0 lists no spell slots spent or restored, nor does the app keep any (${stored.join(',')})`)
+  } else note("the app from before knows nothing of spell slots spent from the dots, which isn't this round's to test")
+}
+if (NEW) {
+  await phone.character()
+  await phone.tab('Spells')
+  const first = levelOf(phone, '1st Level')
+  const second = levelOf(phone, '2nd Level')
+  const firstDots = dotsOf(first, '1st-level spell slots')
+  const secondDots = dotsOf(second, '2nd-level spell slots')
+  await dotsReady(firstDots, slotNames(SPELL1, 3, 4), 'the 1st-level dots to be buttons')
+
+  // 2. Each slot's dot a button, a finger's size on the phone, the count's words as before.
+  {
+    const dots = await dotsIn(firstDots)
+    const left = await slotsLeftIn(first)
+    check(same(dots.map(dot => dot.name), slotNames(SPELL1, 3, 4)) && dots.every(dot => dot.title === dot.name && dot.height >= 44 && dot.width >= 28)
+      && same(left, ['3 of 4 spell slots left']),
+      `on the Spells tab, 1st Level's group "1st-level spell slots" holds four buttons, three "Spend a 1st-level spell slot, 3 of 4 left" and one "Restore …", each titled so and at least 28 × 44 px; its words for screen readers still "3 of 4 spell slots left", once (${JSON.stringify(dots.map(dot => [dot.name, Math.round(dot.width), Math.round(dot.height)]))})`)
+  }
+
+  // 3. A filled dot asks first; Cancel sends nothing.
+  const spending = confirmNamed(phone, `Spend a ${SPELL1}?`)
+  {
+    const before = requests()
+    await firstDots.getByRole('button').first().click()
+    await spending.waitFor()
+    const cancel = spending.getByRole('button', { name: 'Cancel', exact: true })
+    const verb = spending.getByRole('button', { name: 'Spend', exact: true })
+    await until(() => focused(cancel), 'Cancel to take focus', 5_000).catch(() => {})
+    const heights = [(await cancel.boundingBox())?.height, (await verb.boundingBox())?.height]
+    const box = await spending.boundingBox()
+    const screen = phone.page.viewportSize()
+    const body = await spending.getByText('3 of 4 left, 2 once it’s spent. Foundry’s chat will say so.', { exact: true }).isVisible()
+    check(body && await focused(cancel) && heights.every(height => height >= 40)
+      && box.x >= 0 && box.y >= 0 && box.x + box.width <= screen.width && box.y + box.height <= screen.height,
+      `a filled dot asks first, "Spend a 1st-level spell slot?": "3 of 4 left, 2 once it’s spent. Foundry’s chat will say so.", focus on Cancel, Cancel and Spend at least 40 px tall, all of it on the screen (${JSON.stringify({ heights, box })})`)
+    await cancel.click()
+    await spending.waitFor({ state: 'hidden' })
+    await wait(800)
+    check(requests() === before && thorin.system.spells.spell1.value === 3, 'Cancel closes it, sending nothing')
+  }
+
+  // 4. Spend: the pool and the count the dots showed, the game's line, the tray, and the dots
+  //    once the sheet is back.
+  {
+    await firstDots.getByRole('button').first().click()
+    await spending.waitFor()
+    const { request, made } = await sent(() => spending.getByRole('button', { name: 'Spend', exact: true }).click(), 'a 1st-level slot spent')
+    const line = slotLine(made)
+    check(sameJson(request.payload, { kind: 'spellSlot', spellSlot: { op: 'spend', id: 'spell1', from: 3 }, ...PLAIN }) && made.status === 'done' && thorin.system.spells.spell1.value === 2,
+      `Spend sends the pool and the count the dots showed, throwing no dice, and the game spends one: 2 left (${JSON.stringify(request.payload)})`)
+    check(same(line, { content: '<p>Spends a spell slot · 1st Level</p>', author: 'alice', actor: 'thorin', flags: { request: request.id }, whisper: [] }),
+      `the game posts "${line?.content}" for everyone, as Thorin, by Alice`)
+    await until(() => traySays(phone, 'Spent at the table'), 'the tray to say it was spent', 15_000).catch(() => {})
+    check(await traySays(phone, SPELL1, 'Spent at the table'), `the tray says so: "${await phone.status.textContent()}"`)
+    const shown = await dotsRead(firstDots, slotNames(SPELL1, 2, 4))
+    check(shown && same(await slotsLeftIn(first), ['2 of 4 spell slots left']), 'once the sheet is back, two dots spend and two restore, "2 of 4 spell slots left"')
+  }
+
+  // 5. A hollow dot restores one.
+  {
+    const restoring = confirmNamed(phone, `Restore a ${SPELL1}?`)
+    await firstDots.getByRole('button', { name: `Restore a ${SPELL1}, 2 of 4 left`, exact: true }).first().click()
+    await restoring.waitFor()
+    const body = await restoring.getByText('2 of 4 left, 3 once it’s restored. Foundry’s chat will say so.', { exact: true }).isVisible()
+    const { request, made } = await sent(() => restoring.getByRole('button', { name: 'Restore', exact: true }).click(), 'a 1st-level slot restored')
+    const line = slotLine(made)
+    await until(() => traySays(phone, 'Restored at the table'), 'the tray to say it was restored', 15_000).catch(() => {})
+    check(body && sameJson(request.payload.spellSlot, { op: 'restore', id: 'spell1', from: 2 }) && made.status === 'done' && thorin.system.spells.spell1.value === 3
+      && same(line, { content: '<p>Regains a spell slot · 1st Level</p>', author: 'alice', actor: 'thorin', flags: { request: request.id }, whisper: [] })
+      && await traySays(phone, SPELL1, 'Restored at the table'),
+      `a hollow dot asks "Restore a 1st-level spell slot?", "2 of 4 left, 3 once it’s restored…"; Restore has the game restore one, 3 left, posting "${line?.content}"; the tray "${await phone.status.textContent()}"`)
+    await dotsReady(firstDots, slotNames(SPELL1, 3, 4), 'the dots to show 3 of 4')
+  }
+
+  // 6. Turned down by the app, by the sheet it holds: posted all the same, from the page.
+  {
+    const post = spellSlot => call(phone.page, '/api/characters/sheet-thorin/rolls', { method: 'POST', body: { kind: 'spellSlot', spellSlot, ...PLAIN } })
+    const statusOf = id => sql(`select status from roll_request where id = '${String(id).replace(/'/g, '')}'`)
+    const allowed = await post({ op: 'restore', id: 'spell1', from: 3 })
+    await until(() => statusOf(allowed.json?.id) === 'done' && keptSlots('spell1')?.value === 4, 'the restore made, and the stored sheet at 4 of 4', 20_000).catch(() => {})
+    check(allowed.status === 202 && statusOf(allowed.json?.id) === 'done' && thorin.system.spells.spell1.value === 4 && keptSlots('spell1')?.value === 4,
+      `a restore from the 3 the dots show, posted from the page, is made: 4 of 4, as the app's sheet says too (${allowed.status} ${statusOf(allowed.json?.id)})`)
+    const full = await post({ op: 'restore', id: 'spell1', from: 4 })
+    check(full.status === 422 && full.json?.reason === 'full', `once none is used, one more restore is turned down: ${full.status} ${full.json?.reason}`)
+    const none = await post({ op: 'spend', id: 'spell9', from: 0 })
+    check(none.status === 422 && none.json?.reason === 'slot', `a pool he hasn't, "spell9", is turned down: ${none.status} ${none.json?.reason}`)
+    const stale = await post({ op: 'spend', id: 'spell1', from: 2 })
+    check(stale.status === 422 && stale.json?.reason === 'changed', `a spend from 2 where the sheet says 4 is turned down: ${stale.status} ${stale.json?.reason}`)
+    // His 2nd-level slots all used in Foundry.
+    await thorin.update({ 'system.spells.spell2.value': 0 })
+    const emptied = await dotsRead(secondDots, slotNames(SPELL2, 0, 3)) && keptSlots('spell2')?.value === 0
+    const empty = await post({ op: 'spend', id: 'spell2', from: 0 })
+    check(emptied && empty.status === 422 && empty.json?.reason === 'slots',
+      `his 2nd-level slots all used in Foundry, its three dots each "Restore a 2nd-level spell slot, 0 of 3 left", and a spend from 0 turned down: ${empty.status} ${empty.json?.reason}`)
+    const extra = await post({ op: 'spend', id: 'spell1', from: 4, count: 1 })
+    check(extra.status === 400, `a spell slot named with anything more, a count, is refused: ${extra.status}`)
+    await thorin.update({ 'system.spells.spell1.value': 3, 'system.spells.spell2.value': 2 })
+    await dotsReady(firstDots, slotNames(SPELL1, 3, 4), 'the 1st-level dots back at 3 of 4')
+    await dotsReady(secondDots, slotNames(SPELL2, 2, 3), 'the 2nd-level dots back at 2 of 3')
+  }
+
+  // 7. The Gamemaster's page on Thorin: the line theirs, and shown on Alice's phone and tablet.
+  {
+    const gm = await browse({ width: 768, height: 1024, scheme: 'light', path: `/campaigns/${A}/characters/thorin` })
+    await gm.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    await gm.tab('Spells')
+    const gmDots = dotsOf(levelOf(gm, '2nd Level'), '2nd-level spell slots')
+    await dotsReady(gmDots, slotNames(SPELL2, 2, 3), "the Gamemaster's 2nd-level dots to be buttons")
+    await gmDots.getByRole('button').first().click()
+    const theirs = confirmNamed(gm, `Spend a ${SPELL2}?`)
+    await theirs.waitFor()
+    const spent = await sent(() => theirs.getByRole('button', { name: 'Spend', exact: true }).click(), "the Gamemaster's 2nd-level slot spent")
+    const line = slotLine(spent.made)
+    const messageId = spent.made.result?.messageId
+    const resultOf = id => posted.findLast(p => p.type === 'command.result' && p.data?.id === id)?.data
+    await until(() => resultOf(spent.request.id) && byGm(messageId) === 't', 'its result, and the app to mark its line', 15_000).catch(() => {})
+    check(spent.request.role === 'gm' && fetchedCommand(spent.request.id)?.by === 'gm' && sameJson(fetchedCommand(spent.request.id)?.spellSlot, { op: 'spend', id: 'spell2', from: 2 })
+      && spent.made.status === 'done' && thorin.system.spells.spell2.value === 1
+      && same(line, { content: '<p>Spends a spell slot · 2nd Level</p>', author: 'alice', actor: 'thorin', flags: { request: spent.request.id, by: 'gm' }, whisper: [] })
+      && same(resultOf(spent.request.id)?.messages, [messageId]) && byGm(messageId) === 't',
+      `from the Gamemaster's page, a 2nd-level dot spends one of Thorin's slots: its line flagged as the Gamemaster's, listed in the result, marked GM in the app (${JSON.stringify(line?.flags)})`)
+    await until(() => traySays(phone, SPELL2, 'Spent at the table'), "Alice's phone to show the Gamemaster's", 15_000).catch(() => {})
+    check(await traySays(phone, SPELL2, 'Spent at the table'), `Alice's phone shows it among her rolls, as the Gamemaster's: "${await phone.status.textContent()}"`)
+    const toast = tablet.page.getByRole('log', { name: 'Roll results' }).locator('[data-roll-toast^="gm:"]').filter({ hasText: SPELL2 })
+    let toasted = ''
+    await until(async () => /Spent at the table/.test(toasted = await toast.first().textContent({ timeout: 500 }).catch(() => '')), "the tablet's toast to say it was spent", 15_000).catch(() => {})
+    check(/Spent at the table/.test(toasted), `and her tablet's toast says so: "${toasted.replace(/\s+/g, ' ')}"`)
+    await dotsReady(gmDots, slotNames(SPELL2, 1, 3), "the Gamemaster's dots to show 1 of 3")
+    await gmDots.getByRole('button', { name: `Restore a ${SPELL2}, 1 of 3 left`, exact: true }).first().click()
+    const restoring = confirmNamed(gm, `Restore a ${SPELL2}?`)
+    await restoring.waitFor()
+    const back = await sent(() => restoring.getByRole('button', { name: 'Restore', exact: true }).click(), "the Gamemaster's 2nd-level slot restored")
+    await until(() => traySays(phone, SPELL2, 'Restored at the table'), "Alice's phone to show it restored", 15_000).catch(() => {})
+    check(back.made.status === 'done' && thorin.system.spells.spell2.value === 2 && slotLine(back.made)?.content === '<p>Regains a spell slot · 2nd Level</p>'
+      && slotLine(back.made)?.flags?.by === 'gm' && await traySays(phone, SPELL2, 'Restored at the table'),
+      `the Gamemaster restores it, 2 again, and Alice's phone says "${await phone.status.textContent()}"`)
+    await gm.view.close()
+    await dotsReady(secondDots, slotNames(SPELL2, 2, 3), "the phone's 2nd-level dots back at 2 of 3")
+  }
+
+  // 8. A desk's keyboard, the favorites in their column beside the sheet, with a spell-slots
+  //    favorite given Thorin for this step and then taken away. At 1440 px, as favorites' laptop:
+  //    the column needs the sheet 936 px wide, and at 1280 the table's right pane leaves it 780.
+  await thorin.update({ 'system.favorites': [{ type: 'slots', id: 'spell1', sort: 100000 }] })
+  {
+    const desk = await browse({ width: 1440, height: 900, scheme: 'light', mobile: false })
+    await desk.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    await desk.tab('Spells')
+    const column = desk.page.getByRole('complementary', { name: 'Favorites', exact: true })
+    const columnDots = dotsOf(column, '1st-level spell slots')
+    const deskDots = dotsOf(levelOf(desk, '1st Level'), '1st-level spell slots')
+    const shown = await dotsRead(columnDots, slotNames(SPELL1, 3, 4)) && await dotsRead(deskDots, slotNames(SPELL1, 3, 4)) && await column.isVisible()
+    // Tab on from the Spells tab, until focus is on the first of the tab's own dots to spend.
+    await desk.page.getByRole('tablist', { name: 'Character sheet' }).getByRole('tab', { name: /^Spells\b/ }).focus()
+    const stops = []
+    for (let i = 0; i < 80; i++) {
+      await desk.page.keyboard.press('Tab')
+      const at = await desk.page.evaluate(() => {
+        const el = document.activeElement
+        const named = box => (box ? document.getElementById(box.getAttribute('aria-labelledby'))?.textContent?.trim() ?? null : null)
+        return { name: el?.getAttribute('aria-label') ?? null, aside: named(el?.closest('aside[aria-labelledby]')), section: named(el?.closest('section[aria-labelledby]')) }
+      })
+      stops.push(at)
+      if (at.section === '1st Level' && at.aside === null && at.name?.startsWith(`Spend a ${SPELL1}`)) break
+    }
+    const dot = deskDots.getByRole('button').first()
+    const inColumn = stops.some(stop => stop.aside === 'Favorites' && stop.name === `Spend a ${SPELL1}, 3 of 4 left`)
+    const inTab = stops.at(-1)?.section === '1st Level' && stops.at(-1)?.name === `Spend a ${SPELL1}, 3 of 4 left`
+    check(shown && inColumn && inTab && await focused(dot),
+      `at a desk, Tab reaches the Favorites column's "Spend a 1st-level spell slot" dots, then the Spells tab's, the first of them (${stops.length} presses: ${JSON.stringify(stops.filter(stop => stop.name?.includes('spell slot')).map(stop => [stop.aside ?? stop.section, stop.name]))})`)
+    const asking = confirmNamed(desk, `Spend a ${SPELL1}?`)
+    const cancel = asking.getByRole('button', { name: 'Cancel', exact: true })
+    const before = requests()
+    await desk.page.keyboard.press('Enter')
+    await asking.waitFor({ timeout: 5_000 }).catch(() => {})
+    await until(() => focused(cancel), 'Cancel to take focus', 5_000).catch(() => {})
+    const opened = await asking.isVisible() && await focused(cancel)
+    await desk.page.keyboard.press('Escape')
+    await asking.waitFor({ state: 'hidden' })
+    // [core, unverified] in the contract: the dialog gives focus back to what opened it.
+    await until(() => focused(dot), 'focus back on the dot', 5_000).catch(() => {})
+    check(opened && await focused(dot) && requests() === before, 'Enter on it opens its confirm, focus on Cancel; Escape closes it, sending nothing, focus back on that dot')
+    await desk.page.keyboard.press('Enter')
+    await asking.waitFor()
+    await until(() => focused(cancel), 'Cancel to take focus', 5_000).catch(() => {})
+    await desk.page.keyboard.press('Tab')
+    const onSpend = await focused(asking.getByRole('button', { name: 'Spend', exact: true }))
+    const { request, made } = await sent(() => desk.page.keyboard.press('Enter'), 'a slot spent from the keyboard')
+    const now = `Spend a ${SPELL1}, 2 of 4 left`
+    await until(async () => await dot.getAttribute('aria-label', { timeout: 1000 }).catch(() => null) === now && await focused(dot), 'the dot to name the new count, focused', 20_000).catch(() => {})
+    check(onSpend && sameJson(request.payload.spellSlot, { op: 'spend', id: 'spell1', from: 3 }) && made.status === 'done' && thorin.system.spells.spell1.value === 2
+      && await dot.getAttribute('aria-label') === now && await focused(dot),
+      `Enter, Tab to Spend, Enter: one spent, focus still on that dot, which once the sheet is back is "${await dot.getAttribute('aria-label')}"`)
+    // Two dots on, the first hollow one: restored again.
+    await dotsReady(deskDots, slotNames(SPELL1, 2, 4), 'the dots to be live again')
+    await desk.page.keyboard.press('Tab')
+    await desk.page.keyboard.press('Tab')
+    const onHollow = await focused(deskDots.getByRole('button').nth(2))
+    const restoring = confirmNamed(desk, `Restore a ${SPELL1}?`)
+    await desk.page.keyboard.press('Enter')
+    await restoring.waitFor()
+    await until(() => focused(restoring.getByRole('button', { name: 'Cancel', exact: true })), 'Cancel to take focus', 5_000).catch(() => {})
+    await desk.page.keyboard.press('Tab')
+    const back = await sent(() => desk.page.keyboard.press('Enter'), 'a slot restored from the keyboard')
+    check(onHollow && sameJson(back.request.payload.spellSlot, { op: 'restore', id: 'spell1', from: 2 }) && back.made.status === 'done' && thorin.system.spells.spell1.value === 3,
+      'Tab twice, to the first hollow dot, then Enter, Tab and Enter: restored again, 3 of 4')
+    await dotsReady(deskDots, slotNames(SPELL1, 3, 4), "the desk's dots back at 3 of 4")
+    await desk.view.close()
+  }
+  await thorin.update({ 'system.favorites': [] })
+  await dotsReady(firstDots, slotNames(SPELL1, 3, 4), "the phone's dots at 3 of 4")
+
+  // 9. Phones and themes, with Pact Magic, nine 1st-level slots (an override, at 9 of 9) and the
+  //    spell-slots favorite given Thorin for this step, all taken away after.
+  CONFIG.DND5E.spellcasting.pact = PACT_MAGIC
+  await thorin.update({
+    'system.spells.pact': { type: 'pact', value: 2, max: 4, level: 3, label: 'Pact Magic' },
+    'system.spells.spell1.override': 9,
+    'system.spells.spell1.value': 9,
+    'system.favorites': [{ type: 'slots', id: 'spell1', sort: 100000 }],
+  })
+  {
+    const pactLevel = levelOf(phone, 'Pact Magic — 3rd Level')
+    const pactDots = dotsOf(pactLevel, 'Pact Magic slots (3rd level)')
+    const strip = phone.panel.getByRole('region', { name: 'Favorites', exact: true })
+    const favoriteDots = dotsOf(strip, '1st-level spell slots')
+    const nine = slotNames(SPELL1, 9, 9)
+    const given = await dotsRead(pactDots, slotNames(PACT, 2, 4)) && await dotsRead(firstDots, nine) && await dotsRead(favoriteDots, nine)
+    // The favorite's nine, Pact Magic's four, the 1st level's nine and the 2nd's three; each a
+    // finger's size, on a phone.
+    const fits = layout => layout.dots.length === 25 && layout.rows === 3 && layout.sideways <= 0 && layout.overlaps.length === 0
+      && layout.dots.every(dot => dot.width >= 28 && dot.height >= 44)
+    const said = layout => JSON.stringify({ dots: layout.dots.length, rows: layout.rows, sideways: layout.sideways, overlaps: layout.overlaps })
+    await pactLevel.scrollIntoViewIfNeeded()
+    let layout = await slotsLayout(phone)
+    check(given && fits(layout), `at 390 px, light: Pact Magic's dots, nine 1st-level and the favorite's nine, each at least 28 × 44 px; nothing scrolls sideways; no heading's dots over it (${said(layout)})`)
+    await shoot(phone, 'slots')
+    {
+      const before = requests()
+      await pactDots.getByRole('button').first().click()
+      const asking = confirmNamed(phone, `Spend a ${PACT}?`)
+      await asking.waitFor()
+      await shoot(phone, 'slots-confirm', asking)
+      await asking.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await asking.waitFor({ state: 'hidden' })
+      await wait(500)
+      check(same((await dotsIn(pactDots)).map(dot => dot.name), slotNames(PACT, 2, 4)) && requests() === before,
+        'Pact Magic\'s dots are a group "Pact Magic slots (3rd level)", "Spend a pact slot (3rd level), 2 of 4 left" and "Restore …"; a filled one asks "Spend a pact slot (3rd level)?", and Cancel sends nothing')
+    }
+    await phone.page.setViewportSize({ width: 360, height: 640 })
+    phone.width = 360
+    await wait(500)
+    layout = await slotsLayout(phone)
+    check(fits(layout), `at 360 px, light: every dot still at least 28 × 44 px, nothing sideways, the dots beneath any heading they don't fit beside (${said(layout)})`)
+    // The favorite's row: its dots on a line of their own, beneath its name, which keeps the width
+    // it has without them, measured with them taken out of the row a moment.
+    const row = favoriteDots.locator('xpath=ancestor::li[1]/div[1]')
+    await row.scrollIntoViewIfNeeded()
+    const look = await row.evaluate(el => {
+      const name = el.querySelector(':scope > span.min-w-0.flex-1')
+      const group = el.querySelector('[role="group"]')
+      const aside = [...el.children].find(child => child.contains(group))
+      const [nameBox, groupBox] = [name.getBoundingClientRect(), group.getBoundingClientRect()]
+      aside.style.display = 'none'
+      const without = name.getBoundingClientRect().width
+      aside.style.display = ''
+      return { below: groupBox.top >= nameBox.bottom - 0.5, width: nameBox.width, without }
+    })
+    check(look.below && Math.abs(look.width - look.without) < 1 && (await slotsLayout(phone)).sideways <= 0,
+      `at 360 px, the Favorites strip's spell-slots row has its dots on a line below its name, the name as wide as without them (${Math.round(look.width)} px, ${Math.round(look.without)} without), nothing sideways`)
+    await shoot(phone, 'slots-favorite', row)
+    await theme(phone, 'dark')
+    await pactLevel.scrollIntoViewIfNeeded()
+    layout = await slotsLayout(phone)
+    check(fits(layout), `at 360 px, dark: the same (${said(layout)})`)
+    await shoot(phone, 'slots')
+    await theme(phone, 'light')
+    await phone.page.setViewportSize({ width: 390, height: 844 })
+    phone.width = 390
+    // The tablet, from sm: each dot smaller.
+    await tablet.tab('Spells')
+    const tabletPact = levelOf(tablet, 'Pact Magic — 3rd Level')
+    const tabletShown = await dotsRead(dotsOf(tabletPact, 'Pact Magic slots (3rd level)'), slotNames(PACT, 2, 4))
+    await tabletPact.scrollIntoViewIfNeeded()
+    const wide = await slotsLayout(tablet)
+    check(tabletShown && wide.dots.length === 25 && wide.dots.every(dot => Math.round(dot.width) === 24 && Math.round(dot.height) === 24) && wide.sideways <= 0,
+      `on the tablet, 768 px, dark, every dot is 24 × 24 px (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])})`)
+    await shoot(tablet, 'slots')
+    await tablet.tab('Character')
+  }
+  delete CONFIG.DND5E.spellcasting.pact
+  delete thorin.system.spells.pact
+  delete thorin.system.spells.spell1.override
+  await thorin.update({ 'system.spells.spell1.value': 3, 'system.favorites': [] })
+  await dotsReady(firstDots, slotNames(SPELL1, 3, 4), "the phone's dots back at 3 of 4")
+  await until(() => keptSlots('pact') === null && keptSlots('spell1')?.max === 4, 'the stored sheet without Pact Magic or the override', 15_000)
+
+  // 10. Send to the table off on the phone: the dots as before, pictures; then on again.
+  {
+    const cog = phone.page.getByRole('dialog', { name: 'Settings' })
+    const send = cog.getByRole('switch', { name: 'Send to the table', exact: true })
+    const sending = async on => {
+      await phone.page.getByRole('button', { name: 'Settings', exact: true }).click()
+      await cog.waitFor()
+      if ((await send.isChecked()) !== on) await send.locator('xpath=ancestor::label[1]').click()
+      await until(async () => (await send.isChecked()) === on, `Send to the table ${on ? 'on' : 'off'}`, 5_000)
+      await phone.page.keyboard.press('Escape')
+      await cog.waitFor({ state: 'hidden' })
+    }
+    await sending(false)
+    await until(async () => (await picturesOf(first)).buttons === 0, 'the dots to be pictures', 15_000).catch(() => {})
+    const look = await picturesOf(first)
+    check(look.buttons === 0 && look.rings === 4 && look.counts.includes('3/4'),
+      `with Send to the table off, 1st Level's dots are pictures, as before: no button for its slots, four rings, "3/4" (${JSON.stringify(look)})`)
+    await sending(true)
+    check(await dotsRead(firstDots, slotNames(SPELL1, 3, 4)), 'on again, they are buttons again')
+  }
+} else if (SKEW) {
+  // 10. Module 0.28.0 lists no such kind: the dots as before.
+  await phone.character()
+  await phone.tab('Spells')
+  const first = levelOf(phone, '1st Level')
+  await first.waitFor()
+  const look = await picturesOf(first)
+  check(look.buttons === 0 && look.rings === 4 && look.counts.includes('3/4'),
+    `with module 0.28.0, 1st Level's dots are pictures, as before: no button for its slots, four rings, "3/4" (${JSON.stringify(look)})`)
 }
 
 // =================================================================================================

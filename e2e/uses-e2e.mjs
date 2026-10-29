@@ -411,7 +411,9 @@ await until(() => stored().includes('use'), 'the app to hear the game takes spel
 // Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn wherever players' rolls
 // are made, and damage on its own and recharges wherever they may attack and cast.
 // Changed on purpose (round 0.36.0 §13.4, v6): and taking back a turn ended, right after it.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
+// Changed on purpose (round 0.42.1 §U.7.4): from module 0.42.1, a spell slot spent or restored,
+// right after Heroic Inspiration.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
 const features = sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`)
 // From module 0.22.0, wherever uses are made, it makes one at its user too, as asked.
 // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0, damage on its own's choices wherever it's offered.
