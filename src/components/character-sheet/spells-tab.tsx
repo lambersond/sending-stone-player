@@ -247,9 +247,9 @@ function Spellcasting({
           {classes.map(entry => (
             <li
               key={entry.name}
-              className='flex items-center gap-3 rounded-xl px-2.5 py-2'
+              className='flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-2.5 py-2'
             >
-              <span className='min-w-0 flex-1'>
+              <span className='min-w-0 flex-auto'>
                 <span className='block truncate font-medium'>{entry.name}</span>
                 {entry.ability && (
                   <span className='block truncate text-xs text-text-secondary'>
@@ -257,21 +257,31 @@ function Spellcasting({
                   </span>
                 )}
               </span>
-              {entry.dc !== null && (
-                <span className='shrink-0 text-sm'>
-                  <span className='text-text-secondary'>DC </span>
-                  <span className='font-semibold tabular-nums'>{entry.dc}</span>
+              {/* Beside the name where they fit, else beneath it at the row's end, so that the
+                  prepared count, from module 0.42.1, never cuts the name short on a phone. */}
+              {(entry.dc !== null ||
+                entry.attack !== null ||
+                !!preparedCount(entry.prepared)) && (
+                <span className='ml-auto flex flex-wrap items-center justify-end gap-x-3'>
+                  {entry.dc !== null && (
+                    <span className='shrink-0 text-sm'>
+                      <span className='text-text-secondary'>DC </span>
+                      <span className='font-semibold tabular-nums'>
+                        {entry.dc}
+                      </span>
+                    </span>
+                  )}
+                  {entry.attack !== null && (
+                    <span className='shrink-0 text-sm'>
+                      <span className='font-semibold tabular-nums'>
+                        {formatModifier(entry.attack)}
+                      </span>
+                      <span className='text-text-secondary'> to hit</span>
+                    </span>
+                  )}
+                  <ClassPrepared prepared={entry.prepared} />
                 </span>
               )}
-              {entry.attack !== null && (
-                <span className='shrink-0 text-sm'>
-                  <span className='font-semibold tabular-nums'>
-                    {formatModifier(entry.attack)}
-                  </span>
-                  <span className='text-text-secondary'> to hit</span>
-                </span>
-              )}
-              <ClassPrepared prepared={entry.prepared} />
             </li>
           ))}
         </ul>
@@ -400,6 +410,9 @@ export function SpellEntry({
           </span>
         )
       }
+      // Its "Not prepared" mark is wider than the others: in a narrow list, as on a phone or in the
+      // desk's Favorites column, beneath the name rather than cutting it short.
+      asideBelow={unprepared}
       meta={meta}
       facts={factsOf([
         ['Casting time', spell.activation],
@@ -426,9 +439,12 @@ function Marks({ spell }: Readonly<{ spell: SheetSpell }>) {
   return (
     <>
       {/* In words, from 0.42.1, as the row's fade alone says other things too, as no slots left;
-          its text is its name. */}
+          its text is its name. In the text's own colour rather than the other marks' grey, which
+          the row's fade would leave too faint to read. */}
       {spell.prepared === 0 && (
-        <span className={clsx(MARK, 'whitespace-nowrap')}>Not prepared</span>
+        <span className={clsx(MARK_BOX, 'whitespace-nowrap text-text-primary')}>
+          Not prepared
+        </span>
       )}
       {spell.concentration && <Mark short='C' label='Concentration' />}
       {spell.ritual && <Mark short='R' label='Ritual' />}
@@ -446,9 +462,12 @@ function factsOf(
   )
 }
 
-/** How a spell's mark looks: small, bordered and in capitals. */
-const MARK =
-  'rounded border border-border px-1 text-[10px] leading-4 font-bold tracking-wide text-text-secondary uppercase'
+/** How a spell's mark is drawn: small, bordered and in capitals. */
+const MARK_BOX =
+  'rounded border border-border px-1 text-[10px] leading-4 font-bold tracking-wide uppercase'
+
+/** How a spell's mark looks: as drawn, in grey. */
+const MARK = `${MARK_BOX} text-text-secondary`
 
 /** A spell's mark, such as C for concentration, spelled out for screen readers. */
 function Mark({ short, label }: Readonly<{ short: string; label: string }>) {

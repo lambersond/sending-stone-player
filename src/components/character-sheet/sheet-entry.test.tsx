@@ -519,8 +519,24 @@ describe('components/character-sheet/sheet-entry, its aside beneath its name in 
     expect(screen.getByTestId('aside').parentElement).toBe(row())
   })
 
-  it('keeps a row that opens as before, its aside in its summary', () => {
+  // Changed on purpose (round 0.42.1 §P review): a row that opens puts it beneath too, as a spell's
+  // "Not prepared" mark, which cut the name short beside it on a phone.
+  it('wraps a row that opens the same way, its chevron staying beside the name', () => {
     entry({ asideBelow: true, meta: 'Spell slots' })
+
+    const summary = document.querySelector('summary') as HTMLElement
+    expect(summary).toHaveClass('flex', 'items-center', '@max-md:flex-wrap')
+    const own = screen.getByTestId('aside').parentElement as HTMLElement
+    expect(own.parentElement).toBe(summary)
+    expect(own.className).toBe(
+      '@max-md:order-last @max-md:basis-full @max-md:pl-11',
+    )
+    expect(summary.lastElementChild).toHaveClass('size-4', 'shrink-0')
+    expect(summary.lastElementChild?.tagName).toBe('svg')
+  })
+
+  it('keeps a row that opens as before without it, its aside in its summary', () => {
+    entry({ meta: 'Spell slots' })
 
     const summary = document.querySelector('summary') as HTMLElement
     expect(summary).not.toHaveClass('@max-md:flex-wrap')

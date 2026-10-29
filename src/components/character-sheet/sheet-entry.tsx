@@ -30,7 +30,8 @@ type Props = {
    * In a narrow list, the aside on a line of its own beneath the name, as a spell-slots favorite's
    * live dots are, round 0.42.1 §U: where the list it's in, a container, is under 28rem wide, as a
    * phone's Favorites strip, a desk's Favorites column and each of a tablet's two lists are, so
-   * that many dots never squeeze the name to nothing.
+   * that many dots never squeeze the name to nothing. A row that opens puts it there too, as a
+   * spell's "Not prepared" mark is (round 0.42.1 §P review), its chevron staying beside the name.
    */
   asideBelow?: boolean
   /** Shown above the description when open, such as the kind of feature. */
@@ -146,8 +147,6 @@ export function SheetEntry({
   const menu = onMenu ?? own.onMenu
   const press = usePressMenu(menu)
   const opens = !!text || !!meta || facts.length > 0 || !!lead || !!children
-  // Only a row that doesn't open, as a favorite of spell slots, puts its aside beneath its name.
-  const below = asideBelow && !opens
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
@@ -171,8 +170,8 @@ export function SheetEntry({
       </span>
       {/* Beneath the name in a narrow list, by the list's width rather than the screen's, lined up
           with it past the icon, so that the name keeps the width it has without the aside; its
-          spacer stays beside the name. */}
-      {below ? (
+          spacer, or its chevron, stays beside the name. */}
+      {asideBelow ? (
         <span className='@max-md:order-last @max-md:basis-full @max-md:pl-11'>
           {aside}
         </span>
@@ -193,7 +192,7 @@ export function SheetEntry({
           ref={rowRef as Ref<HTMLDivElement>}
           className={clsx(
             rowClass,
-            below && '@max-md:flex-wrap',
+            asideBelow && '@max-md:flex-wrap',
             press.className,
           )}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
@@ -223,6 +222,7 @@ export function SheetEntry({
           className={clsx(
             rowClass,
             'cursor-pointer list-none transition-colors hover:bg-primary/5 [&::-webkit-details-marker]:hidden',
+            asideBelow && '@max-md:flex-wrap',
             press.className,
           )}
           {...press.props}

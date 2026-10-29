@@ -1244,9 +1244,20 @@ describe('components/character-sheet/spells-tab, spells prepared and unprepared,
       const mark = within(item).getByText('Not prepared')
       expect(mark).not.toHaveClass('sr-only')
       expect(mark).toHaveClass('border', 'border-border', 'uppercase')
-      expect(mark).toHaveClass('text-[10px]', 'text-text-secondary')
+      // Changed on purpose (round 0.42.1 §P review): in the text's own colour, as the other marks'
+      // grey, faded with its row, reads at 2.7:1 in light and 3.4:1 in dark (4.7:1 and 6.1:1 now).
+      expect(mark).toHaveClass('text-[10px]', 'text-text-primary')
+      expect(mark).not.toHaveClass('text-text-secondary')
       expect(mark).toBeVisible()
     }
+    // Alarm rolls nothing: its whole row is faded, the mark with it, which is why it's darker.
+    expect(within(rowOf('Alarm')).getByText('Not prepared')).toHaveClass(
+      'text-text-primary',
+    )
+    // The other marks are as they were.
+    expect(within(rowOf('Alarm')).getByTitle('Ritual')).toHaveClass(
+      'text-text-secondary',
+    )
     for (const name of ['Shield', 'Bless', 'Cure Wounds']) {
       const item = screen.getByText(name).closest('li') as HTMLElement
       expect(within(item).queryByText('Not prepared')).toBeNull()
@@ -1257,6 +1268,41 @@ describe('components/character-sheet/spells-tab, spells prepared and unprepared,
     )
     // Still faded, as before.
     expect(rowOf('Alarm')).toHaveClass('opacity-60')
+  })
+
+  // Round 0.42.1 §P review: beside the name, the mark, about 96 px, cut it short on a phone, as
+  // "Detect …" for Detect Magic at 360 px, and in the desk's Favorites column.
+  it('puts the marks of a spell not prepared that rolls nothing beneath its name in a narrow list, and leaves the others beside it', () => {
+    renderTab(preparing({ witch: 0, bless: 0 }))
+
+    for (const name of ['Alarm', 'Bless']) {
+      const summary = rowOf(name)
+      expect(summary.tagName).toBe('SUMMARY')
+      expect(summary).toHaveClass('@max-md:flex-wrap')
+      // The marks' own line, past the icon, with every mark the row has.
+      const below = within(summary).getByText('Not prepared').parentElement
+        ?.parentElement as HTMLElement
+      expect(below.parentElement).toBe(summary)
+      expect(below.className).toBe(
+        '@max-md:order-last @max-md:basis-full @max-md:pl-11',
+      )
+      // The chevron stays beside the name.
+      expect(summary.lastElementChild?.tagName).toBe('svg')
+    }
+    expect(
+      within(rowOf('Alarm')).getByTitle('Ritual').parentElement?.parentElement,
+    ).toHaveClass('@max-md:basis-full')
+
+    cleanup()
+
+    // Rows with only their short marks, or uses left, keep them beside the name.
+    renderTab()
+    for (const name of ['Cure Wounds', 'Guidance', 'Misty Step']) {
+      const summary = rowOf(name)
+      expect(summary.tagName).toBe('SUMMARY')
+      expect(summary).not.toHaveClass('@max-md:flex-wrap')
+      expect(summary.querySelector('[class*="@max-md:basis-full"]')).toBeNull()
+    }
   })
 })
 
@@ -1378,5 +1424,44 @@ describe('components/character-sheet/spells-tab, how many are prepared, from mod
     ])
     expect(classes.getByText('Prepared 5 of 6')).toHaveClass('sr-only')
     expect(classes.getByText('5 / 6')).toHaveClass('font-semibold')
+  })
+
+  // Round 0.42.1 §P review: with the count beside its other facts, a class's name was cut short
+  // on a phone, as "Warlo…" at 360 px with "10 / 11".
+  it('lets a class’s facts go beneath its name where they don’t fit beside it, rather than cut the name short', () => {
+    renderTab(
+      fullerSheet({
+        spellcasting: casting([
+          {
+            name: 'Warlock',
+            ability: 'Charisma',
+            dc: 16,
+            attack: 8,
+            prepared: { value: 10, max: 11 },
+          },
+          { name: 'Wizard', ability: null, dc: null, attack: null },
+        ]),
+      }),
+    )
+    const [warlock, wizard] = within(
+      screen.getByRole('list', { name: 'By class' }),
+    ).getAllByRole('listitem')
+    expect(warlock).toHaveClass('flex', 'flex-wrap', 'items-center')
+    // The name grows from its own width, not from none, so the facts wrap before they squeeze it.
+    const name = within(warlock).getByText('Warlock')
+      .parentElement as HTMLElement
+    expect(name.parentElement).toBe(warlock)
+    expect(name).toHaveClass('min-w-0', 'flex-auto')
+    expect(name).not.toHaveClass('flex-1')
+    // The facts together, at the row's end on whichever line they're on.
+    const facts = within(warlock).getByText('Prepared 10 of 11').parentElement
+      ?.parentElement as HTMLElement
+    expect(facts.parentElement).toBe(warlock)
+    expect(facts).toHaveClass('ml-auto', 'flex', 'flex-wrap', 'justify-end')
+    expect(facts).toHaveTextContent(
+      /^DC 16\+8 to hitPrepared 10 \/ 11Prepared 10 of 11$/,
+    )
+    // A class with none has nothing but its name.
+    expect(wizard.children).toHaveLength(1)
   })
 })
