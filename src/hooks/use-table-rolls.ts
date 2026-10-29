@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_ROLL_LABEL,
   type EffectOp,
+  type SpellSlotOp,
   type WildShapeOp,
 } from '@/constants/sending-stone'
 import { useStoredChoice } from '@/hooks/use-stored'
@@ -46,6 +47,7 @@ import type {
   RollRequestView,
   RollSource,
   RollStatus,
+  SpellSlotInput,
   SpendSource,
   TextLink,
   TransferInput,
@@ -196,6 +198,8 @@ export type TableRollState = Omit<
   favorite?: 'add' | 'remove'
   /** One of the character's own effects turned off, on or deleted (module 0.39.0): which. */
   effect?: EffectOp
+  /** A spell slot spent or restored (module 0.42.1): which. */
+  spellSlot?: SpellSlotOp
   /**
    * What became of that effect, once made, as the game says (the view's `effect`): kept apart from
    * what was asked, which the line is worded by.
@@ -658,6 +662,24 @@ export function useTableRolls(
   )
 
   /**
+   * Spend one of the character's spell slots, or restore one, from module 0.42.1, from the count
+   * of its pool the dots showed: no roll, as charges spent aren't, but its way kept as which.
+   */
+  const sendSpellSlot = useCallback(
+    (changed: LocalUse, spellSlot: SpellSlotInput) => {
+      const { kinds, on } = latest.current
+      if (!on || !kinds.includes('spellSlot')) return
+      start(
+        changed.id,
+        { kind: 'spellSlot', spellSlot, ...PLAIN },
+        { spellSlot: spellSlot.op },
+        changed.label,
+      )
+    },
+    [start],
+  )
+
+  /**
    * Move items or coins between the character and a party or another character, from module
    * 0.31.0. No switch of this device's holds it back: a move has no version made here instead.
    */
@@ -854,6 +876,7 @@ export function useTableRolls(
     sendEndConcentration,
     sendSpend,
     sendInspiration,
+    sendSpellSlot,
     sendTransfer,
     sendRemove,
     sendFavorite,
@@ -995,6 +1018,8 @@ export function gmRollsOf(
     rolled: view.kind,
     at: heard?.get(view.id) ?? Date.parse(view.at),
     ...(view.healing && { healing: true }),
+    // A spell slot's, from module 0.42.1, says whether it was spent or restored.
+    ...(view.slotOp && { slotOp: view.slotOp }),
   }))
   const states = new Map(
     views.map(view => {

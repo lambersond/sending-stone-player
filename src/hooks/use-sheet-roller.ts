@@ -42,7 +42,7 @@ import {
   ELVEN_LINE,
   typedResult,
 } from '@/utils/typed-dice'
-import type { EffectOp } from '@/constants/sending-stone'
+import type { EffectOp, SpellSlotOp } from '@/constants/sending-stone'
 import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
   FormulaSource,
@@ -354,6 +354,11 @@ export type LocalUse = {
   /** Heroic Inspiration used, or gained, rather than anything used, from module 0.29.0. */
   inspiration?: 'use' | 'gain'
   /**
+   * A spell slot spent or restored from the dots, from module 0.42.1, rather than anything used:
+   * which; the pool's slot, such as "1st-level spell slot", is the label.
+   */
+  slot?: SpellSlotOp
+  /**
    * Items or coins moved, rather than anything used, from module 0.31.0: what moved, as the chat
    * line says it, is the label.
    */
@@ -469,6 +474,8 @@ export type LocalGmRoll = {
   rolled: RollKind
   /** Of damage, healing, as the game said it is. */
   healing?: true
+  /** Of a spell slot, from module 0.42.1: spent or restored, as the Gamemaster's page asked. */
+  slotOp?: SpellSlotOp
   /**
    * When this page first heard of it, by this device's clock, as its own rolls are made by
    * (`useGmRolls`).
@@ -972,11 +979,12 @@ export function useSheetRoller(
     return ended
   }, [])
 
-  // Keeps charges spent, or Heroic Inspiration used or gained, first among the rolls, as a use is.
+  // Keeps charges spent, or Heroic Inspiration used or gained, first among the rolls, as a use is;
+  // and from module 0.42.1, a spell slot spent or restored.
   const logCharge = useCallback(
     (
       label: string,
-      change: Pick<LocalUse, 'spent' | 'inspiration'>,
+      change: Pick<LocalUse, 'spent' | 'inspiration' | 'slot'>,
     ): LocalUse => {
       const changed: LocalUse = {
         kind: 'use',
@@ -985,6 +993,7 @@ export function useSheetRoller(
         spell: false,
         ...(change.spent !== undefined && { spent: change.spent }),
         ...(change.inspiration && { inspiration: change.inspiration }),
+        ...(change.slot && { slot: change.slot }),
         at: Date.now(),
       }
       setRolls(earlier => keeping(earlier, changed))

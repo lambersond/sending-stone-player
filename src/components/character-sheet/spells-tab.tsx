@@ -134,12 +134,20 @@ export function SpellsTab({
           aria-labelledby={`${sectionId}${section.id}`}
           className='flex flex-col gap-2'
         >
-          <div className='flex items-center justify-between gap-3'>
+          {/* The dots go beneath the heading before anything scrolls sideways: from module 0.42.1
+              each is a button a finger wide, and nine of them beside "Pact Magic — 3rd Level"
+              don't fit a phone. */}
+          <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
             <SheetHeading id={`${sectionId}${section.id}`}>
               {section.label}
             </SheetHeading>
             {section.slots && section.slots.max > 0 && (
-              <SpellSlots value={section.slots.value} max={section.slots.max} />
+              <SpellSlots
+                value={section.slots.value}
+                max={section.slots.max}
+                // eslint-disable-next-line unicorn/no-null -- as the sheet says a level unknown
+                pool={{ id: section.id, level: section.slots.level ?? null }}
+              />
             )}
           </div>
           {section.spells.length > 0 ? (

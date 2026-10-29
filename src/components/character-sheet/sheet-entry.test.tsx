@@ -470,3 +470,57 @@ describe('components/character-sheet/sheet-entry, one of the character’s own e
     ).toEqual(['Turn off'])
   })
 })
+
+/** The row of the one entry rendered. */
+const row = () => screen.getByRole('listitem').firstElementChild as HTMLElement
+
+describe('components/character-sheet/sheet-entry, its aside beneath its name on a phone (round 0.42.1 §U.1.1.11)', () => {
+  const entry = (fields: Partial<Parameters<typeof SheetEntry>[0]> = {}) =>
+    render(
+      <ul>
+        <SheetEntry
+          characterId='char-1'
+          name='1st Level'
+          fallback={Sparkles}
+          detail='Spell slots'
+          aside={<span data-testid='aside'>dots</span>}
+          {...fields}
+        />
+      </ul>,
+    )
+
+  it('wraps under sm, the aside on its own line past the icon, after the spacer', () => {
+    entry({ asideBelow: true })
+
+    expect(row()).toHaveClass(
+      'flex',
+      'items-center',
+      'gap-3',
+      'max-sm:flex-wrap',
+    )
+    const own = screen.getByTestId('aside').parentElement as HTMLElement
+    expect(own.parentElement).toBe(row())
+    expect(own.className).toBe(
+      'max-sm:order-last max-sm:basis-full max-sm:pl-11',
+    )
+    // The spacer stays beside the name, so the name keeps its width.
+    expect(row().lastElementChild).toHaveClass('size-4', 'shrink-0')
+  })
+
+  it('keeps the row as before without it', () => {
+    entry()
+
+    expect(row().className).toBe(
+      'flex items-center gap-3 rounded-xl px-2.5 py-2',
+    )
+    expect(screen.getByTestId('aside').parentElement).toBe(row())
+  })
+
+  it('keeps a row that opens as before, its aside in its summary', () => {
+    entry({ asideBelow: true, meta: 'Spell slots' })
+
+    const summary = document.querySelector('summary') as HTMLElement
+    expect(summary).not.toHaveClass('max-sm:flex-wrap')
+    expect(screen.getByTestId('aside').parentElement).toBe(summary)
+  })
+})

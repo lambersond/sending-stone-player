@@ -25,6 +25,11 @@ type Props = {
   detail?: string
   /** At the end of the row, such as uses left. */
   aside?: ReactNode
+  /**
+   * Under sm, the aside on a line of its own beneath the name, as a spell-slots favorite's live
+   * dots are, round 0.42.1 §U.
+   */
+  asideBelow?: boolean
   /** Shown above the description when open, such as the kind of feature. */
   meta?: string
   /** Shown above the description when open, each with its label, such as a spell's range. */
@@ -102,6 +107,7 @@ export function SheetEntry({
   fallback,
   detail,
   aside,
+  asideBelow = false,
   meta,
   facts = [],
   text,
@@ -132,6 +138,9 @@ export function SheetEntry({
   })
   const menu = onMenu ?? own.onMenu
   const press = usePressMenu(menu)
+  const opens = !!text || !!meta || facts.length > 0 || !!lead || !!children
+  // Only a row that doesn't open, as a favorite of spell slots, puts its aside beneath its name.
+  const below = asideBelow && !opens
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
@@ -153,7 +162,15 @@ export function SheetEntry({
           </span>
         )}
       </span>
-      {aside}
+      {/* Beneath the name on a phone, lined up with it past the icon, so that the name keeps the
+          width it has without the aside; its spacer stays beside the name. */}
+      {below ? (
+        <span className='max-sm:order-last max-sm:basis-full max-sm:pl-11'>
+          {aside}
+        </span>
+      ) : (
+        aside
+      )}
     </>
   )
   const rowClass = clsx(
@@ -161,12 +178,16 @@ export function SheetEntry({
     muted && 'opacity-60',
   )
 
-  if (!text && !meta && facts.length === 0 && !lead && !children) {
+  if (!opens) {
     return (
       <li aria-busy={busy || undefined}>
         <div
           ref={rowRef as Ref<HTMLDivElement>}
-          className={clsx(rowClass, press.className)}
+          className={clsx(
+            rowClass,
+            below && 'max-sm:flex-wrap',
+            press.className,
+          )}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
           // on a row that opens (module 0.33.0).
           tabIndex={menu ? 0 : undefined}

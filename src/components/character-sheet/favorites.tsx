@@ -32,9 +32,9 @@ import { HitDieIcon } from './hit-die-icon'
 import { ItemEntry } from './inventory-tab'
 import { RollButton } from './roll-button'
 import { joinParts, SheetEntry } from './sheet-entry'
-import { SpellSlots } from './spell-slots'
+import { slotsLive, SpellSlots } from './spell-slots'
 import { SpellEntry } from './spells-tab'
-import { UsesButton } from './uses-button'
+import { useCharging, UsesButton } from './uses-button'
 import { Scroller } from '@/components/scroller'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useWidth } from '@/hooks/use-width'
@@ -54,6 +54,7 @@ import type {
   SheetAction,
   SheetClass,
   SheetSkill,
+  SheetSlotsFavorite,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { DamageModifiers } from '@/utils/damage-modifiers'
@@ -337,15 +338,11 @@ function FavoriteRow({
       )
     }
     case 'slots': {
-      const { slots } = entry
       return (
-        <SheetEntry
+        <SlotsEntry
           characterId={characterId}
-          name={slots.name}
-          fallback={BookOpen}
-          detail='Spell slots'
+          slots={entry.slots}
           favorite={target}
-          aside={<SpellSlots value={slots.value} max={slots.max} />}
         />
       )
     }
@@ -384,6 +381,34 @@ function FavoriteRow({
       )
     }
   }
+}
+
+/**
+ * A pool of spell slots made a favorite, its dots as the Spells tab's are: from module 0.42.1,
+ * where they spend and restore its slots, beneath its name on a phone, with room for nine.
+ */
+function SlotsEntry({
+  characterId,
+  slots,
+  favorite,
+}: Readonly<{
+  characterId: string
+  slots: SheetSlotsFavorite
+  favorite: FavoriteEntry['target']
+}>) {
+  const charging = useCharging()
+  const pool = { id: slots.id, level: slots.level }
+  return (
+    <SheetEntry
+      characterId={characterId}
+      name={slots.name}
+      fallback={BookOpen}
+      detail='Spell slots'
+      favorite={favorite}
+      aside={<SpellSlots value={slots.value} max={slots.max} pool={pool} />}
+      asideBelow={slotsLive(pool, slots.max, charging)}
+    />
+  )
 }
 
 /**

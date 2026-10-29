@@ -1,24 +1,35 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActionsTab } from './actions-tab'
 import { CharacterPane } from './character-pane'
 import { briefOf, RollTray, type TableRolls } from './roll-tray'
 import { Charging } from './uses-button'
+import { COMPANION_UNTAKEN, ROLL_KINDS } from '@/constants/sending-stone'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { SEND_KEY, type TableRollState } from '@/hooks/use-table-rolls'
 import {
   chargingSheet,
   counted,
+  druidSheet,
   enchantUse,
+  shapedSheet,
   sheetAction,
+  sheetSpell,
   utilityUse,
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import type { LocalGmRoll, LocalUse } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
 import type { TableSeat } from '@/types/character'
-import type { RollKind } from '@/types/roll'
+import type { GmRollView, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
   SheetAction,
@@ -1215,5 +1226,462 @@ describe('the tray and toasts, from module 0.29.0', () => {
     expect(trayOf(use({ spent: 3 }), { status: 'failed', reason })).toBe(
       `Sorcery PointsNot spent at the table: ${why}`,
     )
+  })
+})
+
+/** Every kind from module 0.29.0, a use, and from module 0.42.1 spell slots. */
+const SLOT_KINDS: RollKind[] = [...KINDS, 'spellSlot']
+
+/**
+ * Ember's slots: 3 of 4 at 1st level, Shield among its spells, and pact magic's 1 of 2 at 3rd;
+ * and, where asked, a favorite of her 1st-level slots and Shield among her actions.
+ */
+const slotsSheet = (
+  first = 3,
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet =>
+  chargingSheet({
+    spellcasting: { ability: 'cha', dc: 13, attack: 5, classes: [] },
+    spells: [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: first, max: 4, level: 1 },
+        spells: [sheetSpell({ id: 'shield', name: 'Shield' })],
+      },
+      {
+        id: 'pact',
+        label: 'Pact Magic',
+        slots: { value: 1, max: 2, level: 3 },
+        spells: [],
+      },
+    ],
+    ...fields,
+  })
+const favoredSheet = (first = 3) =>
+  slotsSheet(first, {
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            id: 'shield',
+            name: 'Shield',
+            type: 'spell',
+            level: 1,
+          }),
+        ],
+      },
+    ],
+    favorites: [
+      {
+        type: 'slots',
+        id: 'spell1',
+        name: '1st Level',
+        value: first,
+        max: 4,
+        level: 1,
+      },
+    ],
+  })
+
+/** The Spells tab's 1st Level. */
+const firstLevel = () => screen.getByRole('region', { name: '1st Level' })
+const dotsOf = (scope: HTMLElement, name = '1st-level spell slots') =>
+  within(within(scope).getByRole('group', { name })).getAllByRole('button')
+/** A dot's name, as the button that spends or restores one is named. */
+const DOT = /^(Spend|Restore) a .*slot/
+const noDots = () =>
+  expect(screen.queryByRole('button', { name: DOT })).toBeNull()
+
+const later = (ms: number) =>
+  act(async () => {
+    await jest.advanceTimersByTimeAsync(ms)
+  })
+
+/** The game: the request taken, or refused `changed`; then where it stands, as `answer` is. */
+const following = (
+  answer: { current: Record<string, unknown> },
+  taken = true,
+) => {
+  const posted: Record<string, unknown>[] = []
+  globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      posted.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      return {
+        ok: taken,
+        status: taken ? 202 : 422,
+        json: async () =>
+          taken ? { id: 'req-1' } : { error: 'changed', reason: 'changed' },
+      } as Response
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'req-1', ...answer.current }),
+    } as Response
+  }) as typeof fetch
+  return posted
+}
+const setup = async (answer: { current: Record<string, unknown> }) => {
+  const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+  const posted = following(answer)
+  const view = render(pane(slotsSheet(), SLOT_KINDS))
+  await show(user, 'Spells')
+  await user.click(dotsOf(firstLevel())[0])
+  await user.click(screen.getByRole('button', { name: 'Spend' }))
+  // What the confirm does is a transition's, drawn once the timers run.
+  await later(0)
+  expect(posted).toHaveLength(1)
+  return { user, posted, ...view }
+}
+const waits = () => {
+  const group = within(firstLevel()).getByRole('group', {
+    name: '1st-level spell slots',
+  })
+  const dimmed = dotsOf(firstLevel()).map(dot =>
+    dot.getAttribute('aria-disabled'),
+  )
+  if (dimmed.every(each => each === 'true')) {
+    expect(group).toHaveAttribute('aria-busy', 'true')
+    return true
+  }
+  expect(dimmed.every(each => each === null)).toBe(true)
+  expect(group).not.toHaveAttribute('aria-busy')
+  return false
+}
+
+describe('spell slots spent and restored from the dots, from module 0.42.1 (round 0.42.1 §U.1)', () => {
+  it("makes the Spells tab's dots buttons, and spends one once asked, from the count shown, its line among the rolls", async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': DONE })
+    render(pane(slotsSheet(), SLOT_KINDS))
+    await show(user, 'Spells')
+
+    const dots = dotsOf(firstLevel())
+    expect(dots.map(dot => dot.getAttribute('aria-label'))).toEqual([
+      'Spend a 1st-level spell slot, 3 of 4 left',
+      'Spend a 1st-level spell slot, 3 of 4 left',
+      'Spend a 1st-level spell slot, 3 of 4 left',
+      'Restore a 1st-level spell slot, 3 of 4 left',
+    ])
+    expect(
+      dotsOf(
+        screen.getByRole('region', { name: 'Pact Magic' }),
+        'Pact Magic slots (3rd level)',
+      ),
+    ).toHaveLength(2)
+    // The heading's row wraps the dots beneath its heading before anything scrolls sideways.
+    expect(
+      within(firstLevel()).getByRole('heading', { name: '1st Level' })
+        .parentElement,
+    ).toHaveClass('flex-wrap', 'gap-x-3', 'gap-y-1')
+
+    await user.click(dots[0])
+    await user.click(
+      within(
+        screen.getByRole('dialog', { name: 'Spend a 1st-level spell slot?' }),
+      ).getByRole('button', { name: 'Spend' }),
+    )
+    expect(posted).toEqual([
+      {
+        kind: 'spellSlot',
+        spellSlot: { op: 'spend', id: 'spell1', from: 3 },
+        ...PLAIN,
+      },
+    ])
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          '1st-level spell slotSpent at the table',
+        ),
+      { timeout: 5000 },
+    )
+  })
+
+  it("restores a pact slot once asked, its line named for pact magic's slot", async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': DONE })
+    render(pane(slotsSheet(), SLOT_KINDS))
+    await show(user, 'Spells')
+
+    const pact = dotsOf(
+      screen.getByRole('region', { name: 'Pact Magic' }),
+      'Pact Magic slots (3rd level)',
+    )
+    await user.click(pact[1])
+    const asked = screen.getByRole('dialog', {
+      name: 'Restore a pact slot (3rd level)?',
+    })
+    expect(asked).toHaveTextContent(
+      '1 of 2 left, 2 once it’s restored. Foundry’s chat will say so.',
+    )
+    await user.click(within(asked).getByRole('button', { name: 'Restore' }))
+    expect(posted).toEqual([
+      {
+        kind: 'spellSlot',
+        spellSlot: { op: 'restore', id: 'pact', from: 1 },
+        ...PLAIN,
+      },
+    ])
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Pact slot (3rd level)Restored at the table',
+        ),
+      { timeout: 5000 },
+    )
+  })
+
+  it('keeps the dots pictures with Send to the table off on this device', async () => {
+    const user = userEvent.setup()
+    globalThis.localStorage.setItem(SEND_KEY, 'off')
+    answering()
+    render(pane(slotsSheet(), SLOT_KINDS))
+    await show(user, 'Spells')
+
+    noDots()
+    expect(within(firstLevel()).getByText('3/4')).toBeInTheDocument()
+    expect(
+      firstLevel().querySelectorAll('.rounded-full.border-2'),
+    ).toHaveLength(4)
+  })
+
+  it('keeps the dots pictures with a module before 0.42.1, which lists charges and Heroic Inspiration but no spell slots', async () => {
+    const user = userEvent.setup()
+    answering()
+    render(
+      pane(favoredSheet(), ['use', 'endConcentration', 'spend', 'inspiration']),
+    )
+    await show(user, 'Spells')
+
+    noDots()
+    expect(
+      within(firstLevel()).getByText('3 of 4 spell slots left'),
+    ).toBeVisible()
+    // Its favorite's row as before, the pictures beside the name.
+    const row = within(screen.getByRole('region', { name: 'Favorites' }))
+      .getByText('Spell slots')
+      .closest('li')?.firstElementChild
+    expect(row).not.toHaveClass('max-sm:flex-wrap')
+    expect(row?.querySelector(String.raw`.max-sm\:basis-full`)).toBeNull()
+  })
+
+  it("keeps a companion's dots pictures, as the app never lists spell slots among a companion's kinds", async () => {
+    const user = userEvent.setup()
+    answering()
+    // As the app keeps a companion's kinds from the module's: never one it can't take.
+    const companionKinds = ROLL_KINDS.filter(
+      kind => !(COMPANION_UNTAKEN as readonly string[]).includes(kind),
+    )
+    render(
+      <CharacterPane
+        characterId='seat-1:c:imp'
+        name='Quill'
+        sheet={toTableSheet(slotsSheet(), GAME)}
+        rollsToTable={companionKinds}
+        creature={{ name: 'Quill', relation: { kind: 'owned', of: 'Ember' } }}
+        idPrefix='creature-quill-'
+      />,
+    )
+    await show(user, 'Spells')
+
+    noDots()
+    expect(
+      within(firstLevel()).getByText('3 of 4 spell slots left'),
+    ).toBeVisible()
+  })
+
+  it("keeps a shaped druid's dots pictures, as her slots wait, and makes them buttons once she's back", async () => {
+    const user = userEvent.setup()
+    answering()
+    const { rerender } = render(pane(shapedSheet(), SLOT_KINDS))
+    await show(user, 'Spells')
+    noDots()
+    expect(
+      within(firstLevel()).getByText('4 of 4 spell slots left'),
+    ).toBeVisible()
+
+    rerender(pane(druidSheet(), SLOT_KINDS))
+    expect(dotsOf(firstLevel())).toHaveLength(4)
+  })
+
+  it("spends and restores from the Gamemaster's page, named for the player to be shown them by", async () => {
+    const user = userEvent.setup()
+    const posted = answering()
+    render(pane(slotsSheet(), SLOT_KINDS, GM))
+    await show(user, 'Spells')
+
+    await user.click(dotsOf(firstLevel())[3])
+    await user.click(screen.getByRole('button', { name: 'Restore' }))
+    expect(posted).toEqual([
+      {
+        kind: 'spellSlot',
+        spellSlot: { op: 'restore', id: 'spell1', from: 3 },
+        ...PLAIN,
+        label: '1st-level spell slot',
+      },
+    ])
+  })
+
+  it.each([
+    ['spend', { status: 'done', visible: true }, 'Spent at the table'],
+    ['restore', { status: 'done', visible: true }, 'Restored at the table'],
+    [
+      'restore',
+      { status: 'failed', reason: 'full' },
+      'Not restored at the table: none is used',
+    ],
+    [
+      'spend',
+      { status: 'failed', reason: 'changed' },
+      'Not spent at the table: the slots changed in Foundry; look again',
+    ],
+  ] as const)(
+    "words the Gamemaster's %s on the player's page: %o",
+    (slotOp, made, words) => {
+      answering()
+      const view: GmRollView = {
+        id: 'req-9',
+        kind: 'spellSlot',
+        label: '1st-level spell slot',
+        at: '2026-10-29T03:00:00.000Z',
+        slotOp,
+        ...made,
+      }
+      render(
+        <CharacterPane
+          characterId='char-ember'
+          name='Ember'
+          sheet={toTableSheet(slotsSheet(), GAME)}
+          rollsToTable={SLOT_KINDS}
+          gmRolls={[view]}
+        />,
+      )
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent('1st-level spell slot')
+      expect(status).toHaveTextContent(words)
+    },
+  )
+
+  it("makes a spell-slots favorite's dots buttons on the Actions tab, beneath its name on a phone, while the Actions tab's own heading keeps its pictures", async () => {
+    const user = userEvent.setup()
+    const posted = answering()
+    render(pane(favoredSheet(), SLOT_KINDS))
+    await show(user, 'Actions')
+
+    const favorites = screen.getByRole('region', { name: 'Favorites' })
+    const dots = dotsOf(favorites)
+    expect(dots).toHaveLength(4)
+    expect(dots[0].closest('li')?.firstElementChild).toHaveClass(
+      'max-sm:flex-wrap',
+    )
+    // The Actions tab's own heading of the level: the count alone, a tap opening or closing it.
+    const level = screen.getByRole('group', { name: '1st Level' })
+    expect(within(level).queryByRole('button', { name: DOT })).toBeNull()
+    expect(level).toHaveTextContent('3 of 4 spell slots left')
+
+    // A right-click on a dot, or on the confirm's words, is never the row's.
+    fireEvent.contextMenu(dots[0])
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.click(dots[0])
+    const asked = screen.getByRole('dialog', {
+      name: 'Spend a 1st-level spell slot?',
+    })
+    fireEvent.contextMenu(within(asked).getByText(/3 of 4 left/))
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.click(within(asked).getByRole('button', { name: 'Spend' }))
+    expect(posted).toEqual([
+      {
+        kind: 'spellSlot',
+        spellSlot: { op: 'spend', id: 'spell1', from: 3 },
+        ...PLAIN,
+      },
+    ])
+  })
+
+  it('makes the favorite’s dots buttons on the Spells tab too, beside its heading’s', async () => {
+    const user = userEvent.setup()
+    answering()
+    render(pane(favoredSheet(), SLOT_KINDS))
+    await show(user, 'Spells')
+
+    expect(
+      dotsOf(screen.getByRole('region', { name: 'Favorites' })),
+    ).toHaveLength(4)
+    expect(dotsOf(firstLevel())).toHaveLength(4)
+  })
+
+  describe('waiting for the game, as an effect does (round 0.42.1 §U.0.8.12)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('waits while the request is on its way, however long, and a tap meanwhile asks nothing and sends nothing', async () => {
+      const { user, posted } = await setup({ current: { status: 'sending' } })
+
+      expect(waits()).toBe(true)
+      await later(15_000)
+      expect(waits()).toBe(true)
+      await user.click(dotsOf(firstLevel())[0])
+      await user.click(dotsOf(firstLevel())[3])
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(posted).toHaveLength(1)
+    })
+
+    it('waits once made until the sheet shows the count moved, then is live again', async () => {
+      const answer = {
+        current: { status: 'sending' } as Record<string, unknown>,
+      }
+      const { rerender } = await setup(answer)
+
+      answer.current = { status: 'done', visible: true, rolls: [] }
+      await later(1000)
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '1st-level spell slotSpent at the table',
+      )
+      // Made, with the sheet as it was: it waits for the sheet that comes.
+      expect(waits()).toBe(true)
+      rerender(pane(slotsSheet(2), SLOT_KINDS))
+      expect(waits()).toBe(false)
+      expect(dotsOf(firstLevel())[0]).toHaveAccessibleName(
+        'Spend a 1st-level spell slot, 2 of 4 left',
+      )
+    })
+
+    it('is live again once made and the settle time has passed, though the sheet never moved', async () => {
+      await setup({ current: { status: 'done', visible: true, rolls: [] } })
+
+      await later(1000)
+      expect(waits()).toBe(true)
+      await later(8500)
+      expect(waits()).toBe(true)
+      await later(600)
+      expect(waits()).toBe(false)
+    })
+
+    it('is live again at once where the app refuses it', async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+      const posted = following({ current: {} }, false)
+      render(pane(slotsSheet(), SLOT_KINDS))
+      await show(user, 'Spells')
+      await user.click(dotsOf(firstLevel())[0])
+      await user.click(screen.getByRole('button', { name: 'Spend' }))
+      await later(0)
+
+      expect(waits()).toBe(false)
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '1st-level spell slotNot spent at the table: the slots changed in Foundry; look again',
+      )
+      // It can be tried again.
+      await user.click(dotsOf(firstLevel())[0])
+      await user.click(screen.getByRole('button', { name: 'Spend' }))
+      expect(posted).toHaveLength(2)
+    })
   })
 })

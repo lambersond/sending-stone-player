@@ -4853,3 +4853,180 @@ describe('components/character-sheet/roll-tray, a die offered and spent, from mo
     )
   })
 })
+
+/** A spell slot spent or restored from the dots (module 0.42.1). */
+const slotted = (
+  slot: 'spend' | 'restore',
+  label = '1st-level spell slot',
+): LocalUse => ({
+  kind: 'use',
+  id: `u-${slot}`,
+  label,
+  spell: false,
+  slot,
+  at: 0,
+})
+
+/** A spell slot the Gamemaster's page spent or restored, as the player's view tells it. */
+const slotView = (
+  fields: Partial<GmRollView> = {},
+  slotOp?: 'spend' | 'restore',
+): GmRollView => ({
+  id: `req-${slotOp}`,
+  kind: 'spellSlot',
+  status: 'done',
+  visible: true,
+  label: '2nd-level spell slot',
+  at: '2026-10-29T03:00:00.000Z',
+  ...(slotOp && { slotOp }),
+  ...fields,
+})
+/** Each in brief, as its toast says it, each by an id of its own. */
+const slotBriefs = (views: GmRollView[]) => {
+  const { rolls, states } = gmRollsOf(
+    views.map((each, index) => ({ ...each, id: `req-${index}` })),
+  )
+  return rolls.map(each => briefOf(each, states.get(each.id)))
+}
+
+describe('a spell slot spent or restored from the dots, from module 0.42.1 (round 0.42.1 §U.1.2)', () => {
+  const spent = slotted('spend')
+  const restored = slotted('restore', 'Pact slot (3rd level)')
+  const done: TableRollState = { status: 'done', visible: true, rolls: [] }
+
+  it('reads it on its way, then done, under the slot’s name', () => {
+    expect(briefOf(spent, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(
+      briefOf(spent, { status: 'rolling', spellSlot: 'spend' }).table?.text,
+    ).toBe('Spending it in your Gamemaster’s game…')
+    expect(
+      briefOf(restored, { status: 'rolling', spellSlot: 'restore' }).table
+        ?.text,
+    ).toBe('Restoring it in your Gamemaster’s game…')
+    expect(briefOf(spent, { ...done, spellSlot: 'spend' })).toMatchObject({
+      label: '1st-level spell slot',
+      badge: 'use',
+      table: { tone: 'made', text: 'Spent at the table' },
+    })
+    expect(briefOf(restored, { ...done, spellSlot: 'restore' })).toMatchObject({
+      label: 'Pact slot (3rd level)',
+      table: { tone: 'made', text: 'Restored at the table' },
+    })
+  })
+
+  it.each([
+    ['refused', 'slots', 'none is left'],
+    ['failed', 'slots', 'none is left'],
+    ['refused', 'full', 'none is used'],
+    ['failed', 'full', 'none is used'],
+    ['refused', 'slot', 'there are no such spell slots'],
+    ['failed', 'slot', 'there are no such spell slots'],
+    ['refused', 'changed', 'the slots changed in Foundry; look again'],
+    ['failed', 'changed', 'the slots changed in Foundry; look again'],
+    [
+      'failed',
+      'shaped',
+      'that waits until your character is back in their own form',
+    ],
+    ['refused', 'unavailable', 'your Gamemaster’s game isn’t taking rolls now'],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['failed', 'attacks-off', 'your Gamemaster’s game isn’t taking attacks'],
+    ['failed', 'unknown', 'your character in the game can’t make it'],
+  ] as const)(
+    'says why it was %s, %s, in the slots’ own words where they differ',
+    (status, reason, words) => {
+      expect(
+        briefOf(spent, { status, reason, spellSlot: 'spend' }).table?.text,
+      ).toBe(`Not spent at the table: ${words}`)
+      expect(
+        briefOf(restored, { status, reason, spellSlot: 'restore' }).table?.text,
+      ).toBe(`Not restored at the table: ${words}`)
+    },
+  )
+
+  it('reads it in the tray, and lists it among the earlier rolls by what became of it', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[spent, restored]}
+        rolling={false}
+        table={{
+          states: new Map([['u-spend', { ...done, spellSlot: 'spend' }]]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '1st-level spell slotSpent at the table',
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Pact slot (3rd level)restored'])
+  })
+
+  it('reads the short word of each', () => {
+    render(
+      <RollTray
+        rolls={[slotted('restore', 'Later'), spent]}
+        rolling={false}
+        table={{ states: new Map(), available: true, sending: true }}
+      />,
+    )
+    act(() => screen.getByText('Earlier rolls (1)').click())
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      '1st-level spell slotspent',
+    )
+  })
+
+  describe("the Gamemaster's on the player's page", () => {
+    it('says Spending or Restoring, then Spent or Restored, by what their page asked', () => {
+      expect(
+        slotBriefs([
+          slotView({ status: 'rolling' }, 'spend'),
+          slotView({ status: 'rolling' }, 'restore'),
+          slotView({}, 'spend'),
+          slotView({}, 'restore'),
+        ]).map(({ label, badge, table }) => [label, badge, table?.text]),
+      ).toEqual([
+        [
+          '2nd-level spell slot',
+          'use',
+          'Spending it in your Gamemaster’s game…',
+        ],
+        [
+          '2nd-level spell slot',
+          'use',
+          'Restoring it in your Gamemaster’s game…',
+        ],
+        ['2nd-level spell slot', 'use', 'Spent at the table'],
+        ['2nd-level spell slot', 'use', 'Restored at the table'],
+      ])
+      // One whose page didn't say which, as none does, says only that it changed.
+      expect(slotBriefs([slotView()])[0].table?.text).toBe(
+        'Changed at the table',
+      )
+    })
+
+    it('says why one was refused in the slots’ own words', () => {
+      expect(
+        slotBriefs([
+          slotView({ status: 'failed', reason: 'full' }, 'restore'),
+          slotView({ status: 'failed', reason: 'slots' }, 'spend'),
+          slotView({ status: 'failed', reason: 'changed' }, 'spend'),
+          slotView({ status: 'failed', reason: 'slot' }, 'spend'),
+          slotView({ status: 'failed', reason: 'attacks-off' }, 'spend'),
+        ]).map(({ table }) => table?.text),
+      ).toEqual([
+        'Not restored at the table: none is used',
+        'Not spent at the table: none is left',
+        'Not spent at the table: the slots changed in Foundry; look again',
+        'Not spent at the table: there are no such spell slots',
+        'Not spent at the table: your Gamemaster’s game isn’t taking attacks',
+      ])
+    })
+  })
+})
