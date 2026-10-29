@@ -258,7 +258,9 @@ await until(() => stored().includes('attack'), 'the app to hear the game takes a
 // Changed on purpose (round 0.36.0 §13.4, v6): and taking back a turn ended, right after it.
 // Changed on purpose (round 0.42.1 §U.7.4): from module 0.42.1, a spell slot spent or restored,
 // right after Heroic Inspiration.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
+// Changed on purpose (round 0.42.1 §P.6.4): from module 0.42.1, a spell prepared or unprepared,
+// right after the charge kinds.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,prepare,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
 check(sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`).split(',').includes('areaAttacks'), 'and that it makes area attacks at the targets players pick')
 // From module 0.21.0, changing only a die damage adds, never one it takes away.
 check(sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`).split(',').includes('signedDice'), 'and that it changes only a die damage adds, never one it takes away')

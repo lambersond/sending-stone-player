@@ -36,8 +36,9 @@ run favorites 52 X=1
 run rolls 74 SHOTS=$O/shots-rolls
 run attacks 84 SHOTS=$O/shots-attacks
 run attacks 86 MIDI=1 SHOTS=$O/shots-attacks
-run uses 123 SHOTS=$O/shots-uses
-run uses 126 MIDI=1 SHOTS=$O/shots-uses
+# Round 0.42.1: spells prepared from the row menus (§P).
+run uses 146 SHOTS=$O/shots-uses
+run uses 149 MIDI=1 SHOTS=$O/shots-uses
 run prompts 23 SHOTS=$O/shots-prompts
 run prompts 25 MIDI=1 SHOTS=$O/shots-prompts
 run midi 65 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-027

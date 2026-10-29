@@ -11,10 +11,14 @@
 // Fireball at 5th, ten d6; a wand's every level on a narrower phone, those its charges don't reach
 // greyed out; Hex, which the Gamemaster gives the flame, and its damage used from beneath it,
 // spending no charge; and a wand's last charge, out of combat; the app showing what charges each
-// has left as the game sends the sheet again. Last, his old-style resources, named Second Wind
-// and Bardic Inspiration, among his favorites as those features, and used from there (#151).
-// MIDI=1 puts the stand-in Midi-QOL workflow in the world (fvtt/midi-fake.mjs). Run with
-// --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// has left as the game sends the sheet again. Then his old-style resources, named Second Wind
+// and Bardic Inspiration, among his favorites as those features, and used from there (#151). Last,
+// from module 0.42.1, spells prepared and unprepared from their rows' menus: Witch Bolt prepared on
+// the Spells tab and unprepared on the Actions tab with a held touch, his cleric's count of spells
+// prepared following each, Bless and back, none for a spell an item casts or a cantrip, and Witch
+// Bolt among his favorites (round 0.42.1 §P). MIDI=1 puts the stand-in Midi-QOL workflow in the
+// world (fvtt/midi-fake.mjs). Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { combat, combatant, settings, user, users, actors } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -413,7 +417,9 @@ await until(() => stored().includes('use'), 'the app to hear the game takes spel
 // Changed on purpose (round 0.36.0 §13.4, v6): and taking back a turn ended, right after it.
 // Changed on purpose (round 0.42.1 §U.7.4): from module 0.42.1, a spell slot spent or restored,
 // right after Heroic Inspiration.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
+// Changed on purpose (round 0.42.1 §P.6.4): from module 0.42.1, a spell prepared or unprepared,
+// right after the charge kinds.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,prepare,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
 const features = sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`)
 // From module 0.22.0, wherever uses are made, it makes one at its user too, as asked.
 // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0, damage on its own's choices wherever it's offered.
@@ -1148,6 +1154,295 @@ const windRows = await favStrip.locator('li').filter({ hasText: 'Second Wind' })
 const windCounters = await favStrip.locator('li').filter({ hasText: 'Second Wind' }).filter({ hasNot: page.locator('button[aria-expanded]') }).count()
 check(windRows === 1 && windCounters === 0 && await panel.getByRole('region', { name: 'Bonus Actions', exact: true }).getByText('Second Wind', { exact: true }).count() === 1,
   'the strip has one Second Wind row, no counter of that name, and Actions lists it too')
+
+// ---- Spells prepared and unprepared from the row menus (round 0.42.1 §P) ----
+// From module 0.42.1 a spell's own menu, wherever its row is, prepares it in the game or unprepares
+// it, as dnd5e's sheet's Prepare and Unprepare do, and the Spells tab shows how many spells his
+// cleric has prepared, of how many, as dnd5e's sheet does. Witch Bolt is prepared from the Spells tab
+// and unprepared on the Actions tab with a held touch; Bless, drawn otherwise once unprepared, goes
+// and comes back; a spell an item casts and a cantrip offer neither; the app turns down one posted
+// anyway; and Witch Bolt is prepared and unprepared among his favorites. Witch Bolt is left
+// unprepared, Bless prepared and his favorites as they were.
+{
+  const PLAIN = { mode: 0, explicit: false, extras: [], dice: [] }
+  /** As Postgres keeps JSON: each object's keys in its own order, so compared sorted. */
+  const sorted = value => (Array.isArray(value) ? value.map(sorted)
+    : (value && (typeof value === 'object')) ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sorted(value[key])])) : value)
+  const sameJson = (a, b) => same(sorted(a), sorted(b))
+  const preparedIn = id => thorin.items.get(id).system.prepared
+  const chatCount = () => game.messages.contents.length
+  /** Thorin's sheet as the app keeps it, and whether its Actions tab lists a spell. */
+  const storedSheet = () => JSON.parse(sql(`select coalesce(s.data::text, 'null') from actor_sheet s join campaign c on c.id = s."campaignId" where c.title = 'Ashlands' and s."actorId" = 'thorin'`) || 'null')
+  const listedOnActions = id => (storedSheet()?.actions ?? []).some(section => (section.actions ?? []).some(action => action.id === id))
+  /** What a row's menu opens from, by its name: an action's name, or a row's summary. */
+  const anchorOf = (name, within) => within.locator('button[aria-expanded], summary').filter({ hasText: new RegExp(`^${name}`) })
+  /**
+   * A spell's collapsed row as seen: its "Not prepared" marks, the first one's width and whether
+   * it shows, the row's opacity, and what its menu opens from.
+   */
+  const looksOf = async anchor => {
+    if ((await anchor.count()) !== 1) return null
+    const marks = anchor.locator('xpath=ancestor::li[1]').getByText('Not prepared', { exact: true })
+    const count = await marks.count()
+    // Read at once: a row the next sheet redraws is read again rather than waited for.
+    const quick = { timeout: 5_000 }
+    return {
+      marks: count,
+      width: count ? (await marks.first().boundingBox(quick).catch(() => null))?.width ?? 0 : 0,
+      visible: count ? await marks.first().isVisible() : false,
+      opacity: await anchor.evaluate(el => getComputedStyle(el).opacity, undefined, quick),
+      tag: await anchor.evaluate(el => el.tagName, undefined, quick),
+    }
+  }
+  /**
+   * The Spells tab's Prepared fact, as shown and as a screen reader reads it with its label, such
+   * as "5 / 10" and "Prepared 5 of 10"; null where there's none.
+   */
+  const preparedFact = () => panel.getByRole('region', { name: 'Spellcasting', exact: true }).evaluate(section => {
+    const term = [...section.querySelectorAll('dt')].find(dt => dt.textContent.trim() === 'Prepared')
+    if (!term) return null
+    const words = (node, skip) => ((node.nodeType === Node.TEXT_NODE) ? node.textContent
+      : ((node.nodeType === Node.ELEMENT_NODE) && !skip(node)) ? [...node.childNodes].map(child => words(child, skip)).join('') : '')
+    const tidy = text => text.replace(/\s+/g, ' ').trim()
+    const fact = term.nextElementSibling
+    return {
+      shown: tidy(words(fact, el => el.classList.contains('sr-only'))),
+      said: tidy(`${term.textContent} ${words(fact, el => el.getAttribute('aria-hidden') === 'true')}`),
+    }
+  })
+  /** A menu as a screen reader has it: each item's name, without what's said under it, and whether it can be chosen. */
+  const menuLook = menu => menu.evaluate(m => {
+    const said = ids => (ids ?? '').split(' ').filter(Boolean).map(id => document.getElementById(id)?.textContent.trim()).join(' ')
+    const items = [...m.querySelectorAll('[role="menuitem"]')]
+    return {
+      items: items.map(i => i.textContent.replace(said(i.getAttribute('aria-describedby')), '').trim()),
+      disabled: items.map(i => i.disabled === true || i.getAttribute('aria-disabled') === 'true'),
+    }
+  })
+  /** A touch held on an element for `ms`, as a finger does (world-030.mjs's `hold`). */
+  const hold = async (locator, ms) => {
+    const box = await locator.boundingBox()
+    const x = box.x + box.width / 2
+    const y = box.y + box.height / 2
+    const cdp = await phone.newCDPSession(page)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+    await page.waitForTimeout(ms)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await cdp.detach()
+  }
+  /** A row's own menu, by a right-click on its name near its start, or a touch held there. */
+  const menuFor = async (anchor, name, how = 'right') => {
+    await anchor.evaluate(el => el.scrollIntoView({ block: 'center' }))
+    if (how === 'hold') {
+      await hold(anchor, 600)
+    } else {
+      const box = await anchor.boundingBox()
+      await anchor.click({ button: 'right', position: { x: Math.min(30, box.width / 2), y: Math.min(box.height / 2, 14) } })
+    }
+    const menu = page.getByRole('menu', { name, exact: true })
+    await menu.waitFor({ timeout: 10_000 })
+    return menu
+  }
+  /** A right-click on a row's name: what the menu that opens offers, or null where none opens. */
+  const offeredBy = async anchor => {
+    await anchor.evaluate(el => el.scrollIntoView({ block: 'center' }))
+    const box = await anchor.boundingBox()
+    await anchor.click({ button: 'right', position: { x: Math.min(30, box.width / 2), y: Math.min(box.height / 2, 14) } })
+    await wait(600)
+    const menu = page.getByRole('menu')
+    if (!(await menu.count())) return null
+    const { items } = await menuLook(menu.first())
+    await page.keyboard.press('Escape')
+    await menu.first().waitFor({ state: 'hidden' }).catch(() => {})
+    return items
+  }
+  /** Whether the tray's latest line has each of these in it. */
+  const traySays = async (...words) => {
+    const text = await status.textContent()
+    return words.every(word => text.includes(word))
+  }
+  /** How the page, and the tab's scroller, scroll sideways, and how far the tab reaches past the screen. */
+  const sideways = () => panel.evaluate(tab => {
+    const root = document.documentElement
+    const scroller = tab.parentElement
+    return { page: root.scrollWidth - root.clientWidth, scroller: scroller.scrollWidth - scroller.clientWidth, past: tab.getBoundingClientRect().right - innerWidth }
+  })
+
+  // dnd5e counts a class's prepared spells as it prepares the character (D5 data/item/spell.mjs:
+  // 225-229, :468-473): each of its leveled spells cast in a way that prepares, prepared, and never
+  // a copy an item casts. Thorin's are all his cleric's, which may prepare ten (its formula, 7th
+  // level and Wisdom +3), as dnd5e's sheet shows it: "Prepared 5 / 10".
+  const PREPARE_MAX = 10
+  const counted = () => [...thorin.items.values()].filter(item => (item.type === 'spell') && !item.getFlag('dnd5e', 'cachedFor')
+    && (item.system.level > 0) && (item.system.prepared === 1) && CONFIG.DND5E.spellcasting[item.system.method]?.prepares).length
+  const countIs = n => ({ shown: `${n} / ${PREPARE_MAX}`, said: `Prepared ${n} of ${PREPARE_MAX}` })
+  const countReads = async n => same(await preparedFact(), countIs(n))
+
+  // 1. The Spells tab: Witch Bolt, which he hasn't prepared, says so in words; his cleric's count.
+  await page.getByRole('tab', { name: 'Spells' }).click()
+  const level1 = panel.getByRole('region', { name: '1st Level', exact: true })
+  await level1.waitFor()
+  const uncounted = await preparedFact()
+  thorin.spellcastingClasses.cleric.spellcasting.preparation = { get value() { return counted() }, max: PREPARE_MAX }
+  await Hooks.callAll('updateActor', thorin, { system: {} }, {}, 'gm')
+  await until(() => countReads(5), "the Spells tab to show his cleric's count", 20_000).catch(() => {})
+  const firstCount = await preparedFact()
+  check(uncounted === null && counted() === 5 && same(firstCount, countIs(5)),
+    `the Spells tab shows no count while dnd5e counts none, then his cleric's, "5 / 10", read "Prepared 5 of 10" (${JSON.stringify({ uncounted, firstCount, counted: counted() })})`)
+  const witch = anchorOf('Witch Bolt', level1)
+  await witch.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  const unmarked = await looksOf(witch)
+  const fits = await sideways()
+  check(unmarked?.marks === 1 && unmarked.visible && unmarked.width >= 20 && unmarked.opacity === '0.6' && fits.page <= 0 && fits.scroller <= 0 && fits.past <= 0.5,
+    `collapsed, Witch Bolt's row says "Not prepared" where it's seen, faded as before, and the tab is no wider than the phone (${JSON.stringify({ unmarked, fits })})`)
+  await shoot(page, 'phone-not-prepared')
+
+  // 2. Its name's menu: Add to favorites, then Prepare, which can be chosen.
+  const favoritesOn = sql(`select "favoritesEnabled" from campaign where title = 'Ashlands'`)
+  const prepareMenu = await menuFor(witch, 'Witch Bolt')
+  const prepareLook = await menuLook(prepareMenu)
+  check(favoritesOn === 't' && same(prepareLook.items, ['Add to favorites', 'Prepare']) && same(prepareLook.disabled, [false, false]),
+    `a right-click on Witch Bolt's name opens its menu, "Witch Bolt": Add to favorites, as the game takes favorites here, then Prepare (${JSON.stringify({ favoritesOn, ...prepareLook })})`)
+  await shoot(page, 'phone-prepare-menu')
+
+  // 3. Prepare: made in the game, nothing in chat; the row, the count and the chips follow.
+  const chatBefore = chatCount()
+  const made3 = await sent(() => prepareMenu.getByRole('menuitem', { name: 'Prepare', exact: true }).click(), 'Witch Bolt prepared')
+  check(made3.request.kind === 'prepare' && sameJson(made3.request.payload, { kind: 'prepare', prepare: { op: 'prepare', id: 'witch' }, ...PLAIN })
+    && made3.made.status === 'done' && preparedIn('witch') === 1 && chatCount() === chatBefore,
+    `Prepare sends the spell and the state wanted, throwing no dice, and the game prepares it, posting nothing (${JSON.stringify(made3.request.payload)}, ${made3.made.status})`)
+  await until(async () => (await traySays('Witch Bolt')) && (await status.getByText('Prepared', { exact: true }).count()) === 1, 'the tray to say Witch Bolt was prepared', 15_000).catch(() => {})
+  check(await traySays('Witch Bolt') && await status.getByText('Prepared', { exact: true }).isVisible(), `the tray says so: "${await status.textContent()}"`)
+  await until(async () => (await looksOf(witch))?.marks === 0 && (await countReads(6)), 'the Spells tab to show Witch Bolt prepared', 20_000).catch(() => {})
+  const preparedLook = await looksOf(witch)
+  const raisedCount = await preparedFact()
+  check(preparedLook?.marks === 0 && preparedLook.opacity === '1' && same(raisedCount, countIs(6)),
+    `with the next sheet, its row has no "Not prepared" and isn't faded, and the count is one more, "6 / 10" (${JSON.stringify({ preparedLook, raisedCount })})`)
+  const slotsBefore = JSON.stringify(thorin.system.spells)
+  const hpBefore = hp(thorin)
+  const asked = requests()
+  await level1.getByRole('button', { name: 'Witch Bolt attack, +6' }).click()
+  const witchPicker = page.getByRole('dialog', { name: /^Witch Bolt/ })
+  const picked = await witchPicker.waitFor({ timeout: 10_000 }).then(() => true, () => false)
+  await page.keyboard.press('Escape')
+  await witchPicker.waitFor({ state: 'hidden' }).catch(() => {})
+  await wait(1000)
+  check(picked && await witchPicker.count() === 0 && requests() === asked && JSON.stringify(thorin.system.spells) === slotsBefore && hp(thorin) === hpBefore,
+    'its attack now opens the picker a cast at the table opens, where unprepared it rolled here alone; Escape closes it, nothing sent, no slot or hit point spent')
+  await page.getByRole('tab', { name: 'Actions' }).click()
+  const listed = anchorOf('Witch Bolt', panel)
+  await until(async () => (await listed.count()) === 1, 'the Actions tab to list Witch Bolt', 15_000).catch(() => {})
+  check(await listed.count() === 1 && listedOnActions('witch'), 'prepared, Witch Bolt is on the Actions tab, as it deals damage')
+
+  // 4. On the Actions tab, a touch held on its name: Unprepare.
+  const unprepareMenu = await menuFor(listed, 'Witch Bolt', 'hold')
+  const menuBox = await unprepareMenu.boundingBox()
+  const screen4 = page.viewportSize()
+  const unprepareLook = await menuLook(unprepareMenu)
+  check(screen4.width === 390 && screen4.height === 844 && menuBox.x >= 0 && menuBox.y >= 0 && menuBox.x + menuBox.width <= 390 && menuBox.y + menuBox.height <= 844
+    && same(unprepareLook.items, ['Add to favorites', 'Unprepare']) && same(unprepareLook.disabled, [false, false]),
+    `a 600 ms held touch on its name opens its menu inside the 390 × 844 screen: Add to favorites, Unprepare (${JSON.stringify({ menuBox, ...unprepareLook })})`)
+  await shoot(page, 'phone-unprepare-menu')
+  const chatBefore4 = chatCount()
+  const made4 = await sent(() => unprepareMenu.getByRole('menuitem', { name: 'Unprepare', exact: true }).click(), 'Witch Bolt unprepared')
+  check(made4.request.kind === 'prepare' && sameJson(made4.request.payload, { kind: 'prepare', prepare: { op: 'unprepare', id: 'witch' }, ...PLAIN })
+    && made4.made.status === 'done' && preparedIn('witch') === 0 && chatCount() === chatBefore4,
+    `Unprepare sends the state wanted, and the game unprepares it, posting nothing (${JSON.stringify(made4.request.payload)}, ${made4.made.status})`)
+  await until(async () => (await traySays('Witch Bolt')) && (await status.getByText('Unprepared', { exact: true }).count()) === 1, 'the tray to say Witch Bolt was unprepared', 15_000).catch(() => {})
+  const earlierRows = await tray.locator('details li').allTextContents()
+  check(await traySays('Witch Bolt') && await status.getByText('Unprepared', { exact: true }).isVisible() && earlierRows.some(row => /^Witch Boltprepared\b/.test(row)),
+    `the tray says "Unprepared", and among the earlier rolls the prepare, in short, "prepared" ("${await status.textContent()}"; ${JSON.stringify(earlierRows.slice(0, 3))})`)
+  await until(async () => (await listed.count()) === 0, 'the Actions tab to drop Witch Bolt', 20_000).catch(() => {})
+  check(await listed.count() === 0 && !listedOnActions('witch'), 'with the next sheet, Witch Bolt leaves the Actions tab')
+  await page.getByRole('tab', { name: 'Spells' }).click()
+  await level1.waitFor()
+  await until(async () => (await looksOf(witch))?.marks === 1 && (await countReads(5)), 'the Spells tab to mark Witch Bolt again', 20_000).catch(() => {})
+  const remarked = await looksOf(witch)
+  const loweredCount = await preparedFact()
+  check(remarked?.marks === 1 && remarked.visible && remarked.opacity === '0.6' && same(loweredCount, countIs(5)),
+    `the Spells tab marks it "Not prepared" again, faded, and the count is back to "5 / 10" (${JSON.stringify({ remarked, loweredCount })})`)
+
+  // 5. Bless: an action's row while prepared, a row of its own once not, and back.
+  const bless = anchorOf('Bless', level1)
+  const blessMenu = await menuFor(bless, 'Bless')
+  const blessLook = await menuLook(blessMenu)
+  const blessWas = await looksOf(bless)
+  const blessOff = await sent(() => blessMenu.getByRole('menuitem', { name: 'Unprepare', exact: true }).click(), 'Bless unprepared')
+  check(same(blessLook.items, ['Add to favorites', 'Unprepare']) && same(blessLook.disabled, [false, false]) && blessWas?.tag === 'BUTTON'
+    && sameJson(blessOff.request.payload.prepare, { op: 'unprepare', id: 'bless' }) && blessOff.made.status === 'done' && preparedIn('bless') === 0,
+    `Bless, prepared, offers Unprepare after Add to favorites, and the game unprepares it (${JSON.stringify({ ...blessLook, blessWas })})`)
+  await until(async () => { const look = await looksOf(bless); return look?.tag === 'SUMMARY' && look.marks === 1 && countReads(4) }, 'Bless redrawn unprepared', 20_000).catch(() => {})
+  const blessNow = await looksOf(bless)
+  const blessCount = await preparedFact()
+  const blessAgain = await menuFor(bless, 'Bless')
+  const blessAgainLook = await menuLook(blessAgain)
+  check(blessNow?.tag === 'SUMMARY' && blessNow.marks === 1 && blessNow.visible && blessNow.opacity === '0.6' && same(blessCount, countIs(4))
+    && same(blessAgainLook.items, ['Add to favorites', 'Prepare']) && same(blessAgainLook.disabled, [false, false]),
+    `unprepared, Bless is a row of its own, faded and marked "Not prepared", the count "4 / 10", and its summary's menu offers Prepare (${JSON.stringify({ blessNow, blessCount, ...blessAgainLook })})`)
+  const blessOn = await sent(() => blessAgain.getByRole('menuitem', { name: 'Prepare', exact: true }).click(), 'Bless prepared again')
+  await until(async () => { const look = await looksOf(bless); return look?.tag === 'BUTTON' && look.marks === 0 && countReads(5) }, 'Bless redrawn prepared', 20_000).catch(() => {})
+  const blessBack = await looksOf(bless)
+  check(sameJson(blessOn.request.payload.prepare, { op: 'prepare', id: 'bless' }) && blessOn.made.status === 'done' && preparedIn('bless') === 1
+    && blessBack?.tag === 'BUTTON' && blessBack.marks === 0 && blessBack.opacity === '1' && await countReads(5),
+    `Prepare there prepares it again: an action's row once more, unmarked, the count back to "5 / 10" (${JSON.stringify(blessBack)})`)
+
+  // 6. Neither offered for a spell an item casts, nor for a cantrip.
+  const castCopy = anchorOf('Magic Missile', panel)
+  const cantrip = anchorOf('Starry Wisp', panel)
+  const copyRows = [await castCopy.count(), await cantrip.count()]
+  const copyOffers = copyRows[0] === 1 ? await offeredBy(castCopy) : undefined
+  const cantripOffers = copyRows[1] === 1 ? await offeredBy(cantrip) : undefined
+  const favoritesOnly = items => (items === null) || ((items?.length > 0) && items.every(item => /^(Add to|Remove from) favorites$/.test(item)))
+  check(same(copyRows, [1, 1]) && favoritesOnly(copyOffers) && favoritesOnly(cantripOffers),
+    `the wand's Magic Missile and the flame's Starry Wisp, on the Spells tab, offer neither Prepare nor Unprepare: no menu, or the favorites entry alone (${JSON.stringify({ copyRows, copyOffers, cantripOffers })})`)
+
+  // 7. Posted anyway, from the page: the app turns them down by the sheet it holds.
+  await paced()
+  const post = prepare => page.evaluate(async body => {
+    const response = await fetch('/api/characters/sheet-thorin/rolls', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const text = await response.text()
+    let json = null
+    try { json = JSON.parse(text) } catch {}
+    return { status: response.status, json }
+  }, { kind: 'prepare', prepare, ...PLAIN })
+  const postedBefore = requests()
+  const wisp = await post({ op: 'prepare', id: 'wisp' })
+  const nope = await post({ op: 'prepare', id: 'nope' })
+  check(wisp.status === 422 && wisp.json?.reason === 'prepare' && nope.status === 422 && nope.json?.reason === 'gone' && requests() === postedBefore,
+    `a cantrip posted anyway is turned down "prepare", a spell he hasn't "gone", neither kept (${wisp.status} ${wisp.json?.reason}; ${nope.status} ${nope.json?.reason})`)
+
+  // 8. Among his favorites, on the Actions tab: drawn as a spell, then as an action.
+  await page.getByRole('tab', { name: 'Actions' }).click()
+  const hadFavorites = thorin.system.favorites
+  thorin.system.favorites = [...(hadFavorites ?? []), { type: 'item', id: '.Item.witch', sort: 400000 }]
+  await Hooks.callAll('updateActor', thorin, { system: { favorites: thorin.system.favorites } })
+  const strip = panel.getByRole('region', { name: 'Favorites', exact: true })
+  const starred = anchorOf('Witch Bolt', strip)
+  await until(async () => (await starred.count()) === 1, 'Witch Bolt among his favorites', 20_000).catch(() => {})
+  const starredLook = await looksOf(starred)
+  const stripMenu = await menuFor(starred, 'Witch Bolt')
+  const stripLook = await menuLook(stripMenu)
+  check(starredLook?.marks === 1 && same(stripLook.items, ['Remove from favorites', 'Prepare']) && same(stripLook.disabled, [false, false]),
+    `among his favorites, Witch Bolt, not prepared, is marked so, and its menu offers Remove from favorites, then Prepare (${JSON.stringify({ starredLook, ...stripLook })})`)
+  const made8 = await sent(() => stripMenu.getByRole('menuitem', { name: 'Prepare', exact: true }).click(), 'Witch Bolt prepared from the favorites')
+  check(sameJson(made8.request.payload, { kind: 'prepare', prepare: { op: 'prepare', id: 'witch' }, ...PLAIN }) && made8.made.status === 'done' && preparedIn('witch') === 1,
+    `Prepare there prepares it in the game (${JSON.stringify(made8.request.payload)})`)
+  await until(async () => listedOnActions('witch') && (await looksOf(starred))?.marks === 0, 'the next sheet to draw the favorite as an action', 20_000).catch(() => {})
+  const asAction = await looksOf(starred)
+  const actionMenu = await menuFor(starred, 'Witch Bolt')
+  const actionLook = await menuLook(actionMenu)
+  check(listedOnActions('witch') && asAction?.marks === 0 && asAction.opacity === '1' && same(actionLook.items, ['Remove from favorites', 'Unprepare']) && same(actionLook.disabled, [false, false]),
+    `once the next sheet lists it on the Actions tab, the favorite is drawn as an action, and its menu offers Remove from favorites, then Unprepare (${JSON.stringify({ asAction, ...actionLook })})`)
+  const back8 = await sent(() => actionMenu.getByRole('menuitem', { name: 'Unprepare', exact: true }).click(), 'Witch Bolt unprepared from the favorites')
+  check(sameJson(back8.request.payload, { kind: 'prepare', prepare: { op: 'unprepare', id: 'witch' }, ...PLAIN }) && back8.made.status === 'done' && preparedIn('witch') === 0,
+    `Unprepare there unprepares it in the game (${JSON.stringify(back8.request.payload)})`)
+  if (hadFavorites === undefined) delete thorin.system.favorites
+  else thorin.system.favorites = hadFavorites
+  await Hooks.callAll('updateActor', thorin, { system: { favorites: thorin.system.favorites ?? [] } })
+  await until(async () => (await starred.count()) === 0, 'the favorite to go', 20_000).catch(() => {})
+  check(await starred.count() === 0 && !(storedSheet()?.favorites ?? []).some(favorite => favorite.id === 'witch') && preparedIn('witch') === 0 && preparedIn('bless') === 1,
+    'the favorite taken away again; Witch Bolt is left unprepared and Bless prepared, as they were')
+}
 
 console.log('problems:', problems)
 check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors, and the app took everything the module sent')
