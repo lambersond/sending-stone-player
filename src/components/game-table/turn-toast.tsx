@@ -93,6 +93,16 @@ function showsTurn(combat: TableCombat | undefined, turn: EndedTurn): boolean {
   )
 }
 
+/**
+ * Whether Undo's card has done its work: the page shows the turn it takes back, as the panel's
+ * heading does, whatever Undo's way says by now. The table's poll and the checks of Undo's way run
+ * apart, and the game moves the turn before it answers, so the panel can show the turn back a
+ * check before Undo's way says it's made: the card goes with the panel, never a check later.
+ */
+function takenBack(card: Card, combat: TableCombat | undefined): boolean {
+  return card.kind === 'taking' && showsTurn(combat, card.turn)
+}
+
 /** Who acts as the page shows the combat: by name, and whether it's the viewer's own character. */
 function actingOf(
   combat: TableCombat | undefined,
@@ -293,12 +303,11 @@ export function TurnToast({
         key: refusalKey(sent.way),
       })
     }
-    if (next?.kind === 'taking' && undone?.for === next.id) {
-      if (NOT_MADE.has(undone.status)) {
-        next = make({ kind: 'kept', turn: next.turn, key: refusalKey(undone) })
-      } else if (undone.status === 'done' && showsTurn(combat, next.turn)) {
-        // Taken back: the panel shows the turn again.
+    if (next?.kind === 'taking') {
+      if (takenBack(next, combat)) {
         next = undefined
+      } else if (undone?.for === next.id && NOT_MADE.has(undone.status)) {
+        next = make({ kind: 'kept', turn: next.turn, key: refusalKey(undone) })
       }
     }
     // Undo is no longer offered, as the page shows another turn: the card goes, silently.
@@ -418,9 +427,11 @@ export function TurnToast({
   }, [element, top])
 
   if (!hydrated) return
-  const shown = card && wordsOf(card, sent, role)
+  // Undo's card goes in the very render in which the panel shows the turn back, not one after it.
+  const showing = card && !takenBack(card, combat) ? card : undefined
+  const shown = showing && wordsOf(showing, sent, role)
   const undoable =
-    card?.kind === 'ended' && card.undo && offer?.requestId === card.id
+    showing?.kind === 'ended' && showing.undo && offer?.requestId === showing.id
   // Beside the sheet, it keeps to the sheet's side of the screen: the column is the page's width
   // clamped as GameTable sizes it, which a fixed region's padding reads the screen's width for.
   return createPortal(
@@ -434,11 +445,11 @@ export function TurnToast({
       )}
       style={top === undefined ? undefined : { top }}
     >
-      {card && shown && (
+      {showing && shown && (
         <div
-          key={card.serial}
+          key={showing.serial}
           ref={setElement}
-          data-turn-toast={card.kind}
+          data-turn-toast={showing.kind}
           onPointerEnter={() => rest({ pointer: true })}
           onPointerLeave={() => rest({ pointer: false })}
           onFocus={() => rest({ focus: true })}

@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { TurnToast } from './turn-toast'
@@ -50,6 +51,17 @@ const GM: TableSeat = {
   key: 's1',
 }
 
+/**
+ * What another part of the page, as the turn panel's heading, finds as the changes of each render
+ * that gives it a new combat are made, before any effect runs.
+ */
+let watching: ((combat: TableCombat | undefined) => void) | undefined
+function Watch({ combat }: Readonly<{ combat?: TableCombat }>): undefined {
+  useLayoutEffect(() => {
+    watching?.(combat)
+  }, [combat])
+}
+
 const setup = (initial: State = {}, seat?: TableSeat) => {
   const undo = jest.fn()
   const focusTurn = jest.fn()
@@ -73,6 +85,7 @@ const setup = (initial: State = {}, seat?: TableSeat) => {
         beside={state.beside}
         onFoot={onFoot}
       />
+      <Watch combat={state.combat} />
     </TableApiContext>
   )
   const view = render(ui())
@@ -154,7 +167,10 @@ const endedByButton = () => {
 
 describe('components/game-table/turn-toast', () => {
   beforeEach(() => jest.useFakeTimers())
-  afterEach(() => jest.useRealTimers())
+  afterEach(() => {
+    jest.useRealTimers()
+    watching = undefined
+  })
 
   it('has its region there, empty, before any toast: polite, read whole, with no role', () => {
     setup()
@@ -418,6 +434,38 @@ describe('components/game-table/turn-toast', () => {
     expect(said()).toEqual(['Taking your turn back…'])
     // The page shows Thorin's turn again: it goes.
     update({ combat: on(turn.combatantId) })
+    expect(card()).toBeNull()
+  })
+
+  it('goes as the page shows the turn back, though Undo’s way hasn’t yet said it’s made', () => {
+    const { update, turn } = endedByButton()
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    update({
+      offer: undefined,
+      way: { status: 'rolling', for: 'req-1', requestId: 'req-2' },
+    })
+    expect(said()).toEqual(['Taking your turn back…'])
+    // The table's poll shows Thorin's turn again before Undo's own says the game made it.
+    update({ combat: on(turn.combatantId) })
+    expect(card()).toBeNull()
+    update({ way: { status: 'done', for: 'req-1', requestId: 'req-2' } })
+    wait(6000)
+    expect(card()).toBeNull()
+  })
+
+  it('goes in the very render in which the page shows the turn back, never one after it', () => {
+    const { update, turn } = endedByButton()
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    update({
+      offer: undefined,
+      way: { status: 'done', for: 'req-1', requestId: 'req-2' },
+    })
+    const seen: string[] = []
+    watching = combat => {
+      seen.push(`${combat?.currentId}: ${card()?.dataset.turnToast ?? 'none'}`)
+    }
+    update({ combat: on(turn.combatantId) })
+    expect(seen).toEqual(['c-thorin: none'])
     expect(card()).toBeNull()
   })
 

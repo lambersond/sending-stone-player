@@ -623,6 +623,30 @@ describe('components/game-table/game-table, End Turn', () => {
     ).not.toHaveAttribute('aria-disabled')
   })
 
+  it('lets Undo’s toast go with the panel as the page shows the turn back before Undo’s way says it’s made', async () => {
+    const { poll } = renderTable()
+    fireEvent.click(combatTab())
+    await advance(600)
+    fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
+    answers['req-1'] = { status: 'done' }
+    await advance(1000)
+    poll({ combat: turnOf('c-brakka') })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    // The game has it, and moves the turn back before it answers: the table's poll shows Thorin's
+    // turn again before Undo's next check of its way.
+    answers['req-2'] = { status: 'rolling' }
+    await advance(1000)
+    expect(toasted()).toEqual(['Taking your turn back…'])
+    poll({ combat: turnOf('c-thorin') })
+    expect(turnHeading()).toHaveTextContent('Your turn')
+    expect(toast()).toBeNull()
+    // Its way, made after, brings nothing back.
+    answers['req-2'] = { status: 'done' }
+    await advance(7000)
+    expect(toast()).toBeNull()
+  })
+
   it('says why a hold’s End Turn wasn’t made, in the toast and the panel', async () => {
     renderTable()
     fireEvent.click(combatTab())
