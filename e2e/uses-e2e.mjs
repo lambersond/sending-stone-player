@@ -1289,6 +1289,9 @@ check(windRows === 1 && windCounters === 0 && await panel.getByRole('region', { 
   const firstCount = await preparedFact()
   check(uncounted === null && counted() === 5 && same(firstCount, countIs(5)),
     `the Spells tab shows no count while dnd5e counts none, then his cleric's, "5 / 10", read "Prepared 5 of 10" (${JSON.stringify({ uncounted, firstCount, counted: counted() })})`)
+  // A picture of the count beside Ability, DC and Attack; it checks nothing.
+  await panel.getByRole('region', { name: 'Spellcasting', exact: true }).evaluate(el => el.scrollIntoView({ block: 'start' }))
+  await shoot(page, 'phone-prepared-count')
   const witch = anchorOf('Witch Bolt', level1)
   await witch.evaluate(el => el.scrollIntoView({ block: 'center' }))
   const unmarked = await looksOf(witch)

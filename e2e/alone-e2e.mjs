@@ -302,6 +302,21 @@ async function closeCog(who) {
     await dialog.waitFor({ state: 'hidden' })
   }
 }
+/**
+ * A toast's pictures in both themes, taken while it shows. It goes after four seconds (#153), and
+ * under the lanes' load the two themes can take longer than that, so a toast gone before its
+ * pictures are all taken is noted rather than failed, the page back in its theme. It checks nothing.
+ */
+async function shootToast(who, name, toast) {
+  const was = who.scheme
+  try {
+    await shootBoth(who, name, toast)
+  } catch (error) {
+    if (await toast.count()) throw error
+    note(`${name}: the toast went before its pictures were all taken (${error.message.split('\n')[0]})`)
+    await theme(who, was)
+  }
+}
 /** Checks made at the end, of what was seen earlier, so that the steps after it run whatever it found. */
 const deferred = []
 const later = (cond, msg) => deferred.push([cond, msg])
@@ -581,7 +596,7 @@ await toasting.tab('Actions')
   const text = await toast.textContent()
   check(request.kind === 'itemDamage' && text.includes('Longsword damage') && !text.includes('Longsword damage damage') && text.includes('on its own'),
     `the toast titled "Longsword damage", never "Longsword damage damage": "${text}"`)
-  await shootBoth(toasting, 'alone-alone-toast', toast)
+  await shootToast(toasting, 'alone-alone-toast', toast)
 }
 // The app's chat: the card with its note, on Alice's side.
 {
@@ -1079,7 +1094,7 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     const made = await sent(() => toastChip.click(), `the toast's damage alone at ${width}`)
     const toast = toastLog(toasts).locator('[data-roll-toast]').filter({ hasText: `At the table: ${madeFor(made.request.id)?.rolls[0].total}` }).first()
     await toast.waitFor({ timeout: 30_000 })
-    await shootBoth(toasts, 'alone-alone-toast', toast)
+    await shootToast(toasts, 'alone-alone-toast', toast)
     await toasts.view.close()
     // The Gamemaster's cog.
     const gmView = await browse({ width, height, path: `/campaigns/${A}/characters/thorin`, toasts: false })
