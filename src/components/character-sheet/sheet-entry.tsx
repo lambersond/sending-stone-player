@@ -11,6 +11,7 @@ import { SheetText } from './sheet-text'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import type { DescriptionOrigin } from './description-actions'
 import type { EffectChoice } from './effect-controls'
+import type { PrepareChoice } from './preparing'
 import type { MenuPoint } from './roll-menu'
 import type { FavoriteTarget } from '@/types/roll'
 
@@ -77,6 +78,8 @@ type Props = {
    * character's own effects, Turn off or Turn on, and Delete…, which `onDelete` asks about.
    */
   effectChoice?: EffectChoice
+  /** For a spell's row, from module 0.42.1: its own menu's Prepare or Unprepare. */
+  prepareChoice?: PrepareChoice
   onDelete?: () => void
   /**
    * A dialog it opens, held in its row but outside what opens, so that its menu opens it from a
@@ -123,6 +126,7 @@ export function SheetEntry({
   open: held,
   onOpenChange,
   effectChoice,
+  prepareChoice,
   onDelete,
   dialog,
   rowRef,
@@ -133,6 +137,7 @@ export function SheetEntry({
   const favorite = useFavorite(favoriteKey)
   const own = useItemMenu(name, {
     favorite: useFavoriteChoice(target, name),
+    prepare: prepareChoice,
     effect: effectChoice,
     onDelete,
   })

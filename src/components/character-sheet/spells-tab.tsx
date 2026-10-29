@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import clsx from 'clsx'
 import { Wand } from 'lucide-react'
 import {
   ActionEntry,
@@ -11,6 +12,7 @@ import {
 import { componentsOf, whyNot } from './action-info'
 import { spellOrigin } from './description-actions'
 import { enchantedEntry } from './enchantments'
+import { usePrepareChoice } from './preparing'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { SheetFact } from './sheet-fact'
 import { SheetHeading } from './sheet-heading'
@@ -195,14 +197,18 @@ function foundOf(sections: TableSheet['spells']): string {
 
 /**
  * How the character casts: their spellcasting ability, spell save DC and spell attack bonus, and
- * each spellcasting class's when they have more than one.
+ * each spellcasting class's when they have more than one. From module 0.42.1, how many spells each
+ * class has prepared, of how many, as dnd5e's sheet shows it: the class's own where there's one,
+ * else on each class's row.
  */
 function Spellcasting({
   spellcasting,
 }: Readonly<{ spellcasting: SheetSpellcasting }>) {
   const { ability, dc, attack, classes } = spellcasting
   const headingId = useSheetId('spellcasting-heading')
-  if (ability === null && dc === null && attack === null) return
+  const prepared =
+    classes.length === 1 ? preparedCount(classes[0].prepared) : undefined
+  if (ability === null && dc === null && attack === null && !prepared) return
   return (
     <section aria-labelledby={headingId} className='flex flex-col gap-2'>
       <SheetHeading id={headingId}>Spellcasting</SheetHeading>
@@ -222,6 +228,14 @@ function Spellcasting({
             <span className='text-lg font-bold tabular-nums'>
               {formatModifier(attack)}
             </span>
+          </SheetFact>
+        )}
+        {prepared && (
+          <SheetFact label='Prepared' className='col-span-2 @lg:col-span-1'>
+            <span aria-hidden className='text-lg font-bold tabular-nums'>
+              {prepared.shown}
+            </span>
+            <span className='sr-only'>{prepared.said}</span>
           </SheetFact>
         )}
       </dl>
@@ -257,6 +271,7 @@ function Spellcasting({
                   <span className='text-text-secondary'> to hit</span>
                 </span>
               )}
+              <ClassPrepared prepared={entry.prepared} />
             </li>
           ))}
         </ul>
@@ -266,9 +281,46 @@ function Spellcasting({
 }
 
 /**
+ * How many of a class's spells are prepared, of how many it may prepare, as dnd5e's sheet shows it
+ * (module 0.42.1): "5 / 6", read "5 of 6", and past the limit as it is, "7 / 6", as dnd5e never
+ * refuses one more; the count alone where the class may prepare none, as a homebrew one; nothing
+ * where it counts none, as a 2014 Sorcerer, or the module doesn't say.
+ */
+function preparedCount(
+  prepared: SheetSpellcasting['classes'][number]['prepared'],
+): { shown: string; said: string } | undefined {
+  if (!prepared || (prepared.value === 0 && prepared.max === 0)) return
+  const { value, max } = prepared
+  return max > 0
+    ? { shown: `${value} / ${max}`, said: `${value} of ${max}` }
+    : { shown: String(value), said: String(value) }
+}
+
+/**
+ * How many of a class's spells are prepared, on its row, where the character has more than one
+ * spellcasting class (module 0.42.1): "Prepared 5 / 6", read "Prepared 5 of 6".
+ */
+function ClassPrepared({
+  prepared,
+}: Readonly<{ prepared: SheetSpellcasting['classes'][number]['prepared'] }>) {
+  const count = preparedCount(prepared)
+  if (!count) return
+  return (
+    <span className='shrink-0 text-sm'>
+      <span aria-hidden>
+        <span className='text-text-secondary'>Prepared </span>
+        <span className='font-semibold tabular-nums'>{count.shown}</span>
+      </span>
+      <span className='sr-only'>Prepared {count.said}</span>
+    </span>
+  )
+}
+
+/**
  * A spell: when and how it is cast, marked for concentration, ritual or always prepared. One not
- * prepared is muted. Given the rows actions are in, one that rolls shows what it rolls beside it,
- * as an action does: one not prepared is rolled here only, as the game would have it prepared.
+ * prepared is muted, and says so. Given the rows actions are in, one that rolls shows what it rolls
+ * beside it, as an action does: one not prepared is rolled here only, as the game would have it
+ * prepared. From module 0.42.1, its menu prepares it or unprepares it, where the pane offers that.
  */
 export function SpellEntry({
   characterId,
@@ -282,6 +334,8 @@ export function SpellEntry({
   /** What its row's favorites entry adds or removes, from module 0.37.0: the spell, unless said. */
   favorite?: FavoriteTarget | null
 }>) {
+  // Asked whichever it's drawn as, before either is returned; an action's row asks it itself.
+  const prepare = usePrepareChoice(spell.id)
   const unprepared = spell.prepared === 0
   const components = componentsOf(spell)
   // A spell its item can't cast now is listed, but can't be cast, and says why: first, where a
@@ -328,6 +382,7 @@ export function SpellEntry({
       fallback={Wand}
       favoriteKey={`item:${spell.id}`}
       favorite={favorite}
+      prepareChoice={prepare}
       detail={
         unusable
           ? joinParts(whyNot(unusable), fromNote(unusable), spell.activation)
@@ -366,11 +421,15 @@ function fromNote(castFrom: SheetCastFrom): string {
   return `From ${castFrom.name}`
 }
 
-/** A spell's marks: for concentration, ritual or always prepared, and not prepared, unseen. */
+/** A spell's marks: for concentration, ritual or always prepared, and not prepared. */
 function Marks({ spell }: Readonly<{ spell: SheetSpell }>) {
   return (
     <>
-      {spell.prepared === 0 && <span className='sr-only'>Not prepared</span>}
+      {/* In words, from 0.42.1, as the row's fade alone says other things too, as no slots left;
+          its text is its name. */}
+      {spell.prepared === 0 && (
+        <span className={clsx(MARK, 'whitespace-nowrap')}>Not prepared</span>
+      )}
       {spell.concentration && <Mark short='C' label='Concentration' />}
       {spell.ritual && <Mark short='R' label='Ritual' />}
       {spell.prepared === 2 && <Mark short='Always' label='Always prepared' />}
@@ -387,13 +446,14 @@ function factsOf(
   )
 }
 
+/** How a spell's mark looks: small, bordered and in capitals. */
+const MARK =
+  'rounded border border-border px-1 text-[10px] leading-4 font-bold tracking-wide text-text-secondary uppercase'
+
 /** A spell's mark, such as C for concentration, spelled out for screen readers. */
 function Mark({ short, label }: Readonly<{ short: string; label: string }>) {
   return (
-    <span
-      title={label}
-      className='rounded border border-border px-1 text-[10px] leading-4 font-bold tracking-wide text-text-secondary uppercase'
-    >
+    <span title={label} className={MARK}>
       <span aria-hidden>{short}</span>
       <span className='sr-only'>{label}</span>
     </span>

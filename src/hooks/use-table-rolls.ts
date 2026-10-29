@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_ROLL_LABEL,
   type EffectOp,
+  type PrepareOp,
   type SpellSlotOp,
   type WildShapeOp,
 } from '@/constants/sending-stone'
@@ -39,6 +40,7 @@ import type {
   FormulaSource,
   GmRollView,
   InspirationSource,
+  PrepareInput,
   RemoveInput,
   RolledDice,
   RollFeature,
@@ -198,6 +200,8 @@ export type TableRollState = Omit<
   favorite?: 'add' | 'remove'
   /** One of the character's own effects turned off, on or deleted (module 0.39.0): which. */
   effect?: EffectOp
+  /** A spell prepared or unprepared (module 0.42.1): which. */
+  prepare?: PrepareOp
   /** A spell slot spent or restored (module 0.42.1): which. */
   spellSlot?: SpellSlotOp
   /**
@@ -753,6 +757,24 @@ export function useTableRolls(
   )
 
   /**
+   * Prepare one of the character's spells, or unprepare it, from module 0.42.1, by its id on the
+   * sheet. No switch of this device's holds it back, as with a favorite: it has no version made
+   * here instead; the app answers one the game no longer takes.
+   */
+  const sendPrepare = useCallback(
+    (logged: LocalUse, prepare: PrepareInput) => {
+      if (!logged.prepare) return
+      start(
+        logged.id,
+        { kind: 'prepare', prepare, ...PLAIN },
+        { prepare: logged.prepare },
+        logged.label,
+      )
+    },
+    [start],
+  )
+
+  /**
    * Use Wild Shape from here, from module 0.40.0: a change into a known form, a return, or a Beast
    * learned. No switch of this device's holds it back, as with an effect: it throws no dice, and
    * has no version made here instead.
@@ -881,6 +903,7 @@ export function useTableRolls(
     sendRemove,
     sendFavorite,
     sendEffect,
+    sendPrepare,
     sendWildShape,
     readWildShapeForms,
     sendAsk,
@@ -910,6 +933,11 @@ export function useTableRolls(
     setAlone,
     /** Whether the game takes this kind of roll from this device now. */
     takes: (kind: RollKind) => on && kinds.includes(kind),
+    /**
+     * Whether the game takes this kind at all, whatever this device's Send to the table: for what
+     * has no version made here, as a spell prepared (module 0.42.1).
+     */
+    lists: (kind: RollKind) => kinds.includes(kind),
     /**
      * Whether a d20 roll from the sheet goes to the game from this device now, as `send` sends it:
      * the same function each render, read as the roll is made.

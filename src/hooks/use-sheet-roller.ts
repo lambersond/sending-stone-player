@@ -42,7 +42,11 @@ import {
   ELVEN_LINE,
   typedResult,
 } from '@/utils/typed-dice'
-import type { EffectOp, SpellSlotOp } from '@/constants/sending-stone'
+import type {
+  EffectOp,
+  PrepareOp,
+  SpellSlotOp,
+} from '@/constants/sending-stone'
 import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
   FormulaSource,
@@ -368,6 +372,11 @@ export type LocalUse = {
    * label.
    */
   favorite?: 'add' | 'remove'
+  /**
+   * A spell prepared or unprepared, rather than anything used, from module 0.42.1: what it's of is
+   * the label.
+   */
+  prepare?: PrepareOp
   /**
    * One of the character's own effects turned off, on or deleted, rather than anything used, from
    * module 0.39.0: which; the effect is the label.
@@ -1033,6 +1042,20 @@ export function useSheetRoller(
     [],
   )
 
+  // Keeps a spell prepared or unprepared, from module 0.42.1, first among the rolls, as a use is.
+  const logPrepare = useCallback((label: string, op: PrepareOp): LocalUse => {
+    const prepared: LocalUse = {
+      kind: 'use',
+      id: `use-${Date.now()}-${++uses}`,
+      label,
+      spell: false,
+      prepare: op,
+      at: Date.now(),
+    }
+    setRolls(earlier => keeping(earlier, prepared))
+    return prepared
+  }, [])
+
   // Keeps one of the character's own effects turned off, on or deleted, from module 0.39.0, first
   // among the rolls, as a use is; or from 0.42.1, where it's made for a roll, as Inspired is once
   // the roll its Bardic Inspiration was added to is made, at a time just before that roll's, so
@@ -1088,6 +1111,7 @@ export function useSheetRoller(
     logCharge,
     logMove,
     logFavorite,
+    logPrepare,
     logEffect,
     logWildShape,
     logAsk,

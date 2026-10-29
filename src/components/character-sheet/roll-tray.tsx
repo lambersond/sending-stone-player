@@ -36,6 +36,7 @@ import { EFFECT_WORDS, effectReasons } from '@/utils/effect-words'
 import { favoriteReasons } from '@/utils/favorite-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { moveReasons, moveWords } from '@/utils/move-words'
+import { PREPARE_WORDS, prepareReasons } from '@/utils/prepare-words'
 import { seatWords, type SeatRole } from '@/utils/seat-words'
 import {
   WILD_SHAPE_WORDS,
@@ -515,6 +516,8 @@ function reasonOf(
     // 0.31.0, have words of their own.
     (state.favorite ? favoriteReasons(role)[key] : undefined) ??
     (state.effect ? effectReasons(role)[key] : undefined) ??
+    // A spell prepared or unprepared, from module 0.42.1.
+    (state.prepare ? prepareReasons(role)[key] : undefined) ??
     // And Wild Shape from here, from module 0.40.0.
     (state.wildShape
       ? wildShapeReasons(role, state.wildShape)[key]
@@ -1471,6 +1474,23 @@ function usedWords(
       }
     }
   }
+  // A spell prepared or unprepared, from module 0.42.1, the same way.
+  if (roll.prepare) {
+    const words = PREPARE_WORDS[roll.prepare]
+    switch (state.status) {
+      case 'sending':
+      case 'rolling': {
+        return onItsWay(state, role, words.doing)
+      }
+      case 'done': {
+        return words.done
+      }
+      default: {
+        const reason = reasonOf(state, role, creature)
+        return `${words.not}${reason ? `: ${reason}` : ''}`
+      }
+    }
+  }
   // Wild Shape from here, from module 0.40.0: a change, a return or a Beast learned, the same way.
   if (roll.wildShape) {
     const words = WILD_SHAPE_WORDS[roll.wildShape.op]
@@ -1983,6 +2003,8 @@ function breakdown(roll: LocalRoll, state?: TableRollState): string {
     }
     // One of the character's own effects changed, from module 0.39.0, as its line says it.
     if (roll.effect) return EFFECT_WORDS[roll.effect].short
+    // A spell prepared or unprepared, from module 0.42.1, as its line says it.
+    if (roll.prepare) return PREPARE_WORDS[roll.prepare].short
     // Wild Shape from here, from module 0.40.0, as its line says it.
     if (roll.wildShape) return WILD_SHAPE_WORDS[roll.wildShape.op].short
     if (roll.ending) return 'ended'

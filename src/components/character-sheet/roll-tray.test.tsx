@@ -5030,3 +5030,123 @@ describe('a spell slot spent or restored from the dots, from module 0.42.1 (roun
     })
   })
 })
+
+const prepared = (
+  op: 'prepare' | 'unprepare',
+  label = 'Witch Bolt',
+): LocalUse => ({
+  kind: 'use',
+  id: `u-${op}`,
+  label,
+  spell: false,
+  prepare: op,
+  at: 0,
+})
+
+describe('a spell prepared or unprepared, from module 0.42.1 (round 0.42.1 §P.1.3)', () => {
+  const preparing = prepared('prepare')
+  const unpreparing = prepared('unprepare', 'Bless')
+
+  it('reads it on its way, then made, as the game says', () => {
+    expect(briefOf(preparing, { status: 'sending' }).table?.text).toBe(
+      'Sending to your Gamemaster’s game…',
+    )
+    expect(briefOf(preparing, { status: 'rolling' }).table?.text).toBe(
+      'Preparing it in your Gamemaster’s game…',
+    )
+    expect(briefOf(unpreparing, { status: 'rolling' }).table?.text).toBe(
+      'Unpreparing it in your Gamemaster’s game…',
+    )
+    expect(
+      briefOf(preparing, { status: 'done', visible: true, prepare: 'prepare' }),
+    ).toMatchObject({
+      label: 'Witch Bolt',
+      badge: 'use',
+      table: { tone: 'made', text: 'Prepared' },
+    })
+    expect(
+      briefOf(unpreparing, { status: 'done', visible: true }).table?.text,
+    ).toBe('Unprepared')
+  })
+
+  it.each([
+    [
+      'refused',
+      'prepare',
+      'that spell can’t be prepared or unprepared from here',
+    ],
+    [
+      'refused',
+      'unavailable',
+      'your Gamemaster’s game isn’t taking changes to prepared spells now',
+    ],
+    [
+      'failed',
+      'off',
+      'your Gamemaster’s game isn’t taking changes to prepared spells now',
+    ],
+    [
+      'failed',
+      'attacks-off',
+      'your Gamemaster’s game isn’t taking changes to prepared spells now',
+    ],
+    ['refused', 'busy', 'too many rolls at once. Wait a moment'],
+    ['refused', 'gone', 'it can’t be found in the game any more'],
+    [
+      'refused',
+      'shaped',
+      'that waits until your character is back in their own form',
+    ],
+    ['failed', 'cancelled', 'it was called off in the game'],
+    ['failed', 'invalid', 'your Gamemaster’s game couldn’t make it'],
+  ] as const)(
+    'says why it was %s, %s, in its own words where they differ',
+    (status, reason, words) => {
+      // Its state keeps that it's a spell prepared, as sendPrepare sends it.
+      expect(
+        briefOf(preparing, { status, reason, prepare: 'prepare' }).table?.text,
+      ).toBe(`Couldn’t prepare it: ${words}`)
+      expect(
+        briefOf(unpreparing, { status, reason, prepare: 'unprepare' }).table
+          ?.text,
+      ).toBe(`Couldn’t unprepare it: ${words}`)
+    },
+  )
+
+  it('says the game’s own name for it at the Gamemaster’s view, as a seat reads it', () => {
+    expect(
+      briefOf(
+        preparing,
+        { status: 'refused', reason: 'unavailable', prepare: 'prepare' },
+        'gm',
+      ).table?.text,
+    ).toBe(
+      'Couldn’t prepare it: your game isn’t taking changes to prepared spells now',
+    )
+  })
+
+  it('reads it in the tray under the spell’s name, and lists it among the earlier rolls so', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[preparing, unpreparing]}
+        rolling={false}
+        table={{
+          states: new Map([
+            [
+              'u-prepare',
+              { status: 'done', visible: true, prepare: 'prepare' },
+            ],
+          ]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Witch BoltPrepared')
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['Blessunprepared'])
+  })
+})

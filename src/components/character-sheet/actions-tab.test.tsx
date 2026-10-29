@@ -12,6 +12,7 @@ import { castNote, verbOf } from './action-entry'
 import { ActionsTab } from './actions-tab'
 import { FavoriteMarks } from './favorite-mark'
 import { Favoriting } from './favoriting'
+import { Preparing, usePreparing } from './preparing'
 import { LONG_PRESS } from './roll-button'
 import { useWildShape, WildShaping } from './wild-shape'
 import { SheetIdPrefix } from '@/hooks/use-sheet-ids'
@@ -3271,5 +3272,170 @@ describe('components/character-sheet/actions-tab, Wild Shape, from module 0.40.0
     expect(screen.queryByText(/gear isn’t on this sheet/)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Return' })).toBeNull()
+  })
+})
+
+/**
+ * Thorin's actions: Witch Bolt prepared, Cure Wounds always, and a longsword; his spellbook as
+ * the module sends it beside them, by which a spell's row is offered Unprepare.
+ */
+const preparingSheet = (): CharacterSheet =>
+  characterSheet({
+    actions: [
+      {
+        id: 'action',
+        label: 'Actions',
+        actions: [
+          sheetAction({
+            id: 'witch',
+            name: 'Witch Bolt',
+            type: 'spell',
+            level: 1,
+            toHit: 4,
+            attackId: 'witchAttack',
+            damage: [{ formula: '1d12', type: 'Lightning', healing: false }],
+          }),
+          sheetAction({
+            id: 'cure',
+            name: 'Cure Wounds',
+            type: 'spell',
+            level: 1,
+            damage: [{ formula: '2d8 + 3', type: 'Healing', healing: true }],
+          }),
+          sheetAction({
+            id: 'longsword',
+            name: 'Longsword',
+            type: 'weapon',
+            toHit: 5,
+            attackId: 'swing',
+            damage: [{ formula: '1d8 + 3', type: 'Slashing', healing: false }],
+          }),
+        ],
+      },
+    ],
+    spells: [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 2, max: 3 },
+        spells: [
+          sheetSpell({ id: 'witch', name: 'Witch Bolt', prepared: 1 }),
+          sheetSpell({ id: 'cure', name: 'Cure Wounds', prepared: 2 }),
+        ],
+      },
+    ],
+  })
+
+/** What a row's menu offers, opened from its name by a right-click, then closed by Escape. */
+const unprepareMenuOf = async (name: string) => {
+  fireEvent.contextMenu(toggle(name), { button: 2 })
+  const items = itemsOf(screen.getByRole('menu', { name }))
+  await userEvent.keyboard('{Escape}')
+  return items
+}
+
+describe('components/character-sheet/actions-tab, spells unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  /** The tab inside a pane that prepares spells and offers favorites, as the pane does. */
+  function Preparer({
+    table,
+    layout,
+    send,
+  }: Readonly<{ table: TableSheet; layout?: Layout; send: () => string }>) {
+    const value = usePreparing({
+      on: true,
+      spells: table.spells,
+      states: new Map(),
+      send,
+    })
+    return (
+      <Favoriting value={offeringFavorites().value}>
+        <Preparing value={value}>
+          <ActionsTab
+            characterId='char-1'
+            sheet={table}
+            onRoll={jest.fn()}
+            onRollDamage={jest.fn()}
+            layout={layout}
+          />
+        </Preparing>
+      </Favoriting>
+    )
+  }
+
+  const renderPreparing = (layout?: Layout) => {
+    const send = jest.fn(() => 'use-1')
+    render(
+      <Preparer
+        table={toTableSheet(preparingSheet(), GAME)}
+        layout={layout}
+        send={send}
+      />,
+    )
+    return { send }
+  }
+
+  it.each(['list', 'columns'] as const)(
+    'offers Unprepare of a prepared spell after its favorites entry, in a list (%s)',
+    async layout => {
+      const user = userEvent.setup()
+      const { send } = renderPreparing(layout)
+      expect(await unprepareMenuOf('Witch Bolt')).toEqual([
+        'Add to favorites',
+        'Unprepare',
+      ])
+      // Always prepared, or no spell: nothing new.
+      expect(await unprepareMenuOf('Cure Wounds')).toEqual(['Add to favorites'])
+      expect(await unprepareMenuOf('Longsword')).toEqual(['Add to favorites'])
+
+      fireEvent.contextMenu(toggle('Witch Bolt'), { button: 2 })
+      await user.click(screen.getByRole('menuitem', { name: 'Unprepare' }))
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'witch' }),
+        'unprepare',
+      )
+    },
+  )
+
+  it('offers it in the table too, from the spell’s name', async () => {
+    const user = userEvent.setup()
+    const { send } = renderPreparing('table')
+    const table = screen.getByRole('table', { name: 'Actions' })
+    const name = (named: string) =>
+      within(table).getByRole('button', {
+        name: new RegExp(`^${named}`),
+        expanded: false,
+      })
+
+    fireEvent.contextMenu(name('Witch Bolt'), { button: 2 })
+    expect(itemsOf(screen.getByRole('menu', { name: 'Witch Bolt' }))).toEqual([
+      'Add to favorites',
+      'Unprepare',
+    ])
+    await user.click(screen.getByRole('menuitem', { name: 'Unprepare' }))
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'witch' }),
+      'unprepare',
+    )
+    for (const other of ['Cure Wounds', 'Longsword']) {
+      fireEvent.contextMenu(name(other), { button: 2 })
+      expect(itemsOf(screen.getByRole('menu', { name: other }))).toEqual([
+        'Add to favorites',
+      ])
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    }
+  })
+
+  it('offers none outside a pane that prepares spells, the menus as they were', async () => {
+    render(
+      <Favoriting value={offeringFavorites().value}>
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(preparingSheet(), GAME)}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+        />
+      </Favoriting>,
+    )
+    expect(await unprepareMenuOf('Witch Bolt')).toEqual(['Add to favorites'])
   })
 })

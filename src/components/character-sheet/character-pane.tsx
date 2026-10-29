@@ -51,6 +51,7 @@ import { FavoritesColumn, FavoritesStrip } from './favorites'
 import { Favoriting, useFavorites } from './favoriting'
 import { FeaturesTab } from './features-tab'
 import { InventoryTab } from './inventory-tab'
+import { Preparing, usePreparing } from './preparing'
 import { PromptBanner } from './prompt-banner'
 import { RollToasts } from './roll-toasts'
 import { reasons, RollTray, type TableRolls } from './roll-tray'
@@ -76,6 +77,7 @@ import { useRemoveControls } from '@/components/transfers/remove-controls'
 import {
   EFFECT_SETTLE,
   type EffectOp,
+  type PrepareOp,
   type SpellSlotOp,
 } from '@/constants/sending-stone'
 import { CreatureContext } from '@/hooks/use-creature'
@@ -124,7 +126,11 @@ import type {
   RollKind,
   WildShapeInput,
 } from '@/types/roll'
-import type { SheetAction, SheetEffect } from '@/types/sending-stone'
+import type {
+  SheetAction,
+  SheetEffect,
+  SheetSpell,
+} from '@/types/sending-stone'
 import type {
   CreatureFacts,
   TableCombat,
@@ -445,6 +451,7 @@ function RollingSheet({
     logCharge,
     logMove,
     logFavorite,
+    logPrepare,
     logEffect,
     logWildShape,
     logAsk,
@@ -585,6 +592,26 @@ function RollingSheet({
     entries,
     states: table.states,
     send: sendFavoriteOf,
+  })
+  // The character's spells prepared and unprepared from a row's menu, from module 0.42.1, where the
+  // game takes it, whatever this device's Send to the table, as it has no version made here: the
+  // player's alone, at the character's own pane, never while transformed, whose spells are the
+  // form's. A line among the rolls says how it went, as for a favorite.
+  const { sendPrepare } = table
+  const sendPrepareOf = useCallback(
+    (spell: SheetSpell, op: PrepareOp) => {
+      setActed(true)
+      const logged = logPrepare(spell.name, op)
+      sendPrepare(logged, { op, id: spell.id })
+      return logged.id
+    },
+    [logPrepare, sendPrepare],
+  )
+  const preparing = usePreparing({
+    on: table.lists('prepare') && !creature && role === 'player' && !shaped,
+    spells: sheet.spells,
+    states: table.states,
+    send: sendPrepareOf,
   })
   // The character's own effects turned off, on and deleted, from module 0.39.0, where the campaign
   // lets its player: never at a creature's pane, nor the Gamemaster's page. A line among the rolls
@@ -1101,6 +1128,7 @@ function RollingSheet({
     <SheetContext
       marks={marks}
       favoriting={favoriting}
+      preparing={preparing}
       effecting={effecting}
       wildShaping={wildShaping}
       showConditions={conditions.show}
@@ -1412,11 +1440,12 @@ function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
  * module 0.37.0 how they're added and removed, and from module 0.39.0 how its own effects are
  * changed, and from module 0.40.0 its Wild Shape, how to open its conditions panel, what the
  * links in its descriptions do, how enchantments and concentrations end, and how counters are
- * spent and Heroic Inspiration changed.
+ * spent and Heroic Inspiration changed; and from module 0.42.1 how its spells are prepared.
  */
 function SheetContext({
   marks,
   favoriting,
+  preparing,
   effecting,
   wildShaping,
   showConditions,
@@ -1428,6 +1457,7 @@ function SheetContext({
 }: Readonly<{
   marks: ReadonlySet<string>
   favoriting: ReturnType<typeof useFavorites>
+  preparing: ReturnType<typeof usePreparing>
   effecting: ReturnType<typeof useEffectControls>
   wildShaping: ReturnType<typeof useWildShape>
   showConditions: ShowConditions
@@ -1446,7 +1476,9 @@ function SheetContext({
               <DescriptionLinks actions={descriptions}>
                 <Enchanting actions={enchanting}>
                   <Concentrating actions={concentrating}>
-                    <Charging actions={charging}>{children}</Charging>
+                    <Charging actions={charging}>
+                      <Preparing value={preparing}>{children}</Preparing>
+                    </Charging>
                   </Concentrating>
                 </Enchanting>
               </DescriptionLinks>

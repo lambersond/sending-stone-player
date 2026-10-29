@@ -1370,6 +1370,53 @@ describe('components/character-sheet/roll-toasts, favorites added and removed, f
   })
 })
 
+describe('components/character-sheet/roll-toasts, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.1.3)', () => {
+  it('toasts a spell prepared as a use, titled by the spell, saying how it went', () => {
+    const witch: LocalUse = {
+      kind: 'use',
+      id: 'p',
+      label: 'Witch Bolt',
+      spell: false,
+      prepare: 'prepare',
+      at: 2,
+    }
+    const { rerender } = render(
+      <RollToasts
+        rolls={[witch]}
+        states={ways(['p', { status: 'rolling', prepare: 'prepare' }])}
+        on
+      />,
+    )
+    expect(toast('p')).toHaveTextContent(
+      'Witch BoltPreparing it in your Gamemaster’s game…',
+    )
+    rerender(
+      <RollToasts
+        rolls={[witch]}
+        states={ways([
+          'p',
+          { status: 'done', visible: true, prepare: 'prepare' },
+        ])}
+        on
+      />,
+    )
+    expect(toast('p')).toHaveTextContent('Witch BoltPrepared')
+    rerender(
+      <RollToasts
+        rolls={[{ ...witch, prepare: 'unprepare' }]}
+        states={ways([
+          'p',
+          { status: 'refused', reason: 'prepare', prepare: 'unprepare' },
+        ])}
+        on
+      />,
+    )
+    expect(toast('p')).toHaveTextContent(
+      'Witch BoltCouldn’t unprepare it: that spell can’t be prepared or unprepared from here',
+    )
+  })
+})
+
 describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the character (#156)", () => {
   const hit = view({
     status: 'done',

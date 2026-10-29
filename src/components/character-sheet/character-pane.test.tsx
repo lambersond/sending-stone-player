@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from './character-pane'
+import { ROLL_KINDS } from '@/constants/sending-stone'
 import { forgetCookbook } from '@/hooks/use-cookbook-view'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { ALONE_KEY, SEND_KEY } from '@/hooks/use-table-rolls'
@@ -6639,4 +6640,278 @@ describe('components/character-sheet/character-pane, Bardic Inspiration offered,
       Array.from({ length: 21 }, () => expect.objectContaining({ extras: [] })),
     )
   }, 30_000)
+})
+
+/** A spell's row on the Spells tab, outside the favorites, by its name: what opens its menu. */
+const spellRowOf = (name: string) => {
+  const section = screen.getByRole('region', { name: '1st Level' })
+  const item = within(section).getByText(name).closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    within(item).getAllByRole('button', {
+      expanded: false,
+    })[0]) as HTMLElement
+}
+
+/** A favorite's row, by its name: what opens its menu. */
+const favoriteRowOf = (name: string) => {
+  const item = within(screen.getByRole('region', { name: 'Favorites' }))
+    .getByText(name)
+    .closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    within(item).getAllByRole('button', {
+      expanded: false,
+    })[0]) as HTMLElement
+}
+
+/** What a row's menu offers, opened by a right-click; none where it opens none. */
+const rowMenuOf = async (row: HTMLElement, name: string) => {
+  fireEvent.contextMenu(row, { button: 2 })
+  const menu = screen.queryByRole('menu', { name })
+  if (!menu) return
+  const items = within(menu)
+    .getAllByRole('menuitem')
+    .map(item => item.textContent)
+  await userEvent.keyboard('{Escape}')
+  return items
+}
+
+describe('components/character-sheet/character-pane, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.4)', () => {
+  /** What a game with module 0.42.1 lists where players attack and cast: the charges, and it. */
+  const KINDS: RollKind[] = [
+    'use',
+    'spend',
+    'inspiration',
+    'spellSlot',
+    'prepare',
+  ]
+  /** As a game before module 0.42.1 lists them, with spell slots but no prepare. */
+  const BEFORE: RollKind[] = ['use', 'spend', 'inspiration', 'spellSlot']
+
+  const witchBolt = {
+    name: 'Witch Bolt',
+    toHit: 4,
+    attackId: 'witchAttack',
+    damage: [{ formula: '1d12', type: 'Lightning', healing: false }],
+  }
+
+  /**
+   * Thorin's sheet: Alarm not prepared, Shield prepared, Cure Wounds always, and Witch Bolt
+   * prepared and on his Actions tab, as the module lists a spell that attacks; Alarm a favorite.
+   */
+  const preparingSheet = (): CharacterSheet => {
+    const sheet = fullerSheet({
+      favorites: [
+        {
+          type: 'item',
+          id: 'alarm',
+          itemType: 'spell',
+          name: 'Alarm',
+          img: null,
+        },
+      ],
+    })
+    const [cantrips, first, ...spellbook] = sheet.spells
+    return {
+      ...sheet,
+      actions: [
+        ...sheet.actions,
+        {
+          id: 'spells',
+          label: 'Spells',
+          actions: [
+            sheetAction({ id: 'witch', type: 'spell', level: 1, ...witchBolt }),
+          ],
+        },
+      ],
+      spells: [
+        cantrips,
+        {
+          ...first,
+          spells: [
+            ...first.spells,
+            sheetSpell({ id: 'witch', prepared: 1, ...witchBolt }),
+          ],
+        },
+        ...spellbook,
+      ],
+    }
+  }
+
+  const pane = (
+    sheet: CharacterSheet,
+    kinds: RollKind[] = KINDS,
+    seat?: TableSeat,
+  ) => (
+    <TableApiContext value={seat}>
+      <CharacterPane
+        characterId='char-1'
+        name='Thorin Oakenshield'
+        sheet={toTableSheet(sheet, GAME)}
+        rollsToTable={kinds}
+      />
+    </TableApiContext>
+  )
+
+  beforeEach(() => {
+    clearStorage()
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  it('offers it at the player’s pane whose game lists it, Send to the table off too, and sends what’s chosen with a line named for the spell', async () => {
+    // This device sends no rolls: that holds back no spell prepared, which has no version made
+    // here instead.
+    localStorage.setItem(SEND_KEY, 'off')
+    const posted = posting()
+    const user = userEvent.setup()
+    render(pane(preparingSheet()))
+    await show('Spells')
+
+    expect(await rowMenuOf(spellRowOf('Shield'), 'Shield')).toEqual([
+      'Unprepare',
+    ])
+    expect(
+      await rowMenuOf(spellRowOf('Cure Wounds'), 'Cure Wounds'),
+    ).toBeUndefined()
+    fireEvent.contextMenu(spellRowOf('Alarm'), { button: 2 })
+    await user.click(screen.getByRole('menuitem', { name: 'Prepare' }))
+
+    expect(posted).toEqual([
+      {
+        kind: 'prepare',
+        prepare: { op: 'prepare', id: 'alarm' },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      },
+    ])
+    const rolls = screen.getByRole('region', { name: 'Your rolls' })
+    expect(rolls).toHaveTextContent('Alarm')
+    expect(rolls).toHaveTextContent('Sending to your Gamemaster’s game…')
+  })
+
+  it('waits on every row of the spell once it’s chosen on one, the Spells tab’s and its favorite’s', async () => {
+    posting()
+    const user = userEvent.setup()
+    render(pane(preparingSheet()))
+    await show('Spells')
+
+    expect(await rowMenuOf(favoriteRowOf('Alarm'), 'Alarm')).toEqual([
+      'Prepare',
+    ])
+    fireEvent.contextMenu(spellRowOf('Alarm'), { button: 2 })
+    await user.click(screen.getByRole('menuitem', { name: 'Prepare' }))
+
+    for (const row of [favoriteRowOf('Alarm'), spellRowOf('Alarm')]) {
+      fireEvent.contextMenu(row, { button: 2 })
+      const entry = screen.getByRole('menuitem', { name: 'Prepare' })
+      expect(entry).toBeDisabled()
+      expect(entry).toHaveAccessibleDescription('It’s on its way already')
+      await user.keyboard('{Escape}')
+    }
+    // Another spell doesn't wait for it.
+    fireEvent.contextMenu(spellRowOf('Shield'), { button: 2 })
+    expect(screen.getByRole('menuitem', { name: 'Unprepare' })).toBeEnabled()
+  })
+
+  it('offers Unprepare of a prepared spell on the Actions tab’s own row', async () => {
+    const posted = posting()
+    const user = userEvent.setup()
+    render(pane(preparingSheet()))
+    await show('Actions')
+
+    const section = screen.getByRole('region', { name: 'Spells' })
+    const name = within(section).getByRole('button', {
+      name: /^Witch Bolt/,
+      expanded: false,
+    })
+    fireEvent.contextMenu(name, { button: 2 })
+    expect(
+      within(screen.getByRole('menu', { name: 'Witch Bolt' }))
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual(['Unprepare'])
+    await user.click(screen.getByRole('menuitem', { name: 'Unprepare' }))
+    expect(posted).toEqual([
+      expect.objectContaining({
+        kind: 'prepare',
+        prepare: { op: 'unprepare', id: 'witch' },
+      }),
+    ])
+  })
+
+  it('offers none where the game doesn’t list it, as a module before 0.42.1', async () => {
+    posting()
+    render(pane(preparingSheet(), BEFORE))
+    await show('Spells')
+    for (const name of ['Alarm', 'Shield']) {
+      expect(await rowMenuOf(spellRowOf(name), name)).toBeUndefined()
+    }
+  })
+
+  it('offers none at the Gamemaster’s page, as it posts nothing to say they did it', async () => {
+    posting()
+    render(
+      pane(preparingSheet(), KINDS, {
+        role: 'gm',
+        api: '/api/campaigns/c1/characters/a1',
+        key: 'gm:c1:a1',
+      }),
+    )
+    await show('Spells')
+    for (const name of ['Alarm', 'Shield']) {
+      expect(await rowMenuOf(spellRowOf(name), name)).toBeUndefined()
+    }
+  })
+
+  it('offers none at a companion’s pane, whatever its kinds', async () => {
+    posting()
+    render(
+      <CharacterPane
+        characterId='seat-1:c:imp'
+        name='Quill'
+        sheet={toTableSheet(preparingSheet(), GAME)}
+        rollsToTable={[...ROLL_KINDS]}
+        creature={{ name: 'Quill', relation: { kind: 'owned', of: 'Thorin' } }}
+        idPrefix='creature-quill-'
+      />,
+    )
+    await show('Spells')
+    for (const name of ['Alarm', 'Shield']) {
+      expect(await rowMenuOf(spellRowOf(name), name)).toBeUndefined()
+    }
+  })
+
+  it('offers none while the character is transformed, and again once she’s back', async () => {
+    posting()
+    // The Moon's spells, which a form of hers may cast, as her spellbook lists them.
+    const spells = [
+      {
+        id: 'spell1',
+        label: '1st Level',
+        slots: { value: 4, max: 4, level: 1 },
+        spells: [
+          sheetSpell({ id: 'goodberry', name: 'Goodberry', prepared: 0 }),
+          sheetSpell({ id: 'moonbeam', name: 'Moonbeam', prepared: 1 }),
+        ],
+      },
+    ]
+    const { rerender } = render(pane(shapedSheet({ spells })))
+    await show('Spells')
+    expect(
+      await rowMenuOf(spellRowOf('Goodberry'), 'Goodberry'),
+    ).toBeUndefined()
+
+    rerender(pane(druidSheet({ spells })))
+    expect(await rowMenuOf(spellRowOf('Goodberry'), 'Goodberry')).toEqual([
+      'Prepare',
+    ])
+    expect(await rowMenuOf(spellRowOf('Moonbeam'), 'Moonbeam')).toEqual([
+      'Unprepare',
+    ])
+  })
 })
