@@ -59,13 +59,16 @@ run gmroll 70 SKEW=024 MODULE=$O/module-0.24.0 SHOTS=$O/shots-026
 # Module 0.32.0: players type in what their own dice show, and module 0.31.0 (no gate).
 run manualdice 29 SHOTS=$O/shots-032
 run manualdice 18 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
-run typed 124 SHOTS=$O/shots-032
-run typed 56 DND5E6=1 SHOTS=$O/shots-032
-run typed 127 MIDI=1 SHOTS=$O/shots-032
+# Round 0.42.1: Elven Accuracy's third d20 on its own line, with Skip, and module 0.42.1's Bardic
+# Inspiration offered, spent and its Inspired removed (step 5c, its pictures in shots-0421), which
+# bring the plain and Midi-QOL runs to 260-330 seconds alone, near the usual limit of 400.
+run typed 159 TIMEOUT=600 SHOTS=$O/shots-032
+run typed 61 DND5E6=1 SHOTS=$O/shots-032
+run typed 163 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-032
 run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Module 0.42.0: the dice effects add, typed or skipped, and rerolls kept at the table;
-# and module 0.41.0 (none of it).
-run typed 12 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
+# and module 0.41.0 (none of it; since app 0.42.1, Elven Accuracy's Skip, and no offer).
+run typed 15 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
 run theme 15 SHOTS=$O/shots-026
 # One damage card (module 0.28.0): plain dnd5e, Midi-QOL's card, and module 0.27.0 under Midi.
 run damagecard 31 SHOTS=$O/shots-028
