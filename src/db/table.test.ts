@@ -777,7 +777,8 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
   })
 
   it('offers the player a spell prepared or unprepared, from module 0.42.1, but never the Gamemaster, as it posts nothing', async () => {
-    const kinds = ['skill', 'spend', 'inspiration', 'spellSlot', 'prepare']
+    // No spell slots among them: preparing holds with the spell slots taken out.
+    const kinds = ['skill', 'spend', 'inspiration', 'prepare']
     givenCampaign(taking(['gmRolls'], kinds))
     await expect(getTableView(character)).resolves.toMatchObject({
       rollsToTable: kinds,
@@ -786,10 +787,10 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       rollsToTable: kinds,
     })
     await expect(getTableView(gm)).resolves.toMatchObject({
-      rollsToTable: ['skill', 'spend', 'inspiration', 'spellSlot'],
+      rollsToTable: ['skill', 'spend', 'inspiration'],
     })
     await expect(getCampaignStatus(gm)).resolves.toMatchObject({
-      rollsToTable: ['skill', 'spend', 'inspiration', 'spellSlot'],
+      rollsToTable: ['skill', 'spend', 'inspiration'],
     })
   })
 

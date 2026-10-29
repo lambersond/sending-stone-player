@@ -2905,17 +2905,11 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
   })
 
   it('keeps a spell prepared or unprepared among the rolls the game takes, from module 0.42.1, right after the charge kinds, and never among a companion’s', async () => {
+    // No spell slots among them: preparing holds with the spell slots taken out.
     await hello([wolf], {
       rolls: {
         enabled: true,
-        kinds: [
-          'attack',
-          'spend',
-          'inspiration',
-          'spellSlot',
-          'prepare',
-          'textRoll',
-        ],
+        kinds: ['attack', 'spend', 'inspiration', 'prepare', 'textRoll'],
         reason: null,
       },
       companions: {
@@ -2929,7 +2923,6 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
       'attack',
       'spend',
       'inspiration',
-      'spellSlot',
       'prepare',
       'textRoll',
     ])

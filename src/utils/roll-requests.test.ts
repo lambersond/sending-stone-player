@@ -51,6 +51,7 @@ import {
   SLEIGHT_CHECK,
   TEXTS,
   WAND_LEVELS,
+  wolfForm,
 } from '@/mocks/sending-stone'
 import { quillSheet, slimQuillSheet } from '@/mocks/slim-sheet'
 import { parseGameEvent } from '@/schemas/sending-stone'
@@ -6987,15 +6988,20 @@ describe('utils/roll-requests, a spell prepared or unprepared, from module 0.42.
           ],
         },
       ]
+      // Thorin's spellbook in the mocks' Wolf form, not the spell slots' druid sheets, so that
+      // these stand with the spell slots taken out.
+      const form = wolfForm()
       // The form lists none of hers: shaped, not gone.
-      expect(prepareCheck('prepare', 'goodberry', shapedSheet())).toBe('shaped')
+      expect(
+        prepareCheck('prepare', 'goodberry', spellbook({ form, spells: [] })),
+      ).toBe('shaped')
       // Even one its sheet lists as one she prepares.
       expect(
-        prepareCheck('prepare', 'goodberry', shapedSheet({ spells: own })),
+        prepareCheck('prepare', 'goodberry', spellbook({ form, spells: own })),
       ).toBe('shaped')
       // Back in her own form, hers again.
       expect(
-        prepareCheck('prepare', 'goodberry', druidSheet({ spells: own })),
+        prepareCheck('prepare', 'goodberry', spellbook({ spells: own })),
       ).toBeUndefined()
     })
   })
@@ -7025,24 +7031,21 @@ describe('utils/roll-requests, a spell prepared or unprepared, from module 0.42.
   })
 
   it('keeps it among the rolls a game takes, where it lists it, and not where it doesn’t', () => {
+    // No spell slots among them: preparing holds with the spell slots taken out.
     const campaign = {
       rollsEnabled: true,
-      rollKinds: ['skill', 'spend', 'inspiration', 'spellSlot', 'prepare'],
+      rollKinds: ['skill', 'spend', 'inspiration', 'prepare'],
       bridgePolledAt: ago(5000),
     }
     expect(availableRollKinds(campaign, NOW)).toEqual([
       'skill',
       'spend',
       'inspiration',
-      'spellSlot',
       'prepare',
     ])
     expect(
       availableRollKinds(
-        {
-          ...campaign,
-          rollKinds: ['skill', 'spend', 'inspiration', 'spellSlot'],
-        },
+        { ...campaign, rollKinds: ['skill', 'spend', 'inspiration'] },
         NOW,
       ),
     ).not.toContain('prepare')

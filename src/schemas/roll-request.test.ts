@@ -2973,14 +2973,6 @@ describe('schemas/roll-request, a spell prepared or unprepared, from module 0.42
       ],
     ],
     [
-      'a spell slot',
-      { spellSlot: { op: 'spend', id: 'spell1', from: 3 } },
-      [
-        'spellSlot',
-        'A spell slot spent or restored, and only that, names the pool, which, and the count it was made from',
-      ],
-    ],
-    [
       'a favorite',
       { favorite: { op: 'add', type: 'item', id: 'witch' } },
       ['favorite', 'A favorite added or removed, and only that, names what'],

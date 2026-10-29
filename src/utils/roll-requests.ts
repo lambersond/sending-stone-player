@@ -542,7 +542,9 @@ function checkPrepare(
   input: RollRequestInput,
   sheet: CharacterSheet | undefined,
 ): RollRefusal | undefined {
-  if (isShaped(sheet)) return 'shaped'
+  // Read as the pane reads it, not by `isShaped`, so that preparing needs nothing of the spell
+  // slots' own check: either can be taken out alone.
+  if (sheet?.form) return 'shaped'
   const id = input.prepare?.id
   const spell = (sheet?.spells ?? [])
     .flatMap(({ spells }) => spells)
