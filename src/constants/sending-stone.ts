@@ -120,7 +120,8 @@ export const COMMANDS_PATH = '/api/bridge/commands'
  * turn ended taken back, neither of them a roll; and from module 0.37.0, a favorite added or
  * removed, no roll either; and from module 0.39.0, one of the character's own effects turned off,
  * on or deleted, no roll either; and from module 0.40.0, Wild Shape from the app, a change into a
- * known form, a return, a form learned, or the Beasts to learn listed, no roll either.
+ * known form, a return, a form learned, or the Beasts to learn listed, no roll either; and from
+ * module 0.42.1, one of the character's spell slots spent or restored, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -146,6 +147,7 @@ export const ROLL_KINDS = [
   'undoEndTurn',
   'spend',
   'inspiration',
+  'spellSlot',
   'transfer',
   'remove',
   'favorite',
@@ -434,7 +436,8 @@ export const MOST_COMPANIONS = 50
  * edits it rather than acting, as charges spent by hand, and ending a turn, or taking one back,
  * which the character's page does for its companions' turns too, nor favorites, which an NPC has
  * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes,
- * nor from module 0.40.0 Wild Shape, which only a character uses. The module's list has `note` and
+ * nor from module 0.40.0 Wild Shape, which only a character uses, nor from module 0.42.1 a spell
+ * slot spent or restored, which an NPC's sheet changes in Foundry. The module's list has `note` and
  * `dish` too, which aren't rolls here.
  */
 export const COMPANION_UNTAKEN = [
@@ -442,6 +445,7 @@ export const COMPANION_UNTAKEN = [
   'hitDie',
   'hitDice',
   'spend',
+  'spellSlot',
   'transfer',
   'remove',
   'favorite',
@@ -505,6 +509,13 @@ export const MOST_HIT_DICE = 20
 
 /** A spell slot's pool, as dnd5e keys it, such as "spell3" or "pact". */
 export const SPELL_SLOT = /^(spell[1-9]|pact)$/
+
+/**
+ * What a player may do to one of their character's spell slots from here, from module 0.42.1's
+ * `spellSlot` command: spend one, as a cast would, or restore one that's used; one at a time.
+ */
+export const SPELL_SLOT_OPS = ['spend', 'restore'] as const
+export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
 
 /** A weapon's attack mode, as dnd5e keys it, such as "twoHanded" or "thrown-offhand". */
 export const ATTACK_MODE = /^[A-Za-z][\w-]{0,31}$/

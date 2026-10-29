@@ -2,6 +2,7 @@ import type {
   EffectOp,
   ROLL_FEATURES,
   ROLL_KINDS,
+  SpellSlotOp,
 } from '@/constants/sending-stone'
 import type {
   AloneOutcome,
@@ -126,6 +127,12 @@ export type InspirationSource = {
   kind: 'inspiration'
   inspiration: 'use' | 'gain'
 }
+
+/**
+ * One of the character's spell slots spent, or one restored, from module 0.42.1: which, its pool,
+ * such as `spell1` or `pact`, and the count the app showed, made only where it still is.
+ */
+export type SpellSlotInput = { op: SpellSlotOp; id: string; from: number }
 
 /**
  * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
@@ -297,6 +304,11 @@ export type RollRequestInput = {
   count?: number
   /** For Heroic Inspiration, from module 0.29.0, whether it's used or gained. */
   inspiration?: 'use' | 'gain'
+  /**
+   * For a spell slot, from module 0.42.1: whether one is spent or restored, of which pool, and the
+   * count of it the app showed.
+   */
+  spellSlot?: SpellSlotInput
   /** For a move of items and coins, from module 0.31.0, its ends and what moves. */
   transfer?: TransferInput
   /** For a removal, from module 0.33.0, what it removes. */
@@ -496,4 +508,6 @@ export type GmRollView = Pick<
    * as the chat tells healing.
    */
   healing?: true
+  /** For a spell slot of the Gamemaster's, from module 0.42.1: spent or restored. */
+  slotOp?: SpellSlotOp
 }

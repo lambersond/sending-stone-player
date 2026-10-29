@@ -18,6 +18,9 @@ Released: module v0.42.0 and its app.
    beside Done in the dice dialog, left out until the player adds it once their Gamemaster says the
    roll fails; once that roll is made, the app removes Inspired where the campaign lets players
    remove their own effects, and it isn't offered again.
+3. **Spell slots from the dots:** a tap on a spell slot's dot, on the Spells tab or a spell-slots
+   favorite, asks to spend one, or to restore one where it's used, then changes it in Foundry, its
+   line in chat. Pact Magic too.
 
 Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
 
@@ -121,6 +124,18 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   Foundry (reordering from the app is planned for v1.x).
 - Skills, tools and spell slots are made favorites in Foundry, with no plan to change that unless
   it's asked for.
+- Spell slots are spent and restored from the app one at a time: several are several taps, each
+  asked first.
+- A spell slot's dots can be tapped on the Spells tab and on a spell-slots favorite only: the
+  Actions tab's spell-level headings show the count, and a tap there opens or closes the level; a
+  companion's sheet, a pool of more than nine slots and a pool a module adds under a key of its own
+  show the count only.
+- Spell slots can't be changed from the app while Send to the table is off on that device, with a
+  module before 0.42.1, where the Gamemaster doesn't let players attack and cast from the app, or
+  while the character is in Wild Shape: the slots wait, as the Spells tab's note says.
+- A spell slot is spent or restored from the app only from the count its dots showed: where Foundry
+  changed it meanwhile, it's refused ("the slots changed in Foundry; look again"). The confirm shows
+  the counts as the dots showed them when it opened.
 - Dishes from the Magical Recipe Book need dnd5e 5 for now (dnd5e 6 is planned for v2.0).
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.
