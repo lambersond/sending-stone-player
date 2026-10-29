@@ -384,6 +384,12 @@ export function SpellEntry({
       />
     )
   }
+  const aside = (marked || spell.uses) && (
+    <span className='flex shrink-0 items-center gap-1'>
+      <Marks spell={spell} />
+      {spell.uses && <UsesLeft uses={spell.uses} />}
+    </span>
+  )
   return (
     <SheetEntry
       characterId={characterId}
@@ -402,17 +408,10 @@ export function SpellEntry({
               spell.castFrom && fromNote(spell.castFrom),
             )
       }
-      aside={
-        (marked || spell.uses) && (
-          <span className='flex shrink-0 items-center gap-1'>
-            <Marks spell={spell} />
-            {spell.uses && <UsesLeft uses={spell.uses} />}
-          </span>
-        )
-      }
+      aside={unprepared ? <BelowName>{aside}</BelowName> : aside}
       // Its "Not prepared" mark is wider than the others: in a narrow list, as on a phone or in the
       // desk's Favorites column, beneath the name rather than cutting it short.
-      asideBelow={unprepared}
+      wraps={unprepared}
       meta={meta}
       facts={factsOf([
         ['Casting time', spell.activation],
@@ -475,6 +474,19 @@ function Mark({ short, label }: Readonly<{ short: string; label: string }>) {
     <span title={label} className={MARK}>
       <span aria-hidden>{short}</span>
       <span className='sr-only'>{label}</span>
+    </span>
+  )
+}
+
+/**
+ * A spell row's marks on a line of their own beneath its name in a narrow list, where the list
+ * it's in, a container, is under 28rem wide, lined up with the name past the icon: for a row given
+ * `wraps`, which lets them go there (round 0.42.1 §P review).
+ */
+function BelowName({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <span className='@max-md:order-last @max-md:basis-full @max-md:pl-11'>
+      {children}
     </span>
   )
 }

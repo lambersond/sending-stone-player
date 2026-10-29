@@ -30,8 +30,7 @@ type Props = {
    * In a narrow list, the aside on a line of its own beneath the name, as a spell-slots favorite's
    * live dots are, round 0.42.1 §U: where the list it's in, a container, is under 28rem wide, as a
    * phone's Favorites strip, a desk's Favorites column and each of a tablet's two lists are, so
-   * that many dots never squeeze the name to nothing. A row that opens puts it there too, as a
-   * spell's "Not prepared" mark is (round 0.42.1 §P review), its chevron staying beside the name.
+   * that many dots never squeeze the name to nothing.
    */
   asideBelow?: boolean
   /** Shown above the description when open, such as the kind of feature. */
@@ -83,6 +82,13 @@ type Props = {
   effectChoice?: EffectChoice
   /** For a spell's row, from module 0.42.1: its own menu's Prepare or Unprepare. */
   prepareChoice?: PrepareChoice
+  /**
+   * For a row that opens, in a narrow list, where the list it's in, a container, is under 28rem
+   * wide: its summary wraps, so that an aside that puts itself on a line of its own there goes
+   * beneath the name, its chevron staying beside the name, as a spell's "Not prepared" mark does
+   * (round 0.42.1 §P review).
+   */
+  wraps?: boolean
   onDelete?: () => void
   /**
    * A dialog it opens, held in its row but outside what opens, so that its menu opens it from a
@@ -130,6 +136,7 @@ export function SheetEntry({
   onOpenChange,
   effectChoice,
   prepareChoice,
+  wraps = false,
   onDelete,
   dialog,
   rowRef,
@@ -147,6 +154,8 @@ export function SheetEntry({
   const menu = onMenu ?? own.onMenu
   const press = usePressMenu(menu)
   const opens = !!text || !!meta || facts.length > 0 || !!lead || !!children
+  // Only a row that doesn't open, as a favorite of spell slots, puts its aside beneath its name.
+  const below = asideBelow && !opens
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
@@ -170,8 +179,8 @@ export function SheetEntry({
       </span>
       {/* Beneath the name in a narrow list, by the list's width rather than the screen's, lined up
           with it past the icon, so that the name keeps the width it has without the aside; its
-          spacer, or its chevron, stays beside the name. */}
-      {asideBelow ? (
+          spacer stays beside the name. */}
+      {below ? (
         <span className='@max-md:order-last @max-md:basis-full @max-md:pl-11'>
           {aside}
         </span>
@@ -192,7 +201,7 @@ export function SheetEntry({
           ref={rowRef as Ref<HTMLDivElement>}
           className={clsx(
             rowClass,
-            asideBelow && '@max-md:flex-wrap',
+            below && '@max-md:flex-wrap',
             press.className,
           )}
           // A row with a menu takes focus, so that Shift+F10 or the context menu key opens it, as
@@ -222,7 +231,7 @@ export function SheetEntry({
           className={clsx(
             rowClass,
             'cursor-pointer list-none transition-colors hover:bg-primary/5 [&::-webkit-details-marker]:hidden',
-            asideBelow && '@max-md:flex-wrap',
+            wraps && '@max-md:flex-wrap',
             press.className,
           )}
           {...press.props}
