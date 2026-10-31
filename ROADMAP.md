@@ -8,43 +8,45 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.42.0 and its app.
+Released: module v0.42.1 and its app.
 
-## v0.42.1 (in progress)
+## v0.43
 
-1. **Elven Accuracy's third d20 on its own line:** when typing in dice, typed in, or skipped for
-   Foundry to roll it.
-2. **Bardic Inspiration offered:** the 2024 Bardic Inspiration a bard gave the character is offered
-   beside Done in the dice dialog, left out until the player adds it once their Gamemaster says the
-   roll fails; once that roll is made, the app removes Inspired where the campaign lets players
-   remove their own effects, and it isn't offered again.
-3. **Spell slots from the dots:** a tap on a spell slot's dot, on the Spells tab or a spell-slots
-   favorite, asks to spend one, or to restore one where it's used, then changes it in Foundry, its
-   line in chat. Pact Magic too.
-4. **Spells prepared from the row menus:** a right-click or a held touch on a spell, on the Spells
-   tab or among the favorites, offers Prepare or Unprepare (on the Actions tab, Unprepare), then
-   changes it in Foundry as its sheet's own menu does. A spell not prepared now says so on its row.
-   A prepared spell casts from the app, and shows on the Actions tab if it attacks, deals damage,
-   is a bonus action or reaction, or lasts a round or a minute. Nothing is posted in chat. The
-   Spells tab shows how many spells each class has prepared, of how many, as Foundry's sheet does
-   ("Prepared 5 / 6").
-
-Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
-
-## v0.43 (release candidate)
-
-1. Refactor existing code to best practices.
+1. Refactor existing code to best practices, under the rules and principles set when it's planned.
 2. **Supported versions:** a breakdown of which module versions each app version supports.
-
-v0.43 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
 
 Open question:
 - The refactor: write down what it should fix first, and go area by area, with the test harness and
   end-to-end suites as its safety net.
 
+## v0.44 (release candidate)
+
+From the table's first session with v0.42.1, after the refactor:
+
+1. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
+   its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry, as
+   Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
+   homebrew and custom ones included, never a handler per spell.
+2. **Favorites on the Character tab:** a setting to show the favorites between skills and traits.
+3. **Larger icon buttons on tablets:** icon-only buttons grow above a small screen, and can shrink
+   again where the screen is wide enough for their words.
+4. **Hit points from the app:** players adjust their own character's hit points.
+5. **Manual dice said in the dice dialog:** a note, or a "Manual Dice" chip in its header, that the
+   die results are typed in.
+6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
+   dice), what each long press offers (damage, attack and other rolls), the settings, how manual
+   dice work, and that the Gamemaster applies short and long rests.
+7. **A plain die roll:** d4, d6, d8, d10, d12, d20 or d100, with advantage or disadvantage and any
+   modifier, not tied to the character, for what the Gamemaster asks.
+8. **The Gamemaster clears a campaign's chat:** including messages from the cookbook, whose
+   whispers now stay.
+9. Remaining bugs, and the known limits chosen to close before v1.0.
+
+v0.44 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
+
 ## v1.0
 
-The major release of the app and the module, once the v0.43 release candidate holds up, before
+The major release of the app and the module, once the v0.44 release candidate holds up, before
 work starts on v1.x.
 
 The module keeps its id, `sending-stone`, though its title changed in v0.37: Foundry keeps the
