@@ -8,7 +8,7 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
   socialProviders: socialProviders(),
   session: {
-    expiresIn: Number(process.env.AUTH_MAX_AGE) || 7 * 86_400, // 7 days
+    expiresIn: Number(process.env.AUTH_MAX_AGE) || 30 * 86_400, // 30 days
     updateAge: 86_400,
   },
   // nextCookies must stay the last plugin
