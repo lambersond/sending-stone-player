@@ -19,18 +19,8 @@ import clsx from 'clsx'
 import { usePortalRoot } from '@/components/modal/use-portal-root'
 import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { placing, pointOn } from '@/features/rolling/utils/menu-points'
-import type { MenuPoint, MenuItem } from '@/features/rolling/types'
-
-/** Where a menu opens, and what it's of. */
-export type MenuPlace = {
-  /** The part of the sheet it opened from. */
-  anchor: HTMLElement
-  /** Where on it they clicked or pressed. With none, as from a key or a tap, it goes below it. */
-  point?: MenuPoint
-  /** What it's of, such as "Perception check +7". */
-  title: string
-  onClose: () => void
-}
+import type { MenuPlace } from './types'
+import type { MenuItem } from '@/features/rolling/types'
 
 /**
  * A menu of things to do with a part of the sheet, opened where the player clicked or pressed for
@@ -77,6 +67,7 @@ export function ChoiceMenu<T extends string>({
       }),
     ],
   })
+  const { setFloating } = refs
   useLayoutEffect(() => {
     refs.setPositionReference(point ? pointOn(anchor, point) : anchor)
   }, [anchor, point, refs])
@@ -106,7 +97,7 @@ export function ChoiceMenu<T extends string>({
     <FloatingPortal root={root}>
       <FloatingFocusManager context={context} initialFocus={0} modal={false}>
         <div
-          ref={refs.setFloating}
+          ref={setFloating}
           style={floatingStyles}
           aria-label={title}
           className='z-50 flex max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] min-w-56 flex-col overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-1 text-text-primary shadow-xl'

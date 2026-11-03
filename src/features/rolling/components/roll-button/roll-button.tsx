@@ -10,24 +10,6 @@ import type { RollTarget, MenuPoint } from '@/features/rolling/types'
 /** How far a touch may move and still count as held, in pixels. */
 const DRIFT = 10
 
-type Props<T> = {
-  /** What it rolls: a check or save, or an action's damage. */
-  target: T
-  /** Rolls it as it stands, from this button. */
-  onRoll: (target: T, anchor: HTMLElement) => void
-  /** Offers other ways to roll it, where on this button the player clicked or pressed. */
-  onMenu: (anchor: HTMLElement, target: T, point?: MenuPoint) => void
-  label: string
-  className: string
-  children: ReactNode
-  /** What it offers other ways to roll it in: a menu, unless said, or a dialog of its own. */
-  popup?: 'menu' | 'dialog'
-  /** Where it can't be rolled now, which offers no other way either. */
-  disabled?: boolean
-  /** Shown to a mouse, as why it's disabled. */
-  title?: string
-}
-
 /**
  * A part of the sheet that rolls when tapped or clicked, and offers other ways to roll on a
  * right-click, a long-press on a touch screen, or the keyboard's context menu key, or Shift+F10,
@@ -44,7 +26,23 @@ export function RollButton<T = RollTarget>({
   popup = 'menu',
   title,
   disabled: unavailable,
-}: Readonly<Props<T>>) {
+}: Readonly<{
+  /** What it rolls: a check or save, or an action's damage. */
+  target: T
+  /** Rolls it as it stands, from this button. */
+  onRoll: (target: T, anchor: HTMLElement) => void
+  /** Offers other ways to roll it, where on this button the player clicked or pressed. */
+  onMenu: (anchor: HTMLElement, target: T, point?: MenuPoint) => void
+  label: string
+  className: string
+  children: ReactNode
+  /** What it offers other ways to roll it in: a menu, unless said, or a dialog of its own. */
+  popup?: 'menu' | 'dialog'
+  /** Where it can't be rolled now, which offers no other way either. */
+  disabled?: boolean
+  /** Shown to a mouse, as why it's disabled. */
+  title?: string
+}>) {
   const locked = useRollsLocked()
   const disabled = unavailable || locked
   const press = useRef({

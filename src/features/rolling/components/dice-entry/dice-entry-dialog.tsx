@@ -15,7 +15,7 @@ import {
 import clsx from 'clsx'
 import { Timer } from 'lucide-react'
 import { flushSync } from 'react-dom'
-import { DiceKeypad, type DiceKey } from './dice-keypad'
+import { DiceKeypad } from './dice-keypad'
 import { DieIcon } from '@/components/icons/die'
 import { Modal } from '@/components/modal/modal'
 import {
@@ -26,10 +26,16 @@ import {
 } from '@/features/rolling/components/dice-entry/faces'
 import { dieWords } from '@/features/rolling/utils/effect-dice'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import type { DiceKey } from './types'
 import type { DiceEntry, DiceEntrySides } from '@/types/dice-entry'
 
 /** A phone held sideways, or any screen as short: the dice beside the keypad, not above it. */
 const SHORT = '(max-height: 30rem)'
+
+/** Scrolls an element's content down by some pixels, as focus moves past what covers it. */
+function scrollDown(scroller: HTMLElement, by: number) {
+  scroller.scrollTop += by
+}
 
 /** The whole seconds from one moment until another, none once it's come. */
 function secondsLeft(at: number, now: number): number {
@@ -218,7 +224,7 @@ function Entry({
       element.getBoundingClientRect().bottom +
       8 -
       kept.getBoundingClientRect().top
-    if (hidden > 0) scroller.scrollTop += hidden
+    if (hidden > 0) scrollDown(scroller, hidden)
   }
 
   /**

@@ -1,17 +1,10 @@
 'use client'
 
-import { ChoiceMenu, type MenuPlace } from './choice-menu'
+import { ChoiceMenu } from './choice-menu'
 import { D20_CHOICES } from '@/features/rolling/constants'
 import { choiceItem } from '@/features/rolling/utils/menu-points'
+import type { MenuPlace } from './types'
 import type { RollChoice } from '@/features/rolling/types'
-
-type Props = MenuPlace & {
-  /** The ways it can be rolled; those of a d20 roll unless said. */
-  choices?: RollChoice[]
-  /** What to call a choice instead, such as "Roll maximum healing". */
-  labels?: Partial<Record<RollChoice, string>>
-  onChoose: (choice: RollChoice) => void
-}
 
 /**
  * Other ways to roll a check or save, where the player clicked or pressed for them: at the pointer,
@@ -23,7 +16,15 @@ export function RollMenu({
   labels = {},
   onChoose,
   ...place
-}: Readonly<Props>) {
+}: Readonly<
+  MenuPlace & {
+    /** The ways it can be rolled; those of a d20 roll unless said. */
+    choices?: RollChoice[]
+    /** What to call a choice instead, such as "Roll maximum healing". */
+    labels?: Partial<Record<RollChoice, string>>
+    onChoose: (choice: RollChoice) => void
+  }
+>) {
   return (
     <ChoiceMenu
       {...place}

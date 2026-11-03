@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import clsx from 'clsx'
 import { toAdvantage } from '@/features/rolling/utils/roll-mode'
+import { rollOf } from '@/features/rolling/utils/sheet-rolls'
 import { formatModifier } from '@/utils/format-modifier'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
 import type { RollTarget } from '../../types'
@@ -15,14 +16,6 @@ const MODES: { mode: RollMode; label: string }[] = [
   { mode: 1, label: 'Advantage' },
 ]
 
-type Props = {
-  target: RollTarget
-  /** The mode a tap would roll with, which the player starts from. */
-  mode: RollMode
-  onRoll: (roll: SheetRoll) => void
-  onCancel: () => void
-}
-
 /**
  * Choosing how to roll a check or save: with advantage, disadvantage or neither, whatever the
  * character's conditions say, and with extra dice or modifiers such as +1d4 for Bless.
@@ -32,7 +25,13 @@ export function ModifyRoll({
   mode: initial,
   onRoll,
   onCancel,
-}: Readonly<Props>) {
+}: Readonly<{
+  target: RollTarget
+  /** The mode a tap would roll with, which the player starts from. */
+  mode: RollMode
+  onRoll: (roll: SheetRoll) => void
+  onCancel: () => void
+}>) {
   const [mode, setMode] = useState<RollMode>(initial)
   const [extras, setExtras] = useState('')
   const [error, setError] = useState<string>()
@@ -45,15 +44,12 @@ export function ModifyRoll({
       setError(parsed.error)
       return
     }
-    onRoll({
-      label: target.label,
-      modifier: target.modifier,
-      advantage: toAdvantage(mode),
-      extras: parsed.terms,
-      source: target.source,
-      explicit: true,
-      ...(target.ask && { ask: target.ask }),
-    })
+    onRoll(
+      rollOf(target, toAdvantage(mode), true, {
+        extras: parsed.terms,
+        ask: target.ask,
+      }),
+    )
   }
 
   return (

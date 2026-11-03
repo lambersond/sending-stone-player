@@ -2,23 +2,8 @@
 
 import clsx from 'clsx'
 import { Delete } from 'lucide-react'
+import type { DiceKey } from './types'
 import type { MouseEvent, PointerEvent, ReactNode } from 'react'
-
-/** A key of the dice keypad: a digit, a percentile die's 00, Delete or Next die. */
-export type DiceKey =
-  | '0'
-  | '1'
-  | '2'
-  | '3'
-  | '4'
-  | '5'
-  | '6'
-  | '7'
-  | '8'
-  | '9'
-  | '00'
-  | 'delete'
-  | 'next'
 
 // Three columns as a phone's own number pad has them, Next die across the foot; or, on a short
 // screen, five, so the keypad takes three rows and fits beside the dice. Without Next die, on the

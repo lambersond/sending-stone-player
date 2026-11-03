@@ -16,12 +16,10 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { History } from 'lucide-react'
-import {
-  DamageDue,
-  offersDamage,
-  RollHistory,
-  rollsName,
-} from '../roll-tray/roll-tray'
+import { rollsName } from '../../utils/tray-words'
+import { DamageDue } from '../roll-tray/damage-due'
+import { RollHistory } from '../roll-tray/roll-history'
+import { offersDamage } from '../roll-tray/utils'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
 import { usePortalRoot } from '@/components/modal/use-portal-root'
 import { needsPlayer } from '@/features/rolling/utils/damage-due'
@@ -80,6 +78,7 @@ export function RollsButton({
       }),
     ],
   })
+  const { setReference } = refs
   // The popover, which is also where menus and dialogs opened from it go.
   const attach = useCallback(
     (node: HTMLDivElement | null) => {
@@ -107,7 +106,7 @@ export function RollsButton({
     <>
       {/* Named by what it shows, rather than an aria-label, so that the dot is said too. */}
       <button
-        ref={refs.setReference}
+        ref={setReference}
         type='button'
         title={named}
         className='relative rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'

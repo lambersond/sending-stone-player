@@ -1,17 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import { DiceEntryDialog } from './dice-entry-dialog'
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { DiceEntryDialogs } from './dice-entry-dialogs'
 import { useHydrated } from '@/hooks/use-hydrated'
-import type { DiceEntry, EnterDice } from '@/types/dice-entry'
-
-/** A roll's dice asked for, until the player types them in or it closes. */
-type Asked = {
-  entry: DiceEntry
-  /** Gives the roll what was typed, or nothing; only the first time counts. */
-  settle: (values?: number[][]) => void
-}
+import type { Asked } from './types'
+import type { EnterDice } from '@/types/dice-entry'
 
 /**
  * Asks the player for each roll's dice, from their own physical dice (module 0.32.0): one dialog
@@ -66,14 +66,7 @@ export function useDiceEntry(): { enter: EnterDice; dialog: ReactNode } {
   const hydrated = useHydrated()
   const [current] = queue
   const dialog = hydrated
-    ? createPortal(
-        <DiceEntryDialog
-          entry={current?.entry}
-          onDone={values => current?.settle(values)}
-          onCancel={() => current?.settle()}
-        />,
-        document.body,
-      )
+    ? createElement(DiceEntryDialogs, { current })
     : undefined
   return { enter, dialog }
 }

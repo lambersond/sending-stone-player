@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { NO_EFFECTS } from '../../../sheet/components/effect-controls/constants'
 import { Effecting } from '../../../sheet/components/effect-controls/effecting'
 import { LONG_PRESS } from '../../constants'
-import { briefOf, type RollBrief } from '../../utils/brief'
+import { briefOf } from '../../utils/brief'
 import { RollToasts } from '../roll-toasts/roll-toasts'
 import { RollsButton } from '../rolls-button/rolls-button'
 import { RollTray } from './roll-tray'
@@ -13,6 +13,7 @@ import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { TableApiContext } from '@/hooks/use-table-api'
 import type { Effects } from '../../../sheet/components/effect-controls/types'
 import type { TableRolls } from '../../types'
+import type { RollBrief } from '../../utils/tray-words'
 import type {
   GmRollView,
   LocalAsk,

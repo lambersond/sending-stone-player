@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import clsx from 'clsx'
 import { Minus, Plus } from 'lucide-react'
 import { DIE_SIZES } from '@/constants/dice'
-import { formulaOf } from '@/features/rolling/utils/damage-words'
+import { criticalHint, formulaOf } from '@/features/rolling/utils/damage-words'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   criticalParts,
@@ -17,7 +17,6 @@ import {
 import { seatWords } from '@/utils/seat-words'
 import type { DamageSubject, DamageChoice } from '@/features/rolling/types'
 import type { DamageModifiers, DieSize } from '@/types/roll'
-import type { CriticalRule } from '@/types/sending-stone'
 
 /*
  * The ways to roll damage or healing, from a right-click or long-press on it: as a critical hit's,
@@ -210,31 +209,6 @@ export function ModifyDamage({
       </div>
     </form>
   )
-}
-
-/**
- * What a critical hit's damage is, in a few words: every die twice, as dnd5e makes it by default,
- * or as the world's rules make it, such as under Powerful Critical; and where those rules change
- * its dice as only the game can add them up, such as Midi-QOL's at their highest, that it's the
- * game's.
- */
-function criticalHint(game: string, rule?: CriticalRule): string {
-  const perDie = rule?.perDie ?? 2
-  const times = perDie === 2 ? 'twice' : `${perDie} times`
-  if (rule?.altered) {
-    return perDie === 1
-      ? `As ${game} rolls one.`
-      : `Every die ${times}, as ${game} rolls one.`
-  }
-  const numbers = rule?.multiplyNumeric === true
-  if (rule?.powerfulCritical) {
-    return numbers
-      ? 'Its dice, the most they could roll added, and every number twice.'
-      : 'Its dice, and the most they could roll added.'
-  }
-  // Such as Midi-QOL's rule that adds only a weapon's own critical damage.
-  if (perDie === 1) return `As ${game} rolls one.`
-  return numbers ? `Every die and number ${times}.` : `Every die ${times}.`
 }
 
 const STEP =

@@ -51,6 +51,7 @@ export function useRollToasts(
     // rolled, starts to fade then, not a timer later, and fades for all its time; any whose time
     // has passed goes with it.
     const at = Date.now()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the clock after commit
     setNow(at)
     setBook(held => dueToasts(popToasts(held, rolls, states, at, on), at))
   }, [rolls, states, on])
