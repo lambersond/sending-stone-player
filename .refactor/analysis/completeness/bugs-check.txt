@@ -1,0 +1,24 @@
+## bugs-found.md entries: 20
+- use-picker.tsx:701 → B1 | refs in §4: 1/1
+- actions-tab.tsx:730 → B13 | refs in §4: 3/3
+- sheet-tiles.tsx:445 → B8 | refs in §4: 4/4
+- use-companion-view.ts:84 → B9 | refs in §4: 1/1
+- use-notes.ts:337 → B18 | refs in §4: 1/1
+- character-pane.tsx:1186 → B2 | refs in §4: 2/2
+- character-pane.tsx:1066 → B2 | refs in §4: 1/1
+- wild-shape.tsx:1621 → B15 | refs in §4: 3/3
+- campaigns.ts:437 → B3 | refs in §4: 2/3
+- seat-routes.ts:126 → B4 | refs in §4: 2/2
+- route.ts:18 → B3 | refs in §4: 2/2
+- app-origin.ts:9 → B17 | refs in §4: 1/1
+- roll-requests.ts:748 → B5 | refs in §4: 2/2
+- combat-tracker.tsx:203 → B6 | refs in §4: 1/1
+- local-time.tsx:20 → B7 | refs in §4: 1/1
+- game-table.test.tsx:19 → named in §4 (no table id match) | refs in §4: 3/9
+- jest.config.ts:16 → named in §4 (no table id match) | refs in §4: 1/1
+- use-table-rolls.ts:496 → B10 | refs in §4: 1/2
+- roll-tray.tsx:1761 → B11 | refs in §4: 2/2
+- use-table-rolls.ts:1270 → B10 | refs in §4: 1/1
+
+§4 ids: B20 B1 B2 B3 B4 B5 B6 B7 B8 B9 B10 B11 B12 B13 B14 B15 B16 B17 B18 B19
+§4.5 bullets: 19; questions line: true

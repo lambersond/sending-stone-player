@@ -11,8 +11,8 @@ X = /tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v04
 
 ## Where
 - **APP** = /home/user/sending-stone-player, branch `claude/dazzling-dirac-m8cq54` (the integration
-  checkout). Phase 3 lanes work in their own worktrees under /home/user/w043/<lane>/sending-stone-player;
-  before Phase 3 everyone works in APP, each in the files their workstream owns.
+  checkout). **Every builder works in its own worktree from Phase 1 on** (round.md §2.3.3); only the
+  orchestrator writes in APP and lands commits there.
 - **The module** (/home/user/fvtt-sending-stone) is NEVER edited; its PROTOCOL.md is the wire contract.
   The app's requests, responses, status codes, stored rows, visible strings, accessible names, ids,
   data attributes and routes stay byte-identical. The e2e suites are not edited (bookkeeping in the
@@ -23,15 +23,19 @@ X = /tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v04
 ## Rules
 - **Behaviour-preserving.** A bug you find is NOT fixed: append it to R/bugs-found.md (file:line, what,
   why, how to reproduce) and say so in your report; it goes to ROADMAP in the roadmap commit.
-- **Locks:** wrap every full jest, `tsc`, eslint or `next build` in `flock X/checks.lock …` (any
-  worktree). L0 (`npx jest --findRelatedTests <files> --maxWorkers=2`) runs without it. An e2e pass
-  holds both X/checks.lock and APP/e2e/.out/e2e.lock: nothing heavy runs during it.
-- **Git:** make only the commits your workstream names, in your own checkout or worktree, with
-  pathspec commits of your own files (`git add -- <paths> && git commit -F <msg> -- <paths>`) inside
-  `flock X/git.lock` when others share the checkout. Never amend, rebase another's branch, force push,
-  bare `git stash`, `reset --hard` or check out another branch. **In APP, push each green commit at
-  once** (`git push -u origin claude/dazzling-dirac-m8cq54`, inside the git lock; on a network error
-  retry after 2, 4, 8, 16 s); lane worktrees push nothing (their branches are local). Each message:
+- **Locks (round.md §2.3.6):** L0 is `flock X/l1-wait.lock true && flock -s X/checks.lock npx jest --ci
+  --findRelatedTests <files> --maxWorkers=2`; every full jest, `tsc`, eslint or `next build` (any
+  worktree) is `flock X/l1-wait.lock flock X/checks.lock …`; an e2e pass and every e2e rerun take the
+  wait, checks and APP/e2e/.out/e2e.lock locks in that order: nothing heavy runs during it.
+- **Jest:** every run passes `--ci` (CI is unset here, so without it jest writes missing snapshots); a
+  golden's author writes its snapshots once with `--ci=false` over its own files only (§3.1.6). A test
+  red in an L1 is rerun once alone before it is called a regression; a flake goes in the report.
+- **Git:** make only the commits your workstream names, in your own worktree, on its local branch, with
+  pathspec commits of your own files (`git add -- <paths> && git commit -F <msg> -- <paths>`). Never
+  amend, rebase another's branch, force push, bare `git stash`, `reset --hard` or check out another
+  branch. **Builders push nothing**: the orchestrator lands each commit in §2.5's order (rebase onto
+  APP's head, L1 at the rebased commit if the base moved, fast-forward, push with retries after 2, 4,
+  8, 16 s). Planning files under R/ that a builder writes go in its own commit or its report. Each message:
   subject, blank line, a few short paragraphs (what moved, what the gates showed), then exactly:
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
   Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR

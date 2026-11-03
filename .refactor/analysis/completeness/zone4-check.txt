@@ -1,0 +1,4 @@
+## shared utils/schemas importing hooks/components/db/lib today
+- src/utils/formulas.ts [R-a] imports @/hooks/use-sheet-roller: SheetFormulaRoll→?
+- src/utils/move-words.ts [R-a] imports @/hooks/use-sheet-roller: LocalMove→?
+- src/utils/move-words.ts [R-a] imports @/hooks/use-table-rolls: TableRollState→?

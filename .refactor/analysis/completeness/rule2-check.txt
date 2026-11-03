@@ -1,0 +1,4 @@
+## exported types of modules staying shared, not on the 2b list
+- src/utils/removals.ts [S] → src/utils/removals.ts: RemovalRefusal (of 1)
+- src/utils/transfers.ts [S] → src/utils/transfers.ts: TransferRefusal (of 1)
+- src/utils/wild-shape.ts [S] → src/utils/wild-shape.ts: WildShapeRefusal (of 1)

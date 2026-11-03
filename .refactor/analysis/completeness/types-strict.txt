@@ -1,0 +1,11 @@
+## typed files with no Phase 3 lane item that moves types: 10
+- owners.tsv:115 src/components/avatar/avatar.tsx [V2] items: (none: moves only) | types:1 | local types: Props:3
+- owners.tsv:262 src/components/copy-button/copy-button.tsx [V2] items: (none: moves only) | types:1 | local types: Props:7
+- owners.tsv:371 src/components/sign-in-buttons/sign-in-buttons.tsx [V2] items: R1.9.1 (none: moves only) | types:1 | local types: Props:17
+- owners.tsv:436 src/db/cookbook.ts [S] items: R1.0.2 R1.9.1 R1.3.14 R1.3.11 | types:5 | local types: none
+- owners.tsv:446 src/db/party.ts [S] items: R1.0.2 R1.9.1 R1.3.14 R1.3.11 | types:1 cc:276=20→R1.3.11 | local types: none
+- owners.tsv:450 src/db/roll-requests.ts [S] items: R1.0.2 R1.9.1 R1.3.1 R1.3.2 R1.3.3 | types:2 cc:142=53→R1.3.9 cc:538=18→R1.3.11 cycle:5→R1.3.1 | local types: none
+- owners.tsv:456 src/db/table.ts [S] items: R1.0.2 R1.9.1 R1.3.3 R1.3.11 | types:1 cc:408=33→R1.3.11 | local types: none
+- owners.tsv:502 src/hooks/use-table-view.ts [V1] items: R1.0.1 R1.9.1 R1.9.3 R1.5.10 | types:1 cc:61=17→R1.5.10 | local types: none
+- owners.tsv:527 src/lib/notes-routes.ts [S] items: R1.0.1 R1.0.2 R1.3.4 R1.3.5 R1.3.6 | types:2 | local types: none
+- owners.tsv:632 src/utils/roll-requests.ts [W-b] items: R1.0.1 R1.9.1 R1.4.4 R1.4.6 | types:4 cc:305=26→R1.4.6 cc:815=18→R1.4.6 cc:881=16→R1.4.6 cc:1065=49→R1.4.6 cc:1347=23→R1.4.6 cc:1529=20→R1.4.6 | local types: none

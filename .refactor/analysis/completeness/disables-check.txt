@@ -1,0 +1,22 @@
+## directives in the tree: 430 entries in 248 files
+## files with no row: 1; rules missing from a row's column: 1; counts that differ: 0
+- jest.setup.ts: **no owners.tsv row** (unicorn/no-null×1)
+- owners.tsv:252 src/components/companions/creature-switcher.test.tsx: unicorn/no-this-outside-of-class -- ×1 (lines 1) **not in the disables column** [no-this-outside-of-class(line-level+reason):1]
+
+## kept (stays / reason / line-level): 16 file-rule pairs
+- src/components/avatar/avatar.tsx: @next/next/no-img-element ×1 (stays) lines 17
+- src/components/campaigns/campaign-ids.ts: unicorn/prefer-query-selector ×1 (stays) lines 20
+- src/components/campaigns/campaign-index.test.tsx: react/jsx-key ×1 (stays) lines 191
+- src/components/character-sheet/sheet-entry.tsx: @next/next/no-img-element ×1 (reason) lines 313 NO REASON
+- src/components/character-sheet/sheet-tiles.tsx: @next/next/no-img-element ×2 (reason) lines 236 NO REASON, 270 NO REASON
+- src/components/companions/creature-switcher.tsx: @next/next/no-img-element ×1 (reason) lines 446 NO REASON
+- src/components/game-table/chat-log.tsx: @next/next/no-img-element ×1 (reason) lines 758 NO REASON
+- src/components/game-table/game-table.companions.test.tsx: unicorn/no-this-outside-of-class ×1 (line-level+reason) lines 597
+- src/components/logo/logo.tsx: @next/next/no-img-element ×1 (reason) lines 22 NO REASON
+- src/components/notes/sortable.test.tsx: unicorn/no-this-outside-of-class ×1 (stays) lines 103
+- src/hooks/use-image-fallback.test.tsx: @next/next/no-img-element ×1 (reason) lines 13 NO REASON
+- src/mocks/fullscreen.ts: unicorn/no-this-outside-of-class ×1 (stays) lines 27
+- src/mocks/notes-server.ts: unicorn/prefer-structured-clone ×1 (reason) lines 121 NO REASON
+- src/utils/companion-row.ts: unicorn/prefer-code-point ×1 (reason) lines 106 NO REASON
+- src/utils/note-headings.test.ts: no-console ×1 (stays) lines 116
+- src/utils/slim-sheet.ts: unicorn/prefer-structured-clone ×1 (stays) lines 222
