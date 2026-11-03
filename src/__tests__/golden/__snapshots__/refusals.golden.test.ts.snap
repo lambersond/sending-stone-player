@@ -1,0 +1,6028 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`campaign schemas a Forge address with a port: campaign a Forge address with a port 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [],
+   "message": "Use your game's Forge address, like https://my-game.forge-vtt.com."
+  }
+ ]
+}"
+`;
+
+exports[`campaign schemas a secret too long: campaign a secret too long 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_big",
+   "path": [],
+   "message": "Keep the secret to 200 characters or fewer."
+  }
+ ]
+}"
+`;
+
+exports[`campaign schemas a setup of blanks: campaign a setup of blanks 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_small",
+   "path": [
+    "title"
+   ],
+   "message": "Enter the campaign's title."
+  },
+  {
+   "code": "too_small",
+   "path": [
+    "gameUrl"
+   ],
+   "message": "Enter your game's Forge address."
+  },
+  {
+   "code": "too_small",
+   "path": [
+    "secret"
+   ],
+   "message": "Use a secret of at least 12 characters."
+  }
+ ]
+}"
+`;
+
+exports[`campaign schemas a setup of nothing: campaign a setup of nothing 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "title"
+   ],
+   "message": "Enter the campaign's title."
+  },
+  {
+   "code": "invalid_type",
+   "path": [
+    "gameUrl"
+   ],
+   "message": "Enter your game's Forge address."
+  },
+  {
+   "code": "invalid_type",
+   "path": [
+    "secret"
+   ],
+   "message": "Enter a secret."
+  }
+ ]
+}"
+`;
+
+exports[`campaign schemas a setup off the Forge: campaign a setup off the Forge 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "gameUrl"
+   ],
+   "message": "Use your game's Forge address, like https://my-game.forge-vtt.com."
+  },
+  {
+   "code": "too_small",
+   "path": [
+    "secret"
+   ],
+   "message": "Use a secret of at least 12 characters."
+  }
+ ]
+}"
+`;
+
+exports[`campaign schemas a setup: campaign a setup 1`] = `
+"{
+ "success": true,
+ "data": {
+  "title": "Erebor",
+  "gameUrl": "https://my-game.forge-vtt.com",
+  "secret": "a-long-enough-secret"
+ }
+}"
+`;
+
+exports[`campaign schemas a title too long: campaign a title too long 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_big",
+   "path": [],
+   "message": "Keep the title to 100 characters or fewer."
+  }
+ ]
+}"
+`;
+
+exports[`campaign schemas the Forge itself: campaign the Forge itself 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [],
+   "message": "Use your game's Forge address, like https://my-game.forge-vtt.com."
+  }
+ ]
+}"
+`;
+
+exports[`commandsPollSchema a poll of another protocol: poll of another protocol 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "protocol"
+   ],
+   "message": "Invalid input: expected 2"
+  }
+ ]
+}"
+`;
+
+exports[`commandsPollSchema a poll taken: poll taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "protocol": 2,
+  "session": "s1",
+  "campaign": {
+   "id": "c1",
+   "title": "The Lonely Mountain"
+  }
+ }
+}"
+`;
+
+exports[`commandsPollSchema a poll with a blank title: poll with a blank title 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_small",
+   "path": [
+    "campaign",
+    "title"
+   ],
+   "message": "Too small: expected string to have >=1 characters"
+  }
+ ]
+}"
+`;
+
+exports[`commandsPollSchema a poll without a session: poll without a session 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "session"
+   ],
+   "message": "Invalid input: expected string, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`cookbookDishSchema a boon without its effect: dish a boon without its effect 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "effect"
+   ],
+   "message": "Invalid input"
+  }
+ ]
+}"
+`;
+
+exports[`cookbookDishSchema a boon: dish a boon 1`] = `
+"{
+ "success": true,
+ "data": {
+  "version": 1,
+  "dish": {
+   "id": "cmh2k8q0n0001ab12cd34ef56",
+   "recipe": "Fireberry Glazed Skewers",
+   "status": "boon",
+   "outcome": "boon",
+   "cookedOnDay": 4,
+   "consumedOnDay": 4
+  },
+  "cook": {
+   "name": "Thorin"
+  },
+  "message": "Perfectly charred with a bite of heat, leaving you feeling invincible.",
+  "effect": {
+   "name": "Fireberry Glazed Skewers (Boon)",
+   "ingredients": [
+    {
+     "name": "Fireberries",
+     "text": "Gain 3+1d6 Maximum Hit Points and resistance to fire damage."
+    }
+   ],
+   "duration": {
+    "seconds": 86400
+   },
+   "stacks": false,
+   "changes": [
+    {
+     "type": "maxHitPoints",
+     "value": 7,
+     "formula": "3+1d6"
+    },
+    {
+     "type": "damageResistance",
+     "damageType": "fire"
+    }
+   ]
+  }
+ }
+}"
+`;
+
+exports[`cookbookDishSchema a dish of a bad id: dish a dish of a bad id 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "dish",
+    "id"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\w-]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`cookbookDishSchema a standard dish with an effect: dish a standard dish with an effect 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "effect"
+   ],
+   "message": "Invalid input"
+  }
+ ]
+}"
+`;
+
+exports[`cookbookDishSchema of another version: dish of another version 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "version"
+   ],
+   "message": "Invalid input: expected 1"
+  }
+ ]
+}"
+`;
+
+exports[`cookbookDishSchema without its dish: dish without its dish 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "dish"
+   ],
+   "message": "Invalid input: expected object, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`envelopeSchema an envelope for no campaign: envelope for no campaign 1`] = `
+"{
+ "success": true,
+ "data": {
+  "protocol": 2,
+  "id": "env-1",
+  "session": "s1",
+  "sequence": null,
+  "type": "bridge.ping",
+  "time": "2026-10-04T19:30:00.000Z",
+  "world": {
+   "id": "erebor",
+   "title": "Erebor"
+  },
+  "campaign": null,
+  "data": {}
+ }
+}"
+`;
+
+exports[`envelopeSchema an envelope not an object: envelope not an object 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [],
+   "message": "Invalid input: expected object, received string"
+  }
+ ]
+}"
+`;
+
+exports[`envelopeSchema an envelope taken: envelope taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "protocol": 2,
+  "id": "env-1",
+  "session": "s1",
+  "sequence": 3,
+  "type": "bridge.heartbeat",
+  "time": "2026-10-04T19:30:00.000Z",
+  "world": {
+   "id": "erebor",
+   "title": "Erebor"
+  },
+  "campaign": {
+   "id": "camp-a",
+   "title": "The Lonely Mountain"
+  },
+  "data": {}
+ }
+}"
+`;
+
+exports[`envelopeSchema an envelope with a blank title: envelope with a blank title 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_small",
+   "path": [
+    "campaign",
+    "title"
+   ],
+   "message": "Too small: expected string to have >=1 characters"
+  }
+ ]
+}"
+`;
+
+exports[`envelopeSchema an envelope without a campaign: envelope without a campaign 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "campaign"
+   ],
+   "message": "Invalid input: expected object, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`envelopeSchema an envelope without a type: envelope without a type 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "type"
+   ],
+   "message": "Invalid input: expected string, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`foundrySettingsSchema not an object: settings not an object 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [],
+   "message": "Invalid input: expected object, received string"
+  }
+ ]
+}"
+`;
+
+exports[`foundrySettingsSchema of another format: settings of another format 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "format"
+   ],
+   "message": "Invalid input: expected 1"
+  }
+ ]
+}"
+`;
+
+exports[`foundrySettingsSchema the settings: settings the settings 1`] = `
+"{
+ "success": true,
+ "data": {
+  "format": 1,
+  "modules": [
+   {
+    "id": "lib-wrapper",
+    "title": "libWrapper",
+    "version": "1.13.2.0",
+    "active": true
+   },
+   {
+    "id": "manual-dice",
+    "title": "Manual Dice",
+    "version": null,
+    "active": false
+   }
+  ],
+  "sections": [
+   {
+    "id": "campaign",
+    "title": "This campaign",
+    "rows": [
+     {
+      "id": "rolls",
+      "label": "Players roll in the app",
+      "value": true,
+      "text": "On"
+     },
+     {
+      "id": "attacks",
+      "label": "Attacks, spells and features",
+      "value": true,
+      "text": "On"
+     },
+     {
+      "id": "prompts",
+      "label": "Save and concentration prompts",
+      "value": false,
+      "text": "Off"
+     },
+     {
+      "id": "manualDice",
+      "label": "Allow Players to enter dice results manually",
+      "value": true,
+      "text": "On",
+      "note": "Manual Dice is not enabled in this world."
+     },
+     {
+      "id": "transfers",
+      "label": "Players move items and coins",
+      "value": false,
+      "text": "Off"
+     },
+     {
+      "id": "groups",
+      "label": "Party sheets",
+      "value": 1,
+      "text": "The Company"
+     }
+    ]
+   },
+   {
+    "id": "sending-stone",
+    "title": "Sending Stone, for every campaign",
+    "rows": [
+     {
+      "id": "chatEvents",
+      "label": "Chat messages",
+      "value": true,
+      "text": "On"
+     },
+     {
+      "id": "chatScope",
+      "label": "Which messages",
+      "value": "all",
+      "text": "Every message players can see"
+     },
+     {
+      "id": "chatResults",
+      "label": "Hit/miss and save results in the app",
+      "value": "foundry",
+      "text": "Follow Foundry's visibility settings"
+     },
+     {
+      "id": "combatEvents",
+      "label": "Combat tracker",
+      "value": true,
+      "text": "On"
+     },
+     {
+      "id": "gmContent",
+      "label": "GM-only details",
+      "value": false,
+      "text": "Off"
+     }
+    ]
+   },
+   {
+    "id": "dnd5e",
+    "title": "D&D Fifth Edition",
+    "rows": [
+     {
+      "id": "attackRollVisibility",
+      "label": "Attack Result Visibility",
+      "value": "hideAC",
+      "text": "Show only results"
+     },
+     {
+      "id": "challengeVisibility",
+      "label": "Challenge Visibility",
+      "value": "player",
+      "text": "Show only from other players"
+     }
+    ]
+   }
+  ],
+  "results": [
+   {
+    "id": "hits",
+    "state": "shown",
+    "text": "Hit and miss: shown (Attack Result Visibility: Show only results)"
+   },
+   {
+    "id": "saves",
+    "state": "partial",
+    "text": "Saves: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)"
+   },
+   {
+    "id": "checks",
+    "state": "partial",
+    "text": "Checks: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)"
+   }
+  ]
+ }
+}"
+`;
+
+exports[`foundrySettingsSchema with junk lists: settings with junk lists 1`] = `
+"{
+ "success": true,
+ "data": {
+  "format": 1,
+  "modules": [],
+  "sections": [],
+  "results": []
+ }
+}"
+`;
+
+exports[`notes schemas a change without its stamp: notes a change without its stamp 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_small",
+   "path": [
+    "title"
+   ],
+   "message": "Too small: expected string to have >=1 characters"
+  },
+  {
+   "code": "invalid_type",
+   "path": [
+    "stamp"
+   ],
+   "message": "Invalid input: expected string, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas a change: notes a change 1`] = `
+"{
+ "success": true,
+ "data": {
+  "title": "Road",
+  "body": "",
+  "chapterId": null,
+  "stamp": "2026-10-04T19:00:00.000Z"
+ }
+}"
+`;
+
+exports[`notes schemas a chapter with a body: notes a chapter with a body 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "body"
+   ],
+   "message": "A chapter has none"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "chapterId"
+   ],
+   "message": "A chapter has none"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas a note naming its id: notes a note naming its id 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"id\\""
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas a preview too long: notes a preview too long 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_big",
+   "path": [
+    "body"
+   ],
+   "message": "Too big: expected string to have <=20000 characters"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas a preview: notes a preview 1`] = `
+"{
+ "success": true,
+ "data": {
+  "body": "# Road"
+ }
+}"
+`;
+
+exports[`notes schemas a resolve of neither: notes a resolve of neither 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "resolve"
+   ],
+   "message": "Invalid option: expected one of \\"mine\\"|\\"theirs\\""
+  },
+  {
+   "code": "too_small",
+   "path": [
+    "stamp"
+   ],
+   "message": "Too small: expected string to have >=1 characters"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas a resolve: notes a resolve 1`] = `
+"{
+ "success": true,
+ "data": {
+  "resolve": "mine",
+  "stamp": "2026-10-04T19:00:00.000Z"
+ }
+}"
+`;
+
+exports[`notes schemas a title of two lines: notes a title of two lines 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "title"
+   ],
+   "message": "One line"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas an entry: notes an entry 1`] = `
+"{
+ "success": true,
+ "data": {
+  "role": "entry",
+  "title": "Road",
+  "body": "On.",
+  "chapterId": null
+ }
+}"
+`;
+
+exports[`notes schemas an order naming one twice: notes an order naming one twice 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "ids"
+   ],
+   "message": "Each once"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas an order of none: notes an order of none 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "chapterId"
+   ],
+   "message": "Invalid input: expected string, received undefined"
+  },
+  {
+   "code": "too_small",
+   "path": [
+    "ids"
+   ],
+   "message": "Too small: expected array to have >=1 items"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas an order resolve without its chapter: notes an order resolve without its chapter 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "chapterId"
+   ],
+   "message": "Invalid input: expected string, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`notes schemas an order resolve: notes an order resolve 1`] = `
+"{
+ "success": true,
+ "data": {
+  "chapterId": null,
+  "resolve": "theirs",
+  "stamp": "2026-10-04T19:00:00.000Z"
+ }
+}"
+`;
+
+exports[`notes schemas an order: notes an order 1`] = `
+"{
+ "success": true,
+ "data": {
+  "chapterId": null,
+  "ids": [
+   "aaaaaaaaaaaaaaaa"
+  ],
+  "stamp": "2026-10-04T19:00:00.000Z"
+ }
+}"
+`;
+
+exports[`parseGameEvent reads bridge.heartbeat: bridge.heartbeat read 1`] = `
+"{
+ "event": "not acted on"
+}"
+`;
+
+exports[`parseGameEvent reads bridge.hello: bridge.hello read 1`] = `
+"{
+ "event": {
+  "type": "bridge.hello",
+  "data": {
+   "characters": [
+    {
+     "id": "actor-thorin",
+     "name": "Thorin Oakenshield",
+     "sheet": null,
+     "manualDice": true
+    }
+   ],
+   "groups": [],
+   "companions": [],
+   "combats": [
+    {
+     "id": "cmbt1",
+     "name": null,
+     "active": true,
+     "started": true,
+     "round": 1,
+     "combatantId": "c-boss",
+     "combatants": [
+      {
+       "id": "c-boss",
+       "name": "Goblin Boss",
+       "initiative": 19,
+       "defeated": false,
+       "character": null,
+       "playerOwned": false,
+       "disposition": "hostile"
+      },
+      {
+       "id": "c-thorin",
+       "name": "Thorin Oakenshield",
+       "initiative": 17,
+       "defeated": false,
+       "character": "actor-thorin",
+       "playerOwned": true,
+       "hp": {
+        "value": 31,
+        "max": 44,
+        "temp": 0
+       },
+       "disposition": "friendly"
+      }
+     ]
+    }
+   ],
+   "features": {
+    "rolls": {
+     "enabled": true,
+     "kinds": [
+      "skill",
+      "save"
+     ],
+     "reason": null
+    }
+   },
+   "prompts": [],
+   "sheetsApart": true,
+   "module": {
+    "id": "sending-stone",
+    "version": "0.42.1"
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads bridge.ping: bridge.ping read 1`] = `
+"{
+ "event": "not acted on"
+}"
+`;
+
+exports[`parseGameEvent reads bridge.settings: bridge.settings read 1`] = `
+"{
+ "event": {
+  "type": "bridge.settings",
+  "data": {
+   "settings": {
+    "format": 1,
+    "modules": [
+     {
+      "id": "lib-wrapper",
+      "title": "libWrapper",
+      "version": "1.13.2.0",
+      "active": true
+     },
+     {
+      "id": "manual-dice",
+      "title": "Manual Dice",
+      "version": null,
+      "active": false
+     }
+    ],
+    "sections": [
+     {
+      "id": "campaign",
+      "title": "This campaign",
+      "rows": [
+       {
+        "id": "rolls",
+        "label": "Players roll in the app",
+        "value": true,
+        "text": "On"
+       },
+       {
+        "id": "attacks",
+        "label": "Attacks, spells and features",
+        "value": true,
+        "text": "On"
+       },
+       {
+        "id": "prompts",
+        "label": "Save and concentration prompts",
+        "value": false,
+        "text": "Off"
+       },
+       {
+        "id": "manualDice",
+        "label": "Allow Players to enter dice results manually",
+        "value": true,
+        "text": "On",
+        "note": "Manual Dice is not enabled in this world."
+       },
+       {
+        "id": "transfers",
+        "label": "Players move items and coins",
+        "value": false,
+        "text": "Off"
+       },
+       {
+        "id": "groups",
+        "label": "Party sheets",
+        "value": 1,
+        "text": "The Company"
+       }
+      ]
+     },
+     {
+      "id": "sending-stone",
+      "title": "Sending Stone, for every campaign",
+      "rows": [
+       {
+        "id": "chatEvents",
+        "label": "Chat messages",
+        "value": true,
+        "text": "On"
+       },
+       {
+        "id": "chatScope",
+        "label": "Which messages",
+        "value": "all",
+        "text": "Every message players can see"
+       },
+       {
+        "id": "chatResults",
+        "label": "Hit/miss and save results in the app",
+        "value": "foundry",
+        "text": "Follow Foundry's visibility settings"
+       },
+       {
+        "id": "combatEvents",
+        "label": "Combat tracker",
+        "value": true,
+        "text": "On"
+       },
+       {
+        "id": "gmContent",
+        "label": "GM-only details",
+        "value": false,
+        "text": "Off"
+       }
+      ]
+     },
+     {
+      "id": "dnd5e",
+      "title": "D&D Fifth Edition",
+      "rows": [
+       {
+        "id": "attackRollVisibility",
+        "label": "Attack Result Visibility",
+        "value": "hideAC",
+        "text": "Show only results"
+       },
+       {
+        "id": "challengeVisibility",
+        "label": "Challenge Visibility",
+        "value": "player",
+        "text": "Show only from other players"
+       }
+      ]
+     }
+    ],
+    "results": [
+     {
+      "id": "hits",
+      "state": "shown",
+      "text": "Hit and miss: shown (Attack Result Visibility: Show only results)"
+     },
+     {
+      "id": "saves",
+      "state": "partial",
+      "text": "Saves: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)"
+     },
+     {
+      "id": "checks",
+      "state": "partial",
+      "text": "Checks: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)"
+     }
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads character.texts: character.texts read 1`] = `
+"{
+ "event": {
+  "type": "character.texts",
+  "data": {
+   "texts": {
+    "0f1a2b3c4d5e6f": "<p>A fighter.</p>"
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads character.updated: character.updated read 1`] = `
+"{
+ "event": {
+  "type": "character.updated",
+  "data": {
+   "character": {
+    "id": "actor-thorin",
+    "name": "Thorin Oakenshield",
+    "sheet": {
+     "img": "worlds/erebor/thorin.webp",
+     "level": 5,
+     "classes": [
+      {
+       "name": "Fighter",
+       "levels": 5,
+       "subclass": "Champion"
+      }
+     ],
+     "species": "Dwarf",
+     "background": "Soldier",
+     "hp": {
+      "value": 31,
+      "max": 44,
+      "temp": 0
+     },
+     "ac": 18,
+     "proficiency": 3,
+     "initiative": 1,
+     "speed": {
+      "value": 25,
+      "units": "ft"
+     },
+     "inspiration": false,
+     "abilities": [
+      {
+       "id": "str",
+       "label": "Strength",
+       "abbreviation": "STR",
+       "score": 18,
+       "mod": 4,
+       "check": 4,
+       "save": 7,
+       "saveProficient": true,
+       "checkMode": 0,
+       "saveMode": 0
+      },
+      {
+       "id": "dex",
+       "label": "Dexterity",
+       "abbreviation": "DEX",
+       "score": 12,
+       "mod": 1,
+       "check": 1,
+       "save": 1,
+       "saveProficient": false,
+       "checkMode": 0,
+       "saveMode": 0
+      },
+      {
+       "id": "con",
+       "label": "Constitution",
+       "abbreviation": "CON",
+       "score": 16,
+       "mod": 3,
+       "check": 3,
+       "save": 6,
+       "saveProficient": true,
+       "checkMode": 0,
+       "saveMode": 0
+      },
+      {
+       "id": "int",
+       "label": "Intelligence",
+       "abbreviation": "INT",
+       "score": 8,
+       "mod": -1,
+       "check": -1,
+       "save": -1,
+       "saveProficient": false,
+       "checkMode": 0,
+       "saveMode": 0
+      },
+      {
+       "id": "wis",
+       "label": "Wisdom",
+       "abbreviation": "WIS",
+       "score": 13,
+       "mod": 1,
+       "check": 1,
+       "save": 1,
+       "saveProficient": false,
+       "checkMode": 0,
+       "saveMode": 0
+      },
+      {
+       "id": "cha",
+       "label": "Charisma",
+       "abbreviation": "CHA",
+       "score": 10,
+       "mod": 0,
+       "check": 0,
+       "save": 0,
+       "saveProficient": false,
+       "checkMode": 0,
+       "saveMode": 0
+      }
+     ],
+     "skills": [
+      {
+       "id": "ath",
+       "label": "Athletics",
+       "ability": "str",
+       "total": 7,
+       "passive": 17,
+       "proficiency": 1,
+       "mode": 0
+      },
+      {
+       "id": "prc",
+       "label": "Perception",
+       "ability": "wis",
+       "total": 4,
+       "passive": 14,
+       "proficiency": 1,
+       "mode": 0
+      },
+      {
+       "id": "ste",
+       "label": "Stealth",
+       "ability": "dex",
+       "total": 1,
+       "passive": 11,
+       "proficiency": 0,
+       "mode": -1
+      }
+     ],
+     "conditions": [],
+     "features": [],
+     "effects": [],
+     "inventory": {
+      "sections": [],
+      "containers": [],
+      "currency": [],
+      "encumbrance": null,
+      "attunement": null
+     },
+     "spellcasting": null,
+     "spells": [],
+     "traits": [],
+     "deathSaves": null,
+     "details": {
+      "about": [],
+      "personality": [],
+      "appearance": null,
+      "xp": null,
+      "biography": null
+     },
+     "actions": [],
+     "favorites": []
+    }
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads chat.cleared: chat.cleared read 1`] = `
+"{
+ "event": {
+  "type": "chat.cleared",
+  "data": {}
+ }
+}"
+`;
+
+exports[`parseGameEvent reads chat.message.created: chat.message.created read 1`] = `
+"{
+ "event": {
+  "type": "chat.message.created",
+  "data": {
+   "message": {
+    "id": "m1",
+    "type": "base",
+    "timestamp": 1791140520000,
+    "speaker": {
+     "alias": "Gamemaster",
+     "actorId": null
+    },
+    "author": {
+     "id": "u-gm",
+     "name": "Gamemaster"
+    },
+    "character": null,
+    "title": null,
+    "flavor": "",
+    "text": "Roll initiative!",
+    "audience": {
+     "public": true,
+     "characters": [
+      "actor-thorin",
+      "actor-vex"
+     ]
+    },
+    "rolls": [],
+    "dnd5e": null
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads chat.message.deleted: chat.message.deleted read 1`] = `
+"{
+ "event": {
+  "type": "chat.message.deleted",
+  "data": {
+   "id": "m1"
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads chat.message.updated: chat.message.updated read 1`] = `
+"{
+ "event": {
+  "type": "chat.message.updated",
+  "data": {
+   "message": {
+    "id": "m1",
+    "type": "base",
+    "timestamp": 1791140520000,
+    "speaker": {
+     "alias": "Gamemaster",
+     "actorId": null
+    },
+    "author": {
+     "id": "u-gm",
+     "name": "Gamemaster"
+    },
+    "character": null,
+    "title": null,
+    "flavor": "",
+    "text": "Roll again!",
+    "audience": {
+     "public": true,
+     "characters": [
+      "actor-thorin",
+      "actor-vex"
+     ]
+    },
+    "rolls": [],
+    "dnd5e": null
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.combatant.added: combat.combatant.added read 1`] = `
+"{
+ "event": {
+  "type": "combat.combatant.added",
+  "data": {
+   "combatId": "cmbt1",
+   "combatant": {
+    "id": "c-wolf",
+    "name": "Wolf",
+    "initiative": 10,
+    "defeated": false,
+    "character": null,
+    "playerOwned": false
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.combatant.removed: combat.combatant.removed read 1`] = `
+"{
+ "event": {
+  "type": "combat.combatant.removed",
+  "data": {
+   "combatId": "cmbt1",
+   "combatantId": "c-wolf"
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.combatant.updated: combat.combatant.updated read 1`] = `
+"{
+ "event": {
+  "type": "combat.combatant.updated",
+  "data": {
+   "combatId": "cmbt1",
+   "combatant": {
+    "id": "c-wolf",
+    "name": "c-wolf",
+    "initiative": 10,
+    "defeated": true,
+    "character": null,
+    "playerOwned": false
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.created: combat.created read 1`] = `
+"{
+ "event": {
+  "type": "combat.created",
+  "data": {
+   "combat": {
+    "id": "cmbt1",
+    "name": null,
+    "active": true,
+    "started": false,
+    "round": 0,
+    "combatantId": "c-boss",
+    "combatants": [
+     {
+      "id": "c-boss",
+      "name": "Goblin Boss",
+      "initiative": 19,
+      "defeated": false,
+      "character": null,
+      "playerOwned": false,
+      "disposition": "hostile"
+     },
+     {
+      "id": "c-thorin",
+      "name": "Thorin Oakenshield",
+      "initiative": 17,
+      "defeated": false,
+      "character": "actor-thorin",
+      "playerOwned": true,
+      "hp": {
+       "value": 31,
+       "max": 44,
+       "temp": 0
+      },
+      "disposition": "friendly"
+     }
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.ended: combat.ended read 1`] = `
+"{
+ "event": {
+  "type": "combat.ended",
+  "data": {
+   "combat": {
+    "id": "cmbt1",
+    "name": null,
+    "active": false,
+    "started": true,
+    "round": 1,
+    "combatantId": "c-boss",
+    "combatants": [
+     {
+      "id": "c-boss",
+      "name": "Goblin Boss",
+      "initiative": 19,
+      "defeated": false,
+      "character": null,
+      "playerOwned": false,
+      "disposition": "hostile"
+     },
+     {
+      "id": "c-thorin",
+      "name": "Thorin Oakenshield",
+      "initiative": 17,
+      "defeated": false,
+      "character": "actor-thorin",
+      "playerOwned": true,
+      "hp": {
+       "value": 31,
+       "max": 44,
+       "temp": 0
+      },
+      "disposition": "friendly"
+     }
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.started: combat.started read 1`] = `
+"{
+ "event": {
+  "type": "combat.started",
+  "data": {
+   "combat": {
+    "id": "cmbt1",
+    "name": null,
+    "active": true,
+    "started": true,
+    "round": 1,
+    "combatantId": "c-boss",
+    "combatants": [
+     {
+      "id": "c-boss",
+      "name": "Goblin Boss",
+      "initiative": 19,
+      "defeated": false,
+      "character": null,
+      "playerOwned": false,
+      "disposition": "hostile"
+     },
+     {
+      "id": "c-thorin",
+      "name": "Thorin Oakenshield",
+      "initiative": 17,
+      "defeated": false,
+      "character": "actor-thorin",
+      "playerOwned": true,
+      "hp": {
+       "value": 31,
+       "max": 44,
+       "temp": 0
+      },
+      "disposition": "friendly"
+     }
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.turn: combat.turn read 1`] = `
+"{
+ "event": {
+  "type": "combat.turn",
+  "data": {
+   "combat": {
+    "id": "cmbt1",
+    "name": null,
+    "active": true,
+    "started": true,
+    "round": 1,
+    "combatantId": "c-thorin",
+    "combatants": [
+     {
+      "id": "c-boss",
+      "name": "Goblin Boss",
+      "initiative": 19,
+      "defeated": false,
+      "character": null,
+      "playerOwned": false,
+      "disposition": "hostile"
+     },
+     {
+      "id": "c-thorin",
+      "name": "Thorin Oakenshield",
+      "initiative": 17,
+      "defeated": false,
+      "character": "actor-thorin",
+      "playerOwned": true,
+      "hp": {
+       "value": 31,
+       "max": 44,
+       "temp": 0
+      },
+      "disposition": "friendly"
+     }
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads combat.updated: combat.updated read 1`] = `
+"{
+ "event": {
+  "type": "combat.updated",
+  "data": {
+   "combat": {
+    "id": "cmbt1",
+    "name": null,
+    "active": true,
+    "started": true,
+    "round": 2,
+    "combatantId": "c-boss",
+    "combatants": [
+     {
+      "id": "c-boss",
+      "name": "Goblin Boss",
+      "initiative": 19,
+      "defeated": false,
+      "character": null,
+      "playerOwned": false,
+      "disposition": "hostile"
+     },
+     {
+      "id": "c-thorin",
+      "name": "Thorin Oakenshield",
+      "initiative": 17,
+      "defeated": false,
+      "character": "actor-thorin",
+      "playerOwned": true,
+      "hp": {
+       "value": 31,
+       "max": 44,
+       "temp": 0
+      },
+      "disposition": "friendly"
+     }
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads command.result: command.result read 1`] = `
+"{
+ "event": {
+  "type": "command.result",
+  "data": {
+   "id": "req-1",
+   "status": "done",
+   "reason": null,
+   "error": null,
+   "messageId": "msg-1",
+   "visible": true,
+   "rolls": [
+    {
+     "formula": "1d20 + 4",
+     "total": 18,
+     "dice": []
+    }
+   ]
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads companion.updated: companion.updated read 1`] = `
+"{
+ "event": {
+  "type": "companion.updated",
+  "data": {
+   "companion": {
+    "key": "wolfBrakka",
+    "of": [
+     "thorin"
+    ],
+    "kind": "owned",
+    "actorId": "wolfBrakka",
+    "tokenId": null,
+    "sceneId": null,
+    "uuid": "Actor.wolfBrakka",
+    "name": "Wolf",
+    "img": "worlds/frost-road/wolf.webp",
+    "summon": null
+   },
+   "sheet": {
+    "img": "worlds/frost-road/wolf.webp",
+    "level": null,
+    "classes": [],
+    "species": null,
+    "background": null,
+    "hp": {
+     "value": 11,
+     "max": 11,
+     "temp": 0
+    },
+    "ac": 13,
+    "proficiency": 2,
+    "initiative": 2,
+    "speed": {
+     "value": 25,
+     "units": "ft"
+    },
+    "inspiration": false,
+    "abilities": [
+     {
+      "id": "str",
+      "label": "Strength",
+      "abbreviation": "STR",
+      "score": 18,
+      "mod": 4,
+      "check": 4,
+      "save": 7,
+      "saveProficient": true,
+      "checkMode": 0,
+      "saveMode": 0
+     },
+     {
+      "id": "dex",
+      "label": "Dexterity",
+      "abbreviation": "DEX",
+      "score": 12,
+      "mod": 1,
+      "check": 1,
+      "save": 1,
+      "saveProficient": false,
+      "checkMode": 0,
+      "saveMode": 0
+     },
+     {
+      "id": "con",
+      "label": "Constitution",
+      "abbreviation": "CON",
+      "score": 16,
+      "mod": 3,
+      "check": 3,
+      "save": 6,
+      "saveProficient": true,
+      "checkMode": 0,
+      "saveMode": 0
+     },
+     {
+      "id": "int",
+      "label": "Intelligence",
+      "abbreviation": "INT",
+      "score": 8,
+      "mod": -1,
+      "check": -1,
+      "save": -1,
+      "saveProficient": false,
+      "checkMode": 0,
+      "saveMode": 0
+     },
+     {
+      "id": "wis",
+      "label": "Wisdom",
+      "abbreviation": "WIS",
+      "score": 13,
+      "mod": 1,
+      "check": 1,
+      "save": 1,
+      "saveProficient": false,
+      "checkMode": 0,
+      "saveMode": 0
+     },
+     {
+      "id": "cha",
+      "label": "Charisma",
+      "abbreviation": "CHA",
+      "score": 10,
+      "mod": 0,
+      "check": 0,
+      "save": 0,
+      "saveProficient": false,
+      "checkMode": 0,
+      "saveMode": 0
+     }
+    ],
+    "skills": [
+     {
+      "id": "ath",
+      "label": "Athletics",
+      "ability": "str",
+      "total": 7,
+      "passive": 17,
+      "proficiency": 1,
+      "mode": 0
+     },
+     {
+      "id": "prc",
+      "label": "Perception",
+      "ability": "wis",
+      "total": 4,
+      "passive": 14,
+      "proficiency": 1,
+      "mode": 0
+     },
+     {
+      "id": "ste",
+      "label": "Stealth",
+      "ability": "dex",
+      "total": 1,
+      "passive": 11,
+      "proficiency": 0,
+      "mode": -1
+     }
+    ],
+    "conditions": [],
+    "features": [],
+    "effects": [],
+    "inventory": {
+     "sections": [],
+     "containers": [],
+     "currency": [],
+     "encumbrance": null,
+     "attunement": null
+    },
+    "spellcasting": null,
+    "spells": [],
+    "traits": [],
+    "deathSaves": null,
+    "details": {
+     "about": [],
+     "personality": [],
+     "appearance": null,
+     "xp": null,
+     "biography": null
+    },
+    "creature": {
+     "cr": 0.25,
+     "type": "Beast",
+     "size": "Medium",
+     "alignment": "Unaligned",
+     "important": false,
+     "legendary": null,
+     "resistance": null,
+     "lair": null,
+     "hitDice": {
+      "denomination": "d8",
+      "value": 2,
+      "max": 2
+     }
+    },
+    "actions": [
+     {
+      "id": "action",
+      "label": "Actions",
+      "actions": [
+       {
+        "id": "wolfBite",
+        "name": "Bite",
+        "img": null,
+        "type": "weapon",
+        "activation": "Action",
+        "range": null,
+        "target": null,
+        "toHit": 4,
+        "attackId": "biteAttack",
+        "save": null,
+        "damage": [
+         {
+          "formula": "1d8 + 3",
+          "type": "Slashing",
+          "healing": false
+         }
+        ],
+        "tableDamage": {
+         "normal": {
+          "critical": false,
+          "plannable": true,
+          "rolls": [
+           {
+            "formula": "1d8 + 3",
+            "type": "Slashing",
+            "dice": [
+             {
+              "faces": 8,
+              "number": 1
+             }
+            ],
+            "perDie": 1
+           }
+          ]
+         },
+         "critical": {
+          "critical": true,
+          "plannable": true,
+          "rolls": [
+           {
+            "formula": "2d8 + 3",
+            "type": "Slashing",
+            "dice": [
+             {
+              "faces": 8,
+              "number": 2
+             }
+            ],
+            "perDie": 2
+           }
+          ]
+         }
+        },
+        "uses": null,
+        "level": null,
+        "concentration": false,
+        "identified": true,
+        "text": null
+       },
+       {
+        "id": "frostBreath",
+        "name": "Frost Breath",
+        "img": null,
+        "type": "feat",
+        "activation": "Action",
+        "range": null,
+        "target": null,
+        "toHit": null,
+        "activity": {
+         "id": "frostSave",
+         "type": "save",
+         "targets": {
+          "self": false,
+          "area": true,
+          "count": null,
+          "perLevel": null,
+          "affects": null
+         }
+        },
+        "save": {
+         "ability": "DEX",
+         "dc": 12
+        },
+        "damage": [
+         {
+          "formula": "2d6",
+          "type": "Cold",
+          "healing": false
+         }
+        ],
+        "tableDamage": {
+         "normal": {
+          "critical": false,
+          "plannable": true,
+          "rolls": [
+           {
+            "formula": "2d6",
+            "type": "Cold",
+            "dice": [
+             {
+              "faces": 6,
+              "number": 2
+             }
+            ],
+            "perDie": 1
+           }
+          ]
+         },
+         "critical": null
+        },
+        "uses": {
+         "value": 0,
+         "max": 1,
+         "recovery": "Recharge [5+]",
+         "counter": {
+          "item": "frostBreath"
+         },
+         "recharge": 5
+        },
+        "level": null,
+        "concentration": false,
+        "identified": true,
+        "text": null
+       }
+      ]
+     }
+    ],
+    "favorites": []
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads companions.listed: companions.listed read 1`] = `
+"{
+ "event": {
+  "type": "companions.listed",
+  "data": {
+   "companions": [
+    {
+     "key": "wolfBrakka",
+     "of": [
+      "thorin"
+     ],
+     "kind": "owned",
+     "actorId": "wolfBrakka",
+     "tokenId": null,
+     "sceneId": null,
+     "uuid": "Actor.wolfBrakka",
+     "name": "Wolf",
+     "img": "worlds/frost-road/wolf.webp",
+     "summon": null
+    }
+   ]
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads dish.applied: dish.applied read 1`] = `
+"{
+ "event": {
+  "type": "dish.applied",
+  "data": {
+   "dish": "cmh9q2x7k0003ssdish0001",
+   "id": "cmh2k8q0n0001ab12cd34ef56",
+   "card": "Xy12ChatCardId00",
+   "outcome": "boon",
+   "characters": [
+    {
+     "actorId": "actor-thorin",
+     "name": "Thorin Oakenshield",
+     "effectId": "eff1",
+     "replaced": null,
+     "healed": 7,
+     "exhaustion": 0,
+     "skipped": []
+    }
+   ],
+   "rolled": [
+    {
+     "type": "maxHitPoints",
+     "value": 7,
+     "formula": "3+1d6"
+    }
+   ],
+   "by": {
+    "userId": "u-gm",
+    "name": "Gamemaster"
+   },
+   "at": {
+    "time": "2026-10-04T19:30:00.000Z",
+    "worldTime": 86400
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads dish.dismissed: dish.dismissed read 1`] = `
+"{
+ "event": {
+  "type": "dish.dismissed",
+  "data": {
+   "dish": "cmh9q2x7k0003ssdish0001",
+   "id": "cmh2k8q0n0001ab12cd34ef56",
+   "card": null,
+   "reason": "deleted",
+   "by": null,
+   "at": null
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads group.removed: group.removed read 1`] = `
+"{
+ "event": {
+  "type": "group.removed",
+  "data": {
+   "id": "company"
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads group.updated: group.updated read 1`] = `
+"{
+ "event": {
+  "type": "group.updated",
+  "data": {
+   "group": {
+    "id": "company",
+    "uuid": "Actor.company",
+    "name": "The Company",
+    "img": "worlds/erebor/company.webp",
+    "type": "group",
+    "primary": true,
+    "access": {
+     "thorin": "owner",
+     "vex": "observer"
+    },
+    "sheet": {
+     "members": [
+      {
+       "id": "thorin",
+       "name": "Thorin Oakenshield",
+       "img": "worlds/erebor/thorin.webp",
+       "type": "character",
+       "character": true
+      },
+      {
+       "id": "vex",
+       "name": "Vex",
+       "img": null,
+       "type": "character",
+       "character": true
+      },
+      {
+       "id": "myrtle",
+       "name": "Myrtle",
+       "img": "icons/svg/mystery-man.svg",
+       "type": "npc",
+       "character": false
+      }
+     ],
+     "description": {
+      "full": "b4c5d6e7f8091a",
+      "summary": "c5d6e7f8091a2b"
+     },
+     "inventory": {
+      "sections": [
+       {
+        "id": "loot",
+        "label": "Loot",
+        "items": [
+         {
+          "id": "map",
+          "name": "Thror's Map",
+          "img": "icons/sundries/documents/map.webp",
+          "type": "loot",
+          "quantity": 1,
+          "weight": null,
+          "price": null,
+          "equipped": null,
+          "attunement": null,
+          "attuned": false,
+          "uses": null,
+          "rarity": null,
+          "properties": [],
+          "identified": true,
+          "text": "d6e7f8091a2b3c"
+         }
+        ]
+       }
+      ],
+      "containers": [
+       {
+        "id": "chest",
+        "name": "Iron Chest",
+        "img": null,
+        "type": "container",
+        "quantity": 1,
+        "weight": null,
+        "price": null,
+        "equipped": null,
+        "attunement": null,
+        "attuned": false,
+        "uses": null,
+        "rarity": null,
+        "properties": [],
+        "identified": true,
+        "text": "e7f8091a2b3c4d",
+        "capacity": null,
+        "contents": [
+         {
+          "id": "wand",
+          "name": "Wand of Magic Missiles",
+          "img": null,
+          "type": "consumable",
+          "quantity": 1,
+          "weight": null,
+          "price": null,
+          "equipped": null,
+          "attunement": null,
+          "attuned": false,
+          "uses": {
+           "value": 5,
+           "max": 7,
+           "recovery": "Long Rest",
+           "counter": {
+            "item": "wand"
+           },
+           "spendable": true
+          },
+          "rarity": null,
+          "properties": [],
+          "identified": true,
+          "text": null
+         }
+        ]
+       }
+      ],
+      "currency": [
+       {
+        "id": "pp",
+        "label": "Platinum",
+        "abbreviation": "PP",
+        "value": 0
+       },
+       {
+        "id": "gp",
+        "label": "Gold",
+        "abbreviation": "GP",
+        "value": 1250
+       }
+      ],
+      "encumbrance": null,
+      "attunement": null
+     }
+    }
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads journal.updated: journal.updated read 1`] = `
+"{
+ "event": {
+  "type": "journal.updated",
+  "data": {
+   "kind": "party",
+   "actorId": "company",
+   "journal": {
+    "id": "companyJournal01",
+    "name": "The Iron Company: party notes",
+    "notes": [
+     {
+      "id": "roadToEreborCh01",
+      "role": "chapter",
+      "chapter": null,
+      "title": "Road to Erebor",
+      "format": 2,
+      "markdown": "",
+      "createdAt": 1792609200000,
+      "modifiedAt": 1792609200000,
+      "modifiedBy": "Vex",
+      "modifiedIn": "app",
+      "author": {
+       "actorId": "vex",
+       "gm": false,
+       "name": "Vex"
+      },
+      "rev": "00000000000001"
+     },
+     {
+      "id": "wolvesEntryVex01",
+      "role": "entry",
+      "chapter": "roadToEreborCh01",
+      "title": "Wolves",
+      "format": 2,
+      "markdown": "Three of them, *hungry*.",
+      "createdAt": 1792609260000,
+      "modifiedAt": 1792609260000,
+      "modifiedBy": "Vex",
+      "modifiedIn": "app",
+      "author": {
+       "actorId": "vex",
+       "gm": false,
+       "name": "Vex"
+      },
+      "rev": "00000000000002"
+     },
+     {
+      "id": "traitorSecretGm1",
+      "role": "entry",
+      "chapter": "roadToEreborCh01",
+      "title": "Who to trust",
+      "format": 1,
+      "html": "<p>Keep watch at night.</p>",
+      "secret": true,
+      "createdAt": 1792609320000,
+      "modifiedAt": 1792609380000,
+      "modifiedBy": "Gamemaster",
+      "modifiedIn": "foundry",
+      "author": null,
+      "rev": "00000000000003"
+     }
+    ],
+    "changed": {
+     "what": "delete",
+     "by": "Gamemaster",
+     "at": 1792609800000
+    }
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads roll.prompt.closed: roll.prompt.closed read 1`] = `
+"{
+ "event": {
+  "type": "roll.prompt.closed",
+  "data": {
+   "id": "msg1-bat1",
+   "reason": "answered"
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads roll.prompt.opened: roll.prompt.opened read 1`] = `
+"{
+ "event": {
+  "type": "roll.prompt.opened",
+  "data": {
+   "prompt": {
+    "id": "msg1-bat1",
+    "actorId": "arena-bat1",
+    "messageId": "msg1",
+    "dc": 13,
+    "label": "Burning Hands",
+    "openedAt": "2026-10-27T19:00:00.000Z",
+    "expiresAt": "2026-10-27T19:10:00.000Z",
+    "type": "save",
+    "abilities": [
+     "dex"
+    ]
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed bridge.heartbeat: bridge.heartbeat malformed 1`] = `
+"{
+ "event": "not acted on"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed bridge.hello: bridge.hello malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected array, received string\\n  → at characters"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed bridge.ping: bridge.ping malformed 1`] = `
+"{
+ "event": "not acted on"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed bridge.settings: bridge.settings malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received string"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed character.texts: character.texts malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected record, received array\\n  → at texts"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed character.updated: character.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at character.name"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed chat.cleared: chat.cleared malformed 1`] = `
+"{
+ "event": {
+  "type": "chat.cleared",
+  "data": {}
+ }
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed chat.message.created: chat.message.created malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected number, received undefined\\n  → at message.timestamp\\n✖ Invalid input: expected object, received undefined\\n  → at message.audience"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed chat.message.deleted: chat.message.deleted malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received number\\n  → at id"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed chat.message.updated: chat.message.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received null\\n  → at message"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.combatant.added: combat.combatant.added malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received undefined\\n  → at combatant"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.combatant.removed: combat.combatant.removed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at combatantId"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.combatant.updated: combat.combatant.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at combatId"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.created: combat.created malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at combat.id\\n✖ Invalid input: expected boolean, received undefined\\n  → at combat.active\\n✖ Invalid input: expected boolean, received undefined\\n  → at combat.started\\n✖ Invalid input: expected number, received undefined\\n  → at combat.round\\n✖ Invalid input: expected array, received undefined\\n  → at combat.combatants"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.ended: combat.ended malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received null"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.started: combat.started malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received undefined\\n  → at combat"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.turn: combat.turn malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected boolean, received undefined\\n  → at combat.active\\n✖ Invalid input: expected boolean, received undefined\\n  → at combat.started\\n✖ Invalid input: expected number, received undefined\\n  → at combat.round\\n✖ Invalid input: expected array, received undefined\\n  → at combat.combatants"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed combat.updated: combat.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received string\\n  → at combat"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed command.result: command.result malformed 1`] = `
+"{
+ "prettified": "✖ Invalid option: expected one of \\"done\\"|\\"failed\\"\\n  → at status"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed companion.updated: companion.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected array, received undefined\\n  → at companion.of\\n✖ Invalid option: expected one of \\"owned\\"|\\"summoned\\"\\n  → at companion.kind\\n✖ Invalid input: expected string, received undefined\\n  → at companion.actorId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.tokenId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.sceneId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.uuid\\n✖ Invalid input: expected string, received undefined\\n  → at companion.name"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed companions.listed: companions.listed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected object, received string"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed dish.applied: dish.applied malformed 1`] = `
+"{
+ "prettified": "✖ Invalid string: must match pattern /^[\\\\w-]{1,64}$/\\n  → at dish"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed dish.dismissed: dish.dismissed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at dish"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed group.removed: group.removed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid string: must match pattern /^[\\\\dA-Za-z]{1,64}$/\\n  → at id"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed group.updated: group.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid string: must match pattern /^[\\\\dA-Za-z]{1,64}$/\\n  → at group.id\\n✖ Invalid input: expected object, received undefined\\n  → at group.sheet"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed journal.updated: journal.updated malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at actorId\\n✖ Invalid input: expected object, received undefined\\n  → at journal"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed roll.prompt.closed: roll.prompt.closed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid string: must match pattern /^[A-Za-z0-9]{1,64}-[A-Za-z0-9]{1,64}$/\\n  → at id"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed roll.prompt.opened: roll.prompt.opened malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input\\n  → at prompt"
+}"
+`;
+
+exports[`rollRequestSchema refuses a ability naming a key it has none of: ability unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a ability with one field wrong: ability wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "explicit"
+   ],
+   "message": "Invalid input: expected boolean, received string"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a ask naming a key it has none of: ask unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a ask with one field wrong: ask wrong 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "ask",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "text": "0123456789abcd",
+  "link": 99
+ }
+}"
+`;
+
+exports[`rollRequestSchema refuses a attack naming a key it has none of: attack unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a attack with one field wrong: attack wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "target",
+    "combatantId"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\dA-Za-z]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a damage naming a key it has none of: damage unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a damage with one field wrong: damage wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "use"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\w-]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a death naming a key it has none of: death unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a death with one field wrong: death wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "key"
+   ],
+   "message": "Nothing to name"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a effect naming a key it has none of: effect unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a effect with one field wrong: effect wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "effect",
+    "op"
+   ],
+   "message": "Invalid option: expected one of \\"disable\\"|\\"enable\\"|\\"delete\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a endConcentration naming a key it has none of: endConcentration unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a endConcentration with one field wrong: endConcentration wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_type",
+   "path": [
+    "concentration",
+    "effect"
+   ],
+   "message": "Invalid input: expected string, received undefined"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a endEnchantment naming a key it has none of: endEnchantment unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a endEnchantment with one field wrong: endEnchantment wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "enchantment",
+    "effect"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\dA-Za-z]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a endTurn naming a key it has none of: endTurn unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a endTurn with one field wrong: endTurn wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_small",
+   "path": [
+    "turn",
+    "round"
+   ],
+   "message": "Too small: expected number to be >=1"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a favorite naming a key it has none of: favorite unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a favorite with one field wrong: favorite wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_union",
+   "path": [
+    "favorite",
+    "type"
+   ],
+   "message": "Invalid discriminator value. Expected 'item' | 'activity' | 'effect' | 'skill' | 'tool' | 'slots'"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a formula naming a key it has none of: formula unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a formula with one field wrong: formula wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "activity"
+   ],
+   "message": "An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a hitDice naming a key it has none of: hitDice unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a hitDice with one field wrong: hitDice wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_small",
+   "path": [
+    "hitDice",
+    0,
+    "count"
+   ],
+   "message": "Too small: expected number to be >=1"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "dice"
+   ],
+   "message": "Hit dice are rolled as they are, a die each, and nothing more"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a hitDie naming a key it has none of: hitDie unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a hitDie with one field wrong: hitDie wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "denomination"
+   ],
+   "message": "Invalid string: must match pattern /^d(4|6|8|10|12)$/"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "dice"
+   ],
+   "message": "It is rolled as it is, and nothing more"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a initiative naming a key it has none of: initiative unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a initiative with one field wrong: initiative wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "combatId"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\dA-Za-z]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a inspiration naming a key it has none of: inspiration unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a inspiration with one field wrong: inspiration wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "inspiration"
+   ],
+   "message": "Invalid option: expected one of \\"use\\"|\\"gain\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a itemDamage naming a key it has none of: itemDamage unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a itemDamage with one field wrong: itemDamage wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "consume"
+   ],
+   "message": "Invalid input: expected true"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a prepare naming a key it has none of: prepare unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a prepare with one field wrong: prepare wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_value",
+   "path": [
+    "prepare",
+    "op"
+   ],
+   "message": "Invalid option: expected one of \\"prepare\\"|\\"unprepare\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a recharge naming a key it has none of: recharge unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a recharge with one field wrong: recharge wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "dice"
+   ],
+   "message": "A recharge throws its one d6, and nothing more"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a remove naming a key it has none of: remove unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a remove with one field wrong: remove wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "remove",
+    "quantity"
+   ],
+   "message": "From 1 to as many as there are, or none of a stack of none"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a save naming a key it has none of: save unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a save with one field wrong: save wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "dice"
+   ],
+   "message": "The dice are not those the roll throws"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a skill naming a key it has none of: skill unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a skill with one field wrong: skill wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "key"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\w.:-]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a spellSlot naming a key it has none of: spellSlot unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a spellSlot with one field wrong: spellSlot wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_big",
+   "path": [
+    "spellSlot",
+    "from"
+   ],
+   "message": "Too big: expected number to be <=999"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a spend naming a key it has none of: spend unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a spend with one field wrong: spend wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "too_big",
+   "path": [
+    "count"
+   ],
+   "message": "Too big: expected number to be <=999"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a textDamage naming a key it has none of: textDamage unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a textDamage with one field wrong: textDamage wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "text"
+   ],
+   "message": "Invalid string: must match pattern /^[0-9a-f]{14}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a textRoll naming a key it has none of: textRoll unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a textRoll with one field wrong: textRoll wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "critical"
+   ],
+   "message": "Only a description's damage, or an action's on its own, is rolled as a critical hit's here"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a tool naming a key it has none of: tool unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a tool with one field wrong: tool wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_union",
+   "path": [
+    "mode"
+   ],
+   "message": "Invalid input"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a transfer naming a key it has none of: transfer unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a transfer with one field wrong: transfer wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "transfer",
+    "to"
+   ],
+   "message": "A move goes from one end to another"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a undoEndTurn naming a key it has none of: undoEndTurn unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a undoEndTurn with one field wrong: undoEndTurn wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "undo"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\w-]{1,64}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a use naming a key it has none of: use unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a use with one field wrong: use wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "slot"
+   ],
+   "message": "Invalid string: must match pattern /^(spell[1-9]|pact)$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a wildShape naming a key it has none of: wildShape unknown key 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "unrecognized_keys",
+   "path": [],
+   "message": "Unrecognized key: \\"character\\""
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses a wildShape with one field wrong: wildShape wrong 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "invalid_format",
+   "path": [
+    "wildShape",
+    "form"
+   ],
+   "message": "Invalid string: must match pattern /^[\\\\dA-Za-z]{16}$/"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema refuses dice the roll does not throw, and fields of another kind, in its order: many wrong at once 1`] = `
+"{
+ "success": false,
+ "issues": [
+  {
+   "code": "custom",
+   "path": [
+    "effectDice"
+   ],
+   "message": "Only a typed d20 roll names the dice its effects add"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "rerolls"
+   ],
+   "message": "Only a typed roll keeps its rerolls"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "target"
+   ],
+   "message": "Only an attack has a target"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "slot"
+   ],
+   "message": "Only an attack, a use or damage on its own casts at a slot"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "types"
+   ],
+   "message": "Only damage has kinds to choose"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "link"
+   ],
+   "message": "A link is named by its description and its number together"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "prompt"
+   ],
+   "message": "A saving throw answers what the game asks, or what a description calls for, not both"
+  },
+  {
+   "code": "custom",
+   "path": [
+    "dice"
+   ],
+   "message": "The dice are not those the roll throws"
+  }
+ ]
+}"
+`;
+
+exports[`rollRequestSchema takes a ability: ability taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "ability",
+  "key": "str",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ]
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a ask: ask taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "ask",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "text": "0123456789abcd",
+  "link": 3
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a attack: attack taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "attack",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ],
+  "item": "longsword",
+  "activity": "swing",
+  "target": {
+   "combatId": "cmbt1",
+   "combatantId": "goblin"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a damage: damage taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "damage",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 8,
+    "results": [
+     5
+    ]
+   }
+  ],
+  "use": "req-1"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a death: death taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "death",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ]
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a effect: effect taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "effect",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "effect": {
+   "op": "disable",
+   "id": "bless1"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a endConcentration: endConcentration taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "endConcentration",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "concentration": {
+   "effect": "conc1"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a endEnchantment: endEnchantment taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "endEnchantment",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "enchantment": {
+   "item": "sword",
+   "effect": "magic"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a endTurn: endTurn taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "endTurn",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "turn": {
+   "combatId": "cmbt1",
+   "round": 2,
+   "combatantId": "cThorin"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a favorite: favorite taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "favorite",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "favorite": {
+   "op": "add",
+   "type": "item",
+   "id": "rope"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a formula: formula taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "formula",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 6,
+    "results": [
+     4
+    ]
+   }
+  ],
+  "item": "lantern",
+  "activity": "glow"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a hitDice: hitDice taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "hitDice",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 10,
+    "results": [
+     3,
+     7
+    ]
+   }
+  ],
+  "hitDice": [
+   {
+    "denomination": "d10",
+    "count": 2
+   }
+  ]
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a hitDie: hitDie taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "hitDie",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 10,
+    "results": [
+     7
+    ]
+   }
+  ],
+  "denomination": "d10"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a initiative: initiative taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "initiative",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ],
+  "combatId": "cmbt1"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a inspiration: inspiration taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "inspiration",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "inspiration": "use"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a itemDamage: itemDamage taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "itemDamage",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 8,
+    "results": [
+     5
+    ]
+   }
+  ],
+  "item": "longsword",
+  "activity": "swing"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a prepare: prepare taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "prepare",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "prepare": {
+   "op": "prepare",
+   "id": "shield"
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a recharge: recharge taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "recharge",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 6,
+    "results": [
+     5
+    ]
+   }
+  ],
+  "item": "breath"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a remove: remove taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "remove",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "remove": {
+   "item": "rope",
+   "quantity": 1,
+   "held": 2
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a save: save taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "save",
+  "key": "dex",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ]
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a skill: skill taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "skill",
+  "key": "prc",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ]
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a spellSlot: spellSlot taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "spellSlot",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "spellSlot": {
+   "op": "spend",
+   "id": "spell1",
+   "from": 2
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a spend: spend taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "spend",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "counter": {
+   "item": "wand"
+  },
+  "count": 1
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a textDamage: textDamage taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "textDamage",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 6,
+    "results": [
+     4
+    ]
+   }
+  ],
+  "text": "0123456789abcd",
+  "link": 0
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a textRoll: textRoll taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "textRoll",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 4,
+    "results": [
+     2
+    ]
+   }
+  ],
+  "text": "0123456789abcd",
+  "link": 1
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a tool: tool taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "tool",
+  "key": "thief",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [
+   {
+    "faces": 20,
+    "results": [
+     14
+    ]
+   }
+  ]
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a transfer: transfer taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "transfer",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "transfer": {
+   "from": "thorin",
+   "to": "company",
+   "items": [
+    {
+     "id": "rope",
+     "quantity": 1
+    }
+   ]
+  }
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a undoEndTurn: undoEndTurn taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "undoEndTurn",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "turn": {
+   "combatId": "cmbt1",
+   "round": 2,
+   "combatantId": "cThorin"
+  },
+  "undo": "req-7"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a use: use taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "use",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "item": "fireball",
+  "activity": "blast",
+  "targets": [
+   {
+    "combatId": "cmbt1",
+    "combatantId": "goblin"
+   },
+   {
+    "combatId": "cmbt1",
+    "combatantId": "hobgoblin"
+   }
+  ],
+  "slot": "spell4"
+ }
+}"
+`;
+
+exports[`rollRequestSchema takes a wildShape: wildShape taken 1`] = `
+"{
+ "success": true,
+ "data": {
+  "kind": "wildShape",
+  "mode": 0,
+  "explicit": false,
+  "extras": [],
+  "dice": [],
+  "wildShape": {
+   "op": "transform",
+   "form": "Wolf0000000000ab"
+  }
+ }
+}"
+`;
+
+exports[`the routes that read a body a dish refuses a body as text: as text 1`] = `
+{
+  "body": "{"reason":"notJson","message":"Sending Stone takes dishes as JSON."}",
+  "calls": "[
+ {
+  "model": "cookbookLink",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "codeHash": "5c804eb6bda2eb1e96cc9bf6dd97b1aaeba2646d2dc966d63c89be902eaf81c4"
+   },
+   "select": {
+    "id": true,
+    "campaignId": true,
+    "actorId": true,
+    "characterId": true,
+    "character": {
+     "select": {
+      "campaignId": true,
+      "actorId": true
+     }
+    },
+    "campaign": {
+     "select": {
+      "dishesEnabled": true,
+      "dishVersions": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body a dish refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid","message":"Sending Stone couldn’t read this dish (not JSON)."}",
+  "calls": "[
+ {
+  "model": "cookbookLink",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "codeHash": "5c804eb6bda2eb1e96cc9bf6dd97b1aaeba2646d2dc966d63c89be902eaf81c4"
+   },
+   "select": {
+    "id": true,
+    "campaignId": true,
+    "actorId": true,
+    "characterId": true,
+    "character": {
+     "select": {
+      "campaignId": true,
+      "actorId": true
+     }
+    },
+    "campaign": {
+     "select": {
+      "dishesEnabled": true,
+      "dishVersions": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body a dish refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","message":"Sending Stone couldn’t read this dish (dish.id).","field":"dish.id"}",
+  "calls": "[
+ {
+  "model": "cookbookLink",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "codeHash": "5c804eb6bda2eb1e96cc9bf6dd97b1aaeba2646d2dc966d63c89be902eaf81c4"
+   },
+   "select": {
+    "id": true,
+    "campaignId": true,
+    "actorId": true,
+    "characterId": true,
+    "character": {
+     "select": {
+      "campaignId": true,
+      "actorId": true
+     }
+    },
+    "campaign": {
+     "select": {
+      "dishesEnabled": true,
+      "dishVersions": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body a dish refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"tooLarge","message":"This dish is larger than Sending Stone takes.","limit":32768}",
+  "calls": "[
+ {
+  "model": "cookbookLink",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "codeHash": "5c804eb6bda2eb1e96cc9bf6dd97b1aaeba2646d2dc966d63c89be902eaf81c4"
+   },
+   "select": {
+    "id": true,
+    "campaignId": true,
+    "actorId": true,
+    "characterId": true,
+    "character": {
+     "select": {
+      "campaignId": true,
+      "actorId": true
+     }
+    },
+    "campaign": {
+     "select": {
+      "dishesEnabled": true,
+      "dishVersions": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body a note changed refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body a note changed refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body a note changed refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"stamp"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body a note changed refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body a preview refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body a preview refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body a preview refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"body"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body a preview refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body an order refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body an order refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body an order refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"ids"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body an order refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body an order settled refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body an order settled refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body an order settled refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"chapterId"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body an order settled refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body companion rolls, gm refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body companion rolls, gm refuses a body malformed: malformed 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body companion rolls, gm refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body companion rolls, gm refuses a body too large: too large 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body companion rolls, player refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body companion rolls, player refuses a body malformed: malformed 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body companion rolls, player refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body companion rolls, player refuses a body too large: too large 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "companions": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body notes, gm refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body notes, gm refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body notes, gm refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"title"}",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body notes, gm refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body notes, player refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body notes, player refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body notes, player refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"body"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body notes, player refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body party notes, gm refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body party notes, gm refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body party notes, gm refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid","field":"title"}",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body party notes, gm refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body party notes, player refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body party notes, player refuses a body malformed: malformed 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body party notes, player refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body party notes, player refuses a body too large: too large 1`] = `
+{
+  "body": "{"reason":"invalid"}",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "findUnique",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "version": true,
+    "lastSeenAt": true,
+    "ownerId": true,
+    "groups": true,
+    "transfersEnabled": true,
+    "transferFeatures": true,
+    "bridgePolledAt": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+    "content-type": "application/json",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body rolls, gm refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body rolls, gm refuses a body malformed: malformed 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body rolls, gm refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body rolls, gm refuses a body too large: too large 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "campaign",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "c1",
+    "ownerId": "u-gm"
+   },
+   "select": {
+    "id": true,
+    "title": true,
+    "origin": true,
+    "characters": true
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 413,
+}
+`;
+
+exports[`the routes that read a body rolls, player refuses a body as text: as text 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 415,
+}
+`;
+
+exports[`the routes that read a body rolls, player refuses a body malformed: malformed 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body rolls, player refuses a body not one it takes: not one it takes 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 400,
+}
+`;
+
+exports[`the routes that read a body rolls, player refuses a body too large: too large 1`] = `
+{
+  "body": "",
+  "calls": "[
+ {
+  "model": "character",
+  "method": "findFirst",
+  "args": {
+   "where": {
+    "id": "char-1",
+    "userId": "u-thorin"
+   },
+   "select": {
+    "id": true,
+    "name": true,
+    "gameUrl": true,
+    "campaignTitle": true,
+    "campaignId": true,
+    "actorId": true,
+    "chatReadAt": true,
+    "manualDice": true,
+    "campaign": {
+     "select": {
+      "title": true,
+      "origin": true
+     }
+    }
+   }
+  }
+ }
+]",
+  "headers": {
+    "cache-control": "no-store",
+  },
+  "status": 413,
+}
+`;

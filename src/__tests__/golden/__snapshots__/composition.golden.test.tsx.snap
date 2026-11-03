@@ -1,0 +1,1456 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`GameTable at the gm seat: table gm 1`] = `
+"[
+ {
+  "name": "GameTable",
+  "props": {
+   "character": {
+    "id": "char-1",
+    "name": "Thorin",
+    "gameUrl": "https://my-game.forge-vtt.com",
+    "campaignTitle": "The Lonely Mountain",
+    "campaignId": "c1",
+    "actorId": "thorin"
+   },
+   "seat": {
+    "role": "gm",
+    "api": "/api/campaigns/c1/characters/thorin",
+    "key": "gm:c1:thorin"
+   },
+   "initialView": {
+    "version": 7,
+    "live": true,
+    "campaign": "{title, worldTitle}",
+    "connected": true,
+    "messages": "[1]",
+    "combat": "{id, name, started, round, currentId, combatants}",
+    "sheet": "{level, classes, species, background, hp, ac, proficiency, initiative, speed, inspiration, abilities, skills, conditions, features, effects, inventory, spellcasting, spells, traits, deathSaves, details, actions, favorites, portrait}",
+    "sheetVersion": "2026-10-04T19:00:00.000Z",
+    "rollsToTable": "[5]",
+    "rollFeatures": "[1]",
+    "groups": "[1]",
+    "companions": "undefined",
+    "gm": "{rolls}"
+   },
+   "chooseActor": "fn",
+   "deleteCharacter": "fn",
+   "markChatRead": "fn"
+  },
+  "children": [
+   {
+    "name": "CharacterPane",
+    "props": {
+     "shown": true,
+     "sharedDice": true,
+     "characterId": "gm:c1:thorin",
+     "name": "Thorin",
+     "sheet": {
+      "level": 5,
+      "classes": "[1]",
+      "species": "Dwarf",
+      "background": "Soldier",
+      "hp": "{value, max, temp}",
+      "ac": 18,
+      "proficiency": 3,
+      "initiative": 1,
+      "speed": "{value, units}",
+      "inspiration": false,
+      "abilities": "[6]",
+      "skills": "[3]",
+      "conditions": "[0]",
+      "features": "[0]",
+      "effects": "[0]",
+      "inventory": "{sections, containers, currency, encumbrance, attunement}",
+      "spellcasting": null,
+      "spells": "[0]",
+      "traits": "[0]",
+      "deathSaves": null,
+      "details": "{about, personality, appearance, xp, biography}",
+      "actions": "[0]",
+      "favorites": "[0]",
+      "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+     },
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "rollsToTable": [
+      "skill",
+      "save",
+      "attack",
+      "damage",
+      "endTurn"
+     ],
+     "rollFeatures": [
+      "modifiers"
+     ],
+     "prompts": "undefined",
+     "gmRolls": "undefined",
+     "header": "node:header",
+     "moves": "undefined",
+     "removes": false,
+     "favorites": false,
+     "effects": "undefined",
+     "wildShape": "undefined",
+     "actorId": "thorin",
+     "parties": {
+      "groups": "[1]",
+      "onOpen": "fn"
+     },
+     "manualDice": "undefined",
+     "notes": {
+      "api": "/api/campaigns/c1/characters/thorin",
+      "role": "gm",
+      "name": "Thorin",
+      "active": true
+     },
+     "cookbook": "undefined",
+     "companionNotice": false
+    },
+    "children": [
+     {
+      "name": "CharacterSheet",
+      "props": {
+       "name": "Thorin",
+       "sheet": {
+        "level": 5,
+        "classes": "[1]",
+        "species": "Dwarf",
+        "background": "Soldier",
+        "hp": "{value, max, temp}",
+        "ac": 18,
+        "proficiency": 3,
+        "initiative": 1,
+        "speed": "{value, units}",
+        "inspiration": false,
+        "abilities": "[6]",
+        "skills": "[3]",
+        "conditions": "[0]",
+        "features": "[0]",
+        "effects": "[0]",
+        "inventory": "{sections, containers, currency, encumbrance, attunement}",
+        "spellcasting": null,
+        "spells": "[0]",
+        "traits": "[0]",
+        "deathSaves": null,
+        "details": "{about, personality, appearance, xp, biography}",
+        "actions": "[0]",
+        "favorites": "[0]",
+        "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+       },
+       "combat": {
+        "id": "cmbt1",
+        "name": null,
+        "started": true,
+        "round": 1,
+        "currentId": "c-thorin",
+        "combatants": "[6]"
+       },
+       "onRoll": "fn",
+       "onRollFormula": "fn",
+       "onShowConditions": "fn",
+       "creature": "undefined",
+       "follows": "undefined",
+       "idPrefix": ""
+      },
+      "children": []
+     },
+     {
+      "name": "RollTray",
+      "props": {
+       "rolls": [],
+       "rolling": false,
+       "table": {
+        "send": "fn",
+        "sendDamage": "fn",
+        "sendFormula": "fn",
+        "sendUse": "fn",
+        "sendEnd": "fn",
+        "sendEndConcentration": "fn",
+        "sendSpend": "fn",
+        "sendInspiration": "fn",
+        "sendSpellSlot": "fn",
+        "sendTransfer": "fn",
+        "sendRemove": "fn",
+        "sendFavorite": "fn",
+        "sendEffect": "fn",
+        "sendPrepare": "fn",
+        "sendWildShape": "fn",
+        "readWildShapeForms": "fn",
+        "sendAsk": "fn",
+        "sendRecharge": "fn",
+        "offerDamage": "fn",
+        "states": {
+         "Map": "[0]"
+        },
+        "available": true,
+        "sending": true,
+        "setSending": "fn",
+        "sendsAlone": false,
+        "aloneOffered": false,
+        "aloneChoices": false,
+        "aloneOn": false,
+        "setAlone": "fn",
+        "takes": "fn",
+        "lists": "fn",
+        "sends": "fn",
+        "modifies": true,
+        "modifiesText": false,
+        "signsText": false,
+        "typedEffects": false,
+        "keptRerolls": false,
+        "areas": false,
+        "selfTargets": false,
+        "answering": {
+         "Set": "[0]"
+        },
+        "dueDamage": "fn",
+        "latestFor": "fn",
+        "dueFor": "fn",
+        "rollDamage": "fn"
+       }
+      },
+      "children": []
+     }
+    ]
+   },
+   {
+    "name": "CombatTracker",
+    "props": {
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "onOpen": "fn",
+     "keys": {
+      "Set": []
+     },
+     "ending": {
+      "turn": "{combatId, round, combatantId}",
+      "offered": false,
+      "way": "undefined",
+      "sent": "undefined",
+      "end": "fn"
+     },
+     "via": "undefined",
+     "refused": "undefined",
+     "onEnd": "fn",
+     "focusTurn": "fn"
+    },
+    "children": []
+   },
+   {
+    "name": "ChatLog",
+    "props": {
+     "messages": [
+      "{id, sentAt, speaker, side, avatar, whisper, kind, label, action, text, rolls, targets}"
+     ]
+    },
+    "children": []
+   },
+   {
+    "name": "TurnToast",
+    "props": {
+     "ending": {
+      "turn": "{combatId, round, combatantId}",
+      "offered": false,
+      "way": "undefined",
+      "sent": "undefined",
+      "end": "fn"
+     },
+     "undoing": {
+      "offer": "undefined",
+      "way": "undefined",
+      "undo": "fn"
+     },
+     "via": "undefined",
+     "held": false,
+     "combatShown": false,
+     "focusTurn": "fn",
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "header": "node:header",
+     "beside": true,
+     "onFoot": "fn"
+    },
+    "children": []
+   }
+  ]
+ }
+]"
+`;
+
+exports[`GameTable at the player seat, its companion's tab shown: table companion 1`] = `
+"[
+ {
+  "name": "GameTable",
+  "props": {
+   "character": {
+    "id": "char-1",
+    "name": "Thorin",
+    "gameUrl": "https://my-game.forge-vtt.com",
+    "campaignTitle": "The Lonely Mountain",
+    "campaignId": "c1",
+    "actorId": "thorin"
+   },
+   "initialView": {
+    "version": 7,
+    "live": true,
+    "campaign": "{title, worldTitle}",
+    "connected": true,
+    "messages": "[1]",
+    "combat": "{id, name, started, round, currentId, combatants}",
+    "sheet": "{level, classes, species, background, hp, ac, proficiency, initiative, speed, inspiration, abilities, skills, conditions, features, effects, inventory, spellcasting, spells, traits, deathSaves, details, actions, favorites, portrait}",
+    "sheetVersion": "2026-10-04T19:00:00.000Z",
+    "rollsToTable": "[5]",
+    "rollFeatures": "[1]",
+    "groups": "[1]",
+    "companions": "[1]"
+   },
+   "chooseActor": "fn",
+   "deleteCharacter": "fn",
+   "markChatRead": "fn"
+  },
+  "children": [
+   {
+    "name": "CharacterPane",
+    "props": {
+     "shown": false,
+     "sharedDice": true,
+     "characterId": "char-1",
+     "name": "Thorin",
+     "sheet": {
+      "level": 5,
+      "classes": "[1]",
+      "species": "Dwarf",
+      "background": "Soldier",
+      "hp": "{value, max, temp}",
+      "ac": 18,
+      "proficiency": 3,
+      "initiative": 1,
+      "speed": "{value, units}",
+      "inspiration": false,
+      "abilities": "[6]",
+      "skills": "[3]",
+      "conditions": "[0]",
+      "features": "[0]",
+      "effects": "[0]",
+      "inventory": "{sections, containers, currency, encumbrance, attunement}",
+      "spellcasting": null,
+      "spells": "[0]",
+      "traits": "[0]",
+      "deathSaves": null,
+      "details": "{about, personality, appearance, xp, biography}",
+      "actions": "[0]",
+      "favorites": "[0]",
+      "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+     },
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "rollsToTable": [
+      "skill",
+      "save",
+      "attack",
+      "damage",
+      "endTurn"
+     ],
+     "rollFeatures": [
+      "modifiers"
+     ],
+     "prompts": "undefined",
+     "gmRolls": "undefined",
+     "header": "node:header",
+     "moves": "undefined",
+     "removes": false,
+     "favorites": false,
+     "effects": "undefined",
+     "wildShape": "undefined",
+     "actorId": "thorin",
+     "parties": {
+      "groups": "[1]",
+      "onOpen": "fn"
+     },
+     "manualDice": "undefined",
+     "notes": {
+      "api": "/api/characters/char-1",
+      "role": "player",
+      "name": "Thorin",
+      "active": false
+     },
+     "cookbook": "undefined",
+     "companionNotice": false
+    },
+    "children": [
+     {
+      "name": "CharacterSheet",
+      "props": {
+       "name": "Thorin",
+       "sheet": {
+        "level": 5,
+        "classes": "[1]",
+        "species": "Dwarf",
+        "background": "Soldier",
+        "hp": "{value, max, temp}",
+        "ac": 18,
+        "proficiency": 3,
+        "initiative": 1,
+        "speed": "{value, units}",
+        "inspiration": false,
+        "abilities": "[6]",
+        "skills": "[3]",
+        "conditions": "[0]",
+        "features": "[0]",
+        "effects": "[0]",
+        "inventory": "{sections, containers, currency, encumbrance, attunement}",
+        "spellcasting": null,
+        "spells": "[0]",
+        "traits": "[0]",
+        "deathSaves": null,
+        "details": "{about, personality, appearance, xp, biography}",
+        "actions": "[0]",
+        "favorites": "[0]",
+        "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+       },
+       "combat": {
+        "id": "cmbt1",
+        "name": null,
+        "started": true,
+        "round": 1,
+        "currentId": "c-thorin",
+        "combatants": "[6]"
+       },
+       "onRoll": "fn",
+       "onRollFormula": "fn",
+       "onShowConditions": "fn",
+       "creature": "undefined",
+       "follows": "undefined",
+       "idPrefix": ""
+      },
+      "children": []
+     },
+     {
+      "name": "RollTray",
+      "props": {
+       "rolls": [],
+       "rolling": false,
+       "table": {
+        "send": "fn",
+        "sendDamage": "fn",
+        "sendFormula": "fn",
+        "sendUse": "fn",
+        "sendEnd": "fn",
+        "sendEndConcentration": "fn",
+        "sendSpend": "fn",
+        "sendInspiration": "fn",
+        "sendSpellSlot": "fn",
+        "sendTransfer": "fn",
+        "sendRemove": "fn",
+        "sendFavorite": "fn",
+        "sendEffect": "fn",
+        "sendPrepare": "fn",
+        "sendWildShape": "fn",
+        "readWildShapeForms": "fn",
+        "sendAsk": "fn",
+        "sendRecharge": "fn",
+        "offerDamage": "fn",
+        "states": {
+         "Map": "[0]"
+        },
+        "available": true,
+        "sending": true,
+        "setSending": "fn",
+        "sendsAlone": false,
+        "aloneOffered": false,
+        "aloneChoices": false,
+        "aloneOn": false,
+        "setAlone": "fn",
+        "takes": "fn",
+        "lists": "fn",
+        "sends": "fn",
+        "modifies": true,
+        "modifiesText": false,
+        "signsText": false,
+        "typedEffects": false,
+        "keptRerolls": false,
+        "areas": false,
+        "selfTargets": false,
+        "answering": {
+         "Set": "[0]"
+        },
+        "dueDamage": "fn",
+        "latestFor": "fn",
+        "dueFor": "fn",
+        "rollDamage": "fn"
+       }
+      },
+      "children": []
+     }
+    ]
+   },
+   {
+    "name": "CompanionPane",
+    "props": {
+     "seat": {
+      "role": "player",
+      "api": "/api/characters/char-1",
+      "key": "char-1"
+     },
+     "companion": {
+      "key": "wolfBrakka",
+      "name": "Brakka",
+      "kind": "owned"
+     },
+     "name": "Brakka",
+     "character": "Thorin",
+     "shown": true,
+     "gone": false,
+     "onPending": "fn",
+     "onBusy": "fn",
+     "onLost": "fn",
+     "header": "node:header",
+     "manualDice": "undefined"
+    },
+    "children": [
+     {
+      "name": "CharacterPane",
+      "props": {
+       "characterId": "char-1:c:wolfBrakka",
+       "name": "Brakka",
+       "sheet": {
+        "level": null,
+        "classes": "[0]",
+        "species": null,
+        "background": null,
+        "hp": "{value, max, temp}",
+        "ac": 13,
+        "proficiency": 2,
+        "initiative": 2,
+        "speed": "{value, units}",
+        "inspiration": false,
+        "abilities": "[6]",
+        "skills": "[3]",
+        "conditions": "[0]",
+        "features": "[0]",
+        "effects": "[0]",
+        "inventory": "{sections, containers, currency, encumbrance, attunement}",
+        "spellcasting": null,
+        "spells": "[0]",
+        "traits": "[0]",
+        "deathSaves": null,
+        "details": "{about, personality, appearance, xp, biography}",
+        "actions": "[1]",
+        "favorites": "[0]",
+        "creature": "{cr, type, size, alignment, important, legendary, resistance, lair, hitDice}",
+        "portrait": "https://my-game.forge-vtt.com/worlds/frost-road/wolf.webp"
+       },
+       "combat": "undefined",
+       "rollsToTable": [
+        "attack",
+        "damage",
+        "use",
+        "itemDamage",
+        "recharge"
+       ],
+       "rollFeatures": [
+        "modifiers"
+       ],
+       "prompts": "undefined",
+       "gmRolls": "undefined",
+       "header": "node:header",
+       "manualDice": "undefined",
+       "creature": {
+        "name": "Brakka",
+        "relation": "{kind, of}"
+       },
+       "shown": true,
+       "onPending": "fn",
+       "onBusy": "fn",
+       "sharedDice": true,
+       "follows": "undefined",
+       "locked": false,
+       "idPrefix": "creature-wolfBrakka-",
+       "note": false
+      },
+      "children": [
+       {
+        "name": "CharacterSheet",
+        "props": {
+         "name": "Brakka",
+         "sheet": {
+          "level": null,
+          "classes": "[0]",
+          "species": null,
+          "background": null,
+          "hp": "{value, max, temp}",
+          "ac": 13,
+          "proficiency": 2,
+          "initiative": 2,
+          "speed": "{value, units}",
+          "inspiration": false,
+          "abilities": "[6]",
+          "skills": "[3]",
+          "conditions": "[0]",
+          "features": "[0]",
+          "effects": "[0]",
+          "inventory": "{sections, containers, currency, encumbrance, attunement}",
+          "spellcasting": null,
+          "spells": "[0]",
+          "traits": "[0]",
+          "deathSaves": null,
+          "details": "{about, personality, appearance, xp, biography}",
+          "actions": "[1]",
+          "favorites": "[0]",
+          "creature": "{cr, type, size, alignment, important, legendary, resistance, lair, hitDice}",
+          "portrait": "https://my-game.forge-vtt.com/worlds/frost-road/wolf.webp"
+         },
+         "combat": "undefined",
+         "onRoll": "fn",
+         "onRollFormula": "fn",
+         "onShowConditions": "fn",
+         "creature": {
+          "name": "Brakka",
+          "relation": "{kind, of}"
+         },
+         "follows": "undefined",
+         "idPrefix": "creature-wolfBrakka-"
+        },
+        "children": []
+       },
+       {
+        "name": "RollTray",
+        "props": {
+         "rolls": [],
+         "rolling": false,
+         "table": {
+          "send": "fn",
+          "sendDamage": "fn",
+          "sendFormula": "fn",
+          "sendUse": "fn",
+          "sendEnd": "fn",
+          "sendEndConcentration": "fn",
+          "sendSpend": "fn",
+          "sendInspiration": "fn",
+          "sendSpellSlot": "fn",
+          "sendTransfer": "fn",
+          "sendRemove": "fn",
+          "sendFavorite": "fn",
+          "sendEffect": "fn",
+          "sendPrepare": "fn",
+          "sendWildShape": "fn",
+          "readWildShapeForms": "fn",
+          "sendAsk": "fn",
+          "sendRecharge": "fn",
+          "offerDamage": "fn",
+          "states": {
+           "Map": "[0]"
+          },
+          "available": true,
+          "sending": true,
+          "setSending": "fn",
+          "sendsAlone": false,
+          "aloneOffered": true,
+          "aloneChoices": false,
+          "aloneOn": false,
+          "setAlone": "fn",
+          "takes": "fn",
+          "lists": "fn",
+          "sends": "fn",
+          "modifies": true,
+          "modifiesText": false,
+          "signsText": false,
+          "typedEffects": false,
+          "keptRerolls": false,
+          "areas": false,
+          "selfTargets": false,
+          "answering": {
+           "Set": "[0]"
+          },
+          "dueDamage": "fn",
+          "latestFor": "fn",
+          "dueFor": "fn",
+          "rollDamage": "fn"
+         }
+        },
+        "children": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "CombatTracker",
+    "props": {
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "onOpen": "fn",
+     "keys": {
+      "Set": [
+       "wolfBrakka"
+      ]
+     },
+     "ending": {
+      "turn": "{combatId, round, combatantId}",
+      "offered": false,
+      "way": "undefined",
+      "sent": "undefined",
+      "end": "fn"
+     },
+     "via": "undefined",
+     "refused": "undefined",
+     "onEnd": "fn",
+     "focusTurn": "fn"
+    },
+    "children": []
+   },
+   {
+    "name": "ChatLog",
+    "props": {
+     "messages": [
+      "{id, sentAt, speaker, side, avatar, whisper, kind, label, action, text, rolls, targets}"
+     ]
+    },
+    "children": []
+   },
+   {
+    "name": "TurnToast",
+    "props": {
+     "ending": {
+      "turn": "{combatId, round, combatantId}",
+      "offered": false,
+      "way": "undefined",
+      "sent": "undefined",
+      "end": "fn"
+     },
+     "undoing": {
+      "offer": "undefined",
+      "way": "undefined",
+      "undo": "fn"
+     },
+     "via": "undefined",
+     "held": false,
+     "combatShown": false,
+     "focusTurn": "fn",
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "header": "node:header",
+     "beside": true,
+     "onFoot": "fn"
+    },
+    "children": []
+   }
+  ]
+ }
+]"
+`;
+
+exports[`GameTable at the player seat: table player 1`] = `
+"[
+ {
+  "name": "GameTable",
+  "props": {
+   "character": {
+    "id": "char-1",
+    "name": "Thorin",
+    "gameUrl": "https://my-game.forge-vtt.com",
+    "campaignTitle": "The Lonely Mountain",
+    "campaignId": "c1",
+    "actorId": "thorin"
+   },
+   "seat": "undefined",
+   "initialView": {
+    "version": 7,
+    "live": true,
+    "campaign": "{title, worldTitle}",
+    "connected": true,
+    "messages": "[1]",
+    "combat": "{id, name, started, round, currentId, combatants}",
+    "sheet": "{level, classes, species, background, hp, ac, proficiency, initiative, speed, inspiration, abilities, skills, conditions, features, effects, inventory, spellcasting, spells, traits, deathSaves, details, actions, favorites, portrait}",
+    "sheetVersion": "2026-10-04T19:00:00.000Z",
+    "rollsToTable": "[5]",
+    "rollFeatures": "[1]",
+    "groups": "[1]",
+    "companions": "[1]"
+   },
+   "chooseActor": "fn",
+   "deleteCharacter": "fn",
+   "markChatRead": "fn"
+  },
+  "children": [
+   {
+    "name": "CharacterPane",
+    "props": {
+     "shown": true,
+     "sharedDice": true,
+     "characterId": "char-1",
+     "name": "Thorin",
+     "sheet": {
+      "level": 5,
+      "classes": "[1]",
+      "species": "Dwarf",
+      "background": "Soldier",
+      "hp": "{value, max, temp}",
+      "ac": 18,
+      "proficiency": 3,
+      "initiative": 1,
+      "speed": "{value, units}",
+      "inspiration": false,
+      "abilities": "[6]",
+      "skills": "[3]",
+      "conditions": "[0]",
+      "features": "[0]",
+      "effects": "[0]",
+      "inventory": "{sections, containers, currency, encumbrance, attunement}",
+      "spellcasting": null,
+      "spells": "[0]",
+      "traits": "[0]",
+      "deathSaves": null,
+      "details": "{about, personality, appearance, xp, biography}",
+      "actions": "[0]",
+      "favorites": "[0]",
+      "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+     },
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "rollsToTable": [
+      "skill",
+      "save",
+      "attack",
+      "damage",
+      "endTurn"
+     ],
+     "rollFeatures": [
+      "modifiers"
+     ],
+     "prompts": "undefined",
+     "gmRolls": "undefined",
+     "header": "node:header",
+     "moves": "undefined",
+     "removes": false,
+     "favorites": false,
+     "effects": "undefined",
+     "wildShape": "undefined",
+     "actorId": "thorin",
+     "parties": {
+      "groups": "[1]",
+      "onOpen": "fn"
+     },
+     "manualDice": "undefined",
+     "notes": {
+      "api": "/api/characters/char-1",
+      "role": "player",
+      "name": "Thorin",
+      "active": true
+     },
+     "cookbook": "undefined",
+     "companionNotice": false
+    },
+    "children": [
+     {
+      "name": "CharacterSheet",
+      "props": {
+       "name": "Thorin",
+       "sheet": {
+        "level": 5,
+        "classes": "[1]",
+        "species": "Dwarf",
+        "background": "Soldier",
+        "hp": "{value, max, temp}",
+        "ac": 18,
+        "proficiency": 3,
+        "initiative": 1,
+        "speed": "{value, units}",
+        "inspiration": false,
+        "abilities": "[6]",
+        "skills": "[3]",
+        "conditions": "[0]",
+        "features": "[0]",
+        "effects": "[0]",
+        "inventory": "{sections, containers, currency, encumbrance, attunement}",
+        "spellcasting": null,
+        "spells": "[0]",
+        "traits": "[0]",
+        "deathSaves": null,
+        "details": "{about, personality, appearance, xp, biography}",
+        "actions": "[0]",
+        "favorites": "[0]",
+        "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+       },
+       "combat": {
+        "id": "cmbt1",
+        "name": null,
+        "started": true,
+        "round": 1,
+        "currentId": "c-thorin",
+        "combatants": "[6]"
+       },
+       "onRoll": "fn",
+       "onRollFormula": "fn",
+       "onShowConditions": "fn",
+       "creature": "undefined",
+       "follows": "undefined",
+       "idPrefix": ""
+      },
+      "children": []
+     },
+     {
+      "name": "RollTray",
+      "props": {
+       "rolls": [],
+       "rolling": false,
+       "table": {
+        "send": "fn",
+        "sendDamage": "fn",
+        "sendFormula": "fn",
+        "sendUse": "fn",
+        "sendEnd": "fn",
+        "sendEndConcentration": "fn",
+        "sendSpend": "fn",
+        "sendInspiration": "fn",
+        "sendSpellSlot": "fn",
+        "sendTransfer": "fn",
+        "sendRemove": "fn",
+        "sendFavorite": "fn",
+        "sendEffect": "fn",
+        "sendPrepare": "fn",
+        "sendWildShape": "fn",
+        "readWildShapeForms": "fn",
+        "sendAsk": "fn",
+        "sendRecharge": "fn",
+        "offerDamage": "fn",
+        "states": {
+         "Map": "[0]"
+        },
+        "available": true,
+        "sending": true,
+        "setSending": "fn",
+        "sendsAlone": false,
+        "aloneOffered": false,
+        "aloneChoices": false,
+        "aloneOn": false,
+        "setAlone": "fn",
+        "takes": "fn",
+        "lists": "fn",
+        "sends": "fn",
+        "modifies": true,
+        "modifiesText": false,
+        "signsText": false,
+        "typedEffects": false,
+        "keptRerolls": false,
+        "areas": false,
+        "selfTargets": false,
+        "answering": {
+         "Set": "[0]"
+        },
+        "dueDamage": "fn",
+        "latestFor": "fn",
+        "dueFor": "fn",
+        "rollDamage": "fn"
+       }
+      },
+      "children": []
+     }
+    ]
+   },
+   {
+    "name": "CombatTracker",
+    "props": {
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "onOpen": "fn",
+     "keys": {
+      "Set": [
+       "wolfBrakka"
+      ]
+     },
+     "ending": {
+      "turn": "{combatId, round, combatantId}",
+      "offered": false,
+      "way": "undefined",
+      "sent": "undefined",
+      "end": "fn"
+     },
+     "via": "undefined",
+     "refused": "undefined",
+     "onEnd": "fn",
+     "focusTurn": "fn"
+    },
+    "children": []
+   },
+   {
+    "name": "ChatLog",
+    "props": {
+     "messages": [
+      "{id, sentAt, speaker, side, avatar, whisper, kind, label, action, text, rolls, targets}"
+     ]
+    },
+    "children": []
+   },
+   {
+    "name": "TurnToast",
+    "props": {
+     "ending": {
+      "turn": "{combatId, round, combatantId}",
+      "offered": false,
+      "way": "undefined",
+      "sent": "undefined",
+      "end": "fn"
+     },
+     "undoing": {
+      "offer": "undefined",
+      "way": "undefined",
+      "undo": "fn"
+     },
+     "via": "undefined",
+     "held": false,
+     "combatShown": false,
+     "focusTurn": "fn",
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "header": "node:header",
+     "beside": true,
+     "onFoot": "fn"
+    },
+    "children": []
+   }
+  ]
+ }
+]"
+`;
+
+exports[`the panes and cards CharacterPane: character pane 1`] = `
+"[
+ {
+  "name": "CharacterPane",
+  "props": {
+   "characterId": "char-1",
+   "name": "Thorin Oakenshield",
+   "sheet": {
+    "level": 5,
+    "classes": "[1]",
+    "species": "Dwarf",
+    "background": "Soldier",
+    "hp": "{value, max, temp}",
+    "ac": 18,
+    "proficiency": 3,
+    "initiative": 1,
+    "speed": "{value, units}",
+    "inspiration": false,
+    "abilities": "[6]",
+    "skills": "[3]",
+    "conditions": "[3]",
+    "features": "[2]",
+    "effects": "[2]",
+    "inventory": "{sections, containers, currency, encumbrance, attunement}",
+    "spellcasting": "{ability, dc, attack, classes}",
+    "spells": "[4]",
+    "traits": "[3]",
+    "deathSaves": "{success, failure}",
+    "details": "{about, personality, appearance, xp, biography}",
+    "actions": "[4]",
+    "favorites": "[0]",
+    "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+   },
+   "combat": {
+    "id": "cmbt1",
+    "name": null,
+    "started": true,
+    "round": 1,
+    "currentId": "c-thorin",
+    "combatants": "[6]"
+   },
+   "rollsToTable": [
+    "skill",
+    "attack",
+    "damage"
+   ],
+   "rollFeatures": [
+    "modifiers"
+   ]
+  },
+  "children": [
+   {
+    "name": "CharacterSheet",
+    "props": {
+     "name": "Thorin Oakenshield",
+     "sheet": {
+      "level": 5,
+      "classes": "[1]",
+      "species": "Dwarf",
+      "background": "Soldier",
+      "hp": "{value, max, temp}",
+      "ac": 18,
+      "proficiency": 3,
+      "initiative": 1,
+      "speed": "{value, units}",
+      "inspiration": false,
+      "abilities": "[6]",
+      "skills": "[3]",
+      "conditions": "[3]",
+      "features": "[2]",
+      "effects": "[2]",
+      "inventory": "{sections, containers, currency, encumbrance, attunement}",
+      "spellcasting": "{ability, dc, attack, classes}",
+      "spells": "[4]",
+      "traits": "[3]",
+      "deathSaves": "{success, failure}",
+      "details": "{about, personality, appearance, xp, biography}",
+      "actions": "[4]",
+      "favorites": "[0]",
+      "portrait": "https://my-game.forge-vtt.com/worlds/erebor/thorin.webp"
+     },
+     "combat": {
+      "id": "cmbt1",
+      "name": null,
+      "started": true,
+      "round": 1,
+      "currentId": "c-thorin",
+      "combatants": "[6]"
+     },
+     "onRoll": "fn",
+     "onRollFormula": "fn",
+     "onShowConditions": "fn",
+     "creature": "undefined",
+     "follows": "undefined",
+     "idPrefix": ""
+    },
+    "children": []
+   },
+   {
+    "name": "RollTray",
+    "props": {
+     "rolls": [],
+     "rolling": false,
+     "table": {
+      "send": "fn",
+      "sendDamage": "fn",
+      "sendFormula": "fn",
+      "sendUse": "fn",
+      "sendEnd": "fn",
+      "sendEndConcentration": "fn",
+      "sendSpend": "fn",
+      "sendInspiration": "fn",
+      "sendSpellSlot": "fn",
+      "sendTransfer": "fn",
+      "sendRemove": "fn",
+      "sendFavorite": "fn",
+      "sendEffect": "fn",
+      "sendPrepare": "fn",
+      "sendWildShape": "fn",
+      "readWildShapeForms": "fn",
+      "sendAsk": "fn",
+      "sendRecharge": "fn",
+      "offerDamage": "fn",
+      "states": {
+       "Map": "[0]"
+      },
+      "available": true,
+      "sending": true,
+      "setSending": "fn",
+      "sendsAlone": false,
+      "aloneOffered": false,
+      "aloneChoices": false,
+      "aloneOn": false,
+      "setAlone": "fn",
+      "takes": "fn",
+      "lists": "fn",
+      "sends": "fn",
+      "modifies": true,
+      "modifiesText": false,
+      "signsText": false,
+      "typedEffects": false,
+      "keptRerolls": false,
+      "areas": false,
+      "selfTargets": false,
+      "answering": {
+       "Set": "[0]"
+      },
+      "dueDamage": "fn",
+      "latestFor": "fn",
+      "dueFor": "fn",
+      "rollDamage": "fn"
+     }
+    },
+    "children": []
+   }
+  ]
+ }
+]"
+`;
+
+exports[`the panes and cards CompanionPane: companion pane 1`] = `
+"[
+ {
+  "name": "CompanionPane",
+  "props": {
+   "seat": {
+    "role": "player",
+    "api": "/api/characters/char-1",
+    "key": "char-1"
+   },
+   "companion": {
+    "key": "wolfBrakka",
+    "name": "Brakka",
+    "kind": "owned"
+   },
+   "name": "Brakka",
+   "character": "Thorin",
+   "shown": true,
+   "gone": false
+  },
+  "children": [
+   {
+    "name": "CharacterPane",
+    "props": {
+     "characterId": "char-1:c:wolfBrakka",
+     "name": "Brakka",
+     "sheet": {
+      "level": null,
+      "classes": "[0]",
+      "species": null,
+      "background": null,
+      "hp": "{value, max, temp}",
+      "ac": 13,
+      "proficiency": 2,
+      "initiative": 2,
+      "speed": "{value, units}",
+      "inspiration": false,
+      "abilities": "[6]",
+      "skills": "[3]",
+      "conditions": "[0]",
+      "features": "[0]",
+      "effects": "[0]",
+      "inventory": "{sections, containers, currency, encumbrance, attunement}",
+      "spellcasting": null,
+      "spells": "[0]",
+      "traits": "[0]",
+      "deathSaves": null,
+      "details": "{about, personality, appearance, xp, biography}",
+      "actions": "[1]",
+      "favorites": "[0]",
+      "creature": "{cr, type, size, alignment, important, legendary, resistance, lair, hitDice}",
+      "portrait": "https://my-game.forge-vtt.com/worlds/frost-road/wolf.webp"
+     },
+     "combat": "undefined",
+     "rollsToTable": [
+      "attack",
+      "damage",
+      "use",
+      "itemDamage",
+      "recharge"
+     ],
+     "rollFeatures": [
+      "modifiers"
+     ],
+     "prompts": "undefined",
+     "gmRolls": "undefined",
+     "header": "undefined",
+     "manualDice": "undefined",
+     "creature": {
+      "name": "Brakka",
+      "relation": "{kind, of}"
+     },
+     "shown": true,
+     "onPending": "undefined",
+     "onBusy": "undefined",
+     "sharedDice": true,
+     "follows": "undefined",
+     "locked": false,
+     "idPrefix": "creature-wolfBrakka-",
+     "note": false
+    },
+    "children": [
+     {
+      "name": "CharacterSheet",
+      "props": {
+       "name": "Brakka",
+       "sheet": {
+        "level": null,
+        "classes": "[0]",
+        "species": null,
+        "background": null,
+        "hp": "{value, max, temp}",
+        "ac": 13,
+        "proficiency": 2,
+        "initiative": 2,
+        "speed": "{value, units}",
+        "inspiration": false,
+        "abilities": "[6]",
+        "skills": "[3]",
+        "conditions": "[0]",
+        "features": "[0]",
+        "effects": "[0]",
+        "inventory": "{sections, containers, currency, encumbrance, attunement}",
+        "spellcasting": null,
+        "spells": "[0]",
+        "traits": "[0]",
+        "deathSaves": null,
+        "details": "{about, personality, appearance, xp, biography}",
+        "actions": "[1]",
+        "favorites": "[0]",
+        "creature": "{cr, type, size, alignment, important, legendary, resistance, lair, hitDice}",
+        "portrait": "https://my-game.forge-vtt.com/worlds/frost-road/wolf.webp"
+       },
+       "combat": "undefined",
+       "onRoll": "fn",
+       "onRollFormula": "fn",
+       "onShowConditions": "fn",
+       "creature": {
+        "name": "Brakka",
+        "relation": "{kind, of}"
+       },
+       "follows": "undefined",
+       "idPrefix": "creature-wolfBrakka-"
+      },
+      "children": []
+     },
+     {
+      "name": "RollTray",
+      "props": {
+       "rolls": [],
+       "rolling": false,
+       "table": {
+        "send": "fn",
+        "sendDamage": "fn",
+        "sendFormula": "fn",
+        "sendUse": "fn",
+        "sendEnd": "fn",
+        "sendEndConcentration": "fn",
+        "sendSpend": "fn",
+        "sendInspiration": "fn",
+        "sendSpellSlot": "fn",
+        "sendTransfer": "fn",
+        "sendRemove": "fn",
+        "sendFavorite": "fn",
+        "sendEffect": "fn",
+        "sendPrepare": "fn",
+        "sendWildShape": "fn",
+        "readWildShapeForms": "fn",
+        "sendAsk": "fn",
+        "sendRecharge": "fn",
+        "offerDamage": "fn",
+        "states": {
+         "Map": "[0]"
+        },
+        "available": true,
+        "sending": true,
+        "setSending": "fn",
+        "sendsAlone": false,
+        "aloneOffered": true,
+        "aloneChoices": false,
+        "aloneOn": false,
+        "setAlone": "fn",
+        "takes": "fn",
+        "lists": "fn",
+        "sends": "fn",
+        "modifies": true,
+        "modifiesText": false,
+        "signsText": false,
+        "typedEffects": false,
+        "keptRerolls": false,
+        "areas": false,
+        "selfTargets": false,
+        "answering": {
+         "Set": "[0]"
+        },
+        "dueDamage": "fn",
+        "latestFor": "fn",
+        "dueFor": "fn",
+        "rollDamage": "fn"
+       }
+      },
+      "children": []
+     }
+    ]
+   }
+  ]
+ }
+]"
+`;
+
+exports[`the panes and cards JournalCard: journal card 1`] = `
+"[
+ {
+  "name": "JournalCard",
+  "props": {
+   "api": "/api/characters/char-1",
+   "role": "player",
+   "kind": "personal",
+   "name": "Thorin",
+   "active": true,
+   "look": "sheet"
+  },
+  "children": []
+ }
+]"
+`;
+
+exports[`the panes and cards PartySheet: party sheet 1`] = `
+"[
+ {
+  "name": "PartySheet",
+  "props": {
+   "api": "/api/characters/char-1/party/company",
+   "role": "player",
+   "view": {
+    "version": 5,
+    "live": true,
+    "campaign": "{title}",
+    "group": "{id, uuid, name, img, type, primary, access, portrait}"
+   },
+   "ownSheetHref": "/characters/char-1"
+  },
+  "children": []
+ }
+]"
+`;

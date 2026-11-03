@@ -1,0 +1,2113 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`End Turn and Undo at the gm seat: end turn gm 1`] = `
+[
+  {
+    "body": "{"kind":"endTurn","turn":{"combatId":"cmbt1","round":1,"combatantId":"c-thorin"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+  {
+    "body": "{"kind":"undoEndTurn","undo":"req-1","turn":{"combatId":"cmbt1","round":1,"combatantId":"c-brakka"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-2",
+  },
+]
+`;
+
+exports[`End Turn and Undo at the player seat: end turn player 1`] = `
+[
+  {
+    "body": "{"kind":"endTurn","turn":{"combatId":"cmbt1","round":1,"combatantId":"c-thorin"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": "{"kind":"undoEndTurn","undo":"req-1","turn":{"combatId":"cmbt1","round":1,"combatantId":"c-brakka"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+]
+`;
+
+exports[`rolls from the pane Heroic Inspiration gained: inspiration 1`] = `
+[
+  {
+    "body": "{"kind":"inspiration","inspiration":"gain","mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a companion's own view, then its attack, at its own routes: companion attack 1`] = `
+[
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/companions/wolfBrakka/table",
+  },
+  {
+    "body": "{"kind":"attack","item":"wolfBite","activity":"biteAttack","target":{"combatId":"cmbt1","combatantId":"c-goblin"},"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/companions/wolfBrakka/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/companions/wolfBrakka/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a concentration ended: endConcentration 1`] = `
+[
+  {
+    "body": "{"kind":"endConcentration","concentration":{"effect":"concBless0001"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a death saving throw: death 1`] = `
+[
+  {
+    "body": "{"kind":"death","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a description's save, ask, damage and roll, with the description read first: described 1`] = `
+[
+  {
+    "body": undefined,
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-described/texts/1a2b3c4d5e6f70",
+  },
+  {
+    "body": "{"kind":"save","key":"str","text":"1a2b3c4d5e6f70","link":0,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls",
+  },
+  {
+    "body": "{"kind":"ask","text":"1a2b3c4d5e6f70","link":0,"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls",
+  },
+  {
+    "body": "{"kind":"textDamage","text":"1a2b3c4d5e6f70","link":1,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":6,"results":[2,2]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls",
+  },
+  {
+    "body": "{"kind":"textRoll","text":"1a2b3c4d5e6f70","link":2,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":4,"results":[2]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-described/rolls/req-4",
+  },
+]
+`;
+
+exports[`rolls from the pane a hit die: hitDie 1`] = `
+[
+  {
+    "body": "{"kind":"hitDie","denomination":"d10","mode":0,"explicit":false,"extras":[],"dice":[{"faces":10,"results":[3]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a saving throw at the gm seat: save gm 1`] = `
+[
+  {
+    "body": "{"kind":"save","key":"str","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}],"label":"Strength saving throw"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a saving throw at the player seat: save player 1`] = `
+[
+  {
+    "body": "{"kind":"save","key":"str","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a skill check: skill 1`] = `
+[
+  {
+    "body": "{"kind":"skill","key":"ath","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane a use at those ticked in its area, at the slot chosen: use in an area 1`] = `
+[
+  {
+    "body": "{"kind":"use","item":"hands","activity":"handsSave","targets":[{"combatId":"cmbt1","combatantId":"c-goblin"}],"slot":"spell1","mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane an ability check: ability 1`] = `
+[
+  {
+    "body": "{"kind":"ability","key":"str","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane an attack at a target, then its damage, at the gm seat: attack and damage gm 1`] = `
+[
+  {
+    "body": "{"kind":"attack","item":"warhammer","activity":"warhammerAttack","target":{"combatId":"cmbt1","combatantId":"c-goblin"},"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}],"label":"Warhammer attack"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+  {
+    "body": "{"kind":"damage","use":"req-1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[2]}],"label":"Warhammer damage"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-2",
+  },
+]
+`;
+
+exports[`rolls from the pane an attack at a target, then its damage, at the player seat: attack and damage player 1`] = `
+[
+  {
+    "body": "{"kind":"attack","item":"warhammer","activity":"warhammerAttack","target":{"combatId":"cmbt1","combatantId":"c-goblin"},"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": "{"kind":"damage","use":"req-1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[2]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+]
+`;
+
+exports[`rolls from the pane an attack with advantage at no one, out of combat, then its maximum damage: attack with advantage 1`] = `
+[
+  {
+    "body": "{"kind":"attack","item":"warhammer","activity":"warhammerAttack","target":null,"mode":1,"explicit":true,"extras":[],"dice":[{"faces":20,"results":[6,4]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": "{"kind":"damage","use":"req-1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[8]}],"modifiers":{"maximize":true}}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+]
+`;
+
+exports[`rolls from the pane charges spent: spend 1`] = `
+[
+  {
+    "body": "{"kind":"spend","counter":{"item":"sorcery"},"count":1,"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane damage on its own, with its choices, from a chip, its switch on: itemDamage 1`] = `
+[
+  {
+    "body": "{"kind":"itemDamage","item":"battleaxe","activity":"axeAttack","attackMode":"twoHanded","mode":0,"explicit":false,"extras":[],"dice":[{"faces":10,"results":[3]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`rolls from the pane initiative for the combat: initiative 1`] = `
+[
+  {
+    "body": "{"kind":"initiative","combatId":"cmbt1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`the journal backs off while reads fail, and stops once the book is gone: journal backoff 1`] = `
+{
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company/notes",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company/notes?version=3&live=1",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company/notes?version=3&live=1",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company/notes?version=3&live=1",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company/notes?version=3&live=1",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company/notes?version=3&live=1",
+    },
+  ],
+  "times": [
+    0,
+    3000,
+    9000,
+    21000,
+    45000,
+    75000,
+  ],
+}
+`;
+
+exports[`the journal reads, writes each kind and previews, as the server answers each: journal 1`] = `
+{
+  "said": [
+    {
+      "id": "newNote00000001",
+      "ok": true,
+      "stamp": "w:1",
+    },
+    {
+      "ok": true,
+      "stamp": "n:2",
+    },
+    {
+      "ok": false,
+      "reason": "changed",
+    },
+    {
+      "ok": false,
+      "reason": "network",
+    },
+    {
+      "ok": true,
+      "stamp": "o:1",
+    },
+    {
+      "ok": true,
+      "stamp": "o:2",
+    },
+    {
+      "headings": [
+        1,
+      ],
+      "html": "<h1>Road</h1>",
+    },
+  ],
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes",
+    },
+    {
+      "body": "{"role":"entry","title":"Road","body":"On.","chapterId":"sessionChapter01"}",
+      "cache": "no-store",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "POST",
+      "url": "/api/characters/char-1/notes",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes?version=3&live=1",
+    },
+    {
+      "body": "{"title":"The goblin cave","body":"Loot","chapterId":null,"stamp":"n:1"}",
+      "cache": "no-store",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "PATCH",
+      "url": "/api/characters/char-1/notes/goblinCaveNote01",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes?version=4&live=1",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "DELETE",
+      "url": "/api/characters/char-1/notes/goblinCaveNote01?stamp=n%3A1",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes?version=4&live=1",
+    },
+    {
+      "body": "{"resolve":"mine","stamp":"n:1"}",
+      "cache": "no-store",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "PATCH",
+      "url": "/api/characters/char-1/notes/goblinCaveNote01",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes?version=4&live=1",
+    },
+    {
+      "body": "{"chapterId":"sessionChapter01","ids":["goblinCaveNote01"],"stamp":"o:0"}",
+      "cache": "no-store",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "PUT",
+      "url": "/api/characters/char-1/notes/order",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes?version=4&live=1",
+    },
+    {
+      "body": "{"chapterId":null,"resolve":"theirs","stamp":"o:0"}",
+      "cache": "no-store",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "PATCH",
+      "url": "/api/characters/char-1/notes/order",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/notes?version=4&live=1",
+    },
+    {
+      "body": "{"body":"# Road"}",
+      "cache": "no-store",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "POST",
+      "url": "/api/characters/char-1/notes/preview",
+    },
+  ],
+}
+`;
+
+exports[`the party sheet, companion view and cookbook polls the companion view, read, unchanged, then gone: companion view 1`] = `
+{
+  "gone": true,
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/companions/wolfBrakka/table",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/companions/wolfBrakka/table?version=7&live=1&rolls=attack%2Cdamage%2Cuse%2CitemDamage%2Crecharge%3Bmodifiers&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/companions/wolfBrakka/table?version=7&live=1&rolls=attack%2Cdamage%2Cuse%2CitemDamage%2Crecharge%3Bmodifiers&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+  ],
+}
+`;
+
+exports[`the party sheet, companion view and cookbook polls the cookbook, read, unchanged, then failing: cookbook 1`] = `
+[
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char%201/cookbook",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char%201/cookbook?version=v1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char%201/cookbook?version=v1",
+  },
+]
+`;
+
+exports[`the party sheet, companion view and cookbook polls the party sheet, first read: party first read 1`] = `
+{
+  "refreshed": 1,
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company?version=5&live=1&moves=1&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company?version=5&live=1&moves=1&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+  ],
+  "state": "ready",
+}
+`;
+
+exports[`the party sheet, companion view and cookbook polls the party sheet, from its page: party from its page 1`] = `
+{
+  "refreshed": 0,
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company?version=5&live=1&moves=1&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/party/company?version=5&live=1&moves=1&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+  ],
+  "state": "gone",
+}
+`;
+
+exports[`the table poll asks with every flag, at the player seat: table every flag, at the player seat 1`] = `
+[
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/table?version=4&live=1&rolls=skill%2Csave%2Cattack%3Bmodifiers%2Cprompts&gm=made&gmrolls=req-1%3Adone&moves=1&typed=1&removes=1&favorites=1&effects=1&wildshape=1&sheet=2026-10-04T19%3A00%3A00.000Z",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/table?version=4&live=1&rolls=skill%2Csave%2Cattack%3Bmodifiers%2Cprompts&gm=made&gmrolls=req-1%3Adone&moves=1&typed=1&removes=1&favorites=1&effects=1&wildshape=1&sheet=2026-10-04T19%3A00%3A00.000Z",
+  },
+]
+`;
+
+exports[`the table poll asks with none, at the gm seat: table none, at the gm seat 1`] = `
+[
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/table?version=3&live=0",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/table?version=3&live=0",
+  },
+]
+`;
+
+exports[`the table poll asks with none, at the player seat: table none, at the player seat 1`] = `
+[
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/table?version=3&live=0",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/table?version=3&live=0",
+  },
+]
+`;
+
+exports[`the table poll backs off while the server fails, then stops and refreshes once signed out: table backoff 1`] = `
+{
+  "refreshed": 1,
+  "times": [
+    3000,
+    9000,
+    21000,
+    45000,
+    75000,
+    105000,
+  ],
+}
+`;
+
+exports[`the table's page marks a chat read up to its first read, and polls its view: table page a chat read up to its first 1`] = `
+{
+  "read": [
+    [
+      "2026-10-04T19:02:00.000Z",
+    ],
+  ],
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/table?version=3&live=1&rolls=skill&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+  ],
+}
+`;
+
+exports[`the table's page marks an empty chat read, and polls its view: table page an empty chat 1`] = `
+{
+  "read": [
+    [
+      "1970-01-01T00:00:00.000Z",
+    ],
+  ],
+  "sent": [
+    {
+      "body": undefined,
+      "cache": "no-store",
+      "headers": {},
+      "method": "GET",
+      "signal": true,
+      "url": "/api/characters/char-1/table?version=3&live=1&rolls=skill&sheet=2026-10-04T19%3A00%3A00.000Z",
+    },
+  ],
+}
+`;
+
+exports[`the take from a party's page at the gm seat: take gm 1`] = `
+[
+  {
+    "body": "{"kind":"transfer","transfer":{"from":"company","to":"thorin","items":[{"id":"rope","quantity":2}]},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Take 2 Rope from The Iron Company"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`the take from a party's page at the player seat: take player 1`] = `
+[
+  {
+    "body": "{"kind":"transfer","transfer":{"from":"company","to":"thorin","items":[{"id":"rope","quantity":2}]},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+]
+`;
+
+exports[`what the server makes of a held roll the command sent for a companion’s: command a companion’s 1`] = `"{"kind":"attack","item":"warhammer","activity":"warhammerAttack","target":{"combatId":"cmbt1","combatantId":"c-goblin"},"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[14]}],"id":"req-1","actorId":"wolfBrakka","of":"thorin"}"`;
+
+exports[`what the server makes of a held roll the command sent for a player’s: command a player’s 1`] = `"{"kind":"attack","item":"warhammer","activity":"warhammerAttack","target":{"combatId":"cmbt1","combatantId":"c-goblin"},"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[14]}],"id":"req-1","actorId":"thorin"}"`;
+
+exports[`what the server makes of a held roll the command sent for the Gamemaster’s: command the Gamemaster’s 1`] = `"{"kind":"attack","item":"warhammer","activity":"warhammerAttack","target":{"combatId":"cmbt1","combatantId":"c-goblin"},"mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[14]}],"id":"req-1","actorId":"thorin","by":"gm"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, damage done: gm view damage done 1`] = `"{"id":"req-1","kind":"damage","label":"Damage","at":"2026-10-04T19:29:00.000Z","status":"done","visible":true,"total":15,"attack":{"critical":false,"fumble":false,"outcome":"hit"},"healing":true}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, damage done: view damage done 1`] = `"{"id":"req-1","status":"done","visible":true,"total":15,"rolls":[{"formula":"1d8 + 4","total":9,"dice":[],"advantage":false,"disadvantage":false,"critical":false,"fumble":false,"damageType":"slashing"},{"formula":"1d6","total":6,"dice":[],"advantage":false,"disadvantage":false,"critical":false,"fumble":false,"damageType":"fire"}],"attack":{"critical":false,"fumble":false,"outcome":"hit"},"damage":{"critical":false,"plannable":true,"rolls":[{"formula":"1d8 + 4","type":"slashing","dice":[{"faces":8,"number":1}]},{"formula":"1d6","type":"fire","dice":[{"faces":6,"number":1}]}]}}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, done unseen: gm view done unseen 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T19:29:00.000Z","status":"done","visible":false}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, done unseen: view done unseen 1`] = `"{"id":"req-1","status":"done","visible":false,"damage":{"critical":false,"plannable":true,"rolls":[{"formula":"1d8 + 4","type":"slashing","dice":[{"faces":8,"number":1}]},{"formula":"1d6","type":"fire","dice":[{"faces":6,"number":1}]}]}}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, done: gm view done 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T19:29:00.000Z","status":"done","visible":true,"total":21,"attack":{"critical":false,"fumble":false,"outcome":"hit"}}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, done: view done 1`] = `"{"id":"req-1","status":"done","visible":true,"total":21,"rolls":[{"formula":"1d20 + 7","total":21,"dice":[{"faces":20}],"advantage":false,"disadvantage":false,"critical":false,"fumble":false}],"attack":{"critical":false,"fumble":false,"outcome":"hit"},"damage":{"critical":false,"plannable":true,"rolls":[{"formula":"1d8 + 4","type":"slashing","dice":[{"faces":8,"number":1}]},{"formula":"1d6","type":"fire","dice":[{"faces":6,"number":1}]}]}}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, expired: gm view expired 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T18:30:00.000Z","status":"expired"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, expired: view expired 1`] = `"{"id":"req-1","status":"expired"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, failed part way: gm view failed part way 1`] = `"{"id":"req-1","kind":"hitDice","label":"Hit dice","at":"2026-10-04T19:29:00.000Z","status":"failed","reason":"noDice","visible":true,"total":9,"healed":7,"spent":{"made":1,"asked":2}}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, failed part way: view failed part way 1`] = `"{"id":"req-1","status":"failed","reason":"noDice","visible":true,"total":9,"rolls":[{"formula":"1d10 + 3","total":9,"dice":[],"advantage":false,"disadvantage":false,"critical":false,"fumble":false}],"healed":7,"spent":{"made":1,"asked":2}}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, failed: gm view failed 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T19:29:00.000Z","status":"failed","reason":"noTarget"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, failed: view failed 1`] = `"{"id":"req-1","status":"failed","reason":"noTarget"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, lost: gm view lost 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T19:29:00.000Z","status":"lost"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, lost: view lost 1`] = `"{"id":"req-1","status":"lost"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, rolling: gm view rolling 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T19:29:00.000Z","status":"rolling"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, rolling: view rolling 1`] = `"{"id":"req-1","status":"rolling"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, sending: gm view sending 1`] = `"{"id":"req-1","kind":"attack","label":"An attack","at":"2026-10-04T19:29:50.000Z","status":"sending"}"`;
+
+exports[`what the server makes of a held roll the roll its page is shown, sending: view sending 1`] = `"{"id":"req-1","status":"sending"}"`;
+
+exports[`what useTableRolls sends checks and attacks at the gm seat: checks gm 1`] = `
+[
+  {
+    "body": "{"kind":"skill","key":"prc","mode":1,"explicit":true,"extras":[{"sign":1,"count":1,"sides":4},{"sign":-1,"flat":1}],"dice":[{"faces":20,"results":[17,3]},{"faces":4,"results":[2]}],"label":"Perception check"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"save","key":"dex","prompt":"msg1-bat1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[9]}],"label":"Dexterity saving throw"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"attack","item":"breath","activity":"breathAttack","targets":[{"combatId":"cmbt1","combatantId":"c-goblin"},{"combatId":"cmbt1","combatantId":"c-vex"}],"slot":"spell2","ammunition":"arrows","attackMode":"twoHanded","mode":-1,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[11,4]}],"label":"Fire Breath attack"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-3",
+  },
+]
+`;
+
+exports[`what useTableRolls sends checks and attacks at the player seat: checks player 1`] = `
+[
+  {
+    "body": "{"kind":"skill","key":"prc","mode":1,"explicit":true,"extras":[{"sign":1,"count":1,"sides":4},{"sign":-1,"flat":1}],"dice":[{"faces":20,"results":[17,3]},{"faces":4,"results":[2]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"save","key":"dex","prompt":"msg1-bat1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[9]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"attack","item":"breath","activity":"breathAttack","targets":[{"combatId":"cmbt1","combatantId":"c-goblin"},{"combatId":"cmbt1","combatantId":"c-vex"}],"slot":"spell2","ammunition":"arrows","attackMode":"twoHanded","mode":-1,"explicit":false,"extras":[],"dice":[{"faces":20,"results":[11,4]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-3",
+  },
+]
+`;
+
+exports[`what useTableRolls sends damage of each kind at the gm seat: damage gm 1`] = `
+[
+  {
+    "body": "{"kind":"damage","use":"req-1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"types":["slashing",null],"modifiers":{"extra":1,"faces":10},"label":"Longsword damage"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"damage","use":"req-2","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"typed":true,"rerolls":"kept","label":"Longsword damage"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"textDamage","text":"1a2b3c4d5e6f70","link":1,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"critical":true,"label":"Fireball damage"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"itemDamage","item":"battleaxe","activity":"axeAttack","slot":"spell1","attackMode":"twoHanded","ammunition":"bolts","consume":true,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"critical":true,"label":"Battleaxe damage"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-4",
+  },
+]
+`;
+
+exports[`what useTableRolls sends damage of each kind at the player seat: damage player 1`] = `
+[
+  {
+    "body": "{"kind":"damage","use":"req-1","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"types":["slashing",null],"modifiers":{"extra":1,"faces":10}}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"damage","use":"req-2","mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"typed":true,"rerolls":"kept"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"textDamage","text":"1a2b3c4d5e6f70","link":1,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"critical":true}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"itemDamage","item":"battleaxe","activity":"axeAttack","slot":"spell1","attackMode":"twoHanded","ammunition":"bolts","consume":true,"mode":0,"explicit":false,"extras":[],"dice":[{"faces":8,"results":[5]},{"faces":6,"results":[6]}],"critical":true}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-4",
+  },
+]
+`;
+
+exports[`what useTableRolls sends each command at the gm seat: commands gm 1`] = `
+[
+  {
+    "body": "{"kind":"endConcentration","concentration":{"effect":"blessConc"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Concentration on Bless"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"spend","counter":{"item":"sorcery","activity":"flexible"},"count":2,"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Sorcery Points"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"inspiration","inspiration":"gain","mode":0,"explicit":false,"extras":[],"dice":[],"label":"Heroic Inspiration"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"spellSlot","spellSlot":{"op":"restore","id":"spell1","from":2},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"1st Level"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"endEnchantment","enchantment":{"item":"longsword","effect":"magicWeapon"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Magic Weapon"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"transfer","transfer":{"from":"thorin","to":"vex","currency":{"gp":5}},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Give 5 gp to Vex"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"remove","remove":{"item":"rope","quantity":2,"held":3},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Remove 2 Rope"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"favorite","favorite":{"op":"add","type":"activity","id":"swing","item":"longsword"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Rope"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"effect","effect":{"op":"disable","id":"blessed"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Bless"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"prepare","prepare":{"op":"prepare","id":"shield"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Shield"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"transform","form":"Wolf0000000000ab"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Wild Shape"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"learn","uuid":"Compendium.dnd5e.actors24.Actor.Wolf0000000000ab","replace":null},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Wild Shape"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"revert"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Wild Shape"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"forms"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-4",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-5",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-6",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-7",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-8",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-9",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-10",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-11",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-12",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-13",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-14",
+  },
+]
+`;
+
+exports[`what useTableRolls sends each command at the player seat: commands player 1`] = `
+[
+  {
+    "body": "{"kind":"endConcentration","concentration":{"effect":"blessConc"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"spend","counter":{"item":"sorcery","activity":"flexible"},"count":2,"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"inspiration","inspiration":"gain","mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"spellSlot","spellSlot":{"op":"restore","id":"spell1","from":2},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"endEnchantment","enchantment":{"item":"longsword","effect":"magicWeapon"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"transfer","transfer":{"from":"thorin","to":"vex","currency":{"gp":5}},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"remove","remove":{"item":"rope","quantity":2,"held":3},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"favorite","favorite":{"op":"add","type":"activity","id":"swing","item":"longsword"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"effect","effect":{"op":"disable","id":"blessed"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Bless"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"prepare","prepare":{"op":"prepare","id":"shield"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"transform","form":"Wolf0000000000ab"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Wild Shape"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"learn","uuid":"Compendium.dnd5e.actors24.Actor.Wolf0000000000ab","replace":null},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Wild Shape"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"revert"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Wild Shape"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"wildShape","wildShape":{"op":"forms"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-4",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-5",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-6",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-7",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-8",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-9",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-10",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-11",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-12",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-13",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-14",
+  },
+]
+`;
+
+exports[`what useTableRolls sends formulas, hit dice at once, and hit dice one by one where the game takes no hitDice: formulas 1`] = `
+[
+  {
+    "body": "{"kind":"formula","item":"lantern","activity":"shine","mode":0,"explicit":false,"extras":[],"dice":[{"faces":4,"results":[3]},{"faces":6,"results":[4]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"hitDice","hitDice":[{"denomination":"d10","count":2},{"denomination":"d8","count":1}],"mode":0,"explicit":false,"extras":[],"dice":[{"faces":10,"results":[6,2]},{"faces":8,"results":[5]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": "{"kind":"hitDie","denomination":"d10","mode":0,"explicit":false,"extras":[],"dice":[{"faces":10,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-3",
+  },
+]
+`;
+
+exports[`what useTableRolls sends sends a roll the game turned away as busy again, a while later: busy retry 1`] = `
+[
+  {
+    "body": "{"kind":"hitDie","denomination":"d10","mode":0,"explicit":false,"extras":[],"dice":[{"faces":10,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"hitDie","denomination":"d10","mode":0,"explicit":false,"extras":[],"dice":[{"faces":10,"results":[6]}]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+]
+`;
+
+exports[`what useTableRolls sends uses, asks and recharges at the gm seat: uses gm 1`] = `
+[
+  {
+    "body": "{"kind":"use","item":"cure","activity":"cureHeal","targets":[{"combatId":"cmbt1","combatantId":"c-vex"}],"self":true,"slot":"spell2","enchant":{"profile":"plusOne","item":"longsword"},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Cure Wounds"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"use","item":"second-wind","activity":"windHeal","targets":[],"slot":null,"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Second Wind"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"ask","text":"1a2b3c4d5e6f70","link":0,"mode":0,"explicit":false,"extras":[],"dice":[],"label":"DC 15 Strength saving throw"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": "{"kind":"recharge","item":"frostBreath","activity":"frostSave","mode":0,"explicit":false,"extras":[],"dice":[{"faces":6,"results":[5]}],"typed":true,"rerolls":"kept","label":"Frost Breath recharge"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-4",
+  },
+]
+`;
+
+exports[`what useTableRolls sends uses, asks and recharges at the player seat: uses player 1`] = `
+[
+  {
+    "body": "{"kind":"use","item":"cure","activity":"cureHeal","targets":[{"combatId":"cmbt1","combatantId":"c-vex"}],"self":true,"slot":"spell2","enchant":{"profile":"plusOne","item":"longsword"},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"use","item":"second-wind","activity":"windHeal","targets":[],"slot":null,"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"ask","text":"1a2b3c4d5e6f70","link":0,"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": "{"kind":"recharge","item":"frostBreath","activity":"frostSave","mode":0,"explicit":false,"extras":[],"dice":[{"faces":6,"results":[5]}],"typed":true,"rerolls":"kept"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-1",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-2",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-3",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-4",
+  },
+]
+`;
