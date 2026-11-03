@@ -54,6 +54,15 @@ disables or a note); a glob row covers the new files a split makes in one folder
    carried out of .tsx files with their hooks; tsx-type falls 80 → 40). Accepted. (c) Six gate 1b rows
    for R1.9.3's planned mock edits (two stale POLL_INTERVAL keys dropped, turn-toast's mock retargeted).
 
+4. **2026-11-03 ~11:00 AM EST, Phase 2's review (RV58c).** (a) src/utils/dice.ts (`isDieSides`) and its test
+   are made now, in a 2b fix commit with no adoption, so W-a (R1.4.2) and R-a (R1.2.13) each adopt it in
+   their own files in Phase 3. (b) The module-header comments commit 7 dropped are restored in that commit.
+   (c) **G, commit 23: imports that leave their feature or reach a shared layer use `@/` paths, not
+   `../../../`** (a codemod over import lines, the moves' codemod style; import lines only). (d) Commit 7's
+   message miscounts (495/140 against the record's 482/138) and commit 6's pair (fd2c34d red alone on
+   gate 10, 51e82f8 restoring) are history: the PR says so. (e) note-lines.test.tsx's `ago(0)` row races
+   the clock about once in 200 L1s (frozen test, base behaviour): a v0.44 tooling line in §4.4.
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is

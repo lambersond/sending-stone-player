@@ -33,6 +33,9 @@ const buildLand = async (what, tag, phaseName, landWhat) => {
 
 phase('Moves')
 const FROM = (args && args.from) || ''
+if (FROM === 'fix3') {
+  return await buildLand('Your task now: repair round 3 for commits 5-8, before the Phase 3 worktrees are made (round.md amendment 4). (1) The review\'s major finding RV58c-1: create src/utils/dice.ts with `isDieSides` (the type-guard form of the five `.includes` die-size copies the review names; read them, and round.md §1.4 and R1.9.1 for its shape and where DIE_SIZES lives) and its table test src/utils/dice.test.ts, with NO adoption anywhere (W-a and R-a adopt it in Phase 3); owners.tsv rows 687-688 already give the files to W-a with phases 2b 3. (2) The review\'s minor finding RV58c-2: commit 7 (3255abf) dropped the module-header comments of seven sources it emptied or renamed (about 37 lines of domain documentation): restore each comment, verbatim, at the top of the file that now holds the declarations it documents (if its declarations went to several files, put it where most went, or split it by what each paragraph documents); comments only. Read the review\'s full findings in your context: ' + JSON.stringify((args && args.findings) || '') + ' Commit as "fix: v0.43 moves and seams, round 3 (isDieSides home; module comments restored)" (trailers).', 'fix3', 'Repair', 'the repair commit of round 3.')
+}
 const landOnly = async (landWhat, tag, phaseName) => {
   let l = await land(landWhat, phaseName, tag)
   let b = null
