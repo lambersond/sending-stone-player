@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-this-outside-of-class --
- * the layout's getters, mocked, read the element they're called on */
 import { useState } from 'react'
 import {
   act,
@@ -61,6 +59,8 @@ let observers: (() => void)[] = []
 beforeEach(() => {
   boxWidth = 1000
   observers = []
+  /* eslint-disable unicorn/no-this-outside-of-class --
+   * the layout's getters, mocked, read the element they're called on */
   jest
     .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
     .mockImplementation(function (this: HTMLElement) {
@@ -90,6 +90,7 @@ beforeEach(() => {
     .mockImplementation(function (this: Element, value: number) {
       scrolls.set(this, value)
     })
+  /* eslint-enable unicorn/no-this-outside-of-class */
   globalThis.ResizeObserver = jest.fn().mockImplementation(callback => {
     observers.push(() => callback([]))
     return { observe: jest.fn(), unobserve: jest.fn(), disconnect: jest.fn() }
@@ -535,6 +536,7 @@ describe('CreatureSwitcher', () => {
       this: HTMLElement,
       options,
     ) {
+      // eslint-disable-next-line unicorn/no-this-outside-of-class -- the element focused
       if (!this.closest('[hidden]')) focus.call(this, options)
     })
     // As the page has it: the character's panel hidden while the gone tab is chosen, and shown in

@@ -9,7 +9,7 @@ function Picture({ src }: Readonly<{ src?: string | null }>) {
   const fallback = useImageFallback(src)
   given = fallback
   if (!src || !fallback.shown) return <span>fallback</span>
-  // eslint-disable-next-line @next/next/no-img-element
+  // eslint-disable-next-line @next/next/no-img-element -- the plain img the components draw
   return <img ref={fallback.ref} src={src} alt='' onError={fallback.onError} />
 }
 
