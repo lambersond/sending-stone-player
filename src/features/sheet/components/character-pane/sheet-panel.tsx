@@ -10,7 +10,7 @@ import { InventoryTab } from '../inventory-tab/inventory-tab'
 import { SpellsTab } from '../spells-tab/spells-tab'
 import { Scroller } from '@/components/scroller/scroller'
 import type { PaneActions, SheetTab } from './types'
-import type { Layout } from '../actions-layout/constants'
+import type { ActionsLayout } from '../actions-layout/types'
 import type { PartySheets } from '../party-sheets/types'
 import type { NotesPlace } from '@/features/notes/types'
 import type { TransferControls } from '@/features/transfers/types'
@@ -56,7 +56,7 @@ export function SheetPanel({
   notes?: NotesPlace
   parties?: PartySheets
   transfers: TransferControls
-  layout: Layout
+  layout: ActionsLayout['layout']
   actions: PaneActions
   onShowConditions: (id: string) => void
 }>) {
