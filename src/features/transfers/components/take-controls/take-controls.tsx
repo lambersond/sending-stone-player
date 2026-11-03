@@ -1,20 +1,11 @@
 'use client'
 
-import {
-  MoveDialog,
-  type MoveEnd,
-} from '@/features/transfers/components/move-dialog/move-dialog'
-import { ROW_BUTTON } from '@/features/transfers/components/transferring/transferring'
-import type { TakeInto, TransferControls } from '@/features/transfers/types'
+import { MoveDialog } from '@/features/transfers/components/move-dialog/move-dialog'
+import { gmCharacterApi } from '@/utils/seat-urls'
+import type { TakeInto, Taking } from '@/features/transfers/types'
 import type { TableGroup } from '@/types/party'
 import type { TransferInput, LocalMove } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
-import type {
-  SheetContainer,
-  SheetCurrency,
-  SheetItem,
-} from '@/types/sending-stone'
-import type { ReactNode } from 'react'
 
 /*
  * Take, on a party's sheet (module 0.31.0): beside each item in its stash, and its coin, for a
@@ -22,85 +13,6 @@ import type { ReactNode } from 'react'
  * character whose page it's on, or on the party's own page, any of the campaign's characters,
  * picked as it's taken. Each opens the move's dialog, which says what's taken and asks how many.
  */
-
-/** What's being taken, or was last, with who may take it as its dialog opened. */
-export type Taking = {
-  what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
-  /** On the Gamemaster's party page, the characters to take into. */
-  receivers?: MoveEnd[]
-}
-
-/** The Gamemaster's seat at a campaign's character, which a pick is taken through. */
-export function chosenApi(campaignId: string, actorId: string): string {
-  return `/api/campaigns/${encodeURIComponent(campaignId)}/characters/${encodeURIComponent(actorId)}`
-}
-
-/** Any whole coin to take: dnd5e 6 may hold part of one, which can't be moved. */
-function anyCoins(currency: SheetCurrency[]): boolean {
-  return currency.some(coin => Math.floor(coin.value) >= 1)
-}
-
-/**
- * The controls a party's sheet gives its stash: Take beside each item, and its coin, each waiting
- * while what it takes is on its way.
- * @param pending - What's on its way: item ids, and `coins` for coins.
- * @param onTake - Opens the dialog for what's taken.
- */
-export function takeControls({
-  group,
-  pending,
-  onTake,
-}: Readonly<{
-  group: TableGroup
-  pending: ReadonlySet<string>
-  onTake: (what: Taking['what']) => void
-}>): TransferControls {
-  return {
-    item: item => ({
-      aside: (
-        <TakeButton
-          label={`Take ${item.name}`}
-          busy={pending.has(item.id)}
-          onTake={() => onTake({ item })}
-        />
-      ),
-    }),
-    coins: currency =>
-      anyCoins(currency) && (
-        <TakeButton
-          label={`Take coins from ${group.name}`}
-          busy={pending.has('coins')}
-          onTake={() => onTake({ coins: currency })}
-        />
-      ),
-  }
-}
-
-/** Take: while what it takes is on its way, disabled, the spinner by the item's name. */
-function TakeButton({
-  label,
-  busy,
-  onTake,
-}: Readonly<{ label: string; busy: boolean; onTake: () => void }>): ReactNode {
-  return (
-    <button
-      type='button'
-      aria-haspopup='dialog'
-      aria-label={label}
-      disabled={busy}
-      aria-busy={busy || undefined}
-      onClick={event => {
-        // Inside a row's summary, it's the dialog that opens, not the row.
-        event.preventDefault()
-        event.stopPropagation()
-        onTake()
-      }}
-      className={ROW_BUTTON}
-    >
-      Take
-    </button>
-  )
-}
 
 /**
  * The dialog that takes from a party: into the seat's own character, or the one picked from the
@@ -154,7 +66,7 @@ export function TakeDialog({
         const api =
           takeInto.kind === 'own'
             ? takeInto.api
-            : chosenApi(takeInto.campaignId, to)
+            : gmCharacterApi(takeInto.campaignId, to)
         // Who took it, as the Gamemaster's words say: the character it's taken into.
         const mover = role === 'gm' ? (own?.name ?? chosen?.name) : undefined
         const move: LocalMove = {

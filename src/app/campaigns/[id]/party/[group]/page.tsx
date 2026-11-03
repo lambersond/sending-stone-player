@@ -3,22 +3,23 @@ import { notFound } from 'next/navigation'
 import { getGroupView } from '@/db/party'
 import { PartyPage } from '@/features/party/components/party-page/party-page'
 import { requireUser } from '@/lib/session'
+import { gmPartyApi, gmPartyPath } from '@/utils/seat-urls'
 import type { Metadata } from 'next'
-
-type Props = PageProps<'/campaigns/[id]/party/[group]'>
 
 /**
  * A party sheet of the Gamemaster's campaign, once per request: only the campaign's owner, whoever
  * may see it in Foundry. Signed out, to the login page and back here.
  */
 const findParty = cache(async (campaignId: string, groupId: string) => {
-  const path = `/campaigns/${encodeURIComponent(campaignId)}/party/${encodeURIComponent(groupId)}`
+  const path = gmPartyPath(campaignId, groupId)
   const user = await requireUser(path)
   // Only the campaign's owner is let see it, which the view checks.
   return getGroupView({ role: 'gm', campaignId, userId: user.id }, groupId)
 })
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<'/campaigns/[id]/party/[group]'>): Promise<Metadata> {
   const { id, group } = await params
   const view = await findParty(id, group)
   return { title: view?.group.name ?? 'Party' }
@@ -29,14 +30,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * where none may see it in Foundry, saying so. Anyone else, a campaign of another's, or a group no
  * longer in it is told only that it isn't open here.
  */
-export default async function GmPartyPage({ params }: Props) {
+export default async function GmPartyPage({
+  params,
+}: PageProps<'/campaigns/[id]/party/[group]'>) {
   const { id, group } = await params
   const view = await findParty(id, group)
   if (!view) notFound()
 
   return (
     <PartyPage
-      api={`/api/campaigns/${encodeURIComponent(id)}/party/${encodeURIComponent(group)}`}
+      api={gmPartyApi(id, group)}
       role='gm'
       initialView={view}
       // Back to its campaign, chosen on the campaigns page (round 0.39.0).

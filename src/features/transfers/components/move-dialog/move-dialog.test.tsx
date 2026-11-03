@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MoveDialog, type MoveDialogProps } from './move-dialog'
+import { MoveDialog } from './move-dialog'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { sheetItem } from '@/mocks/sending-stone'
+import type { MoveDialogProps } from './types'
 import type { SheetContainer, SheetCurrency } from '@/types/sending-stone'
 
 const party = { id: 'groupIronCo01', name: 'The Iron Company', primary: true }

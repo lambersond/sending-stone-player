@@ -1,5 +1,5 @@
-import { useState, useMemo, type ReactNode } from 'react'
-import { RemoveDialog } from '../components/remove-dialog/remove-dialog'
+import { createElement, useState, useMemo, type ReactNode } from 'react'
+import { RemoveDialogs } from '../components/remove-controls/remove-dialogs'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import { onItsWay } from '@/utils/lifecycle'
 import { relatedItems } from '@/utils/removals'
@@ -76,18 +76,17 @@ export function useRemoveControls({
     }
   }, [removes, inventory, pending])
 
-  const dialog = removing && (
-    <RemoveDialog
-      open={open}
-      onClose={() => setOpen(false)}
-      mover={role === 'gm' ? name : 'You'}
-      item={removing}
-      character={name}
-      onRemove={({ item, quantity, held, words }) => {
-        setActed(true)
-        table.sendRemove(logMove(words), { item, quantity, held })
-      }}
-    />
-  )
+  const dialog =
+    removing &&
+    createElement(RemoveDialogs, {
+      removing,
+      open,
+      setOpen,
+      role,
+      name,
+      table,
+      logMove,
+      setActed,
+    })
   return { remove, dialog }
 }

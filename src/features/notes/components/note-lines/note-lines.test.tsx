@@ -1,16 +1,16 @@
 import { render, screen } from '@testing-library/react'
+import { ChapterLine } from './chapter-line'
+import { LastChanged } from './last-changed'
+import { NoteText } from './note-text'
+import { StateMark } from './state-mark'
+import { lift } from './utils'
+import { Written } from './written'
 import {
-  ChapterLine,
-  LastChanged,
-  lift,
   mayDelete,
   mayEdit,
   mayMove,
   mayRename,
-  NoteText,
-  StateMark,
-  Written,
-} from './note-lines'
+} from '@/features/notes/utils/permissions'
 import { noteChapter, noteEntry } from '@/mocks/notes-server'
 import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NoteState } from '@/types/notes'

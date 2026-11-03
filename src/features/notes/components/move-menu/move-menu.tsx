@@ -19,18 +19,8 @@ import clsx from 'clsx'
 import { Check, ChevronDown, FolderInput, LoaderCircle } from 'lucide-react'
 import { usePortalRoot } from '@/components/modal/use-portal-root'
 import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
-import type { NoteChapterView, NoteEntryView } from '@/types/notes'
-
-type Props = {
-  entry: NoteEntryView
-  /** The book's chapters, oldest first. */
-  chapters: NoteChapterView[]
-  /** The move is on its way: its button is off, with a spinner. */
-  busy: boolean
-  /** The card's labelled button, "Move to chapter"; else the note bar's icon button. */
-  labelled?: boolean
-  onMove: (chapterId: string | null) => void
-}
+import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
+import type { MoveMenuProps } from './types'
 
 /**
  * Move to a chapter (round 0.35.0 §9.3): a menu of the book's chapters, oldest first, and No
@@ -45,7 +35,7 @@ export function MoveMenu({
   busy,
   labelled = false,
   onMove,
-}: Readonly<Props>) {
+}: Readonly<MoveMenuProps>) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState<number | null>(null)
   const list = useRef<(HTMLElement | null)[]>([])
@@ -125,7 +115,7 @@ export function MoveMenu({
           {...button}
           aria-label={`Move ${entry.title} to a chapter`}
           title='Move to a chapter'
-          className='flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:opacity-60'
+          className={`${JOURNAL_ICON_BUTTON} disabled:opacity-60`}
         >
           {icon}
         </button>

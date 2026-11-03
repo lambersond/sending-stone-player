@@ -1,11 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  DistributeDialog,
-  type DistributeDialogProps,
-} from './distribute-dialog'
+import { DistributeDialog } from './distribute-dialog'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { COMPANY_CHARACTERS } from '@/mocks/sending-stone'
+import type { DistributeDialogProps } from './types'
 import type { SheetCurrency } from '@/types/sending-stone'
 
 const party = { id: 'groupIronCo01', name: 'The Iron Company', primary: true }

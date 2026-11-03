@@ -3,18 +3,13 @@
 import { Trash2 } from 'lucide-react'
 import { DeleteCharacterWarning } from './delete-character-warning'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
-
-type Props = {
-  characterId: string
-  name: string
-  onRemove: (characterId: string) => Promise<void>
-}
+import type { RemoveCharacterButtonProps } from './types'
 
 export function RemoveCharacterButton({
   characterId,
   name,
   onRemove,
-}: Readonly<Props>) {
+}: Readonly<RemoveCharacterButtonProps>) {
   return (
     <ConfirmDialog
       trigger={<Trash2 aria-hidden className='size-4' />}

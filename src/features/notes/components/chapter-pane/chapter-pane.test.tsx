@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { groupsOf } from '../contents/contents'
 import { ChapterPane } from './chapter-pane'
+import { groupsOf } from '@/features/notes/utils/groups'
 import { emptyBook, noteChapter, noteEntry } from '@/mocks/notes-server'
 import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NoteEntryView, NotesView } from '@/types/notes'

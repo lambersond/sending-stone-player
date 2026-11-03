@@ -1,14 +1,12 @@
 import { MOST_SEATS_SHOWN } from '@/constants/campaign'
 import { BRIDGE_TIMEOUT } from '@/constants/sending-stone'
+import type { Attention, Seat } from '@/features/campaigns/types'
 import type { CampaignRefusal, OwnedCampaign } from '@/types/campaign'
 
 // How the Gamemaster's campaigns page (v0.39) orders and sums up their campaigns: those that need
 // them first, then those whose Foundry is live, then by when Foundry was last heard; what each
 // row's flag says; and the players' seats it draws. Pure, so that the page sorts once, on the
 // server, and every test can pin it.
-
-/** What a campaign needs of its Gamemaster: Foundry's posts refused, or a first connection. */
-export type Attention = 'refused' | 'waiting'
 
 /**
  * What the campaign needs of its Gamemaster, if anything: a refusal Foundry hasn't got past since
@@ -104,13 +102,6 @@ export function initialsOf(name: string): string {
     .map(word => [...word][0])
     .join('')
     .toUpperCase()
-}
-
-/** One of a campaign's characters as its row draws it: its player's letters, or none chosen yet. */
-export type Seat = {
-  character: string
-  player?: string
-  initials?: string
 }
 
 /**

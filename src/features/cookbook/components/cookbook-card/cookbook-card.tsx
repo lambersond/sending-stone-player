@@ -6,7 +6,7 @@ import { CookbookDishList } from '../cookbook-dish-list/cookbook-dish-list'
 import { CopyField } from '@/components/copy-button/copy-button'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
 import { NoteTime } from '@/features/notes/components/note-time/note-time'
-import type { useCookbookView } from '@/features/cookbook/hooks/use-cookbook-view'
+import type { CookbookRead } from './types'
 import type { CookbookPlace } from '@/types/cookbook'
 
 const PRIMARY_BUTTON =
@@ -15,9 +15,6 @@ const QUIET_BUTTON =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
 const DANGER_BUTTON =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-danger/50 hover:bg-danger/5 hover:text-danger'
-
-/** What the panel shows of the player's book, as its owner reads it. */
-type Read = ReturnType<typeof useCookbookView>
 
 /**
  * A player's Magical Recipe Book, from module 0.38.0: the link code their character's book in the
@@ -34,7 +31,7 @@ export function CookbookPanel({
   setFresh,
   make,
   revoke,
-}: Readonly<Read & Omit<CookbookPlace, 'characterId'>>) {
+}: Readonly<CookbookRead & Omit<CookbookPlace, 'characterId'>>) {
   const [refused, setRefused] = useState<string>()
   const [making, startMaking] = useTransition()
   // Where focus goes once the control is there: Copy link code once Make a link code has made one,

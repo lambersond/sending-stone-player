@@ -3,23 +3,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { POLL_INTERVAL } from '@/constants/polling'
 import { rollsKey } from '@/utils/requests/availability'
+import { seenQuery } from '@/utils/seen-query'
 import type { CompanionView } from '@/types/table'
 
 /** What a pane has of a companion's view, which the server compares to say nothing is new. */
 function queryOf(view: CompanionView | undefined): URLSearchParams {
   if (!view) return new URLSearchParams()
-  const rolls = rollsKey(view.rollsToTable, view.rollFeatures)
-  return new URLSearchParams({
-    version: String(view.version),
-    live: view.live ? '1' : '0',
-    ...(rolls && { rolls }),
+  return seenQuery({
+    version: view.version,
+    live: view.live,
+    rolls: rollsKey(view.rollsToTable, view.rollFeatures),
     // For the Gamemaster's seat: where their rolls go.
-    ...(view.gm && { gm: view.gm.rolls }),
+    gm: view.gm?.rolls,
     // For the player's: where the Gamemaster's rolls as it stand.
-    ...(view.gmRollsKey && { gmrolls: view.gmRollsKey }),
+    gmrolls: view.gmRollsKey,
     // Whether the player types in their own dice, which another of their devices may change.
-    ...(view.manualDice?.on && { typed: '1' }),
-    ...(view.sheetVersion && { sheet: view.sheetVersion }),
+    typed: view.manualDice?.on,
+    sheet: view.sheetVersion,
   })
 }
 

@@ -2,17 +2,10 @@
 
 import { useActionState, useId } from 'react'
 import { LoaderCircle } from 'lucide-react'
-import type { InviteFormState } from '@/types/campaign'
-
-type Props = {
-  action: (
-    state: InviteFormState,
-    formData: FormData,
-  ) => Promise<InviteFormState>
-}
+import type { InviteFormProps } from './types'
 
 /** Where a player pastes the invite link their Gamemaster shared. */
-export function InviteForm({ action }: Readonly<Props>) {
+export function InviteForm({ action }: Readonly<InviteFormProps>) {
   const [state, formAction, pending] = useActionState(action, {})
   const id = useId()
   const hintId = `${id}-hint`

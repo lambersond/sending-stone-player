@@ -2,22 +2,10 @@
 
 import clsx from 'clsx'
 import { PAGE_HEADING_ID } from '../../utils/campaign-ids'
-import {
-  ConnectFoundryButton,
-  NewCampaignButton,
-} from '../campaign-buttons/campaign-buttons'
-import { useCampaignChoice } from '../campaign-index/campaign-index'
-import type { CampaignSetupFormState } from '@/types/campaign'
-
-type Props = {
-  /** This app's address, for Foundry to send to. */
-  destination: string
-  setUp: (
-    state: CampaignSetupFormState,
-    formData: FormData,
-  ) => Promise<CampaignSetupFormState>
-  suggestedSecret: string
-}
+import { ConnectFoundryButton } from '@/features/campaigns/components/campaign-buttons/connect-foundry-button'
+import { NewCampaignButton } from '@/features/campaigns/components/campaign-buttons/new-campaign-button'
+import { useCampaignChoice } from '@/features/campaigns/hooks/use-campaign-choice'
+import type { CampaignsHeadProps } from './types'
 
 /**
  * The head of the campaigns page: its heading, what it's for, and Connect Foundry and New
@@ -29,7 +17,7 @@ export function CampaignsHead({
   destination,
   setUp,
   suggestedSecret,
-}: Readonly<Props>) {
+}: Readonly<CampaignsHeadProps>) {
   const { chosen } = useCampaignChoice()
   const narrowed = chosen !== undefined
   return (

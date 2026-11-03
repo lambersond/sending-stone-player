@@ -26,3 +26,12 @@ export type SwitcherCreature = {
    */
   news: string
 }
+
+/** One of the character's companions the game asks a save of, as its tab names it. */
+export type CompanionAskRow = {
+  key: string
+  /** Its name as its tab says it, numbered where repeated, such as "Bat 2". */
+  name: string
+  /** What it's asked for, such as "Dexterity saving throw". */
+  label: string
+}

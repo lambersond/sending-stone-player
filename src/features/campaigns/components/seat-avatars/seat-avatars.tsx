@@ -1,4 +1,4 @@
-import type { Seat } from '@/features/campaigns/utils/campaign-order'
+import type { Seat } from '@/features/campaigns/types'
 
 /**
  * A campaign's seats on its row (round 0.39.0): up to five overlapping circles, each with two

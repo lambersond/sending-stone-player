@@ -29,19 +29,16 @@ import { Holdings } from '@/features/sheet/components/inventory-tab/holdings'
 import { InventoryList } from '@/features/sheet/components/inventory-tab/inventory-list'
 import { SheetText } from '@/features/sheet/components/sheet-text/sheet-text'
 import { MoveStatus } from '@/features/transfers/components/move-status/move-status'
-import {
-  partyControls,
-  PartyMoveDialog,
-  type PartyMoving,
-} from '@/features/transfers/components/party-controls/party-controls'
+import { partyControls } from '@/features/transfers/components/party-controls/controls'
+import { PartyMoveDialog } from '@/features/transfers/components/party-controls/party-controls'
 import { Transferring } from '@/features/transfers/components/transferring/transferring'
 import { NO_TRANSFERS } from '@/features/transfers/constants'
 import { useTransfers } from '@/features/transfers/hooks/use-transfers'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { megabytes } from '@/utils/format-amount'
 import { seatWords } from '@/utils/seat-words'
-import type { PartyState } from '@/features/party/hooks/use-party-sheet'
-import type { TakeInto } from '@/features/transfers/types'
+import type { PartySheetProps, PartyTab } from './types'
+import type { PartyMoving } from '@/features/transfers/types'
 import type { TableSeat } from '@/types/character'
 import type { PartyView } from '@/types/party'
 import type { SeatRole } from '@/types/seats'
@@ -58,22 +55,6 @@ import type { SeatRole } from '@/types/seats'
  * character's coins, and share one of its coins among its characters, each made as that character.
  */
 
-type Props = {
-  /** The party sheet's API, such as `/api/characters/<id>/party/<group>`. */
-  api: string
-  role: SeatRole
-  view: PartyView
-  /** The player's own character's sheet, which its name in the members links to. */
-  ownSheetHref?: string
-  /** Where it takes into, where the seat may take from it (module 0.31.0). */
-  takeInto?: TakeInto
-  /**
-   * Whether it shows the party's journal notes (module 0.34.0), through its own API: first on its
-   * Description tab, or under why there's no sheet.
-   */
-  notes?: boolean
-}
-
 /** What nothing in a party's sheet does: none of a character's actions are given it. */
 const NO_ACTIONS = {}
 
@@ -88,7 +69,7 @@ export function PartySheet({
   ownSheetHref,
   takeInto,
   notes = false,
-}: Readonly<Props>) {
+}: Readonly<PartySheetProps>) {
   const seat = useMemo<TableSeat>(
     () => ({ role, api, key: `party:${view.group.id}` }),
     [role, api, view.group.id],
@@ -219,53 +200,7 @@ export function PartySheet({
   )
 }
 
-/**
- * The party's sheet as its hook has it: while it's first fetched, once it's no longer the seat's
- * to see, or else the sheet, with the party's journal notes. Its page and its side panel each show
- * it so.
- */
-export function PartySheetFor({
-  api,
-  role,
-  view,
-  state,
-  ownSheetHref,
-  takeInto,
-}: Readonly<Omit<Props, 'view'> & { view?: PartyView; state: PartyState }>) {
-  if (state === 'gone') {
-    return (
-      <EmptyState icon={Users} title="This party sheet isn't available">
-        {role === 'gm'
-          ? "It's no longer in this campaign in Foundry."
-          : "It's no longer shared with your character in Foundry."}
-      </EmptyState>
-    )
-  }
-  if (!view) {
-    return (
-      <p
-        role='status'
-        className='py-16 text-center text-sm text-text-secondary'
-      >
-        Loading the party sheet…
-      </p>
-    )
-  }
-  return (
-    <PartySheet
-      api={api}
-      role={role}
-      view={view}
-      ownSheetHref={ownSheetHref}
-      takeInto={takeInto}
-      notes
-    />
-  )
-}
-
-type Tab = 'inventory' | 'description'
-
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: PartyTab; label: string }[] = [
   { id: 'inventory', label: 'Inventory' },
   { id: 'description', label: 'Description' },
 ]
@@ -294,7 +229,7 @@ function PartyContents({
 }>) {
   // It opens on the stash; on Description where a note is being written there, or the journal is
   // open, as when either was under why there was no sheet, or before the panel was closed.
-  const [tab, setTab] = useState<Tab>(() =>
+  const [tab, setTab] = useState<PartyTab>(() =>
     notes && (hasDraft(api) || journalOpen(api)) ? 'description' : 'inventory',
   )
   const ids = useId()

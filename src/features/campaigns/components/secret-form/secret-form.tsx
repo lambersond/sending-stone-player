@@ -3,22 +3,16 @@
 import { useActionState, useId } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { SECRET_MAX_LENGTH, SECRET_MIN_LENGTH } from '@/constants/campaign'
-import { useToast } from '@/features/campaigns/components/page-toast/page-toast'
+import { useToast } from '@/features/campaigns/hooks/use-toast'
+import type { SecretFormProps } from './types'
 import type { SecretFormState } from '@/types/campaign'
-
-type Props = {
-  action: (
-    state: SecretFormState,
-    formData: FormData,
-  ) => Promise<SecretFormState>
-}
 
 /**
  * Replace a campaign's secret, such as after changing the one the module sends: shown as typed, as
  * its Gamemaster types the same in Foundry next. Once saved, its line says so where it stays, and
  * a toast as it's saved (round 0.39.0).
  */
-export function SecretForm({ action }: Readonly<Props>) {
+export function SecretForm({ action }: Readonly<SecretFormProps>) {
   const toast = useToast()
   const [state, formAction, pending] = useActionState(
     async (previous: SecretFormState, formData: FormData) => {

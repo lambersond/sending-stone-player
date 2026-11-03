@@ -5,133 +5,23 @@ import clsx from 'clsx'
 import {
   ChevronDown,
   NotebookPen,
-  PanelLeft,
   PenLine,
   Plus,
   TriangleAlert,
   X,
 } from 'lucide-react'
-import { StateMark } from '../note-lines/note-lines'
-import { OrderMark } from '../order-state/order-state'
 import { SearchField } from '@/components/search-field/search-field'
-import type { NotePick } from '@/features/notes/hooks/use-notes'
-import type {
-  NoteChapterView,
-  NoteEntryView,
-  NoteGroupView,
-  NoteState,
-  NotesView,
-} from '@/types/notes'
-
-/**
- * One group of the journal's notes, as its contents and reader show it (round 0.35.0 §8.6): a
- * chapter's, or those in no chapter, with its notes in their order and where that order stands.
- */
-export type JournalGroup = {
-  /** The chapter; null for the notes in no chapter. */
-  chapterId: string | null
-  chapter?: NoteChapterView
-  /** The chapter's place among the chapters, oldest first, from 1. */
-  n?: number
-  title: string
-  /** Its notes, in its order. */
-  entries: NoteEntryView[]
-  /** Where its order stands. */
-  order: NoteGroupView
-}
-
-/** The loose group's title, in the contents and over its page. */
-export const LOOSE_TITLE = 'Not in a chapter'
-
-/**
- * A book's groups: the notes in no chapter first, then each chapter as `chapters` lists them,
- * oldest first, each holding its notes in `entries`' order, which is the server's, never sorted
- * here. A note whose chapter the seat doesn't see is in no chapter.
- */
-export function groupsOf(view: NotesView): JournalGroup[] {
-  const known = new Set(view.chapters.map(({ id }) => id))
-  const orderOf = (chapterId: string | null): NoteGroupView =>
-    view.groups.find(group => group.chapterId === chapterId) ?? {
-      chapterId,
-      state: 'synced',
-      stamp: '',
-    }
-  const loose: JournalGroup = {
-    chapterId: null,
-    title: LOOSE_TITLE,
-    entries: view.entries.filter(
-      ({ chapterId }) => chapterId === null || !known.has(chapterId),
-    ),
-    order: orderOf(null),
-  }
-  return [
-    loose,
-    ...view.chapters.map((chapter, index) => ({
-      chapterId: chapter.id,
-      chapter,
-      n: index + 1,
-      title: chapter.title,
-      entries: view.entries.filter(({ chapterId }) => chapterId === chapter.id),
-      order: orderOf(chapter.id),
-    })),
-  ]
-}
-
-/** The states the contents' warning mark, and the card's count, take as a choice to make. */
-const CHOICES = new Set<NoteState>(['conflict', 'gone', 'failed'])
-
-/** Does a note or chapter in this state wait on the seat's choice? A delete waiting doesn't. */
-export function needsChoice(state: NoteState): boolean {
-  return CHOICES.has(state)
-}
-
-/** Does a group wait on the seat's choice: its chapter, a note in it, or its order? */
-export function groupNeedsChoice(group: JournalGroup): boolean {
-  return (
-    (group.chapter !== undefined && needsChoice(group.chapter.state)) ||
-    group.entries.some(({ state }) => needsChoice(state)) ||
-    group.order.state === 'conflict' ||
-    group.order.state === 'failed'
-  )
-}
-
-/** A group's key among its siblings: its chapter's id, or '' for the notes in no chapter. */
-export const keyOf = (chapterId: string | null) => chapterId ?? ''
+import { StateMark } from '@/features/notes/components/note-lines/state-mark'
+import { OrderMark } from '@/features/notes/components/order-state/order-mark'
+import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
+import { groupNeedsChoice, keyOf } from '@/features/notes/utils/groups'
+import type { ContentsProps } from './types'
+import type { NoteEntryView } from '@/types/notes'
 
 const PRIMARY =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover'
 const OUTLINE =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
-const ICON_BUTTON =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
-
-type Props = {
-  /** Its element's id, for the reader's Contents button to name what it opens. */
-  id: string
-  /** Every group, the loose one too, with its notes; none while the book loads. */
-  groups?: JournalGroup[]
-  query: string
-  onQuery: (query: string) => void
-  /** The notes the search finds; none while nothing is searched. */
-  hits?: Set<string>
-  /** What the reader shows. */
-  shown?: NotePick
-  /** The note the book's draft is a change to, marked as not saved yet. */
-  draftNote?: string
-  /** The editor or a Reorder fills the reader: nothing else is read till it's saved or dropped. */
-  locked?: 'editing' | 'ordering'
-  /** The seat may add notes and chapters. */
-  canAdd: boolean
-  /** The modal is under 640 px wide: the contents are a drawer. */
-  narrow: boolean
-  /** The drawer is open. */
-  drawer: boolean
-  onCloseDrawer: () => void
-  onPick: (pick: NotePick) => void
-  /** A new note, in the chapter given, or none. */
-  onNewNote: (chapterId: string | null) => void
-  onNewChapter: () => void
-}
 
 /**
  * The journal's contents (round 0.35.0 §8.6): a search, then the notes in no chapter and every
@@ -156,7 +46,7 @@ export function Contents({
   onPick,
   onNewNote,
   onNewChapter,
-}: Readonly<Props>) {
+}: Readonly<ContentsProps>) {
   const ids = useId()
   const close = useRef<HTMLButtonElement>(null)
   // Groups shut by hand, by their key; they stay shut while the modal is open.
@@ -228,7 +118,7 @@ export function Contents({
             type='button'
             aria-label='Close contents'
             onClick={onCloseDrawer}
-            className={clsx(ICON_BUTTON, '@min-[640px]:hidden')}
+            className={clsx(JOURNAL_ICON_BUTTON, '@min-[640px]:hidden')}
           >
             <X aria-hidden className='size-5' />
           </button>
@@ -266,7 +156,7 @@ export function Contents({
                       onClick={() =>
                         setShut(held => ({ ...held, [key]: !isShut }))
                       }
-                      className={ICON_BUTTON}
+                      className={JOURNAL_ICON_BUTTON}
                     >
                       <ChevronDown
                         aria-hidden
@@ -425,32 +315,6 @@ function NoteRow({
           <StateMark state={entry.state} />
         </span>
       )}
-    </button>
-  )
-}
-
-/**
- * The reader's Contents button, below 640 px of the modal, first in the bar of a note's, a group's
- * and the loading page: it opens the contents' drawer. Below 560 px, only its icon shows: its word
- * comes once a note's bar has room for it beside its chapter's number, its tools, its place among
- * the notes and the arrows.
- */
-export function ContentsButton({
-  controls,
-  open,
-  onOpen,
-}: Readonly<{ controls: string; open: boolean; onOpen: () => void }>) {
-  return (
-    <button
-      type='button'
-      aria-expanded={open}
-      aria-controls={controls}
-      data-contents-button
-      onClick={onOpen}
-      className='inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-medium transition-colors hover:bg-primary/5 @min-[640px]:hidden'
-    >
-      <PanelLeft aria-hidden className='size-5' />
-      <span className='@max-[560px]:sr-only'>Contents</span>
     </button>
   )
 }

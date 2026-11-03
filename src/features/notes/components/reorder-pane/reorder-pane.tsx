@@ -4,33 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react'
 import { Pane } from '../pane/pane'
-import { Sortable, type SortableHandles } from '../sortable/sortable'
+import { Sortable } from '../sortable/sortable'
+import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
 import {
   orderRefusalWords,
   reorderLine,
 } from '@/features/notes/utils/order-words'
-import type {
-  NoteBookKind,
-  NoteEntryView,
-  NoteWriteAnswer,
-} from '@/types/notes'
-
-type Props = {
-  /** The group's title: its chapter's, or "Not in a chapter". */
-  title: string
-  /**
-   * The group's notes in their order as Reorder opened: the pane keeps its own list from them,
-   * which a later poll changes only by dropping a note gone from the view (as ART:1128-1129
-   * filters); a note added meanwhile isn't in it.
-   */
-  entries: NoteEntryView[]
-  kind: NoteBookKind
-  /** The book's character or party. */
-  name: string
-  /** Sends the new order; answers as the write did. */
-  onSave(ids: string[]): Promise<NoteWriteAnswer>
-  onCancel(): void
-}
+import type { ReorderPaneProps } from './types'
+import type { SortableHandles } from '@/features/notes/components/sortable/types'
+import type { NoteEntryView } from '@/types/notes'
 
 /**
  * A group's notes put in order (round 0.35.0 §9.4), in the reader's place: dragged by their grips,
@@ -45,7 +27,7 @@ export function ReorderPane({
   name,
   onSave,
   onCancel,
-}: Readonly<Props>) {
+}: Readonly<ReorderPaneProps>) {
   const [opened] = useState(() => entries.map(entry => entry.id))
   const [order, setOrder] = useState(opened)
   const [saving, setSaving] = useState(false)
@@ -150,8 +132,7 @@ export function ReorderPane({
   )
 }
 
-const ARROW =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent'
+const ARROW = `${JOURNAL_ICON_BUTTON} disabled:opacity-40 disabled:hover:bg-transparent`
 
 /** A note in the list: its grip, its place from 1, its title and author, and its arrows. */
 function Row({

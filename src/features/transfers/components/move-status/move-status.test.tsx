@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MADE_SHOWN_FOR, MoveStatus } from './move-status'
+import { MADE_SHOWN_FOR } from './constants'
+import { MoveStatus } from './move-status'
 import { TableApiContext } from '@/hooks/use-table-api'
 import type { LocalMove, TableRollState } from '@/types/roll'
 

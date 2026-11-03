@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CampaignRow, rowOf, subOf } from './campaign-row'
+import { CampaignRow } from './campaign-row'
+import { rowOf, subOf } from './utils'
 import type { OwnedCampaign } from '@/types/campaign'
 
 const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({

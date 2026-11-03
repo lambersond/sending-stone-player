@@ -166,7 +166,7 @@ export function CompanionPane({
  * sheet, kept as it was; or alone, where its sheet never came.
  * @param short - With no sheet under it.
  */
-export function GoneNote({
+function GoneNote({
   name,
   character,
   game,
@@ -194,7 +194,7 @@ export function GoneNote({
  * In place of a companion's sheet, while it hasn't come; or for one the module held back, as too
  * large to send, how large it was, where it said.
  */
-export function NoCreatureSheet({
+function NoCreatureSheet({
   name,
   withheld,
 }: Readonly<{ name: string; withheld?: SheetWithheld }>) {

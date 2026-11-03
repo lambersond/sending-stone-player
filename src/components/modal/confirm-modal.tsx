@@ -1,25 +1,10 @@
 'use client'
 
-import { useTransition, useRef, type ReactNode } from 'react'
+import { useTransition, useRef } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
 import { Modal } from './modal'
-
-export type Asked = {
-  title: string
-  /** What will happen. */
-  children: ReactNode
-  confirmLabel: string
-  /** What the button that keeps things as they are says. */
-  cancelLabel?: string
-  onConfirm: () => Promise<void>
-  danger?: boolean
-  /**
-   * Has Cancel take focus as it opens, rather than the browser's first control, its Close: the
-   * campaign page's dialogs (round 0.39.0), so Enter keeps things as they are.
-   */
-  focusCancel?: boolean
-}
+import type { Asked } from './types'
 
 /**
  * The modal a `ConfirmDialog` asks in, opened by whatever its owner has open it, such as an item of

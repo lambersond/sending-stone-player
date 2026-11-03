@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ConnectFoundryButton, NewCampaignButton } from './campaign-buttons'
+import { ConnectFoundryButton } from './connect-foundry-button'
+import { NewCampaignButton } from './new-campaign-button'
 
 describe('components/campaigns/campaign-buttons', () => {
   it('sets up a new campaign in a modal, closing when done', async () => {

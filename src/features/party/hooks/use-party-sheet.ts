@@ -1,27 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { POLL_INTERVAL } from '@/constants/polling'
+import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
+import { retryDelay } from '@/utils/polling'
+import { seenQuery } from '@/utils/seen-query'
+import type { PartyState } from '@/features/party/types'
 import type { PartyView } from '@/types/party'
 import type { Connection } from '@/types/table'
-
-/** The longest wait between attempts while the server cannot be reached. */
-const MAX_DELAY = 30_000
-
-/**
- * Where a party sheet stands: being fetched for the first time, shown, or no longer the seat's to
- * see, as when its access is taken away in Foundry, or its group leaves the campaign.
- */
-export type PartyState = 'loading' | 'ready' | 'gone'
 
 /** What the viewer has of a party sheet, which the server compares to say nothing is new. */
 function queryOf(view: PartyView | undefined): string {
   if (!view) return ''
-  const query = new URLSearchParams({
-    version: String(view.version),
-    live: view.live ? '1' : '0',
+  const query = seenQuery({
+    version: view.version,
+    live: view.live,
     // From module 0.31.0: whether the seat might take from it.
-    ...(view.moves && { moves: '1' }),
-    ...(view.sheetVersion && { sheet: view.sheetVersion }),
+    moves: !!view.moves,
+    sheet: view.sheetVersion,
   })
   return `?${query}`
 }
@@ -98,10 +92,10 @@ export function usePartySheet(
       timer = undefined
       if (document.visibilityState !== 'hidden') await poll()
       if (stopped || controller.signal.aborted) return
-      const delay = failures
-        ? Math.min(POLL_INTERVAL * 2 ** failures, MAX_DELAY)
-        : POLL_INTERVAL
-      timer = setTimeout(tick, delay)
+      timer = setTimeout(
+        tick,
+        retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY),
+      )
     }
 
     const onVisibilityChange = () => {

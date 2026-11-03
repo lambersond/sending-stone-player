@@ -1,84 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import clsx from 'clsx'
-import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { WARNS } from './constants'
 import { noteReasonWords } from '@/features/notes/utils/note-words'
 import { orderStateWords } from '@/features/notes/utils/order-words'
 import { seatWords } from '@/utils/seat-words'
-import type {
-  NoteEntryView,
-  NoteGroupView,
-  NoteOrderState,
-} from '@/types/notes'
-import type { SeatRole } from '@/types/seats'
-
-/** The states an order didn't reach Foundry in, which its chip warns of. */
-const WARNS = new Set<NoteOrderState>(['conflict', 'failed'])
-
-/** The icon of an order's state, beside its words: a spinner while it's on its way. */
-function OrderIcon({ state }: Readonly<{ state: NoteOrderState }>) {
-  if (state === 'saving') {
-    return (
-      <LoaderCircle
-        aria-hidden
-        className='size-3.5 shrink-0 motion-safe:animate-spin'
-      />
-    )
-  }
-  if (WARNS.has(state)) {
-    return <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-  }
-  return <Clock aria-hidden className='size-3.5 shrink-0' />
-}
-
-/**
- * Where a group's order stands, as a chip of an icon and its words, never colour alone (round
- * 0.35.0 §9.5), as a note's `NoteChip` says a note's. Nothing where it's the same in Foundry.
- */
-export function OrderChip({ state }: Readonly<{ state: NoteOrderState }>) {
-  const words = orderStateWords(state)
-  if (!words) return
-  return (
-    <span
-      className={clsx(
-        'inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
-        WARNS.has(state)
-          ? 'border-warning/40 bg-warning/10 text-warning'
-          : 'border-border text-text-secondary',
-      )}
-    >
-      <OrderIcon state={state} />
-      {words}
-    </span>
-  )
-}
-
-/**
- * An order on its way, as the contents' mark beside its group: the chip's icon alone, its words
- * as its title and for a screen reader. Nothing otherwise: a refused order shows as the group's
- * warning, which the contents draw themselves.
- */
-export function OrderMark({ state }: Readonly<{ state: NoteOrderState }>) {
-  if (state !== 'waiting' && state !== 'saving') return
-  const words = orderStateWords(state)
-  return (
-    <span title={words} className='inline-flex text-text-secondary'>
-      <OrderIcon state={state} />
-      <span className='sr-only'>{words}</span>
-    </span>
-  )
-}
-
-type Props = {
-  group: NoteGroupView
-  /** The group's notes as the seat sees them, to name an order's notes by their titles. */
-  entries: NoteEntryView[]
-  role: SeatRole
-  /** A choice is on its way. */
-  busy: boolean
-  onResolve: (choice: 'mine' | 'theirs') => void
-}
+import type { OrderProblemProps } from './types'
+import type { NoteEntryView } from '@/types/notes'
 
 /**
  * What became of an order the game didn't take, and the choices left (round 0.35.0 §9.5): Foundry's
@@ -92,7 +20,7 @@ export function OrderProblem({
   role,
   busy,
   onResolve,
-}: Readonly<Props>) {
+}: Readonly<OrderProblemProps>) {
   const [showing, setShowing] = useState(false)
   const { state, mine } = group
   const label = orderStateWords(state)

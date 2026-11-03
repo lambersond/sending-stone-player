@@ -2,31 +2,17 @@
 
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { BookOpen, PenLine, TriangleAlert } from 'lucide-react'
-import { needsChoice } from '../contents/contents'
 import { JournalModal } from '../journal-modal/journal-modal'
 import { NoteTime } from '../note-time/note-time'
 import { journalOpen, useNotes } from '@/features/notes/hooks/use-notes'
+import { needsChoice } from '@/features/notes/utils/groups'
 import {
   choicesWords,
   journalCounts,
   journalTitle,
   whoSeesNotes,
 } from '@/features/notes/utils/note-words'
-import type { NoteBookKind } from '@/types/notes'
-import type { SeatRole } from '@/types/seats'
-
-type Props = {
-  /** The seat's API base, such as `/api/characters/<id>`: its book is under it, at `/notes`. */
-  api: string
-  role: SeatRole
-  kind: NoteBookKind
-  /** The book's character or party, as its words name it. */
-  name: string
-  /** Whether it's in view, and so polled. */
-  active: boolean
-  /** Its heading as the tab it's in draws one: the sheet's, or the party sheet's. */
-  look: 'sheet' | 'party'
-}
+import type { JournalCardProps } from './types'
 
 /**
  * Where a character's or a party's journal opens (round 0.35.0 §8.3): a card the same size
@@ -43,7 +29,7 @@ export function JournalCard({
   name,
   active,
   look,
-}: Readonly<Props>) {
+}: Readonly<JournalCardProps>) {
   const notes = useNotes(api, { active: active || journalOpen(api) })
   const { view, state, draft, open, setDraft, setOpen } = notes
   const headingId = useId()

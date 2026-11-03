@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { NoteChip, NoteProblem } from './note-problem'
+import { NoteChip } from './note-chip'
+import { NoteProblem } from './note-problem'
 import type { NoteState } from '@/types/notes'
 
 type Props = Parameters<typeof NoteProblem>[0]

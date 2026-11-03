@@ -3,14 +3,12 @@ import Link from 'next/link'
 import { RemoveCharacterButton } from './remove-character-button'
 import { Avatar } from '@/components/avatar/avatar'
 import { gameHost } from '@/utils/game-host'
-import type { Character } from '@/types/character'
+import type { CharacterListProps } from './types'
 
-type Props = {
-  characters: Character[]
-  onRemove: (characterId: string) => Promise<void>
-}
-
-export function CharacterList({ characters, onRemove }: Readonly<Props>) {
+export function CharacterList({
+  characters,
+  onRemove,
+}: Readonly<CharacterListProps>) {
   return (
     <ul className='grid grid-cols-1 gap-3'>
       {characters.map(character => (

@@ -1,23 +1,19 @@
-import { useState, useMemo, type ReactNode } from 'react'
-import clsx from 'clsx'
-import { LoaderCircle } from 'lucide-react'
-import { MoveDialog, type MoveEnd } from '../components/move-dialog/move-dialog'
+import { createElement, useState, useMemo, type ReactNode } from 'react'
+import { GiveButton } from '../components/give-controls/give-button'
+import { GiveDialogs } from '../components/give-controls/give-dialogs'
 import {
+  NO_TRANSFERS,
   ITEM_BUTTON,
   ROW_BUTTON,
-} from '../components/transferring/transferring'
-import { NO_TRANSFERS } from '../constants'
+  PENDING_COINS,
+} from '../constants'
+import { anyCoins } from '@/features/transfers/utils'
 import { onItsWay } from '@/utils/lifecycle'
-import type { TransferControls } from '../types'
+import type { TransferControls, Giving } from '../types'
 import type { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
 import type { TableMoves } from '@/types/party'
 import type { LocalMove, LocalUse } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
-import type {
-  SheetItem,
-  SheetContainer,
-  SheetCurrency,
-} from '@/types/sending-stone'
 
 /*
  * Give, on a character's Inventory tab (module 0.31.0): in each item once it's opened, and on its
@@ -27,22 +23,6 @@ import type {
  * own menu gives it too. Each opens the move's dialog, and what's given is followed in the tray
  * and the toasts, as a use is.
  */
-
-/** What's pending, for coins rather than an item. */
-const COINS = 'coins'
-
-/** What's being given, while its dialog is open, as it was when it opened. */
-type Giving = {
-  what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
-  /** The character it's given from. */
-  from: string
-  recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
-}
-
-/** Any whole coin to give: dnd5e 6 may hold part of one, which can't be moved. */
-function anyCoins(currency: SheetCurrency[]): boolean {
-  return currency.some(coin => Math.floor(coin.value) >= 1)
-}
 
 /**
  * The controls a character's sheet gives its inventory to give its items and coins, and the
@@ -79,7 +59,7 @@ export function useGiveControls({
     const held = new Set<string>()
     for (const { move, status } of table.states.values()) {
       if (move && onItsWay({ status })) {
-        held.add(move.item ?? COINS)
+        held.add(move.item ?? PENDING_COINS)
       }
     }
     return held
@@ -95,86 +75,45 @@ export function useGiveControls({
     return {
       // In the item once opened: a row that rolls is full on a phone.
       item: item => ({
-        body: (
-          <GiveButton
-            label={`Give ${item.name}`}
-            className={ITEM_BUTTON}
-            busy={pending.has(item.id)}
-            onGive={() => give({ item })}
-          >
-            Give…
-          </GiveButton>
+        body: createElement(
+          GiveButton,
+          {
+            label: `Give ${item.name}`,
+            className: ITEM_BUTTON,
+            busy: pending.has(item.id),
+            onGive: () => give({ item }),
+          },
+          'Give…',
         ),
       }),
       // On the Currency row, its words are its name, in the group the row's label names.
       coins: currency =>
-        anyCoins(currency) && (
-          <GiveButton
-            className={ROW_BUTTON}
-            busy={pending.has(COINS)}
-            onGive={() => give({ coins: currency })}
-          >
-            Send to
-          </GiveButton>
+        anyCoins(currency) &&
+        createElement(
+          GiveButton,
+          {
+            className: ROW_BUTTON,
+            busy: pending.has(PENDING_COINS),
+            onGive: () => give({ coins: currency }),
+          },
+          'Send to',
         ),
       // What "Send to…" in an item's own menu opens: the dialog its Give… opens.
       send: item => (item.quantity >= 1 ? () => give({ item }) : undefined),
     }
   }, [actorId, moves, pending])
 
-  const dialog = giving && (
-    <MoveDialog
-      open={open}
-      onClose={() => setOpen(false)}
-      mode='give'
-      mover={role === 'gm' ? name : 'You'}
-      what={giving.what}
-      recipients={giving.recipients}
-      onMove={({ to, items, currency, words }) => {
-        setActed(true)
-        table.sendTransfer(logMove(words), {
-          from: giving.from,
-          to,
-          ...(items && { items }),
-          ...(currency && { currency }),
-        })
-      }}
-    />
-  )
+  const dialog =
+    giving &&
+    createElement(GiveDialogs, {
+      giving,
+      open,
+      setOpen,
+      role,
+      name,
+      table,
+      logMove,
+      setActed,
+    })
   return { controls, dialog }
-}
-
-function GiveButton({
-  label,
-  className,
-  busy,
-  onGive,
-  children,
-}: Readonly<{
-  /** Its name, where its words alone don't say what it gives. */
-  label?: string
-  className: string
-  busy: boolean
-  onGive: () => void
-  children: ReactNode
-}>) {
-  return (
-    <button
-      type='button'
-      aria-haspopup='dialog'
-      aria-label={label}
-      disabled={busy}
-      aria-busy={busy || undefined}
-      onClick={onGive}
-      className={clsx(className, busy && 'inline-flex items-center gap-1')}
-    >
-      {busy && (
-        <LoaderCircle
-          aria-hidden
-          className='size-3.5 motion-safe:animate-spin'
-        />
-      )}
-      {children}
-    </button>
-  )
 }

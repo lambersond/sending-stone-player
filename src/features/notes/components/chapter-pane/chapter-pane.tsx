@@ -1,63 +1,25 @@
 'use client'
 
-import { useId, type ReactNode } from 'react'
+import { useId } from 'react'
 import { ArrowDownUp, FileText, NotebookPen, Pencil, Plus } from 'lucide-react'
-import { LOOSE_TITLE, type JournalGroup } from '../contents/contents'
 import { NoteCard } from '../note-card/note-card'
-import {
-  ChapterLine,
-  mayMove,
-  mayRename,
-  NoteText,
-} from '../note-lines/note-lines'
-import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
-import { OrderChip, OrderProblem } from '../order-state/order-state'
+import { NoteProblem } from '../note-problem/note-problem'
+import { OrderProblem } from '../order-state/order-state'
 import { Pane } from '../pane/pane'
-import type { NotePick } from '@/features/notes/hooks/use-notes'
-import type { NoteChapterView, NoteEntryView } from '@/types/notes'
-import type { SeatRole } from '@/types/seats'
+import { ChapterLine } from '@/features/notes/components/note-lines/chapter-line'
+import { NoteText } from '@/features/notes/components/note-lines/note-text'
+import { NoteChip } from '@/features/notes/components/note-problem/note-chip'
+import { hasProblem } from '@/features/notes/components/note-problem/utils'
+import { OrderChip } from '@/features/notes/components/order-state/order-chip'
+import { LOOSE_TITLE, JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
+import { mayMove, mayRename } from '@/features/notes/utils/permissions'
+import type { ChapterPaneProps } from './types'
+import type { NoteEntryView } from '@/types/notes'
 
-const ICON_BUTTON =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
 const OUTLINE =
   'inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
 const DASHED =
   'flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-text-primary'
-
-type Props = {
-  group: JournalGroup
-  /** What's searched, if anything: its notes shown are then only the hits. */
-  query: string
-  /** Its notes the search finds, in its order; all of them while nothing is searched. */
-  shown: NoteEntryView[]
-  /** The book's chapters, oldest first. */
-  chapters: NoteChapterView[]
-  role: SeatRole
-  /** The book takes changes: else nothing here offers one. */
-  canAdd: boolean
-  /** The seat may put the notes of a group in order. */
-  canReorder: boolean
-  /** Something is being written in the book, which is saved or cancelled first. */
-  drafting: boolean
-  /** Foundry holds the journal back as too large. */
-  tooLarge: boolean
-  /** The reader's Contents button, below 640 px of the modal. */
-  contents: ReactNode
-  onPick: (pick: NotePick) => void
-  onRename: (opener: 'rename' | 'problem-edit') => void
-  onNewIn: () => void
-  onReorder: () => void
-  /** The chapter's own choice, where the game didn't take its rename. */
-  onResolve: (choice: 'mine' | 'theirs') => void
-  onResolveOrder: (choice: 'mine' | 'theirs') => void
-  onMove: (entry: NoteEntryView, chapterId: string | null) => void
-  /** The note whose move is on its way. */
-  moving?: string
-  /** A choice for the chapter is on its way. */
-  busy: boolean
-  /** A choice for its order is on its way. */
-  orderBusy: boolean
-}
 
 /**
  * A group's page (round 0.35.0 §8.9): a chapter's, or the notes' in no chapter. In its bar,
@@ -86,7 +48,7 @@ export function ChapterPane({
   moving,
   busy,
   orderBusy,
-}: Readonly<Props>) {
+}: Readonly<ChapterPaneProps>) {
   const titleId = useId()
   const { chapter, entries, order } = group
   const searching = query.trim() !== ''
@@ -120,7 +82,7 @@ export function ChapterPane({
           data-note-opener='rename'
           data-chapter={chapter.id}
           onClick={() => onRename('rename')}
-          className={ICON_BUTTON}
+          className={JOURNAL_ICON_BUTTON}
         >
           <Pencil aria-hidden className='size-5' />
         </button>

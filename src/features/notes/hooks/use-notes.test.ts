@@ -2,15 +2,10 @@ import { createElement } from 'react'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { POLL_INTERVAL } from '../../../constants/polling'
-import {
-  forgetNotes,
-  hasDraft,
-  journalOpen,
-  useNotes,
-  type NoteDraft,
-} from './use-notes'
+import { forgetNotes, hasDraft, journalOpen, useNotes } from './use-notes'
 import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
 import { mockNotesView } from '@/mocks/sending-stone'
+import type { NoteDraft } from '@/features/notes/types'
 import type { NotesView } from '@/types/notes'
 
 const API = '/api/characters/char-1'

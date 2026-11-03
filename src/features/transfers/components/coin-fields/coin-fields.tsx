@@ -2,51 +2,13 @@
 
 import { useId } from 'react'
 import clsx from 'clsx'
-import { typedCount } from '../amount-field/amount-field'
-import { MOST_MOVED } from '@/constants/sending-stone'
+import { fits, movableCoins } from './utils'
 import type { SheetCurrency } from '@/types/sending-stone'
 
 /*
  * How many of each coin to move (module 0.31.0), typed, as a pile of coin may run to thousands.
  * Only whole coins move: dnd5e 6 may hold part of one, as 10.5 gp, of which 10 may be moved.
  */
-
-/** The coins there's a whole one of, in the sheet's order, each with as many as may be moved. */
-export function movableCoins(
-  currency: SheetCurrency[],
-): (SheetCurrency & { max: number })[] {
-  return currency
-    .map(coin => ({
-      ...coin,
-      max: Math.min(Math.floor(coin.value), MOST_MOVED),
-    }))
-    .filter(({ max }) => max >= 1)
-}
-
-/** Whether what's typed for a coin may be moved: nothing, as none, or a number up to its most. */
-function fits(text: string, max: number): boolean {
-  if (text === '') return true
-  const count = typedCount(text)
-  return count !== undefined && count <= max
-}
-
-/**
- * The coins to move, by key, as typed, leaving out those with none; or nothing, while any is typed
- * as more than there is, or not as a number, or none at all is.
- */
-export function coinsMoved(
-  currency: SheetCurrency[],
-  value: Readonly<Record<string, string>>,
-): Record<string, number> | undefined {
-  const moved: Record<string, number> = {}
-  for (const { id, max } of movableCoins(currency)) {
-    const text = value[id] ?? ''
-    if (!fits(text, max)) return undefined
-    const count = typedCount(text) ?? 0
-    if (count >= 1) moved[id] = count
-  }
-  return Object.keys(moved).length > 0 ? moved : undefined
-}
 
 /**
  * A number to type for each coin there's a whole one of, of as many as there are, and a button

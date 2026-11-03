@@ -6,7 +6,8 @@ import { UserRound, Users, type LucideIcon } from 'lucide-react'
 import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import { SearchField } from '@/components/search-field/search-field'
 import { matchesSearch, searchKey } from '@/utils/search'
-import type { MoveEnd } from '../move-dialog/move-dialog'
+import type { Section } from './types'
+import type { MoveEnd } from '@/features/transfers/types'
 
 /*
  * Who a move goes to (module 0.31.0): the parties first, then the campaign's characters, each with
@@ -16,13 +17,6 @@ import type { MoveEnd } from '../move-dialog/move-dialog'
 
 /** How many there may be before they can be searched by name, as the picker's targets. */
 const SEARCH_ABOVE = 5
-
-type Section = {
-  key: 'parties' | 'characters'
-  label: 'Parties' | 'Characters'
-  ends: MoveEnd[]
-  fallback: LucideIcon
-}
 
 /**
  * The parties and characters to choose one from, under their headings, a section with none left

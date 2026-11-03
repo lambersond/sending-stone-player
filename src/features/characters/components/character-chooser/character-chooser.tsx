@@ -4,17 +4,7 @@ import { useActionState } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
 import { Avatar } from '@/components/avatar/avatar'
-import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
-
-type Props = {
-  choice: CampaignChoice
-  action: (
-    state: ChooseCharacterFormState,
-    formData: FormData,
-  ) => Promise<ChooseCharacterFormState>
-  /** The button's label. */
-  submitLabel?: string
-}
+import type { CharacterChooserProps } from './types'
 
 /**
  * A campaign's characters to choose from. Each is one player's, so those already chosen are not
@@ -24,7 +14,7 @@ export function CharacterChooser({
   choice,
   action,
   submitLabel = 'Choose character',
-}: Readonly<Props>) {
+}: Readonly<CharacterChooserProps>) {
   const [state, formAction, pending] = useActionState(action, {})
 
   if (choice.characters.length === 0) {

@@ -3,33 +3,15 @@
 import { useMemo } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { PartySheetFor } from '../party-sheet/party-sheet'
+import { PartySheetFor } from '../party-sheet-for/party-sheet-for'
 import { FullscreenButton } from '@/components/fullscreen-button/fullscreen-button'
 import { LiveStatus } from '@/components/live-status/live-status'
+import { HEADER_ICON_BUTTON } from '@/constants/buttons'
 import { usePartySheet } from '@/features/party/hooks/use-party-sheet'
 import { TableApiContext } from '@/hooks/use-table-api'
+import type { PartyPageProps } from './types'
 import type { LiveState } from '@/components/live-status/types'
-import type { TakeInto } from '@/features/transfers/types'
 import type { TableSeat } from '@/types/character'
-import type { PartyView } from '@/types/party'
-import type { SeatRole } from '@/types/seats'
-
-type Props = {
-  /** The party sheet's API, such as `/api/characters/<id>/party/<group>`. */
-  api: string
-  role: SeatRole
-  /** The view the page was rendered with. */
-  initialView: PartyView
-  /** Where its back arrow goes, and what it's called. */
-  back: { href: string; label: string }
-  /** The player's own character's sheet, which its name in the members links to. */
-  ownSheetHref?: string
-  /**
-   * Where it takes into, where the seat may take from it (module 0.31.0): only data, as a server
-   * page passes it.
-   */
-  takeInto?: TakeInto
-}
 
 /**
  * A party's sheet as its own page, which the game fills as it does a character's (module 0.30.0):
@@ -43,7 +25,7 @@ export function PartyPage({
   back,
   ownSheetHref,
   takeInto,
-}: Readonly<Props>) {
+}: Readonly<PartyPageProps>) {
   const {
     view = initialView,
     state,
@@ -64,7 +46,7 @@ export function PartyPage({
             <Link
               href={back.href}
               aria-label={back.label}
-              className='-ml-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+              className={`-ml-1.5 shrink-0 ${HEADER_ICON_BUTTON}`}
             >
               <ArrowLeft aria-hidden className='size-5' />
             </Link>

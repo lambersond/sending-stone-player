@@ -4,73 +4,33 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type RefObject,
 } from 'react'
-import { POLL_INTERVAL } from '@/constants/polling'
+import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
+import {
+  answerOf,
+  bodyOf,
+  idsOf,
+  madeFrom,
+} from '@/features/notes/utils/answers'
+import { retryDelay } from '@/utils/polling'
+import { seenQuery } from '@/utils/seen-query'
+import type {
+  Book,
+  DraftChange,
+  NoteDraft,
+  NotePick,
+  NotesState,
+} from '@/features/notes/types'
 import type {
   NoteChange,
   NoteInput,
   NoteOrder,
   NoteOrderResolve,
-  NoteRefusal,
   NoteResolve,
-  NoteRole,
   NotesView,
   NoteWriteAnswer,
 } from '@/types/notes'
-
-/** The longest wait between attempts while the server cannot be reached. */
-const MAX_DELAY = 30_000
-
-/**
- * What's being written: a new note ('new'), a new chapter ('new-chapter'), or a change to the note
- * or chapter of that id, from the stamp it started at (§8.8); what it started as, so that a
- * change can be told from none; what opened it; and where focus was in it as it last unmounted.
- */
-export type NoteDraft = {
-  key: string
-  role: NoteRole
-  title: string
-  body: string
-  chapterId: string | null
-  stamp?: string
-  started: { title: string; body: string; chapterId: string | null }
-  /** The control that opened it, found again to give focus back to (§9.6). */
-  opener: 'new' | 'new-in' | 'new-chapter' | 'edit' | 'problem-edit' | 'rename'
-  /**
-   * Where focus was, inside the editor, as it unmounted: put back once it's mounted again (§9.6).
-   */
-  focus?: { field: 'chapter' | 'title' | 'body'; start?: number; end?: number }
-  /**
-   * Sent, and not yet answered: its fields hold still and Cancel waits till then, so what's kept is
-   * what was typed. Kept here rather than in the editor, so an editor mounted again meanwhile, as
-   * when another tab is chosen and this one again, can't send it a second time.
-   */
-  saving?: true
-}
-
-/**
- * A draft as it's set: the draft itself, none, or what it becomes from the one held now, which
- * the change is given at once, as the store holds it then.
- */
-export type DraftChange =
-  | NoteDraft
-  | undefined
-  | ((held: NoteDraft | undefined) => NoteDraft | undefined)
-
-export type NotesState = 'loading' | 'ready' | 'gone' | 'failed'
-
-/** What the journal's reader shows: a note, or a group's page, the loose group's as null. */
-export type NotePick = { note: string } | { group: string | null }
-
-/**
- * What a page holds of one book: what it last saw of it, what's being written in it, and whether
- * its journal is open, with what its reader shows (round 0.35.0 §8.2).
- */
-type Book = {
-  view?: NotesView
-  draft?: NoteDraft
-  open?: { pick?: NotePick }
-}
 
 /*
  * The page's store of books, by the seat's API base, for as long as the page is loaded: in memory
@@ -168,142 +128,21 @@ export function forgetNotes(): void {
   for (const api of books.keys()) put(api)
 }
 
-/** The app's own refusals, as a write's answer names them. */
-const REFUSALS = new Set<string>([
-  'invalid',
-  'not-yours',
-  'changed',
-  'saving',
-  'conflict',
-  'chapter',
-  'foundry-only',
-  'private',
-  'unknown',
-  'headings',
-  'gone',
-  'full',
-  'busy',
-] satisfies NoteRefusal[])
-
-/** A response's JSON, or nothing where it has none. */
-async function bodyOf(response: Response): Promise<Record<string, unknown>> {
-  try {
-    const body: unknown = await response.json()
-    return body && typeof body === 'object'
-      ? (body as Record<string, unknown>)
-      : {}
-  } catch {
-    return {}
-  }
-}
-
-/** What a write answered, from its response. */
-async function answerOf(response: Response): Promise<NoteWriteAnswer> {
-  const body = await bodyOf(response)
-  if (response.ok) {
-    return {
-      ok: true,
-      ...(typeof body.id === 'string' && { id: body.id }),
-      ...(typeof body.stamp === 'string' && { stamp: body.stamp }),
-    }
-  }
-  // Not there: the note was deleted meanwhile, or the book is no longer the seat's, which the
-  // read that follows says.
-  if (response.status === 404) return { ok: false, reason: 'changed' }
-  // Signed out, or the server failing: nothing was wrong with the note, which is still there.
-  if (response.status === 401 || response.status >= 500) {
-    return { ok: false, reason: 'network' }
-  }
-  const reason =
-    typeof body.reason === 'string' && REFUSALS.has(body.reason)
-      ? (body.reason as NoteRefusal)
-      : 'invalid'
-  const lines = Array.isArray(body.lines)
-    ? body.lines.filter((line): line is number => Number.isInteger(line))
-    : undefined
-  return {
-    ok: false,
-    reason,
-    ...(typeof body.field === 'string' && { field: body.field }),
-    ...(lines && { lines }),
-  }
-}
-
-/** The ids of a book's notes and chapters, as a view holds them. */
-function idsOf(view: NotesView | undefined): Set<string> {
-  return new Set([
-    ...(view?.chapters ?? []).map(({ id }) => id),
-    ...(view?.entries ?? []).map(({ id }) => id),
-  ])
-}
-
 /**
- * The note or chapter a create made, where its answer was lost: one in the book now that wasn't
- * as it was sent, that the seat may change, holding just what was sent.
+ * Reads a book while it's active: at once without a view kept, else after POLL_INTERVAL, then
+ * every POLL_INTERVAL while the page is visible, backing off on failures; one read at a time, and
+ * one asked for meanwhile once it's done. 404 is gone, and nothing of it stays on the page.
+ * @returns whether the seat may no longer see the book, whether reading it failed since it was
+ * mounted, and `refresh`, which reads it at once while it's polled.
  */
-function madeFrom(
-  view: NotesView | undefined,
-  input: NoteInput,
-  before: Set<string>,
-): { id: string; stamp: string } | undefined {
-  const title = input.title.trim()
-  if (input.role === 'chapter') {
-    return view?.chapters.find(
-      chapter =>
-        !before.has(chapter.id) && chapter.canRename && chapter.title === title,
-    )
-  }
-  return view?.entries.find(
-    entry =>
-      !before.has(entry.id) &&
-      entry.canEdit &&
-      entry.title === title &&
-      entry.body === (input.body ?? '') &&
-      (entry.chapterId ?? undefined) === (input.chapterId ?? undefined),
-  )
-}
-
-/**
- * A book of notes through a seat's API (its base + '/notes'): fetched when first active, then
- * polled every POLL_INTERVAL while active and the page is visible, with ?version=&live= for 204
- * while nothing changed; at once after each change sent. 404 is 'gone'. Backs off on failures as
- * useTableView does. What it last held of the book, and what's being written in it, are kept in
- * the page's store by book, so a card mounted again starts from them; and so is whether its journal
- * is open, with what its reader shows, so a card mounted again, as when the sheet arrives, shows it
- * open again where it was.
- */
-export function useNotes(
+function useBookReads(
   api: string,
-  { active }: { active: boolean },
+  active: boolean,
 ): {
-  view?: NotesView
-  state: NotesState
-  create(input: NoteInput): Promise<NoteWriteAnswer>
-  change(id: string, change: NoteChange): Promise<NoteWriteAnswer>
-  remove(id: string, stamp: string): Promise<NoteWriteAnswer>
-  resolve(id: string, choice: NoteResolve): Promise<NoteWriteAnswer>
-  /** Sends a new order of a group's notes (module 0.35.0). */
-  reorder(order: NoteOrder): Promise<NoteWriteAnswer>
-  /** Sends the seat's choice where the game didn't take a group's order (module 0.35.0). */
-  resolveOrder(choice: NoteOrderResolve): Promise<NoteWriteAnswer>
-  preview(
-    body: string,
-  ): Promise<{ html: string; headings: number[] } | undefined>
-  /** What's being written in this book, if anything: one thing at a time. */
-  draft?: NoteDraft
-  setDraft(draft: DraftChange): void
-  /** The journal open, and what its reader shows; none while it's closed. */
-  open?: { pick?: NotePick }
-  /** Opens the journal afresh, its reader on nothing picked yet, or closes it. */
-  setOpen(open: boolean): void
-  /** What the reader shows, kept while the journal is open, so a card mounted again shows it. */
-  setPick(pick: NotePick): void
+  gone: boolean
+  failing: boolean
+  refresh: RefObject<(() => Promise<void>) | undefined>
 } {
-  const book = useSyncExternalStore(
-    useCallback(listener => subscribe(api, listener), [api]),
-    () => books.get(api),
-    onServer,
-  )
   // The book the seat may no longer see, and whether reading it failed since it was mounted.
   const [goneFrom, setGoneFrom] = useState<string>()
   const [failing, setFailing] = useState(false)
@@ -323,10 +162,7 @@ export function useNotes(
     const poll = async () => {
       const held = books.get(api)?.view
       const query = held
-        ? `?${new URLSearchParams({
-            version: String(held.version),
-            live: held.live ? '1' : '0',
-          })}`
+        ? `?${seenQuery({ version: held.version, live: held.live })}`
         : ''
       try {
         const response = await fetch(`${api}/notes${query}`, {
@@ -380,10 +216,10 @@ export function useNotes(
     const schedule = () => {
       clearTimeout(timer)
       if (stopped || controller.signal.aborted) return
-      const delay = failures
-        ? Math.min(POLL_INTERVAL * 2 ** failures, MAX_DELAY)
-        : POLL_INTERVAL
-      timer = setTimeout(tick, delay)
+      timer = setTimeout(
+        tick,
+        retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY),
+      )
     }
 
     const tick = async () => {
@@ -418,6 +254,52 @@ export function useNotes(
     }
   }, [api, active, gone])
 
+  return { gone, failing, refresh }
+}
+
+/**
+ * A book of notes through a seat's API (its base + '/notes'): fetched when first active, then
+ * polled every POLL_INTERVAL while active and the page is visible, with ?version=&live= for 204
+ * while nothing changed; at once after each change sent. 404 is 'gone'. Backs off on failures as
+ * useTableView does. What it last held of the book, and what's being written in it, are kept in
+ * the page's store by book, so a card mounted again starts from them; and so is whether its journal
+ * is open, with what its reader shows, so a card mounted again, as when the sheet arrives, shows it
+ * open again where it was.
+ */
+export function useNotes(
+  api: string,
+  { active }: { active: boolean },
+): {
+  view?: NotesView
+  state: NotesState
+  create(input: NoteInput): Promise<NoteWriteAnswer>
+  change(id: string, change: NoteChange): Promise<NoteWriteAnswer>
+  remove(id: string, stamp: string): Promise<NoteWriteAnswer>
+  resolve(id: string, choice: NoteResolve): Promise<NoteWriteAnswer>
+  /** Sends a new order of a group's notes (module 0.35.0). */
+  reorder(order: NoteOrder): Promise<NoteWriteAnswer>
+  /** Sends the seat's choice where the game didn't take a group's order (module 0.35.0). */
+  resolveOrder(choice: NoteOrderResolve): Promise<NoteWriteAnswer>
+  preview(
+    body: string,
+  ): Promise<{ html: string; headings: number[] } | undefined>
+  /** What's being written in this book, if anything: one thing at a time. */
+  draft?: NoteDraft
+  setDraft(draft: DraftChange): void
+  /** The journal open, and what its reader shows; none while it's closed. */
+  open?: { pick?: NotePick }
+  /** Opens the journal afresh, its reader on nothing picked yet, or closes it. */
+  setOpen(open: boolean): void
+  /** What the reader shows, kept while the journal is open, so a card mounted again shows it. */
+  setPick(pick: NotePick): void
+} {
+  const book = useSyncExternalStore(
+    useCallback(listener => subscribe(api, listener), [api]),
+    () => books.get(api),
+    onServer,
+  )
+  const { gone, failing, refresh } = useBookReads(api, active)
+
   const write = useCallback(
     async (
       path: string,
@@ -445,7 +327,7 @@ export function useNotes(
       await refresh.current?.()
       return answer
     },
-    [api],
+    [api, refresh],
   )
 
   const create = useCallback(

@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RemoveDialog, type RemoveDialogProps } from './remove-dialog'
+import { RemoveDialog } from './remove-dialog'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { sheetContainer, sheetItem } from '@/mocks/sending-stone'
+import type { RemoveDialogProps } from './types'
 
 const potions = sheetItem({
   id: 'potionThorin',

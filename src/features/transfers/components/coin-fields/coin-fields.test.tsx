@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CoinFields, coinsMoved, movableCoins } from './coin-fields'
+import { CoinFields } from './coin-fields'
+import { coinsMoved, movableCoins } from './utils'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import type { SheetCurrency } from '@/types/sending-stone'
 

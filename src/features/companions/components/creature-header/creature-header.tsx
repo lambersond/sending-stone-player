@@ -143,7 +143,7 @@ function Chip({ children }: Readonly<{ children: ReactNode }>) {
  * and resistances as they stand, its hit dice, which are spent in the game alone, and in its lair,
  * the lair's initiative.
  */
-export function CreatureStats({ sheet }: Readonly<{ sheet: TableSheet }>) {
+function CreatureStats({ sheet }: Readonly<{ sheet: TableSheet }>) {
   const { creature } = sheet
   if (!creature) return
   const { legendary, resistance, hitDice, lair } = creature

@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Sortable, type SortableHandles } from './sortable'
+import { Sortable } from './sortable'
+import type { SortableHandles } from './types'
 
 /** Twenty notes, A to T. */
 const TITLES = Object.fromEntries(

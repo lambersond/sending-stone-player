@@ -1,24 +1,14 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
 import clsx from 'clsx'
-import { AmountField, amountOf } from '../amount-field/amount-field'
-import {
-  CoinFields,
-  coinsMoved,
-  movableCoins,
-} from '../coin-fields/coin-fields'
+import { AmountField } from '../amount-field/amount-field'
+import { CoinFields } from '../coin-fields/coin-fields'
 import { RecipientList } from '../recipient-list/recipient-list'
+import { useMoveForm } from './use-move-form'
+import { headingOf, worn } from './utils'
 import { Modal } from '@/components/modal/modal'
-import { MOST_MOVED } from '@/constants/sending-stone'
-import { useTableRole } from '@/hooks/use-table-api'
-import { thingsWords } from '@/utils/move-words'
-import type { LocalMove } from '@/types/roll'
-import type {
-  SheetContainer,
-  SheetCurrency,
-  SheetItem,
-} from '@/types/sending-stone'
+import type { MoveDialogProps } from './types'
+import type { SheetContainer, SheetItem } from '@/types/sending-stone'
 
 /*
  * One move of items or coins (module 0.31.0), asked in a dialog of its own: an item, or coins,
@@ -27,73 +17,6 @@ import type {
  * It says what moves, to whom, and how many, and that the game's chat will say so; and it's sent
  * at once, the dialog closing as it is, as where it stands is told where the sheet tells it.
  */
-
-/** An end of a move: a party, or a character. */
-export type MoveEnd = {
-  id: string
-  name: string
-  portrait?: string
-  primary?: boolean
-}
-
-export type MoveDialogProps = {
-  open: boolean
-  onClose: () => void
-  mode: 'take' | 'give' | 'send'
-  /** Who moves it, as the summary says: "You" for a player; the character's name for the GM. */
-  mover: string
-  what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
-  /** Take and send: the party it's taken or sent from. */
-  from?: MoveEnd
-  /** Take, or a give into a party, with a set receiver: no To list. */
-  into?: MoveEnd
-  /** Take on the GM's party page: picked here. */
-  receivers?: MoveEnd[]
-  /** Give and send: where it may go. */
-  recipients?: { parties: MoveEnd[]; characters: MoveEnd[] }
-  onMove: (move: {
-    to: string
-    items?: { id: string; quantity: number }[]
-    currency?: Record<string, number>
-    words: LocalMove
-  }) => void
-}
-
-/** What each kind of move is called, as its title and button say it. */
-const VERBS: Record<MoveDialogProps['mode'], string> = {
-  take: 'Take',
-  give: 'Give',
-  send: 'Send',
-}
-
-/** What the dialog is titled, and under that, where it's from, if it's taken or sent. */
-function headingOf({
-  mode,
-  what,
-  from,
-}: Pick<MoveDialogProps, 'mode' | 'what' | 'from'>): {
-  title: string
-  subtitle?: string
-} {
-  const verb = VERBS[mode]
-  const title = 'item' in what ? `${verb} ${what.item.name}` : `${verb} coins`
-  return mode !== 'give' && from
-    ? { title, subtitle: `From ${from.name}` }
-    : { title }
-}
-
-/** Whether an item may hold anything: a container, unless it's known to hold nothing. */
-function mayHold(item: SheetItem | SheetContainer): boolean {
-  return (
-    'contents' in item && (item.contents === null || item.contents.length > 0)
-  )
-}
-
-/** Whether it, or anything in it, at any depth, is equipped or attuned now. */
-function worn(item: SheetItem | SheetContainer): boolean {
-  if (item.equipped === true || item.attuned) return true
-  return 'contents' in item && (item.contents ?? []).some(inner => worn(inner))
-}
 
 /**
  * The dialog a move is made in: its title, who it goes to where that's to choose, how many where
@@ -118,107 +41,26 @@ export function MoveDialog(props: Readonly<MoveDialogProps>) {
   )
 }
 
-function MoveForm({
-  onClose,
-  mode,
-  mover,
-  what,
-  from,
-  into,
-  receivers,
-  recipients,
-  onMove,
-}: Readonly<MoveDialogProps>) {
-  const gm = useTableRole() === 'gm'
-  const item = 'item' in what ? what.item : undefined
-  const currency = 'coins' in what ? what.coins : undefined
-  const take = mode === 'take'
-  const send = mode === 'send'
-  // Who it may go to, where that's chosen here: a give's or a send's parties and characters, or on
-  // the Gamemaster's party page, the characters it may be taken into.
-  const choices = take
-    ? receivers
-    : recipients && [...recipients.parties, ...recipients.characters]
-  // A give goes to the primary party unless said; a send, from a party, to no one until chosen.
-  const [chosen, setChosen] = useState<string | undefined>(() =>
-    mode === 'give'
-      ? recipients?.parties.find(({ primary }) => primary)?.id
-      : undefined,
-  )
-  const [count, setCount] = useState('1')
-  const [coins, setCoins] = useState<Record<string, string>>({})
-
-  const max = item ? Math.min(item.quantity, MOST_MOVED) : 0
-  // A stack of what holds nothing is split as the player says; anything else moves whole.
-  const counted = !!item && item.quantity > 1 && !mayHold(item)
-  // A stack that moves whole, of more than the game moves at once, can't be moved from here at
-  // all: what may hold anything is never split.
-  const tooMany = !!item && !counted && item.quantity > MOST_MOVED
-  const recipient = choices ? choices.find(({ id }) => id === chosen) : into
-  let quantity: number | undefined
-  if (item && !tooMany) {
-    quantity = counted ? amountOf(count, max) : item.quantity
-  }
-  const moved = currency ? coinsMoved(currency, coins) : undefined
-  const things =
-    item && quantity !== undefined
-      ? thingsWords([{ quantity, name: item.name }])
-      : moved &&
-        thingsWords(
-          movableCoins(currency ?? [])
-            .filter(({ id }) => moved[id] !== undefined)
-            .map(({ id, abbreviation }) => ({
-              coins: moved[id],
-              abbreviation,
-            })),
-        )
-  // On the Gamemaster's party page, who takes it is who it's taken into, once they're chosen.
-  const speaker = take && receivers ? recipient?.name : mover
-  const ready = !!recipient && !!speaker && things !== undefined
-
-  let summary: string
-  if (tooMany) {
-    summary = `More than ${MOST_MOVED.toLocaleString('en')} can’t be moved from here.`
-  } else if (!recipient || !speaker) summary = 'Choose who gets it.'
-  else if (things === undefined) summary = 'Choose how many.'
-  else {
-    const you = speaker === 'You'
-    if (take) {
-      summary = `${speaker} ${you ? 'take' : 'takes'} ${things} from ${from?.name ?? ''}.`
-    } else if (send) {
-      summary = `${speaker} ${you ? 'send' : 'sends'} ${things} from ${from?.name ?? ''} to ${recipient.name}.`
-    } else {
-      summary = `${speaker} ${you ? 'give' : 'gives'} ${things} to ${recipient.name}.`
-    }
-  }
-
-  let label = VERBS[mode]
-  if (currency) label = `${label} coins`
-  else if (quantity !== undefined && quantity > 1) {
-    label = `${label} ${quantity.toLocaleString('en')}`
-  }
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    if (!ready || !recipient || things === undefined) return
-    const words: LocalMove = {
-      verb: mode,
-      things,
-      other: take ? (from?.name ?? '') : recipient.name,
-      ...(send && { source: from?.name ?? '' }),
-      ...(item && { item: item.id }),
-      ...(gm && speaker && { mover: speaker }),
-    }
-    onMove({
-      to: recipient.id,
-      ...(item && quantity !== undefined
-        ? { items: [{ id: item.id, quantity }] }
-        : {}),
-      ...(moved && { currency: moved }),
-      words,
-    })
-    onClose()
-  }
+function MoveForm(props: Readonly<MoveDialogProps>) {
+  const { onClose, recipients } = props
+  const {
+    choices,
+    take,
+    chosen,
+    setChosen,
+    counted,
+    max,
+    count,
+    setCount,
+    currency,
+    coins,
+    setCoins,
+    item,
+    summary,
+    ready,
+    label,
+    submit,
+  } = useMoveForm(props)
 
   return (
     <form onSubmit={submit} noValidate className='grid gap-5'>

@@ -3,7 +3,6 @@
 import {
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,42 +11,24 @@ import {
   type RefObject,
 } from 'react'
 import clsx from 'clsx'
-import { LoaderCircle } from 'lucide-react'
 import { flushSync } from 'react-dom'
-import { NoteText } from '../note-lines/note-lines'
 import { Pane } from '../pane/pane'
-import { ConfirmModal } from '@/components/modal/confirm-modal'
+import { DiscardModal } from './discard-modal'
+import { EditorFooter } from './editor-footer'
+import { EditorHeading } from './editor-heading'
 import { MOST_NOTE_BODY, MOST_NOTE_TITLE } from '@/constants/notes'
-import {
-  draftChanged,
-  type DraftChange,
-  type NoteDraft,
-} from '@/features/notes/hooks/use-notes'
-import { noteRefusalWords } from '@/features/notes/utils/note-words'
+import { NoteText } from '@/features/notes/components/note-lines/note-text'
+import { FIELD } from '@/features/notes/constants'
+import { useDraftFocus } from '@/features/notes/hooks/use-draft-focus'
+import { useDraftSave } from '@/features/notes/hooks/use-draft-save'
+import { draftChanged } from '@/features/notes/hooks/use-notes'
+import { headingHint } from '@/features/notes/utils/editor'
 import { bigHeadings } from '@/utils/note-headings'
-import type { NoteChapterView, NoteWriteAnswer } from '@/types/notes'
+import type { NoteEditorProps, Shown } from './types'
+import type { NoteDraft } from '@/features/notes/types'
 
 /** From how many characters a note's count shows under it, as it nears the most it may hold. */
 const COUNT_FROM = 18_000
-
-/** The most heading hints listed one by one, before the rest are counted. */
-const MOST_HINTS = 3
-
-type Props = {
-  draft: NoteDraft
-  setDraft: (change: DraftChange) => void
-  /** The book's chapters, oldest first, for the note to be put in one. */
-  chapters: NoteChapterView[]
-  /** The book's character or party, as a refusal names it. */
-  name: string
-  preview: (
-    body: string,
-  ) => Promise<{ html: string; headings: number[] } | undefined>
-  /** Sends the note; the journal clears the draft once it's answered ok. */
-  onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
-  /** Closes it, its changes discarded. */
-  onCancel: () => void
-}
 
 /**
  * A note written or changed, in Foundry's Markdown, filling the journal's reader (round 0.35.0
@@ -65,7 +46,7 @@ export function NoteEditor({
   preview,
   onSave,
   onCancel,
-}: Readonly<Props>) {
+}: Readonly<NoteEditorProps>) {
   const ids = useId()
   const headingId = `${ids}-heading`
   const helpId = `${ids}-help`
@@ -331,210 +312,6 @@ export function NoteEditor({
   )
 }
 
-/** A field's look: 16px text, so iOS doesn't zoom into it as it takes focus. */
-export const FIELD =
-  'rounded-xl border border-border bg-page px-3 text-base font-normal outline-none focus:ring-2 focus:ring-primary/40'
-
-/** An editor's heading, in its pane's bar: cut short to one line, the whole of it its title. */
-export function EditorHeading({
-  id,
-  heading,
-}: Readonly<{ id: string; heading: string }>) {
-  return (
-    <h3
-      id={id}
-      title={heading}
-      className='min-w-0 flex-1 truncate px-2 font-semibold'
-    >
-      {heading}
-    </h3>
-  )
-}
-
-/**
- * An editor's footer, below its fields and pinned to the modal's bottom (round 0.35.0 §8.10): why
- * Save was refused, over the keys that save, from 640 px of the modal, then Cancel and Save, after
- * the fields in Tab order.
- */
-export function EditorFooter({
-  error,
-  hint,
-  saving,
-  canSave,
-  onCancel,
-}: Readonly<{
-  error?: string
-  /** The keys that save, as the editor takes them. */
-  hint: string
-  saving: boolean
-  canSave: boolean
-  onCancel: () => void
-}>) {
-  return (
-    <div className='flex flex-col gap-2'>
-      {error && (
-        <p role='alert' className='text-sm text-danger'>
-          {error}
-        </p>
-      )}
-      <div className='flex items-center justify-end gap-2'>
-        <p className='hidden min-w-0 flex-1 text-xs text-text-secondary @min-[640px]:block'>
-          {hint}
-        </p>
-        {/* Off while it's saving: what's sent is kept or refused, and only then can it be left. */}
-        <button
-          type='button'
-          disabled={saving}
-          onClick={onCancel}
-          className='min-h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-60'
-        >
-          Cancel
-        </button>
-        <button
-          type='submit'
-          disabled={!canSave}
-          className='inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60'
-        >
-          {saving && (
-            <LoaderCircle
-              aria-hidden
-              className='size-4 motion-safe:animate-spin'
-            />
-          )}
-          Save
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/** Asks before what was written is thrown away. */
-export function DiscardModal({
-  open,
-  onClose,
-  onDiscard,
-}: Readonly<{ open: boolean; onClose: () => void; onDiscard: () => void }>) {
-  return (
-    <ConfirmModal
-      open={open}
-      onClose={onClose}
-      title='Discard your changes?'
-      confirmLabel='Discard'
-      cancelLabel='Keep editing'
-      onConfirm={async () => onDiscard()}
-      danger
-    >
-      <p>What you wrote here isn’t saved.</p>
-    </ConfirmModal>
-  )
-}
-
-/**
- * Save, for the editor and the chapter form: the draft is marked in the store as it's sent, so
- * its fields hold still and Cancel waits till it's answered, in an editor mounted again meanwhile
- * too, as one there could otherwise send it again; once answered, the mark goes from a draft still
- * held, and a refusal says why.
- */
-export function useDraftSave({
-  draft,
-  setDraft,
-  onSave,
-  name,
-}: {
-  draft: NoteDraft
-  setDraft: (change: DraftChange) => void
-  onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
-  /** The book's character or party, as a refusal names it. */
-  name: string
-}): { saving: boolean; error?: string; send: () => Promise<void> } {
-  const [error, setError] = useState<string>()
-  const { key } = draft
-  const send = async () => {
-    setError(undefined)
-    setDraft(held => (held?.key === key ? { ...held, saving: true } : held))
-    const answer = await onSave(draft)
-    // Kept, the section has let the draft go; refused, it's open again with the text as typed.
-    setDraft(held =>
-      held?.key === key && held.saving ? { ...held, saving: undefined } : held,
-    )
-    if (!answer.ok) setError(noteRefusalWords(answer.reason, name))
-  }
-  return { saving: draft.saving === true, error, send }
-}
-
-/**
- * Where focus goes as an editor mounts, and what's noted as it unmounts (§9.6): opened by a
- * button, its title takes focus, as the draft it opens with says; mounted again where focus was
- * inside it, as when the sheet arrives while the player types, focus and the caret go back. Its
- * cleanup runs while its fields are still in the page, so it can read where focus is; it changes
- * the draft only where it's still this editor's, never bringing back one just saved or discarded.
- */
-export function useDraftFocus({
-  draft,
-  setDraft,
-  form,
-  fields,
-}: {
-  draft: NoteDraft
-  setDraft: (change: DraftChange) => void
-  /** Inside the editor's form, which focus is looked for in as it unmounts. */
-  form: RefObject<HTMLElement | null>
-  fields: {
-    chapter?: RefObject<HTMLSelectElement | null>
-    title: RefObject<HTMLInputElement | null>
-    body?: RefObject<HTMLTextAreaElement | null>
-  }
-}): void {
-  // As the editor mounts, from the draft it mounts with: the effect runs only then.
-  const mounted = useRef(draft)
-  useLayoutEffect(() => {
-    const { key } = mounted.current
-    // Where focus was is read from the draft as it's held now, not as this editor was rendered
-    // with it: where the editor it replaces unmounted in the same commit, as when the sheet
-    // arrives, that one noted it after this one was rendered.
-    let focus: NoteDraft['focus']
-    setDraft(held => {
-      if (held?.key !== key || !held.focus) return held
-      focus = held.focus
-      return { ...held, focus: undefined }
-    })
-    if (focus) {
-      const field =
-        (focus.field === 'chapter' && fields.chapter?.current) ||
-        (focus.field === 'body' && fields.body?.current) ||
-        fields.title.current
-      field?.focus()
-      if (
-        field &&
-        !(field instanceof HTMLSelectElement) &&
-        focus.start !== undefined
-      ) {
-        field.setSelectionRange(focus.start, focus.end ?? focus.start)
-      }
-    }
-    // The whole form, its footer's Cancel and Save too.
-    const shown = form.current?.closest('form') ?? form.current
-    const { chapter, title, body } = fields
-    return () => {
-      const active = document.activeElement
-      if (!shown || !active || !shown.contains(active)) return
-      let noted: NoteDraft['focus'] = { field: 'title' }
-      if (active === body?.current || active === title.current) {
-        const typed = active as HTMLInputElement | HTMLTextAreaElement
-        noted = {
-          field: active === title.current ? 'title' : 'body',
-          start: typed.selectionStart ?? undefined,
-          end: typed.selectionEnd ?? undefined,
-        }
-      } else if (active === chapter?.current) {
-        noted = { field: 'chapter' }
-      }
-      setDraft(held => (held?.key === key ? { ...held, focus: noted } : held))
-    }
-    // Only as it mounts and unmounts: what it notes is where focus is then.
-  }, [])
-}
-
 /** One of the note's two tabs, Write and Preview: the one chosen is in the Tab order. */
 function TabButton({
   ref,
@@ -576,9 +353,6 @@ function TabButton({
   )
 }
 
-/** What's previewed: the text asked about, and the server's render of it once it comes. */
-type Shown = { body: string; html?: string; failed?: true }
-
 /** The note as the reader will draw it, from the server's render of it. */
 function Preview({ shown }: Readonly<{ shown?: Shown }>) {
   if (!shown) return
@@ -600,26 +374,4 @@ function Preview({ shown }: Readonly<{ shown?: Shown }>) {
     )
   }
   return <NoteText html={shown.html} lifted />
-}
-
-/**
- * The editor's hint for the lines that would be the journal's own headings, one sentence a line,
- * at most three, then how many more: the scanner's lines, from 1, as showdown makes them h1 or h2,
- * and as a refusal's lines number them. A line it found under-ruled is the text above the rule,
- * which the hint names, as the rule makes it the heading.
- */
-export function headingHint(markdown: string, lines: number[]): string {
-  if (lines.length === 0) return ''
-  const rows = markdown.split(/\r\n|\r|\n/)
-  const said = lines.slice(0, MOST_HINTS).map(line => {
-    const text = (rows[line - 1] ?? '')
-      .replace(/^(?:[ \t]*>)+/, '')
-      .replace(/^(?:[ \t]*(?:[*+-]|\d+\.)[ \t]+)+/, '')
-      .trimStart()
-    return text.startsWith('#')
-      ? String.raw`Line ${line} is a # or ## heading. Use ### or more, or put a \ before the #.`
-      : `Line ${line} has = or - on the line below it, which makes it a heading. Leave a blank line between them.`
-  })
-  const more = lines.length - said.length
-  return more > 0 ? `${said.join(' ')} …and ${more} more` : said.join(' ')
 }

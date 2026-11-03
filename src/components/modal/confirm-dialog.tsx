@@ -1,15 +1,8 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import { ConfirmModal, type Asked } from './confirm-modal'
-
-type Props = Asked & {
-  /** What the button that opens it shows. */
-  trigger: ReactNode
-  /** The button's accessible name, when it shows only an icon. */
-  triggerLabel?: string
-  triggerClassName: string
-}
+import { useState } from 'react'
+import { ConfirmModal } from './confirm-modal'
+import type { ConfirmDialogProps } from './types'
 
 /** A button for something hard to undo, which asks in a modal before acting. */
 export function ConfirmDialog({
@@ -17,7 +10,7 @@ export function ConfirmDialog({
   triggerLabel,
   triggerClassName,
   ...asked
-}: Readonly<Props>) {
+}: Readonly<ConfirmDialogProps>) {
   const [open, setOpen] = useState(false)
 
   return (

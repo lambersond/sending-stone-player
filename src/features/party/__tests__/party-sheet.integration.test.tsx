@@ -3,10 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { PartyPage } from '../components/party-page/party-page'
 import { PartyPanel } from '../components/party-panel/party-panel'
-import {
-  PartySheet,
-  PartySheetFor,
-} from '../components/party-sheet/party-sheet'
+import { PartySheet } from '../components/party-sheet/party-sheet'
+import { PartySheetFor } from '../components/party-sheet-for/party-sheet-for'
 import { POLL_INTERVAL } from '@/constants/polling'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
 import { Charging } from '@/features/sheet/components/charging/charging'

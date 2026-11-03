@@ -19,7 +19,7 @@ export function Logo({
   return (
     // A fixed image already at each size it's shown at, which Next's image optimizer would only
     // compress again. It says nothing the words beside it don't.
-    // eslint-disable-next-line @next/next/no-img-element
+    // eslint-disable-next-line @next/next/no-img-element -- already sized, as said above
     <img
       src={path(1)}
       srcSet={`${path(1)} 1x, ${path(2)} 2x, ${path(3)} 3x`}

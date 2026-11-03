@@ -1,8 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { SETTLED } from '@/constants/lifecycle'
-import { follow, labelled, onItsWay } from '@/utils/lifecycle'
+import { NO_DICE } from '@/constants/roll-kinds'
+import { PENDING_COINS } from '@/features/transfers/constants'
+import { useFollow } from '@/hooks/use-follow'
+import { labelled, onItsWay } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
 import type {
   RollRequestInput,
@@ -40,32 +43,13 @@ export function useTransfers({ role }: Readonly<{ role: SeatRole }>): {
     () => new Map(),
   )
   const [shown, setShown] = useState<string>()
-  const running = useRef(new Set<AbortController>())
-  useEffect(() => {
-    const controllers = running.current
-    return () => {
-      for (const controller of controllers) controller.abort()
-    }
-  }, [])
+  const follow = useFollow()
 
   const take = useCallback(
     (api: string, move: LocalMove, transfer: TransferInput) => {
       const id = `move-${Date.now()}-${++moves}`
-      const input: RollRequestInput = {
-        kind: 'transfer',
-        transfer,
-        mode: 0,
-        explicit: false,
-        extras: [],
-        dice: [],
-      }
+      const input: RollRequestInput = { kind: 'transfer', transfer, ...NO_DICE }
       const sent = role === 'gm' ? labelled(input, moveLabel(move)) : input
-      const controller = new AbortController()
-      running.current.add(controller)
-      const update = (state: TableRollState) => {
-        if (controller.signal.aborted) return
-        setFollowed(held => new Map(held).set(id, { move, transfer, state }))
-      }
       // Those already settled are let go, but for the one this replaces as the latest.
       setFollowed(held => {
         const kept = new Map(
@@ -74,11 +58,11 @@ export function useTransfers({ role }: Readonly<{ role: SeatRole }>): {
         return kept.set(id, { move, transfer, state: { status: 'sending' } })
       })
       setShown(id)
-      void follow(api, sent, controller.signal, update, () => {}).finally(() =>
-        running.current.delete(controller),
+      follow(api, sent, state =>
+        setFollowed(held => new Map(held).set(id, { move, transfer, state })),
       )
     },
-    [role],
+    [role, follow],
   )
 
   const pending = useMemo(() => {
@@ -86,7 +70,7 @@ export function useTransfers({ role }: Readonly<{ role: SeatRole }>): {
     for (const { transfer, state } of followed.values()) {
       if (!onItsWay(state)) continue
       for (const { id } of transfer.items ?? []) ids.add(id)
-      if (transfer.currency) ids.add('coins')
+      if (transfer.currency) ids.add(PENDING_COINS)
     }
     return ids
   }, [followed])

@@ -1,6 +1,8 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { OrderChip, OrderMark, OrderProblem } from './order-state'
+import { OrderChip } from './order-chip'
+import { OrderMark } from './order-mark'
+import { OrderProblem } from './order-state'
 import type {
   NoteEntryView,
   NoteGroupView,

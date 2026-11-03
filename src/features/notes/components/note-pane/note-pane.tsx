@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, type ReactNode } from 'react'
+import { useId } from 'react'
 import clsx from 'clsx'
 import {
   ChevronLeft,
@@ -11,54 +11,25 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
-import { LOOSE_TITLE, type JournalGroup } from '../contents/contents'
 import { MoveMenu } from '../move-menu/move-menu'
+import { NoteProblem } from '../note-problem/note-problem'
+import { Pane } from '../pane/pane'
+import { LastChanged } from '@/features/notes/components/note-lines/last-changed'
+import { NoteText } from '@/features/notes/components/note-lines/note-text'
+import { Written } from '@/features/notes/components/note-lines/written'
+import { NoteChip } from '@/features/notes/components/note-problem/note-chip'
+import { hasProblem } from '@/features/notes/components/note-problem/utils'
 import {
   FOUNDRY_ONLY,
-  LastChanged,
-  mayDelete,
-  mayEdit,
-  mayMove,
-  NoteText,
-  Written,
-} from '../note-lines/note-lines'
-import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
-import { Pane } from '../pane/pane'
-import type { NotePick } from '@/features/notes/hooks/use-notes'
-import type { NoteChapterView, NoteEntryView } from '@/types/notes'
-import type { SeatRole } from '@/types/seats'
+  LOOSE_TITLE,
+  JOURNAL_ICON_BUTTON,
+} from '@/features/notes/constants'
+import { mayDelete, mayEdit, mayMove } from '@/features/notes/utils/permissions'
+import type { NotePaneProps } from './types'
 
-const ICON_BUTTON =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:pointer-events-none disabled:opacity-40'
+const ICON_BUTTON = `${JOURNAL_ICON_BUTTON} disabled:pointer-events-none disabled:opacity-40`
 const NAV_CARD =
   'flex min-w-0 flex-col gap-0.5 rounded-xl border border-border px-3 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5'
-
-type Props = {
-  entry: NoteEntryView
-  /** The group it's in. */
-  group: JournalGroup
-  /** Every note of the book in reading order, whatever is searched. */
-  order: NoteEntryView[]
-  /** The book's chapters, oldest first, to move it to one. */
-  chapters: NoteChapterView[]
-  role: SeatRole
-  /** The book takes changes: else nothing here offers one. */
-  canAdd: boolean
-  /** Foundry holds the journal back as too large. */
-  tooLarge: boolean
-  /** The reader's Contents button, below 640 px of the modal. */
-  contents: ReactNode
-  /** Shows another note or its group; from an arrow, focus stays on that arrow. */
-  onPick: (pick: NotePick, from?: 'previous' | 'next') => void
-  onEdit: (opener: 'edit' | 'problem-edit') => void
-  onDelete: () => void
-  onMove: (chapterId: string | null) => void
-  onResolve: (choice: 'mine' | 'theirs') => void
-  /** Its move is on its way. */
-  moving: boolean
-  /** A choice for it is on its way. */
-  busy: boolean
-}
 
 /**
  * One note, read (round 0.35.0 §8.8): its chapter's number and its tools in the bar, Move, Edit
@@ -82,7 +53,7 @@ export function NotePane({
   onResolve,
   moving,
   busy,
-}: Readonly<Props>) {
+}: Readonly<NotePaneProps>) {
   const titleId = useId()
   const at = order.findIndex(({ id }) => id === entry.id)
   const previous = at > 0 ? order[at - 1] : undefined

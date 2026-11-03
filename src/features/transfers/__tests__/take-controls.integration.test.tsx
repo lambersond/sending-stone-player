@@ -1,13 +1,13 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { chosenApi } from '../components/take-controls/take-controls'
 import { Transferring } from '../components/transferring/transferring'
 import { CHECK_EVERY } from '@/constants/lifecycle'
 import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
 import { movingPartyView, partyStash } from '@/mocks/sending-stone'
+import { gmCharacterApi as chosenApi } from '@/utils/seat-urls'
 import { advance, respond } from '@/utils/test-utils'
 import type { TakeInto, TransferControls } from '../types'
-import type { MoveDialogProps } from '@/features/transfers/components/move-dialog/move-dialog'
+import type { MoveDialogProps } from '@/features/transfers/components/move-dialog/types'
 import type { PartyView } from '@/types/party'
 
 // The move's dialog is APP-B's: here, only what it's given, and the move it's told to make; or,

@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { groupsOf } from '../contents/contents'
 import { JournalCard } from '../journal-card/journal-card'
 import { NotePane } from './note-pane'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
+import { groupsOf } from '@/features/notes/utils/groups'
 import {
   emptyBook,
   noteChapter,

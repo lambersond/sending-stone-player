@@ -2,12 +2,10 @@
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import { MoveMenu } from '../move-menu/move-menu'
-import {
-  LastChanged,
-  NoteText,
-  StateMark,
-  Written,
-} from '../note-lines/note-lines'
+import { LastChanged } from '@/features/notes/components/note-lines/last-changed'
+import { NoteText } from '@/features/notes/components/note-lines/note-text'
+import { StateMark } from '@/features/notes/components/note-lines/state-mark'
+import { Written } from '@/features/notes/components/note-lines/written'
 import type { NoteChapterView, NoteEntryView } from '@/types/notes'
 
 /** How far past the clip a note's text must reach to be cut short, rather than a rounding pixel. */

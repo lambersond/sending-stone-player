@@ -3,24 +3,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Check, Copy } from 'lucide-react'
-
-type Props = {
-  value: string
-  /** What is copied, for its accessible name: "Copy {label}". */
-  label: string
-  /**
-   * Shown whole over as many lines as it takes, rather than cut to one: for a value that must be
-   * read or copied by hand on a phone, such as a link code.
-   */
-  wrap?: boolean
-  /** Called once the value is copied, such as for a toast saying so (round 0.39.0). */
-  onCopied?: () => void
-  /**
-   * The button shows its word beside its icon, Copy, then Copied once it has copied, rather than
-   * the icon alone (round 0.39.0).
-   */
-  word?: boolean
-}
+import type { CopyFieldProps } from './types'
 
 /**
  * A value on screen with a button to copy it. Copying is a convenience; it can be copied by hand.
@@ -31,7 +14,7 @@ export function CopyField({
   wrap = false,
   onCopied,
   word = false,
-}: Readonly<Props>) {
+}: Readonly<CopyFieldProps>) {
   // Which value was copied, not only that one was: a new value in its place, such as an invite
   // link once reset, isn't on the clipboard, so its button offers Copy again.
   const [copiedValue, setCopiedValue] = useState<string>()

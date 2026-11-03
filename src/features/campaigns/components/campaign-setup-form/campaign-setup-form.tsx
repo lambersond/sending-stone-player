@@ -1,13 +1,6 @@
 'use client'
 
-import {
-  useActionState,
-  useId,
-  useRef,
-  type InputHTMLAttributes,
-  type ReactNode,
-  type Ref,
-} from 'react'
+import { useActionState, useId, useRef } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Plus, RefreshCw } from 'lucide-react'
 import { CopyField } from '@/components/copy-button/copy-button'
@@ -18,24 +11,13 @@ import {
   SECRET_MAX_LENGTH,
   SECRET_MIN_LENGTH,
 } from '@/constants/campaign'
-import type { CampaignSetupFormState } from '@/types/campaign'
-
-type Props = {
-  action: (
-    state: CampaignSetupFormState,
-    formData: FormData,
-  ) => Promise<CampaignSetupFormState>
-  /** A random secret to start from. */
-  suggestedSecret: string
-  /** Called when the Gamemaster is done with the campaign just set up, with its id. */
-  onDone: (id: string) => void
-}
+import type { CampaignSetupFormProps, FieldProps } from './types'
 
 export function CampaignSetupForm({
   action,
   suggestedSecret,
   onDone,
-}: Readonly<Props>) {
+}: Readonly<CampaignSetupFormProps>) {
   const [state, formAction, pending] = useActionState(action, {})
   const secret = useRef<HTMLInputElement>(null)
   const generate = () => {
@@ -137,16 +119,6 @@ export function CampaignSetupForm({
       </form>
     </div>
   )
-}
-
-type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
-  ref?: Ref<HTMLInputElement>
-  label: string
-  name: string
-  hint: string
-  errors?: string[]
-  /** Beside the input, such as a button acting on it. */
-  children?: ReactNode
 }
 
 function Field({

@@ -3,14 +3,12 @@
 import { useEffect, type Ref } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Send, TriangleAlert, X } from 'lucide-react'
+import { MADE_SHOWN_FOR } from './constants'
 import { useTableRole } from '@/hooks/use-table-api'
 import { onItsWay as isOnItsWay } from '@/utils/lifecycle'
 import { moveWords } from '@/utils/move-words'
 import { reasons } from '@/utils/roll-reasons'
 import type { LocalMove, TableRollState } from '@/types/roll'
-
-/** How long a move made is told of, in milliseconds, before it clears itself. */
-export const MADE_SHOWN_FOR = 6000
 
 /**
  * Where the latest move from a sheet with no tray stands, such as a party's in its side panel,

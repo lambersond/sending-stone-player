@@ -1,21 +1,12 @@
 'use client'
 
-import { useId, type ReactNode } from 'react'
+import { useId } from 'react'
 import { X } from 'lucide-react'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
-import { useDialogRoot } from '@/components/modal/portal-root'
+import { useDialogRoot } from '@/components/modal/use-dialog-root'
+import { HEADER_ICON_BUTTON } from '@/constants/buttons'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
-
-type Props = {
-  open: boolean
-  onClose: () => void
-  title: string
-  /** Under the title, such as where its content comes from. */
-  subtitle?: string
-  /** Beside the Close button, such as a link to open its content as a page. */
-  actions?: ReactNode
-  children: ReactNode
-}
+import type { SidePanelProps } from './types'
 
 /**
  * An aside that slides in from the right, over the page, for something to read beside it, such
@@ -31,7 +22,7 @@ export function SidePanel({
   subtitle,
   actions,
   children,
-}: Readonly<Props>) {
+}: Readonly<SidePanelProps>) {
   const ref = useModalDialog(open)
   const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
@@ -71,7 +62,7 @@ export function SidePanel({
                 type='button'
                 onClick={onClose}
                 aria-label='Close'
-                className='-mr-1.5 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+                className={`-mr-1.5 ${HEADER_ICON_BUTTON}`}
               >
                 <X aria-hidden className='size-5' />
               </button>

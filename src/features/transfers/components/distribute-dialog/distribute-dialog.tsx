@@ -8,9 +8,7 @@ import { Modal } from '@/components/modal/modal'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import { useTableRole } from '@/hooks/use-table-api'
 import { namesWords, thingsWords } from '@/utils/move-words'
-import type { MoveEnd } from '../move-dialog/move-dialog'
-import type { LocalMove } from '@/types/roll'
-import type { SheetCurrency } from '@/types/sending-stone'
+import type { DistributeDialogProps, Shared } from './types'
 
 /*
  * A party's coin distributed among its characters (module 0.32.0), asked in a dialog of its own:
@@ -19,26 +17,6 @@ import type { SheetCurrency } from '@/types/sending-stone'
  * what each is given and what stays, and that the game's chat will say so; and it's sent at once,
  * the dialog closing as it is, as where it stands is told where the sheet tells it.
  */
-
-export type DistributeDialogProps = {
-  open: boolean
-  onClose: () => void
-  /** "You" for a player; the character's name for the Gamemaster. */
-  mover: string
-  /** The party it's distributed from. */
-  from: MoveEnd
-  /** The party's coins, as its sheet has them. */
-  currency: SheetCurrency[]
-  /**
-   * Who shares it: the party's members that are the campaign's characters, in its sheet's order.
-   */
-  among: MoveEnd[]
-  onMove: (move: {
-    among: string[]
-    currency: Record<string, number>
-    words: LocalMove
-  }) => void
-}
 
 /** The dialog a party's coin is distributed in: which coin, among whom, and what each is given. */
 export function DistributeDialog(props: Readonly<DistributeDialogProps>) {
@@ -57,9 +35,6 @@ export function DistributeDialog(props: Readonly<DistributeDialogProps>) {
     </Modal>
   )
 }
-
-/** A coin there's a whole one of, with as many as may be shared. */
-type Shared = SheetCurrency & { whole: number }
 
 function DistributeForm({
   onClose,

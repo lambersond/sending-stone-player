@@ -1,15 +1,7 @@
 'use client'
 
 import { articled } from '@/utils/wild-shape'
-
-/** One of the character's companions the game asks a save of, as its tab names it. */
-export type CompanionAskRow = {
-  key: string
-  /** Its name as its tab says it, numbered where repeated, such as "Bat 2". */
-  name: string
-  /** What it's asked for, such as "Dexterity saving throw". */
-  label: string
-}
+import type { CompanionAskRow } from '@/features/companions/types'
 
 /**
  * Which of the character's companions the game asks a save of, from module 0.41.0 (round 0.41.0

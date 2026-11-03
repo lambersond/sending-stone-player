@@ -1,8 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JournalCard } from '../journal-card/journal-card'
-import { Contents, ContentsButton, groupsOf } from './contents'
+import { Contents } from './contents'
+import { ContentsButton } from './contents-button'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
+import { groupsOf } from '@/features/notes/utils/groups'
 import {
   emptyBook,
   noteChapter,

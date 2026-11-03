@@ -9,14 +9,10 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JournalCard } from '../journal-card/journal-card'
-import { headingHint, NoteEditor } from './note-editor'
+import { NoteEditor } from './note-editor'
 import { POLL_INTERVAL } from '@/constants/polling'
-import {
-  forgetNotes,
-  hasDraft,
-  type DraftChange,
-  type NoteDraft,
-} from '@/features/notes/hooks/use-notes'
+import { forgetNotes, hasDraft } from '@/features/notes/hooks/use-notes'
+import { headingHint } from '@/features/notes/utils/editor'
 import {
   emptyBook,
   noteChapter,
@@ -24,6 +20,7 @@ import {
   serveNotes,
 } from '@/mocks/notes-server'
 import { bigHeadings } from '@/utils/note-headings'
+import type { DraftChange, NoteDraft } from '@/features/notes/types'
 import type { NoteChapterView, NoteWriteAnswer } from '@/types/notes'
 
 const API = '/api/characters/char-1'

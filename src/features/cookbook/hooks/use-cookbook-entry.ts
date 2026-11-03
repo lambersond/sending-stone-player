@@ -1,6 +1,12 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
-import { CookbookPanel } from '../components/cookbook-card/cookbook-card'
-import { Modal } from '@/components/modal/modal'
+import {
+  createElement,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from 'react'
+import { CookbookEntryDialogs } from '../components/cookbook-entry/cookbook-entry-dialogs'
 import { useCookbookView } from '@/features/cookbook/hooks/use-cookbook-view'
 import type { CookbookPlace } from '@/types/cookbook'
 
@@ -70,16 +76,8 @@ export function useCookbookEntry(place?: CookbookPlace): {
     }
   }, [isOpen])
 
-  const modal = place && (
-    <Modal
-      open={isOpen}
-      onClose={close}
-      title='Magical Recipe Book'
-      fullOnPhone
-    >
-      <CookbookPanel {...read} make={place.make} revoke={place.revoke} />
-    </Modal>
-  )
+  const modal =
+    place && createElement(CookbookEntryDialogs, { isOpen, close, read, place })
   return {
     shown: !!view && (view.enabled || !!view.link),
     onCogOpenChange,

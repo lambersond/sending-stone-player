@@ -1,10 +1,8 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  CompanionAskNotice,
-  type CompanionAskRow,
-} from './companion-ask-notice'
+import { CompanionAskNotice } from './companion-ask-notice'
 import { useWaitingCompanions } from '@/hooks/use-waiting-prompts'
+import type { CompanionAskRow } from '@/features/companions/types'
 import type { CompanionAsked } from '@/types/table'
 
 /*

@@ -2,21 +2,16 @@
 
 import { useId, useRef, useState } from 'react'
 import clsx from 'clsx'
-import {
-  DiscardModal,
-  EditorFooter,
-  EditorHeading,
-  FIELD,
-  useDraftFocus,
-  useDraftSave,
-} from '../note-editor/note-editor'
 import { Pane } from '../pane/pane'
 import { MOST_NOTE_TITLE } from '@/constants/notes'
-import {
-  draftChanged,
-  type DraftChange,
-  type NoteDraft,
-} from '@/features/notes/hooks/use-notes'
+import { DiscardModal } from '@/features/notes/components/note-editor/discard-modal'
+import { EditorFooter } from '@/features/notes/components/note-editor/editor-footer'
+import { EditorHeading } from '@/features/notes/components/note-editor/editor-heading'
+import { FIELD } from '@/features/notes/constants'
+import { useDraftFocus } from '@/features/notes/hooks/use-draft-focus'
+import { useDraftSave } from '@/features/notes/hooks/use-draft-save'
+import { draftChanged } from '@/features/notes/hooks/use-notes'
+import type { DraftChange, NoteDraft } from '@/features/notes/types'
 import type { NoteWriteAnswer } from '@/types/notes'
 
 /**

@@ -1,8 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import clsx from 'clsx'
-import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { hasProblem } from './utils'
 import { drawDescription } from '@/components/description/draw-description'
 import { readDescription } from '@/components/description/read-description'
 import {
@@ -10,77 +9,7 @@ import {
   noteStateWords,
 } from '@/features/notes/utils/note-words'
 import { seatWords } from '@/utils/seat-words'
-import type { NoteReason, NoteState } from '@/types/notes'
-import type { SeatRole } from '@/types/seats'
-
-/** The states a change didn't reach Foundry in, which the chip warns of. */
-const WARNS = new Set<NoteState>(['conflict', 'gone', 'failed'])
-
-/** Where a note stands, as a chip of an icon and its words, never colour alone (§9.7). */
-export function NoteChip({ state }: Readonly<{ state: NoteState }>) {
-  const words = noteStateWords(state)
-  if (!words) return
-  const warns = WARNS.has(state)
-  let icon = <Clock aria-hidden className='size-3.5 shrink-0' />
-  if (state === 'saving') {
-    icon = (
-      <LoaderCircle
-        aria-hidden
-        className='size-3.5 shrink-0 motion-safe:animate-spin'
-      />
-    )
-  } else if (warns) {
-    icon = <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
-  }
-  return (
-    <span
-      className={clsx(
-        'inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
-        warns
-          ? 'border-warning/40 bg-warning/10 text-warning'
-          : 'border-border text-text-secondary',
-      )}
-    >
-      {icon}
-      {words}
-    </span>
-  )
-}
-
-/** The states a note has a problem to show in, and choices to make. */
-const PROBLEMS = new Set<NoteState>(['conflict', 'gone', 'failed', 'deleting'])
-
-/** Has a note in this state a problem to show, and choices to make? */
-export function hasProblem(state: NoteState): boolean {
-  return PROBLEMS.has(state)
-}
-
-/** The change the game didn't take, as the view gives it. */
-export type Mine = {
-  title: string
-  html?: string
-  deleting?: true
-  /** Whose it is, for the Gamemaster's view of another seat's; left out for the viewer's own. */
-  by?: string
-}
-
-type Props = {
-  state: NoteState
-  reason?: NoteReason
-  /** Who changed it in Foundry, as its line says. */
-  modifiedBy: string
-  mine?: Mine
-  role: SeatRole
-  /** Foundry holds the journal back as too large, so its version isn't here to show. */
-  tooLarge: boolean
-  /** Offers Edit, for a failed change the seat may still make. */
-  onEdit?: () => void
-  /** The note or chapter Edit is for, by which focus finds it again after the editor closes. */
-  editFor: { note?: string; chapter?: string }
-  onResolve: (choice: 'mine' | 'theirs') => void
-  /** A choice is on its way. */
-  busy?: boolean
-}
+import type { Mine, NoteProblemProps } from './types'
 
 /**
  * What became of a change the game didn't take, or of a delete waiting for it, and the choices
@@ -98,7 +27,7 @@ export function NoteProblem({
   editFor,
   onResolve,
   busy = false,
-}: Readonly<Props>) {
+}: Readonly<NoteProblemProps>) {
   const [showing, setShowing] = useState(false)
   const label = noteStateWords(state)
   if (!hasProblem(state) || !label) return

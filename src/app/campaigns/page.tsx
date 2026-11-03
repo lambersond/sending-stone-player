@@ -6,13 +6,16 @@ import {
   revokeCookbookLinkAction,
   setUpCampaignAction,
 } from './actions'
-import { CAMPAIGN_ID, CAMPAIGNS_PATH, JOIN_PATH } from '@/constants/campaign'
+import { CAMPAIGNS_PATH, JOIN_PATH } from '@/constants/campaign'
 import { listOwnedCampaigns } from '@/db/campaigns'
 import { CampaignCard } from '@/features/campaigns/components/campaign-card/campaign-card'
 import { CampaignIndex } from '@/features/campaigns/components/campaign-index/campaign-index'
-import { rowOf } from '@/features/campaigns/components/campaign-row/campaign-row'
+import { rowOf } from '@/features/campaigns/components/campaign-row/utils'
 import { CampaignsHead } from '@/features/campaigns/components/campaigns-head/campaigns-head'
-import { sortCampaigns } from '@/features/campaigns/utils/campaign-order'
+import {
+  askedCampaign,
+  campaignsView,
+} from '@/features/campaigns/utils/campaigns-view'
 import { appOrigin } from '@/lib/app-origin'
 import { generateSecret } from '@/lib/campaign-secret'
 import { requireUser } from '@/lib/session'
@@ -28,11 +31,9 @@ export const metadata: Metadata = { title: 'Your campaigns' }
 export default async function CampaignsPage({
   searchParams,
 }: PageProps<'/campaigns'>) {
-  // The campaign the address chooses, read only where it's one value of a campaign id's shape:
-  // anything else is ignored, and a link to it returns to it once its Gamemaster signs in.
+  // The campaign the address chooses: a link to it returns to it once its Gamemaster signs in.
   const { campaign: asked } = await searchParams
-  const query =
-    typeof asked === 'string' && CAMPAIGN_ID.test(asked) ? asked : undefined
+  const query = askedCampaign(asked)
   const user = await requireUser(
     query
       ? `${CAMPAIGNS_PATH}?campaign=${encodeURIComponent(query)}`
@@ -42,11 +43,7 @@ export default async function CampaignsPage({
     listOwnedCampaigns(user.id),
     appOrigin(),
   ])
-  const campaigns = sortCampaigns(owned, Date.now())
-  // The chosen campaign, where it's still one of theirs: an unknown or deleted one is ignored. The
-  // first view shows it, else the first in order, beside the list on a wide screen.
-  const chosen = campaigns.find(({ id }) => id === query)?.id
-  const view = { campaigns, chosen, first: chosen ?? campaigns[0]?.id }
+  const view = campaignsView(owned, query)
 
   // Every campaign's page, drawn here, for the index to show the one chosen by its id, which it
   // keys it by.

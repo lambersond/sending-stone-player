@@ -3,12 +3,9 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JournalCard } from '../journal-card/journal-card'
 import { ChapterForm } from './chapter-form'
-import {
-  forgetNotes,
-  type DraftChange,
-  type NoteDraft,
-} from '@/features/notes/hooks/use-notes'
+import { forgetNotes } from '@/features/notes/hooks/use-notes'
 import { emptyBook, noteChapter, serveNotes } from '@/mocks/notes-server'
+import type { DraftChange, NoteDraft } from '@/features/notes/types'
 import type { NoteWriteAnswer } from '@/types/notes'
 
 const API = '/api/characters/char-1'

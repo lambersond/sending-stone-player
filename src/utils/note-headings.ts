@@ -348,25 +348,35 @@ function lists(rows: Row[], found: Set<number>): void {
       continue
     }
     const end = listEnd(rows, index)
-    const indent = marker[1]
-    let item = index
-    let blanksBefore = 0
-    while (item < end) {
-      let next = item + 1
-      while (next < end && !startsItem(rows[next].text, indent)) next++
-      // The blank lines just before the next item are this item's, as showdown takes one.
-      let last = next
-      while (last > item + 1 && rows[last - 1].text === '') last--
-      const trailing = next - last
-      const content = itemRows(rows.slice(item, next < end ? next : last))
-      const inner = rows.slice(item + 1, last).some(({ text }) => text === '')
-      const block = inner || (next < end && trailing > 0) || blanksBefore >= 2
-      if (block) blockGamut(fences(content), found)
-      else lists(content, found)
-      blanksBefore = trailing
-      item = next
-    }
+    listItems(rows, index, end, marker[1], found)
     index = end
+  }
+}
+
+/** A list's items, from its first to its end, each read as blocks or only for lists inside it. */
+function listItems(
+  rows: Row[],
+  first: number,
+  end: number,
+  indent: string,
+  found: Set<number>,
+): void {
+  let item = first
+  let blanksBefore = 0
+  while (item < end) {
+    let next = item + 1
+    while (next < end && !startsItem(rows[next].text, indent)) next++
+    // The blank lines just before the next item are this item's, as showdown takes one.
+    let last = next
+    while (last > item + 1 && rows[last - 1].text === '') last--
+    const trailing = next - last
+    const content = itemRows(rows.slice(item, next < end ? next : last))
+    const inner = rows.slice(item + 1, last).some(({ text }) => text === '')
+    const block = inner || (next < end && trailing > 0) || blanksBefore >= 2
+    if (block) blockGamut(fences(content), found)
+    else lists(content, found)
+    blanksBefore = trailing
+    item = next
   }
 }
 

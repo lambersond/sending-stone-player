@@ -1,9 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CampaignCard } from '../campaign-card/campaign-card'
-import { rowOf } from '../campaign-row/campaign-row'
 import { CampaignsHead } from '../campaigns-head/campaigns-head'
-import { CampaignIndex, INDEX_WIDE } from './campaign-index'
+import { CampaignIndex } from './campaign-index'
+import { INDEX_WIDE } from './constants'
+import { rowOf } from '@/features/campaigns/components/campaign-row/utils'
 import type {
   CampaignSetupFormState,
   OwnedCampaign,

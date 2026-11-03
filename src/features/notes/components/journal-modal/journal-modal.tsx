@@ -27,24 +27,26 @@ import {
 } from 'lucide-react'
 import { ChapterForm } from '../chapter-form/chapter-form'
 import { ChapterPane } from '../chapter-pane/chapter-pane'
-import {
-  Contents,
-  ContentsButton,
-  groupsOf,
-  keyOf,
-  type JournalGroup,
-} from '../contents/contents'
+import { Contents } from '../contents/contents'
 import { EmptyJournal } from '../empty-journal/empty-journal'
 import { NoteEditor } from '../note-editor/note-editor'
 import { NotePane } from '../note-pane/note-pane'
 import { NoteTime } from '../note-time/note-time'
 import { Pane } from '../pane/pane'
 import { ReorderPane } from '../reorder-pane/reorder-pane'
-import { readDescription } from '@/components/description/read-description'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
-import { useDialogRoot } from '@/components/modal/portal-root'
+import { useDialogRoot } from '@/components/modal/use-dialog-root'
+import { ContentsButton } from '@/features/notes/components/contents/contents-button'
+import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
+import { useFocusTo } from '@/features/notes/hooks/use-focus-to'
+import { useJournalLayout } from '@/features/notes/hooks/use-journal-layout'
 import { useKeyboardInset } from '@/features/notes/hooks/use-keyboard-inset'
+import { useOrdering } from '@/features/notes/hooks/use-ordering'
+import { useReaderPick } from '@/features/notes/hooks/use-reader-pick'
+import { useSaid } from '@/features/notes/hooks/use-said'
+import { changeOf, inputOf } from '@/features/notes/utils/editor'
+import { groupsOf, keyOf } from '@/features/notes/utils/groups'
 import {
   journalTitle,
   noteChoiceRefusalWords,
@@ -54,16 +56,27 @@ import {
   whoSeesShort,
 } from '@/features/notes/utils/note-words'
 import { movedWords, orderSavedWords } from '@/features/notes/utils/order-words'
+import {
+  hitsOf,
+  groupOfNote,
+  isNew,
+  isSent,
+  searchText,
+  afterDelete,
+  draftNoteOf,
+  hitEntries,
+  lockedBy,
+} from '@/features/notes/utils/reader'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
-import { matchesSearch } from '@/utils/search'
 import { seatWords } from '@/utils/seat-words'
+import type { JournalModalProps, JournalNotes } from './types'
 import type {
+  JournalGroup,
   NoteDraft,
   NotePick,
-  useNotes,
-} from '@/features/notes/hooks/use-notes'
+  Said,
+} from '@/features/notes/types'
 import type {
-  NoteBookKind,
   NoteChapterView,
   NoteEntryView,
   NoteResolve,
@@ -71,39 +84,6 @@ import type {
   NoteWriteAnswer,
 } from '@/types/notes'
 import type { SeatRole } from '@/types/seats'
-
-/** How long the header says what was done, in milliseconds, before it clears itself. */
-const SAID_FOR = 6000
-
-/**
- * What the header says last: what was done, or why it wasn't, which is drawn as a warning, not
- * with a success's check. `n` counts what's said, so the same words said again are new.
- */
-type Said = { words: string; refused: boolean; n: number }
-
-/** Below this width of the modal, the contents are a drawer. */
-const NARROW = 640
-
-/**
- * Below this height of the modal, its header, a pane's bar and its footer leave the fields between
- * too little room, as above a phone's keyboard turned sideways: it scrolls as a whole instead,
- * the reader as tall as this, its footer kept in view.
- */
-const SHORT = 320
-
-type Notes = ReturnType<typeof useNotes>
-
-type Props = {
-  /** The book, as the card reads it. */
-  notes: Notes
-  role: SeatRole
-  kind: NoteBookKind
-  /** The book's character or party, as its words name it. */
-  name: string
-  open: boolean
-  /** Closes it, the draft kept. */
-  onClose: () => void
-}
 
 /**
  * A journal, opened from its card (round 0.35.0 §8.4): a modal dialog, the browser's own, which
@@ -120,7 +100,7 @@ export function JournalModal({
   name,
   open,
   onClose,
-}: Readonly<Props>) {
+}: Readonly<JournalModalProps>) {
   const ref = useModalDialog(open)
   const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
@@ -161,17 +141,6 @@ export function JournalModal({
   )
 }
 
-/** Where focus goes once what it goes to is drawn. */
-type FocusTo =
-  | { heading: true }
-  | { contents: true }
-  | { reorder: true }
-  | { arrow: 'previous' | 'next' }
-  | { opener: NoteDraft['opener']; key: string; chapterId: string | null }
-
-/** A Reorder open: its group, and the group's stamp as it opened, which the new order is from. */
-type Ordering = { chapterId: string | null; stamp: string }
-
 /**
  * The journal's content: its header and banner, and its body, the contents and the reader, or the
  * empty journal. What the reader shows is kept in the store with `open`, so a card mounted again
@@ -184,7 +153,7 @@ function Journal({
   name,
   titleId,
   onClose,
-}: Readonly<Omit<Props, 'open'> & { titleId: string }>) {
+}: Readonly<Omit<JournalModalProps, 'open'> & { titleId: string }>) {
   const { view, state, draft, setDraft, setPick } = notes
   const pick = notes.open?.pick
   const ids = useId()
@@ -192,12 +161,6 @@ function Journal({
   const container = useRef<HTMLDivElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const [query, setQuery] = useState('')
-  const [drawer, setDrawer] = useState(false)
-  const [narrow, setNarrow] = useState(false)
-  const [short, setShort] = useState(false)
-  const [ordering, setOrdering] = useState<Ordering>()
-  const [focusTo, setFocusTo] = useState<FocusTo>()
-  const [said, setSaid] = useState<Said>()
   const [sending, setSending] = useState(0)
   const [deleting, setDeleting] = useState<NoteEntryView>()
   // The note, chapter or order (`order:<key>`) a choice is on its way for, and the note moving.
@@ -215,56 +178,9 @@ function Journal({
       heading.current?.focus()
     }
   }, [])
-
-  // The modal's own size, not the screen's: below 640 px wide the contents are a drawer, inert
-  // while it's closed; below 320 px tall it scrolls as a whole. Measured as it's drawn, and as it
-  // changes, as a phone turns or a keyboard comes up.
-  useLayoutEffect(() => {
-    const element = container.current
-    if (!element) return
-    const measure = ({ width, height }: { width: number; height: number }) => {
-      // Not laid out yet: nothing to go by.
-      if (width > 0) setNarrow(width < NARROW)
-      if (height > 0) setShort(height < SHORT)
-    }
-    measure(element.getBoundingClientRect())
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) measure(entry.contentRect)
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-  // Grown past it, the contents are a pane again, and no drawer is open.
-  useEffect(() => {
-    if (!narrow) setDrawer(false)
-  }, [narrow])
-  // Turned short, as a keyboard comes up under the field being typed in, the journal scrolls from
-  // its top: the field is brought back into view, above the footer.
-  useLayoutEffect(() => {
-    const focused = document.activeElement
-    if (short && focused && container.current?.contains(focused)) {
-      focused.scrollIntoView?.({ block: 'nearest' })
-    }
-  }, [short])
-
-  // What the header says clears itself a while after.
-  useEffect(() => {
-    if (!said) return
-    const timer = setTimeout(() => setSaid(undefined), SAID_FOR)
-    return () => clearTimeout(timer)
-  }, [said])
-
-  // Focus moves once what it goes to is drawn: the editor's opener is drawn again as it closes,
-  // and a pane replaced by another takes its controls with it. It waits for Delete's confirm to
-  // close, as the page behind a modal dialog takes no focus; a passive effect, so the confirm,
-  // closing in the same commit, has given focus back first.
-  useEffect(() => {
-    if (!focusTo || draft || deleting) return
-    const root = container.current
-    const target = root ? findFocus(root, focusTo) : undefined
-    target?.focus()
-    setFocusTo(undefined)
-  }, [focusTo, draft, deleting])
+  const { drawer, setDrawer, narrow, short } = useJournalLayout(container)
+  const { said, say, refuse } = useSaid()
+  const setFocusTo = useFocusTo(container, draft, deleting)
 
   const groups = useMemo(() => (view ? groupsOf(view) : undefined), [view])
   // Reading order: every group's notes, loose first, as the contents list them.
@@ -276,49 +192,19 @@ function Journal({
     () => new Map(order.map(entry => [entry.id, searchText(entry)])),
     [order],
   )
-  const searching = query.trim() !== ''
-  const hits = searching
-    ? new Set(
-        order
-          .filter(entry =>
-            matchesSearch([entry.title, texts.get(entry.id) ?? ''], query),
-          )
-          .map(({ id }) => id),
-      )
-    : undefined
-
-  // The reading order as last drawn, to find what follows a note that has left the view.
-  const drawn = useRef<NoteEntryView[]>([])
-  const shownNow = groups
-    ? showing({ pick, groups, order, before: drawn.current, draft })
-    : undefined
-  const note = shownNow?.note
-  const group = shownNow?.group
-  useEffect(() => {
-    if (groups) drawn.current = order
+  const hits = hitsOf(order, texts, query)
+  const { shownNow, note, group } = useReaderPick({
+    pick,
+    groups,
+    order,
+    draft,
+    setPick,
   })
-  // What the reader settled on is kept, so a card mounted again shows the same: the most
-  // recently changed note it opened on, or what follows a note gone since.
-  const keep = shownNow?.keep ? shownNow.pick : undefined
-  useEffect(() => {
-    if (keep) setPick(keep)
-  }, [keep, setPick])
 
   const chapters = view?.chapters ?? []
   const canAdd = view?.canAdd === true
   const tooLarge = view?.withheld?.reason === 'tooLarge'
-  const ordered =
-    ordering &&
-    groups?.find(({ chapterId }) => chapterId === ordering.chapterId)
-  // A group gone meanwhile, as a chapter deleted in Foundry, takes its Reorder with it.
-  useEffect(() => {
-    if (ordering && groups && !ordered) setOrdering(undefined)
-  }, [ordering, groups, ordered])
-
-  const say = (words: string, refused = false) =>
-    setSaid(held => ({ words, refused, n: (held?.n ?? 0) + 1 }))
-  // Why a change wasn't made: said as a warning.
-  const refuse = (words: string) => say(words, true)
+  const { ordering, setOrdering, ordered } = useOrdering(groups)
   const send = async (work: () => Promise<NoteWriteAnswer>) => {
     setSending(held => held + 1)
     try {
@@ -388,27 +274,11 @@ function Journal({
       opener,
     })
   const save = async (made: NoteDraft): Promise<NoteWriteAnswer> => {
-    const title = made.title.trim()
     const entry = made.role === 'entry'
-    const stamp = made.stamp ?? ''
     const answer = await send(() =>
       isNew(made)
-        ? notes.create(
-            entry
-              ? {
-                  role: 'entry',
-                  title,
-                  body: made.body,
-                  chapterId: made.chapterId,
-                }
-              : { role: 'chapter', title },
-          )
-        : notes.change(
-            made.key,
-            entry
-              ? { title, body: made.body, chapterId: made.chapterId, stamp }
-              : { title, stamp },
-          ),
+        ? notes.create(inputOf(made))
+        : notes.change(made.key, changeOf(made)),
     )
     if (!answer.ok) return answer
     const id = answer.id ?? made.key
@@ -472,13 +342,6 @@ function Journal({
     }
     // Its button was off while it moved, and is gone where it left the page shown.
     setFocusTo({ heading: true })
-  }
-  // After a delete, the next note in reading order, else the one before, else its group's page.
-  const afterDelete = (entry: NoteEntryView): NotePick => {
-    const at = order.findIndex(({ id }) => id === entry.id)
-    const near = order[at + 1] ?? order[at - 1]
-    if (near && near.id !== entry.id) return { note: near.id }
-    return { group: groupOfNote(groups, entry)?.chapterId ?? null }
   }
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // Escape that nothing inside took, from this dialog's own content, closes an open drawer
@@ -589,9 +452,7 @@ function Journal({
         key={keyOf(group.chapterId)}
         group={group}
         query={query}
-        shown={
-          hits ? group.entries.filter(({ id }) => hits.has(id)) : group.entries
-        }
+        shown={hitEntries(group, hits)}
         chapters={chapters}
         role={role}
         canAdd={canAdd}
@@ -606,7 +467,10 @@ function Journal({
         onRename={opener => group.chapter && rename(group.chapter, opener)}
         onNewIn={() => newNote(group.chapterId, 'new-in')}
         onReorder={() =>
-          setOrdering({ chapterId: group.chapterId, stamp: group.order.stamp })
+          setOrdering({
+            chapterId: group.chapterId,
+            stamp: group.order.stamp,
+          })
         }
         onResolve={choice => {
           if (group.chapter) void resolve(group.chapter, choice)
@@ -620,9 +484,7 @@ function Journal({
     )
   }
 
-  let locked: 'editing' | 'ordering' | undefined
-  if (draft) locked = 'editing'
-  else if (ordering) locked = 'ordering'
+  const locked = lockedBy(draft, ordering)
   const banner = view && notesBanner(view, { role, name })
   const { game } = seatWords(role)
 
@@ -682,9 +544,7 @@ function Journal({
               onQuery={setQuery}
               hits={hits}
               shown={shownNow?.pick}
-              draftNote={
-                draft?.role === 'entry' && !isNew(draft) ? draft.key : undefined
-              }
+              draftNote={draftNoteOf(draft)}
               locked={locked}
               canAdd={canAdd}
               narrow={narrow}
@@ -706,7 +566,7 @@ function Journal({
         danger
         onConfirm={async () => {
           if (!deleting) return
-          const next = afterDelete(deleting)
+          const next = afterDelete(order, groups, deleting)
           const answer = await send(() =>
             notes.remove(deleting.id, deleting.stamp),
           )
@@ -738,7 +598,7 @@ function Editor({
   onCancel,
 }: Readonly<{
   draft: NoteDraft
-  notes: Notes
+  notes: JournalNotes
   chapters: NoteChapterView[]
   name: string
   onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
@@ -903,7 +763,7 @@ function Header({
           type='button'
           aria-label='Close'
           onClick={onClose}
-          className='-mt-1 -mr-1.5 flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+          className={`-mt-1 -mr-1.5 ${JOURNAL_ICON_BUTTON}`}
         >
           <X aria-hidden className='size-5' />
         </button>
@@ -996,185 +856,5 @@ function SkeletonPage() {
         ),
       )}
     </div>
-  )
-}
-
-/**
- * What the reader shows (round 0.35.0 §8.7): the note or group picked; for a note picked that has
- * left the view, the next in reading order as it was, else the one before, else its group's page;
- * with nothing picked, the draft's note where the draft is a change to one, else the most recently
- * changed note, else the last group listed. `keep` where that's to be kept as the pick.
- */
-function showing({
-  pick,
-  groups,
-  order,
-  before,
-  draft,
-}: {
-  pick?: NotePick
-  groups: JournalGroup[]
-  order: NoteEntryView[]
-  before: NoteEntryView[]
-  draft?: NoteDraft
-}):
-  | {
-      pick: NotePick
-      note?: NoteEntryView
-      group?: JournalGroup
-      keep: boolean
-    }
-  | undefined {
-  const at = (next: NotePick, keep: boolean) => {
-    if ('note' in next) {
-      const note = order.find(({ id }) => id === next.note)
-      return note && { pick: next, note, keep }
-    }
-    const group = groups.find(({ chapterId }) => chapterId === next.group)
-    return group && { pick: next, group, keep }
-  }
-  if (pick) {
-    const picked = at(pick, false)
-    if (picked) return picked
-    // A note picked that has left the view gives way to what was near it.
-    if ('note' in pick) {
-      const instead = near(pick.note, order, before, groups)
-      if (instead) return at(instead, true)
-      // Never drawn, as a note saved here whose read hasn't come: it's shown once it comes.
-      const first = fallback(groups, order, draft)
-      return first && at(first, false)
-    }
-  }
-  const first = fallback(groups, order, draft)
-  return first && at(first, true)
-}
-
-/** With nothing picked: the draft's note, the most recently changed note, or the last group. */
-function fallback(
-  groups: JournalGroup[],
-  order: NoteEntryView[],
-  draft?: NoteDraft,
-): NotePick | undefined {
-  if (draft?.role === 'entry' && order.some(({ id }) => id === draft.key)) {
-    return { note: draft.key }
-  }
-  let latest: NoteEntryView | undefined
-  for (const entry of order) {
-    if (
-      !latest ||
-      Date.parse(entry.modifiedAt) > Date.parse(latest.modifiedAt)
-    ) {
-      latest = entry
-    }
-  }
-  if (latest) return { note: latest.id }
-  const listed = groups.filter(
-    ({ chapterId, entries }) => chapterId !== null || entries.length > 0,
-  )
-  const last = listed.at(-1)
-  return last && { group: last.chapterId }
-}
-
-/** What follows a note gone from the view: the next as it was, the one before, or its group. */
-function near(
-  id: string,
-  order: NoteEntryView[],
-  before: NoteEntryView[],
-  groups: JournalGroup[],
-): NotePick | undefined {
-  const at = before.findIndex(entry => entry.id === id)
-  if (at === -1) return
-  const here = new Set(order.map(entry => entry.id))
-  const next = before.slice(at + 1).find(entry => here.has(entry.id))
-  if (next) return { note: next.id }
-  const previous = before.slice(0, at).findLast(entry => here.has(entry.id))
-  if (previous) return { note: previous.id }
-  const { chapterId } = before[at]
-  return {
-    group: groups.some(group => group.chapterId === chapterId)
-      ? chapterId
-      : null,
-  }
-}
-
-/** The group a note is in. */
-function groupOfNote(
-  groups: JournalGroup[] | undefined,
-  entry: NoteEntryView,
-): JournalGroup | undefined {
-  return groups?.find(({ entries }) => entries.includes(entry))
-}
-
-/** Is the draft held now the one on its way, just as it was sent? */
-function isSent(held: NoteDraft | undefined, made: NoteDraft): boolean {
-  return (
-    held?.saving === true &&
-    held.key === made.key &&
-    held.title === made.title &&
-    held.body === made.body &&
-    held.chapterId === made.chapterId
-  )
-}
-
-/** Is the draft a note or chapter not yet made? */
-function isNew(made: NoteDraft): boolean {
-  return made.key === 'new' || made.key === 'new-chapter'
-}
-
-/** A note's text as it's searched: its Markdown where the seat has it, else what it draws. */
-function searchText(entry: NoteEntryView): string {
-  if (entry.body !== undefined) return entry.body
-  return readDescription(entry.html)?.textContent ?? ''
-}
-
-/**
- * What focus goes to, as it's drawn in the journal now: where it's gone, or inside the closed
- * drawer, which is inert, the reader's heading, else the journal's.
- */
-function findFocus(root: HTMLElement, to: FocusTo): HTMLElement | undefined {
-  const all = (selector: string) => [
-    ...root.querySelectorAll<HTMLElement>(selector),
-  ]
-  let target: HTMLElement | undefined
-  if ('heading' in to) target = undefined
-  else if ('contents' in to) target = all('[data-contents-button]')[0]
-  else if ('reorder' in to) target = all('[data-reorder]')[0]
-  else if ('arrow' in to) {
-    target = all(
-      `[aria-label="${to.arrow === 'next' ? 'Next note' : 'Previous note'}"]:not(:disabled)`,
-    )[0]
-  } else {
-    const openers = all(`[data-note-opener="${to.opener}"]`)
-    switch (to.opener) {
-      case 'new':
-      case 'new-chapter': {
-        target = openers[0]
-        break
-      }
-      case 'new-in': {
-        target = openers.find(
-          ({ dataset }) => dataset.chapter === (to.chapterId ?? ''),
-        )
-        break
-      }
-      case 'rename': {
-        target = openers.find(({ dataset }) => dataset.chapter === to.key)
-        break
-      }
-      default: {
-        target = openers.find(
-          ({ dataset }) =>
-            dataset.note === to.key || dataset.chapter === to.key,
-        )
-      }
-    }
-  }
-  // A closed drawer's controls are inert: its Contents button stands for them.
-  if (target?.closest('[inert]')) target = all('[data-contents-button]')[0]
-  return (
-    target ??
-    all('[data-reader-heading]')[0] ??
-    root.querySelector<HTMLElement>('h2') ??
-    undefined
   )
 }

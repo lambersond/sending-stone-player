@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AmountField, amountOf, typedCount } from './amount-field'
+import { AmountField } from './amount-field'
+import { amountOf, typedCount } from './utils'
 
 /** The field as a dialog holds it: what's typed, from 1. */
 function Held({ max, start = '1' }: Readonly<{ max: number; start?: string }>) {

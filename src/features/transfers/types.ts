@@ -43,3 +43,37 @@ export type TransferControls = {
    */
   waiting?: ReadonlySet<string>
 }
+
+/** An end of a move: a party, or a character. */
+export type MoveEnd = {
+  id: string
+  name: string
+  portrait?: string
+  primary?: boolean
+}
+
+/** What a party's dialog was opened for, with whom, as it stood then: kept as it closes. */
+export type PartyMoving =
+  | { mode: 'take'; what: Taking['what']; receivers?: MoveEnd[] }
+  | {
+      mode: 'send'
+      what: Taking['what']
+      recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
+    }
+  | { mode: 'give'; coins: SheetCurrency[] }
+  | { mode: 'distribute'; coins: SheetCurrency[]; among: MoveEnd[] }
+
+/** What's being taken, or was last, with who may take it as its dialog opened. */
+export type Taking = {
+  what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
+  /** On the Gamemaster's party page, the characters to take into. */
+  receivers?: MoveEnd[]
+}
+
+/** What's being given, while its dialog is open, as it was when it opened. */
+export type Giving = {
+  what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
+  /** The character it's given from. */
+  from: string
+  recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
+}

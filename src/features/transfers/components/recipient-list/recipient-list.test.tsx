@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RecipientList } from './recipient-list'
-import type { MoveEnd } from '../move-dialog/move-dialog'
+import type { MoveEnd } from '@/features/transfers/types'
 
 const iron: MoveEnd = {
   id: 'groupIronCo01',

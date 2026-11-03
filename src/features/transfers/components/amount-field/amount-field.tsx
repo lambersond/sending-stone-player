@@ -3,6 +3,7 @@
 import { useId } from 'react'
 import clsx from 'clsx'
 import { Minus, Plus } from 'lucide-react'
+import { amountOf, typedCount } from './utils'
 
 /*
  * How many of a stack to move (module 0.31.0): typed, as a stack may be far more than a stepper
@@ -10,23 +11,9 @@ import { Minus, Plus } from 'lucide-react'
  * "+3" is never read as some other number than the one meant.
  */
 
-/** A count as typed: digits, and nothing else. */
-const DIGITS = /^[0-9]+$/
-
 /** As UsesMenu's steppers. */
 const STEP =
   'flex size-10 shrink-0 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-transparent'
-
-/** The number typed, if it's one, of digits alone; whatever its size. */
-export function typedCount(text: string): number | undefined {
-  return DIGITS.test(text) ? Number(text) : undefined
-}
-
-/** How many are to move, as typed, if it's a whole number from 1 to as many as there are. */
-export function amountOf(text: string, max: number): number | undefined {
-  const count = typedCount(text)
-  return count !== undefined && count >= 1 && count <= max ? count : undefined
-}
 
 /**
  * How many of a stack to move: one fewer, the number, of how many, one more, and all of them.

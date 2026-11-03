@@ -5,6 +5,7 @@ import { LoaderCircle } from 'lucide-react'
 import { authClient } from '@/clients/auth-client'
 import { DiscordIcon } from '@/components/icons/discord'
 import { GoogleIcon } from '@/components/icons/google'
+import type { SignInButtonsProps } from './types'
 import type { SocialProviderId } from '@/auth-providers'
 
 const PROVIDERS: Record<
@@ -15,19 +16,11 @@ const PROVIDERS: Record<
   discord: { label: 'Discord', Icon: DiscordIcon },
 }
 
-type Props = {
-  providers: SocialProviderId[]
-  /** Where to land once signed in. */
-  callbackURL: string
-  /** Where to land if signing in fails. */
-  errorCallbackURL?: string
-}
-
 export function SignInButtons({
   providers,
   callbackURL,
   errorCallbackURL = '/login',
-}: Readonly<Props>) {
+}: Readonly<SignInButtonsProps>) {
   // Stays set after a successful request, while the browser leaves for the provider.
   const [chosen, setChosen] = useState<SocialProviderId>()
   const [failed, setFailed] = useState<SocialProviderId>()

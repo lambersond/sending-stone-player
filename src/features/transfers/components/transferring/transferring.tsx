@@ -11,13 +11,6 @@ import type { TransferControls } from '@/features/transfers/types'
  * character's Give.
  */
 
-/** A move's button on a Currency row, or beside an item, as End is beside a concentration. */
-export const ROW_BUTTON =
-  'shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-semibold transition-colors hover:bg-primary/5 disabled:opacity-60'
-/** A move's pill in an opened item, on a line of its own, apart from the row's own buttons. */
-export const ITEM_BUTTON =
-  'self-start rounded-full border border-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary/5 disabled:opacity-60'
-
 /** Gives the sheet's items and coins within it these controls, in place of any around it. */
 export function Transferring({
   controls,

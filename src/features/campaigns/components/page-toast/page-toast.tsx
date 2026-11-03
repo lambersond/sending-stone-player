@@ -1,14 +1,8 @@
 'use client'
 
-import {
-  createContext,
-  use,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { ToastContext } from '@/features/campaigns/hooks/use-toast'
+import type { Toast } from '@/features/campaigns/types'
 
 // A page's short confirmations, such as "Invite link copied" on the campaigns page (round 0.39.0):
 // a pill at the bottom of the screen for a moment, and the same words in one status region that
@@ -17,27 +11,6 @@ import {
 
 /** How long a toast shows, in milliseconds, as the design has it. */
 export const TOAST_FOR = 1800
-
-type Toast = (
-  text: string,
-  options?: {
-    /**
-     * Whether the status region says it too: not where what was pressed already says so, as a
-     * Copy button saying Copied.
-     */
-    announce?: boolean
-  },
-) => void
-
-/** No toast, as anywhere outside a page that shows them. */
-const NO_TOAST: Toast = () => {}
-
-const ToastContext = createContext<Toast>(NO_TOAST)
-
-/** Shows a toast on the page, where the page shows them. */
-export function useToast(): Toast {
-  return use(ToastContext)
-}
 
 /**
  * The toasts of what's inside: one status region, visually hidden, whose words change with each

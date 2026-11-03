@@ -1,27 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { PartySheetFor } from '../party-sheet/party-sheet'
+import { PartySheetFor } from '../party-sheet-for/party-sheet-for'
 import { SidePanel } from '@/components/side-panel/side-panel'
 import { usePartySheet } from '@/features/party/hooks/use-party-sheet'
-import type { TakeInto } from '@/features/transfers/types'
-import type { TableGroup } from '@/types/party'
-import type { SeatRole } from '@/types/seats'
-
-type Props = {
-  /** The group whose sheet is open, as the table last listed it; unset while it's closed. */
-  group?: TableGroup
-  /** Its party sheet's API, such as `/api/characters/<id>/party/<group>`. */
-  api: string
-  /** Its own page, which the panel's link opens it as. */
-  pageHref: string
-  role: SeatRole
-  /** The player's own character's sheet, which its name in the members links to. */
-  ownSheetHref?: string
-  /** Where it takes into, where the seat may take from it (module 0.31.0). */
-  takeInto?: TakeInto
-  onClose: () => void
-}
+import type { PartyPanelProps } from './types'
 
 /**
  * A party's sheet in a side panel over a character's sheet, as the same core as its own page, with
@@ -35,7 +18,7 @@ export function PartyPanel({
   ownSheetHref,
   takeInto,
   onClose,
-}: Readonly<Props>) {
+}: Readonly<PartyPanelProps>) {
   return (
     <SidePanel
       open={group !== undefined}
@@ -74,7 +57,9 @@ function PartyPanelSheet({
   role,
   ownSheetHref,
   takeInto,
-}: Readonly<Pick<Props, 'api' | 'role' | 'ownSheetHref' | 'takeInto'>>) {
+}: Readonly<
+  Pick<PartyPanelProps, 'api' | 'role' | 'ownSheetHref' | 'takeInto'>
+>) {
   const { view, state } = usePartySheet(api)
   return (
     <PartySheetFor

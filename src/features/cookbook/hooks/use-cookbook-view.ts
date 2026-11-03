@@ -1,110 +1,22 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
+import {
+  cards,
+  onServer,
+  put,
+  putFresh,
+  readCard,
+  subscribe,
+} from './cookbook-store'
 import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
+import { retryDelay } from '@/utils/polling'
 import type { CookbookView } from '@/types/cookbook'
 
 /** The longest wait between reads while the server can't be reached. */
 const MOST_DELAY = 120_000
 
-/** What a page holds of one character's Magical Recipe Book card. */
-type Card = {
-  /** What it last read of the card. */
-  view?: CookbookView
-  /** The link code just made, shown until its player is done with it. */
-  fresh?: string
-  /**
-   * The read the code just made is checked after: the next begun once it was made, its card's own
-   * read for the link the make wrote, so the read that comes with showing the code never takes it
-   * back.
-   */
-  checkAfter?: number
-}
-
-/** Reads begun on this page, numbered, so a code just made is checked only by those after it. */
-let begun = 0
-
-/*
- * The page's store of cards, by character, for as long as the page is loaded: in memory only,
- * never in the browser's storage, as a link code is shown once and never kept. The Biography tab
- * unmounts whenever another of the sheet's tabs is chosen, and the card with it: the store is what
- * keeps a code just made on screen until its player says they're done with it. A character is one
- * user's, as its route answers only them. It's written only on the client, in effects and event
- * handlers, so a server render, which shares the module with every request, never holds a card.
- */
-const cards = new Map<string, Card>()
-const listeners = new Map<string, Set<() => void>>()
-
-function subscribe(characterId: string, listener: () => void): () => void {
-  const held = listeners.get(characterId) ?? new Set()
-  held.add(listener)
-  listeners.set(characterId, held)
-  return () => {
-    held.delete(listener)
-    if (held.size === 0) listeners.delete(characterId)
-  }
-}
-
-/** Keeps what a page holds of a card, or forgets it, and tells each card showing it. */
-function put(characterId: string, card: Card): void {
-  if (card.view === undefined && card.fresh === undefined) {
-    cards.delete(characterId)
-  } else {
-    cards.set(characterId, card)
-  }
-  for (const listener of listeners.get(characterId) ?? []) listener()
-}
-
-/** What a server render holds of a card: nothing, ever. */
-function onServer(): Card | undefined {
-  return
-}
-
 /** Forgets every card the page holds, as a reload does. */
 export function forgetCookbook(): void {
   for (const characterId of cards.keys()) put(characterId, {})
-}
-
-/**
- * Forgets the code just made once a read begun after its card's own finds the character's link
- * gone, or made with another code: revoked by the Gamemaster, or replaced from the player's other
- * device. The card then offers a code again, rather than one that no longer works. A link's hint
- * is its code's last four characters.
- */
-function forgetGoneCode(characterId: string, read: number): void {
-  const held = cards.get(characterId)
-  if (!held?.fresh || !held.view || read <= (held.checkAfter ?? 0)) return
-  if (held.view.link?.hint === held.fresh.slice(-4)) return
-  put(characterId, { ...held, fresh: undefined, checkAfter: undefined })
-}
-
-/**
- * Reads a character's card, from the version it holds for 204 while nothing has changed: whether
- * the read was answered. A failure keeps what's shown.
- */
-async function readCard(
-  characterId: string,
-  signal?: AbortSignal,
-): Promise<boolean> {
-  begun += 1
-  const read = begun
-  const version = cards.get(characterId)?.view?.version
-  const query = version ? `?${new URLSearchParams({ version })}` : ''
-  try {
-    const response = await fetch(
-      `/api/characters/${encodeURIComponent(characterId)}/cookbook${query}`,
-      { cache: 'no-store', signal },
-    )
-    if (response.status === 200) {
-      const view = (await response.json()) as CookbookView
-      if (signal?.aborted) return false
-      put(characterId, { ...cards.get(characterId), view })
-    } else if (response.status !== 204) {
-      return false
-    }
-    if (!signal?.aborted) forgetGoneCode(characterId, read)
-    return true
-  } catch {
-    return false
-  }
 }
 
 /**
@@ -171,10 +83,10 @@ export function useCookbookView(
     const schedule = () => {
       clearTimeout(timer)
       if (controller.signal.aborted) return
-      const delay = failures
-        ? Math.min(COOKBOOK_POLL_EVERY * 2 ** failures, MOST_DELAY)
-        : COOKBOOK_POLL_EVERY
-      timer = setTimeout(tick, delay)
+      timer = setTimeout(
+        tick,
+        retryDelay(COOKBOOK_POLL_EVERY, failures, MOST_DELAY),
+      )
     }
 
     const tick = async () => {
@@ -213,16 +125,7 @@ export function useCookbookView(
   }, [characterId])
 
   const setFresh = useCallback(
-    (code: string | undefined) => {
-      const held = cards.get(characterId)
-      if (held?.fresh === code) return
-      // Its card reads at once for the link the code was made with: the next read begun.
-      put(characterId, {
-        ...held,
-        fresh: code,
-        checkAfter: code === undefined ? undefined : begun + 1,
-      })
-    },
+    (code: string | undefined) => putFresh(characterId, code),
     [characterId],
   )
 
