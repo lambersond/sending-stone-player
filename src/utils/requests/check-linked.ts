@@ -1,3 +1,4 @@
+import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import { slotPools } from '@/utils/action-groups'
 import { castOf, castAtLevel } from '@/utils/casts'
 import {
@@ -10,13 +11,19 @@ import {
 } from '@/utils/damage-modifiers'
 import { formulaDice } from '@/utils/formulas'
 import { sheetTextRefs } from '@/utils/sheet-texts'
-import type { RollRequestInput, RollKind, ExtraDice } from '@/types/roll'
+import type {
+  RollRequestInput,
+  RollKind,
+  RollKindInfo,
+  ExtraDice,
+} from '@/types/roll'
 import type {
   SheetAction,
   CharacterSheet,
   CastIndex,
+  DamageLink,
   FoundLink,
-  CheckOption,
+  SheetEnchantProfile,
 } from '@/types/sending-stone'
 import type { RollRefusal } from '@/utils/requests/types'
 
@@ -36,17 +43,13 @@ export function checkAloneChoices(
   spends: string[],
 ): RollRefusal | undefined {
   const consume = input.consume === true
-  const pools = slotPools(action, sheet.spells)
-  // A spell its character has no slot of its level or higher for, such as a Fighter's Magic
-  // Initiate spell, has no pool to name: none named, the game rolls it at its own level, and finds
-  // none left where it's asked to spend one.
-  if (pools && pools.length > 0) {
-    const pool = pools.find(({ id }) => id === input.slot)
-    if (!pool) return 'slot'
-    if (consume && spends.includes('slot') && pool.value <= 0) return 'slots'
-  } else if (input.slot !== undefined) {
-    return 'slot'
-  }
+  const slot = checkAloneSlot(
+    input,
+    action,
+    sheet,
+    consume && spends.includes('slot'),
+  )
+  if (slot) return slot
   const { attackMode, ammunition } = input
   if (
     attackMode !== undefined &&
@@ -62,6 +65,31 @@ export function checkAloneChoices(
     }
   }
   if (consume && spends.length === 0) return 'consume'
+  return undefined
+}
+
+/**
+ * Damage on its own's slot, from module 0.41.0: one of the spell's pools, wherever it has one to
+ * cast it with, with one left where it's spent; none where it has none.
+ * @param spent - Whether it's asked to spend one, where its use would.
+ */
+function checkAloneSlot(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+  spent: boolean,
+): RollRefusal | undefined {
+  const pools = slotPools(action, sheet.spells)
+  // A spell its character has no slot of its level or higher for, such as a Fighter's Magic
+  // Initiate spell, has no pool to name: none named, the game rolls it at its own level, and finds
+  // none left where it's asked to spend one.
+  if (pools && pools.length > 0) {
+    const pool = pools.find(({ id }) => id === input.slot)
+    if (!pool) return 'slot'
+    if (spent && pool.value <= 0) return 'slots'
+  } else if (input.slot !== undefined) {
+    return 'slot'
+  }
   return undefined
 }
 
@@ -87,20 +115,7 @@ export function checkEnchant(
   if (!chosen) return 'profile'
   const profile = enchant.profiles.find(({ id }) => id === chosen.profile)
   if (!profile) return 'profile'
-  if (profile.min !== null || profile.max !== null) {
-    const chooses =
-      (slotPools(action, sheet.spells)?.length ?? 0) > 0 ||
-      (castOf(action, casts)?.levels?.length ?? 0) > 0
-    if (chooses && !input.slot) return 'profile'
-    const level = castAtLevel(action, sheet.spells, input.slot, casts)
-    if (
-      level === null ||
-      (profile.min !== null && level < profile.min) ||
-      (profile.max !== null && level > profile.max)
-    ) {
-      return 'profile'
-    }
-  }
+  if (!atProfileLevel(input, action, sheet, casts, profile)) return 'profile'
   const { item } = chosen
   const offered = enchant.self
     ? item === undefined
@@ -110,6 +125,31 @@ export function checkEnchant(
     enchant.self &&
     enchant.applied.some(applied => applied.profile === chosen.profile)
   return on ? 'applied' : undefined
+}
+
+/**
+ * Is an enchant activity used at a level the way it enchants is offered at: any, for one offered
+ * at every level; else the level it's cast at, with the slot, or a spell an item casts at the
+ * level, chosen, where there's a choice?
+ */
+function atProfileLevel(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+  casts: CastIndex,
+  profile: SheetEnchantProfile,
+): boolean {
+  if (profile.min === null && profile.max === null) return true
+  const chooses =
+    (slotPools(action, sheet.spells)?.length ?? 0) > 0 ||
+    (castOf(action, casts)?.levels?.length ?? 0) > 0
+  if (chooses && !input.slot) return false
+  const level = castAtLevel(action, sheet.spells, input.slot, casts)
+  return !(
+    level === null ||
+    (profile.min !== null && level < profile.min) ||
+    (profile.max !== null && level > profile.max)
+  )
 }
 
 /**
@@ -138,94 +178,158 @@ export function checkLinked(
   if (!text || number === undefined || !links) return 'gone'
   if (!sheetTextRefs(sheet).includes(text)) return 'gone'
   const found = links.get(number)
-  switch (input.kind) {
-    case 'ask': {
-      if (found?.link.kind !== 'save' && found?.link.kind !== 'check') {
-        return 'link'
-      }
-      return found.secret ? 'secret' : undefined
-    }
-    case 'save': {
-      // A concentration check that names no ability holds Constitution, which the game takes too.
-      if (found?.link.kind !== 'save') return 'link'
-      return found.link.abilities.includes(input.key ?? '') ? undefined : 'link'
-    }
-    case 'skill':
-    case 'tool':
-    case 'ability': {
-      if (found?.link.kind !== 'check') return 'link'
-      const type = CHECK_TYPES[input.kind]
-      const offered = found.link.checks.some(
-        option =>
-          option.type === type && (option.key ?? option.ability) === input.key,
-      )
-      return offered ? undefined : 'link'
-    }
-    case 'textDamage': {
-      if (found?.link.kind !== 'damage') return 'link'
-      const damage = found.link
-      // Healing is never a critical hit's, nor damage the game marks as never one, without what
-      // one adds, which a module from 0.20.0 marks so only for apps before.
-      if (input.critical && (damage.healing || damage.critical === false)) {
-        return 'link'
-      }
-      const { parts } = damage
-      const types = input.types ?? []
-      const offered =
-        types.length <= parts.length &&
-        types.every(
-          (type, index) => type === null || parts[index].types.includes(type),
-        )
-      if (!offered) return 'type'
-      // Changed only where the game takes it so, from module 0.19.0, whose sheets say how it makes
-      // a critical hit's, or that it can't.
-      if (changes(input.modifiers) && sheet.critical === undefined) {
-        return 'unavailable'
-      }
-      // A critical hit's only as the world's rules make it, where the sheet says how, and where
-      // one is offered, as where they say how they throw the dice it adds; then with what it adds.
-      const rule = input.critical ? sheet.critical : undefined
-      if (input.critical && !rule) return 'dice'
-      const adds = rule ? criticalOffered(damage, rule) : undefined
-      if (adds === false) return 'dice'
-      // A part the app can't read, it couldn't have rolled.
-      const preview = linkDamage(damage, rule ?? undefined, adds)
-      // Never at its highest where it takes a die away, which that would take the most of, nor
-      // where a die explodes, or is rerolled on its highest face, whose highest isn't known.
-      if (
-        input.modifiers?.maximize &&
-        preview &&
-        (diceTakenAway(preview) || unmaximizable(preview))
-      ) {
-        return 'dice'
-      }
-      // Its first die changed only where the game changes that one, as a module before 0.21.0,
-      // which changes its first die whatever its sign, does only where that's one it adds.
-      const planned =
-        preview &&
-        modifiedDice(preview, input.modifiers, features.includes('signedDice'))
-      return planned && matchesPlanned(input, planned) ? undefined : 'dice'
-    }
-    case 'textRoll': {
-      if (found?.link.kind !== 'roll') return 'link'
-      const thrown = formulaDice(found.link.formula)
-      return thrown && throws(input, thrown) ? undefined : 'dice'
-    }
-    default: {
-      return 'link'
-    }
-  }
+  const check = Object.hasOwn(LINKED, input.kind)
+    ? LINKED[input.kind]
+    : undefined
+  return check ? check(input, found, sheet, features) : 'link'
 }
 
 /**
- * The kind of option a check a description or an activity calls for has, for each kind of roll
- * that makes one.
+ * What a roll from a link in a description checks of the link it names, by the kind of link it
+ * asks for: any other kind of roll is no link's (`link`).
  */
-export const CHECK_TYPES = {
-  skill: 'skill',
-  tool: 'tool',
-  ability: 'check',
-} as const satisfies Partial<Record<RollKind, CheckOption['type']>>
+const LINKED: Partial<
+  Record<
+    RollKind,
+    (
+      input: RollRequestInput,
+      found: FoundLink | undefined,
+      sheet: CharacterSheet,
+      features: readonly string[],
+    ) => RollRefusal | undefined
+  >
+> = {
+  ask: linkedAsk,
+  save: linkedSave,
+  skill: linkedCheck,
+  tool: linkedCheck,
+  ability: linkedCheck,
+  textDamage: linkedDamage,
+  textRoll: linkedRoll,
+}
+
+/** A saving throw or check the table is asked for, but never one in a secret. */
+function linkedAsk(
+  _input: RollRequestInput,
+  found: FoundLink | undefined,
+): RollRefusal | undefined {
+  if (found?.link.kind !== 'save' && found?.link.kind !== 'check') {
+    return 'link'
+  }
+  return found.secret ? 'secret' : undefined
+}
+
+/** The player's own saving throw, with one of the abilities the link names. */
+function linkedSave(
+  input: RollRequestInput,
+  found: FoundLink | undefined,
+): RollRefusal | undefined {
+  // A concentration check that names no ability holds Constitution, which the game takes too.
+  if (found?.link.kind !== 'save') return 'link'
+  return found.link.abilities.includes(input.key ?? '') ? undefined : 'link'
+}
+
+/** The player's own check: one of the link's, by its kind and its key. */
+function linkedCheck(
+  input: RollRequestInput,
+  found: FoundLink | undefined,
+): RollRefusal | undefined {
+  if (found?.link.kind !== 'check') return 'link'
+  const type = checkTypeOf(input.kind)
+  const offered = found.link.checks.some(
+    option =>
+      option.type === type && (option.key ?? option.ability) === input.key,
+  )
+  return offered ? undefined : 'link'
+}
+
+/**
+ * Damage or healing: as its parts' formulas throw, each as a kind of damage the part offers,
+ * changed only where the game takes it so, and a critical hit's only where one may be.
+ */
+function linkedDamage(
+  input: RollRequestInput,
+  found: FoundLink | undefined,
+  sheet: CharacterSheet,
+  features: readonly string[],
+): RollRefusal | undefined {
+  if (found?.link.kind !== 'damage') return 'link'
+  const damage = found.link
+  // Healing is never a critical hit's, nor damage the game marks as never one, without what
+  // one adds, which a module from 0.20.0 marks so only for apps before.
+  if (input.critical && (damage.healing || damage.critical === false)) {
+    return 'link'
+  }
+  const { parts } = damage
+  const types = input.types ?? []
+  const offered =
+    types.length <= parts.length &&
+    types.every(
+      (type, index) => type === null || parts[index].types.includes(type),
+    )
+  if (!offered) return 'type'
+  // Changed only where the game takes it so, from module 0.19.0, whose sheets say how it makes
+  // a critical hit's, or that it can't.
+  if (changes(input.modifiers) && sheet.critical === undefined) {
+    return 'unavailable'
+  }
+  return linkedDamageDice(input, damage, sheet, features)
+}
+
+/**
+ * Damage's dice from a link: as its parts throw, changed as the player chose, and as a critical
+ * hit's only as the world's rules make one, where the sheet says how, with what it adds.
+ */
+function linkedDamageDice(
+  input: RollRequestInput,
+  damage: DamageLink,
+  sheet: CharacterSheet,
+  features: readonly string[],
+): RollRefusal | undefined {
+  // A critical hit's only as the world's rules make it, where the sheet says how, and where
+  // one is offered, as where they say how they throw the dice it adds; then with what it adds.
+  const rule = input.critical ? sheet.critical : undefined
+  if (input.critical && !rule) return 'dice'
+  const adds = rule ? criticalOffered(damage, rule) : undefined
+  if (adds === false) return 'dice'
+  // A part the app can't read, it couldn't have rolled.
+  const preview = linkDamage(damage, rule ?? undefined, adds)
+  // Never at its highest where it takes a die away, which that would take the most of, nor
+  // where a die explodes, or is rerolled on its highest face, whose highest isn't known.
+  if (
+    input.modifiers?.maximize &&
+    preview &&
+    (diceTakenAway(preview) || unmaximizable(preview))
+  ) {
+    return 'dice'
+  }
+  // Its first die changed only where the game changes that one, as a module before 0.21.0,
+  // which changes its first die whatever its sign, does only where that's one it adds.
+  const planned =
+    preview &&
+    modifiedDice(preview, input.modifiers, features.includes('signedDice'))
+  return planned && matchesPlanned(input, planned) ? undefined : 'dice'
+}
+
+/** A roll of its own, as its formula throws. */
+function linkedRoll(
+  input: RollRequestInput,
+  found: FoundLink | undefined,
+): RollRefusal | undefined {
+  if (found?.link.kind !== 'roll') return 'link'
+  const thrown = formulaDice(found.link.formula)
+  return thrown && throws(input, thrown) ? undefined : 'dice'
+}
+
+/**
+ * The kind of option a check a description or an activity calls for has, for a kind of roll that
+ * makes one; none for any other.
+ */
+export function checkTypeOf(kind: string): RollKindInfo['check'] {
+  if (!Object.hasOwn(ROLL_KIND_INFO, kind)) return undefined
+  const info: RollKindInfo = ROLL_KIND_INFO[kind as RollKind]
+  return info.check
+}
 
 /**
  * Are a roll's dice those a formula throws, in order: the same kinds of dice, as many of each, as

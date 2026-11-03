@@ -1,3 +1,4 @@
+import { kindsWhere, ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import type { RollRequestInput } from '@/types/roll'
 import type { HeldRollRequest, RollCommand } from '@/utils/requests/types'
 
@@ -13,16 +14,9 @@ import type { HeldRollRequest, RollCommand } from '@/utils/requests/types'
  * 0.42.1 a spell slot spent or restored does. From module 0.42.1, a spell prepared or unprepared
  * isn't sent either: it posts nothing.
  */
-export const GM_UNSENT: ReadonlySet<string> = new Set([
-  'endEnchantment',
-  'endConcentration',
-  'endTurn',
-  'undoEndTurn',
-  'favorite',
-  'effect',
-  'wildShape',
-  'prepare',
-])
+export const GM_UNSENT: ReadonlySet<string> = new Set(
+  kindsWhere(kind => 'gm' in ROLL_KIND_INFO[kind]),
+)
 
 /** A held roll as the module is sent it. */
 export function toCommand(request: HeldRollRequest): RollCommand {

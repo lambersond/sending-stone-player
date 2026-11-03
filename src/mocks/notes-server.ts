@@ -1,3 +1,4 @@
+import type { Answer, Sent } from '@/mocks/types'
 import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
 
 /*
@@ -6,9 +7,6 @@ import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
  * it, as a simple server would, so a test sees what it wrote come back. A test may answer a write
  * itself, as a refusal, or another address, as the sheet's own.
  */
-
-type Sent = { url: string; method: string; body?: unknown }
-type Answer = { status: number; body?: unknown }
 
 const respond = ({ status, body }: Answer) =>
   Promise.resolve({
@@ -96,9 +94,6 @@ export function serveNotes(
     /** Answers a write in place of the server's own, where it returns an answer. */
     answer: undefined as ((sent: Sent) => Answer | undefined) | undefined,
   }
-  const bump = (book: NotesView) => {
-    book.version += 1
-  }
   globalThis.fetch = jest.fn((async (url: string, init: RequestInit = {}) => {
     const at = url.indexOf('/notes')
     const book = at === -1 ? undefined : server.books[url.slice(0, at)]
@@ -108,18 +103,7 @@ export function serveNotes(
     const parsed = new URL(url, 'http://app')
     const method = init.method ?? 'GET'
     const rest = parsed.pathname.slice(parsed.pathname.indexOf('/notes') + 6)
-    if (method === 'GET') {
-      const asked = parsed.searchParams
-      if (
-        asked.get('version') === String(book.version) &&
-        asked.get('live') === (book.live ? '1' : '0')
-      ) {
-        return respond({ status: 204 })
-      }
-      // A copy, as a response is: jsdom has no structuredClone.
-      // eslint-disable-next-line unicorn/prefer-structured-clone
-      return respond({ status: 200, body: JSON.parse(JSON.stringify(book)) })
-    }
+    if (method === 'GET') return respond(read(book, parsed.searchParams))
     const body =
       typeof init.body === 'string' ? JSON.parse(init.body) : undefined
     const sent = { url, method, body }
@@ -132,83 +116,134 @@ export function serveNotes(
         body: { html: `<p>${String(body.body)}</p>`, headings: [] },
       })
     }
-    if (rest === '/order') {
-      // A new order of a group's notes (round 0.35.0 §7.6): the book's notes as asked, the group's
-      // in its order, after the others, as each group is read in its notes' order.
-      if (method === 'PUT') {
-        const moved = new Set<string>(body.ids)
-        const ordered = body.ids
-          .map((id: string) => book.entries.find(note => note.id === id))
-          .filter(Boolean)
-        book.entries = [
-          ...book.entries.filter(note => !moved.has(note.id)),
-          ...ordered,
-        ]
-      }
-      bump(book)
-      return respond({ status: 200, body: { stamp: `g:${book.version}` } })
-    }
+    if (rest === '/order') return respond(order(book, method, body))
     const id = decodeURIComponent(rest.slice(1))
     if (method === 'POST') {
       made += 1
-      const made16 = `madeHere${String(made).padStart(8, '0')}`
-      if (body.role === 'chapter') {
-        book.chapters.push(
-          noteChapter({
-            id: made16,
-            title: body.title,
-            stamp: `w:${made16}.0`,
-          }),
-        )
-      } else {
-        book.entries.push(
-          noteEntry({
-            id: made16,
-            title: body.title,
-            body: body.body ?? '',
-            html: `<p>${String(body.body ?? '')}</p>`,
-            chapterId: body.chapterId ?? null,
-            stamp: `w:${made16}.0`,
-          }),
-        )
-      }
-      bump(book)
-      return respond({
-        status: 201,
-        body: { id: made16, stamp: `w:${made16}.0` },
-      })
+      return respond(
+        add(book, body, `madeHere${String(made).padStart(8, '0')}`),
+      )
     }
-    const entry = book.entries.find(note => note.id === id)
-    const chapter = book.chapters.find(note => note.id === id)
-    if (method === 'PATCH' && body && !('resolve' in body)) {
-      if (entry) {
-        const from = entry.chapterId
-        Object.assign(entry, {
-          title: body.title,
-          body: body.body ?? entry.body,
-          html: `<p>${String(body.body ?? entry.body)}</p>`,
-          chapterId: body.chapterId ?? null,
-        })
-        // Moved to another chapter, it's last in it (round 0.35.0 §2.3).
-        if (entry.chapterId !== from) {
-          book.entries = [...book.entries.filter(note => note !== entry), entry]
-        }
-      } else if (chapter) {
-        chapter.title = body.title
-      } else {
-        return respond({ status: 404 })
-      }
-      bump(book)
-      return respond({ status: 200, body: { stamp: `w:${id}.1` } })
-    }
-    if (method === 'DELETE') {
-      if (!entry) return respond({ status: 404 })
-      book.entries = book.entries.filter(note => note.id !== id)
-      bump(book)
-      return respond({ status: 200, body: {} })
-    }
-    bump(book)
-    return respond({ status: 200, body: { stamp: `w:${id}.2` } })
+    return respond(change(book, method, id, body))
   }) as typeof fetch)
   return server
+}
+
+/** A book read: 204 while it's the version and liveness asked about, else a copy of it. */
+function read(book: NotesView, asked: URLSearchParams): Answer {
+  if (
+    asked.get('version') === String(book.version) &&
+    asked.get('live') === (book.live ? '1' : '0')
+  ) {
+    return { status: 204 }
+  }
+  // A copy, as a response is.
+  // eslint-disable-next-line unicorn/prefer-structured-clone -- jsdom has no structuredClone
+  return { status: 200, body: JSON.parse(JSON.stringify(book)) }
+}
+
+/**
+ * A new order of a group's notes (round 0.35.0 §7.6): the book's notes as asked, the group's in its
+ * order, after the others, as each group is read in its notes' order.
+ */
+function order(
+  book: NotesView,
+  method: string,
+  body: { ids: string[] },
+): Answer {
+  if (method === 'PUT') {
+    const moved = new Set<string>(body.ids)
+    const ordered = body.ids
+      .map((id: string) => book.entries.find(note => note.id === id))
+      .filter((note): note is NoteEntryView => note !== undefined)
+    book.entries = [
+      ...book.entries.filter(note => !moved.has(note.id)),
+      ...ordered,
+    ]
+  }
+  bump(book)
+  return { status: 200, body: { stamp: `g:${book.version}` } }
+}
+
+/** A chapter or an entry added to a book, by the id the server made for it. */
+function add(
+  book: NotesView,
+  body: {
+    role?: string
+    title: string
+    body?: string
+    chapterId?: string | null
+  },
+  made16: string,
+): Answer {
+  if (body.role === 'chapter') {
+    book.chapters.push(
+      noteChapter({
+        id: made16,
+        title: body.title,
+        stamp: `w:${made16}.0`,
+      }),
+    )
+  } else {
+    book.entries.push(
+      noteEntry({
+        id: made16,
+        title: body.title,
+        body: body.body ?? '',
+        html: `<p>${String(body.body ?? '')}</p>`,
+        chapterId: body.chapterId ?? null,
+        stamp: `w:${made16}.0`,
+      }),
+    )
+  }
+  bump(book)
+  return {
+    status: 201,
+    body: { id: made16, stamp: `w:${made16}.0` },
+  }
+}
+
+/** A note of a book changed, deleted, or otherwise written. */
+function change(
+  book: NotesView,
+  method: string,
+  id: string,
+  body: { title: string; body?: string; chapterId?: string | null } | undefined,
+): Answer {
+  const entry = book.entries.find(note => note.id === id)
+  const chapter = book.chapters.find(note => note.id === id)
+  if (method === 'PATCH' && body && !('resolve' in body)) {
+    if (entry) {
+      const from = entry.chapterId
+      Object.assign(entry, {
+        title: body.title,
+        body: body.body ?? entry.body,
+        html: `<p>${String(body.body ?? entry.body)}</p>`,
+        chapterId: body.chapterId ?? null,
+      })
+      // Moved to another chapter, it's last in it (round 0.35.0 §2.3).
+      if (entry.chapterId !== from) {
+        book.entries = [...book.entries.filter(note => note !== entry), entry]
+      }
+    } else if (chapter) {
+      chapter.title = body.title
+    } else {
+      return { status: 404 }
+    }
+    bump(book)
+    return { status: 200, body: { stamp: `w:${id}.1` } }
+  }
+  if (method === 'DELETE') {
+    if (!entry) return { status: 404 }
+    book.entries = book.entries.filter(note => note.id !== id)
+    bump(book)
+    return { status: 200, body: {} }
+  }
+  bump(book)
+  return { status: 200, body: { stamp: `w:${id}.2` } }
+}
+
+/** A book's version, one on for each change. */
+function bump(book: NotesView) {
+  book.version += 1
 }

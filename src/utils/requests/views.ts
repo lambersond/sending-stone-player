@@ -1,3 +1,4 @@
+import { kindsWhere, ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import { SPELL_SLOT_OPS } from '@/constants/sending-stone'
 import { rollStatus } from '@/utils/requests/status'
 import { toTableRoll, healingRolls, damageKinds } from '@/utils/table-view'
@@ -18,7 +19,16 @@ export function toRollRequestView(
 ): RollRequestView {
   const status = rollStatus(request, now)
   const result = request.result as CommandResult | null
-  const spent = result?.spent ? { spent: result.spent } : {}
+  if (status === 'failed') return failedView(request, result)
+  if (status !== 'done' || !result) return { id: request.id, status }
+  return doneView(request, result)
+}
+
+/**
+ * What a command's result says of what it did besides its rolls, as its player is told of it,
+ * whatever came of it: always last, in this order.
+ */
+function outcomesOf(result: CommandResult | null) {
   // What a move moved, from module 0.31.0: all of it, or what it moved before it failed.
   const moved = result?.transfer ? { transfer: result.transfer } : {}
   // What a removal removed, from module 0.33.0: when it was made, or where the item itself
@@ -37,56 +47,66 @@ export function toRollRequestView(
   // What damage on its own that asked to spend spent, from module 0.41.0, as the game says, and
   // whether concentration began.
   const alone = result?.alone ? { alone: result.alone } : {}
-  if (status === 'failed') {
-    const reason = result?.reason ?? undefined
-    if (!result?.spent || result.spent.made === 0) {
-      return {
-        id: request.id,
-        status,
-        reason,
-        ...cardless(result),
-        ...moved,
-        ...removed,
-        ...favorited,
-        ...effect,
-        ...wildShape,
-        ...alone,
-      }
-    }
-    if (!result.visible) {
-      return {
-        id: request.id,
-        status,
-        reason,
-        visible: false,
-        ...spent,
-        ...moved,
-        ...removed,
-        ...favorited,
-        ...effect,
-        ...wildShape,
-        ...alone,
-      }
-    }
-    const rolls = result.rolls.map(roll => toTableRoll(roll))
+  return {
+    ...moved,
+    ...removed,
+    ...favorited,
+    ...effect,
+    ...wildShape,
+    ...alone,
+  }
+}
+
+/** A roll that failed, as its player is told of it: of hit dice, how many the game made. */
+function failedView(
+  request: HeldRollRequest,
+  result: CommandResult | null,
+): RollRequestView {
+  const status = 'failed'
+  const outcomes = outcomesOf(result)
+  const reason = result?.reason ?? undefined
+  if (!result?.spent || result.spent.made === 0) {
     return {
       id: request.id,
       status,
       reason,
-      visible: true,
-      total: sumOf(rolls, request.kind),
-      rolls,
-      ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
-      ...spent,
-      ...moved,
-      ...removed,
-      ...favorited,
-      ...effect,
-      ...wildShape,
-      ...alone,
+      ...cardless(result),
+      ...outcomes,
     }
   }
-  if (status !== 'done' || !result) return { id: request.id, status }
+  const spent = { spent: result.spent }
+  if (!result.visible) {
+    return {
+      id: request.id,
+      status,
+      reason,
+      visible: false,
+      ...spent,
+      ...outcomes,
+    }
+  }
+  const rolls = result.rolls.map(roll => toTableRoll(roll))
+  return {
+    id: request.id,
+    status,
+    reason,
+    visible: true,
+    total: sumOf(rolls, request.kind),
+    rolls,
+    ...(typeof result.healed === 'number' ? { healed: result.healed } : {}),
+    ...spent,
+    ...outcomes,
+  }
+}
+
+/** A roll the game made, as its player is told of it. */
+function doneView(
+  request: HeldRollRequest,
+  result: CommandResult,
+): RollRequestView {
+  const status = 'done'
+  const outcomes = outcomesOf(result)
+  const spent = result.spent ? { spent: result.spent } : {}
   // An attack's or a use's damage is the player's to roll, even of one they can't see; and what an
   // enchant activity did to their items is theirs to know.
   const damage = result.damage === undefined ? {} : { damage: result.damage }
@@ -102,12 +122,7 @@ export function toRollRequestView(
       ...use,
       ...damage,
       ...enchantment,
-      ...moved,
-      ...removed,
-      ...favorited,
-      ...effect,
-      ...wildShape,
-      ...alone,
+      ...outcomes,
     }
   const rolls = result.rolls.map(roll => toTableRoll(roll))
   return {
@@ -125,62 +140,14 @@ export function toRollRequestView(
     ...damage,
     ...enchantment,
     ...spent,
-    ...moved,
-    ...removed,
-    ...favorited,
-    ...effect,
-    ...wildShape,
-    ...alone,
+    ...outcomes,
   }
 }
 
-/**
- * What a roll of the Gamemaster's as a character is called on its player's page (#156) where their
- * page didn't say, as before it did: by its kind.
- */
-const GM_ROLL_KINDS: Record<RollKind, string> = {
-  skill: 'A check',
-  ability: 'A check',
-  tool: 'A check',
-  save: 'A saving throw',
-  death: 'A death saving throw',
-  initiative: 'Initiative',
-  attack: 'An attack',
-  damage: 'Damage',
-  use: 'A use',
-  hitDie: 'Hit dice',
-  hitDice: 'Hit dice',
-  formula: 'A roll',
-  textRoll: 'A roll',
-  textDamage: 'Damage',
-  itemDamage: 'Damage',
-  recharge: 'A recharge',
-  ask: 'A roll asked of the table',
-  endEnchantment: 'An enchantment ended',
-  endConcentration: 'Concentration ended',
-  spend: 'Charges spent',
-  inspiration: 'Heroic Inspiration',
-  spellSlot: 'A spell slot spent or restored',
-  transfer: 'Items or coins moved',
-  remove: 'An item removed',
-  favorite: 'A favorite added or removed',
-  effect: 'An effect changed',
-  wildShape: 'Wild Shape',
-  prepare: 'A spell prepared or unprepared',
-  endTurn: 'A turn ended',
-  undoEndTurn: 'A turn taken back',
-}
-
 /** The rolls of a d20, whose first roll the game may say came up a critical or a fumble. */
-const D20_KINDS: ReadonlySet<string> = new Set([
-  'skill',
-  'ability',
-  'tool',
-  'save',
-  'death',
-  'initiative',
-  'attack',
-])
+const D20_KINDS: ReadonlySet<string> = new Set(
+  kindsWhere(kind => ROLL_KIND_INFO[kind].dice === 'd20'),
+)
 
 /**
  * A roll the campaign's Gamemaster made as a character (#156), as its player is shown it beside
@@ -201,10 +168,7 @@ export function toGmRollView(
 ): GmRollView {
   const view = toRollRequestView(request, now)
   const kind = request.kind as RollKind
-  const first = view.visible ? view.rolls?.[0] : undefined
-  let d20: GmRollView['d20']
-  if (D20_KINDS.has(kind) && first?.critical) d20 = 'critical'
-  else if (D20_KINDS.has(kind) && first?.fumble) d20 = 'fumble'
+  const d20 = d20Of(kind, view)
   const damage = DAMAGE_KINDS.has(kind)
   const healing = damage && (heals || healingRolls(view.rolls ?? []))
   const critical =
@@ -213,9 +177,31 @@ export function toGmRollView(
   return {
     id: view.id,
     kind,
-    label: request.label ?? GM_ROLL_KINDS[kind] ?? 'A roll',
+    label: request.label ?? ROLL_KIND_INFO[kind]?.gmLabel ?? 'A roll',
     at: request.createdAt.toISOString(),
     status: view.status,
+    ...toldOf(view),
+    ...(d20 && { d20 }),
+    ...(critical && { critical }),
+    ...(healing && { healing }),
+    ...(slotOp && { slotOp }),
+  }
+}
+
+/**
+ * Whether the game called a d20 roll's first roll a critical or a fumble, where its player may see
+ * it; none for any other.
+ */
+function d20Of(kind: RollKind, view: RollRequestView): GmRollView['d20'] {
+  const first = view.visible ? view.rolls?.[0] : undefined
+  if (D20_KINDS.has(kind) && first?.critical) return 'critical'
+  if (D20_KINDS.has(kind) && first?.fumble) return 'fumble'
+  return undefined
+}
+
+/** What the player is told of a Gamemaster's roll as of their own, but its dice and damage. */
+function toldOf(view: RollRequestView) {
+  return {
     ...(view.reason !== undefined && { reason: view.reason }),
     ...(view.visible !== undefined && { visible: view.visible }),
     ...(view.total !== undefined && { total: view.total }),
@@ -224,10 +210,6 @@ export function toGmRollView(
     ...(view.healed !== undefined && { healed: view.healed }),
     ...(view.spent && { spent: view.spent }),
     ...(view.enchantment && { enchantment: view.enchantment }),
-    ...(d20 && { d20 }),
-    ...(critical && { critical }),
-    ...(healing && { healing }),
-    ...(slotOp && { slotOp }),
   }
 }
 
@@ -256,14 +238,14 @@ function cardless(result: CommandResult | null): { card?: false } {
  * The rolls whose total is all of their rolls' added up: damage's parts, as dnd5e's card adds
  * damage up, or hit dice's cards.
  */
-const SUMMED = new Set(['damage', 'textDamage', 'itemDamage', 'hitDice'])
+const SUMMED: ReadonlySet<string> = new Set(
+  kindsWhere(kind => 'summed' in ROLL_KIND_INFO[kind]),
+)
 
 /** The kinds that are damage or healing: from module 0.36.0, an action's on its own too. */
-const DAMAGE_KINDS: ReadonlySet<string> = new Set([
-  'damage',
-  'textDamage',
-  'itemDamage',
-])
+const DAMAGE_KINDS: ReadonlySet<string> = new Set(
+  kindsWhere(kind => 'damage' in ROLL_KIND_INFO[kind]),
+)
 
 /**
  * Damage's total, or hit dice's, when the game said each of its rolls': hit dice's added up; and

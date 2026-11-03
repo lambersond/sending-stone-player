@@ -1,12 +1,11 @@
 import { characterSheet, TEXTS } from '@/mocks/sending-stone'
+import type { Json } from '@/mocks/types'
 import type { CharacterSheet } from '@/types/sending-stone'
 
 // A sheet in full, as module 0.22.0 builds it, and the same sheet in slim format 1, written out by
 // hand rather than made by a port of the module's slimSheet: Quill, a wizard with a staff of two
 // activities, another staff unequipped, an item not identified yet, nested containers, and
 // features that roll and don't. Synthetic: nothing in it comes from a real game.
-
-type Json = Record<string, unknown>
 
 const NO_ROLLS = {
   toHit: null,

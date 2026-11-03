@@ -3,7 +3,7 @@ import { alonePlan, alonePicks } from '@/utils/alone-choices'
 import { castIndex, castOf, castAtLevel } from '@/utils/casts'
 import { formulaDice } from '@/utils/formulas'
 import {
-  CHECK_TYPES,
+  checkTypeOf,
   checkLinked,
   checkEnchant,
   checkAloneChoices,
@@ -19,7 +19,7 @@ import { sheetActions } from '@/utils/sheet-actions'
 import { allItems } from '@/utils/sheet-texts'
 import { mostTargets } from '@/utils/uses'
 import { isShaped } from '@/utils/wild-shape'
-import type { RollRequestInput, AttackTarget } from '@/types/roll'
+import type { RollRequestInput, AttackTarget, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
   CombatSnapshot,
@@ -52,109 +52,165 @@ export function checkRoll(
   links?: ReadonlyMap<number, FoundLink>,
   features: readonly string[] = [],
 ): RollRefusal | undefined {
-  if (input.item !== undefined && Object.hasOwn(CHECK_TYPES, input.kind)) {
+  if (input.item !== undefined && checkTypeOf(input.kind)) {
     return checkActivityRoll(input, sheet)
   }
-  const linked = () =>
-    input.text === undefined
-      ? undefined
-      : checkLinked(input, sheet, links, features)
-  switch (input.kind) {
-    case 'skill': {
-      return (
-        known(sheet?.skills.some(({ id }) => id === input.key) === true) ??
-        linked()
-      )
-    }
-    case 'ability':
-    case 'save': {
-      return (
-        known(sheet?.abilities.some(({ id }) => id === input.key) === true) ??
-        linked()
-      )
-    }
-    case 'ask':
-    case 'textDamage':
-    case 'textRoll': {
-      return checkLinked(input, sheet, links, features)
-    }
-    case 'tool': {
-      // A description's tool check is made as dnd5e makes one, with the tool or without it.
-      if (input.text !== undefined) {
-        return checkLinked(input, sheet, links, features)
-      }
-      // The sheet lists tools among its tools, from module 0.18.0, and its favorites.
-      return known(
-        (sheet?.tools ?? []).some(({ id }) => id === input.key) ||
-          (sheet?.favorites ?? []).some(
-            ({ type, id }) => type === 'tool' && id === input.key,
-          ),
-      )
-    }
-    case 'death': {
-      return isDying(sheet) ? undefined : 'not-dying'
-    }
-    case 'initiative': {
-      const combat = combats.find(({ id }) => id === input.combatId)
-      const combatant = combat?.combatants.find(each =>
-        isSeatCombatant(each, actorId),
-      )
-      if (!combatant) return 'not-in-combat'
-      return combatant.initiative === null ? undefined : 'already-rolled'
-    }
-    case 'attack': {
-      return sheet ? checkAttack(input, sheet, combats) : 'unknown'
-    }
-    case 'use': {
-      return sheet
-        ? checkUse(input, sheet, combats, actorId, features)
-        : 'unknown'
-    }
-    case 'hitDie': {
-      return checkHitDie(input, sheet)
-    }
-    case 'hitDice': {
-      return checkHitDice(input, sheet)
-    }
-    case 'formula': {
-      return sheet ? checkFormula(input, sheet) : 'unknown'
-    }
-    // Checked against its attack or use, by checkDamage.
-    case 'damage': {
-      return undefined
-    }
-    case 'itemDamage': {
-      return checkItemDamage(input, sheet, features)
-    }
-    case 'recharge': {
-      return checkRecharge(input, sheet)
-    }
-    case 'endEnchantment': {
-      return checkEnding(input, sheet)
-    }
-    case 'endConcentration': {
-      const effect = input.concentration?.effect
-      const kept = (sheet?.concentration?.effects ?? []).some(
-        ({ id }) => id === effect,
-      )
-      return kept ? undefined : 'concentration'
-    }
-    case 'prepare': {
-      return checkPrepare(input, sheet)
-    }
-    case 'spend': {
-      return checkSpend(input, sheet)
-    }
-    case 'inspiration': {
-      if (input.inspiration === 'use') {
-        return sheet?.inspiration === true ? undefined : 'not-inspired'
-      }
-      return sheet?.inspiration === false ? undefined : 'inspired'
-    }
-    case 'spellSlot': {
-      return checkSpellSlot(input, sheet)
-    }
+  const check = Object.hasOwn(CHECKS, input.kind)
+    ? CHECKS[input.kind]
+    : undefined
+  return check?.(input, sheet, combats, actorId, links, features)
+}
+
+/**
+ * Each kind's check, by its group, given what `checkRoll` is. A kind with none needs nothing of
+ * the sheet or the encounter here: damage is checked against its attack or use, by `checkDamage`,
+ * and the rest by their own creators.
+ */
+const CHECKS: Partial<
+  Record<
+    RollKind,
+    (
+      input: RollRequestInput,
+      sheet: CharacterSheet | undefined,
+      combats: CombatSnapshot[],
+      actorId: string,
+      links: ReadonlyMap<number, FoundLink> | undefined,
+      features: readonly string[],
+    ) => RollRefusal | undefined
+  >
+> = {
+  // What the sheet has, or a link in a description calls for.
+  skill: (input, sheet, _combats, _actorId, links, features) =>
+    known(sheet?.skills.some(({ id }) => id === input.key) === true) ??
+    linked(input, sheet, links, features),
+  ability: checkAbility,
+  save: checkAbility,
+  tool: checkTool,
+  // What only a link in a description asks for.
+  ask: checkText,
+  textDamage: checkText,
+  textRoll: checkText,
+  // The encounter.
+  death: (_input, sheet) => (isDying(sheet) ? undefined : 'not-dying'),
+  initiative: checkInitiative,
+  // What the sheet's actions, favorites, spells, features or items are used through.
+  attack: (input, sheet, combats) =>
+    sheet ? checkAttack(input, sheet, combats) : 'unknown',
+  use: (input, sheet, combats, actorId, _links, features) =>
+    sheet ? checkUse(input, sheet, combats, actorId, features) : 'unknown',
+  formula: (input, sheet) => (sheet ? checkFormula(input, sheet) : 'unknown'),
+  itemDamage: (input, sheet, _combats, _actorId, _links, features) =>
+    checkItemDamage(input, sheet, features),
+  recharge: checkRecharge,
+  // Hit dice.
+  hitDie: checkHitDie,
+  hitDice: checkHitDice,
+  // What the character ends, prepares, spends or is inspired by.
+  endEnchantment: checkEnding,
+  endConcentration: checkConcentration,
+  prepare: checkPrepare,
+  spend: checkSpend,
+  inspiration: checkInspiration,
+  spellSlot: checkSpellSlot,
+}
+
+/** What a link in a description asks for, where the roll is from one; nothing where it isn't. */
+function linked(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+  links: ReadonlyMap<number, FoundLink> | undefined,
+  features: readonly string[],
+): RollRefusal | undefined {
+  return input.text === undefined
+    ? undefined
+    : checkLinked(input, sheet, links, features)
+}
+
+/** An ability check or a saving throw: the ability on the sheet, or as its link calls for it. */
+function checkAbility(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+  _combats: CombatSnapshot[],
+  _actorId: string,
+  links: ReadonlyMap<number, FoundLink> | undefined,
+  features: readonly string[],
+): RollRefusal | undefined {
+  return (
+    known(sheet?.abilities.some(({ id }) => id === input.key) === true) ??
+    linked(input, sheet, links, features)
+  )
+}
+
+/** What a link in a description asks of the table, or damage or a roll of its own it throws. */
+function checkText(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+  _combats: CombatSnapshot[],
+  _actorId: string,
+  links: ReadonlyMap<number, FoundLink> | undefined,
+  features: readonly string[],
+): RollRefusal | undefined {
+  return checkLinked(input, sheet, links, features)
+}
+
+/** A tool check: a tool the sheet lists, or a description's, made with the tool or without it. */
+function checkTool(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+  _combats: CombatSnapshot[],
+  _actorId: string,
+  links: ReadonlyMap<number, FoundLink> | undefined,
+  features: readonly string[],
+): RollRefusal | undefined {
+  // A description's tool check is made as dnd5e makes one, with the tool or without it.
+  if (input.text !== undefined) {
+    return checkLinked(input, sheet, links, features)
   }
+  // The sheet lists tools among its tools, from module 0.18.0, and its favorites.
+  return known(
+    (sheet?.tools ?? []).some(({ id }) => id === input.key) ||
+      (sheet?.favorites ?? []).some(
+        ({ type, id }) => type === 'tool' && id === input.key,
+      ),
+  )
+}
+
+/** Initiative: the seat's own combatant in the combat, without initiative yet. */
+function checkInitiative(
+  input: RollRequestInput,
+  _sheet: CharacterSheet | undefined,
+  combats: CombatSnapshot[],
+  actorId: string,
+): RollRefusal | undefined {
+  const combat = combats.find(({ id }) => id === input.combatId)
+  const combatant = combat?.combatants.find(each =>
+    isSeatCombatant(each, actorId),
+  )
+  if (!combatant) return 'not-in-combat'
+  return combatant.initiative === null ? undefined : 'already-rolled'
+}
+
+/** A concentration ended: one the character keeps. */
+function checkConcentration(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  const effect = input.concentration?.effect
+  const kept = (sheet?.concentration?.effects ?? []).some(
+    ({ id }) => id === effect,
+  )
+  return kept ? undefined : 'concentration'
+}
+
+/** Heroic Inspiration: used with it, or gained without it. */
+function checkInspiration(
+  input: RollRequestInput,
+  sheet: CharacterSheet | undefined,
+): RollRefusal | undefined {
+  if (input.inspiration === 'use') {
+    return sheet?.inspiration === true ? undefined : 'not-inspired'
+  }
+  return sheet?.inspiration === false ? undefined : 'inspired'
 }
 
 /**
@@ -551,7 +607,7 @@ function checkActivityRoll(
   sheet: CharacterSheet | undefined,
 ): RollRefusal | undefined {
   if (!sheet) return 'unknown'
-  const type = CHECK_TYPES[input.kind as keyof typeof CHECK_TYPES]
+  const type = checkTypeOf(input.kind)
   const offered = sheetActions(sheet).some(
     ({ id, activity, check, identified }) =>
       id === input.item &&
