@@ -1,3 +1,0 @@
-b6245a7 fix: v0.43 wire and checks, round 1 (src/types' last cycle gone; typedRules reads the kind table)
-c7e36bf refactor(wire): the request-kind table read by schemas and constants; rollRequestSchema's rules by group
-52851b2 refactor(wire): lenient helpers, die sizes, event schemas table, hand types checked, types home

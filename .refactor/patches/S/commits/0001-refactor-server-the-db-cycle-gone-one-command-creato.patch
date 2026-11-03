@@ -1,7 +1,7 @@
-From f5e4021efb3df86479a9a80ebe8239423c29b016 Mon Sep 17 00:00:00 2001
+From d264d9ab539b3192f3260e06acbe73b5282948d8 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 20:00:22 +0000
-Subject: [PATCH 1/3] refactor(server): the db cycle gone, one command creator,
+Subject: [PATCH 1/4] refactor(server): the db cycle gone, one command creator,
  the kind table's switches, throttles
 
 R1.3.1: ago, madeBy and the server's onItsWay move to src/db/commands.ts, RollSeat and

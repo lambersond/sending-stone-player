@@ -1,7 +1,7 @@
-From b5ebef2c2c5d229e2a9079b67ae11f6c58836eac Mon Sep 17 00:00:00 2001
+From e88b05a177dcc6402d6dfbbc5d716120f51daf6f Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 20:48:02 +0000
-Subject: [PATCH 2/3] refactor(server): one seat resolver, NO_STORE and the
+Subject: [PATCH 2/4] refactor(server): one seat resolver, NO_STORE and the
  answers, one body reader, the result router, types
 
 R1.3.4: seatAnswer (src/lib/routes/seat-resolver.ts) answers every seat route: the session (401),

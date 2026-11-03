@@ -1,0 +1,2575 @@
+diff --git a/src/features/rolling/components/d20-rolls/d20-dialogs.tsx b/src/features/rolling/components/d20-rolls/d20-dialogs.tsx
+new file mode 100644
+index 0000000..4627b0e
+--- /dev/null
++++ b/src/features/rolling/components/d20-rolls/d20-dialogs.tsx
+@@ -0,0 +1,58 @@
++import { ModifyRoll } from '../modify-roll/modify-roll'
++import { RollMenu } from '../roll-menu/roll-menu'
++import { Modal } from '@/components/modal/modal'
++import { formatModifier } from '@/utils/format-modifier'
++import type { D20Menu } from './types'
++import type { RollChoice, RollTarget } from '../../types'
++import type { SheetRoll } from '@/types/roll'
++
++/**
++ * What `useD20Rolls` puts on the page: the menu of other ways to roll a check, save or attack,
++ * while it's open, and the dialog that modifies the roll first.
++ */
++export function D20Dialogs({
++  menu,
++  setMenu,
++  modifying,
++  setModifying,
++  choose,
++  onRoll,
++}: Readonly<{
++  menu?: D20Menu
++  setMenu: (menu?: D20Menu) => void
++  modifying?: RollTarget
++  setModifying: (target?: RollTarget) => void
++  choose: (target: RollTarget, choice: RollChoice) => void
++  onRoll: (roll: SheetRoll) => void
++}>) {
++  return (
++    <>
++      {menu && (
++        <RollMenu
++          anchor={menu.anchor}
++          point={menu.point}
++          title={`${menu.target.label} ${formatModifier(menu.target.modifier)}`}
++          onChoose={choice => choose(menu.target, choice)}
++          onClose={() => setMenu(undefined)}
++        />
++      )}
++      <Modal
++        open={modifying !== undefined}
++        onClose={() => setModifying(undefined)}
++        title='Modify roll'
++      >
++        {modifying && (
++          <ModifyRoll
++            target={modifying}
++            mode={modifying.mode}
++            onRoll={request => {
++              setModifying(undefined)
++              onRoll(request)
++            }}
++            onCancel={() => setModifying(undefined)}
++          />
++        )}
++      </Modal>
++    </>
++  )
++}
+diff --git a/src/features/rolling/components/d20-rolls/types.ts b/src/features/rolling/components/d20-rolls/types.ts
+new file mode 100644
+index 0000000..a49a405
+--- /dev/null
++++ b/src/features/rolling/components/d20-rolls/types.ts
+@@ -0,0 +1,8 @@
++import type { MenuPoint, RollTarget } from '../../types'
++
++/** The menu of other ways to roll a check, save or attack, while it's open: where, and of what. */
++export type D20Menu = {
++  anchor: HTMLElement
++  target: RollTarget
++  point?: MenuPoint
++}
+diff --git a/src/features/rolling/components/damage-menu/damage-dialogs.tsx b/src/features/rolling/components/damage-menu/damage-dialogs.tsx
+new file mode 100644
+index 0000000..d0927fc
+--- /dev/null
++++ b/src/features/rolling/components/damage-menu/damage-dialogs.tsx
+@@ -0,0 +1,56 @@
++import { ModifyDamage } from '../modify-roll/modify-damage'
++import { RollMenu } from '../roll-menu/roll-menu'
++import { Modal } from '@/components/modal/modal'
++import { labelsFor } from '@/features/rolling/utils/damage-words'
++import type { DamageMenu } from './types'
++import type { DamageSubject, RollChoice } from '../../types'
++
++/**
++ * What `useDamageMenu` puts on the page: the menu of ways to roll damage or healing, while it's
++ * open, and the dialog that changes its dice first.
++ */
++export function DamageDialogs({
++  menu,
++  setMenu,
++  modifying,
++  setModifying,
++  choose,
++}: Readonly<{
++  menu?: DamageMenu
++  setMenu: (menu?: DamageMenu) => void
++  modifying?: DamageSubject
++  setModifying: (subject?: DamageSubject) => void
++  choose: (subject: DamageSubject, choice: RollChoice) => void
++}>) {
++  return (
++    <>
++      {menu && (
++        <RollMenu
++          anchor={menu.anchor}
++          point={menu.point}
++          title={`${menu.subject.label} ${menu.subject.formula}`}
++          choices={menu.subject.choices}
++          labels={labelsFor(menu.subject)}
++          onChoose={choice => choose(menu.subject, choice)}
++          onClose={() => setMenu(undefined)}
++        />
++      )}
++      <Modal
++        open={modifying !== undefined}
++        onClose={() => setModifying(undefined)}
++        title={modifying?.healing ? 'Modify healing' : 'Modify damage'}
++      >
++        {modifying && (
++          <ModifyDamage
++            subject={modifying}
++            onRoll={choice => {
++              setModifying(undefined)
++              modifying.onChoose(choice)
++            }}
++            onCancel={() => setModifying(undefined)}
++          />
++        )}
++      </Modal>
++    </>
++  )
++}
+diff --git a/src/features/rolling/components/damage-menu/types.ts b/src/features/rolling/components/damage-menu/types.ts
+new file mode 100644
+index 0000000..bd4b873
+--- /dev/null
++++ b/src/features/rolling/components/damage-menu/types.ts
+@@ -0,0 +1,8 @@
++import type { DamageSubject, MenuPoint } from '../../types'
++
++/** The menu of ways to roll damage or healing, while it's open: where, and of what. */
++export type DamageMenu = {
++  anchor: HTMLElement
++  subject: DamageSubject
++  point?: MenuPoint
++}
+diff --git a/src/features/rolling/components/roll-menu/types.ts b/src/features/rolling/components/roll-menu/types.ts
+new file mode 100644
+index 0000000..0a36dc0
+--- /dev/null
++++ b/src/features/rolling/components/roll-menu/types.ts
+@@ -0,0 +1,12 @@
++import type { MenuPoint } from '../../types'
++
++/** Where a menu opens, and what it's of. */
++export type MenuPlace = {
++  /** The part of the sheet it opened from. */
++  anchor: HTMLElement
++  /** Where on it they clicked or pressed. With none, as from a key or a tap, it goes below it. */
++  point?: MenuPoint
++  /** What it's of, such as "Perception check +7". */
++  title: string
++  onClose: () => void
++}
+diff --git a/src/features/rolling/components/roll-toasts/badge.tsx b/src/features/rolling/components/roll-toasts/badge.tsx
+new file mode 100644
+index 0000000..9c3e52f
+--- /dev/null
++++ b/src/features/rolling/components/roll-toasts/badge.tsx
+@@ -0,0 +1,24 @@
++'use client'
++
++import clsx from 'clsx'
++import { BADGE_ICONS, BADGES } from '../roll-tray/constants'
++import type { RollBrief } from '../../utils/tray-words'
++
++/**
++ * A roll's total, coloured as the tray's; or a use's or an ask's icon, and for one of the
++ * Gamemaster's as the character (#156), the hidden mark or dice where it has no total.
++ */
++export function Badge({ brief }: Readonly<{ brief: RollBrief }>) {
++  const Icon = BADGE_ICONS[brief.badge]
++  const shown = Icon ? <Icon aria-hidden className='size-6' /> : brief.total
++  return (
++    <span
++      className={clsx(
++        'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
++        BADGES[brief.badge],
++      )}
++    >
++      {shown}
++    </span>
++  )
++}
+diff --git a/src/features/rolling/components/roll-toasts/toast.tsx b/src/features/rolling/components/roll-toasts/toast.tsx
+new file mode 100644
+index 0000000..be44175
+--- /dev/null
++++ b/src/features/rolling/components/roll-toasts/toast.tsx
+@@ -0,0 +1,143 @@
++'use client'
++
++import { useState } from 'react'
++import clsx from 'clsx'
++import { X } from 'lucide-react'
++import { AreaOutcomes } from '../roll-tray/area-outcomes'
++import { DamageDue } from '../roll-tray/damage-due'
++import { GmPill } from '../roll-tray/gm-pill'
++import { SpentLines } from '../roll-tray/spent-lines'
++import { Badge } from './badge'
++import { InPortalRoot } from '@/components/modal/in-portal-root'
++import type { RollDue } from '../../types'
++import type { RollBrief } from '../../utils/tray-words'
++import type { LocalRoll, TableRollState } from '@/types/roll'
++
++/**
++ * Each outcome's colours: the left edge, a border of it faintly round the rest, and a tint over the
++ * card, a gradient of one colour on its background.
++ */
++const ACCENTS: Record<RollBrief['accent'], string> = {
++  warning: 'border-warning/30 border-l-warning from-warning/10 to-warning/10',
++  gold: 'border-gold/40 border-l-gold from-gold/15 to-gold/15',
++  ruby: 'border-ruby/30 border-l-ruby from-ruby/10 to-ruby/10',
++  damage: 'border-damage/30 border-l-damage from-damage/10 to-damage/10',
++  primary: 'border-primary/30 border-l-primary from-primary/10 to-primary/10',
++}
++
++/** A roll's way to the game, coloured as the tray's: on its way, made, or not. */
++const TONES: Record<NonNullable<RollBrief['table']>['tone'], string> = {
++  pending: 'text-text-secondary',
++  made: 'text-text-primary',
++  not: 'text-warning',
++}
++
++/**
++ * A roll's toast, as a card edged and tinted by how it came out. One that waits for the player
++ * holds the damage to roll, as the tray does, its menu and dialog opening in the toast, over the
++ * page and the other toasts; tapping it elsewhere does nothing, so that a tap meant for a button
++ * never closes it, as its × does. Any other goes when tapped.
++ */
++export function Toast({
++  roll,
++  state,
++  brief,
++  leaving,
++  waits,
++  onDismiss,
++  rollDamage,
++  modifies,
++}: Readonly<{
++  roll: LocalRoll
++  state?: TableRollState
++  brief: RollBrief
++  leaving: boolean
++  waits: boolean
++  onDismiss: () => void
++  rollDamage?: RollDue
++  modifies?: boolean
++}>) {
++  const [root, setRoot] = useState<HTMLDivElement | null>(null)
++  return (
++    <div
++      data-roll-toast={roll.id}
++      data-gm={brief.gm}
++      data-accent={brief.accent}
++      data-waits={waits || undefined}
++      data-leaving={leaving || undefined}
++      onClick={waits ? undefined : onDismiss}
++      className={clsx(
++        'pointer-events-auto flex items-start gap-3 rounded-xl border border-l-4 bg-card bg-linear-to-r py-2.5 pl-3 text-text-primary shadow-2xl motion-safe:animate-toast-in motion-safe:transition-opacity motion-safe:duration-200 motion-safe:data-leaving:opacity-0',
++        waits ? 'pr-1.5' : 'cursor-pointer pr-3',
++        ACCENTS[brief.accent],
++      )}
++    >
++      <Badge brief={brief} />
++      <div className='min-w-0 flex-1'>
++        <p className='flex items-center gap-1.5'>
++          <span className='truncate text-base font-semibold'>
++            {brief.label}
++          </span>
++          {brief.gm && <GmPill />}
++        </p>
++        {/* One line, but two for a roll a die offered was added to, from module 0.42.1, so that
++            its last term, such as "Bardic Inspiration +1d6 (5)", isn't cut off on a phone. */}
++        {brief.dice && (
++          <p
++            className={clsx(
++              'text-sm text-text-secondary tabular-nums',
++              roll.kind === 'check' && roll.spends
++                ? 'line-clamp-2'
++                : 'truncate',
++            )}
++          >
++            {brief.dice}
++          </p>
++        )}
++        {/* Kept to two lines, but for the Gamemaster's: the line names whom an area attack of
++            theirs hit, with no list of its targets after it, so it's said whole, however many. */}
++        {brief.table && (
++          <p
++            className={clsx(
++              'text-sm',
++              !brief.gm && 'line-clamp-2',
++              TONES[brief.table.tone],
++            )}
++          >
++            {brief.table.text}
++          </p>
++        )}
++        {/* Whom an area attack hit, by the names picked here; the Gamemaster picked theirs. */}
++        {!brief.gm && state?.status === 'done' && state.visible && (
++          <AreaOutcomes state={state} />
++        )}
++        {waits && (
++          // Unannounced as its menu or dialog opens, which the log would otherwise read out.
++          <div ref={setRoot} aria-live='off'>
++            <InPortalRoot root={root}>
++              <DamageDue
++                roll={roll}
++                state={state}
++                onRollDamage={rollDamage}
++                modifies={modifies}
++                onTint
++              />
++            </InPortalRoot>
++          </div>
++        )}
++        <SpentLines roll={roll} state={state} />
++      </div>
++      {waits && (
++        <button
++          type='button'
++          aria-label='Dismiss'
++          title='Dismiss'
++          onClick={onDismiss}
++          className='flex size-8 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary'
++        >
++          <X aria-hidden className='size-4' />
++        </button>
++      )}
++    </div>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/area-outcomes.tsx b/src/features/rolling/components/roll-tray/area-outcomes.tsx
+new file mode 100644
+index 0000000..ba2d4bd
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/area-outcomes.tsx
+@@ -0,0 +1,33 @@
++import clsx from 'clsx'
++import type { TableRollState } from '@/types/roll'
++
++/**
++ * Whom an area attack at more than one hit, and whom it missed, by name, as the game shows
++ * players; nothing of one the game says nothing of.
++ */
++export function AreaOutcomes({ state }: Readonly<{ state: TableRollState }>) {
++  const targets = state.attack?.targets ?? []
++  if (targets.length < 2 || targets.every(({ outcome }) => outcome === null)) {
++    return
++  }
++  return (
++    <ul aria-label='Targets' className='mt-0.5 flex flex-wrap gap-x-3 text-xs'>
++      {targets.map(({ combatantId, outcome }) => (
++        <li key={combatantId} className='text-text-secondary'>
++          {state.targetNames?.[combatantId] ?? 'A target'}
++          {outcome && (
++            <span
++              className={clsx(
++                'font-semibold',
++                outcome === 'hit' ? 'text-text-primary' : 'text-text-secondary',
++              )}
++            >
++              {': '}
++              {outcome === 'hit' ? 'Hit' : 'Miss'}
++            </span>
++          )}
++        </li>
++      ))}
++    </ul>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/ask-result.tsx b/src/features/rolling/components/roll-tray/ask-result.tsx
+new file mode 100644
+index 0000000..c851600
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/ask-result.tsx
+@@ -0,0 +1,39 @@
++import { BellRing } from 'lucide-react'
++import { askedWords, toneOf } from '../../utils/tray-words'
++import { StatusLine } from './status-line'
++import { useCreature } from '@/hooks/use-creature'
++import { useTableRole } from '@/hooks/use-table-api'
++import type { LocalAsk, TableRollState } from '@/types/roll'
++
++/**
++ * The table asked for a saving throw or check a description calls for: on dnd5e's own card in the
++ * game's chat, for the Gamemaster to roll for those it names; its way there, or why it wasn't
++ * posted.
++ */
++export function AskResult({
++  roll,
++  state,
++}: Readonly<{ roll: LocalAsk; state?: TableRollState }>) {
++  return (
++    <div className='flex items-center gap-3'>
++      <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'>
++        <BellRing aria-hidden className='size-6' />
++      </span>
++      <div className='min-w-0'>
++        <p className='truncate font-semibold'>{roll.label}</p>
++        <AskStatus state={state} />
++      </div>
++    </div>
++  )
++}
++
++/** Where an ask is on its way to the game's chat, or why it isn't there. */
++function AskStatus({ state }: Readonly<{ state?: TableRollState }>) {
++  const role = useTableRole()
++  const creature = useCreature()
++  return (
++    <StatusLine tone={toneOf(state)}>
++      {askedWords(state, role, creature)}
++    </StatusLine>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/check-result.tsx b/src/features/rolling/components/roll-tray/check-result.tsx
+new file mode 100644
+index 0000000..5b4cc98
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/check-result.tsx
+@@ -0,0 +1,82 @@
++import clsx from 'clsx'
++import { savedHere } from '../../utils/tray-words'
++import { DamageDue } from './damage-due'
++import { Dice } from './dice'
++import { OnlyYou } from './only-you'
++import { SpentLines } from './spent-lines'
++import { TableStatus } from './table-status'
++import { formatModifier } from '@/utils/format-modifier'
++import type { RollDue } from '../../types'
++import type { LocalCheck, TableRollState } from '@/types/roll'
++
++/**
++ * A d20 roll, a saving throw, check or attack: its total, coloured for a natural 20 or 1, its dice
++ * and what was added, and its way to the game; the damage that follows it, while it's due; and
++ * what became of the effects a die it was given spent.
++ */
++export function CheckResult({
++  roll,
++  state,
++  onRollDamage,
++  modifies,
++}: Readonly<{
++  roll: LocalCheck
++  state?: TableRollState
++  onRollDamage?: RollDue
++  modifies?: boolean
++}>) {
++  const critical = roll.natural === 20
++  const fumble = roll.natural === 1
++  const here = savedHere(roll, state)
++  let extra = ''
++  if (roll.advantage === 'adv') extra = 'Advantage'
++  if (roll.advantage === 'dis') extra = 'Disadvantage'
++  return (
++    <div className='flex items-center gap-3'>
++      <span
++        className={clsx(
++          'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
++          critical && 'bg-gold text-on-gold',
++          fumble && 'bg-ruby text-on-ruby',
++          !critical && !fumble && 'bg-primary/10 text-primary',
++        )}
++      >
++        {roll.total}
++      </span>
++      <div className='min-w-0'>
++        <p className='truncate font-semibold'>{roll.label}</p>
++        <p className='text-xs text-text-secondary tabular-nums'>
++          <Dice roll={roll} /> {formatModifier(roll.modifier)}
++          {roll.extras.map(({ text, values }, index) => (
++            <span key={index}>
++              {' '}
++              {text}
++              {values.length > 0 && ` (${values.join(', ')})`}
++            </span>
++          ))}
++          {extra && ` · ${extra}`}
++          {critical && ' · Natural 20'}
++          {fumble && ' · Natural 1'}
++          {roll.dc !== undefined && ` · DC ${roll.dc}`}
++          {here && (
++            <span className='font-semibold text-text-primary'>
++              {' · '}
++              {here}
++            </span>
++          )}
++        </p>
++        {state && (
++          <TableStatus state={state} dc={roll.dc} verdict={roll.verdict} />
++        )}
++        {!state && roll.described && <OnlyYou />}
++        <DamageDue
++          roll={roll}
++          state={state}
++          onRollDamage={onRollDamage}
++          modifies={modifies}
++        />
++        <SpentLines roll={roll} state={state} />
++      </div>
++    </div>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/constants.ts b/src/features/rolling/components/roll-tray/constants.ts
+new file mode 100644
+index 0000000..a0bf0b7
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/constants.ts
+@@ -0,0 +1,29 @@
++import {
++  BellRing,
++  Dices,
++  EyeOff,
++  Sparkles,
++  type LucideIcon,
++} from 'lucide-react'
++import type { RollBrief } from '../../utils/tray-words'
++
++/** Each kind of total's colours, in the tray and the toasts alike. */
++export const BADGES: Record<RollBrief['badge'], string> = {
++  critical: 'bg-gold text-on-gold',
++  fumble: 'bg-ruby text-on-ruby',
++  plain: 'bg-primary/10 text-primary',
++  damage: 'bg-damage/15 text-damage',
++  healing: 'bg-primary/10 text-primary',
++  use: 'bg-primary/10 text-primary',
++  ask: 'bg-primary/10 text-primary',
++  hidden: 'bg-primary/10 text-primary',
++  dice: 'bg-primary/10 text-primary',
++}
++
++/** A badge's icon, for one that shows no total. */
++export const BADGE_ICONS: Partial<Record<RollBrief['badge'], LucideIcon>> = {
++  use: Sparkles,
++  ask: BellRing,
++  hidden: EyeOff,
++  dice: Dices,
++}
+diff --git a/src/features/rolling/components/roll-tray/damage-button.tsx b/src/features/rolling/components/roll-tray/damage-button.tsx
+new file mode 100644
+index 0000000..7961b9d
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/damage-button.tsx
+@@ -0,0 +1,158 @@
++import clsx from 'clsx'
++import { HeartPulse, Swords } from 'lucide-react'
++import { useDamageMenu } from '../damage-menu/use-damage-menu'
++import { RollButton } from '../roll-button/roll-button'
++import { choicesOf, damageRollOf } from '@/features/rolling/utils/damage-due'
++import { useRollsLocked } from '@/hooks/use-rolls-locked'
++import {
++  damageChanges,
++  diceTakenAway,
++  unmaximizable,
++} from '@/utils/damage-modifiers'
++import type { RollDue, DueDamage } from '../../types'
++import type { DamageModifiers, TableRollState } from '@/types/roll'
++
++/**
++ * The colours of the buttons that roll damage or healing: tinted, on the tray's card; or, on a
++ * toast's tint, the card's own colour, outlined in theirs, for their words to read as clearly.
++ */
++const DAMAGE_BUTTONS = {
++  damage: 'bg-damage/15 text-damage hover:bg-damage/25',
++  healing: 'bg-primary/10 text-primary-text hover:bg-primary/20',
++  damageOnTint: 'bg-card text-damage ring-1 ring-damage/40 hover:ring-damage',
++  healingOnTint:
++    'bg-card text-primary ring-1 ring-primary/40 hover:ring-primary',
++}
++
++/**
++ * Roll the damage or healing of an attack or use the game made, while the game waits for it: as
++ * one of the kinds of damage it offers, a button each, where it offers a choice. Where the game
++ * takes damage the player changed, a right-click or long-press offers to roll it at its highest,
++ * unless it takes a die away, or with its dice changed first, where it has a first die the game
++ * changes; nothing where it offers neither.
++ */
++export function DamageButton({
++  name,
++  state,
++  onRollDamage,
++  modifies = false,
++  onTint,
++}: Readonly<{
++  name: string
++  state: TableRollState
++  onRollDamage: RollDue
++  modifies?: boolean
++  onTint: boolean
++}>) {
++  const { open, dialogs } = useDamageMenu()
++  // A gone companion's pane rolls nothing, its due damage among it (module 0.36.0).
++  const locked = useRollsLocked()
++  const { damage, requestId } = state
++  // Whether it's due is `damageDue`'s to say; these are only what rolling it takes.
++  if (!damage || !requestId) return
++  const due: DueDamage = {
++    use: requestId,
++    damage,
++    ...(state.modifiers && { modifiers: state.modifiers }),
++  }
++  const Icon = damage.healing ? HeartPulse : Swords
++  const kind = damage.healing ? 'healing' : 'damage'
++  const button = clsx(
++    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
++    DAMAGE_BUTTONS[`${kind}${onTint ? 'OnTint' : ''}`],
++  )
++  // Its dice as the game will throw them, for its menu to change them. Damage the game rolls itself
++  // has no dice here to change, but can be its highest, unless its formula takes a die away, or
++  // explodes one.
++  const game = damageRollOf(name, due)
++  const ways = damageChanges(
++    game.parts,
++    game.fixed,
++    diceTakenAway(damage) || unmaximizable(damage),
++  )
++  const formula = damage.rolls.map(roll => roll.formula).join(' + ')
++  const roll = (type?: string, modifiers?: DamageModifiers) => {
++    if (modifiers) onRollDamage(name, due, type, modifiers)
++    else if (type) onRollDamage(name, due, type)
++    else onRollDamage(name, due)
++  }
++  // A button that rolls it, which a right-click or long-press offers to change first.
++  const rollButton = (
++    text: string,
++    label: string,
++    type: string | undefined,
++    className: string,
++  ) =>
++    modifies ? (
++      <RollButton
++        target={type}
++        onRoll={() => roll(type)}
++        onMenu={(anchor, _, point) => {
++          if (ways.length === 0) return
++          open(
++            anchor,
++            {
++              label: game.label,
++              formula,
++              parts: game.parts,
++              healing: damage.healing === true,
++              perDie: game.perDie,
++              choices: ways,
++              onChoose: ({ modifiers }) => roll(type, modifiers),
++            },
++            point,
++          )
++        }}
++        label={label}
++        className={className}
++      >
++        <Icon aria-hidden className='size-4' />
++        {text}
++      </RollButton>
++    ) : (
++      <button
++        type='button'
++        aria-label={label}
++        disabled={locked}
++        onClick={() => roll(type)}
++        className={clsx(
++          className,
++          'disabled:cursor-not-allowed disabled:opacity-50',
++        )}
++      >
++        <Icon aria-hidden className='size-4' />
++        {text}
++      </button>
++    )
++  const choices = choicesOf(damage)
++  if (choices.length > 0) {
++    return (
++      <div className='mt-2'>
++        <p className='text-xs text-text-secondary'>
++          Choose its kind of {kind}:
++        </p>
++        <div className='mt-1 flex flex-wrap gap-1.5'>
++          {choices.map(({ key, label }) => (
++            <span key={key} className='contents'>
++              {rollButton(
++                label,
++                // A kind of healing names itself, such as Temporary Hit Points.
++                damage.healing ? `Roll ${label}` : `Roll ${label} ${kind}`,
++                key,
++                button,
++              )}
++            </span>
++          ))}
++        </div>
++        {dialogs}
++      </div>
++    )
++  }
++  const text = damage.critical ? `Roll critical ${kind}` : `Roll ${kind}`
++  return (
++    <>
++      {rollButton(text, text, undefined, clsx(button, 'mt-2'))}
++      {dialogs}
++    </>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/damage-due.tsx b/src/features/rolling/components/roll-tray/damage-due.tsx
+new file mode 100644
+index 0000000..d0acbcd
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/damage-due.tsx
+@@ -0,0 +1,36 @@
++import { damageName } from '../../utils/tray-words'
++import { DamageButton } from './damage-button'
++import { damageDue } from '@/features/rolling/utils/damage-due'
++import type { RollDue } from '../../types'
++import type { LocalRoll, TableRollState } from '@/types/roll'
++
++/**
++ * The damage or healing of an attack or use the game made, to roll while it's due (`damageDue`),
++ * after a miss too, as the tray, the rolls' popover and a toast that waits for it all offer it:
++ * nothing once it's rolled, nor where there's no way to roll it.
++ */
++export function DamageDue({
++  roll,
++  state,
++  onRollDamage,
++  modifies,
++  onTint = false,
++}: Readonly<{
++  roll: LocalRoll
++  state?: TableRollState
++  onRollDamage?: RollDue
++  modifies?: boolean
++  /** On a toast's tint, which its buttons' own tint would make too dark to read. */
++  onTint?: boolean
++}>) {
++  if (!state || !onRollDamage || !damageDue(roll, state)) return
++  return (
++    <DamageButton
++      name={damageName(roll)}
++      state={state}
++      onRollDamage={onRollDamage}
++      modifies={modifies}
++      onTint={onTint}
++    />
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/damage-result.tsx b/src/features/rolling/components/roll-tray/damage-result.tsx
+new file mode 100644
+index 0000000..fe468dd
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/damage-result.tsx
+@@ -0,0 +1,62 @@
++import clsx from 'clsx'
++import { shownTotal } from '../../utils/brief'
++import {
++  byTheGame,
++  damageBadge,
++  thrownAgainThere,
++  thrownAgainWords,
++} from '../../utils/tray-words'
++import { BADGES } from './constants'
++import { OnlyYou } from './only-you'
++import { TableStatus } from './table-status'
++import { Terms } from './terms'
++import { useTableRole } from '@/hooks/use-table-api'
++import { seatWords } from '@/utils/seat-words'
++import type { LocalDamage, TableRollState } from '@/types/roll'
++
++/**
++ * Damage or healing: the total, and each part of it with its dice and kind, a critical hit's in
++ * the gold of a natural 20. Damage the game rolls itself, which throws no dice here, shows the
++ * game's total; so does a critical hit's whose dice the game's rules change as only it can add
++ * them up, once it says.
++ */
++export function DamageResult({
++  roll,
++  state,
++}: Readonly<{ roll: LocalDamage; state?: TableRollState }>) {
++  const { game } = seatWords(useTableRole())
++  const rolledThere = byTheGame(roll)
++  const again = thrownAgainThere(roll, state)
++  const total = shownTotal(roll, state)
++  return (
++    <div className='flex items-center gap-3'>
++      <span
++        className={clsx(
++          'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
++          BADGES[damageBadge(roll.healing, roll.critical)],
++        )}
++      >
++        {total}
++      </span>
++      <div className='min-w-0'>
++        <p className='truncate font-semibold'>{roll.label}</p>
++        <p className='text-xs text-text-secondary tabular-nums'>
++          {rolledThere && `Its dice are rolled in ${game}`}
++          {!rolledThere &&
++            roll.parts.map((part, index) => (
++              <span key={index}>
++                {index > 0 && ' '}
++                <Terms terms={part.terms} firstThrow={again} />
++                {part.type && ` ${part.type}`}
++              </span>
++            ))}
++          {roll.critical && ' · Critical hit'}
++          {roll.maximized && ' · Maximum'}
++          {again && thrownAgainWords(game)}
++        </p>
++        {state && <TableStatus state={state} />}
++        {!state && roll.described && <OnlyYou />}
++      </div>
++    </div>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/dice.tsx b/src/features/rolling/components/roll-tray/dice.tsx
+new file mode 100644
+index 0000000..5f1431e
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/dice.tsx
+@@ -0,0 +1,21 @@
++import type { LocalCheck } from '@/types/roll'
++
++/** The d20s thrown, the one that didn't count struck through. */
++export function Dice({ roll }: Readonly<{ roll: LocalCheck }>) {
++  const kept = roll.d20s.indexOf(roll.natural)
++  return (
++    <>
++      d20{' '}
++      {roll.d20s.map((value, index) => (
++        <span key={index}>
++          {index > 0 && ' '}
++          {index === kept ? (
++            <span className='font-semibold text-text-primary'>{value}</span>
++          ) : (
++            <s>{value}</s>
++          )}
++        </span>
++      ))}
++    </>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/formula-result.tsx b/src/features/rolling/components/roll-tray/formula-result.tsx
+new file mode 100644
+index 0000000..7313213
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/formula-result.tsx
+@@ -0,0 +1,44 @@
++import { shownTotal } from '../../utils/brief'
++import {
++  leastOf,
++  rechargeTitle,
++  thrownAgainThere,
++  thrownAgainWords,
++} from '../../utils/tray-words'
++import { OnlyYou } from './only-you'
++import { TableStatus } from './table-status'
++import { Terms } from './terms'
++import { useTableRole } from '@/hooks/use-table-api'
++import { seatWords } from '@/utils/seat-words'
++import type { LocalFormula, TableRollState } from '@/types/roll'
++
++/**
++ * A hit die spent, or a formula rolled: the total, and each of its terms with its dice, and the
++ * least it comes to, where its dice came to less. Hit dice spent at once are one roll, every die
++ * among its terms, and the least each gives back said where one gave back its least. One with a die
++ * rerolled or exploded, which the game throws again itself, shows the game's total, once it says.
++ */
++export function FormulaResult({
++  roll,
++  state,
++}: Readonly<{ roll: LocalFormula; state?: TableRollState }>) {
++  const { game } = seatWords(useTableRole())
++  const again = thrownAgainThere(roll, state)
++  return (
++    <div className='flex items-center gap-3'>
++      <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl font-bold text-primary tabular-nums'>
++        {shownTotal(roll, state)}
++      </span>
++      <div className='min-w-0'>
++        <p className='truncate font-semibold'>{rechargeTitle(roll, state)}</p>
++        <p className='text-xs text-text-secondary tabular-nums'>
++          <Terms terms={roll.terms} firstThrow={again} />
++          {roll.minimum !== undefined && ` · ${leastOf(roll)}`}
++          {again && thrownAgainWords(game)}
++        </p>
++        {state && <TableStatus state={state} />}
++        {!state && roll.described && <OnlyYou />}
++      </div>
++    </div>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/gm-pill.tsx b/src/features/rolling/components/roll-tray/gm-pill.tsx
+new file mode 100644
+index 0000000..53a38ce
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/gm-pill.tsx
+@@ -0,0 +1,17 @@
++import { GM_WORDS, GM_WORDS_AFTER } from '../../utils/gm-words'
++
++/**
++ * The mark of a roll of the Gamemaster's, as the chat marks a message made for one: in the light
++ * theme, in the accent's deeper shade, as the accent on its own tint falls short of WCAG AA this
++ * small.
++ */
++export function GmPill() {
++  return (
++    <span
++      title={GM_WORDS}
++      className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-text'
++    >
++      GM<span className='sr-only'>, {GM_WORDS_AFTER}</span>
++    </span>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/gm-result.tsx b/src/features/rolling/components/roll-tray/gm-result.tsx
+new file mode 100644
+index 0000000..48e23c7
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/gm-result.tsx
+@@ -0,0 +1,76 @@
++import clsx from 'clsx'
++import {
++  GM_WORDS,
++  gmBadge,
++  gmHidden,
++  gmLine,
++  gmOutcomeOf,
++  gmShape,
++} from '../../utils/gm-words'
++import { BADGE_ICONS, BADGES } from './constants'
++import { GmPill } from './gm-pill'
++import { StatusLine } from './status-line'
++import { useCreature } from '@/hooks/use-creature'
++import { useTableRole } from '@/hooks/use-table-api'
++import type { LocalGmRoll, TableRollState } from '@/types/roll'
++
++/**
++ * A roll the Gamemaster made as the player's character (#156), as the latest of the player's
++ * rolls: marked as theirs, with the game's result, or where it stands, as the player's own of its
++ * kind; and nothing to roll after it, as its damage is the Gamemaster's.
++ */
++export function GmResult({
++  roll,
++  state,
++}: Readonly<{ roll: LocalGmRoll; state?: TableRollState }>) {
++  const role = useTableRole()
++  const creature = useCreature()
++  const { badge, total } = gmBadge(roll, state)
++  const Icon = BADGE_ICONS[badge]
++  const line = gmLine(roll, state, role, creature)
++  const shape = gmShape(roll)
++  const told =
++    state?.status === 'done' &&
++    state.visible &&
++    ['check', 'damage'].includes(shape)
++  const outcome = told ? gmOutcomeOf(roll, state, role) : undefined
++  return (
++    <div data-gm-roll={roll.id} className='flex items-center gap-3'>
++      <span
++        className={clsx(
++          'flex size-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold tabular-nums',
++          BADGES[badge],
++        )}
++      >
++        {Icon ? <Icon aria-hidden className='size-6' /> : total}
++      </span>
++      <div className='min-w-0'>
++        <p className='flex items-center gap-1.5'>
++          <span className='truncate font-semibold'>{roll.label}</span>
++          <GmPill />
++        </p>
++        <p className='text-xs text-text-secondary'>{GM_WORDS}</p>
++        {line && (
++          <StatusLine tone={line.tone} hidden={gmHidden(roll, state)}>
++            {told ? (
++              <span>
++                At the table:{' '}
++                <span className='font-semibold text-text-primary tabular-nums'>
++                  {state.total ?? '?'}
++                </span>
++                {outcome && (
++                  <span className='font-semibold text-text-primary'>
++                    {' · '}
++                    {outcome}
++                  </span>
++                )}
++              </span>
++            ) : (
++              <span>{line.text}</span>
++            )}
++          </StatusLine>
++        )}
++      </div>
++    </div>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/latest-result.tsx b/src/features/rolling/components/roll-tray/latest-result.tsx
+new file mode 100644
+index 0000000..f3f0939
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/latest-result.tsx
+@@ -0,0 +1,50 @@
++import { AskResult } from './ask-result'
++import { CheckResult } from './check-result'
++import { DamageResult } from './damage-result'
++import { FormulaResult } from './formula-result'
++import { GmResult } from './gm-result'
++import { UseResult } from './use-result'
++import type { TableRolls } from '../../types'
++import type { LocalRoll } from '@/types/roll'
++
++/** The latest roll, in full, and its way to the game. */
++export function LatestResult({
++  roll,
++  table,
++}: Readonly<{ roll: LocalRoll; table?: TableRolls }>) {
++  const state = table?.states.get(roll.id)
++  switch (roll.kind) {
++    case 'damage': {
++      return <DamageResult roll={roll} state={state} />
++    }
++    case 'formula': {
++      return <FormulaResult roll={roll} state={state} />
++    }
++    case 'ask': {
++      return <AskResult roll={roll} state={state} />
++    }
++    case 'use': {
++      return (
++        <UseResult
++          roll={roll}
++          state={state}
++          onRollDamage={table?.rollDamage}
++          modifies={table?.modifies}
++        />
++      )
++    }
++    case 'check': {
++      return (
++        <CheckResult
++          roll={roll}
++          state={state}
++          onRollDamage={table?.rollDamage}
++          modifies={table?.modifies}
++        />
++      )
++    }
++    case 'gm': {
++      return <GmResult roll={roll} state={state} />
++    }
++  }
++}
+diff --git a/src/features/rolling/components/roll-tray/only-you.tsx b/src/features/rolling/components/roll-tray/only-you.tsx
+new file mode 100644
+index 0000000..d375994
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/only-you.tsx
+@@ -0,0 +1,11 @@
++import { EyeOff } from 'lucide-react'
++
++/** Said of a roll from a description the game didn't take, which no one else sees. */
++export function OnlyYou() {
++  return (
++    <p className='mt-1 flex items-center gap-1.5 text-xs text-text-secondary'>
++      <EyeOff aria-hidden className='size-3.5 shrink-0' />
++      Only you see this roll
++    </p>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/partly-made.tsx b/src/features/rolling/components/roll-tray/partly-made.tsx
+new file mode 100644
+index 0000000..67e1ffd
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/partly-made.tsx
+@@ -0,0 +1,27 @@
++import type { TableRollState } from '@/types/roll'
++
++/**
++ * Of hit dice spent at once, sent one after another or as one, those the game made before one it
++ * didn't: how many, and the hit points they gave back, where the player may see them, before why
++ * the rest weren't made.
++ */
++export function PartlyMade({
++  state,
++  together: { count, made },
++}: Readonly<{
++  state: TableRollState
++  together: NonNullable<TableRollState['together']>
++}>) {
++  return (
++    <span>
++      {made} of {count} made at the table
++      {state.healed !== undefined && (
++        <span className='font-semibold text-text-primary'>
++          {' · '}
++          {state.healed} HP regained
++        </span>
++      )}
++      . Not the rest
++    </span>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/roll-history.tsx b/src/features/rolling/components/roll-tray/roll-history.tsx
+new file mode 100644
+index 0000000..ef8d956
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/roll-history.tsx
+@@ -0,0 +1,150 @@
++import { useId } from 'react'
++import clsx from 'clsx'
++import { Dices } from 'lucide-react'
++import { breakdown } from '../../utils/brief'
++import { reachOf, rechargeTitle } from '../../utils/tray-words'
++import { DamageDue } from './damage-due'
++import { GmPill } from './gm-pill'
++import { LatestResult } from './latest-result'
++import { TableMark } from './table-mark'
++import { earlierTotal, movesAlone, offersDamage } from './utils'
++import { damageDue } from '@/features/rolling/utils/damage-due'
++import { useTableRole } from '@/hooks/use-table-api'
++import type { TableRolls } from '../../types'
++import type { LocalRoll, TableRollState } from '@/types/roll'
++
++/**
++ * The player's rolls, newest first: the latest in full, the rest on request. It says whether they
++ * reach the table, so no one expects one to have reached it that didn't: when the Gamemaster's
++ * game takes the player's rolls, it makes them too, with the same dice, and this says what it made
++ * of each. Where each roll also pops up as a toast, which says it, its status is left unannounced
++ * (`announce`), so that a screen reader hears each roll once.
++ */
++export function RollHistory({
++  rolls,
++  rolling,
++  table,
++  announce = true,
++  className,
++}: Readonly<{
++  rolls: LocalRoll[]
++  rolling: boolean
++  table?: TableRolls
++  announce?: boolean
++  className?: string
++}>) {
++  const [latest, ...earlier] = rolls
++  const role = useTableRole()
++  // The roll whose damage is offered here: the latest's own, or the player's latest beneath one of
++  // the Gamemaster's (`offersDamage`); none while dice roll in the latest's place.
++  const offered = rolling ? undefined : offersDamage(rolls)
++  // Where rolls go, said of none beneath items and coins moved alone.
++  const reach = movesAlone(rolls) ? undefined : reachOf(table, role)
++  let status = (
++    <p className='flex items-center gap-2 text-sm text-text-secondary'>
++      <Dices aria-hidden className='size-5 shrink-0 text-primary' />
++      <span>
++        Tap an ability, skill or attack to roll it. Right-click or long-press it
++        for more ways to roll.
++      </span>
++    </p>
++  )
++  if (rolling) {
++    status = (
++      <p className='flex items-center gap-2 text-sm font-semibold'>
++        <Dices
++          aria-hidden
++          className='size-5 shrink-0 text-primary motion-safe:animate-spin'
++        />
++        Rolling…
++      </p>
++    )
++  } else if (latest) {
++    status = <LatestResult roll={latest} table={table} />
++  }
++
++  return (
++    <div className={clsx('flex flex-col gap-2', className)}>
++      <div role='status' aria-live={announce ? 'polite' : 'off'}>
++        {status}
++      </div>
++      {offered && offered !== latest && table && (
++        <DamageBehind roll={offered} table={table} />
++      )}
++      {earlier.length > 0 && (
++        <details className='group text-sm'>
++          <summary className='cursor-pointer text-xs font-semibold text-text-secondary hover:text-text-primary'>
++            Earlier rolls ({earlier.length})
++          </summary>
++          <ol className='mt-2 flex max-h-40 flex-col gap-1.5 overflow-y-auto'>
++            {earlier.map(roll => (
++              <EarlierRoll
++                key={roll.id}
++                roll={roll}
++                state={table?.states.get(roll.id)}
++              />
++            ))}
++          </ol>
++        </details>
++      )}
++      {reach !== undefined && (
++        <p className='text-[11px] text-text-secondary'>{reach}</p>
++      )}
++    </div>
++  )
++}
++
++/** An earlier roll, in a row: what it was, what it came to, and its way to the game, in brief. */
++function EarlierRoll({
++  roll,
++  state,
++}: Readonly<{ roll: LocalRoll; state?: TableRollState }>) {
++  const total = earlierTotal(roll, state)
++  return (
++    <li className='flex items-baseline justify-between gap-3'>
++      <span className='flex min-w-0 items-baseline gap-1.5'>
++        <span className='truncate'>{rechargeTitle(roll, state)}</span>
++        {roll.kind === 'gm' && <GmPill />}
++      </span>
++      <span className='shrink-0 text-xs text-text-secondary tabular-nums'>
++        {breakdown(roll, state)}
++        {total !== undefined && (
++          <>
++            {' = '}
++            <span className='text-sm font-semibold text-text-primary'>
++              {total}
++            </span>
++          </>
++        )}
++        <TableMark state={state} roll={roll} />
++      </span>
++    </li>
++  )
++}
++
++/**
++ * The damage of the player's own latest roll, while it's due, beneath one of the Gamemaster's as
++ * the character that came after it (#156): named by its roll, as the rolls' button names those it
++ * offers, as their buttons all say "Roll damage".
++ */
++function DamageBehind({
++  roll,
++  table,
++}: Readonly<{ roll: LocalRoll; table: TableRolls }>) {
++  const name = useId()
++  const state = table.states.get(roll.id)
++  if (!table.rollDamage || !damageDue(roll, state)) return
++  return (
++    <div role='group' aria-labelledby={name}>
++      <p id={name} className='truncate text-sm font-semibold'>
++        {roll.label}
++      </p>
++      <DamageDue
++        roll={roll}
++        state={state}
++        onRollDamage={table.rollDamage}
++        modifies={table.modifies}
++      />
++    </div>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/spent-lines.tsx b/src/features/rolling/components/roll-tray/spent-lines.tsx
+new file mode 100644
+index 0000000..c0b9058
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/spent-lines.tsx
+@@ -0,0 +1,21 @@
++import { useSpent } from '../../../sheet/components/effect-controls/use-spent'
++import { spentLine } from '../../utils/tray-words'
++import type { LocalRoll, TableRollState } from '@/types/roll'
++
++/**
++ * Beneath a roll the player added a die offered to, such as Bardic Inspiration's (module 0.42.1),
++ * once the game has made it: a line for each, saying what became of the effect it spent. None for
++ * a roll still on its way, or not made, which spent nothing.
++ */
++export function SpentLines({
++  roll,
++  state,
++}: Readonly<{ roll: LocalRoll; state?: TableRollState }>) {
++  const spent = useSpent()
++  if (roll.kind !== 'check' || !roll.spends || state?.status !== 'done') return
++  return roll.spends.map(spend => (
++    <p key={spend.effect} className='mt-1 text-sm text-text-secondary'>
++      {spentLine(spend, spent(spend.effect))}
++    </p>
++  ))
++}
+diff --git a/src/features/rolling/components/roll-tray/status-line.tsx b/src/features/rolling/components/roll-tray/status-line.tsx
+new file mode 100644
+index 0000000..1d32fd0
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/status-line.tsx
+@@ -0,0 +1,55 @@
++import clsx from 'clsx'
++import { EyeOff, LoaderCircle, Send, TriangleAlert } from 'lucide-react'
++import type { RollBrief } from '../../utils/tray-words'
++import type { ReactNode } from 'react'
++
++/**
++ * A roll's, a use's or an ask's way to the game, in a line beneath it, as `tone` says where it is:
++ * on its way, beside a spinner; made, beside the mark of being sent, or the hidden mark where the
++ * game hid it (`hidden`); or not made, in the warning's colour. What it says (`children`) is the
++ * caller's, as it is, in a span or not.
++ */
++export function StatusLine({
++  tone,
++  hidden = false,
++  children,
++}: Readonly<{
++  tone: NonNullable<RollBrief['table']>['tone']
++  hidden?: boolean
++  children: ReactNode
++}>) {
++  return (
++    <p
++      className={clsx(
++        'mt-1 flex items-center gap-1.5 text-xs',
++        tone === 'not' ? 'text-warning' : 'text-text-secondary',
++      )}
++    >
++      <StatusIcon tone={tone} hidden={hidden} />
++      {children}
++    </p>
++  )
++}
++
++/** The line's icon, by where it's on its way: a spinner, the sent or hidden mark, a warning. */
++function StatusIcon({
++  tone,
++  hidden,
++}: Readonly<{
++  tone: NonNullable<RollBrief['table']>['tone']
++  hidden: boolean
++}>) {
++  if (tone === 'pending') {
++    return (
++      <LoaderCircle
++        aria-hidden
++        className='size-3.5 shrink-0 motion-safe:animate-spin'
++      />
++    )
++  }
++  if (tone === 'not') {
++    return <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
++  }
++  if (hidden) return <EyeOff aria-hidden className='size-3.5 shrink-0' />
++  return <Send aria-hidden className='size-3.5 shrink-0 text-primary' />
++}
+diff --git a/src/features/rolling/components/roll-tray/table-mark.tsx b/src/features/rolling/components/roll-tray/table-mark.tsx
+new file mode 100644
+index 0000000..bc72ffa
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/table-mark.tsx
+@@ -0,0 +1,78 @@
++import { gmShape } from '../../utils/gm-words'
++import { enchantmentNote, savedHere } from '../../utils/tray-words'
++import { dcOf, madeWord } from './utils'
++import { onItsWay } from '@/utils/lifecycle'
++import type { LocalRoll, TableRollState } from '@/types/roll'
++
++/**
++ * A roll's way to the game, in brief, among the earlier rolls: for a saving throw or check against
++ * a DC a description names that the game didn't make, whether this roll made it, as when it was
++ * the latest.
++ */
++export function TableMark({
++  state,
++  roll,
++}: Readonly<{ state?: TableRollState; roll: LocalRoll }>) {
++  const here = roll.kind === 'check' ? savedHere(roll, state) : undefined
++  const mine = here && (
++    <span className='ml-1.5'>
++      · DC {dcOf(roll)}, {here.toLowerCase()}
++    </span>
++  )
++  if (!state) return mine
++  // The Gamemaster's as the character (#156) are told as the player's own of their kind.
++  const kind = roll.kind === 'gm' ? gmShape(roll) : roll.kind
++  if (state.status === 'done') {
++    return <MadeMark roll={roll} kind={kind} state={state} />
++  }
++  if (onItsWay(state)) {
++    return <span className='ml-1.5'>· sending</span>
++  }
++  // Of dice sent one after another, those the game made before one it didn't.
++  const made = state.together?.made
++  if (made) {
++    return (
++      <span className='ml-1.5'>
++        · {made} of {state.together?.count} at the table
++      </span>
++    )
++  }
++  return (
++    <>
++      {mine}
++      <span className='ml-1.5'>
++        {kind === 'ask' ? '· not posted' : '· not at the table'}
++      </span>
++    </>
++  )
++}
++
++/**
++ * A roll's mark once the game made it: an ask posted; a use at the table, or the enchantment it
++ * applied; else the game's total, or that it's hidden, and what came of it (`madeWord`).
++ */
++function MadeMark({
++  roll,
++  kind,
++  state,
++}: Readonly<{
++  roll: LocalRoll
++  kind: LocalRoll['kind'] | ReturnType<typeof gmShape>
++  state: TableRollState
++}>) {
++  if (kind === 'ask') return <span className='ml-1.5'>· posted</span>
++  if (kind === 'use') {
++    return (
++      <span className='ml-1.5'>
++        {enchantmentNote(state.enchantment) ?? '· at the table'}
++      </span>
++    )
++  }
++  const word = madeWord(roll, state)
++  return (
++    <span className='ml-1.5'>
++      {state.visible ? `· table ${state.total ?? '?'}` : '· hidden'}
++      {word !== undefined && `, ${word.toLowerCase()}`}
++    </span>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/table-status.tsx b/src/features/rolling/components/roll-tray/table-status.tsx
+new file mode 100644
+index 0000000..94e101a
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/table-status.tsx
+@@ -0,0 +1,80 @@
++import {
++  onItsWayWords,
++  outcomeOf,
++  reasonOf,
++  toneOf,
++} from '../../utils/tray-words'
++import { AreaOutcomes } from './area-outcomes'
++import { PartlyMade } from './partly-made'
++import { StatusLine } from './status-line'
++import { useCreature } from '@/hooks/use-creature'
++import { useTableRole } from '@/hooks/use-table-api'
++import { seatWords } from '@/utils/seat-words'
++import type { LocalCheck, TableRollState } from '@/types/roll'
++
++/**
++ * Where a roll is on its way to the game, or what the game made of it: for a saving throw or check
++ * against a DC a description names, whether it was made, by the game's total where it doesn't say.
++ */
++export function TableStatus({
++  state,
++  dc,
++  verdict,
++}: Readonly<{
++  state: TableRollState
++  dc?: number
++  verdict?: LocalCheck['verdict']
++}>) {
++  const role = useTableRole()
++  const creature = useCreature()
++  const outcome = outcomeOf(state, role, dc, verdict)
++  const tone = toneOf(state)
++  if (tone === 'pending') {
++    return (
++      <StatusLine tone='pending'>
++        {onItsWayWords(state, role)}
++        {/* Each is sent from this page once the one before is made: leaving it, none more is. */}
++        {state.together && ' Keep this page open until they’re all sent.'}
++      </StatusLine>
++    )
++  }
++  if (tone === 'made') {
++    return state.visible ? (
++      <>
++        <StatusLine tone='made'>
++          <span>
++            At the table:{' '}
++            <span className='font-semibold text-text-primary tabular-nums'>
++              {state.total ?? '?'}
++            </span>
++            {outcome && (
++              <span className='font-semibold text-text-primary'>
++                {' · '}
++                {outcome}
++              </span>
++            )}
++          </span>
++        </StatusLine>
++        <AreaOutcomes state={state} />
++      </>
++    ) : (
++      <StatusLine tone='made' hidden>
++        {seatWords(role).hidden}
++      </StatusLine>
++    )
++  }
++  const reason = reasonOf(state, role, creature)
++  return (
++    <StatusLine tone='not'>
++      {/* As one, so that why reads on from what was made, rather than beside it. */}
++      <span>
++        {state.together?.made ? (
++          <PartlyMade state={state} together={state.together} />
++        ) : (
++          'Not made at the table'
++        )}
++        {reason ? `: ${reason}` : ''}
++      </span>
++    </StatusLine>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/terms.tsx b/src/features/rolling/components/roll-tray/terms.tsx
+new file mode 100644
+index 0000000..29bf954
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/terms.tsx
+@@ -0,0 +1,35 @@
++import type { LocalExtra } from '@/types/roll'
++
++/**
++ * Each term of a roll with no d20, with its dice: 1d10 (7) +2. A term whose dice Foundry works out,
++ * such as 2d6r<=2's, shows every die thrown, those rerolled or dropped struck through, such as
++ * 2d6r<=2 (1, 5, 4) with its 1 rerolled; or, for a roll the game throws those again for itself,
++ * only the first throw, which is what the game was sent (`firstThrow`).
++ */
++export function Terms({
++  terms,
++  firstThrow = false,
++}: Readonly<{ terms: LocalExtra[]; firstThrow?: boolean }>) {
++  return terms.map(({ text, values, thrown }, at) => (
++    <span key={at}>
++      {at > 0 && ' '}
++      {text}
++      {values.length > 0 && (
++        <>
++          {' ('}
++          <span className='font-semibold text-text-primary'>
++            {thrown && !firstThrow
++              ? thrown.map((die, index) => (
++                  <span key={index}>
++                    {index > 0 && ', '}
++                    {die.active ? die.value : <s>{die.value}</s>}
++                  </span>
++                ))
++              : values.join(', ')}
++          </span>
++          )
++        </>
++      )}
++    </span>
++  ))
++}
+diff --git a/src/features/rolling/components/roll-tray/use-result.tsx b/src/features/rolling/components/roll-tray/use-result.tsx
+new file mode 100644
+index 0000000..6676650
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/use-result.tsx
+@@ -0,0 +1,62 @@
++import { Sparkles } from 'lucide-react'
++import { toneOf, usedWords } from '../../utils/tray-words'
++import { DamageDue } from './damage-due'
++import { StatusLine } from './status-line'
++import { useCreature } from '@/hooks/use-creature'
++import { useTableRole } from '@/hooks/use-table-api'
++import type { RollDue } from '../../types'
++import type { LocalUse, TableRollState } from '@/types/roll'
++
++/**
++ * A spell or feature used in the game: its way there, and once it's made, the damage or healing
++ * that follows it, rolled at once, unless its kind is to be chosen first.
++ */
++export function UseResult({
++  roll,
++  state,
++  onRollDamage,
++  modifies,
++}: Readonly<{
++  roll: LocalUse
++  state?: TableRollState
++  onRollDamage?: RollDue
++  modifies?: boolean
++}>) {
++  const status = state && <UseStatus roll={roll} state={state} />
++  return (
++    <div className='flex items-center gap-3'>
++      <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'>
++        <Sparkles aria-hidden className='size-6' />
++      </span>
++      <div className='min-w-0'>
++        <p className='truncate font-semibold'>{roll.label}</p>
++        {status}
++        <DamageDue
++          roll={roll}
++          state={state}
++          onRollDamage={onRollDamage}
++          modifies={modifies}
++        />
++      </div>
++    </div>
++  )
++}
++
++/**
++ * Where a use is on its way to the game, or what became of it: for an enchant activity, the
++ * enchantment it applied, and on what, or the one it ended. Or where an enchantment ended is.
++ */
++function UseStatus({
++  roll,
++  state,
++}: Readonly<{ roll: LocalUse; state: TableRollState }>) {
++  const role = useTableRole()
++  const creature = useCreature()
++  const tone = toneOf(state)
++  const words = usedWords(roll, state, role, creature)
++  return (
++    <StatusLine tone={tone}>
++      {tone === 'made' ? <span>{words}</span> : words}
++    </StatusLine>
++  )
++}
+diff --git a/src/features/rolling/components/roll-tray/utils.ts b/src/features/rolling/components/roll-tray/utils.ts
+new file mode 100644
+index 0000000..52a7ae1
+--- /dev/null
++++ b/src/features/rolling/components/roll-tray/utils.ts
+@@ -0,0 +1,72 @@
++import {
++  byTheGame,
++  rechargeWord,
++  savedAt,
++  thrownAgainThere,
++  verdictWord,
++} from '../../utils/tray-words'
++import type { LocalRoll, TableRollState } from '@/types/roll'
++
++/**
++ * Whether all the tray lists is items and coins moved, from module 0.31.0, or items removed, from
++ * module 0.33.0, the player's or the Gamemaster's as the character: each is sent to the game, and
++ * made or turned down there, whatever the game takes of the player's rolls and whether this device
++ * sends them, so that what's said of rolls reaching it, or not, isn't said of them.
++ */
++export function movesAlone(rolls: readonly LocalRoll[]): boolean {
++  return (
++    rolls.length > 0 &&
++    rolls.every(roll =>
++      roll.kind === 'gm'
++        ? roll.rolled === 'transfer' || roll.rolled === 'remove'
++        : roll.kind === 'use' && !!roll.move,
++    )
++  )
++}
++
++/**
++ * The roll whose damage the latest in full offers: the latest; or, where that's one of the
++ * Gamemaster's as the character (#156), which has none, the player's own latest, as it offered
++ * it before theirs came, so that the Gamemaster's arriving takes nothing from the player.
++ */
++export function offersDamage(
++  rolls: readonly LocalRoll[],
++): LocalRoll | undefined {
++  return rolls.find(roll => roll.kind !== 'gm')
++}
++
++/** The DC a description names for a saving throw or check rolled against it, if any. */
++export function dcOf(roll: LocalRoll): number | undefined {
++  return roll.kind === 'check' ? roll.dc : undefined
++}
++
++/**
++ * What came of a roll the game made, in a word, after its total among the earlier rolls: a
++ * recharge's, and damage on its own's, from module 0.36.0, in place of a save's word; else whether
++ * a saving throw or check against a DC made it. Nothing where the game hid it.
++ */
++export function madeWord(
++  roll: LocalRoll,
++  state: TableRollState,
++): string | undefined {
++  if (state.recharge) return state.visible ? rechargeWord(state) : undefined
++  if (state.alone && state.visible) return 'on its own'
++  const saved = state.visible ? savedAt(state, dcOf(roll)) : undefined
++  const verdict = roll.kind === 'check' ? roll.verdict : undefined
++  return saved === undefined ? undefined : verdictWord(saved, verdict)
++}
++
++/**
++ * The total an earlier roll shows after its dice: a check's, a formula's, or damage's thrown here;
++ * none for a use, an ask or one of the Gamemaster's, for damage the game rolls itself, nor for a
++ * roll the game throws dice again for, whose total here isn't the game's.
++ */
++export function earlierTotal(
++  roll: LocalRoll,
++  state?: TableRollState,
++): number | undefined {
++  if (thrownAgainThere(roll, state)) return undefined
++  if (roll.kind === 'check' || roll.kind === 'formula') return roll.total
++  if (roll.kind === 'damage' && !byTheGame(roll)) return roll.total
++  return undefined
++}
+diff --git a/src/features/rolling/utils/gm-words.ts b/src/features/rolling/utils/gm-words.ts
+new file mode 100644
+index 0000000..967c8e3
+--- /dev/null
++++ b/src/features/rolling/utils/gm-words.ts
+@@ -0,0 +1,216 @@
++import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
++import {
++  areaTold,
++  damageBadge,
++  enchantmentNote,
++  outcomeOf,
++  reasonOf,
++  SLOT_REASONS,
++  toneOf,
++  wayWords,
++  type Creature,
++  type RollBrief,
++} from '@/features/rolling/utils/tray-words'
++import { seatWords } from '@/utils/seat-words'
++import type { TableRollState, LocalGmRoll, RollKindInfo } from '@/types/roll'
++import type { SeatRole } from '@/types/seats'
++
++/** What a roll of the Gamemaster's as the player's character says of itself (#156). */
++export const GM_WORDS = 'Rolled by your Gamemaster'
++
++/** The same, after what the roll is called, or what it came to. */
++export const GM_WORDS_AFTER = 'rolled by your Gamemaster'
++
++/**
++ * What a roll of the Gamemaster's as the character is told as (#156): an ask, as the player's own
++ * is; a use, as the player's own are, and anything else they send that throws no dice, as it has
++ * no total: charges spent or Heroic Inspiration, from module 0.29.0, a spell slot spent or
++ * restored, from module 0.42.1, items and coins moved, from module 0.31.0, and items removed, from
++ * module 0.33.0; damage, on its own too from module 0.36.0; or else a roll with a total, as a check
++ * is.
++ */
++export function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
++  if (roll.rolled === 'ask') return 'ask'
++  const info: RollKindInfo = ROLL_KIND_INFO[roll.rolled]
++  if (info.dice === 'none' && info.gm !== false) return 'use'
++  if (info.damage) return 'damage'
++  return 'check'
++}
++
++/**
++ * What's said of a use of the Gamemaster's as the character as it goes, and once done: of charges
++ * spent, that they were; of Heroic Inspiration, which their page doesn't say was used or gained,
++ * that it changed; of items or coins moved, from module 0.31.0, that they were; of an item
++ * removed, from module 0.33.0, that it was; of anything else, that it was used.
++ */
++function gmVerbs(roll: LocalGmRoll): { doing: string; done: string } {
++  if (roll.rolled === 'spend') return { doing: 'Spending', done: 'Spent' }
++  // A spell slot, from module 0.42.1, as their page asked: spent or restored.
++  if (roll.rolled === 'spellSlot') {
++    if (roll.slotOp === 'spend') return { doing: 'Spending', done: 'Spent' }
++    if (roll.slotOp === 'restore') {
++      return { doing: 'Restoring', done: 'Restored' }
++    }
++    return { doing: 'Changing', done: 'Changed' }
++  }
++  if (roll.rolled === 'transfer') return { doing: 'Moving', done: 'Moved' }
++  if (roll.rolled === 'remove') return { doing: 'Removing', done: 'Removed' }
++  if (roll.rolled === 'inspiration') {
++    return { doing: 'Changing', done: 'Changed' }
++  }
++  return { doing: 'Using', done: 'Used' }
++}
++
++/**
++ * Whether the game made a roll of the Gamemaster's, and hid it from the player: never a use or an
++ * ask, which say only that they were made.
++ */
++export function gmHidden(roll: LocalGmRoll, state?: TableRollState): boolean {
++  return (
++    state?.status === 'done' &&
++    !state.visible &&
++    ['check', 'damage'].includes(gmShape(roll))
++  )
++}
++
++/**
++ * A roll of the Gamemaster's as the character's way to the game, in the tray's words, as the
++ * player's own of its kind (#156): on its way, made, with the game's total and what came of it,
++ * hidden as the game hid it, or not made, and why. None before the page has heard of it.
++ */
++export function gmLine(
++  roll: LocalGmRoll,
++  state: TableRollState | undefined,
++  role: SeatRole,
++  creature?: Creature,
++): RollBrief['table'] {
++  if (!state) return undefined
++  const shape = gmShape(roll)
++  const words = {
++    doing: gmDoing(roll, shape),
++    done: gmDone(roll, shape, state, role),
++    not: gmNotMade(roll, shape, state),
++  }
++  const reason = gmReason(roll, state, role, creature)
++  return { tone: toneOf(state), text: wayWords(state, role, words, reason) }
++}
++
++/** What's said of one on its way to the game, as the player's own of its kind. */
++function gmDoing(roll: LocalGmRoll, shape: ReturnType<typeof gmShape>): string {
++  if (shape === 'use') return `${gmVerbs(roll).doing} it`
++  if (shape === 'ask') return 'Posting it'
++  return 'Rolling'
++}
++
++/**
++ * What's said of one the game made: a use done, and the enchantment it applied; an ask posted;
++ * else the game's total and what came of it, or that it's hidden, as the game hid it.
++ */
++function gmDone(
++  roll: LocalGmRoll,
++  shape: ReturnType<typeof gmShape>,
++  state: TableRollState,
++  role: SeatRole,
++): string {
++  if (shape === 'use') {
++    const enchanted = enchantmentNote(state.enchantment)
++    return `${gmVerbs(roll).done} at the table${enchanted ? ` ${enchanted}` : ''}`
++  }
++  if (shape === 'ask') return 'Posted to the table’s chat'
++  if (!state.visible) return seatWords(role).hidden
++  const outcome = gmOutcomeOf(roll, state, role)
++  const total = `At the table: ${state.total ?? '?'}`
++  return outcome ? `${total} · ${outcome}` : total
++}
++
++/**
++ * What's said of one the game didn't make, before why: of hit dice spent at once, how many it
++ * made before one it didn't.
++ */
++function gmNotMade(
++  roll: LocalGmRoll,
++  shape: ReturnType<typeof gmShape>,
++  state: TableRollState,
++): string {
++  const { together } = state
++  if (together?.made) {
++    return `${together.made} of ${together.count} made at the table. Not the rest`
++  }
++  if (shape === 'use') {
++    return `Not ${gmVerbs(roll).done.toLowerCase()} at the table`
++  }
++  if (shape === 'ask') return 'Not posted to the table'
++  return 'Not made at the table'
++}
++
++/**
++ * Why one wasn't made, in words: a spell slot's in the words the player's own is told in, from
++ * module 0.42.1.
++ */
++function gmReason(
++  roll: LocalGmRoll,
++  state: TableRollState,
++  role: SeatRole,
++  creature?: Creature,
++): string | undefined {
++  const slot =
++    roll.rolled === 'spellSlot'
++      ? SLOT_REASONS[state.reason ?? state.status]
++      : undefined
++  return slot ?? reasonOf(state, role, creature)
++}
++
++/**
++ * How a roll of the Gamemaster's as the character shows in its badge (#156): the game's total, in
++ * the colours the player's own take, once the game has made it where they may see it; else a use's
++ * or an ask's icon, the hidden mark, or dice while it's on its way, or wasn't made.
++ */
++export function gmBadge(
++  roll: LocalGmRoll,
++  state?: TableRollState,
++): Pick<RollBrief, 'badge' | 'total'> {
++  const shape = gmShape(roll)
++  if (shape === 'use' || shape === 'ask') return { badge: shape }
++  if (gmHidden(roll, state)) return { badge: 'hidden' }
++  if (state?.status !== 'done' || state.total === undefined) {
++    return { badge: 'dice' }
++  }
++  let badge: RollBrief['badge'] = 'plain'
++  if (shape === 'damage') badge = damageBadge(roll.healing, state.critical)
++  else if (state.d20 === 'critical' || state.attack?.critical) {
++    badge = 'critical'
++  } else if (state.d20 === 'fumble') badge = 'fumble'
++  return { badge, total: state.total }
++}
++
++/**
++ * What came at the table of one of the Gamemaster's rolls as the character (#156), as `outcomeOf`
++ * says; for damage the game says is a critical hit's, that it is, as the player's own says it, so
++ * that it's told in words, not by its gold alone; for an area attack, which shows no list of its
++ * targets, with whom it hit, in the order they were picked, by the names the player's own view of
++ * the combat gives them (`targetNames`), and those it can't name counted after them, as one hidden
++ * from players: "Hit 2 of 3: Bandit 1 and 1 more". Where it can name none, no more than
++ * `outcomeOf` says.
++ */
++export function gmOutcomeOf(
++  roll: LocalGmRoll,
++  state: TableRollState,
++  role: SeatRole,
++): string | undefined {
++  const said = outcomeOf(state, role)
++  // Said wherever it's gold, and only there: never of healing.
++  if (
++    gmShape(roll) === 'damage' &&
++    damageBadge(roll.healing, state.critical) === 'critical'
++  ) {
++    return said ? `${said} · Critical hit` : 'Critical hit'
++  }
++  const hit = (areaTold(state) ?? []).filter(({ outcome }) => outcome === 'hit')
++  const names = hit.flatMap(({ combatantId }) => {
++    const name = state.targetNames?.[combatantId]
++    return name ? [name] : []
++  })
++  if (!said || names.length === 0) return said
++  const more = hit.length - names.length
++  return `${said}: ${names.join(', ')}${more > 0 ? ` and ${more} more` : ''}`
++}
+diff --git a/src/features/rolling/utils/sheet-rolls.ts b/src/features/rolling/utils/sheet-rolls.ts
+new file mode 100644
+index 0000000..cef8f16
+--- /dev/null
++++ b/src/features/rolling/utils/sheet-rolls.ts
+@@ -0,0 +1,26 @@
++import type { RollTarget } from '../types'
++import type { SheetRoll } from '@/types/roll'
++
++/**
++ * A check, save or attack rolled from the sheet, as it's sent to be rolled: its target's label,
++ * modifier and source, with `advantage`, and whether the player chose how to roll it (`explicit`),
++ * as in dnd5e's roll dialog; and where given, the extra dice or numbers added, the DC a description
++ * names, and what a description's link asks, such as a concentration check.
++ */
++export function rollOf(
++  target: RollTarget,
++  advantage: SheetRoll['advantage'],
++  explicit: boolean,
++  { extras, dc, ask }: Pick<SheetRoll, 'extras' | 'dc' | 'ask'> = {},
++): SheetRoll {
++  return {
++    label: target.label,
++    modifier: target.modifier,
++    advantage,
++    ...(extras && { extras }),
++    source: target.source,
++    explicit,
++    ...(dc !== undefined && { dc }),
++    ...(ask && { ask }),
++  }
++}
+diff --git a/src/features/rolling/utils/tray-words.ts b/src/features/rolling/utils/tray-words.ts
+new file mode 100644
+index 0000000..0ef44b3
+--- /dev/null
++++ b/src/features/rolling/utils/tray-words.ts
+@@ -0,0 +1,594 @@
++import { NOT_MADE } from '@/constants/lifecycle'
++import { choicesOf } from '@/features/rolling/utils/damage-due'
++import { favoriteReasons } from '@/features/rolling/utils/favorite-words'
++import { effectReasons, EFFECT_WORDS } from '@/utils/effect-words'
++import { moveReasons, moveWords } from '@/utils/move-words'
++import { prepareReasons, PREPARE_WORDS } from '@/utils/prepare-words'
++import { reasons, listed } from '@/utils/roll-reasons'
++import { seatWords } from '@/utils/seat-words'
++import { wildShapeReasons, WILD_SHAPE_WORDS } from '@/utils/wild-shape-words'
++import type { Spent } from '../../sheet/components/effect-controls/types'
++import type { TableRolls } from '../types'
++import type { useCreature } from '@/hooks/use-creature'
++import type {
++  TableRollState,
++  LocalCheck,
++  LocalRoll,
++  LocalFormula,
++  LocalUse,
++  LocalExtra,
++  LocalDamage,
++  OfferSpend,
++} from '@/types/roll'
++import type { SeatRole } from '@/types/seats'
++import type { AloneSpend } from '@/types/sending-stone'
++
++/** The creature a pane is for, where it isn't the character (module 0.36.0). */
++export type Creature = NonNullable<ReturnType<typeof useCreature>>
++
++/**
++ * What a pane's rolls are called, as its tray, its rolls' button and its popover name them: the
++ * player's own at the character's pane, a creature's at its own (module 0.36.0).
++ */
++export function rollsName(creature?: Creature): string {
++  return creature ? `${creature.name}’s rolls` : 'Your rolls'
++}
++
++/**
++ * Why a spell an item casts wasn't cast, or its attack made, in words, where it differs from why a
++ * roll wasn't made: it's cast at a level the item offers, which no spell slot is spent for, and a
++ * level the item no longer offers, as when its charges ran low, is refused as a slot is.
++ */
++const ITEM_CAST_REASONS: Record<string, string> = {
++  slot: 'the item can’t cast it at that level now',
++}
++
++/**
++ * Why a spell slot wasn't spent or restored from the dots, from module 0.42.1, in words, where it
++ * differs from why a roll wasn't made: of a pool, not a cast, and made only from the count the dots
++ * showed. The player's line and the Gamemaster's on the player's page alike.
++ */
++export const SLOT_REASONS: Record<string, string> = {
++  slots: 'none is left',
++  full: 'none is used',
++  slot: 'there are no such spell slots',
++  changed: 'the slots changed in Foundry; look again',
++}
++
++/**
++ * Why hit dice spent at once, sent as one, weren't all spent, in words, where it differs from why a
++ * hit die wasn't: they're refused where fewer of a size are left than are spent, not only none.
++ */
++const HIT_DICE_REASONS: Record<string, string> = {
++  'no-hit-dice': 'you haven’t that many hit dice left',
++}
++
++/**
++ * Why an enchant activity's enchantment wasn't applied, in words, where it differs from why a use
++ * wasn't made: where the game names no card of it, the Gamemaster can't apply it from one, as none
++ * is in the game's chat, or one is that dnd5e lets no one apply it from, its concentration ended.
++ */
++const ENCHANT_REASONS: Record<string, string> = {
++  enchant: 'it was used, but the enchantment wasn’t applied',
++}
++
++/**
++ * Why a creature's roll wasn't made, at its own pane (module 0.36.0), where it differs from why
++ * the character's wasn't: it's no longer one of the character's companions, or it acts right
++ * after the character in initiative, which it doesn't roll. Made for each call, by its name.
++ */
++function creatureReasons(
++  creature: Creature,
++  role: SeatRole,
++): Record<string, string> {
++  const { game } = seatWords(role)
++  return {
++    unknown: `${creature.name} isn’t one of ${creature.character}’s companions in ${game} now`,
++    follows: `it acts right after ${creature.character} in ${game}`,
++  }
++}
++
++/**
++ * Why a roll, an attack or a use wasn't made, in words, if it's one the player is told of: at a
++ * creature's pane, as its own (module 0.36.0).
++ */
++export function reasonOf(
++  state: TableRollState,
++  role: SeatRole,
++  creature?: Creature,
++): string | undefined {
++  const key = state.reason ?? state.status
++  const own =
++    // A favorite added or removed, from module 0.37.0, one of the character's own effects changed,
++    // from module 0.39.0, Wild Shape from module 0.40.0, and a move of items and coins, from module
++    // 0.31.0, have words of their own.
++    (state.favorite ? favoriteReasons(role)[key] : undefined) ??
++    (state.effect ? effectReasons(role)[key] : undefined) ??
++    // A spell prepared or unprepared, from module 0.42.1.
++    (state.prepare ? prepareReasons(role)[key] : undefined) ??
++    // And Wild Shape from here, from module 0.40.0.
++    (state.wildShape
++      ? wildShapeReasons(role, state.wildShape)[key]
++      : undefined) ??
++    (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
++    // A spell slot spent or restored from the dots, from module 0.42.1.
++    (state.spellSlot ? SLOT_REASONS[key] : undefined) ??
++    (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??
++    (state.hitDice ? HIT_DICE_REASONS[key] : undefined) ??
++    (state.card === false ? ENCHANT_REASONS[key] : undefined) ??
++    (creature ? creatureReasons(creature, role)[key] : undefined)
++  return own ?? reasons(role)[key]
++}
++
++/** Why the table wasn't asked, in words, where it differs from why a roll wasn't made. */
++function askReasons(
++  role: SeatRole,
++  creature?: Creature,
++): Record<string, string> {
++  return {
++    ...reasons(role),
++    ...(creature && creatureReasons(creature, role)),
++    busy: 'the table was asked a moment ago. Wait a little before asking again',
++  }
++}
++
++/**
++ * Where a roll, a use or an ask is on its way to the game, in words: sent, then being made there,
++ * which a use or an ask says as what's done with it, such as "Casting it" or "Posting it".
++ */
++export function onItsWayWords(
++  state: TableRollState,
++  role: SeatRole,
++  doing = 'Rolling',
++): string {
++  // Of dice sent one after another, as hit dice spent at once, which is on its way.
++  const die = state.together
++    ? ` die ${state.together.made + 1} of ${state.together.count}`
++    : ''
++  const { game } = seatWords(role)
++  return state.status === 'sending'
++    ? `Sending${die} to ${game}…`
++    : `${doing}${die} in ${game}…`
++}
++
++/**
++ * What came at the table of an attack, or a save the game asked for or made against a DC, or a
++ * check made against one, as the game shows players: against a DC it doesn't say of, by its total.
++ * From module 0.36.0, a recharge's, whose outcome is never a save's, and damage on its own's, for
++ * the Gamemaster to apply, as the seat reads it.
++ */
++export function outcomeOf(
++  state: TableRollState,
++  role: SeatRole,
++  dc?: number,
++  verdict?: LocalCheck['verdict'],
++): string | undefined {
++  if (state.recharge) return rechargeWord(state)
++  if (state.alone) {
++    return `on its own, for ${role === 'gm' ? 'you' : 'your Gamemaster'} to apply${spentWords(state)}`
++  }
++  const saved = savedAt(state, dc)
++  if (saved !== undefined) return verdictWord(saved, verdict)
++  if (state.healed !== undefined) return `${state.healed} HP regained`
++  const { attack } = state
++  if (!attack) return undefined
++  // An area attack at more than one: how many it hit, of those the game says of.
++  const told = areaTold(state)
++  if (told) {
++    const hits = told.filter(({ outcome }) => outcome === 'hit').length
++    const hit = `Hit ${hits} of ${told.length}`
++    return attack.critical ? `Critical hit · ${hit}` : hit
++  }
++  if (attack.outcome === 'hit') return attack.critical ? 'Critical hit' : 'Hit'
++  if (attack.outcome === 'miss') return 'Miss'
++  return attack.critical ? 'Critical hit' : undefined
++}
++
++/** What damage on its own spent, in words, as Foundry's card says it (module 0.41.0). */
++const SPENT_WORDS: Record<AloneSpend, string> = {
++  slot: 'spell slot',
++  uses: 'use',
++  ammunition: 'ammunition',
++  thrown: 'thrown weapon',
++}
++
++/**
++ * What damage on its own that asked to spend what its use would spent, once the game says, from
++ * module 0.41.0 (round 0.41.0 §2.4.4), after its outcome: "; spell slot spent", "; spell slot and
++ * use spent", "; nothing spent", and "; concentrating" where concentration began. Nothing for one
++ * that didn't ask.
++ */
++function spentWords(state: TableRollState): string {
++  if (!state.consumes || !state.aloneSpent) return ''
++  const parts = state.aloneSpent.map(spent => SPENT_WORDS[spent] ?? spent)
++  const spent =
++    parts.length > 0 ? `; ${listed(parts)} spent` : '; nothing spent'
++  return `${spent}${state.concentrating ? '; concentrating' : ''}`
++}
++
++/** Whether a recharge's d6 recharged its uses, as the game says, in words (module 0.36.0). */
++export function rechargeWord(state: TableRollState): string | undefined {
++  if (state.outcome === 'success') return 'recharged'
++  if (state.outcome === 'failure') return 'didn’t recharge'
++  return undefined
++}
++
++/**
++ * What a roll is called where it's shown: a recharge's d6 (module 0.36.0) by whether it recharged,
++ * once the game says, such as "Fire Breath recharged"; any other by its label.
++ */
++export function rechargeTitle(roll: LocalRoll, state?: TableRollState): string {
++  if (roll.kind !== 'formula' || !roll.recharge) return roll.label
++  const { name } = roll.recharge
++  if (state?.status === 'done' && state.outcome === 'success') {
++    return `${name} recharged`
++  }
++  if (state?.status === 'done' && state.outcome === 'failure') {
++    return `${name} didn’t recharge`
++  }
++  return roll.label
++}
++
++/**
++ * Of an area attack at more than one, the targets the game says it hit or missed, in the order they
++ * were picked; none of any other roll, or one the game says nothing of.
++ */
++export function areaTold(state: TableRollState) {
++  const targets = state.attack?.targets ?? []
++  const told = targets.filter(({ outcome }) => outcome !== null)
++  return targets.length > 1 && told.length > 0 ? told : undefined
++}
++
++/**
++ * Whether a save the game asked for, or a save or check made against a DC a description names,
++ * succeeded there: as the game says, or else by its total against that DC.
++ */
++export function savedAt(
++  state: TableRollState,
++  dc?: number,
++): boolean | undefined {
++  if (state.outcome) return state.outcome === 'success'
++  if (dc !== undefined && state.total !== undefined) return state.total >= dc
++}
++
++/**
++ * What an enchant activity used at the table did, in brief: the enchantment it applied, and on
++ * what, such as "· Magic Weapon, +1 on Longsword"; or else the one it ended, such as "· ended
++ * Ablaze". Nothing where it did neither, as where it was left on its card.
++ */
++export function enchantmentNote(
++  enchantment: TableRollState['enchantment'],
++): string | undefined {
++  const { enchanted, ended } = enchantment ?? {}
++  if (enchanted) return `· ${enchanted.name} on ${enchanted.itemName}`
++  if (ended) return `· ended ${ended.name}`
++  return undefined
++}
++
++/**
++ * Whether a saving throw or check against a DC a description names was made, by this roll, where
++ * the game didn't make it: none where there's no DC, or the game made it, which its status says.
++ */
++export function savedHere(
++  roll: LocalCheck,
++  state?: TableRollState,
++): string | undefined {
++  if (roll.dc === undefined || (state && !NOT_MADE.has(state.status))) return
++  // A die its effects add skipped, for the game to roll, isn't in its total here, which can't say
++  // then whether it made it (module 0.42.0).
++  if (roll.skipped) return
++  return verdictWord(roll.total >= roll.dc, roll.verdict)
++}
++
++/**
++ * Whether a roll against a DC made it, in a word: a saving throw saved, a check passed, or either
++ * failed.
++ */
++export function verdictWord(
++  made: boolean,
++  verdict?: LocalCheck['verdict'],
++): string {
++  if (!made) return 'Failed'
++  return verdict === 'check' ? 'Passed' : 'Saved'
++}
++
++/**
++ * The least a roll with no d20 came to, as it says when its dice came to less: "at least 1", or
++ * "at least 1 each" of several thrown together.
++ */
++export function leastOf({ minimum, times }: LocalFormula): string {
++  return `at least ${minimum}${times ? ' each' : ''}`
++}
++
++/**
++ * A command's way to the game, in words: sent, then being done there, as `doing` says it; `done`
++ * once the game has done it; else `not`, and why (`reason`), where the player is told why.
++ */
++export function wayWords(
++  state: TableRollState | undefined,
++  role: SeatRole,
++  words: { doing: string; done: string; not: string },
++  reason?: string,
++): string {
++  switch (state?.status) {
++    case 'sending':
++    case 'rolling': {
++      return onItsWayWords(state, role, words.doing)
++    }
++    case 'done': {
++      return words.done
++    }
++    default: {
++      return `${words.not}${reason ? `: ${reason}` : ''}`
++    }
++  }
++}
++
++/** A favorite added or removed, from module 0.37.0, on its way, done, and not. */
++const FAVORITE_WORDS = {
++  add: {
++    doing: 'Adding it to favorites',
++    done: 'Added to favorites',
++    not: 'Not added to favorites',
++  },
++  remove: {
++    doing: 'Removing it from favorites',
++    done: 'Removed from favorites',
++    not: 'Not removed from favorites',
++  },
++}
++
++/**
++ * The words of a command with words of its own, where it is on its way, then whether it's done, as
++ * the game said, or why not: none for a use, or items and coins moved.
++ */
++function commandWords(
++  roll: LocalUse,
++  state: TableRollState,
++): Parameters<typeof wayWords>[2] | undefined {
++  // A favorite added or removed, from module 0.37.0.
++  if (roll.favorite) return FAVORITE_WORDS[roll.favorite]
++  // One of the character's own effects turned off, on or deleted, from module 0.39.0, the same way.
++  if (roll.effect) {
++    const words = EFFECT_WORDS[roll.effect]
++    return { doing: words.doing, done: words.done, not: `Not ${words.short}` }
++  }
++  // A spell prepared or unprepared, from module 0.42.1, the same way.
++  if (roll.prepare) return PREPARE_WORDS[roll.prepare]
++  // Wild Shape from here, from module 0.40.0: a change, a return or a Beast learned, the same way.
++  if (roll.wildShape) {
++    const words = WILD_SHAPE_WORDS[roll.wildShape.op]
++    return {
++      doing: words.doing(roll.wildShape),
++      done: words.done(madeOf(roll.wildShape, state)),
++      not: words.not,
++    }
++  }
++  return undefined
++}
++
++/**
++ * What a use did, and what it's doing on its way, in a word or two: cast or used; or, the last that
++ * fits, ended, Heroic Inspiration gained, charges spent, or a spell slot from the dots, from module
++ * 0.42.1, spent or restored, one at a time.
++ */
++function verbsOf(roll: LocalUse): [verb: string, doing: string] {
++  if (roll.slot === 'restore') return ['Restored', 'Restoring it']
++  if (roll.slot === 'spend') return ['Spent', 'Spending it']
++  if (roll.spent !== undefined) return ['Spent', `Spending ${roll.spent}`]
++  if (roll.inspiration === 'gain') return ['Gained', 'Gaining it']
++  if (roll.ending) return ['Ended', 'Ending it']
++  return roll.spell ? ['Cast', 'Casting it'] : ['Used', 'Using it']
++}
++
++/**
++ * What a use made at the table says: charges spent, how many; the damage or healing that follows
++ * it, where its kind needn't be chosen first; and for an enchant activity, the enchantment it
++ * applied.
++ */
++function usedAt(roll: LocalUse, verb: string, state: TableRollState): string {
++  const { damage } = state
++  const follows = damage && !state.damaged && choicesOf(damage).length === 0
++  const enchanted = roll.ending ? undefined : enchantmentNote(state.enchantment)
++  return [
++    roll.spent === undefined ? verb : `${verb} ${roll.spent}`,
++    ' at the table',
++    follows ? `, its ${damage.healing ? 'healing' : 'damage'} to follow` : '',
++    enchanted ? ` ${enchanted}` : '',
++  ].join('')
++}
++
++/**
++ * Where a use is on its way to the game, or what became of it, in words: for an enchant activity,
++ * the enchantment it applied, and on what. Charges spent say how many, as they go and once spent;
++ * items and coins moved, from module 0.31.0, what moved and between whom.
++ */
++export function usedWords(
++  roll: LocalUse,
++  state: TableRollState,
++  role: SeatRole,
++  creature?: Creature,
++): string {
++  const own = commandWords(roll, state)
++  if (own) return wayWords(state, role, own, reasonOf(state, role, creature))
++  if (roll.move) return moveWords(roll.move, state, role, reasons(role))
++  const [verb, doing] = verbsOf(roll)
++  const words = {
++    doing,
++    done: usedAt(roll, verb, state),
++    not: `Not ${verb.toLowerCase()} at the table`,
++  }
++  return wayWords(state, role, words, reasonOf(state, role, creature))
++}
++
++/** Where an ask is on its way to the game's chat, or why it isn't there, in words. */
++export function askedWords(
++  state: TableRollState | undefined,
++  role: SeatRole,
++  creature?: Creature,
++): string {
++  const words = {
++    doing: 'Posting it',
++    done: 'Posted to the table’s chat',
++    not: 'Not posted to the table',
++  }
++  const reason =
++    state && askReasons(role, creature)[state.reason ?? state.status]
++  return wayWords(state, role, words, reason)
++}
++
++/**
++ * How damage's total shows, the player's own or the Gamemaster's as the character (#156): healing
++ * as healing, whatever made it; a critical hit's in the gold of a natural 20; any other in the
++ * damage colour.
++ */
++export function damageBadge(
++  healing: boolean | undefined,
++  critical: boolean | undefined,
++): 'healing' | 'critical' | 'damage' {
++  if (healing) return 'healing'
++  return critical ? 'critical' : 'damage'
++}
++
++/**
++ * Does the game throw some of this roll's dice again for itself, rerolled or exploded, as Foundry
++ * does with its own dice: one sent to it and not turned away, a die of which was thrown again here
++ * too? Only its first throw, which is what the game was sent, is then shown, and the game's total
++ * once it says, as the dice thrown again here aren't the game's.
++ */
++export function thrownAgainThere(
++  roll: LocalRoll,
++  state?: TableRollState,
++): boolean {
++  if (!state || NOT_MADE.has(state.status)) return false
++  if (roll.kind === 'formula') return thrownAgain(roll.terms)
++  if (roll.kind === 'damage') {
++    return roll.parts.some(part => thrownAgain(part.terms))
++  }
++  return false
++}
++
++/** Was a die of these terms thrown again, rerolled or exploded, as Foundry throws one? */
++function thrownAgain(terms: LocalExtra[]): boolean {
++  return terms.some(({ thrown }) =>
++    thrown?.some(die => die.rerolled || die.exploded),
++  )
++}
++
++/** Is this damage the game's to roll, with no dice thrown here? */
++export function byTheGame(roll: LocalDamage): boolean {
++  return roll.parts.every(part => part.terms.length === 0)
++}
++
++/**
++ * What a Wild Shape command logged here did, as the game says it, once made: the form it took or
++ * left and the Beast it learned, by the names the game gives them, where it gives them.
++ */
++export function madeOf(
++  logged: NonNullable<LocalUse['wildShape']>,
++  state: TableRollState,
++): NonNullable<LocalUse['wildShape']> {
++  const made = state.wildShaped
++  if (made?.op === 'transform' || made?.op === 'learn') {
++    return { ...logged, form: made.form.name }
++  }
++  if (made?.op === 'revert' && made.form) {
++    return { ...logged, form: made.form.name }
++  }
++  return logged
++}
++
++/** A roll in brief, as its toast says it: what it was, what it came to, and its way to the game. */
++export type RollBrief = {
++  label: string
++  /**
++   * How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask; and
++   * for one of the Gamemaster's as the character (#156), hidden, or dice while there's no total.
++   */
++  badge:
++    | 'critical'
++    | 'fumble'
++    | 'plain'
++    | 'damage'
++    | 'healing'
++    | 'use'
++    | 'ask'
++    | 'hidden'
++    | 'dice'
++  /** The colour its toast is edged and tinted in, by how it came out (`accentOf`). */
++  accent: 'warning' | 'gold' | 'ruby' | 'damage' | 'primary'
++  /** None for a use or an ask, which show an icon; "…" while the game's total is awaited. */
++  total?: number | string
++  /** Its dice, in a line; none for a use or an ask. */
++  dice?: string
++  /** Its way to the game, in the tray's words; none for a roll never sent. */
++  table?: { tone: 'pending' | 'made' | 'not'; text: string }
++  /** Made by the Gamemaster as the player's character (#156), marked so. */
++  gm?: true
++}
++
++/** Whether a roll is on its way to the game, was made there, or wasn't. */
++export function toneOf(
++  state?: TableRollState,
++): NonNullable<RollBrief['table']>['tone'] {
++  switch (state?.status) {
++    case 'sending':
++    case 'rolling': {
++      return 'pending'
++    }
++    case 'done': {
++      return 'made'
++    }
++    default: {
++      return 'not'
++    }
++  }
++}
++
++/**
++ * Whether the player's rolls reach the Gamemaster's game, and which; or where to send them, while
++ * the game takes them but this device doesn't send them; or, where the game takes none, that they
++ * aren't sent.
++ */
++export function reachOf(table: TableRolls | undefined, role: SeatRole): string {
++  if (!table?.available) return seatWords(role).notSent
++  if (!table.sending) {
++    return 'Only you see these rolls: Send to the table is off in Settings.'
++  }
++  const casts = table.takes?.('use') === true
++  const spends = table.takes?.('hitDie') === true
++  const kinds = ['Checks', 'saves']
++  if (casts || table.takes?.('attack')) kinds.push('attacks')
++  if (casts) kinds.push('spells')
++  if (spends) kinds.push('hit dice')
++  const verbs = [
++    'roll',
++    ...(casts ? ['cast'] : []),
++    ...(spends ? ['spend'] : []),
++  ]
++  return `${listed(kinds)} you ${listed(verbs, 'or')} here are made in ${seatWords(role).game} too, with the same dice.`
++}
++
++/**
++ * What a roll's damage is called, by its button: an attack's after its weapon or spell, such as
++ * "Longsword", not "Longsword attack"; any other's by its label.
++ */
++export function damageName(roll: LocalRoll): string {
++  return roll.kind === 'check' ? roll.label.replace(/ attack$/, '') : roll.label
++}
++
++/**
++ * What became of an effect a die offered spent, once the roll it was added to is made (module
++ * 0.42.1), in the player's words: removed, being removed, or theirs to ask the Gamemaster to
++ * remove, where they may not.
++ */
++export function spentLine(spend: OfferSpend, spent: Spent): string {
++  if (spent.gone) return `${spend.offer} spent: ${spend.name} removed.`
++  if (spent.removing) return `${spend.offer} spent: removing ${spend.name}…`
++  return `${spend.offer} spent. Ask your Gamemaster to remove ${spend.name}.`
++}
++
++/** What a roll the game throws dice again for says of it, after its dice, naming the game. */
++export function thrownAgainWords(game: string): string {
++  return ` · Rerolls thrown in ${game}`
++}

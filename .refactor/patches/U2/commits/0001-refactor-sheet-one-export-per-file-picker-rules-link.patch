@@ -1,7 +1,7 @@
 From f2c42a18fad844acd32bd5fefe6dc5c6342fc085 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 21:30:06 +0000
-Subject: [PATCH] refactor(sheet): one export per file; picker rules, link
+Subject: [PATCH 1/2] refactor(sheet): one export per file; picker rules, link
  pills, one chip cluster, usePopover
 
 The sheet's parts (U2, R1.1.11-R1.1.18, R1.1.20, R1.1.22). The picker's rules go to

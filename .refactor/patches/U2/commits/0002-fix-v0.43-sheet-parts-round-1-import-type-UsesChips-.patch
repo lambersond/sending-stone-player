@@ -1,3 +1,50 @@
+From 41a5b45a2049eaa66e31a7d75747ef8922194b04 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 22:21:00 +0000
+Subject: [PATCH 2/2] fix: v0.43 sheet parts, round 1 (import type; UsesChips'
+ place; useChoices' whom; PlainUseChip)
+
+Commit 18's review (U2-2 to U2-6). actions-tab.tsx imports ActionRows,
+OtherActivity and TableDamage with `import type` again, as the base did
+(CLAUDE.md section 7). spell-slots/types.ts reads SpellSlotPool by the
+`@/features/sheet/utils/slot-words` specifier its folder's utils.ts uses.
+
+UsesChips takes a required `place: 'row' | 'cell'` in place of a `fold`
+whose undefined meant a table's cell: a row always draws its count's
+data-uses span, folding where `fold` says so (false by default); a cell
+draws the count bare inside UsesCell's own data-uses span. The two list
+rows pass place='row' with the same fold as before, UsesCell place='cell'.
+
+useChoices takes `last` and `areas` and returns `whom` (whomOf's step) and
+`targeting` (search, ticked, setTicked and pick; the Targeting type in
+use-picker/types.ts) in place of nine loose fields, so WhomChoice reads
+whom, targeting, options and profile, and TickStep whom and targeting,
+not the hook's whole return. Hook order and whomOf's inputs are as before.
+
+action-chips/use-chip.tsx, a component file whose name read as a hook
+module, is plain-use-chip.tsx with the component PlainUseChip and
+'use client' like its siblings; its two importers follow.
+
+Markup, requests and words unchanged: no test file or golden changes.
+L0 (related suites, eslint over the changed files) and L1 green.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .../components/action-chips/enchant-chip.tsx  |  4 +-
+ .../{use-chip.tsx => plain-use-chip.tsx}      |  4 +-
+ .../components/action-chips/uses-chips.tsx    | 17 +++---
+ .../components/action-chips/using-chip.tsx    |  4 +-
+ .../components/action-entry/action-entry.tsx  |  1 +
+ .../action-entry/activity-entry.tsx           |  1 +
+ .../components/actions-tab/actions-tab.tsx    | 18 ++++---
+ .../sheet/components/spell-slots/types.ts     |  2 +-
+ .../sheet/components/use-picker/choices.tsx   | 52 +++++++++----------
+ .../sheet/components/use-picker/types.ts      | 11 ++++
+ .../components/use-picker/use-choices.ts      | 46 +++++++++++-----
+ 11 files changed, 102 insertions(+), 58 deletions(-)
+ rename src/features/sheet/components/action-chips/{use-chip.tsx => plain-use-chip.tsx} (97%)
+
 diff --git a/src/features/sheet/components/action-chips/enchant-chip.tsx b/src/features/sheet/components/action-chips/enchant-chip.tsx
 index 85e90e5..735c8d7 100644
 --- a/src/features/sheet/components/action-chips/enchant-chip.tsx
@@ -426,3 +473,6 @@ index e86191f..2dd8a99 100644
 +    targeting,
    }
  }
+-- 
+2.43.0
+
