@@ -1,0 +1,60 @@
+advance eb9fa0 11  src/components/game-table/game-table.endturn.test.tsx:159 src/components/transfers/give-controls.test.tsx:140 src/components/transfers/take-controls.test.tsx:80 src/hooks/use-companion-view.test.tsx:16 src/hooks/use-cookbook-view.test.tsx:30 src/hooks/use-end-turn.test.tsx:32 src/hooks/use-party-sheet.test.tsx:43 src/hooks/use-table-rolls.test.tsx:297 src/hooks/use-table-view.test.tsx:29 src/hooks/use-transfers.test.tsx:13 src/hooks/use-turn-undo.test.tsx:66
+ago 96634b 7  src/db/effects.test.ts:15 src/db/favorites.test.ts:14 src/db/removals.test.ts:14 src/db/roll-requests.test.ts:51 src/db/transfers.test.ts:19 src/db/wild-shape.test.ts:23 src/utils/roll-requests.test.ts:70
+ago 963f20 5  src/components/notes/chapter-pane.test.tsx:9 src/components/notes/journal-modal.test.tsx:34 src/components/notes/note-card.test.tsx:6 src/components/notes/note-lines.test.tsx:18 src/components/notes/note-pane.test.tsx:18
+ago 4609f7 1  src/utils/campaign-order.test.ts:11
+ago a5b37d 1  src/db/notes.test.ts:29
+ago b988fc 1  src/db/cookbook.test.ts:38
+ago c4fb42 1  src/db/note-sync.test.ts:25
+answering 13b557 1  src/components/character-sheet/character-pane.creature.test.tsx:132
+answering 31e74c 1  src/components/game-table/game-table.removals.test.tsx:131
+answering 35e3b2 1  src/components/character-sheet/action-entry.alone.test.tsx:207
+answering 5adf9c 1  src/components/game-table/game-table.favorites.test.tsx:98
+answering 650e1d 1  src/components/character-sheet/character-pane.test.tsx:259
+answering 703b27 1  src/hooks/use-end-turn.test.tsx:68
+answering 8d3fe0 1  src/components/character-sheet/enchantments.test.tsx:129
+answering dbf9fd 1  src/components/character-sheet/charges.test.tsx:70
+answering faa2bd 1  src/hooks/use-turn-undo.test.tsx:96
+brokenBeforeMount f75a7b 4  src/components/character-sheet/character-sheet.test.tsx:82 src/components/character-sheet/sheet-entry.test.tsx:13 src/components/companions/creature-header.test.tsx:70 src/components/game-table/chat-log.test.tsx:124
+held 867ee2 2  src/app/api/characters/[id]/companions/[companion]/rolls/route.test.ts:28 src/app/api/characters/[id]/companions/[companion]/table/route.test.ts:26
+held ab6ecb 2  src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.test.ts:26 src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.test.ts:23
+held 019486 1  src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.test.ts:20
+held 044530 1  src/utils/roll-requests.test.ts:102
+held 04e5e5 1  src/app/api/characters/[id]/party/[group]/texts/[hash]/route.test.ts:37
+held 3ad5da 1  src/utils/prompts.test.ts:16
+held 4ac9f7 1  src/db/note-sync.test.ts:104
+held 765e09 1  src/app/api/characters/[id]/party/[group]/route.test.ts:31
+held a05a17 1  src/components/transfers/amount-field.test.tsx:18
+held ac2dba 1  src/db/party.test.ts:56
+held b33ff0 1  src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.test.ts:68
+held b4abf8 1  src/lib/companion-routes.test.ts:35
+held b87b23 1  src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.test.ts:23
+held e1abdf 1  src/db/roll-requests.test.ts:132
+held e379ca 1  src/db/wild-shape.test.ts:612
+held e37f5a 1  src/db/companions.test.ts:91
+held e82ed4 1  src/db/notes.test.ts:312
+posted 9e1e04 2  src/hooks/use-end-turn.test.tsx:58 src/hooks/use-turn-undo.test.tsx:86
+posted 197172 1  src/components/transfers/give-controls.test.tsx:135
+posted 3463c4 1  src/hooks/use-table-rolls.test.tsx:249
+posted be998c 1  src/components/game-table/game-table.party.test.tsx:160
+posted d1a153 1  src/components/transfers/take-controls.test.tsx:75
+posts 86a32a 3  src/components/game-table/game-table.favorites.test.tsx:82 src/components/game-table/game-table.removals.test.tsx:104 src/components/transfers/party-controls.test.tsx:75
+posts 46a112 1  src/components/transfers/give-controls.test.tsx:130
+posts aead67 1  src/components/companions/companion-pane.test.tsx:197
+posts cd9cb0 1  src/components/notes/note-editor.test.tsx:690
+reads 3eeb9a 2  src/components/cookbook-card/cookbook-card.test.tsx:67 src/components/cookbook-card/cookbook-entry.test.tsx:31
+reads 72731a 1  src/hooks/use-notes.test.ts:56
+reads 8f73f9 1  src/components/game-table/game-table.notes.test.tsx:137
+reads b7a7c2 1  src/hooks/use-cookbook-view.test.tsx:36
+respond bf476d 15  src/components/cookbook-card/cookbook-card.test.tsx:24 src/components/cookbook-card/cookbook-entry.test.tsx:10 src/components/game-table/game-table.favorites.test.tsx:74 src/components/game-table/game-table.removals.test.tsx:96 src/components/transfers/give-controls.test.tsx:122 src/components/transfers/party-controls.test.tsx:59 src/components/transfers/take-controls.test.tsx:53 src/hooks/use-companion-view.test.tsx:9 src/hooks/use-cookbook-view.test.tsx:23 src/hooks/use-end-turn.test.tsx:25 src/hooks/use-party-sheet.test.tsx:36 src/hooks/use-table-rolls.test.tsx:290 src/hooks/use-table-view.test.tsx:22 src/hooks/use-transfers.test.tsx:6 src/hooks/use-turn-undo.test.tsx:59
+respond eb51c0 3  src/components/game-table/game-table.cookbook.test.tsx:73 src/components/game-table/game-table.notes.test.tsx:100 src/components/game-table/game-table.party.test.tsx:140
+respond 2d5d6b 1  src/components/party-sheet/party-sheet.test.tsx:79
+respond 39cbf4 1  src/app/campaigns/[id]/party/[group]/page.test.tsx:54
+respond 4152c4 1  src/components/character-sheet/sheet-text.test.tsx:12
+respond 5f94cf 1  src/hooks/use-notes.test.ts:20
+settle 2a224f 2  src/components/game-table/end-turn-button.test.tsx:49 src/hooks/use-fullscreen.test.tsx:8
+settle bc637e 1  src/components/cookbook-card/cookbook-entry.test.tsx:65
+spinnersIn 5ea842 1  src/components/transfers/take-controls.test.tsx:86
+spinnersIn 78b818 1  src/components/character-sheet/inventory-tab.test.tsx:982
+spinnersIn cb8c82 1  src/components/transfers/party-controls.test.tsx:67
+wait 56c44a 2  src/components/game-table/turn-toast.test.tsx:123 src/hooks/use-hold.test.ts:106
+wait 16e910 1  src/components/character-sheet/roll-toasts.test.tsx:89

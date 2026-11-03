@@ -1,0 +1,181 @@
+# e2e surface summary (distinct per area)
+area suites roles texts labels css apiPaths
+sheet 21 474 132 5 156 10
+campaigns 2 34 6 4 22 3
+companions 2 55 9 0 53 3
+cookbook 2 26 4 0 16 3
+table 15 271 101 4 145 10
+harness 2 16 0 3 3 1
+party 4 111 47 0 55 15
+notes 5 40 48 3 45 12
+
+# ids read (#id in CSS)
+#sheet-panel  <- companions,effects,favoriting,step2,wildshape
+#creature-panel-  <- companions,companionsaves,wildshape
+#creature-tab-  <- companions,companionsaves,wildshape
+#creature-tab-self  <- endturn,favoriting,wildshape
+#sending-stone-settings  <- gmerr,manualdice,transfers
+#turn-heading  <- companions,endturn,wildshape
+#creature-  <- companions,companionsaves
+#character-pane  <- sheet
+#chat-log  <- cookbook
+#creature-brakka-creature-name  <- companions
+#creature-panel-brakka  <- companions
+#creature-panel-self  <- companions
+#creature-panel-wolf  <- favoriting
+#creature-tab-arena-bat1  <- endturn
+#creature-tab-wolf  <- favoriting
+#creature-wolf-sheet-tab-actions  <- favoriting
+#prompts-heading  <- midi
+
+# data attributes read
+[data-roll-toast]  <- alone,attacks,companions,favoriting,feedback,fullscreen,gmroll,midi,prompts,toasts,typed,wildshape
+[data-campaign="${id}"]  <- campaigns,gm,gmerr
+[data-page-toast]  <- campaigns,gmerr
+[data-roll-toast^="gm:"]  <- feedback,gmroll
+[data-side]  <- alone,companions
+[data-state]  <- campaigns,gmerr
+[data-waits]  <- attacks,toasts
+[data-action="rollCheck"]  <- activities
+[data-action="view"]  <- manualdice
+[data-actor-id="thorin"]  <- manualdice
+[data-campaign-state-label="${id}"]  <- gmerr
+[data-campaign-state="${id}"]  <- gmerr
+[data-campaign-status="${id}"]  <- gmerr
+[data-campaign]  <- campaigns
+[data-filter-list="players"]  <- manualdice
+[data-gm-roll]  <- gmroll
+[data-gm-roll="gm:${areaId}"]  <- gmroll
+[data-gm-roll="gm:${id}"]  <- gmroll
+[data-gm-roll="gm:${offCheck}"]  <- gmroll
+[data-gm-roll="gm:${thorinSave}"]  <- gmroll
+[data-manual-dice]  <- manualdice
+[data-refusal]  <- gmerr
+[data-refusal="wrongSecret"]  <- campaigns
+[data-refusal=malformed]  <- gmerr
+[data-refusal=notSetUp]  <- gmerr
+[data-refusal=wrongSecret]  <- gmerr
+[data-roll-toast="${closedId}"]  <- toasts
+[data-roll-toast="${id}"]  <- toasts
+[data-roll-toast="${marks.id}"]  <- attacks
+[data-roll-toast="${waitingId}"]  <- attacks
+[data-roll-toast="gm:${areaId}"]  <- gmroll
+[data-seats]  <- campaigns
+[data-section="modules"]  <- manualdice
+[data-side="me"]  <- companions
+[data-tooltip]  <- manualdice
+[data-turn-toast]  <- endturn
+[data-turn-toast="taking"]  <- endturn
+
+# api paths named
+/api/bridge/commands  <- activities,attacks,companionsaves,conditions,cookbook,damagecard,effects,favorites,favres,feedback,gmerr,gmroll,links,manualdice,midi,notes,notesorder,organize,phone,prompts,removals,rolling,rolls,step1,step2,step3,toasts,transfers,uses,wildshape,world-030
+/api/characters/sheet-thorin  <- alone,companions,companionsaves,effects,endturn,favoriting,givetake,notes,notesoffline,notesorder,removals,transfers
+/api/characters/sheet-thorin/rolls  <- attacks,feedback,links,midi,rolls,typed,uses
+/api/campaigns/:x/characters/thorin  <- effects,endturn,favoriting,notes
+/api/characters/:x  <- givetake,notes,removals,transfers
+/api/campaigns/:x/characters/:x  <- gmroll,removals,transfers
+/api/campaigns/:x/party/company  <- notesorder,party,partynotes
+/api/characters/sheet-thorin/party/company  <- notesoffline,party,settings
+/api/characters/sheet-thorin/table  <- settings,sheet,typed
+/api/events  <- campaigns,gm,gmerr
+/api/characters/:x/party/company  <- notesoffline,party
+/api/characters/:x/table  <- gmroll,results
+/api/characters/${sql  <- endturn,favoriting
+/api/campaigns/  <- transfers
+/api/campaigns/:x/characters/elowen  <- wildshape
+/api/campaigns/:x/characters/thorin/notes  <- notes
+/api/campaigns/:x/characters/vex/notes  <- notes
+/api/campaigns/:x/characters/vex/rolls  <- feedback
+/api/campaigns/no-such-campaign/characters/thorin/notes  <- notes
+/api/characters/  <- party
+/api/characters/:x/cookbook  <- cookbook
+/api/characters/:x/party/company/texts/:x  <- party
+/api/characters/:x/party/hidden  <- party
+/api/characters/:x/rolls  <- gmroll
+/api/characters/:x/texts/:x  <- party
+/api/characters/sheet-:x/rolls  <- activities
+/api/characters/sheet-elowen  <- wildshape
+/api/characters/sheet-thorin/companions/brakka/table  <- companions
+/api/characters/sheet-thorin/party/company/texts/:x  <- party
+/api/characters/sheet-thorin/party/hidden  <- party
+/api/characters/sheet-thorin/texts/:x  <- party
+/api/cookbook/dishes  <- cookbook-post
+
+# roles+names read by 4+ suites
+tablist 'Character sheet'  <- activities,alone,attacks,companions,companionsaves,cookbook,damagecard,effects,endturn,favorites,favoriting,favres,feedback,fullscreen,givetake,gmroll,manualdice,notes,notesoffline,notesorder,organize,party,partynotes,phone,removals,results,rolling,settings,step1,step2,step3,sync,toasts,transfers,typed,wildshape,world-030
+button 'Done'  <- activities,alone,attacks,campaigns,conditions,cookbook,damagecard,favorites,favres,feedback,gm,gmerr,gmroll,late-setup,layout,links,manualdice,midi,organize,phone,prompts,rolling,rolls,sheet,step1,step2,step3,sync,toasts,typed,uses,world-030
+status  <- activities,alone,attacks,campaigns,companions,cookbook,damagecard,endturn,favorites,favres,feedback,fullscreen,givetake,gm,gmerr,gmroll,links,midi,organize,phone,prompts,rolling,rolls,sheet,step3,sync,toasts,transfers,typed,uses,wildshape
+button 'New campaign'  <- activities,attacks,campaigns,conditions,damagecard,favorites,favres,feedback,gm,gmerr,gmroll,late-setup,layout,links,manualdice,midi,organize,phone,prompts,rolling,rolls,sheet,step1,step2,step3,sync,toasts,uses,world-030
+button 'Set up campaign'  <- activities,attacks,campaigns,conditions,damagecard,favorites,favres,feedback,gm,gmerr,gmroll,late-setup,layout,links,manualdice,midi,organize,phone,prompts,rolling,rolls,sheet,step1,step2,step3,sync,toasts,uses,world-030
+dialog 'New campaign'  <- activities,attacks,campaigns,conditions,damagecard,favorites,favres,feedback,gm,gmerr,gmroll,late-setup,layout,links,manualdice,midi,organize,phone,prompts,rolling,rolls,sheet,step1,step2,step3,sync,toasts,uses,world-030
+tabpanel  <- activities,alone,attacks,cookbook,damagecard,effects,favorites,favoriting,favres,feedback,givetake,gmroll,links,midi,notes,organize,party,partynotes,phone,removals,rolling,step2,step3,sync,toasts,transfers,typed,uses,world-030
+button  <- activities,alone,attacks,companions,cookbook,effects,favres,feedback,givetake,journal-ui,links,midi,notes,organize,party,phone,removals,rolling,rolls,sheet,step1,toasts,transfers,typed,wildshape,world-030
+region 'Your rolls'  <- activities,alone,attacks,companions,damagecard,effects,favorites,favoriting,favres,feedback,gmroll,links,midi,organize,phone,prompts,removals,rolling,rolls,sheet,step1,step3,sync,transfers,typed,uses
+region 'Character'  <- activities,conditions,favorites,favres,feedback,fullscreen,gm,gmroll,manualdice,midi,notes,organize,party,phone,prompts,rolls,sheet,step1,step2,step3,toasts,typed
+listitem  <- activities,alone,attacks,campaigns,companionsaves,cookbook,givetake,gm,gmroll,links,midi,rolling,rolls,step1,step2,toasts,typed,uses,wildshape
+tab  <- activities,alone,companions,companionsaves,endturn,favorites,favres,feedback,midi,notes,partynotes,phone,step1,step2,step3,toasts,wildshape,world-030
+button 'Join as this character'  <- companions,cookbook,endturn,favoriting,feedback,givetake,gm,gmroll,notes,notesoffline,notesorder,party,partynotes,removals,results,transfers,typed
+navigation 'Table'  <- activities,alone,attacks,damagecard,feedback,gm,gmroll,links,midi,phone,prompts,rolling,sheet,toasts,uses,world-030
+button 'Settings'  <- alone,cookbook,effects,endturn,favorites,favoriting,feedback,fullscreen,manualdice,organize,phone,rolls,toasts,typed
+heading  <- conditions,gmerr,gmroll,journal-ui,layout,organize,party,phone,sheet,step1,step2,step3,sync,typed
+radio /^Vex/  <- companions,cookbook,endturn,favoriting,feedback,notes,notesoffline,notesorder,party,partynotes,removals,results,transfers,typed
+dialog  <- activities,alone,cookbook,effects,feedback,fullscreen,givetake,journal-ui,midi,party,partynotes,typed,uses
+log 'Roll results'  <- alone,attacks,companions,favoriting,feedback,fullscreen,midi,prompts,removals,toasts,transfers,typed,wildshape
+menu  <- activities,alone,attacks,effects,favoriting,givetake,links,midi,removals,rolling,typed,uses,world-030
+menuitem  <- activities,alone,attacks,favoriting,feedback,givetake,links,removals,rolling,toasts,typed,uses,wildshape
+article  <- campaigns,companions,cookbook,effects,gmerr,party,settings,sync,transfers,wildshape,world-030
+button 'Close'  <- cookbook,favoriting,fullscreen,givetake,gm,links,party,removals,step1,transfers,wildshape
+dialog 'Settings'  <- alone,endturn,favorites,favoriting,feedback,manualdice,organize,phone,rolls,toasts,typed
+radio  <- activities,givetake,midi,rolls,sheet,theme,toasts,transfers,typed,uses,wildshape
+tab 'Actions'  <- attacks,damagecard,gmroll,links,midi,organize,phone,rolling,step3,toasts,uses
+region 'Favorites'  <- effects,favorites,favoriting,favres,feedback,givetake,removals,rolling,uses,wildshape
+button /^Goblin/  <- activities,alone,attacks,companions,damagecard,rolling,toasts,typed,uses
+button 'Roll damage'  <- alone,attacks,companions,damagecard,rolling,toasts,typed,uses
+button /^Character/  <- activities,damagecard,feedback,gmroll,links,midi,prompts,world-030
+list 'Chat log'  <- activities,alone,companions,damagecard,feedback,gm,links,world-030
+region  <- companionsaves,effects,feedback,organize,step1,step2,step3,sync
+tab 'Inventory'  <- givetake,links,party,rolling,step2,step3,transfers,uses
+alert  <- gm,journal-ui,notes,notesoffline,transfers,typed,wildshape
+article 'Ashlands'  <- attacks,feedback,gmroll,late-setup,prompts,rolls,uses
+button 'Cancel'  <- feedback,givetake,gm,links,removals,transfers,typed
+button /^Chat/  <- alone,damagecard,feedback,gmroll,layout,sheet,world-030
+button /^Perception check/  <- gmroll,prompts,rolls,sheet,transfers,typed,wildshape
+checkbox  <- attacks,companions,feedback,gmroll,rolling,typed,uses
+region 'Your Gamemaster asks'  <- feedback,gmroll,links,midi,prompts,typed,wildshape
+switch 'Send to the table'  <- alone,endturn,favoriting,feedback,manualdice,phone,rolls
+button 'Character'  <- attacks,phone,rolling,sheet,toasts,uses
+button 'Longsword attack, +6'  <- attacks,companions,gmroll,phone,toasts,uses
+button 'Roll'  <- attacks,links,rolls,sheet,typed,uses
+button /^Combat/  <- attacks,companions,feedback,layout,toasts,typed
+button /^Intelligence check/  <- favorites,favres,organize,step2,step3,toasts
+dialog 'Longsword attack'  <- alone,attacks,companions,gmroll,toasts,uses
+dialog 'Modify damage'  <- alone,attacks,links,toasts,typed,uses
+menuitem 'Modify damage…'  <- alone,attacks,links,toasts,typed,uses
+menuitem 'Roll with advantage'  <- favorites,links,rolls,sheet,step3,typed
+region 'Bonus Actions'  <- favorites,favres,rolling,step3,uses,wildshape
+tab 'Character'  <- gmroll,phone,step1,step2,sync,toasts
+tab /^Chat/  <- alone,companions,cookbook,givetake,gm,sheet
+button 'One die more'  <- attacks,links,rolls,typed,uses
+button 'Table'  <- alone,favorites,favoriting,organize,phone
+button /^Roll Dexterity saving throw/  <- companionsaves,gmroll,prompts,typed,wildshape
+complementary 'Favorites'  <- effects,favorites,favoriting,feedback,wildshape
+dialog 'The Iron Company'  <- favoriting,fullscreen,notes,removals,transfers
+group 'Actions layout'  <- alone,favorites,favoriting,organize,phone
+region 'Combat'  <- companions,gm,phone,sheet,toasts
+button 'Cast at 1 target'  <- activities,alone,toasts,uses
+button 'Death saving throw'  <- gmroll,rolls,step2,typed
+button 'Goblin'  <- attacks,gmroll,rolling,uses
+button 'No target'  <- attacks,feedback,rolling,uses
+button /^Your rolls/  <- attacks,favoriting,gmroll,toasts
+dialog 'Your rolls'  <- attacks,favoriting,gmroll,toasts
+link 'All characters'  <- fullscreen,party,phone,toasts
+link 'Your campaigns'  <- campaigns,gmroll,party,toasts
+list  <- favorites,favres,feedback,givetake
+menuitem 'Roll critical damage'  <- alone,links,step3,typed
+menuitem 'Roll maximum damage'  <- alone,links,toasts,typed
+radiogroup 'Roll results'  <- favoriting,rolls,toasts,typed
+region 'Actions'  <- favorites,organize,rolling,uses
+region 'Chat'  <- gm,gmroll,phone,sheet
+switch  <- alone,manualdice,rolls,typed
+tab 'Description'  <- notesoffline,notesorder,party,partynotes
+tab 'Spells'  <- phone,step2,sync,uses
