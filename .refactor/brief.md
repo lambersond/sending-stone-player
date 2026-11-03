@@ -43,7 +43,11 @@ X = /tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v04
 - **E2E environment** (only the steps that run e2e): from APP, `export
   E2E_DATABASE_URL=postgresql://admin:password@localhost:5432/postgres
   SENDING_STONE_MODULE=/home/user/fvtt-sending-stone` (DND5E5_DIR and DND5E6_DIR unset: e2e/env.sh
-  defaults to the module's .cache/dnd5e/release-5.3.3 and release-6.0.5); `mkdir -p e2e/.out`; full
+  defaults to the module's .cache/dnd5e/release-5.3.3 and release-6.0.5); `mkdir -p e2e/.out`. On a
+  fresh machine first (the baseline needed both): `npm run e2e:browsers` (Playwright 1.56.1 wants
+  Chromium build 1194 in /opt/pw-browsers), and the Postgres role of local/docker-compose.yaml
+  (`create role admin with login superuser createdb password 'password'`); the very first pass may
+  build before the lane databases exist (Prisma P1003 in the build log): stop it and start again. Full
   pass `BUILD=1 npm run e2e` under both locks, in the background, waiting on its log; `service
   postgresql start` if Postgres is down; servers stopped only by the scripts. If the disk runs low
   (`df -h /`), clear the jest cache (`npx jest --clearCache`) and old scratch, never repo files.
