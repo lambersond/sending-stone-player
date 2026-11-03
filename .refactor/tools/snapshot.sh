@@ -26,16 +26,32 @@ snap() {
     git -C "$wt" log --oneline "$base..HEAD" >"$out/log.txt" 2>/dev/null
     find "$out" -type f -size 0 -delete
   done
+  # Phase 3: lane branches must not conflict (round.md §2.2.4); each pair merged in memory.
+  local a b res confl=$APP/.refactor/analysis/conflicts.md
+  local branches
+  branches=$(git -C "$APP" for-each-ref --format='%(refname:short)' 'refs/heads/local/043-*')
+  {
+    echo "# Lane branch conflicts ($(date -u +%FT%TZ); git merge-tree, round.md §2.2.4)"
+    echo
+    for a in $branches; do for b in $branches; do
+      [[ "$a" < "$b" ]] || continue
+      if ! res=$(git -C "$APP" merge-tree --write-tree --name-only "$a" "$b" 2>&1); then
+        echo "- **$a × $b**: $(echo "$res" | sed -n '2,20p' | grep -v '^$' | tr '\n' ' ')"
+      fi
+    done; done
+    echo
+    echo "(no line above: no pair conflicts)"
+  } >"$confl"
   (
     cd "$APP" || exit 1
     flock "$X/git.lock" sh -c '
-      git add -A -- .refactor/patches >/dev/null 2>&1
-      if ! git diff --cached --quiet -- .refactor/patches; then
+      git add -A -- .refactor/patches .refactor/analysis/conflicts.md >/dev/null 2>&1
+      if ! git diff --cached --quiet -- .refactor/patches .refactor/analysis/conflicts.md; then
         printf "%s\n\n%s\n\n%s\n%s\n" "chore(refactor): builders work in progress (snapshot)" \
           "Unlanded commits and uncommitted work of each builder worktree, saved against a container reset." \
           "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" \
           "Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR" >"'"$X"'/snap-msg.txt"
-        git commit -q -F "'"$X"'/snap-msg.txt" -- .refactor/patches &&
+        git commit -q -F "'"$X"'/snap-msg.txt" -- .refactor/patches .refactor/analysis/conflicts.md &&
           for d in 2 4 8 16; do git push -q -u origin '"$BR"' && break; sleep $d; done
       fi'
   )
