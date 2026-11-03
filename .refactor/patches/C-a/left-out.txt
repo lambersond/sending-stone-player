@@ -1,1 +1,0 @@
-src/__tests__/golden/__snapshots__/markup.golden.test.tsx.snap

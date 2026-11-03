@@ -1,0 +1,1 @@
+eb533bd test: characterization goldens for wire, composition, routes and refusals

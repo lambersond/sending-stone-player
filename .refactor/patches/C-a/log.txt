@@ -1,1 +1,2 @@
+70d81a6 test: characterization goldens for markup, words, storage and dice draws
 b6a773c chore(refactor): e2e surface extended

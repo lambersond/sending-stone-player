@@ -1,9 +1,9 @@
 diff --git a/.refactor/tools/export-move.cjs b/.refactor/tools/export-move.cjs
 new file mode 100644
-index 0000000..53c6d86
+index 0000000..f72f133
 --- /dev/null
 +++ b/.refactor/tools/export-move.cjs
-@@ -0,0 +1,1451 @@
+@@ -0,0 +1,1497 @@
 +#!/usr/bin/env node
 +'use strict'
 +/*
@@ -811,8 +811,10 @@ index 0000000..53c6d86
 +
 +  const dImports = new ImportSet()
 +  const dExists = p.exists(D)
-+  for (const [sym, [typeOnlyUse, declNode]] of usage.oldImportsNeededByTargetFile) {
++  const importKinds = typeOnlyUses(ts, checker, moved, new Set(usage.oldImportsNeededByTargetFile.keys()))
++  for (const [sym, [last, declNode]] of usage.oldImportsNeededByTargetFile) {
 +    if (!declNode) continue
++    const typeOnlyUse = importKinds.get(sym) ?? last
 +    const imp = ts.findAncestor(declNode, ts.isImportDeclaration)
 +    if (!imp) throw new Error(`export-move: ${sym.name} comes from a non-import in ${p.rel(S)}`)
 +    const spec = imp.moduleSpecifier.text
@@ -931,6 +933,7 @@ index 0000000..53c6d86
 +
 +  // 6. Importers, import types and mocks everywhere else.
 +  const stale = []
++  const reexports = new Map() // a module that re-exported moved names → exported name → moved name
 +  program = p.program()
 +  for (const f of [...p.names]) {
 +    if (f === S) continue
@@ -968,10 +971,15 @@ index 0000000..53c6d86
 +        }
 +        if (!go.length) continue
 +        if (ts.isExportDeclaration(decl)) {
-+          const t = declText(ts, fsf, decl, keep)
-+          const add = `export ${decl.isTypeOnly ? 'type ' : ''}{ ${go.join(', ')} } from '${dSpec()}'`
-+          fEdits.push(Object.assign([decl.getStart(fsf), decl.end, (t ? t + '\n' : '') + add], { decl }))
-+          notes.push(`${p.rel(f)}: re-exports a moved name (gate 7)`)
++          // A re-export of a moved name goes (gate 7): its importers import it from the
++          // destination instead (below), as importers through a barrel do in commit 5.
++          fEdits.push(Object.assign(declEdit(fsf, decl, declText(ts, fsf, decl, keep)), { decl }))
++          if (!reexports.has(f)) reexports.set(f, new Map())
++          for (const el of nb.elements) {
++            const name = (el.propertyName ?? el.name).text
++            if (askedOld.has(name)) reexports.get(f).set(el.name.text, askedOld.get(name))
++          }
++          notes.push(`${p.rel(f)}: its re-export of ${go.join(', ')} dropped; their importers import ${p.rel(D)}`)
 +        } else {
 +          fEdits.push(Object.assign(declEdit(fsf, decl, declText(ts, fsf, decl, keep)), { decl }))
 +          for (const t of go) {
@@ -1054,6 +1062,42 @@ index 0000000..53c6d86
 +    p.write(f, applyEdits(fsf.text, dedupeEdits(fEdits)))
 +  }
 +
++  // Importers of a dropped re-export import those names from the destination.
++  if (reexports.size) {
++    program = p.program()
++    for (const f of [...p.names]) {
++      const fsf = program.getSourceFile(f)
++      if (!fsf) continue
++      const fEdits = []
++      const fImports = new ImportSet()
++      for (const { literal, decl } of importLiterals(ts, fsf)) {
++        const via = reexports.get(p.resolve(literal.text, f))
++        if (!via || !decl || !ts.isImportDeclaration(decl) || f === D) continue
++        const nb = decl.importClause && decl.importClause.namedBindings
++        if (!nb || !ts.isNamedImports(nb)) continue
++        const keep = []
++        const go = []
++        for (const el of nb.elements) {
++          const name = (el.propertyName ?? el.name).text
++          if (!via.has(name)) {
++            keep.push(el.getText(fsf))
++            continue
++          }
++          const to = via.get(name)
++          const local = el.name.text
++          const typeOnly = decl.importClause.isTypeOnly || el.isTypeOnly
++          go.push([typeOnly, to === local ? local : `${to} as ${local}`])
++        }
++        if (!go.length) continue
++        fEdits.push(Object.assign(declEdit(fsf, decl, declText(ts, fsf, decl, keep)), { decl }))
++        for (const [typeOnly, t] of go) fImports.add(p.spec(f, D, literal.text), typeOnly ? 'type' : 'value', t)
++      }
++      if (!fEdits.length) continue
++      fEdits.push(...importEdits(p, fsf, fImports, fEdits))
++      p.write(f, applyEdits(fsf.text, dedupeEdits(fEdits)))
++    }
++  }
++
 +  // A source left with nothing but directives and imports goes (unicorn/no-empty-file), when nothing
 +  // names it any more.
 +  let removed = false
@@ -1089,9 +1133,11 @@ index 0000000..53c6d86
 +}
 +
 +/**
-+ * Whether each of `symbols` is read only in type positions within `statements` (every reference ANDed:
-+ * getUsageInfo's own targetFileImportsFromOldFile and oldFileImportsFromTargetFile keep the last
-+ * reference's answer, which reads a value used once as a type, last, as type-only).
++ * Whether each of `symbols` is read only in type positions within `statements`, every reference
++ * ANDed. TypeScript 5.9's getUsageInfo keeps the last reference's answer in all three of its maps
++ * (oldImportsNeededByTargetFile ANDs with the [flag, declaration] pair it stored, always truthy), so
++ * a value whose last use is `typeof X` reads as type-only: an `import type` of a value, which tsc
++ * refuses and jest's transform drops (CHECK_TYPES, LAYOUTS in the dry run).
 + */
 +function typeOnlyUses(ts, checker, statements, symbols) {
 +  const out = new Map()
