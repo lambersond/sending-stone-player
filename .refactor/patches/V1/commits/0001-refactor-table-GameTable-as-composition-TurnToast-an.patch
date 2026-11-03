@@ -1,8 +1,8 @@
 From 265955a89c22649e7c08e513143934116484e417 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 19:25:15 +0000
-Subject: [PATCH] refactor(table): GameTable as composition, TurnToast and the
- tracker split, End Turn hooks, chat by kind
+Subject: [PATCH 1/2] refactor(table): GameTable as composition, TurnToast and
+ the tracker split, End Turn hooks, chat by kind
 
 The table feature (V1, Phase 3; round.md R1.5.2-R1.5.11). Types out of the
 .tsx files into src/features/table/types.ts (EndTurnState and UndoState name

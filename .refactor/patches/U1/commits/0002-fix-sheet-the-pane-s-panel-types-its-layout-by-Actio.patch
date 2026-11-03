@@ -1,7 +1,7 @@
 From f3c0010d1f80b178eb565807215904334a314ba2 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 20:14:16 +0000
-Subject: [PATCH 2/2] fix(sheet): the pane's panel types its layout by
+Subject: [PATCH 2/3] fix(sheet): the pane's panel types its layout by
  ActionsLayout, not the layouts' constants
 
 sheet-panel.tsx typed its `layout` prop with `Layout` from actions-layout/constants.ts, an

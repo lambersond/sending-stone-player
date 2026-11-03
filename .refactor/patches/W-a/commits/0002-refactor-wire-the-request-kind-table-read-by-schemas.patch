@@ -1,7 +1,7 @@
 From c7e36bff6d93fd383aba8770d95282be06669233 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 20:39:57 +0000
-Subject: [PATCH 2/2] refactor(wire): the request-kind table read by schemas
+Subject: [PATCH 2/3] refactor(wire): the request-kind table read by schemas
  and constants; rollRequestSchema's rules by group
 
 R1.4.4 (W-a's part): rollRequestSchema reads ROLL_KIND_INFO in place of its own lists: the

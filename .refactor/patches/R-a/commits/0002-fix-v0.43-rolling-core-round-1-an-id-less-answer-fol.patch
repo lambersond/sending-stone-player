@@ -1,0 +1,273 @@
+From e95fdf3cdfd76abe93bd347a3da348552057f2c7 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 21:49:10 +0000
+Subject: [PATCH 2/2] fix: v0.43 rolling core, round 1 (an id-less answer
+ followed as before; logAsk on keep; no new named type)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RA-1: src/utils/lifecycle.ts's `post` now answers `{ id }` or nothing, so `follow` stops only where
+the app didn't take the roll or couldn't be reached. A 202 whose body has no id is followed as the
+base followed it again: `taken` hears undefined, the page asks after /rolls/undefined, and is told
+`lost` once FOLLOW_FOR is up. Commit 15 had stopped there at once, so the roll stayed sending. The
+real server always answers an id (seat-routes.ts:144). The review's differential harness, with
+202 answers of {}, 0, 5, '' and { id: '' } added: 4,000 scenarios against a2332a2's follow, 0
+diffs; at commit 15's follow, 1,026.
+
+RA-2: logAsk keeps through the hook's private `keep`, so all nine log* share it, as R1.2.7 says.
+`keep(kind, fields, at?)` takes the kind, which begins the id too (use-…, ask-…); the id's
+Date.now() and ++uses, then `at`, in the same order, and the same key order (kind, id, the
+fields, at). The eight `use` callers name their kind. Commit 15's message says nine; it was eight.
+
+RA-3: src/utils/damage-modifiers.ts's FormulaScan type (new in commit 15) is gone: groupsOf's
+scan is inferred, and readBracket and readSign each name the fields they read and write. Part
+and FormulaGroup stay file-private, as at the base (a Phase 4 item).
+
+L1 on this tree: jest, typegen and tsc, eslint and gates 1-12 all ok; next build ok.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .../rolling/hooks/use-sheet-roller.ts         | 53 ++++++++++---------
+ src/utils/damage-modifiers.ts                 | 34 +++++-------
+ src/utils/lifecycle.ts                        | 14 ++---
+ 3 files changed, 48 insertions(+), 53 deletions(-)
+
+diff --git a/src/features/rolling/hooks/use-sheet-roller.ts b/src/features/rolling/hooks/use-sheet-roller.ts
+index e0e17f3..6c43ad9 100644
+--- a/src/features/rolling/hooks/use-sheet-roller.ts
++++ b/src/features/rolling/hooks/use-sheet-roller.ts
+@@ -530,16 +530,24 @@ export function useSheetRoller(
+     [land, onFormulaThrown, enter, typedRolls],
+   )
+ 
+-  // Keeps what was done that throws no dice, first among the rolls, as a use: a spell or feature
+-  // used, and the rest as one is, each by an id of its own, at when it was done, now unless said.
++  // Keeps what was done that throws no dice, first among the rolls, as its kind: a use (a spell or
++  // feature used, and the rest as one is), or the table asked; each by an id of its own that its
++  // kind begins, at when it was done, now unless said.
+   const keep = useCallback(
+-    (fields: Omit<LocalUse, 'kind' | 'id' | 'at'>, at?: number): LocalUse => {
+-      const kept: LocalUse = {
+-        kind: 'use',
+-        id: `use-${Date.now()}-${++uses}`,
++    <Kind extends 'use' | 'ask'>(
++      kind: Kind,
++      fields: Omit<
++        Extract<LocalUse | LocalAsk, { kind: Kind }>,
++        'kind' | 'id' | 'at'
++      >,
++      at?: number,
++    ) => {
++      const kept = {
++        kind,
++        id: `${kind}-${Date.now()}-${++uses}`,
+         ...fields,
+         at: at ?? Date.now(),
+-      }
++      } as Extract<LocalUse | LocalAsk, { kind: Kind }>
+       setRolls(earlier => keeping(earlier, kept))
+       return kept
+     },
+@@ -549,13 +557,14 @@ export function useSheetRoller(
+   // Keeps a spell or feature used, first among the rolls.
+   const logUse = useCallback(
+     (label: string, spell: boolean, itemCast?: boolean): LocalUse =>
+-      keep({ label, spell, ...(itemCast && { itemCast }) }),
++      keep('use', { label, spell, ...(itemCast && { itemCast }) }),
+     [keep],
+   )
+ 
+   // Keeps an enchantment ended, first among the rolls, as a use is.
+   const logEnd = useCallback(
+-    (label: string): LocalUse => keep({ label, spell: false, ending: true }),
++    (label: string): LocalUse =>
++      keep('use', { label, spell: false, ending: true }),
+     [keep],
+   )
+ 
+@@ -566,7 +575,7 @@ export function useSheetRoller(
+       label: string,
+       change: Pick<LocalUse, 'spent' | 'inspiration' | 'slot'>,
+     ): LocalUse =>
+-      keep({
++      keep('use', {
+         label,
+         spell: false,
+         ...(change.spent !== undefined && { spent: change.spent }),
+@@ -579,21 +588,21 @@ export function useSheetRoller(
+   // Keeps items or coins moved, from module 0.31.0, first among the rolls, as a use is.
+   const logMove = useCallback(
+     (move: LocalMove): LocalUse =>
+-      keep({ label: move.things, spell: false, move }),
++      keep('use', { label: move.things, spell: false, move }),
+     [keep],
+   )
+ 
+   // Keeps a favorite added or removed, from module 0.37.0, first among the rolls, as a use is.
+   const logFavorite = useCallback(
+     (label: string, op: 'add' | 'remove'): LocalUse =>
+-      keep({ label, spell: false, favorite: op }),
++      keep('use', { label, spell: false, favorite: op }),
+     [keep],
+   )
+ 
+   // Keeps a spell prepared or unprepared, from module 0.42.1, first among the rolls, as a use is.
+   const logPrepare = useCallback(
+     (label: string, op: PrepareOp): LocalUse =>
+-      keep({ label, spell: false, prepare: op }),
++      keep('use', { label, spell: false, prepare: op }),
+     [keep],
+   )
+ 
+@@ -603,28 +612,22 @@ export function useSheetRoller(
+   // that it's kept beneath it, the roll still the latest.
+   const logEffect = useCallback(
+     (label: string, op: EffectOp, at = Date.now()): LocalUse =>
+-      keep({ label, spell: false, effect: op }, at),
++      keep('use', { label, spell: false, effect: op }, at),
+     [keep],
+   )
+ 
+   // Keeps Wild Shape used from here, from module 0.40.0, first among the rolls, as a use is.
+   const logWildShape = useCallback(
+     (wildShape: WildShapeLogged): LocalUse =>
+-      keep({ label: 'Wild Shape', spell: false, wildShape }),
++      keep('use', { label: 'Wild Shape', spell: false, wildShape }),
+     [keep],
+   )
+ 
+   // Keeps the table asked for a saving throw or check, first among the rolls.
+-  const logAsk = useCallback((label: string): LocalAsk => {
+-    const asked: LocalAsk = {
+-      kind: 'ask',
+-      id: `ask-${Date.now()}-${++uses}`,
+-      label,
+-      at: Date.now(),
+-    }
+-    setRolls(earlier => keeping(earlier, asked))
+-    return asked
+-  }, [])
++  const logAsk = useCallback(
++    (label: string): LocalAsk => keep('ask', { label }),
++    [keep],
++  )
+ 
+   return {
+     roll,
+diff --git a/src/utils/damage-modifiers.ts b/src/utils/damage-modifiers.ts
+index 4fa38df..547523e 100644
+--- a/src/utils/damage-modifiers.ts
++++ b/src/utils/damage-modifiers.ts
+@@ -230,19 +230,6 @@ export function diceTakenAway(damage: DamagePreview): boolean {
+ /** A group of a formula's terms, as dnd5e reads their signs: its own text, what's in brackets. */
+ type FormulaGroup = { negative: boolean; own: string; within: string[] }
+ 
+-/**
+- * A formula read so far, one character at a time: its groups, the group being read, how deep
+- * within brackets, what's within the brackets being read, and the last character read that isn't
+- * a space, as a sign after a term parts two groups.
+- */
+-type FormulaScan = {
+-  group: FormulaGroup
+-  groups: FormulaGroup[]
+-  depth: number
+-  inner: string
+-  before: string
+-}
+-
+ /**
+  * Does a roll's formula take a die away, read as it's written, for damage whose dice the game
+  * can't say beforehand: where a die is in a group of terms that comes out negative, as dnd5e reads
+@@ -278,13 +265,10 @@ function groupTakesAway(text: string, negative: boolean): boolean {
+  */
+ function groupsOf(text: string): FormulaGroup[] {
+   const group: FormulaGroup = { negative: false, own: '', within: [] }
+-  const scan: FormulaScan = {
+-    group,
+-    groups: [group],
+-    depth: 0,
+-    inner: '',
+-    before: '',
+-  }
++  // The formula read so far: its groups, the group being read, how deep within brackets, what's
++  // within the brackets being read, and the last character read that isn't a space, as a sign
++  // after a term parts two groups.
++  const scan = { group, groups: [group], depth: 0, inner: '', before: '' }
+   for (const char of text) {
+     if ('({)}'.includes(char) || scan.depth > 0) readBracket(scan, char)
+     else readSign(scan, char)
+@@ -294,7 +278,10 @@ function groupsOf(text: string): FormulaGroup[] {
+ }
+ 
+ /** A bracket, or what's within brackets, read: each pair's text kept with its group. */
+-function readBracket(scan: FormulaScan, char: string) {
++function readBracket(
++  scan: { group: FormulaGroup; depth: number; inner: string },
++  char: string,
++) {
+   if ('({'.includes(char)) {
+     if (scan.depth++ > 0) scan.inner += char
+   } else if (')}'.includes(char)) {
+@@ -313,7 +300,10 @@ function readBracket(scan: FormulaScan, char: string) {
+  * A character outside brackets read: a sign after a term, or a function's comma, parts two groups;
+  * a `-` before a term turns its group over; anything else is the group's own.
+  */
+-function readSign(scan: FormulaScan, char: string) {
++function readSign(
++  scan: { group: FormulaGroup; groups: FormulaGroup[]; before: string },
++  char: string,
++) {
+   if ('+-,'.includes(char)) {
+     if (char === ',' || /[\w.)}]/.test(scan.before)) {
+       scan.group = { negative: char === '-', own: '', within: [] }
+diff --git a/src/utils/lifecycle.ts b/src/utils/lifecycle.ts
+index 3616f1f..4f80fa2 100644
+--- a/src/utils/lifecycle.ts
++++ b/src/utils/lifecycle.ts
+@@ -39,8 +39,9 @@ export async function follow(
+   update: (state: TableRollState) => void,
+   taken: (id: string) => void,
+ ) {
+-  const id = await post(api, input, signal, update, taken)
+-  if (id === undefined) return
++  const sent = await post(api, input, signal, update, taken)
++  if (!sent) return
++  const { id } = sent
+   let until = Date.now() + FOLLOW_FOR
+   let late = false
+   while (Date.now() < until) {
+@@ -59,8 +60,9 @@ export async function follow(
+ }
+ 
+ /**
+- * Send a roll to the game: the id the app took it under, told to `taken` too; or, where the app
+- * didn't take it, or couldn't be reached, nothing, with why told to `update`.
++ * Send a roll to the game: the id the app took it under, as its answer gives it, told to
++ * `taken` too; or, where the app didn't take it, or couldn't be reached, nothing, with why told
++ * to `update`.
+  */
+ async function post(
+   api: string,
+@@ -68,7 +70,7 @@ async function post(
+   signal: AbortSignal,
+   update: (state: TableRollState) => void,
+   taken: (id: string) => void,
+-): Promise<string | undefined> {
++): Promise<{ id: string } | undefined> {
+   try {
+     const response = await fetch(`${api}/rolls`, {
+       method: 'POST',
+@@ -82,7 +84,7 @@ async function post(
+     }
+     const { id } = (await response.json()) as { id: string }
+     taken(id)
+-    return id
++    return { id }
+   } catch {
+     update({ status: 'refused', reason: 'network' })
+     return
+-- 
+2.43.0
+

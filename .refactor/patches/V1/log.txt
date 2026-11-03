@@ -1,1 +1,2 @@
+06660ec fix: v0.43 table, round 1 (named types; file-private helpers; toast types and places colocated)
 265955a refactor(table): GameTable as composition, TurnToast and the tracker split, End Turn hooks, chat by kind

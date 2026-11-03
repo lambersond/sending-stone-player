@@ -1,0 +1,250 @@
+From 1649abfaba354ee07c13d33d6f7b0b2d815ffa74 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 21:58:33 +0000
+Subject: [PATCH 3/3] fix: v0.43 sheet wiring, round 1 (roll and link actions
+ as plain builders; settle types in the hooks' types.ts)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The review of commit 17 (U1-m2): the pane's useRollActions and useDescriptionLinks call no React
+hook; they build per-render closures, as the pane did inline. CLAUDE.md §3 asks for no hook where
+React isn't needed, so they are plain functions now: rollActions (character-pane/roll-actions.ts)
+and linkActions (character-pane/link-actions.ts, named apart from the DescriptionLinks component
+and utils/description-links). Same arguments, same object, same call places in RollingSheet; no
+React Compiler is configured, so nothing compiles differently.
+
+U1-m4: Settling, SettleOptions, Settle and Spending are read only by src/features/sheet/hooks
+(use-settle, use-spent-set, use-spent-removals), so they move from the feature's types.ts to
+src/features/sheet/hooks/types.ts (§1.0 rule 3, the narrowest folder). Type-only; the feature's
+types.ts keeps Belonging.
+
+No string, request, id, attribute or effect order changes; eslint over the changed files prints
+nothing; L0 and L1 as the report says.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .../character-pane/character-pane.tsx         |  8 ++---
+ ...e-description-links.ts => link-actions.ts} |  2 +-
+ .../{use-roll-actions.ts => roll-actions.ts}  |  2 +-
+ .../sheet/components/character-pane/types.ts  |  2 +-
+ src/features/sheet/hooks/types.ts             | 34 ++++++++++++++++++
+ src/features/sheet/hooks/use-settle.ts        |  2 +-
+ .../sheet/hooks/use-spent-removals.ts         |  2 +-
+ src/features/sheet/hooks/use-spent-set.ts     |  2 +-
+ src/features/sheet/types.ts                   | 35 -------------------
+ 9 files changed, 44 insertions(+), 45 deletions(-)
+ rename src/features/sheet/components/character-pane/{use-description-links.ts => link-actions.ts} (98%)
+ rename src/features/sheet/components/character-pane/{use-roll-actions.ts => roll-actions.ts} (99%)
+ create mode 100644 src/features/sheet/hooks/types.ts
+
+diff --git a/src/features/sheet/components/character-pane/character-pane.tsx b/src/features/sheet/components/character-pane/character-pane.tsx
+index 5aafeea..6f0683e 100644
+--- a/src/features/sheet/components/character-pane/character-pane.tsx
++++ b/src/features/sheet/components/character-pane/character-pane.tsx
+@@ -16,11 +16,12 @@ import { ALONE_SPEND_KEY } from '../use-picker/constants'
+ import { UsePicker } from '../use-picker/use-picker'
+ import { useWildShape } from '../wild-shape/use-wild-shape'
+ import { WildShapeRibbon } from '../wild-shape/wild-shape'
++import { linkActions } from './link-actions'
+ import { PaneContext } from './pane-context'
++import { rollActions } from './roll-actions'
+ import { SheetContext } from './sheet-context'
+ import { SheetPanel } from './sheet-panel'
+ import { SheetTabs } from './sheet-tabs'
+-import { useDescriptionLinks } from './use-description-links'
+ import { useDueDamage } from './use-due-damage'
+ import { useFavoritesLayout } from './use-favorites-layout'
+ import { useGiveRemove } from './use-give-remove'
+@@ -29,7 +30,6 @@ import { usePaneLock } from './use-pane-lock'
+ import { usePaneStatus } from './use-pane-status'
+ import { usePicking } from './use-picking'
+ import { usePromptAnswers } from './use-prompt-answers'
+-import { useRollActions } from './use-roll-actions'
+ import { useSheetTabs } from './use-sheet-tabs'
+ import { useTrayTriggers } from './use-tray-triggers'
+ import { useTypedRolls } from './use-typed-rolls'
+@@ -245,7 +245,7 @@ function RollingSheet({
+     paneShown,
+   })
+   // What the tabs and the favorites roll and use, once for all of them.
+-  const actions = useRollActions({
++  const actions = rollActions({
+     table,
+     roller,
+     picking,
+@@ -276,7 +276,7 @@ function RollingSheet({
+   }
+   // What the links in descriptions do, on every tab, favorite and dialog: each roll they make,
+   // and the table asked, shows in the tray, whichever tab it's on.
+-  const descriptions = useDescriptionLinks({
++  const descriptions = linkActions({
+     table,
+     roller,
+     onRoll: actions.onRoll,
+diff --git a/src/features/sheet/components/character-pane/use-description-links.ts b/src/features/sheet/components/character-pane/link-actions.ts
+similarity index 98%
+rename from src/features/sheet/components/character-pane/use-description-links.ts
+rename to src/features/sheet/components/character-pane/link-actions.ts
+index 31059ef..b58d923 100644
+--- a/src/features/sheet/components/character-pane/use-description-links.ts
++++ b/src/features/sheet/components/character-pane/link-actions.ts
+@@ -14,7 +14,7 @@ import type { TableSheet } from '@/types/table'
+  * @param onRoll - A roll as the pane makes it, an attack picked at first.
+  * @param rollsToTable - The rolls the game takes now.
+  */
+-export function useDescriptionLinks({
++export function linkActions({
+   table,
+   roller: { rollDamage, rollFormula, logAsk },
+   onRoll,
+diff --git a/src/features/sheet/components/character-pane/use-roll-actions.ts b/src/features/sheet/components/character-pane/roll-actions.ts
+similarity index 99%
+rename from src/features/sheet/components/character-pane/use-roll-actions.ts
+rename to src/features/sheet/components/character-pane/roll-actions.ts
+index 05e4cd5..2a4de8d 100644
+--- a/src/features/sheet/components/character-pane/use-roll-actions.ts
++++ b/src/features/sheet/components/character-pane/roll-actions.ts
+@@ -28,7 +28,7 @@ import type { TableCombat, TableSheet } from '@/types/table'
+  * @param picking - The picker: `ask` opens it where there's anything to pick, saying whether it
+  *   did.
+  */
+-export function useRollActions({
++export function rollActions({
+   table,
+   roller: { roll, rollFormula },
+   picking: { ask, makeUse, pickAlone },
+diff --git a/src/features/sheet/components/character-pane/types.ts b/src/features/sheet/components/character-pane/types.ts
+index 405bd68..4d29afd 100644
+--- a/src/features/sheet/components/character-pane/types.ts
++++ b/src/features/sheet/components/character-pane/types.ts
+@@ -195,7 +195,7 @@ export type SheetTab =
+ /** One of the sheet's tabs as its row shows it: its name and icon. */
+ export type TabEntry = { id: SheetTab; label: string; icon: LucideIcon }
+ 
+-/** What the pane's tabs and favorites roll and use (`useRollActions`), once for all of them. */
++/** What the pane's tabs and favorites roll and use (`rollActions`), once for all of them. */
+ export type PaneActions = {
+   onRoll: (request: SheetRoll) => void
+   onRollDamage: (request: SheetDamageRoll) => void
+diff --git a/src/features/sheet/hooks/types.ts b/src/features/sheet/hooks/types.ts
+new file mode 100644
+index 0000000..81a2884
+--- /dev/null
++++ b/src/features/sheet/hooks/types.ts
+@@ -0,0 +1,34 @@
++import type { OfferSpend, TableRollState } from '@/types/roll'
++
++/** What a settle follows of a command sent from a pane: its line's local id, at least. */
++export type Settling = { id: string }
++
++/**
++ * How a pane's command waits for the game (`useSettle`): what's said of one whose way isn't yet
++ * heard of, `'waiting'` as on its way, or `'idle'` as not sent; and whether the sheet says what
++ * the game made of one made.
++ */
++export type SettleOptions<T extends Settling> = {
++  states: ReadonlyMap<string, TableRollState>
++  /** How long after its send a command is waited for, at most, once its way is heard of. */
++  settleMs: number
++  missing: 'waiting' | 'idle'
++  agrees: (sent: T, state: TableRollState) => boolean
++}
++
++/** A pane's commands, by what each is for, and whether each waits for the game. */
++export type Settle<T extends Settling> = {
++  /** Keeps the command sent for a key, and settles it `settleMs` from now. */
++  sent: (key: string, sent: T) => void
++  /** The last command sent for a key. */
++  last: (key: string) => T | undefined
++  /** Whether a command waits: on its way, or made and not yet as the sheet says, until settled. */
++  waitingOf: (sent: T | undefined) => boolean
++  /** Settles a command now, by its local id, as one made and handled. */
++  settleNow: (id: string) => void
++  /** Waits for a command again, by its local id, as afresh from now. */
++  unsettle: (id: string) => void
++}
++
++/** A roll a die offered was added to: what adding it spent, and when the roll was made. */
++export type Spending = { spends: readonly OfferSpend[]; at: number }
+diff --git a/src/features/sheet/hooks/use-settle.ts b/src/features/sheet/hooks/use-settle.ts
+index 7067bd5..a92d11b 100644
+--- a/src/features/sheet/hooks/use-settle.ts
++++ b/src/features/sheet/hooks/use-settle.ts
+@@ -1,6 +1,6 @@
+ import { useCallback, useEffect, useRef, useState } from 'react'
+ import { onItsWay } from '@/utils/lifecycle'
+-import type { Settle, SettleOptions, Settling } from '../types'
++import type { Settle, SettleOptions, Settling } from './types'
+ 
+ /**
+  * How a pane's commands to the game wait, one kept for each key, as a favorite's, a spell's, an
+diff --git a/src/features/sheet/hooks/use-spent-removals.ts b/src/features/sheet/hooks/use-spent-removals.ts
+index 71ed268..5671586 100644
+--- a/src/features/sheet/hooks/use-spent-removals.ts
++++ b/src/features/sheet/hooks/use-spent-removals.ts
+@@ -1,5 +1,5 @@
+ import { useLayoutEffect, useRef, type RefObject } from 'react'
+-import type { Spending } from '../types'
++import type { Spending } from './types'
+ import type { Effects } from '@/features/sheet/components/effect-controls/types'
+ import type { LocalRoll, TableRollState } from '@/types/roll'
+ 
+diff --git a/src/features/sheet/hooks/use-spent-set.ts b/src/features/sheet/hooks/use-spent-set.ts
+index 7404f52..45307f5 100644
+--- a/src/features/sheet/hooks/use-spent-set.ts
++++ b/src/features/sheet/hooks/use-spent-set.ts
+@@ -1,6 +1,6 @@
+ import { useLayoutEffect, useRef, type RefObject } from 'react'
+ import { NOT_MADE } from '@/constants/lifecycle'
+-import type { Spending } from '../types'
++import type { Spending } from './types'
+ import type { Effects } from '@/features/sheet/components/effect-controls/types'
+ import type { LocalRoll, TableRollState } from '@/types/roll'
+ 
+diff --git a/src/features/sheet/types.ts b/src/features/sheet/types.ts
+index 289af01..3305cdb 100644
+--- a/src/features/sheet/types.ts
++++ b/src/features/sheet/types.ts
+@@ -1,37 +1,2 @@
+-import type { OfferSpend, TableRollState } from '@/types/roll'
+-
+ /** Something of the character's an enchantment may be put on, as the sheet lists it. */
+ export type Belonging = { name: string; img: string | null }
+-
+-/** What a settle follows of a command sent from a pane: its line's local id, at least. */
+-export type Settling = { id: string }
+-
+-/**
+- * How a pane's command waits for the game (`useSettle`): what's said of one whose way isn't yet
+- * heard of, `'waiting'` as on its way, or `'idle'` as not sent; and whether the sheet says what
+- * the game made of one made.
+- */
+-export type SettleOptions<T extends Settling> = {
+-  states: ReadonlyMap<string, TableRollState>
+-  /** How long after its send a command is waited for, at most, once its way is heard of. */
+-  settleMs: number
+-  missing: 'waiting' | 'idle'
+-  agrees: (sent: T, state: TableRollState) => boolean
+-}
+-
+-/** A pane's commands, by what each is for, and whether each waits for the game. */
+-export type Settle<T extends Settling> = {
+-  /** Keeps the command sent for a key, and settles it `settleMs` from now. */
+-  sent: (key: string, sent: T) => void
+-  /** The last command sent for a key. */
+-  last: (key: string) => T | undefined
+-  /** Whether a command waits: on its way, or made and not yet as the sheet says, until settled. */
+-  waitingOf: (sent: T | undefined) => boolean
+-  /** Settles a command now, by its local id, as one made and handled. */
+-  settleNow: (id: string) => void
+-  /** Waits for a command again, by its local id, as afresh from now. */
+-  unsettle: (id: string) => void
+-}
+-
+-/** A roll a die offered was added to: what adding it spent, and when the roll was made. */
+-export type Spending = { spends: readonly OfferSpend[]; at: number }
+-- 
+2.43.0
+

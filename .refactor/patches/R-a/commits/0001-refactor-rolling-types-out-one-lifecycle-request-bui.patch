@@ -1,7 +1,7 @@
 From 896cf1e45f0db3b44f631e086d2376cc782bfa8c Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 19:31:31 +0000
-Subject: [PATCH] refactor(rolling): types out, one lifecycle, request
+Subject: [PATCH 1/2] refactor(rolling): types out, one lifecycle, request
  builders, state reducer, GM rolls, roller split, dice parsers
 
 The rolling core, R-a's lane (round.md R1.2.1-R1.2.7, R1.2.12a, R1.2.13). The rolling area's named

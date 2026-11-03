@@ -1,0 +1,126 @@
+From b6245a7f63e17c80993ed014920dc67777b624e7 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 22:03:10 +0000
+Subject: [PATCH 3/3] fix: v0.43 wire and checks, round 1 (src/types' last
+ cycle gone; typedRules reads the kind table)
+
+Commits 12 and 13's review (W-a-1, W-a-3). src/types/{party,roll,sending-stone,table} were still
+one cycle group (amendment 1 (c), R1.4.9b). Its two closing edges go without moving a name:
+FavoriteEntry's `target` is written out in src/types/sending-stone.ts and src/types/roll.ts's
+FavoriteTarget reads it there (`NonNullable<FavoriteEntry['target']>`); EffectAsk is written
+`{ type: 'save' | 'concentration' | 'check' }` instead of `Pick<TableAsk, 'type'>`. Every name
+keeps its module, so no importer changes. A tsc probe holds FavoriteTarget, FavoriteInput,
+FavoriteEntry['target'] and EffectAsk identical to before (and fails on a deliberate miss).
+
+rollRequestSchema's typedRules asks the request-kind table whether a kind throws a d20
+(`infoOf(kind).dice === 'd20'`) instead of reading EFFECT_DICE_KINDS: the same seven kinds
+(roll-kinds.test.ts), so the same issues. The schema no longer imports that list; only the
+values golden (C9) reads it now.
+
+Types and one boolean only: no request, response, string or issue changes. L1 on this tree green (306 suites, 9,700 tests, 0 red;
+tsc 0; eslint 0 errors, 659 warnings; gates 1-12 ok; gate 12: 2 cycle groups, base 4).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ src/schemas/roll-request.ts |  5 +----
+ src/types/roll.ts           | 18 +++++++++++-------
+ src/types/sending-stone.ts  |  7 +++++--
+ 3 files changed, 17 insertions(+), 13 deletions(-)
+
+diff --git a/src/schemas/roll-request.ts b/src/schemas/roll-request.ts
+index cce87da..82f8442 100644
+--- a/src/schemas/roll-request.ts
++++ b/src/schemas/roll-request.ts
+@@ -4,7 +4,6 @@ import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
+ import {
+   ATTACK_MODE,
+   DAMAGE_TYPE,
+-  EFFECT_DICE_KINDS,
+   EFFECT_DIE_FACES,
+   EFFECT_ID,
+   EFFECT_OPS,
+@@ -570,9 +569,7 @@ function inFaces(results: number[], faces: number): boolean {
+  */
+ function typedRules(request: RollRequestInput, issue: Issue) {
+   if (request.effectDice !== undefined) {
+-    const effects = (EFFECT_DICE_KINDS as readonly string[]).includes(
+-      request.kind,
+-    )
++    const effects = infoOf(request.kind).dice === 'd20'
+     if (!effects || request.typed !== true) {
+       issue(
+         'effectDice',
+diff --git a/src/types/roll.ts b/src/types/roll.ts
+index 9943470..d2dd3a9 100644
+--- a/src/types/roll.ts
++++ b/src/types/roll.ts
+@@ -22,8 +22,8 @@ import type {
+   WildShapeOp,
+   TransferMoved,
+   RemovedItem,
++  FavoriteEntry,
+ } from '@/types/sending-stone'
+-import type { TableAsk } from '@/types/table'
+ import type { DieSides, Advantage } from '@lambersond/3d-dice-core'
+ 
+ /**
+@@ -174,11 +174,11 @@ export type RemoveInput = {
+ /**
+  * What a favorite is, as the sheet names it, from module 0.37.0: an item by its id, one of an
+  * item's activities by its own id and its item's, an effect by the sheet's id ("<id>", or
+- * "<itemId>.<id>" for an item's), and a skill, tool or pool of spell slots by its key.
++ * "<itemId>.<id>" for an item's), and a skill, tool or pool of spell slots by its key. Written out
++ * in FavoriteEntry's `target` and read from there, so src/types/sending-stone.ts needs nothing from
++ * this file (no import cycle).
+  */
+-export type FavoriteTarget =
+-  | { type: 'item' | 'effect' | 'skill' | 'tool' | 'slots'; id: string }
+-  | { type: 'activity'; id: string; item: string }
++export type FavoriteTarget = NonNullable<FavoriteEntry['target']>
+ 
+ /** A favorite added to or removed from the character's, from module 0.37.0. */
+ export type FavoriteInput = FavoriteTarget & { op: 'add' | 'remove' }
+@@ -1212,8 +1212,12 @@ export type TableRollState = Omit<
+   wildShaped?: WildShapeOutcome
+ }
+ 
+-/** What a description's link a saving throw is made from asks: a save, or a concentration check. */
+-export type EffectAsk = Pick<TableAsk, 'type'>
++/**
++ * What a description's link a saving throw is made from asks: a save, or a concentration check, by
++ * the types a table's ask (src/types/table.ts's TableAsk) has, written out so that this file needs
++ * nothing from that one (no import cycle).
++ */
++export type EffectAsk = { type: 'save' | 'concentration' | 'check' }
+ 
+ /**
+  * What adding a die the sheet offers spends: the effect it uses up, by the sheet's id for it; that
+diff --git a/src/types/sending-stone.ts b/src/types/sending-stone.ts
+index 0736620..2fd7c52 100644
+--- a/src/types/sending-stone.ts
++++ b/src/types/sending-stone.ts
+@@ -11,7 +11,6 @@ import type {
+ } from '@/constants/sending-stone'
+ import type { FoundrySettings } from '@/types/foundry-settings'
+ import type { NoteBookKind, NoteRole } from '@/types/notes'
+-import type { FavoriteTarget } from '@/types/roll'
+ import type { DieSides } from '@lambersond/3d-dice-core'
+ 
+ /**
+@@ -2101,7 +2100,11 @@ export type FavoriteView =
+  */
+ export type FavoriteEntry = FavoriteView & {
+   key: string
+-  target: FavoriteTarget | null
++  /** What it is as the app adds and removes it; src/types/roll.ts's FavoriteTarget reads it. */
++  target:
++    | { type: 'item' | 'effect' | 'skill' | 'tool' | 'slots'; id: string }
++    | { type: 'activity'; id: string; item: string }
++    | null
+ }
+ 
+ /** The sheet's lists, by id, to find what a favorite refers to. */
+-- 
+2.43.0
+
