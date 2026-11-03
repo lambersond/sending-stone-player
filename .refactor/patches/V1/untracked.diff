@@ -1,0 +1,2627 @@
+diff --git a/src/components/empty-state/types.ts b/src/components/empty-state/types.ts
+new file mode 100644
+index 0000000..deea804
+--- /dev/null
++++ b/src/components/empty-state/types.ts
+@@ -0,0 +1,8 @@
++import type { LucideIcon } from 'lucide-react'
++import type { ReactNode } from 'react'
++
++export type EmptyStateProps = {
++  icon: LucideIcon
++  title: string
++  children: ReactNode
++}
+diff --git a/src/components/live-status/utils.ts b/src/components/live-status/utils.ts
+new file mode 100644
+index 0000000..1c10a74
+--- /dev/null
++++ b/src/components/live-status/utils.ts
+@@ -0,0 +1,32 @@
++import type { LiveState } from './types'
++import type { SeatWords } from '@/types/seats'
++
++/** Each state, as the seat at the sheet reads it: the Gamemaster's game is their own (#156). */
++export const statesOf = ({
++  connected,
++  unheard,
++}: SeatWords): Record<
++  LiveState,
++  { label: string; dot: string; hint: string }
++> => ({
++  live: {
++    label: 'Live',
++    dot: 'bg-primary motion-safe:animate-pulse',
++    hint: connected,
++  },
++  offline: {
++    label: 'Offline',
++    dot: 'bg-text-secondary',
++    hint: unheard,
++  },
++  reconnecting: {
++    label: 'Reconnecting',
++    dot: 'bg-warning',
++    hint: 'Sending Stone cannot be reached. Trying again.',
++  },
++  waiting: {
++    label: 'Waiting',
++    dot: 'bg-text-secondary',
++    hint: 'This character has not joined a campaign.',
++  },
++})
+diff --git a/src/components/local-time/types.ts b/src/components/local-time/types.ts
+new file mode 100644
+index 0000000..181d585
+--- /dev/null
++++ b/src/components/local-time/types.ts
+@@ -0,0 +1 @@
++export type LocalTimeProps = { value: string; className?: string }
+diff --git a/src/features/table/components/aside-column/aside-column.tsx b/src/features/table/components/aside-column/aside-column.tsx
+new file mode 100644
+index 0000000..af84a08
+--- /dev/null
++++ b/src/features/table/components/aside-column/aside-column.tsx
+@@ -0,0 +1,138 @@
++'use client'
++
++import clsx from 'clsx'
++import { MessageSquare, Swords } from 'lucide-react'
++import { ChatLog } from '../chat-log/chat-log'
++import { Pane } from '../pane/pane'
++import { PaneTab } from '../pane-tab/pane-tab'
++import { Scroller } from '@/components/scroller/scroller'
++import {
++  badgeCount,
++  combatSummary,
++  messageCount,
++} from '@/features/table/utils/header'
++import type { Aside, Tab, TabHold } from '@/features/table/types'
++import type { TableCombat, TableMessage } from '@/types/table'
++import type { ReactNode, RefObject } from 'react'
++
++/**
++ * Combat and the chat: tabs on a narrower screen. On a wide one they share a narrow column beside
++ * the sheet, or beside why there's none and the notes, with tabs of their own to choose between
++ * them, which mark the seat's turn and unread messages, and say what's happening in the one shown.
++ * @param paneShown - Whether the sheet's pane shows beside the column on a wide screen.
++ * @param quiet - Whether the tabs ignore clicks now, just after a hold has ended the turn.
++ * @param onShow - Shows combat or the chat.
++ * @param combatTab - The column's Combat tab, where focus on the turn may go.
++ * @param hold - The column's Combat tab held to end the turn.
++ * @param tracker - The combat tracker, the character's view of it.
++ * @param chat - The chat's scroller, kept pinned to the newest message, and its scroll handler.
++ */
++export function AsideColumn({
++  tab,
++  aside,
++  paneShown,
++  myTurn,
++  unread,
++  combat,
++  messages,
++  quiet,
++  onShow,
++  combatTab,
++  hold,
++  tracker,
++  chat,
++}: Readonly<{
++  tab: Tab
++  aside: Aside
++  paneShown: boolean
++  myTurn: boolean
++  unread: number
++  combat?: TableCombat
++  messages: TableMessage[]
++  quiet: () => boolean
++  onShow: (aside: Aside) => void
++  combatTab: RefObject<HTMLButtonElement | null>
++  hold: TabHold
++  tracker: ReactNode
++  chat: {
++    scroller: RefObject<HTMLDivElement | null>
++    onScroll: () => void
++  }
++}>) {
++  return (
++    <div
++      className={clsx(
++        'min-h-0 min-w-0 flex-1 flex-col lg:flex',
++        tab === 'character' ? 'hidden' : 'flex',
++        paneShown &&
++          'lg:w-[clamp(320px,40%,500px)] lg:flex-none lg:border-l lg:border-border',
++      )}
++    >
++      <div className='hidden h-11 shrink-0 items-center gap-3 border-b border-border px-3 lg:flex'>
++        <div
++          role='tablist'
++          aria-label='Combat or chat'
++          className='flex shrink-0 gap-1'
++        >
++          <PaneTab
++            ref={combatTab}
++            icon={Swords}
++            label='Combat'
++            pane='combat-pane'
++            selected={aside === 'combat'}
++            onClick={() => {
++              if (!quiet()) onShow('combat')
++            }}
++            hold={hold}
++          >
++            {myTurn && aside !== 'combat' && (
++              <span className='relative size-2 rounded-full bg-primary'>
++                <span className='sr-only'>, your turn</span>
++              </span>
++            )}
++          </PaneTab>
++          <PaneTab
++            icon={MessageSquare}
++            label='Chat'
++            pane='chat-pane'
++            selected={aside === 'chat'}
++            onClick={() => {
++              if (!quiet()) onShow('chat')
++            }}
++          >
++            {unread > 0 && (
++              <span className='flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary'>
++                {badgeCount(unread)}
++                <span className='sr-only'> unread</span>
++              </span>
++            )}
++          </PaneTab>
++        </div>
++        <span className='truncate text-sm text-text-secondary'>
++          {aside === 'combat'
++            ? combatSummary(combat)
++            : messageCount(messages.length)}
++        </span>
++      </div>
++      <Pane
++        id='combat-pane'
++        label='Combat'
++        className={aside === 'combat' ? 'flex' : 'hidden'}
++      >
++        <Scroller>
++          {/* The character's view of it, whichever creature is chosen (module 0.36.0). */}
++          {tracker}
++        </Scroller>
++      </Pane>
++      <Pane
++        id='chat-pane'
++        label='Chat'
++        className={aside === 'chat' ? 'flex' : 'hidden'}
++      >
++        <Scroller ref={chat.scroller} onScroll={chat.onScroll}>
++          <ChatLog messages={messages} />
++        </Scroller>
++      </Pane>
++    </div>
++  )
++}
+diff --git a/src/features/table/components/choose-actor/choose-actor.tsx b/src/features/table/components/choose-actor/choose-actor.tsx
+new file mode 100644
+index 0000000..8b1e503
+--- /dev/null
++++ b/src/features/table/components/choose-actor/choose-actor.tsx
+@@ -0,0 +1,27 @@
++'use client'
++
++import { CharacterChooser } from '@/features/characters/components/character-chooser/character-chooser'
++import type { GameTableProps } from '@/features/table/types'
++import type { CampaignChoice } from '@/types/campaign'
++
++/** For a character in a campaign that has yet to choose which of its characters it is. */
++export function ChooseActor({
++  choice,
++  action,
++}: Readonly<{
++  choice: CampaignChoice
++  action: NonNullable<GameTableProps['chooseActor']>
++}>) {
++  return (
++    <div className='mx-auto w-full max-w-xl px-4 py-10'>
++      <h2 className='text-lg font-semibold'>
++        Choose your character in {choice.title}
++      </h2>
++      <p className='mt-1 mb-6 text-sm text-text-secondary'>
++        Each character is played by one player. Choose yours to see its whispers
++        and turns.
++      </p>
++      <CharacterChooser choice={choice} action={action} />
++    </div>
++  )
++}
+diff --git a/src/features/table/components/combat-tracker/utils.ts b/src/features/table/components/combat-tracker/utils.ts
+new file mode 100644
+index 0000000..dc840ab
+--- /dev/null
++++ b/src/features/table/components/combat-tracker/utils.ts
+@@ -0,0 +1,8 @@
++/**
++ * An initiative as Foundry shows it. Systems break ties with decimals, such as D&D's dexterity
++ * tiebreaker giving 18.14, which are rounded to two places to hide floating-point noise.
++ */
++export function formatInitiative(initiative: number | null): string {
++  if (initiative === null) return '–'
++  return String(Math.round(initiative * 100) / 100)
++}
+diff --git a/src/features/table/components/creature-sheets/creature-sheets.tsx b/src/features/table/components/creature-sheets/creature-sheets.tsx
+new file mode 100644
+index 0000000..5ec69a8
+--- /dev/null
++++ b/src/features/table/components/creature-sheets/creature-sheets.tsx
+@@ -0,0 +1,231 @@
++'use client'
++
++import clsx from 'clsx'
++import { NoSheet } from '../no-sheet/no-sheet'
++import { CompanionAskNotice } from '@/features/companions/components/companion-ask-notice/companion-ask-notice'
++import { CompanionPane } from '@/features/companions/components/companion-pane/companion-pane'
++import { CreatureSwitcher } from '@/features/companions/components/creature-switcher/creature-switcher'
++import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
++import { switcherCreatures } from '@/features/table/utils/creatures'
++import type { useCompanionRow } from '@/features/table/hooks/use-companion-row'
++import type { NotesPlace } from '@/features/notes/types'
++import type { DiceSwitch } from '@/features/table/types'
++import type { Character, TableSeat } from '@/types/character'
++import type { CookbookPlace } from '@/types/cookbook'
++import type { TableGroup } from '@/types/party'
++import type { SeatWords } from '@/types/seats'
++import type { TableView } from '@/types/table'
++import type { ReactNode } from 'react'
++
++/**
++ * The character's own pane, and the companions' mounted, in the row's order, with the row of tabs
++ * that switches between them above, from module 0.36.0, where the character has companions.
++ * @param companions - The row of companions, as `useCompanionRow` keeps it.
++ * @param asking - Whether the game asks a save of the character that still waits.
++ * @param header - The table's header, which the sheets' roll toasts start below.
++ * @param parties - The party sheets the character may open, where there are any.
++ * @param playing - Whether the character plays one of its campaign's characters.
++ * @param entry - The Magical Recipe Book's button and dialog with no sheet, as `useCookbookEntry`
++ *   has them.
++ */
++export function CreatureSheets({
++  character,
++  seat,
++  view,
++  companions,
++  words,
++  asking,
++  header,
++  diceSwitch,
++  notes,
++  cookbook,
++  entry,
++  parties,
++  onOpenParty,
++  playing,
++}: Readonly<{
++  character: Character
++  seat: TableSeat
++  view: TableView
++  companions: ReturnType<typeof useCompanionRow>
++  words: SeatWords
++  asking: boolean
++  header: HTMLElement | null
++  diceSwitch?: DiceSwitch
++  notes: NotesPlace
++  cookbook?: CookbookPlace
++  entry: { shown: boolean; open: () => void; modal: ReactNode }
++  parties?: TableGroup[]
++  onOpenParty: (id: string) => void
++  playing: boolean
++}>) {
++  const {
++    row,
++    names,
++    numbers,
++    generations,
++    waiting,
++    waitingKeys,
++    chosen,
++    choose,
++    paneMarks,
++    reportersOf,
++    panes,
++    openCompanion,
++  } = companions
++  // From module 0.36.0, the character's companions, each with a tab above the sheet.
++  const switching = row.length > 0
++  const creatures = switcherCreatures({
++    character: character.name,
++    view,
++    asking,
++    asksForRoll: words.asksForRoll,
++    row,
++    numbers,
++    waitingKeys,
++    paneMarks,
++  })
++  const selfShown = chosen === 'self'
++  return (
++    <>
++      {switching && (
++        <CreatureSwitcher
++          creatures={creatures}
++          chosen={chosen}
++          onChoose={choose}
++          mounted={new Set(panes)}
++          character={character.name}
++          role={seat.role}
++        />
++      )}
++      <div
++        id='creature-panel-self'
++        {...(switching && {
++          role: 'tabpanel',
++          'aria-labelledby': 'creature-tab-self',
++        })}
++        hidden={switching && !selfShown}
++        className={clsx(
++          'min-h-0 min-w-0 flex-1 flex-col',
++          switching && !selfShown ? 'hidden' : 'flex',
++        )}
++      >
++        {view.sheet ? (
++          <OwnSheet
++            shown={selfShown}
++            seat={seat}
++            character={character}
++            view={view}
++            sheet={view.sheet}
++            header={header}
++            onOpenParty={onOpenParty}
++            diceSwitch={diceSwitch}
++            notes={notes}
++            cookbook={cookbook}
++            companionNotice={
++              waiting.length > 0 && (
++                <CompanionAskNotice asked={waiting} onShow={openCompanion} />
++              )
++            }
++          />
++        ) : (
++          <NoSheet
++            name={character.name}
++            withheld={view.sheetWithheld}
++            words={words}
++            parties={parties}
++            onOpenParty={onOpenParty}
++            playing={playing}
++            notes={notes}
++            cookbook={cookbook}
++            entry={entry}
++          />
++        )}
++      </div>
++      {row
++        .filter(({ key }) => panes.includes(key))
++        .map(companion => (
++          <CompanionPane
++            // Mounted afresh when it comes back after it had gone, as its view stops for good.
++            key={`${companion.key}:${generations.get(companion.key) ?? 0}`}
++            seat={seat}
++            companion={companion}
++            name={names.get(companion.key) ?? companion.name}
++            character={character.name}
++            shown={chosen === companion.key}
++            gone={companion.gone === true}
++            {...reportersOf(companion.key)}
++            header={header}
++            manualDice={diceSwitch}
++          />
++        ))}
++    </>
++  )
++}
++
++/**
++ * The character's own sheet, its rolls shared with its companions' on the table's one renderer;
++ * what the game takes from it only while the character is in its campaign's game.
++ * @param sheet - Its sheet, as the view has it.
++ */
++function OwnSheet({
++  shown,
++  seat,
++  character,
++  view,
++  sheet,
++  header,
++  onOpenParty,
++  diceSwitch,
++  notes,
++  cookbook,
++  companionNotice,
++}: Readonly<{
++  shown: boolean
++  seat: TableSeat
++  character: Character
++  view: TableView
++  sheet: NonNullable<TableView['sheet']>
++  header: HTMLElement | null
++  onOpenParty: (id: string) => void
++  diceSwitch?: DiceSwitch
++  notes: NotesPlace
++  cookbook?: CookbookPlace
++  companionNotice: ReactNode
++}>) {
++  return (
++    <CharacterPane
++      shown={shown}
++      sharedDice
++      characterId={seat.key}
++      name={character.name}
++      sheet={sheet}
++      combat={view.combat}
++      // A character no longer in the campaign's game has no rolls made there.
++      rollsToTable={view.connected ? view.rollsToTable : undefined}
++      rollFeatures={view.connected ? view.rollFeatures : undefined}
++      prompts={view.connected ? view.prompts : undefined}
++      gmRolls={view.gmRolls}
++      header={header}
++      // Nor its items and coins moved there (module 0.31.0), by either seat.
++      moves={view.connected ? view.moves : undefined}
++      // Nor its items removed there (module 0.33.0), by either seat.
++      removes={view.connected && view.removes === true}
++      favorites={view.connected && view.favorites === true}
++      // Its own effects turned off, on and deleted (module 0.39.0): the player's alone, at the
++      // character's own pane, never a companion's.
++      effects={view.effects}
++      // Wild Shape from here (module 0.40.0): the player's alone, at the character's own
++      // pane, never a companion's.
++      wildShape={view.wildShape}
++      actorId={character.actorId ?? undefined}
++      // The party sheets it may open, on its Inventory tab (module 0.30.0).
++      parties={view.groups && { groups: view.groups, onOpen: onOpenParty }}
++      manualDice={diceSwitch}
++      notes={notes}
++      cookbook={cookbook}
++      // Which of its companions the game asks a save of, from module 0.41.0.
++      companionNotice={companionNotice}
++    />
++  )
++}
+diff --git a/src/features/table/components/gm-note/gm-note.tsx b/src/features/table/components/gm-note/gm-note.tsx
+new file mode 100644
+index 0000000..89e60eb
+--- /dev/null
++++ b/src/features/table/components/gm-note/gm-note.tsx
+@@ -0,0 +1,29 @@
++'use client'
++
++import clsx from 'clsx'
++import { gmNote } from '@/features/table/utils/header'
++import type { GmRolls } from '@/types/table'
++
++/**
++ * Tells the Gamemaster at one of their campaign's characters' sheets (#156) where what they roll
++ * there goes: made in their game as the character's, marked as theirs; kept here until their
++ * module is new enough to mark it; or kept here while their game takes no rolls.
++ */
++export function GmNote({
++  name,
++  rolls,
++}: Readonly<{ name: string; rolls: GmRolls }>) {
++  const note = gmNote(name, rolls)
++  return (
++    <p
++      className={clsx(
++        'shrink-0 border-b px-4 py-2.5 text-sm md:px-8',
++        rolls === 'made'
++          ? 'border-primary/30 bg-primary/5'
++          : 'border-warning/40 bg-warning/10',
++      )}
++    >
++      {note}
++    </p>
++  )
++}
+diff --git a/src/features/table/components/hold-tab/hold-description.tsx b/src/features/table/components/hold-tab/hold-description.tsx
+new file mode 100644
+index 0000000..ff49b0e
+--- /dev/null
++++ b/src/features/table/components/hold-tab/hold-description.tsx
+@@ -0,0 +1,13 @@
++'use client'
++
++import type { TabHold } from '@/features/table/types'
++
++/** What a tab held to end the turn is described as while a turn may be ended. */
++export function HoldDescription({ hold }: Readonly<{ hold?: TabHold }>) {
++  if (!hold?.offer) return
++  return (
++    <span id={hold.offer.id} hidden>
++      {hold.offer.description}
++    </span>
++  )
++}
+diff --git a/src/features/table/components/hold-tab/hold-fill.tsx b/src/features/table/components/hold-tab/hold-fill.tsx
+new file mode 100644
+index 0000000..e5fda21
+--- /dev/null
++++ b/src/features/table/components/hold-tab/hold-fill.tsx
+@@ -0,0 +1,19 @@
++'use client'
++
++import type { TabHold } from '@/features/table/types'
++
++/**
++ * The fill of a tab held to end the turn, from the left, and its description: hidden words, so
++ * that they describe the tab without being its name. The hook draws the fill each frame.
++ */
++export function HoldFill({ hold }: Readonly<{ hold?: TabHold }>) {
++  if (!hold?.offer) return
++  return (
++    <span
++      ref={hold.offer.fill}
++      aria-hidden
++      className='pointer-events-none absolute inset-0 origin-left rounded-[inherit] bg-primary/22'
++      style={{ transform: 'scaleX(0)' }}
++    />
++  )
++}
+diff --git a/src/features/table/components/hold-tab/hold-props.ts b/src/features/table/components/hold-tab/hold-props.ts
+new file mode 100644
+index 0000000..18a4535
+--- /dev/null
++++ b/src/features/table/components/hold-tab/hold-props.ts
+@@ -0,0 +1,15 @@
++import clsx from 'clsx'
++import type { TabHold } from '@/features/table/types'
++
++/** What a tab held to end the turn takes on its button: its handlers, classes and description. */
++export function holdProps(hold?: TabHold) {
++  return {
++    ...hold?.handlers,
++    'aria-describedby': hold?.offer?.id,
++    className: clsx(
++      // A held touch neither selects the label nor opens iOS's callout, and the fill keeps inside.
++      hold?.touch &&
++        'touch-manipulation overflow-hidden select-none [-webkit-touch-callout:none]',
++    ),
++  }
++}
+diff --git a/src/features/table/components/no-campaign/no-campaign.tsx b/src/features/table/components/no-campaign/no-campaign.tsx
+new file mode 100644
+index 0000000..e6e7583
+--- /dev/null
++++ b/src/features/table/components/no-campaign/no-campaign.tsx
+@@ -0,0 +1,27 @@
++'use client'
++
++import { Ticket } from 'lucide-react'
++import Link from 'next/link'
++
++/** For a character from before invite links, or whose campaign was removed. */
++export function NoCampaign({ name }: Readonly<{ name: string }>) {
++  return (
++    <div className='mx-auto flex max-w-md flex-col items-center px-4 py-12 text-center md:py-16'>
++      <Ticket aria-hidden className='size-8 text-primary' />
++      <h2 className='mt-4 text-lg font-semibold'>
++        {name} isn&apos;t in a campaign
++      </h2>
++      <p className='mt-1 text-sm text-text-secondary'>
++        Ask your Gamemaster for their campaign&apos;s invite link and open it to
++        choose your character there. You can then remove this one from your
++        characters.
++      </p>
++      <Link
++        href='/characters'
++        className='mt-6 rounded-lg px-3 py-1.5 text-sm font-medium text-primary-text transition-colors hover:bg-primary/10'
++      >
++        Your characters
++      </Link>
++    </div>
++  )
++}
+diff --git a/src/features/table/components/no-sheet/no-sheet.tsx b/src/features/table/components/no-sheet/no-sheet.tsx
+new file mode 100644
+index 0000000..89bd6e2
+--- /dev/null
++++ b/src/features/table/components/no-sheet/no-sheet.tsx
+@@ -0,0 +1,119 @@
++'use client'
++
++import { CookingPot, UserRound } from 'lucide-react'
++import { EmptyState } from '@/components/empty-state/empty-state'
++import { Scroller } from '@/components/scroller/scroller'
++import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
++import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
++import { PartySheetList } from '@/features/sheet/components/party-sheets/party-sheet-list'
++import { tooLargeLine } from '@/features/table/utils/header'
++import type { NotesPlace } from '@/features/notes/types'
++import type { CookbookPlace } from '@/types/cookbook'
++import type { TableGroup } from '@/types/party'
++import type { SeatWords } from '@/types/seats'
++import type { TableView } from '@/types/table'
++import type { ReactNode } from 'react'
++
++/**
++ * The character's pane while it has no sheet: why, and what needs none, the party sheets it may
++ * open, its journal and the Magical Recipe Book.
++ * @param parties - The party sheets it may open, where there are any.
++ * @param playing - Whether the character plays one of its campaign's characters, with a journal.
++ * @param cookbook - Where the Magical Recipe Book is offered: the player's own seat alone.
++ * @param entry - The Magical Recipe Book's button and dialog, as `useCookbookEntry` has them.
++ */
++export function NoSheet({
++  name,
++  withheld,
++  words,
++  parties,
++  onOpenParty,
++  playing,
++  notes,
++  cookbook,
++  entry,
++}: Readonly<{
++  name: string
++  withheld?: TableView['sheetWithheld']
++  words: SeatWords
++  parties?: TableGroup[]
++  onOpenParty: (id: string) => void
++  playing: boolean
++  notes: NotesPlace
++  cookbook?: CookbookPlace
++  entry: { shown: boolean; open: () => void; modal: ReactNode }
++}>) {
++  return (
++    <Scroller>
++      <WhyNoSheet
++        name={name}
++        withheld={withheld}
++        told={words.told}
++        coming={words.noSheet}
++      />
++      {parties && (
++        <div className='mx-auto w-full max-w-md px-4 pb-8'>
++          <PartySheetList groups={parties} onOpen={onOpenParty} />
++        </div>
++      )}
++      {/* The journal, which needs no sheet, nor Foundry. */}
++      {playing && (
++        <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
++          <JournalCard kind='personal' look='sheet' {...notes} />
++        </div>
++      )}
++      {/* The Magical Recipe Book, which needs no sheet either: offered as the cog offers it
++          (round 0.39.0). */}
++      {cookbook && entry.shown && (
++        <div className='mx-auto w-full max-w-2xl px-4 pb-8'>
++          <button
++            type='button'
++            aria-haspopup='dialog'
++            onClick={entry.open}
++            className='inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
++          >
++            <CookingPot aria-hidden className='size-4 shrink-0' />
++            {CONFIGURE_COOKBOOK}
++          </button>
++        </div>
++      )}
++      {entry.modal}
++    </Scroller>
++  )
++}
++
++/**
++ * For a character whose sheet hasn't arrived, as under a system other than dnd5e; or from module
++ * 0.22.0, one the module held back for being larger than this app takes, which its Gamemaster has
++ * been told.
++ */
++function WhyNoSheet({
++  name,
++  withheld,
++  told,
++  coming,
++}: Readonly<{
++  name: string
++  withheld?: TableView['sheetWithheld']
++  /** Who was told it was held back. */
++  told: string
++  /** How a sheet comes. */
++  coming: string
++}>) {
++  if (withheld?.reason === 'tooLarge') {
++    return (
++      <EmptyState
++        icon={UserRound}
++        title={`${name}'s sheet is too large to send`}
++      >
++        {tooLargeLine(withheld)}
++        {told}
++      </EmptyState>
++    )
++  }
++  return (
++    <EmptyState icon={UserRound} title={`${name}'s sheet hasn't arrived`}>
++      {coming}
++    </EmptyState>
++  )
++}
+diff --git a/src/features/table/components/not-connected/not-connected.tsx b/src/features/table/components/not-connected/not-connected.tsx
+new file mode 100644
+index 0000000..eb639cb
+--- /dev/null
++++ b/src/features/table/components/not-connected/not-connected.tsx
+@@ -0,0 +1,15 @@
++'use client'
++
++/** For a character that has left its campaign's game: only public messages show. */
++export function NotConnected({
++  name,
++  campaign,
++  addBack,
++}: Readonly<{ name: string; campaign: string; addBack: string }>) {
++  return (
++    <p className='shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-sm md:px-8'>
++      {name} is no longer one of {campaign}&apos;s characters, so only public
++      messages show here. {addBack}
++    </p>
++  )
++}
+diff --git a/src/features/table/components/pane-tab/pane-tab.tsx b/src/features/table/components/pane-tab/pane-tab.tsx
+new file mode 100644
+index 0000000..c266568
+--- /dev/null
++++ b/src/features/table/components/pane-tab/pane-tab.tsx
+@@ -0,0 +1,62 @@
++'use client'
++
++import clsx from 'clsx'
++import { HoldDescription } from '../hold-tab/hold-description'
++import { HoldFill } from '../hold-tab/hold-fill'
++import { holdProps } from '../hold-tab/hold-props'
++import type { TabHold } from '@/features/table/types'
++import type { LucideIcon } from 'lucide-react'
++import type { ReactNode, RefObject } from 'react'
++
++/** Choosing whether combat or the chat sits beside the sheet on a wide screen. */
++export function PaneTab({
++  icon: Icon,
++  label,
++  pane,
++  selected,
++  onClick,
++  hold,
++  ref,
++  children,
++}: Readonly<{
++  icon: LucideIcon
++  label: string
++  pane: string
++  selected: boolean
++  onClick: () => void
++  /** From module 0.36.0, the Combat tab held to end the turn. */
++  hold?: TabHold
++  ref?: RefObject<HTMLButtonElement | null>
++  /** What draws the eye to it, such as unread messages. */
++  children?: ReactNode
++}>) {
++  const { className, ...holding } = holdProps(hold)
++  return (
++    <button
++      ref={ref}
++      type='button'
++      role='tab'
++      aria-selected={selected}
++      aria-controls={pane}
++      onClick={onClick}
++      {...holding}
++      className={clsx(
++        'relative inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors',
++        selected || hold?.holding
++          ? 'text-text-primary'
++          : 'text-text-secondary hover:text-text-primary',
++        selected && 'bg-primary/10',
++        className,
++      )}
++    >
++      <HoldFill hold={hold} />
++      <Icon
++        aria-hidden
++        className={clsx('relative size-4', selected && 'text-primary')}
++      />
++      <span className='relative'>{label}</span>
++      {children}
++      <HoldDescription hold={hold} />
++    </button>
++  )
++}
+diff --git a/src/features/table/components/pane/pane.tsx b/src/features/table/components/pane/pane.tsx
+new file mode 100644
+index 0000000..c197c3e
+--- /dev/null
++++ b/src/features/table/components/pane/pane.tsx
+@@ -0,0 +1,27 @@
++'use client'
++
++import clsx from 'clsx'
++import type { ReactNode } from 'react'
++
++/** The character's sheet, combat or chat. Its classes say when it is shown. */
++export function Pane({
++  id,
++  label,
++  className,
++  children,
++}: Readonly<{
++  id: string
++  label: string
++  className: string
++  children: ReactNode
++}>) {
++  return (
++    <section
++      id={id}
++      aria-label={label}
++      className={clsx('min-h-0 min-w-0 flex-1 flex-col', className)}
++    >
++      {children}
++    </section>
++  )
++}
+diff --git a/src/features/table/components/tab-button/tab-button.tsx b/src/features/table/components/tab-button/tab-button.tsx
+new file mode 100644
+index 0000000..cc13b45
+--- /dev/null
++++ b/src/features/table/components/tab-button/tab-button.tsx
+@@ -0,0 +1,57 @@
++'use client'
++
++import clsx from 'clsx'
++import { HoldDescription } from '../hold-tab/hold-description'
++import { HoldFill } from '../hold-tab/hold-fill'
++import { holdProps } from '../hold-tab/hold-props'
++import type { TabHold } from '@/features/table/types'
++import type { LucideIcon } from 'lucide-react'
++import type { ReactNode, RefObject } from 'react'
++
++/** One of the table's tabs, in the bottom bar on a phone or the rail on a tablet. */
++export function TabButton({
++  icon: Icon,
++  label,
++  active,
++  onClick,
++  hold,
++  ref,
++  children,
++}: Readonly<{
++  icon: LucideIcon
++  label: string
++  active: boolean
++  onClick: () => void
++  /** From module 0.36.0, the Combat tab held to end the turn. */
++  hold?: TabHold
++  ref?: RefObject<HTMLButtonElement | null>
++  children?: ReactNode
++}>) {
++  const { className, ...holding } = holdProps(hold)
++  return (
++    <button
++      ref={ref}
++      type='button'
++      onClick={onClick}
++      aria-current={active ? 'page' : undefined}
++      {...holding}
++      className={clsx(
++        'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold transition-colors md:min-h-18 md:w-full md:flex-none',
++        active || hold?.holding
++          ? 'text-text-primary'
++          : 'text-text-secondary hover:text-text-primary',
++        active && 'bg-primary/10',
++        className,
++      )}
++    >
++      <HoldFill hold={hold} />
++      <Icon
++        aria-hidden
++        className={clsx('relative size-6', active && 'text-primary')}
++      />
++      <span className='relative'>{label}</span>
++      {children}
++      <HoldDescription hold={hold} />
++    </button>
++  )
++}
+diff --git a/src/features/table/components/table-header/table-header.tsx b/src/features/table/components/table-header/table-header.tsx
+new file mode 100644
+index 0000000..09b45a3
+--- /dev/null
++++ b/src/features/table/components/table-header/table-header.tsx
+@@ -0,0 +1,126 @@
++'use client'
++
++import clsx from 'clsx'
++import { ArrowLeft, Trash2 } from 'lucide-react'
++import Link from 'next/link'
++import { FullscreenButton } from '@/components/fullscreen-button/fullscreen-button'
++import { LiveStatus } from '@/components/live-status/live-status'
++import { ConfirmDialog } from '@/components/modal/confirm-dialog'
++import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
++import {
++  campaignAndGame,
++  headerLine,
++  liveState,
++  subtitle,
++} from '@/features/table/utils/header'
++import type { Tab } from '@/features/table/types'
++import type { Character } from '@/types/character'
++import type { Connection, TableView } from '@/types/table'
++import type { Ref } from 'react'
++
++/**
++ * The table's header: back to the character's campaigns or characters; its name, with the GM pill
++ * at the Gamemaster's seat (#156), and what's happening in the tab shown; the live state, full
++ * screen, and for its player, a way to delete it.
++ * @param ref - The header, which the sheet's roll toasts start below while its tabs aren't shown.
++ * @param playing - Whether the character plays one of its campaign's characters.
++ */
++export function TableHeader({
++  ref,
++  character,
++  gm,
++  playing,
++  view,
++  tab,
++  connection,
++  deleteCharacter,
++}: Readonly<{
++  ref: Ref<HTMLElement>
++  character: Character
++  gm: boolean
++  playing: boolean
++  view: TableView
++  tab: Tab
++  connection: Connection
++  deleteCharacter?: () => Promise<void>
++}>) {
++  return (
++    <header
++      ref={ref}
++      className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'
++    >
++      <div className='flex min-w-0 items-center gap-2'>
++        <Link
++          // Back to the campaign it was opened from, chosen on the campaigns page (round
++          // 0.39.0).
++          href={
++            gm
++              ? `/campaigns?campaign=${encodeURIComponent(character.campaignId ?? '')}`
++              : '/characters'
++          }
++          aria-label={gm ? 'Your campaigns' : 'All characters'}
++          className='-ml-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
++        >
++          <ArrowLeft aria-hidden className='size-5' />
++        </Link>
++        <div className='min-w-0'>
++          {/* On a wide screen, the class and subclass follow the name, cut short before it
++            is. Narrower, the line under the name has them, on the Character tab. */}
++          <div className='flex items-baseline gap-2 overflow-hidden'>
++            {gm ? (
++              // The name and its GM pill stand where the name alone does, and only the name
++              // is cut short, so a long one on a phone never pushes the pill out of view.
++              <div className='flex max-w-full shrink-0 items-baseline gap-2'>
++                <h1 className='min-w-0 truncate text-lg leading-tight font-semibold'>
++                  {character.name}
++                </h1>
++                <span className='shrink-0 self-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-text'>
++                  GM<span className='sr-only'>, Gamemaster view</span>
++                </span>
++              </div>
++            ) : (
++              <h1 className='max-w-full shrink-0 truncate text-lg leading-tight font-semibold'>
++                {character.name}
++              </h1>
++            )}
++            {playing && view.sheet && (
++              <p className='hidden min-w-0 truncate text-sm text-text-secondary lg:block'>
++                {headerLine(view.sheet)}
++              </p>
++            )}
++          </div>
++          <p
++            className={clsx(
++              'truncate text-sm text-text-secondary',
++              playing && 'lg:hidden',
++            )}
++          >
++            {subtitle(tab, view, character)}
++          </p>
++          {playing && (
++            <p className='hidden truncate text-sm text-text-secondary lg:block'>
++              {campaignAndGame(view, character)}
++            </p>
++          )}
++        </div>
++      </div>
++      <div className='flex shrink-0 items-center gap-1'>
++        <LiveStatus state={liveState(playing, view, connection)} />
++        <FullscreenButton />
++        {!gm && deleteCharacter && (
++          <ConfirmDialog
++            trigger={<Trash2 aria-hidden className='size-4' />}
++            triggerLabel={`Delete ${character.name}`}
++            triggerClassName='rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
++            title={`Delete ${character.name}?`}
++            confirmLabel='Delete'
++            onConfirm={deleteCharacter}
++            danger
++          >
++            <DeleteCharacterWarning name={character.name} />
++          </ConfirmDialog>
++        )}
++      </div>
++    </header>
++  )
++}
+diff --git a/src/features/table/components/table-nav/table-nav.tsx b/src/features/table/components/table-nav/table-nav.tsx
+new file mode 100644
+index 0000000..28c0323
+--- /dev/null
++++ b/src/features/table/components/table-nav/table-nav.tsx
+@@ -0,0 +1,95 @@
++'use client'
++
++import { MessageSquare, Swords, UserRound } from 'lucide-react'
++import { TabButton } from '../tab-button/tab-button'
++import { badgeCount } from '@/features/table/utils/header'
++import type { Tab, TabHold } from '@/features/table/types'
++import type { RefObject } from 'react'
++
++/**
++ * The table's tabs on a phone or tablet: a bar at the bottom, or a rail beside the page from 768
++ * pixels, gone from 1024 where the sheet and the column sit side by side. Each marks what waits
++ * on it: a save asked, the seat's turn, unread messages.
++ * @param asking - Whether the game asks a save of the character, or of a companion, that waits.
++ * @param quiet - Whether the tabs ignore clicks now, just after a hold has ended the turn.
++ * @param onShow - Shows a tab.
++ * @param combatTab - The Combat tab, where focus on the turn may go.
++ * @param hold - The Combat tab held to end the turn.
++ */
++export function TableNav({
++  tab,
++  asking,
++  asksForRoll,
++  myTurn,
++  unread,
++  quiet,
++  onShow,
++  combatTab,
++  hold,
++}: Readonly<{
++  tab: Tab
++  asking: boolean
++  asksForRoll: string
++  myTurn: boolean
++  unread: number
++  quiet: () => boolean
++  onShow: (tab: Tab) => void
++  combatTab: RefObject<HTMLButtonElement | null>
++  hold: TabHold
++}>) {
++  return (
++    <nav
++      aria-label='Table'
++      className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'
++    >
++      <TabButton
++        icon={UserRound}
++        label='Character'
++        active={tab === 'character'}
++        onClick={() => {
++          if (quiet()) return
++          onShow('character')
++        }}
++      >
++        {asking && tab !== 'character' && (
++          <span className='absolute top-2 right-[calc(50%-1.25rem)] size-2.5 rounded-full bg-primary ring-2 ring-card'>
++            <span className='sr-only'>{asksForRoll}</span>
++          </span>
++        )}
++      </TabButton>
++      <TabButton
++        ref={combatTab}
++        icon={Swords}
++        label='Combat'
++        active={tab === 'combat'}
++        onClick={() => {
++          if (quiet()) return
++          onShow('combat')
++        }}
++        hold={hold}
++      >
++        {myTurn && tab !== 'combat' && (
++          <span className='absolute top-2 right-[calc(50%-1.25rem)] z-[1] size-2.5 rounded-full bg-primary ring-2 ring-card'>
++            <span className='sr-only'>, your turn</span>
++          </span>
++        )}
++      </TabButton>
++      <TabButton
++        icon={MessageSquare}
++        label='Chat'
++        active={tab === 'chat'}
++        onClick={() => {
++          if (quiet()) return
++          onShow('chat')
++        }}
++      >
++        {unread > 0 && (
++          <span className='absolute top-1 right-[calc(50%-1.75rem)] flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary ring-2 ring-card'>
++            {badgeCount(unread)}
++            <span className='sr-only'> unread</span>
++          </span>
++        )}
++      </TabButton>
++    </nav>
++  )
++}
+diff --git a/src/features/table/components/table-notices/table-notices.tsx b/src/features/table/components/table-notices/table-notices.tsx
+new file mode 100644
+index 0000000..ddd2e3d
+--- /dev/null
++++ b/src/features/table/components/table-notices/table-notices.tsx
+@@ -0,0 +1,48 @@
++'use client'
++
++import { GmNote } from '../gm-note/gm-note'
++import { NotConnected } from '../not-connected/not-connected'
++import { WildShapeEnded } from '@/features/sheet/components/wild-shape/wild-shape-ended'
++import type { Character } from '@/types/character'
++import type { TableView } from '@/types/table'
++
++/**
++ * What the table says under its header: at the Gamemaster's seat (#156), where their rolls go; for
++ * a character no longer in its campaign's game, that only public messages show; and a Wild Shape
++ * the game ended.
++ * @param playing - Whether the character plays one of its campaign's characters.
++ * @param seatKey - The seat's key, as its table page has it.
++ * @param addBack - How the seat's words say the character is added back to the game.
++ */
++export function TableNotices({
++  gm,
++  playing,
++  view,
++  character,
++  seatKey,
++  addBack,
++}: Readonly<{
++  gm: boolean
++  playing: boolean
++  view: TableView
++  character: Character
++  seatKey: string
++  addBack: string
++}>) {
++  return (
++    <>
++      {gm && <GmNote name={character.name} rolls={view.gm?.rolls ?? 'off'} />}
++      {playing && view.campaign && !view.connected && (
++        <NotConnected
++          name={character.name}
++          campaign={view.campaign.title}
++          addBack={addBack}
++        />
++      )}
++      {/* The game ended a Wild Shape (module 0.40.0): why, until dismissed. */}
++      {playing && (
++        <WildShapeEnded sheet={view.sheet} name={character.name} seat={seatKey} />
++      )}
++    </>
++  )
++}
+diff --git a/src/features/table/components/table-party-panel/table-party-panel.tsx b/src/features/table/components/table-party-panel/table-party-panel.tsx
+new file mode 100644
+index 0000000..605d0ff
+--- /dev/null
++++ b/src/features/table/components/table-party-panel/table-party-panel.tsx
+@@ -0,0 +1,53 @@
++'use client'
++
++import { PartyPanel } from '@/features/party/components/party-panel/party-panel'
++import { partyApi, partyPage } from '@/features/table/utils/party-urls'
++import type { Character, TableSeat } from '@/types/character'
++import type { TableGroup } from '@/types/party'
++import type { TableView } from '@/types/table'
++
++/**
++ * A party sheet, over the character's, never part of it: read through the seat's own API, its own
++ * page as the seat opens it, and the player's own sheet linked from its members.
++ * @param group - The group open, if any.
++ * @param sheet - The character's sheet, which nothing is taken into while it's transformed.
++ */
++export function TablePartyPanel({
++  seat,
++  character,
++  sheet,
++  group,
++  onClose,
++}: Readonly<{
++  seat: TableSeat
++  character: Character
++  sheet?: TableView['sheet']
++  group?: TableGroup
++  onClose: () => void
++}>) {
++  return (
++    <PartyPanel
++      group={group}
++      api={partyApi(seat, character, group?.id)}
++      pageHref={partyPage(seat, character, group?.id)}
++      role={seat.role}
++      ownSheetHref={
++        seat.role === 'gm' ? undefined : `/characters/${character.id}`
++      }
++      // Taken into the character at this table, through this seat's own API (module 0.31.0).
++      // Never while the character is transformed, as by Wild Shape (module 0.40.0), its gear
++      // not on its form.
++      takeInto={
++        character.actorId && !sheet?.form
++          ? {
++              kind: 'own',
++              actorId: character.actorId,
++              name: character.name,
++              api: seat.api,
++            }
++          : undefined
++      }
++      onClose={onClose}
++    />
++  )
++}
+diff --git a/src/features/table/components/turn-toast/utils.ts b/src/features/table/components/turn-toast/utils.ts
+new file mode 100644
+index 0000000..cbad409
+--- /dev/null
++++ b/src/features/table/components/turn-toast/utils.ts
+@@ -0,0 +1,97 @@
++import { currentCombatant } from '@/features/table/utils/combat'
++import {
++  endTurnWords,
++  HOLD_HINT,
++  reasonSentence,
++  TURN_TOAST_FOR,
++  TURN_UNDO_FOR,
++  turnFragment,
++  turnSendingLine,
++} from '@/features/table/utils/end-turn'
++import type { Card, Sent } from '@/features/table/types'
++import type { EndedTurn } from '@/types/roll'
++import type { SeatRole } from '@/types/seats'
++import type { TableCombat } from '@/types/table'
++
++/** Whether the page shows this turn now: its combat, started, at its round and combatant. */
++export function showsTurn(
++  combat: TableCombat | undefined,
++  turn: EndedTurn,
++): boolean {
++  return (
++    combat?.started === true &&
++    combat.id === turn.combatId &&
++    combat.round === turn.round &&
++    combat.currentId === turn.combatantId
++  )
++}
++
++/**
++ * Whether Undo's card has done its work: the page shows the turn it takes back, as the panel's
++ * heading does, whatever Undo's way says by now. The table's poll and the checks of Undo's way run
++ * apart, and the game moves the turn before it answers, so the panel can show the turn back a
++ * check before Undo's way says it's made: the card goes with the panel, never a check later.
++ */
++export function takenBack(
++  card: Card,
++  combat: TableCombat | undefined,
++): boolean {
++  return card.kind === 'taking' && showsTurn(combat, card.turn)
++}
++
++/** Who acts as the page shows the combat: by name, and whether it's the viewer's own character. */
++export function actingOf(
++  combat: TableCombat | undefined,
++): { name: string; mine: boolean } | undefined {
++  if (!combat?.started) return undefined
++  const current = currentCombatant(combat)
++  return current && { name: current.name, mine: current.side === 'me' }
++}
++
++/** How long a card shows, from when it's shown; none for one that follows a press or a way. */
++export function lastsOf(card: Card): number | undefined {
++  if (card.kind === 'ended') return card.undo ? TURN_UNDO_FOR : TURN_TOAST_FOR
++  if (card.kind === 'refused' || card.kind === 'kept') return TURN_TOAST_FOR
++  return undefined
++}
++
++/** A card's words, and the line under them, as the seat reads them. */
++export function wordsOf(
++  card: Card,
++  sent: Sent | undefined,
++  role: SeatRole,
++): { words: string; line?: string } {
++  const words = endTurnWords(card.turn)
++  switch (card.kind) {
++    case 'holding': {
++      return { words: words.ending, line: HOLD_HINT }
++    }
++    case 'sending': {
++      const way = sent?.turn === card.turn ? sent.way : undefined
++      return {
++        words: words.ending,
++        line: turnSendingLine(way ?? { status: 'sending' }, role),
++      }
++    }
++    case 'ended': {
++      return { words: words.ended, line: card.line }
++    }
++    case 'refused': {
++      const fragment = turnFragment(card.key, role)
++      return {
++        words: `${words.notEnded}.`,
++        line: fragment && reasonSentence(fragment),
++      }
++    }
++    case 'taking': {
++      return { words: words.takingBack }
++    }
++    case 'kept': {
++      const fragment = turnFragment(card.key, role)
++      return {
++        words: words.notTakenBack,
++        line: fragment && reasonSentence(fragment),
++      }
++    }
++  }
++}
+diff --git a/src/features/table/constants.ts b/src/features/table/constants.ts
+new file mode 100644
+index 0000000..7105b70
+--- /dev/null
++++ b/src/features/table/constants.ts
+@@ -0,0 +1,2 @@
++/** No keys, the same each time. */
++export const NO_KEYS: ReadonlySet<string> = new Set()
+diff --git a/src/features/table/hooks/use-chat-read.ts b/src/features/table/hooks/use-chat-read.ts
+new file mode 100644
+index 0000000..94a4b57
+--- /dev/null
++++ b/src/features/table/hooks/use-chat-read.ts
+@@ -0,0 +1,48 @@
++import { useEffect, useRef, useState } from 'react'
++import { unreadCount } from '@/features/table/utils/unread'
++import type { TableView } from '@/types/table'
++
++/** How far a player has read an empty chat: every message after it is unread. */
++const NOTHING_READ = new Date(0).toISOString()
++
++/**
++ * Messages from others newer than the newest the player has had in view are unread. How far
++ * they have read is kept with the character, so it lasts across visits and devices. On a first
++ * visit, what is already there counts as read, and anything after it as unread. The
++ * Gamemaster's rolls as the character are the player's to read, though theirs; and at its
++ * sheet, the Gamemaster reads all but their own, from the newest when they came, never moving
++ * the player's place (#156).
++ * @param chatInView - Whether the chat is in view now.
++ * @param markChatRead - Saves how far the player has read. A player's page only.
++ * @returns How many messages are unread, none while the chat is in view.
++ */
++export function useChatRead({
++  gm,
++  initialView,
++  view,
++  chatInView,
++  markChatRead,
++}: {
++  gm: boolean
++  initialView: TableView
++  view: TableView
++  chatInView: boolean
++  markChatRead?: (readAt: string) => Promise<void>
++}): number {
++  const newest = view.messages.at(-1)?.sentAt ?? ''
++  const [seenUpTo, setSeenUpTo] = useState(
++    () => (gm ? undefined : initialView.chatReadAt) ?? (newest || NOTHING_READ),
++  )
++  const readElsewhere = gm ? '' : (view.chatReadAt ?? '')
++  if (readElsewhere > seenUpTo) setSeenUpTo(readElsewhere)
++  if (chatInView && newest > seenUpTo) setSeenUpTo(newest)
++  const unread = chatInView ? 0 : unreadCount(view.messages, gm, seenUpTo)
++  const saved = useRef(gm ? seenUpTo : initialView.chatReadAt)
++  useEffect(() => {
++    if (gm || !markChatRead || seenUpTo === saved.current) return
++    saved.current = seenUpTo
++    // Failing to save only means those messages count as unread again on another visit.
++    markChatRead(seenUpTo).catch(() => {})
++  }, [gm, seenUpTo, markChatRead])
++  return unread
++}
+diff --git a/src/features/table/hooks/use-chat-scroll.ts b/src/features/table/hooks/use-chat-scroll.ts
+new file mode 100644
+index 0000000..4ace82c
+--- /dev/null
++++ b/src/features/table/hooks/use-chat-scroll.ts
+@@ -0,0 +1,36 @@
++import { useLayoutEffect, useRef } from 'react'
++import type { Tab } from '@/features/table/types'
++import type { TableMessage } from '@/types/table'
++
++/**
++ * Keep the chat pinned to the newest message unless the player has scrolled up to read.
++ * @param chatInView - Whether the chat is in view now.
++ * @param messages - The chat's messages, as the table's view has them.
++ * @returns The chat's scroller and its scroll handler; and `pinFor`, which starts the chat from the
++ *   newest message again as its tab is shown.
++ */
++export function useChatScroll(
++  chatInView: boolean,
++  messages: readonly TableMessage[],
++) {
++  const scroller = useRef<HTMLDivElement>(null)
++  const pinned = useRef(true)
++  useLayoutEffect(() => {
++    const element = scroller.current
++    if (element && chatInView && pinned.current) {
++      element.scrollTop = element.scrollHeight
++    }
++  }, [chatInView, messages])
++  const onScroll = () => {
++    const element = scroller.current
++    if (element && chatInView) {
++      pinned.current =
++        element.scrollHeight - element.scrollTop - element.clientHeight < 80
++    }
++  }
++  const pinFor = (next: Tab) => {
++    // Back on the chat, start from the newest message.
++    if (next === 'chat') pinned.current = true
++  }
++  return { scroller, onScroll, pinFor }
++}
+diff --git a/src/features/table/hooks/use-companion-row.ts b/src/features/table/hooks/use-companion-row.ts
+new file mode 100644
+index 0000000..ecc08ea
+--- /dev/null
++++ b/src/features/table/hooks/use-companion-row.ts
+@@ -0,0 +1,147 @@
++import { useState } from 'react'
++import { useCreatureChoice } from './use-creature-choice'
++import { NO_KEYS } from '@/features/table/constants'
++import {
++  mountedPanes,
++  NO_ROW,
++  nextRow,
++  waitingCompanions,
++  withMark,
++} from '@/features/table/utils/companion-row-state'
++import { useWaitingCompanions } from '@/hooks/use-waiting-prompts'
++import type { PaneMarks, PaneReporters, Tab } from '@/features/table/types'
++import type { TableView } from '@/types/table'
++
++/**
++ * The character's companions (module 0.36.0), as the row of tabs above the sheet shows them:
++ * those the module lists, and those it no longer lists, kept until the player has seen they've
++ * gone; each name numbered where the row repeats it, each number kept while it does.
++ */
++function useRow(companions: TableView['companions']) {
++  const [kept, setKept] = useState(() => nextRow(NO_ROW, companions, NO_KEYS))
++  // Those whose panes were told they're gone (404) while the page still listed them, as one that
++  // leaves and comes back between two of the page's polls: mounted afresh as a later view lists
++  // them, since a pane told so asks no more.
++  const [lost, setLost] = useState<ReadonlySet<string>>(NO_KEYS)
++  let shownRow = kept
++  if (kept.listed !== companions) {
++    shownRow = nextRow(kept, companions, kept.dismissed, lost)
++    setKept(shownRow)
++    if (lost.size > 0) setLost(NO_KEYS)
++  }
++  return { shownRow, setKept, setLost }
++}
++
++/**
++ * What each companion's pane says of itself: damage to roll, which its tab marks while it's
++ * hidden, and a roll on its way, while the page must keep it; and the panes mounted, most recently
++ * shown first: each as it's first chosen, kept as others are, at most four, the least recently
++ * shown with nothing to roll or on its way going. One whose tab has gone goes with it, and with it
++ * what it said of itself.
++ * @param onLost - Told a pane's route said its companion is gone, by its key.
++ */
++function usePanes(
++  rowKeys: readonly string[],
++  chosen: string,
++  onLost: (key: string) => void,
++) {
++  const [paneMarks, setPaneMarks] = useState<ReadonlyMap<string, PaneMarks>>(
++    () => new Map(),
++  )
++  const [reporters] = useState(() => new Map<string, PaneReporters>())
++  const reportersOf = (key: string): PaneReporters => {
++    let held = reporters.get(key)
++    if (!held) {
++      held = {
++        onPending: pending =>
++          setPaneMarks(marks => withMark(marks, key, { pending })),
++        onBusy: busy => setPaneMarks(marks => withMark(marks, key, { busy })),
++        onLost: () => onLost(key),
++      }
++      reporters.set(key, held)
++    }
++    return held
++  }
++  const [mounted, setMounted] = useState<readonly string[]>([])
++  const panes = mountedPanes(mounted, rowKeys, chosen, paneMarks)
++  if (panes.join('|') !== mounted.join('|')) {
++    setMounted(panes)
++    if ([...paneMarks.keys()].some(key => !panes.includes(key))) {
++      setPaneMarks(
++        new Map([...paneMarks].filter(([key]) => panes.includes(key))),
++      )
++    }
++  }
++  return { paneMarks, reportersOf, panes }
++}
++
++/**
++ * The row of the character's companions above the sheet (module 0.36.0), with the one chosen, the
++ * panes mounted and what each says of itself, and those the game asks a save of (module 0.41.0).
++ * @param seatKey - The seat's key, which the creature chosen is kept by.
++ * @param show - Shows one of the table's tabs.
++ * @returns The row, its names, numbers and how often each has come back; those asked; the one
++ *   chosen, and `choose`; the panes mounted, what each says of itself and how it says so; and
++ *   `openCompanion`, which chooses one, shows the Character tab and focuses its tab.
++ */
++export function useCompanionRow({
++  view,
++  seatKey,
++  show,
++}: {
++  view: TableView
++  seatKey: string
++  show: (tab: Tab) => void
++}) {
++  // From module 0.41.0, those the game asks of the character's companions, which each one's tab
++  // marks.
++  const companionsAsked = useWaitingCompanions(
++    view.connected ? view.companionPrompts : undefined,
++  )
++  const { shownRow, setKept, setLost } = useRow(view.companions)
++  const { row, names, numbers, generations } = shownRow
++  const rowKeys = row.map(({ key }) => key)
++  // Those companions asked whose tabs the row shows, not gone, in the order first asked: the
++  // character's own banner says so, with a way to each one's tab (module 0.41.0).
++  const waiting = waitingCompanions(companionsAsked, row, names)
++  const waitingKeys = new Set(waiting.map(({ key }) => key))
++  const [chosen, chooseKept] = useCreatureChoice(seatKey, rowKeys)
++  const goneKeys = new Set(row.flatMap(({ key, gone }) => (gone ? [key] : [])))
++  // A gone companion's tab goes once it has been shown and another is chosen.
++  const choose = (next: string) => {
++    if (next !== chosen && goneKeys.has(chosen)) {
++      setKept(held =>
++        nextRow(held, held.listed, new Set(held.dismissed).add(chosen)),
++      )
++    }
++    chooseKept(next)
++  }
++  const { paneMarks, reportersOf, panes } = usePanes(rowKeys, chosen, key =>
++    setLost(keys => (keys.has(key) ? keys : new Set(keys).add(key))),
++  )
++  // A companion's tab, from the turn panel's "its tab" (module 0.36.0): chosen, shown, focused.
++  const openCompanion = (key: string) => {
++    choose(key)
++    show('character')
++    requestAnimationFrame(() =>
++      document
++        .querySelector<HTMLElement>(`#${CSS.escape(`creature-tab-${key}`)}`)
++        ?.focus(),
++    )
++  }
++  return {
++    row,
++    names,
++    numbers,
++    generations,
++    rowKeys,
++    waiting,
++    waitingKeys,
++    chosen,
++    choose,
++    paneMarks,
++    reportersOf,
++    panes,
++    openCompanion,
++  }
++}
+diff --git a/src/features/table/hooks/use-party-open.ts b/src/features/table/hooks/use-party-open.ts
+new file mode 100644
+index 0000000..6c8d2d6
+--- /dev/null
++++ b/src/features/table/hooks/use-party-open.ts
+@@ -0,0 +1,22 @@
++import { useState } from 'react'
++import { sameGroup } from '@/features/table/utils/party-urls'
++import type { TableGroup } from '@/types/party'
++
++/**
++ * The party sheet open in its side panel, by its group's id (module 0.30.0). Once open, it stays
++ * open as the group was last listed, should the group leave the list, as when the player's
++ * access to it is taken away: the panel then says so, rather than vanishing.
++ * @param groups - The groups the table's view lists now.
++ * @returns The group open, if any, and `setPartyOpen`, which opens one by its id, or closes it.
++ */
++export function usePartyOpen(groups: readonly TableGroup[] | undefined) {
++  const [partyOpen, setPartyOpen] = useState<string>()
++  const listedParty = groups?.find(({ id }) => id === partyOpen)
++  const [lastParty, setLastParty] = useState<TableGroup>()
++  if (listedParty && !sameGroup(listedParty, lastParty)) {
++    setLastParty(listedParty)
++  }
++  const party =
++    listedParty ?? (lastParty?.id === partyOpen ? lastParty : undefined)
++  return { party, setPartyOpen }
++}
+diff --git a/src/features/table/hooks/use-table-tabs.ts b/src/features/table/hooks/use-table-tabs.ts
+new file mode 100644
+index 0000000..3feeccb
+--- /dev/null
++++ b/src/features/table/hooks/use-table-tabs.ts
+@@ -0,0 +1,52 @@
++import { useState } from 'react'
++import { useMediaQuery } from '@/hooks/use-media-query'
++import type { Aside, Tab } from '@/features/table/types'
++
++/** From Tailwind's lg width, the sheet and the combat or chat column sit side by side. */
++const SIDE_BY_SIDE = '(min-width: 64rem)'
++
++/**
++ * The table's tabs: the one shown on a phone or tablet, the character, combat or the chat; what
++ * sits beside the sheet on a wide screen, combat or the chat; and whether the screen is that wide.
++ * @param fighting - Whether the page opened on a combat already started: combat then sits beside
++ *   the sheet, else the chat.
++ * @returns The tab and the column's choice; whether they sit side by side; whether the chat, the
++ *   combat pane and the Character pane are in view; and `show`, which shows a tab, and on a wide screen puts combat
++ *   or the chat beside the sheet.
++ */
++export function useTableTabs(fighting: boolean) {
++  const [aside, setAside] = useState<Aside>(() =>
++    fighting ? 'combat' : 'chat',
++  )
++  // The character comes first, in a fight too, where the Combat tab marks the player's turn; and
++  // without a sheet, where its tab says why.
++  const [tab, setTab] = useState<Tab>('character')
++  const sideBySide = useMediaQuery(SIDE_BY_SIDE)
++  // A screen that narrows from the sheet beside combat or the chat to one pane shows the
++  // character, keeping the part of the sheet shown. Widening changes nothing.
++  const [wasSideBySide, setWasSideBySide] = useState(sideBySide)
++  if (sideBySide !== wasSideBySide) {
++    setWasSideBySide(sideBySide)
++    if (!sideBySide) setTab('character')
++  }
++  // The chat is in view when it is the tab shown, or on a wide screen when it is what sits beside
++  // the sheet.
++  const chatInView = aside === 'chat' && (sideBySide || tab === 'chat')
++  // Whether the combat pane is shown: Combat chosen in one pane, or beside the sheet.
++  const combatShown = sideBySide ? aside === 'combat' : tab === 'combat'
++  // Whether the Character pane is in view: on a wide screen, or as its tab.
++  const characterInView = tab === 'character' || sideBySide
++  const show = (next: Tab) => {
++    if (next !== 'character') setAside(next)
++    setTab(next)
++  }
++  return {
++    tab,
++    aside,
++    sideBySide,
++    chatInView,
++    combatShown,
++    characterInView,
++    show,
++  }
++}
+diff --git a/src/features/table/hooks/use-turn-ending.ts b/src/features/table/hooks/use-turn-ending.ts
+new file mode 100644
+index 0000000..fe815ed
+--- /dev/null
++++ b/src/features/table/hooks/use-turn-ending.ts
+@@ -0,0 +1,147 @@
++import { useEffect, useRef, useState } from 'react'
++import { useEndTurn } from './use-end-turn'
++import { useHold } from './use-hold'
++import { useTurnUndo } from './use-turn-undo'
++import {
++  END_TURN_QUIET_CLICKS,
++  holdDescription,
++  newlyNotMade,
++  refusalKey,
++  turnKey,
++} from '@/features/table/utils/end-turn'
++import type { EndTurnState, TabHold } from '@/features/table/types'
++import type { RollKind } from '@/types/roll'
++import type { EndableTurn, TableView } from '@/types/table'
++
++/** No rolls the game takes from here, the same each time. */
++const NO_KINDS: readonly RollKind[] = []
++
++/**
++ * Why the last End Turn wasn't made, which the turn panel says while it shows that turn: by the
++ * turn and its way's reason, as a refusal by this app's own server has no id.
++ */
++function useRefusal(ending: EndTurnState) {
++  const [refused, setRefused] = useState<{ turn: EndableTurn; key: string }>()
++  const lastSent = useRef(ending.sent)
++  useEffect(() => {
++    const was = lastSent.current
++    lastSent.current = ending.sent
++    if (newlyNotMade(was, ending.sent)) {
++      setRefused({ turn: ending.sent.turn, key: refusalKey(ending.sent.way) })
++    }
++  }, [ending.sent])
++  const turnShown = ending.turn && turnKey(ending.turn)
++  if (refused && turnShown !== turnKey(refused.turn)) setRefused(undefined)
++  return [refused, setRefused] as const
++}
++
++/**
++ * The Combat tab held to end the turn: whether a hold is past half a second, which its toast says;
++ * and once a hold has ended the turn, the page's tabs ignore clicks for a moment, so that the click
++ * that ends the press, wherever it lands, opens nothing.
++ * @param onEnd - Ends the turn the hold was made on.
++ */
++function useTurnHold(ending: EndTurnState, onEnd: (turn: EndableTurn) => void) {
++  const [held, setHeld] = useState(false)
++  const quietUntil = useRef(0)
++  const quiet = () => performance.now() < quietUntil.current
++  const hold = useHold({
++    key: ending.offered && ending.turn ? turnKey(ending.turn) : undefined,
++    onToast: () => setHeld(true),
++    onEnd: () => {
++      quietUntil.current = performance.now() + END_TURN_QUIET_CLICKS
++      setHeld(false)
++      if (ending.turn) onEnd(ending.turn)
++    },
++    onCancel: () => setHeld(false),
++  })
++  return { held, quiet, hold }
++}
++
++/**
++ * End Turn at the table (module 0.36.0): the seat's turn, its character's or a companion's, ended
++ * from the turn panel's button or the Combat tab held, with Undo in the toast that follows;
++ * wherever the game takes it from here. A character no longer in its campaign's game ends no turn.
++ * It composes `useEndTurn`, `useTurnUndo` and `useHold`, each as it is.
++ * @param api - The seat's API base, which its rolls go through.
++ * @param gm - Whether the seat is the Gamemaster's.
++ * @param sideBySide - Whether the sheet and the combat or chat column sit side by side.
++ * @param combatShown - Whether the combat pane is shown.
++ * @returns End Turn and Undo; how the last End Turn was sent, and why it wasn't made; `endTurn`;
++ *   whether a hold is past half a second, and whether the tabs ignore clicks now; the Combat tab of
++ *   each layout, and where focus on the turn goes; and `holdOf`, the hold as a Combat tab takes it.
++ */
++export function useTurnEnding({
++  api,
++  gm,
++  view,
++  sideBySide,
++  combatShown,
++}: {
++  api: string
++  gm: boolean
++  view: TableView
++  sideBySide: boolean
++  combatShown: boolean
++}) {
++  const kinds = (view.connected && view.rollsToTable) || NO_KINDS
++  const ending = useEndTurn({ api, gm, combat: view.combat, kinds })
++  const undoing = useTurnUndo({
++    api,
++    gm,
++    combat: view.combat,
++    kinds,
++    sent: ending.sent,
++  })
++  // How the last End Turn was sent, by the button or by a hold.
++  const [via, setVia] = useState<'button' | 'hold'>()
++  const [refused, setRefused] = useRefusal(ending)
++  const endTurn = (turn: EndableTurn, how: 'button' | 'hold') => {
++    setVia(how)
++    setRefused(undefined)
++    ending.end(turn)
++  }
++  const { held, quiet, hold } = useTurnHold(ending, turn =>
++    endTurn(turn, 'hold'),
++  )
++  // The Combat tab of each layout: the bottom bar's or rail's, and the column's.
++  const barCombat = useRef<HTMLButtonElement>(null)
++  const columnCombat = useRef<HTMLButtonElement>(null)
++  // Focus, where the control under it goes, as Undo does: to the turn panel's heading where the
++  // combat pane is shown, else to the Combat tab of the layout shown, never the page's body.
++  const focusTurn = () => {
++    const heading = document.querySelector<HTMLElement>('#turn-heading')
++    if (combatShown && heading) {
++      heading.focus({ preventScroll: true })
++      return
++    }
++    const combatTab = sideBySide ? columnCombat : barCombat
++    combatTab.current?.focus()
++  }
++  // The Combat tab held to end the turn, on the layout shown: its handlers on it always, which do
++  // nothing with no turn to end; while one may be ended, its fill and what it's described as.
++  const offeredTurn = ending.offered ? ending.turn : undefined
++  const holdOf = (id: string, shown: boolean): TabHold => ({
++    handlers: hold.handlers,
++    holding: shown && hold.holding,
++    touch: shown && (offeredTurn !== undefined || hold.pressed),
++    offer:
++      shown && offeredTurn
++        ? { fill: hold.fill, id, description: holdDescription(offeredTurn) }
++        : undefined,
++  })
++  return {
++    ending,
++    undoing,
++    via,
++    refused,
++    clearRefused: () => setRefused(undefined),
++    endTurn,
++    held,
++    quiet,
++    barCombat,
++    columnCombat,
++    focusTurn,
++    holdOf,
++  }
++}
+diff --git a/src/features/table/hooks/use-typed-dice.ts b/src/features/table/hooks/use-typed-dice.ts
+new file mode 100644
+index 0000000..789f409
+--- /dev/null
++++ b/src/features/table/hooks/use-typed-dice.ts
+@@ -0,0 +1,50 @@
++import { useEffect, useState } from 'react'
++import { POLL_INTERVAL } from '@/constants/polling'
++import type { DiceSwitch } from '@/features/table/types'
++import type { TableView } from '@/types/table'
++
++/**
++ * Whether the player types in their own dice, as they chose on any device (module 0.32.0): the
++ * player's change, until a view agrees with it; one that disagrees, coming a poll after the
++ * save settled, is another device's later choice.
++ * @param setManualDice - Remembers the choice on every device. A player's page only.
++ * @returns The switch for it, where the game lets the player type in their own dice: never on the
++ *   Gamemaster's page, which has nowhere to remember it. Their companions' are the same.
++ */
++export function useTypedDice(
++  view: TableView,
++  setManualDice?: (on: boolean) => Promise<void>,
++): DiceSwitch | undefined {
++  const [diceChoice, setDiceChoice] = useState<{
++    on: boolean
++    settled?: number
++  }>()
++  const stored = view.manualDice?.on === true
++  const typing = diceChoice?.on ?? stored
++  useEffect(() => {
++    const told = view.manualDice?.on === true
++    setDiceChoice(held => {
++      if (!held || held.on === told) return
++      // A view polled before the save settled may still say what was stored before it.
++      const later =
++        held.settled !== undefined && Date.now() - held.settled > POLL_INTERVAL
++      return later ? undefined : held
++    })
++  }, [view])
++  const onManualDice = (next: boolean) => {
++    if (!setManualDice) return
++    const made = { on: next }
++    setDiceChoice(made)
++    setManualDice(next).then(
++      () =>
++        setDiceChoice(held =>
++          held === made ? { ...made, settled: Date.now() } : held,
++        ),
++      // Not saved: the switch shows what's stored again.
++      () => setDiceChoice(held => (held === made ? undefined : held)),
++    )
++  }
++  return view.connected && view.manualDice?.offered && setManualDice
++    ? { on: typing, onChange: onManualDice }
++    : undefined
++}
+diff --git a/src/features/table/types.ts b/src/features/table/types.ts
+new file mode 100644
+index 0000000..d86c8ee
+--- /dev/null
++++ b/src/features/table/types.ts
+@@ -0,0 +1,203 @@
++import type { MouseEventHandler, PointerEventHandler, RefObject } from 'react'
++import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
++import type { Character, TableSeat } from '@/types/character'
++import type { CookbookCodeAnswer } from '@/types/cookbook'
++import type { TableRollState } from '@/types/roll'
++import type {
++  EndableTurn,
++  RowCompanion,
++  TableCombat,
++  TableCompanion,
++  TableView,
++  TurnUndo,
++} from '@/types/table'
++
++export type Tab = 'character' | 'combat' | 'chat'
++
++/** What shares the narrow column beside the sheet on a wide screen: combat, or the chat. */
++export type Aside = Exclude<Tab, 'character'>
++
++export type GameTableProps = {
++  character: Character
++  initialView: TableView
++  /**
++   * Who is at the sheet (#156): its player, by default, through the character's own API; or its
++   * campaign's Gamemaster, through theirs, rolling as it.
++   */
++  seat?: TableSeat
++  /** The campaign's characters, for a character in it that has yet to choose which it is. */
++  choice?: CampaignChoice
++  /** Saves which of its campaign's characters this character is. A player's page only. */
++  chooseActor?: (
++    state: ChooseCharacterFormState,
++    formData: FormData,
++  ) => Promise<ChooseCharacterFormState>
++  /** Deletes this character and leaves its page. A player's page only. */
++  deleteCharacter?: () => Promise<void>
++  /**
++   * Notes that the player has read the chat up to the message sent at this ISO time. A player's
++   * page only: the Gamemaster never moves their place in it.
++   */
++  markChatRead?: (readAt: string) => Promise<void>
++  /**
++   * Remembers whether the player types in their own dice for this character, on every device. A
++   * player's page only.
++   */
++  setManualDice?: (on: boolean) => Promise<void>
++  /**
++   * Makes a link code for the Magical Recipe Book for this character, from module 0.38.0,
++   * replacing any before it. A player's page only.
++   */
++  makeCookbookCode?: () => Promise<CookbookCodeAnswer>
++  /** Revokes this character's link code for the Magical Recipe Book. A player's page only. */
++  revokeCookbookCode?: () => Promise<void>
++}
++
++/** What `useHold` puts on the tab held to end the turn: its pointer, menu and click handlers. */
++export type HoldHandlers = {
++  onPointerDown: PointerEventHandler
++  onPointerMove: PointerEventHandler
++  onPointerUp: PointerEventHandler
++  onPointerCancel: PointerEventHandler
++  onContextMenu: MouseEventHandler
++  onClickCapture: MouseEventHandler
++}
++
++/**
++ * The Combat tab held to end the turn (module 0.36.0): the hold's handlers, on it always; whether
++ * a press is held, and whether the tab takes a held touch; and while a turn may be ended, its
++ * fill and what it's described as, by the id of the words that say so.
++ */
++export type TabHold = {
++  handlers: HoldHandlers
++  holding: boolean
++  touch: boolean
++  offer?: {
++    fill: RefObject<HTMLSpanElement | null>
++    id: string
++    description: string
++  }
++}
++
++/**
++ * The row of companions as the page keeps it (module 0.36.0): as last listed, which it was worked
++ * out from; the gone ones whose tabs have been left; the row; each one's name and number where
++ * the row repeats a name; and how many times each has come back after it had gone, which its pane
++ * is mounted afresh for.
++ */
++export type RowState = {
++  listed?: TableCompanion[]
++  dismissed: ReadonlySet<string>
++  row: RowCompanion[]
++  names: ReadonlyMap<string, string>
++  numbers: ReadonlyMap<string, number>
++  generations: ReadonlyMap<string, number>
++}
++
++/** The switch for whether the player types in their own dice (module 0.32.0), where offered. */
++export type DiceSwitch = { on: boolean; onChange: (on: boolean) => void }
++
++/** What a companion's pane says of itself: damage to roll, and a roll on its way. */
++export type PaneMarks = { pending?: boolean; busy?: boolean }
++
++/**
++ * How a companion's pane tells the page so, and that its route said it's gone, the same each time
++ * for its key.
++ */
++export type PaneReporters = {
++  onPending: (pending: boolean) => void
++  onBusy: (busy: boolean) => void
++  onLost: () => void
++}
++
++/**
++ * End Turn, for a character's page (module 0.36.0), as `useEndTurn` gives it: the turn it may end;
++ * whether it's offered now; the way of the one sent for it; the last one sent, with its way; and
++ * `end`, which sends it.
++ */
++export type EndTurnState = {
++  turn?: EndableTurn
++  offered: boolean
++  way?: TableRollState
++  sent?: { turn: EndableTurn; way: TableRollState }
++  end: (turn: EndableTurn) => void
++}
++
++/**
++ * Undo, for a character's page (module 0.36.0), as `useTurnUndo` gives it: the End Turn offered
++ * to take back; the way of the Undo sent, with the End Turn it's for; and `undo`, which sends it.
++ */
++export type UndoState = {
++  offer?: TurnUndo
++  way?: TableRollState & { for: string }
++  undo: () => void
++}
++
++/** The last End Turn sent, and its way. */
++export type Sent = NonNullable<EndTurnState['sent']>
++
++/**
++ * The turn the page shows, as `useEndTurn` has it: which, by its key; how many turns have been
++ * shown before it, so that what's heard of an End Turn sent for one of those is never taken for it,
++ * even where it's the same turn shown again; whether it has been shown long enough to be offered;
++ * and the way of the End Turn sent for it, if one was.
++ */
++export type Shown = {
++  key?: string
++  serial: number
++  armed: boolean
++  way?: TableRollState
++  /**
++   * Once that way says the turn is over, the view of the combat the page showed then. The game
++   * moves the turn before it answers, so a newer view still showing the turn is the turn shown
++   * again, as after the Gamemaster's Previous Turn, though the page never saw the turn between.
++   */
++  overIn?: TableCombat
++}
++
++/**
++ * The End Turn `useTurnUndo` follows, by its id, as the page has shown its combat since the game
++ * said it was made: the turn it left the combat on, once the page has shown one; and whether it
++ * can no longer be taken back from here, as once the page has shown another turn since, or none,
++ * or an Undo was sent for it.
++ */
++export type Followed = {
++  id?: string
++  left?: TurnUndo['left']
++  over: boolean
++}
++
++/**
++ * End Turn, as the turn panel offers it (module 0.36.0): the turn the seat may end and its way, as
++ * `useEndTurn` has them; how the last End Turn was sent; why the last one wasn't made, by the turn
++ * it was for and its way's reason, else its status; what ends a turn from the panel; and the page's
++ * own place for focus on the turn, where the panel's heading has gone too.
++ */
++export type PanelEnding = {
++  ending?: EndTurnState
++  via?: 'button' | 'hold'
++  refused?: { turn: EndableTurn; key: string }
++  onEnd?: (turn: EndableTurn) => void
++  focusTurn?: () => void
++}
++
++/**
++ * What the toast shows: a hold past half a second; its End Turn on its way; an End Turn the game
++ * made, with Undo while that's offered; one that wasn't made; Undo on its way; or Undo not made.
++ * Each card shown is numbered, so that the next is announced, and animates in, as a new one.
++ */
++export type CardBody =
++  | { kind: 'holding'; turn: EndableTurn }
++  | { kind: 'sending'; turn: EndableTurn }
++  | {
++      kind: 'ended'
++      id: string
++      turn: EndableTurn
++      line?: string
++      undo: boolean
++    }
++  | { kind: 'refused'; turn: EndableTurn; key: string }
++  | { kind: 'taking'; id: string; turn: EndableTurn }
++  | { kind: 'kept'; turn: EndableTurn; key: string }
++
++export type Card = CardBody & { serial: number }
+diff --git a/src/features/table/utils/combat.ts b/src/features/table/utils/combat.ts
+new file mode 100644
+index 0000000..1c1751c
+--- /dev/null
++++ b/src/features/table/utils/combat.ts
+@@ -0,0 +1,62 @@
++import type { TableCombat, TableCombatant } from '@/types/table'
++
++/** Who acts in the combat now: its current combatant, where it lists one. */
++export function currentCombatant(
++  combat: TableCombat,
++): TableCombatant | undefined {
++  return combat.combatants.find(({ id }) => id === combat.currentId)
++}
++
++/**
++ * Whether it's the player's turn: their character's, or from module 0.36.0 one of its companions',
++ * as the combat names it. Not a gone companion's, which no longer has its key.
++ */
++export function isMyTurn(combat?: TableCombat): boolean {
++  return isTurnOf(
++    combat,
++    ({ side, yours, companion }) =>
++      side === 'me' || (yours === true && companion !== undefined),
++  )
++}
++
++/** Whether the combat has started and its current combatant is one that `is` picks. */
++export function isTurnOf(
++  combat: TableCombat | undefined,
++  is: (combatant: TableCombat['combatants'][number]) => boolean,
++): boolean {
++  return (
++    combat?.started === true &&
++    combat.combatants.some(
++      combatant => combatant.id === combat.currentId && is(combatant),
++    )
++  )
++}
++
++/** Who acts after the current combatant, skipping the defeated. */
++export function nextUp(combat: TableCombat): TableCombatant | undefined {
++  const { combatants, currentId } = combat
++  const index = combatants.findIndex(({ id }) => id === currentId)
++  if (!combat.started || index === -1) return undefined
++  for (let step = 1; step < combatants.length; step++) {
++    const candidate = combatants[(index + step) % combatants.length]
++    if (!candidate.defeated) return candidate
++  }
++  return undefined
++}
++
++/**
++ * A combatant's hit points as its bar draws them: how full, in percent, where it has a maximum;
++ * and the bar's colour, the accent's, a warning's from half, a danger's at none.
++ */
++export function hpBar(hp: NonNullable<TableCombatant['hp']>): {
++  percent?: number
++  bar: string
++} {
++  const percent = hp.max
++    ? Math.min(100, Math.max(0, Math.round((hp.value / hp.max) * 100)))
++    : undefined
++  let bar = 'bg-primary'
++  if (percent !== undefined && percent <= 50) bar = 'bg-warning'
++  if (percent === 0) bar = 'bg-danger'
++  return { percent, bar }
++}
+diff --git a/src/features/table/utils/companion-row-state.ts b/src/features/table/utils/companion-row-state.ts
+new file mode 100644
+index 0000000..1c621c5
+--- /dev/null
++++ b/src/features/table/utils/companion-row-state.ts
+@@ -0,0 +1,111 @@
++import { NO_KEYS } from '@/features/table/constants'
++import { companionRow, numberedNames } from '@/utils/companion-row'
++import type { PaneMarks, RowState } from '@/features/table/types'
++import type {
++  CompanionAsked,
++  RowCompanion,
++  TableCompanion,
++} from '@/types/table'
++
++/**
++ * At most this many companions' panes stay mounted at once (module 0.36.0): the least recently
++ * shown goes as another is chosen, unless it has damage to roll or a roll on its way.
++ */
++const MOST_PANES = 4
++
++/** The row before any companion's been listed. */
++export const NO_ROW: RowState = {
++  dismissed: NO_KEYS,
++  row: [],
++  names: new Map(),
++  numbers: new Map(),
++  generations: new Map(),
++}
++
++/**
++ * The row as it is now, from the row as it was: the companions listed now and those gone, kept
++ * until dismissed, as `companionRow` keeps them. One listed again is no longer dismissed, and if
++ * it had gone, or its pane was told it had, its pane is mounted afresh. Names are numbered as
++ * `numberedNames` numbers them, the numbers given before kept.
++ * @param listed - The companions the module lists now.
++ * @param dismissed - The gone ones whose tabs have been shown and left.
++ * @param lost - Those whose panes were told they're gone while the row still listed them.
++ */
++export function nextRow(
++  held: RowState,
++  listed: TableCompanion[] | undefined,
++  dismissed: ReadonlySet<string>,
++  lost: ReadonlySet<string> = NO_KEYS,
++): RowState {
++  const keys = new Set((listed ?? []).map(({ key }) => key))
++  const left = [...dismissed].some(key => keys.has(key))
++    ? new Set([...dismissed].filter(key => !keys.has(key)))
++    : dismissed
++  const row = companionRow(held.row, listed ?? [], left)
++  let generations = held.generations
++  for (const { key, gone } of held.row) {
++    if ((gone || lost.has(key)) && keys.has(key)) {
++      generations = new Map(generations).set(
++        key,
++        (generations.get(key) ?? 0) + 1,
++      )
++    }
++  }
++  const { names, kept } = numberedNames(row, held.numbers)
++  return { listed, dismissed: left, row, names, numbers: kept, generations }
++}
++
++/** A pane's marks, with one changed: the same map where it's unchanged. */
++export function withMark(
++  marks: ReadonlyMap<string, PaneMarks>,
++  key: string,
++  change: PaneMarks,
++): ReadonlyMap<string, PaneMarks> {
++  const held = marks.get(key) ?? {}
++  const next = { ...held, ...change }
++  if (next.pending === held.pending && next.busy === held.busy) return marks
++  return new Map(marks).set(key, next)
++}
++
++/**
++ * Those companions asked whose tabs the row shows, not gone, in the order first asked: the
++ * character's own banner says so, with a way to each one's tab (module 0.41.0).
++ */
++export function waitingCompanions(
++  asked: readonly CompanionAsked[],
++  row: readonly RowCompanion[],
++  names: ReadonlyMap<string, string>,
++) {
++  return asked.flatMap(({ key, label }) => {
++    const shown = row.find(companion => companion.key === key)
++    return shown && !shown.gone
++      ? [{ key, label, name: names.get(key) ?? shown.name }]
++      : []
++  })
++}
++
++/**
++ * The companions' panes mounted, most recently shown first: each as it's first chosen, kept as
++ * others are, at most four, the least recently shown with nothing to roll or on its way going.
++ * One whose tab has gone goes with it.
++ */
++export function mountedPanes(
++  mounted: readonly string[],
++  rowKeys: readonly string[],
++  chosen: string,
++  paneMarks: ReadonlyMap<string, PaneMarks>,
++): string[] {
++  let panes = mounted.filter(key => rowKeys.includes(key))
++  if (chosen !== 'self' && panes[0] !== chosen) {
++    panes = [chosen, ...panes.filter(key => key !== chosen)]
++    while (panes.length > MOST_PANES) {
++      const spare = panes.findLast(key => {
++        const marks = paneMarks.get(key)
++        return key !== chosen && !marks?.pending && !marks?.busy
++      })
++      if (spare === undefined) break
++      panes = panes.filter(key => key !== spare)
++    }
++  }
++  return panes
++}
+diff --git a/src/features/table/utils/creatures.ts b/src/features/table/utils/creatures.ts
+new file mode 100644
+index 0000000..786aa7d
+--- /dev/null
++++ b/src/features/table/utils/creatures.ts
+@@ -0,0 +1,73 @@
++import { isTurnOf } from './combat'
++import { switcherWords } from '@/utils/wild-shape-words'
++import type { SwitcherCreature } from '@/features/companions/types'
++import type { PaneMarks } from '@/features/table/types'
++import type { RowCompanion, TableView } from '@/types/table'
++
++/**
++ * The creatures the row of tabs above the sheet switches between (module 0.36.0): the character,
++ * then its companions in the row's order, each with its news, what its tab says of it while it
++ * isn't the one shown.
++ * @param character - The character's name.
++ * @param asking - Whether the game asks a save of the character that still waits.
++ * @param asksForRoll - How the seat's tabs say the game asks one.
++ * @param waitingKeys - The companions asked a save that still waits, by key.
++ * @param paneMarks - What each companion's pane says of itself.
++ */
++export function switcherCreatures({
++  character,
++  view,
++  asking,
++  asksForRoll,
++  row,
++  numbers,
++  waitingKeys,
++  paneMarks,
++}: {
++  character: string
++  view: TableView
++  asking: boolean
++  asksForRoll: string
++  row: readonly RowCompanion[]
++  numbers: ReadonlyMap<string, number>
++  waitingKeys: ReadonlySet<string>
++  paneMarks: ReadonlyMap<string, PaneMarks>
++}): SwitcherCreature[] {
++  return [
++    {
++      key: 'self',
++      name: character,
++      portrait: view.sheet?.portrait,
++      // What the character is transformed into, from module 0.40.0, as its name says it.
++      ...(view.sheet?.form && { shape: switcherWords(view.sheet.form) }),
++      news: [
++        asking && asksForRoll,
++        isTurnOf(view.combat, ({ side }) => side === 'me') && ', your turn',
++      ]
++        .filter(Boolean)
++        .join(''),
++    },
++    ...row.map(
++      ({ key, name, portrait, kind, from, gone }): SwitcherCreature => ({
++        key,
++        name,
++        number: numbers.get(key),
++        portrait,
++        kind,
++        from,
++        gone,
++        news: gone
++          ? ''
++          : [
++              // What the game asks of it, from module 0.41.0, as the character's own tab says.
++              waitingKeys.has(key) && asksForRoll,
++              isTurnOf(view.combat, combatant => combatant.companion === key) &&
++                ', its turn',
++              paneMarks.get(key)?.pending && ', damage to roll',
++            ]
++              .filter(Boolean)
++              .join(''),
++      }),
++    ),
++  ]
++}
+diff --git a/src/features/table/utils/header.ts b/src/features/table/utils/header.ts
+new file mode 100644
+index 0000000..0d73866
+--- /dev/null
++++ b/src/features/table/utils/header.ts
+@@ -0,0 +1,99 @@
++import { currentCombatant } from './combat'
++import { classLine } from '@/features/sheet/utils/class-line'
++import { megabytes } from '@/utils/format-amount'
++import { gameHost } from '@/utils/game-host'
++import { headerLineOf } from '@/utils/wild-shape-words'
++import type { LiveState } from '@/components/live-status/types'
++import type { Tab } from '@/features/table/types'
++import type { Character } from '@/types/character'
++import type { GmRolls, TableCombat, TableView } from '@/types/table'
++
++/** The header's line under the character's name: what is happening in the tab shown. */
++export function subtitle(
++  tab: Tab,
++  view: TableView,
++  character: Character,
++): string {
++  if (!view.campaign) return campaignAndGame(view, character)
++  if (tab === 'character') return sheetSummary(view)
++  if (tab === 'chat') {
++    return `${view.campaign.title} · ${messageCount(view.messages.length)}`
++  }
++  return combatSummary(view.combat)
++}
++
++/** The campaign, as its Gamemaster now titles it, and the game it is played in. */
++export function campaignAndGame(view: TableView, character: Character): string {
++  const host = gameHost(character.gameUrl)
++  const title = view.campaign?.title ?? character.campaignTitle
++  return title ? `${title} · ${host}` : host
++}
++
++/** Such as "Fighter 5 · Champion", or the campaign's title until the sheet arrives. */
++export function sheetSummary(view: TableView): string {
++  if (view.sheet) return headerLine(view.sheet)
++  return view.campaign?.title ?? 'No sheet yet'
++}
++
++/**
++ * The header's line about the character: its classes, or from module 0.40.0, while it's
++ * transformed, what into, "In Wild Shape · Wolf".
++ */
++export function headerLine(sheet: NonNullable<TableView['sheet']>): string {
++  return sheet.form ? headerLineOf(sheet.form) : classLine(sheet)
++}
++
++export function messageCount(count: number): string {
++  return `${count} ${count === 1 ? 'message' : 'messages'}`
++}
++
++export function combatSummary(combat?: TableCombat): string {
++  if (!combat) return 'No combat'
++  if (!combat.started) return 'Getting ready'
++  const current = currentCombatant(combat)
++  if (current?.side === 'me') return `Round ${combat.round} · Your turn`
++  return current
++    ? `Round ${combat.round} · ${current.name}’s turn`
++    : `Round ${combat.round}`
++}
++
++/** An unread count as a badge shows it. */
++export function badgeCount(count: number): string {
++  return count > 99 ? '99+' : String(count)
++}
++
++export function liveState(
++  playing: boolean,
++  view: TableView,
++  connection: 'live' | 'reconnecting',
++): LiveState {
++  if (!playing) return 'waiting'
++  if (connection === 'reconnecting') return 'reconnecting'
++  return view.live ? 'live' : 'offline'
++}
++
++/**
++ * Tells the Gamemaster at one of their campaign's characters' sheets (#156) where what they roll
++ * there goes: made in their game as the character's, marked as theirs; kept here until their
++ * module is new enough to mark it; or kept here while their game takes no rolls.
++ */
++export function gmNote(name: string, rolls: GmRolls): string {
++  const at = `You're at ${name}'s sheet as the Gamemaster.`
++  let note = `${at} What you roll here is made in your game as ${name}'s, marked as yours.`
++  if (rolls === 'update') {
++    note = `${at} Your rolls stay here: update Sending Stone in Foundry to 0.23.0 to make them in your game as ${name}'s.`
++  } else if (rolls === 'off') {
++    note = `${at} Your rolls stay here while your game isn't taking rolls from Sending Stone.`
++  }
++  return note
++}
++
++/** How large a sheet held back for its size came to, against what this app takes, where known. */
++export function tooLargeLine(
++  withheld: NonNullable<TableView['sheetWithheld']>,
++): string | undefined {
++  const { bytes, limit } = withheld
++  return typeof bytes === 'number' && typeof limit === 'number'
++    ? `It came to ${megabytes(bytes, Math.ceil)}, more than the ${megabytes(limit, Math.floor)} this app takes. `
++    : undefined
++}
+diff --git a/src/features/table/utils/party-urls.ts b/src/features/table/utils/party-urls.ts
+new file mode 100644
+index 0000000..8f6791d
+--- /dev/null
++++ b/src/features/table/utils/party-urls.ts
+@@ -0,0 +1,42 @@
++import type { Character, TableSeat } from '@/types/character'
++import type { TableGroup } from '@/types/party'
++
++/** Is this the same group, as listed, as the one kept? */
++export function sameGroup(
++  group: TableGroup,
++  kept: TableGroup | undefined,
++): boolean {
++  return (
++    group.id === kept?.id &&
++    group.name === kept.name &&
++    group.primary === kept.primary &&
++    group.portrait === kept.portrait
++  )
++}
++
++/**
++ * Where a party sheet open at the table is read: through the player's character, or for the
++ * Gamemaster's seat, through their campaign.
++ */
++export function partyApi(
++  seat: TableSeat,
++  character: Character,
++  group = '',
++): string {
++  const id = encodeURIComponent(group)
++  return seat.role === 'gm'
++    ? `/api/campaigns/${encodeURIComponent(character.campaignId ?? '')}/party/${id}`
++    : `/api/characters/${encodeURIComponent(character.id)}/party/${id}`
++}
++
++/** A party sheet's own page, as the player or the Gamemaster opens it. */
++export function partyPage(
++  seat: TableSeat,
++  character: Character,
++  group = '',
++): string {
++  const id = encodeURIComponent(group)
++  return seat.role === 'gm'
++    ? `/campaigns/${encodeURIComponent(character.campaignId ?? '')}/party/${id}`
++    : `/characters/${encodeURIComponent(character.id)}/party/${id}`
++}
+diff --git a/src/features/table/utils/places.ts b/src/features/table/utils/places.ts
+new file mode 100644
+index 0000000..0cf7874
+--- /dev/null
++++ b/src/features/table/utils/places.ts
+@@ -0,0 +1,36 @@
++import type { Character, TableSeat } from '@/types/character'
++import type { CookbookPlace } from '@/types/cookbook'
++
++/**
++ * Who is at the sheet (#156): its player, by default, through the character's own API; or its
++ * campaign's Gamemaster, through theirs, rolling as it.
++ * @param given - The seat the page was given, if any.
++ */
++export function seatOf(
++  given: TableSeat | undefined,
++  characterId: string,
++): TableSeat {
++  return {
++    role: given?.role ?? 'player',
++    api: given?.api ?? `/api/characters/${characterId}`,
++    key: given?.key ?? characterId,
++  }
++}
++
++/**
++ * The player's Magical Recipe Book (module 0.38.0): their own seat's alone, while their
++ * character plays one of the campaign's, opened from the sheet's cog (round 0.39.0). The
++ * Gamemaster's page passes neither action, so never offers it.
++ * @param playing - Whether the character plays one of its campaign's characters.
++ */
++export function cookbookPlace(
++  seat: TableSeat,
++  character: Character,
++  playing: boolean,
++  make?: CookbookPlace['make'],
++  revoke?: CookbookPlace['revoke'],
++): CookbookPlace | undefined {
++  return seat.role === 'player' && playing && make && revoke
++    ? { characterId: character.id, make, revoke }
++    : undefined
++}
+diff --git a/src/features/table/utils/unread.ts b/src/features/table/utils/unread.ts
+new file mode 100644
+index 0000000..d8182c8
+--- /dev/null
++++ b/src/features/table/utils/unread.ts
+@@ -0,0 +1,22 @@
++import type { TableMessage } from '@/types/table'
++
++/**
++ * Whether a message counts toward the unread: for the player, any but their own rolls, and the
++ * Gamemaster's rolls as their character all the same; for the Gamemaster at the sheet, any but
++ * their own rolls there.
++ */
++export function countsAsUnread(message: TableMessage, gm: boolean): boolean {
++  if (gm) return message.byGm !== true
++  return message.side !== 'me' || message.byGm === true
++}
++
++/** How many of the messages count as unread: those after the place read up to that count. */
++export function unreadCount(
++  messages: readonly TableMessage[],
++  gm: boolean,
++  seenUpTo: string,
++): number {
++  return messages.filter(
++    message => countsAsUnread(message, gm) && message.sentAt > seenUpTo,
++  ).length
++}

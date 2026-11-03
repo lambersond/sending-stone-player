@@ -1,0 +1,489 @@
+diff --git a/src/features/sheet/components/use-picker/constants.ts b/src/features/sheet/components/use-picker/constants.ts
+index 7527dea..a5c178c 100644
+--- a/src/features/sheet/components/use-picker/constants.ts
++++ b/src/features/sheet/components/use-picker/constants.ts
+@@ -3,3 +3,20 @@
+  * the character's pane (module 0.41.0): on the first time, then as the player last left it there.
+  */
+ export const ALONE_SPEND_KEY = 'sending-stone:alone-spend'
++
++/** What the Spend switch of damage on its own is: on or off. */
++export const SPEND_CHOICES = ['on', 'off'] as const
++
++/**
++ * Whose side a combatant is on, as a pill beside their name: the player's own row, an ally, or a
++ * creature the game has as neutral. Never an enemy, as a hostile token may be only the game's
++ * default.
++ */
++export const PILLS = {
++  you: { label: 'You', look: 'bg-primary/10 text-primary-text' },
++  ally: { label: 'Ally', look: 'bg-party/15 text-party' },
++  neutral: {
++    label: 'Neutral',
++    look: 'bg-text-secondary/10 text-text-secondary',
++  },
++} as const
+diff --git a/src/features/sheet/components/use-picker/types.ts b/src/features/sheet/components/use-picker/types.ts
+index eba3d62..85ab312 100644
+--- a/src/features/sheet/components/use-picker/types.ts
++++ b/src/features/sheet/components/use-picker/types.ts
+@@ -42,3 +42,10 @@ export type Picked = {
+   /** For damage on its own, from module 0.41.0: spend what its use would, as its switch says. */
+   consume?: true
+ }
++
++/** Combatants to pick from under a heading: the player and their allies, or everyone else. */
++export type Section = {
++  key: 'allies' | 'others'
++  label: 'Allies' | 'Others'
++  rows: TableCombatant[]
++}
+diff --git a/src/features/sheet/components/use-picker/use-picker.tsx b/src/features/sheet/components/use-picker/use-picker.tsx
+index 6ccdf6a..5749e0b 100644
+--- a/src/features/sheet/components/use-picker/use-picker.tsx
++++ b/src/features/sheet/components/use-picker/use-picker.tsx
+@@ -11,12 +11,10 @@ import {
+   Sparkles,
+ } from 'lucide-react'
+ import { EntryIcon } from '../../../../components/entry-icon/entry-icon'
+-import { listed } from '../../../../utils/roll-reasons'
+ import { actionTitle, verbOf } from '../action-entry/utils'
+ import { chargesOf } from '../action-info/action-info'
+-import { ALONE_SPEND_KEY } from './constants'
++import { ALONE_SPEND_KEY, PILLS, SPEND_CHOICES } from './constants'
+ import {
+-  SELF,
+   NO_CASTS,
+   choicesOf,
+   selfTarget,
+@@ -25,7 +23,16 @@ import {
+   selfPick,
+   aloneChoicesOf,
+   alonePicksOf,
+-  spendParts,
++  pillOf,
++  sectionsOf,
++  shownOf,
++  picked,
++  spendLabel,
++  leadFor,
++  poolLabel,
++  levelLabel,
++  defaultSlot,
++  movedOff,
+ } from './utils'
+ import { Modal } from '@/components/modal/modal'
+ import { SearchField } from '@/components/search-field/search-field'
+@@ -33,27 +40,19 @@ import { MAX_USE_TARGETS } from '@/constants/sending-stone'
+ import { enchantOf, offeredProfiles } from '@/features/sheet/utils/enchantments'
+ import { useStoredChoice } from '@/hooks/use-stored'
+ import { useTableRole } from '@/hooks/use-table-api'
+-import {
+-  defaultPool,
+-  ordinal,
+-  poolName,
+-  slotPools,
+-} from '@/utils/action-groups'
++import { ordinal, poolName } from '@/utils/action-groups'
+ import { castAtLevel, castOf } from '@/utils/casts'
+ import { matchesSearch, searchKey } from '@/utils/search'
+ import { seatWords } from '@/utils/seat-words'
+ import { friendly, mostTargets, selfDefault } from '@/utils/uses'
+-import type { Picked, Picking } from './types'
++import type { Picked, Picking, Section } from './types'
+ import type { Belonging } from '@/features/sheet/types'
+ import type { AloneSelection } from '@/types/roll'
+ import type {
+-  SheetAction,
+-  SheetCastLevel,
+   SheetEnchant,
+   SheetEnchantProfile,
+   SheetSpellSection,
+   CastIndex,
+-  SlotPool,
+ } from '@/types/sending-stone'
+ import type { TableCombat, TableCombatant } from '@/types/table'
+ 
+@@ -65,9 +64,6 @@ import type { TableCombat, TableCombatant } from '@/types/table'
+  * and whether it spends what its use would.
+  */
+ 
+-/** What the Spend switch of damage on its own is: on or off. */
+-const SPEND_CHOICES = ['on', 'off'] as const
+-
+ /** Nothing of the character's to enchant, as for a sheet that lists nothing. */
+ const NO_BELONGINGS: ReadonlyMap<string, Belonging> = new Map()
+ 
+@@ -83,95 +79,6 @@ const MOST_PROFILE_CHIPS = 4
+  */
+ const SEARCH_ABOVE = 5
+ 
+-/**
+- * Whose side a combatant is on, as a pill beside their name: the player's own row, an ally, or a
+- * creature the game has as neutral. Never an enemy, as a hostile token may be only the game's
+- * default.
+- */
+-const PILLS = {
+-  you: { label: 'You', look: 'bg-primary/10 text-primary-text' },
+-  ally: { label: 'Ally', look: 'bg-party/15 text-party' },
+-  neutral: {
+-    label: 'Neutral',
+-    look: 'bg-text-secondary/10 text-text-secondary',
+-  },
+-} as const
+-
+-function pillOf(combatant: TableCombatant): keyof typeof PILLS | undefined {
+-  if (combatant.side === 'me') return 'you'
+-  if (allied(combatant)) return 'ally'
+-  return combatant.stance === 'neutral' ? 'neutral' : undefined
+-}
+-
+-/**
+- * Whether a combatant is on the player's side: they themselves, one of the party, or one the game
+- * has as an ally, as a hireling the Gamemaster marked Friendly, from module 0.29.0.
+- */
+-function allied(combatant: TableCombatant): boolean {
+-  return combatant.side !== 'other' || combatant.stance === 'ally'
+-}
+-
+-/** Combatants to pick from under a heading: the player and their allies, or everyone else. */
+-type Section = {
+-  key: 'allies' | 'others'
+-  label: 'Allies' | 'Others'
+-  rows: TableCombatant[]
+-}
+-
+-/**
+- * Combatants to pick from in two sections, the player and their allies and then everyone else,
+- * each in turn order: for an attack, or a use that harms, everyone else first, with the player's
+- * own row last of their allies; for a use that helps, or one made at its user by default, as a
+- * potion, the player first, then their allies, then everyone else.
+- * @param combat - Whose turn order it is.
+- * @param first - Who goes first in their section, such as the last attacked.
+- */
+-function sectionsOf(
+-  targets: TableCombatant[],
+-  combat: TableCombat | undefined,
+-  { helpful, first }: { helpful: boolean; first?: string },
+-): Section[] {
+-  const turn = new Map(combat?.combatants.map(({ id }, index) => [id, index]))
+-  const inTurn = (one: TableCombatant, other: TableCombatant) =>
+-    (turn.get(one.id) ?? 0) - (turn.get(other.id) ?? 0)
+-  const self = targets.filter(({ side }) => side === 'me')
+-  const rest = targets.filter(({ side }) => side !== 'me').toSorted(inTurn)
+-  const lead = (rows: TableCombatant[]) => [
+-    ...rows.filter(({ id }) => id === first),
+-    ...rows.filter(({ id }) => id !== first),
+-  ]
+-  const friends = rest.filter(combatant => allied(combatant))
+-  const allies: Section = {
+-    key: 'allies',
+-    label: 'Allies',
+-    rows: lead(helpful ? [...self, ...friends] : [...friends, ...self]),
+-  }
+-  const others: Section = {
+-    key: 'others',
+-    label: 'Others',
+-    rows: lead(rest.filter(combatant => !allied(combatant))),
+-  }
+-  return helpful ? [allies, others] : [others, allies]
+-}
+-
+-/**
+- * What of a combatant's row a search matches: the name it shows, and on the player's own, shown as
+- * Self, their own name too. Nothing else, such as a pill, nor anything the row doesn't show, so a
+- * search hints at no one hidden.
+- */
+-function shownOf(combatant: TableCombatant): string[] {
+-  return combatant.side === 'me' ? ['Self', combatant.name] : [combatant.name]
+-}
+-
+-/** The combatants picked, as the game is asked: its user as `self` where they're `SELF`. */
+-function picked(targets: TableCombatant[]): Pick<Picked, 'targets' | 'self'> {
+-  const self = targets.includes(SELF)
+-  return {
+-    targets: targets.filter(target => target !== SELF),
+-    ...(self && { self: true as const }),
+-  }
+-}
+-
+ /**
+  * What an attack, or a spell or feature used, is made with, chosen as it's made: the spell slot,
+  * or the level a spell an item casts is cast at, with the item's charges it spends there,
+@@ -290,11 +197,7 @@ function Choices({
+   )
+   // A spell an item casts is cast at the level it's cast at by default, unless chosen otherwise.
+   const cast = castOf(action, casts)
+-  const [slot, setSlot] = useState(
+-    cast && levels.length > 0
+-      ? `spell${cast.level}`
+-      : defaultPool(action, spellbook)?.id,
+-  )
++  const [slot, setSlot] = useState(defaultSlot(action, spellbook, casts))
+   const [ammo, setAmmo] = useState(
+     ammunition.find(({ quantity }) => quantity > 0)?.id,
+   )
+@@ -608,20 +511,7 @@ function AloneChoices({
+   const turn = (next: boolean) => {
+     store(next ? 'on' : 'off')
+     if (!next) return
+-    const moved: AloneSelection = {}
+-    const pool = slotPools(action, spellbook)?.find(
+-      ({ id }) => id === picks.slot,
+-    )
+-    if (spends.includes('slot') && pool && pool.value <= 0) {
+-      const left = defaultPool(action, spellbook)
+-      if (left) moved.slot = left.id
+-    }
+-    const fired = action.ammunition?.find(({ id }) => id === picks.ammunition)
+-    if (spends.includes('ammunition') && fired && fired.quantity <= 0) {
+-      const left = action.ammunition?.find(({ quantity }) => quantity > 0)
+-      if (left) moved.ammunition = left.id
+-    }
+-    choose(moved)
++    choose(movedOff(action, spellbook, picks, spends))
+   }
+   const what = healing ? 'healing' : 'damage'
+   // The first row of chips shown takes focus as it opens, at its choice; else the switch.
+@@ -726,19 +616,6 @@ function AloneChoices({
+   )
+ }
+ 
+-/**
+- * What the Spend switch says as picked, such as "Spend a 2nd-level spell slot"; none where it
+- * spends nothing.
+- */
+-function spendLabel(
+-  action: SheetAction,
+-  spellbook: SheetSpellSection[],
+-  picks: AloneSelection,
+-): string | undefined {
+-  const parts = spendParts(action, spellbook, picks)
+-  return parts.length > 0 ? `Spend ${listed(parts)}` : undefined
+-}
+-
+ /**
+  * Whether damage on its own spends what its use would, as the sheet's settings' switches are drawn:
+  * named for what it spends, which says more beneath it. Space or Enter turns it, as a tap does.
+@@ -796,30 +673,6 @@ function SpendSwitch({
+   )
+ }
+ 
+-/** What to tick, and how many. */
+-function leadFor(area: boolean, most: number): string {
+-  const limit = Number.isFinite(most) ? ` Up to ${most}.` : ''
+-  return area
+-    ? `Tick who is caught in the area.${limit}`
+-    : `Tick who to target.${limit}`
+-}
+-
+-/** A pool of slots, as a screen reader is told: such as "3rd Level, 2 slots left". */
+-function poolLabel(pool: SlotPool): string {
+-  return `${pool.label}, ${pool.value} ${pool.value === 1 ? 'slot' : 'slots'} left`
+-}
+-
+-/**
+- * A level a spell an item casts may be cast at, as a screen reader is told: such as "2nd Level,
+- * 2 charges", for one that spends them; or "2nd Level".
+- */
+-function levelLabel(level: SheetCastLevel, spends: boolean): string {
+-  const name = `${ordinal(level.level)} Level`
+-  return spends && level.charges !== null
+-    ? `${name}, ${chargesOf(level.charges)}`
+-    : name
+-}
+-
+ /**
+  * A row of choices, of which one is made: as narrow as the picker, so a chip that cuts its name
+  * short does, a fieldset being otherwise as wide as what's in it.
+diff --git a/src/features/sheet/components/use-picker/utils.ts b/src/features/sheet/components/use-picker/utils.ts
+index c32b065..fb1e147 100644
+--- a/src/features/sheet/components/use-picker/utils.ts
++++ b/src/features/sheet/components/use-picker/utils.ts
+@@ -1,3 +1,5 @@
++import { chargesOf } from '../action-info/action-info'
++import { PILLS } from './constants'
+ import {
+   aloneSelection,
+   type AloneChoice,
+@@ -5,11 +7,13 @@ import {
+ import { enchantOf, offeredProfiles } from '@/features/sheet/utils/enchantments'
+ import { slotPools, ordinal, defaultPool } from '@/utils/action-groups'
+ import { castOf, castAtLevel } from '@/utils/casts'
++import { listed } from '@/utils/roll-reasons'
+ import { offersSelf, picksTargets, friendly, selfDefault } from '@/utils/uses'
+ import { articled } from '@/utils/wild-shape'
+-import type { Picked, Picking } from './types'
++import type { Picked, Picking, Section } from './types'
+ import type { AloneSelection } from '@/types/roll'
+ import type {
++  AloneSpend,
+   CastIndex,
+   SheetAction,
+   SheetSpellSection,
+@@ -300,11 +304,7 @@ export function enchantPicks(
+ ): Pick<Picked, 'slot' | 'enchant'> {
+   const enchant = enchantOf(action.activity)
+   if (!enchant) return {}
+-  const cast = castOf(action, casts)
+-  const slot =
+-    cast?.levels && cast.levels.length > 0
+-      ? `spell${cast.level}`
+-      : defaultPool(action, spellbook)?.id
++  const slot = defaultSlot(action, spellbook, casts)
+   const level = castAtLevel(action, spellbook, slot, casts)
+   const [profile] = offeredProfiles(enchant, level)
+   return {
+@@ -312,3 +312,152 @@ export function enchantPicks(
+     ...(profile && { enchant: { profile: profile.id } }),
+   }
+ }
++
++export function pillOf(
++  combatant: TableCombatant,
++): keyof typeof PILLS | undefined {
++  if (combatant.side === 'me') return 'you'
++  if (allied(combatant)) return 'ally'
++  return combatant.stance === 'neutral' ? 'neutral' : undefined
++}
++
++/**
++ * Whether a combatant is on the player's side: they themselves, one of the party, or one the game
++ * has as an ally, as a hireling the Gamemaster marked Friendly, from module 0.29.0.
++ */
++function allied(combatant: TableCombatant): boolean {
++  return combatant.side !== 'other' || combatant.stance === 'ally'
++}
++
++/**
++ * Combatants to pick from in two sections, the player and their allies and then everyone else,
++ * each in turn order: for an attack, or a use that harms, everyone else first, with the player's
++ * own row last of their allies; for a use that helps, or one made at its user by default, as a
++ * potion, the player first, then their allies, then everyone else.
++ * @param combat - Whose turn order it is.
++ * @param first - Who goes first in their section, such as the last attacked.
++ */
++export function sectionsOf(
++  targets: TableCombatant[],
++  combat: TableCombat | undefined,
++  { helpful, first }: { helpful: boolean; first?: string },
++): Section[] {
++  const turn = new Map(combat?.combatants.map(({ id }, index) => [id, index]))
++  const inTurn = (one: TableCombatant, other: TableCombatant) =>
++    (turn.get(one.id) ?? 0) - (turn.get(other.id) ?? 0)
++  const self = targets.filter(({ side }) => side === 'me')
++  const rest = targets.filter(({ side }) => side !== 'me').toSorted(inTurn)
++  const lead = (rows: TableCombatant[]) => [
++    ...rows.filter(({ id }) => id === first),
++    ...rows.filter(({ id }) => id !== first),
++  ]
++  const friends = rest.filter(combatant => allied(combatant))
++  const allies: Section = {
++    key: 'allies',
++    label: 'Allies',
++    rows: lead(helpful ? [...self, ...friends] : [...friends, ...self]),
++  }
++  const others: Section = {
++    key: 'others',
++    label: 'Others',
++    rows: lead(rest.filter(combatant => !allied(combatant))),
++  }
++  return helpful ? [allies, others] : [others, allies]
++}
++
++/**
++ * What of a combatant's row a search matches: the name it shows, and on the player's own, shown as
++ * Self, their own name too. Nothing else, such as a pill, nor anything the row doesn't show, so a
++ * search hints at no one hidden.
++ */
++export function shownOf(combatant: TableCombatant): string[] {
++  return combatant.side === 'me' ? ['Self', combatant.name] : [combatant.name]
++}
++
++/** The combatants picked, as the game is asked: its user as `self` where they're `SELF`. */
++export function picked(
++  targets: TableCombatant[],
++): Pick<Picked, 'targets' | 'self'> {
++  const self = targets.includes(SELF)
++  return {
++    targets: targets.filter(target => target !== SELF),
++    ...(self && { self: true as const }),
++  }
++}
++
++/**
++ * What the Spend switch says as picked, such as "Spend a 2nd-level spell slot"; none where it
++ * spends nothing.
++ */
++export function spendLabel(
++  action: SheetAction,
++  spellbook: SheetSpellSection[],
++  picks: AloneSelection,
++): string | undefined {
++  const parts = spendParts(action, spellbook, picks)
++  return parts.length > 0 ? `Spend ${listed(parts)}` : undefined
++}
++
++/** What to tick, and how many. */
++export function leadFor(area: boolean, most: number): string {
++  const limit = Number.isFinite(most) ? ` Up to ${most}.` : ''
++  return area
++    ? `Tick who is caught in the area.${limit}`
++    : `Tick who to target.${limit}`
++}
++
++/** A pool of slots, as a screen reader is told: such as "3rd Level, 2 slots left". */
++export function poolLabel(pool: SlotPool): string {
++  return `${pool.label}, ${pool.value} ${pool.value === 1 ? 'slot' : 'slots'} left`
++}
++
++/**
++ * A level a spell an item casts may be cast at, as a screen reader is told: such as "2nd Level,
++ * 2 charges", for one that spends them; or "2nd Level".
++ */
++export function levelLabel(level: SheetCastLevel, spends: boolean): string {
++  const name = `${ordinal(level.level)} Level`
++  return spends && level.charges !== null
++    ? `${name}, ${chargesOf(level.charges)}`
++    : name
++}
++
++/**
++ * The slot an attack or a use is preset to: for a spell an item casts at more than one level, the
++ * level it's cast at by default, as "spell" and the level; else the pool dnd5e would choose.
++ */
++export function defaultSlot(
++  action: SheetAction,
++  spellbook: SheetSpellSection[],
++  casts: CastIndex = NO_CASTS,
++): string | undefined {
++  const cast = castOf(action, casts)
++  return cast?.levels && cast.levels.length > 0
++    ? `spell${cast.level}`
++    : defaultPool(action, spellbook)?.id
++}
++
++/**
++ * Where damage on its own's picks move as its Spend switch is turned on: off a slot or an
++ * ammunition with none left, where it spends them, to the one dnd5e would choose with some left,
++ * where there is one.
++ */
++export function movedOff(
++  action: SheetAction,
++  spellbook: SheetSpellSection[],
++  picks: AloneSelection,
++  spends: AloneSpend[],
++): AloneSelection {
++  const moved: AloneSelection = {}
++  const pool = slotPools(action, spellbook)?.find(({ id }) => id === picks.slot)
++  if (spends.includes('slot') && pool && pool.value <= 0) {
++    const left = defaultPool(action, spellbook)
++    if (left) moved.slot = left.id
++  }
++  const fired = action.ammunition?.find(({ id }) => id === picks.ammunition)
++  if (spends.includes('ammunition') && fired && fired.quantity <= 0) {
++    const left = action.ammunition?.find(({ quantity }) => quantity > 0)
++    if (left) moved.ammunition = left.id
++  }
++  return moved
++}
