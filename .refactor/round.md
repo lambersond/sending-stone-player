@@ -35,6 +35,16 @@ disables or a note); a glob row covers the new files a split makes in one folder
    (d) Two gate 1b rows for commit 5 (prompt-banner.test.tsx:151 and end-turn.test.ts:255 read their
    unit's source by a repo path that follows the move) are a planned exception the lander adds.
 
+2. **2026-11-03 ~6:05 AM EST, Phase 2's first landing (red on gates 9 and 10 only).** (a) The moved lint
+   ratchet (R/analysis/ratchet-moved.json) and commit 5's moves.tsv rows go into APP before commit 5
+   lands, since the gates read them from APP's R/; the ratchet's one decrease
+   (no-restricted-syntax 795 against the base's 796: the deleted notes barrel took NotesPlace's
+   warning with it) is accepted: a ratchet may fall, never rise. (b) Commit 6 leaves the frozen node
+   kit's one unicorn/no-null directive (src/utils/test-utils-node.ts:83) and keeps the rule on for
+   that file alone (eslint.config.mjs, with its reason), so the kit stays byte-identical (gate 10).
+   **G removes the directive and that config block together in commit 23**, with a gate 10 allowance
+   for that one comment line.
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is

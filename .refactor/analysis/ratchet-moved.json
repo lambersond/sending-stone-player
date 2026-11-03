@@ -1,0 +1,202 @@
+{
+  "commit": "35e65ee",
+  "label": "moved",
+  "command": "eslint . -f json",
+  "note": "Warnings per unit (src/features/<feature>, else the top-level folder) per rule; a unit or rule that is missing has 0. Gate 9: no count may rise.",
+  "totals": {
+    "files": 657,
+    "errors": 0,
+    "warnings": 981
+  },
+  "byFolder": {
+    "src": {
+      "no-restricted-syntax": 1
+    },
+    "src/app": {
+      "no-restricted-syntax": 4,
+      "react-hooks/purity": 1,
+      "sonarjs/cognitive-complexity": 2
+    },
+    "src/components": {
+      "no-restricted-syntax": 28,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "src/constants": {
+      "no-restricted-syntax": 7
+    },
+    "src/db": {
+      "import/no-cycle": 10,
+      "import/no-restricted-paths": 5,
+      "no-restricted-syntax": 20,
+      "sonarjs/cognitive-complexity": 12
+    },
+    "src/features/campaigns": {
+      "no-restricted-syntax": 39
+    },
+    "src/features/characters": {
+      "no-restricted-syntax": 5
+    },
+    "src/features/companions": {
+      "no-restricted-syntax": 13,
+      "react-hooks/exhaustive-deps": 2
+    },
+    "src/features/cookbook": {
+      "no-restricted-syntax": 4
+    },
+    "src/features/notes": {
+      "no-restricted-syntax": 81,
+      "react-hooks/exhaustive-deps": 1,
+      "react-hooks/globals": 2,
+      "react-hooks/refs": 19,
+      "react-hooks/set-state-in-effect": 5,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "src/features/party": {
+      "no-restricted-syntax": 6
+    },
+    "src/features/rolling": {
+      "no-restricted-syntax": 101,
+      "react-hooks/exhaustive-deps": 1,
+      "react-hooks/immutability": 1,
+      "react-hooks/refs": 2,
+      "react-hooks/set-state-in-effect": 1,
+      "sonarjs/cognitive-complexity": 11
+    },
+    "src/features/sheet": {
+      "no-restricted-syntax": 352,
+      "react-hooks/exhaustive-deps": 1,
+      "react-hooks/immutability": 2,
+      "react-hooks/purity": 1,
+      "react-hooks/refs": 18,
+      "react-hooks/rules-of-hooks": 7,
+      "react-hooks/set-state-in-effect": 3,
+      "sonarjs/cognitive-complexity": 9
+    },
+    "src/features/table": {
+      "no-restricted-syntax": 34,
+      "react-hooks/exhaustive-deps": 3,
+      "react-hooks/preserve-manual-memoization": 1,
+      "react-hooks/purity": 1,
+      "react-hooks/refs": 2,
+      "react-hooks/set-state-in-effect": 1,
+      "sonarjs/cognitive-complexity": 5
+    },
+    "src/features/transfers": {
+      "no-restricted-syntax": 46,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "src/hooks": {
+      "react-hooks/globals": 1,
+      "react-hooks/refs": 2,
+      "react-hooks/set-state-in-effect": 1
+    },
+    "src/lib": {
+      "no-restricted-syntax": 4
+    },
+    "src/mocks": {
+      "no-restricted-syntax": 1,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "src/schemas": {
+      "sonarjs/cognitive-complexity": 2
+    },
+    "src/types": {
+      "import/no-restricted-paths": 4
+    },
+    "src/utils": {
+      "import/no-restricted-paths": 3,
+      "no-restricted-syntax": 49,
+      "react-hooks/rules-of-hooks": 22,
+      "sonarjs/cognitive-complexity": 18
+    }
+  },
+  "noRestrictedSyntaxByCheck": {
+    "src": {
+      "ts-type-export": 1
+    },
+    "src/app": {
+      "tsx-type": 4
+    },
+    "src/components": {
+      "hook-export": 3,
+      "one-export": 9,
+      "tsx-type": 14,
+      "utility-export": 2
+    },
+    "src/constants": {
+      "ts-type-export": 7
+    },
+    "src/db": {
+      "ts-type-export": 20
+    },
+    "src/features/campaigns": {
+      "hook-export": 2,
+      "one-export": 16,
+      "ts-type-export": 2,
+      "tsx-type": 14,
+      "utility-export": 5
+    },
+    "src/features/characters": {
+      "one-export": 1,
+      "tsx-type": 4
+    },
+    "src/features/companions": {
+      "one-export": 7,
+      "tsx-type": 5,
+      "utility-export": 1
+    },
+    "src/features/cookbook": {
+      "hook-export": 1,
+      "one-export": 1,
+      "tsx-type": 1,
+      "utility-export": 1
+    },
+    "src/features/notes": {
+      "hook-export": 2,
+      "one-export": 30,
+      "ts-type-export": 4,
+      "tsx-type": 31,
+      "utility-export": 14
+    },
+    "src/features/party": {
+      "one-export": 1,
+      "ts-type-export": 1,
+      "tsx-type": 4
+    },
+    "src/features/rolling": {
+      "hook-export": 3,
+      "one-export": 37,
+      "ts-type-export": 25,
+      "tsx-type": 17,
+      "utility-export": 19
+    },
+    "src/features/sheet": {
+      "hook-export": 25,
+      "one-export": 173,
+      "ts-type-export": 5,
+      "tsx-type": 80,
+      "utility-export": 69
+    },
+    "src/features/table": {
+      "one-export": 8,
+      "ts-type-export": 1,
+      "tsx-type": 19,
+      "utility-export": 6
+    },
+    "src/features/transfers": {
+      "hook-export": 3,
+      "one-export": 20,
+      "tsx-type": 12,
+      "utility-export": 11
+    },
+    "src/lib": {
+      "ts-type-export": 4
+    },
+    "src/mocks": {
+      "ts-type-export": 1
+    },
+    "src/utils": {
+      "ts-type-export": 49
+    }
+  }
+}

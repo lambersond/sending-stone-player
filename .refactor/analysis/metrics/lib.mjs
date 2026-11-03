@@ -26,10 +26,12 @@ export function sourceFiles() {
 
 export const isTest = file => /\.test\.tsx?$/.test(file) || file.includes('/__tests__/')
 
-// The ratchet's unit: src/<top folder>, `src` for files at src/'s root, else the repo's top folder.
+// The ratchet's unit, gate 9's (round.md §3.4): src/features/<feature> for a feature's files, else
+// src/<top folder>, `src` for files at src/'s root, else the repo's top folder.
 export function folderOf(file) {
   const parts = file.split('/')
   if (parts[0] !== 'src') return parts.length > 1 ? parts[0] : '(root)'
+  if (parts[1] === 'features' && parts.length > 3) return `src/features/${parts[2]}`
   return parts.length > 2 ? `src/${parts[1]}` : 'src'
 }
 
