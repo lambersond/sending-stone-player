@@ -1,3 +1,4 @@
+import { BRIDGE_SWITCHES } from '@/constants/features'
 import {
   COMMANDS_CHECK_EVERY,
   COMMANDS_COLD_WAIT,
@@ -170,16 +171,7 @@ export async function POST(request: Request) {
   // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, dishes from the
   // Magical Recipe Book, from module 0.38.0, effects, from module 0.39.0, and Wild Shape, from
   // module 0.40.0, are fetched with rolls off too.
-  if (
-    !polled.rollsEnabled &&
-    !polled.transfersEnabled &&
-    !polled.removalsEnabled &&
-    !polled.notesEnabled &&
-    !polled.favoritesEnabled &&
-    !polled.dishesEnabled &&
-    !polled.effectsEnabled &&
-    !polled.wildShapeEnabled
-  ) {
+  if (!BRIDGE_SWITCHES.some(field => polled[field])) {
     return answer([], began, COMMANDS_OFF_WAIT)
   }
 

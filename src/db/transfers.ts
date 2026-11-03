@@ -1,13 +1,14 @@
 import prisma from '@/clients/prisma'
+import { ROLLS_IN_FLIGHT } from '@/constants/sending-stone'
 import {
-  ROLL_ANSWER_WITHIN,
-  ROLL_PENDING_FOR,
-  ROLLS_IN_FLIGHT,
-  ROLLS_KEPT_FOR,
-  ROLLS_PER_MINUTE,
-} from '@/constants/sending-stone'
+  commandPayload,
+  gmLabel,
+  holdCommand,
+  madeBy,
+  onItsWay,
+  seatBusy,
+} from '@/db/commands'
 import { groupRoster } from '@/db/party'
-import { ago, madeBy, type RollRejection } from '@/db/roll-requests'
 import { relatedItems } from '@/utils/removals'
 import {
   checkAmong,
@@ -15,10 +16,10 @@ import {
   checkHoldings,
   transfersAvailable,
 } from '@/utils/transfers'
+import type { RollRejection } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput, TransferInput } from '@/types/roll'
 import type { SheetInventory, GroupSheet } from '@/types/sending-stone'
-import type { Prisma } from '@prisma/client'
 
 // A move of items and coins (module 0.31.0) rides the same way to the game as a roll: held here as
 // a RollRequest of the kind `transfer`, for the seat's character, which the module fetches at most
@@ -68,15 +69,7 @@ export async function createTransferRequest(
 
   const now = Date.now()
   // The seat's limits are its rolls', shared with them, counted as they are.
-  const [inFlight, lastMinute] = await Promise.all([
-    prisma.rollRequest.count({ where: { ...madeBy(seat), ...onItsWay(now) } }),
-    prisma.rollRequest.count({
-      where: { ...madeBy(seat), createdAt: { gt: ago(now, 60_000) } },
-    }),
-  ])
-  if (inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE) {
-    return { status: 429, reason: 'busy' }
-  }
+  if (await seatBusy(seat, now)) return { status: 429, reason: 'busy' }
 
   const roster = Array.isArray(campaign.characters)
     ? (campaign.characters as unknown as { id: string }[])
@@ -146,40 +139,17 @@ export async function createTransferRequest(
   // What it's called is the app's alone, as for a roll: the Gamemaster's is kept for the
   // character's player to be shown it by. Nothing is typed in for a move, so nothing says so: a
   // `typed` would badge its line "Entered by hand"; nor that its rerolls were kept (module 0.42.0).
-  const { label, ...command } = input
-  delete command.typed
-  delete command.rerolls
-  const { id } = await prisma.rollRequest.create({
-    data: {
+  return holdCommand(
+    seat,
+    {
       campaignId,
-      characterId: seat.characterId,
-      role: seat.role,
-      requestedById: seat.userId,
       actorId,
       kind: 'transfer',
-      ...(seat.role === 'gm' && label !== undefined && { label }),
-      payload: command as unknown as Prisma.InputJsonValue,
-      createdAt: new Date(now),
+      ...gmLabel(seat, input.label),
+      payload: commandPayload(input),
     },
-    select: { id: true },
-  })
-  await prisma.rollRequest.deleteMany({
-    where: { ...madeBy(seat), createdAt: { lt: ago(now, ROLLS_KEPT_FOR) } },
-  })
-  return { id }
-}
-
-/**
- * A seat's rolls and moves on their way: waiting to be fetched, or fetched and not answered. Its
- * removals too, from module 0.33.0.
- */
-export function onItsWay(now: number): Prisma.RollRequestWhereInput {
-  return {
-    OR: [
-      { status: 'pending', createdAt: { gt: ago(now, ROLL_PENDING_FOR) } },
-      { status: 'claimed', claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) } },
-    ],
-  }
+    now,
+  )
 }
 
 /**

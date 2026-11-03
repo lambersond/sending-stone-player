@@ -1,4 +1,4 @@
-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
+import { switchOn } from '@/utils/features'
 import { allItems } from '@/utils/sheet-texts'
 import type { RemoveInput } from '@/types/roll'
 import type {
@@ -27,12 +27,7 @@ export function removalsAvailable(
   campaign: { removalsEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.removalsEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'removalsEnabled', now)
 }
 
 /**

@@ -1,6 +1,7 @@
 import prisma from '@/clients/prisma'
 import { MOST_AMONG } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
+import { FOUNDRY_ID } from '@/db/constants'
 import { inventoryView, portraitUrl } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
 import type { SheetSeat } from '@/types/character'
@@ -22,9 +23,6 @@ import type {
 // campaign's Gamemaster, through the campaign they own. Every read is checked here, each time, so
 // that a player whose access is taken away in Foundry loses it here at once. Anyone else is told
 // nothing: a group that isn't there, a campaign that isn't theirs and no access all look the same.
-
-/** A Foundry document's id, as the module sends a group's. */
-const GROUP_ID = /^[\dA-Za-z]{1,64}$/
 
 /** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
 export type PartySeat =
@@ -189,7 +187,7 @@ function takes(
 
 /** The campaign and the group's entry, where the seat may see the group; else undefined. */
 async function access(seat: PartySeat, groupId: string) {
-  if (!GROUP_ID.test(groupId) || !seat.campaignId) return
+  if (!FOUNDRY_ID.test(groupId) || !seat.campaignId) return
   const campaign = await prisma.campaign.findUnique({
     where: { id: seat.campaignId },
     select: campaignSelect,

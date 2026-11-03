@@ -1,5 +1,6 @@
 import prisma from '@/clients/prisma'
 import { COOKBOOK_VERSIONS } from '@/constants/cookbook'
+import { OWN_KINDS } from '@/constants/roll-kinds'
 import {
   COMPANION_UNTAKEN,
   MIDI_PROMPT_WAIT,
@@ -155,11 +156,7 @@ async function apply(
           rollKinds: (features?.rolls?.kinds ?? []).filter(
             kind =>
               (ROLL_KINDS as readonly string[]).includes(kind) &&
-              kind !== 'transfer' &&
-              kind !== 'remove' &&
-              kind !== 'favorite' &&
-              kind !== 'effect' &&
-              kind !== 'wildShape',
+              !(OWN_KINDS as readonly string[]).includes(kind),
           ),
           // What else it can do with them: from module 0.13.0, take damage a player changed, and
           // ask players for the saves their game asks of them; from module 0.16.0, make area

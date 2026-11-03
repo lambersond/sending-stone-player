@@ -1,5 +1,5 @@
-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
 import { favoriteIndex } from '@/utils/favorites'
+import { switchOn } from '@/utils/features'
 import type { FavoriteInput, FavoriteTarget } from '@/types/roll'
 import type { CharacterSheet, SheetFavorite } from '@/types/sending-stone'
 
@@ -17,12 +17,7 @@ export function favoritesAvailable(
   campaign: { favoritesEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.favoritesEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'favoritesEnabled', now)
 }
 
 /**

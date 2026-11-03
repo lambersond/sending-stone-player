@@ -11,8 +11,10 @@ import {
   DISHES_SHOWN,
   MOST_DISHES_WAITING,
 } from '@/constants/cookbook'
+import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
+import { due as pruneDue } from '@/db/commands'
 import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
 import type {
   CookbookDishBody,
@@ -235,8 +237,7 @@ export async function claimDishes(
   session: string,
 ): Promise<DishCommand[]> {
   const now = Date.now()
-  if (now - (pruned.get(campaignId) ?? 0) >= DISHES_PRUNE_EVERY) {
-    pruned.set(campaignId, now)
+  if (pruneDue(pruned, campaignId, DISHES_PRUNE_EVERY, now)) {
     await pruneDishes(campaignId, now)
   }
   const campaign = await prisma.campaign.findUnique({
@@ -301,10 +302,7 @@ export async function claimDishes(
       queuedAt: dish.queuedAt.getTime(),
       body: dish.payload as unknown as CookbookDishBody,
     },
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: [],
+    ...NO_DICE,
   }))
 }
 

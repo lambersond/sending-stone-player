@@ -25,7 +25,7 @@ import {
   toTableCombat,
   toTableSheet,
 } from '@/utils/table-view'
-import type { RollSeat } from '@/db/roll-requests'
+import type { RollSeat } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type {

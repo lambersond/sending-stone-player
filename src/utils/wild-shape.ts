@@ -1,7 +1,5 @@
-import {
-  BRIDGE_POLLED_WITHIN,
-  ENDING_STATUSES,
-} from '@/constants/sending-stone'
+import { ENDING_STATUSES } from '@/constants/sending-stone'
+import { switchOn } from '@/utils/features'
 import type { WildShapeInput } from '@/types/roll'
 import type { CharacterSheet, KnownForm } from '@/types/sending-stone'
 
@@ -37,12 +35,7 @@ export function wildShapeAvailable(
   campaign: { wildShapeEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.wildShapeEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'wildShapeEnabled', now)
 }
 
 /** Whether the character is transformed now, as its sheet says: its numbers are the form's. */

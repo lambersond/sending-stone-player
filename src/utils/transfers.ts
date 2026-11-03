@@ -1,4 +1,4 @@
-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
+import { switchOn } from '@/utils/features'
 import { allItems } from '@/utils/sheet-texts'
 import type { TransferInput } from '@/types/roll'
 import type {
@@ -36,12 +36,7 @@ export function transfersAvailable(
   campaign: { transfersEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.transfersEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'transfersEnabled', now)
 }
 
 /**

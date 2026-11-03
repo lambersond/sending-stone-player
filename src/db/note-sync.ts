@@ -7,6 +7,7 @@ import {
 } from '@prisma/client'
 import prisma from '@/clients/prisma'
 import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
+import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { noteHtml } from '@/lib/note-html'
 import type { NotePageCommand } from './types'
@@ -578,10 +579,7 @@ function pageCommand(
         createdAt: write.noteCreatedAt.getTime(),
       }),
     },
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: [],
+    ...NO_DICE,
   }
 }
 
@@ -607,10 +605,7 @@ function orderCommand(
       writer: gm ? null : order.writerActorId,
       at: order.modifiedAt.getTime(),
     },
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: [],
+    ...NO_DICE,
   }
 }
 
