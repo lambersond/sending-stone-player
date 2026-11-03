@@ -1,0 +1,40 @@
+# file cycles, runtime: 0
+# folder cycles, runtime: 3
+  hooks <-> utils
+  lib <-> db
+  components/party-sheet <-> components/companions <-> components/transfers <-> components/cookbook-card <-> components/notes <-> components/character-sheet <-> components/game-table
+    edge src/components/character-sheet/biography-tab.tsx -> src/components/notes/index.ts
+    edge src/components/character-sheet/character-pane.tsx -> src/components/cookbook-card/index.ts
+    edge src/components/character-sheet/character-pane.tsx -> src/components/transfers/give-controls.tsx
+    edge src/components/character-sheet/character-pane.tsx -> src/components/transfers/remove-controls.tsx
+    edge src/components/character-sheet/character-sheet.tsx -> src/components/companions/creature-header.tsx
+    edge src/components/character-sheet/inventory-tab.tsx -> src/components/transfers/transferring.tsx
+    edge src/components/character-sheet/roll-toasts.tsx -> src/components/game-table/turn-toast.tsx
+    edge src/components/character-sheet/sheet-settings.tsx -> src/components/cookbook-card/index.ts
+    edge src/components/companions/companion-pane.tsx -> src/components/character-sheet/character-pane.tsx
+    edge src/components/companions/creature-header.tsx -> src/components/character-sheet/sheet-tiles.tsx
+    edge src/components/game-table/chat-log.tsx -> src/components/character-sheet/action-entry.tsx
+    edge src/components/game-table/game-table.tsx -> src/components/character-sheet/index.ts
+    edge src/components/game-table/game-table.tsx -> src/components/character-sheet/party-sheets.tsx
+    edge src/components/game-table/game-table.tsx -> src/components/character-sheet/wild-shape.tsx
+    edge src/components/game-table/turn-toast.tsx -> src/components/character-sheet/roll-tray.tsx
+    edge src/components/notes/journal-modal.tsx -> src/components/character-sheet/description-html.tsx
+    edge src/components/notes/note-lines.tsx -> src/components/character-sheet/description-html.tsx
+    edge src/components/notes/note-problem.tsx -> src/components/character-sheet/description-html.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/concentration.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/conditions-panel.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/description-actions.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/enchantments.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/favorite-mark.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/favoriting.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/inventory-tab.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/sheet-entry.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/sheet-text.tsx
+    edge src/components/party-sheet/party-sheet.tsx -> src/components/character-sheet/uses-button.tsx
+    edge src/components/transfers/distribute-dialog.tsx -> src/components/character-sheet/sheet-entry.tsx
+    edge src/components/transfers/move-status.tsx -> src/components/character-sheet/roll-tray.tsx
+    edge src/components/transfers/recipient-list.tsx -> src/components/character-sheet/sheet-entry.tsx
+# file cycles, runtime: 0
+# folder cycles, runtime: 3
+# file cycles, all (with types): 0
+# folder cycles, all (with types): 2

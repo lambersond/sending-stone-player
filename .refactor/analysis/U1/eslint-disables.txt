@@ -1,0 +1,10 @@
+src/components/character-sheet/character-pane.tsx:556:  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+src/components/character-sheet/character-pane.tsx:558:  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+src/components/character-sheet/favoriting.tsx:44:  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
+src/components/character-sheet/preparing.tsx:39:  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
+src/components/character-sheet/effect-controls.tsx:87:  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
+src/components/character-sheet/effect-controls.tsx:89:  // eslint-disable-next-line unicorn/no-useless-undefined -- none known
+src/components/character-sheet/effect-controls.tsx:91:  // eslint-disable-next-line unicorn/no-useless-undefined -- none sent
+src/components/character-sheet/effect-controls.tsx:94:  // eslint-disable-next-line unicorn/no-useless-undefined -- each row keeps its own
+src/components/character-sheet/wild-shape.tsx:209:  // eslint-disable-next-line unicorn/no-null -- no panel, as the DOM says none
+src/components/character-sheet/wild-shape.tsx:404:      // eslint-disable-next-line unicorn/no-null -- the protocol's for an empty place
