@@ -1,0 +1,13 @@
+diff --git a/src/hooks/use-sheet-roller.ts b/src/hooks/use-sheet-roller.ts
+index 3795945..f8edbab 100644
+--- a/src/hooks/use-sheet-roller.ts
++++ b/src/hooks/use-sheet-roller.ts
+@@ -756,7 +756,7 @@ export function useSheetRoller(
+         typed = true
+       } else {
+         result = executeRoll({
+-          pools: [{ sides: 20, count: 1 }],
++          pools: [{ sides: 20, count: 2 }],
+           modifier,
+           advantage,
+         })

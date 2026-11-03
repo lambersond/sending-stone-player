@@ -1,9 +1,9 @@
 diff --git a/.refactor/tools/export-move.cjs b/.refactor/tools/export-move.cjs
 new file mode 100644
-index 0000000..2dccb4d
+index 0000000..53c6d86
 --- /dev/null
 +++ b/.refactor/tools/export-move.cjs
-@@ -0,0 +1,1331 @@
+@@ -0,0 +1,1451 @@
 +#!/usr/bin/env node
 +'use strict'
 +/*
@@ -36,8 +36,10 @@ index 0000000..2dccb4d
 + *     from the destination and imported back by the source. TS's default (export the helper from the
 + *     source, import it into the destination: fact 26) is never taken, since with the source
 + *     importing the moved names it is a runtime cycle. When the moved code also needs an EXPORTED
-+ *     name that stays, and the source needs the moved names back, that name is carried along too
-+ *     (and reported): otherwise source and destination would import each other (gate 12).
++ *     name that stays, and the source needs the destination after the move, that name is carried
++ *     along too (and reported): otherwise source and destination would import each other (gate 12).
++ *     A value (a const, a function) read with `typeof` by types moving to a types module is not
++ *     carried: the types module imports it with `import type`, and the cycle left is reported.
 + *  3. Statements are cut and pasted as text, with their attached comments: no line inside a moved
 + *     declaration changes, but `export ` before a carried helper the source imports back. TS's
 + *     refactor is not used for the edit itself: it takes one contiguous range only and reprints the
@@ -45,12 +47,16 @@ index 0000000..2dccb4d
 + *     lines, re-specified from the destination's folder) and no directive unless it is a component
 + *     .tsx moved out of a 'use client' file (round.md §1.0 rule 9): `'use client'` is never copied
 + *     into a hook, a utility, a constants or a types module.
++ *     The source drops the import bindings only moved code used and imports back what it still
++ *     uses; a source left with nothing but directives and imports, that nothing names any more, is
++ *     deleted (unicorn/no-empty-file) and recorded as a `delete`.
 + *  4. Every importer (tests, `export … from`, `import()` and `typeof import()` types included)
 + *     imports the moved names from the destination, in the style of its old specifier (`@/…` or
-+ *     relative). A jest.mock/doMock whose factory's keys all moved to one destination follows them
-+ *     (with the requireActual and `typeof import()` inside it); a factory whose keys moved only in
-+ *     part is listed as stale (gate 4), not changed; a requireActual/requireMock whose names all
-+ *     moved follows them.
++ *     relative), one declaration per module (`import { a, type B }`: no-duplicate-imports). A
++ *     jest.mock/doMock whose factory's keys all moved to one destination follows them (with the
++ *     requireActual and `typeof import()` inside it); a factory whose keys moved only in part is
++ *     listed as stale (gate 4), not changed; a requireActual/requireMock whose names (destructured,
++ *     or read as `actual.x`) all moved follows them.
 + *  5. The import lines only are then formatted by eslint's own fixers (prettier, import/order,
 + *     import/no-duplicates, newline-after-import, no-multiple-empty-lines), under the checks locks
 + *     (round.md §2.3.6); a test's leading @jest-environment docblock is checked to stay first.
@@ -259,7 +265,7 @@ index 0000000..2dccb4d
 +      else fs.renameSync(was, now)
 +    }
 +    for (const f of this.removed) {
-+      if (git) run(['rm', '-q', '--', this.rel(f)])
++      if (git) run(['rm', '-q', '-f', '--', this.rel(f)])
 +      else fs.rmSync(f, { force: true })
 +    }
 +    for (const f of this.changed) {
@@ -367,7 +373,7 @@ index 0000000..2dccb4d
 +}
 +
 +/** The names read from a requireActual/requireMock call: destructured, or `x.name` of its variable. */
-+function namesReadFrom(ts, sf, call) {
++function namesReadFrom(ts, sf, call, checker) {
 +  let node = call
 +  while (ts.isAsExpression(node.parent) || ts.isParenthesizedExpression(node.parent)) node = node.parent
 +  const parent = node.parent
@@ -384,11 +390,13 @@ index 0000000..2dccb4d
 +    if (ts.isIdentifier(parent.name)) {
 +      // `const actual = jest.requireActual(…)`: the names are its `actual.x` reads in scope.
 +      const id = parent.name.text
++      const sym = checker && checker.getSymbolAtLocation(parent.name)
 +      const names = new Set()
 +      let whole = false
 +      const scope = ts.findAncestor(parent, n => ts.isBlock(n) || ts.isSourceFile(n))
++      const same = n => (sym ? checker.getSymbolAtLocation(n) === sym : true)
 +      const walk = n => {
-+        if (ts.isIdentifier(n) && n.text === id && n !== parent.name) {
++        if (ts.isIdentifier(n) && n.text === id && n !== parent.name && same(n)) {
 +          const up = n.parent
 +          const isKey =
 +            (ts.isPropertyAccessExpression(up) && up.name === n) ||
@@ -473,14 +481,29 @@ index 0000000..2dccb4d
 +  return i < text.length ? i + 1 : i
 +}
 +
-+/** Applies [start, end, text] edits (non-overlapping) to a string. */
++/** Applies [start, end, text] edits to a string: deletions that overlap merge, others may not overlap. */
 +function applyEdits(text, edits) {
-+  const sorted = [...edits].sort((a, b) => b[0] - a[0] || b[1] - a[1])
++  const cuts = edits.filter(e => e[2] === '' && e[1] > e[0]).map(e => [e[0], e[1], ''])
++  cuts.sort((a, b) => a[0] - b[0])
++  const merged = []
++  for (const c of cuts) {
++    const top = merged[merged.length - 1]
++    if (top && c[0] < top[1]) top[1] = Math.max(top[1], c[1])
++    else merged.push(c)
++  }
++  const sorted = [...edits.filter(e => !(e[2] === '' && e[1] > e[0])), ...merged].sort(
++    (a, b) => b[0] - a[0] || b[1] - a[1],
++  )
 +  let last = Infinity
-+  for (const [s, e, t] of sorted) {
-+    if (e > last) throw new Error(`overlapping edits at ${s}-${e}`)
++  let lastEdit
++  for (const edit of sorted) {
++    const [s, e, t] = edit
++    if (e > last) {
++      throw new Error(`overlapping edits: ${JSON.stringify([s, e, t])} and ${JSON.stringify(lastEdit)} over ${JSON.stringify(text.slice(s, Math.max(e, lastEdit[1])))}`)
++    }
 +    text = text.slice(0, s) + t + text.slice(e)
 +    last = s
++    lastEdit = edit
 +  }
 +  return text
 +}
@@ -536,8 +559,27 @@ index 0000000..2dccb4d
 +const localOf = el => el.replace(/^type\s+/, '').split(/\s+as\s+/).pop()
 +
 +/**
++ * The declarations for one module of an ImportSet, in the repo's style (no-duplicate-imports): one
++ * `import Def, { a, type B }` when there is a value, else one `import type { B }`; a namespace apart.
++ */
++function emitImport(spec, want) {
++  const q = `'${spec}'`
++  const out = []
++  const named = [...want.value, ...want.type.map(t => `type ${t}`)]
++  if (want.def.length || want.value.length) {
++    const parts = [want.def[0], named.length ? `{ ${named.join(', ')} }` : ''].filter(Boolean)
++    out.push(`import ${parts.join(', ')} from ${q}`)
++  } else if (want.type.length) {
++    out.push(`import type { ${want.type.join(', ')} } from ${q}`)
++  }
++  for (const n of want.ns) out.push(`import * as ${n} from ${q}`)
++  return out
++}
++
++/**
 + * Edits that put an ImportSet into a file: merged into an existing declaration of the same module
-+ * and kind, else new lines after the last import (or at the top, after directives and file comments).
++ * (a type-only one becomes a value one with inline `type`s when values join it), else new lines
++ * before the first import (or at the top, after directives and file comments).
 + */
 +function importEdits(p, sf, set, sfEdits) {
 +  const ts = p.ts
@@ -557,32 +599,36 @@ index 0000000..2dccb4d
 +    const value = want.value.filter(e => !have.has(localOf(e)))
 +    const type = want.type.filter(e => !have.has(localOf(e)))
 +    const def = want.def.filter(e => !have.has(e))
-+    const valueDecl = same.find(d => d.importClause && !d.importClause.isTypeOnly && (named(d) || !d.importClause.namedBindings))
++    const valueDecl = same.find(
++      d => d.importClause && !d.importClause.isTypeOnly && (named(d) || !d.importClause.namedBindings),
++    )
 +    const typeDecl = same.find(d => d.importClause && d.importClause.isTypeOnly && named(d))
-+    let restValue = value
-+    if (valueDecl && value.length && !def.length) {
-+      edits.push([valueDecl.getStart(sf), valueDecl.end, declText(ts, sf, valueDecl, [...elsOf(valueDecl), ...value])])
++    if (!value.length && !type.length && !def.length && !want.ns.length) continue
++    if (valueDecl && !def.length) {
++      const els = [...elsOf(valueDecl), ...value, ...type.map(t => `type ${t}`)]
++      edits.push(Object.assign([valueDecl.getStart(sf), valueDecl.end, declText(ts, sf, valueDecl, els)], { decl: valueDecl }))
 +      touched.add(valueDecl)
-+      restValue = []
-+    }
-+    let restType = type
-+    if (typeDecl && type.length) {
-+      edits.push([typeDecl.getStart(sf), typeDecl.end, declText(ts, sf, typeDecl, [...elsOf(typeDecl), ...type])])
++    } else if (typeDecl && !def.length && !value.length) {
++      edits.push(Object.assign([typeDecl.getStart(sf), typeDecl.end, declText(ts, sf, typeDecl, [...elsOf(typeDecl), ...type])], { decl: typeDecl }))
 +      touched.add(typeDecl)
-+      restType = []
++    } else if (typeDecl && !def.length) {
++      const els = [...elsOf(typeDecl).map(e => `type ${e}`), ...value, ...type.map(t => `type ${t}`)]
++      const t = `import { ${els.join(', ')} } from ${typeDecl.moduleSpecifier.getText(sf)}`
++      edits.push(Object.assign([typeDecl.getStart(sf), typeDecl.end, t], { decl: typeDecl }))
++      touched.add(typeDecl)
++    } else {
++      fresh.push(...emitImport(spec, { value, type, def, ns: want.ns }))
++      continue
 +    }
-+    const q = `'${spec}'`
-+    if (def.length || restValue.length) {
-+      const parts = [def[0], restValue.length ? `{ ${restValue.join(', ')} }` : ''].filter(Boolean)
-+      fresh.push(`import ${parts.join(', ')} from ${q}`)
-+    }
-+    for (const n of want.ns) fresh.push(`import * as ${n} from ${q}`)
-+    if (restType.length) fresh.push(`import type { ${restType.join(', ')} } from ${q}`)
++    for (const n of want.ns) fresh.push(`import * as ${n} from '${spec}'`)
 +  }
 +  if (fresh.length) {
-+    const lastImport = decls[decls.length - 1]
-+    if (lastImport) {
-+      edits.push([lineEnd(sf.text, lastImport.end), lineEnd(sf.text, lastImport.end), fresh.join('\n') + '\n'])
++    // Before the first import (which an edit may cut: an insertion at a cut's start survives it);
++    // import/order's fixer then puts each line in its place.
++    const firstImport = decls[0]
++    if (firstImport) {
++      const at = lineStart(sf.text, firstImport.getStart(sf))
++      edits.push([at, at, fresh.join('\n') + '\n'])
 +    } else {
 +      const prologue = sf.statements.filter(s => ts.isExpressionStatement(s) && ts.isStringLiteral(s.expression))
 +      const first = sf.statements.find(s => !prologue.includes(s))
@@ -620,7 +666,7 @@ index 0000000..2dccb4d
 +  const S = p.abs(source)
 +  const D = p.abs(dest)
 +  const notes = []
-+  if (S === D) return { moved: [], carried: [], exportedBack: [], stale: [], notes: ['source is dest'] }
++  if (S === D) return { removed: false, moved: [], carried: [], exportedBack: [], stale: [], notes: ['source is dest'] }
 +  if (!p.exists(S)) throw new Error(`export-move: ${p.rel(S)} is missing`)
 +  const renames = new Map()
 +  const asked = []
@@ -663,10 +709,22 @@ index 0000000..2dccb4d
 +    }
 +  }
 +  const toMove = new Set()
-+  for (const n of wanted) {
++  const imported = new Set(
++    sf.statements
++      .filter(ts.isImportDeclaration)
++      .flatMap(imp => importBindings(ts, imp).map(node => node.name.text)),
++  )
++  for (const n of [...wanted]) {
 +    const sts = decls.get(n)
++    if (!sts && imported.has(n)) {
++      // Listed, but the source only imports it: it stays where it is declared, and the moved code
++      // that uses it imports it from there.
++      notes.push(`${p.rel(S)}: ${n} is imported here, not declared: left in its module`)
++      wanted.splice(wanted.indexOf(n), 1)
++      continue
++    }
 +    if (!sts) throw new Error(`export-move: ${n} is not declared in ${p.rel(S)}`)
-+    if (!sts.some(s => isExported(ts, s))) throw new Error(`export-move: ${n} is not exported from ${p.rel(S)}`)
++    if (!sts.some(s => isExported(ts, s))) notes.push(`${p.rel(S)}: ${n} is file-private (moved as asked)`)
 +    for (const s of sts) toMove.add(s)
 +  }
 +  for (const st of sf.statements) {
@@ -678,25 +736,37 @@ index 0000000..2dccb4d
 +  }
 +
 +  // 2. The closure.
++  const typesModule = path.basename(D) === 'types.ts' || p.rel(D).startsWith('src/types/')
 +  const ordered = () => [...toMove].sort((a, b) => a.pos - b.pos)
 +  const carried = []
 +  let usage
 +  // Whether the source imports the destination after the move: the moved names it still uses, or
 +  // an import of the destination it had already and keeps.
-+  const keepsImportOf = u =>
-+    sf.statements.some(
++  const keepsImportOf = u => {
++    const gone = new Set([...u.unusedImportsFromOldFile].flatMap(sym => sym.declarations || []))
++    return sf.statements.some(
 +      st =>
 +        ts.isImportDeclaration(st) &&
 +        p.resolve(st.moduleSpecifier.text, S) === D &&
-+        importSymbols(ts, checker, st).some(sym => !u.unusedImportsFromOldFile.has(sym)),
++        importBindings(ts, st).some(node => !gone.has(node)),
 +    )
++  }
 +  for (;;) {
 +    usage = ts.refactor.getUsageInfo(sf, ordered(), checker)
 +    const sNeedsD = usage.oldFileImportsFromTargetFile.size > 0 || keepsImportOf(usage)
 +    const more = []
++    const kinds = typeOnlyUses(ts, checker, ordered(), new Set(usage.targetFileImportsFromOldFile.keys()))
 +    for (const sym of usage.targetFileImportsFromOldFile.keys()) {
++      const typeOnlyUse = kinds.get(sym) ?? usage.targetFileImportsFromOldFile.get(sym)
 +      const sts = sym.declarations.map(d => topStatement(ts, d))
 +      const exported = sts.some(s => isExported(ts, s))
++      // A value (a const, a function) is never carried into a types module: the moved types read
++      // it with `typeof` through an `import type`, and the cycle that leaves is reported.
++      const isValue = sts.some(s => !(ts.isTypeAliasDeclaration(s) || ts.isInterfaceDeclaration(s)))
++      if (exported && sNeedsD && isValue && typeOnlyUse && typesModule) {
++        notes.push(`${p.rel(D)} reads ${sym.name}, a value of ${p.rel(S)}, as a type only: imported, not carried`)
++        continue
++      }
 +      if (!exported || sNeedsD) {
 +        for (const s of sts) if (!toMove.has(s)) more.push(s)
 +        if (exported) carried.push(sym.name)
@@ -758,8 +828,9 @@ index 0000000..2dccb4d
 +    } else throw new Error(`export-move: ${sym.name}: unhandled import form in ${p.rel(S)}`)
 +  }
 +  const sSpecFromD = p.spec(D, S, p.styleFor(D, S))
-+  for (const [sym, typeOnlyUse] of usage.targetFileImportsFromOldFile) {
-+    dImports.add(sSpecFromD, typeOnlyUse ? 'type' : 'value', sym.name)
++  const dKinds = typeOnlyUses(ts, checker, moved, new Set(usage.targetFileImportsFromOldFile.keys()))
++  for (const [sym, last] of usage.targetFileImportsFromOldFile) {
++    dImports.add(sSpecFromD, dKinds.get(sym) ?? last ? 'type' : 'value', sym.name)
 +  }
 +
 +  // 4. The source: cut, drop the imports only moved code used, import back what it still uses.
@@ -769,13 +840,15 @@ index 0000000..2dccb4d
 +    sEdits.push(cutLines(sf.text, start, end))
 +  }
 +  mergeCuts(sEdits)
-+  const unused = usage.unusedImportsFromOldFile
++  // The import bindings only moved code used, by their declarations (a default import's symbol from
++  // getSymbolAtLocation is not always the alias getUsageInfo holds).
++  const unused = new Set([...usage.unusedImportsFromOldFile].flatMap(sym => sym.declarations || []))
 +  for (const imp of sf.statements.filter(ts.isImportDeclaration)) {
 +    const clause = imp.importClause
 +    if (!clause) continue
 +    let changed = false
 +    let def = clause.name
-+    if (def && unused.has(checker.getSymbolAtLocation(def))) {
++    if (def && unused.has(clause)) {
 +      def = undefined
 +      changed = true
 +    }
@@ -783,10 +856,10 @@ index 0000000..2dccb4d
 +    const nb = clause.namedBindings
 +    if (nb && ts.isNamedImports(nb)) {
 +      for (const el of nb.elements) {
-+        if (unused.has(checker.getSymbolAtLocation(el.name))) changed = true
++        if (unused.has(el)) changed = true
 +        else els.push(el.getText(sf))
 +      }
-+    } else if (nb && ts.isNamespaceImport(nb) && unused.has(checker.getSymbolAtLocation(nb.name))) {
++    } else if (nb && ts.isNamespaceImport(nb) && unused.has(nb)) {
 +      sEdits.push(cutLines(sf.text, imp.getStart(sf), imp.end))
 +      continue
 +    } else if (nb) {
@@ -794,15 +867,19 @@ index 0000000..2dccb4d
 +      continue
 +    }
 +    if (!changed) continue
-+    const t = def
-+      ? `import ${clause.isTypeOnly ? 'type ' : ''}${def.text}${els.length ? `, { ${els.join(', ')} }` : ''} from ${imp.moduleSpecifier.getText(sf)}`
-+      : declText(ts, sf, imp, els)
++    const spec = imp.moduleSpecifier.getText(sf)
++    const type = clause.isTypeOnly ? 'type ' : ''
++    let t = ''
++    if (def) t = `import ${type}${def.text}${els.length ? `, { ${els.join(', ')} }` : ''} from ${spec}`
++    else if (els.length) t = `import ${type}{ ${els.join(', ')} } from ${spec}`
 +    sEdits.push(Object.assign(declEdit(sf, imp, t), { decl: imp }))
 +  }
 +  const sImports = new ImportSet()
 +  const dSpecFromS = p.spec(S, D, p.styleFor(S, D))
-+  for (const [sym, typeOnlyUse] of usage.oldFileImportsFromTargetFile) {
-+    sImports.add(dSpecFromS, typeOnlyUse ? 'type' : 'value', sym.name)
++  const staying = sf.statements.filter(st => !toMove.has(st))
++  const sKinds = typeOnlyUses(ts, checker, staying, new Set(usage.oldFileImportsFromTargetFile.keys()))
++  for (const [sym, last] of usage.oldFileImportsFromTargetFile) {
++    sImports.add(dSpecFromS, sKinds.get(sym) ?? last ? 'type' : 'value', sym.name)
 +  }
 +  sEdits.push(...importEdits(p, sf, sImports, sEdits))
 +  const sText = applyEdits(sf.text, sEdits)
@@ -840,14 +917,7 @@ index 0000000..2dccb4d
 +      wanted.some(n => /^[A-Z]/.test(n) && decls.get(n).some(s => ts.isFunctionDeclaration(s) || ts.isVariableStatement(s)))
 +    if (isComponent) head.push("'use client'\n")
 +    const lines = []
-+    for (const [spec, want] of dImports.map) {
-+      const q = `'${spec}'`
-+      if (want.def.length || want.value.length) {
-+        lines.push(`import ${[want.def[0], want.value.length ? `{ ${want.value.join(', ')} }` : ''].filter(Boolean).join(', ')} from ${q}`)
-+      }
-+      for (const n of want.ns) lines.push(`import * as ${n} from ${q}`)
-+      if (want.type.length) lines.push(`import type { ${want.type.join(', ')} } from ${q}`)
-+    }
++    for (const [spec, want] of dImports.map) lines.push(...emitImport(spec, want))
 +    if (lines.length) head.push(lines.join('\n') + '\n')
 +    dText = (head.length ? head.join('\n') + '\n' : '') + chunks.join('\n\n') + '\n'
 +  }
@@ -904,7 +974,10 @@ index 0000000..2dccb4d
 +          notes.push(`${p.rel(f)}: re-exports a moved name (gate 7)`)
 +        } else {
 +          fEdits.push(Object.assign(declEdit(fsf, decl, declText(ts, fsf, decl, keep)), { decl }))
-+          for (const t of go) fImports.add(dSpec(), decl.importClause.isTypeOnly ? 'type' : 'value', t)
++          for (const t of go) {
++            const typeOnly = decl.importClause.isTypeOnly || t.startsWith('type ')
++            fImports.add(dSpec(), typeOnly ? 'type' : 'value', t.replace(/^type\s+/, ''))
++          }
 +        }
 +      } else if (type) {
 +        if (type.qualifier) {
@@ -947,7 +1020,7 @@ index 0000000..2dccb4d
 +      } else if (kind === 'requireActual' || kind === 'requireMock') {
 +        const insideMock = ts.findAncestor(call.parent, n => ts.isCallExpression(n) && pathCalls(ts, fsf).some(c => c.call === n && (c.kind === 'mock' || c.kind === 'doMock')))
 +        if (insideMock) continue // a spread inside a factory: follows (or not) with its mock
-+        const read = namesReadFrom(ts, fsf, call)
++        const read = namesReadFrom(ts, fsf, call, program.getTypeChecker())
 +        const where = `${p.rel(f)}:${fsf.getLineAndCharacterOfPosition(call.getStart(fsf)).line + 1}`
 +        if (!read) {
 +          stale.push(`${where}: jest.${kind}('${literal.text}') read whole (moved: ${[...askedOld.keys()].join(' ')})`)
@@ -981,8 +1054,32 @@ index 0000000..2dccb4d
 +    p.write(f, applyEdits(fsf.text, dedupeEdits(fEdits)))
 +  }
 +
++  // A source left with nothing but directives and imports goes (unicorn/no-empty-file), when nothing
++  // names it any more.
++  let removed = false
++  const after = p.sourceFile(S)
++  const rest = after.statements.filter(
++    st => !ts.isImportDeclaration(st) && !(ts.isExpressionStatement(st) && ts.isStringLiteral(st.expression)),
++  )
++  if (!rest.length) {
++    const users = [...p.names].filter(f => {
++      if (f === S) return false
++      const fsf = p.sourceFile(f)
++      if (!fsf) return false
++      const lits = [...importLiterals(ts, fsf).map(l => l.literal), ...pathCalls(ts, fsf).map(c => c.literal)]
++      return lits.some(l => p.resolve(l.text, f) === S)
++    })
++    if (users.length) notes.push(`${p.rel(S)}: empty after the move, but ${users.map(f => p.rel(f)).join(', ')} still name it`)
++    else {
++      p.remove(S)
++      removed = true
++      notes.push(`${p.rel(S)}: empty after the move, removed`)
++    }
++  }
++
 +  const renamedFrom = new Map([...renames].map(([a, b]) => [b, a]))
 +  return {
++    removed,
 +    moved: [...movedNames].map(n => (renamedFrom.has(n) ? `${renamedFrom.get(n)}=${n}` : n)),
 +    carried,
 +    exportedBack,
@@ -991,16 +1088,38 @@ index 0000000..2dccb4d
 +  }
 +}
 +
-+/** The local symbols an import declaration binds. */
-+function importSymbols(ts, checker, imp) {
++/**
++ * Whether each of `symbols` is read only in type positions within `statements` (every reference ANDed:
++ * getUsageInfo's own targetFileImportsFromOldFile and oldFileImportsFromTargetFile keep the last
++ * reference's answer, which reads a value used once as a type, last, as type-only).
++ */
++function typeOnlyUses(ts, checker, statements, symbols) {
++  const out = new Map()
++  const visit = node => {
++    if (ts.isIdentifier(node)) {
++      const up = node.parent
++      const sym =
++        up && ts.isShorthandPropertyAssignment(up) && up.name === node
++          ? checker.getShorthandAssignmentValueSymbol(up)
++          : checker.getSymbolAtLocation(node)
++      if (sym && symbols.has(sym)) out.set(sym, (out.get(sym) ?? true) && ts.isValidTypeOnlyAliasUseSite(node))
++    }
++    ts.forEachChild(node, visit)
++  }
++  for (const st of statements) visit(st)
++  return out
++}
++
++/** The binding nodes of an import declaration (its clause for a default, its namespace, its specifiers). */
++function importBindings(ts, imp) {
 +  const c = imp.importClause
 +  if (!c) return []
 +  const out = []
-+  if (c.name) out.push(checker.getSymbolAtLocation(c.name))
++  if (c.name) out.push(c)
 +  const nb = c.namedBindings
-+  if (nb && ts.isNamespaceImport(nb)) out.push(checker.getSymbolAtLocation(nb.name))
-+  if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) out.push(checker.getSymbolAtLocation(el.name))
-+  return out.filter(Boolean)
++  if (nb && ts.isNamespaceImport(nb)) out.push(nb)
++  if (nb && ts.isNamedImports(nb)) out.push(...nb.elements)
++  return out
 +}
 +
 +function leftmost(ts, q) {
@@ -1291,6 +1410,7 @@ index 0000000..2dccb4d
 +    const res = exportMove(p, { source, dest, names: names.split(/\s+/).filter(Boolean) })
 +    console.error(`${n}/${rows.length} ${source} → ${dest}: ${res.moved.join(' ')} (${((Date.now() - t0) / 1000).toFixed(0)} s)`)
 +    for (const name of res.moved) records.push(['name', source, dest, name, base])
++    if (res.removed) records.push(['delete', source, '-', '-', base])
 +    if (res.carried.length) report.carried.push(`${source} → ${dest}: ${res.carried.join(' ')}`)
 +    if (res.exportedBack.length) report.exportedBack.push(`${dest}: ${res.exportedBack.join(' ')}`)
 +    report.stale.push(...res.stale)
@@ -1337,10 +1457,10 @@ index 0000000..2dccb4d
 +}
 diff --git a/.refactor/tools/move.cjs b/.refactor/tools/move.cjs
 new file mode 100644
-index 0000000..cad7aa3
+index 0000000..cdbcedb
 --- /dev/null
 +++ b/.refactor/tools/move.cjs
-@@ -0,0 +1,360 @@
+@@ -0,0 +1,444 @@
 +#!/usr/bin/env node
 +'use strict'
 +/*
@@ -1348,6 +1468,7 @@ index 0000000..cad7aa3
 + *
 + *   node move.cjs --root <checkout> [--owners <owners.tsv>] [--spec <tsv>] [--check-ts N]
 + *                 [--no-git] [--no-lint] [--dry] [--x <scratch folder of the locks>]
++ *   node move.cjs --root <checkout> --verify     (after a run: nothing changed but imports and paths)
 + *
 + * The moves: owners.tsv's rows whose path_after is another path (a file move) or "DELETED (barrel …)"
 + * (one of the 27 barrels), or a spec of `from<TAB>to` lines (`to` = `-` deletes a barrel). In order:
@@ -1367,6 +1488,9 @@ index 0000000..cad7aa3
 + *     takes ~55 s a rename on this program (327 renames: 5 h), so this pass resolves each specifier
 + *     with TS's module resolution and `--check-ts N` compares it with getEditsForFileRename on N of
 + *     the moves (each alone, on the unmoved program): the specifiers must be the same.
++ *     A string literal that is a moved file's repo path ('src/components/…/prompt-banner.tsx',
++ *     read by its test with readFileSync: prompt-banner.test.tsx, end-turn.test.ts) is set to the
++ *     new path too, and listed: those lines are not mock paths, so gate 1b needs gate1b.allow rows.
 + *  5. git mv per file (history follows), git rm per barrel, the new contents written; then eslint's
 + *     own fixers for the import lines only (prettier, import/order, no-duplicates, newline-after-
 + *     import, no-multiple-empty-lines) under the checks locks, and a test's leading
@@ -1495,7 +1619,7 @@ index 0000000..cad7aa3
 +        scope = call.arguments[1]
 +      } else if (kind === 'requireActual' || kind === 'requireMock') {
 +        if (ts.findAncestor(call.parent, n => mocks.includes(n))) continue // follows its mock
-+        names = lib.namesReadFrom(ts, sf, call)
++        names = lib.namesReadFrom(ts, sf, call, program.getTypeChecker())
 +      }
 +      if (!names || !names.length) throw new Error(`${where(call)}: jest.${kind} of a barrel without names to follow`)
 +      const files = new Set(names.map(n => targetOf(b, n, call).file))
@@ -1549,6 +1673,8 @@ index 0000000..cad7aa3
 +  const program = p.program()
 +  const edits = new Map()
 +  const problems = []
++  const pathStrings = []
++  const byPath = new Map([...moved].map(([a, b]) => [p.rel(a), p.rel(b)]))
 +  for (const f of p.names) {
 +    const sf = program.getSourceFile(f)
 +    if (!sf) continue
@@ -1558,6 +1684,19 @@ index 0000000..cad7aa3
 +      ...(jest ? lib.pathCalls(ts, sf).map(c => c.literal) : []),
 +    ]
 +    const fileEdits = []
++    // A string that is a moved file's repo path (a test reading its unit's source by path:
++    // prompt-banner.test.tsx, end-turn.test.ts) names the file's new path.
++    const walk = node => {
++      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
++        const to = byPath.get(node.text)
++        if (to && !literals.includes(node)) {
++          fileEdits.push([node.getStart(sf) + 1, node.end - 1, to])
++          pathStrings.push(`${p.rel(newF)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}: '${node.text}' → '${to}'`)
++        }
++      }
++      ts.forEachChild(node, walk)
++    }
++    if (jest) walk(sf)
 +    for (const literal of literals) {
 +      const spec = literal.text
 +      const target = p.resolve(spec, f)
@@ -1582,7 +1721,7 @@ index 0000000..cad7aa3
 +    }
 +    if (fileEdits.length) edits.set(f, fileEdits)
 +  }
-+  return { edits, problems }
++  return { edits, problems, pathStrings }
 +}
 +
 +/**
@@ -1614,11 +1753,70 @@ index 0000000..cad7aa3
 +  return bad
 +}
 +
++/**
++ * --verify: every renamed or modified src file staged in the checkout (against HEAD) equals its old
++ * text once import and export-from lines are cut, module-path strings (import types, jest.mock and
++ * kin) and moved-file path strings blanked, and whitespace and trailing commas dropped (prettier
++ * re-wraps a line a longer path pushed past 80 columns); a leading @jest-environment docblock stays
++ * first. Prints what differs; exit 1 if anything does.
++ */
++function verify(root) {
++  const ts = require(require.resolve('typescript', { paths: [root] }))
++  const git = a => cp.execFileSync('git', a, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 })
++  const status = git(['diff', '--cached', '-M', '--name-status', 'HEAD', '--', 'src']).trim().split('\n').filter(Boolean)
++  const paths = new Set()
++  for (const line of status) {
++    const [st, a, b] = line.split('\t')
++    if (st.startsWith('R')) paths.add(a).add(b)
++  }
++  const norm = (file, text) => {
++    const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
++    const cuts = []
++    for (const st of sf.statements) {
++      if (ts.isImportDeclaration(st) || (ts.isExportDeclaration(st) && st.moduleSpecifier)) cuts.push([st.getFullStart(), st.end, ''])
++    }
++    const blank = n => cuts.push([n.getStart(sf), n.end, "'<path>'"])
++    const walk = n => {
++      if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) blank(n.argument.literal)
++      else if (ts.isStringLiteral(n) && paths.has(n.text)) blank(n)
++      ts.forEachChild(n, walk)
++    }
++    walk(sf)
++    for (const c of lib.pathCalls(ts, sf)) blank(c.literal)
++    cuts.sort((a, b) => b[0] - a[0] || b[1] - a[1])
++    let t = text
++    let last = Infinity
++    for (const [s, e, r] of cuts) {
++      if (e > last) continue
++      t = t.slice(0, s) + r + t.slice(e)
++      last = s
++    }
++    return t.replace(/\s+/g, '').replace(/,(?=[)\]}>])/g, '')
++  }
++  let compared = 0
++  const bad = []
++  for (const line of status) {
++    const [st, a, b] = line.split('\t')
++    if (!/^[RM]/.test(st) || !/\.tsx?$/.test(b || a)) continue
++    compared++
++    const old = git(['show', `HEAD:${a}`])
++    const now = fs.readFileSync(path.join(root, b || a), 'utf8')
++    if (norm(a, old) !== norm(b || a, now)) bad.push(`differs beyond imports and paths: ${a}${b ? ` → ${b}` : ''}`)
++    const doc = old.match(/^\/\*\*[\s\S]*?\*\//)
++    if (doc && /@jest-environment/.test(doc[0]) && !now.startsWith(doc[0])) bad.push(`docblock not first: ${b || a}`)
++  }
++  for (const l of bad) console.log(l)
++  const renamed = status.filter(l => l.startsWith('R')).length
++  const gone = status.filter(l => l.startsWith('D')).length
++  console.log(`verify: ${compared} files compared, ${bad.length} differ; ${renamed} renames, ${gone} deletions`)
++  return bad.length ? 1 : 0
++}
++
 +function args(argv) {
 +  const out = {}
 +  for (let i = 0; i < argv.length; i++) {
 +    const a = argv[i]
-+    if (['--no-git', '--no-lint', '--dry'].includes(a)) out[a.slice(2)] = true
++    if (['--no-git', '--no-lint', '--dry', '--verify'].includes(a)) out[a.slice(2)] = true
 +    else out[a.slice(2)] = argv[++i]
 +  }
 +  return out
@@ -1627,6 +1825,10 @@ index 0000000..cad7aa3
 +function main() {
 +  const a = args(process.argv.slice(2))
 +  const root = path.resolve(a.root || process.cwd())
++  if (a.verify) {
++    process.exitCode = verify(root)
++    return
++  }
 +  const owners = path.resolve(a.owners || path.join(root, '.refactor/owners.tsv'))
 +  const { files, barrels } = a.spec ? fromSpec(path.resolve(a.spec)) : fromOwners(owners)
 +  const p = new lib.Project(root)
@@ -1671,8 +1873,10 @@ index 0000000..cad7aa3
 +    if (bad) throw new Error(`check-ts: ${bad} moves differ from TypeScript's edits`)
 +  }
 +  const moved = new Map(files.map(([from, to]) => [abs(from), abs(to)]))
-+  const { edits, problems } = rewriteForMoves(p, moved)
++  const { edits, problems, pathStrings } = rewriteForMoves(p, moved)
 +  if (problems.length) throw new Error('specifiers that cannot follow:\n' + problems.join('\n'))
++  // Not module specifiers: gate 1b sees these lines change (gate1b.allow rows, the orchestrator's).
++  for (const line of pathStrings) console.error(`path string followed its file (gate1b.allow): ${line}`)
 +  let specs = 0
 +  for (const [f, es] of edits) {
 +    p.write(f, lib.applyEdits(p.read(f), es))
