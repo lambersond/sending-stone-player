@@ -23,3 +23,5 @@ src/components/game-table/game-table.party.test.tsx	mock	@lambersond/3d-dice-rea
 src/components/game-table/game-table.removals.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
 src/components/game-table/game-table.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
 src/components/transfers/give-controls.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/prompt-banner.test.tsx	file	-	R1.0.1 (commit 5): line 151 reads its unit's source by repo path (readFileSync); move.cjs set the path to the moved file (amendment 1 (d))
+src/utils/end-turn.test.ts	file	-	R1.0.1 (commit 5): line 255 reads its unit's source by repo path (readFileSync); move.cjs set the path to the moved file (amendment 1 (d))
