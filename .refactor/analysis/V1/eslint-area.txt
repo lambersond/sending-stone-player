@@ -1,0 +1,46 @@
+{"no-restricted-syntax":32,"sonarjs/cognitive-complexity":5,"react-hooks/set-state-in-effect":2,"react-hooks/refs":2,"react-hooks/exhaustive-deps":2,"react-hooks/preserve-manual-memoization":1,"import/no-restricted-paths":1}
+components/game-table/chat-log.tsx:783 no-restricted-syntax 
+components/game-table/chat-log.tsx:783 no-restricted-syntax 
+components/game-table/combat-tracker.tsx:58 no-restricted-syntax 
+components/game-table/combat-tracker.tsx:74 no-restricted-syntax 
+components/game-table/combat-tracker.tsx:234 sonarjs/cognitive-complexity from 22
+components/game-table/combat-tracker.tsx:398 no-restricted-syntax 
+components/game-table/combat-tracker.tsx:398 no-restricted-syntax 
+components/game-table/empty-state.tsx:4 no-restricted-syntax 
+components/game-table/game-table.tsx:94 no-restricted-syntax 
+components/game-table/game-table.tsx:97 no-restricted-syntax 
+components/game-table/game-table.tsx:117 no-restricted-syntax 
+components/game-table/game-table.tsx:159 sonarjs/cognitive-complexity from 96
+components/game-table/game-table.tsx:245 react-hooks/set-state-in-effect 
+components/game-table/game-table.tsx:1097 no-restricted-syntax 
+components/game-table/game-table.tsx:1126 react-hooks/refs 
+components/game-table/game-table.tsx:1129 react-hooks/refs 
+components/game-table/game-table.tsx:1384 no-restricted-syntax 
+components/game-table/game-table.tsx:1436 no-restricted-syntax 
+components/game-table/game-table.tsx:1442 no-restricted-syntax 
+components/game-table/live-status.tsx:9 no-restricted-syntax 
+components/game-table/live-status.tsx:41 no-restricted-syntax 
+components/game-table/local-time.tsx:5 no-restricted-syntax 
+components/game-table/turn-toast.tsx:40 no-restricted-syntax 
+components/game-table/turn-toast.tsx:41 no-restricted-syntax 
+components/game-table/turn-toast.tsx:43 no-restricted-syntax 
+components/game-table/turn-toast.tsx:46 no-restricted-syntax 
+components/game-table/turn-toast.tsx:46 no-restricted-syntax 
+components/game-table/turn-toast.tsx:63 no-restricted-syntax 
+components/game-table/turn-toast.tsx:63 no-restricted-syntax 
+components/game-table/turn-toast.tsx:68 no-restricted-syntax 
+components/game-table/turn-toast.tsx:68 no-restricted-syntax 
+components/game-table/turn-toast.tsx:78 no-restricted-syntax 
+components/game-table/turn-toast.tsx:78 no-restricted-syntax 
+components/game-table/turn-toast.tsx:120 no-restricted-syntax 
+components/game-table/turn-toast.tsx:134 no-restricted-syntax 
+components/game-table/turn-toast.tsx:212 no-restricted-syntax 
+components/game-table/turn-toast.tsx:271 react-hooks/exhaustive-deps 
+components/game-table/turn-toast.tsx:271 sonarjs/cognitive-complexity from 22
+components/game-table/turn-toast.tsx:335 react-hooks/exhaustive-deps 
+hooks/use-end-turn.ts:175 react-hooks/preserve-manual-memoization 
+hooks/use-table-view.ts:6 no-restricted-syntax 
+hooks/use-table-view.ts:61 sonarjs/cognitive-complexity from 17
+hooks/use-turn-undo.ts:73 sonarjs/cognitive-complexity from 22
+hooks/use-waiting-prompts.ts:63 react-hooks/set-state-in-effect 
+utils/end-turn.ts:2 import/no-restricted-paths 
