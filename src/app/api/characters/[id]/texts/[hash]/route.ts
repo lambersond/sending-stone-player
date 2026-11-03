@@ -1,6 +1,6 @@
 import { getCharacter } from '@/db/characters'
 import { playerSeat } from '@/db/seats'
-import { textResponse } from '@/lib/seat-routes'
+import { textResponse } from '@/lib/routes/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import type { NextRequest } from 'next/server'

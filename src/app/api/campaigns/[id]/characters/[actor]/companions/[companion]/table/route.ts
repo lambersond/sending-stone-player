@@ -1,4 +1,7 @@
-import { companionTableResponse, gmCompanionSeat } from '@/lib/companion-routes'
+import {
+  companionTableResponse,
+  gmCompanionSeat,
+} from '@/lib/routes/companion-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

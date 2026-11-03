@@ -1,4 +1,4 @@
-import { partyResponse } from '@/lib/party-routes'
+import { partyResponse } from '@/lib/routes/party-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

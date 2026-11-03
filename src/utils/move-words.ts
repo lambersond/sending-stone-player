@@ -1,6 +1,6 @@
 import { seatWords, type SeatRole } from '@/utils/seat-words'
-import type { LocalMove } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
+import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
 
 // How a move of items and coins (module 0.31.0) is told, in English: what moved, as the game's
 // chat line says it, where it stands on its way to the game, and why it wasn't made. From module

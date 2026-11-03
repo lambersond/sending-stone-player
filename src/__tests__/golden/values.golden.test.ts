@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { TOAST_FOR as PAGE_TOAST_FOR } from '@/components/page-toast/page-toast'
+import { ISSUE_FORMS } from '@/components/help-links/constants'
 import {
   CAMPAIGN_ID,
   CAMPAIGN_SEARCH_FROM,
@@ -14,7 +14,6 @@ import {
   SECRET_MAX_LENGTH,
   SECRET_MIN_LENGTH,
 } from '@/constants/campaign'
-import { CONDITION_BASICS, CONDITIONS, SRD_LINKS } from '@/constants/conditions'
 import {
   COOKBOOK_CODE,
   COOKBOOK_POLL_EVERY,
@@ -33,7 +32,6 @@ import {
   MOST_KEPT_CHANGE_KEYS,
 } from '@/constants/cookbook'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS, TOOLS } from '@/constants/dnd5e'
-import { ISSUE_FORMS } from '@/constants/links'
 import {
   MAX_NOTE_BYTES,
   MOST_BOOK_TEXT,
@@ -134,14 +132,21 @@ import {
   WILD_SHAPE_OPS,
   WILD_SHAPE_SETTLE,
 } from '@/constants/sending-stone'
+import { TOAST_FOR as PAGE_TOAST_FOR } from '@/features/campaigns/components/page-toast/page-toast'
 import {
   BUSY_FOR,
   BUSY_WAIT,
   CHECK_EVERY,
   FOLLOW_FOR,
   LATE_FOLLOW,
-} from '@/hooks/use-table-rolls'
-import { POLL_INTERVAL } from '@/hooks/use-table-view'
+} from '@/features/rolling/hooks/use-table-rolls'
+import { TOAST_FOR as ROLL_TOAST_FOR } from '@/features/rolling/utils/roll-toasts'
+import {
+  CONDITION_BASICS,
+  CONDITIONS,
+  SRD_LINKS,
+} from '@/features/sheet/components/conditions/constants'
+import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   chromaticOrb,
   fireBreath,
@@ -295,7 +300,6 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { quillSheet, slimQuillSheet } from '@/mocks/slim-sheet'
-import { TOAST_FOR as ROLL_TOAST_FOR } from '@/utils/roll-toasts'
 import { ordered } from '@/utils/test-utils'
 
 /*

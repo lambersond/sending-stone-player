@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Bug, Lightbulb, type LucideIcon } from 'lucide-react'
-import { ISSUE_FORMS } from '@/constants/links'
+import { ISSUE_FORMS } from '@/components/help-links/constants'
 
 /** Each link, in order: what it says, its icon, and the form it opens. */
 const LINKS: { label: string; icon: LucideIcon; href: string }[] = [

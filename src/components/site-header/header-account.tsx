@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { CampaignsLink } from './campaigns-link'
-import { Avatar } from '@/components/avatar'
-import { SignOutButton } from '@/components/sign-out-button'
+import { Avatar } from '@/components/avatar/avatar'
+import { SignOutButton } from '@/components/sign-out-button/sign-out-button'
 import { getCurrentUser } from '@/lib/session'
 
 export async function HeaderAccount() {

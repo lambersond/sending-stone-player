@@ -1,10 +1,10 @@
 import { Flag } from 'lucide-react'
 import Link from 'next/link'
 import { openInvite, removeCharacter } from './actions'
-import { Avatar } from '@/components/avatar'
-import { CharacterList } from '@/components/character-list'
-import { InviteForm } from '@/components/invite-form'
+import { Avatar } from '@/components/avatar/avatar'
 import { listCharacters } from '@/db/characters'
+import { CharacterList } from '@/features/characters/components/character-list/character-list'
+import { InviteForm } from '@/features/characters/components/invite-form/invite-form'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 

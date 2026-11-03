@@ -2,8 +2,8 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { HeaderAccount } from './header-account'
 import { NotOnCharacterPage } from './not-on-character-page'
-import { Logo } from '@/components/logo'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { Logo } from '@/components/logo/logo'
+import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
 
 export function SiteHeader() {
   return (

@@ -1,7 +1,7 @@
 import {
   companionTextResponse,
   playerCompanionSeat,
-} from '@/lib/companion-routes'
+} from '@/lib/routes/companion-routes'
 import { getCurrentUser } from '@/lib/session'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import type { NextRequest } from 'next/server'

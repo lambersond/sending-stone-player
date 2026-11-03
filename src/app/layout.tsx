@@ -1,9 +1,9 @@
 /* eslint-disable camelcase */
 import { Geist, Geist_Mono } from 'next/font/google'
-import { FullscreenGuard } from '@/components/game-table/fullscreen-guard'
-import { SiteFooter } from '@/components/site-footer'
-import { SiteHeader } from '@/components/site-header'
-import { ThemeProvider } from '@/components/theme-provider'
+import { FullscreenGuard } from '@/components/fullscreen-guard/fullscreen-guard'
+import { SiteFooter } from '@/components/site-footer/site-footer'
+import { SiteHeader } from '@/components/site-header/site-header'
+import { ThemeProvider } from '@/components/theme-provider/theme-provider'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 

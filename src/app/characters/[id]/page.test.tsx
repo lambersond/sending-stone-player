@@ -34,7 +34,7 @@ jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/table', () => ({ getTableView: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
-jest.mock('@/components/game-table', () => ({
+jest.mock('@/features/table/components/game-table/game-table', () => ({
   GameTable: ({
     character,
     initialView,

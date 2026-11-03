@@ -1,5 +1,5 @@
 import { getGmSeat } from '@/db/seats'
-import { rollPostResponse } from '@/lib/seat-routes'
+import { rollPostResponse } from '@/lib/routes/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

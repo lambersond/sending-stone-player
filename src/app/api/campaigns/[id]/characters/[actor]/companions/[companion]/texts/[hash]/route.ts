@@ -1,4 +1,7 @@
-import { companionTextResponse, gmCompanionSeat } from '@/lib/companion-routes'
+import {
+  companionTextResponse,
+  gmCompanionSeat,
+} from '@/lib/routes/companion-routes'
 import { getCurrentUser } from '@/lib/session'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import type { NextRequest } from 'next/server'

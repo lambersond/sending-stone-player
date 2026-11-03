@@ -6,18 +6,16 @@ import {
   revokeCookbookLinkAction,
   setUpCampaignAction,
 } from './actions'
-import {
-  CampaignCard,
-  CampaignIndex,
-  CampaignsHead,
-  rowOf,
-} from '@/components/campaigns'
 import { CAMPAIGN_ID, CAMPAIGNS_PATH, JOIN_PATH } from '@/constants/campaign'
 import { listOwnedCampaigns } from '@/db/campaigns'
+import { CampaignCard } from '@/features/campaigns/components/campaign-card/campaign-card'
+import { CampaignIndex } from '@/features/campaigns/components/campaign-index/campaign-index'
+import { rowOf } from '@/features/campaigns/components/campaign-row/campaign-row'
+import { CampaignsHead } from '@/features/campaigns/components/campaigns-head/campaigns-head'
+import { sortCampaigns } from '@/features/campaigns/utils/campaign-order'
 import { appOrigin } from '@/lib/app-origin'
 import { generateSecret } from '@/lib/campaign-secret'
 import { requireUser } from '@/lib/session'
-import { sortCampaigns } from '@/utils/campaign-order'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 

@@ -1,37 +1,40 @@
 import { useCallback, useMemo, type ReactNode } from 'react'
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
-import { Concentrating } from '@/components/character-sheet/concentration'
+import { useSheetRoller } from '@/features/rolling/hooks/use-sheet-roller'
+import { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
+import { Concentrating } from '@/features/sheet/components/concentration/concentration'
 import {
   ConditionsOpener,
   useConditionsPanel,
-} from '@/components/character-sheet/conditions-panel'
+} from '@/features/sheet/components/conditions/conditions-panel'
 import {
   DescriptionLinks,
   sheetTools,
-} from '@/components/character-sheet/description-actions'
+} from '@/features/sheet/components/description-actions/description-actions'
 import {
   Effecting,
   useEffectControls,
-} from '@/components/character-sheet/effect-controls'
-import { Enchanting } from '@/components/character-sheet/enchantments'
-import { FavoriteMarks } from '@/components/character-sheet/favorite-mark'
+} from '@/features/sheet/components/effect-controls/effect-controls'
+import { Enchanting } from '@/features/sheet/components/enchantments/enchantments'
+import { FavoriteMarks } from '@/features/sheet/components/favorite-mark/favorite-mark'
 import {
   Favoriting,
   useFavorites,
-} from '@/components/character-sheet/favoriting'
-import { Preparing, usePreparing } from '@/components/character-sheet/preparing'
-import { Charging } from '@/components/character-sheet/uses-button'
+} from '@/features/sheet/components/favoriting/favoriting'
+import {
+  Preparing,
+  usePreparing,
+} from '@/features/sheet/components/preparing/preparing'
+import { Charging } from '@/features/sheet/components/uses-button/uses-button'
 import {
   useWildShape,
   WildShaping,
-} from '@/components/character-sheet/wild-shape'
+} from '@/features/sheet/components/wild-shape/wild-shape'
+import { SheetIdPrefix } from '@/features/sheet/hooks/use-sheet-ids'
+import { belongingsOf } from '@/features/sheet/utils/enchantments'
 import { CreatureContext } from '@/hooks/use-creature'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
-import { SheetIdPrefix } from '@/hooks/use-sheet-ids'
-import { useSheetRoller } from '@/hooks/use-sheet-roller'
 import { TableApiContext, useTableRole } from '@/hooks/use-table-api'
-import { useTableRolls } from '@/hooks/use-table-rolls'
-import { belongingsOf } from '@/utils/enchantments'
 import { favoriteEntries, favoriteKeys } from '@/utils/favorites'
 import type { PaneRoller, PaneTable, SheetProvidersProps } from './types'
 

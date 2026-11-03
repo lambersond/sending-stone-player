@@ -7,7 +7,7 @@ import {
   type ExtraDice,
   type ExtraTerm,
 } from '@/utils/roll-modifiers'
-import type { SheetFormulaRoll } from '@/hooks/use-sheet-roller'
+import type { SheetFormulaRoll } from '@/features/rolling/hooks/use-sheet-roller'
 import type { CharacterSheet, SheetClass } from '@/types/sending-stone'
 
 /**

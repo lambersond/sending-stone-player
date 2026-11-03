@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { usePathname } from 'next/navigation'
 import { SiteFooter } from './site-footer'
-import { ISSUE_FORMS } from '@/constants/links'
+import { ISSUE_FORMS } from '@/components/help-links/constants'
 
 jest.mock('next/navigation', () => ({ usePathname: jest.fn() }))
 

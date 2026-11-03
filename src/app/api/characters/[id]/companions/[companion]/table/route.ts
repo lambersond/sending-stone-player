@@ -1,7 +1,7 @@
 import {
   companionTableResponse,
   playerCompanionSeat,
-} from '@/lib/companion-routes'
+} from '@/lib/routes/companion-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

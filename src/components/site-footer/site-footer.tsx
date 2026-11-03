@@ -1,4 +1,4 @@
-import { HelpLinks } from '@/components/help-links'
+import { HelpLinks } from '@/components/help-links/help-links'
 import { NotOnCharacterPage } from '@/components/site-header/not-on-character-page'
 
 /**

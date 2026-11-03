@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { enabledSocialProviders } from '@/auth-providers'
-import { SignInButtons } from '@/components/sign-in-buttons'
+import { SignInButtons } from '@/components/sign-in-buttons/sign-in-buttons'
 import { JOIN_PATH } from '@/constants/campaign'
 import { getCurrentUser } from '@/lib/session'
 import { safeNextPath } from '@/utils/safe-next'

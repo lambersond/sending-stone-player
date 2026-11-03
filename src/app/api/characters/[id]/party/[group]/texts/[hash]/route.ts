@@ -1,7 +1,7 @@
 import { getCharacter } from '@/db/characters'
 import { partySeat } from '@/db/party'
 import { playerSeat } from '@/db/seats'
-import { partyTextResponse } from '@/lib/party-routes'
+import { partyTextResponse } from '@/lib/routes/party-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

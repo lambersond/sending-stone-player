@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
-import { PartyPage } from '@/components/party-sheet'
 import { getGroupView } from '@/db/party'
+import { PartyPage } from '@/features/party/components/party-page/party-page'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 

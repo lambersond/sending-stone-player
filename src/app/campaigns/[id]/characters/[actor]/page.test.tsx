@@ -15,7 +15,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/db/seats', () => ({ getGmSeat: jest.fn() }))
 jest.mock('@/db/table', () => ({ getTableView: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
-jest.mock('@/components/game-table', () => ({
+jest.mock('@/features/table/components/game-table/game-table', () => ({
   GameTable: ({ character, seat, initialView, ...rest }: any) => (
     <p>
       table for {character.name} as {character.id}, through {seat.api} as{' '}

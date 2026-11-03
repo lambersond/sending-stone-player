@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Link from 'next/link'
 import { SidePanel } from './side-panel'
-import { Modal } from '@/components/modal'
+import { Modal } from '@/components/modal/modal'
 
 describe('components/side-panel', () => {
   it('opens and closes, rendering its content only while open', () => {

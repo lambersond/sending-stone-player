@@ -8,11 +8,11 @@ import {
   revokeCookbookCode,
   setManualDice,
 } from '../actions'
-import { GameTable } from '@/components/game-table'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
 import { playerSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
+import { GameTable } from '@/features/table/components/game-table/game-table'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 

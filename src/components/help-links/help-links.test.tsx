@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { HelpLinks } from './help-links'
-import { ISSUE_FORMS } from '@/constants/links'
+import { ISSUE_FORMS } from '@/components/help-links/constants'
 
 describe('components/help-links (round 0.39.0)', () => {
   it('links to the app’s own bug and feature forms, each in a new tab, its name saying so', () => {

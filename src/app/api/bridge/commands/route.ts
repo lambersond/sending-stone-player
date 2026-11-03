@@ -13,8 +13,8 @@ import {
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
-import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
+import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
 import type { DishCommand } from '@/types/cookbook'

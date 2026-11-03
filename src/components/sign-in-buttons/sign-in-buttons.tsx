@@ -3,7 +3,8 @@
 import { useState, type ComponentType, type SVGProps } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { authClient } from '@/clients/auth-client'
-import { DiscordIcon, GoogleIcon } from '@/components/icons'
+import { DiscordIcon } from '@/components/icons/discord'
+import { GoogleIcon } from '@/components/icons/google'
 import type { SocialProviderId } from '@/auth-providers'
 
 const PROVIDERS: Record<

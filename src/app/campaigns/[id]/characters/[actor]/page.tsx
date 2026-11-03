@@ -1,8 +1,8 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
-import { GameTable } from '@/components/game-table'
 import { getGmSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
+import { GameTable } from '@/features/table/components/game-table/game-table'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 

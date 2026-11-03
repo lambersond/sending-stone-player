@@ -2,7 +2,7 @@ import {
   noteDeleteResponse,
   notePatchResponse,
   notesSeat,
-} from '@/lib/notes-routes'
+} from '@/lib/routes/notes-routes'
 import type { NextRequest } from 'next/server'
 
 /**

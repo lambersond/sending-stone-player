@@ -1,5 +1,5 @@
 import { getCharacter } from '@/db/characters'
-import { cookbookViewResponse } from '@/lib/cookbook-routes'
+import { cookbookViewResponse } from '@/lib/routes/cookbook-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

@@ -1,6 +1,6 @@
 import { getCharacter } from '@/db/characters'
 import { playerSeat } from '@/db/seats'
-import { rollGetResponse } from '@/lib/seat-routes'
+import { rollGetResponse } from '@/lib/routes/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

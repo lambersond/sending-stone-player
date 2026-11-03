@@ -6,12 +6,12 @@ import {
   REFUSAL_SHOWN_FOR,
   WAITING_SECRET_CHECKS,
 } from '@/constants/sending-stone'
-import { attempt } from '@/lib/bridge-http'
 import {
   generateInviteCode,
   hashSecret,
   verifySecret,
 } from '@/lib/campaign-secret'
+import { attempt } from '@/lib/routes/bridge-http'
 import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
 import { availableRollKinds } from '@/utils/roll-requests'

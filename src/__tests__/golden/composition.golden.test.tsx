@@ -5,13 +5,14 @@
 // imports follow a move.
 import { isValidElement } from 'react'
 import { act, render } from '@testing-library/react'
-import { CharacterPane } from '@/components/character-sheet/character-pane'
-import { CompanionPane } from '@/components/companions/companion-pane'
-import { GameTable } from '@/components/game-table/game-table'
-import { JournalCard } from '@/components/notes/journal-card'
-import { PartySheet } from '@/components/party-sheet/party-sheet'
-import { forgetCookbook } from '@/hooks/use-cookbook-view'
-import { forgetNotes } from '@/hooks/use-notes'
+import { CompanionPane } from '@/features/companions/components/companion-pane/companion-pane'
+import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
+import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
+import { forgetNotes } from '@/features/notes/hooks/use-notes'
+import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
+import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
+import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
+import { GameTable } from '@/features/table/components/game-table/game-table'
 import {
   characterSheet,
   chatMessage,
@@ -22,7 +23,6 @@ import {
   mockNotesView,
   mockTurnCombat,
 } from '@/mocks/sending-stone'
-import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableMessages, toTableSheet } from '@/utils/table-view'
 import { advance, atFixedTime, ordered, respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'

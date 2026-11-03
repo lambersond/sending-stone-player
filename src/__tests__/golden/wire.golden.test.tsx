@@ -13,24 +13,31 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CharacterPane } from '@/components/character-sheet/character-pane'
-import { CompanionPane } from '@/components/companions/companion-pane'
-import { GameTable } from '@/components/game-table/game-table'
 import { ROLL_KINDS } from '@/constants/sending-stone'
-import { useCompanionView } from '@/hooks/use-companion-view'
-import { forgetCookbook, useCookbookView } from '@/hooks/use-cookbook-view'
-import { useEndTurn } from '@/hooks/use-end-turn'
-import { forgetNotes, useNotes } from '@/hooks/use-notes'
-import { usePartySheet } from '@/hooks/use-party-sheet'
-import { TableApiContext } from '@/hooks/use-table-api'
+import { CompanionPane } from '@/features/companions/components/companion-pane/companion-pane'
+import { useCompanionView } from '@/features/companions/hooks/use-companion-view'
+import {
+  forgetCookbook,
+  useCookbookView,
+} from '@/features/cookbook/hooks/use-cookbook-view'
+import { forgetNotes, useNotes } from '@/features/notes/hooks/use-notes'
+import { usePartySheet } from '@/features/party/hooks/use-party-sheet'
 import {
   CHECK_EVERY,
   damageRollOf,
   useTableRolls,
-} from '@/hooks/use-table-rolls'
-import { POLL_INTERVAL, useTableView } from '@/hooks/use-table-view'
-import { useTransfers } from '@/hooks/use-transfers'
-import { useTurnUndo } from '@/hooks/use-turn-undo'
+} from '@/features/rolling/hooks/use-table-rolls'
+import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
+import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
+import { GameTable } from '@/features/table/components/game-table/game-table'
+import { useEndTurn } from '@/features/table/hooks/use-end-turn'
+import {
+  POLL_INTERVAL,
+  useTableView,
+} from '@/features/table/hooks/use-table-view'
+import { useTurnUndo } from '@/features/table/hooks/use-turn-undo'
+import { useTransfers } from '@/features/transfers/hooks/use-transfers'
+import { TableApiContext } from '@/hooks/use-table-api'
 import {
   aloneSheet,
   chargingSheet,
@@ -50,7 +57,6 @@ import {
   toRollRequestView,
   type HeldRollRequest,
 } from '@/utils/roll-requests'
-import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
 import {
   advance,

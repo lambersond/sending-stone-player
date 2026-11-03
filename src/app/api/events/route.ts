@@ -27,8 +27,8 @@ import {
 } from '@/db/campaigns'
 import { recordDishDecision } from '@/db/cookbook'
 import { recordCommandResult } from '@/db/roll-requests'
-import { attempt, cors, notSetUp, refuse } from '@/lib/bridge-http'
 import { bearerSecret } from '@/lib/campaign-secret'
+import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
 

@@ -1,11 +1,11 @@
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CharacterPane } from '@/components/character-sheet/character-pane'
-import { GameTable } from '@/components/game-table/game-table'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { applyCampaignEvent } from '@/db/campaign-events'
 import { createRollRequest } from '@/db/roll-requests'
 import { getGmSeat, playerSeat } from '@/db/seats'
+import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
+import { GameTable } from '@/features/table/components/game-table/game-table'
 import { TableApiContext } from '@/hooks/use-table-api'
 import {
   BLESS_DIE,

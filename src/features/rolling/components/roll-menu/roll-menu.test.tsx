@@ -1,0 +1,269 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { Send, Trash2 } from 'lucide-react'
+import {
+  ChoiceMenu,
+  placing,
+  RollMenu,
+  type MenuItem,
+  type MenuPoint,
+} from './roll-menu'
+import { Modal } from '@/components/modal/modal'
+
+const renderMenu = (point?: MenuPoint) => {
+  const onChoose = jest.fn()
+  const onClose = jest.fn()
+  render(
+    <>
+      <button type='button'>Perception</button>
+      <button type='button'>Elsewhere</button>
+    </>,
+  )
+  const anchor = screen.getByRole('button', { name: 'Perception' })
+  // A row 400 by 40 pixels, 100 from the left of a 1024 by 768 window and 200 from its top.
+  const rect = jest
+    .spyOn(anchor, 'getBoundingClientRect')
+    .mockReturnValue(
+      DOMRect.fromRect({ x: 100, y: 200, width: 400, height: 40 }),
+    )
+  render(
+    <RollMenu
+      anchor={anchor}
+      point={point}
+      title='Perception check +7'
+      onChoose={onChoose}
+      onClose={onClose}
+    />,
+  )
+  return { onChoose, onClose, rect }
+}
+
+/** Where the menu's top-left corner is, as floating-ui moves it there. */
+const menuAt = () => screen.getByRole('menu').style.transform
+
+describe('components/character-sheet/roll-menu', () => {
+  beforeAll(() => {
+    for (const [side, size] of [
+      ['clientWidth', 1024],
+      ['clientHeight', 768],
+    ] as const)
+      Object.defineProperty(document.documentElement, side, {
+        configurable: true,
+        value: size,
+      })
+  })
+  afterAll(() => {
+    for (const side of ['clientWidth', 'clientHeight'])
+      Reflect.deleteProperty(document.documentElement, side)
+  })
+
+  it('lets only a click’s menu move back across onto the screen, where neither side of the pointer has room', () => {
+    expect(placing({ x: 195, y: 20, touch: false })).toMatchObject({
+      placement: 'right-start',
+      across: true,
+    })
+    expect(placing({ x: 195, y: 20, touch: true })).toMatchObject({
+      placement: 'top',
+      across: false,
+    })
+    expect(placing()).toMatchObject({
+      placement: 'bottom',
+      across: false,
+    })
+  })
+
+  it('hangs from the pointer, like the browser’s own menu, and stays with it as the sheet scrolls', async () => {
+    const { rect } = renderMenu({ x: 380, y: 20, touch: false })
+
+    await waitFor(() => expect(menuAt()).toBe('translate(484px, 224px)'))
+
+    rect.mockReturnValue(
+      DOMRect.fromRect({ x: 100, y: 150, width: 400, height: 40 }),
+    )
+    fireEvent.scroll(globalThis.window)
+    await waitFor(() => expect(menuAt()).toBe('translate(484px, 174px)'))
+  })
+
+  it('sits above a finger, so the hand doesn’t hide it', async () => {
+    renderMenu({ x: 200, y: 20, touch: true })
+
+    await waitFor(() => expect(menuAt()).toBe('translate(300px, 204px)'))
+  })
+
+  it('sits below the part of the sheet when opened from a key', async () => {
+    renderMenu()
+
+    await waitFor(() => expect(menuAt()).toBe('translate(300px, 246px)'))
+  })
+
+  it('is no taller than the room on the side it opens on, its items scrolled inside it, as one with many may be taller than a phone’s screen', async () => {
+    renderMenu()
+    const menu = screen.getByRole('menu')
+    // Taller than the window: 514 pixels below the row, from 246 down to 8 short of 768, and 186
+    // above it; it stays below, where there's more room.
+    jest
+      .spyOn(menu, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ width: 224, height: 900 }))
+    fireEvent.scroll(globalThis.window)
+
+    await waitFor(() => expect(menu.style.maxHeight).toBe('514px'))
+    expect(menuAt()).toBe('translate(300px, 246px)')
+    expect(menu).toHaveClass('overflow-y-auto')
+  })
+
+  it('offers advantage, disadvantage and modifying the roll', async () => {
+    const user = userEvent.setup()
+    const { onChoose } = renderMenu()
+
+    const menu = screen.getByRole('menu', { name: 'Perception check +7' })
+    expect(
+      screen.getAllByRole('menuitem').map(item => item.textContent),
+    ).toEqual(['Roll with advantage', 'Roll with disadvantage', 'Modify roll…'])
+    await waitFor(() =>
+      expect(
+        screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+      ).toHaveFocus(),
+    )
+    expect(menu).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Roll with disadvantage' }),
+    )
+    expect(onChoose).toHaveBeenCalledWith('dis')
+  })
+
+  it('moves between its items with the arrow keys', async () => {
+    const user = userEvent.setup()
+    const { onChoose } = renderMenu()
+    await waitFor(() =>
+      expect(
+        screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+      ).toHaveFocus(),
+    )
+
+    await user.keyboard('{ArrowDown}{ArrowDown}')
+    expect(screen.getByRole('menuitem', { name: 'Modify roll…' })).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(
+      screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+    ).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(onChoose).toHaveBeenCalledWith('adv')
+  })
+
+  it.each([
+    [
+      'Escape',
+      (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}'),
+    ],
+    [
+      'a click elsewhere',
+      (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(screen.getByRole('button', { name: 'Elsewhere' })),
+    ],
+  ])('closes on %s', async (_, close) => {
+    const user = userEvent.setup()
+    const { onChoose, onClose } = renderMenu()
+
+    await close(user)
+
+    expect(onClose).toHaveBeenCalled()
+    expect(onChoose).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape inside a modal dialog, cancelling the key, which the browser would otherwise take as a request to close the dialog too', async () => {
+    const user = userEvent.setup()
+    const onClose = jest.fn()
+    const pressed: KeyboardEvent[] = []
+    const keep = (event: KeyboardEvent) => pressed.push(event)
+    globalThis.addEventListener('keydown', keep, true)
+    render(<button type='button'>Perception</button>)
+    render(
+      <Modal open onClose={jest.fn()} title='Bardic Flame'>
+        <RollMenu
+          anchor={screen.getByRole('button', { name: 'Perception' })}
+          title='Perception check +7'
+          onChoose={jest.fn()}
+          onClose={onClose}
+        />
+      </Modal>,
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('menuitem', { name: 'Roll with advantage' }),
+      ).toHaveFocus(),
+    )
+
+    await user.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalled()
+    expect(pressed.at(-1)).toMatchObject({
+      key: 'Escape',
+      defaultPrevented: true,
+    })
+    globalThis.removeEventListener('keydown', keep, true)
+  })
+})
+
+describe('components/character-sheet/roll-menu, a menu with nothing to choose, from module 0.33.0', () => {
+  /** A menu at a row, of these items. */
+  const renderChoices = (items: MenuItem<'send' | 'remove'>[]) => {
+    render(
+      <button type='button' className='row'>
+        Rope
+      </button>,
+    )
+    const onClose = jest.fn()
+    render(
+      <ChoiceMenu
+        anchor={screen.getByRole('button', { name: 'Rope' })}
+        title='Rope'
+        items={items}
+        onChoose={jest.fn()}
+        onClose={onClose}
+      />,
+    )
+    return { onClose }
+  }
+  const remove: MenuItem<'remove'> = {
+    id: 'remove',
+    label: 'Remove…',
+    icon: Trash2,
+    disabled: 'It’s on its way already',
+  }
+  const send: MenuItem<'send'> = { id: 'send', label: 'Send to…', icon: Send }
+
+  it('says why on the menu itself where nothing in it can be chosen, as focus is on the menu', async () => {
+    const user = userEvent.setup()
+    const { onClose } = renderChoices([remove])
+    const menu = screen.getByRole('menu', { name: 'Rope' })
+
+    expect(menu).toHaveAccessibleDescription('It’s on its way already')
+    const item = screen.getByRole('menuitem', { name: 'Remove…' })
+    expect(item).toBeDisabled()
+    expect(item).toHaveAccessibleDescription('It’s on its way already')
+    await waitFor(() =>
+      expect(menu.contains(document.activeElement)).toBe(true),
+    )
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('says each reason where several can’t be chosen', () => {
+    renderChoices([{ ...send, disabled: 'Nowhere to send it' }, remove])
+    expect(
+      screen.getByRole('menu', { name: 'Rope' }),
+    ).toHaveAccessibleDescription('Nowhere to send it It’s on its way already')
+  })
+
+  it('says nothing more on a menu with something to choose', () => {
+    renderChoices([send, remove])
+    const menu = screen.getByRole('menu', { name: 'Rope' })
+    expect(menu).not.toHaveAttribute('aria-describedby')
+    expect(menu).toHaveAccessibleDescription('')
+    expect(
+      screen.getByRole('menuitem', { name: 'Remove…' }),
+    ).toHaveAccessibleDescription('It’s on its way already')
+  })
+})

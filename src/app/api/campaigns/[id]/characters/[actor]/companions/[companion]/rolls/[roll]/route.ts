@@ -1,5 +1,5 @@
-import { gmCompanionRollSeat } from '@/lib/companion-routes'
-import { rollGetResponse } from '@/lib/seat-routes'
+import { gmCompanionRollSeat } from '@/lib/routes/companion-routes'
+import { rollGetResponse } from '@/lib/routes/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 

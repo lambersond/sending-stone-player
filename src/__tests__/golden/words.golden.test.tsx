@@ -7,34 +7,8 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CharacterPane } from '@/components/character-sheet/character-pane'
-import { RollToasts } from '@/components/character-sheet/roll-toasts'
-import {
-  briefOf,
-  reasons,
-  RollTray,
-} from '@/components/character-sheet/roll-tray'
-import { ChatLog } from '@/components/game-table/chat-log'
-import { GameTable } from '@/components/game-table/game-table'
 import { ROLL_KINDS } from '@/constants/sending-stone'
-import { TableApiContext } from '@/hooks/use-table-api'
-import { emptyBook, noteEntry } from '@/mocks/notes-server'
-import {
-  characterSheet,
-  fullerSheet,
-  mockNotesView,
-  mockTableView,
-  mockTurnCombat,
-} from '@/mocks/sending-stone'
-import { turnRefusedLine, TURN_REFUSALS } from '@/utils/end-turn'
-import {
-  moveLabel,
-  moveReasons,
-  moveWords,
-  namesWords,
-  thingsWords,
-} from '@/utils/move-words'
-import { fullNoteTime, noteTime } from '@/utils/note-time'
+import { fullNoteTime, noteTime } from '@/features/notes/utils/note-time'
 import {
   choicesWords,
   journalCounts,
@@ -47,7 +21,7 @@ import {
   savedWords,
   whoSeesNotes,
   whoSeesShort,
-} from '@/utils/note-words'
+} from '@/features/notes/utils/note-words'
 import {
   movedTo,
   movedWords,
@@ -55,8 +29,34 @@ import {
   orderSavedWords,
   orderStateWords,
   reorderLine,
-} from '@/utils/order-words'
-import { slotName, slotWords } from '@/utils/slot-words'
+} from '@/features/notes/utils/order-words'
+import { RollToasts } from '@/features/rolling/components/roll-toasts/roll-toasts'
+import {
+  briefOf,
+  reasons,
+  RollTray,
+} from '@/features/rolling/components/roll-tray/roll-tray'
+import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
+import { slotName, slotWords } from '@/features/sheet/utils/slot-words'
+import { ChatLog } from '@/features/table/components/chat-log/chat-log'
+import { GameTable } from '@/features/table/components/game-table/game-table'
+import { turnRefusedLine, TURN_REFUSALS } from '@/features/table/utils/end-turn'
+import { TableApiContext } from '@/hooks/use-table-api'
+import { emptyBook, noteEntry } from '@/mocks/notes-server'
+import {
+  characterSheet,
+  fullerSheet,
+  mockNotesView,
+  mockTableView,
+  mockTurnCombat,
+} from '@/mocks/sending-stone'
+import {
+  moveLabel,
+  moveReasons,
+  moveWords,
+  namesWords,
+  thingsWords,
+} from '@/utils/move-words'
 import { askTitle, toTableSheet } from '@/utils/table-view'
 import {
   advance,
@@ -64,8 +64,11 @@ import {
   normalizeTimes,
   responding,
 } from '@/utils/test-utils'
-import type { LocalMove, LocalRoll } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import type {
+  LocalMove,
+  LocalRoll,
+} from '@/features/rolling/hooks/use-sheet-roller'
+import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
 import type { Character, TableSeat } from '@/types/character'
 import type {
   NoteBookKind,

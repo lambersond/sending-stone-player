@@ -6,7 +6,6 @@ import {
   screen,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CharacterPane } from '@/components/character-sheet/character-pane'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import {
   useSheetRoller,
@@ -14,7 +13,8 @@ import {
   type SheetFormulaRoll,
   type SheetRoll,
   type TypedRolls,
-} from '@/hooks/use-sheet-roller'
+} from '@/features/rolling/hooks/use-sheet-roller'
+import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import {
   BANE_DIE,
   BLESS_DIE,

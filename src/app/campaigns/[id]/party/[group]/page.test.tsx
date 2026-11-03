@@ -6,7 +6,7 @@ import GmPartyPage, { generateMetadata } from './page'
 import { getGroupView } from '@/db/party'
 import { requireUser } from '@/lib/session'
 import { movingPartyView } from '@/mocks/sending-stone'
-import type { PartyPage as RealPartyPage } from '@/components/party-sheet'
+import type { PartyPage as RealPartyPage } from '@/features/party/components/party-page/party-page'
 import type { ComponentProps } from 'react'
 
 jest.mock('next/navigation', () => ({
@@ -19,7 +19,7 @@ jest.mock('@/db/party', () => ({ getGroupView: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 /** What the page gave the party's page, as it crosses from the server to the browser. */
 let given: ComponentProps<typeof RealPartyPage> | undefined
-jest.mock('@/components/party-sheet', () => ({
+jest.mock('@/features/party/components/party-page/party-page', () => ({
   PartyPage: (props: any) => {
     given = props
     const { api, role, initialView, back, ownSheetHref } = props
@@ -137,8 +137,8 @@ describe('app/campaigns/[id]/party/[group]/page', () => {
       const user = userEvent.setup()
       render(await GmPartyPage(props('c1', 'groupIronCo01')))
       const { PartyPage } = jest.requireActual<
-        typeof import('@/components/party-sheet')
-      >('@/components/party-sheet')
+        typeof import('@/features/party/components/party-page/party-page')
+      >('@/features/party/components/party-page/party-page')
       if (!given) throw new Error('The page gave nothing')
       render(<PartyPage {...given} />)
 
@@ -202,8 +202,8 @@ describe('app/campaigns/[id]/party/[group]/page', () => {
       const user = userEvent.setup()
       render(await GmPartyPage(props('c1', 'groupIronCo01')))
       const { PartyPage } = jest.requireActual<
-        typeof import('@/components/party-sheet')
-      >('@/components/party-sheet')
+        typeof import('@/features/party/components/party-page/party-page')
+      >('@/features/party/components/party-page/party-page')
       if (!given) throw new Error('The page gave nothing')
       render(<PartyPage {...given} />)
 
