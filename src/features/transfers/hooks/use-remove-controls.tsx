@@ -1,6 +1,7 @@
 import { useState, useMemo, type ReactNode } from 'react'
 import { RemoveDialog } from '../components/remove-dialog/remove-dialog'
 import { MOST_MOVED } from '@/constants/sending-stone'
+import { onItsWay } from '@/utils/lifecycle'
 import { relatedItems } from '@/utils/removals'
 import type { TransferControls } from '../types'
 import type { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
@@ -46,7 +47,7 @@ export function useRemoveControls({
   const pending = useMemo(() => {
     const held = new Set<string>()
     for (const { move, status } of table.states.values()) {
-      if (move?.item && (status === 'sending' || status === 'rolling')) {
+      if (move?.item && onItsWay({ status })) {
         held.add(move.item)
       }
     }

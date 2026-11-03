@@ -132,3 +132,8 @@ export function pause(ms: number, signal: AbortSignal): Promise<void> {
     signal.addEventListener('abort', done, { once: true })
   })
 }
+
+/** Whether a request is on its way: sent and not yet heard of, or being made at the table. */
+export function onItsWay(state?: Pick<TableRollState, 'status'>): boolean {
+  return state?.status === 'sending' || state?.status === 'rolling'
+}

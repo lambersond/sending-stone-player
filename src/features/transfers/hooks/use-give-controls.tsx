@@ -7,6 +7,7 @@ import {
   ROW_BUTTON,
 } from '../components/transferring/transferring'
 import { NO_TRANSFERS } from '../constants'
+import { onItsWay } from '@/utils/lifecycle'
 import type { TransferControls } from '../types'
 import type { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
 import type { TableMoves } from '@/types/party'
@@ -68,7 +69,7 @@ export function useGiveControls({
   const pending = useMemo(() => {
     const held = new Set<string>()
     for (const { move, status } of table.states.values()) {
-      if (move && (status === 'sending' || status === 'rolling')) {
+      if (move && onItsWay({ status })) {
         held.add(move.item ?? COINS)
       }
     }

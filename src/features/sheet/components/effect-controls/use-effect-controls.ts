@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
 } from 'react'
 import { EFFECT_SETTLE, EFFECT_OPS } from '@/constants/sending-stone'
+import { onItsWay } from '@/utils/lifecycle'
 import type { Effects, Focusing, EffectChoice } from './types'
 import type { TableRollState } from '@/types/roll'
 import type {
@@ -97,7 +98,7 @@ export function useEffectControls({
       const state = states.get(id)
       // Sent, its way not yet heard of: as on its way, for as long as the sheet might take.
       if (!state) return !settled.has(id)
-      if (state.status === 'sending' || state.status === 'rolling') return true
+      if (onItsWay(state)) return true
       return (
         state.status === 'done' &&
         !settled.has(id) &&

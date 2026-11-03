@@ -57,6 +57,7 @@ import {
   unmaximizable,
 } from '@/utils/damage-modifiers'
 import { formatModifier } from '@/utils/format-modifier'
+import { onItsWay as isOnItsWay } from '@/utils/lifecycle'
 import { listed } from '@/utils/roll-reasons'
 import { seatWords } from '@/utils/seat-words'
 import type { Spent } from '../../../sheet/components/effect-controls/types'
@@ -699,7 +700,7 @@ function TableMark({
       </span>
     )
   }
-  if (state.status === 'sending' || state.status === 'rolling') {
+  if (isOnItsWay(state)) {
     return <span className='ml-1.5'>· sending</span>
   }
   // Of dice sent one after another, those the game made before one it didn't.

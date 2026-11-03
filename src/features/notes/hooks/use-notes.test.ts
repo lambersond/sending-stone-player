@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
-import { POLL_INTERVAL } from '../../table/hooks/use-table-view'
+import { POLL_INTERVAL } from '../../../constants/polling'
 import {
   forgetNotes,
   hasDraft,

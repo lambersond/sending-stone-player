@@ -52,6 +52,7 @@ import {
   NOTE_CLAIM_LIMIT,
   NOTES_PER_MINUTE,
 } from '@/constants/notes'
+import { POLL_INTERVAL } from '@/constants/polling'
 import {
   ALONE_CHOICES,
   ALONE_SPENDS,
@@ -146,7 +147,6 @@ import {
   CONDITIONS,
   SRD_LINKS,
 } from '@/features/sheet/components/conditions/constants'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   chromaticOrb,
   fireBreath,

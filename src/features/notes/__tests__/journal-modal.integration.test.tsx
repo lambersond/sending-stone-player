@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JournalCard } from '../components/journal-card/journal-card'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { useKeyboardInset } from '@/features/notes/hooks/use-keyboard-inset'
 import {
   forgetNotes,
@@ -16,7 +17,6 @@ import {
   journalOpen,
   useNotes,
 } from '@/features/notes/hooks/use-notes'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   emptyBook,
   noteChapter,

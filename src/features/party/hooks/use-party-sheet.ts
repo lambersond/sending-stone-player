@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
+import { POLL_INTERVAL } from '@/constants/polling'
 import type { PartyView } from '@/types/party'
 import type { Connection } from '@/types/table'
 

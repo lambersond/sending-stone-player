@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { POLL_INTERVAL } from '@/constants/polling'
 import {
   GM_SEND_KEY,
   SEND_CHOICES,
   SEND_KEY,
 } from '@/features/rolling/constants'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   END_TURN_ARMS_AFTER,
   endableTurn,
@@ -14,7 +14,7 @@ import {
   turnKey,
 } from '@/features/table/utils/end-turn'
 import { useStoredChoice } from '@/hooks/use-stored'
-import { follow } from '@/utils/lifecycle'
+import { follow, onItsWay } from '@/utils/lifecycle'
 import type { RollKind, RollRequestInput, TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
@@ -65,7 +65,7 @@ function isOver(way: TableRollState | undefined): boolean {
  * it be sent again.
  */
 function holds(way: TableRollState | undefined): boolean {
-  return way?.status === 'sending' || way?.status === 'rolling' || isOver(way)
+  return onItsWay(way) || isOver(way)
 }
 
 /**

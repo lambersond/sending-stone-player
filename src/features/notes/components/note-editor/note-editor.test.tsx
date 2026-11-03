@@ -10,13 +10,13 @@ import {
 import userEvent from '@testing-library/user-event'
 import { JournalCard } from '../journal-card/journal-card'
 import { headingHint, NoteEditor } from './note-editor'
+import { POLL_INTERVAL } from '@/constants/polling'
 import {
   forgetNotes,
   hasDraft,
   type DraftChange,
   type NoteDraft,
 } from '@/features/notes/hooks/use-notes'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   emptyBook,
   noteChapter,

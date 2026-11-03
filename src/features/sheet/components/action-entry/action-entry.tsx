@@ -80,6 +80,7 @@ import {
 import { checkTitle } from '@/utils/description-links'
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
+import { onItsWay } from '@/utils/lifecycle'
 import { activityAction, itemSpellOf, spellAction } from '@/utils/sheet-actions'
 import type {
   TableDamage,
@@ -1213,7 +1214,7 @@ function EnchantSwitch({
   const { end, latestFor } = useEnchanting()
   const source = { item: action.id, activity: action.activity?.id ?? '' }
   const latest = latestFor?.(source)
-  const pending = latest?.status === 'sending' || latest?.status === 'rolling'
+  const pending = onItsWay(latest)
   // What the game left it as: on where it applied it, off where it ended it.
   const outcome = latest?.status === 'done' ? latest.enchantment : undefined
   const told = outcome?.enchanted ?? undefined

@@ -2,12 +2,10 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { GameTable } from '../components/game-table/game-table'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
-import {
-  POLL_INTERVAL,
-  useTableView,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import { emptyBook, serveNotes } from '@/mocks/notes-server'
 import { characterSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'

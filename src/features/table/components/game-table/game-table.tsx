@@ -31,6 +31,7 @@ import { CombatTracker } from '../combat-tracker/combat-tracker'
 import { newlyNotMade, refusalKey, TurnToast } from '../turn-toast/turn-toast'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
 import { Scroller } from '@/components/scroller/scroller'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { CharacterChooser } from '@/features/characters/components/character-chooser/character-chooser'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { CompanionAskNotice } from '@/features/companions/components/companion-ask-notice/companion-ask-notice'
@@ -47,10 +48,7 @@ import { classLine } from '@/features/sheet/utils/class-line'
 import { useCreatureChoice } from '@/features/table/hooks/use-creature-choice'
 import { useEndTurn } from '@/features/table/hooks/use-end-turn'
 import { useHold } from '@/features/table/hooks/use-hold'
-import {
-  POLL_INTERVAL,
-  useTableView,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import { useTurnUndo } from '@/features/table/hooks/use-turn-undo'
 import {
   END_TURN_QUIET_CLICKS,

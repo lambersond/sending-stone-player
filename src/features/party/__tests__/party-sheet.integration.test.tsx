@@ -7,6 +7,7 @@ import {
   PartySheet,
   PartySheetFor,
 } from '../components/party-sheet/party-sheet'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
 import { Charging } from '@/features/sheet/components/charging/charging'
 import { Concentrating } from '@/features/sheet/components/concentration/concentrating'
@@ -15,7 +16,6 @@ import { DescriptionLinks } from '@/features/sheet/components/description-action
 import { Enchanting } from '@/features/sheet/components/enchantments/enchanting'
 import { FavoriteMarks } from '@/features/sheet/components/favorite-mark/favorite-marks'
 import { Favoriting } from '@/features/sheet/components/favoriting/favoriting'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { fakeFullscreen } from '@/mocks/fullscreen'
 import {

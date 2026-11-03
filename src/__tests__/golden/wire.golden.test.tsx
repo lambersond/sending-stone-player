@@ -13,6 +13,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CHECK_EVERY } from '@/constants/lifecycle'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { CompanionPane } from '@/features/companions/components/companion-pane/companion-pane'
 import { useCompanionView } from '@/features/companions/hooks/use-companion-view'
@@ -28,10 +29,7 @@ import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { GameTable } from '@/features/table/components/game-table/game-table'
 import { useEndTurn } from '@/features/table/hooks/use-end-turn'
-import {
-  POLL_INTERVAL,
-  useTableView,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import { useTurnUndo } from '@/features/table/hooks/use-turn-undo'
 import { useTransfers } from '@/features/transfers/hooks/use-transfers'
 import { TableApiContext } from '@/hooks/use-table-api'

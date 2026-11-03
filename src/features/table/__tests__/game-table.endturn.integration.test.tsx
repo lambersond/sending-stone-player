@@ -26,7 +26,6 @@ import type {
  */
 
 jest.mock('@/features/table/hooks/use-table-view', () => ({
-  POLL_INTERVAL: 3000,
   useTableView: jest.fn(),
 }))
 jest.mock('@/features/notes/hooks/use-notes', () => ({

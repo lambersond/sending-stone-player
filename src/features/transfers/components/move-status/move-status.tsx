@@ -4,6 +4,7 @@ import { useEffect, type Ref } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Send, TriangleAlert, X } from 'lucide-react'
 import { useTableRole } from '@/hooks/use-table-api'
+import { onItsWay as isOnItsWay } from '@/utils/lifecycle'
 import { moveWords } from '@/utils/move-words'
 import { reasons } from '@/utils/roll-reasons'
 import type { LocalMove, TableRollState } from '@/types/roll'
@@ -36,7 +37,7 @@ export function MoveStatus({
   }, [latest, status, onDismiss])
   if (!latest) return
   const { move, state } = latest
-  const onItsWay = status === 'sending' || status === 'rolling'
+  const onItsWay = isOnItsWay(state)
   let icon = (
     <TriangleAlert aria-hidden className='size-3.5 shrink-0 text-warning' />
   )

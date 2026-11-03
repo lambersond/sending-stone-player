@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, type RefObject } from 'react'
 import { END_TURN_LABEL, endTurnWords } from '@/features/table/utils/end-turn'
+import { onItsWay } from '@/utils/lifecycle'
 import type { TableRollState } from '@/types/roll'
 import type { EndableTurn } from '@/types/table'
 
@@ -33,10 +34,7 @@ export function EndTurnButton({
   onGone?: () => void
   ref?: RefObject<HTMLButtonElement | null>
 }>) {
-  const sending =
-    way?.status === 'sending' ||
-    way?.status === 'rolling' ||
-    way?.status === 'done'
+  const sending = onItsWay(way) || way?.status === 'done'
   const idle = sending || !offered
   // Focus on it as it goes, as when the seat's turn ends, is handed on once the page has settled:
   // what goes with it, such as its panel as the encounter ends, has gone by then, and focus left

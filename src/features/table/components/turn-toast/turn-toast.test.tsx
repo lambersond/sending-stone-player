@@ -8,7 +8,8 @@ import type { TableSeat } from '@/types/character'
 import type { TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat, TurnUndo } from '@/types/table'
 
-jest.mock('@/features/table/hooks/use-table-view', () => ({
+jest.mock('@/constants/polling', () => ({
+  ...jest.requireActual('@/constants/polling'),
   POLL_INTERVAL: 3000,
 }))
 

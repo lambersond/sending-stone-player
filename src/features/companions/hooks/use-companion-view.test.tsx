@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { POLL_INTERVAL } from '../../table/hooks/use-table-view'
+import { POLL_INTERVAL } from '../../../constants/polling'
 import { useCompanionView } from './use-companion-view'
 import { mockCompanionSheet, mockCompanionView } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'

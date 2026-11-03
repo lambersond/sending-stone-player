@@ -13,6 +13,7 @@ import { FavoritingContext } from './use-favorite-choice'
 import { FAVORITE_SETTLE } from '@/constants/sending-stone'
 import { isFavorite, targetKey } from '@/utils/favorite-commands'
 import { linkedKeys } from '@/utils/favorites'
+import { onItsWay } from '@/utils/lifecycle'
 import type { FavoriteChoice } from './types'
 import type { FavoriteTarget, TableRollState } from '@/types/roll'
 import type { SheetFavorite, FavoriteEntry } from '@/types/sending-stone'
@@ -78,8 +79,7 @@ export function useFavorites({
       const waiting =
         !!last &&
         !!state &&
-        (state.status === 'sending' ||
-          state.status === 'rolling' ||
+        (onItsWay(state) ||
           (state.status === 'done' &&
             state.favorited !== favorite &&
             !settled.has(last.id)))

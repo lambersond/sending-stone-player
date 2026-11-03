@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SETTLED } from '@/constants/lifecycle'
-import { follow, labelled } from '@/utils/lifecycle'
+import { follow, labelled, onItsWay } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
 import type {
   RollRequestInput,
@@ -84,7 +84,7 @@ export function useTransfers({ role }: Readonly<{ role: SeatRole }>): {
   const pending = useMemo(() => {
     const ids = new Set<string>()
     for (const { transfer, state } of followed.values()) {
-      if (state.status !== 'sending' && state.status !== 'rolling') continue
+      if (!onItsWay(state)) continue
       for (const { id } of transfer.items ?? []) ids.add(id)
       if (transfer.currency) ids.add('coins')
     }

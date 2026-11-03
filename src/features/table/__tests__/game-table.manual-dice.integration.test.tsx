@@ -1,11 +1,9 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from '../components/game-table/game-table'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
-import {
-  POLL_INTERVAL,
-  useTableView,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import {
   characterSheet,
   fullerSheet,

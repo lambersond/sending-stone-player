@@ -87,6 +87,7 @@ import { useTableRole } from '@/hooks/use-table-api'
 import { useShownPrompts } from '@/hooks/use-waiting-prompts'
 import { castIndex, isItemCast } from '@/utils/casts'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
+import { onItsWay } from '@/utils/lifecycle'
 import { seatWords } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
 import { capitalized } from '@/utils/wild-shape-words'
@@ -1516,7 +1517,7 @@ function useSlotWaits(
       const state = states.get(last.id)
       // Sent, its way not yet heard of: as on its way, for as long as the sheet might take.
       if (!state) return !settled.has(last.id)
-      if (state.status === 'sending' || state.status === 'rolling') return true
+      if (onItsWay(state)) return true
       const now = spells.find(({ id }) => id === pool)?.slots?.value
       return (
         state.status === 'done' && !settled.has(last.id) && now === last.from

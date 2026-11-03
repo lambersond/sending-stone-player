@@ -27,7 +27,6 @@ import type {
  * routes. The 3D dice need WebGL: a stand-in renderer, counted as it's made, that's never ready.
  */
 jest.mock('@/features/table/hooks/use-table-view', () => ({
-  POLL_INTERVAL: 3000,
   useTableView: jest.fn(),
 }))
 jest.mock('@/features/notes/hooks/use-notes', () => ({

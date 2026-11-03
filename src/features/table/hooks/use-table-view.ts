@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { rollsKey } from '@/utils/requests/availability'
 import type { TableView, Connection } from '@/types/table'
-
-/** How often to ask for news, in milliseconds. */
-export const POLL_INTERVAL = 3000
 
 /** The longest wait between attempts while the server cannot be reached. */
 const MAX_DELAY = 30_000

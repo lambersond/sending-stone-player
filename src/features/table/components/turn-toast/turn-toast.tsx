@@ -4,8 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { createPortal } from 'react-dom'
 import { NOT_MADE } from '@/constants/lifecycle'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { useToastTop } from '@/features/rolling/hooks/use-roll-toasts'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   actingLine,
   endTurnWords,

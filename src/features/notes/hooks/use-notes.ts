@@ -5,7 +5,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
+import { POLL_INTERVAL } from '@/constants/polling'
 import type {
   NoteChange,
   NoteInput,

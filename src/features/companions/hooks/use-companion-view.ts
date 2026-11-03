@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { rollsKey } from '@/utils/requests/availability'
 import type { CompanionView } from '@/types/table'
 

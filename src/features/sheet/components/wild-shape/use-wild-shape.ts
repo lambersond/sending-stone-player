@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { WILD_SHAPE_SETTLE } from '@/constants/sending-stone'
 import { useStoredText } from '@/hooks/use-stored'
+import { onItsWay } from '@/utils/lifecycle'
 import { usableForm, checkWildShape, canReturn } from '@/utils/wild-shape'
 import type { WildShapeForms } from '@/features/rolling/types'
 import type {
@@ -228,7 +229,7 @@ export function useWildShape({
     const state = states.get(each.id)
     // Sent, its way not yet heard of: as on its way, for as long as the sheet might take.
     if (!state) return !settled.has(each.id)
-    if (state.status === 'sending' || state.status === 'rolling') return true
+    if (onItsWay(state)) return true
     return (
       state.status === 'done' && !settled.has(each.id) && !agrees(each, sheet)
     )

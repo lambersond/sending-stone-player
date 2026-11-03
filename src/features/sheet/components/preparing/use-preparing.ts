@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { PREPARE_SETTLE } from '@/constants/sending-stone'
+import { onItsWay } from '@/utils/lifecycle'
 import type { PrepareChoice } from './types'
 import type { Preparations } from './use-prepare-choice'
 import type { TableRollState } from '@/types/roll'
@@ -67,8 +68,7 @@ export function usePreparing({
       const waiting =
         !!last &&
         !!state &&
-        (state.status === 'sending' ||
-          state.status === 'rolling' ||
+        (onItsWay(state) ||
           (state.status === 'done' &&
             spell.prepared !== wanted &&
             !settled.has(last.local)))
