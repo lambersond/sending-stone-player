@@ -1,13 +1,13 @@
 # e2e surface summary (distinct per area)
-area suites roles texts labels css apiPaths
-sheet 21 474 132 5 156 10
-campaigns 2 34 6 4 22 3
-companions 2 55 9 0 53 3
-cookbook 2 26 4 0 16 3
-table 15 271 101 4 145 10
-harness 2 16 0 3 3 1
-party 4 111 47 0 55 15
-notes 5 40 48 3 45 12
+area suites roles texts labels css apiPaths attributes datasetKeys classes childReads
+sheet 21 474 132 5 156 10 25 8 8 4
+campaigns 2 34 6 4 22 3 5 2 3 3
+companions 2 55 9 0 53 3 8 2 1 2
+cookbook 2 26 4 0 16 3 5 0 1 2
+table 15 271 101 4 145 10 26 9 9 3
+harness 2 16 0 3 3 1 0 0 1 0
+party 4 111 47 0 55 15 10 0 0 2
+notes 5 40 48 3 45 12 8 0 2 3
 
 # ids read (#id in CSS)
 #sheet-panel  <- companions,effects,favoriting,step2,wildshape
@@ -179,3 +179,79 @@ region 'Chat'  <- gm,gmroll,phone,sheet
 switch  <- alone,manualdice,rolls,typed
 tab 'Description'  <- notesoffline,notesorder,party,partynotes
 tab 'Spells'  <- phone,step2,sync,uses
+
+# attributes read (getAttribute; suite:line)
+aria-label  <- activities:620,activities:628,activities:973,alone:252,alone:356,alone:404,alone:887,alone:889,alone:919,alone:937,alone:1027,alone:1116,alone:1119,attacks:795,campaigns:154,companions:240,companions:758,companions:771,companions:816,companions:867,companions:870,companions:1037,companions:1038,companions:1056,companions:1057,companions:1076,companions:1225,companions:1227,companions:1277,companions:1311,companions:1339,companionsaves:163,companionsaves:288,cookbook:192,cookbook:222,cookbook:227,cookbook:771,cookbook:779,effects:169,effects:316,endturn:1251,feedback:751,feedback:1035,feedback:1059,feedback:1077,feedback:1148,feedback:1165,feedback:1175,feedback:1214,feedback:1254,feedback:1450,feedback:1479,feedback:1481,feedback:1482,fullscreen:60,fullscreen:61,fullscreen:83,fullscreen:89,fullscreen:156,fullscreen:213,givetake:163,givetake:174,gmroll:427,gmroll:473,journal-ui:93,journal-ui:94,journal-ui:162,layout:96,links:668,links:1345,links:1379,manualdice:245,manualdice:255,notes:150,notes:896,notes:899,notes:927,notesoffline:141,notesoffline:508,notesorder:118,party:153,party:186,party:213,party:497,partynotes:259,prompts:293,removals:149,removals:397,removals:852,removals:880,rolling:435,rolling:439,rolling:542,rolls:229,rolls:253,rolls:589,theme:27,toasts:641,toasts:741,toasts:1112,toasts:1125,typed:425,typed:436,typed:464,typed:600,typed:648,typed:663,typed:673,typed:695,typed:712,typed:722,typed:740,typed:753,typed:775,typed:779,typed:2257,uses:680,uses:889,wildshape:199,wildshape:208,wildshape:249,wildshape:272,wildshape:421,wildshape:433,wildshape:490,wildshape:640,wildshape:672,wildshape:679,wildshape:920
+aria-describedby  <- activities:619,alone:329,alone:369,companions:241,effects:197,endturn:451,endturn:865,endturn:946,endturn:1079,favoriting:265,favoriting:267,favoriting:268,favoriting:269,givetake:431,manualdice:316,manualdice:317,notesoffline:142,notesoffline:509,removals:693,removals:698,removals:699,removals:751,removals:752,toasts:632,typed:697,typed:724,typed:851,uses:1218
+aria-checked  <- activities:628,activities:973,activities:1032,activities:1122,activities:1128,activities:1139,activities:1152,activities:1162,activities:1236,alone:359,feedback:848,notesorder:494,rolling:599,rolls:667,toasts:631,uses:525,uses:526,uses:533,uses:583,uses:680,uses:681,uses:713,uses:889,uses:915,uses:1000,wildshape:490
+aria-disabled  <- endturn:154,endturn:336,endturn:497,endturn:769,favoriting:266,feedback:1042,feedback:1048,feedback:1113,feedback:1214,givetake:437,notesorder:494,removals:697,removals:699,removals:752,rolls:464,rolls:589,transfers:429,transfers:503,transfers:607,uses:1219,wildshape:277,wildshape:507,wildshape:805,wildshape:834,wildshape:898,wildshape:1045
+aria-selected  <- companions:245,companions:264,companions:828,companions:1225,companions:1229,companions:1232,companionsaves:166,companionsaves:261,companionsaves:264,endturn:331,endturn:332,endturn:1222,endturn:1238,feedback:934,feedback:1648,notes:1120,party:178,partynotes:404,partynotes:453,phone:324,phone:484,phone:492,sheet:287,step1:317,toasts:856,wildshape:244
+aria-expanded  <- activities:632,cookbook:150,cookbook:153,cookbook:399,favorites:501,favorites:504,favorites:508,favoriting:493,favoriting:669,favoriting:712,favoriting:986,givetake:282,journal-ui:57,notes:849,notes:852,organize:494,organize:499,organize:594,organize:597,phone:349,phone:355,phone:361,removals:309
+aria-current  <- attacks:300,attacks:301,campaigns:147,campaigns:482,gm:125,gm:126,gm:131,phone:319,phone:320,phone:462,phone:463,phone:480,phone:482,sheet:157,sheet:260,typed:780
+aria-labelledby  <- campaigns:127,cookbook:213,effects:191,feedback:740,feedback:1449,givetake:169,gmerr:149,notes:238,notes:289,party:401,partynotes:147,step2:379,transfers:446,typed:424,typed:649,typed:769
+href  <- campaigns:460,campaigns:481,effects:623,fullscreen:303,fullscreen:304,gmroll:440,gmroll:729,notes:984,notes:991,party:173,party:261,party:271,party:289,theme:62
+data-kind  <- companions:358,companions:398,companions:399,companions:714,companions:720,companions:1055,companions:1060,companions:1112,companions:1113,companions:1125,companions:1131,companions:1146,companions:1154
+open  <- cookbook:715,damagecard:366,damagecard:491,damagecard:498,damagecard:505,damagecard:517,effects:159,effects:161,effects:399,feedback:882,wildshape:270
+aria-busy  <- feedback:1222,givetake:173,givetake:184,givetake:764,givetake:783,givetake:798,givetake:828,transfers:593,transfers:599
+data-waits  <- attacks:866,toasts:677,toasts:805,toasts:814,toasts:1061,toasts:1126,toasts:1154,toasts:1178,toasts:1391
+aria-haspopup  <- cookbook:395,links:671,links:672,links:673,links:784,links:1379,midi:491,phone:349
+aria-pressed  <- fullscreen:84,organize:441,organize:548,organize:588,organize:607,phone:436,phone:449
+data-roll-toast  <- attacks:781,toasts:878,toasts:965,toasts:993,toasts:1059,toasts:1439
+data-side  <- alone:610,companions:964,companions:979,damagecard:718,wildshape:546,wildshape:636
+role  <- alone:374,endturn:1014,fullscreen:89,manualdice:254,party:213,phone:296
+src  <- companions:447,companions:467,companions:546,sheet:160,sheet:305,wildshape:675
+class  <- favoriting:399,favoriting:448,rolling:573,toasts:656,uses:1107
+title  <- alone:555,alone:890,feedback:1114,fullscreen:83,party:181
+aria-hidden  <- companions:259,favoriting:399,uses:1210
+aria-live  <- endturn:1014,toasts:1000,toasts:1223
+content  <- fullscreen:305,fullscreen:306,fullscreen:307
+placeholder  <- campaigns:296,feedback:771
+tabindex  <- companions:1315,manualdice:256
+type  <- feedback:751,fullscreen:304
+aria-atomic  <- endturn:1014
+aria-controls  <- organize:408
+aria-invalid  <- typed:2133
+data-accent  <- toasts:1062
+data-leaving  <- attacks:807
+media  <- fullscreen:305
+name  <- manualdice:244
+sizes  <- fullscreen:304
+
+# dataset keys read (as data-*; suite:line)
+data-key  <- companions:264,companions:1244,companions:1302,typed:444,typed:2254,wildshape:679
+data-roll-toast  <- attacks:848,gmroll:796,toasts:356,toasts:362,toasts:378
+data-tooltip  <- gmerr:225,gmroll:473,manualdice:245,manualdice:255,typed:600
+data-state  <- gmerr:221,gmerr:224,manualdice:254,settings:135
+data-waits  <- attacks:849,toasts:382,toasts:848
+data-accent  <- toasts:509,toasts:518
+data-campaign  <- campaigns:154,gm:127
+data-leaving  <- toasts:381,toasts:893
+data-manual-dice  <- manualdice:244,manualdice:254
+data-dc  <- activities:828
+data-gm  <- gmroll:796
+data-mode  <- companions:270
+data-skill  <- activities:828
+data-turn-toast  <- endturn:138
+
+# classes read (classList.contains/toggle/add/remove, and .className; suite:line)
+(className)  <- alone:331,alone:555,companions:268,companions:459,cookbook:298,cookbook:779,endturn:451,feedback:1674,gmroll:473,gmroll:797,layout:96,manualdice:255,notes:995,step3:446,theme:13,toasts:655,toasts:930,typed:600
+dark  <- campaigns:103,damagecard:369,feedback:592,phone:298,theme:26,theme:80,world-030:956
+border-danger/40  <- campaigns:413,gmerr:326,gmerr:393,gmerr:411,gmerr:580
+sr-only  <- campaigns:130,notes:397,notes:398,notes:926,uses:1209
+text-text-secondary  <- endturn:177,gmerr:412
+border-l-4  <- feedback:747
+border-l-party  <- feedback:747
+disabled  <- manualdice:235
+fixed  <- endturn:1013
+font-mono  <- damagecard:353
+line-clamp-2  <- typed:1582
+text-primary-text  <- midi:424
+text-ruby  <- favres:485
+text-text-primary  <- endturn:177
+uppercase  <- gm:307
+
+# child structure read (children, first/lastElementChild, childElementCount, tagName, nodeName; suite:line)
+tagName  <- alone:919,alone:937,campaigns:154,companions:456,companions:458,companions:459,companions:467,companions:532,companions:546,cookbook:770,cookbook:779,damagecard:353,effects:189,endturn:508,favoriting:505,favoriting:624,feedback:751,feedback:1731,journal-ui:92,manualdice:254,notes:150,notesorder:118,party:402,removals:372,removals:412,uses:1194,wildshape:208
+children  <- alone:889,alone:1119,campaigns:136,campaigns:138,companions:259,companions:268,companions:582,companions:660,companions:993,companions:996,companions:1038,cookbook:197,cookbook:779,damagecard:351,damagecard:353,effects:161,feedback:1553,journal-ui:92,notes:397,notes:398,organize:570,organize:571,organize:593,party:166,party:493,rolls:374
+firstElementChild  <- notes:395,notes:891,notes:925,organize:410,partynotes:259,step3:407,toasts:1006,toasts:1355,typed:755
+lastElementChild  <- alone:1120,campaigns:142,typed:503,typed:725,typed:755,typed:1672
