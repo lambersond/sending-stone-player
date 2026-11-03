@@ -39,8 +39,9 @@ export async function follow(
   update: (state: TableRollState) => void,
   taken: (id: string) => void,
 ) {
-  const id = await post(api, input, signal, update, taken)
-  if (id === undefined) return
+  const sent = await post(api, input, signal, update, taken)
+  if (!sent) return
+  const { id } = sent
   let until = Date.now() + FOLLOW_FOR
   let late = false
   while (Date.now() < until) {
@@ -59,8 +60,9 @@ export async function follow(
 }
 
 /**
- * Send a roll to the game: the id the app took it under, told to `taken` too; or, where the app
- * didn't take it, or couldn't be reached, nothing, with why told to `update`.
+ * Send a roll to the game: the id the app took it under, as its answer gives it, told to
+ * `taken` too; or, where the app didn't take it, or couldn't be reached, nothing, with why told
+ * to `update`.
  */
 async function post(
   api: string,
@@ -68,7 +70,7 @@ async function post(
   signal: AbortSignal,
   update: (state: TableRollState) => void,
   taken: (id: string) => void,
-): Promise<string | undefined> {
+): Promise<{ id: string } | undefined> {
   try {
     const response = await fetch(`${api}/rolls`, {
       method: 'POST',
@@ -82,7 +84,7 @@ async function post(
     }
     const { id } = (await response.json()) as { id: string }
     taken(id)
-    return id
+    return { id }
   } catch {
     update({ status: 'refused', reason: 'network' })
     return

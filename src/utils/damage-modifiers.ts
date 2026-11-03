@@ -231,19 +231,6 @@ export function diceTakenAway(damage: DamagePreview): boolean {
 type FormulaGroup = { negative: boolean; own: string; within: string[] }
 
 /**
- * A formula read so far, one character at a time: its groups, the group being read, how deep
- * within brackets, what's within the brackets being read, and the last character read that isn't
- * a space, as a sign after a term parts two groups.
- */
-type FormulaScan = {
-  group: FormulaGroup
-  groups: FormulaGroup[]
-  depth: number
-  inner: string
-  before: string
-}
-
-/**
  * Does a roll's formula take a die away, read as it's written, for damage whose dice the game
  * can't say beforehand: where a die is in a group of terms that comes out negative, as dnd5e reads
  * the signs of damage, at each depth of brackets, each group's own `-` turning it over, and a `-`
@@ -278,13 +265,10 @@ function groupTakesAway(text: string, negative: boolean): boolean {
  */
 function groupsOf(text: string): FormulaGroup[] {
   const group: FormulaGroup = { negative: false, own: '', within: [] }
-  const scan: FormulaScan = {
-    group,
-    groups: [group],
-    depth: 0,
-    inner: '',
-    before: '',
-  }
+  // The formula read so far: its groups, the group being read, how deep within brackets, what's
+  // within the brackets being read, and the last character read that isn't a space, as a sign
+  // after a term parts two groups.
+  const scan = { group, groups: [group], depth: 0, inner: '', before: '' }
   for (const char of text) {
     if ('({)}'.includes(char) || scan.depth > 0) readBracket(scan, char)
     else readSign(scan, char)
@@ -294,7 +278,10 @@ function groupsOf(text: string): FormulaGroup[] {
 }
 
 /** A bracket, or what's within brackets, read: each pair's text kept with its group. */
-function readBracket(scan: FormulaScan, char: string) {
+function readBracket(
+  scan: { group: FormulaGroup; depth: number; inner: string },
+  char: string,
+) {
   if ('({'.includes(char)) {
     if (scan.depth++ > 0) scan.inner += char
   } else if (')}'.includes(char)) {
@@ -313,7 +300,10 @@ function readBracket(scan: FormulaScan, char: string) {
  * A character outside brackets read: a sign after a term, or a function's comma, parts two groups;
  * a `-` before a term turns its group over; anything else is the group's own.
  */
-function readSign(scan: FormulaScan, char: string) {
+function readSign(
+  scan: { group: FormulaGroup; groups: FormulaGroup[]; before: string },
+  char: string,
+) {
   if ('+-,'.includes(char)) {
     if (char === ',' || /[\w.)}]/.test(scan.before)) {
       scan.group = { negative: char === '-', own: '', within: [] }

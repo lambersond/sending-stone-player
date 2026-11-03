@@ -530,16 +530,24 @@ export function useSheetRoller(
     [land, onFormulaThrown, enter, typedRolls],
   )
 
-  // Keeps what was done that throws no dice, first among the rolls, as a use: a spell or feature
-  // used, and the rest as one is, each by an id of its own, at when it was done, now unless said.
+  // Keeps what was done that throws no dice, first among the rolls, as its kind: a use (a spell or
+  // feature used, and the rest as one is), or the table asked; each by an id of its own that its
+  // kind begins, at when it was done, now unless said.
   const keep = useCallback(
-    (fields: Omit<LocalUse, 'kind' | 'id' | 'at'>, at?: number): LocalUse => {
-      const kept: LocalUse = {
-        kind: 'use',
-        id: `use-${Date.now()}-${++uses}`,
+    <Kind extends 'use' | 'ask'>(
+      kind: Kind,
+      fields: Omit<
+        Extract<LocalUse | LocalAsk, { kind: Kind }>,
+        'kind' | 'id' | 'at'
+      >,
+      at?: number,
+    ) => {
+      const kept = {
+        kind,
+        id: `${kind}-${Date.now()}-${++uses}`,
         ...fields,
         at: at ?? Date.now(),
-      }
+      } as Extract<LocalUse | LocalAsk, { kind: Kind }>
       setRolls(earlier => keeping(earlier, kept))
       return kept
     },
@@ -549,13 +557,14 @@ export function useSheetRoller(
   // Keeps a spell or feature used, first among the rolls.
   const logUse = useCallback(
     (label: string, spell: boolean, itemCast?: boolean): LocalUse =>
-      keep({ label, spell, ...(itemCast && { itemCast }) }),
+      keep('use', { label, spell, ...(itemCast && { itemCast }) }),
     [keep],
   )
 
   // Keeps an enchantment ended, first among the rolls, as a use is.
   const logEnd = useCallback(
-    (label: string): LocalUse => keep({ label, spell: false, ending: true }),
+    (label: string): LocalUse =>
+      keep('use', { label, spell: false, ending: true }),
     [keep],
   )
 
@@ -566,7 +575,7 @@ export function useSheetRoller(
       label: string,
       change: Pick<LocalUse, 'spent' | 'inspiration' | 'slot'>,
     ): LocalUse =>
-      keep({
+      keep('use', {
         label,
         spell: false,
         ...(change.spent !== undefined && { spent: change.spent }),
@@ -579,21 +588,21 @@ export function useSheetRoller(
   // Keeps items or coins moved, from module 0.31.0, first among the rolls, as a use is.
   const logMove = useCallback(
     (move: LocalMove): LocalUse =>
-      keep({ label: move.things, spell: false, move }),
+      keep('use', { label: move.things, spell: false, move }),
     [keep],
   )
 
   // Keeps a favorite added or removed, from module 0.37.0, first among the rolls, as a use is.
   const logFavorite = useCallback(
     (label: string, op: 'add' | 'remove'): LocalUse =>
-      keep({ label, spell: false, favorite: op }),
+      keep('use', { label, spell: false, favorite: op }),
     [keep],
   )
 
   // Keeps a spell prepared or unprepared, from module 0.42.1, first among the rolls, as a use is.
   const logPrepare = useCallback(
     (label: string, op: PrepareOp): LocalUse =>
-      keep({ label, spell: false, prepare: op }),
+      keep('use', { label, spell: false, prepare: op }),
     [keep],
   )
 
@@ -603,28 +612,22 @@ export function useSheetRoller(
   // that it's kept beneath it, the roll still the latest.
   const logEffect = useCallback(
     (label: string, op: EffectOp, at = Date.now()): LocalUse =>
-      keep({ label, spell: false, effect: op }, at),
+      keep('use', { label, spell: false, effect: op }, at),
     [keep],
   )
 
   // Keeps Wild Shape used from here, from module 0.40.0, first among the rolls, as a use is.
   const logWildShape = useCallback(
     (wildShape: WildShapeLogged): LocalUse =>
-      keep({ label: 'Wild Shape', spell: false, wildShape }),
+      keep('use', { label: 'Wild Shape', spell: false, wildShape }),
     [keep],
   )
 
   // Keeps the table asked for a saving throw or check, first among the rolls.
-  const logAsk = useCallback((label: string): LocalAsk => {
-    const asked: LocalAsk = {
-      kind: 'ask',
-      id: `ask-${Date.now()}-${++uses}`,
-      label,
-      at: Date.now(),
-    }
-    setRolls(earlier => keeping(earlier, asked))
-    return asked
-  }, [])
+  const logAsk = useCallback(
+    (label: string): LocalAsk => keep('ask', { label }),
+    [keep],
+  )
 
   return {
     roll,
