@@ -1,11 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  DescriptionLinks,
-  type DescriptionActions,
-} from '../description-actions/description-actions'
+import { DescriptionLinks } from '../description-actions/description-links'
 import { SheetText } from './sheet-text'
 import { TableApiContext } from '@/hooks/use-table-api'
+import type { DescriptionActions } from '../description-actions/types'
 
 const ORIGIN = { name: 'Second Wind' }
 

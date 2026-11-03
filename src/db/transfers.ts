@@ -16,9 +16,8 @@ import {
   transfersAvailable,
 } from '@/utils/transfers'
 import type { SheetSeat } from '@/types/character'
-import type { GroupSheet } from '@/types/party'
 import type { RollRequestInput, TransferInput } from '@/types/roll'
-import type { SheetInventory } from '@/types/sending-stone'
+import type { SheetInventory, GroupSheet } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 
 // A move of items and coins (module 0.31.0) rides the same way to the game as a roll: held here as

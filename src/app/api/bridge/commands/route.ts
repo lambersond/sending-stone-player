@@ -18,7 +18,7 @@ import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
 import type { DishCommand } from '@/types/cookbook'
-import type { RollCommand } from '@/utils/roll-requests'
+import type { RollCommand } from '@/utils/requests/types'
 
 // Where the Gamemaster's module fetches what players ask its game to do: for now, rolls made here,
 // for the game to make with the dice the player rolled. The module fetches from the Gamemaster's

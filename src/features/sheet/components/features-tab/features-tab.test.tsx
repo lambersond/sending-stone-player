@@ -7,10 +7,11 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/components/roll-button/roll-button'
-import { FavoriteMarks } from '../favorite-mark/favorite-mark'
+import { LONG_PRESS } from '../../../rolling/constants'
+import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
-import { useWildShape, WildShaping } from '../wild-shape/wild-shape'
+import { useWildShape } from '../wild-shape/use-wild-shape'
+import { WildShaping } from '../wild-shape/wild-shaping'
 import { FeaturesTab } from './features-tab'
 import {
   characterSheet,
@@ -21,9 +22,9 @@ import {
   shapedSheet,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { SeatRole } from '@/types/seats'
 import type { CharacterSheet } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>

@@ -14,7 +14,7 @@ import {
 import { attempt } from '@/lib/routes/bridge-http'
 import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
-import { availableRollKinds } from '@/utils/roll-requests'
+import { availableRollKinds } from '@/utils/requests/availability'
 import { transfersAvailable } from '@/utils/transfers'
 import type {
   CampaignChoice,
@@ -23,8 +23,11 @@ import type {
   OwnedCampaign,
 } from '@/types/campaign'
 import type { FoundrySnapshot } from '@/types/foundry-settings'
-import type { GroupEntry } from '@/types/party'
-import type { CampaignRef, ConnectedCharacter } from '@/types/sending-stone'
+import type {
+  CampaignRef,
+  ConnectedCharacter,
+  GroupEntry,
+} from '@/types/sending-stone'
 
 /** Is a Gamemaster's game sending, judging by when its campaign last heard anything? */
 export function isLive(lastSeenAt: Date | null | undefined, now = Date.now()) {

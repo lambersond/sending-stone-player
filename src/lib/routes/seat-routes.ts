@@ -9,7 +9,7 @@ import { getSheetText } from '@/db/sheet-texts'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { rollRequestSchema } from '@/schemas/roll-request'
 import { TEXT_HASH } from '@/schemas/sending-stone'
-import { rollsKey } from '@/utils/roll-requests'
+import { rollsKey } from '@/utils/requests/availability'
 import type { SheetSeat } from '@/types/character'
 import type { NextRequest } from 'next/server'
 

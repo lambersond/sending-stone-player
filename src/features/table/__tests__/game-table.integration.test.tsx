@@ -2,10 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
-import {
-  useTableView,
-  type Connection,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import { fakeFullscreen } from '@/mocks/fullscreen'
 import {
   characterSheet,
@@ -16,7 +13,12 @@ import {
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
-import type { TableCombat, TableMessage, TableView } from '@/types/table'
+import type {
+  TableCombat,
+  TableMessage,
+  TableView,
+  Connection,
+} from '@/types/table'
 
 jest.mock('@/features/table/hooks/use-table-view', () => ({
   useTableView: jest.fn(),

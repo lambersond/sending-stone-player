@@ -1,6 +1,6 @@
-import { seatWords, type SeatRole } from '@/utils/seat-words'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
-import type { EndedTurn, RollKind } from '@/types/roll'
+import { seatWords } from '@/utils/seat-words'
+import type { EndedTurn, RollKind, TableRollState } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
 /*

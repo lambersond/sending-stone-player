@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react'
-import { DieIcon, type DieSides } from './die'
+import { DieIcon } from './die'
+import type { DieSides } from './types'
 
 describe('components/icons/die', () => {
   it.each<[DieSides, string]>([

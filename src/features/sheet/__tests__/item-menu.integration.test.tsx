@@ -7,7 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../rolling/components/roll-button/roll-button'
+import { LONG_PRESS } from '../../rolling/constants'
 import { CharacterPane } from '../components/character-pane/character-pane'
 import { useItemMenu } from '../components/item-menu/item-menu'
 import { MOST_MOVED } from '@/constants/sending-stone'
@@ -20,12 +20,12 @@ import {
   tableMoves,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { EffectChoice } from '../components/effect-controls/effect-controls'
-import type { FavoriteChoice } from '../components/favoriting/favoriting'
-import type { PrepareChoice } from '../components/preparing/preparing'
-import type { TakeInto } from '@/features/transfers/components/take-controls/take-controls'
+import type { EffectChoice } from '../components/effect-controls/types'
+import type { FavoriteChoice } from '../components/favoriting/types'
+import type { PrepareChoice } from '../components/preparing/types'
+import type { TakeInto } from '@/features/transfers/types'
+import type { TableMoves } from '@/types/party'
 import type { CharacterSheet } from '@/types/sending-stone'
-import type { TableMoves } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock(

@@ -1,14 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Send, Trash2 } from 'lucide-react'
-import {
-  ChoiceMenu,
-  placing,
-  RollMenu,
-  type MenuItem,
-  type MenuPoint,
-} from './roll-menu'
+import { placing } from '../../utils/menu-points'
+import { ChoiceMenu } from './choice-menu'
+import { RollMenu } from './roll-menu'
 import { Modal } from '@/components/modal/modal'
+import type { MenuItem, MenuPoint } from '../../types'
 
 const renderMenu = (point?: MenuPoint) => {
   const onChoose = jest.fn()

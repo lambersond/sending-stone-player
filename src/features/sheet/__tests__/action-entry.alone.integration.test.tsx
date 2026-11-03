@@ -9,8 +9,8 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from '../components/character-pane/character-pane'
-import { ALONE_SPEND_KEY } from '../components/use-picker/use-picker'
-import { ALONE_KEY } from '@/features/rolling/hooks/use-table-rolls'
+import { ALONE_SPEND_KEY } from '../components/use-picker/constants'
+import { ALONE_KEY } from '@/features/rolling/constants'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { chromaticOrb } from '@/mocks/alone'
 import {

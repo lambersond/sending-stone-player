@@ -21,15 +21,13 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { Minus, Plus } from 'lucide-react'
-import {
-  placing,
-  pointOn,
-  type MenuPoint,
-} from '../../../rolling/components/roll-menu/roll-menu'
+import { placing, pointOn } from '../../../rolling/utils/menu-points'
 import { HitDieIcon } from './hit-die-icon'
-import { usePortalRoot, useTopmostEscape } from '@/components/modal/portal-root'
+import { usePortalRoot } from '@/components/modal/use-portal-root'
+import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { MOST_HIT_DICE } from '@/constants/sending-stone'
-import type { HitDiceCount, HitDicePool } from '@/utils/formulas'
+import type { MenuPoint } from '../../../rolling/types'
+import type { HitDiceCount, HitDicePool } from '@/types/roll'
 
 type Props = {
   /** The Use button it opened from. */

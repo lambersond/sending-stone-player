@@ -2,8 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MADE_SHOWN_FOR, MoveStatus } from './move-status'
 import { TableApiContext } from '@/hooks/use-table-api'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { LocalMove, TableRollState } from '@/types/roll'
 
 const move: LocalMove = {
   verb: 'take',

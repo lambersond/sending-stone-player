@@ -1,10 +1,18 @@
-import type { TableGroup } from '@/types/party'
-import type { EndedTurn, GmRollView, RollFeature, RollKind } from '@/types/roll'
+import type { TableGroup, TableMoves } from '@/types/party'
+import type {
+  EndedTurn,
+  GmRollView,
+  RollFeature,
+  RollKind,
+  TableRoll,
+} from '@/types/roll'
 import type {
   AskedCheck,
   CharacterSheet,
   PromptSource,
   SheetWithheld,
+  SerializedMessage,
+  Dnd5eSave,
 } from '@/types/sending-stone'
 
 /**
@@ -15,17 +23,6 @@ import type {
 
 /** Whose side something is on, from this player's point of view. */
 export type Side = 'me' | 'party' | 'other'
-
-export type TableRoll = {
-  formula: string
-  total: number | null
-  dice: { faces: number | null; value: number; active: boolean }[]
-  advantage: boolean
-  disadvantage: boolean
-  critical: boolean
-  fumble: boolean
-  damageType?: string
-}
 
 /** What a combat roll or card is, for highlighting it. */
 export type TableAction =
@@ -373,17 +370,6 @@ export type TableView = {
   manualDice?: { offered: boolean; on: boolean }
 }
 
-/** Where a seat may move its character's items and coins to. Never anyone's access. */
-export type TableMoves = {
-  /**
-   * Where the seat may give: a player's parties they own in Foundry; the Gamemaster's, every one
-   * listed.
-   */
-  parties: TableGroup[]
-  /** The campaign's other characters, in its roster's order. */
-  characters: { id: string; name: string; portrait?: string }[]
-}
-
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
 export type GmRolls = 'made' | 'update' | 'off'
 
@@ -447,3 +433,33 @@ export type CompanionView = {
    */
   initiative: { mode: 'own' | 'after'; after?: string }
 }
+
+export type Connection = 'live' | 'reconnecting'
+
+/** A companion in the row: listed now, or kept, marked gone, until it's been shown and left. */
+export type RowCompanion = TableCompanion & { gone?: true }
+
+/**
+ * Who is looking: their character's actor id, if chosen, and the party's actor ids, with the
+ * party's portraits by actor id. From module 0.36.0, the campaign's characters' companions, by
+ * key, with the characters each is a companion of; and at a companion's own view, its key in
+ * place of the character's actor id, with the character whose companion it is (`of`).
+ */
+export type Viewer = {
+  actorId: string | undefined
+  party: Set<string>
+  portraits?: Map<string, string>
+  companions?: Map<string, { of: string[]; portrait?: string; name: string }>
+  of?: string
+}
+
+/** What a message's targets are shown with, from the rest of the chat. */
+export type LinkedMessages = {
+  /** The card it was rolled from, if it's in the chat. */
+  card?: SerializedMessage
+  /** The saves rolled from it, as `savesByCard` has them: by their creature's actor's uuid. */
+  saves?: ReadonlyMap<string, SaveOutcome>
+}
+
+/** Whether a save succeeded, as the module says. */
+export type SaveOutcome = NonNullable<Dnd5eSave['outcome']>

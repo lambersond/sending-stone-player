@@ -1,19 +1,20 @@
 import { act, renderHook } from '@testing-library/react'
 import {
-  ALONE_KEY,
   BUSY_FOR,
   BUSY_WAIT,
   CHECK_EVERY,
+  FOLLOW_FOR,
+  LATE_FOLLOW,
+} from '../../../constants/lifecycle'
+import { ALONE_KEY, GM_ALONE_KEY, GM_SEND_KEY, SEND_KEY } from '../constants'
+import {
   choicesOf,
   damageDue,
   damageRollOf,
-  FOLLOW_FOR,
-  GM_ALONE_KEY,
-  GM_SEND_KEY,
-  gmRollsOf,
-  LATE_FOLLOW,
   needsPlayer,
-  SEND_KEY,
+} from '../utils/damage-due'
+import { gmRollsOf } from './use-gm-rolls'
+import {
   toFormulaRequest,
   toHitDiceRequest,
   toHitDieRequests,
@@ -39,10 +40,14 @@ import {
   modifiedDice,
   MOST_DICE,
   withModifiers,
-  type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { advance, respond } from '@/utils/test-utils'
 import type {
+  FormulaSource,
+  GmRollView,
+  RollFeature,
+  RollKind,
+  RollSource,
   LocalAsk,
   LocalCheck,
   LocalDamage,
@@ -51,13 +56,7 @@ import type {
   SheetDamageRoll,
   SheetFormulaRoll,
   SheetRoll,
-} from './use-sheet-roller'
-import type {
-  FormulaSource,
-  GmRollView,
-  RollFeature,
-  RollKind,
-  RollSource,
+  DamageModifiers,
 } from '@/types/roll'
 import type { DamagePreview } from '@/types/sending-stone'
 

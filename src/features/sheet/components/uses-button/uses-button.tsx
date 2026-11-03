@@ -1,12 +1,11 @@
 'use client'
 
-import { createContext, use, useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
 import { UsesLeft } from './uses-left'
 import { UsesMenu } from './uses-menu'
-import { sameCounter } from '@/utils/roll-requests'
-import type { SpellSlotOp } from '@/constants/sending-stone'
-import type { SpellSlotPool } from '@/features/sheet/utils/slot-words'
+import { useCharging } from '@/features/sheet/components/charging/use-charging'
+import { sameCounter } from '@/utils/requests/status'
 import type { SheetCounter, SheetSpend, SheetUses } from '@/types/sending-stone'
 
 /*
@@ -15,43 +14,6 @@ import type { SheetCounter, SheetSpend, SheetUses } from '@/types/sending-stone'
  * Inspiration used or gained; and from module 0.42.1, one of their spell slots spent or restored,
  * as dnd5e's sheet's pips do. Each posts a line in the game's chat, which says so.
  */
-
-/**
- * What the sheet does with the character's counters and Heroic Inspiration: spend a counter's
- * charges, by how the sheet names the counter, and what it's called; and use or gain Heroic
- * Inspiration. Each only while the Gamemaster's game takes it from here.
- */
-export type ChargeActions = {
-  spend?: (counter: SheetCounter, count: number, name: string) => void
-  inspire?: (inspiration: 'use' | 'gain') => void
-  /**
-   * From module 0.42.1, one of a pool's spell slots spent or restored, from the count of it the
-   * dots showed, which the game makes it only from: where the game takes it from here, never
-   * while the character is transformed.
-   */
-  slot?: (pool: SpellSlotPool, op: SpellSlotOp, from: number) => void
-  /**
-   * Whether a pool's dots wait for the game, by the pool's id, as an effect's controls do: from a
-   * spend or restore sent until the sheet shows what the game made of it.
-   */
-  slotWaiting?: (id: string) => boolean
-}
-
-/** Nothing, until it's given, as where the game takes neither. */
-const Actions = createContext<ChargeActions>({})
-
-/** Has counters spent, and Heroic Inspiration changed, wherever the sheet shows them. */
-export function Charging({
-  actions,
-  children,
-}: Readonly<{ actions: ChargeActions; children: ReactNode }>) {
-  return <Actions value={actions}>{children}</Actions>
-}
-
-/** What the sheet does with the character's counters, as it's given. */
-export function useCharging(): ChargeActions {
-  return use(Actions)
-}
 
 /**
  * Does using an activity spend this counter too, as the module says what it spends? Not where it

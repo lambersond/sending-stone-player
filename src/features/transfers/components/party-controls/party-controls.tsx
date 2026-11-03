@@ -5,19 +5,14 @@ import { MoveDialog, type MoveEnd } from '../move-dialog/move-dialog'
 import {
   TakeDialog,
   takeControls,
-  type TakeInto,
   type Taking,
 } from '../take-controls/take-controls'
-import {
-  ITEM_BUTTON,
-  ROW_BUTTON,
-  type TransferControls,
-} from '../transferring/transferring'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
+import { ITEM_BUTTON, ROW_BUTTON } from '../transferring/transferring'
+import type { TakeInto, TransferControls } from '../../types'
 import type { PartyView, TableGroup } from '@/types/party'
-import type { TransferInput } from '@/types/roll'
+import type { TransferInput, LocalMove } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type { SheetCurrency } from '@/types/sending-stone'
-import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 /*

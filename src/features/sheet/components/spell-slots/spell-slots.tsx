@@ -2,36 +2,16 @@
 
 import { useState, type ReactNode, type SyntheticEvent } from 'react'
 import clsx from 'clsx'
-import { useCharging, type ChargeActions } from '../uses-button/uses-button'
-import { ConfirmModal } from '@/components/modal/confirm-dialog'
-import { SPELL_SLOT, type SpellSlotOp } from '@/constants/sending-stone'
+import { useCharging } from '../charging/use-charging'
+import { slotsLive, MAX_PIPS } from './utils'
+import { ConfirmModal } from '@/components/modal/confirm-modal'
 import {
   slotWords,
   type SpellSlotPool,
 } from '@/features/sheet/utils/slot-words'
 import { ordinal } from '@/utils/action-groups'
-
-/** Counts shown as pips up to this many; past it, as a number alone. */
-const MAX_PIPS = 9
-
-/**
- * Whether a pool's dots spend and restore its slots, from module 0.42.1: where the pane offers it
- * (the game takes it from here, and the character isn't transformed), of a pool the app knows by
- * its id, such as "spell1" or "pact", with a dot for each of its slots, one to nine.
- */
-export function slotsLive(
-  pool: SpellSlotPool | undefined,
-  max: number,
-  charging: ChargeActions,
-): boolean {
-  return (
-    !!pool &&
-    !!charging.slot &&
-    SPELL_SLOT.test(pool.id) &&
-    max > 0 &&
-    max <= MAX_PIPS
-  )
-}
+import type { ChargeActions } from '../charging/types'
+import type { SpellSlotOp } from '@/types/sending-stone'
 
 /**
  * Spell slots, such as a spell level's: a pip for each, filled for each left, and how many are

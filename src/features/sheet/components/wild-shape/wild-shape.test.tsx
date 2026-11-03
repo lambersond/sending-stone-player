@@ -2,12 +2,9 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActionsTab } from '../actions-tab/actions-tab'
 import { FeaturesTab } from '../features-tab/features-tab'
-import {
-  LAST_FORM_KEY,
-  useWildShape,
-  WildShapeRibbon,
-  WildShaping,
-} from './wild-shape'
+import { LAST_FORM_KEY, useWildShape } from './use-wild-shape'
+import { WildShapeRibbon } from './wild-shape'
+import { WildShaping } from './wild-shaping'
 import {
   beastsResult,
   druidSheet,
@@ -21,14 +18,14 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { WildShapeForms } from '@/features/rolling/types'
 import type {
+  WildShapeInput,
+  WildShapeLogged,
   TableRollState,
-  WildShapeForms,
-} from '@/features/rolling/hooks/use-table-rolls'
-import type { WildShapeInput } from '@/types/roll'
+} from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type { CharacterSheet, SheetCondition } from '@/types/sending-stone'
-import type { SeatRole } from '@/utils/seat-words'
-import type { WildShapeLogged } from '@/utils/wild-shape-words'
 
 // How long a change waits for the sheet, here 7 seconds, so that the test proves the constant is
 // what it waits for.

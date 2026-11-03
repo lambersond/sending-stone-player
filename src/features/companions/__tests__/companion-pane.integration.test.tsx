@@ -12,8 +12,7 @@ import {
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { TableSeat } from '@/types/character'
-import type { CompanionView } from '@/types/table'
-import type { RowCompanion } from '@/utils/companion-row'
+import type { CompanionView, RowCompanion } from '@/types/table'
 
 /*
  * A companion's pane (module 0.36.0), its view and rolls through its own routes, which `fetch`

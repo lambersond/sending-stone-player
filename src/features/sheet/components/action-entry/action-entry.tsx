@@ -1,29 +1,21 @@
 'use client'
 
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  ChevronDown,
   Dices,
-  FlaskConical,
   Hammer,
   HeartPulse,
   Info,
   Search,
-  Shield,
   Sparkles,
-  Sword,
   Swords,
-  Wand,
-  type LucideIcon,
 } from 'lucide-react'
-import {
-  useD20Rolls,
-  type RollActions,
-} from '../../../rolling/components/d20-rolls/d20-rolls'
-import { useDamageMenu } from '../../../rolling/components/damage-menu/damage-menu'
+import { EntryIcon } from '../../../../components/entry-icon/entry-icon'
+import { REASONS } from '../../../../utils/roll-reasons'
+import { useDamageMenu } from '../../../rolling/components/damage-menu/use-damage-menu'
 import { RollButton } from '../../../rolling/components/roll-button/roll-button'
-import { REASONS } from '../../../rolling/components/roll-tray/roll-tray'
+import { joinParts } from '../../utils/join-parts'
 import { RechargeChip, rechargeable } from '../action-chips/recharge-chip'
 import {
   castAs,
@@ -32,54 +24,42 @@ import {
   Facts,
   spellFacts,
   spellKind,
-  useActionInfo,
-  type ActivityInfo,
   type UsesSpending,
 } from '../action-info/action-info'
-import {
-  spellOrigin,
-  useDescriptionActions,
-  type DescriptionOrigin,
-} from '../description-actions/description-actions'
+import { useDescriptionActions } from '../description-actions/use-description-actions'
+import { spellOrigin } from '../description-actions/utils'
 import {
   checkMenuItems,
   checkOptionName,
   checkWayName,
   tableUseItems,
-  useLinkMenus,
   type LinkMenus,
 } from '../description-link/description-link'
-import {
-  EndButton,
-  EnchantedMark,
-  EnchantmentList,
-  useEnchanting,
-} from '../enchantments/enchantments'
-import { FavoriteStar, useFavorite } from '../favorite-mark/favorite-mark'
-import { useFavoriteChoice } from '../favoriting/favoriting'
-import { NONE_LEFT } from '../hit-dice/hit-dice'
+import { EnchantedMark } from '../enchantments/enchanted-mark'
+import { EnchantmentList } from '../enchantments/enchantment-list'
+import { EndButton } from '../enchantments/end-button'
+import { useEnchanting } from '../enchantments/use-enchanting'
+import { FavoriteStar } from '../favorite-mark/favorite-star'
+import { useFavorite } from '../favorite-mark/use-favorite'
+import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
+import { NONE_LEFT } from '../hit-dice/hit-die-use'
 import { useItemMenu } from '../item-menu/item-menu'
-import { usePrepareChoice } from '../preparing/preparing'
+import { usePrepareChoice } from '../preparing/use-prepare-choice'
 import { usePressMenu } from '../press-menu/press-menu'
-import { EntryIcon, joinParts } from '../sheet-entry/sheet-entry'
 import { SheetText } from '../sheet-text/sheet-text'
 import { spendsToo, UsesButton } from '../uses-button/uses-button'
-import {
-  WildShapeRowControls,
-  WildShapeRowLine,
-} from '../wild-shape/wild-shape'
-import {
-  choicesOf,
-  damageRollOf,
-  type DueDamage,
-} from '@/features/rolling/hooks/use-table-rolls'
+import { WildShapeRowControls } from '../wild-shape/wild-shape-row-controls'
+import { WildShapeRowLine } from '../wild-shape/wild-shape-row-line'
+import { FALLBACKS } from './constants'
+import { actionTitle, verbOf } from './utils'
+import { Chevron } from '@/components/chevron/chevron'
+import { choicesOf, damageRollOf } from '@/features/rolling/utils/damage-due'
 import {
   alonePicks,
   alonePlan,
   aloneRollOf,
   aloneSelection,
   type AloneChoice,
-  type AloneRow,
 } from '@/features/sheet/utils/damage-alone'
 import { allApplied, enchantOf } from '@/features/sheet/utils/enchantments'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
@@ -88,33 +68,37 @@ import {
   ordinal,
   outOfSlots,
   slotPools,
-  type SlotPool,
 } from '@/utils/action-groups'
-import { castIndex, castOf, type CastIndex } from '@/utils/casts'
+import { castOf } from '@/utils/casts'
 import { rechargeWords } from '@/utils/creature-words'
 import {
   changes,
   damageChanges,
   diceTakenAway,
   unmaximizable,
-  type DamageModifiers,
 } from '@/utils/damage-modifiers'
 import { checkTitle } from '@/utils/description-links'
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import { activityAction, itemSpellOf, spellAction } from '@/utils/sheet-actions'
 import type {
-  MenuPoint,
-  RollChoice,
-} from '../../../rolling/components/roll-menu/roll-menu'
+  TableDamage,
+  ActionRows,
+  DamageActions,
+  DamageTarget,
+  UseActions,
+} from './types'
+import type { RollActions, MenuPoint, RollChoice } from '../../../rolling/types'
+import type { DescriptionOrigin } from '../description-actions/types'
 import type {
+  FavoriteTarget,
+  RollSource,
   SheetDamageRoll,
   SheetFormulaRoll,
-  SheetRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { FavoriteTarget, RollSource } from '@/types/roll'
+  AloneRow,
+  DamageModifiers,
+} from '@/types/roll'
 import type {
-  CharacterSheet,
   SheetAction,
   SheetActivity,
   SheetCast,
@@ -124,6 +108,7 @@ import type {
   SheetSpell,
   SheetSpellSection,
   SheetUses,
+  SlotPool,
 } from '@/types/sending-stone'
 
 /*
@@ -131,110 +116,6 @@ import type {
  * inventory items that roll: its name, opening to the rest, and beside it what it rolls, each a
  * button of its own.
  */
-
-/**
- * An action's damage or healing, ready to roll, with its formula as dnd5e shows it; and from module
- * 0.41.0 the row it's of, for damage on its own's choices.
- */
-export type DamageTarget = SheetDamageRoll & {
-  formula: string
-  action?: SheetAction
-}
-
-export type DamageActions = {
-  /** Rolls it, from the chip tapped, which a choice of its kind opens from where one's asked. */
-  onRoll: (target: DamageTarget, anchor: HTMLElement) => void
-  /**
-   * Offers other ways to roll it; or, for the damage of a spell or feature used in the game, to
-   * use it with its damage changed.
-   */
-  onMenu: (
-    anchor: HTMLElement,
-    target: DamageTarget,
-    point?: MenuPoint,
-    use?: DamageUse,
-  ) => void
-  /**
-   * Whether it will go to the table on its own, from module 0.36.0, for its chip to say so: this
-   * device sends damage so, the game plans it, and no attack of its own waits for it.
-   */
-  goesAlone: (target: DamageTarget) => boolean
-}
-
-/** A spell or feature used in the game, its damage to follow, as its damage chip's menu uses it. */
-export type DamageUse = {
-  /** Such as "Cast". */
-  verb: string
-  onUse: (modifiers?: DamageModifiers) => void
-}
-
-/** Using a spell or feature in the Gamemaster's game, rather than rolling it here. */
-export type UseActions = {
-  /** Uses it, its damage changed as the player chose, if they did. */
-  onUse: (action: SheetAction, modifiers?: DamageModifiers) => void
-  /**
-   * Whether damage rolled here goes to the table on its own, from module 0.36.0: a damage or
-   * healing chip then rolls it so, rather than using its spell or feature.
-   */
-  sendsAlone: boolean
-}
-
-/** What the Gamemaster's game does with damage rolled from the sheet, while it takes damage. */
-export type TableDamage = {
-  /** Whether it takes damage the player changed. */
-  modifies: boolean
-  /** An attack's or a use's damage due at the table, if it's waiting for it. */
-  dueFor: (source: { item: string; activity: string }) => DueDamage | undefined
-  /** Whether damage rolled here goes to it on its own, from module 0.36.0. */
-  sendsAlone: boolean
-  /** Whether it takes a spent recharge rolled here, from module 0.36.0. */
-  recharges: boolean
-  /**
-   * Where it takes damage on its own's choices, from module 0.41.0: asks the player for those of
-   * a row the game sends them for, where there's anything to ask, then goes on with what they
-   * picked; or at once, with nothing picked.
-   */
-  pickAlone?: (pick: AlonePick) => void
-}
-
-/**
- * Damage on its own whose choices are asked, from module 0.41.0: the row it's of, whether it's
- * healing, what the player chose of it already, as from its chip's menu, the chip it's rolled from,
- * and how it goes on once they've picked, from the row and the spellbook as the picker showed them
- * then, which the sheet may have changed since the chip was tapped.
- */
-export type AlonePick = {
-  action: SheetAction
-  healing: boolean
-  choice: AloneChoice
-  anchor: HTMLElement
-  onPicked: (picks: AloneChoice, shown: AloneRow) => void
-}
-
-/**
- * What every action's row needs: the character, its spellbook, and what rolling does; and using
- * spells and features, while the Gamemaster's game takes them.
- */
-export type ActionRows = {
-  characterId: string
-  spellbook: SheetSpellSection[]
-  /** How each spell an item casts is cast, by its copy's id. */
-  casts: CastIndex
-  d20: RollActions
-  damage: DamageActions
-  use?: UseActions
-  /** Rolls an activity's own formula, such as a light's radius. */
-  formula?: (roll: SheetFormulaRoll) => void
-  /** Opens what there is to read of one of an item's activities folded beneath it. */
-  about: (info: ActivityInfo) => void
-  /** Opens the menu of a check an activity asks for, as a description's check opens its own. */
-  menus: LinkMenus
-  /**
-   * Whether the game takes a spent recharge rolled from here, from module 0.36.0, for a row's
-   * Recharge chip to show.
-   */
-  recharges?: boolean
-}
 
 /**
  * How a tab shows something it lists as an action, where it's shown otherwise than on the Actions
@@ -272,81 +153,6 @@ export type EntryLook = {
    * keyboard's context menu key.
    */
   onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
-}
-
-/**
- * What every action's row needs, on a tab or among the favorites, with the menus and dialogs its
- * rolls open in `dialogs`, to be put on the page.
- */
-export function useActionRows({
-  characterId,
-  sheet,
-  onRoll,
-  onRollDamage,
-  onRollFormula,
-  onUse,
-  tableDamage,
-}: Readonly<{
-  characterId: string
-  /** Its spellbook, and wherever a spell an item casts is listed with how it's cast. */
-  sheet: Pick<
-    CharacterSheet,
-    'spells' | 'actions' | 'inventory' | 'features' | 'favorites'
-  >
-  onRoll: (roll: SheetRoll) => void
-  onRollDamage: (roll: SheetDamageRoll) => void
-  /** Rolls an activity's own formula, such as a light's radius. */
-  onRollFormula?: (roll: SheetFormulaRoll) => void
-  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
-  /** What the game does with damage, while it takes it. */
-  tableDamage?: TableDamage
-}>): { rows: ActionRows; dialogs: ReactNode } {
-  const spellbook = sheet.spells
-  const casts = useMemo(() => castIndex(sheet), [sheet])
-  const { actions: d20, dialogs } = useD20Rolls(onRoll)
-  // A check an activity asks for rolls as a description's does, against its DC; and damage on its
-  // own asks its kind from its chip, as a description's damage does.
-  const { menus, dialogs: checks } = useLinkMenus(useDescriptionActions())
-  const { actions: damage, dialogs: damageMenu } = useDamageRolls(
-    onRollDamage,
-    tableDamage,
-    menus,
-    spellbook,
-  )
-  const { show: about, dialog: info } = useActionInfo(characterId, spellbook)
-  return {
-    rows: {
-      characterId,
-      spellbook,
-      casts,
-      d20,
-      damage,
-      ...(onUse && {
-        use: { onUse, sendsAlone: tableDamage?.sendsAlone === true },
-      }),
-      ...(onRollFormula && { formula: onRollFormula }),
-      about,
-      menus,
-      recharges: tableDamage?.recharges === true,
-    },
-    dialogs: (
-      <>
-        {dialogs}
-        {damageMenu}
-        {info}
-        {checks}
-      </>
-    ),
-  }
-}
-
-/** Icons for actions without one of their own, by the item's type. */
-export const FALLBACKS: Record<string, LucideIcon> = {
-  weapon: Sword,
-  spell: Wand,
-  consumable: FlaskConical,
-  equipment: Shield,
 }
 
 /** What an item is, for a type other than a spell. */
@@ -1129,18 +935,6 @@ export function activationIn(
 }
 
 /**
- * An action's name for its rolls: an item's, and the activity it's listed for, where it isn't the
- * item's first, such as "Staff (Silvery Barbs)".
- */
-export function actionTitle(
-  action: Pick<SheetAction, 'name' | 'activityName'>,
-): string {
-  return action.activityName
-    ? `${action.name} (${action.activityName})`
-    : action.name
-}
-
-/**
  * What the count an action's row shows is called, as the game's chat names it once it's spent:
  * one of the item's activities' own by the activity too, as the row is, such as "Staff of Stars
  * (Starry Wisp)"; the item's own, or a resource's, by the item, whichever of its activities the
@@ -1508,19 +1302,6 @@ function useHeld(
     setHeld({ ...held, letGo: true })
   }
   return held && !held.letGo && held.sheetKey === sheetKey ? held.said : sheet
-}
-
-/** The mark that an action opens, turned while it's open. */
-export function Chevron({ open }: Readonly<{ open: boolean }>) {
-  return (
-    <ChevronDown
-      aria-hidden
-      className={clsx(
-        'size-3.5 shrink-0 text-text-secondary transition-transform',
-        open && 'rotate-180',
-      )}
-    />
-  )
 }
 
 /**
@@ -1937,20 +1718,6 @@ export function DamageChip({
       {formula}
     </RollButton>
   )
-}
-
-/**
- * What using an action in the game is called: casting, for a spell, or one an item casts, but for
- * one of a spell's activities used after it's cast, without spending a slot or the item's uses,
- * such as Spirit Guardians' save each turn; and casting, for a spell cast through an activity that
- * uses another, such as its free casting.
- */
-export function verbOf(action: SheetAction): 'Cast' | 'Use' {
-  // A spell cast through an activity that uses another, such as its free casting, spends no slot,
-  // but is cast all the same.
-  if (action.forward) return action.type === 'spell' ? 'Cast' : 'Use'
-  if (action.consumesSlot === false) return 'Use'
-  return action.type === 'spell' || !!action.cast ? 'Cast' : 'Use'
 }
 
 /**

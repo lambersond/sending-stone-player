@@ -5,16 +5,14 @@ import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { PartySheetFor } from '../party-sheet/party-sheet'
 import { FullscreenButton } from '@/components/fullscreen-button/fullscreen-button'
-import {
-  LiveStatus,
-  type LiveState,
-} from '@/components/live-status/live-status'
+import { LiveStatus } from '@/components/live-status/live-status'
 import { usePartySheet } from '@/features/party/hooks/use-party-sheet'
 import { TableApiContext } from '@/hooks/use-table-api'
-import type { TakeInto } from '@/features/transfers/components/take-controls/take-controls'
+import type { LiveState } from '@/components/live-status/types'
+import type { TakeInto } from '@/features/transfers/types'
 import type { TableSeat } from '@/types/character'
 import type { PartyView } from '@/types/party'
-import type { SeatRole } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
 
 type Props = {
   /** The party sheet's API, such as `/api/characters/<id>/party/<group>`. */

@@ -1,22 +1,14 @@
 import {
   availableRollFeatures,
   availableRollKinds,
-  checkDamage,
-  checkDamageDice,
-  checkEndTurn,
-  checkRoll,
-  checkUndoTurn,
-  GM_UNSENT,
-  isDying,
-  isSeatCombatant,
-  rollStatus,
-  sameCounter,
-  toCommand,
-  toGmRollView,
-  toRollRequestView,
-  type HeldEndTurn,
-  type HeldRollRequest,
-} from './roll-requests'
+} from './requests/availability'
+import { checkDamage } from './requests/check-damage'
+import { checkEndTurn, checkUndoTurn } from './requests/check-turns'
+import { checkRoll } from './requests/checks'
+import { GM_UNSENT, toCommand } from './requests/commands'
+import { isDying, rollStatus, sameCounter } from './requests/status'
+import { toGmRollView, toRollRequestView } from './requests/views'
+import { checkDamageDice, isSeatCombatant } from './roll-requests'
 import {
   castingSheet,
   characterSheet,
@@ -54,6 +46,7 @@ import {
 } from '@/mocks/sending-stone'
 import { quillSheet, slimQuillSheet } from '@/mocks/slim-sheet'
 import { parseGameEvent } from '@/schemas/sending-stone'
+import type { HeldEndTurn, HeldRollRequest } from './requests/types'
 import type { RollRequestInput } from '@/types/roll'
 import type {
   CharacterSheet,
@@ -62,8 +55,8 @@ import type {
   DamagePreview,
   SheetAction,
   SheetClass,
+  FoundLink,
 } from '@/types/sending-stone'
-import type { FoundLink } from '@/utils/description-links'
 
 const NOW = Date.parse('2026-10-09T20:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)

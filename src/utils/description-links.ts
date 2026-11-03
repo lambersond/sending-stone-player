@@ -1,6 +1,12 @@
 import { ABILITIES, SKILLS, TOOLS } from '@/constants/dnd5e'
-import { DAMAGE_TYPE } from '@/constants/sending-stone'
+import { DAMAGE_TYPE, LINK_CLASSES } from '@/constants/sending-stone'
 import { formulaTerms } from '@/utils/formulas'
+import type {
+  LinkClass,
+  DescriptionLink,
+  DamageLink,
+  CheckOption,
+} from '@/types/sending-stone'
 
 /*
  * The links in a description the app can act on, as the module marks them since 0.17.0: a saving
@@ -26,110 +32,8 @@ import { formulaTerms } from '@/utils/formulas'
  * keeps them and where the page draws them.
  */
 
-/** The classes of the links the app acts on. */
-export const LINK_CLASSES = [
-  'ss-save',
-  'ss-check',
-  'ss-damage',
-  'ss-roll',
-  'ss-condition',
-] as const
-
-export type LinkClass = (typeof LINK_CLASSES)[number]
-
 /** The most links a description has that the game acts on, numbered from 0. */
 export const MAX_LINKS = 200
-
-/** A saving throw a description asks for, such as "DC 15 Dexterity saving throw". */
-export type SaveLink = {
-  kind: 'save'
-  n: number
-  /**
-   * Ability ids, more than one for a choice, such as Strength or Dexterity; at least one, which
-   * for a concentration check that names none is Constitution.
-   */
-  abilities: string[]
-  /** Where the description says one. */
-  dc?: number
-  /** A concentration check, which is a Constitution saving throw. */
-  concentration: boolean
-}
-
-/**
- * One way a check a description asks for may be made, as dnd5e's roll request card offers it: an
- * ability check, or a skill's or a tool's, each with the ability it's made with. That is the one
- * the description names, or else dnd5e's for the skill or tool, never the character's own.
- */
-export type CheckOption = {
-  type: 'check' | 'skill' | 'tool'
-  /** dnd5e's id, such as "str". */
-  ability: string
-  /** The skill's or tool's key, such as "ath" or "thief"; none for an ability check. */
-  key?: string
-}
-
-/**
- * A check a description asks for, such as "DC 15 Strength (Athletics) check". Module 0.18.0; never
- * a passive one, which is only text.
- */
-export type CheckLink = {
-  kind: 'check'
-  n: number
-  /**
-   * At least one, each skill, tool or ability once; more for a choice, such as Strength
-   * (Athletics) or Dexterity (Acrobatics).
-   */
-  checks: CheckOption[]
-  /** Where the description says one. */
-  dc?: number
-  /** For a skill check made using a tool, as the 2024 rules have it: the tool's key. */
-  usingTool?: string
-}
-
-/** Damage or healing a description deals, in one part or more, such as 1d6 fire plus 1d6 cold. */
-export type DamageLink = {
-  kind: 'damage'
-  n: number
-  parts: {
-    formula: string
-    /** dnd5e damage type ids, more than one for a choice; none where it doesn't say. */
-    types: string[]
-  }[]
-  healing: boolean
-  /**
-   * Damage never rolled as a critical hit's, as dnd5e's own link offers none, such as a saving
-   * throw's, or the game can't plan its dice, as a weapon's extra dice before module 0.20.0. Module
-   * 0.19.0.
-   */
-  critical?: false
-  /**
-   * What a critical hit adds to each part, in order, as the game reads its activity: the extra dice
-   * its first die throws, such as Savage Attacks' or Brutal Critical's, and its critical damage,
-   * such as a weapon's 1d6, or "" for none. Only where both are sent for every part, and each
-   * critical damage reads; then it may be rolled as a critical hit's, though the module marks it
-   * never one for apps before. Module 0.20.0.
-   */
-  criticalAdds?: { dice: number[]; damage: string[] }
-}
-
-/** A roll of a description's own, such as [[/r 1d4]]. */
-export type RollLink = { kind: 'roll'; n: number; formula: string }
-
-/** A condition a description names, such as Prone, by dnd5e's id. */
-export type ConditionLink = { kind: 'condition'; condition: string }
-
-export type DescriptionLink =
-  SaveLink | CheckLink | DamageLink | RollLink | ConditionLink
-
-/**
- * A link the game acts on, as found in a description: what it is, and whether it's in one of its
- * secrets, which only the Gamemaster and the character's owners read, so is never asked of the
- * table.
- */
-export type FoundLink = {
-  link: SaveLink | CheckLink | DamageLink | RollLink
-  secret: boolean
-}
 
 /** A part's damage types: one, or several joined by | for a choice. */
 const TYPES = String.raw`(?:[A-Za-z][\w-]{0,31}(?:\|[A-Za-z][\w-]{0,31}){0,9})`

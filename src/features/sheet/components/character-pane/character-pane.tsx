@@ -21,138 +21,117 @@ import {
   UserRound,
   type LucideIcon,
 } from 'lucide-react'
+import { reasons } from '../../../../utils/roll-reasons'
 import { RollToasts } from '../../../rolling/components/roll-toasts/roll-toasts'
-import {
-  reasons,
-  RollTray,
-  type TableRolls,
-} from '../../../rolling/components/roll-tray/roll-tray'
+import { RollTray } from '../../../rolling/components/roll-tray/roll-tray'
 import { RollsButton } from '../../../rolling/components/rolls-button/rolls-button'
-import {
-  actionTitle,
-  verbOf,
-  type AlonePick,
-  type TableDamage,
-} from '../action-entry/action-entry'
-import { useActionsLayout } from '../actions-layout/actions-layout'
+import { actionTitle, verbOf } from '../action-entry/utils'
+import { useActionsLayout } from '../actions-layout/use-actions-layout'
 import { ActionsTab } from '../actions-tab/actions-tab'
 import { BiographyTab } from '../biography-tab/biography-tab'
 import { CharacterSheet } from '../character-sheet/character-sheet'
-import {
-  Concentrating,
-  type ConcentrationActions,
-} from '../concentration/concentration'
-import {
-  ConditionsOpener,
-  rulesOf,
-  useConditionsPanel,
-  type ShowConditions,
-} from '../conditions/conditions-panel'
-import {
-  DescriptionLinks,
-  sheetTools,
-  type DescriptionActions,
-} from '../description-actions/description-actions'
-import {
-  Effecting,
-  useEffectControls,
-} from '../effect-controls/effect-controls'
+import { Charging } from '../charging/charging'
+import { Concentrating } from '../concentration/concentrating'
+import { ConditionsOpener } from '../conditions/conditions-opener'
+import { useConditionsPanel } from '../conditions/use-conditions-panel'
+import { rulesOf } from '../conditions/utils'
+import { DescriptionLinks } from '../description-actions/description-links'
+import { sheetTools } from '../description-actions/utils'
+import { Effecting } from '../effect-controls/effecting'
+import { useEffectControls } from '../effect-controls/use-effect-controls'
 import { EffectsTab } from '../effects-tab/effects-tab'
-import { Enchanting, type EnchantActions } from '../enchantments/enchantments'
-import { FavoriteMarks } from '../favorite-mark/favorite-mark'
+import { Enchanting } from '../enchantments/enchanting'
+import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { FavoritesColumn, FavoritesStrip } from '../favorites/favorites'
 import { Favoriting, useFavorites } from '../favoriting/favoriting'
 import { FeaturesTab } from '../features-tab/features-tab'
 import { InventoryTab } from '../inventory-tab/inventory-tab'
-import { Preparing, usePreparing } from '../preparing/preparing'
+import { Preparing } from '../preparing/preparing'
+import { usePreparing } from '../preparing/use-preparing'
 import { PromptBanner } from '../prompt-banner/prompt-banner'
 import { SheetSettings } from '../sheet-settings/sheet-settings'
 import { SpellsTab } from '../spells-tab/spells-tab'
-import {
-  ALONE_SPEND_KEY,
-  asks,
-  enchantPicks,
-  selfPick,
-  UsePicker,
-  type Picked,
-  type Picking,
-} from '../use-picker/use-picker'
-import { Charging, type ChargeActions } from '../uses-button/uses-button'
-import {
-  useWildShape,
-  WildShapeRibbon,
-  WildShaping,
-} from '../wild-shape/wild-shape'
+import { ALONE_SPEND_KEY } from '../use-picker/constants'
+import { UsePicker } from '../use-picker/use-picker'
+import { asks, enchantPicks, selfPick } from '../use-picker/utils'
+import { useWildShape } from '../wild-shape/use-wild-shape'
+import { WildShapeRibbon } from '../wild-shape/wild-shape'
+import { WildShaping } from '../wild-shape/wild-shaping'
 import { Scroller } from '@/components/scroller/scroller'
-import {
-  EFFECT_SETTLE,
-  type EffectOp,
-  type PrepareOp,
-  type SpellSlotOp,
-} from '@/constants/sending-stone'
-import { useCookbookEntry } from '@/features/cookbook/components/cookbook-entry/cookbook-entry'
+import { SETTLED } from '@/constants/lifecycle'
+import { EFFECT_SETTLE } from '@/constants/sending-stone'
+import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
 import { hasDraft, journalOpen } from '@/features/notes/hooks/use-notes'
 import { useDiceEntry } from '@/features/rolling/components/dice-entry/use-dice-entry'
+import { useGmRolls } from '@/features/rolling/hooks/use-gm-rolls'
 import { useToastSetting } from '@/features/rolling/hooks/use-roll-toasts'
-import {
-  useSheetRoller,
-  type LocalFormula,
-  type SheetDamageRoll,
-  type SheetFormulaRoll,
-  type SheetRoll,
-  type TypedRolls,
-} from '@/features/rolling/hooks/use-sheet-roller'
+import { useSheetRoller } from '@/features/rolling/hooks/use-sheet-roller'
+import { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
 import {
   choicesOf,
   damageRollOf,
   needsPlayer,
-  SETTLED,
-  useGmRolls,
-  useTableRolls,
-  withGmRolls,
-  type DueDamage,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+} from '@/features/rolling/utils/damage-due'
 import { effectDiceFor, offersFor } from '@/features/rolling/utils/effect-dice'
+import { withGmRolls } from '@/features/rolling/utils/gm-rolls'
 import { SheetIdPrefix } from '@/features/sheet/hooks/use-sheet-ids'
 import { useSpentOffers } from '@/features/sheet/hooks/use-spent-offers'
 import { useWidth } from '@/features/sheet/hooks/use-width'
 import { belongingsOf } from '@/features/sheet/utils/enchantments'
 import { slotName } from '@/features/sheet/utils/slot-words'
-import { useGiveControls } from '@/features/transfers/components/give-controls/give-controls'
-import { useRemoveControls } from '@/features/transfers/components/remove-controls/remove-controls'
+import { useGiveControls } from '@/features/transfers/hooks/use-give-controls'
+import { useRemoveControls } from '@/features/transfers/hooks/use-remove-controls'
 import { CreatureContext } from '@/hooks/use-creature'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { useTableRole } from '@/hooks/use-table-api'
 import { useShownPrompts } from '@/hooks/use-waiting-prompts'
 import { castIndex, isItemCast } from '@/utils/casts'
 import { favoriteEntries, favoriteKeys, rollsAny } from '@/utils/favorites'
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
 import { sheetActions } from '@/utils/sheet-actions'
-import { capitalized, type WildShapeLogged } from '@/utils/wild-shape-words'
-import type { PartySheets } from '../party-sheets/party-sheets'
+import { capitalized } from '@/utils/wild-shape-words'
+import type { TableRolls, DueDamage } from '../../../rolling/types'
+import type { AlonePick, TableDamage } from '../action-entry/types'
+import type { ChargeActions } from '../charging/types'
+import type { ConcentrationActions } from '../concentration/use-concentrating'
+import type { ShowConditions } from '../conditions/use-show-conditions'
+import type { DescriptionActions } from '../description-actions/types'
+import type { EnchantActions } from '../enchantments/use-enchanting'
+import type { PartySheets } from '../party-sheets/types'
+import type { Picked, Picking } from '../use-picker/types'
 import type { NotesPlace } from '@/features/notes/types'
 import type { CookbookPlace } from '@/types/cookbook'
+import type { TableMoves } from '@/types/party'
 import type {
   FavoriteTarget,
   GmRollView,
   RollFeature,
   RollKind,
   WildShapeInput,
+  LocalFormula,
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+  TypedRolls,
+  WildShapeLogged,
+  TableRollState,
+  DamageModifiers,
 } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type {
   SheetAction,
   SheetEffect,
   SheetSpell,
+  EffectOp,
+  PrepareOp,
+  SpellSlotOp,
 } from '@/types/sending-stone'
 import type {
   CreatureFacts,
   TableCombat,
-  TableMoves,
   TablePrompt,
   TableSheet,
 } from '@/types/table'
-import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
   characterId: string

@@ -1,11 +1,7 @@
+import { askTitle, isAbility } from './ask-words'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
-import {
-  checkName,
-  checkTitle,
-  MAX_CHECKS,
-  toolOrSkillName,
-  type CheckOption,
-} from '@/utils/description-links'
+import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
+import type { TableRoll } from '@/types/roll'
 import type {
   AskedCheck,
   CharacterSheet,
@@ -32,24 +28,12 @@ import type {
   TableDamage,
   TableDamageKind,
   TableMessage,
-  TableRoll,
   TableSheet,
   TableTarget,
+  Viewer,
+  LinkedMessages,
+  SaveOutcome,
 } from '@/types/table'
-
-/**
- * Who is looking: their character's actor id, if chosen, and the party's actor ids, with the
- * party's portraits by actor id. From module 0.36.0, the campaign's characters' companions, by
- * key, with the characters each is a companion of; and at a companion's own view, its key in
- * place of the character's actor id, with the character whose companion it is (`of`).
- */
-export type Viewer = {
-  actorId: string | undefined
-  party: Set<string>
-  portraits?: Map<string, string>
-  companions?: Map<string, { of: string[]; portrait?: string; name: string }>
-  of?: string
-}
 
 /**
  * Whose side a combatant or a message is on, from the viewer's point of view, and whether it's one
@@ -137,14 +121,6 @@ export function toTableMessages(
       byGm.has(message.id),
     )
   })
-}
-
-/** What a message's targets are shown with, from the rest of the chat. */
-export type LinkedMessages = {
-  /** The card it was rolled from, if it's in the chat. */
-  card?: SerializedMessage
-  /** The saves rolled from it, as `savesByCard` has them: by their creature's actor's uuid. */
-  saves?: ReadonlyMap<string, SaveOutcome>
 }
 
 /**
@@ -368,48 +344,6 @@ function dataOf(attributes: string): Map<string, string> {
       ),
     ].map(([, name, double, single]) => [name, double ?? single ?? '']),
   )
-}
-
-/** Is this one of dnd5e's abilities' ids, and not a name any object answers to? */
-function isAbility(id: unknown): id is string {
-  return typeof id === 'string' && Object.hasOwn(ABILITIES, id)
-}
-
-/**
- * What a roll request card asks for, in words: such as "DC 15 Dexterity saving throw", "Strength
- * or Dexterity saving throw", or "DC 10 Concentration check", naming its ability where it isn't
- * Constitution; or a check, such as "DC 15 Strength (Athletics) check", or "Intelligence or Wisdom
- * check", a tool by the game's name for it where it says.
- */
-export function askTitle(ask: TableAsk): string {
-  if (ask.type === 'check') {
-    const names = ask.checks.map(check =>
-      checkName(checkOptionOf(check), check.name),
-    )
-    return checkTitle(names, { dc: ask.dc })
-  }
-  const dc = ask.dc === undefined ? '' : `DC ${ask.dc} `
-  const names = ask.abilities
-    .filter(id => isAbility(id))
-    .map(id => ABILITIES[id])
-  if (ask.type === 'concentration') {
-    const [ability] = ask.abilities
-    return ability && ability !== 'con' && names[0]
-      ? `${dc}Concentration check (${names[0]})`
-      : `${dc}Concentration check`
-  }
-  const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(names)
-  return `${dc}${list} saving throw`
-}
-
-/** One way a check the table is asked for may be made, as a description's link has it. */
-function checkOptionOf(check: AskedCheck): CheckOption {
-  const key = check.type === 'skill' ? check.skill : check.tool
-  return {
-    type: check.type,
-    ability: check.ability,
-    ...(check.type !== 'check' && key !== undefined && { key }),
-  }
 }
 
 const HEALING = new Set(['healing', 'temphp', 'maximum'])
@@ -739,9 +673,6 @@ const SAVED: Record<SaveOutcome, NonNullable<TableTarget['save']>> = {
   success: 'saved',
   failure: 'failed',
 }
-
-/** Whether a save succeeded, as the module says. */
-type SaveOutcome = NonNullable<Dnd5eSave['outcome']>
 
 /** Who sent a message, as the chat names them. */
 function speakerOf(message: SerializedMessage): string {

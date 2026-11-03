@@ -9,7 +9,8 @@ import prisma from '@/clients/prisma'
 import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { noteHtml } from '@/lib/note-html'
-import type { NoteBookKind, NoteReason, NoteRole } from '@/types/notes'
+import type { NotePageCommand } from './types'
+import type { NoteBookKind, NoteReason } from '@/types/notes'
 import type {
   CommandResult,
   JournalPage,
@@ -31,31 +32,6 @@ type Tx = Prisma.TransactionClient
 
 /** How long a made change is kept, so the seat's limit has rows to count while Foundry is live. */
 export const MADE_KEPT_FOR = 3_600_000
-
-/** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
-export type NotePageCommand = {
-  id: string
-  actorId: string
-  kind: 'note'
-  by?: 'gm'
-  note: {
-    book: NoteBookKind
-    op: 'create' | 'update' | 'delete'
-    id: string
-    role: NoteRole
-    base: string | null
-    writer: string | null
-    at: number
-    title?: string
-    markdown?: string
-    chapter?: string | null
-    createdAt?: number
-  }
-  mode: 0
-  explicit: false
-  extras: []
-  dice: []
-}
 
 /**
  * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'

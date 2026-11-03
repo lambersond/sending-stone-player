@@ -1,12 +1,9 @@
 import { MIDI_PROMPT_GRACE, PROMPT_NOTICE_FOR } from '@/constants/sending-stone'
-import {
-  rollStatus,
-  type HeldRollRequest,
-  type RollRefusal,
-} from '@/utils/roll-requests'
+import { rollStatus } from '@/utils/requests/status'
+import type { HeldPrompt, PromptData } from '@/types/prompts'
 import type { RollRequestInput } from '@/types/roll'
-import type { GamePrompt } from '@/types/sending-stone'
 import type { PromptNotice, TablePrompt } from '@/types/table'
+import type { HeldRollRequest, RollRefusal } from '@/utils/requests/types'
 
 /*
  * Saving throws the Gamemaster's game asks of a player's character, such as a concentration check
@@ -15,31 +12,6 @@ import type { PromptNotice, TablePrompt } from '@/types/table'
  * 0.27.0, also what Midi-QOL asks of them while they're open in the app: saves, and ability and
  * skill checks, which Midi-QOL rolls as it has them rolled, once their time is up if not before.
  */
-
-/** What a save the game asks for asks, as held. */
-export type PromptData = Pick<
-  GamePrompt,
-  | 'type'
-  | 'abilities'
-  | 'skills'
-  | 'dc'
-  | 'label'
-  | 'messageId'
-  | 'source'
-  | 'advantage'
-  | 'askedInFoundry'
->
-
-/** A save the game asks for, as held for its player to answer. */
-export type HeldPrompt = {
-  promptId: string
-  actorId: string
-  data: unknown
-  expiresAt: Date
-  closedAt: Date | null
-  /** Why it closed, such as "answered" or "gone". */
-  closedReason?: string | null
-}
 
 /** How a prompt Midi-QOL asked may close that its player is told of. */
 const NOTICES: ReadonlySet<string> = new Set<PromptNotice>([

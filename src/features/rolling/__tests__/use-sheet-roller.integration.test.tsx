@@ -4,12 +4,14 @@ import {
   ANIMATION_TIMEOUT,
   ROLL_HISTORY,
   useSheetRoller,
-  type LocalCheck,
-  type LocalDamage,
-  type LocalFormula,
-  type SheetFormulaRoll,
 } from '../hooks/use-sheet-roller'
-import { damageRollOf } from '../hooks/use-table-rolls'
+import { damageRollOf } from '../utils/damage-due'
+import type {
+  LocalCheck,
+  LocalDamage,
+  LocalFormula,
+  SheetFormulaRoll,
+} from '../../../types/roll'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
 

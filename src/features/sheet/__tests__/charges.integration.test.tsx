@@ -7,19 +7,13 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  briefOf,
-  RollTray,
-  type TableRolls,
-} from '../../rolling/components/roll-tray/roll-tray'
+import { RollTray } from '../../rolling/components/roll-tray/roll-tray'
+import { briefOf } from '../../rolling/utils/brief'
 import { ActionsTab } from '../components/actions-tab/actions-tab'
 import { CharacterPane } from '../components/character-pane/character-pane'
-import { Charging } from '../components/uses-button/uses-button'
+import { Charging } from '../components/charging/charging'
 import { COMPANION_UNTAKEN, ROLL_KINDS } from '@/constants/sending-stone'
-import {
-  SEND_KEY,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+import { SEND_KEY } from '@/features/rolling/constants'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { TableApiContext } from '@/hooks/use-table-api'
 import {
@@ -33,12 +27,15 @@ import {
   utilityUse,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { TableRolls } from '../../rolling/types'
+import type { TableSeat } from '@/types/character'
 import type {
+  GmRollView,
+  RollKind,
   LocalGmRoll,
   LocalUse,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableSeat } from '@/types/character'
-import type { GmRollView, RollKind } from '@/types/roll'
+  TableRollState,
+} from '@/types/roll'
 import type {
   CharacterSheet,
   SheetAction,

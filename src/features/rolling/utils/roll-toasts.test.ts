@@ -11,11 +11,7 @@ import {
   toastTop,
   type ToastBook,
 } from './roll-toasts'
-import type {
-  LocalCheck,
-  LocalUse,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { LocalCheck, LocalUse, TableRollState } from '@/types/roll'
 
 /** A check, thrown at `at`. */
 const check = (id: string, at = 0): LocalCheck => ({

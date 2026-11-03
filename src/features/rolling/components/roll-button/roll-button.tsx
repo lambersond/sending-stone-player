@@ -2,30 +2,10 @@
 
 import { useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
+import { LONG_PRESS } from '@/features/rolling/constants'
+import { pointWithin } from '@/features/rolling/utils/menu-points'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
-import type { MenuPoint } from '../roll-menu/roll-menu'
-import type { EffectAsk } from '@/features/rolling/utils/effect-dice'
-import type { RollSource } from '@/types/roll'
-import type { RollMode } from '@/types/sending-stone'
-
-/** Something on the sheet that rolls: a check or save, its modifier, and the character's mode. */
-export type RollTarget = {
-  /** Such as "Perception check". */
-  label: string
-  modifier: number
-  /** Advantage or disadvantage from the character's conditions and features. */
-  mode: RollMode
-  /** What it is, for the Gamemaster's game to make it too; unset for a roll it can't make. */
-  source?: RollSource
-  /**
-   * For a saving throw a description's link calls for, what the link asks, such as a concentration
-   * check, for the dice effects add to it (module 0.42.0).
-   */
-  ask?: EffectAsk
-}
-
-/** How long a touch must be held to open the roll's menu, in milliseconds. */
-export const LONG_PRESS = 500
+import type { RollTarget, MenuPoint } from '@/features/rolling/types'
 
 /** How far a touch may move and still count as held, in pixels. */
 const DRIFT = 10
@@ -138,18 +118,4 @@ export function RollButton<T = RollTarget>({
       {children}
     </button>
   )
-}
-
-/** Where a pointer is on the button, or nothing when it's off it. */
-export function pointWithin(
-  button: HTMLElement,
-  { clientX, clientY }: { clientX: number; clientY: number },
-  touch: boolean,
-): MenuPoint | undefined {
-  const { left, top, width, height } = button.getBoundingClientRect()
-  const x = clientX - left
-  const y = clientY - top
-  // A pixel's leeway, for browsers that round where the pointer is.
-  if (x < -1 || y < -1 || x > width + 1 || y > height + 1) return undefined
-  return { x, y, touch }
 }

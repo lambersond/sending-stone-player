@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { useCookbookEntry } from './cookbook-entry'
+import { useCookbookEntry } from '../../hooks/use-cookbook-entry'
 import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
 import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
 import { respond } from '@/utils/test-utils'

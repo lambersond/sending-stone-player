@@ -1,17 +1,12 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  chosenApi,
-  type TakeInto,
-} from '../components/take-controls/take-controls'
-import {
-  Transferring,
-  type TransferControls,
-} from '../components/transferring/transferring'
+import { chosenApi } from '../components/take-controls/take-controls'
+import { Transferring } from '../components/transferring/transferring'
+import { CHECK_EVERY } from '@/constants/lifecycle'
 import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
-import { CHECK_EVERY } from '@/features/rolling/hooks/use-table-rolls'
 import { movingPartyView, partyStash } from '@/mocks/sending-stone'
 import { advance, respond } from '@/utils/test-utils'
+import type { TakeInto, TransferControls } from '../types'
 import type { MoveDialogProps } from '@/features/transfers/components/move-dialog/move-dialog'
 import type { PartyView } from '@/types/party'
 

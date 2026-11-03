@@ -1,5 +1,6 @@
 import clsx from 'clsx'
-import { DieIcon, type DieSides } from '@/components/icons/die'
+import { DieIcon } from '@/components/icons/die'
+import type { DieSides } from '@/components/icons/types'
 
 /** A hit die's shape, by its size, such as "d10"; none for a size there's no icon of. */
 export function HitDieIcon({

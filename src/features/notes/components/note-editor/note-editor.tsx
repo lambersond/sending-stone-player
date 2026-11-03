@@ -16,7 +16,7 @@ import { LoaderCircle } from 'lucide-react'
 import { flushSync } from 'react-dom'
 import { NoteText } from '../note-lines/note-lines'
 import { Pane } from '../pane/pane'
-import { ConfirmModal } from '@/components/modal/confirm-dialog'
+import { ConfirmModal } from '@/components/modal/confirm-modal'
 import { MOST_NOTE_BODY, MOST_NOTE_TITLE } from '@/constants/notes'
 import {
   draftChanged,

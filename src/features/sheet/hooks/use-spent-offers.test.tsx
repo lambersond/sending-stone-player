@@ -1,13 +1,8 @@
 import { renderHook } from '@testing-library/react'
 import { useSpentOffers } from './use-spent-offers'
-import type { EffectOp } from '@/constants/sending-stone'
-import type {
-  LocalCheck,
-  LocalRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
-import type { Effects } from '@/features/sheet/components/effect-controls/effect-controls'
-import type { SheetEffect } from '@/types/sending-stone'
+import type { Effects } from '@/features/sheet/components/effect-controls/types'
+import type { LocalCheck, LocalRoll, TableRollState } from '@/types/roll'
+import type { SheetEffect, EffectOp } from '@/types/sending-stone'
 
 // The dice offered that a player added (module 0.42.1): spent from the moment their roll is sent,
 // unless it isn't made; and once it's made, their effect removed, once, where the player may.

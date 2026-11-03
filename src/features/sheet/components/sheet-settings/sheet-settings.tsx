@@ -17,16 +17,15 @@ import {
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
-import {
-  LayoutPicker,
-  type ActionsLayout,
-} from '../actions-layout/actions-layout'
+import { LayoutPicker } from '../actions-layout/layout-picker'
 import { HelpLinks } from '@/components/help-links/help-links'
-import { usePortalRoot, useTopmostEscape } from '@/components/modal/portal-root'
+import { usePortalRoot } from '@/components/modal/use-portal-root'
+import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
-import { CONFIGURE_COOKBOOK } from '@/features/cookbook/components/cookbook-entry/cookbook-entry'
+import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
+import type { ActionsLayout } from '../actions-layout/types'
 
 type Props = {
   /** Whether this device sends the player's rolls to the table, while the game takes any. */

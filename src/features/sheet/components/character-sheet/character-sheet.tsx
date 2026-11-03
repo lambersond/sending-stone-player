@@ -3,36 +3,27 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Shield, ShieldCheck, Sparkles, Star } from 'lucide-react'
-import {
-  useD20Rolls,
-  type RollActions,
-} from '../../../rolling/components/d20-rolls/d20-rolls'
+import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
 import { RollButton } from '../../../rolling/components/roll-button/roll-button'
-import { useFavorite } from '../favorite-mark/favorite-mark'
-import {
-  HitDiceList,
-  hitDieSpending,
-  type HitDieSpending,
-} from '../hit-dice/hit-dice'
+import { useCharging } from '../charging/use-charging'
+import { useFavorite } from '../favorite-mark/use-favorite'
+import { HitDiceList } from '../hit-dice/hit-dice-list'
+import { hitDieSpending } from '../hit-dice/utils'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
-import {
-  Conditions,
-  DeathSavesStat,
-  HitPoints,
-  InitiativeStat,
-  isShowingDeathSaves,
-  Portrait,
-  Stat,
-  StatTag,
-  WalkingSpeed,
-} from '../sheet-tiles/sheet-tiles'
-import { useCharging } from '../uses-button/uses-button'
-import { ConfirmModal } from '@/components/modal/confirm-dialog'
-import {
-  CreatureHeader,
-  otherSpeeds,
-} from '@/features/companions/components/creature-header/creature-header'
+import { Conditions } from '../sheet-tiles/conditions'
+import { DeathSavesStat } from '../sheet-tiles/death-saves-stat'
+import { HitPoints } from '../sheet-tiles/hit-points'
+import { InitiativeStat } from '../sheet-tiles/initiative-stat'
+import { Portrait } from '../sheet-tiles/portrait'
+import { Stat } from '../sheet-tiles/stat'
+import { StatTag } from '../sheet-tiles/stat-tag'
+import { isShowingDeathSaves } from '../sheet-tiles/utils'
+import { WalkingSpeed } from '../sheet-tiles/walking-speed'
+import { ConfirmModal } from '@/components/modal/confirm-modal'
+import { CreatureHeader } from '@/features/companions/components/creature-header/creature-header'
+import { otherSpeeds } from '@/features/companions/components/creature-header/utils'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
+import { classLine } from '@/features/sheet/utils/class-line'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
 import { articled } from '@/utils/wild-shape'
@@ -41,10 +32,9 @@ import {
   legendWords,
   skillsNoteWords,
 } from '@/utils/wild-shape-words'
-import type {
-  SheetFormulaRoll,
-  SheetRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
+import type { RollActions } from '../../../rolling/types'
+import type { HitDieSpending } from '../hit-dice/types'
+import type { SheetFormulaRoll, SheetRoll } from '@/types/roll'
 import type {
   RollMode,
   SheetAbility,
@@ -621,20 +611,4 @@ export function modeText(mode: RollMode): string {
 function acTag(form?: SheetForm): string | undefined {
   if (!form) return undefined
   return form.flooredAc ? 'Circle of the Moon' : form.name
-}
-
-/** Such as "Fighter 4 / Rogue 1 · Champion", or the level alone. */
-export function classLine(sheet: TableSheet): string {
-  if (sheet.classes.length === 0) {
-    return sheet.level === null ? 'Character' : `Level ${sheet.level}`
-  }
-  const classes = sheet.classes
-    .map(({ name, levels }) => (levels === null ? name : `${name} ${levels}`))
-    .join(' / ')
-  const subclasses = sheet.classes.flatMap(({ subclass }) =>
-    subclass ? [subclass] : [],
-  )
-  return subclasses.length > 0
-    ? `${classes} · ${subclasses.join(' / ')}`
-    : classes
 }

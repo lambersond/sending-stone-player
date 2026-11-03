@@ -1,15 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
-import {
-  Favoriting,
-  NO_FAVORITING,
-  useFavoriteChoice,
-  useFavorites,
-} from './favoriting'
+import { NO_FAVORITING } from './constants'
+import { Favoriting, useFavorites } from './favoriting'
+import { useFavoriteChoice } from './use-favorite-choice'
 import { FAVORITE_SETTLE } from '@/constants/sending-stone'
 import { fullerSheet, sheetFavorites } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
-import type { FavoriteTarget } from '@/types/roll'
+import type { FavoriteTarget, TableRollState } from '@/types/roll'
 import type {
   SheetFavorite,
   SheetResourceFavorite,

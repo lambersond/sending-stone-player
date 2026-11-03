@@ -1,28 +1,5 @@
 import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
-
-/**
- * Dice added to or taken from a roll, such as +1d4 for Bless or −1d6. Of damage, those a critical
- * hit's critical damage adds, such as a weapon's, are marked `added`: never its first die.
- */
-export type ExtraDice = {
-  sign: 1 | -1
-  count: number
-  sides: DieSides
-  added?: true
-  /**
-   * What Foundry does with the dice once thrown, each as written, in order, such as "r<=2" or
-   * "kh3"; none for none. Only a formula of the sheet's has them, never what a player adds.
-   */
-  modifiers?: string[]
-}
-
-/** A flat number added to or taken from a roll. */
-export type ExtraFlat = { sign: 1 | -1; flat: number }
-
-export type ExtraTerm = ExtraDice | ExtraFlat
-
-export type ParseExtrasResult =
-  { ok: true; terms: ExtraTerm[] } | { ok: false; error: string }
+import type { ParseExtrasResult, ExtraTerm } from '@/types/roll'
 
 /** The most of one die a term may throw. */
 export const MAX_DICE = 20

@@ -3,21 +3,21 @@
 import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, Sparkles } from 'lucide-react'
+import { Chevron } from '../../../../components/chevron/chevron'
+import { EntryIcon } from '../../../../components/entry-icon/entry-icon'
+import { joinParts } from '../../utils/join-parts'
 import { RechargeChip } from '../action-chips/recharge-chip'
 import {
   ActionDetails,
   ActionEntry,
-  actionTitle,
   activityDetail,
   ActivityInfoButton,
   AttackChip,
   attackSource,
   castNote,
-  Chevron,
   DamageChip,
   FormulaChip,
   dimmed,
-  FALLBACKS,
   firstInFoundry,
   forwardNote,
   moreNote,
@@ -25,49 +25,48 @@ import {
   ownUses,
   rechargeOf,
   SaveChip,
-  useActionRows,
   usesName,
   useActivityMenu,
   UsingChip,
-  verbOf,
   viewOf,
-  type ActionRows,
   type OtherActivity,
-  type TableDamage,
 } from '../action-entry/action-entry'
-import { EnchantedMark } from '../enchantments/enchantments'
-import { FavoriteStar, useFavorite } from '../favorite-mark/favorite-mark'
-import { useFavoriteChoice } from '../favoriting/favoriting'
+import { FALLBACKS } from '../action-entry/constants'
+import { useActionRows } from '../action-entry/use-action-rows'
+import { actionTitle, verbOf } from '../action-entry/utils'
+import { EnchantedMark } from '../enchantments/enchanted-mark'
+import { FavoriteStar } from '../favorite-mark/favorite-star'
+import { useFavorite } from '../favorite-mark/use-favorite'
+import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
 import { useItemMenu } from '../item-menu/item-menu'
-import { usePrepareChoice } from '../preparing/preparing'
+import { usePrepareChoice } from '../preparing/use-prepare-choice'
 import { usePressMenu } from '../press-menu/press-menu'
-import { EntryIcon, joinParts } from '../sheet-entry/sheet-entry'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { SpellSlots } from '../spell-slots/spell-slots'
 import { UsesButton } from '../uses-button/uses-button'
-import {
-  WildShapeNote,
-  WildShapeRowControls,
-  WildShapeRowLine,
-} from '../wild-shape/wild-shape'
+import { WildShapeNote } from '../wild-shape/wild-shape-note'
+import { WildShapeRowControls } from '../wild-shape/wild-shape-row-controls'
+import { WildShapeRowLine } from '../wild-shape/wild-shape-row-line'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { useStoredSet } from '@/hooks/use-stored'
-import { groupActions, type ActionGroup } from '@/utils/action-groups'
+import { groupActions } from '@/utils/action-groups'
 import { castOf } from '@/utils/casts'
-import type { Layout } from '../actions-layout/actions-layout'
+import type { ActionRows, TableDamage } from '../action-entry/types'
+import type { Layout } from '../actions-layout/constants'
 import type {
   SheetDamageRoll,
   SheetFormulaRoll,
   SheetRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
+  DamageModifiers,
+} from '@/types/roll'
 import type {
   SheetAction,
   SheetActionSection,
   SheetSpend,
   SheetUses,
+  ActionGroup,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
   characterId: string

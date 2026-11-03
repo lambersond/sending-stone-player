@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { rollsKey } from '@/utils/roll-requests'
-import type { TableView } from '@/types/table'
-
-export type Connection = 'live' | 'reconnecting'
+import { rollsKey } from '@/utils/requests/availability'
+import type { TableView, Connection } from '@/types/table'
 
 /** How often to ask for news, in milliseconds. */
 export const POLL_INTERVAL = 3000

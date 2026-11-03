@@ -6,7 +6,7 @@ import type {
   SheetInventory,
   SheetItem,
 } from '@/types/sending-stone'
-import type { RollRefusal } from '@/utils/roll-requests'
+import type { RollRefusal } from '@/utils/requests/types'
 
 // How this app checks a removal of a character's item (module 0.33.0) before the Gamemaster's
 // module is sent it: whether the game takes removals now, and whether the item is on the sheet as

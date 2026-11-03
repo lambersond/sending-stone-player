@@ -6,13 +6,16 @@ import { transfersAvailable } from '@/utils/transfers'
 import type { SheetSeat } from '@/types/character'
 import type {
   AllowedGroup,
-  GroupEntry,
-  GroupSheet,
   PartyView,
   TableGroup,
+  TableMoves,
 } from '@/types/party'
-import type { ConnectedCharacter, SheetInventory } from '@/types/sending-stone'
-import type { TableMoves } from '@/types/table'
+import type {
+  ConnectedCharacter,
+  SheetInventory,
+  GroupEntry,
+  GroupSheet,
+} from '@/types/sending-stone'
 
 // Who may see a campaign's party sheets (module 0.30.0), as Foundry shows them: a player whose
 // Foundry user has Observer or Owner on the group, through their character in the campaign; and the

@@ -20,7 +20,6 @@ import {
 } from '@/db/sheet-texts'
 import { companionRoster } from '@/utils/companions'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
-import type { GroupEntry, GroupSheet } from '@/types/party'
 import type {
   CampaignRef,
   CharacterSheet,
@@ -33,6 +32,8 @@ import type {
   GamePrompt,
   GameEvent,
   SerializedMessage,
+  GroupEntry,
+  GroupSheet,
 } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 

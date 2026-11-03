@@ -67,5 +67,3 @@ export const COOKBOOK_REFUSAL = {
   FULL: 'full',
   UNAVAILABLE: 'unavailable',
 } as const
-export type CookbookRefusalReason =
-  (typeof COOKBOOK_REFUSAL)[keyof typeof COOKBOOK_REFUSAL]

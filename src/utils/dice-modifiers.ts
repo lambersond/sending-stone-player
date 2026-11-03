@@ -1,5 +1,10 @@
-import type { ExtraDice } from '@/utils/roll-modifiers'
-
+import type {
+  ExtraDice,
+  DieModifier,
+  Comparison,
+  ThrownTerm,
+  ThrownDie,
+} from '@/types/roll'
 /*
  * What Foundry does with a term's dice once they're thrown, as a sheet's formula may say after its
  * faces, such as Great Weapon Fighting's 2d6r<=2 or 4d6kh3: reroll some, explode some, keep or drop
@@ -8,65 +13,6 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * the game's. At the table the player's dice are each die's first throw only: Foundry throws the
  * dice it rerolls or explodes itself, so the game's total stands once it says.
  */
-
-/** How a result is compared with a modifier's target, as Foundry compares them. */
-export type Comparison = '=' | '<' | '<=' | '>' | '>='
-
-/** One of a term's modifiers, read. */
-export type DieModifier =
-  | {
-      /** Rerolled (`r`, once; `rr`, until it no longer matches) or exploded (`x`; `xo`, once). */
-      kind: 'reroll' | 'explode'
-      recursive: boolean
-      /** The most results rerolled or exploded; none for no limit. */
-      most?: number
-      comparison: Comparison
-      target: number
-    }
-  | {
-      /** Kept (`k`, `kh`, `kl`) or dropped (`d`, `dh`, `dl`) among the active results. */
-      kind: 'keep' | 'drop'
-      highest: boolean
-      count: number
-    }
-  | {
-      /** Each result counts at least (`min`) or at most (`max`) so much. */
-      kind: 'min' | 'max'
-      value: number
-    }
-  | {
-      /** Each result counts 1 where it matches, else 0: a success (`cs`) or a failure (`cf`). */
-      kind: 'count'
-      success: boolean
-      comparison: Comparison
-      target: number
-    }
-
-/** A die of a term as thrown, and what became of it. */
-export type ThrownDie = {
-  /** The face it landed on. */
-  value: number
-  /** It counts toward the total. */
-  active: boolean
-  /** What it counts as, where a modifier says, such as 1 for a success; else its value. */
-  counts?: number
-  /** It was rerolled: a die thrown after it took its place. */
-  rerolled?: true
-  /** It exploded: another die was thrown for it. */
-  exploded?: true
-  /** It was dropped, or not kept. */
-  discarded?: true
-}
-
-/** A term's dice as thrown and worked out, and what they came to. */
-export type ThrownTerm = {
-  /** Every die thrown, in the order Foundry throws them: the first throw, then the rest. */
-  dice: ThrownDie[]
-  /** What the active dice count for, added up, the term's sign left out. */
-  total: number
-  /** A die was rerolled or exploded, which at the table Foundry throws, not the player. */
-  rethrown: boolean
-}
 
 /** The most dice a term throws here, rerolls and explosions among them. */
 export const MOST_THROWN = 100

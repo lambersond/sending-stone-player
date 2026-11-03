@@ -4,7 +4,6 @@ import {
   COOKBOOK_VERSIONS,
   MAX_DISH_BYTES,
   MOST_DISHES_WAITING,
-  type CookbookRefusalReason,
 } from '@/constants/cookbook'
 import {
   acceptDish,
@@ -17,6 +16,7 @@ import { hashCookbookCode, isCookbookCode } from '@/lib/cookbook-code'
 import { attempt } from '@/lib/routes/bridge-http'
 import { cookbookDishSchema } from '@/schemas/cookbook'
 import type { Character } from '@/types/character'
+import type { CookbookRefusalReason } from '@/types/cookbook'
 import type { NextRequest } from 'next/server'
 
 // What the Magical Recipe Book's routes answer, from module 0.38.0: its server's post of a dish,

@@ -1,13 +1,10 @@
-import type { TableCompanion } from '@/types/table'
+import type { TableCompanion, RowCompanion } from '@/types/table'
 
 /*
  * The row of creatures above a character's sheet (module 0.36.0): its companions as the module
  * lists them, and those it no longer lists, kept until the player has seen they've gone; each one's
  * name, numbered where the row repeats it; and the tint of its initials.
  */
-
-/** A companion in the row: listed now, or kept, marked gone, until it's been shown and left. */
-export type RowCompanion = TableCompanion & { gone?: true }
 
 /**
  * The companions the row shows: those listed now, in the module's order, unmarked; and each the

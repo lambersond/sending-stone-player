@@ -10,8 +10,7 @@ import { megabytes } from '@/utils/format-amount'
 import { seatWords } from '@/utils/seat-words'
 import type { TableSeat } from '@/types/character'
 import type { SheetWithheld } from '@/types/sending-stone'
-import type { CreatureFacts } from '@/types/table'
-import type { RowCompanion } from '@/utils/companion-row'
+import type { CreatureFacts, RowCompanion } from '@/types/table'
 
 /**
  * A companion's pane beside its character's, as its tab's panel (module 0.36.0): its own sheet,

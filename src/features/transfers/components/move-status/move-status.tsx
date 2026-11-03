@@ -3,11 +3,10 @@
 import { useEffect, type Ref } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Send, TriangleAlert, X } from 'lucide-react'
-import { reasons } from '@/features/rolling/components/roll-tray/roll-tray'
 import { useTableRole } from '@/hooks/use-table-api'
 import { moveWords } from '@/utils/move-words'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import { reasons } from '@/utils/roll-reasons'
+import type { LocalMove, TableRollState } from '@/types/roll'
 
 /** How long a move made is told of, in milliseconds, before it clears itself. */
 export const MADE_SHOWN_FOR = 6000

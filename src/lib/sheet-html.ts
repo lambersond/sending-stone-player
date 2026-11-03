@@ -1,12 +1,12 @@
 import sanitizeHtml from 'sanitize-html'
+import { LINK_CLASSES } from '@/constants/sending-stone'
 import {
   LINK_ATTRIBUTES,
-  LINK_CLASSES,
   linkAttributes,
   linkClassOf,
   linkOf,
-  type FoundLink,
 } from '@/utils/description-links'
+import type { FoundLink } from '@/types/sending-stone'
 
 /** Every data attribute a link the game acts on may keep. */
 const LINK_ATTRIBUTE_NAMES = [

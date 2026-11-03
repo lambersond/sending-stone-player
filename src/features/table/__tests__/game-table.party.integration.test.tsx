@@ -2,10 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { GameTable } from '../components/game-table/game-table'
-import {
-  useTableView,
-  type Connection,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import {
   characterSheet,
   fullerSheet,
@@ -16,7 +13,7 @@ import { toTableSheet } from '@/utils/table-view'
 import { responding as respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
-import type { TableView } from '@/types/table'
+import type { TableView, Connection } from '@/types/table'
 
 // The party sheets a character's table opens (module 0.30.0): from its sheet's Inventory tab, in a
 // side panel over the sheet, through the seat's own way in.

@@ -1,13 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
-import {
-  NO_PREPARING,
-  Preparing,
-  usePrepareChoice,
-  usePreparing,
-} from './preparing'
+import { Preparing } from './preparing'
+import { NO_PREPARING, usePrepareChoice } from './use-prepare-choice'
+import { usePreparing } from './use-preparing'
 import { PREPARE_SETTLE } from '@/constants/sending-stone'
 import { sheetSpell } from '@/mocks/sending-stone'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { TableRollState } from '@/types/roll'
 import type { SheetSpellSection } from '@/types/sending-stone'
 import type { ReactNode } from 'react'
 

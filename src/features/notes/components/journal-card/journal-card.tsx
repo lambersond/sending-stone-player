@@ -13,7 +13,7 @@ import {
   whoSeesNotes,
 } from '@/features/notes/utils/note-words'
 import type { NoteBookKind } from '@/types/notes'
-import type { SeatRole } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
 
 type Props = {
   /** The seat's API base, such as `/api/characters/<id>`: its book is under it, at `/notes`. */

@@ -1,13 +1,13 @@
 import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
 import { allItems } from '@/utils/sheet-texts'
-import type { GroupEntry } from '@/types/party'
 import type { TransferInput } from '@/types/roll'
 import type {
   SheetContainer,
   SheetInventory,
   SheetItem,
+  GroupEntry,
 } from '@/types/sending-stone'
-import type { RollRefusal } from '@/utils/roll-requests'
+import type { RollRefusal } from '@/utils/requests/types'
 
 // How this app checks a move of items and coins (module 0.31.0) before the Gamemaster's module is
 // sent it: who may make it, by the campaign's roster and its groups' access, and whether what's

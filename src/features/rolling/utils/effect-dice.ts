@@ -1,8 +1,8 @@
 import { readModifier } from '@/utils/dice-modifiers'
-import { formatExtraTerm, type ExtraDice } from '@/utils/roll-modifiers'
-import type { RollSource } from '@/types/roll'
+import { formatExtraTerm } from '@/utils/roll-modifiers'
+import type { RollSource, ExtraDice, EffectAsk, SheetOffer } from '@/types/roll'
 import type { CharacterSheet, SheetEffectDie } from '@/types/sending-stone'
-import type { TableAsk, TablePrompt } from '@/types/table'
+import type { TablePrompt } from '@/types/table'
 
 /*
  * The dice a character's effects add to its d20 rolls, or take from them, such as Bless's d4 or
@@ -15,9 +15,6 @@ import type { TableAsk, TablePrompt } from '@/types/table'
 
 /** What a prompt a saving throw answers asks, as far as the dice effects add to it go. */
 export type EffectPrompt = Pick<TablePrompt, 'type' | 'source'>
-
-/** What a description's link a saving throw is made from asks: a save, or a concentration check. */
-export type EffectAsk = Pick<TableAsk, 'type'>
 
 /**
  * A roll as the dice dialog is asked for it: what it is, for the game to make it too; and for a
@@ -117,19 +114,6 @@ export function effectDiceFor(
       die.on.some(token => tokens.has(token)),
   )
 }
-
-/**
- * What adding a die the sheet offers spends: the effect it uses up, by the sheet's id for it; that
- * effect's own name, such as "Inspired"; and the offer's, such as "Bardic Inspiration", or "Bardic
- * Inspiration (Vex)" beside another bard's.
- */
-export type OfferSpend = { effect: string; name: string; offer: string }
-
-/**
- * A die the sheet offers a roll, from module 0.42.1, which the game doesn't add, for its player to
- * add once the roll fails, as the 2024 Bardic Inspiration's: the die, and what adding it spends.
- */
-export type SheetOffer = { die: SheetEffectDie; spends: OfferSpend }
 
 /**
  * The dice the sheet offers this roll, in the sheet's order, from module 0.42.1: each marked

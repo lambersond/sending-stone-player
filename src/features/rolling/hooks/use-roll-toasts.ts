@@ -13,8 +13,7 @@ import {
   TOASTS_KEY,
   type RollToast,
 } from '@/features/rolling/utils/roll-toasts'
-import type { LocalRoll } from './use-sheet-roller'
-import type { TableRollState } from './use-table-rolls'
+import type { LocalRoll, TableRollState } from '../../../types/roll'
 
 /**
  * Whether the player's rolls pop up as toasts on this device, for every character, rather than

@@ -1,29 +1,22 @@
 'use client'
 
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import clsx from 'clsx'
 import { Minus, Plus } from 'lucide-react'
-import {
-  RollMenu,
-  type MenuPoint,
-  type RollChoice,
-} from '../roll-menu/roll-menu'
-import { Modal } from '@/components/modal/modal'
+import { DIE_SIZES } from '@/constants/dice'
+import { formulaOf } from '@/features/rolling/utils/damage-words'
 import { useTableRole } from '@/hooks/use-table-api'
 import {
   criticalParts,
-  DIE_SIZES,
   EVERY_DIE_TWICE,
   firstDie,
   mostExtra,
   takesAway,
   withModifiers,
-  type CriticalAdds,
-  type DamageModifiers,
-  type DieSize,
 } from '@/utils/damage-modifiers'
 import { seatWords } from '@/utils/seat-words'
-import type { SheetDamageRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import type { DamageSubject, DamageChoice } from '@/features/rolling/types'
+import type { DamageModifiers, DieSize } from '@/types/roll'
 import type { CriticalRule } from '@/types/sending-stone'
 
 /*
@@ -32,121 +25,6 @@ import type { CriticalRule } from '@/types/sending-stone'
  * them: more of its first die, as a spell cast higher throws, or that die another size, as a
  * versatile weapon in two hands, or Toll the Dead at a creature that's hurt.
  */
-
-/** How damage or healing is to be rolled, as chosen from its menu. */
-export type DamageChoice = { critical?: boolean; modifiers?: DamageModifiers }
-
-/** What a damage menu opens for: damage or healing, and the ways it may be rolled. */
-export type DamageSubject = {
-  /** Such as "Warhammer damage". */
-  label: string
-  /** As the sheet or the game puts it, such as "1d8 + 4". */
-  formula: string
-  /** Its parts, as they'd be thrown unchanged: a critical hit's dice as the game doubled them. */
-  parts: SheetDamageRoll['parts']
-  healing: boolean
-  /** The ways offered: a critical hit's, at its highest, or changed first. */
-  choices: RollChoice[]
-  /** How many dice are thrown for each die added, as a critical hit's doubled dice take two. */
-  perDie?: number
-  /** For a spell or feature used with it, what using it is called, such as "Cast". */
-  verb?: string
-  /**
-   * For damage the game rolls too, how the world's rules make a critical hit's, which the dialog's
-   * critical hit then is, rather than every die twice.
-   */
-  criticalRule?: CriticalRule
-  /**
-   * For a description's damage, what a critical hit adds to each of its parts, such as a weapon's
-   * extra dice and critical damage, which the dialog's critical hit throws too.
-   */
-  criticalAdds?: CriticalAdds
-  onChoose: (choice: DamageChoice) => void
-}
-
-/**
- * The menu of ways to roll damage or healing, and the dialog that changes its dice first, which
- * are in `dialogs`, to be put on the page.
- */
-export function useDamageMenu(): {
-  open: (anchor: HTMLElement, subject: DamageSubject, point?: MenuPoint) => void
-  dialogs: ReactNode
-} {
-  const [menu, setMenu] = useState<{
-    anchor: HTMLElement
-    subject: DamageSubject
-    point?: MenuPoint
-  }>()
-  const [modifying, setModifying] = useState<DamageSubject>()
-  const choose = (subject: DamageSubject, choice: RollChoice) => {
-    setMenu(undefined)
-    switch (choice) {
-      case 'critical': {
-        subject.onChoose({ critical: true })
-        break
-      }
-      case 'maximize': {
-        subject.onChoose({ modifiers: { maximize: true } })
-
-        break
-      }
-      case 'modify-damage': {
-        setModifying(subject)
-        // No default
-        break
-      }
-    }
-  }
-  const dialogs = (
-    <>
-      {menu && (
-        <RollMenu
-          anchor={menu.anchor}
-          point={menu.point}
-          title={`${menu.subject.label} ${menu.subject.formula}`}
-          choices={menu.subject.choices}
-          labels={labelsFor(menu.subject)}
-          onChoose={choice => choose(menu.subject, choice)}
-          onClose={() => setMenu(undefined)}
-        />
-      )}
-      <Modal
-        open={modifying !== undefined}
-        onClose={() => setModifying(undefined)}
-        title={modifying?.healing ? 'Modify healing' : 'Modify damage'}
-      >
-        {modifying && (
-          <ModifyDamage
-            subject={modifying}
-            onRoll={choice => {
-              setModifying(undefined)
-              modifying.onChoose(choice)
-            }}
-            onCancel={() => setModifying(undefined)}
-          />
-        )}
-      </Modal>
-    </>
-  )
-  return {
-    open: (anchor, subject, point) => setMenu({ anchor, subject, point }),
-    dialogs,
-  }
-}
-
-/** What the menu calls each way, for damage or healing, rolled or used with a spell or feature. */
-function labelsFor({
-  healing,
-  verb,
-}: DamageSubject): Partial<Record<RollChoice, string>> {
-  const kind = healing ? 'healing' : 'damage'
-  return verb
-    ? {
-        maximize: `${verb} with maximum ${kind}`,
-        'modify-damage': `${verb} with ${kind} modified…`,
-      }
-    : { maximize: `Roll maximum ${kind}`, 'modify-damage': `Modify ${kind}…` }
-}
 
 /**
  * Changing damage or healing before it's rolled: more of its first die, that die another size,
@@ -403,22 +281,4 @@ function Toggle({
       </span>
     </label>
   )
-}
-
-/** Damage's parts as a formula, as thrown: such as "2d12 + 4 Necrotic + 1d6 Fire". */
-export function formulaOf(parts: SheetDamageRoll['parts']): string {
-  return parts
-    .map(({ terms, type }) => {
-      const text = terms
-        .map((term, index) => {
-          const value =
-            'sides' in term ? `${term.count}d${term.sides}` : String(term.flat)
-          if (index === 0) return term.sign < 0 ? `−${value}` : value
-          return `${term.sign < 0 ? '−' : '+'} ${value}`
-        })
-        .join(' ')
-      return type ? `${text} ${type}`.trim() : text
-    })
-    .filter(Boolean)
-    .join(' + ')
 }

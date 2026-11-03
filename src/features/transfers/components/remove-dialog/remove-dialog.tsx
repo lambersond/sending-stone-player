@@ -7,7 +7,7 @@ import { Modal } from '@/components/modal/modal'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import { useTableRole } from '@/hooks/use-table-api'
 import { thingsWords } from '@/utils/move-words'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
+import type { LocalMove } from '@/types/roll'
 import type { SheetContainer, SheetItem } from '@/types/sending-stone'
 
 /*

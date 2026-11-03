@@ -1,5 +1,6 @@
-import { seatWords, type SeatRole } from '@/utils/seat-words'
-import type { EffectOp } from '@/constants/sending-stone'
+import { seatWords } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
+import type { EffectOp } from '@/types/sending-stone'
 
 // How one of the character's own effects turned off, on or deleted (module 0.39.0) is told, in
 // English: on its controls, in the tray and its toasts, and why it wasn't made, where that differs

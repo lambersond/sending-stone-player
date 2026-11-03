@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { useTransfers } from './use-transfers'
-import { CHECK_EVERY } from '@/features/rolling/hooks/use-table-rolls'
+import { CHECK_EVERY } from '@/constants/lifecycle'
 import { advance, respond } from '@/utils/test-utils'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
+import type { LocalMove } from '@/types/roll'
 
 const rope: LocalMove = {
   verb: 'take',

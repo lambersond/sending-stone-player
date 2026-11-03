@@ -4,8 +4,8 @@ import { renderToString } from 'react-dom/server'
 import { TurnToast } from './turn-toast'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { mockTurnCombat } from '@/mocks/sending-stone'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
 import type { TableSeat } from '@/types/character'
+import type { TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat, TurnUndo } from '@/types/table'
 
 jest.mock('@/features/table/hooks/use-table-view', () => ({

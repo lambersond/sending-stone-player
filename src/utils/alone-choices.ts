@@ -1,6 +1,11 @@
 import { defaultPool, slotPools } from '@/utils/action-groups'
 import type {
-  DamagePreview,
+  AloneSelection,
+  AlonePicks,
+  AlonePlan,
+  AloneRow,
+} from '@/types/roll'
+import type {
   SheetAction,
   SheetSpellSection,
   TableDamagePlan,
@@ -14,29 +19,6 @@ import type {
  * attack mode, the ammunition; the plan named by exactly those, else the row's own. Kept apart from
  * the page's rolling, damage-alone.ts, so that the server reads the same rule.
  */
-
-/** What the player chose for damage on its own: the slot, the attack mode and the ammunition. */
-export type AloneSelection = {
-  slot?: string | null
-  attackMode?: string
-  ammunition?: string
-}
-
-/** The picks that change damage on its own's dice, by which its plan is looked up. */
-export type AlonePicks = {
-  level?: number
-  attackMode?: string
-  ammunition?: string
-}
-
-/** The row damage on its own is of, and the spellbook its slots are in. */
-export type AloneRow = { action: SheetAction; spells: SheetSpellSection[] }
-
-/** The dice damage on its own throws as picked, and a critical hit's where one is allowed. */
-export type AlonePlan = {
-  normal: DamagePreview
-  critical: DamagePreview | null
-}
 
 /**
  * The picks that change damage on its own's dice: the chosen slot's level, where it's above the

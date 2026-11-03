@@ -13,45 +13,38 @@ import clsx from 'clsx'
 import { UserRound, Users } from 'lucide-react'
 import Link from 'next/link'
 import { EmptyState } from '@/components/empty-state/empty-state'
+import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
 import { hasDraft, journalOpen } from '@/features/notes/hooks/use-notes'
-import { Concentrating } from '@/features/sheet/components/concentration/concentration'
-import { ConditionsOpener } from '@/features/sheet/components/conditions/conditions-panel'
-import { DescriptionLinks } from '@/features/sheet/components/description-actions/description-actions'
-import { Enchanting } from '@/features/sheet/components/enchantments/enchantments'
-import {
-  FavoriteMarks,
-  NO_MARKS,
-} from '@/features/sheet/components/favorite-mark/favorite-mark'
-import {
-  Favoriting,
-  NO_FAVORITING,
-} from '@/features/sheet/components/favoriting/favoriting'
-import {
-  Holdings,
-  InventoryList,
-} from '@/features/sheet/components/inventory-tab/inventory-tab'
-import { EntryIcon } from '@/features/sheet/components/sheet-entry/sheet-entry'
+import { Charging } from '@/features/sheet/components/charging/charging'
+import { Concentrating } from '@/features/sheet/components/concentration/concentrating'
+import { ConditionsOpener } from '@/features/sheet/components/conditions/conditions-opener'
+import { DescriptionLinks } from '@/features/sheet/components/description-actions/description-links'
+import { Enchanting } from '@/features/sheet/components/enchantments/enchanting'
+import { NO_MARKS } from '@/features/sheet/components/favorite-mark/constants'
+import { FavoriteMarks } from '@/features/sheet/components/favorite-mark/favorite-marks'
+import { NO_FAVORITING } from '@/features/sheet/components/favoriting/constants'
+import { Favoriting } from '@/features/sheet/components/favoriting/favoriting'
+import { Holdings } from '@/features/sheet/components/inventory-tab/holdings'
+import { InventoryList } from '@/features/sheet/components/inventory-tab/inventory-list'
 import { SheetText } from '@/features/sheet/components/sheet-text/sheet-text'
-import { Charging } from '@/features/sheet/components/uses-button/uses-button'
 import { MoveStatus } from '@/features/transfers/components/move-status/move-status'
 import {
   partyControls,
   PartyMoveDialog,
   type PartyMoving,
 } from '@/features/transfers/components/party-controls/party-controls'
-import {
-  NO_TRANSFERS,
-  Transferring,
-} from '@/features/transfers/components/transferring/transferring'
+import { Transferring } from '@/features/transfers/components/transferring/transferring'
+import { NO_TRANSFERS } from '@/features/transfers/constants'
 import { useTransfers } from '@/features/transfers/hooks/use-transfers'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { megabytes } from '@/utils/format-amount'
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
 import type { PartyState } from '@/features/party/hooks/use-party-sheet'
-import type { TakeInto } from '@/features/transfers/components/take-controls/take-controls'
+import type { TakeInto } from '@/features/transfers/types'
 import type { TableSeat } from '@/types/character'
 import type { PartyView } from '@/types/party'
+import type { SeatRole } from '@/types/seats'
 
 /*
  * A party's sheet, as dnd5e's group sheet shows it to those who may see it in Foundry (module

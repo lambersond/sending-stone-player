@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RollTray, type TableRolls } from './roll-tray'
-import type { LocalCheck } from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import { RollTray } from './roll-tray'
+import type { TableRolls } from '../../types'
+import type { LocalCheck, TableRollState } from '@/types/roll'
 
 // Decision 5's guard (module 0.32.0): a critical hit's damage as dnd5e makes it, 2d6 + 4, reads as
 // the game says it, never with Midi-QOL's `mx2` or an `x2` the app might write.

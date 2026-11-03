@@ -1,14 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
-import {
-  CHECK_EVERY,
-  GM_SEND_KEY,
-  SEND_KEY,
-  type TableRollState,
-} from '../../rolling/hooks/use-table-rolls'
+import { CHECK_EVERY } from '../../../constants/lifecycle'
+import { GM_SEND_KEY, SEND_KEY } from '../../rolling/constants'
 import { useTurnUndo } from './use-turn-undo'
 import { mockTurnCombat } from '@/mocks/sending-stone'
 import { advance, respond } from '@/utils/test-utils'
-import type { RollKind } from '@/types/roll'
+import type { RollKind, TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
 const API = '/api/characters/char-1'

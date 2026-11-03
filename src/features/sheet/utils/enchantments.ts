@@ -1,4 +1,5 @@
 import { allItems } from '@/utils/sheet-texts'
+import type { Belonging } from '@/features/sheet/types'
 import type {
   CharacterSheet,
   SheetEnchant,
@@ -12,9 +13,6 @@ import type {
  * Flame Tongue set alight, from module 0.21.0: the ways each may enchant, at the level it's cast
  * at, and what the character has for it to enchant.
  */
-
-/** Something of the character's an enchantment may be put on, as the sheet lists it. */
-export type Belonging = { name: string; img: string | null }
 
 /** What an action is used through in the game, if it enchants: what it enchants, and how. */
 export function enchantOf(

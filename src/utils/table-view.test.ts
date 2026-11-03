@@ -1,5 +1,5 @@
+import { askTitle } from './ask-words'
 import {
-  askTitle,
   damageKinds,
   htmlToText,
   pickCombat,
@@ -7,7 +7,6 @@ import {
   toTableMessage,
   toTableMessages,
   toTableSheet,
-  type Viewer,
 } from './table-view'
 import {
   characterSheet,
@@ -19,6 +18,7 @@ import {
   sheetFavorites,
   sheetItem,
 } from '@/mocks/sending-stone'
+import type { Viewer } from '../types/table'
 import type {
   CharacterSheet,
   RollSummary,

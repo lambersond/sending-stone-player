@@ -2,19 +2,14 @@
 
 import { useEffect, useState, type ReactNode, type Ref } from 'react'
 import { BellRing, Check, LoaderCircle, Timer } from 'lucide-react'
-import {
-  useD20Rolls,
-  type RollActions,
-} from '../../../rolling/components/d20-rolls/d20-rolls'
-import {
-  RollButton,
-  type RollTarget,
-} from '../../../rolling/components/roll-button/roll-button'
+import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
+import { RollButton } from '../../../rolling/components/roll-button/roll-button'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { useTableRole } from '@/hooks/use-table-api'
 import { formatModifier } from '@/utils/format-modifier'
 import { seatWords } from '@/utils/seat-words'
-import type { SheetRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import type { RollActions, RollTarget } from '../../../rolling/types'
+import type { SheetRoll } from '@/types/roll'
 import type { RollMode } from '@/types/sending-stone'
 import type { TablePrompt, TableSheet } from '@/types/table'
 

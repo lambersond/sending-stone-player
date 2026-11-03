@@ -1,6 +1,8 @@
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ALONE_SPEND_KEY, asks, UsePicker, type Picking } from './use-picker'
+import { ALONE_SPEND_KEY } from './constants'
+import { UsePicker } from './use-picker'
+import { asks } from './utils'
 import { TableApiContext } from '@/hooks/use-table-api'
 import {
   aloneSpells,
@@ -12,6 +14,7 @@ import {
   potionAction,
   sheetAction,
 } from '@/mocks/sending-stone'
+import type { Picking } from './types'
 import type {
   SheetAction,
   SheetSpellSection,

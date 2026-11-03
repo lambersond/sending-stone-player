@@ -1,4 +1,4 @@
-import { favoriteEntries, type FavoriteEntry } from '@/utils/favorites'
+import { favoriteEntries } from '@/utils/favorites'
 import { allItems } from '@/utils/sheet-texts'
 import type {
   SheetAction,
@@ -8,6 +8,7 @@ import type {
   SheetRolls,
   SheetSpell,
   SheetSpellSection,
+  FavoriteEntry,
 } from '@/types/sending-stone'
 
 /*

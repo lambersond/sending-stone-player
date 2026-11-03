@@ -1,33 +1,9 @@
-import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
-
-/**
- * Actions of one kind within a section of the Actions tab, as Tidy 5e groups a sheet by where
- * things come from: weapons, equipment and the like, spells cast one way, such as those of a spell
- * level or pact magic, spells cast from an item, or features.
- */
-export type ActionGroup = {
-  /**
-   * Such as "weapons", "consumables" or "features"; a spellbook section's id after "spells-"; or
-   * the id of the item spells are cast from, after "from-".
-   */
-  id: string
-  label: string
-  /** The slots its spells are cast with, for a spell level or pact magic that has any. */
-  slots: { value: number; max: number } | null
-  actions: SheetAction[]
-}
-
-/** Slots a spell can be cast with: one spell level's, or pact magic's. */
-export type SlotPool = {
-  /** The spellbook section's id, such as "spell3" or "pact". */
-  id: string
-  /** As dnd5e labels it, such as "3rd Level" or "Pact Magic — 3rd Level". */
-  label: string
-  /** The level a spell is cast at with one; unknown for pact magic from an older module. */
-  level: number | null
-  value: number
-  max: number
-}
+import type {
+  SheetAction,
+  SheetSpellSection,
+  ActionGroup,
+  SlotPool,
+} from '@/types/sending-stone'
 
 /** The kinds of things a character carries, as dnd5e's inventory names and orders them. */
 const ITEM_KINDS: Record<string, { id: string; label: string }> = {

@@ -5,8 +5,7 @@ import {
   namesWords,
   thingsWords,
 } from './move-words'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { LocalMove, TableRollState } from '@/types/roll'
 
 const take: LocalMove = {
   verb: 'take',

@@ -6,16 +6,15 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { UsePicker } from './use-picker'
 import {
   asks,
   enchantPicks,
   SELF,
   selfPick,
   targetsOf,
-  UsePicker,
-  useTargetsOf,
-  type Picking,
-} from './use-picker'
+  targetsFor as useTargetsOf,
+} from './utils'
 import { belongingsOf } from '@/features/sheet/utils/enchantments'
 import {
   castingSheet,
@@ -24,12 +23,14 @@ import {
   sheetSpell,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
-import { castIndex, type CastIndex } from '@/utils/casts'
+import { castIndex } from '@/utils/casts'
 import { activityActions, itemAction, spellAction } from '@/utils/sheet-actions'
+import type { Picking } from './types'
 import type {
   SheetAction,
   SheetSpellSection,
   SheetUse,
+  CastIndex,
 } from '@/types/sending-stone'
 import type { TableCombat, TableCombatant } from '@/types/table'
 

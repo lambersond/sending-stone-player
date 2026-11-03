@@ -7,13 +7,14 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/components/roll-button/roll-button'
-import { hitDieSpending, HitDieUse } from './hit-dice'
+import { LONG_PRESS } from '../../../rolling/constants'
+import { HitDieUse } from './hit-die-use'
+import { hitDieSpending } from './utils'
 import { Modal } from '@/components/modal/modal'
 import { characterSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { HitDicePool } from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
-import type { HitDicePool } from '@/utils/formulas'
 
 /** Thorin's sheet, with this Constitution modifier, and these hit points. */
 const sheetWith = (con: number, fields: Partial<CharacterSheet> = {}) => {

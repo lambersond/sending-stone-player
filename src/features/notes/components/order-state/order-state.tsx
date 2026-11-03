@@ -5,12 +5,13 @@ import clsx from 'clsx'
 import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { noteReasonWords } from '@/features/notes/utils/note-words'
 import { orderStateWords } from '@/features/notes/utils/order-words'
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
 import type {
   NoteEntryView,
   NoteGroupView,
   NoteOrderState,
 } from '@/types/notes'
+import type { SeatRole } from '@/types/seats'
 
 /** The states an order didn't reach Foundry in, which its chip warns of. */
 const WARNS = new Set<NoteOrderState>(['conflict', 'failed'])

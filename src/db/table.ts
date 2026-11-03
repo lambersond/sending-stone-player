@@ -16,27 +16,26 @@ import {
 } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
-import { toTablePrompts, type PromptData } from '@/utils/prompts'
+import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
 import {
   availableRollFeatures,
   availableRollKinds,
-  GM_UNSENT,
-  rollStatus,
-  toGmRollView,
-  type HeldRollRequest,
-} from '@/utils/roll-requests'
+} from '@/utils/requests/availability'
+import { GM_UNSENT } from '@/utils/requests/commands'
+import { rollStatus } from '@/utils/requests/status'
+import { toGmRollView } from '@/utils/requests/views'
 import {
   pickCombat,
   portraitUrl,
   toTableCombat,
   toTableMessages,
   toTableSheet,
-  type Viewer,
 } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
 import { wildShapeAvailable } from '@/utils/wild-shape'
 import type { SheetSeat } from '@/types/character'
+import type { PromptData } from '@/types/prompts'
 import type { RollFeature, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
@@ -46,7 +45,8 @@ import type {
   SerializedMessage,
   SheetWithheld,
 } from '@/types/sending-stone'
-import type { CompanionAsked, GmRolls, TableView } from '@/types/table'
+import type { CompanionAsked, GmRolls, TableView, Viewer } from '@/types/table'
+import type { HeldRollRequest } from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
 /** The most recent chat messages shown. */

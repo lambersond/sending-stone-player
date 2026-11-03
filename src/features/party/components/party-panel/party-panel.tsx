@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { PartySheetFor } from '../party-sheet/party-sheet'
 import { SidePanel } from '@/components/side-panel/side-panel'
 import { usePartySheet } from '@/features/party/hooks/use-party-sheet'
-import type { TakeInto } from '@/features/transfers/components/take-controls/take-controls'
+import type { TakeInto } from '@/features/transfers/types'
 import type { TableGroup } from '@/types/party'
-import type { SeatRole } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
 
 type Props = {
   /** The group whose sheet is open, as the table last listed it; unset while it's closed. */

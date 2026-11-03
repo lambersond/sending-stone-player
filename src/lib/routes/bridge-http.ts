@@ -1,5 +1,4 @@
-import type { RefusalReason } from '@/constants/sending-stone'
-
+import type { RefusalReason } from '@/types/sending-stone'
 // What the routes the Gamemaster's module calls share. The module calls them from the Gamemaster's
 // browser, on the game's page, not from the Foundry server, so they answer CORS like any
 // cross-origin API.

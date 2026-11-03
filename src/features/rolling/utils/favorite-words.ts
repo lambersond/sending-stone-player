@@ -1,4 +1,5 @@
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
 
 // How a favorite added or removed (module 0.37.0) is told, in English, where it differs from a
 // roll: why it wasn't made. Where it stands on its way, and that it was, the tray says itself.

@@ -2,8 +2,8 @@ import prisma from '@/clients/prisma'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
 import type { Character } from '@/types/character'
-import type { AllowedGroup, GroupSheet } from '@/types/party'
-import type { CharacterSheet } from '@/types/sending-stone'
+import type { AllowedGroup } from '@/types/party'
+import type { CharacterSheet, GroupSheet } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 
 // The descriptions a campaign's sheets refer to by hash. The module sends each before the sheet

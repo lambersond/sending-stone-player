@@ -6,10 +6,12 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FavoriteMarks } from '../favorite-mark/favorite-mark'
+import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
-import { Preparing, usePreparing } from '../preparing/preparing'
-import { useWildShape, WildShaping } from '../wild-shape/wild-shape'
+import { Preparing } from '../preparing/preparing'
+import { usePreparing } from '../preparing/use-preparing'
+import { useWildShape } from '../wild-shape/use-wild-shape'
+import { WildShaping } from '../wild-shape/wild-shaping'
 import { SpellsTab } from './spells-tab'
 import {
   castingSheet,
@@ -26,14 +28,14 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { TableRollState } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type {
   CharacterSheet,
   SheetSpellcasting,
   SheetUse,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>

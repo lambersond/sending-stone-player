@@ -16,10 +16,9 @@ import {
   inspiredSheet,
 } from '@/mocks/sending-stone'
 import { throwTerm } from '@/utils/dice-modifiers'
-import type { RollSource } from '@/types/roll'
+import type { RollSource, ExtraDice } from '@/types/roll'
 import type { SheetEffectDie } from '@/types/sending-stone'
 import type { TablePrompt } from '@/types/table'
-import type { ExtraDice } from '@/utils/roll-modifiers'
 
 /** A prompt the table is asked, as its player is shown it. */
 const prompt = (fields: Partial<TablePrompt> = {}): TablePrompt => ({

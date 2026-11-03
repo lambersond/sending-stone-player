@@ -33,6 +33,13 @@ import {
 } from '@/constants/cookbook'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS, TOOLS } from '@/constants/dnd5e'
 import {
+  BUSY_FOR,
+  BUSY_WAIT,
+  CHECK_EVERY,
+  FOLLOW_FOR,
+  LATE_FOLLOW,
+} from '@/constants/lifecycle'
+import {
   MAX_NOTE_BYTES,
   MOST_BOOK_TEXT,
   MOST_CHAPTERS,
@@ -133,13 +140,6 @@ import {
   WILD_SHAPE_SETTLE,
 } from '@/constants/sending-stone'
 import { TOAST_FOR as PAGE_TOAST_FOR } from '@/features/campaigns/components/page-toast/page-toast'
-import {
-  BUSY_FOR,
-  BUSY_WAIT,
-  CHECK_EVERY,
-  FOLLOW_FOR,
-  LATE_FOLLOW,
-} from '@/features/rolling/hooks/use-table-rolls'
 import { TOAST_FOR as ROLL_TOAST_FOR } from '@/features/rolling/utils/roll-toasts'
 import {
   CONDITION_BASICS,

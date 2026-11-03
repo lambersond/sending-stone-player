@@ -6,6 +6,7 @@ import type {
   SheetActivity,
   SheetCast,
   SheetSpellSection,
+  CastIndex,
 } from '@/types/sending-stone'
 
 /*
@@ -15,9 +16,6 @@ import type {
  * activities is used after it's cast, such as Hex's Bonus Hex Damage. Each is cast at the levels
  * the Cast offers, from module 0.20.0, as the server checks and the use picker offers them.
  */
-
-/** How each spell an item casts is cast, by the id of the copy of it the Spells tab lists. */
-export type CastIndex = ReadonlyMap<string, SheetCast>
 
 /** The parts of the sheet a Cast is listed in. */
 type CastingSheet = Pick<

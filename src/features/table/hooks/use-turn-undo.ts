@@ -2,14 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  follow,
   GM_SEND_KEY,
   SEND_CHOICES,
   SEND_KEY,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+} from '@/features/rolling/constants'
 import { useStoredChoice } from '@/hooks/use-stored'
-import type { EndedTurn, RollKind, RollRequestInput } from '@/types/roll'
+import { follow } from '@/utils/lifecycle'
+import type {
+  EndedTurn,
+  RollKind,
+  RollRequestInput,
+  TableRollState,
+} from '@/types/roll'
 import type { EndableTurn, TableCombat, TurnUndo } from '@/types/table'
 
 /**

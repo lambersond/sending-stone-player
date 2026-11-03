@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CHECK_EVERY } from '@/features/rolling/hooks/use-table-rolls'
+import { CHECK_EVERY } from '@/constants/lifecycle'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { GameTable } from '@/features/table/components/game-table/game-table'
@@ -10,8 +10,9 @@ import { fullerSheet, sheetItem, tableMoves } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import { advance, respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
+import type { TableMoves } from '@/types/party'
 import type { CharacterSheet, SheetCurrency } from '@/types/sending-stone'
-import type { TableMoves, TableView } from '@/types/table'
+import type { TableView } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock(

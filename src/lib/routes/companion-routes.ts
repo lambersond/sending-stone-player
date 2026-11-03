@@ -10,7 +10,7 @@ import { notePlayersSeen, type RollSeat } from '@/db/roll-requests'
 import { getGmSeat, playerSeat } from '@/db/seats'
 import { noting } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
-import { rollsKey } from '@/utils/roll-requests'
+import { rollsKey } from '@/utils/requests/availability'
 import type { SheetSeat } from '@/types/character'
 import type { NextRequest } from 'next/server'
 

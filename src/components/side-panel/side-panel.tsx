@@ -2,7 +2,8 @@
 
 import { useId, type ReactNode } from 'react'
 import { X } from 'lucide-react'
-import { InPortalRoot, useDialogRoot } from '@/components/modal/portal-root'
+import { InPortalRoot } from '@/components/modal/in-portal-root'
+import { useDialogRoot } from '@/components/modal/portal-root'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
 
 type Props = {

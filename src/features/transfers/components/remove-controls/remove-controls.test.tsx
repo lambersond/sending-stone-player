@@ -1,17 +1,13 @@
 import { act, render, renderHook, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useRemoveControls } from './remove-controls'
+import { useRemoveControls } from '../../hooks/use-remove-controls'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { removalInventory, sheetItem } from '@/mocks/sending-stone'
 import { allItems } from '@/utils/sheet-texts'
-import type {
-  LocalMove,
-  LocalUse,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { LocalMove, LocalUse, TableRollState } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type { SheetInventory } from '@/types/sending-stone'
-import type { SeatRole } from '@/utils/seat-words'
 
 const inventory = removalInventory()
 /** One of Thorin's things, as his sheet has it, by its id. */

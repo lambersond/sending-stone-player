@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { LONG_PRESS, RollButton } from './roll-button'
+import { LONG_PRESS } from '../../constants'
+import { RollButton } from './roll-button'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 
 const target = { label: 'Perception check', modifier: 7, mode: 0 as const }

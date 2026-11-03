@@ -8,19 +8,20 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EffectsTab } from '../effects-tab/effects-tab'
-import {
-  Effecting,
-  NO_EFFECTS,
-  useEffectChoice,
-  useEffectControls,
-  useSpent,
-  type Effects,
-} from './effect-controls'
+import { NO_EFFECTS } from './constants'
+import { Effecting } from './effecting'
+import { useEffectChoice } from './use-effect-choice'
+import { useEffectControls } from './use-effect-controls'
+import { useSpent } from './use-spent'
 import { fullerSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { EffectOp } from '@/constants/sending-stone'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
-import type { CharacterSheet, SheetEffect } from '@/types/sending-stone'
+import type { Effects } from './types'
+import type { TableRollState } from '@/types/roll'
+import type {
+  CharacterSheet,
+  SheetEffect,
+  EffectOp,
+} from '@/types/sending-stone'
 
 // How long a control waits for the sheet, here 7 seconds, so that the test proves the constant is
 // what it waits for.

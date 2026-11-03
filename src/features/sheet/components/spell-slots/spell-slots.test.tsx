@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Charging, type ChargeActions } from '../uses-button/uses-button'
-import { slotsLive, SpellSlots } from './spell-slots'
+import { Charging } from '../charging/charging'
+import { SpellSlots } from './spell-slots'
+import { slotsLive } from './utils'
+import type { ChargeActions } from '../charging/types'
 import type { SpellSlotPool } from '@/features/sheet/utils/slot-words'
 
 /*

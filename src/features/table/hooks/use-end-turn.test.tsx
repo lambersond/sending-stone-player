@@ -1,9 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
-import {
-  CHECK_EVERY,
-  GM_SEND_KEY,
-  SEND_KEY,
-} from '../../rolling/hooks/use-table-rolls'
+import { CHECK_EVERY } from '../../../constants/lifecycle'
+import { GM_SEND_KEY, SEND_KEY } from '../../rolling/constants'
 import { useEndTurn } from './use-end-turn'
 import { POLL_INTERVAL } from './use-table-view'
 import { END_TURN_ARMS_AFTER } from '@/features/table/utils/end-turn'

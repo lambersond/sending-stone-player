@@ -3,7 +3,8 @@
 import { useEffect, useId, type ReactNode, type RefObject } from 'react'
 import clsx from 'clsx'
 import { ArrowLeft, X } from 'lucide-react'
-import { InPortalRoot, useDialogRoot } from './portal-root'
+import { InPortalRoot } from './in-portal-root'
+import { useDialogRoot } from './portal-root'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
 
 type Props = {

@@ -7,13 +7,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ROLL_KINDS } from '@/constants/sending-stone'
-import {
-  useSheetRoller,
-  type SheetDamageRoll,
-  type SheetFormulaRoll,
-  type SheetRoll,
-  type TypedRolls,
-} from '@/features/rolling/hooks/use-sheet-roller'
+import { useSheetRoller } from '@/features/rolling/hooks/use-sheet-roller'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import {
   BANE_DIE,
@@ -30,6 +24,12 @@ import {
   sent,
 } from '@/utils/test-utils'
 import type { DiceEntry, EnterDice } from '@/types/dice-entry'
+import type {
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+  TypedRolls,
+} from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
 
 // C8 (round.md §3.2): the dice the app throws for each roll shape, from a fixed Math.random, and

@@ -17,14 +17,13 @@ import {
   tableCompanion,
 } from '@/utils/companions'
 import { toTablePrompts } from '@/utils/prompts'
-import { toGmRollView } from '@/utils/roll-requests'
+import { toGmRollView } from '@/utils/requests/views'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import {
   pickCombat,
   portraitUrl,
   toTableCombat,
   toTableSheet,
-  type Viewer,
 } from '@/utils/table-view'
 import type { RollSeat } from '@/db/roll-requests'
 import type { SheetSeat } from '@/types/character'
@@ -35,7 +34,7 @@ import type {
   CompanionEntry,
   ConnectedCharacter,
 } from '@/types/sending-stone'
-import type { CompanionView, GmRolls } from '@/types/table'
+import type { CompanionView, GmRolls, Viewer } from '@/types/table'
 
 // A campaign's characters' companions, from module 0.36.0: each seen, and rolled for, from its
 // character's seat, by that character's player or the campaign's Gamemaster, through a companion

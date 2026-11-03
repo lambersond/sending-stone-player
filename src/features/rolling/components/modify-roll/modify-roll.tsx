@@ -5,8 +5,8 @@ import clsx from 'clsx'
 import { toAdvantage } from '@/features/rolling/utils/roll-mode'
 import { formatModifier } from '@/utils/format-modifier'
 import { parseExtraTerms } from '@/utils/roll-modifiers'
-import type { RollTarget } from '../roll-button/roll-button'
-import type { SheetRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import type { RollTarget } from '../../types'
+import type { SheetRoll } from '@/types/roll'
 import type { RollMode } from '@/types/sending-stone'
 
 const MODES: { mode: RollMode; label: string }[] = [

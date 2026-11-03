@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
-import { rollsKey } from '@/utils/roll-requests'
+import { rollsKey } from '@/utils/requests/availability'
 import type { CompanionView } from '@/types/table'
 
 /** What a pane has of a companion's view, which the server compares to say nothing is new. */

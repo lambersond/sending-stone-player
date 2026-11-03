@@ -25,19 +25,12 @@ import { sheetLinks } from '@/lib/sheet-html'
 import { companionRoster } from '@/utils/companions'
 import { changes } from '@/utils/damage-modifiers'
 import { checkPrompt } from '@/utils/prompts'
-import {
-  availableRollKinds,
-  checkDamage,
-  checkEndTurn,
-  checkRoll,
-  checkUndoTurn,
-  GM_UNSENT,
-  toCommand,
-  toRollRequestView,
-  type HeldRollRequest,
-  type RollCommand,
-  type RollRefusal,
-} from '@/utils/roll-requests'
+import { availableRollKinds } from '@/utils/requests/availability'
+import { checkDamage } from '@/utils/requests/check-damage'
+import { checkEndTurn, checkUndoTurn } from '@/utils/requests/check-turns'
+import { checkRoll } from '@/utils/requests/checks'
+import { GM_UNSENT, toCommand } from '@/utils/requests/commands'
+import { toRollRequestView } from '@/utils/requests/views'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput, RollRequestView } from '@/types/roll'
 import type {
@@ -46,6 +39,11 @@ import type {
   CommandResult,
   ConnectedCharacter,
 } from '@/types/sending-stone'
+import type {
+  HeldRollRequest,
+  RollCommand,
+  RollRefusal,
+} from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
 // A player's roll goes to the Gamemaster's game through the module, which fetches it. It is

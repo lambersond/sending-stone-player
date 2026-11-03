@@ -21,12 +21,13 @@ import {
   offersDamage,
   RollHistory,
   rollsName,
-  type TableRolls,
 } from '../roll-tray/roll-tray'
-import { InPortalRoot, usePortalRoot } from '@/components/modal/portal-root'
-import { needsPlayer } from '@/features/rolling/hooks/use-table-rolls'
+import { InPortalRoot } from '@/components/modal/in-portal-root'
+import { usePortalRoot } from '@/components/modal/use-portal-root'
+import { needsPlayer } from '@/features/rolling/utils/damage-due'
 import { useCreature } from '@/hooks/use-creature'
-import type { LocalRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import type { TableRolls } from '../../types'
+import type { LocalRoll } from '@/types/roll'
 
 /**
  * The player's rolls, behind a button beside the settings' cog, where they pop up as toasts rather

@@ -4,10 +4,8 @@ import { useMemo } from 'react'
 import clsx from 'clsx'
 import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { NoteTime } from '../note-time/note-time'
-import {
-  drawDescription,
-  readDescription,
-} from '@/components/description/description-html'
+import { drawDescription } from '@/components/description/draw-description'
+import { readDescription } from '@/components/description/read-description'
 import { noteStateWords } from '@/features/notes/utils/note-words'
 import type { NoteChapterView, NoteEntryView, NoteState } from '@/types/notes'
 

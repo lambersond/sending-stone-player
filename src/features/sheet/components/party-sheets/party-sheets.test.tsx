@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PartySheetList } from './party-sheets'
+import { PartySheetList } from './party-sheet-list'
 import type { TableGroup } from '@/types/party'
 
 const company: TableGroup = {

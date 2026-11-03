@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { CombatTracker, formatInitiative } from './combat-tracker'
 import { endableTurn } from '@/features/table/utils/end-turn'
 import { TableApiContext } from '@/hooks/use-table-api'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat, TableCombatant } from '@/types/table'
 
 const fighter = (

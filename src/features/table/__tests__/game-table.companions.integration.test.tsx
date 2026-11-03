@@ -2,10 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
-import {
-  useTableView,
-  type Connection,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import {
   biteAction,
   characterSheet,
@@ -20,6 +17,7 @@ import type {
   TableCombat,
   TableCompanion,
   TableView,
+  Connection,
 } from '@/types/table'
 
 /*

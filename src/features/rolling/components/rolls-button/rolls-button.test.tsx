@@ -6,16 +6,17 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RollTray, type TableRolls } from '../roll-tray/roll-tray'
+import { RollTray } from '../roll-tray/roll-tray'
 import { RollsButton } from './rolls-button'
+import type { TableRolls } from '../../types'
 import type {
   LocalCheck,
   LocalDamage,
   LocalGmRoll,
   LocalRoll,
   LocalUse,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+  TableRollState,
+} from '@/types/roll'
 
 const attack: LocalCheck = {
   kind: 'check',

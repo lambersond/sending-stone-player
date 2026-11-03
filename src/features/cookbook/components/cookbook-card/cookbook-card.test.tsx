@@ -7,7 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useCookbookEntry } from '../cookbook-entry/cookbook-entry'
+import { useCookbookEntry } from '../../hooks/use-cookbook-entry'
 import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
 import { respond } from '@/utils/test-utils'
 import type {

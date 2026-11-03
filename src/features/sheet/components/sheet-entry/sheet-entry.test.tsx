@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
+import { joinParts } from '../../utils/join-parts'
 import { Favoriting } from '../favoriting/favoriting'
-import { joinParts, SheetEntry } from './sheet-entry'
+import { SheetEntry } from './sheet-entry'
 import { offeringFavorites } from '@/mocks/sending-stone'
 import { brokenImages as brokenBeforeMount } from '@/utils/test-utils'
-import type { EffectChoice } from '../effect-controls/effect-controls'
+import type { EffectChoice } from '../effect-controls/types'
 
 describe('components/character-sheet/sheet-entry', () => {
   it("doesn't open without a description or details", () => {

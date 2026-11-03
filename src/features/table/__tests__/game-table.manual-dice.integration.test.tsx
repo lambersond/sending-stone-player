@@ -5,7 +5,6 @@ import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import {
   POLL_INTERVAL,
   useTableView,
-  type Connection,
 } from '@/features/table/hooks/use-table-view'
 import {
   characterSheet,
@@ -16,7 +15,7 @@ import {
 import { toTableSheet } from '@/utils/table-view'
 import type { Character, TableSeat } from '@/types/character'
 import type { CharacterSheet } from '@/types/sending-stone'
-import type { TableView } from '@/types/table'
+import type { TableView, Connection } from '@/types/table'
 
 // The switch for typing in their own dice (module 0.32.0): remembered on every device, the
 // player's change shown at once, and another device's taken up only once a view could know it.

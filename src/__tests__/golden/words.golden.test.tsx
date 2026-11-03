@@ -31,11 +31,8 @@ import {
   reorderLine,
 } from '@/features/notes/utils/order-words'
 import { RollToasts } from '@/features/rolling/components/roll-toasts/roll-toasts'
-import {
-  briefOf,
-  reasons,
-  RollTray,
-} from '@/features/rolling/components/roll-tray/roll-tray'
+import { RollTray } from '@/features/rolling/components/roll-tray/roll-tray'
+import { briefOf } from '@/features/rolling/utils/brief'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { slotName, slotWords } from '@/features/sheet/utils/slot-words'
 import { ChatLog } from '@/features/table/components/chat-log/chat-log'
@@ -50,6 +47,7 @@ import {
   mockTableView,
   mockTurnCombat,
 } from '@/mocks/sending-stone'
+import { askTitle } from '@/utils/ask-words'
 import {
   moveLabel,
   moveReasons,
@@ -57,18 +55,14 @@ import {
   namesWords,
   thingsWords,
 } from '@/utils/move-words'
-import { askTitle, toTableSheet } from '@/utils/table-view'
+import { reasons } from '@/utils/roll-reasons'
+import { toTableSheet } from '@/utils/table-view'
 import {
   advance,
   atFixedTime,
   normalizeTimes,
   responding,
 } from '@/utils/test-utils'
-import type {
-  LocalMove,
-  LocalRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
 import type { Character, TableSeat } from '@/types/character'
 import type {
   NoteBookKind,
@@ -77,6 +71,7 @@ import type {
   NoteRefusal,
   NoteState,
 } from '@/types/notes'
+import type { LocalMove, LocalRoll, TableRollState } from '@/types/roll'
 import type {
   EndableTurn,
   TableAsk,

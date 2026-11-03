@@ -1,3 +1,5 @@
+import type { COOKBOOK_REFUSAL } from '@/constants/cookbook'
+
 /**
  * The Magical Recipe Book's body, version 1, as its server builds it (its
  * src/server/sending-stone/types.ts).
@@ -103,3 +105,6 @@ export type CookbookPlace = {
   make: () => Promise<CookbookCodeAnswer>
   revoke: () => Promise<void>
 }
+
+export type CookbookRefusalReason =
+  (typeof COOKBOOK_REFUSAL)[keyof typeof COOKBOOK_REFUSAL]

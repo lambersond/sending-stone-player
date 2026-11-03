@@ -4,20 +4,23 @@ import {
   MOST_EXTRAS,
   REROLL_NOTE,
   useSheetRoller,
-  type LocalCheck,
-  type LocalDamage,
-  type LocalFormula,
-  type SheetDamageRoll,
-  type SheetFormulaRoll,
-  type SheetRoll,
-  type TypedRolls,
 } from '../hooks/use-sheet-roller'
-import { damageRollOf, toRollRequest } from '../hooks/use-table-rolls'
-import { shownTotal } from '@/features/rolling/components/roll-tray/roll-tray'
+import { toRollRequest } from '../hooks/use-table-rolls'
+import { damageRollOf } from '../utils/damage-due'
+import { shownTotal } from '@/features/rolling/utils/brief'
 import { ELVEN_LINE } from '@/features/rolling/utils/typed-dice'
 import { BANE_DIE, BLESS_DIE, INSPIRATION_DIE } from '@/mocks/sending-stone'
 import { MAX_EXTRAS } from '@/schemas/roll-request'
-import type { SheetOffer } from '@/features/rolling/utils/effect-dice'
+import type {
+  LocalCheck,
+  LocalDamage,
+  LocalFormula,
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+  TypedRolls,
+  SheetOffer,
+} from '../../../types/roll'
 import type { DiceEntry, EnterDice } from '@/types/dice-entry'
 import type { DamagePreview, SheetEffectDie } from '@/types/sending-stone'
 

@@ -1,12 +1,6 @@
-import { damageRollOf } from '@/features/rolling/hooks/use-table-rolls'
-import {
-  alonePicks,
-  alonePlan,
-  aloneSelection,
-  type AloneRow,
-} from '@/utils/alone-choices'
-import type { SheetDamageRoll } from '@/features/rolling/hooks/use-sheet-roller'
-import type { DamageModifiers } from '@/utils/damage-modifiers'
+import { damageRollOf } from '@/features/rolling/utils/damage-due'
+import { alonePicks, alonePlan, aloneSelection } from '@/utils/alone-choices'
+import type { SheetDamageRoll, AloneRow, DamageModifiers } from '@/types/roll'
 
 /*
  * An action's damage or healing on its own (module 0.36.0): rolled from the dice the game said it
@@ -16,15 +10,7 @@ import type { DamageModifiers } from '@/utils/damage-modifiers'
  * what its use would where the player asks.
  */
 
-export {
-  alonePicks,
-  alonePlan,
-  aloneSelection,
-  type AlonePicks,
-  type AlonePlan,
-  type AloneRow,
-  type AloneSelection,
-} from '@/utils/alone-choices'
+export { alonePicks, alonePlan, aloneSelection } from '@/utils/alone-choices'
 
 /**
  * How the player rolls damage on its own: as a critical hit's, changed, as a kind chosen; and from

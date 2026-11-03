@@ -50,8 +50,6 @@ export const REFUSAL = {
   UNAVAILABLE: 'unavailable',
 } as const
 
-export type RefusalReason = (typeof REFUSAL)[keyof typeof REFUSAL]
-
 /** How often a campaign's latest refusal is written, at most, unless its reason changes. */
 export const REFUSAL_RECORD_EVERY = 60_000
 
@@ -280,7 +278,6 @@ export const TRANSFERS = 1
  * party's coin of one kind among its members that are the campaign's characters (`distribute`).
  */
 export const TRANSFER_FEATURES = ['partySends', 'distribute'] as const
-export type TransferFeature = (typeof TRANSFER_FEATURES)[number]
 
 /**
  * The format of removals of a character's items this app takes, as it tells the module
@@ -341,7 +338,6 @@ export const EFFECTS = 1
  * off, turn it back on, or delete it; the state wanted, never a toggle.
  */
 export const EFFECT_OPS = ['disable', 'enable', 'delete'] as const
-export type EffectOp = (typeof EFFECT_OPS)[number]
 
 /**
  * An effect as the sheet names it, from module 0.39.0's `effect` command: the character's own by
@@ -354,7 +350,6 @@ export const EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
  * `prepare` command, as dnd5e's sheet's Prepare and Unprepare do: the state wanted, never a toggle.
  */
 export const PREPARE_OPS = ['prepare', 'unprepare'] as const
-export type PrepareOp = (typeof PREPARE_OPS)[number]
 
 /**
  * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
@@ -369,7 +364,6 @@ export const WILD_SHAPE = 1
  * form, or the Beasts she may learn listed, which writes nothing.
  */
 export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
-export type WildShapeOp = (typeof WILD_SHAPE_OPS)[number]
 
 /**
  * A known form as the sheet names it, from module 0.40.0: the id of its profile on the druid's Wild
@@ -533,7 +527,6 @@ export const SPELL_SLOT = /^(spell[1-9]|pact)$/
  * `spellSlot` command: spend one, as a cast would, or restore one that's used; one at a time.
  */
 export const SPELL_SLOT_OPS = ['spend', 'restore'] as const
-export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
 
 /** A weapon's attack mode, as dnd5e keys it, such as "twoHanded" or "thrown-offhand". */
 export const ATTACK_MODE = /^[A-Za-z][\w-]{0,31}$/
@@ -603,3 +596,12 @@ export const ROLLS_PER_MINUTE = 20
  * don't count.
  */
 export const ASKS_PER_MINUTE = 3
+
+/** The classes of the links the app acts on. */
+export const LINK_CLASSES = [
+  'ss-save',
+  'ss-check',
+  'ss-damage',
+  'ss-roll',
+  'ss-condition',
+] as const

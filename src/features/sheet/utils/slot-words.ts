@@ -1,4 +1,5 @@
-import { ordinal, type SlotPool } from '@/utils/action-groups'
+import { ordinal } from '@/utils/action-groups'
+import type { SlotPool } from '@/types/sending-stone'
 
 // How a pool of spell slots is named, as the app says it everywhere; the use picker keeps its own
 // copy (round 0.42.1 §U, so the items revert apart).

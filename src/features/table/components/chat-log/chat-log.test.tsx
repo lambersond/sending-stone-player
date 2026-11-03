@@ -1,14 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ChatLog, initials } from './chat-log'
+import { initials } from '../../../../utils/initials'
+import { ChatLog } from './chat-log'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { brokenImages as brokenBeforeMount } from '@/utils/test-utils'
-import type {
-  TableDamage,
-  TableDamageKind,
-  TableMessage,
-  TableRoll,
-} from '@/types/table'
+import type { TableRoll } from '@/types/roll'
+import type { TableDamage, TableDamageKind, TableMessage } from '@/types/table'
 
 const message = (fields: Partial<TableMessage> = {}): TableMessage => ({
   id: 'm1',

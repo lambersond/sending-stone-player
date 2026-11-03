@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
-import type { SheetFormulaRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import type { SheetFormulaRoll } from '@/types/roll'
 import type { SheetUses } from '@/types/sending-stone'
 
 /*

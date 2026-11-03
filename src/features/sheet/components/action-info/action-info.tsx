@@ -2,21 +2,18 @@
 
 import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import {
-  closingAfter,
-  DescriptionLinks,
-  spellOrigin,
-  useDescriptionActions,
-  type DescriptionOrigin,
-} from '../description-actions/description-actions'
-import { joinParts } from '../sheet-entry/sheet-entry'
+import { joinParts } from '../../utils/join-parts'
+import { DescriptionLinks } from '../description-actions/description-links'
+import { useDescriptionActions } from '../description-actions/use-description-actions'
+import { closingAfter, spellOrigin } from '../description-actions/utils'
 import { SheetText } from '../sheet-text/sheet-text'
 import { UsesButton } from '../uses-button/uses-button'
 import { Modal } from '@/components/modal/modal'
-import { ordinal, poolName, type SlotPool } from '@/utils/action-groups'
+import { ordinal, poolName } from '@/utils/action-groups'
 import { rechargeWords } from '@/utils/creature-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { itemSpellOf } from '@/utils/sheet-actions'
+import type { DescriptionOrigin } from '../description-actions/types'
 import type {
   SheetAction,
   SheetActivity,
@@ -26,6 +23,7 @@ import type {
   SheetSpellSection,
   SheetSpend,
   SheetUses,
+  SlotPool,
 } from '@/types/sending-stone'
 
 /*

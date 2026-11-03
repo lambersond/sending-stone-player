@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import { ChatLog } from '../components/chat-log/chat-log'
 import { chatMessage } from '@/mocks/sending-stone'
-import { toTableMessages, type Viewer } from '@/utils/table-view'
+import { toTableMessages } from '@/utils/table-view'
 import type { RollSummary, SerializedMessage } from '@/types/sending-stone'
+import type { Viewer } from '@/types/table'
 
 // What module 0.30.0 sends of chat results that reaches the chat: a check's Success or Failure,
 // and the Gamemaster's rolls on Midi-QOL's cards, trimmed as Midi-QOL trims them for players.

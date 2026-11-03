@@ -6,7 +6,7 @@ import {
 } from '../components/action-chips/recharge-chip'
 import { ActionsTab } from '../components/actions-tab/actions-tab'
 import { CharacterPane } from '../components/character-pane/character-pane'
-import { Charging } from '../components/uses-button/uses-button'
+import { Charging } from '../components/charging/charging'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { fireBreath, lightningBreath, spiritSheet } from '@/mocks/alone'

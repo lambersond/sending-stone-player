@@ -1,10 +1,8 @@
 'use client'
 
 import { useLayoutEffect, useRef, type RefObject } from 'react'
-import type { LocalRoll } from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
-import type { OfferSpend } from '@/features/rolling/utils/effect-dice'
-import type { Effects } from '@/features/sheet/components/effect-controls/effect-controls'
+import type { Effects } from '@/features/sheet/components/effect-controls/types'
+import type { LocalRoll, TableRollState, OfferSpend } from '@/types/roll'
 
 /**
  * The ways a roll's way to the game ends without it made, which spend no die offered that the

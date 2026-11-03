@@ -14,10 +14,12 @@ import {
 } from 'lucide-react'
 import { EmptyState } from '../../../../components/empty-state/empty-state'
 import { LocalTime } from '../../../../components/local-time/local-time'
-import { Chevron } from '@/features/sheet/components/action-entry/action-entry'
+import { Chevron } from '@/components/chevron/chevron'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import { useTableRole } from '@/hooks/use-table-api'
-import { askTitle } from '@/utils/table-view'
+import { askTitle } from '@/utils/ask-words'
+import { initials } from '@/utils/initials'
+import type { TableRoll } from '@/types/roll'
 import type {
   DamagePool,
   Side,
@@ -26,7 +28,6 @@ import type {
   TableDamage,
   TableDamageKind,
   TableMessage,
-  TableRoll,
   TableTarget,
 } from '@/types/table'
 
@@ -777,15 +778,4 @@ function SpeakerAvatar({
       {initials(name)}
     </span>
   )
-}
-
-/** Up to two letters from a speaker's name, for their avatar. */
-export function initials(name: string): string {
-  const letters = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(word => word.charAt(0).toUpperCase())
-    .join('')
-  return letters || '?'
 }

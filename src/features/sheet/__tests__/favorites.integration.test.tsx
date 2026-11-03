@@ -7,17 +7,16 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from '../components/character-pane/character-pane'
-import {
-  Effecting,
-  useEffectControls,
-} from '../components/effect-controls/effect-controls'
-import { FavoriteMarks } from '../components/favorite-mark/favorite-mark'
+import { Effecting } from '../components/effect-controls/effecting'
+import { useEffectControls } from '../components/effect-controls/use-effect-controls'
+import { FavoriteMarks } from '../components/favorite-mark/favorite-marks'
 import {
   FavoritesColumn,
   FavoritesStrip,
 } from '../components/favorites/favorites'
 import { Favoriting } from '../components/favoriting/favoriting'
-import { Preparing, usePreparing } from '../components/preparing/preparing'
+import { Preparing } from '../components/preparing/preparing'
+import { usePreparing } from '../components/preparing/use-preparing'
 import {
   castingSheet,
   fullerSheet,
@@ -31,12 +30,12 @@ import {
 } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
 import { toTableSheet } from '@/utils/table-view'
-import type { EffectOp } from '@/constants/sending-stone'
 import type {
   CharacterSheet,
   SheetEffect,
   SheetFavorite,
   SheetUses,
+  EffectOp,
 } from '@/types/sending-stone'
 
 // For the pane the favorites are shown in while shaped (module 0.40.0): without WebGL the renderer

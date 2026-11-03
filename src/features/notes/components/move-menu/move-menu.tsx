@@ -17,7 +17,8 @@ import {
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import { Check, ChevronDown, FolderInput, LoaderCircle } from 'lucide-react'
-import { usePortalRoot, useTopmostEscape } from '@/components/modal/portal-root'
+import { usePortalRoot } from '@/components/modal/use-portal-root'
+import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import type { NoteChapterView, NoteEntryView } from '@/types/notes'
 
 type Props = {

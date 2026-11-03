@@ -1,9 +1,6 @@
-import {
-  needsPlayer,
-  SETTLED,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
-import type { LocalRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import { SETTLED } from '@/constants/lifecycle'
+import { needsPlayer } from '@/features/rolling/utils/damage-due'
+import type { LocalRoll, TableRollState } from '@/types/roll'
 
 /**
  * Where this browser keeps how the player's rolls are shown: 'on' for toasts, 'off' for the banner

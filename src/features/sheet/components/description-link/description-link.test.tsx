@@ -9,16 +9,14 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/components/roll-button/roll-button'
-import {
-  DescriptionLinks,
-  sheetTools,
-  type DescriptionActions,
-} from '../description-actions/description-actions'
+import { LONG_PRESS } from '../../../rolling/constants'
+import { DescriptionLinks } from '../description-actions/description-links'
+import { sheetTools } from '../description-actions/utils'
 import { SheetText } from '../sheet-text/sheet-text'
 import { Modal } from '@/components/modal/modal'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { characterSheet, sheetFavorites } from '@/mocks/sending-stone'
+import type { DescriptionActions } from '../description-actions/types'
 import type {
   CriticalRule,
   SheetCondition,

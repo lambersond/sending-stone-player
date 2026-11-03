@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useTheme } from 'next-themes'
-import { LAYOUTS } from '../actions-layout/actions-layout'
+import { LAYOUTS } from '../actions-layout/constants'
 import { SheetSettings } from './sheet-settings'
 import { TableApiContext } from '@/hooks/use-table-api'
 import type { TableSeat } from '@/types/character'

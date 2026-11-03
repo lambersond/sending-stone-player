@@ -24,38 +24,26 @@ import {
 import Link from 'next/link'
 import { EmptyState } from '../../../../components/empty-state/empty-state'
 import { FullscreenButton } from '../../../../components/fullscreen-button/fullscreen-button'
-import {
-  LiveStatus,
-  type LiveState,
-} from '../../../../components/live-status/live-status'
+import { LiveStatus } from '../../../../components/live-status/live-status'
+import { TurnToastContext } from '../../../../hooks/use-turn-toast-foot'
 import { ChatLog } from '../chat-log/chat-log'
 import { CombatTracker } from '../combat-tracker/combat-tracker'
-import {
-  newlyNotMade,
-  refusalKey,
-  TurnToast,
-  TurnToastContext,
-} from '../turn-toast/turn-toast'
+import { newlyNotMade, refusalKey, TurnToast } from '../turn-toast/turn-toast'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
 import { Scroller } from '@/components/scroller/scroller'
 import { CharacterChooser } from '@/features/characters/components/character-chooser/character-chooser'
-import { DeleteCharacterWarning } from '@/features/characters/components/character-list/remove-character-button'
+import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { CompanionAskNotice } from '@/features/companions/components/companion-ask-notice/companion-ask-notice'
 import { CompanionPane } from '@/features/companions/components/companion-pane/companion-pane'
-import {
-  CreatureSwitcher,
-  type SwitcherCreature,
-} from '@/features/companions/components/creature-switcher/creature-switcher'
-import {
-  CONFIGURE_COOKBOOK,
-  useCookbookEntry,
-} from '@/features/cookbook/components/cookbook-entry/cookbook-entry'
+import { CreatureSwitcher } from '@/features/companions/components/creature-switcher/creature-switcher'
+import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
+import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
 import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
 import { PartyPanel } from '@/features/party/components/party-panel/party-panel'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
-import { classLine } from '@/features/sheet/components/character-sheet/character-sheet'
-import { PartySheetList } from '@/features/sheet/components/party-sheets/party-sheets'
-import { WildShapeEnded } from '@/features/sheet/components/wild-shape/wild-shape'
+import { PartySheetList } from '@/features/sheet/components/party-sheets/party-sheet-list'
+import { WildShapeEnded } from '@/features/sheet/components/wild-shape/wild-shape-ended'
+import { classLine } from '@/features/sheet/utils/class-line'
 import { useCreatureChoice } from '@/features/table/hooks/use-creature-choice'
 import { useEndTurn } from '@/features/table/hooks/use-end-turn'
 import { useHold } from '@/features/table/hooks/use-hold'
@@ -75,15 +63,13 @@ import {
   useWaitingCompanions,
   useWaitingPrompts,
 } from '@/hooks/use-waiting-prompts'
-import {
-  companionRow,
-  numberedNames,
-  type RowCompanion,
-} from '@/utils/companion-row'
+import { companionRow, numberedNames } from '@/utils/companion-row'
 import { megabytes } from '@/utils/format-amount'
 import { gameHost } from '@/utils/game-host'
 import { seatWords } from '@/utils/seat-words'
 import { headerLineOf, switcherWords } from '@/utils/wild-shape-words'
+import type { LiveState } from '../../../../components/live-status/types'
+import type { SwitcherCreature } from '@/features/companions/types'
 import type { NotesPlace } from '@/features/notes/types'
 import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
@@ -97,6 +83,7 @@ import type {
   TableCompanion,
   TableMessage,
   TableView,
+  RowCompanion,
 } from '@/types/table'
 
 type Tab = 'character' | 'combat' | 'chat'

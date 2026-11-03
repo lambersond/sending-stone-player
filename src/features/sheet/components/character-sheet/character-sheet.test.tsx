@@ -6,7 +6,8 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CharacterSheet, classLine } from './character-sheet'
+import { classLine } from '../../utils/class-line'
+import { CharacterSheet } from './character-sheet'
 import {
   characterSheet,
   druidSheet,

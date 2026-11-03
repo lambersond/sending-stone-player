@@ -12,56 +12,56 @@ import {
   Star,
 } from 'lucide-react'
 import { RollButton } from '../../../rolling/components/roll-button/roll-button'
-import {
-  ActionEntry,
-  FALLBACKS,
-  useActionRows,
-  type ActionRows,
-  type TableDamage,
-} from '../action-entry/action-entry'
+import { joinParts } from '../../utils/join-parts'
+import { ActionEntry } from '../action-entry/action-entry'
+import { FALLBACKS } from '../action-entry/constants'
+import { useActionRows } from '../action-entry/use-action-rows'
 import {
   ModeChip,
   modeText,
   PROFICIENCY,
 } from '../character-sheet/character-sheet'
-import { EffectEntry } from '../effects-tab/effects-tab'
-import { FavoriteMarks, NO_MARKS } from '../favorite-mark/favorite-mark'
-import { FeatureEntry } from '../features-tab/features-tab'
-import {
-  hitDiceText,
-  hitDieSpending,
-  HitDieUse,
-  type HitDieSpending,
-} from '../hit-dice/hit-dice'
+import { useCharging } from '../charging/use-charging'
+import { EffectEntry } from '../effects-tab/effect-entry'
+import { NO_MARKS } from '../favorite-mark/constants'
+import { FavoriteMarks } from '../favorite-mark/favorite-marks'
+import { FeatureEntry } from '../features-tab/feature-entry'
 import { HitDieIcon } from '../hit-dice/hit-die-icon'
-import { ItemEntry } from '../inventory-tab/inventory-tab'
-import { joinParts, SheetEntry } from '../sheet-entry/sheet-entry'
-import { slotsLive, SpellSlots } from '../spell-slots/spell-slots'
-import { SpellEntry } from '../spells-tab/spells-tab'
-import { useCharging, UsesButton } from '../uses-button/uses-button'
+import { HitDieUse } from '../hit-dice/hit-die-use'
+import { hitDiceText, hitDieSpending } from '../hit-dice/utils'
+import { ItemEntry } from '../inventory-tab/item-entry'
+import { SheetEntry } from '../sheet-entry/sheet-entry'
+import { SpellSlots } from '../spell-slots/spell-slots'
+import { slotsLive } from '../spell-slots/utils'
+import { SpellEntry } from '../spells-tab/spell-entry'
+import { UsesButton } from '../uses-button/uses-button'
 import { Scroller } from '@/components/scroller/scroller'
 import { useWidth } from '@/features/sheet/hooks/use-width'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { rechargeWords } from '@/utils/creature-words'
-import { resourceNote, type FavoriteEntry } from '@/utils/favorites'
+import { resourceNote } from '@/utils/favorites'
 import { formatModifier } from '@/utils/format-modifier'
 import { spendable } from '@/utils/formulas'
-import type { RollActions } from '../../../rolling/components/d20-rolls/d20-rolls'
+import type { RollActions } from '../../../rolling/types'
+import type { ActionRows, TableDamage } from '../action-entry/types'
+import type { HitDieSpending } from '../hit-dice/types'
 import type {
+  FavoriteTarget,
+  RollSource,
   SheetDamageRoll,
   SheetFormulaRoll,
   SheetRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { FavoriteTarget, RollSource } from '@/types/roll'
+  DamageModifiers,
+} from '@/types/roll'
 import type {
   SheetAbility,
   SheetAction,
   SheetClass,
   SheetSkill,
   SheetSlotsFavorite,
+  FavoriteEntry,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { DamageModifiers } from '@/utils/damage-modifiers'
 
 type Props = {
   characterId: string

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EndTurnButton } from './end-turn-button'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { TableRollState } from '@/types/roll'
 import type { EndableTurn } from '@/types/table'
 
 const thorins: EndableTurn = {

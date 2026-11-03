@@ -6,16 +6,15 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FavoriteMarks } from '../favorite-mark/favorite-mark'
+import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
 import { SheetFact } from '../sheet-fact/sheet-fact'
-import { useWildShape, WildShaping } from '../wild-shape/wild-shape'
-import { InventoryTab, ItemEntry } from './inventory-tab'
+import { useWildShape } from '../wild-shape/use-wild-shape'
+import { WildShaping } from '../wild-shape/wild-shaping'
+import { InventoryTab } from './inventory-tab'
+import { ItemEntry } from './item-entry'
 import { Modal } from '@/components/modal/modal'
-import {
-  Transferring,
-  type TransferControls,
-} from '@/features/transfers/components/transferring/transferring'
+import { Transferring } from '@/features/transfers/components/transferring/transferring'
 import {
   castingSheet,
   characterSheet,
@@ -28,9 +27,10 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import type { TransferControls } from '@/features/transfers/types'
+import type { SeatRole } from '@/types/seats'
 import type { CharacterSheet, SheetInventory } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>

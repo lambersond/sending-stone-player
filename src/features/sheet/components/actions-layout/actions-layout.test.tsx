@@ -1,11 +1,8 @@
 import { act, render, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  LAYOUT_KEY,
-  LAYOUTS,
-  LayoutPicker,
-  useActionsLayout,
-} from './actions-layout'
+import { LAYOUTS } from './constants'
+import { LayoutPicker } from './layout-picker'
+import { LAYOUT_KEY, useActionsLayout } from './use-actions-layout'
 
 const ids = (layouts: typeof LAYOUTS) => layouts.map(({ id }) => id)
 

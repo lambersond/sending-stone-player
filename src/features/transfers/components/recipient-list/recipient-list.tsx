@@ -3,8 +3,8 @@
 import { useId, useState } from 'react'
 import clsx from 'clsx'
 import { UserRound, Users, type LucideIcon } from 'lucide-react'
+import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import { SearchField } from '@/components/search-field/search-field'
-import { EntryIcon } from '@/features/sheet/components/sheet-entry/sheet-entry'
 import { matchesSearch, searchKey } from '@/utils/search'
 import type { MoveEnd } from '../move-dialog/move-dialog'
 

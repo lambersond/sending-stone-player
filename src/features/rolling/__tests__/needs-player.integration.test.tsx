@@ -1,23 +1,20 @@
 import { render, screen, within } from '@testing-library/react'
 import { RollToasts } from '../components/roll-toasts/roll-toasts'
 import { RollTray } from '../components/roll-tray/roll-tray'
-import {
-  damageDue,
-  needsPlayer,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+import { damageDue, needsPlayer } from '@/features/rolling/utils/damage-due'
 import type {
   LocalCheck,
   LocalDamage,
   LocalRoll,
   LocalUse,
-} from '@/features/rolling/hooks/use-sheet-roller'
+  TableRollState,
+} from '@/types/roll'
 
 // The real ones, watched, so that a test can have them say otherwise.
-jest.mock('@/features/rolling/hooks/use-table-rolls', () => {
+jest.mock('@/features/rolling/utils/damage-due', () => {
   const actual = jest.requireActual<
-    typeof import('@/features/rolling/hooks/use-table-rolls')
-  >('@/features/rolling/hooks/use-table-rolls')
+    typeof import('@/features/rolling/utils/damage-due')
+  >('@/features/rolling/utils/damage-due')
   return {
     ...actual,
     damageDue: jest.fn(actual.damageDue),
@@ -26,8 +23,8 @@ jest.mock('@/features/rolling/hooks/use-table-rolls', () => {
 })
 
 const actual = jest.requireActual<
-  typeof import('@/features/rolling/hooks/use-table-rolls')
->('@/features/rolling/hooks/use-table-rolls')
+  typeof import('@/features/rolling/utils/damage-due')
+>('@/features/rolling/utils/damage-due')
 
 const attack: LocalCheck = {
   kind: 'check',

@@ -7,12 +7,15 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/components/roll-button/roll-button'
-import { castNote, verbOf } from '../action-entry/action-entry'
-import { FavoriteMarks } from '../favorite-mark/favorite-mark'
+import { LONG_PRESS } from '../../../rolling/constants'
+import { castNote } from '../action-entry/action-entry'
+import { verbOf } from '../action-entry/utils'
+import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
-import { Preparing, usePreparing } from '../preparing/preparing'
-import { useWildShape, WildShaping } from '../wild-shape/wild-shape'
+import { Preparing } from '../preparing/preparing'
+import { usePreparing } from '../preparing/use-preparing'
+import { useWildShape } from '../wild-shape/use-wild-shape'
+import { WildShaping } from '../wild-shape/wild-shaping'
 import { ActionsTab } from './actions-tab'
 import { SheetIdPrefix } from '@/features/sheet/hooks/use-sheet-ids'
 import { fireBreath, lightningBreath, spiritSheet } from '@/mocks/alone'
@@ -30,7 +33,8 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { Layout } from '../actions-layout/actions-layout'
+import type { Layout } from '../actions-layout/constants'
+import type { SeatRole } from '@/types/seats'
 import type {
   CharacterSheet,
   SheetAction,
@@ -39,7 +43,6 @@ import type {
   SheetSpell,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 const GAME = 'https://my-game.forge-vtt.com'

@@ -17,28 +17,17 @@ import {
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import { BellRing, Dices, HeartPulse, Send, Swords } from 'lucide-react'
-import {
-  formulaOf,
-  useDamageMenu,
-  type DamageChoice,
-  type DamageSubject,
-} from '../../../rolling/components/damage-menu/damage-menu'
+import { useDamageMenu } from '../../../rolling/components/damage-menu/use-damage-menu'
 import { ModifyRoll } from '../../../rolling/components/modify-roll/modify-roll'
-import {
-  RollButton,
-  type RollTarget,
-} from '../../../rolling/components/roll-button/roll-button'
-import {
-  choiceItem,
-  ChoiceMenu,
-  D20_CHOICES,
-  type MenuItem,
-  type MenuPoint,
-  type RollChoice,
-} from '../../../rolling/components/roll-menu/roll-menu'
-import { rulesOf } from '../conditions/conditions-panel'
+import { RollButton } from '../../../rolling/components/roll-button/roll-button'
+import { ChoiceMenu } from '../../../rolling/components/roll-menu/choice-menu'
+import { D20_CHOICES } from '../../../rolling/constants'
+import { formulaOf } from '../../../rolling/utils/damage-words'
+import { choiceItem } from '../../../rolling/utils/menu-points'
+import { rulesOf } from '../conditions/utils'
 import { Modal } from '@/components/modal/modal'
-import { usePortalRoot, useTopmostEscape } from '@/components/modal/portal-root'
+import { usePortalRoot } from '@/components/modal/use-portal-root'
+import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { ABILITIES } from '@/constants/dnd5e'
 import { toAdvantage } from '@/features/rolling/utils/roll-mode'
 import { useRollsLocked } from '@/hooks/use-rolls-locked'
@@ -50,36 +39,47 @@ import {
   EVERY_DIE_TWICE,
   sameFirstDie,
   withModifiers,
-  type CriticalAdds,
 } from '@/utils/damage-modifiers'
 import {
   checkName,
   checkTitle,
   toolOrSkillName,
-  type CheckLink,
-  type CheckOption,
-  type ConditionLink,
-  type DamageLink,
-  type RollLink,
-  type SaveLink,
 } from '@/utils/description-links'
 import { formatModifier } from '@/utils/format-modifier'
 import { formulaTerms } from '@/utils/formulas'
 import type { LinkPart } from '../../../../components/description/description-html'
 import type {
+  DamageChoice,
+  DamageSubject,
+  RollTarget,
+  MenuItem,
+  MenuPoint,
+  RollChoice,
+} from '../../../rolling/types'
+import type {
   DescribedDamage,
   DescriptionActions,
   DescriptionOrigin,
-} from '../description-actions/description-actions'
-import type { ActivityRef, TextLink } from '@/types/roll'
+} from '../description-actions/types'
+import type {
+  ActivityRef,
+  TextLink,
+  ExtraTerm,
+  CriticalAdds,
+} from '@/types/roll'
 import type {
   CriticalRule,
   RollMode,
   SheetAbility,
   SheetSkill,
   SheetTool,
+  CheckLink,
+  CheckOption,
+  ConditionLink,
+  DamageLink,
+  RollLink,
+  SaveLink,
 } from '@/types/sending-stone'
-import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /*
  * The links in a description, as the sheet acts on them: a saving throw or check it calls for

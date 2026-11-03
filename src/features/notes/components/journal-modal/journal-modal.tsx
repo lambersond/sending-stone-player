@@ -40,9 +40,10 @@ import { NotePane } from '../note-pane/note-pane'
 import { NoteTime } from '../note-time/note-time'
 import { Pane } from '../pane/pane'
 import { ReorderPane } from '../reorder-pane/reorder-pane'
-import { readDescription } from '@/components/description/description-html'
-import { ConfirmModal } from '@/components/modal/confirm-dialog'
-import { InPortalRoot, useDialogRoot } from '@/components/modal/portal-root'
+import { readDescription } from '@/components/description/read-description'
+import { ConfirmModal } from '@/components/modal/confirm-modal'
+import { InPortalRoot } from '@/components/modal/in-portal-root'
+import { useDialogRoot } from '@/components/modal/portal-root'
 import { useKeyboardInset } from '@/features/notes/hooks/use-keyboard-inset'
 import {
   journalTitle,
@@ -55,7 +56,7 @@ import {
 import { movedWords, orderSavedWords } from '@/features/notes/utils/order-words'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
 import { matchesSearch } from '@/utils/search'
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
 import type {
   NoteDraft,
   NotePick,
@@ -69,6 +70,7 @@ import type {
   NotesView,
   NoteWriteAnswer,
 } from '@/types/notes'
+import type { SeatRole } from '@/types/seats'
 
 /** How long the header says what was done, in milliseconds, before it clears itself. */
 const SAID_FOR = 6000

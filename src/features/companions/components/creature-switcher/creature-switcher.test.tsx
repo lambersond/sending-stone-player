@@ -10,7 +10,8 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CreatureSwitcher, type SwitcherCreature } from './creature-switcher'
+import { CreatureSwitcher } from './creature-switcher'
+import type { SwitcherCreature } from '../../types'
 
 /*
  * The browser lays out the row here as the mock below says (§8.9): a tab is 100 pixels wide, 12

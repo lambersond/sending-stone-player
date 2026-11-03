@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { CHECK_EVERY } from '@/constants/lifecycle'
 import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
-import { CHECK_EVERY } from '@/features/rolling/hooks/use-table-rolls'
 import {
   COMPANY_CHARACTERS,
   movingPartyView,
@@ -9,7 +9,7 @@ import {
   sendingPartyView,
 } from '@/mocks/sending-stone'
 import { posts, respond } from '@/utils/test-utils'
-import type { TakeInto } from '../components/take-controls/take-controls'
+import type { TakeInto } from '../types'
 import type { PartyView } from '@/types/party'
 import type { SheetCurrency } from '@/types/sending-stone'
 

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, type RefObject } from 'react'
 import { END_TURN_LABEL, endTurnWords } from '@/features/table/utils/end-turn'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { TableRollState } from '@/types/roll'
 import type { EndableTurn } from '@/types/table'
 
 /**

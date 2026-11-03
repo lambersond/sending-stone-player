@@ -7,7 +7,6 @@ import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import {
   POLL_INTERVAL,
   useTableView,
-  type Connection,
 } from '@/features/table/hooks/use-table-view'
 import { emptyBook, serveNotes } from '@/mocks/notes-server'
 import { characterSheet } from '@/mocks/sending-stone'
@@ -16,7 +15,7 @@ import { responding as respond } from '@/utils/test-utils'
 import type { CampaignChoice } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
-import type { TableView } from '@/types/table'
+import type { TableView, Connection } from '@/types/table'
 
 // The character's own journal at its table: its card (module 0.35.0) on the sheet's Biography tab,
 // or under why there's no sheet, polled only while in view or open; the journal it opens kept open

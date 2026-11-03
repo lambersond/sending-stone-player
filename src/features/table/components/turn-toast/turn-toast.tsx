@@ -1,15 +1,9 @@
 'use client'
 
-import {
-  createContext,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { createPortal } from 'react-dom'
-import { reasons } from '@/features/rolling/components/roll-tray/roll-tray'
+import { NOT_MADE } from '@/constants/lifecycle'
 import { useToastTop } from '@/features/rolling/hooks/use-roll-toasts'
 import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
@@ -24,31 +18,17 @@ import {
 } from '@/features/table/utils/end-turn'
 import { useHydrated } from '@/hooks/use-hydrated'
 import { useTableRole } from '@/hooks/use-table-api'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import { reasons } from '@/utils/roll-reasons'
 import type { useEndTurn } from '@/features/table/hooks/use-end-turn'
 import type { useTurnUndo } from '@/features/table/hooks/use-turn-undo'
-import type { EndedTurn } from '@/types/roll'
+import type { EndedTurn, TableRollState } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type { EndableTurn, TableCombat } from '@/types/table'
-import type { SeatRole } from '@/utils/seat-words'
-
-/**
- * Where the turn's toast ends, in pixels from the top of the screen, while one shows (module
- * 0.36.0): the roll toasts start below it.
- */
-export const TurnToastContext = createContext<number | undefined>(undefined)
 
 type Ending = ReturnType<typeof useEndTurn>
 type Undoing = ReturnType<typeof useTurnUndo>
 /** The last End Turn sent, and its way. */
 type Sent = NonNullable<Ending['sent']>
-
-/** How an End Turn's or an Undo's way ends where the turn stays as it was. */
-export const NOT_MADE: ReadonlySet<TableRollState['status']> = new Set([
-  'refused',
-  'failed',
-  'expired',
-  'lost',
-])
 
 /**
  * How long a turn the game has ended, or taken back, may still be shown as it was before the page

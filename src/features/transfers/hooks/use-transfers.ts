@@ -1,16 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  follow,
-  labelled,
-  SETTLED,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+import { SETTLED } from '@/constants/lifecycle'
+import { follow, labelled } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
-import type { RollRequestInput, TransferInput } from '@/types/roll'
-import type { SeatRole } from '@/utils/seat-words'
+import type {
+  RollRequestInput,
+  TransferInput,
+  LocalMove,
+  TableRollState,
+} from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 
 /** A move sent from this page, as it's followed. */
 type Followed = {

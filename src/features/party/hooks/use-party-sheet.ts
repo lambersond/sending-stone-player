@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  POLL_INTERVAL,
-  type Connection,
-} from '@/features/table/hooks/use-table-view'
+import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import type { PartyView } from '@/types/party'
+import type { Connection } from '@/types/table'
 
 /** The longest wait between attempts while the server cannot be reached. */
 const MAX_DELAY = 30_000

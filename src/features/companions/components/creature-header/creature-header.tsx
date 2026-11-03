@@ -1,16 +1,15 @@
 import { Shield } from 'lucide-react'
-import {
-  Conditions,
-  DeathSavesStat,
-  HitPoints,
-  InitiativeStat,
-  Portrait,
-  Stat,
-  WalkingSpeed,
-} from '@/features/sheet/components/sheet-tiles/sheet-tiles'
+import { otherSpeeds } from './utils'
+import { Conditions } from '@/features/sheet/components/sheet-tiles/conditions'
+import { DeathSavesStat } from '@/features/sheet/components/sheet-tiles/death-saves-stat'
+import { HitPoints } from '@/features/sheet/components/sheet-tiles/hit-points'
+import { InitiativeStat } from '@/features/sheet/components/sheet-tiles/initiative-stat'
+import { Portrait } from '@/features/sheet/components/sheet-tiles/portrait'
+import { Stat } from '@/features/sheet/components/sheet-tiles/stat'
+import { WalkingSpeed } from '@/features/sheet/components/sheet-tiles/walking-speed'
 import { creatureLine, crWords, relationWords } from '@/utils/creature-words'
 import { formatModifier } from '@/utils/format-modifier'
-import type { RollActions } from '@/features/rolling/components/d20-rolls/d20-rolls'
+import type { RollActions } from '@/features/rolling/types'
 import type { CreatureFacts, TableSheet } from '@/types/table'
 import type { ReactNode } from 'react'
 
@@ -183,19 +182,5 @@ export function CreatureStats({ sheet }: Readonly<{ sheet: TableSheet }>) {
         </div>
       ))}
     </dl>
-  )
-}
-
-/**
- * A creature's speeds other than its walking speed, for its Speed tile, as its sheet's speeds trait
- * lists them, each beginning in lower case: "Speed 5 ft", "Fly 30 ft" give "fly 30 ft". The first
- * is left out where it has a walking speed, which dnd5e lists first and the tile already shows.
- * None where it has no other.
- */
-export function otherSpeeds(sheet: TableSheet): string[] {
-  const values = sheet.traits.find(({ id }) => id === 'speeds')?.values ?? []
-  const walks = (sheet.speed?.value ?? 0) > 0
-  return (walks ? values.slice(1) : values).map(
-    value => value.charAt(0).toLowerCase() + value.slice(1),
   )
 }

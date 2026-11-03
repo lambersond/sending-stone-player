@@ -6,7 +6,6 @@ import {
   executeRoll,
   themeToBoxConfig,
   toDiceBoxNotation,
-  type Advantage,
   type DiePool,
   type DieSides,
   type ExecuteRollOptions,
@@ -17,9 +16,6 @@ import {
   effectTermLabel,
   skippedWords,
   withoutRerolls,
-  type EffectAsk,
-  type OfferSpend,
-  type SheetOffer,
 } from '@/features/rolling/utils/effect-dice'
 import {
   d20Count,
@@ -33,34 +29,30 @@ import {
   criticalParts,
   EVERY_DIE_TWICE,
   withModifiers,
-  type CriticalAdds,
-  type DamageModifiers,
 } from '@/utils/damage-modifiers'
-import { throwTerm, type ThrownDie } from '@/utils/dice-modifiers'
-import {
-  formatExtraTerm,
-  type ExtraDice,
-  type ExtraTerm,
-} from '@/utils/roll-modifiers'
-import type {
-  EffectOp,
-  PrepareOp,
-  SpellSlotOp,
-} from '@/constants/sending-stone'
+import { throwTerm } from '@/utils/dice-modifiers'
+import { formatExtraTerm } from '@/utils/roll-modifiers'
 import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
 import type {
-  FormulaSource,
-  RollKind,
-  RollRequestInput,
+  SheetRoll,
+  LocalCheck,
+  SheetDamageRoll,
+  LocalDamage,
+  SheetFormulaRoll,
+  LocalFormula,
+  TypedRolls,
+  LocalRoll,
+  LocalUse,
+  LocalMove,
+  LocalAsk,
+  LocalExtra,
+  ExtraDice,
+  ExtraTerm,
+  WildShapeLogged,
+  SheetOffer,
   RollSource,
-  TextLink,
 } from '@/types/roll'
-import type {
-  CriticalRule,
-  SheetEffectDie,
-  TableDamagePlan,
-} from '@/types/sending-stone'
-import type { WildShapeLogged } from '@/utils/wild-shape-words'
+import type { SheetEffectDie, EffectOp, PrepareOp } from '@/types/sending-stone'
 
 /** The dice, in the app's jade. */
 const DICE_THEME = themeToBoxConfig({
@@ -94,433 +86,6 @@ const HIGHEST = () => 1 - Number.EPSILON
  */
 export const REROLL_NOTE =
   'Reroll at the table as your feature says, and type in the die you keep.'
-
-/** A d20 roll from the character's sheet, such as a skill check or a saving throw. */
-export type SheetRoll = {
-  /** What is rolled, such as "Perception check". */
-  label: string
-  modifier: number
-  advantage?: Advantage
-  /** What the player adds, such as +1d4 for Bless. */
-  extras?: ExtraTerm[]
-  /** What it is, for the Gamemaster's game to make it too. */
-  source?: RollSource
-  /**
-   * Whether the player chose how to roll it, as in dnd5e's roll dialog, rather than tapping it to
-   * roll as the sheet has it.
-   */
-  explicit?: boolean
-  /** For an area attack, the names of the combatants it's made at, by their ids. */
-  targetNames?: Record<string, string>
-  /**
-   * For a saving throw or check a description calls for, the DC it names, which it's made against;
-   * or for a check an activity asks for, the activity's.
-   */
-  dc?: number
-  /**
-   * For an attack a spell an item casts makes, such as a staff's Guiding Bolt: cast at a level the
-   * item offers, rather than with a spell slot.
-   */
-  itemCast?: boolean
-  /**
-   * dnd5e gives this attack Elven Accuracy, as its sheet says: a third d20 with advantage, typed
-   * in, from 0.42.1 on its own line, which may be skipped for the game to roll where the roll goes
-   * to the game.
-   */
-  elvenAccuracy?: true
-  /** For an answer to what the game asks, when it stops waiting, as an ISO time. */
-  until?: string
-  /** For an answer to what the game asks, aborted once it's answered or closed elsewhere. */
-  signal?: AbortSignal
-  /**
-   * For a saving throw a description's link calls for, what the link asks: a concentration check,
-   * which dnd5e adds concentration's bonuses to, and so the dice effects add to one (module
-   * 0.42.0).
-   */
-  ask?: EffectAsk
-}
-
-/** Damage or healing from the character's sheet, such as a weapon's. */
-export type SheetDamageRoll = {
-  /** What is rolled, such as "Longsword damage". */
-  label: string
-  /** Each part of the formula, with its kind of damage, such as "Slashing". */
-  parts: { terms: ExtraTerm[]; type: string | null }[]
-  /** A critical hit, which rolls every die twice, unless the game's or its rules say otherwise. */
-  critical?: boolean
-  /** Healing, or temporary hit points, rather than damage. */
-  healing?: boolean
-  /** The attack it's the damage of: its item and attack activity. */
-  source?: { item: string; activity: string }
-  /**
-   * The attack or use made in the Gamemaster's game whose damage this is, to be rolled there too.
-   */
-  use?: string
-  /** For the game, the kind of damage chosen for each of its rolls that offers a choice. */
-  types?: (string | null)[]
-  /** Its dice are the game's, a critical hit's already doubled. */
-  exact?: boolean
-  /** How the player changed it: more of its first die, another size of it, its highest. */
-  modifiers?: DamageModifiers
-  /**
-   * For dice that are the game's, how many it throws for each die added, as a critical hit's
-   * doubled dice take two.
-   */
-  perDie?: number
-  /**
-   * Its dice can't be changed: the game's preview has no first die to change, or one a module
-   * before 0.21.0 would change otherwise.
-   */
-  fixed?: true
-  /** For damage or healing a description deals, its link, for the game to roll it too. */
-  text?: TextLink
-  /**
-   * For a description's damage the game rolls too, how the world's rules make a critical hit's, for
-   * one to be thrown so here, once changed as the player chose, rather than every die twice.
-   */
-  criticalRule?: CriticalRule
-  /**
-   * For a description's damage, what a critical hit adds to each of its parts, where one is
-   * offered, such as a weapon's extra dice and critical damage: thrown with it, as the world's
-   * rules make one, or as dnd5e does by default where none are given.
-   */
-  criticalAdds?: CriticalAdds
-  /** The game's total counts, once it says, as where its formula couldn't be read. */
-  gameTotal?: true
-  /**
-   * Damage or healing on its own (module 0.36.0): its item and activity, the game's plan of its
-   * dice, and whether this is a critical hit's; and from module 0.41.0, where the game sends its
-   * choices, the slot, attack mode and ammunition it's rolled with, and whether it spends what its
-   * use would.
-   */
-  alone?: {
-    item: string
-    activity: string
-    plan?: TableDamagePlan
-    critical?: boolean
-    slot?: string
-    attackMode?: string
-    ammunition?: string
-    consume?: true
-  }
-}
-
-/**
- * Dice and numbers with no d20, from the character's sheet: a hit die spent, or several at once, or
- * an item's activity's own formula, such as a light's radius.
- */
-export type SheetFormulaRoll = {
-  /** What is rolled, such as "Hit die (d10)". */
-  label: string
-  /** Its terms, in order, such as 1d10 and +2; none where it's thrown in sets. */
-  terms: ExtraTerm[]
-  /**
-   * Thrown in sets, all at once, each set's terms so many times, each time coming to its own total,
-   * at least its least: as hit dice spent at once are, a set of each size, the largest first, each
-   * die with the character's Constitution modifier.
-   */
-  sets?: { terms: ExtraTerm[]; times: number }[]
-  /** Hit points given back, as a hit die's are. */
-  healing?: boolean
-  /** The least it comes to, as a hit die spent gives back at least 1; thrown in sets, each time. */
-  minimum?: number
-  /** What it is, for the Gamemaster's game to make it too. */
-  source?: FormulaSource
-  /** A recharge's d6 (module 0.36.0): the uses it recharges. */
-  recharge?: { item: string; activity?: string }
-}
-
-/** Something the player added to a roll, or a term of a damage roll, and what it came to. */
-export type LocalExtra = {
-  /** As written, with its sign: +1d4, −1d6, +5, or a sheet's +2d6r<=2. */
-  text: string
-  /**
-   * Each die's result, as first thrown, which is what the game is sent; empty for a flat number.
-   * Foundry throws again itself any die it rerolls or explodes.
-   */
-  values: number[]
-  /** What it adds to the total: negative for a term taken away. */
-  value: number
-  /**
-   * For a term whose dice Foundry works out once thrown, such as 2d6r<=2's: every die thrown, the
-   * first throw and then any rerolled or exploded, and what became of each.
-   */
-  thrown?: ThrownDie[]
-}
-
-/** A d20 roll as this page keeps it. */
-export type LocalCheck = {
-  kind: 'check'
-  id: string
-  label: string
-  total: number
-  modifier: number
-  advantage?: Advantage
-  /**
-   * Every d20 thrown: two with advantage or disadvantage, three with Elven Accuracy's, or two where
-   * its third was skipped for the game to roll.
-   */
-  d20s: number[]
-  /** The d20 that counts. */
-  natural: number
-  extras: LocalExtra[]
-  /** For a saving throw or check a description calls for, the DC it names; or an activity's. */
-  dc?: number
-  /**
-   * For a saving throw or check a description or an activity calls for, what it's said to do when
-   * it reaches its DC: a saving throw is saved, as one is unless it says, and a check passed.
-   */
-  verdict?: 'save' | 'check'
-  /** Rolled from a link in a description. */
-  described?: boolean
-  /** The player typed its dice in. */
-  typed?: true
-  /**
-   * The dice its effects add, or take away, that the player typed in, from module 0.42.0, each by
-   * its faces and sign, as the game is sent them; none skipped. Each is among `extras` too, after
-   * the player's own.
-   */
-  effectDice?: RollRequestInput['effectDice']
-  /**
-   * A die its effects add was skipped, for the game to roll it, from module 0.42.0, or from 0.42.1
-   * Elven Accuracy's third d20: its total here leaves that out, so it says neither saved nor failed
-   * by itself. Never for a die offered, added or not.
-   */
-  skipped?: true
-  /**
-   * What each die offered that the player added spent, from module 0.42.1, such as Bardic
-   * Inspiration's Inspired: its die is among `extras`, after the player's own, as the game is sent
-   * it, and once the game has made the roll, its effect is removed where the player may remove it.
-   */
-  spends?: OfferSpend[]
-  /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
-  rerolls?: 'kept'
-  at: number
-}
-
-/** A damage or healing roll as this page keeps it. */
-export type LocalDamage = {
-  kind: 'damage'
-  id: string
-  label: string
-  /**
-   * As dnd5e's card adds damage up: each kind's parts together, each kind at least 0, then every
-   * kind.
-   */
-  total: number
-  critical: boolean
-  healing: boolean
-  /** Every die at its highest, as the player chose. */
-  maximized?: boolean
-  /** Each part of the formula, with what it came to, below 0 where it took more away. */
-  parts: { type: string | null; total: number; terms: LocalExtra[] }[]
-  /** Rolled from a link in a description. */
-  described?: boolean
-  /**
-   * A critical hit's whose dice the world's rules change as only the game can add them up, such as
-   * Midi-QOL's at their highest; or one with a die rerolled or exploded, which Foundry throws again
-   * itself: its total is the game's, once it says.
-   */
-  gameTotal?: boolean
-  /** The player typed its dice in. */
-  typed?: true
-  /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
-  rerolls?: 'kept'
-  at: number
-}
-
-/**
- * A spell or feature used in the Gamemaster's game, as this page keeps it: it throws no dice of
- * its own, but follows its way to the game.
- */
-export type LocalUse = {
-  kind: 'use'
-  id: string
-  /** What was used, such as "Fireball". */
-  label: string
-  /** A spell, which is cast, rather than used. */
-  spell: boolean
-  /**
-   * A spell an item casts, or one of its activities, such as a wand's Magic Missile: cast at a
-   * level the item offers, rather than with a spell slot.
-   */
-  itemCast?: boolean
-  /**
-   * An enchantment ended, such as Magic Weapon's on a longsword, rather than anything used, from
-   * module 0.21.0: what it's called is the label; or from module 0.29.0, a concentration ended.
-   */
-  ending?: boolean
-  /**
-   * Charges spent directly, rather than anything used, from module 0.29.0: how many; what they're
-   * of, such as "Sorcery Points", is the label.
-   */
-  spent?: number
-  /** Heroic Inspiration used, or gained, rather than anything used, from module 0.29.0. */
-  inspiration?: 'use' | 'gain'
-  /**
-   * A spell slot spent or restored from the dots, from module 0.42.1, rather than anything used:
-   * which; the pool's slot, such as "1st-level spell slot", is the label.
-   */
-  slot?: SpellSlotOp
-  /**
-   * Items or coins moved, rather than anything used, from module 0.31.0: what moved, as the chat
-   * line says it, is the label.
-   */
-  move?: LocalMove
-  /**
-   * A favorite added or removed, rather than anything used, from module 0.37.0: what it's of is the
-   * label.
-   */
-  favorite?: 'add' | 'remove'
-  /**
-   * A spell prepared or unprepared, rather than anything used, from module 0.42.1: what it's of is
-   * the label.
-   */
-  prepare?: PrepareOp
-  /**
-   * One of the character's own effects turned off, on or deleted, rather than anything used, from
-   * module 0.39.0: which; the effect is the label.
-   */
-  effect?: EffectOp
-  /**
-   * Wild Shape used from here, rather than anything used, from module 0.40.0: a change into a
-   * known form, a return, or a Beast learned, and of which; "Wild Shape" is the label.
-   */
-  wildShape?: WildShapeLogged
-  at: number
-}
-
-/**
- * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
- * party or distributed among its characters, and between whom; or from module 0.33.0 removed from
- * the character.
- */
-export type LocalMove = {
-  verb: 'give' | 'take' | 'send' | 'distribute' | 'remove'
-  /**
-   * As the chat line says it, such as "2 Potion of Healing", or for a distribution, all it shares,
-   * "100 gp".
-   */
-  things: string
-  /**
-   * The other end's name: who it's given or sent to, or the party it's taken or distributed from;
-   * for a removal, the character it's removed from.
-   */
-  other: string
-  /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */
-  mover?: string
-  /** The item moved, if one, to disable its control while pending. */
-  item?: string
-  /** A send's: the party it's sent from, from module 0.32.0. */
-  source?: string
-  /**
-   * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex".
-   */
-  among?: string
-  /** A distribution's: each one's share, such as "25 gp". */
-  each?: string
-}
-
-/** A hit die spent, or a formula rolled, as this page keeps it. */
-export type LocalFormula = {
-  kind: 'formula'
-  id: string
-  label: string
-  total: number
-  healing: boolean
-  /**
-   * Each term, with what it came to; thrown in sets, as hit dice spent at once, each set's dice as
-   * one term, in order, then all of their numbers as one.
-   */
-  terms: LocalExtra[]
-  /**
-   * The least it comes to, when its dice and numbers came to less; for several thrown together,
-   * the least each does, when one of them came to less.
-   */
-  minimum?: number
-  /** How many dice were thrown together, each to its own total, as hit dice spent at once. */
-  times?: number
-  /** Rolled from a link in a description. */
-  described?: boolean
-  /**
-   * A die of it was rerolled or exploded, which Foundry throws again itself: its total is the
-   * game's, once it says.
-   */
-  gameTotal?: boolean
-  /** The player typed its dice in. */
-  typed?: true
-  /** Typed in, its rerolls made at the table, as the game keeps them, from module 0.42.0. */
-  rerolls?: 'kept'
-  /** A recharge's d6 (module 0.36.0): what it recharges, for its titles. */
-  recharge?: { name: string }
-  at: number
-}
-
-/**
- * The table asked for a saving throw or check a description calls for, as this page keeps it: it
- * throws no dice, but follows its way to the game.
- */
-export type LocalAsk = {
-  kind: 'ask'
-  id: string
-  /** What was asked for, such as "DC 15 Dexterity saving throw" or "Strength (Athletics) check". */
-  label: string
-  at: number
-}
-
-/**
- * A roll the campaign's Gamemaster made as the player's character from their page (#156), shown on
- * the player's beside their own: it throws no dice here, but follows its way to the game, as the
- * player's table view tells it.
- */
-export type LocalGmRoll = {
-  kind: 'gm'
-  /** Apart from this page's own: `gm:` and its id at the table. */
-  id: string
-  /** As the Gamemaster's page called it, such as "Perception check". */
-  label: string
-  /** What it is, such as "skill" or "attack". */
-  rolled: RollKind
-  /** Of damage, healing, as the game said it is. */
-  healing?: true
-  /** Of a spell slot, from module 0.42.1: spent or restored, as the Gamemaster's page asked. */
-  slotOp?: SpellSlotOp
-  /**
-   * When this page first heard of it, by this device's clock, as its own rolls are made by
-   * (`useGmRolls`).
-   */
-  at: number
-}
-
-/**
- * A roll as this page keeps it, or a use, or an ask; or one of the Gamemaster's as the character.
- */
-export type LocalRoll =
-  LocalCheck | LocalDamage | LocalUse | LocalFormula | LocalAsk | LocalGmRoll
-
-/**
- * What the game takes of a roll typed in, from module 0.42.0: the dice the character's effects add
- * to it, or take from it, each asked for, or skipped for the game to roll; and whether the dice
- * typed are kept as the player rerolled them at the table. From 0.42.1, whether the roll goes to
- * the game at all, for Elven Accuracy's third d20 to be skipped for it to roll; and from module
- * 0.42.1, the dice the sheet offers it, for the player to add once it fails.
- */
-export type TypedRolls = {
-  /** The dice effects add to this roll, to type in: none where the game takes none. */
-  effectsFor: (request: SheetRoll) => SheetEffectDie[]
-  keptRerolls: boolean
-  /**
-   * Whether this roll goes to the game from this device now, from 0.42.1: only then may Elven
-   * Accuracy's third d20 be skipped, for the game to roll. Left out, it doesn't.
-   */
-  sends?: (request: SheetRoll) => boolean
-  /**
-   * The dice the sheet offers this roll, from module 0.42.1, such as Bardic Inspiration's, which
-   * the player may add once the roll fails: none where the game takes none, or each is spent.
-   * Left out, none.
-   */
-  offersFor?: (request: SheetRoll) => SheetOffer[]
-}
 
 /** A die an effect adds, as the player typed it: no values where it was skipped. */
 type TypedEffect = { die: SheetEffectDie; values: number[] }

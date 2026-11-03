@@ -10,20 +10,17 @@ import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 import { RollTray } from '../roll-tray/roll-tray'
 import { RollToasts } from './roll-toasts'
-import {
-  gmRollsOf,
-  useGmRolls,
-  withGmRolls,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
-import { TurnToastContext } from '@/features/table/components/turn-toast/turn-toast'
+import { gmRollsOf, useGmRolls } from '@/features/rolling/hooks/use-gm-rolls'
+import { withGmRolls } from '@/features/rolling/utils/gm-rolls'
+import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
 import type {
+  GmRollView,
   LocalCheck,
   LocalDamage,
   LocalRoll,
   LocalUse,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type { GmRollView } from '@/types/roll'
+  TableRollState,
+} from '@/types/roll'
 import type { TableCombat } from '@/types/table'
 
 /** A check, as the page keeps it. */

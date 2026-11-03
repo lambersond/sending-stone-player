@@ -12,6 +12,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { CHECK_EVERY } from '@/constants/lifecycle'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { CompanionPane } from '@/features/companions/components/companion-pane/companion-pane'
 import { useCompanionView } from '@/features/companions/hooks/use-companion-view'
@@ -21,11 +22,8 @@ import {
 } from '@/features/cookbook/hooks/use-cookbook-view'
 import { forgetNotes, useNotes } from '@/features/notes/hooks/use-notes'
 import { usePartySheet } from '@/features/party/hooks/use-party-sheet'
-import {
-  CHECK_EVERY,
-  damageRollOf,
-  useTableRolls,
-} from '@/features/rolling/hooks/use-table-rolls'
+import { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
+import { damageRollOf } from '@/features/rolling/utils/damage-due'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { GameTable } from '@/features/table/components/game-table/game-table'
@@ -50,12 +48,8 @@ import {
   NOTE_IDS,
   TEXTS,
 } from '@/mocks/sending-stone'
-import {
-  toCommand,
-  toGmRollView,
-  toRollRequestView,
-  type HeldRollRequest,
-} from '@/utils/roll-requests'
+import { toCommand } from '@/utils/requests/commands'
+import { toGmRollView, toRollRequestView } from '@/utils/requests/views'
 import { toTableSheet } from '@/utils/table-view'
 import {
   advance,
@@ -74,6 +68,7 @@ import type {
   TableMessage,
   TableView,
 } from '@/types/table'
+import type { HeldRollRequest } from '@/utils/requests/types'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
 jest.mock(

@@ -1,19 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  drawDescription,
-  readDescription,
-} from '../../../../components/description/description-html'
-import {
-  useDescriptionActions,
-  type DescriptionOrigin,
-} from '../description-actions/description-actions'
+import { drawDescription } from '../../../../components/description/draw-description'
+import { readDescription } from '../../../../components/description/read-description'
+import { useDescriptionActions } from '../description-actions/use-description-actions'
 import {
   DescriptionLink,
   useLinkMenus,
 } from '../description-link/description-link'
 import { useTableApi } from '@/hooks/use-table-api'
+import type { DescriptionOrigin } from '../description-actions/types'
 
 /**
  * Descriptions already loaded on this page, by character and hash. The same hash always names the

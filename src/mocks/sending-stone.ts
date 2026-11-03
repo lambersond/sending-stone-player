@@ -1,7 +1,7 @@
-import type { NotePageCommand } from '@/db/note-sync'
+import type { NotePageCommand } from '@/db/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type { NotesView } from '@/types/notes'
-import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
+import type { PartyView, TableMoves } from '@/types/party'
 import type { FavoriteTarget } from '@/types/roll'
 import type {
   AloneSpend,
@@ -33,13 +33,10 @@ import type {
   SheetUses,
   SheetWildShape,
   TableDamagePlan,
+  GroupEntry,
+  GroupSheet,
 } from '@/types/sending-stone'
-import type {
-  CompanionView,
-  TableCombat,
-  TableMoves,
-  TableView,
-} from '@/types/table'
+import type { CompanionView, TableCombat, TableView } from '@/types/table'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
 

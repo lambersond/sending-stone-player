@@ -1,13 +1,14 @@
 import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
 import { HIT_DIE } from '@/constants/sending-stone'
 import { readModifier, splitModifiers } from '@/utils/dice-modifiers'
-import {
-  MAX_DICE,
-  MAX_FLAT,
-  type ExtraDice,
-  type ExtraTerm,
-} from '@/utils/roll-modifiers'
-import type { SheetFormulaRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
+import type {
+  SheetFormulaRoll,
+  HitDicePool,
+  HitDiceCount,
+  ExtraDice,
+  ExtraTerm,
+} from '@/types/roll'
 import type { CharacterSheet, SheetClass } from '@/types/sending-stone'
 
 /**
@@ -73,14 +74,6 @@ export function formulaDice(formula: string): ExtraDice[] | undefined {
   )
 }
 
-/** A character's hit dice of one size: how many are left, of how many, where the sheet says. */
-export type HitDicePool = {
-  /** Such as "d10". */
-  die: string
-  value: number | null
-  max: number | null
-}
-
 /** Is this a size of hit die the game has, which a hit die spent there can be, such as "d10"? */
 export function spendable({ die }: Pick<HitDicePool, 'die'>): boolean {
   return HIT_DIE.test(die)
@@ -108,9 +101,6 @@ export function hitDicePools(classes: SheetClass[]): HitDicePool[] {
   }
   return [...pools.values()].toSorted((a, b) => sizeOf(b.die) - sizeOf(a.die))
 }
-
-/** Hit dice of one size chosen to spend at once: the size, such as "d10", and how many. */
-export type HitDiceCount = { die: string; count: number }
 
 /**
  * A hit die spent, as dnd5e rolls it: the die, and the character's Constitution modifier, giving

@@ -14,8 +14,9 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { Minus, Plus } from 'lucide-react'
-import { placing } from '../../../rolling/components/roll-menu/roll-menu'
-import { usePortalRoot, useTopmostEscape } from '@/components/modal/portal-root'
+import { placing } from '../../../rolling/utils/menu-points'
+import { usePortalRoot } from '@/components/modal/use-portal-root'
+import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 
 type Props = {
   /** The count it opened from. */

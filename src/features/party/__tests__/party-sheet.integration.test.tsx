@@ -8,16 +8,13 @@ import {
   PartySheetFor,
 } from '../components/party-sheet/party-sheet'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
-import { Concentrating } from '@/features/sheet/components/concentration/concentration'
-import { ConditionsOpener } from '@/features/sheet/components/conditions/conditions-panel'
-import {
-  DescriptionLinks,
-  type DescriptionActions,
-} from '@/features/sheet/components/description-actions/description-actions'
-import { Enchanting } from '@/features/sheet/components/enchantments/enchantments'
-import { FavoriteMarks } from '@/features/sheet/components/favorite-mark/favorite-mark'
+import { Charging } from '@/features/sheet/components/charging/charging'
+import { Concentrating } from '@/features/sheet/components/concentration/concentrating'
+import { ConditionsOpener } from '@/features/sheet/components/conditions/conditions-opener'
+import { DescriptionLinks } from '@/features/sheet/components/description-actions/description-links'
+import { Enchanting } from '@/features/sheet/components/enchantments/enchanting'
+import { FavoriteMarks } from '@/features/sheet/components/favorite-mark/favorite-marks'
 import { Favoriting } from '@/features/sheet/components/favoriting/favoriting'
-import { Charging } from '@/features/sheet/components/uses-button/uses-button'
 import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { fakeFullscreen } from '@/mocks/fullscreen'
@@ -36,6 +33,7 @@ import {
   sendingPartyView,
 } from '@/mocks/sending-stone'
 import { inventoryView } from '@/utils/table-view'
+import type { DescriptionActions } from '@/features/sheet/components/description-actions/types'
 import type { PartyView } from '@/types/party'
 
 jest.mock('next/navigation', () => ({

@@ -1,5 +1,6 @@
 import { DIE_SIDES } from '@lambersond/3d-dice-core'
 import { z } from 'zod'
+import { DIE_SIZES } from '@/constants/dice'
 import {
   ATTACK_MODE,
   DAMAGE_TYPE,
@@ -27,10 +28,10 @@ import {
   SPELL_SLOT_OPS,
 } from '@/constants/sending-stone'
 import { TEXT_HASH } from '@/schemas/sending-stone'
-import { DIE_SIZES, MOST_DICE } from '@/utils/damage-modifiers'
+import { MOST_DICE } from '@/utils/damage-modifiers'
 import { MAX_LINKS } from '@/utils/description-links'
-import { MAX_DICE, MAX_FLAT, type ExtraTerm } from '@/utils/roll-modifiers'
-import type { RollRequestInput } from '@/types/roll'
+import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
+import type { RollRequestInput, ExtraTerm } from '@/types/roll'
 
 /** The most terms a player may add to one roll. */
 export const MAX_EXTRAS = 10

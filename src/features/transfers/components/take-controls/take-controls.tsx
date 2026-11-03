@@ -4,19 +4,16 @@ import {
   MoveDialog,
   type MoveEnd,
 } from '@/features/transfers/components/move-dialog/move-dialog'
-import {
-  ROW_BUTTON,
-  type TransferControls,
-} from '@/features/transfers/components/transferring/transferring'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
+import { ROW_BUTTON } from '@/features/transfers/components/transferring/transferring'
+import type { TakeInto, TransferControls } from '@/features/transfers/types'
 import type { TableGroup } from '@/types/party'
-import type { TransferInput } from '@/types/roll'
+import type { TransferInput, LocalMove } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type {
   SheetContainer,
   SheetCurrency,
   SheetItem,
 } from '@/types/sending-stone'
-import type { SeatRole } from '@/utils/seat-words'
 import type { ReactNode } from 'react'
 
 /*
@@ -25,16 +22,6 @@ import type { ReactNode } from 'react'
  * character whose page it's on, or on the party's own page, any of the campaign's characters,
  * picked as it's taken. Each opens the move's dialog, which says what's taken and asks how many.
  */
-
-/**
- * Where a party's sheet takes into, as its page says. Only data, as a server page passes it: the
- * API a pick is taken through is built here.
- */
-export type TakeInto =
-  /** A player's character, or the character a Gamemaster's page is on. */
-  | { kind: 'own'; actorId: string; name: string; api: string }
-  /** The Gamemaster's party page: picked in the dialog. */
-  | { kind: 'choose'; campaignId: string }
 
 /** What's being taken, or was last, with who may take it as its dialog opened. */
 export type Taking = {

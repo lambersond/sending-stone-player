@@ -1,10 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
-import {
-  useTableView,
-  type Connection,
-} from '@/features/table/hooks/use-table-view'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import {
   mockCompanionView,
   mockTurnCombat,
@@ -14,7 +11,12 @@ import { toTableSheet } from '@/utils/table-view'
 import { advance } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { RollKind } from '@/types/roll'
-import type { TableCombat, TableCompanion, TableView } from '@/types/table'
+import type {
+  TableCombat,
+  TableCompanion,
+  TableView,
+  Connection,
+} from '@/types/table'
 
 /*
  * End Turn on a character's page (module 0.36.0), as the user's End Turn prototype draws it: the

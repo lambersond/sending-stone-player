@@ -1,53 +1,10 @@
-import type {
-  SheetCurrency,
-  SheetInventory,
-  SheetWithheld,
-} from '@/types/sending-stone'
-import type { TableMoves } from '@/types/table'
+import type { SheetCurrency, SheetInventory } from '@/types/sending-stone'
 
 /*
  * A campaign's Group actors, such as its party, as the module sends them from 0.30.0, and as this
  * app shows them: its members, by name and portrait only, its stash and its description. A player
  * sees a group only where their Foundry user has Observer or Owner on it, as Foundry shows it them.
  */
-
-/** What a campaign character's player has on a group in Foundry: less is no access. */
-export type GroupAccess = 'observer' | 'owner'
-
-/** A group as the campaign's roster keeps it: who may see it, never its sheet. */
-export type GroupEntry = {
-  id: string
-  uuid: string
-  name: string
-  img: string | null
-  type: 'group'
-  /** dnd5e's primary party. */
-  primary: boolean
-  /** By campaign character's actor id: only those whose player has Observer or Owner on it. */
-  access: Record<string, GroupAccess>
-  /** Why its sheet is null, where the module held it back: for its size, or as none may see it. */
-  sheetWithheld?: Pick<SheetWithheld, 'reason'> &
-    Partial<Pick<SheetWithheld, 'bytes' | 'limit'>>
-}
-
-/** One of a group's members: its name and portrait, and nothing else of it, for anyone. */
-export type GroupMember = {
-  id: string
-  name: string
-  img: string | null
-  type: 'character' | 'npc' | 'vehicle'
-  /** One of this campaign's characters. */
-  character: boolean
-}
-
-/** A group's sheet, as the module last sent it. */
-export type GroupSheet = {
-  members: GroupMember[]
-  /** Hashes of its descriptions, sent apart, as a character's are. */
-  description: { full: string | null; summary: string | null }
-  /** As a character's, with nothing to roll or use, and no load or attunement. */
-  inventory: SheetInventory
-}
 
 /** An entry point on the table view: a group this seat may open. Never its access. */
 export type TableGroup = {
@@ -107,3 +64,14 @@ export type PartyView = {
 
 /** A group a seat has been let see, by the access check, for its descriptions to be served by. */
 export type AllowedGroup = { campaignId: string; groupId: string }
+
+/** Where a seat may move its character's items and coins to. Never anyone's access. */
+export type TableMoves = {
+  /**
+   * Where the seat may give: a player's parties they own in Foundry; the Gamemaster's, every one
+   * listed.
+   */
+  parties: TableGroup[]
+  /** The campaign's other characters, in its roster's order. */
+  characters: { id: string; name: string; portrait?: string }[]
+}

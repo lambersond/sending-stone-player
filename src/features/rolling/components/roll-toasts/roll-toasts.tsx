@@ -4,32 +4,28 @@ import { useContext, useState } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { briefOf, type RollBrief } from '../../utils/brief'
 import {
   AreaOutcomes,
   BADGE_ICONS,
   BADGES,
-  briefOf,
   DamageDue,
   GmPill,
   SpentLines,
-  type RollBrief,
-  type RollDue,
 } from '../roll-tray/roll-tray'
-import { InPortalRoot } from '@/components/modal/portal-root'
+import { InPortalRoot } from '@/components/modal/in-portal-root'
 import {
   useRollToasts,
   useToastTop,
 } from '@/features/rolling/hooks/use-roll-toasts'
-import {
-  needsPlayer,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+import { needsPlayer } from '@/features/rolling/utils/damage-due'
 import { TOAST_GAP } from '@/features/rolling/utils/roll-toasts'
-import { TurnToastContext } from '@/features/table/components/turn-toast/turn-toast'
 import { useCreature } from '@/hooks/use-creature'
 import { useHydrated } from '@/hooks/use-hydrated'
 import { useTableRole } from '@/hooks/use-table-api'
-import type { LocalRoll } from '@/features/rolling/hooks/use-sheet-roller'
+import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
+import type { RollDue } from '../../types'
+import type { LocalRoll, TableRollState } from '@/types/roll'
 
 /**
  * Each outcome's colours: the left edge, a border of it faintly round the rest, and a tint over the

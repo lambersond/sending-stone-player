@@ -8,18 +8,10 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActionsTab } from '../actions-tab/actions-tab'
-import {
-  DescriptionLinks,
-  sheetTools,
-  type DescriptionActions,
-} from '../description-actions/description-actions'
+import { DescriptionLinks } from '../description-actions/description-links'
+import { sheetTools } from '../description-actions/utils'
 import { Favoriting } from '../favoriting/favoriting'
-import {
-  forwardNote,
-  useDamageRolls,
-  type DamageTarget,
-  type TableDamage,
-} from './action-entry'
+import { forwardNote, useDamageRolls } from './action-entry'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import {
   fireBreath,
@@ -36,7 +28,9 @@ import {
   sheetSpell,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { Layout } from '../actions-layout/actions-layout'
+import type { DamageTarget, TableDamage } from './types'
+import type { Layout } from '../actions-layout/constants'
+import type { DescriptionActions } from '../description-actions/types'
 import type {
   CharacterSheet,
   DamagePreview,

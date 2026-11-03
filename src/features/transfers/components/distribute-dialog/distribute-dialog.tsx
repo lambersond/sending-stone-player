@@ -3,13 +3,13 @@
 import { useId, useState, type FormEvent } from 'react'
 import clsx from 'clsx'
 import { UserRound } from 'lucide-react'
+import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import { Modal } from '@/components/modal/modal'
 import { MOST_MOVED } from '@/constants/sending-stone'
-import { EntryIcon } from '@/features/sheet/components/sheet-entry/sheet-entry'
 import { useTableRole } from '@/hooks/use-table-api'
 import { namesWords, thingsWords } from '@/utils/move-words'
 import type { MoveEnd } from '../move-dialog/move-dialog'
-import type { LocalMove } from '@/features/rolling/hooks/use-sheet-roller'
+import type { LocalMove } from '@/types/roll'
 import type { SheetCurrency } from '@/types/sending-stone'
 
 /*

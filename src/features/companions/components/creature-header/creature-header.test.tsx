@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { CreatureHeader, otherSpeeds } from './creature-header'
+import { CreatureHeader } from './creature-header'
+import { otherSpeeds } from './utils'
 import { ActionsTab } from '@/features/sheet/components/actions-tab/actions-tab'
 import {
   characterSheet,

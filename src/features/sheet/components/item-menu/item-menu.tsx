@@ -11,17 +11,14 @@ import {
   SunDim,
   Trash2,
 } from 'lucide-react'
-import {
-  ChoiceMenu,
-  type MenuItem,
-  type MenuPoint,
-} from '../../../rolling/components/roll-menu/roll-menu'
+import { ChoiceMenu } from '../../../rolling/components/roll-menu/choice-menu'
 import { EFFECT_WORDS } from '@/utils/effect-words'
 import { PREPARE_WORDS } from '@/utils/prepare-words'
-import type { EffectChoice } from '../effect-controls/effect-controls'
-import type { FavoriteChoice } from '../favoriting/favoriting'
-import type { PrepareChoice } from '../preparing/preparing'
-import type { EffectOp, PrepareOp } from '@/constants/sending-stone'
+import type { MenuItem, MenuPoint } from '../../../rolling/types'
+import type { EffectChoice } from '../effect-controls/types'
+import type { FavoriteChoice } from '../favoriting/types'
+import type { PrepareChoice } from '../preparing/types'
+import type { EffectOp, PrepareOp } from '@/types/sending-stone'
 
 /** Add to favorites, in a row's menu, from module 0.37.0. */
 const ADD_FAVORITE: MenuItem<'favorite'> = {

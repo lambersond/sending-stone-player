@@ -20,15 +20,14 @@ import {
   takesAway,
   unmaximizable,
   withModifiers,
-  type DamageModifiers,
 } from './damage-modifiers'
 import { formulaTerms } from '@/utils/formulas'
+import type { ExtraTerm, DamageModifiers } from '@/types/roll'
 import type {
   CriticalRule,
   DamagePreview,
   DamagePreviewRoll,
 } from '@/types/sending-stone'
-import type { ExtraTerm } from '@/utils/roll-modifiers'
 
 /** Toll the Dead's damage, 1d8 necrotic, and a second part, 1d6 + 2 fire. */
 const parts = [

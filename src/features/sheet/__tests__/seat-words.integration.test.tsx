@@ -1,18 +1,14 @@
 import { render, screen } from '@testing-library/react'
+import { reasons, REASONS } from '../../../utils/roll-reasons'
 import { RollToasts } from '../../rolling/components/roll-toasts/roll-toasts'
-import {
-  briefOf,
-  reasons,
-  REASONS,
-  RollTray,
-  type TableRolls,
-} from '../../rolling/components/roll-tray/roll-tray'
+import { RollTray } from '../../rolling/components/roll-tray/roll-tray'
+import { briefOf } from '../../rolling/utils/brief'
 import { PromptBanner } from '../components/prompt-banner/prompt-banner'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { characterSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { LocalCheck } from '@/features/rolling/hooks/use-sheet-roller'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
+import type { TableRolls } from '../../rolling/types'
+import type { LocalCheck, TableRollState } from '@/types/roll'
 
 // The Gamemaster at one of their campaign's characters' sheets (#156) reads every string that
 // names the Gamemaster as their own: "your game", never "your Gamemaster's"; the player reads

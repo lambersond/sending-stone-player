@@ -1,8 +1,6 @@
 'use client'
 
 import {
-  createContext,
-  use,
   useCallback,
   useEffect,
   useMemo,
@@ -10,42 +8,18 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { type Favorites } from './constants'
+import { FavoritingContext } from './use-favorite-choice'
 import { FAVORITE_SETTLE } from '@/constants/sending-stone'
 import { isFavorite, targetKey } from '@/utils/favorite-commands'
-import { linkedKeys, type FavoriteEntry } from '@/utils/favorites'
-import type { TableRollState } from '@/features/rolling/hooks/use-table-rolls'
-import type { FavoriteTarget } from '@/types/roll'
-import type { SheetFavorite } from '@/types/sending-stone'
+import { linkedKeys } from '@/utils/favorites'
+import type { FavoriteChoice } from './types'
+import type { FavoriteTarget, TableRollState } from '@/types/roll'
+import type { SheetFavorite, FavoriteEntry } from '@/types/sending-stone'
 
 // What a pane offers of its character's favorites, from module 0.37.0: on each row of an item, one
 // of its activities or an effect, Add to favorites or Remove from favorites, as the character's
 // favorites say, never as the stars do, which mark no activity and nothing among the favorites.
-
-/** A row's favorites entry: what it does, and whether it waits, as while it's on its way. */
-export type FavoriteChoice = {
-  op: 'add' | 'remove'
-  waiting: boolean
-  choose: () => void
-}
-
-/** What a pane knows of its character's favorites: none where they can't be changed here. */
-type Favorites = {
-  choiceFor: (
-    target: FavoriteTarget,
-    name: string,
-  ) => FavoriteChoice | undefined
-}
-
-/**
- * None, as wherever a sheet's favorites can't be changed: a party's sheet, a companion's pane, the
- * Gamemaster's page, a game that doesn't take them, and any row drawn outside a pane.
- */
-export const NO_FAVORITING: Favorites = {
-  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
-  choiceFor: () => undefined,
-}
-
-const FavoritingContext = createContext<Favorites>(NO_FAVORITING)
 
 /** What the rows inside offer of the character's favorites. */
 export function Favoriting({
@@ -53,19 +27,6 @@ export function Favoriting({
   children,
 }: Readonly<{ value: Favorites; children: ReactNode }>) {
   return <FavoritingContext value={value}>{children}</FavoritingContext>
-}
-
-/**
- * A row's favorites entry, where it has one: Add or Remove, as the character's favorites say; none
- * for a row that names nothing, or outside a pane that offers them.
- * @param name - What the row is called, which the tray's line is named after.
- */
-export function useFavoriteChoice(
-  target: FavoriteTarget | null | undefined,
-  name: string,
-): FavoriteChoice | undefined {
-  const { choiceFor } = use(FavoritingContext)
-  return target ? choiceFor(target, name) : undefined
 }
 
 /** The last of a target's sent from here: its local id, and what it did. */

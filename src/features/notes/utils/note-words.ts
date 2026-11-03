@@ -1,4 +1,5 @@
-import { seatWords, type SeatRole } from '../../../utils/seat-words'
+import { seatWords } from '../../../utils/seat-words'
+import type { SeatRole } from '../../../types/seats'
 import type {
   NoteBookKind,
   NoteReason,

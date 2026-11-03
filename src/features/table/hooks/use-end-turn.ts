@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  follow,
   GM_SEND_KEY,
   SEND_CHOICES,
   SEND_KEY,
-  type TableRollState,
-} from '@/features/rolling/hooks/use-table-rolls'
+} from '@/features/rolling/constants'
 import { POLL_INTERVAL } from '@/features/table/hooks/use-table-view'
 import {
   END_TURN_ARMS_AFTER,
@@ -16,7 +14,8 @@ import {
   turnKey,
 } from '@/features/table/utils/end-turn'
 import { useStoredChoice } from '@/hooks/use-stored'
-import type { RollKind, RollRequestInput } from '@/types/roll'
+import { follow } from '@/utils/lifecycle'
+import type { RollKind, RollRequestInput, TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
 /**

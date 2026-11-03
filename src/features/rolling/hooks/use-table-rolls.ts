@@ -1,44 +1,27 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { BUSY_FOR, BUSY_WAIT } from '@/constants/lifecycle'
 import {
-  MAX_ROLL_LABEL,
-  type EffectOp,
-  type PrepareOp,
-  type SpellSlotOp,
-  type WildShapeOp,
-} from '@/constants/sending-stone'
+  GM_SEND_KEY,
+  SEND_KEY,
+  SEND_CHOICES,
+  GM_ALONE_KEY,
+  ALONE_KEY,
+} from '@/features/rolling/constants'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableApi, useTableRole } from '@/hooks/use-table-api'
-import {
-  changedAt,
-  changes,
-  marksTaken,
-  signedDice,
-  takenModifiers,
-  type DamageModifiers,
-} from '@/utils/damage-modifiers'
-import { formulaTerms } from '@/utils/formulas'
+import { changes } from '@/utils/damage-modifiers'
+import { labelled, follow, pause } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
+import type { WildShapeForms, DueDamage } from '@/features/rolling/types'
 import type {
-  LocalAsk,
-  LocalCheck,
-  LocalDamage,
-  LocalFormula,
-  LocalGmRoll,
-  LocalMove,
-  LocalRoll,
-  LocalUse,
-  SheetDamageRoll,
-  SheetFormulaRoll,
-  SheetRoll,
-} from '@/features/rolling/hooks/use-sheet-roller'
-import type {
+  TableRollState,
+  DamageModifiers,
   ActivityRef,
   EndEnchantmentSource,
   FavoriteInput,
   FormulaSource,
-  GmRollView,
   InspirationSource,
   PrepareInput,
   RemoveInput,
@@ -46,67 +29,24 @@ import type {
   RollFeature,
   RollKind,
   RollRequestInput,
-  RollRequestView,
   RollSource,
-  RollStatus,
   SpellSlotInput,
   SpendSource,
   TextLink,
   TransferInput,
   UseSource,
   WildShapeInput,
+  LocalAsk,
+  LocalCheck,
+  LocalDamage,
+  LocalFormula,
+  LocalUse,
+  SheetDamageRoll,
+  SheetFormulaRoll,
+  SheetRoll,
+  AttackSource,
 } from '@/types/roll'
-import type {
-  AloneSpend,
-  BeastEntry,
-  DamagePreview,
-  EffectChange,
-  SheetEffect,
-  WildShapeOutcome,
-} from '@/types/sending-stone'
-import type { TableCombat } from '@/types/table'
-import type { ExtraTerm } from '@/utils/roll-modifiers'
-
-/** How often to ask after a roll sent to the Gamemaster's game, in milliseconds. */
-export const CHECK_EVERY = 1000
-
-/**
- * How long to ask after it, in milliseconds: past the time the game has to fetch it and then to
- * answer, so that the app has said where it stands by then.
- */
-export const FOLLOW_FOR = 110_000
-
-/**
- * How long to go on asking after a roll the game took too long to make, in milliseconds: an
- * attack can wait on the Gamemaster for up to five minutes, then be made after all.
- */
-export const LATE_FOLLOW = 330_000
-
-/**
- * Of rolls sent one after another, as hit dice spent at once to a game before module 0.20.0, how
- * long to wait before sending one again that the app turned away as one too many at once, in
- * milliseconds; and how long to go on sending it: past the minute over which the app counts a
- * character's rolls.
- */
-export const BUSY_WAIT = 5000
-export const BUSY_FOR = 65_000
-
-/** Where this browser keeps whether to send the player's rolls to the table. */
-export const SEND_KEY = 'sending-stone:send-rolls'
-
-/** And whether to send the Gamemaster's, at a character's sheet (#156): a switch of its own. */
-export const GM_SEND_KEY = `${SEND_KEY}:gm`
-
-/**
- * Where this browser keeps whether damage the player rolls goes to the table on its own, with no
- * attack or use made there (module 0.36.0): off until they turn it on; and the Gamemaster's, at a
- * character's sheet, a switch of its own.
- */
-export const ALONE_KEY = 'sending-stone:send-damage'
-export const GM_ALONE_KEY = `${ALONE_KEY}:gm`
-
-/** What each of those switches is: on or off. End Turn reads Send's too (module 0.36.0). */
-export const SEND_CHOICES = ['on', 'off'] as const
+import type { SheetEffect } from '@/types/sending-stone'
 
 /**
  * A spent recharge rolled (module 0.36.0): what it's called, and the uses it recharges, as the
@@ -116,137 +56,6 @@ export type RechargeRoll = {
   label: string
   counter: { item: string; activity?: string }
 }
-
-/** An attack's or a use's item and activity, by which its damage is found. */
-export type AttackSource = { item: string; activity: string }
-
-/**
- * A roll's way to the Gamemaster's game, as its player is told: as the app has it, or refused,
- * when the app didn't take it for the game at all, saying why. An attack's or a use's also keeps
- * its id at the table and what it was made with, so that its damage can be rolled there too, once.
- */
-export type TableRollState = Omit<
-  RollRequestView,
-  'id' | 'status' | 'effect' | 'wildShape' | 'alone'
-> & {
-  status: RollStatus | 'refused'
-  /** Its id at the table, once the app has taken it. */
-  requestId?: string
-  /** For an attack or a use, its item and activity. */
-  source?: AttackSource
-  /** For a use, what was used, such as "Fireball", which its damage is named after. */
-  name?: string
-  /** For a use, how the player chose to change the damage that follows it. */
-  modifiers?: DamageModifiers
-  /** For an attack or a use, whether its damage has been sent. */
-  damaged?: boolean
-  /** For a saving throw the game asked for, the prompt it answers. */
-  prompt?: string
-  /** For an area attack, the names of the combatants it was made at, by their ids. */
-  targetNames?: Record<string, string>
-  /**
-   * For an attack or a use of a spell an item casts, which is cast at a level the item offers,
-   * rather than with a spell slot: a level it doesn't offer is refused as a slot is.
-   */
-  itemCast?: boolean
-  /**
-   * For hit dice spent at once sent as one, as from module 0.20.0, which are refused for want of
-   * dice where there aren't as many of a size left as are spent, not only where there are none.
-   */
-  hitDice?: boolean
-  /**
-   * For rolls sent one after another as one, as hit dice spent at once are to a game before module
-   * 0.20.0, a request a die: how many there are, and how many of them the game has made. From
-   * 0.20.0, sent as one, the same, once the game stopped part way through them.
-   */
-  together?: { count: number; made: number }
-  /**
-   * For a roll of a d20 the Gamemaster made as the character (#156), whether the game says it came
-   * up a critical or a fumble, as there are no dice of it here to say.
-   */
-  d20?: GmRollView['d20']
-  /**
-   * For damage the Gamemaster rolled as the character (#156), that the game says it's a critical
-   * hit's, as there are no dice of it here to say.
-   */
-  critical?: GmRollView['critical']
-  /**
-   * For a move of items and coins, from module 0.31.0, what moved and between whom; and for a
-   * removal, from module 0.33.0, what was removed and from whom.
-   */
-  move?: LocalMove
-  /**
-   * For a use, its damage waits for the player to roll it, as one with a choice of kinds does,
-   * while they type in their own dice.
-   */
-  offer?: true
-  /** Damage or healing sent on its own (module 0.36.0). */
-  alone?: true
-  /**
-   * Damage on its own that asked to spend what its use would, from module 0.41.0 (round 0.41.0
-   * §2.10): its tray says what was spent, once the game says.
-   */
-  consumes?: true
-  /**
-   * What the game spent of it, once made (the view's `alone.spent`), none where it spent nothing;
-   * kept apart from the hit dice a request spent, `spent`.
-   */
-  aloneSpent?: AloneSpend[]
-  /** That concentration began as it was spent (the view's `alone.concentrating`). */
-  concentrating?: true
-  /** A recharge rolled (module 0.36.0). */
-  recharge?: true
-  /** A favorite added or removed (module 0.37.0). */
-  favorite?: 'add' | 'remove'
-  /** One of the character's own effects turned off, on or deleted (module 0.39.0): which. */
-  effect?: EffectOp
-  /** A spell prepared or unprepared (module 0.42.1): which. */
-  prepare?: PrepareOp
-  /** A spell slot spent or restored (module 0.42.1): which. */
-  spellSlot?: SpellSlotOp
-  /**
-   * What became of that effect, once made, as the game says (the view's `effect`): kept apart from
-   * what was asked, which the line is worded by.
-   */
-  changed?: EffectChange
-  /** Wild Shape from here (module 0.40.0): which op was asked. */
-  wildShape?: WildShapeOp
-  /**
-   * What the game made of it, once made (the view's `wildShape`): the form taken or left, or the
-   * Beast learned, kept apart from what was asked, as an effect's is.
-   */
-  wildShaped?: WildShapeOutcome
-}
-
-/**
- * The Beasts the druid may learn, as the game lists them (module 0.40.0): those it sent, whether
- * there are more than it sent, and the rules they were chosen by; or why it didn't list them.
- */
-export type WildShapeForms =
-  | {
-      forms: BeastEntry[]
-      more: boolean
-      limits: { count: number; cr: number; fly: boolean }
-    }
-  | { reason: string }
-
-/** An attack or a use made at the table whose damage is still to roll there. */
-export type DueDamage = {
-  /** The attack's or use's id at the table. */
-  use: string
-  damage: DamagePreview
-  /** How the player chose to change it as they used it, if they did. */
-  modifiers?: DamageModifiers
-}
-
-/** Where a roll's way to the game ends. */
-export const SETTLED = new Set<TableRollState['status']>([
-  'done',
-  'failed',
-  'expired',
-  'lost',
-  'refused',
-])
 
 /**
  * Sends the rolls the player makes to the Gamemaster's game, to be made there with the same dice,
@@ -1017,142 +826,6 @@ const PLAIN = {
   'mode' | 'explicit' | 'extras' | 'dice'
 >
 
-/** None of the Gamemaster's rolls, the same each time, for what's worked out from them to keep. */
-const NO_GM_ROLLS: readonly GmRollView[] = []
-
-/**
- * The rolls the campaign's Gamemaster made as the player's character (#156), as the player's view
- * tells them, to show among the player's own: each as a roll of this page's, apart from its own by
- * its id, and its way to the game, as the player's own are followed, with the game's result; but
- * never the damage that follows one, which the Gamemaster rolls, so that it waits for nothing. An
- * area attack's targets are named as the player's own view of the combat names them (`namesOf`).
- * @param heard - When this page first heard of each, by this device's clock (`useGmRolls`), to
- *   place it among the player's own by; else it's placed by when it was sent.
- * @param combat - The combat as the player's view has it, which names the targets.
- */
-export function gmRollsOf(
-  views: readonly GmRollView[] = NO_GM_ROLLS,
-  heard?: ReadonlyMap<string, number>,
-  combat?: TableCombat,
-): {
-  rolls: LocalGmRoll[]
-  states: ReadonlyMap<string, TableRollState>
-} {
-  const rolls = views.map((view): LocalGmRoll => ({
-    kind: 'gm',
-    id: `gm:${view.id}`,
-    label: view.label,
-    rolled: view.kind,
-    at: heard?.get(view.id) ?? Date.parse(view.at),
-    ...(view.healing && { healing: true }),
-    // A spell slot's, from module 0.42.1, says whether it was spent or restored.
-    ...(view.slotOp && { slotOp: view.slotOp }),
-  }))
-  const states = new Map(
-    views.map(view => {
-      const { status, reason, visible, total, attack, outcome, healed } = view
-      const { spent, enchantment, d20, critical } = view
-      const names = namesOf(attack, combat)
-      const state: TableRollState = {
-        status,
-        ...(reason !== undefined && { reason }),
-        ...(visible !== undefined && { visible }),
-        ...(total !== undefined && { total }),
-        ...(attack && { attack }),
-        ...(names && { targetNames: names }),
-        ...(outcome && { outcome }),
-        ...(healed !== undefined && { healed }),
-        ...(spent && { spent }),
-        ...(enchantment && { enchantment }),
-        ...(d20 && { d20 }),
-        ...(critical && { critical }),
-        // Hit dice the game stopped spending part way, which it made some of, say how many.
-        ...(status === 'failed' &&
-          (spent?.made ?? 0) > 0 && { together: spent }),
-        // Worded as the player's own recharges and damage on its own are, from module 0.36.0.
-        ...(view.kind === 'recharge' && { recharge: true as const }),
-        ...(view.kind === 'itemDamage' && { alone: true as const }),
-        requestId: view.id,
-      }
-      return [`gm:${view.id}`, state] as const
-    }),
-  )
-  return { rolls, states }
-}
-
-/**
- * The names of an area attack's targets of the Gamemaster's (#156), by their ids, as the player's
- * own view of the combat names them: only ever names its player may see, as that view leaves out
- * those hidden from players, never names the Gamemaster's page saw. None of a target that view
- * doesn't hold, nor of an attack at one target, which says nothing of whom.
- */
-function namesOf(
-  attack: GmRollView['attack'],
-  combat?: TableCombat,
-): Record<string, string> | undefined {
-  const targets = attack?.targets ?? []
-  if (!combat || targets.length < 2) return undefined
-  const names = targets.flatMap(({ combatId, combatantId }) => {
-    const combatant =
-      combatId === combat.id
-        ? combat.combatants.find(({ id }) => id === combatantId)
-        : undefined
-    return combatant ? [[combatantId, combatant.name] as const] : []
-  })
-  return names.length > 0 ? Object.fromEntries(names) : undefined
-}
-
-/**
- * The rolls the campaign's Gamemaster made as the player's character (#156), as `gmRollsOf` has
- * them, each placed among the player's own by when this page first heard of it, by this device's
- * clock, as theirs are: never by when the server says it was sent, as this device's clock may be
- * behind the server's or ahead of it. So one heard of after the player rolled is newer than their
- * roll, and one heard of before it older. Those the page opens with are heard of as it opens, in
- * the order the view has them, as are those one look at the table brings. An area attack's targets
- * are named as the player's view of the combat names them now.
- */
-export function useGmRolls(
-  views: readonly GmRollView[] = NO_GM_ROLLS,
-  combat?: TableCombat,
-): ReturnType<typeof gmRollsOf> {
-  const [heard, setHeard] = useState(() => heardOf(new Map(), views))
-  let known = heard
-  // Those the view brings, heard of now: the page renders again at once with them.
-  if (views.some(({ id }) => !heard.has(id))) {
-    known = heardOf(heard, views)
-    setHeard(known)
-  }
-  return useMemo(() => gmRollsOf(views, known, combat), [views, known, combat])
-}
-
-/**
- * When this page first heard of each of the Gamemaster's rolls the view has, those new to it now:
- * none it no longer has, which never come back, as they only grow older.
- */
-function heardOf(
-  held: ReadonlyMap<string, number>,
-  views: readonly GmRollView[],
-): ReadonlyMap<string, number> {
-  const now = Date.now()
-  return new Map(views.map(({ id }) => [id, held.get(id) ?? now]))
-}
-
-/**
- * The page's own rolls and the Gamemaster's as the character together (#156), newest first by when
- * each was made, or for the Gamemaster's, heard of, and their ways to the game.
- */
-export function withGmRolls(
-  rolls: readonly LocalRoll[],
-  states: ReadonlyMap<string, TableRollState>,
-  gm: ReturnType<typeof gmRollsOf>,
-): { rolls: LocalRoll[]; states: ReadonlyMap<string, TableRollState> } {
-  if (gm.rolls.length === 0) return { rolls: [...rolls], states }
-  return {
-    rolls: [...rolls, ...gm.rolls].toSorted((a, b) => b.at - a.at),
-    states: new Map([...states, ...gm.states]),
-  }
-}
-
 /** The prompts answered by rolls on their way to the game, or made there. */
 function answeringOf(
   states: ReadonlyMap<string, TableRollState>,
@@ -1211,23 +884,6 @@ function together(each: TableRollState[], count: number): TableRollState {
   }
 }
 
-/**
- * A roll as the Gamemaster's page sends it (#156): with what it calls it, for the character's
- * player to be shown it by, cut to as long a name as the app keeps, never splitting a character,
- * and left out where there's nothing to say.
- */
-export function labelled(
-  input: RollRequestInput,
-  label: string,
-): RollRequestInput {
-  let kept = ''
-  for (const character of label.trim()) {
-    if (kept.length + character.length > MAX_ROLL_LABEL) break
-    kept += character
-  }
-  return kept ? { ...input, label: kept } : input
-}
-
 /** Whether the app turned a roll away as one too many at once, to send again a moment later. */
 function busy(state: TableRollState): boolean {
   return state.status === 'refused' && state.reason === 'busy'
@@ -1241,98 +897,6 @@ function known(numbers: (number | undefined)[]): numbers is number[] {
 /** Numbers added up. */
 function added(numbers: number[]): number {
   return numbers.reduce((sum, number) => sum + number, 0)
-}
-
-/**
- * Send a roll to the game, then ask after it until it's made, or given up on.
- * @param api - The seat's API base, such as `/api/characters/<id>`.
- */
-export async function follow(
-  api: string,
-  input: RollRequestInput,
-  signal: AbortSignal,
-  update: (state: TableRollState) => void,
-  taken: (id: string) => void,
-) {
-  let id: string
-  try {
-    const response = await fetch(`${api}/rolls`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-      signal,
-    })
-    if (response.status !== 202) {
-      update({ status: 'refused', reason: await refusal(response) })
-      return
-    }
-    const created = (await response.json()) as { id: string }
-    id = created.id
-    taken(id)
-  } catch {
-    update({ status: 'refused', reason: 'network' })
-    return
-  }
-
-  let until = Date.now() + FOLLOW_FOR
-  let late = false
-  while (Date.now() < until) {
-    await pause(CHECK_EVERY, signal)
-    if (signal.aborted) return
-    try {
-      const response = await fetch(`${api}/rolls/${id}`, {
-        cache: 'no-store',
-        signal,
-      })
-      // A roll this page can't see any more, such as once signed out, is given up on.
-      if (response.status === 401 || response.status === 404) break
-      if (response.ok) {
-        // What became of an effect (module 0.39.0), or of Wild Shape (module 0.40.0), is kept
-        // apart from what was asked; and so is what damage on its own spent (module 0.41.0),
-        // apart from the hit dice a request spent.
-        const {
-          effect: changed,
-          wildShape: wildShaped,
-          alone: made,
-          ...view
-        } = (await response.json()) as RollRequestView
-        update({
-          ...view,
-          ...(changed && { changed }),
-          ...(wildShaped && { wildShaped }),
-          ...(made && { aloneSpent: made.spent }),
-          ...(made?.concentrating && { concentrating: true as const }),
-          requestId: id,
-        })
-        // A roll that took too long may still be made, once the Gamemaster answers; but not hit
-        // dice the game says it made some of before it stopped, as it does once it had to.
-        if (
-          view.status === 'failed' &&
-          view.reason === 'timeout' &&
-          !view.spent
-        ) {
-          if (!late) until = Date.now() + LATE_FOLLOW
-          late = true
-        } else if (SETTLED.has(view.status)) {
-          return
-        }
-      }
-    } catch {
-      // Asked again next time.
-    }
-  }
-  if (!late) update({ status: 'lost', requestId: id })
-}
-
-/** Why the app didn't take a roll, as it says. */
-export async function refusal(response: Response): Promise<string> {
-  if (![409, 422, 429].includes(response.status)) return 'error'
-  try {
-    const { reason } = (await response.json()) as { reason?: unknown }
-    return typeof reason === 'string' ? reason : 'error'
-  } catch {
-    return 'error'
-  }
 }
 
 /**
@@ -1519,176 +1083,8 @@ function damageDice(roll: SheetDamageRoll, damage: LocalDamage): RolledDice[] {
   )
 }
 
-/**
- * An attack's or a use's damage or healing, to roll as the game said it will: each of its rolls a
- * part, with its dice as the game will throw them, a critical hit's already doubled, those it takes
- * away with their signs, and its numbers where the app can read them, as the kind of damage
- * chosen, if any, and changed as the player chose. Damage the game can't say beforehand has no
- * dice here: the game rolls them. Damage whose dice the game won't change is marked `fixed`: one
- * with no first die to change, or, from a module before 0.21.0, one whose first die it would
- * change is one it takes away. Changes chosen as it was used that the game's damage can't take
- * are left out, and it's rolled without them: its highest where it takes a die away, its formula
- * saying so for damage the game rolls itself; more dice where it has no first die to change; and
- * more than its first die may still take, as a spell cast higher than its label has, down to as
- * many as it may.
- * @param label - What the attack or use was made with, such as "Longsword".
- * @param type - The kind of damage chosen, such as "fire", for each roll that offers it.
- * @param modifiers - How the player changes it now; else as they chose as they used it.
- */
-export function damageRollOf(
-  label: string,
-  { use, damage, modifiers: chosen }: DueDamage,
-  type?: string,
-  modifiers: DamageModifiers | undefined = chosen,
-): SheetDamageRoll {
-  const healing = damage.healing === true
-  const types = type ? typesFor(damage, type) : undefined
-  const marked = marksTaken(damage)
-  const kept = takenModifiers(damage, modifiers)
-  const rolls = damage.rolls.map(roll =>
-    damage.plannable ? termsOf(roll, marked) : { terms: [], read: true },
-  )
-  return {
-    label: `${label} ${healing ? 'healing' : 'damage'}`,
-    critical: damage.critical,
-    healing,
-    exact: true,
-    use,
-    ...(types && { types }),
-    ...(kept && changes(kept) && { modifiers: kept }),
-    perDie: damage.rolls[0]?.perDie ?? 1,
-    ...(damage.plannable && changedAt(damage) < 0 && { fixed: true as const }),
-    // A formula whose numbers the app can't read, as one a module writes in a way of its own for
-    // a critical hit, adds up as the game says, rather than as its bare dice.
-    ...(rolls.some(({ read }) => !read) && { gameTotal: true as const }),
-    parts: damage.rolls.map((roll, index) => ({
-      type: chosenLabel(roll, types?.[index]) ?? roll.type,
-      terms: rolls[index].terms,
-    })),
-  }
-}
-
-/** The kinds of damage among which a roll of damage lets its roller choose, if any. */
-export function choicesOf(damage: DamagePreview) {
-  return damage.rolls.find(roll => (roll.types?.length ?? 0) > 1)?.types ?? []
-}
-
-/**
- * Whether a roll's damage is due: an attack the game made, whose damage is still to roll, or a use
- * whose damage or healing waits for its kind to be chosen, or, while its player types in their own
- * dice, for them to roll it, as any other use's is rolled at once. The tray offers that damage to
- * roll while it is, after a miss too, for what deals damage on one.
- */
-export function damageDue(roll: LocalRoll, state?: TableRollState): boolean {
-  if (state?.status !== 'done' || !state.damage || state.damaged) return false
-  if (!state.requestId) return false
-  if (roll.kind === 'check') return true
-  return (
-    roll.kind === 'use' &&
-    (choicesOf(state.damage).length > 0 || state.offer === true)
-  )
-}
-
-/**
- * Whether a roll waits for its player, its toast staying until they act: its damage is due
- * (`damageDue`), and it isn't an attack that missed, whose toast goes as any other's does, its
- * damage still offered where it's due. A use has no hit or miss, and an attack the game says
- * nothing of counts as a hit.
- */
-export function needsPlayer(roll: LocalRoll, state?: TableRollState): boolean {
-  if (!damageDue(roll, state)) return false
-  return roll.kind !== 'check' || !missed(state)
-}
-
-/**
- * Whether an attack the game made missed: its target, or everyone in its area the game says of,
- * as the tray's "Hit 0 of 2". Not where the game says nothing of it.
- */
-export function missed(state?: TableRollState): boolean {
-  const attack = state?.attack
-  if (!attack) return false
-  const told = (attack.targets ?? []).filter(({ outcome }) => outcome !== null)
-  if (attack.targets && attack.targets.length > 1 && told.length > 0) {
-    return told.every(({ outcome }) => outcome === 'miss')
-  }
-  return attack.outcome === 'miss'
-}
-
-/** The kind chosen for each of damage's rolls: this one, for each roll that offers it. */
-function typesFor(damage: DamagePreview, type: string): (string | null)[] {
-  return damage.rolls.map(roll =>
-    roll.types?.some(({ key }) => key === type) ? type : null,
-  )
-}
-
-/** A kind of damage chosen, as the game labels it. */
-function chosenLabel(
-  roll: DamagePreview['rolls'][number],
-  type: string | null | undefined,
-): string | undefined {
-  return roll.types?.find(({ key }) => key === type)?.label
-}
-
-/**
- * A roll's terms, as its formula has them, when they throw the dice the game said, with their
- * signs, each die with what Foundry does with it, such as 2d6r<=2's reroll; otherwise its dice
- * alone. Either way, its dice have their signs, as the game marks them,
- * or as its formula has them for a module before 0.21.0; and the dice of a critical hit's critical
- * damage are marked added, as the game marks them, so that none is ever its first die. Whether its
- * formula was read, `read`: not where its dice alone are left, its numbers lost.
- * @param marked - Whether the game marks the dice the damage takes away.
- */
-function termsOf(
-  roll: DamagePreview['rolls'][number],
-  marked: boolean,
-): { terms: ExtraTerm[]; read: boolean } {
-  const dice = signedDice(roll, marked).map(
-    ({ faces, number, added, subtracted }) => ({
-      sign: subtracted ? (-1 as const) : (1 as const),
-      count: number,
-      sides: faces as Extract<ExtraTerm, { sides: number }>['sides'],
-      ...(added && { added }),
-    }),
-  )
-  const terms = formulaTerms(roll.formula)
-  if (!terms) return { terms: dice, read: false }
-  const thrown = terms.filter(term => 'sides' in term)
-  const same =
-    thrown.length === dice.length &&
-    thrown.every(
-      (term, index) =>
-        term.sign === dice[index].sign &&
-        term.count === dice[index].count &&
-        term.sides === dice[index].sides,
-    )
-  if (!same) return { terms: dice, read: false }
-  // Its terms of dice are its dice, in order.
-  let index = 0
-  return {
-    terms: terms.map(term => {
-      if (!('sides' in term)) return term
-      const { added } = dice[index++]
-      return added ? { ...term, added } : term
-    }),
-    read: true,
-  }
-}
-
 function modeOf(advantage: LocalCheck['advantage']): -1 | 0 | 1 {
   if (advantage === 'adv') return 1
   if (advantage === 'dis') return -1
   return 0
-}
-
-/** Wait this long, or until given up on. */
-function pause(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise(resolve => {
-    const done = () => {
-      clearTimeout(timer)
-      signal.removeEventListener('abort', done)
-      resolve()
-    }
-    const timer = setTimeout(done, ms)
-    signal.addEventListener('abort', done, { once: true })
-  })
 }

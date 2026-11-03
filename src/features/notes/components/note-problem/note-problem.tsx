@@ -3,16 +3,15 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
-import {
-  drawDescription,
-  readDescription,
-} from '@/components/description/description-html'
+import { drawDescription } from '@/components/description/draw-description'
+import { readDescription } from '@/components/description/read-description'
 import {
   noteReasonWords,
   noteStateWords,
 } from '@/features/notes/utils/note-words'
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
 import type { NoteReason, NoteState } from '@/types/notes'
+import type { SeatRole } from '@/types/seats'
 
 /** The states a change didn't reach Foundry in, which the chip warns of. */
 const WARNS = new Set<NoteState>(['conflict', 'gone', 'failed'])

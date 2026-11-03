@@ -1,10 +1,8 @@
 import { render, screen } from '@testing-library/react'
-import {
-  NO_TRANSFERS,
-  Transferring,
-  useTransferring,
-  type TransferControls,
-} from './transferring'
+import { NO_TRANSFERS } from '../../constants'
+import { useTransferring } from '../../hooks/use-transferring'
+import { Transferring } from './transferring'
+import type { TransferControls } from '../../types'
 
 /** What the controls it's given show of the coin. */
 function Coins() {

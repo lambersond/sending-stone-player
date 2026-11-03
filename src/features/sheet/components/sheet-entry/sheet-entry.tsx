@@ -3,16 +3,17 @@
 import { Fragment, useState, type ReactNode, type Ref } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
-import { FavoriteStar, useFavorite } from '../favorite-mark/favorite-mark'
-import { useFavoriteChoice } from '../favoriting/favoriting'
+import { FavoriteStar } from '../favorite-mark/favorite-star'
+import { useFavorite } from '../favorite-mark/use-favorite'
+import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
 import { useItemMenu } from '../item-menu/item-menu'
 import { usePressMenu } from '../press-menu/press-menu'
 import { SheetText } from '../sheet-text/sheet-text'
-import { useImageFallback } from '@/hooks/use-image-fallback'
-import type { MenuPoint } from '../../../rolling/components/roll-menu/roll-menu'
-import type { DescriptionOrigin } from '../description-actions/description-actions'
-import type { EffectChoice } from '../effect-controls/effect-controls'
-import type { PrepareChoice } from '../preparing/preparing'
+import { EntryIcon } from '@/components/entry-icon/entry-icon'
+import type { MenuPoint } from '../../../rolling/types'
+import type { DescriptionOrigin } from '../description-actions/types'
+import type { EffectChoice } from '../effect-controls/types'
+import type { PrepareChoice } from '../preparing/types'
 import type { FavoriteTarget } from '@/types/roll'
 
 type Props = {
@@ -278,58 +279,4 @@ export function SheetEntry({
       {dialog}
     </li>
   )
-}
-
-/** A row's parts, such as a spell's casting time and range, joined by dots, or nothing for none. */
-export function joinParts(
-  ...parts: (string | false | null | undefined)[]
-): string | undefined {
-  const present = parts.filter(Boolean)
-  return present.length > 0 ? present.join(' · ') : undefined
-}
-
-/** An entry's icon from the game, or its fallback when it has none or it fails to load. */
-export function EntryIcon({
-  src,
-  fallback: Fallback,
-}: Readonly<{ src?: string | null; fallback: LucideIcon }>) {
-  const { shown, ref, onError } = useImageFallback(src)
-  const box = 'size-8 shrink-0 rounded-lg border border-border'
-  if (!src || !shown) {
-    return (
-      <span
-        aria-hidden
-        className={clsx(
-          box,
-          'flex items-center justify-center bg-primary/10 text-primary',
-        )}
-      >
-        <Fallback className='size-4' />
-      </span>
-    )
-  }
-  return (
-    // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      ref={ref}
-      src={src}
-      alt=''
-      className={clsx(
-        box,
-        // The game's own SVG icons, such as its status icons, are white, made for its dark
-        // controls.
-        isSvg(src) ? 'bg-[#23232f] p-1' : 'bg-card object-cover',
-      )}
-      onError={onError}
-    />
-  )
-}
-
-function isSvg(src: string): boolean {
-  try {
-    return new URL(src).pathname.toLowerCase().endsWith('.svg')
-  } catch {
-    return false
-  }
 }

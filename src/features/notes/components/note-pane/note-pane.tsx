@@ -26,7 +26,7 @@ import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
 import { Pane } from '../pane/pane'
 import type { NotePick } from '@/features/notes/hooks/use-notes'
 import type { NoteChapterView, NoteEntryView } from '@/types/notes'
-import type { SeatRole } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
 
 const ICON_BUTTON =
   'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:pointer-events-none disabled:opacity-40'

@@ -3,7 +3,6 @@ import {
   alonePlan,
   aloneRollOf,
   aloneSelection,
-  type AloneRow,
 } from './damage-alone'
 import {
   aloneSpells,
@@ -15,6 +14,7 @@ import {
   pactSpells,
   potionAction,
 } from '@/mocks/sending-stone'
+import type { AloneRow } from '../../../types/roll'
 import type { SheetAction, TableDamagePlan } from '@/types/sending-stone'
 
 const bite = {
