@@ -1,0 +1,260 @@
+## src/components/character-sheet/character-pane.tsx (1590 lines, 1 exports)
+  export component? CharacterPane :316
+  <- [test] src/components/character-sheet/action-entry.alone.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/character-pane.creature.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/character-pane.notes.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/character-pane.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/charges.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/enchantments.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/favorites.test.tsx (value) {CharacterPane}
+  <- [in] src/components/character-sheet/index.ts (value) {CharacterPane}
+  <- [test] src/components/character-sheet/item-menu.test.tsx (value) {CharacterPane}
+  <- [test] src/components/character-sheet/recharge-chip.test.tsx (value) {CharacterPane}
+  <- [OUT] src/components/companions/companion-pane.tsx (value) {CharacterPane}
+  <- [test] src/components/transfers/give-controls.test.tsx (value) {CharacterPane}
+## src/components/character-sheet/character-sheet.tsx (631 lines, 5 exports)
+  export component? CharacterSheet :75
+  export const PROFICIENCY :502
+  export component? ModeChip :583
+  export function modeText :601
+  export function classLine :617
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {CharacterSheet}
+  <- [test] src/components/character-sheet/character-sheet.test.tsx (value) {CharacterSheet, classLine}
+  <- [in] src/components/character-sheet/favorites.tsx (value) {ModeChip, modeText, PROFICIENCY}
+  <- [in] src/components/character-sheet/index.ts (value) {CharacterSheet, classLine}
+## src/components/character-sheet/party-sheets.tsx (59 lines, 2 exports)
+  export type PartySheets :7
+  export component? PartySheetList :18
+  <- [in] src/components/character-sheet/character-pane.tsx (type) {PartySheets}
+  <- [OUT] src/components/character-sheet/inventory-tab.tsx (value) {PartySheetList, type PartySheets}
+  <- [test] src/components/character-sheet/party-sheets.test.tsx (value) {PartySheetList}
+  <- [OUT] src/components/game-table/game-table.tsx (value) {PartySheetList}
+## src/components/character-sheet/sheet-settings.tsx (401 lines, 1 exports)
+  export component? SheetSettings :76
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {SheetSettings}
+  <- [test] src/components/character-sheet/sheet-settings.test.tsx (value) {SheetSettings}
+## src/components/character-sheet/favoriting.tsx (143 lines, 5 exports)
+  export type FavoriteChoice :25
+  export const NO_FAVORITING :43
+  export component? Favoriting :51
+  export hook useFavoriteChoice :63
+  export hook useFavorites :83
+  <- [test] src/components/character-sheet/action-entry.test.tsx (value) {Favoriting}
+  <- [OUT] src/components/character-sheet/action-entry.tsx (value) {useFavoriteChoice}
+  <- [test] src/components/character-sheet/actions-tab.test.tsx (value) {Favoriting}
+  <- [OUT] src/components/character-sheet/actions-tab.tsx (value) {useFavoriteChoice}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {Favoriting, useFavorites}
+  <- [test] src/components/character-sheet/effects-tab.test.tsx (value) {Favoriting}
+  <- [test] src/components/character-sheet/favorites.test.tsx (value) {Favoriting}
+  <- [test] src/components/character-sheet/favoriting.test.tsx (value) {Favoriting, NO_FAVORITING, useFavoriteChoice, useFavorites,}
+  <- [test] src/components/character-sheet/features-tab.test.tsx (value) {Favoriting}
+  <- [OUT] src/components/character-sheet/features-tab.tsx (value) {useFavoriteChoice}
+  <- [test] src/components/character-sheet/inventory-tab.test.tsx (value) {Favoriting}
+  <- [OUT] src/components/character-sheet/inventory-tab.tsx (value) {useFavoriteChoice}
+  <- [test] src/components/character-sheet/item-menu.test.tsx (type) {FavoriteChoice}
+  <- [OUT] src/components/character-sheet/item-menu.tsx (type) {FavoriteChoice}
+  <- [test] src/components/character-sheet/sheet-entry.test.tsx (value) {Favoriting}
+  <- [OUT] src/components/character-sheet/sheet-entry.tsx (value) {useFavoriteChoice}
+  <- [test] src/components/character-sheet/spells-tab.test.tsx (value) {Favoriting}
+  <- [test] src/components/party-sheet/party-sheet.test.tsx (value) {Favoriting}
+  <- [OUT] src/components/party-sheet/party-sheet.tsx (value) {Favoriting, NO_FAVORITING,}
+## src/components/character-sheet/preparing.tsx (144 lines, 5 exports)
+  export type PrepareChoice :23
+  export const NO_PREPARING :38
+  export component? Preparing :46
+  export hook usePrepareChoice :58
+  export hook usePreparing :77
+  <- [OUT] src/components/character-sheet/action-entry.tsx (value) {usePrepareChoice}
+  <- [test] src/components/character-sheet/actions-tab.test.tsx (value) {Preparing, usePreparing}
+  <- [OUT] src/components/character-sheet/actions-tab.tsx (value) {usePrepareChoice}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {Preparing, usePreparing}
+  <- [test] src/components/character-sheet/favorites.test.tsx (value) {Preparing, usePreparing}
+  <- [test] src/components/character-sheet/item-menu.test.tsx (type) {PrepareChoice}
+  <- [OUT] src/components/character-sheet/item-menu.tsx (type) {PrepareChoice}
+  <- [test] src/components/character-sheet/preparing.test.tsx (value) {NO_PREPARING, Preparing, usePrepareChoice, usePreparing,}
+  <- [OUT] src/components/character-sheet/sheet-entry.tsx (type) {PrepareChoice}
+  <- [test] src/components/character-sheet/spells-tab.test.tsx (value) {Preparing, usePreparing}
+  <- [OUT] src/components/character-sheet/spells-tab.tsx (value) {usePrepareChoice}
+## src/components/character-sheet/effect-controls.tsx (426 lines, 9 exports)
+  export type EffectChoice :38
+  export type Effects :62
+  export const NO_EFFECTS :86
+  export component? Effecting :103
+  export hook useEffectControls :159
+  export type Spent :304
+  export hook useSpent :307
+  export hook useEffectChoice :325
+  export component? EffectButtons :387
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {Effecting, useEffectControls}
+  <- [test] src/components/character-sheet/effect-controls.test.tsx (value) {Effecting, NO_EFFECTS, useEffectChoice, useEffectControls, useSpent, type Effects,}
+  <- [test] src/components/character-sheet/effects-tab.test.tsx (value) {Effecting, useEffectControls}
+  <- [OUT] src/components/character-sheet/effects-tab.tsx (value) {EffectButtons, useEffectChoice}
+  <- [test] src/components/character-sheet/favorites.test.tsx (value) {Effecting, useEffectControls}
+  <- [test] src/components/character-sheet/item-menu.test.tsx (type) {EffectChoice}
+  <- [OUT] src/components/character-sheet/item-menu.tsx (type) {EffectChoice}
+  <- [test] src/components/character-sheet/roll-tray.test.tsx (value) {Effecting, NO_EFFECTS, type Effects}
+  <- [OUT] src/components/character-sheet/roll-tray.tsx (value) {useSpent, type Spent}
+  <- [test] src/components/character-sheet/sheet-entry.test.tsx (type) {EffectChoice}
+  <- [OUT] src/components/character-sheet/sheet-entry.tsx (type) {EffectChoice}
+  <- [test] src/hooks/use-spent-offers.test.tsx (type) {Effects}
+  <- [in] src/hooks/use-spent-offers.ts (type) {Effects}
+## src/components/character-sheet/enchantments.tsx (176 lines, 8 exports)
+  export type EndEnchantment :20
+  export type EnchantActions :32
+  export component? Enchanting :43
+  export hook useEnchanting :51
+  export component? EnchantedMark :56
+  export function enchantedEntry :70
+  export component? EnchantmentList :95
+  export component? EndButton :139
+  <- [OUT] src/components/character-sheet/action-entry.tsx (value) {EndButton, EnchantedMark, EnchantmentList, useEnchanting,}
+  <- [OUT] src/components/character-sheet/actions-tab.tsx (value) {EnchantedMark}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {Enchanting, type EnchantActions}
+  <- [OUT] src/components/character-sheet/features-tab.tsx (value) {enchantedEntry}
+  <- [OUT] src/components/character-sheet/inventory-tab.tsx (value) {enchantedEntry}
+  <- [OUT] src/components/character-sheet/spells-tab.tsx (value) {enchantedEntry}
+  <- [test] src/components/party-sheet/party-sheet.test.tsx (value) {Enchanting}
+  <- [OUT] src/components/party-sheet/party-sheet.tsx (value) {Enchanting}
+## src/components/character-sheet/concentration.tsx (182 lines, 6 exports)
+  export type ConcentrationActions :19
+  export component? Concentrating :28
+  export hook useConcentrating :36
+  export component? EndConcentrationButton :56
+  export function concentrationLead :83
+  export component? ConcentrationChip :106
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {Concentrating, type ConcentrationActions}
+  <- [OUT] src/components/character-sheet/effects-tab.tsx (value) {concentrationLead, useConcentrating}
+  <- [OUT] src/components/character-sheet/sheet-tiles.tsx (value) {ConcentrationChip}
+  <- [test] src/components/party-sheet/party-sheet.test.tsx (value) {Concentrating}
+  <- [OUT] src/components/party-sheet/party-sheet.tsx (value) {Concentrating}
+## src/components/character-sheet/conditions-panel.tsx (63 lines, 5 exports)
+  export type ShowConditions :15
+  export component? ConditionsOpener :23
+  export hook useShowConditions :31
+  export hook useConditionsPanel :39
+  export function rulesOf :60
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {ConditionsOpener, rulesOf, useConditionsPanel, type ShowConditions,}
+  <- [in] src/components/character-sheet/description-actions.tsx (type) {ShowConditions}
+  <- [OUT] src/components/character-sheet/description-link.tsx (value) {rulesOf}
+  <- [test] src/components/character-sheet/effects-tab.test.tsx (value) {ConditionsOpener}
+  <- [OUT] src/components/character-sheet/effects-tab.tsx (value) {useConditionsPanel, useShowConditions}
+  <- [test] src/components/party-sheet/party-sheet.test.tsx (value) {ConditionsOpener}
+  <- [OUT] src/components/party-sheet/party-sheet.tsx (value) {ConditionsOpener}
+## src/components/character-sheet/conditions-reference.tsx (146 lines, 1 exports)
+  export component? ConditionsReference :14
+  <- [in] src/components/character-sheet/conditions-panel.tsx (value) {ConditionsReference}
+  <- [test] src/components/character-sheet/conditions-reference.test.tsx (value) {ConditionsReference}
+## src/components/character-sheet/description-actions.tsx (189 lines, 9 exports)
+  export type DescriptionOrigin :30
+  export function spellOrigin :41
+  export type Asking :52
+  export type DescribedDamage :61
+  export type DescriptionActions :77
+  export function sheetTools :127
+  export component? DescriptionLinks :149
+  export hook useDescriptionActions :157
+  export function closingAfter :165
+  <- [test] src/components/character-sheet/action-entry.test.tsx (value) {DescriptionLinks, sheetTools, type DescriptionActions,}
+  <- [OUT] src/components/character-sheet/action-entry.tsx (value) {spellOrigin, useDescriptionActions, type DescriptionOrigin,}
+  <- [OUT] src/components/character-sheet/action-info.tsx (value) {closingAfter, DescriptionLinks, spellOrigin, useDescriptionActions, type DescriptionOrigin,}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {DescriptionLinks, sheetTools, type DescriptionActions,}
+  <- [test] src/components/character-sheet/description-link.test.tsx (value) {DescriptionLinks, sheetTools, type DescriptionActions,}
+  <- [OUT] src/components/character-sheet/description-link.tsx (type) {DescribedDamage, DescriptionActions, DescriptionOrigin,}
+  <- [OUT] src/components/character-sheet/sheet-entry.tsx (type) {DescriptionOrigin}
+  <- [test] src/components/character-sheet/sheet-text.test.tsx (value) {DescriptionLinks, type DescriptionActions,}
+  <- [OUT] src/components/character-sheet/sheet-text.tsx (value) {useDescriptionActions, type DescriptionOrigin,}
+  <- [OUT] src/components/character-sheet/spells-tab.tsx (value) {spellOrigin}
+  <- [test] src/components/party-sheet/party-sheet.test.tsx (value) {DescriptionLinks, type DescriptionActions,}
+  <- [OUT] src/components/party-sheet/party-sheet.tsx (value) {DescriptionLinks}
+## src/components/character-sheet/favorite-mark.tsx (38 lines, 4 exports)
+  export const NO_MARKS :10
+  export component? FavoriteMarks :16
+  export hook useFavorite :24
+  export component? FavoriteStar :30
+  <- [OUT] src/components/character-sheet/action-entry.tsx (value) {FavoriteStar, useFavorite}
+  <- [test] src/components/character-sheet/actions-tab.test.tsx (value) {FavoriteMarks}
+  <- [OUT] src/components/character-sheet/actions-tab.tsx (value) {FavoriteStar, useFavorite}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {FavoriteMarks}
+  <- [in] src/components/character-sheet/character-sheet.tsx (value) {useFavorite}
+  <- [test] src/components/character-sheet/effects-tab.test.tsx (value) {FavoriteMarks}
+  <- [test] src/components/character-sheet/favorites.test.tsx (value) {FavoriteMarks}
+  <- [in] src/components/character-sheet/favorites.tsx (value) {FavoriteMarks, NO_MARKS}
+  <- [test] src/components/character-sheet/features-tab.test.tsx (value) {FavoriteMarks}
+  <- [test] src/components/character-sheet/inventory-tab.test.tsx (value) {FavoriteMarks}
+  <- [OUT] src/components/character-sheet/sheet-entry.tsx (value) {FavoriteStar, useFavorite}
+  <- [test] src/components/character-sheet/spells-tab.test.tsx (value) {FavoriteMarks}
+  <- [test] src/components/party-sheet/party-sheet.test.tsx (value) {FavoriteMarks}
+  <- [OUT] src/components/party-sheet/party-sheet.tsx (value) {FavoriteMarks, NO_MARKS,}
+## src/components/character-sheet/favorites.tsx (519 lines, 2 exports)
+  export component? FavoritesStrip :94
+  export component? FavoritesColumn :146
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {FavoritesColumn, FavoritesStrip}
+  <- [test] src/components/character-sheet/favorites.test.tsx (value) {FavoritesColumn, FavoritesStrip}
+## src/components/character-sheet/wild-shape.tsx (1630 lines, 15 exports)
+  export type WildShapeValue :132
+  export hook useWildShaping :216
+  export const LAST_FORM_KEY :221
+  export hook useWildShape :257
+  export component? WildShaping :628
+  export component? WildShapeRibbon :671
+  export component? ReturnPopover :759
+  export component? WildShapeRowControls :866
+  export component? WildShapeRowLine :907
+  export hook useWildShapeRow :922
+  export component? WildShapeAbout :927
+  export component? WildShapeNote :943
+  export const ENDED_KEY :1571
+  export const ENDED_FOR :1574
+  export component? WildShapeEnded :1583
+  <- [OUT] src/components/character-sheet/action-entry.tsx (value) {WildShapeRowControls, WildShapeRowLine}
+  <- [test] src/components/character-sheet/actions-tab.test.tsx (value) {useWildShape, WildShaping}
+  <- [OUT] src/components/character-sheet/actions-tab.tsx (value) {WildShapeNote, WildShapeRowControls, WildShapeRowLine,}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {useWildShape, WildShapeRibbon, WildShaping}
+  <- [test] src/components/character-sheet/effects-tab.test.tsx (value) {useWildShape, WildShaping}
+  <- [OUT] src/components/character-sheet/effects-tab.tsx (value) {WildShapeNote}
+  <- [test] src/components/character-sheet/features-tab.test.tsx (value) {useWildShape, WildShaping}
+  <- [OUT] src/components/character-sheet/features-tab.tsx (value) {useWildShapeRow, WildShapeAbout}
+  <- [test] src/components/character-sheet/inventory-tab.test.tsx (value) {useWildShape, WildShaping}
+  <- [OUT] src/components/character-sheet/inventory-tab.tsx (value) {WildShapeNote}
+  <- [test] src/components/character-sheet/spells-tab.test.tsx (value) {useWildShape, WildShaping}
+  <- [OUT] src/components/character-sheet/spells-tab.tsx (value) {WildShapeNote}
+  <- [test] src/components/character-sheet/wild-shape-ended.test.tsx (value) {ENDED_KEY, WildShapeEnded}
+  <- [test] src/components/character-sheet/wild-shape.test.tsx (value) {LAST_FORM_KEY, useWildShape, WildShapeRibbon, WildShaping,}
+  <- [OUT] src/components/game-table/game-table.tsx (value) {WildShapeEnded}
+## src/components/character-sheet/index.ts (4 lines, 4 exports)
+  export re-export CharacterPane :1
+  export re-export CharacterSheet :2
+  export re-export classLine :2
+  export re-export RollTray :3
+  <- [OUT] src/components/game-table/game-table.tsx (value) {CharacterPane, classLine}
+## src/hooks/use-sheet-ids.ts (15 lines, 2 exports)
+  export const SheetIdPrefix :9
+  export hook useSheetId :12
+  <- [test] src/components/character-sheet/actions-tab.test.tsx (value) {SheetIdPrefix}
+  <- [OUT] src/components/character-sheet/actions-tab.tsx (value) {useSheetId}
+  <- [OUT] src/components/character-sheet/biography-tab.tsx (value) {useSheetId}
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {SheetIdPrefix}
+  <- [in] src/components/character-sheet/character-sheet.tsx (value) {useSheetId}
+  <- [OUT] src/components/character-sheet/effects-tab.tsx (value) {useSheetId}
+  <- [OUT] src/components/character-sheet/features-tab.tsx (value) {useSheetId}
+  <- [OUT] src/components/character-sheet/inventory-tab.tsx (value) {useSheetId}
+  <- [OUT] src/components/character-sheet/prompt-banner.tsx (value) {useSheetId}
+  <- [OUT] src/components/character-sheet/spells-tab.tsx (value) {useSheetId}
+## src/hooks/use-spent-offers.ts (114 lines, 1 exports)
+  export hook useSpentOffers :50
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {useSpentOffers}
+  <- [test] src/hooks/use-spent-offers.test.tsx (value) {useSpentOffers}
+## src/hooks/use-creature.ts (17 lines, 2 exports)
+  export const CreatureContext :9
+  export hook useCreature :14
+  <- [in] src/components/character-sheet/character-pane.tsx (value) {CreatureContext}
+  <- [OUT] src/components/character-sheet/roll-toasts.tsx (value) {useCreature}
+  <- [test] src/components/character-sheet/roll-tray.test.tsx (value) {CreatureContext}
+  <- [OUT] src/components/character-sheet/roll-tray.tsx (value) {useCreature}
+  <- [OUT] src/components/character-sheet/rolls-button.tsx (value) {useCreature}
+  <- [test] src/components/companions/companion-pane.test.tsx (value) {useCreature}
+## src/hooks/use-creature-choice.ts (63 lines, 2 exports)
+  export const CREATURE_KEY :12
+  export hook useCreatureChoice :50
+  <- [OUT] src/components/game-table/game-table.tsx (value) {useCreatureChoice}
+  <- [test] src/hooks/use-creature-choice.test.ts (value) {CREATURE_KEY, useCreatureChoice}
