@@ -1,0 +1,1 @@
+850ceed test: a small test kit, byte-identical helpers adopted, the no-db guard, TZ pinned, a values golden; the request-kind table (setup and new files)

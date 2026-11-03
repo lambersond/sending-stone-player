@@ -1,0 +1,2843 @@
+From 714c532176744a563f916601db51874b9daba9d4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 06:24:23 +0000
+Subject: [PATCH] =?UTF-8?q?chore(refactor):=20the=20gate=20scripts=20(roun?=
+ =?UTF-8?q?d.md=20=C2=A73.4)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The L1, gate and replay scripts of round.md §3.4 in .refactor/tools/ (planning files only, not in
+the PR's final diff): l1.sh (full jest --ci --json with each red test rerun once alone, next
+typegen, tsc, eslint -f json, then gates.sh, all under the L1 locks), gates.sh, gate-1 to gate-12
+with 1b and 4b over a shared gate-lib.mjs, base.sh and base-tsv.mjs (X/base/ from 24f808b's git
+objects and WS0's jest run), rerun.mjs and replay.sh (L3). Paths are followed through moves.tsv
+(M's format), git's -M50% renames from 24f808b and the checkout's own moves.d splits.
+
+Gate 6's baseline (framework-exports.txt: 57 framework files and the two 'use server' modules) and
+gate 4b's 104 base cases (gate4b.allow, each with its reason) are taken from 24f808b. gate1.allow,
+gate1b.allow, shims.allow and counts.conf hold their formats only: at the base nothing differs.
+
+Dry run on a clean checkout of the branch (src = 24f808b's): jest 290 suites and 8,607 tests
+green, tsc 0 errors, eslint 0 errors and 999 warnings, gates 1-12 ok (8 n/a before the node kit),
+6.5 minutes under the locks. Each gate was also seen to fail on a planted fault (an expect, a
+helper value, a docblock, a stale mock, a mock that leaves a name out, a copied constant, a new
+route export, a shim, a lost 'use client', a cycle, a red or missing test, a test added to a base
+file, a lint error, a changed golden), and to pass a whole-file move and a split by describe block.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .refactor/tools/base-tsv.mjs          |   92 +++
+ .refactor/tools/base.sh               |   35 +
+ .refactor/tools/counts.conf           |    4 +
+ .refactor/tools/framework-exports.txt |   59 ++
+ .refactor/tools/gate-1.mjs            |   77 ++
+ .refactor/tools/gate-10.mjs           |   76 ++
+ .refactor/tools/gate-11.mjs           |   63 ++
+ .refactor/tools/gate-12.mjs           |   32 +
+ .refactor/tools/gate-1b.mjs           |  338 +++++++++
+ .refactor/tools/gate-2.mjs            |   37 +
+ .refactor/tools/gate-3.mjs            |   46 ++
+ .refactor/tools/gate-4.mjs            |   52 ++
+ .refactor/tools/gate-4b.mjs           |   63 ++
+ .refactor/tools/gate-5.mjs            |   58 ++
+ .refactor/tools/gate-6.mjs            |  112 +++
+ .refactor/tools/gate-7.mjs            |   48 ++
+ .refactor/tools/gate-8.mjs            |   38 +
+ .refactor/tools/gate-9.mjs            |   66 ++
+ .refactor/tools/gate-lib.mjs          | 1000 +++++++++++++++++++++++++
+ .refactor/tools/gate1.allow           |    2 +
+ .refactor/tools/gate1b.allow          |    7 +
+ .refactor/tools/gate4b.allow          |  108 +++
+ .refactor/tools/gates.sh              |   32 +
+ .refactor/tools/l1.sh                 |   62 ++
+ .refactor/tools/moves.d/.keep         |    0
+ .refactor/tools/moves.tsv             |    4 +
+ .refactor/tools/replay.sh             |   41 +
+ .refactor/tools/rerun.mjs             |   25 +
+ .refactor/tools/shims.allow           |    2 +
+ 29 files changed, 2579 insertions(+)
+ create mode 100644 .refactor/tools/base-tsv.mjs
+ create mode 100755 .refactor/tools/base.sh
+ create mode 100644 .refactor/tools/counts.conf
+ create mode 100644 .refactor/tools/framework-exports.txt
+ create mode 100644 .refactor/tools/gate-1.mjs
+ create mode 100644 .refactor/tools/gate-10.mjs
+ create mode 100644 .refactor/tools/gate-11.mjs
+ create mode 100644 .refactor/tools/gate-12.mjs
+ create mode 100644 .refactor/tools/gate-1b.mjs
+ create mode 100644 .refactor/tools/gate-2.mjs
+ create mode 100644 .refactor/tools/gate-3.mjs
+ create mode 100644 .refactor/tools/gate-4.mjs
+ create mode 100644 .refactor/tools/gate-4b.mjs
+ create mode 100644 .refactor/tools/gate-5.mjs
+ create mode 100644 .refactor/tools/gate-6.mjs
+ create mode 100644 .refactor/tools/gate-7.mjs
+ create mode 100644 .refactor/tools/gate-8.mjs
+ create mode 100644 .refactor/tools/gate-9.mjs
+ create mode 100644 .refactor/tools/gate-lib.mjs
+ create mode 100644 .refactor/tools/gate1.allow
+ create mode 100644 .refactor/tools/gate1b.allow
+ create mode 100644 .refactor/tools/gate4b.allow
+ create mode 100755 .refactor/tools/gates.sh
+ create mode 100755 .refactor/tools/l1.sh
+ create mode 100644 .refactor/tools/moves.d/.keep
+ create mode 100644 .refactor/tools/moves.tsv
+ create mode 100755 .refactor/tools/replay.sh
+ create mode 100644 .refactor/tools/rerun.mjs
+ create mode 100644 .refactor/tools/shims.allow
+
+diff --git a/.refactor/tools/base-tsv.mjs b/.refactor/tools/base-tsv.mjs
+new file mode 100644
+index 0000000..6774309
+--- /dev/null
++++ b/.refactor/tools/base-tsv.mjs
+@@ -0,0 +1,92 @@
++// The gates' base (round.md §3.4), from 24f808b's git objects and its jest run:
++// `node base-tsv.mjs <jest-base.json> [outdir]` (outdir: X/base) writes
++//   jest-base.tsv   file, fullName, status, numPassingAsserts, occurrence (one row per test)
++//   expects/<path>.json   gate 1's per-test expect lists of each base test file
++//   files/<path>    gate 1b's base test files as they were (normalized by the gate itself, since
++//                   its dropped lines follow moves.tsv, which grows)
++//   base.json       the base's import-graph groups (gate 12), server graph and directives (gate 11)
++import fs from 'node:fs'
++import path from 'node:path'
++import {
++  APP,
++  BASE,
++  BASE_DIR,
++  directiveOf,
++  escapeField,
++  expectsOf,
++  git,
++  graphEdges,
++  isSource,
++  isTestFile,
++  makeResolver,
++  parse,
++  readJest,
++  serverGraph,
++  stronglyConnected,
++  testsOf,
++  blobs,
++} from './gate-lib.mjs'
++
++const [jestJson, outdir = BASE_DIR] = process.argv.slice(2)
++if (!jestJson) {
++  process.stderr.write('usage: node base-tsv.mjs <jest-base.json> [outdir]\n')
++  process.exit(2)
++}
++
++// 1. The tests jest ran at the base.
++const jest = readJest(jestJson)
++const rows = ['file\tfullName\tstatus\tnumPassingAsserts\toccurrence']
++for (const suite of jest.suites) {
++  for (const test of suite.tests) {
++    rows.push(
++      [suite.file, escapeField(test.fullName), test.status, test.numPassingAsserts, test.occurrence].join('\t'),
++    )
++  }
++}
++fs.mkdirSync(outdir, { recursive: true })
++fs.writeFileSync(path.join(outdir, 'jest-base.tsv'), rows.join('\n') + '\n')
++
++// 2. The base tree, read from git.
++const files = git(APP, ['ls-tree', '-r', '--name-only', '-z', BASE]).split('\0').filter(Boolean)
++const wanted = files.filter(file => file === 'tsconfig.json' || (file.startsWith('src/') && isSource(file)))
++const texts = blobs(APP, wanted.map(file => `${BASE}:${file}`))
++const text = file => texts.get(`${BASE}:${file}`)
++const parsed = new Map()
++const parseOf = file => {
++  if (!parsed.has(file)) parsed.set(file, parse(file, text(file)))
++  return parsed.get(file)
++}
++const fileSet = new Set(files)
++const resolver = makeResolver(APP, fileSet, text)
++const srcFiles = wanted.filter(file => file.startsWith('src/') && /\.(ts|tsx)$/.test(file))
++
++// 3. Each base test file as it was, and its tests' expect lists.
++const testFiles = srcFiles.filter(isTestFile)
++for (const file of testFiles) {
++  const out = path.join(outdir, 'files', file)
++  fs.mkdirSync(path.dirname(out), { recursive: true })
++  fs.writeFileSync(out, text(file))
++  const sf = parseOf(file)
++  const tests = testsOf(sf)
++    .filter(test => test.kind === 'test')
++    .map(test => ({ key: test.key, occurrence: test.occurrence, expects: expectsOf(test, sf) }))
++  const json = path.join(outdir, 'expects', `${file}.json`)
++  fs.mkdirSync(path.dirname(json), { recursive: true })
++  fs.writeFileSync(json, JSON.stringify(tests, undefined, 1) + '\n')
++}
++
++// 4. The import graph's groups, the server graph and every file's directive.
++const groups = stronglyConnected(graphEdges(srcFiles, parseOf, resolver.resolve))
++const { server, boundaries } = serverGraph(srcFiles, parseOf, resolver.resolve)
++const directives = Object.fromEntries(
++  srcFiles.map(file => [file, directiveOf(parseOf(file))]).filter(([, directive]) => directive),
++)
++fs.writeFileSync(
++  path.join(outdir, 'base.json'),
++  JSON.stringify({ commit: BASE, groups, server, boundaries, directives }, undefined, 1) + '\n',
++)
++process.stdout.write(
++  `base: ${rows.length - 1} tests in ${jest.suites.length} suites; ${testFiles.length} test files; ` +
++    `${groups.length} cycle groups; ${server.length} server modules, ${boundaries.length} client ` +
++    `boundaries; ${Object.keys(directives).length} directives\n`,
++)
+diff --git a/.refactor/tools/base.sh b/.refactor/tools/base.sh
+new file mode 100755
+index 0000000..e3309d7
+--- /dev/null
++++ b/.refactor/tools/base.sh
+@@ -0,0 +1,35 @@
++#!/usr/bin/env bash
++# The gates' base (round.md §3.4): `base.sh [--force]` makes X/base/ once (jest-base.json,
++# jest-base.tsv, expects/, files/, base.json) from 24f808b. WS0's X/jest-base.json (54d8128, the
++# same src) seeds the jest run; without it a detached worktree at 24f808b runs jest under the L1
++# locks and is removed after. Everything else base-tsv.mjs reads from 24f808b's git objects.
++set -euo pipefail
++APP=/home/user/sending-stone-player
++X=/tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v043
++BASE=24f808b
++TOOLS=$(cd "$(dirname "$0")" && pwd)
++OUT=${GATE_BASE_DIR:-$X/base}
++if [ "${1:-}" = --force ]; then rm -rf "$OUT"; fi
++if [ -f "$OUT/jest-base.tsv" ] && [ -f "$OUT/base.json" ]; then
++  echo "base: $OUT is there"
++  exit 0
++fi
++mkdir -p "$OUT"
++if [ ! -f "$OUT/jest-base.json" ]; then
++  if [ -f "$X/jest-base.json" ]; then
++    cp "$X/jest-base.json" "$OUT/jest-base.json"
++    echo "base: jest seeded from WS0's X/jest-base.json"
++  else
++    WT=$OUT/wt
++    git -C "$APP" worktree add --detach "$WT" "$BASE"
++    if git -C "$APP" diff --quiet "$BASE" HEAD -- package-lock.json prisma/; then
++      ln -s "$APP/node_modules" "$WT/node_modules"
++    else
++      (cd "$WT" && npm ci --no-audit --no-fund && npx prisma generate)
++    fi
++    (cd "$WT" && flock "$X/l1-wait.lock" flock "$X/checks.lock" npx jest --ci --json \
++      --outputFile="$OUT/jest-base.json" --maxWorkers=3) || echo "base: jest at $BASE exited $?"
++    git -C "$APP" worktree remove --force "$WT"
++  fi
++fi
++node "$TOOLS/base-tsv.mjs" "$OUT/jest-base.json" "$OUT"
+diff --git a/.refactor/tools/counts.conf b/.refactor/tools/counts.conf
+new file mode 100644
+index 0000000..d2fc591
+--- /dev/null
++++ b/.refactor/tools/counts.conf
+@@ -0,0 +1,4 @@
++# Gate 3's (and gates 2 and 10's) retirements (round.md §3.4): `retire<TAB>path<TAB>reason`, a test
++# file (or snapshot) whose absence is allowed. It holds only commit 26's retirements (R3.10, Q4 (a)):
++# markup.golden.test.tsx, composition.golden.test.tsx, values.golden.test.ts and their .snap files,
++# added in commit 26 (by the final step), never before.
+diff --git a/.refactor/tools/framework-exports.txt b/.refactor/tools/framework-exports.txt
+new file mode 100644
+index 0000000..2ed0c4f
+--- /dev/null
++++ b/.refactor/tools/framework-exports.txt
+@@ -0,0 +1,59 @@
++# Gate 6's baseline: the framework files of 24f808b (pages, layouts, not-found, manifest, routes, the
++# 'use server' actions), each with its directive and its exported value names (W-a, Phase 1).
++src/app/api/auth/[...all]/route.ts	-	
++src/app/api/bridge/commands/route.ts	-	OPTIONS,POST,maxDuration
++src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts	-	GET
++src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts	-	POST
++src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts	-	GET
++src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts	-	GET
++src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.ts	-	DELETE,PATCH
++src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.ts	-	PATCH,PUT
++src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.ts	-	POST
++src/app/api/campaigns/[id]/characters/[actor]/notes/route.ts	-	GET,POST
++src/app/api/campaigns/[id]/characters/[actor]/rolls/[roll]/route.ts	-	GET
++src/app/api/campaigns/[id]/characters/[actor]/rolls/route.ts	-	POST
++src/app/api/campaigns/[id]/characters/[actor]/table/route.ts	-	GET
++src/app/api/campaigns/[id]/characters/[actor]/texts/[hash]/route.ts	-	GET
++src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.ts	-	DELETE,PATCH
++src/app/api/campaigns/[id]/party/[group]/notes/order/route.ts	-	PATCH,PUT
++src/app/api/campaigns/[id]/party/[group]/notes/preview/route.ts	-	POST
++src/app/api/campaigns/[id]/party/[group]/notes/route.ts	-	GET,POST
++src/app/api/campaigns/[id]/party/[group]/route.ts	-	GET
++src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.ts	-	GET
++src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts	-	GET
++src/app/api/characters/[id]/companions/[companion]/rolls/route.ts	-	POST
++src/app/api/characters/[id]/companions/[companion]/table/route.ts	-	GET
++src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts	-	GET
++src/app/api/characters/[id]/cookbook/route.ts	-	GET
++src/app/api/characters/[id]/notes/[note]/route.ts	-	DELETE,PATCH
++src/app/api/characters/[id]/notes/order/route.ts	-	PATCH,PUT
++src/app/api/characters/[id]/notes/preview/route.ts	-	POST
++src/app/api/characters/[id]/notes/route.ts	-	GET,POST
++src/app/api/characters/[id]/party/[group]/notes/[note]/route.ts	-	DELETE,PATCH
++src/app/api/characters/[id]/party/[group]/notes/order/route.ts	-	PATCH,PUT
++src/app/api/characters/[id]/party/[group]/notes/preview/route.ts	-	POST
++src/app/api/characters/[id]/party/[group]/notes/route.ts	-	GET,POST
++src/app/api/characters/[id]/party/[group]/route.ts	-	GET
++src/app/api/characters/[id]/party/[group]/texts/[hash]/route.ts	-	GET
++src/app/api/characters/[id]/rolls/[roll]/route.ts	-	GET
++src/app/api/characters/[id]/rolls/route.ts	-	POST
++src/app/api/characters/[id]/table/route.ts	-	GET
++src/app/api/characters/[id]/texts/[hash]/route.ts	-	GET
++src/app/api/cookbook/dishes/route.ts	-	POST
++src/app/api/events/route.ts	-	OPTIONS,POST
++src/app/campaigns/[id]/characters/[actor]/not-found.tsx	-	default
++src/app/campaigns/[id]/characters/[actor]/page.tsx	-	default,generateMetadata
++src/app/campaigns/[id]/party/[group]/not-found.tsx	-	default
++src/app/campaigns/[id]/party/[group]/page.tsx	-	default,generateMetadata
++src/app/campaigns/actions.ts	use server	changeSecretAction,removeCampaignAction,removePlayerAction,resetInviteAction,revokeCookbookLinkAction,setUpCampaignAction
++src/app/campaigns/page.tsx	-	default,metadata
++src/app/characters/[id]/page.tsx	-	default,generateMetadata
++src/app/characters/[id]/party/[group]/not-found.tsx	-	default
++src/app/characters/[id]/party/[group]/page.tsx	-	default,generateMetadata
++src/app/characters/actions.ts	use server	chooseActor,deleteCharacterAndLeave,joinAsCharacter,makeCookbookCode,markChatReadUpTo,openInvite,removeCharacter,revokeCookbookCode,setManualDice
++src/app/characters/page.tsx	-	default,metadata
++src/app/join/[code]/page.tsx	-	default,metadata
++src/app/layout.tsx	-	default,metadata,viewport
++src/app/login/page.tsx	-	default,metadata
++src/app/manifest.ts	-	default
++src/app/page.tsx	-	default
+diff --git a/.refactor/tools/gate-1.mjs b/.refactor/tools/gate-1.mjs
+new file mode 100644
+index 0000000..1711e51
+--- /dev/null
++++ b/.refactor/tools/gate-1.mjs
+@@ -0,0 +1,77 @@
++// Gate 1, assertions (round.md §3.4): per test (its describe/it title path and occurrence), the
++// ordered expect(...) statements, whitespace collapsed outside strings, at base and head; every
++// base list equals the head's for the same test, paths followed (moves.tsv, git's renames, the
++// checkout's moves.d splits). The goldens' tests are held the same way from the commit that added
++// them. Allowlist gate1.allow (path, reason): a test file whose tests may be gone (commit 26's
++// retirement of C1, C3 and C9 only).
++import fs from 'node:fs'
++import path from 'node:path'
++import {
++  BASE_DIR,
++  expectsOf,
++  frozenFiles,
++  gate,
++  git,
++  isTestFile,
++  parse,
++  readAllow,
++  testsOf,
++  verdict,
++} from './gate-lib.mjs'
++
++gate('1', checkout => {
++  const problems = []
++  const allowed = new Set(readAllow('gate1.allow').map(([file]) => file))
++  const headTests = file =>
++    checkout.memo(`tests:${file}`, () => {
++      const sf = checkout.parse(file)
++      const map = new Map()
++      for (const test of testsOf(sf)) {
++        if (test.kind === 'test') map.set(`${test.key}\0${test.occurrence}`, expectsOf(test, sf))
++      }
++      return map
++    })
++  let tests = 0
++  const compare = (origin, file, list, where) => {
++    for (const { key, occurrence, expects } of list) {
++      tests += 1
++      const now = where(key)
++      if (!now) {
++        if (!allowed.has(origin)) problems.push(`${origin}: gone (${key})`)
++        continue
++      }
++      const head = headTests(now).get(`${key}\0${occurrence}`)
++      if (!head) problems.push(`${origin} → ${now}: no test "${key}" #${occurrence}`)
++      else if (JSON.stringify(head) !== JSON.stringify(expects)) {
++        const at = expects.findIndex((line, i) => head[i] !== line)
++        const index = at === -1 ? expects.length : at
++        problems.push(
++          `${origin} → ${now}: "${key}" #${occurrence}, expect ${index + 1} of ${expects.length}: ` +
++            `base ${JSON.stringify(expects[index] ?? '(none)')}, head ${JSON.stringify(head[index] ?? '(none)')}`,
++        )
++      }
++    }
++  }
++  // The base test files.
++  const root = path.join(BASE_DIR, 'expects')
++  const baseFiles = checkout.baseFiles.filter(file => file.startsWith('src/') && isTestFile(file))
++  for (const file of baseFiles) {
++    const json = path.join(root, `${file}.json`)
++    if (!fs.existsSync(json)) throw new Error(`no ${json}: run R/tools/base.sh --force`)
++    compare(file, file, JSON.parse(fs.readFileSync(json, 'utf8')), key =>
++      checkout.headOfTest(file, key),
++    )
++  }
++  // The goldens' (and the kit test's) tests, from the commit that added each.
++  let frozen = 0
++  for (const { file, sha, gone } of frozenFiles(checkout)) {
++    if (!isTestFile(file) || file.endsWith('.snap')) continue
++    frozen += 1
++    const sf = parse(file, git(checkout.root, ['show', `${sha}:${file}`]))
++    const list = testsOf(sf)
++      .filter(test => test.kind === 'test')
++      .map(test => ({ key: test.key, occurrence: test.occurrence, expects: expectsOf(test, sf) }))
++    compare(file, file, list, () => (gone ? undefined : file))
++  }
++  return verdict(problems, `${tests} tests in ${baseFiles.length} base test files and ${frozen} frozen ones`)
++})
+diff --git a/.refactor/tools/gate-10.mjs b/.refactor/tools/gate-10.mjs
+new file mode 100644
+index 0000000..fc9479f
+--- /dev/null
++++ b/.refactor/tools/gate-10.mjs
+@@ -0,0 +1,76 @@
++// Gate 10, goldens and the frozen kit (round.md §3.4, SA F5): every test under src/__tests__/golden/
++// passed; jest.json's snapshot counts added, unchecked and updated are 0; and from the commit that
++// added each (in the checkout's history since 24f808b), no change to src/__tests__/golden/**
++// (snapshots byte for byte), the kit (src/utils/test-utils.ts, test-utils.test.ts,
++// test-utils-node.ts, src/mocks/dice-renderer.ts, src/mocks/sheet-providers/**) but in import
++// declarations and the path strings of jest.mock and its kin. A file that commit added and the
++// checkout no longer has must be a counts.conf retirement (commit 26: C1, C3, C9 and their .snap).
++import ts from 'typescript'
++import { GOLDEN_DIR, frozenFiles, gate, git, parse, retired, verdict } from './gate-lib.mjs'
++
++const PATH_CALLS = new Set(['mock', 'doMock', 'requireActual', 'requireMock', 'unmock'])
++
++// The text with import declarations cut out and jest path strings replaced, as it is otherwise.
++function frozenText(file, text) {
++  if (!/\.[jt]sx?$/.test(file)) return text
++  const sf = parse(file, text)
++  const cuts = []
++  for (const statement of sf.statements) {
++    if (ts.isImportDeclaration(statement)) cuts.push([statement.getFullStart(), statement.getEnd(), ''])
++  }
++  const visit = node => {
++    if (
++      ts.isCallExpression(node) &&
++      ts.isPropertyAccessExpression(node.expression) &&
++      ts.isIdentifier(node.expression.expression) &&
++      node.expression.expression.text === 'jest' &&
++      PATH_CALLS.has(node.expression.name.text) &&
++      node.arguments[0] &&
++      ts.isStringLiteralLike(node.arguments[0])
++    ) {
++      cuts.push([node.arguments[0].getStart(sf), node.arguments[0].getEnd(), "'<path>'"])
++    }
++    ts.forEachChild(node, visit)
++  }
++  visit(sf)
++  let out = text
++  for (const [start, end, put] of cuts.sort((a, b) => b[0] - a[0])) out = out.slice(0, start) + put + out.slice(end)
++  return out.replace(/^\s+/, '')
++}
++
++gate('10', checkout => {
++  const problems = []
++  const { snapshot, suites } = checkout.jest
++  for (const key of ['added', 'unchecked', 'updated']) {
++    if ((snapshot?.[key] ?? 0) !== 0) problems.push(`jest.json snapshot.${key} = ${snapshot[key]}`)
++  }
++  let goldenTests = 0
++  for (const suite of suites) {
++    if (!suite.file.startsWith(GOLDEN_DIR)) continue
++    if (suite.status !== 'passed') problems.push(`${suite.file}: ${suite.status} ${suite.message.slice(0, 200)}`)
++    for (const test of suite.tests) {
++      goldenTests += 1
++      if (test.status !== 'passed') problems.push(`${suite.file}: "${test.fullName}" ${test.status}`)
++    }
++  }
++  const ran = new Set(suites.map(suite => suite.file))
++  const gone = retired()
++  const frozen = frozenFiles(checkout)
++  for (const { file, sha, gone: missing } of frozen) {
++    if (missing) {
++      if (!gone.has(file)) problems.push(`${file}: added in ${sha.slice(0, 7)}, gone, and not a counts.conf retirement`)
++      continue
++    }
++    if (file.startsWith(GOLDEN_DIR) && /\.test\.[jt]sx?$/.test(file) && !ran.has(file)) problems.push(`${file}: not run`)
++    const then = git(checkout.root, ['show', `${sha}:${file}`])
++    const now = checkout.text(file)
++    if (file.endsWith('.snap') ? then !== now : frozenText(file, then) !== frozenText(file, now)) {
++      problems.push(`${file}: changed since ${sha.slice(0, 7)}, which added it`)
++    }
++  }
++  const pending = checkout.files.filter(
++    file => file.startsWith(GOLDEN_DIR) && !frozen.some(f => f.file === file),
++  )
++  const notes = pending.map(file => `not committed yet, held from the commit that adds it: ${file}`)
++  return verdict(problems, `${goldenTests} golden tests, ${frozen.length} frozen files held`, notes)
++})
+diff --git a/.refactor/tools/gate-11.mjs b/.refactor/tools/gate-11.mjs
+new file mode 100644
+index 0000000..2cec029
+--- /dev/null
++++ b/.refactor/tools/gate-11.mjs
+@@ -0,0 +1,63 @@
++// Gate 11, directives (round.md §3.4, SA F7, §1.0 rule 9): every base module keeps its 'use client'
++// or 'use server' and gains none (paths followed); a new module has 'use client' only if it is a
++// component .tsx (not a types, constants, utils or use-* module), and none has 'use server'; the
++// 'use server' modules stay 2; every module in the head's server graph (from src/app's pages,
++// layouts, not-found, manifest, routes and actions through value imports, stopping at 'use client'
++// modules) is a base server-graph module (followed) or a new module with no component; and
++// header-account.tsx stays a Server Component.
++import path from 'node:path'
++import {
++  directiveOf,
++  gate,
++  hasComponent,
++  isTestFile,
++  readBaseJson,
++  serverGraph,
++  verdict,
++} from './gate-lib.mjs'
++
++const HEADER = 'src/components/site-header/header-account.tsx'
++
++gate('11', checkout => {
++  const problems = []
++  const notes = []
++  const base = readBaseJson('base.json')
++  const baseServer = new Set(base.server)
++  const modules = checkout.files.filter(file => file.startsWith('src/') && /\.(ts|tsx)$/.test(file) && !isTestFile(file))
++  let servers = 0
++  for (const file of modules) {
++    const directive = directiveOf(checkout.parse(file))
++    if (directive === 'use server') servers += 1
++    const was = checkout.base(file)
++    if (was !== undefined) {
++      const then = base.directives[was] ?? ''
++      if (directive !== then) problems.push(`${file}: '${then || 'no directive'}' at the base (${was}), '${directive || 'no directive'}' now`)
++      continue
++    }
++    if (directive === 'use server') problems.push(`${file}: a new 'use server' module`)
++    if (directive === 'use client') {
++      const name = path.basename(file)
++      const piece = /^(types|constants|utils)\.tsx?$/.test(name) || /^use-/.test(name) || !file.endsWith('.tsx')
++      if (piece || !hasComponent(file, checkout.parse(file))) problems.push(`${file}: a new 'use client' module that is not a component .tsx`)
++      else notes.push(`new 'use client' component: ${file}`)
++    }
++  }
++  if (servers !== 2) problems.push(`${servers} 'use server' modules, the base 2`)
++  const graph = serverGraph(modules, file => checkout.parse(file), checkout.resolver.resolve)
++  for (const file of graph.server) {
++    const was = checkout.base(file)
++    if (was !== undefined) {
++      if (!baseServer.has(was)) problems.push(`${file}: in the server graph now, not at the base (${was})`)
++    } else if (hasComponent(file, checkout.parse(file))) {
++      problems.push(`${file}: a new component module in the server graph`)
++    }
++  }
++  const header = checkout.head(HEADER)
++  if (!header) problems.push(`${HEADER}: gone`)
++  else if (!graph.server.includes(header)) problems.push(`${header}: not a Server Component in the server graph`)
++  return verdict(
++    problems,
++    `${modules.length} modules, ${graph.server.length} server modules (base ${base.server.length}), ${graph.boundaries.length} client boundaries`,
++    notes,
++  )
++})
+diff --git a/.refactor/tools/gate-12.mjs b/.refactor/tools/gate-12.mjs
+new file mode 100644
+index 0000000..3eb497f
+--- /dev/null
++++ b/.refactor/tools/gate-12.mjs
+@@ -0,0 +1,32 @@
++// Gate 12, cycles (round.md §3.4, SA F14): the import graph of src (type-only imports included, as
++// R/analysis/metrics/graph.mjs counts it) has no strongly connected group the base lacks, and no
++// group grows: each head group's modules, followed back to the base, all sit in one base group,
++// and none is new since the base. Groups gone are listed (group 1 after commit 7, the db group
++// after commit 9, all four after integration; from commit 23 the import-cycle test holds it).
++import { gate, graphEdges, readBaseJson, stronglyConnected, verdict } from './gate-lib.mjs'
++
++gate('12', checkout => {
++  const problems = []
++  const notes = []
++  const base = readBaseJson('base.json')
++  const files = checkout.files.filter(file => file.startsWith('src/') && /\.(ts|tsx)$/.test(file))
++  const groups = stronglyConnected(graphEdges(files, file => checkout.parse(file), checkout.resolver.resolve))
++  const groupOf = new Map()
++  base.groups.forEach((group, index) => group.forEach(file => groupOf.set(file, index)))
++  const left = new Set()
++  for (const group of groups) {
++    const back = group.map(file => checkout.base(file))
++    const homes = new Set(back.map(file => (file === undefined ? undefined : groupOf.get(file))))
++    if (homes.size !== 1 || homes.has(undefined)) {
++      problems.push(`a cycle group the base lacks, or that grew: ${group.join(', ')}`)
++    } else {
++      const [home] = homes
++      left.add(home)
++      notes.push(`group of ${group.length} (base ${base.groups[home].length}): ${group.join(', ')}`)
++    }
++  }
++  base.groups.forEach((group, index) => {
++    if (!left.has(index)) notes.push(`base group gone: ${group.length} files from ${group[0]}`)
++  })
++  return verdict(problems, `${groups.length} cycle groups (base ${base.groups.length})`, notes)
++})
+diff --git a/.refactor/tools/gate-1b.mjs b/.refactor/tools/gate-1b.mjs
+new file mode 100644
+index 0000000..0144228
+--- /dev/null
++++ b/.refactor/tools/gate-1b.mjs
+@@ -0,0 +1,338 @@
++// Gate 1b, the whole test file (round.md §3.4, SA F1): each base test file (paths followed) and its
++// head, both parsed, with these dropped from both: import declarations; the path strings of
++// jest.mock/requireActual/requireMock/doMock, require(), import() and `typeof import()`; a mock
++// factory's keys that are moved names (moves.tsv `name` rows), compared apart as a multiset of
++// `key: value` (a factory left with nothing but a requireActual spread goes); guardNoDb()
++// statements; the base's top-level helpers the kit replaced (R3.3: a name the head no longer
++// declares and imports from the kit, test-utils, test-utils-node or dice-renderer); comments;
++// type aliases and interfaces. Then printed with the TS printer, whitespace collapsed outside
++// strings: the two must be equal, and each file's leading `@jest-environment` docblock must be
++// equal and first. A split file (moves.d) is held test by test: each test's statement equal in
++// the file its split names, every other statement of a head piece one of the base's at the same
++// describe path, and every base statement in some piece.
++// Allowlist gate1b.allow: `<base path>\tmock\t<mock path>\t<reason>` (those jest.mock statements
++// left out on both sides) or `<base path>\tfile\t-\t<reason>` (the file not compared).
++import ts from 'typescript'
++import {
++  BASE_DIR,
++  KIT_MODULES,
++  gate,
++  importsOf,
++  isTestFile,
++  leadingDocblock,
++  movedNames,
++  parse,
++  print,
++  propertyName,
++  readAllow,
++  squeeze,
++  testsOf,
++  topLevelNames,
++  verdict,
++} from './gate-lib.mjs'
++import fs from 'node:fs'
++import path from 'node:path'
++
++const PATH_CALLS = new Set(['mock', 'doMock', 'requireActual', 'requireMock', 'unmock'])
++const PLACEHOLDER = '<path>'
++
++const isJestCall = (node, names) =>
++  ts.isCallExpression(node) &&
++  ts.isPropertyAccessExpression(node.expression) &&
++  ts.isIdentifier(node.expression.expression) &&
++  node.expression.expression.text === 'jest' &&
++  names.has(node.expression.name.text)
++
++const MOCKS = new Set(['mock', 'doMock'])
++const mockOf = statement => {
++  if (!ts.isExpressionStatement(statement)) return undefined
++  const call = statement.expression
++  const spec = isJestCall(call, MOCKS) ? call.arguments[0] : undefined
++  return spec && ts.isStringLiteralLike(spec) ? call : undefined
++}
++
++const returnedObject = factory => {
++  if (!factory || !(ts.isArrowFunction(factory) || ts.isFunctionExpression(factory))) return undefined
++  let at = ts.isBlock(factory.body)
++    ? factory.body.statements.findLast(s => ts.isReturnStatement(s))?.expression
++    : factory.body
++  while (at && (ts.isParenthesizedExpression(at) || ts.isAsExpression(at))) at = at.expression
++  return at && ts.isObjectLiteralExpression(at) ? at : undefined
++}
++
++const isRequireActualSpread = property =>
++  ts.isSpreadAssignment(property) &&
++  ts.isCallExpression(property.expression) &&
++  isJestCall(property.expression, new Set(['requireActual']))
++
++// The normalizer of one side of a file: `norm(node)` prints a node with the dropped parts gone
++// ('' when the whole node goes); `movedKeys` gathers the moved mock keys it took out.
++function normalizer(sf, { moved, dropHelpers, dropMocks }) {
++  const movedKeys = []
++  const marked = new Set()
++  const dropped = new Set()
++  const visitStatements = (statements, top) => {
++    for (const statement of statements) {
++      if (
++        ts.isImportDeclaration(statement) ||
++        ts.isImportEqualsDeclaration(statement) ||
++        ts.isTypeAliasDeclaration(statement) ||
++        ts.isInterfaceDeclaration(statement)
++      ) {
++        dropped.add(statement)
++      } else if (
++        ts.isExpressionStatement(statement) &&
++        ts.isCallExpression(statement.expression) &&
++        ts.isIdentifier(statement.expression.expression) &&
++        statement.expression.expression.text === 'guardNoDb'
++      ) {
++        dropped.add(statement)
++      } else if (top && dropHelpers.size > 0) {
++        const names = topLevelNames({ statements: [statement] })
++        if (names.size > 0 && [...names].every(name => dropHelpers.has(name))) dropped.add(statement)
++      }
++      const mock = mockOf(statement)
++      if (mock) {
++        if (dropMocks.has(mock.arguments[0].text)) {
++          dropped.add(statement)
++          continue
++        }
++        const object = returnedObject(mock.arguments[1])
++        if (object) {
++          let took = 0
++          for (const property of object.properties) {
++            const name = !ts.isSpreadAssignment(property) && property.name && propertyName(property)
++            if (name && moved.has(name)) {
++              took += 1
++              movedKeys.push(squeeze(print(property, sf)))
++            }
++          }
++          if (took > 0) {
++            marked.add(object)
++            const left = object.properties.filter(
++              p => !(!ts.isSpreadAssignment(p) && p.name && moved.has(propertyName(p))),
++            )
++            if (left.every(isRequireActualSpread)) dropped.add(statement)
++          }
++        }
++      }
++    }
++  }
++  const walk = node => {
++    if (ts.isSourceFile(node) || ts.isBlock(node) || ts.isModuleBlock(node)) {
++      visitStatements(node.statements, ts.isSourceFile(node))
++    }
++    ts.forEachChild(node, walk)
++  }
++  walk(sf)
++  const literal = node => ts.isStringLiteralLike(node)
++  const transformer = context => {
++    const { factory } = context
++    const visit = node => {
++      if (dropped.has(node)) return undefined
++      if (
++        (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node) || ts.isMethodDeclaration(node)) &&
++        node.parent &&
++        marked.has(node.parent) &&
++        moved.has(propertyName(node))
++      ) {
++        return undefined
++      }
++      if (ts.isCallExpression(node) && node.arguments.length > 0 && literal(node.arguments[0])) {
++        const isPath =
++          isJestCall(node, PATH_CALLS) ||
++          node.expression.kind === ts.SyntaxKind.ImportKeyword ||
++          (ts.isIdentifier(node.expression) && node.expression.text === 'require')
++        if (isPath) {
++          const visited = ts.visitEachChild(node, visit, context)
++          return factory.updateCallExpression(visited, visited.expression, visited.typeArguments, [
++            factory.createStringLiteral(PLACEHOLDER),
++            ...visited.arguments.slice(1),
++          ])
++        }
++      }
++      if (ts.isImportTypeNode(node)) {
++        const visited = ts.visitEachChild(node, visit, context)
++        return factory.updateImportTypeNode(
++          visited,
++          factory.createLiteralTypeNode(factory.createStringLiteral(PLACEHOLDER)),
++          visited.attributes,
++          visited.qualifier,
++          visited.typeArguments,
++          visited.isTypeOf,
++        )
++      }
++      return ts.visitEachChild(node, visit, context)
++    }
++    return root => ts.visitNode(root, visit)
++  }
++  const norm = node => {
++    if (dropped.has(node)) return ''
++    const result = ts.transform(node, [transformer])
++    const out = result.transformed[0]
++    const text = out ? squeeze(ts.isSourceFile(out) ? ts.createPrinter({ removeComments: true }).printFile(out) : print(out, sf)) : ''
++    result.dispose()
++    return text
++  }
++  return { norm, movedKeys }
++}
++
++// The base's top-level helpers the head no longer declares and imports from the kit.
++function kitReplaced(checkout, baseSf, heads) {
++  const declared = new Set(heads.flatMap(file => [...topLevelNames(checkout.parse(file))]))
++  const fromKit = new Map()
++  for (const file of heads) {
++    for (const edge of importsOf(checkout.parse(file))) {
++      if (edge.typeOnly) continue
++      const target = checkout.resolver.resolve(edge.spec, file).file
++      if (!target || !KIT_MODULES.has(target)) continue
++      for (const { imported, local } of edge.names) fromKit.set(local, { imported, target })
++    }
++  }
++  const names = new Map()
++  for (const name of topLevelNames(baseSf)) {
++    if (!declared.has(name) && fromKit.has(name)) names.set(name, fromKit.get(name))
++  }
++  return names
++}
++
++// A declaration's JavaScript, `export` dropped, for comparing a replaced helper with the kit's.
++function javascriptOf(sf, name, as = name) {
++  for (const statement of sf.statements) {
++    if (!topLevelNames({ statements: [statement] }).has(name)) continue
++    const text = statement
++      .getText(sf)
++      .replace(/^export\s+/, '')
++      .replaceAll(new RegExp(`\\b${name}\\b`, 'g'), as)
++    const js = ts.transpileModule(text, {
++      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.Preserve },
++      fileName: sf.fileName,
++    }).outputText
++    return squeeze(js)
++  }
++  return undefined
++}
++
++// A test file's pieces for a split: its tests' statements by key and occurrence, and its other
++// statements by the describe path they sit in.
++function piecesOf(sf, norm) {
++  const leaves = new Map()
++  const context = []
++  const tests = testsOf(sf)
++  const byNode = new Map(tests.map(test => [test.node, test]))
++  for (const test of tests) {
++    if (test.kind === 'test') leaves.set(`${test.key}\0${test.occurrence}`, norm(test.statement ?? test.node))
++  }
++  const scan = (statements, at) => {
++    for (const statement of statements) {
++      const call = ts.isExpressionStatement(statement) ? byNode.get(statement.expression) : undefined
++      if (call?.kind === 'describe') {
++        const callback = call.node.arguments.at(-1)
++        if (callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) && ts.isBlock(callback.body)) {
++          scan(callback.body.statements, call.key)
++        }
++      } else if (!call) {
++        const text = norm(statement)
++        if (text) context.push(`${at}\0${text}`)
++      }
++    }
++  }
++  scan(sf.statements, '')
++  return { leaves, context }
++}
++
++gate('1b', checkout => {
++  const problems = []
++  const notes = []
++  const moved = movedNames()
++  const allow = readAllow('gate1b.allow')
++  const allowFile = new Set(allow.filter(([, what]) => what === 'file').map(([file]) => file))
++  const allowMocks = file => new Set(allow.filter(([f, what]) => f === file && what === 'mock').map(([, , spec]) => spec))
++  const baseFiles = checkout.baseFiles.filter(file => file.startsWith('src/') && isTestFile(file))
++  let compared = 0
++  for (const file of baseFiles) {
++    if (allowFile.has(file)) {
++      notes.push(`skipped ${file} (gate1b.allow)`)
++      continue
++    }
++    const stored = path.join(BASE_DIR, 'files', file)
++    const baseText = fs.existsSync(stored) ? fs.readFileSync(stored, 'utf8') : checkout.baseText(file)
++    const baseSf = parse(file, baseText)
++    const splits = checkout.splitsOf(file)
++    const remainder = checkout.head(file)
++    const heads = [...new Set([...splits.map(s => s.to), ...(remainder ? [remainder] : [])])]
++    if (heads.length === 0) {
++      problems.push(`${file}: gone`)
++      continue
++    }
++    const replaced = kitReplaced(checkout, baseSf, heads)
++    for (const [name, { imported, target }] of replaced) {
++      const kit = javascriptOf(checkout.parse(target), imported, name)
++      const local = javascriptOf(baseSf, name)
++      if (kit !== local) notes.push(`note ${file}: helper ${name} replaced by ${target}'s ${imported}, whose JavaScript differs (review)`)
++    }
++    const dropMocks = allowMocks(file)
++    const base = normalizer(baseSf, { moved, dropHelpers: new Set(replaced.keys()), dropMocks })
++    const baseBlock = leadingDocblock(baseText)
++    for (const head of heads) {
++      if (leadingDocblock(checkout.text(head)) !== baseBlock) {
++        problems.push(`${file} → ${head}: the leading docblock is not the base's, or not first`)
++      }
++    }
++    compared += 1
++    if (splits.length === 0) {
++      const headSide = normalizer(checkout.parse(heads[0]), { moved, dropHelpers: new Set(), dropMocks })
++      const a = base.norm(baseSf)
++      const b = headSide.norm(checkout.parse(heads[0]))
++      if (a !== b) {
++        let at = 0
++        while (at < a.length && a[at] === b[at]) at += 1
++        problems.push(
++          `${file} → ${heads[0]}: differs at ${at}: base …${JSON.stringify(a.slice(Math.max(0, at - 60), at + 80))}… ` +
++            `head …${JSON.stringify(b.slice(Math.max(0, at - 60), at + 80))}…`,
++        )
++      }
++      const keysA = [...base.movedKeys].sort().join(' | ')
++      const keysB = [...headSide.movedKeys].sort().join(' | ')
++      if (keysA !== keysB) problems.push(`${file} → ${heads[0]}: moved mock keys differ: base [${keysA}], head [${keysB}]`)
++      continue
++    }
++    // A split: test by test, and the rest statement by statement.
++    const basePieces = piecesOf(baseSf, base.norm)
++    const baseContext = new Set(basePieces.context)
++    const seenContext = new Set()
++    const headKeys = []
++    for (const head of heads) {
++      const sf = checkout.parse(head)
++      const side = normalizer(sf, { moved, dropHelpers: new Set(), dropMocks })
++      const pieces = piecesOf(sf, side.norm)
++      headKeys.push(...side.movedKeys)
++      for (const [key, text] of pieces.leaves) {
++        const [title] = key.split('\0')
++        if (checkout.headOfTest(file, title) !== head) continue
++        const was = basePieces.leaves.get(key)
++        if (was === undefined) continue
++        if (was !== text) problems.push(`${file} → ${head}: test "${title}" differs`)
++      }
++      for (const item of pieces.context) {
++        if (!baseContext.has(item)) problems.push(`${file} → ${head}: a statement not in the base: ${JSON.stringify(item.split('\0')[1].slice(0, 160))}`)
++        seenContext.add(item)
++      }
++    }
++    for (const [key] of basePieces.leaves) {
++      const [title] = key.split('\0')
++      const head = checkout.headOfTest(file, title)
++      const sf = head && checkout.parse(head)
++      if (!sf || !testsOf(sf).some(test => test.kind === 'test' && `${test.key}\0${test.occurrence}` === key)) {
++        problems.push(`${file}: test "${title}" is in no piece`)
++      }
++    }
++    for (const item of baseContext) {
++      if (!seenContext.has(item)) problems.push(`${file}: a base statement in no piece: ${JSON.stringify(item.split('\0')[1].slice(0, 160))}`)
++    }
++    if ([...base.movedKeys].sort().join(' | ') !== headKeys.sort().join(' | ')) {
++      problems.push(`${file}: moved mock keys differ across its pieces`)
++    }
++  }
++  return verdict(problems, `${compared} base test files compared, ${moved.size} moved names`, notes)
++})
+diff --git a/.refactor/tools/gate-2.mjs b/.refactor/tools/gate-2.mjs
+new file mode 100644
+index 0000000..be0056c
+--- /dev/null
++++ b/.refactor/tools/gate-2.mjs
+@@ -0,0 +1,37 @@
++// Gate 2, per test (round.md §3.4): each base test (X/base/jest-base.tsv) is present at head (its
++// file followed, its fullName and occurrence), `status: passed`, numPassingAsserts ≥ the base's.
++// A test red in jest.json that l1.sh's rerun alone found green (reruns.tsv) counts as passed and
++// is listed as a flake.
++import path from 'node:path'
++import { gate, readBaseTests, readTsv, retired, unescapeField, verdict } from './gate-lib.mjs'
++
++gate('2', checkout => {
++  const problems = []
++  const notes = []
++  const head = new Map()
++  for (const suite of checkout.jest.suites) {
++    for (const test of suite.tests) head.set(`${suite.file}\0${test.fullName}\0${test.occurrence}`, test)
++  }
++  const reruns = new Map(
++    readTsv(path.join(checkout.outdir, 'reruns.tsv')).map(([file, fullName, status]) => [
++      `${file}\0${unescapeField(fullName)}`,
++      status,
++    ]),
++  )
++  const gone = retired()
++  const base = readBaseTests()
++  for (const test of base) {
++    if (gone.has(test.file)) continue
++    const file = checkout.headOfTest(test.file, test.fullName)
++    const now = file && head.get(`${file}\0${test.fullName}\0${test.occurrence}`)
++    const where = `${test.file}${file && file !== test.file ? ` → ${file}` : ''}: "${test.fullName}"${test.occurrence ? ` #${test.occurrence}` : ''}`
++    if (!now) problems.push(`${where}: not run`)
++    else if (now.status !== 'passed') {
++      if (reruns.get(`${file}\0${test.fullName}`) === 'passed') notes.push(`flake ${where}: ${now.status}, green alone`)
++      else problems.push(`${where}: ${now.status}`)
++    } else if (now.numPassingAsserts < test.numPassingAsserts) {
++      problems.push(`${where}: ${now.numPassingAsserts} passing asserts, base ${test.numPassingAsserts}`)
++    }
++  }
++  return verdict(problems, `${base.length} base tests`, notes)
++})
+diff --git a/.refactor/tools/gate-3.mjs b/.refactor/tools/gate-3.mjs
+new file mode 100644
+index 0000000..a9f2963
+--- /dev/null
++++ b/.refactor/tools/gate-3.mjs
+@@ -0,0 +1,46 @@
++// Gate 3, counts (round.md §3.4), derived from the checkout: head suites ≥ base suites − retired
++// (counts.conf's `retire` rows, commit 26's only); every head test not in the base sits in a file
++// absent at the base or in a split's target (moves.d), so no base file gains a test; and the head
++// runs at least as many tests as the base less the retired ones.
++import { gate, readBaseTests, retired, verdict } from './gate-lib.mjs'
++
++gate('3', checkout => {
++  const problems = []
++  const base = readBaseTests()
++  const gone = retired()
++  const baseSuites = new Set(base.map(test => test.file))
++  const keep = [...baseSuites].filter(file => !gone.has(file))
++  const known = new Set(
++    base.map(test => {
++      const file = checkout.headOfTest(test.file, test.fullName)
++      return `${file}\0${test.fullName}\0${test.occurrence}`
++    }),
++  )
++  const targets = new Set(checkout.splits.map(split => split.to))
++  const { suites, totals } = checkout.jest
++  if (suites.length < keep.length) {
++    problems.push(`${suites.length} suites ran, the base had ${baseSuites.size} (${gone.size} retired)`)
++  }
++  let added = 0
++  const addedIn = new Map()
++  for (const suite of suites) {
++    const baseFile = checkout.base(suite.file)
++    const newFile = baseFile === undefined
++    for (const test of suite.tests) {
++      if (known.has(`${suite.file}\0${test.fullName}\0${test.occurrence}`)) continue
++      added += 1
++      addedIn.set(suite.file, (addedIn.get(suite.file) ?? 0) + 1)
++      if (!newFile && !targets.has(suite.file)) {
++        problems.push(`${suite.file} (base ${baseFile}): a test the base did not have: "${test.fullName}"`)
++      }
++    }
++  }
++  const baseTests = base.filter(test => !gone.has(test.file)).length
++  if (totals.tests < baseTests) problems.push(`${totals.tests} tests ran, the base had ${baseTests}`)
++  const notes = [...addedIn].map(([file, count]) => `new ${file}: ${count} test(s)`)
++  return verdict(
++    problems,
++    `${suites.length} suites (base ${baseSuites.size}), ${totals.tests} tests (base ${base.length}), ${added} new`,
++    notes,
++  )
++})
+diff --git a/.refactor/tools/gate-4.mjs b/.refactor/tools/gate-4.mjs
+new file mode 100644
+index 0000000..870226e
+--- /dev/null
++++ b/.refactor/tools/gate-4.mjs
+@@ -0,0 +1,52 @@
++// Gate 4, stale mocks (round.md §3.4): in every test file, each jest.mock / doMock / requireActual
++// / requireMock path resolves (tsconfig paths, `@/`, src modulePaths, relative to the test's
++// folder, packages); for a jest.mock or doMock the module is in the import closure of the test's
++// own imports (a requireActual target needs no importer: R3.3's dice-renderer lines); and every
++// key of a mock factory's object literal is an export of the module (`__esModule` aside; a
++// package's keys are not checked).
++import {
++  closure,
++  exportsOf,
++  factoryObject,
++  gate,
++  isTestFile,
++  jestCalls,
++  verdict,
++} from './gate-lib.mjs'
++
++gate('4', checkout => {
++  const problems = []
++  const tests = checkout.files.filter(file => file.startsWith('src/') && isTestFile(file) && /\.[jt]sx?$/.test(file))
++  let mocks = 0
++  let packages = 0
++  for (const file of tests) {
++    const sf = checkout.parse(file)
++    const calls = jestCalls(sf)
++    if (calls.length === 0) continue
++    const reach = checkout.memo(`closure:${file}`, () => closure(checkout, [file, 'jest.setup.ts']))
++    for (const { method, spec, factory } of calls) {
++      if (method === 'unmock') continue
++      mocks += 1
++      const target = checkout.resolver.resolve(spec, file)
++      if (!target.file && !target.external) {
++        problems.push(`${file}: jest.${method}('${spec}') resolves to nothing`)
++        continue
++      }
++      if (method !== 'mock' && method !== 'doMock') continue
++      const reached = target.file ? reach.files.has(target.file) : reach.packages.has(target.external)
++      if (!reached) problems.push(`${file}: jest.${method}('${spec}') mocks a module the test never imports`)
++      if (target.external) {
++        packages += 1
++        continue
++      }
++      const object = factoryObject(factory)
++      if (!object) continue
++      const names = exportsOf(checkout, target.file)
++      for (const { name } of object.keys) {
++        if (name === '__esModule') continue
++        if (!names.has(name)) problems.push(`${file}: jest.${method}('${spec}') mocks ${name}, which ${target.file} does not export`)
++      }
++    }
++  }
++  return verdict(problems, `${mocks} mock paths in ${tests.length} test files (${packages} package mocks' keys not checked)`)
++})
+diff --git a/.refactor/tools/gate-4b.mjs b/.refactor/tools/gate-4b.mjs
+new file mode 100644
+index 0000000..8af6a40
+--- /dev/null
++++ b/.refactor/tools/gate-4b.mjs
+@@ -0,0 +1,63 @@
++// Gate 4b, mocks that leave a name out (round.md §3.4, SA F8): for a jest.mock factory with no
++// spread (no requireActual), every value name a module in the test's closure imports from the
++// mocked module is a key of the factory (else it is `undefined` there: NaN timers, B20). The
++// closure starts at the test and goes through value imports, not into a module a factory
++// replaces. Base cases are allowlisted in gate4b.allow: `<test at base>\t<mocked module at
++// base>\t<name>\t<reason>`, matched with paths followed; a new case fails.
++import {
++  closure,
++  factoryObject,
++  gate,
++  importsOf,
++  isTestFile,
++  jestCalls,
++  readAllow,
++  verdict,
++} from './gate-lib.mjs'
++
++gate('4b', checkout => {
++  const problems = []
++  const notes = []
++  const allow = new Set(readAllow('gate4b.allow').map(([test, module, name]) => `${test}\0${module}\0${name}`))
++  const used = new Set()
++  const tests = checkout.files.filter(file => file.startsWith('src/') && isTestFile(file) && /\.[jt]sx?$/.test(file))
++  let checked = 0
++  for (const file of tests) {
++    const sf = checkout.parse(file)
++    const replaced = new Map()
++    for (const { method, spec, factory } of jestCalls(sf)) {
++      if (method !== 'mock' && method !== 'doMock') continue
++      const target = checkout.resolver.resolve(spec, file).file
++      if (!target) continue
++      const object = factoryObject(factory)
++      if (factory && (!object || !object.spread)) replaced.set(target, { spec, object })
++    }
++    if (replaced.size === 0) continue
++    const reach = closure(checkout, [file], module => replaced.has(module) && module !== file)
++    for (const module of reach.files) {
++      if (replaced.has(module) || !/\.(ts|tsx)$/.test(module)) continue
++      for (const edge of importsOf(checkout.parse(module))) {
++        if (edge.typeOnly) continue
++        const target = checkout.resolver.resolve(edge.spec, module).file
++        const mock = target && replaced.get(target)
++        if (!mock?.object) continue
++        const keys = new Set(mock.object.keys.map(key => key.name))
++        for (const { imported } of edge.names) {
++          if (imported === '*') continue
++          checked += 1
++          if (keys.has(imported)) continue
++          const key = `${checkout.base(file) ?? file}\0${checkout.base(target) ?? target}\0${imported}`
++          if (allow.has(key)) {
++            used.add(key)
++            continue
++          }
++          problems.push(`${file}: its mock of '${mock.spec}' (${target}) leaves out ${imported}, which ${module} imports`)
++        }
++      }
++    }
++  }
++  for (const key of allow) {
++    if (!used.has(key)) notes.push(`note gate4b.allow row no longer needed: ${key.split('\0').join(' ')}`)
++  }
++  return verdict(problems, `${checked} imported names checked against full mocks`, notes)
++})
+diff --git a/.refactor/tools/gate-5.mjs b/.refactor/tools/gate-5.mjs
+new file mode 100644
+index 0000000..d7051b9
+--- /dev/null
++++ b/.refactor/tools/gate-5.mjs
+@@ -0,0 +1,58 @@
++// Gate 5, overridden constants (round.md §3.4): the five overrides a test makes by jest.mock still
++// bite. For each, the test (path followed) still mocks a module with the name as a key; that module
++// declares the name itself; some module in the test's closure imports the name from it; and no
++// other module in the closure declares the name at its top level (a copy the mock would miss).
++import { closure, factoryObject, gate, importsOf, jestCalls, topLevelNames, verdict } from './gate-lib.mjs'
++
++const OVERRIDES = [
++  ['src/components/character-sheet/effect-controls.test.tsx', 'EFFECT_SETTLE'],
++  ['src/components/character-sheet/wild-shape.test.tsx', 'WILD_SHAPE_SETTLE'],
++  ['src/components/cookbook-card/cookbook-dish-list.test.tsx', 'DISH_ATTEMPTS'],
++  ['src/app/api/cookbook/dishes/route.test.ts', 'MOST_DISHES_WAITING'],
++  ['src/hooks/use-sheet-roller.elven-off.test.tsx', 'ELVEN_LINE'],
++]
++
++gate('5', checkout => {
++  const problems = []
++  const notes = []
++  for (const [baseTest, name] of OVERRIDES) {
++    const test = checkout.head(baseTest)
++    if (!test) {
++      problems.push(`${baseTest}: gone`)
++      continue
++    }
++    const mock = jestCalls(checkout.parse(test)).find(
++      call => call.method === 'mock' && factoryObject(call.factory)?.keys.some(key => key.name === name),
++    )
++    if (!mock) {
++      problems.push(`${test}: no jest.mock overrides ${name} any more`)
++      continue
++    }
++    const module = checkout.resolver.resolve(mock.spec, test).file
++    if (!module) {
++      problems.push(`${test}: '${mock.spec}' resolves to no module`)
++      continue
++    }
++    if (!topLevelNames(checkout.parse(module)).has(name)) {
++      problems.push(`${test}: ${module} does not declare ${name} itself`)
++      continue
++    }
++    const reach = closure(checkout, [test])
++    const readers = []
++    for (const file of reach.files) {
++      if (file === module || file === test || !/\.(ts|tsx)$/.test(file)) continue
++      const sf = checkout.parse(file)
++      if (topLevelNames(sf).has(name)) problems.push(`${test}: ${file} declares its own ${name}, which the mock misses`)
++      const reads = importsOf(sf).some(
++        edge =>
++          !edge.typeOnly &&
++          checkout.resolver.resolve(edge.spec, file).file === module &&
++          edge.names.some(n => n.imported === name),
++      )
++      if (reads) readers.push(file)
++    }
++    if (readers.length === 0) problems.push(`${test}: nothing it imports reads ${name} from ${module}`)
++    else notes.push(`${test}: ${name} from ${module}, read by ${readers.sort().join(', ')}`)
++  }
++  return verdict(problems, `${OVERRIDES.length} overrides`, notes)
++})
+diff --git a/.refactor/tools/gate-6.mjs b/.refactor/tools/gate-6.mjs
+new file mode 100644
+index 0000000..cfcfa46
+--- /dev/null
++++ b/.refactor/tools/gate-6.mjs
+@@ -0,0 +1,112 @@
++// Gate 6, framework exports (round.md §3.4, SA F11): per route.ts, page.tsx, layout.tsx,
++// not-found.tsx and manifest.ts the exported value names equal the base's (framework-exports.txt,
++// made from 24f808b: `node gate-6.mjs --baseline <checkout at the base>`), with metadata, viewport
++// and generateMetadata; no framework file appears or goes; the two 'use server' modules export the
++// same 15 names, each an async function, and no other 'use server' file appears.
++import fs from 'node:fs'
++import path from 'node:path'
++import ts from 'typescript'
++import {
++  Checkout,
++  FRAMEWORK_FILE,
++  TOOLS,
++  directiveOf,
++  gate,
++  isSource,
++  isTestFile,
++  readTsv,
++  verdict,
++} from './gate-lib.mjs'
++
++const BASELINE = path.join(TOOLS, 'framework-exports.txt')
++
++const hasModifier = (node, kind) => ts.getModifiers?.(node)?.some(m => m.kind === kind) ?? false
++
++// A module's exported value names (types left out); for each, whether it is an async function.
++function valueExports(sf) {
++  const names = new Map()
++  for (const statement of sf.statements) {
++    if (ts.isExportAssignment(statement)) names.set('default', false)
++    else if (ts.isExportDeclaration(statement)) {
++      if (statement.isTypeOnly || !statement.exportClause || ts.isNamespaceExport(statement.exportClause)) continue
++      for (const element of statement.exportClause.elements) {
++        if (!element.isTypeOnly) names.set(element.name.text, false)
++      }
++    } else if (hasModifier(statement, ts.SyntaxKind.ExportKeyword)) {
++      if (ts.isTypeAliasDeclaration(statement) || ts.isInterfaceDeclaration(statement)) continue
++      const isDefault = hasModifier(statement, ts.SyntaxKind.DefaultKeyword)
++      if (ts.isFunctionDeclaration(statement)) {
++        names.set(isDefault ? 'default' : statement.name.text, hasModifier(statement, ts.SyntaxKind.AsyncKeyword))
++      } else if (ts.isVariableStatement(statement)) {
++        for (const declaration of statement.declarationList.declarations) {
++          const init = declaration.initializer
++          const async =
++            init !== undefined &&
++            (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) &&
++            hasModifier(init, ts.SyntaxKind.AsyncKeyword)
++          if (ts.isIdentifier(declaration.name)) names.set(declaration.name.text, async)
++        }
++      } else if (statement.name) names.set(isDefault ? 'default' : statement.name.text, false)
++    }
++  }
++  return names
++}
++
++const frameworkFiles = checkout =>
++  checkout.files.filter(
++    file =>
++      file.startsWith('src/app/') &&
++      isSource(file) &&
++      !isTestFile(file) &&
++      (FRAMEWORK_FILE.test(file) || directiveOf(checkout.parse(file)) === 'use server'),
++  )
++
++if (process.argv[2] === '--baseline') {
++  const checkout = new Checkout(path.resolve(process.argv[3]), '/tmp')
++  const rows = frameworkFiles(checkout).map(file => {
++    const sf = checkout.parse(file)
++    const directive = directiveOf(sf) === 'use server' ? 'use server' : '-'
++    return [file, directive, [...valueExports(sf).keys()].sort().join(',')].join('\t')
++  })
++  fs.writeFileSync(
++    BASELINE,
++    '# Gate 6\'s baseline: the framework files of 24f808b (pages, layouts, not-found, manifest, routes, the\n' +
++      "# 'use server' actions), each with its directive and its exported value names (W-a, Phase 1).\n" +
++      rows.join('\n') +
++      '\n',
++  )
++  process.stdout.write(`${rows.length} framework files\n`)
++  process.exit(0)
++}
++
++gate('6', checkout => {
++  const problems = []
++  const baseline = readTsv(BASELINE)
++  if (baseline.length === 0) throw new Error(`no ${BASELINE}`)
++  const seen = new Set()
++  let actions = 0
++  for (const [baseFile, directive, list] of baseline) {
++    const file = checkout.head(baseFile)
++    if (!file) {
++      problems.push(`${baseFile}: gone`)
++      continue
++    }
++    seen.add(file)
++    const sf = checkout.parse(file)
++    const names = valueExports(sf)
++    const now = [...names.keys()].sort().join(',')
++    if (now !== list) problems.push(`${file}: exports ${now || '(none)'}, the base ${list || '(none)'}`)
++    const isServer = directiveOf(sf) === 'use server'
++    if (isServer !== (directive === 'use server')) problems.push(`${file}: 'use server' ${isServer ? 'gained' : 'lost'}`)
++    if (directive === 'use server') {
++      for (const [name, async] of names) {
++        actions += 1
++        if (!async) problems.push(`${file}: ${name} is not an async function`)
++      }
++    }
++  }
++  for (const file of frameworkFiles(checkout)) {
++    if (!seen.has(file)) problems.push(`${file}: a framework or 'use server' file the base did not have`)
++  }
++  return verdict(problems, `${baseline.length} framework files, ${actions} actions`)
++})
+diff --git a/.refactor/tools/gate-7.mjs b/.refactor/tools/gate-7.mjs
+new file mode 100644
+index 0000000..0abb134
+--- /dev/null
++++ b/.refactor/tools/gate-7.mjs
+@@ -0,0 +1,48 @@
++// Gate 7, shims (round.md §3.4, SA F2): no `v0.43-shim` comment; no re-export-only module (only
++// `export … from` statements) but the base's barrels, which commit 5 deletes; and no `export … from`
++// of a name that moved after 24f808b (moves.tsv `name` rows), a re-export a move left behind;
++// except files in shims.allow (`path<TAB>reason`; expected empty, and empty again after commit 23).
++import ts from 'typescript'
++import { gate, isSource, movedNames, readAllow, verdict } from './gate-lib.mjs'
++
++gate('7', checkout => {
++  const problems = []
++  const allowed = new Set(readAllow('shims.allow').map(([file]) => file))
++  const moved = movedNames()
++  const files = checkout.files.filter(file => file.startsWith('src/') && isSource(file))
++  const baseOnly = file => {
++    const base = checkout.base(file)
++    if (!base) return false
++    const text = checkout.baseText(base)
++    return text !== undefined && reexportOnly(ts.createSourceFile(base, text, ts.ScriptTarget.Latest, true))
++  }
++  let barrels = 0
++  for (const file of files) {
++    if (allowed.has(file)) continue
++    const text = checkout.text(file)
++    if (text.includes('v0.43-shim')) problems.push(`${file}: a v0.43-shim comment`)
++    const sf = checkout.parse(file)
++    if (reexportOnly(sf)) {
++      if (baseOnly(file)) barrels += 1
++      else problems.push(`${file}: a module of re-exports only`)
++    }
++    for (const statement of sf.statements) {
++      if (!ts.isExportDeclaration(statement) || !statement.moduleSpecifier) continue
++      const clause = statement.exportClause
++      if (!clause || ts.isNamespaceExport(clause)) continue
++      for (const element of clause.elements) {
++        const name = (element.propertyName ?? element.name).text
++        if (moved.has(name)) problems.push(`${file}: re-exports ${name}, a name that moved`)
++      }
++    }
++  }
++  return verdict(problems, `${files.length} modules; ${barrels} base barrels left; ${moved.size} moved names`)
++})
++
++function reexportOnly(sf) {
++  const statements = sf.statements
++  return (
++    statements.length > 0 &&
++    statements.every(s => ts.isExportDeclaration(s) && s.moduleSpecifier !== undefined)
++  )
++}
+diff --git a/.refactor/tools/gate-8.mjs b/.refactor/tools/gate-8.mjs
+new file mode 100644
+index 0000000..edd72bf
+--- /dev/null
++++ b/.refactor/tools/gate-8.mjs
+@@ -0,0 +1,38 @@
++// Gate 8, prisma (round.md §3.4, R3.4), from commit 2 (once the node kit, test-utils-node.ts, is
++// in the checkout): each of the 25 route suites that use no prismaMock
++// (R/analysis/T/route-suites.txt, "noprisma") calls guardNoDb() at its top level, and passed.
++import fs from 'node:fs'
++import path from 'node:path'
++import ts from 'typescript'
++import { ANALYSIS, gate, notApplicable, verdict } from './gate-lib.mjs'
++
++gate('8', checkout => {
++  if (!checkout.exists('src/utils/test-utils-node.ts')) return notApplicable('no node kit yet (commit 2)')
++  const list = fs
++    .readFileSync(path.join(ANALYSIS, 'T/route-suites.txt'), 'utf8')
++    .split('\n')
++    .filter(line => line.startsWith('noprisma '))
++    .map(line => line.split(' ')[2])
++  const problems = []
++  const status = new Map(checkout.jest.suites.map(suite => [suite.file, suite.status]))
++  for (const baseFile of list) {
++    const file = checkout.head(baseFile)
++    if (!file) {
++      problems.push(`${baseFile}: gone`)
++      continue
++    }
++    const guarded = checkout
++      .parse(file)
++      .statements.some(
++        s =>
++          ts.isExpressionStatement(s) &&
++          ts.isCallExpression(s.expression) &&
++          ts.isIdentifier(s.expression.expression) &&
++          s.expression.expression.text === 'guardNoDb',
++      )
++    if (!guarded) problems.push(`${file}: no guardNoDb()`)
++    if (status.get(file) !== 'passed') problems.push(`${file}: ${status.get(file) ?? 'not run'}`)
++  }
++  if (list.length !== 25) problems.push(`route-suites.txt names ${list.length} noprisma suites, not 25`)
++  return verdict(problems, `${list.length} suites`)
++})
+diff --git a/.refactor/tools/gate-9.mjs b/.refactor/tools/gate-9.mjs
+new file mode 100644
+index 0000000..273f7fa
+--- /dev/null
++++ b/.refactor/tools/gate-9.mjs
+@@ -0,0 +1,66 @@
++// Gate 9, the lint ratchet (round.md §3.4): `eslint -f json` warnings per (unit, rule) and, for
++// no-restricted-syntax, per (unit, check) ≤ the ratchet's, the unit being src/features/<feature>
++// and otherwise src/<top folder> (the repo's top folder outside src); errors stay 0. The ratchet
++// is R/analysis/ratchet-base.json (commit 1) until src/features exists (commit 5), then
++// R/analysis/ratchet-moved.json (taken after commit 5 under these conditions).
++import fs from 'node:fs'
++import path from 'node:path'
++import { syntaxCheck } from '../analysis/metrics/lint.mjs'
++import { ANALYSIS, gate, verdict } from './gate-lib.mjs'
++
++function unitOf(file) {
++  const parts = file.split('/')
++  if (parts[0] !== 'src') return parts.length > 1 ? parts[0] : '(root)'
++  if (parts[1] === 'features' && parts.length > 3) return `src/features/${parts[2]}`
++  return parts.length > 2 ? `src/${parts[1]}` : 'src'
++}
++
++gate('9', checkout => {
++  const moved = checkout.has('src/features') || checkout.files.some(file => file.startsWith('src/features/'))
++  const name = moved ? 'ratchet-moved.json' : 'ratchet-base.json'
++  const ratchetFile = path.join(ANALYSIS, name)
++  if (!fs.existsSync(ratchetFile)) return verdict([`no ${ratchetFile} (taken after commit 5)`], name)
++  const ratchet = JSON.parse(fs.readFileSync(ratchetFile, 'utf8'))
++  const lint = JSON.parse(fs.readFileSync(path.join(checkout.outdir, 'eslint.json'), 'utf8'))
++  const byUnit = new Map()
++  const byCheck = new Map()
++  let errors = 0
++  let warnings = 0
++  const add = (map, unit, key) => {
++    if (!map.has(unit)) map.set(unit, new Map())
++    map.get(unit).set(key, (map.get(unit).get(key) ?? 0) + 1)
++  }
++  for (const result of lint) {
++    const file = path.relative(checkout.root, result.filePath)
++    errors += result.errorCount
++    for (const message of result.messages) {
++      if (message.severity === 2) continue
++      warnings += 1
++      const rule = message.ruleId ?? '(no rule)'
++      add(byUnit, unitOf(file), rule)
++      if (rule === 'no-restricted-syntax') add(byCheck, unitOf(file), syntaxCheck(message.message))
++    }
++  }
++  const problems = []
++  if (errors > 0) {
++    const where = lint
++      .filter(r => r.errorCount > 0)
++      .flatMap(r =>
++        r.messages
++          .filter(m => m.severity === 2)
++          .map(m => `${path.relative(checkout.root, r.filePath)}:${m.line} ${m.ruleId}: ${m.message}`),
++      )
++    problems.push(`${errors} lint error(s): ${where.slice(0, 20).join(' | ')}`)
++  }
++  const compare = (now, then, what) => {
++    for (const [unit, counts] of now) {
++      for (const [key, count] of counts) {
++        const limit = then[unit]?.[key] ?? 0
++        if (count > limit) problems.push(`${unit} ${what} ${key}: ${count} warnings, the ratchet ${limit}`)
++      }
++    }
++  }
++  compare(byUnit, ratchet.byFolder, 'rule')
++  compare(byCheck, ratchet.noRestrictedSyntaxByCheck ?? {}, 'check')
++  return verdict(problems, `${warnings} warnings, ${errors} errors, against ${name} (${ratchet.totals?.warnings} warnings)`)
++})
+diff --git a/.refactor/tools/gate-lib.mjs b/.refactor/tools/gate-lib.mjs
+new file mode 100644
+index 0000000..c66519c
+--- /dev/null
++++ b/.refactor/tools/gate-lib.mjs
+@@ -0,0 +1,1000 @@
++// What the v0.43 gates (round.md §3.4) share: the checkout and the base, paths followed through the
++// moves, test files' structure, imports and mocks, module resolution. Each gate is
++// `node gate-<id>.mjs <outdir> <checkout>`; it writes <outdir>/gate-<id>.txt and prints one line,
++// `gate <id> ok|FAIL|n/a (…)`, exiting 1 on FAIL. The scripts always run from APP's R/tools (so the
++// L3 replay runs today's gates on old commits); everything else is read from the checkout.
++import { execFileSync } from 'node:child_process'
++import fs from 'node:fs'
++import { createRequire } from 'node:module'
++import path from 'node:path'
++import ts from 'typescript'
++
++export const BASE = '24f808b'
++export const APP = '/home/user/sending-stone-player'
++export const X =
++  '/tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v043'
++export const TOOLS = import.meta.dirname
++export const ANALYSIS = path.join(TOOLS, '..', 'analysis')
++export const BASE_DIR = process.env.GATE_BASE_DIR ?? path.join(X, 'base')
++
++export const isTestFile = file =>
++  /\.test\.[jt]sx?$/.test(file) || /(^|\/)__tests__\/.+\.[jt]sx?$/.test(file)
++export const isSource = file => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(file) && !file.endsWith('.d.ts')
++export const GOLDEN_DIR = 'src/__tests__/golden/'
++export const KIT_FILES = [
++  'src/utils/test-utils.ts',
++  'src/utils/test-utils.test.ts',
++  'src/utils/test-utils-node.ts',
++  'src/mocks/dice-renderer.ts',
++]
++export const KIT_DIRS = ['src/mocks/sheet-providers/']
++// The modules a test may import a replaced helper from (R3.3).
++export const KIT_MODULES = new Set([
++  'src/utils/test-utils.ts',
++  'src/utils/test-utils-node.ts',
++  'src/mocks/dice-renderer.ts',
++])
++
++// ---------------------------------------------------------------------------------------------
++// Running a gate.
++
++export function gate(id, check) {
++  const [outdir, checkoutArg] = process.argv.slice(2)
++  if (!outdir || !checkoutArg) {
++    process.stderr.write(`usage: node gate-${id}.mjs <outdir> <checkout>\n`)
++    process.exit(2)
++  }
++  const checkout = path.resolve(checkoutArg)
++  fs.mkdirSync(outdir, { recursive: true })
++  let result
++  try {
++    result = check(new Checkout(checkout, outdir))
++  } catch (error) {
++    result = { status: 'FAIL', summary: 'the gate crashed', lines: [String(error.stack ?? error)] }
++  }
++  const { status, summary = '', lines = [] } = result
++  const head = `gate ${id} ${status}${summary ? ` (${summary})` : ''}`
++  fs.writeFileSync(path.join(outdir, `gate-${id}.txt`), [head, ...lines].join('\n') + '\n')
++  process.stdout.write(head + '\n')
++  process.exit(status === 'FAIL' ? 1 : 0)
++}
++
++// A gate's verdict from its problems: FAIL with them, else ok; `notes` are written either way.
++export function verdict(problems, summary, notes = []) {
++  return {
++    status: problems.length > 0 ? 'FAIL' : 'ok',
++    summary: problems.length > 0 ? `${problems.length} problem(s); ${summary}` : summary,
++    lines: [...problems.map(p => `FAIL ${p}`), ...notes],
++  }
++}
++
++export const notApplicable = why => ({ status: 'n/a', summary: why, lines: [] })
++
++// ---------------------------------------------------------------------------------------------
++// git and files.
++
++export function git(cwd, args, input) {
++  return execFileSync('git', ['-C', cwd, ...args], {
++    encoding: 'utf8',
++    input,
++    maxBuffer: 1 << 30,
++    stdio: ['pipe', 'pipe', 'pipe'],
++  })
++}
++
++// Each `<rev>:<path>` blob's text (undefined where missing), by one `git cat-file --batch`.
++export function blobs(cwd, specs) {
++  const out = new Map()
++  if (specs.length === 0) return out
++  const buffer = execFileSync('git', ['-C', cwd, 'cat-file', '--batch'], {
++    input: specs.join('\n') + '\n',
++    maxBuffer: 1 << 30,
++  })
++  let at = 0
++  for (const spec of specs) {
++    const end = buffer.indexOf(10, at)
++    const header = buffer.toString('utf8', at, end)
++    at = end + 1
++    if (header.endsWith(' missing')) {
++      out.set(spec, undefined)
++      continue
++    }
++    const size = Number(header.split(' ')[2])
++    out.set(spec, buffer.toString('utf8', at, at + size))
++    at += size + 1
++  }
++  return out
++}
++
++// A TSV field: backslash, tab and line breaks escaped (a test's fullName may hold any of them).
++export const escapeField = text =>
++  String(text).replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r')
++export const unescapeField = text =>
++  text.replace(/\\(.)/g, (_, c) => ({ t: '\t', n: '\n', r: '\r' })[c] ?? c)
++
++export function readTsv(file) {
++  if (!fs.existsSync(file)) return []
++  return fs
++    .readFileSync(file, 'utf8')
++    .split('\n')
++    .filter(line => line.trim() !== '' && !line.startsWith('#'))
++    .map(line => line.split('\t'))
++}
++
++// R/tools/moves.tsv (the codemods' record; handoff/moves-format.txt): kind, from, to, name, base.
++export function readMoves() {
++  return readTsv(path.join(TOOLS, 'moves.tsv')).map(([kind, from, to, name, base]) => ({
++    kind,
++    from,
++    to,
++    name,
++    base: base || from,
++  }))
++}
++
++// The names an export move carried (both sides of an `Old=New` rename).
++export function movedNames() {
++  const names = new Set()
++  for (const row of readMoves()) {
++    if (row.kind !== 'name' || !row.name) continue
++    for (const name of row.name.split('=')) names.add(name)
++  }
++  return names
++}
++
++// ---------------------------------------------------------------------------------------------
++// The checkout, the base, and paths followed between them.
++
++export class Checkout {
++  constructor(root, outdir) {
++    this.root = root
++    this.outdir = outdir
++    this.cache = new Map()
++  }
++
++  memo(key, make) {
++    if (!this.cache.has(key)) this.cache.set(key, make())
++    return this.cache.get(key)
++  }
++
++  // Every file in the checkout git knows or would add (tracked or untracked, not ignored).
++  get files() {
++    return this.memo('files', () =>
++      git(this.root, ['ls-files', '-co', '--exclude-standard', '-z'])
++        .split('\0')
++        .filter(file => file && fs.existsSync(path.join(this.root, file)))
++        .sort(),
++    )
++  }
++
++  get fileSet() {
++    return this.memo('fileSet', () => new Set(this.files))
++  }
++
++  has(file) {
++    return this.fileSet.has(file)
++  }
++
++  exists(file) {
++    return fs.existsSync(path.join(this.root, file))
++  }
++
++  text(file) {
++    return this.memo(`text:${file}`, () => fs.readFileSync(path.join(this.root, file), 'utf8'))
++  }
++
++  get baseFiles() {
++    return this.memo('baseFiles', () =>
++      git(this.root, ['ls-tree', '-r', '--name-only', '-z', BASE]).split('\0').filter(Boolean),
++    )
++  }
++
++  baseText(file) {
++    return this.baseTexts([file]).get(file)
++  }
++
++  // The base's text of each file, read in one batch and kept.
++  baseTexts(files) {
++    const all = this.memo('baseTextMap', () => new Map())
++    const missing = files.filter(file => !all.has(file))
++    const found = blobs(
++      this.root,
++      missing.map(file => `${BASE}:${file}`),
++    )
++    for (const file of missing) all.set(file, found.get(`${BASE}:${file}`))
++    return new Map(files.map(file => [file, all.get(file)]))
++  }
++
++  // Renames git finds from the base to the working tree (staged and unstaged, -M50%).
++  get renames() {
++    return this.memo('renames', () => {
++      const map = new Map()
++      const out = git(this.root, ['diff', '-M50%', '--name-status', '-z', BASE])
++      const parts = out.split('\0')
++      for (let i = 0; i < parts.length; ) {
++        const status = parts[i]
++        if (!status) {
++          i += 1
++          continue
++        }
++        if (status.startsWith('R') || status.startsWith('C')) {
++          if (status.startsWith('R')) map.set(parts[i + 1], parts[i + 2])
++          i += 3
++        } else i += 2
++      }
++      return map
++    })
++  }
++
++  // The checkout's own split records: .refactor/tools/moves.d/*.tsv, base path, describe prefix,
++  // path; an entry applies only when its target exists here.
++  get splits() {
++    return this.memo('splits', () => {
++      const dir = path.join(this.root, '.refactor/tools/moves.d')
++      if (!fs.existsSync(dir)) return []
++      return fs
++        .readdirSync(dir)
++        .filter(name => name.endsWith('.tsv'))
++        .sort()
++        .flatMap(name => readTsv(path.join(dir, name)))
++        .map(([base, prefix, to]) => ({ base, prefix, to }))
++        .filter(({ base, prefix, to }) => base && prefix && to && this.has(to))
++    })
++  }
++
++  // A base file's path here: the codemods' record, else git's rename, else its own path.
++  head(basePath) {
++    const forward = this.memo('forward', () => {
++      const map = new Map()
++      for (const row of readMoves()) {
++        if (row.kind === 'file' && row.to) map.set(row.base, row.to)
++      }
++      return map
++    })
++    for (const candidate of [forward.get(basePath), this.renames.get(basePath), basePath]) {
++      if (candidate && this.has(candidate)) return candidate
++    }
++    return undefined
++  }
++
++  // Where a base test now is, by its title path: the longest split prefix that holds, else the
++  // file's own path here.
++  headOfTest(basePath, fullName) {
++    let best
++    for (const split of this.splits) {
++      if (split.base !== basePath) continue
++      const holds = fullName === split.prefix || fullName.startsWith(split.prefix + ' ')
++      if (holds && (!best || split.prefix.length > best.prefix.length)) best = split
++    }
++    return best ? best.to : this.head(basePath)
++  }
++
++  splitsOf(basePath) {
++    return this.splits.filter(split => split.base === basePath)
++  }
++
++  // A file here back to its base path (a split's target to the file it came from), or undefined
++  // for a file new since the base.
++  base(headPath) {
++    const back = this.memo('backward', () => {
++      const map = new Map()
++      for (const file of this.baseFiles) {
++        const now = this.head(file)
++        if (now && !map.has(now)) map.set(now, file)
++      }
++      for (const split of this.splits) if (!map.has(split.to)) map.set(split.to, split.base)
++      return map
++    })
++    return back.get(headPath)
++  }
++
++  get jest() {
++    return this.memo('jest', () => readJest(path.join(this.outdir, 'jest.json'), this.root))
++  }
++
++  get resolver() {
++    return this.memo('resolver', () => makeResolver(this.root))
++  }
++
++  parse(file) {
++    return this.memo(`parse:${file}`, () => parse(file, this.text(file)))
++  }
++}
++
++// A jest --json result: { suites: [{ file, status, message, tests: [{ fullName, status,
++// numPassingAsserts, occurrence }] }], snapshot, totals }, files relative to the checkout.
++export function readJest(file, root) {
++  if (!fs.existsSync(file)) throw new Error(`no ${file}: run jest --json first (l1.sh)`)
++  const json = JSON.parse(fs.readFileSync(file, 'utf8'))
++  const relative = name => {
++    if (root && name.startsWith(root + '/')) return name.slice(root.length + 1)
++    const at = name.indexOf('/src/')
++    return at === -1 ? name : name.slice(at + 1)
++  }
++  const suites = json.testResults.map(result => {
++    const seen = new Map()
++    return {
++      file: relative(result.name),
++      status: result.status,
++      message: result.message ?? '',
++      tests: result.assertionResults.map(test => {
++        const occurrence = seen.get(test.fullName) ?? 0
++        seen.set(test.fullName, occurrence + 1)
++        return {
++          fullName: test.fullName,
++          status: test.status,
++          numPassingAsserts: test.numPassingAsserts,
++          occurrence,
++        }
++      }),
++    }
++  })
++  return {
++    suites,
++    snapshot: json.snapshot,
++    totals: {
++      suites: json.numTotalTestSuites,
++      failedSuites: json.numFailedTestSuites,
++      runtimeErrorSuites: json.numRuntimeErrorTestSuites,
++      tests: json.numTotalTests,
++      failed: json.numFailedTests,
++    },
++  }
++}
++
++// X/base/jest-base.tsv: file, fullName, status, numPassingAsserts, occurrence.
++export function readBaseTests() {
++  const file = path.join(BASE_DIR, 'jest-base.tsv')
++  if (!fs.existsSync(file)) throw new Error(`no ${file}: run R/tools/base.sh first`)
++  return readTsv(file)
++    .slice(1)
++    .map(([suite, fullName, status, asserts, occurrence]) => ({
++      file: suite,
++      fullName: unescapeField(fullName),
++      status,
++      numPassingAsserts: Number(asserts),
++      occurrence: Number(occurrence),
++    }))
++}
++
++export function readBaseJson(name) {
++  const file = path.join(BASE_DIR, name)
++  if (!fs.existsSync(file)) throw new Error(`no ${file}: run R/tools/base.sh first`)
++  return JSON.parse(fs.readFileSync(file, 'utf8'))
++}
++
++// ---------------------------------------------------------------------------------------------
++// Parsing and printing.
++
++export function parse(file, text) {
++  const kind = /\.[jt]sx$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS
++  return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind)
++}
++
++const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed })
++
++export const print = (node, sf) => printer.printNode(ts.EmitHint.Unspecified, node, sf)
++export const printFile = sf => printer.printFile(sf)
++
++// Whitespace collapsed outside string and template literals, and a comma before a closing
++// bracket dropped, so formatting alone never differs. A literal is copied as it is.
++export function squeeze(text) {
++  let out = ''
++  let gap = false
++  const put = piece => {
++    if (/^[}\])]/.test(piece)) out = out.replace(/, ?$/, '')
++    if (gap && out !== '' && !out.endsWith(' ')) out += ' '
++    gap = false
++    out += piece
++  }
++  for (let i = 0; i < text.length; ) {
++    const c = text[i]
++    if (c === "'" || c === '"' || c === '`') {
++      let j = i + 1
++      while (j < text.length && text[j] !== c) j += text[j] === '\\' ? 2 : 1
++      put(text.slice(i, j + 1))
++      i = j + 1
++    } else if (/\s/.test(c)) {
++      gap = true
++      i += 1
++    } else {
++      put(c)
++      i += 1
++    }
++  }
++  return out
++}
++
++// The file's leading docblock, where it is first and names a jest environment; else ''.
++export function leadingDocblock(text) {
++  const start = text.replace(/^﻿/, '').trimStart()
++  if (!start.startsWith('/**')) return ''
++  const block = start.slice(0, start.indexOf('*/') + 2)
++  return block.includes('@jest-environment') ? block : ''
++}
++
++const literalText = node =>
++  node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
++    ? node.text
++    : undefined
++
++// The identifier a call chain starts from: `it` of it.each(…)(…), `jest` of jest.mock(…).
++export function rootName(expression) {
++  let node = expression
++  for (;;) {
++    if (ts.isCallExpression(node)) node = node.expression
++    else if (ts.isPropertyAccessExpression(node)) node = node.expression
++    else if (ts.isTaggedTemplateExpression(node)) node = node.tag
++    else if (ts.isNonNullExpression(node) || ts.isParenthesizedExpression(node))
++      node = node.expression
++    else break
++  }
++  return ts.isIdentifier(node) ? node.text : undefined
++}
++
++const TESTS = new Set(['it', 'test', 'fit', 'xit', 'xtest'])
++const DESCRIBES = new Set(['describe', 'fdescribe', 'xdescribe'])
++
++// Is this call a describe or a test with its title (not `it.each(table)` itself)?
++function testCall(node) {
++  if (!ts.isCallExpression(node) || node.arguments.length === 0) return undefined
++  const callee = node.expression
++  if (ts.isPropertyAccessExpression(callee) && callee.name.text === 'each') return undefined
++  const name = rootName(callee)
++  if (TESTS.has(name)) return 'test'
++  if (DESCRIBES.has(name)) return 'describe'
++  return undefined
++}
++
++const titleOf = (node, sf) =>
++  literalText(node.arguments[0]) ?? squeeze(node.arguments[0].getText(sf))
++
++// Every describe and test of a file: { kind, titles, key, occurrence, node, statement }, in source
++// order; `statement` is the expression statement that holds the call, where one does.
++export function testsOf(sf) {
++  const found = []
++  const seen = new Map()
++  const visit = (node, titles) => {
++    const kind = testCall(node)
++    if (kind) {
++      const path = [...titles, titleOf(node, sf)]
++      const key = path.join(' ')
++      const occurrence = seen.get(`${kind}:${key}`) ?? 0
++      seen.set(`${kind}:${key}`, occurrence + 1)
++      const statement = ts.isExpressionStatement(node.parent) ? node.parent : undefined
++      found.push({ kind, titles: path, key, occurrence, node, statement })
++      ts.forEachChild(node.expression, child => visit(child, titles))
++      for (const arg of node.arguments.slice(1)) visit(arg, kind === 'describe' ? path : titles)
++      return
++    }
++    ts.forEachChild(node, child => visit(child, titles))
++  }
++  visit(sf, [])
++  return found
++}
++
++const mentionsExpect = node => {
++  let found = false
++  const visit = child => {
++    if (found) return
++    if (
++      ts.isIdentifier(child) &&
++      child.text === 'expect' &&
++      !(ts.isPropertyAccessExpression(child.parent) && child.parent.name === child)
++    ) {
++      found = true
++      return
++    }
++    ts.forEachChild(child, visit)
++  }
++  visit(node)
++  return found
++}
++
++// A test's expect statements in order: each statement of its callback that uses `expect`,
++// printed with comments dropped and whitespace collapsed outside strings.
++export function expectsOf(test, sf) {
++  const callback = test.node.arguments.at(-1)
++  if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) return []
++  const statements = ts.isBlock(callback.body) ? callback.body.statements : [callback.body]
++  return statements.filter(mentionsExpect).map(statement => squeeze(print(statement, sf)))
++}
++
++// ---------------------------------------------------------------------------------------------
++// Imports, mocks and exports.
++
++const JEST_PATH_CALLS = new Set(['mock', 'doMock', 'requireActual', 'requireMock', 'unmock'])
++
++// jest.mock(…) and its kin anywhere in a file: { method, spec, node, factory }.
++export function jestCalls(sf) {
++  const calls = []
++  const visit = node => {
++    if (
++      ts.isCallExpression(node) &&
++      ts.isPropertyAccessExpression(node.expression) &&
++      ts.isIdentifier(node.expression.expression) &&
++      node.expression.expression.text === 'jest' &&
++      JEST_PATH_CALLS.has(node.expression.name.text)
++    ) {
++      const spec = literalText(node.arguments[0])
++      if (spec !== undefined) {
++        calls.push({ method: node.expression.name.text, spec, node, factory: node.arguments[1] })
++      }
++    }
++    ts.forEachChild(node, visit)
++  }
++  visit(sf)
++  return calls
++}
++
++const unwrap = node => {
++  let at = node
++  while (
++    at &&
++    (ts.isParenthesizedExpression(at) ||
++      ts.isAsExpression(at) ||
++      ts.isSatisfiesExpression(at) ||
++      ts.isTypeAssertionExpression(at))
++  ) {
++    at = at.expression
++  }
++  return at
++}
++
++// The object a jest.mock factory returns, where it is a literal: { object, keys, spread }.
++export function factoryObject(factory) {
++  if (!factory || !(ts.isArrowFunction(factory) || ts.isFunctionExpression(factory))) {
++    return undefined
++  }
++  let returned
++  if (ts.isBlock(factory.body)) {
++    const last = factory.body.statements.findLast(s => ts.isReturnStatement(s))
++    returned = last?.expression
++  } else returned = factory.body
++  const object = unwrap(returned)
++  if (!object || !ts.isObjectLiteralExpression(object)) return undefined
++  const keys = []
++  let spread = false
++  for (const property of object.properties) {
++    if (ts.isSpreadAssignment(property)) spread = true
++    else if (property.name) {
++      const name = ts.isIdentifier(property.name)
++        ? property.name.text
++        : (literalText(property.name) ?? property.name.getText())
++      keys.push({ name, property })
++    }
++  }
++  return { object, keys, spread }
++}
++
++export const propertyName = property =>
++  ts.isIdentifier(property.name) ||
++  ts.isStringLiteral(property.name) ||
++  ts.isNumericLiteral(property.name)
++    ? property.name.text
++    : undefined
++
++// A file's imports: { spec, names (value names, '*' for a namespace or unknown), typeOnly,
++// node }, from import and export-from declarations, import(), require() and jest.requireActual().
++export function importsOf(sf) {
++  const found = []
++  for (const statement of sf.statements) {
++    if (ts.isImportDeclaration(statement)) {
++      const spec = literalText(statement.moduleSpecifier)
++      const clause = statement.importClause
++      if (!clause) {
++        found.push({ spec, names: [], typeOnly: false, node: statement })
++        continue
++      }
++      if (clause.isTypeOnly) {
++        found.push({ spec, names: [], typeOnly: true, node: statement })
++        continue
++      }
++      const names = []
++      let typeOnly = true
++      if (clause.name) {
++        names.push({ imported: 'default', local: clause.name.text })
++        typeOnly = false
++      }
++      const bindings = clause.namedBindings
++      if (bindings && ts.isNamespaceImport(bindings)) {
++        names.push({ imported: '*', local: bindings.name.text })
++        typeOnly = false
++      } else if (bindings) {
++        for (const element of bindings.elements) {
++          if (element.isTypeOnly) continue
++          typeOnly = false
++          names.push({
++            imported: (element.propertyName ?? element.name).text,
++            local: element.name.text,
++          })
++        }
++        if (bindings.elements.length === 0) typeOnly = false
++      }
++      found.push({ spec, names, typeOnly, node: statement })
++    } else if (ts.isExportDeclaration(statement) && statement.moduleSpecifier) {
++      const spec = literalText(statement.moduleSpecifier)
++      if (statement.isTypeOnly) {
++        found.push({ spec, names: [], typeOnly: true, node: statement, reexport: true })
++        continue
++      }
++      const clause = statement.exportClause
++      let names
++      if (!clause) names = [{ imported: '*', local: '*' }]
++      else if (ts.isNamespaceExport(clause)) names = [{ imported: '*', local: clause.name.text }]
++      else {
++        names = clause.elements
++          .filter(element => !element.isTypeOnly)
++          .map(element => ({
++            imported: (element.propertyName ?? element.name).text,
++            local: element.name.text,
++          }))
++      }
++      found.push({
++        spec,
++        names,
++        typeOnly: clause !== undefined && !ts.isNamespaceExport(clause) && names.length === 0,
++        node: statement,
++        reexport: true,
++      })
++    }
++  }
++  const visit = node => {
++    if (ts.isCallExpression(node)) {
++      const spec = literalText(node.arguments[0])
++      const callee = node.expression
++      const dynamic =
++        node.expression.kind === ts.SyntaxKind.ImportKeyword ||
++        (ts.isIdentifier(callee) && callee.text === 'require') ||
++        (ts.isPropertyAccessExpression(callee) &&
++          ts.isIdentifier(callee.expression) &&
++          callee.expression.text === 'jest' &&
++          callee.name.text === 'requireActual')
++      if (dynamic && spec !== undefined) {
++        found.push({ spec, names: [{ imported: '*', local: '*' }], typeOnly: false, node })
++      }
++    }
++    ts.forEachChild(node, visit)
++  }
++  visit(sf)
++  return found
++}
++
++// The names a module exports (`default` included); `export *` followed through repo modules.
++export function exportsOf(checkout, file, seen = new Set()) {
++  if (seen.has(file)) return new Set()
++  seen.add(file)
++  const sf = checkout.parse(file)
++  const names = new Set()
++  const exported = node =>
++    ts.canHaveModifiers(node) &&
++    ts.getModifiers(node)?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)
++  const isDefault = node =>
++    ts.getModifiers(node)?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)
++  for (const statement of sf.statements) {
++    if (ts.isExportAssignment(statement)) names.add('default')
++    else if (ts.isExportDeclaration(statement)) {
++      const clause = statement.exportClause
++      if (!clause) {
++        const target = checkout.resolver.resolve(literalText(statement.moduleSpecifier), file)
++        if (target.file) {
++          for (const name of exportsOf(checkout, target.file, seen)) {
++            if (name !== 'default') names.add(name)
++          }
++        }
++      } else if (ts.isNamespaceExport(clause)) names.add(clause.name.text)
++      else for (const element of clause.elements) names.add(element.name.text)
++    } else if (exported(statement)) {
++      if (isDefault(statement)) names.add('default')
++      else if (ts.isVariableStatement(statement)) {
++        for (const declaration of statement.declarationList.declarations) {
++          for (const name of bindingNames(declaration.name)) names.add(name)
++        }
++      } else if (statement.name) names.add(statement.name.text)
++    }
++  }
++  return names
++}
++
++export function bindingNames(name) {
++  if (ts.isIdentifier(name)) return [name.text]
++  return name.elements.flatMap(element =>
++    ts.isOmittedExpression(element) ? [] : bindingNames(element.name),
++  )
++}
++
++// The names a file declares at its top level (functions, classes, variables, enums).
++export function topLevelNames(sf) {
++  const names = new Set()
++  for (const statement of sf.statements) {
++    if (ts.isVariableStatement(statement)) {
++      for (const declaration of statement.declarationList.declarations) {
++        for (const name of bindingNames(declaration.name)) names.add(name)
++      }
++    } else if (
++      (ts.isFunctionDeclaration(statement) ||
++        ts.isClassDeclaration(statement) ||
++        ts.isEnumDeclaration(statement)) &&
++      statement.name
++    ) {
++      names.add(statement.name.text)
++    }
++  }
++  return names
++}
++
++// The file's `'use client'` or `'use server'` directive, or ''.
++export function directiveOf(sf) {
++  for (const statement of sf.statements) {
++    if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break
++    const text = statement.expression.text
++    if (text === 'use client' || text === 'use server') return text
++  }
++  return ''
++}
++
++// ---------------------------------------------------------------------------------------------
++// Module resolution: the checkout's tsconfig (paths), jest's `@/` mapper and src modulePaths,
++// relative paths, then packages.
++
++const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json']
++
++// `files` (a Set of repo paths) and `read` stand in for the disk where the tree is the base's.
++export function makeResolver(root, files, read) {
++  const relative = file => {
++    const rel = path.relative(root, file)
++    return rel.startsWith('..') || rel.split(path.sep).includes('node_modules') ? undefined : rel
++  }
++  const dirs = new Set()
++  if (files) {
++    for (const file of files) {
++      for (let dir = path.dirname(file); dir !== '.'; dir = path.dirname(dir)) dirs.add(dir)
++    }
++  }
++  const host = files
++    ? {
++        fileExists: file => {
++          const rel = relative(file)
++          return rel === undefined ? fs.existsSync(file) : files.has(rel)
++        },
++        readFile: file => {
++          const rel = relative(file)
++          return rel === undefined ? fs.readFileSync(file, 'utf8') : read(rel)
++        },
++        directoryExists: dir => {
++          const rel = relative(dir)
++          return rel === undefined ? fs.existsSync(dir) : rel === '' || dirs.has(rel)
++        },
++        realpath: file => file,
++        getCurrentDirectory: () => root,
++        getDirectories: () => [],
++      }
++    : ts.sys
++  const configText = host.readFile(path.join(root, 'tsconfig.json'))
++  const config = ts.parseJsonConfigFileContent(
++    ts.parseConfigFileTextToJson('tsconfig.json', configText).config,
++    { ...ts.sys, ...host, readDirectory: () => [] },
++    root,
++  )
++  const options = config.options
++  const exists = rel => (files ? files.has(rel) : fs.existsSync(path.join(root, rel)))
++  const isFile = rel =>
++    files ? files.has(rel) : fs.existsSync(path.join(root, rel)) && fs.statSync(path.join(root, rel)).isFile()
++  const tryFile = base => {
++    for (const candidate of [base, ...EXTENSIONS.map(e => base + e), ...EXTENSIONS.map(e => `${base}/index${e}`)]) {
++      if (isFile(candidate)) return candidate
++    }
++    return undefined
++  }
++  const require = createRequire(path.join(root, 'package.json'))
++  const cache = new Map()
++  const resolve = (spec, fromFile) => {
++    if (spec === undefined) return {}
++    const key = `${fromFile}\0${spec}`
++    if (cache.has(key)) return cache.get(key)
++    let result = {}
++    if (spec.startsWith('.')) {
++      const file = tryFile(path.normalize(path.join(path.dirname(fromFile), spec)))
++      result = file ? { file } : {}
++    } else {
++      const { resolvedModule } = ts.resolveModuleName(
++        spec,
++        path.join(root, fromFile),
++        options,
++        host,
++      )
++      const rel = resolvedModule && relative(resolvedModule.resolvedFileName)
++      if (rel && !resolvedModule.isExternalLibraryImport && !rel.endsWith('.d.ts')) {
++        result = { file: rel }
++      } else if (spec.startsWith('@/')) {
++        const file = tryFile(`src/${spec.slice(2)}`)
++        result = file ? { file } : {}
++      } else {
++        const fromSrc = tryFile(`src/${spec}`)
++        if (fromSrc) result = { file: fromSrc }
++        else if (resolvedModule?.isExternalLibraryImport) result = { external: spec }
++        else {
++          try {
++            require.resolve(spec)
++            result = { external: spec }
++          } catch {
++            const mapped = /^@lambersond\/3d-dice-(core|engine|react)$/.exec(spec)
++            if (mapped && exists(`node_modules/@lambersond/3d-dice-${mapped[1]}/dist/index.js`)) {
++              result = { external: spec }
++            } else if (fs.existsSync(path.join(root, 'node_modules', spec))) {
++              result = { external: spec }
++            }
++          }
++        }
++      }
++    }
++    cache.set(key, result)
++    return result
++  }
++  return { resolve, options }
++}
++
++// Every repo module a file reaches through value imports (type-only ones erased), the file
++// included; `stopAt(file)` true leaves that module's own imports out. Returns { files, packages }.
++export function closure(checkout, roots, stopAt = () => false) {
++  const files = new Set()
++  const packages = new Set()
++  const queue = [...roots]
++  while (queue.length > 0) {
++    const file = queue.pop()
++    if (files.has(file)) continue
++    files.add(file)
++    if (!isSource(file) || file.endsWith('.json') || stopAt(file)) continue
++    for (const edge of importsOf(checkout.parse(file))) {
++      if (edge.typeOnly) continue
++      const target = checkout.resolver.resolve(edge.spec, file)
++      if (target.file) queue.push(target.file)
++      else if (target.external) packages.add(target.external)
++    }
++  }
++  return { files, packages }
++}
++
++// ---------------------------------------------------------------------------------------------
++// The import graph and its strongly connected groups (type-only imports included), as
++// R/analysis/metrics/graph.mjs counts cycles: one edge per pair of modules.
++
++export function graphEdges(files, parseOf, resolve) {
++  const edges = new Map()
++  for (const file of files) {
++    for (const edge of importsOf(parseOf(file))) {
++      if (edge.node && ts.isCallExpression(edge.node) && !isImportCall(edge.node)) continue
++      const target = resolve(edge.spec, file).file
++      if (!target) continue
++      if (!edges.has(file)) edges.set(file, new Set())
++      edges.get(file).add(target)
++    }
++  }
++  return edges
++}
++
++const isImportCall = node => node.expression.kind === ts.SyntaxKind.ImportKeyword
++
++export function stronglyConnected(edges) {
++  const nodes = [...new Set([...edges.keys(), ...[...edges.values()].flatMap(set => [...set])])].sort()
++  let index = 0
++  const state = new Map()
++  const stack = []
++  const groups = []
++  const next = node => [...(edges.get(node) ?? [])]
++  const connect = node => {
++    state.set(node, { index, low: index, onStack: true })
++    index += 1
++    stack.push(node)
++    for (const to of next(node)) {
++      if (!state.has(to)) {
++        connect(to)
++        state.get(node).low = Math.min(state.get(node).low, state.get(to).low)
++      } else if (state.get(to).onStack) {
++        state.get(node).low = Math.min(state.get(node).low, state.get(to).index)
++      }
++    }
++    if (state.get(node).low === state.get(node).index) {
++      const group = []
++      let member
++      do {
++        member = stack.pop()
++        state.get(member).onStack = false
++        group.push(member)
++      } while (member !== node)
++      if (group.length > 1 || next(node).includes(node)) groups.push(group.sort())
++    }
++  }
++  for (const node of nodes) if (!state.has(node)) connect(node)
++  return groups
++}
++
++// The server graph from src/app's framework files (pages, layouts, not-found, manifest, routes,
++// the 'use server' actions) through value imports, stopping at 'use client' modules:
++// { server: [modules], boundaries: ['use client' modules reached] }.
++export const FRAMEWORK_FILE = /^src\/app\/(.+\/)?(page|layout|not-found|route)\.tsx?$|^src\/app\/manifest\.ts$/
++
++export function serverGraph(files, parseOf, resolve) {
++  const roots = files.filter(
++    file =>
++      FRAMEWORK_FILE.test(file) ||
++      (file.startsWith('src/app/') && isSource(file) && !isTestFile(file) && directiveOf(parseOf(file)) === 'use server'),
++  )
++  const server = new Set()
++  const boundaries = new Set()
++  const queue = [...roots]
++  while (queue.length > 0) {
++    const file = queue.pop()
++    if (server.has(file) || boundaries.has(file)) continue
++    if (!/\.(ts|tsx)$/.test(file)) continue
++    if (directiveOf(parseOf(file)) === 'use client') {
++      boundaries.add(file)
++      continue
++    }
++    server.add(file)
++    for (const edge of importsOf(parseOf(file))) {
++      if (edge.typeOnly) continue
++      const target = resolve(edge.spec, file).file
++      if (target) queue.push(target)
++    }
++  }
++  return { server: [...server].sort(), boundaries: [...boundaries].sort() }
++}
++
++// A component module: a .tsx (or a .ts) that declares a function returning JSX at its top level.
++export function hasComponent(file, sf) {
++  if (!file.endsWith('.tsx')) return false
++  let found = false
++  const visit = node => {
++    if (found) return
++    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) {
++      found = true
++      return
++    }
++    ts.forEachChild(node, visit)
++  }
++  visit(sf)
++  return found
++}
++
++// ---------------------------------------------------------------------------------------------
++// Frozen files (gate 10, and gate 1 for the goldens' tests): each golden and kit file committed
++// since the base, with the commit that added it; a file that commit added and the checkout no
++// longer has is listed with `gone: true`.
++
++export const isFrozen = file =>
++  file.startsWith(GOLDEN_DIR) || KIT_FILES.includes(file) || KIT_DIRS.some(dir => file.startsWith(dir))
++
++export function frozenFiles(checkout) {
++  return checkout.memo('frozen', () => {
++    const out = git(checkout.root, [
++      'log',
++      '--reverse',
++      '--diff-filter=A',
++      '--format=%x01%H',
++      '--name-only',
++      `${BASE}..HEAD`,
++      '--',
++      GOLDEN_DIR,
++      ...KIT_FILES,
++      ...KIT_DIRS,
++    ])
++    const added = new Map()
++    for (const chunk of out.split('\u0001').filter(Boolean)) {
++      const [sha, ...names] = chunk.split('\n').filter(Boolean)
++      for (const file of names) if (isFrozen(file) && !added.has(file)) added.set(file, sha)
++    }
++    return [...added].map(([file, sha]) => ({ file, sha, gone: !checkout.exists(file) }))
++  })
++}
++
++// An allowlist's rows (`#` comments): each row's tab-separated fields.
++export const readAllow = name => readTsv(path.join(TOOLS, name))
++
++// counts.conf's retirements: `retire<TAB>path<TAB>reason`.
++export const retired = () =>
++  new Set(
++    readTsv(path.join(TOOLS, 'counts.conf'))
++      .filter(([kind]) => kind === 'retire')
++      .map(([, file]) => file),
++  )
+diff --git a/.refactor/tools/gate1.allow b/.refactor/tools/gate1.allow
+new file mode 100644
+index 0000000..569418d
+--- /dev/null
++++ b/.refactor/tools/gate1.allow
+@@ -0,0 +1,2 @@
++# Gate 1's allowlist (round.md §3.4): `<test file><TAB><reason>`, a test file whose tests may be gone.
++# Only commit 26's retirement of C1, C3 and C9 belongs here (R3.10 adds their three paths then).
+diff --git a/.refactor/tools/gate1b.allow b/.refactor/tools/gate1b.allow
+new file mode 100644
+index 0000000..66cd5f0
+--- /dev/null
++++ b/.refactor/tools/gate1b.allow
+@@ -0,0 +1,7 @@
++# Gate 1b's allowlist (round.md §3.4): one row per exception, with its reason; only the orchestrator
++# adds a row (a builder asks for it in its report). Rows:
++#   <test file at the base><TAB>mock<TAB><mock path as written><TAB><reason>   that jest.mock left out
++#   <test file at the base><TAB>file<TAB>-<TAB><reason>                        the file not compared
++# At the base nothing differs, so none is needed (W-a's dry run, 2026-11-03). Planned: R3.3's 18
++# 3d-dice-react factories replaced by the dice-renderer requireActual (commit 2, T's files), and
++# R1.9.3's turn-toast retarget (commit 8).
+diff --git a/.refactor/tools/gate4b.allow b/.refactor/tools/gate4b.allow
+new file mode 100644
+index 0000000..f9b2411
+--- /dev/null
++++ b/.refactor/tools/gate4b.allow
+@@ -0,0 +1,108 @@
++# Gate 4b's base cases (round.md §3.4, SA F8): a full jest.mock factory (no requireActual spread)
++# that leaves out a value name a module in the test's closure imports from the mocked module, as
++# 24f808b has them (the W-a dry run, 2026-11-03). Rows: test at base, mocked module at base, name,
++# reason; matched with paths followed. A new case fails; only the orchestrator adds a row.
++src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/companions/[companion]/table/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/companions/[companion]/table/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/cookbook/route.test.ts	src/db/cookbook.ts	acceptDish	base: the suite mocks only what its route calls; src/lib/cookbook-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/cookbook/route.test.ts	src/db/cookbook.ts	deleteCookbookLink	base: the suite mocks only what its route calls; src/lib/cookbook-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/cookbook/route.test.ts	src/db/cookbook.ts	findCookbookLink	base: the suite mocks only what its route calls; src/lib/cookbook-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/[note]/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/[note]/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/[note]/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/[note]/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/[note]/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/order/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/order/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/order/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/preview/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/preview/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/preview/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/preview/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/preview/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/notes/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/[note]/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/[note]/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/[note]/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/[note]/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/[note]/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/preview/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/preview/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/preview/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/preview/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/preview/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/route.test.ts	src/db/notes.ts	reorderNotes	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/route.test.ts	src/db/notes.ts	resolveOrder	base: the suite mocks only what its route calls; src/lib/notes-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/notes/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/party/[group]/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/rolls/[roll]/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/rolls/[roll]/route.test.ts	src/db/roll-requests.ts	notePlayersSeen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/rolls/[roll]/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/rolls/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/rolls/route.test.ts	src/db/roll-requests.ts	notePlayersSeen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/rolls/route.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/table/route.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/table/route.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/texts/[hash]/route.test.ts	src/db/sheet-texts.ts	keepOnlySheetTexts	base: the suite mocks only what its route calls; src/db/campaign-events.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/texts/[hash]/route.test.ts	src/db/sheet-texts.ts	lacksSheetTexts	base: the suite mocks only what its route calls; src/db/campaign-events.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/characters/[id]/texts/[hash]/route.test.ts	src/db/sheet-texts.ts	saveSheetTexts	base: the suite mocks only what its route calls; src/db/campaign-events.ts imports the function too, never called here (a call would throw, not go quiet)
++src/app/api/cookbook/dishes/route.test.ts	src/db/cookbook.ts	getCookbookView	base: the suite mocks only what its route calls; src/lib/cookbook-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/components/game-table/game-table.companions.test.tsx	src/hooks/use-notes.ts	draftChanged	base: a GameTable suite's use-notes mock leaves out the function src/components/notes/chapter-form.tsx, src/components/notes/note-editor.tsx imports (the journal is never opened there)
++src/components/game-table/game-table.endturn.test.tsx	src/hooks/use-notes.ts	draftChanged	base: a GameTable suite's use-notes mock leaves out the function src/components/notes/chapter-form.tsx, src/components/notes/note-editor.tsx imports (the journal is never opened there)
++src/components/game-table/game-table.party.test.tsx	src/hooks/use-notes.ts	draftChanged	base: a GameTable suite's use-notes mock leaves out the function src/components/notes/chapter-form.tsx, src/components/notes/note-editor.tsx imports (the journal is never opened there)
++src/components/game-table/game-table.party.test.tsx	src/hooks/use-table-view.ts	POLL_INTERVAL	base (B20): the mock leaves out the constant src/components/game-table/game-table.tsx, src/components/game-table/turn-toast.tsx, src/hooks/use-companion-view.ts, src/hooks/use-end-turn.ts, src/hooks/use-party-sheet.ts imports, so it is undefined there; R1.9.3 moves it (fact 14)
++src/components/game-table/game-table.test.tsx	src/hooks/use-notes.ts	draftChanged	base: a GameTable suite's use-notes mock leaves out the function src/components/notes/chapter-form.tsx, src/components/notes/note-editor.tsx imports (the journal is never opened there)
++src/components/game-table/game-table.test.tsx	src/hooks/use-table-view.ts	POLL_INTERVAL	base (B20): the mock leaves out the constant src/components/game-table/game-table.tsx, src/components/game-table/turn-toast.tsx, src/hooks/use-companion-view.ts, src/hooks/use-end-turn.ts, src/hooks/use-party-sheet.ts imports, so it is undefined there; R1.9.3 moves it (fact 14)
++src/lib/companion-routes.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/lib/companion-routes.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/lib/notes-routes.test.ts	src/db/roll-requests.ts	createRollRequest	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/lib/notes-routes.test.ts	src/db/roll-requests.ts	getRollRequestView	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
++src/lib/notes-routes.test.ts	src/db/roll-requests.ts	noteTableOpen	base: the suite mocks only what its route calls; src/lib/seat-routes.ts imports the function too, never called here (a call would throw, not go quiet)
+diff --git a/.refactor/tools/gates.sh b/.refactor/tools/gates.sh
+new file mode 100755
+index 0000000..b2520f2
+--- /dev/null
++++ b/.refactor/tools/gates.sh
+@@ -0,0 +1,32 @@
++#!/usr/bin/env bash
++# The gates of round.md §3.4 over one checkout: `gates.sh <outdir> <checkout> [ids…]` (all by
++# default). Each `gate-<id>.mjs` reads <outdir>/jest.json and eslint.json (l1.sh writes them), writes
++# <outdir>/gate-<id>.txt and prints `gate <id> ok|FAIL|n/a`; a gate that crashes is a FAIL. Exit:
++# the number of failed gates. The scripts are this folder's (APP's R/tools once landed); the
++# checkout decides which gates apply.
++set -u
++TOOLS=$(cd "$(dirname "$0")" && pwd)
++OUTDIR=$(realpath -m "${1:?usage: gates.sh <outdir> <checkout> [ids…]}")
++CHECKOUT=$(realpath "${2:?usage: gates.sh <outdir> <checkout> [ids…]}")
++shift 2
++IDS=${*:-1 1b 2 3 4 4b 5 6 7 8 9 10 11 12}
++mkdir -p "$OUTDIR"
++"$TOOLS/base.sh" >"$OUTDIR/base.log" 2>&1 || { echo "gates: base.sh failed (see $OUTDIR/base.log)"; exit 99; }
++export TOOLS OUTDIR CHECKOUT
++printf '%s\n' $IDS | xargs -P 3 -I{} sh -c \
++  'node "$TOOLS/gate-{}.mjs" "$OUTDIR" "$CHECKOUT" >"$OUTDIR/gate-{}.out" 2>&1; echo $? >"$OUTDIR/gate-{}.rc"'
++FAILS=0
++for id in $IDS; do
++  rc=$(cat "$OUTDIR/gate-$id.rc" 2>/dev/null || echo 99)
++  line=$(grep -m1 "^gate $id " "$OUTDIR/gate-$id.out" 2>/dev/null)
++  if [ "$rc" = 0 ] && [ -n "$line" ]; then
++    echo "$line"
++  elif [ "$rc" = 1 ] && [ -n "$line" ]; then
++    echo "$line"
++    FAILS=$((FAILS + 1))
++  else
++    echo "gate $id FAIL (crashed, exit $rc; see $OUTDIR/gate-$id.out)"
++    FAILS=$((FAILS + 1))
++  fi
++done
++exit $FAILS
+diff --git a/.refactor/tools/l1.sh b/.refactor/tools/l1.sh
+new file mode 100755
+index 0000000..1d9d4eb
+--- /dev/null
++++ b/.refactor/tools/l1.sh
+@@ -0,0 +1,62 @@
++#!/usr/bin/env bash
++# L1 (round.md §2.6, §3.4): `l1.sh <outdir> <checkout>`. Under the L1 locks (§2.3.6: the wait lock,
++# then the checks lock, both exclusive), in the checkout: the full `jest --ci --json`, each test red
++# there rerun once alone (reruns.tsv: a red one green alone is a flake, which gate 2 lists), `next
++# typegen`, `tsc --noEmit`, `eslint . -f json`, then gates.sh. Prints `check jest|tsc|eslint ok|FAIL`
++# and each gate's line; exit = failed checks + failed gates. The scripts are this folder's (APP's
++# R/tools once landed), whatever commit the checkout is at.
++set -u
++TOOLS=$(cd "$(dirname "$0")" && pwd)
++X=/tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v043
++OUTDIR=$(realpath -m "${1:?usage: l1.sh <outdir> <checkout>}")
++CHECKOUT=$(realpath "${2:?usage: l1.sh <outdir> <checkout>}")
++mkdir -p "$OUTDIR"
++rm -f "$OUTDIR"/jest.json "$OUTDIR"/eslint.json "$OUTDIR"/reruns.tsv "$OUTDIR"/gate-* "$OUTDIR"/*.rc
++# The base first, outside the locks (base.sh takes them itself if it must run jest).
++"$TOOLS/base.sh" >"$OUTDIR/base.log" 2>&1 || { echo "l1: base.sh failed (see $OUTDIR/base.log)"; exit 99; }
++export TOOLS OUTDIR CHECKOUT
++flock "$X/l1-wait.lock" flock "$X/checks.lock" bash -c '
++  cd "$CHECKOUT" || exit 99
++  date -u +%FT%TZ >"$OUTDIR/start"
++  npx jest --ci --json --outputFile="$OUTDIR/jest.json" --maxWorkers=3 >"$OUTDIR/jest.log" 2>&1
++  echo $? >"$OUTDIR/jest.rc"
++  # Each red test once more, alone (round.md §2.3.6).
++  [ -f "$OUTDIR/jest.json" ] && node "$TOOLS/rerun.mjs" "$OUTDIR" "$CHECKOUT" >"$OUTDIR/rerun.log" 2>&1
++  npx next typegen >"$OUTDIR/typegen.log" 2>&1
++  echo $? >"$OUTDIR/typegen.rc"
++  npx tsc --noEmit >"$OUTDIR/tsc.log" 2>&1
++  echo $? >"$OUTDIR/tsc.rc"
++  npx eslint . -f json -o "$OUTDIR/eslint.json" >"$OUTDIR/eslint.log" 2>&1
++  echo $? >"$OUTDIR/eslint.rc"
++  "$TOOLS/gates.sh" "$OUTDIR" "$CHECKOUT" >"$OUTDIR/gates.log" 2>&1
++  echo $? >"$OUTDIR/gates.rc"
++  date -u +%FT%TZ >"$OUTDIR/end"
++'
++FAILS=0
++check() { # name, ok?, detail
++  if [ "$2" = ok ]; then echo "check $1 ok${3:+ ($3)}"; else echo "check $1 FAIL${3:+ ($3)}"; FAILS=$((FAILS + 1)); fi
++}
++JEST=$(node -e '
++  const r = require(process.argv[1]); const reruns = new Map()
++  const unescape = t => t.replace(/\\(.)/g, (_, c) => ({ t: "\t", n: "\n", r: "\r" })[c] ?? c)
++  try { for (const l of require("fs").readFileSync(process.argv[2], "utf8").split("\n").filter(Boolean)) { const [f, n, s] = l.split("\t"); reruns.set(unescape(n), s) } } catch {}
++  let red = 0, flakes = 0
++  for (const s of r.testResults) for (const t of s.assertionResults) if (t.status === "failed") { if (reruns.get(t.fullName) === "passed") flakes++; else red++ }
++  const broken = r.testResults.filter(s => s.status === "failed" && s.assertionResults.every(t => t.status !== "failed")).length
++  console.log([red + broken === 0 ? "ok" : "FAIL", `${r.numTotalTestSuites} suites, ${r.numTotalTests} tests, ${red} red, ${flakes} flaky (green alone), ${broken} suites that did not run`].join("\t"))
++' "$OUTDIR/jest.json" "$OUTDIR/reruns.tsv" 2>/dev/null || printf 'FAIL\tno jest.json (see jest.log)')
++check jest "${JEST%%	*}" "${JEST#*	}"
++[ "$(cat "$OUTDIR/typegen.rc" 2>/dev/null)" = 0 ] && T=ok || T=FAIL
++check typegen $T
++[ "$(cat "$OUTDIR/tsc.rc" 2>/dev/null)" = 0 ] && T=ok || T=FAIL
++check tsc $T "$(grep -c 'error TS' "$OUTDIR/tsc.log" 2>/dev/null) errors"
++LINT=$(node -e '
++  const r = require(process.argv[1]); let e = 0, w = 0
++  for (const f of r) { e += f.errorCount; w += f.warningCount }
++  console.log(`${e === 0 ? "ok" : "FAIL"}\t${r.length} files, ${e} errors, ${w} warnings`)
++' "$OUTDIR/eslint.json" 2>/dev/null || printf 'FAIL\tno eslint.json (see eslint.log)')
++check eslint "${LINT%%	*}" "${LINT#*	}"
++cat "$OUTDIR/gates.log"
++G=$(cat "$OUTDIR/gates.rc" 2>/dev/null || echo 99)
++echo "l1: $((FAILS + G)) failed ($FAILS checks, $G gates); $OUTDIR ($(cat "$OUTDIR/start" 2>/dev/null) → $(cat "$OUTDIR/end" 2>/dev/null))"
++exit $((FAILS + G))
+diff --git a/.refactor/tools/moves.d/.keep b/.refactor/tools/moves.d/.keep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/.refactor/tools/moves.tsv b/.refactor/tools/moves.tsv
+new file mode 100644
+index 0000000..21fe05f
+--- /dev/null
++++ b/.refactor/tools/moves.tsv
+@@ -0,0 +1,4 @@
++# The codemods' record (round.md §3.4; M's format, X/handoff/moves-format.txt): tab-separated
++# kind, from, to, name, base. `file` a whole-file move (git mv), `delete` a barrel gone, `name` an
++# export moved (`Old=New` for a rename). move.cjs and export-move.cjs append rows (commits 5, 7);
++# the gates follow a base path through `file` rows and read `name` rows as the moved names.
+diff --git a/.refactor/tools/replay.sh b/.refactor/tools/replay.sh
+new file mode 100755
+index 0000000..3c34539
+--- /dev/null
++++ b/.refactor/tools/replay.sh
+@@ -0,0 +1,41 @@
++#!/usr/bin/env bash
++# L3, the replay (round.md §2.6, §0.6.15): `replay.sh [after] [until]` runs L1 with today's gates
++# (this folder's scripts) on each commit of APP's branch after <after> (default 1dff83f, commit 1)
++# up to <until> (default the branch head), oldest first, but the chore(refactor) planning commits,
++# each in a detached worktree of its own (node_modules symlinked from APP while package-lock.json
++# and prisma/ equal the head's, else npm ci and prisma generate there), removed after. Each gate
++# decides from the commit whether it applies. Writes X/replay/<n>-<sha>/ (L1's outdir) and
++# X/replay/summary.tsv (n, sha, subject, failed, the failing lines; REPLAY_OUT moves both). History
++# is never rewritten: a red commit is fixed forward and the replay run again from it.
++set -u
++APP=/home/user/sending-stone-player
++BR=claude/dazzling-dirac-m8cq54
++X=/tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v043
++TOOLS=$(cd "$(dirname "$0")" && pwd)
++AFTER=${1:-1dff83f}
++UNTIL=${2:-$BR}
++OUT=${REPLAY_OUT:-$X/replay}
++mkdir -p "$OUT"
++SUMMARY=$OUT/summary.tsv
++[ -f "$SUMMARY" ] || printf 'n\tsha\tsubject\tfailed\tfailing\n' >"$SUMMARY"
++n=0
++git -C "$APP" rev-list --reverse --no-merges --format='%h%x09%s' "$AFTER..$UNTIL" |
++  grep -v '^commit ' | while IFS=$'\t' read -r sha subject; do
++  case "$subject" in chore\(refactor\)*) continue ;; esac
++  n=$((n + 1))
++  WT=/home/user/w043/replay/$sha
++  rm -rf "$WT"
++  git -C "$APP" worktree add --detach "$WT" "$sha" >/dev/null 2>&1 || { echo "replay: no worktree for $sha"; continue; }
++  if git -C "$APP" diff --quiet "$sha" "$UNTIL" -- package-lock.json prisma/; then
++    ln -s "$APP/node_modules" "$WT/node_modules"
++  else
++    (cd "$WT" && npm ci --no-audit --no-fund >/dev/null 2>&1 && npx prisma generate >/dev/null 2>&1)
++  fi
++  DIR=$OUT/$(printf '%02d' $n)-$sha
++  "$TOOLS/l1.sh" "$DIR" "$WT" >"$DIR.log" 2>&1
++  failed=$?
++  failing=$(grep -E '^(check|gate) .* FAIL' "$DIR.log" | tr '\n' ';')
++  printf '%s\t%s\t%s\t%s\t%s\n' "$n" "$sha" "$subject" "$failed" "$failing" >>"$SUMMARY"
++  echo "replay $n $sha ${failed} failed: $subject"
++  git -C "$APP" worktree remove --force "$WT"
++done
+diff --git a/.refactor/tools/rerun.mjs b/.refactor/tools/rerun.mjs
+new file mode 100644
+index 0000000..4f4ef99
+--- /dev/null
++++ b/.refactor/tools/rerun.mjs
+@@ -0,0 +1,25 @@
++// L1's rerun of red tests (round.md §2.3.6, §3.1.5): `node rerun.mjs <outdir> <checkout>` runs each
++// test red in <outdir>/jest.json once more, alone (`jest --ci --runInBand -t '^<fullName>$' <file>`,
++// at most 20), and writes <outdir>/reruns.tsv: file, fullName (escaped), passed|failed.
++import { spawnSync } from 'node:child_process'
++import fs from 'node:fs'
++import path from 'node:path'
++import { escapeField } from './gate-lib.mjs'
++
++const [outdir, checkout] = process.argv.slice(2)
++const json = JSON.parse(fs.readFileSync(path.join(outdir, 'jest.json'), 'utf8'))
++const red = json.testResults.flatMap(suite =>
++  suite.assertionResults.filter(test => test.status === 'failed').map(test => [suite.name, test.fullName]),
++)
++const regex = text => text.replace(/[$()*+.?[\\\]^{|}]/g, '\\$&')
++const rows = []
++for (const [file, fullName] of red.slice(0, 20)) {
++  const run = spawnSync('npx', ['jest', '--ci', '--runInBand', '-t', `^${regex(fullName)}$`, file], {
++    cwd: checkout,
++    encoding: 'utf8',
++  })
++  fs.appendFileSync(path.join(outdir, 'reruns.log'), `${file} ${fullName}\n${run.stdout}${run.stderr}\n`)
++  rows.push([path.relative(checkout, file), escapeField(fullName), run.status === 0 ? 'passed' : 'failed'].join('\t'))
++}
++if (rows.length > 0) fs.writeFileSync(path.join(outdir, 'reruns.tsv'), rows.join('\n') + '\n')
++process.stdout.write(`${red.length} red, ${rows.length} rerun alone\n`)
+diff --git a/.refactor/tools/shims.allow b/.refactor/tools/shims.allow
+new file mode 100644
+index 0000000..0cdef29
+--- /dev/null
++++ b/.refactor/tools/shims.allow
+@@ -0,0 +1,2 @@
++# Gate 7's allowlist (round.md §3.4): `<path><TAB><reason>`, a module allowed to re-export a moved
++# name or to be re-exports only. Expected empty; empty again after commit 23 (G removes any).
+-- 
+2.43.0
+
