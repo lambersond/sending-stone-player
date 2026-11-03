@@ -4,7 +4,7 @@ import { allApplied } from '../../utils/enchantments'
 import { EndButton } from '../enchantments/end-button'
 import { useEnchanting } from '../enchantments/use-enchanting'
 import { EnchantSwitch } from './enchant-switch'
-import { UseChip } from './use-chip'
+import { PlainUseChip } from './plain-use-chip'
 import { profileName } from './utils'
 import type { DamageModifiers } from '@/types/roll'
 import type {
@@ -52,5 +52,5 @@ export function EnchantChip({
       />
     )
   }
-  return <UseChip action={action} onUse={onUse} uses={uses} />
+  return <PlainUseChip action={action} onUse={onUse} uses={uses} />
 }

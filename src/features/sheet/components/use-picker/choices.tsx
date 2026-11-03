@@ -16,12 +16,15 @@ import {
   sectionsOf,
   tickedOf,
   tickGo,
-  whomOf,
 } from './utils'
 import { ordinal, poolName } from '@/utils/action-groups'
-import type { Picked, Picking, Whom } from './types'
+import type { Picked, Picking, Targeting, Whom } from './types'
 import type { Belonging } from '@/features/sheet/types'
-import type { CastIndex, SheetSpellSection } from '@/types/sending-stone'
+import type {
+  CastIndex,
+  SheetEnchantProfile,
+  SheetSpellSection,
+} from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 
 /**
@@ -50,14 +53,6 @@ export function Choices({
   selfTargets: boolean
   onPick: (picked: Picked) => void
 }>) {
-  const choosing = useChoices({
-    picking,
-    combat,
-    spellbook,
-    casts,
-    selfTargets,
-    onPick,
-  })
   const {
     pools,
     levels,
@@ -70,24 +65,23 @@ export function Choices({
     mode,
     setMode,
     enchant,
+    options,
     spends,
     offered,
     profile,
     setChosen,
     enchantsAt,
-  } = choosing
-  // Whom at.
-  const whom = whomOf({
+    whom,
+    targeting,
+  } = useChoices({
     picking,
     combat,
+    spellbook,
+    casts,
     last,
     areas,
-    enchant,
     selfTargets,
-    preset: choosing.preset,
-    helpful: choosing.helpful,
-    base: choosing.base,
-    castAt: choosing.castAt,
+    onPick,
   })
 
   return (
@@ -175,7 +169,9 @@ export function Choices({
       )}
       <WhomChoice
         whom={whom}
-        choosing={choosing}
+        targeting={targeting}
+        options={options}
+        profile={profile}
         combat={combat}
         belongings={belongings}
         onPick={onPick}
@@ -187,21 +183,25 @@ export function Choices({
 /** Whom at, as `whomOf` has it: those to tick, one to tap, what to enchant, or no one to pick. */
 function WhomChoice({
   whom,
-  choosing,
+  targeting,
+  options,
+  profile,
   combat,
   belongings,
   onPick,
 }: Readonly<{
   whom: Whom
-  choosing: ReturnType<typeof useChoices>
+  targeting: Targeting
+  options: Pick<Picked, 'slot' | 'ammunition' | 'attackMode'>
+  profile?: SheetEnchantProfile
   combat?: TableCombat
   belongings: ReadonlyMap<string, Belonging>
   onPick: (picked: Picked) => void
 }>) {
-  const { search, pick, options, profile } = choosing
+  const { search, pick } = targeting
   switch (whom.kind) {
     case 'tick': {
-      return <TickStep whom={whom} choosing={choosing} combat={combat} />
+      return <TickStep whom={whom} targeting={targeting} combat={combat} />
     }
     case 'tap': {
       return (
@@ -258,11 +258,11 @@ function WhomChoice({
  */
 function TickStep({
   whom: { targets, area, most: takes, verb, helps },
-  choosing: { ticked, setTicked, search, pick },
+  targeting: { ticked, setTicked, search, pick },
   combat,
 }: Readonly<{
   whom: Extract<Whom, { kind: 'tick' }>
-  choosing: ReturnType<typeof useChoices>
+  targeting: Targeting
   combat?: TableCombat
 }>) {
   const { most, chosen } = tickedOf(ticked, targets, takes)

@@ -13,11 +13,6 @@ import { ActionDetails } from '../action-entry/action-details'
 import { ActionEntry } from '../action-entry/action-entry'
 import { ActivityInfoButton } from '../action-entry/activity-info-button'
 import { FALLBACKS } from '../action-entry/constants'
-import {
-  type OtherActivity,
-  ActionRows,
-  TableDamage,
-} from '../action-entry/types'
 import { useActionMenu } from '../action-entry/use-action-menu'
 import { useActionRows } from '../action-entry/use-action-rows'
 import { useActivityMenu } from '../action-entry/use-activity-menu'
@@ -49,6 +44,11 @@ import { useStoredSet } from '@/hooks/use-stored'
 import { groupActions } from '@/utils/action-groups'
 import { castOf } from '@/utils/casts'
 import type { GroupedSection, Groups } from './types'
+import type {
+  ActionRows,
+  OtherActivity,
+  TableDamage,
+} from '../action-entry/types'
 import type { Layout } from '../actions-layout/types'
 import type {
   SheetDamageRoll,
@@ -713,7 +713,13 @@ function UsesCell({
 }>) {
   return (
     <span data-uses className='flex items-center justify-end gap-1'>
-      <UsesChips name={name} uses={uses} rows={rows} spends={spends} />
+      <UsesChips
+        name={name}
+        uses={uses}
+        rows={rows}
+        spends={spends}
+        place='cell'
+      />
     </span>
   )
 }

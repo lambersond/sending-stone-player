@@ -1,3 +1,5 @@
+'use client'
+
 import { actionTitle, verbOf } from '../action-entry/utils'
 import { NONE_LEFT } from '../hit-dice/constants'
 import { spendsToo } from '../uses-button/utils'
@@ -11,7 +13,7 @@ import type { SheetAction, SheetUses } from '@/types/sending-stone'
  * does nothing, as the game would only turn it down.
  * @param uses - The uses its row shows.
  */
-export function UseChip({
+export function PlainUseChip({
   action,
   onUse,
   uses,

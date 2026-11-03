@@ -1,23 +1,33 @@
 import { useState } from 'react'
-import { choicesOf, defaultSlot, optionsOf, picked, selfTarget } from './utils'
+import {
+  choicesOf,
+  defaultSlot,
+  optionsOf,
+  picked,
+  selfTarget,
+  whomOf,
+} from './utils'
 import { enchantOf, offeredProfiles } from '@/features/sheet/utils/enchantments'
 import { castAtLevel, castOf } from '@/utils/casts'
 import { friendly, selfDefault } from '@/utils/uses'
-import type { Picked, Picking } from './types'
+import type { Picked, Picking, Targeting } from './types'
 import type { CastIndex, SheetSpellSection } from '@/types/sending-stone'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
 /**
  * An attack's or a use's choices as they're made: the slot, or the level, the ammunition and the
- * attack mode, each preset as the game would have it; those ticked, a use made at its user by
- * default with them ticked already, as Self; what the targets are searched by; and for one that
- * enchants, the way it enchants, of those offered at the level chosen.
+ * attack mode, each preset as the game would have it; for one that enchants, the way it enchants,
+ * of those offered at the level chosen; and whom at, as `whomOf` has it, picked by its `targeting`:
+ * those ticked, a use made at its user by default with them ticked already, as Self, and what the
+ * targets are searched by.
  */
 export function useChoices({
   picking,
   combat,
   spellbook,
   casts,
+  last,
+  areas,
   selfTargets,
   onPick,
 }: {
@@ -25,6 +35,8 @@ export function useChoices({
   combat?: TableCombat
   spellbook: SheetSpellSection[]
   casts: CastIndex
+  last?: string
+  areas: boolean
   selfTargets: boolean
   onPick: (picked: Picked) => void
 }) {
@@ -82,6 +94,20 @@ export function useChoices({
   const profile = offered.find(({ id }) => id === chosen) ?? offered[0]
   const enchantsAt = (level: number | null) =>
     !enchant || offeredProfiles(enchant, level).length > 0
+  // Whom at.
+  const whom = whomOf({
+    picking,
+    combat,
+    last,
+    areas,
+    enchant,
+    selfTargets,
+    preset,
+    helpful,
+    base,
+    castAt,
+  })
+  const targeting: Targeting = { search, ticked, setTicked, pick }
   return {
     pools,
     levels,
@@ -93,20 +119,14 @@ export function useChoices({
     setAmmo,
     mode,
     setMode,
-    preset,
-    ticked,
-    setTicked,
-    search,
-    helpful,
     enchant,
     options,
-    pick,
     spends,
-    castAt,
-    base,
     offered,
     profile,
     setChosen,
     enchantsAt,
+    whom,
+    targeting,
   }
 }

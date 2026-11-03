@@ -86,6 +86,7 @@ export function ActivityEntry({
             uses={uses}
             rows={rows}
             spends={action.activity?.spends}
+            place='row'
             fold={foldsUses(action, view)}
           />
         )}

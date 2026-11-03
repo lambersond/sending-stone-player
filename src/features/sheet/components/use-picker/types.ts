@@ -74,3 +74,14 @@ export type Whom =
   | { kind: 'enchant'; enchant: SheetEnchant; verb: string }
   | { kind: 'attack' }
   | { kind: 'use'; verb: string; at?: Pick<Picked, 'targets' | 'self'> }
+
+/**
+ * How whom at is picked, as `useChoices` keeps it: what the targets are searched by, those
+ * ticked, and the pick, made at the targets given with the options chosen.
+ */
+export type Targeting = {
+  search: { query: string; onQuery: (query: string) => void }
+  ticked: string[]
+  setTicked: (ticked: string[]) => void
+  pick: (targets: TableCombatant[]) => void
+}

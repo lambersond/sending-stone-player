@@ -4,7 +4,7 @@ import { enchantOf } from '../../utils/enchantments'
 import { viewOf } from '../action-entry/utils'
 import { CheckChip } from './check-chip'
 import { EnchantChip } from './enchant-chip'
-import { UseChip } from './use-chip'
+import { PlainUseChip } from './plain-use-chip'
 import type { ActionRows } from '../action-entry/types'
 import type { SheetAction, SheetUses } from '@/types/sending-stone'
 
@@ -48,7 +48,7 @@ export function UsingChip({
   }
   return (
     view.uses.chip && (
-      <UseChip action={action} onUse={view.uses.chip} uses={uses} />
+      <PlainUseChip action={action} onUse={view.uses.chip} uses={uses} />
     )
   )
 }

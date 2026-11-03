@@ -124,6 +124,7 @@ export function ActionEntry({
               uses={uses}
               rows={rows}
               spends={action.activity?.spends}
+              place='row'
               fold={foldsUses(action, view) && look.uses === undefined}
             />
           )}
