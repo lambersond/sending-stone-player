@@ -1,1950 +1,1002 @@
-diff --git a/src/constants/sending-stone.ts b/src/constants/sending-stone.ts
-index 1742801..ec8cc83 100644
---- a/src/constants/sending-stone.ts
-+++ b/src/constants/sending-stone.ts
-@@ -1,6 +1,7 @@
- /**
-  * The Sending Stone protocol, as described in the fvtt-sending-stone module's PROTOCOL.md.
-  */
-+import { DIE_SIZES } from '@/constants/dice'
- 
- /** The protocol version this listener understands. Version 2 sends each event to campaigns. */
- export const PROTOCOL_VERSION = 2
-@@ -510,8 +511,8 @@ export const MAX_USE_TARGETS = 20
- /** A kind of damage or healing, as dnd5e keys it, such as "fire" or "temphp". */
- export const DAMAGE_TYPE = /^[A-Za-z][\w-]{0,31}$/
- 
--/** A hit die's size, as dnd5e names it, such as "d10". */
--export const HIT_DIE = /^d(4|6|8|10|12)$/
-+/** A hit die's size, as dnd5e names it, such as "d10": one of the sizes a die of damage may be. */
-+export const HIT_DIE = new RegExp(`^d(${DIE_SIZES.join('|')})$`)
- 
- /**
-  * The most hit dice spent at once, of every size together: a character's at level 20. One with more
-diff --git a/src/schemas/foundry-settings.ts b/src/schemas/foundry-settings.ts
-index 329ba73..eece9b6 100644
---- a/src/schemas/foundry-settings.ts
-+++ b/src/schemas/foundry-settings.ts
-@@ -1,4 +1,5 @@
- import { z } from 'zod'
-+import { leftOut, orNull } from '@/schemas/utils'
- import type { FoundrySettings } from '@/types/foundry-settings'
- 
- // The Foundry settings a module from 0.30.0 sends with each hello, and in bridge.settings when one
-@@ -29,7 +30,7 @@ const listOf = <T extends z.ZodType>(entry: T, most: number) =>
- const moduleSchema = z.object({
-   id: text,
-   title: text,
--  version: z.string().max(LONGEST).nullable().catch(null),
-+  version: orNull(z.string().max(LONGEST)),
-   active: z.boolean().catch(false),
- })
- 
-@@ -40,8 +41,7 @@ const rowSchema = z.object({
-     .union([z.boolean(), z.string().max(LONGEST_VALUE), z.number(), z.null()])
-     .catch(null),
-   text,
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  note: z.string().max(LONGEST).optional().catch(undefined),
-+  note: leftOut(z.string().max(LONGEST)),
- })
- 
- const sectionSchema = z.object({
-diff --git a/src/schemas/notes.ts b/src/schemas/notes.ts
-index 8b88aa4..d9d38a0 100644
---- a/src/schemas/notes.ts
-+++ b/src/schemas/notes.ts
-@@ -1,13 +1,17 @@
- import { z } from 'zod'
- import { MOST_NOTE_BODY, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
- import { NOTE_ID } from '@/utils/note-id'
-+import type {
-+  NoteChange,
-+  NoteOrder,
-+  NoteOrderResolve,
-+  NoteResolve,
-+} from '@/types/notes'
- 
- // What a page sends to write journal notes (round 0.34.0 §8.3), from module 0.34.0: each is strict,
- // so a body naming anything more, such as a note's id or whose it is, is refused. Which book it's
- // in, who writes it and the new note's id all come from the seat and the server, never the body.
- 
--export { NOTE_ID } from '@/utils/note-id'
--
- /** A title: one line, trimmed, of 1 to 200 characters. */
- const title = z
-   .string()
-@@ -56,7 +60,7 @@ export const noteInputSchema = z
-  * A change to a note or chapter, from what the page last saw of it. Whether its body and chapter
-  * may be given depends on what it changes, which only the server knows (`checkChange`).
-  */
--export const noteChangeSchema = z.strictObject({
-+export const noteChangeSchema: z.ZodType<NoteChange> = z.strictObject({
-   title,
-   body: body.optional(),
-   chapterId: chapterId.optional(),
-@@ -64,7 +68,7 @@ export const noteChangeSchema = z.strictObject({
- })
- 
- /** The seat's choice where the game didn't take its change. */
--export const noteResolveSchema = z.strictObject({
-+export const noteResolveSchema: z.ZodType<NoteResolve> = z.strictObject({
-   resolve: z.enum(['mine', 'theirs']),
-   stamp: z.string().min(1).max(80),
- })
-@@ -90,15 +94,16 @@ const orderIds = z
-   .refine(ids => new Set(ids).size === ids.length, { message: 'Each once' })
- 
- /** A new order of a group's notes, from what the page last saw of it (module 0.35.0). */
--export const noteOrderSchema = z.strictObject({
-+export const noteOrderSchema: z.ZodType<NoteOrder> = z.strictObject({
-   chapterId,
-   ids: orderIds,
-   stamp: z.string().min(1).max(80),
- })
- 
- /** The seat's choice where the game didn't take a group's order. */
--export const noteOrderResolveSchema = z.strictObject({
--  chapterId,
--  resolve: z.enum(['mine', 'theirs']),
--  stamp: z.string().min(1).max(80),
--})
-+export const noteOrderResolveSchema: z.ZodType<NoteOrderResolve> =
-+  z.strictObject({
-+    chapterId,
-+    resolve: z.enum(['mine', 'theirs']),
-+    stamp: z.string().min(1).max(80),
-+  })
 diff --git a/src/schemas/roll-request.ts b/src/schemas/roll-request.ts
-index ac4719a..2a378b4 100644
+index 2a378b4..cce87da 100644
 --- a/src/schemas/roll-request.ts
 +++ b/src/schemas/roll-request.ts
-@@ -1,4 +1,3 @@
--import { DIE_SIDES } from '@lambersond/3d-dice-core'
+@@ -1,5 +1,6 @@
  import { z } from 'zod'
  import { DIE_SIZES } from '@/constants/dice'
++import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
  import {
-@@ -30,6 +29,7 @@ import {
- import { TEXT_HASH } from '@/schemas/sending-stone'
- import { MOST_DICE } from '@/utils/damage-modifiers'
+   ATTACK_MODE,
+   DAMAGE_TYPE,
+@@ -31,7 +32,15 @@ import { MOST_DICE } from '@/utils/damage-modifiers'
  import { MAX_LINKS } from '@/utils/description-links'
-+import { isDieSides } from '@/utils/dice'
+ import { isDieSides } from '@/utils/dice'
  import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
- import type { RollRequestInput, ExtraTerm } from '@/types/roll'
- 
-@@ -73,9 +73,7 @@ const extraTermSchema = z.union([
-   z.strictObject({
-     sign,
-     count: z.int().min(1).max(MAX_DICE),
--    sides: z
--      .int()
--      .refine(sides => (DIE_SIDES as readonly number[]).includes(sides)),
-+    sides: z.int().refine(sides => isDieSides(sides)),
-   }),
-   z.strictObject({ sign, flat: z.int().min(0).max(MAX_FLAT) }),
- ])
-@@ -113,7 +111,7 @@ const hitDiceSchema = z.strictObject({
- })
- 
- /** How many sizes of hit die there are, each of which may be spent at once. */
--const HIT_DIE_SIZES = 5
-+const HIT_DIE_SIZES = DIE_SIZES.length
- 
- /**
-  * A counter charges are spent from directly, from module 0.29.0: an item's own uses, or one of its
-@@ -419,9 +417,7 @@ const rolledDiceSchema = z.strictObject({
-  * 0.42.0: by its faces and sign, with what each of its dice showed.
-  */
- const effectDieSchema = z.strictObject({
--  faces: z
--    .int()
--    .refine(faces => (DIE_SIDES as readonly number[]).includes(faces)),
-+  faces: z.int().refine(faces => isDieSides(faces)),
-   sign,
-   results: z.array(z.int()).min(1).max(MAX_DICE),
- })
-@@ -906,7 +902,7 @@ export const rollRequestSchema = z
-         (!alone || request.dice.length > 0)
-       const dice = request.dice.every(
-         ({ faces, results }) =>
--          (DIE_SIDES as readonly number[]).includes(faces) &&
-+          isDieSides(faces) &&
-           results.every(result => result >= 1 && result <= faces),
-       )
-       // A hit die throws its one die.
-diff --git a/src/schemas/sending-stone.ts b/src/schemas/sending-stone.ts
-index bb21e87..d5195a8 100644
---- a/src/schemas/sending-stone.ts
-+++ b/src/schemas/sending-stone.ts
-@@ -29,18 +29,27 @@ import {
-   PROMPT_SOURCES,
- } from '@/constants/sending-stone'
- import { foundrySettingsSchema } from '@/schemas/foundry-settings'
-+import { leftOut, orNull } from '@/schemas/utils'
- import { MAX_CHECKS } from '@/utils/description-links'
- import { NOTE_ID } from '@/utils/note-id'
- import { MAX_DICE } from '@/utils/roll-modifiers'
- import { expandSheet } from '@/utils/slim-sheet'
--import type { GameEvent } from '@/types/sending-stone'
-+import type { ParsedContainer } from '@/schemas/types'
+-import type { RollRequestInput, ExtraTerm } from '@/types/roll'
++import type { Issue, RequestRule } from '@/schemas/types'
 +import type {
-+  BeastEntry,
-+  DamagePreview,
-+  Envelope,
-+  GameEvent,
-+  JournalPage,
-+  SheetCounter,
-+} from '@/types/sending-stone'
++  DieSize,
++  ExtraTerm,
++  RollKind,
++  RollKindInfo,
++  RollRequestInput,
++  TransferInput,
++} from '@/types/roll'
  
- // Payloads may gain fields at any time, so objects are loose: unknown keys are kept, not
- // rejected. Fields this app only displays fall back to a default rather than failing the event.
+ /** The most terms a player may add to one roll. */
+ export const MAX_EXTRAS = 10
+@@ -45,27 +54,6 @@ const FOUNDRY_ID = /^[\dA-Za-z]{1,64}$/
+ /** A roll request's id, as this app gives it. */
+ const REQUEST_ID = /^[\w-]{1,64}$/
  
--const nullableString = z.string().nullable().catch(null)
-+const nullableString = orNull(z.string())
- 
--export const envelopeSchema = z.object({
-+export const envelopeSchema: z.ZodType<Envelope> = z.object({
-   protocol: z.number(),
-   id: z.string(),
-   session: z.string(),
-@@ -54,7 +63,7 @@ export const envelopeSchema = z.object({
-   data: z.record(z.string(), z.unknown()),
- })
- 
--const nullableNumber = z.number().nullable().catch(null)
-+const nullableNumber = orNull(z.number())
- const rollMode = z.union([z.literal(-1), z.literal(0), z.literal(1)]).catch(0)
- 
- /** How the module names a description: 14 hexadecimal digits. */
-@@ -64,7 +73,7 @@ export const TEXT_HASH = /^[0-9a-f]{14}$/
- export const LONGEST_TEXT = 200_000
- 
- /** A description's hash, or null; anything else is taken as no description. */
--const textRef = z.string().regex(TEXT_HASH).nullable().catch(null)
-+const textRef = orNull(z.string().regex(TEXT_HASH))
- 
- /** A list whose malformed entries are dropped, rather than failing the whole list. */
- const listOf = <T extends z.ZodType>(entry: T) =>
-@@ -128,38 +137,37 @@ const enchantProfileSchema = z
-  * where no way is left, or where it can't say whether it enchants its own item, so that the
-  * activity reads as used in Foundry.
-  */
--const enchantSchema = z
--  .looseObject({
--    self: z.boolean(),
--    toggle: z.boolean().catch(false),
--    profiles: listOf(enchantProfileSchema)
--      .transform(profiles =>
--        profiles
--          .filter(
--            (profile, index) =>
--              profiles.findIndex(({ id }) => id === profile.id) === index,
--          )
--          .slice(0, MAX_PROFILES),
--      )
--      .refine(profiles => profiles.length > 0),
--    items: listOf(z.string().regex(DOCUMENT_ID)).transform(ids =>
--      [...new Set(ids)].slice(0, MAX_ENCHANTABLE),
-+const enchantSchema = leftOut(
-+  z
-+    .looseObject({
-+      self: z.boolean(),
-+      toggle: z.boolean().catch(false),
-+      profiles: listOf(enchantProfileSchema)
-+        .transform(profiles =>
-+          profiles
-+            .filter(
-+              (profile, index) =>
-+                profiles.findIndex(({ id }) => id === profile.id) === index,
-+            )
-+            .slice(0, MAX_PROFILES),
-+        )
-+        .refine(profiles => profiles.length > 0),
-+      items: listOf(z.string().regex(DOCUMENT_ID)).transform(ids =>
-+        [...new Set(ids)].slice(0, MAX_ENCHANTABLE),
-+      ),
-+      applied: listOf(
-+        z.looseObject({
-+          item: z.string().regex(DOCUMENT_ID),
-+          effect: z.string().regex(DOCUMENT_ID),
-+          profile: z.string().regex(DOCUMENT_ID),
-+        }),
-+      ).transform(applied => applied.slice(0, MAX_ENCHANTMENTS)),
-+    })
-+    // One that enchants its own item enchants no other, and is a switch only then.
-+    .transform(enchant =>
-+      enchant.self ? { ...enchant, items: [] } : { ...enchant, toggle: false },
-     ),
--    applied: listOf(
--      z.looseObject({
--        item: z.string().regex(DOCUMENT_ID),
--        effect: z.string().regex(DOCUMENT_ID),
--        profile: z.string().regex(DOCUMENT_ID),
--      }),
--    ).transform(applied => applied.slice(0, MAX_ENCHANTMENTS)),
--  })
--  // One that enchants its own item enchants no other, and is a switch only then.
--  .transform(enchant =>
--    enchant.self ? { ...enchant, items: [] } : { ...enchant, toggle: false },
--  )
--  .optional()
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  .catch(undefined)
-+)
- 
- /**
-  * The enchantments on an item, a spell, a feature or an action's item, from module 0.21.0, as many
-@@ -169,9 +177,9 @@ const enchantmentsSchema = listOf(
-   z.looseObject({
-     id: z.string().regex(DOCUMENT_ID),
-     name: z.string().trim().min(1).max(200),
--    source: z.string().max(200).nullable().catch(null),
-+    source: orNull(z.string().max(200)),
-     concentration: z.boolean().catch(false),
--    duration: z.string().max(100).nullable().catch(null),
-+    duration: orNull(z.string().max(100)),
-     expired: z.boolean().catch(false),
-     endable: z.boolean().catch(false),
-   }),
-@@ -184,7 +192,7 @@ const enchantmentsSchema = listOf(
-  * of its activities', or an old-style resource. Exactly one of those shapes, with ids the app can
-  * send back, or none: a counter misnamed is never spent.
-  */
--const counterSchema = z.union([
-+const counterSchema: z.ZodType<SheetCounter> = z.union([
-   z.strictObject({
-     item: z.string().regex(DOCUMENT_ID),
-     activity: z.string().regex(DOCUMENT_ID).optional(),
-@@ -197,7 +205,7 @@ const counterSchema = z.union([
-  * up its rolls: a result's, and from module 0.36.0 a sheet's action's on its own. Damage throwing
-  * more dice than a player may send is rolled by the game.
-  */
--const damagePreviewSchema = z
-+const damagePreviewSchema: z.ZodType<DamagePreview> = z
-   .object({
-     critical: z.boolean().catch(false),
-     plannable: z.boolean().catch(false),
-@@ -207,7 +215,7 @@ const damagePreviewSchema = z
-       .array(
-         z.object({
-           formula: z.string().max(500),
--          type: z.string().max(64).nullable().catch(null),
-+          type: orNull(z.string().max(64)),
-           // From module 0.12.0: the kinds of damage its roller chooses among.
-           types: z
-             .array(
-@@ -230,18 +238,10 @@ const damagePreviewSchema = z
-                   .max(MAX_DICE * 2),
-                 // From module 0.20.0: dice of a critical hit's critical damage, never its first
-                 // die; anything else is left out, and the preview still read.
--                added: z
--                  .literal(true)
--                  .optional()
--                  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--                  .catch(undefined),
-+                added: leftOut(z.literal(true)),
-                 // From module 0.21.0: dice the damage takes away, never its first die; anything
-                 // else is left out, and the preview still read.
--                subtracted: z
--                  .literal(true)
--                  .optional()
--                  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--                  .catch(undefined),
-+                subtracted: leftOut(z.literal(true)),
-               }),
-             )
-             .max(MAX_DAMAGE_TERMS),
-@@ -272,7 +272,7 @@ const MAX_SPENDS = 20
- const spendsSchema = listOf(
-   z.object({
-     counter: counterSchema,
--    amount: z.number().nullable().catch(null),
-+    amount: orNull(z.number()),
-   }),
- )
-   .transform(spends => spends.slice(0, MAX_SPENDS))
-@@ -290,7 +290,7 @@ const useSchema = z
-     targets: z.looseObject({
-       self: z.boolean().catch(false),
-       area: z.boolean().catch(false),
--      count: z.int().positive().nullable().catch(null),
-+      count: orNull(z.int().positive()),
-       perLevel: z
-         .int()
-         .positive()
-@@ -300,8 +300,7 @@ const useSchema = z
-         .transform(value => value ?? null),
-       affects: nullableString,
-       // From module 0.22.0: its range is Self, though it may take another target.
--      // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as by older modules
--      fromSelf: z.boolean().optional().catch(undefined),
-+      fromSelf: leftOut(z.boolean()),
-     }),
-     // From module 0.21.0, for an enchant activity.
-     enchant: enchantSchema,
-@@ -313,22 +312,18 @@ const useSchema = z
-   // An enchant activity that can't say what it enchants is used in Foundry.
-   .transform(use => (use?.type === 'enchant' && !use.enchant ? null : use))
- 
--const usesSchema = z
--  .looseObject({
-+const usesSchema = orNull(
-+  z.looseObject({
-     value: z.number(),
-     max: z.number(),
-     recovery: nullableString,
-     // From module 0.29.0: which counter they are, and whether they're spent directly from here.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    counter: counterSchema.optional().catch(undefined),
--    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the counter
--    spendable: z.literal(true).optional().catch(undefined),
-+    counter: leftOut(counterSchema),
-+    spendable: leftOut(z.literal(true)),
-     // From module 0.36.0: the lowest d6 that recharges them, for uses that recharge.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    recharge: z.int().min(2).max(6).optional().catch(undefined),
--  })
--  .nullable()
--  .catch(null)
-+    recharge: leftOut(z.int().min(2).max(6)),
-+  }),
-+)
- 
- /**
-  * A level a spell an item casts may be cast at, from module 0.20.0: 1 to 9, with how many of the
-@@ -336,7 +331,7 @@ const usesSchema = z
-  */
- const castLevelSchema = z.looseObject({
-   level: z.int().min(1).max(9),
--  charges: z.int().min(0).nullable().catch(null),
-+  charges: orNull(z.int().min(0)),
-   short: z.boolean().catch(false),
- })
- 
-@@ -350,8 +345,7 @@ const checkOptionSchema = z
-     type: z.enum(['check', 'skill', 'tool']),
-     ability: abilityId,
-     key: checkKey.optional(),
--    // eslint-disable-next-line unicorn/no-useless-undefined -- none, where it can't be read
--    bonus: z.int().min(-99).max(99).optional().catch(undefined),
-+    bonus: leftOut(z.int().min(-99).max(99)),
-   })
-   .refine(option => (option.type === 'check') === (option.key === undefined))
- 
-@@ -360,8 +354,8 @@ const checkOptionSchema = z
-  * or ability once, the first kept, malformed ones dropped; its DC, if it has one; and whether it's
-  * the character's own to make. Left out where it can't be read, so that the activity is only used.
-  */
--const checkSchema = z
--  .looseObject({
-+const checkSchema = leftOut(
-+  z.looseObject({
-     checks: listOf(checkOptionSchema)
-       .transform(options => {
-         const seen = new Set<string>()
-@@ -373,25 +367,21 @@ const checkSchema = z
-         })
-       })
-       .refine(options => options.length > 0 && options.length <= MAX_CHECKS),
--    dc: z.int().min(1).max(99).nullable().catch(null),
-+    dc: orNull(z.int().min(1).max(99)),
-     own: z.boolean().catch(false),
--  })
--  .optional()
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  .catch(undefined)
-+  }),
-+)
- 
- /**
-  * What using an activity that uses another spends of its uses, from module 0.21.0, and whether
-  * that many are left. Left out where it can't be read.
-  */
--const forwardSchema = z
--  .looseObject({
--    charges: z.int().min(0).nullable().catch(null),
-+const forwardSchema = leftOut(
-+  z.looseObject({
-+    charges: orNull(z.int().min(0)),
-     short: z.boolean().catch(false),
--  })
--  .optional()
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  .catch(undefined)
-+  }),
-+)
- 
- /** Are a cast's levels each above the last, the first the level it's cast at by default? */
- function castLevelsFrom(levels: { level: number }[], level: number): boolean {
-@@ -439,10 +429,7 @@ const rollFields = {
-     .nullable()
-     .optional()
-     .catch(null),
--  save: z
--    .object({ ability: z.string(), dc: nullableNumber })
--    .nullable()
--    .catch(null),
-+  save: orNull(z.object({ ability: z.string(), dc: nullableNumber })),
-   damage: listOf(
-     z.looseObject({
-       formula: z.string(),
-@@ -452,29 +439,19 @@ const rollFields = {
-   ),
-   // From module 0.36.0: its damage on its own, as the game would roll it, and as a critical hit's
-   // where one is allowed; left out where it can't be read, so that it can't go alone.
--  tableDamage: z
--    .object({
--      normal: damagePreviewSchema,
--      critical: damagePreviewSchema.nullable(),
--      // From module 0.41.0, to an app that says `aloneChoices`: the plans that differ from those,
--      // as many as 64; left out where they can't be read, so that the row rolls as before.
--      choices: z
--        .array(aloneChoiceSchema)
--        .max(MOST_ALONE_CHOICES)
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--        .catch(undefined),
--      // From module 0.41.0: what spending its use would spend; left out where it can't be read.
--      spends: z
--        .array(z.enum(ALONE_SPENDS))
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--        .catch(undefined),
--    })
--    .nullable()
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+  tableDamage: leftOut(
-+    z
-+      .object({
-+        normal: damagePreviewSchema,
-+        critical: damagePreviewSchema.nullable(),
-+        // From module 0.41.0, to an app that says `aloneChoices`: the plans that differ from those,
-+        // as many as 64; left out where they can't be read, so that the row rolls as before.
-+        choices: leftOut(z.array(aloneChoiceSchema).max(MOST_ALONE_CHOICES)),
-+        // From module 0.41.0: what spending its use would spend; left out where it can't be read.
-+        spends: leftOut(z.array(z.enum(ALONE_SPENDS))),
-+      })
-+      .nullable(),
-+  ),
-   // From module 0.14.0: false for a spell's activity that spends no slot; anything else spends one.
-   consumesSlot: z.boolean().optional().catch(true),
-   // From module 0.15.0: how a spell an item casts is cast, for a Cast activity.
-@@ -487,13 +464,7 @@ const rollFields = {
-       text: textRef.optional(),
-       // From module 0.20.0: the levels it may be cast at, with what each spends; left out where
-       // malformed, as where any isn't one, there are fewer than two or more than nine.
--      levels: z
--        .array(castLevelSchema)
--        .min(2)
--        .max(9)
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--        .catch(undefined),
-+      levels: leftOut(z.array(castLevelSchema).min(2).max(9)),
-     })
-     // Levels out of order, or not from its own, are left out too, the rest kept.
-     .transform(({ levels, ...cast }) =>
-@@ -507,7 +478,7 @@ const rollFields = {
-   // From module 0.16.0: whom an area attack is made at, such as a breath weapon's.
-   attackArea: z
-     .looseObject({
--      count: z.int().positive().nullable().catch(null),
-+      count: orNull(z.int().positive()),
-       perLevel: z
-         .int()
-         .positive()
-@@ -535,11 +506,7 @@ const rollFields = {
-   check: checkSchema,
-   forward: forwardSchema,
-   // From module 0.32.0: dnd5e gives its attack Elven Accuracy.
--  elvenAccuracy: z
--    .literal(true)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+  elvenAccuracy: leftOut(z.literal(true)),
- }
- 
- /**
-@@ -618,14 +585,13 @@ const featureSchema = z.looseObject({
-   requirements: nullableString,
-   activation: nullableString,
-   passive: z.boolean().catch(false),
--  uses: z
--    .looseObject({
-+  uses: orNull(
-+    z.looseObject({
-       value: z.number(),
-       max: z.number(),
-       recovery: nullableString,
--    })
--    .nullable()
--    .catch(null),
-+    }),
-+  ),
-   ...usageFields,
-   // From module 0.21.0.
-   enchantments: enchantmentsSchema,
-@@ -654,13 +620,10 @@ const itemFields = {
-   img: nullableString,
-   type: z.string().catch(''),
-   quantity: z.number().catch(1),
--  weight: z
--    .object({ value: z.number(), units: z.string().catch('') })
--    .nullable()
--    .catch(null),
-+  weight: orNull(z.object({ value: z.number(), units: z.string().catch('') })),
-   price: nullableString,
--  equipped: z.boolean().nullable().catch(null),
--  attunement: z.enum(['required', 'optional']).nullable().catch(null),
-+  equipped: orNull(z.boolean()),
-+  attunement: orNull(z.enum(['required', 'optional'])),
-   attuned: z.boolean().catch(false),
-   uses: usesSchema,
-   rarity: nullableString,
-@@ -675,28 +638,19 @@ const itemFields = {
- 
- const itemSchema = z.looseObject(itemFields)
- 
--type ParsedContainer = z.output<typeof itemSchema> & {
--  capacity: { value: number; max: number; units: string } | null
--  contents: (z.output<typeof itemSchema> | ParsedContainer)[] | null
--}
+-/** What is asked for by a link in a description, and only by one. */
+-const FROM_TEXT = new Set(['ask', 'textDamage', 'textRoll'])
 -
- // A container holds items, and containers that hold their own.
--const containerSchema: z.ZodType<ParsedContainer> = z.lazy(() =>
--  z.looseObject({
--    ...itemFields,
--    capacity: z
--      .object({
--        value: z.number(),
--        max: z.number(),
--        units: z.string().catch(''),
--      })
--      .nullable()
--      .catch(null),
--    contents: z
--      .array(z.unknown())
--      .nullable()
--      .catch(null)
--      .transform(entries =>
-+const containerSchema: z.ZodType<ParsedContainer<z.output<typeof itemSchema>>> =
-+  z.lazy(() =>
-+    z.looseObject({
-+      ...itemFields,
-+      capacity: orNull(
-+        z.object({
-+          value: z.number(),
-+          max: z.number(),
-+          units: z.string().catch(''),
-+        }),
-+      ),
-+      contents: orNull(z.array(z.unknown())).transform(entries =>
-         entries === null
-           ? null
-           : entries.flatMap(value => {
-@@ -708,8 +662,8 @@ const containerSchema: z.ZodType<ParsedContainer> = z.lazy(() =>
-               return parsed.success ? [parsed.data] : []
-             }),
-       ),
--  }),
--)
-+    }),
-+  )
+-/**
+- * What may be asked for by a link in a description, or not: a saving throw, or from module 0.18.0
+- * a check, the player's own.
+- */
+-const LINKABLE = new Set(['save', 'skill', 'tool', 'ability'])
+-
+-/**
+- * What may be a check an activity asks for, the player's own, made against it, from module 0.21.0:
+- * a skill, tool or ability check, named by its item and activity.
+- */
+-const ACTIVITY_CHECKS = new Set(['skill', 'tool', 'ability'])
+-
+-/**
+- * What may answer what the game asks: a saving throw, or from module 0.27.0, where Midi-QOL asks
+- * for one, an ability or skill check.
+- */
+-const ANSWERS = new Set(['save', 'ability', 'skill'])
+-
+ const sign = z.union([z.literal(1), z.literal(-1)])
  
- export const inventorySchema = z
-   .looseObject({
-@@ -729,20 +683,18 @@ export const inventorySchema = z
-         value: z.number().catch(0),
-       }),
-     ),
--    encumbrance: z
--      .looseObject({
-+    encumbrance: orNull(
-+      z.looseObject({
-         value: z.number(),
-         max: nullableNumber,
-         units: z.string().catch(''),
-         encumbered: nullableNumber,
-         heavilyEncumbered: nullableNumber,
--      })
--      .nullable()
--      .catch(null),
--    attunement: z
--      .looseObject({ value: z.number(), max: nullableNumber })
--      .nullable()
--      .catch(null),
-+      }),
-+    ),
-+    attunement: orNull(
-+      z.looseObject({ value: z.number(), max: nullableNumber }),
-+    ),
+ /** A term the player added, as the app's Modify roll reads it: dice, or a number. */
+@@ -99,7 +87,9 @@ const modifiersSchema = z.strictObject({
+   extra: z.int().min(0).max(MOST_DICE).optional(),
+   faces: z
+     .int()
+-    .refine(faces => (DIE_SIZES as readonly number[]).includes(faces))
++    .refine((faces): faces is DieSize =>
++      (DIE_SIZES as readonly number[]).includes(faces),
++    )
+     .optional(),
+   maximize: z.boolean().optional(),
+ })
+@@ -161,80 +151,58 @@ const transferSchema = z
+       .optional(),
    })
-   .catch({
-     sections: [],
-@@ -766,10 +718,7 @@ const spellSchema = z.looseObject({
-   range: nullableString,
-   duration: nullableString,
-   target: nullableString,
--  prepared: z
--    .union([z.literal(0), z.literal(1), z.literal(2)])
--    .nullable()
--    .catch(null),
-+  prepared: orNull(z.union([z.literal(0), z.literal(1), z.literal(2)])),
-   uses: usesSchema,
-   // From module 0.8.2.
-   castFrom: castFromSchema,
-@@ -824,8 +773,7 @@ const effectSchema = z.looseObject({
-   disabled: z.boolean().catch(false),
-   // From module 0.39.0: what its player may do to it from here, where the campaign lets them.
-   // Anything else, such as an unknown op or more than three, is read as unsaid, so no control.
--  // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
--  ops: z.array(z.enum(EFFECT_OPS)).max(3).optional().catch(undefined),
-+  ops: leftOut(z.array(z.enum(EFFECT_OPS)).max(3)),
-   text: textRef,
- })
- 
-@@ -889,16 +837,12 @@ const favoriteSchema = z.discriminatedUnion('type', [
-     uses: usesSchema,
-     // From module 0.23.0, the feature it stands for. One malformed is as good as none: the app
-     // finds the feature by name, and keeps the favorite.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as by older modules
--    itemId: z.string().nullable().optional().catch(undefined),
-+    itemId: leftOut(z.string().nullable()),
-   }),
- ])
- 
- /** A pool of an NPC's, such as its legendary actions, as dnd5e prepares it; none if malformed. */
--const poolSchema = z
--  .object({ value: z.number(), max: z.number() })
--  .nullable()
--  .catch(null)
-+const poolSchema = orNull(z.object({ value: z.number(), max: z.number() }))
- 
- /**
-  * What an NPC's sheet says of it as a creature, from module 0.36.0: its challenge rating, type,
-@@ -914,18 +858,16 @@ const creatureSchema = z.looseObject({
-   important: z.boolean().catch(false),
-   legendary: poolSchema,
-   resistance: poolSchema,
--  lair: z
--    .object({ inside: z.boolean().catch(false), initiative: nullableNumber })
--    .nullable()
--    .catch(null),
--  hitDice: z
--    .object({
-+  lair: orNull(
-+    z.object({ inside: z.boolean().catch(false), initiative: nullableNumber }),
-+  ),
-+  hitDice: orNull(
-+    z.object({
-       denomination: z.string().regex(HIT_DIE),
-       value: z.number(),
-       max: z.number(),
--    })
--    .nullable()
--    .catch(null),
-+    }),
-+  ),
- })
- 
- /**
-@@ -943,9 +885,9 @@ const formSchema = z.looseObject({
-   size: nullableString,
-   cr: nullableNumber,
-   type: nullableString,
--  profile: z.string().regex(PROFILE_ID).nullable().catch(null),
--  hours: z.int().positive().nullable().catch(null),
--  minutesLeft: z.int().min(0).nullable().catch(null),
-+  profile: orNull(z.string().regex(PROFILE_ID)),
-+  hours: orNull(z.int().positive()),
-+  minutesLeft: orNull(z.int().min(0)),
-   flooredAc: z.boolean().catch(false),
-   beast: z
-     .object({
-@@ -976,14 +918,12 @@ const knownFormSchema = z.looseObject({
-   id: z.string().regex(PROFILE_ID),
-   name: z.string().catch(''),
-   pool: z.boolean().catch(false),
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  uuid: z.string().min(1).optional().catch(undefined),
-+  uuid: leftOut(z.string().min(1)),
-   img: nullableString.optional(),
-   size: nullableString.optional(),
-   cr: nullableNumber.optional(),
-   ac: nullableNumber.optional(),
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  speeds: z.array(z.string()).max(10).optional().catch(undefined),
-+  speeds: leftOut(z.array(z.string()).max(10)),
-   attack: z
-     .object({
-       name: z.string(),
-@@ -1009,7 +949,7 @@ const wildShapeSchema = z.looseObject({
-     .object({ value: z.number(), max: z.number() })
-     .catch({ value: 0, max: 0 }),
-   level: z.number().catch(0),
--  circle: z.literal('moon').nullable().catch(null),
-+  circle: orNull(z.literal('moon')),
-   limits: formLimitsSchema.catch({ count: 0, cr: 0, fly: false }),
-   hours: z.number().catch(0),
-   temp: z.number().catch(0),
-@@ -1017,15 +957,14 @@ const wildShapeSchema = z.looseObject({
-   known: listOf(knownFormSchema),
-   swap: z.boolean().catch(false),
-   resurgence: z.boolean().catch(false),
--  ended: z
--    .object({
-+  ended: orNull(
-+    z.object({
-       form: z.string(),
-       why: z.enum(['app', 'time', 'hp', 'incapacitated', 'foundry']),
-       at: z.number(),
-       formId: z.string(),
--    })
--    .nullable()
--    .catch(null),
-+    }),
-+  ),
- })
- 
- /**
-@@ -1052,19 +991,18 @@ const effectDieSchema = z.strictObject({
-  * on its own, so that one that can't be read is dropped, and the rest still asked for; none where
-  * none can be, or the list itself can't be read, when the game rolls them all.
-  */
--const effectDiceSchema = z
--  .array(z.unknown())
--  .max(MOST_EFFECT_DICE)
--  .transform(entries => {
--    const dice = entries.flatMap(entry => {
--      const parsed = effectDieSchema.safeParse(entry)
--      return parsed.success ? [parsed.data] : []
--    })
--    return dice.length > 0 ? dice : undefined
--  })
--  .optional()
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  .catch(undefined)
-+const effectDiceSchema = leftOut(
-+  z
-+    .array(z.unknown())
-+    .max(MOST_EFFECT_DICE)
-+    .transform(entries => {
-+      const dice = entries.flatMap(entry => {
-+        const parsed = effectDieSchema.safeParse(entry)
-+        return parsed.success ? [parsed.data] : []
-+      })
-+      return dice.length > 0 ? dice : undefined
-+    }),
-+)
- 
- // A sheet that can't be read is dropped rather than failing the event that carries it.
- const sheetSchema = z
-@@ -1105,10 +1043,7 @@ const sheetSchema = z
-     ac: nullableNumber,
-     proficiency: nullableNumber,
-     initiative: nullableNumber,
--    speed: z
--      .looseObject({ value: z.number(), units: nullableString })
--      .nullable()
--      .catch(null),
-+    speed: orNull(z.looseObject({ value: z.number(), units: nullableString })),
-     inspiration: z.boolean().catch(false),
-     abilities: z.array(
-       z.looseObject({
-@@ -1141,19 +1076,17 @@ const sheetSchema = z
-     // Sent from module 0.6.0.
-     conditions: listOf(conditionSchema),
-     // From module 0.29.0: each concentration, for its player to end. A malformed one is dropped.
--    concentration: z
--      .looseObject({
-+    concentration: leftOut(
-+      z.looseObject({
-         effects: listOf(
-           z.looseObject({
-             id: z.string().regex(DOCUMENT_ID),
-             name: z.string().trim().min(1).max(200),
--            item: z.string().regex(DOCUMENT_ID).nullable().catch(null),
-+            item: orNull(z.string().regex(DOCUMENT_ID)),
-           }),
-         ),
+   .superRefine((transfer, context) => {
+-    const { to, among } = transfer
+-    if ((to === undefined) === (among === undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['to'],
+-        message: 'A move goes to one end, or is shared among characters',
 -      })
--      .optional()
--      // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--      .catch(undefined),
-+      }),
-+    ),
-     features: listOf(
-       z.looseObject({
-         id: z.string(),
-@@ -1171,8 +1104,8 @@ const sheetSchema = z
-     ),
-     // Sent from module 0.7.0.
-     inventory: inventorySchema,
--    spellcasting: z
--      .looseObject({
-+    spellcasting: orNull(
-+      z.looseObject({
-         ability: nullableString,
-         dc: nullableNumber,
-         attack: nullableNumber,
-@@ -1184,32 +1117,29 @@ const sheetSchema = z
-             attack: nullableNumber,
-             // From module 0.42.1: how many of the class's spells are prepared, of how many it may
-             // prepare. Left out where it can't be read, rather than shown wrong.
--            prepared: z
--              .object({
-+            prepared: leftOut(
-+              z.object({
-                 value: z.int().min(0).max(999),
-                 max: z.int().min(0).max(999),
--              })
--              .optional()
--              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--              .catch(undefined),
-+              }),
-+            ),
-           }),
-         ),
+-    }
+-    if (among) {
+-      if (new Set(among).size < among.length) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['among'],
+-          message: 'Each character is given one share',
+-        })
+-      }
+-      if (among.includes(transfer.from)) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['among'],
+-          message: "A party doesn't share with itself",
+-        })
+-      }
+-      if (transfer.items !== undefined) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['items'],
+-          message: 'Only coins are shared',
+-        })
+-      }
+-      if (Object.keys(transfer.currency ?? {}).length !== 1) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['currency'],
+-          message: 'One kind of coin is shared at a time',
+-        })
+-      }
+-    }
+-    if (to !== undefined && transfer.from === to) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['to'],
+-        message: 'A move goes from one end to another',
 -      })
--      .nullable()
--      .catch(null),
-+      }),
-+    ),
-     spells: listOf(
-       z.looseObject({
-         id: z.string(),
-         label: z.string(),
--        slots: z
--          // The level, from module 0.8.1.
--          .object({
--            value: z.number(),
--            max: z.number(),
--            level: nullableNumber.optional(),
--          })
--          .nullable()
--          .catch(null),
-+        slots: orNull(
-+          z
-+            // The level, from module 0.8.1.
-+            .object({
-+              value: z.number(),
-+              max: z.number(),
-+              level: nullableNumber.optional(),
-+            }),
-+        ),
-         spells: listOf(spellSchema),
-       }),
-     ),
-@@ -1241,19 +1171,13 @@ const sheetSchema = z
-       .nullable()
-       .optional()
-       .catch(null),
--    deathSaves: z
--      .object({ success: z.number(), failure: z.number() })
--      .nullable()
--      .catch(null),
-+    deathSaves: orNull(z.object({ success: z.number(), failure: z.number() })),
-     details: z
-       .looseObject({
-         about: listOf(detailSchema),
-         personality: listOf(detailSchema),
-         appearance: nullableString,
--        xp: z
--          .object({ value: z.number(), max: nullableNumber })
--          .nullable()
--          .catch(null),
-+        xp: orNull(z.object({ value: z.number(), max: nullableNumber })),
-         biography: textRef,
-       })
-       .catch({
-@@ -1264,14 +1188,11 @@ const sheetSchema = z
-         biography: null,
-       }),
-     // From module 0.36.0, for an NPC: what it is as a creature.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    creature: creatureSchema.optional().catch(undefined),
-+    creature: leftOut(creatureSchema),
-     // From module 0.40.0, to an app that takes Wild Shape: what the character is transformed into
-     // now, and a 2024 druid's Wild Shape.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    form: formSchema.optional().catch(undefined),
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    wildShape: wildShapeSchema.optional().catch(undefined),
-+    form: leftOut(formSchema),
-+    wildShape: leftOut(wildShapeSchema),
-     // From module 0.42.0, under dnd5e 5: the dice its effects add to its d20 rolls, for its player
-     // to type in, read only where the hello says `effectDice`.
-     effectDice: effectDiceSchema,
-@@ -1291,18 +1212,16 @@ const sheetSchema = z
-   .catch(null)
- 
- /** A size in bytes, as the module counts one; null where it can't be read. */
--const byteCount = z.int().min(0).nullable().catch(null)
-+const byteCount = orNull(z.int().min(0))
- 
- /** Why the module held a sheet back, such as for its size; left out where it can't be read. */
--const sheetWithheldSchema = z
--  .looseObject({
-+const sheetWithheldSchema = leftOut(
-+  z.looseObject({
-     reason: z.string().max(32),
-     bytes: byteCount,
-     limit: byteCount,
--  })
--  .optional()
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  .catch(undefined)
-+  }),
-+)
- 
- const characterSchema = z.looseObject({
-   id: z.string(),
-@@ -1383,15 +1302,14 @@ const companionEntrySchema = z.looseObject({
-   sceneId: z.string().regex(DOCUMENT_ID).nullable(),
-   uuid: z.string().max(200),
-   name: cutTo(200),
--  img: z.string().max(2000).nullable().catch(null),
--  summon: z
--    .looseObject({
-+  img: orNull(z.string().max(2000)),
-+  summon: orNull(
-+    z.looseObject({
-       itemId: z.string().regex(DOCUMENT_ID),
-       item: cutTo(200),
--      activityId: z.string().regex(DOCUMENT_ID).nullable().catch(null),
--    })
--    .nullable()
--    .catch(null),
-+      activityId: orNull(z.string().regex(DOCUMENT_ID)),
-+    }),
-+  ),
-   sheetWithheld: sheetWithheldSchema,
- })
- 
-@@ -1410,11 +1328,11 @@ const companionsSchema = listOf(companionEntrySchema).transform(entries =>
- 
- export const rollSchema = z.looseObject({
-   formula: z.string().catch(''),
--  total: z.number().nullable().catch(null),
-+  total: orNull(z.number()),
-   dice: z
-     .array(
-       z.looseObject({
--        faces: z.number().nullable().catch(null),
-+        faces: orNull(z.number()),
-         results: z
-           .array(z.object({ result: z.number(), active: z.boolean() }))
-           .catch([]),
-@@ -1423,33 +1341,12 @@ export const rollSchema = z.looseObject({
-     .catch([]),
-   // What marks a roll, each left out where it doesn't apply, or can't be read: the class it has
-   // always had, and from module 0.28.0, what it says of damage and attacks.
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  class: z.string().max(100).optional().catch(undefined),
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  damage: z.literal(true).optional().catch(undefined),
--  damageLabel: z
--    .string()
--    .trim()
--    .min(1)
--    .max(64)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
--  section: z
--    .enum(['damage', 'bonus', 'other'])
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
--  flavor: z
--    .string()
--    .trim()
--    .min(1)
--    .max(100)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  attack: z.literal(true).optional().catch(undefined),
-+  class: leftOut(z.string().max(100)),
-+  damage: leftOut(z.literal(true)),
-+  damageLabel: leftOut(z.string().trim().min(1).max(64)),
-+  section: leftOut(z.enum(['damage', 'bonus', 'other'])),
-+  flavor: leftOut(z.string().trim().min(1).max(100)),
-+  attack: leftOut(z.literal(true)),
- })
- 
- /** The most characters a save's outcome is said to be seen by: more than any campaign has. */
-@@ -1459,19 +1356,10 @@ const MAX_READERS = 200
- const targetSchema = z.looseObject({
-   name: z.string(),
-   ac: z.number().nullable().optional().catch(null),
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  uuid: z.string().min(1).max(500).optional().catch(undefined),
-+  uuid: leftOut(z.string().min(1).max(500)),
-   // From module 0.29.0, where players see them in Foundry.
--  outcome: z
--    .enum(['hit', 'miss'])
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
--    .catch(undefined),
--  save: z
--    .enum(['success', 'failure'])
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the uuid
--    .catch(undefined),
-+  outcome: leftOut(z.enum(['hit', 'miss'])),
-+  save: leftOut(z.enum(['success', 'failure'])),
- })
- 
- /**
-@@ -1480,52 +1368,37 @@ const targetSchema = z.looseObject({
-  */
- const rollOutcomeSchema = z.looseObject({
-   target: z.string().min(1).max(500),
--  outcome: z
--    .enum(['success', 'failure'])
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+  outcome: leftOut(z.enum(['success', 'failure'])),
-   readers: z.array(z.string()).max(MAX_READERS).optional(),
- })
- 
--const dnd5eSchema = z
--  .looseObject({
-+const dnd5eSchema = orNull(
-+  z.looseObject({
-     messageType: nullableString,
--    roll: z.looseObject({}).nullable().catch(null),
--    item: z
--      .looseObject({ name: nullableString, type: nullableString.optional() })
--      .nullable()
--      .catch(null),
--    activity: z
--      .looseObject({ name: nullableString, type: nullableString })
--      .nullable()
--      .catch(null),
-+    roll: orNull(z.looseObject({})),
-+    item: orNull(
-+      z.looseObject({ name: nullableString, type: nullableString.optional() }),
-+    ),
-+    activity: orNull(
-+      z.looseObject({ name: nullableString, type: nullableString }),
-+    ),
-     // From module 0.30.0, one that can't be read drops only itself, not the others with it.
-     targets: listOf(targetSchema),
-     originatingMessage: nullableString.optional(),
-     // From module 0.29.0, on a save rolled from dnd5e's card: whose, and whether it succeeded; and
-     // from module 0.30.0, on a save from anywhere.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- as for its outcome
--    save: rollOutcomeSchema.optional().catch(undefined),
-+    save: leftOut(rollOutcomeSchema),
-     // From module 0.30.0, the same of an ability, skill or tool check.
--    // eslint-disable-next-line unicorn/no-useless-undefined -- as for its outcome
--    check: rollOutcomeSchema.optional().catch(undefined),
--  })
--  .nullable()
--  .catch(null)
-+    check: leftOut(rollOutcomeSchema),
-+  }),
-+)
- 
- /** What an ask says besides what it asks for: its DC, and what asks for it. */
- const askFields = {
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out where it can't be read
--  dc: z.int().min(1).max(99).optional().catch(undefined),
--  label: z
--    .string()
--    .trim()
--    .max(200)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- as for the DC
--    .catch(undefined)
--    .transform(label => label || undefined),
-+  dc: leftOut(z.int().min(1).max(99)),
-+  label: leftOut(z.string().trim().max(200)).transform(
-+    label => label || undefined,
-+  ),
- }
- 
- /**
-@@ -1539,14 +1412,9 @@ const askedCheckSchema = z
-     ability: abilityId,
-     skill: checkKey.optional(),
-     tool: checkKey.optional(),
--    name: z
--      .string()
--      .trim()
--      .max(100)
--      .optional()
--      // eslint-disable-next-line unicorn/no-useless-undefined -- as an ask's DC
--      .catch(undefined)
--      .transform(name => name || undefined),
-+    name: leftOut(z.string().trim().max(100)).transform(
-+      name => name || undefined,
-+    ),
+-    }
+-    const ids = (transfer.items ?? []).map(({ id }) => id)
+-    if (new Set(ids).size < ids.length) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['items'],
+-        message: 'Each item is moved once',
+-      })
+-    }
+-    const coins = Object.keys(transfer.currency ?? {}).length
+-    if (transfer.currency && (coins === 0 || coins > MOST_COINS)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['currency'],
+-        message: 'From one to ten kinds of coin',
+-      })
+-    }
+-    if (
+-      to !== undefined &&
+-      transfer.items === undefined &&
+-      transfer.currency === undefined
+-    ) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['items'],
+-        message: 'A move moves an item or coins',
+-      })
+-    }
++    const issue = issuesTo(context)
++    shareRules(transfer, issue)
++    moveRules(transfer, issue)
    })
-   .refine(
-     check =>
-@@ -1592,10 +1460,7 @@ const messageSchema = z.looseObject({
-   speaker: z
-     .looseObject({ alias: nullableString, actorId: nullableString })
-     .catch({ alias: null, actorId: null }),
--  author: z
--    .looseObject({ id: z.string(), name: z.string() })
--    .nullable()
--    .catch(null),
-+  author: orNull(z.looseObject({ id: z.string(), name: z.string() })),
-   character: nullableString,
-   title: nullableString,
-   flavor: z.string().catch(''),
-@@ -1610,21 +1475,12 @@ const messageSchema = z.looseObject({
-   ask: askSchema,
-   // From module 0.23.0: the roll a message says the campaign's Gamemaster made here as a character.
-   // Its author may write it, so it's only a claim, checked against the rolls handed over.
--  gmRoll: z
--    .string()
--    .regex(/^[\w-]{1,64}$/)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- no claim, where it can't be read
--    .catch(undefined),
-+  gmRoll: leftOut(z.string().regex(/^[\w-]{1,64}$/)),
-   // From module 0.36.0, to an app that reads companions: the listed companion that spoke it.
-   companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
-   // From module 0.36.0, to every app: a damage or healing card made on its own. A claim, as any
-   // user may flag a message of theirs, shown only as words that apply nothing.
--  alone: z
--    .literal(true)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- not on its own, where unreadable
--    .catch(undefined),
-+  alone: leftOut(z.literal(true)),
- })
  
- /**
-@@ -1720,24 +1576,20 @@ const featuresSchema = z
-           .catch([]),
-         // From module 0.35.0: it takes the app's orders of a group's notes, and says who changed a
-         // journal in Foundry. Anything but a boolean is read as unsaid.
--        // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
--        orders: z.boolean().optional().catch(undefined),
--        // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
--        changes: z.boolean().optional().catch(undefined),
-+        orders: leftOut(z.boolean()),
-+        changes: leftOut(z.boolean()),
-       })
-       .nullable()
-       .optional()
-       .catch(null),
-     // From module 0.36.0: the kinds a companion's rolls may be, and how companions enter
-     // initiative, where anything but "after" is each its own roll.
--    companions: z
--      .looseObject({
-+    companions: leftOut(
-+      z.looseObject({
-         kinds: z.array(z.string()).catch([]),
-         initiative: z.enum(COMPANION_INITIATIVE).catch('own'),
--      })
--      .optional()
--      // eslint-disable-next-line unicorn/no-useless-undefined -- unsaid, as junk
--      .catch(undefined),
-+      }),
-+    ),
-     // From module 0.37.0: whether favorites may be added and removed here, under dnd5e, with no
-     // switch of its own.
-     favorites: z
-@@ -1795,7 +1647,7 @@ const NOTE_REV = /^[\da-f]{14}$/
-  * One of a journal's notes as Foundry holds it, from module 0.34.0. The module sends only what
-  * this takes (round 0.34.0 §2.8), as one that can't be read fails the whole event.
-  */
--const journalPageSchema = z
-+const journalPageSchema: z.ZodType<JournalPage> = z
-   .object({
-     id: z.string().regex(NOTE_ID),
-     role: z.enum(['chapter', 'entry']),
-@@ -1837,15 +1689,13 @@ const journalUpdatedSchema = z.looseObject({
-       notes: z.array(journalPageSchema).max(MOST_NOTES),
-       // From module 0.35.0, to an app that answers `notes: 2`: who last deleted or reordered a
-       // page the app is sent, in Foundry, and when. An odd one is dropped, never the book.
--      changed: z
--        .object({
-+      changed: leftOut(
-+        z.object({
-           what: z.enum(['delete', 'order']),
-           by: z.string().max(200),
-           at: z.int().min(0),
--        })
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--        .catch(undefined),
-+        }),
-+      ),
-     })
-     .nullable(),
-   withheld: z
-@@ -1868,7 +1718,7 @@ const promptFields = {
-   id: z.string().regex(PROMPT_ID),
-   actorId: z.string().min(1).max(64),
-   messageId: z.string().min(1).max(64),
--  dc: z.int().min(0).max(100).nullable().catch(null),
-+  dc: orNull(z.int().min(0).max(100)),
-   label: z
-     .string()
-     .max(200)
-@@ -1957,7 +1807,7 @@ const formRefSchema = z.object({
-  * A Beast the druid may learn, as the game lists them (module 0.40.0): one this app couldn't ask
-  * for, by a uuid that isn't a compendium's Actor's, is left out.
-  */
--const beastSchema = z.object({
-+const beastSchema: z.ZodType<BeastEntry> = z.object({
-   uuid: z.string().regex(FORM_UUID),
-   name: z.string().min(1),
-   img: nullableString,
-@@ -2004,20 +1854,19 @@ const commandResultSchema = z.object({
-     .object({
-       critical: z.boolean().catch(false),
-       fumble: z.boolean().catch(false),
--      outcome: z.enum(['hit', 'miss']).nullable().catch(null),
-+      outcome: orNull(z.enum(['hit', 'miss'])),
-       // From module 0.16.0, for an area attack: whether it hit each combatant picked.
--      targets: z
--        .array(
--          z.object({
--            combatId: z.string().max(64),
--            combatantId: z.string().max(64),
--            outcome: z.enum(['hit', 'miss']).nullable().catch(null),
--          }),
--        )
--        .max(MAX_USE_TARGETS)
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as by older modules
--        .catch(undefined),
-+      targets: leftOut(
-+        z
-+          .array(
-+            z.object({
-+              combatId: z.string().max(64),
-+              combatantId: z.string().max(64),
-+              outcome: orNull(z.enum(['hit', 'miss'])),
-+            }),
-+          )
-+          .max(MAX_USE_TARGETS),
-+      ),
-     })
-     .nullable()
-     .optional()
-@@ -2045,25 +1894,23 @@ const commandResultSchema = z.object({
-   // applied and the one ended, each null where none was, or it can't be read.
-   enchantment: z
-     .object({
--      enchanted: z
--        .object({
-+      enchanted: orNull(
-+        z.object({
-           item: z.string().max(64),
-           itemName: z.string().max(200),
-           effect: z.string().max(64),
-           profile: z.string().max(64),
-           name: z.string().max(200),
--        })
--        .nullable()
--        .catch(null),
--      ended: z
--        .object({
-+        }),
-+      ),
-+      ended: orNull(
-+        z.object({
-           item: z.string().max(64),
-           itemName: z.string().max(200),
-           effect: z.string().max(64),
-           name: z.string().max(200),
--        })
--        .nullable()
--        .catch(null),
-+        }),
-+      ),
-     })
-     .nullable()
-     .optional()
-@@ -2071,16 +1918,13 @@ const commandResultSchema = z.object({
-   damage: damagePreviewSchema.nullable().optional().catch(null),
-   // From module 0.25.0, for the Gamemaster's roll as a character: the ids of the chat messages it
-   // made, which alone are marked as theirs. Anything else is ignored, as from an older module.
--  messages: z
--    .array(z.string().min(1).max(64))
--    .max(MAX_GM_ROLL_MESSAGES)
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+  messages: leftOut(
-+    z.array(z.string().min(1).max(64)).max(MAX_GM_ROLL_MESSAGES),
-+  ),
-   // From module 0.31.0, for a move of items and coins: what moved, by ids and counts alone, never
-   // a name. Anything else is left out, and the rest still read.
--  transfer: z
--    .object({
-+  transfer: leftOut(
-+    z.object({
-       from: z.string().min(1).max(64),
-       // None for a distribution, from module 0.32.0, which lists who was given a share in `among`.
-       to: z.string().min(1).max(64).nullable(),
-@@ -2101,50 +1945,42 @@ const commandResultSchema = z.object({
-         .nullable(),
-       // A distribution's characters that were given their share, in order (module 0.32.0).
-       among: z.array(z.string().min(1).max(64)).max(MOST_AMONG).optional(),
--    })
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+    }),
-+  ),
-   // From module 0.33.0, for an item removed: it, and how many of its stack, where it changed.
--  removed: z
--    .object({
-+  removed: leftOut(
-+    z.object({
-       item: z.string().min(1).max(64),
-       quantity: z.int().min(0).max(MOST_MOVED),
--    })
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+    }),
-+  ),
-   // From module 0.37.0, for a favorite added or removed: whether it's one of the character's
-   // favorites now.
--  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--  favorited: z.boolean().optional().catch(undefined),
-+  favorited: leftOut(z.boolean()),
-   // From module 0.38.0, for a dish from the Magical Recipe Book: its card in Foundry, and whether
-   // it's decided.
--  dish: z
--    .object({
-+  dish: leftOut(
-+    z.object({
-       card: z.string().max(64).nullable(),
-       state: z.enum(['waiting', 'applied', 'dismissed']),
--    })
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+    }),
-+  ),
-   // From module 0.39.0, for one of the character's own effects turned off, on or deleted: the
-   // effect, whether it's off now, null once deleted, and whether it was deleted.
--  effect: z
--    .object({
--      id: z.string().regex(EFFECT_ID),
--      disabled: z.boolean().nullable(),
--      deleted: z.boolean(),
--    })
--    .nullable()
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+  effect: leftOut(
-+    z
-+      .object({
-+        id: z.string().regex(EFFECT_ID),
-+        disabled: z.boolean().nullable(),
-+        deleted: z.boolean(),
-+      })
-+      .nullable(),
-+  ),
-   // From module 0.40.0, for Wild Shape, by its op: the form taken, with its temporary hit points
-   // and hours; the form left, or none where the character wasn't shaped; the form learned and the
-   // one it replaced; or the Beasts to learn, no more than the game lists at once.
--  wildShape: z
--    .discriminatedUnion('op', [
-+  wildShape: leftOut(
-+    z.discriminatedUnion('op', [
-       z.object({
-         op: z.literal('transform'),
-         form: formRefSchema,
-@@ -2168,44 +2004,32 @@ const commandResultSchema = z.object({
-         more: z.boolean(),
-         limits: formLimitsSchema,
-       }),
--    ])
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+    ]),
-+  ),
-   // From module 0.41.0, for damage on its own that asked to spend what its use would: what dnd5e
-   // recorded as spent, in order, none where nothing was, and whether concentration began.
--  alone: z
--    .object({
-+  alone: leftOut(
-+    z.object({
-       spent: z.array(z.enum(ALONE_SPENDS)).catch([]),
--      concentrating: z
--        .literal(true)
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- not begun, where unreadable
--        .catch(undefined),
--    })
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+      concentrating: leftOut(z.literal(true)),
-+    }),
-+  ),
-   // From module 0.34.0, for a note command: the note, and its page's revision now, never its text.
--  note: z
--    .object({
-+  note: leftOut(
-+    z.object({
-       id: z.string().regex(NOTE_ID),
-       rev: z.string().regex(NOTE_REV).nullable(),
-       deleted: z.literal(true).optional(),
--    })
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+    }),
-+  ),
-   // From module 0.35.0, for an order of a group's notes: the group's order in Foundry after it, or
-   // on a refusal its order then, by the notes' ids alone.
--  order: z
--    .object({
-+  order: leftOut(
-+    z.object({
-       chapter: z.string().regex(NOTE_ID).nullable(),
-       ids: z.array(z.string().regex(NOTE_ID)).max(MOST_NOTES),
--    })
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+    }),
-+  ),
- })
- 
- const hitPointsSchema = z
-@@ -2221,19 +2045,14 @@ const hitPointsSchema = z
- export const combatantSchema = z.looseObject({
-   id: z.string(),
-   name: z.string().catch(''),
--  initiative: z.number().nullable().catch(null),
-+  initiative: orNull(z.number()),
-   defeated: z.boolean().catch(false),
-   character: nullableString,
-   playerOwned: z.boolean().catch(false),
-   hp: hitPointsSchema,
-   hidden: z.boolean().optional(),
-   // Module 0.29.0. Anything else, such as a number, is dropped, so a secret one is never kept.
--  disposition: z
--    .enum(['friendly', 'neutral', 'hostile'])
--    .nullable()
--    .optional()
--    // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--    .catch(undefined),
-+  disposition: leftOut(z.enum(['friendly', 'neutral', 'hostile']).nullable()),
-   // From module 0.36.0, to an app that reads companions: the listed companion it is.
-   companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
- })
-@@ -2270,7 +2089,7 @@ const cut = (most: number) =>
-     .transform(value => storable(value, most))
- 
- /** As `cut`, or null for none. */
--const cutOrNull = (most: number) => cut(most).nullable().catch(null)
-+const cutOrNull = (most: number) => orNull(cut(most))
- 
- /** A list whose malformed entries are dropped, cut to its first `count`. */
- const mostOf = <T extends z.ZodType>(entry: T, count: number) =>
-@@ -2285,14 +2104,8 @@ const dishRowId = z.string().regex(/^[\w-]{1,64}$/)
- 
- /** Who decided what became of a dish, and when, in real and world time; null where unreadable. */
- const dishDecider = {
--  by: z
--    .looseObject({ userId: cut(64), name: cut(200) })
--    .nullable()
--    .catch(null),
--  at: z
--    .looseObject({ time: cut(40), worldTime: z.number().catch(0) })
--    .nullable()
--    .catch(null),
-+  by: orNull(z.looseObject({ userId: cut(64), name: cut(200) })),
-+  at: orNull(z.looseObject({ time: cut(40), worldTime: z.number().catch(0) })),
- }
- 
- /** From module 0.38.0: a dish served, naming every character served it so far. */
-@@ -2306,10 +2119,7 @@ const dishAppliedSchema = z.looseObject({
-       actorId: z.string().min(1).max(64),
-       name: cut(200),
-       effectId: cutOrNull(64),
--      replaced: z
--        .looseObject({ id: cut(64), recipe: cut(200) })
--        .nullable()
--        .catch(null),
-+      replaced: orNull(z.looseObject({ id: cut(64), recipe: cut(200) })),
-       healed: z.number().int().catch(0),
-       exhaustion: z.number().int().catch(0),
-       skipped: mostOf(z.looseObject({ type: cut(64), reason: cut(32) }), 100),
-@@ -2320,12 +2130,7 @@ const dishAppliedSchema = z.looseObject({
-     z.looseObject({
-       type: cut(64),
-       value: z.number().int(),
--      formula: z
--        .string()
--        .transform(value => storable(value, 32))
--        .optional()
--        // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--        .catch(undefined),
-+      formula: leftOut(z.string().transform(value => storable(value, 32))),
-     }),
-     100,
-   ),
-@@ -2341,6 +2146,122 @@ const dishDismissedSchema = z.looseObject({
-   ...dishDecider,
- })
- 
-+/** A hello: what the campaign has now, sent when the module connects. */
-+const helloSchema = z.looseObject({
-+  characters: z.array(characterSchema),
-+  // From module 0.30.0; none from an older module. One that can't be read is dropped.
-+  groups: listOf(groupEntrySchema),
-+  // From module 0.36.0, as `groups` are: none from an older module, which clears them.
-+  companions: companionsSchema,
-+  combats: z.array(combatSchema),
-+  // Sent from module 0.10.0.
-+  features: featuresSchema,
-+  // Sent from module 0.13.0; none from an older module.
-+  prompts: listOf(promptSchema),
-+  // From module 0.22.0: its characters carry no sheets, which follow it.
-+  sheetsApart: z.boolean().optional().catch(false),
-+  // What Foundry says of itself, for the Gamemaster's card alone: its versions, from
-+  // every module; and from module 0.30.0, its settings. None that can't be read ever
-+  // refuses the hello.
-+  module: leftOut(
-+    z.looseObject({
-+      id: z.string().max(100),
-+      version: z.string().max(50).nullable(),
-+    }),
-+  ),
-+  foundry: leftOut(
-+    z.looseObject({
-+      version: z.string().max(50),
-+      generation: z.number().nullable().optional(),
-+    }),
-+  ),
-+  system: leftOut(
-+    z.looseObject({
-+      id: z.string().max(100),
-+      title: z.string().max(200),
-+      version: z.string().max(50),
-+    }),
-+  ),
-+  settings: leftOut(foundrySettingsSchema),
-+})
-+
-+/** A character's descriptions, by hash: only `texts`, nothing else the payload says. */
-+const textsSchema = z
-+  .looseObject({ texts: z.record(z.string(), z.unknown()) })
-+  // A malformed description is dropped. If a sheet needs it, the app asks for it again.
-+  .transform(({ texts }) => ({
-+    texts: Object.fromEntries(
-+      Object.entries(texts).filter(
-+        (entry): entry is [string, string] =>
-+          TEXT_HASH.test(entry[0]) &&
-+          typeof entry[1] === 'string' &&
-+          entry[1].length <= LONGEST_TEXT,
-+      ),
-+    ),
-+  }))
-+
-+/** The chat cleared: nothing is read of its payload. */
-+const clearedSchema = z.unknown().transform((): Record<string, never> => ({}))
-+
-+const chatSchema = z.looseObject({ message: messageSchema })
-+
-+/** Each type of event this app acts on, with what its payload is checked by. */
-+const EVENT_SCHEMAS: {
-+  [K in GameEvent['type']]: z.ZodType<(GameEvent & { type: K })['data']>
-+} = {
-+  [EVENTS.HELLO]: helloSchema,
-+  [EVENTS.CHARACTER_UPDATED]: z.looseObject({ character: characterSchema }),
-+  [EVENTS.CHARACTER_TEXTS]: textsSchema,
-+  [EVENTS.CHAT_CREATED]: chatSchema,
-+  [EVENTS.CHAT_UPDATED]: chatSchema,
-+  [EVENTS.CHAT_DELETED]: z.looseObject({ id: z.string() }),
-+  [EVENTS.CHAT_CLEARED]: clearedSchema,
-+  [EVENTS.COMBAT_CREATED]: withCombat,
-+  [EVENTS.COMBAT_STARTED]: withCombat,
-+  [EVENTS.COMBAT_TURN]: withCombat,
-+  [EVENTS.COMBAT_UPDATED]: withCombat,
-+  [EVENTS.COMBAT_ENDED]: withCombat,
-+  [EVENTS.COMBATANT_ADDED]: withCombatant,
-+  [EVENTS.COMBATANT_UPDATED]: withCombatant,
-+  [EVENTS.COMBATANT_REMOVED]: z.looseObject({
-+    combatId: z.string(),
-+    combatantId: z.string(),
-+  }),
-+  [EVENTS.COMMAND_RESULT]: commandResultSchema,
-+  [EVENTS.PROMPT_OPENED]: z.looseObject({ prompt: promptSchema }),
-+  [EVENTS.PROMPT_CLOSED]: z.looseObject({
-+    id: z.string().regex(PROMPT_ID),
-+    reason: z.string().max(32).catch('gone'),
-+  }),
-+  [EVENTS.GROUP_UPDATED]: z.looseObject({
-+    group: groupEntrySchema.extend({
-+      sheet: groupSheetSchema,
-+      sheetWithheld: sheetWithheldSchema,
-+    }),
-+  }),
-+  [EVENTS.GROUP_REMOVED]: z.looseObject({ id: z.string().regex(DOCUMENT_ID) }),
-+  [EVENTS.BRIDGE_SETTINGS]: z.looseObject({
-+    settings: leftOut(foundrySettingsSchema),
-+  }),
-+  [EVENTS.JOURNAL_UPDATED]: journalUpdatedSchema,
-+  [EVENTS.COMPANIONS_LISTED]: z.looseObject({ companions: companionsSchema }),
-+  [EVENTS.COMPANION_UPDATED]: z.looseObject({
-+    companion: companionEntrySchema,
-+    // Made whole first where it comes slim, as a character's is; none where it can't be
-+    // read.
-+    sheet: z
-+      .preprocess(expandSheet, sheetSchema)
-+      .transform(sheet => sheet ?? null),
-+  }),
-+  [EVENTS.DISH_APPLIED]: dishAppliedSchema,
-+  [EVENTS.DISH_DISMISSED]: dishDismissedSchema,
++/**
++ * A move goes to one end, or is shared among characters, from module 0.32.0: one kind of a party's
++ * coin, never to itself, a share each.
++ */
++function shareRules(transfer: TransferInput, issue: Issue) {
++  const { to, among } = transfer
++  if ((to === undefined) === (among === undefined)) {
++    issue('to', 'A move goes to one end, or is shared among characters')
++  }
++  if (!among) return
++  if (new Set(among).size < among.length) {
++    issue('among', 'Each character is given one share')
++  }
++  if (among.includes(transfer.from)) {
++    issue('among', "A party doesn't share with itself")
++  }
++  if (transfer.items !== undefined) {
++    issue('items', 'Only coins are shared')
++  }
++  if (Object.keys(transfer.currency ?? {}).length !== 1) {
++    issue('currency', 'One kind of coin is shared at a time')
++  }
 +}
 +
-+/** Is it a type of event this app acts on? */
-+function actsOn(type: string): type is GameEvent['type'] {
-+  return Object.hasOwn(EVENT_SCHEMAS, type)
++/** A move goes from one end to another, and moves each item once, or one to ten kinds of coin. */
++function moveRules(transfer: TransferInput, issue: Issue) {
++  const { to } = transfer
++  if (to !== undefined && transfer.from === to) {
++    issue('to', 'A move goes from one end to another')
++  }
++  const ids = (transfer.items ?? []).map(({ id }) => id)
++  if (new Set(ids).size < ids.length) {
++    issue('items', 'Each item is moved once')
++  }
++  const coins = Object.keys(transfer.currency ?? {}).length
++  if (transfer.currency && (coins === 0 || coins > MOST_COINS)) {
++    issue('currency', 'From one to ten kinds of coin')
++  }
++  if (
++    to !== undefined &&
++    transfer.items === undefined &&
++    transfer.currency === undefined
++  ) {
++    issue('items', 'A move moves an item or coins')
++  }
 +}
 +
  /**
-  * Check the payload of an event this app acts on.
-  * @param type - The envelope's type.
-@@ -2352,197 +2273,8 @@ export function parseGameEvent(
-   type: string,
-   data: unknown,
- ): GameEvent | undefined {
--  switch (type) {
--    case EVENTS.HELLO: {
--      return {
--        type,
--        data: z
--          .looseObject({
--            characters: z.array(characterSchema),
--            // From module 0.30.0; none from an older module. One that can't be read is dropped.
--            groups: listOf(groupEntrySchema),
--            // From module 0.36.0, as `groups` are: none from an older module, which clears them.
--            companions: companionsSchema,
--            combats: z.array(combatSchema),
--            // Sent from module 0.10.0.
--            features: featuresSchema,
--            // Sent from module 0.13.0; none from an older module.
--            prompts: listOf(promptSchema),
--            // From module 0.22.0: its characters carry no sheets, which follow it.
--            sheetsApart: z.boolean().optional().catch(false),
--            // What Foundry says of itself, for the Gamemaster's card alone: its versions, from
--            // every module; and from module 0.30.0, its settings. None that can't be read ever
--            // refuses the hello.
--            module: z
--              .looseObject({
--                id: z.string().max(100),
--                version: z.string().max(50).nullable(),
--              })
--              .optional()
--              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--              .catch(undefined),
--            foundry: z
--              .looseObject({
--                version: z.string().max(50),
--                generation: z.number().nullable().optional(),
--              })
--              .optional()
--              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--              .catch(undefined),
--            system: z
--              .looseObject({
--                id: z.string().max(100),
--                title: z.string().max(200),
--                version: z.string().max(50),
--              })
--              .optional()
--              // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--              .catch(undefined),
--            // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
--            settings: foundrySettingsSchema.optional().catch(undefined),
--          })
--          .parse(data),
--      }
--    }
--    case EVENTS.CHARACTER_UPDATED: {
--      return {
--        type,
--        data: z.looseObject({ character: characterSchema }).parse(data),
--      }
--    }
--    case EVENTS.CHARACTER_TEXTS: {
--      const { texts } = z
--        .looseObject({ texts: z.record(z.string(), z.unknown()) })
--        .parse(data)
--      // A malformed description is dropped. If a sheet needs it, the app asks for it again.
--      return {
--        type,
--        data: {
--          texts: Object.fromEntries(
--            Object.entries(texts).filter(
--              (entry): entry is [string, string] =>
--                TEXT_HASH.test(entry[0]) &&
--                typeof entry[1] === 'string' &&
--                entry[1].length <= LONGEST_TEXT,
--            ),
--          ),
--        },
--      }
--    }
--    case EVENTS.CHAT_CREATED:
--    case EVENTS.CHAT_UPDATED: {
--      return {
--        type,
--        data: z.looseObject({ message: messageSchema }).parse(data),
--      }
--    }
--    case EVENTS.CHAT_DELETED: {
--      return { type, data: z.looseObject({ id: z.string() }).parse(data) }
--    }
--    case EVENTS.CHAT_CLEARED: {
--      return { type, data: {} }
--    }
--    case EVENTS.COMBAT_CREATED:
--    case EVENTS.COMBAT_STARTED:
--    case EVENTS.COMBAT_TURN:
--    case EVENTS.COMBAT_UPDATED:
--    case EVENTS.COMBAT_ENDED: {
--      return { type, data: withCombat.parse(data) }
--    }
--    case EVENTS.COMBATANT_ADDED:
--    case EVENTS.COMBATANT_UPDATED: {
--      return { type, data: withCombatant.parse(data) }
--    }
--    case EVENTS.COMBATANT_REMOVED: {
--      return {
--        type,
--        data: z
--          .looseObject({ combatId: z.string(), combatantId: z.string() })
--          .parse(data),
--      }
--    }
--    case EVENTS.COMMAND_RESULT: {
--      return { type, data: commandResultSchema.parse(data) }
--    }
--    case EVENTS.PROMPT_OPENED: {
--      return {
--        type,
--        data: z.looseObject({ prompt: promptSchema }).parse(data),
--      }
--    }
--    case EVENTS.PROMPT_CLOSED: {
--      return {
--        type,
--        data: z
--          .looseObject({
--            id: z.string().regex(PROMPT_ID),
--            reason: z.string().max(32).catch('gone'),
--          })
--          .parse(data),
--      }
--    }
--    case EVENTS.GROUP_UPDATED: {
--      return {
--        type,
--        data: z
--          .looseObject({
--            group: groupEntrySchema.extend({
--              sheet: groupSheetSchema,
--              sheetWithheld: sheetWithheldSchema,
--            }),
--          })
--          .parse(data),
--      }
--    }
--    case EVENTS.GROUP_REMOVED: {
--      return {
--        type,
--        data: z.looseObject({ id: z.string().regex(DOCUMENT_ID) }).parse(data),
--      }
--    }
--    case EVENTS.BRIDGE_SETTINGS: {
--      return {
--        type,
--        data: z
--          .looseObject({
--            // eslint-disable-next-line unicorn/no-useless-undefined -- as in the hello
--            settings: foundrySettingsSchema.optional().catch(undefined),
--          })
--          .parse(data),
--      }
--    }
--    case EVENTS.JOURNAL_UPDATED: {
--      return { type, data: journalUpdatedSchema.parse(data) }
--    }
--    case EVENTS.COMPANIONS_LISTED: {
--      return {
--        type,
--        data: z.looseObject({ companions: companionsSchema }).parse(data),
--      }
--    }
--    case EVENTS.COMPANION_UPDATED: {
--      return {
--        type,
--        data: z
--          .looseObject({
--            companion: companionEntrySchema,
--            // Made whole first where it comes slim, as a character's is; none where it can't be
--            // read.
--            sheet: z
--              .preprocess(expandSheet, sheetSchema)
--              .transform(sheet => sheet ?? null),
--          })
--          .parse(data),
--      }
--    }
--    case EVENTS.DISH_APPLIED: {
--      return { type, data: dishAppliedSchema.parse(data) }
--    }
--    case EVENTS.DISH_DISMISSED: {
--      return { type, data: dishDismissedSchema.parse(data) }
--    }
--    default: {
--      return undefined
--    }
--  }
-+  if (!actsOn(type)) return undefined
-+  // EVENT_SCHEMAS pairs each type with its payload's schema, a pairing a lookup by a type that is
-+  // only known as one of them loses, so the event is said to be what each pair makes.
-+  return { type, data: EVENT_SCHEMAS[type].parse(data) } as GameEvent
- }
-diff --git a/src/utils/dice.test.ts b/src/utils/dice.test.ts
-index 79f8675..d143d9c 100644
---- a/src/utils/dice.test.ts
-+++ b/src/utils/dice.test.ts
-@@ -2,6 +2,7 @@
-  * @jest-environment node
+  * An item removed from the character, from module 0.33.0: by its Foundry id, how many of its
+  * stack, from 1 to all of it, and how many the sheet showed, which the game checks it still has;
+@@ -474,7 +442,7 @@ const effectDieSchema = z.strictObject({
+  * and throws no dice. From module 0.42.1 too, a spell prepared or unprepared names the spell, by
+  * its id, and the state wanted, and nothing else, and throws no dice.
   */
- import { isDieSides } from './dice'
-+import { HIT_DIE } from '@/constants/sending-stone'
- 
- describe('utils/dice', () => {
-   it.each([
-@@ -24,3 +25,10 @@ describe('utils/dice', () => {
-     expect(isDieSides(faces)).toBe(is)
+-export const rollRequestSchema = z
++export const rollRequestSchema: z.ZodType<RollRequestInput> = z
+   .strictObject({
+     kind: z.enum(ROLL_KINDS),
+     key: z.string().regex(KEY).optional(),
+@@ -562,390 +530,386 @@ export const rollRequestSchema = z
+     rerolls: z.literal('kept').optional(),
    })
- })
-+
-+describe('HIT_DIE', () => {
-+  it('is built from the sizes a die of damage may be, as it was written', () => {
-+    expect(HIT_DIE.source).toBe('^d(4|6|8|10|12)$')
-+    expect(HIT_DIE.flags).toBe('')
+   .superRefine((request, context) => {
+-    const attack = request.kind === 'attack'
+-    const use = request.kind === 'use'
+-    const formula = request.kind === 'formula'
+-    const hitDie = request.kind === 'hitDie'
+-    const hitDice = request.kind === 'hitDice'
+-    // From module 0.36.0: an action's damage or healing on its own, and a spent recharge.
+-    const alone = request.kind === 'itemDamage'
+-    const recharge = request.kind === 'recharge'
+-    const named = request.item !== undefined || request.activity !== undefined
+-    const both = request.item !== undefined && request.activity !== undefined
+-    // From module 0.42.0, a typed d20 roll names the dice its effects add that its player typed
+-    // in, never a d20, each result one of its faces; and only a typed roll says its rerolls were
+-    // made at the table.
+-    if (request.effectDice !== undefined) {
+-      const effects = (EFFECT_DICE_KINDS as readonly string[]).includes(
+-        request.kind,
++    // Each group of rules in turn, so that a request's issues always come in the same order.
++    const issue = issuesTo(context)
++    typedRules(request, issue)
++    namingRules(request, issue)
++    hitDiceRules(request, issue)
++    targetRules(request, issue)
++    castingRules(request, issue)
++    damageRules(request, issue)
++    linkRules(request, issue)
++    keyRules(request, issue)
++    enchantRules(request, issue)
++    ownFieldRules(request, issue)
++    // Then the dice, by what the kind throws.
++    DICE_RULES[infoOf(request.kind).dice](request, issue)
 +  })
-+})
++
++/** What a kind is, as the request-kind table has it: what it throws, names and answers. */
++function infoOf(kind: RollKind): RollKindInfo {
++  return ROLL_KIND_INFO[kind]
++}
++
++/** A refinement's issues, each a custom one at a field of what it checks. */
++function issuesTo<T>(context: z.RefinementCtx<T>): Issue {
++  return (path, message) => {
++    context.addIssue({ code: 'custom', path: [path], message })
++  }
++}
++
++/** Is each of these results one of a die's faces? */
++function inFaces(results: number[], faces: number): boolean {
++  return results.every(result => result >= 1 && result <= faces)
++}
++
++/**
++ * From module 0.42.0, a typed d20 roll names the dice its effects add that its player typed in,
++ * never a d20, each result one of its faces; and only a typed roll says its rerolls were made at
++ * the table.
++ */
++function typedRules(request: RollRequestInput, issue: Issue) {
++  if (request.effectDice !== undefined) {
++    const effects = (EFFECT_DICE_KINDS as readonly string[]).includes(
++      request.kind,
++    )
++    if (!effects || request.typed !== true) {
++      issue(
++        'effectDice',
++        'Only a typed d20 roll names the dice its effects add',
+       )
+-      if (!effects || request.typed !== true) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['effectDice'],
+-          message: 'Only a typed d20 roll names the dice its effects add',
+-        })
+-      } else if (
+-        !request.effectDice.every(
+-          ({ faces, results }) =>
+-            (EFFECT_DIE_FACES as readonly number[]).includes(faces) &&
+-            results.every(result => result >= 1 && result <= faces),
+-        )
+-      ) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['effectDice'],
+-          message: 'The dice are not those the roll throws',
+-        })
+-      }
+-    }
+-    if (request.rerolls !== undefined && request.typed !== true) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['rerolls'],
+-        message: 'Only a typed roll keeps its rerolls',
+-      })
+-    }
+-    // A check may be one an activity asks for, from module 0.21.0, which names both.
+-    const checked = ACTIVITY_CHECKS.has(request.kind)
+-    // A recharge names its item, and its activity where the uses are the activity's own.
+-    let unnamed = named && !(checked && both)
+-    if (attack || use || formula || alone) unnamed = !both
+-    else if (recharge) unnamed = request.item === undefined
+-    if (unnamed) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['activity'],
+-        message:
+-          'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+-      })
+-    }
+-    if (
+-      checked &&
+-      named &&
+-      (request.text !== undefined ||
+-        request.link !== undefined ||
+-        request.prompt !== undefined)
+-    ) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['item'],
+-        message:
+-          'A check an activity asks for is made against it, not a link or what the game asks',
+-      })
+-    }
+-    if (hitDie !== (request.denomination !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['denomination'],
+-        message: 'A hit die, and only a hit die, has a size',
+-      })
+-    }
+-    if (hitDice !== (request.hitDice !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['hitDice'],
+-        message: 'Hit dice, and only hit dice, say how many of each size',
+-      })
+-    }
+-    if (request.hitDice && !spentOnce(request.hitDice)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['hitDice'],
+-        message: `Each size is spent once, and no more than ${MOST_HIT_DICE} dice in all`,
+-      })
+-    }
+-    if (!attack && request.target !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['target'],
+-        message: 'Only an attack has a target',
+-      })
+-    }
+-    // A use has its targets; an area attack, such as a breath weapon's, has those in its area,
+-    // and no target of its own.
+-    const targeted = request.targets !== undefined
+-    if (use ? !targeted : targeted && !attack) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['targets'],
+-        message: 'A use, or an area attack, and only those, has its targets',
+-      })
+-    }
+-    // A use may be made at its user too, from module 0.22.0; an attack never is.
+-    if (!use && request.self !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['self'],
+-        message: 'Only a use is made at its user',
+-      })
+-    }
+-    if (attack && targeted && request.target !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['targets'],
+-        message:
+-          'An attack is made at a target, or at those in its area, not both',
+-      })
+-    }
+-    const targets = request.targets ?? []
+-    const combats = new Set(targets.map(({ combatId }) => combatId))
+-    const combatants = new Set(targets.map(({ combatantId }) => combatantId))
+-    if (combats.size > 1 || combatants.size < targets.length) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['targets'],
+-        message:
+-          'A use or an attack is made at different combatants of one combat',
+-      })
+-    }
+-    // From module 0.41.0, damage on its own names the slot it's rolled at, the attack mode and the
+-    // ammunition, and may spend what its use would; it never leaves the slot to the game, as null.
+-    const slotted = alone ? request.slot !== null : attack || use
+-    if (request.slot !== undefined && !slotted) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['slot'],
+-        message: 'Only an attack, a use or damage on its own casts at a slot',
+-      })
+-    }
+-    const weapon =
+-      request.ammunition !== undefined || request.attackMode !== undefined
+-    if (!attack && !alone && weapon) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['attackMode'],
+-        message:
+-          'Only an attack, or damage on its own, is made with ammunition, in a mode',
+-      })
+-    }
+-    if (!alone && request.consume !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['consume'],
+-        message: 'Only damage on its own spends what it uses',
+-      })
+-    }
+-    const damaging =
+-      request.kind === 'damage' || request.kind === 'textDamage' || alone
+-    if (!damaging && request.types !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['types'],
+-        message: 'Only damage has kinds to choose',
+-      })
+-    }
+-    if (!damaging && request.modifiers !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['modifiers'],
+-        message: 'Only damage is changed so',
+-      })
+-    }
+-    if (
+-      request.kind !== 'textDamage' &&
+-      !alone &&
+-      request.critical !== undefined
+-    ) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['critical'],
+-        message:
+-          "Only a description's damage, or an action's on its own, is rolled as a critical hit's here",
+-      })
+-    }
+-    if (!ANSWERS.has(request.kind) && request.prompt !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['prompt'],
+-        message:
+-          'Only a saving throw, or an ability or skill check, answers what the game asks',
+-      })
+-    }
+-    const linked = request.text !== undefined
+-    if (linked !== (request.link !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['link'],
+-        message: 'A link is named by its description and its number together',
+-      })
+-    }
+-    const fromText = FROM_TEXT.has(request.kind)
+-    if (fromText ? !linked : linked && !LINKABLE.has(request.kind)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['text'],
+-        message:
+-          'An ask, or damage or a roll from a description, and only those or a saving throw or check, names a link',
+-      })
+-    }
+-    if (linked && request.prompt !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['prompt'],
+-        message:
+-          'A saving throw answers what the game asks, or what a description calls for, not both',
+-      })
+-    }
+-    const keyed = ['skill', 'tool', 'ability', 'save'].includes(request.kind)
+-    if (keyed !== (request.key !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['key'],
+-        message: keyed ? 'Name what is rolled' : 'Nothing to name',
+-      })
+-    }
+-    if ((request.kind === 'initiative') !== (request.combatId !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['combatId'],
+-        message: 'Initiative, and only initiative, is rolled in a combat',
+-      })
+-    }
+-    if ((request.kind === 'damage') !== (request.use !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['use'],
+-        message: 'Damage, and only damage, follows an attack or a use',
+-      })
+-    }
+-    // An enchant activity's use says how it enchants, and only it; an enchantment ended names it,
+-    // and nothing else, and throws no dice, as a use doesn't.
+-    if (!use && request.enchant !== undefined) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['enchant'],
+-        message: 'Only a use enchants',
+-      })
+-    }
+-    const ending = request.kind === 'endEnchantment'
+-    if (ending !== (request.enchantment !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['enchantment'],
+-        message: 'An enchantment ended, and only that, names the enchantment',
+-      })
+-    }
+-    // A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move
+-    // from module 0.31.0, a removal from module 0.33.0, a turn ended or taken back from module
+-    // 0.36.0, a favorite from module 0.37.0, an effect changed from module 0.39.0, Wild Shape
+-    // from module 0.40.0 and a spell slot spent or restored from module 0.42.1, each name what
+-    // they're of, and nothing else does; charges, how many, which nothing else says. And from
+-    // module 0.42.1, a spell prepared or unprepared names its spell, and nothing else does.
+-    for (const [kind, { field, kinds, message }] of Object.entries(
+-      OWN_FIELDS,
+-    )) {
+-      const own = (kinds ?? [kind]).includes(request.kind)
+-      if (own !== (request[field] !== undefined)) {
+-        context.addIssue({ code: 'custom', path: [field], message })
+-      }
+-    }
+-    if ((request.kind === 'spend') !== (request.count !== undefined)) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['count'],
+-        message: 'Charges spent, and only those, say how many',
+-      })
+-    }
+-    const notRolled = Object.hasOwn(OWN_FIELDS, request.kind)
+-    if (use || request.kind === 'ask' || ending || notRolled) {
+-      const plain =
+-        request.mode === 0 &&
+-        !request.explicit &&
+-        request.extras.length === 0 &&
+-        request.dice.length === 0
+-      if (!plain) {
+-        const message = PLAIN_WORDS[request.kind] ?? 'An ask throws no dice'
+-        context.addIssue({ code: 'custom', path: ['dice'], message })
+-      }
+-      return
+-    }
+-    if (hitDice) {
+-      const plain =
+-        request.mode === 0 && !request.explicit && request.extras.length === 0
+-      if (!plain || !throwsHitDice(request.dice, request.hitDice ?? [])) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['dice'],
+-          message:
+-            'Hit dice are rolled as they are, a die each, and nothing more',
+-        })
+-      }
+-      return
+-    }
+-    // A recharge throws its one d6, and nothing more.
+-    if (recharge) {
+-      const plain =
+-        request.mode === 0 && !request.explicit && request.extras.length === 0
+-      const [die] = request.dice
+-      const one =
+-        request.dice.length === 1 &&
+-        die.faces === 6 &&
+-        die.results.length === 1 &&
+-        die.results[0] >= 1 &&
+-        die.results[0] <= 6
+-      if (!plain || !one) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['dice'],
+-          message: 'A recharge throws its one d6, and nothing more',
+-        })
+-      }
+-      return
+-    }
+-    if (damaging || hitDie || formula || request.kind === 'textRoll') {
+-      const plain =
+-        request.mode === 0 &&
+-        !request.explicit &&
+-        request.extras.length === 0 &&
+-        // Damage on its own throws the dice the game said, one at least.
+-        (!alone || request.dice.length > 0)
+-      const dice = request.dice.every(
++    } else if (
++      !request.effectDice.every(
+         ({ faces, results }) =>
+-          isDieSides(faces) &&
+-          results.every(result => result >= 1 && result <= faces),
++          (EFFECT_DIE_FACES as readonly number[]).includes(faces) &&
++          inFaces(results, faces),
+       )
+-      // A hit die throws its one die.
+-      const [die] = request.dice
+-      const one =
+-        !hitDie ||
+-        (request.dice.length === 1 &&
+-          `d${die.faces}` === request.denomination &&
+-          die.results.length === 1)
+-      if (!plain || !dice || !one) {
+-        context.addIssue({
+-          code: 'custom',
+-          path: ['dice'],
+-          message:
+-            request.kind === 'damage'
+-              ? 'Damage is rolled as the attack said, and nothing more'
+-              : 'It is rolled as it is, and nothing more',
+-        })
+-      }
+-      return
++    ) {
++      issue('effectDice', 'The dice are not those the roll throws')
+     }
+-    const expected = expectedDice(
+-      request.mode,
+-      request.extras as ExtraTerm[],
+-      request.kind,
++  }
++  if (request.rerolls !== undefined && request.typed !== true) {
++    issue('rerolls', 'Only a typed roll keeps its rerolls')
++  }
++}
++
++/**
++ * An attack, a use, a formula or damage on its own (from module 0.36.0) is made with an item, as a
++ * check an activity asks for is, from module 0.21.0, which names both; a recharge names its item,
++ * and its activity where the uses are the activity's own. Nothing else names either.
++ */
++function namingRules(request: RollRequestInput, issue: Issue) {
++  const { kind } = request
++  const named = request.item !== undefined || request.activity !== undefined
++  const both = request.item !== undefined && request.activity !== undefined
++  // A skill, tool or ability check, the player's own, may be one an activity asks for.
++  const checked = infoOf(kind).check !== undefined
++  let unnamed = named && !(checked && both)
++  if (['attack', 'use', 'formula', 'itemDamage'].includes(kind)) {
++    unnamed = !both
++  } else if (kind === 'recharge') {
++    unnamed = request.item === undefined
++  }
++  if (unnamed) {
++    issue(
++      'activity',
++      'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+     )
+-    const { dice } = request
+-    const matches =
+-      dice.length === expected.length &&
+-      dice.every(
+-        ({ faces, results }, index) =>
+-          faces === expected[index].faces &&
+-          expected[index].counts.includes(results.length) &&
+-          results.every(result => result >= 1 && result <= faces),
+-      )
+-    if (!matches) {
+-      context.addIssue({
+-        code: 'custom',
+-        path: ['dice'],
+-        message: 'The dice are not those the roll throws',
+-      })
+-    }
+-  }) as unknown as z.ZodType<RollRequestInput>
++  }
++  if (
++    checked &&
++    named &&
++    (request.text !== undefined ||
++      request.link !== undefined ||
++      request.prompt !== undefined)
++  ) {
++    issue(
++      'item',
++      'A check an activity asks for is made against it, not a link or what the game asks',
++    )
++  }
++}
++
++/** A hit die has a size, and hit dice say how many of each, each size once, and only those. */
++function hitDiceRules(request: RollRequestInput, issue: Issue) {
++  if ((request.kind === 'hitDie') !== (request.denomination !== undefined)) {
++    issue('denomination', 'A hit die, and only a hit die, has a size')
++  }
++  if ((request.kind === 'hitDice') !== (request.hitDice !== undefined)) {
++    issue('hitDice', 'Hit dice, and only hit dice, say how many of each size')
++  }
++  if (request.hitDice && !spentOnce(request.hitDice)) {
++    issue(
++      'hitDice',
++      `Each size is spent once, and no more than ${MOST_HIT_DICE} dice in all`,
++    )
++  }
++}
++
++/**
++ * An attack has a target; a use has its targets; an area attack, such as a breath weapon's, has
++ * those in its area, and no target of its own; and a use may be made at its user too, from module
++ * 0.22.0, which an attack never is. Its targets are different combatants of one combat.
++ */
++function targetRules(request: RollRequestInput, issue: Issue) {
++  const attack = request.kind === 'attack'
++  const use = request.kind === 'use'
++  if (!attack && request.target !== undefined) {
++    issue('target', 'Only an attack has a target')
++  }
++  const targeted = request.targets !== undefined
++  if (use ? !targeted : targeted && !attack) {
++    issue(
++      'targets',
++      'A use, or an area attack, and only those, has its targets',
++    )
++  }
++  if (!use && request.self !== undefined) {
++    issue('self', 'Only a use is made at its user')
++  }
++  if (attack && targeted && request.target !== undefined) {
++    issue(
++      'targets',
++      'An attack is made at a target, or at those in its area, not both',
++    )
++  }
++  const targets = request.targets ?? []
++  const combats = new Set(targets.map(({ combatId }) => combatId))
++  const combatants = new Set(targets.map(({ combatantId }) => combatantId))
++  if (combats.size > 1 || combatants.size < targets.length) {
++    issue(
++      'targets',
++      'A use or an attack is made at different combatants of one combat',
++    )
++  }
++}
++
++/**
++ * From module 0.41.0, damage on its own names the slot it's rolled at, the attack mode and the
++ * ammunition, and may spend what its use would; it never leaves the slot to the game, as null.
++ */
++function castingRules(request: RollRequestInput, issue: Issue) {
++  const attack = request.kind === 'attack'
++  const alone = request.kind === 'itemDamage'
++  const slotted = alone
++    ? request.slot !== null
++    : attack || request.kind === 'use'
++  if (request.slot !== undefined && !slotted) {
++    issue('slot', 'Only an attack, a use or damage on its own casts at a slot')
++  }
++  const weapon =
++    request.ammunition !== undefined || request.attackMode !== undefined
++  if (!attack && !alone && weapon) {
++    issue(
++      'attackMode',
++      'Only an attack, or damage on its own, is made with ammunition, in a mode',
++    )
++  }
++  if (!alone && request.consume !== undefined) {
++    issue('consume', 'Only damage on its own spends what it uses')
++  }
++}
++
++/** Only damage has kinds to choose, and is changed; only some is a critical hit's here. */
++function damageRules(request: RollRequestInput, issue: Issue) {
++  const damaging = infoOf(request.kind).damage === true
++  if (!damaging && request.types !== undefined) {
++    issue('types', 'Only damage has kinds to choose')
++  }
++  if (!damaging && request.modifiers !== undefined) {
++    issue('modifiers', 'Only damage is changed so')
++  }
++  if (
++    request.kind !== 'textDamage' &&
++    request.kind !== 'itemDamage' &&
++    request.critical !== undefined
++  ) {
++    issue(
++      'critical',
++      "Only a description's damage, or an action's on its own, is rolled as a critical hit's here",
++    )
++  }
++}
++
++/**
++ * What answers what the game asks: a saving throw, or from module 0.27.0, where Midi-QOL asks for
++ * one, an ability or skill check. What is asked for by a link in a description, and only by one,
++ * names it; and what may be, or not: a saving throw, or from module 0.18.0 a check, the player's
++ * own.
++ */
++function linkRules(request: RollRequestInput, issue: Issue) {
++  const info = infoOf(request.kind)
++  if (info.answers !== true && request.prompt !== undefined) {
++    issue(
++      'prompt',
++      'Only a saving throw, or an ability or skill check, answers what the game asks',
++    )
++  }
++  const linked = request.text !== undefined
++  if (linked !== (request.link !== undefined)) {
++    issue('link', 'A link is named by its description and its number together')
++  }
++  const fromText = info.fromText === true
++  if (fromText ? !linked : linked && info.keyed !== true) {
++    issue(
++      'text',
++      'An ask, or damage or a roll from a description, and only those or a saving throw or check, names a link',
++    )
++  }
++  if (linked && request.prompt !== undefined) {
++    issue(
++      'prompt',
++      'A saving throw answers what the game asks, or what a description calls for, not both',
++    )
++  }
++}
++
++/** What is rolled by its key names it, initiative its combat, damage what it follows. */
++function keyRules(request: RollRequestInput, issue: Issue) {
++  const keyed = infoOf(request.kind).keyed === true
++  if (keyed !== (request.key !== undefined)) {
++    issue('key', keyed ? 'Name what is rolled' : 'Nothing to name')
++  }
++  if ((request.kind === 'initiative') !== (request.combatId !== undefined)) {
++    issue('combatId', 'Initiative, and only initiative, is rolled in a combat')
++  }
++  if ((request.kind === 'damage') !== (request.use !== undefined)) {
++    issue('use', 'Damage, and only damage, follows an attack or a use')
++  }
++}
++
++/**
++ * An enchant activity's use says how it enchants, and only it; an enchantment ended names it, and
++ * nothing else, and throws no dice, as a use doesn't.
++ */
++function enchantRules(request: RollRequestInput, issue: Issue) {
++  if (request.kind !== 'use' && request.enchant !== undefined) {
++    issue('enchant', 'Only a use enchants')
++  }
++  const ending = request.kind === 'endEnchantment'
++  if (ending !== (request.enchantment !== undefined)) {
++    issue(
++      'enchantment',
++      'An enchantment ended, and only that, names the enchantment',
++    )
++  }
++}
++
++/**
++ * A concentration ended, charges spent and Heroic Inspiration, from module 0.29.0, a move from
++ * module 0.31.0, a removal from module 0.33.0, a turn ended or taken back from module 0.36.0, a
++ * favorite from module 0.37.0, an effect changed from module 0.39.0, Wild Shape from module 0.40.0
++ * and a spell slot spent or restored from module 0.42.1, each name what they're of, and nothing
++ * else does; charges, how many, which nothing else says. And from module 0.42.1, a spell prepared
++ * or unprepared names its spell, and nothing else does.
++ */
++function ownFieldRules(request: RollRequestInput, issue: Issue) {
++  for (const [kind, { field, kinds, message }] of Object.entries(OWN_FIELDS)) {
++    const own = (kinds ?? [kind]).includes(request.kind)
++    if (own !== (request[field] !== undefined)) issue(field, message)
++  }
++  if ((request.kind === 'spend') !== (request.count !== undefined)) {
++    issue('count', 'Charges spent, and only those, say how many')
++  }
++}
++
++/** The dice each kind throws, by what the request-kind table says it throws. */
++const DICE_RULES: Record<RollKindInfo['dice'], RequestRule> = {
++  none: plainRules,
++  hitDice: hitDiceThrownRules,
++  recharge: rechargeRules,
++  free: ownDiceRules,
++  d20: d20Rules,
++}
++
++/** A use, an ask, an enchantment ended and each kind with a field of its own throws no dice. */
++function plainRules(request: RollRequestInput, issue: Issue) {
++  const plain =
++    request.mode === 0 &&
++    !request.explicit &&
++    request.extras.length === 0 &&
++    request.dice.length === 0
++  if (!plain) {
++    issue('dice', PLAIN_WORDS[request.kind] ?? 'An ask throws no dice')
++  }
++}
++
++/** Hit dice are rolled as they are, a die each, and nothing more. */
++function hitDiceThrownRules(request: RollRequestInput, issue: Issue) {
++  const plain =
++    request.mode === 0 && !request.explicit && request.extras.length === 0
++  if (!plain || !throwsHitDice(request.dice, request.hitDice ?? [])) {
++    issue(
++      'dice',
++      'Hit dice are rolled as they are, a die each, and nothing more',
++    )
++  }
++}
++
++/** A recharge throws its one d6, and nothing more. */
++function rechargeRules(request: RollRequestInput, issue: Issue) {
++  const plain =
++    request.mode === 0 && !request.explicit && request.extras.length === 0
++  const [die] = request.dice
++  const one =
++    request.dice.length === 1 &&
++    die.faces === 6 &&
++    die.results.length === 1 &&
++    die.results[0] >= 1 &&
++    die.results[0] <= 6
++  if (!plain || !one) {
++    issue('dice', 'A recharge throws its one d6, and nothing more')
++  }
++}
++
++/**
++ * Damage, a hit die, a formula and a description's roll throw their own dice, as they are, each
++ * one the dice throw; damage on its own the dice the game said, one at least; a hit die its one.
++ */
++function ownDiceRules(request: RollRequestInput, issue: Issue) {
++  const alone = request.kind === 'itemDamage'
++  const plain =
++    request.mode === 0 &&
++    !request.explicit &&
++    request.extras.length === 0 &&
++    // Damage on its own throws the dice the game said, one at least.
++    (!alone || request.dice.length > 0)
++  const dice = request.dice.every(
++    ({ faces, results }) => isDieSides(faces) && inFaces(results, faces),
++  )
++  // A hit die throws its one die.
++  const [die] = request.dice
++  const one =
++    request.kind !== 'hitDie' ||
++    (request.dice.length === 1 &&
++      `d${die.faces}` === request.denomination &&
++      die.results.length === 1)
++  if (!plain || !dice || !one) {
++    issue(
++      'dice',
++      request.kind === 'damage'
++        ? 'Damage is rolled as the attack said, and nothing more'
++        : 'It is rolled as it is, and nothing more',
++    )
++  }
++}
++
++/** A d20 roll throws its d20s, then each added term's dice, as `expectedDice` says. */
++function d20Rules(request: RollRequestInput, issue: Issue) {
++  const expected = expectedDice(request.mode, request.extras, request.kind)
++  const { dice } = request
++  const matches =
++    dice.length === expected.length &&
++    dice.every(
++      ({ faces, results }, index) =>
++        faces === expected[index].faces &&
++        expected[index].counts.includes(results.length) &&
++        inFaces(results, faces),
++    )
++  if (!matches) {
++    issue('dice', 'The dice are not those the roll throws')
++  }
++}
+ 
+ /** Are hit dice spent at once each of their sizes once, no more than the most in all? */
+ function spentOnce(hitDice: { denomination: string; count: number }[]) {
+@@ -968,7 +932,7 @@ function throwsHitDice(
+       ({ faces, results }, index) =>
+         `d${faces}` === hitDice[index].denomination &&
+         results.length === hitDice[index].count &&
+-        results.every(result => result >= 1 && result <= faces),
++        inFaces(results, faces),
+     )
+   )
+ }
+diff --git a/src/schemas/types.ts b/src/schemas/types.ts
+index 9ebe4ac..0c98bdd 100644
+--- a/src/schemas/types.ts
++++ b/src/schemas/types.ts
+@@ -1,3 +1,5 @@
++import type { RollRequestInput } from '@/types/roll'
++
+ /**
+  * A container as the sheet's schema reads it: one of the character's items, `Item` as the schema
+  * reads those, with its capacity and what it holds, items and containers of their own.
+@@ -6,3 +8,9 @@ export type ParsedContainer<Item> = Item & {
+   capacity: { value: number; max: number; units: string } | null
+   contents: (Item | ParsedContainer<Item>)[] | null
+ }
++
++/** Reports what a schema's rule finds wrong: at which field, and why. */
++export type Issue = (path: string, message: string) => void
++
++/** One of a roll request's rules: what it finds wrong with the request, each as an issue. */
++export type RequestRule = (request: RollRequestInput, issue: Issue) => void

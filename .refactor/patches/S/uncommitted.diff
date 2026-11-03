@@ -63,7 +63,7 @@ index 3bc7a8c..4fd300a 100644
  import type { RollFeature, RollKind } from '@/types/roll'
  import type {
 diff --git a/src/db/cookbook.ts b/src/db/cookbook.ts
-index e758c80..9886d46 100644
+index e758c80..5b8d4e3 100644
 --- a/src/db/cookbook.ts
 +++ b/src/db/cookbook.ts
 @@ -11,8 +11,10 @@ import {
@@ -73,7 +73,7 @@ index e758c80..9886d46 100644
 +import { NO_DICE } from '@/constants/roll-kinds'
  import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
  import { isLive } from '@/db/campaigns'
-+import { due } from '@/db/commands'
++import { due as pruneDue } from '@/db/commands'
  import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
  import type {
    CookbookDishBody,
@@ -83,7 +83,7 @@ index e758c80..9886d46 100644
    const now = Date.now()
 -  if (now - (pruned.get(campaignId) ?? 0) >= DISHES_PRUNE_EVERY) {
 -    pruned.set(campaignId, now)
-+  if (due(pruned, campaignId, DISHES_PRUNE_EVERY, now)) {
++  if (pruneDue(pruned, campaignId, DISHES_PRUNE_EVERY, now)) {
      await pruneDishes(campaignId, now)
    }
    const campaign = await prisma.campaign.findUnique({
@@ -1018,7 +1018,7 @@ index 250d4fb..c51e6a4 100644
  
  /**
 diff --git a/src/db/types.ts b/src/db/types.ts
-index 92ef4a6..5b33a6a 100644
+index 92ef4a6..3382c22 100644
 --- a/src/db/types.ts
 +++ b/src/db/types.ts
 @@ -1,4 +1,10 @@
@@ -1074,7 +1074,7 @@ index 92ef4a6..5b33a6a 100644
 +/** One of a seat's rows on its way, as a command is checked against it. */
 +export type WaitingRow = { kind?: string; payload: Prisma.JsonValue }
 +
-+/** What `createCommand` reads of a campaign: the kind's switch, its module's last fetch, its roster. */
++/** What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster. */
 +export type CommandCampaign = Partial<
 +  Record<NonNullable<RollKindInfo['own']>, boolean>
 +> & { bridgePolledAt: Date | null; characters: Prisma.JsonValue }

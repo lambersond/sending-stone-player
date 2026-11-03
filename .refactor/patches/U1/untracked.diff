@@ -1155,17 +1155,17 @@ index 0000000..dc74802
 +}
 diff --git a/src/features/sheet/components/character-pane/use-picking.ts b/src/features/sheet/components/character-pane/use-picking.ts
 new file mode 100644
-index 0000000..6f58f38
+index 0000000..c71e972
 --- /dev/null
 +++ b/src/features/sheet/components/character-pane/use-picking.ts
-@@ -0,0 +1,193 @@
+@@ -0,0 +1,191 @@
 +import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 +import { actionTitle, verbOf } from '../action-entry/utils'
 +import { asks, enchantPicks } from '../use-picker/utils'
 +import { alonePicked, pickedAttack } from './utils'
 +import { isItemCast } from '@/utils/casts'
 +import { sheetActions } from '@/utils/sheet-actions'
-+import type { PaneRoller, PaneTable, UnlessLocked } from './types'
++import type { PaneRoller, PaneTable } from './types'
 +import type { AlonePick } from '../action-entry/types'
 +import type { Picked, Picking } from '../use-picker/types'
 +import type { DamageModifiers } from '@/types/roll'
@@ -1184,7 +1184,6 @@ index 0000000..6f58f38
 +export function usePicking({
 +  locked,
 +  lockedNow,
-+  unlessLocked,
 +  table,
 +  roller: { roll, logUse },
 +  sheet,
@@ -1194,7 +1193,6 @@ index 0000000..6f58f38
 +}: Readonly<{
 +  locked: boolean
 +  lockedNow: RefObject<boolean>
-+  unlessLocked: UnlessLocked
 +  table: PaneTable
 +  roller: Pick<PaneRoller, 'roll' | 'logUse'>
 +  sheet: TableSheet

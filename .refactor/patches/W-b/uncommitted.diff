@@ -1,5 +1,5 @@
 diff --git a/src/mocks/notes-server.ts b/src/mocks/notes-server.ts
-index 4cdb399..0efc624 100644
+index 4cdb399..10ecc1e 100644
 --- a/src/mocks/notes-server.ts
 +++ b/src/mocks/notes-server.ts
 @@ -1,3 +1,4 @@
@@ -151,7 +151,7 @@ index 4cdb399..0efc624 100644
 +    const moved = new Set<string>(body.ids)
 +    const ordered = body.ids
 +      .map((id: string) => book.entries.find(note => note.id === id))
-+      .filter(Boolean)
++      .filter((note): note is NoteEntryView => note !== undefined)
 +    book.entries = [
 +      ...book.entries.filter(note => !moved.has(note.id)),
 +      ...ordered,

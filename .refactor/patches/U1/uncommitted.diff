@@ -16,7 +16,7 @@ index 89778da..1b64146 100644
  import { Preparing } from '../components/preparing/preparing'
  import { usePreparing } from '../components/preparing/use-preparing'
 diff --git a/src/features/sheet/components/character-pane/character-pane.tsx b/src/features/sheet/components/character-pane/character-pane.tsx
-index e149f02..97d6bbb 100644
+index e149f02..5aafeea 100644
 --- a/src/features/sheet/components/character-pane/character-pane.tsx
 +++ b/src/features/sheet/components/character-pane/character-pane.tsx
 @@ -1,305 +1,51 @@
@@ -560,7 +560,7 @@ index e149f02..97d6bbb 100644
    // Whether the rolls pop up as toasts, with the rest a button away, or stay in the banner: one or
    // the other, never both.
    const [toasting, setToasting] = useToastSetting()
-@@ -521,129 +143,80 @@ function RollingSheet({
+@@ -521,129 +143,79 @@ function RollingSheet({
    // the cog opens, offered while the game takes dishes or the character has a link.
    const cookbookPlace = creature ? undefined : cookbook
    const cookbookEntry = useCookbookEntry(cookbookPlace)
@@ -593,7 +593,6 @@ index e149f02..97d6bbb 100644
 +  const picking = usePicking({
 +    locked,
 +    lockedNow,
-+    unlessLocked,
 +    table,
 +    roller,
 +    sheet,
@@ -735,7 +734,7 @@ index e149f02..97d6bbb 100644
    const panelOf = useCallback(
      () =>
        document.querySelector<HTMLElement>(
-@@ -652,7 +225,7 @@ function RollingSheet({
+@@ -652,7 +224,7 @@ function RollingSheet({
      [idPrefix],
    )
    const wildShaping = useWildShape({
@@ -744,7 +743,7 @@ index e149f02..97d6bbb 100644
      pane: !creature,
      role,
      name,
-@@ -660,333 +233,41 @@ function RollingSheet({
+@@ -660,333 +232,41 @@ function RollingSheet({
      characterId,
      effects: effectsOn === true,
      states: table.states,
@@ -1105,7 +1104,7 @@ index e149f02..97d6bbb 100644
    // The rolls' way to the game, and their damage to roll, as the banner, the toasts and the rolls'
    // button all offer it.
    const trayTable: TableRolls = {
-@@ -994,588 +275,150 @@ function RollingSheet({
+@@ -994,588 +274,150 @@ function RollingSheet({
      states: shown.states,
      rollDamage: rollDue,
    }
