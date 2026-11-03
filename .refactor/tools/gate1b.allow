@@ -5,3 +5,21 @@
 # At the base nothing differs, so none is needed (W-a's dry run, 2026-11-03). Planned: R3.3's 18
 # 3d-dice-react factories replaced by the dice-renderer requireActual (commit 2, T's files), and
 # R1.9.3's turn-toast retarget (commit 8).
+src/components/character-sheet/action-entry.alone.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/character-pane.notes.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/character-pane.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/charges.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/enchantments.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/favorites.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/item-menu.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/character-sheet/recharge-chip.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/companions/companion-pane.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.cookbook.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.endturn.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.favorites.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.manual-dice.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.notes.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.party.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.removals.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/game-table/game-table.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
+src/components/transfers/give-controls.test.tsx	mock	@lambersond/3d-dice-react	R3.3 (commit 2): the byte-identical factory replaced by jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER, the same object
