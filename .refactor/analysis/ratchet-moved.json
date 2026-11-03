@@ -107,7 +107,7 @@
       "import/no-restricted-paths": 3,
       "no-restricted-syntax": 49,
       "react-hooks/rules-of-hooks": 22,
-      "sonarjs/cognitive-complexity": 18
+      "sonarjs/cognitive-complexity": 19
     }
   },
   "noRestrictedSyntaxByCheck": {
@@ -173,7 +173,7 @@
     "src/features/sheet": {
       "hook-export": 25,
       "one-export": 173,
-      "ts-type-export": 5,
+      "ts-type-export": 14,
       "tsx-type": 80,
       "utility-export": 69
     },

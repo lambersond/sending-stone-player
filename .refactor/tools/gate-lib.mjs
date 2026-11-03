@@ -122,8 +122,21 @@ export function readTsv(file) {
 }
 
 // R/tools/moves.tsv (the codemods' record; handoff/moves-format.txt): kind, from, to, name, base.
+// APP's rows, plus the checkout's own rows not yet landed (the checkout is a gate's second argument):
+// a builder's moves are facts about its tree, so its L1 need not wait for the orchestrator to copy them.
 export function readMoves() {
-  return readTsv(path.join(TOOLS, 'moves.tsv')).map(([kind, from, to, name, base]) => ({
+  const own = process.argv[3] ? path.join(path.resolve(process.argv[3]), '.refactor/tools/moves.tsv') : ''
+  const seen = new Set()
+  const rows = [path.join(TOOLS, 'moves.tsv'), own]
+    .filter(file => file && fs.existsSync(file))
+    .flatMap(file => readTsv(file))
+    .filter(row => {
+      const key = row.join('\t')
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  return rows.map(([kind, from, to, name, base]) => ({
     kind,
     from,
     to,

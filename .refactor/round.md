@@ -45,6 +45,15 @@ disables or a note); a glob row covers the new files a split makes in one folder
    **G removes the directive and that config block together in commit 23**, with a gate 10 allowance
    for that one comment line.
 
+3. **2026-11-03 ~7:10 AM EST, commits 7 and 8 (built green; three planning inputs missing in APP).** (a) gate-lib
+   reads moves.tsv as APP's rows plus the checkout's own rows (a builder's moves are facts about its
+   tree), so a builder's L1 no longer waits for the orchestrator to copy them; allowlists and the
+   ratchet stay APP's (the orchestrator's). (b) Two ratchet keys rise because warnings moved, not
+   because any were added (every rule's total falls, 981 → 661): src/utils cognitive-complexity 18 →
+   19 (`follow` moved into src/utils/lifecycle.ts) and src/features/sheet ts-type-export 5 → 14 (types
+   carried out of .tsx files with their hooks; tsx-type falls 80 → 40). Accepted. (c) Six gate 1b rows
+   for R1.9.3's planned mock edits (two stale POLL_INTERVAL keys dropped, turn-toast's mock retargeted).
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is
