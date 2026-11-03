@@ -1,11 +1,6 @@
 import { NO_DICE } from '@/constants/roll-kinds'
 import { DONE_HEAD } from '@/mocks/results'
-import {
-  OTHER_SYSTEM,
-  SWITCHED_OFF,
-  switchedOn,
-  tableViewOf,
-} from '@/mocks/switches'
+import { switchedOff, switchedOn, tableViewOf } from '@/mocks/switches'
 import type { NotePageCommand } from '@/db/types'
 import type { ChosenFavorite } from '@/mocks/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
@@ -2377,7 +2372,7 @@ export function distributedResult(
 export const REMOVING = switchedOn('remove')
 
 /** What a hello from module 0.33.0 says of removals under another system: off, and why. */
-export const NOT_REMOVING = { ...OTHER_SYSTEM }
+export const NOT_REMOVING = switchedOff('system')
 
 /** Two of Thorin's three Potions of Healing removed. */
 export function removedResult(
@@ -2405,7 +2400,7 @@ export function removingTableView(fields: Partial<TableView> = {}): TableView {
 export const FAVORITING = switchedOn('favorite')
 
 /** What a hello from module 0.37.0 says of favorites under another system: off, and why. */
-export const NOT_FAVORITING = { ...OTHER_SYSTEM }
+export const NOT_FAVORITING = switchedOff('system')
 
 /** Thorin's table view as his player has it while the game takes his favorites, rolls off. */
 export function favoritingTableView(
@@ -2476,10 +2471,10 @@ export function favoritedResult(
 export const TAKING_DISHES = switchedOn('dish', { versions: [1] })
 
 /** What it says with the campaign's switch off, the default. */
-export const DISHES_SWITCHED_OFF = { ...SWITCHED_OFF, versions: [] }
+export const DISHES_SWITCHED_OFF = switchedOff('off', { versions: [] })
 
 /** What it says with the switch on under another system, or under dnd5e 6. */
-export const DISHES_OTHER_SYSTEM = { ...OTHER_SYSTEM, versions: [] }
+export const DISHES_OTHER_SYSTEM = switchedOff('system', { versions: [] })
 
 /** A dish's card posted in Foundry, waiting for the Gamemaster. */
 export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
@@ -2500,10 +2495,10 @@ export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
 export const TAKING_EFFECTS = switchedOn('effect')
 
 /** What it says with the campaign's switch off, the default. */
-export const EFFECTS_SWITCHED_OFF = { ...SWITCHED_OFF }
+export const EFFECTS_SWITCHED_OFF = switchedOff('off')
 
 /** What it says with the switch on under another system. */
-export const EFFECTS_OTHER_SYSTEM = { ...OTHER_SYSTEM }
+export const EFFECTS_OTHER_SYSTEM = switchedOff('system')
 
 /** Bless turned off from the app: off now, its sheet sent first, nothing posted. */
 export function effectResult(
@@ -2526,10 +2521,10 @@ export function effectResult(
 export const TAKING_WILD_SHAPE = switchedOn('wildShape')
 
 /** What it says with the campaign's switch off, the default. */
-export const WILD_SHAPE_SWITCHED_OFF = { ...SWITCHED_OFF }
+export const WILD_SHAPE_SWITCHED_OFF = switchedOff('off')
 
 /** What it says with the switch on under another system. */
-export const WILD_SHAPE_OTHER_SYSTEM = { ...OTHER_SYSTEM }
+export const WILD_SHAPE_OTHER_SYSTEM = switchedOff('system')
 
 /**
  * Elowen's Wild Shape feature's id, its row's on her sheet and on her form's, which dnd5e copies

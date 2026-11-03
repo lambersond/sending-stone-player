@@ -11,19 +11,17 @@ export function switchedOn<
   return { enabled: true, kinds: [kind], reason: null, ...more } as const
 }
 
-/** What a hello says of a kind of command with the campaign's switch off, the default. */
-export const SWITCHED_OFF = {
-  enabled: false,
-  kinds: [],
-  reason: 'off',
-} as const
-
-/** What a hello says of a kind of command under another system: off, and why. */
-export const OTHER_SYSTEM = {
-  enabled: false,
-  kinds: [],
-  reason: 'system',
-} as const
+/**
+ * What a hello says of a kind of command the game doesn't take: off, and why, with the campaign's
+ * switch off (`off`, the default) or under another system (`system`), and what else it says of it.
+ * Each call makes its own object, as `switchedOn`'s do.
+ */
+export function switchedOff<
+  const Reason extends 'off' | 'system',
+  const More extends object = object,
+>(reason: Reason, more?: More) {
+  return { enabled: false, kinds: [], reason, ...more } as const
+}
 
 /** A table view of Thorin's in The Lonely Mountain, as his player has it, live and connected. */
 export function tableViewOf(fields: Partial<TableView> = {}): TableView {

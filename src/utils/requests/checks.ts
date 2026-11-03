@@ -58,13 +58,15 @@ export function checkRoll(
   const check = Object.hasOwn(CHECKS, input.kind)
     ? CHECKS[input.kind]
     : undefined
-  return check?.(input, sheet, combats, actorId, links, features)
+  return check?.(input, sheet, links, features, combats, actorId)
 }
 
 /**
- * Each kind's check, by its group, given what `checkRoll` is. A kind with none needs nothing of
- * the sheet or the encounter here: damage is checked against its attack or use, by `checkDamage`,
- * and the rest by their own creators.
+ * Each kind's check, by its group. It's given what `checkRoll` is, the links and features first,
+ * in `checkLinked`'s order, then the encounter: a function named here takes them so, and an arrow
+ * picks out what its check reads. A kind with none needs nothing of the sheet or the encounter
+ * here: damage is checked against its attack or use, by `checkDamage`, and the rest by their own
+ * creators.
  */
 const CHECKS: Partial<
   Record<
@@ -72,34 +74,36 @@ const CHECKS: Partial<
     (
       input: RollRequestInput,
       sheet: CharacterSheet | undefined,
-      combats: CombatSnapshot[],
-      actorId: string,
       links: ReadonlyMap<number, FoundLink> | undefined,
       features: readonly string[],
+      combats: CombatSnapshot[],
+      actorId: string,
     ) => RollRefusal | undefined
   >
 > = {
   // What the sheet has, or a link in a description calls for.
-  skill: (input, sheet, _combats, _actorId, links, features) =>
+  skill: (input, sheet, links, features) =>
     known(sheet?.skills.some(({ id }) => id === input.key) === true) ??
     linked(input, sheet, links, features),
   ability: checkAbility,
   save: checkAbility,
   tool: checkTool,
-  // What only a link in a description asks for.
-  ask: checkText,
-  textDamage: checkText,
-  textRoll: checkText,
+  // What only a link in a description asks for: a saving throw or check of the table's, or damage
+  // or a roll of its own it throws.
+  ask: checkLinked,
+  textDamage: checkLinked,
+  textRoll: checkLinked,
   // The encounter.
   death: (_input, sheet) => (isDying(sheet) ? undefined : 'not-dying'),
-  initiative: checkInitiative,
+  initiative: (input, _sheet, _links, _features, combats, actorId) =>
+    checkInitiative(input, combats, actorId),
   // What the sheet's actions, favorites, spells, features or items are used through.
-  attack: (input, sheet, combats) =>
+  attack: (input, sheet, _links, _features, combats) =>
     sheet ? checkAttack(input, sheet, combats) : 'unknown',
-  use: (input, sheet, combats, actorId, _links, features) =>
+  use: (input, sheet, _links, features, combats, actorId) =>
     sheet ? checkUse(input, sheet, combats, actorId, features) : 'unknown',
   formula: (input, sheet) => (sheet ? checkFormula(input, sheet) : 'unknown'),
-  itemDamage: (input, sheet, _combats, _actorId, _links, features) =>
+  itemDamage: (input, sheet, _links, features) =>
     checkItemDamage(input, sheet, features),
   recharge: checkRecharge,
   // Hit dice.
@@ -130,8 +134,6 @@ function linked(
 function checkAbility(
   input: RollRequestInput,
   sheet: CharacterSheet | undefined,
-  _combats: CombatSnapshot[],
-  _actorId: string,
   links: ReadonlyMap<number, FoundLink> | undefined,
   features: readonly string[],
 ): RollRefusal | undefined {
@@ -141,24 +143,10 @@ function checkAbility(
   )
 }
 
-/** What a link in a description asks of the table, or damage or a roll of its own it throws. */
-function checkText(
-  input: RollRequestInput,
-  sheet: CharacterSheet | undefined,
-  _combats: CombatSnapshot[],
-  _actorId: string,
-  links: ReadonlyMap<number, FoundLink> | undefined,
-  features: readonly string[],
-): RollRefusal | undefined {
-  return checkLinked(input, sheet, links, features)
-}
-
 /** A tool check: a tool the sheet lists, or a description's, made with the tool or without it. */
 function checkTool(
   input: RollRequestInput,
   sheet: CharacterSheet | undefined,
-  _combats: CombatSnapshot[],
-  _actorId: string,
   links: ReadonlyMap<number, FoundLink> | undefined,
   features: readonly string[],
 ): RollRefusal | undefined {
@@ -178,7 +166,6 @@ function checkTool(
 /** Initiative: the seat's own combatant in the combat, without initiative yet. */
 function checkInitiative(
   input: RollRequestInput,
-  _sheet: CharacterSheet | undefined,
   combats: CombatSnapshot[],
   actorId: string,
 ): RollRefusal | undefined {
