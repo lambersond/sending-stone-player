@@ -1,5 +1,5 @@
-import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
 import { HIT_DIE } from '@/constants/sending-stone'
+import { isDieSides } from '@/utils/dice'
 import { readModifier, splitModifiers } from '@/utils/dice-modifiers'
 import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
 import type {
@@ -40,28 +40,50 @@ export function formulaTerms(formula: string): ExtraTerm[] | undefined {
     const [, comma, sign, count, sides, written = '', flat] = match ?? []
     const joined = terms.length === 0 ? !comma : Boolean(comma || sign)
     if (!match || !joined) return
-    const signed = sign === '-' ? -1 : 1
-    if (flat === undefined) {
-      const dice = count ? Number(count) : 1
-      const die = Number(sides)
-      if (!(DIE_SIDES as readonly number[]).includes(die)) return
-      if (dice < 1 || dice > MAX_DICE) return
-      const modifiers = written === '' ? [] : splitModifiers(written)
-      if (!modifiers?.every(each => readModifier(each, die))) return
-      terms.push({
-        sign: signed,
-        count: dice,
-        sides: die as DieSides,
-        ...(modifiers.length > 0 && { modifiers }),
-      })
-    } else {
-      const value = Number(flat)
-      if (value > MAX_FLAT) return
-      terms.push({ sign: signed, flat: value })
-    }
+    const term = formulaTerm(sign === '-' ? -1 : 1, {
+      count,
+      sides,
+      written,
+      flat,
+    })
+    if (!term) return
+    terms.push(term)
     index = FORMULA_TERM.lastIndex
   }
   return terms.length > 0 ? terms : undefined
+}
+
+/**
+ * A term of a formula, as `FORMULA_TERM` reads it: its dice, with what Foundry does with them, or
+ * its number, with its sign. None where the app can't throw it: a die it hasn't, too many dice or
+ * too large a number, or a modifier it doesn't work out.
+ */
+function formulaTerm(
+  signed: 1 | -1,
+  {
+    count,
+    sides,
+    written,
+    flat,
+  }: { count?: string; sides?: string; written: string; flat?: string },
+): ExtraTerm | undefined {
+  if (flat === undefined) {
+    const dice = count ? Number(count) : 1
+    const die = Number(sides)
+    if (!isDieSides(die)) return
+    if (dice < 1 || dice > MAX_DICE) return
+    const modifiers = written === '' ? [] : splitModifiers(written)
+    if (!modifiers?.every(each => readModifier(each, die))) return
+    return {
+      sign: signed,
+      count: dice,
+      sides: die,
+      ...(modifiers.length > 0 && { modifiers }),
+    }
+  }
+  const value = Number(flat)
+  if (value > MAX_FLAT) return
+  return { sign: signed, flat: value }
 }
 
 /**

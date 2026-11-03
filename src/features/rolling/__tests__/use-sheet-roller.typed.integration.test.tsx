@@ -5,8 +5,8 @@ import {
   REROLL_NOTE,
   useSheetRoller,
 } from '../hooks/use-sheet-roller'
-import { toRollRequest } from '../hooks/use-table-rolls'
 import { damageRollOf } from '../utils/damage-due'
+import { toRollRequest } from '../utils/request-bodies'
 import { shownTotal } from '@/features/rolling/utils/brief'
 import { ELVEN_LINE } from '@/features/rolling/utils/typed-dice'
 import { BANE_DIE, BLESS_DIE, INSPIRATION_DIE } from '@/mocks/sending-stone'

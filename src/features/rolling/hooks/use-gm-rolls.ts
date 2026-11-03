@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react'
+import { heardOf, namesOf } from '@/features/rolling/utils/gm-rolls'
+import { partly } from '@/features/rolling/utils/roll-states'
+import type { GmRolls } from '@/features/rolling/types'
 import type { GmRollView, LocalGmRoll, TableRollState } from '@/types/roll'
 import type { TableCombat } from '@/types/table'
 
@@ -19,10 +22,7 @@ export function gmRollsOf(
   views: readonly GmRollView[] = NO_GM_ROLLS,
   heard?: ReadonlyMap<string, number>,
   combat?: TableCombat,
-): {
-  rolls: LocalGmRoll[]
-  states: ReadonlyMap<string, TableRollState>
-} {
+): GmRolls {
   const rolls = views.map((view): LocalGmRoll => ({
     kind: 'gm',
     id: `gm:${view.id}`,
@@ -51,9 +51,7 @@ export function gmRollsOf(
         ...(enchantment && { enchantment }),
         ...(d20 && { d20 }),
         ...(critical && { critical }),
-        // Hit dice the game stopped spending part way, which it made some of, say how many.
-        ...(status === 'failed' &&
-          (spent?.made ?? 0) > 0 && { together: spent }),
+        ...partly({ status, spent }),
         // Worded as the player's own recharges and damage on its own are, from module 0.36.0.
         ...(view.kind === 'recharge' && { recharge: true as const }),
         ...(view.kind === 'itemDamage' && { alone: true as const }),
@@ -63,28 +61,6 @@ export function gmRollsOf(
     }),
   )
   return { rolls, states }
-}
-
-/**
- * The names of an area attack's targets of the Gamemaster's (#156), by their ids, as the player's
- * own view of the combat names them: only ever names its player may see, as that view leaves out
- * those hidden from players, never names the Gamemaster's page saw. None of a target that view
- * doesn't hold, nor of an attack at one target, which says nothing of whom.
- */
-function namesOf(
-  attack: GmRollView['attack'],
-  combat?: TableCombat,
-): Record<string, string> | undefined {
-  const targets = attack?.targets ?? []
-  if (!combat || targets.length < 2) return undefined
-  const names = targets.flatMap(({ combatId, combatantId }) => {
-    const combatant =
-      combatId === combat.id
-        ? combat.combatants.find(({ id }) => id === combatantId)
-        : undefined
-    return combatant ? [[combatantId, combatant.name] as const] : []
-  })
-  return names.length > 0 ? Object.fromEntries(names) : undefined
 }
 
 /**
@@ -99,7 +75,7 @@ function namesOf(
 export function useGmRolls(
   views: readonly GmRollView[] = NO_GM_ROLLS,
   combat?: TableCombat,
-): ReturnType<typeof gmRollsOf> {
+): GmRolls {
   const [heard, setHeard] = useState(() => heardOf(new Map(), views))
   let known = heard
   // Those the view brings, heard of now: the page renders again at once with them.
@@ -108,16 +84,4 @@ export function useGmRolls(
     setHeard(known)
   }
   return useMemo(() => gmRollsOf(views, known, combat), [views, known, combat])
-}
-
-/**
- * When this page first heard of each of the Gamemaster's rolls the view has, those new to it now:
- * none it no longer has, which never come back, as they only grow older.
- */
-function heardOf(
-  held: ReadonlyMap<string, number>,
-  views: readonly GmRollView[],
-): ReadonlyMap<string, number> {
-  const now = Date.now()
-  return new Map(views.map(({ id }) => [id, held.get(id) ?? now]))
 }

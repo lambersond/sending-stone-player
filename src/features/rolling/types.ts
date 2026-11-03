@@ -6,13 +6,18 @@ import type {
   RollKind,
   DamageModifiers,
   CriticalAdds,
+  SheetOffer,
+  LocalGmRoll,
 } from '@/types/roll'
 import type {
   CriticalRule,
   RollMode,
   BeastEntry,
   DamagePreview,
+  SheetEffectDie,
 } from '@/types/sending-stone'
+import type { TablePrompt } from '@/types/table'
+import type { DieSides } from '@lambersond/3d-dice-core'
 import type { LucideIcon } from 'lucide-react'
 
 /** What a part of the sheet that rolls a d20 does when tapped, or held for its menu. */
@@ -141,4 +146,60 @@ export type DueDamage = {
   damage: DamagePreview
   /** How the player chose to change it as they used it, if they did. */
   modifiers?: DamageModifiers
+}
+
+/**
+ * A spent recharge rolled (module 0.36.0): what it's called, and the uses it recharges, as the
+ * sheet names them: an item's own, or one of its activities'.
+ */
+export type RechargeRoll = {
+  label: string
+  counter: { item: string; activity?: string }
+}
+
+/** A die an effect adds, as the player typed it: no values where it was skipped. */
+export type TypedEffect = { die: SheetEffectDie; values: number[] }
+
+/** A die offered, as the player typed it: no values where they left it out. */
+export type TypedOffer = { offer: SheetOffer; values: number[] }
+
+/**
+ * Throws so many more of a die, for one Foundry rerolls or explodes, which `throwTerm` asks for one
+ * at a time.
+ */
+export type More = (sides: DieSides) => (count: number) => number[]
+
+/** What a prompt a saving throw answers asks, as far as the dice effects add to it go. */
+export type EffectPrompt = Pick<TablePrompt, 'type' | 'source'>
+
+/**
+ * A roll as the dice dialog is asked for it: what it is, for the game to make it too; and for a
+ * saving throw a description's link calls for, what that link asks, which only the page showing
+ * the description knows.
+ */
+export type EffectRoll = { source?: RollSource; ask?: EffectAsk }
+
+/**
+ * A change to the ways of the rolls sent to the game (`rollStates`): one's way as the game tells
+ * it, with what was kept of it as it was sent; rolls sent one after another, as one, as each is
+ * made; an attack's or use's damage on its way; or a use's damage left for the player to roll.
+ */
+export type RollStateAction =
+  | {
+      type: 'way'
+      id: string
+      kept: Partial<TableRollState>
+      state: TableRollState
+    }
+  | { type: 'together'; id: string; each: TableRollState[]; count: number }
+  | { type: 'damaged'; use: string }
+  | { type: 'offer'; id: string }
+
+/**
+ * The rolls the campaign's Gamemaster made as the player's character (#156), each as a roll of
+ * this page's, and their ways to the game, by their ids here (`gmRollsOf`).
+ */
+export type GmRolls = {
+  rolls: LocalGmRoll[]
+  states: ReadonlyMap<string, TableRollState>
 }

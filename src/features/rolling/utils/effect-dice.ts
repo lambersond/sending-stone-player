@@ -1,5 +1,6 @@
 import { readModifier } from '@/utils/dice-modifiers'
 import { formatExtraTerm } from '@/utils/roll-modifiers'
+import type { EffectPrompt, EffectRoll } from '@/features/rolling/types'
 import type { RollSource, ExtraDice, EffectAsk, SheetOffer } from '@/types/roll'
 import type { CharacterSheet, SheetEffectDie } from '@/types/sending-stone'
 import type { TablePrompt } from '@/types/table'
@@ -12,16 +13,6 @@ import type { TablePrompt } from '@/types/table'
  * them in. And, for a typed roll whose rerolls its player makes at the table, its terms without
  * them.
  */
-
-/** What a prompt a saving throw answers asks, as far as the dice effects add to it go. */
-export type EffectPrompt = Pick<TablePrompt, 'type' | 'source'>
-
-/**
- * A roll as the dice dialog is asked for it: what it is, for the game to make it too; and for a
- * saving throw a description's link calls for, what that link asks, which only the page showing
- * the description knows.
- */
-export type EffectRoll = { source?: RollSource; ask?: EffectAsk }
 
 /**
  * The rolls a roll is, as a sheet's dice of effects name those they're on: every roll of its kind,

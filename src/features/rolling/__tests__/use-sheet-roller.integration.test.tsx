@@ -1,10 +1,7 @@
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { act, renderHook } from '@testing-library/react'
-import {
-  ANIMATION_TIMEOUT,
-  ROLL_HISTORY,
-  useSheetRoller,
-} from '../hooks/use-sheet-roller'
+import { ROLL_HISTORY } from '../constants'
+import { ANIMATION_TIMEOUT, useSheetRoller } from '../hooks/use-sheet-roller'
 import { damageRollOf } from '../utils/damage-due'
 import type {
   LocalCheck,

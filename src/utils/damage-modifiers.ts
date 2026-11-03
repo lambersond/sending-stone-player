@@ -231,6 +231,19 @@ export function diceTakenAway(damage: DamagePreview): boolean {
 type FormulaGroup = { negative: boolean; own: string; within: string[] }
 
 /**
+ * A formula read so far, one character at a time: its groups, the group being read, how deep
+ * within brackets, what's within the brackets being read, and the last character read that isn't
+ * a space, as a sign after a term parts two groups.
+ */
+type FormulaScan = {
+  group: FormulaGroup
+  groups: FormulaGroup[]
+  depth: number
+  inner: string
+  before: string
+}
+
+/**
  * Does a roll's formula take a die away, read as it's written, for damage whose dice the game
  * can't say beforehand: where a die is in a group of terms that comes out negative, as dnd5e reads
  * the signs of damage, at each depth of brackets, each group's own `-` turning it over, and a `-`
@@ -249,44 +262,68 @@ export function formulaTakesAway(formula: string): boolean {
  * @param negative - It's taken away, or made negative, as a whole.
  */
 function groupTakesAway(text: string, negative: boolean): boolean {
-  let group: FormulaGroup = { negative: false, own: '', within: [] }
-  const groups = [group]
-  let depth = 0
-  // What's within the brackets being read.
-  let inner = ''
-  // The last character read that isn't a space: a sign after a term parts two groups.
-  let before = ''
-  for (const char of text) {
-    if ('({'.includes(char)) {
-      if (depth++ > 0) inner += char
-    } else if (')}'.includes(char)) {
-      if (depth > 1) inner += char
-      else if (depth === 1) {
-        group.within.push(inner)
-        inner = ''
-      }
-      depth = Math.max(depth - 1, 0)
-    } else if (depth > 0) {
-      inner += char
-    } else if ('+-,'.includes(char)) {
-      if (char === ',' || /[\w.)}]/.test(before)) {
-        group = { negative: char === '-', own: '', within: [] }
-        groups.push(group)
-      } else if (char === '-') {
-        group.negative = !group.negative
-      }
-    } else {
-      group.own += char
-    }
-    if (char.trim()) before = char
-  }
-  return groups.some(({ negative: turned, own, within }) => {
+  return groupsOf(text).some(({ negative: turned, own, within }) => {
     const sign = negative !== turned
     return (
       (sign && /d\d/i.test(own)) ||
       within.some(each => groupTakesAway(each, sign))
     )
   })
+}
+
+/**
+ * A formula's groups of terms, or those within a pair of brackets of one, as dnd5e reads their
+ * signs: each group's own text and what's within each pair of brackets in it, read one character
+ * at a time, outside brackets (`readSign`) and within them (`readBracket`).
+ */
+function groupsOf(text: string): FormulaGroup[] {
+  const group: FormulaGroup = { negative: false, own: '', within: [] }
+  const scan: FormulaScan = {
+    group,
+    groups: [group],
+    depth: 0,
+    inner: '',
+    before: '',
+  }
+  for (const char of text) {
+    if ('({)}'.includes(char) || scan.depth > 0) readBracket(scan, char)
+    else readSign(scan, char)
+    if (char.trim()) scan.before = char
+  }
+  return scan.groups
+}
+
+/** A bracket, or what's within brackets, read: each pair's text kept with its group. */
+function readBracket(scan: FormulaScan, char: string) {
+  if ('({'.includes(char)) {
+    if (scan.depth++ > 0) scan.inner += char
+  } else if (')}'.includes(char)) {
+    if (scan.depth > 1) scan.inner += char
+    else if (scan.depth === 1) {
+      scan.group.within.push(scan.inner)
+      scan.inner = ''
+    }
+    scan.depth = Math.max(scan.depth - 1, 0)
+  } else {
+    scan.inner += char
+  }
+}
+
+/**
+ * A character outside brackets read: a sign after a term, or a function's comma, parts two groups;
+ * a `-` before a term turns its group over; anything else is the group's own.
+ */
+function readSign(scan: FormulaScan, char: string) {
+  if ('+-,'.includes(char)) {
+    if (char === ',' || /[\w.)}]/.test(scan.before)) {
+      scan.group = { negative: char === '-', own: '', within: [] }
+      scan.groups.push(scan.group)
+    } else if (char === '-') {
+      scan.group.negative = !scan.group.negative
+    }
+  } else {
+    scan.group.own += char
+  }
 }
 
 /**

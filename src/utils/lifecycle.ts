@@ -39,7 +39,36 @@ export async function follow(
   update: (state: TableRollState) => void,
   taken: (id: string) => void,
 ) {
-  let id: string
+  const id = await post(api, input, signal, update, taken)
+  if (id === undefined) return
+  let until = Date.now() + FOLLOW_FOR
+  let late = false
+  while (Date.now() < until) {
+    await pause(CHECK_EVERY, signal)
+    if (signal.aborted) return
+    const heard = await look(api, id, signal, update)
+    if (heard === 'gone') break
+    if (heard === 'settled') return
+    // One the game took too long to make is asked after for longer, once.
+    if (heard === 'late' && !late) {
+      until = Date.now() + LATE_FOLLOW
+      late = true
+    }
+  }
+  if (!late) update({ status: 'lost', requestId: id })
+}
+
+/**
+ * Send a roll to the game: the id the app took it under, told to `taken` too; or, where the app
+ * didn't take it, or couldn't be reached, nothing, with why told to `update`.
+ */
+async function post(
+  api: string,
+  input: RollRequestInput,
+  signal: AbortSignal,
+  update: (state: TableRollState) => void,
+  taken: (id: string) => void,
+): Promise<string | undefined> {
   try {
     const response = await fetch(`${api}/rolls`, {
       method: 'POST',
@@ -51,62 +80,62 @@ export async function follow(
       update({ status: 'refused', reason: await refusal(response) })
       return
     }
-    const created = (await response.json()) as { id: string }
-    id = created.id
+    const { id } = (await response.json()) as { id: string }
     taken(id)
+    return id
   } catch {
     update({ status: 'refused', reason: 'network' })
     return
   }
+}
 
-  let until = Date.now() + FOLLOW_FOR
-  let late = false
-  while (Date.now() < until) {
-    await pause(CHECK_EVERY, signal)
-    if (signal.aborted) return
-    try {
-      const response = await fetch(`${api}/rolls/${id}`, {
-        cache: 'no-store',
-        signal,
-      })
-      // A roll this page can't see any more, such as once signed out, is given up on.
-      if (response.status === 401 || response.status === 404) break
-      if (response.ok) {
-        // What became of an effect (module 0.39.0), or of Wild Shape (module 0.40.0), is kept
-        // apart from what was asked; and so is what damage on its own spent (module 0.41.0),
-        // apart from the hit dice a request spent.
-        const {
-          effect: changed,
-          wildShape: wildShaped,
-          alone: made,
-          ...view
-        } = (await response.json()) as RollRequestView
-        update({
-          ...view,
-          ...(changed && { changed }),
-          ...(wildShaped && { wildShaped }),
-          ...(made && { aloneSpent: made.spent }),
-          ...(made?.concentrating && { concentrating: true as const }),
-          requestId: id,
-        })
-        // A roll that took too long may still be made, once the Gamemaster answers; but not hit
-        // dice the game says it made some of before it stopped, as it does once it had to.
-        if (
-          view.status === 'failed' &&
-          view.reason === 'timeout' &&
-          !view.spent
-        ) {
-          if (!late) until = Date.now() + LATE_FOLLOW
-          late = true
-        } else if (SETTLED.has(view.status)) {
-          return
-        }
-      }
-    } catch {
-      // Asked again next time.
+/**
+ * Ask once after a roll sent, telling `update` where it stands: whether it's made, or given up on
+ * (`settled`); one this page can't see any more (`gone`); one the game took too long to make,
+ * which may still be made (`late`); or else, or where the app couldn't be asked, one to ask after
+ * again (`again`).
+ */
+async function look(
+  api: string,
+  id: string,
+  signal: AbortSignal,
+  update: (state: TableRollState) => void,
+): Promise<'settled' | 'gone' | 'late' | 'again'> {
+  try {
+    const response = await fetch(`${api}/rolls/${id}`, {
+      cache: 'no-store',
+      signal,
+    })
+    // A roll this page can't see any more, such as once signed out, is given up on.
+    if (response.status === 401 || response.status === 404) return 'gone'
+    if (!response.ok) return 'again'
+    // What became of an effect (module 0.39.0), or of Wild Shape (module 0.40.0), is kept apart
+    // from what was asked; and so is what damage on its own spent (module 0.41.0), apart from the
+    // hit dice a request spent.
+    const {
+      effect: changed,
+      wildShape: wildShaped,
+      alone: made,
+      ...view
+    } = (await response.json()) as RollRequestView
+    update({
+      ...view,
+      ...(changed && { changed }),
+      ...(wildShaped && { wildShaped }),
+      ...(made && { aloneSpent: made.spent }),
+      ...(made?.concentrating && { concentrating: true as const }),
+      requestId: id,
+    })
+    // A roll that took too long may still be made, once the Gamemaster answers; but not hit dice
+    // the game says it made some of before it stopped, as it does once it had to.
+    if (view.status === 'failed' && view.reason === 'timeout' && !view.spent) {
+      return 'late'
     }
+    return SETTLED.has(view.status) ? 'settled' : 'again'
+  } catch {
+    // Asked again next time.
+    return 'again'
   }
-  if (!late) update({ status: 'lost', requestId: id })
 }
 
 /** Why the app didn't take a roll, as it says. */

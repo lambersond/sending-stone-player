@@ -2,30 +2,45 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BUSY_FOR, BUSY_WAIT } from '@/constants/lifecycle'
+import { NO_DICE } from '@/constants/roll-kinds'
 import {
-  GM_SEND_KEY,
-  SEND_KEY,
   SEND_CHOICES,
   GM_ALONE_KEY,
   ALONE_KEY,
 } from '@/features/rolling/constants'
+import { useSendChoice } from '@/features/rolling/hooks/use-send-choice'
+import {
+  activityCheck,
+  toAloneRequest,
+  toDamageRequest,
+  toFormulaRequest,
+  toHitDiceRequest,
+  toHitDieRequests,
+  toRechargeRequest,
+  toRollRequest,
+  toTextDamageRequest,
+} from '@/features/rolling/utils/request-bodies'
+import {
+  answeringOf,
+  busy,
+  dueOf,
+  rollStates,
+} from '@/features/rolling/utils/roll-states'
+import { useFollow } from '@/hooks/use-follow'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableApi, useTableRole } from '@/hooks/use-table-api'
 import { changes } from '@/utils/damage-modifiers'
 import { labelled, follow, pause } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
-import type { WildShapeForms, DueDamage } from '@/features/rolling/types'
+import type { WildShapeForms, RechargeRoll } from '@/features/rolling/types'
 import type {
   TableRollState,
   DamageModifiers,
-  ActivityRef,
   EndEnchantmentSource,
   FavoriteInput,
-  FormulaSource,
   InspirationSource,
   PrepareInput,
   RemoveInput,
-  RolledDice,
   RollFeature,
   RollKind,
   RollRequestInput,
@@ -49,15 +64,6 @@ import type {
 import type { SheetEffect } from '@/types/sending-stone'
 
 /**
- * A spent recharge rolled (module 0.36.0): what it's called, and the uses it recharges, as the
- * sheet names them: an item's own, or one of its activities'.
- */
-export type RechargeRoll = {
-  label: string
-  counter: { item: string; activity?: string }
-}
-
-/**
  * Sends the rolls the player makes to the Gamemaster's game, to be made there with the same dice,
  * when the game takes them and the player hasn't turned sending off on this device; and follows
  * each until the game has made it. An attack the game made can then have its damage rolled there.
@@ -78,11 +84,7 @@ export function useTableRolls(
   )
   const api = useTableApi(characterId)
   const gm = useTableRole() === 'gm'
-  const [choice, choose] = useStoredChoice(
-    gm ? GM_SEND_KEY : SEND_KEY,
-    SEND_CHOICES,
-    'on',
-  )
+  const [choice, choose] = useSendChoice(gm)
   const on = choice === 'on'
   // Damage on its own, from module 0.36.0: off until the player turns it on, on this device.
   const [alone, chooseAlone] = useStoredChoice(
@@ -96,6 +98,9 @@ export function useTableRolls(
   useEffect(() => {
     latest.current = { api, kinds, features, on, gm, sendsAlone }
   })
+  const followRoll = useFollow()
+  // The requests awaited here, as rolls sent one after another are, each given up on as the page
+  // is left, as `followRoll` gives up on the rest.
   const running = useRef(new Set<AbortController>())
   useEffect(() => {
     const controllers = running.current
@@ -117,25 +122,17 @@ export function useTableRolls(
       label: string,
     ) => {
       const input = latest.current.gm ? labelled(sent, label) : sent
-      const controller = new AbortController()
-      running.current.add(controller)
       const update = (state: TableRollState) => {
-        if (controller.signal.aborted) return
-        // Hit dice the game stopped spending part way, which it made some of, say how many.
-        const partly =
-          state.status === 'failed' && (state.spent?.made ?? 0) > 0
-            ? { together: state.spent }
-            : {}
         setStates(held =>
-          new Map(held).set(localId, { ...kept, ...state, ...partly }),
+          rollStates(held, { type: 'way', id: localId, kept, state }),
         )
       }
       update({ status: 'sending' })
-      void follow(latest.current.api, input, controller.signal, update, id => {
+      followRoll(latest.current.api, input, update, id => {
         kept = { ...kept, requestId: id }
-      }).finally(() => running.current.delete(controller))
+      })
     },
-    [],
+    [followRoll],
   )
 
   /**
@@ -159,7 +156,12 @@ export function useTableRolls(
       const update = () => {
         if (!signal.aborted) {
           setStates(held =>
-            new Map(held).set(localId, together(each, inputs.length)),
+            rollStates(held, {
+              type: 'together',
+              id: localId,
+              each,
+              count: inputs.length,
+            }),
           )
         }
       }
@@ -230,8 +232,7 @@ export function useTableRolls(
 
   const sendDamage = useCallback(
     (roll: SheetDamageRoll, damage: LocalDamage) => {
-      const { use, types, modifiers, text, alone } = roll
-      const { kinds, features, on } = latest.current
+      const { use, text, alone } = roll
       // An action's damage or healing on its own, from module 0.36.0, where the player sends it so:
       // no attack or use made, for the Gamemaster to apply from dnd5e's card. Otherwise, it's the
       // player's alone.
@@ -239,31 +240,11 @@ export function useTableRolls(
         if (!latest.current.sendsAlone) return
         // Its slot, attack mode and ammunition, and whether it spends what its use would, from
         // module 0.41.0, only to a game that takes them (round 0.41.0 §2.10).
-        const choosing = features.includes('aloneChoices')
+        const choosing = latest.current.features.includes('aloneChoices')
         const consume = choosing && alone.consume === true
         start(
           damage.id,
-          {
-            kind: 'itemDamage',
-            item: alone.item,
-            activity: alone.activity,
-            ...(choosing && alone.slot && { slot: alone.slot }),
-            ...(choosing &&
-              alone.attackMode && { attackMode: alone.attackMode }),
-            ...(choosing &&
-              alone.ammunition && { ammunition: alone.ammunition }),
-            ...(consume && { consume: true as const }),
-            mode: 0,
-            explicit: false,
-            extras: [],
-            dice: damageDice(roll, damage),
-            ...(types?.some(type => type !== null) && { types }),
-            ...(alone.critical && { critical: true as const }),
-            ...(modifiers && changes(modifiers) && { modifiers }),
-            ...(damage.typed && { typed: true as const }),
-            ...(damage.typed &&
-              damage.rerolls === 'kept' && { rerolls: 'kept' as const }),
-          },
+          toAloneRequest(roll, damage, alone, { choosing, consume }),
           // So that the tray words it as on its own, its kind not being in its state, and says
           // what it spent where it asked to.
           { alone: true, ...(consume && { consumes: true as const }) },
@@ -276,66 +257,27 @@ export function useTableRolls(
       // offered, with what it adds. One with its dice doubled here, not made so, or not offered
       // so, is the player's alone.
       if (text) {
-        if (!on || !kinds.includes('textDamage')) return
+        if (!takes(latest.current, 'textDamage')) return
         if (roll.critical && (!roll.criticalRule || !roll.criticalAdds)) return
         start(
           damage.id,
-          {
-            kind: 'textDamage',
-            text: text.text,
-            link: text.link,
-            mode: 0,
-            explicit: false,
-            extras: [],
-            dice: damageDice(roll, damage),
-            ...(types?.some(type => type !== null) && { types }),
-            ...(roll.critical && { critical: true as const }),
-            ...(modifiers && changes(modifiers) && { modifiers }),
-            ...(damage.typed && { typed: true as const }),
-            ...(damage.typed &&
-              damage.rerolls === 'kept' && { rerolls: 'kept' as const }),
-          },
+          toTextDamageRequest(roll, damage, text),
           {},
           roll.label,
         )
         return
       }
-      if (!on || !use || !kinds.includes('damage')) return
+      if (!use || !takes(latest.current, 'damage')) return
       // Its attack's or use's damage is on its way: it isn't offered again.
-      setStates(held => {
-        const next = new Map(held)
-        for (const [id, state] of next) {
-          if (state.requestId === use) next.set(id, { ...state, damaged: true })
-        }
-        return next
-      })
-      start(
-        damage.id,
-        {
-          kind: 'damage',
-          use,
-          mode: 0,
-          explicit: false,
-          extras: [],
-          dice: damageDice(roll, damage),
-          ...(types?.some(type => type !== null) && { types }),
-          ...(modifiers && changes(modifiers) && { modifiers }),
-          ...(damage.typed && { typed: true as const }),
-          // Its rerolls made at the table, as typed in, from module 0.42.0.
-          ...(damage.typed &&
-            damage.rerolls === 'kept' && { rerolls: 'kept' as const }),
-        },
-        {},
-        roll.label,
-      )
+      setStates(held => rollStates(held, { type: 'damaged', use }))
+      start(damage.id, toDamageRequest(roll, damage, use), {}, roll.label)
     },
     [start],
   )
 
   const sendUse = useCallback(
     (used: LocalUse, use: UseSource, modifiers?: DamageModifiers) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('use')) return
+      if (!takes(latest.current, 'use')) return
       const { item, activity, targets } = use
       start(
         used.id,
@@ -349,10 +291,7 @@ export function useTableRolls(
           slot: use.slot ?? null,
           // How an enchant activity enchants, and what.
           ...(use.enchant && { enchant: use.enchant }),
-          mode: 0,
-          explicit: false,
-          extras: [],
-          dice: [],
+          ...NO_DICE,
         },
         {
           source: { item, activity },
@@ -402,17 +341,13 @@ export function useTableRolls(
       { item, effect }: Omit<EndEnchantmentSource, 'kind'>,
       source?: AttackSource,
     ) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('endEnchantment')) return
+      if (!takes(latest.current, 'endEnchantment')) return
       start(
         ended.id,
         {
           kind: 'endEnchantment',
           enchantment: { item, effect },
-          mode: 0,
-          explicit: false,
-          extras: [],
-          dice: [],
+          ...NO_DICE,
         },
         source ? { source } : {},
         ended.label,
@@ -427,14 +362,13 @@ export function useTableRolls(
    */
   const sendEndConcentration = useCallback(
     (ended: LocalUse, effect: string) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('endConcentration')) return
+      if (!takes(latest.current, 'endConcentration')) return
       start(
         ended.id,
         {
           kind: 'endConcentration',
           concentration: { effect },
-          ...PLAIN,
+          ...NO_DICE,
         },
         {},
         ended.label,
@@ -446,11 +380,10 @@ export function useTableRolls(
   /** Spend charges of one of the character's counters directly, from module 0.29.0. */
   const sendSpend = useCallback(
     (spent: LocalUse, { counter, count }: Omit<SpendSource, 'kind'>) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('spend')) return
+      if (!takes(latest.current, 'spend')) return
       start(
         spent.id,
-        { kind: 'spend', counter, count, ...PLAIN },
+        { kind: 'spend', counter, count, ...NO_DICE },
         {},
         spent.label,
       )
@@ -461,11 +394,10 @@ export function useTableRolls(
   /** Use or gain Heroic Inspiration, from module 0.29.0. */
   const sendInspiration = useCallback(
     (changed: LocalUse, inspiration: InspirationSource['inspiration']) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('inspiration')) return
+      if (!takes(latest.current, 'inspiration')) return
       start(
         changed.id,
-        { kind: 'inspiration', inspiration, ...PLAIN },
+        { kind: 'inspiration', inspiration, ...NO_DICE },
         {},
         changed.label,
       )
@@ -479,11 +411,10 @@ export function useTableRolls(
    */
   const sendSpellSlot = useCallback(
     (changed: LocalUse, spellSlot: SpellSlotInput) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('spellSlot')) return
+      if (!takes(latest.current, 'spellSlot')) return
       start(
         changed.id,
-        { kind: 'spellSlot', spellSlot, ...PLAIN },
+        { kind: 'spellSlot', spellSlot, ...NO_DICE },
         { spellSlot: spellSlot.op },
         changed.label,
       )
@@ -500,7 +431,7 @@ export function useTableRolls(
       if (!moved.move) return
       start(
         moved.id,
-        { kind: 'transfer', transfer, ...PLAIN },
+        { kind: 'transfer', transfer, ...NO_DICE },
         { move: moved.move },
         moveLabel(moved.move),
       )
@@ -517,7 +448,7 @@ export function useTableRolls(
       if (!removed.move) return
       start(
         removed.id,
-        { kind: 'remove', remove, ...PLAIN },
+        { kind: 'remove', remove, ...NO_DICE },
         { move: removed.move },
         moveLabel(removed.move),
       )
@@ -534,7 +465,7 @@ export function useTableRolls(
       if (!logged.favorite) return
       start(
         logged.id,
-        { kind: 'favorite', favorite, ...PLAIN },
+        { kind: 'favorite', favorite, ...NO_DICE },
         { favorite: logged.favorite },
         logged.label,
       )
@@ -554,7 +485,7 @@ export function useTableRolls(
       start(
         logged.id,
         labelled(
-          { kind: 'effect', effect: { op, id: effect.id }, ...PLAIN },
+          { kind: 'effect', effect: { op, id: effect.id }, ...NO_DICE },
           effect.name,
         ),
         { effect: op },
@@ -574,7 +505,7 @@ export function useTableRolls(
       if (!logged.prepare) return
       start(
         logged.id,
-        { kind: 'prepare', prepare, ...PLAIN },
+        { kind: 'prepare', prepare, ...NO_DICE },
         { prepare: logged.prepare },
         logged.label,
       )
@@ -592,7 +523,7 @@ export function useTableRolls(
       if (!logged.wildShape) return
       start(
         logged.id,
-        { kind: 'wildShape', wildShape, ...PLAIN, label: 'Wild Shape' },
+        { kind: 'wildShape', wildShape, ...NO_DICE, label: 'Wild Shape' },
         { wildShape: wildShape.op },
         logged.label,
       )
@@ -612,7 +543,7 @@ export function useTableRolls(
     try {
       await follow(
         latest.current.api,
-        { kind: 'wildShape', wildShape: { op: 'forms' }, ...PLAIN },
+        { kind: 'wildShape', wildShape: { op: 'forms' }, ...NO_DICE },
         controller.signal,
         state => {
           last = state
@@ -631,24 +562,23 @@ export function useTableRolls(
     }
   }, [])
 
-  const sendAsk = useCallback((asked: LocalAsk, { text, link }: TextLink) => {
-    const { kinds, on } = latest.current
-    if (!on || !kinds.includes('ask')) return
-    start(
-      asked.id,
-      {
-        kind: 'ask',
-        text,
-        link,
-        mode: 0,
-        explicit: false,
-        extras: [],
-        dice: [],
-      },
-      {},
-      asked.label,
-    )
-  }, [])
+  const sendAsk = useCallback(
+    (asked: LocalAsk, { text, link }: TextLink) => {
+      if (!takes(latest.current, 'ask')) return
+      start(
+        asked.id,
+        {
+          kind: 'ask',
+          text,
+          link,
+          ...NO_DICE,
+        },
+        {},
+        asked.label,
+      )
+    },
+    [start],
+  )
 
   /**
    * Roll a spent recharge in the game, from module 0.36.0: dnd5e's own, with the player's d6, for
@@ -656,23 +586,10 @@ export function useTableRolls(
    */
   const sendRecharge = useCallback(
     (roll: RechargeRoll, rolled: LocalFormula) => {
-      const { kinds, on } = latest.current
-      if (!on || !kinds.includes('recharge')) return
-      const { item, activity } = roll.counter
+      if (!takes(latest.current, 'recharge')) return
       start(
         rolled.id,
-        {
-          kind: 'recharge',
-          item,
-          ...(activity && { activity }),
-          mode: 0,
-          explicit: false,
-          extras: [],
-          dice: [{ faces: 6, results: rolled.terms[0]?.values ?? [] }],
-          ...(rolled.typed && { typed: true as const }),
-          ...(rolled.typed &&
-            rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
-        },
+        toRechargeRequest(roll, rolled),
         // So that the tray words its outcome as a recharge's, not a save's.
         { recharge: true },
         roll.label,
@@ -691,11 +608,7 @@ export function useTableRolls(
   )
   // A use's damage left for the player to roll, while they type in their own dice: once.
   const offerDamage = useCallback((localId: string) => {
-    setStates(held => {
-      const state = held.get(localId)
-      if (!state || state.offer) return held
-      return new Map(held).set(localId, { ...state, offer: true })
-    })
+    setStates(held => rollStates(held, { type: 'offer', id: localId }))
   }, [])
   return {
     send,
@@ -815,276 +728,10 @@ export function useTableRolls(
   }
 }
 
-/** How what throws no dice, and is rolled no way, is sent: as it is, with nothing added. */
-const PLAIN = {
-  mode: 0,
-  explicit: false,
-  extras: [],
-  dice: [],
-} as const satisfies Pick<
-  RollRequestInput,
-  'mode' | 'explicit' | 'extras' | 'dice'
->
-
-/** The prompts answered by rolls on their way to the game, or made there. */
-function answeringOf(
-  states: ReadonlyMap<string, TableRollState>,
-): ReadonlySet<string> {
-  const answering = new Set<string>()
-  for (const { prompt, status } of states.values()) {
-    if (prompt && ['sending', 'rolling', 'done'].includes(status)) {
-      answering.add(prompt)
-    }
-  }
-  return answering
-}
-
-/** The latest of the attacks that pass the test whose damage is still to roll at the table. */
-function dueOf(
-  states: ReadonlyMap<string, TableRollState>,
-  test: (state: TableRollState) => boolean,
-): DueDamage | undefined {
-  const due = [...states.values()].findLast(
-    state =>
-      test(state) &&
-      state.status === 'done' &&
-      !!state.damage &&
-      !state.damaged &&
-      !!state.requestId,
-  )
-  return due?.requestId && due.damage
-    ? {
-        use: due.requestId,
-        damage: due.damage,
-        ...(due.modifiers && { modifiers: due.modifiers }),
-      }
-    : undefined
-}
-
-/**
- * Rolls sent one after another, as one: where the latest sent is on its way; or, once each is made,
- * what the game made of them all, their totals and the hit points they gave back added up; or that
- * one of them wasn't made, and why, after how many were.
- */
-function together(each: TableRollState[], count: number): TableRollState {
-  const made = each.filter(({ status }) => status === 'done')
-  const latest = each.at(-1) ?? { status: 'sending' }
-  const visible = made.length > 0 && made.every(state => state.visible)
-  const totals = made.map(({ total }) => total)
-  const healed = made.map(state => state.healed)
-  const status =
-    latest.status === 'done' && made.length < count ? 'sending' : latest.status
-  return {
-    status,
-    ...(latest.reason !== undefined && { reason: latest.reason }),
-    ...(made.length > 0 && { visible }),
-    ...(visible && known(totals) && { total: added(totals) }),
-    ...(visible && known(healed) && { healed: added(healed) }),
-    together: { count, made: made.length },
-  }
-}
-
-/** Whether the app turned a roll away as one too many at once, to send again a moment later. */
-function busy(state: TableRollState): boolean {
-  return state.status === 'refused' && state.reason === 'busy'
-}
-
-/** Whether every number is known. */
-function known(numbers: (number | undefined)[]): numbers is number[] {
-  return numbers.every(number => number !== undefined)
-}
-
-/** Numbers added up. */
-function added(numbers: number[]): number {
-  return numbers.reduce((sum, number) => sum + number, 0)
-}
-
-/**
- * A roll as the game is asked to make it: what it is, how it was rolled, and every die thrown,
- * the d20s first, then the dice of each term the player added, in order.
- */
-export function toRollRequest(
-  roll: SheetRoll,
-  source: RollSource,
-  check: LocalCheck,
-): RollRequestInput {
-  const extras = roll.extras ?? []
-  return {
-    kind: source.kind,
-    ...('key' in source && { key: source.key }),
-    ...('combatId' in source && { combatId: source.combatId }),
-    // What the game asked for that it answers: a saving throw, or an ability or skill check
-    // Midi-QOL asked for.
-    ...('prompt' in source && source.prompt && { prompt: source.prompt }),
-    // A saving throw or check a description calls for, which the game makes against the DC it
-    // names.
-    ...('text' in source &&
-      source.text !== undefined &&
-      source.link !== undefined && { text: source.text, link: source.link }),
-    // A check an activity asks for, which the game makes against the activity, as its card does.
-    ...(activityCheck(source) && {
-      item: source.item,
-      activity: source.activity,
-    }),
-    ...(source.kind === 'attack' && {
-      item: source.item,
-      activity: source.activity,
-      ...(source.targets
-        ? { targets: source.targets }
-        : // the protocol's for no target
-          { target: source.target ?? null }),
-      ...(source.slot && { slot: source.slot }),
-      ...(source.ammunition && { ammunition: source.ammunition }),
-      ...(source.attackMode && { attackMode: source.attackMode }),
-    }),
-    mode: modeOf(check.advantage),
-    explicit: roll.explicit === true,
-    extras,
-    dice: [
-      { faces: 20, results: check.d20s },
-      ...extras.flatMap((term, index) =>
-        'sides' in term
-          ? [{ faces: term.sides, results: check.extras[index].values }]
-          : [],
-      ),
-    ],
-    // Its player typed its dice in, from their own, from module 0.32.0.
-    ...(check.typed && { typed: true as const }),
-    // And from module 0.42.0, the dice its effects add that they typed in, after the dice of the
-    // terms they added, none skipped; and that they rerolled at the table, as their feature says.
-    ...(check.typed &&
-      check.effectDice?.length && { effectDice: check.effectDice }),
-    ...(check.typed &&
-      check.rerolls === 'kept' && { rerolls: 'kept' as const }),
-  }
-}
-
-/** Is a roll a check an activity asks for, the player's own, by its item and activity? */
-function activityCheck(
-  source: RollSource,
-): source is Extract<RollSource, { kind: 'skill' | 'tool' | 'ability' }> &
-  ActivityRef {
-  return (
-    ['skill', 'tool', 'ability'].includes(source.kind) &&
-    'activity' in source &&
-    source.item !== undefined &&
-    source.activity !== undefined
-  )
-}
-
-/**
- * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, the
- * formula's item and activity, or the description's link it's in, and the dice of each of its
- * terms, in order, each term's first throw, as Foundry throws again itself any die it rerolls or
- * explodes.
- */
-export function toFormulaRequest(
-  roll: SheetFormulaRoll,
-  source: Exclude<FormulaSource, { kind: 'hitDice' }>,
-  rolled: LocalFormula,
-): RollRequestInput {
-  return {
-    kind: source.kind,
-    ...formulaOrigin(source),
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: roll.terms.flatMap((term, index) =>
-      'sides' in term
-        ? [{ faces: term.sides, results: rolled.terms[index]?.values ?? [] }]
-        : [],
-    ),
-    ...(rolled.typed && { typed: true as const }),
-    ...(rolled.typed &&
-      rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
-  }
-}
-
-/**
- * Hit dice spent at once as the game is asked to spend them, from module 0.20.0: how many of each
- * size, the largest first, and each size's dice, as thrown, in the same order.
- */
-export function toHitDiceRequest(
-  source: Extract<FormulaSource, { kind: 'hitDice' }>,
-  rolled: LocalFormula,
-): RollRequestInput {
-  return {
-    kind: 'hitDice',
-    hitDice: source.hitDice,
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: source.hitDice.map(({ denomination }, index) => ({
-      faces: Number(denomination.slice(1)),
-      results: rolled.terms[index]?.values ?? [],
-    })),
-    ...(rolled.typed && { typed: true as const }),
-    ...(rolled.typed &&
-      rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
-  }
-}
-
-/**
- * Hit dice spent at once as a game before module 0.20.0 is asked to spend them: a hit die each, its
- * own die as thrown, the largest first, in the order thrown.
- */
-export function toHitDieRequests(
-  source: Extract<FormulaSource, { kind: 'hitDice' }>,
-  rolled: LocalFormula,
-): RollRequestInput[] {
-  return source.hitDice.flatMap(({ denomination }, index) =>
-    (rolled.terms[index]?.values ?? []).map(value => ({
-      kind: 'hitDie' as const,
-      denomination,
-      mode: 0 as const,
-      explicit: false,
-      extras: [],
-      dice: [{ faces: Number(denomination.slice(1)), results: [value] }],
-      ...(rolled.typed && { typed: true as const }),
-      ...(rolled.typed &&
-        rolled.rerolls === 'kept' && { rerolls: 'kept' as const }),
-    })),
-  )
-}
-
-/** What a formula rolled is, for the game to find it. */
-function formulaOrigin(
-  source: Exclude<FormulaSource, { kind: 'hitDice' }>,
-): Partial<RollRequestInput> {
-  switch (source.kind) {
-    case 'hitDie': {
-      return { denomination: source.denomination }
-    }
-    case 'formula': {
-      return { item: source.item, activity: source.activity }
-    }
-    case 'textRoll': {
-      return { text: source.text, link: source.link }
-    }
-  }
-}
-
-/**
- * Damage's dice as thrown, part by part and term by term, for the game to roll them too: each
- * term's first throw, as Foundry throws again itself any die it rerolls or explodes.
- */
-function damageDice(roll: SheetDamageRoll, damage: LocalDamage): RolledDice[] {
-  return roll.parts.flatMap((part, index) =>
-    part.terms.flatMap((term, at) =>
-      'sides' in term
-        ? [
-            {
-              faces: term.sides,
-              results: damage.parts[index]?.terms[at]?.values ?? [],
-            },
-          ]
-        : [],
-    ),
-  )
-}
-
-function modeOf(advantage: LocalCheck['advantage']): -1 | 0 | 1 {
-  if (advantage === 'adv') return 1
-  if (advantage === 'dis') return -1
-  return 0
+/** Whether the game takes this kind of roll from this device now, as `latest` has it. */
+function takes(
+  { kinds, on }: { kinds: readonly RollKind[]; on: boolean },
+  kind: RollKind,
+): boolean {
+  return on && kinds.includes(kind)
 }

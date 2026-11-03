@@ -13,14 +13,14 @@ import {
   damageRollOf,
   needsPlayer,
 } from '../utils/damage-due'
-import { gmRollsOf } from './use-gm-rolls'
 import {
   toFormulaRequest,
   toHitDiceRequest,
   toHitDieRequests,
   toRollRequest,
-  useTableRolls,
-} from './use-table-rolls'
+} from '../utils/request-bodies'
+import { gmRollsOf } from './use-gm-rolls'
+import { useTableRolls } from './use-table-rolls'
 import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { aloneRollOf } from '@/features/sheet/utils/damage-alone'
 import { TableApiContext } from '@/hooks/use-table-api'

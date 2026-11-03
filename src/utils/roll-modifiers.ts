@@ -1,4 +1,4 @@
-import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
+import { isDieSides } from '@/utils/dice'
 import type { ParseExtrasResult, ExtraTerm } from '@/types/roll'
 
 /** The most of one die a term may throw. */
@@ -26,33 +26,40 @@ export function parseExtraTerms(input: string): ParseExtrasResult {
     if (!match || !joined) {
       return { ok: false, error: unreadable(text.slice(index)) }
     }
-    const signed = sign === '-' ? -1 : 1
-    if (flat === undefined) {
-      const dice = count ? Number(count) : 1
-      const die = Number(sides)
-      if (!(DIE_SIDES as readonly number[]).includes(die)) {
-        return {
-          ok: false,
-          error: `There's no d${die}. Use d4, d6, d8, d10, d12, d20 or d100.`,
-        }
-      }
-      if (dice < 1 || dice > MAX_DICE) {
-        return {
-          ok: false,
-          error: `Roll between 1 and ${MAX_DICE} of a die at once.`,
-        }
-      }
-      terms.push({ sign: signed, count: dice, sides: die as DieSides })
-    } else {
-      const value = Number(flat)
-      if (value > MAX_FLAT) {
-        return { ok: false, error: `Add at most ${MAX_FLAT} at once.` }
-      }
-      terms.push({ sign: signed, flat: value })
-    }
+    const term = extraTerm(sign === '-' ? -1 : 1, { count, sides, flat })
+    if ('error' in term) return { ok: false, error: term.error }
+    terms.push(term)
     index = TERM.lastIndex
   }
   return { ok: true, terms }
+}
+
+/**
+ * A term the player added, as `TERM` reads it: its dice or its number, with its sign; or why it
+ * can't be rolled: a die there's none of, too many dice, or too large a number.
+ */
+function extraTerm(
+  signed: 1 | -1,
+  { count, sides, flat }: { count?: string; sides?: string; flat?: string },
+): ExtraTerm | { error: string } {
+  if (flat === undefined) {
+    const dice = count ? Number(count) : 1
+    const die = Number(sides)
+    if (!isDieSides(die)) {
+      return {
+        error: `There's no d${die}. Use d4, d6, d8, d10, d12, d20 or d100.`,
+      }
+    }
+    if (dice < 1 || dice > MAX_DICE) {
+      return { error: `Roll between 1 and ${MAX_DICE} of a die at once.` }
+    }
+    return { sign: signed, count: dice, sides: die }
+  }
+  const value = Number(flat)
+  if (value > MAX_FLAT) {
+    return { error: `Add at most ${MAX_FLAT} at once.` }
+  }
+  return { sign: signed, flat: value }
 }
 
 /** A term as the player would write it, with a sign: +1d4, −1d6, +5, or a sheet's +2d6r<=2. */

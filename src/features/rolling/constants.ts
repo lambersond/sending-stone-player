@@ -23,3 +23,6 @@ export const GM_ALONE_KEY = `${ALONE_KEY}:gm`
 
 /** What each of those switches is: on or off. End Turn reads Send's too (module 0.36.0). */
 export const SEND_CHOICES = ['on', 'off'] as const
+
+/** How many of this page's rolls are kept. */
+export const ROLL_HISTORY = 20
