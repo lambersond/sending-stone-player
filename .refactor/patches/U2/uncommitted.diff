@@ -1,3 +1,556 @@
+diff --git a/src/components/description/description-html.test.tsx b/src/components/description/description-html.test.tsx
+index 81632c7..6337e15 100644
+--- a/src/components/description/description-html.test.tsx
++++ b/src/components/description/description-html.test.tsx
+@@ -1,7 +1,7 @@
+ import { render, screen } from '@testing-library/react'
+-import { type DrawLink, type LinkPart } from './description-html'
+ import { drawDescription } from './draw-description'
+ import { readDescription } from './read-description'
++import { type DrawLink, type LinkPart } from './types'
+ 
+ /** A description drawn, its links drawn as buttons saying what they are; and those drawn. */
+ const draw = (html: string, drawLink?: DrawLink) => {
+diff --git a/src/components/description/description-html.tsx b/src/components/description/description-html.tsx
+index 01c1ed8..0d54f3f 100644
+--- a/src/components/description/description-html.tsx
++++ b/src/components/description/description-html.tsx
+@@ -1,5 +1,6 @@
+-import { type ReactNode } from 'react'
+-import type { DescriptionLink } from '@/types/sending-stone'
++import { createElement, Fragment, type ReactNode } from 'react'
++import { linkClassOf, linkOf } from '@/utils/description-links'
++import type { DrawLink, Place, TagDraw, Walk } from './types'
+ 
+ /*
+  * A description as the page draws it: built as React elements from the HTML the server kept, never
+@@ -9,19 +10,270 @@ import type { DescriptionLink } from '@/types/sending-stone'
+  * alone, never what's inside them, so that no button is ever inside another, or inside a link.
+  */
+ 
+-/** A link in a description the page acts on, as it's found there. */
+-export type LinkPart = {
+-  link: DescriptionLink
+-  /** What it says, as text alone. */
+-  label: string
+-  /**
+-   * Whether it's in one of the description's secrets, which only the Gamemaster and the
+-   * character's owners read.
+-   */
+-  secret: boolean
+-  /** Its key among the description's elements. */
+-  key: string
+-}
+-
+-/** Draws a link the page acts on; plain text where it does nothing here. */
+-export type DrawLink = (part: LinkPart) => ReactNode
++/**
++ * A description as React elements, as `drawDescription` draws it: its formatting, tables, images
++ * and links, and the links the game acts on, drawn by `drawLink`. Each of those is the first in the
++ * description with its number, outside any other link; any other is only its text.
++ * @param body - The description, as `readDescription` read it.
++ * @param drawLink - Draws a link the game acts on; with none, each is only its text.
++ */
++export function DescriptionHtml({
++  body,
++  drawLink,
++}: Readonly<{ body: HTMLElement; drawLink?: DrawLink }>) {
++  return childrenOf(
++    body,
++    { key: 'd', inLink: false, secret: false },
++    { numbers: new Set<number>(), drawLink },
++  )
++}
++
++/** An element's children, drawn: a table's parts' elements alone, never the text between them. */
++function childrenOf(element: Element, place: Place, walk: Walk): ReactNode[] {
++  const nodes = [...element.childNodes]
++  const kept = NO_TEXT.has(element.localName)
++    ? nodes.filter(node => node.nodeType === Node.ELEMENT_NODE)
++    : nodes
++  return kept.map((node, index) =>
++    draw(node, { ...place, key: `${place.key}.${index}` }, walk),
++  )
++}
++
++/**
++ * A node of a description, drawn: text as it is; a tag the page draws as `TAG_DRAWS` says, or as
++ * itself; a link the game acts on as `drawLinkSpan` has it; any other tag as what's inside it, but
++ * those whose content isn't text to read, left out with it.
++ */
++function draw(node: ChildNode, place: Place, walk: Walk): ReactNode {
++  if (node.nodeType === Node.TEXT_NODE) return node.textContent
++  if (node.nodeType !== Node.ELEMENT_NODE) return
++  const element = node as Element
++  const tag = element.localName
++  const { key } = place
++  if (LEFT_OUT.has(tag)) return
++  if (!TAGS.has(tag)) {
++    return <Fragment key={key}>{childrenOf(element, place, walk)}</Fragment>
++  }
++  const classes = new Set(
++    (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean),
++  )
++  if (tag === 'span' && linkClassOf(element.getAttribute('class') ?? '')) {
++    return drawLinkSpan(element, place, classes, walk)
++  }
++  const how = TAG_DRAWS[tag]
++  const drawn = how ? how(element, place, classes) : { props: {} }
++  // A tag drawn by nothing it can show, such as an image with no address it can load.
++  if (!drawn) return
++  const props = { key, ...drawn.props }
++  if (VOID.has(tag)) return createElement(tag, props)
++  return createElement(
++    drawn.tag ?? tag,
++    props,
++    ...childrenOf(element, drawn.inside ?? place, walk),
++  )
++}
++
++/**
++ * A link the game acts on, drawn by `drawLink` where it's the first with its number, outside any
++ * other link; else only its text, a reference as bold as any other.
++ */
++function drawLinkSpan(
++  element: Element,
++  place: Place,
++  classes: Set<string>,
++  { numbers, drawLink }: Walk,
++): ReactNode {
++  const { key } = place
++  const link = place.inLink ? undefined : linkOf(attributesOf(element))
++  const first = link && (link.kind === 'condition' || !numbers.has(link.n))
++  if (link && first && drawLink) {
++    if (link.kind !== 'condition') numbers.add(link.n)
++    return (
++      <Fragment key={key}>
++        {drawLink({
++          link,
++          label: element.textContent ?? '',
++          secret: place.secret,
++          key,
++        })}
++      </Fragment>
++    )
++  }
++  // A link that does nothing here is its text, a reference as bold as any other.
++  return createElement(
++    'span',
++    { key, ...(classes.has('ref') && { className: 'ref' }) },
++    ...childrenOf(element, { ...place, inLink: true }, { numbers, drawLink }),
++  )
++}
++
++/**
++ * How the tags drawn with attributes of their own are drawn: a link by an address it can open, in
++ * a new tab, or else as only its text; an image by an address it can load, with its size, or not
++ * at all; a reference, bold; a secret, as one; and a table's cell with the rows or columns it
++ * spans, and a heading cell with what it heads.
++ */
++const TAG_DRAWS: Partial<
++  Record<
++    string,
++    (element: Element, place: Place, classes: Set<string>) => TagDraw
++  >
++> = {
++  a: (element, place) => {
++    const href = checked(element.getAttribute('href'), [
++      'http:',
++      'https:',
++      'mailto:',
++    ])
++    const inside = { ...place, inLink: true }
++    // Without an address it can open, it's only its text, as the server makes it.
++    if (!href) return { tag: 'span', props: {}, inside }
++    return {
++      props: { href, target: '_blank', rel: 'noopener noreferrer nofollow' },
++      inside,
++    }
++  },
++  img: element => {
++    const src = checked(element.getAttribute('src'), ['http:', 'https:'])
++    if (!src) return
++    const props: Record<string, unknown> = {
++      src,
++      alt: element.getAttribute('alt') ?? '',
++    }
++    for (const side of ['width', 'height']) {
++      const size = element.getAttribute(side)
++      if (size && /^\d{1,5}$/.test(size)) props[side] = Number(size)
++    }
++    return { props }
++  },
++  // A reference stays bold; a roll the page can't act on is only its text.
++  span: (_element, _place, classes) => ({
++    props: classes.has('ref') ? { className: 'ref' } : {},
++  }),
++  section: (_element, place, classes) =>
++    classes.has('secret')
++      ? { props: { className: 'secret' }, inside: { ...place, secret: true } }
++      : { props: {} },
++  td: element => ({ props: cellProps(element, false) }),
++  th: element => ({ props: cellProps(element, true) }),
++}
++
++/**
++ * A table's cell's props: the rows or columns it spans, up to the most; and a heading cell's
++ * scope, one of the ways it may head its cells.
++ */
++function cellProps(
++  element: Element,
++  heading: boolean,
++): Record<string, unknown> {
++  const props: Record<string, unknown> = {}
++  for (const [attribute, prop] of [
++    ['colspan', 'colSpan'],
++    ['rowspan', 'rowSpan'],
++  ] as const) {
++    const span = Number(element.getAttribute(attribute))
++    if (Number.isInteger(span) && span > 1 && span <= MOST_SPANNED) {
++      props[prop] = span
++    }
++  }
++  const scope = element.getAttribute('scope')
++  if (heading && scope && SCOPES.has(scope)) props.scope = scope
++  return props
++}
++
++/** The tags drawn, as the server keeps them. */
++const TAGS = new Set([
++  'p',
++  'br',
++  'hr',
++  'strong',
++  'b',
++  'em',
++  'i',
++  'u',
++  's',
++  'sub',
++  'sup',
++  'small',
++  'blockquote',
++  'ul',
++  'ol',
++  'li',
++  'dl',
++  'dt',
++  'dd',
++  'h1',
++  'h2',
++  'h3',
++  'h4',
++  'h5',
++  'h6',
++  'table',
++  'caption',
++  'thead',
++  'tbody',
++  'tfoot',
++  'tr',
++  'th',
++  'td',
++  'a',
++  'img',
++  'span',
++  'div',
++  'section',
++  'figure',
++  'figcaption',
++])
++
++/** Tags that have no content, which React won't give children. */
++const VOID = new Set(['br', 'hr', 'img'])
++
++/** A table's parts, which hold rows and cells, never text; not even the spaces between them. */
++const NO_TEXT = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr'])
++
++/**
++ * Tags whose content isn't text to read, which are left out with it, as the server leaves them out.
++ * Any other tag not drawn is left out, but not its content.
++ */
++const LEFT_OUT = new Set([
++  'script',
++  'style',
++  'template',
++  'textarea',
++  'option',
++  'select',
++  'noscript',
++  'iframe',
++  'object',
++  'embed',
++  'svg',
++  'math',
++  'title',
++])
++
++/** The ways a table's heading cell may head its cells. */
++const SCOPES = new Set(['row', 'col', 'rowgroup', 'colgroup'])
++
++/** The most rows or columns a table's cell may span. */
++const MOST_SPANNED = 1000
++
++/** An element's attributes, by name. */
++function attributesOf(element: Element): Record<string, string> {
++  return Object.fromEntries(
++    [...element.attributes].map(({ name, value }) => [name, value]),
++  )
++}
++
++/** An address, if it's a whole one by one of these protocols, as the server made it. */
++function checked(
++  value: string | null,
++  protocols: string[],
++): string | undefined {
++  if (!value) return
++  try {
++    const url = new URL(value)
++    if (protocols.includes(url.protocol)) return url.href
++  } catch {
++    // Not a whole address.
++  }
++}
+diff --git a/src/components/description/draw-description.tsx b/src/components/description/draw-description.tsx
+deleted file mode 100644
+index 43b383c..0000000
+--- a/src/components/description/draw-description.tsx
++++ /dev/null
+@@ -1,234 +0,0 @@
+-import { Fragment, createElement, type ReactNode } from 'react'
+-import { linkClassOf, linkOf } from '@/utils/description-links'
+-import type { DrawLink } from './description-html'
+-
+-/** The tags drawn, as the server keeps them. */
+-const TAGS = new Set([
+-  'p',
+-  'br',
+-  'hr',
+-  'strong',
+-  'b',
+-  'em',
+-  'i',
+-  'u',
+-  's',
+-  'sub',
+-  'sup',
+-  'small',
+-  'blockquote',
+-  'ul',
+-  'ol',
+-  'li',
+-  'dl',
+-  'dt',
+-  'dd',
+-  'h1',
+-  'h2',
+-  'h3',
+-  'h4',
+-  'h5',
+-  'h6',
+-  'table',
+-  'caption',
+-  'thead',
+-  'tbody',
+-  'tfoot',
+-  'tr',
+-  'th',
+-  'td',
+-  'a',
+-  'img',
+-  'span',
+-  'div',
+-  'section',
+-  'figure',
+-  'figcaption',
+-])
+-
+-/** Tags that have no content, which React won't give children. */
+-const VOID = new Set(['br', 'hr', 'img'])
+-
+-/** A table's parts, which hold rows and cells, never text; not even the spaces between them. */
+-const NO_TEXT = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr'])
+-
+-/**
+- * Tags whose content isn't text to read, which are left out with it, as the server leaves them out.
+- * Any other tag not drawn is left out, but not its content.
+- */
+-const LEFT_OUT = new Set([
+-  'script',
+-  'style',
+-  'template',
+-  'textarea',
+-  'option',
+-  'select',
+-  'noscript',
+-  'iframe',
+-  'object',
+-  'embed',
+-  'svg',
+-  'math',
+-  'title',
+-])
+-
+-/** The ways a table's heading cell may head its cells. */
+-const SCOPES = new Set(['row', 'col', 'rowgroup', 'colgroup'])
+-
+-/** The most rows or columns a table's cell may span. */
+-const MOST_SPANNED = 1000
+-
+-/** Where in a description the walk is. */
+-type Place = {
+-  key: string
+-  /** Inside a link, or a link the game acts on, whose own links are only text. */
+-  inLink: boolean
+-  /** Inside one of its secrets. */
+-  secret: boolean
+-}
+-
+-/**
+- * A description as React elements: its formatting, tables, images and links, and the links the
+- * game acts on, drawn by `drawLink`. Each of those is the first in the description with its
+- * number, outside any other link; any other is only its text.
+- * @param body - The description, as `readDescription` read it.
+- * @param drawLink - Draws a link the game acts on; with none, each is only its text.
+- */
+-export function drawDescription(
+-  body: HTMLElement,
+-  drawLink?: DrawLink,
+-): ReactNode[] {
+-  const numbers = new Set<number>()
+-
+-  const children = (element: Element, place: Place): ReactNode[] => {
+-    const nodes = [...element.childNodes]
+-    const kept = NO_TEXT.has(element.localName)
+-      ? nodes.filter(node => node.nodeType === Node.ELEMENT_NODE)
+-      : nodes
+-    return kept.map((node, index) =>
+-      draw(node, { ...place, key: `${place.key}.${index}` }),
+-    )
+-  }
+-
+-  const draw = (node: ChildNode, place: Place): ReactNode => {
+-    if (node.nodeType === Node.TEXT_NODE) return node.textContent
+-    if (node.nodeType !== Node.ELEMENT_NODE) return
+-    const element = node as Element
+-    const tag = element.localName
+-    const { key } = place
+-    if (LEFT_OUT.has(tag)) return
+-    if (!TAGS.has(tag)) {
+-      return <Fragment key={key}>{children(element, place)}</Fragment>
+-    }
+-    const classes = new Set(
+-      (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean),
+-    )
+-    if (tag === 'span' && linkClassOf(element.getAttribute('class') ?? '')) {
+-      const link = place.inLink ? undefined : linkOf(attributesOf(element))
+-      const first = link && (link.kind === 'condition' || !numbers.has(link.n))
+-      if (link && first && drawLink) {
+-        if (link.kind !== 'condition') numbers.add(link.n)
+-        return (
+-          <Fragment key={key}>
+-            {drawLink({
+-              link,
+-              label: element.textContent ?? '',
+-              secret: place.secret,
+-              key,
+-            })}
+-          </Fragment>
+-        )
+-      }
+-      // A link that does nothing here is its text, a reference as bold as any other.
+-      return createElement(
+-        'span',
+-        { key, ...(classes.has('ref') && { className: 'ref' }) },
+-        ...children(element, { ...place, inLink: true }),
+-      )
+-    }
+-    const props: Record<string, unknown> = { key }
+-    let inside = place
+-    switch (tag) {
+-      case 'a': {
+-        const href = checked(element.getAttribute('href'), [
+-          'http:',
+-          'https:',
+-          'mailto:',
+-        ])
+-        inside = { ...place, inLink: true }
+-        // Without an address it can open, it's only its text, as the server makes it.
+-        if (!href)
+-          return createElement('span', props, ...children(element, inside))
+-        Object.assign(props, {
+-          href,
+-          target: '_blank',
+-          rel: 'noopener noreferrer nofollow',
+-        })
+-        break
+-      }
+-      case 'img': {
+-        const src = checked(element.getAttribute('src'), ['http:', 'https:'])
+-        if (!src) return
+-        props.src = src
+-        props.alt = element.getAttribute('alt') ?? ''
+-        for (const side of ['width', 'height']) {
+-          const size = element.getAttribute(side)
+-          if (size && /^\d{1,5}$/.test(size)) props[side] = Number(size)
+-        }
+-        break
+-      }
+-      case 'span': {
+-        // A reference stays bold; a roll the page can't act on is only its text.
+-        if (classes.has('ref')) props.className = 'ref'
+-        break
+-      }
+-      case 'section': {
+-        if (classes.has('secret')) {
+-          props.className = 'secret'
+-          inside = { ...place, secret: true }
+-        }
+-        break
+-      }
+-      case 'td':
+-      case 'th': {
+-        for (const [attribute, prop] of [
+-          ['colspan', 'colSpan'],
+-          ['rowspan', 'rowSpan'],
+-        ] as const) {
+-          const span = Number(element.getAttribute(attribute))
+-          if (Number.isInteger(span) && span > 1 && span <= MOST_SPANNED) {
+-            props[prop] = span
+-          }
+-        }
+-        const scope = element.getAttribute('scope')
+-        if (tag === 'th' && scope && SCOPES.has(scope)) props.scope = scope
+-        break
+-      }
+-    }
+-    if (VOID.has(tag)) return createElement(tag, props)
+-    return createElement(tag, props, ...children(element, inside))
+-  }
+-
+-  return children(body, { key: 'd', inLink: false, secret: false })
+-}
+-
+-/** An element's attributes, by name. */
+-function attributesOf(element: Element): Record<string, string> {
+-  return Object.fromEntries(
+-    [...element.attributes].map(({ name, value }) => [name, value]),
+-  )
+-}
+-
+-/** An address, if it's a whole one by one of these protocols, as the server made it. */
+-function checked(
+-  value: string | null,
+-  protocols: string[],
+-): string | undefined {
+-  if (!value) return
+-  try {
+-    const url = new URL(value)
+-    if (protocols.includes(url.protocol)) return url.href
+-  } catch {
+-    // Not a whole address.
+-  }
+-}
 diff --git a/src/features/sheet/__tests__/item-menu.integration.test.tsx b/src/features/sheet/__tests__/item-menu.integration.test.tsx
 index eee6391..27324f4 100644
 --- a/src/features/sheet/__tests__/item-menu.integration.test.tsx
@@ -74,10 +627,10 @@ index 9b53b8b..51b0f80 100644
  import type {
    CharacterSheet,
 diff --git a/src/features/sheet/components/action-entry/action-entry.tsx b/src/features/sheet/components/action-entry/action-entry.tsx
-index 2a62739..4e46819 100644
+index 2a62739..0994085 100644
 --- a/src/features/sheet/components/action-entry/action-entry.tsx
 +++ b/src/features/sheet/components/action-entry/action-entry.tsx
-@@ -1,116 +1,39 @@
+@@ -1,116 +1,33 @@
  'use client'
  
 -import { useId, useState, type ReactNode } from 'react'
@@ -96,8 +649,7 @@ index 2a62739..4e46819 100644
 -import { REASONS } from '../../../../utils/roll-reasons'
 -import { useDamageMenu } from '../../../rolling/components/damage-menu/use-damage-menu'
 -import { RollButton } from '../../../rolling/components/roll-button/roll-button'
-+import { Sparkles } from 'lucide-react'
- import { joinParts } from '../../utils/join-parts'
+-import { joinParts } from '../../utils/join-parts'
 -import { RechargeChip, rechargeable } from '../action-chips/recharge-chip'
 -import {
 -  castAs,
@@ -117,6 +669,7 @@ index 2a62739..4e46819 100644
 -  tableUseItems,
 -  type LinkMenus,
 -} from '../description-link/description-link'
++import { Sparkles } from 'lucide-react'
 +import { ActionChips } from '../action-chips/action-chips'
 +import { UsesChips } from '../action-chips/uses-chips'
  import { EnchantedMark } from '../enchantments/enchanted-mark'
@@ -157,12 +710,8 @@ index 2a62739..4e46819 100644
 -  outOfSlots,
 -  slotPools,
 -} from '@/utils/action-groups'
-+  activationIn,
-+  castNote,
-+  firstInFoundry,
++  entryDetail,
 +  foldsUses,
-+  forwardNote,
-+  moreNote,
 +  otherActivities,
 +  usesName,
 +  viewOf,
@@ -170,7 +719,7 @@ index 2a62739..4e46819 100644
 +import { Chevron } from '@/components/chevron/chevron'
 +import { EntryIcon } from '@/components/entry-icon/entry-icon'
  import { castOf } from '@/utils/casts'
- import { rechargeWords } from '@/utils/creature-words'
+-import { rechargeWords } from '@/utils/creature-words'
 -import {
 -  changes,
 -  damageChanges,
@@ -217,7 +766,7 @@ index 2a62739..4e46819 100644
  
  /*
   * An action as the Actions tab shows it, and the favorites too, and the spells, features and
-@@ -118,331 +41,6 @@ import type {
+@@ -118,331 +35,6 @@ import type {
   * button of its own.
   */
  
@@ -549,7 +1098,7 @@ index 2a62739..4e46819 100644
  /**
   * An action in a list: its name, how it's activated and its reach, opening to the rest; and
   * beside it what it rolls, each a button of its own. A note, such as the item an activity is one
-@@ -476,35 +74,23 @@ export function ActionEntry({
+@@ -476,35 +68,23 @@ export function ActionEntry({
    const body = useId()
    const favorite = useFavorite(`item:${action.id}`)
    const { name } = action
@@ -587,13 +1136,13 @@ index 2a62739..4e46819 100644
 +      section,
 +      view,
 +      cast,
-+      more: !open && others.length,
++      more: open ? 0 : others.length,
 +      uses,
 +    })
  
    return (
      <li>
-@@ -531,38 +117,20 @@ export function ActionEntry({
+@@ -531,38 +111,20 @@ export function ActionEntry({
              src={action.img}
              fallback={FALLBACKS[action.type] ?? Sparkles}
            />
@@ -641,7 +1190,7 @@ index 2a62739..4e46819 100644
              />
            )}
            <ActionChips action={action} view={view} rows={rows} uses={uses} />
-@@ -615,1285 +183,3 @@ export function ActionEntry({
+@@ -615,1285 +177,3 @@ export function ActionEntry({
      </li>
    )
  }
@@ -2103,10 +2652,10 @@ index e42a3dc..0000000
 -  }
 -}
 diff --git a/src/features/sheet/components/action-entry/utils.ts b/src/features/sheet/components/action-entry/utils.ts
-index 2f5bb51..92e2530 100644
+index 2f5bb51..84b65ac 100644
 --- a/src/features/sheet/components/action-entry/utils.ts
 +++ b/src/features/sheet/components/action-entry/utils.ts
-@@ -1,4 +1,40 @@
+@@ -1,4 +1,35 @@
 -import type { SheetAction } from '@/types/sending-stone'
 +import { HeartPulse, Swords } from 'lucide-react'
 +import { aloneRollOf } from '../../utils/damage-alone'
@@ -2125,16 +2674,11 @@ index 2f5bb51..92e2530 100644
 +} from '@/utils/damage-modifiers'
 +import { formulaTerms } from '@/utils/formulas'
 +import { activityAction, spellAction } from '@/utils/sheet-actions'
-+import type {
-+  ActionRows,
-+  DamageTarget,
-+  OtherActivity,
-+  UseActions,
-+} from './types'
++import type { DamageTarget, OtherActivity, UseActions } from './types'
 +import type { AloneChoice } from '../../utils/types'
 +import type { DescriptionOrigin } from '../description-actions/types'
 +import type { DueDamage, MenuItem, RollChoice } from '@/features/rolling/types'
-+import type { AloneRow, DamageModifiers, SheetFormulaRoll } from '@/types/roll'
++import type { AloneRow, DamageModifiers } from '@/types/roll'
 +import type {
 +  TableDamagePlan,
 +  SheetActivity,
@@ -2148,7 +2692,7 @@ index 2f5bb51..92e2530 100644
  
  /**
   * An action's name for its rolls: an item's, and the activity it's listed for, where it isn't the
-@@ -25,3 +61,566 @@ export function verbOf(action: SheetAction): 'Cast' | 'Use' {
+@@ -25,3 +56,566 @@ export function verbOf(action: SheetAction): 'Cast' | 'Use' {
    if (action.consumesSlot === false) return 'Use'
    return action.type === 'spell' || !!action.cast ? 'Cast' : 'Use'
  }
@@ -2612,11 +3156,11 @@ index 2f5bb51..92e2530 100644
 +}
 +
 +/**
-+ * What a damage chip's menu offers, of what dice, where it isn't using its spell or feature: for
-+ * damage due on an attack, as the game will throw it, a critical hit's dice as it doubled them, its
-+ * highest only where its formula takes no die away nor explodes one, and only where it takes damage
-+ * changed; for damage on its own, as `aloneMenu` has it; else a critical hit's, but for healing, and
-+ * its dice changed. None where it would offer nothing.
++ * What a damage chip's menu offers, of what dice, where it isn't using its spell or feature:
++ * for damage due on an attack, as the game will throw it, a critical hit's dice as it doubled
++ * them, its highest only where its formula takes no die away nor explodes one, and only where it
++ * takes damage changed; for damage on its own, as `aloneMenu` has it; else a critical hit's, but
++ * for healing, and its dice changed. None where it would offer nothing.
 + * @param due - The damage due on its attack, if any.
 + * @param alone - Whether it goes to the table on its own.
 + */
@@ -2680,7 +3224,7 @@ index 2f5bb51..92e2530 100644
 + * reach; its kinds of damage; what casting it from an item, or using another, costs; whether it's
 + * out of slots, or first used only in Foundry; while it's closed, how many more activities it
 + * has; and what recharges its uses.
-+ * @param more - How many more activities it has than it shows; false while it's open.
++ * @param more - How many more activities it has than it shows: none while it's open.
 + */
 +export function entryDetail(
 +  action: SheetAction,
@@ -2696,7 +3240,7 @@ index 2f5bb51..92e2530 100644
 +    section?: string
 +    view: ReturnType<typeof viewOf>
 +    cast: SheetCast | null | undefined
-+    more: number | false
++    more: number
 +    uses: SheetUses | null | undefined
 +  },
 +): string | undefined {
@@ -2710,7 +3254,7 @@ index 2f5bb51..92e2530 100644
 +    forwardNote(action.forward),
 +    view.spent && 'No slots left',
 +    firstInFoundry(action) && 'Used in Foundry',
-+    more !== false && moreNote(more),
++    moreNote(more),
 +    // What recharges its uses, as dnd5e's stat block says it, in place of "Recharge [5+]".
 +    uses?.recharge ? rechargeWords(uses.recharge) : undefined,
 +  )
@@ -3221,7 +3765,7 @@ index c9e6068..f3df05d 100644
  import type {
    CharacterSheet,
 diff --git a/src/features/sheet/components/actions-tab/actions-tab.tsx b/src/features/sheet/components/actions-tab/actions-tab.tsx
-index 8638f47..fce45a6 100644
+index 8638f47..09cbe68 100644
 --- a/src/features/sheet/components/actions-tab/actions-tab.tsx
 +++ b/src/features/sheet/components/actions-tab/actions-tab.tsx
 @@ -6,44 +6,41 @@ import { ChevronDown, Sparkles } from 'lucide-react'
@@ -3299,7 +3843,14 @@ index 8638f47..fce45a6 100644
  import type {
    SheetDamageRoll,
    SheetFormulaRoll,
-@@ -68,29 +65,6 @@ import type {
+@@ -61,36 +58,12 @@ import type {
+ } from '@/types/roll'
+ import type {
+   SheetAction,
+-  SheetActionSection,
+   SheetSpend,
+   SheetUses,
+   ActionGroup,
  } from '@/types/sending-stone'
  import type { TableSheet } from '@/types/table'
  
@@ -3329,7 +3880,7 @@ index 8638f47..fce45a6 100644
  /** Where this browser keeps the groups closed, after which the character's id. */
  const CLOSED_KEY = 'sending-stone:actions-closed'
  
-@@ -119,7 +93,22 @@ export function ActionsTab({
+@@ -119,7 +92,22 @@ export function ActionsTab({
    tableDamage,
    favorites,
    layout = 'list',
@@ -3353,7 +3904,7 @@ index 8638f47..fce45a6 100644
    const { rows, dialogs } = useActionRows({
      characterId,
      sheet,
-@@ -192,12 +181,6 @@ function Columns({ sections }: Readonly<{ sections: ReactNode[] }>) {
+@@ -192,12 +180,6 @@ function Columns({ sections }: Readonly<{ sections: ReactNode[] }>) {
    )
  }
  
@@ -3366,7 +3917,7 @@ index 8638f47..fce45a6 100644
  /**
   * A section of actions, such as Bonus Actions, in a list or a table; a creature's Legendary Actions
   * with how many it has left beside their heading (module 0.36.0), as words: the game spends them.
-@@ -471,7 +454,7 @@ function ActionTableRow({
+@@ -471,7 +453,7 @@ function ActionTableRow({
    const favorite = useFavorite(`item:${action.id}`)
    const view = viewOf(action, rows.spellbook, rows.use)
    const cast = castOf(action, rows.casts)
@@ -3375,7 +3926,7 @@ index 8638f47..fce45a6 100644
    const others = otherActivities(action, rows.spellbook)
    // Its range has a column of its own.
    const detail = joinParts(
-@@ -482,12 +465,8 @@ function ActionTableRow({
+@@ -482,11 +464,10 @@ function ActionTableRow({
      firstInFoundry(action) && 'Used in Foundry',
      !open && moreNote(others.length),
    )
@@ -3384,13 +3935,14 @@ index 8638f47..fce45a6 100644
 -    favorite: useFavoriteChoice({ type: 'item', id: action.id }, action.name),
 -    // A spell listed here can be cast, so it's prepared: Unprepare, or none if always (0.42.1).
 -    prepare: usePrepareChoice(action.type === 'spell' ? action.id : undefined),
--  })
 +  // A spell listed here can be cast, so it's prepared: Unprepare, or none if always (0.42.1).
-+  const { onMenu, menu } = useActionMenu(action)
++  const { onMenu, menu } = useActionMenu(action, {
++    type: 'item',
++    id: action.id,
+   })
    const press = usePressMenu(onMenu)
  
-   return (
-@@ -513,19 +492,10 @@ function ActionTableRow({
+@@ -513,19 +494,10 @@ function ActionTableRow({
                src={action.img}
                fallback={FALLBACKS[action.type] ?? Sparkles}
              />
@@ -3414,7 +3966,7 @@ index 8638f47..fce45a6 100644
            </button>
            {/* Wild Shape's row says what it does now (module 0.40.0). */}
            <WildShapeRowLine id={action.id} />
-@@ -539,21 +509,13 @@ function ActionTableRow({
+@@ -539,21 +511,13 @@ function ActionTableRow({
          </td>
          <td className='px-2'>
            <span className='flex gap-1'>
@@ -3443,7 +3995,7 @@ index 8638f47..fce45a6 100644
            </span>
          </td>
          {/* In a cell of its own, each chip is laid out as it is in a list's row, not as a
-@@ -562,7 +524,7 @@ function ActionTableRow({
+@@ -562,7 +526,7 @@ function ActionTableRow({
            {view.formula && (
              <span className='flex'>
                <DamageChip
@@ -3452,7 +4004,7 @@ index 8638f47..fce45a6 100644
                  formula={view.formula}
                  healing={view.healing}
                  target={view.target}
-@@ -641,7 +603,7 @@ function ActivityTableRow({
+@@ -641,7 +605,7 @@ function ActivityTableRow({
    const { activity, action } = other
    const view = viewOf(action, rows.spellbook, rows.use)
    const cast = castOf(action, rows.casts)
@@ -3461,7 +4013,7 @@ index 8638f47..fce45a6 100644
    const uses = ownUses(activity, parent)
    // Its range has a column of its own.
    const detail = joinParts(
-@@ -693,19 +655,13 @@ function ActivityTableRow({
+@@ -693,19 +657,13 @@ function ActivityTableRow({
        </td>
        <td className='px-2'>
          <span className='flex gap-1'>
@@ -3488,7 +4040,7 @@ index 8638f47..fce45a6 100644
          </span>
        </td>
        <td className='px-2'>
-@@ -753,11 +709,9 @@ function UsesCell({
+@@ -753,11 +711,9 @@ function UsesCell({
    rows: ActionRows
    spends?: SheetSpend[]
  }>) {
@@ -3502,7 +4054,7 @@ index 8638f47..fce45a6 100644
    )
  }
 diff --git a/src/features/sheet/components/description-link/description-link.tsx b/src/features/sheet/components/description-link/description-link.tsx
-index df8208d..66b8e4e 100644
+index df8208d..00dc8ae 100644
 --- a/src/features/sheet/components/description-link/description-link.tsx
 +++ b/src/features/sheet/components/description-link/description-link.tsx
 @@ -1,85 +1,17 @@
@@ -3594,7 +4146,7 @@ index df8208d..66b8e4e 100644
 -  RollLink,
 -  SaveLink,
 -} from '@/types/sending-stone'
-+import type { LinkPart } from '@/components/description/description-html'
++import type { LinkPart } from '@/components/description/types'
 +import type { ReactNode } from 'react'
  
  /*
@@ -4575,18 +5127,20 @@ index df8208d..66b8e4e 100644
 -  return `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`
 -}
 diff --git a/src/features/sheet/components/effects-tab/effects-tab.tsx b/src/features/sheet/components/effects-tab/effects-tab.tsx
-index afddbbe..8937394 100644
+index afddbbe..ff3fa72 100644
 --- a/src/features/sheet/components/effects-tab/effects-tab.tsx
 +++ b/src/features/sheet/components/effects-tab/effects-tab.tsx
-@@ -8,6 +8,7 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
+@@ -8,8 +8,8 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
  import { SheetHeading } from '../sheet-heading/sheet-heading'
  import { WildShapeNote } from '../wild-shape/wild-shape-note'
  import { EffectEntry } from './effect-entry'
 +import { conditionDetail } from './utils'
  import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
- import type { SheetCondition } from '@/types/sending-stone'
+-import type { SheetCondition } from '@/types/sending-stone'
  import type { TableSheet } from '@/types/table'
-@@ -100,9 +101,3 @@ export function EffectsTab({
+ 
+ /**
+@@ -100,9 +100,3 @@ export function EffectsTab({
      </div>
    )
  }
@@ -4597,10 +5151,10 @@ index afddbbe..8937394 100644
 -  return condition.detail ?? undefined
 -}
 diff --git a/src/features/sheet/components/features-tab/feature-entry.tsx b/src/features/sheet/components/features-tab/feature-entry.tsx
-index ba37669..d854fef 100644
+index ba37669..44308a9 100644
 --- a/src/features/sheet/components/features-tab/feature-entry.tsx
 +++ b/src/features/sheet/components/features-tab/feature-entry.tsx
-@@ -8,6 +8,7 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
+@@ -8,15 +8,12 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
  import { UsesButton } from '../uses-button/uses-button'
  import { useWildShapeRow } from '../wild-shape/use-wild-shape-row'
  import { WildShapeAbout } from '../wild-shape/wild-shape-about'
@@ -4608,7 +5162,17 @@ index ba37669..d854fef 100644
  import { rechargeWords } from '@/utils/creature-words'
  import { featureAction } from '@/utils/sheet-actions'
  import type { ActionRows } from '../action-entry/types'
-@@ -101,29 +102,3 @@ export function FeatureEntry({
+ import type { FavoriteTarget } from '@/types/roll'
+-import type {
+-  SheetFeature,
+-  SheetUses,
+-  SheetAction,
+-} from '@/types/sending-stone'
++import type { SheetFeature, SheetUses } from '@/types/sending-stone'
+ 
+ /**
+  * A feature: how it's used and its uses left, opening to its description. Given the rows actions
+@@ -101,29 +98,3 @@ export function FeatureEntry({
      />
    )
  }
@@ -4667,13 +5231,22 @@ index 38a4c84..f4740c6 100644
  import type { HitDicePool } from '@/types/roll'
  
 diff --git a/src/features/sheet/components/hit-dice/hit-dice-menu.tsx b/src/features/sheet/components/hit-dice/hit-dice-menu.tsx
-index da1f52e..2787c86 100644
+index da1f52e..99f4f99 100644
 --- a/src/features/sheet/components/hit-dice/hit-dice-menu.tsx
 +++ b/src/features/sheet/components/hit-dice/hit-dice-menu.tsx
-@@ -9,45 +9,22 @@ import {
-   type Ref,
- } from 'react'
+@@ -1,53 +1,23 @@
+ 'use client'
+ 
++import { useId, useLayoutEffect, useRef, type Ref } from 'react'
  import {
+-  useId,
+-  useLayoutEffect,
+-  useRef,
+-  useState,
+-  type FormEvent,
+-  type Ref,
+-} from 'react'
+-import {
 -  autoUpdate,
 -  flip,
    FloatingFocusManager,
@@ -4719,7 +5292,7 @@ index da1f52e..2787c86 100644
  /** Why no more hit dice are spent at once, as a button for one more says once there are as many. */
  const AT_MOST = `At most ${MOST_HIT_DICE} at once`
  
-@@ -67,76 +44,48 @@ export function HitDiceMenu({
+@@ -67,76 +37,48 @@ export function HitDiceMenu({
    formula,
    onSpend,
    onClose,
@@ -4829,7 +5402,7 @@ index da1f52e..2787c86 100644
    const opened = pools.find(pool => pool.die === die)
  
    return (
-@@ -149,7 +98,7 @@ export function HitDiceMenu({
+@@ -149,7 +91,7 @@ export function HitDiceMenu({
          modal={false}
        >
          <form
@@ -4838,7 +5411,7 @@ index da1f52e..2787c86 100644
            style={floatingStyles}
            aria-labelledby={title}
            onSubmit={submit}
-@@ -278,34 +227,5 @@ function Stepper({
+@@ -278,34 +220,5 @@ function Stepper({
    )
  }
  
@@ -4874,10 +5447,10 @@ index da1f52e..2787c86 100644
  const STEP =
    'flex size-10 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-transparent'
 diff --git a/src/features/sheet/components/hit-dice/hit-die-use.tsx b/src/features/sheet/components/hit-dice/hit-die-use.tsx
-index baeb224..6132151 100644
+index baeb224..63da6fc 100644
 --- a/src/features/sheet/components/hit-dice/hit-die-use.tsx
 +++ b/src/features/sheet/components/hit-dice/hit-die-use.tsx
-@@ -2,7 +2,9 @@
+@@ -2,16 +2,15 @@
  
  import { useState, type ReactNode } from 'react'
  import { RollButton } from '../../../rolling/components/roll-button/roll-button'
@@ -4887,16 +5460,16 @@ index baeb224..6132151 100644
  import type { HitDieSpending } from './types'
  import type { MenuPoint } from '../../../rolling/types'
  import type { HitDicePool } from '@/types/roll'
-@@ -10,9 +12,6 @@ import type { HitDicePool } from '@/types/roll'
- /** Why no hit die is spent at full hit points, as a Use button's title says. */
- export const FULL_HP = 'At full hit points'
  
+ /** Why no hit die is spent at full hit points, as a Use button's title says. */
+-export const FULL_HP = 'At full hit points'
+-
 -/** Why none of a size is spent with none left, as its Use button's title says. */
 -export const NONE_LEFT = 'None left'
--
++const FULL_HP = 'At full hit points'
+ 
  /**
   * A button that spends a hit die of one size, a tap a die; a right-click, a long-press, or the
-  * keyboard's context menu key opens a popover there to spend more at once, of that size and any
 @@ -77,17 +76,3 @@ export function HitDieUse({
      </>
    )
@@ -5053,10 +5626,14 @@ index 4cacef0..b0d72d0 100644
                aria-labelledby={amount}
                className='z-50 flex max-w-[calc(100vw-1rem)] flex-col gap-0.5 rounded-xl border border-border bg-card px-3 py-2 text-text-primary shadow-xl outline-none'
 diff --git a/src/features/sheet/components/inventory-tab/item-entry.tsx b/src/features/sheet/components/inventory-tab/item-entry.tsx
-index b187c6d..49d996b 100644
+index b187c6d..f2165a4 100644
 --- a/src/features/sheet/components/inventory-tab/item-entry.tsx
 +++ b/src/features/sheet/components/inventory-tab/item-entry.tsx
-@@ -5,7 +5,7 @@ import { joinParts } from '../../utils/join-parts'
+@@ -1,13 +1,13 @@
+ 'use client'
+ 
+ import { Backpack, Package } from 'lucide-react'
+-import { joinParts } from '../../utils/join-parts'
  import { ActionEntry } from '../action-entry/action-entry'
  import { enchantedEntry } from '../enchantments/enchanted-entry'
  import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
@@ -5064,12 +5641,51 @@ index b187c6d..49d996b 100644
 +import { useItemMenu } from '../item-menu/use-item-menu'
  import { SheetEntry } from '../sheet-entry/sheet-entry'
  import { UsesButton } from '../uses-button/uses-button'
++import { itemWords } from './utils'
  import { useTransferring } from '@/features/transfers/hooks/use-transferring'
+ import { itemAction } from '@/utils/sheet-actions'
+ import type { ActionRows } from '../action-entry/types'
+@@ -45,33 +45,8 @@ export function ItemEntry({
+   const favorite = useFavoriteChoice(target, item.name)
+   const { onMenu, menu } = useItemMenu(item.name, { send, remove, favorite })
+   const container = 'contents' in item ? item : undefined
+-  const { weight, uses } = item
+-  const capacity = container?.capacity
+-  const heft =
+-    weight && `${weight.value.toLocaleString()} ${weight.units}`.trim()
+-  const detail = joinParts(
+-    item.equipped && 'Equipped',
+-    item.attuned && 'Attuned',
+-    heft,
+-    item.price,
+-  )
+-  // In full when open, as the line under its name may be cut short.
+-  const facts: { label: string; value: string }[] = []
+-  if (capacity) {
+-    facts.push({
+-      label: 'Capacity',
+-      value: `${capacity.value.toLocaleString()} / ${capacity.max.toLocaleString()} ${capacity.units}`,
+-    })
+-  }
+-  if (heft) facts.push({ label: 'Weight', value: heft })
+-  if (item.price) facts.push({ label: 'Price', value: item.price })
+-  const meta = joinParts(
+-    !item.identified && 'Not identified',
+-    item.rarity,
+-    item.attunement === 'required' && 'Requires attunement',
+-    item.attunement === 'optional' && 'Attunement optional',
+-    ...item.properties,
+-  )
++  const { uses } = item
++  const { detail, facts, meta } = itemWords(item)
+   const quantity = item.quantity !== 1 && (
+     <span className='text-sm font-semibold text-text-secondary tabular-nums'>
+       ×{item.quantity}
 diff --git a/src/features/sheet/components/item-menu/item-menu.tsx b/src/features/sheet/components/item-menu/item-menu.tsx
-index 04dccf7..cf56d2d 100644
+index 04dccf7..cd5acdb 100644
 --- a/src/features/sheet/components/item-menu/item-menu.tsx
 +++ b/src/features/sheet/components/item-menu/item-menu.tsx
-@@ -1,202 +1,41 @@
+@@ -1,213 +1,52 @@
  'use client'
  
 -import { useCallback, useState, type ReactNode } from 'react'
@@ -5301,6 +5917,19 @@ index 04dccf7..cf56d2d 100644
      <ChoiceMenu
        anchor={opened.anchor}
        point={opened.point}
+       title={name}
+       items={items}
+-      onClose={() => setOpened(undefined)}
++      onClose={onClose}
+       onChoose={choice => {
+         // The row has focus as the dialog opens, so that the browser gives it back to the row,
+         // not to the menu item that's gone, once the dialog closes.
+         opened.anchor.focus({ preventScroll: true })
+-        setOpened(undefined)
++        onClose()
+         switch (choice) {
+           case 'favorite': {
+             favorite?.choose()
 @@ -237,5 +76,4 @@ export function useItemMenu(
        }}
      />
@@ -5308,11 +5937,14 @@ index 04dccf7..cf56d2d 100644
 -  return { onMenu, menu }
  }
 diff --git a/src/features/sheet/components/press-menu/press-menu.ts b/src/features/sheet/components/press-menu/press-menu.ts
-index 19a6233..c2cabba 100644
+index 19a6233..2cd9346 100644
 --- a/src/features/sheet/components/press-menu/press-menu.ts
 +++ b/src/features/sheet/components/press-menu/press-menu.ts
-@@ -3,6 +3,7 @@
- import { useRef, type HTMLAttributes, type SyntheticEvent } from 'react'
+@@ -1,8 +1,9 @@
+ 'use client'
+ 
+-import { useRef, type HTMLAttributes, type SyntheticEvent } from 'react'
++import { useRef, type SyntheticEvent } from 'react'
  import { LONG_PRESS } from '../../../rolling/constants'
  import { pointWithin } from '../../../rolling/utils/menu-points'
 +import type { PressProps } from './types'
@@ -5339,10 +5971,14 @@ index 19a6233..c2cabba 100644
  function onControl(event: SyntheticEvent<HTMLElement>): boolean {
    const part = event.currentTarget
 diff --git a/src/features/sheet/components/prompt-banner/prompt-banner.tsx b/src/features/sheet/components/prompt-banner/prompt-banner.tsx
-index d7c4c14..7e0c76a 100644
+index d7c4c14..2ebd117 100644
 --- a/src/features/sheet/components/prompt-banner/prompt-banner.tsx
 +++ b/src/features/sheet/components/prompt-banner/prompt-banner.tsx
-@@ -4,17 +4,26 @@ import { useEffect, useState, type ReactNode, type Ref } from 'react'
+@@ -1,20 +1,28 @@
+ 'use client'
+ 
+-import { useEffect, useState, type ReactNode, type Ref } from 'react'
++import { type ReactNode, type Ref } from 'react'
  import { BellRing, Check, LoaderCircle, Timer } from 'lucide-react'
  import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
  import { RollButton } from '../../../rolling/components/roll-button/roll-button'
@@ -5363,7 +5999,7 @@ index d7c4c14..7e0c76a 100644
 +import type { Ability, Choice } from './types'
  import type { RollActions, RollTarget } from '../../../rolling/types'
  import type { SheetRoll } from '@/types/roll'
- import type { RollMode } from '@/types/sending-stone'
+-import type { RollMode } from '@/types/sending-stone'
  import type { TablePrompt, TableSheet } from '@/types/table'
  
 -type Ability = TableSheet['abilities'][number]
@@ -5371,7 +6007,7 @@ index d7c4c14..7e0c76a 100644
  /**
   * The saving throws the Gamemaster's game asks of the character, at the top of every tab of their
   * sheet: such as a concentration check after damage, or a save a spell targeting them calls for.
-@@ -111,14 +120,6 @@ export function PromptBanner({
+@@ -111,14 +119,6 @@ export function PromptBanner({
    )
  }
  
@@ -5386,7 +6022,7 @@ index d7c4c14..7e0c76a 100644
  /** One save the game asks for: what, its DC and what asks, where shown, and its roll. */
  function PromptRow({
    prompt,
-@@ -193,158 +194,6 @@ function PromptRow({
+@@ -193,158 +193,6 @@ function PromptRow({
    )
  }
  
@@ -5546,14 +6182,16 @@ index d7c4c14..7e0c76a 100644
   * One thing Midi-QOL asks: what, what asks it, its DC where shown, and how Midi-QOL has each choice
   * rolled; a button for each, which rolls it as Midi-QOL has it, and only so, and how long is left
 diff --git a/src/features/sheet/components/sheet-entry/sheet-entry.tsx b/src/features/sheet/components/sheet-entry/sheet-entry.tsx
-index 16eb57d..e571499 100644
+index 16eb57d..0cdb7ca 100644
 --- a/src/features/sheet/components/sheet-entry/sheet-entry.tsx
 +++ b/src/features/sheet/components/sheet-entry/sheet-entry.tsx
-@@ -3,11 +3,11 @@
+@@ -2,12 +2,12 @@
+ 
  import { Fragment, useState, type ReactNode, type Ref } from 'react'
  import clsx from 'clsx'
- import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
+-import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
 -import { FavoriteStar } from '../favorite-mark/favorite-star'
++import { ChevronDown, type LucideIcon } from 'lucide-react'
  import { useFavorite } from '../favorite-mark/use-favorite'
  import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
 -import { useItemMenu } from '../item-menu/item-menu'
@@ -5694,10 +6332,10 @@ index 16eb57d..e571499 100644
            with it past the icon, so that the name keeps the width it has without the aside; its
            spacer stays beside the name. */}
 diff --git a/src/features/sheet/components/sheet-text/sheet-text.tsx b/src/features/sheet/components/sheet-text/sheet-text.tsx
-index c782688..0ccd94f 100644
+index c782688..ea272a9 100644
 --- a/src/features/sheet/components/sheet-text/sheet-text.tsx
 +++ b/src/features/sheet/components/sheet-text/sheet-text.tsx
-@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
+@@ -4,12 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
  import { drawDescription } from '../../../../components/description/draw-description'
  import { readDescription } from '../../../../components/description/read-description'
  import { useDescriptionActions } from '../description-actions/use-description-actions'
@@ -5708,11 +6346,12 @@ index c782688..0ccd94f 100644
 +import { DescriptionLink } from '../description-link/description-link'
 +import { useLinkMenus } from '../description-link/use-link-menus'
  import { useTableApi } from '@/hooks/use-table-api'
+-import type { DescriptionOrigin } from '../description-actions/types'
 +import type { SheetTextProps } from './types'
- import type { DescriptionOrigin } from '../description-actions/types'
  
  /**
-@@ -17,13 +16,6 @@ import type { DescriptionOrigin } from '../description-actions/types'
+  * Descriptions already loaded on this page, by character and hash. The same hash always names the
+@@ -17,13 +15,6 @@ import type { DescriptionOrigin } from '../description-actions/types'
   */
  const loaded = new Map<string, string>()
  
@@ -5726,7 +6365,7 @@ index c782688..0ccd94f 100644
  /**
   * A description from the sheet, such as a feature's, loaded when it is first shown. The server
   * sanitised it when the Gamemaster's game sent it, and it's drawn as the page's own elements, from
-@@ -31,11 +23,11 @@ type Props = {
+@@ -31,11 +22,11 @@ type Props = {
   * calls for or the damage it deals, do so, where the sheet says what they do. Another description
   * in its place starts afresh, never showing this one while it loads.
   */
@@ -5741,7 +6380,7 @@ index c782688..0ccd94f 100644
    const [html, setHtml] = useState(() => loaded.get(key))
    const [failed, setFailed] = useState(false)
 diff --git a/src/features/sheet/components/sheet-tiles/conditions.tsx b/src/features/sheet/components/sheet-tiles/conditions.tsx
-index 88b8e52..f92476d 100644
+index 88b8e52..0585bf0 100644
 --- a/src/features/sheet/components/sheet-tiles/conditions.tsx
 +++ b/src/features/sheet/components/sheet-tiles/conditions.tsx
 @@ -2,7 +2,7 @@
@@ -5753,35 +6392,33 @@ index 88b8e52..f92476d 100644
  import { useImageFallback } from '@/hooks/use-image-fallback'
  import type { TableSheet } from '@/types/table'
  
-@@ -82,8 +82,7 @@ function StatusIcon({ src }: Readonly<{ src: string | null }>) {
-     )
+@@ -83,7 +83,7 @@ function StatusIcon({ src }: Readonly<{ src: string | null }>) {
    }
    return (
--    // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
+     // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
 -    // eslint-disable-next-line @next/next/no-img-element
-+    // eslint-disable-next-line @next/next/no-img-element -- an icon from the Gamemaster's game, which Next's image optimizer doesn't know
++    // eslint-disable-next-line @next/next/no-img-element -- the game's image, not Next's
      <img
        ref={ref}
        src={src}
 diff --git a/src/features/sheet/components/sheet-tiles/portrait.tsx b/src/features/sheet/components/sheet-tiles/portrait.tsx
-index 3d14b64..55c401c 100644
+index 3d14b64..7fb13b4 100644
 --- a/src/features/sheet/components/sheet-tiles/portrait.tsx
 +++ b/src/features/sheet/components/sheet-tiles/portrait.tsx
-@@ -25,8 +25,7 @@ export function Portrait({
-     )
+@@ -26,7 +26,7 @@ export function Portrait({
    }
    return (
--    // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
+     // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
 -    // eslint-disable-next-line @next/next/no-img-element
-+    // eslint-disable-next-line @next/next/no-img-element -- a portrait from the Gamemaster's game, which Next's image optimizer doesn't know
++    // eslint-disable-next-line @next/next/no-img-element -- the game's image, not Next's
      <img
        ref={ref}
        src={src}
 diff --git a/src/features/sheet/components/spell-slots/spell-slots.tsx b/src/features/sheet/components/spell-slots/spell-slots.tsx
-index 37f7581..90175a5 100644
+index 37f7581..21884a6 100644
 --- a/src/features/sheet/components/spell-slots/spell-slots.tsx
 +++ b/src/features/sheet/components/spell-slots/spell-slots.tsx
-@@ -3,13 +3,14 @@
+@@ -3,13 +3,13 @@
  import { useState, type ReactNode, type SyntheticEvent } from 'react'
  import clsx from 'clsx'
  import { useCharging } from '../charging/use-charging'
@@ -5792,12 +6429,12 @@ index 37f7581..90175a5 100644
    slotWords,
    type SpellSlotPool,
  } from '@/features/sheet/utils/slot-words'
- import { ordinal } from '@/utils/action-groups'
+-import { ordinal } from '@/utils/action-groups'
 +import type { Asked } from './types'
  import type { ChargeActions } from '../charging/types'
  import type { SpellSlotOp } from '@/types/sending-stone'
  
-@@ -58,9 +59,6 @@ function Counted({
+@@ -58,9 +58,6 @@ function Counted({
    )
  }
  
@@ -5807,7 +6444,7 @@ index 37f7581..90175a5 100644
  /** Stops an event at the confirm, so that it never reaches a row's menu around the dots. */
  const stop = (event: SyntheticEvent) => event.stopPropagation()
  
-@@ -194,25 +192,12 @@ function SlotDots({
+@@ -194,25 +191,12 @@ function SlotDots({
    )
  }
  
@@ -7609,18 +8246,22 @@ index c32b065..408e26d 100644
 +  }
 +}
 diff --git a/src/features/sheet/components/uses-button/uses-button.tsx b/src/features/sheet/components/uses-button/uses-button.tsx
-index 1fe165b..3efe50e 100644
+index 1fe165b..354459b 100644
 --- a/src/features/sheet/components/uses-button/uses-button.tsx
 +++ b/src/features/sheet/components/uses-button/uses-button.tsx
-@@ -4,6 +4,7 @@ import { useState } from 'react'
+@@ -4,9 +4,9 @@ import { useState } from 'react'
  import clsx from 'clsx'
  import { UsesLeft } from './uses-left'
  import { UsesMenu } from './uses-menu'
 +import { spendsToo } from './utils'
  import { useCharging } from '@/features/sheet/components/charging/use-charging'
- import { sameCounter } from '@/utils/requests/status'
- import type { SheetCounter, SheetSpend, SheetUses } from '@/types/sending-stone'
-@@ -15,23 +16,6 @@ import type { SheetCounter, SheetSpend, SheetUses } from '@/types/sending-stone'
+-import { sameCounter } from '@/utils/requests/status'
+-import type { SheetCounter, SheetSpend, SheetUses } from '@/types/sending-stone'
++import type { SheetSpend, SheetUses } from '@/types/sending-stone'
+ 
+ /*
+  * What the character spends, as the player changes it here directly, from module 0.29.0, as they
+@@ -15,23 +15,6 @@ import type { SheetCounter, SheetSpend, SheetUses } from '@/types/sending-stone'
   * as dnd5e's sheet's pips do. Each posts a line in the game's chat, which says so.
   */
  
@@ -7645,12 +8286,14 @@ index 1fe165b..3efe50e 100644
   * A counter's uses left, such as 8/20: where the game takes charges spent from here, of a counter
   * the sheet says may be spent so, with some left, a button that opens a popover to spend some,
 diff --git a/src/features/sheet/components/uses-button/uses-menu.tsx b/src/features/sheet/components/uses-button/uses-menu.tsx
-index d6ff16a..43bf117 100644
+index d6ff16a..fb1148f 100644
 --- a/src/features/sheet/components/uses-button/uses-menu.tsx
 +++ b/src/features/sheet/components/uses-button/uses-menu.tsx
-@@ -2,35 +2,16 @@
+@@ -1,36 +1,17 @@
+ 'use client'
  
- import { useId, useRef, useState, type FormEvent } from 'react'
+-import { useId, useRef, useState, type FormEvent } from 'react'
++import { useId, useRef } from 'react'
  import {
 -  autoUpdate,
 -  flip,
@@ -7785,16 +8428,18 @@ index 03815c5..660714f 100644
  import type { SheetAction, TableDamagePlan } from '@/types/sending-stone'
  
 diff --git a/src/features/sheet/utils/damage-alone.ts b/src/features/sheet/utils/damage-alone.ts
-index 39d28ae..4e9d515 100644
+index 39d28ae..587c5e5 100644
 --- a/src/features/sheet/utils/damage-alone.ts
 +++ b/src/features/sheet/utils/damage-alone.ts
-@@ -1,5 +1,6 @@
+@@ -1,6 +1,7 @@
  import { damageRollOf } from '@/features/rolling/utils/damage-due'
  import { alonePicks, alonePlan, aloneSelection } from '@/utils/alone-choices'
+-import type { SheetDamageRoll, AloneRow, DamageModifiers } from '@/types/roll'
 +import type { AloneChoice } from './types'
- import type { SheetDamageRoll, AloneRow, DamageModifiers } from '@/types/roll'
++import type { SheetDamageRoll, AloneRow } from '@/types/roll'
  
  /*
+  * An action's damage or healing on its own (module 0.36.0): rolled from the dice the game said it
 @@ -10,28 +11,6 @@ import type { SheetDamageRoll, AloneRow, DamageModifiers } from '@/types/roll'
   * what its use would where the player asks.
   */

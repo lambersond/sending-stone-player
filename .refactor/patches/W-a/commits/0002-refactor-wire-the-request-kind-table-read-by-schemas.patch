@@ -1,3 +1,38 @@
+From c7e36bff6d93fd383aba8770d95282be06669233 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 20:39:57 +0000
+Subject: [PATCH 2/2] refactor(wire): the request-kind table read by schemas
+ and constants; rollRequestSchema's rules by group
+
+R1.4.4 (W-a's part): rollRequestSchema reads ROLL_KIND_INFO in place of its own lists: the
+activity checks (`check`), FROM_TEXT (`fromText`), LINKABLE and the keyed kinds (`keyed`),
+ANSWERS (`answers`), the damaging kinds (`damage`) and the four dice branches (`dice`); its four
+Sets go. EFFECT_DICE_KINDS and COMPANION_UNTAKEN stay literals in constants/sending-stone.ts:
+deriving them there would make constants/sending-stone.ts and constants/roll-kinds.ts import
+each other (roll-kinds reads ROLL_KINDS at load), and C9 pins COMPANION_UNTAKEN's own order; the
+table's equality test already holds both to it.
+
+R1.4.7: the request's superRefine (cognitive complexity 84) runs ordered rule groups (typed dice,
+naming, hit dice, targets, casting, damage, links, keys, enchantment, own fields), then the dice
+rule its kind's `dice` names; the transfer's (17) runs its share and move rules. `issuesTo()`
+stands for the 44 addIssue copies and `inFaces()` for the four results-in-faces checks. The
+schema is annotated `z.ZodType<RollRequestInput>` in place of `as unknown as`; for tsc to accept
+it, the damage modifiers' size refine is written as the type guard it is (`faces is DieSize`,
+the same expression), as the hand type DamageModifiers already says. Every message and path,
+and the issue order, are as before: a seeded comparison of the old and new schemas over 200,000
+requests (196,215 reaching the rules, every issue path among them) found no difference.
+
+Checks: an L1 per item (R/tools/l1.sh on a snapshot of the worktree), each green: jest 306
+suites, 9,700 tests, 0 red; typegen and tsc clean; eslint 0 errors, 659 warnings (the two
+complexity warnings in schemas/roll-request.ts gone); gates 1-12 ok (cycle groups 3, base 4).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ src/schemas/roll-request.ts | 916 +++++++++++++++++-------------------
+ src/schemas/types.ts        |   8 +
+ 2 files changed, 448 insertions(+), 476 deletions(-)
+
 diff --git a/src/schemas/roll-request.ts b/src/schemas/roll-request.ts
 index 2a378b4..cce87da 100644
 --- a/src/schemas/roll-request.ts
@@ -1000,3 +1035,6 @@ index 9ebe4ac..0c98bdd 100644
 +
 +/** One of a roll request's rules: what it finds wrong with the request, each as an issue. */
 +export type RequestRule = (request: RollRequestInput, issue: Issue) => void
+-- 
+2.43.0
+

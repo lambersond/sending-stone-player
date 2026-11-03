@@ -1,3 +1,30 @@
+From f45e99b9f86da74973a577f470c7b4986ed10d3b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 21:01:00 +0000
+Subject: [PATCH 2/2] fix: v0.43 other UI, round 1 (a directive's reason; a
+ file-wide disable narrowed)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Commit 20's review (V2-3, V2-4). use-image-fallback.test.tsx's no-img-element
+directive gets its reason, as owners.tsv's row and §1.7.2 ask. The
+creature-switcher test's file-wide no-this-outside-of-class disable becomes a
+disable/enable range around the five layout getter mocks in beforeEach plus
+one next-line directive on the focus mock, so no directive covers the whole
+file (Q2). Line-level throughout would take nine directives, one per line
+that reads `this`; G settles the final shape in commit 23.
+
+Comments only: no statement, expectation or product file changes, and the
+two files' eslint findings are the same as before (gate 1b drops comments).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .../components/creature-switcher/creature-switcher.test.tsx | 6 ++++--
+ src/hooks/use-image-fallback.test.tsx                       | 2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
 diff --git a/src/features/companions/components/creature-switcher/creature-switcher.test.tsx b/src/features/companions/components/creature-switcher/creature-switcher.test.tsx
 index 69966da..7f95cf1 100644
 --- a/src/features/companions/components/creature-switcher/creature-switcher.test.tsx
@@ -46,3 +73,6 @@ index 9026cb7..67f9c4b 100644
    return <img ref={fallback.ref} src={src} alt='' onError={fallback.onError} />
  }
  
+-- 
+2.43.0
+

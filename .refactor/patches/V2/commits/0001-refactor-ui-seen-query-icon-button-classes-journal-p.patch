@@ -1,7 +1,7 @@
 From f6697e6c24745ee41647c97a3f5bad4ecd943b41 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 18:17:07 +0000
-Subject: [PATCH] refactor(ui): seen query, icon-button classes, journal,
+Subject: [PATCH 1/2] refactor(ui): seen query, icon-button classes, journal,
  party, companions, campaigns, transfers, cookbook
 
 The other UI (R1.5.13-R1.5.23), behaviour-preserving. seenQuery builds every poll's seen query in

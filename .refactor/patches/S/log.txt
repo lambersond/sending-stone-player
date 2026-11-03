@@ -1,1 +1,3 @@
+eb1618b refactor(server): event table and hello split, the roll path in stages, route and db complexity
+b5ebef2 refactor(server): one seat resolver, NO_STORE and the answers, one body reader, the result router, types
 f5e4021 refactor(server): the db cycle gone, one command creator, the kind table's switches, throttles

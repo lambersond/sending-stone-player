@@ -1,3 +1,73 @@
+diff --git a/src/components/description/draw-description.ts b/src/components/description/draw-description.ts
+new file mode 100644
+index 0000000..815dbf7
+--- /dev/null
++++ b/src/components/description/draw-description.ts
+@@ -0,0 +1,17 @@
++import { createElement, type ReactNode } from 'react'
++import { DescriptionHtml } from './description-html'
++import type { DrawLink } from './types'
++
++/**
++ * A description as React elements: its formatting, tables, images and links, and the links the
++ * game acts on, drawn by `drawLink`. Each of those is the first in the description with its
++ * number, outside any other link; any other is only its text.
++ * @param body - The description, as `readDescription` read it.
++ * @param drawLink - Draws a link the game acts on; with none, each is only its text.
++ */
++export function drawDescription(
++  body: HTMLElement,
++  drawLink?: DrawLink,
++): ReactNode {
++  return createElement(DescriptionHtml, { body, drawLink })
++}
+diff --git a/src/components/description/types.ts b/src/components/description/types.ts
+new file mode 100644
+index 0000000..a0bee29
+--- /dev/null
++++ b/src/components/description/types.ts
+@@ -0,0 +1,41 @@
++import type { DescriptionLink } from '@/types/sending-stone'
++import type { ReactNode } from 'react'
++
++/** A link in a description the page acts on, as it's found there. */
++export type LinkPart = {
++  link: DescriptionLink
++  /** What it says, as text alone. */
++  label: string
++  /**
++   * Whether it's in one of the description's secrets, which only the Gamemaster and the
++   * character's owners read.
++   */
++  secret: boolean
++  /** Its key among the description's elements. */
++  key: string
++}
++
++/** Draws a link the page acts on; plain text where it does nothing here. */
++export type DrawLink = (part: LinkPart) => ReactNode
++
++/** Where in a description the walk is. */
++export type Place = {
++  key: string
++  /** Inside a link, or a link the game acts on, whose own links are only text. */
++  inLink: boolean
++  /** Inside one of its secrets. */
++  secret: boolean
++}
++
++/** What a walk through a description keeps: the links drawn so far, by number, and how to draw. */
++export type Walk = {
++  numbers: Set<number>
++  drawLink?: DrawLink
++}
++
++/**
++ * How a tag the page draws is drawn: the element, if not its own tag, its props from its own
++ * attributes, and where in the description what's inside it is. None for one left out.
++ */
++export type TagDraw =
++  { tag?: string; props: Record<string, unknown>; inside?: Place } | undefined
 diff --git a/src/features/sheet/components/action-chips/action-chips.tsx b/src/features/sheet/components/action-chips/action-chips.tsx
 new file mode 100644
 index 0000000..f0aa1a0
@@ -1188,7 +1258,7 @@ index 0000000..33a3fb5
 +}
 diff --git a/src/features/sheet/components/action-entry/use-action-menu.ts b/src/features/sheet/components/action-entry/use-action-menu.ts
 new file mode 100644
-index 0000000..72e3318
+index 0000000..ee95617
 --- /dev/null
 +++ b/src/features/sheet/components/action-entry/use-action-menu.ts
 @@ -0,0 +1,20 @@
@@ -1200,12 +1270,12 @@ index 0000000..72e3318
 +
 +/**
 + * An action's row's own menu, from module 0.37.0: Add to favorites or Remove from favorites, for
-+ * its item unless said, or none for null; and for a spell, from module 0.42.1, Prepare or
-+ * Unprepare, by its id, whichever tab or favorite lists it as an action.
++ * `target`, or none for null; and for a spell, from module 0.42.1, Prepare or Unprepare, by its
++ * id, whichever tab or favorite lists it as an action.
 + */
 +export function useActionMenu(
 +  action: SheetAction,
-+  target: FavoriteTarget | null = { type: 'item', id: action.id },
++  target: FavoriteTarget | null,
 +): ReturnType<typeof useItemMenu> {
 +  return useItemMenu(action.name, {
 +    favorite: useFavoriteChoice(target, action.name),
@@ -1322,11 +1392,10 @@ index 0000000..0597d06
 +}
 diff --git a/src/features/sheet/components/action-entry/use-damage-rolls.ts b/src/features/sheet/components/action-entry/use-damage-rolls.ts
 new file mode 100644
-index 0000000..475a54c
+index 0000000..563548b
 --- /dev/null
 +++ b/src/features/sheet/components/action-entry/use-damage-rolls.ts
-@@ -0,0 +1,171 @@
-+import { HeartPulse, Swords } from 'lucide-react'
+@@ -0,0 +1,164 @@
 +import { aloneRollOf } from '../../utils/damage-alone'
 +import {
 +  aloneKindMenu,
@@ -1335,14 +1404,8 @@ index 0000000..475a54c
 +  pickedTarget,
 +} from './utils'
 +import { useDamageMenu } from '@/features/rolling/components/damage-menu/use-damage-menu'
-+import { choicesOf, damageRollOf } from '@/features/rolling/utils/damage-due'
-+import { alonePicks, alonePlan, aloneSelection } from '@/utils/alone-choices'
-+import {
-+  changes,
-+  damageChanges,
-+  diceTakenAway,
-+  unmaximizable,
-+} from '@/utils/damage-modifiers'
++import { choicesOf } from '@/features/rolling/utils/damage-due'
++import { changes, damageChanges } from '@/utils/damage-modifiers'
 +import type { DamageActions, DamageTarget, TableDamage } from './types'
 +import type { AloneChoice } from '../../utils/types'
 +import type { LinkMenus } from '../description-link/types'
@@ -1660,17 +1723,16 @@ index 0000000..ad0d56c
 +export type UsesSpending = { name: string; spends?: SheetSpend[] }
 diff --git a/src/features/sheet/components/action-info/use-action-info.ts b/src/features/sheet/components/action-info/use-action-info.ts
 new file mode 100644
-index 0000000..e6b45ea
+index 0000000..e6e1333
 --- /dev/null
 +++ b/src/features/sheet/components/action-info/use-action-info.ts
-@@ -0,0 +1,34 @@
-+import { createElement, useState } from 'react'
+@@ -0,0 +1,33 @@
++import { createElement, useState, type ReactNode } from 'react'
 +import { useDescriptionActions } from '../description-actions/use-description-actions'
 +import { ActionInfo } from './action-info'
 +import { spellOf } from './utils'
 +import type { ActivityInfo } from './types'
 +import type { SheetSpellSection } from '@/types/sending-stone'
-+import type { ReactNode } from 'react'
 +
 +/**
 + * What there is to read of one of an item's activities folded beneath it, in a dialog, with no
@@ -2581,16 +2643,15 @@ index 0000000..f77ce85
 +}
 diff --git a/src/features/sheet/components/description-link/use-link-menus.ts b/src/features/sheet/components/description-link/use-link-menus.ts
 new file mode 100644
-index 0000000..072db48
+index 0000000..acb8b25
 --- /dev/null
 +++ b/src/features/sheet/components/description-link/use-link-menus.ts
-@@ -0,0 +1,36 @@
-+import { createElement, useState } from 'react'
+@@ -0,0 +1,35 @@
++import { createElement, useState, type ReactNode } from 'react'
 +import { LinkMenusDialogs } from './link-menus-dialogs'
 +import { useDamageMenu } from '@/features/rolling/components/damage-menu/use-damage-menu'
 +import type { LinkMenus, Modifying, OpenMenu } from './types'
 +import type { DescriptionActions } from '../description-actions/types'
-+import type { ReactNode } from 'react'
 +
 +/**
 + * The menus a description's links open, one at a time, and the dialogs that modify a saving throw
@@ -2623,10 +2684,10 @@ index 0000000..072db48
 +}
 diff --git a/src/features/sheet/components/description-link/utils.ts b/src/features/sheet/components/description-link/utils.ts
 new file mode 100644
-index 0000000..0c80f9b
+index 0000000..19688bc
 --- /dev/null
 +++ b/src/features/sheet/components/description-link/utils.ts
-@@ -0,0 +1,472 @@
+@@ -0,0 +1,473 @@
 +import { BellRing, Dices, Send } from 'lucide-react'
 +import { ABILITIES } from '@/constants/dnd5e'
 +import { D20_CHOICES } from '@/features/rolling/constants'
@@ -3043,8 +3104,9 @@ index 0000000..0c80f9b
 +
 +/**
 + * What rolling a description's damage or healing asks for: named for where it's from, each part
-+ * as the kind chosen, where it offers that one, or else its first; and the kind chosen for each part
-+ * that offers a choice, for the game to roll it so; as a critical hit's, and changed, as chosen.
++ * as the kind chosen, where it offers that one, or else its first; and the kind chosen for each
++ * part that offers a choice, for the game to roll it so; as a critical hit's, and changed, as
++ * chosen.
 + * @param read - Each part's formula, read.
 + * @param rule - How the world makes a critical hit, where the game rolls it too and says how.
 + * @param adds - What a critical hit adds, where one is offered.
@@ -3155,15 +3217,14 @@ index 0000000..377a15b
 +export const NONE_LEFT = 'None left'
 diff --git a/src/features/sheet/components/hit-dice/use-hit-dice-choice.ts b/src/features/sheet/components/hit-dice/use-hit-dice-choice.ts
 new file mode 100644
-index 0000000..2d1722c
+index 0000000..2d6e835
 --- /dev/null
 +++ b/src/features/sheet/components/hit-dice/use-hit-dice-choice.ts
-@@ -0,0 +1,65 @@
-+import { useState } from 'react'
+@@ -0,0 +1,64 @@
++import { useState, type FormEvent } from 'react'
 +import { mostOf } from './utils'
 +import { MOST_HIT_DICE } from '@/constants/sending-stone'
 +import type { HitDiceCount, HitDicePool } from '@/types/roll'
-+import type { FormEvent } from 'react'
 +
 +/**
 + * How many hit dice of each size are chosen to spend at once, as `HitDiceMenu` offers them: the
@@ -3233,6 +3294,55 @@ index 0000000..6af383a
 +import type { SheetInventory } from '@/types/sending-stone'
 +
 +export type Coin = SheetInventory['currency'][number]
+diff --git a/src/features/sheet/components/inventory-tab/utils.ts b/src/features/sheet/components/inventory-tab/utils.ts
+new file mode 100644
+index 0000000..6adb228
+--- /dev/null
++++ b/src/features/sheet/components/inventory-tab/utils.ts
+@@ -0,0 +1,43 @@
++import { joinParts } from '../../utils/join-parts'
++import type { SheetItem, SheetContainer } from '@/types/sending-stone'
++
++/**
++ * What an item's row says of it: under its name, whether it's equipped or attuned, its weight and
++ * its price; in full once open, as that line may be cut short, a container's capacity, its weight
++ * and its price; and over those, what it is, such as its rarity and whether it needs attuning.
++ */
++export function itemWords(item: SheetItem | SheetContainer): {
++  detail: string | undefined
++  facts: { label: string; value: string }[]
++  meta: string | undefined
++} {
++  const container = 'contents' in item ? item : undefined
++  const { weight } = item
++  const capacity = container?.capacity
++  const heft =
++    weight && `${weight.value.toLocaleString()} ${weight.units}`.trim()
++  const detail = joinParts(
++    item.equipped && 'Equipped',
++    item.attuned && 'Attuned',
++    heft,
++    item.price,
++  )
++  // In full when open, as the line under its name may be cut short.
++  const facts: { label: string; value: string }[] = []
++  if (capacity) {
++    facts.push({
++      label: 'Capacity',
++      value: `${capacity.value.toLocaleString()} / ${capacity.max.toLocaleString()} ${capacity.units}`,
++    })
++  }
++  if (heft) facts.push({ label: 'Weight', value: heft })
++  if (item.price) facts.push({ label: 'Price', value: item.price })
++  const meta = joinParts(
++    !item.identified && 'Not identified',
++    item.rarity,
++    item.attunement === 'required' && 'Requires attunement',
++    item.attunement === 'optional' && 'Attunement optional',
++    ...item.properties,
++  )
++  return { detail, facts, meta }
++}
 diff --git a/src/features/sheet/components/item-menu/types.ts b/src/features/sheet/components/item-menu/types.ts
 new file mode 100644
 index 0000000..2887945
@@ -3245,11 +3355,11 @@ index 0000000..2887945
 +export type Opened = { anchor: HTMLElement; point?: MenuPoint }
 diff --git a/src/features/sheet/components/item-menu/use-item-menu.ts b/src/features/sheet/components/item-menu/use-item-menu.ts
 new file mode 100644
-index 0000000..46862f0
+index 0000000..8e12bdd
 --- /dev/null
 +++ b/src/features/sheet/components/item-menu/use-item-menu.ts
-@@ -0,0 +1,75 @@
-+import { createElement, useCallback, useState } from 'react'
+@@ -0,0 +1,74 @@
++import { createElement, useCallback, useState, type ReactNode } from 'react'
 +import { ItemMenu } from './item-menu'
 +import { effectItems, menuItems } from './utils'
 +import type { Opened } from './types'
@@ -3257,7 +3367,6 @@ index 0000000..46862f0
 +import type { FavoriteChoice } from '../favoriting/types'
 +import type { PrepareChoice } from '../preparing/types'
 +import type { MenuPoint } from '@/features/rolling/types'
-+import type { ReactNode } from 'react'
 +
 +/**
 + * A row's own menu: what else is done with it, opened on a right-click or long-press of its row:
@@ -5121,12 +5230,11 @@ index 0000000..34fdefd
 +}
 diff --git a/src/features/sheet/components/uses-button/use-uses-step.ts b/src/features/sheet/components/uses-button/use-uses-step.ts
 new file mode 100644
-index 0000000..1354323
+index 0000000..96a662d
 --- /dev/null
 +++ b/src/features/sheet/components/uses-button/use-uses-step.ts
-@@ -0,0 +1,26 @@
-+import { useState } from 'react'
-+import type { FormEvent } from 'react'
+@@ -0,0 +1,25 @@
++import { useState, type FormEvent } from 'react'
 +
 +/**
 + * How many of a counter's charges are chosen to spend directly, as `UsesMenu` offers them: from 1,
@@ -5205,10 +5313,10 @@ index 0000000..bec0bfb
 +}
 diff --git a/src/hooks/use-popover.ts b/src/hooks/use-popover.ts
 new file mode 100644
-index 0000000..81b5187
+index 0000000..bcff840
 --- /dev/null
 +++ b/src/hooks/use-popover.ts
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,67 @@
 +import {
 +  autoUpdate,
 +  flip,
@@ -5218,7 +5326,9 @@ index 0000000..81b5187
 +  useFloating,
 +  type Placement,
 +} from '@floating-ui/react'
++// eslint-disable-next-line import/no-restricted-paths -- a popover opens in the modal it's in
 +import { usePortalRoot } from '@/components/modal/use-portal-root'
++// eslint-disable-next-line import/no-restricted-paths -- a popover opens in the modal it's in
 +import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 +
 +/**
@@ -5244,7 +5354,7 @@ index 0000000..81b5187
 +  onOpenChange: (open: boolean) => void
 +  anchor?: HTMLElement
 +  placement: Placement
-+  gap: number
++  gap?: Parameters<typeof offset>[0]
 +  across?: boolean
 +  fit?: Parameters<typeof size>[0]
 +  escape?: boolean

@@ -1,1 +1,2 @@
+c7e36bf refactor(wire): the request-kind table read by schemas and constants; rollRequestSchema's rules by group
 52851b2 refactor(wire): lenient helpers, die sizes, event schemas table, hand types checked, types home

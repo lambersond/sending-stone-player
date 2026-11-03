@@ -1,7 +1,7 @@
 From 52851b210e56b127dbcd35f14e2c19286745a8ba Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 19:05:21 +0000
-Subject: [PATCH] refactor(wire): lenient helpers, die sizes, event schemas
+Subject: [PATCH 1/2] refactor(wire): lenient helpers, die sizes, event schemas
  table, hand types checked, types home
 
 R1.4.1: src/schemas/utils.ts gives the schemas `leftOut(s)` (s.optional().catch(undefined)) and

@@ -1,1 +1,2 @@
+f45e99b fix: v0.43 other UI, round 1 (a directive's reason; a file-wide disable narrowed)
 f6697e6 refactor(ui): seen query, icon-button classes, journal, party, companions, campaigns, transfers, cookbook

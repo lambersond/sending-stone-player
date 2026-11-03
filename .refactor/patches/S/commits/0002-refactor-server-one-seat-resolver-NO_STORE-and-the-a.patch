@@ -1,0 +1,2733 @@
+From b5ebef2c2c5d229e2a9079b67ae11f6c58836eac Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 20:48:02 +0000
+Subject: [PATCH 2/3] refactor(server): one seat resolver, NO_STORE and the
+ answers, one body reader, the result router, types
+
+R1.3.4: seatAnswer (src/lib/routes/seat-resolver.ts) answers every seat route: the session (401),
+then its address, then its seat (404), then its responder. The 21 route files are each one call
+to it. getPlayerSeat sits beside getGmSeat in db/seats; the four companion seat helpers stay by
+name (companion-routes.integration.test calls each) on those two, and the party's player seat is
+partyAt beside its responders, so no route's import closure grows (the GM routes suite mocks
+db/seats with getGmSeat alone; route suites mock db/table without what db/companions reads). The two
+texts/[hash] routes keep their header quirks (B16): NO_HEADERS on the player's 401 and 404s and
+the Gamemaster's 401. notesSeat reads the player's seat by getPlayerSeat, its stricter check
+kept.
+
+R1.3.5: src/lib/routes/http.ts: NO_STORE (the 25 files' constant), bare, textAnswer (3 copies)
+and seenAs for the five 204 checks: numbers, text and flags as each compared them, and what a page
+may leave out (gm, gmrolls) by its absence. Every answer keeps its headers and Content-Type.
+
+R1.3.6: readBody (src/lib/routes/body.ts) for the five readers, each mapping why to today's
+answer: rolls 415/413/400 bare, notes 415 bare and 413/400 `{reason: 'invalid'}`, dishes the
+type lower-cased and the declared size first, events and commands the declared size first; the
+two that never checked a declared size still don't (B4).
+
+R1.3.7: recordCommandResult routes dish-, roll and note results; a roll's marks are
+markGmMessages and closeAnsweredPrompt, then the version bump, the same writes in the same
+order.
+
+R1.3.12: S's exported types to src/db/types.ts (the notes', note-sync's, cookbook's, PartySeat,
+CompanionStatus, CampaignStatus, EventCampaign, Tx once), src/lib/routes/types.ts (NotesPlace,
+NotesAddress, Refusal, and the new helpers' types) and src/lib/types.ts (SessionUser); the
+three util *Refusal types un-exported. Importers, tests' import lines included, follow.
+
+L1 (l1/S/c10b, on this tree over a2332a2 with commit 9): jest 305 suites, 9689 tests, 0 red;
+typegen, tsc 0 errors; eslint 0 errors, 625 warnings; gates 1-12 ok (gate 9 625 against 981,
+gate 12 two cycle groups, base four).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ src/app/api/bridge/commands/route.ts          |  21 ++-
+ .../[companion]/rolls/[roll]/route.ts         |  18 +-
+ .../companions/[companion]/rolls/route.ts     |  18 +-
+ .../companions/[companion]/table/route.ts     |  20 +-
+ .../[companion]/texts/[hash]/route.ts         |  25 +--
+ .../characters/[actor]/rolls/[roll]/route.ts  |  17 +-
+ .../[id]/characters/[actor]/rolls/route.ts    |  17 +-
+ .../[id]/characters/[actor]/table/route.ts    |  17 +-
+ .../characters/[actor]/texts/[hash]/route.ts  |  22 +--
+ .../api/campaigns/[id]/party/[group]/route.ts |  21 +--
+ .../[id]/party/[group]/texts/[hash]/route.ts  |  21 +--
+ .../[companion]/rolls/[roll]/route.ts         |  18 +-
+ .../companions/[companion]/rolls/route.ts     |  17 +-
+ .../companions/[companion]/table/route.ts     |  19 +-
+ .../[companion]/texts/[hash]/route.ts         |  25 +--
+ src/app/api/characters/[id]/cookbook/route.ts |  17 +-
+ .../characters/[id]/party/[group]/route.ts    |  24 +--
+ .../[id]/party/[group]/texts/[hash]/route.ts  |  24 +--
+ .../api/characters/[id]/rolls/[roll]/route.ts |  20 +-
+ src/app/api/characters/[id]/rolls/route.ts    |  20 +-
+ src/app/api/characters/[id]/table/route.ts    |  20 +-
+ .../api/characters/[id]/texts/[hash]/route.ts |  22 +--
+ src/app/api/cookbook/dishes/route.test.ts     |   8 +-
+ src/app/api/events/route.ts                   |  17 +-
+ src/db/campaign-events.ts                     |   3 +-
+ src/db/campaigns.ts                           |   5 +-
+ src/db/companions.ts                          |  22 +--
+ src/db/cookbook.test.ts                       |   3 +-
+ src/db/cookbook.ts                            |  42 +----
+ src/db/note-sync.ts                           |  33 +---
+ src/db/notes.test.ts                          |   3 +-
+ src/db/notes.ts                               |  45 +----
+ src/db/party.test.ts                          |   2 +-
+ src/db/party.ts                               |  12 +-
+ src/db/roll-requests.ts                       |  65 +++++--
+ src/db/seats.ts                               |  13 ++
+ src/db/sheet-texts.ts                         |   4 +-
+ src/db/table.ts                               |  32 +---
+ src/db/types.ts                               | 176 +++++++++++++++++-
+ src/lib/routes/body.ts                        |  29 +++
+ src/lib/routes/bridge-http.ts                 |  19 +-
+ src/lib/routes/companion-routes.ts            |  47 ++---
+ src/lib/routes/cookbook-routes.ts             |  49 +++--
+ src/lib/routes/http.ts                        |  53 ++++++
+ src/lib/routes/notes-routes.test.ts           |   2 +-
+ src/lib/routes/notes-routes.ts                |  89 +++------
+ src/lib/routes/party-routes.ts                |  42 +++--
+ src/lib/routes/seat-resolver.ts               |  29 +++
+ src/lib/routes/seat-routes.ts                 |  71 ++++---
+ src/lib/routes/types.ts                       |  52 ++++++
+ src/lib/session.ts                            |   3 +-
+ src/lib/types.ts                              |   3 +
+ src/utils/removals.ts                         |   2 +-
+ src/utils/transfers.ts                        |   2 +-
+ src/utils/wild-shape.ts                       |   2 +-
+ 55 files changed, 733 insertions(+), 689 deletions(-)
+ create mode 100644 src/lib/routes/body.ts
+ create mode 100644 src/lib/routes/http.ts
+ create mode 100644 src/lib/routes/seat-resolver.ts
+ create mode 100644 src/lib/routes/types.ts
+ create mode 100644 src/lib/types.ts
+
+diff --git a/src/app/api/bridge/commands/route.ts b/src/app/api/bridge/commands/route.ts
+index 8f2720c..96f6e38 100644
+--- a/src/app/api/bridge/commands/route.ts
++++ b/src/app/api/bridge/commands/route.ts
+@@ -8,16 +8,18 @@ import {
+ } from '@/constants/sending-stone'
+ import { findEventCampaign } from '@/db/campaigns'
+ import { claimDishes } from '@/db/cookbook'
+-import { claimNoteWrites, type NoteCommand } from '@/db/note-sync'
++import { claimNoteWrites } from '@/db/note-sync'
+ import {
+   claimRollRequests,
+   markBridgePolled,
+   openActorIds,
+ } from '@/db/roll-requests'
+ import { bearerSecret } from '@/lib/campaign-secret'
++import { readBody } from '@/lib/routes/body'
+ import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
+ import { toForgeGameUrl } from '@/schemas/campaign'
+ import { commandsPollSchema } from '@/schemas/roll-request'
++import type { NoteCommand } from '@/db/types'
+ import type { DishCommand } from '@/types/cookbook'
+ import type { RollCommand } from '@/utils/requests/types'
+ 
+@@ -111,15 +113,14 @@ export async function POST(request: Request) {
+     )
+   }
+ 
+-  const declared = Number(request.headers.get('content-length'))
+-  if (declared > MAX_POLL_BYTES) return tooLarge()
+-  const body = await request.text()
+-  if (Buffer.byteLength(body) > MAX_POLL_BYTES) return tooLarge()
++  const body = await readBody(request, {
++    limit: MAX_POLL_BYTES,
++    declared: true,
++  })
++  if (!body.ok && body.why === 'size') return tooLarge()
+ 
+-  let poll
+-  try {
+-    poll = commandsPollSchema.parse(JSON.parse(body))
+-  } catch {
++  const parsed = body.ok ? commandsPollSchema.safeParse(body.value) : undefined
++  if (!parsed?.success) {
+     return refuse(
+       request,
+       400,
+@@ -127,7 +128,7 @@ export async function POST(request: Request) {
+       headers,
+     )
+   }
+-  const { campaign, session } = poll
++  const { campaign, session } = parsed.data
+ 
+   const found = await attempt(
+     () => findEventCampaign(origin, campaign, secret),
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts
+index d2a47ea..69d562d 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts
+@@ -1,10 +1,8 @@
+ import { gmCompanionRollSeat } from '@/lib/routes/companion-routes'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollGetResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Where a roll the Gamemaster sent as one of their campaign's characters' companions stands
+  * (module 0.36.0): only their own as this companion from this character, never its player's, nor
+@@ -16,12 +14,10 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor, companion, roll } = await context.params
+-  const seat = await gmCompanionRollSeat(user.id, id, actor, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return rollGetResponse(seat, roll)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor, companion }) =>
++      gmCompanionRollSeat(userId, id, actor, companion),
++    (seat, { roll }) => rollGetResponse(seat, roll),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts
+index bd39912..c7997da 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts
+@@ -1,10 +1,8 @@
+ import { gmCompanionSeat } from '@/lib/routes/companion-routes'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollPostResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Have a roll the Gamemaster made here as one of their campaign's characters' companions made in
+  * their game, as the companion, marked as theirs (module 0.36.0): only the campaign's owner, for a
+@@ -15,12 +13,10 @@ export async function POST(
+   request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor, companion } = await context.params
+-  const seat = await gmCompanionSeat(user.id, id, actor, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return rollPostResponse(request, seat)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor, companion }) =>
++      gmCompanionSeat(userId, id, actor, companion),
++    seat => rollPostResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts
+index ab85de1..e1b5049 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts
+@@ -1,12 +1,10 @@
+ import {
+-  companionTableResponse,
+   gmCompanionSeat,
++  companionTableResponse,
+ } from '@/lib/routes/companion-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * The Gamemaster's view of one of their campaign's characters' companions (module 0.36.0), as its
+  * character's player sees it, for their page to poll, with where their rolls go as `&gm=` too:
+@@ -17,12 +15,10 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/table'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor, companion } = await context.params
+-  const seat = await gmCompanionSeat(user.id, id, actor, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return companionTableResponse(request, seat)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor, companion }) =>
++      gmCompanionSeat(userId, id, actor, companion),
++    seat => companionTableResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts
+index bc1cfe7..a07c65f 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts
+@@ -1,13 +1,11 @@
+ import {
+-  companionTextResponse,
+   gmCompanionSeat,
++  companionTextResponse,
+ } from '@/lib/routes/companion-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { TEXT_HASH } from '@/schemas/sending-stone'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A description on one of the Gamemaster's campaign's characters' companions' sheets (module
+  * 0.36.0), as its character's player is served it: only that sheet's own descriptions.
+@@ -16,15 +14,12 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor, companion, hash } = await context.params
+-  if (!TEXT_HASH.test(hash)) {
+-    return new Response(undefined, { status: 404, headers })
+-  }
+-  const seat = await gmCompanionSeat(user.id, id, actor, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return companionTextResponse(seat, hash)
++  return seatAnswer(
++    context.params,
++    async (userId, { id, actor, companion, hash }) =>
++      TEXT_HASH.test(hash)
++        ? gmCompanionSeat(userId, id, actor, companion)
++        : undefined,
++    (seat, { hash }) => companionTextResponse(seat, hash),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/rolls/[roll]/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/rolls/[roll]/route.ts
+index d0d2e24..af342be 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/rolls/[roll]/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/rolls/[roll]/route.ts
+@@ -1,10 +1,8 @@
+ import { getGmSeat } from '@/db/seats'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollGetResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Where a roll the Gamemaster sent as one of their campaign's characters (#156) stands: only
+  * their own as this character, never its player's.
+@@ -13,12 +11,9 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/rolls/[roll]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor, roll } = await context.params
+-  const seat = await getGmSeat(user.id, id, actor)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return rollGetResponse(seat, roll)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor }) => getGmSeat(userId, id, actor),
++    (seat, { roll }) => rollGetResponse(seat, roll),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/rolls/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/rolls/route.ts
+index 8dd9fe8..ab763f4 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/rolls/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/rolls/route.ts
+@@ -1,10 +1,8 @@
+ import { getGmSeat } from '@/db/seats'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollPostResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Have a roll the Gamemaster made here as one of their campaign's characters (#156) made in their
+  * game as that character's, marked as theirs: answered as a player's roll is, with 409 Conflict
+@@ -14,12 +12,9 @@ export async function POST(
+   request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/rolls'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor } = await context.params
+-  const seat = await getGmSeat(user.id, id, actor)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return rollPostResponse(request, seat)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor }) => getGmSeat(userId, id, actor),
++    seat => rollPostResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/table/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/table/route.ts
+index 0770745..9170eaa 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/table/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/table/route.ts
+@@ -1,10 +1,8 @@
+ import { getGmSeat } from '@/db/seats'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { tableResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * The Gamemaster's view of one of their campaign's characters (#156), as its player sees it, for
+  * their page to poll: as the player's own view is polled, with where their rolls go as `&gm=` too.
+@@ -14,12 +12,9 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/table'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, actor } = await context.params
+-  const seat = await getGmSeat(user.id, id, actor)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return tableResponse(request, seat)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor }) => getGmSeat(userId, id, actor),
++    seat => tableResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/texts/[hash]/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/texts/[hash]/route.ts
+index a63fbd6..88c100b 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/texts/[hash]/route.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/texts/[hash]/route.ts
+@@ -1,6 +1,7 @@
+ import { getGmSeat } from '@/db/seats'
++import { NO_HEADERS } from '@/lib/routes/http'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { textResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+ /**
+@@ -11,17 +12,10 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/texts/[hash]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401 })
+-
+-  const { id, actor, hash } = await context.params
+-  const seat = await getGmSeat(user.id, id, actor)
+-  if (!seat) {
+-    return new Response(undefined, {
+-      status: 404,
+-      headers: { 'Cache-Control': 'no-store' },
+-    })
+-  }
+-
+-  return textResponse(seat, hash)
++  return seatAnswer(
++    context.params,
++    (userId, { id, actor }) => getGmSeat(userId, id, actor),
++    (seat, { hash }) => textResponse(seat, hash),
++    { signedOut: NO_HEADERS },
++  )
+ }
+diff --git a/src/app/api/campaigns/[id]/party/[group]/route.ts b/src/app/api/campaigns/[id]/party/[group]/route.ts
+index 4eac198..196411a 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/route.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/route.ts
+@@ -1,9 +1,8 @@
+ import { partyResponse } from '@/lib/routes/party-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
++import type { PartySeat } from '@/db/types'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A party sheet of the Gamemaster's campaign, for their page or panel to poll, as a player's is,
+  * whoever may see it in Foundry. Only the campaign's owner: 404 otherwise, saying no more.
+@@ -12,13 +11,13 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/party/[group]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, group } = await context.params
+-  return partyResponse(
+-    request,
+-    { role: 'gm', campaignId: id, userId: user.id },
+-    group,
++  return seatAnswer(
++    context.params,
++    async (userId, { id }): Promise<PartySeat> => ({
++      role: 'gm',
++      campaignId: id,
++      userId,
++    }),
++    (seat, { group }) => partyResponse(request, seat, group),
+   )
+ }
+diff --git a/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.ts b/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.ts
+index 0a12daf..89113c8 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.ts
+@@ -1,9 +1,8 @@
+ import { partyTextResponse } from '@/lib/routes/party-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
++import type { PartySeat } from '@/db/types'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A description on a party sheet of the Gamemaster's campaign: only that group's own sheet's
+  * descriptions, and only for the campaign's owner.
+@@ -12,13 +11,13 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/campaigns/[id]/party/[group]/texts/[hash]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, group, hash } = await context.params
+-  return partyTextResponse(
+-    { role: 'gm', campaignId: id, userId: user.id },
+-    group,
+-    hash,
++  return seatAnswer(
++    context.params,
++    async (userId, { id }): Promise<PartySeat> => ({
++      role: 'gm',
++      campaignId: id,
++      userId,
++    }),
++    (seat, { group, hash }) => partyTextResponse(seat, group, hash),
+   )
+ }
+diff --git a/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts b/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts
+index ab72e9d..7f18cef 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts
+@@ -1,10 +1,8 @@
+ import { playerCompanionRollSeat } from '@/lib/routes/companion-routes'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollGetResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Where a roll the player sent for their character's companion stands, and what the game made of
+  * it (module 0.36.0): only its character's player, and only their own rolls for it from that
+@@ -16,12 +14,10 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/companions/[companion]/rolls/[roll]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, companion, roll } = await context.params
+-  const seat = await playerCompanionRollSeat(user.id, id, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return rollGetResponse(seat, roll)
++  return seatAnswer(
++    context.params,
++    (userId, { id, companion }) =>
++      playerCompanionRollSeat(userId, id, companion),
++    (seat, { roll }) => rollGetResponse(seat, roll),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts b/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts
+index ff8251b..b8d3573 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts
+@@ -1,10 +1,8 @@
+ import { playerCompanionSeat } from '@/lib/routes/companion-routes'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollPostResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Have a roll the player made here for their character's companion made in the Gamemaster's game,
+  * as the companion, with the same dice (module 0.36.0): only its character's player, while the
+@@ -15,12 +13,9 @@ export async function POST(
+   request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/companions/[companion]/rolls'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, companion } = await context.params
+-  const seat = await playerCompanionSeat(user.id, id, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return rollPostResponse(request, seat)
++  return seatAnswer(
++    context.params,
++    (userId, { id, companion }) => playerCompanionSeat(userId, id, companion),
++    seat => rollPostResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/companions/[companion]/table/route.ts b/src/app/api/characters/[id]/companions/[companion]/table/route.ts
+index df3d69c..3f16b0c 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/table/route.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/table/route.ts
+@@ -1,12 +1,10 @@
+ import {
+-  companionTableResponse,
+   playerCompanionSeat,
++  companionTableResponse,
+ } from '@/lib/routes/companion-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A character's companion's view of its campaign, for its pane to poll (module 0.36.0): only its
+  * character's player, while the module lists it as that character's; 404 for anyone else, saying
+@@ -17,12 +15,9 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/companions/[companion]/table'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, companion } = await context.params
+-  const seat = await playerCompanionSeat(user.id, id, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return companionTableResponse(request, seat)
++  return seatAnswer(
++    context.params,
++    (userId, { id, companion }) => playerCompanionSeat(userId, id, companion),
++    seat => companionTableResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts b/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts
+index e9db014..ba8fd3e 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts
+@@ -1,13 +1,11 @@
+ import {
+-  companionTextResponse,
+   playerCompanionSeat,
++  companionTextResponse,
+ } from '@/lib/routes/companion-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { TEXT_HASH } from '@/schemas/sending-stone'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A description on a character's companion's sheet (module 0.36.0), for its character's player:
+  * `{ html }`, already sanitised. Only the companion's own sheet's descriptions are served, while
+@@ -18,15 +16,12 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/companions/[companion]/texts/[hash]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, companion, hash } = await context.params
+-  if (!TEXT_HASH.test(hash)) {
+-    return new Response(undefined, { status: 404, headers })
+-  }
+-  const seat = await playerCompanionSeat(user.id, id, companion)
+-  if (!seat) return new Response(undefined, { status: 404, headers })
+-
+-  return companionTextResponse(seat, hash)
++  return seatAnswer(
++    context.params,
++    async (userId, { id, companion, hash }) =>
++      TEXT_HASH.test(hash)
++        ? playerCompanionSeat(userId, id, companion)
++        : undefined,
++    (seat, { hash }) => companionTextResponse(seat, hash),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/cookbook/route.ts b/src/app/api/characters/[id]/cookbook/route.ts
+index c601589..bb9462a 100644
+--- a/src/app/api/characters/[id]/cookbook/route.ts
++++ b/src/app/api/characters/[id]/cookbook/route.ts
+@@ -1,10 +1,8 @@
+ import { getCharacter } from '@/db/characters'
+ import { cookbookViewResponse } from '@/lib/routes/cookbook-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A player's Magical Recipe Book card for one of their characters, from module 0.38.0: its link
+  * and what became of the dishes it sent, for their page to poll. Pass its version as last seen,
+@@ -14,12 +12,9 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/cookbook'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id } = await context.params
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404, headers })
+-
+-  return cookbookViewResponse(request, character)
++  return seatAnswer(
++    context.params,
++    (userId, { id }) => getCharacter(userId, id),
++    character => cookbookViewResponse(request, character),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/party/[group]/route.ts b/src/app/api/characters/[id]/party/[group]/route.ts
+index 2cbe930..520f654 100644
+--- a/src/app/api/characters/[id]/party/[group]/route.ts
++++ b/src/app/api/characters/[id]/party/[group]/route.ts
+@@ -1,12 +1,7 @@
+-import { getCharacter } from '@/db/characters'
+-import { partySeat } from '@/db/party'
+-import { playerSeat } from '@/db/seats'
+-import { partyResponse } from '@/lib/routes/party-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { partyAt, partyResponse } from '@/lib/routes/party-routes'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A party sheet of the character's campaign, for its player's page or panel to poll: only while
+  * their Foundry user has Observer or Owner on the group, and 404 otherwise, saying no more. Pass
+@@ -17,16 +12,9 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/party/[group]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, group } = await context.params
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404, headers })
+-
+-  return partyResponse(
+-    request,
+-    partySeat(playerSeat(character, user.id)),
+-    group,
++  return seatAnswer(
++    context.params,
++    (userId, { id }) => partyAt(userId, id),
++    (seat, { group }) => partyResponse(request, seat, group),
+   )
+ }
+diff --git a/src/app/api/characters/[id]/party/[group]/texts/[hash]/route.ts b/src/app/api/characters/[id]/party/[group]/texts/[hash]/route.ts
+index 232340e..9d0bfdc 100644
+--- a/src/app/api/characters/[id]/party/[group]/texts/[hash]/route.ts
++++ b/src/app/api/characters/[id]/party/[group]/texts/[hash]/route.ts
+@@ -1,12 +1,7 @@
+-import { getCharacter } from '@/db/characters'
+-import { partySeat } from '@/db/party'
+-import { playerSeat } from '@/db/seats'
+-import { partyTextResponse } from '@/lib/routes/party-routes'
+-import { getCurrentUser } from '@/lib/session'
++import { partyAt, partyTextResponse } from '@/lib/routes/party-routes'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A description on a party sheet of the character's campaign, for its player: `{ html }`, already
+  * sanitised. Only that group's own sheet's descriptions, and only while its player may see it.
+@@ -15,16 +10,9 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/party/[group]/texts/[hash]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, group, hash } = await context.params
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404, headers })
+-
+-  return partyTextResponse(
+-    partySeat(playerSeat(character, user.id)),
+-    group,
+-    hash,
++  return seatAnswer(
++    context.params,
++    (userId, { id }) => partyAt(userId, id),
++    (seat, { group, hash }) => partyTextResponse(seat, group, hash),
+   )
+ }
+diff --git a/src/app/api/characters/[id]/rolls/[roll]/route.ts b/src/app/api/characters/[id]/rolls/[roll]/route.ts
+index 92c95db..cb9e8cc 100644
+--- a/src/app/api/characters/[id]/rolls/[roll]/route.ts
++++ b/src/app/api/characters/[id]/rolls/[roll]/route.ts
+@@ -1,22 +1,16 @@
+-import { getCharacter } from '@/db/characters'
+-import { playerSeat } from '@/db/seats'
++import { getPlayerSeat } from '@/db/seats'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollGetResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /** Where a roll the player sent to the Gamemaster's game stands, and what the game made of it. */
+ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/rolls/[roll]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id, roll } = await context.params
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404, headers })
+-
+-  return rollGetResponse(playerSeat(character, user.id), roll)
++  return seatAnswer(
++    context.params,
++    (userId, { id }) => getPlayerSeat(userId, id),
++    (seat, { roll }) => rollGetResponse(seat, roll),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/rolls/route.ts b/src/app/api/characters/[id]/rolls/route.ts
+index 61e49f0..86fe443 100644
+--- a/src/app/api/characters/[id]/rolls/route.ts
++++ b/src/app/api/characters/[id]/rolls/route.ts
+@@ -1,11 +1,8 @@
+-import { getCharacter } from '@/db/characters'
+-import { playerSeat } from '@/db/seats'
++import { getPlayerSeat } from '@/db/seats'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { rollPostResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * Have a roll the player made here made in the Gamemaster's game, with the same dice, when the
+  * Gamemaster lets players do so. Answers 202 Accepted with the roll's id, to ask after at
+@@ -17,12 +14,9 @@ export async function POST(
+   request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/rolls'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id } = await context.params
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404, headers })
+-
+-  return rollPostResponse(request, playerSeat(character, user.id))
++  return seatAnswer(
++    context.params,
++    (userId, { id }) => getPlayerSeat(userId, id),
++    seat => rollPostResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/table/route.ts b/src/app/api/characters/[id]/table/route.ts
+index 2e249f6..bbfb8c6 100644
+--- a/src/app/api/characters/[id]/table/route.ts
++++ b/src/app/api/characters/[id]/table/route.ts
+@@ -1,11 +1,8 @@
+-import { getCharacter } from '@/db/characters'
+-import { playerSeat } from '@/db/seats'
++import { getPlayerSeat } from '@/db/seats'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { tableResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import type { NextRequest } from 'next/server'
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * A character's view of its campaign, for the player's page to poll. Pass the version, the
+  * liveness and the rolls the game takes, with what else it does with them, as last seen, as
+@@ -16,12 +13,9 @@ export async function GET(
+   request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/table'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401, headers })
+-
+-  const { id } = await context.params
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404, headers })
+-
+-  return tableResponse(request, playerSeat(character, user.id))
++  return seatAnswer(
++    context.params,
++    (userId, { id }) => getPlayerSeat(userId, id),
++    seat => tableResponse(request, seat),
++  )
+ }
+diff --git a/src/app/api/characters/[id]/texts/[hash]/route.ts b/src/app/api/characters/[id]/texts/[hash]/route.ts
+index d74ca26..e1f5284 100644
+--- a/src/app/api/characters/[id]/texts/[hash]/route.ts
++++ b/src/app/api/characters/[id]/texts/[hash]/route.ts
+@@ -1,7 +1,7 @@
+-import { getCharacter } from '@/db/characters'
+-import { playerSeat } from '@/db/seats'
++import { getPlayerSeat } from '@/db/seats'
++import { NO_HEADERS } from '@/lib/routes/http'
++import { seatAnswer } from '@/lib/routes/seat-resolver'
+ import { textResponse } from '@/lib/routes/seat-routes'
+-import { getCurrentUser } from '@/lib/session'
+ import { TEXT_HASH } from '@/schemas/sending-stone'
+ import type { NextRequest } from 'next/server'
+ 
+@@ -14,13 +14,11 @@ export async function GET(
+   _request: NextRequest,
+   context: RouteContext<'/api/characters/[id]/texts/[hash]'>,
+ ) {
+-  const user = await getCurrentUser()
+-  if (!user) return new Response(undefined, { status: 401 })
+-
+-  const { id, hash } = await context.params
+-  if (!TEXT_HASH.test(hash)) return new Response(undefined, { status: 404 })
+-  const character = await getCharacter(user.id, id)
+-  if (!character) return new Response(undefined, { status: 404 })
+-
+-  return textResponse(playerSeat(character, user.id), hash)
++  return seatAnswer(
++    context.params,
++    async (userId, { id, hash }) =>
++      TEXT_HASH.test(hash) ? getPlayerSeat(userId, id) : undefined,
++    (seat, { hash }) => textResponse(seat, hash),
++    { headers: NO_HEADERS },
++  )
+ }
+diff --git a/src/app/api/cookbook/dishes/route.test.ts b/src/app/api/cookbook/dishes/route.test.ts
+index c2ffa22..eb3918f 100644
+--- a/src/app/api/cookbook/dishes/route.test.ts
++++ b/src/app/api/cookbook/dishes/route.test.ts
+@@ -2,15 +2,11 @@
+  * @jest-environment node
+  */
+ import * as route from './route'
+-import {
+-  acceptDish,
+-  deleteCookbookLink,
+-  findCookbookLink,
+-  type CookbookLinkFound,
+-} from '@/db/cookbook'
++import { acceptDish, deleteCookbookLink, findCookbookLink } from '@/db/cookbook'
+ import { hashCookbookCode } from '@/lib/cookbook-code'
+ import { fireberryBoon } from '@/mocks/cookbook'
+ import { guardNoDb } from '@/utils/test-utils-node'
++import type { CookbookLinkFound } from '@/db/types'
+ 
+ guardNoDb()
+ 
+diff --git a/src/app/api/events/route.ts b/src/app/api/events/route.ts
+index f40d0be..1d3bf34 100644
+--- a/src/app/api/events/route.ts
++++ b/src/app/api/events/route.ts
+@@ -28,6 +28,7 @@ import {
+ import { recordDishDecision } from '@/db/cookbook'
+ import { recordCommandResult } from '@/db/roll-requests'
+ import { bearerSecret } from '@/lib/campaign-secret'
++import { readBody } from '@/lib/routes/body'
+ import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
+ import { toForgeGameUrl } from '@/schemas/campaign'
+ import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
+@@ -96,20 +97,20 @@ export async function POST(request: Request) {
+   }
+ 
+   // Refused before reading when the size is declared; checked again for a body that wasn't.
+-  const declared = Number(request.headers.get('content-length'))
+-  if (declared > MAX_ENVELOPE_BYTES) return tooLarge()
+-  const body = await request.text()
+-  if (Buffer.byteLength(body) > MAX_ENVELOPE_BYTES) return tooLarge()
++  const body = await readBody(request, {
++    limit: MAX_ENVELOPE_BYTES,
++    declared: true,
++  })
++  if (!body.ok && body.why === 'size') return tooLarge()
+ 
+-  let envelope
+-  try {
+-    envelope = envelopeSchema.parse(JSON.parse(body))
+-  } catch {
++  const parsed = body.ok ? envelopeSchema.safeParse(body.value) : undefined
++  if (!parsed?.success) {
+     return refuse(request, 400, {
+       reason: REFUSAL.BAD_ENVELOPE,
+       message: 'Not a Sending Stone envelope',
+     })
+   }
++  const envelope = parsed.data
+   if (envelope.protocol !== PROTOCOL_VERSION) {
+     return refuse(request, 400, {
+       reason: REFUSAL.UNSUPPORTED_PROTOCOL,
+diff --git a/src/db/campaign-events.ts b/src/db/campaign-events.ts
+index cac309b..d154275 100644
+--- a/src/db/campaign-events.ts
++++ b/src/db/campaign-events.ts
+@@ -11,7 +11,6 @@ import {
+   applyJournalUpdated,
+   drawJournal,
+   reconcileJournals,
+-  type JournalDrawings,
+ } from '@/db/note-sync'
+ import { groupRoster } from '@/db/party'
+ import {
+@@ -20,6 +19,7 @@ import {
+   saveSheetTexts,
+ } from '@/db/sheet-texts'
+ import { companionRoster } from '@/utils/companions'
++import type { JournalDrawings, Tx } from '@/db/types'
+ import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
+ import type {
+   CampaignRef,
+@@ -41,7 +41,6 @@ import type { Prisma } from '@prisma/client'
+ // Every handler is idempotent. The module retries a post whose answer was lost with the same
+ // envelope, and only ever before sending the next one, so applying a duplicate again is harmless.
+ 
+-type Tx = Prisma.TransactionClient
+ type World = { id: string; title: string }
+ 
+ /**
+diff --git a/src/db/campaigns.ts b/src/db/campaigns.ts
+index 673ffae..08609e7 100644
+--- a/src/db/campaigns.ts
++++ b/src/db/campaigns.ts
+@@ -16,6 +16,7 @@ import { companionRoster } from '@/utils/companions'
+ import { literalPattern } from '@/utils/literal-pattern'
+ import { availableRollKinds } from '@/utils/requests/availability'
+ import { transfersAvailable } from '@/utils/transfers'
++import type { EventCampaign } from './types'
+ import type {
+   CampaignChoice,
+   CampaignRefusal,
+@@ -335,10 +336,6 @@ export async function removeCampaign(
+ /*  The module                                  */
+ /* -------------------------------------------- */
+ 
+-/** The campaign an event is for, with the module session whose state it holds, if any. */
+-export type EventCampaign =
+-  { id: string; helloSession?: string } | 'unknown' | 'refused'
+-
+ /**
+  * Find the campaign an event is for, and check that the secret it came with is that campaign's.
+  * The module's campaign is bound by its first event to the campaign set up here with its title
+diff --git a/src/db/companions.ts b/src/db/companions.ts
+index 4fd300a..1b28463 100644
+--- a/src/db/companions.ts
++++ b/src/db/companions.ts
+@@ -25,16 +25,15 @@ import {
+   toTableCombat,
+   toTableSheet,
+ } from '@/utils/table-view'
+-import type { RollSeat } from '@/db/types'
++import type { RollSeat, CompanionStatus } from '@/db/types'
+ import type { SheetSeat } from '@/types/character'
+-import type { RollFeature, RollKind } from '@/types/roll'
+ import type {
+   CharacterSheet,
+   CombatSnapshot,
+   CompanionEntry,
+   ConnectedCharacter,
+ } from '@/types/sending-stone'
+-import type { CompanionView, GmRolls, Viewer } from '@/types/table'
++import type { CompanionView, Viewer } from '@/types/table'
+ 
+ // A campaign's characters' companions, from module 0.36.0: each seen, and rolled for, from its
+ // character's seat, by that character's player or the campaign's Gamemaster, through a companion
+@@ -106,23 +105,6 @@ export function companionRollSeat(
+   }
+ }
+ 
+-/**
+- * What tells a companion's pane whether anything is new: as a character's view, the campaign's
+- * version, whether it's live, the rolls the game takes for it and what else it does with them,
+- * where the Gamemaster's rolls go at their seat, what changes whenever any of the Gamemaster's
+- * rolls as it does, at its player's, and whether its player types in their own dice. A change of
+- * how companions enter initiative comes in a hello, which moves the version.
+- */
+-export type CompanionStatus = {
+-  version: number
+-  live: boolean
+-  rollsToTable: RollKind[]
+-  rollFeatures: RollFeature[]
+-  gm?: { rolls: GmRolls }
+-  gmRollsKey?: string
+-  typed: boolean
+-}
+-
+ /** What a companion's campaign is read for, for its view and its status. */
+ const companionSelect = {
+   version: true,
+diff --git a/src/db/cookbook.test.ts b/src/db/cookbook.test.ts
+index d4f886f..9456879 100644
+--- a/src/db/cookbook.test.ts
++++ b/src/db/cookbook.test.ts
+@@ -13,8 +13,6 @@ import {
+   recordDishResult,
+   revokeCampaignCookbookLink,
+   revokeCookbookLink,
+-  type CookbookLinkFound,
+-  type DishDecision,
+ } from './cookbook'
+ import {
+   DISH_ATTEMPTS,
+@@ -31,6 +29,7 @@ import { hashCookbookCode } from '@/lib/cookbook-code'
+ import { fireberryBoon } from '@/mocks/cookbook'
+ import { dishResult } from '@/mocks/sending-stone'
+ import { prismaMock } from '@/utils/test-utils-node'
++import type { CookbookLinkFound, DishDecision } from './types'
+ import type { DishApplied, DishDismissed } from '@/types/sending-stone'
+ 
+ const NOW = Date.parse('2026-10-25T12:00:00Z')
+diff --git a/src/db/cookbook.ts b/src/db/cookbook.ts
+index 5b8d4e3..6df1165 100644
+--- a/src/db/cookbook.ts
++++ b/src/db/cookbook.ts
+@@ -1,5 +1,5 @@
+ import { randomUUID } from 'node:crypto'
+-import { Prisma, type CookbookDishStatus } from '@prisma/client'
++import { Prisma } from '@prisma/client'
+ import prisma from '@/clients/prisma'
+ import {
+   DISH_ATTEMPTS,
+@@ -16,17 +16,20 @@ import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+ import { isLive } from '@/db/campaigns'
+ import { due as pruneDue } from '@/db/commands'
+ import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
++import type {
++  CookbookLinkFound,
++  DishAccepted,
++  CookbookLinkProblem,
++  DishDecision,
++  CookbookSeat,
++} from './types'
+ import type {
+   CookbookDishBody,
+   CookbookDishView,
+   CookbookView,
+   DishCommand,
+ } from '@/types/cookbook'
+-import type {
+-  CommandResult,
+-  DishApplied,
+-  DishDismissed,
+-} from '@/types/sending-stone'
++import type { CommandResult } from '@/types/sending-stone'
+ 
+ // Dishes from the Magical Recipe Book, from module 0.38.0: a player's link code names their seat,
+ // and each dish the cookbook's server posts with it is kept here for its campaign. A dish rides to
+@@ -40,17 +43,6 @@ import type {
+ const MINUTE = 60_000
+ const DAY = 24 * 60 * MINUTE
+ 
+-/** A link as the cookbook's post is checked against it. */
+-export type CookbookLinkFound = {
+-  id: string
+-  campaignId: string
+-  actorId: string
+-  characterId: string
+-  /** Its seat now: the link holds only while these are still the link's. */
+-  character: { campaignId: string | null; actorId: string | null }
+-  campaign: { dishesEnabled: boolean; dishVersions: number[] }
+-}
+-
+ /** The link a code's hash names, or null where none does. */
+ export async function findCookbookLink(
+   codeHash: string,
+@@ -73,11 +65,6 @@ export async function deleteCookbookLink(id: string): Promise<void> {
+   await prisma.cookbookLink.deleteMany({ where: { id } })
+ }
+ 
+-/** What became of a dish posted: taken, held already, or why not. */
+-export type DishAccepted =
+-  | { kind: 'new' | 'repeat'; id: string; status: CookbookDishStatus }
+-  | { kind: 'off' | 'update' | 'busy' | 'daily' | 'full' }
+-
+ /**
+  * Take a dish posted through a link. A dish the campaign holds already is answered as it stands,
+  * before any gate, as the cookbook would otherwise make its player send it again for ever; the
+@@ -161,9 +148,6 @@ const isTaken = (error: unknown) =>
+   error instanceof Prisma.PrismaClientKnownRequestError &&
+   error.code === 'P2002'
+ 
+-/** Why no link code was made. */
+-export type CookbookLinkProblem = 'missing' | 'not-playing'
+-
+ /**
+  * Make a link code for one of the user's characters, while it plays a character of a campaign:
+  * a new one replaces the old, which stops working at once, and the link keeps its id. Only its
+@@ -368,11 +352,6 @@ export async function recordDishResult(
+   }
+ }
+ 
+-/** A Gamemaster's choice of what became of a dish, as the module's bridge tells of it. */
+-export type DishDecision =
+-  | { type: 'dish.applied'; data: DishApplied }
+-  | { type: 'dish.dismissed'; data: DishDismissed }
+-
+ /**
+  * Record what the Gamemaster did with a dish in Foundry. Served, it names everyone served so far,
+  * so each overwrites the last; set aside or deleted never undoes one served, and nothing goes
+@@ -407,9 +386,6 @@ export async function recordDishDecision(
+   })
+ }
+ 
+-/** A player's character playing in a campaign, whose card is drawn. */
+-export type CookbookSeat = { id: string; campaignId: string; actorId: string }
+-
+ /**
+  * A player's Magical Recipe Book card, but its version: whether the campaign takes dishes, whether
+  * its game is sending, the character's link, and its latest dishes, newest first. A link made for
+diff --git a/src/db/note-sync.ts b/src/db/note-sync.ts
+index a175f22..0224b5e 100644
+--- a/src/db/note-sync.ts
++++ b/src/db/note-sync.ts
+@@ -10,7 +10,13 @@ import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
+ import { NO_DICE } from '@/constants/roll-kinds'
+ import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+ import { noteHtml } from '@/lib/note-html'
+-import type { NotePageCommand } from './types'
++import type {
++  NotePageCommand,
++  JournalDrawings,
++  NoteCommand,
++  NoteOrderCommand,
++  Tx,
++} from './types'
+ import type { NoteBookKind, NoteReason } from '@/types/notes'
+ import type {
+   CommandResult,
+@@ -29,31 +35,9 @@ import type {
+ // over with the notes' changes, oldest first across both; and the book keeps who last deleted or
+ // reordered its pages in Foundry, and when, as the module says.
+ 
+-type Tx = Prisma.TransactionClient
+-
+ /** How long a made change is kept, so the seat's limit has rows to count while Foundry is live. */
+ export const MADE_KEPT_FOR = 3_600_000
+ 
+-/**
+- * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
+- * ids in the new order, and in Foundry's order it was made from.
+- */
+-export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
+-  note: {
+-    book: NoteBookKind
+-    op: 'order'
+-    /** The group: a chapter's page, or null for the notes in no chapter. */
+-    chapter: string | null
+-    ids: string[]
+-    was: string[]
+-    writer: string | null
+-    at: number
+-  }
+-}
+-
+-/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
+-export type NoteCommand = NotePageCommand | NoteOrderCommand
+-
+ /**
+  * On each hello from module 0.34.0 (§4.6): the books whose journal it no longer lists are emptied,
+  * for each of the campaign's characters and parties it names. A book of an actor it doesn't name is
+@@ -174,9 +158,6 @@ function redrawn(
+   )
+ }
+ 
+-/** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
+-export type JournalDrawings = { origin: string; html: Map<string, string> }
+-
+ /**
+  * Draw a `journal.updated`'s notes ahead (§8.9), before the transaction that keeps them: a large
+  * book's Markdown takes seconds to draw, longer than a transaction may stay open. Only those the
+diff --git a/src/db/notes.test.ts b/src/db/notes.test.ts
+index df6b429..a355a3f 100644
+--- a/src/db/notes.test.ts
++++ b/src/db/notes.test.ts
+@@ -19,10 +19,9 @@ import {
+   reorderNotes,
+   resolveNote,
+   resolveOrder,
+-  type NotesBook,
+-  type NotesSeat,
+ } from './notes'
+ import { prismaMock } from '@/utils/test-utils-node'
++import type { NotesBook, NotesSeat } from './types'
+ 
+ const NOW = Date.parse('2026-10-22T12:00:00Z')
+ const ago = (ms: number) => new Date(NOW - ms)
+diff --git a/src/db/notes.ts b/src/db/notes.ts
+index 803e40d..058395a 100644
+--- a/src/db/notes.ts
++++ b/src/db/notes.ts
+@@ -23,6 +23,7 @@ import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
+ import { checkChange } from '@/schemas/notes'
+ import { bigHeadings } from '@/utils/note-headings'
+ import { newNoteId } from '@/utils/note-id'
++import type { NotesBook, NotesSeat, NoteRights, NoteAnswer } from './types'
+ import type {
+   NoteBookKind,
+   NoteChapterView,
+@@ -32,7 +33,6 @@ import type {
+   NoteOrder,
+   NoteOrderResolve,
+   NoteReason,
+-  NoteRefusal,
+   NoteRole,
+   NotesView,
+   NoteState,
+@@ -52,49 +52,6 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
+ // wrote the notes. And the book keeps its last change that leaves no note to show it: a delete, an
+ // order, or a refused change sent again, here or in Foundry.
+ 
+-/**
+- * Who is at a book of notes, as its route resolved them from the session and the address alone:
+- * the character's player, as their character, or the campaign's Gamemaster, as no character.
+- */
+-export type NotesSeat = {
+-  role: 'player' | 'gm'
+-  userId: string
+-  /** The player's character's actor, which they write as; null for the Gamemaster. */
+-  actorId: string | null
+-  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
+-  name: string
+-}
+-
+-/** The book a seat is at: a character's or a party's, in one campaign. */
+-export type NotesBook = {
+-  campaignId: string
+-  kind: NoteBookKind
+-  /** The character's actor, or the party's Group actor. */
+-  actorId: string
+-  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
+-  private: boolean
+-}
+-
+-/** What a change answered: done, with the note's id and stamp now, or why not, with a status. */
+-export type NoteAnswer =
+-  | { ok: true; id?: string; stamp: string }
+-  | {
+-      ok: false
+-      status: 400 | 403 | 404 | 409 | 422 | 429
+-      reason: NoteRefusal
+-      field?: string
+-      lines?: number[]
+-    }
+-
+-/** What a seat may do in a book, and with a note in it (§8.5). */
+-export type NoteRights = {
+-  canAdd: boolean
+-  canRename: boolean
+-  canEdit: boolean
+-  canDelete: boolean
+-  canReorder: boolean
+-}
+-
+ /** The name the Gamemaster writes as, in both books (Q5). */
+ const GAMEMASTER = 'Gamemaster'
+ 
+diff --git a/src/db/party.test.ts b/src/db/party.test.ts
+index f96288c..1bfed49 100644
+--- a/src/db/party.test.ts
++++ b/src/db/party.test.ts
+@@ -6,7 +6,6 @@ import {
+   partyNotesAccess,
+   partySeat,
+   tableGroups,
+-  type PartySeat,
+ } from './party'
+ import { playerSeat } from './seats'
+ import { getTableView } from './table'
+@@ -18,6 +17,7 @@ import {
+ } from '@/mocks/sending-stone'
+ import { inventoryView } from '@/utils/table-view'
+ import { prismaMock } from '@/utils/test-utils-node'
++import type { PartySeat } from './types'
+ import type { SheetSeat } from '@/types/character'
+ 
+ const ORIGIN = 'https://my-game.forge-vtt.com'
+diff --git a/src/db/party.ts b/src/db/party.ts
+index 7363d14..902459b 100644
+--- a/src/db/party.ts
++++ b/src/db/party.ts
+@@ -4,6 +4,7 @@ import { isLive } from '@/db/campaigns'
+ import { FOUNDRY_ID } from '@/db/constants'
+ import { inventoryView, portraitUrl } from '@/utils/table-view'
+ import { transfersAvailable } from '@/utils/transfers'
++import type { PartySeat } from './types'
+ import type { SheetSeat } from '@/types/character'
+ import type {
+   AllowedGroup,
+@@ -24,17 +25,6 @@ import type {
+ // that a player whose access is taken away in Foundry loses it here at once. Anyone else is told
+ // nothing: a group that isn't there, a campaign that isn't theirs and no access all look the same.
+ 
+-/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
+-export type PartySeat =
+-  | {
+-      role: 'player'
+-      campaignId: string | null
+-      actorId: string | null
+-      characterId: string
+-      name: string
+-    }
+-  | { role: 'gm'; campaignId: string; userId: string }
+-
+ /** A seat at a character's sheet, at its party sheets: the same player, or the same Gamemaster. */
+ export function partySeat(seat: SheetSeat): PartySeat {
+   if (seat.role === 'gm') {
+diff --git a/src/db/roll-requests.ts b/src/db/roll-requests.ts
+index e98a310..b0cddb3 100644
+--- a/src/db/roll-requests.ts
++++ b/src/db/roll-requests.ts
+@@ -631,29 +631,29 @@ export async function recordCommandResult(
+   })
+   // No roll of that id: from module 0.34.0, a note command's, which is no roll.
+   if (count === 0) return recordNoteResult(campaignId, result)
++  await recordRollResult(campaignId, result)
++}
++
++/**
++ * What a roll's result, once recorded, marks: the chat messages the Gamemaster's roll made as
++ * theirs, and what the game asked that a save answered, closed. The campaign's pages are told only
++ * when that changes what they show.
++ */
++async function recordRollResult(
++  campaignId: string,
++  result: CommandResult,
++): Promise<void> {
+   const listed = result.messages ?? []
+-  const answers = made || result.reason === 'prompt'
++  const answers = result.status === 'done' || result.reason === 'prompt'
+   if (!answers && listed.length === 0) return
+   const request = await prisma.rollRequest.findFirst({
+     where: { id: result.id, campaignId },
+     select: { payload: true, role: true },
+   })
+-  // Only what the module said a roll handed over as the Gamemaster's made, never a player's.
+-  const marked =
+-    request?.role === 'gm' && listed.length > 0
+-      ? await prisma.chatMessage.updateMany({
+-          where: { campaignId, messageId: { in: listed }, byGm: false },
+-          data: { byGm: true },
+-        })
+-      : { count: 0 }
+-  const prompt = answers
+-    ? (request?.payload as RollRequestInput | null)?.prompt
+-    : undefined
+-  const reason = made ? 'answered' : (result.error ?? 'gone')
++  const marked = await markGmMessages(campaignId, request?.role, listed)
+   const closed =
+-    !!prompt && (await closePrompt(prisma, campaignId, prompt, reason))
+-  // The campaign's pages are told only when that changes what they show.
+-  if (marked.count > 0 || closed) {
++    answers && (await closeAnsweredPrompt(campaignId, request?.payload, result))
++  if (marked || closed) {
+     await prisma.campaign.update({
+       where: { id: campaignId },
+       data: { version: { increment: 1 } },
+@@ -661,6 +661,39 @@ export async function recordCommandResult(
+   }
+ }
+ 
++/**
++ * Mark as the Gamemaster's the chat messages the module said a roll handed over as theirs made;
++ * never a player's.
++ * @returns Whether any was marked.
++ */
++async function markGmMessages(
++  campaignId: string,
++  role: string | undefined,
++  listed: string[],
++): Promise<boolean> {
++  if (role !== 'gm' || listed.length === 0) return false
++  const marked = await prisma.chatMessage.updateMany({
++    where: { campaignId, messageId: { in: listed }, byGm: false },
++    data: { byGm: true },
++  })
++  return marked.count > 0
++}
++
++/**
++ * Close what the game asked that a roll answered: made, or found to wait no longer.
++ * @returns Whether it closed.
++ */
++async function closeAnsweredPrompt(
++  campaignId: string,
++  payload: Prisma.JsonValue | undefined,
++  result: CommandResult,
++): Promise<boolean> {
++  const prompt = (payload as RollRequestInput | null | undefined)?.prompt
++  const reason =
++    result.status === 'done' ? 'answered' : (result.error ?? 'gone')
++  return !!prompt && closePrompt(prisma, campaignId, prompt, reason)
++}
++
+ /**
+  * Note that the module is fetching players' rolls, which also says its game is connected.
+  * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
+diff --git a/src/db/seats.ts b/src/db/seats.ts
+index 568fd81..e50a081 100644
+--- a/src/db/seats.ts
++++ b/src/db/seats.ts
+@@ -1,4 +1,5 @@
+ import prisma from '@/clients/prisma'
++import { getCharacter } from '@/db/characters'
+ import { FOUNDRY_ID } from '@/db/constants'
+ import type { Character, SheetSeat } from '@/types/character'
+ import type { ConnectedCharacter } from '@/types/sending-stone'
+@@ -25,6 +26,18 @@ export function playerSeat(character: Character, userId: string): SheetSeat {
+   }
+ }
+ 
++/**
++ * A player at their own Character's sheet, found by its id.
++ * @returns Undefined for a character that isn't the user's.
++ */
++export async function getPlayerSeat(
++  userId: string,
++  characterId: string,
++): Promise<SheetSeat | undefined> {
++  const character = await getCharacter(userId, characterId)
++  return character ? playerSeat(character, userId) : undefined
++}
++
+ /**
+  * The Gamemaster at one of their campaign's characters' sheets: only the campaign's owner, and
+  * only for an actor in its roster, claimed or not.
+diff --git a/src/db/sheet-texts.ts b/src/db/sheet-texts.ts
+index a8febe6..170c80e 100644
+--- a/src/db/sheet-texts.ts
++++ b/src/db/sheet-texts.ts
+@@ -1,16 +1,14 @@
+ import prisma from '@/clients/prisma'
+ import { sanitizeSheetHtml } from '@/lib/sheet-html'
+ import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
++import type { Tx } from './types'
+ import type { Character } from '@/types/character'
+ import type { AllowedGroup } from '@/types/party'
+ import type { CharacterSheet, GroupSheet } from '@/types/sending-stone'
+-import type { Prisma } from '@prisma/client'
+ 
+ // The descriptions a campaign's sheets refer to by hash. The module sends each before the sheet
+ // that refers to it, and the same hash always names the same description.
+ 
+-type Tx = Prisma.TransactionClient
+-
+ /**
+  * Keep descriptions for a campaign, sanitised, with images and links pointing at its game.
+  * @param tx - The transaction applying the event.
+diff --git a/src/db/table.ts b/src/db/table.ts
+index b4fd559..39f607a 100644
+--- a/src/db/table.ts
++++ b/src/db/table.ts
+@@ -34,9 +34,9 @@ import {
+ } from '@/utils/table-view'
+ import { transfersAvailable } from '@/utils/transfers'
+ import { wildShapeAvailable } from '@/utils/wild-shape'
++import type { CampaignStatus } from './types'
+ import type { SheetSeat } from '@/types/character'
+ import type { PromptData } from '@/types/prompts'
+-import type { RollFeature, RollKind } from '@/types/roll'
+ import type {
+   CharacterSheet,
+   CombatSnapshot,
+@@ -52,36 +52,6 @@ import type { Prisma } from '@prisma/client'
+ /** The most recent chat messages shown. */
+ export const MESSAGE_LIMIT = 100
+ 
+-/**
+- * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
+- * which rolls its game takes from players, and what else it does with them; for the Gamemaster at
+- * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
+- * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
+- * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
+- * taking moves or not changes with no new version; and from module 0.32.0, whether the player
+- * types in their own dice for it, which another of their devices may change; and from module
+- * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
+- * changes with no new version; and from module 0.37.0 whether the player may change its
+- * character's favorites, which likewise changes with no new version; and from module 0.39.0
+- * whether the player may change its character's own effects, which likewise changes with no new
+- * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
+- * with no new version.
+- */
+-export type CampaignStatus = {
+-  version: number
+-  live: boolean
+-  rollsToTable: RollKind[]
+-  rollFeatures: RollFeature[]
+-  gm?: { rolls: GmRolls }
+-  gmRollsKey?: string
+-  moves: boolean
+-  typed: boolean
+-  removes: boolean
+-  favorites: boolean
+-  effects: boolean
+-  wildShape: boolean
+-}
+-
+ /**
+  * The rolls the campaign's Gamemaster made as a player's character (#156) that its player is shown,
+  * beside their own: those of the character's actor in its campaign, of those kept. None for the
+diff --git a/src/db/types.ts b/src/db/types.ts
+index 3382c22..75800a2 100644
+--- a/src/db/types.ts
++++ b/src/db/types.ts
+@@ -1,10 +1,20 @@
+ import type { BRIDGE_SWITCHES } from '@/constants/features'
+ import type { SheetSeat } from '@/types/character'
+-import type { NoteBookKind, NoteRole } from '@/types/notes'
+-import type { RollKindInfo, RollRequestInput } from '@/types/roll'
+-import type { CharacterSheet } from '@/types/sending-stone'
++import type { NoteBookKind, NoteRole, NoteRefusal } from '@/types/notes'
++import type {
++  RollKindInfo,
++  RollRequestInput,
++  RollKind,
++  RollFeature,
++} from '@/types/roll'
++import type {
++  CharacterSheet,
++  DishApplied,
++  DishDismissed,
++} from '@/types/sending-stone'
++import type { GmRolls } from '@/types/table'
+ import type { RollRefusal } from '@/utils/requests/types'
+-import type { Prisma } from '@prisma/client'
++import type { Prisma, CookbookDishStatus } from '@prisma/client'
+ 
+ /** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
+ export type NotePageCommand = {
+@@ -125,3 +135,161 @@ export type CommandCreator = (
+   seat: SheetSeat,
+   input: RollRequestInput,
+ ) => Promise<{ id: string } | RollRejection>
++
++/**
++ * Who is at a book of notes, as its route resolved them from the session and the address alone:
++ * the character's player, as their character, or the campaign's Gamemaster, as no character.
++ */
++export type NotesSeat = {
++  role: 'player' | 'gm'
++  userId: string
++  /** The player's character's actor, which they write as; null for the Gamemaster. */
++  actorId: string | null
++  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
++  name: string
++}
++
++/** The book a seat is at: a character's or a party's, in one campaign. */
++export type NotesBook = {
++  campaignId: string
++  kind: NoteBookKind
++  /** The character's actor, or the party's Group actor. */
++  actorId: string
++  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
++  private: boolean
++}
++
++/** What a change answered: done, with the note's id and stamp now, or why not, with a status. */
++export type NoteAnswer =
++  | { ok: true; id?: string; stamp: string }
++  | {
++      ok: false
++      status: 400 | 403 | 404 | 409 | 422 | 429
++      reason: NoteRefusal
++      field?: string
++      lines?: number[]
++    }
++
++/** What a seat may do in a book, and with a note in it (§8.5). */
++export type NoteRights = {
++  canAdd: boolean
++  canRename: boolean
++  canEdit: boolean
++  canDelete: boolean
++  canReorder: boolean
++}
++
++/** A link as the cookbook's post is checked against it. */
++export type CookbookLinkFound = {
++  id: string
++  campaignId: string
++  actorId: string
++  characterId: string
++  /** Its seat now: the link holds only while these are still the link's. */
++  character: { campaignId: string | null; actorId: string | null }
++  campaign: { dishesEnabled: boolean; dishVersions: number[] }
++}
++
++/** What became of a dish posted: taken, held already, or why not. */
++export type DishAccepted =
++  | { kind: 'new' | 'repeat'; id: string; status: CookbookDishStatus }
++  | { kind: 'off' | 'update' | 'busy' | 'daily' | 'full' }
++
++/** Why no link code was made. */
++export type CookbookLinkProblem = 'missing' | 'not-playing'
++
++/** A Gamemaster's choice of what became of a dish, as the module's bridge tells of it. */
++export type DishDecision =
++  | { type: 'dish.applied'; data: DishApplied }
++  | { type: 'dish.dismissed'; data: DishDismissed }
++
++/** A player's character playing in a campaign, whose card is drawn. */
++export type CookbookSeat = { id: string; campaignId: string; actorId: string }
++
++/** The campaign an event is for, with the module session whose state it holds, if any. */
++export type EventCampaign =
++  { id: string; helloSession?: string } | 'unknown' | 'refused'
++
++/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
++export type PartySeat =
++  | {
++      role: 'player'
++      campaignId: string | null
++      actorId: string | null
++      characterId: string
++      name: string
++    }
++  | { role: 'gm'; campaignId: string; userId: string }
++
++/**
++ * What tells a companion's pane whether anything is new: as a character's view, the campaign's
++ * version, whether it's live, the rolls the game takes for it and what else it does with them,
++ * where the Gamemaster's rolls go at their seat, what changes whenever any of the Gamemaster's
++ * rolls as it does, at its player's, and whether its player types in their own dice. A change of
++ * how companions enter initiative comes in a hello, which moves the version.
++ */
++export type CompanionStatus = {
++  version: number
++  live: boolean
++  rollsToTable: RollKind[]
++  rollFeatures: RollFeature[]
++  gm?: { rolls: GmRolls }
++  gmRollsKey?: string
++  typed: boolean
++}
++
++/**
++ * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
++ * which rolls its game takes from players, and what else it does with them; for the Gamemaster at
++ * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
++ * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
++ * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
++ * taking moves or not changes with no new version; and from module 0.32.0, whether the player
++ * types in their own dice for it, which another of their devices may change; and from module
++ * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
++ * changes with no new version; and from module 0.37.0 whether the player may change its
++ * character's favorites, which likewise changes with no new version; and from module 0.39.0
++ * whether the player may change its character's own effects, which likewise changes with no new
++ * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
++ * with no new version.
++ */
++export type CampaignStatus = {
++  version: number
++  live: boolean
++  rollsToTable: RollKind[]
++  rollFeatures: RollFeature[]
++  gm?: { rolls: GmRolls }
++  gmRollsKey?: string
++  moves: boolean
++  typed: boolean
++  removes: boolean
++  favorites: boolean
++  effects: boolean
++  wildShape: boolean
++}
++
++/**
++ * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
++ * ids in the new order, and in Foundry's order it was made from.
++ */
++export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
++  note: {
++    book: NoteBookKind
++    op: 'order'
++    /** The group: a chapter's page, or null for the notes in no chapter. */
++    chapter: string | null
++    ids: string[]
++    was: string[]
++    writer: string | null
++    at: number
++  }
++}
++
++/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
++export type NoteCommand = NotePageCommand | NoteOrderCommand
++
++/** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
++export type JournalDrawings = { origin: string; html: Map<string, string> }
++
++/** A database transaction's client, as the writes made in one take it. */
++export type Tx = Prisma.TransactionClient
+diff --git a/src/lib/routes/body.ts b/src/lib/routes/body.ts
+new file mode 100644
+index 0000000..034552c
+--- /dev/null
++++ b/src/lib/routes/body.ts
+@@ -0,0 +1,29 @@
++import type { BodyRead, BodyRules } from '@/lib/routes/types'
++
++/**
++ * A request's JSON body, read within its route's limit; or why it can't be: not sent as JSON
++ * (`type`, where the route asks for it, as a page on another site can't send JSON without asking
++ * first), larger than the limit (`size`: refused before reading where the route trusts a declared
++ * size, and checked again once read), or no JSON (`json`). Each route answers each as it always
++ * has.
++ */
++export async function readBody(
++  request: Request,
++  { limit, type, declared = false, reviver }: BodyRules,
++): Promise<BodyRead> {
++  if (type) {
++    const given = request.headers.get('content-type')
++    const said = type === 'lower' ? given?.toLowerCase() : given
++    if (!said?.startsWith('application/json')) return { ok: false, why: 'type' }
++  }
++  if (declared && Number(request.headers.get('content-length')) > limit) {
++    return { ok: false, why: 'size' }
++  }
++  const text = await request.text()
++  if (Buffer.byteLength(text) > limit) return { ok: false, why: 'size' }
++  try {
++    return { ok: true, text, value: JSON.parse(text, reviver) }
++  } catch {
++    return { ok: false, why: 'json' }
++  }
++}
+diff --git a/src/lib/routes/bridge-http.ts b/src/lib/routes/bridge-http.ts
+index d1a892a..91fea6a 100644
+--- a/src/lib/routes/bridge-http.ts
++++ b/src/lib/routes/bridge-http.ts
+@@ -1,4 +1,4 @@
+-import type { RefusalReason } from '@/types/sending-stone'
++import type { Refusal } from './types'
+ // What the routes the Gamemaster's module calls share. The module calls them from the Gamemaster's
+ // browser, on the game's page, not from the Foundry server, so they answer CORS like any
+ // cross-origin API.
+@@ -22,23 +22,6 @@ export function cors(request: Request): Headers {
+   return headers
+ }
+ 
+-/**
+- * Why a request from the module is refused, as its JSON body says: a `reason` the module words
+- * itself, a `message` for a module that doesn't know the reason, and what more there is to say.
+- */
+-export type Refusal = {
+-  reason: RefusalReason
+-  message: string
+-  /** The largest body taken, in bytes. */
+-  limit?: number
+-  /** The protocol taken. */
+-  protocol?: number
+-  /** The event type refused. */
+-  type?: string
+-  /** What was wrong with it. */
+-  detail?: string
+-}
+-
+ /**
+  * Refuse a request from the module, keeping the status, which alone decides whether it retries,
+  * and saying why in JSON, CORS headers and all.
+diff --git a/src/lib/routes/companion-routes.ts b/src/lib/routes/companion-routes.ts
+index f08d641..10788b7 100644
+--- a/src/lib/routes/companion-routes.ts
++++ b/src/lib/routes/companion-routes.ts
+@@ -1,4 +1,3 @@
+-import { getCharacter } from '@/db/characters'
+ import {
+   companionRollSeat,
+   companionSeat,
+@@ -7,7 +6,8 @@ import {
+   getCompanionView,
+ } from '@/db/companions'
+ import { notePlayersSeen } from '@/db/roll-requests'
+-import { getGmSeat, playerSeat } from '@/db/seats'
++import { getGmSeat, getPlayerSeat } from '@/db/seats'
++import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
+ import { noting } from '@/lib/routes/seat-routes'
+ import { TEXT_HASH } from '@/schemas/sending-stone'
+ import { rollsKey } from '@/utils/requests/availability'
+@@ -24,8 +24,6 @@ import type { NextRequest } from 'next/server'
+ // or not it's listed now, of the seat's own rolls for it alone, so that one sent a moment before
+ // the module stopped listing it is still followed to what the game made of it.
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /**
+  * The seat at a character's companion, for the character's player: their own Character, then the
+  * companion, while it's that character's.
+@@ -36,10 +34,8 @@ export async function playerCompanionSeat(
+   characterId: string,
+   key: string,
+ ): Promise<SheetSeat | undefined> {
+-  const character = await getCharacter(userId, characterId)
+-  return character
+-    ? companionSeat(playerSeat(character, userId), key)
+-    : undefined
++  const seat = await getPlayerSeat(userId, characterId)
++  return seat ? companionSeat(seat, key) : undefined
+ }
+ 
+ /**
+@@ -68,10 +64,8 @@ export async function playerCompanionRollSeat(
+   characterId: string,
+   key: string,
+ ): Promise<RollSeat | undefined> {
+-  const character = await getCharacter(userId, characterId)
+-  return character
+-    ? companionRollSeat(playerSeat(character, userId), key)
+-    : undefined
++  const seat = await getPlayerSeat(userId, characterId)
++  return seat ? companionRollSeat(seat, key) : undefined
+ }
+ 
+ /**
+@@ -117,20 +111,16 @@ export async function companionTableResponse(
+   if (known.has('version')) {
+     const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey, typed } =
+       await getCompanionStatus(seat)
+-    if (
+-      Number(known.get('version')) === version &&
+-      (known.get('live') === '1') === live &&
+-      (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures) &&
+-      (known.get('gm') ?? undefined) === gm?.rolls &&
+-      (known.get('gmrolls') ?? undefined) === gmRollsKey &&
+-      (known.get('typed') === '1') === typed
+-    ) {
+-      return new Response(undefined, { status: 204, headers })
+-    }
++    const seen = seenAs(
++      known,
++      { version, live, rolls: rollsKey(rollsToTable, rollFeatures), typed },
++      { gm: gm?.rolls, gmrolls: gmRollsKey },
++    )
++    if (seen) return bare(204)
+   }
+   const sheetVersion = known.get('sheet') ?? undefined
+   return Response.json(await getCompanionView(seat, { sheetVersion }), {
+-    headers,
++    headers: NO_STORE,
+   })
+ }
+ 
+@@ -143,14 +133,7 @@ export async function companionTextResponse(
+   seat: SheetSeat,
+   hash: string,
+ ): Promise<Response> {
+-  const html = TEXT_HASH.test(hash)
+-    ? await getCompanionText(seat, hash)
+-    : undefined
+-  if (html === undefined) {
+-    return new Response(undefined, { status: 404, headers })
+-  }
+-  return Response.json(
+-    { html },
+-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
++  return textAnswer(
++    TEXT_HASH.test(hash) ? await getCompanionText(seat, hash) : undefined,
+   )
+ }
+diff --git a/src/lib/routes/cookbook-routes.ts b/src/lib/routes/cookbook-routes.ts
+index 7fc9c27..7595b53 100644
+--- a/src/lib/routes/cookbook-routes.ts
++++ b/src/lib/routes/cookbook-routes.ts
+@@ -13,7 +13,9 @@ import {
+ } from '@/db/cookbook'
+ import { bearerSecret } from '@/lib/campaign-secret'
+ import { hashCookbookCode, isCookbookCode } from '@/lib/cookbook-code'
++import { readBody } from '@/lib/routes/body'
+ import { attempt } from '@/lib/routes/bridge-http'
++import { bare, NO_STORE, seenAs } from '@/lib/routes/http'
+ import { cookbookDishSchema } from '@/schemas/cookbook'
+ import type { Character } from '@/types/character'
+ import type { CookbookRefusalReason } from '@/types/cookbook'
+@@ -102,6 +104,13 @@ const UNAVAILABLE: CookbookRefusal = {
+ 
+ const FAILED = 'Failed to take a dish from the Magical Recipe Book'
+ 
++/** A dish's body refused: anything but JSON, too much, or no JSON. */
++const DISH_REFUSED = {
++  type: [415, NOT_JSON],
++  size: [413, TOO_LARGE],
++  json: [400, NOT_READ],
++} as const
++
+ /** A refusal to the cookbook's server: JSON, never cached, no CORS. */
+ function cookbookRefusal(
+   status: number,
+@@ -110,7 +119,7 @@ function cookbookRefusal(
+ ): Response {
+   return Response.json(refusal, {
+     status,
+-    headers: { 'Cache-Control': 'no-store', ...headers },
++    headers: { ...NO_STORE, ...headers },
+   })
+ }
+ 
+@@ -119,10 +128,7 @@ function cookbookAnswer(
+   status: 200 | 202,
+   body: { id: string; status: string },
+ ): Response {
+-  return Response.json(body, {
+-    status,
+-    headers: { 'Cache-Control': 'no-store' },
+-  })
++  return Response.json(body, { status, headers: NO_STORE })
+ }
+ 
+ /**
+@@ -152,22 +158,17 @@ export async function dishPostResponse(request: Request): Promise<Response> {
+     return cookbookRefusal(401, MOVED)
+   }
+ 
+-  const type = request.headers.get('content-type')?.toLowerCase()
+-  if (!type?.startsWith('application/json')) {
+-    return cookbookRefusal(415, NOT_JSON)
+-  }
+-  const declared = Number(request.headers.get('content-length'))
+-  if (declared > MAX_DISH_BYTES) return cookbookRefusal(413, TOO_LARGE)
+-  const text = await request.text()
+-  if (Buffer.byteLength(text) > MAX_DISH_BYTES) {
+-    return cookbookRefusal(413, TOO_LARGE)
+-  }
+-  let body: unknown
+-  try {
+-    body = JSON.parse(text, cleanText)
+-  } catch {
+-    return cookbookRefusal(400, NOT_READ)
++  const read = await readBody(request, {
++    limit: MAX_DISH_BYTES,
++    type: 'lower',
++    declared: true,
++    reviver: cleanText,
++  })
++  if (!read.ok) {
++    const [status, refusal] = DISH_REFUSED[read.why]
++    return cookbookRefusal(status, refusal)
+   }
++  const body = read.value
+   const version = (body as { version?: unknown } | null)?.version
+   if (
+     typeof version === 'number' &&
+@@ -225,10 +226,6 @@ function cleanText(key: string, value: unknown): unknown {
+     : value
+ }
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+-const bare = (status: number) => new Response(undefined, { status, headers })
+-
+ /**
+  * A player's Magical Recipe Book card, for their page to poll. Pass its version as last seen, as
+  * `?version=9f2c41d0aa1e`, to get 204 No Content while nothing has changed. Only for a character
+@@ -247,6 +244,6 @@ export async function cookbookViewResponse(
+     .update(JSON.stringify(view))
+     .digest('hex')
+     .slice(0, 12)
+-  if (request.nextUrl.searchParams.get('version') === version) return bare(204)
+-  return Response.json({ version, ...view }, { headers })
++  if (seenAs(request.nextUrl.searchParams, { version })) return bare(204)
++  return Response.json({ version, ...view }, { headers: NO_STORE })
+ }
+diff --git a/src/lib/routes/http.ts b/src/lib/routes/http.ts
+new file mode 100644
+index 0000000..4fd8071
+--- /dev/null
++++ b/src/lib/routes/http.ts
+@@ -0,0 +1,53 @@
++import type { Seen } from '@/lib/routes/types'
++
++// How the seat routes answer: never cached, as each answer is the seat's own and changes as its
++// game does; a description is the one answer the browser may keep.
++
++/** The header of every seat route's answer but a description's: never cached. */
++export const NO_STORE = { 'Cache-Control': 'no-store' }
++
++/**
++ * The headers of an answer that has none: the two description routes' 401, and the player's 404s
++ * (bug B16), which carry no `Cache-Control`, unlike their siblings'.
++ */
++export const NO_HEADERS = {}
++
++/** An answer saying nothing more than its status. */
++export function bare(status: number, headers: HeadersInit = NO_STORE) {
++  return new Response(undefined, { status, headers })
++}
++
++/**
++ * A description on a sheet: `{ html }`, already sanitised, which the browser may keep, as the same
++ * hash always names the same description; 404 where the seat has none of that hash.
++ */
++export function textAnswer(html: string | undefined): Response {
++  if (html === undefined) return bare(404)
++  return Response.json(
++    { html },
++    { headers: { 'Cache-Control': 'private, max-age=86400' } },
++  )
++}
++
++/**
++ * Whether a page's query says it last saw what's current, by key: a number as sent, text as sent
++ * (or none for none), and a flag sent as `1` while it's on; and of what a page may leave out, the
++ * value as sent or its absence for none.
++ */
++export function seenAs(
++  known: URLSearchParams,
++  current: Seen,
++  optional: Record<string, string | undefined> = {},
++): boolean {
++  return (
++    Object.entries(current).every(([key, value]) => {
++      const said = known.get(key)
++      if (typeof value === 'number') return Number(said) === value
++      if (typeof value === 'string') return (said ?? '') === value
++      return (said === '1') === value
++    }) &&
++    Object.entries(optional).every(
++      ([key, value]) => (known.get(key) ?? undefined) === value,
++    )
++  )
++}
+diff --git a/src/lib/routes/notes-routes.test.ts b/src/lib/routes/notes-routes.test.ts
+index 4f0ab4c..357f36f 100644
+--- a/src/lib/routes/notes-routes.test.ts
++++ b/src/lib/routes/notes-routes.test.ts
+@@ -11,7 +11,6 @@ import {
+   notesPostResponse,
+   notesResponse,
+   notesSeat,
+-  type NotesPlace,
+ } from './notes-routes'
+ import { getCharacter } from '@/db/characters'
+ import {
+@@ -30,6 +29,7 @@ import { notePlayersSeen } from '@/db/roll-requests'
+ import { getGmSeat } from '@/db/seats'
+ import { getCurrentUser } from '@/lib/session'
+ import { mockNotesView } from '@/mocks/sending-stone'
++import type { NotesPlace } from './types'
+ 
+ jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
+ jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
+diff --git a/src/lib/routes/notes-routes.ts b/src/lib/routes/notes-routes.ts
+index 55c839d..a6359c2 100644
+--- a/src/lib/routes/notes-routes.ts
++++ b/src/lib/routes/notes-routes.ts
+@@ -1,5 +1,4 @@
+ import { MAX_NOTE_BYTES } from '@/constants/notes'
+-import { getCharacter } from '@/db/characters'
+ import {
+   changeNote,
+   createNote,
+@@ -10,13 +9,12 @@ import {
+   reorderNotes,
+   resolveNote,
+   resolveOrder,
+-  type NoteAnswer,
+-  type NotesBook,
+-  type NotesSeat,
+ } from '@/db/notes'
+-import { partyNotesAccess, partySeat, type PartySeat } from '@/db/party'
++import { partyNotesAccess, partySeat } from '@/db/party'
+ import { notePlayersSeen } from '@/db/roll-requests'
+-import { getGmSeat, playerSeat } from '@/db/seats'
++import { getGmSeat, getPlayerSeat } from '@/db/seats'
++import { readBody } from '@/lib/routes/body'
++import { bare, NO_STORE, seenAs } from '@/lib/routes/http'
+ import { noting } from '@/lib/routes/seat-routes'
+ import { getCurrentUser } from '@/lib/session'
+ import {
+@@ -28,6 +26,8 @@ import {
+   noteResolveSchema,
+ } from '@/schemas/notes'
+ import { NOTE_ID } from '@/utils/note-id'
++import type { NotesAddress, NotesPlace } from './types'
++import type { NoteAnswer, NotesSeat, PartySeat } from '@/db/types'
+ import type { NextRequest } from 'next/server'
+ import type { z } from 'zod'
+ 
+@@ -38,18 +38,6 @@ import type { z } from 'zod'
+ // alone, never from a request's body: anyone else is answered 404, saying no more. Writes are
+ // taken whatever Foundry's state: notes are kept here first, and reach Foundry once it takes them.
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+-/** Who is at a book, and which book: as resolved from the session and the address. */
+-export type NotesPlace = { seat: NotesSeat; book: NotesBook }
+-
+-/** A book's address, as each route's file names it. */
+-export type NotesAddress =
+-  | { kind: 'personal'; role: 'player'; character: string }
+-  | { kind: 'personal'; role: 'gm'; campaign: string; actor: string }
+-  | { kind: 'party'; role: 'player'; character: string; group: string }
+-  | { kind: 'party'; role: 'gm'; campaign: string; group: string }
+-
+ /** The name the Gamemaster writes as. */
+ const GAMEMASTER = 'Gamemaster'
+ 
+@@ -61,9 +49,6 @@ const gmSeat = (userId: string): NotesSeat => ({
+   name: GAMEMASTER,
+ })
+ 
+-/** An answer saying nothing more than its status. */
+-const bare = (status: number) => new Response(undefined, { status, headers })
+-
+ /**
+  * Who is at a book at this address, and which book (§8.5): 401 signed out, and 404 where it isn't
+  * the signed-in user's to see: another player's character, another Gamemaster's campaign, a
+@@ -107,29 +92,26 @@ export async function notesSeat(
+     }
+   }
+ 
+-  const character = await getCharacter(user.id, address.character)
+-  if (!character?.campaignId || !character.actorId) return bare(404)
++  const player = await getPlayerSeat(user.id, address.character)
++  if (!player?.campaignId || !player.actorId) return bare(404)
+   const seat: NotesSeat = {
+     role: 'player',
+     userId: user.id,
+-    actorId: character.actorId,
+-    name: character.name,
++    actorId: player.actorId,
++    name: player.name,
+   }
+   if (address.kind === 'personal') {
+     return {
+       seat,
+       book: {
+-        campaignId: character.campaignId,
++        campaignId: player.campaignId,
+         kind: 'personal',
+-        actorId: character.actorId,
++        actorId: player.actorId,
+         private: false,
+       },
+     }
+   }
+-  const access = await partyNotesAccess(
+-    partySeat(playerSeat(character, user.id)),
+-    address.group,
+-  )
++  const access = await partyNotesAccess(partySeat(player), address.group)
+   if (!access) return bare(404)
+   return {
+     seat,
+@@ -161,33 +143,20 @@ export async function notesResponse(
+   if (known.has('version')) {
+     const status = await getNotesStatus(book)
+     if (!status) return bare(404)
+-    if (
+-      Number(known.get('version')) === status.version &&
+-      (known.get('live') === '1') === status.live
+-    ) {
+-      return bare(204)
+-    }
++    const { version, live } = status
++    if (seenAs(known, { version, live })) return bare(204)
+   }
+   const view = await getNotesView(seat, book)
+   if (!view) return bare(404)
+-  return Response.json(view, { headers })
++  return Response.json(view, { headers: NO_STORE })
+ }
+ 
+ /** A request's JSON body, read within the limit; or why it can't be read. */
+-async function readBody(request: NextRequest): Promise<unknown> {
+-  // Asked for only as JSON, which a page on another site can't send without asking first.
+-  if (!request.headers.get('content-type')?.startsWith('application/json')) {
+-    throw bare(415)
+-  }
+-  const body = await request.text()
+-  if (Buffer.byteLength(body) > MAX_NOTE_BYTES) {
+-    throw refused(413, { reason: 'invalid' })
+-  }
+-  try {
+-    return JSON.parse(body)
+-  } catch {
+-    throw refused(400, { reason: 'invalid' })
+-  }
++async function noteBody(request: NextRequest): Promise<unknown> {
++  const body = await readBody(request, { limit: MAX_NOTE_BYTES, type: 'exact' })
++  if (body.ok) return body.value
++  if (body.why === 'type') throw bare(415)
++  throw refused(body.why === 'size' ? 413 : 400, { reason: 'invalid' })
+ }
+ 
+ /** A body checked against a schema, or 400 with the first field it got wrong. */
+@@ -203,7 +172,7 @@ function parsed<T extends z.ZodType>(schema: T, body: unknown): z.output<T> {
+ 
+ /** A refusal: its status, and why as `{reason}`, with a field or the lines of headings. */
+ function refused(status: number, body: object): Response {
+-  return Response.json(body, { status, headers })
++  return Response.json(body, { status, headers: NO_STORE })
+ }
+ 
+ /** What a change answered, as its route answers it. */
+@@ -218,7 +187,7 @@ function answered(answer: NoteAnswer, status: number): Response {
+   }
+   return Response.json(
+     { ...(answer.id !== undefined && { id: answer.id }), stamp: answer.stamp },
+-    { status, headers },
++    { status, headers: NO_STORE },
+   )
+ }
+ 
+@@ -242,7 +211,7 @@ export async function notesPostResponse(
+   { seat, book }: NotesPlace,
+ ): Promise<Response> {
+   return answering(async () => {
+-    const input = parsed(noteInputSchema, await readBody(request))
++    const input = parsed(noteInputSchema, await noteBody(request))
+     return answered(await createNote(seat, book, input), 201)
+   })
+ }
+@@ -258,7 +227,7 @@ export async function notePatchResponse(
+ ): Promise<Response> {
+   return answering(async () => {
+     if (!NOTE_ID.test(noteId)) return bare(404)
+-    const body = await readBody(request)
++    const body = await noteBody(request)
+     if (typeof body === 'object' && body !== null && 'resolve' in body) {
+       const choice = parsed(noteResolveSchema, body)
+       return answered(await resolveNote(seat, book, noteId, choice), 200)
+@@ -292,7 +261,7 @@ export async function noteOrderResponse(
+   { seat, book }: NotesPlace,
+ ): Promise<Response> {
+   return answering(async () => {
+-    const order = parsed(noteOrderSchema, await readBody(request))
++    const order = parsed(noteOrderSchema, await noteBody(request))
+     return answered(await reorderNotes(seat, book, order), 200)
+   })
+ }
+@@ -306,7 +275,7 @@ export async function noteOrderResolveResponse(
+   { seat, book }: NotesPlace,
+ ): Promise<Response> {
+   return answering(async () => {
+-    const choice = parsed(noteOrderResolveSchema, await readBody(request))
++    const choice = parsed(noteOrderResolveSchema, await noteBody(request))
+     return answered(await resolveOrder(seat, book, choice), 200)
+   })
+ }
+@@ -320,9 +289,9 @@ export async function notePreviewResponse(
+   { book }: NotesPlace,
+ ): Promise<Response> {
+   return answering(async () => {
+-    const { body } = parsed(notePreviewSchema, await readBody(request))
++    const { body } = parsed(notePreviewSchema, await noteBody(request))
+     const preview = await previewNote(book, body)
+     if (!preview) return bare(404)
+-    return Response.json(preview, { headers })
++    return Response.json(preview, { headers: NO_STORE })
+   })
+ }
+diff --git a/src/lib/routes/party-routes.ts b/src/lib/routes/party-routes.ts
+index 843cfaa..f4533d9 100644
+--- a/src/lib/routes/party-routes.ts
++++ b/src/lib/routes/party-routes.ts
+@@ -2,12 +2,15 @@ import {
+   allowedGroup,
+   getGroupView,
+   getPartyStatus,
+-  type PartySeat,
++  partySeat,
+ } from '@/db/party'
+ import { notePlayersSeen } from '@/db/roll-requests'
++import { getPlayerSeat } from '@/db/seats'
+ import { getGroupText } from '@/db/sheet-texts'
++import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
+ import { noting } from '@/lib/routes/seat-routes'
+ import { TEXT_HASH } from '@/schemas/sending-stone'
++import type { PartySeat } from '@/db/types'
+ import type { NextRequest } from 'next/server'
+ 
+ // What a party sheet's routes answer (module 0.30.0), once they know who is at it: a player,
+@@ -17,7 +20,17 @@ import type { NextRequest } from 'next/server'
+ // its player present, as a character's table does, so the Gamemaster's module waits for their
+ // moves.
+ 
+-const headers = { 'Cache-Control': 'no-store' }
++/**
++ * A player at a party sheet of their character's campaign, through their own Character.
++ * @returns Undefined for a character that isn't the user's.
++ */
++export async function partyAt(
++  userId: string,
++  characterId: string,
++): Promise<PartySeat | undefined> {
++  const seat = await getPlayerSeat(userId, characterId)
++  return seat ? partySeat(seat) : undefined
++}
+ 
+ /**
+  * A party sheet as the seat may see it, for its page or panel to poll. Pass the version and the
+@@ -32,7 +45,7 @@ export async function partyResponse(
+   groupId: string,
+ ): Promise<Response> {
+   const status = await getPartyStatus(seat, groupId)
+-  if (!status) return new Response(undefined, { status: 404, headers })
++  if (!status) return bare(404)
+   // Whoever is at it may take from it, so the Gamemaster's module waits for their moves. A
+   // failure to note it is only logged.
+   const { campaignId } = seat
+@@ -44,19 +57,15 @@ export async function partyResponse(
+   }
+ 
+   const known = request.nextUrl.searchParams
+-  if (
+-    known.has('version') &&
+-    Number(known.get('version')) === status.version &&
+-    (known.get('live') === '1') === status.live &&
+-    (known.get('moves') === '1') === status.moves
+-  ) {
+-    return new Response(undefined, { status: 204, headers })
++  const { version, live, moves } = status
++  if (known.has('version') && seenAs(known, { version, live, moves })) {
++    return bare(204)
+   }
+   const view = await getGroupView(seat, groupId, {
+     sheetVersion: known.get('sheet') ?? undefined,
+   })
+-  if (!view) return new Response(undefined, { status: 404, headers })
+-  return Response.json(view, { headers })
++  if (!view) return bare(404)
++  return Response.json(view, { headers: NO_STORE })
+ }
+ 
+ /**
+@@ -72,12 +81,5 @@ export async function partyTextResponse(
+   const group = TEXT_HASH.test(hash)
+     ? await allowedGroup(seat, groupId)
+     : undefined
+-  const html = group ? await getGroupText(group, hash) : undefined
+-  if (html === undefined) {
+-    return new Response(undefined, { status: 404, headers })
+-  }
+-  return Response.json(
+-    { html },
+-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
+-  )
++  return textAnswer(group ? await getGroupText(group, hash) : undefined)
+ }
+diff --git a/src/lib/routes/seat-resolver.ts b/src/lib/routes/seat-resolver.ts
+new file mode 100644
+index 0000000..9feac34
+--- /dev/null
++++ b/src/lib/routes/seat-resolver.ts
+@@ -0,0 +1,29 @@
++import { bare, NO_STORE } from '@/lib/routes/http'
++import { getCurrentUser } from '@/lib/session'
++import type { SeatHeaders } from '@/lib/routes/types'
++
++// How a sheet's routes find who is at it (#156): its player, through their own Character
++// (`getPlayerSeat`), or the campaign's Gamemaster, through the campaign they own (`getGmSeat`); a
++// companion's and a party's from those. Every route resolves the seat itself, from the session and
++// its address alone, answering 401 signed out and 404 for a sheet that isn't the user's to see,
++// saying no more; what it answers then is scoped by that seat alone.
++
++/**
++ * A route's answer once it knows who is at it: 401 signed out, then its address read, 404 where
++ * `find` finds no seat there for the user, else `answer`. Neither refusal is cached, but where a
++ * route's own carry no headers (bug B16).
++ * @param params - The route's address, as Next.js gives it.
++ */
++export async function seatAnswer<P, S>(
++  params: Promise<P>,
++  find: (userId: string, address: P) => Promise<S | undefined>,
++  answer: (seat: S, address: P) => Promise<Response>,
++  { headers = NO_STORE, signedOut = headers }: SeatHeaders = {},
++): Promise<Response> {
++  const user = await getCurrentUser()
++  if (!user) return bare(401, signedOut)
++  const address = await params
++  const seat = await find(user.id, address)
++  if (!seat) return bare(404, headers)
++  return answer(seat, address)
++}
+diff --git a/src/lib/routes/seat-routes.ts b/src/lib/routes/seat-routes.ts
+index 7158005..5c727e2 100644
+--- a/src/lib/routes/seat-routes.ts
++++ b/src/lib/routes/seat-routes.ts
+@@ -6,6 +6,8 @@ import {
+ } from '@/db/roll-requests'
+ import { getSheetText } from '@/db/sheet-texts'
+ import { getCampaignStatus, getTableView } from '@/db/table'
++import { readBody } from '@/lib/routes/body'
++import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
+ import { rollRequestSchema } from '@/schemas/roll-request'
+ import { TEXT_HASH } from '@/schemas/sending-stone'
+ import { rollsKey } from '@/utils/requests/availability'
+@@ -18,11 +20,12 @@ import type { NextRequest } from 'next/server'
+ // route resolves the seat itself, answering 401 signed out and 404 for a sheet that isn't the
+ // user's to see, and everything here is scoped by that seat alone, never by ids in a body.
+ 
+-const headers = { 'Cache-Control': 'no-store' }
+-
+ /** The largest roll read. One with every die it may throw is well under. */
+ const MAX_ROLL_BYTES = 16_384
+ 
++/** A roll's body refused: anything but JSON, too much, or no JSON. */
++const BODY_REFUSED = { type: 415, size: 413, json: 400 } as const
++
+ /**
+  * A seat's view of its character's campaign, for its page to poll. Pass the version, the liveness
+  * and the rolls the game takes, with what else it does with them, as last seen, as
+@@ -77,25 +80,26 @@ export async function tableResponse(
+       effects,
+       wildShape,
+     } = await getCampaignStatus(seat)
+-    if (
+-      Number(known.get('version')) === version &&
+-      (known.get('live') === '1') === live &&
+-      (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures) &&
+-      (known.get('gm') ?? undefined) === gm?.rolls &&
+-      (known.get('gmrolls') ?? undefined) === gmRollsKey &&
+-      (known.get('moves') === '1') === moves &&
+-      (known.get('typed') === '1') === typed &&
+-      (known.get('removes') === '1') === removes &&
+-      (known.get('favorites') === '1') === favorites &&
+-      (known.get('effects') === '1') === effects &&
+-      (known.get('wildshape') === '1') === wildShape
+-    ) {
+-      return new Response(undefined, { status: 204, headers })
+-    }
++    const seen = seenAs(
++      known,
++      {
++        version,
++        live,
++        rolls: rollsKey(rollsToTable, rollFeatures),
++        moves,
++        typed,
++        removes,
++        favorites,
++        effects,
++        wildshape: wildShape,
++      },
++      { gm: gm?.rolls, gmrolls: gmRollsKey },
++    )
++    if (seen) return bare(204)
+   }
+   const sheetVersion = known.get('sheet') ?? undefined
+   return Response.json(await getTableView(seat, { sheetVersion }), {
+-    headers,
++    headers: NO_STORE,
+   })
+ }
+ 
+@@ -119,29 +123,23 @@ export async function rollPostResponse(
+   request: NextRequest,
+   seat: SheetSeat,
+ ): Promise<Response> {
+-  // Asked for only as JSON, which a page on another site can't send without asking first.
+-  if (!request.headers.get('content-type')?.startsWith('application/json')) {
+-    return new Response(undefined, { status: 415, headers })
+-  }
+-  const body = await request.text()
+-  if (Buffer.byteLength(body) > MAX_ROLL_BYTES) {
+-    return new Response(undefined, { status: 413, headers })
+-  }
++  const body = await readBody(request, { limit: MAX_ROLL_BYTES, type: 'exact' })
++  if (!body.ok) return bare(BODY_REFUSED[body.why])
+   let input
+   try {
+-    input = rollRequestSchema.parse(JSON.parse(body))
++    input = rollRequestSchema.parse(body.value)
+   } catch {
+-    return new Response(undefined, { status: 400, headers })
++    return bare(400)
+   }
+ 
+   const created = await createRollRequest(seat, input)
+   if ('reason' in created) {
+     return Response.json(
+       { reason: created.reason },
+-      { status: created.status, headers },
++      { status: created.status, headers: NO_STORE },
+     )
+   }
+-  return Response.json({ id: created.id }, { status: 202, headers })
++  return Response.json({ id: created.id }, { status: 202, headers: NO_STORE })
+ }
+ 
+ /**
+@@ -153,8 +151,8 @@ export async function rollGetResponse(
+   roll: string,
+ ): Promise<Response> {
+   const view = await getRollRequestView(seat, roll)
+-  if (!view) return new Response(undefined, { status: 404, headers })
+-  return Response.json(view, { headers })
++  if (!view) return bare(404)
++  return Response.json(view, { headers: NO_STORE })
+ }
+ 
+ /**
+@@ -166,12 +164,7 @@ export async function textResponse(
+   seat: SheetSeat,
+   hash: string,
+ ): Promise<Response> {
+-  const html = TEXT_HASH.test(hash) ? await getSheetText(seat, hash) : undefined
+-  if (html === undefined) {
+-    return new Response(undefined, { status: 404, headers })
+-  }
+-  return Response.json(
+-    { html },
+-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
++  return textAnswer(
++    TEXT_HASH.test(hash) ? await getSheetText(seat, hash) : undefined,
+   )
+ }
+diff --git a/src/lib/routes/types.ts b/src/lib/routes/types.ts
+new file mode 100644
+index 0000000..70ac4ce
+--- /dev/null
++++ b/src/lib/routes/types.ts
+@@ -0,0 +1,52 @@
++import type { NotesSeat, NotesBook } from '@/db/types'
++import type { RefusalReason } from '@/types/sending-stone'
++
++/** What a page last saw, by its query's key, as `seenAs` compares it with what's current. */
++export type Seen = Record<string, number | boolean | string>
++
++/** The headers of a seat route's 404, and of its 401 where they differ (`seatAnswer`). */
++export type SeatHeaders = { headers?: HeadersInit; signedOut?: HeadersInit }
++
++/** How a route reads its JSON body (`readBody`). */
++export type BodyRules = {
++  /** The largest body taken, in bytes. */
++  limit: number
++  /** Whether it must be sent as JSON, its type read as sent or lower-cased; unchecked if not. */
++  type?: 'exact' | 'lower'
++  /** Whether a declared size over the limit is refused before reading. */
++  declared?: boolean
++  /** Each value as it's read, as `JSON.parse`'s reviver. */
++  reviver?: (key: string, value: unknown) => unknown
++}
++
++/** A body as read, or why it can't be. */
++export type BodyRead =
++  | { ok: true; text: string; value: unknown }
++  | { ok: false; why: 'type' | 'size' | 'json' }
++
++/** Who is at a book, and which book: as resolved from the session and the address. */
++export type NotesPlace = { seat: NotesSeat; book: NotesBook }
++
++/** A book's address, as each route's file names it. */
++export type NotesAddress =
++  | { kind: 'personal'; role: 'player'; character: string }
++  | { kind: 'personal'; role: 'gm'; campaign: string; actor: string }
++  | { kind: 'party'; role: 'player'; character: string; group: string }
++  | { kind: 'party'; role: 'gm'; campaign: string; group: string }
++
++/**
++ * Why a request from the module is refused, as its JSON body says: a `reason` the module words
++ * itself, a `message` for a module that doesn't know the reason, and what more there is to say.
++ */
++export type Refusal = {
++  reason: RefusalReason
++  message: string
++  /** The largest body taken, in bytes. */
++  limit?: number
++  /** The protocol taken. */
++  protocol?: number
++  /** The event type refused. */
++  type?: string
++  /** What was wrong with it. */
++  detail?: string
++}
+diff --git a/src/lib/session.ts b/src/lib/session.ts
+index 5895b95..06c47e9 100644
+--- a/src/lib/session.ts
++++ b/src/lib/session.ts
+@@ -2,8 +2,7 @@ import { cache } from 'react'
+ import { headers } from 'next/headers'
+ import { redirect } from 'next/navigation'
+ import { auth } from '@/auth'
+-
+-export type SessionUser = typeof auth.$Infer.Session.user
++import type { SessionUser } from './types'
+ 
+ /**
+  * The signed-in user, checked against the database once per request.
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+new file mode 100644
+index 0000000..ad810a3
+--- /dev/null
++++ b/src/lib/types.ts
+@@ -0,0 +1,3 @@
++import type { auth } from '@/auth'
++
++export type SessionUser = typeof auth.$Infer.Session.user
+diff --git a/src/utils/removals.ts b/src/utils/removals.ts
+index 348ad70..79d02b6 100644
+--- a/src/utils/removals.ts
++++ b/src/utils/removals.ts
+@@ -14,7 +14,7 @@ import type { RollRefusal } from '@/utils/requests/types'
+ // game; these checks only spare a player a removal the game would refuse.
+ 
+ /** Why a removal can't go to the game, as these checks say. */
+-export type RemovalRefusal = Extract<
++type RemovalRefusal = Extract<
+   RollRefusal,
+   'unknown' | 'gone' | 'short' | 'changed'
+ >
+diff --git a/src/utils/transfers.ts b/src/utils/transfers.ts
+index 104c800..ecfddc2 100644
+--- a/src/utils/transfers.ts
++++ b/src/utils/transfers.ts
+@@ -15,7 +15,7 @@ import type { RollRefusal } from '@/utils/requests/types'
+ // the game; these checks only spare a player a move the game would refuse.
+ 
+ /** Why a move can't go to the game, as these checks say. */
+-export type TransferRefusal = Extract<
++type TransferRefusal = Extract<
+   RollRefusal,
+   | 'unknown'
+   | 'not-yours'
+diff --git a/src/utils/wild-shape.ts b/src/utils/wild-shape.ts
+index 7756a48..b317fed 100644
+--- a/src/utils/wild-shape.ts
++++ b/src/utils/wild-shape.ts
+@@ -16,7 +16,7 @@ type ShapedSheet = Partial<
+ >
+ 
+ /** Why the sheet, as last sent, says the game would refuse a Wild Shape command. */
+-export type WildShapeRefusal =
++type WildShapeRefusal =
+   | 'gone'
+   | 'form'
+   | 'transformed'
+-- 
+2.43.0
+
