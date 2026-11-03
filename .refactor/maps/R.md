@@ -1,4 +1,4 @@
-# Map R: Rolling (re-plan, 2026-11-03, base 51b8916)
+# Map R: Rolling (re-plan, 2026-11-03, base 51b8916; final)
 
 Scripts/outputs: .refactor/analysis/R/ (graph.cjs, importers.cjs, complexity.cjs → cross-area-importers.txt,
 complexity.txt, eslint-disables.txt, cycle-edges.txt); full graph X/R/graph.{txt,json}. Paths below drop `src/`;
