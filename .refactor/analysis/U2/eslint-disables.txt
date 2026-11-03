@@ -1,0 +1,16 @@
+cs/description-link.tsx:728:        : // eslint-disable-next-line unicorn/no-null -- a part of no kind has none, as the sheet's
+cs/description-link.tsx:742:          // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own kind
+cs/description-link.tsx:830:                // eslint-disable-next-line unicorn/no-null -- none, or one still to choose
+cs/description-link.tsx:862:    // eslint-disable-next-line unicorn/no-null -- its kind is still to choose
+cs/features-tab.tsx:220:  /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+cs/inventory-tab.tsx:474:          // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
+cs/inventory-tab.tsx:511:        // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
+cs/sheet-entry.tsx:313:    // eslint-disable-next-line @next/next/no-img-element
+cs/sheet-tiles.tsx:236:    // eslint-disable-next-line @next/next/no-img-element
+cs/sheet-tiles.tsx:270:    // eslint-disable-next-line @next/next/no-img-element
+cs/spells-tab.tsx:150:                // eslint-disable-next-line unicorn/no-null -- as the sheet says a level unknown
+cs/use-picker.tsx:224:  // eslint-disable-next-line unicorn/no-null -- the tracker's for no initiative
+u/sheet-actions.ts:1:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+u/action-groups.ts:1:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+u/casts.ts:1:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+u/favorites.ts:1:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
